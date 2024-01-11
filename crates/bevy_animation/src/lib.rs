@@ -639,109 +639,110 @@ fn apply_animation(
     parents: &Query<(Has<AnimationPlayer>, Option<&Parent>)>,
     children: &Query<&Children>,
 ) {
-    if let Some(animation_clip) = animations.get(&animation.animation_clip) {
-        // We don't return early because seek_to() may have been called on the animation player.
-        animation.update(
-            if paused { 0.0 } else { time.delta_seconds() },
-            animation_clip.duration,
-        );
+    let Some(animation_clip) = animations.get(&animation.animation_clip) else {
+        return;
+    };
 
-        if animation.path_cache.len() != animation_clip.paths.len() {
-            animation.path_cache = vec![Vec::new(); animation_clip.paths.len()];
-        }
-        if !verify_no_ancestor_player(maybe_parent, parents) {
-            warn!("Animation player on {:?} has a conflicting animation player on an ancestor. Cannot safely animate.", root);
-            return;
-        }
+    // We don't return early because seek_to() may have been called on the animation player.
+    animation.update(
+        if paused { 0.0 } else { time.delta_seconds() },
+        animation_clip.duration,
+    );
 
-        let mut any_path_found = false;
-        for (path, bone_id) in &animation_clip.paths {
-            let cached_path = &mut animation.path_cache[*bone_id];
-            let curves = animation_clip.get_curves(*bone_id).unwrap();
-            let Some(target) = entity_from_path(root, path, children, names, cached_path) else {
-                continue;
-            };
-            any_path_found = true;
-            // SAFETY: The verify_no_ancestor_player check above ensures that two animation players cannot alias
-            // any of their descendant Transforms.
-            //
-            // The system scheduler prevents any other system from mutating Transforms at the same time,
-            // so the only way this fetch can alias is if two AnimationPlayers are targeting the same bone.
-            // This can only happen if there are two or more AnimationPlayers are ancestors to the same
-            // entities. By verifying that there is no other AnimationPlayer in the ancestors of a
-            // running AnimationPlayer before animating any entity, this fetch cannot alias.
-            //
-            // This means only the AnimationPlayers closest to the root of the hierarchy will be able
-            // to run their animation. Any players in the children or descendants will log a warning
-            // and do nothing.
-            let Ok(mut transform) = (unsafe { transforms.get_unchecked(target) }) else {
-                continue;
-            };
-            // SAFETY: As above, there can't be other AnimationPlayers with this target so this fetch can't alias
-            let mut morphs = unsafe { morphs.get_unchecked(target) }.ok();
-            for curve in curves {
-                // Some curves have only one keyframe used to set a transform
-                if curve.keyframe_timestamps.len() == 1 {
-                    match &curve.keyframes {
-                        Keyframes::Rotation(keyframes) => {
-                            transform.rotation = transform.rotation.slerp(keyframes[0], weight);
-                        }
-                        Keyframes::Translation(keyframes) => {
-                            transform.translation =
-                                transform.translation.lerp(keyframes[0], weight);
-                        }
-                        Keyframes::Scale(keyframes) => {
-                            transform.scale = transform.scale.lerp(keyframes[0], weight);
-                        }
-                        Keyframes::Weights(keyframes) => {
-                            if let Some(morphs) = &mut morphs {
-                                let target_count = morphs.weights().len();
-                                lerp_morph_weights(
-                                    morphs.weights_mut(),
-                                    get_keyframe(target_count, keyframes, 0).iter().copied(),
-                                    weight,
-                                );
-                            }
+    if animation.path_cache.len() != animation_clip.paths.len() {
+        animation.path_cache = vec![Vec::new(); animation_clip.paths.len()];
+    }
+    if !verify_no_ancestor_player(maybe_parent, parents) {
+        warn!("Animation player on {:?} has a conflicting animation player on an ancestor. Cannot safely animate.", root);
+        return;
+    }
+
+    let mut any_path_found = false;
+    for (path, bone_id) in &animation_clip.paths {
+        let cached_path = &mut animation.path_cache[*bone_id];
+        let curves = animation_clip.get_curves(*bone_id).unwrap();
+        let Some(target) = entity_from_path(root, path, children, names, cached_path) else {
+            continue;
+        };
+        any_path_found = true;
+        // SAFETY: The verify_no_ancestor_player check above ensures that two animation players cannot alias
+        // any of their descendant Transforms.
+        //
+        // The system scheduler prevents any other system from mutating Transforms at the same time,
+        // so the only way this fetch can alias is if two AnimationPlayers are targeting the same bone.
+        // This can only happen if there are two or more AnimationPlayers are ancestors to the same
+        // entities. By verifying that there is no other AnimationPlayer in the ancestors of a
+        // running AnimationPlayer before animating any entity, this fetch cannot alias.
+        //
+        // This means only the AnimationPlayers closest to the root of the hierarchy will be able
+        // to run their animation. Any players in the children or descendants will log a warning
+        // and do nothing.
+        let Ok(mut transform) = (unsafe { transforms.get_unchecked(target) }) else {
+            continue;
+        };
+        // SAFETY: As above, there can't be other AnimationPlayers with this target so this fetch can't alias
+        let mut morphs = unsafe { morphs.get_unchecked(target) }.ok();
+        for curve in curves {
+            // Some curves have only one keyframe used to set a transform
+            if curve.keyframe_timestamps.len() == 1 {
+                match &curve.keyframes {
+                    Keyframes::Rotation(keyframes) => {
+                        transform.rotation = transform.rotation.slerp(keyframes[0], weight);
+                    }
+                    Keyframes::Translation(keyframes) => {
+                        transform.translation = transform.translation.lerp(keyframes[0], weight);
+                    }
+                    Keyframes::Scale(keyframes) => {
+                        transform.scale = transform.scale.lerp(keyframes[0], weight);
+                    }
+                    Keyframes::Weights(keyframes) => {
+                        if let Some(morphs) = &mut morphs {
+                            let target_count = morphs.weights().len();
+                            lerp_morph_weights(
+                                morphs.weights_mut(),
+                                get_keyframe(target_count, keyframes, 0).iter().copied(),
+                                weight,
+                            );
                         }
                     }
-                    continue;
                 }
-
-                // Find the current keyframe
-                // PERF: finding the current keyframe can be optimised
-                // Attempt to find the keyframe at or before the current time
-                // An Ok(keyframe_index) result means an exact result was found by binary search
-                // An Err result means the keyframe was not found, and the index is the keyframe
-                let index = curve
-                    .keyframe_timestamps
-                    .binary_search_by(|probe| probe.partial_cmp(&animation.seek_time).unwrap());
-
-                let step_start = match index {
-                    Ok(n) if n >= curve.keyframe_timestamps.len() - 1 => continue, // this curve is finished
-                    Ok(i) => i,
-                    Err(0) => continue, // this curve isn't started yet
-                    Err(n) if n > curve.keyframe_timestamps.len() - 1 => continue, // this curve is finished
-                    Err(i) => i - 1,
-                };
-                let ts_start = curve.keyframe_timestamps[step_start];
-                let ts_end = curve.keyframe_timestamps[step_start + 1];
-                let lerp = f32::inverse_lerp(ts_start, ts_end, animation.seek_time);
-
-                apply_keyframe(
-                    curve,
-                    step_start,
-                    weight,
-                    lerp,
-                    ts_end - ts_start,
-                    &mut transform,
-                    &mut morphs,
-                );
+                continue;
             }
-        }
 
-        if !any_path_found {
-            warn!("Animation player on {root:?} did not match any entity paths.");
+            // Find the current keyframe
+            // PERF: finding the current keyframe can be optimised
+            // Attempt to find the keyframe at or before the current time
+            // An Ok(keyframe_index) result means an exact result was found by binary search
+            // An Err result means the keyframe was not found, and the index is the keyframe
+            let index = curve
+                .keyframe_timestamps
+                .binary_search_by(|probe| probe.partial_cmp(&animation.seek_time).unwrap());
+
+            let step_start = match index {
+                Ok(n) if n >= curve.keyframe_timestamps.len() - 1 => continue, // this curve is finished
+                Ok(i) => i,
+                Err(0) => continue, // this curve isn't started yet
+                Err(n) if n > curve.keyframe_timestamps.len() - 1 => continue, // this curve is finished
+                Err(i) => i - 1,
+            };
+            let ts_start = curve.keyframe_timestamps[step_start];
+            let ts_end = curve.keyframe_timestamps[step_start + 1];
+            let lerp = f32::inverse_lerp(ts_start, ts_end, animation.seek_time);
+
+            apply_keyframe(
+                curve,
+                step_start,
+                weight,
+                lerp,
+                ts_end - ts_start,
+                &mut transform,
+                &mut morphs,
+            );
         }
+    }
+
+    if !any_path_found {
+        warn!("Animation player on {root:?} did not match any entity paths.");
     }
 }
 
