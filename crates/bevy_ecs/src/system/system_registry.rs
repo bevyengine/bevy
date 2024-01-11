@@ -151,7 +151,7 @@ impl World {
     ///
     /// ## Running a system
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_ecs::prelude::*;
     /// #[derive(Resource, Default)]
     /// struct Counter(u8);
@@ -171,7 +171,7 @@ impl World {
     ///
     /// ## Change detection
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_ecs::prelude::*;
     /// #[derive(Resource, Default)]
     /// struct ChangeDetector;
@@ -195,7 +195,7 @@ impl World {
     ///
     /// ## Getting system output
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_ecs::prelude::*;
     ///
     /// #[derive(Resource)]
@@ -243,7 +243,7 @@ impl World {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_ecs::prelude::*;
     /// #[derive(Resource, Default)]
     /// struct Counter(u8);

@@ -8,7 +8,10 @@ use argh::FromArgs;
 use bevy::{
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    render::render_resource::{Extent3d, TextureDimension, TextureFormat},
+    render::{
+        render_asset::RenderAssetPersistencePolicy,
+        render_resource::{Extent3d, TextureDimension, TextureFormat},
+    },
     sprite::{MaterialMesh2dBundle, Mesh2dHandle},
     utils::Duration,
     window::{PresentMode, WindowResolution},
@@ -206,9 +209,7 @@ fn setup(
         textures,
         materials,
         quad: meshes
-            .add(Mesh::from(shape::Quad::new(Vec2::splat(
-                BIRD_TEXTURE_SIZE as f32,
-            ))))
+            .add(shape::Quad::new(Vec2::splat(BIRD_TEXTURE_SIZE as f32)))
             .into(),
         color_rng: StdRng::seed_from_u64(42),
         material_rng: StdRng::seed_from_u64(42),
@@ -483,7 +484,7 @@ fn movement_system(
 
 fn handle_collision(half_extents: Vec2, translation: &Vec3, velocity: &mut Vec3) {
     if (velocity.x > 0. && translation.x + HALF_BIRD_SIZE > half_extents.x)
-        || (velocity.x <= 0. && translation.x - HALF_BIRD_SIZE < -(half_extents.x))
+        || (velocity.x <= 0. && translation.x - HALF_BIRD_SIZE < -half_extents.x)
     {
         velocity.x = -velocity.x;
     }
@@ -542,6 +543,7 @@ fn init_textures(textures: &mut Vec<Handle<Image>>, args: &Args, images: &mut As
             TextureDimension::D2,
             &pixel,
             TextureFormat::Rgba8UnormSrgb,
+            RenderAssetPersistencePolicy::Unload,
         )));
     }
 }

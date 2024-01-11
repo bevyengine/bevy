@@ -167,6 +167,22 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
         }
     }
 
+    fn alpha_mode(&self) -> crate::AlphaMode {
+        B::alpha_mode(&self.base)
+    }
+
+    fn opaque_render_method(&self) -> crate::OpaqueRendererMethod {
+        B::opaque_render_method(&self.base)
+    }
+
+    fn depth_bias(&self) -> f32 {
+        B::depth_bias(&self.base)
+    }
+
+    fn reads_view_transmission_texture(&self) -> bool {
+        B::reads_view_transmission_texture(&self.base)
+    }
+
     fn prepass_vertex_shader() -> ShaderRef {
         match E::prepass_vertex_shader() {
             ShaderRef::Default => B::prepass_vertex_shader(),
@@ -193,22 +209,6 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
             ShaderRef::Default => B::deferred_fragment_shader(),
             specified => specified,
         }
-    }
-
-    fn alpha_mode(&self) -> crate::AlphaMode {
-        B::alpha_mode(&self.base)
-    }
-
-    fn depth_bias(&self) -> f32 {
-        B::depth_bias(&self.base)
-    }
-
-    fn reads_view_transmission_texture(&self) -> bool {
-        B::reads_view_transmission_texture(&self.base)
-    }
-
-    fn opaque_render_method(&self) -> crate::OpaqueRendererMethod {
-        B::opaque_render_method(&self.base)
     }
 
     fn specialize(

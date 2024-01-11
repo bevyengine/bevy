@@ -1,11 +1,13 @@
 #[allow(clippy::module_inception)]
 mod camera;
 mod camera_driver_node;
+mod clear_color;
 mod manual_texture_view;
 mod projection;
 
 pub use camera::*;
 pub use camera_driver_node::*;
+pub use clear_color::*;
 pub use manual_texture_view::*;
 pub use projection::*;
 
@@ -27,12 +29,16 @@ impl Plugin for CameraPlugin {
             .register_type::<ScalingMode>()
             .register_type::<CameraRenderGraph>()
             .register_type::<RenderTarget>()
+            .register_type::<ClearColor>()
+            .register_type::<ClearColorConfig>()
             .init_resource::<ManualTextureViews>()
+            .init_resource::<ClearColor>()
             .add_plugins((
                 CameraProjectionPlugin::<Projection>::default(),
                 CameraProjectionPlugin::<OrthographicProjection>::default(),
                 CameraProjectionPlugin::<PerspectiveProjection>::default(),
                 ExtractResourcePlugin::<ManualTextureViews>::default(),
+                ExtractResourcePlugin::<ClearColor>::default(),
             ));
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {

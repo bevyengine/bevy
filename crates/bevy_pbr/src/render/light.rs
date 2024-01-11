@@ -145,8 +145,8 @@ impl GpuPointLights {
 bitflags::bitflags! {
     #[repr(transparent)]
     struct PointLightFlags: u32 {
-        const SHADOWS_ENABLED            = (1 << 0);
-        const SPOT_LIGHT_Y_NEGATIVE      = (1 << 1);
+        const SHADOWS_ENABLED            = 1 << 0;
+        const SPOT_LIGHT_Y_NEGATIVE      = 1 << 1;
         const NONE                       = 0;
         const UNINITIALIZED              = 0xFFFF;
     }
@@ -177,7 +177,7 @@ pub struct GpuDirectionalLight {
 bitflags::bitflags! {
     #[repr(transparent)]
     struct DirectionalLightFlags: u32 {
-        const SHADOWS_ENABLED            = (1 << 0);
+        const SHADOWS_ENABLED            = 1 << 0;
         const NONE                       = 0;
         const UNINITIALIZED              = 0xFFFF;
     }
@@ -196,7 +196,6 @@ pub struct GpuLights {
     n_directional_lights: u32,
     // offset from spot light's light index to spot light's shadow map index
     spot_light_shadowmap_offset: i32,
-    environment_map_smallest_specular_mip_level: u32,
 }
 
 // NOTE: this must be kept in sync with the same constants in pbr.frag
@@ -521,7 +520,7 @@ fn face_index_to_name(face_index: usize) -> &'static str {
 
 #[derive(Component)]
 pub struct ShadowView {
-    pub depth_texture_view: TextureView,
+    pub depth_attachment: DepthAttachment,
     pub pass_name: String,
 }
 
@@ -644,18 +643,12 @@ pub(crate) fn spot_light_projection_matrix(angle: f32) -> Mat4 {
 pub fn prepare_lights(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
-    images: Res<RenderAssets<Image>>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut global_light_meta: ResMut<GlobalLightMeta>,
     mut light_meta: ResMut<LightMeta>,
     views: Query<
-        (
-            Entity,
-            &ExtractedView,
-            &ExtractedClusterConfig,
-            Option<&EnvironmentMapLight>,
-        ),
+        (Entity, &ExtractedView, &ExtractedClusterConfig),
         With<RenderPhase<Transparent3d>>,
     >,
     ambient_light: Res<AmbientLight>,
@@ -901,7 +894,7 @@ pub fn prepare_lights(
         .write_buffer(&render_device, &render_queue);
 
     // set up light data for each view
-    for (entity, extracted_view, clusters, environment_map) in &views {
+    for (entity, extracted_view, clusters) in &views {
         let point_light_depth_texture = texture_cache.get(
             &render_device,
             TextureDescriptor {
@@ -968,10 +961,6 @@ pub fn prepare_lights(
             // index to shadow map index, we need to subtract point light count and add directional shadowmap count.
             spot_light_shadowmap_offset: num_directional_cascades_enabled as i32
                 - point_light_count as i32,
-            environment_map_smallest_specular_mip_level: environment_map
-                .and_then(|env_map| images.get(&env_map.specular_map))
-                .map(|specular_map| specular_map.mip_level_count - 1)
-                .unwrap_or(0),
         };
 
         // TODO: this should select lights based on relevance to the view instead of the first ones that show up in a query
@@ -1008,7 +997,7 @@ pub fn prepare_lights(
                 let view_light_entity = commands
                     .spawn((
                         ShadowView {
-                            depth_texture_view,
+                            depth_attachment: DepthAttachment::new(depth_texture_view, Some(0.0)),
                             pass_name: format!(
                                 "shadow pass point light {} {}",
                                 light_index,
@@ -1070,7 +1059,7 @@ pub fn prepare_lights(
             let view_light_entity = commands
                 .spawn((
                     ShadowView {
-                        depth_texture_view,
+                        depth_attachment: DepthAttachment::new(depth_texture_view, Some(0.0)),
                         pass_name: format!("shadow pass spot light {light_index}"),
                     },
                     ExtractedView {
@@ -1135,7 +1124,7 @@ pub fn prepare_lights(
                 let view_light_entity = commands
                     .spawn((
                         ShadowView {
-                            depth_texture_view,
+                            depth_attachment: DepthAttachment::new(depth_texture_view, Some(0.0)),
                             pass_name: format!(
                                 "shadow pass directional light {light_index} cascade {cascade_index}"),
                         },
@@ -1767,14 +1756,9 @@ impl Node for ShadowPassNode {
                     render_context.begin_tracked_render_pass(RenderPassDescriptor {
                         label: Some(&view_light.pass_name),
                         color_attachments: &[],
-                        depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                            view: &view_light.depth_texture_view,
-                            depth_ops: Some(Operations {
-                                load: LoadOp::Clear(0.0),
-                                store: StoreOp::Store,
-                            }),
-                            stencil_ops: None,
-                        }),
+                        depth_stencil_attachment: Some(
+                            view_light.depth_attachment.get_attachment(StoreOp::Store),
+                        ),
                         timestamp_writes: None,
                         occlusion_query_set: None,
                     });
