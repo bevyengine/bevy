@@ -710,15 +710,18 @@ fn apply_animation(
             }
 
             // Find the current keyframe
-            // PERF: finding the current keyframe can be optimised
+
             // Attempt to find the keyframe at or before the current time
             // An Ok(keyframe_index) result means an exact result was found by binary search
             // An Err result means the keyframe was not found, and the index is the keyframe
-            let index = curve
+            // PERF: finding the current keyframe can be optimised
+            let search_result = curve
                 .keyframe_timestamps
                 .binary_search_by(|probe| probe.partial_cmp(&animation.seek_time).unwrap());
 
-            let step_start = match index {
+            // We want to find the index of the keyframe before the current time
+            // If the keyframe is past the second-to-last keyframe, the animation cannot be interpolated.
+            let step_start = match search_result {
                 // An exact match was found, and it is the last or second last keyframe.
                 // This means that the curve is finished.
                 Ok(n) if n >= curve.keyframe_timestamps.len() - 1 => continue,
