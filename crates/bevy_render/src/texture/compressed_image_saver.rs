@@ -57,6 +57,7 @@ impl AssetSaver for CompressedImageSaver {
                 is_srgb,
                 sampler: image.sampler.clone(),
                 cpu_persistent_access: image.cpu_persistent_access,
+                ..Default::default()
             })
         }
         .boxed()
