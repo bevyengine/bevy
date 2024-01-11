@@ -121,7 +121,7 @@ impl Animatable for Transform {
             if input.additive {
                 translation += input.weight * Vec3A::from(input.value.translation);
                 scale += input.weight * Vec3A::from(input.value.scale);
-                rotation = (input.value.rotation * input.weight) * rotation;
+                rotation = rotation.slerp(input.value.rotation, input.weight);
             } else {
                 translation = Vec3A::interpolate(
                     &translation,
