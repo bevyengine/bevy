@@ -639,8 +639,8 @@ fn apply_animation(
     parents: &Query<(Has<AnimationPlayer>, Option<&Parent>)>,
     children: &Query<&Children>,
 ) {
-    /// Set transform to exactly the value of some keyframe.
-    fn set_keyframe(
+    /// Sets the [`Transform`] value to exactly the value it has at the provided keyframe.
+    fn set_transform_to_keyframe(
         curve: &VariableCurve,
         transform: &mut Mut<'_, Transform>,
         weight: f32,
@@ -749,13 +749,25 @@ fn apply_animation(
                     .binary_search_by(|probe| probe.partial_cmp(&animation.seek_time).unwrap())
                 {
                     Ok(n) if n >= curve.keyframe_timestamps.len() - 1 => {
-                        set_keyframe(curve, &mut transform, weight, &mut morphs, len - 1);
+                        set_transform_to_keyframe(
+                            curve,
+                            &mut transform,
+                            weight,
+                            &mut morphs,
+                            len - 1,
+                        );
                         continue;
                     } // this curve is finished
                     Ok(i) => i,
                     Err(0) => continue, // this curve isn't started yet
                     Err(n) if n > curve.keyframe_timestamps.len() - 1 => {
-                        set_keyframe(curve, &mut transform, weight, &mut morphs, len - 1);
+                        set_transform_to_keyframe(
+                            curve,
+                            &mut transform,
+                            weight,
+                            &mut morphs,
+                            len - 1,
+                        );
                         continue;
                     } // this curve is finished
                     Err(i) => i - 1,
