@@ -74,8 +74,8 @@ impl FileAssetWriter {
     /// watching for changes.
     ///
     /// See `get_base_path` below.
-    pub fn new<P: AsRef<Path> + std::fmt::Debug>(path: P, should_create: bool) -> Self {
-        if should_create {
+    pub fn new<P: AsRef<Path> + std::fmt::Debug>(path: P, create_root: bool) -> Self {
+        if create_root {
             if let Err(e) = std::fs::create_dir_all(&path) {
                 error!(
                     "Failed to create root directory {:?} for file asset writer: {:?}",

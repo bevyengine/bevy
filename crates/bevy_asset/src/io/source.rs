@@ -445,11 +445,11 @@ impl AssetSource {
     pub fn get_default_writer(
         _path: String,
     ) -> impl FnMut(bool) -> Option<Box<dyn AssetWriter>> + Send + Sync {
-        move |_should_create: bool| {
+        move |_create_root: bool| {
             #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
             return Some(Box::new(super::file::FileAssetWriter::new(
                 &_path,
-                _should_create,
+                _create_root,
             )));
             #[cfg(any(target_arch = "wasm32", target_os = "android"))]
             return None;
