@@ -709,10 +709,14 @@ fn apply_animation(
 
                 // Find the current keyframe
                 // PERF: finding the current keyframe can be optimised
-                let step_start = match curve
+                // Attempt to find the keyframe at or before the current time
+                // An Ok(keyframe_index) result means an exact result was found by binary search
+                // An Err result means the keyframe was not found, and the index is the keyframe
+                let index = curve
                     .keyframe_timestamps
-                    .binary_search_by(|probe| probe.partial_cmp(&animation.seek_time).unwrap())
-                {
+                    .binary_search_by(|probe| probe.partial_cmp(&animation.seek_time).unwrap());
+
+                let step_start = match index {
                     Ok(n) if n >= curve.keyframe_timestamps.len() - 1 => continue, // this curve is finished
                     Ok(i) => i,
                     Err(0) => continue, // this curve isn't started yet
