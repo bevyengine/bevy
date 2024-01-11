@@ -735,16 +735,16 @@ fn apply_animation(
                 Err(i) => i - 1,
             };
 
-            let ts_start = curve.keyframe_timestamps[step_start];
-            let ts_end = curve.keyframe_timestamps[step_start + 1];
-            let lerp = f32::inverse_lerp(ts_start, ts_end, animation.seek_time);
+            let timestamp_start = curve.keyframe_timestamps[step_start];
+            let timestamp_end = curve.keyframe_timestamps[step_start + 1];
+            let lerp = f32::inverse_lerp(timestamp_start, timestamp_end, animation.seek_time);
 
             apply_keyframe(
                 curve,
                 step_start,
                 weight,
                 lerp,
-                ts_end - ts_start,
+                timestamp_end - timestamp_start,
                 &mut transform,
                 &mut morphs,
             );
