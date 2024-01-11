@@ -52,10 +52,7 @@ impl WinitSettings {
 
 impl Default for WinitSettings {
     fn default() -> Self {
-        WinitSettings {
-            focused_mode: UpdateMode::Continuous,
-            unfocused_mode: UpdateMode::Continuous,
-        }
+        WinitSettings::game()
     }
 }
 
