@@ -719,12 +719,22 @@ fn apply_animation(
                 .binary_search_by(|probe| probe.partial_cmp(&animation.seek_time).unwrap());
 
             let step_start = match index {
-                Ok(n) if n >= curve.keyframe_timestamps.len() - 1 => continue, // this curve is finished
+                // An exact match was found, and it is the last or second last keyframe.
+                // This means that the curve is finished.
+                Ok(n) if n >= curve.keyframe_timestamps.len() - 1 => continue,
+                // An exact match was found, and it is not the last or second last keyframe.
                 Ok(i) => i,
-                Err(0) => continue, // this curve isn't started yet
-                Err(n) if n > curve.keyframe_timestamps.len() - 1 => continue, // this curve is finished
+                // No exact match was found, and the curve is not yet started.
+                // This occurs because the binary search returns the index of where we could insert a value
+                // without disrupting the order of the vector.
+                // If the value is less than the first element, the index will be 0.
+                Err(0) => continue,
+                // No exact match was found, and the curve is finished.
+                Err(n) if n > curve.keyframe_timestamps.len() - 1 => continue,
+                // No exact match was found
                 Err(i) => i - 1,
             };
+
             let ts_start = curve.keyframe_timestamps[step_start];
             let ts_end = curve.keyframe_timestamps[step_start + 1];
             let lerp = f32::inverse_lerp(ts_start, ts_end, animation.seek_time);
