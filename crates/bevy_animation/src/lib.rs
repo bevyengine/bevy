@@ -709,13 +709,19 @@ fn apply_animation(
                     continue;
                 }
 
-                // Find the current keyframe
+                // Attempt to find the keyframe at or before the current time
+                // An Ok(keyframe_index) result means an exact result was found by binary search
+                // An Err result means the keyframe was not found, and the index is the keyframe
                 // PERF: finding the current keyframe can be optimised
-                let step_start = match curve
+                let index = curve
                     .keyframe_timestamps
-                    .binary_search_by(|probe| probe.partial_cmp(&animation.seek_time).unwrap())
-                {
-                    Ok(n) if n >= curve.keyframe_timestamps.len() - 1 => {
+                    .binary_search_by(|probe| probe.partial_cmp(&animation.seek_time).unwrap());
+
+                // Find the keyframe that our animation starts from
+                let step_start = match index {
+                    // We could find an exact match,
+                    // and the match was the last or second last keyframe
+                    Ok(i) if i >= curve.keyframe_timestamps.len() - 1 => {
                         set_transform_to_keyframe(
                             curve,
                             &mut transform,
@@ -724,10 +730,15 @@ fn apply_animation(
                             len - 1,
                         );
                         continue;
-                    } // this curve is finished
+                    }
+                    // We could find an exact match,
+                    // and the match was not the last or second last keyframe
                     Ok(i) => i,
-                    Err(0) => continue, // this curve isn't started yet
-                    Err(n) if n > curve.keyframe_timestamps.len() - 1 => {
+                    // The animation was not started yet
+                    Err(0) => continue,
+                    // We could not find an exact match,
+                    // and the timestamp was after the last keyframe
+                    Err(i) if i > curve.keyframe_timestamps.len() - 1 => {
                         set_transform_to_keyframe(
                             curve,
                             &mut transform,
@@ -736,7 +747,9 @@ fn apply_animation(
                             len - 1,
                         );
                         continue;
-                    } // this curve is finished
+                    }
+                    // We could not find an exact match,
+                    // But we are
                     Err(i) => i - 1,
                 };
                 let ts_start = curve.keyframe_timestamps[step_start];
