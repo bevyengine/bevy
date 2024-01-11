@@ -1,4 +1,4 @@
-use crate::{First, Main, MainSchedulePlugin, Plugin, Plugins, StateTransition};
+use crate::{First, Main, MainSchedulePlugin, Plugin, PluginSet, Plugins, StateTransition};
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     prelude::*,
@@ -78,7 +78,7 @@ pub struct App {
     /// This is initially set to [`Main`].
     pub main_schedule_label: InternedScheduleLabel,
     sub_apps: HashMap<InternedAppLabel, SubApp>,
-    plugin_registry: Vec<Box<dyn Plugin>>,
+    plugin_set: PluginSet,
     plugin_name_added: HashSet<String>,
     /// A private counter to prevent incorrect calls to `App::run()` from `Plugin::build()`
     building_plugin_depth: usize,
@@ -234,7 +234,7 @@ impl App {
             world,
             runner: Box::new(run_once),
             sub_apps: HashMap::default(),
-            plugin_registry: Vec::default(),
+            plugin_set: PluginSet::default(),
             plugin_name_added: Default::default(),
             main_schedule_label: Main.intern(),
             building_plugin_depth: 0,
@@ -313,7 +313,7 @@ impl App {
     pub fn plugins_state(&self) -> PluginsState {
         match self.plugins_state {
             PluginsState::Adding => {
-                for plugin in &self.plugin_registry {
+                for plugin in self.plugin_set.plugin_families.values().flatten() {
                     if !plugin.ready(self) {
                         return PluginsState::Adding;
                     }
@@ -328,11 +328,11 @@ impl App {
     /// plugins are ready, but can be useful for situations where you want to use [`App::update`].
     pub fn finish(&mut self) {
         // temporarily remove the plugin registry to run each plugin's setup function on app.
-        let plugin_registry = std::mem::take(&mut self.plugin_registry);
-        for plugin in &plugin_registry {
+        let plugin_set = std::mem::take(&mut self.plugin_set);
+        for plugin in plugin_set.plugin_families.values().flatten() {
             plugin.finish(self);
         }
-        self.plugin_registry = plugin_registry;
+        self.plugin_set = plugin_set;
         self.plugins_state = PluginsState::Finished;
     }
 
@@ -340,11 +340,11 @@ impl App {
     /// [`App::finish`], but can be useful for situations where you want to use [`App::update`].
     pub fn cleanup(&mut self) {
         // temporarily remove the plugin registry to run each plugin's setup function on app.
-        let plugin_registry = std::mem::take(&mut self.plugin_registry);
-        for plugin in &plugin_registry {
+        let plugin_set = std::mem::take(&mut self.plugin_set);
+        for plugin in plugin_set.plugin_families.values().flatten() {
             plugin.cleanup(self);
         }
-        self.plugin_registry = plugin_registry;
+        self.plugin_set = plugin_set;
         self.plugins_state = PluginsState::Cleaned;
     }
 
@@ -634,33 +634,6 @@ impl App {
         self
     }
 
-    /// Boxed variant of [`add_plugins`](App::add_plugins) that can be used from a
-    /// [`PluginGroup`](super::PluginGroup)
-    pub(crate) fn add_boxed_plugin(
-        &mut self,
-        plugin: Box<dyn Plugin>,
-    ) -> Result<&mut Self, AppError> {
-        debug!("added plugin: {}", plugin.name());
-        if plugin.is_unique() && !self.plugin_name_added.insert(plugin.name().to_string()) {
-            Err(AppError::DuplicatePlugin {
-                plugin_name: plugin.name().to_string(),
-            })?;
-        }
-
-        // Reserve that position in the plugin registry. if a plugin adds plugins, they will be correctly ordered
-        let plugin_position_in_registry = self.plugin_registry.len();
-        self.plugin_registry.push(Box::new(PlaceholderPlugin));
-
-        self.building_plugin_depth += 1;
-        let result = catch_unwind(AssertUnwindSafe(|| plugin.build(self)));
-        self.building_plugin_depth -= 1;
-        if let Err(payload) = result {
-            resume_unwind(payload);
-        }
-        self.plugin_registry[plugin_position_in_registry] = plugin;
-        Ok(self)
-    }
-
     /// Checks if a [`Plugin`] has already been added.
     ///
     /// This can be used by plugins to check if a plugin they depend upon has already been
@@ -669,8 +642,10 @@ impl App {
     where
         T: Plugin,
     {
-        self.plugin_registry
-            .iter()
+        self.plugin_set
+            .plugin_families
+            .values()
+            .flatten()
             .any(|p| p.downcast_ref::<T>().is_some())
     }
 
@@ -697,8 +672,10 @@ impl App {
     where
         T: Plugin,
     {
-        self.plugin_registry
-            .iter()
+        self.plugin_set
+            .plugin_families
+            .values()
+            .flatten()
             .filter_map(|p| p.downcast_ref())
             .collect()
     }
@@ -754,7 +731,7 @@ impl App {
                 "Plugins cannot be added after App::cleanup() or App::finish() has been called."
             );
         }
-        plugins.add_to_app(self);
+        plugins.add_to_set(&mut self.plugin_set);
         self
     }
 
