@@ -644,7 +644,7 @@ fn apply_animation(
         curve: &VariableCurve,
         transform: &mut Mut<'_, Transform>,
         weight: f32,
-        morphs: &mut Result<Mut<'_, MorphWeights>, bevy_ecs::query::QueryEntityError>,
+        morphs: &mut Option<Mut<'_, MorphWeights>>,
         keyframe: usize,
     ) {
         match &curve.keyframes {
@@ -658,7 +658,7 @@ fn apply_animation(
                 transform.scale = transform.scale.lerp(keyframes[keyframe], weight);
             }
             Keyframes::Weights(keyframes) => {
-                if let Ok(morphs) = morphs {
+                if let Some(morphs) = morphs {
                     let target_count = morphs.weights().len();
                     lerp_morph_weights(
                         morphs.weights_mut(),
