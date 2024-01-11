@@ -96,7 +96,8 @@ impl VariableCurve {
             Err(i) => i - 1,
         };
 
-        assert!(step_start + 1 <= self.keyframe_timestamps.len());
+        // Consumers need to be able to interpolate between the return keyframe and the next
+        assert!(step_start < self.keyframe_timestamps.len());
 
         Some(step_start)
     }
@@ -747,9 +748,8 @@ fn apply_animation(
             }
 
             // Find the current keyframe
-            let step_start = match curve.find_current_keyframe(animation.seek_time) {
-                Some(keyframe) => keyframe,
-                None => continue,
+            let Some(step_start) = curve.find_current_keyframe(animation.seek_time) else {
+                continue;
             };
 
             let timestamp_start = curve.keyframe_timestamps[step_start];
