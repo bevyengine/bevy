@@ -742,6 +742,7 @@ fn apply_animation(
 
             let timestamp_start = curve.keyframe_timestamps[step_start];
             let timestamp_end = curve.keyframe_timestamps[step_start + 1];
+            // Compute how far we are through the keyframe, normalized to [0, 1]
             let lerp = f32::inverse_lerp(timestamp_start, timestamp_end, animation.seek_time);
 
             apply_keyframe(
