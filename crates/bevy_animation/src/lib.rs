@@ -738,6 +738,8 @@ fn apply_animation(
                 Err(i) => i - 1,
             };
 
+            assert!(step_start + 1 <= curve.keyframe_timestamps.len());
+
             let timestamp_start = curve.keyframe_timestamps[step_start];
             let timestamp_end = curve.keyframe_timestamps[step_start + 1];
             let lerp = f32::inverse_lerp(timestamp_start, timestamp_end, animation.seek_time);
