@@ -1,5 +1,5 @@
 use crate::util;
-use bevy_asset::{Asset, Assets, Handle, HandleId};
+use bevy_asset::{Asset, Assets, Handle};
 use bevy_ecs::world::World;
 use bevy_math::*;
 use bevy_reflect::Reflect;
@@ -101,21 +101,6 @@ impl Animatable for bool {
             .max_by(|a, b| FloatOrd(a.weight).cmp(&FloatOrd(b.weight)))
             .map(|input| input.value)
             .unwrap_or(false)
-    }
-}
-
-impl Animatable for HandleId {
-    #[inline]
-    fn interpolate(a: &Self, b: &Self, t: f32) -> Self {
-        util::step_unclamped(*a, *b, t)
-    }
-
-    #[inline]
-    fn blend(inputs: impl Iterator<Item = BlendInput<Self>>) -> Self {
-        inputs
-            .max_by(|a, b| FloatOrd(a.weight).cmp(&FloatOrd(b.weight)))
-            .map(|input| input.value)
-            .expect("Attempted to blend HandleId with zero inputs.")
     }
 }
 
