@@ -88,40 +88,16 @@ impl VariableCurve {
     /// To be more precise, this returns [`None`] if the frame is at or past the last keyframe:
     /// we cannot get the *next* keyframe to interpolate to in that case.
     pub fn find_current_keyframe(&self, seek_time: f32) -> Option<usize> {
-        // An Ok(keyframe_index) result means an exact result was found by binary search
-        // An Err result means the keyframe was not found, and the index is the keyframe
-        // PERF: finding the current keyframe can be optimised
-        let search_result = self
+        match self
             .keyframe_timestamps
-            .binary_search_by(|probe| probe.partial_cmp(&seek_time).unwrap());
-
-        // Subtract one for zero indexing!
-        let last_keyframe = self.keyframes.len() - 1;
-
-        // We want to find the index of the keyframe before the current time
-        // If the keyframe is past the second-to-last keyframe, the animation cannot be interpolated.
-        let step_start = match search_result {
-            // An exact match was found, and it is the last keyframe (or something has gone terribly wrong).
-            // This means that the curve is finished.
-            Ok(n) if n >= last_keyframe => return None,
-            // An exact match was found, and it is not the last keyframe.
-            Ok(i) => i,
-            // No exact match was found, and the seek_time is before the start of the animation.
-            // This occurs because the binary search returns the index of where we could insert a value
-            // without disrupting the order of the vector.
-            // If the value is less than the first element, the index will be 0.
-            Err(0) => return None,
-            // No exact match was found, and it was after the last keyframe.
-            // The curve is finished.
-            Err(n) if n > last_keyframe => return None,
-            // No exact match was found, so return the previous keyframe to interpolate from.
-            Err(i) => i - 1,
-        };
-
-        // Consumers need to be able to interpolate between the return keyframe and the next
-        assert!(step_start < self.keyframe_timestamps.len());
-
-        Some(step_start)
+            .binary_search_by(|probe| probe.partial_cmp(&seek_time).unwrap())
+        {
+            Ok(n) if n >= self.keyframe_timestamps.len() - 1 => None, // this curve is finished
+            Ok(i) => Some(i),
+            Err(0) => None, // this curve isn't started yet
+            Err(n) if n > self.keyframe_timestamps.len() - 1 => None, // this curve is finished
+            Err(i) => Some(i - 1),
+        }
     }
 }
 
