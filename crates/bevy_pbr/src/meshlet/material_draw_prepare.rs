@@ -53,6 +53,8 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
+    let fake_vertex_buffer_layout = &fake_vertex_buffer_layout();
+
     for (
         view_entity,
         view,
@@ -67,8 +69,6 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
     ) in &views
     {
         let mut materials = Vec::new();
-
-        let fake_vertex_buffer_layout = &fake_vertex_buffer_layout();
 
         let mut view_key =
             MeshPipelineKey::from_msaa_samples(1) | MeshPipelineKey::from_hdr(view.hdr);
@@ -235,15 +235,24 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
+    let fake_vertex_buffer_layout = &fake_vertex_buffer_layout();
+
     for (
         view_entity,
         view,
         (depth_prepass, normal_prepass, motion_vector_prepass, deferred_prepass),
     ) in &views
     {
-        let mut materials = Vec::new();
+        if let (None, Some(_), None, None) = (
+            normal_prepass,
+            depth_prepass,
+            motion_vector_prepass,
+            deferred_prepass,
+        ) {
+            continue;
+        }
 
-        let fake_vertex_buffer_layout = &fake_vertex_buffer_layout();
+        let mut materials = Vec::new();
 
         let mut view_key =
             MeshPipelineKey::from_msaa_samples(1) | MeshPipelineKey::from_hdr(view.hdr);
