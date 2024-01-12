@@ -1,4 +1,4 @@
-use crate::{Real, Time, Timer, TimerMode};
+use crate::{Real, Time, Timer, TimerMode, Virtual};
 use bevy_ecs::system::Res;
 use bevy_utils::Duration;
 
@@ -201,6 +201,13 @@ pub fn repeating_after_real_delay(
         timer.tick(time.delta());
         timer.finished()
     }
+}
+
+/// Run condition that is active when the [`Time<Virtual>`] clock is paused.
+/// Use [`bevy::ecs::schedule::common_conditions::not'] to make it active when
+/// it's not paused.
+pub fn on_paused() -> impl FnMut(Res<Time<Virtual>>) -> bool + Clone {
+    move |time: Res<Time<Virtual>>| time.is_paused()
 }
 
 #[cfg(test)]
