@@ -25,8 +25,8 @@ fn setup(
     mut standard_materials: ResMut<Assets<StandardMaterial>>,
 ) {
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(5.0).into()),
-        material: standard_materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+        mesh: meshes.add(shape::Plane::from_size(5.0)),
+        material: standard_materials.add(Color::rgb(0.3, 0.5, 0.3)),
         ..default()
     });
     commands.spawn(PointLightBundle {
@@ -35,7 +35,7 @@ fn setup(
     });
 
     commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+        mesh: meshes.add(shape::Cube { size: 1.0 }),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         material: custom_materials.add(CustomMaterial {
             texture: asset_server.load(

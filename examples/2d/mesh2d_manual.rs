@@ -5,13 +5,12 @@
 //!
 //! [`Material2d`]: bevy::sprite::Material2d
 
-#![allow(clippy::type_complexity)]
-
 use bevy::{
     core_pipeline::core_2d::Transparent2d,
     prelude::*,
     render::{
         mesh::{Indices, MeshVertexAttribute},
+        render_asset::RenderAssetPersistencePolicy,
         render_asset::RenderAssets,
         render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
         render_resource::{
@@ -49,8 +48,13 @@ fn star(
     // We will specify here what kind of topology is used to define the mesh,
     // that is, how triangles are built from the vertices. We will use a
     // triangle list, meaning that each vertex of the triangle has to be
-    // specified.
-    let mut star = Mesh::new(PrimitiveTopology::TriangleList);
+    // specified. We set `cpu_persistent_access` to unload, meaning this mesh
+    // will not be accessible in future frames from the `meshes` resource, in
+    // order to save on memory once it has been uploaded to the GPU.
+    let mut star = Mesh::new(
+        PrimitiveTopology::TriangleList,
+        RenderAssetPersistencePolicy::Unload,
+    );
 
     // Vertices need to have a position attribute. We will use the following
     // vertices (I hope you can spot the star in the schema).
@@ -153,24 +157,19 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
             false => TextureFormat::bevy_default(),
         };
 
-        // Meshes typically live in bind group 2. Because we are using bind group 1
-        // we need to add the MESH_BINDGROUP_1 shader def so that the bindings are correctly
-        // linked in the shader.
-        let shader_defs = vec!["MESH_BINDGROUP_1".into()];
-
         RenderPipelineDescriptor {
             vertex: VertexState {
                 // Use our custom shader
                 shader: COLORED_MESH2D_SHADER_HANDLE,
                 entry_point: "vertex".into(),
-                shader_defs: shader_defs.clone(),
+                shader_defs: vec![],
                 // Use our custom vertex buffer
                 buffers: vec![vertex_layout],
             },
             fragment: Some(FragmentState {
                 // Use our custom shader
                 shader: COLORED_MESH2D_SHADER_HANDLE,
-                shader_defs,
+                shader_defs: vec![],
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format,

@@ -22,9 +22,7 @@ pub const EMBEDDED: &str = "embedded";
 pub struct EmbeddedAssetRegistry {
     dir: Dir,
     #[cfg(feature = "embedded_watcher")]
-    root_paths: std::sync::Arc<
-        parking_lot::RwLock<bevy_utils::HashMap<std::path::PathBuf, std::path::PathBuf>>,
-    >,
+    root_paths: std::sync::Arc<parking_lot::RwLock<bevy_utils::HashMap<PathBuf, PathBuf>>>,
 }
 
 impl EmbeddedAssetRegistry {
@@ -66,7 +64,12 @@ impl EmbeddedAssetRegistry {
                 Box::new(MemoryAssetReader {
                     root: processed_dir.clone(),
                 })
-            });
+            })
+            // Note that we only add a processed watch warning because we don't want to warn
+            // noisily about embedded watching (which is niche) when users enable file watching.
+            .with_processed_watch_warning(
+                "Consider enabling the `embedded_watcher` cargo feature.",
+            );
 
         #[cfg(feature = "embedded_watcher")]
         {

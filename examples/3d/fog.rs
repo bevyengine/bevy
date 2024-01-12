@@ -58,14 +58,14 @@ fn setup_pyramid_scene(
     // pillars
     for (x, z) in &[(-1.5, -1.5), (1.5, -1.5), (1.5, 1.5), (-1.5, 1.5)] {
         commands.spawn(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Box {
+            mesh: meshes.add(shape::Box {
                 min_x: -0.5,
                 max_x: 0.5,
                 min_z: -0.5,
                 max_z: 0.5,
                 min_y: 0.0,
                 max_y: 3.0,
-            })),
+            }),
             material: stone.clone(),
             transform: Transform::from_xyz(*x, 0.0, *z),
             ..default()
@@ -97,14 +97,14 @@ fn setup_pyramid_scene(
         let size = i as f32 / 2.0 + 3.0;
         let y = -i as f32 / 2.0;
         commands.spawn(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Box {
+            mesh: meshes.add(shape::Box {
                 min_x: -size,
                 max_x: size,
                 min_z: -size,
                 max_z: size,
                 min_y: 0.0,
                 max_y: 0.5,
-            })),
+            }),
             material: stone.clone(),
             transform: Transform::from_xyz(0.0, y, 0.0),
             ..default()
@@ -113,7 +113,7 @@ fn setup_pyramid_scene(
 
     // sky
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Box::default())),
+        mesh: meshes.add(shape::Box::default()),
         material: materials.add(StandardMaterial {
             base_color: Color::hex("888888").unwrap(),
             unlit: true,
@@ -159,7 +159,7 @@ fn update_system(
     mut camera: Query<(&mut FogSettings, &mut Transform)>,
     mut text: Query<&mut Text>,
     time: Res<Time>,
-    keycode: Res<Input<KeyCode>>,
+    keycode: Res<ButtonInput<KeyCode>>,
 ) {
     let now = time.elapsed_seconds();
     let delta = time.delta_seconds();
@@ -184,7 +184,7 @@ fn update_system(
         .value
         .push_str("\n\n1 / 2 / 3 - Fog Falloff Mode");
 
-    if keycode.pressed(KeyCode::Key1) {
+    if keycode.pressed(KeyCode::Digit1) {
         if let FogFalloff::Linear { .. } = fog.falloff {
             // No change
         } else {
@@ -195,7 +195,7 @@ fn update_system(
         };
     }
 
-    if keycode.pressed(KeyCode::Key2) {
+    if keycode.pressed(KeyCode::Digit2) {
         if let FogFalloff::Exponential { .. } = fog.falloff {
             // No change
         } else if let FogFalloff::ExponentialSquared { density } = fog.falloff {
@@ -205,7 +205,7 @@ fn update_system(
         };
     }
 
-    if keycode.pressed(KeyCode::Key3) {
+    if keycode.pressed(KeyCode::Digit3) {
         if let FogFalloff::Exponential { density } = fog.falloff {
             fog.falloff = FogFalloff::ExponentialSquared { density };
         } else if let FogFalloff::ExponentialSquared { .. } = fog.falloff {
@@ -225,16 +225,16 @@ fn update_system(
             .value
             .push_str("\nA / S - Move Start Distance\nZ / X - Move End Distance");
 
-        if keycode.pressed(KeyCode::A) {
+        if keycode.pressed(KeyCode::KeyA) {
             *start -= delta * 3.0;
         }
-        if keycode.pressed(KeyCode::S) {
+        if keycode.pressed(KeyCode::KeyS) {
             *start += delta * 3.0;
         }
-        if keycode.pressed(KeyCode::Z) {
+        if keycode.pressed(KeyCode::KeyZ) {
             *end -= delta * 3.0;
         }
-        if keycode.pressed(KeyCode::X) {
+        if keycode.pressed(KeyCode::KeyX) {
             *end += delta * 3.0;
         }
     }
@@ -243,13 +243,13 @@ fn update_system(
     if let FogFalloff::Exponential { ref mut density } = &mut fog.falloff {
         text.sections[0].value.push_str("\nA / S - Change Density");
 
-        if keycode.pressed(KeyCode::A) {
+        if keycode.pressed(KeyCode::KeyA) {
             *density -= delta * 0.5 * *density;
             if *density < 0.0 {
                 *density = 0.0;
             }
         }
-        if keycode.pressed(KeyCode::S) {
+        if keycode.pressed(KeyCode::KeyS) {
             *density += delta * 0.5 * *density;
         }
     }
@@ -258,13 +258,13 @@ fn update_system(
     if let FogFalloff::ExponentialSquared { ref mut density } = &mut fog.falloff {
         text.sections[0].value.push_str("\nA / S - Change Density");
 
-        if keycode.pressed(KeyCode::A) {
+        if keycode.pressed(KeyCode::KeyA) {
             *density -= delta * 0.5 * *density;
             if *density < 0.0 {
                 *density = 0.0;
             }
         }
-        if keycode.pressed(KeyCode::S) {
+        if keycode.pressed(KeyCode::KeyS) {
             *density += delta * 0.5 * *density;
         }
     }
@@ -279,7 +279,7 @@ fn update_system(
         fog.color.set_r(r);
     }
 
-    if keycode.pressed(KeyCode::Equals) {
+    if keycode.any_pressed([KeyCode::Equal, KeyCode::NumpadEqual]) {
         let r = (fog.color.r() + 0.1 * delta).min(1.0);
         fog.color.set_r(r);
     }
@@ -299,7 +299,7 @@ fn update_system(
         fog.color.set_b(b);
     }
 
-    if keycode.pressed(KeyCode::Apostrophe) {
+    if keycode.pressed(KeyCode::Quote) {
         let b = (fog.color.b() + 0.1 * delta).min(1.0);
         fog.color.set_b(b);
     }

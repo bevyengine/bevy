@@ -1,7 +1,7 @@
+use crate::{color::Color, extract_resource::ExtractResource};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use bevy_render::{color::Color, extract_resource::ExtractResource};
 use serde::{Deserialize, Serialize};
 
 /// For a camera, specifies the color used to clear the viewport before rendering.
@@ -17,6 +17,12 @@ pub enum ClearColorConfig {
     ///
     /// This can be useful when multiple cameras are rendering to the same viewport.
     None,
+}
+
+impl From<Color> for ClearColorConfig {
+    fn from(color: Color) -> Self {
+        Self::Custom(color)
+    }
 }
 
 /// A [`Resource`] that stores the color that is used to clear the screen between frames.

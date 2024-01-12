@@ -103,16 +103,16 @@ fn setup(
 
     // Plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(50.0).into()),
+        mesh: meshes.add(shape::Plane::from_size(50.0)),
         material: forward_mat_h.clone(),
         ..default()
     });
 
-    let cube_h = meshes.add(Mesh::from(shape::Cube { size: 0.1 }));
-    let sphere_h = meshes.add(Mesh::from(shape::UVSphere {
+    let cube_h = meshes.add(shape::Cube { size: 0.1 });
+    let sphere_h = meshes.add(shape::UVSphere {
         radius: 0.125,
         ..default()
-    }));
+    });
 
     // Cubes
     commands.spawn(PbrBundle {
@@ -196,7 +196,7 @@ fn setup(
     // sky
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Box::default())),
+            mesh: meshes.add(shape::Box::default()),
             material: materials.add(StandardMaterial {
                 base_color: Color::hex("888888").unwrap(),
                 unlit: true,
@@ -335,7 +335,7 @@ enum DefaultRenderMode {
 fn switch_mode(
     mut text: Query<&mut Text>,
     mut commands: Commands,
-    keys: Res<Input<KeyCode>>,
+    keys: Res<ButtonInput<KeyCode>>,
     mut default_opaque_renderer_method: ResMut<DefaultOpaqueRendererMethod>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     cameras: Query<Entity, With<Camera>>,
@@ -352,7 +352,7 @@ fn switch_mode(
         pause.0 = !pause.0;
     }
 
-    if keys.just_pressed(KeyCode::Key1) {
+    if keys.just_pressed(KeyCode::Digit1) {
         *mode = DefaultRenderMode::Deferred;
         default_opaque_renderer_method.set_to_deferred();
         println!("DefaultOpaqueRendererMethod: Deferred");
@@ -364,7 +364,7 @@ fn switch_mode(
             commands.entity(camera).insert(DeferredPrepass);
         }
     }
-    if keys.just_pressed(KeyCode::Key2) {
+    if keys.just_pressed(KeyCode::Digit2) {
         *mode = DefaultRenderMode::Forward;
         default_opaque_renderer_method.set_to_forward();
         println!("DefaultOpaqueRendererMethod: Forward");
@@ -376,7 +376,7 @@ fn switch_mode(
             commands.entity(camera).remove::<DeferredPrepass>();
         }
     }
-    if keys.just_pressed(KeyCode::Key3) {
+    if keys.just_pressed(KeyCode::Digit3) {
         *mode = DefaultRenderMode::ForwardPrepass;
         default_opaque_renderer_method.set_to_forward();
         println!("DefaultOpaqueRendererMethod: Forward + Prepass");
@@ -389,7 +389,7 @@ fn switch_mode(
         }
     }
 
-    if keys.just_pressed(KeyCode::H) {
+    if keys.just_pressed(KeyCode::KeyH) {
         *hide_ui = !*hide_ui;
     }
 

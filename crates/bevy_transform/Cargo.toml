@@ -11,17 +11,24 @@ keywords = ["bevy"]
 [dependencies]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.12.0" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.12.0", features = ["bevy_reflect"] }
+bevy_ecs = { path = "../bevy_ecs", version = "0.12.0", features = [
+  "bevy_reflect",
+] }
 bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.12.0" }
 bevy_math = { path = "../bevy_math", version = "0.12.0" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.12.0", features = ["bevy"] }
+bevy_reflect = { path = "../bevy_reflect", version = "0.12.0", features = [
+  "bevy",
+] }
 serde = { version = "1", features = ["derive"], optional = true }
 thiserror = "1.0"
 
 [dev-dependencies]
 bevy_tasks = { path = "../bevy_tasks", version = "0.12.0" }
+bevy_math = { path = "../bevy_math", version = "0.12.0", features = ["approx"] }
 approx = "0.5.1"
-glam = { version = "0.24", features = ["approx"] }
 
 [features]
 serialize = ["dep:serde", "bevy_math/serialize"]
+
+[lints]
+workspace = true

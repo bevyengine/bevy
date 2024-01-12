@@ -68,6 +68,10 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     out.uv = vertex.uv;
 #endif
 
+#ifdef VERTEX_UVS_B
+    out.uv_b = vertex.uv_b;
+#endif
+
 #ifdef VERTEX_TANGENTS
     out.world_tangent = mesh_functions::mesh_tangent_local_to_world(
         model,
@@ -86,6 +90,13 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
     // See https://github.com/gfx-rs/naga/issues/2416
     out.instance_index = get_instance_index(vertex_no_morph.instance_index);
+#endif
+
+#ifdef BASE_INSTANCE_WORKAROUND
+    // Hack: this ensures the push constant is always used, which works around this issue:
+    // https://github.com/bevyengine/bevy/issues/10509
+    // This can be removed when wgpu 0.19 is released
+    out.position.x += min(f32(get_instance_index(0u)), 0.0);
 #endif
 
     return out;

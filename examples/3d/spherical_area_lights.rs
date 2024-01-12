@@ -22,7 +22,7 @@ fn setup(
 
     // plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(100.0).into()),
+        mesh: meshes.add(shape::Plane::from_size(100.0)),
         material: materials.add(StandardMaterial {
             base_color: Color::rgb(0.2, 0.2, 0.2),
             perceptual_roughness: 0.08,
@@ -36,11 +36,11 @@ fn setup(
     let radius_range = 0.0..0.8;
     let pos_len = position_range.end - position_range.start;
     let radius_len = radius_range.end - radius_range.start;
-    let mesh = meshes.add(Mesh::from(shape::UVSphere {
+    let mesh = meshes.add(shape::UVSphere {
         sectors: 128,
         stacks: 64,
         ..default()
-    }));
+    });
 
     for i in 0..COUNT {
         let percent = i as f32 / COUNT as f32;

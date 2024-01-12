@@ -10,13 +10,18 @@ use bevy_render::{
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 
+/// A [`Bundle`] of components for drawing a single sprite from an image.
 #[derive(Bundle, Clone, Default)]
 pub struct SpriteBundle {
+    /// Specifies the rendering properties of the sprite, such as color tint and flip.
     pub sprite: Sprite,
     /// Controls how the image is altered when scaled.
     pub scale_mode: ImageScaleMode,
+    /// The local transform of the sprite, relative to its parent.
     pub transform: Transform,
+    /// The absolute transform of the sprite. This should generally not be written to directly.
     pub global_transform: GlobalTransform,
+    /// A reference-counted handle to the image asset to be drawn.
     pub texture: Handle<Image>,
     /// User indication of whether an entity is visible
     pub visibility: Visibility,
@@ -26,8 +31,8 @@ pub struct SpriteBundle {
     pub view_visibility: ViewVisibility,
 }
 
-/// A Bundle of components for drawing a single sprite from a sprite sheet (also referred
-/// to as a `TextureAtlas`)
+/// A [`Bundle`] of components for drawing a single sprite from a sprite sheet (also referred
+/// to as a `TextureAtlas`).
 #[derive(Bundle, Clone, Default)]
 pub struct SpriteSheetBundle {
     /// The specific sprite from the texture atlas to be drawn, defaulting to the sprite at index 0.

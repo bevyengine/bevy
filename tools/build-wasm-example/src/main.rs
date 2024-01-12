@@ -33,6 +33,10 @@ struct Args {
     #[arg(short, long)]
     /// Optimize the wasm file for size with wasm-opt
     optimize_size: bool,
+
+    #[arg(long)]
+    /// Additional features to enable
+    features: Vec<String>,
 }
 
 fn main() {
@@ -41,7 +45,7 @@ fn main() {
     assert!(!cli.examples.is_empty(), "must have at least one example");
 
     let mut default_features = true;
-    let mut features = vec![];
+    let mut features: Vec<&str> = cli.features.iter().map(|f| f.as_str()).collect();
     if let Some(frames) = cli.frames {
         let mut file = File::create("ci_testing_config.ron").unwrap();
         file.write_fmt(format_args!("(exit_after: Some({frames}))"))

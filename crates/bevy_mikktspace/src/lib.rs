@@ -1,5 +1,4 @@
-#![allow(clippy::type_complexity)]
-#![allow(clippy::all)]
+#![allow(clippy::all, clippy::undocumented_unsafe_blocks)]
 
 use glam::{Vec2, Vec3};
 

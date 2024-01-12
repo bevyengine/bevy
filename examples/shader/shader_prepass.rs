@@ -61,8 +61,8 @@ fn setup(
 
     // plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(5.0).into()),
-        material: std_materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+        mesh: meshes.add(shape::Plane::from_size(5.0)),
+        material: std_materials.add(Color::rgb(0.3, 0.5, 0.3)),
         ..default()
     });
 
@@ -71,7 +71,7 @@ fn setup(
     // For a real application, this isn't ideal.
     commands.spawn((
         MaterialMeshBundle {
-            mesh: meshes.add(shape::Quad::new(Vec2::new(20.0, 20.0)).into()),
+            mesh: meshes.add(shape::Quad::new(Vec2::new(20.0, 20.0))),
             material: depth_materials.add(PrepassOutputMaterial {
                 settings: ShowPrepassSettings::default(),
             }),
@@ -85,7 +85,7 @@ fn setup(
     // Opaque cube
     commands.spawn((
         MaterialMeshBundle {
-            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+            mesh: meshes.add(shape::Cube { size: 1.0 }),
             material: materials.add(CustomMaterial {
                 color: Color::WHITE,
                 color_texture: Some(asset_server.load("branding/icon.png")),
@@ -99,7 +99,7 @@ fn setup(
 
     // Cube with alpha mask
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+        mesh: meshes.add(shape::Cube { size: 1.0 }),
         material: std_materials.add(StandardMaterial {
             alpha_mode: AlphaMode::Mask(1.0),
             base_color_texture: Some(asset_server.load("branding/icon.png")),
@@ -112,7 +112,7 @@ fn setup(
     // Cube with alpha blending.
     // Transparent materials are ignored by the prepass
     commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+        mesh: meshes.add(shape::Cube { size: 1.0 }),
         material: materials.add(CustomMaterial {
             color: Color::WHITE,
             color_texture: Some(asset_server.load("branding/icon.png")),
@@ -224,7 +224,7 @@ impl Material for PrepassOutputMaterial {
 /// Every time you press space, it will cycle between transparent, depth and normals view
 fn toggle_prepass_view(
     mut prepass_view: Local<u32>,
-    keycode: Res<Input<KeyCode>>,
+    keycode: Res<ButtonInput<KeyCode>>,
     material_handle: Query<&Handle<PrepassOutputMaterial>>,
     mut materials: ResMut<Assets<PrepassOutputMaterial>>,
     mut text: Query<&mut Text>,

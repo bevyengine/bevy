@@ -2,7 +2,7 @@
 
 use bevy::utils::thiserror;
 use bevy::{
-    asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext},
+    asset::{io::Reader, ron, AssetLoader, AsyncReadExt, LoadContext},
     prelude::*,
     reflect::TypePath,
     utils::BoxedFuture,
@@ -74,7 +74,7 @@ fn setup(mut state: ResMut<State>, asset_server: Res<AssetServer>) {
     state.handle = asset_server.load("data/asset.custom");
 }
 
-fn print_on_load(mut state: ResMut<State>, custom_assets: ResMut<Assets<CustomAsset>>) {
+fn print_on_load(mut state: ResMut<State>, custom_assets: Res<Assets<CustomAsset>>) {
     let custom_asset = custom_assets.get(&state.handle);
     if state.printed || custom_asset.is_none() {
         return;

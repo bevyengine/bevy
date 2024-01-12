@@ -3,19 +3,16 @@
 //! It does not know anything about the asset formats, only how to talk to the underlying storage.
 
 use bevy::{
-    asset::io::{
-        file::FileAssetReader, AssetReader, AssetReaderError, AssetSource, AssetSourceId,
-        PathStream, Reader,
-    },
+    asset::io::{AssetReader, AssetReaderError, AssetSource, AssetSourceId, PathStream, Reader},
     prelude::*,
     utils::BoxedFuture,
 };
 use std::path::Path;
 
 /// A custom asset reader implementation that wraps a given asset reader implementation
-struct CustomAssetReader<T: AssetReader>(T);
+struct CustomAssetReader(Box<dyn AssetReader>);
 
-impl<T: AssetReader> AssetReader for CustomAssetReader<T> {
+impl AssetReader for CustomAssetReader {
     fn read<'a>(
         &'a self,
         path: &'a Path,
@@ -52,8 +49,12 @@ impl Plugin for CustomAssetReaderPlugin {
     fn build(&self, app: &mut App) {
         app.register_asset_source(
             AssetSourceId::Default,
-            AssetSource::build()
-                .with_reader(|| Box::new(CustomAssetReader(FileAssetReader::new("assets")))),
+            AssetSource::build().with_reader(|| {
+                Box::new(CustomAssetReader(
+                    // This is the default reader for the current platform
+                    AssetSource::get_default_reader("assets".to_string())(),
+                ))
+            }),
         );
     }
 }

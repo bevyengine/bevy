@@ -44,12 +44,6 @@ impl FileAssetReader {
     /// See `get_base_path` below.
     pub fn new<P: AsRef<Path>>(path: P) -> Self {
         let root_path = Self::get_base_path().join(path.as_ref());
-        std::fs::create_dir_all(&root_path).unwrap_or_else(|e| {
-            panic!(
-                "Failed to create root directory {:?} for file asset reader: {:?}",
-                root_path, e
-            )
-        });
         Self { root_path }
     }
 
