@@ -240,7 +240,9 @@ mod tests {
     #[test]
     fn distributive_run_if_compiles() {
         Schedule::default().add_systems(
-            (test_system, test_system).distributive_run_if(on_timer(Duration::new(1, 0))),
+            (test_system, test_system)
+                .distributive_run_if(on_timer(Duration::new(1, 0)))
+                .distributive_run_if(paused()),
         );
     }
 }
