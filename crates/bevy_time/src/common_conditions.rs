@@ -209,19 +209,26 @@ pub fn repeating_after_real_delay(
 ///
 /// ```rust,no_run
 /// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup, Update};
-/// # use bevy_ecs::schedule::IntoSystemConfigs;
+/// # use bevy_ecs::schedule::{common_conditions::not, IntoSystemConfigs};
 /// # use bevy_time::common_conditions::paused;
 /// fn main() {
 ///     App::new()
 ///         .add_plugins(DefaultPlugins)
 ///         .add_systems(
 ///             Update,
-///             tick.run_if(paused()),
+///             (
+///                 is_paused.run_if(paused()),
+///                 not_paused.run_if(not(paused())),
+///             )
 ///         )
 ///     .run();
 /// }
-/// fn tick() {
+/// fn is_paused() {
 ///     // ran when time is paused
+/// }
+///
+/// fn not_paused() {
+///     // ran when time is not paused
 /// }
 /// ```
 pub fn paused() -> impl FnMut(Res<Time<Virtual>>) -> bool + Clone {
