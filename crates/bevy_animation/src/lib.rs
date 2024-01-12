@@ -956,6 +956,7 @@ impl Plugin for AnimationPlugin {
     }
 }
 
+#[cfg(test)]
 mod tests {
     use crate::VariableCurve;
     use bevy_math::Vec3;
