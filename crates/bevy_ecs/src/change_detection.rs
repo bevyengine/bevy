@@ -214,7 +214,7 @@ pub trait DetectChangesMut: DetectChanges {
     /// # score_changed.initialize(&mut world);
     /// # score_changed.run((), &mut world);
     /// #
-    /// # let mut score_changed_event = IntoSystem::into_system(on_event::<ScoreChanged>);
+    /// # let mut score_changed_event = IntoSystem::into_system(on_event::<ScoreChanged>());
     /// # score_changed_event.initialize(&mut world);
     /// # score_changed_event.run((), &mut world);
     /// #
