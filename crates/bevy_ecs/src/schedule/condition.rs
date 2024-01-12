@@ -273,11 +273,11 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
-    pub fn resource_exists<T>() -> impl FnMut(Option<Res<T>>) -> bool + Clone
+    pub fn resource_exists<T>(res: Option<Res<T>>) -> bool
     where
         T: Resource,
     {
-        move |res: Option<Res<T>>| res.is_some()
+        res.is_some()
     }
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
@@ -396,11 +396,11 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
-    pub fn resource_added<T>() -> impl FnMut(Option<Res<T>>) -> bool + Clone
+    pub fn resource_added<T>(res: Option<Res<T>>) -> bool
     where
         T: Resource,
     {
-        move |res: Option<Res<T>>| match res {
+        match res {
             Some(res) => res.is_added(),
             None => false,
         }
@@ -453,11 +453,11 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 51);
     /// ```
-    pub fn resource_changed<T>() -> impl FnMut(Res<T>) -> bool + Clone
+    pub fn resource_changed<T>(res: Res<T>) -> bool
     where
         T: Resource,
     {
-        move |res: Res<T>| res.is_changed()
+        res.is_changed()
     }
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
@@ -510,11 +510,11 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 51);
     /// ```
-    pub fn resource_exists_and_changed<T>() -> impl FnMut(Option<Res<T>>) -> bool + Clone
+    pub fn resource_exists_and_changed<T>(res: Option<Res<T>>) -> bool
     where
         T: Resource,
     {
-        move |res: Option<Res<T>>| match res {
+        match res {
             Some(res) => res.is_changed(),
             None => false,
         }
@@ -694,8 +694,8 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
-    pub fn state_exists<S: States>() -> impl FnMut(Option<Res<State<S>>>) -> bool + Clone {
-        move |current_state: Option<Res<State<S>>>| current_state.is_some()
+    pub fn state_exists<S: States>(current_state: Option<Res<State<S>>>) -> bool {
+        current_state.is_some()
     }
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
@@ -866,8 +866,8 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 2);
     /// ```
-    pub fn state_changed<S: States>() -> impl FnMut(Res<State<S>>) -> bool + Clone {
-        move |current_state: Res<State<S>>| current_state.is_changed()
+    pub fn state_changed<S: States>(current_state: Res<State<S>>) -> bool {
+        current_state.is_changed()
     }
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
@@ -947,8 +947,8 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
-    pub fn any_with_component<T: Component>() -> impl FnMut(Query<(), With<T>>) -> bool + Clone {
-        move |query: Query<(), With<T>>| !query.is_empty()
+    pub fn any_with_component<T: Component>(query: Query<(), With<T>>) -> bool {
+        !query.is_empty()
     }
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
@@ -1199,17 +1199,17 @@ mod tests {
         Schedule::default().add_systems(
             (test_system, test_system)
                 .distributive_run_if(run_once())
-                .distributive_run_if(resource_exists::<State<TestState>>())
-                .distributive_run_if(resource_added::<State<TestState>>())
-                .distributive_run_if(resource_changed::<State<TestState>>())
-                .distributive_run_if(resource_exists_and_changed::<State<TestState>>())
+                .distributive_run_if(resource_exists::<State<TestState>>)
+                .distributive_run_if(resource_added::<State<TestState>>)
+                .distributive_run_if(resource_changed::<State<TestState>>)
+                .distributive_run_if(resource_exists_and_changed::<State<TestState>>)
                 .distributive_run_if(resource_changed_or_removed::<State<TestState>>())
                 .distributive_run_if(resource_removed::<State<TestState>>())
-                .distributive_run_if(state_exists::<TestState>())
+                .distributive_run_if(state_exists::<TestState>)
                 .distributive_run_if(in_state(TestState::A).or_else(in_state(TestState::B)))
-                .distributive_run_if(state_changed::<TestState>())
+                .distributive_run_if(state_changed::<TestState>)
                 .distributive_run_if(on_event::<TestEvent>())
-                .distributive_run_if(any_with_component::<TestComponent>())
+                .distributive_run_if(any_with_component::<TestComponent>)
                 .distributive_run_if(not(run_once())),
         );
     }
