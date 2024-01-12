@@ -107,7 +107,7 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     /// # fn my_system() {}
     /// app.add_systems(
     ///     // `resource_equals` will only get run if the resource `R` exists.
-    ///     my_system.run_if(resource_exists::<R>().and_then(resource_equals(R(0)))),
+    ///     my_system.run_if(resource_exists::<R>.and_then(resource_equals(R(0)))),
     /// );
     /// # app.run(&mut world);
     /// ```
@@ -145,7 +145,7 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     /// # fn my_system(mut c: ResMut<C>) { c.0 = true; }
     /// app.add_systems(
     ///     // Only run the system if either `A` or `B` exist.
-    ///     my_system.run_if(resource_exists::<A>().or_else(resource_exists::<B>())),
+    ///     my_system.run_if(resource_exists::<A>.or_else(resource_exists::<B>)),
     /// );
     /// #
     /// # world.insert_resource(C(false));
@@ -258,7 +258,7 @@ pub mod common_conditions {
     /// # let mut world = World::new();
     /// app.add_systems(
     ///     // `resource_exists` will only return true if the given resource exists in the world
-    ///     my_system.run_if(resource_exists::<Counter>()),
+    ///     my_system.run_if(resource_exists::<Counter>),
     /// );
     ///
     /// fn my_system(mut counter: ResMut<Counter>) {
@@ -379,7 +379,7 @@ pub mod common_conditions {
     /// app.add_systems(
     ///     // `resource_added` will only return true if the
     ///     // given resource was just added
-    ///     my_system.run_if(resource_added::<Counter>()),
+    ///     my_system.run_if(resource_added::<Counter>),
     /// );
     ///
     /// fn my_system(mut counter: ResMut<Counter>) {
@@ -431,11 +431,11 @@ pub mod common_conditions {
     ///     // `resource_changed` will only return true if the
     ///     // given resource was just changed (or added)
     ///     my_system.run_if(
-    ///         resource_changed::<Counter>()
+    ///         resource_changed::<Counter>
     ///         // By default detecting changes will also trigger if the resource was
     ///         // just added, this won't work with my example so I will add a second
     ///         // condition to make sure the resource wasn't just added
-    ///         .and_then(not(resource_added::<Counter>()))
+    ///         .and_then(not(resource_added::<Counter>))
     ///     ),
     /// );
     ///
@@ -484,11 +484,11 @@ pub mod common_conditions {
     ///     // `resource_exists_and_changed` will only return true if the
     ///     // given resource exists and was just changed (or added)
     ///     my_system.run_if(
-    ///         resource_exists_and_changed::<Counter>()
+    ///         resource_exists_and_changed::<Counter>
     ///         // By default detecting changes will also trigger if the resource was
     ///         // just added, this won't work with my example so I will add a second
     ///         // condition to make sure the resource wasn't just added
-    ///         .and_then(not(resource_added::<Counter>()))
+    ///         .and_then(not(resource_added::<Counter>))
     ///     ),
     /// );
     ///
@@ -546,11 +546,11 @@ pub mod common_conditions {
     ///     // `resource_changed_or_removed` will only return true if the
     ///     // given resource was just changed or removed (or added)
     ///     my_system.run_if(
-    ///         resource_changed_or_removed::<Counter>()
+    ///         resource_changed_or_removed::<Counter>
     ///         // By default detecting changes will also trigger if the resource was
     ///         // just added, this won't work with my example so I will add a second
     ///         // condition to make sure the resource wasn't just added
-    ///         .and_then(not(resource_added::<Counter>()))
+    ///         .and_then(not(resource_added::<Counter>))
     ///     ),
     /// );
     ///
@@ -677,7 +677,7 @@ pub mod common_conditions {
     /// app.add_systems(
     ///     // `state_exists` will only return true if the
     ///     // given state exists
-    ///     my_system.run_if(state_exists::<GameState>()),
+    ///     my_system.run_if(state_exists::<GameState>),
     /// );
     ///
     /// fn my_system(mut counter: ResMut<Counter>) {
@@ -845,7 +845,7 @@ pub mod common_conditions {
     ///     // `state_changed` will only return true if the
     ///     // given states value has just been updated or
     ///     // the state has just been added
-    ///     my_system.run_if(state_changed::<GameState>()),
+    ///     my_system.run_if(state_changed::<GameState>),
     /// );
     ///
     /// fn my_system(mut counter: ResMut<Counter>) {
@@ -927,7 +927,7 @@ pub mod common_conditions {
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// app.add_systems(
-    ///     my_system.run_if(any_with_component::<MyComponent>()),
+    ///     my_system.run_if(any_with_component::<MyComponent>),
     /// );
     ///
     /// #[derive(Component)]
