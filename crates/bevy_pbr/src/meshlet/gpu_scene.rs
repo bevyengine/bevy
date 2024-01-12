@@ -129,6 +129,7 @@ pub fn queue_material_meshlet_meshes<M: Material>(
     }
 }
 
+// TODO: Try using Queue::write_buffer_with() in queue_meshlet_mesh_upload() to reduce copies
 fn upload_storage_buffer<T: ShaderSize + bytemuck::Pod>(
     buffer: &mut StorageBuffer<Vec<T>>,
     render_device: &RenderDevice,
