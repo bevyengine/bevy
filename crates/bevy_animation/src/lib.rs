@@ -95,22 +95,26 @@ impl VariableCurve {
             .keyframe_timestamps
             .binary_search_by(|probe| probe.partial_cmp(&seek_time).unwrap());
 
+        // Subtract one for zero indexing!
+        let last_keyframe = self.keyframes.len() - 1;
+
         // We want to find the index of the keyframe before the current time
         // If the keyframe is past the second-to-last keyframe, the animation cannot be interpolated.
         let step_start = match search_result {
-            // An exact match was found, and it is the last or second last keyframe.
+            // An exact match was found, and it is the last keyframe (or something has gone terribly wrong).
             // This means that the curve is finished.
-            Ok(n) if n >= self.keyframe_timestamps.len() - 1 => return None,
-            // An exact match was found, and it is not the last or second last keyframe.
+            Ok(n) if n >= last_keyframe => return None,
+            // An exact match was found, and it is not the last keyframe.
             Ok(i) => i,
-            // No exact match was found, and the curve is not yet started.
+            // No exact match was found, and the seek_time is before the start of the animation.
             // This occurs because the binary search returns the index of where we could insert a value
             // without disrupting the order of the vector.
             // If the value is less than the first element, the index will be 0.
             Err(0) => return None,
-            // No exact match was found, and the curve is finished.
-            Err(n) if n > self.keyframe_timestamps.len() - 1 => return None,
-            // No exact match was found
+            // No exact match was found, and it was after the last keyframe.
+            // The curve is finished.
+            Err(n) if n > last_keyframe => return None,
+            // No exact match was found, so return the previous keyframe to interpolate from.
             Err(i) => i - 1,
         };
 
