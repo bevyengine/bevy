@@ -85,6 +85,8 @@ impl VariableCurve {
     /// Find the index of the keyframe at or before the current time.
     ///
     /// Returns [`None`] if the curve is finished or not yet started.
+    /// To be more precise, this returns [`None`] if the frame is at or past the last keyframe:
+    /// we cannot get the *next* keyframe to interpolate to in that case.
     pub fn find_current_keyframe(&self, seek_time: f32) -> Option<usize> {
         // An Ok(keyframe_index) result means an exact result was found by binary search
         // An Err result means the keyframe was not found, and the index is the keyframe
@@ -1048,19 +1050,19 @@ mod tests {
     fn second_last_keyframe_is_found_correctly() {
         let curve = test_variable_curve();
 
-        // Exact time
+        // Exact time match
         let second_last_keyframe = curve.keyframe_timestamps.len() - 2;
         let second_last_time = curve.keyframe_timestamps[second_last_keyframe];
         let maybe_keyframe = curve.find_current_keyframe(second_last_time);
         assert!(maybe_keyframe.unwrap() == second_last_keyframe);
 
-        // Inexact, between the last and second last frames
+        // Inexact match, between the last and second last frames
         let seek_time = second_last_time + 0.001;
         let last_time = curve.keyframe_timestamps[second_last_keyframe + 1];
         assert!(seek_time < last_time);
 
         let maybe_keyframe = curve.find_current_keyframe(seek_time);
-        assert!(maybe_keyframe.is_none(), "{maybe_keyframe:?}");
+        assert!(maybe_keyframe.unwrap() == second_last_keyframe);
     }
 
     #[test]
@@ -1086,12 +1088,14 @@ mod tests {
             let seek_time = curve.keyframe_timestamps[i];
 
             let exact_keyframe = curve.find_current_keyframe(seek_time).unwrap();
-            let maybe_inexact_keyframe = curve.find_current_keyframe(seek_time + 0.001);
 
-            match maybe_inexact_keyframe {
-                Some(inexact_keyframe) => assert!(exact_keyframe == inexact_keyframe),
-                None => assert!(exact_keyframe == curve.keyframes.len() - 1),
-            }
+            let inexact_seek_time = seek_time + 0.0001;
+            let final_time = *curve.keyframe_timestamps.last().unwrap();
+            assert!(inexact_seek_time < final_time);
+
+            let inexact_keyframe = curve.find_current_keyframe(inexact_seek_time).unwrap();
+
+            assert!(exact_keyframe == inexact_keyframe);
         }
     }
 }
