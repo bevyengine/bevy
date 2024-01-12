@@ -61,10 +61,13 @@ pub struct UiDebugOptions {
     layout_gizmos_camera: Option<Entity>,
 }
 impl UiDebugOptions {
+    /// This will toggle the enabled field, setting it to false if true and true if false.
     pub fn toggle(&mut self) {
         self.enabled = !self.enabled;
     }
 }
+
+/// The system responsible to change the [`Camera`] config based on changes in [`UiDebugOptions`] and [`GizmoConfig`].
 fn update_debug_camera(
     mut gizmo_config: ResMut<GizmoConfig>,
     mut options: ResMut<UiDebugOptions>,
@@ -116,6 +119,7 @@ fn update_debug_camera(
     }
 }
 
+/// The function that goes over every children of given [`Entity`], skipping the not visible ones and drawing the gizmos outlines.
 fn outline_nodes(outline: &OutlineParam, draw: &mut InsetGizmo, this_entity: Entity, scale: f32) {
     let Ok(to_iter) = outline.children.get(this_entity) else {
         return;
@@ -159,6 +163,7 @@ struct OutlineParam<'w, 's> {
 
 type CameraQuery<'w, 's> = Query<'w, 's, &'static Camera, With<DebugOverlayCamera>>;
 
+/// system responsible for drawing the gizmos lines around all the node roots, iterating recursively through all visible children.
 fn outline_roots(
     outline: OutlineParam,
     draw: Gizmos,
@@ -195,6 +200,8 @@ fn outline_roots(
         outline_nodes(&outline, &mut draw, entity, scale_factor);
     }
 }
+
+/// Function responsible for drawing the gizmos lines around the given Entity
 fn outline_node(entity: Entity, rect: LayoutRect, draw: &mut InsetGizmo) {
     let hue = hue_from_entity(entity);
     let color = Color::hsl(hue, NODE_SATURATION, NODE_LIGHTNESS);
@@ -220,6 +227,7 @@ impl Plugin for DebugUiPlugin {
                 update_debug_camera,
                 outline_roots
                     .after(TransformSystem::TransformPropagate)
+                    // This needs to run before VisibilityPropagate so it can relies on ViewVisibility
                     .before(VisibilitySystems::VisibilityPropagate),
             )
                 .chain(),
