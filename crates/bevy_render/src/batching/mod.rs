@@ -1,5 +1,6 @@
 use bevy_ecs::{
     component::Component,
+    entity::Entity,
     prelude::Res,
     query::{QueryFilter, QueryItem, ReadOnlyQueryData},
     system::{Query, ResMut, StaticSystemParam, SystemParam, SystemParamItem},
@@ -78,16 +79,48 @@ pub trait GetBatchData {
 
 /// Batch the items in a render phase. This means comparing metadata needed to draw each phase item
 /// and trying to combine the draws into a batch.
-pub fn batch_and_prepare_render_phase<I: CachedRenderPipelinePhaseItem, F: GetBatchData>(
+pub fn batch_and_prepare_render_phase<
+    I: CachedRenderPipelinePhaseItem,
+    F: GetBatchData<Data = Entity>,
+>(
     gpu_array_buffer: ResMut<GpuArrayBuffer<F::BufferData>>,
     mut views: Query<&mut RenderPhase<I>>,
-    query: Query<F::Data, F::Filter>,
     param: StaticSystemParam<F::Param>,
 ) {
     let gpu_array_buffer = gpu_array_buffer.into_inner();
     let system_param_item = param.into_inner();
 
-    let mut process_item = |item: &mut I| {
+    let process_item = |item: &mut I| {
+        let (buffer_data, compare_data) = F::get_batch_data(&system_param_item, &item.entity());
+        let buffer_index = gpu_array_buffer.push(buffer_data);
+
+        let index = buffer_index.index.get();
+        *item.batch_range_mut() = index..index + 1;
+        *item.dynamic_offset_mut() = buffer_index.dynamic_offset;
+
+        if I::AUTOMATIC_BATCHING {
+            compare_data.map(|compare_data| BatchMeta::new(item, compare_data))
+        } else {
+            None
+        }
+    };
+
+    apply_batch::<I, F>(&mut views, process_item);
+}
+
+pub fn batch_and_prepare_render_phase_with_query<
+    I: CachedRenderPipelinePhaseItem,
+    F: GetBatchData,
+>(
+    gpu_array_buffer: ResMut<GpuArrayBuffer<F::BufferData>>,
+    mut views: Query<&mut RenderPhase<I>>,
+    param: StaticSystemParam<F::Param>,
+    query: Query<F::Data, F::Filter>,
+) {
+    let gpu_array_buffer = gpu_array_buffer.into_inner();
+    let system_param_item = param.into_inner();
+
+    let process_item = |item: &mut I| {
         let batch_query_item = query.get(item.entity()).ok()?;
 
         let (buffer_data, compare_data) = F::get_batch_data(&system_param_item, &batch_query_item);
@@ -104,9 +137,16 @@ pub fn batch_and_prepare_render_phase<I: CachedRenderPipelinePhaseItem, F: GetBa
         }
     };
 
-    for mut phase in &mut views {
+    apply_batch::<I, F>(&mut views, process_item);
+}
+
+fn apply_batch<I: CachedRenderPipelinePhaseItem, F: GetBatchData>(
+    views: &mut Query<&mut RenderPhase<I>>,
+    mut process: impl FnMut(&mut I) -> Option<BatchMeta<<F as GetBatchData>::CompareData>>,
+) {
+    for mut phase in views {
         let items = phase.items.iter_mut().map(|item| {
-            let batch_data = process_item(item);
+            let batch_data = process(item);
             (item.batch_range_mut(), batch_data)
         });
         items.reduce(|(start_range, prev_batch_meta), (range, batch_meta)| {
@@ -119,7 +159,6 @@ pub fn batch_and_prepare_render_phase<I: CachedRenderPipelinePhaseItem, F: GetBa
         });
     }
 }
-
 pub fn write_batched_instance_buffer<F: GetBatchData>(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
