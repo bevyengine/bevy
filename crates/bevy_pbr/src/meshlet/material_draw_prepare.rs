@@ -214,7 +214,6 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
     mut cache: Local<HashMap<MeshPipelineKey, CachedRenderPipelineId>>,
     pipeline_cache: Res<PipelineCache>,
     prepass_pipeline: Res<PrepassPipeline<M>>,
-    mesh_pipeline: Res<MeshPipeline>,
     render_materials: Res<RenderMaterials<M>>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
     asset_server: Res<AssetServer>,
@@ -302,10 +301,22 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
             let mut shader_defs = material_fragment.shader_defs;
             shader_defs.push("MESHLET_MESH_MATERIAL_PASS".into());
 
+            let view_layout = if view_key.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS) {
+                prepass_pipeline.view_layout_motion_vectors.clone()
+            } else {
+                prepass_pipeline.view_layout_no_motion_vectors.clone()
+            };
+
+            let fragment_shader = if view_key.contains(MeshPipelineKey::DEFERRED_PREPASS) {
+                M::meshlet_mesh_deferred_fragment_shader()
+            } else {
+                M::meshlet_mesh_prepass_fragment_shader()
+            };
+
             let pipeline_descriptor = RenderPipelineDescriptor {
                 label: material_pipeline_descriptor.label,
                 layout: vec![
-                    mesh_pipeline.get_view_layout(view_key.into()).clone(),
+                    view_layout,
                     gpu_scene.material_draw_bind_group_layout(),
                     prepass_pipeline.material_layout.clone(),
                 ],
@@ -326,9 +337,7 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
                 }),
                 multisample: MultisampleState::default(),
                 fragment: Some(FragmentState {
-                    shader: match todo!(
-                        "Get the correct regular/deferred prepass meshlet shader from the material"
-                    ) {
+                    shader: match fragment_shader {
                         ShaderRef::Default => MESHLET_MESH_MATERIAL_SHADER_HANDLE,
                         ShaderRef::Handle(handle) => handle,
                         ShaderRef::Path(path) => asset_server.load(path),

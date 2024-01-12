@@ -802,7 +802,15 @@ impl Material for StandardMaterial {
     }
 
     fn meshlet_mesh_fragment_shader() -> ShaderRef {
-        PBR_SHADER_HANDLE.into()
+        Self::fragment_shader()
+    }
+
+    fn meshlet_mesh_prepass_fragment_shader() -> ShaderRef {
+        Self::prepass_fragment_shader()
+    }
+
+    fn meshlet_mesh_deferred_fragment_shader() -> ShaderRef {
+        Self::deferred_fragment_shader()
     }
 
     fn specialize(
