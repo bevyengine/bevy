@@ -231,8 +231,8 @@ pub fn repeating_after_real_delay(
 ///     // ran when time is not paused
 /// }
 /// ```
-pub fn paused() -> impl FnMut(Res<Time<Virtual>>) -> bool + Clone {
-    move |time: Res<Time<Virtual>>| time.is_paused()
+pub fn paused(time: Res<Time<Virtual>>) -> bool {
+    time.is_paused()
 }
 
 #[cfg(test)]
