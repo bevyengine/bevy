@@ -13,7 +13,7 @@ use bevy_transform::components::{GlobalTransform, Transform};
 #[derive(Bundle, Clone, Default)]
 pub struct SpriteBundle {
     pub sprite: Sprite,
-    /// Defines if how the sprite behaves along its size
+    /// Controls how the image is altered when scaled.
     pub scale_mode: ImageScaleMode,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
@@ -32,7 +32,7 @@ pub struct SpriteBundle {
 pub struct SpriteSheetBundle {
     /// The specific sprite from the texture atlas to be drawn, defaulting to the sprite at index 0.
     pub sprite: TextureAtlasSprite,
-    /// Defines if how the sprite behaves along its size
+    /// Controls how the image is altered when scaled.
     pub scale_mode: ImageScaleMode,
     /// A handle to the texture atlas that holds the sprite images
     pub texture_atlas: Handle<TextureAtlas>,
