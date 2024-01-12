@@ -30,7 +30,10 @@ use bevy_render::{
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::tracing::error;
 
-use crate::*;
+use crate::{
+    meshlet::{prepare_material_meshlet_meshes_prepass, MeshletGpuScene},
+    *,
+};
 
 use std::{hash::Hash, marker::PhantomData};
 
@@ -167,11 +170,17 @@ where
             .add_render_command::<AlphaMask3dDeferred, DrawPrepass<M>>()
             .add_systems(
                 Render,
-                queue_prepass_material_meshes::<M>
-                    .in_set(RenderSet::QueueMeshes)
-                    .after(prepare_materials::<M>)
-                    // queue_material_meshes only writes to `material_bind_group_id`, which `queue_prepass_material_meshes` doesn't read
-                    .ambiguous_with(queue_material_meshes::<StandardMaterial>),
+                (
+                    queue_prepass_material_meshes::<M>
+                        .in_set(RenderSet::QueueMeshes)
+                        .after(prepare_materials::<M>)
+                        // queue_material_meshes only writes to `material_bind_group_id`, which `queue_prepass_material_meshes` doesn't read
+                        .ambiguous_with(queue_material_meshes::<StandardMaterial>),
+                    prepare_material_meshlet_meshes_prepass::<M>
+                        .in_set(RenderSet::PrepareAssets)
+                        .after(prepare_materials::<M>)
+                        .run_if(resource_exists::<MeshletGpuScene>()),
+                ),
             );
     }
 }

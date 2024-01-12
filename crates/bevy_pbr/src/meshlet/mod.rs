@@ -13,7 +13,9 @@ mod visibility_buffer_raster_node;
 
 pub(crate) use self::{
     gpu_scene::{queue_material_meshlet_meshes, MeshletGpuScene},
-    material_draw_prepare::prepare_material_meshlet_meshes,
+    material_draw_prepare::{
+        prepare_material_meshlet_meshes_main_opaque_pass, prepare_material_meshlet_meshes_prepass,
+    },
 };
 
 pub use self::asset::{Meshlet, MeshletBoundingSphere, MeshletMesh};
@@ -27,7 +29,10 @@ use self::{
         prepare_meshlet_per_frame_resources, prepare_meshlet_view_bind_groups,
     },
     material_draw_nodes::{
-        draw_3d_graph::node::MESHLET_MAIN_OPAQUE_PASS_3D, MeshletMainOpaquePass3dNode,
+        draw_3d_graph::node::{
+            MESHLET_DEFERRED_PREPASS, MESHLET_MAIN_OPAQUE_PASS_3D, MESHLET_PREPASS,
+        },
+        MeshletDeferredPrepassNode, MeshletMainOpaquePass3dNode, MeshletPrepassNode,
     },
     pipelines::{
         MeshletPipelines, MESHLET_COPY_MATERIAL_DEPTH_SHADER_HANDLE, MESHLET_CULLING_SHADER_HANDLE,
@@ -159,6 +164,11 @@ impl Plugin for MeshletPlugin {
                 CORE_3D,
                 MESHLET_VISIBILITY_BUFFER_RASTER_PASS,
             )
+            .add_render_graph_node::<ViewNodeRunner<MeshletPrepassNode>>(CORE_3D, MESHLET_PREPASS)
+            .add_render_graph_node::<ViewNodeRunner<MeshletDeferredPrepassNode>>(
+                CORE_3D,
+                MESHLET_DEFERRED_PREPASS,
+            )
             .add_render_graph_node::<ViewNodeRunner<MeshletMainOpaquePass3dNode>>(
                 CORE_3D,
                 MESHLET_MAIN_OPAQUE_PASS_3D,
@@ -168,6 +178,8 @@ impl Plugin for MeshletPlugin {
                 &[
                     MESHLET_VISIBILITY_BUFFER_RASTER_PASS,
                     SHADOW_PASS,
+                    MESHLET_PREPASS,
+                    MESHLET_DEFERRED_PREPASS,
                     PREPASS,
                     DEFERRED_PREPASS,
                     COPY_DEFERRED_LIGHTING_ID,

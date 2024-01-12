@@ -1,6 +1,6 @@
 use super::{
     gpu_scene::{MeshletViewBindGroups, MeshletViewResources},
-    material_draw_prepare::MeshletViewMaterials,
+    material_draw_prepare::MeshletViewMaterialsMainOpaquePass,
     MeshletGpuScene,
 };
 use crate::{
@@ -20,6 +20,8 @@ use bevy_render::{
 
 pub mod draw_3d_graph {
     pub mod node {
+        pub const MESHLET_PREPASS: &str = "meshlet_prepass";
+        pub const MESHLET_DEFERRED_PREPASS: &str = "meshlet_deferred_prepass";
         pub const MESHLET_MAIN_OPAQUE_PASS_3D: &str = "meshlet_main_opaque_pass_3d";
     }
 }
@@ -35,7 +37,7 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
         &'static ViewLightsUniformOffset,
         &'static ViewFogUniformOffset,
         &'static ViewLightProbesUniformOffset,
-        &'static MeshletViewMaterials,
+        &'static MeshletViewMaterialsMainOpaquePass,
         &'static MeshletViewBindGroups,
         &'static MeshletViewResources,
     );
@@ -104,7 +106,7 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
         render_pass.set_bind_group(1, meshlet_material_draw_bind_group, &[]);
 
         for (material_id, material_pipeline_id, material_bind_group) in
-            &meshlet_view_materials.opaque_pass
+            meshlet_view_materials.iter()
         {
             if meshlet_gpu_scene.material_present_in_scene(material_id) {
                 if let Some(material_pipeline) =
@@ -118,6 +120,40 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
             }
         }
 
+        Ok(())
+    }
+}
+
+#[derive(Default)]
+pub struct MeshletPrepassNode;
+impl ViewNode for MeshletPrepassNode {
+    type ViewData = ();
+
+    fn run(
+        &self,
+        _graph: &mut RenderGraphContext,
+        render_context: &mut RenderContext,
+        (): QueryItem<Self::ViewData>,
+        world: &World,
+    ) -> Result<(), NodeRunError> {
+        todo!();
+        Ok(())
+    }
+}
+
+#[derive(Default)]
+pub struct MeshletDeferredPrepassNode;
+impl ViewNode for MeshletDeferredPrepassNode {
+    type ViewData = ();
+
+    fn run(
+        &self,
+        _graph: &mut RenderGraphContext,
+        render_context: &mut RenderContext,
+        (): QueryItem<Self::ViewData>,
+        world: &World,
+    ) -> Result<(), NodeRunError> {
+        todo!();
         Ok(())
     }
 }
