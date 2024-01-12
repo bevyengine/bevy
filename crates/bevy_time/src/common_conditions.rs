@@ -204,9 +204,27 @@ pub fn repeating_after_real_delay(
 }
 
 /// Run condition that is active when the [`Time<Virtual>`] clock is paused.
-/// Use [`bevy::ecs::schedule::common_conditions::not'] to make it active when
+/// Use [`bevy_ecs::schedule::common_conditions::not`] to make it active when
 /// it's not paused.
-pub fn on_paused() -> impl FnMut(Res<Time<Virtual>>) -> bool + Clone {
+///
+/// ```rust,no_run
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup, Update};
+/// # use bevy_ecs::schedule::IntoSystemConfigs;
+/// # use bevy_time::common_conditions::paused;
+/// fn main() {
+///     App::new()
+///         .add_plugins(DefaultPlugins)
+///         .add_systems(
+///             Update,
+///             tick.run_if(paused()),
+///         )
+///     .run();
+/// }
+/// fn tick() {
+///     // ran when time is paused
+/// }
+/// ```
+pub fn paused() -> impl FnMut(Res<Time<Virtual>>) -> bool + Clone {
     move |time: Res<Time<Virtual>>| time.is_paused()
 }
 
