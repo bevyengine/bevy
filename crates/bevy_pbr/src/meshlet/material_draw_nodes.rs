@@ -244,18 +244,123 @@ impl ViewNode for MeshletPrepassNode {
 }
 
 #[derive(Default)]
-pub struct MeshletDeferredPrepassNode;
-impl ViewNode for MeshletDeferredPrepassNode {
-    type ViewData = ();
+pub struct MeshletDeferredGBufferPrepassNode;
+impl ViewNode for MeshletDeferredGBufferPrepassNode {
+    type ViewData = (
+        &'static ExtractedCamera,
+        &'static ViewPrepassTextures,
+        &'static ViewUniformOffset,
+        Option<&'static PreviousViewProjectionUniformOffset>,
+        &'static MeshletViewMaterialsPrepass,
+        &'static MeshletViewBindGroups,
+        &'static MeshletViewResources,
+    );
 
     fn run(
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (): QueryItem<Self::ViewData>,
+        (
+            camera,
+            view_prepass_textures,
+            view_uniform_offset,
+            previous_view_projection_uniform_offset,
+            meshlet_view_materials,
+            meshlet_view_bind_groups,
+            meshlet_view_resources,
+        ): QueryItem<Self::ViewData>,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        // TODO
+        let (
+            Some(prepass_view_bind_group),
+            Some(meshlet_gpu_scene),
+            Some(pipeline_cache),
+            Some(meshlet_material_depth),
+            Some(meshlet_material_draw_bind_group),
+        ) = (
+            world.get_resource::<PrepassViewBindGroup>(),
+            world.get_resource::<MeshletGpuScene>(),
+            world.get_resource::<PipelineCache>(),
+            meshlet_view_resources.material_depth.as_ref(),
+            meshlet_view_bind_groups.material_draw.as_ref(),
+        )
+        else {
+            return Ok(());
+        };
+
+        let color_attachments = vec![
+            view_prepass_textures
+                .normal
+                .as_ref()
+                .map(|normals_texture| normals_texture.get_attachment()),
+            view_prepass_textures
+                .motion_vectors
+                .as_ref()
+                .map(|motion_vectors_texture| motion_vectors_texture.get_attachment()),
+            view_prepass_textures
+                .deferred
+                .as_ref()
+                .map(|deferred_texture| deferred_texture.get_attachment()),
+            view_prepass_textures
+                .deferred_lighting_pass_id
+                .as_ref()
+                .map(|deferred_lighting_pass_id| deferred_lighting_pass_id.get_attachment()),
+        ];
+
+        let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
+            label: Some(draw_3d_graph::node::MESHLET_DEFERRED_PREPASS),
+            color_attachments: &color_attachments,
+            depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+                view: &meshlet_material_depth.default_view,
+                depth_ops: Some(Operations {
+                    load: LoadOp::Load,
+                    store: StoreOp::Discard,
+                }),
+                stencil_ops: None,
+            }),
+            timestamp_writes: None,
+            occlusion_query_set: None,
+        });
+        if let Some(viewport) = camera.viewport.as_ref() {
+            render_pass.set_camera_viewport(viewport);
+        }
+
+        if let Some(previous_view_projection_uniform_offset) =
+            previous_view_projection_uniform_offset
+        {
+            render_pass.set_bind_group(
+                0,
+                prepass_view_bind_group.motion_vectors.as_ref().unwrap(),
+                &[
+                    view_uniform_offset.offset,
+                    previous_view_projection_uniform_offset.offset,
+                ],
+            );
+        } else {
+            render_pass.set_bind_group(
+                0,
+                prepass_view_bind_group.no_motion_vectors.as_ref().unwrap(),
+                &[view_uniform_offset.offset],
+            );
+        }
+
+        render_pass.set_bind_group(1, meshlet_material_draw_bind_group, &[]);
+
+        for (material_id, material_pipeline_id, material_bind_group) in
+            meshlet_view_materials.iter()
+        {
+            if meshlet_gpu_scene.material_present_in_scene(material_id) {
+                if let Some(material_pipeline) =
+                    pipeline_cache.get_render_pipeline(*material_pipeline_id)
+                {
+                    let x = *material_id * 3;
+                    render_pass.set_bind_group(2, material_bind_group, &[]);
+                    render_pass.set_render_pipeline(material_pipeline);
+                    render_pass.draw(x..(x + 3), 0..1);
+                }
+            }
+        }
+
         Ok(())
     }
 }

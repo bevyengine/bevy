@@ -32,7 +32,7 @@ use self::{
         draw_3d_graph::node::{
             MESHLET_DEFERRED_PREPASS, MESHLET_MAIN_OPAQUE_PASS_3D, MESHLET_PREPASS,
         },
-        MeshletDeferredPrepassNode, MeshletMainOpaquePass3dNode, MeshletPrepassNode,
+        MeshletDeferredGBufferPrepassNode, MeshletMainOpaquePass3dNode, MeshletPrepassNode,
     },
     pipelines::{
         MeshletPipelines, MESHLET_COPY_MATERIAL_DEPTH_SHADER_HANDLE, MESHLET_CULLING_SHADER_HANDLE,
@@ -165,7 +165,7 @@ impl Plugin for MeshletPlugin {
                 MESHLET_VISIBILITY_BUFFER_RASTER_PASS,
             )
             .add_render_graph_node::<ViewNodeRunner<MeshletPrepassNode>>(CORE_3D, MESHLET_PREPASS)
-            .add_render_graph_node::<ViewNodeRunner<MeshletDeferredPrepassNode>>(
+            .add_render_graph_node::<ViewNodeRunner<MeshletDeferredGBufferPrepassNode>>(
                 CORE_3D,
                 MESHLET_DEFERRED_PREPASS,
             )

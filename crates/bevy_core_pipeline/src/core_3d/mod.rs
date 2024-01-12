@@ -805,7 +805,7 @@ pub fn prepare_prepass_textures(
                 .clone()
         });
 
-        let deferred_lighting_pass_id_texture = deferred_prepass.then(|| {
+        let cached_deferred_lighting_pass_id_texture = deferred_prepass.then(|| {
             deferred_lighting_id_textures
                 .entry(camera.target.clone())
                 .or_insert_with(|| {
@@ -836,7 +836,8 @@ pub fn prepare_prepass_textures(
             motion_vectors: cached_motion_vectors_texture
                 .map(|t| ColorAttachment::new(t, None, Color::BLACK)),
             deferred: cached_deferred_texture.map(|t| ColorAttachment::new(t, None, Color::BLACK)),
-            deferred_lighting_pass_id: deferred_lighting_pass_id_texture,
+            deferred_lighting_pass_id: cached_deferred_lighting_pass_id_texture
+                .map(|t| ColorAttachment::new(t, None, Color::BLACK)),
             size,
         });
     }

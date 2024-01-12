@@ -12,6 +12,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(MeshletPlugin)
+        .add_plugins(TemporalAntiAliasPlugin)
         .add_systems(Startup, setup)
         .add_systems(Update, camera_controller)
         .run();
@@ -37,6 +38,7 @@ fn setup(
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
         },
+        TemporalAntiAliasBundle::default(),
         CameraController::default(),
     ));
 
@@ -90,6 +92,9 @@ fn setup(
 
 use bevy::input::mouse::MouseMotion;
 use bevy::window::CursorGrabMode;
+use bevy_internal::core_pipeline::experimental::taa::{
+    TemporalAntiAliasBundle, TemporalAntiAliasPlugin,
+};
 use std::f32::consts::*;
 
 pub const RADIANS_PER_DOT: f32 = 1.0 / 180.0;
