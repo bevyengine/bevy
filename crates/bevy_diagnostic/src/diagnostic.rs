@@ -2,6 +2,7 @@ use bevy_app::App;
 use bevy_ecs::system::{Deferred, Res, Resource, SystemBuffer, SystemParam};
 use bevy_log::warn;
 use bevy_utils::{Duration, Instant, StableHashMap, Uuid};
+use const_sha1::{sha1, ConstBuffer};
 use std::{borrow::Cow, collections::VecDeque};
 
 use crate::MAX_DIAGNOSTIC_NAME_WIDTH;
@@ -13,6 +14,23 @@ pub struct DiagnosticId(pub Uuid);
 impl DiagnosticId {
     pub const fn from_u128(value: u128) -> Self {
         DiagnosticId(Uuid::from_u128(value))
+    }
+
+    /// Create an id from an arbitrary string.
+    pub const fn from_str(value: &str) -> Self {
+        // Create a hash of the string so we can accept strings of any length.
+        let hash = sha1(&ConstBuffer::from_slice(value.as_bytes())).bytes();
+
+        // We can't use slices in a const function but we can use a while loop
+        // to manually copy the values.
+        let mut bytes_16: [u8; 16] = [0; 16];
+        let mut i = 0;
+        while i < 16 {
+            bytes_16[i] = hash[i];
+            i += 1;
+        }
+
+        DiagnosticId(Uuid::from_bytes(bytes_16))
     }
 }
 
@@ -313,5 +331,30 @@ impl RegisterDiagnostic for App {
         diagnostics.add(diagnostic);
 
         self
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_diagnostic_id_str() {
+        let short_id = DiagnosticId::from_str("short");
+        let short_id2 = DiagnosticId::from_str("short");
+        let long_id = DiagnosticId::from_str(
+            "Long string that should be too long for a u128 but not too long to break",
+        );
+        let null_id = DiagnosticId::from_str("");
+
+        dbg!(short_id, short_id2, long_id, null_id);
+
+        // Test that the output values are static
+        assert!(short_id.0 == Uuid::from_u128(0xa0f4ea7d91495df92bbac2e2149dfb85));
+        assert!(long_id.0 == Uuid::from_u128(0xa1b1782849517b5e920035baffdfa5d9));
+        assert!(null_id.0 == Uuid::from_u128(0xda39a3ee5e6b4b0d3255bfef95601890));
+
+        // Test that the same strings give the same output
+        assert!(short_id == short_id2);
     }
 }
