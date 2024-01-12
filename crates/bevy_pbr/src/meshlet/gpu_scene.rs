@@ -208,8 +208,8 @@ pub fn prepare_meshlet_per_frame_resources(
             }
         };
 
+    let needed_buffer_size = ((gpu_scene.scene_meshlet_count + 31) / 32) as u64 * 4;
     for (view_entity, view, (_, shadow_view)) in &views {
-        let needed_buffer_size = ((gpu_scene.scene_meshlet_count + 31) / 32) as u64 * 4;
         let create_occlusion_buffer = || {
             render_device.create_buffer(&BufferDescriptor {
                 label: Some("meshlet_occlusion_buffer"),
