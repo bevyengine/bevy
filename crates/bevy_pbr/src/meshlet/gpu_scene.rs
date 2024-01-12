@@ -20,12 +20,12 @@ use bevy_render::{
     MainWorld,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_tasks::ComputeTaskPool;
 use bevy_utils::{default, EntityHashMap, HashMap, HashSet};
 use std::{
     ops::{DerefMut, Range},
     sync::Arc,
 };
+use encase::internal::WriteInto;
 
 /// Create and queue for uploading to the GPU [`MeshUniform`] components for
 /// [`MeshletMesh`] entities, as well as queuing uploads for any new meshlet mesh
@@ -129,6 +129,24 @@ pub fn queue_material_meshlet_meshes<M: Material>(
     }
 }
 
+fn upload_storage_buffer<T: ShaderSize + bytemuck::Pod>(
+    buffer: &mut StorageBuffer<Vec<T>>,
+    render_device: &RenderDevice,
+    render_queue: &RenderQueue,
+) where Vec<T>: WriteInto {
+    let inner = buffer.buffer();
+    let capacity = inner.as_deref().map_or(0, |b| b.size());
+    let size = buffer.get().size().get() as BufferAddress;
+
+    if capacity >= size {
+        let inner = inner.unwrap();
+        let bytes = bytemuck::cast_slice(buffer.get().as_slice());
+        render_queue.write_buffer(inner, 0, bytes);
+    } else {
+        buffer.write_buffer(render_device, render_queue);
+    }
+}
+
 pub fn prepare_meshlet_per_frame_resources(
     mut gpu_scene: ResMut<MeshletGpuScene>,
     views: Query<(Entity, &ExtractedView, AnyOf<(&Camera3d, &ShadowView)>)>,
@@ -146,34 +164,14 @@ pub fn prepare_meshlet_per_frame_resources(
     }
 
     let gpu_scene = gpu_scene.as_mut();
-    ComputeTaskPool::get()
-        .scope(|scope| {
-            scope.spawn(async {
-                gpu_scene
-                    .instance_uniforms
-                    .write_buffer(&render_device, &render_queue)
-            });
-            scope.spawn(async {
-                gpu_scene
-                    .instance_material_ids
-                    .write_buffer(&render_device, &render_queue)
-            });
-            scope.spawn(async {
-                gpu_scene
-                    .thread_instance_ids
-                    .write_buffer(&render_device, &render_queue)
-            });
-            scope.spawn(async {
-                gpu_scene
-                    .thread_meshlet_ids
-                    .write_buffer(&render_device, &render_queue)
-            });
-            scope.spawn(async {
-                gpu_scene
-                    .previous_thread_ids
-                    .write_buffer(&render_device, &render_queue)
-            });
-        });
+
+    gpu_scene
+        .instance_uniforms
+        .write_buffer(&render_device, &render_queue);
+    upload_storage_buffer(&mut gpu_scene.instance_material_ids, &*render_device, &*render_queue);
+    upload_storage_buffer(&mut gpu_scene.thread_instance_ids, &*render_device, &*render_queue);
+    upload_storage_buffer(&mut gpu_scene.thread_meshlet_ids, &*render_device, &*render_queue);
+    upload_storage_buffer(&mut gpu_scene.previous_thread_ids, &*render_device, &*render_queue);
 
     let needed_buffer_size = 4 * gpu_scene.scene_index_count;
     let visibility_buffer_draw_index_buffer =
