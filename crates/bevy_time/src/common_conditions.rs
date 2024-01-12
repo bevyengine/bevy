@@ -217,8 +217,8 @@ pub fn repeating_after_real_delay(
 ///         .add_systems(
 ///             Update,
 ///             (
-///                 is_paused.run_if(paused()),
-///                 not_paused.run_if(not(paused())),
+///                 is_paused.run_if(paused),
+///                 not_paused.run_if(not(paused)),
 ///             )
 ///         )
 ///     .run();
@@ -249,7 +249,7 @@ mod tests {
         Schedule::default().add_systems(
             (test_system, test_system)
                 .distributive_run_if(on_timer(Duration::new(1, 0)))
-                .distributive_run_if(paused()),
+                .distributive_run_if(paused),
         );
     }
 }
