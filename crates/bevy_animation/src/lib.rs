@@ -46,6 +46,22 @@ pub enum Keyframes {
     Weights(Vec<f32>),
 }
 
+impl Keyframes {
+    /// Returns the number of keyframes.
+    pub fn len(&self) -> usize {
+        match self {
+            Keyframes::Weights(vec) => vec.len(),
+            Keyframes::Translation(vec) | Keyframes::Scale(vec) => vec.len(),
+            Keyframes::Rotation(vec) => vec.len(),
+        }
+    }
+
+    /// Returns true if the number of keyframes is zero.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+
 /// Describes how an attribute of a [`Transform`] or [`MorphWeights`] should be animated.
 ///
 /// `keyframe_timestamps` and `keyframes` should have the same length.
@@ -931,5 +947,151 @@ impl Plugin for AnimationPlugin {
                 PostUpdate,
                 animation_player.before(TransformSystem::TransformPropagate),
             );
+    }
+}
+
+mod tests {
+    use crate::VariableCurve;
+    use bevy_math::Vec3;
+
+    fn test_variable_curve() -> VariableCurve {
+        let keyframe_timestamps = vec![1.0, 2.0, 3.0, 4.0];
+        let keyframes = vec![
+            Vec3::ONE * 0.0,
+            Vec3::ONE * 3.0,
+            Vec3::ONE * 6.0,
+            Vec3::ONE * 9.0,
+        ];
+        let interpolation = crate::Interpolation::Linear;
+
+        let variable_curve = VariableCurve {
+            keyframe_timestamps,
+            keyframes: crate::Keyframes::Translation(keyframes),
+            interpolation,
+        };
+
+        assert!(variable_curve.keyframe_timestamps.len() == variable_curve.keyframes.len());
+
+        // f32 doesn't impl Ord so we can't easily sort it
+        let mut maybe_last_timestamp = None;
+        for current_timestamp in &variable_curve.keyframe_timestamps {
+            assert!(current_timestamp.is_finite());
+
+            if let Some(last_timestamp) = maybe_last_timestamp {
+                assert!(current_timestamp > last_timestamp);
+            }
+            maybe_last_timestamp = Some(current_timestamp);
+        }
+
+        variable_curve
+    }
+
+    #[test]
+    fn find_current_keyframe_is_in_bounds() {
+        let curve = test_variable_curve();
+        let min_time = *curve.keyframe_timestamps.first().unwrap();
+        // We will always get none at times at or past the second last keyframe
+        let second_last_keyframe = curve.keyframe_timestamps.len() - 2;
+        let max_time = curve.keyframe_timestamps[second_last_keyframe];
+        let elapsed_time = max_time - min_time;
+
+        let n_keyframes = curve.keyframe_timestamps.len();
+        let n_test_points = 5;
+
+        for i in 0..=n_test_points {
+            // Get a value between 0 and 1
+            let normalized_time = i as f32 / n_test_points as f32;
+            let seek_time = min_time + normalized_time * elapsed_time;
+            assert!(seek_time >= min_time);
+            assert!(seek_time <= max_time);
+
+            let maybe_current_keyframe = curve.find_current_keyframe(seek_time);
+            assert!(
+                maybe_current_keyframe.is_some(),
+                "Seek time: {seek_time}, Min time: {min_time}, Max time: {max_time}"
+            );
+
+            // We cannot return the last keyframe,
+            // because we want to interpolate between the current and next keyframe
+            assert!(maybe_current_keyframe.unwrap() < n_keyframes);
+        }
+    }
+
+    #[test]
+    fn find_current_keyframe_returns_none_on_unstarted_animations() {
+        let curve = test_variable_curve();
+        let min_time = *curve.keyframe_timestamps.first().unwrap();
+        let seek_time = 0.0;
+        assert!(seek_time < min_time);
+
+        let maybe_keyframe = curve.find_current_keyframe(seek_time);
+        assert!(
+            maybe_keyframe.is_none(),
+            "Seek time: {seek_time}, Minimum time: {min_time}"
+        );
+    }
+
+    #[test]
+    fn find_current_keyframe_returns_none_on_finished_animation() {
+        let curve = test_variable_curve();
+        let max_time = *curve.keyframe_timestamps.last().unwrap();
+
+        assert!(max_time < f32::INFINITY);
+        let maybe_keyframe = curve.find_current_keyframe(f32::INFINITY);
+        assert!(maybe_keyframe.is_none());
+
+        let maybe_keyframe = curve.find_current_keyframe(max_time);
+        assert!(maybe_keyframe.is_none());
+    }
+
+    #[test]
+    fn second_last_keyframe_is_found_correctly() {
+        let curve = test_variable_curve();
+
+        // Exact time
+        let second_last_keyframe = curve.keyframe_timestamps.len() - 2;
+        let second_last_time = curve.keyframe_timestamps[second_last_keyframe];
+        let maybe_keyframe = curve.find_current_keyframe(second_last_time);
+        assert!(maybe_keyframe.unwrap() == second_last_keyframe);
+
+        // Inexact, between the last and second last frames
+        let seek_time = second_last_time + 0.001;
+        let last_time = curve.keyframe_timestamps[second_last_keyframe + 1];
+        assert!(seek_time < last_time);
+
+        let maybe_keyframe = curve.find_current_keyframe(seek_time);
+        assert!(maybe_keyframe.is_none(), "{maybe_keyframe:?}");
+    }
+
+    #[test]
+    fn exact_keyframe_matches_are_found_correctly() {
+        let curve = test_variable_curve();
+        let second_last_keyframe = curve.keyframes.len() - 2;
+
+        for i in 0..=second_last_keyframe {
+            let seek_time = curve.keyframe_timestamps[i];
+
+            let keyframe = curve.find_current_keyframe(seek_time).unwrap();
+            assert!(keyframe == i);
+        }
+    }
+
+    #[test]
+    fn exact_and_inexact_keyframes_correspond() {
+        let curve = test_variable_curve();
+
+        let second_last_keyframe = curve.keyframes.len() - 2;
+
+        for i in 0..=second_last_keyframe {
+            let seek_time = curve.keyframe_timestamps[i];
+
+            let exact_keyframe = curve.find_current_keyframe(seek_time).unwrap();
+            let maybe_inexact_keyframe = curve.find_current_keyframe(seek_time + 0.001);
+
+            match maybe_inexact_keyframe {
+                Some(inexact_keyframe) => assert!(exact_keyframe == inexact_keyframe),
+                None => assert!(exact_keyframe == curve.keyframes.len() - 1),
+            }
+        }
     }
 }
