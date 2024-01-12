@@ -137,7 +137,7 @@ fn upload_storage_buffer<T: ShaderSize + bytemuck::Pod>(
     Vec<T>: WriteInto,
 {
     let inner = buffer.buffer();
-    let capacity = inner.as_deref().map_or(0, |b| b.size());
+    let capacity = inner.map_or(0, |b| b.size());
     let size = buffer.get().size().get() as BufferAddress;
 
     if capacity >= size {
@@ -172,23 +172,23 @@ pub fn prepare_meshlet_per_frame_resources(
         .write_buffer(&render_device, &render_queue);
     upload_storage_buffer(
         &mut gpu_scene.instance_material_ids,
-        &*render_device,
-        &*render_queue,
+        &render_device,
+        &render_queue,
     );
     upload_storage_buffer(
         &mut gpu_scene.thread_instance_ids,
-        &*render_device,
-        &*render_queue,
+        &render_device,
+        &render_queue,
     );
     upload_storage_buffer(
         &mut gpu_scene.thread_meshlet_ids,
-        &*render_device,
-        &*render_queue,
+        &render_device,
+        &render_queue,
     );
     upload_storage_buffer(
         &mut gpu_scene.previous_thread_ids,
-        &*render_device,
-        &*render_queue,
+        &render_device,
+        &render_queue,
     );
 
     let needed_buffer_size = 4 * gpu_scene.scene_index_count;
