@@ -21,11 +21,11 @@ use bevy_render::{
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{default, EntityHashMap, HashMap, HashSet};
+use encase::internal::WriteInto;
 use std::{
     ops::{DerefMut, Range},
     sync::Arc,
 };
-use encase::internal::WriteInto;
 
 /// Create and queue for uploading to the GPU [`MeshUniform`] components for
 /// [`MeshletMesh`] entities, as well as queuing uploads for any new meshlet mesh
@@ -133,7 +133,9 @@ fn upload_storage_buffer<T: ShaderSize + bytemuck::Pod>(
     buffer: &mut StorageBuffer<Vec<T>>,
     render_device: &RenderDevice,
     render_queue: &RenderQueue,
-) where Vec<T>: WriteInto {
+) where
+    Vec<T>: WriteInto,
+{
     let inner = buffer.buffer();
     let capacity = inner.as_deref().map_or(0, |b| b.size());
     let size = buffer.get().size().get() as BufferAddress;
@@ -168,10 +170,26 @@ pub fn prepare_meshlet_per_frame_resources(
     gpu_scene
         .instance_uniforms
         .write_buffer(&render_device, &render_queue);
-    upload_storage_buffer(&mut gpu_scene.instance_material_ids, &*render_device, &*render_queue);
-    upload_storage_buffer(&mut gpu_scene.thread_instance_ids, &*render_device, &*render_queue);
-    upload_storage_buffer(&mut gpu_scene.thread_meshlet_ids, &*render_device, &*render_queue);
-    upload_storage_buffer(&mut gpu_scene.previous_thread_ids, &*render_device, &*render_queue);
+    upload_storage_buffer(
+        &mut gpu_scene.instance_material_ids,
+        &*render_device,
+        &*render_queue,
+    );
+    upload_storage_buffer(
+        &mut gpu_scene.thread_instance_ids,
+        &*render_device,
+        &*render_queue,
+    );
+    upload_storage_buffer(
+        &mut gpu_scene.thread_meshlet_ids,
+        &*render_device,
+        &*render_queue,
+    );
+    upload_storage_buffer(
+        &mut gpu_scene.previous_thread_ids,
+        &*render_device,
+        &*render_queue,
+    );
 
     let needed_buffer_size = 4 * gpu_scene.scene_index_count;
     let visibility_buffer_draw_index_buffer =
@@ -765,9 +783,13 @@ impl MeshletGpuScene {
             start..(meshlets_slice.len() as u32 + start)
         };
 
-        self.thread_instance_ids.get_mut().extend(std::iter::repeat(instance_index).take(meshlets_slice.len()));
+        self.thread_instance_ids
+            .get_mut()
+            .extend(std::iter::repeat(instance_index).take(meshlets_slice.len()));
         self.thread_meshlet_ids.get_mut().extend(meshlets_slice);
-        self.previous_thread_ids.get_mut().extend(previous_thread_ids);
+        self.previous_thread_ids
+            .get_mut()
+            .extend(previous_thread_ids);
 
         *previous_thread_id_start = (current_thread_id_start, true);
     }
