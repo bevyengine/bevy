@@ -745,18 +745,16 @@ impl MeshletGpuScene {
             .previous_thread_id_starts
             .entry((instance, handle.id()))
             .or_insert((0, true));
+        let previous_thread_ids = if previous_thread_id_start.1 {
+            0..(meshlets_slice.len() as u32)
+        } else {
+            let start = previous_thread_id_start.0;
+            start..(meshlets_slice.len() as u32 + start)
+        };
 
-        for (i, meshlet_index) in meshlets_slice.into_iter().enumerate() {
-            self.thread_instance_ids.get_mut().push(instance_index);
-            self.thread_meshlet_ids.get_mut().push(meshlet_index);
-            self.previous_thread_ids
-                .get_mut()
-                .push(if previous_thread_id_start.1 {
-                    0
-                } else {
-                    previous_thread_id_start.0 + i as u32
-                });
-        }
+        self.thread_instance_ids.get_mut().extend(std::iter::repeat(instance_index).take(meshlets_slice.len()));
+        self.thread_meshlet_ids.get_mut().extend(meshlets_slice);
+        self.previous_thread_ids.get_mut().extend(previous_thread_ids);
 
         *previous_thread_id_start = (current_thread_id_start, true);
     }
