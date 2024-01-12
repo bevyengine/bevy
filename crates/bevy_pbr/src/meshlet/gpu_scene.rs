@@ -20,6 +20,7 @@ use bevy_render::{
     MainWorld,
 };
 use bevy_transform::components::GlobalTransform;
+use bevy_tasks::ComputeTaskPool;
 use bevy_utils::{default, EntityHashMap, HashMap, HashSet};
 use std::{
     ops::{DerefMut, Range},
@@ -144,21 +145,35 @@ pub fn prepare_meshlet_per_frame_resources(
         return;
     }
 
-    gpu_scene
-        .instance_uniforms
-        .write_buffer(&render_device, &render_queue);
-    gpu_scene
-        .instance_material_ids
-        .write_buffer(&render_device, &render_queue);
-    gpu_scene
-        .thread_instance_ids
-        .write_buffer(&render_device, &render_queue);
-    gpu_scene
-        .thread_meshlet_ids
-        .write_buffer(&render_device, &render_queue);
-    gpu_scene
-        .previous_thread_ids
-        .write_buffer(&render_device, &render_queue);
+    let gpu_scene = gpu_scene.as_mut();
+    ComputeTaskPool::get()
+        .scope(|scope| {
+            scope.spawn(async {
+                gpu_scene
+                    .instance_uniforms
+                    .write_buffer(&render_device, &render_queue)
+            });
+            scope.spawn(async {
+                gpu_scene
+                    .instance_material_ids
+                    .write_buffer(&render_device, &render_queue)
+            });
+            scope.spawn(async {
+                gpu_scene
+                    .thread_instance_ids
+                    .write_buffer(&render_device, &render_queue)
+            });
+            scope.spawn(async {
+                gpu_scene
+                    .thread_meshlet_ids
+                    .write_buffer(&render_device, &render_queue)
+            });
+            scope.spawn(async {
+                gpu_scene
+                    .previous_thread_ids
+                    .write_buffer(&render_device, &render_queue)
+            });
+        });
 
     let needed_buffer_size = 4 * gpu_scene.scene_index_count;
     let visibility_buffer_draw_index_buffer =
