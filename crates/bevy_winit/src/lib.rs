@@ -265,7 +265,7 @@ struct WinitAppRunnerState {
     /// The time the next update is scheduled to start.
     scheduled_update: Option<Instant>,
     /// Number of "forced" updates to trigger on application start
-    start_forced_updates: u32,
+    startup_forced_updates: u32,
 }
 
 impl WinitAppRunnerState {
@@ -305,7 +305,8 @@ impl Default for WinitAppRunnerState {
             wait_elapsed: false,
             last_update: Instant::now(),
             scheduled_update: None,
-            start_forced_updates: 5,
+            // 3 seems to be enough, 5 is a safe margin
+            startup_forced_updates: 5,
         }
     }
 }
@@ -400,8 +401,9 @@ pub fn winit_runner(mut app: App) {
                     }
                 };
 
-                if runner_state.start_forced_updates > 0 {
-                    runner_state.start_forced_updates -= 1;
+                // Ensure that an update is triggered on the first iterations for app initialization
+                if runner_state.startup_forced_updates > 0 {
+                    runner_state.startup_forced_updates -= 1;
                     should_update = true;
                 }
 
