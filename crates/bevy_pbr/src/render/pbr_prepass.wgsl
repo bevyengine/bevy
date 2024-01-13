@@ -67,7 +67,11 @@ fn fragment(
 #endif // NORMAL_PREPASS
 
 #ifdef MOTION_VECTOR_PREPASS
+#ifdef MESHLET_MESH_MATERIAL_PASS
+    out.motion_vector = in.motion_vector;
+#else
     out.motion_vector = pbr_prepass_functions::calculate_motion_vector(in.world_position, in.previous_world_position);
+#endif
 #endif
 
     return out;

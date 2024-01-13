@@ -123,7 +123,11 @@ fn deferred_output(in: VertexOutput, pbr_input: PbrInput) -> FragmentOutput {
 #endif
     // motion vectors if required
 #ifdef MOTION_VECTOR_PREPASS
+#ifdef MESHLET_MESH_MATERIAL_PASS
+    out.motion_vector = in.motion_vector;
+#else
     out.motion_vector = calculate_motion_vector(in.world_position, in.previous_world_position);
+#endif
 #endif
 
     return out;

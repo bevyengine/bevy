@@ -40,7 +40,7 @@ fn prepass_fragment(@builtin(position) frag_coord: vec4<f32>) -> prepass_io::Fra
 #endif
 
 #ifdef MOTION_VECTOR_PREPASS
-    out.motion_vector = pbr_prepass_functions::calculate_motion_vector(vertex_output.world_position, vertex_output.previous_world_position);
+    out.motion_vector = vertex_output.motion_vector;
 #endif
 
 #ifdef DEFERRED_PREPASS

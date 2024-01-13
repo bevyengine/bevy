@@ -12,12 +12,21 @@
         get_meshlet_index,
         unpack_meshlet_vertex,
     },
+    mesh_view_bindings::view,
     mesh_functions::mesh_position_local_to_world,
     mesh_types::MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT,
     view_transformations::{position_world_to_clip, frag_coord_to_ndc},
 }
-#import bevy_pbr::mesh_view_bindings::view
 #import bevy_render::maths::{affine_to_square, mat2x4_f32_to_mat3x3_unpack}
+
+#ifdef PREPASS_FRAGMENT
+#ifdef MOTION_VECTOR_PREPASS
+#import bevy_pbr::{
+    prepass_bindings::previous_view_proj,
+    pbr_prepass_functions::calculate_motion_vector,
+}
+#endif
+#endif
 
 /// Functions to be used by materials for reading from a meshlet visibility buffer texture.
 
@@ -76,8 +85,10 @@ struct VertexOutput {
     world_tangent: vec4<f32>,
     mesh_flags: u32,
     meshlet_id: u32,
+#ifdef PREPASS_FRAGMENT
 #ifdef MOTION_VECTOR_PREPASS
-    previous_world_position: vec4<f32>,
+    motion_vector: vec2<f32>,
+#endif
 #endif
 }
 
@@ -105,9 +116,10 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
     let clip_position_1 = position_world_to_clip(world_position_1.xyz);
     let clip_position_2 = position_world_to_clip(world_position_2.xyz);
     let clip_position_3 = position_world_to_clip(world_position_3.xyz);
+    let frag_coord_ndc = frag_coord_to_ndc(frag_coord).xy;
     let partial_derivatives = compute_partial_derivatives(
         array(clip_position_1, clip_position_2, clip_position_3),
-        frag_coord_to_ndc(frag_coord).xy,
+        frag_coord_ndc,
         view.viewport.zw,
     );
 
@@ -134,9 +146,23 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
         vertex_tangent.w * (f32(bool(instance_uniform.flags & MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT)) * 2.0 - 1.0)
     );
 
+#ifdef PREPASS_FRAGMENT
 #ifdef MOTION_VECTOR_PREPASS
-    // TODO
-    let previous_world_position = vec4(0.0);
+    let previous_model = affine_to_square(instance_uniform.previous_model);
+    let previous_world_position_1 = mesh_position_local_to_world(previous_model, vec4(vertex_1.position, 1.0));
+    let previous_world_position_2 = mesh_position_local_to_world(previous_model, vec4(vertex_2.position, 1.0));
+    let previous_world_position_3 = mesh_position_local_to_world(previous_model, vec4(vertex_3.position, 1.0));
+    let previous_clip_position_1 = previous_view_proj * vec4(previous_world_position_1.xyz, 1.0);
+    let previous_clip_position_2 = previous_view_proj * vec4(previous_world_position_2.xyz, 1.0);
+    let previous_clip_position_3 = previous_view_proj * vec4(previous_world_position_3.xyz, 1.0);
+    let previous_partial_derivatives = compute_partial_derivatives(
+        array(previous_clip_position_1, previous_clip_position_2, previous_clip_position_3),
+        frag_coord_ndc,
+        view.viewport.zw,
+    );
+    let previous_world_position = mat3x4(previous_world_position_1, previous_world_position_2, previous_world_position_3) * previous_partial_derivatives.barycentrics;
+    let motion_vector = calculate_motion_vector(world_position, previous_world_position);
+#endif
 #endif
 
     return VertexOutput(
@@ -149,8 +175,10 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
         world_tangent,
         instance_uniform.flags,
         meshlet_id,
+#ifdef PREPASS_FRAGMENT
 #ifdef MOTION_VECTOR_PREPASS
-        previous_world_position,
+        motion_vector,
+#endif
 #endif
     );
 }
