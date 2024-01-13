@@ -1,3 +1,5 @@
+mod primitive_impls;
+
 use super::BoundingVolume;
 use crate::prelude::Vec2;
 
