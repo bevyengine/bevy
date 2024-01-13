@@ -54,7 +54,30 @@ pub mod prelude {
 pub use bevy_utils::all_tuples;
 
 /// A specialized hashmap type with Key of [`TypeId`]
-type TypeIdMap<V> = rustc_hash::FxHashMap<TypeId, V>;
+type TypeIdMap<V> =
+    std::collections::HashMap<TypeId, V, std::hash::BuildHasherDefault<NoOpTypeIdHasher>>;
+
+#[doc(hidden)]
+#[derive(Default)]
+struct NoOpTypeIdHasher(u64);
+
+// TypeId already contains a high-quality hash, so skip re-hashing that hash.
+impl std::hash::Hasher for NoOpTypeIdHasher {
+    fn finish(&self) -> u64 {
+        self.0
+    }
+
+    fn write(&mut self, _bytes: &[u8]) {
+        // This will never be called: TypeId always just calls write_u64 once!
+        // This is unlikely to ever change, but as it isn't officially guaranteed,
+        // panicking will let us detect this as fast as possible.
+        unimplemented!("Hashing of std::any::TypeId changed");
+    }
+
+    fn write_u64(&mut self, i: u64) {
+        self.0 = i;
+    }
+}
 
 #[cfg(test)]
 mod tests {
