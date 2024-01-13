@@ -100,7 +100,6 @@ use std::{
 /// This will most commonly occur when working with `SystemParam`s generically, as the requirement
 /// has not been proven to the compiler.
 ///
-///
 /// # Safety
 ///
 /// The implementor must ensure the following is true.
