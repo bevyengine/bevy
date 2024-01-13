@@ -74,7 +74,7 @@ pub trait GetBatchData {
     fn get_batch_data(
         param: &SystemParamItem<Self::Param>,
         query_item: &QueryItem<Self::Data>,
-    ) -> (Self::BufferData, Option<Self::CompareData>);
+    ) -> Option<(Self::BufferData, Option<Self::CompareData>)>;
 }
 
 /// Batch the items in a render phase. This means comparing metadata needed to draw each phase item
@@ -91,7 +91,7 @@ pub fn batch_and_prepare_render_phase<
     let system_param_item = param.into_inner();
 
     let process_item = |item: &mut I| {
-        let (buffer_data, compare_data) = F::get_batch_data(&system_param_item, &item.entity());
+        let (buffer_data, compare_data) = F::get_batch_data(&system_param_item, &item.entity())?;
         let buffer_index = gpu_array_buffer.push(buffer_data);
 
         let index = buffer_index.index.get();
@@ -124,7 +124,7 @@ pub fn batch_and_prepare_render_phase_with_query<
     let process_item = |item: &mut I| {
         let batch_query_item = query.get(item.entity()).ok()?;
 
-        let (buffer_data, compare_data) = F::get_batch_data(&system_param_item, &batch_query_item);
+        let (buffer_data, compare_data) = F::get_batch_data(&system_param_item, &batch_query_item)?;
         let buffer_index = gpu_array_buffer.push(buffer_data);
 
         let index = buffer_index.index.get();
