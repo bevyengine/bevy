@@ -199,7 +199,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
                 view: &deferred_lighting_id_depth_texture.texture.default_view,
                 depth_ops: Some(Operations {
                     load: LoadOp::Load,
-                    store: StoreOp::Store,
+                    store: StoreOp::Discard,
                 }),
                 stencil_ops: None,
             }),
