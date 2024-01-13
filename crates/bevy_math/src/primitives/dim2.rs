@@ -353,7 +353,7 @@ impl BoxedPolygon {
     }
 }
 
-/// A polygon where all vertices lie on a circle, equally far apart
+/// A polygon where all vertices lie on a circle, equally far apart.
 #[derive(Clone, Copy, Debug)]
 pub struct RegularPolygon {
     /// The circumcircle on which all vertices lie
@@ -382,6 +382,8 @@ impl RegularPolygon {
 
     /// Returns an iterator over the vertices of the regular polygon,
     /// rotated counterclockwise by the given angle in radians.
+    ///
+    /// With a rotation of 0, a vertex will be placed at the top `(0.0, circumradius)`.
     pub fn vertices(self, rotation: f32) -> impl IntoIterator<Item = Vec2> {
         // Add pi/2 so that the polygon has a vertex at the top (sin is 1.0 and cos is 0.0)
         let start_angle = rotation + std::f32::consts::FRAC_PI_2;
