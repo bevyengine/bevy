@@ -15,7 +15,7 @@ fn main() {
         })
         .add_plugins((
             DefaultPlugins,
-            FrameTimeDiagnosticsPlugin,
+            FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin::default(),
             bevy_internal::core_pipeline::experimental::taa::TemporalAntiAliasPlugin,
         ))

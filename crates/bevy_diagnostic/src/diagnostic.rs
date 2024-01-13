@@ -163,17 +163,19 @@ impl Diagnostic {
             max_history_length: DEFAULT_MAX_HISTORY_LENGTH,
             sum: 0.0,
             ema: 0.0,
-            ema_smoothing_factor: 2.0 / (max_history_length as f64 + 1.0),
+            ema_smoothing_factor: 2.0 / (DEFAULT_MAX_HISTORY_LENGTH + 1) as f64,
             is_enabled: true,
         }
     }
 
     /// Set the maximum history length.
+    /// This will also set the EMA smoothing factor.
     #[must_use]
     pub fn with_max_history_length(mut self, max_history_length: usize) -> Self {
         self.max_history_length = max_history_length;
         self.history.reserve(self.max_history_length);
         self.history.shrink_to(self.max_history_length);
+        self.ema_smoothing_factor = 2.0 / (max_history_length as f64 + 1.0);
         self
     }
 

@@ -20,7 +20,7 @@ fn main() {
             }),
             ..default()
         }),
-        FrameTimeDiagnosticsPlugin,
+        FrameTimeDiagnosticsPlugin::default(),
     ))
     .insert_resource(Config {
         line_count: 50_000,
