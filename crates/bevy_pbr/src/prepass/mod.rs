@@ -31,7 +31,9 @@ use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::tracing::error;
 
 use crate::{
-    meshlet::{prepare_material_meshlet_meshes_prepass, MeshletGpuScene},
+    meshlet::{
+        prepare_material_meshlet_meshes_prepass, queue_material_meshlet_meshes, MeshletGpuScene,
+    },
     *,
 };
 
@@ -177,8 +179,8 @@ where
                         // queue_material_meshes only writes to `material_bind_group_id`, which `queue_prepass_material_meshes` doesn't read
                         .ambiguous_with(queue_material_meshes::<StandardMaterial>),
                     prepare_material_meshlet_meshes_prepass::<M>
-                        .in_set(RenderSet::PrepareAssets)
-                        .after(prepare_materials::<M>)
+                        .in_set(RenderSet::Queue)
+                        .before(queue_material_meshlet_meshes::<M>)
                         .run_if(resource_exists::<MeshletGpuScene>()),
                 ),
             );

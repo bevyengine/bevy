@@ -265,11 +265,11 @@ where
                             .after(prepare_materials::<M>)
                             // queue_material_meshes only writes to `material_bind_group_id`, which `queue_shadows` doesn't read
                             .ambiguous_with(render::queue_shadows::<M>),
-                        prepare_material_meshlet_meshes_main_opaque_pass::<M>
-                            .in_set(RenderSet::PrepareAssets)
-                            .after(prepare_materials::<M>)
-                            .run_if(resource_exists::<MeshletGpuScene>()),
-                        queue_material_meshlet_meshes::<M>
+                        (
+                            prepare_material_meshlet_meshes_main_opaque_pass::<M>,
+                            queue_material_meshlet_meshes::<M>,
+                        )
+                            .chain()
                             .in_set(RenderSet::Queue)
                             .run_if(resource_exists::<MeshletGpuScene>()),
                     ),

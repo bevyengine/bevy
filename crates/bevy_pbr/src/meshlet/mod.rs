@@ -34,6 +34,7 @@ use self::{
         },
         MeshletDeferredGBufferPrepassNode, MeshletMainOpaquePass3dNode, MeshletPrepassNode,
     },
+    material_draw_prepare::{MeshletViewMaterialsMainOpaquePass, MeshletViewMaterialsPrepass},
     pipelines::{
         MeshletPipelines, MESHLET_COPY_MATERIAL_DEPTH_SHADER_HANDLE, MESHLET_CULLING_SHADER_HANDLE,
         MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE, MESHLET_VISIBILITY_BUFFER_RASTER_SHADER_HANDLE,
@@ -47,16 +48,23 @@ use self::{
 use crate::{draw_3d_graph::node::SHADOW_PASS, Material};
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, AssetApp, Handle};
-use bevy_core_pipeline::core_3d::{
-    graph::node::*, prepare_core_3d_depth_textures, Camera3d, CORE_3D,
+use bevy_core_pipeline::{
+    core_3d::{graph::node::*, Camera3d, CORE_3D},
+    prepass::{DeferredPrepass, MotionVectorPrepass, NormalPrepass},
 };
-use bevy_ecs::{bundle::Bundle, schedule::IntoSystemConfigs, system::Query};
+use bevy_ecs::{
+    bundle::Bundle,
+    entity::Entity,
+    query::Has,
+    schedule::IntoSystemConfigs,
+    system::{Commands, Query},
+};
 use bevy_render::{
     render_graph::{RenderGraphApp, ViewNodeRunner},
     render_resource::{Shader, TextureUsages},
     renderer::RenderDevice,
     settings::WgpuFeatures,
-    view::{InheritedVisibility, Msaa, ViewVisibility, Visibility},
+    view::{prepare_view_targets, InheritedVisibility, Msaa, ViewVisibility, Visibility},
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
@@ -197,10 +205,10 @@ impl Plugin for MeshletPlugin {
                 Render,
                 (
                     perform_pending_meshlet_mesh_writes.in_set(RenderSet::PrepareAssets),
+                    configure_meshlet_views
+                        .after(prepare_view_targets)
+                        .in_set(RenderSet::ManageViews),
                     prepare_meshlet_per_frame_resources.in_set(RenderSet::PrepareResources),
-                    add_depth_texture_usages
-                        .before(prepare_core_3d_depth_textures)
-                        .in_set(RenderSet::PrepareResources),
                     prepare_meshlet_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
                 ),
             );
@@ -250,10 +258,32 @@ impl<M: Material> Default for MaterialMeshletMeshBundle<M> {
     }
 }
 
-fn add_depth_texture_usages(mut views_3d: Query<&mut Camera3d>) {
-    for mut camera_3d in &mut views_3d {
+fn configure_meshlet_views(
+    mut views_3d: Query<(
+        Entity,
+        &mut Camera3d,
+        Has<NormalPrepass>,
+        Has<MotionVectorPrepass>,
+        Has<DeferredPrepass>,
+    )>,
+    mut commands: Commands,
+) {
+    for (entity, mut camera_3d, normal_prepass, motion_vector_prepass, deferred_prepass) in
+        &mut views_3d
+    {
         let mut usages: TextureUsages = camera_3d.depth_texture_usages.into();
         usages |= TextureUsages::TEXTURE_BINDING;
         camera_3d.depth_texture_usages = usages.into();
+
+        if !(normal_prepass || motion_vector_prepass || deferred_prepass) {
+            commands
+                .entity(entity)
+                .insert(MeshletViewMaterialsMainOpaquePass::default());
+        } else {
+            commands.entity(entity).insert((
+                MeshletViewMaterialsMainOpaquePass::default(),
+                MeshletViewMaterialsPrepass::default(),
+            ));
+        }
     }
 }

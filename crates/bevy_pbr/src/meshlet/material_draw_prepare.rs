@@ -6,7 +6,7 @@ use bevy_core_pipeline::{
     prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     tonemapping::{DebandDither, Tonemapping},
 };
-use bevy_derive::Deref;
+use bevy_derive::{Deref, DerefMut};
 use bevy_render::{
     camera::{Projection, TemporalJitter},
     mesh::{InnerMeshVertexBufferLayout, Mesh, MeshVertexBufferLayout},
@@ -16,7 +16,7 @@ use bevy_render::{
 use bevy_utils::{HashMap, Hashed};
 use std::hash::Hash;
 
-#[derive(Component, Deref)]
+#[derive(Component, Deref, DerefMut, Default)]
 pub struct MeshletViewMaterialsMainOpaquePass(pub Vec<(u32, CachedRenderPipelineId, BindGroup)>);
 
 #[allow(clippy::too_many_arguments)]
@@ -29,9 +29,9 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
     render_materials: Res<RenderMaterials<M>>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
     asset_server: Res<AssetServer>,
-    views: Query<
+    mut views: Query<
         (
-            Entity,
+            &mut MeshletViewMaterialsMainOpaquePass,
             &ExtractedView,
             Option<&Tonemapping>,
             Option<&DebandDither>,
@@ -49,14 +49,13 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
         ),
         With<Camera3d>,
     >,
-    mut commands: Commands,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     let fake_vertex_buffer_layout = &fake_vertex_buffer_layout();
 
     for (
-        view_entity,
+        mut materials,
         view,
         tonemapping,
         dither,
@@ -66,10 +65,8 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
         temporal_jitter,
         projection,
         has_environment_maps,
-    ) in &views
+    ) in &mut views
     {
-        let mut materials = Vec::new();
-
         let mut view_key =
             MeshPipelineKey::from_msaa_samples(1) | MeshPipelineKey::from_hdr(view.hdr);
 
@@ -198,14 +195,10 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
             });
             materials.push((material_id, pipeline_id, material.bind_group.clone()));
         }
-
-        commands
-            .entity(view_entity)
-            .insert(MeshletViewMaterialsMainOpaquePass(materials));
     }
 }
 
-#[derive(Component, Deref)]
+#[derive(Component, Deref, DerefMut, Default)]
 pub struct MeshletViewMaterialsPrepass(pub Vec<(u32, CachedRenderPipelineId, BindGroup)>);
 
 #[allow(clippy::too_many_arguments)]
@@ -217,32 +210,31 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
     render_materials: Res<RenderMaterials<M>>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
     asset_server: Res<AssetServer>,
-    views: Query<
+    mut views: Query<
         (
-            Entity,
+            &mut MeshletViewMaterialsPrepass,
             &ExtractedView,
-            AnyOf<(
-                &DepthPrepass,
-                &NormalPrepass,
-                &MotionVectorPrepass,
-                &DeferredPrepass,
-            )>,
+            (
+                Has<NormalPrepass>,
+                Has<DepthPrepass>,
+                Has<MotionVectorPrepass>,
+                Has<DeferredPrepass>,
+            ),
         ),
         With<Camera3d>,
     >,
-    mut commands: Commands,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     let fake_vertex_buffer_layout = &fake_vertex_buffer_layout();
 
     for (
-        view_entity,
+        mut materials,
         view,
         (depth_prepass, normal_prepass, motion_vector_prepass, deferred_prepass),
-    ) in &views
+    ) in &mut views
     {
-        if let (None, Some(_), None, None) = (
+        if let (false, true, false, false) = (
             normal_prepass,
             depth_prepass,
             motion_vector_prepass,
@@ -251,18 +243,16 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
             continue;
         }
 
-        let mut materials = Vec::new();
-
         let mut view_key =
             MeshPipelineKey::from_msaa_samples(1) | MeshPipelineKey::from_hdr(view.hdr);
 
-        if normal_prepass.is_some() {
+        if normal_prepass {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
         }
-        if depth_prepass.is_some() {
+        if depth_prepass {
             view_key |= MeshPipelineKey::DEPTH_PREPASS;
         }
-        if motion_vector_prepass.is_some() {
+        if motion_vector_prepass {
             view_key |= MeshPipelineKey::MOTION_VECTOR_PREPASS;
         }
 
@@ -283,7 +273,7 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
                 material.properties.render_method,
                 OpaqueRendererMethod::Deferred
             );
-            if deferred_prepass.is_some() && material_wants_deferred {
+            if deferred_prepass && material_wants_deferred {
                 view_key |= MeshPipelineKey::DEFERRED_PREPASS;
             }
 
@@ -355,10 +345,6 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
             });
             materials.push((material_id, pipeline_id, material.bind_group.clone()));
         }
-
-        commands
-            .entity(view_entity)
-            .insert(MeshletViewMaterialsPrepass(materials));
     }
 }
 
