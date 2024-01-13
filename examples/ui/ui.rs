@@ -361,6 +361,7 @@ fn toggle_overlay(
     input: Res<ButtonInput<KeyCode>>,
     mut options: ResMut<bevy::ui::debug_overlay::UiDebugOptions>,
 ) {
+    info_once!("The debug outlines are enabled, press Space to turn them on/off");
     if input.just_pressed(KeyCode::Space) {
         // The toggle method will enable the debug_overlay if disabled and disable if enabled
         options.toggle();
