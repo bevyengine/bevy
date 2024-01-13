@@ -76,6 +76,9 @@ struct VertexOutput {
     world_tangent: vec4<f32>,
     mesh_flags: u32,
     meshlet_id: u32,
+#ifdef MOTION_VECTOR_PREPASS
+    previous_world_position: vec4<f32>,
+#endif
 }
 
 /// Load the visibility buffer texture and resolve it into a VertexOutput.
@@ -131,6 +134,11 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
         vertex_tangent.w * (f32(bool(instance_uniform.flags & MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT)) * 2.0 - 1.0)
     );
 
+#ifdef MOTION_VECTOR_PREPASS
+    // TODO
+    let previous_world_position = vec4(0.0);
+#endif
+
     return VertexOutput(
         frag_coord,
         world_position,
@@ -141,5 +149,8 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
         world_tangent,
         instance_uniform.flags,
         meshlet_id,
+#ifdef MOTION_VECTOR_PREPASS
+        previous_world_position,
+#endif
     );
 }

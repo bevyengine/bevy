@@ -11,6 +11,12 @@
     view_transformations::{position_ndc_to_world, frag_coord_to_ndc},
 }
 
+#ifdef MESHLET_MESH_MATERIAL_PASS
+#import bevy_pbr::meshlet_visibility_buffer_resolve::VertexOutput
+#else
+#import bevy_pbr::prepass_io::VertexOutput
+#endif
+
 #ifdef MOTION_VECTOR_PREPASS
     #import bevy_pbr::pbr_prepass_functions::calculate_motion_vector
 #endif
@@ -18,7 +24,7 @@
 // Creates the deferred gbuffer from a PbrInput.
 fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
      // Only monochrome occlusion supported. May not be worth including at all.
-     // Some models have baked occlusion, GLTF only supports monochrome. 
+     // Some models have baked occlusion, GLTF only supports monochrome.
      // Real time occlusion is applied in the deferred lighting pass.
      // Deriving luminance via Rec. 709. coefficients
      // https://en.wikipedia.org/wiki/Rec._709
@@ -27,7 +33,7 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
     var props = deferred_types::pack_unorm3x4_plus_unorm_20_(vec4(
         in.material.reflectance,
         in.material.metallic,
-        occlusion, 
+        occlusion,
         in.frag_coord.z));
 #else
     var props = deferred_types::pack_unorm4x8_(vec4(
@@ -79,7 +85,7 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
 #ifdef WEBGL2 // More crunched for webgl so we can also fit depth.
     let props = deferred_types::unpack_unorm3x4_plus_unorm_20_(gbuffer.b);
     // Bias to 0.5 since that's the value for almost all materials.
-    pbr.material.reflectance = saturate(props.r - 0.03333333333); 
+    pbr.material.reflectance = saturate(props.r - 0.03333333333);
 #else
     let props = deferred_types::unpack_unorm4x8_(gbuffer.b);
     pbr.material.reflectance = props.r;
@@ -92,9 +98,9 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
     let world_position = vec4(position_ndc_to_world(frag_coord_to_ndc(frag_coord)), 1.0);
     let is_orthographic = view.projection[3].w == 1.0;
     let V = pbr_functions::calculate_view(world_position, is_orthographic);
-    
+
     pbr.frag_coord = frag_coord;
-    pbr.world_normal = N; 
+    pbr.world_normal = N;
     pbr.world_position = world_position;
     pbr.N = N;
     pbr.V = V;

@@ -29,9 +29,13 @@ fn fragment(
     @builtin(front_facing) is_front: bool,
 #endif
 ) -> FragmentOutput {
+#ifdef MESHLET_MESH_MATERIAL_PASS
+    let in = resolve_vertex_output(frag_coord);
+#endif
+
     // generate a PbrInput struct from the StandardMaterial bindings
 #ifdef MESHLET_MESH_MATERIAL_PASS
-    var pbr_input = pbr_input_from_standard_material(resolve_vertex_output(frag_coord), true);
+    var pbr_input = pbr_input_from_standard_material(in, true);
 #else
     var pbr_input = pbr_input_from_standard_material(in, is_front);
 #endif

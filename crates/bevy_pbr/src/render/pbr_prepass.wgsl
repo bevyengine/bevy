@@ -6,14 +6,26 @@
     prepass_io,
     mesh_view_bindings::view,
 }
- 
+
+#ifdef MESHLET_MESH_MATERIAL_PASS
+#import bevy_pbr::meshlet_visibility_buffer_resolve::resolve_vertex_output
+#endif
+
 #ifdef PREPASS_FRAGMENT
 @fragment
 fn fragment(
+#ifdef MESHLET_MESH_MATERIAL_PASS
+    @builtin(position) frag_coord: vec4<f32>,
+#else
     in: prepass_io::VertexOutput,
     @builtin(front_facing) is_front: bool,
+#endif
 ) -> prepass_io::FragmentOutput {
+#ifdef MESHLET_MESH_MATERIAL_PASS
+    let in = resolve_vertex_output(frag_coord);
+#else
     pbr_prepass_functions::prepass_alpha_discard(in);
+#endif
 
     var out: prepass_io::FragmentOutput;
 

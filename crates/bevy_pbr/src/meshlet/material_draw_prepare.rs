@@ -310,6 +310,11 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
                 M::meshlet_mesh_prepass_fragment_shader()
             };
 
+            let entry_point = match fragment_shader {
+                ShaderRef::Default => "prepass_fragment".into(),
+                _ => material_fragment.entry_point,
+            };
+
             let pipeline_descriptor = RenderPipelineDescriptor {
                 label: material_pipeline_descriptor.label,
                 layout: vec![
@@ -340,7 +345,7 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
                         ShaderRef::Path(path) => asset_server.load(path),
                     },
                     shader_defs,
-                    entry_point: material_fragment.entry_point,
+                    entry_point,
                     targets: material_fragment.targets,
                 }),
             };
