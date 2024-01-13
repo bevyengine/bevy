@@ -710,7 +710,9 @@ fn apply_animation(
     );
 
     if animation.path_cache.len() != animation_clip.paths.len() {
-        animation.path_cache = vec![Vec::new(); animation_clip.paths.len()];
+        let new_len = animation_clip.paths.len();
+        animation.path_cache.iter_mut().for_each(|v| v.clear());
+        animation.path_cache.resize_with(new_len, Vec::new);
     }
     if !verify_no_ancestor_player(maybe_parent, parents) {
         warn!("Animation player on {:?} has a conflicting animation player on an ancestor. Cannot safely animate.", root);
