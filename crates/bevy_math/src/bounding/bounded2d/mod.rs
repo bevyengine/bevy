@@ -293,7 +293,7 @@ impl BoundingCircle {
 
     /// Computes the smallest [`Aabb2d`] containing this [`BoundingCircle`].
     #[inline(always)]
-    pub fn bounding_circle(&self) -> Aabb2d {
+    pub fn aabb_2d(&self) -> Aabb2d {
         Aabb2d {
             min: self.center - Vec2::splat(self.radius()),
             max: self.center + Vec2::splat(self.radius()),

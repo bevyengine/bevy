@@ -3,6 +3,20 @@ mod primitive_impls;
 use super::BoundingVolume;
 use crate::prelude::{Quat, Vec3};
 
+/// Computes the geometric center of the given set of points.
+#[inline(always)]
+fn point_cloud_3d_center(points: &[Vec3]) -> Vec3 {
+    assert!(
+        !points.is_empty(),
+        "can not compute the center of less than 1 point"
+    );
+
+    let denom = 1.0 / points.len() as f32;
+    points
+        .iter()
+        .fold(Vec3::ZERO, |acc, point| acc + *point * denom)
+}
+
 /// A trait with methods that return 3D bounded volumes for a shape
 pub trait Bounded3d {
     /// Get an axis-aligned bounding box for the shape with the given translation and rotation
@@ -18,6 +32,40 @@ pub struct Aabb3d {
     pub min: Vec3,
     /// The maximum point of the box
     pub max: Vec3,
+}
+
+impl Aabb3d {
+    /// Computes the smallest [`Aabb3d`] containing the given set of points,
+    /// transformed by `translation` and `rotation`.
+    #[inline(always)]
+    pub fn from_point_cloud(
+        translation: Vec3,
+        rotation: Quat,
+        points: impl IntoIterator<Item = Vec3>,
+    ) -> Aabb3d {
+        // Transform all points by rotation
+        let mut iter = points.into_iter().map(|point| rotation * point);
+
+        let first = iter
+            .next()
+            .expect("point cloud must contain at least one point for Aabb3d construction");
+
+        let (min, max) = iter.fold((first, first), |(prev_min, prev_max), point| {
+            (point.min(prev_min), point.max(prev_max))
+        });
+
+        Aabb3d {
+            min: min + translation,
+            max: max + translation,
+        }
+    }
+
+    /// Computes the smallest [`BoundingSphere`] containing this [`Aabb3d`].
+    #[inline(always)]
+    pub fn bounding_sphere(&self) -> BoundingSphere {
+        let radius = self.min.distance(self.max) / 2.0;
+        BoundingSphere::new(self.center(), radius)
+    }
 }
 
 impl BoundingVolume for Aabb3d {
@@ -206,10 +254,37 @@ impl BoundingSphere {
         }
     }
 
+    /// Computes the smallest [`BoundingSphere`] containing the given set of points,
+    /// transformed by `translation` and `rotation`.
+    #[inline(always)]
+    pub fn from_point_cloud(translation: Vec3, rotation: Quat, points: &[Vec3]) -> BoundingSphere {
+        let center = point_cloud_3d_center(points);
+        let mut radius_squared = 0.0;
+
+        for point in points {
+            // Get squared version to avoid unnecessary sqrt calls
+            let distance_squared = point.distance_squared(center);
+            if distance_squared > radius_squared {
+                radius_squared = distance_squared;
+            }
+        }
+
+        BoundingSphere::new(rotation * center + translation, radius_squared.sqrt())
+    }
+
     /// Get the radius of the bounding sphere
     #[inline(always)]
     pub fn radius(&self) -> f32 {
         self.sphere.radius
+    }
+
+    /// Computes the smallest [`Aabb3d`] containing this [`BoundingSphere`].
+    #[inline(always)]
+    pub fn aabb_3d(&self) -> Aabb3d {
+        Aabb3d {
+            min: self.center - Vec3::splat(self.radius()),
+            max: self.center + Vec3::splat(self.radius()),
+        }
     }
 }
 
