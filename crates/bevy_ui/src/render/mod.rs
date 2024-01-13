@@ -21,7 +21,6 @@ use crate::{
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
 use bevy_ecs::prelude::*;
-use bevy_math::Vec3Swizzles;
 use bevy_math::{Mat4, Rect, URect, UVec4, Vec2, Vec3, Vec4Swizzles};
 use bevy_render::{
     camera::Camera,
