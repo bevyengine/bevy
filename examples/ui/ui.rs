@@ -13,8 +13,8 @@ use bevy::{
 fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins)
-        .insert_resource(WinitSettings::desktop_app())
         // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
+        .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
         .add_systems(Update, mouse_scroll);
 
