@@ -431,7 +431,7 @@ impl CubicSegment<Vec2> {
 }
 
 /// A collection of [`CubicSegment`]s chained into a curve.
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct CubicCurve<P: Point> {
     segments: Vec<CubicSegment<P>>,
 }
