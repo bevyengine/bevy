@@ -54,7 +54,7 @@ fn setup(
         mesh: mesh_handle,
         transform: Transform::from_translation(Vec3::new(96., 0., 0.))
             .with_scale(Vec3::splat(128.)),
-        material: materials.add(ColorMaterial::from(texture_handle)),
+        material: materials.add(texture_handle),
         ..default()
     });
 }

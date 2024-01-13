@@ -107,8 +107,8 @@ fn setup_basic_scene(
     // plane
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(shape::Plane::from_size(50.0).into()),
-            material: materials.add(Color::rgb(0.1, 0.2, 0.1).into()),
+            mesh: meshes.add(shape::Plane::from_size(50.0)),
+            material: materials.add(Color::rgb(0.1, 0.2, 0.1)),
             ..default()
         },
         SceneNumber(1),
@@ -120,7 +120,7 @@ fn setup_basic_scene(
         ..default()
     });
 
-    let cube_mesh = meshes.add(Mesh::from(shape::Cube { size: 0.25 }));
+    let cube_mesh = meshes.add(shape::Cube { size: 0.25 });
     for i in 0..5 {
         commands.spawn((
             PbrBundle {
@@ -134,10 +134,10 @@ fn setup_basic_scene(
     }
 
     // spheres
-    let sphere_mesh = meshes.add(Mesh::from(shape::UVSphere {
+    let sphere_mesh = meshes.add(shape::UVSphere {
         radius: 0.125,
         ..default()
-    }));
+    });
     for i in 0..6 {
         let j = i % 3;
         let s_val = if i < 3 { 0.0 } else { 0.2 };
@@ -226,10 +226,10 @@ fn setup_color_gradient_scene(
 
     commands.spawn((
         MaterialMeshBundle {
-            mesh: meshes.add(Mesh::from(shape::Quad {
+            mesh: meshes.add(shape::Quad {
                 size: vec2(1.0, 1.0) * 0.7,
                 flip: false,
-            })),
+            }),
             material: materials.add(ColorGradientMaterial {}),
             transform,
             visibility: Visibility::Hidden,
@@ -251,10 +251,10 @@ fn setup_image_viewer_scene(
     // exr/hdr viewer (exr requires enabling bevy feature)
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Quad {
+            mesh: meshes.add(shape::Quad {
                 size: vec2(1.0, 1.0),
                 flip: false,
-            })),
+            }),
             material: materials.add(StandardMaterial {
                 base_color_texture: None,
                 unlit: true,

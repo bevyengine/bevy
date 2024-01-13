@@ -25,6 +25,7 @@ fn main() {
             Update,
             (movement, change_color).run_if(in_state(AppState::InGame)),
         )
+        .add_systems(Update, log_transitions)
         .run();
 }
 
@@ -157,5 +158,16 @@ fn change_color(time: Res<Time>, mut query: Query<&mut Sprite>) {
         sprite
             .color
             .set_b((time.elapsed_seconds() * 0.5).sin() + 2.0);
+    }
+}
+
+/// print when an `AppState` transition happens
+/// also serves as an example of how to use `StateTransitionEvent`
+fn log_transitions(mut transitions: EventReader<StateTransitionEvent<AppState>>) {
+    for transition in transitions.read() {
+        info!(
+            "transition: {:?} => {:?}",
+            transition.before, transition.after
+        );
     }
 }
