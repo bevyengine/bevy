@@ -644,11 +644,12 @@ pub fn extract_text_uinodes(
         // * Multiply the logical coordinates by the scale factor to get its position in physical coordinates
         // * Round the physical position to the nearest physical pixel
         // * Multiply by the rounded physical position by the inverse scale factor to return to logical coordinates
-        let logical_top_left = affine.translation.xy() - 0.5 * uinode.size();
+
+        
+        let logical_top_left = -0.5 * uinode.size();
         let physical_nearest_pixel = (logical_top_left * scale_factor).round();
         let logical_top_left_nearest_pixel = physical_nearest_pixel * inverse_scale_factor;
-        affine.translation = logical_top_left_nearest_pixel.extend(0.).into();
-        let transform = Mat4::from(affine);
+        let transform =  Mat4::from(affine) * Mat4::from_translation(logical_top_left_nearest_pixel.extend(0.));
 
         let mut color = Color::WHITE;
         let mut current_section = usize::MAX;
