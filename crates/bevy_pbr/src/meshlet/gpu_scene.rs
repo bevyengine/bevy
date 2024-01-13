@@ -3,11 +3,12 @@ use crate::{
     Material, MeshFlags, MeshTransforms, MeshUniform, NotShadowCaster, NotShadowReceiver,
     PreviousGlobalTransform, RenderMaterialInstances, ShadowView,
 };
-use bevy_asset::{AssetId, AssetServer, Assets, Handle, UntypedAssetId};
+use bevy_asset::{AssetEvent, AssetId, AssetServer, Assets, Handle, UntypedAssetId};
 use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
+    event::EventReader,
     query::{AnyOf, Has},
     system::{Commands, Query, Res, ResMut, Resource, SystemState},
     world::{FromWorld, World},
@@ -46,10 +47,17 @@ pub fn extract_meshlet_meshes(
         )>,
         Res<AssetServer>,
         ResMut<Assets<MeshletMesh>>,
+        EventReader<AssetEvent<MeshletMesh>>,
     )> = SystemState::new(&mut main_world);
-    let (query, asset_server, mut assets) = system_state.get_mut(&mut main_world);
+    let (query, asset_server, mut assets, mut asset_events) = system_state.get_mut(&mut main_world);
 
     gpu_scene.reset();
+
+    for asset_event in asset_events.read() {
+        if let AssetEvent::Unused { id: _ } = asset_event {
+            // TODO: Remove all asset data from PersistentGpuBuffers
+        }
+    }
 
     // TODO: Handle not_shadow_caster
     for (
