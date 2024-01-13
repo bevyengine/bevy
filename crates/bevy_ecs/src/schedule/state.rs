@@ -74,10 +74,10 @@ pub struct OnTransition<S: States> {
 /// [`apply_state_transition::<S>`] system.
 ///
 /// The starting state is defined via the [`Default`] implementation for `S`.
-/// 
+///
 /// ```
 /// use bevy_ecs::prelude::*;
-/// 
+///
 /// #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
 /// enum GameState {
 ///     #[default]
@@ -85,7 +85,7 @@ pub struct OnTransition<S: States> {
 ///     SettingsMenu,
 ///     InGame,
 /// }
-/// 
+///
 /// fn game_logic(game_state: Res<State<GameState>>) {
 ///     match game_state.get() {
 ///         GameState::InGame => {
