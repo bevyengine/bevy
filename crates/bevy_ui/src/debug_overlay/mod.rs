@@ -217,7 +217,7 @@ fn outline_node(entity: Entity, rect: LayoutRect, draw: &mut InsetGizmo) {
 /// Note that while the debug plugin is enabled, gizmos cannot be used by other
 /// cameras.
 ///
-/// disabling the plugin will give you back gizmo control.
+/// Disabling the plugin will give you back gizmo control.
 pub struct DebugUiPlugin;
 impl Plugin for DebugUiPlugin {
     fn build(&self, app: &mut App) {
