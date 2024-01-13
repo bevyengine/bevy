@@ -138,6 +138,22 @@ impl<S: States> Deref for State<S> {
 /// To queue a transition, just set the contained value to `Some(next_state)`.
 /// Note that these transitions can be overridden by other systems:
 /// only the actual value of this resource at the time of [`apply_state_transition`] matters.
+///
+/// ```
+/// use bevy_ecs::prelude::*;
+///
+/// #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
+/// enum GameState {
+///     #[default]
+///     MainMenu,
+///     SettingsMenu,
+///     InGame,
+/// }
+///
+/// fn start_game(mut next_game_state: ResMut<NextState<GameState>>) {
+///     next_game_state.set(GameState::InGame);
+/// }
+/// ```
 #[derive(Resource, Debug)]
 #[cfg_attr(
     feature = "bevy_reflect",
