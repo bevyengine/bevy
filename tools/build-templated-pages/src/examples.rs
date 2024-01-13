@@ -132,7 +132,7 @@ pub(crate) fn check(what_to_run: Command) {
 
         let mut tera = Tera::new("docs-template/*.md.tpl").expect("error parsing template");
 
-        // Instead of automatically registering all of Tera's builtins, we use the one we need.
+        // Instead of automatically registering all of Tera's builtins, we just use the one we need.
         tera.register_filter("slugify", crate::slugify::slugify);
 
         tera.render_to(
