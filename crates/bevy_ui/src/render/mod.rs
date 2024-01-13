@@ -636,8 +636,6 @@ pub fn extract_text_uinodes(
             continue;
         }
 
-        let mut affine = global_transform.affine();
-
         // Align the text to the nearest physical pixel:
         // * Translate by minus the text node's half-size
         //      (The transform translates to the center of the node but the text coordinates are relative to the node's top left corner)
@@ -648,8 +646,8 @@ pub fn extract_text_uinodes(
         let logical_top_left = -0.5 * uinode.size();
         let physical_nearest_pixel = (logical_top_left * scale_factor).round();
         let logical_top_left_nearest_pixel = physical_nearest_pixel * inverse_scale_factor;
-        let transform =
-            Mat4::from(affine) * Mat4::from_translation(logical_top_left_nearest_pixel.extend(0.));
+        let transform = Mat4::from(global_transform.affine())
+            * Mat4::from_translation(logical_top_left_nearest_pixel.extend(0.));
 
         let mut color = Color::WHITE;
         let mut current_section = usize::MAX;
