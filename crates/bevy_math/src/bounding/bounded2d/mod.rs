@@ -3,6 +3,27 @@ mod primitive_impls;
 use super::BoundingVolume;
 use crate::prelude::Vec2;
 
+/// Rotates the given vector counterclockwise by an angle in radians.
+#[inline(always)]
+pub(super) fn rotate_vec2(vec: Vec2, rotation: f32) -> Vec2 {
+    let (sin, cos) = rotation.sin_cos();
+    Vec2::new(vec.x * cos - vec.y * sin, vec.x * sin + vec.y * cos)
+}
+
+/// Computes the geometric center of the given set of points.
+#[inline(always)]
+fn point_cloud_2d_center(points: &[Vec2]) -> Vec2 {
+    assert!(
+        !points.is_empty(),
+        "can not compute the center of less than 1 point"
+    );
+
+    let denom = 1.0 / points.len() as f32;
+    points
+        .iter()
+        .fold(Vec2::ZERO, |acc, point| acc + *point * denom)
+}
+
 /// A trait with methods that return 2D bounded volumes for a shape
 pub trait Bounded2d {
     /// Get an axis-aligned bounding box for the shape with the given translation and rotation.
@@ -21,6 +42,40 @@ pub struct Aabb2d {
     pub min: Vec2,
     /// The maximum, conventionally top-right, point of the box
     pub max: Vec2,
+}
+
+impl Aabb2d {
+    /// Computes the smallest [`Aabb2d`] containing the given set of points,
+    /// transformed by `translation` and `rotation`.
+    #[inline(always)]
+    pub fn from_point_cloud(
+        translation: Vec2,
+        rotation: f32,
+        points: impl IntoIterator<Item = Vec2>,
+    ) -> Aabb2d {
+        // Transform all points by rotation
+        let mut iter = points.into_iter().map(|point| rotate_vec2(point, rotation));
+
+        let first = iter
+            .next()
+            .expect("point cloud must contain at least one point for Aabb2d construction");
+
+        let (min, max) = iter.fold((first, first), |(prev_min, prev_max), point| {
+            (point.min(prev_min), point.max(prev_max))
+        });
+
+        Aabb2d {
+            min: min + translation,
+            max: max + translation,
+        }
+    }
+
+    /// Computes the smallest [`BoundingCircle`] containing this [`Aabb2d`].
+    #[inline(always)]
+    pub fn bounding_circle(&self) -> BoundingCircle {
+        let radius = self.min.distance(self.max) / 2.0;
+        BoundingCircle::new(self.center(), radius)
+    }
 }
 
 impl BoundingVolume for Aabb2d {
@@ -209,10 +264,40 @@ impl BoundingCircle {
         }
     }
 
+    /// Computes the smallest [`BoundingCircle`] containing the given set of points,
+    /// transformed by `translation` and `rotation`.
+    #[inline(always)]
+    pub fn from_point_cloud(translation: Vec2, rotation: f32, points: &[Vec2]) -> BoundingCircle {
+        let center = point_cloud_2d_center(points);
+        let mut radius_squared = 0.0;
+
+        for point in points {
+            // Get squared version to avoid unnecessary sqrt calls
+            let distance_squared = point.distance_squared(center);
+            if distance_squared > radius_squared {
+                radius_squared = distance_squared;
+            }
+        }
+
+        BoundingCircle::new(
+            rotate_vec2(center, rotation) + translation,
+            radius_squared.sqrt(),
+        )
+    }
+
     /// Get the radius of the bounding circle
     #[inline(always)]
     pub fn radius(&self) -> f32 {
         self.circle.radius
+    }
+
+    /// Computes the smallest [`Aabb2d`] containing this [`BoundingCircle`].
+    #[inline(always)]
+    pub fn bounding_circle(&self) -> Aabb2d {
+        Aabb2d {
+            min: self.center - Vec2::splat(self.radius()),
+            max: self.center + Vec2::splat(self.radius()),
+        }
     }
 }
 
