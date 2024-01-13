@@ -431,6 +431,9 @@ impl CubicSegment<Vec2> {
 }
 
 /// A collection of [`CubicSegment`]s chained into a curve.
+///
+/// Use any struct that implements the [`CubicGenerator`] trait to create a new curve, such as
+/// [`CubicBezier`].
 #[derive(Clone, Debug, PartialEq)]
 pub struct CubicCurve<P: Point> {
     segments: Vec<CubicSegment<P>>,
