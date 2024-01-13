@@ -57,6 +57,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         .spawn(NodeBundle {
                             style: Style {
                                 width: Val::Percent(100.),
+                                flex_direction: FlexDirection::Column,
                                 ..default()
                             },
                             background_color: Color::rgb(0.15, 0.15, 0.15).into(),
@@ -80,6 +81,20 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 // Because this is a distinct label widget and
                                 // not button/list item text, this is necessary
                                 // for accessibility to treat the text accordingly.
+                                Label,
+                            ));
+
+                            #[cfg(feature = "bevy_ui_debug")]
+                            // Debug overlay text
+                            parent.spawn((
+                                TextBundle::from_section(
+                                    "Press Space to enable debug outlines.",
+                                    TextStyle {
+                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                        font_size: 20.,
+                                        ..Default::default()
+                                    },
+                                ),
                                 Label,
                             ));
                         });
