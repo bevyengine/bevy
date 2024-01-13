@@ -110,12 +110,13 @@ pub fn perform_pending_meshlet_mesh_writes(
         .perform_writes(&render_queue, &render_device);
 }
 
-// TODO: Ideally we could parallelize this system, both between different materials, and the loop over instances
-/// TODO: Documentation
+/// For each entity in the scene, record what material ID (for use with depth testing during the meshlet mesh material draw nodes)
+/// its material was assigned in the prepare_material_meshlet_meshes systems, and note that the material is used by at least one entity in the scene.
 pub fn queue_material_meshlet_meshes<M: Material>(
     mut gpu_scene: ResMut<MeshletGpuScene>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
 ) {
+    // TODO: Ideally we could parallelize this system, both between different materials, and the loop over instances
     let gpu_scene = gpu_scene.deref_mut();
 
     for (i, instance) in gpu_scene.instances.iter().enumerate() {
