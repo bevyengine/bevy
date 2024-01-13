@@ -691,15 +691,18 @@ pub fn winit_runner(mut app: App) {
                     }
                 }
             }
-            Event::DeviceEvent {
-                event: DeviceEvent::MouseMotion { delta: (x, y) },
-                ..
-            } => {
-                let (mut event_writers, ..) = event_writer_system_state.get_mut(&mut app.world);
-                event_writers.mouse_motion.send(MouseMotion {
-                    delta: Vec2::new(x as f32, y as f32),
-                });
+            Event::DeviceEvent { event, .. } => {
                 runner_state.device_event_received = true;
+                match event {
+                    DeviceEvent::MouseMotion { delta: (x, y) } => {
+                        let (mut event_writers, ..) =
+                            event_writer_system_state.get_mut(&mut app.world);
+                        event_writers.mouse_motion.send(MouseMotion {
+                            delta: Vec2::new(x as f32, y as f32),
+                        });
+                    }
+                    _ => {}
+                }
             }
             Event::Suspended => {
                 let (mut event_writers, ..) = event_writer_system_state.get_mut(&mut app.world);
