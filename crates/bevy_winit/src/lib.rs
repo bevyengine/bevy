@@ -264,6 +264,8 @@ struct WinitAppRunnerState {
     last_update: Instant,
     /// The time the next update is scheduled to start.
     scheduled_update: Option<Instant>,
+    /// Number of "forced" updates to trigger on application start
+    start_forced_updates: u32,
 }
 
 impl WinitAppRunnerState {
@@ -303,6 +305,7 @@ impl Default for WinitAppRunnerState {
             wait_elapsed: false,
             last_update: Instant::now(),
             scheduled_update: None,
+            start_forced_updates: 5,
         }
     }
 }
@@ -378,7 +381,7 @@ pub fn winit_runner(mut app: App) {
             Event::AboutToWait => {
                 let (config, windows) = focused_windows_state.get(&app.world);
                 let focused = windows.iter().any(|window| window.focused);
-                let should_update = match config.update_mode(focused) {
+                let mut should_update = match config.update_mode(focused) {
                     UpdateMode::Continuous => {
                         runner_state.redraw_requested
                             || runner_state.window_event_received
@@ -397,11 +400,32 @@ pub fn winit_runner(mut app: App) {
                     }
                 };
 
+                if runner_state.start_forced_updates > 0 {
+                    runner_state.start_forced_updates -= 1;
+                    should_update = true;
+                }
+
                 if should_update {
+                    let visible = windows.iter().any(|window| window.visible);
                     let (_, winit_windows, _, _) =
                         event_writer_system_state.get_mut(&mut app.world);
-                    for window in winit_windows.windows.values() {
-                        window.request_redraw();
+                    if visible {
+                        for window in winit_windows.windows.values() {
+                            window.request_redraw();
+                        }
+                    } else {
+                        // there are no windows, or they are not visible.
+                        // Winit won't send events on some platforms, so trigger an update manually.
+                        run_app_update_if_should(
+                            &mut runner_state,
+                            &mut app,
+                            &mut focused_windows_state,
+                            event_loop,
+                            &mut create_window_system_state,
+                            &mut app_exit_event_reader,
+                            &mut redraw_event_reader,
+                        );
+                        event_loop.set_control_flow(ControlFlow::Poll);
                     }
                 }
             }
@@ -670,7 +694,6 @@ pub fn winit_runner(mut app: App) {
                         });
                     }
                     WindowEvent::RedrawRequested => {
-                        runner_state.reset_on_update();
                         run_app_update_if_should(
                             &mut runner_state,
                             &mut app,
@@ -825,6 +848,8 @@ fn run_app_update_if_should(
     app_exit_event_reader: &mut ManualEventReader<AppExit>,
     redraw_event_reader: &mut ManualEventReader<RequestRedraw>,
 ) {
+    runner_state.reset_on_update();
+
     if !runner_state.active.should_run() {
         return;
     }
