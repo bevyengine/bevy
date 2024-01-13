@@ -7,7 +7,7 @@
     rgb9e5,
     mesh_view_bindings::view,
     utils::{octahedral_encode, octahedral_decode},
-    prepass_io::{VertexOutput, FragmentOutput},
+    prepass_io::FragmentOutput,
     view_transformations::{position_ndc_to_world, frag_coord_to_ndc},
 }
 
