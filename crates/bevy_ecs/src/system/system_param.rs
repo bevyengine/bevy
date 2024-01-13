@@ -36,6 +36,19 @@ use std::{
 /// Derived `SystemParam` structs may have two lifetimes: `'w` for data stored in the [`World`],
 /// and `'s` for data stored in the parameter's state.
 ///
+/// The following table shows the most common SystemParams and which lifetime they require
+///
+/// | `SytemParam` type                          | Lifetime required |
+/// | ------------------------------------------ | ----------------- |
+/// | [`Query`]                                  | `'w, 's`          |
+/// | [`Res`] and `Option<Res>`                  | `'w`              |
+/// | [`ResMut`] and `Option<ResMut>`            | `'w`              |
+/// | [`Local`] and `Option<ResMut>`             | `'s`              |
+/// | [`Commands`](super::Commands)              | `'w, 's`          |
+/// | [`EventReader`](crate::event::EventReader) | `'w, 's`          |
+/// | [`EventWriter`](crate::event::EventWriter) | `'w`              |
+/// | [`PhantomData`]                            | none              |
+///
 /// ## `PhantomData`
 ///
 /// [`PhantomData`] is a special type of `SystemParam` that does nothing.
@@ -86,6 +99,7 @@ use std::{
 ///
 /// This will most commonly occur when working with `SystemParam`s generically, as the requirement
 /// has not been proven to the compiler.
+///
 ///
 /// # Safety
 ///
