@@ -163,7 +163,7 @@ impl Diagnostic {
             max_history_length: DEFAULT_MAX_HISTORY_LENGTH,
             sum: 0.0,
             ema: 0.0,
-            ema_smoothing_factor: 2.0 / 21.0,
+            ema_smoothing_factor: 2.0 / (max_history_length as f64 + 1.0),
             is_enabled: true,
         }
     }
