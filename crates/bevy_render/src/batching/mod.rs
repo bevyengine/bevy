@@ -108,6 +108,7 @@ pub fn batch_and_prepare_render_phase<
     apply_batch::<I, F>(&mut views, process_item);
 }
 
+/// Batch the items in a render phase with Query to fetch its required data. If Query is unnecessary ,using [`batch_and_prepare_render_phase`] will be more efficient, Not used yet
 pub fn batch_and_prepare_render_phase_with_query<
     I: CachedRenderPipelinePhaseItem,
     F: GetBatchData,
