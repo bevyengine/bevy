@@ -245,7 +245,7 @@ pub mod common_conditions {
         }
     }
 
-    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// A [`Condition`](super::Condition)-satisfying system that returns `true`
     /// if the resource exists.
     ///
     /// # Example
@@ -365,7 +365,7 @@ pub mod common_conditions {
         }
     }
 
-    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// A [`Condition`](super::Condition)-satisfying system that returns `true`
     /// if the resource of the given type has been added since the condition was last checked.
     ///
     /// # Example
@@ -406,7 +406,7 @@ pub mod common_conditions {
         }
     }
 
-    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// A [`Condition`](super::Condition)-satisfying system that returns `true`
     /// if the resource of the given type has had its value changed since the condition
     /// was last checked.
     ///
@@ -460,7 +460,7 @@ pub mod common_conditions {
         res.is_changed()
     }
 
-    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// A [`Condition`](super::Condition)-satisfying system that returns `true`
     /// if the resource of the given type has had its value changed since the condition
     /// was last checked.
     ///
@@ -655,7 +655,7 @@ pub mod common_conditions {
         }
     }
 
-    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// A [`Condition`](super::Condition)-satisfying system that returns `true`
     /// if the state machine exists.
     ///
     /// # Example
@@ -813,7 +813,7 @@ pub mod common_conditions {
         }
     }
 
-    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// A [`Condition`](super::Condition)-satisfying system that returns `true`
     /// if the state machine changed state.
     ///
     /// To do things on transitions to/from specific states, use their respective OnEnter/OnExit
@@ -914,7 +914,7 @@ pub mod common_conditions {
         move |mut reader: EventReader<T>| reader.read().count() > 0
     }
 
-    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// A [`Condition`](super::Condition)-satisfying system that returns `true`
     /// if there are any entities with the given component type.
     ///
     /// # Example
