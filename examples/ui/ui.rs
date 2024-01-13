@@ -11,13 +11,17 @@ use bevy::{
 };
 
 fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins)
-        // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
+    let mut app = App::new();
+    app.add_plugins(DefaultPlugins)
         .insert_resource(WinitSettings::desktop_app())
+        // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
         .add_systems(Startup, setup)
-        .add_systems(Update, mouse_scroll)
-        .run();
+        .add_systems(Update, mouse_scroll);
+
+    #[cfg(feature = "bevy_ui_debug")]
+    app.add_systems(Update, toggle_overlay);
+
+    app.run();
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -333,5 +337,17 @@ fn mouse_scroll(
             scrolling_list.position = scrolling_list.position.clamp(-max_scroll, 0.);
             style.top = Val::Px(scrolling_list.position);
         }
+    }
+}
+
+#[cfg(feature = "bevy_ui_debug")]
+// The system that will enable/disable the debug outlines around the nodes
+fn toggle_overlay(
+    input: Res<ButtonInput<KeyCode>>,
+    mut options: ResMut<bevy::ui::debug_overlay::UiDebugOptions>,
+) {
+    if input.just_pressed(KeyCode::Space) {
+        // The toggle method will enable the debug_overlay if disabled and disable if enabled
+        options.toggle();
     }
 }
