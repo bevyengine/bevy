@@ -379,6 +379,20 @@ impl RegularPolygon {
             sides,
         }
     }
+
+    /// Returns an iterator over the vertices of the regular polygon,
+    /// rotated counterclockwise by the given angle in radians.
+    pub fn vertices(self, rotation: f32) -> impl IntoIterator<Item = Vec2> {
+        // Add pi/2 so that the polygon has a vertex at the top (sin is 1.0 and cos is 0.0)
+        let start_angle = rotation + std::f32::consts::FRAC_PI_2;
+        let step = std::f32::consts::TAU / self.sides as f32;
+
+        (0..self.sides).map(move |i| {
+            let theta = start_angle + i as f32 * step;
+            let (sin, cos) = theta.sin_cos();
+            Vec2::new(cos, sin) * self.circumcircle.radius
+        })
+    }
 }
 
 #[cfg(test)]
@@ -437,5 +451,24 @@ mod tests {
             Vec2::new(0.0, -1.2),
         );
         assert_eq!(invalid_triangle.winding_order(), WindingOrder::Invalid);
+    }
+
+    #[test]
+    fn regular_polygon_vertices() {
+        let polygon = RegularPolygon::new(1.0, 4);
+
+        // Regular polygons have a vertex at the top by default
+        let mut vertices = polygon.vertices(0.0).into_iter();
+        assert!((vertices.next().unwrap() - Vec2::Y).length() < 1e-7);
+
+        // Rotate by 45 degrees, forming an axis-aligned square
+        let mut rotated_vertices = polygon.vertices(std::f32::consts::FRAC_PI_4).into_iter();
+
+        // Distance from the origin to the middle of a side, derived using Pythagorean theorem
+        let side_sistance = std::f32::consts::FRAC_1_SQRT_2;
+        assert!(
+            (rotated_vertices.next().unwrap() - Vec2::new(-side_sistance, side_sistance)).length()
+                < 1e-7,
+        );
     }
 }

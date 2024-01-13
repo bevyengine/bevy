@@ -199,3 +199,24 @@ impl Bounded2d for BoxedPolygon {
         BoundingCircle::from_point_cloud(translation, rotation, &self.vertices)
     }
 }
+
+impl Bounded2d for RegularPolygon {
+    fn aabb_2d(&self, translation: Vec2, rotation: f32) -> Aabb2d {
+        let mut min = Vec2::ZERO;
+        let mut max = Vec2::ZERO;
+
+        for vertex in self.vertices(rotation) {
+            min = min.min(vertex);
+            max = max.max(vertex);
+        }
+
+        Aabb2d {
+            min: min + translation,
+            max: max + translation,
+        }
+    }
+
+    fn bounding_circle(&self, translation: Vec2, _rotation: f32) -> BoundingCircle {
+        BoundingCircle::new(translation, self.circumcircle.radius)
+    }
+}
