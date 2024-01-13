@@ -218,7 +218,7 @@ mod tests {
         assert!(Identifier::new(123, 789, IdKind::Entity).unwrap() != Identifier::new(123, 456, IdKind::Entity).unwrap());
         assert!(Identifier::new(123, 456, IdKind::Entity).unwrap() != Identifier::new(123, 789, IdKind::Entity).unwrap());
         assert!(Identifier::new(123, 456, IdKind::Entity).unwrap() != Identifier::new(456, 123, IdKind::Entity).unwrap());
-        assert!(Identifier::new(123, 456, IdKind::Entity).unwrap()!= Identifier::new(123, 456, IdKind::Placeholder).unwrap());
+        assert!(Identifier::new(123, 456, IdKind::Entity).unwrap() != Identifier::new(123, 456, IdKind::Placeholder).unwrap());
 
         // ordering is by flag then high then by low
 
@@ -235,7 +235,7 @@ mod tests {
 
         assert!(Identifier::new(1, 1, IdKind::Entity).unwrap() < Identifier::new(2, 1, IdKind::Entity).unwrap());
         assert!(Identifier::new(1, 1, IdKind::Entity).unwrap() <= Identifier::new(2, 1, IdKind::Entity).unwrap());
-        assert!(Identifier::new(2, 2, IdKind::Entity).unwrap()> Identifier::new(1, 2, IdKind::Entity).unwrap());
+        assert!(Identifier::new(2, 2, IdKind::Entity).unwrap() > Identifier::new(1, 2, IdKind::Entity).unwrap());
         assert!(Identifier::new(2, 2, IdKind::Entity).unwrap() >= Identifier::new(1, 2, IdKind::Entity).unwrap());
     }
 }
