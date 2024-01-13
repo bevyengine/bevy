@@ -91,7 +91,7 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
                 view: &meshlet_material_depth.default_view,
                 depth_ops: Some(Operations {
                     load: LoadOp::Load,
-                    store: StoreOp::Discard,
+                    store: StoreOp::Store,
                 }),
                 stencil_ops: None,
             }),
@@ -203,7 +203,7 @@ impl ViewNode for MeshletPrepassNode {
                 view: &meshlet_material_depth.default_view,
                 depth_ops: Some(Operations {
                     load: LoadOp::Load,
-                    store: StoreOp::Discard,
+                    store: StoreOp::Store,
                 }),
                 stencil_ops: None,
             }),
@@ -329,7 +329,7 @@ impl ViewNode for MeshletDeferredGBufferPrepassNode {
                 view: &meshlet_material_depth.default_view,
                 depth_ops: Some(Operations {
                     load: LoadOp::Load,
-                    store: StoreOp::Discard,
+                    store: StoreOp::Store,
                 }),
                 stencil_ops: None,
             }),
