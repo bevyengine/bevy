@@ -1,8 +1,3 @@
-use crate::{
-    MaterialBindGroupId, NotShadowCaster, NotShadowReceiver, PreviousGlobalTransform, Shadow,
-    ViewFogUniformOffset, ViewLightProbesUniformOffset, ViewLightsUniformOffset,
-    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
-};
 use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::{load_internal_asset, AssetId, Handle};
 use bevy_core_pipeline::{
@@ -26,9 +21,7 @@ use bevy_render::{
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
-    texture::{
-        BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
-    },
+    texture::*,
     view::{ViewTarget, ViewUniformOffset, ViewVisibility},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
@@ -874,9 +867,6 @@ impl SpecializedMeshPipeline for MeshPipeline {
             },
         ));
 
-        #[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
-        shader_defs.push("MULTIPLE_LIGHT_PROBES_IN_ARRAY".into());
-
         let format = if key.contains(MeshPipelineKey::HDR) {
             ViewTarget::TEXTURE_FORMAT_HDR
         } else {
@@ -1005,7 +995,6 @@ pub fn prepare_mesh_bind_group(
     let Some(model) = mesh_uniforms.binding() else {
         return;
     };
-
     groups.model_only = Some(layouts.model_only(&render_device, &model));
 
     let skin = skins_uniform.buffer.buffer();
@@ -1043,7 +1032,6 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
         Read<ViewUniformOffset>,
         Read<ViewLightsUniformOffset>,
         Read<ViewFogUniformOffset>,
-        Read<ViewLightProbesUniformOffset>,
         Read<MeshViewBindGroup>,
     );
     type ItemData = ();
@@ -1051,7 +1039,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
     #[inline]
     fn render<'w>(
         _item: &P,
-        (view_uniform, view_lights, view_fog, view_light_probes, mesh_view_bind_group): ROQueryItem<
+        (view_uniform, view_lights, view_fog, mesh_view_bind_group): ROQueryItem<
             'w,
             Self::ViewData,
         >,
@@ -1062,12 +1050,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
         pass.set_bind_group(
             I,
             &mesh_view_bind_group.value,
-            &[
-                view_uniform.offset,
-                view_lights.offset,
-                view_fog.offset,
-                **view_light_probes,
-            ],
+            &[view_uniform.offset, view_lights.offset, view_fog.offset],
         );
 
         RenderCommandResult::Success

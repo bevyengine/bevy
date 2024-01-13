@@ -162,7 +162,7 @@ fn create_cube_mesh() -> Mesh {
             [0.5, -0.5, -0.5],
         ],
     )
-    // Set-up UV coordinated to point to the upper (V < 0.5), "dirt+grass" part of the texture.
+    // Set-up UV coordinates to point to the upper (V < 0.5), "dirt+grass" part of the texture.
     // Take a look at the custom image (assets/textures/array_texture.png)
     // so the UV coords will make more sense
     // Note: (0.0, 0.0) = Top-Left in UV mapping, (1.0, 1.0) = Bottom-Right in UV mapping
