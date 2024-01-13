@@ -2,6 +2,7 @@ use bitflags::bitflags;
 
 mod examples;
 mod features;
+mod slugify;
 
 bitflags! {
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]

@@ -129,13 +129,17 @@ pub(crate) fn check(what_to_run: Command) {
 
         let mut context = Context::new();
         context.insert("all_examples", &examples_by_category);
-        Tera::new("docs-template/*.md.tpl")
-            .expect("error parsing template")
-            .render_to(
-                "EXAMPLE_README.md.tpl",
-                &context,
-                File::create("examples/README.md").expect("error creating file"),
-            )
-            .expect("error rendering template");
+
+        let mut tera = Tera::new("docs-template/*.md.tpl").expect("error parsing template");
+
+        // Instead of automatically registering all of Tera's builtins, we use the one we need.
+        tera.register_filter("slugify", crate::slugify::slugify);
+
+        tera.render_to(
+            "EXAMPLE_README.md.tpl",
+            &context,
+            File::create("examples/README.md").expect("error creating file"),
+        )
+        .expect("error rendering template");
     }
 }
