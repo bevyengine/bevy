@@ -201,6 +201,11 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
 #[derive(Component, Deref, DerefMut, Default)]
 pub struct MeshletViewMaterialsPrepass(pub Vec<(u32, CachedRenderPipelineId, BindGroup)>);
 
+#[derive(Component, Deref, DerefMut, Default)]
+pub struct MeshletViewMaterialsDeferredGBufferPrepass(
+    pub Vec<(u32, CachedRenderPipelineId, BindGroup)>,
+);
+
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
     mut gpu_scene: ResMut<MeshletGpuScene>,
@@ -213,6 +218,7 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
     mut views: Query<
         (
             &mut MeshletViewMaterialsPrepass,
+            &mut MeshletViewMaterialsDeferredGBufferPrepass,
             &ExtractedView,
             (
                 Has<NormalPrepass>,
@@ -230,8 +236,9 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
 
     for (
         mut materials,
+        mut deferred_materials,
         view,
-        (depth_prepass, normal_prepass, motion_vector_prepass, deferred_prepass),
+        (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
     ) in &mut views
     {
         if let (false, true, false, false) = (
@@ -343,7 +350,13 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
             let pipeline_id = *cache.entry(view_key).or_insert_with(|| {
                 pipeline_cache.queue_render_pipeline(pipeline_descriptor.clone())
             });
-            materials.push((material_id, pipeline_id, material.bind_group.clone()));
+
+            let item = (material_id, pipeline_id, material.bind_group.clone());
+            if view_key.contains(MeshPipelineKey::DEFERRED_PREPASS) {
+                deferred_materials.push(item);
+            } else {
+                materials.push(item);
+            }
         }
     }
 }

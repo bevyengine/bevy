@@ -34,7 +34,10 @@ use self::{
         },
         MeshletDeferredGBufferPrepassNode, MeshletMainOpaquePass3dNode, MeshletPrepassNode,
     },
-    material_draw_prepare::{MeshletViewMaterialsMainOpaquePass, MeshletViewMaterialsPrepass},
+    material_draw_prepare::{
+        MeshletViewMaterialsDeferredGBufferPrepass, MeshletViewMaterialsMainOpaquePass,
+        MeshletViewMaterialsPrepass,
+    },
     pipelines::{
         MeshletPipelines, MESHLET_COPY_MATERIAL_DEPTH_SHADER_HANDLE, MESHLET_CULLING_SHADER_HANDLE,
         MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE, MESHLET_VISIBILITY_BUFFER_RASTER_SHADER_HANDLE,
@@ -283,6 +286,7 @@ fn configure_meshlet_views(
             commands.entity(entity).insert((
                 MeshletViewMaterialsMainOpaquePass::default(),
                 MeshletViewMaterialsPrepass::default(),
+                MeshletViewMaterialsDeferredGBufferPrepass::default(),
             ));
         }
     }

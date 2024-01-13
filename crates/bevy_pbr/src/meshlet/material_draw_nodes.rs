@@ -1,6 +1,9 @@
 use super::{
     gpu_scene::{MeshletViewBindGroups, MeshletViewResources},
-    material_draw_prepare::{MeshletViewMaterialsMainOpaquePass, MeshletViewMaterialsPrepass},
+    material_draw_prepare::{
+        MeshletViewMaterialsDeferredGBufferPrepass, MeshletViewMaterialsMainOpaquePass,
+        MeshletViewMaterialsPrepass,
+    },
     MeshletGpuScene,
 };
 use crate::{
@@ -62,6 +65,10 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
         ): QueryItem<Self::ViewData>,
         world: &World,
     ) -> Result<(), NodeRunError> {
+        if meshlet_view_materials.is_empty() {
+            return Ok(());
+        }
+
         let (
             Some(meshlet_gpu_scene),
             Some(pipeline_cache),
@@ -154,6 +161,10 @@ impl ViewNode for MeshletPrepassNode {
         ): QueryItem<Self::ViewData>,
         world: &World,
     ) -> Result<(), NodeRunError> {
+        if meshlet_view_materials.is_empty() {
+            return Ok(());
+        }
+
         let (
             Some(prepass_view_bind_group),
             Some(meshlet_gpu_scene),
@@ -251,7 +262,7 @@ impl ViewNode for MeshletDeferredGBufferPrepassNode {
         &'static ViewPrepassTextures,
         &'static ViewUniformOffset,
         Option<&'static PreviousViewProjectionUniformOffset>,
-        &'static MeshletViewMaterialsPrepass,
+        &'static MeshletViewMaterialsDeferredGBufferPrepass,
         &'static MeshletViewBindGroups,
         &'static MeshletViewResources,
     );
@@ -271,6 +282,10 @@ impl ViewNode for MeshletDeferredGBufferPrepassNode {
         ): QueryItem<Self::ViewData>,
         world: &World,
     ) -> Result<(), NodeRunError> {
+        if meshlet_view_materials.is_empty() {
+            return Ok(());
+        }
+
         let (
             Some(prepass_view_bind_group),
             Some(meshlet_gpu_scene),
