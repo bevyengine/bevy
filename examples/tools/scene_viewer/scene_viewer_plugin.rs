@@ -11,7 +11,7 @@ use bevy::{
 use std::f32::consts::*;
 use std::fmt;
 
-use super::camera_controller_plugin::*;
+use super::camera_controller::*;
 
 #[derive(Resource)]
 pub struct SceneHandle {
