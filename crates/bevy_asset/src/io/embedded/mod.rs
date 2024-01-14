@@ -111,13 +111,24 @@ macro_rules! embedded_path {
     }};
 
     ($source_path: expr, $path_str: expr) => {{
-        let crate_name = module_path!().split(':').next().unwrap();
-        let after_src = file!().split($source_path).nth(1).unwrap();
-        let file_path = std::path::Path::new(after_src)
-            .parent()
-            .unwrap()
-            .join($path_str);
-        std::path::Path::new(crate_name).join(file_path)
+        let crate_name = module_path!()
+            .split(':')
+            .next()
+            .expect("Could not find crate name");
+        if let Some(after_src) = file!().split($source_path).nth(1) {
+            let file_path = if let Some(parent) = std::path::Path::new(after_src).parent() {
+                parent.join($path_str)
+            } else {
+                panic!("Expected parent path for `{}` derived from `{}`", after_src, file!());
+            };
+            std::path::Path::new(crate_name).join(file_path)
+        } else {
+            panic!(
+                "Expected source path `{}` in file path `{}`",
+                $source_path,
+                file!()
+            );
+        }
     }};
 }
 
@@ -200,7 +211,11 @@ macro_rules! embedded_asset {
             .resource_mut::<$crate::io::embedded::EmbeddedAssetRegistry>();
         let path = $crate::embedded_path!($source_path, $path);
         #[cfg(feature = "embedded_watcher")]
-        let full_path = std::path::Path::new(file!()).parent().unwrap().join($path);
+        let full_path = if let Some(parent) = std::path::Path::new(file!()).parent() {
+            parent.join($path)
+        } else {
+            panic!("Expected parent path for `{}`", file!())
+        };
         #[cfg(not(feature = "embedded_watcher"))]
         let full_path = std::path::PathBuf::new();
         embedded.insert_asset(full_path, &path, include_bytes!($path));
@@ -262,25 +277,28 @@ mod tests {
 
     #[test]
     fn test_embedded_path_no_panics() {
-       assert_eq!(file!(), "crates/bevy_asset/src/io/embedded/mod.rs");
-       assert_eq!(embedded_path!("/src/", "a"), PathBuf::from("bevy_asset/io/embedded/a"));
-       assert_eq!(embedded_path!("/src", "a"), PathBuf::from("/io/embedded/a"));
-       assert_eq!(embedded_path!("src", "a"), PathBuf::from("/io/embedded/a"));
+        assert_eq!(file!(), "crates/bevy_asset/src/io/embedded/mod.rs");
+        assert_eq!(
+            embedded_path!("/src/", "a"),
+            PathBuf::from("bevy_asset/io/embedded/a")
+        );
+        assert_eq!(embedded_path!("/src", "a"), PathBuf::from("/io/embedded/a"));
+        assert_eq!(embedded_path!("src", "a"), PathBuf::from("/io/embedded/a"));
     }
 
     #[test]
-    // Panic message prior to change.
-    #[should_panic(expected = "called `Option::unwrap()` on a `None` value")]
-    // #[should_panic(expected = "Expected source path `NOT-IN-PATH` in file path `crates/bevy_asset/src/io/embedded/mod.rs`")]
-    fn test_embedded_path_panic0() {
-       assert_eq!(embedded_path!("NOT-IN-PATH", "b"), PathBuf::from("bevy_asset/tes/b"));
+    #[should_panic(
+        expected = "Expected source path `NOT-IN-PATH` in file path `crates/bevy_asset/src/io/embedded/mod.rs`"
+    )]
+    fn test_embedded_path_nonexistent_src_path() {
+        embedded_path!("NOT-IN-PATH", "b");
     }
 
-
     #[test]
-    #[should_panic(expected = "called `Option::unwrap()` on a `None` value")]
-    // #[should_panic(expected = "Expected source path `/a/` in file path `crates/bevy_asset/src/io/embedded/mod.rs`")]
-    fn test_embedded_path_panic1() {
-       assert_eq!(embedded_path!("/a/", "b"), PathBuf::from("bevy_asset/tes/b"));
+    #[should_panic(
+        expected = "Expected parent path for `` derived from `crates/bevy_asset/src/io/embedded/mod.rs`"
+    )]
+    fn test_embedded_parent_panic() {
+        assert_eq!(embedded_path!("/embedded/mod.rs", "embed.png"), PathBuf::from("bevy_asset/embed.png"));
     }
 }
