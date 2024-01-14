@@ -255,3 +255,32 @@ macro_rules! load_internal_binary_asset {
         );
     }};
 }
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    #[test]
+    fn test_embedded_path_no_panics() {
+       assert_eq!(file!(), "crates/bevy_asset/src/io/embedded/mod.rs");
+       assert_eq!(embedded_path!("/src/", "a"), PathBuf::from("bevy_asset/io/embedded/a"));
+       assert_eq!(embedded_path!("/src", "a"), PathBuf::from("/io/embedded/a"));
+       assert_eq!(embedded_path!("src", "a"), PathBuf::from("/io/embedded/a"));
+    }
+
+    #[test]
+    // Panic message prior to change.
+    #[should_panic(expected = "called `Option::unwrap()` on a `None` value")]
+    // #[should_panic(expected = "Expected source path `NOT-IN-PATH` in file path `crates/bevy_asset/src/io/embedded/mod.rs`")]
+    fn test_embedded_path_panic0() {
+       assert_eq!(embedded_path!("NOT-IN-PATH", "b"), PathBuf::from("bevy_asset/tes/b"));
+    }
+
+
+    #[test]
+    #[should_panic(expected = "called `Option::unwrap()` on a `None` value")]
+    // #[should_panic(expected = "Expected source path `/a/` in file path `crates/bevy_asset/src/io/embedded/mod.rs`")]
+    fn test_embedded_path_panic1() {
+       assert_eq!(embedded_path!("/a/", "b"), PathBuf::from("bevy_asset/tes/b"));
+    }
+}
