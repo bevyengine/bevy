@@ -89,7 +89,7 @@ fn setup(
                 ..default()
             }),
             transform: Transform::default()
-                .with_scale(Vec3::splat(2.0))
+                .with_scale(Vec3::splat(0.2))
                 .with_translation(Vec3::new(x as f32 / 2.0, 0.0, -0.3)),
             ..default()
         });
@@ -99,7 +99,7 @@ fn setup(
             meshlet_mesh: meshlet_mesh_handle.clone(),
             material: debug_material.clone(),
             transform: Transform::default()
-                .with_scale(Vec3::splat(2.0))
+                .with_scale(Vec3::splat(0.2))
                 .with_rotation(Quat::from_rotation_y(PI))
                 .with_translation(Vec3::new(x as f32 / 2.0, 0.0, 0.3)),
             ..default()
