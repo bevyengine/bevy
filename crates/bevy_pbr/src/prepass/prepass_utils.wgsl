@@ -33,3 +33,10 @@ fn prepass_motion_vector(frag_coord: vec4<f32>, sample_index: u32) -> vec2<f32> 
     return motion_vector_sample.rg;
 }
 #endif // MOTION_VECTOR_PREPASS
+
+#ifdef DEFERRED_PREPASS
+fn prepass_deferred_data(frag_coord: vec4<f32>) -> vec4<u32> {
+    let deferred_data = textureLoad(view_bindings::deferred_prepass_texture, vec2<i32>(frag_coord.xy), 0);
+    return deferred_data;
+}
+#endif // DEFERRED_PREPASS
