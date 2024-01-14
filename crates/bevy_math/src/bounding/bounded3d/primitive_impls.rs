@@ -299,3 +299,227 @@ impl Bounded3d for Torus {
         BoundingSphere::new(translation, self.outer_radius())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use glam::{Quat, Vec3};
+
+    use crate::{
+        bounding::Bounded3d,
+        primitives::{
+            Capsule, Cone, ConicalFrustum, Cuboid, Cylinder, Direction3d, Line3d, Plane3d,
+            Polyline3d, Segment3d, Sphere, Torus,
+        },
+    };
+
+    #[test]
+    fn sphere() {
+        let sphere = Sphere { radius: 1.0 };
+        let translation = Vec3::new(2.0, 1.0, 0.0);
+
+        let aabb = sphere.aabb_3d(translation, Quat::IDENTITY);
+        assert_eq!(aabb.min, Vec3::new(1.0, 0.0, -1.0));
+        assert_eq!(aabb.max, Vec3::new(3.0, 2.0, 1.0));
+
+        let bounding_sphere = sphere.bounding_sphere(translation, Quat::IDENTITY);
+        assert_eq!(bounding_sphere.center, translation);
+        assert_eq!(bounding_sphere.radius(), 1.0);
+    }
+
+    #[test]
+    fn plane() {
+        let translation = Vec3::new(2.0, 1.0, 0.0);
+
+        let aabb1 = Plane3d::new(Vec3::X).aabb_3d(translation, Quat::IDENTITY);
+        assert_eq!(aabb1.min, Vec3::new(2.0, -f32::MAX / 2.0, -f32::MAX / 2.0));
+        assert_eq!(aabb1.max, Vec3::new(2.0, f32::MAX / 2.0, f32::MAX / 2.0));
+
+        let aabb2 = Plane3d::new(Vec3::Y).aabb_3d(translation, Quat::IDENTITY);
+        assert_eq!(aabb2.min, Vec3::new(-f32::MAX / 2.0, 1.0, -f32::MAX / 2.0));
+        assert_eq!(aabb2.max, Vec3::new(f32::MAX / 2.0, 1.0, f32::MAX / 2.0));
+
+        let aabb3 = Plane3d::new(Vec3::Z).aabb_3d(translation, Quat::IDENTITY);
+        assert_eq!(aabb3.min, Vec3::new(-f32::MAX / 2.0, -f32::MAX / 2.0, 0.0));
+        assert_eq!(aabb3.max, Vec3::new(f32::MAX / 2.0, f32::MAX / 2.0, 0.0));
+
+        let aabb4 = Plane3d::new(Vec3::ONE).aabb_3d(translation, Quat::IDENTITY);
+        assert_eq!(aabb4.min, Vec3::splat(-f32::MAX / 2.0));
+        assert_eq!(aabb4.max, Vec3::splat(f32::MAX / 2.0));
+
+        let bounding_sphere = Plane3d::new(Vec3::Y).bounding_sphere(translation, Quat::IDENTITY);
+        assert_eq!(bounding_sphere.center, translation);
+        assert_eq!(bounding_sphere.radius(), f32::MAX / 2.0);
+    }
+
+    #[test]
+    fn line() {
+        let translation = Vec3::new(2.0, 1.0, 0.0);
+
+        let aabb1 = Line3d {
+            direction: Direction3d::Y,
+        }
+        .aabb_3d(translation, Quat::IDENTITY);
+        assert_eq!(aabb1.min, Vec3::new(2.0, -f32::MAX / 2.0, 0.0));
+        assert_eq!(aabb1.max, Vec3::new(2.0, f32::MAX / 2.0, 0.0));
+
+        let aabb2 = Line3d {
+            direction: Direction3d::X,
+        }
+        .aabb_3d(translation, Quat::IDENTITY);
+        assert_eq!(aabb2.min, Vec3::new(-f32::MAX / 2.0, 1.0, 0.0));
+        assert_eq!(aabb2.max, Vec3::new(f32::MAX / 2.0, 1.0, 0.0));
+
+        let aabb3 = Line3d {
+            direction: Direction3d::Z,
+        }
+        .aabb_3d(translation, Quat::IDENTITY);
+        assert_eq!(aabb3.min, Vec3::new(2.0, 1.0, -f32::MAX / 2.0));
+        assert_eq!(aabb3.max, Vec3::new(2.0, 1.0, f32::MAX / 2.0));
+
+        let aabb4 = Line3d {
+            direction: Direction3d::from_xyz(1.0, 1.0, 1.0).unwrap(),
+        }
+        .aabb_3d(translation, Quat::IDENTITY);
+        assert_eq!(aabb4.min, Vec3::splat(-f32::MAX / 2.0));
+        assert_eq!(aabb4.max, Vec3::splat(f32::MAX / 2.0));
+
+        let bounding_sphere = Line3d {
+            direction: Direction3d::Y,
+        }
+        .bounding_sphere(translation, Quat::IDENTITY);
+        assert_eq!(bounding_sphere.center, translation);
+        assert_eq!(bounding_sphere.radius(), f32::MAX / 2.0);
+    }
+
+    #[test]
+    fn segment() {
+        let translation = Vec3::new(2.0, 1.0, 0.0);
+        let segment =
+            Segment3d::from_points(Vec3::new(-1.0, -0.5, 0.0), Vec3::new(1.0, 0.5, 0.0)).0;
+
+        let aabb = segment.aabb_3d(translation, Quat::IDENTITY);
+        assert_eq!(aabb.min, Vec3::new(1.0, 0.5, 0.0));
+        assert_eq!(aabb.max, Vec3::new(3.0, 1.5, 0.0));
+
+        let bounding_sphere = segment.bounding_sphere(translation, Quat::IDENTITY);
+        assert_eq!(bounding_sphere.center, translation);
+        assert_eq!(bounding_sphere.radius(), 1.0_f32.hypot(0.5));
+    }
+
+    #[test]
+    fn polyline() {
+        let polyline = Polyline3d::<4>::new([
+            Vec3::ONE,
+            Vec3::new(-1.0, 1.0, 1.0),
+            Vec3::NEG_ONE,
+            Vec3::new(1.0, -1.0, -1.0),
+        ]);
+        let translation = Vec3::new(2.0, 1.0, 0.0);
+
+        let aabb = polyline.aabb_3d(translation, Quat::IDENTITY);
+        assert_eq!(aabb.min, Vec3::new(1.0, 0.0, -1.0));
+        assert_eq!(aabb.max, Vec3::new(3.0, 2.0, 1.0));
+
+        let bounding_sphere = polyline.bounding_sphere(translation, Quat::IDENTITY);
+        assert_eq!(bounding_sphere.center, translation);
+        assert_eq!(bounding_sphere.radius(), 1.0_f32.hypot(1.0).hypot(1.0));
+    }
+
+    #[test]
+    fn cuboid() {
+        let cuboid = Cuboid::new(2.0, 1.0, 1.0);
+        let translation = Vec3::new(2.0, 1.0, 0.0);
+
+        let aabb = cuboid.aabb_3d(
+            translation,
+            Quat::from_rotation_z(std::f32::consts::FRAC_PI_4),
+        );
+        let expected_half_size = Vec3::new(1.0606601, 1.0606601, 0.5);
+        assert_eq!(aabb.min, translation - expected_half_size);
+        assert_eq!(aabb.max, translation + expected_half_size);
+
+        let bounding_sphere = cuboid.bounding_sphere(translation, Quat::IDENTITY);
+        assert_eq!(bounding_sphere.center, translation);
+        assert_eq!(bounding_sphere.radius(), 1.0_f32.hypot(0.5).hypot(0.5));
+    }
+
+    #[test]
+    fn cylinder() {
+        let cylinder = Cylinder::new(0.5, 2.0);
+        let translation = Vec3::new(2.0, 1.0, 0.0);
+
+        let aabb = cylinder.aabb_3d(translation, Quat::IDENTITY);
+        assert_eq!(aabb.min, translation - Vec3::new(0.5, 1.0, 0.5));
+        assert_eq!(aabb.max, translation + Vec3::new(0.5, 1.0, 0.5));
+
+        let bounding_sphere = cylinder.bounding_sphere(translation, Quat::IDENTITY);
+        assert_eq!(bounding_sphere.center, translation);
+        assert_eq!(bounding_sphere.radius(), 1.0_f32.hypot(0.5));
+    }
+
+    #[test]
+    fn capsule() {
+        let capsule = Capsule::new(0.5, 2.0);
+        let translation = Vec3::new(2.0, 1.0, 0.0);
+
+        let aabb = capsule.aabb_3d(translation, Quat::IDENTITY);
+        assert_eq!(aabb.min, translation - Vec3::new(0.5, 1.5, 0.5));
+        assert_eq!(aabb.max, translation + Vec3::new(0.5, 1.5, 0.5));
+
+        let bounding_sphere = capsule.bounding_sphere(translation, Quat::IDENTITY);
+        assert_eq!(bounding_sphere.center, translation);
+        assert_eq!(bounding_sphere.radius(), 1.5);
+    }
+
+    #[test]
+    fn cone() {
+        let cone = Cone {
+            radius: 1.0,
+            height: 2.0,
+        };
+        let translation = Vec3::new(2.0, 1.0, 0.0);
+
+        let aabb = cone.aabb_3d(translation, Quat::IDENTITY);
+        assert_eq!(aabb.min, Vec3::new(1.0, 0.0, -1.0));
+        assert_eq!(aabb.max, Vec3::new(3.0, 2.0, 1.0));
+
+        let bounding_sphere = cone.bounding_sphere(translation, Quat::IDENTITY);
+        assert_eq!(bounding_sphere.center, translation + Vec3::NEG_Y * 0.25);
+        assert_eq!(bounding_sphere.radius(), 1.25);
+    }
+
+    #[test]
+    fn conical_frustum() {
+        let conical_frustum = ConicalFrustum {
+            radius_top: 0.5,
+            radius_bottom: 1.0,
+            height: 2.0,
+        };
+        let translation = Vec3::new(2.0, 1.0, 0.0);
+
+        let aabb = conical_frustum.aabb_3d(translation, Quat::IDENTITY);
+        assert_eq!(aabb.min, Vec3::new(1.0, 0.0, -1.0));
+        assert_eq!(aabb.max, Vec3::new(3.0, 2.0, 1.0));
+
+        let bounding_sphere = conical_frustum.bounding_sphere(translation, Quat::IDENTITY);
+        assert_eq!(bounding_sphere.center, translation + Vec3::NEG_Y * 0.1875);
+        assert_eq!(bounding_sphere.radius(), 1.2884705);
+    }
+
+    #[test]
+    fn torus() {
+        let torus = Torus {
+            minor_radius: 0.5,
+            major_radius: 1.0,
+        };
+        let translation = Vec3::new(2.0, 1.0, 0.0);
+
+        let aabb = torus.aabb_3d(translation, Quat::IDENTITY);
+        assert_eq!(aabb.min, Vec3::new(0.5, 0.5, -1.5));
+        assert_eq!(aabb.max, Vec3::new(3.5, 1.5, 1.5));
+
+        let bounding_sphere = torus.bounding_sphere(translation, Quat::IDENTITY);
+        assert_eq!(bounding_sphere.center, translation);
+        assert_eq!(bounding_sphere.radius(), 1.5);
+    }
+}
