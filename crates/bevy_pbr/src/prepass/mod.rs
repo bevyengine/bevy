@@ -181,7 +181,7 @@ where
                     prepare_material_meshlet_meshes_prepass::<M>
                         .in_set(RenderSet::Queue)
                         .before(queue_material_meshlet_meshes::<M>)
-                        .run_if(resource_exists::<MeshletGpuScene>()),
+                        .run_if(resource_exists::<MeshletGpuScene>),
                 ),
             );
     }
