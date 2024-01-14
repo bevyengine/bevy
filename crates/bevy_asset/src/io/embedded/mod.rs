@@ -292,7 +292,11 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "Expected source path `NOT-IN-PATH` in file path `crates/bevy_asset/src/io/embedded/mod.rs`"
+        // Unix
+        // expected = "Expected source path `NOT-IN-PATH` in file path `crates/bevy_asset/src/io/embedded/mod.rs`"
+        // Windows
+        // expected = "Expected source path `NOT-IN-PATH` in file path `crates\\bevy_asset\\src\\io\\embedded\\mod.rs`"
+        expected = "Expected source path `NOT-IN-PATH` in file path `crates"
     )]
     fn test_embedded_path_nonexistent_src_path() {
         embedded_path!("NOT-IN-PATH", "b");
@@ -300,7 +304,11 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "Expected parent path for `` derived from `crates/bevy_asset/src/io/embedded/mod.rs`"
+        // Unix
+        // expected = "Expected parent path for `` derived from `crates/bevy_asset/src/io/embedded/mod.rs`"
+        // Windows
+        // expected = "Expected parent path for `` derived from `crates\\bevy_asset\\src\\io\\embedded\\mod.rs`"
+        expected = "Expected parent path for `` derived from `crates"
     )]
     fn test_embedded_parent_panic() {
         assert_eq!(
