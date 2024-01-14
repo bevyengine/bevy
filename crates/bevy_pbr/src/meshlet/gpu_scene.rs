@@ -54,8 +54,20 @@ pub fn extract_meshlet_meshes(
     gpu_scene.reset();
 
     for asset_event in asset_events.read() {
-        if let AssetEvent::Unused { id: _ } = asset_event {
-            // TODO: Remove all asset data from PersistentGpuBuffers
+        if let AssetEvent::Unused { id } = asset_event {
+            if let Some((
+                [vertex_data_slice, vertex_ids_slice, indices_slice, meshlets_slice, meshlet_bunding_spheres_slice],
+                _,
+            )) = gpu_scene.meshlet_mesh_slices.remove(id)
+            {
+                gpu_scene.vertex_data.mark_slice_unused(vertex_data_slice);
+                gpu_scene.vertex_ids.mark_slice_unused(vertex_ids_slice);
+                gpu_scene.indices.mark_slice_unused(indices_slice);
+                gpu_scene.meshlets.mark_slice_unused(meshlets_slice);
+                gpu_scene
+                    .meshlet_bounding_spheres
+                    .mark_slice_unused(meshlet_bunding_spheres_slice);
+            }
         }
     }
 
@@ -545,7 +557,7 @@ pub struct MeshletGpuScene {
     indices: PersistentGpuBuffer<Arc<[u8]>>,
     meshlets: PersistentGpuBuffer<Arc<[Meshlet]>>,
     meshlet_bounding_spheres: PersistentGpuBuffer<Arc<[MeshletBoundingSphere]>>,
-    meshlet_mesh_slices: HashMap<AssetId<MeshletMesh>, (Range<u32>, u64)>,
+    meshlet_mesh_slices: HashMap<AssetId<MeshletMesh>, ([Range<BufferAddress>; 5], u64)>,
 
     scene_meshlet_count: u32,
     scene_index_count: u64,
@@ -759,11 +771,18 @@ impl MeshletGpuScene {
                 Arc::clone(&meshlet_mesh.meshlets),
                 (vertex_ids_slice.start, indices_slice.start),
             );
-            self.meshlet_bounding_spheres
+            let meshlet_bunding_spheres_slice = self
+                .meshlet_bounding_spheres
                 .queue_write(Arc::clone(&meshlet_mesh.meshlet_bounding_spheres), ());
 
             (
-                (meshlets_slice.start as u32 / 12)..(meshlets_slice.end as u32 / 12),
+                [
+                    vertex_data_slice,
+                    vertex_ids_slice,
+                    indices_slice,
+                    meshlets_slice,
+                    meshlet_bunding_spheres_slice,
+                ],
                 meshlet_mesh.total_meshlet_indices,
             )
         };
@@ -771,11 +790,14 @@ impl MeshletGpuScene {
         self.instances.push(instance);
         self.instance_material_ids.get_mut().push(0);
 
-        let (meshlets_slice, index_count) = self
+        let (buffer_slices, index_count) = self
             .meshlet_mesh_slices
             .entry(handle.id())
             .or_insert_with_key(queue_meshlet_mesh)
             .clone();
+
+        let meshlets_slice =
+            (buffer_slices[4].start as u32 / 12)..(buffer_slices[4].end as u32 / 12);
 
         let current_thread_id_start = self.scene_meshlet_count;
 

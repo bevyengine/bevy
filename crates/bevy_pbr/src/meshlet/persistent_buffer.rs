@@ -78,6 +78,11 @@ impl<T: PersistentGpuBufferable> PersistentGpuBuffer<T> {
         }
     }
 
+    /// Mark a section of the GPU buffer as no longer needed.
+    pub fn mark_slice_unused(&mut self, buffer_slice: Range<BufferAddress>) {
+        self.allocation_planner.free_range(buffer_slice);
+    }
+
     pub fn binding(&self) -> BindingResource<'_> {
         self.buffer.as_entire_binding()
     }
