@@ -264,8 +264,10 @@ impl BoundingCircle {
         }
     }
 
-    /// Computes the smallest [`BoundingCircle`] containing the given set of points,
+    /// Computes a [`BoundingCircle`] containing the given set of points,
     /// transformed by `translation` and `rotation`.
+    ///
+    /// The bounding circle is not guaranteed to be the smallest possible.
     #[inline(always)]
     pub fn from_point_cloud(translation: Vec2, rotation: f32, points: &[Vec2]) -> BoundingCircle {
         let center = point_cloud_2d_center(points);

@@ -254,8 +254,10 @@ impl BoundingSphere {
         }
     }
 
-    /// Computes the smallest [`BoundingSphere`] containing the given set of points,
+    /// Computes a [`BoundingSphere`] containing the given set of points,
     /// transformed by `translation` and `rotation`.
+    ///
+    /// The bounding sphere is not guaranteed to be the smallest possible.
     #[inline(always)]
     pub fn from_point_cloud(translation: Vec3, rotation: Quat, points: &[Vec3]) -> BoundingSphere {
         let center = point_cloud_3d_center(points);
