@@ -2,9 +2,12 @@
 
 use glam::{Mat3, Quat, Vec2, Vec3};
 
-use crate::primitives::{
-    BoxedPolyline3d, Capsule, Circle, Cone, ConicalFrustum, Cuboid, Cylinder, Direction3d, Line3d,
-    Plane3d, Polyline3d, Segment3d, Sphere, Torus, Triangle2d,
+use crate::{
+    bounding::{Bounded2d, BoundingCircle},
+    primitives::{
+        BoxedPolyline3d, Capsule, Cone, ConicalFrustum, Cuboid, Cylinder, Direction3d, Line3d,
+        Plane3d, Polyline3d, Segment3d, Sphere, Torus, Triangle2d,
+    },
 };
 
 use super::{Aabb3d, Bounded3d, BoundingSphere};
@@ -202,17 +205,19 @@ impl Bounded3d for Cone {
     }
 
     fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere {
-        // To compute the bounding sphere, we'll get the circumcircle passing through
-        // all three vertices of the triangular cross-section of the cone.
+        // Get the triangular cross-section of the cone.
         let half_height = 0.5 * self.height;
         let triangle = Triangle2d::new(
             half_height * Vec2::Y,
             Vec2::new(-self.radius, -half_height),
             Vec2::new(self.radius, -half_height),
         );
-        let (Circle { radius }, circumcenter) = triangle.circumcircle();
 
-        BoundingSphere::new(translation + rotation * circumcenter.extend(0.0), radius)
+        // Because of circular symmetry, we can use the bounding circle of the triangle
+        // for the bounding sphere of the cone.
+        let BoundingCircle { circle, center } = triangle.bounding_circle(Vec2::ZERO, 0.0);
+
+        BoundingSphere::new(rotation * center.extend(0.0) + translation, circle.radius)
     }
 }
 

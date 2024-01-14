@@ -149,8 +149,32 @@ impl Bounded2d for Triangle2d {
     }
 
     fn bounding_circle(&self, translation: Vec2, rotation: f32) -> BoundingCircle {
-        let (Circle { radius }, circumcenter) = self.circumcircle();
-        BoundingCircle::new(rotate_vec2(circumcenter, rotation) + translation, radius)
+        let [a, b, c] = self.vertices;
+
+        // The points of the segment opposite to the obtuse or right angle if one exists
+        let side_opposite_to_non_acute = if (b - a).dot(c - a) <= 0.0 {
+            Some((b, c))
+        } else if (c - b).dot(a - b) <= 0.0 {
+            Some((c, a))
+        } else if (a - c).dot(b - c) <= 0.0 {
+            Some((a, b))
+        } else {
+            // The triangle is acute.
+            None
+        };
+
+        // Find the minimum bounding circle. If the triangle is obtuse, the circle passes through two vertices.
+        // Otherwise, it's the circumcircle and passes through all three.
+        if let Some((point1, point2)) = side_opposite_to_non_acute {
+            // The triangle is obtuse or right, so the minimum bounding circle's diameter is equal to the longest side.
+            // We can compute the minimum bounding circle from the line segment of the longest side.
+            let (segment, center) = Segment2d::from_points(point1, point2);
+            segment.bounding_circle(rotate_vec2(center, rotation) + translation, rotation)
+        } else {
+            // The triangle is acute, so the smallest bounding circle is the circumcircle.
+            let (Circle { radius }, circumcenter) = self.circumcircle();
+            BoundingCircle::new(rotate_vec2(circumcenter, rotation) + translation, radius)
+        }
     }
 }
 
@@ -348,17 +372,39 @@ mod tests {
     }
 
     #[test]
-    fn triangle() {
-        let triangle = Triangle2d::new(Vec2::new(0.0, 1.0), Vec2::NEG_ONE, Vec2::new(1.0, -1.0));
+    fn acute_triangle() {
+        let acute_triangle =
+            Triangle2d::new(Vec2::new(0.0, 1.0), Vec2::NEG_ONE, Vec2::new(1.0, -1.0));
         let translation = Vec2::new(2.0, 1.0);
 
-        let aabb = triangle.aabb_2d(translation, 0.0);
+        let aabb = acute_triangle.aabb_2d(translation, 0.0);
         assert_eq!(aabb.min, Vec2::new(1.0, 0.0));
         assert_eq!(aabb.max, Vec2::new(3.0, 2.0));
 
-        let bounding_circle = triangle.bounding_circle(translation, 0.0);
-        assert_eq!(bounding_circle.center, translation + Vec2::NEG_Y * 0.25);
-        assert_eq!(bounding_circle.radius(), 1.25);
+        // For acute triangles, the center is the circumcenter
+        let (Circle { radius }, circumcenter) = acute_triangle.circumcircle();
+        let bounding_circle = acute_triangle.bounding_circle(translation, 0.0);
+        assert_eq!(bounding_circle.center, circumcenter + translation);
+        assert_eq!(bounding_circle.radius(), radius);
+    }
+
+    #[test]
+    fn obtuse_triangle() {
+        let obtuse_triangle = Triangle2d::new(
+            Vec2::new(0.0, 1.0),
+            Vec2::new(-10.0, -1.0),
+            Vec2::new(10.0, -1.0),
+        );
+        let translation = Vec2::new(2.0, 1.0);
+
+        let aabb = obtuse_triangle.aabb_2d(translation, 0.0);
+        assert_eq!(aabb.min, Vec2::new(-8.0, 0.0));
+        assert_eq!(aabb.max, Vec2::new(12.0, 2.0));
+
+        // For obtuse and right triangles, the center is the midpoint of the longest side (diameter of bounding circle)
+        let bounding_circle = obtuse_triangle.bounding_circle(translation, 0.0);
+        assert_eq!(bounding_circle.center, translation - Vec2::Y);
+        assert_eq!(bounding_circle.radius(), 10.0);
     }
 
     #[test]
