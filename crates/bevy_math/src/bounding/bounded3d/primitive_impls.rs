@@ -24,18 +24,16 @@ impl Bounded3d for Sphere {
 
 impl Bounded3d for Plane3d {
     fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
-        // Get a direction along the plane rotated by `rotation`
-        let direction = (rotation * *self.normal).any_orthonormal_vector();
-        let facing_x = direction == Vec3::X || direction == Vec3::NEG_X;
-        let facing_y = direction == Vec3::Y || direction == Vec3::NEG_Y;
-        let facing_z = direction == Vec3::Z || direction == Vec3::NEG_Z;
+        let normal = rotation * *self.normal;
+        let facing_x = normal == Vec3::X || normal == Vec3::NEG_X;
+        let facing_y = normal == Vec3::Y || normal == Vec3::NEG_Y;
+        let facing_z = normal == Vec3::Z || normal == Vec3::NEG_Z;
 
         // Dividing `f32::MAX` by 2.0 can actually be good so that we can do operations
         // like growing or shrinking the AABB without breaking things.
-        let max = f32::MAX / 2.0;
-        let half_width = if facing_y && facing_z { 0.0 } else { max };
-        let half_height = if facing_x && facing_z { 0.0 } else { max };
-        let half_depth = if facing_x && facing_y { 0.0 } else { max };
+        let half_width = if facing_x { 0.0 } else { f32::MAX / 2.0 };
+        let half_height = if facing_y { 0.0 } else { f32::MAX / 2.0 };
+        let half_depth = if facing_z { 0.0 } else { f32::MAX / 2.0 };
         let half_size = Vec3::new(half_width, half_height, half_depth);
 
         Aabb3d {
@@ -51,18 +49,14 @@ impl Bounded3d for Plane3d {
 
 impl Bounded3d for Line3d {
     fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
-        // Get the line direction along the plane rotated by `rotation`
         let direction = rotation * *self.direction;
-        let x_parallel = direction == Vec3::X || direction == Vec3::NEG_X;
-        let y_parallel = direction == Vec3::Y || direction == Vec3::NEG_Y;
-        let z_parallel = direction == Vec3::Z || direction == Vec3::NEG_Z;
 
         // Dividing `f32::MAX` by 2.0 can actually be good so that we can do operations
         // like growing or shrinking the AABB without breaking things.
         let max = f32::MAX / 2.0;
-        let half_width = if y_parallel && z_parallel { 0.0 } else { max };
-        let half_height = if x_parallel && z_parallel { 0.0 } else { max };
-        let half_depth = if x_parallel && y_parallel { 0.0 } else { max };
+        let half_width = if direction.x == 0.0 { 0.0 } else { max };
+        let half_height = if direction.y == 0.0 { 0.0 } else { max };
+        let half_depth = if direction.z == 0.0 { 0.0 } else { max };
         let half_size = Vec3::new(half_width, half_height, half_depth);
 
         Aabb3d {
