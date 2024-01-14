@@ -283,7 +283,7 @@ pub fn extract_uinode_borders(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     camera_query: Extract<Query<(Entity, &Camera)>>,
-    default_ui_camera: DefaultUiCamera,
+    default_ui_camera: Extract<DefaultUiCamera>,
     ui_scale: Extract<Res<UiScale>>,
     uinode_query: Extract<
         Query<
@@ -639,7 +639,7 @@ pub fn extract_text_uinodes(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     camera_query: Extract<Query<(Entity, &Camera)>>,
-    default_ui_camera: DefaultUiCamera,
+    default_ui_camera: Extract<DefaultUiCamera>,
     texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
     ui_scale: Extract<Res<UiScale>>,
     uinode_query: Extract<
