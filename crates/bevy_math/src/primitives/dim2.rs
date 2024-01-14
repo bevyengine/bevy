@@ -265,6 +265,41 @@ impl Triangle2d {
         }
     }
 
+    /// Compute the circle passing through all three vertices of the triangle.
+    /// The vector in the returned tuple is the circumcenter.
+    pub fn circumcircle(&self) -> (Circle, Vec2) {
+        // We treat the triangle as translated so that vertex A is at the origin. This simplifies calculations.
+        //
+        //     A = (0, 0)
+        //        *
+        //       / \
+        //      /   \
+        //     /     \
+        //    /       \
+        //   /    U    \
+        //  /           \
+        // *-------------*
+        // B             C
+
+        let a = self.vertices[0];
+        let (b, c) = (self.vertices[1] - a, self.vertices[2] - a);
+        let b_length_sq = b.length_squared();
+        let c_length_sq = c.length_squared();
+
+        // Reference: https://en.wikipedia.org/wiki/Circumcircle#Cartesian_coordinates_2
+        let inv_d = (2.0 * (b.x * c.y - b.y * c.x)).recip();
+        let ux = inv_d * (c.y * b_length_sq - b.y * c_length_sq);
+        let uy = inv_d * (b.x * c_length_sq - c.x * b_length_sq);
+        let u = Vec2::new(ux, uy);
+
+        // Compute true circumcenter and circumradius, adding the tip coordinate so that
+        // A is translated back to its actual coordinate.
+        let center = u + a;
+        let radius = u.length();
+
+        (Circle { radius }, center)
+    }
+
     /// Reverse the [`WindingOrder`] of the triangle
     /// by swapping the second and third vertices
     pub fn reverse(&mut self) {
@@ -453,6 +488,20 @@ mod tests {
             Vec2::new(0.0, -1.2),
         );
         assert_eq!(invalid_triangle.winding_order(), WindingOrder::Invalid);
+    }
+
+    #[test]
+    fn triangle_circumcenter() {
+        let triangle = Triangle2d::new(
+            Vec2::new(10.0, 2.0),
+            Vec2::new(-5.0, -3.0),
+            Vec2::new(2.0, -1.0),
+        );
+        let (Circle { radius }, circumcenter) = triangle.circumcircle();
+
+        // Calculated with external calculator
+        assert_eq!(radius, 98.34887);
+        assert_eq!(circumcenter, Vec2::new(-28.5, 92.5));
     }
 
     #[test]

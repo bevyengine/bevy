@@ -149,7 +149,8 @@ impl Bounded2d for Triangle2d {
     }
 
     fn bounding_circle(&self, translation: Vec2, rotation: f32) -> BoundingCircle {
-        self.aabb_2d(translation, rotation).bounding_circle()
+        let (Circle { radius }, circumcenter) = self.circumcircle();
+        BoundingCircle::new(rotate_vec2(circumcenter, rotation) + translation, radius)
     }
 }
 

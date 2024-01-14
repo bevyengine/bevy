@@ -3,8 +3,8 @@
 use glam::{Mat3, Quat, Vec2, Vec3};
 
 use crate::primitives::{
-    BoxedPolyline3d, Capsule, Cone, ConicalFrustum, Cuboid, Cylinder, Direction3d, Line3d, Plane3d,
-    Polyline3d, Segment3d, Sphere, Torus,
+    BoxedPolyline3d, Capsule, Circle, Cone, ConicalFrustum, Cuboid, Cylinder, Direction3d, Line3d,
+    Plane3d, Polyline3d, Segment3d, Sphere, Torus, Triangle2d,
 };
 
 use super::{Aabb3d, Bounded3d, BoundingSphere};
@@ -202,44 +202,17 @@ impl Bounded3d for Cone {
     }
 
     fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere {
-        // To compute the bounding sphere, we'll get the circumcenter U and circumradius R
-        // of the circumcircle passing through all three vertices of the triangular
-        // cross-section of the cone.
-        //
-        // Here, we assume the tip A is translated to the origin, which simplifies calculations.
-        //
-        //     A = (0, 0)
-        //         *
-        //        / \
-        //       /   \
-        //      /     \
-        //     /       \
-        //    /         \
-        //   /     U     \
-        //  /             \
-        // *---------------*
-        // B                C
+        // To compute the bounding sphere, we'll get the circumcircle passing through
+        // all three vertices of the triangular cross-section of the cone.
+        let half_height = 0.5 * self.height;
+        let triangle = Triangle2d::new(
+            half_height * Vec2::Y,
+            Vec2::new(-self.radius, -half_height),
+            Vec2::new(self.radius, half_height),
+        );
+        let (Circle { radius }, circumcenter) = triangle.circumcircle();
 
-        let b = Vec2::new(-self.radius, -self.height);
-        let c = Vec2::new(self.radius, -self.height);
-        let b_length_sq = b.length_squared();
-        let c_length_sq = c.length_squared();
-
-        // Reference: https://en.wikipedia.org/wiki/Circumcircle#Cartesian_coordinates_2
-        let inv_d = (2.0 * (b.x * c.y - b.y * c.x)).recip();
-        let ux = inv_d * (c.y * b_length_sq - b.y * c_length_sq);
-        let uy = inv_d * (b.x * c_length_sq - c.x * b_length_sq);
-        let u = Vec2::new(ux, uy);
-
-        // Compute true circumcenter and circumradius, adding the tip coordinate so that
-        // A is translated back to its actual coordinate.
-        let circumcenter = u + 0.5 * self.height * Vec2::Y;
-        let circumradius = u.length();
-
-        BoundingSphere::new(
-            translation + rotation * circumcenter.extend(0.0),
-            circumradius,
-        )
+        BoundingSphere::new(translation + rotation * circumcenter.extend(0.0), radius)
     }
 }
 
