@@ -298,22 +298,22 @@ fn update_exposure(
 ) {
     // TODO: Clamp values to a reasonable range
     let mut text = text.single_mut();
-    if key_input.just_pressed(KeyCode::Key2) {
+    if key_input.just_pressed(KeyCode::Digit2) {
         parameters.aperture_f_stops *= 2.0;
-    } else if key_input.just_pressed(KeyCode::Key1) {
+    } else if key_input.just_pressed(KeyCode::Digit1) {
         parameters.aperture_f_stops *= 0.5;
     }
-    if key_input.just_pressed(KeyCode::Key4) {
+    if key_input.just_pressed(KeyCode::Digit4) {
         parameters.shutter_speed_s *= 2.0;
-    } else if key_input.just_pressed(KeyCode::Key3) {
+    } else if key_input.just_pressed(KeyCode::Digit3) {
         parameters.shutter_speed_s *= 0.5;
     }
-    if key_input.just_pressed(KeyCode::Key6) {
+    if key_input.just_pressed(KeyCode::Digit6) {
         parameters.sensitivity_iso += 100.0;
-    } else if key_input.just_pressed(KeyCode::Key5) {
+    } else if key_input.just_pressed(KeyCode::Digit5) {
         parameters.sensitivity_iso -= 100.0;
     }
-    if key_input.just_pressed(KeyCode::R) {
+    if key_input.just_pressed(KeyCode::KeyR) {
         *parameters = Parameters::default();
     }
 
