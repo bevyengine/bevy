@@ -241,12 +241,13 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
         (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
     ) in &mut views
     {
-        if let (false, true, false, false) = (
+        if (
             normal_prepass,
             depth_prepass,
             motion_vector_prepass,
             deferred_prepass,
-        ) {
+        ) == (false, true, false, false)
+        {
             continue;
         }
 
