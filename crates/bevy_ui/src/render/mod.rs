@@ -16,7 +16,7 @@ use crate::{
     prelude::UiCameraConfig, BackgroundColor, BorderColor, CalculatedClip, ContentSize, Node,
     Style, UiImage, UiScale, UiTextureAtlasImage, Val,
 };
-use crate::{Outline, TargetCamera};
+use crate::{DefaultUiCamera, Outline, TargetCamera};
 
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
@@ -179,7 +179,7 @@ pub fn extract_atlas_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     images: Extract<Res<Assets<Image>>>,
     texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
-    camera_query: Extract<Query<Entity, With<Camera>>>,
+    default_ui_camera: Extract<DefaultUiCamera>,
     uinode_query: Extract<
         Query<
             (
@@ -197,8 +197,6 @@ pub fn extract_atlas_uinodes(
         >,
     >,
 ) {
-    // If there is only one camera, we use it as default
-    let default_single_camera = camera_query.get_single().ok();
     for (
         entity,
         uinode,
@@ -211,7 +209,8 @@ pub fn extract_atlas_uinodes(
         camera,
     ) in uinode_query.iter()
     {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_single_camera) else {
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
+        else {
             continue;
         };
         // Skip invisible and completely transparent nodes
@@ -285,6 +284,7 @@ pub fn extract_uinode_borders(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     camera_query: Extract<Query<(Entity, &Camera)>>,
+    default_ui_camera: DefaultUiCamera,
     ui_scale: Extract<Res<UiScale>>,
     uinode_query: Extract<
         Query<
@@ -303,14 +303,13 @@ pub fn extract_uinode_borders(
     >,
     node_query: Extract<Query<&Node>>,
 ) {
-    // If there is only one camera, we use it as default
-    let default_single_camera = camera_query.get_single().ok().map(|(entity, _)| entity);
     let image = AssetId::<Image>::default();
 
     for (node, global_transform, style, border_color, parent, view_visibility, clip, camera) in
         &uinode_query
     {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_single_camera) else {
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
+        else {
             continue;
         };
         // Skip invisible borders
@@ -406,7 +405,7 @@ pub fn extract_uinode_borders(
 pub fn extract_uinode_outlines(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    camera_query: Extract<Query<Entity, With<Camera>>>,
+    default_ui_camera: Extract<DefaultUiCamera>,
     uinode_query: Extract<
         Query<(
             &Node,
@@ -418,11 +417,10 @@ pub fn extract_uinode_outlines(
         )>,
     >,
 ) {
-    // If there is only one camera, we use it as default
-    let default_single_camera = camera_query.get_single().ok();
     let image = AssetId::<Image>::default();
     for (node, global_transform, outline, view_visibility, maybe_clip, camera) in &uinode_query {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_single_camera) else {
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
+        else {
             continue;
         };
         // Skip invisible outlines
@@ -498,7 +496,7 @@ pub fn extract_uinode_outlines(
 pub fn extract_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     images: Extract<Res<Assets<Image>>>,
-    camera_query: Extract<Query<Entity, With<Camera>>>,
+    default_ui_camera: Extract<DefaultUiCamera>,
     uinode_query: Extract<
         Query<
             (
@@ -515,12 +513,11 @@ pub fn extract_uinodes(
         >,
     >,
 ) {
-    // If there is only one camera, we use it as default
-    let default_single_camera = camera_query.get_single().ok();
     for (entity, uinode, transform, color, maybe_image, view_visibility, clip, camera) in
         uinode_query.iter()
     {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_single_camera) else {
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
+        else {
             continue;
         };
         // Skip invisible and completely transparent nodes
@@ -643,6 +640,7 @@ pub fn extract_text_uinodes(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     camera_query: Extract<Query<(Entity, &Camera)>>,
+    default_ui_camera: DefaultUiCamera,
     texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
     ui_scale: Extract<Res<UiScale>>,
     uinode_query: Extract<
@@ -657,12 +655,11 @@ pub fn extract_text_uinodes(
         )>,
     >,
 ) {
-    // If there is only one camera, we use it as default
-    let default_single_camera = camera_query.get_single().ok().map(|(entity, _)| entity);
     for (uinode, global_transform, text, text_layout_info, view_visibility, clip, camera) in
         uinode_query.iter()
     {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_single_camera) else {
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
+        else {
             continue;
         };
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)

@@ -1,7 +1,7 @@
 mod convert;
 pub mod debug;
 
-use crate::{ContentSize, Node, Outline, Style, TargetCamera, UiScale};
+use crate::{ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiScale};
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     entity::Entity,
@@ -245,6 +245,7 @@ pub enum LayoutError {
 pub fn ui_layout_system(
     primary_window: Query<(Entity, &Window), With<PrimaryWindow>>,
     cameras: Query<(Entity, &Camera)>,
+    default_ui_camera: DefaultUiCamera,
     ui_scale: Res<UiScale>,
     mut scale_factor_events: EventReader<WindowScaleFactorChanged>,
     mut resize_events: EventReader<bevy_window::WindowResized>,
@@ -266,12 +267,10 @@ pub fn ui_layout_system(
         root_nodes: Vec<Entity>,
     }
 
-    // If there is only one camera, we use it as default
-    let default_single_camera = cameras.get_single().ok().map(|(entity, _)| entity);
     let camera_with_default = |target_camera: Option<&TargetCamera>| {
         target_camera
             .map(TargetCamera::entity)
-            .or(default_single_camera)
+            .or(default_ui_camera.get())
     };
 
     let resized_windows: HashSet<Entity> = resize_events.read().map(|event| event.window).collect();

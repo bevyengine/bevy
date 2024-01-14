@@ -1,11 +1,16 @@
 use crate::{UiRect, Val};
 use bevy_asset::Handle;
-use bevy_ecs::{entity::Entity, prelude::Component, reflect::ReflectComponent};
+use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
-use bevy_render::{color::Color, texture::Image};
+use bevy_render::{
+    camera::{Camera, RenderTarget},
+    color::Color,
+    texture::Image,
+};
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::smallvec::SmallVec;
+use bevy_window::{PrimaryWindow, WindowRef};
 use std::num::{NonZeroI16, NonZeroU16};
 use thiserror::Error;
 
@@ -1848,5 +1853,25 @@ pub struct TargetCamera(pub Entity);
 impl TargetCamera {
     pub fn entity(&self) -> Entity {
         self.0
+    }
+}
+
+#[derive(SystemParam)]
+pub struct DefaultUiCamera<'w, 's> {
+    cameras: Query<'w, 's, (Entity, &'static Camera)>,
+    primary_window: Query<'w, 's, Entity, With<PrimaryWindow>>,
+}
+
+impl<'w, 's> DefaultUiCamera<'w, 's> {
+    pub fn get(&self) -> Option<Entity> {
+        self.cameras
+            .iter()
+            .filter(|(_, c)| match c.target {
+                RenderTarget::Window(WindowRef::Primary) => true,
+                RenderTarget::Window(WindowRef::Entity(w)) => self.primary_window.get(w).is_ok(),
+                _ => false,
+            })
+            .max_by_key(|(e, c)| (c.order, *e))
+            .map(|(e, _)| e)
     }
 }

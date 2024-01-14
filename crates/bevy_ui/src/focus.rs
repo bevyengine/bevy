@@ -1,4 +1,7 @@
-use crate::{camera_config::UiCameraConfig, CalculatedClip, Node, TargetCamera, UiScale, UiStack};
+use crate::{
+    camera_config::UiCameraConfig, CalculatedClip, DefaultUiCamera, Node, TargetCamera, UiScale,
+    UiStack,
+};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::Entity,
@@ -143,6 +146,7 @@ pub struct NodeQuery {
 pub fn ui_focus_system(
     mut state: Local<State>,
     camera_query: Query<(Entity, &Camera, Option<&UiCameraConfig>)>,
+    default_ui_camera: DefaultUiCamera,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     windows: Query<&Window>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
@@ -178,8 +182,6 @@ pub fn ui_focus_system(
     let is_ui_disabled =
         |camera_ui| matches!(camera_ui, Some(&UiCameraConfig { show_ui: false, .. }));
 
-    // If there is only one camera, we use it as default
-    let default_single_camera = camera_query.get_single().ok().map(|(entity, _, _)| entity);
     let camera_cursor_positions: Vec<(Entity, Vec2)> = camera_query
         .iter()
         .filter(|(_, _, camera_ui)| !is_ui_disabled(*camera_ui))
@@ -235,7 +237,7 @@ pub fn ui_focus_system(
             let Some(camera_entity) = node
                 .target_camera
                 .map(TargetCamera::entity)
-                .or(default_single_camera)
+                .or(default_ui_camera.get())
             else {
                 return None;
             };
