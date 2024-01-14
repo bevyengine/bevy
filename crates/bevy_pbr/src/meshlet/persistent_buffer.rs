@@ -64,7 +64,6 @@ impl<T: PersistentGpuBufferable> PersistentGpuBuffer<T> {
 
         let queue_count = self.write_queue.len();
 
-        // Serialize all items into the upload buffer
         for (data, metadata, buffer_slice) in self.write_queue.drain(..) {
             let buffer_slice_size = NonZeroU64::new(buffer_slice.end - buffer_slice.start).unwrap();
             let mut buffer_view = render_queue
