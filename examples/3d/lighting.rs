@@ -12,7 +12,11 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .init_resource::<Parameters>()
+        .insert_resource(Parameters(PhysicalCameraParameters {
+            aperture_f_stops: 1.0,
+            shutter_speed_s: 1.0 / 15.0,
+            sensitivity_iso: 400.0,
+        }))
         .add_systems(Startup, setup)
         .add_systems(Update, (update_exposure, movement, animate_light_direction))
         .run();
@@ -131,7 +135,7 @@ fn setup(
             // transform: Transform::from_xyz(5.0, 8.0, 2.0),
             transform: Transform::from_xyz(1.0, 2.0, 0.0),
             point_light: PointLight {
-                intensity: 1600.0, // lumens - roughly a 100W non-halogen incandescent bulb
+                intensity: 4000.0, // lumens - roughly a 300W non-halogen incandescent bulb
                 color: Color::RED,
                 shadows_enabled: true,
                 ..default()
@@ -159,7 +163,7 @@ fn setup(
             transform: Transform::from_xyz(-1.0, 2.0, 0.0)
                 .looking_at(Vec3::new(-1.0, 0.0, 0.0), Vec3::Z),
             spot_light: SpotLight {
-                intensity: 1600.0, // lumens - roughly a 100W non-halogen incandescent bulb
+                intensity: 4000.0, // lumens - roughly a 300W non-halogen incandescent bulb
                 color: Color::GREEN,
                 shadows_enabled: true,
                 inner_angle: 0.6,
@@ -191,7 +195,7 @@ fn setup(
             // transform: Transform::from_xyz(5.0, 8.0, 2.0),
             transform: Transform::from_xyz(0.0, 4.0, 0.0),
             point_light: PointLight {
-                intensity: 1600.0, // lumens - roughly a 100W non-halogen incandescent bulb
+                intensity: 4000.0, // lumens - roughly a 300W non-halogen incandescent bulb
                 color: Color::BLUE,
                 shadows_enabled: true,
                 ..default()
@@ -216,7 +220,7 @@ fn setup(
     // directional 'sun' light
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            illuminance: 1000.0,
+            illuminance: 100.0,
             shadows_enabled: true,
             ..default()
         },
@@ -287,7 +291,7 @@ fn setup(
 }
 
 fn update_exposure(
-    key_input: Res<Input<KeyCode>>,
+    key_input: Res<ButtonInput<KeyCode>>,
     mut parameters: ResMut<Parameters>,
     mut query: Query<&mut ExposureSettings>,
     mut text: Query<&mut Text>,

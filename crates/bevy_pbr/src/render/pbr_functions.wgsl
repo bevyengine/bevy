@@ -418,7 +418,7 @@ fn apply_fog(fog_params: mesh_view_types::Fog, input_color: vec4<f32>, fragment_
                     0.0
                 ),
                 fog_params.directional_light_exponent
-            ) * light.color.rgb;
+            ) * light.color.rgb * view_bindings::view.exposure;
         }
     }
 
