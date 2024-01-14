@@ -216,3 +216,196 @@ impl Bounded2d for RegularPolygon {
         BoundingCircle::new(translation, self.circumcircle.radius)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use glam::Vec2;
+
+    use crate::{
+        bounding::Bounded2d,
+        primitives::{
+            Circle, Direction2d, Ellipse, Line2d, Plane2d, Polygon, Polyline2d, Rectangle,
+            RegularPolygon, Segment2d, Triangle2d,
+        },
+    };
+
+    #[test]
+    fn circle() {
+        let circle = Circle { radius: 1.0 };
+        let translation = Vec2::new(2.0, 1.0);
+
+        let aabb = circle.aabb_2d(translation, 0.0);
+        assert_eq!(aabb.min, Vec2::new(1.0, 0.0));
+        assert_eq!(aabb.max, Vec2::new(3.0, 2.0));
+
+        let bounding_circle = circle.bounding_circle(translation, 0.0);
+        assert_eq!(bounding_circle.center, translation);
+        assert_eq!(bounding_circle.radius(), 1.0);
+    }
+
+    #[test]
+    fn ellipse() {
+        let ellipse = Ellipse {
+            half_width: 1.0,
+            half_height: 0.5,
+        };
+        let translation = Vec2::new(2.0, 1.0);
+
+        let aabb = ellipse.aabb_2d(translation, 0.0);
+        assert_eq!(aabb.min, Vec2::new(1.0, 0.5));
+        assert_eq!(aabb.max, Vec2::new(3.0, 1.5));
+
+        let bounding_circle = ellipse.bounding_circle(translation, 0.0);
+        assert_eq!(bounding_circle.center, translation);
+        assert_eq!(bounding_circle.radius(), 1.0);
+    }
+
+    #[test]
+    fn plane() {
+        let translation = Vec2::new(2.0, 1.0);
+
+        let aabb1 = Plane2d::new(Vec2::X).aabb_2d(translation, 0.0);
+        assert_eq!(aabb1.min, Vec2::new(2.0, -f32::MAX / 2.0));
+        assert_eq!(aabb1.max, Vec2::new(2.0, f32::MAX / 2.0));
+
+        let aabb2 = Plane2d::new(Vec2::Y).aabb_2d(translation, 0.0);
+        assert_eq!(aabb2.min, Vec2::new(-f32::MAX / 2.0, 1.0));
+        assert_eq!(aabb2.max, Vec2::new(f32::MAX / 2.0, 1.0));
+
+        let aabb3 = Plane2d::new(Vec2::ONE).aabb_2d(translation, 0.0);
+        assert_eq!(aabb3.min, Vec2::new(-f32::MAX / 2.0, -f32::MAX / 2.0));
+        assert_eq!(aabb3.max, Vec2::new(f32::MAX / 2.0, f32::MAX / 2.0));
+
+        let bounding_circle = Plane2d::new(Vec2::Y).bounding_circle(translation, 0.0);
+        assert_eq!(bounding_circle.center, translation);
+        assert_eq!(bounding_circle.radius(), f32::MAX / 2.0);
+    }
+
+    #[test]
+    fn line() {
+        let translation = Vec2::new(2.0, 1.0);
+
+        let aabb1 = Line2d {
+            direction: Direction2d::Y,
+        }
+        .aabb_2d(translation, 0.0);
+        assert_eq!(aabb1.min, Vec2::new(2.0, -f32::MAX / 2.0));
+        assert_eq!(aabb1.max, Vec2::new(2.0, f32::MAX / 2.0));
+
+        let aabb2 = Line2d {
+            direction: Direction2d::X,
+        }
+        .aabb_2d(translation, 0.0);
+        assert_eq!(aabb2.min, Vec2::new(-f32::MAX / 2.0, 1.0));
+        assert_eq!(aabb2.max, Vec2::new(f32::MAX / 2.0, 1.0));
+
+        let aabb3 = Line2d {
+            direction: Direction2d::from_xy(1.0, 1.0).unwrap(),
+        }
+        .aabb_2d(translation, 0.0);
+        assert_eq!(aabb3.min, Vec2::new(-f32::MAX / 2.0, -f32::MAX / 2.0));
+        assert_eq!(aabb3.max, Vec2::new(f32::MAX / 2.0, f32::MAX / 2.0));
+
+        let bounding_circle = Line2d {
+            direction: Direction2d::Y,
+        }
+        .bounding_circle(translation, 0.0);
+        assert_eq!(bounding_circle.center, translation);
+        assert_eq!(bounding_circle.radius(), f32::MAX / 2.0);
+    }
+
+    #[test]
+    fn segment() {
+        let translation = Vec2::new(2.0, 1.0);
+        let segment = Segment2d::from_points(Vec2::new(-1.0, -0.5), Vec2::new(1.0, 0.5)).0;
+
+        let aabb = segment.aabb_2d(translation, 0.0);
+        assert_eq!(aabb.min, Vec2::new(1.0, 0.5));
+        assert_eq!(aabb.max, Vec2::new(3.0, 1.5));
+
+        let bounding_circle = segment.bounding_circle(translation, 0.0);
+        assert_eq!(bounding_circle.center, translation);
+        assert_eq!(bounding_circle.radius(), 1.0_f32.hypot(0.5));
+    }
+
+    #[test]
+    fn polyline() {
+        let polyline = Polyline2d::<4>::new([
+            Vec2::ONE,
+            Vec2::new(-1.0, 1.0),
+            Vec2::NEG_ONE,
+            Vec2::new(1.0, -1.0),
+        ]);
+        let translation = Vec2::new(2.0, 1.0);
+
+        let aabb = polyline.aabb_2d(translation, 0.0);
+        assert_eq!(aabb.min, Vec2::new(1.0, 0.0));
+        assert_eq!(aabb.max, Vec2::new(3.0, 2.0));
+
+        let bounding_circle = polyline.bounding_circle(translation, 0.0);
+        assert_eq!(bounding_circle.center, translation);
+        assert_eq!(bounding_circle.radius(), std::f32::consts::SQRT_2);
+    }
+
+    #[test]
+    fn triangle() {
+        let triangle = Triangle2d::new(Vec2::new(0.0, 1.0), Vec2::NEG_ONE, Vec2::new(1.0, -1.0));
+        let translation = Vec2::new(2.0, 1.0);
+
+        let aabb = triangle.aabb_2d(translation, 0.0);
+        assert_eq!(aabb.min, Vec2::new(1.0, 0.0));
+        assert_eq!(aabb.max, Vec2::new(3.0, 2.0));
+
+        let bounding_circle = triangle.bounding_circle(translation, 0.0);
+        assert_eq!(bounding_circle.center, translation + Vec2::NEG_Y * 0.25);
+        assert_eq!(bounding_circle.radius(), 1.25);
+    }
+
+    #[test]
+    fn rectangle() {
+        let rectangle = Rectangle::new(2.0, 1.0);
+        let translation = Vec2::new(2.0, 1.0);
+
+        let aabb = rectangle.aabb_2d(translation, std::f32::consts::FRAC_PI_4);
+        let expected_half_size = Vec2::splat(1.0606601);
+        assert_eq!(aabb.min, translation - expected_half_size);
+        assert_eq!(aabb.max, translation + expected_half_size);
+
+        let bounding_circle = rectangle.bounding_circle(translation, 0.0);
+        assert_eq!(bounding_circle.center, translation);
+        assert_eq!(bounding_circle.radius(), 1.0_f32.hypot(0.5));
+    }
+
+    #[test]
+    fn polygon() {
+        let polygon = Polygon::<4>::new([
+            Vec2::ONE,
+            Vec2::new(-1.0, 1.0),
+            Vec2::NEG_ONE,
+            Vec2::new(1.0, -1.0),
+        ]);
+        let translation = Vec2::new(2.0, 1.0);
+
+        let aabb = polygon.aabb_2d(translation, 0.0);
+        assert_eq!(aabb.min, Vec2::new(1.0, 0.0));
+        assert_eq!(aabb.max, Vec2::new(3.0, 2.0));
+
+        let bounding_circle = polygon.bounding_circle(translation, 0.0);
+        assert_eq!(bounding_circle.center, translation);
+        assert_eq!(bounding_circle.radius(), std::f32::consts::SQRT_2);
+    }
+
+    #[test]
+    fn regular_polygon() {
+        let regular_polygon = RegularPolygon::new(1.0, 5);
+        let translation = Vec2::new(2.0, 1.0);
+
+        let aabb = regular_polygon.aabb_2d(translation, 0.0);
+        assert!((aabb.min - (translation - Vec2::new(0.9510565, 0.8090169))).length() < 1e-6);
+        assert!((aabb.max - (translation + Vec2::new(0.9510565, 1.0))).length() < 1e-6);
+
+        let bounding_circle = regular_polygon.bounding_circle(translation, 0.0);
+        assert_eq!(bounding_circle.center, translation);
+        assert_eq!(bounding_circle.radius(), 1.0);
+    }
+}
