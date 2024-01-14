@@ -88,7 +88,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             return Ok(());
         };
 
-        let culling_workgroups = (meshlet_view_resources.scene_meshlet_count + 127) / 128;
+        let culling_workgroups = meshlet_view_resources.scene_meshlet_count.div_ceil(128);
 
         let max_workgroups_per_dispatch = render_context
             .render_device()
