@@ -281,13 +281,31 @@ mod tests {
 
     #[test]
     fn test_embedded_path_no_panics() {
+        #[cfg(not(windows))]
         assert_eq!(file!(), "crates/bevy_asset/src/io/embedded/mod.rs");
-        assert_eq!(
-            embedded_path!("/src/", "a"),
-            PathBuf::from("bevy_asset/io/embedded/a")
-        );
-        assert_eq!(embedded_path!("/src", "a"), PathBuf::from("/io/embedded/a"));
-        assert_eq!(embedded_path!("src", "a"), PathBuf::from("/io/embedded/a"));
+        #[cfg(windows)]
+        assert_eq!(file!(), "crates\\bevy_asset\\src\\io\\embedded\\mod.rs");
+
+        #[cfg(not(windows))]
+        let path = PathBuf::from("bevy_asset/io/embedded/embed.png");
+        #[cfg(windows)]
+        let path = PathBuf::from("bevy_asset\\io\\embedded\\embed.png");
+
+        // One argument for embedded_path! uses '/src/' as its source_path.
+        assert_eq!(&embedded_path!("embed.png"), &path);
+        assert_eq!(&embedded_path!("/src/", "embed.png"), &path);
+    }
+
+    /// Using a slightly different source path parameter causes the crate_name to be omitted.
+    /// Possible bug.
+    #[test]
+    fn test_embedded_path_questionable() {
+        #[cfg(not(windows))]
+        let path = PathBuf::from("/io/embedded/embed.png");
+        #[cfg(windows)]
+        let path = PathBuf::from("\\io\\embedded\\embed.png");
+        assert_eq!(&embedded_path!("/src", "embed.png"), &path);
+        assert_eq!(&embedded_path!("src", "embed.png"), &path);
     }
 
     #[test]
@@ -299,7 +317,7 @@ mod tests {
         expected = "Expected source path `NOT-IN-PATH` in file path `crates"
     )]
     fn test_embedded_path_nonexistent_src_path() {
-        embedded_path!("NOT-IN-PATH", "b");
+        embedded_path!("NOT-IN-PATH", "embed.png");
     }
 
     #[test]
@@ -311,9 +329,6 @@ mod tests {
         expected = "Expected parent path for `` derived from `crates"
     )]
     fn test_embedded_parent_panic() {
-        assert_eq!(
-            embedded_path!("/embedded/mod.rs", "embed.png"),
-            PathBuf::from("bevy_asset/embed.png")
-        );
+        embedded_path!("mod.rs", "embed.png");
     }
 }
