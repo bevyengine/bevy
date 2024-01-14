@@ -16,7 +16,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{camera::NormalizedRenderTarget, prelude::Camera, view::ViewVisibility};
 use bevy_transform::components::GlobalTransform;
 
-use bevy_utils::smallvec::SmallVec;
+use bevy_utils::{smallvec::SmallVec, HashMap};
 use bevy_window::{PrimaryWindow, Window};
 
 #[cfg(feature = "serialize")]
@@ -182,7 +182,7 @@ pub fn ui_focus_system(
     let is_ui_disabled =
         |camera_ui| matches!(camera_ui, Some(&UiCameraConfig { show_ui: false, .. }));
 
-    let camera_cursor_positions: Vec<(Entity, Vec2)> = camera_query
+    let camera_cursor_positions: HashMap<Entity, Vec2> = camera_query
         .iter()
         .filter(|(_, _, camera_ui)| !is_ui_disabled(*camera_ui))
         .filter_map(|(entity, camera, _)| {
@@ -242,16 +242,6 @@ pub fn ui_focus_system(
                 return None;
             };
 
-            let cursor_position = camera_cursor_positions
-                .iter()
-                .find_map(|(entity, position)| {
-                    if *entity == camera_entity {
-                        Some(*position)
-                    } else {
-                        None
-                    }
-                });
-
             let node_rect = node.node.logical_rect(node.global_transform);
 
             // Intersect with the calculated clip rect to find the bounds of the visible region of the node
@@ -263,8 +253,9 @@ pub fn ui_focus_system(
             // The mouse position relative to the node
             // (0., 0.) is the top-left corner, (1., 1.) is the bottom-right corner
             // Coordinates are relative to the entire node, not just the visible region.
-            let relative_cursor_position = cursor_position
-                .map(|cursor_position| (cursor_position - node_rect.min) / node_rect.size());
+            let relative_cursor_position = camera_cursor_positions
+                .get(&camera_entity)
+                .map(|cursor_position| (*cursor_position - node_rect.min) / node_rect.size());
 
             // If the current cursor position is within the bounds of the node's visible area, consider it for
             // clicking
@@ -285,7 +276,8 @@ pub fn ui_focus_system(
                 Some(*entity)
             } else {
                 if let Some(mut interaction) = node.interaction {
-                    if *interaction == Interaction::Hovered || (cursor_position.is_none()) {
+                    if *interaction == Interaction::Hovered || (relative_cursor_position.is_none())
+                    {
                         interaction.set_if_neq(Interaction::None);
                     }
                 }
