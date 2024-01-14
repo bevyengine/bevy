@@ -208,7 +208,7 @@ impl Bounded3d for Cone {
         let triangle = Triangle2d::new(
             half_height * Vec2::Y,
             Vec2::new(-self.radius, -half_height),
-            Vec2::new(self.radius, half_height),
+            Vec2::new(self.radius, -half_height),
         );
         let (Circle { radius }, circumcenter) = triangle.circumcircle();
 
