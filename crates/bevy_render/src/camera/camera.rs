@@ -83,7 +83,7 @@ pub struct ComputedCameraValues {
     old_viewport_size: Option<UVec2>,
 }
 
-/// How much energy a [`Camera3d`] absorbs from incoming light.
+/// How much energy a `Camera3d` absorbs from incoming light.
 ///
 /// <https://en.wikipedia.org/wiki/Exposure_(photography)>
 #[derive(Component)]
