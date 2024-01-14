@@ -1,7 +1,7 @@
 use std::ops::Range;
 
 use super::{UiBatch, UiImageBindGroups, UiMeta};
-use crate::{prelude::UiCameraConfig, DefaultCameraView};
+use crate::DefaultCameraView;
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
@@ -22,7 +22,6 @@ pub struct UiPassNode {
             &'static RenderPhase<TransparentUi>,
             &'static ViewTarget,
             &'static ExtractedCamera,
-            Option<&'static UiCameraConfig>,
         ),
         With<ExtractedView>,
     >,
@@ -52,16 +51,12 @@ impl Node for UiPassNode {
     ) -> Result<(), NodeRunError> {
         let input_view_entity = graph.view_entity();
 
-        let Ok((transparent_phase, target, camera, camera_ui)) =
+        let Ok((transparent_phase, target, camera)) =
             self.ui_view_query.get_manual(world, input_view_entity)
         else {
             return Ok(());
         };
         if transparent_phase.items.is_empty() {
-            return Ok(());
-        }
-        // Don't render UI for cameras where it is explicitly disabled
-        if matches!(camera_ui, Some(&UiCameraConfig { show_ui: false })) {
             return Ok(());
         }
 

@@ -3,7 +3,6 @@
 //! Spawn UI elements with [`node_bundles::ButtonBundle`], [`node_bundles::ImageBundle`], [`node_bundles::TextBundle`] and [`node_bundles::NodeBundle`]
 //! This UI is laid out with the Flexbox and CSS Grid layout models (see <https://cssreference.io/flexbox/>)
 
-pub mod camera_config;
 pub mod measurement;
 pub mod node_bundles;
 pub mod ui_material;
@@ -36,18 +35,17 @@ use widget::UiImageSize;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        camera_config::*, geometry::*, node_bundles::*, ui_material::*, ui_node::*, widget::Button,
-        widget::Label, Interaction, UiMaterialPlugin, UiScale,
+        geometry::*, node_bundles::*, ui_material::*, ui_node::*, widget::Button, widget::Label,
+        Interaction, UiMaterialPlugin, UiScale,
     };
 }
 
-use crate::prelude::UiCameraConfig;
 #[cfg(feature = "bevy_text")]
 use crate::widget::TextFlags;
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
-use bevy_render::{extract_component::ExtractComponentPlugin, RenderApp};
+use bevy_render::RenderApp;
 use bevy_transform::TransformSystem;
 use stack::ui_stack_system;
 pub use stack::UiStack;
@@ -85,8 +83,7 @@ impl Default for UiScale {
 
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(ExtractComponentPlugin::<UiCameraConfig>::default())
-            .init_resource::<UiSurface>()
+        app.init_resource::<UiSurface>()
             .init_resource::<UiScale>()
             .init_resource::<UiStack>()
             .register_type::<AlignContent>()
@@ -117,7 +114,6 @@ impl Plugin for UiPlugin {
             .register_type::<RepeatedGridTrack>()
             .register_type::<Style>()
             .register_type::<TargetCamera>()
-            .register_type::<UiCameraConfig>()
             .register_type::<UiImage>()
             .register_type::<UiImageSize>()
             .register_type::<UiRect>()

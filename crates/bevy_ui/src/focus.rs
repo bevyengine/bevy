@@ -1,7 +1,4 @@
-use crate::{
-    camera_config::UiCameraConfig, CalculatedClip, DefaultUiCamera, Node, TargetCamera, UiScale,
-    UiStack,
-};
+use crate::{CalculatedClip, DefaultUiCamera, Node, TargetCamera, UiScale, UiStack};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::Entity,
@@ -145,7 +142,7 @@ pub struct NodeQuery {
 #[allow(clippy::too_many_arguments)]
 pub fn ui_focus_system(
     mut state: Local<State>,
-    camera_query: Query<(Entity, &Camera, Option<&UiCameraConfig>)>,
+    camera_query: Query<(Entity, &Camera)>,
     default_ui_camera: DefaultUiCamera,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     windows: Query<&Window>,
@@ -179,13 +176,9 @@ pub fn ui_focus_system(
     let mouse_clicked =
         mouse_button_input.just_pressed(MouseButton::Left) || touches_input.any_just_pressed();
 
-    let is_ui_disabled =
-        |camera_ui| matches!(camera_ui, Some(&UiCameraConfig { show_ui: false, .. }));
-
     let camera_cursor_positions: HashMap<Entity, Vec2> = camera_query
         .iter()
-        .filter(|(_, _, camera_ui)| !is_ui_disabled(*camera_ui))
-        .filter_map(|(entity, camera, _)| {
+        .filter_map(|(entity, camera)| {
             // Interactions are only supported for cameras rendering to a window.
             let Some(NormalizedRenderTarget::Window(window_ref)) =
                 camera.target.normalize(primary_window)

@@ -13,8 +13,8 @@ pub use render_pass::*;
 pub use ui_material_pipeline::*;
 
 use crate::{
-    prelude::UiCameraConfig, BackgroundColor, BorderColor, CalculatedClip, ContentSize, Node,
-    Style, UiImage, UiScale, UiTextureAtlasImage, Val,
+    BackgroundColor, BorderColor, CalculatedClip, ContentSize, Node, Style, UiImage, UiScale,
+    UiTextureAtlasImage, Val,
 };
 use crate::{DefaultUiCamera, Outline, TargetCamera};
 
@@ -572,15 +572,10 @@ pub struct DefaultCameraView(pub Entity);
 pub fn extract_default_ui_camera_view<T: Component>(
     mut commands: Commands,
     ui_scale: Extract<Res<UiScale>>,
-    query: Extract<Query<(Entity, &Camera, Option<&UiCameraConfig>), With<T>>>,
+    query: Extract<Query<(Entity, &Camera), With<T>>>,
 ) {
     let scale = ui_scale.0.recip();
-    for (entity, camera, camera_ui) in &query {
-        // ignore cameras with disabled ui
-        if matches!(camera_ui, Some(&UiCameraConfig { show_ui: false, .. })) {
-            continue;
-        }
-
+    for (entity, camera) in &query {
         // ignore inactive cameras
         if !camera.is_active {
             continue;
