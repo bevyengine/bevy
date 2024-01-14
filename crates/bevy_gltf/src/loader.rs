@@ -1,4 +1,4 @@
-use crate::{vertex_attributes::convert_attribute, Gltf, GltfExtras, GltfNode};
+use crate::{vertex_attributes::convert_attribute, Gltf, GltfExtras, GltfNode, GltfTransform};
 use bevy_asset::{
     io::Reader, AssetLoadError, AssetLoader, AsyncReadExt, Handle, LoadContext, ReadAssetBytesError,
 };
@@ -524,17 +524,17 @@ async fn load_gltf<'a, 'b, 'c>(
                     .and_then(|i| meshes.get(i).cloned()),
                 transform: match node.transform() {
                     gltf::scene::Transform::Matrix { matrix } => {
-                        Transform::from_matrix(Mat4::from_cols_array_2d(&matrix))
+                        GltfTransform::Matrix(Mat4::from_cols_array_2d(&matrix))
                     }
                     gltf::scene::Transform::Decomposed {
                         translation,
                         rotation,
                         scale,
-                    } => Transform {
+                    } => GltfTransform::Decomposed(Transform {
                         translation: bevy_math::Vec3::from(translation),
                         rotation: bevy_math::Quat::from_array(rotation),
                         scale: bevy_math::Vec3::from(scale),
-                    },
+                    }),
                 },
                 extras: get_gltf_extras(node.extras()),
             },
@@ -1496,14 +1496,14 @@ mod test {
     use std::path::PathBuf;
 
     use super::resolve_node_hierarchy;
-    use crate::GltfNode;
+    use crate::{GltfNode, GltfTransform};
 
     impl GltfNode {
         fn empty() -> Self {
             GltfNode {
                 children: vec![],
                 mesh: None,
-                transform: bevy_transform::prelude::Transform::IDENTITY,
+                transform: GltfTransform::Decomposed(bevy_transform::prelude::Transform::IDENTITY),
                 extras: None,
             }
         }

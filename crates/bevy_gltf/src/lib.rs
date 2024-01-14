@@ -101,7 +101,7 @@ pub struct Gltf {
 }
 
 /// A glTF node with all of its child nodes, its [`GltfMesh`],
-/// [`Transform`](bevy_transform::prelude::Transform) and an optional [`GltfExtras`].
+/// [`GltfTransform`] and an optional [`GltfExtras`].
 ///
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-node).
 #[derive(Asset, Debug, Clone, TypePath)]
@@ -111,9 +111,21 @@ pub struct GltfNode {
     /// Mesh of the node.
     pub mesh: Option<Handle<GltfMesh>>,
     /// Local transform.
-    pub transform: bevy_transform::prelude::Transform,
+    pub transform: GltfTransform,
     /// Additional data.
     pub extras: Option<GltfExtras>,
+}
+
+/// A glTF transform which may consist of either Matrix - [`Mat4`](bevy_math::Mat4)
+/// or Decomposed Translation, Rotation and Scale - [`Transform`](bevy_transform::prelude::Transform).
+///
+/// See [the relevant glTF specification section on node properties](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-node).
+#[derive(Debug, Clone, TypePath)]
+pub enum GltfTransform {
+    /// A 4x4 column major matrix.
+    Matrix(bevy_math::Mat4),
+    /// Decomposed Translation, Rotation and Scale
+    Decomposed(bevy_transform::prelude::Transform),
 }
 
 /// A glTF mesh, which may consist of multiple [`GltfPrimitives`](GltfPrimitive)
