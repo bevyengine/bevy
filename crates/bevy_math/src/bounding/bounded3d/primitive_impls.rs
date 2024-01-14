@@ -1,4 +1,4 @@
-//! Contains [`Bounded3d`](super::Bounded3d) implementations for [geometric primitives](crate::primitives).
+//! Contains [`Bounded3d`] implementations for [geometric primitives](crate::primitives).
 
 use glam::{Mat3, Quat, Vec2, Vec3};
 

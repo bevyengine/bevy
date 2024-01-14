@@ -1,4 +1,4 @@
-//! Contains [`Bounded2d`](super::Bounded2d) implementations for [geometric primitives](crate::primitives).
+//! Contains [`Bounded2d`] implementations for [geometric primitives](crate::primitives).
 
 use glam::{Mat2, Vec2};
 
