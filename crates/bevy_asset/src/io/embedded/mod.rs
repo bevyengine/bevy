@@ -119,7 +119,11 @@ macro_rules! embedded_path {
             let file_path = if let Some(parent) = std::path::Path::new(after_src).parent() {
                 parent.join($path_str)
             } else {
-                panic!("Expected parent path for `{}` derived from `{}`", after_src, file!());
+                panic!(
+                    "Expected parent path for `{}` derived from `{}`",
+                    after_src,
+                    file!()
+                );
             };
             std::path::Path::new(crate_name).join(file_path)
         } else {
@@ -299,6 +303,9 @@ mod tests {
         expected = "Expected parent path for `` derived from `crates/bevy_asset/src/io/embedded/mod.rs`"
     )]
     fn test_embedded_parent_panic() {
-        assert_eq!(embedded_path!("/embedded/mod.rs", "embed.png"), PathBuf::from("bevy_asset/embed.png"));
+        assert_eq!(
+            embedded_path!("/embedded/mod.rs", "embed.png"),
+            PathBuf::from("bevy_asset/embed.png")
+        );
     }
 }
