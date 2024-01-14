@@ -43,6 +43,7 @@ smallvec = "1.6"
 thread_local = "1.0"
 serde = { version = "1", features = ["derive", "rc"] }
 bincode = "1"
+range-alloc = "0.1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 naga_oil = { version = "0.11" }

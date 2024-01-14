@@ -1,10 +1,12 @@
 use bevy_render::{
     render_resource::{
-        BindingResource, Buffer, BufferDescriptor, BufferUsages, CommandEncoderDescriptor,
+        BindingResource, Buffer, BufferAddress, BufferDescriptor, BufferUsages,
+        CommandEncoderDescriptor,
     },
     renderer::{RenderDevice, RenderQueue},
 };
-use std::ops::Range;
+use range_alloc::RangeAllocator;
+use std::{num::NonZeroU64, ops::Range};
 
 /// Wrapper for a GPU buffer holding a large amount of persistent data.
 pub struct PersistentGpuBuffer<T: PersistentGpuBufferable> {
@@ -12,14 +14,10 @@ pub struct PersistentGpuBuffer<T: PersistentGpuBufferable> {
     label: &'static str,
     /// Handle to the GPU buffer.
     buffer: Buffer,
+    /// Tracks free slices of the buffer.
+    allocation_planner: RangeAllocator<BufferAddress>,
     /// Queue of pending writes, and associated metadata.
-    write_queue: Vec<(T, T::Metadata)>,
-    /// Queue of pending writes in byte form.
-    upload_buffer: Vec<u8>,
-    /// The next offset into the buffer to be used when queueing new data to be written.
-    next_queued_write_address: u64,
-    /// The offset into the buffer to be used for writing bytes.
-    next_write_address: u64,
+    write_queue: Vec<(T, T::Metadata, Range<BufferAddress>)>,
 }
 
 impl<T: PersistentGpuBufferable> PersistentGpuBuffer<T> {
@@ -33,50 +31,50 @@ impl<T: PersistentGpuBufferable> PersistentGpuBuffer<T> {
                 usage: BufferUsages::STORAGE | BufferUsages::COPY_DST | BufferUsages::COPY_SRC,
                 mapped_at_creation: false,
             }),
-            write_queue: Vec::with_capacity(50),
-            upload_buffer: Vec::new(),
-            next_queued_write_address: 0,
-            next_write_address: 0,
+            allocation_planner: RangeAllocator::new(0..0),
+            write_queue: Vec::new(),
         }
     }
 
     /// Queue an item of type T to be added to the buffer, returning the byte range within the buffer that it will be located at.
-    pub fn queue_write(&mut self, data: T, metadata: T::Metadata) -> Range<u64> {
-        let start_address = self.next_queued_write_address;
-        self.next_queued_write_address += data.size_in_bytes();
+    pub fn queue_write(&mut self, data: T, metadata: T::Metadata) -> Range<BufferAddress> {
+        let data_size = data.size_in_bytes();
+        if let Ok(buffer_slice) = self.allocation_planner.allocate_range(data_size) {
+            self.write_queue
+                .push((data, metadata, buffer_slice.clone()));
+            return buffer_slice;
+        }
 
-        self.write_queue.push((data, metadata));
+        let buffer_size = self.allocation_planner.initial_range();
+        let double_buffer_size = (buffer_size.end - buffer_size.start) * 2;
+        let new_size = double_buffer_size.max(data_size);
+        self.allocation_planner.grow_to(buffer_size.end + new_size);
 
-        start_address..self.next_queued_write_address
+        let buffer_slice = self.allocation_planner.allocate_range(data_size).unwrap();
+        self.write_queue
+            .push((data, metadata, buffer_slice.clone()));
+        buffer_slice
     }
 
     /// Upload all pending data to the GPU buffer.
     pub fn perform_writes(&mut self, render_queue: &RenderQueue, render_device: &RenderDevice) {
-        // If the queued data would overflow the buffer, expand it.
-        if self.next_queued_write_address >= self.buffer.size() {
+        if self.allocation_planner.initial_range().end > self.buffer.size() {
             self.expand_buffer(render_device, render_queue);
         }
 
         let queue_count = self.write_queue.len();
 
         // Serialize all items into the upload buffer
-        self.upload_buffer.clear();
-        for (data, metadata) in self.write_queue.drain(..) {
-            data.write_bytes_le(metadata, &mut self.upload_buffer);
+        for (data, metadata, buffer_slice) in self.write_queue.drain(..) {
+            let buffer_slice_size = NonZeroU64::new(buffer_slice.end - buffer_slice.start).unwrap();
+            let mut buffer_view = render_queue
+                .write_buffer_with(&self.buffer, buffer_slice.start, buffer_slice_size)
+                .unwrap();
+            data.write_bytes_le(metadata, &mut buffer_view);
         }
-
-        // Upload the upload buffer to the GPU
-        render_queue.write_buffer(&self.buffer, self.next_write_address, &self.upload_buffer);
-        self.next_write_address = self.next_queued_write_address;
 
         let queue_saturation = queue_count as f32 / self.write_queue.capacity() as f32;
         if queue_saturation < 0.3 {
-            self.write_queue.shrink_to(50);
-        }
-
-        let upload_saturation =
-            self.upload_buffer.len() as f32 / self.upload_buffer.capacity() as f32;
-        if upload_saturation < 0.1 {
             self.write_queue = Vec::new();
         }
     }
@@ -87,11 +85,10 @@ impl<T: PersistentGpuBufferable> PersistentGpuBuffer<T> {
 
     // Expand the buffer by creating a new buffer and copying old data over.
     fn expand_buffer(&mut self, render_device: &RenderDevice, render_queue: &RenderQueue) {
-        let size = (self.buffer.size() * 2).max(4 + self.next_queued_write_address);
-
+        let size = self.allocation_planner.initial_range();
         let new_buffer = render_device.create_buffer(&BufferDescriptor {
             label: Some(self.label),
-            size,
+            size: size.end - size.start,
             usage: BufferUsages::STORAGE | BufferUsages::COPY_DST | BufferUsages::COPY_SRC,
             mapped_at_creation: false,
         });
@@ -117,6 +114,6 @@ pub trait PersistentGpuBufferable {
     /// The size in bytes of `self`.
     fn size_in_bytes(&self) -> u64;
 
-    /// Convert `self` + `metadata` into bytes (little-endian), and write to the provided buffer.
-    fn write_bytes_le(&self, metadata: Self::Metadata, buffer: &mut Vec<u8>);
+    /// Convert `self` + `metadata` into bytes (little-endian), and write to the provided buffer slice.
+    fn write_bytes_le(&self, metadata: Self::Metadata, buffer_slice: &mut [u8]);
 }
