@@ -135,10 +135,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         font_size: 30.0,
         color: Color::WHITE,
     };
-    let alignment = TextAlignment::Center;
+    let alignment = JustifyText::Center;
     // Spawn text
     commands.spawn(Text2dBundle {
-        text: Text::from_section("Original texture", style.clone()).with_alignment(alignment),
+        text: Text::from_section("Original texture", style.clone()).with_justify(alignment),
         transform: Transform::from_xyz(-550.0, 0.0, 0.0),
         ..default()
     });
