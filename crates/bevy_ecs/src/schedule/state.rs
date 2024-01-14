@@ -5,6 +5,7 @@ use std::ops::Deref;
 
 use crate as bevy_ecs;
 use crate::change_detection::DetectChangesMut;
+use crate::event::Event;
 use crate::prelude::FromWorld;
 #[cfg(feature = "bevy_reflect")]
 use crate::reflect::ReflectResource;
@@ -29,7 +30,7 @@ pub use bevy_ecs_macros::States;
 ///
 /// # Example
 ///
-/// ```rust
+/// ```
 /// use bevy_ecs::prelude::States;
 ///
 /// #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
@@ -73,6 +74,27 @@ pub struct OnTransition<S: States> {
 /// [`apply_state_transition::<S>`] system.
 ///
 /// The starting state is defined via the [`Default`] implementation for `S`.
+///
+/// ```
+/// use bevy_ecs::prelude::*;
+///
+/// #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
+/// enum GameState {
+///     #[default]
+///     MainMenu,
+///     SettingsMenu,
+///     InGame,
+/// }
+///
+/// fn game_logic(game_state: Res<State<GameState>>) {
+///     match game_state.get() {
+///         GameState::InGame => {
+///             // Run game logic here...
+///         },
+///         _ => {},
+///     }
+/// }
+/// ```
 #[derive(Resource, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub struct State<S: States>(S);
@@ -116,6 +138,22 @@ impl<S: States> Deref for State<S> {
 /// To queue a transition, just set the contained value to `Some(next_state)`.
 /// Note that these transitions can be overridden by other systems:
 /// only the actual value of this resource at the time of [`apply_state_transition`] matters.
+///
+/// ```
+/// use bevy_ecs::prelude::*;
+///
+/// #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
+/// enum GameState {
+///     #[default]
+///     MainMenu,
+///     SettingsMenu,
+///     InGame,
+/// }
+///
+/// fn start_game(mut next_game_state: ResMut<NextState<GameState>>) {
+///     next_game_state.set(GameState::InGame);
+/// }
+/// ```
 #[derive(Resource, Debug)]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -137,6 +175,17 @@ impl<S: States> NextState<S> {
     }
 }
 
+/// Event sent when any state transition of `S` happens.
+///
+/// If you know exactly what state you want to respond to ahead of time, consider [`OnEnter`], [`OnTransition`], or [`OnExit`]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Event)]
+pub struct StateTransitionEvent<S: States> {
+    /// the state we were in before
+    pub before: S,
+    /// the state we're in now
+    pub after: S,
+}
+
 /// Run the enter schedule (if it exists) for the current state.
 pub fn run_enter_schedule<S: States>(world: &mut World) {
     world
@@ -146,6 +195,7 @@ pub fn run_enter_schedule<S: States>(world: &mut World) {
 
 /// If a new state is queued in [`NextState<S>`], this system:
 /// - Takes the new state value from [`NextState<S>`] and updates [`State<S>`].
+/// - Sends a relevant [`StateTransitionEvent`]
 /// - Runs the [`OnExit(exited_state)`] schedule, if it exists.
 /// - Runs the [`OnTransition { from: exited_state, to: entered_state }`](OnTransition), if it exists.
 /// - Runs the [`OnEnter(entered_state)`] schedule, if it exists.
@@ -159,6 +209,10 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
         let mut state_resource = world.resource_mut::<State<S>>();
         if *state_resource != entered {
             let exited = mem::replace(&mut state_resource.0, entered.clone());
+            world.send_event(StateTransitionEvent {
+                before: exited.clone(),
+                after: entered.clone(),
+            });
             // Try to run the schedules if they exist.
             world.try_run_schedule(OnExit(exited.clone())).ok();
             world

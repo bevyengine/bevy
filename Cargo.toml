@@ -599,6 +599,17 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "deterministic"
+path = "examples/3d/deterministic.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.deterministic]
+name = "Deterministic rendering"
+description = "Stop flickering from z-fighting at a performance cost"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "lighting"
 path = "examples/3d/lighting.rs"
 doc-scrape-examples = true
@@ -868,6 +879,17 @@ doc-scrape-examples = true
 [package.metadata.example.wireframe]
 name = "Wireframe"
 description = "Showcases wireframe rendering"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
+name = "lightmaps"
+path = "examples/3d/lightmaps.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.lightmaps]
+name = "Lightmaps"
+description = "Rendering a scene with baked lightmaps"
 category = "3D Rendering"
 wasm = false
 
@@ -1271,11 +1293,6 @@ name = "ECS Guide"
 description = "Full guide to Bevy's ECS"
 category = "ECS (Entity Component System)"
 wasm = false
-
-[[example]]
-name = "apply_deferred"
-path = "examples/ecs/apply_deferred.rs"
-doc-scrape-examples = true
 
 [package.metadata.example.apply_deferred]
 name = "Apply System Buffers"

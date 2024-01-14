@@ -6,7 +6,10 @@ pub use visibility::*;
 pub use window::*;
 
 use crate::{
-    camera::{ExposureSettings, ExtractedCamera, ManualTextureViews, MipBias, TemporalJitter},
+    camera::{
+        ClearColor, ClearColorConfig, ExposureSettings, ExtractedCamera, ManualTextureViews,
+        MipBias, TemporalJitter,
+    },
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     prelude::{Image, Shader},
     primitives::Frustum,
@@ -14,7 +17,7 @@ use crate::{
     render_phase::ViewRangefinder3d,
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
-    texture::{BevyDefault, CachedTexture, TextureCache},
+    texture::{BevyDefault, CachedTexture, ColorAttachment, DepthAttachment, TextureCache},
     Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
@@ -28,8 +31,8 @@ use std::sync::{
     Arc,
 };
 use wgpu::{
-    Color, Extent3d, Operations, RenderPassColorAttachment, TextureDescriptor, TextureDimension,
-    TextureFormat, TextureUsages,
+    Extent3d, RenderPassColorAttachment, RenderPassDepthStencilAttachment, StoreOp,
+    TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
 };
 
 pub const VIEW_TYPE_HANDLE: Handle<Shader> = Handle::weak_from_u128(15421373904451797197);
@@ -59,7 +62,8 @@ impl Plugin for ViewPlugin {
                     prepare_view_targets
                         .in_set(RenderSet::ManageViews)
                         .after(prepare_windows)
-                        .after(crate::render_asset::prepare_assets::<Image>),
+                        .after(crate::render_asset::prepare_assets::<Image>)
+                        .ambiguous_with(crate::camera::sort_cameras), // doesn't use `sorted_camera_index_for_target`
                     prepare_view_uniforms.in_set(RenderSet::PrepareResources),
                 ),
             );
@@ -205,40 +209,30 @@ pub struct PostProcessWrite<'a> {
 impl ViewTarget {
     pub const TEXTURE_FORMAT_HDR: TextureFormat = TextureFormat::Rgba16Float;
 
-    /// Retrieve this target's color attachment. This will use [`Self::sampled_main_texture_view`] and resolve to [`Self::main_texture`] if
-    /// the target has sampling enabled. Otherwise it will use [`Self::main_texture`] directly.
-    pub fn get_color_attachment(&self, ops: Operations<Color>) -> RenderPassColorAttachment {
-        match &self.main_textures.sampled {
-            Some(CachedTexture {
-                default_view: sampled_texture_view,
-                ..
-            }) => RenderPassColorAttachment {
-                view: sampled_texture_view,
-                resolve_target: Some(self.main_texture_view()),
-                ops,
-            },
-            None => self.get_unsampled_color_attachment(ops),
+    /// Retrieve this target's main texture's color attachment.
+    pub fn get_color_attachment(&self) -> RenderPassColorAttachment {
+        if self.main_texture.load(Ordering::SeqCst) == 0 {
+            self.main_textures.a.get_attachment()
+        } else {
+            self.main_textures.b.get_attachment()
         }
     }
 
-    /// Retrieve an "unsampled" color attachment using [`Self::main_texture`].
-    pub fn get_unsampled_color_attachment(
-        &self,
-        ops: Operations<Color>,
-    ) -> RenderPassColorAttachment {
-        RenderPassColorAttachment {
-            view: self.main_texture_view(),
-            resolve_target: None,
-            ops,
+    /// Retrieve this target's "unsampled" main texture's color attachment.
+    pub fn get_unsampled_color_attachment(&self) -> RenderPassColorAttachment {
+        if self.main_texture.load(Ordering::SeqCst) == 0 {
+            self.main_textures.a.get_unsampled_attachment()
+        } else {
+            self.main_textures.b.get_unsampled_attachment()
         }
     }
 
     /// The "main" unsampled texture.
     pub fn main_texture(&self) -> &Texture {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
-            &self.main_textures.a.texture
+            &self.main_textures.a.texture.texture
         } else {
-            &self.main_textures.b.texture
+            &self.main_textures.b.texture.texture
         }
     }
 
@@ -250,18 +244,18 @@ impl ViewTarget {
     /// ahead of time.
     pub fn main_texture_other(&self) -> &Texture {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
-            &self.main_textures.b.texture
+            &self.main_textures.b.texture.texture
         } else {
-            &self.main_textures.a.texture
+            &self.main_textures.a.texture.texture
         }
     }
 
     /// The "main" unsampled texture.
     pub fn main_texture_view(&self) -> &TextureView {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
-            &self.main_textures.a.default_view
+            &self.main_textures.a.texture.default_view
         } else {
-            &self.main_textures.b.default_view
+            &self.main_textures.b.texture.default_view
         }
     }
 
@@ -273,16 +267,17 @@ impl ViewTarget {
     /// ahead of time.
     pub fn main_texture_other_view(&self) -> &TextureView {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
-            &self.main_textures.b.default_view
+            &self.main_textures.b.texture.default_view
         } else {
-            &self.main_textures.a.default_view
+            &self.main_textures.a.texture.default_view
         }
     }
 
     /// The "main" sampled texture.
     pub fn sampled_main_texture(&self) -> Option<&Texture> {
         self.main_textures
-            .sampled
+            .a
+            .resolve_target
             .as_ref()
             .map(|sampled| &sampled.texture)
     }
@@ -290,7 +285,8 @@ impl ViewTarget {
     /// The "main" sampled texture view.
     pub fn sampled_main_texture_view(&self) -> Option<&TextureView> {
         self.main_textures
-            .sampled
+            .a
+            .resolve_target
             .as_ref()
             .map(|sampled| &sampled.default_view)
     }
@@ -329,14 +325,16 @@ impl ViewTarget {
         let old_is_a_main_texture = self.main_texture.fetch_xor(1, Ordering::SeqCst);
         // if the old main texture is a, then the post processing must write from a to b
         if old_is_a_main_texture == 0 {
+            self.main_textures.b.mark_as_cleared();
             PostProcessWrite {
-                source: &self.main_textures.a.default_view,
-                destination: &self.main_textures.b.default_view,
+                source: &self.main_textures.a.texture.default_view,
+                destination: &self.main_textures.b.texture.default_view,
             }
         } else {
+            self.main_textures.a.mark_as_cleared();
             PostProcessWrite {
-                source: &self.main_textures.b.default_view,
-                destination: &self.main_textures.a.default_view,
+                source: &self.main_textures.b.texture.default_view,
+                destination: &self.main_textures.a.texture.default_view,
             }
         }
     }
@@ -345,7 +343,24 @@ impl ViewTarget {
 #[derive(Component)]
 pub struct ViewDepthTexture {
     pub texture: Texture,
-    pub view: TextureView,
+    attachment: DepthAttachment,
+}
+
+impl ViewDepthTexture {
+    pub fn new(texture: CachedTexture, clear_value: Option<f32>) -> Self {
+        Self {
+            texture: texture.texture,
+            attachment: DepthAttachment::new(texture.default_view, clear_value),
+        }
+    }
+
+    pub fn get_attachment(&self, store: StoreOp) -> RenderPassDepthStencilAttachment {
+        self.attachment.get_attachment(store)
+    }
+
+    pub fn view(&self) -> &TextureView {
+        &self.attachment.view
+    }
 }
 
 pub fn prepare_view_uniforms(
@@ -434,9 +449,8 @@ pub fn prepare_view_uniforms(
 
 #[derive(Clone)]
 struct MainTargetTextures {
-    a: CachedTexture,
-    b: CachedTexture,
-    sampled: Option<CachedTexture>,
+    a: ColorAttachment,
+    b: ColorAttachment,
     /// 0 represents `main_textures.a`, 1 represents `main_textures.b`
     /// This is shared across view targets with the same render target
     main_texture: Arc<AtomicUsize>,
@@ -448,6 +462,7 @@ fn prepare_view_targets(
     windows: Res<ExtractedWindows>,
     images: Res<RenderAssets<Image>>,
     msaa: Res<Msaa>,
+    clear_color_global: Res<ClearColor>,
     render_device: Res<RenderDevice>,
     mut texture_cache: ResMut<TextureCache>,
     cameras: Query<(Entity, &ExtractedCamera, &ExtractedView)>,
@@ -472,7 +487,12 @@ fn prepare_view_targets(
                     TextureFormat::bevy_default()
                 };
 
-                let main_textures = textures
+                let clear_color = match camera.clear_color {
+                    ClearColorConfig::Custom(color) => color,
+                    _ => clear_color_global.0,
+                };
+
+                let (a, b, sampled) = textures
                     .entry((camera.target.clone(), view.hdr))
                     .or_insert_with(|| {
                         let descriptor = TextureDescriptor {
@@ -523,18 +543,19 @@ fn prepare_view_targets(
                         } else {
                             None
                         };
-                        MainTargetTextures {
-                            a,
-                            b,
-                            sampled,
-                            main_texture: Arc::new(AtomicUsize::new(0)),
-                        }
+                        (a, b, sampled)
                     });
 
+                let main_textures = MainTargetTextures {
+                    a: ColorAttachment::new(a.clone(), sampled.clone(), clear_color),
+                    b: ColorAttachment::new(b.clone(), sampled.clone(), clear_color),
+                    main_texture: Arc::new(AtomicUsize::new(0)),
+                };
+
                 commands.entity(entity).insert(ViewTarget {
-                    main_textures: main_textures.clone(),
-                    main_texture_format,
                     main_texture: main_textures.main_texture.clone(),
+                    main_textures,
+                    main_texture_format,
                     out_texture: out_texture_view.clone(),
                     out_texture_format: out_texture_format.add_srgb_suffix(),
                 });

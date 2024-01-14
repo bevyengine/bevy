@@ -53,7 +53,7 @@ fn setup(
                 })
                 .unwrap(),
             ),
-            material: materials.add(Color::YELLOW.into()),
+            material: materials.add(Color::YELLOW),
             transform: Transform::from_translation(Vec3::ZERO),
             ..default()
         },
@@ -73,8 +73,8 @@ fn setup(
         Transform::from_translation(Vec3::Z * -10.0).with_rotation(Quat::from_rotation_y(PI / 2.));
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-            material: materials.add(Color::WHITE.into()),
+            mesh: meshes.add(shape::Cube { size: 1.0 }),
+            material: materials.add(Color::WHITE),
             transform: cube_spawn,
             ..default()
         },

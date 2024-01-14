@@ -42,8 +42,8 @@ fn setup(
     // Spawn a cube to scale.
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-            material: materials.add(Color::WHITE.into()),
+            mesh: meshes.add(shape::Cube { size: 1.0 }),
+            material: materials.add(Color::WHITE),
             transform: Transform::from_rotation(Quat::from_rotation_y(PI / 4.0)),
             ..default()
         },

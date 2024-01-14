@@ -33,7 +33,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 /// The scene hierarchy currently looks somewhat like this:
 ///
-/// ```ignore
+/// ```text
 /// <Parent entity>
 ///   + Mesh node (without `PbrBundle` or `SkinnedMesh` component)
 ///     + Skinned mesh entity (with `PbrBundle` and `SkinnedMesh` component, created by glTF loader)

@@ -7,7 +7,7 @@ use bevy_core_pipeline::{
 };
 use bevy_ecs::{
     prelude::{Bundle, Component, Entity},
-    query::{QueryItem, With},
+    query::{Has, QueryItem, With},
     reflect::ReflectComponent,
     schedule::IntoSystemConfigs,
     system::{Commands, Query, Res, ResMut, Resource},
@@ -612,7 +612,7 @@ fn prepare_ssao_pipelines(
     views: Query<(
         Entity,
         &ScreenSpaceAmbientOcclusionSettings,
-        Option<&TemporalJitter>,
+        Has<TemporalJitter>,
     )>,
 ) {
     for (entity, ssao_settings, temporal_jitter) in &views {
@@ -621,7 +621,7 @@ fn prepare_ssao_pipelines(
             &pipeline,
             SsaoPipelineKey {
                 ssao_settings: ssao_settings.clone(),
-                temporal_jitter: temporal_jitter.is_some(),
+                temporal_jitter,
             },
         );
 
@@ -681,7 +681,7 @@ fn prepare_ssao_bind_groups(
             "ssao_preprocess_depth_bind_group",
             &pipelines.preprocess_depth_bind_group_layout,
             &BindGroupEntries::sequential((
-                &prepass_textures.depth.as_ref().unwrap().default_view,
+                prepass_textures.depth_view().unwrap(),
                 &create_depth_view(0),
                 &create_depth_view(1),
                 &create_depth_view(2),
@@ -695,7 +695,7 @@ fn prepare_ssao_bind_groups(
             &pipelines.gtao_bind_group_layout,
             &BindGroupEntries::sequential((
                 &ssao_textures.preprocessed_depth_texture.default_view,
-                &prepass_textures.normal.as_ref().unwrap().default_view,
+                prepass_textures.normal_view().unwrap(),
                 &pipelines.hilbert_index_lut,
                 &ssao_textures.ssao_noisy_texture.default_view,
                 &ssao_textures.depth_differences_texture.default_view,

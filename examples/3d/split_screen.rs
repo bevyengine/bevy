@@ -3,8 +3,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    core_pipeline::clear_color::ClearColorConfig, pbr::CascadeShadowConfigBuilder, prelude::*,
-    render::camera::Viewport, window::WindowResized,
+    pbr::CascadeShadowConfigBuilder, prelude::*, render::camera::Viewport, window::WindowResized,
 };
 
 fn main() {
@@ -24,8 +23,8 @@ fn setup(
 ) {
     // plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(100.0).into()),
-        material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+        mesh: meshes.add(shape::Plane::from_size(100.0)),
+        material: materials.add(Color::rgb(0.3, 0.5, 0.3)),
         ..default()
     });
 
@@ -68,10 +67,7 @@ fn setup(
             camera: Camera {
                 // Renders the right camera after the left camera, which has a default priority of 0
                 order: 1,
-                ..default()
-            },
-            camera_3d: Camera3d {
-                // don't clear on the second camera because the first camera already cleared the window
+                // Don't clear on the second camera because the first camera already cleared the window
                 clear_color: ClearColorConfig::None,
                 ..default()
             },

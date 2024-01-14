@@ -99,8 +99,7 @@ fn update_parallax_depth_scale(
         let mut text = text.single_mut();
         for (_, mat) in materials.iter_mut() {
             let current_depth = mat.parallax_depth_scale;
-            let new_depth =
-                current_depth * (1.0 - DEPTH_CHANGE_RATE) + (target_depth.0 * DEPTH_CHANGE_RATE);
+            let new_depth = current_depth.lerp(target_depth.0, DEPTH_CHANGE_RATE);
             mat.parallax_depth_scale = new_depth;
             text.sections[0].value = format!("Parallax depth scale: {new_depth:.5}\n");
             if (new_depth - current_depth).abs() <= 0.000000001 {
@@ -234,11 +233,10 @@ fn setup(
         .with_children(|commands| {
             // represent the light source as a sphere
             let mesh = meshes.add(
-                shape::Icosphere {
+                Mesh::try_from(shape::Icosphere {
                     radius: 0.05,
                     subdivisions: 3,
-                }
-                .try_into()
+                })
                 .unwrap(),
             );
             commands.spawn(PbrBundle { mesh, ..default() });
@@ -246,13 +244,10 @@ fn setup(
 
     // Plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(
-            shape::Plane {
-                size: 10.0,
-                subdivisions: 0,
-            }
-            .into(),
-        ),
+        mesh: meshes.add(shape::Plane {
+            size: 10.0,
+            subdivisions: 0,
+        }),
         material: materials.add(StandardMaterial {
             // standard material derived from dark green, but
             // with roughness and reflectance set.

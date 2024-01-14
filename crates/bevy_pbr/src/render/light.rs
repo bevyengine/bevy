@@ -522,7 +522,7 @@ fn face_index_to_name(face_index: usize) -> &'static str {
 
 #[derive(Component)]
 pub struct ShadowView {
-    pub depth_texture_view: TextureView,
+    pub depth_attachment: DepthAttachment,
     pub pass_name: String,
 }
 
@@ -1000,7 +1000,7 @@ pub fn prepare_lights(
                 let view_light_entity = commands
                     .spawn((
                         ShadowView {
-                            depth_texture_view,
+                            depth_attachment: DepthAttachment::new(depth_texture_view, Some(0.0)),
                             pass_name: format!(
                                 "shadow pass point light {} {}",
                                 light_index,
@@ -1062,7 +1062,7 @@ pub fn prepare_lights(
             let view_light_entity = commands
                 .spawn((
                     ShadowView {
-                        depth_texture_view,
+                        depth_attachment: DepthAttachment::new(depth_texture_view, Some(0.0)),
                         pass_name: format!("shadow pass spot light {light_index}"),
                     },
                     ExtractedView {
@@ -1127,7 +1127,7 @@ pub fn prepare_lights(
                 let view_light_entity = commands
                     .spawn((
                         ShadowView {
-                            depth_texture_view,
+                            depth_attachment: DepthAttachment::new(depth_texture_view, Some(0.0)),
                             pass_name: format!(
                                 "shadow pass directional light {light_index} cascade {cascade_index}"),
                         },
@@ -1759,14 +1759,9 @@ impl Node for ShadowPassNode {
                     render_context.begin_tracked_render_pass(RenderPassDescriptor {
                         label: Some(&view_light.pass_name),
                         color_attachments: &[],
-                        depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                            view: &view_light.depth_texture_view,
-                            depth_ops: Some(Operations {
-                                load: LoadOp::Clear(0.0),
-                                store: StoreOp::Store,
-                            }),
-                            stencil_ops: None,
-                        }),
+                        depth_stencil_attachment: Some(
+                            view_light.depth_attachment.get_attachment(StoreOp::Store),
+                        ),
                         timestamp_writes: None,
                         occlusion_query_set: None,
                     });

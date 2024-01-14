@@ -62,14 +62,14 @@ fn setup_scene(
 ) {
     // plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(5.0).into()),
-        material: materials.add(Color::rgb(0.1, 0.2, 0.1).into()),
+        mesh: meshes.add(shape::Plane::from_size(5.0)),
+        material: materials.add(Color::rgb(0.1, 0.2, 0.1)),
         ..default()
     });
     // cube
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: materials.add(Color::rgb(0.5, 0.4, 0.3).into()),
+        mesh: meshes.add(shape::Cube { size: 1.0 }),
+        material: materials.add(Color::rgb(0.5, 0.4, 0.3)),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..default()
     });
@@ -82,7 +82,7 @@ fn setup_scene(
             })
             .unwrap(),
         ),
-        material: materials.add(Color::rgb(0.1, 0.4, 0.8).into()),
+        material: materials.add(Color::rgb(0.1, 0.4, 0.8)),
         transform: Transform::from_xyz(1.5, 1.5, 1.5),
         ..default()
     });

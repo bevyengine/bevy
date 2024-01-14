@@ -150,8 +150,8 @@ pub(crate) mod test_setup {
     ) {
         commands.spawn((
             PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
-                material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+                mesh: meshes.add(shape::Cube { size: 0.5 }),
+                material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
                 ..default()
             },
             Rotator,

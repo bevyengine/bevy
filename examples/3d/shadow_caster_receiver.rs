@@ -47,7 +47,7 @@ fn setup(
     // sphere - initially a caster
     commands.spawn(PbrBundle {
         mesh: sphere_handle.clone(),
-        material: materials.add(Color::RED.into()),
+        material: materials.add(Color::RED),
         transform: Transform::from_xyz(-1.0, spawn_height, 0.0),
         ..default()
     });
@@ -56,7 +56,7 @@ fn setup(
     commands.spawn((
         PbrBundle {
             mesh: sphere_handle,
-            material: materials.add(Color::BLUE.into()),
+            material: materials.add(Color::BLUE),
             transform: Transform::from_xyz(1.0, spawn_height, 0.0),
             ..default()
         },
@@ -66,8 +66,8 @@ fn setup(
     // floating plane - initially not a shadow receiver and not a caster
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(shape::Plane::from_size(20.0).into()),
-            material: materials.add(Color::GREEN.into()),
+            mesh: meshes.add(shape::Plane::from_size(20.0)),
+            material: materials.add(Color::GREEN),
             transform: Transform::from_xyz(0.0, 1.0, -10.0),
             ..default()
         },
@@ -77,7 +77,7 @@ fn setup(
 
     // lower ground plane - initially a shadow receiver
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(20.0).into()),
+        mesh: meshes.add(shape::Plane::from_size(20.0)),
         material: white_handle,
         ..default()
     });

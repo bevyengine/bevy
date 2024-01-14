@@ -58,14 +58,14 @@ fn setup_pyramid_scene(
     // pillars
     for (x, z) in &[(-1.5, -1.5), (1.5, -1.5), (1.5, 1.5), (-1.5, 1.5)] {
         commands.spawn(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Box {
+            mesh: meshes.add(shape::Box {
                 min_x: -0.5,
                 max_x: 0.5,
                 min_z: -0.5,
                 max_z: 0.5,
                 min_y: 0.0,
                 max_y: 3.0,
-            })),
+            }),
             material: stone.clone(),
             transform: Transform::from_xyz(*x, 0.0, *z),
             ..default()
@@ -97,14 +97,14 @@ fn setup_pyramid_scene(
         let size = i as f32 / 2.0 + 3.0;
         let y = -i as f32 / 2.0;
         commands.spawn(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Box {
+            mesh: meshes.add(shape::Box {
                 min_x: -size,
                 max_x: size,
                 min_z: -size,
                 max_z: size,
                 min_y: 0.0,
                 max_y: 0.5,
-            })),
+            }),
             material: stone.clone(),
             transform: Transform::from_xyz(0.0, y, 0.0),
             ..default()
@@ -113,7 +113,7 @@ fn setup_pyramid_scene(
 
     // sky
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Box::default())),
+        mesh: meshes.add(shape::Box::default()),
         material: materials.add(StandardMaterial {
             base_color: Color::hex("888888").unwrap(),
             unlit: true,

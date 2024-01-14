@@ -8,6 +8,7 @@
     mesh_bindings::mesh,
     mesh_view_bindings::view,
     parallax_mapping::parallaxed_uv,
+    lightmap::lightmap,
 }
 
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
@@ -190,6 +191,13 @@ fn pbr_input_from_standard_material(
 #endif
             view.mip_bias,
         );
+#endif
+
+#ifdef LIGHTMAP
+        pbr_input.lightmap_light = lightmap(
+            in.uv_b,
+            pbr_bindings::material.lightmap_exposure,
+            in.instance_index);
 #endif
     }
 
