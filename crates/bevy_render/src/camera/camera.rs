@@ -133,7 +133,9 @@ pub struct PhysicalCameraParameters {
 impl PhysicalCameraParameters {
     /// Calculate the [EV100](https://en.wikipedia.org/wiki/Exposure_value).
     pub fn ev100(&self) -> f32 {
-        (self.aperture_f_stops * self.aperture_f_stops * 100.0 / (self.shutter_speed_s * self.sensitivity_iso)).log2()
+        (self.aperture_f_stops * self.aperture_f_stops * 100.0
+            / (self.shutter_speed_s * self.sensitivity_iso))
+            .log2()
     }
 }
 
