@@ -1,0 +1,15 @@
+[package]
+name = "bevy_dev_tools"
+version = "0.14.0-dev"
+edition = "2021"
+description = "Collection of developer tools for the Bevy Engine"
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT OR Apache-2.0"
+keywords = ["bevy"]
+
+[dependencies]
+bevy_app = { path = "../bevy_app", version = "0.14.0-dev" }
+
+[lints]
+workspace = true
