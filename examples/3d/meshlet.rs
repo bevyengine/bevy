@@ -34,12 +34,12 @@ fn setup(
 ) {
     commands.spawn((
         Camera3dBundle {
-            transform: Transform::from_translation(Vec3::new(3.7672715, 1.2545023, -0.99081814))
+            transform: Transform::from_translation(Vec3::new(1.8194779, 0.47882894, -0.08456142))
                 .with_rotation(Quat::from_array([
-                    -0.12989433,
-                    0.80388904,
-                    0.19044867,
-                    0.5482875,
+                    -0.10061985,
+                    0.7282399,
+                    0.10953168,
+                    0.6689881,
                 ])),
             ..default()
         },
@@ -70,12 +70,12 @@ fn setup(
         ..default()
     });
 
-    let dragon_meshlet_mesh_handle = asset_server.load("models/dragon.meshlet_mesh");
+    let meshlet_mesh_handle = asset_server.load("models/bunny.meshlet_mesh");
     let debug_material = debug_materials.add(MeshletDebugMaterial::default());
 
     for x in -2..=2 {
         commands.spawn(MaterialMeshletMeshBundle {
-            meshlet_mesh: dragon_meshlet_mesh_handle.clone(),
+            meshlet_mesh: meshlet_mesh_handle.clone(),
             material: standard_materials.add(StandardMaterial {
                 base_color: match x {
                     -2 => Color::hex("#dc2626").unwrap(),
@@ -89,18 +89,19 @@ fn setup(
                 ..default()
             }),
             transform: Transform::default()
-                .with_rotation(Quat::from_rotation_x(PI / 2.0))
-                .with_translation(Vec3::new(x as f32, 0.0, -0.55)),
+                .with_scale(Vec3::splat(2.0))
+                .with_translation(Vec3::new(x as f32 / 2.0, 0.0, -0.3)),
             ..default()
         });
     }
     for x in -2..=2 {
         commands.spawn(MaterialMeshletMeshBundle {
-            meshlet_mesh: dragon_meshlet_mesh_handle.clone(),
+            meshlet_mesh: meshlet_mesh_handle.clone(),
             material: debug_material.clone(),
             transform: Transform::default()
-                .with_rotation(Quat::from_rotation_y(PI) * Quat::from_rotation_x(PI / 2.0))
-                .with_translation(Vec3::new(x as f32, 0.0, 0.55)),
+                .with_scale(Vec3::splat(2.0))
+                .with_rotation(Quat::from_rotation_y(PI))
+                .with_translation(Vec3::new(x as f32 / 2.0, 0.0, 0.3)),
             ..default()
         });
     }
