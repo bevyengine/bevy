@@ -121,7 +121,7 @@ impl Animatable for Transform {
             if input.additive {
                 translation += input.weight * Vec3A::from(input.value.translation);
                 scale += input.weight * Vec3A::from(input.value.scale);
-                rotation = (input.value.rotation * input.weight) * rotation;
+                rotation = rotation.slerp(input.value.rotation, input.weight);
             } else {
                 translation = Vec3A::interpolate(
                     &translation,
@@ -146,14 +146,9 @@ impl Animatable for Quat {
     /// reference: <http://number-none.com/product/Understanding%20Slerp,%20Then%20Not%20Using%20It/>
     #[inline]
     fn interpolate(a: &Self, b: &Self, t: f32) -> Self {
-        // Make sure is always the short path, look at this: https://github.com/mgeier/quaternion-nursery
-        let b = if a.dot(*b) < 0.0 { -*b } else { *b };
-
-        let a: Vec4 = (*a).into();
-        let b: Vec4 = b.into();
-        let rot = Vec4::interpolate(&a, &b, t);
-        let inv_mag = bevy_math::approx_rsqrt(rot.dot(rot));
-        Quat::from_vec4(rot * inv_mag)
+        // We want to smoothly interpolate between the two quaternions by default,
+        // rather than using a quicker but less correct linear interpolation.
+        a.slerp(*b, t)
     }
 
     #[inline]
