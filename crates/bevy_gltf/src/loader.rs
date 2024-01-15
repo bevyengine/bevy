@@ -22,6 +22,7 @@ use bevy_render::{
     },
     prelude::SpatialBundle,
     primitives::Aabb,
+    render_asset::RenderAssetPersistencePolicy,
     render_resource::{Face, PrimitiveTopology},
     texture::{
         CompressedImageFormats, Image, ImageAddressMode, ImageFilterMode, ImageLoaderSettings,
@@ -32,7 +33,7 @@ use bevy_scene::Scene;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::IoTaskPool;
 use bevy_transform::components::Transform;
-use bevy_utils::{HashMap, HashSet};
+use bevy_utils::{EntityHashMap, HashMap, HashSet};
 use gltf::{
     accessor::Iter,
     mesh::{util::ReadIndices, Mode},
@@ -120,7 +121,7 @@ pub struct GltfLoader {
 ///     |s: &mut GltfLoaderSettings| {
 ///         s.load_cameras = false;
 ///     }
-/// );    
+/// );
 /// ```
 #[derive(Serialize, Deserialize)]
 pub struct GltfLoaderSettings {
@@ -130,6 +131,8 @@ pub struct GltfLoaderSettings {
     pub load_cameras: bool,
     /// If true, the loader will spawn lights for gltf light nodes.
     pub load_lights: bool,
+    /// If true, the loader will include the root of the gltf root node.
+    pub include_source: bool,
 }
 
 impl Default for GltfLoaderSettings {
@@ -138,6 +141,7 @@ impl Default for GltfLoaderSettings {
             load_meshes: true,
             load_cameras: true,
             load_lights: true,
+            include_source: false,
         }
     }
 }
@@ -389,7 +393,7 @@ async fn load_gltf<'a, 'b, 'c>(
             let primitive_label = primitive_label(&gltf_mesh, &primitive);
             let primitive_topology = get_primitive_topology(primitive.mode())?;
 
-            let mut mesh = Mesh::new(primitive_topology);
+            let mut mesh = Mesh::new(primitive_topology, RenderAssetPersistencePolicy::Keep);
 
             // Read vertex attributes
             for (semantic, accessor) in primitive.attributes() {
@@ -433,6 +437,7 @@ async fn load_gltf<'a, 'b, 'c>(
                     let morph_target_image = MorphTargetImage::new(
                         morph_target_reader.map(PrimitiveMorphAttributesIter),
                         mesh.count_vertices(),
+                        RenderAssetPersistencePolicy::Keep,
                     )?;
                     let handle =
                         load_context.add_labeled_asset(morph_targets_label, morph_target_image.0);
@@ -581,7 +586,7 @@ async fn load_gltf<'a, 'b, 'c>(
         let mut err = None;
         let mut world = World::default();
         let mut node_index_to_entity_map = HashMap::new();
-        let mut entity_to_skin_index_map = HashMap::new();
+        let mut entity_to_skin_index_map = EntityHashMap::default();
         let mut scene_load_context = load_context.begin_labeled_asset();
         world
             .spawn(SpatialBundle::INHERITED_IDENTITY)
@@ -671,6 +676,11 @@ async fn load_gltf<'a, 'b, 'c>(
         animations,
         #[cfg(feature = "bevy_animation")]
         named_animations,
+        source: if settings.include_source {
+            Some(gltf)
+        } else {
+            None
+        },
     })
 }
 
@@ -724,6 +734,7 @@ async fn load_image<'a, 'b>(
                 supported_compressed_formats,
                 is_srgb,
                 ImageSampler::Descriptor(sampler_descriptor),
+                RenderAssetPersistencePolicy::Keep,
             )?;
             Ok(ImageOrPath::Image {
                 image,
@@ -745,6 +756,7 @@ async fn load_image<'a, 'b>(
                         supported_compressed_formats,
                         is_srgb,
                         ImageSampler::Descriptor(sampler_descriptor),
+                        RenderAssetPersistencePolicy::Keep,
                     )?,
                     label: texture_label(&gltf_texture),
                 })
@@ -900,7 +912,7 @@ fn load_node(
     load_context: &mut LoadContext,
     settings: &GltfLoaderSettings,
     node_index_to_entity_map: &mut HashMap<usize, Entity>,
-    entity_to_skin_index_map: &mut HashMap<Entity, usize>,
+    entity_to_skin_index_map: &mut EntityHashMap<Entity, usize>,
     active_camera_found: &mut bool,
     parent_transform: &Transform,
 ) -> Result<(), GltfError> {

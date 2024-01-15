@@ -146,10 +146,10 @@ fn setup(
         .id();
 
     // Chessboard Plane
-    let black_material = materials.add(Color::BLACK.into());
-    let white_material = materials.add(Color::WHITE.into());
+    let black_material = materials.add(Color::BLACK);
+    let white_material = materials.add(Color::WHITE);
 
-    let plane_mesh = meshes.add(shape::Plane::from_size(2.0).into());
+    let plane_mesh = meshes.add(shape::Plane::from_size(2.0));
 
     for x in -3..4 {
         for z in -3..4 {

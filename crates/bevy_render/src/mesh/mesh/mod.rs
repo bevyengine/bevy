@@ -5,7 +5,7 @@ pub use wgpu::PrimitiveTopology;
 use crate::{
     prelude::Image,
     primitives::Aabb,
-    render_asset::{PrepareAssetError, RenderAsset, RenderAssets},
+    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPersistencePolicy, RenderAssets},
     render_resource::{Buffer, TextureView, VertexBufferLayout},
     renderer::RenderDevice,
 };
@@ -48,9 +48,10 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// ```
 /// # use bevy_render::mesh::{Mesh, Indices};
 /// # use bevy_render::render_resource::PrimitiveTopology;
+/// # use bevy_render::render_asset::RenderAssetPersistencePolicy;
 /// fn create_simple_parallelogram() -> Mesh {
 ///     // Create a new mesh using a triangle list topology, where each set of 3 vertices composes a triangle.
-///     Mesh::new(PrimitiveTopology::TriangleList)
+///     Mesh::new(PrimitiveTopology::TriangleList, RenderAssetPersistencePolicy::Unload)
 ///         // Add 4 vertices, each with its own position attribute (coordinate in
 ///         // 3D space), for each of the corners of the parallelogram.
 ///         .with_inserted_attribute(
@@ -108,8 +109,6 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// - Vertex winding order: by default, `StandardMaterial.cull_mode` is [`Some(Face::Back)`](crate::render_resource::Face),
 /// which means that Bevy would *only* render the "front" of each triangle, which
 /// is the side of the triangle from where the vertices appear in a *counter-clockwise* order.
-///
-// TODO: allow values to be unloaded after been submitting to the GPU to conserve memory
 #[derive(Asset, Debug, Clone, Reflect)]
 pub struct Mesh {
     #[reflect(ignore)]
@@ -123,6 +122,7 @@ pub struct Mesh {
     indices: Option<Indices>,
     morph_targets: Option<Handle<Image>>,
     morph_target_names: Option<Vec<String>>,
+    pub cpu_persistent_access: RenderAssetPersistencePolicy,
 }
 
 impl Mesh {
@@ -183,13 +183,17 @@ impl Mesh {
     /// Construct a new mesh. You need to provide a [`PrimitiveTopology`] so that the
     /// renderer knows how to treat the vertex data. Most of the time this will be
     /// [`PrimitiveTopology::TriangleList`].
-    pub fn new(primitive_topology: PrimitiveTopology) -> Self {
+    pub fn new(
+        primitive_topology: PrimitiveTopology,
+        cpu_persistent_access: RenderAssetPersistencePolicy,
+    ) -> Self {
         Mesh {
             primitive_topology,
             attributes: Default::default(),
             indices: None,
             morph_targets: None,
             morph_target_names: None,
+            cpu_persistent_access,
         }
     }
 
@@ -1057,50 +1061,48 @@ pub enum GpuBufferInfo {
 }
 
 impl RenderAsset for Mesh {
-    type ExtractedAsset = Mesh;
     type PreparedAsset = GpuMesh;
     type Param = (SRes<RenderDevice>, SRes<RenderAssets<Image>>);
 
-    /// Clones the mesh.
-    fn extract_asset(&self) -> Self::ExtractedAsset {
-        self.clone()
+    fn persistence_policy(&self) -> RenderAssetPersistencePolicy {
+        self.cpu_persistent_access
     }
 
     /// Converts the extracted mesh a into [`GpuMesh`].
     fn prepare_asset(
-        mesh: Self::ExtractedAsset,
+        self,
         (render_device, images): &mut SystemParamItem<Self::Param>,
-    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
-        let vertex_buffer_data = mesh.get_vertex_buffer_data();
+    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self>> {
+        let vertex_buffer_data = self.get_vertex_buffer_data();
         let vertex_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             usage: BufferUsages::VERTEX,
             label: Some("Mesh Vertex Buffer"),
             contents: &vertex_buffer_data,
         });
 
-        let buffer_info = if let Some(data) = mesh.get_index_buffer_bytes() {
+        let buffer_info = if let Some(data) = self.get_index_buffer_bytes() {
             GpuBufferInfo::Indexed {
                 buffer: render_device.create_buffer_with_data(&BufferInitDescriptor {
                     usage: BufferUsages::INDEX,
                     contents: data,
                     label: Some("Mesh Index Buffer"),
                 }),
-                count: mesh.indices().unwrap().len() as u32,
-                index_format: mesh.indices().unwrap().into(),
+                count: self.indices().unwrap().len() as u32,
+                index_format: self.indices().unwrap().into(),
             }
         } else {
             GpuBufferInfo::NonIndexed
         };
 
-        let mesh_vertex_buffer_layout = mesh.get_mesh_vertex_buffer_layout();
+        let mesh_vertex_buffer_layout = self.get_mesh_vertex_buffer_layout();
 
         Ok(GpuMesh {
             vertex_buffer,
-            vertex_count: mesh.count_vertices() as u32,
+            vertex_count: self.count_vertices() as u32,
             buffer_info,
-            primitive_topology: mesh.primitive_topology(),
+            primitive_topology: self.primitive_topology(),
             layout: mesh_vertex_buffer_layout,
-            morph_targets: mesh
+            morph_targets: self
                 .morph_targets
                 .and_then(|mt| images.get(&mt).map(|i| i.texture_view.clone())),
         })
@@ -1231,12 +1233,16 @@ fn generate_tangents_for_mesh(mesh: &Mesh) -> Result<Vec<[f32; 4]>, GenerateTang
 #[cfg(test)]
 mod tests {
     use super::Mesh;
+    use crate::render_asset::RenderAssetPersistencePolicy;
     use wgpu::PrimitiveTopology;
 
     #[test]
     #[should_panic]
     fn panic_invalid_format() {
-        let _mesh = Mesh::new(PrimitiveTopology::TriangleList)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.0, 0.0, 0.0]]);
+        let _mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetPersistencePolicy::Unload,
+        )
+        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.0, 0.0, 0.0]]);
     }
 }

@@ -2,6 +2,7 @@ use bevy_asset::{AssetId, Assets};
 use bevy_log::{debug, error, warn};
 use bevy_math::{Rect, UVec2, Vec2};
 use bevy_render::{
+    render_asset::RenderAssetPersistencePolicy,
     render_resource::{Extent3d, TextureDimension, TextureFormat},
     texture::{Image, TextureFormatPixelInfo},
 };
@@ -208,6 +209,7 @@ impl TextureAtlasBuilder {
                             self.format.pixel_size() * (current_width * current_height) as usize
                         ],
                         self.format,
+                        RenderAssetPersistencePolicy::Keep,
                     );
                     Some(rect_placements)
                 }

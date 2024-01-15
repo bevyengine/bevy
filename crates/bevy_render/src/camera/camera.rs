@@ -65,9 +65,12 @@ impl Default for Viewport {
 /// Information about the current [`RenderTarget`].
 #[derive(Default, Debug, Clone)]
 pub struct RenderTargetInfo {
-    /// The physical size of this render target (ignores scale factor).
+    /// The physical size of this render target (in physical pixels, ignoring scale factor).
     pub physical_size: UVec2,
     /// The scale factor of this render target.
+    ///
+    /// When rendering to a window, typically it is a value greater or equal than 1.0,
+    /// representing the ratio between the size of the window in physical pixels and the logical size of the window.
     pub scale_factor: f32,
 }
 
@@ -193,7 +196,8 @@ impl Camera {
             .or_else(|| self.logical_target_size())
     }
 
-    /// The physical size of this camera's viewport. If the `viewport` field is set to [`Some`], this
+    /// The physical size of this camera's viewport (in physical pixels).
+    /// If the `viewport` field is set to [`Some`], this
     /// will be the size of that custom viewport. Otherwise it will default to the full physical size of
     /// the current [`RenderTarget`].
     /// For logic that requires the full physical size of the [`RenderTarget`], prefer [`Camera::physical_target_size`].
@@ -216,7 +220,8 @@ impl Camera {
             .and_then(|t| self.to_logical(t.physical_size))
     }
 
-    /// The full physical size of this camera's [`RenderTarget`], ignoring custom `viewport` configuration.
+    /// The full physical size of this camera's [`RenderTarget`] (in physical pixels),
+    /// ignoring custom `viewport` configuration.
     /// Note that if the `viewport` field is [`Some`], this will not represent the size of the rendered area.
     /// For logic that requires the size of the actually rendered area, prefer [`Camera::physical_viewport_size`].
     #[inline]
@@ -428,6 +433,12 @@ pub enum RenderTarget {
     TextureView(ManualTextureViewHandle),
 }
 
+impl From<Handle<Image>> for RenderTarget {
+    fn from(handle: Handle<Image>) -> Self {
+        Self::Image(handle)
+    }
+}
+
 /// Normalized version of the render target.
 ///
 /// Once we have this we shouldn't need to resolve it down anymore.
@@ -457,6 +468,16 @@ impl RenderTarget {
                 .map(NormalizedRenderTarget::Window),
             RenderTarget::Image(handle) => Some(NormalizedRenderTarget::Image(handle.clone())),
             RenderTarget::TextureView(id) => Some(NormalizedRenderTarget::TextureView(*id)),
+        }
+    }
+
+    /// Get a handle to the render target's image,
+    /// or `None` if the render target is another variant.
+    pub fn as_image(&self) -> Option<&Handle<Image>> {
+        if let Self::Image(handle) = self {
+            Some(handle)
+        } else {
+            None
         }
     }
 }

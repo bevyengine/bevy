@@ -11,7 +11,9 @@ struct Vertex {
 #ifdef VERTEX_UVS
     @location(2) uv: vec2<f32>,
 #endif
-// (Alternate UVs are at location 3, but they're currently unused here.)
+#ifdef VERTEX_UVS_B
+    @location(3) uv_b: vec2<f32>,
+#endif
 #ifdef VERTEX_TANGENTS
     @location(4) tangent: vec4<f32>,
 #endif
@@ -36,14 +38,17 @@ struct VertexOutput {
 #ifdef VERTEX_UVS
     @location(2) uv: vec2<f32>,
 #endif
+#ifdef VERTEX_UVS_B
+    @location(3) uv_b: vec2<f32>,
+#endif
 #ifdef VERTEX_TANGENTS
-    @location(3) world_tangent: vec4<f32>,
+    @location(4) world_tangent: vec4<f32>,
 #endif
 #ifdef VERTEX_COLORS
-    @location(4) color: vec4<f32>,
+    @location(5) color: vec4<f32>,
 #endif
 #ifdef VERTEX_OUTPUT_INSTANCE_INDEX
-    @location(5) @interpolate(flat) instance_index: u32,
+    @location(6) @interpolate(flat) instance_index: u32,
 #endif
 }
 
