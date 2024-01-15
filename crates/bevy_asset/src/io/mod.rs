@@ -98,7 +98,7 @@ pub trait AssetReader: Send + Sync + 'static {
     }
 }
 
-/// Equivalent to an [`AssetReader`] but using boxed futures, necesarry eg. when using a `dyn AssetReader`,
+/// Equivalent to an [`AssetReader`] but using boxed futures, necessary eg. when using a `dyn AssetReader`,
 /// as [`AssetReader`] isn't currently object safe.
 pub trait ErasedAssetReader: Send + Sync + 'static {
     /// Returns a future to load the full file data at the provided path.
@@ -263,7 +263,7 @@ pub trait AssetWriter: Send + Sync + 'static {
     }
 }
 
-/// Equivalent to an [`AssetWriter`] but using boxed futures, necesarry eg. when using a `dyn AssetReader`,
+/// Equivalent to an [`AssetWriter`] but using boxed futures, necessary eg. when using a `dyn AssetWriter`,
 /// as [`AssetWriter`] isn't currently object safe.
 pub trait ErasedAssetWriter: Send + Sync + 'static {
     /// Writes the full asset bytes at the provided path.
