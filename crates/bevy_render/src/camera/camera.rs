@@ -106,7 +106,7 @@ impl ExposureSettings {
     /// Converts EV100 values to exposure values.
     #[inline]
     pub fn exposure(&self) -> f32 {
-        1.0 / (2.0f32.powf(self.ev100) * 1.2)
+        (-self.ev100).exp2() / 1.2
     }
 }
 
