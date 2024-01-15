@@ -36,7 +36,7 @@ pub mod prelude {
         component::Component,
         entity::Entity,
         event::{Event, EventReader, EventWriter, Events},
-        query::{Added, AnyOf, Changed, Has, Or, QueryState, With, Without},
+        query::{Added, AnyOf, Changed, Has, Not, Or, QueryState, With, Without},
         removal_detection::RemovedComponents,
         schedule::{
             apply_deferred, apply_state_transition, common_conditions::*, Condition,
@@ -85,12 +85,13 @@ impl std::hash::Hasher for NoOpTypeIdHasher {
 mod tests {
     use crate as bevy_ecs;
     use crate::prelude::Or;
+    use crate::query::InvertibleFilter;
     use crate::{
         bundle::Bundle,
         change_detection::Ref,
         component::{Component, ComponentId},
         entity::Entity,
-        query::{Added, Changed, FilteredAccess, QueryFilter, With, Without},
+        query::{Added, Changed, FilteredAccess, Not, QueryFilter, With, Without},
         system::Resource,
         world::{EntityRef, Mut, World},
     };
@@ -1785,5 +1786,201 @@ mod tests {
     struct Record {
         field0: Simple,
         field1: ComponentB,
+    }
+
+    #[test]
+    fn query_filter_not_added() {
+        let mut world = World::new();
+        let a = world.spawn(A(123)).id();
+
+        assert_eq!(world.query::<&A>().iter(&world).count(), 1);
+        assert_eq!(
+            world
+                .query_filtered::<(), Not<Added<A>>>()
+                .iter(&world)
+                .count(),
+            0
+        );
+        assert!(world.query::<&A>().get(&world, a).is_ok());
+        assert!(world
+            .query_filtered::<(), Not<Added<A>>>()
+            .get(&world, a)
+            .is_err());
+
+        world.clear_trackers();
+
+        assert_eq!(world.query::<&A>().iter(&world).count(), 1);
+        assert_eq!(
+            world
+                .query_filtered::<(), Not<Added<A>>>()
+                .iter(&world)
+                .count(),
+            1
+        );
+        assert!(world.query::<&A>().get(&world, a).is_ok());
+        assert!(world
+            .query_filtered::<(), Not<Added<A>>>()
+            .get(&world, a)
+            .is_ok());
+    }
+
+    #[test]
+    fn query_filter_not_changed() {
+        let mut world = World::default();
+        let e1 = world.spawn((A(0), B(0))).id();
+
+        fn get_changed(world: &mut World) -> Vec<Entity> {
+            world
+                .query_filtered::<Entity, Not<Changed<A>>>()
+                .iter(world)
+                .collect::<Vec<Entity>>()
+        }
+        assert_eq!(get_changed(&mut world), vec![]);
+        world.clear_trackers();
+        assert_eq!(get_changed(&mut world), vec![e1]);
+        *world.get_mut(e1).unwrap() = A(1);
+        assert_eq!(get_changed(&mut world), vec![]);
+    }
+
+    #[test]
+    fn query_filter_not_or() {
+        let mut world = World::default();
+        let e1 = world.spawn((A(0), B(0))).id();
+
+        fn get_unchanged(world: &mut World) -> Vec<Entity> {
+            world
+                .query_filtered::<Entity, Or<(Not<Changed<A>>, Not<Changed<B>>)>>()
+                .iter(world)
+                .collect::<Vec<Entity>>()
+        }
+        assert_eq!(get_unchanged(&mut world), vec![]);
+        world.clear_trackers();
+        assert_eq!(get_unchanged(&mut world), vec![e1]);
+        *world.get_mut(e1).unwrap() = A(1);
+        assert_eq!(get_unchanged(&mut world), vec![e1]);
+        world.clear_trackers();
+        *world.get_mut(e1).unwrap() = B(1);
+        assert_eq!(get_unchanged(&mut world), vec![e1]);
+        world.clear_trackers();
+        *world.get_mut(e1).unwrap() = A(0);
+        *world.get_mut(e1).unwrap() = B(0);
+        assert_eq!(get_unchanged(&mut world), vec![]);
+    }
+
+    #[test]
+    fn query_filter_not_archetypal() {
+        let mut world = World::default();
+        world.spawn(A(0));
+        world.spawn(B(0));
+        world.spawn((A(0), B(0)));
+        world.spawn_empty();
+
+        let not_with_a = world
+            .query_filtered::<Entity, Not<With<A>>>()
+            .iter(&world)
+            .collect::<Vec<_>>();
+
+        let without_a = world
+            .query_filtered::<Entity, Without<A>>()
+            .iter(&world)
+            .collect::<Vec<_>>();
+
+        assert_eq!(not_with_a, without_a);
+
+        let not_without_b = world
+            .query_filtered::<Entity, Not<Without<B>>>()
+            .iter(&world)
+            .collect::<Vec<_>>();
+
+        let with_b = world
+            .query_filtered::<Entity, With<B>>()
+            .iter(&world)
+            .collect::<Vec<_>>();
+        assert_eq!(not_without_b, with_b);
+    }
+
+    #[test]
+    fn query_filter_not_and() {
+        let mut world = World::default();
+
+        fn get_unchanged(world: &mut World) -> Vec<Entity> {
+            world
+                .query_filtered::<Entity, (Not<Changed<A>>, Not<Changed<B>>)>()
+                .iter(world)
+                .collect::<Vec<Entity>>()
+        }
+        let e1 = world.spawn((A(0), B(0))).id();
+        assert_eq!(get_unchanged(&mut world), vec![]);
+
+        world.clear_trackers();
+        assert_eq!(get_unchanged(&mut world), vec![e1]);
+
+        *world.get_mut(e1).unwrap() = A(1);
+        assert_eq!(get_unchanged(&mut world), vec![]);
+
+        world.clear_trackers();
+        *world.get_mut(e1).unwrap() = B(1);
+        assert_eq!(get_unchanged(&mut world), vec![]);
+
+        world.clear_trackers();
+        *world.get_mut(e1).unwrap() = A(0);
+        *world.get_mut(e1).unwrap() = B(0);
+        assert_eq!(get_unchanged(&mut world), vec![]);
+    }
+    #[test]
+    #[should_panic]
+    fn query_filter_not_tuple() {
+        let mut world = World::default();
+        let _e1 = world.spawn((A(0), B(0), C)).id();
+
+        use crate::prelude::Query;
+        fn system(
+            _q1: Query<(Entity, &mut C), (Changed<A>, Not<Without<B>>)>,
+            _q2: Query<(Entity, &mut C), Changed<A>>,
+        ) {
+        }
+
+        let system_id = world.register_system(system);
+        _ = world.run_system(system_id);
+    }
+    #[test]
+    fn query_filter_not_advanced() {
+        #[derive(Component)]
+        struct A;
+        #[derive(Component)]
+        struct B;
+        #[derive(Component)]
+        struct C;
+        #[derive(Component)]
+        struct D;
+        #[derive(Component)]
+        struct E;
+        #[derive(Component)]
+        struct F;
+
+        #[derive(Component)]
+        struct G;
+
+        type Filter = Or<(
+            (Without<A>, Without<B>),
+            (Without<C>, Without<D>),
+            (Without<E>, Without<F>),
+        )>;
+
+        /// SAFETY: only consists of archetypal filters
+        unsafe impl InvertibleFilter for Filter {}
+
+        let mut world = World::default();
+
+        use crate::prelude::Query;
+        fn system(
+            _q1: Query<(Entity, &mut G), Not<Filter>>,
+            _q2: Query<(Entity, &mut G), (Without<E>, Without<F>)>,
+        ) {
+        }
+
+        let system_id = world.register_system(system);
+        _ = world.run_system(system_id);
+        panic!();
     }
 }

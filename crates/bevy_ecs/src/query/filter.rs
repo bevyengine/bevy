@@ -512,6 +512,191 @@ macro_rules! impl_tuple_query_filter {
 all_tuples!(impl_tuple_query_filter, 0, 15, F);
 all_tuples!(impl_query_filter_tuple, 0, 15, F, S);
 
+/// A filter that tests if the given filter does not apply.
+///
+/// This filter does not compose with the [`Or`] filter or with tuples of filters. Instead, [`Not`]
+/// should be distributed within according to [de Morgan's laws](https://en.wikipedia.org/wiki/De_Morgan%27s_laws).
+///
+/// # Examples
+///
+/// ```
+/// # use bevy_ecs::component::Component;
+/// # use bevy_ecs::entity::Entity;
+/// # use bevy_ecs::query::Changed;
+/// # use bevy_ecs::query::Not;
+/// # use bevy_ecs::system::IntoSystem;
+/// # use bevy_ecs::system::Query;
+/// #
+/// # #[derive(Component)]
+/// # struct Position {};
+/// #
+/// fn print_still_entity_system(query: Query<Entity, Not<Changed<Position>>>) {
+///     for entity in &query {
+///         println!("Entity {:?} did not move", entity);
+///     }
+/// }
+/// # bevy_ecs::system::assert_is_system(print_still_entity_system);
+/// ```
+///
+/// Filtering for components that were mutated:
+/// ```
+/// # use bevy_ecs::component::Component;
+/// # use bevy_ecs::entity::Entity;
+/// # use bevy_ecs::query::Added;
+/// # use bevy_ecs::query::Changed;
+/// # use bevy_ecs::query::Not;
+/// # use bevy_ecs::system::IntoSystem;
+/// # use bevy_ecs::system::Query;
+/// #
+/// # #[derive(Component)]
+/// # struct MyComponent;
+/// #
+/// fn print_mutated_component_system(
+///     query: Query<Entity, (Changed<MyComponent>, Not<Added<MyComponent>>)>
+/// ) {
+///     for entity in &query {
+///         println!("Entity {:?} had MyComponent changed, but was not just added", entity);
+///     }
+/// }
+/// # bevy_ecs::system::assert_is_system(print_mutated_component_system);
+/// ```
+pub struct Not<T>(PhantomData<T>);
+
+/// SAFETY:
+///
+/// For purely archetypal filters, this inverts the access in `update_component_access` as well as in
+/// `matches_component_set`, ensuring that they match.
+///
+/// For purely non-archetypal filters, this maintains the same read accesses as the original filter in
+/// both instances.
+
+unsafe impl<T> WorldQuery for Not<T>
+where
+    T: QueryFilter + InvertibleFilter,
+{
+    type Item<'a> = T::Item<'a>;
+
+    type Fetch<'a> = T::Fetch<'a>;
+
+    type State = T::State;
+
+    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
+        T::shrink(item)
+    }
+
+    #[inline]
+    unsafe fn init_fetch<'w>(
+        world: UnsafeWorldCell<'w>,
+        state: &Self::State,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> Self::Fetch<'w> {
+        T::init_fetch(world, state, last_run, this_run)
+    }
+
+    const IS_DENSE: bool = T::IS_DENSE;
+
+    #[inline]
+    unsafe fn set_archetype<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        state: &Self::State,
+        archetype: &'w Archetype,
+        table: &'w Table,
+    ) {
+        T::set_archetype(fetch, state, archetype, table);
+    }
+
+    #[inline]
+    unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table) {
+        T::set_table(fetch, state, table);
+    }
+
+    #[inline(always)]
+    unsafe fn fetch<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        entity: Entity,
+        table_row: TableRow,
+    ) -> Self::Item<'w> {
+        T::fetch(fetch, entity, table_row)
+    }
+
+    fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
+        let mut intermediate = FilteredAccess::<ComponentId>::default();
+        T::update_component_access(state, &mut intermediate);
+        intermediate.invert_filters();
+
+        access.extend(&intermediate);
+    }
+
+    fn update_archetype_component_access(
+        state: &Self::State,
+        archetype: &Archetype,
+        access: &mut Access<ArchetypeComponentId>,
+    ) {
+        T::update_archetype_component_access(state, archetype, access);
+    }
+
+    fn init_state(world: &mut World) -> Self::State {
+        T::init_state(world)
+    }
+
+    fn matches_component_set(
+        state: &Self::State,
+        set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
+        if T::IS_ARCHETYPAL {
+            !T::matches_component_set(state, set_contains_id)
+        } else {
+            T::matches_component_set(state, set_contains_id)
+        }
+    }
+}
+
+impl<T> QueryFilter for Not<T>
+where
+    T: QueryFilter + InvertibleFilter,
+{
+    const IS_ARCHETYPAL: bool = T::IS_ARCHETYPAL;
+
+    #[inline]
+    unsafe fn filter_fetch(
+        fetch: &mut Self::Fetch<'_>,
+        entity: Entity,
+        table_row: TableRow,
+    ) -> bool {
+        if T::IS_ARCHETYPAL {
+            true
+        } else {
+            !T::filter_fetch(fetch, entity, table_row)
+        }
+    }
+}
+
+/// Filters that can be inverted by the [`Not`] filter.
+///
+/// # Safety
+/// This trait must only be implemented for filters that are entirely archetypal or entirely
+/// non-archetypal.
+
+pub unsafe trait InvertibleFilter: QueryFilter {}
+
+/// SAFETY: `Added<T>` is a primitive non-archetypal filter.
+unsafe impl<T: Component> InvertibleFilter for Added<T> {}
+/// SAFETY: `Changed<T>` is a primitive non-archetypal filter.
+unsafe impl<T: Component> InvertibleFilter for Changed<T> {}
+/// SAFETY: `With<T>` is a primitive archetypal filter.
+unsafe impl<T: Component> InvertibleFilter for With<T> {}
+/// SAFETY: `Without<T>` is a primitive archetypal filter.
+unsafe impl<T: Component> InvertibleFilter for Without<T> {}
+/// SAFETY: As long as the inner filter is purely archetypal or purely non-archetypal, the `Or`
+/// form will also be.
+unsafe impl<T> InvertibleFilter for Or<T>
+where
+    Or<T>: QueryFilter,
+    T: InvertibleFilter,
+{
+}
+
 /// A filter on a component that only retains results added after the system last ran.
 ///
 /// A common use for this filter is one-time initialization.
