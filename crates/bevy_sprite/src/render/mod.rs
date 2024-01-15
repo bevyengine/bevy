@@ -1,7 +1,7 @@
 use std::ops::Range;
 
 use crate::{Sprite, TextureAtlas, TextureAtlasLayout, SPRITE_SHADER_HANDLE};
-use bevy_asset::{AssetEvent, Assets, Handle, HandleId};
+use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_core_pipeline::{
     core_2d::Transparent2d,
     tonemapping::{DebandDither, Tonemapping},

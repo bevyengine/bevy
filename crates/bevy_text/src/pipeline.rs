@@ -50,13 +50,8 @@ impl TextPipeline {
         text_alignment: JustifyText,
         linebreak_behavior: BreakLineOn,
         bounds: Vec2,
-<<<<<<< HEAD
-        font_atlas_set_storage: &mut Assets<FontAtlasSet>,
-        texture_atlases: &mut Assets<TextureAtlasLayout>,
-=======
         font_atlas_sets: &mut FontAtlasSets,
-        texture_atlases: &mut Assets<TextureAtlas>,
->>>>>>> main
+        texture_atlases: &mut Assets<TextureAtlasLayout>,
         textures: &mut Assets<Image>,
         text_settings: &TextSettings,
         font_atlas_warning: &mut FontAtlasWarning,

@@ -140,9 +140,7 @@ pub fn calculate_bounds_2d(
             // We default to the texture size for regular sprites
             None => images.get(texture_handle).map(|image| image.size_f32()),
             // We default to the drawn rect for atlas sprites
-            Some(atlas) => atlas
-                .texture_rect(&atlases)
-                .map(|rect| (rect.min - rect.max).abs()),
+            Some(atlas) => atlas.texture_rect(&atlases).map(|rect| rect.size()),
         }) {
             let aabb = Aabb {
                 center: (-sprite.anchor.as_vec() * size).extend(0.0).into(),

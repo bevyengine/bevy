@@ -1,3 +1,4 @@
+use bevy_asset::Handle;
 use bevy_asset::{AssetId, Assets};
 use bevy_log::{debug, error, warn};
 use bevy_math::{Rect, UVec2, Vec2};

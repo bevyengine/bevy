@@ -121,7 +121,6 @@ impl Plugin for UiPlugin {
             .register_type::<UiImageSize>()
             .register_type::<UiRect>()
             .register_type::<UiScale>()
-            .register_type::<UiTextureAtlasImage>()
             .register_type::<Val>()
             .register_type::<BorderColor>()
             .register_type::<widget::Button>()
@@ -154,8 +153,7 @@ impl Plugin for UiPlugin {
                     .ambiguous_with(bevy_text::update_text2d_layout)
                     // We assume Text is on disjoint UI entities to UiImage and UiTextureAtlasImage
                     // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
-                    .ambiguous_with(widget::update_image_content_size_system)
-                    .ambiguous_with(widget::update_atlas_content_size_system),
+                    .ambiguous_with(widget::update_image_content_size_system),
                 widget::text_system
                     .after(UiSystem::Layout)
                     .after(bevy_text::remove_dropped_font_atlas_sets)
@@ -166,11 +164,7 @@ impl Plugin for UiPlugin {
         #[cfg(feature = "bevy_text")]
         app.add_plugins(accessibility::AccessibilityPlugin);
         app.add_systems(PostUpdate, {
-            let system = widget::update_image_content_size_system
-                .before(UiSystem::Layout)
-                // We assume UiImage, UiTextureAtlasImage are disjoint UI entities
-                // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
-                .ambiguous_with(widget::update_atlas_content_size_system);
+            let system = widget::update_image_content_size_system.before(UiSystem::Layout);
             // Potential conflicts: `Assets<Image>`
             // They run independently since `widget::image_node_system` will only ever observe
             // its own UiImage, and `widget::text_system` & `bevy_text::update_text2d_layout`
@@ -182,10 +176,6 @@ impl Plugin for UiPlugin {
 
             system
         });
-        app.add_systems(
-            PostUpdate,
-            widget::update_atlas_content_size_system.before(UiSystem::Layout),
-        );
         app.add_systems(
             PostUpdate,
             (

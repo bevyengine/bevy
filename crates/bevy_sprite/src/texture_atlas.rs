@@ -1,9 +1,8 @@
-use crate::Anchor;
-use bevy_asset::{Asset, AssetId, Handle};
-use bevy_ecs::{component::Component, reflect::ReflectComponent};
+use bevy_asset::{Asset, AssetId, Assets, Handle};
+use bevy_ecs::component::Component;
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::Reflect;
-use bevy_render::{color::Color, texture::Image};
+use bevy_render::texture::Image;
 use bevy_utils::HashMap;
 
 /// Stores a map used to lookup the position of a texture in a [`TextureAtlas`].
@@ -16,8 +15,7 @@ use bevy_utils::HashMap;
 /// [Example usage loading sprite sheet.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/texture_atlas.rs)
 ///
 /// [`TextureAtlasBuilder`]: crate::TextureAtlasBuilder
-#[derive(Reflect, FromReflect, Debug, Clone, TypeUuid)]
-#[uuid = "7233c597-ccfa-411f-bd59-9af349432ada"]
+#[derive(Asset, Reflect, Debug, Clone)]
 #[reflect(Debug)]
 pub struct TextureAtlasLayout {
     // TODO: add support to Uniforms derive to write dimensions and sprites to the same buffer
@@ -29,7 +27,7 @@ pub struct TextureAtlasLayout {
     /// This field is set by [`TextureAtlasBuilder`].
     ///
     /// [`TextureAtlasBuilder`]: crate::TextureAtlasBuilder
-    pub texture_handles: Option<HashMap<Handle<Image>, usize>>,
+    pub texture_handles: Option<HashMap<AssetId<Image>, usize>>,
 }
 
 /// Component used to draw a specific section of a texture.
