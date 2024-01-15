@@ -1,4 +1,4 @@
-use crate::{Sprite, TextureAtlas};
+use crate::{texture_atlas::TextureAtlas, ImageScaleMode, Sprite};
 use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
@@ -12,6 +12,8 @@ use bevy_transform::components::{GlobalTransform, Transform};
 pub struct SpriteBundle {
     /// Specifies the rendering properties of the sprite, such as color tint and flip.
     pub sprite: Sprite,
+    /// Controls how the image is altered when scaled.
+    pub scale_mode: ImageScaleMode,
     /// The local transform of the sprite, relative to its parent.
     pub transform: Transform,
     /// The absolute transform of the sprite. This should generally not be written to directly.
@@ -38,6 +40,8 @@ pub struct SpriteBundle {
 #[derive(Bundle, Clone, Default)]
 pub struct SpriteSheetBundle {
     pub sprite: Sprite,
+    /// Controls how the image is altered when scaled.
+    pub scale_mode: ImageScaleMode,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
     /// The sprite sheet base texture

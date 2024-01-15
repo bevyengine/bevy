@@ -22,16 +22,16 @@ use bevy_ecs::{
     system::{NonSend, NonSendMut, Query, Res, ResMut, Resource},
 };
 use bevy_hierarchy::{Children, Parent};
-use bevy_utils::HashMap;
+use bevy_utils::EntityHashMap;
 use bevy_window::{PrimaryWindow, Window, WindowClosed};
 
 /// Maps window entities to their `AccessKit` [`Adapter`]s.
 #[derive(Default, Deref, DerefMut)]
-pub struct AccessKitAdapters(pub HashMap<Entity, Adapter>);
+pub struct AccessKitAdapters(pub EntityHashMap<Entity, Adapter>);
 
 /// Maps window entities to their respective [`WinitActionHandler`]s.
 #[derive(Resource, Default, Deref, DerefMut)]
-pub struct WinitActionHandlers(pub HashMap<Entity, WinitActionHandler>);
+pub struct WinitActionHandlers(pub EntityHashMap<Entity, WinitActionHandler>);
 
 /// Forwards `AccessKit` [`ActionRequest`]s from winit to an event channel.
 #[derive(Clone, Default, Deref, DerefMut)]

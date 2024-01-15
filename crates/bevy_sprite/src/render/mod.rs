@@ -1,6 +1,9 @@
 use std::ops::Range;
 
-use crate::{Sprite, TextureAtlas, TextureAtlasLayout, SPRITE_SHADER_HANDLE};
+use crate::{
+    texture_atlas::{TextureAtlas, TextureAtlasLayout},
+    ComputedTextureSlices, Sprite, SPRITE_SHADER_HANDLE,
+};
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_core_pipeline::{
     core_2d::Transparent2d,
@@ -330,6 +333,7 @@ pub fn extract_sprite_events(
 }
 
 pub fn extract_sprites(
+    mut commands: Commands,
     mut extracted_sprites: ResMut<ExtractedSprites>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     sprite_query: Extract<
@@ -340,32 +344,41 @@ pub fn extract_sprites(
             &GlobalTransform,
             &Handle<Image>,
             Option<&TextureAtlas>,
+            Option<&ComputedTextureSlices>,
         )>,
     >,
 ) {
     extracted_sprites.sprites.clear();
-    for (entity, view_visibility, sprite, transform, handle, sheet) in sprite_query.iter() {
+    for (entity, view_visibility, sprite, transform, handle, sheet, slices) in sprite_query.iter() {
         if !view_visibility.get() {
             continue;
         }
-        let rect = sheet.and_then(|s| s.texture_rect(&texture_atlases));
 
-        // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
-        extracted_sprites.sprites.insert(
-            entity,
-            ExtractedSprite {
-                color: sprite.color,
-                transform: *transform,
-                rect,
-                // Pass the custom size
-                custom_size: sprite.custom_size,
-                flip_x: sprite.flip_x,
-                flip_y: sprite.flip_y,
-                image_handle_id: handle.id(),
-                anchor: sprite.anchor.as_vec(),
-                original_entity: None,
-            },
-        );
+        if let Some(slices) = slices {
+            extracted_sprites.sprites.extend(
+                slices
+                    .extract_sprites(transform, entity, sprite, handle)
+                    .map(|e| (commands.spawn_empty().id(), e)),
+            );
+        } else {
+            let rect = sheet.and_then(|s| s.texture_rect(&texture_atlases));
+            // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
+            extracted_sprites.sprites.insert(
+                entity,
+                ExtractedSprite {
+                    color: sprite.color,
+                    transform: *transform,
+                    rect,
+                    // Pass the custom size
+                    custom_size: sprite.custom_size,
+                    flip_x: sprite.flip_x,
+                    flip_y: sprite.flip_y,
+                    image_handle_id: handle.id(),
+                    anchor: sprite.anchor.as_vec(),
+                    original_entity: None,
+                },
+            );
+        }
     }
 }
 

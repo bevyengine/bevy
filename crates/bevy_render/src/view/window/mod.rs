@@ -8,7 +8,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
-use bevy_utils::{default, tracing::debug, HashMap, HashSet};
+use bevy_utils::{default, tracing::debug, EntityHashMap, HashSet};
 use bevy_window::{
     CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosed,
 };
@@ -89,11 +89,11 @@ impl ExtractedWindow {
 #[derive(Default, Resource)]
 pub struct ExtractedWindows {
     pub primary: Option<Entity>,
-    pub windows: HashMap<Entity, ExtractedWindow>,
+    pub windows: EntityHashMap<Entity, ExtractedWindow>,
 }
 
 impl Deref for ExtractedWindows {
-    type Target = HashMap<Entity, ExtractedWindow>;
+    type Target = EntityHashMap<Entity, ExtractedWindow>;
 
     fn deref(&self) -> &Self::Target {
         &self.windows
@@ -199,7 +199,7 @@ struct SurfaceData {
 
 #[derive(Resource, Default)]
 pub struct WindowSurfaces {
-    surfaces: HashMap<Entity, SurfaceData>,
+    surfaces: EntityHashMap<Entity, SurfaceData>,
     /// List of windows that we have already called the initial `configure_surface` for
     configured_windows: HashSet<Entity>,
 }
