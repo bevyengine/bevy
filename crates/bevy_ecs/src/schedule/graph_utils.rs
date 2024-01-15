@@ -8,6 +8,8 @@ use fixedbitset::FixedBitSet;
 
 use crate::schedule::set::*;
 
+use super::{ConfigMap, ScheduleBuildPass};
+
 /// Unique identifier for a system or system set stored in a [`ScheduleGraph`].
 ///
 /// [`ScheduleGraph`]: super::ScheduleGraph
@@ -45,22 +47,26 @@ pub(crate) enum DependencyKind {
     Before,
     /// A node that should be succeeded.
     After,
-    /// A node that should be preceded and will **not** automatically insert an instance of `apply_deferred` on the edge.
-    BeforeNoSync,
-    /// A node that should be succeeded and will **not** automatically insert an instance of `apply_deferred` on the edge.
-    AfterNoSync,
 }
 
 /// An edge to be added to the dependency graph.
-#[derive(Clone)]
 pub(crate) struct Dependency {
     pub(crate) kind: DependencyKind,
     pub(crate) set: InternedSystemSet,
+    pub(crate) options: ConfigMap,
 }
 
 impl Dependency {
     pub fn new(kind: DependencyKind, set: InternedSystemSet) -> Self {
-        Self { kind, set }
+        Self {
+            kind,
+            set,
+            options: Default::default(),
+        }
+    }
+    pub fn add_config<T: ScheduleBuildPass>(mut self, option: T::EdgeOptions) -> Self {
+        self.options.add_edge_config::<T>(option);
+        self
     }
 }
 
@@ -75,7 +81,7 @@ pub(crate) enum Ambiguity {
     IgnoreAll,
 }
 
-#[derive(Clone, Default)]
+#[derive(Default)]
 pub(crate) struct GraphInfo {
     pub(crate) sets: Vec<InternedSystemSet>,
     pub(crate) dependencies: Vec<Dependency>,

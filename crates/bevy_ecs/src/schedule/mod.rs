@@ -1,5 +1,6 @@
 //! Contains APIs for ordering systems and executing them on a [`World`](crate::world::World)
 
+mod auto_insert_apply_deferred;
 mod condition;
 mod config;
 mod executor;

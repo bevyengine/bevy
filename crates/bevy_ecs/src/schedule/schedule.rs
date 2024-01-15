@@ -1,5 +1,6 @@
 use std::{
-    collections::BTreeSet,
+    any::{Any, TypeId},
+    collections::{BTreeMap, BTreeSet},
     fmt::{Debug, Write},
     result::Result,
 };
@@ -21,9 +22,11 @@ use crate::{
     component::{ComponentId, Components, Tick},
     prelude::Component,
     schedule::*,
-    system::{BoxedSystem, IntoSystem, Resource, System},
+    system::{BoxedSystem, Resource, System},
     world::World,
 };
+
+use super::auto_insert_apply_deferred::AutoInsertApplyDeferredPass;
 
 /// Resource that stores [`Schedule`]s mapped to [`ScheduleLabel`]s.
 #[derive(Default, Resource)]
@@ -157,15 +160,28 @@ fn make_executor(kind: ExecutorKind) -> Box<dyn SystemExecutor> {
 }
 
 /// Chain systems into dependencies
-#[derive(PartialEq)]
+#[derive(Default)]
 pub enum Chain {
-    /// Run nodes in order. If there are deferred parameters in preceeding systems a
-    /// [`apply_deferred`] will be added on the edge.
-    Yes,
-    /// Run nodes in order. This will not add [`apply_deferred`] between nodes.
-    YesIgnoreDeferred,
-    /// Nodes are allowed to run in any order.
-    No,
+    /// Systems are independent.
+    #[default]
+    Unchained,
+    /// Systems are chained. `before -> after` ordering constraints
+    /// will be added between the successive elements.
+    Chained(ConfigMap),
+}
+
+/// Option maps for [`ScheduleBuildPass`]
+#[derive(Default)]
+pub struct ConfigMap(BTreeMap<TypeId, Box<dyn Any>>);
+impl ConfigMap {
+    /// Add a dependency config to all dependencies established by chain T.
+    pub fn add_edge_config<T: ScheduleBuildPass>(&mut self, option: T::EdgeOptions) {
+        self.0.insert(TypeId::of::<T>(), Box::new(option));
+    }
+    /// Get the dependency config established by the chain T.
+    pub fn get_edge_config<T: ScheduleBuildPass>(&self) -> Option<&T::EdgeOptions> {
+        self.0.get(&TypeId::of::<T>())?.downcast_ref()
+    }
 }
 
 /// A collection of systems, and the metadata and executor needed to run them
@@ -229,13 +245,17 @@ impl Default for Schedule {
 impl Schedule {
     /// Constructs an empty `Schedule`.
     pub fn new(label: impl ScheduleLabel) -> Self {
-        Self {
+        let mut this = Self {
             name: label.intern(),
             graph: ScheduleGraph::new(),
             executable: SystemSchedule::new(),
             executor: make_executor(ExecutorKind::default()),
             executor_initialized: false,
-        }
+        };
+
+        // Call `set_build_settings` to add any default build passes
+        this.set_build_settings(Default::default());
+        this
     }
 
     /// Add a collection of systems to the schedule.
@@ -282,15 +302,31 @@ impl Schedule {
         self
     }
 
+    /// Add a build pass to the schedule.
+    pub fn add_build_pass<T: ScheduleBuildPass>(&mut self, pass: T) -> &mut Self {
+        self.graph.passes.insert(TypeId::of::<T>(), Box::new(pass));
+        self
+    }
+
+    /// Remove a build pass.
+    pub fn remove_build_pass<T: ScheduleBuildPass>(&mut self) {
+        self.graph.passes.remove(&TypeId::of::<T>());
+    }
+
     /// Changes miscellaneous build settings.
     pub fn set_build_settings(&mut self, settings: ScheduleBuildSettings) -> &mut Self {
+        if settings.auto_insert_apply_deferred {
+            self.add_build_pass(AutoInsertApplyDeferredPass::default());
+        } else {
+            self.remove_build_pass::<AutoInsertApplyDeferredPass>();
+        }
         self.graph.settings = settings;
         self
     }
 
     /// Returns the schedule's current `ScheduleBuildSettings`.
-    pub fn get_build_settings(&self) -> ScheduleBuildSettings {
-        self.graph.settings.clone()
+    pub fn get_build_settings(&self) -> &ScheduleBuildSettings {
+        &self.graph.settings
     }
 
     /// Returns the schedule's current execution strategy.
@@ -458,11 +494,12 @@ impl SystemSetNode {
 }
 
 /// A [`BoxedSystem`] with metadata, stored in a [`ScheduleGraph`].
-struct SystemNode {
+pub struct SystemNode {
     inner: Option<BoxedSystem>,
 }
 
 impl SystemNode {
+    #![allow(missing_docs)]
     pub fn new(system: BoxedSystem) -> Self {
         Self {
             inner: Some(system),
@@ -479,10 +516,11 @@ impl SystemNode {
 }
 
 /// Metadata for a [`Schedule`].
+#[allow(missing_docs)]
 #[derive(Default)]
 pub struct ScheduleGraph {
-    systems: Vec<SystemNode>,
-    system_conditions: Vec<Vec<BoxedCondition>>,
+    pub systems: Vec<SystemNode>,
+    pub system_conditions: Vec<Vec<BoxedCondition>>,
     system_sets: Vec<SystemSetNode>,
     system_set_conditions: Vec<Vec<BoxedCondition>>,
     system_set_ids: HashMap<InternedSystemSet, NodeId>,
@@ -490,13 +528,14 @@ pub struct ScheduleGraph {
     hierarchy: Dag,
     dependency: Dag,
     ambiguous_with: UnGraphMap<NodeId, ()>,
-    ambiguous_with_all: HashSet<NodeId>,
+    pub ambiguous_with_all: HashSet<NodeId>,
     conflicting_systems: Vec<(NodeId, NodeId, Vec<ComponentId>)>,
     anonymous_sets: usize,
     changed: bool,
     settings: ScheduleBuildSettings,
-    no_sync_edges: BTreeSet<(NodeId, NodeId)>,
-    auto_sync_node_ids: HashMap<u32, NodeId>,
+
+    /// A map of [`ScheduleBuildPassObj`]es, keyed by the [`TypeId`] of the corresponding [`ScheduleBuildPass`].
+    passes: BTreeMap<TypeId, Box<dyn ScheduleBuildPassObj>>,
 }
 
 impl ScheduleGraph {
@@ -517,8 +556,7 @@ impl ScheduleGraph {
             anonymous_sets: 0,
             changed: false,
             settings: default(),
-            no_sync_edges: BTreeSet::new(),
-            auto_sync_node_ids: HashMap::new(),
+            passes: default(),
         }
     }
 
@@ -617,7 +655,7 @@ impl ScheduleGraph {
     /// - `nodes`: a vector of all node ids contained in the nested `NodeConfigs`
     /// - `densely_chained`: a boolean that is true if all nested nodes are linearly chained (with successive `after` orderings) in the order they are defined
     #[track_caller]
-    fn process_configs<T: ProcessNodeConfig>(
+    pub fn process_configs<T: ProcessNodeConfig>(
         &mut self,
         configs: NodeConfigs<T>,
         collect_nodes: bool,
@@ -661,7 +699,7 @@ impl ScheduleGraph {
                 let mut config_iter = configs.into_iter();
                 let mut nodes_in_scope = Vec::new();
                 let mut densely_chained = true;
-                if chained == Chain::Yes || chained == Chain::YesIgnoreDeferred {
+                if let Chain::Chained(chain_options) = chained {
                     let Some(prev) = config_iter.next() else {
                         return ProcessConfigsResult {
                             nodes: Vec::new(),
@@ -687,10 +725,12 @@ impl ScheduleGraph {
                                     *first_in_current,
                                     (),
                                 );
-
-                                if chained == Chain::YesIgnoreDeferred {
-                                    self.no_sync_edges
-                                        .insert((*last_in_prev, *first_in_current));
+                                for pass in self.passes.values_mut() {
+                                    pass.add_dependency(
+                                        *last_in_prev,
+                                        *first_in_current,
+                                        &chain_options,
+                                    );
                                 }
                             }
                             // The previous group is "densely" chained, so we can simplify the graph by only
@@ -704,8 +744,12 @@ impl ScheduleGraph {
                                         (),
                                     );
 
-                                    if chained == Chain::YesIgnoreDeferred {
-                                        self.no_sync_edges.insert((*last_in_prev, *current_node));
+                                    for pass in self.passes.values_mut() {
+                                        pass.add_dependency(
+                                            *last_in_prev,
+                                            *current_node,
+                                            &chain_options,
+                                        );
                                     }
                                 }
                             }
@@ -720,9 +764,12 @@ impl ScheduleGraph {
                                         (),
                                     );
 
-                                    if chained == Chain::YesIgnoreDeferred {
-                                        self.no_sync_edges
-                                            .insert((*previous_node, *first_in_current));
+                                    for pass in self.passes.values_mut() {
+                                        pass.add_dependency(
+                                            *previous_node,
+                                            *first_in_current,
+                                            &chain_options,
+                                        );
                                     }
                                 }
                             }
@@ -736,10 +783,12 @@ impl ScheduleGraph {
                                             *current_node,
                                             (),
                                         );
-
-                                        if chained == Chain::YesIgnoreDeferred {
-                                            self.no_sync_edges
-                                                .insert((*previous_node, *current_node));
+                                        for pass in self.passes.values_mut() {
+                                            pass.add_dependency(
+                                                *previous_node,
+                                                *current_node,
+                                                &chain_options,
+                                            );
                                         }
                                     }
                                 }
@@ -868,7 +917,7 @@ impl ScheduleGraph {
         id: &NodeId,
         graph_info: &GraphInfo,
     ) -> Result<(), ScheduleBuildError> {
-        for Dependency { kind: _, set } in &graph_info.dependencies {
+        for Dependency { set, .. } in &graph_info.dependencies {
             match self.system_set_ids.get(set) {
                 Some(set_id) => {
                     if id == set_id {
@@ -918,23 +967,18 @@ impl ScheduleGraph {
             self.dependency.graph.add_node(set);
         }
 
-        for (kind, set) in dependencies
+        for (kind, set, options) in dependencies
             .into_iter()
-            .map(|Dependency { kind, set }| (kind, self.system_set_ids[&set]))
+            .map(|Dependency { kind, set, options }| (kind, self.system_set_ids[&set], options))
         {
             let (lhs, rhs) = match kind {
                 DependencyKind::Before => (id, set),
-                DependencyKind::BeforeNoSync => {
-                    self.no_sync_edges.insert((id, set));
-                    (id, set)
-                }
                 DependencyKind::After => (set, id),
-                DependencyKind::AfterNoSync => {
-                    self.no_sync_edges.insert((set, id));
-                    (set, id)
-                }
             };
             self.dependency.graph.add_edge(lhs, rhs, ());
+            for pass in self.passes.values_mut() {
+                pass.add_dependency(lhs, rhs, &options);
+            }
 
             // ensure set also appears in hierarchy graph
             self.hierarchy.graph.add_node(set);
@@ -1017,10 +1061,12 @@ impl ScheduleGraph {
 
         let mut dependency_flattened = self.get_dependency_flattened(&set_systems);
 
-        // modify graph with auto sync points
-        if self.settings.auto_insert_apply_deferred {
-            dependency_flattened = self.auto_insert_apply_deferred(&mut dependency_flattened)?;
+        // modify graph with build passes
+        let mut passes = std::mem::take(&mut self.passes);
+        for pass in passes.values_mut() {
+            dependency_flattened = pass.build(self, &mut dependency_flattened)?;
         }
+        self.passes = passes;
 
         // topsort
         let mut dependency_flattened_dag = Dag {
@@ -1050,84 +1096,6 @@ impl ScheduleGraph {
 
         // build the schedule
         Ok(self.build_schedule_inner(dependency_flattened_dag, hier_results.reachable))
-    }
-
-    // modify the graph to have sync nodes for any dependants after a system with deferred system params
-    fn auto_insert_apply_deferred(
-        &mut self,
-        dependency_flattened: &mut GraphMap<NodeId, (), Directed>,
-    ) -> Result<GraphMap<NodeId, (), Directed>, ScheduleBuildError> {
-        let mut sync_point_graph = dependency_flattened.clone();
-        let topo = self.topsort_graph(dependency_flattened, ReportCycles::Dependency)?;
-
-        // calculate the number of sync points each sync point is from the beginning of the graph
-        // use the same sync point if the distance is the same
-        let mut distances: HashMap<usize, Option<u32>> = HashMap::with_capacity(topo.len());
-        for node in &topo {
-            let add_sync_after = self.systems[node.index()].get().unwrap().has_deferred();
-
-            for target in dependency_flattened.neighbors_directed(*node, Outgoing) {
-                let add_sync_on_edge = add_sync_after
-                    && !is_apply_deferred(self.systems[target.index()].get().unwrap())
-                    && !self.no_sync_edges.contains(&(*node, target));
-
-                let weight = if add_sync_on_edge { 1 } else { 0 };
-
-                let distance = distances
-                    .get(&target.index())
-                    .unwrap_or(&None)
-                    .or(Some(0))
-                    .map(|distance| {
-                        distance.max(
-                            distances.get(&node.index()).unwrap_or(&None).unwrap_or(0) + weight,
-                        )
-                    });
-
-                distances.insert(target.index(), distance);
-
-                if add_sync_on_edge {
-                    let sync_point = self.get_sync_point(distances[&target.index()].unwrap());
-                    sync_point_graph.add_edge(*node, sync_point, ());
-                    sync_point_graph.add_edge(sync_point, target, ());
-
-                    // edge is now redundant
-                    sync_point_graph.remove_edge(*node, target);
-                }
-            }
-        }
-
-        Ok(sync_point_graph)
-    }
-
-    /// add an [`apply_deferred`] system with no config
-    fn add_auto_sync(&mut self) -> NodeId {
-        let id = NodeId::System(self.systems.len());
-
-        self.systems
-            .push(SystemNode::new(Box::new(IntoSystem::into_system(
-                apply_deferred,
-            ))));
-        self.system_conditions.push(Vec::new());
-
-        // ignore ambiguities with auto sync points
-        // They aren't under user control, so no one should know or care.
-        self.ambiguous_with_all.insert(id);
-
-        id
-    }
-
-    /// Returns the `NodeId` of the cached auto sync point. Will create
-    /// a new one if needed.
-    fn get_sync_point(&mut self, distance: u32) -> NodeId {
-        self.auto_sync_node_ids
-            .get(&distance)
-            .copied()
-            .or_else(|| {
-                let node_id = self.add_auto_sync();
-                self.auto_sync_node_ids.insert(distance, node_id);
-                Some(node_id)
-            })
-            .unwrap()
     }
 
     fn map_sets_to_systems(
@@ -1176,34 +1144,25 @@ impl ScheduleGraph {
         let mut dependency_flattened = self.dependency.graph.clone();
         let mut temp = Vec::new();
         for (&set, systems) in set_systems {
+            for pass in self.passes.values_mut() {
+                pass.collapse_set(set, systems, &dependency_flattened, &mut temp);
+            }
             if systems.is_empty() {
                 // collapse dependencies for empty sets
                 for a in dependency_flattened.neighbors_directed(set, Incoming) {
                     for b in dependency_flattened.neighbors_directed(set, Outgoing) {
-                        if self.no_sync_edges.contains(&(a, set))
-                            && self.no_sync_edges.contains(&(set, b))
-                        {
-                            self.no_sync_edges.insert((a, b));
-                        }
-
                         temp.push((a, b));
                     }
                 }
             } else {
                 for a in dependency_flattened.neighbors_directed(set, Incoming) {
                     for &sys in systems {
-                        if self.no_sync_edges.contains(&(a, set)) {
-                            self.no_sync_edges.insert((a, sys));
-                        }
                         temp.push((a, sys));
                     }
                 }
 
                 for b in dependency_flattened.neighbors_directed(set, Outgoing) {
                     for &sys in systems {
-                        if self.no_sync_edges.contains(&(set, b)) {
-                            self.no_sync_edges.insert((sys, b));
-                        }
                         temp.push((sys, b));
                     }
                 }
@@ -1440,7 +1399,7 @@ impl ScheduleGraph {
 }
 
 /// Values returned by [`ScheduleGraph::process_configs`]
-struct ProcessConfigsResult {
+pub struct ProcessConfigsResult {
     /// All nodes contained inside this process_configs call's [`NodeConfigs`] hierarchy,
     /// if `ancestor_chained` is true
     nodes: Vec<NodeId>,
@@ -1451,7 +1410,7 @@ struct ProcessConfigsResult {
 }
 
 /// Trait used by [`ScheduleGraph::process_configs`] to process a single [`NodeConfig`].
-trait ProcessNodeConfig: Sized {
+pub trait ProcessNodeConfig: Sized {
     /// Process a single [`NodeConfig`].
     fn process_config(schedule_graph: &mut ScheduleGraph, config: NodeConfig<Self>) -> NodeId;
 }
@@ -1469,8 +1428,10 @@ impl ProcessNodeConfig for InternedSystemSet {
 }
 
 /// Used to select the appropriate reporting function.
-enum ReportCycles {
+pub enum ReportCycles {
+    /// Report cycles with set hierarchy.
     Hierarchy,
+    /// Report cycles with system dependency.
     Dependency,
 }
 
@@ -1586,7 +1547,7 @@ impl ScheduleGraph {
     /// # Errors
     ///
     /// If the graph contain cycles, then an error is returned.
-    fn topsort_graph(
+    pub fn topsort_graph(
         &self,
         graph: &DiGraphMap<NodeId, ()>,
         report: ReportCycles,
@@ -1883,6 +1844,78 @@ pub enum LogLevel {
     Warn,
     /// Occurrences are logged and result in errors.
     Error,
+}
+
+/// A pass for modular modification of the dependency graph.
+pub trait ScheduleBuildPass: Send + Sync + Debug + 'static {
+    /// Custom options for dependencies between sets or systems.
+    type EdgeOptions: 'static;
+
+    /// Called when a dependency between sets or systems was explicitly added to the graph.
+    fn add_dependency(&mut self, from: NodeId, to: NodeId, options: Option<&Self::EdgeOptions>);
+
+    /// Iterator returned from `collapse_set`.
+    /// TODO: Use `return_position_impl_trait_in_traits` once it stabilizes in Rust 1.75.
+    /// <https://blog.rust-lang.org/2023/12/21/async-fn-rpit-in-traits.html>
+    /// <https://rust-lang.github.io/rfcs/3425-return-position-impl-trait-in-traits.html>
+    type CollapseSetIterator: Iterator<Item = (NodeId, NodeId)>;
+    /// Called while flattening the dependency graph. For each `set`, this method is called
+    /// with the `systems` associated with the set as well as an immutable reference to the current graph.
+    /// Instead of modifying the graph directly, this method should return an iterator of edges to add to the graph.
+    fn collapse_set(
+        &mut self,
+        set: NodeId,
+        systems: &[NodeId],
+        dependency_flattened: &GraphMap<NodeId, (), Directed>,
+    ) -> Self::CollapseSetIterator;
+
+    /// The implementation will be able to modify the `ScheduleGraph` here.
+    fn build(
+        &mut self,
+        graph: &mut ScheduleGraph,
+        dependency_flattened: &mut GraphMap<NodeId, (), Directed>,
+    ) -> Result<GraphMap<NodeId, (), Directed>, ScheduleBuildError>;
+}
+
+/// Object safe version of [`ScheduleBuildPass`].
+trait ScheduleBuildPassObj: Send + Sync + Debug {
+    fn build(
+        &mut self,
+        graph: &mut ScheduleGraph,
+        dependency_flattened: &mut GraphMap<NodeId, (), Directed>,
+    ) -> Result<GraphMap<NodeId, (), Directed>, ScheduleBuildError>;
+
+    fn collapse_set(
+        &mut self,
+        set: NodeId,
+        systems: &[NodeId],
+        dependency_flattened: &GraphMap<NodeId, (), Directed>,
+        dependencies_to_add: &mut Vec<(NodeId, NodeId)>,
+    );
+    fn add_dependency(&mut self, from: NodeId, to: NodeId, all_options: &ConfigMap);
+}
+impl<T: ScheduleBuildPass> ScheduleBuildPassObj for T {
+    fn build(
+        &mut self,
+        graph: &mut ScheduleGraph,
+        dependency_flattened: &mut GraphMap<NodeId, (), Directed>,
+    ) -> Result<GraphMap<NodeId, (), Directed>, ScheduleBuildError> {
+        self.build(graph, dependency_flattened)
+    }
+    fn collapse_set(
+        &mut self,
+        set: NodeId,
+        systems: &[NodeId],
+        dependency_flattened: &GraphMap<NodeId, (), Directed>,
+        dependencies_to_add: &mut Vec<(NodeId, NodeId)>,
+    ) {
+        let iter = self.collapse_set(set, systems, dependency_flattened);
+        dependencies_to_add.extend(iter);
+    }
+    fn add_dependency(&mut self, from: NodeId, to: NodeId, all_options: &ConfigMap) {
+        let option = all_options.get_edge_config::<T>();
+        self.add_dependency(from, to, option);
+    }
 }
 
 /// Specifies miscellaneous settings for schedule construction.
