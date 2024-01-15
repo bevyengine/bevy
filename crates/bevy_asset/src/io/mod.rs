@@ -98,6 +98,8 @@ pub trait AssetReader: Send + Sync + 'static {
     }
 }
 
+/// Equivalent to an [`AssetReader`] but using boxed futures, necesarry eg. when using a `dyn AssetReader`,
+/// as [`AssetReader`] isn't currently object safe.
 pub trait ErasedAssetReader: Send + Sync + 'static {
     /// Returns a future to load the full file data at the provided path.
     fn read<'a>(
@@ -261,11 +263,8 @@ pub trait AssetWriter: Send + Sync + 'static {
     }
 }
 
-/// Preforms write operations on an asset storage. [`AssetWriter`] exposes a "virtual filesystem"
-/// API, where asset bytes and asset metadata bytes are both stored and accessible for a given
-/// `path`.
-///
-/// Also see [`AssetReader`].
+/// Equivalent to an [`AssetWriter`] but using boxed futures, necesarry eg. when using a `dyn AssetReader`,
+/// as [`AssetWriter`] isn't currently object safe.
 pub trait ErasedAssetWriter: Send + Sync + 'static {
     /// Writes the full asset bytes at the provided path.
     fn write<'a>(
