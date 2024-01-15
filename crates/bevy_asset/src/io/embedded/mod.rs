@@ -111,10 +111,12 @@ macro_rules! embedded_path {
     }};
 
     ($source_path: expr, $path_str: expr) => {{
-        let crate_name = module_path!()
-            .split(':')
-            .next()
-            .expect("Could not find crate name");
+        let Some(crate_name) = module_path!().split(':').next() else {
+            panic!(
+                "Could not find crate name. Expected ':' in module path `{}`",
+                module_path!()
+            );
+        };
         if let Some(after_src) = file!().split($source_path).nth(1) {
             let file_path = if let Some(parent) = std::path::Path::new(after_src).parent() {
                 parent.join($path_str)
