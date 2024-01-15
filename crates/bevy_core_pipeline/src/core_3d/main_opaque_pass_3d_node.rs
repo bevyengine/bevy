@@ -1,39 +1,31 @@
 use crate::{
-    clear_color::{ClearColor, ClearColorConfig},
-    core_3d::{Camera3d, Opaque3d},
-    prepass::{DepthPrepass, MotionVectorPrepass, NormalPrepass},
+    core_3d::Opaque3d,
     skybox::{SkyboxBindGroup, SkyboxPipelineId},
 };
-use bevy_ecs::{prelude::*, query::QueryItem};
+use bevy_ecs::{prelude::World, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::RenderPhase,
-    render_resource::{
-        LoadOp, Operations, PipelineCache, RenderPassDepthStencilAttachment, RenderPassDescriptor,
-    },
+    render_resource::{PipelineCache, RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
     view::{ViewDepthTexture, ViewTarget, ViewUniformOffset},
 };
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 
-use super::{AlphaMask3d, Camera3dDepthLoadOp};
+use super::AlphaMask3d;
 
 /// A [`bevy_render::render_graph::Node`] that runs the [`Opaque3d`] and [`AlphaMask3d`] [`RenderPhase`].
 #[derive(Default)]
 pub struct MainOpaquePass3dNode;
 impl ViewNode for MainOpaquePass3dNode {
-    type ViewQuery = (
+    type ViewData = (
         &'static ExtractedCamera,
         &'static RenderPhase<Opaque3d>,
         &'static RenderPhase<AlphaMask3d>,
-        &'static Camera3d,
         &'static ViewTarget,
         &'static ViewDepthTexture,
-        Option<&'static DepthPrepass>,
-        Option<&'static NormalPrepass>,
-        Option<&'static MotionVectorPrepass>,
         Option<&'static SkyboxPipelineId>,
         Option<&'static SkyboxBindGroup>,
         &'static ViewUniformOffset,
@@ -47,16 +39,12 @@ impl ViewNode for MainOpaquePass3dNode {
             camera,
             opaque_phase,
             alpha_mask_phase,
-            camera_3d,
             target,
             depth,
-            depth_prepass,
-            normal_prepass,
-            motion_vector_prepass,
             skybox_pipeline,
             skybox_bind_group,
             view_uniform_offset,
-        ): QueryItem<Self::ViewQuery>,
+        ): QueryItem<Self::ViewData>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         // Run the opaque pass, sorted front-to-back
@@ -67,38 +55,10 @@ impl ViewNode for MainOpaquePass3dNode {
         // Setup render pass
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
             label: Some("main_opaque_pass_3d"),
-            // NOTE: The opaque pass loads the color
-            // buffer as well as writing to it.
-            color_attachments: &[Some(target.get_color_attachment(Operations {
-                load: match camera_3d.clear_color {
-                    ClearColorConfig::Default => {
-                        LoadOp::Clear(world.resource::<ClearColor>().0.into())
-                    }
-                    ClearColorConfig::Custom(color) => LoadOp::Clear(color.into()),
-                    ClearColorConfig::None => LoadOp::Load,
-                },
-                store: true,
-            }))],
-            depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                view: &depth.view,
-                // NOTE: The opaque main pass loads the depth buffer and possibly overwrites it
-                depth_ops: Some(Operations {
-                    load: if depth_prepass.is_some()
-                        || normal_prepass.is_some()
-                        || motion_vector_prepass.is_some()
-                    {
-                        // if any prepass runs, it will generate a depth buffer so we should use it,
-                        // even if only the normal_prepass is used.
-                        Camera3dDepthLoadOp::Load
-                    } else {
-                        // NOTE: 0.0 is the far plane due to bevy's use of reverse-z projections.
-                        camera_3d.depth_load_op.clone()
-                    }
-                    .into(),
-                    store: true,
-                }),
-                stencil_ops: None,
-            }),
+            color_attachments: &[Some(target.get_color_attachment())],
+            depth_stencil_attachment: Some(depth.get_attachment(StoreOp::Store)),
+            timestamp_writes: None,
+            occlusion_query_set: None,
         });
 
         if let Some(viewport) = camera.viewport.as_ref() {

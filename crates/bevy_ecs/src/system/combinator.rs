@@ -7,6 +7,8 @@ use crate::{
     component::{ComponentId, Tick},
     prelude::World,
     query::Access,
+    schedule::InternedSystemSet,
+    world::unsafe_world_cell::UnsafeWorldCell,
 };
 
 use super::{ReadOnlySystem, System};
@@ -49,7 +51,7 @@ use super::{ReadOnlySystem, System};
 /// # let mut world = World::new();
 /// # world.init_resource::<RanFlag>();
 /// #
-/// # let mut app = Schedule::new();
+/// # let mut app = Schedule::default();
 /// app.add_systems(my_system.run_if(Xor::new(
 ///     IntoSystem::into_system(resource_equals(A(1))),
 ///     IntoSystem::into_system(resource_equals(B(1))),
@@ -112,6 +114,9 @@ pub struct CombinatorSystem<Func, A, B> {
 }
 
 impl<Func, A, B> CombinatorSystem<Func, A, B> {
+    /// Creates a new system that combines two inner systems.
+    ///
+    /// The returned system will only be usable if `Func` implements [`Combine<A, B>`].
     pub const fn new(a: A, b: B, name: Cow<'static, str>) -> Self {
         Self {
             _marker: PhantomData,
@@ -157,7 +162,11 @@ where
         self.a.is_exclusive() || self.b.is_exclusive()
     }
 
-    unsafe fn run_unsafe(&mut self, input: Self::In, world: &World) -> Self::Out {
+    fn has_deferred(&self) -> bool {
+        self.a.has_deferred() || self.b.has_deferred()
+    }
+
+    unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell) -> Self::Out {
         Func::combine(
             input,
             // SAFETY: The world accesses for both underlying systems have been registered,
@@ -186,9 +195,9 @@ where
         )
     }
 
-    fn apply_buffers(&mut self, world: &mut World) {
-        self.a.apply_buffers(world);
-        self.b.apply_buffers(world);
+    fn apply_deferred(&mut self, world: &mut World) {
+        self.a.apply_deferred(world);
+        self.b.apply_deferred(world);
     }
 
     fn initialize(&mut self, world: &mut World) {
@@ -198,7 +207,7 @@ where
         self.component_access.extend(self.b.component_access());
     }
 
-    fn update_archetype_component_access(&mut self, world: &World) {
+    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
         self.a.update_archetype_component_access(world);
         self.b.update_archetype_component_access(world);
 
@@ -213,6 +222,12 @@ where
         self.b.check_change_tick(change_tick);
     }
 
+    fn default_system_sets(&self) -> Vec<InternedSystemSet> {
+        let mut default_sets = self.a.default_system_sets();
+        default_sets.append(&mut self.b.default_system_sets());
+        default_sets
+    }
+
     fn get_last_run(&self) -> Tick {
         self.a.get_last_run()
     }
@@ -220,12 +235,6 @@ where
     fn set_last_run(&mut self, last_run: Tick) {
         self.a.set_last_run(last_run);
         self.b.set_last_run(last_run);
-    }
-
-    fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule::SystemSet>> {
-        let mut default_sets = self.a.default_system_sets();
-        default_sets.append(&mut self.b.default_system_sets());
-        default_sets
     }
 }
 
@@ -236,6 +245,17 @@ where
     A: ReadOnlySystem,
     B: ReadOnlySystem,
 {
+}
+
+impl<Func, A, B> Clone for CombinatorSystem<Func, A, B>
+where
+    A: Clone,
+    B: Clone,
+{
+    /// Clone the combined system. The cloned instance must be `.initialize()`d before it can run.
+    fn clone(&self) -> Self {
+        CombinatorSystem::new(self.a.clone(), self.b.clone(), self.name.clone())
+    }
 }
 
 /// A [`System`] created by piping the output of the first system into the input of the second.

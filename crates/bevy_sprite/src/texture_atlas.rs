@@ -1,8 +1,9 @@
-use bevy_asset::{Assets, Handle};
-use bevy_ecs::component::Component;
+use crate::Anchor;
+use bevy_asset::{Asset, AssetId, Handle};
+use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Vec2};
-use bevy_reflect::{FromReflect, Reflect, TypeUuid};
-use bevy_render::texture::Image;
+use bevy_reflect::Reflect;
+use bevy_render::{color::Color, texture::Image};
 use bevy_utils::HashMap;
 
 /// Stores a map used to lookup the position of a texture in a [`TextureAtlas`].
@@ -141,10 +142,11 @@ impl TextureAtlasLayout {
     /// This requires the layout to have been built using a [`TextureAtlasBuilder`]
     ///
     /// [`TextureAtlasBuilder`]: crate::TextureAtlasBuilder
-    pub fn get_texture_index(&self, texture: &Handle<Image>) -> Option<usize> {
+    pub fn get_texture_index(&self, texture: impl Into<AssetId<Image>>) -> Option<usize> {
+        let id = texture.into();
         self.texture_handles
             .as_ref()
-            .and_then(|texture_handles| texture_handles.get(texture).cloned())
+            .and_then(|texture_handles| texture_handles.get(&id).cloned())
     }
 }
 

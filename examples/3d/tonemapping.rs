@@ -5,12 +5,11 @@ use bevy::{
     math::vec2,
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
-    reflect::TypeUuid,
+    reflect::TypePath,
     render::{
-        render_resource::{
-            AsBindGroup, Extent3d, SamplerDescriptor, ShaderRef, TextureDimension, TextureFormat,
-        },
-        texture::ImageSampler,
+        render_asset::RenderAssetPersistencePolicy,
+        render_resource::{AsBindGroup, Extent3d, ShaderRef, TextureDimension, TextureFormat},
+        texture::{ImageSampler, ImageSamplerDescriptor},
         view::ColorGrading,
     },
     utils::HashMap,
@@ -19,8 +18,10 @@ use std::f32::consts::PI;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugin(MaterialPlugin::<ColorGradientMaterial>::default())
+        .add_plugins((
+            DefaultPlugins,
+            MaterialPlugin::<ColorGradientMaterial>::default(),
+        ))
         .insert_resource(CameraTransform(
             Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
         ))
@@ -64,6 +65,14 @@ fn setup(
             transform: camera_transform.0,
             ..default()
         },
+        FogSettings {
+            color: Color::rgba_u8(43, 44, 47, 255),
+            falloff: FogFalloff::Linear {
+                start: 1.0,
+                end: 8.0,
+            },
+            ..default()
+        },
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
@@ -76,7 +85,6 @@ fn setup(
             "",
             TextStyle {
                 font_size: 18.0,
-                color: Color::WHITE,
                 ..default()
             },
         )
@@ -99,15 +107,8 @@ fn setup_basic_scene(
     // plane
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Plane {
-                size: 5.0,
-                ..default()
-            })),
-            material: materials.add(StandardMaterial {
-                base_color: Color::rgb(0.3, 0.5, 0.3),
-                perceptual_roughness: 0.5,
-                ..default()
-            }),
+            mesh: meshes.add(shape::Plane::from_size(50.0)),
+            material: materials.add(Color::rgb(0.1, 0.2, 0.1)),
             ..default()
         },
         SceneNumber(1),
@@ -119,7 +120,7 @@ fn setup_basic_scene(
         ..default()
     });
 
-    let cube_mesh = meshes.add(Mesh::from(shape::Cube { size: 0.25 }));
+    let cube_mesh = meshes.add(shape::Cube { size: 0.25 });
     for i in 0..5 {
         commands.spawn((
             PbrBundle {
@@ -133,6 +134,10 @@ fn setup_basic_scene(
     }
 
     // spheres
+    let sphere_mesh = meshes.add(shape::UVSphere {
+        radius: 0.125,
+        ..default()
+    });
     for i in 0..6 {
         let j = i % 3;
         let s_val = if i < 3 { 0.0 } else { 0.2 };
@@ -160,11 +165,7 @@ fn setup_basic_scene(
         };
         commands.spawn((
             PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::UVSphere {
-                    radius: 0.125,
-                    sectors: 128,
-                    stacks: 128,
-                })),
+                mesh: sphere_mesh.clone(),
                 material,
                 transform: Transform::from_xyz(
                     j as f32 * 0.25 + if i < 3 { -0.15 } else { 0.15 } - 0.4,
@@ -225,10 +226,10 @@ fn setup_color_gradient_scene(
 
     commands.spawn((
         MaterialMeshBundle {
-            mesh: meshes.add(Mesh::from(shape::Quad {
+            mesh: meshes.add(shape::Quad {
                 size: vec2(1.0, 1.0) * 0.7,
                 flip: false,
-            })),
+            }),
             material: materials.add(ColorGradientMaterial {}),
             transform,
             visibility: Visibility::Hidden,
@@ -250,10 +251,10 @@ fn setup_image_viewer_scene(
     // exr/hdr viewer (exr requires enabling bevy feature)
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Quad {
+            mesh: meshes.add(shape::Quad {
                 size: vec2(1.0, 1.0),
                 flip: false,
-            })),
+            }),
             material: materials.add(StandardMaterial {
                 base_color_texture: None,
                 unlit: true,
@@ -277,7 +278,7 @@ fn setup_image_viewer_scene(
                     ..default()
                 },
             )
-            .with_text_alignment(TextAlignment::Center)
+            .with_text_justify(JustifyText::Center)
             .with_style(Style {
                 align_self: AlignSelf::Center,
                 margin: UiRect::all(Val::Auto),
@@ -305,10 +306,10 @@ fn update_image_viewer(
 ) {
     let mut new_image: Option<Handle<Image>> = None;
 
-    for event in drop_events.iter() {
+    for event in drop_events.read() {
         match event {
             FileDragAndDrop::DroppedFile { path_buf, .. } => {
-                new_image = Some(asset_server.load(path_buf.to_string_lossy().to_string()));
+                new_image = Some(asset_server.load(&path_buf.to_string_lossy().to_string()));
                 *drop_hovered = false;
             }
             FileDragAndDrop::HoveredFile { .. } => *drop_hovered = true,
@@ -326,18 +327,18 @@ fn update_image_viewer(
                 }
             }
 
-            for event in image_events.iter() {
-                let image_changed_h = match event {
-                    AssetEvent::Created { handle } | AssetEvent::Modified { handle } => handle,
+            for event in image_events.read() {
+                let image_changed_id = *match event {
+                    AssetEvent::Added { id } | AssetEvent::Modified { id } => id,
                     _ => continue,
                 };
                 if let Some(base_color_texture) = mat.base_color_texture.clone() {
-                    if image_changed_h == &base_color_texture {
-                        if let Some(image_changed) = images.get(image_changed_h) {
-                            let size = image_changed.size().normalize_or_zero() * 1.4;
+                    if image_changed_id == base_color_texture.id() {
+                        if let Some(image_changed) = images.get(image_changed_id) {
+                            let size = image_changed.size_f32().normalize_or_zero() * 1.4;
                             // Resize Mesh
                             let quad = Mesh::from(shape::Quad::new(size));
-                            let _ = meshes.set(mesh_h, quad);
+                            meshes.insert(mesh_h, quad);
                         }
                     }
                 }
@@ -347,16 +348,16 @@ fn update_image_viewer(
 }
 
 fn toggle_scene(
-    keys: Res<Input<KeyCode>>,
+    keys: Res<ButtonInput<KeyCode>>,
     mut query: Query<(&mut Visibility, &SceneNumber)>,
     mut current_scene: ResMut<CurrentScene>,
 ) {
     let mut pressed = None;
-    if keys.just_pressed(KeyCode::Q) {
+    if keys.just_pressed(KeyCode::KeyQ) {
         pressed = Some(1);
-    } else if keys.just_pressed(KeyCode::W) {
+    } else if keys.just_pressed(KeyCode::KeyW) {
         pressed = Some(2);
-    } else if keys.just_pressed(KeyCode::E) {
+    } else if keys.just_pressed(KeyCode::KeyE) {
         pressed = Some(3);
     }
 
@@ -374,7 +375,7 @@ fn toggle_scene(
 }
 
 fn toggle_tonemapping_method(
-    keys: Res<Input<KeyCode>>,
+    keys: Res<ButtonInput<KeyCode>>,
     mut tonemapping: Query<&mut Tonemapping>,
     mut color_grading: Query<&mut ColorGrading>,
     per_method_settings: Res<PerMethodSettings>,
@@ -382,25 +383,28 @@ fn toggle_tonemapping_method(
     let mut method = tonemapping.single_mut();
     let mut color_grading = color_grading.single_mut();
 
-    if keys.just_pressed(KeyCode::Key1) {
+    if keys.just_pressed(KeyCode::Digit1) {
         *method = Tonemapping::None;
-    } else if keys.just_pressed(KeyCode::Key2) {
+    } else if keys.just_pressed(KeyCode::Digit2) {
         *method = Tonemapping::Reinhard;
-    } else if keys.just_pressed(KeyCode::Key3) {
+    } else if keys.just_pressed(KeyCode::Digit3) {
         *method = Tonemapping::ReinhardLuminance;
-    } else if keys.just_pressed(KeyCode::Key4) {
+    } else if keys.just_pressed(KeyCode::Digit4) {
         *method = Tonemapping::AcesFitted;
-    } else if keys.just_pressed(KeyCode::Key5) {
+    } else if keys.just_pressed(KeyCode::Digit5) {
         *method = Tonemapping::AgX;
-    } else if keys.just_pressed(KeyCode::Key6) {
+    } else if keys.just_pressed(KeyCode::Digit6) {
         *method = Tonemapping::SomewhatBoringDisplayTransform;
-    } else if keys.just_pressed(KeyCode::Key7) {
+    } else if keys.just_pressed(KeyCode::Digit7) {
         *method = Tonemapping::TonyMcMapface;
-    } else if keys.just_pressed(KeyCode::Key8) {
+    } else if keys.just_pressed(KeyCode::Digit8) {
         *method = Tonemapping::BlenderFilmic;
     }
 
-    *color_grading = *per_method_settings.settings.get(&method).unwrap();
+    *color_grading = *per_method_settings
+        .settings
+        .get::<Tonemapping>(&method)
+        .unwrap();
 }
 
 #[derive(Resource)]
@@ -419,7 +423,7 @@ impl SelectedParameter {
 }
 
 fn update_color_grading_settings(
-    keys: Res<Input<KeyCode>>,
+    keys: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
     mut per_method_settings: ResMut<PerMethodSettings>,
     tonemapping: Query<&Tonemapping>,
@@ -427,19 +431,19 @@ fn update_color_grading_settings(
     mut selected_parameter: ResMut<SelectedParameter>,
 ) {
     let method = tonemapping.single();
-    let mut color_grading = per_method_settings.settings.get_mut(method).unwrap();
+    let color_grading = per_method_settings.settings.get_mut(method).unwrap();
     let mut dt = time.delta_seconds() * 0.25;
-    if keys.pressed(KeyCode::Left) {
+    if keys.pressed(KeyCode::ArrowLeft) {
         dt = -dt;
     }
 
-    if keys.just_pressed(KeyCode::Down) {
+    if keys.just_pressed(KeyCode::ArrowDown) {
         selected_parameter.next();
     }
-    if keys.just_pressed(KeyCode::Up) {
+    if keys.just_pressed(KeyCode::ArrowUp) {
         selected_parameter.prev();
     }
-    if keys.pressed(KeyCode::Left) || keys.pressed(KeyCode::Right) {
+    if keys.pressed(KeyCode::ArrowLeft) || keys.pressed(KeyCode::ArrowRight) {
         match selected_parameter.value {
             0 => {
                 color_grading.exposure += dt;
@@ -463,7 +467,7 @@ fn update_color_grading_settings(
         }
     }
 
-    if keys.just_pressed(KeyCode::Return) && current_scene.0 == 1 {
+    if keys.just_pressed(KeyCode::Enter) && current_scene.0 == 1 {
         for (mapper, grading) in per_method_settings.settings.iter_mut() {
             *grading = PerMethodSettings::basic_scene_recommendation(*mapper);
         }
@@ -476,7 +480,7 @@ fn update_ui(
     current_scene: Res<CurrentScene>,
     selected_parameter: Res<SelectedParameter>,
     mut hide_ui: Local<bool>,
-    keys: Res<Input<KeyCode>>,
+    keys: Res<ButtonInput<KeyCode>>,
 ) {
     let (method, color_grading) = settings.single();
     let method = *method;
@@ -484,7 +488,7 @@ fn update_ui(
     let mut text = text.single_mut();
     let text = &mut text.sections[0].value;
 
-    if keys.just_pressed(KeyCode::H) {
+    if keys.just_pressed(KeyCode::KeyH) {
         *hide_ui = !*hide_ui;
     }
     text.clear();
@@ -675,8 +679,9 @@ fn uv_debug_texture() -> Image {
         TextureDimension::D2,
         &texture_data,
         TextureFormat::Rgba8UnormSrgb,
+        RenderAssetPersistencePolicy::Unload,
     );
-    img.sampler_descriptor = ImageSampler::Descriptor(SamplerDescriptor::default());
+    img.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor::default());
     img
 }
 
@@ -686,8 +691,7 @@ impl Material for ColorGradientMaterial {
     }
 }
 
-#[derive(AsBindGroup, Debug, Clone, TypeUuid)]
-#[uuid = "117f64fe-6844-1822-8926-e3ed372291c8"]
+#[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 pub struct ColorGradientMaterial {}
 
 #[derive(Resource)]

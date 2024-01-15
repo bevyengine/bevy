@@ -56,8 +56,8 @@ impl FromWorld for ButtonMaterials {
     fn from_world(world: &mut World) -> Self {
         let mut materials = world.resource_mut::<Assets<ColorMaterial>>();
         Self {
-            normal: materials.add(ColorMaterial::from(NORMAL_BUTTON_COLOR)),
-            active: materials.add(ColorMaterial::from(ACTIVE_BUTTON_COLOR)),
+            normal: materials.add(NORMAL_BUTTON_COLOR),
+            active: materials.add(ACTIVE_BUTTON_COLOR),
         }
     }
 }
@@ -72,12 +72,12 @@ impl FromWorld for ButtonMeshes {
     fn from_world(world: &mut World) -> Self {
         let mut meshes = world.resource_mut::<Assets<Mesh>>();
         Self {
-            circle: meshes.add(shape::Circle::new(BUTTON_RADIUS).into()).into(),
+            circle: meshes.add(shape::Circle::new(BUTTON_RADIUS)).into(),
             triangle: meshes
-                .add(shape::RegularPolygon::new(BUTTON_RADIUS, 3).into())
+                .add(shape::RegularPolygon::new(BUTTON_RADIUS, 3))
                 .into(),
-            start_pause: meshes.add(shape::Quad::new(START_SIZE).into()).into(),
-            trigger: meshes.add(shape::Quad::new(TRIGGER_SIZE).into()).into(),
+            start_pause: meshes.add(shape::Quad::new(START_SIZE)).into(),
+            trigger: meshes.add(shape::Quad::new(TRIGGER_SIZE)).into(),
         }
     }
 }
@@ -446,7 +446,7 @@ fn setup_connected(mut commands: Commands) {
 
 fn update_buttons(
     gamepads: Res<Gamepads>,
-    button_inputs: Res<Input<GamepadButton>>,
+    button_inputs: Res<ButtonInput<GamepadButton>>,
     materials: Res<ButtonMaterials>,
     mut query: Query<(&mut Handle<ColorMaterial>, &ReactTo)>,
 ) {
@@ -466,7 +466,7 @@ fn update_button_values(
     mut events: EventReader<GamepadButtonChangedEvent>,
     mut query: Query<(&mut Text, &TextWithButtonValue)>,
 ) {
-    for button_event in events.iter() {
+    for button_event in events.read() {
         for (mut text, text_with_button_value) in query.iter_mut() {
             if button_event.button_type == **text_with_button_value {
                 text.sections[0].value = format!("{:.3}", button_event.value);
@@ -480,7 +480,7 @@ fn update_axes(
     mut query: Query<(&mut Transform, &MoveWithAxes)>,
     mut text_query: Query<(&mut Text, &TextWithAxes)>,
 ) {
-    for axis_event in axis_events.iter() {
+    for axis_event in axis_events.read() {
         let axis_type = axis_event.axis_type;
         let value = axis_event.value;
         for (mut transform, move_with) in query.iter_mut() {

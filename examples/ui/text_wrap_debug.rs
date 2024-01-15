@@ -1,13 +1,41 @@
 //! This example demonstrates text wrapping and use of the `LineBreakOn` property.
 
+use argh::FromArgs;
 use bevy::prelude::*;
 use bevy::text::BreakLineOn;
+use bevy::window::WindowResolution;
 use bevy::winit::WinitSettings;
 
+#[derive(FromArgs, Resource)]
+/// `text_wrap_debug` demonstrates text wrapping and use of the `LineBreakOn` property
+struct Args {
+    #[argh(option)]
+    /// window scale factor
+    scale_factor: Option<f32>,
+
+    #[argh(option, default = "1.")]
+    /// ui scale factor
+    ui_scale: f32,
+}
+
 fn main() {
+    let args: Args = argh::from_env();
+    let window = if let Some(scale_factor) = args.scale_factor {
+        Window {
+            resolution: WindowResolution::default().with_scale_factor_override(scale_factor),
+            ..Default::default()
+        }
+    } else {
+        Window::default()
+    };
+
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(window),
+            ..Default::default()
+        }))
         .insert_resource(WinitSettings::desktop_app())
+        .insert_resource(UiScale(args.ui_scale))
         .add_systems(Startup, spawn)
         .run();
 }
@@ -18,14 +46,15 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
     let text_style = TextStyle {
         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
         font_size: 14.0,
-        color: Color::WHITE,
+        ..default()
     };
 
     let root = commands
         .spawn(NodeBundle {
             style: Style {
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
                 flex_direction: FlexDirection::Column,
-                size: Size::new(Val::Percent(100.), Val::Percent(100.)),
                 ..Default::default()
             },
             background_color: Color::BLACK.into(),
@@ -33,14 +62,19 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
         })
         .id();
 
-    for linebreak_behavior in [BreakLineOn::AnyCharacter, BreakLineOn::WordBoundary] {
+    for linebreak_behavior in [
+        BreakLineOn::AnyCharacter,
+        BreakLineOn::WordBoundary,
+        BreakLineOn::NoWrap,
+    ] {
         let row_id = commands
             .spawn(NodeBundle {
                 style: Style {
                     flex_direction: FlexDirection::Row,
                     justify_content: JustifyContent::SpaceAround,
                     align_items: AlignItems::Center,
-                    size: Size::new(Val::Percent(100.), Val::Percent(50.)),
+                    width: Val::Percent(100.),
+                    height: Val::Percent(50.),
                     ..Default::default()
                 },
                 ..Default::default()
@@ -63,8 +97,9 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                     style: Style {
                         justify_content: justification,
                         flex_direction: FlexDirection::Column,
-                        size: Size::new(Val::Percent(16.), Val::Percent(95.)),
-                        overflow: Overflow::clip(),
+                        width: Val::Percent(16.),
+                        height: Val::Percent(95.),
+                        overflow: Overflow::clip_x(),
                         ..Default::default()
                     },
                     background_color: Color::rgb(0.5, c, 1.0 - c).into(),
@@ -85,7 +120,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                         value: message.clone(),
                         style: text_style.clone(),
                     }],
-                    alignment: TextAlignment::Left,
+                    justify: JustifyText::Left,
                     linebreak_behavior,
                 };
                 let text_id = commands

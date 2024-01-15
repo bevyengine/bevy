@@ -1,4 +1,3 @@
-#![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
 //! This crate provides logging functions and configuration for [Bevy](https://bevyengine.org)
 //! apps, and automatically configures platform specific log handlers (i.e. WASM or Android).
@@ -11,6 +10,8 @@
 //!
 //! For more fine-tuned control over logging behavior, set up the [`LogPlugin`] or
 //! `DefaultPlugins` during app initialization.
+
+mod once;
 
 #[cfg(feature = "trace")]
 use std::panic;
@@ -29,6 +30,8 @@ pub mod prelude {
     pub use bevy_utils::tracing::{
         debug, debug_span, error, error_span, info, info_span, trace, trace_span, warn, warn_span,
     };
+
+    pub use crate::{debug_once, error_once, info_once, trace_once, warn_once};
 }
 
 pub use bevy_utils::tracing::{
@@ -102,7 +105,7 @@ pub struct LogPlugin {
 impl Default for LogPlugin {
     fn default() -> Self {
         Self {
-            filter: "wgpu=error".to_string(),
+            filter: "wgpu=error,naga=warn".to_string(),
             level: Level::INFO,
         }
     }
@@ -115,7 +118,7 @@ impl Plugin for LogPlugin {
         {
             let old_handler = panic::take_hook();
             panic::set_hook(Box::new(move |infos| {
-                println!("{}", tracing_error::SpanTrace::capture());
+                eprintln!("{}", tracing_error::SpanTrace::capture());
                 old_handler(infos);
             }));
         }
@@ -159,7 +162,7 @@ impl Plugin for LogPlugin {
             #[cfg(feature = "tracing-tracy")]
             let tracy_layer = tracing_tracy::TracyLayer::new();
 
-            let fmt_layer = tracing_subscriber::fmt::Layer::default();
+            let fmt_layer = tracing_subscriber::fmt::Layer::default().with_writer(std::io::stderr);
 
             // bevy_render::renderer logs a `tracy.frame_mark` event every frame
             // at Level::INFO. Formatted logs should omit it.

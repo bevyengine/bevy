@@ -1,8 +1,8 @@
-use bevy_ecs::{
-    component::Component, entity::Entity, query::WorldQuery, reflect::ReflectComponent,
-};
+use bevy_ecs::query::QueryData;
+use bevy_ecs::{component::Component, entity::Entity, reflect::ReflectComponent};
+
+use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
-use bevy_reflect::{std_traits::ReflectDefault, FromReflect};
 use bevy_utils::AHasher;
 use std::{
     borrow::Cow,
@@ -15,9 +15,9 @@ use std::{
 /// The hash is eagerly re-computed upon each update to the name.
 ///
 /// [`Name`] should not be treated as a globally unique identifier for entities,
-/// as multiple entities can have the same name.  [`bevy_ecs::entity::Entity`] should be
+/// as multiple entities can have the same name.  [`Entity`] should be
 /// used instead as the default unique identifier.
-#[derive(Reflect, FromReflect, Component, Clone)]
+#[derive(Reflect, Component, Clone)]
 #[reflect(Component, Default, Debug)]
 pub struct Name {
     hash: u64, // TODO: Shouldn't be serialized
@@ -88,7 +88,7 @@ impl std::fmt::Debug for Name {
 
 /// Convenient query for giving a human friendly name to an entity.
 ///
-/// ```rust
+/// ```
 /// # use bevy_core::prelude::*;
 /// # use bevy_ecs::prelude::*;
 /// # #[derive(Component)] pub struct Score(f32);
@@ -102,7 +102,7 @@ impl std::fmt::Debug for Name {
 /// }
 /// # bevy_ecs::system::assert_is_system(increment_score);
 /// ```
-#[derive(WorldQuery)]
+#[derive(QueryData)]
 pub struct DebugName {
     /// A [`Name`] that the entity might have that is displayed if available.
     pub name: Option<&'static Name>,

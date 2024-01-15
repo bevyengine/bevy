@@ -25,8 +25,8 @@ pub trait Plugin: Downcast + Any + Send + Sync {
     /// Configures the [`App`] to which this plugin is added.
     fn build(&self, app: &mut App);
 
-    /// Has the plugin finished it's setup? This can be useful for plugins that needs something
-    /// asynchronous to happen before they can finish their setup, like renderer initialization.
+    /// Has the plugin finished its setup? This can be useful for plugins that need something
+    /// asynchronous to happen before they can finish their setup, like the initialization of a renderer.
     /// Once the plugin is ready, [`finish`](Plugin::finish) should be called.
     fn ready(&self, _app: &App) -> bool {
         true
@@ -51,7 +51,7 @@ pub trait Plugin: Downcast + Any + Send + Sync {
         std::any::type_name::<Self>()
     }
 
-    /// If the plugin can be meaningfully instantiated several times in an [`App`](crate::App),
+    /// If the plugin can be meaningfully instantiated several times in an [`App`],
     /// override this method to return `false`.
     fn is_unique(&self) -> bool {
         true
@@ -65,3 +65,64 @@ impl_downcast!(Plugin);
 ///
 /// See `bevy_dynamic_plugin/src/loader.rs#dynamically_load_plugin`.
 pub type CreatePlugin = unsafe fn() -> *mut dyn Plugin;
+
+/// Types that represent a set of [`Plugin`]s.
+///
+/// This is implemented for all types which implement [`Plugin`],
+/// [`PluginGroup`](super::PluginGroup), and tuples over [`Plugins`].
+pub trait Plugins<Marker>: sealed::Plugins<Marker> {}
+
+impl<Marker, T> Plugins<Marker> for T where T: sealed::Plugins<Marker> {}
+
+mod sealed {
+
+    use bevy_ecs::all_tuples;
+
+    use crate::{App, AppError, Plugin, PluginGroup};
+
+    pub trait Plugins<Marker> {
+        fn add_to_app(self, app: &mut App);
+    }
+
+    pub struct PluginMarker;
+    pub struct PluginGroupMarker;
+    pub struct PluginsTupleMarker;
+
+    impl<P: Plugin> Plugins<PluginMarker> for P {
+        #[track_caller]
+        fn add_to_app(self, app: &mut App) {
+            if let Err(AppError::DuplicatePlugin { plugin_name }) =
+                app.add_boxed_plugin(Box::new(self))
+            {
+                panic!(
+                    "Error adding plugin {plugin_name}: : plugin was already added in application"
+                )
+            }
+        }
+    }
+
+    impl<P: PluginGroup> Plugins<PluginGroupMarker> for P {
+        #[track_caller]
+        fn add_to_app(self, app: &mut App) {
+            self.build().finish(app);
+        }
+    }
+
+    macro_rules! impl_plugins_tuples {
+        ($(($param: ident, $plugins: ident)),*) => {
+            impl<$($param, $plugins),*> Plugins<(PluginsTupleMarker, $($param,)*)> for ($($plugins,)*)
+            where
+                $($plugins: Plugins<$param>),*
+            {
+                #[allow(non_snake_case, unused_variables)]
+                #[track_caller]
+                fn add_to_app(self, app: &mut App) {
+                    let ($($plugins,)*) = self;
+                    $($plugins.add_to_app(app);)*
+                }
+            }
+        }
+    }
+
+    all_tuples!(impl_plugins_tuples, 0, 15, P, S);
+}

@@ -1,4 +1,6 @@
-#![allow(clippy::type_complexity)]
+//! This crate provides a straightforward solution for integrating diagnostics in the [Bevy game engine](https://bevyengine.org/).
+//! It allows users to easily add diagnostic functionality to their Bevy applications, enhancing
+//! their ability to monitor and optimize their game's.
 
 mod diagnostic;
 mod entity_count_diagnostics_plugin;
@@ -19,7 +21,7 @@ pub struct DiagnosticsPlugin;
 
 impl Plugin for DiagnosticsPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Diagnostics>().add_systems(
+        app.init_resource::<DiagnosticsStore>().add_systems(
             Startup,
             system_information_diagnostics_plugin::internal::log_system_info,
         );

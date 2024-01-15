@@ -5,13 +5,20 @@ use bevy::{
     pbr::NotShadowCaster,
     prelude::*,
 };
-use rand::{thread_rng, Rng};
+use rand::{rngs::StdRng, Rng, SeedableRng};
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .add_plugin(LogDiagnosticsPlugin::default())
+        .insert_resource(AmbientLight {
+            brightness: 0.02,
+            ..default()
+        })
+        .add_plugins((
+            DefaultPlugins,
+            FrameTimeDiagnosticsPlugin,
+            LogDiagnosticsPlugin::default(),
+            bevy_internal::core_pipeline::experimental::taa::TemporalAntiAliasPlugin,
+        ))
         .add_systems(Startup, setup)
         .add_systems(Update, (light_sway, movement))
         .run();
@@ -28,28 +35,23 @@ fn setup(
 ) {
     // ground plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(100.0).into()),
-        material: materials.add(StandardMaterial {
-            base_color: Color::GREEN,
-            perceptual_roughness: 1.0,
-            ..default()
-        }),
+        mesh: meshes.add(shape::Plane::from_size(100.0)),
+        material: materials.add(Color::WHITE),
         ..default()
     });
 
     // cubes
-    let mut rng = thread_rng();
-    for _ in 0..100 {
+    let mut rng = StdRng::seed_from_u64(19878367467713);
+    let cube_mesh = meshes.add(shape::Cube { size: 0.5 });
+    let blue = materials.add(Color::rgb_u8(124, 144, 255));
+    for _ in 0..40 {
         let x = rng.gen_range(-5.0..5.0);
-        let y = rng.gen_range(-5.0..5.0);
+        let y = rng.gen_range(0.0..3.0);
         let z = rng.gen_range(-5.0..5.0);
         commands.spawn((
             PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
-                material: materials.add(StandardMaterial {
-                    base_color: Color::BLUE,
-                    ..default()
-                }),
+                mesh: cube_mesh.clone(),
+                material: blue.clone(),
                 transform: Transform::from_xyz(x, y, z),
                 ..default()
             },
@@ -57,12 +59,24 @@ fn setup(
         ));
     }
 
-    // ambient light
-    commands.insert_resource(AmbientLight {
-        color: Color::rgb(0.0, 1.0, 1.0),
-        brightness: 0.14,
+    let sphere_mesh = meshes.add(shape::UVSphere {
+        radius: 0.05,
+        ..default()
     });
-
+    let sphere_mesh_direction = meshes.add(shape::UVSphere {
+        radius: 0.1,
+        ..default()
+    });
+    let red_emissive = materials.add(StandardMaterial {
+        base_color: Color::RED,
+        emissive: Color::rgba_linear(1.0, 0.0, 0.0, 0.0),
+        ..default()
+    });
+    let maroon_emissive = materials.add(StandardMaterial {
+        base_color: Color::MAROON,
+        emissive: Color::rgba_linear(0.369, 0.0, 0.0, 0.0),
+        ..default()
+    });
     for x in 0..4 {
         for z in 0..4 {
             let x = x as f32 - 2.0;
@@ -84,29 +98,15 @@ fn setup(
                 })
                 .with_children(|builder| {
                     builder.spawn(PbrBundle {
-                        mesh: meshes.add(Mesh::from(shape::UVSphere {
-                            radius: 0.05,
-                            ..default()
-                        })),
-                        material: materials.add(StandardMaterial {
-                            base_color: Color::RED,
-                            emissive: Color::rgba_linear(1.0, 0.0, 0.0, 0.0),
-                            ..default()
-                        }),
+                        mesh: sphere_mesh.clone(),
+                        material: red_emissive.clone(),
                         ..default()
                     });
                     builder.spawn((
                         PbrBundle {
                             transform: Transform::from_translation(Vec3::Z * -0.1),
-                            mesh: meshes.add(Mesh::from(shape::UVSphere {
-                                radius: 0.1,
-                                ..default()
-                            })),
-                            material: materials.add(StandardMaterial {
-                                base_color: Color::MAROON,
-                                emissive: Color::rgba_linear(0.369, 0.0, 0.0, 0.0),
-                                ..default()
-                            }),
+                            mesh: sphere_mesh_direction.clone(),
+                            material: maroon_emissive.clone(),
                             ..default()
                         },
                         NotShadowCaster,
@@ -116,10 +116,14 @@ fn setup(
     }
 
     // camera
-    commands.spawn(Camera3dBundle {
+    commands.spawn((Camera3dBundle {
+        camera: Camera {
+            hdr: true,
+            ..default()
+        },
         transform: Transform::from_xyz(-4.0, 5.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
-    });
+    },));
 }
 
 fn light_sway(time: Res<Time>, mut query: Query<(&mut Transform, &mut SpotLight)>) {
@@ -137,22 +141,22 @@ fn light_sway(time: Res<Time>, mut query: Query<(&mut Transform, &mut SpotLight)
 }
 
 fn movement(
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
     mut query: Query<&mut Transform, With<Movable>>,
 ) {
     for mut transform in &mut query {
         let mut direction = Vec3::ZERO;
-        if input.pressed(KeyCode::Up) {
+        if input.pressed(KeyCode::ArrowUp) {
             direction.z -= 1.0;
         }
-        if input.pressed(KeyCode::Down) {
+        if input.pressed(KeyCode::ArrowDown) {
             direction.z += 1.0;
         }
-        if input.pressed(KeyCode::Left) {
+        if input.pressed(KeyCode::ArrowLeft) {
             direction.x -= 1.0;
         }
-        if input.pressed(KeyCode::Right) {
+        if input.pressed(KeyCode::ArrowRight) {
             direction.x += 1.0;
         }
         if input.pressed(KeyCode::PageUp) {

@@ -3,8 +3,7 @@
 use std::f32::consts::PI;
 use std::time::Duration;
 
-use bevy::pbr::CascadeShadowConfigBuilder;
-use bevy::prelude::*;
+use bevy::{animation::RepeatAnimation, pbr::CascadeShadowConfigBuilder, prelude::*};
 
 fn main() {
     App::new()
@@ -46,8 +45,8 @@ fn setup(
 
     // Plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(500000.0).into()),
-        material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+        mesh: meshes.add(shape::Plane::from_size(500000.0)),
+        material: materials.add(Color::rgb(0.3, 0.5, 0.3)),
         ..default()
     });
 
@@ -77,30 +76,28 @@ fn setup(
     println!("  - spacebar: play / pause");
     println!("  - arrow up / down: speed up / slow down animation playback");
     println!("  - arrow left / right: seek backward / forward");
+    println!("  - digit 1 / 3 / 5: play the animation <digit> times");
+    println!("  - L: loop the animation forever");
     println!("  - return: change animation");
 }
 
 // Once the scene is loaded, start the animation
 fn setup_scene_once_loaded(
     animations: Res<Animations>,
-    mut player: Query<&mut AnimationPlayer>,
-    mut done: Local<bool>,
+    mut players: Query<&mut AnimationPlayer, Added<AnimationPlayer>>,
 ) {
-    if !*done {
-        if let Ok(mut player) = player.get_single_mut() {
-            player.play(animations.0[0].clone_weak()).repeat();
-            *done = true;
-        }
+    for mut player in &mut players {
+        player.play(animations.0[0].clone_weak()).repeat();
     }
 }
 
 fn keyboard_animation_control(
-    keyboard_input: Res<Input<KeyCode>>,
-    mut animation_player: Query<&mut AnimationPlayer>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut animation_players: Query<&mut AnimationPlayer>,
     animations: Res<Animations>,
     mut current_animation: Local<usize>,
 ) {
-    if let Ok(mut player) = animation_player.get_single_mut() {
+    for mut player in &mut animation_players {
         if keyboard_input.just_pressed(KeyCode::Space) {
             if player.is_paused() {
                 player.resume();
@@ -109,27 +106,27 @@ fn keyboard_animation_control(
             }
         }
 
-        if keyboard_input.just_pressed(KeyCode::Up) {
+        if keyboard_input.just_pressed(KeyCode::ArrowUp) {
             let speed = player.speed();
             player.set_speed(speed * 1.2);
         }
 
-        if keyboard_input.just_pressed(KeyCode::Down) {
+        if keyboard_input.just_pressed(KeyCode::ArrowDown) {
             let speed = player.speed();
             player.set_speed(speed * 0.8);
         }
 
-        if keyboard_input.just_pressed(KeyCode::Left) {
-            let elapsed = player.elapsed();
-            player.set_elapsed(elapsed - 0.1);
+        if keyboard_input.just_pressed(KeyCode::ArrowLeft) {
+            let elapsed = player.seek_time();
+            player.seek_to(elapsed - 0.1);
         }
 
-        if keyboard_input.just_pressed(KeyCode::Right) {
-            let elapsed = player.elapsed();
-            player.set_elapsed(elapsed + 0.1);
+        if keyboard_input.just_pressed(KeyCode::ArrowRight) {
+            let elapsed = player.seek_time();
+            player.seek_to(elapsed + 0.1);
         }
 
-        if keyboard_input.just_pressed(KeyCode::Return) {
+        if keyboard_input.just_pressed(KeyCode::Enter) {
             *current_animation = (*current_animation + 1) % animations.0.len();
             player
                 .play_with_transition(
@@ -137,6 +134,25 @@ fn keyboard_animation_control(
                     Duration::from_millis(250),
                 )
                 .repeat();
+        }
+
+        if keyboard_input.just_pressed(KeyCode::Digit1) {
+            player.set_repeat(RepeatAnimation::Count(1));
+            player.replay();
+        }
+
+        if keyboard_input.just_pressed(KeyCode::Digit3) {
+            player.set_repeat(RepeatAnimation::Count(3));
+            player.replay();
+        }
+
+        if keyboard_input.just_pressed(KeyCode::Digit5) {
+            player.set_repeat(RepeatAnimation::Count(5));
+            player.replay();
+        }
+
+        if keyboard_input.just_pressed(KeyCode::KeyL) {
+            player.set_repeat(RepeatAnimation::Forever);
         }
     }
 }

@@ -125,7 +125,9 @@ impl RenderGraph {
     /// It simply won't create a new edge.
     pub fn add_node_edges(&mut self, edges: &[&'static str]) {
         for window in edges.windows(2) {
-            let [a, b] = window else { break; };
+            let [a, b] = window else {
+                break;
+            };
             if let Err(err) = self.try_add_node_edge(*a, *b) {
                 match err {
                     // Already existing edges are very easy to produce with this api
@@ -148,7 +150,7 @@ impl RenderGraph {
             if let Some(node_state) = self.nodes.remove(&id) {
                 // Remove all edges from other nodes to this one. Note that as we're removing this
                 // node, we don't need to remove its input edges
-                for input_edge in node_state.edges.input_edges().iter() {
+                for input_edge in node_state.edges.input_edges() {
                     match input_edge {
                         Edge::SlotEdge { output_node, .. }
                         | Edge::NodeEdge {
@@ -163,7 +165,7 @@ impl RenderGraph {
                 }
                 // Remove all edges from this node to other nodes. Note that as we're removing this
                 // node, we don't need to remove its output edges
-                for output_edge in node_state.edges.output_edges().iter() {
+                for output_edge in node_state.edges.output_edges() {
                     match output_edge {
                         Edge::SlotEdge {
                             output_node: _,
@@ -753,28 +755,33 @@ mod tests {
         graph.add_slot_edge("C", 0, "D", 0);
 
         assert!(input_nodes("A", &graph).is_empty(), "A has no inputs");
-        assert!(
-            output_nodes("A", &graph) == HashSet::from_iter(vec![c_id]),
+        assert_eq!(
+            output_nodes("A", &graph),
+            HashSet::from_iter(vec![c_id]),
             "A outputs to C"
         );
 
         assert!(input_nodes("B", &graph).is_empty(), "B has no inputs");
-        assert!(
-            output_nodes("B", &graph) == HashSet::from_iter(vec![c_id]),
+        assert_eq!(
+            output_nodes("B", &graph),
+            HashSet::from_iter(vec![c_id]),
             "B outputs to C"
         );
 
-        assert!(
-            input_nodes("C", &graph) == HashSet::from_iter(vec![a_id, b_id]),
+        assert_eq!(
+            input_nodes("C", &graph),
+            HashSet::from_iter(vec![a_id, b_id]),
             "A and B input to C"
         );
-        assert!(
-            output_nodes("C", &graph) == HashSet::from_iter(vec![d_id]),
+        assert_eq!(
+            output_nodes("C", &graph),
+            HashSet::from_iter(vec![d_id]),
             "C outputs to D"
         );
 
-        assert!(
-            input_nodes("D", &graph) == HashSet::from_iter(vec![c_id]),
+        assert_eq!(
+            input_nodes("D", &graph),
+            HashSet::from_iter(vec![c_id]),
             "C inputs to D"
         );
         assert!(output_nodes("D", &graph).is_empty(), "D has no outputs");
@@ -878,20 +885,24 @@ mod tests {
 
         graph.add_node_edges(&["A", "B", "C"]);
 
-        assert!(
-            output_nodes("A", &graph) == HashSet::from_iter(vec![b_id]),
+        assert_eq!(
+            output_nodes("A", &graph),
+            HashSet::from_iter(vec![b_id]),
             "A -> B"
         );
-        assert!(
-            input_nodes("B", &graph) == HashSet::from_iter(vec![a_id]),
+        assert_eq!(
+            input_nodes("B", &graph),
+            HashSet::from_iter(vec![a_id]),
             "A -> B"
         );
-        assert!(
-            output_nodes("B", &graph) == HashSet::from_iter(vec![c_id]),
+        assert_eq!(
+            output_nodes("B", &graph),
+            HashSet::from_iter(vec![c_id]),
             "B -> C"
         );
-        assert!(
-            input_nodes("C", &graph) == HashSet::from_iter(vec![b_id]),
+        assert_eq!(
+            input_nodes("C", &graph),
+            HashSet::from_iter(vec![b_id]),
             "B -> C"
         );
     }

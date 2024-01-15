@@ -23,7 +23,7 @@ fn main() {
             5.0,
             TimerMode::Repeating,
         )))
-        .add_state::<GameState>()
+        .init_state::<GameState>()
         .add_systems(Startup, setup_cameras)
         .add_systems(OnEnter(GameState::Playing), setup)
         .add_systems(
@@ -192,7 +192,7 @@ fn teardown(mut commands: Commands, entities: Query<Entity, (Without<Camera>, Wi
 // control the game character
 fn move_player(
     mut commands: Commands,
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     mut game: ResMut<Game>,
     mut transforms: Query<&mut Transform>,
     time: Res<Time>,
@@ -201,28 +201,28 @@ fn move_player(
         let mut moved = false;
         let mut rotation = 0.0;
 
-        if keyboard_input.pressed(KeyCode::Up) {
+        if keyboard_input.pressed(KeyCode::ArrowUp) {
             if game.player.i < BOARD_SIZE_I - 1 {
                 game.player.i += 1;
             }
             rotation = -PI / 2.;
             moved = true;
         }
-        if keyboard_input.pressed(KeyCode::Down) {
+        if keyboard_input.pressed(KeyCode::ArrowDown) {
             if game.player.i > 0 {
                 game.player.i -= 1;
             }
             rotation = PI / 2.;
             moved = true;
         }
-        if keyboard_input.pressed(KeyCode::Right) {
+        if keyboard_input.pressed(KeyCode::ArrowRight) {
             if game.player.j < BOARD_SIZE_J - 1 {
                 game.player.j += 1;
             }
             rotation = PI;
             moved = true;
         }
-        if keyboard_input.pressed(KeyCode::Left) {
+        if keyboard_input.pressed(KeyCode::ArrowLeft) {
             if game.player.j > 0 {
                 game.player.j -= 1;
             }
@@ -376,7 +376,7 @@ fn scoreboard_system(game: Res<Game>, mut query: Query<&mut Text>) {
 // restart the game when pressing spacebar
 fn gameover_keyboard(
     mut next_state: ResMut<NextState<GameState>>,
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Space) {
         next_state.set(GameState::Playing);
@@ -388,7 +388,7 @@ fn display_score(mut commands: Commands, game: Res<Game>) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                width: Val::Percent(100.),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 ..default()

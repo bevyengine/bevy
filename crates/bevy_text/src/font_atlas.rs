@@ -2,6 +2,7 @@ use ab_glyph::{GlyphId, Point};
 use bevy_asset::{Assets, Handle};
 use bevy_math::Vec2;
 use bevy_render::{
+    render_asset::RenderAssetPersistencePolicy,
     render_resource::{Extent3d, TextureDimension, TextureFormat},
     texture::Image,
 };
@@ -61,12 +62,14 @@ impl FontAtlas {
             TextureDimension::D2,
             &[0, 0, 0, 0],
             TextureFormat::Rgba8UnormSrgb,
+            // Need to keep this image CPU persistent in order to add additional glyphs later on
+            RenderAssetPersistencePolicy::Keep,
         ));
         let texture_atlas = TextureAtlasLayout::new_empty(size);
         Self {
             texture_atlas: texture_atlases.add(texture_atlas),
             glyph_to_atlas_index: HashMap::default(),
-            dynamic_texture_atlas_builder: DynamicTextureAtlasBuilder::new(size, 1),
+            dynamic_texture_atlas_builder: DynamicTextureAtlasBuilder::new(size, 0),
             texture,
         }
     }

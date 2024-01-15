@@ -1,16 +1,23 @@
+//! Contains APIs for retrieving component data from the world.
+
 mod access;
+mod error;
 mod fetch;
 mod filter;
 mod iter;
 mod par_iter;
 mod state;
+mod world_query;
 
 pub use access::*;
+pub use bevy_ecs_macros::{QueryData, QueryFilter};
+pub use error::*;
 pub use fetch::*;
 pub use filter::*;
 pub use iter::*;
 pub use par_iter::*;
 pub use state::*;
+pub use world_query::*;
 
 /// A debug checked version of [`Option::unwrap_unchecked`]. Will panic in
 /// debug modes if unwrapping a `None` or `Err` value in debug mode, but is
@@ -60,9 +67,10 @@ impl<T> DebugCheckedUnwrap for Option<T> {
 
 #[cfg(test)]
 mod tests {
-    use super::{ReadOnlyWorldQuery, WorldQuery};
+    use bevy_ecs_macros::{QueryData, QueryFilter};
+
     use crate::prelude::{AnyOf, Changed, Entity, Or, QueryState, With, Without};
-    use crate::query::{ArchetypeFilter, QueryCombinationIter};
+    use crate::query::{ArchetypeFilter, Has, QueryCombinationIter, ReadOnlyQueryData};
     use crate::schedule::{IntoSystemConfigs, Schedule};
     use crate::system::{IntoSystem, Query, System, SystemState};
     use crate::{self as bevy_ecs, component::Component, world::World};
@@ -107,14 +115,13 @@ mod tests {
             let ns = (n - k + 1..=n).rev();
             ks.zip(ns).fold(1, |acc, (k, n)| acc * n / k)
         }
-        fn assert_combination<Q, F, const K: usize>(world: &mut World, expected_size: usize)
+        fn assert_combination<D, F, const K: usize>(world: &mut World, expected_size: usize)
         where
-            Q: ReadOnlyWorldQuery,
-            F: ReadOnlyWorldQuery,
-            F::ReadOnly: ArchetypeFilter,
+            D: ReadOnlyQueryData,
+            F: ArchetypeFilter,
         {
-            let mut query = world.query_filtered::<Q, F>();
-            let query_type = type_name::<QueryCombinationIter<Q, F, K>>();
+            let mut query = world.query_filtered::<D, F>();
+            let query_type = type_name::<QueryCombinationIter<D, F, K>>();
             let iter = query.iter_combinations::<K>(world);
             assert_all_sizes_iterator_equal(iter, expected_size, 0, query_type);
             let iter = query.iter_combinations::<K>(world);
@@ -122,25 +129,24 @@ mod tests {
             let iter = query.iter_combinations::<K>(world);
             assert_all_sizes_iterator_equal(iter, expected_size, 5, query_type);
         }
-        fn assert_all_sizes_equal<Q, F>(world: &mut World, expected_size: usize)
+        fn assert_all_sizes_equal<D, F>(world: &mut World, expected_size: usize)
         where
-            Q: ReadOnlyWorldQuery,
-            F: ReadOnlyWorldQuery,
-            F::ReadOnly: ArchetypeFilter,
+            D: ReadOnlyQueryData,
+            F: ArchetypeFilter,
         {
-            let mut query = world.query_filtered::<Q, F>();
-            let query_type = type_name::<QueryState<Q, F>>();
+            let mut query = world.query_filtered::<D, F>();
+            let query_type = type_name::<QueryState<D, F>>();
             assert_all_exact_sizes_iterator_equal(query.iter(world), expected_size, 0, query_type);
             assert_all_exact_sizes_iterator_equal(query.iter(world), expected_size, 1, query_type);
             assert_all_exact_sizes_iterator_equal(query.iter(world), expected_size, 5, query_type);
 
             let expected = expected_size;
-            assert_combination::<Q, F, 0>(world, choose(expected, 0));
-            assert_combination::<Q, F, 1>(world, choose(expected, 1));
-            assert_combination::<Q, F, 2>(world, choose(expected, 2));
-            assert_combination::<Q, F, 5>(world, choose(expected, 5));
-            assert_combination::<Q, F, 43>(world, choose(expected, 43));
-            assert_combination::<Q, F, 64>(world, choose(expected, 64));
+            assert_combination::<D, F, 0>(world, choose(expected, 0));
+            assert_combination::<D, F, 1>(world, choose(expected, 1));
+            assert_combination::<D, F, 2>(world, choose(expected, 2));
+            assert_combination::<D, F, 5>(world, choose(expected, 5));
+            assert_combination::<D, F, 43>(world, choose(expected, 43));
+            assert_combination::<D, F, 64>(world, choose(expected, 64));
         }
         fn assert_all_exact_sizes_iterator_equal(
             iterator: impl ExactSizeIterator,
@@ -475,10 +481,28 @@ mod tests {
     }
 
     #[test]
+    fn has_query() {
+        let mut world = World::new();
+
+        world.spawn((A(1), B(1)));
+        world.spawn(A(2));
+        world.spawn((A(3), B(1)));
+        world.spawn(A(4));
+
+        let values: Vec<(&A, bool)> = world.query::<(&A, Has<B>)>().iter(&world).collect();
+
+        // The query seems to put the components with B first
+        assert_eq!(
+            values,
+            vec![(&A(1), true), (&A(3), true), (&A(2), false), (&A(4), false),]
+        );
+    }
+
+    #[test]
     #[should_panic = "&mut bevy_ecs::query::tests::A conflicts with a previous access in this query."]
     fn self_conflicting_worldquery() {
-        #[derive(WorldQuery)]
-        #[world_query(mutable)]
+        #[derive(QueryData)]
+        #[query_data(mutable)]
         struct SelfConflicting {
             a: &'static mut A,
             b: &'static mut A,
@@ -514,7 +538,7 @@ mod tests {
         world.spawn_empty();
 
         {
-            #[derive(WorldQuery)]
+            #[derive(QueryData)]
             struct CustomAB {
                 a: &'static A,
                 b: &'static B,
@@ -534,7 +558,7 @@ mod tests {
         }
 
         {
-            #[derive(WorldQuery)]
+            #[derive(QueryData)]
             struct FancyParam {
                 e: Entity,
                 b: &'static B,
@@ -555,11 +579,11 @@ mod tests {
         }
 
         {
-            #[derive(WorldQuery)]
+            #[derive(QueryData)]
             struct MaybeBSparse {
                 blah: Option<(&'static B, &'static Sparse)>,
             }
-            #[derive(WorldQuery)]
+            #[derive(QueryData)]
             struct MatchEverything {
                 abcs: AnyOf<(&'static A, &'static B, &'static C)>,
                 opt_bsparse: MaybeBSparse,
@@ -594,11 +618,11 @@ mod tests {
         }
 
         {
-            #[derive(WorldQuery)]
+            #[derive(QueryFilter)]
             struct AOrBFilter {
                 a: Or<(With<A>, With<B>)>,
             }
-            #[derive(WorldQuery)]
+            #[derive(QueryFilter)]
             struct NoSparseThatsSlow {
                 no: Without<Sparse>,
             }
@@ -615,7 +639,7 @@ mod tests {
         }
 
         {
-            #[derive(WorldQuery)]
+            #[derive(QueryFilter)]
             struct CSparseFilter {
                 tuple_structs_pls: With<C>,
                 ugh: With<Sparse>,
@@ -633,7 +657,7 @@ mod tests {
         }
 
         {
-            #[derive(WorldQuery)]
+            #[derive(QueryFilter)]
             struct WithoutComps {
                 _1: Without<A>,
                 _2: Without<B>,
@@ -652,7 +676,7 @@ mod tests {
         }
 
         {
-            #[derive(WorldQuery)]
+            #[derive(QueryData)]
             struct IterCombAB {
                 a: &'static A,
                 b: &'static B,
@@ -727,7 +751,7 @@ mod tests {
         let _: Option<[&Foo; 2]> = q.iter_combinations::<2>(&world).next();
         let _: Option<&Foo> = q.iter_manual(&world).next();
         let _: Option<&Foo> = q.iter_many(&world, [e]).next();
-        q.for_each(&world, |_: &Foo| ());
+        q.iter(&world).for_each(|_: &Foo| ());
 
         let _: Option<&Foo> = q.get(&world, e).ok();
         let _: Option<&Foo> = q.get_manual(&world, e).ok();
@@ -741,7 +765,7 @@ mod tests {
         let _: Option<&Foo> = q.iter().next();
         let _: Option<[&Foo; 2]> = q.iter_combinations::<2>().next();
         let _: Option<&Foo> = q.iter_many([e]).next();
-        q.for_each(|_: &Foo| ());
+        q.iter().for_each(|_: &Foo| ());
 
         let _: Option<&Foo> = q.get(e).ok();
         let _: Option<&Foo> = q.get_component(e).ok();
@@ -758,7 +782,7 @@ mod tests {
         world.spawn((A(1), B(1)));
 
         fn propagate_system(mut query: Query<(&A, &mut B), Changed<A>>) {
-            query.par_iter_mut().for_each_mut(|(a, mut b)| {
+            query.par_iter_mut().for_each(|(a, mut b)| {
                 b.0 = a.0;
             });
         }
@@ -769,7 +793,7 @@ mod tests {
             }
         }
 
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::default();
         schedule.add_systems((propagate_system, modify_system).chain());
         schedule.run(&mut world);
         world.clear_trackers();

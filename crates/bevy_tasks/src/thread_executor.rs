@@ -10,7 +10,7 @@ use futures_lite::Future;
 /// can spawn `Send` tasks from other threads.
 ///
 /// # Example
-/// ```rust
+/// ```
 /// # use std::sync::{Arc, atomic::{AtomicI32, Ordering}};
 /// use bevy_tasks::ThreadExecutor;
 ///
@@ -78,7 +78,7 @@ impl<'task> ThreadExecutor<'task> {
         if thread::current().id() == self.thread_id {
             return Some(ThreadExecutorTicker {
                 executor: self,
-                _marker: PhantomData::default(),
+                _marker: PhantomData,
             });
         }
         None
@@ -123,7 +123,7 @@ mod tests {
         let ticker = executor.ticker();
         assert!(ticker.is_some());
 
-        std::thread::scope(|s| {
+        thread::scope(|s| {
             s.spawn(|| {
                 let ticker = executor.ticker();
                 assert!(ticker.is_none());

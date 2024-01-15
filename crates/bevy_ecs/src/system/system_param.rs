@@ -6,7 +6,8 @@ use crate::{
     component::{ComponentId, ComponentTicks, Components, Tick},
     entity::Entities,
     query::{
-        Access, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyWorldQuery, WorldQuery,
+        Access, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, QueryState,
+        ReadOnlyQueryData,
     },
     system::{Query, SystemMeta},
     world::{unsafe_world_cell::UnsafeWorldCell, FromWorld, World},
@@ -17,7 +18,6 @@ pub use bevy_ecs_macros::SystemParam;
 use bevy_ptr::UnsafeCellDeref;
 use bevy_utils::{all_tuples, synccell::SyncCell};
 use std::{
-    borrow::Cow,
     fmt::Debug,
     marker::PhantomData,
     ops::{Deref, DerefMut},
@@ -118,13 +118,17 @@ pub unsafe trait SystemParam: Sized {
     }
 
     /// Applies any deferred mutations stored in this [`SystemParam`]'s state.
-    /// This is used to apply [`Commands`] during [`apply_system_buffers`](crate::prelude::apply_system_buffers).
+    /// This is used to apply [`Commands`] during [`apply_deferred`](crate::prelude::apply_deferred).
     ///
     /// [`Commands`]: crate::prelude::Commands
     #[inline]
     #[allow(unused_variables)]
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {}
 
+    /// Creates a parameter to be passed into a [`SystemParamFunction`].
+    ///
+    /// [`SystemParamFunction`]: super::SystemParamFunction
+    ///
     /// # Safety
     ///
     /// - The passed [`UnsafeWorldCell`] must have access to any world data
@@ -148,24 +152,22 @@ pub unsafe trait ReadOnlySystemParam: SystemParam {}
 pub type SystemParamItem<'w, 's, P> = <P as SystemParam>::Item<'w, 's>;
 
 // SAFETY: QueryState is constrained to read-only fetches, so it only reads World.
-unsafe impl<'w, 's, Q: ReadOnlyWorldQuery + 'static, F: ReadOnlyWorldQuery + 'static>
-    ReadOnlySystemParam for Query<'w, 's, Q, F>
+unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOnlySystemParam
+    for Query<'w, 's, D, F>
 {
 }
 
 // SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
 // this Query conflicts with any prior access, a panic will occur.
-unsafe impl<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemParam
-    for Query<'_, '_, Q, F>
-{
-    type State = QueryState<Q, F>;
-    type Item<'w, 's> = Query<'w, 's, Q, F>;
+unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Query<'_, '_, D, F> {
+    type State = QueryState<D, F>;
+    type Item<'w, 's> = Query<'w, 's, D, F>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         let state = QueryState::new(world);
         assert_component_access_compatibility(
             &system_meta.name,
-            std::any::type_name::<Q>(),
+            std::any::type_name::<D>(),
             std::any::type_name::<F>(),
             &system_meta.component_access_set,
             &state.component_access,
@@ -194,16 +196,10 @@ unsafe impl<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemPara
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        Query::new(
-            // SAFETY: We have registered all of the query's world accesses,
-            // so the caller ensures that `world` has permission to access any
-            // world data that the query needs.
-            world.unsafe_world(),
-            state,
-            system_meta.last_run,
-            change_tick,
-            false,
-        )
+        // SAFETY: We have registered all of the query's world accesses,
+        // so the caller ensures that `world` has permission to access any
+        // world data that the query needs.
+        Query::new(world, state, system_meta.last_run, change_tick, false)
     }
 }
 
@@ -261,7 +257,7 @@ fn assert_component_access_compatibility(
 ///     // ...
 /// }
 /// #
-/// # let mut bad_system_system = bevy_ecs::system::IntoSystem::into_system(bad_system);
+/// # let mut bad_system_system = IntoSystem::into_system(bad_system);
 /// # let mut world = World::new();
 /// # bad_system_system.initialize(&mut world);
 /// # bad_system_system.run((), &mut world);
@@ -308,6 +304,7 @@ fn assert_component_access_compatibility(
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// #
+/// # #[derive(Event)]
 /// # struct MyEvent;
 /// # impl MyEvent {
 /// #   pub fn new() -> Self { Self }
@@ -323,7 +320,7 @@ fn assert_component_access_compatibility(
 ///         &World,
 ///     )>,
 /// ) {
-///     for event in set.p0().iter() {
+///     for event in set.p0().read() {
 ///         // ...
 ///         # let _event = event;
 ///     }
@@ -354,7 +351,7 @@ impl_param_set!();
 ///
 /// ```
 /// # let mut world = World::default();
-/// # let mut schedule = Schedule::new();
+/// # let mut schedule = Schedule::default();
 /// # use bevy_ecs::prelude::*;
 /// #[derive(Resource)]
 /// struct MyResource { value: u32 }
@@ -403,7 +400,6 @@ impl_param_set!();
 /// }
 /// ```
 ///
-/// [`SyncCell`]: bevy_utils::synccell::SyncCell
 /// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
 pub trait Resource: Send + Sync + 'static {}
 
@@ -628,7 +624,7 @@ unsafe impl SystemParam for &'_ World {
         world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        // SAFETY: Read-only access to the entire world was registerd in `init_state`.
+        // SAFETY: Read-only access to the entire world was registered in `init_state`.
         world.world()
     }
 }
@@ -680,21 +676,13 @@ unsafe impl SystemParam for &'_ World {
 /// // .add_systems(reset_to_system(my_config))
 /// # assert_is_system(reset_to_system(Config(10)));
 /// ```
+#[derive(Debug)]
 pub struct Local<'s, T: FromWorld + Send + 'static>(pub(crate) &'s mut T);
 
 // SAFETY: Local only accesses internal state
 unsafe impl<'s, T: FromWorld + Send + 'static> ReadOnlySystemParam for Local<'s, T> {}
 
-impl<'s, T: FromWorld + Send + Sync + 'static> Debug for Local<'s, T>
-where
-    T: Debug,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("Local").field(&self.0).finish()
-    }
-}
-
-impl<'s, T: FromWorld + Send + Sync + 'static> Deref for Local<'s, T> {
+impl<'s, T: FromWorld + Send + 'static> Deref for Local<'s, T> {
     type Target = T;
 
     #[inline]
@@ -703,7 +691,7 @@ impl<'s, T: FromWorld + Send + Sync + 'static> Deref for Local<'s, T> {
     }
 }
 
-impl<'s, T: FromWorld + Send + Sync + 'static> DerefMut for Local<'s, T> {
+impl<'s, T: FromWorld + Send + 'static> DerefMut for Local<'s, T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.0
@@ -766,7 +754,7 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 }
 
 /// A [`SystemParam`] that stores a buffer which gets applied to the [`World`] during
-/// [`apply_system_buffers`](crate::schedule::apply_system_buffers).
+/// [`apply_deferred`](crate::schedule::apply_deferred).
 /// This is used internally by [`Commands`] to defer `World` mutations.
 ///
 /// [`Commands`]: crate::system::Commands
@@ -809,7 +797,7 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 /// struct AlarmFlag(bool);
 ///
 /// impl AlarmFlag {
-///     /// Sounds the alarm the next time buffers are applied via apply_system_buffers.
+///     /// Sounds the alarm the next time buffers are applied via apply_deferred.
 ///     pub fn flag(&mut self) {
 ///         self.0 = true;
 ///     }
@@ -817,7 +805,7 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 ///
 /// impl SystemBuffer for AlarmFlag {
 ///     // When `AlarmFlag` is used in a system, this function will get
-///     // called the next time buffers are applied via apply_system_buffers.
+///     // called the next time buffers are applied via apply_deferred.
 ///     fn apply(&mut self, system_meta: &SystemMeta, world: &mut World) {
 ///         if self.0 {
 ///             world.resource_mut::<Alarm>().0 = true;
@@ -863,7 +851,7 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 ///     // ...
 /// });
 ///
-/// let mut schedule = Schedule::new();
+/// let mut schedule = Schedule::default();
 /// // These two systems have no conflicts and will run in parallel.
 /// schedule.add_systems((alert_criminal, alert_monster));
 ///
@@ -910,7 +898,8 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
     type State = SyncCell<T>;
     type Item<'w, 's> = Deferred<'s, T>;
 
-    fn init_state(world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
+    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+        system_meta.set_has_deferred();
         SyncCell::new(T::from_world(world))
     }
 
@@ -1253,7 +1242,7 @@ unsafe impl<'a> SystemParam for &'a Bundles {
 ///
 /// Component change ticks that are more recent than `last_run` will be detected by the system.
 /// Those can be read by calling [`last_changed`](crate::change_detection::DetectChanges::last_changed)
-/// on a [`Mut<T>`](crate::change_detection::Mut) or [`ResMut<T>`](crate::change_detection::ResMut).
+/// on a [`Mut<T>`](crate::change_detection::Mut) or [`ResMut<T>`](ResMut).
 #[derive(Debug)]
 pub struct SystemChangeTick {
     last_run: Tick,
@@ -1296,76 +1285,6 @@ unsafe impl SystemParam for SystemChangeTick {
         }
     }
 }
-
-/// Name of the system that corresponds to this [`crate::system::SystemState`].
-///
-/// This is not a reliable identifier, it is more so useful for debugging
-/// purposes of finding where a system parameter is being used incorrectly.
-pub struct SystemName<'s> {
-    name: &'s str,
-}
-
-impl<'s> SystemName<'s> {
-    pub fn name(&self) -> &str {
-        self.name
-    }
-}
-
-impl<'s> Deref for SystemName<'s> {
-    type Target = str;
-    fn deref(&self) -> &Self::Target {
-        self.name()
-    }
-}
-
-impl<'s> AsRef<str> for SystemName<'s> {
-    fn as_ref(&self) -> &str {
-        self.name()
-    }
-}
-
-impl<'s> From<SystemName<'s>> for &'s str {
-    fn from(name: SystemName<'s>) -> &'s str {
-        name.name
-    }
-}
-
-impl<'s> std::fmt::Debug for SystemName<'s> {
-    #[inline(always)]
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        f.debug_tuple("SystemName").field(&self.name()).finish()
-    }
-}
-
-impl<'s> std::fmt::Display for SystemName<'s> {
-    #[inline(always)]
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        std::fmt::Display::fmt(&self.name(), f)
-    }
-}
-
-// SAFETY: no component value access
-unsafe impl SystemParam for SystemName<'_> {
-    type State = Cow<'static, str>;
-    type Item<'w, 's> = SystemName<'s>;
-
-    fn init_state(_world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        system_meta.name.clone()
-    }
-
-    #[inline]
-    unsafe fn get_param<'w, 's>(
-        name: &'s mut Self::State,
-        _system_meta: &SystemMeta,
-        _world: UnsafeWorldCell<'w>,
-        _change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
-        SystemName { name }
-    }
-}
-
-// SAFETY: Only reads internal system state
-unsafe impl<'s> ReadOnlySystemParam for SystemName<'s> {}
 
 macro_rules! impl_system_param_tuple {
     ($($param: ident),*) => {
@@ -1412,12 +1331,30 @@ macro_rules! impl_system_param_tuple {
 
 all_tuples!(impl_system_param_tuple, 0, 16, P);
 
+/// Contains type aliases for built-in [`SystemParam`]s with `'static` lifetimes.
+/// This makes it more convenient to refer to these types in contexts where
+/// explicit lifetime annotations are required.
+///
+/// Note that this is entirely safe and tracks lifetimes correctly.
+/// This purely exists for convenience.
+///
+/// You can't instantiate a static `SystemParam`, you'll always end up with
+/// `Res<'w, T>`, `ResMut<'w, T>` or `&'w T` bound to the lifetime of the provided
+/// `&'w World`.
+///
+/// [`SystemParam`]: super::SystemParam
 pub mod lifetimeless {
-    pub type SQuery<Q, F = ()> = super::Query<'static, 'static, Q, F>;
+    /// A [`Query`](super::Query) with `'static` lifetimes.
+    pub type SQuery<D, F = ()> = super::Query<'static, 'static, D, F>;
+    /// A shorthand for writing `&'static T`.
     pub type Read<T> = &'static T;
+    /// A shorthand for writing `&'static mut T`.
     pub type Write<T> = &'static mut T;
+    /// A [`Res`](super::Res) with `'static` lifetimes.
     pub type SRes<T> = super::Res<'static, T>;
+    /// A [`ResMut`](super::ResMut) with `'static` lifetimes.
     pub type SResMut<T> = super::ResMut<'static, T>;
+    /// [`Commands`](crate::system::Commands) with `'static` lifetimes.
     pub type SCommands = crate::system::Commands<'static, 'static>;
 }
 
@@ -1555,10 +1492,9 @@ mod tests {
     use super::*;
     use crate::{
         self as bevy_ecs, // Necessary for the `SystemParam` Derive when used inside `bevy_ecs`.
-        query::{ReadOnlyWorldQuery, WorldQuery},
         system::{assert_is_system, Query},
     };
-    use std::marker::PhantomData;
+    use std::{cell::RefCell, marker::PhantomData};
 
     // Compile test for https://github.com/bevyengine/bevy/pull/2838.
     #[test]
@@ -1567,10 +1503,10 @@ mod tests {
         pub struct SpecialQuery<
             'w,
             's,
-            Q: WorldQuery + Send + Sync + 'static,
-            F: ReadOnlyWorldQuery + Send + Sync + 'static = (),
+            D: QueryData + Send + Sync + 'static,
+            F: QueryFilter + Send + Sync + 'static = (),
         > {
-            _query: Query<'w, 's, Q, F>,
+            _query: Query<'w, 's, D, F>,
         }
 
         fn my_system(_: SpecialQuery<(), ()>) {}
@@ -1687,11 +1623,11 @@ mod tests {
     #[test]
     fn system_param_where_clause() {
         #[derive(SystemParam)]
-        pub struct WhereParam<'w, 's, Q>
+        pub struct WhereParam<'w, 's, D>
         where
-            Q: 'static + WorldQuery,
+            D: 'static + QueryData,
         {
-            _q: Query<'w, 's, Q, ()>,
+            _q: Query<'w, 's, D, ()>,
         }
 
         fn my_system(_: WhereParam<()>) {}
@@ -1723,5 +1659,48 @@ mod tests {
 
         fn my_system(_: InvariantParam) {}
         assert_is_system(my_system);
+    }
+
+    // Compile test for https://github.com/bevyengine/bevy/pull/9589.
+    #[test]
+    fn non_sync_local() {
+        fn non_sync_system(cell: Local<RefCell<u8>>) {
+            assert_eq!(*cell.borrow(), 0);
+        }
+
+        let mut world = World::new();
+        let mut schedule = crate::schedule::Schedule::default();
+        schedule.add_systems(non_sync_system);
+        schedule.run(&mut world);
+    }
+
+    // Regression test for https://github.com/bevyengine/bevy/issues/10207.
+    #[test]
+    fn param_set_non_send_first() {
+        fn non_send_param_set(mut p: ParamSet<(NonSend<*mut u8>, ())>) {
+            let _ = p.p0();
+            p.p1();
+        }
+
+        let mut world = World::new();
+        world.insert_non_send_resource(std::ptr::null_mut::<u8>());
+        let mut schedule = crate::schedule::Schedule::default();
+        schedule.add_systems((non_send_param_set, non_send_param_set, non_send_param_set));
+        schedule.run(&mut world);
+    }
+
+    // Regression test for https://github.com/bevyengine/bevy/issues/10207.
+    #[test]
+    fn param_set_non_send_second() {
+        fn non_send_param_set(mut p: ParamSet<((), NonSendMut<*mut u8>)>) {
+            p.p0();
+            let _ = p.p1();
+        }
+
+        let mut world = World::new();
+        world.insert_non_send_resource(std::ptr::null_mut::<u8>());
+        let mut schedule = crate::schedule::Schedule::default();
+        schedule.add_systems((non_send_param_set, non_send_param_set, non_send_param_set));
+        schedule.run(&mut world);
     }
 }

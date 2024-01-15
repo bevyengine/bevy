@@ -14,7 +14,6 @@ use std::{
 
 fn main() {
     App::new()
-        .insert_resource(ClearColor(Color::DARK_GRAY))
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup_scene)
         .add_systems(Update, (update_bloom_settings, bounce_spheres))
@@ -57,16 +56,15 @@ fn setup_scene(
     });
 
     let mesh = meshes.add(
-        shape::Icosphere {
+        Mesh::try_from(shape::Icosphere {
             radius: 0.5,
             subdivisions: 5,
-        }
-        .try_into()
+        })
         .unwrap(),
     );
 
-    for x in -10..10 {
-        for z in -10..10 {
+    for x in -5..5 {
+        for z in -5..5 {
             let mut hasher = DefaultHasher::new();
             (x, z).hash(&mut hasher);
             let rand = (hasher.finish() - 2) % 6;
@@ -75,7 +73,7 @@ fn setup_scene(
                 0 => material_emissive1.clone(),
                 1 => material_emissive2.clone(),
                 2 => material_emissive3.clone(),
-                3 | 4 | 5 => material_non_emissive.clone(),
+                3..=5 => material_non_emissive.clone(),
                 _ => unreachable!(),
             };
 
@@ -116,7 +114,7 @@ fn update_bloom_settings(
     mut camera: Query<(Entity, Option<&mut BloomSettings>), With<Camera>>,
     mut text: Query<&mut Text>,
     mut commands: Commands,
-    keycode: Res<Input<KeyCode>>,
+    keycode: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 ) {
     let bloom_settings = camera.single_mut();
@@ -161,59 +159,59 @@ fn update_bloom_settings(
 
             let dt = time.delta_seconds();
 
-            if keycode.pressed(KeyCode::A) {
+            if keycode.pressed(KeyCode::KeyA) {
                 bloom_settings.intensity -= dt / 10.0;
             }
-            if keycode.pressed(KeyCode::Q) {
+            if keycode.pressed(KeyCode::KeyQ) {
                 bloom_settings.intensity += dt / 10.0;
             }
             bloom_settings.intensity = bloom_settings.intensity.clamp(0.0, 1.0);
 
-            if keycode.pressed(KeyCode::S) {
+            if keycode.pressed(KeyCode::KeyS) {
                 bloom_settings.low_frequency_boost -= dt / 10.0;
             }
-            if keycode.pressed(KeyCode::W) {
+            if keycode.pressed(KeyCode::KeyW) {
                 bloom_settings.low_frequency_boost += dt / 10.0;
             }
             bloom_settings.low_frequency_boost = bloom_settings.low_frequency_boost.clamp(0.0, 1.0);
 
-            if keycode.pressed(KeyCode::D) {
+            if keycode.pressed(KeyCode::KeyD) {
                 bloom_settings.low_frequency_boost_curvature -= dt / 10.0;
             }
-            if keycode.pressed(KeyCode::E) {
+            if keycode.pressed(KeyCode::KeyE) {
                 bloom_settings.low_frequency_boost_curvature += dt / 10.0;
             }
             bloom_settings.low_frequency_boost_curvature =
                 bloom_settings.low_frequency_boost_curvature.clamp(0.0, 1.0);
 
-            if keycode.pressed(KeyCode::F) {
+            if keycode.pressed(KeyCode::KeyF) {
                 bloom_settings.high_pass_frequency -= dt / 10.0;
             }
-            if keycode.pressed(KeyCode::R) {
+            if keycode.pressed(KeyCode::KeyR) {
                 bloom_settings.high_pass_frequency += dt / 10.0;
             }
             bloom_settings.high_pass_frequency = bloom_settings.high_pass_frequency.clamp(0.0, 1.0);
 
-            if keycode.pressed(KeyCode::G) {
+            if keycode.pressed(KeyCode::KeyG) {
                 bloom_settings.composite_mode = BloomCompositeMode::Additive;
             }
-            if keycode.pressed(KeyCode::T) {
+            if keycode.pressed(KeyCode::KeyT) {
                 bloom_settings.composite_mode = BloomCompositeMode::EnergyConserving;
             }
 
-            if keycode.pressed(KeyCode::H) {
+            if keycode.pressed(KeyCode::KeyH) {
                 bloom_settings.prefilter_settings.threshold -= dt;
             }
-            if keycode.pressed(KeyCode::Y) {
+            if keycode.pressed(KeyCode::KeyY) {
                 bloom_settings.prefilter_settings.threshold += dt;
             }
             bloom_settings.prefilter_settings.threshold =
                 bloom_settings.prefilter_settings.threshold.max(0.0);
 
-            if keycode.pressed(KeyCode::J) {
+            if keycode.pressed(KeyCode::KeyJ) {
                 bloom_settings.prefilter_settings.threshold_softness -= dt / 10.0;
             }
-            if keycode.pressed(KeyCode::U) {
+            if keycode.pressed(KeyCode::KeyU) {
                 bloom_settings.prefilter_settings.threshold_softness += dt / 10.0;
             }
             bloom_settings.prefilter_settings.threshold_softness = bloom_settings
