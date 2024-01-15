@@ -82,11 +82,11 @@ impl ViewNode for DeferredGBufferPrepassNode {
                 .map(|deferred_texture| {
                     #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
                     {
-                        RenderPassColorAttachment {
+                        bevy_render::render_resource::RenderPassColorAttachment {
                             view: &deferred_texture.texture.default_view,
                             resolve_target: None,
-                            ops: Operations {
-                                load: LoadOp::Load,
+                            ops: bevy_render::render_resource::Operations {
+                                load: bevy_render::render_resource::LoadOp::Load,
                                 store: StoreOp::Store,
                             },
                         }
