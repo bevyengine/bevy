@@ -33,7 +33,7 @@ use bevy_scene::Scene;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::IoTaskPool;
 use bevy_transform::components::Transform;
-use bevy_utils::{HashMap, HashSet};
+use bevy_utils::{EntityHashMap, HashMap, HashSet};
 use gltf::{
     accessor::Iter,
     mesh::{util::ReadIndices, Mode},
@@ -583,7 +583,7 @@ async fn load_gltf<'a, 'b, 'c>(
         let mut err = None;
         let mut world = World::default();
         let mut node_index_to_entity_map = HashMap::new();
-        let mut entity_to_skin_index_map = HashMap::new();
+        let mut entity_to_skin_index_map = EntityHashMap::default();
         let mut scene_load_context = load_context.begin_labeled_asset();
         world
             .spawn(SpatialBundle::INHERITED_IDENTITY)
@@ -904,7 +904,7 @@ fn load_node(
     load_context: &mut LoadContext,
     settings: &GltfLoaderSettings,
     node_index_to_entity_map: &mut HashMap<usize, Entity>,
-    entity_to_skin_index_map: &mut HashMap<Entity, usize>,
+    entity_to_skin_index_map: &mut EntityHashMap<Entity, usize>,
     active_camera_found: &mut bool,
     parent_transform: &Transform,
 ) -> Result<(), GltfError> {
