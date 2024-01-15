@@ -62,8 +62,6 @@ pub trait CameraProjection {
     fn far(&self) -> f32;
     fn get_frustum_corners(&self, z_near: f32, z_far: f32) -> [Vec3A; 8];
 
-    // Provided.
-
     /// Compute camera frustum for camera with given projection and transform.
     ///
     /// This code is called by [`update_frusta`](crate::view::visibility::update_frusta) system
