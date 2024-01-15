@@ -5,6 +5,7 @@ use bevy_render::{
     camera::Camera,
     color::Color,
     mesh::Mesh,
+    primitives::{CascadesFrusta, Frustum},
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_phase::*,
@@ -48,6 +49,7 @@ pub struct ExtractedDirectionalLight {
     shadow_normal_bias: f32,
     cascade_shadow_config: CascadeShadowConfig,
     cascades: HashMap<Entity, Vec<Cascade>>,
+    frusta: HashMap<Entity, Vec<Frustum>>,
     render_layers: RenderLayers,
 }
 
@@ -315,6 +317,7 @@ pub fn extract_lights(
                 &CascadesVisibleEntities,
                 &Cascades,
                 &CascadeShadowConfig,
+                &CascadesFrusta,
                 &GlobalTransform,
                 &ViewVisibility,
                 Option<&RenderLayers>,
@@ -431,6 +434,7 @@ pub fn extract_lights(
         visible_entities,
         cascades,
         cascade_config,
+        frusta,
         transform,
         view_visibility,
         maybe_layers,
@@ -453,6 +457,7 @@ pub fn extract_lights(
                 shadow_normal_bias: directional_light.shadow_normal_bias * std::f32::consts::SQRT_2,
                 cascade_shadow_config: cascade_config.clone(),
                 cascades: cascades.cascades.clone(),
+                frusta: frusta.frusta.clone(),
                 render_layers: maybe_layers.copied().unwrap_or_default(),
             },
             render_visible_entities,
@@ -1007,6 +1012,7 @@ pub fn prepare_lights(
 
                 let view_light_entity = commands
                     .spawn((
+                        // TODO: Need to add Frustum component for view uniforms
                         ShadowView {
                             depth_attachment: DepthAttachment::new(depth_texture_view, Some(0.0)),
                             pass_name: format!(
@@ -1069,6 +1075,7 @@ pub fn prepare_lights(
 
             let view_light_entity = commands
                 .spawn((
+                    // TODO: Need to add Frustum component for view uniforms
                     ShadowView {
                         depth_attachment: DepthAttachment::new(depth_texture_view, Some(0.0)),
                         pass_name: format!("shadow pass spot light {light_index}"),
@@ -1101,12 +1108,20 @@ pub fn prepare_lights(
             .enumerate()
             .take(directional_shadow_enabled_count)
         {
-            for (cascade_index, (cascade, bound)) in light
+            let cascades = light
                 .cascades
                 .get(&entity)
                 .unwrap()
                 .iter()
-                .take(MAX_CASCADES_PER_LIGHT)
+                .take(MAX_CASCADES_PER_LIGHT);
+            let frusta = light
+                .frusta
+                .get(&entity)
+                .unwrap()
+                .iter()
+                .take(MAX_CASCADES_PER_LIGHT);
+            for (cascade_index, ((cascade, frusta), bound)) in cascades
+                .zip(frusta)
                 .zip(&light.cascade_shadow_config.bounds)
                 .enumerate()
             {
@@ -1152,6 +1167,7 @@ pub fn prepare_lights(
                             hdr: false,
                             color_grading: Default::default(),
                         },
+                       *frusta,
                         RenderPhase::<Shadow>::default(),
                         LightEntity::Directional {
                             light_entity,
