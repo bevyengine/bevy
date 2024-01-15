@@ -2250,6 +2250,16 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "world_to_viewport"
+path = "examples/ui/world_to_viewport.rs"
+
+[package.metadata.example.world_to_viewport]
+name = "World to Viewport"
+description = "Demonstrates how to use the `Camera::world_to_viewport` method"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "size_constraints"
 path = "examples/ui/size_constraints.rs"
 doc-scrape-examples = true
