@@ -30,6 +30,7 @@
 
 /// Functions to be used by materials for reading from a meshlet visibility buffer texture.
 
+#ifdef MESHLET_MESH_MATERIAL_PASS
 struct PartialDerivatives {
     barycentrics: vec3<f32>,
     ddx: vec3<f32>,
@@ -182,3 +183,4 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
 #endif
     );
 }
+#endif
