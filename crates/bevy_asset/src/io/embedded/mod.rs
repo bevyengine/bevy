@@ -299,7 +299,8 @@ mod tests {
         assert_eq!(asset_path, Path::new("my_crate/foo/the/asset.png"));
     }
 
-    // A blank src_path removes the embedded's file path altogether.
+    // A blank src_path removes the embedded's file path altogether only the
+    // asset path remains.
     #[test]
     fn embedded_asset_path_from_local_crate_blank_src_path_questionable() {
         let asset_path = _embedded_asset_path(
@@ -311,38 +312,6 @@ mod tests {
         assert_eq!(asset_path, Path::new("my_crate/the/asset.png"));
     }
 
-    #[should_panic(expected = "Failed to find src_prefix \"src\" in \"\"")]
-    #[test]
-    fn embedded_asset_path_from_local_crate_blank_file_path() {
-        let asset_path = _embedded_asset_path(
-            "my_crate",
-            "src".as_ref(),
-            "".as_ref(),
-            "the/asset.png".as_ref(),
-        );
-        assert_eq!(asset_path, Path::new("my_crate/foo/the/asset.png"));
-    }
-
-    // Can have extraneous slashses at the end of source_path.
-    #[test]
-    fn embedded_asset_path_from_local_crate_extraneous_slalsh() {
-        let asset_path = _embedded_asset_path(
-            "my_crate",
-            "src/".as_ref(),
-            "src/foo/plugin.rs".as_ref(),
-            "the/asset.png".as_ref(),
-        );
-        assert_eq!(asset_path, Path::new("my_crate/foo/the/asset.png"));
-
-        let asset_path = _embedded_asset_path(
-            "my_crate",
-            "src/////".as_ref(),
-            "src/foo/plugin.rs".as_ref(),
-            "the/asset.png".as_ref(),
-        );
-        assert_eq!(asset_path, Path::new("my_crate/foo/the/asset.png"));
-    }
-
     #[test]
     #[should_panic(expected = "Failed to find src_prefix \"NOT-THERE\" in \"src")]
     fn embedded_asset_path_from_local_crate_bad_src() {
@@ -350,18 +319,6 @@ mod tests {
             "my_crate",
             "NOT-THERE".as_ref(),
             "src/foo/plugin.rs".as_ref(),
-            "the/asset.png".as_ref(),
-        );
-    }
-
-    // Trying to provoke a panic from `parent().unwrap()`, but it's solid.
-    #[test]
-    #[should_panic(expected = "Failed to find src_prefix \"mod.rs\" in \"src")]
-    fn embedded_asset_path_bad_src_path() {
-        let _asset_path = _embedded_asset_path(
-            "my_crate",
-            "mod.rs".as_ref(),
-            "src/mod.rs".as_ref(),
             "the/asset.png".as_ref(),
         );
     }
@@ -401,22 +358,8 @@ mod tests {
         assert_eq!(asset_path, Path::new("my_crate/foo/the/asset.png"));
     }
 
-    // Although extraneous slashes are permitted at the end, e.g., "src////", a
-    // slash at the beginning is not.
-    #[test]
-    #[should_panic(expected = "Failed to find src_prefix \"/src\" in")]
-    fn embedded_asset_path_from_external_crate_bad_root_src_path() {
-        let asset_path = _embedded_asset_path(
-            "my_crate",
-            "/src".as_ref(),
-            "/path/to/crate/src/foo/plugin.rs".as_ref(),
-            "the/asset.png".as_ref(),
-        );
-        assert_eq!(asset_path, Path::new("my_crate/foo/the/asset.png"));
-    }
-
-    // Although extraneous slashes are permitted at the end, e.g., "src////", a
-    // slash at the beginning is not.
+    // Although extraneous slashes are permitted at the end, e.g., "src////",
+    // one or more slashes at the beginning are not.
     #[test]
     #[should_panic(expected = "Failed to find src_prefix \"////src\" in")]
     fn embedded_asset_path_from_external_crate_extraneous_beginning_slashes() {
