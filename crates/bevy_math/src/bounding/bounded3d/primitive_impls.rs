@@ -248,6 +248,9 @@ impl Bounded3d for ConicalFrustum {
         // To compute the bounding sphere, we'll get the center and radius of the circumcircle
         // passing through all four vertices of the trapezoidal cross-section of the conical frustum.
         //
+        // If the circumcenter is inside the trapezoid, we can use that for the bounding sphere.
+        // Otherwise, we clamp it to the longer parallel side to get a more tightly fitting bounding sphere.
+        //
         // The circumcenter is at the intersection of the bisectors perpendicular to the sides.
         // For the isosceles trapezoid, the X coordinate is zero at the center, so a single bisector is enough.
         //
@@ -265,21 +268,36 @@ impl Bounded3d for ConicalFrustum {
         let b = Vec2::new(-self.radius_bottom, -half_height);
         let ab = a - b;
         let ab_midpoint = b + 0.5 * ab;
+        let bisector = ab.perp();
 
-        // The direction towards the circumcenter is the bisector perpendicular to the side
-        let bisector = -ab.perp().normalize_or_zero();
+        // Compute intersection between bisector and vertical line at x = 0.
+        //
+        // x = ab_midpoint.x + t * bisector.x = 0
+        // y = ab_midpoint.y + t * bisector.y = ?
+        //
+        // Because ab_midpoint.y = 0 for our conical frustum, we get:
+        // y = t * bisector.y
+        //
+        // Solve x for t:
+        // t = -ab_midpoint.x / bisector.x
+        //
+        // Substitute t to solve for y:
+        // y = -ab_midpoint.x / bisector.x * bisector.y
+        let circumcenter_y = -ab_midpoint.x / bisector.x * bisector.y;
 
-        // Here we divide the bisector by its X coordinate so that its X becomes 1
-        // and we can reach the center by multiplying by the X distance to the midpoint of AB.
-        let circumcenter = ab_midpoint + ab_midpoint.x.abs() * bisector / bisector.x.abs();
+        // If the circumcenter is outside the trapezoid, the bounding circle is too large.
+        // In those cases, we clamp it to the longer parallel side.
+        let (center, radius) = if circumcenter_y <= -half_height {
+            (Vec2::new(0.0, -half_height), self.radius_bottom)
+        } else if circumcenter_y >= half_height {
+            (Vec2::new(0.0, half_height), self.radius_top)
+        } else {
+            let circumcenter = Vec2::new(0.0, circumcenter_y);
+            // We can use the distance from an arbitrary vertex because they all lie on the circumcircle.
+            (circumcenter, a.distance(circumcenter))
+        };
 
-        // The circumcircle passes through all four vertices, so we can pick any of them
-        let circumradius = a.distance(circumcenter);
-
-        BoundingSphere::new(
-            translation + rotation * circumcenter.extend(0.0),
-            circumradius,
-        )
+        BoundingSphere::new(translation + rotation * center.extend(0.0), radius)
     }
 }
 
@@ -509,6 +527,26 @@ mod tests {
         let bounding_sphere = conical_frustum.bounding_sphere(translation, Quat::IDENTITY);
         assert_eq!(bounding_sphere.center, translation + Vec3::NEG_Y * 0.1875);
         assert_eq!(bounding_sphere.radius(), 1.2884705);
+    }
+
+    #[test]
+    fn wide_conical_frustum() {
+        let conical_frustum = ConicalFrustum {
+            radius_top: 0.5,
+            radius_bottom: 5.0,
+            height: 1.0,
+        };
+        let translation = Vec3::new(2.0, 1.0, 0.0);
+
+        let aabb = conical_frustum.aabb_3d(translation, Quat::IDENTITY);
+        assert_eq!(aabb.min, Vec3::new(-3.0, 0.5, -5.0));
+        assert_eq!(aabb.max, Vec3::new(7.0, 1.5, 5.0));
+
+        // For wide conical frusta like this, the circumcenter can be outside the frustum,
+        // so the center and radius should be clamped to the longest side.
+        let bounding_sphere = conical_frustum.bounding_sphere(translation, Quat::IDENTITY);
+        assert_eq!(bounding_sphere.center, translation + Vec3::NEG_Y * 0.5);
+        assert_eq!(bounding_sphere.radius(), 5.0);
     }
 
     #[test]
