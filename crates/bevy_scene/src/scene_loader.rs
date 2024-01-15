@@ -6,7 +6,6 @@ use bevy_asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext};
 use bevy_ecs::reflect::AppTypeRegistry;
 use bevy_ecs::world::{FromWorld, World};
 use bevy_reflect::TypeRegistryArc;
-use bevy_utils::BoxedFuture;
 #[cfg(feature = "serialize")]
 use serde::de::DeserializeSeed;
 use thiserror::Error;
@@ -44,23 +43,21 @@ impl AssetLoader for SceneLoader {
     type Settings = ();
     type Error = SceneLoaderError;
 
-    fn load<'a>(
+    async fn load<'a>(
         &'a self,
-        reader: &'a mut Reader,
+        reader: &'a mut Reader<'_>,
         _settings: &'a (),
-        _load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
-        Box::pin(async move {
-            let mut bytes = Vec::new();
-            reader.read_to_end(&mut bytes).await?;
-            let mut deserializer = ron::de::Deserializer::from_bytes(&bytes)?;
-            let scene_deserializer = SceneDeserializer {
-                type_registry: &self.type_registry.read(),
-            };
-            Ok(scene_deserializer
-                .deserialize(&mut deserializer)
-                .map_err(|e| deserializer.span_error(e))?)
-        })
+        _load_context: &'a mut LoadContext<'_>,
+    ) -> Result<Self::Asset, Self::Error> {
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes).await?;
+        let mut deserializer = ron::de::Deserializer::from_bytes(&bytes)?;
+        let scene_deserializer = SceneDeserializer {
+            type_registry: &self.type_registry.read(),
+        };
+        Ok(scene_deserializer
+            .deserialize(&mut deserializer)
+            .map_err(|e| deserializer.span_error(e))?)
     }
 
     fn extensions(&self) -> &[&str] {

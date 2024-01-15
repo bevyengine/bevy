@@ -11,7 +11,7 @@ use bevy::{
     },
     prelude::*,
     reflect::TypePath,
-    utils::{thiserror, BoxedFuture},
+    utils::thiserror,
 };
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -81,22 +81,20 @@ impl AssetLoader for TextLoader {
     type Asset = Text;
     type Settings = TextSettings;
     type Error = std::io::Error;
-    fn load<'a>(
+    async fn load<'a>(
         &'a self,
-        reader: &'a mut Reader,
+        reader: &'a mut Reader<'_>,
         settings: &'a TextSettings,
-        _load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<Text, Self::Error>> {
-        Box::pin(async move {
-            let mut bytes = Vec::new();
-            reader.read_to_end(&mut bytes).await?;
-            let value = if let Some(ref text) = settings.text_override {
-                text.clone()
-            } else {
-                String::from_utf8(bytes).unwrap()
-            };
-            Ok(Text(value))
-        })
+        _load_context: &'a mut LoadContext<'_>,
+    ) -> Result<Text, Self::Error> {
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes).await?;
+        let value = if let Some(ref text) = settings.text_override {
+            text.clone()
+        } else {
+            String::from_utf8(bytes).unwrap()
+        };
+        Ok(Text(value))
     }
 
     fn extensions(&self) -> &[&str] {
@@ -138,30 +136,28 @@ impl AssetLoader for CoolTextLoader {
 
     type Error = CoolTextLoaderError;
 
-    fn load<'a>(
+    async fn load<'a>(
         &'a self,
-        reader: &'a mut Reader,
+        reader: &'a mut Reader<'_>,
         _settings: &'a Self::Settings,
-        load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<CoolText, Self::Error>> {
-        Box::pin(async move {
-            let mut bytes = Vec::new();
-            reader.read_to_end(&mut bytes).await?;
-            let ron: CoolTextRon = ron::de::from_bytes(&bytes)?;
-            let mut base_text = ron.text;
-            for embedded in ron.embedded_dependencies {
-                let loaded = load_context.load_direct(&embedded).await?;
-                let text = loaded.get::<Text>().unwrap();
-                base_text.push_str(&text.0);
-            }
-            Ok(CoolText {
-                text: base_text,
-                dependencies: ron
-                    .dependencies
-                    .iter()
-                    .map(|p| load_context.load(p))
-                    .collect(),
-            })
+        load_context: &'a mut LoadContext<'_>,
+    ) -> Result<CoolText, Self::Error> {
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes).await?;
+        let ron: CoolTextRon = ron::de::from_bytes(&bytes)?;
+        let mut base_text = ron.text;
+        for embedded in ron.embedded_dependencies {
+            let loaded = load_context.load_direct(&embedded).await?;
+            let text = loaded.get::<Text>().unwrap();
+            base_text.push_str(&text.0);
+        }
+        Ok(CoolText {
+            text: base_text,
+            dependencies: ron
+                .dependencies
+                .iter()
+                .map(|p| load_context.load(p))
+                .collect(),
         })
     }
 
@@ -183,17 +179,15 @@ impl AssetSaver for CoolTextSaver {
     type OutputLoader = TextLoader;
     type Error = std::io::Error;
 
-    fn save<'a>(
+    async fn save<'a>(
         &'a self,
         writer: &'a mut Writer,
         asset: SavedAsset<'a, Self::Asset>,
         settings: &'a Self::Settings,
-    ) -> BoxedFuture<'a, Result<TextSettings, Self::Error>> {
-        Box::pin(async move {
-            let text = format!("{}{}", asset.text.clone(), settings.appended);
-            writer.write_all(text.as_bytes()).await?;
-            Ok(TextSettings::default())
-        })
+    ) -> Result<TextSettings, Self::Error> {
+        let text = format!("{}{}", asset.text.clone(), settings.appended);
+        writer.write_all(text.as_bytes()).await?;
+        Ok(TextSettings::default())
     }
 }
 

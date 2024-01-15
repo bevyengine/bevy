@@ -3,8 +3,8 @@ mod info;
 use crate::{
     folder::LoadedFolder,
     io::{
-        AssetReader, AssetReaderError, AssetSource, AssetSourceEvent, AssetSourceId, AssetSources,
-        MissingAssetSourceError, MissingProcessedAssetReaderError, Reader,
+        AssetReaderError, AssetSource, AssetSourceEvent, AssetSourceId, AssetSources,
+        ErasedAssetReader, MissingAssetSourceError, MissingProcessedAssetReaderError, Reader,
     },
     loader::{AssetLoader, ErasedAssetLoader, LoadContext, LoadedAsset},
     meta::{
@@ -621,7 +621,7 @@ impl AssetServer {
         fn load_folder<'a>(
             source: AssetSourceId<'static>,
             path: &'a Path,
-            reader: &'a dyn AssetReader,
+            reader: &'a dyn ErasedAssetReader,
             server: &'a AssetServer,
             handles: &'a mut Vec<UntypedHandle>,
         ) -> bevy_utils::BoxedFuture<'a, Result<(), AssetLoadError>> {
