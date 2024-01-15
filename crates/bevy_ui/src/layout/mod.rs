@@ -15,7 +15,7 @@ use bevy_hierarchy::{Children, Parent};
 use bevy_log::warn;
 use bevy_math::Vec2;
 use bevy_transform::components::Transform;
-use bevy_utils::{default, HashMap};
+use bevy_utils::{default, EntityHashMap};
 use bevy_window::{PrimaryWindow, Window, WindowResolution, WindowScaleFactorChanged};
 use std::fmt;
 use taffy::Taffy;
@@ -50,14 +50,14 @@ struct RootNodePair {
 
 #[derive(Resource)]
 pub struct UiSurface {
-    entity_to_taffy: HashMap<Entity, taffy::node::Node>,
-    window_roots: HashMap<Entity, Vec<RootNodePair>>,
+    entity_to_taffy: EntityHashMap<Entity, taffy::node::Node>,
+    window_roots: EntityHashMap<Entity, Vec<RootNodePair>>,
     taffy: Taffy,
 }
 
 fn _assert_send_sync_ui_surface_impl_safe() {
     fn _assert_send_sync<T: Send + Sync>() {}
-    _assert_send_sync::<HashMap<Entity, taffy::node::Node>>();
+    _assert_send_sync::<EntityHashMap<Entity, taffy::node::Node>>();
     _assert_send_sync::<Taffy>();
     _assert_send_sync::<UiSurface>();
 }

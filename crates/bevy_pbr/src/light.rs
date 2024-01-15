@@ -16,7 +16,7 @@ use bevy_render::{
     view::{InheritedVisibility, RenderLayers, ViewVisibility, VisibleEntities},
 };
 use bevy_transform::components::{GlobalTransform, Transform};
-use bevy_utils::{tracing::warn, HashMap};
+use bevy_utils::{tracing::warn, EntityHashMap};
 
 use crate::*;
 
@@ -381,7 +381,7 @@ impl From<CascadeShadowConfigBuilder> for CascadeShadowConfig {
 #[reflect(Component)]
 pub struct Cascades {
     /// Map from a view to the configuration of each of its [`Cascade`]s.
-    pub(crate) cascades: HashMap<Entity, Vec<Cascade>>,
+    pub(crate) cascades: EntityHashMap<Entity, Vec<Cascade>>,
 }
 
 #[derive(Clone, Debug, Default, Reflect)]
