@@ -2,10 +2,16 @@ use super::{Diagnostic, DiagnosticPath, DiagnosticsStore};
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_log::{debug, info};
-use bevy_time::{Time, Timer, TimerMode};
+use bevy_time::{Real, Time, Timer, TimerMode};
 use bevy_utils::Duration;
 
-/// An App Plugin that logs diagnostics to the console
+/// An App Plugin that logs diagnostics to the console.
+///
+/// Diagnostics are collected by plugins such as
+/// [`FrameTimeDiagnosticsPlugin`](crate::FrameTimeDiagnosticsPlugin)
+/// or can be provided by the user.
+///
+/// When no diagnostics are provided, this plugin does nothing.
 pub struct LogDiagnosticsPlugin {
     pub debug: bool,
     pub wait_duration: Duration,
@@ -118,20 +124,20 @@ impl LogDiagnosticsPlugin {
 
     fn log_diagnostics_system(
         mut state: ResMut<LogDiagnosticsState>,
-        time: Res<Time>,
+        time: Res<Time<Real>>,
         diagnostics: Res<DiagnosticsStore>,
     ) {
-        if state.timer.tick(time.raw_delta()).finished() {
+        if state.timer.tick(time.delta()).finished() {
             Self::log_diagnostics(&state, &diagnostics);
         }
     }
 
     fn log_diagnostics_debug_system(
         mut state: ResMut<LogDiagnosticsState>,
-        time: Res<Time>,
+        time: Res<Time<Real>>,
         diagnostics: Res<DiagnosticsStore>,
     ) {
-        if state.timer.tick(time.raw_delta()).finished() {
+        if state.timer.tick(time.delta()).finished() {
             Self::for_each_diagnostic(&state, &diagnostics, |diagnostic| {
                 debug!("{:#?}\n", diagnostic);
             });

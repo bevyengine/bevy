@@ -5,9 +5,8 @@
 //! the derive helper attribute for `Reflect`, which looks like: `#[reflect(ignore)]`.
 
 use crate::REFLECT_ATTRIBUTE_NAME;
-use quote::ToTokens;
-use syn::spanned::Spanned;
-use syn::{Attribute, Expr, ExprLit, Lit, Meta};
+use syn::meta::ParseNestedMeta;
+use syn::{Attribute, LitStr, Token};
 
 pub(crate) static IGNORE_SERIALIZATION_ATTR: &str = "skip_serializing";
 pub(crate) static IGNORE_ALL_ATTR: &str = "ignore";
@@ -78,7 +77,8 @@ pub(crate) fn parse_field_attrs(attrs: &[Attribute]) -> Result<ReflectFieldAttr,
         .iter()
         .filter(|a| a.path().is_ident(REFLECT_ATTRIBUTE_NAME));
     for attr in attrs {
-        if let Err(err) = parse_meta(&mut args, &attr.meta) {
+        let result = attr.parse_nested_meta(|meta| parse_meta(&mut args, meta));
+        if let Err(err) = result {
             if let Some(ref mut error) = errors {
                 error.combine(err);
             } else {
@@ -94,54 +94,53 @@ pub(crate) fn parse_field_attrs(attrs: &[Attribute]) -> Result<ReflectFieldAttr,
     }
 }
 
-/// Recursively parses attribute metadata for things like `#[reflect(ignore)]` and `#[reflect(default = "foo")]`
-fn parse_meta(args: &mut ReflectFieldAttr, meta: &Meta) -> Result<(), syn::Error> {
-    match meta {
-        Meta::Path(path) if path.is_ident(IGNORE_SERIALIZATION_ATTR) => {
-            (args.ignore == ReflectIgnoreBehavior::None)
-                .then(|| args.ignore = ReflectIgnoreBehavior::IgnoreSerialization)
-                .ok_or_else(|| syn::Error::new_spanned(path, format!("Only one of ['{IGNORE_SERIALIZATION_ATTR}','{IGNORE_ALL_ATTR}'] is allowed")))
+fn parse_meta(args: &mut ReflectFieldAttr, meta: ParseNestedMeta) -> Result<(), syn::Error> {
+    if meta.path.is_ident(DEFAULT_ATTR) {
+        // Allow:
+        // - `#[reflect(default)]`
+        // - `#[reflect(default = "path::to::func")]`
+        if !matches!(args.default, DefaultBehavior::Required) {
+            return Err(meta.error(format!("only one of [{:?}] is allowed", [DEFAULT_ATTR])));
         }
-        Meta::Path(path) if path.is_ident(IGNORE_ALL_ATTR) => {
-            (args.ignore == ReflectIgnoreBehavior::None)
-                .then(|| args.ignore = ReflectIgnoreBehavior::IgnoreAlways)
-                .ok_or_else(|| syn::Error::new_spanned(path, format!("Only one of ['{IGNORE_SERIALIZATION_ATTR}','{IGNORE_ALL_ATTR}'] is allowed")))
-        }
-        Meta::Path(path) if path.is_ident(DEFAULT_ATTR) => {
+
+        if meta.input.peek(Token![=]) {
+            let lit = meta.value()?.parse::<LitStr>()?;
+            args.default = DefaultBehavior::Func(lit.parse()?);
+        } else {
             args.default = DefaultBehavior::Default;
-            Ok(())
         }
-        Meta::Path(path) => Err(syn::Error::new(
-            path.span(),
-            format!("unknown attribute parameter: {}", path.to_token_stream()),
-        )),
-        Meta::NameValue(pair) if pair.path.is_ident(DEFAULT_ATTR) => {
-            if let Expr::Lit(ExprLit {lit: Lit::Str(lit_str), ..}) = &pair.value {
-                args.default = DefaultBehavior::Func(lit_str.parse()?);
-                Ok(())
-            }
-            else {
-                Err(syn::Error::new(
-                    pair.span(),
-                    format!("expected a string literal containing the name of a function, but found: {}", pair.to_token_stream()),
-                ))?
-            }
+
+        Ok(())
+    } else if meta.path.is_ident(IGNORE_ALL_ATTR) {
+        // Allow:
+        // - `#[reflect(ignore)]`
+        if args.ignore != ReflectIgnoreBehavior::None {
+            return Err(meta.error(format!(
+                "only one of [{:?}] is allowed",
+                [IGNORE_ALL_ATTR, IGNORE_SERIALIZATION_ATTR]
+            )));
         }
-        Meta::NameValue(pair) => {
-            let path = &pair.path;
-            Err(syn::Error::new(
-                path.span(),
-                format!("unknown attribute parameter: {}", path.to_token_stream()),
-            ))
+
+        args.ignore = ReflectIgnoreBehavior::IgnoreAlways;
+
+        Ok(())
+    } else if meta.path.is_ident(IGNORE_SERIALIZATION_ATTR) {
+        // Allow:
+        // - `#[reflect(skip_serializing)]`
+        if args.ignore != ReflectIgnoreBehavior::None {
+            return Err(meta.error(format!(
+                "only one of [{:?}] is allowed",
+                [IGNORE_ALL_ATTR, IGNORE_SERIALIZATION_ATTR]
+            )));
         }
-        Meta::List(list) if !list.path.is_ident(REFLECT_ATTRIBUTE_NAME) => {
-            Err(syn::Error::new(list.path.span(), "unexpected property"))
-        }
-        Meta::List(list) => {
-            if let Ok(meta) = list.parse_args() {
-                parse_meta(args, &meta)?;
-            }
-            Ok(())
-        }
+
+        args.ignore = ReflectIgnoreBehavior::IgnoreSerialization;
+
+        Ok(())
+    } else {
+        Err(meta.error(format!(
+            "unknown attribute, expected {:?}",
+            [DEFAULT_ATTR, IGNORE_ALL_ATTR, IGNORE_SERIALIZATION_ATTR]
+        )))
     }
 }

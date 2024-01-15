@@ -1,7 +1,4 @@
-use crate::{
-    clear_color::ClearColorConfig,
-    tonemapping::{DebandDither, Tonemapping},
-};
+use crate::tonemapping::{DebandDither, Tonemapping};
 use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
 use bevy_render::{
@@ -15,9 +12,7 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 #[derive(Component, Default, Reflect, Clone, ExtractComponent)]
 #[extract_component_filter(With<Camera>)]
 #[reflect(Component)]
-pub struct Camera2d {
-    pub clear_color: ClearColorConfig,
-}
+pub struct Camera2d;
 
 #[derive(Bundle)]
 pub struct Camera2dBundle {
@@ -35,7 +30,32 @@ pub struct Camera2dBundle {
 
 impl Default for Camera2dBundle {
     fn default() -> Self {
-        Self::new_with_far(1000.0)
+        let projection = OrthographicProjection {
+            far: 1000.,
+            near: -1000.,
+            ..Default::default()
+        };
+        let transform = Transform::default();
+        let view_projection =
+            projection.get_projection_matrix() * transform.compute_matrix().inverse();
+        let frustum = Frustum::from_view_projection_custom_far(
+            &view_projection,
+            &transform.translation,
+            &transform.back(),
+            projection.far(),
+        );
+        Self {
+            camera_render_graph: CameraRenderGraph::new(crate::core_2d::graph::NAME),
+            projection,
+            visible_entities: VisibleEntities::default(),
+            frustum,
+            transform,
+            global_transform: Default::default(),
+            camera: Camera::default(),
+            camera_2d: Camera2d,
+            tonemapping: Tonemapping::None,
+            deband_dither: DebandDither::Disabled,
+        }
     }
 }
 
@@ -70,7 +90,7 @@ impl Camera2dBundle {
             transform,
             global_transform: Default::default(),
             camera: Camera::default(),
-            camera_2d: Camera2d::default(),
+            camera_2d: Camera2d,
             tonemapping: Tonemapping::None,
             deband_dither: DebandDither::Disabled,
         }

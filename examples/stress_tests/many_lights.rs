@@ -9,7 +9,7 @@ use bevy::{
     pbr::{ExtractedPointLight, GlobalLightMeta},
     prelude::*,
     render::{camera::ScalingMode, Render, RenderApp, RenderSet},
-    window::{PresentMode, WindowPlugin},
+    window::{PresentMode, WindowPlugin, WindowResolution},
 };
 use rand::{thread_rng, Rng};
 
@@ -18,7 +18,8 @@ fn main() {
         .add_plugins((
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
-                    resolution: (1024.0, 768.0).into(),
+                    resolution: WindowResolution::new(1920.0, 1080.0)
+                        .with_scale_factor_override(1.0),
                     title: "many_lights".into(),
                     present_mode: PresentMode::AutoNoVsync,
                     ..default()
@@ -54,12 +55,12 @@ fn setup(
             })
             .unwrap(),
         ),
-        material: materials.add(StandardMaterial::from(Color::WHITE)),
+        material: materials.add(Color::WHITE),
         transform: Transform::from_scale(Vec3::NEG_ONE),
         ..default()
     });
 
-    let mesh = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
+    let mesh = meshes.add(shape::Cube { size: 1.0 });
     let material = materials.add(StandardMaterial {
         base_color: Color::PINK,
         ..default()
@@ -144,7 +145,7 @@ fn print_light_count(time: Res<Time>, mut timer: Local<PrintingTimer>, lights: Q
     timer.0.tick(time.delta());
 
     if timer.0.just_finished() {
-        info!("Lights: {}", lights.iter().len(),);
+        info!("Lights: {}", lights.iter().len());
     }
 }
 
@@ -152,9 +153,8 @@ struct LogVisibleLights;
 
 impl Plugin for LogVisibleLights {
     fn build(&self, app: &mut App) {
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
         };
 
         render_app.add_systems(Render, print_visible_light_count.in_set(RenderSet::Prepare));

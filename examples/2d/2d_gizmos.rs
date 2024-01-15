@@ -50,16 +50,26 @@ fn system(mut gizmos: Gizmos, time: Res<Time>) {
     // You may want to increase this for larger circles.
     gizmos.circle_2d(Vec2::ZERO, 300., Color::NAVY).segments(64);
 
-    // Arcs default amount of segments is linerarly interpolated between
+    // Arcs default amount of segments is linearly interpolated between
     // 1 and 32, using the arc length as scalar.
     gizmos.arc_2d(Vec2::ZERO, sin / 10., PI / 2., 350., Color::ORANGE_RED);
+
+    gizmos.arrow_2d(
+        Vec2::ZERO,
+        Vec2::from_angle(sin / -10. + PI / 2.) * 50.,
+        Color::YELLOW,
+    );
 }
 
-fn update_config(mut config: ResMut<GizmoConfig>, keyboard: Res<Input<KeyCode>>, time: Res<Time>) {
-    if keyboard.pressed(KeyCode::Right) {
+fn update_config(
+    mut config: ResMut<GizmoConfig>,
+    keyboard: Res<ButtonInput<KeyCode>>,
+    time: Res<Time>,
+) {
+    if keyboard.pressed(KeyCode::ArrowRight) {
         config.line_width += 5. * time.delta_seconds();
     }
-    if keyboard.pressed(KeyCode::Left) {
+    if keyboard.pressed(KeyCode::ArrowLeft) {
         config.line_width -= 5. * time.delta_seconds();
     }
 }

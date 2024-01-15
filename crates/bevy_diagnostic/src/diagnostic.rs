@@ -106,7 +106,7 @@ impl std::fmt::Display for DiagnosticPath {
     }
 }
 
-/// A single measurement of a [Diagnostic]
+/// A single measurement of a [`Diagnostic`].
 #[derive(Debug)]
 pub struct DiagnosticMeasurement {
     pub time: Instant,
@@ -277,7 +277,7 @@ impl Diagnostic {
     }
 }
 
-/// A collection of [Diagnostic]s
+/// A collection of [`Diagnostic`]s.
 #[derive(Debug, Default, Resource)]
 pub struct DiagnosticsStore {
     diagnostics: HashMap<DiagnosticPath, Diagnostic, PassHash>,
@@ -307,9 +307,14 @@ impl DiagnosticsStore {
             .and_then(|diagnostic| diagnostic.measurement())
     }
 
-    /// Return an iterator over all [`Diagnostic`].
+    /// Return an iterator over all [`Diagnostic`]s.
     pub fn iter(&self) -> impl Iterator<Item = &Diagnostic> {
         self.diagnostics.values()
+    }
+
+    /// Return an iterator over all [`Diagnostic`]s, by mutable reference.
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Diagnostic> {
+        self.diagnostics.values_mut()
     }
 }
 
@@ -371,7 +376,7 @@ impl RegisterDiagnostic for App {
     ///
     /// Will initialize a [`DiagnosticsStore`] if it doesn't exist.
     ///
-    /// ```rust
+    /// ```
     /// use bevy_app::App;
     /// use bevy_diagnostic::{Diagnostic, DiagnosticsPlugin, DiagnosticPath, RegisterDiagnostic};
     ///

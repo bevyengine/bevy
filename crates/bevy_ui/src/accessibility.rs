@@ -15,13 +15,13 @@ use bevy_ecs::{
     world::Ref,
 };
 use bevy_hierarchy::Children;
-use bevy_render::prelude::Camera;
+use bevy_render::{camera::CameraUpdateSystem, prelude::Camera};
 use bevy_text::Text;
 use bevy_transform::prelude::GlobalTransform;
 
 fn calc_name(texts: &Query<&Text>, children: &Children) -> Option<Box<str>> {
     let mut name = None;
-    for child in children.iter() {
+    for child in children {
         if let Ok(text) = texts.get(*child) {
             let values = text
                 .sections
@@ -124,14 +124,14 @@ fn label_changed(
             .collect::<Vec<String>>();
         let name = Some(values.join(" ").into_boxed_str());
         if let Some(mut accessible) = accessible {
-            accessible.set_role(Role::LabelText);
+            accessible.set_role(Role::StaticText);
             if let Some(name) = name {
                 accessible.set_name(name);
             } else {
                 accessible.clear_name();
             }
         } else {
-            let mut node = NodeBuilder::new(Role::LabelText);
+            let mut node = NodeBuilder::new(Role::StaticText);
             if let Some(name) = name {
                 node.set_name(name);
             }
@@ -150,7 +150,12 @@ impl Plugin for AccessibilityPlugin {
         app.add_systems(
             PostUpdate,
             (
-                calc_bounds.after(bevy_transform::TransformSystem::TransformPropagate),
+                calc_bounds
+                    .after(bevy_transform::TransformSystem::TransformPropagate)
+                    .after(CameraUpdateSystem)
+                    // the listed systems do not affect calculated size
+                    .ambiguous_with(crate::resolve_outlines_system)
+                    .ambiguous_with(crate::ui_stack_system),
                 button_changed,
                 image_changed,
                 label_changed,

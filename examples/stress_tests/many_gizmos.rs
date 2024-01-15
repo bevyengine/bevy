@@ -3,7 +3,7 @@ use std::f32::consts::TAU;
 use bevy::{
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
-    window::PresentMode,
+    window::{PresentMode, WindowResolution},
 };
 
 const SYSTEM_COUNT: u32 = 10;
@@ -15,6 +15,7 @@ fn main() {
             primary_window: Some(Window {
                 title: "Many Debug Lines".to_string(),
                 present_mode: PresentMode::AutoNoVsync,
+                resolution: WindowResolution::new(1920.0, 1080.0).with_scale_factor_override(1.0),
                 ..default()
             }),
             ..default()
@@ -41,11 +42,11 @@ struct Config {
     fancy: bool,
 }
 
-fn input(mut config: ResMut<Config>, input: Res<Input<KeyCode>>) {
-    if input.just_pressed(KeyCode::Up) {
+fn input(mut config: ResMut<Config>, input: Res<ButtonInput<KeyCode>>) {
+    if input.just_pressed(KeyCode::ArrowUp) {
         config.line_count += 10_000;
     }
-    if input.just_pressed(KeyCode::Down) {
+    if input.just_pressed(KeyCode::ArrowDown) {
         config.line_count = config.line_count.saturating_sub(10_000);
     }
     if input.just_pressed(KeyCode::Space) {

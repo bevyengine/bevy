@@ -37,7 +37,7 @@ pub struct RenderToMainAppReceiver(pub Receiver<SubApp>);
 /// |--------------------|--------------------|--------------------|--------------------|
 /// ```
 ///
-/// The plugin is dependent on the [`crate::RenderApp`] added by [`crate::RenderPlugin`] and so must
+/// The plugin is dependent on the [`RenderApp`] added by [`crate::RenderPlugin`] and so must
 /// be added after that plugin. If it is not added after, the plugin will do nothing.
 ///
 /// A single frame of execution looks something like below    
@@ -111,7 +111,9 @@ impl Plugin for PipelinedRenderingPlugin {
                         s.spawn(async { app_to_render_receiver.recv().await });
                     })
                     .pop();
-                let Some(Ok(mut render_app)) = sent_app else { break };
+                let Some(Ok(mut render_app)) = sent_app else {
+                    break;
+                };
 
                 {
                     #[cfg(feature = "trace")]

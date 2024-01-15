@@ -53,9 +53,12 @@ pub struct Access<T: SparseSetIndex> {
     reads_and_writes: FixedBitSet,
     /// The exclusively-accessed elements.
     writes: FixedBitSet,
-    /// Is `true` if this has access to all elements in the collection?
+    /// Is `true` if this has access to all elements in the collection.
     /// This field is a performance optimization for `&World` (also harder to mess up for soundness).
     reads_all: bool,
+    /// Is `true` if this has mutable access to all elements in the collection.
+    /// If this is true, then `reads_all` must also be true.
+    writes_all: bool,
     marker: PhantomData<T>,
 }
 
@@ -68,6 +71,7 @@ impl<T: SparseSetIndex + fmt::Debug> fmt::Debug for Access<T> {
             )
             .field("writes", &FormattedBitSet::<T>::new(&self.writes))
             .field("reads_all", &self.reads_all)
+            .field("writes_all", &self.writes_all)
             .finish()
     }
 }
@@ -83,6 +87,7 @@ impl<T: SparseSetIndex> Access<T> {
     pub const fn new() -> Self {
         Self {
             reads_all: false,
+            writes_all: false,
             reads_and_writes: FixedBitSet::new(),
             writes: FixedBitSet::new(),
             marker: PhantomData,
@@ -116,14 +121,19 @@ impl<T: SparseSetIndex> Access<T> {
         self.reads_all || self.reads_and_writes.contains(index.sparse_set_index())
     }
 
+    /// Returns `true` if this can access anything.
+    pub fn has_any_read(&self) -> bool {
+        self.reads_all || !self.reads_and_writes.is_clear()
+    }
+
     /// Returns `true` if this can exclusively access the element given by `index`.
     pub fn has_write(&self, index: T) -> bool {
-        self.writes.contains(index.sparse_set_index())
+        self.writes_all || self.writes.contains(index.sparse_set_index())
     }
 
     /// Returns `true` if this accesses anything mutably.
     pub fn has_any_write(&self) -> bool {
-        !self.writes.is_clear()
+        self.writes_all || !self.writes.is_clear()
     }
 
     /// Sets this as having access to all indexed elements (i.e. `&World`).
@@ -131,14 +141,26 @@ impl<T: SparseSetIndex> Access<T> {
         self.reads_all = true;
     }
 
+    /// Sets this as having mutable access to all indexed elements (i.e. `EntityMut`).
+    pub fn write_all(&mut self) {
+        self.reads_all = true;
+        self.writes_all = true;
+    }
+
     /// Returns `true` if this has access to all indexed elements (i.e. `&World`).
     pub fn has_read_all(&self) -> bool {
         self.reads_all
     }
 
+    /// Returns `true` if this has write access to all indexed elements (i.e. `EntityMut`).
+    pub fn has_write_all(&self) -> bool {
+        self.writes_all
+    }
+
     /// Removes all accesses.
     pub fn clear(&mut self) {
         self.reads_all = false;
+        self.writes_all = false;
         self.reads_and_writes.clear();
         self.writes.clear();
     }
@@ -146,6 +168,7 @@ impl<T: SparseSetIndex> Access<T> {
     /// Adds all access from `other`.
     pub fn extend(&mut self, other: &Access<T>) {
         self.reads_all = self.reads_all || other.reads_all;
+        self.writes_all = self.writes_all || other.writes_all;
         self.reads_and_writes.union_with(&other.reads_and_writes);
         self.writes.union_with(&other.writes);
     }
@@ -155,13 +178,20 @@ impl<T: SparseSetIndex> Access<T> {
     /// [`Access`] instances are incompatible if one can write
     /// an element that the other can read or write.
     pub fn is_compatible(&self, other: &Access<T>) -> bool {
-        // Only systems that do not write data are compatible with systems that operate on `&World`.
+        if self.writes_all {
+            return !other.has_any_read();
+        }
+
+        if other.writes_all {
+            return !self.has_any_read();
+        }
+
         if self.reads_all {
-            return other.writes.count_ones(..) == 0;
+            return !other.has_any_write();
         }
 
         if other.reads_all {
-            return self.writes.count_ones(..) == 0;
+            return !self.has_any_write();
         }
 
         self.writes.is_disjoint(&other.reads_and_writes)
@@ -172,12 +202,23 @@ impl<T: SparseSetIndex> Access<T> {
     pub fn get_conflicts(&self, other: &Access<T>) -> Vec<T> {
         let mut conflicts = FixedBitSet::default();
         if self.reads_all {
+            // QUESTION: How to handle `other.writes_all`?
             conflicts.extend(other.writes.ones());
         }
 
         if other.reads_all {
+            // QUESTION: How to handle `self.writes_all`.
             conflicts.extend(self.writes.ones());
         }
+
+        if self.writes_all {
+            conflicts.extend(other.reads_and_writes.ones());
+        }
+
+        if other.writes_all {
+            conflicts.extend(self.reads_and_writes.ones());
+        }
+
         conflicts.extend(self.writes.intersection(&other.reads_and_writes));
         conflicts.extend(self.reads_and_writes.intersection(&other.writes));
         conflicts
@@ -376,6 +417,11 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     /// Sets the underlying unfiltered access as having access to all indexed elements.
     pub fn read_all(&mut self) {
         self.access.read_all();
+    }
+
+    /// Sets the underlying unfiltered access as having mutable access to all indexed elements.
+    pub fn write_all(&mut self) {
+        self.access.write_all();
     }
 }
 

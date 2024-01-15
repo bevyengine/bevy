@@ -31,8 +31,8 @@ fn setup_camera_fog(mut commands: Commands) {
             ..default()
         },
         FogSettings {
-            color: Color::rgba(0.1, 0.2, 0.4, 1.0),
-            directional_light_color: Color::rgba(1.0, 0.95, 0.75, 0.5),
+            color: Color::rgba(0.35, 0.48, 0.66, 1.0),
+            directional_light_color: Color::rgba(1.0, 0.95, 0.85, 0.5),
             directional_light_exponent: 30.0,
             falloff: FogFalloff::from_visibility_colors(
                 15.0, // distance in world units up to which objects retain visibility (>= 5% contrast)
@@ -79,7 +79,7 @@ fn setup_terrain_scene(
     // Sky
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Box::default())),
+            mesh: meshes.add(shape::Box::default()),
             material: materials.add(StandardMaterial {
                 base_color: Color::hex("888888").unwrap(),
                 unlit: true,
@@ -94,23 +94,24 @@ fn setup_terrain_scene(
 }
 
 fn setup_instructions(mut commands: Commands) {
-    commands.spawn((TextBundle::from_section(
-        "Press Spacebar to Toggle Atmospheric Fog.\nPress S to Toggle Directional Light Fog Influence.",
-        TextStyle {
-            font_size: 20.0,
-            color: Color::WHITE,
+    commands.spawn(
+        TextBundle::from_section(
+            "Press Spacebar to Toggle Atmospheric Fog.\nPress S to Toggle Directional Light Fog Influence.",
+            TextStyle {
+                font_size: 20.0,
+                ..default()
+            },
+        )
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
-        },
-    )
-    .with_style(Style {
-        position_type: PositionType::Absolute,
-        bottom: Val::Px(12.0),
-        left: Val::Px(12.0),
-        ..default()
-    }),));
+        }),
+    );
 }
 
-fn toggle_system(keycode: Res<Input<KeyCode>>, mut fog: Query<&mut FogSettings>) {
+fn toggle_system(keycode: Res<ButtonInput<KeyCode>>, mut fog: Query<&mut FogSettings>) {
     let mut fog_settings = fog.single_mut();
 
     if keycode.just_pressed(KeyCode::Space) {
@@ -118,7 +119,7 @@ fn toggle_system(keycode: Res<Input<KeyCode>>, mut fog: Query<&mut FogSettings>)
         fog_settings.color.set_a(1.0 - a);
     }
 
-    if keycode.just_pressed(KeyCode::S) {
+    if keycode.just_pressed(KeyCode::KeyS) {
         let a = fog_settings.directional_light_color.a();
         fog_settings.directional_light_color.set_a(0.5 - a);
     }

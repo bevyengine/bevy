@@ -1,4 +1,3 @@
-#![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
 //! This crate provides logging functions and configuration for [Bevy](https://bevyengine.org)
 //! apps, and automatically configures platform specific log handlers (i.e. WASM or Android).
@@ -11,6 +10,8 @@
 //!
 //! For more fine-tuned control over logging behavior, set up the [`LogPlugin`] or
 //! `DefaultPlugins` during app initialization.
+
+mod once;
 
 #[cfg(feature = "trace")]
 use std::panic;
@@ -29,6 +30,8 @@ pub mod prelude {
     pub use bevy_utils::tracing::{
         debug, debug_span, error, error_span, info, info_span, trace, trace_span, warn, warn_span,
     };
+
+    pub use crate::{debug_once, error_once, info_once, trace_once, warn_once};
 }
 
 pub use bevy_utils::tracing::{
@@ -115,7 +118,7 @@ impl Plugin for LogPlugin {
         {
             let old_handler = panic::take_hook();
             panic::set_hook(Box::new(move |infos| {
-                println!("{}", tracing_error::SpanTrace::capture());
+                eprintln!("{}", tracing_error::SpanTrace::capture());
                 old_handler(infos);
             }));
         }

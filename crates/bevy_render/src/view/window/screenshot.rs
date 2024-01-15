@@ -1,13 +1,12 @@
-use std::{borrow::Cow, path::Path};
+use std::{borrow::Cow, path::Path, sync::PoisonError};
 
 use bevy_app::Plugin;
-use bevy_asset::{load_internal_asset, HandleUntyped};
+use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::prelude::*;
 use bevy_log::{error, info, info_span};
-use bevy_reflect::TypeUuid;
 use bevy_tasks::AsyncComputeTaskPool;
 use bevy_utils::HashMap;
-use parking_lot::Mutex;
+use std::sync::Mutex;
 use thiserror::Error;
 use wgpu::{
     CommandEncoder, Extent3d, ImageDataLayout, TextureFormat, COPY_BYTES_PER_ROW_ALIGNMENT,
@@ -15,10 +14,11 @@ use wgpu::{
 
 use crate::{
     prelude::{Image, Shader},
+    render_asset::RenderAssetPersistencePolicy,
     render_resource::{
-        BindGroup, BindGroupLayout, Buffer, CachedRenderPipelineId, FragmentState, PipelineCache,
-        RenderPipelineDescriptor, SpecializedRenderPipeline, SpecializedRenderPipelines, Texture,
-        VertexState,
+        binding_types::texture_2d, BindGroup, BindGroupLayout, BindGroupLayoutEntries, Buffer,
+        CachedRenderPipelineId, FragmentState, PipelineCache, RenderPipelineDescriptor,
+        SpecializedRenderPipeline, SpecializedRenderPipelines, Texture, VertexState,
     },
     renderer::RenderDevice,
     texture::TextureFormatPixelInfo,
@@ -51,6 +51,7 @@ impl ScreenshotManager {
     ) -> Result<(), ScreenshotAlreadyRequestedError> {
         self.callbacks
             .get_mut()
+            .unwrap_or_else(PoisonError::into_inner)
             .try_insert(window, Box::new(callback))
             .map(|_| ())
             .map_err(|_| ScreenshotAlreadyRequestedError)
@@ -122,8 +123,7 @@ impl ScreenshotManager {
 
 pub struct ScreenshotPlugin;
 
-const SCREENSHOT_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 11918575842344596158);
+const SCREENSHOT_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(11918575842344596158);
 
 impl Plugin for ScreenshotPlugin {
     fn build(&self, app: &mut bevy_app::App) {
@@ -154,8 +154,8 @@ impl Plugin for ScreenshotPlugin {
 
 #[cfg(feature = "bevy_ci_testing")]
 fn ci_testing_screenshot_at(
-    mut current_frame: bevy_ecs::prelude::Local<u32>,
-    ci_testing_config: bevy_ecs::prelude::Res<bevy_app::ci_testing::CiTestingConfig>,
+    mut current_frame: Local<u32>,
+    ci_testing_config: Res<bevy_app::ci_testing::CiTestingConfig>,
     mut screenshot_manager: ResMut<ScreenshotManager>,
     main_window: Query<Entity, With<bevy_window::PrimaryWindow>>,
 ) {
@@ -202,19 +202,13 @@ impl FromWorld for ScreenshotToScreenPipeline {
     fn from_world(render_world: &mut World) -> Self {
         let device = render_world.resource::<RenderDevice>();
 
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("screenshot-to-screen-bgl"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Texture {
-                    sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                    view_dimension: wgpu::TextureViewDimension::D2,
-                    multisampled: false,
-                },
-                count: None,
-            }],
-        });
+        let bind_group_layout = device.create_bind_group_layout(
+            "screenshot-to-screen-bgl",
+            &BindGroupLayoutEntries::single(
+                wgpu::ShaderStages::FRAGMENT,
+                texture_2d(wgpu::TextureSampleType::Float { filterable: false }),
+            ),
+        );
 
         Self { bind_group_layout }
     }
@@ -231,7 +225,7 @@ impl SpecializedRenderPipeline for ScreenshotToScreenPipeline {
                 buffers: vec![],
                 shader_defs: vec![],
                 entry_point: Cow::Borrowed("vs_main"),
-                shader: SCREENSHOT_SHADER_HANDLE.typed(),
+                shader: SCREENSHOT_SHADER_HANDLE,
             },
             primitive: wgpu::PrimitiveState {
                 cull_mode: Some(wgpu::Face::Back),
@@ -240,7 +234,7 @@ impl SpecializedRenderPipeline for ScreenshotToScreenPipeline {
             depth_stencil: None,
             multisample: Default::default(),
             fragment: Some(FragmentState {
-                shader: SCREENSHOT_SHADER_HANDLE.typed(),
+                shader: SCREENSHOT_SHADER_HANDLE,
                 entry_point: Cow::Borrowed("fs_main"),
                 shader_defs: vec![],
                 targets: vec![Some(wgpu::ColorTargetState {
@@ -275,7 +269,7 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
                 memory.texture.as_image_copy(),
                 wgpu::ImageCopyBuffer {
                     buffer: &memory.buffer,
-                    layout: crate::view::screenshot::layout_data(width, height, texture_format),
+                    layout: layout_data(width, height, texture_format),
                 },
                 Extent3d {
                     width,
@@ -297,10 +291,12 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
                         resolve_target: None,
                         ops: wgpu::Operations {
                             load: wgpu::LoadOp::Load,
-                            store: true,
+                            store: wgpu::StoreOp::Store,
                         },
                     })],
                     depth_stencil_attachment: None,
+                    timestamp_writes: None,
+                    occlusion_query_set: None,
                 });
                 pass.set_pipeline(pipeline);
                 pass.set_bind_group(0, &memory.bind_group, &[]);
@@ -368,6 +364,7 @@ pub(crate) fn collect_screenshots(world: &mut World) {
                     wgpu::TextureDimension::D2,
                     result,
                     texture_format,
+                    RenderAssetPersistencePolicy::Unload,
                 ));
             };
 

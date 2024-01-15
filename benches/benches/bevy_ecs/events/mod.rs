@@ -3,7 +3,7 @@ use criterion::*;
 mod iter;
 mod send;
 
-criterion_group!(event_benches, send, iter,);
+criterion_group!(event_benches, send, iter);
 
 fn send(c: &mut Criterion) {
     let mut group = c.benchmark_group("events_send");
