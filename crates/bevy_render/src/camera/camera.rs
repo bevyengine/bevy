@@ -104,6 +104,7 @@ impl ExposureSettings {
     }
 
     /// Converts EV100 values to exposure values.
+    /// <https://google.github.io/filament/Filament.md.html#imagingpipeline/physicallybasedcamera/exposure>
     #[inline]
     pub fn exposure(&self) -> f32 {
         (-self.ev100).exp2() / 1.2
