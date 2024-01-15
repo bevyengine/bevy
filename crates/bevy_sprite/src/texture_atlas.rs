@@ -27,7 +27,7 @@ pub struct TextureAtlasLayout {
     /// This field is set by [`TextureAtlasBuilder`].
     ///
     /// [`TextureAtlasBuilder`]: crate::TextureAtlasBuilder
-    pub texture_handles: Option<HashMap<AssetId<Image>, usize>>,
+    pub(crate) texture_handles: Option<HashMap<AssetId<Image>, usize>>,
 }
 
 /// Component used to draw a specific section of a texture.
@@ -126,7 +126,7 @@ impl TextureAtlasLayout {
         self.textures.len() - 1
     }
 
-    /// How many textures are in the `TextureAtlas`
+    /// The number of textures in the [`TextureAtlasLayout`]
     pub fn len(&self) -> usize {
         self.textures.len()
     }

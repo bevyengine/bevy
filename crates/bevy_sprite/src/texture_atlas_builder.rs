@@ -147,12 +147,13 @@ impl TextureAtlasBuilder {
         }
     }
 
-    /// Consumes the builder, and returns the newly created texture handle and the assciated atlas layout.
+    /// Consumes the builder, and returns the newly created texture handle and
+    /// the assciated atlas layout.
     ///
     /// Internally it copies all rectangles from the textures and copies them
-    /// into a new texture atlas will use. It is not useful to
-    /// hold a strong handle to the texture afterwards else it will exist twice
-    /// in memory.
+    /// into a new texture.
+    /// It is not useful to hold a strong handle to the texture afterwards else
+    /// it will exist twice in memory.
     ///
     /// # Usage
     ///
