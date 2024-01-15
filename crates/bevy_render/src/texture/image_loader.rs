@@ -85,15 +85,14 @@ impl AssetLoader for ImageLoader {
     type Asset = Image;
     type Settings = ImageLoaderSettings;
     type Error = ImageLoaderError;
-    fn load<'a>(
+    async fn load<'a>(
         &'a self,
-        reader: &'a mut Reader,
+        reader: &'a mut Reader<'_>,
         settings: &'a ImageLoaderSettings,
-        load_context: &'a mut LoadContext,
-    ) -> bevy_utils::BoxedFuture<'a, Result<Image, Self::Error>> {
-        Box::pin(async move {
-            // use the file extension for the image type
-            let ext = load_context.path().extension().unwrap().to_str().unwrap();
+        load_context: &'a mut LoadContext<'_>,
+    ) -> Result<Image, Self::Error> {
+        // use the file extension for the image type
+        let ext = load_context.path().extension().unwrap().to_str().unwrap();
 
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;

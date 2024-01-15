@@ -6,8 +6,9 @@ pub use process::*;
 
 use crate::{
     io::{
-        AssetReader, AssetReaderError, AssetSource, AssetSourceBuilders, AssetSourceEvent,
-        AssetSourceId, AssetSources, AssetWriter, AssetWriterError, MissingAssetSourceError,
+        AssetReaderError, AssetSource, AssetSourceBuilders, AssetSourceEvent, AssetSourceId,
+        AssetSources, AssetWriterError, ErasedAssetReader, ErasedAssetWriter,
+        MissingAssetSourceError,
     },
     meta::{
         get_asset_hash, get_full_asset_hash, AssetAction, AssetActionMinimal, AssetHash, AssetMeta,
@@ -510,8 +511,8 @@ impl AssetProcessor {
         /// Retrieves asset paths recursively. If `clean_empty_folders_writer` is Some, it will be used to clean up empty
         /// folders when they are discovered.
         fn get_asset_paths<'a>(
-            reader: &'a dyn AssetReader,
-            clean_empty_folders_writer: Option<&'a dyn AssetWriter>,
+            reader: &'a dyn ErasedAssetReader,
+            clean_empty_folders_writer: Option<&'a dyn ErasedAssetWriter>,
             path: PathBuf,
             paths: &'a mut Vec<PathBuf>,
         ) -> BoxedFuture<'a, Result<bool, AssetReaderError>> {

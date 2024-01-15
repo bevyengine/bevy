@@ -11,7 +11,7 @@ use crate::{
 use bevy_ecs::world::World;
 use bevy_utils::{BoxedFuture, CowArc, HashMap, HashSet};
 use downcast_rs::{impl_downcast, Downcast};
-use futures_lite::AsyncReadExt;
+use futures_lite::{AsyncReadExt, Future};
 use ron::error::SpannedError;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -35,7 +35,7 @@ pub trait AssetLoader: Send + Sync + 'static {
         reader: &'a mut Reader,
         settings: &'a Self::Settings,
         load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<Self::Asset, Self::Error>>;
+    ) -> impl Future<Output = Result<Self::Asset, Self::Error>> + Send;
 
     /// Returns a list of extensions supported by this [`AssetLoader`], without the preceding dot.
     /// Note that users of this [`AssetLoader`] may choose to load files with a non-matching extension.

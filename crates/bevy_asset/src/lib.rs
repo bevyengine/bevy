@@ -39,8 +39,6 @@ pub use path::*;
 pub use reflect::*;
 pub use server::*;
 
-pub use bevy_utils::BoxedFuture;
-
 /// Rusty Object Notation, a crate used to serialize and deserialize bevy assets.
 pub use ron;
 
@@ -449,7 +447,7 @@ mod tests {
     };
     use bevy_log::LogPlugin;
     use bevy_reflect::TypePath;
-    use bevy_utils::{BoxedFuture, Duration, HashMap};
+    use bevy_utils::{Duration, HashMap};
     use futures_lite::AsyncReadExt;
     use serde::{Deserialize, Serialize};
     use std::{path::Path, sync::Arc};
@@ -498,40 +496,38 @@ mod tests {
 
         type Error = CoolTextLoaderError;
 
-        fn load<'a>(
+        async fn load<'a>(
             &'a self,
-            reader: &'a mut Reader,
+            reader: &'a mut Reader<'_>,
             _settings: &'a Self::Settings,
-            load_context: &'a mut LoadContext,
-        ) -> BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
-            Box::pin(async move {
-                let mut bytes = Vec::new();
-                reader.read_to_end(&mut bytes).await?;
-                let mut ron: CoolTextRon = ron::de::from_bytes(&bytes)?;
-                let mut embedded = String::new();
-                for dep in ron.embedded_dependencies {
-                    let loaded = load_context.load_direct(&dep).await.map_err(|_| {
-                        Self::Error::CannotLoadDependency {
-                            dependency: dep.into(),
-                        }
-                    })?;
-                    let cool = loaded.get::<CoolText>().unwrap();
-                    embedded.push_str(&cool.text);
-                }
-                Ok(CoolText {
-                    text: ron.text,
-                    embedded,
-                    dependencies: ron
-                        .dependencies
-                        .iter()
-                        .map(|p| load_context.load(p))
-                        .collect(),
-                    sub_texts: ron
-                        .sub_texts
-                        .drain(..)
-                        .map(|text| load_context.add_labeled_asset(text.clone(), SubText { text }))
-                        .collect(),
-                })
+            load_context: &'a mut LoadContext<'_>,
+        ) -> Result<Self::Asset, Self::Error> {
+            let mut bytes = Vec::new();
+            reader.read_to_end(&mut bytes).await?;
+            let mut ron: CoolTextRon = ron::de::from_bytes(&bytes)?;
+            let mut embedded = String::new();
+            for dep in ron.embedded_dependencies {
+                let loaded = load_context.load_direct(&dep).await.map_err(|_| {
+                    Self::Error::CannotLoadDependency {
+                        dependency: dep.into(),
+                    }
+                })?;
+                let cool = loaded.get::<CoolText>().unwrap();
+                embedded.push_str(&cool.text);
+            }
+            Ok(CoolText {
+                text: ron.text,
+                embedded,
+                dependencies: ron
+                    .dependencies
+                    .iter()
+                    .map(|p| load_context.load(p))
+                    .collect(),
+                sub_texts: ron
+                    .sub_texts
+                    .drain(..)
+                    .map(|text| load_context.add_labeled_asset(text.clone(), SubText { text }))
+                    .collect(),
             })
         }
 

@@ -11,6 +11,7 @@ use crate::{
     MissingAssetLoaderForExtensionError, MissingAssetLoaderForTypeNameError,
 };
 use bevy_utils::BoxedFuture;
+use futures_lite::Future;
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use thiserror::Error;
@@ -32,7 +33,7 @@ pub trait Process: Send + Sync + Sized + 'static {
         context: &'a mut ProcessContext,
         meta: AssetMeta<(), Self>,
         writer: &'a mut Writer,
-    ) -> BoxedFuture<'a, Result<<Self::OutputLoader as AssetLoader>::Settings, ProcessError>>;
+    ) -> impl Future<Output = Result<<Self::OutputLoader as AssetLoader>::Settings, ProcessError>> + Send;
 }
 
 /// A flexible [`Process`] implementation that loads the source [`Asset`] using the `L` [`AssetLoader`], then transforms
@@ -217,29 +218,27 @@ impl<Loader: AssetLoader, Saver: AssetSaver<Asset = Loader::Asset>> Process
     type Settings = LoadAndSaveSettings<Loader::Settings, Saver::Settings>;
     type OutputLoader = Saver::OutputLoader;
 
-    fn process<'a>(
+    async fn process<'a>(
         &'a self,
-        context: &'a mut ProcessContext,
+        context: &'a mut ProcessContext<'_>,
         meta: AssetMeta<(), Self>,
         writer: &'a mut Writer,
-    ) -> BoxedFuture<'a, Result<<Self::OutputLoader as AssetLoader>::Settings, ProcessError>> {
-        Box::pin(async move {
-            let AssetAction::Process { settings, .. } = meta.asset else {
-                return Err(ProcessError::WrongMetaType);
-            };
-            let loader_meta = AssetMeta::<Loader, ()>::new(AssetAction::Load {
-                loader: std::any::type_name::<Loader>().to_string(),
-                settings: settings.loader_settings,
-            });
-            let loaded_asset = context.load_source_asset(loader_meta).await?;
-            let saved_asset = SavedAsset::<Loader::Asset>::from_loaded(&loaded_asset).unwrap();
-            let output_settings = self
-                .saver
-                .save(writer, saved_asset, &settings.saver_settings)
-                .await
-                .map_err(|error| ProcessError::AssetSaveError(error.into()))?;
-            Ok(output_settings)
-        })
+    ) -> Result<<Self::OutputLoader as AssetLoader>::Settings, ProcessError> {
+        let AssetAction::Process { settings, .. } = meta.asset else {
+            return Err(ProcessError::WrongMetaType);
+        };
+        let loader_meta = AssetMeta::<Loader, ()>::new(AssetAction::Load {
+            loader: std::any::type_name::<Loader>().to_string(),
+            settings: settings.loader_settings,
+        });
+        let loaded_asset = context.load_source_asset(loader_meta).await?;
+        let saved_asset = SavedAsset::<Loader::Asset>::from_loaded(&loaded_asset).unwrap();
+        let output_settings = self
+            .saver
+            .save(writer, saved_asset, &settings.saver_settings)
+            .await
+            .map_err(|error| ProcessError::AssetSaveError(error.into()))?;
+        Ok(output_settings)
     }
 }
 
