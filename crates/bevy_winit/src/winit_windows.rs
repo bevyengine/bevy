@@ -7,7 +7,7 @@ use bevy_a11y::{
 };
 use bevy_ecs::entity::Entity;
 
-use bevy_utils::{tracing::warn, HashMap};
+use bevy_utils::{tracing::warn, EntityHashMap, HashMap};
 use bevy_window::{CursorGrabMode, Window, WindowMode, WindowPosition, WindowResolution};
 
 use winit::{
@@ -27,7 +27,7 @@ pub struct WinitWindows {
     /// Stores [`winit`] windows by window identifier.
     pub windows: HashMap<winit::window::WindowId, winit::window::Window>,
     /// Maps entities to `winit` window identifiers.
-    pub entity_to_winit: HashMap<Entity, winit::window::WindowId>,
+    pub entity_to_winit: EntityHashMap<Entity, winit::window::WindowId>,
     /// Maps `winit` window identifiers to entities.
     pub winit_to_entity: HashMap<winit::window::WindowId, Entity>,
     // Many `winit` window functions (e.g. `set_window_icon`) can only be called on the main thread.

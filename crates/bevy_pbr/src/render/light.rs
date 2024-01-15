@@ -18,7 +18,7 @@ use bevy_transform::{components::GlobalTransform, prelude::Transform};
 use bevy_utils::{
     nonmax::NonMaxU32,
     tracing::{error, warn},
-    HashMap,
+    EntityHashMap,
 };
 use std::{hash::Hash, num::NonZeroU64, ops::Range};
 
@@ -47,7 +47,7 @@ pub struct ExtractedDirectionalLight {
     shadow_depth_bias: f32,
     shadow_normal_bias: f32,
     cascade_shadow_config: CascadeShadowConfig,
-    cascades: HashMap<Entity, Vec<Cascade>>,
+    cascades: EntityHashMap<Entity, Vec<Cascade>>,
     render_layers: RenderLayers,
 }
 
@@ -550,7 +550,7 @@ pub const CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT: u32 = 3;
 #[derive(Resource)]
 pub struct GlobalLightMeta {
     pub gpu_point_lights: GpuPointLights,
-    pub entity_to_index: HashMap<Entity, usize>,
+    pub entity_to_index: EntityHashMap<Entity, usize>,
 }
 
 impl FromWorld for GlobalLightMeta {
@@ -567,7 +567,7 @@ impl GlobalLightMeta {
     pub fn new(buffer_binding_type: BufferBindingType) -> Self {
         Self {
             gpu_point_lights: GpuPointLights::new(buffer_binding_type),
-            entity_to_index: HashMap::default(),
+            entity_to_index: EntityHashMap::default(),
         }
     }
 }
