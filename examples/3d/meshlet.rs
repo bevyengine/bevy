@@ -34,13 +34,8 @@ fn setup(
 ) {
     commands.spawn((
         Camera3dBundle {
-            transform: Transform::from_translation(Vec3::new(1.8194779, 0.47882894, -0.08456142))
-                .with_rotation(Quat::from_array([
-                    -0.10061985,
-                    0.7282399,
-                    0.10953168,
-                    0.6689881,
-                ])),
+            transform: Transform::from_translation(Vec3::new(1.8, 0.4, -0.1))
+                .looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         },
         EnvironmentMapLight {
