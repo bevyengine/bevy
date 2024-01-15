@@ -417,7 +417,7 @@ pub fn extract_uinodes(
         let (rect, atlas_size) = match atlas {
             Some(atlas) => {
                 let Some(layout) = texture_atlases.get(&atlas.layout) else {
-                // Atlas not present in assets resource (should this warn the user?)
+                    // Atlas not present in assets resource (should this warn the user?)
                     continue;
                 };
                 let mut atlas_rect = layout.textures[atlas.index];

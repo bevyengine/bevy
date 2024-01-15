@@ -33,12 +33,7 @@ impl Default for State {
 fn atlas_render_system(
     mut commands: Commands,
     mut state: ResMut<State>,
-<<<<<<< HEAD
-    font_atlas_sets: Res<Assets<FontAtlasSet>>,
-=======
     font_atlas_sets: Res<FontAtlasSets>,
-    texture_atlases: Res<Assets<TextureAtlas>>,
->>>>>>> main
 ) {
     if let Some(set) = font_atlas_sets.get(&state.handle) {
         if let Some((_size, font_atlas)) = set.iter().next() {

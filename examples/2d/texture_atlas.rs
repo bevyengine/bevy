@@ -66,7 +66,7 @@ fn setup(
         Some(ImageSampler::linear()),
         &mut textures,
     );
-    let atlas_linear_handle = texture_atlases.add(texture_atlas_linear.clone());
+    let atlas_linear_handle = texture_atlases.add(texture_atlas_linear.0.clone());
 
     let texture_atlas_nearest = create_texture_atlas(
         loaded_folder,
@@ -74,7 +74,7 @@ fn setup(
         Some(ImageSampler::nearest()),
         &mut textures,
     );
-    let atlas_nearest_handle = texture_atlases.add(texture_atlas_nearest);
+    let atlas_nearest_handle = texture_atlases.add(texture_atlas_nearest.0);
 
     let texture_atlas_linear_padded = create_texture_atlas(
         loaded_folder,
@@ -82,7 +82,7 @@ fn setup(
         Some(ImageSampler::linear()),
         &mut textures,
     );
-    let atlas_linear_padded_handle = texture_atlases.add(texture_atlas_linear_padded.clone());
+    let atlas_linear_padded_handle = texture_atlases.add(texture_atlas_linear_padded.0.clone());
 
     let texture_atlas_nearest_padded = create_texture_atlas(
         loaded_folder,
@@ -90,7 +90,7 @@ fn setup(
         Some(ImageSampler::nearest()),
         &mut textures,
     );
-    let atlas_nearest_padded_handle = texture_atlases.add(texture_atlas_nearest_padded);
+    let atlas_nearest_padded_handle = texture_atlases.add(texture_atlas_nearest_padded.0);
 
     // setup 2d scene
     commands.spawn(Camera2dBundle::default());
@@ -99,7 +99,7 @@ fn setup(
 
     // draw unpadded texture atlas
     commands.spawn(SpriteBundle {
-        texture: texture_atlas_linear_padded.texture.clone(),
+        texture: texture_atlas_linear_padded.1.clone(),
         transform: Transform {
             translation: Vec3::new(-250.0, -130.0, 0.0),
             scale: Vec3::splat(0.8),
@@ -110,7 +110,7 @@ fn setup(
 
     // draw padded texture atlas
     commands.spawn(SpriteBundle {
-        texture: texture_atlas_linear_padded.texture,
+        texture: texture_atlas_linear_padded.1,
         transform: Transform {
             translation: Vec3::new(250.0, -130.0, 0.0),
             scale: Vec3::splat(0.8),
@@ -149,11 +149,12 @@ fn setup(
     // get index of the sprite in the texture atlas, this is used to render the sprite
     // the index is the same for all the texture atlases, since they are created from the same folder
     let vendor_index = texture_atlas_linear
+        .0
         .get_texture_index(&vendor_handle)
         .unwrap();
 
     // configuration array to render sprites through iteration
-    let configurations: [(&str, Handle<TextureAtlas>, f32); 4] = [
+    let configurations: [(&str, Handle<TextureAtlasLayout>, f32); 4] = [
         ("Linear", atlas_linear_handle, -350.0),
         ("Nearest", atlas_nearest_handle, -150.0),
         ("Linear", atlas_linear_padded_handle, 150.0),
@@ -190,7 +191,7 @@ fn create_texture_atlas(
     padding: Option<UVec2>,
     sampling: Option<ImageSampler>,
     textures: &mut ResMut<Assets<Image>>,
-) -> TextureAtlas {
+) -> (TextureAtlasLayout, Handle<Image>) {
     // Build a `TextureAtlas` using the individual sprites
     let mut texture_atlas_builder =
         TextureAtlasBuilder::default().padding(padding.unwrap_or_default());
@@ -207,13 +208,13 @@ fn create_texture_atlas(
         texture_atlas_builder.add_texture(id, texture);
     }
 
-    let texture_atlas = texture_atlas_builder.finish(textures).unwrap();
+    let (texture_atlas, texture) = texture_atlas_builder.finish(textures).unwrap();
 
     // Update the sampling settings of the texture atlas
-    let image = textures.get_mut(&texture_atlas.texture).unwrap();
+    let image = textures.get_mut(&texture).unwrap();
     image.sampler = sampling.unwrap_or_default();
 
-    texture_atlas
+    (texture_atlas, texture)
 }
 
 /// Create and spawn a sprite from a texture atlas
@@ -221,7 +222,7 @@ fn create_sprite_from_atlas(
     commands: &mut Commands,
     translation: (f32, f32, f32),
     sprite_index: usize,
-    atlas_handle: Handle<TextureAtlas>,
+    atlas_handle: Handle<TextureAtlasLayout>,
 ) {
     commands.spawn(SpriteSheetBundle {
         transform: Transform {
