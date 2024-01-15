@@ -97,6 +97,20 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 ),
                                 Label,
                             ));
+
+                            #[cfg(not(feature = "bevy_ui_debug"))]
+                            parent.spawn((
+                                TextBundle::from_section(
+                                    "Try enabling feature \"bevy_ui_debug\".",
+                                    TextStyle {
+                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                        font_size: 20.,
+                                        ..Default::default()
+                                    },
+                                ),
+                                Label,
+                            ));
+
                         });
                 });
             // right vertical fill
