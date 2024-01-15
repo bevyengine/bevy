@@ -753,6 +753,30 @@ pub mod common_conditions {
     }
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// if the state machine is currently in any of `states`.
+    ///
+    /// # Panics
+    ///
+    /// The condition will panic if the resource does not exist.
+    pub fn in_any_state<S: States, const COUNT: usize>(
+        states: [S; COUNT],
+    ) -> impl FnMut(Res<State<S>>) -> bool + Clone {
+        move |current_state: Res<State<S>>| states.iter().any(|state| state == current_state.get())
+    }
+
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// if the state machine is currently in all of `states`.
+    ///
+    /// # Panics
+    ///
+    /// The condition will panic if the resource does not exist.
+    pub fn in_all_states<S: States, const COUNT: usize>(
+        states: [S; COUNT],
+    ) -> impl FnMut(Res<State<S>>) -> bool + Clone {
+        move |current_state: Res<State<S>>| states.iter().all(|state| state == current_state.get())
+    }
+
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if the state machine exists and is currently in `state`.
     ///
     /// The condition will return `false` if the state does not exist.
