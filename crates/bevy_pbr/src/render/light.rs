@@ -5,7 +5,7 @@ use bevy_render::{
     camera::Camera,
     color::Color,
     mesh::Mesh,
-    primitives::{CascadesFrusta, Frustum},
+    primitives::{CascadesFrusta, CubemapFrusta, Frustum},
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_phase::*,
@@ -299,6 +299,7 @@ pub fn extract_lights(
             &CubemapVisibleEntities,
             &GlobalTransform,
             &ViewVisibility,
+            &CubemapFrusta,
         )>,
     >,
     spot_lights: Extract<
@@ -307,6 +308,7 @@ pub fn extract_lights(
             &VisibleEntities,
             &GlobalTransform,
             &ViewVisibility,
+            &Frustum,
         )>,
     >,
     directional_lights: Extract<
@@ -347,7 +349,7 @@ pub fn extract_lights(
 
     let mut point_lights_values = Vec::with_capacity(*previous_point_lights_len);
     for entity in global_point_lights.iter().copied() {
-        let Ok((point_light, cubemap_visible_entities, transform, view_visibility)) =
+        let Ok((point_light, cubemap_visible_entities, transform, view_visibility, frusta)) =
             point_lights.get(entity)
         else {
             continue;
@@ -377,7 +379,11 @@ pub fn extract_lights(
         };
         point_lights_values.push((
             entity,
-            (extracted_point_light, render_cubemap_visible_entities),
+            (
+                extracted_point_light,
+                render_cubemap_visible_entities,
+                (*frusta).clone(),
+            ),
         ));
     }
     *previous_point_lights_len = point_lights_values.len();
@@ -385,7 +391,7 @@ pub fn extract_lights(
 
     let mut spot_lights_values = Vec::with_capacity(*previous_spot_lights_len);
     for entity in global_point_lights.iter().copied() {
-        if let Ok((spot_light, visible_entities, transform, view_visibility)) =
+        if let Ok((spot_light, visible_entities, transform, view_visibility, frustum)) =
             spot_lights.get(entity)
         {
             if !view_visibility.get() {
@@ -421,6 +427,7 @@ pub fn extract_lights(
                         spot_light_angles: Some((spot_light.inner_angle, spot_light.outer_angle)),
                     },
                     render_visible_entities,
+                    *frustum,
                 ),
             ));
         }
@@ -668,7 +675,11 @@ pub fn prepare_lights(
     directional_light_shadow_map: Res<DirectionalLightShadowMap>,
     mut max_directional_lights_warning_emitted: Local<bool>,
     mut max_cascades_per_light_warning_emitted: Local<bool>,
-    point_lights: Query<(Entity, &ExtractedPointLight)>,
+    point_lights: Query<(
+        Entity,
+        &ExtractedPointLight,
+        AnyOf<(&CubemapFrusta, &Frustum)>,
+    )>,
     directional_lights: Query<(Entity, &ExtractedDirectionalLight)>,
 ) {
     let views_iter = views.iter();
@@ -745,7 +756,7 @@ pub fn prepare_lights(
 
     let spot_light_shadow_maps_count = point_lights
         .iter()
-        .filter(|(_, light)| light.shadows_enabled && light.spot_light_angles.is_some())
+        .filter(|(_, light, _)| light.shadows_enabled && light.spot_light_angles.is_some())
         .count()
         .min(max_texture_array_layers - directional_shadow_enabled_count * MAX_CASCADES_PER_LIGHT);
 
@@ -754,7 +765,7 @@ pub fn prepare_lights(
     // - then those with shadows enabled first, so that the index can be used to render at most `point_light_shadow_maps_count`
     //   point light shadows and `spot_light_shadow_maps_count` spot light shadow maps,
     // - then by entity as a stable key to ensure that a consistent set of lights are chosen if the light count limit is exceeded.
-    point_lights.sort_by(|(entity_1, light_1), (entity_2, light_2)| {
+    point_lights.sort_by(|(entity_1, light_1, _), (entity_2, light_2, _)| {
         point_light_order(
             (
                 entity_1,
@@ -787,7 +798,7 @@ pub fn prepare_lights(
     }
 
     let mut gpu_point_lights = Vec::new();
-    for (index, &(entity, light)) in point_lights.iter().enumerate() {
+    for (index, &(entity, light, _)) in point_lights.iter().enumerate() {
         let mut flags = PointLightFlags::NONE;
 
         // Lights are sorted, shadow enabled lights are first
@@ -980,11 +991,11 @@ pub fn prepare_lights(
         };
 
         // TODO: this should select lights based on relevance to the view instead of the first ones that show up in a query
-        for &(light_entity, light) in point_lights
+        for &(light_entity, light, (point_light_frusta, _)) in point_lights
             .iter()
             // Lights are sorted, shadow enabled lights are first
             .take(point_light_shadow_maps_count)
-            .filter(|(_, light)| light.shadows_enabled)
+            .filter(|(_, light, _)| light.shadows_enabled)
         {
             let light_index = *global_light_meta
                 .entity_to_index
@@ -995,7 +1006,11 @@ pub fn prepare_lights(
             // and ignore rotation because we want the shadow map projections to align with the axes
             let view_translation = GlobalTransform::from_translation(light.transform.translation());
 
-            for (face_index, view_rotation) in cube_face_rotations.iter().enumerate() {
+            for (face_index, (view_rotation, frustum)) in cube_face_rotations
+                .iter()
+                .zip(&point_light_frusta.unwrap().frusta)
+                .enumerate()
+            {
                 let depth_texture_view =
                     point_light_depth_texture
                         .texture
@@ -1012,7 +1027,6 @@ pub fn prepare_lights(
 
                 let view_light_entity = commands
                     .spawn((
-                        // TODO: Need to add Frustum component for view uniforms
                         ShadowView {
                             depth_attachment: DepthAttachment::new(depth_texture_view, Some(0.0)),
                             pass_name: format!(
@@ -1034,6 +1048,7 @@ pub fn prepare_lights(
                             hdr: false,
                             color_grading: Default::default(),
                         },
+                        *frustum,
                         RenderPhase::<Shadow>::default(),
                         LightEntity::Point {
                             light_entity,
@@ -1046,7 +1061,7 @@ pub fn prepare_lights(
         }
 
         // spot lights
-        for (light_index, &(light_entity, light)) in point_lights
+        for (light_index, &(light_entity, light, (_, spot_light_frustum))) in point_lights
             .iter()
             .skip(point_light_count)
             .take(spot_light_shadow_maps_count)
@@ -1075,7 +1090,6 @@ pub fn prepare_lights(
 
             let view_light_entity = commands
                 .spawn((
-                    // TODO: Need to add Frustum component for view uniforms
                     ShadowView {
                         depth_attachment: DepthAttachment::new(depth_texture_view, Some(0.0)),
                         pass_name: format!("shadow pass spot light {light_index}"),
@@ -1093,6 +1107,7 @@ pub fn prepare_lights(
                         hdr: false,
                         color_grading: Default::default(),
                     },
+                    *spot_light_frustum.unwrap(),
                     RenderPhase::<Shadow>::default(),
                     LightEntity::Spot { light_entity },
                 ))
