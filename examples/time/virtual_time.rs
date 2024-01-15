@@ -4,7 +4,7 @@
 use std::time::Duration;
 
 use bevy::{
-    input::common_conditions::input_just_pressed, prelude::*,
+    input::common_conditions::input_just_pressed, prelude_2d::*,
     time::common_conditions::on_real_timer,
 };
 

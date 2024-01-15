@@ -2,7 +2,7 @@
 //! Shows the effects of different blend modes.
 //! The `fade_transparency` system smoothly changes the transparency over time.
 
-use bevy::prelude::*;
+use bevy::prelude_3d::*;
 
 fn main() {
     App::new()

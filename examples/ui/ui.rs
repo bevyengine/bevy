@@ -5,11 +5,8 @@ use bevy::{
         accesskit::{NodeBuilder, Role},
         AccessibilityNode,
     },
-    core_pipeline::prelude::*,
     input::mouse::{MouseScrollUnit, MouseWheel},
     prelude::*,
-    text::prelude::*,
-    ui::prelude::*,
     winit::WinitSettings,
 };
 

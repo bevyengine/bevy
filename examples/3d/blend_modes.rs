@@ -10,7 +10,7 @@
 //! | `Spacebar`         | Toggle Unlit                        |
 //! | `C`                | Randomize Colors                    |
 
-use bevy::prelude::*;
+use bevy::prelude_3d::*;
 use rand::random;
 
 fn main() {

@@ -2,8 +2,7 @@
 
 use bevy::{
     pbr::{MaterialPipeline, MaterialPipelineKey},
-    prelude::*,
-    reflect::TypePath,
+    prelude_3d::*,
     render::{
         mesh::{MeshVertexAttribute, MeshVertexBufferLayout},
         render_resource::{

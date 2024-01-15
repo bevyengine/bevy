@@ -1,8 +1,7 @@
 //! A shader and a material that uses it.
 
 use bevy::{
-    prelude::*,
-    reflect::TypePath,
+    prelude_3d::*,
     render::render_resource::{AsBindGroup, ShaderRef},
     sprite::{Material2d, Material2dPlugin, MaterialMesh2dBundle},
 };

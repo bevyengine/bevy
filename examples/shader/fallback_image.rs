@@ -6,8 +6,7 @@
 //! only tests that the images are initialized and bound so that the app does
 //! not panic.
 use bevy::{
-    prelude::*,
-    reflect::TypePath,
+    prelude_3d::*,
     render::render_resource::{AsBindGroup, ShaderRef},
 };
 

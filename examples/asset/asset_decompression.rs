@@ -1,18 +1,16 @@
 //! Implements loader for a Gzip compressed asset.
 
-use bevy::utils::thiserror;
 use bevy::{
     asset::{
         io::{Reader, VecReader},
         AssetLoader, AsyncReadExt, ErasedLoadedAsset, LoadContext, LoadDirectError,
     },
-    prelude::*,
+    prelude_2d::*,
     reflect::TypePath,
-    utils::BoxedFuture,
+    utils::{thiserror, BoxedFuture},
 };
 use flate2::read::GzDecoder;
-use std::io::prelude::*;
-use std::marker::PhantomData;
+use std::{io::prelude::*, marker::PhantomData};
 use thiserror::Error;
 
 #[derive(Asset, TypePath)]

@@ -1,6 +1,9 @@
 //! This example illustrates how to play a single-frequency sound (aka a pitch)
 
-use bevy::prelude::*;
+use bevy::{
+    audio::{Pitch, PitchBundle, PlaybackSettings},
+    prelude::*,
+};
 use std::time::Duration;
 
 fn main() {

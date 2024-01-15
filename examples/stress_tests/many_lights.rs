@@ -7,9 +7,9 @@ use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::{DVec2, DVec3},
     pbr::{ExtractedPointLight, GlobalLightMeta},
-    prelude::*,
+    prelude_3d::*,
     render::{camera::ScalingMode, Render, RenderApp, RenderSet},
-    window::{PresentMode, WindowPlugin, WindowResolution},
+    window::{PresentMode, WindowResolution},
 };
 use rand::{thread_rng, Rng};
 

@@ -1,6 +1,6 @@
 //! Illustrates the use of vertex colors.
 
-use bevy::{prelude::*, render::mesh::VertexAttributeValues};
+use bevy::{prelude_3d::*, render::mesh::VertexAttributeValues};
 
 fn main() {
     App::new()

@@ -1,6 +1,6 @@
 //! This example demonstrates how to use the `Camera::viewport_to_world_2d` method.
 
-use bevy::prelude::*;
+use bevy::{gizmos::prelude::*, prelude_2d::*};
 
 fn main() {
     App::new()

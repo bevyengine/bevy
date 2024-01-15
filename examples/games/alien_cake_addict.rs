@@ -2,10 +2,7 @@
 
 use std::f32::consts::PI;
 
-use bevy::{
-    core_pipeline::prelude::*, input::prelude::*, pbr::prelude::*, prelude::*, scene::prelude::*,
-    text::prelude::*, ui::prelude::*,
-};
+use bevy::prelude_3d::*;
 use rand::Rng;
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash, Default, States)]

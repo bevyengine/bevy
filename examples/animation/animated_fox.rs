@@ -3,7 +3,11 @@
 use std::f32::consts::PI;
 use std::time::Duration;
 
-use bevy::{animation::RepeatAnimation, pbr::CascadeShadowConfigBuilder, prelude::*};
+use bevy::{
+    animation::{prelude::*, RepeatAnimation},
+    pbr::CascadeShadowConfigBuilder,
+    prelude_3d::*,
+};
 
 fn main() {
     App::new()

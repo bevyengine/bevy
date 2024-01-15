@@ -4,8 +4,7 @@
 use std::f32::consts::*;
 
 use bevy::{
-    pbr::AmbientLight,
-    prelude::*,
+    prelude_3d::*,
     render::{
         mesh::{
             skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},

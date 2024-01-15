@@ -16,7 +16,7 @@
 
 use bevy::{
     pbr::{NotShadowCaster, NotShadowReceiver},
-    prelude::*,
+    prelude_3d::*,
 };
 
 fn main() {

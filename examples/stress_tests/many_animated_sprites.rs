@@ -8,8 +8,7 @@ use std::time::Duration;
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::Quat,
-    prelude::*,
-    render::camera::Camera,
+    prelude_2d::*,
     window::{PresentMode, WindowResolution},
 };
 

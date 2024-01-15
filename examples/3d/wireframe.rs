@@ -9,18 +9,13 @@
 //! This is a native only feature.
 
 use bevy::{
-    core_pipeline::prelude::*,
-    input::prelude::*,
-    pbr::prelude::*,
-    pbr::wireframe::{NoWireframe, Wireframe, WireframeColor, WireframeConfig, WireframePlugin},
-    prelude::*,
+    pbr::wireframe::*,
+    prelude_3d::*,
     render::{
         render_resource::WgpuFeatures,
         settings::{RenderCreation, WgpuSettings},
         RenderPlugin,
     },
-    text::prelude::*,
-    ui::prelude::*,
 };
 
 fn main() {

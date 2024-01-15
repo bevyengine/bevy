@@ -6,7 +6,7 @@ mod camera_controller;
 use bevy::{
     asset::LoadState,
     core_pipeline::Skybox,
-    prelude::*,
+    prelude_3d::*,
     render::{
         render_resource::{TextureViewDescriptor, TextureViewDimension},
         renderer::RenderDevice,

@@ -5,7 +5,7 @@
 //! features (like scenes).
 
 use bevy::{
-    prelude::*,
+    prelude_3d::*,
     reflect::{
         serde::{ReflectSerializer, UntypedReflectDeserializer},
         DynamicStruct,

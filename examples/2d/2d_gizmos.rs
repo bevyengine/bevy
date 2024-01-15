@@ -2,9 +2,7 @@
 
 use std::f32::consts::PI;
 
-use bevy::{
-    gizmos::prelude::*, input::prelude::*, prelude_2d::*, text::prelude::*, ui::prelude::*,
-};
+use bevy::{gizmos::prelude::*, prelude_2d::*, reflect::Reflect};
 
 fn main() {
     App::new()

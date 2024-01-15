@@ -1,15 +1,15 @@
 //! Loads animations from a skinned glTF, spawns many of them, and plays the
 //! animation to stress test skinned meshes.
 
-use std::f32::consts::PI;
-use std::time::Duration;
+use std::{f32::consts::PI, time::Duration};
 
 use argh::FromArgs;
 use bevy::{
+    animation::{AnimationClip, AnimationPlayer},
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     pbr::CascadeShadowConfigBuilder,
-    prelude::*,
-    window::{PresentMode, WindowPlugin, WindowResolution},
+    prelude_3d::*,
+    window::{PresentMode, WindowResolution},
 };
 
 #[derive(FromArgs, Resource)]

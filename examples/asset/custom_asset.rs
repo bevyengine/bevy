@@ -1,11 +1,10 @@
 //! Implements loader for a custom asset type.
 
-use bevy::utils::thiserror;
 use bevy::{
     asset::{io::Reader, ron, AssetLoader, AsyncReadExt, LoadContext},
     prelude::*,
     reflect::TypePath,
-    utils::BoxedFuture,
+    utils::{thiserror, BoxedFuture},
 };
 use serde::Deserialize;
 use thiserror::Error;

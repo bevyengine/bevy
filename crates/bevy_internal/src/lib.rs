@@ -193,28 +193,41 @@ pub mod dynamic_plugin {
 
 /// `use bevy::prelude::*;` to import common components, bundles, and plugins.
 pub mod prelude {
+    #[cfg(feature = "bevy_asset")]
+    pub use crate::asset::prelude::*;
+    #[cfg(feature = "bevy_core_pipeline")]
+    pub use crate::core_pipeline::prelude::*;
+    #[cfg(feature = "bevy_render")]
+    pub use crate::render::prelude::*;
+    #[cfg(feature = "bevy_text")]
+    pub use crate::text::prelude::*;
+    #[cfg(feature = "bevy_ui")]
+    pub use crate::ui::prelude::*;
+
     #[doc(hidden)]
     pub use crate::{
-        app::prelude::*, asset::prelude::*, core::prelude::*, ecs::prelude::*, hierarchy::prelude::*,
-        log::prelude::*, math::prelude::*, render::prelude::*, time::prelude::*, transform::prelude::*,
-        utils::prelude::*, window::prelude::*, DefaultPlugins, MinimalPlugins,
+        app::prelude::*, core::prelude::*, ecs::prelude::*, hierarchy::prelude::*,
+        input::prelude::*, log::prelude::*, math::prelude::*, time::prelude::*,
+        transform::prelude::*, utils::prelude::*, window::prelude::*, DefaultPlugins,
+        MinimalPlugins,
     };
 
     pub use bevy_derive::{bevy_main, Deref, DerefMut};
 }
 
+/// `use bevy::prelude_2d::*;` to import common components, bundles and plugins for creating 2d games.
 pub mod prelude_2d {
     pub use crate::prelude::*;
-
-    #[cfg(feature = "bevy_core_pipeline")]
-    pub use crate::core_pipeline::prelude::*;
     #[cfg(feature = "bevy_sprite")]
     pub use crate::sprite::prelude::*;
 }
 
+/// `use bevy::prelude_3d::*;` to import common components, bundles and plugins for creating 3d games.
 pub mod prelude_3d {
-    pub use crate::prelude::*;
-
     #[cfg(feature = "bevy_pbr")]
     pub use crate::pbr::prelude::*;
+    pub use crate::prelude::*;
+    pub use crate::reflect::prelude::*;
+    #[cfg(feature = "bevy_scene")]
+    pub use crate::scene::prelude::*;
 }

@@ -1,6 +1,6 @@
 //! A test to confirm that `bevy` allows minimising the window
 //! This is run in CI to ensure that this doesn't regress again.
-use bevy::prelude::*;
+use bevy::{pbr::prelude::*, prelude::*, sprite::prelude::*};
 
 fn main() {
     // TODO: Combine this with `resizing` once multiple_windows is simpler than

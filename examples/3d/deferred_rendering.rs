@@ -7,10 +7,11 @@ use bevy::{
         fxaa::Fxaa,
         prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     },
-    pbr::NotShadowReceiver,
-    pbr::{CascadeShadowConfigBuilder, DirectionalLightShadowMap},
-    pbr::{DefaultOpaqueRendererMethod, NotShadowCaster, OpaqueRendererMethod},
-    prelude::*,
+    pbr::{
+        CascadeShadowConfigBuilder, DefaultOpaqueRendererMethod, DirectionalLightShadowMap,
+        NotShadowCaster, NotShadowReceiver, OpaqueRendererMethod,
+    },
+    prelude_3d::*,
     render::render_resource::TextureFormat,
 };
 

@@ -4,12 +4,11 @@
 //! - Insert an initialized `SceneHandle` resource into your App's `AssetServer`.
 
 use bevy::{
-    asset::LoadState, gltf::Gltf, input::common_conditions::input_just_pressed, prelude::*,
-    scene::InstanceId,
+    asset::LoadState, gizmos::prelude::*, gltf::Gltf, input::common_conditions::input_just_pressed,
+    prelude_3d::*, scene::InstanceId,
 };
 
-use std::f32::consts::*;
-use std::fmt;
+use std::{f32::consts::*, fmt};
 
 use super::camera_controller::*;
 

@@ -8,7 +8,7 @@
 use bevy::{
     core_pipeline::{core_3d, fullscreen_vertex_shader::fullscreen_shader_vertex_state},
     ecs::query::QueryItem,
-    prelude::*,
+    prelude_3d::*,
     render::{
         extract_component::{
             ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,

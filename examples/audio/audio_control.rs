@@ -1,6 +1,6 @@
 //! This example illustrates how to load and play an audio file, and control how it's played.
 
-use bevy::prelude::*;
+use bevy::{audio::prelude::*, prelude::*};
 
 fn main() {
     App::new()

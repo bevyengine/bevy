@@ -8,7 +8,7 @@
 use bevy::{
     prelude_2d::*,
     sprite::Anchor,
-    text::{prelude::*, BreakLineOn, Text2dBounds},
+    text::{BreakLineOn, Text2dBounds},
 };
 
 fn main() {

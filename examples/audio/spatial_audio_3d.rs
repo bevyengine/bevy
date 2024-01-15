@@ -1,5 +1,8 @@
 //! This example illustrates how to load and play an audio file, and control where the sounds seems to come from.
-use bevy::prelude::*;
+use bevy::{
+    audio::{AudioBundle, PlaybackSettings, SpatialListener},
+    prelude_3d::*,
+};
 
 fn main() {
     App::new()

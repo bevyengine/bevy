@@ -4,9 +4,9 @@
 //! running the event loop non-stop.
 
 use bevy::{
-    prelude::*,
+    prelude_3d::*,
     utils::Duration,
-    window::{PresentMode, RequestRedraw, WindowPlugin},
+    window::{PresentMode, RequestRedraw},
     winit::WinitSettings,
 };
 
@@ -92,7 +92,7 @@ fn update_winit(
 /// demonstrated features.
 pub(crate) mod test_setup {
     use crate::ExampleMode;
-    use bevy::{prelude::*, window::RequestRedraw};
+    use bevy::{prelude_3d::*, window::RequestRedraw};
 
     /// Switch between update modes when the mouse is clicked.
     pub(crate) fn cycle_modes(

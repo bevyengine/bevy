@@ -1,9 +1,12 @@
 //! A simplified implementation of the classic game "Breakout".
 
 use bevy::{
-    prelude::*,
-    sprite::collide_aabb::{collide, Collision},
-    sprite::MaterialMesh2dBundle,
+    audio::prelude::*,
+    prelude_2d::*,
+    sprite::{
+        collide_aabb::{collide, Collision},
+        MaterialMesh2dBundle,
+    },
 };
 
 // These constants are defined in `Transform` units.

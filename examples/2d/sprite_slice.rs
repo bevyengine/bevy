@@ -1,5 +1,5 @@
 //! Showcases sprite 9 slice scaling
-use bevy::prelude::*;
+use bevy::prelude_2d::*;
 
 fn main() {
     App::new()

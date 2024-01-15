@@ -11,7 +11,7 @@ use bevy::{
         fxaa::{Fxaa, Sensitivity},
     },
     pbr::CascadeShadowConfigBuilder,
-    prelude::*,
+    prelude_3d::*,
     render::{
         render_asset::RenderAssetPersistencePolicy,
         render_resource::{Extent3d, TextureDimension, TextureFormat},

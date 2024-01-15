@@ -1,9 +1,7 @@
 //! Illustrates how to create parent-child relationships between entities and how parent transforms
 //! are propagated to their descendants.
 
-use bevy::prelude::*;
-use bevy_internal::core_pipeline::prelude::Camera3dBundle;
-use bevy_internal::pbr::{PbrBundle, PointLightBundle, StandardMaterial};
+use bevy::prelude_3d::*;
 
 fn main() {
     App::new()

@@ -1,6 +1,6 @@
 //! This example illustrates how to use `TextureAtlases` within ui
 
-use bevy::{prelude::*, winit::WinitSettings};
+use bevy::{prelude_2d::*, winit::WinitSettings};
 
 fn main() {
     App::new()

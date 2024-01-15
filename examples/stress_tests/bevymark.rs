@@ -7,7 +7,7 @@ use std::str::FromStr;
 use argh::FromArgs;
 use bevy::{
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
-    prelude::*,
+    prelude_2d::*,
     render::{
         render_asset::RenderAssetPersistencePolicy,
         render_resource::{Extent3d, TextureDimension, TextureFormat},

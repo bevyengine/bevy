@@ -2,8 +2,8 @@
 use argh::FromArgs;
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
-    prelude::*,
-    window::{PresentMode, WindowPlugin, WindowResolution},
+    prelude_2d::*,
+    window::{PresentMode, WindowResolution},
 };
 
 const FONT_SIZE: f32 = 7.0;

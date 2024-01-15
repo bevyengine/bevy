@@ -2,8 +2,7 @@
 //! `binding_array<texture<f32>>` shader binding slot and sample non-uniformly.
 
 use bevy::{
-    prelude::*,
-    reflect::TypePath,
+    prelude_3d::*,
     render::{
         render_asset::RenderAssets, render_resource::*, renderer::RenderDevice,
         texture::FallbackImage, RenderApp,

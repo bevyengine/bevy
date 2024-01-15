@@ -2,7 +2,7 @@
 
 use std::f32::consts::PI;
 
-use bevy::prelude::*;
+use bevy::{animation::prelude::*, prelude_3d::*};
 
 fn main() {
     App::new()

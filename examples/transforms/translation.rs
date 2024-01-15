@@ -1,6 +1,6 @@
 //! Illustrates how to move an object along an axis.
 
-use bevy::prelude::*;
+use bevy::prelude_3d::*;
 
 // Define a struct to keep some information about our entity.
 // Here it's an arbitrary movement speed, the spawn location, and a maximum distance from it.

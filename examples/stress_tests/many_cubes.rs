@@ -14,12 +14,12 @@ use argh::FromArgs;
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::{DVec2, DVec3},
-    prelude::*,
+    prelude_3d::*,
     render::{
         render_asset::RenderAssetPersistencePolicy,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
     },
-    window::{PresentMode, WindowPlugin, WindowResolution},
+    window::{PresentMode, WindowResolution},
 };
 use rand::{rngs::StdRng, seq::SliceRandom, Rng, SeedableRng};
 

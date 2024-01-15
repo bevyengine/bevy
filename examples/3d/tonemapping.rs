@@ -4,8 +4,7 @@ use bevy::{
     core_pipeline::tonemapping::Tonemapping,
     math::vec2,
     pbr::CascadeShadowConfigBuilder,
-    prelude::*,
-    reflect::TypePath,
+    prelude_3d::*,
     render::{
         render_asset::RenderAssetPersistencePolicy,
         render_resource::{AsBindGroup, Extent3d, ShaderRef, TextureDimension, TextureFormat},

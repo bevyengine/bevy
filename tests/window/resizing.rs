@@ -1,7 +1,7 @@
 //! A test to confirm that `bevy` allows setting the window to arbitrary small sizes
 //! This is run in CI to ensure that this doesn't regress again.
 
-use bevy::{prelude::*, window::WindowResolution};
+use bevy::{pbr::prelude::*, prelude::*, sprite::prelude::*, window::WindowResolution};
 
 // The smallest size reached is 1x1, as X11 doesn't support windows with a 0 dimension
 // TODO: Add a check for platforms other than X11 for 0xk and kx0, despite those currently unsupported on CI.

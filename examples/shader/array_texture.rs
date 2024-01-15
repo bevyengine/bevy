@@ -1,7 +1,6 @@
 use bevy::{
     asset::LoadState,
-    prelude::*,
-    reflect::TypePath,
+    prelude_3d::*,
     render::render_resource::{AsBindGroup, ShaderRef},
 };
 

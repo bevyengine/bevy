@@ -3,7 +3,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    pbr::CascadeShadowConfigBuilder, prelude::*, render::camera::Viewport, window::WindowResized,
+    pbr::CascadeShadowConfigBuilder, prelude_3d::*, render::camera::Viewport, window::WindowResized,
 };
 
 fn main() {

@@ -9,7 +9,7 @@
 
 use bevy::{
     pbr::{CascadeShadowConfigBuilder, NotShadowCaster},
-    prelude::*,
+    prelude_3d::*,
 };
 
 fn main() {

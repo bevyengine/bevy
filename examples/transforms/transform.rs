@@ -2,7 +2,7 @@
 
 use std::f32::consts::PI;
 
-use bevy::prelude::*;
+use bevy::prelude_3d::*;
 
 // A struct for additional data of for a moving cube.
 #[derive(Component)]

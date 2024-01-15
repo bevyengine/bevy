@@ -3,11 +3,8 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    core_pipeline::prelude::*,
-    input::prelude::*,
-    pbr::prelude::*,
     pbr::{CascadeShadowConfigBuilder, NotShadowCaster, NotShadowReceiver},
-    prelude::*,
+    prelude_3d::*,
 };
 
 fn main() {

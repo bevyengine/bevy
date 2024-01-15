@@ -1,9 +1,7 @@
 //! Update a scene from a glTF file, either by spawning the scene as a child of another entity,
 //! or by accessing the entities of the scene.
 
-use bevy::{
-    pbr::DirectionalLightShadowMap, prelude2d::Camera3dBundle, prelude3d::*, scene::SceneBundle,
-};
+use bevy::{pbr::DirectionalLightShadowMap, prelude_3d::*};
 
 fn main() {
     App::new()

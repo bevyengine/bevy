@@ -4,17 +4,15 @@
 //! is rendered to the screen.
 
 use bevy::{
-    prelude::*,
+    prelude_2d::*,
     render::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
-        render_asset::RenderAssetPersistencePolicy,
-        render_asset::RenderAssets,
+        render_asset::{RenderAssetPersistencePolicy, RenderAssets},
         render_graph::{self, RenderGraph},
         render_resource::*,
         renderer::{RenderContext, RenderDevice},
         Render, RenderApp, RenderSet,
     },
-    window::WindowPlugin,
 };
 use std::borrow::Cow;
 

@@ -2,7 +2,7 @@
 
 use bevy::{
     pbr::{ExtendedMaterial, MaterialExtension, OpaqueRendererMethod},
-    prelude::*,
+    prelude_3d::*,
     render::render_resource::*,
 };
 

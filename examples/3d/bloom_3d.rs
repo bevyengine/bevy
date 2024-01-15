@@ -5,7 +5,7 @@ use bevy::{
         bloom::{BloomCompositeMode, BloomSettings},
         tonemapping::Tonemapping,
     },
-    prelude::*,
+    prelude_3d::*,
 };
 use std::{
     collections::hash_map::DefaultHasher,

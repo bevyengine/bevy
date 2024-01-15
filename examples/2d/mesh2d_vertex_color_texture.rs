@@ -4,7 +4,7 @@
 //! [`Quad`]: shape::Quad
 
 use bevy::{
-    prelude::*,
+    prelude_2d::*,
     sprite::{MaterialMesh2dBundle, Mesh2dHandle},
 };
 

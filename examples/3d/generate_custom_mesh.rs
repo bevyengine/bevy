@@ -1,11 +1,13 @@
 // ! This example demonstrates how to create a custom mesh,
 // ! assign a custom UV mapping for a custom texture,
 // ! and how to change the UV mapping at run-time.
-use bevy::prelude::*;
-use bevy::render::{
-    mesh::{Indices, VertexAttributeValues},
-    render_asset::RenderAssetPersistencePolicy,
-    render_resource::PrimitiveTopology,
+use bevy::{
+    prelude_3d::*,
+    render::{
+        mesh::{Indices, VertexAttributeValues},
+        render_asset::RenderAssetPersistencePolicy,
+        render_resource::PrimitiveTopology,
+    },
 };
 
 // Define a "marker" component to mark the custom mesh. Marker components are often used in Bevy for

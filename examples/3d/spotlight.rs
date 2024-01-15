@@ -3,7 +3,7 @@ use std::f32::consts::*;
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     pbr::NotShadowCaster,
-    prelude::*,
+    prelude_3d::*,
 };
 use rand::{rngs::StdRng, Rng, SeedableRng};
 

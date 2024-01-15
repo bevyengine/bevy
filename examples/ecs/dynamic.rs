@@ -3,13 +3,13 @@
 
 use std::{alloc::Layout, io::Write, ptr::NonNull};
 
-use bevy::prelude::*;
 use bevy::{
     ecs::{
         component::{ComponentDescriptor, ComponentId, ComponentInfo, StorageType},
         query::{QueryBuilder, QueryData},
         world::FilteredEntityMut,
     },
+    prelude::*,
     ptr::{Aligned, OwningPtr},
     utils::HashMap,
 };

@@ -1,7 +1,8 @@
 //! This example illustrates how to load and play an audio file, and control where the sounds seems to come from.
 use bevy::{
+    audio::{AudioBundle, PlaybackSettings, SpatialListener},
     audio::{AudioPlugin, SpatialScale},
-    prelude::*,
+    prelude_2d::*,
     sprite::MaterialMesh2dBundle,
 };
 

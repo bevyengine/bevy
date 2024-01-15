@@ -7,7 +7,7 @@
 //! - How to read morph target names in `name_morphs`.
 //! - How to play morph target animations in `setup_animations`.
 
-use bevy::prelude::*;
+use bevy::{animation::prelude::*, prelude_3d::*};
 use std::f32::consts::PI;
 
 fn main() {

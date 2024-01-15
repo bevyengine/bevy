@@ -9,8 +9,8 @@
 
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
-    prelude::*,
-    window::{PresentMode, WindowPlugin, WindowResolution},
+    prelude_2d::*,
+    window::{PresentMode, WindowResolution},
 };
 
 use rand::Rng;

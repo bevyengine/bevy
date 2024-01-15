@@ -1,5 +1,5 @@
 //! Control animations of entities in the loaded scene.
-use bevy::{gltf::Gltf, prelude::*};
+use bevy::{animation::prelude::*, gltf::Gltf, prelude::*};
 
 use crate::scene_viewer_plugin::SceneHandle;
 

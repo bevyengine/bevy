@@ -26,9 +26,8 @@ use bevy::{
         tonemapping::Tonemapping,
     },
     pbr::{NotShadowCaster, PointLightShadowMap, TransmittedShadowReceiver},
-    prelude::*,
-    render::camera::TemporalJitter,
-    render::view::ColorGrading,
+    prelude_3d::*,
+    render::{camera::TemporalJitter, view::ColorGrading},
 };
 
 #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]

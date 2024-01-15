@@ -6,7 +6,7 @@ use bevy::{
     input::gamepad::{
         GamepadAxisChangedEvent, GamepadButton, GamepadButtonChangedEvent, GamepadSettings,
     },
-    prelude::*,
+    prelude_2d::*,
     sprite::{Anchor, MaterialMesh2dBundle, Mesh2dHandle},
 };
 

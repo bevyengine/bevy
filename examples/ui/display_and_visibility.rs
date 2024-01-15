@@ -1,7 +1,6 @@
 //! Demonstrates how Display and Visibility work in the UI.
 
-use bevy::prelude::*;
-use bevy::winit::WinitSettings;
+use bevy::{prelude_2d::*, winit::WinitSettings};
 
 const PALETTE: [&str; 4] = ["27496D", "466B7A", "669DB3", "ADCBE3"];
 const HIDDEN_COLOR: Color = Color::rgb(1.0, 0.7, 0.7);

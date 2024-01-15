@@ -2,7 +2,7 @@
 
 use bevy::{
     gltf::GltfPlugin,
-    prelude::*,
+    prelude_3d::*,
     reflect::TypePath,
     render::{
         mesh::{MeshVertexAttribute, MeshVertexBufferLayout},

@@ -6,7 +6,7 @@ use bevy::{
         ScreenSpaceAmbientOcclusionBundle, ScreenSpaceAmbientOcclusionQualityLevel,
         ScreenSpaceAmbientOcclusionSettings,
     },
-    prelude::*,
+    prelude_3d::*,
     render::camera::TemporalJitter,
 };
 use std::f32::consts::PI;

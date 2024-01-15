@@ -5,7 +5,7 @@ use bevy::{
         bloom::{BloomCompositeMode, BloomSettings},
         tonemapping::Tonemapping,
     },
-    prelude::*,
+    prelude_2d::*,
     sprite::MaterialMesh2dBundle,
 };
 

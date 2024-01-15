@@ -4,7 +4,7 @@
 
 use bevy::{
     asset::io::{AssetReader, AssetReaderError, AssetSource, AssetSourceId, PathStream, Reader},
-    prelude::*,
+    prelude_2d::*,
     utils::BoxedFuture,
 };
 use std::path::Path;

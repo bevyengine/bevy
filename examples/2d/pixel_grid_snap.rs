@@ -1,7 +1,7 @@
 //! Shows how to create graphics that snap to the pixel grid by rendering to a texture in 2D
 
 use bevy::{
-    prelude::*,
+    prelude_2d::*,
     render::{
         camera::RenderTarget,
         render_resource::{

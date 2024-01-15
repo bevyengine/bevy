@@ -2,7 +2,7 @@
 
 use std::f32::consts::PI;
 
-use bevy::prelude::*;
+use bevy::prelude_3d::*;
 
 // Define a component to keep information for the scaled object.
 #[derive(Component)]

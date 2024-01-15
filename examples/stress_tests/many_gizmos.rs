@@ -2,6 +2,7 @@ use std::f32::consts::TAU;
 
 use bevy::{
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
+    gizmos::prelude::*,
     prelude::*,
     window::{PresentMode, WindowResolution},
 };

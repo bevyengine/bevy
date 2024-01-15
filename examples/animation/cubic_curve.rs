@@ -1,8 +1,9 @@
 //! Demonstrates how to work with Cubic curves.
 
 use bevy::{
+    gizmos::prelude::*,
     math::{cubic_splines::CubicCurve, vec3},
-    prelude::*,
+    prelude_3d::*,
 };
 
 #[derive(Component)]

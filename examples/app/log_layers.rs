@@ -1,8 +1,10 @@
 //! This example illustrates how to add custom log layers in bevy.
 
 use bevy::{
-    log::tracing_subscriber::{layer::SubscriberExt, Layer},
-    log::BoxedSubscriber,
+    log::{
+        tracing_subscriber::{layer::SubscriberExt, Layer},
+        BoxedSubscriber,
+    },
     prelude::*,
     utils::tracing::Subscriber,
 };

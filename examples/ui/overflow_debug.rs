@@ -1,5 +1,5 @@
 //! Tests how different transforms behave when clipped with `Overflow::Hidden`
-use bevy::prelude::*;
+use bevy::{prelude_2d::*, text::TextStyle};
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
 const CONTAINER_SIZE: f32 = 150.0;

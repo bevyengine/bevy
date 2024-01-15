@@ -1,6 +1,7 @@
 use bevy::{
+    audio::{AudioBundle, AudioSink, AudioSinkPlayback, PlaybackSettings},
     input::touch::TouchPhase,
-    prelude::*,
+    prelude_3d::*,
     window::{ApplicationLifetime, WindowMode},
 };
 

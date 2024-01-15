@@ -1,11 +1,12 @@
 //! Illustrates how to make a single system from multiple functions running in sequence,
 //! passing the output of the first into the input of the next.
 
-use bevy::prelude::*;
+use bevy::{
+    log::LogPlugin,
+    prelude::*,
+    utils::{dbg, error, info, tracing::Level, warn},
+};
 use std::num::ParseIntError;
-
-use bevy::log::LogPlugin;
-use bevy::utils::{dbg, error, info, tracing::Level, warn};
 
 fn main() {
     App::new()

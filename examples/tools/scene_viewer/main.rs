@@ -9,9 +9,8 @@
 
 use bevy::{
     math::Vec3A,
-    prelude::*,
+    prelude_3d::*,
     render::primitives::{Aabb, Sphere},
-    window::WindowPlugin,
 };
 
 #[path = "../../helpers/camera_controller.rs"]
