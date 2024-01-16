@@ -1,3 +1,5 @@
+//! A module for rendering each of the [`bevy_math::primitives`] with [`Gizmos`].
+
 use std::f32::consts::{FRAC_PI_2, TAU};
 
 use bevy_math::primitives::{
@@ -11,618 +13,11 @@ use bevy_render::color::Color;
 
 use crate::prelude::Gizmos;
 
-/// The [`PrimitiveDetailFor`] trait serves as a marker trait, indicating that a implementor `D` is
-/// intended to provide additional details specific to the geometric primitive `P`. This allows the
-/// [`Gizmos`] to associate specific information with each primitive when rendering.
-pub trait PrimitiveDetailFor<P> {}
-
-/// A trait for rendering 3D geometric primitives (`P`) with associated details (`D`) with [`Gizmos`].
-pub trait GizmoPrimitive3d<P: Primitive3d, D: PrimitiveDetailFor<P>> {
-    /// Renders a 3D primitive with its associated details.
-    fn primitive_3d(&mut self, primitive: P, detail: D);
-}
-
 // BoxedPolyline 2D
 
 // NOTE: not sure here yet, maybe we should use a reference to some of the primitives instead since
 // cloning all the vertices for drawing might defeat its purpose if we pass in the primitive by
 // value
-
-// ======== 3D ==========
-
-// Direction 3D
-
-/// Details for rendering a 3D direction arrow via [`Gizmos`].
-#[derive(Default)]
-pub struct Direction3dDetails {
-    /// Starting position of the arrow in 3D space.
-    pub position: Vec3,
-    /// Color of the arrow.
-    pub color: Color,
-}
-impl PrimitiveDetailFor<Direction3d> for Direction3dDetails {}
-
-impl<'s> GizmoPrimitive3d<Direction3d, Direction3dDetails> for Gizmos<'s> {
-    fn primitive_3d(&mut self, primitive: Direction3d, detail: Direction3dDetails) {
-        let Direction3dDetails {
-            position: start,
-            color,
-        } = detail;
-        let dir = primitive;
-        let end = start + *dir;
-        self.arrow(start, end, color);
-    }
-}
-
-// Sphere 3D
-
-/// Details for rendering a 3D sphere via [`Gizmos`].
-pub struct SphereDetails {
-    /// Center position of the sphere in 3D space.
-    pub center: Vec3,
-    /// Rotation of the sphere around the origin (`Vec3::ZERO`).
-    pub rotation: Quat,
-    /// Color of the sphere.
-    pub color: Color,
-    /// Number of segments used to approximate the sphere geometry. Defaults to `5`
-    pub segments: usize,
-}
-impl PrimitiveDetailFor<Sphere> for SphereDetails {}
-
-impl Default for SphereDetails {
-    fn default() -> Self {
-        Self {
-            center: Default::default(),
-            rotation: Default::default(),
-            color: Default::default(),
-            segments: 5,
-        }
-    }
-}
-
-impl<'s> GizmoPrimitive3d<Sphere, SphereDetails> for Gizmos<'s> {
-    fn primitive_3d(&mut self, primitive: Sphere, detail: SphereDetails) {
-        let SphereDetails {
-            center,
-            rotation,
-            color,
-            segments,
-        } = detail;
-        let Sphere { radius } = primitive;
-
-        // draw two caps, one for the "upper half" and one for the "lower" half of the sphere
-        [-1.0, 1.0]
-            .into_iter()
-            .for_each(|sign| draw_cap(self, radius, segments, rotation, center, sign, color));
-
-        draw_circle(self, radius, segments, rotation, center, color);
-    }
-}
-
-// Plane 3D
-
-/// Details for rendering a 3D plane via [`Gizmos`].
-#[derive(Default)]
-pub struct Plane3dDetails {
-    /// Position of the point on the plane from which the normal emanates.
-    pub normal_position: Vec3,
-    /// Rotation of the plane around the origin (`Vec3::ZERO`).
-    pub rotation: Quat,
-    /// Color of the plane.
-    pub color: Color,
-}
-impl PrimitiveDetailFor<Plane3d> for Plane3dDetails {}
-
-impl<'s> GizmoPrimitive3d<Plane3d, Plane3dDetails> for Gizmos<'s> {
-    fn primitive_3d(&mut self, primitive: Plane3d, detail: Plane3dDetails) {
-        let Plane3dDetails {
-            normal_position,
-            rotation,
-            color,
-        } = detail;
-        let normal = rotation * *primitive.normal;
-        self.arrow(normal_position, normal_position + normal, color);
-        let ortho = normal.any_orthonormal_vector();
-        (0..4)
-            .map(|i| i as f32 * 0.25 * 360.0)
-            .map(f32::to_radians)
-            .map(|angle| Quat::from_axis_angle(normal, angle))
-            .for_each(|quat| {
-                let dir = quat * ortho;
-                (0..)
-                    .filter(|i| i % 2 == 0)
-                    .map(|i| [i, i + 1])
-                    .map(|percents| percents.map(|p| p as f32 * 0.25 * dir))
-                    .map(|vs| vs.map(|v| v + normal_position))
-                    .take(3)
-                    .for_each(|[start, end]| {
-                        self.line(start, end, color);
-                    });
-            });
-    }
-}
-
-// Line 3D
-
-/// Details for rendering a 3D line via [`Gizmos`].
-#[derive(Default)]
-pub struct Line3dDetails {
-    /// Starting position of the line.
-    pub start_position: Vec3,
-    /// Rotation of the line around the origin (`Vec3::ZERO`).
-    pub rotation: Quat,
-    /// Color of the line.
-    pub color: Color,
-}
-impl PrimitiveDetailFor<Line3d> for Line3dDetails {}
-
-impl<'s> GizmoPrimitive3d<Line3d, Line3dDetails> for Gizmos<'s> {
-    fn primitive_3d(&mut self, primitive: Line3d, detail: Line3dDetails) {
-        let Line3dDetails {
-            start_position,
-            rotation,
-            color,
-        } = detail;
-        let dir = rotation * *primitive.direction;
-        self.arrow(start_position, start_position + dir, color);
-        [1.0, -1.0].into_iter().for_each(|sign| {
-            self.line(
-                start_position,
-                start_position + sign * dir.clamp_length(1000.0, 1000.0),
-                color,
-            );
-        });
-    }
-}
-
-// Segment 3D
-
-/// Details for rendering a 3D line segment via [`Gizmos`].
-#[derive(Default)]
-pub struct Segment3dDetails {
-    /// Starting position of the line segment.
-    pub start_position: Vec3,
-    /// Rotation of the line segment around the origin (`Vec3::ZERO`).
-    pub rotation: Quat,
-    /// Color of the line segment.
-    pub color: Color,
-}
-impl PrimitiveDetailFor<Segment3d> for Segment3dDetails {}
-
-impl<'s> GizmoPrimitive3d<Segment3d, Segment3dDetails> for Gizmos<'s> {
-    fn primitive_3d(&mut self, primitive: Segment3d, detail: Segment3dDetails) {
-        let Segment3dDetails {
-            start_position,
-            rotation,
-            color,
-        } = detail;
-        let dir = rotation * *primitive.direction;
-        let start = start_position;
-        let end = start_position + dir * 2.0 * primitive.half_length;
-        self.line(start, end, color);
-    }
-}
-
-// Polyline 3D
-
-/// Details for rendering a 3D polyline via [`Gizmos`].
-#[derive(Default)]
-pub struct Polyline3dDetails {
-    /// Translation applied to all vertices of the polyline.
-    pub translation: Vec3,
-    /// Rotation of the polyline around the origin (`Vec3::ZERO`) given as a quaternion.
-    pub rotation: Quat,
-    /// Color of the polyline.
-    pub color: Color,
-}
-impl<const N: usize> PrimitiveDetailFor<Polyline3d<N>> for Polyline3dDetails {}
-
-impl<'s, const N: usize> GizmoPrimitive3d<Polyline3d<N>, Polyline3dDetails> for Gizmos<'s> {
-    fn primitive_3d(&mut self, primitive: Polyline3d<N>, detail: Polyline3dDetails) {
-        let Polyline3dDetails {
-            translation,
-            rotation,
-            color,
-        } = detail;
-        self.linestrip(
-            primitive
-                .vertices
-                .map(rotate_then_translate_3d(rotation, translation)),
-            color,
-        );
-    }
-}
-
-// BoxedPolyline 3D
-
-/// Details for rendering a 3D boxed polyline via [`Gizmos`].
-#[derive(Default)]
-pub struct BoxedPolyline3dDetails {
-    /// Translation applied to all vertices of the enclosed polyline.
-    pub translation: Vec3,
-    /// Rotation of the polyline around the origin (`Vec3::ZERO`) given as a quaternion.
-    pub rotation: Quat,
-    /// Color of the polyline and the enclosing box.
-    pub color: Color,
-}
-impl PrimitiveDetailFor<BoxedPolyline3d> for BoxedPolyline3dDetails {}
-
-impl<'s> GizmoPrimitive3d<BoxedPolyline3d, BoxedPolyline3dDetails> for Gizmos<'s> {
-    fn primitive_3d(&mut self, primitive: BoxedPolyline3d, detail: BoxedPolyline3dDetails) {
-        let BoxedPolyline3dDetails {
-            translation,
-            rotation,
-            color,
-        } = detail;
-        self.linestrip(
-            primitive
-                .vertices
-                .iter()
-                .copied()
-                .map(rotate_then_translate_3d(rotation, translation)),
-            color,
-        );
-    }
-}
-
-// Cuboid 3D
-
-/// Details for rendering a 3D cuboid via [`Gizmos`].
-#[derive(Default)]
-pub struct Cuboid3dDetails {
-    /// Center position of the cuboid.
-    pub center: Vec3,
-    /// Rotation of the cuboid around its center given as a quaternion.
-    pub rotation: Quat,
-    /// Color of the cuboid.
-    pub color: Color,
-}
-impl PrimitiveDetailFor<Cuboid> for Cuboid3dDetails {}
-
-impl<'s> GizmoPrimitive3d<Cuboid, Cuboid3dDetails> for Gizmos<'s> {
-    fn primitive_3d(&mut self, primitive: Cuboid, detail: Cuboid3dDetails) {
-        let Cuboid3dDetails {
-            center,
-            rotation,
-            color,
-        } = detail;
-        let [half_extend_x, half_extend_y, half_extend_z] = primitive.half_extents.to_array();
-
-        let vertices @ [a, b, c, d, e, f, g, h] = [
-            [1.0, 1.0, 1.0],
-            [-1.0, 1.0, 1.0],
-            [-1.0, -1.0, 1.0],
-            [1.0, -1.0, 1.0],
-            [1.0, 1.0, -1.0],
-            [-1.0, 1.0, -1.0],
-            [-1.0, -1.0, -1.0],
-            [1.0, -1.0, -1.0],
-        ]
-        .map(|[sx, sy, sz]| Vec3::new(sx * half_extend_x, sy * half_extend_y, sz * half_extend_z))
-        .map(rotate_then_translate_3d(rotation, center));
-
-        let upper = [a, b, c, d]
-            .into_iter()
-            .zip([a, b, c, d].into_iter().cycle().skip(1));
-
-        let lower = [e, f, g, h]
-            .into_iter()
-            .zip([e, f, g, h].into_iter().cycle().skip(1));
-
-        let connections = vertices.into_iter().zip(vertices.into_iter().skip(4));
-
-        upper
-            .chain(lower)
-            .chain(connections)
-            .for_each(|(start, end)| {
-                self.line(start, end, color);
-            });
-    }
-}
-
-// Cylinder 3D
-
-/// Details for rendering a 3D cylinder via [`Gizmos`].
-pub struct Cylinder3dDetails {
-    /// Center position of the cylinder.
-    pub center: Vec3,
-    /// Normal vector indicating the orientation of the cylinder. Defaults to `Vec3::Z`
-    pub normal: Vec3,
-    /// Color of the cylinder.
-    pub color: Color,
-    /// Number of segments used to approximate the cylinder geometry. Defaults to `5`
-    pub segments: usize,
-}
-impl PrimitiveDetailFor<Cylinder> for Cylinder3dDetails {}
-
-impl Default for Cylinder3dDetails {
-    fn default() -> Self {
-        Self {
-            center: Default::default(),
-            normal: Vec3::Z,
-            color: Default::default(),
-            segments: 5,
-        }
-    }
-}
-
-impl<'s> GizmoPrimitive3d<Cylinder, Cylinder3dDetails> for Gizmos<'s> {
-    fn primitive_3d(&mut self, primitive: Cylinder, detail: Cylinder3dDetails) {
-        let Cylinder3dDetails {
-            center,
-            normal,
-            color,
-            segments,
-        } = detail;
-        let Cylinder {
-            radius,
-            half_height,
-        } = primitive;
-
-        let rotation = Quat::from_rotation_arc(Vec3::Z, normal);
-
-        [-1.0, 1.0].into_iter().for_each(|sign| {
-            draw_circle(
-                self,
-                radius,
-                segments,
-                rotation,
-                center + sign * half_height * normal,
-                color,
-            );
-        });
-
-        draw_cylinder_vertical_lines(self, radius, segments, half_height, rotation, center, color);
-    }
-}
-
-// Capsule 3D
-
-/// Details for rendering a 3D capsule via [`Gizmos`].
-pub struct Capsule3dDetails {
-    /// Center position of the capsule.
-    pub center: Vec3,
-    /// Normal vector indicating the orientation of the capsule. Defaults to `Vec3::Z`
-    pub normal: Vec3,
-    /// Color of the capsule.
-    pub color: Color,
-    /// Number of segments used to approximate the capsule geometry. Defaults to `5`
-    pub segments: usize,
-}
-impl PrimitiveDetailFor<Capsule> for Capsule3dDetails {}
-
-impl Default for Capsule3dDetails {
-    fn default() -> Self {
-        Self {
-            center: Default::default(),
-            normal: Vec3::Z,
-            color: Default::default(),
-            segments: 5,
-        }
-    }
-}
-
-impl<'s> GizmoPrimitive3d<Capsule, Capsule3dDetails> for Gizmos<'s> {
-    fn primitive_3d(&mut self, primitive: Capsule, detail: Capsule3dDetails) {
-        let Capsule3dDetails {
-            center,
-            normal,
-            color,
-            segments,
-        } = detail;
-        let Capsule {
-            radius,
-            half_length,
-        } = primitive;
-
-        let rotation = Quat::from_rotation_arc(Vec3::Z, normal);
-
-        [1.0, -1.0].into_iter().for_each(|sign| {
-            // use "-" here since rotation is ccw and otherwise the caps would face the wrong way
-            // around
-            let center = center - sign * half_length * normal;
-            draw_cap(self, radius, segments, rotation, center, sign, color);
-            draw_circle(self, radius, segments, rotation, center, color);
-        });
-
-        draw_cylinder_vertical_lines(self, radius, segments, half_length, rotation, center, color);
-    }
-}
-
-// Cone 3D
-
-/// Details for rendering a 3D cone via [`Gizmos`].
-pub struct Cone3dDetails {
-    /// Center of the base of the cone.
-    pub center: Vec3,
-    /// Normal vector indicating the orientation of the cone. Defaults to `Vec3::Z`
-    pub normal: Vec3,
-    /// Color of the cone.
-    pub color: Color,
-    /// Number of segments used to approximate the cone geometry. Defaults to `5`
-    pub segments: usize,
-}
-impl PrimitiveDetailFor<Cone> for Cone3dDetails {}
-
-impl Default for Cone3dDetails {
-    fn default() -> Self {
-        Self {
-            center: Default::default(),
-            normal: Vec3::Z,
-            color: Default::default(),
-            segments: 5,
-        }
-    }
-}
-
-impl<'s> GizmoPrimitive3d<Cone, Cone3dDetails> for Gizmos<'s> {
-    fn primitive_3d(&mut self, primitive: Cone, detail: Cone3dDetails) {
-        let Cone3dDetails {
-            center,
-            normal,
-            color,
-            segments,
-        } = detail;
-        let Cone { radius, height } = primitive;
-
-        let rotation = Quat::from_rotation_arc(Vec3::Z, normal);
-
-        draw_circle(self, radius, segments, rotation, center, color);
-
-        circle_coordinates(radius, segments)
-            .map(move |p| [p.extend(0.0), Vec2::ZERO.extend(height)])
-            .map(|ps| ps.map(rotate_then_translate_3d(rotation, center)))
-            .for_each(|[start, end]| {
-                self.line(start, end, color);
-            });
-    }
-}
-
-// ConicalFrustum 3D
-
-/// Details for rendering a 3D conical frustum via [`Gizmos`].
-pub struct ConicalFrustum3dDetails {
-    /// Center of the base circle of the conical frustum.
-    pub center: Vec3,
-    /// Normal vector indicating the orientation of the conical frustum. Defaults to `Vec3::Z`
-    pub normal: Vec3,
-    /// Color of the conical frustum.
-    pub color: Color,
-    /// Number of segments used to approximate the curved surfaces. Defaults to `5`
-    pub segments: usize,
-}
-impl PrimitiveDetailFor<ConicalFrustum> for ConicalFrustum3dDetails {}
-
-impl Default for ConicalFrustum3dDetails {
-    fn default() -> Self {
-        Self {
-            center: Default::default(),
-            normal: Vec3::Z,
-            color: Default::default(),
-            segments: 5,
-        }
-    }
-}
-
-impl<'s> GizmoPrimitive3d<ConicalFrustum, ConicalFrustum3dDetails> for Gizmos<'s> {
-    fn primitive_3d(&mut self, primitive: ConicalFrustum, detail: ConicalFrustum3dDetails) {
-        let ConicalFrustum3dDetails {
-            center,
-            normal,
-            color,
-            segments,
-        } = detail;
-        let ConicalFrustum {
-            radius_top,
-            radius_bottom,
-            height,
-        } = primitive;
-
-        let rotation = Quat::from_rotation_arc(Vec3::Z, normal);
-        [(radius_top, height), (radius_bottom, 0.0)]
-            .into_iter()
-            .for_each(|(radius, height)| {
-                draw_circle(
-                    self,
-                    radius,
-                    segments,
-                    rotation,
-                    center + height * normal,
-                    color,
-                );
-            });
-
-        circle_coordinates(radius_top, segments)
-            .map(move |p| p.extend(height))
-            .zip(circle_coordinates(radius_bottom, segments).map(|p| p.extend(0.0)))
-            .map(|(start, end)| [start, end])
-            .map(|ps| ps.map(rotate_then_translate_3d(rotation, center)))
-            .for_each(|[start, end]| {
-                self.line(start, end, color);
-            });
-    }
-}
-
-// Torus 3D
-
-/// Details for rendering a 3D torus via [`Gizmos`].
-pub struct Torus3dDetails {
-    /// Center of the torus.
-    pub center: Vec3,
-    /// Normal vector indicating the orientation of the torus. Defaults to `Vec3::Z`
-    pub normal: Vec3,
-    /// Color of the torus.
-    pub color: Color,
-    /// Number of segments in the minor (tube) direction. Defaults to `5`
-    pub minor_segments: usize,
-    /// Number of segments in the major (ring) direction. Defaults to `5`
-    pub major_segments: usize,
-}
-impl PrimitiveDetailFor<Torus> for Torus3dDetails {}
-
-impl Default for Torus3dDetails {
-    fn default() -> Self {
-        Self {
-            center: Default::default(),
-            normal: Vec3::Z,
-            color: Default::default(),
-            minor_segments: 5,
-            major_segments: 5,
-        }
-    }
-}
-
-impl<'s> GizmoPrimitive3d<Torus, Torus3dDetails> for Gizmos<'s> {
-    fn primitive_3d(&mut self, primitive: Torus, detail: Torus3dDetails) {
-        let Torus3dDetails {
-            center,
-            normal,
-            color,
-            minor_segments,
-            major_segments,
-        } = detail;
-        let Torus {
-            minor_radius,
-            major_radius,
-        } = primitive;
-
-        let rotation = Quat::from_rotation_arc(Vec3::Z, normal);
-
-        [
-            (major_radius - minor_radius, 0.0),
-            (major_radius + minor_radius, 0.0),
-            (major_radius, minor_radius),
-            (major_radius, -minor_radius),
-        ]
-        .into_iter()
-        .for_each(|(radius, height)| {
-            draw_circle(
-                self,
-                radius,
-                major_segments,
-                rotation,
-                center + height * normal,
-                color,
-            );
-        });
-
-        let affine = rotate_then_translate_3d(rotation, center);
-        circle_coordinates(major_radius, major_segments)
-            .flat_map(|p| {
-                let translation = affine(p.extend(0.0));
-                let dir_to_translation = (translation - center).normalize();
-                let rotation_axis = normal.cross(dir_to_translation).normalize();
-                [dir_to_translation, normal, -dir_to_translation, -normal]
-                    .map(|dir| dir * minor_radius)
-                    .map(|offset| translation + offset)
-                    .map(|point| (point, translation, rotation_axis))
-            })
-            .for_each(|(from, center, rotation_axis)| {
-                self.arc_3d(center, rotation_axis, from, FRAC_PI_2, minor_radius, color)
-                    .segments(minor_segments);
-            });
-    }
-}
 
 /// A trait for rendering 2D geometric primitives (`P`) with [`Gizmos`].
 pub trait GizmoPrimitive2d<'s, P: Primitive2d> {
@@ -1385,6 +780,1087 @@ impl<'s> Drop for RegularPolygonBuilder<'_, 's> {
             .map(|p| single_circle_coordinate(self.circumcircle_radius, self.sides, p, 1.0))
             .map(rotate_then_translate_2d(self.rotation, self.translation));
         self.gizmos.linestrip_2d(points, self.color);
+    }
+}
+
+// === 3D ===
+
+/// A trait for rendering 3D geometric primitives (`P`) with [`Gizmos`].
+pub trait GizmoPrimitive3d<'s, P: Primitive3d> {
+    /// The output of `primitive_3d`. This is a builder to set non-default values.
+    type Output<'a>
+    where
+        Self: 's,
+        's: 'a;
+
+    /// Renders a 3D primitive with its associated details.
+    fn primitive_3d<'a>(&'s mut self, primitive: P) -> Self::Output<'a>;
+}
+
+// direction 3d
+
+/// Builder for configuring the drawing options of [`Direction3d`].
+pub struct Direction3dBuilder<'a, 's> {
+    gizmos: &'a mut Gizmos<'s>,
+
+    direction: Direction3d, // Direction the arrow points to
+
+    position: Vec3, // Starting position of the arrow in 3D space
+    color: Color,   // Color of the arrow
+}
+
+impl<'a, 's> Direction3dBuilder<'a, 's> {
+    /// Set the starting position of the arrow in 3D space.
+    pub fn position(mut self, position: Vec3) -> Self {
+        self.position = position;
+        self
+    }
+
+    /// Set the color of the arrow.
+    pub fn color(mut self, color: Color) -> Self {
+        self.color = color;
+        self
+    }
+}
+
+impl<'s> GizmoPrimitive3d<'s, Direction3d> for Gizmos<'s> {
+    type Output<'a> = Direction3dBuilder<'a, 's> where Self: 's, 's: 'a;
+
+    fn primitive_3d<'a>(&'s mut self, primitive: Direction3d) -> Self::Output<'a> {
+        Direction3dBuilder {
+            gizmos: self,
+            direction: primitive,
+            position: Default::default(),
+            color: Default::default(),
+        }
+    }
+}
+
+impl<'s> Drop for Direction3dBuilder<'_, 's> {
+    fn drop(&mut self) {
+        self.gizmos
+            .arrow(self.position, self.position + *self.direction, self.color);
+    }
+}
+
+// sphere
+
+/// Builder for configuring the drawing options of [`Sphere`].
+pub struct SphereBuilder<'a, 's> {
+    gizmos: &'a mut Gizmos<'s>,
+
+    radius: f32, // Radius of the sphere
+
+    center: Vec3,    // Center position of the sphere in 3D space
+    rotation: Quat,  // Rotation of the sphere around the origin in 3D space
+    color: Color,    // Color of the sphere
+    segments: usize, // Number of segments used to approximate the sphere geometry
+}
+
+impl<'a, 's> SphereBuilder<'a, 's> {
+    /// Set the radius of the sphere.
+    pub fn radius(mut self, radius: f32) -> Self {
+        self.radius = radius;
+        self
+    }
+
+    /// Set the center position of the sphere in 3D space.
+    pub fn center(mut self, center: Vec3) -> Self {
+        self.center = center;
+        self
+    }
+
+    /// Set the rotation of the sphere around the origin in 3D space.
+    pub fn rotation(mut self, rotation: Quat) -> Self {
+        self.rotation = rotation;
+        self
+    }
+
+    /// Set the color of the sphere.
+    pub fn color(mut self, color: Color) -> Self {
+        self.color = color;
+        self
+    }
+
+    /// Set the number of segments used to approximate the sphere geometry.
+    pub fn segments(mut self, segments: usize) -> Self {
+        self.segments = segments;
+        self
+    }
+}
+
+impl<'s> GizmoPrimitive3d<'s, Sphere> for Gizmos<'s> {
+    type Output<'a> = SphereBuilder<'a, 's> where Self: 's, 's: 'a;
+
+    fn primitive_3d<'a>(&'s mut self, primitive: Sphere) -> Self::Output<'a> {
+        SphereBuilder {
+            gizmos: self,
+            radius: primitive.radius,
+            center: Default::default(),
+            rotation: Default::default(),
+            color: Default::default(),
+            segments: Default::default(),
+        }
+    }
+}
+
+impl<'s> Drop for SphereBuilder<'_, 's> {
+    fn drop(&mut self) {
+        let SphereBuilder {
+            radius,
+            center,
+            rotation,
+            color,
+            segments,
+            ..
+        } = self;
+
+        // draw two caps, one for the "upper half" and one for the "lower" half of the sphere
+        [-1.0, 1.0].into_iter().for_each(|sign| {
+            draw_cap(
+                self.gizmos,
+                *radius,
+                *segments,
+                *rotation,
+                *center,
+                sign,
+                *color,
+            );
+        });
+
+        draw_circle(self.gizmos, *radius, *segments, *rotation, *center, *color);
+    }
+}
+
+// plane 3d
+
+/// Builder for configuring the drawing options of [`Plane3d`].
+pub struct Plane3dBuilder<'a, 's> {
+    gizmos: &'a mut Gizmos<'s>,
+
+    normal: Direction3d, // Normal vector of the plane
+
+    normal_position: Vec3, // Position of the normal vector of the plane
+    rotation: Quat,        // Rotation of the plane around the origin (`Vec3::ZERO`)
+    color: Color,          // Color of the plane
+}
+
+impl<'a, 's> Plane3dBuilder<'a, 's> {
+    /// Set the normal vector of the plane.
+    pub fn normal_position(mut self, normal_position: Vec3) -> Self {
+        self.normal_position = normal_position;
+        self
+    }
+
+    /// Set the rotation of the plane around the origin (`Vec3::ZERO`).
+    pub fn rotation(mut self, rotation: Quat) -> Self {
+        self.rotation = rotation;
+        self
+    }
+
+    /// Set the color of the plane.
+    pub fn color(mut self, color: Color) -> Self {
+        self.color = color;
+        self
+    }
+}
+
+impl<'s> GizmoPrimitive3d<'s, Plane3d> for Gizmos<'s> {
+    type Output<'a> = Plane3dBuilder<'a, 's> where Self: 's, 's: 'a;
+
+    fn primitive_3d<'a>(&'s mut self, primitive: Plane3d) -> Self::Output<'a> {
+        Plane3dBuilder {
+            gizmos: self,
+            normal: primitive.normal,
+            normal_position: Default::default(),
+            rotation: Default::default(),
+            color: Default::default(),
+        }
+    }
+}
+
+impl<'s> Drop for Plane3dBuilder<'_, 's> {
+    fn drop(&mut self) {
+        let Plane3dBuilder {
+            gizmos,
+            normal,
+            normal_position,
+            rotation,
+            color,
+        } = self;
+
+        let normal = *rotation * **normal;
+        gizmos.arrow(*normal_position, *normal_position + normal, *color);
+        let ortho = normal.any_orthonormal_vector();
+        (0..4)
+            .map(|i| i as f32 * 0.25 * 360.0)
+            .map(f32::to_radians)
+            .map(|angle| Quat::from_axis_angle(normal, angle))
+            .for_each(|quat| {
+                let dir = quat * ortho;
+                (0..)
+                    .filter(|i| i % 2 == 0)
+                    .map(|i| [i, i + 1])
+                    .map(|percents| percents.map(|p| p as f32 * 0.25 * dir))
+                    .map(|vs| vs.map(|v| v + *normal_position))
+                    .take(3)
+                    .for_each(|[start, end]| {
+                        gizmos.line(start, end, *color);
+                    });
+            });
+    }
+}
+
+// line 3d
+
+/// Builder for configuring the drawing options of [`Line3d`].
+pub struct Line3dBuilder<'a, 's> {
+    gizmos: &'a mut Gizmos<'s>,
+
+    direction: Direction3d, // Direction vector of the line
+
+    start_position: Vec3, // Starting position of the line
+    rotation: Quat,       // Rotation of the line around the origin (`Vec3::ZERO`)
+    color: Color,         // Color of the line
+}
+
+impl<'a, 's> Line3dBuilder<'a, 's> {
+    /// Set the starting position of the line.
+    pub fn start_position(mut self, start_position: Vec3) -> Self {
+        self.start_position = start_position;
+        self
+    }
+
+    /// Set the rotation of the line around the origin (`Vec3::ZERO`).
+    pub fn rotation(mut self, rotation: Quat) -> Self {
+        self.rotation = rotation;
+        self
+    }
+
+    /// Set the color of the line.
+    pub fn color(mut self, color: Color) -> Self {
+        self.color = color;
+        self
+    }
+}
+
+impl<'s> GizmoPrimitive3d<'s, Line3d> for Gizmos<'s> {
+    type Output<'a> = Line3dBuilder<'a, 's> where Self: 's, 's: 'a;
+
+    fn primitive_3d<'a>(&'s mut self, primitive: Line3d) -> Self::Output<'a> {
+        Line3dBuilder {
+            gizmos: self,
+            direction: primitive.direction,
+            start_position: Default::default(),
+            rotation: Default::default(),
+            color: Default::default(),
+        }
+    }
+}
+
+impl<'s> Drop for Line3dBuilder<'_, 's> {
+    fn drop(&mut self) {
+        let Line3dBuilder {
+            gizmos,
+            direction,
+            start_position,
+            rotation,
+            color,
+        } = self;
+
+        let dir = *rotation * **direction;
+        gizmos.arrow(*start_position, *start_position + dir, *color);
+        [1.0, -1.0].into_iter().for_each(|sign| {
+            gizmos.line(
+                *start_position,
+                *start_position + sign * dir.clamp_length(1000.0, 1000.0),
+                *color,
+            );
+        });
+    }
+}
+
+// segment 3d
+
+/// Builder for configuring the drawing options of [`Segment3d`].
+pub struct Segment3dBuilder<'a, 's> {
+    gizmos: &'a mut Gizmos<'s>,
+
+    direction: Direction3d, // Direction vector of the line segment
+    half_length: f32,       // Half the length of the Segment
+
+    start_position: Vec3, // Starting position of the line segment
+    rotation: Quat,       // Rotation of the line segment around the origin (`Vec3::ZERO`)
+    color: Color,         // Color of the line segment
+}
+
+impl<'a, 's> Segment3dBuilder<'a, 's> {
+    /// Set the direction vector of the line segment.
+    pub fn half_length(mut self, half_length: f32) -> Self {
+        self.half_length = half_length;
+        self
+    }
+
+    /// Set the starting position of the line segment.
+    pub fn start_position(mut self, start_position: Vec3) -> Self {
+        self.start_position = start_position;
+        self
+    }
+
+    /// Set the rotation of the line segment around the origin (`Vec3::ZERO`).
+    pub fn rotation(mut self, rotation: Quat) -> Self {
+        self.rotation = rotation;
+        self
+    }
+
+    /// Set the color of the line segment.
+    pub fn color(mut self, color: Color) -> Self {
+        self.color = color;
+        self
+    }
+}
+
+impl<'s> GizmoPrimitive3d<'s, Segment3d> for Gizmos<'s> {
+    type Output<'a> = Segment3dBuilder<'a, 's> where Self: 's, 's: 'a;
+
+    fn primitive_3d<'a>(&'s mut self, primitive: Segment3d) -> Self::Output<'a> {
+        Segment3dBuilder {
+            gizmos: self,
+            direction: primitive.direction,
+            half_length: primitive.half_length,
+            start_position: Default::default(),
+            rotation: Default::default(),
+            color: Default::default(),
+        }
+    }
+}
+
+impl<'s> Drop for Segment3dBuilder<'_, 's> {
+    fn drop(&mut self) {
+        let Segment3dBuilder {
+            gizmos,
+            direction,
+            half_length,
+            start_position,
+            rotation,
+            color,
+        } = self;
+
+        let dir = *rotation * **direction;
+        let start = *start_position;
+        let end = *start_position + dir * 2.0 * *half_length;
+        gizmos.line(start, end, *color);
+    }
+}
+
+// polyline 3d
+
+/// Builder for configuring the drawing options of [`Polyline3d`].
+pub struct Polyline3dBuilder<'a, 's, const N: usize> {
+    gizmos: &'a mut Gizmos<'s>,
+
+    vertices: [Vec3; N], // Vertices of the polyline
+
+    translation: Vec3, // Translation applied to all vertices of the polyline
+    rotation: Quat,    // Rotation of the polyline around the origin (`Vec3::ZERO`)
+    color: Color,      // Color of the polyline
+}
+
+impl<'a, 's, const N: usize> Polyline3dBuilder<'a, 's, N> {
+    /// Set the translation applied to all vertices of the polyline.
+    pub fn translation(mut self, translation: Vec3) -> Self {
+        self.translation = translation;
+        self
+    }
+
+    /// Set the rotation of the polyline around the origin (`Vec3::ZERO`) given as a quaternion.
+    pub fn rotation(mut self, rotation: Quat) -> Self {
+        self.rotation = rotation;
+        self
+    }
+
+    /// Set the color of the polyline.
+    pub fn color(mut self, color: Color) -> Self {
+        self.color = color;
+        self
+    }
+}
+
+impl<'s, const N: usize> GizmoPrimitive3d<'s, Polyline3d<N>> for Gizmos<'s> {
+    type Output<'a> = Polyline3dBuilder<'a, 's, N> where Self: 's, 's: 'a;
+
+    fn primitive_3d<'a>(&'s mut self, primitive: Polyline3d<N>) -> Self::Output<'a> {
+        Polyline3dBuilder {
+            gizmos: self,
+            vertices: primitive.vertices,
+            translation: Default::default(),
+            rotation: Default::default(),
+            color: Default::default(),
+        }
+    }
+}
+
+impl<const N: usize> Drop for Polyline3dBuilder<'_, '_, N> {
+    fn drop(&mut self) {
+        let Polyline3dBuilder {
+            gizmos,
+            vertices,
+            translation,
+            rotation,
+            color,
+        } = self;
+
+        gizmos.linestrip(
+            vertices.map(rotate_then_translate_3d(*rotation, *translation)),
+            *color,
+        );
+    }
+}
+
+// boxed polyline 3d
+
+/// Builder for configuring the drawing options of [`BoxedPolyline3d`].
+pub struct BoxedPolyline3dBuilder<'a, 's> {
+    gizmos: &'a mut Gizmos<'s>,
+
+    vertices: Box<[Vec3]>, // Vertices of the boxed polyline
+
+    translation: Vec3, // Translation applied to all vertices of the boxed polyline
+    rotation: Quat, // Rotation of the polyline around the origin (`Vec3::ZERO`) given as a quaternion
+    color: Color,   // Color of the polyline and the enclosing box
+}
+
+impl<'a, 's> BoxedPolyline3dBuilder<'a, 's> {
+    /// Set the translation applied to all vertices of the boxed polyline.
+    pub fn translation(mut self, translation: Vec3) -> Self {
+        self.translation = translation;
+        self
+    }
+
+    /// Set the rotation of the polyline around the origin (`Vec3::ZERO`) given as a quaternion.
+    pub fn rotation(mut self, rotation: Quat) -> Self {
+        self.rotation = rotation;
+        self
+    }
+
+    /// Set the color of the polyline and the enclosing box.
+    pub fn color(mut self, color: Color) -> Self {
+        self.color = color;
+        self
+    }
+}
+
+impl<'s> GizmoPrimitive3d<'s, BoxedPolyline3d> for Gizmos<'s> {
+    type Output<'a> = BoxedPolyline3dBuilder<'a, 's> where Self: 's, 's: 'a;
+
+    fn primitive_3d<'a>(&'s mut self, primitive: BoxedPolyline3d) -> Self::Output<'a> {
+        BoxedPolyline3dBuilder {
+            gizmos: self,
+            vertices: primitive.vertices,
+            translation: Default::default(),
+            rotation: Default::default(),
+            color: Default::default(),
+        }
+    }
+}
+
+impl<'s> Drop for BoxedPolyline3dBuilder<'_, 's> {
+    fn drop(&mut self) {
+        let BoxedPolyline3dBuilder {
+            gizmos,
+            vertices,
+            translation,
+            rotation,
+            color,
+        } = self;
+
+        gizmos.linestrip(
+            vertices
+                .iter()
+                .copied()
+                .map(rotate_then_translate_3d(*rotation, *translation)),
+            *color,
+        );
+    }
+}
+
+// cuboid
+
+/// Builder for configuring the drawing options of [`Cuboid3d`].
+pub struct Cuboid3dBuilder<'a, 's> {
+    gizmos: &'a mut Gizmos<'s>,
+
+    half_extents: Vec3, // Half extents of the cuboid on each axis
+
+    center: Vec3,   // Center position of the cuboid
+    rotation: Quat, // Rotation of the cuboid around its center given as a quaternion
+    color: Color,   // Color of the cuboid
+}
+
+impl<'a, 's> Cuboid3dBuilder<'a, 's> {
+    /// Set the center position of the cuboid.
+    pub fn center(mut self, center: Vec3) -> Self {
+        self.center = center;
+        self
+    }
+
+    /// Set the rotation of the cuboid around its center given as a quaternion.
+    pub fn rotation(mut self, rotation: Quat) -> Self {
+        self.rotation = rotation;
+        self
+    }
+
+    /// Set the color of the cuboid.
+    pub fn color(mut self, color: Color) -> Self {
+        self.color = color;
+        self
+    }
+}
+
+impl<'s> GizmoPrimitive3d<'s, Cuboid> for Gizmos<'s> {
+    type Output<'a> = Cuboid3dBuilder<'a, 's> where Self: 's, 's: 'a;
+
+    fn primitive_3d<'a>(&'s mut self, primitive: Cuboid) -> Self::Output<'a> {
+        Cuboid3dBuilder {
+            gizmos: self,
+            half_extents: primitive.half_extents,
+            center: Default::default(),
+            rotation: Default::default(),
+            color: Default::default(),
+        }
+    }
+}
+
+impl<'s> Drop for Cuboid3dBuilder<'_, 's> {
+    fn drop(&mut self) {
+        let Cuboid3dBuilder {
+            gizmos,
+            half_extents,
+            center,
+            rotation,
+            color,
+        } = self;
+
+        let [half_extend_x, half_extend_y, half_extend_z] = half_extents.to_array();
+
+        let vertices @ [a, b, c, d, e, f, g, h] = [
+            [1.0, 1.0, 1.0],
+            [-1.0, 1.0, 1.0],
+            [-1.0, -1.0, 1.0],
+            [1.0, -1.0, 1.0],
+            [1.0, 1.0, -1.0],
+            [-1.0, 1.0, -1.0],
+            [-1.0, -1.0, -1.0],
+            [1.0, -1.0, -1.0],
+        ]
+        .map(|[sx, sy, sz]| Vec3::new(sx * half_extend_x, sy * half_extend_y, sz * half_extend_z))
+        .map(rotate_then_translate_3d(*rotation, *center));
+
+        let upper = [a, b, c, d]
+            .into_iter()
+            .zip([a, b, c, d].into_iter().cycle().skip(1));
+
+        let lower = [e, f, g, h]
+            .into_iter()
+            .zip([e, f, g, h].into_iter().cycle().skip(1));
+
+        let connections = vertices.into_iter().zip(vertices.into_iter().skip(4));
+
+        upper
+            .chain(lower)
+            .chain(connections)
+            .for_each(|(start, end)| {
+                gizmos.line(start, end, *color);
+            });
+    }
+}
+
+// cylinder 3d
+
+/// Builder for configuring the drawing options of [`Cylinder3d`].
+pub struct Cylinder3dBuilder<'a, 's> {
+    gizmos: &'a mut Gizmos<'s>,
+
+    radius: f32,      // Radius of the cylinder
+    half_height: f32, // Half height of the cylinder
+
+    center: Vec3,    // Center position of the cylinder
+    normal: Vec3,    // Normal vector indicating the orientation of the cylinder
+    color: Color,    // Color of the cylinder
+    segments: usize, // Number of segments used to approximate the cylinder geometry
+}
+
+impl<'a, 's> Cylinder3dBuilder<'a, 's> {
+    /// Set the center position of the cylinder.
+    pub fn center(mut self, center: Vec3) -> Self {
+        self.center = center;
+        self
+    }
+
+    /// Set the normal vector indicating the orientation of the cylinder.
+    pub fn normal(mut self, normal: Vec3) -> Self {
+        self.normal = normal;
+        self
+    }
+
+    /// Set the color of the cylinder.
+    pub fn color(mut self, color: Color) -> Self {
+        self.color = color;
+        self
+    }
+
+    /// Set the number of segments used to approximate the cylinder geometry.
+    pub fn segments(mut self, segments: usize) -> Self {
+        self.segments = segments;
+        self
+    }
+}
+
+impl<'s> GizmoPrimitive3d<'s, Cylinder> for Gizmos<'s> {
+    type Output<'a> = Cylinder3dBuilder<'a, 's> where Self: 's, 's: 'a;
+
+    fn primitive_3d<'a>(&'s mut self, primitive: Cylinder) -> Self::Output<'a> {
+        Cylinder3dBuilder {
+            gizmos: self,
+            radius: primitive.radius,
+            half_height: primitive.half_height,
+            center: Default::default(),
+            normal: Vec3::Z,
+            color: Default::default(),
+            segments: 5,
+        }
+    }
+}
+
+impl<'s> Drop for Cylinder3dBuilder<'_, 's> {
+    fn drop(&mut self) {
+        let Cylinder3dBuilder {
+            gizmos,
+            radius,
+            half_height,
+            center,
+            normal,
+            color,
+            segments,
+        } = self;
+
+        let rotation = Quat::from_rotation_arc(Vec3::Z, *normal);
+
+        [-1.0, 1.0].into_iter().for_each(|sign| {
+            draw_circle(
+                gizmos,
+                *radius,
+                *segments,
+                rotation,
+                *center + sign * *half_height * *normal,
+                *color,
+            );
+        });
+
+        draw_cylinder_vertical_lines(
+            gizmos,
+            *radius,
+            *segments,
+            *half_height,
+            rotation,
+            *center,
+            *color,
+        );
+    }
+}
+
+// capsule 3d
+
+/// Builder for configuring the drawing options of [`Capsule3d`].
+pub struct Capsule3dBuilder<'a, 's> {
+    gizmos: &'a mut Gizmos<'s>,
+
+    radius: f32,      // Radius of the capsule
+    half_length: f32, // Half length of the capsule
+
+    center: Vec3,    // Center position of the capsule
+    normal: Vec3,    // Normal vector indicating the orientation of the capsule
+    color: Color,    // Color of the capsule
+    segments: usize, // Number of segments used to approximate the capsule geometry
+}
+
+impl<'a, 's> Capsule3dBuilder<'a, 's> {
+    /// Set the center position of the capsule.
+    pub fn center(mut self, center: Vec3) -> Self {
+        self.center = center;
+        self
+    }
+
+    /// Set the normal vector indicating the orientation of the capsule.
+    pub fn normal(mut self, normal: Vec3) -> Self {
+        self.normal = normal;
+        self
+    }
+
+    /// Set the color of the capsule.
+    pub fn color(mut self, color: Color) -> Self {
+        self.color = color;
+        self
+    }
+
+    /// Set the number of segments used to approximate the capsule geometry.
+    pub fn segments(mut self, segments: usize) -> Self {
+        self.segments = segments;
+        self
+    }
+}
+
+impl<'s> GizmoPrimitive3d<'s, Capsule> for Gizmos<'s> {
+    type Output<'a> = Capsule3dBuilder<'a, 's> where Self: 's, 's: 'a;
+
+    fn primitive_3d<'a>(&'s mut self, primitive: Capsule) -> Self::Output<'a> {
+        Capsule3dBuilder {
+            gizmos: self,
+            radius: primitive.radius,
+            half_length: primitive.half_length,
+            center: Default::default(),
+            normal: Vec3::Z,
+            color: Default::default(),
+            segments: 5,
+        }
+    }
+}
+
+impl<'s> Drop for Capsule3dBuilder<'_, 's> {
+    fn drop(&mut self) {
+        let Capsule3dBuilder {
+            gizmos,
+            radius,
+            half_length,
+            center,
+            normal,
+            color,
+            segments,
+        } = self;
+
+        let rotation = Quat::from_rotation_arc(Vec3::Z, *normal);
+
+        [1.0, -1.0].into_iter().for_each(|sign| {
+            // use "-" here since rotation is ccw and otherwise the caps would face the wrong way
+            // around
+            let center = *center - sign * *half_length * *normal;
+            draw_cap(gizmos, *radius, *segments, rotation, center, sign, *color);
+            draw_circle(gizmos, *radius, *segments, rotation, center, *color);
+        });
+
+        draw_cylinder_vertical_lines(
+            gizmos,
+            *radius,
+            *segments,
+            *half_length,
+            rotation,
+            *center,
+            *color,
+        );
+    }
+}
+
+// cone 3d
+
+/// Builder for configuring the drawing options of [`Cone3d`].
+pub struct Cone3dBuilder<'a, 's> {
+    gizmos: &'a mut Gizmos<'s>,
+
+    radius: f32, // Radius of the cone
+    height: f32, // Height of the cone
+
+    center: Vec3,    // Center of the base of the cone
+    normal: Vec3,    // Normal vector indicating the orientation of the cone
+    color: Color,    // Color of the cone
+    segments: usize, // Number of segments used to approximate the cone geometry
+}
+
+impl<'a, 's> Cone3dBuilder<'a, 's> {
+    /// Set the center of the base of the cone.
+    pub fn center(mut self, center: Vec3) -> Self {
+        self.center = center;
+        self
+    }
+
+    /// Set the normal vector indicating the orientation of the cone.
+    pub fn normal(mut self, normal: Vec3) -> Self {
+        self.normal = normal;
+        self
+    }
+
+    /// Set the color of the cone.
+    pub fn color(mut self, color: Color) -> Self {
+        self.color = color;
+        self
+    }
+
+    /// Set the number of segments used to approximate the cone geometry.
+    pub fn segments(mut self, segments: usize) -> Self {
+        self.segments = segments;
+        self
+    }
+}
+
+impl<'s> GizmoPrimitive3d<'s, Cone> for Gizmos<'s> {
+    type Output<'a> = Cone3dBuilder<'a, 's> where Self: 's, 's: 'a;
+
+    fn primitive_3d<'a>(&'s mut self, primitive: Cone) -> Self::Output<'a> {
+        Cone3dBuilder {
+            gizmos: self,
+            radius: primitive.radius,
+            height: primitive.height,
+            center: Default::default(),
+            normal: Vec3::Z,
+            color: Default::default(),
+            segments: 5,
+        }
+    }
+}
+
+impl<'s> Drop for Cone3dBuilder<'_, 's> {
+    fn drop(&mut self) {
+        let Cone3dBuilder {
+            gizmos,
+            radius,
+            height,
+            center,
+            normal,
+            color,
+            segments,
+        } = self;
+
+        let rotation = Quat::from_rotation_arc(Vec3::Z, *normal);
+
+        draw_circle(gizmos, *radius, *segments, rotation, *center, *color);
+
+        let end = Vec2::ZERO.extend(*height);
+        circle_coordinates(*radius, *segments)
+            .map(move |p| [p.extend(0.0), end])
+            .map(|ps| ps.map(rotate_then_translate_3d(rotation, *center)))
+            .for_each(|[start, end]| {
+                gizmos.line(start, end, *color);
+            });
+    }
+}
+
+// conical frustum 3d
+
+/// Builder for configuring the drawing options of [`ConicalFrustum3d`].
+pub struct ConicalFrustum3dBuilder<'a, 's> {
+    gizmos: &'a mut Gizmos<'s>,
+
+    radius_top: f32,    // Radius of the top circle
+    radius_bottom: f32, // Radius of the bottom circle
+    height: f32,        // Height of the conical frustum
+
+    center: Vec3,    // Center of the base circle of the conical frustum
+    normal: Vec3,    // Normal vector indicating the orientation of the conical frustum
+    color: Color,    // Color of the conical frustum
+    segments: usize, // Number of segments used to approximate the curved surfaces
+}
+
+impl<'a, 's> ConicalFrustum3dBuilder<'a, 's> {
+    /// Set the center of the base circle of the conical frustum.
+    pub fn center(mut self, center: Vec3) -> Self {
+        self.center = center;
+        self
+    }
+
+    /// Set the normal vector indicating the orientation of the conical frustum.
+    pub fn normal(mut self, normal: Vec3) -> Self {
+        self.normal = normal;
+        self
+    }
+
+    /// Set the color of the conical frustum.
+    pub fn color(mut self, color: Color) -> Self {
+        self.color = color;
+        self
+    }
+
+    /// Set the number of segments used to approximate the curved surfaces.
+    pub fn segments(mut self, segments: usize) -> Self {
+        self.segments = segments;
+        self
+    }
+}
+
+impl<'s> GizmoPrimitive3d<'s, ConicalFrustum> for Gizmos<'s> {
+    type Output<'a> = ConicalFrustum3dBuilder<'a, 's> where Self: 's, 's: 'a;
+
+    fn primitive_3d<'a>(&'s mut self, primitive: ConicalFrustum) -> Self::Output<'a> {
+        ConicalFrustum3dBuilder {
+            gizmos: self,
+            radius_top: primitive.radius_top,
+            radius_bottom: primitive.radius_bottom,
+            height: primitive.height,
+            center: Default::default(),
+            normal: Vec3::Z,
+            color: Default::default(),
+            segments: 5,
+        }
+    }
+}
+
+impl<'s> Drop for ConicalFrustum3dBuilder<'_, 's> {
+    fn drop(&mut self) {
+        let ConicalFrustum3dBuilder {
+            gizmos,
+            radius_top,
+            radius_bottom,
+            height,
+            center,
+            normal,
+            color,
+            segments,
+        } = self;
+
+        let rotation = Quat::from_rotation_arc(Vec3::Z, *normal);
+        [(*radius_top, *height), (*radius_bottom, 0.0)]
+            .into_iter()
+            .for_each(|(radius, height)| {
+                draw_circle(
+                    gizmos,
+                    radius,
+                    *segments,
+                    rotation,
+                    *center + height * *normal,
+                    *color,
+                );
+            });
+
+        circle_coordinates(*radius_top, *segments)
+            .map(move |p| p.extend(*height))
+            .zip(circle_coordinates(*radius_bottom, *segments).map(|p| p.extend(0.0)))
+            .map(|(start, end)| [start, end])
+            .map(|ps| ps.map(rotate_then_translate_3d(rotation, *center)))
+            .for_each(|[start, end]| {
+                gizmos.line(start, end, *color);
+            });
+    }
+}
+
+// torus 3d
+
+/// Builder for configuring the drawing options of [`Torus3d`].
+pub struct Torus3dBuilder<'a, 's> {
+    gizmos: &'a mut Gizmos<'s>,
+
+    minor_radius: f32, // Radius of the minor circle (tube)
+    major_radius: f32, // Radius of the major circle (ring)
+
+    center: Vec3,          // Center of the torus
+    normal: Vec3,          // Normal vector indicating the orientation of the torus
+    color: Color,          // Color of the torus
+    minor_segments: usize, // Number of segments in the minor (tube) direction
+    major_segments: usize, // Number of segments in the major (ring) direction
+}
+
+impl<'a, 's> Torus3dBuilder<'a, 's> {
+    /// Set the center of the torus.
+    pub fn center(mut self, center: Vec3) -> Self {
+        self.center = center;
+        self
+    }
+
+    /// Set the normal vector indicating the orientation of the torus.
+    pub fn normal(mut self, normal: Vec3) -> Self {
+        self.normal = normal;
+        self
+    }
+
+    /// Set the color of the torus.
+    pub fn color(mut self, color: Color) -> Self {
+        self.color = color;
+        self
+    }
+
+    /// Set the number of segments in the minor (tube) direction.
+    pub fn minor_segments(mut self, minor_segments: usize) -> Self {
+        self.minor_segments = minor_segments;
+        self
+    }
+
+    /// Set the number of segments in the major (ring) direction.
+    pub fn major_segments(mut self, major_segments: usize) -> Self {
+        self.major_segments = major_segments;
+        self
+    }
+}
+
+impl<'s> GizmoPrimitive3d<'s, Torus> for Gizmos<'s> {
+    type Output<'a> = Torus3dBuilder<'a, 's> where Self: 's, 's: 'a;
+
+    fn primitive_3d<'a>(&'s mut self, primitive: Torus) -> Self::Output<'a> {
+        Torus3dBuilder {
+            gizmos: self,
+            minor_radius: primitive.minor_radius,
+            major_radius: primitive.major_radius,
+            center: Default::default(),
+            normal: Vec3::Z,
+            color: Default::default(),
+            minor_segments: 5,
+            major_segments: 5,
+        }
+    }
+}
+
+impl<'s> Drop for Torus3dBuilder<'_, 's> {
+    fn drop(&mut self) {
+        let Torus3dBuilder {
+            gizmos,
+            minor_radius,
+            major_radius,
+            center,
+            normal,
+            color,
+            minor_segments,
+            major_segments,
+        } = self;
+
+        let rotation = Quat::from_rotation_arc(Vec3::Z, *normal);
+
+        [
+            (*major_radius - *minor_radius, 0.0),
+            (*major_radius + *minor_radius, 0.0),
+            (*major_radius, *minor_radius),
+            (*major_radius, -*minor_radius),
+        ]
+        .into_iter()
+        .for_each(|(radius, height)| {
+            draw_circle(
+                gizmos,
+                radius,
+                *major_segments,
+                rotation,
+                *center + height * *normal,
+                *color,
+            );
+        });
+
+        let affine = rotate_then_translate_3d(rotation, *center);
+        circle_coordinates(*major_radius, *major_segments)
+            .flat_map(|p| {
+                let translation = affine(p.extend(0.0));
+                let dir_to_translation = (translation - *center).normalize();
+                let rotation_axis = normal.cross(dir_to_translation).normalize();
+                [dir_to_translation, *normal, -dir_to_translation, -*normal]
+                    .map(|dir| dir * *minor_radius)
+                    .map(|offset| translation + offset)
+                    .map(|point| (point, translation, rotation_axis))
+            })
+            .for_each(|(from, center, rotation_axis)| {
+                gizmos
+                    .arc_3d(
+                        center,
+                        rotation_axis,
+                        from,
+                        FRAC_PI_2,
+                        *minor_radius,
+                        *color,
+                    )
+                    .segments(*minor_segments);
+            });
     }
 }
 

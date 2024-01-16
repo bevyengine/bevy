@@ -4,11 +4,7 @@ use std::f32::consts::PI;
 
 use bevy::math::primitives::Direction3d;
 use bevy::prelude::*;
-use bevy_internal::gizmos::primitives::{
-    Capsule3dDetails, Cone3dDetails, ConicalFrustum3dDetails, Cuboid3dDetails, Cylinder3dDetails,
-    GizmoPrimitive3d, Line3dDetails, Plane3dDetails, Segment3dDetails, SphereDetails,
-    Torus3dDetails,
-};
+use bevy_internal::gizmos::primitives::GizmoPrimitive3d;
 use bevy_internal::prelude::primitives::{
     Capsule, Cone, ConicalFrustum, Cuboid, Cylinder, Direction3d, Line3d, Plane3d, Segment3d,
     Sphere, Torus,
@@ -197,119 +193,97 @@ fn system(
     let segments = segments.0;
     match primitive_state.get() {
         PrimitiveState::Nothing => {}
-        PrimitiveState::Sphere => gizmos.primitive_3d(
-            Sphere { radius: 1.0 },
-            SphereDetails {
-                center,
-                rotation,
-                segments,
-                ..Default::default()
-            },
-        ),
-        PrimitiveState::Plane => gizmos.primitive_3d(
-            Plane3d {
-                normal: Direction3d::new(Vec3::Y).unwrap(),
-            },
-            Plane3dDetails {
-                normal_position: center,
-                rotation,
-                ..Default::default()
-            },
-        ),
-        PrimitiveState::Line => gizmos.primitive_3d(
-            Line3d {
-                direction: Direction3d::new(Vec3::X).unwrap(),
-            },
-            Line3dDetails {
-                start_position: center,
-                rotation,
-                ..Default::default()
-            },
-        ),
-        PrimitiveState::LineSegment => gizmos.primitive_3d(
-            Segment3d {
-                direction: Direction3d::new(Vec3::X).unwrap(),
-                half_length: 1.0,
-            },
-            Segment3dDetails {
-                start_position: center,
-                rotation,
-                ..Default::default()
-            },
-        ),
-        PrimitiveState::Cuboid => gizmos.primitive_3d(
-            Cuboid {
-                half_size: Vec3::new(1.0, 0.5, 2.0),
-            },
-            Cuboid3dDetails {
-                center,
-                rotation,
-                ..Default::default()
-            },
-        ),
-        PrimitiveState::Cylinder => gizmos.primitive_3d(
-            Cylinder {
-                radius: 1.0,
-                half_height: 1.0,
-            },
-            Cylinder3dDetails {
-                center,
-                normal,
-                segments,
-                ..Default::default()
-            },
-        ),
-        PrimitiveState::Capsule => gizmos.primitive_3d(
-            Capsule {
-                radius: 1.0,
-                half_length: 1.0,
-            },
-            Capsule3dDetails {
-                center,
-                normal,
-                segments,
-                ..Default::default()
-            },
-        ),
-        PrimitiveState::Cone => gizmos.primitive_3d(
-            Cone {
-                radius: 1.0,
-                height: 1.0,
-            },
-            Cone3dDetails {
-                center,
-                normal,
-                segments,
-                ..Default::default()
-            },
-        ),
-        PrimitiveState::ConicalFrustum => gizmos.primitive_3d(
-            ConicalFrustum {
-                radius_top: 0.5,
-                radius_bottom: 1.0,
-                height: 1.0,
-            },
-            ConicalFrustum3dDetails {
-                center,
-                normal,
-                segments,
-                ..Default::default()
-            },
-        ),
+        PrimitiveState::Sphere => {
+            gizmos
+                .primitive_3d(Sphere { radius: 1.0 })
+                .center(center)
+                .rotation(rotation)
+                .segments(segments);
+        }
+        PrimitiveState::Plane => {
+            gizmos
+                .primitive_3d(Plane3d {
+                    normal: Direction3d::new(Vec3::Y).unwrap(),
+                })
+                .normal_position(center)
+                .rotation(rotation);
+        }
+        PrimitiveState::Line => {
+            gizmos
+                .primitive_3d(Line3d {
+                    direction: Direction3d::new(Vec3::X).unwrap(),
+                })
+                .start_position(center)
+                .rotation(rotation);
+        }
+        PrimitiveState::LineSegment => {
+            gizmos
+                .primitive_3d(Segment3d {
+                    direction: Direction3d::new(Vec3::X).unwrap(),
+                    half_length: 1.0,
+                })
+                .start_position(center)
+                .rotation(rotation);
+        }
+        PrimitiveState::Cuboid => {
+            gizmos
+                .primitive_3d(Cuboid {
+                    half_size: Vec3::new(1.0, 0.5, 2.0),
+                })
+                .center(center)
+                .rotation(rotation);
+        }
+        PrimitiveState::Cylinder => {
+            gizmos
+                .primitive_3d(Cylinder {
+                    radius: 1.0,
+                    half_height: 1.0,
+                })
+                .center(center)
+                .normal(normal)
+                .segments(segments);
+        }
+        PrimitiveState::Capsule => {
+            gizmos
+                .primitive_3d(Capsule {
+                    radius: 1.0,
+                    half_length: 1.0,
+                })
+                .center(center)
+                .normal(normal)
+                .segments(segments);
+        }
+        PrimitiveState::Cone => {
+            gizmos
+                .primitive_3d(Cone {
+                    radius: 1.0,
+                    height: 1.0,
+                })
+                .center(center)
+                .normal(normal)
+                .segments(segments);
+        }
+        PrimitiveState::ConicalFrustum => {
+            gizmos
+                .primitive_3d(ConicalFrustum {
+                    radius_top: 0.5,
+                    radius_bottom: 1.0,
+                    height: 1.0,
+                })
+                .center(center)
+                .normal(normal)
+                .segments(segments);
+        }
         PrimitiveState::Torus => {
-            gizmos.primitive_3d(
-                Torus {
+            gizmos
+                .primitive_3d(Torus {
                     minor_radius: 0.3,
                     major_radius: 1.0,
-                },
-                Torus3dDetails {
-                    center,
-                    normal,
-                    minor_segments: (segments / 4).max(1),
-                    major_segments: segments,
-                    ..Default::default()
-                },
-            );
+                })
+                .center(center)
+                .normal(normal)
+                .major_segments(segments)
+                .minor_segments((segments / 4).max(1));
         }
     }
 }
