@@ -72,6 +72,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let mut field_component_ids = Vec::new();
     let mut field_get_components = Vec::new();
     let mut field_from_components = Vec::new();
+    let mut fields_get_field = Vec::new();
     for (((i, field_type), field_kind), field) in field_type
         .iter()
         .enumerate()
@@ -91,6 +92,9 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                         field_from_components.push(quote! {
                             #field: <#field_type as #ecs_path::bundle::Bundle>::from_components(ctx, &mut *func),
                         });
+                        fields_get_field.push(quote! {
+                            self.#field
+                        });
                     }
                     None => {
                         let index = syn::Index::from(i);
@@ -99,6 +103,9 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                         });
                         field_from_components.push(quote! {
                             #index: <#field_type as #ecs_path::bundle::Bundle>::from_components(ctx, &mut *func),
+                        });
+                        fields_get_field.push(quote! {
+                            self.#index
                         });
                     }
                 }
@@ -115,12 +122,24 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let struct_name = &ast.ident;
 
+    let head_ty = field_type[0];
+    let head = &fields_get_field[0];
+    let rest = fields_get_field.iter().skip(1);
+
     TokenStream::from(quote! {
         // SAFETY:
         // - ComponentId is returned in field-definition-order. [from_components] and [get_components] use field-definition-order
         // - `Bundle::get_components` is exactly once for each member. Rely's on the Component -> Bundle implementation to properly pass
         //   the correct `StorageType` into the callback.
         unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name #ty_generics #where_clause {
+
+            type Head = <#head_ty as #ecs_path::bundle::Bundle>::Head;
+
+            fn split_head(self) -> (Self::Head, impl #ecs_path::bundle::Bundle) {
+                let (__head, __tail) = <#head_ty as #ecs_path::bundle::Bundle>::split_head(#head);
+                (__head, #ecs_path::bundle::Bundle::join_tail(__tail, (#(#rest,)*)))
+            }
+
             fn component_ids(
                 components: &mut #ecs_path::component::Components,
                 storages: &mut #ecs_path::storage::Storages,

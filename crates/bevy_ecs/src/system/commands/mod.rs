@@ -754,9 +754,9 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
         self.add(insert(bundle))
     }
 
-    /// Composes a [`Component`] to the entity.
+    /// Composes a [`Bundle`] to the entity.
     ///
-    /// This may modify the previous value of the corresponding component type.
+    /// This may modify the previous value of the corresponding component types.
     ///
     /// # Panics
     ///
@@ -792,8 +792,8 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// }
     /// # bevy_ecs::system::assert_is_system(add_flags_system);
     /// ```
-    pub fn compose(&mut self, component: impl Component) -> &mut Self {
-        self.add(compose(component))
+    pub fn compose(&mut self, bundle: impl Bundle) -> &mut Self {
+        self.add(compose(bundle))
     }
 
     /// Tries to add a [`Bundle`] of components to the entity.
@@ -848,9 +848,9 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
         self.add(try_insert(bundle))
     }
 
-    /// Tries to compose a [`Component`] to the entity.
+    /// Tries to compose a [`Bundle`] to the entity.
     ///
-    /// This may modify the previous value of the corresponding component type.
+    /// This may modify the previous value of the corresponding component types.
     ///
     /// # Note
     ///
@@ -892,8 +892,8 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// }
     /// # bevy_ecs::system::assert_is_system(add_flags_system);
     /// ```
-    pub fn try_compose(&mut self, component: impl Component) -> &mut Self {
-        self.add(try_compose(component))
+    pub fn try_compose(&mut self, bundle: impl Bundle) -> &mut Self {
+        self.add(try_compose(bundle))
     }
 
     /// Removes a [`Bundle`] of components from the entity.
@@ -1144,14 +1144,10 @@ fn try_insert(bundle: impl Bundle) -> impl EntityCommand {
 }
 
 /// An [`EntityCommand`] that adds or composes a component to an entity.
-fn compose<T: Component>(component: T) -> impl EntityCommand {
+fn compose<T: Bundle>(bundle: T) -> impl EntityCommand {
     move |entity: Entity, world: &mut World| {
         if let Some(mut entity) = world.get_entity_mut(entity) {
-            if let Some(mut original) = entity.get_mut::<T>() {
-                original.compose(component);
-            } else {
-                entity.insert(component);
-            }
+            bundle.spawn_compose(&mut entity, ());
         } else {
             panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World.", std::any::type_name::<T>(), entity);
         }
@@ -1159,14 +1155,10 @@ fn compose<T: Component>(component: T) -> impl EntityCommand {
 }
 
 /// An [`EntityCommand`] that attempts to add or compose a component to an entity.
-fn try_compose<T: Component>(component: T) -> impl EntityCommand {
+fn try_compose<T: Bundle>(bundle: T) -> impl EntityCommand {
     move |entity: Entity, world: &mut World| {
         if let Some(mut entity) = world.get_entity_mut(entity) {
-            if let Some(mut original) = entity.get_mut::<T>() {
-                original.compose(component);
-            } else {
-                entity.insert(component);
-            }
+            bundle.spawn_compose(&mut entity, ());
         }
     }
 }
@@ -1238,6 +1230,16 @@ mod tests {
     impl ComposeCk {
         fn compose(&mut self, incoming: Self) {
             self.0 |= incoming.0;
+        }
+    }
+
+    #[derive(Component)]
+    #[component(compose = "ComposeCkVec::compose")]
+    struct ComposeCkVec(Vec<char>);
+
+    impl ComposeCkVec {
+        fn compose(&mut self, incoming: Self) {
+            self.0.extend(incoming.0)
         }
     }
 
@@ -1399,6 +1401,28 @@ mod tests {
         command_queue.apply(&mut world);
 
         assert_eq!(world.entity(entity).get::<ComposeCk>().unwrap().0, 31);
+
+        Commands::new(&mut command_queue, &world)
+            .entity(entity)
+            .try_compose((ComposeCk(32), ComposeCkVec(vec!['a', 'b', 'c'])));
+        command_queue.apply(&mut world);
+
+        assert_eq!(world.entity(entity).get::<ComposeCk>().unwrap().0, 63);
+        assert_eq!(
+            world.entity(entity).get::<ComposeCkVec>().unwrap().0,
+            vec!['a', 'b', 'c']
+        );
+
+        Commands::new(&mut command_queue, &world)
+            .entity(entity)
+            .try_compose((ComposeCk(64), ComposeCkVec(vec!['r', 'u', 's', 't'])));
+        command_queue.apply(&mut world);
+
+        assert_eq!(world.entity(entity).get::<ComposeCk>().unwrap().0, 127);
+        assert_eq!(
+            world.entity(entity).get::<ComposeCkVec>().unwrap().0,
+            vec!['a', 'b', 'c', 'r', 'u', 's', 't']
+        );
 
         Commands::new(&mut command_queue, &world)
             .entity(entity)
