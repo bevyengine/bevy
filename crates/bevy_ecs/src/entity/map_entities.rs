@@ -1,7 +1,9 @@
-use crate::{entity::Entity, world::World};
+use crate::{
+    entity::Entity,
+    identifier::masks::{IdentifierMask, HIGH_MASK},
+    world::World,
+};
 use bevy_utils::EntityHashMap;
-
-use super::inc_generation_by;
 
 /// Operation to map all contained [`Entity`] fields in a type to new values.
 ///
@@ -70,11 +72,13 @@ impl<'m> EntityMapper<'m> {
         }
 
         // this new entity reference is specifically designed to never represent any living entity
-        let new = Entity {
-            generation: inc_generation_by(self.dead_start.generation, self.generations),
-            index: self.dead_start.index,
-        };
-        self.generations += 1;
+        let new = Entity::from_raw_and_generation(
+            self.dead_start.index(),
+            IdentifierMask::inc_masked_high_by(self.dead_start.generation, self.generations),
+        );
+
+        // Prevent generations counter from being a greater value than HIGH_MASK.
+        self.generations = (self.generations + 1) & HIGH_MASK;
 
         self.map.insert(entity, new);
 
@@ -109,7 +113,7 @@ impl<'m> EntityMapper<'m> {
         // SAFETY: Entities data is kept in a valid state via `EntityMap::world_scope`
         let entities = unsafe { world.entities_mut() };
         assert!(entities.free(self.dead_start).is_some());
-        assert!(entities.reserve_generations(self.dead_start.index, self.generations));
+        assert!(entities.reserve_generations(self.dead_start.index(), self.generations));
     }
 
     /// Creates an [`EntityMapper`] from a provided [`World`] and [`EntityHashMap<Entity, Entity>`], then calls the

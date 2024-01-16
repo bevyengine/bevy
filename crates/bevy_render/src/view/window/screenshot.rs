@@ -5,7 +5,7 @@ use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::prelude::*;
 use bevy_log::{error, info, info_span};
 use bevy_tasks::AsyncComputeTaskPool;
-use bevy_utils::HashMap;
+use bevy_utils::EntityHashMap;
 use std::sync::Mutex;
 use thiserror::Error;
 use wgpu::{
@@ -33,7 +33,7 @@ pub type ScreenshotFn = Box<dyn FnOnce(Image) + Send + Sync>;
 #[derive(Resource, Default)]
 pub struct ScreenshotManager {
     // this is in a mutex to enable extraction with only an immutable reference
-    pub(crate) callbacks: Mutex<HashMap<Entity, ScreenshotFn>>,
+    pub(crate) callbacks: Mutex<EntityHashMap<Entity, ScreenshotFn>>,
 }
 
 #[derive(Error, Debug)]

@@ -1,3 +1,4 @@
+use bevy_asset::Handle;
 use bevy_asset::{AssetId, Assets};
 use bevy_log::{debug, error, warn};
 use bevy_math::{Rect, UVec2, Vec2};
@@ -13,7 +14,7 @@ use rectangle_pack::{
 };
 use thiserror::Error;
 
-use crate::texture_atlas::TextureAtlas;
+use crate::TextureAtlasLayout;
 
 #[derive(Debug, Error)]
 pub enum TextureAtlasBuilderError {
@@ -146,12 +147,41 @@ impl TextureAtlasBuilder {
         }
     }
 
-    /// Consumes the builder and returns a result with a new texture atlas.
+    /// Consumes the builder, and returns the newly created texture handle and
+    /// the assciated atlas layout.
     ///
     /// Internally it copies all rectangles from the textures and copies them
-    /// into a new texture which the texture atlas will use. It is not useful to
-    /// hold a strong handle to the texture afterwards else it will exist twice
-    /// in memory.
+    /// into a new texture.
+    /// It is not useful to hold a strong handle to the texture afterwards else
+    /// it will exist twice in memory.
+    ///
+    /// # Usage
+    ///
+    /// ```rust
+    /// # use bevy_sprite::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_asset::*;
+    /// # use bevy_render::prelude::*;
+    ///
+    /// fn my_system(mut commands: Commands, mut textures: ResMut<Assets<Image>>, mut layouts: ResMut<Assets<TextureAtlasLayout>>) {
+    ///     // Declare your builder
+    ///     let mut builder = TextureAtlasBuilder::default();
+    ///     // Customize it
+    ///     // ...
+    ///     // Build your texture and the atlas layout
+    ///     let (atlas_layout, texture) = builder.finish(&mut textures).unwrap();
+    ///     let layout = layouts.add(atlas_layout);
+    ///     // Spawn your sprite
+    ///     commands.spawn(SpriteSheetBundle {
+    ///        texture,
+    ///        atlas: TextureAtlas {
+    ///             layout,
+    ///             index: 0
+    ///         },
+    ///       ..Default::default()
+    ///     });
+    /// }
+    /// ```
     ///
     /// # Errors
     ///
@@ -160,7 +190,7 @@ impl TextureAtlasBuilder {
     pub fn finish(
         self,
         textures: &mut Assets<Image>,
-    ) -> Result<TextureAtlas, TextureAtlasBuilderError> {
+    ) -> Result<(TextureAtlasLayout, Handle<Image>), TextureAtlasBuilderError> {
         let initial_width = self.initial_size.x as u32;
         let initial_height = self.initial_size.y as u32;
         let max_width = self.max_size.x as u32;
@@ -248,11 +278,14 @@ impl TextureAtlasBuilder {
             }
             self.copy_converted_texture(&mut atlas_texture, texture, packed_location);
         }
-        Ok(TextureAtlas {
-            size: atlas_texture.size_f32(),
-            texture: textures.add(atlas_texture),
-            textures: texture_rects,
-            texture_handles: Some(texture_ids),
-        })
+
+        Ok((
+            TextureAtlasLayout {
+                size: atlas_texture.size_f32(),
+                textures: texture_rects,
+                texture_handles: Some(texture_ids),
+            },
+            textures.add(atlas_texture),
+        ))
     }
 }
