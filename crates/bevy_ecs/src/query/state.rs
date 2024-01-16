@@ -1613,7 +1613,7 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "Transmuted state for ((&bevy_ecs::query::state::tests::transmute::A, &bevy_ecs::query::state::tests::transmute::B), ()) attempts to access terms that are not allowed by original state (&bevy_ecs::query::state::tests::transmute::A, ())."
+        expected = "Transmuted state for ((&bevy_ecs::query::state::tests::A, &bevy_ecs::query::state::tests::B), ()) attempts to access terms that are not allowed by original state (&bevy_ecs::query::state::tests::A, ())."
     )]
     fn cannot_transmute_to_include_data_not_in_original_query() {
         let mut world = World::new();
@@ -1627,7 +1627,7 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "Transmuted state for (&mut bevy_ecs::query::state::tests::transmute::A, ()) attempts to access terms that are not allowed by original state (&bevy_ecs::query::state::tests::transmute::A, ())."
+        expected = "Transmuted state for (&mut bevy_ecs::query::state::tests::A, ()) attempts to access terms that are not allowed by original state (&bevy_ecs::query::state::tests::A, ())."
     )]
     fn cannot_transmute_immut_to_mut() {
         let mut world = World::new();
@@ -1639,7 +1639,7 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "Transmuted state for (&bevy_ecs::query::state::tests::transmute::A, ()) attempts to access terms that are not allowed by original state (core::option::Option<&bevy_ecs::query::state::tests::transmute::A>, ())."
+        expected = "Transmuted state for (&bevy_ecs::query::state::tests::A, ()) attempts to access terms that are not allowed by original state (core::option::Option<&bevy_ecs::query::state::tests::A>, ())."
     )]
     fn cannot_transmute_option_to_immut() {
         let mut world = World::new();
@@ -1653,7 +1653,7 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "Transmuted state for (&bevy_ecs::query::state::tests::transmute::A, ()) attempts to access terms that are not allowed by original state (bevy_ecs::world::entity_ref::EntityRef, ())."
+        expected = "Transmuted state for (&bevy_ecs::query::state::tests::A, ()) attempts to access terms that are not allowed by original state (bevy_ecs::world::entity_ref::EntityRef, ())."
     )]
     fn cannot_transmute_entity_ref() {
         let mut world = World::new();
