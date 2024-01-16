@@ -31,7 +31,7 @@ impl DynamicTextureAtlasBuilder {
     }
 
     /// Add a new texture to `atlas_layout`
-    /// It is user's responsibility to pass in the correct [`TextureAtlasLayout`]
+    /// It is the user's responsibility to pass in the correct [`TextureAtlasLayout`]
     /// and that `atlas_texture_handle` has [`Image::cpu_persistent_access`]
     /// set to [`RenderAssetPersistencePolicy::Keep`]
     ///
