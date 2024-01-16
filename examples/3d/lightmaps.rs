@@ -30,10 +30,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn add_lightmaps_to_meshes(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    meshes: Query<(Entity, &Name), (With<Handle<Mesh>>, Without<Lightmap>)>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    meshes: Query<
+        (Entity, &Name, &Handle<StandardMaterial>),
+        (With<Handle<Mesh>>, Without<Lightmap>),
+    >,
 ) {
-    for (entity, name) in meshes.iter() {
+    for (entity, name, material) in meshes.iter() {
         if &**name == "large_box" {
+            materials.get_mut(material).unwrap().lightmap_exposure = 120.0;
             commands.entity(entity).insert(Lightmap {
                 image: asset_server.load("lightmaps/CornellBox-Large.zstd.ktx2"),
                 ..default()
@@ -42,6 +47,7 @@ fn add_lightmaps_to_meshes(
         }
 
         if &**name == "small_box" {
+            materials.get_mut(material).unwrap().lightmap_exposure = 120.0;
             commands.entity(entity).insert(Lightmap {
                 image: asset_server.load("lightmaps/CornellBox-Small.zstd.ktx2"),
                 ..default()
@@ -50,6 +56,7 @@ fn add_lightmaps_to_meshes(
         }
 
         if name.starts_with("cornell_box") {
+            materials.get_mut(material).unwrap().lightmap_exposure = 120.0;
             commands.entity(entity).insert(Lightmap {
                 image: asset_server.load("lightmaps/CornellBox-Box.zstd.ktx2"),
                 ..default()
