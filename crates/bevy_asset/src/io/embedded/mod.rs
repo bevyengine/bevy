@@ -199,12 +199,21 @@ macro_rules! embedded_asset {
             .world
             .resource_mut::<$crate::io::embedded::EmbeddedAssetRegistry>();
         let path = $crate::embedded_path!($source_path, $path);
-        #[cfg(feature = "embedded_watcher")]
-        let full_path = std::path::Path::new(file!()).parent().unwrap().join($path);
-        #[cfg(not(feature = "embedded_watcher"))]
-        let full_path = std::path::PathBuf::new();
-        embedded.insert_asset(full_path, &path, include_bytes!($path));
+        let watched_path = $crate::io::embedded::watched_path(file!(), $path);
+        embedded.insert_asset(watched_path, &path, include_bytes!($path));
     }};
+
+}
+
+// Returns the path used by the watcher when the embedded_watcher feature is
+// enabled. Returns an empty PathBuf otherwise.
+#[doc(hidden)]
+pub fn watched_path(source_file_path: &'static str, asset_path: &'static str) -> PathBuf {
+    #[cfg(feature = "embedded_watcher")]
+    let path = PathBuf::from(source_file_path).parent().unwrap().join(asset_path);
+    #[cfg(not(feature = "embedded_watcher"))]
+    let path = PathBuf::from("");
+    path
 }
 
 /// Loads an "internal" asset by embedding the string stored in the given `path_str` and associates it with the given handle.
