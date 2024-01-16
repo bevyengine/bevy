@@ -784,11 +784,11 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     ///
     /// fn add_flags_system(mut commands: Commands, player: Res<PlayerEntity>) {
     ///   commands.entity(player.entity)
-    ///    // You can use try_insert to insert components:
-    ///     .try_compose(Flags::IS_ACTIVE)
+    ///    // You can use compose to insert components:
+    ///     .compose(Flags::IS_ACTIVE)
     ///     
-    ///    // You can also use try_insert to compose to existing components:
-    ///     .try_compose(Flags::DEAD);
+    ///    // You can also use compose to compose to existing components:
+    ///     .compose(Flags::DEAD);
     /// }
     /// # bevy_ecs::system::assert_is_system(add_flags_system);
     /// ```
@@ -876,10 +876,10 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     ///
     /// fn add_flags_system(mut commands: Commands, player: Res<PlayerEntity>) {
     ///   commands.entity(player.entity)
-    ///    // You can use try_insert to insert components:
+    ///    // You can use try_compose to compose components:
     ///     .try_compose(Flags::IS_ACTIVE)
     ///     
-    ///    // You can also use try_insert to compose to existing components:
+    ///    // You can also use try_compose to compose to existing components:
     ///     .try_compose(Flags::DEAD);
     ///    
     ///    // Suppose this occurs in a parallel adjacent system or process
@@ -1386,10 +1386,19 @@ mod tests {
 
         Commands::new(&mut command_queue, &world)
             .entity(entity)
+            .try_compose(ComposeCk(4))
+            .try_compose(ComposeCk(8))
+            .try_compose(ComposeCk(16));
+        command_queue.apply(&mut world);
+
+        assert_eq!(world.entity(entity).get::<ComposeCk>().unwrap().0, 31);
+
+        Commands::new(&mut command_queue, &world)
+            .entity(entity)
             .try_compose(ComposeCk(1));
         command_queue.apply(&mut world);
 
-        assert_eq!(world.entity(entity).get::<ComposeCk>().unwrap().0, 3);
+        assert_eq!(world.entity(entity).get::<ComposeCk>().unwrap().0, 31);
 
         Commands::new(&mut command_queue, &world)
             .entity(entity)
