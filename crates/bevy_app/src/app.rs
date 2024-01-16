@@ -8,11 +8,8 @@ use bevy_ecs::{
         ScheduleBuildSettings, ScheduleLabel, StateTransitionEvent,
     },
 };
-use bevy_utils::{intern::Interned, thiserror::Error, tracing::debug, HashMap, HashSet};
-use std::{
-    fmt::Debug,
-    panic::{catch_unwind, resume_unwind, AssertUnwindSafe},
-};
+use bevy_utils::{intern::Interned, HashMap};
+use std::{any::TypeId, fmt::Debug};
 
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
@@ -27,12 +24,6 @@ pub use bevy_utils::label::DynEq;
 
 /// A shorthand for `Interned<dyn AppLabel>`.
 pub type InternedAppLabel = Interned<dyn AppLabel>;
-
-#[derive(Debug, Error)]
-pub(crate) enum AppError {
-    #[error("duplicate plugin {plugin_name:?}")]
-    DuplicatePlugin { plugin_name: String },
-}
 
 #[allow(clippy::needless_doctest_main)]
 /// A container of app logic and data.
@@ -79,9 +70,10 @@ pub struct App {
     pub main_schedule_label: InternedScheduleLabel,
     sub_apps: HashMap<InternedAppLabel, SubApp>,
     plugin_set: PluginSet,
-    plugin_name_added: HashSet<String>,
-    /// A private counter to prevent incorrect calls to `App::run()` from `Plugin::build()`
-    building_plugin_depth: usize,
+    // None when plugins are being added. Some when plugins have been built.
+    plugin_order: Vec<TypeId>,
+    // True if the app has been passed to a plugin method, false at top-level.
+    within_plugin: bool,
     plugins_state: PluginsState,
 }
 
@@ -234,10 +226,10 @@ impl App {
             world,
             runner: Box::new(run_once),
             sub_apps: HashMap::default(),
-            plugin_set: PluginSet::default(),
-            plugin_name_added: Default::default(),
             main_schedule_label: Main.intern(),
-            building_plugin_depth: 0,
+            plugin_set: PluginSet::default(),
+            plugin_order: Vec::new(),
+            within_plugin: false,
             plugins_state: PluginsState::Adding,
         }
     }
@@ -299,25 +291,58 @@ impl App {
         let _bevy_app_run_span = info_span!("bevy_app").entered();
 
         let mut app = std::mem::replace(self, App::empty());
-        if app.building_plugin_depth > 0 {
+        if app.within_plugin {
             panic!("App::run() was called from within Plugin::build(), which is not allowed.");
         }
+
+        app.build();
 
         let runner = std::mem::replace(&mut app.runner, Box::new(run_once));
         runner(app);
     }
 
+    fn take_plugin_order(&mut self) -> Vec<TypeId> {
+        if self.plugin_order.len() == 0 {
+            self.plugin_set.order()
+        } else {
+            std::mem::take(&mut self.plugin_order)
+        }
+    }
+
+    /// Run [`Plugin::build`] for each plugin. This is usually called before the event loop starts,
+    /// but can be useful for situations where you want to use [`App::update`].
+    pub fn build(&mut self) {
+        // temporarily remove the plugin registry to run each plugin's setup function on app.
+        self.within_plugin = true;
+        let plugin_order = self.take_plugin_order();
+        let mut plugin_set = std::mem::take(&mut self.plugin_set);
+        for plugin_id in &plugin_order {
+            for plugin in plugin_set.plugin_families.get_mut(plugin_id).unwrap() {
+                plugin.build(self);
+            }
+        }
+        self.plugin_order = plugin_order;
+        self.plugin_set = plugin_set;
+        self.within_plugin = false;
+    }
+
     /// Check the state of all plugins already added to this app. This is usually called by the
     /// event loop, but can be useful for situations where you want to use [`App::update`]
     #[inline]
-    pub fn plugins_state(&self) -> PluginsState {
+    pub fn plugins_state(&mut self) -> PluginsState {
         match self.plugins_state {
             PluginsState::Adding => {
-                for plugin in self.plugin_set.plugin_families.values().flatten() {
-                    if !plugin.ready(self) {
-                        return PluginsState::Adding;
+                self.within_plugin = true;
+                let plugin_order = self.take_plugin_order();
+                for plugin_id in &plugin_order {
+                    for plugin in self.plugin_set.plugin_families.get(plugin_id).unwrap() {
+                        if !plugin.ready(self) {
+                            return PluginsState::Adding;
+                        }
                     }
                 }
+                self.plugin_order = plugin_order;
+                self.within_plugin = false;
                 PluginsState::Ready
             }
             state => state,
@@ -328,11 +353,17 @@ impl App {
     /// plugins are ready, but can be useful for situations where you want to use [`App::update`].
     pub fn finish(&mut self) {
         // temporarily remove the plugin registry to run each plugin's setup function on app.
-        let plugin_set = std::mem::take(&mut self.plugin_set);
-        for plugin in plugin_set.plugin_families.values().flatten() {
-            plugin.finish(self);
+        self.within_plugin = true;
+        let plugin_order = self.take_plugin_order();
+        let mut plugin_set = std::mem::take(&mut self.plugin_set);
+        for plugin_id in &plugin_order {
+            for plugin in plugin_set.plugin_families.get_mut(plugin_id).unwrap() {
+                plugin.finish(self);
+            }
         }
         self.plugin_set = plugin_set;
+        self.plugin_order = plugin_order;
+        self.within_plugin = false;
         self.plugins_state = PluginsState::Finished;
     }
 
@@ -340,11 +371,18 @@ impl App {
     /// [`App::finish`], but can be useful for situations where you want to use [`App::update`].
     pub fn cleanup(&mut self) {
         // temporarily remove the plugin registry to run each plugin's setup function on app.
-        let plugin_set = std::mem::take(&mut self.plugin_set);
-        for plugin in plugin_set.plugin_families.values().flatten() {
-            plugin.cleanup(self);
+        self.within_plugin = true;
+        let plugin_order = self.take_plugin_order();
+        let mut plugin_set = std::mem::take(&mut self.plugin_set);
+        self.within_plugin = true;
+        for plugin_id in &plugin_order {
+            for plugin in plugin_set.plugin_families.get_mut(plugin_id).unwrap() {
+                plugin.cleanup(self);
+            }
         }
         self.plugin_set = plugin_set;
+        self.plugin_order = plugin_order;
+        self.within_plugin = false;
         self.plugins_state = PluginsState::Cleaned;
     }
 
@@ -699,7 +737,7 @@ impl App {
     ///
     /// ## Examples
     /// ```
-    /// # use bevy_app::{prelude::*, PluginGroupBuilder, NoopPluginGroup as MinimalPlugins};
+    /// # use bevy_app::{prelude::*, NoopPluginGroup as MinimalPlugins};
     /// #
     /// # // Dummies created to avoid using `bevy_log`,
     /// # // which pulls in too many dependencies and breaks rust-analyzer
@@ -720,11 +758,11 @@ impl App {
     /// [`PluginGroup`]:super::PluginGroup
     #[track_caller]
     pub fn add_plugins<M>(&mut self, plugins: impl Plugins<M>) -> &mut Self {
-        if self.building_plugin_depth > 0 {
+        if self.within_plugin {
             panic!("Plugins cannot be added within plugins.");
         }
         if matches!(
-            self.plugins_state(),
+            self.plugins_state,
             PluginsState::Cleaned | PluginsState::Finished
         ) {
             panic!(
@@ -935,6 +973,7 @@ impl App {
     /// app.allow_ambiguous_component::<A>();
     ///
     /// // running the app does not error.
+    /// app.build();
     /// app.update();
     /// ```
     pub fn allow_ambiguous_component<T: Component>(&mut self) -> &mut Self {
@@ -974,6 +1013,7 @@ impl App {
     /// app.allow_ambiguous_resource::<R>();
     ///
     /// // running the app does not error.
+    /// app.build();
     /// app.update();
     /// ```
     pub fn allow_ambiguous_resource<T: Resource>(&mut self) -> &mut Self {
@@ -1103,7 +1143,7 @@ mod tests {
                 app.add_plugins(InnerPlugin).run();
             }
         }
-        App::new().add_plugins(PluginRun);
+        App::new().add_plugins(PluginRun).run();
     }
 
     #[derive(States, PartialEq, Eq, Debug, Default, Hash, Clone)]

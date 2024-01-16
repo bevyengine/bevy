@@ -1,4 +1,8 @@
-use bevy_utils::{thiserror::Error, HashMap};
+use bevy_utils::{
+    petgraph::{algo::TarjanScc, graphmap::DiGraphMap},
+    thiserror::Error,
+    HashMap, HashSet,
+};
 use downcast_rs::{impl_downcast, Downcast};
 
 use crate::App;
@@ -101,9 +105,9 @@ impl PluginRelation {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct PluginManifestEntry {
     /// The relationship with the target plugin.
-    relation: PluginRelation,
+    pub(crate) relation: PluginRelation,
     /// The type name of the target plugin. We must track this to produce friendly error messages.
-    plugin_name: &'static str,
+    pub(crate) plugin_name: &'static str,
 }
 
 /// A plugin manifest specifies relationships with other plugins.
@@ -125,16 +129,16 @@ pub(crate) struct PluginManifestEntry {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PluginManifest {
     /// The type name of the plugin. We must track this to produce friendly error messages.
-    name: &'static str,
+    pub(crate) name: &'static str,
     /// The collection of relations.
-    relations: HashMap<TypeId, PluginManifestEntry>,
+    pub(crate) entries: HashMap<TypeId, PluginManifestEntry>,
 }
 
 impl PluginManifest {
     fn new<P: Plugin>() -> PluginManifest {
         PluginManifest {
             name: std::any::type_name::<P>(),
-            relations: HashMap::new(),
+            entries: HashMap::new(),
         }
     }
 
@@ -144,9 +148,9 @@ impl PluginManifest {
         plugin_id: TypeId,
         new_entry: PluginManifestEntry,
     ) -> Result<(), PluginError> {
-        match self.relations.get_mut(&plugin_id) {
+        match self.entries.get_mut(&plugin_id) {
             None => {
-                self.relations.insert(plugin_id, new_entry);
+                self.entries.insert(plugin_id, new_entry);
             }
             Some(existing_entry) => match existing_entry.relation.combine(new_entry.relation) {
                 Ok(relation) => existing_entry.relation = relation,
@@ -214,13 +218,13 @@ pub(crate) struct PluginFamily {
     ///
     /// Note to maintainers: Rustc requires us to box each of these individually, but all plugins in
     /// this vector *must* have the correct type, or it will totally break error reporting.
-    plugins: Vec<Box<dyn Plugin>>,
+    pub(crate) plugins: Vec<Box<dyn Plugin>>,
     /// True if the plugin is unique, in which case `plugins` should be of length one.
-    is_unique: bool,
+    pub(crate) is_unique: bool,
     /// Disables building this plugin when false.
-    is_enabled: bool,
+    pub(crate) is_enabled: bool,
     /// The manifest for this plugin type.
-    manifest: PluginManifest,
+    pub(crate) manifest: PluginManifest,
 }
 
 impl PluginFamily {
@@ -262,7 +266,7 @@ impl PluginFamily {
         if self.is_unique == other.is_unique && (self.plugins.is_empty() || !self.is_unique) {
             // Uniqueness must match, and if unique this family must be empty.
             self.plugins.append(&mut other.plugins);
-            for (plugin_id, entry) in other.manifest.relations {
+            for (plugin_id, entry) in other.manifest.entries {
                 self.manifest.add_entry(plugin_id, entry)?;
             }
             // Disable the family if it is disabled in either set.
@@ -409,17 +413,16 @@ impl PluginSet {
 /// # Examples
 ///
 /// ```
-/// # use bevy_app::prelude::*;
-/// use bevy_app::NoopPluginGroup as MinimalPlugins;
+/// # use bevy_app::{App, Plugin, PluginSet, PluginGroup, NoopPluginGroup as MinimalPlugins};
 /// # struct MyPlugin;
-/// # impl Plugin for MyUniquePlugin {
-/// #     fn build(&self, _app: &mut App) {}
+/// # impl Plugin for MyPlugin {
+/// #     fn build(&self, app: &mut App) {}
 /// # }
 /// struct MyPluginGroup;
 ///
 /// impl PluginGroup for MyPluginGroup {
-///     fn build(&self, set: &mut PluginSet) {
-///         set.add_plugins((MyPlugin));
+///     fn build(self, set: &mut PluginSet) {
+///         set.add_plugins(MyPlugin);
 ///     }
 /// }
 ///
@@ -532,6 +535,98 @@ mod sealed {
     }
 
     all_tuples!(impl_plugins_tuples, 0, 15, P, S);
+}
+
+impl PluginSet {
+    /// Return an ordering for the plugin set
+    pub(crate) fn order(&self) -> Vec<TypeId> {
+        // In the graph, 'a -> b' means 'a before b'.
+        let mut graph = DiGraphMap::default();
+        let mut substitutes = HashMap::new();
+        let mut requires = HashMap::new();
+        let mut disabled = HashSet::new();
+
+        // Extract plugin information from manifests.
+        for (plugin_id, plugin_family) in self.plugin_families.iter() {
+            if !plugin_family.is_enabled {
+                disabled.insert(plugin_id);
+            }
+            graph.add_node(*plugin_id);
+            for (entry_id, entry) in plugin_family.manifest.entries.iter() {
+                match entry.relation {
+                    PluginRelation::After(required) => {
+                        graph.add_edge(*entry_id, *plugin_id, entry.relation);
+                        if required {
+                            requires.entry(entry_id).or_insert(vec![]).push(plugin_id);
+                        }
+                    }
+                    PluginRelation::SubstituteFor => {
+                        graph.add_edge(*plugin_id, *entry_id, entry.relation);
+                        if let Some(_substitute_id) = substitutes.insert(entry_id, plugin_id) {
+                            panic!("Multiple plugins substituting for the same thing")
+                        }
+                    }
+                };
+            }
+        }
+
+        let n = graph.node_count();
+        // Strongly connected components
+        let mut sccs_with_cycles = Vec::with_capacity(n);
+        // Top-sorted nodes
+        let mut top_sorted_nodes = Vec::with_capacity(n);
+
+        // Topologically sort the dependency graph
+        let mut tarjan_scc = TarjanScc::new();
+        tarjan_scc.run(&graph, |scc| {
+            if scc.len() > 1 {
+                sccs_with_cycles.push(scc.to_vec());
+            } else {
+                top_sorted_nodes.extend_from_slice(scc);
+            }
+        });
+
+        // Must reverse to get topological order
+        sccs_with_cycles.reverse();
+        top_sorted_nodes.reverse();
+
+        // This vector will hold the plugins that will actually be used, in topological order.
+        let mut order = vec![];
+
+        // Check dependencies and determine final order
+        if sccs_with_cycles.is_empty() {
+            // No cycles detected
+            for plugin_id in top_sorted_nodes {
+                // Skip substituted plugins regardless of if they are provided or not.
+                if substitutes.contains_key(&plugin_id) {
+                    continue;
+                }
+                // Try to add the plugin to the order
+                let status;
+                if self.plugin_families.contains_key(&plugin_id) {
+                    if !disabled.contains(&plugin_id) {
+                        // Plugin enabled, provided, and not substituted for, so add it
+                        order.push(plugin_id);
+                        continue;
+                    } else {
+                        status = "disabled";
+                    }
+                } else {
+                    status = "missing";
+                }
+                // Plugin is either missing or disabled
+                if let Some(_required_by) = requires.get(&plugin_id) {
+                    panic!("Required plugin is {status}");
+                }
+            }
+        } else {
+            // Cycles are present
+            panic!("Cycles detected in dependency graph")
+            // TODO: Add propper error handling
+        }
+
+        return order;
+    }
 }
 
 #[cfg(test)]
@@ -703,7 +798,7 @@ mod tests {
 
         let correct_manifest = PluginManifest {
             name: "bevy_app::plugin::tests::ComplexPlugin",
-            relations: [
+            entries: [
                 (
                     TypeId::of::<PluginA>(),
                     PluginManifestEntry {
@@ -809,7 +904,7 @@ mod tests {
 
         let correct_manifest = PluginManifest {
             name: "bevy_app::plugin::tests::ComplexPlugin",
-            relations: [(
+            entries: [(
                 TypeId::of::<PluginA>(),
                 PluginManifestEntry {
                     relation: PluginRelation::After(true),
@@ -822,7 +917,7 @@ mod tests {
         let ref family = set.plugin_families[&TypeId::of::<DependencyUpgradePlugin>()];
         assert!(family.is_unique == false);
         assert!(
-            family.manifest.relations[&TypeId::of::<PluginA>()].relation
+            family.manifest.entries[&TypeId::of::<PluginA>()].relation
                 == PluginRelation::After(true)
         );
         assert!(family.plugins.len() == 2);
