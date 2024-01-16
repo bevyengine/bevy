@@ -1518,7 +1518,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     }
 
     /// Gets a [`QueryLens`] with the same accesses as the existing query
-    pub fn into_query_lens(&mut self) -> QueryLens<'_, D> {
+    pub fn as_query_lens(&mut self) -> QueryLens<'_, D> {
         self.transmute_lens()
     }
 }

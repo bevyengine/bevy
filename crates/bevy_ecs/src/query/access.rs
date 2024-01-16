@@ -223,12 +223,8 @@ impl<T: SparseSetIndex> Access<T> {
             return self.writes.is_subset(&other.writes);
         }
 
-        let reads = self
-            .reads_and_writes
-            .difference(&self.writes)
-            .collect::<FixedBitSet>();
-
-        reads.is_subset(&other.reads_and_writes) && self.writes.is_subset(&other.writes)
+        self.reads_and_writes.is_subset(&other.reads_and_writes)
+            && self.writes.is_subset(&other.writes)
     }
 
     /// Returns a vector of elements that the access and `other` cannot access at the same time.

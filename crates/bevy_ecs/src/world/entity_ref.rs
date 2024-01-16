@@ -1497,6 +1497,7 @@ impl<'w, 'a, T: Component> VacantEntry<'w, 'a, T> {
 }
 
 /// Provides read-only access to a single entity and some of its components defined by the contained [`Access`].
+#[derive(Clone)]
 pub struct FilteredEntityRef<'w> {
     entity: UnsafeEntityCell<'w>,
     access: Access<ComponentId>,
@@ -1504,20 +1505,12 @@ pub struct FilteredEntityRef<'w> {
 
 impl<'w> FilteredEntityRef<'w> {
     /// # Safety
-    /// - `cell` must have permission to mutate every component of the entity.
     /// - No `&mut World` can exist from the underlying `UnsafeWorldCell`
-    /// - If `access` takes a read on a component, no mutable references to that component
-    /// may exist at the same time as the returned [`FilteredEntityRef`].
+    /// - If `access` takes read access to a component no mutable reference to that
+    /// component can exist at the same time as the returned [`FilteredEntityMut`]
+    /// - If `access` takes any access for a component `entity` must have that component.
     pub(crate) unsafe fn new(entity: UnsafeEntityCell<'w>, access: Access<ComponentId>) -> Self {
         Self { entity, access }
-    }
-
-    /// Returns a new instance with a shorter lifetime.
-    /// This is useful if you have `&FilteredEntityRef`, but you need `FilteredEntityRef`.
-    pub fn reborrow(&mut self) -> FilteredEntityRef<'_> {
-        // SAFETY: We have exclusive access to `self` and the safety requirements were met
-        // when creating `self`.
-        unsafe { Self::new(self.entity, self.access.clone()) }
     }
 
     /// Returns the [ID](Entity) of the current entity.
@@ -1687,10 +1680,11 @@ pub struct FilteredEntityMut<'w> {
 impl<'w> FilteredEntityMut<'w> {
     /// # Safety
     /// - No `&mut World` can exist from the underlying `UnsafeWorldCell`
-    /// - If `acccess` takes read access to a component no mutable reference to that
+    /// - If `access` takes read access to a component no mutable reference to that
     /// component can exist at the same time as the returned [`FilteredEntityMut`]
     /// - If `access` takes write access to a component, no reference to that component
     /// may exist at the same time as the returned [`FilteredEntityMut`]
+    /// - If `access` takes any access for a component `entity` must have that component.
     pub(crate) unsafe fn new(entity: UnsafeEntityCell<'w>, access: Access<ComponentId>) -> Self {
         Self { entity, access }
     }

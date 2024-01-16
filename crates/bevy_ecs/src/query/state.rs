@@ -158,7 +158,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             #[cfg(feature = "trace")]
             par_iter_span: bevy_utils::tracing::info_span!(
                 "par_for_each",
-                Duery = std::any::type_name::<D>(),
+                data = std::any::type_name::<D>(),
                 filter = std::any::type_name::<F>(),
             ),
         };
@@ -1522,204 +1522,200 @@ mod tests {
         let _panics = query_state.get_many_mut(&mut world_2, []);
     }
 
-    mod transmute {
-        use super::*;
+    #[derive(Component, PartialEq, Debug)]
+    struct A(usize);
 
-        #[derive(Component, PartialEq, Debug)]
-        struct A(usize);
+    #[derive(Component, PartialEq, Debug)]
+    struct B(usize);
 
-        #[derive(Component, PartialEq, Debug)]
-        struct B(usize);
+    #[derive(Component, PartialEq, Debug)]
+    struct C(usize);
 
-        #[derive(Component, PartialEq, Debug)]
-        struct C(usize);
+    #[test]
+    fn can_transmute_to_more_general() {
+        let mut world = World::new();
+        world.spawn((A(1), B(0)));
 
-        #[test]
-        fn can_transmute_to_more_general() {
-            let mut world = World::new();
-            world.spawn((A(1), B(0)));
+        let query_state = world.query::<(&A, &B)>();
+        let mut new_query_state = query_state.transmute::<&A>(&world);
+        assert_eq!(new_query_state.iter(&world).len(), 1);
+        let a = new_query_state.single(&world);
 
-            let query_state = world.query::<(&A, &B)>();
-            let mut new_query_state = query_state.transmute::<&A>(&world);
-            assert_eq!(new_query_state.iter(&world).len(), 1);
-            let a = new_query_state.single(&world);
+        assert_eq!(a.0, 1);
+    }
 
-            assert_eq!(a.0, 1);
-        }
+    #[test]
+    fn cannot_get_data_not_in_original_query() {
+        let mut world = World::new();
+        world.spawn((A(0), B(0)));
+        world.spawn((A(1), B(0), C(0)));
 
-        #[test]
-        fn cannot_get_data_not_in_original_query() {
-            let mut world = World::new();
-            world.spawn((A(0), B(0)));
-            world.spawn((A(1), B(0), C(0)));
+        let query_state = world.query_filtered::<(&A, &B), Without<C>>();
+        let mut new_query_state = query_state.transmute::<&A>(&world);
+        // even though we change the query to not have Without<C>, we do not get the component with C.
+        let a = new_query_state.single(&world);
 
-            let query_state = world.query_filtered::<(&A, &B), Without<C>>();
-            let mut new_query_state = query_state.transmute::<&A>(&world);
-            // even though we change the query to not have Without<C>, we do not get the component with C.
-            let a = new_query_state.single(&world);
+        assert_eq!(a.0, 0);
+    }
 
-            assert_eq!(a.0, 0);
-        }
+    #[test]
+    fn can_transmute_empty_tuple() {
+        let mut world = World::new();
+        world.init_component::<A>();
+        let entity = world.spawn(A(10)).id();
 
-        #[test]
-        fn can_transmute_empty_tuple() {
-            let mut world = World::new();
-            world.init_component::<A>();
-            let entity = world.spawn(A(10)).id();
+        let q = world.query::<()>();
+        let mut q = q.transmute::<Entity>(&world);
+        assert_eq!(q.single(&world), entity);
+    }
 
-            let q = world.query::<()>();
-            let mut q = q.transmute::<Entity>(&world);
-            assert_eq!(q.single(&world), entity);
-        }
+    #[test]
+    fn can_transmute_immut_fetch() {
+        let mut world = World::new();
+        world.spawn(A(10));
 
-        #[test]
-        fn can_transmute_immut_fetch() {
-            let mut world = World::new();
-            world.spawn(A(10));
+        let q = world.query::<&A>();
+        let mut new_q = q.transmute::<Ref<A>>(&world);
+        assert!(new_q.single(&world).is_added());
 
-            let q = world.query::<&A>();
-            let mut new_q = q.transmute::<Ref<A>>(&world);
-            assert!(new_q.single(&world).is_added());
+        let q = world.query::<Ref<A>>();
+        let _ = q.transmute::<&A>(&world);
+    }
 
-            let q = world.query::<Ref<A>>();
-            let _ = q.transmute::<&A>(&world);
-        }
+    #[test]
+    fn can_transmute_mut_fetch() {
+        let mut world = World::new();
+        world.spawn(A(0));
 
-        #[test]
-        fn can_transmute_mut_fetch() {
-            let mut world = World::new();
-            world.spawn(A(0));
+        let q = world.query::<&mut A>();
+        let _ = q.transmute::<Ref<A>>(&world);
+        let _ = q.transmute::<&A>(&world);
+    }
 
-            let q = world.query::<&mut A>();
-            let _ = q.transmute::<Ref<A>>(&world);
-            let _ = q.transmute::<&A>(&world);
-        }
+    #[test]
+    fn can_transmute_entity_mut() {
+        let mut world = World::new();
+        world.spawn(A(0));
 
-        #[test]
-        fn can_transmute_entity_mut() {
-            let mut world = World::new();
-            world.spawn(A(0));
+        let q: QueryState<EntityMut<'_>> = world.query::<EntityMut>();
+        let _ = q.transmute::<EntityRef>(&world);
+    }
 
-            let q: QueryState<EntityMut<'_>> = world.query::<EntityMut>();
-            let _ = q.transmute::<EntityRef>(&world);
-        }
+    #[test]
+    fn can_generalize_with_option() {
+        let mut world = World::new();
+        world.spawn((A(0), B(0)));
 
-        #[test]
-        fn can_generalize_with_option() {
-            let mut world = World::new();
-            world.spawn((A(0), B(0)));
+        let query_state = world.query::<(Option<&A>, &B)>();
+        let _ = query_state.transmute::<Option<&A>>(&world);
+        let _ = query_state.transmute::<&B>(&world);
+    }
 
-            let query_state = world.query::<(Option<&A>, &B)>();
-            let _ = query_state.transmute::<Option<&A>>(&world);
-            let _ = query_state.transmute::<&B>(&world);
-        }
+    #[test]
+    #[should_panic(
+        expected = "Transmuted state for ((&bevy_ecs::query::state::tests::transmute::A, &bevy_ecs::query::state::tests::transmute::B), ()) attempts to access terms that are not allowed by original state (&bevy_ecs::query::state::tests::transmute::A, ())."
+    )]
+    fn cannot_transmute_to_include_data_not_in_original_query() {
+        let mut world = World::new();
+        world.init_component::<A>();
+        world.init_component::<B>();
+        world.spawn(A(0));
 
-        #[test]
-        #[should_panic(
-            expected = "Transmuted state for ((&bevy_ecs::query::state::tests::transmute::A, &bevy_ecs::query::state::tests::transmute::B), ()) attempts to access terms that are not allowed by original state (&bevy_ecs::query::state::tests::transmute::A, ())."
-        )]
-        fn cannot_transmute_to_include_data_not_in_original_query() {
-            let mut world = World::new();
-            world.init_component::<A>();
-            world.init_component::<B>();
-            world.spawn(A(0));
+        let query_state = world.query::<&A>();
+        let mut _new_query_state = query_state.transmute::<(&A, &B)>(&world);
+    }
 
-            let query_state = world.query::<&A>();
-            let mut _new_query_state = query_state.transmute::<(&A, &B)>(&world);
-        }
+    #[test]
+    #[should_panic(
+        expected = "Transmuted state for (&mut bevy_ecs::query::state::tests::transmute::A, ()) attempts to access terms that are not allowed by original state (&bevy_ecs::query::state::tests::transmute::A, ())."
+    )]
+    fn cannot_transmute_immut_to_mut() {
+        let mut world = World::new();
+        world.spawn(A(0));
 
-        #[test]
-        #[should_panic(
-            expected = "Transmuted state for (&mut bevy_ecs::query::state::tests::transmute::A, ()) attempts to access terms that are not allowed by original state (&bevy_ecs::query::state::tests::transmute::A, ())."
-        )]
-        fn cannot_transmute_immut_to_mut() {
-            let mut world = World::new();
-            world.spawn(A(0));
+        let query_state = world.query::<&A>();
+        let mut _new_query_state = query_state.transmute::<&mut A>(&world);
+    }
 
-            let query_state = world.query::<&A>();
-            let mut _new_query_state = query_state.transmute::<&mut A>(&world);
-        }
+    #[test]
+    #[should_panic(
+        expected = "Transmuted state for (&bevy_ecs::query::state::tests::transmute::A, ()) attempts to access terms that are not allowed by original state (core::option::Option<&bevy_ecs::query::state::tests::transmute::A>, ())."
+    )]
+    fn cannot_transmute_option_to_immut() {
+        let mut world = World::new();
+        world.spawn(C(0));
 
-        #[test]
-        #[should_panic(
-            expected = "Transmuted state for (&bevy_ecs::query::state::tests::transmute::A, ()) attempts to access terms that are not allowed by original state (core::option::Option<&bevy_ecs::query::state::tests::transmute::A>, ())."
-        )]
-        fn cannot_transmute_option_to_immut() {
-            let mut world = World::new();
-            world.spawn(C(0));
+        let query_state = world.query::<Option<&A>>();
+        let mut new_query_state = query_state.transmute::<&A>(&world);
+        let x = new_query_state.single(&world);
+        assert_eq!(x.0, 1234);
+    }
 
-            let query_state = world.query::<Option<&A>>();
-            let mut new_query_state = query_state.transmute::<&A>(&world);
-            let x = new_query_state.single(&world);
-            assert_eq!(x.0, 1234);
-        }
+    #[test]
+    #[should_panic(
+        expected = "Transmuted state for (&bevy_ecs::query::state::tests::transmute::A, ()) attempts to access terms that are not allowed by original state (bevy_ecs::world::entity_ref::EntityRef, ())."
+    )]
+    fn cannot_transmute_entity_ref() {
+        let mut world = World::new();
+        world.init_component::<A>();
 
-        #[test]
-        #[should_panic(
-            expected = "Transmuted state for (&bevy_ecs::query::state::tests::transmute::A, ()) attempts to access terms that are not allowed by original state (bevy_ecs::world::entity_ref::EntityRef, ())."
-        )]
-        fn cannot_transmute_entity_ref() {
-            let mut world = World::new();
-            world.init_component::<A>();
+        let q = world.query::<EntityRef>();
+        let _ = q.transmute::<&A>(&world);
+    }
 
-            let q = world.query::<EntityRef>();
-            let _ = q.transmute::<&A>(&world);
-        }
+    #[test]
+    fn can_transmute_filtered_entity() {
+        let mut world = World::new();
+        let entity = world.spawn((A(0), B(1))).id();
+        let query =
+            QueryState::<(Entity, &A, &B)>::new(&mut world).transmute::<FilteredEntityRef>(&world);
 
-        #[test]
-        fn can_transmute_filtered_entity() {
-            let mut world = World::new();
-            let entity = world.spawn((A(0), B(1))).id();
-            let query = QueryState::<(Entity, &A, &B)>::new(&mut world)
-                .transmute::<FilteredEntityRef>(&world);
+        let mut query = query;
+        // Our result is completely untyped
+        let entity_ref = query.single(&world);
 
-            let mut query = query;
-            // Our result is completely untyped
-            let entity_ref = query.single(&world);
+        assert_eq!(entity, entity_ref.id());
+        assert_eq!(0, entity_ref.get::<A>().unwrap().0);
+        assert_eq!(1, entity_ref.get::<B>().unwrap().0);
+    }
 
-            assert_eq!(entity, entity_ref.id());
-            assert_eq!(0, entity_ref.get::<A>().unwrap().0);
-            assert_eq!(1, entity_ref.get::<B>().unwrap().0);
-        }
+    #[test]
+    fn can_transmute_added() {
+        let mut world = World::new();
+        let entity_a = world.spawn(A(0)).id();
 
-        #[test]
-        fn can_transmute_added() {
-            let mut world = World::new();
-            let entity_a = world.spawn(A(0)).id();
+        let mut query = QueryState::<(Entity, &A, Has<B>)>::new(&mut world)
+            .transmute_filtered::<(Entity, Has<B>), Added<A>>(&world);
 
-            let mut query = QueryState::<(Entity, &A, Has<B>)>::new(&mut world)
-                .transmute_filtered::<(Entity, Has<B>), Added<A>>(&world);
+        assert_eq!((entity_a, false), query.single(&world));
 
-            assert_eq!((entity_a, false), query.single(&world));
+        world.clear_trackers();
 
-            world.clear_trackers();
+        let entity_b = world.spawn((A(0), B(0))).id();
+        assert_eq!((entity_b, true), query.single(&world));
 
-            let entity_b = world.spawn((A(0), B(0))).id();
-            assert_eq!((entity_b, true), query.single(&world));
+        world.clear_trackers();
 
-            world.clear_trackers();
+        assert!(query.get_single(&world).is_err());
+    }
 
-            assert!(query.get_single(&world).is_err());
-        }
+    #[test]
+    fn can_transmute_changed() {
+        let mut world = World::new();
+        let entity_a = world.spawn(A(0)).id();
 
-        #[test]
-        fn can_transmute_changed() {
-            let mut world = World::new();
-            let entity_a = world.spawn(A(0)).id();
+        let mut detection_query = QueryState::<(Entity, &A)>::new(&mut world)
+            .transmute_filtered::<Entity, Changed<A>>(&world);
 
-            let mut detection_query = QueryState::<(Entity, &A)>::new(&mut world)
-                .transmute_filtered::<Entity, Changed<A>>(&world);
+        let mut change_query = QueryState::<&mut A>::new(&mut world);
+        assert_eq!(entity_a, detection_query.single(&world));
 
-            let mut change_query = QueryState::<&mut A>::new(&mut world);
-            assert_eq!(entity_a, detection_query.single(&world));
+        world.clear_trackers();
 
-            world.clear_trackers();
+        assert!(detection_query.get_single(&world).is_err());
 
-            assert!(detection_query.get_single(&world).is_err());
+        change_query.single_mut(&mut world).0 = 1;
 
-            change_query.single_mut(&mut world).0 = 1;
-
-            assert_eq!(entity_a, detection_query.single(&world));
-        }
+        assert_eq!(entity_a, detection_query.single(&world));
     }
 }
