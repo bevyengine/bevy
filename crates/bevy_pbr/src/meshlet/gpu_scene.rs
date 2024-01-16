@@ -9,7 +9,7 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     event::EventReader,
-    query::{AnyOf, Has},
+    query::{AnyOf, Has, With},
     system::{Commands, Query, Res, ResMut, Resource, SystemState},
     world::{FromWorld, World},
 };
@@ -17,7 +17,7 @@ use bevy_render::{
     render_resource::{binding_types::*, *},
     renderer::{RenderDevice, RenderQueue},
     texture::{CachedTexture, TextureCache},
-    view::{ExtractedView, ViewDepthTexture, ViewUniform, ViewUniforms},
+    view::{ExtractedView, RenderLayers, ViewDepthTexture, ViewUniform, ViewUniforms},
     MainWorld,
 };
 use bevy_transform::components::GlobalTransform;
@@ -42,14 +42,18 @@ pub fn extract_meshlet_meshes(
             &Handle<MeshletMesh>,
             &GlobalTransform,
             Option<&PreviousGlobalTransform>,
+            Option<&RenderLayers>,
             Has<NotShadowReceiver>,
             Has<NotShadowCaster>,
         )>,
+        Query<(Entity, Option<&RenderLayers>, Has<ShadowView>), With<ExtractedView>>,
         Res<AssetServer>,
         ResMut<Assets<MeshletMesh>>,
         EventReader<AssetEvent<MeshletMesh>>,
     )> = SystemState::new(&mut main_world);
-    let (query, asset_server, mut assets, mut asset_events) = system_state.get_mut(&mut main_world);
+
+    let (query, views, asset_server, mut assets, mut asset_events) =
+        system_state.get_mut(&mut main_world);
 
     gpu_scene.reset();
 
@@ -74,7 +78,15 @@ pub fn extract_meshlet_meshes(
     // TODO: Handle not_shadow_caster
     for (
         instance_index,
-        (instance, handle, transform, previous_transform, not_shadow_receiver, _not_shadow_caster),
+        (
+            instance,
+            handle,
+            transform,
+            previous_transform,
+            render_layers,
+            not_shadow_receiver,
+            not_shadow_caster,
+        ),
     ) in query.iter().enumerate()
     {
         if asset_server.is_managed(handle.id())
@@ -104,6 +116,39 @@ pub fn extract_meshlet_meshes(
             .instance_uniforms
             .get_mut()
             .push(MeshUniform::new(&transforms, None));
+        if let Some(render_layers) = render_layers {
+            // If we have render layers
+            for (entity, layers, is_shadow) in views.iter() {
+                // and either the layers don't match the view's layers
+                // or this is a shadow view and the instance is not a shadow caster
+                if !render_layers.intersects(layers.unwrap_or(&default()))
+                    || (is_shadow && not_shadow_caster)
+                {
+                    // hide the instance for this view
+                    if let Some(instance_visibility) =
+                        gpu_scene.view_instance_visibility.get_mut(&entity)
+                    {
+                        let vec = instance_visibility.get_mut();
+                        let index = instance_index / 32;
+                        let bit = instance_index - index * 32;
+                        vec[index] |= 1 << bit;
+                    }
+                }
+            }
+        } else if not_shadow_caster {
+            for (entity, layers, is_shadow) in views.iter() {
+                if is_shadow || layers.is_some_and(|layers| layers.intersects(&default())) {
+                    if let Some(instance_visibility) =
+                        gpu_scene.view_instance_visibility.get_mut(&entity)
+                    {
+                        let vec = instance_visibility.get_mut();
+                        let index = instance_index / 32;
+                        let bit = instance_index - index * 32;
+                        vec[index] |= 1 << bit;
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -231,6 +276,22 @@ pub fn prepare_meshlet_per_frame_resources(
 
     let needed_buffer_size = gpu_scene.scene_meshlet_count.div_ceil(32) as u64 * 4;
     for (view_entity, view, (_, shadow_view)) in &views {
+        let instance_visibility = match gpu_scene.view_instance_visibility.get_mut(&view_entity) {
+            Some(instance_visibility) => {
+                upload_storage_buffer(instance_visibility, &render_device, &render_queue);
+                instance_visibility.buffer().unwrap().clone()
+            }
+            None => {
+                let mut buffer = StorageBuffer::default();
+                buffer.set_label(Some("meshlet_instance_visibility"));
+                let instance_visibility = buffer.buffer().unwrap().clone();
+                gpu_scene
+                    .view_instance_visibility
+                    .insert(view_entity, buffer);
+                instance_visibility
+            }
+        };
+
         let create_occlusion_buffer = || {
             render_device.create_buffer(&BufferDescriptor {
                 label: Some("meshlet_occlusion_buffer"),
@@ -375,6 +436,7 @@ pub fn prepare_meshlet_per_frame_resources(
             previous_occlusion_buffer,
             occlusion_buffer,
             occlusion_buffer_needs_clearing,
+            instance_visibility,
             visibility_buffer: not_shadow_view
                 .then(|| texture_cache.get(&render_device, visibility_buffer)),
             visibility_buffer_draw_command_buffer_first,
@@ -411,6 +473,9 @@ pub fn prepare_meshlet_view_bind_groups(
             gpu_scene.meshlet_bounding_spheres.binding(),
             gpu_scene.thread_instance_ids.binding().unwrap(),
             gpu_scene.instance_uniforms.binding().unwrap(),
+            gpu_scene.view_instance_visibility[&view_entity]
+                .binding()
+                .unwrap(),
             view_resources.occlusion_buffer.as_entire_binding(),
             gpu_scene.previous_thread_ids.binding().unwrap(),
             view_resources.previous_occlusion_buffer.as_entire_binding(),
@@ -491,6 +556,9 @@ pub fn prepare_meshlet_view_bind_groups(
             gpu_scene.vertex_data.binding(),
             gpu_scene.thread_instance_ids.binding().unwrap(),
             gpu_scene.instance_uniforms.binding().unwrap(),
+            gpu_scene.view_instance_visibility[&view_entity]
+                .binding()
+                .unwrap(),
             gpu_scene.instance_material_ids.binding().unwrap(),
             view_uniforms.clone(),
         ));
@@ -530,6 +598,9 @@ pub fn prepare_meshlet_view_bind_groups(
                     gpu_scene.vertex_data.binding(),
                     gpu_scene.thread_instance_ids.binding().unwrap(),
                     gpu_scene.instance_uniforms.binding().unwrap(),
+                    gpu_scene.view_instance_visibility[&view_entity]
+                        .binding()
+                        .unwrap(),
                 ));
                 render_device.create_bind_group(
                     "meshlet_mesh_material_draw_bind_group",
@@ -567,6 +638,7 @@ pub struct MeshletGpuScene {
     material_ids_present_in_scene: HashSet<u32>,
     instances: Vec<Entity>,
     instance_uniforms: StorageBuffer<Vec<MeshUniform>>,
+    view_instance_visibility: EntityHashMap<Entity, StorageBuffer<Vec<u32>>>,
     instance_material_ids: StorageBuffer<Vec<u32>>,
     thread_instance_ids: StorageBuffer<Vec<u32>>,
     thread_meshlet_ids: StorageBuffer<Vec<u32>>,
@@ -610,6 +682,7 @@ impl FromWorld for MeshletGpuScene {
                 buffer.set_label(Some("meshlet_instance_uniforms"));
                 buffer
             },
+            view_instance_visibility: EntityHashMap::default(),
             instance_material_ids: {
                 let mut buffer = StorageBuffer::default();
                 buffer.set_label(Some("meshlet_instance_material_ids"));
@@ -735,6 +808,9 @@ impl MeshletGpuScene {
         self.material_id_lookup.clear();
         self.material_ids_present_in_scene.clear();
         self.instances.clear();
+        self.view_instance_visibility
+            .values_mut()
+            .for_each(|b| b.get_mut().clear());
         self.instance_uniforms.get_mut().clear();
         self.instance_material_ids.get_mut().clear();
         self.thread_instance_ids.get_mut().clear();
@@ -873,6 +949,7 @@ pub struct MeshletViewResources {
     previous_occlusion_buffer: Buffer,
     pub occlusion_buffer: Buffer,
     pub occlusion_buffer_needs_clearing: bool,
+    pub instance_visibility: Buffer,
     pub visibility_buffer: Option<CachedTexture>,
     pub visibility_buffer_draw_command_buffer_first: Buffer,
     pub visibility_buffer_draw_command_buffer_second: Buffer,
