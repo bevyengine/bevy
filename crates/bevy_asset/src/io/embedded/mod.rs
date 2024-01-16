@@ -204,18 +204,21 @@ macro_rules! embedded_asset {
     }};
 }
 
-// Returns the path used by the watcher when the embedded_watcher feature is
-// enabled. Returns an empty PathBuf otherwise.
+/// Returns the path used by the watcher.
 #[doc(hidden)]
+#[cfg(feature = "embedded_watcher")]
 pub fn watched_path(source_file_path: &'static str, asset_path: &'static str) -> PathBuf {
-    #[cfg(feature = "embedded_watcher")]
-    let path = PathBuf::from(source_file_path)
+    PathBuf::from(source_file_path)
         .parent()
         .unwrap()
-        .join(asset_path);
-    #[cfg(not(feature = "embedded_watcher"))]
-    let path = PathBuf::from("");
-    path
+        .join(asset_path)
+}
+
+/// Returns an empty PathBuf.
+#[doc(hidden)]
+#[cfg(not(feature = "embedded_watcher"))]
+pub fn watched_path(_source_file_path: &'static str, _asset_path: &'static str) -> PathBuf {
+    PathBuf::from("")
 }
 
 /// Loads an "internal" asset by embedding the string stored in the given `path_str` and associates it with the given handle.
