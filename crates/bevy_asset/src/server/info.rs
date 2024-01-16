@@ -1,8 +1,8 @@
 use crate::{
     meta::{AssetHash, MetaTransform},
-    Asset, AssetHandleProvider, AssetPath, DependencyLoadState, ErasedLoadedAsset, Handle,
-    InternalAssetEvent, LoadState, RecursiveDependencyLoadState, StrongHandle, UntypedAssetId,
-    UntypedHandle,
+    Asset, AssetHandleProvider, AssetLoadError, AssetPath, DependencyLoadState, ErasedLoadedAsset,
+    Handle, InternalAssetEvent, LoadState, RecursiveDependencyLoadState, StrongHandle,
+    UntypedAssetId, UntypedHandle,
 };
 use bevy_ecs::world::World;
 use bevy_log::warn;
@@ -74,6 +74,10 @@ pub(crate) struct AssetInfos {
     pub(crate) living_labeled_assets: HashMap<AssetPath<'static>, HashSet<String>>,
     pub(crate) handle_providers: HashMap<TypeId, AssetHandleProvider>,
     pub(crate) dependency_loaded_event_sender: HashMap<TypeId, fn(&mut World, UntypedAssetId)>,
+    pub(crate) dependency_failed_event_sender: HashMap<
+        TypeId,
+        fn(&mut World, UntypedAssetId, AssetPath<'static>, Option<UntypedHandle>, AssetLoadError),
+    >,
 }
 
 impl std::fmt::Debug for AssetInfos {
@@ -197,7 +201,8 @@ impl AssetInfos {
                 let mut should_load = false;
                 if loading_mode == HandleLoadingMode::Force
                     || (loading_mode == HandleLoadingMode::Request
-                        && info.load_state == LoadState::NotLoaded)
+                        && (info.load_state == LoadState::NotLoaded
+                            || info.load_state == LoadState::Failed))
                 {
                     info.load_state = LoadState::Loading;
                     info.dep_load_state = DependencyLoadState::Loading;
@@ -268,8 +273,12 @@ impl AssetInfos {
         self.infos.get_mut(&id)
     }
 
-    pub(crate) fn get_path_handle(&self, path: AssetPath) -> Option<UntypedHandle> {
-        let id = *self.path_to_id.get(&path)?;
+    pub(crate) fn get_path_id(&self, path: &AssetPath) -> Option<UntypedAssetId> {
+        self.path_to_id.get(path).copied()
+    }
+
+    pub(crate) fn get_path_handle(&self, path: &AssetPath) -> Option<UntypedHandle> {
+        let id = *self.path_to_id.get(path)?;
         self.get_id_handle(id)
     }
 
