@@ -9,7 +9,7 @@ use bevy_ecs::{
 };
 use bevy_utils::{
     tracing::{error, info, warn},
-    HashMap,
+    EntityHashMap,
 };
 use bevy_window::{RawHandleWrapper, Window, WindowClosed, WindowCreated};
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
@@ -87,7 +87,7 @@ pub(crate) fn create_windows<'a>(
 
 /// Cache for closing windows so we can get better debug information.
 #[derive(Debug, Clone, Resource)]
-pub struct WindowTitleCache(HashMap<Entity, String>);
+pub struct WindowTitleCache(EntityHashMap<Entity, String>);
 
 pub(crate) fn despawn_windows(
     mut closed: RemovedComponents<Window>,
