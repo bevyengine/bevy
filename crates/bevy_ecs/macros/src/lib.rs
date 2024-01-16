@@ -122,9 +122,35 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let struct_name = &ast.ident;
 
-    let head_ty = field_type[0];
-    let head = &fields_get_field[0];
-    let rest = fields_get_field.iter().skip(1);
+    let compositor = if field_type.is_empty() {
+        quote!(
+            type Head = #ecs_path::bundle::DummyComponent;
+
+            fn spawn_compose(self, entity: &mut #ecs_path::world::EntityWorldMut, parent: impl #ecs_path::bundle::Bundle) {
+                entity.insert(parent);
+            }
+
+            fn split_head(self) -> (Self::Head, impl #ecs_path::bundle::Bundle) {
+                (#ecs_path::bundle::DummyComponent, ())
+            }
+
+            fn join_tail(self, tail: impl #ecs_path::bundle::Bundle) -> impl #ecs_path::bundle::Bundle {
+                tail
+            }
+        )
+    } else {
+        let head_ty = field_type[0];
+        let head = &fields_get_field[0];
+        let rest = fields_get_field.iter().skip(1);
+        quote!(
+            type Head = <#head_ty as #ecs_path::bundle::Bundle>::Head;
+
+            fn split_head(self) -> (Self::Head, impl #ecs_path::bundle::Bundle) {
+                let (__head, __tail) = <#head_ty as #ecs_path::bundle::Bundle>::split_head(#head);
+                (__head, #ecs_path::bundle::Bundle::join_tail(__tail, (#(#rest,)*)))
+            }
+        )
+    };
 
     TokenStream::from(quote! {
         // SAFETY:
@@ -133,12 +159,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         //   the correct `StorageType` into the callback.
         unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name #ty_generics #where_clause {
 
-            type Head = <#head_ty as #ecs_path::bundle::Bundle>::Head;
-
-            fn split_head(self) -> (Self::Head, impl #ecs_path::bundle::Bundle) {
-                let (__head, __tail) = <#head_ty as #ecs_path::bundle::Bundle>::split_head(#head);
-                (__head, #ecs_path::bundle::Bundle::join_tail(__tail, (#(#rest,)*)))
-            }
+            #compositor
 
             fn component_ids(
                 components: &mut #ecs_path::component::Components,

@@ -10,7 +10,9 @@ use crate::{
         Archetype, ArchetypeId, Archetypes, BundleComponentStatus, ComponentStatus,
         SpawnBundleStatus,
     },
-    component::{Component, ComponentId, ComponentStorage, Components, StorageType, Tick},
+    component::{
+        Component, ComponentId, ComponentStorage, Components, StorageType, TableStorage, Tick,
+    },
     entity::{Entities, Entity, EntityLocation},
     prelude::EntityWorldMut,
     query::DebugCheckedUnwrap,
@@ -199,20 +201,18 @@ pub trait DynamicBundle {
     fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>));
 }
 
-mod sealed {
-    use crate::component::{Component, TableStorage};
+/// A dummy component `Head` of a 0 sized bundle like `()`.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct DummyComponent;
 
-    pub struct DummyComponent;
-
-    impl Component for DummyComponent {
-        type Storage = TableStorage;
-    }
+impl Component for DummyComponent {
+    type Storage = TableStorage;
 }
 
 /// SAFETY:
 /// Safe since this implementation explicitly does nothing.
 unsafe impl Bundle for () {
-    type Head = sealed::DummyComponent;
+    type Head = DummyComponent;
 
     fn spawn_compose(self, entity: &mut EntityWorldMut, parent: impl Bundle) {
         // This ends recursion by inserting the remaining bundle.
@@ -220,7 +220,7 @@ unsafe impl Bundle for () {
     }
 
     fn split_head(self) -> (Self::Head, impl Bundle) {
-        (sealed::DummyComponent, ())
+        (DummyComponent, ())
     }
 
     fn join_tail(self, tail: impl Bundle) -> impl Bundle {
