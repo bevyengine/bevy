@@ -282,7 +282,6 @@ impl<C: Component> DynamicBundle for C {
 macro_rules! tuple_impl {
     () => {};
     ($first: ident $(, $rest: ident)*) => {
-        tuple_impl!($($rest),*);
         // SAFETY:
         // - `Bundle::component_ids` calls `ids` for each component type in the
         // bundle, in the exact order that `DynamicBundle::get_components` is called.
@@ -307,9 +306,9 @@ macro_rules! tuple_impl {
 
             #[allow(unused_variables, unused_mut)]
             #[allow(clippy::unused_unit)]
-            unsafe fn from_components<T, FN>(ctx: &mut T, func: &mut FN) -> Self
+            unsafe fn from_components<T, F>(ctx: &mut T, func: &mut F) -> Self
             where
-                FN: FnMut(&mut T) -> OwningPtr<'_>
+                F: FnMut(&mut T) -> OwningPtr<'_>
             {
                 // Rust guarantees that tuple calls are evaluated 'left to right'.
                 // https://doc.rust-lang.org/reference/expressions.html#evaluation-order-of-operands
@@ -332,7 +331,20 @@ macro_rules! tuple_impl {
     }
 }
 
-tuple_impl!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O);
+macro_rules! tuple_impl_pretty {
+    ({}{}) => {};
+
+    ({$($head: ident),*} {$tail: ident}) => {
+        tuple_impl_pretty!({} {$($head),*});
+        tuple_impl!($($head,)* $tail);
+    };
+
+    ({$($head: ident),*} {$mid: ident $(, $tail: ident)*}) => {
+        tuple_impl_pretty!({$($head,)* $mid} {$($tail),*});
+    };
+}
+
+tuple_impl_pretty!({} {B0, B1, B2, B3, B4, B5, B6, B7, B8, B9, B10, B11, B12, B13, B14});
 
 /// For a specific [`World`], this stores a unique value identifying a type of a registered [`Bundle`].
 ///
