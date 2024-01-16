@@ -13,7 +13,7 @@ const AUDIO_SCALE: f32 = 1. / 100.0;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(AudioPlugin {
-            default_spatial_scale: SpatialScale::new_2d(AUDIO_SCALE).into(),
+            default_spatial_scale: SpatialScale::new_2d(AUDIO_SCALE),
             ..default()
         }))
         .add_systems(Startup, setup)
