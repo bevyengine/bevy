@@ -5,7 +5,6 @@ use crate::{
     self as bevy_ecs,
     bundle::Bundle,
     entity::{Entities, Entity},
-    prelude::Component,
     system::{RunSystemWithInput, SystemId},
     world::{EntityWorldMut, FromWorld, World},
 };
@@ -1239,7 +1238,7 @@ mod tests {
 
     impl ComposeCkVec {
         fn compose(&mut self, incoming: Self) {
-            self.0.extend(incoming.0)
+            self.0.extend(incoming.0);
         }
     }
 

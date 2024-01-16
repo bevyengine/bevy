@@ -151,7 +151,7 @@ pub unsafe trait Bundle: DynamicBundle + Sized + Send + Sync + 'static {
         (self, tail)
     }
 
-    /// Apply duplicate items in a bundle to an EntityMut and remove them.
+    /// Apply duplicate items in a bundle to an [`EntityWorldMut`] and remove them.
     fn spawn_compose(self, entity: &mut EntityWorldMut, parent: impl Bundle) {
         let (head, tail) = self.split_head();
         match entity.get_mut::<Self::Head>() {
@@ -209,10 +209,13 @@ mod sealed {
     }
 }
 
+/// SAFETY:
+/// Safe since this implementation explicitly does nothing.
 unsafe impl Bundle for () {
     type Head = sealed::DummyComponent;
 
     fn spawn_compose(self, entity: &mut EntityWorldMut, parent: impl Bundle) {
+        // This ends recursion by inserting the remaining bundle.
         entity.insert(parent);
     }
 
