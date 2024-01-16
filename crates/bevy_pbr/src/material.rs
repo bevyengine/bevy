@@ -234,7 +234,9 @@ where
                             .after(prepare_materials::<M>),
                         queue_material_meshes::<M>
                             .in_set(RenderSet::QueueMeshes)
-                            .after(prepare_materials::<M>),
+                            .after(prepare_materials::<M>)
+                            // queue_material_meshes only writes to `material_bind_group_id`, which `queue_shadows` doesn't read
+                            .ambiguous_with(render::queue_shadows::<M>),
                     ),
                 );
         }
@@ -819,6 +821,7 @@ pub fn extract_materials<M: Material>(
     let mut changed_assets = HashSet::default();
     let mut removed = Vec::new();
     for event in events.read() {
+        #[allow(clippy::match_same_arms)]
         match event {
             AssetEvent::Added { id } | AssetEvent::Modified { id } => {
                 changed_assets.insert(*id);
@@ -827,6 +830,7 @@ pub fn extract_materials<M: Material>(
                 changed_assets.remove(id);
                 removed.push(*id);
             }
+            AssetEvent::Unused { .. } => {}
             AssetEvent::LoadedWithDependencies { .. } => {
                 // TODO: handle this
             }

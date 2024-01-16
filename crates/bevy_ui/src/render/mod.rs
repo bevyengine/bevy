@@ -21,7 +21,6 @@ use crate::{
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
 use bevy_ecs::prelude::*;
-use bevy_math::Vec3Swizzles;
 use bevy_math::{Mat4, Rect, URect, UVec4, Vec2, Vec3, Vec4Swizzles};
 use bevy_render::{
     camera::Camera,
@@ -74,6 +73,7 @@ pub fn build_ui_render(app: &mut App) {
         .init_resource::<UiImageBindGroups>()
         .init_resource::<UiMeta>()
         .init_resource::<ExtractedUiNodes>()
+        .allow_ambiguous_resource::<ExtractedUiNodes>()
         .init_resource::<DrawFunctions<TransparentUi>>()
         .add_render_command::<TransparentUi, DrawUi>()
         .add_systems(
@@ -635,19 +635,18 @@ pub fn extract_text_uinodes(
             continue;
         }
 
-        let mut affine = global_transform.affine();
-
         // Align the text to the nearest physical pixel:
         // * Translate by minus the text node's half-size
         //      (The transform translates to the center of the node but the text coordinates are relative to the node's top left corner)
         // * Multiply the logical coordinates by the scale factor to get its position in physical coordinates
         // * Round the physical position to the nearest physical pixel
         // * Multiply by the rounded physical position by the inverse scale factor to return to logical coordinates
-        let logical_top_left = affine.translation.xy() - 0.5 * uinode.size();
+
+        let logical_top_left = -0.5 * uinode.size();
         let physical_nearest_pixel = (logical_top_left * scale_factor).round();
         let logical_top_left_nearest_pixel = physical_nearest_pixel * inverse_scale_factor;
-        affine.translation = logical_top_left_nearest_pixel.extend(0.).into();
-        let transform = Mat4::from(affine);
+        let transform = Mat4::from(global_transform.affine())
+            * Mat4::from_translation(logical_top_left_nearest_pixel.extend(0.));
 
         let mut color = Color::WHITE;
         let mut current_section = usize::MAX;
@@ -789,6 +788,7 @@ pub fn prepare_uinodes(
     for event in &events.images {
         match event {
             AssetEvent::Added { .. } |
+            AssetEvent::Unused { .. } |
             // Images don't have dependencies
             AssetEvent::LoadedWithDependencies { .. } => {}
             AssetEvent::Modified { id } | AssetEvent::Removed { id } => {

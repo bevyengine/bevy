@@ -456,6 +456,26 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
+name = "sprite_tile"
+path = "examples/2d/sprite_tile.rs"
+
+[package.metadata.example.sprite_tile]
+name = "Sprite Tile"
+description = "Renders a sprite tiled in a grid"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
+name = "sprite_slice"
+path = "examples/2d/sprite_slice.rs"
+
+[package.metadata.example.sprite_slice]
+name = "Sprite Slice"
+description = "Showcases slicing sprites into sections that can be scaled independently via the 9-patch technique"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
 name = "text2d"
 path = "examples/2d/text2d.rs"
 doc-scrape-examples = true
@@ -595,6 +615,17 @@ doc-scrape-examples = true
 [package.metadata.example.blend_modes]
 name = "Blend Modes"
 description = "Showcases different blend modes"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "deterministic"
+path = "examples/3d/deterministic.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.deterministic]
+name = "Deterministic rendering"
+description = "Stop flickering from z-fighting at a performance cost"
 category = "3D Rendering"
 wasm = true
 
@@ -1025,6 +1056,16 @@ category = "Application"
 wasm = true
 
 [[example]]
+name = "log_layers"
+path = "examples/app/log_layers.rs"
+
+[package.metadata.example.log_layers]
+name = "Log layers"
+description = "Illustrate how to add custom log layers"
+category = "Application"
+wasm = false
+
+[[example]]
 name = "plugin"
 path = "examples/app/plugin.rs"
 doc-scrape-examples = true
@@ -1282,11 +1323,6 @@ name = "ECS Guide"
 description = "Full guide to Bevy's ECS"
 category = "ECS (Entity Component System)"
 wasm = false
-
-[[example]]
-name = "apply_deferred"
-path = "examples/ecs/apply_deferred.rs"
-doc-scrape-examples = true
 
 [package.metadata.example.apply_deferred]
 name = "Apply System Buffers"

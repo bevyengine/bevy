@@ -61,7 +61,8 @@ impl Plugin for ViewPlugin {
                     prepare_view_targets
                         .in_set(RenderSet::ManageViews)
                         .after(prepare_windows)
-                        .after(crate::render_asset::prepare_assets::<Image>),
+                        .after(crate::render_asset::prepare_assets::<Image>)
+                        .ambiguous_with(crate::camera::sort_cameras), // doesn't use `sorted_camera_index_for_target`
                     prepare_view_uniforms.in_set(RenderSet::PrepareResources),
                 ),
             );

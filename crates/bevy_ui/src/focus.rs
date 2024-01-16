@@ -9,13 +9,15 @@ use bevy_ecs::{
 };
 use bevy_input::{mouse::MouseButton, touch::Touches, ButtonInput};
 use bevy_math::{Rect, Vec2};
-use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{camera::NormalizedRenderTarget, prelude::Camera, view::ViewVisibility};
 use bevy_transform::components::GlobalTransform;
 
 use bevy_utils::smallvec::SmallVec;
 use bevy_window::{PrimaryWindow, Window};
-use serde::{Deserialize, Serialize};
+
+#[cfg(feature = "serialize")]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 /// Describes what type of input interaction has occurred for a UI node.
 ///
@@ -31,8 +33,13 @@ use serde::{Deserialize, Serialize};
 ///
 /// Note that you can also control the visibility of a node using the [`Display`](crate::ui_node::Display) property,
 /// which fully collapses it during layout calculations.
-#[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize)]
-#[reflect(Component, Serialize, Deserialize, PartialEq)]
+#[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect)]
+#[reflect(Component, Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum Interaction {
     /// The node has been pressed.
     ///
@@ -59,8 +66,13 @@ impl Default for Interaction {
 
 ///
 /// It can be used alongside interaction to get the position of the press.
-#[derive(Component, Copy, Clone, Default, PartialEq, Debug, Reflect, Serialize, Deserialize)]
-#[reflect(Component, Serialize, Deserialize, PartialEq)]
+#[derive(Component, Copy, Clone, Default, PartialEq, Debug, Reflect)]
+#[reflect(Component, Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct RelativeCursorPosition {
     /// Visible area of the Node relative to the size of the entire Node.
     pub normalized_visible_node_rect: Rect,
@@ -79,8 +91,13 @@ impl RelativeCursorPosition {
 }
 
 /// Describes whether the node should block interactions with lower nodes
-#[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize)]
-#[reflect(Component, Serialize, Deserialize, PartialEq)]
+#[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect)]
+#[reflect(Component, Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum FocusPolicy {
     /// Blocks interaction
     Block,
