@@ -723,17 +723,15 @@ impl App {
     /// One of Bevy's core principles is modularity. All Bevy engine features are implemented
     /// as [`Plugin`]s. This includes internal features like the renderer.
     ///
-    /// [`Plugin`]s can be grouped into a set by using a [`PluginGroup`].
+    /// [`Plugin`]s can be grouped into a set using [`PluginSet`]s, which allow plugins to be
+    /// added, removed, disabled, and reordered.
     ///
+    /// [`PluginGroup`] is a trait that allows types to configure and add plugins to a set.
     /// There are built-in [`PluginGroup`]s that provide core engine functionality.
     /// The [`PluginGroup`]s available by default are `DefaultPlugins` and `MinimalPlugins`.
     ///
-    /// To customize the plugins in the group (reorder, disable a plugin, add a new plugin
-    /// before / after another plugin), call [`build()`](super::PluginGroup::build) on the group,
-    /// which will convert it to a [`PluginGroupBuilder`](crate::PluginGroupBuilder).
-    ///
-    /// You can also specify a group of [`Plugin`]s by using a tuple over [`Plugin`]s and
-    /// [`PluginGroup`]s. See [`Plugins`] for more details.
+    /// You can also specify a group of [`Plugin`]s by using a tuple over [`Plugin`]s,
+    /// [`PluginSet`]s, and [`PluginGroup`]s. See [`Plugins`] for more details.
     ///
     /// ## Examples
     /// ```
@@ -769,7 +767,8 @@ impl App {
                 "Plugins cannot be added after App::cleanup() or App::finish() has been called."
             );
         }
-        plugins.add_to_set(&mut self.plugin_set);
+        let plugin_set = std::mem::take(&mut self.plugin_set);
+        self.plugin_set = plugins.add_to_set(plugin_set);
         self
     }
 

@@ -10,19 +10,21 @@ use std::any::{Any, TypeId};
 
 /// A collection of Bevy app logic and configuration.
 ///
-/// Plugins configure an [`App`]. When an [`App`] registers a plugin,
-/// the plugin's [`Plugin::build`] function is run. By default, a plugin
-/// can only be added once to an [`App`].
+/// Plugins configure an [`App`]. During startup, the app calls the [`Plugin::build()`] method of
+/// the added plugins. By default, a plugin can only be added once to an [`App`].
 ///
 /// If the plugin may need to be added twice or more, the function [`is_unique()`](Self::is_unique)
-/// should be overridden to return `false`. Plugins are considered duplicate if they have the same
-/// [`name()`](Self::name). The default `name()` implementation returns the type name, which means
-/// generic plugins with different type parameters will not be considered duplicates.
+/// should be overridden to return `false`.
+///
+/// Plugins can specify dependencies or substitute in for other plugins by implementing
+/// [`Plugin::configure`]. This function is passed a mutable reference to a manifest which is
+/// shared across all instances of the plugin, and tracks the relationship of the plugin with
+/// other plugin types.
 ///
 /// ## Lifecycle of a plugin
 ///
 /// When adding a plugin to an [`App`]:
-/// * all instances of the plugin configure the shared manifest [`Plugin::configure`]
+/// * all instances of the plugin configure the shared manifest through [`Plugin::configure`]
 /// * on startup the app orders the plugins and calls [`Plugin::build`]
 /// * the app then waits for all registered [`Plugin::ready`] to return `true`
 /// * then it calls all registered [`Plugin::finish`]
@@ -73,7 +75,7 @@ impl_downcast!(Plugin);
 /// abstraction around which the [`PluginManifest`] is built around.
 ///
 /// Note to maintainers: When adding a new relation, be sure to implement a function on
-/// [`PluginManifest`] to expose it to users.
+/// [`PluginManifest`] to allow users to use it.
 #[derive(Eq, PartialEq, Debug, Copy, Clone)]
 pub(crate) enum PluginRelation {
     /// Indicates this plugin must be built after the other one. The value indicates whether the
@@ -85,7 +87,7 @@ pub(crate) enum PluginRelation {
 
 impl PluginRelation {
     /// Tries to combine two [`PluginRelation`]s. This determines the outcome when multiple relations
-    /// are added to the same plugin.
+    /// are added between the same two plugins.
     fn combine(self, other: PluginRelation) -> Result<Self, (PluginRelation, PluginRelation)> {
         use PluginRelation::*;
         match (self, other) {
@@ -112,20 +114,14 @@ pub(crate) struct PluginManifestEntry {
 
 /// A plugin manifest specifies relationships with other plugins.
 ///
-/// # Use
 /// The primary use for a manifest is in [`Plugin::configure`]. Plugins which implement this function
-/// will be passed a reference to a manifest when they are added to the app. The manifest can then
+/// will be passed a reference to their manifest when they are added to the app. The manifest can then
 /// be used to specify dependencies (using [`PluginManifest::add_dependency`]) and substitutions
 /// (using [`PluginManifest::add_substitution`].
 ///
-/// *Note:* All instances of a non-unique plugin use and write to same manifest. Different instances
-/// may specify different dependencies, but they are not allowed to contradict one another.
-///
-/// # Internal Details
-/// The manifest is built around the [`PluginRelations`] type, and relies on the following assumptions:
-/// + A relation is specified by the [`TypeId`] of the target plugin type.
-/// + A relation applies to all instances of the target plugin.
-/// + Relations are mutually exclusive; Plugins cannot have two different relations with the same target.
+/// *Note:* Manifests deal with plugin types, not to specific instances of plugins. All instances of
+/// the same non-unique plugin are receive a reference to the same manifest in [`Plugin::configure`]. Different
+/// instances may specify different dependencies, but they are not allowed to contradict one another.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PluginManifest {
     /// The type name of the plugin. We must track this to produce friendly error messages.
@@ -187,22 +183,133 @@ impl PluginManifest {
 
     // PUBLIC API -------------------------------------------------------------
 
-    /// Adds a dependency upon the specified [`Plugin`]. If `required` is true and the dependency
-    /// is not provided to the [`App`], it will panic. Otherwise it will emit a warning.
+    /// Adds a dependency upon the specified [`Plugin`]. Required dependencies cause [`App::run`] to panic
+    /// if the specified plugin is not added to the app.
+    ///
+    /// # Examples
+    /// You should add a dependency on a plugin when you need to use components, resources, or events it adds.
+    /// ```
+    /// # use bevy_ecs::prelude::Resource;
+    /// # use bevy_app::{App, Plugin, PluginManifest};
+    /// #
+    /// # #[derive(Default, Resource)]
+    /// # struct RocketResource;
+    /// # impl RocketResource {
+    /// #     fn add_component<T>(&self, _value: T) -> &Self {self}
+    /// # }
+    /// # struct RocketPlugin;
+    /// # impl Plugin for RocketPlugin {
+    /// #     fn build(&self, app: &mut App) {
+    /// #         app.init_resource::<RocketResource>();
+    /// #     }
+    /// # }
+    /// # struct Fuselage;
+    /// # struct Engine;
+    /// # struct Cockpit;
+    /// struct MyPlugin;
+    ///
+    /// impl Plugin for MyPlugin {
+    ///     fn build(&self, app: &mut App) {
+    ///         // Use a resource added by `RocketPlugin`
+    ///         app.world.resource::<RocketResource>()
+    ///             .add_component(Fuselage)
+    ///             .add_component(Engine)
+    ///             .add_component(Cockpit);
+    ///     }
+    ///
+    ///     fn configure(&self, manifest: &mut PluginManifest) {
+    ///         // Add a required dependency on `FooPlugin` so that `FooResource` is available.
+    ///         manifest.add_dependency::<RocketPlugin>(true);
+    ///     }
+    /// }
+    /// ```
+    /// If your plugin uses a generic type, you can pass that along into the dependency.
+    /// ```
+    /// # use bevy_app::{App, Plugin, PluginManifest};
+    /// # use std::marker::PhantomData;
+    /// # trait PhysicsBackend: std::any::Any + Send + Sync + 'static {}
+    /// # struct PhysicsPlugin<T: PhysicsBackend> {
+    /// #     value: T
+    /// # }
+    /// # impl<T: PhysicsBackend> Plugin for PhysicsPlugin<T> {
+    /// #     fn build(&self, _app: &mut App) {}
+    /// # }
+    /// struct RayCastPlugin<T: PhysicsBackend> {
+    ///     phantom_data: PhantomData<T>
+    /// };
+    ///
+    /// impl<T: PhysicsBackend> Plugin for RayCastPlugin<T> {
+    ///     fn build(&self, app: &mut App) {
+    ///         // Use resources and components of `PhysicsPlugin<T>` and properties of `T: PhysicsBackend`.
+    ///     }
+    ///
+    ///     fn configure(&self, manifest: &mut PluginManifest) {
+    ///         // Depend on a version of `PhysicsPlugin` using the same `PhysicsBackend` implementation.
+    ///         manifest.add_dependency::<PhysicsPlugin<T>>(true)
+    ///     }
+    /// }
+    /// ```
     ///
     /// # Panics
     ///
-    /// Adding both an optional and a required dependency to the same plugin will panic. Adding both
-    /// a dependency on a substituted plugin also panic.
+    /// Adding a dependency on a [substituted plugin](Self::add_substitution) will panic.
+    /// ```should_panic
+    /// # use bevy_app::{App, Plugin, PluginSet, PluginManifest};
+    /// # struct RenderPlugin;
+    /// # impl Plugin for RenderPlugin {
+    /// #     fn build(&self, _app: &mut App) {}
+    /// # }
+    /// struct CustomRenderPlugin;
+    ///
+    /// impl Plugin for CustomRenderPlugin {
+    ///     fn build(&self, _app: &mut App) {
+    ///         // Normal plugin stuff ...
+    ///     }
+    ///
+    ///     fn configure(&self, manifest: &mut PluginManifest) {
+    ///         manifest.add_substitution::<RenderPlugin>();
+    ///         // This line will panic because this plugin is already substituting for `RenderPlugin`.
+    ///         manifest.add_dependency::<RenderPlugin>(true);
+    ///     }
+    /// }
+    /// # fn main() {
+    /// #     // Add to set to actually build the manifest
+    /// #     PluginSet::new().add_plugins((RenderPlugin, CustomRenderPlugin));
+    /// # }
+    /// ```
     pub fn add_dependency<P: Plugin>(&mut self, required: bool) {
         self.add_relation::<P>(PluginRelation::After(required))
     }
 
-    /// Tells the [`App`] to replace the specified [`Plugin`] with the plugin this manifest belongs to.
+    /// Tells the [`App`] to replace the specified [`Plugin`] with this one.
     ///
     /// # Panics
     ///
-    /// Panics if a substitution is added for a dependency.
+    /// Substituting for a [dependency](Self::add_dependency) will panic.
+    /// ```should_panic
+    /// # use bevy_app::{App, Plugin, PluginSet, PluginManifest};
+    /// # struct RenderPlugin;
+    /// # impl Plugin for RenderPlugin {
+    /// #     fn build(&self, _app: &mut App) {}
+    /// # }
+    /// struct CustomRenderPlugin;
+    ///
+    /// impl Plugin for CustomRenderPlugin {
+    ///     fn build(&self, _app: &mut App) {
+    ///         // Normal plugin stuff ...
+    ///     }
+    ///
+    ///     fn configure(&self, manifest: &mut PluginManifest) {
+    ///         manifest.add_dependency::<RenderPlugin>(true);
+    ///         // This line will cause will panic because we are already depending on `RenderPlugin`.
+    ///         manifest.add_substitution::<RenderPlugin>();
+    ///     }
+    /// }
+    /// # fn main() {
+    /// #     // Add to set to actually build the manifest
+    /// #     PluginSet::new().add_plugins((RenderPlugin, CustomRenderPlugin));
+    /// # }
+    /// ```
     pub fn add_substitution<P: Plugin>(&mut self) {
         self.add_relation::<P>(PluginRelation::SubstituteFor)
     }
@@ -311,7 +418,7 @@ impl<'a> IntoIterator for &'a mut PluginFamily {
 }
 
 /// Errors resulting from doing things with plugins. These may result from adding plugins to a set,
-/// from combining sets, or from adding entries to the manifest in a [`Plugin::config`] function.
+/// from combining sets, or from adding entries to the manifest in a [`Plugin::configure`] function.
 #[derive(Debug, Error)]
 pub(crate) enum PluginError {
     /// A unique plugin was added multiple times.
@@ -336,18 +443,14 @@ pub(crate) enum PluginError {
     },
 }
 
-/// A common representation for a set of her erogenous [`Plugin`]s.
+/// A common representation for a set of heterogeneous [`Plugin`]s. Use this any time you want to group plugins
+/// together in a mutable container.
 ///
-/// [`PluginSet::add_plugins`] can add plugins, tuples of plugins, [`PluginGroup`]s, and even other
-/// `PluginSet`s to the set.
+/// The key feature of a plugin set is mutability: Plugins can be added using [`PluginSet::add_plugins`], disabled
+/// using [`PluginSet::disable`] or [`PluginSet::disable_all`], and modified using [`PluginSet::set`] or convince
+/// methods like [`PluginSet::after`].
 ///
-/// # Implementation Details
-/// PluginSets track lots of useful information beyond simply holding boxed references to plugins themselves.
-/// Plugin instances of the same type are all stored in a single [`PluginFamily`], along side their dependency
-/// information (in the form of a [`PluginManifest`]) and static reference to the type name (for debug purposes).
-///
-/// The [`App`] uses a PluginSet internally to collect plugins before they are built. All plugins that are added
-/// to the app eventually get merged into the app PluginSet.
+/// If you need a static set of plugins with a name, use a [`PluginGroup`] instead.
 #[derive(Default)]
 pub struct PluginSet {
     pub(crate) plugin_families: HashMap<TypeId, PluginFamily>,
@@ -356,12 +459,13 @@ pub struct PluginSet {
 impl PluginSet {
     /// Add a new plugin to the set. This should only be called by types that implement [`Plugins`].
     /// Everything else should use the more general [`PluginSet::add_plugins`] instead.
-    pub(crate) fn add_plugin<P: Plugin>(&mut self, plugin: P) -> Result<(), PluginError> {
+    pub(crate) fn add_plugin<P: Plugin>(mut self, plugin: P) -> Result<Self, PluginError> {
         let plugin_id = plugin.type_id();
         self.plugin_families
             .entry(plugin_id)
             .or_insert_with(|| PluginFamily::empty::<P>())
-            .add(Box::new(plugin))
+            .add(Box::new(plugin))?;
+        Ok(self)
     }
 
     // PUBLIC API -------------------------------------------------------------
@@ -373,37 +477,73 @@ impl PluginSet {
 
     /// Adds [`Plugin`]s to the set. Supports individual [`Plugin`]s, tuples of plugins,
     /// [`PluginGroup`]s, and other [`PluginSet`]s.
-    pub fn add_plugins<M>(&mut self, plugins: impl Plugins<M>) {
-        plugins.add_to_set(self);
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_app::{App, Plugin, PluginSet, NoopPluginGroup as DefaultPlugins};
+    /// # struct MyPlugin;
+    /// # impl Plugin for MyPlugin {
+    /// #     fn build(&self, _app: &mut App) {}
+    /// # }
+    /// # struct PluginA;
+    /// # impl Plugin for PluginA {
+    /// #     fn build(&self, _app: &mut App) {}
+    /// # }
+    /// # struct PluginB;
+    /// # impl Plugin for PluginB {
+    /// #     fn build(&self, _app: &mut App) {}
+    /// # }
+    /// PluginSet::new()
+    ///   .add_plugins(MyPlugin)
+    ///   .add_plugins(DefaultPlugins)
+    ///   .add_plugins((PluginA, PluginB))
+    ///   .add_plugins(PluginSet::new());
+    /// ```
+    pub fn add_plugins<M>(self, plugins: impl Plugins<M>) -> Self {
+        plugins.add_to_set(self)
     }
 
-    /// Makes the plugins in this set build after another plugin, when it is present.
-    pub fn after<P: Plugin>(&mut self) {
+    /// Configures the plugins in this set to build after the given plugin.
+    pub fn after<P: Plugin>(mut self) -> PluginSet {
         for family in self.plugin_families.values_mut() {
-            family.manifest.add_dependency::<P>(false)
+            family.is_enabled = false;
         }
-    }
-
-    /// Makes the plugins in this set depend on another plugin. The app will panic if the
-    /// dependency is not supplied at startup.
-    pub fn depends_on<P: Plugin>(&mut self) {
-        for family in self.plugin_families.values_mut() {
-            family.manifest.add_dependency::<P>(true)
-        }
+        self
     }
 
     /// Disables the plugin if it is present in the set.
-    pub fn disable<P: Plugin>(&mut self) {
+    pub fn disable<P: Plugin>(mut self) -> PluginSet {
         if let Some(family) = self.plugin_families.get_mut(&TypeId::of::<P>()) {
             family.is_enabled = false;
         }
+        self
     }
 
     /// Disables all the plugins in the set.
-    pub fn disable_all(&mut self) {
+    pub fn disable_all(mut self) -> PluginSet {
         for family in self.plugin_families.values_mut() {
             family.is_enabled = false;
         }
+        self
+    }
+
+    /// Replaces the value of a given unique [`Plugin`], if already present. Panics if the
+    /// plugin is non-unique.
+    pub fn set<P: Plugin>(mut self, plugin: P) -> PluginSet {
+        if let Some(plugin_family) = self.plugin_families.get_mut(&TypeId::of::<P>()) {
+            if plugin_family.is_unique {
+                plugin_family.plugins.clear();
+                if let Err(error) = plugin_family.add(Box::new(plugin)) {
+                    panic!("Error replacing plugin: {error}")
+                }
+            } else {
+                panic!(
+                    "Error replacing plugin: {} is non-unique.",
+                    std::any::type_name::<P>()
+                );
+            }
+        }
+        self
     }
 }
 
@@ -421,8 +561,8 @@ impl PluginSet {
 /// struct MyPluginGroup;
 ///
 /// impl PluginGroup for MyPluginGroup {
-///     fn build(self, set: &mut PluginSet) {
-///         set.add_plugins(MyPlugin);
+///     fn build(self, set: PluginSet) -> PluginSet {
+///         set.add_plugins(MyPlugin)
 ///     }
 /// }
 ///
@@ -432,7 +572,7 @@ impl PluginSet {
 /// ```
 pub trait PluginGroup: Sized {
     /// Add plugins to the [`PluginSet`] to which the group is added.
-    fn build(self, set: &mut PluginSet);
+    fn build(self, set: PluginSet) -> PluginSet;
 }
 
 /// A plugin group which doesn't do anything. Useful for examples:
@@ -448,27 +588,16 @@ pub trait PluginGroup: Sized {
 pub struct NoopPluginGroup;
 
 impl PluginGroup for NoopPluginGroup {
-    fn build(self, _set: &mut PluginSet) {}
+    fn build(self, set: PluginSet) -> PluginSet {
+        set
+    }
 }
-
-/// A type representing an unsafe function that returns a mutable pointer to a [`Plugin`].
-/// It is used for dynamically loading plugins.
-///
-/// See `bevy_dynamic_plugin/src/loader.rs#dynamically_load_plugin`.
-pub type CreatePlugin = unsafe fn() -> *mut dyn Plugin;
 
 /// Types that represent a set of [`Plugin`]s.
 ///
 /// This is implemented for all types which implement [`Plugin`] or [`PluginGroup`], as well as
 /// for [`PluginSet`]s and tuples over [`Plugin`]s.
-pub trait Plugins<Marker>: sealed::Plugins<Marker> {
-    /// Turn this collection of plugins into a [`PluginSet`].
-    fn into_set(self) -> PluginSet {
-        let mut set = PluginSet::new();
-        self.add_to_set(&mut set);
-        set
-    }
-}
+pub trait Plugins<Marker>: sealed::Plugins<Marker> {}
 
 impl<Marker, T> Plugins<Marker> for T where T: sealed::Plugins<Marker> {}
 
@@ -479,33 +608,38 @@ mod sealed {
     use crate::{Plugin, PluginGroup, PluginSet};
 
     pub trait Plugins<Marker>: Sized {
-        fn add_to_set(self, set: &mut PluginSet);
+        fn add_to_set(self, set: PluginSet) -> PluginSet;
+
+        fn into_set(self) -> PluginSet {
+            self.add_to_set(PluginSet::new())
+        }
     }
 
     pub struct PluginMarker;
     pub struct PluginSetMarker;
     pub struct PluginGroupMarker;
-    pub struct PluginsTupleMarker;
+    pub struct PluginTupleMarker;
 
     impl<P: Plugin> Plugins<PluginMarker> for P {
         #[track_caller]
-        fn add_to_set(self, set: &mut PluginSet) {
-            if let Err(error) = set.add_plugin(self) {
-                panic!("Error adding plugin to set: {error}")
+        fn add_to_set(self, set: PluginSet) -> PluginSet {
+            match set.add_plugin(self) {
+                Ok(set) => set,
+                Err(error) => panic!("Error adding plugin to set: {error}"),
             }
         }
     }
 
     impl<G: PluginGroup> Plugins<PluginGroupMarker> for G {
         #[track_caller]
-        fn add_to_set(self, set: &mut PluginSet) {
-            self.build(set);
+        fn add_to_set(self, set: PluginSet) -> PluginSet {
+            self.build(set)
         }
     }
 
     impl Plugins<PluginSetMarker> for PluginSet {
         #[track_caller]
-        fn add_to_set(self, set: &mut PluginSet) {
+        fn add_to_set(self, mut set: PluginSet) -> PluginSet {
             for (plugin_id, plugin_family) in self.plugin_families {
                 if let Some(set_family) = set.plugin_families.get_mut(&plugin_id) {
                     if let Err(error) = set_family.merge(plugin_family) {
@@ -515,26 +649,83 @@ mod sealed {
                     set.plugin_families.insert(plugin_id, plugin_family);
                 }
             }
+            set
         }
     }
 
     macro_rules! impl_plugins_tuples {
         ($(($param: ident, $plugins: ident)),*) => {
-            impl<$($param, $plugins),*> Plugins<(PluginsTupleMarker, $($param,)*)> for ($($plugins,)*)
+            impl<$($param, $plugins),*> Plugins<(PluginTupleMarker, $($param,)*)> for ($($plugins,)*)
             where
                 $($plugins: Plugins<$param>),*
             {
                 #[allow(non_snake_case, unused_variables)]
                 #[track_caller]
-                fn add_to_set(self, set: &mut PluginSet) {
+                fn add_to_set(self, #[allow(unused_mut)] mut set: PluginSet) -> PluginSet {
                     let ($($plugins,)*) = self;
-                    $($plugins.add_to_set(set);)*
+                    $(set = $plugins.add_to_set(set);)*
+                    set
                 }
             }
         }
     }
 
     all_tuples!(impl_plugins_tuples, 0, 15, P, S);
+}
+
+/// A type representing an unsafe function that returns a mutable pointer to a [`Plugin`].
+/// It is used for dynamically loading plugins.
+///
+/// See `bevy_dynamic_plugin/src/loader.rs#dynamically_load_plugin`.
+pub type CreatePlugin = unsafe fn() -> *mut dyn Plugin;
+
+/// Alias methods from [`PluginSet`] on single plugin instances.
+pub trait PluginExt<Marker>: Plugins<Marker> + Plugin {
+    /// Build this plugin after another. This is an alias of [`PluginSet::after`].
+    fn after<P: Plugin>(self) -> PluginSet {
+        self.into_set().after::<P>()
+    }
+
+    /// Disable this plugin. This is an alias of [`PluginSet::disable`].
+    fn disable(self) -> PluginSet {
+        self.into_set().disable::<Self>()
+    }
+}
+
+impl<P> PluginExt<sealed::PluginMarker> for P where P: Plugins<sealed::PluginMarker> + Plugin {}
+
+/// Alias methods from [`PluginSet`] to [`PluginGroup`], and tuples.
+pub trait PluginCollectionExt<Marker>: Plugins<Marker> {
+    /// Build these plugins after another plugin. This is an alias of [`PluginSet::after`].
+    fn after<P: Plugin>(self) -> PluginSet {
+        self.into_set().after::<P>()
+    }
+
+    /// Disable a plugin, if present. This is an alias of [`PluginSet::disable`].
+    fn disable<P: Plugin>(self) -> PluginSet {
+        self.into_set().disable::<P>()
+    }
+
+    /// Disable these plugins. This is an alias of [`PluginSet::disable_all`].
+    fn disable_all(self) -> PluginSet {
+        self.into_set().disable_all()
+    }
+
+    /// Replace a plugin, if present. Panics if the plugin is non-unique. This is an alias
+    /// of [`PluginSet::set`].
+    fn set<P: Plugin>(self, plugin: P) -> PluginSet {
+        self.into_set().set(plugin)
+    }
+}
+
+impl<P> PluginCollectionExt<sealed::PluginGroupMarker> for P where
+    P: Plugins<sealed::PluginGroupMarker>
+{
+}
+
+impl<P> PluginCollectionExt<sealed::PluginTupleMarker> for P where
+    P: Plugins<sealed::PluginTupleMarker>
+{
 }
 
 impl PluginSet {
@@ -597,15 +788,16 @@ impl PluginSet {
         if sccs_with_cycles.is_empty() {
             // No cycles detected
             for plugin_id in top_sorted_nodes {
-                // Skip substituted plugins regardless of if they are provided or not.
-                if substitutes.contains_key(&plugin_id) {
-                    continue;
+                // Don't include substituted plugins in the order if the substitute is enabled.
+                if let Some(substitute_id) = substitutes.get(&plugin_id) {
+                    if !disabled.contains(substitute_id) {
+                        continue;
+                    }
                 }
-                // Try to add the plugin to the order
+                // Add the plugin to the build order if it both provided and enabled.
                 let status;
                 if self.plugin_families.contains_key(&plugin_id) {
                     if !disabled.contains(&plugin_id) {
-                        // Plugin enabled, provided, and not substituted for, so add it
                         order.push(plugin_id);
                         continue;
                     } else {
@@ -614,7 +806,7 @@ impl PluginSet {
                 } else {
                     status = "missing";
                 }
-                // Plugin is either missing or disabled
+                // Panic if the plugin is required and either not provided or not enabled.
                 if let Some(_required_by) = requires.get(&plugin_id) {
                     panic!("Required plugin is {status}");
                 }
@@ -656,8 +848,8 @@ mod tests {
 
     struct GroupAB;
     impl PluginGroup for GroupAB {
-        fn build(self, set: &mut PluginSet) {
-            set.add_plugins((PluginA, PluginB));
+        fn build(self, set: PluginSet) -> PluginSet {
+            set.add_plugins((PluginA, PluginB))
         }
     }
 
@@ -674,8 +866,7 @@ mod tests {
     fn add_simple_plugin_to_set() {
         // Plugins can be added to sets.
 
-        let mut set = PluginSet::new();
-        set.add_plugins(PluginA);
+        let set = PluginSet::new().add_plugins(PluginA);
 
         let ref family = set.plugin_families[&TypeId::of::<PluginA>()];
         assert!(family.is_unique == true);
@@ -687,8 +878,7 @@ mod tests {
     fn add_tuple_to_set() {
         // Tuples can contain all the other plugin collections.
 
-        let mut set = PluginSet::new();
-        set.add_plugins((GroupAB, PluginC, PluginSet::new(), ()));
+        let set = PluginSet::new().add_plugins((GroupAB, PluginC, PluginSet::new(), ()));
 
         // Verify A
         let ref family_a = set.plugin_families[&TypeId::of::<PluginA>()];
@@ -713,11 +903,9 @@ mod tests {
     fn combine_sets() {
         // Plugins should be preserved when combining sets.
 
-        let mut set_ab = PluginSet::new();
-        set_ab.add_plugins((PluginA, PluginB));
+        let set_ab = PluginSet::new().add_plugins((PluginA, PluginB));
 
-        let mut set = PluginSet::new();
-        set.add_plugins((PluginC, set_ab));
+        let set = PluginSet::new().add_plugins((PluginC, set_ab));
 
         // Verify A
         let ref family_a = set.plugin_families[&TypeId::of::<PluginA>()];
@@ -742,15 +930,13 @@ mod tests {
     #[should_panic]
     fn add_multiple_unique() {
         // It should not be possible to add multiple versions of a unique plugin to a set.
-        let mut set = PluginSet::new();
-        set.add_plugins((PluginUnique(true), PluginUnique(true)));
+        PluginSet::new().add_plugins((PluginUnique(true), PluginUnique(true)));
     }
 
     #[test]
     fn add_multiple_non_unique() {
         // It should be possible to add multiple versions of a non-unique plugin to a set.
-        let mut set = PluginSet::new();
-        set.add_plugins((PluginUnique(false), PluginUnique(false)));
+        let set = PluginSet::new().add_plugins((PluginUnique(false), PluginUnique(false)));
 
         let ref family = set.plugin_families[&TypeId::of::<PluginUnique>()];
         assert!(family.is_unique == false);
@@ -762,16 +948,22 @@ mod tests {
     #[should_panic]
     fn add_non_unique_after_unique() {
         // It should not be possible to add a non-unique plugins to a set containing a unique versions of that plugin.
-        let mut set = PluginSet::new();
-        set.add_plugins((PluginUnique(true), PluginUnique(false), PluginUnique(false)));
+        PluginSet::new().add_plugins((
+            PluginUnique(true),
+            PluginUnique(false),
+            PluginUnique(false),
+        ));
     }
 
     #[test]
     #[should_panic]
     fn add_unique_after_non_unique() {
         // It should not be possible to add a unique plugin to a set containing non-unique versions of that plugin.
-        let mut set = PluginSet::new();
-        set.add_plugins((PluginUnique(false), PluginUnique(false), PluginUnique(true)));
+        PluginSet::new().add_plugins((
+            PluginUnique(false),
+            PluginUnique(false),
+            PluginUnique(true),
+        ));
     }
 
     // Tests involving plugin relations. These can be tricky, because in the case of a non-unique plugin, relation errors
@@ -793,8 +985,7 @@ mod tests {
     fn add_complex_plugin_to_set() {
         // Plugin sets are able to get the correct information from `Plugin::configure`.
 
-        let mut set = PluginSet::new();
-        set.add_plugins(ComplexPlugin);
+        let set = PluginSet::new().add_plugins(ComplexPlugin);
 
         let correct_manifest = PluginManifest {
             name: "bevy_app::plugin::tests::ComplexPlugin",
@@ -845,7 +1036,7 @@ mod tests {
     #[should_panic]
     fn add_conflicting_relations() {
         // Plugins are not allowed to depend on and substitute for the same plugin.
-        let mut set = PluginSet::new();
+        let set = PluginSet::new();
         set.add_plugins(ConflictingPlugin);
     }
 
@@ -871,12 +1062,9 @@ mod tests {
     #[should_panic]
     fn merge_conflicting_relations() {
         // Conflicting instances of a non-unique plugin should produce errors when sets are combined.
-        let mut set_a = PluginSet::new();
-        set_a.add_plugins(ConflictingNonUniquePlugin(true));
-        let mut set_b = PluginSet::new();
-        set_a.add_plugins(ConflictingNonUniquePlugin(false));
-        let mut set = PluginSet::new();
-        set.add_plugins((set_a, set_b))
+        let set_a = PluginSet::new().add_plugins(ConflictingNonUniquePlugin(true));
+        let set_b = PluginSet::new().add_plugins(ConflictingNonUniquePlugin(false));
+        PluginSet::new().add_plugins((set_a, set_b));
     }
 
     struct DependencyUpgradePlugin(bool);
@@ -896,23 +1084,10 @@ mod tests {
     #[test]
     fn required_dependency_overrides_optional() {
         // A required dependency should override an optimal one without an error.
-        let mut set = PluginSet::new();
-        set.add_plugins((
+        let set = PluginSet::new().add_plugins((
             DependencyUpgradePlugin(false),
             DependencyUpgradePlugin(true),
         ));
-
-        let correct_manifest = PluginManifest {
-            name: "bevy_app::plugin::tests::ComplexPlugin",
-            entries: [(
-                TypeId::of::<PluginA>(),
-                PluginManifestEntry {
-                    relation: PluginRelation::After(true),
-                    plugin_name: "bevy_app::plugin::tests::PluginA",
-                },
-            )]
-            .into(),
-        };
 
         let ref family = set.plugin_families[&TypeId::of::<DependencyUpgradePlugin>()];
         assert!(family.is_unique == false);

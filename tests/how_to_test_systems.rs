@@ -70,6 +70,7 @@ fn did_hurt_enemy() {
         .id();
 
     // Run systems
+    app.build();
     app.update();
 
     // Check resulting changes
@@ -101,6 +102,7 @@ fn did_despawn_enemy() {
         .id();
 
     // Run systems
+    app.build();
     app.update();
 
     // Check enemy was despawned
@@ -129,6 +131,7 @@ fn spawn_enemy_using_input_resource() {
     app.insert_resource(input);
 
     // Run systems
+    app.build();
     app.update();
 
     // Check resulting changes, one entity has been spawned with `Enemy` component
@@ -164,6 +167,7 @@ fn update_score_on_event() {
         .send(EnemyDied(3));
 
     // Run systems
+    app.build();
     app.update();
 
     // Check resulting changes

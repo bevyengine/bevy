@@ -203,6 +203,7 @@ mod test {
             .contains::<Aabb>());
 
         // Run system
+        app.build();
         app.update();
 
         // Verify the AABB exists
@@ -243,6 +244,7 @@ mod test {
             .id();
 
         // Create initial AABB
+        app.build();
         app.update();
 
         // Get the initial AABB

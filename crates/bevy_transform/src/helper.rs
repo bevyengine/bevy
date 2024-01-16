@@ -117,6 +117,7 @@ mod tests {
     fn match_transform_propagation_systems_inner(transforms: Vec<Transform>) {
         let mut app = App::new();
         app.add_plugins(TransformPluginGroup);
+        app.build();
 
         let mut entity = None;
 

@@ -42,7 +42,7 @@ use crate::{
     io::{embedded::EmbeddedAssetRegistry, AssetSourceBuilder, AssetSourceBuilders, AssetSourceId},
     processor::{AssetProcessor, Process},
 };
-use bevy_app::{App, First, MainScheduleOrder, Plugin, PostUpdate};
+use bevy_app::{App, First, MainScheduleOrder, Plugin, PostUpdate, MainSchedulePlugin, PluginManifest};
 use bevy_ecs::{
     reflect::AppTypeRegistry,
     schedule::{IntoSystemConfigs, IntoSystemSetConfigs, ScheduleLabel, SystemSet},
@@ -222,6 +222,11 @@ impl Plugin for AssetPlugin {
         let mut order = app.world.resource_mut::<MainScheduleOrder>();
         order.insert_after(First, UpdateAssets);
         order.insert_after(PostUpdate, AssetEvents);
+    }
+
+    fn configure(&self, manifest: &mut PluginManifest) {
+        // This plugin directly uses [`MainScheduleOrder`].
+        manifest.add_dependency::<MainSchedulePlugin>(true);
     }
 }
 
@@ -549,6 +554,7 @@ mod tests {
             LogPlugin::default(),
             AssetPlugin::default(),
         ));
+        app.build();
         (app, gate_opener)
     }
 
@@ -1213,8 +1219,9 @@ mod tests {
     #[test]
     fn ignore_system_ambiguities_on_assets() {
         let mut app = App::new();
-        app.add_plugins(AssetPlugin::default())
-            .init_asset::<CoolText>();
+        app.add_plugins(AssetPlugin::default());
+        app.build();
+        app.init_asset::<CoolText>();
 
         fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
         app.add_systems(Update, (uses_assets, uses_assets));

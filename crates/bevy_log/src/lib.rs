@@ -56,12 +56,12 @@ use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 ///
 /// You can configure this plugin.
 /// ```no_run
-/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup};
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup, PluginCollectionExt};
 /// # use bevy_log::LogPlugin;
 /// # use bevy_utils::tracing::Level;
 /// fn main() {
 ///     App::new()
-///         .add_plugins(DefaultPlugins.set(LogPlugin {
+///         .add_plugins(DefaultPlugins.replace(LogPlugin {
 ///             level: Level::DEBUG,
 ///             filter: "wgpu=error,bevy_render=info,bevy_ecs=trace".to_string(),
 ///         }))
@@ -79,11 +79,11 @@ use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 /// If you want to setup your own tracing collector, you should disable this
 /// plugin from `DefaultPlugins`:
 /// ```no_run
-/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup};
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup, PluginCollectionExt};
 /// # use bevy_log::LogPlugin;
 /// fn main() {
 ///     App::new()
-///         .add_plugins(DefaultPlugins.build().disable::<LogPlugin>())
+///         .add_plugins(DefaultPlugins.disable::<LogPlugin>())
 ///         .run();
 /// }
 /// ```

@@ -1,4 +1,4 @@
-S#![warn(missing_docs)]
+#![warn(missing_docs)]
 //! `bevy_winit` provides utilities to handle window creation and the eventloop through [`winit`]
 //!
 //! Most commonly, the [`WinitPlugin`] is used as part of
@@ -18,7 +18,7 @@ use system::{changed_windows, create_windows, despawn_windows, CachedWindow};
 pub use winit_config::*;
 pub use winit_windows::*;
 
-use bevy_app::{App, AppExit, Last, Plugin, PluginsState, PluginSet};
+use bevy_app::{App, AppExit, Last, Plugin, PluginGroup, PluginSet, PluginsState};
 use bevy_ecs::event::{Events, ManualEventReader};
 use bevy_ecs::prelude::*;
 use bevy_ecs::system::{SystemParam, SystemState};
@@ -217,13 +217,15 @@ impl Plugin for WinitPlugin {
 }
 
 #[derive(Default)]
+/// A plugin group which adds [`WinitPluginGroup`] and it's dependencies:
+/// + [`crate::accessibility::AccessKitPlugin`]
 pub struct WinitPluginGroup {
-    winit_plugin: WinitPlugin
+    winit_plugin: WinitPlugin,
 }
 
 impl PluginGroup for WinitPluginGroup {
-    fn build(self) -> PluginSet {
-        PluginSet::new().add_plugins((self.winit_plugin, AccessKitPlugin))
+    fn build(self, set: PluginSet) -> PluginSet {
+        set.add_plugins((self.winit_plugin, AccessKitPlugin))
     }
 }
 

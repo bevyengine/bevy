@@ -1,7 +1,7 @@
 //! Demonstrates the creation and registration of a custom plugin group.
 //! [`PluginGroup`]s are a way to group sets of plugins that should be registered together.
 
-use bevy::{app::PluginGroupBuilder, prelude::*};
+use bevy::prelude::*;
 
 fn main() {
     App::new()
@@ -27,10 +27,8 @@ fn main() {
 pub struct HelloWorldPlugins;
 
 impl PluginGroup for HelloWorldPlugins {
-    fn build(self) -> PluginGroupBuilder {
-        PluginGroupBuilder::start::<Self>()
-            .add(PrintHelloPlugin)
-            .add(PrintWorldPlugin)
+    fn build(self, set: PluginSet) -> PluginSet {
+        set.add_plugins((PrintHelloPlugin, PrintWorldPlugin))
     }
 }
 

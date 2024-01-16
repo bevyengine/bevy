@@ -37,8 +37,8 @@ use bevy_app::{Plugin, PluginGroup, PluginSet};
 pub struct DefaultPlugins;
 
 impl PluginGroup for DefaultPlugins {
-    fn build(self, set: &mut PluginSet) {
-        set.add_plugins((
+    fn build(self, mut set: PluginSet) -> PluginSet {
+        set = set.add_plugins((
             bevy_log::LogPlugin::default(),
             bevy_core::TaskPoolPlugin::default(),
             bevy_core::TypeRegistrationPlugin,
@@ -50,89 +50,90 @@ impl PluginGroup for DefaultPlugins {
             bevy_input::InputPlugin,
             bevy_window::WindowPlugin::default(),
             bevy_a11y::AccessibilityPlugin,
+            IgnoreAmbiguitiesPlugin,
         ));
 
         #[cfg(feature = "bevy_asset")]
         {
-            set.add_plugins(bevy_asset::AssetPlugin::default());
+            set = set.add_plugins(bevy_asset::AssetPlugin::default());
         }
 
         #[cfg(feature = "bevy_scene")]
         {
-            set.add_plugins(bevy_scene::ScenePlugin);
+            set = set.add_plugins(bevy_scene::ScenePlugin);
         }
 
         #[cfg(feature = "bevy_winit")]
         {
-            set.add_plugins(bevy_winit::WinitPluginGroup::default());
+            set = set.add_plugins(bevy_winit::WinitPluginGroup::default());
         }
 
         #[cfg(feature = "bevy_render")]
         {
-            set.add_plugins((
+            set = set.add_plugins((
                 bevy_render::RenderPlugin::default(),
                 bevy_render::texture::ImagePlugin::default(),
             ));
 
             #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
             {
-                set.add_plugins(bevy_render::pipelined_rendering::PipelinedRenderingPlugin);
+                set = set.add_plugins(bevy_render::pipelined_rendering::PipelinedRenderingPlugin);
             }
         }
 
         #[cfg(feature = "bevy_core_pipeline")]
         {
-            set.add_plugins(bevy_core_pipeline::CorePipelinePlugin);
+            set = set.add_plugins(bevy_core_pipeline::CorePipelinePlugin);
         }
 
         #[cfg(feature = "bevy_sprite")]
         {
-            set.add_plugins(bevy_sprite::SpritePlugin);
+            set = set.add_plugins(bevy_sprite::SpritePlugin);
         }
 
         #[cfg(feature = "bevy_text")]
         {
-            set.add_plugins(bevy_text::TextPlugin);
+            set = set.add_plugins(bevy_text::TextPlugin);
         }
 
         #[cfg(feature = "bevy_ui")]
         {
-            set.add_plugins(bevy_ui::UiPlugin);
+            set = set.add_plugins(bevy_ui::UiPlugin);
         }
 
         #[cfg(feature = "bevy_pbr")]
         {
-            set.add_plugins(bevy_pbr::PbrPlugin::default());
+            set = set.add_plugins(bevy_pbr::PbrPlugin::default());
         }
 
         // NOTE: Load this after renderer initialization so that it knows about the supported
         // compressed texture formats
         #[cfg(feature = "bevy_gltf")]
         {
-            set.add_plugins(bevy_gltf::GltfPlugin::default());
+            set = set.add_plugins(bevy_gltf::GltfPlugin::default());
         }
 
         #[cfg(feature = "bevy_audio")]
         {
-            set.add_plugins(bevy_audio::AudioPlugin::default());
+            set = set.add_plugins(bevy_audio::AudioPlugin::default());
         }
 
         #[cfg(feature = "bevy_gilrs")]
         {
-            set.add_plugins(bevy_gilrs::GilrsPlugin);
+            set = set.add_plugins(bevy_gilrs::GilrsPlugin);
         }
 
         #[cfg(feature = "bevy_animation")]
         {
-            set.add_plugins(bevy_animation::AnimationPlugin);
+            set = set.add_plugins(bevy_animation::AnimationPlugin);
         }
 
         #[cfg(feature = "bevy_gizmos")]
         {
-            set.add_plugins(bevy_gizmos::GizmoPlugin);
+            set = set.add_plugins(bevy_gizmos::GizmoPlugin);
         }
 
-        set.add_plugins(IgnoreAmbiguitiesPlugin);
+        set
     }
 }
 
@@ -194,13 +195,13 @@ impl Plugin for IgnoreAmbiguitiesPlugin {
 pub struct MinimalPlugins;
 
 impl PluginGroup for MinimalPlugins {
-    fn build(self, set: &mut PluginSet) {
+    fn build(self, set: PluginSet) -> PluginSet {
         set.add_plugins((
             bevy_core::TaskPoolPlugin::default(),
             bevy_core::TypeRegistrationPlugin,
             bevy_core::FrameCountPlugin,
             bevy_time::TimePlugin,
             bevy_app::ScheduleRunnerPlugin::default(),
-        ));
+        ))
     }
 }

@@ -26,6 +26,7 @@ pub mod prelude {
             PostStartup, PostUpdate, PreStartup, PreUpdate, SpawnScene, Startup, StateTransition,
             Update,
         },
-        DynamicPlugin, Plugin, PluginSet,
+        DynamicPlugin, Plugin, PluginCollectionExt, PluginExt, PluginGroup, PluginManifest,
+        PluginSet,
     };
 }

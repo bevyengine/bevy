@@ -137,11 +137,11 @@ impl Plugin for TransformPlugin {
 pub struct TransformPluginGroup;
 
 impl PluginGroup for TransformPluginGroup {
-    fn build(self, set: &mut PluginSet) {
+    fn build(self, set: PluginSet) -> PluginSet {
         set.add_plugins((
             TransformPlugin,
             ValidParentCheckPlugin::<GlobalTransform>::default(),
-        ));
+        ))
     }
 }
 
