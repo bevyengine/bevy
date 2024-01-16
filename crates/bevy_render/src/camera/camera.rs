@@ -84,6 +84,73 @@ pub struct ComputedCameraValues {
     old_viewport_size: Option<UVec2>,
 }
 
+/// How much energy a `Camera3d` absorbs from incoming light.
+///
+/// <https://en.wikipedia.org/wiki/Exposure_(photography)>
+#[derive(Component)]
+pub struct ExposureSettings {
+    /// <https://en.wikipedia.org/wiki/Exposure_value#Tabulated_exposure_values>
+    pub ev100: f32,
+}
+
+impl ExposureSettings {
+    pub const EV100_SUNLIGHT: f32 = 15.0;
+    pub const EV100_OVERCAST: f32 = 12.0;
+    pub const EV100_INDOOR: f32 = 7.0;
+
+    pub fn from_physical_camera(physical_camera_parameters: PhysicalCameraParameters) -> Self {
+        Self {
+            ev100: physical_camera_parameters.ev100(),
+        }
+    }
+
+    /// Converts EV100 values to exposure values.
+    /// <https://google.github.io/filament/Filament.md.html#imagingpipeline/physicallybasedcamera/exposure>
+    #[inline]
+    pub fn exposure(&self) -> f32 {
+        (-self.ev100).exp2() / 1.2
+    }
+}
+
+impl Default for ExposureSettings {
+    fn default() -> Self {
+        Self {
+            ev100: Self::EV100_INDOOR,
+        }
+    }
+}
+
+/// Parameters based on physical camera characteristics for calculating
+/// EV100 values for use with [`ExposureSettings`].
+#[derive(Clone, Copy)]
+pub struct PhysicalCameraParameters {
+    /// <https://en.wikipedia.org/wiki/F-number>
+    pub aperture_f_stops: f32,
+    /// <https://en.wikipedia.org/wiki/Shutter_speed>
+    pub shutter_speed_s: f32,
+    /// <https://en.wikipedia.org/wiki/Film_speed>
+    pub sensitivity_iso: f32,
+}
+
+impl PhysicalCameraParameters {
+    /// Calculate the [EV100](https://en.wikipedia.org/wiki/Exposure_value).
+    pub fn ev100(&self) -> f32 {
+        (self.aperture_f_stops * self.aperture_f_stops * 100.0
+            / (self.shutter_speed_s * self.sensitivity_iso))
+            .log2()
+    }
+}
+
+impl Default for PhysicalCameraParameters {
+    fn default() -> Self {
+        Self {
+            aperture_f_stops: 1.0,
+            shutter_speed_s: 1.0 / 125.0,
+            sensitivity_iso: 100.0,
+        }
+    }
+}
+
 /// The defining [`Component`] for camera entities,
 /// storing information about how and what to render through this camera.
 ///
@@ -695,6 +762,7 @@ pub struct ExtractedCamera {
     pub msaa_writeback: bool,
     pub clear_color: ClearColorConfig,
     pub sorted_camera_index_for_target: usize,
+    pub exposure: f32,
 }
 
 pub fn extract_cameras(
@@ -708,6 +776,7 @@ pub fn extract_cameras(
             &VisibleEntities,
             &Frustum,
             Option<&ColorGrading>,
+            Option<&ExposureSettings>,
             Option<&TemporalJitter>,
             Option<&RenderLayers>,
             Option<&Projection>,
@@ -724,6 +793,7 @@ pub fn extract_cameras(
         visible_entities,
         frustum,
         color_grading,
+        exposure_settings,
         temporal_jitter,
         render_layers,
         projection,
@@ -766,6 +836,9 @@ pub fn extract_cameras(
                     clear_color: camera.clear_color.clone(),
                     // this will be set in sort_cameras
                     sorted_camera_index_for_target: 0,
+                    exposure: exposure_settings
+                        .map(|e| e.exposure())
+                        .unwrap_or_else(|| ExposureSettings::default().exposure()),
                 },
                 ExtractedView {
                     projection: camera.projection_matrix(),

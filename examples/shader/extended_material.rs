@@ -50,7 +50,16 @@ fn setup(
     });
 
     // light
-    commands.spawn((PointLightBundle::default(), Rotate));
+    commands.spawn((
+        PointLightBundle {
+            point_light: PointLight {
+                intensity: 150_000.0,
+                ..default()
+            },
+            ..default()
+        },
+        Rotate,
+    ));
 
     // camera
     commands.spawn(Camera3dBundle {
