@@ -312,7 +312,12 @@ impl LightProbesUniform {
 
     /// Gathers up all reflection probes in the scene and writes them into this
     /// uniform and `render_view_environment_maps`.
-    #[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
+    #[cfg(all(
+        not(feature = "shader_format_glsl"),
+        not(target_arch = "wasm32"),
+        not(target_os = "ios"),
+        not(target_os = "android")
+    ))]
     fn maybe_gather_reflection_probes(
         &mut self,
         render_view_environment_maps: &mut RenderViewEnvironmentMaps,
@@ -347,7 +352,12 @@ impl LightProbesUniform {
 
     /// This is the version of `maybe_gather_reflection_probes` used on
     /// platforms in which binding arrays aren't available. It's simply a no-op.
-    #[cfg(any(feature = "shader_format_glsl", target_arch = "wasm32"))]
+    #[cfg(any(
+        feature = "shader_format_glsl",
+        target_arch = "wasm32",
+        target_os = "ios",
+        target_os = "android"
+    ))]
     fn maybe_gather_reflection_probes(
         &mut self,
         _: &mut RenderViewEnvironmentMaps,

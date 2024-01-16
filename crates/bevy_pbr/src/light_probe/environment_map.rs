@@ -62,11 +62,26 @@ use bevy_render::{
     texture::{FallbackImage, Image},
 };
 
-#[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
+#[cfg(all(
+    not(feature = "shader_format_glsl"),
+    not(target_arch = "wasm32"),
+    not(target_os = "ios"),
+    not(target_os = "android")
+))]
 use bevy_utils::HashMap;
-#[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
+#[cfg(all(
+    not(feature = "shader_format_glsl"),
+    not(target_arch = "wasm32"),
+    not(target_os = "ios"),
+    not(target_os = "android")
+))]
 use std::num::NonZeroU32;
-#[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
+#[cfg(all(
+    not(feature = "shader_format_glsl"),
+    not(target_arch = "wasm32"),
+    not(target_os = "ios"),
+    not(target_os = "android")
+))]
 use std::ops::Deref;
 
 use crate::LightProbe;
@@ -127,7 +142,12 @@ pub struct ReflectionProbeBundle {
 /// This component is attached to each view in the render world, because each
 /// view may have a different set of cubemaps that it considers and therefore
 /// cubemap indices are per-view.
-#[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
+#[cfg(all(
+    not(feature = "shader_format_glsl"),
+    not(target_arch = "wasm32"),
+    not(target_os = "ios"),
+    not(target_os = "android")
+))]
 #[derive(Component, Default)]
 pub struct RenderViewEnvironmentMaps {
     /// The list of environment maps presented to the shader, in order.
@@ -142,7 +162,12 @@ pub struct RenderViewEnvironmentMaps {
 ///
 /// This is a simplified version of the structure used when binding arrays are
 /// not available on the current platform.
-#[cfg(any(feature = "shader_format_glsl", target_arch = "wasm32"))]
+#[cfg(any(
+    feature = "shader_format_glsl",
+    target_arch = "wasm32",
+    target_os = "ios",
+    target_os = "android"
+))]
 #[derive(Component, Default)]
 pub struct RenderViewEnvironmentMaps {
     /// The environment map attached to the view, if any.
@@ -151,7 +176,12 @@ pub struct RenderViewEnvironmentMaps {
 
 /// All the bind group entries necessary for PBR shaders to access the
 /// environment maps exposed to a view.
-#[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
+#[cfg(all(
+    not(feature = "shader_format_glsl"),
+    not(target_arch = "wasm32"),
+    not(target_os = "ios"),
+    not(target_os = "android")
+))]
 pub(crate) struct RenderViewBindGroupEntries<'a> {
     /// A texture view of each diffuse cubemap, in the same order that they are
     /// supplied to the view (i.e. in the same order as
@@ -174,7 +204,12 @@ pub(crate) struct RenderViewBindGroupEntries<'a> {
 ///
 /// This is the version used when binding arrays are not available on the
 /// current platform.
-#[cfg(any(feature = "shader_format_glsl", target_arch = "wasm32"))]
+#[cfg(any(
+    feature = "shader_format_glsl",
+    target_arch = "wasm32",
+    target_os = "ios",
+    target_os = "android"
+))]
 pub(crate) struct RenderViewBindGroupEntries<'a> {
     /// The texture view of the view's diffuse cubemap.
     diffuse_texture_view: &'a TextureView,
@@ -204,7 +239,12 @@ impl RenderViewEnvironmentMaps {
     }
 }
 
-#[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
+#[cfg(all(
+    not(feature = "shader_format_glsl"),
+    not(target_arch = "wasm32"),
+    not(target_os = "ios"),
+    not(target_os = "android")
+))]
 impl RenderViewEnvironmentMaps {
     /// Whether there are no environment maps associated with the view.
     pub(crate) fn is_empty(&self) -> bool {
@@ -225,7 +265,12 @@ impl RenderViewEnvironmentMaps {
     }
 }
 
-#[cfg(any(feature = "shader_format_glsl", target_arch = "wasm32"))]
+#[cfg(any(
+    feature = "shader_format_glsl",
+    target_arch = "wasm32",
+    target_os = "ios",
+    target_os = "android"
+))]
 impl RenderViewEnvironmentMaps {
     /// Returns true if there is no environment map for this view or false if
     /// there is such an environment map.
@@ -243,7 +288,12 @@ impl RenderViewEnvironmentMaps {
 
 /// Returns the bind group layout entries for the environment map diffuse and
 /// specular binding arrays respectively, in addition to the sampler.
-#[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
+#[cfg(all(
+    not(feature = "shader_format_glsl"),
+    not(target_arch = "wasm32"),
+    not(target_os = "ios"),
+    not(target_os = "android")
+))]
 pub(crate) fn get_bind_group_layout_entries() -> [BindGroupLayoutEntryBuilder; 3] {
     use crate::MAX_VIEW_REFLECTION_PROBES;
 
@@ -258,7 +308,12 @@ pub(crate) fn get_bind_group_layout_entries() -> [BindGroupLayoutEntryBuilder; 3
 
 /// Returns the bind group layout entries for the environment map diffuse and
 /// specular textures respectively, in addition to the sampler.
-#[cfg(any(feature = "shader_format_glsl", target_arch = "wasm32"))]
+#[cfg(any(
+    feature = "shader_format_glsl",
+    target_arch = "wasm32",
+    target_os = "ios",
+    target_os = "android"
+))]
 pub(crate) fn get_bind_group_layout_entries() -> [BindGroupLayoutEntryBuilder; 3] {
     [
         binding_types::texture_cube(TextureSampleType::Float { filterable: true }),
@@ -270,7 +325,12 @@ pub(crate) fn get_bind_group_layout_entries() -> [BindGroupLayoutEntryBuilder; 3
 impl<'a> RenderViewBindGroupEntries<'a> {
     /// Looks up and returns the bindings for the environment map diffuse and
     /// specular binding arrays respectively, as well as the sampler.
-    #[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
+    #[cfg(all(
+        not(feature = "shader_format_glsl"),
+        not(target_arch = "wasm32"),
+        not(target_os = "ios"),
+        not(target_os = "android")
+    ))]
     pub(crate) fn get(
         render_view_environment_maps: Option<&RenderViewEnvironmentMaps>,
         images: &'a RenderAssets<Image>,
@@ -321,7 +381,12 @@ impl<'a> RenderViewBindGroupEntries<'a> {
 
     /// Looks up and returns the bindings for the environment map diffuse and
     /// specular bindings respectively, as well as the sampler.
-    #[cfg(any(feature = "shader_format_glsl", target_arch = "wasm32"))]
+    #[cfg(any(
+        feature = "shader_format_glsl",
+        target_arch = "wasm32",
+        target_os = "ios",
+        target_os = "android"
+    ))]
     pub(crate) fn get(
         render_view_environment_maps: Option<&RenderViewEnvironmentMaps>,
         images: &'a RenderAssets<Image>,
@@ -352,7 +417,12 @@ impl<'a> RenderViewBindGroupEntries<'a> {
 
 /// Adds a diffuse or specular texture view to the `texture_views` list, and
 /// populates `sampler` if this is the first such view.
-#[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
+#[cfg(all(
+    not(feature = "shader_format_glsl"),
+    not(target_arch = "wasm32"),
+    not(target_os = "ios"),
+    not(target_os = "android")
+))]
 fn add_texture_view<'a>(
     texture_views: &mut Vec<&'a <TextureView as Deref>::Target>,
     sampler: &mut Option<&'a Sampler>,
@@ -376,7 +446,12 @@ fn add_texture_view<'a>(
     }
 }
 
-#[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
+#[cfg(all(
+    not(feature = "shader_format_glsl"),
+    not(target_arch = "wasm32"),
+    not(target_os = "ios"),
+    not(target_os = "android")
+))]
 impl<'a> RenderViewBindGroupEntries<'a> {
     /// Returns a list of texture views of each diffuse cubemap, in binding
     /// order.
@@ -391,7 +466,12 @@ impl<'a> RenderViewBindGroupEntries<'a> {
     }
 }
 
-#[cfg(any(feature = "shader_format_glsl", target_arch = "wasm32"))]
+#[cfg(any(
+    feature = "shader_format_glsl",
+    target_arch = "wasm32",
+    target_os = "ios",
+    target_os = "android"
+))]
 impl<'a> RenderViewBindGroupEntries<'a> {
     /// Returns the texture view corresponding to the view's diffuse cubemap.
     pub(crate) fn diffuse_texture_views(&self) -> &'a TextureView {

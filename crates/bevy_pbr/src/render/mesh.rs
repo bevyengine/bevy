@@ -874,7 +874,12 @@ impl SpecializedMeshPipeline for MeshPipeline {
             },
         ));
 
-        #[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
+        #[cfg(all(
+            not(feature = "shader_format_glsl"),
+            not(target_arch = "wasm32"),
+            not(target_os = "ios"),
+            not(target_os = "android")
+        ))]
         shader_defs.push("MULTIPLE_LIGHT_PROBES_IN_ARRAY".into());
 
         let format = if key.contains(MeshPipelineKey::HDR) {
