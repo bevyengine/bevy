@@ -67,7 +67,7 @@ pub struct AudioPlugin {
     pub global_volume: GlobalVolume,
     /// The scale factor applied to the positions of audio sources and listeners for
     /// spatial audio.
-    pub spatial_scale: SpatialScale,
+    pub default_spatial_scale: DefaultSpatialScale,
 }
 
 impl Plugin for AudioPlugin {
@@ -75,11 +75,11 @@ impl Plugin for AudioPlugin {
         app.register_type::<Volume>()
             .register_type::<GlobalVolume>()
             .register_type::<SpatialListener>()
-            .register_type::<SpatialScale>()
+            .register_type::<DefaultSpatialScale>()
             .register_type::<PlaybackMode>()
             .register_type::<PlaybackSettings>()
             .insert_resource(self.global_volume)
-            .insert_resource(self.spatial_scale)
+            .insert_resource(self.default_spatial_scale)
             .configure_sets(
                 PostUpdate,
                 AudioPlaySet
