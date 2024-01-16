@@ -19,7 +19,7 @@ use bevy_transform::components::Transform;
 use bevy_utils::{default, EntityHashMap, HashMap, HashSet};
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 use std::fmt;
-use taffy::Taffy;
+use taffy::{tree::LayoutTree, Taffy};
 use thiserror::Error;
 
 pub struct LayoutContext {
@@ -169,12 +169,19 @@ without UI components as a child of an entity with UI components, results may be
                 .iter()
                 .find(|n| n.user_root_node == node)
                 .cloned()
-                .unwrap_or_else(|| RootNodePair {
-                    implicit_viewport_node: self
-                        .taffy
-                        .new_with_children(viewport_style.clone(), &[node])
-                        .unwrap(),
-                    user_root_node: node,
+                .unwrap_or_else(|| {
+                    if let Some(previous_parent) = self.taffy.parent(node) {
+                        // remove the root node from the previous implicit node's children
+                        self.taffy.remove_child(previous_parent, node).unwrap();
+                    }
+
+                    RootNodePair {
+                        implicit_viewport_node: self
+                            .taffy
+                            .new_with_children(viewport_style.clone(), &[node])
+                            .unwrap(),
+                        user_root_node: node,
+                    }
                 });
             new_roots.push(root_node);
         }
