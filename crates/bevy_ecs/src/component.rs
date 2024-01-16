@@ -313,6 +313,7 @@ impl ComponentInfo {
     }
 
     /// Register a [`ComponentHook`] that will be run when this component is removed from an entity.
+    /// Despawning an entity counts as removing all of it's components.
     ///
     /// Will panic if the component already has an `on_remove` hook
     pub fn on_remove(&mut self, hook: ComponentHook) -> &mut Self {
