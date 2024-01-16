@@ -56,20 +56,27 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         .push(parse_quote! { Self: Send + Sync + 'static });
 
     let struct_name = &ast.ident;
+    let compose_function = attrs.compose.into_iter();
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
             type Storage = #storage;
+
+            #(fn compose(&mut self, incoming: Self) {
+                #compose_function(self, incoming)
+            })*
         }
     })
 }
 
 pub const COMPONENT: &str = "component";
 pub const STORAGE: &str = "storage";
+pub const COMPOSE: &str = "compose";
 
 struct Attrs {
     storage: StorageTy,
+    compose: Option<Path>,
 }
 
 #[derive(Clone, Copy)]
@@ -85,6 +92,7 @@ const SPARSE_SET: &str = "SparseSet";
 fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
     let mut attrs = Attrs {
         storage: StorageTy::Table,
+        compose: None,
     };
 
     for meta in ast.attrs.iter().filter(|a| a.path().is_ident(COMPONENT)) {
@@ -99,6 +107,17 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                         )));
                     }
                 };
+                Ok(())
+            } else if nested.path.is_ident(COMPOSE) {
+                let path = nested.value()?.parse::<LitStr>()?.value();
+                match syn::parse_str(&path) {
+                    Ok(s) => attrs.compose = Some(s),
+                    Err(_) => {
+                        return Err(nested.error(format!(
+                            "Invalid compose function `{path}`, expected a function.",
+                        )))
+                    }
+                }
                 Ok(())
             } else {
                 Err(nested.error("Unsupported attribute"))
