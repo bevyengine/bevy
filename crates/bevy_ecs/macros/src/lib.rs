@@ -208,6 +208,8 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                 type State = (#(#param::State,)*);
                 type Item<'w, 's> = ParamSet<'w, 's, (#(#param,)*)>;
 
+                // Note: We allow non snake case so the compiler don't complain about the creation of non_snake_case variables
+                #[allow(non_snake_case)]
                 fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
                     #(
                         // Pretend to add each param to the system alone, see if it conflicts
@@ -215,6 +217,7 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                         #meta.component_access_set.clear();
                         #meta.archetype_component_access.clear();
                         #param::init_state(world, &mut #meta);
+                        // The variable is being defined with non_snake_case here
                         let #param = #param::init_state(world, &mut system_meta.clone());
                     )*
                     // Make the ParamSet non-send if any of its parameters are non-send.

@@ -22,11 +22,11 @@ fn setup(
     // sound emitter
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::UVSphere {
+            mesh: meshes.add(shape::UVSphere {
                 radius: 0.2,
                 ..default()
-            })),
-            material: materials.add(Color::BLUE.into()),
+            }),
+            material: materials.add(Color::BLUE),
             transform: Transform::from_xyz(0.0, 0.0, 0.0),
             ..default()
         },
@@ -43,16 +43,16 @@ fn setup(
         .with_children(|parent| {
             // left ear indicator
             parent.spawn(PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Cube { size: 0.2 })),
-                material: materials.add(Color::RED.into()),
+                mesh: meshes.add(shape::Cube { size: 0.2 }),
+                material: materials.add(Color::RED),
                 transform: Transform::from_translation(listener.left_ear_offset),
                 ..default()
             });
 
             // right ear indicator
             parent.spawn(PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Cube { size: 0.2 })),
-                material: materials.add(Color::GREEN.into()),
+                mesh: meshes.add(shape::Cube { size: 0.2 }),
+                material: materials.add(Color::GREEN),
                 transform: Transform::from_translation(listener.right_ear_offset),
                 ..default()
             });
@@ -61,7 +61,7 @@ fn setup(
     // light
     commands.spawn(PointLightBundle {
         point_light: PointLight {
-            intensity: 1500.0,
+            intensity: 1_000_000.0,
             shadows_enabled: true,
             ..default()
         },
@@ -124,16 +124,16 @@ fn update_listener(
 
     let speed = 2.;
 
-    if keyboard.pressed(KeyCode::Right) {
+    if keyboard.pressed(KeyCode::ArrowRight) {
         transform.translation.x += speed * time.delta_seconds();
     }
-    if keyboard.pressed(KeyCode::Left) {
+    if keyboard.pressed(KeyCode::ArrowLeft) {
         transform.translation.x -= speed * time.delta_seconds();
     }
-    if keyboard.pressed(KeyCode::Down) {
+    if keyboard.pressed(KeyCode::ArrowDown) {
         transform.translation.z += speed * time.delta_seconds();
     }
-    if keyboard.pressed(KeyCode::Up) {
+    if keyboard.pressed(KeyCode::ArrowUp) {
         transform.translation.z -= speed * time.delta_seconds();
     }
 }

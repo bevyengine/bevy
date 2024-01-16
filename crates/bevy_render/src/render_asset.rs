@@ -1,12 +1,14 @@
-use crate::{Extract, ExtractSchedule, Render, RenderApp, RenderSet};
+use crate::{ExtractSchedule, MainWorld, Render, RenderApp, RenderSet};
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetEvent, AssetId, Assets};
 use bevy_ecs::{
-    prelude::*,
+    prelude::{Commands, EventReader, IntoSystemConfigs, ResMut, Resource},
     schedule::SystemConfigs,
-    system::{StaticSystemParam, SystemParam, SystemParamItem},
+    system::{StaticSystemParam, SystemParam, SystemParamItem, SystemState},
 };
+use bevy_reflect::Reflect;
 use bevy_utils::{thiserror::Error, HashMap, HashSet};
+use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 
 #[derive(Debug, Error)]
@@ -19,27 +21,43 @@ pub enum PrepareAssetError<E: Send + Sync + 'static> {
 ///
 /// In the [`ExtractSchedule`] step the asset is transferred
 /// from the "main world" into the "render world".
-/// Therefore it is converted into a [`RenderAsset::ExtractedAsset`], which may be the same type
-/// as the render asset itself.
 ///
 /// After that in the [`RenderSet::PrepareAssets`] step the extracted asset
 /// is transformed into its GPU-representation of type [`RenderAsset::PreparedAsset`].
-pub trait RenderAsset: Asset {
-    /// The representation of the asset in the "render world".
-    type ExtractedAsset: Send + Sync + 'static;
+pub trait RenderAsset: Asset + Clone {
     /// The GPU-representation of the asset.
     type PreparedAsset: Send + Sync + 'static;
+
     /// Specifies all ECS data required by [`RenderAsset::prepare_asset`].
+    ///
     /// For convenience use the [`lifetimeless`](bevy_ecs::system::lifetimeless) [`SystemParam`].
     type Param: SystemParam;
-    /// Converts the asset into a [`RenderAsset::ExtractedAsset`].
-    fn extract_asset(&self) -> Self::ExtractedAsset;
-    /// Prepares the `extracted asset` for the GPU by transforming it into
-    /// a [`RenderAsset::PreparedAsset`]. Therefore ECS data may be accessed via the `param`.
+
+    /// Whether or not to unload the asset after extracting it to the render world.
+    fn persistence_policy(&self) -> RenderAssetPersistencePolicy;
+
+    /// Prepares the asset for the GPU by transforming it into a [`RenderAsset::PreparedAsset`].
+    ///
+    /// ECS data may be accessed via `param`.
     fn prepare_asset(
-        extracted_asset: Self::ExtractedAsset,
+        self,
         param: &mut SystemParamItem<Self::Param>,
-    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>>;
+    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self>>;
+}
+
+/// Whether or not to unload the [`RenderAsset`] after extracting it to the render world.
+///
+/// Unloading the asset saves on memory, as for most cases it is no longer necessary to keep
+/// it in RAM once it's been uploaded to the GPU's VRAM. However, this means you can no longer
+/// access the asset from the CPU (via the `Assets<T>` resource) once unloaded (without re-loading it).
+///
+/// If you never need access to the asset from the CPU past the first frame it's loaded on,
+/// or only need very infrequent access, then set this to Unload. Otherwise, set this to Keep.
+#[derive(Reflect, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Default, Debug)]
+pub enum RenderAssetPersistencePolicy {
+    Unload,
+    #[default]
+    Keep,
 }
 
 /// This plugin extracts the changed assets from the "app world" into the "render world"
@@ -104,7 +122,7 @@ impl<A: RenderAsset> RenderAssetDependency for A {
 /// Temporarily stores the extracted and removed assets of the current frame.
 #[derive(Resource)]
 pub struct ExtractedAssets<A: RenderAsset> {
-    extracted: Vec<(AssetId<A>, A::ExtractedAsset)>,
+    extracted: Vec<(AssetId<A>, A)>,
     removed: Vec<AssetId<A>>,
 }
 
@@ -160,19 +178,21 @@ impl<A: RenderAsset> RenderAssets<A> {
 
 /// This system extracts all created or modified assets of the corresponding [`RenderAsset`] type
 /// into the "render world".
-fn extract_render_asset<A: RenderAsset>(
-    mut commands: Commands,
-    mut events: Extract<EventReader<AssetEvent<A>>>,
-    assets: Extract<Res<Assets<A>>>,
-) {
+fn extract_render_asset<A: RenderAsset>(mut commands: Commands, mut main_world: ResMut<MainWorld>) {
+    let mut system_state: SystemState<(EventReader<AssetEvent<A>>, ResMut<Assets<A>>)> =
+        SystemState::new(&mut main_world);
+    let (mut events, mut assets) = system_state.get_mut(&mut main_world);
+
     let mut changed_assets = HashSet::default();
     let mut removed = Vec::new();
     for event in events.read() {
+        #[allow(clippy::match_same_arms)]
         match event {
             AssetEvent::Added { id } | AssetEvent::Modified { id } => {
                 changed_assets.insert(*id);
             }
-            AssetEvent::Removed { id } => {
+            AssetEvent::Removed { .. } => {}
+            AssetEvent::Unused { id } => {
                 changed_assets.remove(id);
                 removed.push(*id);
             }
@@ -185,7 +205,13 @@ fn extract_render_asset<A: RenderAsset>(
     let mut extracted_assets = Vec::new();
     for id in changed_assets.drain() {
         if let Some(asset) = assets.get(id) {
-            extracted_assets.push((id, asset.extract_asset()));
+            if asset.persistence_policy() == RenderAssetPersistencePolicy::Unload {
+                if let Some(asset) = assets.remove(id) {
+                    extracted_assets.push((id, asset));
+                }
+            } else {
+                extracted_assets.push((id, asset.clone()));
+            }
         }
     }
 
@@ -199,7 +225,7 @@ fn extract_render_asset<A: RenderAsset>(
 /// All assets that should be prepared next frame.
 #[derive(Resource)]
 pub struct PrepareNextFrameAssets<A: RenderAsset> {
-    assets: Vec<(AssetId<A>, A::ExtractedAsset)>,
+    assets: Vec<(AssetId<A>, A)>,
 }
 
 impl<A: RenderAsset> Default for PrepareNextFrameAssets<A> {
@@ -212,16 +238,16 @@ impl<A: RenderAsset> Default for PrepareNextFrameAssets<A> {
 
 /// This system prepares all assets of the corresponding [`RenderAsset`] type
 /// which where extracted this frame for the GPU.
-pub fn prepare_assets<R: RenderAsset>(
-    mut extracted_assets: ResMut<ExtractedAssets<R>>,
-    mut render_assets: ResMut<RenderAssets<R>>,
-    mut prepare_next_frame: ResMut<PrepareNextFrameAssets<R>>,
-    param: StaticSystemParam<<R as RenderAsset>::Param>,
+pub fn prepare_assets<A: RenderAsset>(
+    mut extracted_assets: ResMut<ExtractedAssets<A>>,
+    mut render_assets: ResMut<RenderAssets<A>>,
+    mut prepare_next_frame: ResMut<PrepareNextFrameAssets<A>>,
+    param: StaticSystemParam<<A as RenderAsset>::Param>,
 ) {
     let mut param = param.into_inner();
     let queued_assets = std::mem::take(&mut prepare_next_frame.assets);
     for (id, extracted_asset) in queued_assets {
-        match R::prepare_asset(extracted_asset, &mut param) {
+        match extracted_asset.prepare_asset(&mut param) {
             Ok(prepared_asset) => {
                 render_assets.insert(id, prepared_asset);
             }
@@ -231,12 +257,12 @@ pub fn prepare_assets<R: RenderAsset>(
         }
     }
 
-    for removed in std::mem::take(&mut extracted_assets.removed) {
+    for removed in extracted_assets.removed.drain(..) {
         render_assets.remove(removed);
     }
 
-    for (id, extracted_asset) in std::mem::take(&mut extracted_assets.extracted) {
-        match R::prepare_asset(extracted_asset, &mut param) {
+    for (id, extracted_asset) in extracted_assets.extracted.drain(..) {
+        match extracted_asset.prepare_asset(&mut param) {
             Ok(prepared_asset) => {
                 render_assets.insert(id, prepared_asset);
             }

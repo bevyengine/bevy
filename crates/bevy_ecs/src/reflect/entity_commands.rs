@@ -27,7 +27,7 @@ pub trait ReflectCommandExt {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```
     /// // Note that you need to register the component type in the AppTypeRegistry prior to using
     /// // reflection. You can use the helpers on the App with `app.register_type::<ComponentA>()`
     /// // or write to the TypeRegistry directly to register all your components
@@ -97,7 +97,7 @@ pub trait ReflectCommandExt {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```
     /// // Note that you need to register the component type in the AppTypeRegistry prior to using
     /// // reflection. You can use the helpers on the App with `app.register_type::<ComponentA>()`
     /// // or write to the TypeRegistry directly to register all your components

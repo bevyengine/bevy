@@ -1,4 +1,7 @@
-use crate::mesh::{Indices, Mesh};
+use crate::{
+    mesh::{Indices, Mesh},
+    render_asset::RenderAssetPersistencePolicy,
+};
 use hexasphere::shapes::IcoSphere;
 use thiserror::Error;
 use wgpu::PrimitiveTopology;
@@ -103,10 +106,13 @@ impl TryFrom<Icosphere> for Mesh {
 
         let indices = Indices::U32(indices);
 
-        Ok(Mesh::new(PrimitiveTopology::TriangleList)
-            .with_indices(Some(indices))
-            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, points)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs))
+        Ok(Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetPersistencePolicy::Keep,
+        )
+        .with_indices(Some(indices))
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, points)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs))
     }
 }

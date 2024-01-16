@@ -88,7 +88,7 @@ impl std::fmt::Debug for Name {
 
 /// Convenient query for giving a human friendly name to an entity.
 ///
-/// ```rust
+/// ```
 /// # use bevy_core::prelude::*;
 /// # use bevy_ecs::prelude::*;
 /// # #[derive(Component)] pub struct Score(f32);
