@@ -202,7 +202,6 @@ macro_rules! embedded_asset {
         let watched_path = $crate::io::embedded::watched_path(file!(), $path);
         embedded.insert_asset(watched_path, &path, include_bytes!($path));
     }};
-
 }
 
 // Returns the path used by the watcher when the embedded_watcher feature is
@@ -210,7 +209,10 @@ macro_rules! embedded_asset {
 #[doc(hidden)]
 pub fn watched_path(source_file_path: &'static str, asset_path: &'static str) -> PathBuf {
     #[cfg(feature = "embedded_watcher")]
-    let path = PathBuf::from(source_file_path).parent().unwrap().join(asset_path);
+    let path = PathBuf::from(source_file_path)
+        .parent()
+        .unwrap()
+        .join(asset_path);
     #[cfg(not(feature = "embedded_watcher"))]
     let path = PathBuf::from("");
     path
