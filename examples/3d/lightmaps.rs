@@ -37,8 +37,13 @@ fn add_lightmaps_to_meshes(
     >,
 ) {
     for (entity, name, material) in meshes.iter() {
+        if &**name == "Light" {
+            materials.get_mut(material).unwrap().emissive = Color::WHITE * 100.0;
+            continue;
+        }
+
         if &**name == "large_box" {
-            materials.get_mut(material).unwrap().lightmap_exposure = 120.0;
+            materials.get_mut(material).unwrap().lightmap_exposure = 150.0;
             commands.entity(entity).insert(Lightmap {
                 image: asset_server.load("lightmaps/CornellBox-Large.zstd.ktx2"),
                 ..default()
@@ -47,7 +52,7 @@ fn add_lightmaps_to_meshes(
         }
 
         if &**name == "small_box" {
-            materials.get_mut(material).unwrap().lightmap_exposure = 120.0;
+            materials.get_mut(material).unwrap().lightmap_exposure = 150.0;
             commands.entity(entity).insert(Lightmap {
                 image: asset_server.load("lightmaps/CornellBox-Small.zstd.ktx2"),
                 ..default()
@@ -56,7 +61,7 @@ fn add_lightmaps_to_meshes(
         }
 
         if name.starts_with("cornell_box") {
-            materials.get_mut(material).unwrap().lightmap_exposure = 120.0;
+            materials.get_mut(material).unwrap().lightmap_exposure = 150.0;
             commands.entity(entity).insert(Lightmap {
                 image: asset_server.load("lightmaps/CornellBox-Box.zstd.ktx2"),
                 ..default()
