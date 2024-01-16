@@ -155,40 +155,6 @@ impl AssetWriter for FileAssetWriter {
         })
     }
 
-    fn remove_directory<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> BoxedFuture<'a, Result<(), AssetWriterError>> {
-        Box::pin(async move {
-            let full_path = self.root_path.join(path);
-            async_fs::remove_dir_all(full_path).await?;
-            Ok(())
-        })
-    }
-
-    fn remove_empty_directory<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> BoxedFuture<'a, Result<(), AssetWriterError>> {
-        Box::pin(async move {
-            let full_path = self.root_path.join(path);
-            async_fs::remove_dir(full_path).await?;
-            Ok(())
-        })
-    }
-
-    fn remove_assets_in_directory<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> BoxedFuture<'a, Result<(), AssetWriterError>> {
-        Box::pin(async move {
-            let full_path = self.root_path.join(path);
-            async_fs::remove_dir_all(&full_path).await?;
-            async_fs::create_dir_all(&full_path).await?;
-            Ok(())
-        })
-    }
-
     fn rename<'a>(
         &'a self,
         old_path: &'a Path,
@@ -219,6 +185,40 @@ impl AssetWriter for FileAssetWriter {
                 async_fs::create_dir_all(parent).await?;
             }
             async_fs::rename(full_old_path, full_new_path).await?;
+            Ok(())
+        })
+    }
+
+    fn remove_directory<'a>(
+        &'a self,
+        path: &'a Path,
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>> {
+        Box::pin(async move {
+            let full_path = self.root_path.join(path);
+            async_fs::remove_dir_all(full_path).await?;
+            Ok(())
+        })
+    }
+
+    fn remove_empty_directory<'a>(
+        &'a self,
+        path: &'a Path,
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>> {
+        Box::pin(async move {
+            let full_path = self.root_path.join(path);
+            async_fs::remove_dir(full_path).await?;
+            Ok(())
+        })
+    }
+
+    fn remove_assets_in_directory<'a>(
+        &'a self,
+        path: &'a Path,
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>> {
+        Box::pin(async move {
+            let full_path = self.root_path.join(path);
+            async_fs::remove_dir_all(&full_path).await?;
+            async_fs::create_dir_all(&full_path).await?;
             Ok(())
         })
     }

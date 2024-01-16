@@ -10,7 +10,7 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_state::<AppState>()
+        .init_state::<AppState>() // Alternatively we could use .insert_state(AppState::Menu)
         .add_systems(Startup, setup)
         // This system runs when we enter `AppState::Menu`, during the `StateTransition` schedule.
         // All systems from the exit schedule of the state we're leaving are run first,
@@ -25,6 +25,7 @@ fn main() {
             Update,
             (movement, change_color).run_if(in_state(AppState::InGame)),
         )
+        .add_systems(Update, log_transitions)
         .run();
 }
 
@@ -133,16 +134,16 @@ fn movement(
 ) {
     for mut transform in &mut query {
         let mut direction = Vec3::ZERO;
-        if input.pressed(KeyCode::Left) {
+        if input.pressed(KeyCode::ArrowLeft) {
             direction.x -= 1.0;
         }
-        if input.pressed(KeyCode::Right) {
+        if input.pressed(KeyCode::ArrowRight) {
             direction.x += 1.0;
         }
-        if input.pressed(KeyCode::Up) {
+        if input.pressed(KeyCode::ArrowUp) {
             direction.y += 1.0;
         }
-        if input.pressed(KeyCode::Down) {
+        if input.pressed(KeyCode::ArrowDown) {
             direction.y -= 1.0;
         }
 
@@ -157,5 +158,16 @@ fn change_color(time: Res<Time>, mut query: Query<&mut Sprite>) {
         sprite
             .color
             .set_b((time.elapsed_seconds() * 0.5).sin() + 2.0);
+    }
+}
+
+/// print when an `AppState` transition happens
+/// also serves as an example of how to use `StateTransitionEvent`
+fn log_transitions(mut transitions: EventReader<StateTransitionEvent<AppState>>) {
+    for transition in transitions.read() {
+        info!(
+            "transition: {:?} => {:?}",
+            transition.before, transition.after
+        );
     }
 }

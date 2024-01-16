@@ -23,21 +23,21 @@ fn setup(
     });
     // plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane::from_size(5.0))),
-        material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+        mesh: meshes.add(shape::Plane::from_size(5.0)),
+        material: materials.add(Color::rgb(0.3, 0.5, 0.3)),
         ..default()
     });
     // cube
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+        mesh: meshes.add(shape::Cube { size: 1.0 }),
+        material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..default()
     });
     // light
     commands.spawn(PointLightBundle {
         point_light: PointLight {
-            intensity: 1500.0,
+            intensity: 250000.0,
             shadows_enabled: true,
             ..default()
         },
@@ -111,20 +111,20 @@ fn update_config(
     keyboard: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 ) {
-    if keyboard.just_pressed(KeyCode::D) {
+    if keyboard.just_pressed(KeyCode::KeyD) {
         config.depth_bias = if config.depth_bias == 0. { -1. } else { 0. };
     }
-    if keyboard.just_pressed(KeyCode::P) {
+    if keyboard.just_pressed(KeyCode::KeyP) {
         // Toggle line_perspective
         config.line_perspective ^= true;
         // Increase the line width when line_perspective is on
         config.line_width *= if config.line_perspective { 5. } else { 1. / 5. };
     }
 
-    if keyboard.pressed(KeyCode::Right) {
+    if keyboard.pressed(KeyCode::ArrowRight) {
         config.line_width += 5. * time.delta_seconds();
     }
-    if keyboard.pressed(KeyCode::Left) {
+    if keyboard.pressed(KeyCode::ArrowLeft) {
         config.line_width -= 5. * time.delta_seconds();
     }
 }

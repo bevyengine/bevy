@@ -1,7 +1,9 @@
 use std::collections::HashSet;
 
 use bevy_ecs::prelude::*;
-use bevy_math::{Mat4, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles};
+use bevy_math::{
+    AspectRatio, Mat4, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles,
+};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, CameraProjection},
@@ -13,8 +15,8 @@ use bevy_render::{
     renderer::RenderDevice,
     view::{InheritedVisibility, RenderLayers, ViewVisibility, VisibleEntities},
 };
-use bevy_transform::{components::GlobalTransform, prelude::Transform};
-use bevy_utils::{tracing::warn, HashMap};
+use bevy_transform::components::{GlobalTransform, Transform};
+use bevy_utils::{tracing::warn, EntityHashMap};
 
 use crate::*;
 
@@ -379,7 +381,7 @@ impl From<CascadeShadowConfigBuilder> for CascadeShadowConfig {
 #[reflect(Component)]
 pub struct Cascades {
     /// Map from a view to the configuration of each of its [`Cascade`]s.
-    pub(crate) cascades: HashMap<Entity, Vec<Cascade>>,
+    pub(crate) cascades: EntityHashMap<Entity, Vec<Cascade>>,
 }
 
 #[derive(Clone, Debug, Default, Reflect)]
@@ -555,7 +557,7 @@ fn calculate_cascade(
 /// # use bevy_ecs::system::ResMut;
 /// # use bevy_pbr::AmbientLight;
 /// fn setup_ambient_light(mut ambient_light: ResMut<AmbientLight>) {
-///    ambient_light.brightness = 0.3;
+///    ambient_light.brightness = 20.0;
 /// }
 /// ```
 #[derive(Resource, Clone, Debug, ExtractResource, Reflect)]
@@ -570,7 +572,7 @@ impl Default for AmbientLight {
     fn default() -> Self {
         Self {
             color: Color::rgb(1.0, 1.0, 1.0),
-            brightness: 0.05,
+            brightness: 8.0,
         }
     }
 }
@@ -732,7 +734,8 @@ impl ClusterConfig {
             ClusterConfig::FixedZ {
                 total, z_slices, ..
             } => {
-                let aspect_ratio = screen_size.x as f32 / screen_size.y as f32;
+                let aspect_ratio: f32 =
+                    AspectRatio::from_pixels(screen_size.x, screen_size.y).into();
                 let mut z_slices = *z_slices;
                 if *total < z_slices {
                     warn!("ClusterConfig has more z-slices than total clusters!");

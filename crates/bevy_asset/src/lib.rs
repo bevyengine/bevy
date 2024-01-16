@@ -100,7 +100,7 @@ pub enum AssetMode {
     ///
     /// When developing an app, you should enable the `asset_processor` cargo feature, which will run the asset processor at startup. This should generally
     /// be used in combination with the `file_watcher` cargo feature, which enables hot-reloading of assets that have changed. When both features are enabled,
-    /// changes to "original/source assets" will be detected, the asset will be re-processed, and then the final processed asset will be hot-reloaded in the app.  
+    /// changes to "original/source assets" will be detected, the asset will be re-processed, and then the final processed asset will be hot-reloaded in the app.
     ///
     /// [`AssetMeta`]: meta::AssetMeta
     /// [`AssetSource`]: io::AssetSource
@@ -320,6 +320,40 @@ impl AssetApp for App {
         self
     }
 
+    fn register_asset_processor<P: Process>(&mut self, processor: P) -> &mut Self {
+        if let Some(asset_processor) = self.world.get_resource::<AssetProcessor>() {
+            asset_processor.register_processor(processor);
+        }
+        self
+    }
+
+    fn register_asset_source(
+        &mut self,
+        id: impl Into<AssetSourceId<'static>>,
+        source: AssetSourceBuilder,
+    ) -> &mut Self {
+        let id = id.into();
+        if self.world.get_resource::<AssetServer>().is_some() {
+            error!("{} must be registered before `AssetPlugin` (typically added as part of `DefaultPlugins`)", id);
+        }
+
+        {
+            let mut sources = self
+                .world
+                .get_resource_or_insert_with(AssetSourceBuilders::default);
+            sources.insert(id, source);
+        }
+
+        self
+    }
+
+    fn set_default_asset_processor<P: Process>(&mut self, extension: &str) -> &mut Self {
+        if let Some(asset_processor) = self.world.get_resource::<AssetProcessor>() {
+            asset_processor.set_default_processor::<P>(extension);
+        }
+        self
+    }
+
     fn init_asset_loader<L: AssetLoader + FromWorld>(&mut self) -> &mut Self {
         let loader = L::from_world(&mut self.world);
         self.register_asset_loader(loader)
@@ -370,40 +404,6 @@ impl AssetApp for App {
         self.world
             .resource_mut::<AssetServer>()
             .preregister_loader::<L>(extensions);
-        self
-    }
-
-    fn register_asset_processor<P: Process>(&mut self, processor: P) -> &mut Self {
-        if let Some(asset_processor) = self.world.get_resource::<AssetProcessor>() {
-            asset_processor.register_processor(processor);
-        }
-        self
-    }
-
-    fn set_default_asset_processor<P: Process>(&mut self, extension: &str) -> &mut Self {
-        if let Some(asset_processor) = self.world.get_resource::<AssetProcessor>() {
-            asset_processor.set_default_processor::<P>(extension);
-        }
-        self
-    }
-
-    fn register_asset_source(
-        &mut self,
-        id: impl Into<AssetSourceId<'static>>,
-        source: AssetSourceBuilder,
-    ) -> &mut Self {
-        let id = id.into();
-        if self.world.get_resource::<AssetServer>().is_some() {
-            error!("{} must be registered before `AssetPlugin` (typically added as part of `DefaultPlugins`)", id);
-        }
-
-        {
-            let mut sources = self
-                .world
-                .get_resource_or_insert_with(AssetSourceBuilders::default);
-            sources.insert(id, source);
-        }
-
         self
     }
 }
@@ -555,7 +555,7 @@ mod tests {
     fn run_app_until(app: &mut App, mut predicate: impl FnMut(&mut World) -> Option<()>) {
         for _ in 0..LARGE_ITERATION_COUNT {
             app.update();
-            if (predicate)(&mut app.world).is_some() {
+            if predicate(&mut app.world).is_some() {
                 return;
             }
         }
@@ -872,12 +872,22 @@ mod tests {
                 id: id_results.d_id,
             },
             AssetEvent::Modified { id: a_id },
+            AssetEvent::Unused { id: a_id },
             AssetEvent::Removed { id: a_id },
-            AssetEvent::Removed {
+            AssetEvent::Unused {
                 id: id_results.b_id,
             },
             AssetEvent::Removed {
+                id: id_results.b_id,
+            },
+            AssetEvent::Unused {
                 id: id_results.c_id,
+            },
+            AssetEvent::Removed {
+                id: id_results.c_id,
+            },
+            AssetEvent::Unused {
+                id: id_results.d_id,
             },
             AssetEvent::Removed {
                 id: id_results.d_id,
@@ -1062,7 +1072,11 @@ mod tests {
         // remove event is emitted
         app.update();
         let events = std::mem::take(&mut app.world.resource_mut::<StoredEvents>().0);
-        let expected_events = vec![AssetEvent::Added { id }, AssetEvent::Removed { id }];
+        let expected_events = vec![
+            AssetEvent::Added { id },
+            AssetEvent::Unused { id },
+            AssetEvent::Removed { id },
+        ];
         assert_eq!(events, expected_events);
 
         let dep_handle = app.world.resource::<AssetServer>().load(dep_path);

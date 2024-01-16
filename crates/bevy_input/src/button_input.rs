@@ -86,6 +86,11 @@ where
         inputs.into_iter().any(|it| self.pressed(it))
     }
 
+    /// Returns `true` if all items in `inputs` have been pressed.
+    pub fn all_pressed(&self, inputs: impl IntoIterator<Item = T>) -> bool {
+        inputs.into_iter().all(|it| self.pressed(it))
+    }
+
     /// Registers a release for the given `input`.
     pub fn release(&mut self, input: T) {
         // Returns `true` if the `input` was pressed.
@@ -215,6 +220,19 @@ mod test {
         assert!(input.any_pressed([DummyInput::Input1]));
         assert!(!input.any_pressed([DummyInput::Input2]));
         assert!(input.any_pressed([DummyInput::Input1, DummyInput::Input2]));
+    }
+
+    #[test]
+    fn test_all_pressed() {
+        let mut input = ButtonInput::default();
+        assert!(!input.all_pressed([DummyInput::Input1]));
+        assert!(!input.all_pressed([DummyInput::Input2]));
+        assert!(!input.all_pressed([DummyInput::Input1, DummyInput::Input2]));
+        input.press(DummyInput::Input1);
+        assert!(input.all_pressed([DummyInput::Input1]));
+        assert!(!input.all_pressed([DummyInput::Input1, DummyInput::Input2]));
+        input.press(DummyInput::Input2);
+        assert!(input.all_pressed([DummyInput::Input1, DummyInput::Input2]));
     }
 
     #[test]
