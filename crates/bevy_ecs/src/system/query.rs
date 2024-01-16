@@ -1466,7 +1466,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// // We can use the function in a system that takes the exact query.
     /// fn system_1(mut query: Query<&A>) {
-    ///     reusable_function(&mut query.into_query_lens());
+    ///     reusable_function(&mut query.as_query_lens());
     /// }
     ///
     /// // We can also use it with a query that does not match exactly
