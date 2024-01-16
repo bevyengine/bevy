@@ -302,7 +302,7 @@ impl<'a> RenderViewBindGroupEntries<'a> {
         }
 
         // Pad out the bindings to the size of the binding array using fallback
-        // textures. This is necessary on D3D12.
+        // textures. This is necessary on D3D12 and Metal.
         diffuse_texture_views.resize(
             MAX_VIEW_REFLECTION_PROBES,
             &*fallback_image.cube.texture_view,
