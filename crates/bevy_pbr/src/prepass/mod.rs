@@ -98,6 +98,7 @@ where
             )
             .init_resource::<PrepassViewBindGroup>()
             .init_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>()
+            .allow_ambiguous_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>()
             .init_resource::<PreviousViewProjectionUniforms>();
     }
 
@@ -168,7 +169,9 @@ where
                 Render,
                 queue_prepass_material_meshes::<M>
                     .in_set(RenderSet::QueueMeshes)
-                    .after(prepare_materials::<M>),
+                    .after(prepare_materials::<M>)
+                    // queue_material_meshes only writes to `material_bind_group_id`, which `queue_prepass_material_meshes` doesn't read
+                    .ambiguous_with(queue_material_meshes::<StandardMaterial>),
             );
     }
 }

@@ -15,6 +15,17 @@
 //!
 //! See the documentation on [`Gizmos`] for more examples.
 
+/// Label for the the render systems handling the
+#[derive(SystemSet, Clone, Debug, Hash, PartialEq, Eq)]
+pub enum GizmoRenderSystem {
+    /// Adds gizmos to the [`Transparent2d`](bevy_core_pipeline::core_2d::Transparent2d) render phase
+    #[cfg(feature = "bevy_sprite")]
+    QueueLineGizmos2d,
+    /// Adds gizmos to the [`Transparent3d`](bevy_core_pipeline::core_3d::Transparent3d) render phase
+    #[cfg(feature = "bevy_pbr")]
+    QueueLineGizmos3d,
+}
+
 pub mod arcs;
 pub mod arrows;
 pub mod circles;
@@ -40,7 +51,7 @@ use bevy_ecs::{
     entity::Entity,
     query::{ROQueryItem, Without},
     reflect::{ReflectComponent, ReflectResource},
-    schedule::IntoSystemConfigs,
+    schedule::{IntoSystemConfigs, SystemSet},
     system::{
         lifetimeless::{Read, SRes},
         Commands, Query, Res, ResMut, Resource, SystemParamItem,
@@ -79,6 +90,10 @@ pub struct GizmoPlugin;
 
 impl Plugin for GizmoPlugin {
     fn build(&self, app: &mut bevy_app::App) {
+        // Gizmos cannot work without either a 3D or 2D renderer.
+        #[cfg(all(not(feature = "bevy_pbr"), not(feature = "bevy_sprite")))]
+        bevy_log::error!("bevy_gizmos requires either bevy_pbr or bevy_sprite. Please enable one.");
+
         load_internal_asset!(app, LINE_SHADER_HANDLE, "lines.wgsl", Shader::from_wgsl);
 
         app.register_type::<GizmoConfig>()

@@ -3,7 +3,7 @@ use bevy_asset::{AssetId, Assets};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::Reflect;
 use bevy_render::texture::Image;
-use bevy_sprite::TextureAtlas;
+use bevy_sprite::TextureAtlasLayout;
 use bevy_utils::tracing::warn;
 use glyph_brush_layout::{
     BuiltInLineBreaker, FontId, GlyphPositioner, Layout, SectionGeometry, SectionGlyph,
@@ -60,7 +60,7 @@ impl GlyphBrush {
         sections: &[SectionText],
         font_atlas_sets: &mut FontAtlasSets,
         fonts: &Assets<Font>,
-        texture_atlases: &mut Assets<TextureAtlas>,
+        texture_atlases: &mut Assets<TextureAtlasLayout>,
         textures: &mut Assets<Image>,
         text_settings: &TextSettings,
         font_atlas_warning: &mut FontAtlasWarning,

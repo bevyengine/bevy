@@ -260,8 +260,8 @@ fn setup(
 ) {
     // Plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(50.0).into()),
-        material: materials.add(Color::rgb(0.1, 0.2, 0.1).into()),
+        mesh: meshes.add(shape::Plane::from_size(50.0)),
+        material: materials.add(Color::rgb(0.1, 0.2, 0.1)),
         ..default()
     });
 
@@ -273,7 +273,7 @@ fn setup(
     // Cubes
     for i in 0..5 {
         commands.spawn(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Cube { size: 0.25 })),
+            mesh: meshes.add(shape::Cube { size: 0.25 }),
             material: cube_material.clone(),
             transform: Transform::from_xyz(i as f32 * 0.25 - 1.0, 0.125, -i as f32 * 0.5),
             ..default()
@@ -289,6 +289,7 @@ fn setup(
     // Light
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
+            illuminance: 3000.0,
             shadows_enabled: true,
             ..default()
         },
@@ -325,6 +326,7 @@ fn setup(
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            intensity: 150.0,
         },
         FogSettings {
             color: Color::rgba_u8(43, 44, 47, 255),

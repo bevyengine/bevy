@@ -18,7 +18,7 @@ use bevy_transform::{components::GlobalTransform, prelude::Transform};
 use bevy_utils::{
     nonmax::NonMaxU32,
     tracing::{error, warn},
-    HashMap,
+    EntityHashMap,
 };
 use std::{hash::Hash, num::NonZeroU64, ops::Range};
 
@@ -47,7 +47,7 @@ pub struct ExtractedDirectionalLight {
     shadow_depth_bias: f32,
     shadow_normal_bias: f32,
     cascade_shadow_config: CascadeShadowConfig,
-    cascades: HashMap<Entity, Vec<Cascade>>,
+    cascades: EntityHashMap<Entity, Vec<Cascade>>,
     render_layers: RenderLayers,
 }
 
@@ -197,6 +197,7 @@ pub struct GpuLights {
     // offset from spot light's light index to spot light's shadow map index
     spot_light_shadowmap_offset: i32,
     environment_map_smallest_specular_mip_level: u32,
+    environment_map_intensity: f32,
 }
 
 // NOTE: this must be kept in sync with the same constants in pbr.frag
@@ -550,7 +551,7 @@ pub const CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT: u32 = 3;
 #[derive(Resource)]
 pub struct GlobalLightMeta {
     pub gpu_point_lights: GpuPointLights,
-    pub entity_to_index: HashMap<Entity, usize>,
+    pub entity_to_index: EntityHashMap<Entity, usize>,
 }
 
 impl FromWorld for GlobalLightMeta {
@@ -567,7 +568,7 @@ impl GlobalLightMeta {
     pub fn new(buffer_binding_type: BufferBindingType) -> Self {
         Self {
             gpu_point_lights: GpuPointLights::new(buffer_binding_type),
-            entity_to_index: HashMap::default(),
+            entity_to_index: EntityHashMap::default(),
         }
     }
 }
@@ -857,18 +858,6 @@ pub fn prepare_lights(
             flags |= DirectionalLightFlags::SHADOWS_ENABLED;
         }
 
-        // convert from illuminance (lux) to candelas
-        //
-        // exposure is hard coded at the moment but should be replaced
-        // by values coming from the camera
-        // see: https://google.github.io/filament/Filament.html#imagingpipeline/physicallybasedcamera/exposuresettings
-        const APERTURE: f32 = 4.0;
-        const SHUTTER_SPEED: f32 = 1.0 / 250.0;
-        const SENSITIVITY: f32 = 100.0;
-        let ev100 = f32::log2(APERTURE * APERTURE / SHUTTER_SPEED) - f32::log2(SENSITIVITY / 100.0);
-        let exposure = 1.0 / (f32::powf(2.0, ev100) * 1.2);
-        let intensity = light.illuminance * exposure;
-
         let num_cascades = light
             .cascade_shadow_config
             .bounds
@@ -877,9 +866,9 @@ pub fn prepare_lights(
         gpu_directional_lights[index] = GpuDirectionalLight {
             // Filled in later.
             cascades: [GpuDirectionalCascade::default(); MAX_CASCADES_PER_LIGHT],
-            // premultiply color by intensity
+            // premultiply color by illuminance
             // we don't use the alpha at all, so no reason to multiply only [0..3]
-            color: Vec4::from_slice(&light.color.as_linear_rgba_f32()) * intensity,
+            color: Vec4::from_slice(&light.color.as_linear_rgba_f32()) * light.illuminance,
             // direction is negated to be ready for N.L
             dir_to_light: light.transform.back(),
             flags: flags.bits(),
@@ -972,6 +961,9 @@ pub fn prepare_lights(
                 .and_then(|env_map| images.get(&env_map.specular_map))
                 .map(|specular_map| specular_map.mip_level_count - 1)
                 .unwrap_or(0),
+            environment_map_intensity: environment_map
+                .map(|env_map| env_map.intensity)
+                .unwrap_or(1.0),
         };
 
         // TODO: this should select lights based on relevance to the view instead of the first ones that show up in a query

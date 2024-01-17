@@ -44,7 +44,7 @@ fn environment_map_light(
     let kD = diffuse_color * Edss;
 
     var out: EnvironmentMapLight;
-    out.diffuse = (FmsEms + kD) * irradiance;
-    out.specular = FssEss * radiance;
+    out.diffuse = (FmsEms + kD) * irradiance * bindings::lights.environment_map_intensity;
+    out.specular = FssEss * radiance * bindings::lights.environment_map_intensity;
     return out;
 }

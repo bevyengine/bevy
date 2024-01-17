@@ -7,7 +7,10 @@ pub mod unsafe_world_cell;
 mod world_cell;
 
 pub use crate::change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD};
-pub use entity_ref::{EntityMut, EntityRef, EntityWorldMut, Entry, OccupiedEntry, VacantEntry};
+pub use entity_ref::{
+    EntityMut, EntityRef, EntityWorldMut, Entry, FilteredEntityMut, FilteredEntityRef,
+    OccupiedEntry, VacantEntry,
+};
 pub use spawn_batch::*;
 pub use world_cell::*;
 
