@@ -2752,4 +2752,34 @@ mod tests {
             assert_eq!(ellipse.center, expected_result);
         }
     }
+
+    #[test]
+    fn resolve_radial_gradient_geometry_2() {
+        use super::*;
+        let cases = [
+            (RelativePosition::CENTER, Vec2::splat(200.)),
+            (RelativePosition::TOP_LEFT, vec2(100., 100.)),
+            (RelativePosition::TOP_RIGHT, vec2(300., 100.)),
+            (RelativePosition::BOTTOM_RIGHT, vec2(300., 300.)),
+            (RelativePosition::BOTTOM_CENTER, vec2(200., 300.)),
+        ];
+        for (center, expected_result) in cases {
+            let radial_gradient = RadialGradient {
+                center,
+                shape: RadialGradientShape::Circle(RadialGradientExtent::ClosestSide),
+                stops: vec![
+                    Color::ORANGE_RED.into(),
+                    (Color::RED, Val::Percent(30.)).into(),
+                    (Color::YELLOW, Val::Percent(60.)).into(),
+                    (Color::MAROON, Val::Percent(80.)).into(),
+                    (Color::NONE, Val::Percent(81.)).into(),
+                ],
+            };
+
+            let ellipse = radial_gradient
+                .resolve_geometry(Rect::new(100., 100., 300., 300.), vec2(800., 600.));
+
+            assert_eq!(ellipse.center, expected_result);
+        }
+    }
 }
