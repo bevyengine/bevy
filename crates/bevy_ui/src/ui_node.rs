@@ -2746,10 +2746,8 @@ mod tests {
                 ],
             };
 
-            let ellipse = radial_gradient.resolve_geometry(
-                Rect::new(0., 0., 200., 200.), 
-                vec2(800., 600.)
-            );
+            let ellipse =
+                radial_gradient.resolve_geometry(Rect::new(0., 0., 200., 200.), vec2(800., 600.));
 
             assert_eq!(ellipse.center, expected_result);
         }
