@@ -1,6 +1,6 @@
 use crate::{io::Writer, meta::Settings, Asset, ErasedLoadedAsset};
 use crate::{AssetLoader, LabeledAsset};
-use bevy_utils::{BoxedFuture, CowArc, HashMap};
+use bevy_utils::{BoxedFuture, CowArc, FutureSend, HashMap};
 use futures_lite::Future;
 use serde::{Deserialize, Serialize};
 use std::ops::Deref;
@@ -24,7 +24,8 @@ pub trait AssetSaver: Send + Sync + 'static {
         writer: &'a mut Writer,
         asset: SavedAsset<'a, Self::Asset>,
         settings: &'a Self::Settings,
-    ) -> impl Future<Output = Result<<Self::OutputLoader as AssetLoader>::Settings, Self::Error>> + Send;
+    ) -> impl Future<Output = Result<<Self::OutputLoader as AssetLoader>::Settings, Self::Error>>
+           + FutureSend;
 }
 
 /// A type-erased dynamic variant of [`AssetSaver`] that allows callers to save assets without knowing the actual type of the [`AssetSaver`].
