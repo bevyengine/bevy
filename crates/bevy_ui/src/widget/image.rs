@@ -1,10 +1,10 @@
 use crate::{measurement::AvailableSpace, ContentSize, Measure, Node, UiImage, UiScale};
 use bevy_asset::Assets;
 
-use bevy_ecs::change_detection::DetectChanges;
 #[cfg(feature = "bevy_text")]
 use bevy_ecs::query::Without;
 use bevy_ecs::{
+    change_detection::DetectChanges,
     prelude::Component,
     query::With,
     reflect::ReflectComponent,

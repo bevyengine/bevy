@@ -15,16 +15,17 @@ pub use pipeline::*;
 pub use render_pass::*;
 pub use ui_material_pipeline::*;
 
-use crate::{
-    BorderColor, CalculatedClip, ContentSize, Node, Style, UiScale, Val, DefaultUiCamera, Outline, TargetCamera,
-};
 #[cfg(feature = "bevy_text")]
 use crate::{BackgroundColor, UiImage};
+use crate::{
+    BorderColor, CalculatedClip, ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera,
+    UiScale, Val,
+};
 
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Handle};
 #[cfg(feature = "bevy_text")]
 use bevy_asset::Assets;
+use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Handle};
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, Rect, URect, UVec4, Vec2, Vec3, Vec4Swizzles};
 use bevy_render::{
