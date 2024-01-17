@@ -1,15 +1,6 @@
 use crate::{measurement::AvailableSpace, ContentSize, Measure, Node, UiImage, UiScale};
 use bevy_asset::Assets;
-
-#[cfg(feature = "bevy_text")]
-use bevy_ecs::query::Without;
-use bevy_ecs::{
-    change_detection::DetectChanges,
-    prelude::Component,
-    query::With,
-    reflect::ReflectComponent,
-    system::{Local, Query, Res},
-};
+use bevy_ecs::prelude::*;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::texture::Image;
