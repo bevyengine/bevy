@@ -1,5 +1,7 @@
 mod primitive_impls;
 
+use glam::Mat2;
+
 use super::BoundingVolume;
 use crate::prelude::Vec2;
 
@@ -15,13 +17,11 @@ pub(super) fn rotate_vec2(vec: Vec2, rotation: f32) -> Vec2 {
 fn point_cloud_2d_center(points: &[Vec2]) -> Vec2 {
     assert!(
         !points.is_empty(),
-        "can not compute the center of less than 1 point"
+        "cannot compute the center of an empty set of points"
     );
 
     let denom = 1.0 / points.len() as f32;
-    points
-        .iter()
-        .fold(Vec2::ZERO, |acc, point| acc + *point * denom)
+    points.iter().fold(Vec2::ZERO, |acc, point| acc + *point) * denom
 }
 
 /// A trait with methods that return 2D bounded volumes for a shape
@@ -48,13 +48,10 @@ impl Aabb2d {
     /// Computes the smallest [`Aabb2d`] containing the given set of points,
     /// transformed by `translation` and `rotation`.
     #[inline(always)]
-    pub fn from_point_cloud(
-        translation: Vec2,
-        rotation: f32,
-        points: impl IntoIterator<Item = Vec2>,
-    ) -> Aabb2d {
+    pub fn from_point_cloud(translation: Vec2, rotation: f32, points: &[Vec2]) -> Aabb2d {
         // Transform all points by rotation
-        let mut iter = points.into_iter().map(|point| rotate_vec2(point, rotation));
+        let rotation_mat = Mat2::from_angle(rotation);
+        let mut iter = points.iter().map(|point| rotation_mat * *point);
 
         let first = iter
             .next()

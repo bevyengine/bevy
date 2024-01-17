@@ -3,8 +3,8 @@
 use glam::{Mat2, Vec2};
 
 use crate::primitives::{
-    BoxedPolygon, BoxedPolyline2d, Circle, Direction2d, Ellipse, Line2d, Plane2d, Polygon,
-    Polyline2d, Rectangle, RegularPolygon, Segment2d, Triangle2d,
+    BoxedPolygon, BoxedPolyline2d, Circle, Ellipse, Line2d, Plane2d, Polygon, Polyline2d,
+    Rectangle, RegularPolygon, Segment2d, Triangle2d,
 };
 
 use super::{rotate_vec2, Aabb2d, Bounded2d, BoundingCircle};
@@ -33,11 +33,19 @@ impl Bounded2d for Ellipse {
         //   ###           ###
         //      ###########
 
-        let (alpha, beta) = (rotation, rotation + std::f32::consts::FRAC_PI_2);
         let (hw, hh) = (self.half_width, self.half_height);
 
-        let (ux, uy) = (hw * alpha.cos(), hw * alpha.sin());
-        let (vx, vy) = (hh * beta.cos(), hh * beta.sin());
+        // Sine and cosine of rotation angle alpha.
+        let (alpha_sin, alpha_cos) = rotation.sin_cos();
+
+        // Sine and cosine of alpha + pi/2. We can avoid the trigonometric functions:
+        // sin(beta) = sin(alpha + pi/2) = cos(alpha)
+        // cos(beta) = cos(alpha + pi/2) = -sin(alpha)
+        let (beta_sin, beta_cos) = (alpha_cos, -alpha_sin);
+
+        // Compute points U and V, the extremes of the ellipse
+        let (ux, uy) = (hw * alpha_cos, hw * alpha_sin);
+        let (vx, vy) = (hh * beta_cos, hh * beta_sin);
 
         let half_extents = Vec2::new(ux.hypot(vx), uy.hypot(vy));
 
@@ -100,13 +108,12 @@ impl Bounded2d for Line2d {
 impl Bounded2d for Segment2d {
     fn aabb_2d(&self, translation: Vec2, rotation: f32) -> Aabb2d {
         // Rotate the segment by `rotation`
-        let direction = Direction2d::from_normalized(rotate_vec2(*self.direction, rotation));
-        let segment = Self { direction, ..*self };
-        let (point1, point2) = (segment.point1(), segment.point2());
+        let direction = rotate_vec2(*self.direction, rotation);
+        let half_extent = (self.half_length * direction).abs();
 
         Aabb2d {
-            min: translation + point1.min(point2),
-            max: translation + point1.max(point2),
+            min: translation - half_extent,
+            max: translation + half_extent,
         }
     }
 
@@ -117,7 +124,7 @@ impl Bounded2d for Segment2d {
 
 impl<const N: usize> Bounded2d for Polyline2d<N> {
     fn aabb_2d(&self, translation: Vec2, rotation: f32) -> Aabb2d {
-        Aabb2d::from_point_cloud(translation, rotation, self.vertices)
+        Aabb2d::from_point_cloud(translation, rotation, &self.vertices)
     }
 
     fn bounding_circle(&self, translation: Vec2, rotation: f32) -> BoundingCircle {
@@ -127,7 +134,7 @@ impl<const N: usize> Bounded2d for Polyline2d<N> {
 
 impl Bounded2d for BoxedPolyline2d {
     fn aabb_2d(&self, translation: Vec2, rotation: f32) -> Aabb2d {
-        Aabb2d::from_point_cloud(translation, rotation, self.vertices.to_vec())
+        Aabb2d::from_point_cloud(translation, rotation, &self.vertices)
     }
 
     fn bounding_circle(&self, translation: Vec2, rotation: f32) -> BoundingCircle {
@@ -202,7 +209,7 @@ impl Bounded2d for Rectangle {
 
 impl<const N: usize> Bounded2d for Polygon<N> {
     fn aabb_2d(&self, translation: Vec2, rotation: f32) -> Aabb2d {
-        Aabb2d::from_point_cloud(translation, rotation, self.vertices)
+        Aabb2d::from_point_cloud(translation, rotation, &self.vertices)
     }
 
     fn bounding_circle(&self, translation: Vec2, rotation: f32) -> BoundingCircle {
@@ -212,7 +219,7 @@ impl<const N: usize> Bounded2d for Polygon<N> {
 
 impl Bounded2d for BoxedPolygon {
     fn aabb_2d(&self, translation: Vec2, rotation: f32) -> Aabb2d {
-        Aabb2d::from_point_cloud(translation, rotation, self.vertices.to_vec())
+        Aabb2d::from_point_cloud(translation, rotation, &self.vertices)
     }
 
     fn bounding_circle(&self, translation: Vec2, rotation: f32) -> BoundingCircle {

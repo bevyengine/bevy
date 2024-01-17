@@ -76,13 +76,12 @@ impl Bounded3d for Line3d {
 impl Bounded3d for Segment3d {
     fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
         // Rotate the segment by `rotation`
-        let direction = Direction3d::from_normalized(rotation * *self.direction);
-        let segment = Self { direction, ..*self };
-        let (point1, point2) = (segment.point1(), segment.point2());
+        let direction = rotation * *self.direction;
+        let half_extent = (self.half_length * direction).abs();
 
         Aabb3d {
-            min: translation + point1.min(point2),
-            max: translation + point1.max(point2),
+            min: translation - half_extent,
+            max: translation + half_extent,
         }
     }
 
@@ -93,7 +92,7 @@ impl Bounded3d for Segment3d {
 
 impl<const N: usize> Bounded3d for Polyline3d<N> {
     fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
-        Aabb3d::from_point_cloud(translation, rotation, self.vertices)
+        Aabb3d::from_point_cloud(translation, rotation, &self.vertices)
     }
 
     fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere {
@@ -103,7 +102,7 @@ impl<const N: usize> Bounded3d for Polyline3d<N> {
 
 impl Bounded3d for BoxedPolyline3d {
     fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
-        Aabb3d::from_point_cloud(translation, rotation, self.vertices.to_vec())
+        Aabb3d::from_point_cloud(translation, rotation, &self.vertices)
     }
 
     fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere {
@@ -144,11 +143,11 @@ impl Bounded3d for Cylinder {
     fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
         // Reference: http://iquilezles.org/articles/diskbbox/
 
-        let top = rotation * Vec3::Y * self.half_height;
+        let segment_dir = rotation * Vec3::Y;
+        let top = segment_dir * self.half_height;
         let bottom = -top;
-        let segment = bottom - top;
 
-        let e = 1.0 - segment * segment / segment.length_squared();
+        let e = Vec3::ONE - segment_dir * segment_dir;
         let half_extents = self.radius * Vec3::new(e.x.sqrt(), e.y.sqrt(), e.z.sqrt());
 
         Aabb3d {
@@ -158,7 +157,7 @@ impl Bounded3d for Cylinder {
     }
 
     fn bounding_sphere(&self, translation: Vec3, _rotation: Quat) -> BoundingSphere {
-        let radius = (self.radius.powi(2) + self.half_height.powi(2)).sqrt();
+        let radius = self.radius.hypot(self.half_height);
         BoundingSphere::new(translation, radius)
     }
 }

@@ -8,13 +8,11 @@ use crate::prelude::{Quat, Vec3};
 fn point_cloud_3d_center(points: &[Vec3]) -> Vec3 {
     assert!(
         !points.is_empty(),
-        "can not compute the center of less than 1 point"
+        "cannot compute the center of an empty set of points"
     );
 
     let denom = 1.0 / points.len() as f32;
-    points
-        .iter()
-        .fold(Vec3::ZERO, |acc, point| acc + *point * denom)
+    points.iter().fold(Vec3::ZERO, |acc, point| acc + *point) * denom
 }
 
 /// A trait with methods that return 3D bounded volumes for a shape
@@ -38,13 +36,9 @@ impl Aabb3d {
     /// Computes the smallest [`Aabb3d`] containing the given set of points,
     /// transformed by `translation` and `rotation`.
     #[inline(always)]
-    pub fn from_point_cloud(
-        translation: Vec3,
-        rotation: Quat,
-        points: impl IntoIterator<Item = Vec3>,
-    ) -> Aabb3d {
+    pub fn from_point_cloud(translation: Vec3, rotation: Quat, points: &[Vec3]) -> Aabb3d {
         // Transform all points by rotation
-        let mut iter = points.into_iter().map(|point| rotation * point);
+        let mut iter = points.iter().map(|point| rotation * *point);
 
         let first = iter
             .next()
