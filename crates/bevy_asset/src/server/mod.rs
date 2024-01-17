@@ -17,6 +17,10 @@ use crate::{
     DeserializeMetaError, ErasedLoadedAsset, Handle, LoadedUntypedAsset, UntypedAssetId,
     UntypedAssetLoadFailedEvent, UntypedHandle,
 };
+
+#[allow(unused_imports)] // Needed for docs.
+use crate::io::{AssetReader, AssetWriter};
+
 use bevy_ecs::prelude::*;
 use bevy_tasks::IoTaskPool;
 use bevy_utils::tracing::{error, info};

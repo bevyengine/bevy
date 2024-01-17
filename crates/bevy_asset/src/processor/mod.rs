@@ -17,6 +17,10 @@ use crate::{
     AssetLoadError, AssetMetaCheck, AssetPath, AssetServer, AssetServerMode, DeserializeMetaError,
     MissingAssetLoaderForExtensionError,
 };
+
+#[allow(unused_imports)] // Needed for docs.
+use crate::io::{AssetReader, AssetWriter};
+
 use bevy_ecs::prelude::*;
 use bevy_tasks::IoTaskPool;
 use bevy_utils::tracing::{debug, error, trace, warn};

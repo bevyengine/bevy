@@ -5,6 +5,10 @@ use crate::{
     },
     processor::AssetProcessorData,
 };
+
+#[allow(unused_imports)] // Needed for docs.
+use crate::io::{AssetReader, AssetWriter};
+
 use bevy_ecs::system::Resource;
 use bevy_utils::tracing::{error, warn};
 use bevy_utils::{CowArc, Duration, HashMap};
