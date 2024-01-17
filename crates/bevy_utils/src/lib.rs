@@ -61,7 +61,8 @@ mod conditional_send {
     impl<T: Send> FutureSend for T {}
 
     /// An owned and dynamically typed Future used when you can't statically type your result or need to add some indirection.
-    pub type BoxedFuture<'a, T> = std::pin::Pin<Box<dyn std::future::Future<Output = T> + Send + 'a>>;
+    pub type BoxedFuture<'a, T> =
+        std::pin::Pin<Box<dyn std::future::Future<Output = T> + Send + 'a>>;
 }
 
 #[cfg(target_arch = "wasm32")]

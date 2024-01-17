@@ -557,31 +557,25 @@ mod tests {
     }
 
     impl AssetReader for UnstableMemoryAssetReader {
-        fn is_directory<'a>(
-            &'a self,
-            path: &'a Path,
-        ) -> BoxedFuture<'a, Result<bool, AssetReaderError>> {
-            self.memory_reader.is_directory(path)
+        async fn is_directory<'a>(&'a self, path: &'a Path) -> Result<bool, AssetReaderError> {
+            self.memory_reader.is_directory(path).await
         }
-        fn read_directory<'a>(
+        async fn read_directory<'a>(
             &'a self,
             path: &'a Path,
-        ) -> BoxedFuture<'a, Result<Box<bevy_asset::io::PathStream>, AssetReaderError>> {
-            self.memory_reader.read_directory(path)
+        ) -> Result<Box<bevy_asset::io::PathStream>, AssetReaderError> {
+            self.memory_reader.read_directory(path).await
         }
-        fn read_meta<'a>(
+        async fn read_meta<'a>(
             &'a self,
             path: &'a Path,
-        ) -> BoxedFuture<'a, Result<Box<bevy_asset::io::Reader<'a>>, AssetReaderError>> {
-            self.memory_reader.read_meta(path)
+        ) -> Result<Box<bevy_asset::io::Reader<'a>>, AssetReaderError> {
+            self.memory_reader.read_meta(path).await
         }
-        fn read<'a>(
+        async fn read<'a>(
             &'a self,
             path: &'a Path,
-        ) -> BoxedFuture<
-            'a,
-            Result<Box<bevy_asset::io::Reader<'a>>, bevy_asset::io::AssetReaderError>,
-        > {
+        ) -> Result<Box<bevy_asset::io::Reader<'a>>, bevy_asset::io::AssetReaderError> {
             let attempt_number = {
                 let mut attempt_counters = self.attempt_counters.lock().unwrap();
                 if let Some(existing) = attempt_counters.get_mut(path) {
@@ -602,13 +596,11 @@ mod tests {
                     ),
                 );
                 let wait = self.load_delay;
-                return Box::pin(async move {
-                    std::thread::sleep(wait);
-                    Err(AssetReaderError::Io(io_error.into()))
-                });
+                std::thread::sleep(wait);
+                return Err(AssetReaderError::Io(io_error.into()));
             }
 
-            self.memory_reader.read(path)
+            self.memory_reader.read(path).await
         }
     }
 
