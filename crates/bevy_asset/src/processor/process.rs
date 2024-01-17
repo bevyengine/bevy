@@ -10,7 +10,7 @@ use crate::{
     AssetLoadError, AssetLoader, AssetPath, DeserializeMetaError, ErasedLoadedAsset,
     MissingAssetLoaderForExtensionError, MissingAssetLoaderForTypeNameError,
 };
-use bevy_utils::BoxedFuture;
+use bevy_utils::{BoxedFuture, FutureSend};
 use futures_lite::Future;
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
@@ -33,7 +33,8 @@ pub trait Process: Send + Sync + Sized + 'static {
         context: &'a mut ProcessContext,
         meta: AssetMeta<(), Self>,
         writer: &'a mut Writer,
-    ) -> impl Future<Output = Result<<Self::OutputLoader as AssetLoader>::Settings, ProcessError>> + Send;
+    ) -> impl Future<Output = Result<<Self::OutputLoader as AssetLoader>::Settings, ProcessError>>
+           + FutureSend;
 }
 
 /// A flexible [`Process`] implementation that loads the source [`Asset`] using the `L` [`AssetLoader`], then transforms

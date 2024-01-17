@@ -2,7 +2,6 @@ use crate::io::{
     get_meta_path, AssetReader, AssetReaderError, EmptyPathStream, PathStream, Reader, VecReader,
 };
 use bevy_utils::tracing::error;
-use bevy_utils::BoxedFuture;
 use js_sys::{Uint8Array, JSON};
 use std::path::{Path, PathBuf};
 use wasm_bindgen::{JsCast, JsValue};
@@ -59,40 +58,29 @@ impl HttpWasmAssetReader {
 }
 
 impl AssetReader for HttpWasmAssetReader {
-    fn read<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> BoxedFuture<'a, Result<Box<Reader<'a>>, AssetReaderError>> {
-        Box::pin(async move {
-            let path = self.root_path.join(path);
-            self.fetch_bytes(path).await
-        })
+    async fn read<'a>(&'a self, path: &'a Path) -> Result<Box<Reader<'a>>, AssetReaderError> {
+        let path = self.root_path.join(path);
+        self.fetch_bytes(path).await
     }
 
-    fn read_meta<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> BoxedFuture<'a, Result<Box<Reader<'a>>, AssetReaderError>> {
-        Box::pin(async move {
-            let meta_path = get_meta_path(&self.root_path.join(path));
-            Ok(self.fetch_bytes(meta_path).await?)
-        })
+    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<Box<Reader<'a>>, AssetReaderError> {
+        let meta_path = get_meta_path(&self.root_path.join(path));
+        Ok(self.fetch_bytes(meta_path).await?)
     }
 
-    fn read_directory<'a>(
+    async fn read_directory<'a>(
         &'a self,
         _path: &'a Path,
-    ) -> BoxedFuture<'a, Result<Box<PathStream>, AssetReaderError>> {
-        let stream: Box<PathStream> = Box::new(EmptyPathStream);
+    ) -> Result<Box<PathStream>, AssetReaderError> {
         error!("Reading directories is not supported with the HttpWasmAssetReader");
-        Box::pin(async move { Ok(stream) })
+        Ok(Box::new(EmptyPathStream))
     }
 
-    fn is_directory<'a>(
+    async fn is_directory<'a>(
         &'a self,
         _path: &'a Path,
-    ) -> BoxedFuture<'a, std::result::Result<bool, AssetReaderError>> {
+    ) -> std::result::Result<bool, AssetReaderError> {
         error!("Reading directories is not supported with the HttpWasmAssetReader");
-        Box::pin(async move { Ok(false) })
+        Ok(false)
     }
 }

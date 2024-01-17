@@ -47,21 +47,32 @@ use hashbrown::hash_map::RawEntryMut;
 use std::{
     any::TypeId,
     fmt::Debug,
-    future::Future,
     hash::{BuildHasher, BuildHasherDefault, Hash, Hasher},
     marker::PhantomData,
     mem::ManuallyDrop,
     ops::Deref,
-    pin::Pin,
 };
 
-/// An owned and dynamically typed Future used when you can't statically type your result or need to add some indirection.
 #[cfg(not(target_arch = "wasm32"))]
-pub type BoxedFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
+mod conditional_send {
+    /// Use [`FutureSend`] to mark an optional Send trait bound as optional, as on certain platforms (eg. WASM),
+    /// futures aren't Send.
+    pub trait FutureSend: Send {}
+    impl<T: Send> FutureSend for T {}
 
-#[allow(missing_docs)]
+    /// An owned and dynamically typed Future used when you can't statically type your result or need to add some indirection.
+    pub type BoxedFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
+}
+
 #[cfg(target_arch = "wasm32")]
-pub type BoxedFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a>>;
+#[allow(missing_docs)]
+mod conditional_send {
+    pub trait FutureSend {}
+    impl<T> FutureSend for T {}
+    pub type BoxedFuture<'a, T> = std::pin::Pin<Box<dyn std::future::Future<Output = T> + 'a>>;
+}
+
+pub use conditional_send::*;
 
 /// A shortcut alias for [`hashbrown::hash_map::Entry`].
 pub type Entry<'a, K, V> = hashbrown::hash_map::Entry<'a, K, V, BuildHasherDefault<AHasher>>;
