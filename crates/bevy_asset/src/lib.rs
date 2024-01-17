@@ -7,11 +7,12 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         Asset, AssetApp, AssetEvent, AssetId, AssetMode, AssetPlugin, AssetServer, Assets, Handle,
-        UntypedHandle,
+        RunCallbackCommands, RunCallbackWorld, UntypedHandle,
     };
 }
 
 mod assets;
+mod callback;
 mod event;
 mod folder;
 mod handle;
@@ -23,6 +24,7 @@ mod server;
 
 pub use assets::*;
 pub use bevy_asset_macros::Asset;
+pub use callback::*;
 pub use event::*;
 pub use folder::*;
 pub use futures_lite::{AsyncReadExt, AsyncWriteExt};
@@ -46,7 +48,7 @@ use bevy_app::{App, First, MainScheduleOrder, Plugin, PostUpdate};
 use bevy_ecs::{
     reflect::AppTypeRegistry,
     schedule::{IntoSystemConfigs, IntoSystemSetConfigs, ScheduleLabel, SystemSet},
-    system::Resource,
+    system::{Callback, Resource},
     world::FromWorld,
 };
 use bevy_log::error;
@@ -213,6 +215,7 @@ impl Plugin for AssetPlugin {
             .init_asset::<LoadedFolder>()
             .init_asset::<LoadedUntypedAsset>()
             .init_asset::<()>()
+            .init_asset::<Callback>()
             .configure_sets(
                 UpdateAssets,
                 TrackAssets.after(handle_internal_asset_events),
