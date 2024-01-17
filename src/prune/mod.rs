@@ -796,25 +796,38 @@ impl PartReq {
     ) -> (PartReq, Option<Vec<Handle<Type>>>) {
         let ty = types.get_handle(ty).unwrap();
         match &ty.inner {
-            naga::TypeInner::Vector { size, .. } => (PartReq::Part((0..*size as usize).map(|i| (i, PartReq::All)).collect()), None),
-            naga::TypeInner::Matrix { columns, rows, .. } => {(
-                PartReq::Part((0..*columns as usize).map(|c| (c, PartReq::Part((0..*rows as usize).map(|r| (r, PartReq::All)).collect()))).collect()),
-                None
-            )},
-            naga::TypeInner::Struct { members, .. } => {(
+            naga::TypeInner::Vector { size, .. } => (
+                PartReq::Part((0..*size as usize).map(|i| (i, PartReq::All)).collect()),
+                None,
+            ),
+            naga::TypeInner::Matrix { columns, rows, .. } => (
+                PartReq::Part(
+                    (0..*columns as usize)
+                        .map(|c| {
+                            (
+                                c,
+                                PartReq::Part(
+                                    (0..*rows as usize).map(|r| (r, PartReq::All)).collect(),
+                                ),
+                            )
+                        })
+                        .collect(),
+                ),
+                None,
+            ),
+            naga::TypeInner::Struct { members, .. } => (
                 PartReq::Part((0..members.len()).map(|i| (i, PartReq::All)).collect()),
-                Some(members.iter().map(|sm| sm.ty).collect())
-            )},
-            _ => (PartReq::All, None)
-            // todo: we can probably do better for some of these ...
-            // naga::TypeInner::Scalar { .. } => todo!(),
-            // naga::TypeInner::Atomic { kind, width } => todo!(),
-            // naga::TypeInner::Pointer { base, space } => todo!(),
-            // naga::TypeInner::ValuePointer { size, kind, width, space } => todo!(),
-            // naga::TypeInner::Array { base, size, stride } => todo!(),
-            // naga::TypeInner::Image { dim, arrayed, class } => todo!(),
-            // naga::TypeInner::Sampler { comparison } => todo!(),
-            // naga::TypeInner::BindingArray { base, size } => todo!(),
+                Some(members.iter().map(|sm| sm.ty).collect()),
+            ),
+            _ => (PartReq::All, None), // todo: we can probably do better for some of these ...
+                                       // naga::TypeInner::Scalar { .. } => todo!(),
+                                       // naga::TypeInner::Atomic { kind, width } => todo!(),
+                                       // naga::TypeInner::Pointer { base, space } => todo!(),
+                                       // naga::TypeInner::ValuePointer { size, kind, width, space } => todo!(),
+                                       // naga::TypeInner::Array { base, size, stride } => todo!(),
+                                       // naga::TypeInner::Image { dim, arrayed, class } => todo!(),
+                                       // naga::TypeInner::Sampler { comparison } => todo!(),
+                                       // naga::TypeInner::BindingArray { base, size } => todo!(),
         }
     }
 

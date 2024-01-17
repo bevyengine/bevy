@@ -3,14 +3,14 @@ struct FragX_naga_oil_mod_XNVXWIX {
 }
 
 fn fragmentX_naga_oil_mod_XNVXWIX(f_1: FragX_naga_oil_mod_XNVXWIX) -> f32 {
-    return (f_1.fragment * 2.0);
+    return (f_1.fragment * 2f);
 }
 
 @fragment 
 fn main() -> @location(0) f32 {
     var f: FragX_naga_oil_mod_XNVXWIX;
 
-    f.fragment = 3.0;
+    f.fragment = 3f;
     let _e3: FragX_naga_oil_mod_XNVXWIX = f;
     let _e4: f32 = fragmentX_naga_oil_mod_XNVXWIX(_e3);
     return _e4;

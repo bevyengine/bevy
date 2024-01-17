@@ -1423,11 +1423,12 @@ mod test {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::default());
         let adapter = instance
             .enumerate_adapters(wgpu::Backends::all())
+            .into_iter()
             .next()
             .unwrap();
         let (device, queue) = futures_lite::future::block_on(adapter.request_device(
             &wgpu::DeviceDescriptor {
-                features: Features::MAPPABLE_PRIMARY_BUFFERS,
+                required_features: Features::MAPPABLE_PRIMARY_BUFFERS,
                 ..Default::default()
             },
             None,
@@ -1437,13 +1438,6 @@ mod test {
         let shader_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             source: wgpu::ShaderSource::Naga(Cow::Owned(module)),
             label: None,
-        });
-
-        let pipeline = device.create_compute_pipeline(&ComputePipelineDescriptor {
-            label: None,
-            layout: None,
-            module: &shader_module,
-            entry_point: "run_test",
         });
 
         let output_buffer = device.create_buffer(&BufferDescriptor {
@@ -1465,6 +1459,19 @@ mod test {
                 },
                 count: None,
             }],
+        });
+
+        let pipeline = device.create_compute_pipeline(&ComputePipelineDescriptor {
+            label: None,
+            layout: Some(
+                &device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    label: None,
+                    bind_group_layouts: &[&layout],
+                    push_constant_ranges: &[],
+                }),
+            ),
+            module: &shader_module,
+            entry_point: "run_test",
         });
 
         let bindgroup = device.create_bind_group(&BindGroupDescriptor {
@@ -1493,7 +1500,7 @@ mod test {
 
         queue.submit([buffer]);
 
-        while !device.poll(wgpu::MaintainBase::Wait) {
+        while !device.poll(wgpu::MaintainBase::Wait).is_queue_empty() {
             println!("waiting...");
         }
 
@@ -1501,7 +1508,7 @@ mod test {
             .slice(..)
             .map_async(wgpu::MapMode::Read, |_| ());
 
-        while !device.poll(wgpu::MaintainBase::Wait) {
+        while !device.poll(wgpu::MaintainBase::Wait).is_queue_empty() {
             println!("waiting...");
         }
 

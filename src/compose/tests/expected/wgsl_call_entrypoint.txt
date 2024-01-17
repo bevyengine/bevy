@@ -1,5 +1,5 @@
 fn fragmentX_naga_oil_mod_XNFXGG3DVMRSQX(frag_coord_1: vec4<f32>) -> vec4<f32> {
-    return vec4<f32>((1.5 * frag_coord_1));
+    return vec4<f32>((1.5f * frag_coord_1));
 }
 
 @fragment 

@@ -1,7 +1,7 @@
 fn fX_naga_oil_mod_XNVXWIX() -> f32 {
-    var x: f32 = 0.0;
+    var x: f32 = 0f;
 
-    x = 1.0;
+    x = 1f;
     let _e3: f32 = x;
     return _e3;
 }

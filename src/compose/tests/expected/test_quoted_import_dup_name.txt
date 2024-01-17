@@ -1,9 +1,9 @@
 fn fooX_naga_oil_mod_XEJYXK33UMVSF63LPMR2WYZJCX() -> f32 {
-    return 3.0;
+    return 3f;
 }
 
 fn myfunc(foo: u32) -> f32 {
-    return (f32(foo) * 2.0);
+    return (f32(foo) * 2f);
 }
 
 fn main() -> f32 {

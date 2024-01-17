@@ -11,8 +11,8 @@
     return (_e0.value / _e1.value);
     return _e3;
     return _e3;
-    s_a.value = 1.0;
-    s_b.value = 2.0;
+    s_a.value = 1f;
+    s_b.value = 2f;
     value: f32,
     var s_a: MyStructX_naga_oil_mod_XON2HE5LDOQX;
     var s_b: MyStructX_naga_oil_mod_XON2HE5LDOQX;

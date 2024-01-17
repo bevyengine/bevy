@@ -5,7 +5,7 @@ struct VertexOutput {
 var<private> gl_Position: vec4<f32>;
 
 fn wgsl_funcX_naga_oil_mod_XO5TXG3C7NVXWI5LMMUX() -> f32 {
-    return 53.0;
+    return 53f;
 }
 
 fn main_1() {

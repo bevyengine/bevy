@@ -1,5 +1,5 @@
 fn helloX_naga_oil_mod_XNFXGGX() -> f32 {
-    return 1.0;
+    return 1f;
 }
 
 fn main() -> f32 {
