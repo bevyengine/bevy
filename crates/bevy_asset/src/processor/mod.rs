@@ -4,6 +4,7 @@ mod process;
 pub use log::*;
 pub use process::*;
 
+use crate::meta::{NoAssetLoader, NoProcess};
 use crate::{
     io::{
         AssetReader, AssetReaderError, AssetSource, AssetSourceBuilders, AssetSourceEvent,
@@ -704,7 +705,9 @@ impl AssetProcessor {
                     }
                     AssetActionMinimal::Ignore => {
                         let meta: Box<dyn AssetMetaDyn> =
-                            Box::new(AssetMeta::<(), ()>::deserialize(&meta_bytes)?);
+                            Box::new(AssetMeta::<NoAssetLoader, NoProcess>::deserialize(
+                                &meta_bytes,
+                            )?);
                         (meta, None)
                     }
                 };
@@ -722,7 +725,9 @@ impl AssetProcessor {
                         Ok(loader) => (loader.default_meta(), None),
                         Err(MissingAssetLoaderForExtensionError { .. }) => {
                             let meta: Box<dyn AssetMetaDyn> =
-                                Box::new(AssetMeta::<(), ()>::new(AssetAction::Ignore));
+                                Box::new(AssetMeta::<NoAssetLoader, NoProcess>::new(
+                                    AssetAction::Ignore,
+                                ));
                             (meta, None)
                         }
                     }

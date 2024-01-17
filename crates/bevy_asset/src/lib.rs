@@ -38,6 +38,7 @@ pub use bevy_utils::BoxedFuture;
 /// Rusty Object Notation, a crate used to serialize and deserialize bevy assets.
 pub use ron;
 
+use crate::meta::NoAsset;
 use crate::{
     io::{embedded::EmbeddedAssetRegistry, AssetSourceBuilder, AssetSourceBuilders, AssetSourceId},
     processor::{AssetProcessor, Process},
@@ -212,7 +213,7 @@ impl Plugin for AssetPlugin {
         app.insert_resource(embedded)
             .init_asset::<LoadedFolder>()
             .init_asset::<LoadedUntypedAsset>()
-            .init_asset::<()>()
+            .init_asset::<NoAsset>()
             .configure_sets(
                 UpdateAssets,
                 TrackAssets.after(handle_internal_asset_events),

@@ -521,8 +521,10 @@ pub enum UntypedAssetConversionError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate as bevy_asset; // required for derive macros
 
-    type TestAsset = ();
+    #[derive(Asset, TypePath)]
+    struct TestAsset;
 
     const UUID_1: Uuid = Uuid::from_u128(123);
     const UUID_2: Uuid = Uuid::from_u128(456);
