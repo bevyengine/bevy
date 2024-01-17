@@ -333,8 +333,11 @@ impl ExtractedUiNodes {
         clip: Option<Rect>,
     ) {
         let tflag = UNTEXTURED_QUAD;
-
+        dbg!(ellipse.center);
+        dbg!(position);
+        dbg!(size);
         let start_point = (ellipse.center - position - 0.5 * size).into();
+        dbg!(start_point);
         let ratio = ellipse.extents.x / ellipse.extents.y;
         for i in 0..stops.len() - 1 {
             let start = &stops[i];

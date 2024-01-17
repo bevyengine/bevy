@@ -1,7 +1,7 @@
 mod convert;
 pub mod debug;
 
-use crate::{ContentSize, Node, Outline, Style, UiScale, UiRect, BorderRadius, Val};
+use crate::{BorderRadius, ContentSize, Node, Outline, Style, UiRect, UiScale, Val};
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     entity::Entity,
@@ -113,7 +113,7 @@ impl UiSurface {
         for child in children {
             if let Some(taffy_node) = self.entity_to_taffy.get(child) {
                 taffy_children.push(*taffy_node);
-            } 
+            }
         }
 
         let taffy_node = self.entity_to_taffy.get(&entity).unwrap();

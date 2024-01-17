@@ -59,9 +59,7 @@ pub fn ui_stack_system(
 
     for (i, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok(mut node) = update_query.get_mut(*entity) {
-                node
-                    .bypass_change_detection()
-                    .stack_index = i as u32;
+            node.bypass_change_detection().stack_index = i as u32;
         }
     }
 }

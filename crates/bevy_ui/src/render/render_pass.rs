@@ -1,7 +1,7 @@
 use std::ops::Range;
 
 use super::{UiBatch, UiImageBindGroups, UiMeta};
-use crate::{prelude::UiCameraConfig, DefaultCameraView, instances::BatchType};
+use crate::{instances::BatchType, prelude::UiCameraConfig, DefaultCameraView};
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
@@ -9,7 +9,9 @@ use bevy_ecs::{
 use bevy_render::{
     render_graph::*,
     render_phase::*,
-    render_resource::{CachedRenderPipelineId, IndexFormat, RenderPassDescriptor, LoadOp, StoreOp, Operations},
+    render_resource::{
+        CachedRenderPipelineId, IndexFormat, LoadOp, Operations, RenderPassDescriptor, StoreOp,
+    },
     renderer::*,
     view::*,
 };

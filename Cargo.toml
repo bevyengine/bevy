@@ -2309,8 +2309,19 @@ path = "examples/ui/gradients.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.gradients]
-name = "UI"
+name = "Gradients example"
 description = "Gradients example"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "gradients_debug"
+path = "examples/ui/gradients_debug.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.gradients_debug]
+name = "Gradients debug example"
+description = "Gradients debug example"
 category = "UI (User Interface)"
 wasm = true
 

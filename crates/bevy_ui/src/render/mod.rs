@@ -497,7 +497,7 @@ pub fn extract_uinodes(
             UiColor::LinearGradient(l) => {
                 let (start_point, length) = l.resolve_geometry(uinode.rect());
                 let stops = resolve_color_stops(&l.stops, length, viewport_size);
-                
+
                 extracted_uinodes.push_node_with_linear_gradient(
                     &mut commands,
                     uinode.stack_index as usize,
@@ -759,7 +759,6 @@ pub fn queue_uinodes(
     let draw_function = draw_functions.read().id::<DrawUi>();
 
     for (view, mut transparent_phase) in &mut views {
-
         let node_pipeline = pipelines.specialize(
             &pipeline_cache,
             &ui_pipeline,
@@ -937,7 +936,6 @@ pub fn prepare_uinodes(
             for phase_item_index in 0..ui_phase.items.len() {
                 let phase_item = &mut ui_phase.items[phase_item_index];
                 let current_batch_type = phase_item.batch_type;
-                
 
                 if let Some(extracted_uinode) = extracted_uinodes.uinodes.get(&phase_item.entity) {
                     let index = instance_counters.increment(extracted_uinode.instance.get_type());
