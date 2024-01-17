@@ -74,10 +74,8 @@ pub(crate) struct AssetInfos {
     pub(crate) living_labeled_assets: HashMap<AssetPath<'static>, HashSet<String>>,
     pub(crate) handle_providers: HashMap<TypeId, AssetHandleProvider>,
     pub(crate) dependency_loaded_event_sender: HashMap<TypeId, fn(&mut World, UntypedAssetId)>,
-    pub(crate) dependency_failed_event_sender: HashMap<
-        TypeId,
-        fn(&mut World, UntypedAssetId, AssetPath<'static>, AssetLoadError),
-    >,
+    pub(crate) dependency_failed_event_sender:
+        HashMap<TypeId, fn(&mut World, UntypedAssetId, AssetPath<'static>, AssetLoadError)>,
 }
 
 impl std::fmt::Debug for AssetInfos {
