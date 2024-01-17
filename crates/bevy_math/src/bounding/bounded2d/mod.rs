@@ -5,13 +5,6 @@ use glam::Mat2;
 use super::BoundingVolume;
 use crate::prelude::Vec2;
 
-/// Rotates the given vector counterclockwise by an angle in radians.
-#[inline(always)]
-pub(super) fn rotate_vec2(vec: Vec2, rotation: f32) -> Vec2 {
-    let (sin, cos) = rotation.sin_cos();
-    Vec2::new(vec.x * cos - vec.y * sin, vec.x * sin + vec.y * cos)
-}
-
 /// Computes the geometric center of the given set of points.
 #[inline(always)]
 fn point_cloud_2d_center(points: &[Vec2]) -> Vec2 {
@@ -279,7 +272,7 @@ impl BoundingCircle {
         }
 
         BoundingCircle::new(
-            rotate_vec2(center, rotation) + translation,
+            Mat2::from_angle(rotation) * center + translation,
             radius_squared.sqrt(),
         )
     }
