@@ -1316,7 +1316,7 @@ mod tests {
         struct ErrorTracker {
             tick: u64,
             failures: usize,
-            queued_retries: Vec<(AssetPath<'static>, Handle<CoolText>, u64)>,
+            queued_retries: Vec<(AssetPath<'static>, AssetId<CoolText>, u64)>,
             finished_asset: Option<AssetId<CoolText>>,
         }
 
@@ -1343,10 +1343,10 @@ mod tests {
             let now = tracker.tick;
             tracker
                 .queued_retries
-                .retain(|(path, old_handle, retry_after)| {
+                .retain(|(path, old_id, retry_after)| {
                     if now > *retry_after {
                         let new_handle = server.load::<CoolText>(path);
-                        assert_eq!(new_handle.id(), old_handle.id());
+                        assert_eq!(&new_handle.id(), old_id);
                         false
                     } else {
                         true
@@ -1357,8 +1357,6 @@ mod tests {
             for error in errors.read() {
                 let (load_state, _, _) = server.get_load_states(error.id).unwrap();
                 assert_eq!(load_state, LoadState::Failed);
-                let original_handle = error.handle.as_ref().unwrap().clone();
-                assert!(original_handle.is_strong());
                 assert_eq!(*error.path.source(), AssetSourceId::Name("unstable".into()));
                 match &error.error {
                     AssetLoadError::AssetReaderError(read_error) => match read_error {
@@ -1368,7 +1366,7 @@ mod tests {
                                 // Retry in 10 ticks
                                 tracker.queued_retries.push((
                                     error.path.clone(),
-                                    original_handle.clone_weak(),
+                                    error.id,
                                     now + 10,
                                 ));
                             } else {

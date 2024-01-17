@@ -178,14 +178,12 @@ impl AssetServer {
             world: &mut World,
             id: UntypedAssetId,
             path: AssetPath<'static>,
-            handle: Option<UntypedHandle>,
             error: AssetLoadError,
         ) {
             world
                 .resource_mut::<Events<AssetLoadFailedEvent<A>>>()
                 .send(AssetLoadFailedEvent {
                     id: id.typed(),
-                    handle: handle.map(|h| h.typed()),
                     path,
                     error,
                 });
@@ -403,7 +401,6 @@ impl AssetServer {
                         server.send_asset_event(InternalAssetEvent::Failed {
                             id,
                             path: path_clone,
-                            handle: None,
                             error: err,
                         });
                     }
@@ -427,7 +424,6 @@ impl AssetServer {
     ) -> Result<UntypedHandle, AssetLoadError> {
         let path = path.into_owned();
         let path_clone = path.clone();
-        let input_handle_clone = input_handle.clone();
         let (mut meta, loader, mut reader) = self
             .get_meta_loader_and_reader(&path_clone)
             .await
@@ -438,7 +434,6 @@ impl AssetServer {
                     self.send_asset_event(InternalAssetEvent::Failed {
                         id: handle.id(),
                         path: path.clone_owned(),
-                        handle: input_handle_clone.clone(),
                         error: e.clone(),
                     });
                 }
@@ -546,7 +541,6 @@ impl AssetServer {
                 self.send_asset_event(InternalAssetEvent::Failed {
                     id: base_handle.id(),
                     error: err.clone(),
-                    handle: input_handle_clone,
                     path: path.into_owned(),
                 });
                 Err(err)
@@ -726,7 +720,7 @@ impl AssetServer {
                     }),
                     Err(err) => {
                         error!("Failed to load folder. {err}");
-                        server.send_asset_event(InternalAssetEvent::Failed { id, error: err, path, handle: None });
+                        server.send_asset_event(InternalAssetEvent::Failed { id, error: err, path });
                     },
                 }
             })
@@ -1003,18 +997,12 @@ pub fn handle_internal_asset_events(world: &mut World) {
                         .expect("Asset event sender should exist");
                     sender(world, id);
                 }
-                InternalAssetEvent::Failed {
-                    id,
-                    path,
-                    handle,
-                    error,
-                } => {
+                InternalAssetEvent::Failed { id, path, error } => {
                     infos.process_asset_fail(id);
 
                     // Send untyped failure event
                     untyped_failures.push(UntypedAssetLoadFailedEvent {
                         id,
-                        handle: handle.clone(),
                         path: path.clone(),
                         error: error.clone(),
                     });
@@ -1024,7 +1012,7 @@ pub fn handle_internal_asset_events(world: &mut World) {
                         .dependency_failed_event_sender
                         .get(&id.type_id())
                         .expect("Asset failed event sender should exist");
-                    sender(world, id, path, handle, error);
+                    sender(world, id, path, error);
                 }
             }
         }
@@ -1139,10 +1127,6 @@ pub(crate) enum InternalAssetEvent {
     Failed {
         id: UntypedAssetId,
         path: AssetPath<'static>,
-        /// An untyped version of the strong handle returned to the user when the asset load was requested.
-        /// Keeping the handle alive will cause future loads of the same path to use the same the handle (thus
-        /// "unbreaking" any materials constructed with the original asset handle that failed to load).
-        handle: Option<UntypedHandle>,
         error: AssetLoadError,
     },
 }

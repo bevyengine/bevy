@@ -1,4 +1,4 @@
-use crate::{Asset, AssetId, AssetLoadError, AssetPath, Handle, UntypedAssetId, UntypedHandle};
+use crate::{Asset, AssetId, AssetLoadError, AssetPath, UntypedAssetId};
 use bevy_ecs::event::Event;
 use std::fmt::Debug;
 
@@ -8,8 +8,6 @@ use std::fmt::Debug;
 #[derive(Event, Clone, Debug)]
 pub struct AssetLoadFailedEvent<A: Asset> {
     pub id: AssetId<A>,
-    /// The original handle returned when the asset load was requested.
-    pub handle: Option<Handle<A>>,
     /// The asset path that was attempted.
     pub path: AssetPath<'static>,
     /// Why the asset failed to load.
@@ -27,7 +25,6 @@ impl<A: Asset> AssetLoadFailedEvent<A> {
 #[derive(Event, Clone, Debug)]
 pub struct UntypedAssetLoadFailedEvent {
     pub id: UntypedAssetId,
-    pub handle: Option<UntypedHandle>,
     /// The asset path that was attempted.
     pub path: AssetPath<'static>,
     /// Why the asset failed to load.
@@ -38,7 +35,6 @@ impl<A: Asset> From<&AssetLoadFailedEvent<A>> for UntypedAssetLoadFailedEvent {
     fn from(value: &AssetLoadFailedEvent<A>) -> Self {
         UntypedAssetLoadFailedEvent {
             id: value.id.untyped(),
-            handle: value.handle.clone().map(|h| h.untyped()),
             path: value.path.clone(),
             error: value.error.clone(),
         }

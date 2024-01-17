@@ -76,7 +76,7 @@ pub(crate) struct AssetInfos {
     pub(crate) dependency_loaded_event_sender: HashMap<TypeId, fn(&mut World, UntypedAssetId)>,
     pub(crate) dependency_failed_event_sender: HashMap<
         TypeId,
-        fn(&mut World, UntypedAssetId, AssetPath<'static>, Option<UntypedHandle>, AssetLoadError),
+        fn(&mut World, UntypedAssetId, AssetPath<'static>, AssetLoadError),
     >,
 }
 
