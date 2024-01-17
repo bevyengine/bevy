@@ -286,7 +286,7 @@ pub(crate) fn audio_output_available(audio_output: Res<AudioOutput>) -> bool {
 pub(crate) fn update_emitter_positions(
     mut emitters: Query<
         (&GlobalTransform, &SpatialAudioSink, &PlaybackSettings),
-        Changed<GlobalTransform>,
+        Or<(Changed<GlobalTransform>, Changed<PlaybackSettings>)>,
     >,
     default_spatial_scale: Res<DefaultSpatialScale>,
 ) {
