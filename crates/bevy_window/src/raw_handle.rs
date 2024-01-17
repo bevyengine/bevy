@@ -1,8 +1,7 @@
 use bevy_ecs::prelude::Component;
 use raw_window_handle::{
-    HandleError,
-    RawDisplayHandle,
-    RawWindowHandle, WindowHandle, HasWindowHandle, DisplayHandle, HasDisplayHandle,
+    DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, RawDisplayHandle,
+    RawWindowHandle, WindowHandle,
 };
 
 /// A wrapper over [`RawWindowHandle`] and [`RawDisplayHandle`] that allows us to safely pass it across threads.

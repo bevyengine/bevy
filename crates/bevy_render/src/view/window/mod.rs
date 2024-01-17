@@ -16,7 +16,9 @@ use std::{
     ops::{Deref, DerefMut},
     sync::PoisonError,
 };
-use wgpu::{BufferUsages, TextureFormat, TextureUsages, TextureViewDescriptor};
+use wgpu::{
+    BufferUsages, SurfaceTargetUnsafe, TextureFormat, TextureUsages, TextureViewDescriptor,
+};
 
 pub mod screenshot;
 
@@ -255,11 +257,15 @@ pub fn prepare_windows(
             .entry(window.entity)
             .or_insert_with(|| {
                 // SAFETY: The window handles in ExtractedWindows will always be valid objects to create surfaces on
+                let surface_target = SurfaceTargetUnsafe::RawHandle {
+                    raw_display_handle: window.handle.display_handle,
+                    raw_window_handle: window.handle.window_handle,
+                };
                 let surface = unsafe {
                     // NOTE: On some OSes this MUST be called from the main thread.
                     // As of wgpu 0.15, only fallible if the given window is a HTML canvas and obtaining a WebGPU or WebGL2 context fails.
                     render_instance
-                        .create_surface_from_raw(&window.handle.get_handle())
+                        .create_surface_unsafe(surface_target)
                         .expect("Failed to create wgpu surface")
                 };
                 let caps = surface.get_capabilities(&render_adapter);

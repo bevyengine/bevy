@@ -13,7 +13,7 @@ use bevy_utils::{
 };
 use bevy_window::{RawHandleWrapper, Window, WindowClosed, WindowCreated};
 
-use raw_window_handle::{HasWindowHandle, HasDisplayHandle};
+use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use winit::{
     dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize},
     event_loop::EventLoopWindowTarget,
