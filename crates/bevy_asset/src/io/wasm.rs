@@ -1,5 +1,10 @@
-use crate::io::{
-    get_meta_path, AssetReader, AssetReaderError, EmptyPathStream, PathStream, Reader, VecReader,
+use crate::{
+    io::{
+        get_meta_path, AssetLoadRetrySettings, AssetReader, AssetReaderError, EmptyPathStream,
+        PathStream, Reader, VecReader,
+    },
+    retry::{IoErrorRetrySettingsProvider, ProvideAssetLoadRetrySettings},
+    UntypedAssetLoadFailedEvent,
 };
 use bevy_log::error;
 use bevy_utils::BoxedFuture;
@@ -12,6 +17,7 @@ use web_sys::Response;
 /// Reader implementation for loading assets via HTTP in WASM.
 pub struct HttpWasmAssetReader {
     root_path: PathBuf,
+    retry_settings_provider: Box<dyn ProvideAssetLoadRetrySettings>,
 }
 
 impl HttpWasmAssetReader {
@@ -19,7 +25,15 @@ impl HttpWasmAssetReader {
     pub fn new<P: AsRef<Path>>(path: P) -> Self {
         Self {
             root_path: path.as_ref().to_owned(),
+            retry_settings_provider: Box::new(IoErrorRetrySettingsProvider::from(
+                AssetLoadRetrySettings::network_default(),
+            )),
         }
+    }
+    /// Overrides the default retry settings.
+    pub fn with_retry_defaults(mut self, provider: Box<dyn ProvideAssetLoadRetrySettings>) -> Self {
+        self.retry_settings_provider = provider;
+        self
     }
 }
 
@@ -94,5 +108,13 @@ impl AssetReader for HttpWasmAssetReader {
     ) -> BoxedFuture<'a, std::result::Result<bool, AssetReaderError>> {
         error!("Reading directories is not supported with the HttpWasmAssetReader");
         Box::pin(async move { Ok(false) })
+    }
+
+    fn get_default_retry_settings(
+        &self,
+        load_error: &UntypedAssetLoadFailedEvent,
+    ) -> AssetLoadRetrySettings {
+        self.retry_settings_provider
+            .get_retry_settings(AssetLoadRetrySettings::no_retries(), load_error)
     }
 }

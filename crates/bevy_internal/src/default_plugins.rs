@@ -54,7 +54,9 @@ impl PluginGroup for DefaultPlugins {
 
         #[cfg(feature = "bevy_asset")]
         {
-            group = group.add(bevy_asset::AssetPlugin::default());
+            group = group
+                .add(bevy_asset::AssetPlugin::default())
+                .add(bevy_asset::retry::AssetLoadRetryPlugin);
         }
 
         #[cfg(feature = "bevy_scene")]

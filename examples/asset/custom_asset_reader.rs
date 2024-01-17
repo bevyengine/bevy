@@ -4,6 +4,7 @@
 
 use bevy::{
     asset::io::{AssetReader, AssetReaderError, AssetSource, AssetSourceId, PathStream, Reader},
+    asset::UntypedAssetLoadFailedEvent,
     prelude::*,
     utils::BoxedFuture,
 };
@@ -39,6 +40,13 @@ impl AssetReader for CustomAssetReader {
         path: &'a Path,
     ) -> BoxedFuture<'a, Result<bool, AssetReaderError>> {
         self.0.is_directory(path)
+    }
+
+    fn get_default_retry_settings(
+        &self,
+        load_error: &UntypedAssetLoadFailedEvent,
+    ) -> AssetLoadRetrySettings {
+        self.0.get_default_retry_settings(load_error)
     }
 }
 
