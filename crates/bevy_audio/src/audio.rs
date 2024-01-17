@@ -226,12 +226,6 @@ impl Default for SpatialScale {
 #[reflect(Resource)]
 pub struct DefaultSpatialScale(pub SpatialScale);
 
-impl From<SpatialScale> for DefaultSpatialScale {
-    fn from(value: SpatialScale) -> Self {
-        Self(value)
-    }
-}
-
 /// Bundle for playing a standard bevy audio asset
 pub type AudioBundle = AudioSourceBundle<AudioSource>;
 
