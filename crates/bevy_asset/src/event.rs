@@ -3,6 +3,8 @@ use bevy_ecs::event::Event;
 use std::fmt::Debug;
 
 /// An event emitted when a specific [`Asset`] fails to load.
+///
+/// For an untyped equivalent, see [`UntypedAssetLoadFailedEvent`].
 #[derive(Event, Clone, Debug)]
 pub struct AssetLoadFailedEvent<A: Asset> {
     pub id: AssetId<A>,
