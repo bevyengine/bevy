@@ -447,7 +447,7 @@ mod tests {
     };
     use bevy_log::LogPlugin;
     use bevy_reflect::TypePath;
-    use bevy_utils::{BoxedFuture, Duration, HashMap};
+    use bevy_utils::{Duration, HashMap};
     use futures_lite::AsyncReadExt;
     use serde::{Deserialize, Serialize};
     use std::{
