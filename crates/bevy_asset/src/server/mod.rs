@@ -1011,7 +1011,7 @@ pub fn handle_internal_asset_events(world: &mut World) {
                 } => {
                     infos.process_asset_fail(id);
 
-                    // Send untyped failure event (used by `AssetLoadRetryPlugin`)
+                    // Send untyped failure event
                     untyped_failures.push(UntypedAssetLoadFailedEvent {
                         id,
                         handle: handle.clone(),
