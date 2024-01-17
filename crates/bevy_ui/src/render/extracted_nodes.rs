@@ -174,7 +174,7 @@ impl ExtractedUiNodes {
 
     pub fn push_border_with_linear_gradient(
         &mut self,
-        entity: Entity,
+        commands: &mut Commands,
         stack_index: usize,
         position: Vec2,
         size: Vec2,
@@ -215,7 +215,7 @@ impl ExtractedUiNodes {
                 end_color: end.0.as_linear_rgba_f32(),
             };
             self.push(
-                entity,
+                commands.spawn_empty().id(),
                 ExtractedItem::new(stack_index, AssetId::default(), (i, clip)),
             );
         }
@@ -223,7 +223,7 @@ impl ExtractedUiNodes {
 
     pub fn push_border_with_radial_gradient(
         &mut self,
-        entity: Entity,
+        commands: &mut Commands,
         stack_index: usize,
         position: Vec2,
         size: Vec2,
@@ -266,7 +266,7 @@ impl ExtractedUiNodes {
                 end_color: end.0.as_linear_rgba_f32(),
             };
             self.push(
-                entity,
+                commands.spawn_empty().id(),
                 ExtractedItem::new(stack_index, AssetId::default(), (i, clip)),
             );
         }
@@ -274,7 +274,7 @@ impl ExtractedUiNodes {
 
     pub fn push_node_with_linear_gradient(
         &mut self,
-        entity: Entity,
+        commands: &mut Commands,
         stack_index: usize,
         position: Vec2,
         size: Vec2,
@@ -314,7 +314,7 @@ impl ExtractedUiNodes {
                 end_color: end.0.as_linear_rgba_f32(),
             };
             self.push(
-                entity,
+                commands.spawn_empty().id(),
                 ExtractedItem::new(stack_index, image.clone(), (i, clip)),
             );
         }
@@ -322,7 +322,7 @@ impl ExtractedUiNodes {
 
     pub fn push_node_with_radial_gradient(
         &mut self,
-        entity: Entity,
+        commands: &mut Commands,
         stack_index: usize,
         position: Vec2,
         size: Vec2,
@@ -362,7 +362,7 @@ impl ExtractedUiNodes {
                 end_color: end.0.as_linear_rgba_f32(),
             };
             self.push(
-                entity,
+                commands.spawn_empty().id(),
                 ExtractedItem::new(stack_index, AssetId::default(), (i, clip)),
             );
         }

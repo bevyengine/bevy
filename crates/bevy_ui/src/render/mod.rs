@@ -323,7 +323,7 @@ pub fn extract_uinode_borders(
                 let (start_point, length) = l.resolve_geometry(uinode.rect());
                 let stops = resolve_color_stops(&l.stops, length, viewport_size);
                 extracted_uinodes.push_border_with_linear_gradient(
-                    entity,
+                    &mut commands,
                     uinode.stack_index as usize,
                     position,
                     size,
@@ -339,7 +339,7 @@ pub fn extract_uinode_borders(
                 let ellipse = r.resolve_geometry(uinode.rect(), viewport_size);
                 let stops = resolve_color_stops(&r.stops, ellipse.extents.x, viewport_size);
                 extracted_uinodes.push_border_with_radial_gradient(
-                    entity,
+                    &mut commands,
                     uinode.stack_index as usize,
                     position,
                     size,
@@ -434,6 +434,7 @@ pub fn extract_uinode_outlines(
 }
 
 pub fn extract_uinodes(
+    mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     images: Extract<Res<Assets<Image>>>,
     ui_scale: Extract<Res<UiScale>>,
@@ -496,8 +497,9 @@ pub fn extract_uinodes(
             UiColor::LinearGradient(l) => {
                 let (start_point, length) = l.resolve_geometry(uinode.rect());
                 let stops = resolve_color_stops(&l.stops, length, viewport_size);
+                
                 extracted_uinodes.push_node_with_linear_gradient(
-                    entity,
+                    &mut commands,
                     uinode.stack_index as usize,
                     uinode.position,
                     uinode.size(),
@@ -513,7 +515,7 @@ pub fn extract_uinodes(
                 let ellipse = r.resolve_geometry(uinode.rect(), viewport_size);
                 let stops = resolve_color_stops(&r.stops, ellipse.extents.x, viewport_size);
                 extracted_uinodes.push_node_with_radial_gradient(
-                    entity,
+                    &mut commands,
                     uinode.stack_index as usize,
                     uinode.position,
                     uinode.size(),
@@ -854,7 +856,7 @@ pub fn queue_uinodes(
             .items
             .reserve(extracted_uinodes.uinodes.len());
 
-        for (i, (entity, extracted_uinode)) in extracted_uinodes.uinodes.iter().enumerate() {
+        for (entity, extracted_uinode) in extracted_uinodes.uinodes.iter() {
             let pipeline = match extracted_uinode.instance {
                 ExtractedInstance::Node(..) => node_pipeline,
                 ExtractedInstance::Text(..) => text_pipeline,
@@ -1000,7 +1002,6 @@ pub fn prepare_uinodes(
                         }
                     }
                     batches.last_mut().unwrap().1.range.end = index;
-                    let b = batches.last().unwrap();
                     ui_phase.items[batch_item_index].batch_range_mut().end += 1;
                 } else {
                     batch_image_handle = AssetId::invalid();
