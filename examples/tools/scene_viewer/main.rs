@@ -28,11 +28,7 @@ use scene_viewer_plugin::{SceneHandle, SceneViewerPlugin};
 
 fn main() {
     let mut app = App::new();
-    app.insert_resource(AmbientLight {
-        color: Color::WHITE,
-        brightness: 1.0 / 5.0f32,
-    })
-    .add_plugins((
+    app.add_plugins((
         DefaultPlugins
             .set(WindowPlugin {
                 primary_window: Some(Window {
@@ -144,6 +140,7 @@ fn setup_scene_after_load(
                     .load("assets/environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
                 specular_map: asset_server
                     .load("assets/environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+                intensity: 150.0,
             },
             camera_controller,
         ));
@@ -153,6 +150,7 @@ fn setup_scene_after_load(
             info!("Spawning a directional light");
             commands.spawn(DirectionalLightBundle {
                 directional_light: DirectionalLight {
+                    illuminance: 3000.0,
                     shadows_enabled: false,
                     ..default()
                 },

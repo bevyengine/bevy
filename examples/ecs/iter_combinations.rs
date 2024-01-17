@@ -112,7 +112,7 @@ fn generate_bodies(
                     ),
                     material: materials.add(StandardMaterial {
                         base_color: Color::ORANGE_RED,
-                        emissive: Color::ORANGE_RED * 2.,
+                        emissive: (Color::ORANGE_RED * 18.),
                         ..default()
                     }),
                     ..default()
@@ -126,7 +126,7 @@ fn generate_bodies(
             p.spawn(PointLightBundle {
                 point_light: PointLight {
                     color: Color::WHITE,
-                    intensity: 400.0,
+                    intensity: 100_000.0,
                     range: 100.0,
                     radius: star_radius,
                     ..default()
