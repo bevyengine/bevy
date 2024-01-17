@@ -220,7 +220,7 @@ You can improve Bevy's ecosystem by building your own Bevy Plugins and crates.
 Non-trivial, reusable functionality that works well with itself is a good candidate for a plugin.
 If it's closer to a snippet or design pattern, you may want to share it with the community on [Discord], Reddit, or [GitHub Discussions] instead.
 
-Check out our [plugin guidelines](https://github.com/bevyengine/bevy/blob/main/docs/plugins_guidelines.md) for helpful tips and patterns.
+Check out our [plugin guidelines](https://bevyengine.org/learn/book/plugin-development/) for helpful tips and patterns.
 
 ### Fixing bugs
 
