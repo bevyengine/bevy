@@ -113,12 +113,7 @@ impl UiSurface {
         for child in children {
             if let Some(taffy_node) = self.entity_to_taffy.get(child) {
                 taffy_children.push(*taffy_node);
-            } else {
-                warn!(
-                    "Unstyled child in a UI entity hierarchy. You are using an entity \
-without UI components as a child of an entity with UI components, results may be unexpected."
-                );
-            }
+            } 
         }
 
         let taffy_node = self.entity_to_taffy.get(&entity).unwrap();
