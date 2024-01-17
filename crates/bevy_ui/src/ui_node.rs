@@ -76,9 +76,13 @@ impl Node {
         Rect::from_center_size(transform.translation().truncate(), self.size())
     }
 
+    /// Returns the logical pixel coordinates of the UI node.
     #[inline]
     pub fn rect(&self) -> Rect {
-        Rect::from_center_size(self.position, self.size())
+        Rect {
+            min: self.position,
+            max: self.position + self.size(),
+        }
     }
 
     /// Returns the physical pixel coordinates of the UI node, based on its [`GlobalTransform`] and the scale factor.
