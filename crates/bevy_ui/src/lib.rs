@@ -161,7 +161,9 @@ impl Plugin for UiPlugin {
         #[cfg(feature = "bevy_text")]
         app.add_plugins(accessibility::AccessibilityPlugin);
         app.add_systems(PostUpdate, {
+            #[allow(clippy::let_and_return)]
             let system = widget::update_image_content_size_system.before(UiSystem::Layout);
+
             // Potential conflicts: `Assets<Image>`
             // They run independently since `widget::image_node_system` will only ever observe
             // its own UiImage, and `widget::text_system` & `bevy_text::update_text2d_layout`
@@ -184,19 +186,33 @@ impl Plugin for UiPlugin {
                 ui_layout_system
                     .in_set(UiSystem::Layout)
                     .before(TransformSystem::TransformPropagate),
-                resolve_outlines_system
-                    .in_set(UiSystem::Outlines)
-                    .after(UiSystem::Layout)
-                    // clipping doesn't care about outlines
-                    .ambiguous_with(update_clipping_system)
-                    .ambiguous_with(widget::text_system),
-                ui_stack_system
-                    .in_set(UiSystem::Stack)
-                    // the systems don't care about stack index
-                    .ambiguous_with(update_clipping_system)
-                    .ambiguous_with(resolve_outlines_system)
-                    .ambiguous_with(ui_layout_system)
-                    .ambiguous_with(widget::text_system),
+                {
+                    #[allow(clippy::let_and_return)]
+                    let system = resolve_outlines_system
+                        .in_set(UiSystem::Outlines)
+                        .after(UiSystem::Layout)
+                        // clipping doesn't care about outlines
+                        .ambiguous_with(update_clipping_system);
+
+                    #[cfg(feature = "bevy_text")]
+                    let system = system.ambiguous_with(widget::text_system);
+
+                    system
+                },
+                {
+                    #[allow(clippy::let_and_return)]
+                    let system = ui_stack_system
+                        .in_set(UiSystem::Stack)
+                        // the systems don't care about stack index
+                        .ambiguous_with(update_clipping_system)
+                        .ambiguous_with(resolve_outlines_system)
+                        .ambiguous_with(ui_layout_system);
+
+                    #[cfg(feature = "bevy_text")]
+                    let system = system.ambiguous_with(widget::text_system);
+
+                    system
+                },
                 update_clipping_system.after(TransformSystem::TransformPropagate),
             ),
         );

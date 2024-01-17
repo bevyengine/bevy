@@ -8,18 +8,23 @@ use bevy_render::{
     render_phase::PhaseItem, render_resource::BindGroupEntries, view::ViewVisibility,
     ExtractSchedule, Render,
 };
-use bevy_sprite::{SpriteAssetEvents, TextureAtlas};
+use bevy_sprite::SpriteAssetEvents;
+#[cfg(feature = "bevy_text")]
+use bevy_sprite::TextureAtlas;
 pub use pipeline::*;
 pub use render_pass::*;
 pub use ui_material_pipeline::*;
 
 use crate::{
-    BackgroundColor, BorderColor, CalculatedClip, ContentSize, Node, Style, UiImage, UiScale, Val,
+    BorderColor, CalculatedClip, ContentSize, Node, Style, UiScale, Val, DefaultUiCamera, Outline, TargetCamera,
 };
-use crate::{DefaultUiCamera, Outline, TargetCamera};
+#[cfg(feature = "bevy_text")]
+use crate::{BackgroundColor, UiImage};
 
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
+use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Handle};
+#[cfg(feature = "bevy_text")]
+use bevy_asset::Assets;
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, Rect, URect, UVec4, Vec2, Vec3, Vec4Swizzles};
 use bevy_render::{
@@ -82,6 +87,7 @@ pub fn build_ui_render(app: &mut App) {
             (
                 extract_default_ui_camera_view::<Camera2d>,
                 extract_default_ui_camera_view::<Camera3d>,
+                #[cfg(feature = "bevy_text")]
                 extract_uinodes.in_set(RenderUiSystem::ExtractNode),
                 extract_uinode_borders.after(RenderUiSystem::ExtractAtlasNode),
                 #[cfg(feature = "bevy_text")]
@@ -397,6 +403,7 @@ pub fn extract_uinode_outlines(
     }
 }
 
+#[cfg(feature = "bevy_text")]
 pub fn extract_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     images: Extract<Res<Assets<Image>>>,
