@@ -46,10 +46,6 @@ impl ExtractedItem {
     }
 }
 
-pub(crate) fn rect_to_f32_4(r: Rect) -> [f32; 4] {
-    [r.min.x, r.min.y, r.max.x, r.max.y]
-}
-
 impl ExtractedUiNodes {
     pub fn push_glyph(
         &mut self,
@@ -392,16 +388,16 @@ impl Default for UiMeta {
     }
 }
 
-impl UiMeta {
-    fn clear_instance_buffers(&mut self) {
-        self.instance_buffers.clear_all();
-    }
+// impl UiMeta {
+//     fn clear_instance_buffers(&mut self) {
+//         self.instance_buffers.clear_all();
+//     }
 
-    fn write_instance_buffers(&mut self, render_device: &RenderDevice, render_queue: &RenderQueue) {
-        self.instance_buffers.write_all(render_device, render_queue);
-    }
+//     fn write_instance_buffers(&mut self, render_device: &RenderDevice, render_queue: &RenderQueue) {
+//         self.instance_buffers.write_all(render_device, render_queue);
+//     }
 
-    fn push(&mut self, item: &ExtractedInstance) {
-        item.push(&mut self.instance_buffers);
-    }
-}
+//     fn push(&mut self, item: &ExtractedInstance) {
+//         item.push(&mut self.instance_buffers);
+//     }
+// }

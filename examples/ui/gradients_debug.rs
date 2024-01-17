@@ -1,7 +1,5 @@
 //! Example demonstrating gradients
 
-use std::f32::consts::PI;
-
 use bevy::prelude::*;
 
 fn main() {
