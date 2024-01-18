@@ -344,9 +344,9 @@ impl GetBatchData for Mesh2dPipeline {
 
     fn get_batch_data(
         mesh_instances: &SystemParamItem<Self::Param>,
-        entity: &Entity,
+        entity: Entity,
     ) -> Option<(Self::BufferData, Option<Self::CompareData>)> {
-        let mesh_instance = mesh_instances.get(entity)?;
+        let mesh_instance = mesh_instances.get(&entity)?;
         Some((
             (&mesh_instance.transforms).into(),
             mesh_instance.automatic_batching.then_some((
