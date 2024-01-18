@@ -366,7 +366,12 @@ pub struct MeshPipeline {
     /// ##endif // PER_OBJECT_BUFFER_BATCH_SIZE
     /// ```
     pub per_object_buffer_batch_size: Option<u32>,
-    pub binding_arrays_are_available: bool,
+
+    /// Whether binding arrays (a.k.a. bindless textures) are usable on the
+    /// current render device.
+    ///
+    /// This affects whether reflection probes can be used.
+    pub binding_arrays_are_usable: bool,
 
     #[cfg(debug_assertions)]
     pub did_warn_about_too_many_textures: Arc<AtomicBool>,
@@ -426,7 +431,7 @@ impl FromWorld for MeshPipeline {
             dummy_white_gpu_image,
             mesh_layouts: MeshLayouts::new(&render_device),
             per_object_buffer_batch_size: GpuArrayBuffer::<MeshUniform>::batch_size(&render_device),
-            binding_arrays_are_available: binding_arrays_are_usable(&render_device),
+            binding_arrays_are_usable: binding_arrays_are_usable(&render_device),
             #[cfg(debug_assertions)]
             did_warn_about_too_many_textures: Arc::new(AtomicBool::new(false)),
         }
@@ -878,7 +883,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             },
         ));
 
-        if self.binding_arrays_are_available {
+        if self.binding_arrays_are_usable {
             shader_defs.push("MULTIPLE_LIGHT_PROBES_IN_ARRAY".into());
         }
 
@@ -1010,7 +1015,6 @@ pub fn prepare_mesh_bind_group(
     let Some(model) = mesh_uniforms.binding() else {
         return;
     };
-
     groups.model_only = Some(layouts.model_only(&render_device, &model));
 
     let skin = skins_uniform.buffer.buffer();

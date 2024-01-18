@@ -129,5 +129,6 @@ struct LightProbes {
     // The smallest valid mipmap level for the specular environment cubemap
     // associated with the view.
     smallest_specular_mip_level_for_view: u32,
+    // The intensity of the environment map associated with the view.
     intensity_for_view: f32,
 };
