@@ -665,7 +665,12 @@ pub enum KeyCode {
 /// key identifier to a meaningful [`Key`] variant. This lets you use [`Key`], and let the user
 /// define keybinds which work in the presence of identifiers we haven't mapped for you yet.
 #[derive(Debug, Clone, Ord, PartialOrd, PartialEq, Eq, Hash, Reflect)]
-#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
+#[reflect(Debug, Hash, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum NativeKey {
     /// Unidentified
     Unidentified,

@@ -36,7 +36,7 @@ pub mod prelude {
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
-use keyboard::{keyboard_input_system, KeyCode, KeyboardInput};
+use keyboard::{keyboard_input_system, Key, KeyCode, KeyboardInput, NativeKey, NativeKeyCode};
 use mouse::{
     mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotion, MouseScrollUnit,
     MouseWheel,
@@ -114,7 +114,10 @@ impl Plugin for InputPlugin {
 
         // Register keyboard types
         app.register_type::<KeyboardInput>()
-            .register_type::<KeyCode>();
+            .register_type::<KeyCode>()
+            .register_type::<NativeKeyCode>()
+            .register_type::<Key>()
+            .register_type::<NativeKey>();
 
         // Register mouse types
         app.register_type::<MouseButtonInput>()
