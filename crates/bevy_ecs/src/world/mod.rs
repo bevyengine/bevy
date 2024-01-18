@@ -18,7 +18,10 @@ use crate::{
     archetype::{ArchetypeComponentId, ArchetypeId, ArchetypeRow, Archetypes},
     bundle::{Bundle, BundleInserter, BundleSpawner, Bundles},
     change_detection::{MutUntyped, TicksMut},
-    component::{Component, ComponentDescriptor, ComponentId, ComponentInfo, Components, Tick, ComponentTicks},
+    component::{
+        Component, ComponentDescriptor, ComponentId, ComponentInfo, ComponentTicks, Components,
+        Tick,
+    },
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
     event::{Event, EventId, Events, SendBatchIds},
     query::{DebugCheckedUnwrap, QueryData, QueryEntityError, QueryFilter, QueryState},
@@ -1265,13 +1268,14 @@ impl World {
     /// Retrieves the change ticks for the given [`ComponentId`].
     ///
     /// **You should prefer to use the typed API [`World::get_resource_change_ticks`] where possible.**
-    pub fn get_resource_change_ticks_by_id(&self, component_id: ComponentId) -> Option<ComponentTicks> {
+    pub fn get_resource_change_ticks_by_id(
+        &self,
+        component_id: ComponentId,
+    ) -> Option<ComponentTicks> {
         self.storages
             .resources
             .get(component_id)
-            .and_then(|resource| {
-                resource.get_ticks()
-            })
+            .and_then(|resource| resource.get_ticks())
     }
 
     /// Gets a reference to the resource of the given type
