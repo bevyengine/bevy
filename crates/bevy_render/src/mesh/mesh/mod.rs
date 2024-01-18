@@ -48,10 +48,10 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// ```
 /// # use bevy_render::mesh::{Mesh, Indices};
 /// # use bevy_render::render_resource::PrimitiveTopology;
-/// # use bevy_render::render_asset::RenderAssetPersistencePolicy;
+/// # use bevy_render::render_asset::RenderAssetUsages;
 /// fn create_simple_parallelogram() -> Mesh {
 ///     // Create a new mesh using a triangle list topology, where each set of 3 vertices composes a triangle.
-///     Mesh::new(PrimitiveTopology::TriangleList, RenderAssetPersistencePolicy::Unload)
+///     Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default())
 ///         // Add 4 vertices, each with its own position attribute (coordinate in
 ///         // 3D space), for each of the corners of the parallelogram.
 ///         .with_inserted_attribute(
