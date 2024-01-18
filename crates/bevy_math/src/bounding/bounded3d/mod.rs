@@ -35,6 +35,10 @@ pub struct Aabb3d {
 impl Aabb3d {
     /// Computes the smallest [`Aabb3d`] containing the given set of points,
     /// transformed by `translation` and `rotation`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given set of points is empty.
     #[inline(always)]
     pub fn from_point_cloud(translation: Vec3, rotation: Quat, points: &[Vec3]) -> Aabb3d {
         // Transform all points by rotation

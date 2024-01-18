@@ -40,6 +40,10 @@ pub struct Aabb2d {
 impl Aabb2d {
     /// Computes the smallest [`Aabb2d`] containing the given set of points,
     /// transformed by `translation` and `rotation`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given set of points is empty.
     #[inline(always)]
     pub fn from_point_cloud(translation: Vec2, rotation: f32, points: &[Vec2]) -> Aabb2d {
         // Transform all points by rotation

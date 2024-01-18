@@ -66,7 +66,7 @@ impl Bounded2d for Plane2d {
         let facing_x = normal == Vec2::X || normal == Vec2::NEG_X;
         let facing_y = normal == Vec2::Y || normal == Vec2::NEG_Y;
 
-        // Dividing `f32::MAX` by 2.0 can actually be good so that we can do operations
+        // Dividing `f32::MAX` by 2.0 is helpful so that we can do operations
         // like growing or shrinking the AABB without breaking things.
         let half_width = if facing_x { 0.0 } else { f32::MAX / 2.0 };
         let half_height = if facing_y { 0.0 } else { f32::MAX / 2.0 };
@@ -87,7 +87,7 @@ impl Bounded2d for Line2d {
     fn aabb_2d(&self, translation: Vec2, rotation: f32) -> Aabb2d {
         let direction = Mat2::from_angle(rotation) * *self.direction;
 
-        // Dividing `f32::MAX` by 2.0 can actually be good so that we can do operations
+        // Dividing `f32::MAX` by 2.0 is helpful so that we can do operations
         // like growing or shrinking the AABB without breaking things.
         let max = f32::MAX / 2.0;
         let half_width = if direction.x == 0.0 { 0.0 } else { max };

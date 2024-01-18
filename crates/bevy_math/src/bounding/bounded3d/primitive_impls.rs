@@ -32,7 +32,7 @@ impl Bounded3d for Plane3d {
         let facing_y = normal == Vec3::Y || normal == Vec3::NEG_Y;
         let facing_z = normal == Vec3::Z || normal == Vec3::NEG_Z;
 
-        // Dividing `f32::MAX` by 2.0 can actually be good so that we can do operations
+        // Dividing `f32::MAX` by 2.0 is helpful so that we can do operations
         // like growing or shrinking the AABB without breaking things.
         let half_width = if facing_x { 0.0 } else { f32::MAX / 2.0 };
         let half_height = if facing_y { 0.0 } else { f32::MAX / 2.0 };
@@ -54,7 +54,7 @@ impl Bounded3d for Line3d {
     fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
         let direction = rotation * *self.direction;
 
-        // Dividing `f32::MAX` by 2.0 can actually be good so that we can do operations
+        // Dividing `f32::MAX` by 2.0 is helpful so that we can do operations
         // like growing or shrinking the AABB without breaking things.
         let max = f32::MAX / 2.0;
         let half_width = if direction.x == 0.0 { 0.0 } else { max };
