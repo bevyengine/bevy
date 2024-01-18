@@ -240,22 +240,12 @@ pub fn prepare_meshlet_per_frame_resources(
             })
         };
         let (previous_occlusion_buffer, occlusion_buffer, occlusion_buffer_needs_clearing) =
-            match gpu_scene.previous_occlusion_buffers.get_mut(&view_entity) {
+            match gpu_scene.previous_occlusion_buffers.get(&view_entity) {
                 Some((buffer_a, buffer_b)) if buffer_b.size() >= needed_buffer_size => {
                     (buffer_a.clone(), buffer_b.clone(), true)
                 }
-                Some((buffer_a, buffer_b)) => {
-                    *buffer_b = create_occlusion_buffer();
-                    (buffer_a.clone(), buffer_b.clone(), false)
-                }
-                None => {
-                    let buffer_a = create_occlusion_buffer();
-                    let buffer_b = create_occlusion_buffer();
-                    gpu_scene
-                        .previous_occlusion_buffers
-                        .insert(view_entity, (buffer_a.clone(), buffer_b.clone()));
-                    (buffer_a, buffer_b, false)
-                }
+                Some((buffer_a, _)) => (buffer_a.clone(), create_occlusion_buffer(), false),
+                None => (create_occlusion_buffer(), create_occlusion_buffer(), false),
             };
         gpu_scene.previous_occlusion_buffers.insert(
             view_entity,
