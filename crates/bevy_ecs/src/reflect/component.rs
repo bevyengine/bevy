@@ -1,4 +1,6 @@
 //! Definitions for [`Component`] reflection.
+//! This allows inserting, updating, removing and generally interacting with components
+//! whose types are only known at runtime.
 //!
 //! This module exports two types: [`ReflectComponentFns`] and [`ReflectComponent`].
 //!
@@ -66,7 +68,7 @@ use crate::{
 };
 use bevy_reflect::{FromReflect, FromType, Reflect, TypeRegistry};
 
-/// A struct used to operate on reflected [`Component`] of a type.
+/// A struct used to operate on reflected [`Component`] trait of a type.
 ///
 /// A [`ReflectComponent`] for type `T` can be obtained via
 /// [`bevy_reflect::TypeRegistration::data`].

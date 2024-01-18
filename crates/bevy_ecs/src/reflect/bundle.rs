@@ -1,4 +1,5 @@
 //! Definitions for [`Bundle`] reflection.
+//! This allows inserting, updating and/or removing bundles whose type is only known at runtime.
 //!
 //! This module exports two types: [`ReflectBundleFns`] and [`ReflectBundle`].
 //!
@@ -10,7 +11,7 @@ use bevy_reflect::{FromReflect, FromType, Reflect, ReflectRef, TypeRegistry};
 
 use super::ReflectComponent;
 
-/// A struct used to operate on reflected [`Bundle`] of a type.
+/// A struct used to operate on reflected [`Bundle`] trait of a type.
 ///
 /// A [`ReflectBundle`] for type `T` can be obtained via
 /// [`bevy_reflect::TypeRegistration::data`].

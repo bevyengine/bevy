@@ -1,4 +1,6 @@
 //! Definitions for [`FromWorld`] reflection.
+//! This allows creating instaces of types that are known only at runtime and
+//! require an `&mut World` to be initialized.
 //!
 //! This module exports two types: [`ReflectFromWorldFns`] and [`ReflectFromWorld`].
 //!
@@ -8,7 +10,7 @@ use bevy_reflect::{FromType, Reflect};
 
 use crate::world::{FromWorld, World};
 
-/// A struct used to operate on the reflected [`FromWorld`] of a type.
+/// A struct used to operate on the reflected [`FromWorld`] trait of a type.
 ///
 /// A [`ReflectFromWorld`] for type `T` can be obtained via
 /// [`bevy_reflect::TypeRegistration::data`].
