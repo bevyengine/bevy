@@ -68,7 +68,7 @@ impl FromWorld for MeshletPipelines {
                 layout: vec![write_index_buffer_layout],
                 push_constant_ranges: vec![PushConstantRange {
                     stages: ShaderStages::COMPUTE,
-                    range: 0..8,
+                    range: 0..4,
                 }],
                 shader: MESHLET_WRITE_INDEX_BUFFER_SHADER_HANDLE,
                 shader_defs: vec!["MESHLET_WRITE_INDEX_BUFFER_PASS".into()],

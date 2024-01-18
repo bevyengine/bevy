@@ -89,11 +89,9 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
         };
 
         let culling_workgroups = meshlet_view_resources.scene_meshlet_count.div_ceil(128);
-
-        let max_workgroups_per_dispatch = render_context
-            .render_device()
-            .limits()
-            .max_compute_workgroups_per_dimension;
+        let write_index_buffer_workgroups = (meshlet_view_resources.scene_meshlet_count as f32)
+            .cbrt()
+            .ceil() as u32;
 
         render_context
             .command_encoder()
@@ -118,8 +116,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             render_context,
             &meshlet_view_bind_groups.write_index_buffer_first,
             write_index_buffer_pipeline,
-            meshlet_view_resources.scene_meshlet_count,
-            max_workgroups_per_dispatch,
+            write_index_buffer_workgroups,
         );
         raster_pass(
             true,
@@ -151,8 +148,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             render_context,
             &meshlet_view_bind_groups.write_index_buffer_second,
             write_index_buffer_pipeline,
-            meshlet_view_resources.scene_meshlet_count,
-            max_workgroups_per_dispatch,
+            write_index_buffer_workgroups,
         );
         raster_pass(
             false,
@@ -216,8 +212,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 render_context,
                 &meshlet_view_bind_groups.write_index_buffer_first,
                 write_index_buffer_pipeline,
-                meshlet_view_resources.scene_meshlet_count,
-                max_workgroups_per_dispatch,
+                write_index_buffer_workgroups,
             );
             raster_pass(
                 true,
@@ -249,8 +244,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 render_context,
                 &meshlet_view_bind_groups.write_index_buffer_second,
                 write_index_buffer_pipeline,
-                meshlet_view_resources.scene_meshlet_count,
-                max_workgroups_per_dispatch,
+                write_index_buffer_workgroups,
             );
             raster_pass(
                 false,
@@ -293,8 +287,7 @@ fn write_index_buffer_pass(
     render_context: &mut RenderContext,
     write_index_buffer_bind_group: &BindGroup,
     write_index_buffer_pipeline: &ComputePipeline,
-    mut scene_meshlet_count: u32,
-    max_workgroups_per_dispatch: u32,
+    write_index_buffer_workgroups: u32,
 ) {
     let command_encoder = render_context.command_encoder();
     let mut cull_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
@@ -308,16 +301,11 @@ fn write_index_buffer_pass(
     cull_pass.set_bind_group(0, write_index_buffer_bind_group, &[]);
     cull_pass.set_pipeline(write_index_buffer_pipeline);
     cull_pass.set_push_constants(0, &[0, 0, 0, (!first_pass) as u8]);
-
-    let mut dispatched_so_far: u32 = 0;
-    while scene_meshlet_count > 0 {
-        let dispatch_size = scene_meshlet_count.min(max_workgroups_per_dispatch);
-        cull_pass.set_push_constants(4, &dispatched_so_far.to_le_bytes());
-        cull_pass.dispatch_workgroups(dispatch_size, 1, 1);
-
-        dispatched_so_far += dispatch_size;
-        scene_meshlet_count -= dispatch_size;
-    }
+    cull_pass.dispatch_workgroups(
+        write_index_buffer_workgroups,
+        write_index_buffer_workgroups,
+        write_index_buffer_workgroups,
+    );
 }
 
 #[allow(clippy::too_many_arguments)]
