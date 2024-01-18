@@ -8,24 +8,18 @@ use bevy_render::{
     render_phase::PhaseItem, render_resource::BindGroupEntries, view::ViewVisibility,
     ExtractSchedule, Render,
 };
-use bevy_sprite::SpriteAssetEvents;
-#[cfg(feature = "bevy_text")]
-use bevy_sprite::TextureAtlas;
+use bevy_sprite::{SpriteAssetEvents, TextureAtlas};
 pub use pipeline::*;
 pub use render_pass::*;
 pub use ui_material_pipeline::*;
 
-#[cfg(feature = "bevy_text")]
-use crate::{BackgroundColor, UiImage};
 use crate::{
-    BorderColor, CalculatedClip, ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera,
-    UiScale, Val,
+    BackgroundColor, BorderColor, CalculatedClip, ContentSize, DefaultUiCamera, Node, Outline,
+    Style, TargetCamera, UiImage, UiScale, Val,
 };
 
 use bevy_app::prelude::*;
-#[cfg(feature = "bevy_text")]
-use bevy_asset::Assets;
-use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Handle};
+use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, Rect, URect, UVec4, Vec2, Vec3, Vec4Swizzles};
 use bevy_render::{
@@ -40,7 +34,6 @@ use bevy_render::{
     view::{ExtractedView, ViewUniforms},
     Extract, RenderApp, RenderSet,
 };
-#[cfg(feature = "bevy_text")]
 use bevy_sprite::TextureAtlasLayout;
 #[cfg(feature = "bevy_text")]
 use bevy_text::{PositionedGlyph, Text, TextLayoutInfo};
@@ -404,7 +397,6 @@ pub fn extract_uinode_outlines(
     }
 }
 
-#[cfg(feature = "bevy_text")]
 pub fn extract_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     images: Extract<Res<Assets<Image>>>,
