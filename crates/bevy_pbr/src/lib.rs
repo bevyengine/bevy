@@ -7,6 +7,7 @@ mod environment_map;
 mod extended_material;
 mod fog;
 mod light;
+mod lightmap;
 mod material;
 mod parallax;
 mod pbr_material;
@@ -20,6 +21,7 @@ pub use environment_map::EnvironmentMapLight;
 pub use extended_material::*;
 pub use fog::*;
 pub use light::*;
+pub use lightmap::*;
 pub use material::*;
 pub use parallax::*;
 pub use pbr_material::*;
@@ -258,6 +260,7 @@ impl Plugin for PbrPlugin {
                 FogPlugin,
                 ExtractResourcePlugin::<DefaultOpaqueRendererMethod>::default(),
                 ExtractComponentPlugin::<ShadowFilteringMethod>::default(),
+                LightmapPlugin,
             ))
             .configure_sets(
                 PostUpdate,
@@ -355,6 +358,15 @@ impl Plugin for PbrPlugin {
         draw_3d_graph.add_node_edge(
             draw_3d_graph::node::SHADOW_PASS,
             bevy_core_pipeline::core_3d::graph::node::START_MAIN_PASS,
+        );
+
+        render_app.ignore_ambiguity(
+            bevy_render::Render,
+            bevy_core_pipeline::core_3d::prepare_core_3d_transmission_textures,
+            bevy_render::batching::batch_and_prepare_render_phase::<
+                bevy_core_pipeline::core_3d::Transmissive3d,
+                MeshPipeline,
+            >,
         );
     }
 

@@ -1557,7 +1557,7 @@ mod tests {
             ///
             /// # Example
             ///
-            /// ```ignore
+            /// ```ignore (This is only used for a unit test, no need to doc test)
             /// let some_struct = SomeStruct;
             /// ```
             #[derive(Reflect)]

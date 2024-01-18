@@ -7,25 +7,34 @@ use crate::Vec2;
 pub struct Direction2d(Vec2);
 
 impl Direction2d {
+    /// A unit vector pointing along the positive X axis.
+    pub const X: Self = Self(Vec2::X);
+    /// A unit vector pointing along the positive Y axis.
+    pub const Y: Self = Self(Vec2::Y);
+    /// A unit vector pointing along the negative X axis.
+    pub const NEG_X: Self = Self(Vec2::NEG_X);
+    /// A unit vector pointing along the negative Y axis.
+    pub const NEG_Y: Self = Self(Vec2::NEG_Y);
+
     /// Create a direction from a finite, nonzero [`Vec2`].
     ///
     /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
     /// of the given vector is zero (or very close to zero), infinite, or `NaN`.
     pub fn new(value: Vec2) -> Result<Self, InvalidDirectionError> {
-        value.try_normalize().map(Self).map_or_else(
-            || {
-                if value.is_nan() {
-                    Err(InvalidDirectionError::NaN)
-                } else if !value.is_finite() {
-                    // If the direction is non-finite but also not NaN, it must be infinite
-                    Err(InvalidDirectionError::Infinite)
-                } else {
-                    // If the direction is invalid but neither NaN nor infinite, it must be zero
-                    Err(InvalidDirectionError::Zero)
-                }
-            },
-            Ok,
-        )
+        Self::new_and_length(value).map(|(dir, _)| dir)
+    }
+
+    /// Create a direction from a finite, nonzero [`Vec2`], also returning its original length.
+    ///
+    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
+    /// of the given vector is zero (or very close to zero), infinite, or `NaN`.
+    pub fn new_and_length(value: Vec2) -> Result<(Self, f32), InvalidDirectionError> {
+        let length = value.length();
+        let direction = (length.is_finite() && length > 0.0).then_some(value / length);
+
+        direction
+            .map(|dir| (Self(dir), length))
+            .map_or(Err(InvalidDirectionError::from_length(length)), Ok)
     }
 
     /// Create a direction from its `x` and `y` components.
@@ -55,6 +64,13 @@ impl std::ops::Deref for Direction2d {
     type Target = Vec2;
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl std::ops::Neg for Direction2d {
+    type Output = Self;
+    fn neg(self) -> Self::Output {
+        Self(-self.0)
     }
 }
 
@@ -249,6 +265,41 @@ impl Triangle2d {
         }
     }
 
+    /// Compute the circle passing through all three vertices of the triangle.
+    /// The vector in the returned tuple is the circumcenter.
+    pub fn circumcircle(&self) -> (Circle, Vec2) {
+        // We treat the triangle as translated so that vertex A is at the origin. This simplifies calculations.
+        //
+        //     A = (0, 0)
+        //        *
+        //       / \
+        //      /   \
+        //     /     \
+        //    /       \
+        //   /    U    \
+        //  /           \
+        // *-------------*
+        // B             C
+
+        let a = self.vertices[0];
+        let (b, c) = (self.vertices[1] - a, self.vertices[2] - a);
+        let b_length_sq = b.length_squared();
+        let c_length_sq = c.length_squared();
+
+        // Reference: https://en.wikipedia.org/wiki/Circumcircle#Cartesian_coordinates_2
+        let inv_d = (2.0 * (b.x * c.y - b.y * c.x)).recip();
+        let ux = inv_d * (c.y * b_length_sq - b.y * c_length_sq);
+        let uy = inv_d * (b.x * c_length_sq - c.x * b_length_sq);
+        let u = Vec2::new(ux, uy);
+
+        // Compute true circumcenter and circumradius, adding the tip coordinate so that
+        // A is translated back to its actual coordinate.
+        let center = u + a;
+        let radius = u.length();
+
+        (Circle { radius }, center)
+    }
+
     /// Reverse the [`WindingOrder`] of the triangle
     /// by swapping the second and third vertices
     pub fn reverse(&mut self) {
@@ -337,7 +388,7 @@ impl BoxedPolygon {
     }
 }
 
-/// A polygon where all vertices lie on a circle, equally far apart
+/// A polygon where all vertices lie on a circle, equally far apart.
 #[derive(Clone, Copy, Debug)]
 pub struct RegularPolygon {
     /// The circumcircle on which all vertices lie
@@ -363,6 +414,22 @@ impl RegularPolygon {
             sides,
         }
     }
+
+    /// Returns an iterator over the vertices of the regular polygon,
+    /// rotated counterclockwise by the given angle in radians.
+    ///
+    /// With a rotation of 0, a vertex will be placed at the top `(0.0, circumradius)`.
+    pub fn vertices(self, rotation: f32) -> impl IntoIterator<Item = Vec2> {
+        // Add pi/2 so that the polygon has a vertex at the top (sin is 1.0 and cos is 0.0)
+        let start_angle = rotation + std::f32::consts::FRAC_PI_2;
+        let step = std::f32::consts::TAU / self.sides as f32;
+
+        (0..self.sides).map(move |i| {
+            let theta = start_angle + i as f32 * step;
+            let (sin, cos) = theta.sin_cos();
+            Vec2::new(cos, sin) * self.circumcircle.radius
+        })
+    }
 }
 
 #[cfg(test)]
@@ -371,10 +438,7 @@ mod tests {
 
     #[test]
     fn direction_creation() {
-        assert_eq!(
-            Direction2d::new(Vec2::X * 12.5),
-            Ok(Direction2d::from_normalized(Vec2::X))
-        );
+        assert_eq!(Direction2d::new(Vec2::X * 12.5), Ok(Direction2d::X));
         assert_eq!(
             Direction2d::new(Vec2::new(0.0, 0.0)),
             Err(InvalidDirectionError::Zero)
@@ -390,6 +454,10 @@ mod tests {
         assert_eq!(
             Direction2d::new(Vec2::new(f32::NAN, 0.0)),
             Err(InvalidDirectionError::NaN)
+        );
+        assert_eq!(
+            Direction2d::new_and_length(Vec2::X * 6.5),
+            Ok((Direction2d::from_normalized(Vec2::X), 6.5))
         );
     }
 
@@ -420,5 +488,38 @@ mod tests {
             Vec2::new(0.0, -1.2),
         );
         assert_eq!(invalid_triangle.winding_order(), WindingOrder::Invalid);
+    }
+
+    #[test]
+    fn triangle_circumcenter() {
+        let triangle = Triangle2d::new(
+            Vec2::new(10.0, 2.0),
+            Vec2::new(-5.0, -3.0),
+            Vec2::new(2.0, -1.0),
+        );
+        let (Circle { radius }, circumcenter) = triangle.circumcircle();
+
+        // Calculated with external calculator
+        assert_eq!(radius, 98.34887);
+        assert_eq!(circumcenter, Vec2::new(-28.5, 92.5));
+    }
+
+    #[test]
+    fn regular_polygon_vertices() {
+        let polygon = RegularPolygon::new(1.0, 4);
+
+        // Regular polygons have a vertex at the top by default
+        let mut vertices = polygon.vertices(0.0).into_iter();
+        assert!((vertices.next().unwrap() - Vec2::Y).length() < 1e-7);
+
+        // Rotate by 45 degrees, forming an axis-aligned square
+        let mut rotated_vertices = polygon.vertices(std::f32::consts::FRAC_PI_4).into_iter();
+
+        // Distance from the origin to the middle of a side, derived using Pythagorean theorem
+        let side_sistance = std::f32::consts::FRAC_1_SQRT_2;
+        assert!(
+            (rotated_vertices.next().unwrap() - Vec2::new(-side_sistance, side_sistance)).length()
+                < 1e-7,
+        );
     }
 }

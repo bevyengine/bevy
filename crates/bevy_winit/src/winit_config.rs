@@ -52,10 +52,7 @@ impl WinitSettings {
 
 impl Default for WinitSettings {
     fn default() -> Self {
-        WinitSettings {
-            focused_mode: UpdateMode::Continuous,
-            unfocused_mode: UpdateMode::Continuous,
-        }
+        WinitSettings::game()
     }
 }
 
@@ -76,7 +73,7 @@ pub enum UpdateMode {
     /// - new [window](`winit::event::WindowEvent`) or [raw input](`winit::event::DeviceEvent`)
     /// events have appeared
     Reactive {
-        /// The minimum time from the start of one update to the next.
+        /// The approximate time from the start of one update to the next.
         ///
         /// **Note:** This has no upper limit.
         /// The [`App`](bevy_app::App) will wait indefinitely if you set this to [`Duration::MAX`].
@@ -93,7 +90,7 @@ pub enum UpdateMode {
     /// Use this mode if, for example, you only want your app to update when the mouse cursor is
     /// moving over a window, not just moving in general. This can greatly reduce power consumption.
     ReactiveLowPower {
-        /// The minimum time from the start of one update to the next.
+        /// The approximate time from the start of one update to the next.
         ///
         /// **Note:** This has no upper limit.
         /// The [`App`](bevy_app::App) will wait indefinitely if you set this to [`Duration::MAX`].

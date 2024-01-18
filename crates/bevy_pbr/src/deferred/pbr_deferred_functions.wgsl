@@ -22,18 +22,18 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
      // Real time occlusion is applied in the deferred lighting pass.
      // Deriving luminance via Rec. 709. coefficients
      // https://en.wikipedia.org/wiki/Rec._709
-    let occlusion = dot(in.occlusion, vec3<f32>(0.2126, 0.7152, 0.0722));
+    let diffuse_occlusion = dot(in.diffuse_occlusion, vec3<f32>(0.2126, 0.7152, 0.0722));
 #ifdef WEBGL2 // More crunched for webgl so we can also fit depth.
     var props = deferred_types::pack_unorm3x4_plus_unorm_20_(vec4(
         in.material.reflectance,
         in.material.metallic,
-        occlusion, 
+        diffuse_occlusion, 
         in.frag_coord.z));
 #else
     var props = deferred_types::pack_unorm4x8_(vec4(
         in.material.reflectance, // could be fewer bits
         in.material.metallic, // could be fewer bits
-        occlusion, // is this worth including?
+        diffuse_occlusion, // is this worth including?
         0.0)); // spare
 #endif // WEBGL2
     let flags = deferred_types::deferred_flags_from_mesh_material_flags(in.flags, in.material.flags);
@@ -85,7 +85,7 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
     pbr.material.reflectance = props.r;
 #endif // WEBGL2
     pbr.material.metallic = props.g;
-    pbr.occlusion = vec3(props.b);
+    pbr.diffuse_occlusion = vec3(props.b);
     let octahedral_normal = deferred_types::unpack_24bit_normal(gbuffer.a);
     let N = octahedral_decode(octahedral_normal);
 

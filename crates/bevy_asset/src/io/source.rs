@@ -43,7 +43,7 @@ impl<'a> AssetSourceId<'a> {
     }
 
     /// Returns [`None`] if this is [`AssetSourceId::Default`] and [`Some`] containing the
-    /// the name if this is [`AssetSourceId::Name`].  
+    /// name if this is [`AssetSourceId::Name`].
     pub fn as_str(&self) -> Option<&str> {
         match self {
             AssetSourceId::Default => None,
@@ -486,7 +486,7 @@ impl AssetSource {
                     sender,
                     file_debounce_wait_time,
                 )
-                .unwrap(),
+                .expect("Failed to create file watcher"),
             ));
             #[cfg(any(
                 not(feature = "file_watcher"),
@@ -569,22 +569,22 @@ impl AssetSources {
 }
 
 /// An error returned when an [`AssetSource`] does not exist for a given id.
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 #[error("Asset Source '{0}' does not exist")]
 pub struct MissingAssetSourceError(AssetSourceId<'static>);
 
 /// An error returned when an [`AssetWriter`] does not exist for a given id.
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 #[error("Asset Source '{0}' does not have an AssetWriter.")]
 pub struct MissingAssetWriterError(AssetSourceId<'static>);
 
 /// An error returned when a processed [`AssetReader`] does not exist for a given id.
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 #[error("Asset Source '{0}' does not have a processed AssetReader.")]
 pub struct MissingProcessedAssetReaderError(AssetSourceId<'static>);
 
 /// An error returned when a processed [`AssetWriter`] does not exist for a given id.
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 #[error("Asset Source '{0}' does not have a processed AssetWriter.")]
 pub struct MissingProcessedAssetWriterError(AssetSourceId<'static>);
 

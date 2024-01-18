@@ -7,25 +7,38 @@ use crate::Vec3;
 pub struct Direction3d(Vec3);
 
 impl Direction3d {
+    /// A unit vector pointing along the positive X axis.
+    pub const X: Self = Self(Vec3::X);
+    /// A unit vector pointing along the positive Y axis.
+    pub const Y: Self = Self(Vec3::Y);
+    /// A unit vector pointing along the positive Z axis.
+    pub const Z: Self = Self(Vec3::Z);
+    /// A unit vector pointing along the negative X axis.
+    pub const NEG_X: Self = Self(Vec3::NEG_X);
+    /// A unit vector pointing along the negative Y axis.
+    pub const NEG_Y: Self = Self(Vec3::NEG_Y);
+    /// A unit vector pointing along the negative Z axis.
+    pub const NEG_Z: Self = Self(Vec3::NEG_Z);
+
     /// Create a direction from a finite, nonzero [`Vec3`].
     ///
     /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
     /// of the given vector is zero (or very close to zero), infinite, or `NaN`.
     pub fn new(value: Vec3) -> Result<Self, InvalidDirectionError> {
-        value.try_normalize().map(Self).map_or_else(
-            || {
-                if value.is_nan() {
-                    Err(InvalidDirectionError::NaN)
-                } else if !value.is_finite() {
-                    // If the direction is non-finite but also not NaN, it must be infinite
-                    Err(InvalidDirectionError::Infinite)
-                } else {
-                    // If the direction is invalid but neither NaN nor infinite, it must be zero
-                    Err(InvalidDirectionError::Zero)
-                }
-            },
-            Ok,
-        )
+        Self::new_and_length(value).map(|(dir, _)| dir)
+    }
+
+    /// Create a direction from a finite, nonzero [`Vec3`], also returning its original length.
+    ///
+    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
+    /// of the given vector is zero (or very close to zero), infinite, or `NaN`.
+    pub fn new_and_length(value: Vec3) -> Result<(Self, f32), InvalidDirectionError> {
+        let length = value.length();
+        let direction = (length.is_finite() && length > 0.0).then_some(value / length);
+
+        direction
+            .map(|dir| (Self(dir), length))
+            .map_or(Err(InvalidDirectionError::from_length(length)), Ok)
     }
 
     /// Create a direction from its `x`, `y`, and `z` components.
@@ -55,6 +68,13 @@ impl std::ops::Deref for Direction3d {
     type Target = Vec3;
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl std::ops::Neg for Direction3d {
+    type Output = Self;
+    fn neg(self) -> Self::Output {
+        Self(-self.0)
     }
 }
 
@@ -384,10 +404,7 @@ mod test {
 
     #[test]
     fn direction_creation() {
-        assert_eq!(
-            Direction3d::new(Vec3::X * 12.5),
-            Ok(Direction3d::from_normalized(Vec3::X))
-        );
+        assert_eq!(Direction3d::new(Vec3::X * 12.5), Ok(Direction3d::X));
         assert_eq!(
             Direction3d::new(Vec3::new(0.0, 0.0, 0.0)),
             Err(InvalidDirectionError::Zero)
@@ -403,6 +420,10 @@ mod test {
         assert_eq!(
             Direction3d::new(Vec3::new(f32::NAN, 0.0, 0.0)),
             Err(InvalidDirectionError::NaN)
+        );
+        assert_eq!(
+            Direction3d::new_and_length(Vec3::X * 6.5),
+            Ok((Direction3d::from_normalized(Vec3::X), 6.5))
         );
     }
 }
