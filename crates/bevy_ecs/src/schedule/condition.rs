@@ -194,6 +194,10 @@ mod sealed {
 
 /// A collection of [run conditions](Condition) that may be useful in any bevy app.
 pub mod common_conditions {
+    use std::sync::Once;
+
+    use bevy_utils::tracing::warn;
+
     use super::NotSystem;
     use crate::{
         change_detection::DetectChanges,
@@ -749,11 +753,13 @@ pub mod common_conditions {
     pub fn in_state<S: States>(state: S) -> impl FnMut(Option<Res<State<S>>>) -> bool + Clone {
         move |current_state: Option<Res<State<S>>>| match current_state {
             Some(current_state) => *current_state == state,
-            None => false,
+            None => {
+                false
+            },
         }
     }
 
-    /// Identical to [`in_state`](in_state) - use that instead.
+    /// Identical to [`in_state`] - use that instead.
     ///
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if the state machine exists and is currently in `state`.
