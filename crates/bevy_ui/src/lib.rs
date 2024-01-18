@@ -132,6 +132,7 @@ impl Plugin for UiPlugin {
         #[cfg(feature = "bevy_text")]
         app.register_type::<TextLayoutInfo>()
             .register_type::<TextFlags>();
+
         // add these systems to front because these must run before transform update systems
         #[cfg(feature = "bevy_text")]
         app.add_systems(
@@ -158,28 +159,17 @@ impl Plugin for UiPlugin {
                     .ambiguous_with(bevy_text::update_text2d_layout),
             ),
         );
+
         #[cfg(feature = "bevy_text")]
         app.add_plugins(accessibility::AccessibilityPlugin);
-        app.add_systems(PostUpdate, {
-            #[allow(clippy::let_and_return)]
-            let system = widget::update_image_content_size_system.before(UiSystem::Layout);
-
-            // Potential conflicts: `Assets<Image>`
-            // They run independently since `widget::image_node_system` will only ever observe
-            // its own UiImage, and `widget::text_system` & `bevy_text::update_text2d_layout`
-            // will never modify a pre-existing `Image` asset.
-            #[cfg(feature = "bevy_text")]
-            let system = system
-                .ambiguous_with(bevy_text::update_text2d_layout)
-                .ambiguous_with(widget::text_system);
-
-            system
-        });
 
         // Marks systems that can be ambiguous with [`widget::text_system`] if the `bevy_text` feature is enabled.
         // See https://github.com/bevyengine/bevy/pull/11391 for more details.
         #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
         struct AmbiguousWithTextSystem;
+
+        #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+        struct AmbiguousWithUpdateText2DLayout;
 
         app.add_systems(
             PostUpdate,
@@ -205,6 +195,14 @@ impl Plugin for UiPlugin {
                     .ambiguous_with(ui_layout_system)
                     .in_set(AmbiguousWithTextSystem),
                 update_clipping_system.after(TransformSystem::TransformPropagate),
+                // Potential conflicts: `Assets<Image>`
+                // They run independently since `widget::image_node_system` will only ever observe
+                // its own UiImage, and `widget::text_system` & `bevy_text::update_text2d_layout`
+                // will never modify a pre-existing `Image` asset.
+                widget::update_image_content_size_system
+                    .before(UiSystem::Layout)
+                    .in_set(AmbiguousWithTextSystem)
+                    .in_set(AmbiguousWithUpdateText2DLayout),
             ),
         );
 
@@ -212,6 +210,12 @@ impl Plugin for UiPlugin {
         app.configure_sets(
             PostUpdate,
             AmbiguousWithTextSystem.ambiguous_with(widget::text_system),
+        );
+
+        #[cfg(feature = "bevy_text")]
+        app.configure_sets(
+            PostUpdate,
+            AmbiguousWithUpdateText2DLayout.ambiguous_with(bevy_text::update_text2d_layout),
         );
 
         build_ui_render(app);
