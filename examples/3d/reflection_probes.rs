@@ -89,6 +89,7 @@ fn setup(
     cubemaps: Res<Cubemaps>,
 ) {
     spawn_scene(&mut commands, &asset_server);
+    spawn_camera(&mut commands);
     spawn_sphere(&mut commands, &mut meshes, &mut materials);
     spawn_reflection_probe(&mut commands, &cubemaps);
     spawn_text(&mut commands, &asset_server, &app_status);
@@ -99,6 +100,18 @@ fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
     commands.spawn(SceneBundle {
         scene: asset_server.load("models/cubes/Cubes.glb#Scene0"),
         ..SceneBundle::default()
+    });
+}
+
+// Spawns the camera.
+fn spawn_camera(commands: &mut Commands) {
+    commands.spawn(Camera3dBundle {
+        camera: Camera {
+            hdr: true,
+            ..default()
+        },
+        transform: Transform::from_xyz(-6.483, 0.325, 4.381).looking_at(Vec3::ZERO, Vec3::Y),
+        ..default()
     });
 }
 
