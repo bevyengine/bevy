@@ -362,8 +362,8 @@ fn add_texture_view<'a>(
 pub(crate) fn binding_arrays_are_usable(render_device: &RenderDevice) -> bool {
     !cfg!(feature = "shader_format_glsl")
         && render_device.limits().max_storage_textures_per_shader_stage
-            >= (STANDARD_MATERIAL_FRAGMENT_SHADER_MIN_TEXTURE_BINDINGS
-                + MAX_VIEW_REFLECTION_PROBES) as u32
+            >= (STANDARD_MATERIAL_FRAGMENT_SHADER_MIN_TEXTURE_BINDINGS + MAX_VIEW_REFLECTION_PROBES)
+                as u32
         && render_device
             .features()
             .contains(WgpuFeatures::TEXTURE_BINDING_ARRAY)
