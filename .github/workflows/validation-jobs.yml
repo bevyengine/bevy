@@ -10,7 +10,7 @@ on:
 
 concurrency:
   group: ${{github.workflow}}-${{github.ref}}
-  cancel-in-progress: ${{github.ref_name != 'main'}}
+  cancel-in-progress: ${{github.ref_name != 'main' && github.event_name != 'merge_group'}}
 
 env:
   CARGO_TERM_COLOR: always
