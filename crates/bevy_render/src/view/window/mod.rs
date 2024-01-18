@@ -300,6 +300,12 @@ pub fn prepare_windows(
                 PresentMode::AutoVsync => wgpu::PresentMode::AutoVsync,
                 PresentMode::AutoNoVsync => wgpu::PresentMode::AutoNoVsync,
             },
+            // TODO: Expose this as a setting somewhere
+            // 2 is wgpu's default/what we've been using so far.
+            // 1 is the minimum, but may cause lower framerates due to the cpu waiting for the gpu to finish
+            // all work for the previous frame before starting work on the next frame, which then means the gpu
+            // has to wait for the cpu to finish to start on the next frame.
+            desired_maximum_frame_latency: 2,
             alpha_mode: match window.alpha_mode {
                 CompositeAlphaMode::Auto => wgpu::CompositeAlphaMode::Auto,
                 CompositeAlphaMode::Opaque => wgpu::CompositeAlphaMode::Opaque,

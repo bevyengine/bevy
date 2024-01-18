@@ -62,15 +62,13 @@ image = { version = "0.24", default-features = false }
 codespan-reporting = "0.11.0"
 # `fragile-send-sync-non-atomic-wasm` feature means we can't use WASM threads for rendering
 # It is enabled for now to avoid having to do a significant overhaul of the renderer just for wasm
-# wgpu = { version = "0.18", features = [
-wgpu = { git = "https://github.com/gfx-rs/wgpu.git", rev = "6c86b557647336694c44a9c7a08301d5f658f8e4", features = [
+wgpu = { version = "0.19", features = [
   "naga",
+  "naga-ir",
   "fragile-send-sync-non-atomic-wasm",
 ] }
-# naga = { version = "0.14.2", features = ["wgsl-in"] }
-naga = { git = "https://github.com/gfx-rs/wgpu.git", rev = "6c86b557647336694c44a9c7a08301d5f658f8e4", features = ["wgsl-in"] }
-# naga_oil = { version = "0.11", default-features = false, features = [
-naga_oil = { git = "https://github.com/Elabajaba/naga_oil.git", rev = "d44bfaa76ad2d3bb151a9058b61161cbda53ecf1", default-features = false, features = [
+naga = { version = "0.19", features = ["wgsl-in"] }
+naga_oil = { version = "0.12", default-features = false, features = [
   "test_shader",
 ] }
 serde = { version = "1", features = ["derive"] }
