@@ -13,7 +13,7 @@ env:
 
 concurrency:
   group: ${{github.workflow}}-${{github.ref}}
-  cancel-in-progress: ${{github.ref_name != "main"}}
+  cancel-in-progress: ${{github.ref_name != 'main'}}
 
 jobs:
   build:
