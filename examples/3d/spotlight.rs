@@ -10,7 +10,7 @@ use rand::{rngs::StdRng, Rng, SeedableRng};
 fn main() {
     App::new()
         .insert_resource(AmbientLight {
-            brightness: 0.02,
+            brightness: 4.0,
             ..default()
         })
         .add_plugins((
@@ -69,12 +69,12 @@ fn setup(
     });
     let red_emissive = materials.add(StandardMaterial {
         base_color: Color::RED,
-        emissive: Color::rgba_linear(1.0, 0.0, 0.0, 0.0),
+        emissive: Color::rgba_linear(100.0, 0.0, 0.0, 0.0),
         ..default()
     });
     let maroon_emissive = materials.add(StandardMaterial {
         base_color: Color::MAROON,
-        emissive: Color::rgba_linear(0.369, 0.0, 0.0, 0.0),
+        emissive: Color::rgba_linear(50.0, 0.0, 0.0, 0.0),
         ..default()
     });
     for x in 0..4 {
@@ -87,7 +87,7 @@ fn setup(
                     transform: Transform::from_xyz(1.0 + x, 2.0, z)
                         .looking_at(Vec3::new(1.0 + x, 0.0, z), Vec3::X),
                     spot_light: SpotLight {
-                        intensity: 200.0, // lumens
+                        intensity: 100_000.0, // lumens
                         color: Color::WHITE,
                         shadows_enabled: true,
                         inner_angle: PI / 4.0 * 0.85,

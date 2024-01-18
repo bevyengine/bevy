@@ -394,7 +394,7 @@ fn apply_pbr_lighting(
 
     // Total light
     output_color = vec4<f32>(
-        transmitted_light + direct_light + indirect_light + emissive_light,
+        view_bindings::view.exposure * (transmitted_light + direct_light + indirect_light + emissive_light),
         output_color.a
     );
 
@@ -431,7 +431,7 @@ fn apply_fog(fog_params: mesh_view_types::Fog, input_color: vec4<f32>, fragment_
                     0.0
                 ),
                 fog_params.directional_light_exponent
-            ) * light.color.rgb;
+            ) * light.color.rgb * view_bindings::view.exposure;
         }
     }
 
