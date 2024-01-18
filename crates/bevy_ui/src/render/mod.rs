@@ -81,7 +81,6 @@ pub fn build_ui_render(app: &mut App) {
             (
                 extract_default_ui_camera_view::<Camera2d>,
                 extract_default_ui_camera_view::<Camera3d>,
-                #[cfg(feature = "bevy_text")]
                 extract_uinodes.in_set(RenderUiSystem::ExtractNode),
                 extract_uinode_borders.after(RenderUiSystem::ExtractAtlasNode),
                 #[cfg(feature = "bevy_text")]
