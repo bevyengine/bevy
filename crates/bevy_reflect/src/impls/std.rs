@@ -1603,6 +1603,9 @@ mod tests {
 
     #[test]
     fn option_should_impl_enum() {
+        // TODO: Should we keep the other tests?
+        assert_impl_all!(Option<()>: Enum);
+
         let mut value = Some(123usize);
 
         assert!(value
@@ -1676,6 +1679,9 @@ mod tests {
 
     #[test]
     fn option_should_impl_typed() {
+        // TODO: Should we keep the other tests?
+        assert_impl_all!(Option<()>: Typed);
+
         type MyOption = Option<i32>;
         let info = MyOption::type_info();
         if let TypeInfo::Enum(info) = info {
@@ -1706,6 +1712,7 @@ mod tests {
             panic!("Expected `TypeInfo::Enum`");
         }
     }
+
     #[test]
     fn nonzero_usize_impl_reflect_from_reflect() {
         let a: &dyn Reflect = &std::num::NonZeroUsize::new(42).unwrap();
