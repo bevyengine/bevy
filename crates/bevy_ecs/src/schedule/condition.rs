@@ -825,7 +825,7 @@ pub mod common_conditions {
     #[deprecated(since = "0.13.0", note = "use `in_state` instead.")]
     pub fn state_exists_and_equals<S: States>(
         state: S,
-    ) -> impl  FnMut(Local<bool>, Option<Res<State<S>>>) -> bool + Clone {
+    ) -> impl FnMut(Local<bool>, Option<Res<State<S>>>) -> bool + Clone {
         in_state(state)
     }
 
