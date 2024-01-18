@@ -807,7 +807,7 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
     /// ```
-    #[deprecated = "use `in_state` instead."]
+    #[deprecated(since = "0.13.0", note = "use `in_state` instead.")]
     pub fn state_exists_and_equals<S: States>(
         state: S,
     ) -> impl FnMut(Option<Res<State<S>>>) -> bool + Clone {
