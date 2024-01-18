@@ -701,9 +701,7 @@ pub mod common_conditions {
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if the state machine is currently in `state`.
     ///
-    /// # Panics
-    ///
-    /// The condition will panic if the resource does not exist.
+    /// Will return `false` if the state does not exist.
     ///
     /// # Example
     ///
@@ -809,7 +807,7 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
     /// ```
-    #[deprecated]
+    #[deprecated = "use `in_state` instead."]
     pub fn state_exists_and_equals<S: States>(
         state: S,
     ) -> impl FnMut(Option<Res<State<S>>>) -> bool + Clone {
@@ -822,9 +820,7 @@ pub mod common_conditions {
     /// To do things on transitions to/from specific states, use their respective OnEnter/OnExit
     /// schedules. Use this run condition if you want to detect any change, regardless of the value.
     ///
-    /// # Panics
-    ///
-    /// The condition will panic if the resource does not exist.
+    /// Returns false if the state does not exist.
     ///
     /// # Example
     ///
