@@ -14,7 +14,7 @@ pub enum AccessError<'a> {
     /// An error that occurs when a certain type doesn't
     /// contain the value contained in the [`Access`].
     #[error(
-        "the current {kind} doesn't have the {} {}",
+        "The current {kind} doesn't have the {} {}",
         access.kind(),
         access.display_value(),
     )]
@@ -28,7 +28,7 @@ pub enum AccessError<'a> {
     /// An error that occurs when using an [`Access`] on the wrong type.
     /// (i.e. a [`ListIndex`](Access::ListIndex) on a struct, or a [`TupleIndex`](Access::TupleIndex) on a list)
     #[error(
-        "invalid type: expected {} access to use a type of {expected} but found a reflect {actual}",
+        "Expected {} access to be of type {expected}, got {actual} instead.",
         access.kind()
     )]
     InvalidType {
@@ -43,7 +43,7 @@ pub enum AccessError<'a> {
     /// An error that occurs when using an [`Access`] on the wrong enum variant.
     /// (i.e. a [`ListIndex`](Access::ListIndex) on a struct variant, or a [`TupleIndex`](Access::TupleIndex) on a unit variant)
     #[error(
-        "invalid enum variant: expected {} access to use a type of {expected:?} variant but found {actual:?} variant",
+        "Expected variant {} access to be a {expected:?} variant, got a {actual:?} variant instead.",
         access.kind()
     )]
     InvalidEnumVariant {

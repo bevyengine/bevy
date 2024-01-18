@@ -12,27 +12,29 @@ use thiserror::Error;
 
 pub use parse::ParseError;
 
+use access::AccessError;
+
 type PathResult<'a, T> = Result<T, ReflectPathError<'a>>;
 
 /// An error returned from a failed path string query.
 #[derive(Debug, PartialEq, Eq, Error)]
 pub enum ReflectPathError<'a> {
     /// An error caused by trying to access a path that's not able to be accessed,
-    /// see [access::Error] for details.
-    #[error("at {} in path specification: {error}", offset.map(|v| v.to_string()).unwrap_or("{unknown}".to_string()))]
+    /// see [AccessError] for details.
+    #[error("Error accessing element in path (index {}): {error}", offset.map(|v| v.to_string()).unwrap_or("{unknown}".to_string()))]
     InvalidAccess {
         /// Position in the path string.
         offset: Option<usize>,
         /// The underlying error.
-        error: access::AccessError<'a>,
+        error: AccessError<'a>,
     },
 
     /// An error that occurs when a type cannot downcast to a given type.
-    #[error("failed to downcast to the path result to the given type")]
+    #[error("Can't downcast result of access to the given type")]
     InvalidDowncast,
 
     /// An error caused by an invalid path string that couldn't be parsed.
-    #[error("at {offset} in '{path}': {error}")]
+    #[error("Encounted an error at offset {offset} while parsing `{path}`: {error}")]
     ParseError {
         /// Position in `path`.
         offset: usize,
