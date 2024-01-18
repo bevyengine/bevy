@@ -27,11 +27,9 @@ use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::{EntityHashMap, FloatOrd};
 
 use crate::light_probe::environment_map::{
-    EnvironmentMapIds, EnvironmentMapLight, RenderViewEnvironmentMaps,
+    binding_arrays_are_usable, EnvironmentMapIds, EnvironmentMapLight, RenderViewEnvironmentMaps,
     ENVIRONMENT_MAP_SHADER_HANDLE,
 };
-
-use self::environment_map::RenderDeviceExt;
 
 pub mod environment_map;
 
@@ -73,6 +71,8 @@ struct RenderReflectionProbe {
     /// The index of the environment map in the diffuse and specular cubemap
     /// binding arrays.
     cubemap_index: i32,
+
+    intensity: f32,
 }
 
 /// A per-view shader uniform that specifies all the light probes that the view
@@ -94,6 +94,9 @@ pub struct LightProbesUniform {
     /// The smallest valid mipmap level for the specular environment cubemap
     /// associated with the view.
     smallest_specular_mip_level_for_view: u32,
+
+    /// The intensity of the environment cubemap associated with the view.
+    intensity_for_view: f32,
 }
 
 /// A map from each camera to the light probe uniform associated with it.
@@ -120,6 +123,7 @@ struct LightProbeInfo {
     // The diffuse and specular environment maps associated with this light
     // probe.
     environment_maps: EnvironmentMapIds,
+    intensity: f32,
 }
 
 impl LightProbe {
@@ -262,6 +266,7 @@ impl Default for LightProbesUniform {
             reflection_probe_count: 0,
             view_cubemap_index: -1,
             smallest_specular_mip_level_for_view: 0,
+            intensity_for_view: 1.0,
         }
     }
 }
@@ -284,10 +289,13 @@ impl LightProbesUniform {
 
         // Find the index of the cubemap associated with the view, and determine
         // its smallest mip level.
-        let (mut view_cubemap_index, mut smallest_specular_mip_level_for_view) = (-1, 0);
+        let mut view_cubemap_index = -1;
+        let mut smallest_specular_mip_level_for_view = 0;
+        let mut intensity_for_view = 1.0;
         if let Some(EnvironmentMapLight {
             diffuse_map: diffuse_map_handle,
             specular_map: specular_map_handle,
+            intensity,
         }) = view_environment_maps
         {
             if let (Some(_), Some(specular_map)) = (
@@ -300,6 +308,7 @@ impl LightProbesUniform {
                         specular: specular_map_handle.id(),
                     }) as i32;
                 smallest_specular_mip_level_for_view = specular_map.mip_level_count - 1;
+                intensity_for_view = *intensity;
             }
         };
 
@@ -310,6 +319,7 @@ impl LightProbesUniform {
             reflection_probe_count: light_probes.len().min(MAX_VIEW_REFLECTION_PROBES) as i32,
             view_cubemap_index,
             smallest_specular_mip_level_for_view,
+            intensity_for_view,
         };
 
         // Add reflection probes from the scene, if supported by the current
@@ -331,7 +341,7 @@ impl LightProbesUniform {
         light_probes: &[LightProbeInfo],
         render_device: &RenderDevice,
     ) {
-        if !render_device.binding_arrays_are_available() {
+        if !binding_arrays_are_usable(render_device) {
             return;
         }
 
@@ -358,6 +368,7 @@ impl LightProbesUniform {
                     inverse_transpose_transform.z_axis,
                 ],
                 cubemap_index,
+                intensity: light_probe.intensity,
             };
         }
     }
@@ -384,6 +395,7 @@ impl LightProbeInfo {
                 diffuse: environment_map.diffuse_map.id(),
                 specular: environment_map.specular_map.id(),
             },
+            intensity: environment_map.intensity,
         })
     }
 

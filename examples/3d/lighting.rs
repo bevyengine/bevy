@@ -3,21 +3,34 @@
 
 use std::f32::consts::PI;
 
-use bevy::{pbr::CascadeShadowConfigBuilder, prelude::*};
+use bevy::{
+    pbr::CascadeShadowConfigBuilder,
+    prelude::*,
+    render::camera::{ExposureSettings, PhysicalCameraParameters},
+};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .insert_resource(Parameters(PhysicalCameraParameters {
+            aperture_f_stops: 1.0,
+            shutter_speed_s: 1.0 / 15.0,
+            sensitivity_iso: 400.0,
+        }))
         .add_systems(Startup, setup)
-        .add_systems(Update, (movement, animate_light_direction))
+        .add_systems(Update, (update_exposure, movement, animate_light_direction))
         .run();
 }
+
+#[derive(Resource, Default, Deref, DerefMut)]
+struct Parameters(PhysicalCameraParameters);
 
 #[derive(Component)]
 struct Movable;
 
 /// set up a simple 3D scene
 fn setup(
+    parameters: Res<Parameters>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -122,7 +135,7 @@ fn setup(
             // transform: Transform::from_xyz(5.0, 8.0, 2.0),
             transform: Transform::from_xyz(1.0, 2.0, 0.0),
             point_light: PointLight {
-                intensity: 1600.0, // lumens - roughly a 100W non-halogen incandescent bulb
+                intensity: 4000.0, // lumens - roughly a 300W non-halogen incandescent bulb
                 color: Color::RED,
                 shadows_enabled: true,
                 ..default()
@@ -150,7 +163,7 @@ fn setup(
             transform: Transform::from_xyz(-1.0, 2.0, 0.0)
                 .looking_at(Vec3::new(-1.0, 0.0, 0.0), Vec3::Z),
             spot_light: SpotLight {
-                intensity: 1600.0, // lumens - roughly a 100W non-halogen incandescent bulb
+                intensity: 4000.0, // lumens - roughly a 300W non-halogen incandescent bulb
                 color: Color::GREEN,
                 shadows_enabled: true,
                 inner_angle: 0.6,
@@ -182,7 +195,7 @@ fn setup(
             // transform: Transform::from_xyz(5.0, 8.0, 2.0),
             transform: Transform::from_xyz(0.0, 4.0, 0.0),
             point_light: PointLight {
-                intensity: 1600.0, // lumens - roughly a 100W non-halogen incandescent bulb
+                intensity: 4000.0, // lumens - roughly a 300W non-halogen incandescent bulb
                 color: Color::BLUE,
                 shadows_enabled: true,
                 ..default()
@@ -207,6 +220,7 @@ fn setup(
     // directional 'sun' light
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
+            illuminance: 100.0,
             shadows_enabled: true,
             ..default()
         },
@@ -227,21 +241,37 @@ fn setup(
         ..default()
     });
 
-    // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
-
     // example instructions
+    let style = TextStyle {
+        font_size: 20.0,
+        ..default()
+    };
     commands.spawn(
-        TextBundle::from_section(
-            "Use arrow keys to move objects",
-            TextStyle {
-                font_size: 20.0,
-                ..default()
-            },
-        )
+        TextBundle::from_sections(vec![
+            TextSection::new(
+                format!("Aperture: f/{:.0}\n", parameters.aperture_f_stops),
+                style.clone(),
+            ),
+            TextSection::new(
+                format!(
+                    "Shutter speed: 1/{:.0}s\n",
+                    1.0 / parameters.shutter_speed_s
+                ),
+                style.clone(),
+            ),
+            TextSection::new(
+                format!("Sensitivity: ISO {:.0}\n", parameters.sensitivity_iso),
+                style.clone(),
+            ),
+            TextSection::new("\n\n", style.clone()),
+            TextSection::new("Controls\n", style.clone()),
+            TextSection::new("---------------\n", style.clone()),
+            TextSection::new("Arrow keys - Move objects\n", style.clone()),
+            TextSection::new("1/2 - Decrease/Increase aperture\n", style.clone()),
+            TextSection::new("3/4 - Decrease/Increase shutter speed\n", style.clone()),
+            TextSection::new("5/6 - Decrease/Increase sensitivity\n", style.clone()),
+            TextSection::new("R - Reset exposure", style),
+        ])
         .with_style(Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
@@ -249,6 +279,52 @@ fn setup(
             ..default()
         }),
     );
+
+    // camera
+    commands.spawn((
+        Camera3dBundle {
+            transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+            ..default()
+        },
+        ExposureSettings::from_physical_camera(**parameters),
+    ));
+}
+
+fn update_exposure(
+    key_input: Res<ButtonInput<KeyCode>>,
+    mut parameters: ResMut<Parameters>,
+    mut query: Query<&mut ExposureSettings>,
+    mut text: Query<&mut Text>,
+) {
+    // TODO: Clamp values to a reasonable range
+    let mut text = text.single_mut();
+    if key_input.just_pressed(KeyCode::Digit2) {
+        parameters.aperture_f_stops *= 2.0;
+    } else if key_input.just_pressed(KeyCode::Digit1) {
+        parameters.aperture_f_stops *= 0.5;
+    }
+    if key_input.just_pressed(KeyCode::Digit4) {
+        parameters.shutter_speed_s *= 2.0;
+    } else if key_input.just_pressed(KeyCode::Digit3) {
+        parameters.shutter_speed_s *= 0.5;
+    }
+    if key_input.just_pressed(KeyCode::Digit6) {
+        parameters.sensitivity_iso += 100.0;
+    } else if key_input.just_pressed(KeyCode::Digit5) {
+        parameters.sensitivity_iso -= 100.0;
+    }
+    if key_input.just_pressed(KeyCode::KeyR) {
+        *parameters = Parameters::default();
+    }
+
+    text.sections[0].value = format!("Aperture: f/{:.0}\n", parameters.aperture_f_stops);
+    text.sections[1].value = format!(
+        "Shutter speed: 1/{:.0}s\n",
+        1.0 / parameters.shutter_speed_s
+    );
+    text.sections[2].value = format!("Sensitivity: ISO {:.0}\n", parameters.sensitivity_iso);
+
+    *query.single_mut() = ExposureSettings::from_physical_camera(**parameters);
 }
 
 fn animate_light_direction(

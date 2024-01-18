@@ -55,7 +55,7 @@ use crate::render::{
 };
 use crate::*;
 
-use self::environment_map::RenderDeviceExt;
+use self::environment_map::binding_arrays_are_usable;
 
 use super::skin::SkinIndices;
 
@@ -426,7 +426,7 @@ impl FromWorld for MeshPipeline {
             dummy_white_gpu_image,
             mesh_layouts: MeshLayouts::new(&render_device),
             per_object_buffer_batch_size: GpuArrayBuffer::<MeshUniform>::batch_size(&render_device),
-            binding_arrays_are_available: render_device.binding_arrays_are_available(),
+            binding_arrays_are_available: binding_arrays_are_usable(&render_device),
             #[cfg(debug_assertions)]
             did_warn_about_too_many_textures: Arc::new(AtomicBool::new(false)),
         }
