@@ -5,13 +5,12 @@ mod camera_controller;
 
 use bevy::{
     pbr::{
-        meshlet::{MaterialMeshletMeshBundle, MeshletPlugin},
+        meshlet::{MaterialMeshletMeshBundle, MeshletMesh, MeshletPlugin},
         CascadeShadowConfigBuilder,
     },
     prelude::*,
     render::render_resource::AsBindGroup,
 };
-use bevy_internal::pbr::meshlet::MeshletMesh;
 use camera_controller::{CameraController, CameraControllerPlugin};
 use std::f32::consts::PI;
 
@@ -24,47 +23,8 @@ fn main() {
             CameraControllerPlugin,
         ))
         .add_systems(Startup, setup)
-        .add_systems(Update, update)
+        .add_systems(Update, draw_bounding_spheres)
         .run();
-}
-
-#[derive(Component)]
-struct MeshletDebug {
-    circles: Vec<(Vec3, f32)>,
-}
-
-fn update(
-    query: Query<(&Handle<MeshletMesh>, &Transform)>,
-    debug: Query<&MeshletDebug>,
-    camera: Query<&Transform, With<Camera>>,
-    mut commands: Commands,
-    meshlets: Res<Assets<MeshletMesh>>,
-    mut gizmos: Gizmos,
-) {
-    let camera_pos = camera.single().translation;
-    if let Ok(meshlet_debug) = debug.get_single() {
-        for circle in meshlet_debug.circles.iter() {
-            gizmos.circle(
-                circle.0,
-                (camera_pos - circle.0).normalize(),
-                circle.1,
-                Color::RED,
-            );
-        }
-        return;
-    }
-
-    for (handle, transform) in &query {
-        if let Some(meshlets) = meshlets.get(handle) {
-            let mut circles = Vec::new();
-            for bounding_sphere in (*meshlets.meshlet_bounding_spheres).iter() {
-                let center = transform.transform_point(bounding_sphere.center);
-                circles.push((center, transform.scale.x * bounding_sphere.radius));
-            }
-            commands.spawn(MeshletDebug { circles });
-            return;
-        }
-    }
 }
 
 fn setup(
@@ -73,6 +33,8 @@ fn setup(
     mut standard_materials: ResMut<Assets<StandardMaterial>>,
     mut debug_materials: ResMut<Assets<MeshletDebugMaterial>>,
 ) {
+    info!("\nMeshlet Controls:\n    Space - Toggle bounding spheres");
+
     commands.spawn((
         Camera3dBundle {
             transform: Transform::from_translation(Vec3::new(1.8, 0.4, -0.1))
@@ -143,6 +105,54 @@ fn setup(
             ..default()
         });
     }
+}
+
+fn draw_bounding_spheres(
+    query: Query<(&Handle<MeshletMesh>, &Transform), With<Handle<MeshletDebugMaterial>>>,
+    debug: Query<&MeshletBoundingSpheresDebug>,
+    camera: Query<&Transform, With<Camera>>,
+    mut commands: Commands,
+    meshlets: Res<Assets<MeshletMesh>>,
+    mut gizmos: Gizmos,
+    keys: Res<ButtonInput<KeyCode>>,
+    mut should_draw: Local<bool>,
+) {
+    if keys.just_pressed(KeyCode::Space) {
+        *should_draw = !*should_draw;
+    }
+
+    match debug.get_single() {
+        Ok(meshlet_debug) if *should_draw => {
+            let camera_pos = camera.single().translation;
+            for circle in &meshlet_debug.circles {
+                gizmos.circle(
+                    circle.0,
+                    (camera_pos - circle.0).normalize(),
+                    circle.1,
+                    Color::BLACK,
+                );
+            }
+            return;
+        }
+        Err(_) => {
+            if let Some((handle, transform)) = query.iter().last() {
+                if let Some(meshlets) = meshlets.get(handle) {
+                    let mut circles = Vec::new();
+                    for bounding_sphere in meshlets.meshlet_bounding_spheres.iter() {
+                        let center = transform.transform_point(bounding_sphere.center);
+                        circles.push((center, transform.scale.x * bounding_sphere.radius));
+                    }
+                    commands.spawn(MeshletBoundingSpheresDebug { circles });
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+#[derive(Component)]
+struct MeshletBoundingSpheresDebug {
+    circles: Vec<(Vec3, f32)>,
 }
 
 #[derive(Asset, TypePath, AsBindGroup, Clone, Default)]
