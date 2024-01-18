@@ -2,7 +2,7 @@ use crate::TextureAtlasLayout;
 use bevy_asset::{Assets, Handle};
 use bevy_math::{IVec2, Rect, Vec2};
 use bevy_render::{
-    render_asset::RenderAssetPersistencePolicy,
+    render_asset::{RenderAsset, RenderAssetUsages},
     texture::{Image, TextureFormatPixelInfo},
 };
 use guillotiere::{size2, Allocation, AtlasAllocator};
@@ -30,10 +30,11 @@ impl DynamicTextureAtlasBuilder {
         }
     }
 
-    /// Add a new texture to `atlas_layout`
-    /// It is the user's responsibility to pass in the correct [`TextureAtlasLayout`]
-    /// and that `atlas_texture_handle` has [`Image::cpu_persistent_access`]
-    /// set to [`RenderAssetPersistencePolicy::Keep`]
+    /// Add a new texture to `atlas_layout`.
+    ///
+    /// It is the user's responsibility to pass in the correct [`TextureAtlasLayout`].
+    /// Also, the asset that `atlas_texture_handle` points to must have a usage matching
+    /// [`RenderAssetUsages::MAIN_WORLD`].
     ///
     /// # Arguments
     ///
@@ -54,9 +55,11 @@ impl DynamicTextureAtlasBuilder {
         ));
         if let Some(allocation) = allocation {
             let atlas_texture = textures.get_mut(atlas_texture_handle).unwrap();
-            assert_eq!(
-                atlas_texture.cpu_persistent_access,
-                RenderAssetPersistencePolicy::Keep
+            assert!(
+                atlas_texture
+                    .usage()
+                    .contains(RenderAssetUsages::MAIN_WORLD),
+                "The asset at atlas_texture_handle must have the RenderAssetUsages::MAIN_WORLD usage flag set"
             );
 
             self.place_texture(atlas_texture, allocation, texture);

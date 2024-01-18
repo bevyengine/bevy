@@ -16,7 +16,7 @@ use bevy::{
     math::{DVec2, DVec3},
     prelude::*,
     render::{
-        render_asset::RenderAssetPersistencePolicy,
+        render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
     },
     window::{PresentMode, WindowPlugin, WindowResolution},
@@ -201,7 +201,7 @@ fn init_textures(args: &Args, images: &mut Assets<Image>) -> Vec<Handle<Image>> 
                 TextureDimension::D2,
                 pixel,
                 TextureFormat::Rgba8UnormSrgb,
-                RenderAssetPersistencePolicy::Unload,
+                RenderAssetUsages::RENDER_WORLD,
             ))
         })
         .collect()

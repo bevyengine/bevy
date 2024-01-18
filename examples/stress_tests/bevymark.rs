@@ -9,7 +9,7 @@ use bevy::{
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     render::{
-        render_asset::RenderAssetPersistencePolicy,
+        render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
     },
     sprite::{MaterialMesh2dBundle, Mesh2dHandle},
@@ -543,7 +543,7 @@ fn init_textures(textures: &mut Vec<Handle<Image>>, args: &Args, images: &mut As
             TextureDimension::D2,
             &pixel,
             TextureFormat::Rgba8UnormSrgb,
-            RenderAssetPersistencePolicy::Unload,
+            RenderAssetUsages::RENDER_WORLD,
         )));
     }
 }
