@@ -26,7 +26,12 @@ fn setup(
     deterministic_rendering_config.stable_sort_z_fighting = true;
 
     // Help message will be rendered there.
-    commands.spawn(TextBundle::default());
+    commands.spawn(TextBundle::default().with_style(Style {
+        position_type: PositionType::Absolute,
+        top: Val::Px(12.0),
+        left: Val::Px(12.0),
+        ..default()
+    }));
 
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(3.0, 3.0, 3.0).looking_at(Vec3::new(0., 0., 0.), Vec3::Y),
