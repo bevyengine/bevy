@@ -469,7 +469,7 @@ fn prepare_view_targets(
         Entity,
         &ExtractedCamera,
         &ExtractedView,
-        Option<&CameraMainTextureUsages>,
+        &CameraMainTextureUsages,
     )>,
     manual_texture_views: Res<ManualTextureViews>,
 ) {
@@ -507,11 +507,7 @@ fn prepare_view_targets(
                             sample_count: 1,
                             dimension: TextureDimension::D2,
                             format: main_texture_format,
-                            usage: if let Some(usage) = texture_usage {
-                                usage.0
-                            } else {
-                                CameraMainTextureUsages::default().0
-                            },
+                            usage: texture_usage.0,
                             view_formats: match main_texture_format {
                                 TextureFormat::Bgra8Unorm => &[TextureFormat::Bgra8UnormSrgb],
                                 TextureFormat::Rgba8Unorm => &[TextureFormat::Rgba8UnormSrgb],
