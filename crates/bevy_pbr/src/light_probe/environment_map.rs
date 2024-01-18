@@ -294,7 +294,7 @@ impl<'a> RenderViewBindGroupEntries<'a> {
         }
 
         if let Some(environment_maps) = render_view_environment_maps {
-            if let Some(cubemap) = environment_maps.binding_index_to_cubemap.get(0) {
+            if let Some(cubemap) = environment_maps.binding_index_to_cubemap.first() {
                 if let (Some(diffuse_image), Some(specular_image)) =
                     (images.get(cubemap.diffuse), images.get(cubemap.specular))
                 {

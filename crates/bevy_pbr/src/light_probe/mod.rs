@@ -181,6 +181,7 @@ impl Plugin for LightProbePlugin {
 /// performing frustum culling and distance sorting in the process.
 ///
 /// This populates the [`RenderLightProbes`] resource.
+#[allow(clippy::too_many_arguments)]
 fn gather_light_probes(
     mut render_light_probes: ResMut<RenderLightProbes>,
     image_assets: Res<RenderAssets<Image>>,
