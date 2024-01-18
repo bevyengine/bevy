@@ -684,15 +684,6 @@ pub enum NativeKey {
 
 /// The logical key code of a [`KeyboardInput`].
 ///
-/// ## Usage
-///
-/// It is used as the generic `T` value of an [`Input`] to create a `Res<Input<Key>>`.
-/// The resource values are mapped to the current layout of the keyboard and correlate to a [`KeyCode`].
-///
-/// ## Updating
-///
-/// The resource is updated inside of the [`keyboard_input_system`].
-///
 /// ## Technical
 ///
 /// Its values map 1 to 1 to winit's Key.
