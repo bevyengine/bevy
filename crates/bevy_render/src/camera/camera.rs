@@ -24,6 +24,7 @@ use bevy_math::{
     primitives::Direction3d, vec2, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, Vec3,
 };
 use bevy_reflect::prelude::*;
+use bevy_render_macros::ExtractComponent;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{HashMap, HashSet};
 use bevy_window::{
@@ -31,7 +32,7 @@ use bevy_window::{
     WindowScaleFactorChanged,
 };
 use std::{borrow::Cow, ops::Range};
-use wgpu::{BlendState, LoadOp, TextureFormat};
+use wgpu::{BlendState, LoadOp, TextureFormat, TextureUsages};
 
 use super::{ClearColorConfig, Projection};
 
@@ -747,6 +748,19 @@ pub fn camera_system<T: CameraProjection + Component>(
         if camera.computed.old_viewport_size != viewport_size {
             camera.computed.old_viewport_size = viewport_size;
         }
+    }
+}
+
+/// This component lets you control the TextureUsage field of the main texture generated for the camera
+#[derive(Component, ExtractComponent, Clone, Copy)]
+pub struct CameraMainTextureUsages(pub TextureUsages);
+impl Default for CameraMainTextureUsages {
+    fn default() -> Self {
+        Self(
+            TextureUsages::RENDER_ATTACHMENT
+                | TextureUsages::TEXTURE_BINDING
+                | TextureUsages::COPY_SRC,
+        )
     }
 }
 
