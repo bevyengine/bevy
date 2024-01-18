@@ -875,7 +875,7 @@ pub enum Key {
     /// LogOff
     LogOff,
     /// Toggle power state. (`KEYCODE_POWER`)
-    /// Note: Note: Some devices might not expose this key to the operating environment.
+    /// Note: Some devices might not expose this key to the operating environment.
     Power,
     /// The `PowerOff` key. Sometime called `PowerDown`.
     PowerOff,
