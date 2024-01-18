@@ -37,7 +37,6 @@ pub(crate) fn item_struct(
         Fields::Unnamed(_) => quote! {
             #derive_macro_call
             #item_attrs
-            #[automatically_derived]
             #visibility struct #item_struct_name #user_impl_generics_with_world #user_where_clauses_with_world(
                 #( #field_visibilities <#field_types as #path::query::WorldQuery>::Item<'__w>, )*
             );

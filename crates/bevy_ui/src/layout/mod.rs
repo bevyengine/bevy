@@ -19,7 +19,7 @@ use bevy_transform::components::Transform;
 use bevy_utils::{default, EntityHashMap, HashMap, HashSet};
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 use std::fmt;
-use taffy::Taffy;
+use taffy::{tree::LayoutTree, Taffy};
 use thiserror::Error;
 
 pub struct LayoutContext {
@@ -102,10 +102,15 @@ impl UiSurface {
         }
     }
 
-    /// Update the `MeasureFunc` of the taffy node corresponding to the given [`Entity`].
-    pub fn update_measure(&mut self, entity: Entity, measure_func: taffy::node::MeasureFunc) {
-        let taffy_node = self.entity_to_taffy.get(&entity).unwrap();
-        self.taffy.set_measure(*taffy_node, Some(measure_func)).ok();
+    /// Update the `MeasureFunc` of the taffy node corresponding to the given [`Entity`] if the node exists.
+    pub fn try_update_measure(
+        &mut self,
+        entity: Entity,
+        measure_func: taffy::node::MeasureFunc,
+    ) -> Option<()> {
+        let taffy_node = self.entity_to_taffy.get(&entity)?;
+
+        self.taffy.set_measure(*taffy_node, Some(measure_func)).ok()
     }
 
     /// Update the children of the taffy node corresponding to the given [`Entity`].
@@ -169,12 +174,19 @@ without UI components as a child of an entity with UI components, results may be
                 .iter()
                 .find(|n| n.user_root_node == node)
                 .cloned()
-                .unwrap_or_else(|| RootNodePair {
-                    implicit_viewport_node: self
-                        .taffy
-                        .new_with_children(viewport_style.clone(), &[node])
-                        .unwrap(),
-                    user_root_node: node,
+                .unwrap_or_else(|| {
+                    if let Some(previous_parent) = self.taffy.parent(node) {
+                        // remove the root node from the previous implicit node's children
+                        self.taffy.remove_child(previous_parent, node).unwrap();
+                    }
+
+                    RootNodePair {
+                        implicit_viewport_node: self
+                            .taffy
+                            .new_with_children(viewport_style.clone(), &[node])
+                            .unwrap(),
+                        user_root_node: node,
+                    }
                 });
             new_roots.push(root_node);
         }
@@ -298,7 +310,7 @@ pub fn ui_layout_system(
             Some(camera_entity) => {
                 let Ok((_, camera)) = cameras.get(camera_entity) else {
                     warn!(
-                        "TargetCamera is pointing to a camera {:?} which doesn't exist",
+                        "TargetCamera (of root UI node {entity:?}) is pointing to a camera {:?} which doesn't exist",
                         camera_entity
                     );
                     continue;
@@ -349,7 +361,7 @@ pub fn ui_layout_system(
     }
     for (entity, mut content_size) in &mut measure_query {
         if let Some(measure_func) = content_size.measure_func.take() {
-            ui_surface.update_measure(entity, measure_func);
+            ui_surface.try_update_measure(entity, measure_func);
         }
     }
 
