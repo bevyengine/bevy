@@ -733,6 +733,7 @@ impl MeshletGpuScene {
         self.previous_thread_id_starts
             .values_mut()
             .for_each(|(_, active)| *active = false);
+        // TODO: Remove unused entries for previous_occlusion_buffers
     }
 
     /// TODO: Documentation
