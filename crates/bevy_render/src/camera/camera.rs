@@ -751,7 +751,7 @@ pub fn camera_system<T: CameraProjection + Component>(
     }
 }
 
-/// This component lets you control the TextureUsage field of the main texture generated for the camera
+/// This component lets you control the [`TextureUsages`] field of the main texture generated for the camera
 #[derive(Component, ExtractComponent, Clone, Copy)]
 pub struct CameraMainTextureUsages(pub TextureUsages);
 impl Default for CameraMainTextureUsages {
