@@ -1516,9 +1516,9 @@ mod tests {
     };
     use bevy_utils::{Duration, Instant};
     use bevy_utils::{EntityHashMap, HashMap};
+    use static_assertions::assert_impl_all;
     use std::f32::consts::{PI, TAU};
     use std::path::Path;
-    use static_assertions::assert_impl_all;
 
     // EntityHashMap should implement Reflect
     assert_impl_all!(EntityHashMap<i32, i32>: Reflect);
