@@ -194,8 +194,6 @@ mod sealed {
 
 /// A collection of [run conditions](Condition) that may be useful in any bevy app.
 pub mod common_conditions {
-    use std::sync::Once;
-
     use bevy_utils::tracing::warn;
 
     use super::NotSystem;
@@ -205,7 +203,7 @@ pub mod common_conditions {
         prelude::{Component, Query, With},
         removal_detection::RemovedComponents,
         schedule::{State, States},
-        system::{IntoSystem, Res, Resource, System},
+        system::{IntoSystem, Local, Res, Resource, System},
     };
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
@@ -750,12 +748,23 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
     /// ```
-    pub fn in_state<S: States>(state: S) -> impl FnMut(Option<Res<State<S>>>) -> bool + Clone {
-        move |current_state: Option<Res<State<S>>>| match current_state {
+    pub fn in_state<S: States>(
+        state: S,
+    ) -> impl FnMut(Local<bool>, Option<Res<State<S>>>) -> bool + Clone {
+        move |warned: Local<bool>, current_state: Option<Res<State<S>>>| match current_state {
             Some(current_state) => *current_state == state,
             None => {
+                if !*warned.0 {
+                    let debug_state = format!("{state:?}");
+                    let type_name = debug_state
+                        .split("::")
+                        .next()
+                        .unwrap_or("Unknown State Type");
+                    warn!("No state matching the type for {type_name:?} exists - did you forget to `add_state` when initializing the app?");
+                    *warned.0 = true;
+                }
                 false
-            },
+            }
         }
     }
 
@@ -816,7 +825,7 @@ pub mod common_conditions {
     #[deprecated(since = "0.13.0", note = "use `in_state` instead.")]
     pub fn state_exists_and_equals<S: States>(
         state: S,
-    ) -> impl FnMut(Option<Res<State<S>>>) -> bool + Clone {
+    ) -> impl  FnMut(Local<bool>, Option<Res<State<S>>>) -> bool + Clone {
         in_state(state)
     }
 
