@@ -47,14 +47,15 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
 
 #ifdef MESHLET_SECOND_CULLING_PASS
     // In the second culling pass, cull against the depth pyramid generated from the first pass
-    var aabb: vec4<f32>;
     let bounding_sphere_center_view_space = (view.inverse_view * vec4(bounding_sphere_center.xyz, 1.0)).xyz;
-    if meshlet_visible && try_project_sphere(bounding_sphere_center_view_space, bounding_sphere_radius, &aabb) {
-        let depth_pyramid_size = vec2<f32>(textureDimensions(depth_pyramid));
+    if meshlet_visible {
+        let aabb = try_project_sphere(bounding_sphere_center_view_space, bounding_sphere_radius);
+        let depth_pyramid_size = vec2<f32>(textureDimensions(depth_pyramid, 0));
         let width = (aabb.z - aabb.x) * depth_pyramid_size.x;
         let height = (aabb.w - aabb.y) * depth_pyramid_size.y;
-        let depth_level = i32(ceil(log2(max(width, height)))); // TODO: Naga dosen't like this being a u32
-        let aabb_top_left = vec2<u32>(aabb.xy * depth_pyramid_size);
+        let depth_level = max(0,i32(ceil(log2(max(width, height))))); // TODO: Naga doesn't like this being a u32
+        let depth_mip_size = vec2<f32>(textureDimensions(depth_pyramid, depth_level));
+        let aabb_top_left = vec2<u32>(aabb.xy * depth_mip_size);
 
         let depth_quad_a = textureLoad(depth_pyramid, aabb_top_left, depth_level).x;
         let depth_quad_b = textureLoad(depth_pyramid, aabb_top_left + vec2(1u, 0u), depth_level).x;
@@ -73,12 +74,9 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
 }
 
 // https://zeux.io/2023/01/12/approximate-projected-bounds
-fn try_project_sphere(cp: vec3<f32>, r: f32, aabb_out: ptr<function, vec4<f32>>) -> bool {
+fn try_project_sphere(cp: vec3<f32>, r: f32) -> vec4<f32> {
     let c = vec3(cp.xy, -cp.z);
-
-    if c.z < r + view.projection[3][2] {
-        return false;
-    }
+    // No need to clip near plane because frustum culling already got them
 
     let cr = c * r;
     let czr2 = c.z * c.z - r * r;
@@ -95,8 +93,5 @@ fn try_project_sphere(cp: vec3<f32>, r: f32, aabb_out: ptr<function, vec4<f32>>)
     let p11 = view.projection[1][1];
 
     var aabb = vec4(min_x * p00, min_y * p11, max_x * p00, max_y * p11);
-    aabb = aabb.xwzy * vec4(0.5, -0.5, 0.5, -0.5) + vec4(0.5);
-
-    *aabb_out = aabb;
-    return true;
+    return aabb.xwzy * vec4(0.5, -0.5, 0.5, -0.5) + vec4(0.5);
 }

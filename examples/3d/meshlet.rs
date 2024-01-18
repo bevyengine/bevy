@@ -11,6 +11,7 @@ use bevy::{
     prelude::*,
     render::render_resource::AsBindGroup,
 };
+use bevy_internal::pbr::meshlet::MeshletMesh;
 use camera_controller::{CameraController, CameraControllerPlugin};
 use std::f32::consts::PI;
 
@@ -23,7 +24,47 @@ fn main() {
             CameraControllerPlugin,
         ))
         .add_systems(Startup, setup)
+        .add_systems(Update, update)
         .run();
+}
+
+#[derive(Component)]
+struct MeshletDebug {
+    circles: Vec<(Vec3, f32)>,
+}
+
+fn update(
+    query: Query<(&Handle<MeshletMesh>, &Transform)>,
+    debug: Query<&MeshletDebug>,
+    camera: Query<&Transform, With<Camera>>,
+    mut commands: Commands,
+    meshlets: Res<Assets<MeshletMesh>>,
+    mut gizmos: Gizmos,
+) {
+    let camera_pos = camera.single().translation;
+    if let Ok(meshlet_debug) = debug.get_single() {
+        for circle in meshlet_debug.circles.iter() {
+            gizmos.circle(
+                circle.0,
+                (camera_pos - circle.0).normalize(),
+                circle.1,
+                Color::RED,
+            );
+        }
+        return;
+    }
+
+    for (handle, transform) in &query {
+        if let Some(meshlets) = meshlets.get(handle) {
+            let mut circles = Vec::new();
+            for bounding_sphere in (*meshlets.meshlet_bounding_spheres).iter() {
+                let center = transform.transform_point(bounding_sphere.center);
+                circles.push((center, transform.scale.x * bounding_sphere.radius));
+            }
+            commands.spawn(MeshletDebug { circles });
+            return;
+        }
+    }
 }
 
 fn setup(
