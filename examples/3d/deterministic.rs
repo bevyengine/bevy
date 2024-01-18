@@ -34,8 +34,9 @@ fn setup(
     });
 
     let mesh = meshes.add(Plane::from_size(2.0));
-    for i in 0..360 {
-        let color = Color::hsl(i as f32, 1.0, 0.5);
+    let nb_plane = 10;
+    for i in 0..nb_plane {
+        let color = Color::hsl(i as f32 * 360.0 / nb_plane as f32, 1.0, 0.5);
         commands.spawn(PbrBundle {
             mesh: mesh.clone(),
             material: materials.add(StandardMaterial {
