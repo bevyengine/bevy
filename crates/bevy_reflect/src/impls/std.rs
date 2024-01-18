@@ -201,6 +201,8 @@ impl_reflect_value!(::core::num::NonZeroI8(
     Serialize,
     Deserialize
 ));
+impl_reflect_value!(::core::num::Wrapping<T: Clone + Send + Sync>());
+impl_reflect_value!(::core::num::Saturating<T: Clone + Send + Sync>());
 impl_reflect_value!(::std::sync::Arc<T: Send + Sync>);
 
 // `Serialize` and `Deserialize` only for platforms supported by serde:
