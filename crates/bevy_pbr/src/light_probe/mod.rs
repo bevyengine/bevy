@@ -31,6 +31,8 @@ use crate::light_probe::environment_map::{
     ENVIRONMENT_MAP_SHADER_HANDLE,
 };
 
+use self::environment_map::RenderDeviceExt;
+
 pub mod environment_map;
 
 /// The maximum number of reflection probes that each view will consider.
@@ -165,6 +167,7 @@ impl Plugin for LightProbePlugin {
 fn gather_light_probes(
     mut render_light_probes: ResMut<RenderLightProbes>,
     image_assets: Res<RenderAssets<Image>>,
+    render_device: Res<RenderDevice>,
     light_probe_query: Extract<Query<(&GlobalTransform, &EnvironmentMapLight), With<LightProbe>>>,
     view_query: Extract<
         Query<
@@ -207,8 +210,12 @@ fn gather_light_probes(
         });
 
         // Create the light probes uniform.
-        let (light_probes_uniform, render_view_environment_maps) =
-            LightProbesUniform::build(view_environment_maps, &view_light_probes, &image_assets);
+        let (light_probes_uniform, render_view_environment_maps) = LightProbesUniform::build(
+            view_environment_maps,
+            &view_light_probes,
+            &image_assets,
+            &render_device,
+        );
 
         // Record the uniforms.
         render_light_probes.insert(view_entity, light_probes_uniform);
@@ -271,6 +278,7 @@ impl LightProbesUniform {
         view_environment_maps: Option<&EnvironmentMapLight>,
         light_probes: &[LightProbeInfo],
         image_assets: &RenderAssets<Image>,
+        render_device: &RenderDevice,
     ) -> (LightProbesUniform, RenderViewEnvironmentMaps) {
         let mut render_view_environment_maps = RenderViewEnvironmentMaps::new();
 
@@ -306,23 +314,27 @@ impl LightProbesUniform {
 
         // Add reflection probes from the scene, if supported by the current
         // platform.
-        uniform.maybe_gather_reflection_probes(&mut render_view_environment_maps, light_probes);
+        uniform.maybe_gather_reflection_probes(
+            &mut render_view_environment_maps,
+            light_probes,
+            render_device,
+        );
+
         (uniform, render_view_environment_maps)
     }
 
     /// Gathers up all reflection probes in the scene and writes them into this
     /// uniform and `render_view_environment_maps`.
-    #[cfg(all(
-        not(feature = "shader_format_glsl"),
-        not(target_arch = "wasm32"),
-        not(target_os = "ios"),
-        not(target_os = "android")
-    ))]
     fn maybe_gather_reflection_probes(
         &mut self,
         render_view_environment_maps: &mut RenderViewEnvironmentMaps,
         light_probes: &[LightProbeInfo],
+        render_device: &RenderDevice,
     ) {
+        if !render_device.binding_arrays_are_available() {
+            return;
+        }
+
         for (reflection_probe, light_probe) in self
             .reflection_probes
             .iter_mut()
@@ -348,21 +360,6 @@ impl LightProbesUniform {
                 cubemap_index,
             };
         }
-    }
-
-    /// This is the version of `maybe_gather_reflection_probes` used on
-    /// platforms in which binding arrays aren't available. It's simply a no-op.
-    #[cfg(any(
-        feature = "shader_format_glsl",
-        target_arch = "wasm32",
-        target_os = "ios",
-        target_os = "android"
-    ))]
-    fn maybe_gather_reflection_probes(
-        &mut self,
-        _: &mut RenderViewEnvironmentMaps,
-        _: &[LightProbeInfo],
-    ) {
     }
 }
 

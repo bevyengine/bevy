@@ -167,6 +167,7 @@ fn buffer_layout(
 fn layout_entries(
     clustered_forward_buffer_binding_type: BufferBindingType,
     layout_key: MeshPipelineViewLayoutKey,
+    render_device: &RenderDevice,
 ) -> Vec<BindGroupLayoutEntry> {
     let mut entries = DynamicBindGroupLayoutEntries::new_with_indices(
         ShaderStages::FRAGMENT,
@@ -246,7 +247,7 @@ fn layout_entries(
     );
 
     // EnvironmentMapLight
-    let environment_map_entries = environment_map::get_bind_group_layout_entries();
+    let environment_map_entries = environment_map::get_bind_group_layout_entries(render_device);
     entries = entries.extend_with_indices((
         (13, environment_map_entries[0]),
         (14, environment_map_entries[1]),
@@ -295,7 +296,7 @@ pub fn generate_view_layouts(
 ) -> [MeshPipelineViewLayout; MeshPipelineViewLayoutKey::COUNT] {
     array::from_fn(|i| {
         let key = MeshPipelineViewLayoutKey::from_bits_truncate(i as u32);
-        let entries = layout_entries(clustered_forward_buffer_binding_type, key);
+        let entries = layout_entries(clustered_forward_buffer_binding_type, key, render_device);
 
         #[cfg(debug_assertions)]
         let texture_count: usize = entries
@@ -407,12 +408,33 @@ pub fn prepare_mesh_view_bind_groups(
                 render_view_environment_maps,
                 &images,
                 &fallback_image,
+                &render_device,
             );
-            entries = entries.extend_with_indices((
-                (13, bind_group_entries.diffuse_texture_views()),
-                (14, bind_group_entries.specular_texture_views()),
-                (15, bind_group_entries.sampler),
-            ));
+
+            match bind_group_entries {
+                RenderViewBindGroupEntries::Single {
+                    diffuse_texture_view,
+                    specular_texture_view,
+                    sampler,
+                } => {
+                    entries = entries.extend_with_indices((
+                        (13, diffuse_texture_view),
+                        (14, specular_texture_view),
+                        (15, sampler),
+                    ));
+                }
+                RenderViewBindGroupEntries::Multiple {
+                    ref diffuse_texture_views,
+                    ref specular_texture_views,
+                    sampler,
+                } => {
+                    entries = entries.extend_with_indices((
+                        (13, diffuse_texture_views.as_slice()),
+                        (14, specular_texture_views.as_slice()),
+                        (15, sampler),
+                    ));
+                }
+            }
 
             let lut_bindings = get_lut_bindings(&images, &tonemapping_luts, tonemapping);
             entries = entries.extend_with_indices(((16, lut_bindings.0), (17, lut_bindings.1)));

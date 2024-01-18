@@ -55,6 +55,8 @@ use crate::render::{
 };
 use crate::*;
 
+use self::environment_map::RenderDeviceExt;
+
 use super::skin::SkinIndices;
 
 #[derive(Default)]
@@ -364,6 +366,7 @@ pub struct MeshPipeline {
     /// ##endif // PER_OBJECT_BUFFER_BATCH_SIZE
     /// ```
     pub per_object_buffer_batch_size: Option<u32>,
+    pub binding_arrays_are_available: bool,
 
     #[cfg(debug_assertions)]
     pub did_warn_about_too_many_textures: Arc<AtomicBool>,
@@ -423,6 +426,7 @@ impl FromWorld for MeshPipeline {
             dummy_white_gpu_image,
             mesh_layouts: MeshLayouts::new(&render_device),
             per_object_buffer_batch_size: GpuArrayBuffer::<MeshUniform>::batch_size(&render_device),
+            binding_arrays_are_available: render_device.binding_arrays_are_available(),
             #[cfg(debug_assertions)]
             did_warn_about_too_many_textures: Arc::new(AtomicBool::new(false)),
         }
@@ -874,13 +878,9 @@ impl SpecializedMeshPipeline for MeshPipeline {
             },
         ));
 
-        #[cfg(all(
-            not(feature = "shader_format_glsl"),
-            not(target_arch = "wasm32"),
-            not(target_os = "ios"),
-            not(target_os = "android")
-        ))]
-        shader_defs.push("MULTIPLE_LIGHT_PROBES_IN_ARRAY".into());
+        if self.binding_arrays_are_available {
+            shader_defs.push("MULTIPLE_LIGHT_PROBES_IN_ARRAY".into());
+        }
 
         let format = if key.contains(MeshPipelineKey::HDR) {
             ViewTarget::TEXTURE_FORMAT_HDR

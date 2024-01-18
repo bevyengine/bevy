@@ -59,32 +59,14 @@ use bevy_render::{
         binding_types, BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, Shader,
         TextureSampleType, TextureView,
     },
+    renderer::RenderDevice,
     texture::{FallbackImage, Image},
 };
-
-#[cfg(all(
-    not(feature = "shader_format_glsl"),
-    not(target_arch = "wasm32"),
-    not(target_os = "ios"),
-    not(target_os = "android")
-))]
 use bevy_utils::HashMap;
-#[cfg(all(
-    not(feature = "shader_format_glsl"),
-    not(target_arch = "wasm32"),
-    not(target_os = "ios"),
-    not(target_os = "android")
-))]
 use std::num::NonZeroU32;
-#[cfg(all(
-    not(feature = "shader_format_glsl"),
-    not(target_arch = "wasm32"),
-    not(target_os = "ios"),
-    not(target_os = "android")
-))]
 use std::ops::Deref;
 
-use crate::LightProbe;
+use crate::{LightProbe, MAX_VIEW_REFLECTION_PROBES};
 
 /// A handle to the environment map helper shader.
 pub const ENVIRONMENT_MAP_SHADER_HANDLE: Handle<Shader> =
@@ -142,12 +124,6 @@ pub struct ReflectionProbeBundle {
 /// This component is attached to each view in the render world, because each
 /// view may have a different set of cubemaps that it considers and therefore
 /// cubemap indices are per-view.
-#[cfg(all(
-    not(feature = "shader_format_glsl"),
-    not(target_arch = "wasm32"),
-    not(target_os = "ios"),
-    not(target_os = "android")
-))]
 #[derive(Component, Default)]
 pub struct RenderViewEnvironmentMaps {
     /// The list of environment maps presented to the shader, in order.
@@ -157,67 +133,45 @@ pub struct RenderViewEnvironmentMaps {
     cubemap_to_binding_index: HashMap<EnvironmentMapIds, u32>,
 }
 
-/// A component, part of the render world, that stores the ID of the environment
-/// map attached to each view.
-///
-/// This is a simplified version of the structure used when binding arrays are
-/// not available on the current platform.
-#[cfg(any(
-    feature = "shader_format_glsl",
-    target_arch = "wasm32",
-    target_os = "ios",
-    target_os = "android"
-))]
-#[derive(Component, Default)]
-pub struct RenderViewEnvironmentMaps {
-    /// The environment map attached to the view, if any.
-    cubemap: Option<EnvironmentMapIds>,
-}
-
 /// All the bind group entries necessary for PBR shaders to access the
 /// environment maps exposed to a view.
-#[cfg(all(
-    not(feature = "shader_format_glsl"),
-    not(target_arch = "wasm32"),
-    not(target_os = "ios"),
-    not(target_os = "android")
-))]
-pub(crate) struct RenderViewBindGroupEntries<'a> {
-    /// A texture view of each diffuse cubemap, in the same order that they are
-    /// supplied to the view (i.e. in the same order as
-    /// `binding_index_to_cubemap` in [`RenderViewEnvironmentMaps`]).
-    ///
-    /// This is a vector of `wgpu::TextureView`s. But we don't want to import
-    /// `wgpu` in this crate, so we refer to it indirectly like this.
-    diffuse_texture_views: Vec<&'a <TextureView as Deref>::Target>,
+pub(crate) enum RenderViewBindGroupEntries<'a> {
+    /// The version used when binding arrays aren't available on the current
+    /// platform.
+    Single {
+        /// The texture view of the view's diffuse cubemap.
+        diffuse_texture_view: &'a TextureView,
 
-    /// As above, but for specular cubemaps.
-    specular_texture_views: Vec<&'a <TextureView as Deref>::Target>,
+        /// The texture view of the view's specular cubemap.
+        specular_texture_view: &'a TextureView,
 
-    /// The sampler used to sample elements of both `diffuse_texture_views` and
-    /// `specular_texture_views`.
-    pub(crate) sampler: &'a Sampler,
+        /// The sampler used to sample elements of both `diffuse_texture_views` and
+        /// `specular_texture_views`.
+        sampler: &'a Sampler,
+    },
+
+    /// The version used when binding arrays aren't available on the current
+    /// platform.
+    Multiple {
+        /// A texture view of each diffuse cubemap, in the same order that they are
+        /// supplied to the view (i.e. in the same order as
+        /// `binding_index_to_cubemap` in [`RenderViewEnvironmentMaps`]).
+        ///
+        /// This is a vector of `wgpu::TextureView`s. But we don't want to import
+        /// `wgpu` in this crate, so we refer to it indirectly like this.
+        diffuse_texture_views: Vec<&'a <TextureView as Deref>::Target>,
+
+        /// As above, but for specular cubemaps.
+        specular_texture_views: Vec<&'a <TextureView as Deref>::Target>,
+
+        /// The sampler used to sample elements of both `diffuse_texture_views` and
+        /// `specular_texture_views`.
+        sampler: &'a Sampler,
+    },
 }
 
-/// All the bind group entries necessary for PBR shaders to access the
-/// environment maps exposed to a view.
-///
-/// This is the version used when binding arrays are not available on the
-/// current platform.
-#[cfg(any(
-    feature = "shader_format_glsl",
-    target_arch = "wasm32",
-    target_os = "ios",
-    target_os = "android"
-))]
-pub(crate) struct RenderViewBindGroupEntries<'a> {
-    /// The texture view of the view's diffuse cubemap.
-    diffuse_texture_view: &'a TextureView,
-    /// The texture view of the view's specular cubemap.
-    specular_texture_view: &'a TextureView,
-    /// The sampler used to sample elements of both `diffuse_texture_view` and
-    /// `specular_texture_view`.
-    pub(crate) sampler: &'a Sampler,
+pub(crate) trait RenderDeviceExt {
+    fn binding_arrays_are_available(&self) -> bool;
 }
 
 impl ExtractInstance for EnvironmentMapIds {
@@ -239,12 +193,6 @@ impl RenderViewEnvironmentMaps {
     }
 }
 
-#[cfg(all(
-    not(feature = "shader_format_glsl"),
-    not(target_arch = "wasm32"),
-    not(target_os = "ios"),
-    not(target_os = "android")
-))]
 impl RenderViewEnvironmentMaps {
     /// Whether there are no environment maps associated with the view.
     pub(crate) fn is_empty(&self) -> bool {
@@ -265,59 +213,21 @@ impl RenderViewEnvironmentMaps {
     }
 }
 
-#[cfg(any(
-    feature = "shader_format_glsl",
-    target_arch = "wasm32",
-    target_os = "ios",
-    target_os = "android"
-))]
-impl RenderViewEnvironmentMaps {
-    /// Returns true if there is no environment map for this view or false if
-    /// there is such an environment map.
-    pub(crate) fn is_empty(&self) -> bool {
-        self.cubemap.is_none()
-    }
-
-    /// Sets the environment map attached to this view, replacing the previous
-    /// one if any.
-    pub(crate) fn get_or_insert_cubemap(&mut self, cubemap_id: &EnvironmentMapIds) -> u32 {
-        self.cubemap = Some(*cubemap_id);
-        0
-    }
-}
-
 /// Returns the bind group layout entries for the environment map diffuse and
 /// specular binding arrays respectively, in addition to the sampler.
-#[cfg(all(
-    not(feature = "shader_format_glsl"),
-    not(target_arch = "wasm32"),
-    not(target_os = "ios"),
-    not(target_os = "android")
-))]
-pub(crate) fn get_bind_group_layout_entries() -> [BindGroupLayoutEntryBuilder; 3] {
-    use crate::MAX_VIEW_REFLECTION_PROBES;
+pub(crate) fn get_bind_group_layout_entries(
+    render_device: &RenderDevice,
+) -> [BindGroupLayoutEntryBuilder; 3] {
+    let mut texture_cube_binding =
+        binding_types::texture_cube(TextureSampleType::Float { filterable: true });
+    if render_device.binding_arrays_are_available() {
+        texture_cube_binding =
+            texture_cube_binding.count(NonZeroU32::new(MAX_VIEW_REFLECTION_PROBES as _).unwrap());
+    }
 
     [
-        binding_types::texture_cube(TextureSampleType::Float { filterable: true })
-            .count(NonZeroU32::new(MAX_VIEW_REFLECTION_PROBES as _).unwrap()),
-        binding_types::texture_cube(TextureSampleType::Float { filterable: true })
-            .count(NonZeroU32::new(MAX_VIEW_REFLECTION_PROBES as _).unwrap()),
-        binding_types::sampler(SamplerBindingType::Filtering),
-    ]
-}
-
-/// Returns the bind group layout entries for the environment map diffuse and
-/// specular textures respectively, in addition to the sampler.
-#[cfg(any(
-    feature = "shader_format_glsl",
-    target_arch = "wasm32",
-    target_os = "ios",
-    target_os = "android"
-))]
-pub(crate) fn get_bind_group_layout_entries() -> [BindGroupLayoutEntryBuilder; 3] {
-    [
-        binding_types::texture_cube(TextureSampleType::Float { filterable: true }),
-        binding_types::texture_cube(TextureSampleType::Float { filterable: true }),
+        texture_cube_binding,
+        texture_cube_binding,
         binding_types::sampler(SamplerBindingType::Filtering),
     ]
 }
@@ -325,89 +235,69 @@ pub(crate) fn get_bind_group_layout_entries() -> [BindGroupLayoutEntryBuilder; 3
 impl<'a> RenderViewBindGroupEntries<'a> {
     /// Looks up and returns the bindings for the environment map diffuse and
     /// specular binding arrays respectively, as well as the sampler.
-    #[cfg(all(
-        not(feature = "shader_format_glsl"),
-        not(target_arch = "wasm32"),
-        not(target_os = "ios"),
-        not(target_os = "android")
-    ))]
     pub(crate) fn get(
         render_view_environment_maps: Option<&RenderViewEnvironmentMaps>,
         images: &'a RenderAssets<Image>,
         fallback_image: &'a FallbackImage,
+        render_device: &RenderDevice,
     ) -> RenderViewBindGroupEntries<'a> {
-        use crate::MAX_VIEW_REFLECTION_PROBES;
+        if render_device.binding_arrays_are_available() {
+            let mut diffuse_texture_views = vec![];
+            let mut specular_texture_views = vec![];
+            let mut sampler = None;
 
-        let mut diffuse_texture_views = vec![];
-        let mut specular_texture_views = vec![];
-        let mut sampler = None;
+            if let Some(environment_maps) = render_view_environment_maps {
+                for &cubemap_id in &environment_maps.binding_index_to_cubemap {
+                    add_texture_view(
+                        &mut diffuse_texture_views,
+                        &mut sampler,
+                        cubemap_id.diffuse,
+                        images,
+                        fallback_image,
+                    );
+                    add_texture_view(
+                        &mut specular_texture_views,
+                        &mut sampler,
+                        cubemap_id.specular,
+                        images,
+                        fallback_image,
+                    );
+                }
+            }
+
+            // Pad out the bindings to the size of the binding array using fallback
+            // textures. This is necessary on D3D12 and Metal.
+            diffuse_texture_views.resize(
+                MAX_VIEW_REFLECTION_PROBES,
+                &*fallback_image.cube.texture_view,
+            );
+            specular_texture_views.resize(
+                MAX_VIEW_REFLECTION_PROBES,
+                &*fallback_image.cube.texture_view,
+            );
+
+            return RenderViewBindGroupEntries::Multiple {
+                diffuse_texture_views,
+                specular_texture_views,
+                sampler: sampler.unwrap_or(&fallback_image.cube.sampler),
+            };
+        }
 
         if let Some(environment_maps) = render_view_environment_maps {
-            for &cubemap_id in &environment_maps.binding_index_to_cubemap {
-                add_texture_view(
-                    &mut diffuse_texture_views,
-                    &mut sampler,
-                    cubemap_id.diffuse,
-                    images,
-                    fallback_image,
-                );
-                add_texture_view(
-                    &mut specular_texture_views,
-                    &mut sampler,
-                    cubemap_id.specular,
-                    images,
-                    fallback_image,
-                );
+            if let Some(cubemap) = environment_maps.binding_index_to_cubemap.get(0) {
+                if let (Some(diffuse_image), Some(specular_image)) =
+                    (images.get(cubemap.diffuse), images.get(cubemap.specular))
+                {
+                    return RenderViewBindGroupEntries::Single {
+                        diffuse_texture_view: &diffuse_image.texture_view,
+                        specular_texture_view: &specular_image.texture_view,
+                        sampler: &diffuse_image.sampler,
+                    };
+                }
             }
         }
 
-        // Pad out the bindings to the size of the binding array using fallback
-        // textures. This is necessary on D3D12 and Metal.
-        diffuse_texture_views.resize(
-            MAX_VIEW_REFLECTION_PROBES,
-            &*fallback_image.cube.texture_view,
-        );
-        specular_texture_views.resize(
-            MAX_VIEW_REFLECTION_PROBES,
-            &*fallback_image.cube.texture_view,
-        );
-
-        RenderViewBindGroupEntries {
-            diffuse_texture_views,
-            specular_texture_views,
-            sampler: sampler.unwrap_or(&fallback_image.cube.sampler),
-        }
-    }
-
-    /// Looks up and returns the bindings for the environment map diffuse and
-    /// specular bindings respectively, as well as the sampler.
-    #[cfg(any(
-        feature = "shader_format_glsl",
-        target_arch = "wasm32",
-        target_os = "ios",
-        target_os = "android"
-    ))]
-    pub(crate) fn get(
-        render_view_environment_maps: Option<&RenderViewEnvironmentMaps>,
-        images: &'a RenderAssets<Image>,
-        fallback_image: &'a FallbackImage,
-    ) -> RenderViewBindGroupEntries<'a> {
-        if let Some(&RenderViewEnvironmentMaps {
-            cubemap: Some(ref cubemap),
-        }) = render_view_environment_maps
-        {
-            if let (Some(diffuse_image), Some(specular_image)) =
-                (images.get(cubemap.diffuse), images.get(cubemap.specular))
-            {
-                return RenderViewBindGroupEntries {
-                    diffuse_texture_view: &diffuse_image.texture_view,
-                    specular_texture_view: &specular_image.texture_view,
-                    sampler: &diffuse_image.sampler,
-                };
-            }
-        }
-
-        RenderViewBindGroupEntries {
+        RenderViewBindGroupEntries::Single {
             diffuse_texture_view: &fallback_image.cube.texture_view,
             specular_texture_view: &fallback_image.cube.texture_view,
             sampler: &fallback_image.cube.sampler,
@@ -417,12 +307,6 @@ impl<'a> RenderViewBindGroupEntries<'a> {
 
 /// Adds a diffuse or specular texture view to the `texture_views` list, and
 /// populates `sampler` if this is the first such view.
-#[cfg(all(
-    not(feature = "shader_format_glsl"),
-    not(target_arch = "wasm32"),
-    not(target_os = "ios"),
-    not(target_os = "android")
-))]
 fn add_texture_view<'a>(
     texture_views: &mut Vec<&'a <TextureView as Deref>::Target>,
     sampler: &mut Option<&'a Sampler>,
@@ -446,40 +330,13 @@ fn add_texture_view<'a>(
     }
 }
 
-#[cfg(all(
-    not(feature = "shader_format_glsl"),
-    not(target_arch = "wasm32"),
-    not(target_os = "ios"),
-    not(target_os = "android")
-))]
-impl<'a> RenderViewBindGroupEntries<'a> {
-    /// Returns a list of texture views of each diffuse cubemap, in binding
-    /// order.
-    pub(crate) fn diffuse_texture_views(&'a self) -> &'a [&'a <TextureView as Deref>::Target] {
-        self.diffuse_texture_views.as_slice()
-    }
+impl RenderDeviceExt for RenderDevice {
+    fn binding_arrays_are_available(&self) -> bool {
+        use bevy_render::settings::WgpuFeatures;
 
-    /// Returns a list of texture views of each specular cubemap, in binding
-    /// order.
-    pub(crate) fn specular_texture_views(&'a self) -> &'a [&'a <TextureView as Deref>::Target] {
-        self.specular_texture_views.as_slice()
-    }
-}
-
-#[cfg(any(
-    feature = "shader_format_glsl",
-    target_arch = "wasm32",
-    target_os = "ios",
-    target_os = "android"
-))]
-impl<'a> RenderViewBindGroupEntries<'a> {
-    /// Returns the texture view corresponding to the view's diffuse cubemap.
-    pub(crate) fn diffuse_texture_views(&self) -> &'a TextureView {
-        self.diffuse_texture_view
-    }
-
-    /// Returns the texture view corresponding to the view's specular cubemap.
-    pub(crate) fn specular_texture_views(&self) -> &'a TextureView {
-        self.specular_texture_view
+        !cfg!(feature = "shader_format_glsl")
+            && self
+                .features()
+                .contains(WgpuFeatures::TEXTURE_BINDING_ARRAY)
     }
 }
