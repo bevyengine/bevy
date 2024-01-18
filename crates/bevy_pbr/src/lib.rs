@@ -17,7 +17,9 @@ mod ssao;
 
 pub use alpha::*;
 pub use bundle::*;
-pub use environment_map::EnvironmentMapLight;
+pub use environment_map::{
+    EnvironmentMapLight, GenerateEnvironmentMapLight, GenerateEnvironmentMapLightTextureFormat,
+};
 pub use extended_material::*;
 pub use fog::*;
 pub use light::*;
@@ -71,7 +73,7 @@ use bevy_render::{
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::TransformSystem;
-use environment_map::EnvironmentMapPlugin;
+use environment_map::EnvironmentMapLightPlugin;
 
 use crate::deferred::DeferredPbrLightingPlugin;
 
@@ -255,7 +257,7 @@ impl Plugin for PbrPlugin {
                     ..Default::default()
                 },
                 ScreenSpaceAmbientOcclusionPlugin,
-                EnvironmentMapPlugin,
+                EnvironmentMapLightPlugin,
                 ExtractResourcePlugin::<AmbientLight>::default(),
                 FogPlugin,
                 ExtractResourcePlugin::<DefaultOpaqueRendererMethod>::default(),

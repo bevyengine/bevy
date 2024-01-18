@@ -1,24 +1,53 @@
-use bevy_app::{App, Plugin};
+mod generate_from_skybox;
+
+use bevy_app::{App, Last, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
-use bevy_core_pipeline::prelude::Camera3d;
-use bevy_ecs::{prelude::Component, query::With};
+use bevy_core_pipeline::{
+    core_3d::{self, CORE_3D},
+    prelude::Camera3d,
+};
+use bevy_ecs::{
+    prelude::Component,
+    query::{QueryItem, With},
+    schedule::IntoSystemConfigs,
+};
 use bevy_reflect::Reflect;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_asset::RenderAssets,
+    render_graph::{RenderGraphApp, ViewNodeRunner},
     render_resource::{
         binding_types::{sampler, texture_cube},
         *,
     },
     texture::{FallbackImageCubemap, Image},
+    Render, RenderApp, RenderSet,
 };
+use generate_from_skybox::{
+    generate_dummy_environment_map_lights_for_skyboxes,
+    prepare_generate_environment_map_lights_for_skyboxes_bind_groups,
+    GenerateEnvironmentMapLightNode, GenerateEnvironmentMapLightResources,
+};
+pub use generate_from_skybox::{
+    GenerateEnvironmentMapLight, GenerateEnvironmentMapLightTextureFormat,
+};
+
+pub mod draw_3d_graph {
+    pub mod node {
+        /// Label for the generate environment map light render node.
+        pub const GENERATE_ENVIRONMENT_MAP_LIGHT: &str = "generate_environment_map_light";
+    }
+}
 
 pub const ENVIRONMENT_MAP_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(154476556247605696);
+pub const DOWNSAMPLE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(254476556247605696);
+pub const FILTER_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(354476556247605696);
+pub const DIFFUSE_CONVOLUTION_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(454476556247605696);
+pub struct EnvironmentMapLightPlugin;
 
-pub struct EnvironmentMapPlugin;
-
-impl Plugin for EnvironmentMapPlugin {
+impl Plugin for EnvironmentMapLightPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(
             app,
@@ -26,9 +55,52 @@ impl Plugin for EnvironmentMapPlugin {
             "environment_map.wgsl",
             Shader::from_wgsl
         );
+        load_internal_asset!(
+            app,
+            DOWNSAMPLE_SHADER_HANDLE,
+            "downsample.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(app, FILTER_SHADER_HANDLE, "filter.wgsl", Shader::from_wgsl);
+        load_internal_asset!(
+            app,
+            DIFFUSE_CONVOLUTION_SHADER_HANDLE,
+            "diffuse_convolution.wgsl",
+            Shader::from_wgsl
+        );
 
         app.register_type::<EnvironmentMapLight>()
-            .add_plugins(ExtractComponentPlugin::<EnvironmentMapLight>::default());
+            .register_type::<GenerateEnvironmentMapLight>()
+            .register_type::<GenerateEnvironmentMapLightTextureFormat>()
+            .add_plugins(ExtractComponentPlugin::<EnvironmentMapLight>::default())
+            .add_plugins(ExtractComponentPlugin::<GenerateEnvironmentMapLight>::default());
+    }
+
+    fn finish(&self, app: &mut App) {
+        if app.get_sub_app(RenderApp).is_err() {
+            return;
+        }
+
+        app.add_systems(Last, generate_dummy_environment_map_lights_for_skyboxes);
+
+        app.sub_app_mut(RenderApp)
+            .add_render_graph_node::<ViewNodeRunner<GenerateEnvironmentMapLightNode>>(
+                CORE_3D,
+                draw_3d_graph::node::GENERATE_ENVIRONMENT_MAP_LIGHT,
+            )
+            .add_render_graph_edges(
+                CORE_3D,
+                &[
+                    draw_3d_graph::node::GENERATE_ENVIRONMENT_MAP_LIGHT,
+                    core_3d::graph::node::START_MAIN_PASS,
+                ],
+            )
+            .init_resource::<GenerateEnvironmentMapLightResources>()
+            .add_systems(
+                Render,
+                prepare_generate_environment_map_lights_for_skyboxes_bind_groups
+                    .in_set(RenderSet::PrepareBindGroups),
+            );
     }
 }
 
@@ -42,12 +114,11 @@ impl Plugin for EnvironmentMapPlugin {
 /// The environment map must be prefiltered into a diffuse and specular cubemap based on the
 /// [split-sum approximation](https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf).
 ///
-/// To prefilter your environment map, you can use `KhronosGroup`'s [glTF-IBL-Sampler](https://github.com/KhronosGroup/glTF-IBL-Sampler).
+/// To prefilter your environment map, you can either:
+/// * Use the [`GenerateEnvironmentMapLight`] component at runtime.
+/// * Use `KhronosGroup`'s [glTF-IBL-Sampler](https://github.com/KhronosGroup/glTF-IBL-Sampler) to prefilter it offline.
 /// The diffuse map uses the Lambertian distribution, and the specular map uses the GGX distribution.
-///
-/// `KhronosGroup` also has several prefiltered environment maps that can be found [here](https://github.com/KhronosGroup/glTF-Sample-Environments).
-#[derive(Component, Reflect, Clone, ExtractComponent)]
-#[extract_component_filter(With<Camera3d>)]
+#[derive(Component, Reflect, Clone)]
 pub struct EnvironmentMapLight {
     pub diffuse_map: Handle<Image>,
     pub specular_map: Handle<Image>,
@@ -68,25 +139,38 @@ impl EnvironmentMapLight {
     }
 }
 
+impl ExtractComponent for EnvironmentMapLight {
+    type Data = &'static Self;
+    type Filter = With<Camera3d>;
+    type Out = Self;
+
+    fn extract_component(item: QueryItem<'_, Self::Data>) -> Option<Self::Out> {
+        Some(item.clone())
+    }
+}
+
 pub fn get_bindings<'a>(
     environment_map_light: Option<&EnvironmentMapLight>,
     images: &'a RenderAssets<Image>,
     fallback_image_cubemap: &'a FallbackImageCubemap,
 ) -> (&'a TextureView, &'a TextureView, &'a Sampler) {
-    let (diffuse_map, specular_map) = match (
+    let (diffuse_map, specular_map, sampler) = match (
         environment_map_light.and_then(|env_map| images.get(&env_map.diffuse_map)),
         environment_map_light.and_then(|env_map| images.get(&env_map.specular_map)),
     ) {
-        (Some(diffuse_map), Some(specular_map)) => {
-            (&diffuse_map.texture_view, &specular_map.texture_view)
-        }
+        (Some(diffuse_map), Some(specular_map)) => (
+            &diffuse_map.texture_view,
+            &specular_map.texture_view,
+            &specular_map.sampler,
+        ),
         _ => (
             &fallback_image_cubemap.texture_view,
             &fallback_image_cubemap.texture_view,
+            &fallback_image_cubemap.sampler,
         ),
     };
 
-    (diffuse_map, specular_map, &fallback_image_cubemap.sampler)
+    (diffuse_map, specular_map, sampler)
 }
 
 pub fn get_bind_group_layout_entries() -> [BindGroupLayoutEntryBuilder; 3] {
