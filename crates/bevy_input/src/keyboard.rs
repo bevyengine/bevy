@@ -1221,7 +1221,7 @@ pub enum Key {
     Dimmer,
     /// Swap video sources. (`VK_DISPLAY_SWAP`)
     DisplaySwap,
-    /// Select Digital Video Rrecorder. (`KEYCODE_DVR`)
+    /// Select Digital Video Recorder. (`KEYCODE_DVR`)
     DVR,
     /// Exit the current application. (`VK_EXIT`)
     Exit,
