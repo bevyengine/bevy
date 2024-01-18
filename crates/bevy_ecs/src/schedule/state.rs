@@ -191,9 +191,7 @@ pub fn run_enter_schedule<S: States>(world: &mut World) {
     let Some(state) = world.get_resource::<State<S>>() else {
         return;
     };
-    world
-        .try_run_schedule(OnEnter(state.0.clone()))
-        .ok();
+    world.try_run_schedule(OnEnter(state.0.clone())).ok();
 }
 
 /// If a new state is queued in [`NextState<S>`], this system:
