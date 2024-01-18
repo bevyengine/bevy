@@ -47,15 +47,16 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
 
 #ifdef MESHLET_SECOND_CULLING_PASS
     // In the second culling pass, cull against the depth pyramid generated from the first pass
-    let bounding_sphere_center_view_space = (view.inverse_view * vec4(bounding_sphere_center.xyz, 1.0)).xyz;
     if meshlet_visible {
-        let aabb = try_project_sphere(bounding_sphere_center_view_space, bounding_sphere_radius);
-        let depth_pyramid_size = vec2<f32>(textureDimensions(depth_pyramid, 0));
-        let width = (aabb.z - aabb.x) * depth_pyramid_size.x;
-        let height = (aabb.w - aabb.y) * depth_pyramid_size.y;
-        let depth_level = max(0,i32(ceil(log2(max(width, height))))); // TODO: Naga doesn't like this being a u32
-        let depth_mip_size = vec2<f32>(textureDimensions(depth_pyramid, depth_level));
-        let aabb_top_left = vec2<u32>(aabb.xy * depth_mip_size);
+        let bounding_sphere_center_view_space = (view.inverse_view * vec4(bounding_sphere_center.xyz, 1.0)).xyz;
+        let aabb = project_view_space_sphere_to_screen_space_aabb(bounding_sphere_center_view_space, bounding_sphere_radius);
+
+        let depth_pyramid_size_mip_0 = vec2<f32>(textureDimensions(depth_pyramid, 0));
+        let width = (aabb.z - aabb.x) * depth_pyramid_size_mip_0.x;
+        let height = (aabb.w - aabb.y) * depth_pyramid_size_mip_0.y;
+        let depth_level = max(0, i32(ceil(log2(max(width, height))))); // TODO: Naga doesn't like this being a u32
+        let depth_pyramid_size = vec2<f32>(textureDimensions(depth_pyramid, depth_level));
+        let aabb_top_left = vec2<u32>(aabb.xy * depth_pyramid_size);
 
         let depth_quad_a = textureLoad(depth_pyramid, aabb_top_left, depth_level).x;
         let depth_quad_b = textureLoad(depth_pyramid, aabb_top_left + vec2(1u, 0u), depth_level).x;
@@ -74,9 +75,9 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
 }
 
 // https://zeux.io/2023/01/12/approximate-projected-bounds
-fn try_project_sphere(cp: vec3<f32>, r: f32) -> vec4<f32> {
+fn project_view_space_sphere_to_screen_space_aabb(cp: vec3<f32>, r: f32) -> vec4<f32> {
     let c = vec3(cp.xy, -cp.z);
-    // No need to clip near plane because frustum culling already got them
+    // No need to clip near plane because frustum culling already checked that
 
     let cr = c * r;
     let czr2 = c.z * c.z - r * r;
