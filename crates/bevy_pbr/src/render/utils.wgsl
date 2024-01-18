@@ -34,7 +34,7 @@ fn coords_to_viewport_uv(position: vec2<f32>, viewport: vec4<f32>) -> vec2<f32> 
 // For encoding normals or unit direction vectors as octahedral coordinates.
 fn octahedral_encode(v: vec3<f32>) -> vec2<f32> {
     var n = v / (abs(v.x) + abs(v.y) + abs(v.z));
-    let octahedral_wrap = (1.0 - abs(n.yx)) * select(vec2(-1.0), vec2(1.0), n.xy > 0.0);
+    let octahedral_wrap = (1.0 - abs(n.yx)) * select(vec2(-1.0), vec2(1.0), n.xy > vec2f(0.0));
     let n_xy = select(octahedral_wrap, n.xy, n.z >= 0.0);
     return n_xy * 0.5 + 0.5;
 }

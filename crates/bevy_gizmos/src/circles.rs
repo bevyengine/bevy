@@ -118,7 +118,7 @@ impl<T: GizmoConfigGroup> Drop for CircleBuilder<'_, '_, '_, T> {
         }
         let rotation = Quat::from_rotation_arc(Vec3::Z, self.normal);
         let positions = circle_inner(self.radius, self.segments)
-            .map(|vec2| (self.position + rotation * vec2.extend(0.)));
+            .map(|vec2| self.position + rotation * vec2.extend(0.));
         self.gizmos.linestrip(positions, self.color);
     }
 }
@@ -145,7 +145,7 @@ impl<T: GizmoConfigGroup> Drop for Circle2dBuilder<'_, '_, '_, T> {
         if !self.gizmos.enabled {
             return;
         }
-        let positions = circle_inner(self.radius, self.segments).map(|vec2| (vec2 + self.position));
+        let positions = circle_inner(self.radius, self.segments).map(|vec2| vec2 + self.position);
         self.gizmos.linestrip_2d(positions, self.color);
     }
 }

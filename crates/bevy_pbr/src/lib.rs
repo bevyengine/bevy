@@ -7,6 +7,7 @@ mod environment_map;
 mod extended_material;
 mod fog;
 mod light;
+mod lightmap;
 mod material;
 mod parallax;
 mod pbr_material;
@@ -20,6 +21,7 @@ pub use environment_map::EnvironmentMapLight;
 pub use extended_material::*;
 pub use fog::*;
 pub use light::*;
+pub use lightmap::*;
 pub use material::*;
 pub use parallax::*;
 pub use pbr_material::*;
@@ -258,12 +260,12 @@ impl Plugin for PbrPlugin {
                 FogPlugin,
                 ExtractResourcePlugin::<DefaultOpaqueRendererMethod>::default(),
                 ExtractComponentPlugin::<ShadowFilteringMethod>::default(),
+                LightmapPlugin,
             ))
             .configure_sets(
                 PostUpdate,
                 (
                     SimulationLightSystems::AddClusters,
-                    SimulationLightSystems::AddClustersFlush,
                     SimulationLightSystems::AssignLightsToClusters,
                 )
                     .chain(),
@@ -272,7 +274,6 @@ impl Plugin for PbrPlugin {
                 PostUpdate,
                 (
                     add_clusters.in_set(SimulationLightSystems::AddClusters),
-                    apply_deferred.in_set(SimulationLightSystems::AddClustersFlush),
                     assign_lights_to_clusters
                         .in_set(SimulationLightSystems::AssignLightsToClusters)
                         .after(TransformSystem::TransformPropagate)
@@ -306,7 +307,7 @@ impl Plugin for PbrPlugin {
                         .after(SimulationLightSystems::AssignLightsToClusters),
                     check_light_mesh_visibility
                         .in_set(SimulationLightSystems::CheckLightVisibility)
-                        .after(VisibilitySystems::CalculateBoundsFlush)
+                        .after(VisibilitySystems::CalculateBounds)
                         .after(TransformSystem::TransformPropagate)
                         .after(SimulationLightSystems::UpdateLightFrusta)
                         // NOTE: This MUST be scheduled AFTER the core renderer visibility check
@@ -329,25 +330,21 @@ impl Plugin for PbrPlugin {
             },
         );
 
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
         };
 
         // Extract the required data from the main world
         render_app
-            .add_systems(
-                ExtractSchedule,
-                (render::extract_clusters, render::extract_lights),
-            )
+            .add_systems(ExtractSchedule, (extract_clusters, extract_lights))
             .add_systems(
                 Render,
                 (
-                    render::prepare_lights
+                    prepare_lights
                         .in_set(RenderSet::ManageViews)
                         .after(prepare_assets::<Image>),
                     sort_phase_system::<Shadow>.in_set(RenderSet::PhaseSort),
-                    render::prepare_clusters.in_set(RenderSet::PrepareResources),
+                    prepare_clusters.in_set(RenderSet::PrepareResources),
                 ),
             )
             .init_resource::<LightMeta>();
@@ -362,12 +359,20 @@ impl Plugin for PbrPlugin {
             draw_3d_graph::node::SHADOW_PASS,
             bevy_core_pipeline::core_3d::graph::node::START_MAIN_PASS,
         );
+
+        render_app.ignore_ambiguity(
+            bevy_render::Render,
+            bevy_core_pipeline::core_3d::prepare_core_3d_transmission_textures,
+            bevy_render::batching::batch_and_prepare_render_phase::<
+                bevy_core_pipeline::core_3d::Transmissive3d,
+                MeshPipeline,
+            >,
+        );
     }
 
     fn finish(&self, app: &mut App) {
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
         };
 
         // Extract the required data from the main world

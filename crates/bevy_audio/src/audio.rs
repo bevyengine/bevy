@@ -1,50 +1,25 @@
 use crate::{AudioSource, Decodable};
 use bevy_asset::{Asset, Handle};
-use bevy_derive::{Deref, DerefMut};
+use bevy_derive::Deref;
 use bevy_ecs::prelude::*;
 use bevy_math::Vec3;
-
-/// Defines the volume to play an audio source at.
-#[derive(Clone, Copy, Debug)]
-pub enum Volume {
-    /// A volume level relative to the global volume.
-    Relative(VolumeLevel),
-    /// A volume level that ignores the global volume.
-    Absolute(VolumeLevel),
-}
-
-impl Default for Volume {
-    fn default() -> Self {
-        Self::Relative(VolumeLevel::default())
-    }
-}
-
-impl Volume {
-    /// Create a new volume level relative to the global volume.
-    pub fn new_relative(volume: f32) -> Self {
-        Self::Relative(VolumeLevel::new(volume))
-    }
-    /// Create a new volume level that ignores the global volume.
-    pub fn new_absolute(volume: f32) -> Self {
-        Self::Absolute(VolumeLevel::new(volume))
-    }
-}
+use bevy_reflect::prelude::*;
 
 /// A volume level equivalent to a non-negative float.
-#[derive(Clone, Copy, Deref, DerefMut, Debug)]
-pub struct VolumeLevel(pub(crate) f32);
+#[derive(Clone, Copy, Deref, Debug, Reflect)]
+pub struct Volume(pub(crate) f32);
 
-impl Default for VolumeLevel {
+impl Default for Volume {
     fn default() -> Self {
         Self(1.0)
     }
 }
 
-impl VolumeLevel {
+impl Volume {
     /// Create a new volume level.
     pub fn new(volume: f32) -> Self {
         debug_assert!(volume >= 0.0);
-        Self(volume)
+        Self(f32::max(volume, 0.))
     }
     /// Get the value of the volume level.
     pub fn get(&self) -> f32 {
@@ -52,11 +27,11 @@ impl VolumeLevel {
     }
 
     /// Zero (silent) volume level
-    pub const ZERO: Self = VolumeLevel(0.0);
+    pub const ZERO: Self = Volume(0.0);
 }
 
 /// The way Bevy manages the sound playback.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Reflect)]
 pub enum PlaybackMode {
     /// Play the sound once. Do nothing when it ends.
     Once,
@@ -72,7 +47,8 @@ pub enum PlaybackMode {
 /// If you would like to control the audio while it is playing, query for the
 /// [`AudioSink`][crate::AudioSink] or [`SpatialAudioSink`][crate::SpatialAudioSink]
 /// components. Changes to this component will *not* be applied to already-playing audio.
-#[derive(Component, Clone, Copy, Debug)]
+#[derive(Component, Clone, Copy, Debug, Reflect)]
+#[reflect(Default, Component)]
 pub struct PlaybackSettings {
     /// The desired playback behavior.
     pub mode: PlaybackMode,
@@ -104,7 +80,7 @@ impl PlaybackSettings {
     /// Will play the associated audio source once.
     pub const ONCE: PlaybackSettings = PlaybackSettings {
         mode: PlaybackMode::Once,
-        volume: Volume::Relative(VolumeLevel(1.0)),
+        volume: Volume(1.0),
         speed: 1.0,
         paused: false,
         spatial: false,
@@ -113,28 +89,19 @@ impl PlaybackSettings {
     /// Will play the associated audio source in a loop.
     pub const LOOP: PlaybackSettings = PlaybackSettings {
         mode: PlaybackMode::Loop,
-        volume: Volume::Relative(VolumeLevel(1.0)),
-        speed: 1.0,
-        paused: false,
-        spatial: false,
+        ..PlaybackSettings::ONCE
     };
 
     /// Will play the associated audio source once and despawn the entity afterwards.
     pub const DESPAWN: PlaybackSettings = PlaybackSettings {
         mode: PlaybackMode::Despawn,
-        volume: Volume::Relative(VolumeLevel(1.0)),
-        speed: 1.0,
-        paused: false,
-        spatial: false,
+        ..PlaybackSettings::ONCE
     };
 
     /// Will play the associated audio source once and remove the audio components afterwards.
     pub const REMOVE: PlaybackSettings = PlaybackSettings {
         mode: PlaybackMode::Remove,
-        volume: Volume::Relative(VolumeLevel(1.0)),
-        speed: 1.0,
-        paused: false,
-        spatial: false,
+        ..PlaybackSettings::ONCE
     };
 
     /// Helper to start in a paused state.
@@ -166,7 +133,8 @@ impl PlaybackSettings {
 ///
 /// This must be accompanied by `Transform` and `GlobalTransform`.
 /// Only one entity with a `SpatialListener` should be present at any given time.
-#[derive(Component, Clone, Debug)]
+#[derive(Component, Clone, Debug, Reflect)]
+#[reflect(Default, Component)]
 pub struct SpatialListener {
     /// Left ear position relative to the `GlobalTransform`.
     pub left_ear_offset: Vec3,
@@ -193,20 +161,21 @@ impl SpatialListener {
     }
 }
 
-/// Use this [`Resource`] to control the global volume of all audio with a [`Volume::Relative`] volume.
+/// Use this [`Resource`] to control the global volume of all audio.
 ///
 /// Note: changing this value will not affect already playing audio.
-#[derive(Resource, Default, Clone, Copy)]
+#[derive(Resource, Default, Clone, Copy, Reflect)]
+#[reflect(Resource)]
 pub struct GlobalVolume {
     /// The global volume of all audio.
-    pub volume: VolumeLevel,
+    pub volume: Volume,
 }
 
 impl GlobalVolume {
     /// Create a new [`GlobalVolume`] with the given volume.
     pub fn new(volume: f32) -> Self {
         Self {
-            volume: VolumeLevel::new(volume),
+            volume: Volume::new(volume),
         }
     }
 }
@@ -217,7 +186,8 @@ impl GlobalVolume {
 /// You may need to adjust this scale to fit your world's units.
 ///
 /// Default is `Vec3::ONE`.
-#[derive(Resource, Clone, Copy)]
+#[derive(Resource, Clone, Copy, Reflect)]
+#[reflect(Resource)]
 pub struct SpatialScale(pub Vec3);
 
 impl SpatialScale {

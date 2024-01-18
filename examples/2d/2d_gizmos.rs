@@ -72,32 +72,32 @@ fn system(mut gizmos: Gizmos, mut my_gizmos: Gizmos<MyRoundGizmos>, time: Res<Ti
 
 fn update_config(
     mut config_store: ResMut<GizmoConfigStore>,
-    keyboard: Res<Input<KeyCode>>,
+    keyboard: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 ) {
     let (config, _) = config_store.config_mut::<DefaultGizmoConfigGroup>();
-    if keyboard.pressed(KeyCode::Right) {
+    if keyboard.pressed(KeyCode::ArrowRight) {
         config.line_width += 5. * time.delta_seconds();
         config.line_width = config.line_width.clamp(0., 50.);
     }
-    if keyboard.pressed(KeyCode::Left) {
+    if keyboard.pressed(KeyCode::ArrowLeft) {
         config.line_width -= 5. * time.delta_seconds();
         config.line_width = config.line_width.clamp(0., 50.);
     }
-    if keyboard.just_pressed(KeyCode::Key1) {
+    if keyboard.just_pressed(KeyCode::Digit1) {
         config.enabled ^= true;
     }
 
     let (my_config, _) = config_store.config_mut::<MyRoundGizmos>();
-    if keyboard.pressed(KeyCode::Up) {
+    if keyboard.pressed(KeyCode::ArrowUp) {
         my_config.line_width += 5. * time.delta_seconds();
         my_config.line_width = my_config.line_width.clamp(0., 50.);
     }
-    if keyboard.pressed(KeyCode::Down) {
+    if keyboard.pressed(KeyCode::ArrowDown) {
         my_config.line_width -= 5. * time.delta_seconds();
         my_config.line_width = my_config.line_width.clamp(0., 50.);
     }
-    if keyboard.just_pressed(KeyCode::Key2) {
+    if keyboard.just_pressed(KeyCode::Digit2) {
         my_config.enabled ^= true;
     }
 }

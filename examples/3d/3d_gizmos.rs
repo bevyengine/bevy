@@ -28,21 +28,21 @@ fn setup(
     });
     // plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane::from_size(5.0))),
-        material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+        mesh: meshes.add(shape::Plane::from_size(5.0)),
+        material: materials.add(Color::rgb(0.3, 0.5, 0.3)),
         ..default()
     });
     // cube
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+        mesh: meshes.add(shape::Cube { size: 1.0 }),
+        material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..default()
     });
     // light
     commands.spawn(PointLightBundle {
         point_light: PointLight {
-            intensity: 1500.0,
+            intensity: 250000.0,
             shadows_enabled: true,
             ..default()
         },
@@ -116,15 +116,15 @@ fn rotate_camera(mut query: Query<&mut Transform, With<Camera>>, time: Res<Time>
 
 fn update_config(
     mut config_store: ResMut<GizmoConfigStore>,
-    keyboard: Res<Input<KeyCode>>,
+    keyboard: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 ) {
-    if keyboard.just_pressed(KeyCode::D) {
+    if keyboard.just_pressed(KeyCode::KeyD) {
         for (_, config, _) in config_store.iter_mut() {
             config.depth_bias = if config.depth_bias == 0. { -1. } else { 0. };
         }
     }
-    if keyboard.just_pressed(KeyCode::P) {
+    if keyboard.just_pressed(KeyCode::KeyP) {
         for (_, config, _) in config_store.iter_mut() {
             // Toggle line_perspective
             config.line_perspective ^= true;
@@ -134,32 +134,32 @@ fn update_config(
     }
 
     let (config, _) = config_store.config_mut::<DefaultGizmoConfigGroup>();
-    if keyboard.pressed(KeyCode::Right) {
+    if keyboard.pressed(KeyCode::ArrowRight) {
         config.line_width += 5. * time.delta_seconds();
         config.line_width = config.line_width.clamp(0., 50.);
     }
-    if keyboard.pressed(KeyCode::Left) {
+    if keyboard.pressed(KeyCode::ArrowLeft) {
         config.line_width -= 5. * time.delta_seconds();
         config.line_width = config.line_width.clamp(0., 50.);
     }
-    if keyboard.just_pressed(KeyCode::Key1) {
+    if keyboard.just_pressed(KeyCode::Digit1) {
         config.enabled ^= true;
     }
 
     let (my_config, _) = config_store.config_mut::<MyRoundGizmos>();
-    if keyboard.pressed(KeyCode::Up) {
+    if keyboard.pressed(KeyCode::ArrowUp) {
         my_config.line_width += 5. * time.delta_seconds();
         my_config.line_width = my_config.line_width.clamp(0., 50.);
     }
-    if keyboard.pressed(KeyCode::Down) {
+    if keyboard.pressed(KeyCode::ArrowDown) {
         my_config.line_width -= 5. * time.delta_seconds();
         my_config.line_width = my_config.line_width.clamp(0., 50.);
     }
-    if keyboard.just_pressed(KeyCode::Key2) {
+    if keyboard.just_pressed(KeyCode::Digit2) {
         my_config.enabled ^= true;
     }
 
-    if keyboard.just_pressed(KeyCode::A) {
+    if keyboard.just_pressed(KeyCode::KeyA) {
         // AABB gizmos are normally only drawn on entities with a ShowAabbGizmo component
         // We can change this behaviour in the configuration of AabbGizmoGroup
         config_store.config_mut::<AabbGizmoConfigGroup>().1.draw_all ^= true;

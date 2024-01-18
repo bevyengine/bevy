@@ -89,7 +89,7 @@ impl<T: GpuArrayBufferable> BatchedUniformBuffer<T> {
     }
 
     pub fn flush(&mut self) {
-        self.uniforms.push(self.temp.clone());
+        self.uniforms.push(&self.temp);
 
         self.current_offset +=
             align_to_next(self.temp.size().get(), self.dynamic_offset_alignment as u64) as u32;
@@ -137,7 +137,7 @@ where
 
     const METADATA: Metadata<Self::ExtraMetadata> = T::METADATA;
 
-    fn size(&self) -> ::core::num::NonZeroU64 {
+    fn size(&self) -> NonZeroU64 {
         Self::METADATA.stride().mul(self.1.max(1) as u64).0
     }
 }

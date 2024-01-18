@@ -33,6 +33,7 @@ struct DirectionalLight {
     num_cascades: u32,
     cascades_overlap_proportion: f32,
     depth_texture_base_index: u32,
+    render_layers: u32,
 };
 
 const DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32 = 1u;
@@ -57,6 +58,7 @@ struct Lights {
     n_directional_lights: u32,
     spot_light_shadowmap_offset: i32,
     environment_map_smallest_specular_mip_level: u32,
+    environment_map_intensity: f32,
 };
 
 struct Fog {
