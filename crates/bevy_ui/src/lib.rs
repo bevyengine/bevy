@@ -176,6 +176,11 @@ impl Plugin for UiPlugin {
             system
         });
 
+        /// Marks systems that can be ambiguous with [`widget::text_system`], if the `bevy_text` feature is enabled.
+        /// https://github.com/bevyengine/bevy/pull/11391
+        #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+        struct AmbiguousWithTextSystem;
+
         app.add_systems(
             PostUpdate,
             (
@@ -186,35 +191,27 @@ impl Plugin for UiPlugin {
                 ui_layout_system
                     .in_set(UiSystem::Layout)
                     .before(TransformSystem::TransformPropagate),
-                {
-                    #[allow(clippy::let_and_return)]
-                    let system = resolve_outlines_system
-                        .in_set(UiSystem::Outlines)
-                        .after(UiSystem::Layout)
-                        // clipping doesn't care about outlines
-                        .ambiguous_with(update_clipping_system);
-
-                    #[cfg(feature = "bevy_text")]
-                    let system = system.ambiguous_with(widget::text_system);
-
-                    system
-                },
-                {
-                    #[allow(clippy::let_and_return)]
-                    let system = ui_stack_system
-                        .in_set(UiSystem::Stack)
-                        // the systems don't care about stack index
-                        .ambiguous_with(update_clipping_system)
-                        .ambiguous_with(resolve_outlines_system)
-                        .ambiguous_with(ui_layout_system);
-
-                    #[cfg(feature = "bevy_text")]
-                    let system = system.ambiguous_with(widget::text_system);
-
-                    system
-                },
+                resolve_outlines_system
+                    .in_set(UiSystem::Outlines)
+                    .after(UiSystem::Layout)
+                    // clipping doesn't care about outlines
+                    .ambiguous_with(update_clipping_system)
+                    .in_set(AmbiguousWithTextSystem),
+                ui_stack_system
+                    .in_set(UiSystem::Stack)
+                    // the systems don't care about stack index
+                    .ambiguous_with(update_clipping_system)
+                    .ambiguous_with(resolve_outlines_system)
+                    .ambiguous_with(ui_layout_system)
+                    .in_set(AmbiguousWithTextSystem),
                 update_clipping_system.after(TransformSystem::TransformPropagate),
             ),
+        );
+
+        #[cfg(feature = "bevy_text")]
+        app.configure_sets(
+            PostUpdate,
+            AmbiguousWithTextSystem.ambiguous_with(widget::text_system),
         );
 
         build_ui_render(app);
