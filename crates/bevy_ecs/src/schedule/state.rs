@@ -188,8 +188,11 @@ pub struct StateTransitionEvent<S: States> {
 
 /// Run the enter schedule (if it exists) for the current state.
 pub fn run_enter_schedule<S: States>(world: &mut World) {
+    let Some(state) = world.get_resource::<State<S>>() else {
+        return;
+    };
     world
-        .try_run_schedule(OnEnter(world.resource::<State<S>>().0.clone()))
+        .try_run_schedule(OnEnter(state.0.clone()))
         .ok();
 }
 
