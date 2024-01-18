@@ -118,6 +118,11 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             write_index_buffer_pipeline,
             write_index_buffer_workgroups,
         );
+        render_context.command_encoder().clear_buffer(
+            &meshlet_view_resources.occlusion_buffer,
+            0,
+            None,
+        );
         raster_pass(
             true,
             render_context,
@@ -213,6 +218,11 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 &meshlet_view_bind_groups.write_index_buffer_first,
                 write_index_buffer_pipeline,
                 write_index_buffer_workgroups,
+            );
+            render_context.command_encoder().clear_buffer(
+                &meshlet_view_resources.occlusion_buffer,
+                0,
+                None,
             );
             raster_pass(
                 true,

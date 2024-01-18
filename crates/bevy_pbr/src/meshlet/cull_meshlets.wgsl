@@ -13,8 +13,8 @@
 #import bevy_render::maths::affine_to_square
 
 /// Culls individual meshlets (1 per thread) in two passes (two pass occlusion culling), and outputs a bitmask of which meshlets survived.
-/// 1. The first pass is only frustum culling, on all meshlets that were visible last frame.
-/// 2. The second pass performs both frustum and occlusion culling (using the depth buffer generated from the first pass), on all meshlets that were _not_ visible last frame.
+/// 1. The first pass is only frustum culling, on only the meshlets that were visible last frame.
+/// 2. The second pass performs both frustum and occlusion culling (using the depth buffer generated from the first pass), on all meshlets.
 
 @compute
 @workgroup_size(128, 1, 1)
@@ -30,12 +30,13 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
     let bounding_sphere_center = model * vec4(bounding_sphere.center, 1.0);
     let bounding_sphere_radius = model_scale * bounding_sphere.radius;
 
-    // In the first pass, operate only on the meshlets visible last frame. In the second pass, operate on the opposite set.
-    var meshlet_visible = get_meshlet_previous_occlusion(thread_id.x);
+    // In the first pass, operate only on the meshlets visible last frame. In the second pass, operate on all meshlets.
 #ifdef MESHLET_SECOND_CULLING_PASS
-    meshlet_visible = !meshlet_visible;
-#endif
+    var meshlet_visible = true;
+#else
+    var meshlet_visible = get_meshlet_previous_occlusion(thread_id.x);
     if !meshlet_visible { return; }
+#endif
 
     // Frustum culling
     // TODO: Faster method from https://vkguide.dev/docs/gpudriven/compute_culling/#frustum-culling-function
