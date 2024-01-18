@@ -7,7 +7,7 @@ use bevy_core_pipeline::{
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::*,
-    query::{QueryItem, ROQueryItem},
+    query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_math::{Affine3, Rect, UVec2, Vec4};
@@ -460,9 +460,6 @@ impl MeshPipeline {
 
 impl GetBatchData for MeshPipeline {
     type Param = (SRes<RenderMeshInstances>, SRes<RenderLightmaps>);
-    type Data = Entity;
-    type Filter = With<Mesh3d>;
-
     // The material bind group ID, the mesh ID, and the lightmap ID,
     // respectively.
     type CompareData = (MaterialBindGroupId, AssetId<Mesh>, Option<AssetId<Image>>);
@@ -471,7 +468,7 @@ impl GetBatchData for MeshPipeline {
 
     fn get_batch_data(
         (mesh_instances, lightmaps): &SystemParamItem<Self::Param>,
-        entity: &QueryItem<Self::Data>,
+        entity: &Entity,
     ) -> Option<(Self::BufferData, Option<Self::CompareData>)> {
         let mesh_instance = mesh_instances.get(entity)?;
         let maybe_lightmap = lightmaps.render_lightmaps.get(entity);
