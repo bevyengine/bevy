@@ -82,15 +82,18 @@ const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
 /// Provides a plugin for rendering high-poly 3d meshes using an efficient GPU-driven method. See also [`MeshletMesh`].
 ///
 /// Rendering high-poly meshes with thousands or millions of triangles is extremely expensive in Bevy's standard renderer.
-/// Once pre-processed into a [`MeshletMesh`], this plugin can render these kinds of meshes very efficently via the following method:
-/// * All work is done on the GPU. Minimal CPU processing is required, unlike Bevy's standard renderer.
-/// * Individual meshlets outside of the camera's frustum are culled (unlike Bevy's standard renderer, which can only cull entire meshes).
-/// * All meshlets that were visible last frame (and are in the camea's frustum this frame) get rendered to a depth buffer.
-/// * The depth buffer is then downsampled to form a hierarchical depth buffer.
-/// * All meshlets that were not _not_ visible last frame get frustum culled and tested against the depth buffer, and culled if they would not be visible (occlusion culling, which Bevy's standard renderer does not have).
-/// * A visibility buffer is then rendered for the surviving frustum and occlusion culled meshlets. Each pixel of the texture encodes the visible meshlet and triangle ID.
-/// * For the opaque and prepass phases, one draw per [`Material`] batch (unique pipeline + bind group) is performed, regardless of the amount of entities using that material.
-///   The material's fragment shader reads the meshlet and triangle IDs from the visibility buffer to reconstruct the rendered point on the mesh and shade it.
+/// Once pre-processed into a [`MeshletMesh`], this plugin can render these kinds of meshes very efficiently.
+///
+/// In comparison to Bevy's standard renderer:
+/// * Minimal rendering work is done on the CPU. All rendering is GPU-driven.
+/// * Much more efficient culling. Meshlets can be culled individually, instead of all or nothing culling for entire meshes at a time.
+/// Additionally, occlusion culling can eliminate meshlets that would cause overdraw.
+/// * Much more efficient batching. All geometry can be rasterized in a single indirect draw.
+/// * Scales better with large amounts of dense geometry and overdraw. Bevy's regular renderer will bottleneck sooner.
+/// * Much greater base overhead. Rendering will be slower than Bevy's standard renderer with small amounts of geometry and overdraw.
+/// * Much greater memory usage.
+/// * Requires preprocessing meshes. See [`MeshletMesh`] for details.
+/// * More limitations on the kinds of materials you can use. See [`MeshletMesh`] for details.
 ///
 /// This plugin is not compatible with [`Msaa`], and adding this plugin will disable it.
 ///
