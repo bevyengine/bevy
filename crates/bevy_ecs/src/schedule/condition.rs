@@ -748,10 +748,15 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
     /// ```
-    pub fn in_state<S: States>(state: S) -> impl FnMut(Res<State<S>>) -> bool + Clone {
-        move |current_state: Res<State<S>>| *current_state == state
+    pub fn in_state<S: States>(state: S) -> impl FnMut(Option<Res<State<S>>>) -> bool + Clone {
+        move |current_state: Option<Res<State<S>>>| match current_state {
+            Some(current_state) => *current_state == state,
+            None => false,
+        }
     }
 
+    /// Identical to [`in_state`](in_state) - use that instead.
+    ///
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if the state machine exists and is currently in `state`.
     ///
@@ -804,13 +809,11 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
     /// ```
+    #[deprecated]
     pub fn state_exists_and_equals<S: States>(
         state: S,
     ) -> impl FnMut(Option<Res<State<S>>>) -> bool + Clone {
-        move |current_state: Option<Res<State<S>>>| match current_state {
-            Some(current_state) => *current_state == state,
-            None => false,
-        }
+        in_state(state)
     }
 
     /// A [`Condition`](super::Condition)-satisfying system that returns `true`
@@ -866,7 +869,10 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 2);
     /// ```
-    pub fn state_changed<S: States>(current_state: Res<State<S>>) -> bool {
+    pub fn state_changed<S: States>(current_state: Option<Res<State<S>>>) -> bool {
+        let Some(current_state) = current_state else {
+            return false;
+        };
         current_state.is_changed()
     }
 
