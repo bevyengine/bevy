@@ -186,8 +186,8 @@ impl Plugin for UiPlugin {
 /// A function that should be called from [`UiPlugin::build`] when [`bevy_text`] is enabled.
 #[cfg(feature = "bevy_text")]
 fn build_text_interop(app: &mut App) {
-    use bevy_text::TextLayoutInfo;
     use crate::widget::TextFlags;
+    use bevy_text::TextLayoutInfo;
 
     app.register_type::<TextLayoutInfo>()
         .register_type::<TextFlags>();
