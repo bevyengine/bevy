@@ -24,7 +24,7 @@ pub enum ReflectPathError<'a> {
         /// Position in the path string.
         offset: Option<usize>,
         /// The underlying error.
-        error: access::Error<'a>,
+        error: access::AccessError<'a>,
     },
 
     /// An error that occurs when a type cannot downcast to a given type.
@@ -573,7 +573,7 @@ mod tests {
         expected: TypeKind,
         access: &'static str,
     ) -> StaticError {
-        let error = access::Error::InvalidType {
+        let error = access::AccessError::InvalidType {
             actual,
             expected,
             access: ParsedPath::parse_static(access).unwrap()[1].access.clone(),
@@ -745,7 +745,7 @@ mod tests {
             a.reflect_path("x.notreal").err().unwrap(),
             ReflectPathError::InvalidAccess {
                 offset: Some(2),
-                error: access::Error::MissingAccess {
+                error: access::AccessError::MissingAccess {
                     kind: TypeKind::Struct,
                     access: access_field("notreal"),
                 },
@@ -756,7 +756,7 @@ mod tests {
             a.reflect_path("unit_variant.0").err().unwrap(),
             ReflectPathError::InvalidAccess {
                 offset: Some(13),
-                error: access::Error::InvalidEnumVariant {
+                error: access::AccessError::InvalidEnumVariant {
                     actual: VariantType::Unit,
                     expected: VariantType::Tuple,
                     access: ParsedPath::parse_static("unit_variant.0").unwrap()[1]

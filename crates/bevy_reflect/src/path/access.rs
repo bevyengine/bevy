@@ -6,11 +6,11 @@ use super::ReflectPathError;
 use crate::{Reflect, ReflectMut, ReflectRef, VariantType};
 use thiserror::Error;
 
-type InnerResult<'a, T> = Result<Option<T>, Error<'a>>;
+type InnerResult<'a, T> = Result<Option<T>, AccessError<'a>>;
 
 /// An error originating from an [`Access`] of an element within a type.
 #[derive(Debug, PartialEq, Eq, Error)]
-pub enum Error<'a> {
+pub enum AccessError<'a> {
     /// An error that occurs when a certain type doesn't
     /// contain the value contained in the [`Access`].
     #[error(
@@ -56,7 +56,7 @@ pub enum Error<'a> {
     },
 }
 
-impl<'a> Error<'a> {
+impl<'a> AccessError<'a> {
     fn with_offset(self, offset: Option<usize>) -> ReflectPathError<'a> {
         ReflectPathError::InvalidAccess {
             offset,
@@ -199,7 +199,7 @@ impl<'a> Access<'a> {
         let kind = base.reflect_ref().into();
         self.element_inner(base)
             .and_then(|maybe| {
-                maybe.ok_or(Error::MissingAccess {
+                maybe.ok_or(AccessError::MissingAccess {
                     kind,
                     access: self.clone(),
                 })
@@ -214,7 +214,7 @@ impl<'a> Access<'a> {
             (Self::Field(field), Struct(struct_ref)) => Ok(struct_ref.field(field.as_ref())),
             (Self::Field(field), Enum(enum_ref)) => match enum_ref.variant_type() {
                 VariantType::Struct => Ok(enum_ref.field(field.as_ref())),
-                actual => Err(Error::InvalidEnumVariant {
+                actual => Err(AccessError::InvalidEnumVariant {
                     expected: VariantType::Struct,
                     actual,
                     access: self.clone(),
@@ -223,7 +223,7 @@ impl<'a> Access<'a> {
             (&Self::FieldIndex(index), Struct(struct_ref)) => Ok(struct_ref.field_at(index)),
             (&Self::FieldIndex(index), Enum(enum_ref)) => match enum_ref.variant_type() {
                 VariantType::Struct => Ok(enum_ref.field_at(index)),
-                actual => Err(Error::InvalidEnumVariant {
+                actual => Err(AccessError::InvalidEnumVariant {
                     expected: VariantType::Struct,
                     actual,
                     access: self.clone(),
@@ -233,7 +233,7 @@ impl<'a> Access<'a> {
             (&Self::TupleIndex(index), Tuple(tuple)) => Ok(tuple.field(index)),
             (&Self::TupleIndex(index), Enum(enum_ref)) => match enum_ref.variant_type() {
                 VariantType::Tuple => Ok(enum_ref.field_at(index)),
-                actual => Err(Error::InvalidEnumVariant {
+                actual => Err(AccessError::InvalidEnumVariant {
                     expected: VariantType::Tuple,
                     actual,
                     access: self.clone(),
@@ -241,12 +241,12 @@ impl<'a> Access<'a> {
             },
             (&Self::ListIndex(index), List(list)) => Ok(list.get(index)),
             (&Self::ListIndex(index), Array(list)) => Ok(list.get(index)),
-            (&Self::ListIndex(_), actual) => Err(Error::InvalidType {
+            (&Self::ListIndex(_), actual) => Err(AccessError::InvalidType {
                 expected: TypeKind::List,
                 actual: actual.into(),
                 access: self.clone(),
             }),
-            (_, actual) => Err(Error::InvalidType {
+            (_, actual) => Err(AccessError::InvalidType {
                 expected: TypeKind::Struct,
                 actual: actual.into(),
                 access: self.clone(),
@@ -262,7 +262,7 @@ impl<'a> Access<'a> {
         let kind = base.reflect_ref().into();
         self.element_inner_mut(base)
             .and_then(|maybe| {
-                maybe.ok_or(Error::MissingAccess {
+                maybe.ok_or(AccessError::MissingAccess {
                     kind,
                     access: self.clone(),
                 })
@@ -280,7 +280,7 @@ impl<'a> Access<'a> {
             (Self::Field(field), Struct(struct_mut)) => Ok(struct_mut.field_mut(field.as_ref())),
             (Self::Field(field), Enum(enum_mut)) => match enum_mut.variant_type() {
                 VariantType::Struct => Ok(enum_mut.field_mut(field.as_ref())),
-                actual => Err(Error::InvalidEnumVariant {
+                actual => Err(AccessError::InvalidEnumVariant {
                     expected: VariantType::Struct,
                     actual,
                     access: self.clone(),
@@ -289,7 +289,7 @@ impl<'a> Access<'a> {
             (&Self::FieldIndex(index), Struct(struct_mut)) => Ok(struct_mut.field_at_mut(index)),
             (&Self::FieldIndex(index), Enum(enum_mut)) => match enum_mut.variant_type() {
                 VariantType::Struct => Ok(enum_mut.field_at_mut(index)),
-                actual => Err(Error::InvalidEnumVariant {
+                actual => Err(AccessError::InvalidEnumVariant {
                     expected: VariantType::Struct,
                     actual,
                     access: self.clone(),
@@ -299,7 +299,7 @@ impl<'a> Access<'a> {
             (&Self::TupleIndex(index), Tuple(tuple)) => Ok(tuple.field_mut(index)),
             (&Self::TupleIndex(index), Enum(enum_mut)) => match enum_mut.variant_type() {
                 VariantType::Tuple => Ok(enum_mut.field_at_mut(index)),
-                actual => Err(Error::InvalidEnumVariant {
+                actual => Err(AccessError::InvalidEnumVariant {
                     expected: VariantType::Tuple,
                     actual,
                     access: self.clone(),
@@ -307,12 +307,12 @@ impl<'a> Access<'a> {
             },
             (&Self::ListIndex(index), List(list)) => Ok(list.get_mut(index)),
             (&Self::ListIndex(index), Array(list)) => Ok(list.get_mut(index)),
-            (&Self::ListIndex(_), actual) => Err(Error::InvalidType {
+            (&Self::ListIndex(_), actual) => Err(AccessError::InvalidType {
                 expected: TypeKind::List,
                 actual: actual.into(),
                 access: self.clone(),
             }),
-            (_, actual) => Err(Error::InvalidType {
+            (_, actual) => Err(AccessError::InvalidType {
                 expected: TypeKind::Struct,
                 actual: actual.into(),
                 access: self.clone(),
