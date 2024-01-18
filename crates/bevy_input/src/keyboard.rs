@@ -654,7 +654,7 @@ pub enum KeyCode {
     F35,
 }
 
-/// Contains the platform-native logical key identifier
+/// Contains the platform-native logical key identifier, known as keysym.
 ///
 /// Exactly what that means differs from platform to platform, but the values are to some degree
 /// tied to the currently active keyboard layout. The same key on the same keyboard may also report
