@@ -107,6 +107,7 @@ fn setup(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn draw_bounding_spheres(
     query: Query<(&Handle<MeshletMesh>, &Transform), With<Handle<MeshletDebugMaterial>>>,
     debug: Query<&MeshletBoundingSpheresDebug>,
@@ -132,7 +133,6 @@ fn draw_bounding_spheres(
                     Color::BLACK,
                 );
             }
-            return;
         }
         Err(_) => {
             if let Some((handle, transform)) = query.iter().last() {
