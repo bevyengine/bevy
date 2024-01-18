@@ -59,7 +59,7 @@ fn update(
             let mut circles = Vec::new();
             for bounding_sphere in (*meshlets.meshlet_bounding_spheres).iter() {
                 let center = transform.transform_point(bounding_sphere.center);
-                circles.push((center, bounding_sphere.radius));
+                circles.push((center, transform.scale.x * bounding_sphere.radius));
             }
             commands.spawn(MeshletDebug { circles });
             return;
