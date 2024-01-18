@@ -32,6 +32,7 @@ fn setup(
     asset_server: Res<AssetServer>,
     mut standard_materials: ResMut<Assets<StandardMaterial>>,
     mut debug_materials: ResMut<Assets<MeshletDebugMaterial>>,
+    mut meshes: ResMut<Assets<Mesh>>,
 ) {
     info!("\nMeshlet Controls:\n    Space - Toggle bounding spheres");
 
@@ -105,6 +106,16 @@ fn setup(
             ..default()
         });
     }
+
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(shape::Plane::from_size(5.0)),
+        material: standard_materials.add(StandardMaterial {
+            base_color: Color::WHITE,
+            perceptual_roughness: 1.0,
+            ..default()
+        }),
+        ..default()
+    });
 }
 
 #[allow(clippy::too_many_arguments)]
