@@ -192,7 +192,6 @@ fn build_text_interop(app: &mut App) {
     app.register_type::<TextLayoutInfo>()
         .register_type::<TextFlags>();
 
-    // add these systems to front because these must run before transform update systems
     app.add_systems(
         PostUpdate,
         (
