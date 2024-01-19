@@ -10,8 +10,8 @@ use crate::event::Event;
 use crate::prelude::FromWorld;
 #[cfg(feature = "bevy_reflect")]
 use crate::reflect::ReflectResource;
-use crate::schedule::{ScheduleLabel, apply_deferred};
-use crate::system::{Resource, Commands};
+use crate::schedule::{apply_deferred, ScheduleLabel};
+use crate::system::{Commands, Resource};
 use crate::world::World;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::std_traits::ReflectDefault;
@@ -21,7 +21,7 @@ use bevy_utils::all_tuples;
 
 use self::sealed::StateSetSealed;
 
-use super::{Schedules, IntoSystemConfigs, Schedule};
+use super::{IntoSystemConfigs, Schedule, Schedules};
 
 /// Types that can define world-wide states in a finite-state machine.
 ///
@@ -155,7 +155,7 @@ impl<S: States> Deref for State<S> {
 /// To queue a transition, just set the contained value to `Some(next_state)`.
 /// Note that these transitions can be overridden by other systems:
 /// only the actual value of this resource at the time of [`apply_state_transition`] matters.
-/// 
+///
 /// If this occurs at the same time as [`RemoveState<S>`] - the removal takes priority.
 ///
 /// ```
@@ -198,7 +198,7 @@ impl<S: States> NextState<S> {
 ///
 /// Note that these transitions can be overridden by other systems:
 /// only the actual value of this resource at the time of [`apply_state_transition`] matters.
-/// 
+///
 /// This takes priority over [`NextState<S>`].
 ///
 /// ```
@@ -253,7 +253,7 @@ pub fn run_enter_schedule<S: States>(world: &mut World) {
 /// - Runs the [`OnTransition { from: exited_state, to: entered_state }`](OnTransition), if it exists.
 /// - Derive any derived states through the [`DeriveState::<S>`] schedule, if it exists.
 /// - Runs the [`OnEnter(entered_state)`] schedule, if it exists.
-/// 
+///
 /// If [`RemoveState<S>`] exists in the world, even if a new state is queued, this system will instead:
 /// - remove the [`RemoveState<S>`] resource
 /// - remove the [`NextState<S>`] resource
@@ -266,7 +266,7 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
         let Some(resource) = world.remove_resource::<State<S>>() else {
             return;
         };
-        
+
         world.try_run_schedule(OnExit(resource.0)).ok();
         world.try_run_schedule(DeriveStates::<S>::default()).ok();
         return;
@@ -309,14 +309,16 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
 }
 
 /// Trait defining a derived state
-/// 
+///
 /// A derived state is a state implementing [`States`] that is deterministically determined from one or more other [`States`].
 pub trait DerivedStates: States {
     /// The set of states from which the [`Self`] is derived.
     type SourceStates: StateSet;
 
     /// A function for deriving the states.
-    fn derive(sources: <<Self as DerivedStates>::SourceStates as StateSet>::Optionals) -> Option<Self>;
+    fn derive(
+        sources: <<Self as DerivedStates>::SourceStates as StateSet>::Optionals,
+    ) -> Option<Self>;
 
     /// A function used to register the derived state with the app schedule.
     fn add_derivation_to_schedule(schedules: &mut Schedules) {
@@ -330,43 +332,45 @@ mod sealed {
 
 /// Trait defining valid sets of states used as a source for a Derived State.
 pub trait StateSet: sealed::StateSetSealed {
-
     /// The set of states converted into a set of optional states.
     type Optionals;
 
     /// A function used to register a derived state with the app schedule.
-    fn add_derivation_systems_for_derived_state<T: DerivedStates<SourceStates = Self>>(schedules: &mut Schedules);
+    fn add_derivation_systems_for_derived_state<T: DerivedStates<SourceStates = Self>>(
+        schedules: &mut Schedules,
+    );
 }
 
 impl<S: States> StateSetSealed for S {}
 
 impl<S: States> StateSet for S {
     type Optionals = Option<S>;
-    fn add_derivation_systems_for_derived_state<T: DerivedStates<SourceStates = Self>>(schedules: &mut Schedules) {
+    fn add_derivation_systems_for_derived_state<T: DerivedStates<SourceStates = Self>>(
+        schedules: &mut Schedules,
+    ) {
         let system = |mut commands: Commands, state_set: Option<crate::prelude::Res<State<S>>>| {
             match T::derive(state_set.map(|v| v.0.clone())) {
                 Some(updated) => {
                     commands.insert_resource(NextState(Some(updated)));
-                },
+                }
                 None => {
                     commands.insert_resource(RemoveState::<T>::default());
-                },
+                }
             }
         };
         let label = DeriveStates::<S>::default();
         match schedules.get_mut(label.clone()) {
             Some(schedule) => {
                 schedule.add_systems((system, apply_deferred, apply_state_transition::<T>).chain());
-            },
+            }
             None => {
                 let mut schedule = Schedule::new(label);
                 schedule.add_systems((system, apply_deferred, apply_state_transition::<T>).chain());
                 schedules.insert(schedule);
-            },
+            }
         }
     }
 }
-
 
 macro_rules! impl_state_set_sealed_tuples {
     ($(($param: ident, $val: ident)), *) => {
@@ -376,7 +380,7 @@ macro_rules! impl_state_set_sealed_tuples {
             type Optionals = ($(Option<$param>,)*);
 
             fn add_derivation_systems_for_derived_state<T: DerivedStates<SourceStates = Self>>(schedules: &mut Schedules) {
-                
+
                 let system = |mut commands: Commands, ($($val),*,): ($(Option<crate::prelude::Res<State<$param>>>),*,)| {
                     match T::derive(($($val.map(|v| v.0.clone())),*, )) {
                         Some(updated) => {
@@ -406,10 +410,9 @@ macro_rules! impl_state_set_sealed_tuples {
 
 all_tuples!(impl_state_set_sealed_tuples, 1, 15, S, s);
 
-
 #[cfg(test)]
 mod tests {
-    use super::{*};
+    use super::*;
     use crate as bevy_ecs;
 
     #[derive(States, PartialEq, Eq, Debug, Default, Hash, Clone)]
@@ -422,27 +425,22 @@ mod tests {
     #[derive(States, PartialEq, Eq, Debug, Hash, Clone)]
     enum DerivedState {
         BisTrue,
-        BisFalse
+        BisFalse,
     }
 
-    impl DerivedStates for DerivedState{
+    impl DerivedStates for DerivedState {
         type SourceStates = SimpleState;
 
-        fn derive(sources: <<Self as DerivedStates>::SourceStates as StateSet>::Optionals) -> Option<Self> {
-            sources.and_then(|source| {
-                match source {
-                    SimpleState::A => None,
-                    SimpleState::B(value) => Some(if value {
-                        Self::BisTrue
-                    } else {
-                        Self::BisFalse
-                    }),
-                }
+        fn derive(
+            sources: <<Self as DerivedStates>::SourceStates as StateSet>::Optionals,
+        ) -> Option<Self> {
+            sources.and_then(|source| match source {
+                SimpleState::A => None,
+                SimpleState::B(value) => Some(if value { Self::BisTrue } else { Self::BisFalse }),
             })
         }
     }
 
-    
     #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
     struct TemporaryScheduleLabel;
 
@@ -464,15 +462,26 @@ mod tests {
 
         world.insert_resource(NextState(Some(SimpleState::B(true))));
         world.run_schedule(TemporaryScheduleLabel);
-        assert_eq!(world.resource::<State<SimpleState>>().0, SimpleState::B(true));
-        assert_eq!(world.resource::<State<DerivedState>>().0, DerivedState::BisTrue);
-        
+        assert_eq!(
+            world.resource::<State<SimpleState>>().0,
+            SimpleState::B(true)
+        );
+        assert_eq!(
+            world.resource::<State<DerivedState>>().0,
+            DerivedState::BisTrue
+        );
+
         world.insert_resource(NextState(Some(SimpleState::B(false))));
         world.run_schedule(TemporaryScheduleLabel);
-        assert_eq!(world.resource::<State<SimpleState>>().0, SimpleState::B(false));
-        assert_eq!(world.resource::<State<DerivedState>>().0, DerivedState::BisFalse);
+        assert_eq!(
+            world.resource::<State<SimpleState>>().0,
+            SimpleState::B(false)
+        );
+        assert_eq!(
+            world.resource::<State<DerivedState>>().0,
+            DerivedState::BisFalse
+        );
 
-        
         world.insert_resource(NextState(Some(SimpleState::A)));
         world.run_schedule(TemporaryScheduleLabel);
         assert_eq!(world.resource::<State<SimpleState>>().0, SimpleState::A);
@@ -480,34 +489,37 @@ mod tests {
         assert!(!world.contains_resource::<State<DerivedState>>());
     }
 
-    
     #[derive(States, PartialEq, Eq, Debug, Default, Hash, Clone)]
     struct OtherState {
         a_flexible_value: &'static str,
-        another_value: u8
+        another_value: u8,
     }
 
     #[derive(States, PartialEq, Eq, Debug, Hash, Clone)]
     enum ComplexDerive {
         InAAndStrIsBobOrJane,
-        InTrueBAndUsizeAbove8
+        InTrueBAndUsizeAbove8,
     }
 
     impl DerivedStates for ComplexDerive {
         type SourceStates = (SimpleState, OtherState);
 
-        fn derive(sources: <<Self as DerivedStates>::SourceStates as StateSet>::Optionals) -> Option<Self> {
+        fn derive(
+            sources: <<Self as DerivedStates>::SourceStates as StateSet>::Optionals,
+        ) -> Option<Self> {
             match sources {
                 (Some(simple), Some(complex)) => {
-                    if simple == SimpleState::A && (complex.a_flexible_value == "bob" || complex.a_flexible_value == "jane") {
+                    if simple == SimpleState::A
+                        && (complex.a_flexible_value == "bob" || complex.a_flexible_value == "jane")
+                    {
                         Some(ComplexDerive::InAAndStrIsBobOrJane)
                     } else if simple == SimpleState::B(true) && complex.another_value > 8 {
                         Some(ComplexDerive::InTrueBAndUsizeAbove8)
                     } else {
                         None
                     }
-                },
-                _ => None
+                }
+                _ => None,
             }
         }
     }
@@ -519,7 +531,7 @@ mod tests {
         world.init_resource::<State<OtherState>>();
 
         let mut schedules = Schedules::new();
-        
+
         ComplexDerive::add_derivation_to_schedule(&mut schedules);
         let mut apply_changes = Schedule::new(TemporaryScheduleLabel);
         apply_changes.add_systems(apply_state_transition::<SimpleState>);
@@ -530,24 +542,42 @@ mod tests {
 
         world.run_schedule(TemporaryScheduleLabel);
         assert_eq!(world.resource::<State<SimpleState>>().0, SimpleState::A);
-        assert_eq!(world.resource::<State<OtherState>>().0, OtherState::default());
+        assert_eq!(
+            world.resource::<State<OtherState>>().0,
+            OtherState::default()
+        );
         assert!(!world.contains_resource::<State<ComplexDerive>>());
 
         world.insert_resource(NextState(Some(SimpleState::B(true))));
         world.run_schedule(TemporaryScheduleLabel);
         assert!(!world.contains_resource::<State<ComplexDerive>>());
 
-        world.insert_resource(NextState(Some(OtherState { a_flexible_value: "felix", another_value: 13 })));
+        world.insert_resource(NextState(Some(OtherState {
+            a_flexible_value: "felix",
+            another_value: 13,
+        })));
         world.run_schedule(TemporaryScheduleLabel);
-        assert_eq!(world.resource::<State<ComplexDerive>>().0, ComplexDerive::InTrueBAndUsizeAbove8);
-        
+        assert_eq!(
+            world.resource::<State<ComplexDerive>>().0,
+            ComplexDerive::InTrueBAndUsizeAbove8
+        );
+
         world.insert_resource(NextState(Some(SimpleState::A)));
-        world.insert_resource(NextState(Some(OtherState { a_flexible_value: "jane", another_value: 13 })));
+        world.insert_resource(NextState(Some(OtherState {
+            a_flexible_value: "jane",
+            another_value: 13,
+        })));
         world.run_schedule(TemporaryScheduleLabel);
-        assert_eq!(world.resource::<State<ComplexDerive>>().0, ComplexDerive::InAAndStrIsBobOrJane);
-        
+        assert_eq!(
+            world.resource::<State<ComplexDerive>>().0,
+            ComplexDerive::InAAndStrIsBobOrJane
+        );
+
         world.insert_resource(NextState(Some(SimpleState::B(false))));
-        world.insert_resource(NextState(Some(OtherState { a_flexible_value: "jane", another_value: 13 })));
+        world.insert_resource(NextState(Some(OtherState {
+            a_flexible_value: "jane",
+            another_value: 13,
+        })));
         world.run_schedule(TemporaryScheduleLabel);
         assert!(!world.contains_resource::<State<ComplexDerive>>());
     }
