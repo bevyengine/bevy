@@ -115,10 +115,10 @@ pub fn extract_meshlet_meshes(
             .instance_uniforms
             .get_mut()
             .push(MeshUniform::new(&transforms, None));
-        for (entity, layers, is_shadow) in views.iter() {
+        for (view_entity, layers, is_shadow) in views.iter() {
             let instance_visibility = gpu_scene
                 .view_instance_visibility
-                .entry(entity)
+                .entry(view_entity)
                 .or_insert_with(|| {
                     let mut buffer = StorageBuffer::default();
                     buffer.set_label(Some("meshlet_view_instance_visibility"));
@@ -269,21 +269,17 @@ pub fn prepare_meshlet_per_frame_resources(
 
     let needed_buffer_size = gpu_scene.scene_meshlet_count.div_ceil(32) as u64 * 4;
     for (view_entity, view, (_, shadow_view)) in &views {
-        let instance_visibility = match gpu_scene.view_instance_visibility.get_mut(&view_entity) {
-            Some(instance_visibility) => {
-                upload_storage_buffer(instance_visibility, &render_device, &render_queue);
-                instance_visibility.buffer().unwrap().clone()
-            }
-            None => {
+        let instance_visibility = gpu_scene
+            .view_instance_visibility
+            .entry(view_entity)
+            .or_insert_with(|| {
                 let mut buffer = StorageBuffer::default();
-                buffer.set_label(Some("meshlet_instance_visibility"));
-                let instance_visibility = buffer.buffer().unwrap().clone();
-                gpu_scene
-                    .view_instance_visibility
-                    .insert(view_entity, buffer);
-                instance_visibility
-            }
-        };
+                buffer.set_label(Some("meshlet_view_instance_visibility"));
+                buffer
+            });
+        upload_storage_buffer(instance_visibility, &render_device, &render_queue);
+
+        let instance_visibility = instance_visibility.buffer().unwrap().clone();
 
         let create_occlusion_buffer = || {
             render_device.create_buffer(&BufferDescriptor {
@@ -539,9 +535,6 @@ pub fn prepare_meshlet_view_bind_groups(
             gpu_scene.vertex_data.binding(),
             gpu_scene.thread_instance_ids.binding().unwrap(),
             gpu_scene.instance_uniforms.binding().unwrap(),
-            gpu_scene.view_instance_visibility[&view_entity]
-                .binding()
-                .unwrap(),
             gpu_scene.instance_material_ids.binding().unwrap(),
             view_uniforms.clone(),
         ));
@@ -581,9 +574,6 @@ pub fn prepare_meshlet_view_bind_groups(
                     gpu_scene.vertex_data.binding(),
                     gpu_scene.thread_instance_ids.binding().unwrap(),
                     gpu_scene.instance_uniforms.binding().unwrap(),
-                    gpu_scene.view_instance_visibility[&view_entity]
-                        .binding()
-                        .unwrap(),
                 ));
                 render_device.create_bind_group(
                     "meshlet_mesh_material_draw_bind_group",
@@ -696,6 +686,7 @@ impl FromWorld for MeshletGpuScene {
                 &BindGroupLayoutEntries::sequential(
                     ShaderStages::COMPUTE,
                     (
+                        storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
