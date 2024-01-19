@@ -74,7 +74,6 @@ pub fn extract_meshlet_meshes(
             }
         }
     }
-
     // TODO: Handle not_shadow_caster
     for (
         instance_index,
@@ -116,37 +115,31 @@ pub fn extract_meshlet_meshes(
             .instance_uniforms
             .get_mut()
             .push(MeshUniform::new(&transforms, None));
-        if let Some(render_layers) = render_layers {
-            // If we have render layers
-            for (entity, layers, is_shadow) in views.iter() {
-                // and either the layers don't match the view's layers
-                // or this is a shadow view and the instance is not a shadow caster
-                if !render_layers.intersects(layers.unwrap_or(&default()))
-                    || (is_shadow && not_shadow_caster)
-                {
-                    // hide the instance for this view
-                    if let Some(instance_visibility) =
-                        gpu_scene.view_instance_visibility.get_mut(&entity)
-                    {
-                        let vec = instance_visibility.get_mut();
-                        let index = instance_index / 32;
-                        let bit = instance_index - index * 32;
-                        vec[index] |= 1 << bit;
-                    }
+        for (entity, layers, is_shadow) in views.iter() {
+            let instance_visibility = gpu_scene
+                .view_instance_visibility
+                .entry(entity)
+                .or_insert_with(|| {
+                    let mut buffer = StorageBuffer::default();
+                    buffer.set_label(Some("meshlet_view_instance_visibility"));
+                    buffer
+                });
+
+            // if either the layers don't match the view's layers
+            // or this is a shadow view and the instance is not a shadow caster
+            if !render_layers
+                .unwrap_or(&default())
+                .intersects(layers.unwrap_or(&default()))
+                || (is_shadow && not_shadow_caster)
+            {
+                // hide the instance for this view
+                let vec = instance_visibility.get_mut();
+                let index = instance_index / 32;
+                let bit = instance_index - index * 32;
+                if vec.len() <= index {
+                    vec.extend((vec.len()..index).map(|_| 0));
                 }
-            }
-        } else if not_shadow_caster {
-            for (entity, layers, is_shadow) in views.iter() {
-                if is_shadow || layers.is_some_and(|layers| layers.intersects(&default())) {
-                    if let Some(instance_visibility) =
-                        gpu_scene.view_instance_visibility.get_mut(&entity)
-                    {
-                        let vec = instance_visibility.get_mut();
-                        let index = instance_index / 32;
-                        let bit = instance_index - index * 32;
-                        vec[index] |= 1 << bit;
-                    }
-                }
+                vec[index] |= 1 << bit;
             }
         }
     }
