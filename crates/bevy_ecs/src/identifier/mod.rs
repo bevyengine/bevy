@@ -3,17 +3,19 @@
 //! or other IDs that can be packed and expressed within a `u64` sized type.
 //! [`Identifier`]s cannot be created directly, only able to be converted from other
 //! compatible IDs.
-use self::{error::IdentifierError, kinds::IdKind, masks::IdentifierMask};
+use self::{
+    bits::IdentifierFlagBits, error::IdentifierError, kinds::IdKind, masks::IdentifierMask,
+};
 use std::{hash::Hash, num::NonZeroU32};
 
+pub mod bits;
 pub mod error;
-pub(crate) mod kinds;
+pub mod kinds;
 pub(crate) mod masks;
 
 /// A unified identifier for all entity and similar IDs.
 /// Has the same size as a `u64` integer, but the layout is split between a 32-bit low
-/// segment, a 31-bit high segment, and the significant bit reserved as type flags to denote
-/// entity kinds.
+/// segment, a 30-bit high segment, and the 2 most significant bits reserved as bit flags.
 #[derive(Debug, Clone, Copy)]
 // Alignment repr necessary to allow LLVM to better output
 // optimised codegen for `to_bits`, `PartialEq` and `Ord`.
@@ -29,17 +31,21 @@ pub struct Identifier {
 }
 
 impl Identifier {
-    /// Construct a new [`Identifier`]. The `high` parameter is masked with the
-    /// `kind` so to pack the high value and bit flags into the same field.
+    /// Construct a new [`Identifier`]. The `high` parameter is masked so to pack
+    /// the high value and bit flags into the same field.
     #[inline(always)]
-    pub const fn new(low: u32, high: u32, kind: IdKind) -> Result<Self, IdentifierError> {
+    pub const fn new(
+        low: u32,
+        high: u32,
+        flags: IdentifierFlagBits,
+    ) -> Result<Identifier, IdentifierError> {
         // the high bits are masked to cut off the most significant bit
         // as these are used for the type flags. This means that the high
-        // portion is only 31 bits, but this still provides 2^31
+        // portion is only 30 bits, but this still provides 2^30
         // values/kinds/ids that can be stored in this segment.
         let masked_value = IdentifierMask::extract_value_from_high(high);
 
-        let packed_high = IdentifierMask::pack_kind_into_high(masked_value, kind);
+        let packed_high = IdentifierMask::pack_flags_into_high(masked_value, flags);
 
         // If the packed high component ends up being zero, that means that we tried
         // to initialise an Identifier into an invalid state.
@@ -49,12 +55,18 @@ impl Identifier {
             // SAFETY: The high value has been checked to ensure it is never
             // zero.
             unsafe {
-                Ok(Self {
+                Ok(Self::from_parts(
                     low,
-                    high: NonZeroU32::new_unchecked(packed_high),
-                })
+                    NonZeroU32::new_unchecked(packed_high),
+                ))
             }
         }
+    }
+
+    #[inline(always)]
+    #[must_use]
+    pub(crate) const fn from_parts(low: u32, high: NonZeroU32) -> Identifier {
+        Self { low, high }
     }
 
     /// Returns the value of the low segment of the [`Identifier`].
@@ -83,6 +95,45 @@ impl Identifier {
         IdentifierMask::extract_kind_from_high(self.high.get())
     }
 
+    /// Returns with the [`Identifier`] is in a `hidden` state.
+    #[inline(always)]
+    pub const fn is_togglable(self) -> bool {
+        self.flags().contains(IdentifierFlagBits::IS_TOGGLABLE)
+    }
+
+    /// Returns whether the [`Identifier`] is a [`IdKind::Placeholder`]
+    /// kind or not.
+    #[inline(always)]
+    pub const fn is_placeholder(self) -> bool {
+        self.flags().contains(IdentifierFlagBits::IS_PLACEHOLDER)
+    }
+
+    /// Returns the flag bits stored in the [`Identifier`].
+    #[inline(always)]
+    pub const fn flags(self) -> IdentifierFlagBits {
+        IdentifierMask::extract_flags_from_high(self.high.get())
+    }
+
+    /// Returns a `hidden` [`Identifier`].
+    #[inline(always)]
+    #[must_use]
+    pub const fn set_hidden(self, state: bool) -> Identifier {
+        Self {
+            low: self.low,
+            // SAFETY: the high component will always be non-zero due to either the
+            // placeholder flag or the value component not being modified and either
+            // one guaranteed to be one due to Identifier being initialised with the
+            // correct invariants checked. As such, modifying the hidden bit will
+            // never result in a zero value.
+            high: unsafe {
+                NonZeroU32::new_unchecked(IdentifierMask::set_togglable_flag_in_high(
+                    self.high.get(),
+                    state,
+                ))
+            },
+        }
+    }
+
     /// Convert the [`Identifier`] into a `u64`.
     #[inline(always)]
     pub const fn to_bits(self) -> u64 {
@@ -96,11 +147,18 @@ impl Identifier {
     /// This method will likely panic if given `u64` values that did not come from [`Identifier::to_bits`].
     #[inline(always)]
     pub const fn from_bits(value: u64) -> Self {
+        #[inline(never)]
+        #[cold]
+        #[track_caller]
+        const fn invalid_id() -> ! {
+            panic!("Attempted to initialise invalid bits as an id");
+        }
+
         let id = Self::try_from_bits(value);
 
         match id {
             Ok(id) => id,
-            Err(_) => panic!("Attempted to initialise invalid bits as an id"),
+            Err(_) => invalid_id(),
         }
     }
 
@@ -174,66 +232,137 @@ impl Hash for Identifier {
 
 #[cfg(test)]
 mod tests {
+    use crate::identifier::masks::HIGH_MASK;
+
     use super::*;
 
     #[test]
     fn id_construction() {
-        let id = Identifier::new(12, 55, IdKind::Entity).unwrap();
+        let id = Identifier::new(12, 55, IdentifierFlagBits::empty()).unwrap();
 
         assert_eq!(id.low(), 12);
         assert_eq!(id.high().get(), 55);
-        assert_eq!(
-            IdentifierMask::extract_kind_from_high(id.high().get()),
-            IdKind::Entity
-        );
+        assert_eq!(id.flags(), IdentifierFlagBits::empty());
+        assert!(!id.is_togglable());
     }
 
     #[test]
     fn from_bits() {
         // This high value should correspond to the max high() value
         // and also Entity flag.
-        let high = 0x7FFFFFFF;
+        let high = 0x7FFF_FFFF;
         let low = 0xC;
         let bits: u64 = high << u32::BITS | low;
 
         let id = Identifier::try_from_bits(bits).unwrap();
 
-        assert_eq!(id.to_bits(), 0x7FFFFFFF0000000C);
+        assert_eq!(id.to_bits(), 0x7FFF_FFFF_0000_000C);
         assert_eq!(id.low(), low as u32);
-        assert_eq!(id.high().get(), 0x7FFFFFFF);
-        assert_eq!(
-            IdentifierMask::extract_kind_from_high(id.high().get()),
-            IdKind::Entity
-        );
+        assert_eq!(id.masked_high(), HIGH_MASK);
+        assert!(id.flags().contains(IdentifierFlagBits::IS_TOGGLABLE));
+        assert!(!id.flags().contains(IdentifierFlagBits::IS_PLACEHOLDER));
+        assert!(id.is_togglable());
+        assert!(!id.is_placeholder());
     }
 
-    #[rustfmt::skip]
     #[test]
-    #[allow(clippy::nonminimal_bool)] // This is intentionally testing `lt` and `ge` as separate functions.
+    fn hidden_states() {
+        let high = 0x7FFF_FFFF;
+        let low = 0xC;
+        let bits: u64 = high << u32::BITS | low;
+
+        let id = Identifier::try_from_bits(bits).unwrap();
+
+        assert!(id.is_togglable());
+
+        let id = id.set_hidden(false);
+
+        assert_eq!(id.to_bits(), 0x3FFF_FFFF_0000_000C);
+        assert!(!id.is_togglable());
+    }
+
+    #[test]
     fn id_comparison() {
-        assert!(Identifier::new(123, 456, IdKind::Entity).unwrap() == Identifier::new(123, 456, IdKind::Entity).unwrap());
-        assert!(Identifier::new(123, 456, IdKind::Placeholder).unwrap() == Identifier::new(123, 456, IdKind::Placeholder).unwrap());
-        assert!(Identifier::new(123, 789, IdKind::Entity).unwrap() != Identifier::new(123, 456, IdKind::Entity).unwrap());
-        assert!(Identifier::new(123, 456, IdKind::Entity).unwrap() != Identifier::new(123, 789, IdKind::Entity).unwrap());
-        assert!(Identifier::new(123, 456, IdKind::Entity).unwrap() != Identifier::new(456, 123, IdKind::Entity).unwrap());
-        assert!(Identifier::new(123, 456, IdKind::Entity).unwrap() != Identifier::new(123, 456, IdKind::Placeholder).unwrap());
+        // This is intentionally testing `lt` and `ge` as separate functions.
+        #![allow(clippy::nonminimal_bool)]
+
+        assert!(
+            Identifier::new(123, 456, IdentifierFlagBits::empty()).unwrap()
+                == Identifier::new(123, 456, IdentifierFlagBits::empty()).unwrap()
+        );
+        assert!(
+            Identifier::new(123, 456, IdentifierFlagBits::IS_PLACEHOLDER).unwrap()
+                == Identifier::new(123, 456, IdentifierFlagBits::IS_PLACEHOLDER).unwrap()
+        );
+        assert!(
+            Identifier::new(123, 789, IdentifierFlagBits::all()).unwrap()
+                != Identifier::new(123, 456, IdentifierFlagBits::empty()).unwrap()
+        );
+        assert!(
+            Identifier::new(123, 456, IdentifierFlagBits::empty()).unwrap()
+                != Identifier::new(123, 789, IdentifierFlagBits::empty()).unwrap()
+        );
+        assert!(
+            Identifier::new(123, 456, IdentifierFlagBits::empty()).unwrap()
+                != Identifier::new(456, 123, IdentifierFlagBits::empty()).unwrap()
+        );
+        assert!(
+            Identifier::new(123, 456, IdentifierFlagBits::empty()).unwrap()
+                != Identifier::new(123, 456, IdentifierFlagBits::IS_PLACEHOLDER).unwrap()
+        );
 
         // ordering is by flag then high then by low
 
-        assert!(Identifier::new(123, 456, IdKind::Entity).unwrap() >= Identifier::new(123, 456, IdKind::Entity).unwrap());
-        assert!(Identifier::new(123, 456, IdKind::Entity).unwrap() <= Identifier::new(123, 456, IdKind::Entity).unwrap());
-        assert!(!(Identifier::new(123, 456, IdKind::Entity).unwrap() < Identifier::new(123, 456, IdKind::Entity).unwrap()));
-        assert!(!(Identifier::new(123, 456, IdKind::Entity).unwrap() > Identifier::new(123, 456, IdKind::Entity).unwrap()));
+        assert!(
+            Identifier::new(123, 456, IdentifierFlagBits::empty()).unwrap()
+                >= Identifier::new(123, 456, IdentifierFlagBits::empty()).unwrap()
+        );
+        assert!(
+            Identifier::new(123, 456, IdentifierFlagBits::empty()).unwrap()
+                <= Identifier::new(123, 456, IdentifierFlagBits::empty()).unwrap()
+        );
+        assert!(
+            !(Identifier::new(123, 456, IdentifierFlagBits::empty()).unwrap()
+                < Identifier::new(123, 456, IdentifierFlagBits::empty()).unwrap())
+        );
+        assert!(
+            !(Identifier::new(123, 456, IdentifierFlagBits::empty()).unwrap()
+                > Identifier::new(123, 456, IdentifierFlagBits::empty()).unwrap())
+        );
 
-        assert!(Identifier::new(9, 1, IdKind::Entity).unwrap() < Identifier::new(1, 9, IdKind::Entity).unwrap());
-        assert!(Identifier::new(1, 9, IdKind::Entity).unwrap() > Identifier::new(9, 1, IdKind::Entity).unwrap());
+        assert!(
+            Identifier::new(9, 1, IdentifierFlagBits::empty()).unwrap()
+                < Identifier::new(1, 9, IdentifierFlagBits::empty()).unwrap()
+        );
+        assert!(
+            Identifier::new(1, 9, IdentifierFlagBits::empty()).unwrap()
+                > Identifier::new(9, 1, IdentifierFlagBits::empty()).unwrap()
+        );
 
-        assert!(Identifier::new(9, 1, IdKind::Entity).unwrap() < Identifier::new(9, 1, IdKind::Placeholder).unwrap());
-        assert!(Identifier::new(1, 9, IdKind::Placeholder).unwrap() > Identifier::new(1, 9, IdKind::Entity).unwrap());
+        assert!(
+            Identifier::new(9, 1, IdentifierFlagBits::empty()).unwrap()
+                < Identifier::new(9, 1, IdentifierFlagBits::IS_PLACEHOLDER).unwrap()
+        );
+        assert!(
+            Identifier::new(1, 9, IdentifierFlagBits::IS_PLACEHOLDER).unwrap()
+                > Identifier::new(1, 9, IdentifierFlagBits::empty()).unwrap()
+        );
 
-        assert!(Identifier::new(1, 1, IdKind::Entity).unwrap() < Identifier::new(2, 1, IdKind::Entity).unwrap());
-        assert!(Identifier::new(1, 1, IdKind::Entity).unwrap() <= Identifier::new(2, 1, IdKind::Entity).unwrap());
-        assert!(Identifier::new(2, 2, IdKind::Entity).unwrap() > Identifier::new(1, 2, IdKind::Entity).unwrap());
-        assert!(Identifier::new(2, 2, IdKind::Entity).unwrap() >= Identifier::new(1, 2, IdKind::Entity).unwrap());
+        assert!(
+            Identifier::new(1, 1, IdentifierFlagBits::empty()).unwrap()
+                < Identifier::new(2, 1, IdentifierFlagBits::empty()).unwrap()
+        );
+        assert!(
+            Identifier::new(1, 1, IdentifierFlagBits::empty()).unwrap()
+                <= Identifier::new(2, 1, IdentifierFlagBits::empty()).unwrap()
+        );
+        assert!(
+            Identifier::new(2, 2, IdentifierFlagBits::empty()).unwrap()
+                > Identifier::new(1, 2, IdentifierFlagBits::empty()).unwrap()
+        );
+        assert!(
+            Identifier::new(2, 2, IdentifierFlagBits::empty()).unwrap()
+                >= Identifier::new(1, 2, IdentifierFlagBits::empty()).unwrap()
+        );
     }
 }

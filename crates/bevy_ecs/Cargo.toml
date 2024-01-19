@@ -23,7 +23,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
 bevy_ecs_macros = { path = "macros", version = "0.14.0-dev" }
 
 petgraph = "0.6"
-bitflags = "2.3"
+bitflags = "2.4"
 concurrent-queue = "2.4.0"
 fixedbitset = "0.5"
 serde = { version = "1", optional = true, default-features = false }
