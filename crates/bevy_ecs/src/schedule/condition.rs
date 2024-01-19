@@ -833,7 +833,7 @@ pub mod common_conditions {
     /// To do things on transitions to/from specific states, use their respective OnEnter/OnExit
     /// schedules. Use this run condition if you want to detect any change, regardless of the value.
     ///
-    /// Returns false if the state does not exist.
+    /// Returns false if the state does not exist or the state has not changed.
     ///
     /// # Example
     ///
