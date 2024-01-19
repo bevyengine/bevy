@@ -194,7 +194,7 @@ mod sealed {
 
 /// A collection of [run conditions](Condition) that may be useful in any bevy app.
 pub mod common_conditions {
-    use bevy_utils::{tracing::warn, warn_once};
+    use bevy_utils::{warn_once};
 
     use super::NotSystem;
     use crate::{
@@ -203,7 +203,7 @@ pub mod common_conditions {
         prelude::{Component, Query, With},
         removal_detection::RemovedComponents,
         schedule::{State, States},
-        system::{IntoSystem, Local, Res, Resource, System},
+        system::{IntoSystem, Res, Resource, System},
     };
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
