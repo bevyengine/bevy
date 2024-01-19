@@ -28,6 +28,18 @@ impl Direction3d {
         Self::new_and_length(value).map(|(dir, _)| dir)
     }
 
+    /// Create a [`Direction3d`] from a [`Vec3`] that is already normalized.
+    ///
+    /// ## Safety
+    ///
+    /// This function only checks if `value` is normalized on debug builds,
+    /// release builds can allow the creation of a [`Direction3d`] that is not normalized.
+    pub unsafe fn new_unchecked(value: Vec3) -> Self {
+        debug_assert!(value.is_normalized());
+
+        Self(value)
+    }
+
     /// Create a direction from a finite, nonzero [`Vec3`], also returning its original length.
     ///
     /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
@@ -47,12 +59,6 @@ impl Direction3d {
     /// of the vector formed by the components is zero (or very close to zero), infinite, or `NaN`.
     pub fn from_xyz(x: f32, y: f32, z: f32) -> Result<Self, InvalidDirectionError> {
         Self::new(Vec3::new(x, y, z))
-    }
-
-    /// Create a direction from a [`Vec3`] that is already normalized.
-    pub fn from_normalized(value: Vec3) -> Self {
-        debug_assert!(value.is_normalized());
-        Self(value)
     }
 }
 
@@ -146,8 +152,10 @@ impl Segment3d {
     pub fn from_points(point1: Vec3, point2: Vec3) -> (Self, Vec3) {
         let diff = point2 - point1;
         let length = diff.length();
+
         (
-            Self::new(Direction3d::from_normalized(diff / length), length),
+            // SAFETY: We are dividing by the length here, so the Vector is normalized.
+            Self::new(unsafe { Direction3d::new_unchecked(diff / length) }, length),
             (point1 + point2) / 2.,
         )
     }
@@ -423,7 +431,7 @@ mod test {
         );
         assert_eq!(
             Direction3d::new_and_length(Vec3::X * 6.5),
-            Ok((Direction3d::from_normalized(Vec3::X), 6.5))
+            Ok((Direction3d::X, 6.5))
         );
     }
 }
