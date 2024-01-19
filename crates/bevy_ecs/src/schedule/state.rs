@@ -5,16 +5,13 @@ use std::mem;
 use std::ops::Deref;
 
 use crate as bevy_ecs;
-use crate::change_detection::DetectChangesMut;
 use crate::event::Event;
 use crate::prelude::FromWorld;
 #[cfg(feature = "bevy_reflect")]
 use crate::reflect::ReflectResource;
-use crate::schedule::{apply_deferred, ScheduleLabel};
-use crate::system::{Commands, Resource};
+use crate::schedule::ScheduleLabel;
+use crate::system::Resource;
 use crate::world::World;
-#[cfg(feature = "bevy_reflect")]
-use bevy_reflect::std_traits::ReflectDefault;
 
 pub use bevy_ecs_macros::States;
 use bevy_utils::all_tuples;
@@ -156,8 +153,6 @@ impl<S: States> Deref for State<S> {
 /// Note that these transitions can be overridden by other systems:
 /// only the actual value of this resource at the time of [`apply_state_transition`] matters.
 ///
-/// If this occurs at the same time as [`RemoveState<S>`] - the removal takes priority.
-///
 /// ```
 /// use bevy_ecs::prelude::*;
 ///
@@ -173,55 +168,36 @@ impl<S: States> Deref for State<S> {
 ///     next_game_state.set(GameState::InGame);
 /// }
 /// ```
-#[derive(Resource, Debug)]
+#[derive(Resource, Debug, Default)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(bevy_reflect::Reflect),
-    reflect(Resource, Default)
+    reflect(Resource)
 )]
-pub struct NextState<S: States>(pub Option<S>);
-
-impl<S: States> Default for NextState<S> {
-    fn default() -> Self {
-        Self(None)
-    }
+pub enum NextState<S: States> {
+    /// No transition has been planned
+    #[default]
+    Unchanged,
+    /// There is a transition planned for state [`S`]
+    Set(S),
+    /// There is a planned removal of the state [`S`]
+    Remove,
 }
 
 impl<S: States> NextState<S> {
     /// Tentatively set a planned state transition to `Some(state)`.
     pub fn set(&mut self, state: S) {
-        self.0 = Some(state);
+        *self = Self::Set(state);
     }
-}
 
-/// Remove any state of type [`S`].
-///
-/// Note that these transitions can be overridden by other systems:
-/// only the actual value of this resource at the time of [`apply_state_transition`] matters.
-///
-/// This takes priority over [`NextState<S>`].
-///
-/// ```
-/// use bevy_ecs::prelude::*;
-///
-/// #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
-/// enum GameState {
-///     #[default]
-///     MainMenu,
-///     SettingsMenu,
-///     InGame,
-/// }
-///
-/// fn remove_game_state(mut commands: Commands) {
-///     commands.init_resource::<RemoveState<S>>();
-/// }
-/// ```
-#[derive(Resource, Debug)]
-pub struct RemoveState<S: States>(PhantomData<S>);
+    /// Tentatively set a planned removal of the [`State<S>`] resource.
+    pub fn remove(&mut self) {
+        *self = Self::Remove;
+    }
 
-impl<S: States> Default for RemoveState<S> {
-    fn default() -> Self {
-        Self(Default::default())
+    /// Remove any planned changes to `State<S>`
+    pub fn reset(&mut self) {
+        *self = Self::Unchanged;
     }
 }
 
@@ -253,59 +229,55 @@ pub fn run_enter_schedule<S: States>(world: &mut World) {
 /// - Runs the [`OnTransition { from: exited_state, to: entered_state }`](OnTransition), if it exists.
 /// - Derive any derived states through the [`DeriveState::<S>`] schedule, if it exists.
 /// - Runs the [`OnEnter(entered_state)`] schedule, if it exists.
-///
-/// If [`RemoveState<S>`] exists in the world, even if a new state is queued, this system will instead:
-/// - remove the [`RemoveState<S>`] resource
-/// - remove the [`NextState<S>`] resource
-/// - remove the [`State<S>`] resource
-/// - Runs the [`OnExit(exited_state)`] schedule, if it exists.
-/// - Derive any derived states through the [`DeriveState::<S>`] schedule, if it exists.
 pub fn apply_state_transition<S: States>(world: &mut World) {
-    if world.remove_resource::<RemoveState<S>>().is_some() {
-        world.remove_resource::<NextState<S>>();
-        let Some(resource) = world.remove_resource::<State<S>>() else {
-            return;
-        };
-
-        world.try_run_schedule(OnExit(resource.0)).ok();
-        world.try_run_schedule(DeriveStates::<S>::default()).ok();
-        return;
-    }
     // We want to take the `NextState` resource,
     // but only mark it as changed if it wasn't empty.
-    let Some(mut next_state_resource) = world.get_resource_mut::<NextState<S>>() else {
+    let Some(next_state_resource) = world.get_resource::<NextState<S>>() else {
         return;
     };
 
-    if let Some(entered) = next_state_resource.bypass_change_detection().0.take() {
-        next_state_resource.set_changed();
-        match world.get_resource_mut::<State<S>>() {
-            Some(mut state_resource) => {
-                if *state_resource != entered {
-                    let exited = mem::replace(&mut state_resource.0, entered.clone());
-                    world.send_event(StateTransitionEvent {
-                        before: exited.clone(),
-                        after: entered.clone(),
-                    });
-                    // Try to run the schedules if they exist.
-                    world.try_run_schedule(OnExit(exited.clone())).ok();
-                    world
-                        .try_run_schedule(OnTransition {
-                            from: exited,
-                            to: entered.clone(),
-                        })
-                        .ok();
+    match next_state_resource {
+        NextState::Set(entered) => {
+            let entered = entered.clone();
+            match world.get_resource_mut::<State<S>>() {
+                Some(mut state_resource) => {
+                    if *state_resource != entered {
+                        let exited = mem::replace(&mut state_resource.0, entered.clone());
+                        world.send_event(StateTransitionEvent {
+                            before: exited.clone(),
+                            after: entered.clone(),
+                        });
+                        // Try to run the schedules if they exist.
+                        world.try_run_schedule(OnExit(exited.clone())).ok();
+                        world
+                            .try_run_schedule(OnTransition {
+                                from: exited,
+                                to: entered.clone(),
+                            })
+                            .ok();
+                        world.try_run_schedule(DeriveStates::<S>::default()).ok();
+                        world.try_run_schedule(OnEnter(entered)).ok();
+                    }
+                }
+                None => {
+                    world.insert_resource(State(entered.clone()));
                     world.try_run_schedule(DeriveStates::<S>::default()).ok();
                     world.try_run_schedule(OnEnter(entered)).ok();
                 }
-            }
-            None => {
-                world.insert_resource(State(entered.clone()));
+            };
+        }
+        NextState::Remove => {
+            if let Some(resource) = world.remove_resource::<State<S>>() {
+                world.try_run_schedule(OnExit(resource.0)).ok();
                 world.try_run_schedule(DeriveStates::<S>::default()).ok();
-                world.try_run_schedule(OnEnter(entered)).ok();
             }
-        };
+        }
+        _ => {
+            return;
+        }
     }
+
+    world.insert_resource(NextState::<S>::Unchanged);
 }
 
 /// Trait defining a derived state
@@ -348,24 +320,25 @@ impl<S: States> StateSet for S {
     fn add_derivation_systems_for_derived_state<T: DerivedStates<SourceStates = Self>>(
         schedules: &mut Schedules,
     ) {
-        let system = |mut commands: Commands, state_set: Option<crate::prelude::Res<State<S>>>| {
+        let system = |mut next_state: crate::prelude::ResMut<NextState<T>>,
+                      state_set: Option<crate::prelude::Res<State<S>>>| {
             match T::derive(state_set.map(|v| v.0.clone())) {
                 Some(updated) => {
-                    commands.insert_resource(NextState(Some(updated)));
+                    next_state.set(updated);
                 }
                 None => {
-                    commands.insert_resource(RemoveState::<T>::default());
+                    next_state.remove();
                 }
             }
         };
         let label = DeriveStates::<S>::default();
         match schedules.get_mut(label.clone()) {
             Some(schedule) => {
-                schedule.add_systems((system, apply_deferred, apply_state_transition::<T>).chain());
+                schedule.add_systems((system, apply_state_transition::<T>).chain());
             }
             None => {
                 let mut schedule = Schedule::new(label);
-                schedule.add_systems((system, apply_deferred, apply_state_transition::<T>).chain());
+                schedule.add_systems((system, apply_state_transition::<T>).chain());
                 schedules.insert(schedule);
             }
         }
@@ -381,13 +354,13 @@ macro_rules! impl_state_set_sealed_tuples {
 
             fn add_derivation_systems_for_derived_state<T: DerivedStates<SourceStates = Self>>(schedules: &mut Schedules) {
 
-                let system = |mut commands: Commands, ($($val),*,): ($(Option<crate::prelude::Res<State<$param>>>),*,)| {
+                let system = |mut next_state: crate::prelude::ResMut<NextState<T>>,  ($($val),*,): ($(Option<crate::prelude::Res<State<$param>>>),*,)| {
                     match T::derive(($($val.map(|v| v.0.clone())),*, )) {
                         Some(updated) => {
-                            commands.insert_resource(NextState(Some(updated)));
+                            next_state.set(updated);
                         },
                         None => {
-                            commands.insert_resource(RemoveState::<T>::default());
+                            next_state.remove();
                         },
                     }
                 };
@@ -395,11 +368,11 @@ macro_rules! impl_state_set_sealed_tuples {
                 $(let label = DeriveStates::<$param>::default();
                 match schedules.get_mut(label.clone()) {
                     Some(schedule) => {
-                        schedule.add_systems((system, apply_deferred, apply_state_transition::<T>).chain());
+                        schedule.add_systems((system, apply_state_transition::<T>).chain());
                     },
                     None => {
                         let mut schedule = Schedule::new(label);
-                        schedule.add_systems((system, apply_deferred, apply_state_transition::<T>).chain());
+                        schedule.add_systems((system, apply_state_transition::<T>).chain());
                         schedules.insert(schedule);
                     },
                 })*
@@ -448,6 +421,7 @@ mod tests {
     fn derived_state_gets_created_correctly() {
         let mut world = World::new();
         world.init_resource::<State<SimpleState>>();
+        world.init_resource::<NextState<DerivedState>>();
         let mut schedules = Schedules::new();
         DerivedState::add_derivation_to_schedule(&mut schedules);
         let mut apply_changes = Schedule::new(TemporaryScheduleLabel);
@@ -460,7 +434,7 @@ mod tests {
         assert_eq!(world.resource::<State<SimpleState>>().0, SimpleState::A);
         assert!(!world.contains_resource::<State<DerivedState>>());
 
-        world.insert_resource(NextState(Some(SimpleState::B(true))));
+        world.insert_resource(NextState::Set(SimpleState::B(true)));
         world.run_schedule(TemporaryScheduleLabel);
         assert_eq!(
             world.resource::<State<SimpleState>>().0,
@@ -471,7 +445,7 @@ mod tests {
             DerivedState::BisTrue
         );
 
-        world.insert_resource(NextState(Some(SimpleState::B(false))));
+        world.insert_resource(NextState::Set(SimpleState::B(false)));
         world.run_schedule(TemporaryScheduleLabel);
         assert_eq!(
             world.resource::<State<SimpleState>>().0,
@@ -482,10 +456,9 @@ mod tests {
             DerivedState::BisFalse
         );
 
-        world.insert_resource(NextState(Some(SimpleState::A)));
+        world.insert_resource(NextState::Set(SimpleState::A));
         world.run_schedule(TemporaryScheduleLabel);
         assert_eq!(world.resource::<State<SimpleState>>().0, SimpleState::A);
-        assert!(!world.contains_resource::<RemoveState<DerivedState>>());
         assert!(!world.contains_resource::<State<DerivedState>>());
     }
 
@@ -529,10 +502,13 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<State<SimpleState>>();
         world.init_resource::<State<OtherState>>();
+        world.init_resource::<NextState<ComplexDerive>>();
 
         let mut schedules = Schedules::new();
 
         ComplexDerive::add_derivation_to_schedule(&mut schedules);
+
+        println!("Got here");
         let mut apply_changes = Schedule::new(TemporaryScheduleLabel);
         apply_changes.add_systems(apply_state_transition::<SimpleState>);
         apply_changes.add_systems(apply_state_transition::<OtherState>);
@@ -540,6 +516,7 @@ mod tests {
 
         world.insert_resource(schedules);
 
+        println!("Running schedule");
         world.run_schedule(TemporaryScheduleLabel);
         assert_eq!(world.resource::<State<SimpleState>>().0, SimpleState::A);
         assert_eq!(
@@ -548,37 +525,43 @@ mod tests {
         );
         assert!(!world.contains_resource::<State<ComplexDerive>>());
 
-        world.insert_resource(NextState(Some(SimpleState::B(true))));
+        println!("Doesn't Contains resource");
+
+        world.insert_resource(NextState::Set(SimpleState::B(true)));
         world.run_schedule(TemporaryScheduleLabel);
         assert!(!world.contains_resource::<State<ComplexDerive>>());
+        println!("Still doesn't contain resource");
 
-        world.insert_resource(NextState(Some(OtherState {
+        world.insert_resource(NextState::Set(OtherState {
             a_flexible_value: "felix",
             another_value: 13,
-        })));
+        }));
         world.run_schedule(TemporaryScheduleLabel);
         assert_eq!(
             world.resource::<State<ComplexDerive>>().0,
             ComplexDerive::InTrueBAndUsizeAbove8
         );
+        println!("B true and unsuized");
 
-        world.insert_resource(NextState(Some(SimpleState::A)));
-        world.insert_resource(NextState(Some(OtherState {
+        world.insert_resource(NextState::Set(SimpleState::A));
+        world.insert_resource(NextState::Set(OtherState {
             a_flexible_value: "jane",
             another_value: 13,
-        })));
+        }));
         world.run_schedule(TemporaryScheduleLabel);
         assert_eq!(
             world.resource::<State<ComplexDerive>>().0,
             ComplexDerive::InAAndStrIsBobOrJane
         );
+        println!("Jane");
 
-        world.insert_resource(NextState(Some(SimpleState::B(false))));
-        world.insert_resource(NextState(Some(OtherState {
+        world.insert_resource(NextState::Set(SimpleState::B(false)));
+        world.insert_resource(NextState::Set(OtherState {
             a_flexible_value: "jane",
             another_value: 13,
-        })));
+        }));
         world.run_schedule(TemporaryScheduleLabel);
         assert!(!world.contains_resource::<State<ComplexDerive>>());
+        println!("No longer contains");
     }
 }
