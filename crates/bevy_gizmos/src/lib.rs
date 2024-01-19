@@ -103,7 +103,7 @@ impl Plugin for GizmoPlugin {
             .init_asset::<LineGizmo>()
             .add_plugins(RenderAssetPlugin::<LineGizmo>::default())
             .init_resource::<LineGizmoHandles>()
-            .init_resource::<GizmoConfigStore>()
+            // We insert the Resource GizmoConfigStore into the world implicitly here if it does not exist.
             .init_gizmo_group::<DefaultGizmoConfigGroup>()
             .add_plugins(AabbGizmoPlugin);
 
@@ -158,7 +158,7 @@ impl AppGizmoBuilder for App {
             .add_systems(Last, update_gizmo_meshes::<T>);
 
         self.world
-            .resource_mut::<GizmoConfigStore>()
+            .get_resource_or_insert_with::<GizmoConfigStore>(Default::default)
             .register::<T>();
 
         let Ok(render_app) = self.get_sub_app_mut(RenderApp) else {
