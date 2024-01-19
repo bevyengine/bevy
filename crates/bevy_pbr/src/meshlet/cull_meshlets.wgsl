@@ -51,10 +51,10 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
         let bounding_sphere_center_view_space = (view.inverse_view * vec4(bounding_sphere_center.xyz, 1.0)).xyz;
         let aabb = project_view_space_sphere_to_screen_space_aabb(bounding_sphere_center_view_space, bounding_sphere_radius);
 
-        let depth_pyramid_size_mip_0 = vec2<f32>(textureDimensions(depth_pyramid, 0));
-        // we halve the size because the first depth mip resampling pass cut the full screen resolution into a power of two conservatively
-        let width = (aabb.z - aabb.x) * 0.5 * depth_pyramid_size_mip_0.x;
-        let height = (aabb.w - aabb.y) * 0.5 * depth_pyramid_size_mip_0.y;
+        // Halve the AABB size because the first depth mip resampling pass cut the full screen resolution into a power of two conservatively
+        let depth_pyramid_size_mip_0 = vec2<f32>(textureDimensions(depth_pyramid, 0)) * 0.5;
+        let width = (aabb.z - aabb.x) * depth_pyramid_size_mip_0.x;
+        let height = (aabb.w - aabb.y) * depth_pyramid_size_mip_0.y;
         let depth_level = max(0, i32(ceil(log2(max(width, height))))); // TODO: Naga doesn't like this being a u32
         let depth_pyramid_size = vec2<f32>(textureDimensions(depth_pyramid, depth_level));
         let aabb_top_left = vec2<u32>(aabb.xy * depth_pyramid_size);
@@ -66,7 +66,7 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
         let occluder_depth = min(min(depth_quad_a, depth_quad_b), min(depth_quad_c, depth_quad_d));
         if view.projection[3][3] == 1.0 {
             // Orthographic
-            let sphere_depth =  view.projection[3][2] + (bounding_sphere_center_view_space.z + bounding_sphere_radius) * view.projection[2][2];
+            let sphere_depth = view.projection[3][2] + (bounding_sphere_center_view_space.z + bounding_sphere_radius) * view.projection[2][2];
             meshlet_visible &= sphere_depth >= occluder_depth;
         } else {
             // Perspective
