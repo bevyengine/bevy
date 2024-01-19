@@ -103,7 +103,6 @@ impl Plugin for GizmoPlugin {
             .init_asset::<LineGizmo>()
             .add_plugins(RenderAssetPlugin::<LineGizmo>::default())
             .init_resource::<LineGizmoHandles>()
-            .init_resource::<GizmoConfigStore>()
             .init_gizmo_group::<DefaultGizmoConfigGroup>()
             .add_plugins(AabbGizmoPlugin);
 
