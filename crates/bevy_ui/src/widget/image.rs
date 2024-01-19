@@ -2,10 +2,9 @@ use crate::{measurement::AvailableSpace, ContentSize, Measure, Node, UiImage, Ui
 use bevy_asset::Assets;
 
 use bevy_ecs::change_detection::DetectChanges;
-use bevy_ecs::query::Without;
 use bevy_ecs::{
     prelude::Component,
-    query::With,
+    query::{With, Without},
     reflect::ReflectComponent,
     system::{Local, Query, Res},
 };

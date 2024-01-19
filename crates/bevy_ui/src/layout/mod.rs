@@ -112,7 +112,13 @@ impl UiSurface {
         let taffy = &mut self.taffy;
         let taffy_node = self.entity_to_taffy.entry(entity).or_insert_with(|| {
             added = true;
-            taffy.new_leaf(convert::from_style(context, style)).unwrap()
+
+            // SAFETY: Despite returning a `Result`, this will never fail.
+            unsafe {
+                taffy
+                    .new_leaf(convert::from_style(context, style))
+                    .unwrap_unchecked()
+            }
         });
 
         if !added {
@@ -196,7 +202,13 @@ impl UiSurface {
         let existing_roots = self.camera_roots.entry(camera_id).or_default();
         let mut new_roots = Vec::new();
         for entity in children {
-            let node = *self.entity_to_taffy.get(&entity).unwrap();
+            // Can't use entity_to_taffy() here because it takes a reference to
+            // the entire struct instead of just `entity_to_taffy`
+            let node = *self
+                .entity_to_taffy
+                .get(&entity)
+                .ok_or(SurfaceError::NodeNotFound(entity))?;
+
             let maybe_root_node = existing_roots
                 .iter()
                 .find(|n| n.user_root_node == node)
@@ -297,7 +309,7 @@ pub enum LayoutError {
 
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
 #[allow(clippy::too_many_arguments)]
-pub(super) fn ui_layout_system(
+pub fn ui_layout_system(
     primary_window: Query<(Entity, &Window), With<PrimaryWindow>>,
     cameras: Query<(Entity, &Camera)>,
     default_ui_camera: DefaultUiCamera,
@@ -686,6 +698,7 @@ mod tests {
 
         for ui_entity in [ui_root, ui_child] {
             let layout = ui_surface.get_layout(ui_entity).unwrap();
+            
             assert_eq!(layout.size.width, WINDOW_WIDTH);
             assert_eq!(layout.size.height, WINDOW_HEIGHT);
         }
