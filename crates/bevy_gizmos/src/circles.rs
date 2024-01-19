@@ -116,7 +116,7 @@ impl<T: GizmoConfigGroup> Drop for CircleBuilder<'_, '_, '_, T> {
         if !self.gizmos.enabled {
             return;
         }
-        let rotation = Quat::from_rotation_arc(Vec3::Z, self.normal);
+        let rotation = Quat::from_rotation_arc(Vec3::Z, self.normal.normalize());
         let positions = circle_inner(self.radius, self.segments)
             .map(|vec2| self.position + rotation * vec2.extend(0.));
         self.gizmos.linestrip(positions, self.color);
