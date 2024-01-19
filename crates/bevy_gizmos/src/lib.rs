@@ -156,8 +156,7 @@ impl AppGizmoBuilder for App {
         self.init_resource::<GizmoStorage<T>>()
             .add_systems(Last, update_gizmo_meshes::<T>);
 
-        self.world
-            .resource_mut::<GizmoConfigStore>()
+        self.world.get_resource_or_insert_with::<GizmoConfigStore>(Default::default)
             .register::<T>();
 
         let Ok(render_app) = self.get_sub_app_mut(RenderApp) else {
