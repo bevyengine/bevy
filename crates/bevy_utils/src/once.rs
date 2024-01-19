@@ -11,7 +11,7 @@ macro_rules! once {
     }};
 }
 
-/// Call [`trace!`](crate::trace) once per call site.
+/// Call [`trace!`](crate::tracing::trace) once per call site.
 ///
 /// Useful for logging within systems which are called every frame.
 #[macro_export]
@@ -21,7 +21,7 @@ macro_rules! trace_once {
     });
 }
 
-/// Call [`debug!`](crate::debug) once per call site.
+/// Call [`debug!`](crate::tracing::debug) once per call site.
 ///
 /// Useful for logging within systems which are called every frame.
 #[macro_export]
@@ -31,7 +31,7 @@ macro_rules! debug_once {
     });
 }
 
-/// Call [`info!`](crate::info) once per call site.
+/// Call [`info!`](crate::tracing::info) once per call site.
 ///
 /// Useful for logging within systems which are called every frame.
 #[macro_export]
@@ -41,7 +41,7 @@ macro_rules! info_once {
     });
 }
 
-/// Call [`warn!`](crate::warn) once per call site.
+/// Call [`warn!`](crate::tracing::warn) once per call site.
 ///
 /// Useful for logging within systems which are called every frame.
 #[macro_export]
@@ -51,7 +51,7 @@ macro_rules! warn_once {
     });
 }
 
-/// Call [`error!`](crate::error) once per call site.
+/// Call [`error!`](crate::tracing::error) once per call site.
 ///
 /// Useful for logging within systems which are called every frame.
 #[macro_export]
