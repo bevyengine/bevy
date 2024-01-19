@@ -5,7 +5,7 @@ use bevy_ecs::{
     schedule::{
         apply_state_transition, common_conditions::run_once as run_once_condition,
         run_enter_schedule, InternedScheduleLabel, IntoSystemConfigs, IntoSystemSetConfigs,
-        ScheduleBuildSettings, ScheduleLabel, StateTransitionEvent,
+        ScheduleBuildSettings, ScheduleLabel, StateTransitionEvent, DerivedStates,
     },
 };
 use bevy_utils::{intern::Interned, thiserror::Error, tracing::debug, HashMap, HashSet};
@@ -417,6 +417,28 @@ impl App {
         // The OnEnter, OnExit, and OnTransition schedules are lazily initialized
         // (i.e. when the first system is added to them), and World::try_run_schedule is used to fail
         // gracefully if they aren't present.
+
+        self
+    }
+
+    /// Initializes a derived [`State`]
+    ///
+    /// If the [`State`] already exists, nothing happens.
+    ///
+    /// Adds a [`NextState<S>`] resource.
+    /// For each state [`Source`] the derived state depends on, it adds this state's derivation
+    /// and [`apply_state_transition::<S>`] to it's [`DeriveStates<Source>`] schedule.
+    ///
+    /// If you would like to control how other systems run based on the current state,
+    /// you can emulate this behavior using the [`in_state`] [`Condition`].
+    pub fn derive_state<S: DerivedStates>(&mut self) -> &mut Self {
+        if !self.world.contains_resource::<NextState<S>>() {
+            self
+                .init_resource::<NextState<S>>()
+                .add_event::<StateTransitionEvent<S>>();
+            let mut schedules = self.world.resource_mut::<Schedules>();
+            S::add_derivation_to_schedule(schedules.as_mut());
+        }
 
         self
     }
