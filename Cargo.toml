@@ -1484,6 +1484,17 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "derived_state"
+path = "examples/ecs/derived_state.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.derived_state]
+name = "Derived State"
+description = "Illustrates how to use Derived States to achieve more complex state transitions"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
 name = "system_piping"
 path = "examples/ecs/system_piping.rs"
 doc-scrape-examples = true
