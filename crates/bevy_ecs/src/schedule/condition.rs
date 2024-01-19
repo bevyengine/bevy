@@ -703,7 +703,7 @@ pub mod common_conditions {
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if the state machine is currently in `state`.
     ///
-    /// Will return `false` if the state does not exist.
+    /// Will return `false` if the state does not exist or if not in `state`.
     ///
     /// # Example
     ///
