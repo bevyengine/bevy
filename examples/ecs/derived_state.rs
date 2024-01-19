@@ -4,7 +4,6 @@
 //! of the capacity to pause and unpause if we are in game using the ESCAPE button on the keyboard.
 
 use bevy::prelude::*;
-use bevy_internal::ecs::schedule::DerivedStates;
 
 fn main() {
     // We start the setup like we did in the states example.
