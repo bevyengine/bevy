@@ -426,8 +426,8 @@ impl App {
     /// If the [`State`] already exists, nothing happens.
     ///
     /// Adds a [`NextState<S>`] resource.
-    /// For each state [`Source`] the derived state depends on, it adds this state's derivation
-    /// and [`apply_state_transition::<S>`] to it's [`DeriveStates<Source>`] schedule.
+    /// For each source state the derived state depends on, it adds this state's derivation
+    /// and [`apply_state_transition::<S>`] to it's [`DeriveStates<Source>`](bevy_ecs::schedule::DeriveStates<S>) schedule.
     ///
     /// If you would like to control how other systems run based on the current state,
     /// you can emulate this behavior using the [`in_state`] [`Condition`].

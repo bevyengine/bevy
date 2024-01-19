@@ -47,17 +47,17 @@ use super::{IntoSystemConfigs, Schedule, Schedules};
 /// ```
 pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug {}
 
-/// The label of a [`Schedule`](super::Schedule) that runs whenever [`State<S>`]
+/// The label of a [`Schedule`] that runs whenever [`State<S>`]
 /// enters this state.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct OnEnter<S: States>(pub S);
 
-/// The label of a [`Schedule`](super::Schedule) that runs whenever [`State<S>`]
+/// The label of a [`Schedule`] that runs whenever [`State<S>`]
 /// exits this state.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct OnExit<S: States>(pub S);
 
-/// The label of a [`Schedule`](super::Schedule) that **only** runs whenever [`State<S>`]
+/// The label of a [`Schedule`] that **only** runs whenever [`State<S>`]
 /// exits the `from` state, AND enters the `to` state.
 ///
 /// Systems added to this schedule are always ran *after* [`OnExit`], and *before* [`OnEnter`].
@@ -69,7 +69,7 @@ pub struct OnTransition<S: States> {
     pub to: S,
 }
 
-/// The label of a [`Schedule`](super::Schedule) that runs systems
+/// The label of a [`Schedule`] that runs systems
 /// to derive states from this one.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct DeriveStates<S: States>(PhantomData<S>);
@@ -178,9 +178,9 @@ pub enum NextState<S: States> {
     /// No transition has been planned
     #[default]
     Unchanged,
-    /// There is a transition planned for state [`S`]
+    /// There is a transition planned for state `S`
     Set(S),
-    /// There is a planned removal of the state [`S`]
+    /// There is a planned removal of the state `S`
     Remove,
 }
 
@@ -195,7 +195,7 @@ impl<S: States> NextState<S> {
         *self = Self::Remove;
     }
 
-    /// Remove any planned changes to `State<S>`
+    /// Remove any planned changes to [`State<S>`]
     pub fn reset(&mut self) {
         *self = Self::Unchanged;
     }
@@ -227,7 +227,7 @@ pub fn run_enter_schedule<S: States>(world: &mut World) {
 /// - Sends a relevant [`StateTransitionEvent`]
 /// - Runs the [`OnExit(exited_state)`] schedule, if it exists.
 /// - Runs the [`OnTransition { from: exited_state, to: entered_state }`](OnTransition), if it exists.
-/// - Derive any derived states through the [`DeriveState::<S>`] schedule, if it exists.
+/// - Derive any derived states through the [`DeriveStates::<S>`] schedule, if it exists.
 /// - Runs the [`OnEnter(entered_state)`] schedule, if it exists.
 pub fn apply_state_transition<S: States>(world: &mut World) {
     // We want to take the `NextState` resource,
