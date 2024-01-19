@@ -10,25 +10,26 @@ fn main() {
     // We start the setup like we did in the states example.
     App::new()
         .add_plugins(DefaultPlugins)
-        .init_state::<AppState>() 
+        .init_state::<AppState>()
         .add_systems(Startup, setup)
         .add_systems(OnEnter(AppState::Menu), setup_menu)
         .add_systems(Update, menu.run_if(in_state(AppState::Menu)))
         .add_systems(OnExit(AppState::Menu), cleanup_menu)
-
         // We only want to run the [`setup_game`] function when we enter the [`AppState::InGame`] state, regardless
         // of whether the game is paused or not. So we add an [`InGame`] derived state, and rely on that.
         .derive_state::<InGame>()
         .add_systems(OnEnter(InGame), setup_game)
         // We want the color change and the toggle_pause systems to ignore the paused condition, so we can use the [`InGame`] derived
         // state here as well.
-        .add_systems(Update, (toggle_pause,change_color).run_if(in_state(InGame)))
-
+        .add_systems(
+            Update,
+            (toggle_pause, change_color).run_if(in_state(InGame)),
+        )
         // However, we only want the movement to happen if we are not in a paused state, so here we
         // use the full AppState: `AppState::InGame { paused: false }`.
         .add_systems(
             Update,
-            movement.run_if(in_state(AppState::InGame { paused: false}))
+            movement.run_if(in_state(AppState::InGame { paused: false })),
         )
         .add_systems(Update, log_transitions)
         .run();
@@ -39,7 +40,7 @@ enum AppState {
     #[default]
     Menu,
     InGame {
-        paused: bool
+        paused: bool,
     },
 }
 
@@ -54,7 +55,7 @@ impl DerivedStates for InGame {
     ) -> Option<Self> {
         match sources {
             Some(AppState::InGame { .. }) => Some(InGame),
-            _ => None
+            _ => None,
         }
     }
 }
@@ -176,7 +177,11 @@ fn movement(
     }
 }
 
-fn toggle_pause(input: Res<ButtonInput<KeyCode>>, current_state: Res<State<AppState>>, mut next_state: ResMut<NextState<AppState>>) {
+fn toggle_pause(
+    input: Res<ButtonInput<KeyCode>>,
+    current_state: Res<State<AppState>>,
+    mut next_state: ResMut<NextState<AppState>>,
+) {
     if input.just_pressed(KeyCode::Escape) {
         let AppState::InGame { paused } = current_state.get() else {
             return;

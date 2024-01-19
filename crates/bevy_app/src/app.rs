@@ -4,8 +4,8 @@ use bevy_ecs::{
     prelude::*,
     schedule::{
         apply_state_transition, common_conditions::run_once as run_once_condition,
-        run_enter_schedule, InternedScheduleLabel, IntoSystemConfigs, IntoSystemSetConfigs,
-        ScheduleBuildSettings, ScheduleLabel, StateTransitionEvent, DerivedStates,
+        run_enter_schedule, DerivedStates, InternedScheduleLabel, IntoSystemConfigs,
+        IntoSystemSetConfigs, ScheduleBuildSettings, ScheduleLabel, StateTransitionEvent,
     },
 };
 use bevy_utils::{intern::Interned, thiserror::Error, tracing::debug, HashMap, HashSet};
@@ -433,8 +433,7 @@ impl App {
     /// you can emulate this behavior using the [`in_state`] [`Condition`].
     pub fn derive_state<S: DerivedStates>(&mut self) -> &mut Self {
         if !self.world.contains_resource::<NextState<S>>() {
-            self
-                .init_resource::<NextState<S>>()
+            self.init_resource::<NextState<S>>()
                 .add_event::<StateTransitionEvent<S>>();
             let mut schedules = self.world.resource_mut::<Schedules>();
             S::add_derivation_to_schedule(schedules.as_mut());
