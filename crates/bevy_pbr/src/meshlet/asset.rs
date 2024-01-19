@@ -12,6 +12,10 @@ use std::sync::Arc;
 
 /// A mesh that has been pre-processed into multiple small clusters of triangles called meshlets.
 ///
+/// A [`bevy_render::mesh::Mesh`] can be converted to a [`MeshletMesh`] using `MeshletMesh::from_mesh` when the `meshopt` cargo feature is enabled.
+/// The conversion step is very slow, and is meant to be ran once ahead of time, and not during runtime. This type of mesh is not suitable for
+/// dynamically generated geometry.
+///
 /// There are restrictions on the [`crate::Material`] functionality that can be used with this type of mesh.
 /// * Materials have no control over the vertex shader or vertex attributes, and can only have a custom fragment shader.
 /// * Materials must be opaque. Transparent, alpha masked, and transmissive materials are not supported.

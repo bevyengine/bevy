@@ -5,7 +5,6 @@ use bevy_render::{
 };
 use bevy_utils::thiserror;
 use meshopt::{build_meshlets, compute_meshlet_bounds_decoder, VertexDataAdapter};
-use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::borrow::Cow;
 
 impl MeshletMesh {
@@ -51,14 +50,7 @@ impl MeshletMesh {
         let meshopt_meshlets = build_meshlets(&indices, &vertices, 64, 64, 0.0);
 
         let meshlet_bounding_spheres = meshopt_meshlets
-            .meshlets
-            .par_iter()
-            .map(|meshlet| meshopt::Meshlet {
-                vertices: &meshopt_meshlets.vertices[meshlet.vertex_offset as usize
-                    ..meshlet.vertex_offset as usize + meshlet.vertex_count as usize],
-                triangles: &meshopt_meshlets.triangles[meshlet.triangle_offset as usize
-                    ..meshlet.triangle_offset as usize + meshlet.triangle_count as usize * 3],
-            })
+            .iter()
             .map(|meshlet| {
                 compute_meshlet_bounds_decoder(
                     meshlet,

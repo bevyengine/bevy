@@ -14,7 +14,7 @@ use std::f32::consts::PI;
 fn main() {
     App::new()
         .insert_resource(AmbientLight {
-            brightness: 5.0,
+            brightness: 750.0,
             ..default()
         })
         .add_plugins((DefaultPlugins, TemporalAntiAliasPlugin))
@@ -85,6 +85,7 @@ fn setup(
 
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
+            illuminance: 3000.0,
             shadows_enabled: true,
             ..default()
         },

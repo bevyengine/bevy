@@ -12,7 +12,7 @@ keywords = ["bevy"]
 webgl = []
 pbr_transmission_textures = []
 # Enables processing meshes into meshlet meshes
-meshopt = ["dep:meshopt", "rayon"]
+meshopt = ["dep:meshopt"]
 
 [dependencies]
 # bevy
@@ -32,7 +32,6 @@ bevy_derive = { path = "../bevy_derive", version = "0.12.0" }
 
 # other
 meshopt = { git = "https://github.com/JMS55/meshopt-rs", optional = true }
-rayon = { version = "1", optional = true }
 bitflags = "2.3"
 fixedbitset = "0.4"
 # direct dependency required for derive macro

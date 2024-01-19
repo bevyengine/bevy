@@ -25,7 +25,7 @@ use crate::{
     world::World,
 };
 
-/// Resource that stores [`Schedule`]s mapped to [`ScheduleLabel`]s.
+/// Resource that stores [`Schedule`]s mapped to [`ScheduleLabel`]s excluding the current running [`Schedule`].
 #[derive(Default, Resource)]
 pub struct Schedules {
     inner: HashMap<InternedScheduleLabel, Schedule>,

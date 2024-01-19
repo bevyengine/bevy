@@ -1367,6 +1367,17 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "dynamic"
+path = "examples/ecs/dynamic.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.dynamic]
+name = "Dynamic ECS"
+description = "Dynamically create components, spawn entities with those components and query those components"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
 name = "event"
 path = "examples/ecs/event.rs"
 doc-scrape-examples = true
@@ -2260,6 +2271,17 @@ doc-scrape-examples = true
 [package.metadata.example.relative_cursor_position]
 name = "Relative Cursor Position"
 description = "Showcases the RelativeCursorPosition component"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "render_ui_to_texture"
+path = "examples/ui/render_ui_to_texture.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.render_ui_to_texture]
+name = "Render UI to Texture"
+description = "An example of rendering UI as a part of a 3D world"
 category = "UI (User Interface)"
 wasm = true
 

@@ -1,8 +1,47 @@
-use crate::{Asset, AssetId};
+use crate::{Asset, AssetId, AssetLoadError, AssetPath, UntypedAssetId};
 use bevy_ecs::event::Event;
 use std::fmt::Debug;
 
-/// Events that occur for a specific [`Asset`], such as "value changed" events and "dependency" events.
+/// An event emitted when a specific [`Asset`] fails to load.
+///
+/// For an untyped equivalent, see [`UntypedAssetLoadFailedEvent`].
+#[derive(Event, Clone, Debug)]
+pub struct AssetLoadFailedEvent<A: Asset> {
+    pub id: AssetId<A>,
+    /// The asset path that was attempted.
+    pub path: AssetPath<'static>,
+    /// Why the asset failed to load.
+    pub error: AssetLoadError,
+}
+
+impl<A: Asset> AssetLoadFailedEvent<A> {
+    /// Converts this to an "untyped" / "generic-less" asset error event that stores the type information.
+    pub fn untyped(&self) -> UntypedAssetLoadFailedEvent {
+        self.into()
+    }
+}
+
+/// An untyped version of [`AssetLoadFailedEvent`].
+#[derive(Event, Clone, Debug)]
+pub struct UntypedAssetLoadFailedEvent {
+    pub id: UntypedAssetId,
+    /// The asset path that was attempted.
+    pub path: AssetPath<'static>,
+    /// Why the asset failed to load.
+    pub error: AssetLoadError,
+}
+
+impl<A: Asset> From<&AssetLoadFailedEvent<A>> for UntypedAssetLoadFailedEvent {
+    fn from(value: &AssetLoadFailedEvent<A>) -> Self {
+        UntypedAssetLoadFailedEvent {
+            id: value.id.untyped(),
+            path: value.path.clone(),
+            error: value.error.clone(),
+        }
+    }
+}
+
+/// Events that occur for a specific loaded [`Asset`], such as "value changed" events and "dependency" events.
 #[derive(Event)]
 pub enum AssetEvent<A: Asset> {
     /// Emitted whenever an [`Asset`] is added.
