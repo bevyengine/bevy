@@ -56,6 +56,7 @@ fn main() {
     match cli.api {
         WebApi::Webgl2 => (),
         WebApi::Webgpu => {
+            features.push("webgpu");
             features.push("animation");
             features.push("bevy_asset");
             features.push("bevy_audio");

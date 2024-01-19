@@ -10,6 +10,7 @@ keywords = ["bevy"]
 
 [features]
 webgl = []
+webgpu = []
 shader_format_glsl = ["naga_oil/glsl"]
 pbr_transmission_textures = []
 
