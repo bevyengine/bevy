@@ -17,7 +17,7 @@ macro_rules! once {
 #[macro_export]
 macro_rules! trace_once {
     ($($arg:tt)+) => ({
-        $crate::once!($crate::trace!($($arg)+))
+        $crate::once!($crate::tracing::trace!($($arg)+))
     });
 }
 
@@ -27,7 +27,7 @@ macro_rules! trace_once {
 #[macro_export]
 macro_rules! debug_once {
     ($($arg:tt)+) => ({
-        $crate::once!($crate::debug!($($arg)+))
+        $crate::once!($crate::tracing::debug!($($arg)+))
     });
 }
 
@@ -37,7 +37,7 @@ macro_rules! debug_once {
 #[macro_export]
 macro_rules! info_once {
     ($($arg:tt)+) => ({
-        $crate::once!($crate::info!($($arg)+))
+        $crate::once!($crate::tracing::info!($($arg)+))
     });
 }
 
@@ -47,7 +47,7 @@ macro_rules! info_once {
 #[macro_export]
 macro_rules! warn_once {
     ($($arg:tt)+) => ({
-        $crate::once!($crate::warn!($($arg)+))
+        $crate::once!($crate::tracing::warn!($($arg)+))
     });
 }
 
@@ -57,6 +57,6 @@ macro_rules! warn_once {
 #[macro_export]
 macro_rules! error_once {
     ($($arg:tt)+) => ({
-        $crate::once!($crate::error!($($arg)+))
+        $crate::once!($crate::tracing::error!($($arg)+))
     });
 }
