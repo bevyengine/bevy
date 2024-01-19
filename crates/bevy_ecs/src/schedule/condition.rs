@@ -194,7 +194,7 @@ mod sealed {
 
 /// A collection of [run conditions](Condition) that may be useful in any bevy app.
 pub mod common_conditions {
-    use bevy_utils::{warn_once};
+    use bevy_utils::warn_once;
 
     use super::NotSystem;
     use crate::{
