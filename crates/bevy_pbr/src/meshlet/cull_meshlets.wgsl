@@ -67,6 +67,7 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
         let depth_quad_b = textureLoad(depth_pyramid, aabb_top_left + vec2(1u, 0u), depth_level).x;
         let depth_quad_c = textureLoad(depth_pyramid, aabb_top_left + vec2(0u, 1u), depth_level).x;
         let depth_quad_d = textureLoad(depth_pyramid, aabb_top_left + vec2(1u, 1u), depth_level).x;
+
         let occluder_depth = min(min(depth_quad_a, depth_quad_b), min(depth_quad_c, depth_quad_d));
         if view.projection[3][3] == 1.0 {
             // Orthographic
