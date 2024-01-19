@@ -220,8 +220,8 @@ impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderSet`] and creates the rendering sub-app.
     fn build(&self, app: &mut App) {
         // TODO: Really ugly hack until we've fixed all the compile time consts and struct padding that webgl2 uses but webgpu doesn't.
-        #[cfg(all(feature = "webgl2", feature = "webgpu"))]
-        compile_error!("Bevy can't currently be built with both the `webgl2` and `webgpu` features enabled currently. Please choose one or the other.")
+        #[cfg(all(feature = "webgl", feature = "webgpu"))]
+        compile_error!("Bevy can't currently be built with both the `webgl2` and `webgpu` features enabled currently. Please choose one or the other.");
 
 
         app.init_resource::<DeterministicRenderingConfig>();
