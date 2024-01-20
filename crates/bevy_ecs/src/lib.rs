@@ -28,7 +28,9 @@ pub use bevy_ptr as ptr;
 pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "bevy_reflect")]
-    pub use crate::reflect::{AppTypeRegistry, ReflectComponent, ReflectResource};
+    pub use crate::reflect::{
+        AppTypeRegistry, ReflectComponent, ReflectFromWorld, ReflectResource,
+    };
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
@@ -36,7 +38,7 @@ pub mod prelude {
         component::Component,
         entity::Entity,
         event::{Event, EventReader, EventWriter, Events},
-        query::{Added, AnyOf, Changed, Has, Or, QueryState, With, Without},
+        query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         removal_detection::RemovedComponents,
         schedule::{
             apply_deferred, apply_state_transition, common_conditions::*, Condition,
@@ -67,11 +69,13 @@ impl std::hash::Hasher for NoOpTypeIdHasher {
         self.0
     }
 
-    fn write(&mut self, _bytes: &[u8]) {
+    fn write(&mut self, bytes: &[u8]) {
         // This will never be called: TypeId always just calls write_u64 once!
-        // This is unlikely to ever change, but as it isn't officially guaranteed,
-        // panicking will let us detect this as fast as possible.
-        unimplemented!("Hashing of std::any::TypeId changed");
+        // This is a known trick and unlikely to change, but isn't officially guaranteed.
+        // Don't break applications (slower fallback, just check in test):
+        self.0 = bytes.iter().fold(self.0, |hash, b| {
+            hash.rotate_left(8).wrapping_add(*b as u64)
+        });
     }
 
     fn write_u64(&mut self, i: u64) {
@@ -1748,6 +1752,23 @@ mod tests {
             Some(&C),
             "new entity was spawned and received C component"
         );
+    }
+
+    #[test]
+    fn fast_typeid_hash() {
+        struct Hasher;
+
+        impl std::hash::Hasher for Hasher {
+            fn finish(&self) -> u64 {
+                0
+            }
+            fn write(&mut self, _: &[u8]) {
+                panic!("Hashing of std::any::TypeId changed");
+            }
+            fn write_u64(&mut self, _: u64) {}
+        }
+
+        std::hash::Hash::hash(&TypeId::of::<()>(), &mut Hasher);
     }
 
     #[derive(Component)]

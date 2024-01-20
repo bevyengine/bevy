@@ -456,6 +456,26 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
+name = "sprite_tile"
+path = "examples/2d/sprite_tile.rs"
+
+[package.metadata.example.sprite_tile]
+name = "Sprite Tile"
+description = "Renders a sprite tiled in a grid"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
+name = "sprite_slice"
+path = "examples/2d/sprite_slice.rs"
+
+[package.metadata.example.sprite_slice]
+name = "Sprite Slice"
+description = "Showcases slicing sprites into sections that can be scaled independently via the 9-patch technique"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
 name = "text2d"
 path = "examples/2d/text2d.rs"
 doc-scrape-examples = true
@@ -1036,6 +1056,16 @@ category = "Application"
 wasm = true
 
 [[example]]
+name = "log_layers"
+path = "examples/app/log_layers.rs"
+
+[package.metadata.example.log_layers]
+name = "Log layers"
+description = "Illustrate how to add custom log layers"
+category = "Application"
+wasm = false
+
+[[example]]
 name = "plugin"
 path = "examples/app/plugin.rs"
 doc-scrape-examples = true
@@ -1319,6 +1349,17 @@ doc-scrape-examples = true
 [package.metadata.example.custom_query_param]
 name = "Custom Query Parameters"
 description = "Groups commonly used compound queries and query filters into a single type"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "dynamic"
+path = "examples/ecs/dynamic.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.dynamic]
+name = "Dynamic ECS"
+description = "Dynamically create components, spawn entities with those components and query those components"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -2220,6 +2261,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "render_ui_to_texture"
+path = "examples/ui/render_ui_to_texture.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.render_ui_to_texture]
+name = "Render UI to Texture"
+description = "An example of rendering UI as a part of a 3D world"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "size_constraints"
 path = "examples/ui/size_constraints.rs"
 doc-scrape-examples = true
@@ -2455,6 +2507,17 @@ doc-scrape-examples = true
 name = "fallback_image"
 path = "examples/shader/fallback_image.rs"
 doc-scrape-examples = true
+
+[[example]]
+name = "reflection_probes"
+path = "examples/3d/reflection_probes.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.reflection_probes]
+name = "Reflection Probes"
+description = "Demonstrates reflection probes"
+category = "3D Rendering"
+wasm = false
 
 [package.metadata.example.fallback_image]
 hidden = true

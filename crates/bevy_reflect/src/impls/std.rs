@@ -1516,8 +1516,12 @@ mod tests {
     };
     use bevy_utils::{Duration, Instant};
     use bevy_utils::{EntityHashMap, HashMap};
+    use static_assertions::assert_impl_all;
     use std::f32::consts::{PI, TAU};
     use std::path::Path;
+
+    // EntityHashMap should implement Reflect
+    assert_impl_all!(EntityHashMap<i32, i32>: Reflect);
 
     #[test]
     fn can_serialize_duration() {
@@ -1599,6 +1603,8 @@ mod tests {
 
     #[test]
     fn option_should_impl_enum() {
+        assert_impl_all!(Option<()>: Enum);
+
         let mut value = Some(123usize);
 
         assert!(value
@@ -1672,6 +1678,8 @@ mod tests {
 
     #[test]
     fn option_should_impl_typed() {
+        assert_impl_all!(Option<()>: Typed);
+
         type MyOption = Option<i32>;
         let info = MyOption::type_info();
         if let TypeInfo::Enum(info) = info {
@@ -1702,6 +1710,7 @@ mod tests {
             panic!("Expected `TypeInfo::Enum`");
         }
     }
+
     #[test]
     fn nonzero_usize_impl_reflect_from_reflect() {
         let a: &dyn Reflect = &std::num::NonZeroUsize::new(42).unwrap();
@@ -1723,13 +1732,5 @@ mod tests {
         let path = Path::new("hello_world.rs");
         let output = <&'static Path as FromReflect>::from_reflect(&path).unwrap();
         assert_eq!(path, output);
-    }
-
-    #[test]
-    fn entity_hashmap_should_impl_reflect() {
-        let entity_map = bevy_utils::EntityHashMap::<i32, i32>::default();
-        let entity_map_type_info =
-            <EntityHashMap<_, _> as Reflect>::get_represented_type_info(&entity_map);
-        assert!(entity_map_type_info.is_some());
     }
 }

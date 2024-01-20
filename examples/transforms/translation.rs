@@ -56,6 +56,10 @@ fn setup(
 
     // Add a light source for better 3d visibility.
     commands.spawn(PointLightBundle {
+        point_light: PointLight {
+            intensity: 150_000.0,
+            ..default()
+        },
         transform: Transform::from_translation(Vec3::ONE * 3.0),
         ..default()
     });
