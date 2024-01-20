@@ -46,8 +46,8 @@ pub(crate) static TYPE_NAME_ATTRIBUTE_NAME: &str = "type_name";
 
 /// Used both for [`impl_reflect`] and [`derive_reflect`].
 ///
-/// [`impl_reflect`]: impl_reflect@macro
-/// [`derive_reflect`]: derive_reflect@macro
+/// [`impl_reflect`]: macro@impl_reflect
+/// [`derive_reflect`]: macro@derive_reflect
 fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStream {
     let derive_data = match ReflectDerive::from_input(
         &ast,
