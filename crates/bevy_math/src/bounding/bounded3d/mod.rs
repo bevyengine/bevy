@@ -1,6 +1,6 @@
 mod primitive_impls;
 
-use super::BoundingVolume;
+use super::{BoundingVolume, IntersectsVolume};
 use crate::prelude::{Quat, Vec3};
 
 /// Computes the geometric center of the given set of points.
@@ -64,6 +64,16 @@ impl Aabb3d {
         let radius = self.min.distance(self.max) / 2.0;
         BoundingSphere::new(self.center(), radius)
     }
+
+    /// Finds the point on the AABB that is closest to the given `point`.
+    ///
+    /// If the point is outside the AABB, the returned point will be on the surface of the AABB.
+    /// Otherwise, it will be inside the AABB and returned as is.
+    #[inline(always)]
+    pub fn closest_point(&self, point: Vec3) -> Vec3 {
+        // Clamp point coordinates to the AABB
+        point.clamp(self.min, self.max)
+    }
 }
 
 impl BoundingVolume for Aabb3d {
@@ -122,6 +132,26 @@ impl BoundingVolume for Aabb3d {
         };
         debug_assert!(b.min.x <= b.max.x && b.min.y <= b.max.y && b.min.z <= b.max.z);
         b
+    }
+}
+
+impl IntersectsVolume<Self> for Aabb3d {
+    #[inline(always)]
+    fn intersects(&self, other: &Self) -> bool {
+        let x_overlaps = self.min.x <= other.max.x && self.max.x >= other.min.x;
+        let y_overlaps = self.min.y <= other.max.y && self.max.y >= other.min.y;
+        let z_overlaps = self.min.z <= other.max.z && self.max.z >= other.min.z;
+        x_overlaps && y_overlaps && z_overlaps
+    }
+}
+
+impl IntersectsVolume<BoundingSphere> for Aabb3d {
+    #[inline(always)]
+    fn intersects(&self, sphere: &BoundingSphere) -> bool {
+        let closest_point = self.closest_point(sphere.center);
+        let distance_squared = sphere.center.distance_squared(closest_point);
+        let radius_squared = sphere.radius().powi(2);
+        distance_squared < radius_squared
     }
 }
 
@@ -286,6 +316,26 @@ impl BoundingSphere {
             max: self.center + Vec3::splat(self.radius()),
         }
     }
+
+    /// Finds the point on the bounding sphere that is closest to the given `point`.
+    ///
+    /// If the point is outside the sphere, the returned point will be on the surface of the sphere.
+    /// Otherwise, it will be inside the sphere and returned as is.
+    #[inline(always)]
+    pub fn closest_point(&self, point: Vec3) -> Vec3 {
+        let offset_from_center = point - self.center;
+        let distance_to_center_squared = offset_from_center.length_squared();
+
+        if distance_to_center_squared <= self.radius().powi(2) {
+            // The point is inside the sphere
+            point
+        } else {
+            // The point is outside the sphere.
+            // Find the closest point on the surface of the sphere.
+            let dir_to_point = offset_from_center / distance_to_center_squared.sqrt();
+            self.center() + self.radius() * dir_to_point
+        }
+    }
 }
 
 impl BoundingVolume for BoundingSphere {
@@ -351,6 +401,22 @@ impl BoundingVolume for BoundingSphere {
                 radius: self.radius() - amount,
             },
         }
+    }
+}
+
+impl IntersectsVolume<Self> for BoundingSphere {
+    #[inline(always)]
+    fn intersects(&self, other: &Self) -> bool {
+        let center_distance_squared = self.center.distance_squared(other.center);
+        let radius_sum_squared = (self.radius() + other.radius()).powi(2);
+        center_distance_squared <= radius_sum_squared
+    }
+}
+
+impl IntersectsVolume<Aabb3d> for BoundingSphere {
+    #[inline(always)]
+    fn intersects(&self, aabb: &Aabb3d) -> bool {
+        aabb.intersects(self)
     }
 }
 

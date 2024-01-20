@@ -2,7 +2,7 @@ mod primitive_impls;
 
 use glam::Mat2;
 
-use super::BoundingVolume;
+use super::{BoundingVolume, IntersectsVolume};
 use crate::prelude::Vec2;
 
 /// Computes the geometric center of the given set of points.
@@ -70,6 +70,16 @@ impl Aabb2d {
         let radius = self.min.distance(self.max) / 2.0;
         BoundingCircle::new(self.center(), radius)
     }
+
+    /// Finds the point on the AABB that is closest to the given `point`.
+    ///
+    /// If the point is outside the AABB, the returned point will be on the surface of the AABB.
+    /// Otherwise, it will be inside the AABB and returned as is.
+    #[inline(always)]
+    pub fn closest_point(&self, point: Vec2) -> Vec2 {
+        // Clamp point coordinates to the AABB
+        point.clamp(self.min, self.max)
+    }
 }
 
 impl BoundingVolume for Aabb2d {
@@ -126,6 +136,25 @@ impl BoundingVolume for Aabb2d {
         };
         debug_assert!(b.min.x <= b.max.x && b.min.y <= b.max.y);
         b
+    }
+}
+
+impl IntersectsVolume<Self> for Aabb2d {
+    #[inline(always)]
+    fn intersects(&self, other: &Self) -> bool {
+        let x_overlaps = self.min.x <= other.max.x && self.max.x >= other.min.x;
+        let y_overlaps = self.min.y <= other.max.y && self.max.y >= other.min.y;
+        x_overlaps && y_overlaps
+    }
+}
+
+impl IntersectsVolume<BoundingCircle> for Aabb2d {
+    #[inline(always)]
+    fn intersects(&self, circle: &BoundingCircle) -> bool {
+        let closest_point = self.closest_point(circle.center);
+        let distance_squared = circle.center.distance_squared(closest_point);
+        let radius_squared = circle.radius().powi(2);
+        distance_squared < radius_squared
     }
 }
 
@@ -295,6 +324,26 @@ impl BoundingCircle {
             max: self.center + Vec2::splat(self.radius()),
         }
     }
+
+    /// Finds the point on the bounding circle that is closest to the given `point`.
+    ///
+    /// If the point is outside the circle, the returned point will be on the surface of the circle.
+    /// Otherwise, it will be inside the circle and returned as is.
+    #[inline(always)]
+    pub fn closest_point(&self, point: Vec2) -> Vec2 {
+        let offset_from_center = point - self.center;
+        let distance_to_center_squared = offset_from_center.length_squared();
+
+        if distance_to_center_squared <= self.radius().powi(2) {
+            // The point is inside the circle
+            point
+        } else {
+            // The point is outside the circle.
+            // Find the closest point on the surface of the circle.
+            let dir_to_point = offset_from_center / distance_to_center_squared.sqrt();
+            self.center() + self.radius() * dir_to_point
+        }
+    }
 }
 
 impl BoundingVolume for BoundingCircle {
@@ -350,6 +399,22 @@ impl BoundingVolume for BoundingCircle {
         debug_assert!(amount >= 0.);
         debug_assert!(self.radius() >= amount);
         Self::new(self.center, self.radius() - amount)
+    }
+}
+
+impl IntersectsVolume<Self> for BoundingCircle {
+    #[inline(always)]
+    fn intersects(&self, other: &Self) -> bool {
+        let center_distance_squared = self.center.distance_squared(other.center);
+        let radius_sum_squared = (self.radius() + other.radius()).powi(2);
+        center_distance_squared <= radius_sum_squared
+    }
+}
+
+impl IntersectsVolume<Aabb2d> for BoundingCircle {
+    #[inline(always)]
+    fn intersects(&self, aabb: &Aabb2d) -> bool {
+        aabb.intersects(self)
     }
 }
 
