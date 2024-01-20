@@ -97,7 +97,7 @@ impl Ellipse {
     ///
     /// This corresponds to the two perpendicular radii defining the ellipse.
     #[inline]
-    pub fn new(half_width: f32, half_height: f32) -> Self {
+    pub const fn new(half_width: f32, half_height: f32) -> Self {
         Self {
             half_size: Vec2::new(half_width, half_height),
         }
