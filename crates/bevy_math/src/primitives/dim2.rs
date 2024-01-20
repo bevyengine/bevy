@@ -82,6 +82,12 @@ pub struct Circle {
 }
 impl Primitive2d for Circle {}
 
+impl Default for Circle {
+    fn default() -> Self {
+        Self { radius: 0.5 }
+    }
+}
+
 /// An ellipse primitive
 #[derive(Clone, Copy, Debug)]
 pub struct Ellipse {
@@ -91,6 +97,15 @@ pub struct Ellipse {
     pub half_height: f32,
 }
 impl Primitive2d for Ellipse {}
+
+impl Default for Ellipse {
+    fn default() -> Self {
+        Self {
+            half_width: 1.0,
+            half_height: 0.5,
+        }
+    }
+}
 
 impl Ellipse {
     /// Create a new `Ellipse` from a "width" and a "height"
@@ -110,6 +125,14 @@ pub struct Plane2d {
     pub normal: Direction2d,
 }
 impl Primitive2d for Plane2d {}
+
+impl Default for Plane2d {
+    fn default() -> Self {
+        Self {
+            normal: Direction2d::from_normalized(Vec2::Y),
+        }
+    }
+}
 
 impl Plane2d {
     /// Create a new `Plane2d` from a normal
@@ -138,7 +161,7 @@ impl Primitive2d for Line2d {}
 
 /// A segment of a line along a direction in 2D space.
 #[doc(alias = "LineSegment2d")]
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct Segment2d {
     /// The direction of the line segment
     pub direction: Direction2d,
@@ -236,12 +259,20 @@ impl BoxedPolyline2d {
 }
 
 /// A triangle in 2D space
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Triangle2d {
     /// The vertices of the triangle
     pub vertices: [Vec2; 3],
 }
 impl Primitive2d for Triangle2d {}
+
+impl Default for Triangle2d {
+    fn default() -> Self {
+        Self {
+            vertices: [Vec2::Y * 0.5, Vec2::new(-0.5, -0.5), Vec2::new(0.5, -0.5)],
+        }
+    }
+}
 
 impl Triangle2d {
     /// Create a new `Triangle2d` from points `a`, `b`, and `c`
@@ -282,6 +313,15 @@ pub struct Rectangle {
     pub half_height: f32,
 }
 impl Primitive2d for Rectangle {}
+
+impl Default for Rectangle {
+    fn default() -> Self {
+        Self {
+            half_width: 0.5,
+            half_height: 0.5,
+        }
+    }
+}
 
 impl Rectangle {
     /// Create a rectangle from a full width and height
@@ -363,18 +403,27 @@ pub struct RegularPolygon {
 }
 impl Primitive2d for RegularPolygon {}
 
+impl Default for RegularPolygon {
+    fn default() -> Self {
+        Self {
+            circumcircle: Circle { radius: 0.5 },
+            sides: 6,
+        }
+    }
+}
+
 impl RegularPolygon {
     /// Create a new `RegularPolygon`
-    /// from the radius of the circumcircle and number of sides
+    /// from the radius of the circumcircle and a number of sides
     ///
     /// # Panics
     ///
-    /// Panics if `circumcircle_radius` is non-positive
-    pub fn new(circumcircle_radius: f32, sides: usize) -> Self {
-        assert!(circumcircle_radius > 0.0);
+    /// Panics if `circumradius` is non-positive
+    pub fn new(circumradius: f32, sides: usize) -> Self {
+        assert!(circumradius > 0.0);
         Self {
             circumcircle: Circle {
-                radius: circumcircle_radius,
+                radius: circumradius,
             },
             sides,
         }
