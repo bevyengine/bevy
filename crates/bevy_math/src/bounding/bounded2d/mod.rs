@@ -39,6 +39,7 @@ pub struct Aabb2d {
 
 impl Aabb2d {
     /// Constructs an AABB from its center and half-size.
+    #[inline(always)]
     pub fn new(center: Vec2, half_size: Vec2) -> Self {
         debug_assert!(half_size.x >= 0.0 && half_size.y >= 0.0);
         Self {
