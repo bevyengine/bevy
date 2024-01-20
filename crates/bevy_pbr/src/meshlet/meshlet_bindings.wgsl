@@ -57,6 +57,12 @@ struct DrawIndexedIndirect {
 @group(0) @binding(8) var<uniform> view: View;
 @group(0) @binding(9) var depth_pyramid: texture_2d<f32>;
 
+fn should_cull_instance(instance_id: u32) -> bool {
+    let bit_offset = instance_id % 32u;
+    let packed_visibility = meshlet_view_instance_visibility[instance_id / 32u];
+    return bool(extractBits(packed_visibility, bit_offset, 1u));
+}
+
 fn get_meshlet_previous_occlusion(thread_id: u32) -> bool {
     let previous_thread_id = meshlet_previous_thread_ids[thread_id];
     let packed_occlusion = meshlet_previous_occlusion[previous_thread_id / 32u];

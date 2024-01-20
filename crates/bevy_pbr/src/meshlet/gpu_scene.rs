@@ -24,6 +24,7 @@ use bevy_transform::components::GlobalTransform;
 use bevy_utils::{default, EntityHashMap, HashMap, HashSet};
 use encase::internal::WriteInto;
 use std::{
+    iter,
     ops::{DerefMut, Range},
     sync::Arc,
 };
@@ -272,7 +273,7 @@ pub fn prepare_meshlet_per_frame_resources(
                 let index = instance_index / 32;
                 let bit = instance_index - index * 32;
                 if vec.len() <= index {
-                    vec.extend((vec.len()..index + 1).map(|_| 0));
+                    vec.extend(iter::repeat(0).take(index - vec.len() + 1));
                 }
                 vec[index] |= 1 << bit;
             }

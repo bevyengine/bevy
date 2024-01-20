@@ -3,9 +3,9 @@
     meshlet_bounding_spheres,
     meshlet_thread_instance_ids,
     meshlet_instance_uniforms,
-    meshlet_view_instance_visibility,
     meshlet_occlusion,
     view,
+    should_cull_instance,
     get_meshlet_previous_occlusion,
 }
 #ifdef MESHLET_SECOND_CULLING_PASS
@@ -23,7 +23,7 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
     // Fetch the instanced meshlet data
     if thread_id.x >= arrayLength(&meshlet_thread_meshlet_ids) { return; }
     let instance_id = meshlet_thread_instance_ids[thread_id.x];
-    if (meshlet_view_instance_visibility[u32(instance_id) / 32u] & (1u << (u32(instance_id) & 31u))) != 0u {
+    if should_cull_instance(instance_id) {
         return;
     }
     let meshlet_id = meshlet_thread_meshlet_ids[thread_id.x];
