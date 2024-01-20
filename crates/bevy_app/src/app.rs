@@ -421,7 +421,7 @@ impl App {
         self
     }
 
-    /// Initializes a derived [`State`]
+    /// Initializes a computed [`State`]
     ///
     /// If the [`State`] already exists, nothing happens.
     ///
@@ -431,12 +431,12 @@ impl App {
     ///
     /// If you would like to control how other systems run based on the current state,
     /// you can emulate this behavior using the [`in_state`] [`Condition`].
-    pub fn derive_state<S: ComputedStates>(&mut self) -> &mut Self {
+    pub fn add_computed_state<S: ComputedStates>(&mut self) -> &mut Self {
         if !self.world.contains_resource::<NextState<S>>() {
             self.init_resource::<NextState<S>>()
                 .add_event::<StateTransitionEvent<S>>();
             let mut schedules = self.world.resource_mut::<Schedules>();
-            S::add_derivation_to_schedule(schedules.as_mut());
+            S::register_state_compute_systems_in_schedule(schedules.as_mut());
         }
 
         self
