@@ -24,6 +24,17 @@ impl Direction2d {
         Self::new_and_length(value).map(|(dir, _)| dir)
     }
 
+    /// Create a [`Direction2d`] from a [`Vec2`] that is already normalized.
+    ///
+    /// # Warning
+    ///
+    /// `value` must be normalized, i.e it's length must be `1.0`.
+    pub fn new_unchecked(value: Vec2) -> Self {
+        debug_assert!(value.is_normalized());
+
+        Self(value)
+    }
+
     /// Create a direction from a finite, nonzero [`Vec2`], also returning its original length.
     ///
     /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
@@ -34,7 +45,7 @@ impl Direction2d {
 
         direction
             .map(|dir| (Self(dir), length))
-            .map_or(Err(InvalidDirectionError::from_length(length)), Ok)
+            .ok_or(InvalidDirectionError::from_length(length))
     }
 
     /// Create a direction from its `x` and `y` components.
@@ -43,12 +54,6 @@ impl Direction2d {
     /// of the vector formed by the components is zero (or very close to zero), infinite, or `NaN`.
     pub fn from_xy(x: f32, y: f32) -> Result<Self, InvalidDirectionError> {
         Self::new(Vec2::new(x, y))
-    }
-
-    /// Create a direction from a [`Vec2`] that is already normalized.
-    pub fn from_normalized(value: Vec2) -> Self {
-        debug_assert!(value.is_normalized());
-        Self(value)
     }
 }
 
@@ -85,20 +90,44 @@ impl Primitive2d for Circle {}
 /// An ellipse primitive
 #[derive(Clone, Copy, Debug)]
 pub struct Ellipse {
-    /// The half "width" of the ellipse
-    pub half_width: f32,
-    /// The half "height" of the ellipse
-    pub half_height: f32,
+    /// Half of the width and height of the ellipse.
+    ///
+    /// This corresponds to the two perpendicular radii defining the ellipse.
+    pub half_size: Vec2,
 }
 impl Primitive2d for Ellipse {}
 
 impl Ellipse {
-    /// Create a new `Ellipse` from a "width" and a "height"
-    pub fn new(width: f32, height: f32) -> Self {
+    /// Create a new `Ellipse` from half of its width and height.
+    ///
+    /// This corresponds to the two perpendicular radii defining the ellipse.
+    #[inline]
+    pub const fn new(half_width: f32, half_height: f32) -> Self {
         Self {
-            half_width: width / 2.0,
-            half_height: height / 2.0,
+            half_size: Vec2::new(half_width, half_height),
         }
+    }
+
+    /// Create a new `Ellipse` from a given full size.
+    ///
+    /// `size.x` is the diameter along the X axis, and `size.y` is the diameter along the Y axis.
+    #[inline]
+    pub fn from_size(size: Vec2) -> Self {
+        Self {
+            half_size: size / 2.0,
+        }
+    }
+
+    /// Returns the length of the semi-major axis. This corresponds to the longest radius of the ellipse.
+    #[inline]
+    pub fn semi_major(self) -> f32 {
+        self.half_size.max_element()
+    }
+
+    /// Returns the length of the semi-minor axis. This corresponds to the shortest radius of the ellipse.
+    #[inline]
+    pub fn semi_minor(self) -> f32 {
+        self.half_size.min_element()
     }
 }
 
@@ -163,8 +192,10 @@ impl Segment2d {
     pub fn from_points(point1: Vec2, point2: Vec2) -> (Self, Vec2) {
         let diff = point2 - point1;
         let length = diff.length();
+
         (
-            Self::new(Direction2d::from_normalized(diff / length), length),
+            // We are dividing by the length here, so the vector is normalized.
+            Self::new(Direction2d::new_unchecked(diff / length), length),
             (point1 + point2) / 2.,
         )
     }
@@ -311,12 +342,9 @@ impl Triangle2d {
 #[doc(alias = "Quad")]
 #[derive(Clone, Copy, Debug)]
 pub struct Rectangle {
-    /// The half width of the rectangle
-    pub half_width: f32,
-    /// The half height of the rectangle
-    pub half_height: f32,
+    /// Half of the width and height of the rectangle
+    pub half_size: Vec2,
 }
-impl Primitive2d for Rectangle {}
 
 impl Rectangle {
     /// Create a rectangle from a full width and height
@@ -327,8 +355,7 @@ impl Rectangle {
     /// Create a rectangle from a given full size
     pub fn from_size(size: Vec2) -> Self {
         Self {
-            half_width: size.x / 2.,
-            half_height: size.y / 2.,
+            half_size: size / 2.,
         }
     }
 }
@@ -457,7 +484,7 @@ mod tests {
         );
         assert_eq!(
             Direction2d::new_and_length(Vec2::X * 6.5),
-            Ok((Direction2d::from_normalized(Vec2::X), 6.5))
+            Ok((Direction2d::X, 6.5))
         );
     }
 

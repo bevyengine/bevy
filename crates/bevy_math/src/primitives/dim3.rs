@@ -28,6 +28,17 @@ impl Direction3d {
         Self::new_and_length(value).map(|(dir, _)| dir)
     }
 
+    /// Create a [`Direction3d`] from a [`Vec3`] that is already normalized.
+    ///
+    /// # Warning
+    ///
+    /// `value` must be normalized, i.e it's length must be `1.0`.
+    pub fn new_unchecked(value: Vec3) -> Self {
+        debug_assert!(value.is_normalized());
+
+        Self(value)
+    }
+
     /// Create a direction from a finite, nonzero [`Vec3`], also returning its original length.
     ///
     /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
@@ -38,7 +49,7 @@ impl Direction3d {
 
         direction
             .map(|dir| (Self(dir), length))
-            .map_or(Err(InvalidDirectionError::from_length(length)), Ok)
+            .ok_or(InvalidDirectionError::from_length(length))
     }
 
     /// Create a direction from its `x`, `y`, and `z` components.
@@ -47,12 +58,6 @@ impl Direction3d {
     /// of the vector formed by the components is zero (or very close to zero), infinite, or `NaN`.
     pub fn from_xyz(x: f32, y: f32, z: f32) -> Result<Self, InvalidDirectionError> {
         Self::new(Vec3::new(x, y, z))
-    }
-
-    /// Create a direction from a [`Vec3`] that is already normalized.
-    pub fn from_normalized(value: Vec3) -> Self {
-        debug_assert!(value.is_normalized());
-        Self(value)
     }
 }
 
@@ -146,8 +151,10 @@ impl Segment3d {
     pub fn from_points(point1: Vec3, point2: Vec3) -> (Self, Vec3) {
         let diff = point2 - point1;
         let length = diff.length();
+
         (
-            Self::new(Direction3d::from_normalized(diff / length), length),
+            // We are dividing by the length here, so the vector is normalized.
+            Self::new(Direction3d::new_unchecked(diff / length), length),
             (point1 + point2) / 2.,
         )
     }
@@ -222,7 +229,7 @@ impl BoxedPolyline3d {
 #[derive(Clone, Copy, Debug)]
 pub struct Cuboid {
     /// Half of the width, height and depth of the cuboid
-    pub half_extents: Vec3,
+    pub half_size: Vec3,
 }
 impl Primitive3d for Cuboid {}
 
@@ -235,7 +242,7 @@ impl Cuboid {
     /// Create a cuboid from a given full size
     pub fn from_size(size: Vec3) -> Self {
         Self {
-            half_extents: size / 2.,
+            half_size: size / 2.,
         }
     }
 }
@@ -423,7 +430,7 @@ mod test {
         );
         assert_eq!(
             Direction3d::new_and_length(Vec3::X * 6.5),
-            Ok((Direction3d::from_normalized(Vec3::X), 6.5))
+            Ok((Direction3d::X, 6.5))
         );
     }
 }
