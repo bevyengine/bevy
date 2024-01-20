@@ -22,7 +22,7 @@ pub mod ci_testing;
 /// `features = ["bevy_dev_tools"]`
 ///
 ///  Note: The second method is not recommended, as it requires you to remove the feature before
-///  creating a release build.
+///  creating a build for release to the public.
 pub struct DevToolsPlugin;
 
 impl Plugin for DevToolsPlugin {
