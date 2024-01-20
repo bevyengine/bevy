@@ -21,7 +21,6 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// Draw a circle in 3D at `position` with the flat side facing `normal`.
     ///
     /// This should be called for each frame the circle needs to be rendered.
-    /// The normal vector will be normalized before drawing the circle.
     ///
     /// # Example
     /// ```
