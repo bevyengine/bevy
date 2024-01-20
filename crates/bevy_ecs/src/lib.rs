@@ -41,7 +41,7 @@ pub mod prelude {
         query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         removal_detection::RemovedComponents,
         schedule::{
-            apply_deferred, apply_state_transition, common_conditions::*, Condition, DerivedStates,
+            apply_deferred, apply_state_transition, common_conditions::*, Condition, ComputedStates,
             IntoSystemConfigs, IntoSystemSet, IntoSystemSetConfigs, NextState, OnEnter, OnExit,
             OnTransition, Schedule, Schedules, State, StateSet, StateTransitionEvent, States,
             SystemSet,

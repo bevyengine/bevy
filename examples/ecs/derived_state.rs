@@ -1,4 +1,4 @@
-//! This example illustrates how to use [`DerivedStates`] for more complex state transitions.
+//! This example illustrates how to use [`ComputedStates`] for more complex state transitions.
 //!
 //! In this case, we're transitioning from a `Menu` state to an `InGame` state, with the addition
 //! of the capacity to pause and unpause if we are in game using the ESCAPE button on the keyboard.
@@ -46,11 +46,11 @@ enum AppState {
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, States)]
 struct InGame;
 
-impl DerivedStates for InGame {
+impl ComputedStates for InGame {
     type SourceStates = AppState;
 
     fn derive(
-        sources: <<Self as DerivedStates>::SourceStates as bevy_internal::ecs::schedule::StateSet>::Optionals,
+        sources: <<Self as ComputedStates>::SourceStates as bevy_internal::ecs::schedule::StateSet>::Optionals,
     ) -> Option<Self> {
         match sources {
             Some(AppState::InGame { .. }) => Some(InGame),

@@ -4,7 +4,7 @@ use bevy_ecs::{
     prelude::*,
     schedule::{
         apply_state_transition, common_conditions::run_once as run_once_condition,
-        run_enter_schedule, DerivedStates, InternedScheduleLabel, IntoSystemConfigs,
+        run_enter_schedule, ComputedStates, InternedScheduleLabel, IntoSystemConfigs,
         IntoSystemSetConfigs, ScheduleBuildSettings, ScheduleLabel, StateTransitionEvent,
     },
 };
@@ -431,7 +431,7 @@ impl App {
     ///
     /// If you would like to control how other systems run based on the current state,
     /// you can emulate this behavior using the [`in_state`] [`Condition`].
-    pub fn derive_state<S: DerivedStates>(&mut self) -> &mut Self {
+    pub fn derive_state<S: ComputedStates>(&mut self) -> &mut Self {
         if !self.world.contains_resource::<NextState<S>>() {
             self.init_resource::<NextState<S>>()
                 .add_event::<StateTransitionEvent<S>>();

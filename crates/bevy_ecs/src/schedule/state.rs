@@ -227,7 +227,7 @@ pub fn run_enter_schedule<S: States>(world: &mut World) {
 /// - Sends a relevant [`StateTransitionEvent`]
 /// - Runs the [`OnExit(exited_state)`] schedule, if it exists.
 /// - Runs the [`OnTransition { from: exited_state, to: entered_state }`](OnTransition), if it exists.
-/// - Derive any derived states through the [`ComputeDependantStates::<S>`] schedule, if it exists.
+/// - Derive any dependant states through the [`ComputeDependantStates::<S>`] schedule, if it exists.
 /// - Runs the [`OnEnter(entered_state)`] schedule, if it exists.
 pub fn apply_state_transition<S: States>(world: &mut World) {
     // We want to take the `NextState` resource,
@@ -280,16 +280,24 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
     world.insert_resource(NextState::<S>::Unchanged);
 }
 
-/// Trait defining a derived state
+/// Trait defining a state that is automatically derived from other [`States`].
 ///
-/// A derived state is a state implementing [`States`] that is deterministically determined from one or more other [`States`].
-pub trait DerivedStates: States {
+/// A Computed State is a state that is deterministically derived from a set of `SourceStates`.
+/// The [`StateSet`] is passed into the `compute` method whenever one of them changes, and the
+/// result becomes the state's value.
+pub trait ComputedStates: States {
     /// The set of states from which the [`Self`] is derived.
+    /// 
+    /// This can either be a single implementor of [`States`], or a tuple
+    /// containing multiple implementors of [`States`].
     type SourceStates: StateSet;
 
-    /// A function for deriving the states.
-    fn derive(
-        sources: <<Self as DerivedStates>::SourceStates as StateSet>::Optionals,
+    /// This function gets called whenever one of the [`SourceStates`] changes.
+    /// The result is used to set the value of [`State<Self>`].
+    /// 
+    /// If the result is [`None`], the [`State<Self>`] resource will be removed from the world.
+    fn compute(
+        sources: <<Self as ComputedStates>::SourceStates as StateSet>::Optionals,
     ) -> Option<Self>;
 
     /// A function used to register the derived state with the app schedule.
@@ -308,7 +316,7 @@ pub trait StateSet: sealed::StateSetSealed {
     type Optionals;
 
     /// A function used to register a derived state with the app schedule.
-    fn add_derivation_systems_for_derived_state<T: DerivedStates<SourceStates = Self>>(
+    fn add_derivation_systems_for_derived_state<T: ComputedStates<SourceStates = Self>>(
         schedules: &mut Schedules,
     );
 }
@@ -317,12 +325,12 @@ impl<S: States> StateSetSealed for S {}
 
 impl<S: States> StateSet for S {
     type Optionals = Option<S>;
-    fn add_derivation_systems_for_derived_state<T: DerivedStates<SourceStates = Self>>(
+    fn add_derivation_systems_for_derived_state<T: ComputedStates<SourceStates = Self>>(
         schedules: &mut Schedules,
     ) {
         let system = |mut next_state: crate::prelude::ResMut<NextState<T>>,
                       state_set: Option<crate::prelude::Res<State<S>>>| {
-            match T::derive(state_set.map(|v| v.0.clone())) {
+            match T::compute(state_set.map(|v| v.0.clone())) {
                 Some(updated) => {
                     next_state.set(updated);
                 }
@@ -352,10 +360,10 @@ macro_rules! impl_state_set_sealed_tuples {
         impl<$($param: States),*> StateSet for  ($($param,)*) {
             type Optionals = ($(Option<$param>,)*);
 
-            fn add_derivation_systems_for_derived_state<T: DerivedStates<SourceStates = Self>>(schedules: &mut Schedules) {
+            fn add_derivation_systems_for_derived_state<T: ComputedStates<SourceStates = Self>>(schedules: &mut Schedules) {
 
                 let system = |mut next_state: crate::prelude::ResMut<NextState<T>>,  ($($val),*,): ($(Option<crate::prelude::Res<State<$param>>>),*,)| {
-                    match T::derive(($($val.map(|v| v.0.clone())),*, )) {
+                    match T::compute(($($val.map(|v| v.0.clone())),*, )) {
                         Some(updated) => {
                             next_state.set(updated);
                         },
@@ -401,11 +409,11 @@ mod tests {
         BisFalse,
     }
 
-    impl DerivedStates for DerivedState {
+    impl ComputedStates for DerivedState {
         type SourceStates = SimpleState;
 
-        fn derive(
-            sources: <<Self as DerivedStates>::SourceStates as StateSet>::Optionals,
+        fn compute(
+            sources: <<Self as ComputedStates>::SourceStates as StateSet>::Optionals,
         ) -> Option<Self> {
             sources.and_then(|source| match source {
                 SimpleState::A => None,
@@ -474,11 +482,11 @@ mod tests {
         InTrueBAndUsizeAbove8,
     }
 
-    impl DerivedStates for ComplexDerive {
+    impl ComputedStates for ComplexDerive {
         type SourceStates = (SimpleState, OtherState);
 
-        fn derive(
-            sources: <<Self as DerivedStates>::SourceStates as StateSet>::Optionals,
+        fn compute(
+            sources: <<Self as ComputedStates>::SourceStates as StateSet>::Optionals,
         ) -> Option<Self> {
             match sources {
                 (Some(simple), Some(complex)) => {
