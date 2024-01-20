@@ -396,7 +396,7 @@ doc-scrape-examples = true
 
 [package.metadata.example.2d_shapes]
 name = "2D Shapes"
-description = "Renders simple 2D primitive shapes"
+description = "Renders simple 2D primitive shapes like circles and polygons"
 category = "2D Rendering"
 wasm = true
 
