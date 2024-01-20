@@ -1,3 +1,4 @@
+use bevy_ecs::entity::{Mapper, SimpleEntityMapper};
 #[cfg(feature = "reflect")]
 use bevy_ecs::reflect::{ReflectComponent, ReflectMapEntities};
 use bevy_ecs::{
@@ -6,7 +7,6 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use std::ops::Deref;
-use bevy_ecs::entity::{Mapper, SimpleEntityMapper};
 
 /// Holds a reference to the parent entity of this entity.
 /// This component should only be present on entities that actually have a parent entity.

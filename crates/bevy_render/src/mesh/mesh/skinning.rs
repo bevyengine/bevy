@@ -1,4 +1,5 @@
 use bevy_asset::{Asset, Handle};
+use bevy_ecs::entity::{Mapper, SimpleEntityMapper};
 use bevy_ecs::{
     component::Component,
     entity::{Entity, EntityMapper, MapEntities},
@@ -8,7 +9,6 @@ use bevy_ecs::{
 use bevy_math::Mat4;
 use bevy_reflect::{Reflect, TypePath};
 use std::ops::Deref;
-use bevy_ecs::entity::{Mapper, SimpleEntityMapper};
 
 #[derive(Component, Debug, Default, Clone, Reflect)]
 #[reflect(Component, MapEntities)]
@@ -18,7 +18,6 @@ pub struct SkinnedMesh {
 }
 
 impl MapEntities for SkinnedMesh {
-
     fn map_entities<M: Mapper>(&mut self, entity_mapper: &mut M) {
         for joint in &mut self.joints {
             *joint.map_entities(entity_mapper);

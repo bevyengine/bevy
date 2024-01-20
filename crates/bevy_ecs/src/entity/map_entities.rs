@@ -9,7 +9,11 @@ use bevy_utils::EntityHashMap;
 ///
 /// As entity IDs are valid only for the [`World`] they're sourced from, using [`Entity`]
 /// as references in components copied from another world will be invalid. This trait
-/// allows defining custom mappings for these references via [`EntityHashMap<Entity, Entity>`]
+/// allows defining custom mappings for these references via a [`Mapper`], which is a type that knows
+/// how to perform entity mapping. (usually by using a [`EntityHashMap<Entity, Entity>`])
+///
+/// [`MapEntities`] is already implemented for [`Entity`], so you just need to call [`Entity::map_entities`]
+/// for all the [`Entity`] fields in your type.
 ///
 /// Implementing this trait correctly is required for properly loading components
 /// with entity references from scenes.
@@ -36,15 +40,17 @@ use bevy_utils::EntityHashMap;
 ///
 pub trait MapEntities {
     /// Updates all [`Entity`] references stored inside using `entity_mapper`.
-    ///
-    /// Only updates the references for which there is a mapping.
     fn map_entities<M: Mapper>(&mut self, entity_mapper: &mut M);
 }
 
+/// This traits defines a type that knows how to map [`Entity`] references.
+///
+/// Two implementations are provided:
+/// - `SimpleEntityMapper`: tries to map the [`Entity`] reference, but if it can't, it returns the same [`Entity`] reference.
+/// - `EntityMapper`: tries to map the [`Entity`] reference, but if it can't, it allocates a new [`Entity`] reference.
 pub trait Mapper {
     /// Map an entity to another entity
     fn map(&mut self, entity: Entity) -> Entity;
-
 }
 
 /// Similar to `EntityMapper`, but does not allocate new [`Entity`] references in case we couldn't map the entity.
@@ -53,6 +59,7 @@ pub struct SimpleEntityMapper<'m> {
 }
 
 impl Mapper for SimpleEntityMapper<'_> {
+    /// Map the entity to another entity, or return the same entity if we couldn't map it.
     fn map(&mut self, entity: Entity) -> Entity {
         self.get(entity).unwrap_or(entity)
     }
@@ -74,7 +81,8 @@ impl<'m> SimpleEntityMapper<'m> {
     }
 }
 
-impl Mapper for EntityMapper {
+impl Mapper for EntityMapper<'_> {
+    /// Returns the corresponding mapped entity or reserves a new dead entity ID if it is absent.
     fn map(&mut self, entity: Entity) -> Entity {
         self.get_or_reserve(entity)
     }
@@ -177,9 +185,34 @@ mod tests {
     use bevy_utils::EntityHashMap;
 
     use crate::{
-        entity::{Entity, EntityMapper},
+        entity::map_entities::Mapper,
+        entity::{Entity, EntityMapper, SimpleEntityMapper},
         world::World,
     };
+
+    #[test]
+    fn simple_entity_mapper() {
+        const FIRST_IDX: u32 = 1;
+        const SECOND_IDX: u32 = 2;
+
+        const MISSING_IDX: u32 = 10;
+
+        let mut map = EntityHashMap::default();
+        map.insert(Entity::from_raw(FIRST_IDX), Entity::from_raw(SECOND_IDX));
+        let mut mapper = SimpleEntityMapper::new(&map);
+
+        // entity is mapped correctly if it exists in the map
+        assert_eq!(
+            mapper.map(Entity::from_raw(FIRST_IDX)),
+            Entity::from_raw(SECOND_IDX)
+        );
+
+        // entity is just returned as is if it does not exist in the map
+        assert_eq!(
+            mapper.map(Entity::from_raw(MISSING_IDX)),
+            Entity::from_raw(MISSING_IDX)
+        );
+    }
 
     #[test]
     fn entity_mapper() {

@@ -27,7 +27,7 @@ impl ReflectMapEntities {
     /// An example of this: A scene can be loaded with `Parent` components, but then a `Parent` component can be added
     /// to these entities after they have been loaded. If you reload the scene using [`map_all_entities`](Self::map_all_entities), those `Parent`
     /// components with already valid entity references could be updated to point at something else entirely.
-    pub fn map_or_gen_all_entities(
+    pub fn map_all_entities(
         &self,
         world: &mut World,
         entity_map: &mut EntityHashMap<Entity, Entity>,
@@ -41,7 +41,7 @@ impl ReflectMapEntities {
     ///
     /// This is useful mostly for when you need to be careful not to update components that already contain valid entity
     /// values. See [`map_all_entities`](Self::map_all_entities) for more details.
-    pub fn map_or_gen_entities(
+    pub fn map_entities(
         &self,
         world: &mut World,
         entity_map: &mut EntityHashMap<Entity, Entity>,

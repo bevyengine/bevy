@@ -1,3 +1,4 @@
+use bevy_ecs::entity::{Mapper, SimpleEntityMapper};
 #[cfg(feature = "reflect")]
 use bevy_ecs::reflect::{ReflectComponent, ReflectMapEntities};
 use bevy_ecs::{
@@ -9,7 +10,6 @@ use bevy_ecs::{
 use bevy_utils::smallvec::SmallVec;
 use core::slice;
 use std::ops::Deref;
-use bevy_ecs::entity::{Mapper, SimpleEntityMapper};
 
 /// Contains references to the child entities of this entity.
 ///
@@ -30,7 +30,6 @@ use bevy_ecs::entity::{Mapper, SimpleEntityMapper};
 pub struct Children(pub(crate) SmallVec<[Entity; 8]>);
 
 impl MapEntities for Children {
-
     fn map_entities<M: Mapper>(&mut self, entity_mapper: &mut M) {
         for entity in &mut self.0 {
             entity.map_entities(entity_mapper);

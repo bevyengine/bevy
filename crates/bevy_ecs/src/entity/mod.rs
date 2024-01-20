@@ -137,7 +137,8 @@ pub struct Entity {
 }
 
 impl MapEntities for Entity {
-    fn map_entities<M: Mapper>(&mut self, mut entity_mapper: M) {
+    // we just map the entity itself
+    fn map_entities<M: Mapper>(&mut self, entity_mapper: &mut M) {
         entity_mapper.map(*self);
     }
 }
