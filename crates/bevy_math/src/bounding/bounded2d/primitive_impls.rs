@@ -11,10 +11,7 @@ use super::{Aabb2d, Bounded2d, BoundingCircle};
 
 impl Bounded2d for Circle {
     fn aabb_2d(&self, translation: Vec2, _rotation: f32) -> Aabb2d {
-        Aabb2d {
-            min: translation - Vec2::splat(self.radius),
-            max: translation + Vec2::splat(self.radius),
-        }
+        Aabb2d::new(translation, Vec2::splat(self.radius))
     }
 
     fn bounding_circle(&self, translation: Vec2, _rotation: f32) -> BoundingCircle {
@@ -47,12 +44,9 @@ impl Bounded2d for Ellipse {
         let (ux, uy) = (hw * alpha_cos, hw * alpha_sin);
         let (vx, vy) = (hh * beta_cos, hh * beta_sin);
 
-        let half_extents = Vec2::new(ux.hypot(vx), uy.hypot(vy));
+        let half_size = Vec2::new(ux.hypot(vx), uy.hypot(vy));
 
-        Aabb2d {
-            min: translation - half_extents,
-            max: translation + half_extents,
-        }
+        Aabb2d::new(translation, half_size)
     }
 
     fn bounding_circle(&self, translation: Vec2, _rotation: f32) -> BoundingCircle {
@@ -72,10 +66,7 @@ impl Bounded2d for Plane2d {
         let half_height = if facing_y { 0.0 } else { f32::MAX / 2.0 };
         let half_size = Vec2::new(half_width, half_height);
 
-        Aabb2d {
-            min: translation - half_size,
-            max: translation + half_size,
-        }
+        Aabb2d::new(translation, half_size)
     }
 
     fn bounding_circle(&self, translation: Vec2, _rotation: f32) -> BoundingCircle {
@@ -94,10 +85,7 @@ impl Bounded2d for Line2d {
         let half_height = if direction.y == 0.0 { 0.0 } else { max };
         let half_size = Vec2::new(half_width, half_height);
 
-        Aabb2d {
-            min: translation - half_size,
-            max: translation + half_size,
-        }
+        Aabb2d::new(translation, half_size)
     }
 
     fn bounding_circle(&self, translation: Vec2, _rotation: f32) -> BoundingCircle {
@@ -109,12 +97,9 @@ impl Bounded2d for Segment2d {
     fn aabb_2d(&self, translation: Vec2, rotation: f32) -> Aabb2d {
         // Rotate the segment by `rotation`
         let direction = Mat2::from_angle(rotation) * *self.direction;
-        let half_extent = (self.half_length * direction).abs();
+        let half_size = (self.half_length * direction).abs();
 
-        Aabb2d {
-            min: translation - half_extent,
-            max: translation + half_extent,
-        }
+        Aabb2d::new(translation, half_size)
     }
 
     fn bounding_circle(&self, translation: Vec2, _rotation: f32) -> BoundingCircle {
@@ -195,10 +180,7 @@ impl Bounded2d for Rectangle {
         let abs_rot_mat = Mat2::from_cols_array(&[cos.abs(), sin.abs(), sin.abs(), cos.abs()]);
         let half_size = abs_rot_mat * self.half_size;
 
-        Aabb2d {
-            min: translation - half_size,
-            max: translation + half_size,
-        }
+        Aabb2d::new(translation, half_size)
     }
 
     fn bounding_circle(&self, translation: Vec2, _rotation: f32) -> BoundingCircle {
