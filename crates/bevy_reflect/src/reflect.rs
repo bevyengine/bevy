@@ -328,17 +328,43 @@ impl dyn Reflect {
     }
 }
 
-unsafe impl Reflect for Box<dyn Reflect> {
-    fn type_name(&self) -> &str {
-        self.deref().type_name()
+impl DynamicTypePath for Box<dyn Reflect> {
+    fn reflect_type_path(&self) -> &str {
+        self.deref().reflect_type_path()
     }
 
-    fn any(&self) -> &dyn Any {
-        self.deref().any()
+    fn reflect_short_type_path(&self) -> &str {
+        self.deref().reflect_short_type_path()
     }
 
-    fn any_mut(&mut self) -> &mut dyn Any {
-        self.deref_mut().any_mut()
+    fn reflect_type_ident(&self) -> Option<&str> {
+        self.deref().reflect_type_ident()
+    }
+
+    fn reflect_crate_name(&self) -> Option<&str> {
+        self.deref().reflect_crate_name()
+    }
+
+    fn reflect_module_path(&self) -> Option<&str> {
+        self.deref().reflect_module_path()
+    }
+}
+
+impl Reflect for Box<dyn Reflect> {
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+        self.deref().get_represented_type_info()
+    }
+
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
+        Box::new((*self).into_any())
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self.deref().as_any()
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self.deref_mut().as_any_mut()
     }
 
     fn apply(&mut self, value: &dyn Reflect) {
@@ -349,12 +375,28 @@ unsafe impl Reflect for Box<dyn Reflect> {
         self.deref_mut().set(value)
     }
 
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+        Box::new((*self).into_reflect())
+    }
+
+    fn as_reflect(&self) -> &dyn Reflect {
+        self.deref().as_reflect()
+    }
+
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self.deref_mut().as_reflect_mut()
+    }
+
     fn reflect_ref(&self) -> ReflectRef {
         self.deref().reflect_ref()
     }
 
     fn reflect_mut(&mut self) -> ReflectMut {
         self.deref_mut().reflect_mut()
+    }
+
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        (*self).reflect_owned()
     }
 
     fn clone_value(&self) -> Box<dyn Reflect> {
