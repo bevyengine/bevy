@@ -50,7 +50,7 @@ struct DrawIndexedIndirect {
 @group(0) @binding(1) var<storage, read> meshlet_bounding_spheres: array<MeshletBoundingSphere>;
 @group(0) @binding(2) var<storage, read> meshlet_thread_instance_ids: array<u32>;
 @group(0) @binding(3) var<storage, read> meshlet_instance_uniforms: array<Mesh>;
-@group(0) @binding(4) var<storage, read> meshlet_view_instance_visibility: array<u32>;
+@group(0) @binding(4) var<storage, read> meshlet_view_instance_visibility: array<u32>; // packed bool's
 @group(0) @binding(5) var<storage, read_write> meshlet_occlusion: array<atomic<u32>>; // packed bool's
 @group(0) @binding(6) var<storage, read> meshlet_previous_thread_ids: array<u32>;
 @group(0) @binding(7) var<storage, read> meshlet_previous_occlusion: array<u32>; // packed bool's

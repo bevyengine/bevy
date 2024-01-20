@@ -263,12 +263,11 @@ pub fn prepare_meshlet_per_frame_resources(
         for (instance_index, (_, layers, not_shadow_caster)) in
             gpu_scene.instances.iter().enumerate()
         {
-            // if either the layers don't match the view's layers
-            // or this is a shadow view and the instance is not a shadow caster
+            // If either the layers don't match the view's layers or this is a shadow view
+            // and the instance is not a shadow caster, hide the instance for this view
             if !render_layers.unwrap_or(&default()).intersects(layers)
                 || (shadow_view.is_some() && *not_shadow_caster)
             {
-                // hide the instance for this view
                 let vec = instance_visibility.get_mut();
                 let index = instance_index / 32;
                 let bit = instance_index - index * 32;
@@ -278,9 +277,7 @@ pub fn prepare_meshlet_per_frame_resources(
                 vec[index] |= 1 << bit;
             }
         }
-
         upload_storage_buffer(instance_visibility, &render_device, &render_queue);
-
         let instance_visibility = instance_visibility.buffer().unwrap().clone();
 
         let create_occlusion_buffer = || {
