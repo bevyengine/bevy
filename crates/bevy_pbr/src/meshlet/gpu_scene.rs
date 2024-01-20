@@ -50,7 +50,6 @@ pub fn extract_meshlet_meshes(
         ResMut<Assets<MeshletMesh>>,
         EventReader<AssetEvent<MeshletMesh>>,
     )> = SystemState::new(&mut main_world);
-
     let (query, asset_server, mut assets, mut asset_events) = system_state.get_mut(&mut main_world);
 
     gpu_scene.reset();
@@ -72,7 +71,7 @@ pub fn extract_meshlet_meshes(
             }
         }
     }
-    // TODO: Handle not_shadow_caster
+
     for (
         instance_index,
         (
@@ -252,18 +251,17 @@ pub fn prepare_meshlet_per_frame_resources(
 
     let needed_buffer_size = gpu_scene.scene_meshlet_count.div_ceil(32) as u64 * 4;
     for (view_entity, view, render_layers, (_, shadow_view)) in &views {
+        let instance_visibility = gpu_scene
+            .view_instance_visibility
+            .entry(view_entity)
+            .or_insert_with(|| {
+                let mut buffer = StorageBuffer::default();
+                buffer.set_label(Some("meshlet_view_instance_visibility"));
+                buffer
+            });
         for (instance_index, (_, layers, not_shadow_caster)) in
             gpu_scene.instances.iter().enumerate()
         {
-            let instance_visibility = gpu_scene
-                .view_instance_visibility
-                .entry(view_entity)
-                .or_insert_with(|| {
-                    let mut buffer = StorageBuffer::default();
-                    buffer.set_label(Some("meshlet_view_instance_visibility"));
-                    buffer
-                });
-
             // if either the layers don't match the view's layers
             // or this is a shadow view and the instance is not a shadow caster
             if !render_layers.unwrap_or(&default()).intersects(layers)
@@ -280,14 +278,6 @@ pub fn prepare_meshlet_per_frame_resources(
             }
         }
 
-        let instance_visibility = gpu_scene
-            .view_instance_visibility
-            .entry(view_entity)
-            .or_insert_with(|| {
-                let mut buffer = StorageBuffer::default();
-                buffer.set_label(Some("meshlet_view_instance_visibility"));
-                buffer
-            });
         upload_storage_buffer(instance_visibility, &render_device, &render_queue);
 
         let instance_visibility = instance_visibility.buffer().unwrap().clone();
