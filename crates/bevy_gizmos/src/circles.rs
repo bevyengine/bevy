@@ -28,12 +28,12 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.circle(Vec3::ZERO, Vec3::Z, 1., Color::GREEN);
+    ///     gizmos.circle(Vec3::ZERO, Direction3d::Z, 1., Color::GREEN);
     ///
     ///     // Circles have 32 line-segments by default.
     ///     // You may want to increase this for larger circles.
     ///     gizmos
-    ///         .circle(Vec3::ZERO, Vec3::Z, 5., Color::RED)
+    ///         .circle(Vec3::ZERO, Direction3d::Z, 5., Color::RED)
     ///         .segments(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
