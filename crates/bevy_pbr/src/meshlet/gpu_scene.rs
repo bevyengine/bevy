@@ -17,13 +17,14 @@ use bevy_render::{
     render_resource::{binding_types::*, *},
     renderer::{RenderDevice, RenderQueue},
     texture::{CachedTexture, TextureCache},
-    view::{ExtractedView, ViewDepthTexture, ViewUniform, ViewUniforms},
+    view::{ExtractedView, RenderLayers, ViewDepthTexture, ViewUniform, ViewUniforms},
     MainWorld,
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{default, EntityHashMap, HashMap, HashSet};
 use encase::internal::WriteInto;
 use std::{
+    iter,
     ops::{DerefMut, Range},
     sync::Arc,
 };
@@ -42,6 +43,7 @@ pub fn extract_meshlet_meshes(
             &Handle<MeshletMesh>,
             &GlobalTransform,
             Option<&PreviousGlobalTransform>,
+            Option<&RenderLayers>,
             Has<NotShadowReceiver>,
             Has<NotShadowCaster>,
         )>,
@@ -71,10 +73,17 @@ pub fn extract_meshlet_meshes(
         }
     }
 
-    // TODO: Handle not_shadow_caster
     for (
         instance_index,
-        (instance, handle, transform, previous_transform, not_shadow_receiver, _not_shadow_caster),
+        (
+            instance,
+            handle,
+            transform,
+            previous_transform,
+            render_layers,
+            not_shadow_receiver,
+            not_shadow_caster,
+        ),
     ) in query.iter().enumerate()
     {
         if asset_server.is_managed(handle.id())
@@ -83,7 +92,14 @@ pub fn extract_meshlet_meshes(
             continue;
         }
 
-        gpu_scene.queue_meshlet_mesh_upload(instance, handle, &mut assets, instance_index as u32);
+        gpu_scene.queue_meshlet_mesh_upload(
+            instance,
+            render_layers.cloned().unwrap_or(default()),
+            not_shadow_caster,
+            handle,
+            &mut assets,
+            instance_index as u32,
+        );
 
         let transform = transform.affine();
         let previous_transform = previous_transform.map(|t| t.0).unwrap_or(transform);
@@ -139,7 +155,7 @@ pub fn queue_material_meshlet_meshes<M: Material>(
     // TODO: Ideally we could parallelize this system, both between different materials, and the loop over instances
     let gpu_scene = gpu_scene.deref_mut();
 
-    for (i, instance) in gpu_scene.instances.iter().enumerate() {
+    for (i, (instance, _, _)) in gpu_scene.instances.iter().enumerate() {
         if let Some(material_asset_id) = render_material_instances.get(instance) {
             let material_asset_id = material_asset_id.untyped();
             if let Some(material_id) = gpu_scene.material_id_lookup.get(&material_asset_id) {
@@ -173,7 +189,12 @@ fn upload_storage_buffer<T: ShaderSize + bytemuck::Pod>(
 
 pub fn prepare_meshlet_per_frame_resources(
     mut gpu_scene: ResMut<MeshletGpuScene>,
-    views: Query<(Entity, &ExtractedView, AnyOf<(&Camera3d, &ShadowView)>)>,
+    views: Query<(
+        Entity,
+        &ExtractedView,
+        Option<&RenderLayers>,
+        AnyOf<(&Camera3d, &ShadowView)>,
+    )>,
     mut texture_cache: ResMut<TextureCache>,
     render_queue: Res<RenderQueue>,
     render_device: Res<RenderDevice>,
@@ -230,7 +251,38 @@ pub fn prepare_meshlet_per_frame_resources(
         };
 
     let needed_buffer_size = gpu_scene.scene_meshlet_count.div_ceil(32) as u64 * 4;
-    for (view_entity, view, (_, shadow_view)) in &views {
+    for (view_entity, view, render_layers, (_, shadow_view)) in &views {
+        let instance_visibility = gpu_scene
+            .view_instance_visibility
+            .entry(view_entity)
+            .or_insert_with(|| {
+                let mut buffer = StorageBuffer::default();
+                buffer.set_label(Some("meshlet_view_instance_visibility"));
+                buffer
+            });
+        for (instance_index, (_, layers, not_shadow_caster)) in
+            gpu_scene.instances.iter().enumerate()
+        {
+            // if either the layers don't match the view's layers
+            // or this is a shadow view and the instance is not a shadow caster
+            if !render_layers.unwrap_or(&default()).intersects(layers)
+                || (shadow_view.is_some() && *not_shadow_caster)
+            {
+                // hide the instance for this view
+                let vec = instance_visibility.get_mut();
+                let index = instance_index / 32;
+                let bit = instance_index - index * 32;
+                if vec.len() <= index {
+                    vec.extend(iter::repeat(0).take(index - vec.len() + 1));
+                }
+                vec[index] |= 1 << bit;
+            }
+        }
+
+        upload_storage_buffer(instance_visibility, &render_device, &render_queue);
+
+        let instance_visibility = instance_visibility.buffer().unwrap().clone();
+
         let create_occlusion_buffer = || {
             render_device.create_buffer(&BufferDescriptor {
                 label: Some("meshlet_occlusion_buffer"),
@@ -365,6 +417,7 @@ pub fn prepare_meshlet_per_frame_resources(
             previous_occlusion_buffer,
             occlusion_buffer,
             occlusion_buffer_needs_clearing,
+            instance_visibility,
             visibility_buffer: not_shadow_view
                 .then(|| texture_cache.get(&render_device, visibility_buffer)),
             visibility_buffer_draw_command_buffer_first,
@@ -401,6 +454,9 @@ pub fn prepare_meshlet_view_bind_groups(
             gpu_scene.meshlet_bounding_spheres.binding(),
             gpu_scene.thread_instance_ids.binding().unwrap(),
             gpu_scene.instance_uniforms.binding().unwrap(),
+            gpu_scene.view_instance_visibility[&view_entity]
+                .binding()
+                .unwrap(),
             view_resources.occlusion_buffer.as_entire_binding(),
             gpu_scene.previous_thread_ids.binding().unwrap(),
             view_resources.previous_occlusion_buffer.as_entire_binding(),
@@ -555,8 +611,9 @@ pub struct MeshletGpuScene {
     next_material_id: u32,
     material_id_lookup: HashMap<UntypedAssetId, u32>,
     material_ids_present_in_scene: HashSet<u32>,
-    instances: Vec<Entity>,
+    instances: Vec<(Entity, RenderLayers, bool)>,
     instance_uniforms: StorageBuffer<Vec<MeshUniform>>,
+    view_instance_visibility: EntityHashMap<Entity, StorageBuffer<Vec<u32>>>,
     instance_material_ids: StorageBuffer<Vec<u32>>,
     thread_instance_ids: StorageBuffer<Vec<u32>>,
     thread_meshlet_ids: StorageBuffer<Vec<u32>>,
@@ -600,6 +657,7 @@ impl FromWorld for MeshletGpuScene {
                 buffer.set_label(Some("meshlet_instance_uniforms"));
                 buffer
             },
+            view_instance_visibility: EntityHashMap::default(),
             instance_material_ids: {
                 let mut buffer = StorageBuffer::default();
                 buffer.set_label(Some("meshlet_instance_material_ids"));
@@ -630,6 +688,7 @@ impl FromWorld for MeshletGpuScene {
                 &BindGroupLayoutEntries::sequential(
                     ShaderStages::COMPUTE,
                     (
+                        storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
@@ -725,6 +784,9 @@ impl MeshletGpuScene {
         self.material_id_lookup.clear();
         self.material_ids_present_in_scene.clear();
         self.instances.clear();
+        self.view_instance_visibility
+            .values_mut()
+            .for_each(|b| b.get_mut().clear());
         self.instance_uniforms.get_mut().clear();
         self.instance_material_ids.get_mut().clear();
         self.thread_instance_ids.get_mut().clear();
@@ -740,6 +802,8 @@ impl MeshletGpuScene {
     fn queue_meshlet_mesh_upload(
         &mut self,
         instance: Entity,
+        render_layers: RenderLayers,
+        not_shadow_caster: bool,
         handle: &Handle<MeshletMesh>,
         assets: &mut Assets<MeshletMesh>,
         instance_index: u32,
@@ -779,7 +843,8 @@ impl MeshletGpuScene {
             )
         };
 
-        self.instances.push(instance);
+        self.instances
+            .push((instance, render_layers, not_shadow_caster));
         self.instance_material_ids.get_mut().push(0);
 
         let (buffer_slices, index_count) = self
@@ -864,6 +929,7 @@ pub struct MeshletViewResources {
     previous_occlusion_buffer: Buffer,
     pub occlusion_buffer: Buffer,
     pub occlusion_buffer_needs_clearing: bool,
+    pub instance_visibility: Buffer,
     pub visibility_buffer: Option<CachedTexture>,
     pub visibility_buffer_draw_command_buffer_first: Buffer,
     pub visibility_buffer_draw_command_buffer_second: Buffer,
