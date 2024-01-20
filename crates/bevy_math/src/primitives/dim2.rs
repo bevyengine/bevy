@@ -28,8 +28,7 @@ impl Direction2d {
     ///
     /// # Warning
     ///
-    /// This function only checks if `value` is normalized on debug builds,
-    /// release builds can allow the creation of a [`Direction2d`] that is not normalized.
+    /// `value` must be normalized, i.e it's length must be `1.0`.
     pub fn new_unchecked(value: Vec2) -> Self {
         debug_assert!(value.is_normalized());
 
