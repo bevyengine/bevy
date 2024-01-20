@@ -368,7 +368,7 @@ impl Reflect for Box<dyn Reflect> {
     }
 
     fn apply(&mut self, value: &dyn Reflect) {
-        self.deref_mut().apply(value)
+        self.deref_mut().apply(value);
     }
 
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
