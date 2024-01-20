@@ -1846,12 +1846,12 @@ impl TargetCamera {
 
 #[derive(Component)]
 /// Marker used to identify default cameras, they will have priority over `PrimaryWindow` cameras.
-pub struct UiDefaultCamera;
+pub struct UiDefaultCameraMarker;
 
 #[derive(SystemParam)]
 pub struct DefaultUiCamera<'w, 's> {
     cameras: Query<'w, 's, (Entity, &'static Camera)>,
-    default_cameras: Query<'w, 's, Entity, (With<Camera>, With<UiDefaultCamera>)>,
+    default_cameras: Query<'w, 's, Entity, (With<Camera>, With<UiDefaultCameraMarker>)>,
     primary_window: Query<'w, 's, Entity, With<PrimaryWindow>>,
 }
 
