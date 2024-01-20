@@ -1,3 +1,5 @@
+use core::fmt;
+
 use crate::container_attributes::{FromReflectAttrs, ReflectTraits};
 use crate::field_attributes::{parse_field_attrs, ReflectFieldAttr};
 use crate::type_path::parse_path_no_leading_colon;
@@ -140,10 +142,46 @@ enum ReflectMode {
     Value,
 }
 
+/// How the macro was invoked.
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub(crate) enum ReflectImplSource {
+    ImplRemoteType,
+    DeriveLocalType,
+}
+
+/// Which trait the macro explicitly implements.
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub(crate) enum ReflectTraitToImpl {
+    Reflect,
+    FromReflect,
+    TypePath,
+}
+
+/// The provenance of a macro invocation.
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub(crate) struct ReflectProvenance {
+    pub source: ReflectImplSource,
+    pub trait_: ReflectTraitToImpl,
+}
+
+impl fmt::Display for ReflectProvenance {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use self::{ReflectImplSource as S, ReflectTraitToImpl as T};
+        let str = match (self.source, self.trait_) {
+            (S::ImplRemoteType, T::Reflect) => "`impl_reflect`",
+            (S::DeriveLocalType, T::Reflect) => "`#[derive(Reflect)]`",
+            (S::DeriveLocalType, T::FromReflect) => "`#[derive(FromReflect)]`",
+            (S::DeriveLocalType, T::TypePath) => "`#[derive(TypePath)]`",
+            (S::ImplRemoteType, T::FromReflect | T::TypePath) => unreachable!(),
+        };
+        f.write_str(str)
+    }
+}
+
 impl<'a> ReflectDerive<'a> {
     pub fn from_input(
         input: &'a DeriveInput,
-        is_from_reflect_derive: bool,
+        provenance: ReflectProvenance,
     ) -> Result<Self, syn::Error> {
         let mut traits = ReflectTraits::default();
         // Should indicate whether `#[reflect_value]` was used.
@@ -169,7 +207,7 @@ impl<'a> ReflectDerive<'a> {
                     reflect_mode = Some(ReflectMode::Normal);
                     let new_traits = ReflectTraits::from_metas(
                         meta_list.parse_args_with(Punctuated::<Meta, Comma>::parse_terminated)?,
-                        is_from_reflect_derive,
+                        provenance.trait_,
                     )?;
                     traits.merge(new_traits)?;
                 }
@@ -184,7 +222,7 @@ impl<'a> ReflectDerive<'a> {
                     reflect_mode = Some(ReflectMode::Value);
                     let new_traits = ReflectTraits::from_metas(
                         meta_list.parse_args_with(Punctuated::<Meta, Comma>::parse_terminated)?,
-                        is_from_reflect_derive,
+                        provenance.trait_,
                     )?;
                     traits.merge(new_traits)?;
                 }
@@ -263,6 +301,16 @@ impl<'a> ReflectDerive<'a> {
         };
 
         let meta = ReflectMeta::new(type_path, traits);
+
+        if provenance.source == ReflectImplSource::ImplRemoteType
+            && meta.traits.type_path_attrs().should_auto_derive()
+            && !meta.type_path().has_custom_path()
+        {
+            return Err(syn::Error::new(
+                meta.type_path().span(),
+                format!("a #[{TYPE_PATH_ATTRIBUTE_NAME} = \"...\"] attribute must be specified when using {provenance}")
+            ));
+        }
 
         #[cfg(feature = "documentation")]
         let meta = meta.with_docs(doc);
