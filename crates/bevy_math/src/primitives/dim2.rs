@@ -26,7 +26,7 @@ impl Direction2d {
 
     /// Create a [`Direction2d`] from a [`Vec2`] that is already normalized.
     ///
-    /// ## Warning
+    /// # Warning
     ///
     /// This function only checks if `value` is normalized on debug builds,
     /// release builds can allow the creation of a [`Direction2d`] that is not normalized.
