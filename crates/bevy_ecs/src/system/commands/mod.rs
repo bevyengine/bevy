@@ -1031,7 +1031,6 @@ fn try_insert(bundle: impl Bundle) -> impl EntityCommand {
     }
 }
 
-
 impl<'w, 's, 'a> AddCommand for EntityCommands<'w, 's, 'a> {
     fn add_command(&mut self, command: impl Command) {
         self.commands.add_command(command);
@@ -1325,7 +1324,6 @@ impl<R: Resource> FallibleCommand for RemoveResource<R> {
         }
     }
 }
-
 
 /// A [`Command`] that inserts a [`Resource`] into the world.
 fn insert_resource<R: Resource>(resource: R) -> impl Command {
@@ -1649,7 +1647,8 @@ mod tests {
         let mut queue = CommandQueue::default();
         {
             let mut commands = Commands::new(&mut queue, &world);
-            let invalid_entity = Entity::new(42, 0);
+            let invalid_entity =
+                Entity::from_raw_and_generation(42, std::num::NonZeroU32::new(0).unwrap());
             commands
                 .entity(invalid_entity)
                 .despawn()
