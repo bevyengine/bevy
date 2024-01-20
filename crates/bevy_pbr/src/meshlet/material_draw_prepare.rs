@@ -220,12 +220,7 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
             &mut MeshletViewMaterialsPrepass,
             &mut MeshletViewMaterialsDeferredGBufferPrepass,
             &ExtractedView,
-            (
-                Has<NormalPrepass>,
-                Has<DepthPrepass>,
-                Has<MotionVectorPrepass>,
-                Has<DeferredPrepass>,
-            ),
+            AnyOf<(&NormalPrepass, &MotionVectorPrepass, &DeferredPrepass)>,
         ),
         With<Camera3d>,
     >,
@@ -238,29 +233,16 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
         mut materials,
         mut deferred_materials,
         view,
-        (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
+        (normal_prepass, motion_vector_prepass, deferred_prepass),
     ) in &mut views
     {
-        if (
-            normal_prepass,
-            depth_prepass,
-            motion_vector_prepass,
-            deferred_prepass,
-        ) == (false, true, false, false)
-        {
-            continue;
-        }
-
         let mut view_key =
             MeshPipelineKey::from_msaa_samples(1) | MeshPipelineKey::from_hdr(view.hdr);
 
-        if normal_prepass {
+        if normal_prepass.is_some() {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
         }
-        if depth_prepass {
-            view_key |= MeshPipelineKey::DEPTH_PREPASS;
-        }
-        if motion_vector_prepass {
+        if motion_vector_prepass.is_some() {
             view_key |= MeshPipelineKey::MOTION_VECTOR_PREPASS;
         }
 
@@ -281,8 +263,10 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
                 material.properties.render_method,
                 OpaqueRendererMethod::Deferred
             );
-            if deferred_prepass && material_wants_deferred {
+            if deferred_prepass.is_some() && material_wants_deferred {
                 view_key |= MeshPipelineKey::DEFERRED_PREPASS;
+            } else if normal_prepass.is_none() && motion_vector_prepass.is_none() {
+                continue;
             }
 
             let Ok(material_pipeline_descriptor) = prepass_pipeline.specialize(
