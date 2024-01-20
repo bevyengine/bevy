@@ -1,4 +1,4 @@
-use bevy_ecs::entity::{Mapper};
+use bevy_ecs::entity::Mapper;
 use bevy_ecs::{
     entity::{Entity, MapEntities},
     prelude::{Component, ReflectComponent},

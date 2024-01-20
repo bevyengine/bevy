@@ -1,5 +1,5 @@
 use bevy_asset::{Asset, Handle};
-use bevy_ecs::entity::{Mapper};
+use bevy_ecs::entity::Mapper;
 use bevy_ecs::{
     component::Component,
     entity::{Entity, MapEntities},

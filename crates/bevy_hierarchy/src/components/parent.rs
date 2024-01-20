@@ -1,4 +1,4 @@
-use bevy_ecs::entity::{Mapper};
+use bevy_ecs::entity::Mapper;
 #[cfg(feature = "reflect")]
 use bevy_ecs::reflect::{ReflectComponent, ReflectMapEntities};
 use bevy_ecs::{
