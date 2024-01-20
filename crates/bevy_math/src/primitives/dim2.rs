@@ -26,11 +26,11 @@ impl Direction2d {
 
     /// Create a [`Direction2d`] from a [`Vec2`] that is already normalized.
     ///
-    /// ## Safety
+    /// ## Warning
     ///
     /// This function only checks if `value` is normalized on debug builds,
     /// release builds can allow the creation of a [`Direction2d`] that is not normalized.
-    pub unsafe fn new_unchecked(value: Vec2) -> Self {
+    pub fn new_unchecked(value: Vec2) -> Self {
         debug_assert!(value.is_normalized());
 
         Self(value)
@@ -171,8 +171,8 @@ impl Segment2d {
         let length = diff.length();
 
         (
-            // SAFETY: We are dividing by the length here, so the Vector is normalized.
-            Self::new(unsafe { Direction2d::new_unchecked(diff / length) }, length),
+            // We are dividing by the length here, so the vector is normalized.
+            Self::new(Direction2d::new_unchecked(diff / length), length),
             (point1 + point2) / 2.,
         )
     }
