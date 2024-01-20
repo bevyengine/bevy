@@ -121,7 +121,7 @@ impl Bounded3d for Cuboid {
             rot_mat.z_axis.abs(),
         );
 
-        let half_extents = abs_rot_mat * self.half_extents;
+        let half_extents = abs_rot_mat * self.half_size;
 
         Aabb3d {
             min: translation - half_extents,
@@ -133,7 +133,7 @@ impl Bounded3d for Cuboid {
         BoundingSphere {
             center: translation,
             sphere: Sphere {
-                radius: self.half_extents.length(),
+                radius: self.half_size.length(),
             },
         }
     }
