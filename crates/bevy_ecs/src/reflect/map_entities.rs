@@ -13,8 +13,8 @@ use bevy_utils::EntityHashMap;
 /// See [`MapEntities`] for more information.
 #[derive(Clone)]
 pub struct ReflectMapEntities {
-    map_or_gen_all_entities: fn(&mut World, &mut EntityMapper),
-    map_or_gen_entities: fn(&mut World, &mut EntityMapper, &[Entity]),
+    map_all_entities: fn(&mut World, &mut EntityMapper),
+    map_entities: fn(&mut World, &mut EntityMapper, &[Entity]),
 }
 
 impl ReflectMapEntities {
@@ -32,7 +32,7 @@ impl ReflectMapEntities {
         world: &mut World,
         entity_map: &mut EntityHashMap<Entity, Entity>,
     ) {
-        EntityMapper::world_scope(entity_map, world, self.map_or_gen_all_entities);
+        EntityMapper::world_scope(entity_map, world, self.map_all_entities);
     }
 
     /// A general method for applying [`MapEntities`] behavior to elements in an [`EntityHashMap<Entity, Entity>`]. Unlike
@@ -48,7 +48,7 @@ impl ReflectMapEntities {
         entities: &[Entity],
     ) {
         EntityMapper::world_scope(entity_map, world, |world, mapper| {
-            (self.map_or_gen_entities)(world, mapper, entities);
+            (self.map_entities)(world, mapper, entities);
         });
     }
 }
@@ -56,14 +56,14 @@ impl ReflectMapEntities {
 impl<C: Component + MapEntities> FromType<C> for ReflectMapEntities {
     fn from_type() -> Self {
         ReflectMapEntities {
-            map_or_gen_entities: |world, entity_mapper, entities| {
+            map_entities: |world, entity_mapper, entities| {
                 for &entity in entities {
                     if let Some(mut component) = world.get_mut::<C>(entity) {
-                        component.map_or_gen_entities(entity_mapper);
+                        component.map_entities(entity_mapper);
                     }
                 }
             },
-            map_or_gen_all_entities: |world, entity_mapper| {
+            map_all_entities: |world, entity_mapper| {
                 let entities = entity_mapper
                     .get_map()
                     .values()
@@ -71,7 +71,7 @@ impl<C: Component + MapEntities> FromType<C> for ReflectMapEntities {
                     .collect::<Vec<Entity>>();
                 for entity in &entities {
                     if let Some(mut component) = world.get_mut::<C>(*entity) {
-                        component.map_or_gen_entities(entity_mapper);
+                        component.map_entities(entity_mapper);
                     }
                 }
             },

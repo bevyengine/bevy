@@ -137,14 +137,8 @@ pub struct Entity {
 }
 
 impl MapEntities for Entity {
-    fn map_or_gen_entities(&mut self, entity_mapper: &mut EntityMapper) {
-        *self = entity_mapper.get_or_reserve(*self);
-    }
-
-    fn map_entities(&mut self, entity_mapper: &SimpleEntityMapper) {
-        if let Some(mapped) = entity_mapper.get(*self) {
-            *self = mapped;
-        }
+    fn map_entities<M: Mapper>(&mut self, mut entity_mapper: M) {
+        entity_mapper.map(*self);
     }
 }
 

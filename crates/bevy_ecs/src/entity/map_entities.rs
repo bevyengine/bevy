@@ -18,7 +18,7 @@ use bevy_utils::EntityHashMap;
 ///
 /// ```
 /// use bevy_ecs::prelude::*;
-/// use bevy_ecs::entity::{EntityMapper, MapEntities, SimpleEntityMapper};
+/// use bevy_ecs::entity::{EntityMapper, MapEntities, Mapper, SimpleEntityMapper};
 ///
 /// #[derive(Component)]
 /// struct Spring {
@@ -27,11 +27,7 @@ use bevy_utils::EntityHashMap;
 /// }
 ///
 /// impl MapEntities for Spring {
-///     fn map_or_gen_entities(&mut self, entity_mapper: &mut EntityMapper) {
-///         self.a.map_or_gen_entities(entity_mapper);
-///         self.b.map_or_gen_entities(entity_mapper);
-///     }
-///     fn map_entities(&mut self, entity_mapper: &SimpleEntityMapper) {
+///     fn map_entities<M: Mapper>(&mut self, entity_mapper: &mut M) {
 ///         self.a.map_entities(entity_mapper);
 ///         self.b.map_entities(entity_mapper)
 ///     }
@@ -41,19 +37,25 @@ use bevy_utils::EntityHashMap;
 pub trait MapEntities {
     /// Updates all [`Entity`] references stored inside using `entity_mapper`.
     ///
-    /// Implementors should look up any and all [`Entity`] values stored within and
-    /// update them to the mapped values via `entity_mapper`.
-    fn map_or_gen_entities(&mut self, entity_mapper: &mut EntityMapper);
-
-    /// Updates all [`Entity`] references stored inside using `entity_mapper`.
-    ///
     /// Only updates the references for which there is a mapping.
-    fn map_entities(&mut self, entity_mapper: &SimpleEntityMapper);
+    fn map_entities<M: Mapper>(&mut self, entity_mapper: &mut M);
+}
+
+pub trait Mapper {
+    /// Map an entity to another entity
+    fn map(&mut self, entity: Entity) -> Entity;
+
 }
 
 /// Similar to `EntityMapper`, but does not allocate new [`Entity`] references in case we couldn't map the entity.
 pub struct SimpleEntityMapper<'m> {
     map: &'m EntityHashMap<Entity, Entity>,
+}
+
+impl Mapper for SimpleEntityMapper<'_> {
+    fn map(&mut self, entity: Entity) -> Entity {
+        self.get(entity).unwrap_or(entity)
+    }
 }
 
 impl<'m> SimpleEntityMapper<'m> {
@@ -69,6 +71,12 @@ impl<'m> SimpleEntityMapper<'m> {
     /// Gets a reference to the underlying [`EntityHashMap<Entity, Entity>`].
     pub fn get_map(&'m self) -> &'m EntityHashMap<Entity, Entity> {
         self.map
+    }
+}
+
+impl Mapper for EntityMapper {
+    fn map(&mut self, entity: Entity) -> Entity {
+        self.get_or_reserve(entity)
     }
 }
 
