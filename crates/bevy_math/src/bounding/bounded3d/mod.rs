@@ -33,6 +33,15 @@ pub struct Aabb3d {
 }
 
 impl Aabb3d {
+    /// Constructs an AABB from its center and half-size.
+    pub fn new(center: Vec3, half_size: Vec3) -> Self {
+        debug_assert!(half_size.x >= 0.0 && half_size.y >= 0.0 && half_size.z >= 0.0);
+        Self {
+            min: center - half_size,
+            max: center + half_size,
+        }
+    }
+
     /// Computes the smallest [`Aabb3d`] containing the given set of points,
     /// transformed by `translation` and `rotation`.
     ///
@@ -243,7 +252,7 @@ pub struct BoundingSphere {
 }
 
 impl BoundingSphere {
-    /// Construct a bounding sphere from its center and radius.
+    /// Constructs a bounding sphere from its center and radius.
     pub fn new(center: Vec3, radius: f32) -> Self {
         debug_assert!(radius >= 0.);
         Self {
