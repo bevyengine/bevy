@@ -1855,24 +1855,30 @@ impl TargetCamera {
 /// all that is needed is to place this component on the camera
 ///
 /// ```
-///     fn spawn_camera(mut commands: Commands) {
-///         let another_window = commands.spawn(Window {
-///             title: String::from("Another window"),
-///             ..Default::default()
-///         }).id();
-///         commands.spawn((
-///             Camera2dBundle {
-///                 camera: Camera {
-///                     target: RenderTarget::Window(another_window),
-///                     ..Default::default()
-///                 },
+/// # use bevy_ui::prelude::*;
+/// # use bevy_ecs::prelude::Commands;
+/// # use bevy_render::camera::{Camera, RenderTarget};
+/// # use bevy_core_pipeline::prelude::Camera2dBundle;
+/// # use bevy_window::{Window, WindowRef};
+///
+/// fn spawn_camera(mut commands: Commands) {
+///     let another_window = commands.spawn(Window {
+///         title: String::from("Another window"),
+///         ..Default::default()
+///     }).id();
+///     commands.spawn((
+///         Camera2dBundle {
+///             camera: Camera {
+///                 target: RenderTarget::Window(another_window),
 ///                 ..Default::default()
 ///             },
-///             // We add the Marker here so all Ui will spawn in
-///             // another window if no TargetCamera is specified
-///             UiDefaultCameraMarker
-///         ));
-///     }
+///             ..Default::default()
+///         },
+///         // We add the Marker here so all Ui will spawn in
+///         // another window if no TargetCamera is specified
+///         UiDefaultCameraMarker
+///     ));
+/// }
 /// ```
 pub struct UiDefaultCameraMarker;
 
