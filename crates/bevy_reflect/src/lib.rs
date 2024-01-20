@@ -1877,7 +1877,10 @@ bevy_reflect::tests::Test {
 
         let boxed: Box<dyn Reflect> = Box::new(Foo { a: 1 });
 
-        assert_eq!(boxed.reflect_type_path(), "bevy_reflect::tests::Foo");
+        assert_eq!(
+            boxed.reflect_type_path(),
+            "std::boxed::Box(dyn bevy_reflect::Reflect)"
+        );
     }
 
     #[test]
