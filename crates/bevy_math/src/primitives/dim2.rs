@@ -276,7 +276,7 @@ impl Default for Triangle2d {
 
 impl Triangle2d {
     /// Create a new `Triangle2d` from points `a`, `b`, and `c`
-    pub fn new(a: Vec2, b: Vec2, c: Vec2) -> Self {
+    pub const fn new(a: Vec2, b: Vec2, c: Vec2) -> Self {
         Self {
             vertices: [a, b, c],
         }
