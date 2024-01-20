@@ -9,7 +9,7 @@ use bevy_render::{
     texture::Image,
 };
 use bevy_transform::prelude::GlobalTransform;
-use bevy_utils::smallvec::SmallVec;
+use bevy_utils::{smallvec::SmallVec, warn_once};
 use bevy_window::{PrimaryWindow, WindowRef};
 use std::num::{NonZeroI16, NonZeroU16};
 use thiserror::Error;
@@ -1886,6 +1886,10 @@ pub struct DefaultUiCamera<'w, 's> {
 impl<'w, 's> DefaultUiCamera<'w, 's> {
     pub fn get(&self) -> Option<Entity> {
         self.default_cameras.get_single().ok().or_else(|| {
+            // If there isn't a single camera and the query isn't empty, there is two or more cameras queried.
+            if !self.default_cameras.is_empty() {
+                warn_once!("Two or more Entities with UiDefaultCameraMarker found when only one Camera with this marker is allowed.")
+            }
             self.cameras
                 .iter()
                 .filter(|(_, c)| match c.target {
