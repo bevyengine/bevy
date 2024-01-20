@@ -2,7 +2,6 @@
 #![doc = include_str!("../README.md")]
 
 mod slice;
-pub use slice::{ParallelSlice, ParallelSliceMut};
 
 mod task;
 pub use task::Task;
@@ -33,17 +32,14 @@ pub use async_io::block_on;
 pub use futures_lite::future::block_on;
 
 mod iter;
-pub use iter::ParallelIterator;
-
 pub use futures_lite;
+pub use iter::*;
 
 #[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         block_on,
-        iter::ParallelIterator,
-        slice::{ParallelSlice, ParallelSliceMut},
         usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool},
     };
 }

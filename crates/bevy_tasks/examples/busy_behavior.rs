@@ -12,6 +12,7 @@ fn main() {
         .build();
 
     let t0 = Instant::now();
+    let a =vec![1,2,3];
     pool.scope(|s| {
         for i in 0..40 {
             s.spawn(async move {
