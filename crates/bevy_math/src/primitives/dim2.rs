@@ -83,6 +83,7 @@ pub struct Circle {
 impl Primitive2d for Circle {}
 
 impl Default for Circle {
+    /// Returns the default [`Circle`] with a radius of `0.5`.
     fn default() -> Self {
         Self { radius: 0.5 }
     }
@@ -99,6 +100,7 @@ pub struct Ellipse {
 impl Primitive2d for Ellipse {}
 
 impl Default for Ellipse {
+    /// Returns the default [`Ellipse`] with a half-width of `1.0` and a half-height of `0.5`.
     fn default() -> Self {
         Self {
             half_width: 1.0,
@@ -127,9 +129,10 @@ pub struct Plane2d {
 impl Primitive2d for Plane2d {}
 
 impl Default for Plane2d {
+    /// Returns the default [`Plane2d`] with a normal pointing in the `+Y` direction.
     fn default() -> Self {
         Self {
-            normal: Direction2d::from_normalized(Vec2::Y),
+            normal: Direction2d::Y,
         }
     }
 }
@@ -267,6 +270,7 @@ pub struct Triangle2d {
 impl Primitive2d for Triangle2d {}
 
 impl Default for Triangle2d {
+    /// Returns the default [`Triangle2d`] with the vertices `[0.0, 0.5]`, `[-0.5, -0.5]`, and `[0.5, -0.5]`.
     fn default() -> Self {
         Self {
             vertices: [Vec2::Y * 0.5, Vec2::new(-0.5, -0.5), Vec2::new(0.5, -0.5)],
@@ -350,6 +354,7 @@ pub struct Rectangle {
 impl Primitive2d for Rectangle {}
 
 impl Default for Rectangle {
+    /// Returns the default [`Rectangle`] with a half-width and half-height of `0.5`.
     fn default() -> Self {
         Self {
             half_width: 0.5,
@@ -439,6 +444,7 @@ pub struct RegularPolygon {
 impl Primitive2d for RegularPolygon {}
 
 impl Default for RegularPolygon {
+    /// Returns the default [`RegularPolygon`] with six sides (a hexagon) and a circumradius of `0.5`.
     fn default() -> Self {
         Self {
             circumcircle: Circle { radius: 0.5 },
