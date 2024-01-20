@@ -1857,14 +1857,18 @@ pub struct DefaultUiCamera<'w, 's> {
 
 impl<'w, 's> DefaultUiCamera<'w, 's> {
     pub fn get(&self) -> Option<Entity> {
-        self.cameras
-            .iter()
-            .filter(|(_, c)| match c.target {
-                RenderTarget::Window(WindowRef::Primary) => true,
-                RenderTarget::Window(WindowRef::Entity(w)) => self.primary_window.get(w).is_ok(),
-                _ => false,
-            })
-            .max_by_key(|(e, c)| (c.order, *e))
-            .map(|(e, _)| e)
+        self.default_cameras.get_single().ok().or_else(|| {
+            self.cameras
+                .iter()
+                .filter(|(_, c)| match c.target {
+                    RenderTarget::Window(WindowRef::Primary) => true,
+                    RenderTarget::Window(WindowRef::Entity(w)) => {
+                        self.primary_window.get(w).is_ok()
+                    }
+                    _ => false,
+                })
+                .max_by_key(|(e, c)| (c.order, *e))
+                .map(|(e, _)| e)
+        })
     }
 }
