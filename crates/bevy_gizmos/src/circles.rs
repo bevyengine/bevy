@@ -4,7 +4,7 @@
 //! and assorted support items.
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
-use bevy_math::{Quat, Vec2, Vec3};
+use bevy_math::{primitives::Direction3d, Quat, Vec2, Vec3};
 use bevy_render::color::Color;
 use std::f32::consts::TAU;
 
@@ -43,7 +43,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     pub fn circle(
         &mut self,
         position: Vec3,
-        normal: Vec3,
+        normal: Direction3d,
         radius: f32,
         color: Color,
     ) -> CircleBuilder<'_, 'w, 's, T> {
@@ -98,7 +98,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
 pub struct CircleBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     gizmos: &'a mut Gizmos<'w, 's, T>,
     position: Vec3,
-    normal: Vec3,
+    normal: Direction3d,
     radius: f32,
     color: Color,
     segments: usize,
@@ -117,7 +117,7 @@ impl<T: GizmoConfigGroup> Drop for CircleBuilder<'_, '_, '_, T> {
         if !self.gizmos.enabled {
             return;
         }
-        let rotation = Quat::from_rotation_arc(Vec3::Z, self.normal.normalize());
+        let rotation = Quat::from_rotation_arc(Vec3::Z, *self.normal);
         let positions = circle_inner(self.radius, self.segments)
             .map(|vec2| self.position + rotation * vec2.extend(0.));
         self.gizmos.linestrip(positions, self.color);
