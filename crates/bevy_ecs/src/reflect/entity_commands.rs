@@ -202,7 +202,7 @@ fn insert_reflect(
     let Some(reflect_component) = type_registration.data::<ReflectComponent>() else {
         panic!("Could not get ReflectComponent data (for component type {type_path}) because it doesn't exist in this TypeRegistration.");
     };
-    reflect_component.insert(&mut entity, &*component);
+    reflect_component.insert(&mut entity, &*component, type_registry);
 }
 
 /// A [`Command`] that adds the boxed reflect component to an entity using the data in
