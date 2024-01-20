@@ -154,7 +154,7 @@ impl IntersectsVolume<BoundingCircle> for Aabb2d {
         let closest_point = self.closest_point(circle.center);
         let distance_squared = circle.center.distance_squared(closest_point);
         let radius_squared = circle.radius().powi(2);
-        distance_squared < radius_squared
+        distance_squared <= radius_squared
     }
 }
 

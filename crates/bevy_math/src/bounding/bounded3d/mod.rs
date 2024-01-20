@@ -151,7 +151,7 @@ impl IntersectsVolume<BoundingSphere> for Aabb3d {
         let closest_point = self.closest_point(sphere.center);
         let distance_squared = sphere.center.distance_squared(closest_point);
         let radius_squared = sphere.radius().powi(2);
-        distance_squared < radius_squared
+        distance_squared <= radius_squared
     }
 }
 
