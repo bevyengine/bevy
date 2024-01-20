@@ -36,7 +36,7 @@ pub mod prelude {
         color::Color,
         mesh::{
             morph::MorphWeights,
-            primitives::{Facing, MeshFacingExtension},
+            primitives::{Facing, MeshFacingExtension, Meshable},
             shape, Mesh,
         },
         render_resource::Shader,
