@@ -264,6 +264,20 @@ mod aabb3d_tests {
     }
 
     #[test]
+    fn closest_point() {
+        let aabb = Aabb3d {
+            min: Vec3::NEG_ONE,
+            max: Vec3::ONE,
+        };
+        assert_eq!(aabb.closest_point(Vec3::X * 10.0), Vec3::X);
+        assert_eq!(aabb.closest_point(Vec3::NEG_ONE * 10.0), Vec3::NEG_ONE);
+        assert_eq!(
+            aabb.closest_point(Vec3::new(0.25, 0.1, 0.3)),
+            Vec3::new(0.25, 0.1, 0.3)
+        );
+    }
+
+    #[test]
     fn intersect_aabb() {
         let aabb = Aabb3d {
             min: Vec3::NEG_ONE,
@@ -538,6 +552,20 @@ mod bounding_sphere_tests {
         assert!((shrunk.radius() - 4.5).abs() < std::f32::EPSILON);
         assert!(a.contains(&shrunk));
         assert!(!shrunk.contains(&a));
+    }
+
+    #[test]
+    fn closest_point() {
+        let sphere = BoundingSphere::new(Vec3::ZERO, 1.0);
+        assert_eq!(sphere.closest_point(Vec3::X * 10.0), Vec3::X);
+        assert_eq!(
+            sphere.closest_point(Vec3::NEG_ONE * 10.0),
+            Vec3::NEG_ONE.normalize()
+        );
+        assert_eq!(
+            sphere.closest_point(Vec3::new(0.25, 0.1, 0.3)),
+            Vec3::new(0.25, 0.1, 0.3)
+        );
     }
 
     #[test]

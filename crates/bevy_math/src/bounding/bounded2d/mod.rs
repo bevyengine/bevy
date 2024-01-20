@@ -268,6 +268,20 @@ mod aabb2d_tests {
     }
 
     #[test]
+    fn closest_point() {
+        let aabb = Aabb2d {
+            min: Vec2::NEG_ONE,
+            max: Vec2::ONE,
+        };
+        assert_eq!(aabb.closest_point(Vec2::X * 10.0), Vec2::X);
+        assert_eq!(aabb.closest_point(Vec2::NEG_ONE * 10.0), Vec2::NEG_ONE);
+        assert_eq!(
+            aabb.closest_point(Vec2::new(0.25, 0.1)),
+            Vec2::new(0.25, 0.1)
+        );
+    }
+
+    #[test]
     fn intersect_aabb() {
         let aabb = Aabb2d {
             min: Vec2::NEG_ONE,
@@ -536,6 +550,20 @@ mod bounding_circle_tests {
         assert!((shrunk.radius() - 4.5).abs() < std::f32::EPSILON);
         assert!(a.contains(&shrunk));
         assert!(!shrunk.contains(&a));
+    }
+
+    #[test]
+    fn closest_point() {
+        let circle = BoundingCircle::new(Vec2::ZERO, 1.0);
+        assert_eq!(circle.closest_point(Vec2::X * 10.0), Vec2::X);
+        assert_eq!(
+            circle.closest_point(Vec2::NEG_ONE * 10.0),
+            Vec2::NEG_ONE.normalize()
+        );
+        assert_eq!(
+            circle.closest_point(Vec2::new(0.25, 0.1)),
+            Vec2::new(0.25, 0.1)
+        );
     }
 
     #[test]
