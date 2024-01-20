@@ -25,7 +25,7 @@ impl MeshFacingExtension for Triangle2dMeshBuilder {
 }
 
 impl Triangle2dMeshBuilder {
-    /// Creates a new [`Triangle2dMesh`] from points `a`, `b`, and `c`.
+    /// Creates a new [`Triangle2dMeshBuilder`] from points `a`, `b`, and `c`.
     #[inline]
     pub const fn new(a: Vec2, b: Vec2, c: Vec2) -> Self {
         Self {

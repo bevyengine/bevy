@@ -40,7 +40,7 @@ impl MeshFacingExtension for EllipseMeshBuilder {
 }
 
 impl EllipseMeshBuilder {
-    /// Creates a new [`EllipseMesh`] from a given half width and half height and a vertex count.
+    /// Creates a new [`EllipseMeshBuilder`] from a given half width and half height and a vertex count.
     #[inline]
     pub const fn new(half_width: f32, half_height: f32, resolution: usize) -> Self {
         Self {

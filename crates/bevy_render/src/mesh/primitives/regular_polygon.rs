@@ -20,7 +20,7 @@ impl MeshFacingExtension for RegularPolygonMeshBuilder {
 }
 
 impl RegularPolygonMeshBuilder {
-    /// Creates a new [`RegularPolygonMesh`] from the radius
+    /// Creates a new [`RegularPolygonMeshBuilder`] from the radius
     /// of the circumcircle and a number of sides.
     ///
     /// # Panics

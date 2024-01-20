@@ -36,7 +36,7 @@ impl MeshFacingExtension for CircleMeshBuilder {
 }
 
 impl CircleMeshBuilder {
-    /// Creates a new [`CircleMesh`] from a given radius and vertex count.
+    /// Creates a new [`CircleMeshBuilder`] from a given radius and vertex count.
     #[inline]
     pub const fn new(radius: f32, resolution: usize) -> Self {
         Self {
