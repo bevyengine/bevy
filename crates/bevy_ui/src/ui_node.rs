@@ -1845,7 +1845,7 @@ impl TargetCamera {
 }
 
 #[derive(Component)]
-/// Marker used to identify default cameras, they will have priority over `PrimaryWindow` cameras.
+/// Marker used to identify default cameras, they will have priority over the [`PrimaryWindow`] camera.
 pub struct UiDefaultCameraMarker;
 
 #[derive(SystemParam)]
