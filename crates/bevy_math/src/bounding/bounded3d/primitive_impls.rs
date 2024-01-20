@@ -166,7 +166,7 @@ impl Bounded3d for Capsule {
     fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
         // Get the line segment between the hemispheres of the rotated capsule
         let segment = Segment3d {
-            // Multipling a normalized vector (Vec3::Y) with a rotation returns a normalized vector.
+            // Multiplying a normalized vector (Vec3::Y) with a rotation returns a normalized vector.
             direction: Direction3d::new_unchecked(rotation * Vec3::Y),
             half_length: self.half_length,
         };

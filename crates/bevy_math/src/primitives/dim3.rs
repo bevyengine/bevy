@@ -153,7 +153,7 @@ impl Segment3d {
         let length = diff.length();
 
         (
-            // We are dividing by the length here, so the Vector is normalized.
+            // We are dividing by the length here, so the vector is normalized.
             Self::new(Direction3d::new_unchecked(diff / length), length),
             (point1 + point2) / 2.,
         )
