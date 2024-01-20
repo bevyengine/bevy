@@ -328,25 +328,25 @@ impl dyn Reflect {
     }
 }
 
-impl DynamicTypePath for Box<dyn Reflect> {
-    fn reflect_type_path(&self) -> &str {
-        self.deref().reflect_type_path()
+impl TypePath for Box<dyn Reflect> {
+    fn type_path() -> &'static str {
+        "std::boxed::Box(dyn bevy_reflect::Reflect)"
     }
 
-    fn reflect_short_type_path(&self) -> &str {
-        self.deref().reflect_short_type_path()
+    fn short_type_path() -> &'static str {
+        "Box(dyn Reflect)"
     }
 
-    fn reflect_type_ident(&self) -> Option<&str> {
-        self.deref().reflect_type_ident()
+    fn type_ident() -> Option<&'static str> {
+        Some("Box")
     }
 
-    fn reflect_crate_name(&self) -> Option<&str> {
-        self.deref().reflect_crate_name()
+    fn crate_name() -> Option<&'static str> {
+        Some("std")
     }
 
-    fn reflect_module_path(&self) -> Option<&str> {
-        self.deref().reflect_module_path()
+    fn module_path() -> Option<&'static str> {
+        Some("std::boxed")
     }
 }
 
