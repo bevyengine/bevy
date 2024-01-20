@@ -77,7 +77,8 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
         let Some((
             culling_first_pipeline,
             culling_second_pipeline,
-            write_index_buffer_pipeline,
+            write_index_buffer_first_pipeline,
+            write_index_buffer_second_pipeline,
             downsample_depth_pipeline,
             visibility_buffer_raster_pipeline,
             visibility_buffer_raster_depth_only_pipeline,
@@ -112,10 +113,10 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             culling_workgroups,
         );
         write_index_buffer_pass(
-            true,
+            "meshlet_write_index_buffer_first_pass",
             render_context,
             &meshlet_view_bind_groups.write_index_buffer_first,
-            write_index_buffer_pipeline,
+            write_index_buffer_first_pipeline,
             write_index_buffer_workgroups,
         );
         render_context.command_encoder().clear_buffer(
@@ -149,10 +150,10 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             culling_workgroups,
         );
         write_index_buffer_pass(
-            false,
+            "meshlet_write_index_buffer_second_pass",
             render_context,
             &meshlet_view_bind_groups.write_index_buffer_second,
-            write_index_buffer_pipeline,
+            write_index_buffer_second_pipeline,
             write_index_buffer_workgroups,
         );
         raster_pass(
@@ -213,10 +214,10 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 culling_workgroups,
             );
             write_index_buffer_pass(
-                true,
+                "meshlet_write_index_buffer_first_pass",
                 render_context,
                 &meshlet_view_bind_groups.write_index_buffer_first,
-                write_index_buffer_pipeline,
+                write_index_buffer_first_pipeline,
                 write_index_buffer_workgroups,
             );
             render_context.command_encoder().clear_buffer(
@@ -250,10 +251,10 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 culling_workgroups,
             );
             write_index_buffer_pass(
-                false,
+                "meshlet_write_index_buffer_second_pass",
                 render_context,
                 &meshlet_view_bind_groups.write_index_buffer_second,
-                write_index_buffer_pipeline,
+                write_index_buffer_second_pipeline,
                 write_index_buffer_workgroups,
             );
             raster_pass(
@@ -293,7 +294,7 @@ fn cull_pass(
 }
 
 fn write_index_buffer_pass(
-    first_pass: bool,
+    label: &'static str,
     render_context: &mut RenderContext,
     write_index_buffer_bind_group: &BindGroup,
     write_index_buffer_pipeline: &ComputePipeline,
@@ -301,16 +302,11 @@ fn write_index_buffer_pass(
 ) {
     let command_encoder = render_context.command_encoder();
     let mut cull_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
-        label: Some(if first_pass {
-            "meshlet_write_index_buffer_first_pass"
-        } else {
-            "meshlet_write_index_buffer_second_pass"
-        }),
+        label: Some(label),
         timestamp_writes: None,
     });
     cull_pass.set_bind_group(0, write_index_buffer_bind_group, &[]);
     cull_pass.set_pipeline(write_index_buffer_pipeline);
-    cull_pass.set_push_constants(0, &[0, 0, 0, (!first_pass) as u8]);
     cull_pass.dispatch_workgroups(
         write_index_buffer_workgroups,
         write_index_buffer_workgroups,

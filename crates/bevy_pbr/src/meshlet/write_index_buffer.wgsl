@@ -1,5 +1,4 @@
 #import bevy_pbr::meshlet_bindings::{
-    second_pass,
     meshlet_thread_meshlet_ids,
     meshlets,
     draw_command_buffer,
@@ -23,9 +22,9 @@ fn write_index_buffer(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(n
     if !get_meshlet_occlusion(thread_id) { return; }
 
     // If the meshlet was drawn in the first pass, and this is the second pass, then we don't need to draw it
-    if bool(second_pass) {
-        if get_meshlet_previous_occlusion(thread_id) { return; }
-    }
+#ifdef MESHLET_SECOND_WRITE_INDEX_BUFFER_PASS
+    if get_meshlet_previous_occlusion(thread_id) { return; }
+#endif
 
     let meshlet_id = meshlet_thread_meshlet_ids[thread_id];
     let meshlet = meshlets[meshlet_id];
