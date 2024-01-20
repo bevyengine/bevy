@@ -9,6 +9,7 @@ use bevy_ecs::{
 use bevy_utils::smallvec::SmallVec;
 use core::slice;
 use std::ops::Deref;
+use bevy_ecs::entity::SimpleEntityMapper;
 
 /// Contains references to the child entities of this entity.
 ///
@@ -29,9 +30,15 @@ use std::ops::Deref;
 pub struct Children(pub(crate) SmallVec<[Entity; 8]>);
 
 impl MapEntities for Children {
-    fn map_entities(&mut self, entity_mapper: &mut EntityMapper) {
+    fn map_or_gen_entities(&mut self, entity_mapper: &mut EntityMapper) {
         for entity in &mut self.0 {
-            *entity = entity_mapper.get_or_reserve(*entity);
+            entity.map_or_gen_entities(entity_mapper);
+        }
+    }
+
+    fn map_entities(&mut self, entity_mapper: &mut SimpleEntityMapper) {
+        for entity in &mut self.0 {
+            entity.map_entities(entity_mapper);
         }
     }
 }

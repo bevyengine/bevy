@@ -13,8 +13,8 @@ use bevy_utils::EntityHashMap;
 /// See [`MapEntities`] for more information.
 #[derive(Clone)]
 pub struct ReflectMapEntities {
-    map_all_entities: fn(&mut World, &mut EntityMapper),
-    map_entities: fn(&mut World, &mut EntityMapper, &[Entity]),
+    map_or_gen_all_entities: fn(&mut World, &mut EntityMapper),
+    map_or_gen_entities: fn(&mut World, &mut EntityMapper, &[Entity]),
 }
 
 impl ReflectMapEntities {
@@ -27,12 +27,12 @@ impl ReflectMapEntities {
     /// An example of this: A scene can be loaded with `Parent` components, but then a `Parent` component can be added
     /// to these entities after they have been loaded. If you reload the scene using [`map_all_entities`](Self::map_all_entities), those `Parent`
     /// components with already valid entity references could be updated to point at something else entirely.
-    pub fn map_all_entities(
+    pub fn map_or_gen_all_entities(
         &self,
         world: &mut World,
         entity_map: &mut EntityHashMap<Entity, Entity>,
     ) {
-        EntityMapper::world_scope(entity_map, world, self.map_all_entities);
+        EntityMapper::world_scope(entity_map, world, self.map_or_gen_all_entities);
     }
 
     /// A general method for applying [`MapEntities`] behavior to elements in an [`EntityHashMap<Entity, Entity>`]. Unlike
@@ -41,14 +41,14 @@ impl ReflectMapEntities {
     ///
     /// This is useful mostly for when you need to be careful not to update components that already contain valid entity
     /// values. See [`map_all_entities`](Self::map_all_entities) for more details.
-    pub fn map_entities(
+    pub fn map_or_gen_entities(
         &self,
         world: &mut World,
         entity_map: &mut EntityHashMap<Entity, Entity>,
         entities: &[Entity],
     ) {
         EntityMapper::world_scope(entity_map, world, |world, mapper| {
-            (self.map_entities)(world, mapper, entities);
+            (self.map_or_gen_entities)(world, mapper, entities);
         });
     }
 }
@@ -56,14 +56,14 @@ impl ReflectMapEntities {
 impl<C: Component + MapEntities> FromType<C> for ReflectMapEntities {
     fn from_type() -> Self {
         ReflectMapEntities {
-            map_entities: |world, entity_mapper, entities| {
+            map_or_gen_entities: |world, entity_mapper, entities| {
                 for &entity in entities {
                     if let Some(mut component) = world.get_mut::<C>(entity) {
-                        component.map_entities(entity_mapper);
+                        component.map_or_gen_entities(entity_mapper);
                     }
                 }
             },
-            map_all_entities: |world, entity_mapper| {
+            map_or_gen_all_entities: |world, entity_mapper| {
                 let entities = entity_mapper
                     .get_map()
                     .values()
@@ -71,7 +71,7 @@ impl<C: Component + MapEntities> FromType<C> for ReflectMapEntities {
                     .collect::<Vec<Entity>>();
                 for entity in &entities {
                     if let Some(mut component) = world.get_mut::<C>(*entity) {
-                        component.map_entities(entity_mapper);
+                        component.map_or_gen_entities(entity_mapper);
                     }
                 }
             },

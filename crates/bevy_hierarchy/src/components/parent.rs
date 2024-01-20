@@ -6,6 +6,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use std::ops::Deref;
+use bevy_ecs::entity::SimpleEntityMapper;
 
 /// Holds a reference to the parent entity of this entity.
 /// This component should only be present on entities that actually have a parent entity.
@@ -56,8 +57,12 @@ impl FromWorld for Parent {
 }
 
 impl MapEntities for Parent {
-    fn map_entities(&mut self, entity_mapper: &mut EntityMapper) {
-        self.0 = entity_mapper.get_or_reserve(self.0);
+    fn map_or_gen_entities(&mut self, entity_mapper: &mut EntityMapper) {
+        self.0.map_or_gen_entities(entity_mapper);
+    }
+
+    fn map_entities(&mut self, entity_mapper: &mut SimpleEntityMapper) {
+        self.0.map_entities(entity_mapper);
     }
 }
 

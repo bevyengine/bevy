@@ -136,6 +136,18 @@ pub struct Entity {
     index: u32,
 }
 
+impl MapEntities for Entity {
+    fn map_or_gen_entities(&mut self, entity_mapper: &mut EntityMapper) {
+        *self = entity_mapper.get_or_reserve(*self);
+    }
+
+    fn map_entities(&mut self, entity_mapper: &mut SimpleEntityMapper) {
+        if let Some(mapped) = entity_mapper.get(*self) {
+            *self = mapped;
+        }
+    }
+}
+
 // By not short-circuiting in comparisons, we get better codegen.
 // See <https://github.com/rust-lang/rust/issues/117800>
 impl PartialEq for Entity {

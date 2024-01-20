@@ -18,7 +18,7 @@ use bevy_utils::EntityHashMap;
 ///
 /// ```
 /// use bevy_ecs::prelude::*;
-/// use bevy_ecs::entity::{EntityMapper, MapEntities};
+/// use bevy_ecs::entity::{EntityMapper, MapEntities, SimpleEntityMapper};
 ///
 /// #[derive(Component)]
 /// struct Spring {
@@ -27,9 +27,13 @@ use bevy_utils::EntityHashMap;
 /// }
 ///
 /// impl MapEntities for Spring {
-///     fn map_entities(&mut self, entity_mapper: &mut EntityMapper) {
-///         self.a = entity_mapper.get_or_reserve(self.a);
-///         self.b = entity_mapper.get_or_reserve(self.b);
+///     fn map_or_gen_entities(&mut self, entity_mapper: &mut EntityMapper) {
+///         self.a.map_or_gen_entities(entity_mapper);
+///         self.b.map_or_gen_entities(entity_mapper);
+///     }
+///     fn map_entities(&mut self, entity_mapper: &mut SimpleEntityMapper) {
+///         self.a.map_entities(entity_mapper);
+///         self.b.map_entities(entity_mapper)
 ///     }
 /// }
 /// ```
@@ -39,7 +43,30 @@ pub trait MapEntities {
     ///
     /// Implementors should look up any and all [`Entity`] values stored within and
     /// update them to the mapped values via `entity_mapper`.
-    fn map_entities(&mut self, entity_mapper: &mut EntityMapper);
+    fn map_or_gen_entities(&mut self, entity_mapper: &mut EntityMapper);
+
+    fn map_entities(&mut self, entity_mapper: &mut SimpleEntityMapper);
+}
+
+/// Similar to `EntityMapper`, but does not allocate new [`Entity`] references in case we couldn't map the entity.
+pub struct SimpleEntityMapper<'m> {
+    map: &'m EntityHashMap<Entity, Entity>,
+}
+
+impl<'m> SimpleEntityMapper<'m> {
+    pub fn new(map: &'m EntityHashMap<Entity, Entity>) -> Self {
+        Self { map }
+    }
+
+    /// Returns the corresponding mapped entity or reserves a new dead entity ID if it is absent.
+    pub fn get(&mut self, entity: Entity) -> Option<Entity> {
+        self.map.get(&entity).copied()
+    }
+
+    /// Gets a reference to the underlying [`EntityHashMap<Entity, Entity>`].
+    pub fn get_map(&'m self) -> &'m EntityHashMap<Entity, Entity> {
+        self.map
+    }
 }
 
 /// A wrapper for [`EntityHashMap<Entity, Entity>`], augmenting it with the ability to allocate new [`Entity`] references in a destination
