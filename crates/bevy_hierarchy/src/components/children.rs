@@ -36,7 +36,7 @@ impl MapEntities for Children {
         }
     }
 
-    fn map_entities(&mut self, entity_mapper: &mut SimpleEntityMapper) {
+    fn map_entities(&mut self, entity_mapper: &SimpleEntityMapper) {
         for entity in &mut self.0 {
             entity.map_entities(entity_mapper);
         }

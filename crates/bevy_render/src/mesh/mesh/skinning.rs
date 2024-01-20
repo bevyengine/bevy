@@ -24,7 +24,7 @@ impl MapEntities for SkinnedMesh {
         }
     }
 
-    fn map_entities(&mut self, entity_mapper: &mut SimpleEntityMapper) {
+    fn map_entities(&mut self, entity_mapper: &SimpleEntityMapper) {
         for joint in &mut self.joints {
             *joint.map_entities(entity_mapper);
         }

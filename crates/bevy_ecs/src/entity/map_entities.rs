@@ -31,7 +31,7 @@ use bevy_utils::EntityHashMap;
 ///         self.a.map_or_gen_entities(entity_mapper);
 ///         self.b.map_or_gen_entities(entity_mapper);
 ///     }
-///     fn map_entities(&mut self, entity_mapper: &mut SimpleEntityMapper) {
+///     fn map_entities(&mut self, entity_mapper: &SimpleEntityMapper) {
 ///         self.a.map_entities(entity_mapper);
 ///         self.b.map_entities(entity_mapper)
 ///     }
@@ -48,7 +48,7 @@ pub trait MapEntities {
     /// Updates all [`Entity`] references stored inside using `entity_mapper`.
     ///
     /// Only updates the references for which there is a mapping.
-    fn map_entities(&mut self, entity_mapper: &mut SimpleEntityMapper);
+    fn map_entities(&mut self, entity_mapper: &SimpleEntityMapper);
 }
 
 /// Similar to `EntityMapper`, but does not allocate new [`Entity`] references in case we couldn't map the entity.
@@ -62,7 +62,7 @@ impl<'m> SimpleEntityMapper<'m> {
     }
 
     /// Returns the corresponding mapped entity or None if it is absent.
-    pub fn get(&mut self, entity: Entity) -> Option<Entity> {
+    pub fn get(&self, entity: Entity) -> Option<Entity> {
         self.map.get(&entity).copied()
     }
 

@@ -63,16 +63,16 @@ impl MapEntities for WindowRef {
     fn map_or_gen_entities(&mut self, entity_mapper: &mut EntityMapper) {
         match self {
             Self::Entity(entity) => {
-                *entity.map_entities(entity_mapper);
+                *entity.map_or_gen_entities(entity_mapper);
             }
             Self::Primary => {}
         };
     }
 
-    fn map_entities(&mut self, entity_mapper: &mut SimpleEntityMapper) {
+    fn map_entities(&mut self, entity_mapper: &SimpleEntityMapper) {
         match self {
             Self::Entity(entity) => {
-                *entity.map_or_gen_entities(entity_mapper);
+                *entity.map_entities(entity_mapper);
             }
             Self::Primary => {}
         };

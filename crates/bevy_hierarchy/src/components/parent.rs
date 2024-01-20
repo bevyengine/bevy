@@ -61,7 +61,7 @@ impl MapEntities for Parent {
         self.0.map_or_gen_entities(entity_mapper);
     }
 
-    fn map_entities(&mut self, entity_mapper: &mut SimpleEntityMapper) {
+    fn map_entities(&mut self, entity_mapper: &SimpleEntityMapper) {
         self.0.map_entities(entity_mapper);
     }
 }

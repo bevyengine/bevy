@@ -141,7 +141,7 @@ impl MapEntities for Entity {
         *self = entity_mapper.get_or_reserve(*self);
     }
 
-    fn map_entities(&mut self, entity_mapper: &mut SimpleEntityMapper) {
+    fn map_entities(&mut self, entity_mapper: &SimpleEntityMapper) {
         if let Some(mapped) = entity_mapper.get(*self) {
             *self = mapped;
         }
