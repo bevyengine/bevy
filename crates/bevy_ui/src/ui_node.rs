@@ -1848,7 +1848,7 @@ impl TargetCamera {
 /// Marker used to identify default cameras, they will have priority over the [`PrimaryWindow`] camera.
 ///
 /// This is useful if the [`PrimaryWindow`] has two cameras, one of them used
-/// just for debug purposes and the user wants a way of choose the default [`Camera`]
+/// just for debug purposes and the user wants a way to choose the default [`Camera`]
 /// without having to add a [`TargetCamera`] to the root node.
 ///
 /// Another use is when the user wants the Ui to be in another window by default,
