@@ -73,7 +73,7 @@ impl Aabb2d {
 
     /// Finds the point on the AABB that is closest to the given `point`.
     ///
-    /// If the point is outside the AABB, the returned point will be on the surface of the AABB.
+    /// If the point is outside the AABB, the returned point will be on the perimeter of the AABB.
     /// Otherwise, it will be inside the AABB and returned as is.
     #[inline(always)]
     pub fn closest_point(&self, point: Vec2) -> Vec2 {
@@ -377,22 +377,11 @@ impl BoundingCircle {
 
     /// Finds the point on the bounding circle that is closest to the given `point`.
     ///
-    /// If the point is outside the circle, the returned point will be on the surface of the circle.
+    /// If the point is outside the circle, the returned point will be on the perimeter of the circle.
     /// Otherwise, it will be inside the circle and returned as is.
     #[inline(always)]
     pub fn closest_point(&self, point: Vec2) -> Vec2 {
-        let offset_from_center = point - self.center;
-        let distance_to_center_squared = offset_from_center.length_squared();
-
-        if distance_to_center_squared <= self.radius().powi(2) {
-            // The point is inside the circle
-            point
-        } else {
-            // The point is outside the circle.
-            // Find the closest point on the surface of the circle.
-            let dir_to_point = offset_from_center / distance_to_center_squared.sqrt();
-            self.center() + self.radius() * dir_to_point
-        }
+        self.circle.closest_point(point - self.center) + self.center
     }
 }
 

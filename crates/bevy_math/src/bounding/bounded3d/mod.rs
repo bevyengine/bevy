@@ -373,18 +373,7 @@ impl BoundingSphere {
     /// Otherwise, it will be inside the sphere and returned as is.
     #[inline(always)]
     pub fn closest_point(&self, point: Vec3) -> Vec3 {
-        let offset_from_center = point - self.center;
-        let distance_to_center_squared = offset_from_center.length_squared();
-
-        if distance_to_center_squared <= self.radius().powi(2) {
-            // The point is inside the sphere
-            point
-        } else {
-            // The point is outside the sphere.
-            // Find the closest point on the surface of the sphere.
-            let dir_to_point = offset_from_center / distance_to_center_squared.sqrt();
-            self.center() + self.radius() * dir_to_point
-        }
+        self.sphere.closest_point(point - self.center) + self.center
     }
 }
 

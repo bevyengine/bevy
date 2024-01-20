@@ -82,6 +82,27 @@ pub struct Circle {
 }
 impl Primitive2d for Circle {}
 
+impl Circle {
+    /// Finds the point on the circle that is closest to the given `point`.
+    ///
+    /// If the point is outside the circle, the returned point will be on the perimeter of the circle.
+    /// Otherwise, it will be inside the circle and returned as is.
+    #[inline(always)]
+    pub fn closest_point(&self, point: Vec2) -> Vec2 {
+        let distance_squared = point.length_squared();
+
+        if distance_squared <= self.radius.powi(2) {
+            // The point is inside the circle.
+            point
+        } else {
+            // The point is outside the circle.
+            // Find the closest point on the perimeter of the circle.
+            let dir_to_point = point / distance_squared.sqrt();
+            self.radius * dir_to_point
+        }
+    }
+}
+
 /// An ellipse primitive
 #[derive(Clone, Copy, Debug)]
 pub struct Ellipse {
@@ -351,6 +372,16 @@ impl Rectangle {
             half_size: size / 2.,
         }
     }
+
+    /// Finds the point on the rectangle that is closest to the given `point`.
+    ///
+    /// If the point is outside the rectangle, the returned point will be on the perimeter of the rectangle.
+    /// Otherwise, it will be inside the rectangle and returned as is.
+    #[inline(always)]
+    pub fn closest_point(&self, point: Vec2) -> Vec2 {
+        // Clamp point coordinates to the rectangle
+        point.clamp(-self.half_size, self.half_size)
+    }
 }
 
 /// A polygon with N vertices.
@@ -540,6 +571,31 @@ mod tests {
         assert!(
             (rotated_vertices.next().unwrap() - Vec2::new(-side_sistance, side_sistance)).length()
                 < 1e-7,
+        );
+    }
+
+    #[test]
+    fn rectangle_closest_point() {
+        let rectangle = Rectangle::new(2.0, 2.0);
+        assert_eq!(rectangle.closest_point(Vec2::X * 10.0), Vec2::X);
+        assert_eq!(rectangle.closest_point(Vec2::NEG_ONE * 10.0), Vec2::NEG_ONE);
+        assert_eq!(
+            rectangle.closest_point(Vec2::new(0.25, 0.1)),
+            Vec2::new(0.25, 0.1)
+        );
+    }
+
+    #[test]
+    fn circle_closest_point() {
+        let circle = Circle { radius: 1.0 };
+        assert_eq!(circle.closest_point(Vec2::X * 10.0), Vec2::X);
+        assert_eq!(
+            circle.closest_point(Vec2::NEG_ONE * 10.0),
+            Vec2::NEG_ONE.normalize()
+        );
+        assert_eq!(
+            circle.closest_point(Vec2::new(0.25, 0.1)),
+            Vec2::new(0.25, 0.1)
         );
     }
 }
