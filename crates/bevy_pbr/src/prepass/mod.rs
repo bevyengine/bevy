@@ -639,8 +639,8 @@ pub fn prepare_previous_view_projection_uniforms(
 
 #[derive(Default, Resource)]
 pub struct PrepassViewBindGroup {
-    motion_vectors: Option<BindGroup>,
-    no_motion_vectors: Option<BindGroup>,
+    pub motion_vectors: Option<BindGroup>,
+    pub no_motion_vectors: Option<BindGroup>,
 }
 
 pub fn prepare_prepass_view_bind_group<M: Material>(
