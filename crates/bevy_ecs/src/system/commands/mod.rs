@@ -1023,6 +1023,15 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     }
 }
 
+fn try_insert(bundle: impl Bundle) -> impl EntityCommand {
+    move |entity, world: &mut World| {
+        if let Some(mut entity) = world.get_entity_mut(entity) {
+            entity.insert(bundle);
+        }
+    }
+}
+
+
 impl<'w, 's, 'a> AddCommand for EntityCommands<'w, 's, 'a> {
     fn add_command(&mut self, command: impl Command) {
         self.commands.add_command(command);
@@ -1166,7 +1175,7 @@ where
             })
         }
     }
- }
+}
 
 /// A [`Command`] that removes components from an entity.
 /// For a [`Bundle`] type `T`, this will remove any components in the bundle.
@@ -1315,6 +1324,7 @@ impl<R: Resource> FallibleCommand for RemoveResource<R> {
             })
         }
     }
+}
 
 
 /// A [`Command`] that inserts a [`Resource`] into the world.
