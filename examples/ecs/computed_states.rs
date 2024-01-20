@@ -16,7 +16,7 @@ fn main() {
         .add_systems(OnExit(AppState::Menu), cleanup_menu)
         // We only want to run the [`setup_game`] function when we enter the [`AppState::InGame`] state, regardless
         // of whether the game is paused or not. So we add an [`InGame`] derived state, and rely on that.
-        .derive_state::<InGame>()
+        .add_computed_state::<InGame>()
         .add_systems(OnEnter(InGame), setup_game)
         // We want the color change and the toggle_pause systems to ignore the paused condition, so we can use the [`InGame`] derived
         // state here as well.
@@ -49,7 +49,7 @@ struct InGame;
 impl ComputedStates for InGame {
     type SourceStates = AppState;
 
-    fn derive(
+    fn compute(
         sources: <<Self as ComputedStates>::SourceStates as bevy_internal::ecs::schedule::StateSet>::Optionals,
     ) -> Option<Self> {
         match sources {
