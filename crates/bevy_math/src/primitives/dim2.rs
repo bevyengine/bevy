@@ -103,8 +103,7 @@ impl Default for Ellipse {
     /// Returns the default [`Ellipse`] with a half-width of `1.0` and a half-height of `0.5`.
     fn default() -> Self {
         Self {
-            half_width: 1.0,
-            half_height: 0.5,
+            half_size: Vec2::new(1.0, 0.5),
         }
     }
 }
@@ -378,8 +377,7 @@ impl Default for Rectangle {
     /// Returns the default [`Rectangle`] with a half-width and half-height of `0.5`.
     fn default() -> Self {
         Self {
-            half_width: 0.5,
-            half_height: 0.5,
+            half_size: Vec2::splat(0.5),
         }
     }
 }

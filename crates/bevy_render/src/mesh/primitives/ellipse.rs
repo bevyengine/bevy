@@ -4,7 +4,7 @@ use crate::{
 };
 
 use super::{Facing, MeshFacingExtension, Meshable};
-use bevy_math::{primitives::Ellipse, Vec3};
+use bevy_math::{primitives::Ellipse, Vec2, Vec3};
 use wgpu::PrimitiveTopology;
 
 /// A builder used for creating a [`Mesh`] with an [`Ellipse`] shape.
@@ -45,8 +45,7 @@ impl EllipseMeshBuilder {
     pub const fn new(half_width: f32, half_height: f32, resolution: usize) -> Self {
         Self {
             ellipse: Ellipse {
-                half_width,
-                half_height,
+                half_size: Vec2::new(half_width, half_height),
             },
             resolution,
             facing: Facing::Z,
@@ -111,8 +110,8 @@ impl EllipseMeshBuilder {
             // Compute vertex position at angle theta
             let theta = start_angle + i as f32 * step;
             let (sin, cos) = theta.sin_cos();
-            let x = cos * self.ellipse.half_width;
-            let y = sin * self.ellipse.half_height;
+            let x = cos * self.ellipse.half_size.x;
+            let y = sin * self.ellipse.half_size.y;
 
             // Transform vertex position based on facing direction
             let position = match self.facing {

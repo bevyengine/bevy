@@ -26,7 +26,7 @@ fn setup(
 
     // Ellipse
     commands.spawn(MaterialMesh2dBundle {
-        mesh: meshes.add(primitives::Ellipse::new(50.0, 100.0)).into(),
+        mesh: meshes.add(primitives::Ellipse::new(25.0, 50.0)).into(),
         material: materials.add(Color::TURQUOISE),
         transform: Transform::from_translation(Vec3::new(-100.0, 0.0, 0.0)),
         ..default()

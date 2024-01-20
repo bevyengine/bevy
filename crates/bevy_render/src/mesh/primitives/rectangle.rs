@@ -33,7 +33,7 @@ impl RectangleMeshBuilder {
 
     /// Builds a [`Mesh`] based on the configuration in `self`.
     pub fn build(&self) -> Mesh {
-        let [hw, hh] = [self.rectangle.half_width, self.rectangle.half_height];
+        let [hw, hh] = [self.rectangle.half_size.x, self.rectangle.half_size.y];
         let positions = match self.facing {
             Facing::Z | Facing::NegZ => vec![
                 [hw, hh, 0.0],

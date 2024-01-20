@@ -1,5 +1,8 @@
 use super::{Facing, Mesh, MeshFacingExtension, Meshable};
-use bevy_math::primitives::{Ellipse, RegularPolygon};
+use bevy_math::{
+    primitives::{Ellipse, RegularPolygon},
+    Vec2,
+};
 
 /// A builder used for creating a [`Mesh`] with a [`RegularPolygon`] shape.
 #[derive(Clone, Copy, Debug, Default)]
@@ -38,8 +41,7 @@ impl RegularPolygonMeshBuilder {
     pub fn build(&self) -> Mesh {
         // The ellipse mesh is just a regular polygon with two radii
         Ellipse {
-            half_width: self.polygon.circumcircle.radius,
-            half_height: self.polygon.circumcircle.radius,
+            half_size: Vec2::splat(self.polygon.circumcircle.radius),
         }
         .mesh()
         .resolution(self.polygon.sides)
