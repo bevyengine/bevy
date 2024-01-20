@@ -161,7 +161,10 @@ impl IntersectsVolume<BoundingCircle> for Aabb2d {
 #[cfg(test)]
 mod aabb2d_tests {
     use super::Aabb2d;
-    use crate::{bounding::BoundingVolume, Vec2};
+    use crate::{
+        bounding::{BoundingCircle, BoundingVolume, IntersectsVolume},
+        Vec2,
+    };
 
     #[test]
     fn center() {
@@ -262,6 +265,39 @@ mod aabb2d_tests {
         assert!((shrunk.max - Vec2::new(1., 1.)).length() < std::f32::EPSILON);
         assert!(a.contains(&shrunk));
         assert!(!shrunk.contains(&a));
+    }
+
+    #[test]
+    fn intersect_aabb() {
+        let aabb = Aabb2d {
+            min: Vec2::NEG_ONE,
+            max: Vec2::ONE,
+        };
+        assert!(aabb.intersects(&aabb));
+        assert!(aabb.intersects(&Aabb2d {
+            min: Vec2::new(0.5, 0.5),
+            max: Vec2::new(2.0, 2.0),
+        }));
+        assert!(aabb.intersects(&Aabb2d {
+            min: Vec2::new(-2.0, -2.0),
+            max: Vec2::new(-0.5, -0.5),
+        }));
+        assert!(!aabb.intersects(&Aabb2d {
+            min: Vec2::new(1.1, 0.0),
+            max: Vec2::new(2.0, 0.5),
+        }));
+    }
+
+    #[test]
+    fn intersect_bounding_circle() {
+        let aabb = Aabb2d {
+            min: Vec2::NEG_ONE,
+            max: Vec2::ONE,
+        };
+        assert!(aabb.intersects(&BoundingCircle::new(Vec2::ZERO, 1.0)));
+        assert!(aabb.intersects(&BoundingCircle::new(Vec2::ONE * 1.5, 1.0)));
+        assert!(aabb.intersects(&BoundingCircle::new(Vec2::NEG_ONE * 1.5, 1.0)));
+        assert!(!aabb.intersects(&BoundingCircle::new(Vec2::ONE * 1.75, 1.0)));
     }
 }
 
@@ -421,7 +457,10 @@ impl IntersectsVolume<Aabb2d> for BoundingCircle {
 #[cfg(test)]
 mod bounding_circle_tests {
     use super::BoundingCircle;
-    use crate::{bounding::BoundingVolume, Vec2};
+    use crate::{
+        bounding::{BoundingVolume, IntersectsVolume},
+        Vec2,
+    };
 
     #[test]
     fn area() {
@@ -497,5 +536,14 @@ mod bounding_circle_tests {
         assert!((shrunk.radius() - 4.5).abs() < std::f32::EPSILON);
         assert!(a.contains(&shrunk));
         assert!(!shrunk.contains(&a));
+    }
+
+    #[test]
+    fn intersect_bounding_circle() {
+        let circle = BoundingCircle::new(Vec2::ZERO, 1.0);
+        assert!(circle.intersects(&BoundingCircle::new(Vec2::ZERO, 1.0)));
+        assert!(circle.intersects(&BoundingCircle::new(Vec2::ONE * 1.25, 1.0)));
+        assert!(circle.intersects(&BoundingCircle::new(Vec2::NEG_ONE * 1.25, 1.0)));
+        assert!(!circle.intersects(&BoundingCircle::new(Vec2::ONE * 1.5, 1.0)));
     }
 }

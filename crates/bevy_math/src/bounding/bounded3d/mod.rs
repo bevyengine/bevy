@@ -158,7 +158,10 @@ impl IntersectsVolume<BoundingSphere> for Aabb3d {
 #[cfg(test)]
 mod aabb3d_tests {
     use super::Aabb3d;
-    use crate::{bounding::BoundingVolume, Vec3};
+    use crate::{
+        bounding::{BoundingSphere, BoundingVolume, IntersectsVolume},
+        Vec3,
+    };
 
     #[test]
     fn center() {
@@ -258,6 +261,39 @@ mod aabb3d_tests {
         assert!((shrunk.max - Vec3::new(1., 1., 1.)).length() < std::f32::EPSILON);
         assert!(a.contains(&shrunk));
         assert!(!shrunk.contains(&a));
+    }
+
+    #[test]
+    fn intersect_aabb() {
+        let aabb = Aabb3d {
+            min: Vec3::NEG_ONE,
+            max: Vec3::ONE,
+        };
+        assert!(aabb.intersects(&aabb));
+        assert!(aabb.intersects(&Aabb3d {
+            min: Vec3::splat(0.5),
+            max: Vec3::splat(2.0),
+        }));
+        assert!(aabb.intersects(&Aabb3d {
+            min: Vec3::splat(-2.0),
+            max: Vec3::splat(-0.5),
+        }));
+        assert!(!aabb.intersects(&Aabb3d {
+            min: Vec3::new(1.1, 0.0, 0.0),
+            max: Vec3::new(2.0, 0.5, 0.25),
+        }));
+    }
+
+    #[test]
+    fn intersect_bounding_sphere() {
+        let aabb = Aabb3d {
+            min: Vec3::NEG_ONE,
+            max: Vec3::ONE,
+        };
+        assert!(aabb.intersects(&BoundingSphere::new(Vec3::ZERO, 1.0)));
+        assert!(aabb.intersects(&BoundingSphere::new(Vec3::ONE * 1.5, 1.0)));
+        assert!(aabb.intersects(&BoundingSphere::new(Vec3::NEG_ONE * 1.5, 1.0)));
+        assert!(!aabb.intersects(&BoundingSphere::new(Vec3::ONE * 1.75, 1.0)));
     }
 }
 
@@ -423,7 +459,10 @@ impl IntersectsVolume<Aabb3d> for BoundingSphere {
 #[cfg(test)]
 mod bounding_sphere_tests {
     use super::BoundingSphere;
-    use crate::{bounding::BoundingVolume, Vec3};
+    use crate::{
+        bounding::{BoundingVolume, IntersectsVolume},
+        Vec3,
+    };
 
     #[test]
     fn area() {
@@ -499,5 +538,14 @@ mod bounding_sphere_tests {
         assert!((shrunk.radius() - 4.5).abs() < std::f32::EPSILON);
         assert!(a.contains(&shrunk));
         assert!(!shrunk.contains(&a));
+    }
+
+    #[test]
+    fn intersect_bounding_sphere() {
+        let sphere = BoundingSphere::new(Vec3::ZERO, 1.0);
+        assert!(sphere.intersects(&BoundingSphere::new(Vec3::ZERO, 1.0)));
+        assert!(sphere.intersects(&BoundingSphere::new(Vec3::ONE * 1.1, 1.0)));
+        assert!(sphere.intersects(&BoundingSphere::new(Vec3::NEG_ONE * 1.1, 1.0)));
+        assert!(!sphere.intersects(&BoundingSphere::new(Vec3::ONE * 1.2, 1.0)));
     }
 }
