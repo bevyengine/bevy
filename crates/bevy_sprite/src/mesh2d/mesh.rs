@@ -5,7 +5,7 @@ use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::*,
-    query::{QueryItem, ROQueryItem},
+    query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_math::{Affine3, Vec4};
@@ -339,25 +339,21 @@ impl Mesh2dPipeline {
 
 impl GetBatchData for Mesh2dPipeline {
     type Param = SRes<RenderMesh2dInstances>;
-    type Data = Entity;
-    type Filter = With<Mesh2d>;
     type CompareData = (Material2dBindGroupId, AssetId<Mesh>);
     type BufferData = Mesh2dUniform;
 
     fn get_batch_data(
         mesh_instances: &SystemParamItem<Self::Param>,
-        entity: &QueryItem<Self::Data>,
-    ) -> (Self::BufferData, Option<Self::CompareData>) {
-        let mesh_instance = mesh_instances
-            .get(entity)
-            .expect("Failed to find render mesh2d instance");
-        (
+        entity: Entity,
+    ) -> Option<(Self::BufferData, Option<Self::CompareData>)> {
+        let mesh_instance = mesh_instances.get(&entity)?;
+        Some((
             (&mesh_instance.transforms).into(),
             mesh_instance.automatic_batching.then_some((
                 mesh_instance.material_bind_group_id,
                 mesh_instance.mesh_asset_id,
             )),
-        )
+        ))
     }
 }
 

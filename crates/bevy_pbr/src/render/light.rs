@@ -196,7 +196,6 @@ pub struct GpuLights {
     n_directional_lights: u32,
     // offset from spot light's light index to spot light's shadow map index
     spot_light_shadowmap_offset: i32,
-    environment_map_smallest_specular_mip_level: u32,
 }
 
 // NOTE: this must be kept in sync with the same constants in pbr.frag
@@ -644,18 +643,12 @@ pub(crate) fn spot_light_projection_matrix(angle: f32) -> Mat4 {
 pub fn prepare_lights(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
-    images: Res<RenderAssets<Image>>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut global_light_meta: ResMut<GlobalLightMeta>,
     mut light_meta: ResMut<LightMeta>,
     views: Query<
-        (
-            Entity,
-            &ExtractedView,
-            &ExtractedClusterConfig,
-            Option<&EnvironmentMapLight>,
-        ),
+        (Entity, &ExtractedView, &ExtractedClusterConfig),
         With<RenderPhase<Transparent3d>>,
     >,
     ambient_light: Res<AmbientLight>,
@@ -857,18 +850,6 @@ pub fn prepare_lights(
             flags |= DirectionalLightFlags::SHADOWS_ENABLED;
         }
 
-        // convert from illuminance (lux) to candelas
-        //
-        // exposure is hard coded at the moment but should be replaced
-        // by values coming from the camera
-        // see: https://google.github.io/filament/Filament.html#imagingpipeline/physicallybasedcamera/exposuresettings
-        const APERTURE: f32 = 4.0;
-        const SHUTTER_SPEED: f32 = 1.0 / 250.0;
-        const SENSITIVITY: f32 = 100.0;
-        let ev100 = f32::log2(APERTURE * APERTURE / SHUTTER_SPEED) - f32::log2(SENSITIVITY / 100.0);
-        let exposure = 1.0 / (f32::powf(2.0, ev100) * 1.2);
-        let intensity = light.illuminance * exposure;
-
         let num_cascades = light
             .cascade_shadow_config
             .bounds
@@ -877,9 +858,9 @@ pub fn prepare_lights(
         gpu_directional_lights[index] = GpuDirectionalLight {
             // Filled in later.
             cascades: [GpuDirectionalCascade::default(); MAX_CASCADES_PER_LIGHT],
-            // premultiply color by intensity
+            // premultiply color by illuminance
             // we don't use the alpha at all, so no reason to multiply only [0..3]
-            color: Vec4::from_slice(&light.color.as_linear_rgba_f32()) * intensity,
+            color: Vec4::from_slice(&light.color.as_linear_rgba_f32()) * light.illuminance,
             // direction is negated to be ready for N.L
             dir_to_light: light.transform.back(),
             flags: flags.bits(),
@@ -901,7 +882,7 @@ pub fn prepare_lights(
         .write_buffer(&render_device, &render_queue);
 
     // set up light data for each view
-    for (entity, extracted_view, clusters, environment_map) in &views {
+    for (entity, extracted_view, clusters) in &views {
         let point_light_depth_texture = texture_cache.get(
             &render_device,
             TextureDescriptor {
@@ -968,10 +949,6 @@ pub fn prepare_lights(
             // index to shadow map index, we need to subtract point light count and add directional shadowmap count.
             spot_light_shadowmap_offset: num_directional_cascades_enabled as i32
                 - point_light_count as i32,
-            environment_map_smallest_specular_mip_level: environment_map
-                .and_then(|env_map| images.get(&env_map.specular_map))
-                .map(|specular_map| specular_map.mip_level_count - 1)
-                .unwrap_or(0),
         };
 
         // TODO: this should select lights based on relevance to the view instead of the first ones that show up in a query

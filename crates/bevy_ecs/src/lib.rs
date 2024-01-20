@@ -28,7 +28,9 @@ pub use bevy_ptr as ptr;
 pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "bevy_reflect")]
-    pub use crate::reflect::{AppTypeRegistry, ReflectComponent, ReflectResource};
+    pub use crate::reflect::{
+        AppTypeRegistry, ReflectComponent, ReflectFromWorld, ReflectResource,
+    };
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
@@ -36,7 +38,7 @@ pub mod prelude {
         component::Component,
         entity::Entity,
         event::{Event, EventReader, EventWriter, Events},
-        query::{Added, AnyOf, Changed, Has, Or, QueryState, With, Without},
+        query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         removal_detection::RemovedComponents,
         schedule::{
             apply_deferred, apply_state_transition, common_conditions::*, Condition,

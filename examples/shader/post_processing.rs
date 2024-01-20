@@ -331,6 +331,10 @@ fn setup(
     ));
     // light
     commands.spawn(PointLightBundle {
+        point_light: PointLight {
+            intensity: 150_000.0,
+            ..default()
+        },
         transform: Transform::from_translation(Vec3::new(0.0, 0.0, 10.0)),
         ..default()
     });

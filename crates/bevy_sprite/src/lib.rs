@@ -15,7 +15,7 @@ pub mod prelude {
     pub use crate::{
         bundle::{SpriteBundle, SpriteSheetBundle},
         sprite::{ImageScaleMode, Sprite},
-        texture_atlas::{TextureAtlas, TextureAtlasSprite},
+        texture_atlas::{TextureAtlas, TextureAtlasLayout},
         texture_slice::{BorderRect, SliceScaleMode, TextureSlicer},
         ColorMaterial, ColorMesh2dBundle, TextureAtlasBuilder,
     };
@@ -65,13 +65,13 @@ impl Plugin for SpritePlugin {
             "render/sprite.wgsl",
             Shader::from_wgsl
         );
-        app.init_asset::<TextureAtlas>()
-            .register_asset_reflect::<TextureAtlas>()
+        app.init_asset::<TextureAtlasLayout>()
+            .register_asset_reflect::<TextureAtlasLayout>()
             .register_type::<Sprite>()
             .register_type::<ImageScaleMode>()
             .register_type::<TextureSlicer>()
-            .register_type::<TextureAtlasSprite>()
             .register_type::<Anchor>()
+            .register_type::<TextureAtlas>()
             .register_type::<Mesh2dHandle>()
             .add_plugins((Mesh2dRenderPlugin, ColorMaterialPlugin))
             .add_systems(
@@ -131,18 +131,14 @@ pub fn calculate_bounds_2d(
     mut commands: Commands,
     meshes: Res<Assets<Mesh>>,
     images: Res<Assets<Image>>,
-    atlases: Res<Assets<TextureAtlas>>,
+    atlases: Res<Assets<TextureAtlasLayout>>,
     meshes_without_aabb: Query<(Entity, &Mesh2dHandle), (Without<Aabb>, Without<NoFrustumCulling>)>,
     sprites_to_recalculate_aabb: Query<
-        (Entity, &Sprite, &Handle<Image>),
+        (Entity, &Sprite, &Handle<Image>, Option<&TextureAtlas>),
         (
             Or<(Without<Aabb>, Changed<Sprite>)>,
             Without<NoFrustumCulling>,
         ),
-    >,
-    atlases_without_aabb: Query<
-        (Entity, &TextureAtlasSprite, &Handle<TextureAtlas>),
-        (Without<Aabb>, Without<NoFrustumCulling>),
     >,
 ) {
     for (entity, mesh_handle) in &meshes_without_aabb {
@@ -152,27 +148,15 @@ pub fn calculate_bounds_2d(
             }
         }
     }
-    for (entity, sprite, texture_handle) in &sprites_to_recalculate_aabb {
-        if let Some(size) = sprite
-            .custom_size
-            .or_else(|| images.get(texture_handle).map(|image| image.size_f32()))
-        {
-            let aabb = Aabb {
-                center: (-sprite.anchor.as_vec() * size).extend(0.0).into(),
-                half_extents: (0.5 * size).extend(0.0).into(),
-            };
-            commands.entity(entity).try_insert(aabb);
-        }
-    }
-    for (entity, atlas_sprite, atlas_handle) in &atlases_without_aabb {
-        if let Some(size) = atlas_sprite.custom_size.or_else(|| {
-            atlases
-                .get(atlas_handle)
-                .and_then(|atlas| atlas.textures.get(atlas_sprite.index))
-                .map(|rect| (rect.min - rect.max).abs())
+    for (entity, sprite, texture_handle, atlas) in &sprites_to_recalculate_aabb {
+        if let Some(size) = sprite.custom_size.or_else(|| match atlas {
+            // We default to the texture size for regular sprites
+            None => images.get(texture_handle).map(|image| image.size_f32()),
+            // We default to the drawn rect for atlas sprites
+            Some(atlas) => atlas.texture_rect(&atlases).map(|rect| rect.size()),
         }) {
             let aabb = Aabb {
-                center: (-atlas_sprite.anchor.as_vec() * size).extend(0.0).into(),
+                center: (-sprite.anchor.as_vec() * size).extend(0.0).into(),
                 half_extents: (0.5 * size).extend(0.0).into(),
             };
             commands.entity(entity).try_insert(aabb);
@@ -199,7 +183,7 @@ mod test {
         app.insert_resource(image_assets);
         let mesh_assets = Assets::<Mesh>::default();
         app.insert_resource(mesh_assets);
-        let texture_atlas_assets = Assets::<TextureAtlas>::default();
+        let texture_atlas_assets = Assets::<TextureAtlasLayout>::default();
         app.insert_resource(texture_atlas_assets);
 
         // Add system
@@ -237,7 +221,7 @@ mod test {
         app.insert_resource(image_assets);
         let mesh_assets = Assets::<Mesh>::default();
         app.insert_resource(mesh_assets);
-        let texture_atlas_assets = Assets::<TextureAtlas>::default();
+        let texture_atlas_assets = Assets::<TextureAtlasLayout>::default();
         app.insert_resource(texture_atlas_assets);
 
         // Add system
