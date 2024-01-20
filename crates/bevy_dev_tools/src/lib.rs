@@ -9,7 +9,9 @@ pub mod ci_testing;
 /// Enables developer tools in an [`App`]. This plugin is added automatically with `bevy_dev_tools`
 /// feature.
 ///
-/// Warning: It is not recommended to enable this in a release build.
+/// Warning: It is not recommended to enable this in final shipped games or applications.
+/// Dev tools provide a high level of access to the internals of your application,
+/// and may interfere with ordinary use and gameplay.
 ///
 /// To enable developer tools, you can either:
 ///
