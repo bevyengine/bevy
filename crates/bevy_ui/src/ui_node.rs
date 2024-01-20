@@ -1888,7 +1888,7 @@ impl<'w, 's> DefaultUiCamera<'w, 's> {
         self.default_cameras.get_single().ok().or_else(|| {
             // If there isn't a single camera and the query isn't empty, there is two or more cameras queried.
             if !self.default_cameras.is_empty() {
-                warn_once!("Two or more Entities with UiDefaultCameraMarker found when only one Camera with this marker is allowed.")
+                warn_once!("Two or more Entities with UiDefaultCameraMarker found when only one Camera with this marker is allowed.");
             }
             self.cameras
                 .iter()
