@@ -311,12 +311,9 @@ impl Triangle2d {
 #[doc(alias = "Quad")]
 #[derive(Clone, Copy, Debug)]
 pub struct Rectangle {
-    /// The half width of the rectangle
-    pub half_width: f32,
-    /// The half height of the rectangle
-    pub half_height: f32,
+    /// Half of the width and height of the rectangle
+    pub half_size: Vec2,
 }
-impl Primitive2d for Rectangle {}
 
 impl Rectangle {
     /// Create a rectangle from a full width and height
@@ -327,8 +324,7 @@ impl Rectangle {
     /// Create a rectangle from a given full size
     pub fn from_size(size: Vec2) -> Self {
         Self {
-            half_width: size.x / 2.,
-            half_height: size.y / 2.,
+            half_size: size / 2.,
         }
     }
 }

@@ -189,22 +189,20 @@ impl Bounded2d for Triangle2d {
 
 impl Bounded2d for Rectangle {
     fn aabb_2d(&self, translation: Vec2, rotation: f32) -> Aabb2d {
-        let half_size = Vec2::new(self.half_width, self.half_height);
-
         // Compute the AABB of the rotated rectangle by transforming the half-extents
         // by an absolute rotation matrix.
         let (sin, cos) = rotation.sin_cos();
         let abs_rot_mat = Mat2::from_cols_array(&[cos.abs(), sin.abs(), sin.abs(), cos.abs()]);
-        let half_extents = abs_rot_mat * half_size;
+        let half_size = abs_rot_mat * self.half_size;
 
         Aabb2d {
-            min: translation - half_extents,
-            max: translation + half_extents,
+            min: translation - half_size,
+            max: translation + half_size,
         }
     }
 
     fn bounding_circle(&self, translation: Vec2, _rotation: f32) -> BoundingCircle {
-        let radius = self.half_width.hypot(self.half_height);
+        let radius = self.half_size.length();
         BoundingCircle::new(translation, radius)
     }
 }
