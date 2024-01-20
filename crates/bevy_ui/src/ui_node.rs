@@ -1869,7 +1869,7 @@ impl TargetCamera {
 ///     commands.spawn((
 ///         Camera2dBundle {
 ///             camera: Camera {
-///                 target: RenderTarget::Window(another_window),
+///                 target: RenderTarget::Window(WindowRef::Entity(another_window)),
 ///                 ..Default::default()
 ///             },
 ///             ..Default::default()
