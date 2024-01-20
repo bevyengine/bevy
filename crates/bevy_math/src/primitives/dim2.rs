@@ -92,10 +92,10 @@ impl Default for Circle {
 /// An ellipse primitive
 #[derive(Clone, Copy, Debug)]
 pub struct Ellipse {
-    /// The half "width" of the ellipse
-    pub half_width: f32,
-    /// The half "height" of the ellipse
-    pub half_height: f32,
+    /// Half of the width and height of the ellipse.
+    ///
+    /// This corresponds to the two perpendicular radii defining the ellipse.
+    pub half_size: Vec2,
 }
 impl Primitive2d for Ellipse {}
 
@@ -110,12 +110,36 @@ impl Default for Ellipse {
 }
 
 impl Ellipse {
-    /// Create a new `Ellipse` from a "width" and a "height"
-    pub fn new(width: f32, height: f32) -> Self {
+    /// Create a new `Ellipse` from half of its width and height.
+    ///
+    /// This corresponds to the two perpendicular radii defining the ellipse.
+    #[inline]
+    pub const fn new(half_width: f32, half_height: f32) -> Self {
         Self {
-            half_width: width / 2.0,
-            half_height: height / 2.0,
+            half_size: Vec2::new(half_width, half_height),
         }
+    }
+
+    /// Create a new `Ellipse` from a given full size.
+    ///
+    /// `size.x` is the diameter along the X axis, and `size.y` is the diameter along the Y axis.
+    #[inline]
+    pub fn from_size(size: Vec2) -> Self {
+        Self {
+            half_size: size / 2.0,
+        }
+    }
+
+    /// Returns the length of the semi-major axis. This corresponds to the longest radius of the ellipse.
+    #[inline]
+    pub fn semi_major(self) -> f32 {
+        self.half_size.max_element()
+    }
+
+    /// Returns the length of the semi-minor axis. This corresponds to the shortest radius of the ellipse.
+    #[inline]
+    pub fn semi_minor(self) -> f32 {
+        self.half_size.min_element()
     }
 }
 
@@ -346,12 +370,9 @@ impl Triangle2d {
 #[doc(alias = "Quad")]
 #[derive(Clone, Copy, Debug)]
 pub struct Rectangle {
-    /// The half width of the rectangle
-    pub half_width: f32,
-    /// The half height of the rectangle
-    pub half_height: f32,
+    /// Half of the width and height of the rectangle
+    pub half_size: Vec2,
 }
-impl Primitive2d for Rectangle {}
 
 impl Default for Rectangle {
     /// Returns the default [`Rectangle`] with a half-width and half-height of `0.5`.
@@ -372,8 +393,7 @@ impl Rectangle {
     /// Create a rectangle from a given full size
     pub fn from_size(size: Vec2) -> Self {
         Self {
-            half_width: size.x / 2.,
-            half_height: size.y / 2.,
+            half_size: size / 2.,
         }
     }
 }
