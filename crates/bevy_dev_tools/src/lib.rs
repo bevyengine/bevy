@@ -6,24 +6,23 @@ use bevy_app::prelude::*;
 #[cfg(feature = "bevy_ci_testing")]
 pub mod ci_testing;
 
-/// Enables developer tools in an [`App`].
-/// This plugin is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html), and enabled by default.
+/// Enables developer tools in an [`App`]. This plugin is added automatically with `bevy_dev_tools`
+/// feature.
 ///
-/// It's recommended to disable it in a release. To disable it, you can either:
+/// Warning: It is not recommended to enable this in a release build.
 ///
-/// - Remove it when adding [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html):
-/// ```no_run
-/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup};
-/// # use bevy_dev_tools::{DevToolsPlugin};
-/// fn main() {
-///     App::new()
-///         .add_plugins(DefaultPlugins.build().disable::<DevToolsPlugin>())
-///         .run();
-/// }
-/// ```
+/// To enable developer tools, you can either:
 ///
-/// - Disable the feature:
-/// Disable default features from Bevy, and don't enable the feature `bevy_dev_tools`.
+/// - Use `--feature bevy/bevy_dev_tools` flag when using the `cargo run` command:
+///
+/// `cargo run --features bevy/bevy_dev_tools`
+///
+/// - Add the `bevy_dev_tools` feature to the bevy dependency in your `Cargo.toml` file:
+///
+/// `features = ["bevy_dev_tools"]`
+///
+///  Note: The second method is not recommended, as it requires you to remove the feature before
+///  creating a release build.
 pub struct DevToolsPlugin;
 
 impl Plugin for DevToolsPlugin {
