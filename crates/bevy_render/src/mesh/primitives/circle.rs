@@ -46,7 +46,7 @@ impl CircleMeshBuilder {
         }
     }
 
-    /// Sets the number of resolution used for the circle mesh.
+    /// Sets the number of vertices used for the circle mesh.
     #[inline]
     #[doc(alias = "vertices")]
     pub const fn resolution(mut self, resolution: usize) -> Self {

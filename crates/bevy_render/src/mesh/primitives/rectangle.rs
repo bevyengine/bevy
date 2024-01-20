@@ -22,7 +22,7 @@ impl MeshFacingExtension for RectangleMeshBuilder {
 }
 
 impl RectangleMeshBuilder {
-    /// Creates a new [`RectangleMesh`] from a given radius and vertex count.
+    /// Creates a new [`RectangleMesh`] from a given `width` and `height`.
     #[inline]
     pub fn new(width: f32, height: f32) -> Self {
         Self {
