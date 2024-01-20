@@ -178,7 +178,7 @@ impl Bounded2d for Rectangle {
         // by an absolute rotation matrix.
         let (sin, cos) = rotation.sin_cos();
         let abs_rot_mat = Mat2::from_cols_array(&[cos.abs(), sin.abs(), sin.abs(), cos.abs()]);
-        let half_size = abs_rot_mat * half_size;
+        let half_size = abs_rot_mat * self.half_size;
 
         Aabb2d::new(translation, half_size)
     }

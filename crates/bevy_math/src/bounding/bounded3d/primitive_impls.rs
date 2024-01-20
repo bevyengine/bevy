@@ -108,7 +108,7 @@ impl Bounded3d for Cuboid {
             rot_mat.y_axis.abs(),
             rot_mat.z_axis.abs(),
         );
-        let half_size = abs_rot_mat * self.half_extents;
+        let half_size = abs_rot_mat * self.half_size;
 
         Aabb3d::new(translation, half_size)
     }
