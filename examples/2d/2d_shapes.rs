@@ -18,7 +18,7 @@ fn setup(
 
     // Circle
     commands.spawn(MaterialMesh2dBundle {
-        mesh: meshes.add(primitives::Circle { radius: 50.0 }).into(),
+        mesh: meshes.add(Circle { radius: 50.0 }).into(),
         material: materials.add(Color::VIOLET),
         transform: Transform::from_translation(Vec3::new(-225.0, 0.0, 0.0)),
         ..default()
@@ -26,7 +26,7 @@ fn setup(
 
     // Ellipse
     commands.spawn(MaterialMesh2dBundle {
-        mesh: meshes.add(primitives::Ellipse::new(25.0, 50.0)).into(),
+        mesh: meshes.add(Ellipse::new(25.0, 50.0)).into(),
         material: materials.add(Color::TURQUOISE),
         transform: Transform::from_translation(Vec3::new(-100.0, 0.0, 0.0)),
         ..default()
@@ -34,7 +34,7 @@ fn setup(
 
     // Rectangle
     commands.spawn(MaterialMesh2dBundle {
-        mesh: meshes.add(primitives::Rectangle::new(50.0, 100.0)).into(),
+        mesh: meshes.add(Rectangle::new(50.0, 100.0)).into(),
         material: materials.add(Color::LIME_GREEN),
         transform: Transform::from_translation(Vec3::new(0.0, 0.0, 0.0)),
         ..default()
@@ -42,7 +42,7 @@ fn setup(
 
     // Hexagon
     commands.spawn(MaterialMesh2dBundle {
-        mesh: meshes.add(primitives::RegularPolygon::new(50.0, 6)).into(),
+        mesh: meshes.add(RegularPolygon::new(50.0, 6)).into(),
         material: materials.add(Color::YELLOW),
         transform: Transform::from_translation(Vec3::new(125.0, 0.0, 0.0)),
         ..default()
@@ -51,7 +51,7 @@ fn setup(
     // Triangle
     commands.spawn(MaterialMesh2dBundle {
         mesh: meshes
-            .add(primitives::Triangle2d::new(
+            .add(Triangle2d::new(
                 Vec2::Y * 50.0,
                 Vec2::new(-50.0, -50.0),
                 Vec2::new(50.0, -50.0),
