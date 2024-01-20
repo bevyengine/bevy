@@ -117,7 +117,7 @@ impl Bounded3d for Cuboid {
         BoundingSphere {
             center: translation,
             sphere: Sphere {
-                radius: self.half_extents.length(),
+                radius: self.half_size.length(),
             },
         }
     }
