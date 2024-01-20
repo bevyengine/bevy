@@ -1484,13 +1484,13 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
-name = "derived_state"
-path = "examples/ecs/derived_state.rs"
+name = "computed_states"
+path = "examples/ecs/computed_states.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.derived_state]
-name = "Derived State"
-description = "Illustrates how to use Derived States to achieve more complex state transitions"
+[package.metadata.example.computed_states]
+name = "Computed States"
+description = "Advanced state patterns using Computed States"
 category = "ECS (Entity Component System)"
 wasm = false
 

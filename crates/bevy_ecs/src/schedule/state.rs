@@ -70,11 +70,11 @@ pub struct OnTransition<S: States> {
 }
 
 /// The label of a [`Schedule`] that runs systems
-/// to derive states from this one.
+/// to derive computed states from this one.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct DeriveStates<S: States>(PhantomData<S>);
+pub struct ComputeDependantStates<S: States>(PhantomData<S>);
 
-impl<S: States> Default for DeriveStates<S> {
+impl<S: States> Default for ComputeDependantStates<S> {
     fn default() -> Self {
         Self(Default::default())
     }
@@ -218,7 +218,7 @@ pub fn run_enter_schedule<S: States>(world: &mut World) {
         return;
     };
     let state = state.0.clone();
-    world.try_run_schedule(DeriveStates::<S>::default()).ok();
+    world.try_run_schedule(ComputeDependantStates::<S>::default()).ok();
     world.try_run_schedule(OnEnter(state)).ok();
 }
 
@@ -227,7 +227,7 @@ pub fn run_enter_schedule<S: States>(world: &mut World) {
 /// - Sends a relevant [`StateTransitionEvent`]
 /// - Runs the [`OnExit(exited_state)`] schedule, if it exists.
 /// - Runs the [`OnTransition { from: exited_state, to: entered_state }`](OnTransition), if it exists.
-/// - Derive any derived states through the [`DeriveStates::<S>`] schedule, if it exists.
+/// - Derive any derived states through the [`ComputeDependantStates::<S>`] schedule, if it exists.
 /// - Runs the [`OnEnter(entered_state)`] schedule, if it exists.
 pub fn apply_state_transition<S: States>(world: &mut World) {
     // We want to take the `NextState` resource,
@@ -255,13 +255,13 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
                                 to: entered.clone(),
                             })
                             .ok();
-                        world.try_run_schedule(DeriveStates::<S>::default()).ok();
+                        world.try_run_schedule(ComputeDependantStates::<S>::default()).ok();
                         world.try_run_schedule(OnEnter(entered)).ok();
                     }
                 }
                 None => {
                     world.insert_resource(State(entered.clone()));
-                    world.try_run_schedule(DeriveStates::<S>::default()).ok();
+                    world.try_run_schedule(ComputeDependantStates::<S>::default()).ok();
                     world.try_run_schedule(OnEnter(entered)).ok();
                 }
             };
@@ -269,7 +269,7 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
         NextState::Remove => {
             if let Some(resource) = world.remove_resource::<State<S>>() {
                 world.try_run_schedule(OnExit(resource.0)).ok();
-                world.try_run_schedule(DeriveStates::<S>::default()).ok();
+                world.try_run_schedule(ComputeDependantStates::<S>::default()).ok();
             }
         }
         _ => {
@@ -331,7 +331,7 @@ impl<S: States> StateSet for S {
                 }
             }
         };
-        let label = DeriveStates::<S>::default();
+        let label = ComputeDependantStates::<S>::default();
         match schedules.get_mut(label.clone()) {
             Some(schedule) => {
                 schedule.add_systems((system, apply_state_transition::<T>).chain());
@@ -365,7 +365,7 @@ macro_rules! impl_state_set_sealed_tuples {
                     }
                 };
 
-                $(let label = DeriveStates::<$param>::default();
+                $(let label = ComputeDependantStates::<$param>::default();
                 match schedules.get_mut(label.clone()) {
                     Some(schedule) => {
                         schedule.add_systems((system, apply_state_transition::<T>).chain());
