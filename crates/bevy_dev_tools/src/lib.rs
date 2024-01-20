@@ -15,6 +15,14 @@ pub mod ci_testing;
 ///
 /// To enable developer tools, you can either:
 ///
+/// - Create a custom crate feature (e.g "dev_mode"), which enables the `bevy_dev_tools` feature
+/// along with any other development tools you might be using:
+///
+/// ```toml
+/// [feature]
+/// dev_mode = ["bevy/bevy_dev_tools", "other_dev_tools"]
+/// ```
+///
 /// - Use `--feature bevy/bevy_dev_tools` flag when using the `cargo run` command:
 ///
 /// `cargo run --features bevy/bevy_dev_tools`
@@ -23,7 +31,7 @@ pub mod ci_testing;
 ///
 /// `features = ["bevy_dev_tools"]`
 ///
-///  Note: The second method is not recommended, as it requires you to remove the feature before
+///  Note: The third method is not recommended, as it requires you to remove the feature before
 ///  creating a build for release to the public.
 pub struct DevToolsPlugin;
 
