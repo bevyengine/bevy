@@ -1,9 +1,9 @@
-use bevy_ecs::entity::{Mapper, SimpleEntityMapper};
+use bevy_ecs::entity::{Mapper};
 #[cfg(feature = "reflect")]
 use bevy_ecs::reflect::{ReflectComponent, ReflectMapEntities};
 use bevy_ecs::{
     component::Component,
-    entity::{Entity, EntityMapper, MapEntities},
+    entity::{Entity, MapEntities},
     prelude::FromWorld,
     world::World,
 };

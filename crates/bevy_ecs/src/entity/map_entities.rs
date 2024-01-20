@@ -66,6 +66,7 @@ impl Mapper for SimpleEntityMapper<'_> {
 }
 
 impl<'m> SimpleEntityMapper<'m> {
+    /// Creates a new `SimpleEntityMapper` from an [`EntityHashMap<Entity, Entity>`].
     pub fn new(map: &'m EntityHashMap<Entity, Entity>) -> Self {
         Self { map }
     }
