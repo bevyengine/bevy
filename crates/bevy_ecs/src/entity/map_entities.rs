@@ -45,6 +45,9 @@ pub trait MapEntities {
     /// update them to the mapped values via `entity_mapper`.
     fn map_or_gen_entities(&mut self, entity_mapper: &mut EntityMapper);
 
+    /// Updates all [`Entity`] references stored inside using `entity_mapper`.
+    ///
+    /// Only updates the references for which there is a mapping.
     fn map_entities(&mut self, entity_mapper: &mut SimpleEntityMapper);
 }
 
@@ -58,7 +61,7 @@ impl<'m> SimpleEntityMapper<'m> {
         Self { map }
     }
 
-    /// Returns the corresponding mapped entity or reserves a new dead entity ID if it is absent.
+    /// Returns the corresponding mapped entity or None if it is absent.
     pub fn get(&mut self, entity: Entity) -> Option<Entity> {
         self.map.get(&entity).copied()
     }
