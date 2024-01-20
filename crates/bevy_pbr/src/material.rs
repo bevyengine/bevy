@@ -1,4 +1,5 @@
 use crate::{
+    environment_map::RenderViewEnvironmentMaps,
     meshlet::{
         prepare_material_meshlet_meshes_main_opaque_pass, queue_material_meshlet_meshes,
         MeshletGpuScene,
@@ -500,14 +501,12 @@ pub fn queue_material_meshes<M: Material>(
     render_materials: Res<RenderMaterials<M>>,
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
-    images: Res<RenderAssets<Image>>,
     render_lightmaps: Res<RenderLightmaps>,
     mut views: Query<(
         &ExtractedView,
         &VisibleEntities,
         Option<&Tonemapping>,
         Option<&DebandDither>,
-        Option<&EnvironmentMapLight>,
         Option<&ShadowFilteringMethod>,
         Has<ScreenSpaceAmbientOcclusionSettings>,
         (
@@ -523,6 +522,7 @@ pub fn queue_material_meshes<M: Material>(
         &mut RenderPhase<AlphaMask3d>,
         &mut RenderPhase<Transmissive3d>,
         &mut RenderPhase<Transparent3d>,
+        Has<RenderViewEnvironmentMaps>,
     )>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
@@ -532,7 +532,6 @@ pub fn queue_material_meshes<M: Material>(
         visible_entities,
         tonemapping,
         dither,
-        environment_map,
         shadow_filter_method,
         ssao,
         (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
@@ -543,6 +542,7 @@ pub fn queue_material_meshes<M: Material>(
         mut alpha_mask_phase,
         mut transmissive_phase,
         mut transparent_phase,
+        has_environment_maps,
     ) in &mut views
     {
         let draw_opaque_pbr = opaque_draw_functions.read().id::<DrawMaterial<M>>();
@@ -573,9 +573,7 @@ pub fn queue_material_meshes<M: Material>(
             view_key |= MeshPipelineKey::TEMPORAL_JITTER;
         }
 
-        let environment_map_loaded = environment_map.is_some_and(|map| map.is_loaded(&images));
-
-        if environment_map_loaded {
+        if has_environment_maps {
             view_key |= MeshPipelineKey::ENVIRONMENT_MAP;
         }
 

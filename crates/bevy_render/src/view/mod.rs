@@ -7,8 +7,8 @@ pub use window::*;
 
 use crate::{
     camera::{
-        ClearColor, ClearColorConfig, ExposureSettings, ExtractedCamera, ManualTextureViews,
-        MipBias, TemporalJitter,
+        CameraMainTextureUsages, ClearColor, ClearColorConfig, ExposureSettings, ExtractedCamera,
+        ManualTextureViews, MipBias, TemporalJitter,
     },
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     prelude::{Image, Shader},
@@ -465,11 +465,16 @@ pub fn prepare_view_targets(
     clear_color_global: Res<ClearColor>,
     render_device: Res<RenderDevice>,
     mut texture_cache: ResMut<TextureCache>,
-    cameras: Query<(Entity, &ExtractedCamera, &ExtractedView)>,
+    cameras: Query<(
+        Entity,
+        &ExtractedCamera,
+        &ExtractedView,
+        &CameraMainTextureUsages,
+    )>,
     manual_texture_views: Res<ManualTextureViews>,
 ) {
     let mut textures = HashMap::default();
-    for (entity, camera, view) in cameras.iter() {
+    for (entity, camera, view, texture_usage) in cameras.iter() {
         if let (Some(target_size), Some(target)) = (camera.physical_target_size, &camera.target) {
             if let (Some(out_texture_view), Some(out_texture_format)) = (
                 target.get_texture_view(&windows, &images, &manual_texture_views),
@@ -502,9 +507,7 @@ pub fn prepare_view_targets(
                             sample_count: 1,
                             dimension: TextureDimension::D2,
                             format: main_texture_format,
-                            usage: TextureUsages::RENDER_ATTACHMENT
-                                | TextureUsages::TEXTURE_BINDING
-                                | TextureUsages::COPY_SRC,
+                            usage: texture_usage.0,
                             view_formats: match main_texture_format {
                                 TextureFormat::Bgra8Unorm => &[TextureFormat::Bgra8UnormSrgb],
                                 TextureFormat::Rgba8Unorm => &[TextureFormat::Rgba8UnormSrgb],

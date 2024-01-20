@@ -117,7 +117,13 @@ impl Scene {
                                 }
                             })
                         })?;
-                    reflect_component.copy(&self.world, world, scene_entity.id(), entity);
+                    reflect_component.copy(
+                        &self.world,
+                        world,
+                        scene_entity.id(),
+                        entity,
+                        &type_registry,
+                    );
                 }
             }
         }

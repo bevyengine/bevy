@@ -1,5 +1,5 @@
 use super::{MeshletGpuScene, MESHLET_MESH_MATERIAL_SHADER_HANDLE};
-use crate::*;
+use crate::{environment_map::RenderViewEnvironmentMaps, *};
 use bevy_asset::AssetServer;
 use bevy_core_pipeline::{
     core_3d::Camera3d,
@@ -10,7 +10,6 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_render::{
     camera::{Projection, TemporalJitter},
     mesh::{InnerMeshVertexBufferLayout, Mesh, MeshVertexBufferLayout},
-    render_asset::RenderAssets,
     render_resource::*,
     view::ExtractedView,
 };
@@ -30,7 +29,6 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
     render_materials: Res<RenderMaterials<M>>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
     asset_server: Res<AssetServer>,
-    images: Res<RenderAssets<Image>>,
     mut views: Query<
         (
             &mut MeshletViewMaterialsMainOpaquePass,
@@ -47,7 +45,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
             ),
             Has<TemporalJitter>,
             Option<&Projection>,
-            Option<&EnvironmentMapLight>,
+            Has<RenderViewEnvironmentMaps>,
         ),
         With<Camera3d>,
     >,
@@ -66,7 +64,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
         (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
         temporal_jitter,
         projection,
-        environment_map,
+        has_environment_maps,
     ) in &mut views
     {
         let mut view_key =
@@ -89,8 +87,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
             view_key |= MeshPipelineKey::TEMPORAL_JITTER;
         }
 
-        let environment_map_loaded = environment_map.is_some_and(|map| map.is_loaded(&images));
-        if environment_map_loaded {
+        if has_environment_maps {
             view_key |= MeshPipelineKey::ENVIRONMENT_MAP;
         }
 
