@@ -58,7 +58,7 @@ fn setup(
         },
         cascade_shadow_config: CascadeShadowConfigBuilder {
             num_cascades: 1,
-            maximum_distance: 15.0,
+            maximum_distance: 5.0,
             ..default()
         }
         .build(),
