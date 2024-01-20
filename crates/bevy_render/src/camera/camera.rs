@@ -24,13 +24,15 @@ use bevy_math::{
     primitives::Direction3d, vec2, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, Vec3,
 };
 use bevy_reflect::prelude::*;
+use bevy_render_macros::ExtractComponent;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{HashMap, HashSet};
 use bevy_window::{
     NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,
+    WindowScaleFactorChanged,
 };
 use std::{borrow::Cow, ops::Range};
-use wgpu::{BlendState, LoadOp, TextureFormat};
+use wgpu::{BlendState, LoadOp, TextureFormat, TextureUsages};
 
 use super::{ClearColorConfig, Projection};
 
@@ -65,9 +67,12 @@ impl Default for Viewport {
 /// Information about the current [`RenderTarget`].
 #[derive(Default, Debug, Clone)]
 pub struct RenderTargetInfo {
-    /// The physical size of this render target (ignores scale factor).
+    /// The physical size of this render target (in physical pixels, ignoring scale factor).
     pub physical_size: UVec2,
     /// The scale factor of this render target.
+    ///
+    /// When rendering to a window, typically it is a value greater or equal than 1.0,
+    /// representing the ratio between the size of the window in physical pixels and the logical size of the window.
     pub scale_factor: f32,
 }
 
@@ -76,8 +81,75 @@ pub struct RenderTargetInfo {
 pub struct ComputedCameraValues {
     projection_matrix: Mat4,
     target_info: Option<RenderTargetInfo>,
-    // position and size of the `Viewport`
+    // size of the `Viewport`
     old_viewport_size: Option<UVec2>,
+}
+
+/// How much energy a `Camera3d` absorbs from incoming light.
+///
+/// <https://en.wikipedia.org/wiki/Exposure_(photography)>
+#[derive(Component)]
+pub struct ExposureSettings {
+    /// <https://en.wikipedia.org/wiki/Exposure_value#Tabulated_exposure_values>
+    pub ev100: f32,
+}
+
+impl ExposureSettings {
+    pub const EV100_SUNLIGHT: f32 = 15.0;
+    pub const EV100_OVERCAST: f32 = 12.0;
+    pub const EV100_INDOOR: f32 = 7.0;
+
+    pub fn from_physical_camera(physical_camera_parameters: PhysicalCameraParameters) -> Self {
+        Self {
+            ev100: physical_camera_parameters.ev100(),
+        }
+    }
+
+    /// Converts EV100 values to exposure values.
+    /// <https://google.github.io/filament/Filament.md.html#imagingpipeline/physicallybasedcamera/exposure>
+    #[inline]
+    pub fn exposure(&self) -> f32 {
+        (-self.ev100).exp2() / 1.2
+    }
+}
+
+impl Default for ExposureSettings {
+    fn default() -> Self {
+        Self {
+            ev100: Self::EV100_INDOOR,
+        }
+    }
+}
+
+/// Parameters based on physical camera characteristics for calculating
+/// EV100 values for use with [`ExposureSettings`].
+#[derive(Clone, Copy)]
+pub struct PhysicalCameraParameters {
+    /// <https://en.wikipedia.org/wiki/F-number>
+    pub aperture_f_stops: f32,
+    /// <https://en.wikipedia.org/wiki/Shutter_speed>
+    pub shutter_speed_s: f32,
+    /// <https://en.wikipedia.org/wiki/Film_speed>
+    pub sensitivity_iso: f32,
+}
+
+impl PhysicalCameraParameters {
+    /// Calculate the [EV100](https://en.wikipedia.org/wiki/Exposure_value).
+    pub fn ev100(&self) -> f32 {
+        (self.aperture_f_stops * self.aperture_f_stops * 100.0
+            / (self.shutter_speed_s * self.sensitivity_iso))
+            .log2()
+    }
+}
+
+impl Default for PhysicalCameraParameters {
+    fn default() -> Self {
+        Self {
+            aperture_f_stops: 1.0,
+            shutter_speed_s: 1.0 / 125.0,
+            sensitivity_iso: 100.0,
+        }
+    }
 }
 
 /// The defining [`Component`] for camera entities,
@@ -193,7 +265,8 @@ impl Camera {
             .or_else(|| self.logical_target_size())
     }
 
-    /// The physical size of this camera's viewport. If the `viewport` field is set to [`Some`], this
+    /// The physical size of this camera's viewport (in physical pixels).
+    /// If the `viewport` field is set to [`Some`], this
     /// will be the size of that custom viewport. Otherwise it will default to the full physical size of
     /// the current [`RenderTarget`].
     /// For logic that requires the full physical size of the [`RenderTarget`], prefer [`Camera::physical_target_size`].
@@ -216,12 +289,18 @@ impl Camera {
             .and_then(|t| self.to_logical(t.physical_size))
     }
 
-    /// The full physical size of this camera's [`RenderTarget`], ignoring custom `viewport` configuration.
+    /// The full physical size of this camera's [`RenderTarget`] (in physical pixels),
+    /// ignoring custom `viewport` configuration.
     /// Note that if the `viewport` field is [`Some`], this will not represent the size of the rendered area.
     /// For logic that requires the size of the actually rendered area, prefer [`Camera::physical_viewport_size`].
     #[inline]
     pub fn physical_target_size(&self) -> Option<UVec2> {
         self.computed.target_info.as_ref().map(|t| t.physical_size)
+    }
+
+    #[inline]
+    pub fn target_scaling_factor(&self) -> Option<f32> {
+        self.computed.target_info.as_ref().map(|t| t.scale_factor)
     }
 
     /// The projection matrix computed using this camera's [`CameraProjection`].
@@ -428,6 +507,12 @@ pub enum RenderTarget {
     TextureView(ManualTextureViewHandle),
 }
 
+impl From<Handle<Image>> for RenderTarget {
+    fn from(handle: Handle<Image>) -> Self {
+        Self::Image(handle)
+    }
+}
+
 /// Normalized version of the render target.
 ///
 /// Once we have this we shouldn't need to resolve it down anymore.
@@ -457,6 +542,16 @@ impl RenderTarget {
                 .map(NormalizedRenderTarget::Window),
             RenderTarget::Image(handle) => Some(NormalizedRenderTarget::Image(handle.clone())),
             RenderTarget::TextureView(id) => Some(NormalizedRenderTarget::TextureView(*id)),
+        }
+    }
+
+    /// Get a handle to the render target's image,
+    /// or `None` if the render target is another variant.
+    pub fn as_image(&self) -> Option<&Handle<Image>> {
+        if let Self::Image(handle) = self {
+            Some(handle)
+        } else {
+            None
         }
     }
 }
@@ -554,9 +649,9 @@ impl NormalizedRenderTarget {
 
 /// System in charge of updating a [`Camera`] when its window or projection changes.
 ///
-/// The system detects window creation and resize events to update the camera projection if
-/// needed. It also queries any [`CameraProjection`] component associated with the same entity
-/// as the [`Camera`] one, to automatically update the camera projection matrix.
+/// The system detects window creation, resize, and scale factor change events to update the camera
+/// projection if needed. It also queries any [`CameraProjection`] component associated with the same
+/// entity as the [`Camera`] one, to automatically update the camera projection matrix.
 ///
 /// The system function is generic over the camera projection type, and only instances of
 /// [`OrthographicProjection`] and [`PerspectiveProjection`] are automatically added to
@@ -574,6 +669,7 @@ impl NormalizedRenderTarget {
 pub fn camera_system<T: CameraProjection + Component>(
     mut window_resized_events: EventReader<WindowResized>,
     mut window_created_events: EventReader<WindowCreated>,
+    mut window_scale_factor_changed_events: EventReader<WindowScaleFactorChanged>,
     mut image_asset_events: EventReader<AssetEvent<Image>>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     windows: Query<(Entity, &Window)>,
@@ -586,6 +682,11 @@ pub fn camera_system<T: CameraProjection + Component>(
     let mut changed_window_ids = HashSet::new();
     changed_window_ids.extend(window_created_events.read().map(|event| event.window));
     changed_window_ids.extend(window_resized_events.read().map(|event| event.window));
+    let scale_factor_changed_window_ids: HashSet<_> = window_scale_factor_changed_events
+        .read()
+        .map(|event| event.window)
+        .collect();
+    changed_window_ids.extend(scale_factor_changed_window_ids.clone());
 
     let changed_image_handles: HashSet<&AssetId<Image>> = image_asset_events
         .read()
@@ -596,7 +697,7 @@ pub fn camera_system<T: CameraProjection + Component>(
         .collect();
 
     for (mut camera, mut camera_projection) in &mut cameras {
-        let viewport_size = camera
+        let mut viewport_size = camera
             .viewport
             .as_ref()
             .map(|viewport| viewport.physical_size);
@@ -607,11 +708,36 @@ pub fn camera_system<T: CameraProjection + Component>(
                 || camera_projection.is_changed()
                 || camera.computed.old_viewport_size != viewport_size
             {
-                camera.computed.target_info = normalized_target.get_render_target_info(
+                let new_computed_target_info = normalized_target.get_render_target_info(
                     &windows,
                     &images,
                     &manual_texture_views,
                 );
+                // Check for the scale factor changing, and resize the viewport if needed.
+                // This can happen when the window is moved between monitors with different DPIs.
+                // Without this, the viewport will take a smaller portion of the window moved to
+                // a higher DPI monitor.
+                if normalized_target.is_changed(&scale_factor_changed_window_ids, &HashSet::new()) {
+                    if let (Some(new_scale_factor), Some(old_scale_factor)) = (
+                        new_computed_target_info
+                            .as_ref()
+                            .map(|info| info.scale_factor),
+                        camera
+                            .computed
+                            .target_info
+                            .as_ref()
+                            .map(|info| info.scale_factor),
+                    ) {
+                        let resize_factor = new_scale_factor / old_scale_factor;
+                        if let Some(ref mut viewport) = camera.viewport {
+                            let resize = |vec: UVec2| (vec.as_vec2() * resize_factor).as_uvec2();
+                            viewport.physical_position = resize(viewport.physical_position);
+                            viewport.physical_size = resize(viewport.physical_size);
+                            viewport_size = Some(viewport.physical_size);
+                        }
+                    }
+                }
+                camera.computed.target_info = new_computed_target_info;
                 if let Some(size) = camera.logical_viewport_size() {
                     camera_projection.update(size.x, size.y);
                     camera.computed.projection_matrix = camera_projection.get_projection_matrix();
@@ -622,6 +748,19 @@ pub fn camera_system<T: CameraProjection + Component>(
         if camera.computed.old_viewport_size != viewport_size {
             camera.computed.old_viewport_size = viewport_size;
         }
+    }
+}
+
+/// This component lets you control the [`TextureUsages`] field of the main texture generated for the camera
+#[derive(Component, ExtractComponent, Clone, Copy)]
+pub struct CameraMainTextureUsages(pub TextureUsages);
+impl Default for CameraMainTextureUsages {
+    fn default() -> Self {
+        Self(
+            TextureUsages::RENDER_ATTACHMENT
+                | TextureUsages::TEXTURE_BINDING
+                | TextureUsages::COPY_SRC,
+        )
     }
 }
 
@@ -637,6 +776,7 @@ pub struct ExtractedCamera {
     pub msaa_writeback: bool,
     pub clear_color: ClearColorConfig,
     pub sorted_camera_index_for_target: usize,
+    pub exposure: f32,
 }
 
 pub fn extract_cameras(
@@ -650,6 +790,7 @@ pub fn extract_cameras(
             &VisibleEntities,
             &Frustum,
             Option<&ColorGrading>,
+            Option<&ExposureSettings>,
             Option<&TemporalJitter>,
             Option<&RenderLayers>,
             Option<&Projection>,
@@ -666,6 +807,7 @@ pub fn extract_cameras(
         visible_entities,
         frustum,
         color_grading,
+        exposure_settings,
         temporal_jitter,
         render_layers,
         projection,
@@ -708,6 +850,9 @@ pub fn extract_cameras(
                     clear_color: camera.clear_color.clone(),
                     // this will be set in sort_cameras
                     sorted_camera_index_for_target: 0,
+                    exposure: exposure_settings
+                        .map(|e| e.exposure())
+                        .unwrap_or_else(|| ExposureSettings::default().exposure()),
                 },
                 ExtractedView {
                     projection: camera.projection_matrix(),

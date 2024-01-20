@@ -515,6 +515,7 @@ pub fn extract_materials_2d<M: Material2d>(
     let mut changed_assets = HashSet::default();
     let mut removed = Vec::new();
     for event in events.read() {
+        #[allow(clippy::match_same_arms)]
         match event {
             AssetEvent::Added { id } | AssetEvent::Modified { id } => {
                 changed_assets.insert(*id);
@@ -523,7 +524,7 @@ pub fn extract_materials_2d<M: Material2d>(
                 changed_assets.remove(id);
                 removed.push(*id);
             }
-
+            AssetEvent::Unused { .. } => {}
             AssetEvent::LoadedWithDependencies { .. } => {
                 // TODO: handle this
             }

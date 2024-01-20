@@ -7,7 +7,8 @@ pub use window::*;
 
 use crate::{
     camera::{
-        ClearColor, ClearColorConfig, ExtractedCamera, ManualTextureViews, MipBias, TemporalJitter,
+        CameraMainTextureUsages, ClearColor, ClearColorConfig, ExposureSettings, ExtractedCamera,
+        ManualTextureViews, MipBias, TemporalJitter,
     },
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     prelude::{Image, Shader},
@@ -61,7 +62,8 @@ impl Plugin for ViewPlugin {
                     prepare_view_targets
                         .in_set(RenderSet::ManageViews)
                         .after(prepare_windows)
-                        .after(crate::render_asset::prepare_assets::<Image>),
+                        .after(crate::render_asset::prepare_assets::<Image>)
+                        .ambiguous_with(crate::camera::sort_cameras), // doesn't use `sorted_camera_index_for_target`
                     prepare_view_uniforms.in_set(RenderSet::PrepareResources),
                 ),
             );
@@ -169,6 +171,7 @@ pub struct ViewUniform {
     projection: Mat4,
     inverse_projection: Mat4,
     world_position: Vec3,
+    exposure: f32,
     // viewport(x_origin, y_origin, width, height)
     viewport: Vec4,
     frustum: [Vec4; 6],
@@ -367,6 +370,7 @@ pub fn prepare_view_uniforms(
     mut view_uniforms: ResMut<ViewUniforms>,
     views: Query<(
         Entity,
+        Option<&ExtractedCamera>,
         &ExtractedView,
         Option<&Frustum>,
         Option<&TemporalJitter>,
@@ -383,9 +387,18 @@ pub fn prepare_view_uniforms(
     else {
         return;
     };
-    for (entity, camera, frustum, temporal_jitter, mip_bias, maybe_layers) in &views {
-        let viewport = camera.viewport.as_vec4();
-        let unjittered_projection = camera.projection;
+    for (
+        entity,
+        extracted_camera,
+        extracted_view,
+        frustum,
+        temporal_jitter,
+        mip_bias,
+        maybe_layers,
+    ) in &views
+    {
+        let viewport = extracted_view.viewport.as_vec4();
+        let unjittered_projection = extracted_view.projection;
         let mut projection = unjittered_projection;
 
         if let Some(temporal_jitter) = temporal_jitter {
@@ -393,13 +406,13 @@ pub fn prepare_view_uniforms(
         }
 
         let inverse_projection = projection.inverse();
-        let view = camera.transform.compute_matrix();
+        let view = extracted_view.transform.compute_matrix();
         let inverse_view = view.inverse();
 
         let view_proj = if temporal_jitter.is_some() {
             projection * inverse_view
         } else {
-            camera
+            extracted_view
                 .view_projection
                 .unwrap_or_else(|| projection * inverse_view)
         };
@@ -418,10 +431,13 @@ pub fn prepare_view_uniforms(
                 inverse_view,
                 projection,
                 inverse_projection,
-                world_position: camera.transform.translation(),
+                world_position: extracted_view.transform.translation(),
+                exposure: extracted_camera
+                    .map(|c| c.exposure)
+                    .unwrap_or_else(|| ExposureSettings::default().exposure()),
                 viewport,
                 frustum,
-                color_grading: camera.color_grading,
+                color_grading: extracted_view.color_grading,
                 mip_bias: mip_bias.unwrap_or(&MipBias(0.0)).0,
                 render_layers: maybe_layers.copied().unwrap_or_default().bits(),
             }),
@@ -449,11 +465,16 @@ fn prepare_view_targets(
     clear_color_global: Res<ClearColor>,
     render_device: Res<RenderDevice>,
     mut texture_cache: ResMut<TextureCache>,
-    cameras: Query<(Entity, &ExtractedCamera, &ExtractedView)>,
+    cameras: Query<(
+        Entity,
+        &ExtractedCamera,
+        &ExtractedView,
+        &CameraMainTextureUsages,
+    )>,
     manual_texture_views: Res<ManualTextureViews>,
 ) {
     let mut textures = HashMap::default();
-    for (entity, camera, view) in cameras.iter() {
+    for (entity, camera, view, texture_usage) in cameras.iter() {
         if let (Some(target_size), Some(target)) = (camera.physical_target_size, &camera.target) {
             if let (Some(out_texture_view), Some(out_texture_format)) = (
                 target.get_texture_view(&windows, &images, &manual_texture_views),
@@ -486,9 +507,7 @@ fn prepare_view_targets(
                             sample_count: 1,
                             dimension: TextureDimension::D2,
                             format: main_texture_format,
-                            usage: TextureUsages::RENDER_ATTACHMENT
-                                | TextureUsages::TEXTURE_BINDING
-                                | TextureUsages::COPY_SRC,
+                            usage: texture_usage.0,
                             view_formats: match main_texture_format {
                                 TextureFormat::Bgra8Unorm => &[TextureFormat::Bgra8UnormSrgb],
                                 TextureFormat::Rgba8Unorm => &[TextureFormat::Rgba8UnormSrgb],

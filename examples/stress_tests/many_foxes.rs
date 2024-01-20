@@ -15,7 +15,7 @@ use bevy::{
 #[derive(FromArgs, Resource)]
 /// `many_foxes` stress test
 struct Args {
-    /// wether all foxes run in sync.
+    /// whether all foxes run in sync.
     #[argh(switch)]
     sync: bool,
 
@@ -58,7 +58,7 @@ fn main() {
         })
         .insert_resource(AmbientLight {
             color: Color::WHITE,
-            brightness: 1.0,
+            brightness: 100.0,
         })
         .add_systems(Startup, setup)
         .add_systems(
@@ -185,8 +185,8 @@ fn setup(
 
     // Plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(5000.0).into()),
-        material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+        mesh: meshes.add(shape::Plane::from_size(5000.0)),
+        material: materials.add(Color::rgb(0.3, 0.5, 0.3)),
         ..default()
     });
 
@@ -194,6 +194,7 @@ fn setup(
     commands.spawn(DirectionalLightBundle {
         transform: Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
         directional_light: DirectionalLight {
+            illuminance: 3000.0,
             shadows_enabled: true,
             ..default()
         },

@@ -23,6 +23,7 @@ mod cow_arc;
 mod default;
 mod float_ord;
 pub mod intern;
+mod once;
 
 pub use crate::uuid::Uuid;
 pub use ahash::{AHasher, RandomState};
@@ -189,7 +190,7 @@ impl<V: Clone, H> Clone for Hashed<V, H> {
 impl<V: Eq, H> Eq for Hashed<V, H> {}
 
 /// A [`BuildHasher`] that results in a [`PassHasher`].
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct PassHash;
 
 impl BuildHasher for PassHash {
@@ -251,7 +252,7 @@ impl<K: Hash + Eq + PartialEq + Clone, V> PreHashMapExt<K, V> for PreHashMap<K, 
 }
 
 /// A [`BuildHasher`] that results in a [`EntityHasher`].
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct EntityHash;
 
 impl BuildHasher for EntityHash {
@@ -414,4 +415,14 @@ macro_rules! detailed_trace {
             bevy_utils::tracing::trace!($($tts)*);
         }
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use static_assertions::assert_impl_all;
+
+    // Check that the HashMaps are Clone if the key/values are Clone
+    assert_impl_all!(EntityHashMap::<u64, usize>: Clone);
+    assert_impl_all!(PreHashMap::<u64, usize>: Clone);
 }

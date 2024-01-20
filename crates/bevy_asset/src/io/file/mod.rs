@@ -6,7 +6,6 @@ mod file_asset;
 #[cfg(not(feature = "multi-threaded"))]
 mod sync_file_asset;
 
-use bevy_log::warn;
 #[cfg(feature = "file_watcher")]
 pub use file_watcher::*;
 
@@ -45,12 +44,6 @@ impl FileAssetReader {
     /// See `get_base_path` below.
     pub fn new<P: AsRef<Path>>(path: P) -> Self {
         let root_path = Self::get_base_path().join(path.as_ref());
-        if let Err(e) = std::fs::create_dir_all(&root_path) {
-            warn!(
-                "Failed to create root directory {:?} for file asset reader: {:?}",
-                root_path, e
-            );
-        }
         Self { root_path }
     }
 

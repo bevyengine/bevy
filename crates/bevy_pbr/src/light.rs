@@ -16,7 +16,7 @@ use bevy_render::{
     view::{InheritedVisibility, RenderLayers, ViewVisibility, VisibleEntities},
 };
 use bevy_transform::components::{GlobalTransform, Transform};
-use bevy_utils::{tracing::warn, HashMap};
+use bevy_utils::{tracing::warn, EntityHashMap};
 
 use crate::*;
 
@@ -381,7 +381,7 @@ impl From<CascadeShadowConfigBuilder> for CascadeShadowConfig {
 #[reflect(Component)]
 pub struct Cascades {
     /// Map from a view to the configuration of each of its [`Cascade`]s.
-    pub(crate) cascades: HashMap<Entity, Vec<Cascade>>,
+    pub(crate) cascades: EntityHashMap<Entity, Vec<Cascade>>,
 }
 
 #[derive(Clone, Debug, Default, Reflect)]
@@ -557,7 +557,7 @@ fn calculate_cascade(
 /// # use bevy_ecs::system::ResMut;
 /// # use bevy_pbr::AmbientLight;
 /// fn setup_ambient_light(mut ambient_light: ResMut<AmbientLight>) {
-///    ambient_light.brightness = 0.3;
+///    ambient_light.brightness = 20.0;
 /// }
 /// ```
 #[derive(Resource, Clone, Debug, ExtractResource, Reflect)]
@@ -572,7 +572,7 @@ impl Default for AmbientLight {
     fn default() -> Self {
         Self {
             color: Color::rgb(1.0, 1.0, 1.0),
-            brightness: 0.05,
+            brightness: 8.0,
         }
     }
 }

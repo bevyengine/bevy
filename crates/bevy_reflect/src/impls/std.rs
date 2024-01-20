@@ -80,6 +80,7 @@ impl_reflect_value!(isize(
 impl_reflect_value!(f32(Debug, PartialEq, Serialize, Deserialize, Default));
 impl_reflect_value!(f64(Debug, PartialEq, Serialize, Deserialize, Default));
 impl_type_path!(str);
+impl_type_path!(::bevy_utils::EntityHash);
 impl_reflect_value!(::alloc::string::String(
     Debug,
     Hash,
@@ -1513,10 +1514,14 @@ mod tests {
         Enum, FromReflect, Reflect, ReflectSerialize, TypeInfo, TypeRegistry, Typed, VariantInfo,
         VariantType,
     };
-    use bevy_utils::HashMap;
     use bevy_utils::{Duration, Instant};
+    use bevy_utils::{EntityHashMap, HashMap};
+    use static_assertions::assert_impl_all;
     use std::f32::consts::{PI, TAU};
     use std::path::Path;
+
+    // EntityHashMap should implement Reflect
+    assert_impl_all!(EntityHashMap<i32, i32>: Reflect);
 
     #[test]
     fn can_serialize_duration() {
@@ -1598,6 +1603,8 @@ mod tests {
 
     #[test]
     fn option_should_impl_enum() {
+        assert_impl_all!(Option<()>: Enum);
+
         let mut value = Some(123usize);
 
         assert!(value
@@ -1671,6 +1678,8 @@ mod tests {
 
     #[test]
     fn option_should_impl_typed() {
+        assert_impl_all!(Option<()>: Typed);
+
         type MyOption = Option<i32>;
         let info = MyOption::type_info();
         if let TypeInfo::Enum(info) = info {
@@ -1701,6 +1710,7 @@ mod tests {
             panic!("Expected `TypeInfo::Enum`");
         }
     }
+
     #[test]
     fn nonzero_usize_impl_reflect_from_reflect() {
         let a: &dyn Reflect = &std::num::NonZeroUsize::new(42).unwrap();

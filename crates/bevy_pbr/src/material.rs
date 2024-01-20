@@ -1,4 +1,4 @@
-use crate::*;
+use crate::{environment_map::RenderViewEnvironmentMaps, *};
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetApp, AssetEvent, AssetId, AssetServer, Assets, Handle};
 use bevy_core_pipeline::{
@@ -234,7 +234,9 @@ where
                             .after(prepare_materials::<M>),
                         queue_material_meshes::<M>
                             .in_set(RenderSet::QueueMeshes)
-                            .after(prepare_materials::<M>),
+                            .after(prepare_materials::<M>)
+                            // queue_material_meshes only writes to `material_bind_group_id`, which `queue_shadows` doesn't read
+                            .ambiguous_with(render::queue_shadows::<M>),
                     ),
                 );
         }
@@ -464,13 +466,12 @@ pub fn queue_material_meshes<M: Material>(
     render_materials: Res<RenderMaterials<M>>,
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
-    images: Res<RenderAssets<Image>>,
+    render_lightmaps: Res<RenderLightmaps>,
     mut views: Query<(
         &ExtractedView,
         &VisibleEntities,
         Option<&Tonemapping>,
         Option<&DebandDither>,
-        Option<&EnvironmentMapLight>,
         Option<&ShadowFilteringMethod>,
         Has<ScreenSpaceAmbientOcclusionSettings>,
         (
@@ -486,6 +487,7 @@ pub fn queue_material_meshes<M: Material>(
         &mut RenderPhase<AlphaMask3d>,
         &mut RenderPhase<Transmissive3d>,
         &mut RenderPhase<Transparent3d>,
+        Has<RenderViewEnvironmentMaps>,
     )>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
@@ -495,7 +497,6 @@ pub fn queue_material_meshes<M: Material>(
         visible_entities,
         tonemapping,
         dither,
-        environment_map,
         shadow_filter_method,
         ssao,
         (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
@@ -506,6 +507,7 @@ pub fn queue_material_meshes<M: Material>(
         mut alpha_mask_phase,
         mut transmissive_phase,
         mut transparent_phase,
+        has_environment_maps,
     ) in &mut views
     {
         let draw_opaque_pbr = opaque_draw_functions.read().id::<DrawMaterial<M>>();
@@ -536,9 +538,7 @@ pub fn queue_material_meshes<M: Material>(
             view_key |= MeshPipelineKey::TEMPORAL_JITTER;
         }
 
-        let environment_map_loaded = environment_map.is_some_and(|map| map.is_loaded(&images));
-
-        if environment_map_loaded {
+        if has_environment_maps {
             view_key |= MeshPipelineKey::ENVIRONMENT_MAP;
         }
 
@@ -612,6 +612,13 @@ pub fn queue_material_meshes<M: Material>(
             }
 
             mesh_key |= alpha_mode_pipeline_key(material.properties.alpha_mode);
+
+            if render_lightmaps
+                .render_lightmaps
+                .contains_key(visible_entity)
+            {
+                mesh_key |= MeshPipelineKey::LIGHTMAPPED;
+            }
 
             let pipeline_id = pipelines.specialize(
                 &pipeline_cache,
@@ -814,6 +821,7 @@ pub fn extract_materials<M: Material>(
     let mut changed_assets = HashSet::default();
     let mut removed = Vec::new();
     for event in events.read() {
+        #[allow(clippy::match_same_arms)]
         match event {
             AssetEvent::Added { id } | AssetEvent::Modified { id } => {
                 changed_assets.insert(*id);
@@ -822,6 +830,7 @@ pub fn extract_materials<M: Material>(
                 changed_assets.remove(id);
                 removed.push(*id);
             }
+            AssetEvent::Unused { .. } => {}
             AssetEvent::LoadedWithDependencies { .. } => {
                 // TODO: handle this
             }

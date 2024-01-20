@@ -1,6 +1,7 @@
 use std::mem::MaybeUninit;
 
 use bevy_ptr::{OwningPtr, Unaligned};
+use bevy_utils::tracing::warn;
 
 use super::Command;
 use crate::world::World;
@@ -161,6 +162,9 @@ impl CommandQueue {
 
 impl Drop for CommandQueue {
     fn drop(&mut self) {
+        if !self.bytes.is_empty() {
+            warn!("CommandQueue has un-applied commands being dropped.");
+        }
         self.apply_or_drop_queued(None);
     }
 }
