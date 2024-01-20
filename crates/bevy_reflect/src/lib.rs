@@ -1995,6 +1995,38 @@ bevy_reflect::tests::Test {
         );
     }
 
+    #[test]
+    fn assert_impl_reflect_on_all() {
+        struct Struct {
+            foo: (),
+        }
+        struct TupleStruct(());
+        enum Enum {
+            Foo { foo: () },
+            Bar(()),
+        }
+
+        impl_reflect!(
+            #[type_path = "my_crate::foo"]
+            struct Struct {
+                foo: (),
+            }
+        );
+
+        impl_reflect!(
+            #[type_path = "my_crate::foo"]
+            struct TupleStruct(());
+        );
+
+        impl_reflect!(
+            #[type_path = "my_crate::foo"]
+            enum Enum {
+                Foo { foo: () },
+                Bar(()),
+            }
+        );
+    }
+
     #[cfg(feature = "glam")]
     mod glam {
         use super::*;
