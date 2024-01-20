@@ -703,7 +703,7 @@ pub mod common_conditions {
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if the state machine is currently in `state`.
     ///
-    /// Will return `false` if the state does not exist.
+    /// Will return `false` if the state does not exist or if not in `state`.
     ///
     /// # Example
     ///
@@ -833,7 +833,7 @@ pub mod common_conditions {
     /// To do things on transitions to/from specific states, use their respective OnEnter/OnExit
     /// schedules. Use this run condition if you want to detect any change, regardless of the value.
     ///
-    /// Returns false if the state does not exist.
+    /// Returns false if the state does not exist or the state has not changed.
     ///
     /// # Example
     ///
