@@ -24,6 +24,17 @@ impl Direction2d {
         Self::new_and_length(value).map(|(dir, _)| dir)
     }
 
+    /// Create a [`Direction2d`] from a [`Vec2`] that is already normalized.
+    ///
+    /// # Warning
+    ///
+    /// `value` must be normalized, i.e it's length must be `1.0`.
+    pub fn new_unchecked(value: Vec2) -> Self {
+        debug_assert!(value.is_normalized());
+
+        Self(value)
+    }
+
     /// Create a direction from a finite, nonzero [`Vec2`], also returning its original length.
     ///
     /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
@@ -34,7 +45,7 @@ impl Direction2d {
 
         direction
             .map(|dir| (Self(dir), length))
-            .map_or(Err(InvalidDirectionError::from_length(length)), Ok)
+            .ok_or(InvalidDirectionError::from_length(length))
     }
 
     /// Create a direction from its `x` and `y` components.
@@ -43,12 +54,6 @@ impl Direction2d {
     /// of the vector formed by the components is zero (or very close to zero), infinite, or `NaN`.
     pub fn from_xy(x: f32, y: f32) -> Result<Self, InvalidDirectionError> {
         Self::new(Vec2::new(x, y))
-    }
-
-    /// Create a direction from a [`Vec2`] that is already normalized.
-    pub fn from_normalized(value: Vec2) -> Self {
-        debug_assert!(value.is_normalized());
-        Self(value)
     }
 }
 
@@ -187,8 +192,10 @@ impl Segment2d {
     pub fn from_points(point1: Vec2, point2: Vec2) -> (Self, Vec2) {
         let diff = point2 - point1;
         let length = diff.length();
+
         (
-            Self::new(Direction2d::from_normalized(diff / length), length),
+            // We are dividing by the length here, so the vector is normalized.
+            Self::new(Direction2d::new_unchecked(diff / length), length),
             (point1 + point2) / 2.,
         )
     }
@@ -477,7 +484,7 @@ mod tests {
         );
         assert_eq!(
             Direction2d::new_and_length(Vec2::X * 6.5),
-            Ok((Direction2d::from_normalized(Vec2::X), 6.5))
+            Ok((Direction2d::X, 6.5))
         );
     }
 
