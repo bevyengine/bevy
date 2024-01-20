@@ -222,7 +222,7 @@ impl BoxedPolyline3d {
 #[derive(Clone, Copy, Debug)]
 pub struct Cuboid {
     /// Half of the width, height and depth of the cuboid
-    pub half_extents: Vec3,
+    pub half_size: Vec3,
 }
 impl Primitive3d for Cuboid {}
 
@@ -235,7 +235,7 @@ impl Cuboid {
     /// Create a cuboid from a given full size
     pub fn from_size(size: Vec3) -> Self {
         Self {
-            half_extents: size / 2.,
+            half_size: size / 2.,
         }
     }
 }

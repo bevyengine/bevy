@@ -33,7 +33,7 @@ impl Bounded2d for Ellipse {
         //   ###           ###
         //      ###########
 
-        let (hw, hh) = (self.half_width, self.half_height);
+        let (hw, hh) = (self.half_size.x, self.half_size.y);
 
         // Sine and cosine of rotation angle alpha.
         let (alpha_sin, alpha_cos) = rotation.sin_cos();
@@ -56,7 +56,7 @@ impl Bounded2d for Ellipse {
     }
 
     fn bounding_circle(&self, translation: Vec2, _rotation: f32) -> BoundingCircle {
-        BoundingCircle::new(translation, self.half_width.max(self.half_height))
+        BoundingCircle::new(translation, self.semi_major())
     }
 }
 
@@ -189,22 +189,20 @@ impl Bounded2d for Triangle2d {
 
 impl Bounded2d for Rectangle {
     fn aabb_2d(&self, translation: Vec2, rotation: f32) -> Aabb2d {
-        let half_size = Vec2::new(self.half_width, self.half_height);
-
         // Compute the AABB of the rotated rectangle by transforming the half-extents
         // by an absolute rotation matrix.
         let (sin, cos) = rotation.sin_cos();
         let abs_rot_mat = Mat2::from_cols_array(&[cos.abs(), sin.abs(), sin.abs(), cos.abs()]);
-        let half_extents = abs_rot_mat * half_size;
+        let half_size = abs_rot_mat * self.half_size;
 
         Aabb2d {
-            min: translation - half_extents,
-            max: translation + half_extents,
+            min: translation - half_size,
+            max: translation + half_size,
         }
     }
 
     fn bounding_circle(&self, translation: Vec2, _rotation: f32) -> BoundingCircle {
-        let radius = self.half_width.hypot(self.half_height);
+        let radius = self.half_size.length();
         BoundingCircle::new(translation, radius)
     }
 }
@@ -278,10 +276,7 @@ mod tests {
 
     #[test]
     fn ellipse() {
-        let ellipse = Ellipse {
-            half_width: 1.0,
-            half_height: 0.5,
-        };
+        let ellipse = Ellipse::new(1.0, 0.5);
         let translation = Vec2::new(2.0, 1.0);
 
         let aabb = ellipse.aabb_2d(translation, 0.0);
