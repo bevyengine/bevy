@@ -1846,6 +1846,34 @@ impl TargetCamera {
 
 #[derive(Component)]
 /// Marker used to identify default cameras, they will have priority over the [`PrimaryWindow`] camera.
+///
+/// This is useful if the [`PrimaryWindow`] has two cameras, one of them used
+/// just for debug purposes and the user wants a way of choose the default [`Camera`]
+/// without having to add a [`TargetCamera`] to the root node.
+///
+/// Another use is when the user wants the Ui to be in another window by default,
+/// all that is needed is to place this component on the camera
+///
+/// ```
+///     fn spawn_camera(mut commands: Commands) {
+///         let another_window = commands.spawn(Window {
+///             title: String::from("Another window"),
+///             ..Default::default()
+///         }).id();
+///         commands.spawn((
+///             Camera2dBundle {
+///                 camera: Camera {
+///                     target: RenderTarget::Window(another_window),
+///                     ..Default::default()
+///                 },
+///                 ..Default::default()
+///             },
+///             // We add the Marker here so all Ui will spawn in
+///             // another window if no TargetCamera is specified
+///             UiDefaultCameraMarker
+///         ));
+///     }
+/// ```
 pub struct UiDefaultCameraMarker;
 
 #[derive(SystemParam)]
