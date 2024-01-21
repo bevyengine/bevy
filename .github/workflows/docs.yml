@@ -61,10 +61,10 @@ jobs:
           echo "User-Agent: *\nDisallow: /" > target/doc/robots.txt
 
       - name: Upload site artifact
-        uses: actions/upload-pages-artifact@v1
+        uses: actions/upload-pages-artifact@v3
         with:
           path: target/doc
 
       - name: Deploy to Github Pages
         id: deployment
-        uses: actions/deploy-pages@v2
+        uses: actions/deploy-pages@v4
