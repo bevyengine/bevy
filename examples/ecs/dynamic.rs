@@ -131,7 +131,7 @@ fn main() {
                 let mut entity = world.spawn_empty();
 
                 // Construct an `OwningPtr` for each component in `to_insert_data`
-                let to_insert_ptr = to_owned_ptrs(&mut to_insert_data);
+                let to_insert_ptr = to_owning_ptrs(&mut to_insert_data);
 
                 // SAFETY:
                 // - Component ids have been taken from the same world
@@ -187,7 +187,7 @@ fn main() {
 
 // Constructs `OwningPtr` for each item in `data`
 // By sharing the lifetime of `data` with the resulting ptrs we ensure drop the data before use
-fn to_owned_ptrs(data: &mut [Vec<u64>]) -> Vec<OwningPtr<Aligned>> {
+fn to_owning_ptrs(data: &mut [Vec<u64>]) -> Vec<OwningPtr<Aligned>> {
     let mut ptrs = Vec::new();
     for data in data.iter_mut() {
         let ptr = data.as_mut_ptr();
