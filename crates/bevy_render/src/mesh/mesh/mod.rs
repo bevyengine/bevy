@@ -574,6 +574,12 @@ impl Mesh {
     }
 
     /// Transforms the vertex positions, normals, and tangents of the mesh by the given [`Transform`].
+    pub fn transformed_by(mut self, transform: Transform) -> Self {
+        self.transform_by(transform);
+        self
+    }
+
+    /// Transforms the vertex positions, normals, and tangents of the mesh by the given [`Transform`].
     pub fn transform_by(&mut self, transform: Transform) {
         if let Some(VertexAttributeValues::Float32x3(ref mut positions)) =
             self.attribute_mut(Mesh::ATTRIBUTE_POSITION)
@@ -582,6 +588,11 @@ impl Mesh {
             positions
                 .iter_mut()
                 .for_each(|pos| *pos = transform.transform_point(Vec3::from_slice(pos)).to_array());
+        }
+
+        // No need to rotate normals or tangents if rotation is near identity
+        if transform.rotation.is_near_identity() {
+            return;
         }
 
         if let Some(VertexAttributeValues::Float32x3(ref mut normals)) =
