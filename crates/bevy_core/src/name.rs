@@ -24,7 +24,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 #[reflect(Component, Default, Debug)]
 #[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub struct Name {
-    hash: u64, // TODO: Shouldn't be serialized
+    hash: u64, // Won't be serialized (see: `bevy_core::serde` module)
     name: Cow<'static, str>,
 }
 
