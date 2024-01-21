@@ -274,15 +274,15 @@ impl Command for RemoveParent {
 /// });
 /// # }
 /// ```
-pub struct ChildBuilder<'w, 's> {
-    commands: Commands<'w, 's>,
+pub struct ChildBuilder<'a> {
+    commands: Commands<'a, 'a>,
     push_children: PushChildren,
 }
 
-impl<'w, 's> ChildBuilder<'w, 's> {
+impl ChildBuilder<'_> {
     /// Spawns an entity with the given bundle and inserts it into the parent entity's [`Children`].
     /// Also adds [`Parent`] component to the created entity.
-    pub fn spawn(&mut self, bundle: impl Bundle) -> EntityCommands<'w, '_> {
+    pub fn spawn(&mut self, bundle: impl Bundle) -> EntityCommands<'_> {
         let e = self.commands.spawn(bundle);
         self.push_children.children.push(e.id());
         e
@@ -290,7 +290,7 @@ impl<'w, 's> ChildBuilder<'w, 's> {
 
     /// Spawns an [`Entity`] with no components and inserts it into the parent entity's [`Children`].
     /// Also adds [`Parent`] component to the created entity.
-    pub fn spawn_empty(&mut self) -> EntityCommands<'w, '_> {
+    pub fn spawn_empty(&mut self) -> EntityCommands<'_> {
         let e = self.commands.spawn_empty();
         self.push_children.children.push(e.id());
         e
@@ -302,7 +302,7 @@ impl<'w, 's> ChildBuilder<'w, 's> {
     }
 
     /// Adds a command to be executed, like [`Commands::add`].
-    pub fn add_command<C: Command + 'static>(&mut self, command: C) -> &mut Self {
+    pub fn add_command<C: Command>(&mut self, command: C) -> &mut Self {
         self.commands.add(command);
         self
     }
@@ -374,7 +374,7 @@ pub trait BuildChildren {
     fn remove_parent(&mut self) -> &mut Self;
 }
 
-impl<'w, 's> BuildChildren for EntityCommands<'w, 's> {
+impl BuildChildren for EntityCommands<'_> {
     fn with_children(&mut self, spawn_children: impl FnOnce(&mut ChildBuilder)) -> &mut Self {
         let parent = self.id();
         let mut builder = ChildBuilder {

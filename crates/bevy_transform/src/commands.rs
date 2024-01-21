@@ -85,7 +85,7 @@ pub trait BuildChildrenTransformExt {
     /// (during [`apply_deferred`](bevy_ecs::schedule::apply_deferred)).
     fn remove_parent_in_place(&mut self) -> &mut Self;
 }
-impl<'w, 's> BuildChildrenTransformExt for EntityCommands<'w, 's> {
+impl BuildChildrenTransformExt for EntityCommands<'_> {
     fn set_parent_in_place(&mut self, parent: Entity) -> &mut Self {
         let child = self.id();
         self.commands().add(PushChildInPlace { child, parent });
