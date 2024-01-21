@@ -300,7 +300,7 @@ pub trait ComputedStates: States {
     /// containing multiple implementors of [`States`].
     type SourceStates: StateSet;
 
-    /// This function gets called whenever one of the [`SourceStates`](Self::SourceStates) changes.
+    /// This function gets called whenever one of the [`SourceStates`] changes.
     /// The result is used to set the value of [`State<Self>`].
     ///
     /// If the result is [`None`], the [`State<Self>`] resource will be removed from the world.
@@ -308,7 +308,7 @@ pub trait ComputedStates: States {
         sources: <<Self as ComputedStates>::SourceStates as StateSet>::Optionals,
     ) -> Option<Self>;
 
-    /// This function sets up systems that compute the state whenever one of the [`SourceStates`](Self::SourceStates)
+    /// This function sets up systems that compute the state whenever one of the [`SourceStates`]
     /// change. It is called by `App::add_computed_state`, but can be called manually if `App` is not
     /// used.
     fn register_state_compute_systems_in_schedule(schedules: &mut Schedules) {
@@ -535,7 +535,6 @@ mod tests {
 
         ComplexComputedState::register_state_compute_systems_in_schedule(&mut schedules);
 
-        println!("Got here");
         let mut apply_changes = Schedule::new(TemporaryScheduleLabel);
         apply_changes.add_systems(apply_state_transition::<SimpleState>);
         apply_changes.add_systems(apply_state_transition::<OtherState>);
@@ -543,7 +542,6 @@ mod tests {
 
         world.insert_resource(schedules);
 
-        println!("Running schedule");
         world.run_schedule(TemporaryScheduleLabel);
         assert_eq!(world.resource::<State<SimpleState>>().0, SimpleState::A);
         assert_eq!(
@@ -552,12 +550,9 @@ mod tests {
         );
         assert!(!world.contains_resource::<State<ComplexComputedState>>());
 
-        println!("Doesn't Contains resource");
-
         world.insert_resource(NextState::Set(SimpleState::B(true)));
         world.run_schedule(TemporaryScheduleLabel);
         assert!(!world.contains_resource::<State<ComplexComputedState>>());
-        println!("Still doesn't contain resource");
 
         world.insert_resource(NextState::Set(OtherState {
             a_flexible_value: "felix",
@@ -568,7 +563,6 @@ mod tests {
             world.resource::<State<ComplexComputedState>>().0,
             ComplexComputedState::InTrueBAndUsizeAbove8
         );
-        println!("B true and unsuized");
 
         world.insert_resource(NextState::Set(SimpleState::A));
         world.insert_resource(NextState::Set(OtherState {
@@ -580,7 +574,6 @@ mod tests {
             world.resource::<State<ComplexComputedState>>().0,
             ComplexComputedState::InAAndStrIsBobOrJane
         );
-        println!("Jane");
 
         world.insert_resource(NextState::Set(SimpleState::B(false)));
         world.insert_resource(NextState::Set(OtherState {
@@ -589,6 +582,5 @@ mod tests {
         }));
         world.run_schedule(TemporaryScheduleLabel);
         assert!(!world.contains_resource::<State<ComplexComputedState>>());
-        println!("No longer contains");
     }
 }
