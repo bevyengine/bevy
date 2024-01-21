@@ -38,6 +38,16 @@ pub struct Aabb2d {
 }
 
 impl Aabb2d {
+    /// Constructs an AABB from its center and half-size.
+    #[inline(always)]
+    pub fn new(center: Vec2, half_size: Vec2) -> Self {
+        debug_assert!(half_size.x >= 0.0 && half_size.y >= 0.0);
+        Self {
+            min: center - half_size,
+            max: center + half_size,
+        }
+    }
+
     /// Computes the smallest [`Aabb2d`] containing the given set of points,
     /// transformed by `translation` and `rotation`.
     ///
@@ -248,7 +258,7 @@ pub struct BoundingCircle {
 }
 
 impl BoundingCircle {
-    /// Construct a bounding circle from its center and radius
+    /// Constructs a bounding circle from its center and radius.
     #[inline(always)]
     pub fn new(center: Vec2, radius: f32) -> Self {
         debug_assert!(radius >= 0.);
