@@ -31,8 +31,8 @@ pub use async_io::block_on;
 #[cfg(not(feature = "async-io"))]
 pub use futures_lite::future::block_on;
 
-pub mod vec;
 mod iter;
+mod vec;
 pub use futures_lite;
 pub use iter::*;
 

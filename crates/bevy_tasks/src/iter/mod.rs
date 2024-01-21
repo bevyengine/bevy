@@ -74,29 +74,23 @@ where
     C: Consumer<P::Item>,
 {
     let splitter = LengthSplitter::new(producer.min_len(), producer.max_len(), len);
-    return helper(len, false, splitter, producer, consumer);
+    return helper(len, splitter, producer, consumer);
 
-    fn helper<P, C>(
-        len: usize,
-        migrated: bool,
-        mut splitter: LengthSplitter,
-        producer: P,
-        consumer: C,
-    ) -> C::Result
+    fn helper<P, C>(len: usize, mut splitter: LengthSplitter, producer: P, consumer: C) -> C::Result
     where
         P: Producer,
         C: Consumer<P::Item>,
     {
         if consumer.full() {
             consumer.into_folder().complete()
-        } else if splitter.try_split(len, migrated) {
+        } else if splitter.try_split(len) {
             let mid = len / 2;
             let (left_producer, right_producer) = producer.split_at(mid);
             let (left_consumer, right_consumer, reducer) = consumer.split_at(mid);
             let (left_result, right_result) = join(
                 ComputeTaskPool::get(),
-                || helper(mid, false, splitter, left_producer, left_consumer),
-                || helper(len - mid, false, splitter, right_producer, right_consumer),
+                || helper(mid, splitter, left_producer, left_consumer),
+                || helper(len - mid, splitter, right_producer, right_consumer),
             );
             reducer.reduce(left_result, right_result)
         } else {
@@ -659,15 +653,10 @@ impl Splitter {
     }
 
     #[inline]
-    fn try_split(&mut self, stolen: bool) -> bool {
+    fn try_split(&mut self) -> bool {
         let Splitter { splits } = *self;
 
-        if stolen {
-            // This job was stolen!  Reset the number of desired splits to the
-            // thread count, if that's more than we had remaining anyway.
-            self.splits = cmp::max(compute_task_pool_thread_num(), self.splits / 2);
-            true
-        } else if splits > 0 {
+        if splits > 0 {
             // We have splits remaining, make it so.
             self.splits /= 2;
             true
@@ -721,8 +710,8 @@ impl LengthSplitter {
     }
 
     #[inline]
-    fn try_split(&mut self, len: usize, stolen: bool) -> bool {
+    fn try_split(&mut self, len: usize) -> bool {
         // If splitting wouldn't make us too small, try the inner splitter.
-        len / 2 >= self.min && self.inner.try_split(stolen)
+        len / 2 >= self.min && self.inner.try_split()
     }
 }
