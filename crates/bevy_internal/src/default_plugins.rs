@@ -100,30 +100,21 @@ impl Plugin for IgnoreAmbiguitiesPlugin {
     }
 }
 
-/// This plugin group will add the minimal plugins for a *Bevy* application:
-/// * [`TaskPoolPlugin`](crate::core::TaskPoolPlugin)
-/// * [`TypeRegistrationPlugin`](crate::core::TypeRegistrationPlugin)
-/// * [`FrameCountPlugin`](crate::core::FrameCountPlugin)
-/// * [`TimePlugin`](crate::time::TimePlugin)
-/// * [`ScheduleRunnerPlugin`](crate::app::ScheduleRunnerPlugin)
-///
-/// This group of plugins is intended for use for minimal, *headless* programs –
-/// see the [*Bevy* *headless* example](https://github.com/bevyengine/bevy/blob/main/examples/app/headless.rs)
-/// – and includes a [schedule runner (`ScheduleRunnerPlugin`)](crate::app::ScheduleRunnerPlugin)
-/// to provide functionality that would otherwise be driven by a windowed application's
-/// *event loop* or *message loop*.
-///
-/// Windowed applications that wish to use a reduced set of plugins should consider the
-/// [`DefaultPlugins`] plugin group which can be controlled with *Cargo* *feature* flags.
-pub struct MinimalPlugins;
-
-impl PluginGroup for MinimalPlugins {
-    fn build(self) -> PluginGroupBuilder {
-        PluginGroupBuilder::start::<Self>()
-            .add(bevy_core::TaskPoolPlugin::default())
-            .add(bevy_core::TypeRegistrationPlugin)
-            .add(bevy_core::FrameCountPlugin)
-            .add(bevy_time::TimePlugin)
-            .add(bevy_app::ScheduleRunnerPlugin::default())
+plugin_group!(
+    /// This plugin group will add the minimal plugins for a *Bevy* application:
+    MinimalPlugins {
+        bevy_core:::TaskPoolPlugin,
+        bevy_core:::TypeRegistrationPlugin,
+        bevy_core:::FrameCountPlugin,
+        bevy_time:::TimePlugin,
+        bevy_app:::ScheduleRunnerPlugin,
     }
-}
+    /// This group of plugins is intended for use for minimal, *headless* programs –
+    /// see the [*Bevy* *headless* example](https://github.com/bevyengine/bevy/blob/main/examples/app/headless.rs)
+    /// – and includes a [schedule runner (`ScheduleRunnerPlugin`)](crate::app::ScheduleRunnerPlugin)
+    /// to provide functionality that would otherwise be driven by a windowed application's
+    /// *event loop* or *message loop*.
+    ///
+    /// Windowed applications that wish to use a reduced set of plugins should consider the
+    /// [`DefaultPlugins`] plugin group which can be controlled with *Cargo* *feature* flags.
+);
