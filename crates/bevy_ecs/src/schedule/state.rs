@@ -47,6 +47,18 @@ use super::{InternedScheduleLabel, IntoSystemConfigs, Schedule, Schedules};
 /// ```
 pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug {}
 
+pub trait StateMutation: States {
+    type MutationType: state_mutation_types::StateMutationType;
+}
+
+pub mod state_mutation_types {
+    pub trait StateMutationType {}
+    pub struct Free;
+    impl StateMutationType for Free {}
+    pub struct Computed;
+    impl StateMutationType for Computed {}
+}
+
 /// The label of a [`Schedule`] that runs whenever [`State<S>`]
 /// enters this state.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
@@ -184,7 +196,7 @@ pub enum NextState<S: States> {
     Remove,
 }
 
-impl<S: States> NextState<S> {
+impl<S: StateMutation<MutationType = state_mutation_types::Free>> NextState<S> {
     /// Tentatively set a planned state transition to `Some(state)`.
     pub fn set(&mut self, state: S) {
         *self = Self::Set(state);
@@ -506,6 +518,7 @@ mod tests {
     }
 
     #[derive(States, PartialEq, Eq, Debug, Hash, Clone)]
+    #[compute]
     enum TestComputedState {
         BisTrue,
         BisFalse,
@@ -576,6 +589,7 @@ mod tests {
     }
 
     #[derive(States, PartialEq, Eq, Debug, Hash, Clone)]
+    #[compute]
     enum ComplexComputedState {
         InAAndStrIsBobOrJane,
         InTrueBAndUsizeAbove8,

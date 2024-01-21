@@ -511,7 +511,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     component::derive_component(input)
 }
 
-#[proc_macro_derive(States)]
+#[proc_macro_derive(States, attributes(compute))]
 pub fn derive_states(input: TokenStream) -> TokenStream {
     states::derive_states(input)
 }

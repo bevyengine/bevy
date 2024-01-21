@@ -6,7 +6,7 @@ use bevy_ecs::{
         apply_state_transition, common_conditions::run_once as run_once_condition,
         run_enter_schedule, setup_state_transitions_in_world, ComputedStates,
         InternedScheduleLabel, IntoSystemConfigs, IntoSystemSetConfigs, ManualStateTransitions,
-        ScheduleBuildSettings, ScheduleLabel, StateTransitionEvent,
+        ScheduleBuildSettings, ScheduleLabel, StateTransitionEvent, StateMutation, state_mutation_types,
     },
 };
 use bevy_utils::{intern::Interned, thiserror::Error, tracing::debug, HashMap, HashSet};
@@ -365,7 +365,7 @@ impl App {
     ///
     /// Note that you can also apply state transitions at other points in the schedule
     /// by adding the [`apply_state_transition`] system manually.
-    pub fn init_state<S: States + FromWorld>(&mut self) -> &mut Self {
+    pub fn init_state<S: States + StateMutation<MutationType = state_mutation_types::Free> + FromWorld>(&mut self) -> &mut Self {
         if !self.world.contains_resource::<State<S>>() {
             setup_state_transitions_in_world(&mut self.world);
             self.init_resource::<State<S>>()
@@ -403,7 +403,7 @@ impl App {
     ///
     /// Note that you can also apply state transitions at other points in the schedule
     /// by adding the [`apply_state_transition`] system manually.
-    pub fn insert_state<S: States>(&mut self, state: S) -> &mut Self {
+    pub fn insert_state<S: States + StateMutation<MutationType = state_mutation_types::Free>>(&mut self, state: S) -> &mut Self {
         setup_state_transitions_in_world(&mut self.world);
         self.insert_resource(State::new(state))
             .init_resource::<NextState<S>>()
@@ -435,9 +435,9 @@ impl App {
     /// If you would like to control how other systems run based on the current state,
     /// you can emulate this behavior using the [`in_state`] [`Condition`].
     pub fn add_computed_state<S: ComputedStates>(&mut self) -> &mut Self {
-        if !self.world.contains_resource::<NextState<S>>() {
+        if !self.world.contains_resource::<Events<StateTransitionEvent<S>>>() {
             setup_state_transitions_in_world(&mut self.world);
-            self.init_resource::<NextState<S>>()
+            self
                 .add_event::<StateTransitionEvent<S>>();
             let mut schedules = self.world.resource_mut::<Schedules>();
             S::register_state_compute_systems_in_schedule(schedules.as_mut());
