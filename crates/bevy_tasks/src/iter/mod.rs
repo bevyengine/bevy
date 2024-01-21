@@ -2,10 +2,13 @@ use std::cmp;
 
 use crate::{compute_task_pool_thread_num, ComputeTaskPool, TaskPool};
 
+use self::map::Map;
+
 mod collect;
 mod extend;
 mod for_each;
 mod from_par_iter;
+mod map;
 mod noop;
 
 // pub use self::collect::special_extend;
@@ -291,6 +294,30 @@ pub trait ParallelIterator: Sized + Send {
         for_each::for_each(self, &op)
     }
 
+    /// Applies `map_op` to each item of this iterator, producing a new
+    /// iterator with the results.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rayon::prelude::*;
+    ///
+    /// let mut par_iter = (0..5).into_par_iter().map(|x| x * 2);
+    ///
+    /// let doubles: Vec<_> = par_iter.collect();
+    ///
+    /// assert_eq!(&doubles[..], &[0, 2, 4, 6, 8]);
+    /// ```
+    fn map<F, R>(self, map_op: F) -> Map<Self, F>
+    where
+        F: Fn(Self::Item) -> R + Sync + Send,
+        R: Send,
+    {
+        Map::new(self, map_op)
+    }
+
+    /// Creates a fresh collection containing all the elements produced
+    /// by this parallel iterator.
     fn collect<C>(self) -> C
     where
         C: FromParallelIterator<Self::Item>,
@@ -333,6 +360,12 @@ pub trait ParallelIterator: Sized + Send {
     }
 }
 
+/// An iterator that supports "random access" to its data, meaning
+/// that you can split it at arbitrary indices and draw data from
+/// those points.
+///
+/// **Note:** Not implemented for `u64`, `i64`, `u128`, or `i128` ranges
+// Waiting for `ExactSizeIterator::is_empty` to be stabilized. See rust-lang/rust#35428
 pub trait IndexedParallelIterator: ParallelIterator {
     /// Produces an exact count of how many items this iterator will
     /// produce, presuming no panic occurs.
@@ -648,7 +681,7 @@ impl Splitter {
     #[inline]
     fn new() -> Splitter {
         Splitter {
-            splits: compute_task_pool_thread_num(),
+            splits: compute_task_pool_thread_num() * 2,
         }
     }
 
