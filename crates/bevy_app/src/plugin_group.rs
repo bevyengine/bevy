@@ -34,11 +34,13 @@ use std::any::TypeId;
 /// # }
 /// plugin_group!(
 ///     PhysicsPlugins {
-///         // Due to local ambiguity issues,
-///         // you have to use 3 semicolons for the last part of the path
-///         velocity:::VelocityPlugin,
-///         collision::capsule:::CapsuleCollisionPlugin,
+///         // Due to local ambiguity issues, you have to
+///         // use a semicolon before the plugin's name.
 ///         :TickratePlugin,
+///         // Due to local ambiguity issues, you have to
+///         // use 3 semicolons for the last part of the path.
+///         collision::capsule:::CapsuleCollisionPlugin,
+///         velocity:::VelocityPlugin,
 ///         #[cfg(feature = "external_forces")]
 ///         features:::ForcePlugin,
 ///         // You can add any attribute you want like this, but it won't be documented.
