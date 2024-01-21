@@ -35,10 +35,10 @@ use std::any::TypeId;
 /// plugin_group!(
 ///     PhysicsPlugins {
 ///         // Due to local ambiguity issues, you have to
-///         // use a semicolon before the plugin's name.
+///         // use a colon before the plugin's name.
 ///         :TickratePlugin,
 ///         // Due to local ambiguity issues, you have to
-///         // use 3 semicolons for the last part of the path.
+///         // use 3 colons for the last part of the path.
 ///         collision::capsule:::CapsuleCollisionPlugin,
 ///         velocity:::VelocityPlugin,
 ///         #[cfg(feature = "external_forces")]
