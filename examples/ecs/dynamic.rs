@@ -186,7 +186,7 @@ fn main() {
 }
 
 // Constructs `OwningPtr` for each item in `data`
-// By sharing the lifetime of `data` with the resulting ptrs we ensure drop the data before use
+// By sharing the lifetime of `data` with the resulting ptrs we ensure we don't drop the data before use
 fn to_owning_ptrs(data: &mut [Vec<u64>]) -> Vec<OwningPtr<Aligned>> {
     let mut ptrs = Vec::new();
     for data in data.iter_mut() {
