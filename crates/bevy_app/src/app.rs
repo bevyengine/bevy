@@ -4,9 +4,9 @@ use bevy_ecs::{
     prelude::*,
     schedule::{
         apply_state_transition, common_conditions::run_once as run_once_condition,
-        run_enter_schedule, setup_state_transitions_in_app, ComputedStates, InternedScheduleLabel,
-        IntoSystemConfigs, IntoSystemSetConfigs, ManualStateTransitions, ScheduleBuildSettings,
-        ScheduleLabel, StateTransitionEvent,
+        run_enter_schedule, setup_state_transitions_in_world, ComputedStates,
+        InternedScheduleLabel, IntoSystemConfigs, IntoSystemSetConfigs, ManualStateTransitions,
+        ScheduleBuildSettings, ScheduleLabel, StateTransitionEvent,
     },
 };
 use bevy_utils::{intern::Interned, thiserror::Error, tracing::debug, HashMap, HashSet};
@@ -355,8 +355,8 @@ impl App {
     ///
     /// Adds [`State<S>`] and [`NextState<S>`] resources, [`OnEnter`] and [`OnExit`] schedules
     /// for each state variant (if they don't already exist), an instance of [`apply_state_transition::<S>`] in
-    /// [`StateTransition`] so that transitions happen before [`Update`](crate::Update) and
-    /// a instance of [`run_enter_schedule::<S>`] in [`StateTransition`] with a
+    /// [`ManualStateTransitions`] so that transitions happen before [`Update`](crate::Update) and
+    /// a instance of [`run_enter_schedule::<S>`] in [`ManualStateTransitions`] with a
     /// [`run_once`](`run_once_condition`) condition to run the on enter schedule of the
     /// initial state.
     ///
@@ -367,7 +367,7 @@ impl App {
     /// by adding the [`apply_state_transition`] system manually.
     pub fn init_state<S: States + FromWorld>(&mut self) -> &mut Self {
         if !self.world.contains_resource::<State<S>>() {
-            setup_state_transitions_in_app(&mut self.world);
+            setup_state_transitions_in_world(&mut self.world);
             self.init_resource::<State<S>>()
                 .init_resource::<NextState<S>>()
                 .add_event::<StateTransitionEvent<S>>()
@@ -393,8 +393,8 @@ impl App {
     ///
     /// Adds [`State<S>`] and [`NextState<S>`] resources, [`OnEnter`] and [`OnExit`] schedules
     /// for each state variant (if they don't already exist), an instance of [`apply_state_transition::<S>`] in
-    /// [`StateTransition`] so that transitions happen before [`Update`](crate::Update) and
-    /// a instance of [`run_enter_schedule::<S>`] in [`StateTransition`] with a
+    /// [`ManualStateTransitions`] so that transitions happen before [`Update`](crate::Update) and
+    /// a instance of [`run_enter_schedule::<S>`] in [`ManualStateTransitions`] with a
     /// [`run_once`](`run_once_condition`) condition to run the on enter schedule of the
     /// initial state.
     ///
@@ -404,7 +404,7 @@ impl App {
     /// Note that you can also apply state transitions at other points in the schedule
     /// by adding the [`apply_state_transition`] system manually.
     pub fn insert_state<S: States>(&mut self, state: S) -> &mut Self {
-        setup_state_transitions_in_app(&mut self.world);
+        setup_state_transitions_in_world(&mut self.world);
         self.insert_resource(State::new(state))
             .init_resource::<NextState<S>>()
             .add_event::<StateTransitionEvent<S>>()
@@ -436,7 +436,7 @@ impl App {
     /// you can emulate this behavior using the [`in_state`] [`Condition`].
     pub fn add_computed_state<S: ComputedStates>(&mut self) -> &mut Self {
         if !self.world.contains_resource::<NextState<S>>() {
-            setup_state_transitions_in_app(&mut self.world);
+            setup_state_transitions_in_world(&mut self.world);
             self.init_resource::<NextState<S>>()
                 .add_event::<StateTransitionEvent<S>>();
             let mut schedules = self.world.resource_mut::<Schedules>();
