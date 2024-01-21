@@ -23,6 +23,7 @@ fn fragment(
 ) -> prepass_io::FragmentOutput {
 #ifdef MESHLET_MESH_MATERIAL_PASS
     let in = resolve_vertex_output(frag_coord);
+    let is_front = true;
 #else
     pbr_prepass_functions::prepass_alpha_discard(in);
 #endif
@@ -58,6 +59,10 @@ fn fragment(
             in.uv,
 #endif // VERTEX_UVS
             view.mip_bias,
+#ifdef MESHLET_MESH_MATERIAL_PASS
+            in.ddx_uv,
+            in.ddy_uv,
+#endif // MESHLET_MESH_MATERIAL_PASS
         );
 
         out.normal = vec4(normal * 0.5 + vec3(0.5), 1.0);

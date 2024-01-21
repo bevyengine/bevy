@@ -31,14 +31,11 @@ fn fragment(
 ) -> FragmentOutput {
 #ifdef MESHLET_MESH_MATERIAL_PASS
     let in = resolve_vertex_output(frag_coord);
+    let is_front = true;
 #endif
 
     // generate a PbrInput struct from the StandardMaterial bindings
-#ifdef MESHLET_MESH_MATERIAL_PASS
-    var pbr_input = pbr_input_from_standard_material(in, true);
-#else
     var pbr_input = pbr_input_from_standard_material(in, is_front);
-#endif
 
     // alpha discard
     pbr_input.material.base_color = alpha_discard(pbr_input.material, pbr_input.material.base_color);
