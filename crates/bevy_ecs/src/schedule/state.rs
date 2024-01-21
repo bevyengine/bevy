@@ -48,13 +48,13 @@ use super::{InternedScheduleLabel, Schedule, Schedules};
 pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug {}
 
 /// Type defining the approach used to mutate [`Self`] when it implements [`State`].
-/// 
+///
 /// The type itself is auto-implemented for [`ComputedStates`], and an implementation
 /// is included in the derive for [`States`] as well. However - if you are manually
 /// implementing [`States`], you will need to add an implementation yourself.
 pub trait StateMutation: States {
     /// The manner in which we can mutate [`Self`]
-    /// 
+    ///
     /// There are 2 built in approaches:
     /// - [`Free`](`state_mutation_types::Free`) mutation enables the use of the `NextState<Self>`
     ///   resource to mutate the state.
@@ -64,7 +64,7 @@ pub trait StateMutation: States {
 }
 
 /// A trait defining the available approaches for modifying [`States`].
-/// 
+///
 /// The trait is sealed.
 pub trait StateMutationType: sealed::StateMutationTypeSealed {}
 
@@ -389,7 +389,9 @@ pub fn setup_state_transitions_in_world(world: &mut World) {
 /// - Runs the [`OnTransition { from: exited_state, to: entered_state }`](OnTransition), if it exists.
 /// - Derive any dependant states through the [`ComputeDependantStates::<S>`] schedule, if it exists.
 /// - Runs the [`OnEnter(entered_state)`] schedule, if it exists.
-pub fn apply_state_transition<S: StateMutation<MutationType = FreeStateMutation>>(world: &mut World) {
+pub fn apply_state_transition<S: StateMutation<MutationType = FreeStateMutation>>(
+    world: &mut World,
+) {
     // We want to take the `NextState` resource,
     // but only mark it as changed if it wasn't empty.
     let Some(next_state_resource) = world.get_resource::<NextState<S>>() else {
