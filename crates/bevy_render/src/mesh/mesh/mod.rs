@@ -574,6 +574,8 @@ impl Mesh {
 
     /// Merges the [`Mesh`] data of `other` with `self`. The attributes and indices of `other` will be appended to `self`.
     ///
+    /// Note that attributes of `other` that don't exist on `self` will be ignored.
+    ///
     /// # Panics
     ///
     /// Panics if the vertex attribute values of `other` are incompatible with `self`.
@@ -583,7 +585,10 @@ impl Mesh {
         use VertexAttributeValues::*;
 
         // The indices of `other` should start after the last vertex of `self`.
-        let index_offset = self.count_vertices();
+        let index_offset = self
+            .attribute(Mesh::ATTRIBUTE_POSITION)
+            .get_or_insert(&VertexAttributeValues::Float32x3(Vec::default()))
+            .len();
 
         // Extend attributes of `self` with attributes of `other`.
         for (id, values) in self.attributes_mut() {
