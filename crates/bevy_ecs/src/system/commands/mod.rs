@@ -153,10 +153,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # #[derive(Component)]
     /// fn my_system(mut commands: Commands) {
-    ///     commands.spawn(Name::new("Hello, World"));
-    ///
     ///     // We do our initialization in a separate function,
     ///     // which expects an owned `Commands`.
     ///     do_initialization(commands.reborrow());
