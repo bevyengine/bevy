@@ -1,6 +1,6 @@
 use std::cmp;
 
-use crate::task_pool::compute_task_pool_thread_num;
+use crate::{compute_task_pool_thread_num, ComputeTaskPool, TaskPool};
 
 mod collect;
 mod extend;
@@ -47,6 +47,26 @@ where
     }
 }
 
+fn join<A, B, RA, RB>(pool: &TaskPool, op_a: A, op_b: B) -> (RA, RB)
+where
+    A: FnOnce() -> RA + Send,
+    B: FnOnce() -> RB + Send,
+    RA: Send,
+    RB: Send,
+{
+    let mut ra = None;
+    let mut rb = None;
+    pool.scope(|s| {
+        s.spawn(async {
+            ra = Some(op_a());
+        });
+        s.spawn(async {
+            rb = Some(op_b());
+        });
+    });
+    (ra.unwrap(), rb.unwrap())
+}
+
 /// todo
 pub fn bridge_producer_consumer<P, C>(len: usize, producer: P, consumer: C) -> C::Result
 where
@@ -67,38 +87,21 @@ where
         P: Producer,
         C: Consumer<P::Item>,
     {
-        println!("222");
-        todo!();
-        // if consumer.full() {
-        //     consumer.into_folder().complete()
-        // } else if splitter.try_split(len, migrated) {
-        //     let mid = len / 2;
-        //     let (left_producer, right_producer) = producer.split_at(mid);
-        //     let (left_consumer, right_consumer, reducer) = consumer.split_at(mid);
-        //     let (left_result, right_result) = join_context(
-        //         |context| {
-        //             helper(
-        //                 mid,
-        //                 context.migrated(),
-        //                 splitter,
-        //                 left_producer,
-        //                 left_consumer,
-        //             )
-        //         },
-        //         |context| {
-        //             helper(
-        //                 len - mid,
-        //                 context.migrated(),
-        //                 splitter,
-        //                 right_producer,
-        //                 right_consumer,
-        //             )
-        //         },
-        //     );
-        //     reducer.reduce(left_result, right_result)
-        // } else {
-        //     producer.fold_with(consumer.into_folder()).complete()
-        // }
+        if consumer.full() {
+            consumer.into_folder().complete()
+        } else if splitter.try_split(len, migrated) {
+            let mid = len / 2;
+            let (left_producer, right_producer) = producer.split_at(mid);
+            let (left_consumer, right_consumer, reducer) = consumer.split_at(mid);
+            let (left_result, right_result) = join(
+                ComputeTaskPool::get(),
+                || helper(mid, false, splitter, left_producer, left_consumer),
+                || helper(len - mid, false, splitter, right_producer, right_consumer),
+            );
+            reducer.reduce(left_result, right_result)
+        } else {
+            producer.fold_with(consumer.into_folder()).complete()
+        }
     }
 }
 
@@ -651,7 +654,7 @@ impl Splitter {
     #[inline]
     fn new() -> Splitter {
         Splitter {
-            splits: crate::task_pool::compute_task_pool_thread_num(),
+            splits: compute_task_pool_thread_num(),
         }
     }
 
@@ -662,10 +665,7 @@ impl Splitter {
         if stolen {
             // This job was stolen!  Reset the number of desired splits to the
             // thread count, if that's more than we had remaining anyway.
-            self.splits = cmp::max(
-                crate::task_pool::compute_task_pool_thread_num(),
-                self.splits / 2,
-            );
+            self.splits = cmp::max(compute_task_pool_thread_num(), self.splits / 2);
             true
         } else if splits > 0 {
             // We have splits remaining, make it so.

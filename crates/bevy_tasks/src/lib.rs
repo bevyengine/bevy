@@ -19,7 +19,7 @@ pub use single_threaded_task_pool::{FakeTask, Scope, TaskPool, TaskPoolBuilder, 
 mod usages;
 #[cfg(not(target_arch = "wasm32"))]
 pub use usages::tick_global_task_pools_on_main_thread;
-pub use usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool};
+pub use usages::{compute_task_pool_thread_num, AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool};
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
 mod thread_executor;
@@ -31,6 +31,7 @@ pub use async_io::block_on;
 #[cfg(not(feature = "async-io"))]
 pub use futures_lite::future::block_on;
 
+pub mod vec;
 mod iter;
 pub use futures_lite;
 pub use iter::*;

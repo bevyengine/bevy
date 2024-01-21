@@ -675,11 +675,6 @@ where
     }
 }
 
-pub fn compute_task_pool_thread_num() -> usize {
-    ComputeTaskPool::try_get()
-        .map(|p| p.thread_num())
-        .unwrap_or(1)
-}
 #[cfg(test)]
 #[allow(clippy::disallowed_types)]
 mod tests {

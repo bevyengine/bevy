@@ -1,5 +1,5 @@
+use super::{Consumer, Folder, ParallelIterator, Reducer, UnindexedConsumer};
 use std::{marker::PhantomData, ptr, slice};
-use super::{Consumer, Folder, Reducer, UnindexedConsumer, ParallelIterator};
 
 /// We need to transmit raw pointers across threads. It is possible to do this
 /// without any unsafe code by converting pointers to usize or to AtomicPtr<T>

@@ -8,11 +8,10 @@ use web_time::{Duration, Instant};
 fn main() {
     let pool = TaskPoolBuilder::new()
         .thread_name("Busy Behavior ThreadPool".to_string())
-        .num_threads(4)
+        .num_threads(20)
         .build();
 
     let t0 = Instant::now();
-    let a =vec![1,2,3];
     pool.scope(|s| {
         for i in 0..40 {
             s.spawn(async move {

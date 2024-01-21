@@ -74,6 +74,13 @@ taskpool! {
     (IO_TASK_POOL, IoTaskPool)
 }
 
+
+pub fn compute_task_pool_thread_num() -> usize {
+    ComputeTaskPool::try_get()
+        .map(|p| p.thread_num())
+        .unwrap_or(1)
+}
+
 /// A function used by `bevy_core` to tick the global tasks pools on the main thread.
 /// This will run a maximum of 100 local tasks per executor per call to this function.
 ///
