@@ -117,10 +117,11 @@ fn main() {
                     // Calculate the length for the array based on the layout created for this component id
                     let info = world.components().get_info(id).unwrap();
                     let len = info.layout().size() / std::mem::size_of::<u64>();
-                    let values: Vec<u64> = component
+                    let mut values: Vec<u64> = component
                         .take(len)
                         .filter_map(|value| value.parse::<u64>().ok())
                         .collect();
+                    values.resize(len, 0);
 
                     // Collect the id and array to be inserted onto our entity
                     to_insert_ids.push(id);
