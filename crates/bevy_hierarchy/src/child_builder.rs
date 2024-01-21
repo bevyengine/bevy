@@ -282,7 +282,7 @@ pub struct ChildBuilder<'a> {
 impl ChildBuilder<'_> {
     /// Spawns an entity with the given bundle and inserts it into the parent entity's [`Children`].
     /// Also adds [`Parent`] component to the created entity.
-    pub fn spawn(&mut self, bundle: impl Bundle) -> EntityCommands<'_> {
+    pub fn spawn(&mut self, bundle: impl Bundle) -> EntityCommands {
         let e = self.commands.spawn(bundle);
         self.push_children.children.push(e.id());
         e
@@ -290,7 +290,7 @@ impl ChildBuilder<'_> {
 
     /// Spawns an [`Entity`] with no components and inserts it into the parent entity's [`Children`].
     /// Also adds [`Parent`] component to the created entity.
-    pub fn spawn_empty(&mut self) -> EntityCommands<'_> {
+    pub fn spawn_empty(&mut self) -> EntityCommands {
         let e = self.commands.spawn_empty();
         self.push_children.children.push(e.id());
         e

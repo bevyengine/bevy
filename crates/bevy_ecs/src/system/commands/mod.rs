@@ -211,7 +211,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// - [`spawn`](Self::spawn) to spawn an entity with a bundle.
     /// - [`spawn_batch`](Self::spawn_batch) to spawn entities with a bundle each.
-    pub fn spawn_empty(&mut self) -> EntityCommands<'_> {
+    pub fn spawn_empty(&mut self) -> EntityCommands {
         let entity = self.entities.reserve_entity();
         EntityCommands {
             entity,
@@ -233,7 +233,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// [`Commands::spawn`]. This method should generally only be used for sharing entities across
     /// apps, and only when they have a scheme worked out to share an ID space (which doesn't happen
     /// by default).
-    pub fn get_or_spawn(&mut self, entity: Entity) -> EntityCommands<'_> {
+    pub fn get_or_spawn(&mut self, entity: Entity) -> EntityCommands {
         self.add(move |world: &mut World| {
             world.get_or_spawn(entity);
         });
@@ -293,7 +293,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// - [`spawn_empty`](Self::spawn_empty) to spawn an entity without any components.
     /// - [`spawn_batch`](Self::spawn_batch) to spawn entities with a bundle each.
-    pub fn spawn<T: Bundle>(&mut self, bundle: T) -> EntityCommands<'_> {
+    pub fn spawn<T: Bundle>(&mut self, bundle: T) -> EntityCommands {
         let mut e = self.spawn_empty();
         e.insert(bundle);
         e
@@ -335,7 +335,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// - [`get_entity`](Self::get_entity) for the fallible version.
     #[inline]
     #[track_caller]
-    pub fn entity(&mut self, entity: Entity) -> EntityCommands<'_> {
+    pub fn entity(&mut self, entity: Entity) -> EntityCommands {
         #[inline(never)]
         #[cold]
         #[track_caller]
@@ -384,7 +384,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// - [`entity`](Self::entity) for the panicking version.
     #[inline]
     #[track_caller]
-    pub fn get_entity(&mut self, entity: Entity) -> Option<EntityCommands<'_>> {
+    pub fn get_entity(&mut self, entity: Entity) -> Option<EntityCommands> {
         self.entities.contains(entity).then_some(EntityCommands {
             entity,
             commands: self.reborrow(),
@@ -725,7 +725,7 @@ impl EntityCommands<'_> {
 
     /// Returns an [`EntityCommands`] with a smaller lifetime.
     /// This is useful if you have `&mut EntityCommands` but you need `EntityCommands`.
-    pub fn reborrow(&mut self) -> EntityCommands<'_> {
+    pub fn reborrow(&mut self) -> EntityCommands {
         EntityCommands {
             entity: self.entity,
             commands: self.commands.reborrow(),
@@ -990,7 +990,7 @@ impl EntityCommands<'_> {
     }
 
     /// Returns the underlying [`Commands`].
-    pub fn commands(&mut self) -> Commands<'_, '_> {
+    pub fn commands(&mut self) -> Commands {
         self.commands.reborrow()
     }
 }
