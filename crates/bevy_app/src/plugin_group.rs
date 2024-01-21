@@ -2,6 +2,48 @@ use crate::{App, AppError, Plugin};
 use bevy_utils::{tracing::debug, tracing::warn, HashMap};
 use std::any::TypeId;
 
+#[macro_export]
+macro_rules! plugin_group {
+    (
+        $(#[$group_meta:meta])*
+        $group:ident {
+            $(
+                $(#[cfg(feature = $feature:literal)])?
+                $(#[custom($plugin_meta:meta)])*
+                $($plugin_path:ident::)* : $plugin_name:ident
+            ),*$(,)?
+        }
+        $($(#[doc = $post_doc:literal])+)?
+    ) => {
+        $(#[$group_meta])*
+        ///
+        $(#[doc = concat!(
+            "* [`", stringify!($plugin_name), "`](" $(, stringify!($plugin_path), "::")*, stringify!($plugin_name), ")"
+            $(, " - with feature `", $feature, "`")?
+        )])*
+        $(
+            ///
+            $(#[doc = $post_doc])+
+        )?
+        pub struct $group;
+        impl PluginGroup for $group {
+            fn build(self) -> PluginGroupBuilder {
+                let mut group = PluginGroupBuilder::start::<Self>();
+
+                $(
+                    $(#[cfg(feature = $feature)])?
+                    $(#[$plugin_meta])*
+                    {
+                        group = group.add(<$($plugin_path::)*$plugin_name>::default());
+                    }
+                )*
+
+                group
+            }
+        }
+    };
+}
+
 /// Combines multiple [`Plugin`]s into a single unit.
 pub trait PluginGroup: Sized {
     /// Configures the [`Plugin`]s that are to be added.

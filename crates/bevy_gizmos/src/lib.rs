@@ -88,6 +88,7 @@ use std::{any::TypeId, mem};
 const LINE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(7414812689238026784);
 
 /// A [`Plugin`] that provides an immediate mode drawing api for visual debugging.
+#[derive(Default)]
 pub struct GizmoPlugin;
 
 impl Plugin for GizmoPlugin {
