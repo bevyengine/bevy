@@ -572,6 +572,90 @@ impl Mesh {
         Ok(self)
     }
 
+    /// Merges the [`Mesh`] data of `other` with `self`. The attributes and indices of `other` will be appended to `self`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the vertex attribute values of `other` are incompatible with `self`.
+    /// For example, [`VertexAttributeValues::Float32`] is incompatible with [`VertexAttributeValues::Float32x3`].
+    pub fn merge(&mut self, other: Mesh) {
+        use VertexAttributeValues::*;
+
+        // The indices of `other` should start after the last vertex of `self`.
+        let index_offset = self.count_vertices();
+
+        // Extend attributes of `self` with attributes of `other`.
+        for (id, values) in self.attributes_mut() {
+            let enum_variant_name = values.enum_variant_name();
+            if let Some(other_values) = other.attribute(id) {
+                match (values, other_values) {
+                    (Float32(vec1), Float32(vec2)) => vec1.extend(vec2),
+                    (Sint32(vec1), Sint32(vec2)) => vec1.extend(vec2),
+                    (Uint32(vec1), Uint32(vec2)) => vec1.extend(vec2),
+                    (Float32x2(vec1), Float32x2(vec2)) => vec1.extend(vec2),
+                    (Sint32x2(vec1), Sint32x2(vec2)) => vec1.extend(vec2),
+                    (Uint32x2(vec1), Uint32x2(vec2)) => vec1.extend(vec2),
+                    (Float32x3(vec1), Float32x3(vec2)) => vec1.extend(vec2),
+                    (Sint32x3(vec1), Sint32x3(vec2)) => vec1.extend(vec2),
+                    (Uint32x3(vec1), Uint32x3(vec2)) => vec1.extend(vec2),
+                    (Sint32x4(vec1), Sint32x4(vec2)) => vec1.extend(vec2),
+                    (Uint32x4(vec1), Uint32x4(vec2)) => vec1.extend(vec2),
+                    (Float32x4(vec1), Float32x4(vec2)) => vec1.extend(vec2),
+                    (Sint16x2(vec1), Sint16x2(vec2)) | (Snorm16x2(vec1), Snorm16x2(vec2)) => {
+                        vec1.extend(vec2);
+                    }
+                    (Uint16x2(vec1), Uint16x2(vec2)) | (Unorm16x2(vec1), Unorm16x2(vec2)) => {
+                        vec1.extend(vec2);
+                    }
+                    (Sint16x4(vec1), Sint16x4(vec2)) | (Snorm16x4(vec1), Snorm16x4(vec2)) => {
+                        vec1.extend(vec2);
+                    }
+                    (Uint16x4(vec1), Uint16x4(vec2)) | (Unorm16x4(vec1), Unorm16x4(vec2)) => {
+                        vec1.extend(vec2);
+                    }
+                    (Sint8x2(vec1), Sint8x2(vec2)) | (Snorm8x2(vec1), Snorm8x2(vec2)) => {
+                        vec1.extend(vec2);
+                    }
+                    (Uint8x2(vec1), Uint8x2(vec2)) => {
+                        vec1.extend(vec2);
+                    }
+                    (Unorm8x2(vec1), Unorm8x2(vec2)) => vec1.extend(vec2),
+                    (Sint8x4(vec1), Sint8x4(vec2)) => {
+                        vec1.extend(vec2);
+                    }
+                    (Snorm8x4(vec1), Snorm8x4(vec2)) => vec1.extend(vec2),
+                    (Uint8x4(vec1), Uint8x4(vec2)) => {
+                        vec1.extend(vec2);
+                    }
+                    (Unorm8x4(vec1), Unorm8x4(vec2)) => vec1.extend(vec2),
+                    _ => panic!(
+                        "Incompatible vertex attribute types {} and {}",
+                        enum_variant_name,
+                        other_values.enum_variant_name()
+                    ),
+                }
+            }
+        }
+
+        // Extend indices of `self` with indices of `other`.
+        if let (Some(indices), Some(other_indices)) = (self.indices_mut(), other.indices()) {
+            match (indices, other_indices) {
+                (Indices::U16(i1), Indices::U16(i2)) => {
+                    i1.extend(i2.iter().map(|i| *i + index_offset as u16));
+                }
+                (Indices::U32(i1), Indices::U32(i2)) => {
+                    i1.extend(i2.iter().map(|i| *i + index_offset as u32));
+                }
+                (Indices::U16(i1), Indices::U32(i2)) => {
+                    i1.extend(i2.iter().map(|i| *i as u16 + index_offset as u16));
+                }
+                (Indices::U32(i1), Indices::U16(i2)) => {
+                    i1.extend(i2.iter().map(|i| *i as u32 + index_offset as u32));
+                }
+            }
+        }
+    }
+
     /// Compute the Axis-Aligned Bounding Box of the mesh vertices in model space
     ///
     /// Returns `None` if `self` doesn't have [`Mesh::ATTRIBUTE_POSITION`] of
