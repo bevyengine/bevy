@@ -24,7 +24,7 @@ struct CommandMeta {
 // entities/components/resources, and it's not currently possible to parallelize these
 // due to mutable [`World`] access, maximizing performance for [`CommandQueue`] is
 // preferred to simplicity of implementation.
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct CommandQueue {
     // This buffer densely stores all queued commands.
     //
