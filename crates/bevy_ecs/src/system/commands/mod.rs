@@ -723,6 +723,15 @@ impl<'w, 's> EntityCommands<'w, 's> {
         self.entity
     }
 
+    /// Returns an [`EntityCommands`] with a smaller lifetime.
+    /// This is useful if you have `&mut EntityCommands` but you need `EntityCommands`.
+    pub fn reborrow(&mut self) -> EntityCommands<'w, '_> {
+        EntityCommands {
+            entity: self.entity,
+            commands: self.commands.reborrow(),
+        }
+    }
+
     /// Adds a [`Bundle`] of components to the entity.
     ///
     /// This will overwrite any previous value(s) of the same component type.
