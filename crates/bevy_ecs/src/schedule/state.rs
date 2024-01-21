@@ -56,9 +56,9 @@ pub trait StateMutation: States {
     /// The manner in which we can mutate [`Self`]
     ///
     /// There are 2 built in approaches:
-    /// - [`Free`](`state_mutation_types::Free`) mutation enables the use of the `NextState<Self>`
+    /// - [`Free`](`FreeStateMutation`) mutation enables the use of the `NextState<Self>`
     ///   resource to mutate the state.
-    /// - [`Computed`](`state_mutation_types::Computed`) mutation relies on automatic computation
+    /// - [`Computed`](`ComputedStateMutation`) mutation relies on automatic computation
     ///   of the state, based on other states in the world.
     type MutationType: StateMutationType;
 }
@@ -451,7 +451,7 @@ mod sealed {
     /// Sealed trait used to prevent external implementations of [`StateSet`](super::StateSet).
     pub trait StateSetSealed {}
 
-    /// Sealed trait used to prevent external implementations of [`StateMutationTypes`](super::StateMutationTypes).
+    /// Sealed trait used to prevent external implementations of [`StateMutationType`](super::StateMutationType).
     pub trait StateMutationTypeSealed {}
 }
 
