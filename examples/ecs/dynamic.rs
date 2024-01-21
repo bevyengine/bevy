@@ -196,7 +196,7 @@ fn to_owned_ptrs(data: &mut [Vec<u64>]) -> Vec<OwningPtr<Aligned>> {
         // - Data pointed to won't be dropped until `to_insert_data` is dropped
         unsafe {
             let non_null = NonNull::new_unchecked(ptr.cast());
-            ptrs.push(OwningPtr::new(non_null))
+            ptrs.push(OwningPtr::new(non_null));
         }
     }
     ptrs
