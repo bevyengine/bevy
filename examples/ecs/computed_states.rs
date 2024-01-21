@@ -194,18 +194,27 @@ fn main() {
             Update,
             (toggle_turbo, movement).run_if(in_state(IsPaused::NotPaused)),
         )
-        
         // We can coninute setting things up, following all the same patterns used above and in the `states` example.
         .add_systems(OnEnter(IsPaused::Paused), setup_paused_screen)
-        .add_systems(OnExit(IsPaused::Paused), clear_state_bound_entities(IsPaused::Paused))
+        .add_systems(
+            OnExit(IsPaused::Paused),
+            clear_state_bound_entities(IsPaused::Paused),
+        )
         .add_systems(OnEnter(TurboMode), setup_turbo_text)
         .add_systems(OnExit(TurboMode), clear_state_bound_entities(TurboMode))
-
-        .add_systems(OnEnter(Tutorial::MovementInstructions), movement_instructions)
+        .add_systems(
+            OnEnter(Tutorial::MovementInstructions),
+            movement_instructions,
+        )
         .add_systems(OnEnter(Tutorial::PauseInstructions), pause_instructions)
-        .add_systems(OnExit(Tutorial::MovementInstructions), clear_state_bound_entities(Tutorial::MovementInstructions))
-        .add_systems(OnExit(Tutorial::PauseInstructions), clear_state_bound_entities(Tutorial::PauseInstructions))
-
+        .add_systems(
+            OnExit(Tutorial::MovementInstructions),
+            clear_state_bound_entities(Tutorial::MovementInstructions),
+        )
+        .add_systems(
+            OnExit(Tutorial::PauseInstructions),
+            clear_state_bound_entities(Tutorial::PauseInstructions),
+        )
         .add_systems(Update, log_transitions)
         .run();
 }
@@ -371,7 +380,6 @@ fn cleanup_menu(mut commands: Commands, menu_data: Res<MenuData>) {
     commands.entity(menu_data.root_entity).despawn_recursive();
 }
 
-
 #[derive(Component)]
 struct StateBound<S: States>(S);
 
@@ -385,7 +393,9 @@ fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 }
 
-fn clear_state_bound_entities<S: States>(state: S) -> impl Fn(Commands, Query<(Entity, &StateBound<S>)>) {
+fn clear_state_bound_entities<S: States>(
+    state: S,
+) -> impl Fn(Commands, Query<(Entity, &StateBound<S>)>) {
     move |mut commands, query| {
         for (entity, bound) in &query {
             if bound.0 == state {
@@ -432,59 +442,62 @@ fn toggle_pause(
     mut next_state: ResMut<NextState<AppState>>,
 ) {
     if input.just_pressed(KeyCode::Space) {
-        let AppState::InGame { paused, turbo } = current_state.get() else {
-            return;
-        };
-        next_state.set(AppState::InGame {
-            paused: !*paused,
-            turbo: *turbo,
-        });
+        if let AppState::InGame { paused, turbo } = current_state.get() {
+            next_state.set(AppState::InGame {
+                paused: !*paused,
+                turbo: *turbo,
+            });
+        }
     }
 }
 
 fn setup_paused_screen(mut commands: Commands) {
-    commands.spawn((StateBound(IsPaused::Paused), NodeBundle {
-        style: Style {
-            // center button
-            width: Val::Percent(100.),
-            height: Val::Percent(100.),
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            flex_direction: FlexDirection::Column,
-            row_gap: Val::Px(10.),
-            ..default()
-        },
-        ..default()
-    }
-    )).with_children(|parent| {
-        parent
+    commands
         .spawn((
+            StateBound(IsPaused::Paused),
             NodeBundle {
                 style: Style {
-                    width: Val::Px(400.),
-                    height: Val::Px(400.),
-                    // horizontally center child text
+                    // center button
+                    width: Val::Percent(100.),
+                    height: Val::Percent(100.),
                     justify_content: JustifyContent::Center,
-                    // vertically center child text
                     align_items: AlignItems::Center,
+                    flex_direction: FlexDirection::Column,
+                    row_gap: Val::Px(10.),
                     ..default()
                 },
-                background_color: NORMAL_BUTTON.into(),
                 ..default()
             },
-            MenuButton::Play,
         ))
         .with_children(|parent| {
-        parent.spawn(TextBundle::from_section(
-            "Paused",
-            TextStyle {
-                font_size: 40.0,
-                color: Color::rgb(0.9, 0.9, 0.9),
-                ..default()
-            },
-        ));
-    });
-    });
+            parent
+                .spawn((
+                    NodeBundle {
+                        style: Style {
+                            width: Val::Px(400.),
+                            height: Val::Px(400.),
+                            // horizontally center child text
+                            justify_content: JustifyContent::Center,
+                            // vertically center child text
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        background_color: NORMAL_BUTTON.into(),
+                        ..default()
+                    },
+                    MenuButton::Play,
+                ))
+                .with_children(|parent| {
+                    parent.spawn(TextBundle::from_section(
+                        "Paused",
+                        TextStyle {
+                            font_size: 40.0,
+                            color: Color::rgb(0.9, 0.9, 0.9),
+                            ..default()
+                        },
+                    ));
+                });
+        });
 }
 
 fn toggle_turbo(
@@ -493,40 +506,43 @@ fn toggle_turbo(
     mut next_state: ResMut<NextState<AppState>>,
 ) {
     if input.just_pressed(KeyCode::KeyT) {
-        let AppState::InGame { paused, turbo } = current_state.get() else {
-            return;
-        };
-        next_state.set(AppState::InGame {
-            paused: *paused,
-            turbo: !*turbo,
-        });
+        if let AppState::InGame { paused, turbo } = current_state.get() {
+            next_state.set(AppState::InGame {
+                paused: *paused,
+                turbo: !*turbo,
+            });
+        }
     }
 }
 
 fn setup_turbo_text(mut commands: Commands) {
-    commands.spawn((StateBound(TurboMode), NodeBundle {
-        style: Style {
-            // center button
-            width: Val::Percent(100.),
-            height: Val::Percent(100.),
-            justify_content: JustifyContent::Start,
-            align_items: AlignItems::Center,
-            flex_direction: FlexDirection::Column,
-            row_gap: Val::Px(10.),
-            ..default()
-        },
-        ..default()
-    }
-    )).with_children(|parent| {
-        parent.spawn(TextBundle::from_section(
-            "TURBO MODE",
-            TextStyle {
-                font_size: 40.0,
-                color: Color::rgb(0.9, 0.3, 0.1),
+    commands
+        .spawn((
+            StateBound(TurboMode),
+            NodeBundle {
+                style: Style {
+                    // center button
+                    width: Val::Percent(100.),
+                    height: Val::Percent(100.),
+                    justify_content: JustifyContent::Start,
+                    align_items: AlignItems::Center,
+                    flex_direction: FlexDirection::Column,
+                    row_gap: Val::Px(10.),
+                    ..default()
+                },
                 ..default()
             },
-        ));
-    });
+        ))
+        .with_children(|parent| {
+            parent.spawn(TextBundle::from_section(
+                "TURBO MODE",
+                TextStyle {
+                    font_size: 40.0,
+                    color: Color::rgb(0.9, 0.3, 0.1),
+                    ..default()
+                },
+            ));
+        });
 }
 
 fn quit_to_menu(input: Res<ButtonInput<KeyCode>>, mut next_state: ResMut<NextState<AppState>>) {
@@ -544,99 +560,114 @@ fn change_color(time: Res<Time>, mut query: Query<&mut Sprite>) {
 }
 
 fn movement_instructions(mut commands: Commands) {
-    commands.spawn((StateBound(Tutorial::MovementInstructions), NodeBundle {
-        style: Style {
-            // center button
-            width: Val::Percent(100.),
-            height: Val::Percent(100.),
-            justify_content: JustifyContent::End,
-            align_items: AlignItems::Center,
-            flex_direction: FlexDirection::Column,
-            row_gap: Val::Px(10.),
-            ..default()
-        },
-        ..default()
-    }
-    )).with_children(|parent| {
-        parent.spawn(TextBundle::from_section(
-            "Move the bevy logo with the arrow keys",
-            TextStyle {
-                font_size: 40.0,
-                color: Color::rgb(0.3, 0.3, 0.7),
+    commands
+        .spawn((
+            StateBound(Tutorial::MovementInstructions),
+            NodeBundle {
+                style: Style {
+                    // center button
+                    width: Val::Percent(100.),
+                    height: Val::Percent(100.),
+                    justify_content: JustifyContent::End,
+                    align_items: AlignItems::Center,
+                    flex_direction: FlexDirection::Column,
+                    row_gap: Val::Px(10.),
+                    ..default()
+                },
                 ..default()
             },
-        ));
-        parent.spawn(TextBundle::from_section(
-            "Press T to enter TURBO MODE",
-            TextStyle {
-                font_size: 40.0,
-                color: Color::rgb(0.3, 0.3, 0.7),
-                ..default()
-            },
-        ));
-        
-        parent.spawn(TextBundle::from_section(
-            "Press SPACE to pause",
-            TextStyle {
-                font_size: 40.0,
-                color: Color::rgb(0.3, 0.3, 0.7),
-                ..default()
-            },
-        ));
-        
-        parent.spawn(TextBundle::from_section(
-            "Press ESCAPE to return to the menu",
-            TextStyle {
-                font_size: 40.0,
-                color: Color::rgb(0.3, 0.3, 0.7),
-                ..default()
-            },
-        ));
-    });
+        ))
+        .with_children(|parent| {
+            parent.spawn(TextBundle::from_section(
+                "Move the bevy logo with the arrow keys",
+                TextStyle {
+                    font_size: 40.0,
+                    color: Color::rgb(0.3, 0.3, 0.7),
+                    ..default()
+                },
+            ));
+            parent.spawn(TextBundle::from_section(
+                "Press T to enter TURBO MODE",
+                TextStyle {
+                    font_size: 40.0,
+                    color: Color::rgb(0.3, 0.3, 0.7),
+                    ..default()
+                },
+            ));
+
+            parent.spawn(TextBundle::from_section(
+                "Press SPACE to pause",
+                TextStyle {
+                    font_size: 40.0,
+                    color: Color::rgb(0.3, 0.3, 0.7),
+                    ..default()
+                },
+            ));
+
+            parent.spawn(TextBundle::from_section(
+                "Press ESCAPE to return to the menu",
+                TextStyle {
+                    font_size: 40.0,
+                    color: Color::rgb(0.3, 0.3, 0.7),
+                    ..default()
+                },
+            ));
+        });
 }
 
 fn pause_instructions(mut commands: Commands) {
-    commands.spawn((StateBound(Tutorial::PauseInstructions), NodeBundle {
-        style: Style {
-            // center button
-            width: Val::Percent(100.),
-            height: Val::Percent(100.),
-            justify_content: JustifyContent::End,
-            align_items: AlignItems::Center,
-            flex_direction: FlexDirection::Column,
-            row_gap: Val::Px(10.),
-            ..default()
-        },
-        ..default()
-    }
-    )).with_children(|parent| {
-        
-        parent.spawn(TextBundle::from_section(
-            "Press SPACE to resume",
-            TextStyle {
-                font_size: 40.0,
-                color: Color::rgb(0.3, 0.3, 0.7),
+    commands
+        .spawn((
+            StateBound(Tutorial::PauseInstructions),
+            NodeBundle {
+                style: Style {
+                    // center button
+                    width: Val::Percent(100.),
+                    height: Val::Percent(100.),
+                    justify_content: JustifyContent::End,
+                    align_items: AlignItems::Center,
+                    flex_direction: FlexDirection::Column,
+                    row_gap: Val::Px(10.),
+                    ..default()
+                },
                 ..default()
             },
-        ));
-        
-        parent.spawn(TextBundle::from_section(
-            "Press ESCAPE to return to the menu",
-            TextStyle {
-                font_size: 40.0,
-                color: Color::rgb(0.3, 0.3, 0.7),
-                ..default()
-            },
-        ));
-    });
+        ))
+        .with_children(|parent| {
+            parent.spawn(TextBundle::from_section(
+                "Press SPACE to resume",
+                TextStyle {
+                    font_size: 40.0,
+                    color: Color::rgb(0.3, 0.3, 0.7),
+                    ..default()
+                },
+            ));
+
+            parent.spawn(TextBundle::from_section(
+                "Press ESCAPE to return to the menu",
+                TextStyle {
+                    font_size: 40.0,
+                    color: Color::rgb(0.3, 0.3, 0.7),
+                    ..default()
+                },
+            ));
+        });
 }
 
-/// print when an `AppState` transition happens
-/// also serves as an example of how to use `StateTransitionEvent`
-fn log_transitions(mut transitions: EventReader<StateTransitionEvent<AppState>>) {
+/// print when either an `AppState` transition or a `TutorialState` transition happens
+fn log_transitions(
+    mut transitions: EventReader<StateTransitionEvent<AppState>>,
+    mut tutorial_transitions: EventReader<StateTransitionEvent<TutorialState>>,
+) {
     for transition in transitions.read() {
         info!(
             "transition: {:?} => {:?}",
+            transition.before, transition.after
+        );
+    }
+    for transition in tutorial_transitions.read() {
+        info!(
+            "tutorial transition: {:?} => {:?}",
             transition.before, transition.after
         );
     }
