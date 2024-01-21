@@ -9,7 +9,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  NIGHTLY_TOOLCHAIN: nightly
+  NIGHTLY_TOOLCHAIN: nightly-2024-01-17
 
 concurrency:
   group: ${{github.workflow}}-${{github.ref}}
