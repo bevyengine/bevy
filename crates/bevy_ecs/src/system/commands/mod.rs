@@ -146,6 +146,34 @@ impl<'w, 's> Commands<'w, 's> {
         }
     }
 
+    /// Returns a [`Commands`] with a smaller lifetime.
+    /// This is useful if you have `&mut Commands` but need `Commands`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Component)]
+    /// fn my_system(mut commands: Commands) {
+    ///     commands.spawn(Name::new("Hello, World"));
+    ///
+    ///     // We do our initialization in a separate function,
+    ///     // which expects an owned `Commands`.
+    ///     do_initialization(commands.reborrow());
+    ///
+    ///     // Since we only reborrowed the commands instead of moving them, we can still use them.
+    ///     commands.spawn_empty();
+    /// }
+    /// #
+    /// # fn do_initialization(_: Commands) {}
+    /// ```
+    pub fn reborrow(&mut self) -> Commands<'w, '_> {
+        Commands {
+            queue: self.queue.reborrow(),
+            entities: self.entities,
+        }
+    }
+
     /// Take all commands from `other` and append them to `self`, leaving `other` empty
     pub fn append(&mut self, other: &mut CommandQueue) {
         self.queue.append(other);
