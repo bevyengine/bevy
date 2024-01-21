@@ -39,7 +39,7 @@ enum TutorialState {
 // a separate "InGame" type and implement `ComputedStates` for it.
 // This allows us to only need to check against one type
 // when otherwise we'd need to check against multiple.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, States)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 struct InGame;
 
 impl ComputedStates for InGame {
@@ -70,7 +70,7 @@ impl ComputedStates for InGame {
 // if you aren't in game, for example - while still having the
 // flexibility to check for the states as if they were completely unrelated.
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, States)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 struct TurboMode;
 
 impl ComputedStates for TurboMode {
@@ -96,7 +96,7 @@ impl ComputedStates for TurboMode {
 // - it doesn't exist - this is when being paused is meaningless, like in the menu.
 // - it is `NotPaused` - in which elements like the movement system are active.
 // - it is `Paused` - in which those game systems are inactive, and a pause screen is shown.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, States)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 enum IsPaused {
     NotPaused,
     Paused,
@@ -123,7 +123,7 @@ impl ComputedStates for IsPaused {
 // Like `IsPaused`, the tutorial has a few fully distinct possible states, so we want to represent them
 // as an Enum. However - in this case they are all dependant on multiple states: the root [`TutorialState`],
 // and both [`InGame`] and [`IsPaused`] - which are in turn derived from [`AppState`].
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, States)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 enum Tutorial {
     MovementInstructions,
     PauseInstructions,

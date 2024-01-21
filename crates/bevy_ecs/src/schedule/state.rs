@@ -18,7 +18,7 @@ use bevy_utils::{all_tuples, HashSet};
 
 use self::sealed::StateSetSealed;
 
-use super::{InternedScheduleLabel, IntoSystemConfigs, Schedule, Schedules};
+use super::{InternedScheduleLabel, Schedule, Schedules};
 
 /// Types that can define world-wide states in a finite-state machine.
 ///
@@ -47,17 +47,38 @@ use super::{InternedScheduleLabel, IntoSystemConfigs, Schedule, Schedules};
 /// ```
 pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug {}
 
+/// Type defining the approach used to mutate [`Self`] when it implements [`State`].
+/// 
+/// The type itself is auto-implemented for [`ComputedStates`], and an implementation
+/// is included in the derive for [`States`] as well. However - if you are manually
+/// implementing [`States`], you will need to add an implementation yourself.
 pub trait StateMutation: States {
-    type MutationType: state_mutation_types::StateMutationType;
+    /// The manner in which we can mutate [`Self`]
+    /// 
+    /// There are 2 built in approaches:
+    /// - [`Free`](`state_mutation_types::Free`) mutation enables the use of the `NextState<Self>`
+    ///   resource to mutate the state.
+    /// - [`Computed`](`state_mutation_types::Computed`) mutation relies on automatic computation
+    ///   of the state, based on other states in the world.
+    type MutationType: StateMutationType;
 }
 
-pub mod state_mutation_types {
-    pub trait StateMutationType {}
-    pub struct Free;
-    impl StateMutationType for Free {}
-    pub struct Computed;
-    impl StateMutationType for Computed {}
-}
+/// A trait defining the available approaches for modifying [`States`].
+/// 
+/// The trait is sealed.
+pub trait StateMutationType: sealed::StateMutationTypeSealed {}
+
+/// A struct for identifying [`States`] that can be mutated freely
+/// using [`NextState<S>`]
+pub struct FreeStateMutation;
+impl sealed::StateMutationTypeSealed for FreeStateMutation {}
+impl StateMutationType for FreeStateMutation {}
+
+/// A struct for identifying [`States`] that cannot be manualy
+/// mutated, and instead are derived automatically.
+pub struct ComputedStateMutation;
+impl sealed::StateMutationTypeSealed for ComputedStateMutation {}
+impl StateMutationType for ComputedStateMutation {}
 
 /// The label of a [`Schedule`] that runs whenever [`State<S>`]
 /// enters this state.
@@ -186,7 +207,7 @@ impl<S: States> Deref for State<S> {
     derive(bevy_reflect::Reflect),
     reflect(Resource)
 )]
-pub enum NextState<S: States> {
+pub enum NextState<S: StateMutation<MutationType = FreeStateMutation>> {
     /// No transition has been planned
     #[default]
     Unchanged,
@@ -196,7 +217,7 @@ pub enum NextState<S: States> {
     Remove,
 }
 
-impl<S: StateMutation<MutationType = state_mutation_types::Free>> NextState<S> {
+impl<S: StateMutation<MutationType = FreeStateMutation>> NextState<S> {
     /// Tentatively set a planned state transition to `Some(state)`.
     pub fn set(&mut self, state: S) {
         *self = Self::Set(state);
@@ -368,7 +389,7 @@ pub fn setup_state_transitions_in_world(world: &mut World) {
 /// - Runs the [`OnTransition { from: exited_state, to: entered_state }`](OnTransition), if it exists.
 /// - Derive any dependant states through the [`ComputeDependantStates::<S>`] schedule, if it exists.
 /// - Runs the [`OnEnter(entered_state)`] schedule, if it exists.
-pub fn apply_state_transition<S: States>(world: &mut World) {
+pub fn apply_state_transition<S: StateMutation<MutationType = FreeStateMutation>>(world: &mut World) {
     // We want to take the `NextState` resource,
     // but only mark it as changed if it wasn't empty.
     let Some(next_state_resource) = world.get_resource::<NextState<S>>() else {
@@ -396,7 +417,7 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
 /// A Computed State is a state that is deterministically derived from a set of `SourceStates`.
 /// The [`StateSet`] is passed into the `compute` method whenever one of them changes, and the
 /// result becomes the state's value.
-pub trait ComputedStates: States {
+pub trait ComputedStates: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug {
     /// The set of states from which the [`Self`] is derived.
     ///
     /// This can either be a single implementor of [`States`], or a tuple
@@ -419,9 +440,17 @@ pub trait ComputedStates: States {
     }
 }
 
+impl<S: ComputedStates> States for S {}
+impl<S: ComputedStates> StateMutation for S {
+    type MutationType = ComputedStateMutation;
+}
+
 mod sealed {
-    /// Sealed trait used to prevent external implementations.
+    /// Sealed trait used to prevent external implementations of [`StateSet`](super::StateSet).
     pub trait StateSetSealed {}
+
+    /// Sealed trait used to prevent external implementations of [`StateMutationTypes`](super::StateMutationTypes).
+    pub trait StateMutationTypeSealed {}
 }
 
 /// This trait is used allow implementors of [`States`], as well
@@ -460,11 +489,11 @@ impl<S: States> StateSet for S {
         let label = ComputeDependantStates::<S>::default();
         match schedules.get_mut(label.clone()) {
             Some(schedule) => {
-                schedule.add_systems((system, apply_state_transition::<T>).chain());
+                schedule.add_systems(system);
             }
             None => {
                 let mut schedule = Schedule::new(label);
-                schedule.add_systems((system, apply_state_transition::<T>).chain());
+                schedule.add_systems(system);
                 schedules.insert(schedule);
             }
         }
@@ -490,11 +519,11 @@ macro_rules! impl_state_set_sealed_tuples {
                 $(let label = ComputeDependantStates::<$param>::default();
                 match schedules.get_mut(label.clone()) {
                     Some(schedule) => {
-                        schedule.add_systems((system, apply_state_transition::<T>).chain());
+                        schedule.add_systems(system);
                     },
                     None => {
                         let mut schedule = Schedule::new(label);
-                        schedule.add_systems((system, apply_state_transition::<T>).chain());
+                        schedule.add_systems(system);
                         schedules.insert(schedule);
                     },
                 })*
@@ -517,8 +546,7 @@ mod tests {
         B(bool),
     }
 
-    #[derive(States, PartialEq, Eq, Debug, Hash, Clone)]
-    #[compute]
+    #[derive(PartialEq, Eq, Debug, Hash, Clone)]
     enum TestComputedState {
         BisTrue,
         BisFalse,
@@ -539,7 +567,6 @@ mod tests {
     fn computed_state_with_a_single_source_is_correctly_derived() {
         let mut world = World::new();
         world.init_resource::<State<SimpleState>>();
-        world.init_resource::<NextState<TestComputedState>>();
         let mut schedules = Schedules::new();
         TestComputedState::register_state_compute_systems_in_schedule(&mut schedules);
         let mut apply_changes = Schedule::new(ManualStateTransitions);
@@ -588,8 +615,7 @@ mod tests {
         another_value: u8,
     }
 
-    #[derive(States, PartialEq, Eq, Debug, Hash, Clone)]
-    #[compute]
+    #[derive(PartialEq, Eq, Debug, Hash, Clone)]
     enum ComplexComputedState {
         InAAndStrIsBobOrJane,
         InTrueBAndUsizeAbove8,
@@ -623,7 +649,6 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<State<SimpleState>>();
         world.init_resource::<State<OtherState>>();
-        world.init_resource::<NextState<ComplexComputedState>>();
 
         let mut schedules = Schedules::new();
 

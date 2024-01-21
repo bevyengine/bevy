@@ -1,5 +1,5 @@
 use proc_macro::TokenStream;
-use quote::{format_ident, quote, ToTokens};
+use quote::{format_ident, quote};
 use syn::{parse_macro_input, DeriveInput};
 
 use crate::bevy_ecs_path;
@@ -20,14 +20,7 @@ pub fn derive_states(input: TokenStream) -> TokenStream {
     state_mutation_trait_path.segments.push(format_ident!("StateMutation").into());
 
     let mut state_mutation_type_path = base_trait_path.clone();
-    state_mutation_type_path.segments.push(format_ident!("state_mutation_types").into());
-
-    let is_compute = ast.attrs.iter().find_map(|v| {
-        parse_compute(v.to_token_stream())
-    });
-    let type_name = if is_compute.is_some() { "Computed" } else { "Free" };
-
-    state_mutation_type_path.segments.push(format_ident!("{type_name}").into());
+    state_mutation_type_path.segments.push(format_ident!("FreeStateMutation").into());
 
     let struct_name = &ast.ident;
 
