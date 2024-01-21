@@ -214,11 +214,11 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// - [`spawn`](Self::spawn) to spawn an entity with a bundle.
     /// - [`spawn_batch`](Self::spawn_batch) to spawn entities with a bundle each.
-    pub fn spawn_empty<'a>(&'a mut self) -> EntityCommands<'w, 's, 'a> {
+    pub fn spawn_empty(&mut self) -> EntityCommands<'w, '_> {
         let entity = self.entities.reserve_entity();
         EntityCommands {
             entity,
-            commands: self,
+            commands: self.reborrow(),
         }
     }
 
@@ -236,13 +236,13 @@ impl<'w, 's> Commands<'w, 's> {
     /// [`Commands::spawn`]. This method should generally only be used for sharing entities across
     /// apps, and only when they have a scheme worked out to share an ID space (which doesn't happen
     /// by default).
-    pub fn get_or_spawn<'a>(&'a mut self, entity: Entity) -> EntityCommands<'w, 's, 'a> {
+    pub fn get_or_spawn(&mut self, entity: Entity) -> EntityCommands<'w, '_> {
         self.add(move |world: &mut World| {
             world.get_or_spawn(entity);
         });
         EntityCommands {
             entity,
-            commands: self,
+            commands: self.reborrow(),
         }
     }
 
@@ -296,7 +296,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// - [`spawn_empty`](Self::spawn_empty) to spawn an entity without any components.
     /// - [`spawn_batch`](Self::spawn_batch) to spawn entities with a bundle each.
-    pub fn spawn<'a, T: Bundle>(&'a mut self, bundle: T) -> EntityCommands<'w, 's, 'a> {
+    pub fn spawn<T: Bundle>(&mut self, bundle: T) -> EntityCommands<'w, '_> {
         let mut e = self.spawn_empty();
         e.insert(bundle);
         e
@@ -338,7 +338,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// - [`get_entity`](Self::get_entity) for the fallible version.
     #[inline]
     #[track_caller]
-    pub fn entity<'a>(&'a mut self, entity: Entity) -> EntityCommands<'w, 's, 'a> {
+    pub fn entity(&mut self, entity: Entity) -> EntityCommands<'w, '_> {
         #[inline(never)]
         #[cold]
         #[track_caller]
@@ -387,10 +387,10 @@ impl<'w, 's> Commands<'w, 's> {
     /// - [`entity`](Self::entity) for the panicking version.
     #[inline]
     #[track_caller]
-    pub fn get_entity<'a>(&'a mut self, entity: Entity) -> Option<EntityCommands<'w, 's, 'a>> {
+    pub fn get_entity(&mut self, entity: Entity) -> Option<EntityCommands<'w, '_>> {
         self.entities.contains(entity).then_some(EntityCommands {
             entity,
-            commands: self,
+            commands: self.reborrow(),
         })
     }
 
@@ -702,12 +702,12 @@ where
 }
 
 /// A list of commands that will be run to modify an [entity](crate::entity).
-pub struct EntityCommands<'w, 's, 'a> {
+pub struct EntityCommands<'w, 's> {
     pub(crate) entity: Entity,
-    pub(crate) commands: &'a mut Commands<'w, 's>,
+    pub(crate) commands: Commands<'w, 's>,
 }
 
-impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
+impl<'w, 's> EntityCommands<'w, 's> {
     /// Returns the [`Entity`] id of the entity.
     ///
     /// # Example
@@ -985,7 +985,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
 
     /// Returns the underlying [`Commands`].
     pub fn commands(&mut self) -> &mut Commands<'w, 's> {
-        self.commands
+        &mut self.commands
     }
 }
 

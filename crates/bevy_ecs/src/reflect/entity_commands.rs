@@ -140,7 +140,7 @@ pub trait ReflectCommandExt {
     ) -> &mut Self;
 }
 
-impl<'w, 's, 'a> ReflectCommandExt for EntityCommands<'w, 's, 'a> {
+impl<'w, 's> ReflectCommandExt for EntityCommands<'w, 's> {
     fn insert_reflect(&mut self, component: Box<dyn Reflect>) -> &mut Self {
         self.commands.add(InsertReflect {
             entity: self.entity,
