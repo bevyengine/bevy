@@ -990,8 +990,8 @@ impl<'w, 's> EntityCommands<'w, 's> {
     }
 
     /// Returns the underlying [`Commands`].
-    pub fn commands(&mut self) -> &mut Commands<'w, 's> {
-        &mut self.commands
+    pub fn commands(&mut self) -> Commands<'w, '_> {
+        self.commands.reborrow()
     }
 }
 
