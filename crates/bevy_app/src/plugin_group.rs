@@ -2,6 +2,51 @@ use crate::{App, AppError, Plugin};
 use bevy_utils::{tracing::debug, tracing::warn, HashMap};
 use std::any::TypeId;
 
+/// A macro for generating a well-documented [`PluginGroup`] from a list of [`Plugin`] paths.
+///
+/// Every plugin must implement the [`Default`] trait.
+///
+/// # Example
+///
+/// ```
+/// # use bevy_app::*;
+/// # mod velocity {
+/// #   use bevy_app::*;
+/// #   #[derive(Default)] pub struct VelocityPlugin;
+/// #   impl Plugin for VelocityPlugin { fn build(&self, _: &mut App) {} }
+/// # }
+/// # mod collision { pub mod capsule {
+/// #   use bevy_app::*;
+/// #   #[derive(Default)] pub struct CapsuleCollisionPlugin;
+/// #   impl Plugin for CapsuleCollisionPlugin { fn build(&self, _: &mut App) {} }
+/// # } }
+/// # #[derive(Default)] pub struct TickratePlugin;
+/// # impl Plugin for TickratePlugin { fn build(&self, _: &mut App) {} }
+/// # mod features {
+/// #   use bevy_app::*;
+/// #   #[derive(Default)] pub struct ForcePlugin;
+/// #   impl Plugin for ForcePlugin { fn build(&self, _: &mut App) {} }
+/// # }
+/// # mod web {
+/// #   use bevy_app::*;
+/// #   #[derive(Default)] pub struct WebCompatibilityPlugin;
+/// #   impl Plugin for WebCompatibilityPlugin { fn build(&self, _: &mut App) {} }
+/// # }
+/// plugin_group!(
+///     PhysicsPlugins {
+///         // Due to local ambiguity issues,
+///         // you have to use 3 semicolons for the last part of the path
+///         velocity:::VelocityPlugin,
+///         collision::capsule:::CapsuleCollisionPlugin,
+///         :TickratePlugin,
+///         #[cfg(feature = "external_forces")]
+///         features:::ForcePlugin,
+///         // You can add any attribute you want like this, but it won't be documented.
+///         #[custom(cfg(target_arch = "wasm32"))]
+///         web:::WebCompatibilityPlugin
+///     }
+/// );
+/// ```
 #[macro_export]
 macro_rules! plugin_group {
     (
