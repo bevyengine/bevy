@@ -578,6 +578,7 @@ impl Mesh {
     ///
     /// Panics if the vertex attribute values of `other` are incompatible with `self`.
     /// For example, [`VertexAttributeValues::Float32`] is incompatible with [`VertexAttributeValues::Float32x3`].
+    #[allow(clippy::match_same_arms)]
     pub fn merge(&mut self, other: Mesh) {
         use VertexAttributeValues::*;
 
@@ -601,32 +602,21 @@ impl Mesh {
                     (Sint32x4(vec1), Sint32x4(vec2)) => vec1.extend(vec2),
                     (Uint32x4(vec1), Uint32x4(vec2)) => vec1.extend(vec2),
                     (Float32x4(vec1), Float32x4(vec2)) => vec1.extend(vec2),
-                    (Sint16x2(vec1), Sint16x2(vec2)) | (Snorm16x2(vec1), Snorm16x2(vec2)) => {
-                        vec1.extend(vec2);
-                    }
-                    (Uint16x2(vec1), Uint16x2(vec2)) | (Unorm16x2(vec1), Unorm16x2(vec2)) => {
-                        vec1.extend(vec2);
-                    }
-                    (Sint16x4(vec1), Sint16x4(vec2)) | (Snorm16x4(vec1), Snorm16x4(vec2)) => {
-                        vec1.extend(vec2);
-                    }
-                    (Uint16x4(vec1), Uint16x4(vec2)) | (Unorm16x4(vec1), Unorm16x4(vec2)) => {
-                        vec1.extend(vec2);
-                    }
-                    (Sint8x2(vec1), Sint8x2(vec2)) | (Snorm8x2(vec1), Snorm8x2(vec2)) => {
-                        vec1.extend(vec2);
-                    }
-                    (Uint8x2(vec1), Uint8x2(vec2)) => {
-                        vec1.extend(vec2);
-                    }
+                    (Sint16x2(vec1), Sint16x2(vec2)) => vec1.extend(vec2),
+                    (Snorm16x2(vec1), Snorm16x2(vec2)) => vec1.extend(vec2),
+                    (Uint16x2(vec1), Uint16x2(vec2)) => vec1.extend(vec2),
+                    (Unorm16x2(vec1), Unorm16x2(vec2)) => vec1.extend(vec2),
+                    (Sint16x4(vec1), Sint16x4(vec2)) => vec1.extend(vec2),
+                    (Snorm16x4(vec1), Snorm16x4(vec2)) => vec1.extend(vec2),
+                    (Uint16x4(vec1), Uint16x4(vec2)) => vec1.extend(vec2),
+                    (Unorm16x4(vec1), Unorm16x4(vec2)) => vec1.extend(vec2),
+                    (Sint8x2(vec1), Sint8x2(vec2)) => vec1.extend(vec2),
+                    (Snorm8x2(vec1), Snorm8x2(vec2)) => vec1.extend(vec2),
+                    (Uint8x2(vec1), Uint8x2(vec2)) => vec1.extend(vec2),
                     (Unorm8x2(vec1), Unorm8x2(vec2)) => vec1.extend(vec2),
-                    (Sint8x4(vec1), Sint8x4(vec2)) => {
-                        vec1.extend(vec2);
-                    }
+                    (Sint8x4(vec1), Sint8x4(vec2)) => vec1.extend(vec2),
                     (Snorm8x4(vec1), Snorm8x4(vec2)) => vec1.extend(vec2),
-                    (Uint8x4(vec1), Uint8x4(vec2)) => {
-                        vec1.extend(vec2);
-                    }
+                    (Uint8x4(vec1), Uint8x4(vec2)) => vec1.extend(vec2),
                     (Unorm8x4(vec1), Unorm8x4(vec2)) => vec1.extend(vec2),
                     _ => panic!(
                         "Incompatible vertex attribute types {} and {}",
