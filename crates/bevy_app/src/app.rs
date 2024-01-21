@@ -1,11 +1,12 @@
-use crate::{First, Main, MainSchedulePlugin, Plugin, Plugins, StateTransition};
+use crate::{First, Main, MainSchedulePlugin, Plugin, Plugins};
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     prelude::*,
     schedule::{
         apply_state_transition, common_conditions::run_once as run_once_condition,
-        run_enter_schedule, ComputedStates, InternedScheduleLabel, IntoSystemConfigs,
-        IntoSystemSetConfigs, ScheduleBuildSettings, ScheduleLabel, StateTransitionEvent,
+        run_enter_schedule, setup_state_transitions_in_app, ComputedStates, InternedScheduleLabel,
+        IntoSystemConfigs, IntoSystemSetConfigs, ManualStateTransitions, ScheduleBuildSettings,
+        ScheduleLabel, StateTransitionEvent,
     },
 };
 use bevy_utils::{intern::Interned, thiserror::Error, tracing::debug, HashMap, HashSet};
@@ -366,11 +367,12 @@ impl App {
     /// by adding the [`apply_state_transition`] system manually.
     pub fn init_state<S: States + FromWorld>(&mut self) -> &mut Self {
         if !self.world.contains_resource::<State<S>>() {
+            setup_state_transitions_in_app(&mut self.world);
             self.init_resource::<State<S>>()
                 .init_resource::<NextState<S>>()
                 .add_event::<StateTransitionEvent<S>>()
                 .add_systems(
-                    StateTransition,
+                    ManualStateTransitions,
                     (
                         run_enter_schedule::<S>.run_if(run_once_condition()),
                         apply_state_transition::<S>,
@@ -402,11 +404,12 @@ impl App {
     /// Note that you can also apply state transitions at other points in the schedule
     /// by adding the [`apply_state_transition`] system manually.
     pub fn insert_state<S: States>(&mut self, state: S) -> &mut Self {
+        setup_state_transitions_in_app(&mut self.world);
         self.insert_resource(State::new(state))
             .init_resource::<NextState<S>>()
             .add_event::<StateTransitionEvent<S>>()
             .add_systems(
-                StateTransition,
+                ManualStateTransitions,
                 (
                     run_enter_schedule::<S>.run_if(run_once_condition()),
                     apply_state_transition::<S>,
@@ -433,6 +436,7 @@ impl App {
     /// you can emulate this behavior using the [`in_state`] [`Condition`].
     pub fn add_computed_state<S: ComputedStates>(&mut self) -> &mut Self {
         if !self.world.contains_resource::<NextState<S>>() {
+            setup_state_transitions_in_app(&mut self.world);
             self.init_resource::<NextState<S>>()
                 .add_event::<StateTransitionEvent<S>>();
             let mut schedules = self.world.resource_mut::<Schedules>();
