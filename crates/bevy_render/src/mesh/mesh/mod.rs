@@ -579,7 +579,7 @@ impl Mesh {
         self
     }
 
-    /// Transforms the vertex positions, normals, and tangents of the mesh by the given [`Transform`].
+    /// Transforms the vertex positions, normals, and tangents of the mesh in place by the given [`Transform`].
     pub fn transform_by(&mut self, transform: Transform) {
         if let Some(VertexAttributeValues::Float32x3(ref mut positions)) =
             self.attribute_mut(Mesh::ATTRIBUTE_POSITION)
@@ -671,6 +671,14 @@ impl Mesh {
     /// Gets a list of all morph target names, if they exist.
     pub fn morph_target_names(&self) -> Option<&[String]> {
         self.morph_target_names.as_deref()
+    }
+}
+
+impl core::ops::Mul<Mesh> for Transform {
+    type Output = Mesh;
+
+    fn mul(self, rhs: Mesh) -> Self::Output {
+        rhs.transformed_by(self)
     }
 }
 
