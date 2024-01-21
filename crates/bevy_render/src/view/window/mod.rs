@@ -8,7 +8,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
-use bevy_utils::{default, tracing::debug, HashMap, HashSet};
+use bevy_utils::{default, tracing::debug, EntityHashMap, HashSet};
 use bevy_window::{
     CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosed,
 };
@@ -89,11 +89,11 @@ impl ExtractedWindow {
 #[derive(Default, Resource)]
 pub struct ExtractedWindows {
     pub primary: Option<Entity>,
-    pub windows: HashMap<Entity, ExtractedWindow>,
+    pub windows: EntityHashMap<Entity, ExtractedWindow>,
 }
 
 impl Deref for ExtractedWindows {
-    type Target = HashMap<Entity, ExtractedWindow>;
+    type Target = EntityHashMap<Entity, ExtractedWindow>;
 
     fn deref(&self) -> &Self::Target {
         &self.windows
@@ -199,7 +199,7 @@ struct SurfaceData {
 
 #[derive(Resource, Default)]
 pub struct WindowSurfaces {
-    surfaces: HashMap<Entity, SurfaceData>,
+    surfaces: EntityHashMap<Entity, SurfaceData>,
     /// List of windows that we have already called the initial `configure_surface` for
     configured_windows: HashSet<Entity>,
 }
@@ -252,18 +252,21 @@ pub fn prepare_windows(
         let surface_data = window_surfaces
             .surfaces
             .entry(window.entity)
-            .or_insert_with(|| unsafe {
-                // NOTE: On some OSes this MUST be called from the main thread.
-                // As of wgpu 0.15, only fallible if the given window is a HTML canvas and obtaining a WebGPU or WebGL2 context fails.
-                let surface = render_instance
-                    .create_surface(&window.handle.get_handle())
-                    .expect("Failed to create wgpu surface");
+            .or_insert_with(|| {
+                // SAFETY: The window handles in ExtractedWindows will always be valid objects to create surfaces on
+                let surface = unsafe {
+                    // NOTE: On some OSes this MUST be called from the main thread.
+                    // As of wgpu 0.15, only fallible if the given window is a HTML canvas and obtaining a WebGPU or WebGL2 context fails.
+                    render_instance
+                        .create_surface(&window.handle.get_handle())
+                        .expect("Failed to create wgpu surface")
+                };
                 let caps = surface.get_capabilities(&render_adapter);
                 let formats = caps.formats;
                 // For future HDR output support, we'll need to request a format that supports HDR,
                 // but as of wgpu 0.15 that is not yet supported.
                 // Prefer sRGB formats for surfaces, but fall back to first available format if no sRGB formats are available.
-                let mut format = *formats.get(0).expect("No supported formats for surface");
+                let mut format = *formats.first().expect("No supported formats for surface");
                 for available_format in formats {
                     // Rgba8UnormSrgb and Bgra8UnormSrgb and the only sRGB formats wgpu exposes that we can use for surfaces.
                     if available_format == TextureFormat::Rgba8UnormSrgb
@@ -281,7 +284,7 @@ pub fn prepare_windows(
             format: surface_data.format,
             width: window.physical_width,
             height: window.physical_height,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            usage: TextureUsages::RENDER_ATTACHMENT,
             present_mode: match window.present_mode {
                 PresentMode::Fifo => wgpu::PresentMode::Fifo,
                 PresentMode::FifoRelaxed => wgpu::PresentMode::FifoRelaxed,

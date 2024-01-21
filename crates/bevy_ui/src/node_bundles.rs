@@ -5,7 +5,7 @@ use crate::widget::TextFlags;
 use crate::{
     widget::{Button, UiImageSize},
     BackgroundColor, BorderColor, ContentSize, FocusPolicy, Interaction, Node, Style, UiImage,
-    UiTextureAtlasImage, ZIndex,
+    UiMaterial, ZIndex,
 };
 use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
@@ -15,7 +15,7 @@ use bevy_render::{
 };
 use bevy_sprite::TextureAtlas;
 #[cfg(feature = "bevy_text")]
-use bevy_text::{BreakLineOn, Text, TextAlignment, TextLayoutInfo, TextSection, TextStyle};
+use bevy_text::{BreakLineOn, JustifyText, Text, TextLayoutInfo, TextSection, TextStyle};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
 /// The basic UI node
@@ -115,6 +115,8 @@ pub struct ImageBundle {
 }
 
 /// A UI node that is a texture atlas sprite
+///
+/// This bundle is identical to [`ImageBundle`] with an additional [`TextureAtlas`] component.
 #[derive(Bundle, Debug, Default)]
 pub struct AtlasImageBundle {
     /// Describes the logical size of the node
@@ -128,10 +130,10 @@ pub struct AtlasImageBundle {
     ///
     /// Combines with `UiImage` to tint the provided image.
     pub background_color: BackgroundColor,
+    /// The image of the node
+    pub image: UiImage,
     /// A handle to the texture atlas to use for this Ui Node
-    pub texture_atlas: Handle<TextureAtlas>,
-    /// The descriptor for which sprite to use from the given texture atlas
-    pub texture_atlas_image: UiTextureAtlasImage,
+    pub texture_atlas: TextureAtlas,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The size of the image in pixels
@@ -245,9 +247,9 @@ impl TextBundle {
         }
     }
 
-    /// Returns this [`TextBundle`] with a new [`TextAlignment`] on [`Text`].
-    pub const fn with_text_alignment(mut self, alignment: TextAlignment) -> Self {
-        self.text.alignment = alignment;
+    /// Returns this [`TextBundle`] with a new [`JustifyText`] on [`Text`].
+    pub const fn with_text_justify(mut self, justify: JustifyText) -> Self {
+        self.text.justify = justify;
         self
     }
 
@@ -333,6 +335,58 @@ impl Default for ButtonBundle {
             interaction: Default::default(),
             background_color: Default::default(),
             image: Default::default(),
+            transform: Default::default(),
+            global_transform: Default::default(),
+            visibility: Default::default(),
+            inherited_visibility: Default::default(),
+            view_visibility: Default::default(),
+            z_index: Default::default(),
+        }
+    }
+}
+
+/// A UI node that is rendered using a [`UiMaterial`]
+///
+/// Adding a `BackgroundColor` component to an entity with this bundle will ignore the custom
+/// material and use the background color instead.
+#[derive(Bundle, Clone, Debug)]
+pub struct MaterialNodeBundle<M: UiMaterial> {
+    /// Describes the logical size of the node
+    pub node: Node,
+    /// Styles which control the layout (size and position) of the node and it's children
+    /// In some cases these styles also affect how the node drawn/painted.
+    pub style: Style,
+    /// The [`UiMaterial`] used to render the node.
+    pub material: Handle<M>,
+    /// Whether this node should block interaction with lower nodes
+    pub focus_policy: FocusPolicy,
+    /// The transform of the node
+    ///
+    /// This field is automatically managed by the UI layout system.
+    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
+    pub transform: Transform,
+    /// The global transform of the node
+    ///
+    /// This field is automatically managed by the UI layout system.
+    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
+    pub global_transform: GlobalTransform,
+    /// Describes the visibility properties of the node
+    pub visibility: Visibility,
+    /// Inherited visibility of an entity.
+    pub inherited_visibility: InheritedVisibility,
+    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    pub view_visibility: ViewVisibility,
+    /// Indicates the depth at which the node should appear in the UI
+    pub z_index: ZIndex,
+}
+
+impl<M: UiMaterial> Default for MaterialNodeBundle<M> {
+    fn default() -> Self {
+        Self {
+            node: Default::default(),
+            style: Default::default(),
+            material: Default::default(),
+            focus_policy: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
             visibility: Default::default(),

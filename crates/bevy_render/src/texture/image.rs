@@ -6,7 +6,7 @@ use super::dds::*;
 use super::ktx2::*;
 
 use crate::{
-    render_asset::{PrepareAssetError, RenderAsset},
+    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPersistencePolicy},
     render_resource::{Sampler, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     texture::BevyDefault,
@@ -14,7 +14,7 @@ use crate::{
 use bevy_asset::Asset;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{lifetimeless::SRes, Resource, SystemParamItem};
-use bevy_math::{UVec2, Vec2};
+use bevy_math::{AspectRatio, UVec2, Vec2};
 use bevy_reflect::Reflect;
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
@@ -108,55 +108,34 @@ pub struct Image {
     // TODO: this nesting makes accessing Image metadata verbose. Either flatten out descriptor or add accessors
     pub texture_descriptor: wgpu::TextureDescriptor<'static>,
     /// The [`ImageSampler`] to use during rendering.
-    pub sampler_descriptor: ImageSampler,
-    pub texture_view_descriptor: Option<wgpu::TextureViewDescriptor<'static>>,
+    pub sampler: ImageSampler,
+    pub texture_view_descriptor: Option<TextureViewDescriptor<'static>>,
+    pub cpu_persistent_access: RenderAssetPersistencePolicy,
 }
 
 /// Used in [`Image`], this determines what image sampler to use when rendering. The default setting,
 /// [`ImageSampler::Default`], will read the sampler from the [`ImagePlugin`](super::ImagePlugin) at setup.
 /// Setting this to [`ImageSampler::Descriptor`] will override the global default descriptor for this [`Image`].
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub enum ImageSampler {
     /// Default image sampler, derived from the [`ImagePlugin`](super::ImagePlugin) setup.
     #[default]
     Default,
     /// Custom sampler for this image which will override global default.
-    Descriptor(wgpu::SamplerDescriptor<'static>),
+    Descriptor(ImageSamplerDescriptor),
 }
 
 impl ImageSampler {
-    /// Returns an image sampler with [`Linear`](crate::render_resource::FilterMode::Linear) min and mag filters
+    /// Returns an image sampler with [`ImageFilterMode::Linear`] min and mag filters
     #[inline]
     pub fn linear() -> ImageSampler {
-        ImageSampler::Descriptor(Self::linear_descriptor())
+        ImageSampler::Descriptor(ImageSamplerDescriptor::linear())
     }
 
-    /// Returns an image sampler with [`Nearest`](crate::render_resource::FilterMode::Nearest) min and mag filters
+    /// Returns an image sampler with [`ImageFilterMode::Nearest`] min and mag filters
     #[inline]
     pub fn nearest() -> ImageSampler {
-        ImageSampler::Descriptor(Self::nearest_descriptor())
-    }
-
-    /// Returns a sampler descriptor with [`Linear`](crate::render_resource::FilterMode::Linear) min and mag filters
-    #[inline]
-    pub fn linear_descriptor() -> wgpu::SamplerDescriptor<'static> {
-        wgpu::SamplerDescriptor {
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::FilterMode::Linear,
-            ..Default::default()
-        }
-    }
-
-    /// Returns a sampler descriptor with [`Nearest`](crate::render_resource::FilterMode::Nearest) min and mag filters
-    #[inline]
-    pub fn nearest_descriptor() -> wgpu::SamplerDescriptor<'static> {
-        wgpu::SamplerDescriptor {
-            mag_filter: wgpu::FilterMode::Nearest,
-            min_filter: wgpu::FilterMode::Nearest,
-            mipmap_filter: wgpu::FilterMode::Nearest,
-            ..Default::default()
-        }
+        ImageSampler::Descriptor(ImageSamplerDescriptor::nearest())
     }
 }
 
@@ -169,6 +148,8 @@ impl ImageSampler {
 pub struct DefaultImageSampler(pub(crate) Sampler);
 
 /// How edges should be handled in texture addressing.
+///
+/// See [`ImageSamplerDescriptor`] for information how to configure this.
 ///
 /// This type mirrors [`wgpu::AddressMode`].
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
@@ -265,8 +246,9 @@ pub enum ImageSamplerBorderColor {
 /// a breaking change.
 ///
 /// This types mirrors [`wgpu::SamplerDescriptor`], but that might change in future versions.
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ImageSamplerDescriptor {
+    pub label: Option<String>,
     /// How to deal with out of bounds accesses in the u (i.e. x) direction.
     pub address_mode_u: ImageAddressMode,
     /// How to deal with out of bounds accesses in the v (i.e. y) direction.
@@ -305,6 +287,48 @@ impl Default for ImageSamplerDescriptor {
             compare: None,
             anisotropy_clamp: 1,
             border_color: None,
+            label: None,
+        }
+    }
+}
+
+impl ImageSamplerDescriptor {
+    /// Returns a sampler descriptor with [`Linear`](crate::render_resource::FilterMode::Linear) min and mag filters
+    #[inline]
+    pub fn linear() -> ImageSamplerDescriptor {
+        ImageSamplerDescriptor {
+            mag_filter: ImageFilterMode::Linear,
+            min_filter: ImageFilterMode::Linear,
+            mipmap_filter: ImageFilterMode::Linear,
+            ..Default::default()
+        }
+    }
+
+    /// Returns a sampler descriptor with [`Nearest`](crate::render_resource::FilterMode::Nearest) min and mag filters
+    #[inline]
+    pub fn nearest() -> ImageSamplerDescriptor {
+        ImageSamplerDescriptor {
+            mag_filter: ImageFilterMode::Nearest,
+            min_filter: ImageFilterMode::Nearest,
+            mipmap_filter: ImageFilterMode::Nearest,
+            ..Default::default()
+        }
+    }
+
+    pub fn as_wgpu(&self) -> wgpu::SamplerDescriptor {
+        wgpu::SamplerDescriptor {
+            label: self.label.as_deref(),
+            address_mode_u: self.address_mode_u.into(),
+            address_mode_v: self.address_mode_v.into(),
+            address_mode_w: self.address_mode_w.into(),
+            mag_filter: self.mag_filter.into(),
+            min_filter: self.min_filter.into(),
+            mipmap_filter: self.mipmap_filter.into(),
+            lod_min_clamp: self.lod_min_clamp,
+            lod_max_clamp: self.lod_max_clamp,
+            compare: self.compare.map(Into::into),
+            anisotropy_clamp: self.anisotropy_clamp,
+            border_color: self.border_color.map(Into::into),
         }
     }
 }
@@ -351,25 +375,6 @@ impl From<ImageSamplerBorderColor> for wgpu::SamplerBorderColor {
             ImageSamplerBorderColor::OpaqueBlack => wgpu::SamplerBorderColor::OpaqueBlack,
             ImageSamplerBorderColor::OpaqueWhite => wgpu::SamplerBorderColor::OpaqueWhite,
             ImageSamplerBorderColor::Zero => wgpu::SamplerBorderColor::Zero,
-        }
-    }
-}
-
-impl From<ImageSamplerDescriptor> for wgpu::SamplerDescriptor<'static> {
-    fn from(value: ImageSamplerDescriptor) -> Self {
-        wgpu::SamplerDescriptor {
-            label: None,
-            address_mode_u: value.address_mode_u.into(),
-            address_mode_v: value.address_mode_v.into(),
-            address_mode_w: value.address_mode_w.into(),
-            mag_filter: value.mag_filter.into(),
-            min_filter: value.min_filter.into(),
-            mipmap_filter: value.mipmap_filter.into(),
-            lod_min_clamp: value.lod_min_clamp,
-            lod_max_clamp: value.lod_max_clamp,
-            compare: value.compare.map(Into::into),
-            anisotropy_clamp: value.anisotropy_clamp,
-            border_color: value.border_color.map(Into::into),
         }
     }
 }
@@ -423,6 +428,7 @@ impl From<wgpu::SamplerBorderColor> for ImageSamplerBorderColor {
 impl<'a> From<wgpu::SamplerDescriptor<'a>> for ImageSamplerDescriptor {
     fn from(value: wgpu::SamplerDescriptor) -> Self {
         ImageSamplerDescriptor {
+            label: value.label.map(|l| l.to_string()),
             address_mode_u: value.address_mode_u.into(),
             address_mode_v: value.address_mode_v.into(),
             address_mode_w: value.address_mode_w.into(),
@@ -441,26 +447,27 @@ impl<'a> From<wgpu::SamplerDescriptor<'a>> for ImageSamplerDescriptor {
 impl Default for Image {
     /// default is a 1x1x1 all '1.0' texture
     fn default() -> Self {
-        let format = wgpu::TextureFormat::bevy_default();
+        let format = TextureFormat::bevy_default();
         let data = vec![255; format.pixel_size()];
         Image {
             data,
             texture_descriptor: wgpu::TextureDescriptor {
-                size: wgpu::Extent3d {
+                size: Extent3d {
                     width: 1,
                     height: 1,
                     depth_or_array_layers: 1,
                 },
                 format,
-                dimension: wgpu::TextureDimension::D2,
+                dimension: TextureDimension::D2,
                 label: None,
                 mip_level_count: 1,
                 sample_count: 1,
                 usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
                 view_formats: &[],
             },
-            sampler_descriptor: ImageSampler::Default,
+            sampler: ImageSampler::Default,
             texture_view_descriptor: None,
+            cpu_persistent_access: RenderAssetPersistencePolicy::Keep,
         }
     }
 }
@@ -476,6 +483,7 @@ impl Image {
         dimension: TextureDimension,
         data: Vec<u8>,
         format: TextureFormat,
+        cpu_persistent_access: RenderAssetPersistencePolicy,
     ) -> Self {
         debug_assert_eq!(
             size.volume() * format.pixel_size(),
@@ -489,6 +497,7 @@ impl Image {
         image.texture_descriptor.dimension = dimension;
         image.texture_descriptor.size = size;
         image.texture_descriptor.format = format;
+        image.cpu_persistent_access = cpu_persistent_access;
         image
     }
 
@@ -502,10 +511,12 @@ impl Image {
         dimension: TextureDimension,
         pixel: &[u8],
         format: TextureFormat,
+        cpu_persistent_access: RenderAssetPersistencePolicy,
     ) -> Self {
         let mut value = Image::default();
         value.texture_descriptor.format = format;
         value.texture_descriptor.dimension = dimension;
+        value.cpu_persistent_access = cpu_persistent_access;
         value.resize(size);
 
         debug_assert_eq!(
@@ -536,10 +547,10 @@ impl Image {
         self.texture_descriptor.size.height
     }
 
-    /// Returns the aspect ratio (height/width) of a 2D image.
+    /// Returns the aspect ratio (width / height) of a 2D image.
     #[inline]
-    pub fn aspect_ratio(&self) -> f32 {
-        self.height() as f32 / self.width() as f32
+    pub fn aspect_ratio(&self) -> AspectRatio {
+        AspectRatio::from_pixels(self.width(), self.height())
     }
 
     /// Returns the size of a 2D image as f32.
@@ -570,8 +581,9 @@ impl Image {
     /// # Panics
     /// Panics if the `new_size` does not have the same volume as to old one.
     pub fn reinterpret_size(&mut self, new_size: Extent3d) {
-        assert!(
-            new_size.volume() == self.texture_descriptor.size.volume(),
+        assert_eq!(
+            new_size.volume(),
+            self.texture_descriptor.size.volume(),
             "Incompatible sizes: old = {:?} new = {:?}",
             self.texture_descriptor.size,
             new_size
@@ -589,8 +601,8 @@ impl Image {
     /// the `layers`.
     pub fn reinterpret_stacked_2d_as_array(&mut self, layers: u32) {
         // Must be a stacked image, and the height must be divisible by layers.
-        assert!(self.texture_descriptor.dimension == TextureDimension::D2);
-        assert!(self.texture_descriptor.size.depth_or_array_layers == 1);
+        assert_eq!(self.texture_descriptor.dimension, TextureDimension::D2);
+        assert_eq!(self.texture_descriptor.size.depth_or_array_layers, 1);
         assert_eq!(self.height() % layers, 0);
 
         self.reinterpret_size(Extent3d {
@@ -625,7 +637,9 @@ impl Image {
                 }
                 _ => None,
             })
-            .map(|(dyn_img, is_srgb)| Self::from_dynamic(dyn_img, is_srgb))
+            .map(|(dyn_img, is_srgb)| {
+                Self::from_dynamic(dyn_img, is_srgb, self.cpu_persistent_access)
+            })
     }
 
     /// Load a bytes buffer in a [`Image`], according to type `image_type`, using the `image`
@@ -636,6 +650,7 @@ impl Image {
         #[allow(unused_variables)] supported_compressed_formats: CompressedImageFormats,
         is_srgb: bool,
         image_sampler: ImageSampler,
+        cpu_persistent_access: RenderAssetPersistencePolicy,
     ) -> Result<Image, TextureError> {
         let format = image_type.to_image_format()?;
 
@@ -645,16 +660,16 @@ impl Image {
         // needs to be added, so the image data needs to be converted in those
         // cases.
 
-        match format {
+        let mut image = match format {
             #[cfg(feature = "basis-universal")]
             ImageFormat::Basis => {
-                basis_buffer_to_image(buffer, supported_compressed_formats, is_srgb)
+                basis_buffer_to_image(buffer, supported_compressed_formats, is_srgb)?
             }
             #[cfg(feature = "dds")]
-            ImageFormat::Dds => dds_buffer_to_image(buffer, supported_compressed_formats, is_srgb),
+            ImageFormat::Dds => dds_buffer_to_image(buffer, supported_compressed_formats, is_srgb)?,
             #[cfg(feature = "ktx2")]
             ImageFormat::Ktx2 => {
-                ktx2_buffer_to_image(buffer, supported_compressed_formats, is_srgb)
+                ktx2_buffer_to_image(buffer, supported_compressed_formats, is_srgb)?
             }
             _ => {
                 let image_crate_format = format
@@ -664,11 +679,11 @@ impl Image {
                 reader.set_format(image_crate_format);
                 reader.no_limits();
                 let dyn_img = reader.decode()?;
-                let mut img = Self::from_dynamic(dyn_img, is_srgb);
-                img.sampler_descriptor = image_sampler;
-                Ok(img)
+                Self::from_dynamic(dyn_img, is_srgb, cpu_persistent_access)
             }
-        }
+        };
+        image.sampler = image_sampler;
+        Ok(image)
     }
 
     /// Whether the texture format is compressed or uncompressed
@@ -797,7 +812,6 @@ pub struct GpuImage {
 }
 
 impl RenderAsset for Image {
-    type ExtractedAsset = Image;
     type PreparedAsset = GpuImage;
     type Param = (
         SRes<RenderDevice>,
@@ -805,45 +819,45 @@ impl RenderAsset for Image {
         SRes<DefaultImageSampler>,
     );
 
-    /// Clones the Image.
-    fn extract_asset(&self) -> Self::ExtractedAsset {
-        self.clone()
+    fn persistence_policy(&self) -> RenderAssetPersistencePolicy {
+        self.cpu_persistent_access
     }
 
     /// Converts the extracted image into a [`GpuImage`].
     fn prepare_asset(
-        image: Self::ExtractedAsset,
+        self,
         (render_device, render_queue, default_sampler): &mut SystemParamItem<Self::Param>,
-    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
+    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self>> {
         let texture = render_device.create_texture_with_data(
             render_queue,
-            &image.texture_descriptor,
-            &image.data,
+            &self.texture_descriptor,
+            &self.data,
         );
 
         let texture_view = texture.create_view(
-            image
-                .texture_view_descriptor
+            self.texture_view_descriptor
                 .or_else(|| Some(TextureViewDescriptor::default()))
                 .as_ref()
                 .unwrap(),
         );
         let size = Vec2::new(
-            image.texture_descriptor.size.width as f32,
-            image.texture_descriptor.size.height as f32,
+            self.texture_descriptor.size.width as f32,
+            self.texture_descriptor.size.height as f32,
         );
-        let sampler = match image.sampler_descriptor {
+        let sampler = match self.sampler {
             ImageSampler::Default => (***default_sampler).clone(),
-            ImageSampler::Descriptor(descriptor) => render_device.create_sampler(&descriptor),
+            ImageSampler::Descriptor(descriptor) => {
+                render_device.create_sampler(&descriptor.as_wgpu())
+            }
         };
 
         Ok(GpuImage {
             texture,
             texture_view,
-            texture_format: image.texture_descriptor.format,
+            texture_format: self.texture_descriptor.format,
             sampler,
             size,
-            mip_level_count: image.texture_descriptor.mip_level_count,
+            mip_level_count: self.texture_descriptor.mip_level_count,
         })
     }
 }
@@ -853,9 +867,9 @@ bitflags::bitflags! {
     #[repr(transparent)]
     pub struct CompressedImageFormats: u32 {
         const NONE     = 0;
-        const ASTC_LDR = (1 << 0);
-        const BC       = (1 << 1);
-        const ETC2     = (1 << 2);
+        const ASTC_LDR = 1 << 0;
+        const BC       = 1 << 1;
+        const ETC2     = 1 << 2;
     }
 }
 
@@ -910,6 +924,7 @@ impl CompressedImageFormats {
 mod test {
 
     use super::*;
+    use crate::render_asset::RenderAssetPersistencePolicy;
 
     #[test]
     fn image_size() {
@@ -923,6 +938,7 @@ mod test {
             TextureDimension::D2,
             &[0, 0, 0, 255],
             TextureFormat::Rgba8Unorm,
+            RenderAssetPersistencePolicy::Unload,
         );
         assert_eq!(
             Vec2::new(size.width as f32, size.height as f32),

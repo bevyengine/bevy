@@ -1,11 +1,11 @@
-use crate::{DynamicSceneBuilder, Scene, SceneSpawnError};
+use crate::{ron, DynamicSceneBuilder, Scene, SceneSpawnError};
 use bevy_ecs::{
     entity::Entity,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities},
     world::World,
 };
 use bevy_reflect::{Reflect, TypePath, TypeRegistryArc};
-use bevy_utils::HashMap;
+use bevy_utils::{EntityHashMap, HashMap};
 use std::any::TypeId;
 
 #[cfg(feature = "serialize")]
@@ -24,6 +24,7 @@ use serde::Serialize;
 /// * adding the [`Handle<DynamicScene>`](bevy_asset::Handle) to an entity (the scene will only be
 /// visible if the entity already has [`Transform`](bevy_transform::components::Transform) and
 /// [`GlobalTransform`](bevy_transform::components::GlobalTransform) components)
+/// * using the [`DynamicSceneBuilder`] to construct a `DynamicScene` from `World`.
 #[derive(Asset, TypePath, Default)]
 pub struct DynamicScene {
     /// Resources stored in the dynamic scene.
@@ -65,7 +66,7 @@ impl DynamicScene {
     pub fn write_to_world_with(
         &self,
         world: &mut World,
-        entity_map: &mut HashMap<Entity, Entity>,
+        entity_map: &mut EntityHashMap<Entity, Entity>,
         type_registry: &AppTypeRegistry,
     ) -> Result<(), SceneSpawnError> {
         let type_registry = type_registry.read();
@@ -138,7 +139,7 @@ impl DynamicScene {
                 // If the entity already has the given component attached,
                 // just apply the (possibly) new value, otherwise add the
                 // component to the entity.
-                reflect_component.apply_or_insert(entity_mut, &**component);
+                reflect_component.apply_or_insert(entity_mut, &**component, &type_registry);
             }
         }
 
@@ -163,7 +164,7 @@ impl DynamicScene {
     pub fn write_to_world(
         &self,
         world: &mut World,
-        entity_map: &mut HashMap<Entity, Entity>,
+        entity_map: &mut EntityHashMap<Entity, Entity>,
     ) -> Result<(), SceneSpawnError> {
         let registry = world.resource::<AppTypeRegistry>().clone();
         self.write_to_world_with(world, entity_map, &registry)
@@ -192,8 +193,8 @@ where
 #[cfg(test)]
 mod tests {
     use bevy_ecs::{reflect::AppTypeRegistry, system::Command, world::World};
-    use bevy_hierarchy::{AddChild, Parent};
-    use bevy_utils::HashMap;
+    use bevy_hierarchy::{Parent, PushChild};
+    use bevy_utils::EntityHashMap;
 
     use crate::dynamic_scene_builder::DynamicSceneBuilder;
 
@@ -210,7 +211,7 @@ mod tests {
             .register::<Parent>();
         let original_parent_entity = world.spawn_empty().id();
         let original_child_entity = world.spawn_empty().id();
-        AddChild {
+        PushChild {
             parent: original_parent_entity,
             child: original_child_entity,
         }
@@ -222,7 +223,7 @@ mod tests {
             .extract_entity(original_parent_entity)
             .extract_entity(original_child_entity)
             .build();
-        let mut entity_map = HashMap::default();
+        let mut entity_map = EntityHashMap::default();
         scene.write_to_world(&mut world, &mut entity_map).unwrap();
 
         let &from_scene_parent_entity = entity_map.get(&original_parent_entity).unwrap();
@@ -231,7 +232,7 @@ mod tests {
         // We then add the parent from the scene as a child of the original child
         // Hierarchy should look like:
         // Original Parent <- Original Child <- Scene Parent <- Scene Child
-        AddChild {
+        PushChild {
             parent: original_child_entity,
             child: from_scene_parent_entity,
         }

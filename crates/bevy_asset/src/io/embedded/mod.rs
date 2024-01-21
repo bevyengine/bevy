@@ -22,9 +22,7 @@ pub const EMBEDDED: &str = "embedded";
 pub struct EmbeddedAssetRegistry {
     dir: Dir,
     #[cfg(feature = "embedded_watcher")]
-    root_paths: std::sync::Arc<
-        parking_lot::RwLock<bevy_utils::HashMap<std::path::PathBuf, std::path::PathBuf>>,
-    >,
+    root_paths: std::sync::Arc<parking_lot::RwLock<bevy_utils::HashMap<PathBuf, PathBuf>>>,
 }
 
 impl EmbeddedAssetRegistry {
@@ -66,7 +64,12 @@ impl EmbeddedAssetRegistry {
                 Box::new(MemoryAssetReader {
                     root: processed_dir.clone(),
                 })
-            });
+            })
+            // Note that we only add a processed watch warning because we don't want to warn
+            // noisily about embedded watching (which is niche) when users enable file watching.
+            .with_processed_watch_warning(
+                "Consider enabling the `embedded_watcher` cargo feature.",
+            );
 
         #[cfg(feature = "embedded_watcher")]
         {
@@ -131,13 +134,15 @@ macro_rules! embedded_path {
 /// For example, consider the following file structure in the theoretical `bevy_rock` crate, which provides a Bevy [`Plugin`](bevy_app::Plugin)
 /// that renders fancy rocks for scenes.
 ///
-/// * `bevy_rock`
-///     * `src`
-///         * `render`
-///             * `rock.wgsl`
-///             * `mod.rs`
-///         * `lib.rs`
-///     * `Cargo.toml`
+/// ```text
+/// bevy_rock
+/// ├── src
+/// │   ├── render
+/// │   │   ├── rock.wgsl
+/// │   │   └── mod.rs
+/// │   └── lib.rs
+/// └── Cargo.toml
+/// ```
 ///
 /// `rock.wgsl` is a WGSL shader asset that the `bevy_rock` plugin author wants to bundle with their crate. They invoke the following
 /// in `bevy_rock/src/render/mod.rs`:
@@ -156,7 +161,7 @@ macro_rules! embedded_path {
 /// ```
 ///
 /// Some things to note in the path:
-/// 1. The non-default `embedded:://` [`AssetSource`]
+/// 1. The non-default `embedded://` [`AssetSource`]
 /// 2. `src` is trimmed from the path
 ///
 /// The default behavior also works for cargo workspaces. Pretend the `bevy_rock` crate now exists in a larger workspace in
@@ -194,12 +199,26 @@ macro_rules! embedded_asset {
             .world
             .resource_mut::<$crate::io::embedded::EmbeddedAssetRegistry>();
         let path = $crate::embedded_path!($source_path, $path);
-        #[cfg(feature = "embedded_watcher")]
-        let full_path = std::path::Path::new(file!()).parent().unwrap().join($path);
-        #[cfg(not(feature = "embedded_watcher"))]
-        let full_path = std::path::PathBuf::new();
-        embedded.insert_asset(full_path, &path, include_bytes!($path));
+        let watched_path = $crate::io::embedded::watched_path(file!(), $path);
+        embedded.insert_asset(watched_path, &path, include_bytes!($path));
     }};
+}
+
+/// Returns the path used by the watcher.
+#[doc(hidden)]
+#[cfg(feature = "embedded_watcher")]
+pub fn watched_path(source_file_path: &'static str, asset_path: &'static str) -> PathBuf {
+    PathBuf::from(source_file_path)
+        .parent()
+        .unwrap()
+        .join(asset_path)
+}
+
+/// Returns an empty PathBuf.
+#[doc(hidden)]
+#[cfg(not(feature = "embedded_watcher"))]
+pub fn watched_path(_source_file_path: &'static str, _asset_path: &'static str) -> PathBuf {
+    PathBuf::from("")
 }
 
 /// Loads an "internal" asset by embedding the string stored in the given `path_str` and associates it with the given handle.

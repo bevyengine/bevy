@@ -43,7 +43,7 @@ impl<'a> AssetSourceId<'a> {
     }
 
     /// Returns [`None`] if this is [`AssetSourceId::Default`] and [`Some`] containing the
-    /// the name if this is [`AssetSourceId::Name`].  
+    /// name if this is [`AssetSourceId::Name`].
     pub fn as_str(&self) -> Option<&str> {
         match self {
             AssetSourceId::Default => None,
@@ -128,6 +128,8 @@ pub struct AssetSourceBuilder {
                 + Sync,
         >,
     >,
+    pub watch_warning: Option<&'static str>,
+    pub processed_watch_warning: Option<&'static str>,
 }
 
 impl AssetSourceBuilder {
@@ -139,14 +141,14 @@ impl AssetSourceBuilder {
         watch: bool,
         watch_processed: bool,
     ) -> Option<AssetSource> {
-        let reader = (self.reader.as_mut()?)();
-        let writer = self.writer.as_mut().and_then(|w| (w)());
-        let processed_writer = self.processed_writer.as_mut().and_then(|w| (w)());
+        let reader = self.reader.as_mut()?();
+        let writer = self.writer.as_mut().and_then(|w| w());
+        let processed_writer = self.processed_writer.as_mut().and_then(|w| w());
         let mut source = AssetSource {
             id: id.clone(),
             reader,
             writer,
-            processed_reader: self.processed_reader.as_mut().map(|r| (r)()),
+            processed_reader: self.processed_reader.as_mut().map(|r| r()),
             processed_writer,
             event_receiver: None,
             watcher: None,
@@ -156,23 +158,31 @@ impl AssetSourceBuilder {
 
         if watch {
             let (sender, receiver) = crossbeam_channel::unbounded();
-            match self.watcher.as_mut().and_then(|w|(w)(sender)) {
+            match self.watcher.as_mut().and_then(|w| w(sender)) {
                 Some(w) => {
                     source.watcher = Some(w);
                     source.event_receiver = Some(receiver);
-                },
-                None => warn!("{id} does not have an AssetWatcher configured. Consider enabling the `file_watcher` feature. Note that Web and Android do not currently support watching assets."),
+                }
+                None => {
+                    if let Some(warning) = self.watch_warning {
+                        warn!("{id} does not have an AssetWatcher configured. {warning}");
+                    }
+                }
             }
         }
 
         if watch_processed {
             let (sender, receiver) = crossbeam_channel::unbounded();
-            match self.processed_watcher.as_mut().and_then(|w|(w)(sender)) {
+            match self.processed_watcher.as_mut().and_then(|w| w(sender)) {
                 Some(w) => {
                     source.processed_watcher = Some(w);
                     source.processed_event_receiver = Some(receiver);
-                },
-                None => warn!("{id} does not have a processed AssetWatcher configured. Consider enabling the `file_watcher` feature. Note that Web and Android do not currently support watching assets."),
+                }
+                None => {
+                    if let Some(warning) = self.processed_watch_warning {
+                        warn!("{id} does not have a processed AssetWatcher configured. {warning}");
+                    }
+                }
             }
         }
         Some(source)
@@ -238,6 +248,18 @@ impl AssetSourceBuilder {
         self
     }
 
+    /// Enables a warning for the unprocessed source watcher, which will print when watching is enabled and the unprocessed source doesn't have a watcher.
+    pub fn with_watch_warning(mut self, warning: &'static str) -> Self {
+        self.watch_warning = Some(warning);
+        self
+    }
+
+    /// Enables a warning for the processed source watcher, which will print when watching is enabled and the processed source doesn't have a watcher.
+    pub fn with_processed_watch_warning(mut self, warning: &'static str) -> Self {
+        self.processed_watch_warning = Some(warning);
+        self
+    }
+
     /// Returns a builder containing the "platform default source" for the given `path` and `processed_path`.
     /// For most platforms, this will use [`FileAssetReader`](crate::io::file::FileAssetReader) / [`FileAssetWriter`](crate::io::file::FileAssetWriter),
     /// but some platforms (such as Android) have their own default readers / writers / watchers.
@@ -248,7 +270,8 @@ impl AssetSourceBuilder {
             .with_watcher(AssetSource::get_default_watcher(
                 path.to_string(),
                 Duration::from_millis(300),
-            ));
+            ))
+            .with_watch_warning(AssetSource::get_default_watch_warning());
         if let Some(processed_path) = processed_path {
             default
                 .with_processed_reader(AssetSource::get_default_reader(processed_path.to_string()))
@@ -257,6 +280,7 @@ impl AssetSourceBuilder {
                     processed_path.to_string(),
                     Duration::from_millis(300),
                 ))
+                .with_processed_watch_warning(AssetSource::get_default_watch_warning())
         } else {
             default
         }
@@ -428,6 +452,16 @@ impl AssetSource {
         }
     }
 
+    /// Returns the default non-existent [`AssetWatcher`] warning for the current platform.
+    pub fn get_default_watch_warning() -> &'static str {
+        #[cfg(target_arch = "wasm32")]
+        return "Web does not currently support watching assets.";
+        #[cfg(target_os = "android")]
+        return "Android does not currently support watching assets.";
+        #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
+        return "Consider enabling the `file_watcher` feature.";
+    }
+
     /// Returns a builder function for this platform's default [`AssetWatcher`]. `path` is the relative path to
     /// the asset root. This will return [`None`] if this platform does not support watching assets by default.
     /// `file_debounce_time` is the amount of time to wait (and debounce duplicate events) before returning an event.
@@ -452,7 +486,7 @@ impl AssetSource {
                     sender,
                     file_debounce_wait_time,
                 )
-                .unwrap(),
+                .expect("Failed to create file watcher"),
             ));
             #[cfg(any(
                 not(feature = "file_watcher"),
@@ -535,22 +569,22 @@ impl AssetSources {
 }
 
 /// An error returned when an [`AssetSource`] does not exist for a given id.
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 #[error("Asset Source '{0}' does not exist")]
 pub struct MissingAssetSourceError(AssetSourceId<'static>);
 
 /// An error returned when an [`AssetWriter`] does not exist for a given id.
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 #[error("Asset Source '{0}' does not have an AssetWriter.")]
 pub struct MissingAssetWriterError(AssetSourceId<'static>);
 
 /// An error returned when a processed [`AssetReader`] does not exist for a given id.
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 #[error("Asset Source '{0}' does not have a processed AssetReader.")]
 pub struct MissingProcessedAssetReaderError(AssetSourceId<'static>);
 
 /// An error returned when a processed [`AssetWriter`] does not exist for a given id.
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 #[error("Asset Source '{0}' does not have a processed AssetWriter.")]
 pub struct MissingProcessedAssetWriterError(AssetSourceId<'static>);
 

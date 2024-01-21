@@ -36,16 +36,17 @@ impl Plugin for WireframePlugin {
         app.register_type::<Wireframe>()
             .register_type::<NoWireframe>()
             .register_type::<WireframeConfig>()
+            .register_type::<WireframeColor>()
             .init_resource::<WireframeConfig>()
             .add_plugins(MaterialPlugin::<WireframeMaterial>::default())
             .add_systems(Startup, setup_global_wireframe_material)
             .add_systems(
                 Update,
                 (
-                    global_color_changed.run_if(resource_changed::<WireframeConfig>()),
+                    global_color_changed.run_if(resource_changed::<WireframeConfig>),
                     wireframe_color_changed,
                     apply_wireframe_material,
-                    apply_global_wireframe_material.run_if(resource_changed::<WireframeConfig>()),
+                    apply_global_wireframe_material.run_if(resource_changed::<WireframeConfig>),
                 ),
             );
     }

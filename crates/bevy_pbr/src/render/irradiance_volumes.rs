@@ -5,13 +5,16 @@ use bevy_asset::{load_internal_asset, AssetApp, AssetId, Handle};
 use bevy_ecs::{
     query::QueryItem,
     schedule::IntoSystemConfigs,
-    system::{lifetimeless::Read, Res, ResMut, Resource},
+    system::{lifetimeless::Read, Res, ResMut, Resource, SystemParamItem},
     world::{FromWorld, World},
 };
 use bevy_math::{IVec3, Mat4, Vec4};
 use bevy_render::{
     extract_instances::{ExtractInstance, ExtractInstancesPlugin, ExtractedInstances},
-    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
+    render_asset::{
+        PrepareAssetError, RenderAsset, RenderAssetPersistencePolicy, RenderAssetPlugin,
+        RenderAssets,
+    },
     render_resource::{GpuArrayBuffer, GpuArrayBufferIndex, Shader, ShaderType, UniformBuffer},
     renderer::{RenderDevice, RenderQueue},
     Render, RenderApp, RenderSet,
@@ -213,28 +216,27 @@ impl Default for GpuIrradianceVolumes {
 }
 
 impl RenderAsset for IrradianceVolume {
-    type ExtractedAsset = IrradianceVolume;
     type PreparedAsset = IrradianceVolume;
     type Param = ();
 
-    fn extract_asset(&self) -> Self::ExtractedAsset {
-        self.clone()
+    fn persistence_policy(&self) -> RenderAssetPersistencePolicy {
+        RenderAssetPersistencePolicy::Keep
     }
 
     fn prepare_asset(
-        irradiance_volume: Self::ExtractedAsset,
-        _: &mut bevy_ecs::system::SystemParamItem<Self::Param>,
-    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
+        self,
+        _: &mut SystemParamItem<Self::Param>,
+    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self>> {
         // FIXME(pcwalton): Double-cloning seems suboptimal. Wrap in an Arc.
-        Ok(irradiance_volume.clone())
+        Ok(self.clone())
     }
 }
 
 impl ExtractInstance for IrradianceVolumeInstance {
-    type Query = (Read<GlobalTransform>, Read<Handle<IrradianceVolume>>);
+    type Data = (Read<GlobalTransform>, Read<Handle<IrradianceVolume>>);
     type Filter = ();
 
-    fn extract((global_transform, irradiance_volume): QueryItem<'_, Self::Query>) -> Option<Self> {
+    fn extract((global_transform, irradiance_volume): QueryItem<'_, Self::Data>) -> Option<Self> {
         Some(IrradianceVolumeInstance {
             transform: global_transform.compute_matrix(),
             irradiance_volume: irradiance_volume.id(),

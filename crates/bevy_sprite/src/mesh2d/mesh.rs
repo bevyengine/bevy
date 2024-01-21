@@ -19,7 +19,7 @@ use bevy_render::{
     mesh::{GpuBufferInfo, Mesh, MeshVertexBufferLayout},
     render_asset::RenderAssets,
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
-    render_resource::*,
+    render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
     texture::{
         BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
@@ -256,60 +256,39 @@ impl FromWorld for Mesh2dPipeline {
         )> = SystemState::new(world);
         let (render_device, render_queue, default_sampler) = system_state.get_mut(world);
         let render_device = render_device.into_inner();
-        let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[
-                // View
-                BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: true,
-                        min_binding_size: Some(ViewUniform::min_size()),
-                    },
-                    count: None,
-                },
-                BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: ShaderStages::VERTEX_FRAGMENT,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: Some(GlobalsUniform::min_size()),
-                    },
-                    count: None,
-                },
-            ],
-            label: Some("mesh2d_view_layout"),
-        });
-
-        let mesh_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[GpuArrayBuffer::<Mesh2dUniform>::binding_layout(
-                0,
+        let view_layout = render_device.create_bind_group_layout(
+            "mesh2d_view_layout",
+            &BindGroupLayoutEntries::sequential(
                 ShaderStages::VERTEX_FRAGMENT,
-                render_device,
-            )],
-            label: Some("mesh2d_layout"),
-        });
+                (
+                    // View
+                    uniform_buffer::<ViewUniform>(true),
+                    uniform_buffer::<GlobalsUniform>(false),
+                ),
+            ),
+        );
+
+        let mesh_layout = render_device.create_bind_group_layout(
+            "mesh2d_layout",
+            &BindGroupLayoutEntries::single(
+                ShaderStages::VERTEX_FRAGMENT,
+                GpuArrayBuffer::<Mesh2dUniform>::binding_layout(render_device),
+            ),
+        );
         // A 1x1x1 'all 1.0' texture to use as a dummy texture to use in place of optional StandardMaterial textures
         let dummy_white_gpu_image = {
             let image = Image::default();
             let texture = render_device.create_texture(&image.texture_descriptor);
-            let sampler = match image.sampler_descriptor {
+            let sampler = match image.sampler {
                 ImageSampler::Default => (**default_sampler).clone(),
                 ImageSampler::Descriptor(ref descriptor) => {
-                    render_device.create_sampler(descriptor)
+                    render_device.create_sampler(&descriptor.as_wgpu())
                 }
             };
 
             let format_size = image.texture_descriptor.format.pixel_size();
             render_queue.write_texture(
-                ImageCopyTexture {
-                    texture: &texture,
-                    mip_level: 0,
-                    origin: Origin3d::ZERO,
-                    aspect: TextureAspect::All,
-                },
+                texture.as_image_copy(),
                 &image.data,
                 ImageDataLayout {
                     offset: 0,
@@ -360,14 +339,14 @@ impl Mesh2dPipeline {
 
 impl GetBatchData for Mesh2dPipeline {
     type Param = SRes<RenderMesh2dInstances>;
-    type Query = Entity;
-    type QueryFilter = With<Mesh2d>;
+    type Data = Entity;
+    type Filter = With<Mesh2d>;
     type CompareData = (Material2dBindGroupId, AssetId<Mesh>);
     type BufferData = Mesh2dUniform;
 
     fn get_batch_data(
         mesh_instances: &SystemParamItem<Self::Param>,
-        entity: &QueryItem<Self::Query>,
+        entity: &QueryItem<Self::Data>,
     ) -> (Self::BufferData, Option<Self::CompareData>) {
         let mesh_instance = mesh_instances
             .get(entity)
@@ -390,9 +369,9 @@ bitflags::bitflags! {
     // FIXME: make normals optional?
     pub struct Mesh2dPipelineKey: u32 {
         const NONE                              = 0;
-        const HDR                               = (1 << 0);
-        const TONEMAP_IN_SHADER                 = (1 << 1);
-        const DEBAND_DITHER                     = (1 << 2);
+        const HDR                               = 1 << 0;
+        const TONEMAP_IN_SHADER                 = 1 << 1;
+        const DEBAND_DITHER                     = 1 << 2;
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const PRIMITIVE_TOPOLOGY_RESERVED_BITS  = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
         const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
@@ -638,13 +617,13 @@ pub fn prepare_mesh2d_view_bind_groups(
 pub struct SetMesh2dViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dViewBindGroup<I> {
     type Param = ();
-    type ViewWorldQuery = (Read<ViewUniformOffset>, Read<Mesh2dViewBindGroup>);
-    type ItemWorldQuery = ();
+    type ViewData = (Read<ViewUniformOffset>, Read<Mesh2dViewBindGroup>);
+    type ItemData = ();
 
     #[inline]
     fn render<'w>(
         _item: &P,
-        (view_uniform, mesh2d_view_bind_group): ROQueryItem<'w, Self::ViewWorldQuery>,
+        (view_uniform, mesh2d_view_bind_group): ROQueryItem<'w, Self::ViewData>,
         _view: (),
         _param: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
@@ -658,8 +637,8 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dViewBindGroup<I
 pub struct SetMesh2dBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dBindGroup<I> {
     type Param = SRes<Mesh2dBindGroup>;
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = ();
+    type ViewData = ();
+    type ItemData = ();
 
     #[inline]
     fn render<'w>(
@@ -687,8 +666,8 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dBindGroup<I> {
 pub struct DrawMesh2d;
 impl<P: PhaseItem> RenderCommand<P> for DrawMesh2d {
     type Param = (SRes<RenderAssets<Mesh>>, SRes<RenderMesh2dInstances>);
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = ();
+    type ViewData = ();
+    type ItemData = ();
 
     #[inline]
     fn render<'w>(

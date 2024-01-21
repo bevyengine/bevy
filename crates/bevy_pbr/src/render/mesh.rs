@@ -1,7 +1,12 @@
+use crate::{
+    MaterialBindGroupId, NotShadowCaster, NotShadowReceiver, PreviousGlobalTransform, Shadow,
+    ViewFogUniformOffset, ViewLightProbesUniformOffset, ViewLightsUniformOffset,
+    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
+};
 use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::{load_internal_asset, AssetId, Handle};
 use bevy_core_pipeline::{
-    core_3d::{AlphaMask3d, Opaque3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
+    core_3d::{AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
 };
 use bevy_derive::{Deref, DerefMut};
@@ -10,7 +15,7 @@ use bevy_ecs::{
     query::{QueryItem, ROQueryItem},
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
-use bevy_math::{Affine3, Vec4};
+use bevy_math::{Affine3, Rect, UVec2, Vec4};
 use bevy_render::{
     batching::{
         batch_and_prepare_render_phase, write_batched_instance_buffer, GetBatchData,
@@ -21,12 +26,14 @@ use bevy_render::{
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
-    texture::*,
+    texture::{
+        BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
+    },
     view::{ViewTarget, ViewUniformOffset, ViewVisibility},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{tracing::error, EntityHashMap, HashMap, Hashed};
+use bevy_utils::{tracing::error, EntityHashMap, Entry, HashMap, Hashed};
 use std::cell::Cell;
 use thread_local::ThreadLocal;
 
@@ -47,6 +54,8 @@ use crate::render::{
     MeshLayouts,
 };
 use crate::*;
+
+use self::environment_map::binding_arrays_are_usable;
 
 use super::skin::SkinIndices;
 
@@ -75,7 +84,7 @@ pub const MORPH_HANDLE: Handle<Shader> = Handle::weak_from_u128(9709828135876073
 pub const MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES: usize = 10;
 
 impl Plugin for MeshRenderPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
+    fn build(&self, app: &mut App) {
         load_internal_asset!(app, FORWARD_IO_HANDLE, "forward_io.wgsl", Shader::from_wgsl);
         load_internal_asset!(
             app,
@@ -123,6 +132,7 @@ impl Plugin for MeshRenderPlugin {
                 .init_resource::<SkinIndices>()
                 .init_resource::<MorphUniform>()
                 .init_resource::<MorphIndices>()
+                .allow_ambiguous_resource::<GpuArrayBuffer<MeshUniform>>()
                 .add_systems(
                     ExtractSchedule,
                     (extract_meshes, extract_skins, extract_morphs),
@@ -132,6 +142,7 @@ impl Plugin for MeshRenderPlugin {
                     (
                         (
                             batch_and_prepare_render_phase::<Opaque3d, MeshPipeline>,
+                            batch_and_prepare_render_phase::<Transmissive3d, MeshPipeline>,
                             batch_and_prepare_render_phase::<Transparent3d, MeshPipeline>,
                             batch_and_prepare_render_phase::<AlphaMask3d, MeshPipeline>,
                             batch_and_prepare_render_phase::<Shadow, MeshPipeline>,
@@ -150,7 +161,7 @@ impl Plugin for MeshRenderPlugin {
         }
     }
 
-    fn finish(&self, app: &mut bevy_app::App) {
+    fn finish(&self, app: &mut App) {
         let mut mesh_bindings_shader_defs = Vec::with_capacity(1);
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
@@ -194,6 +205,16 @@ pub struct MeshUniform {
     // Affine 4x3 matrices transposed to 3x4
     pub transform: [Vec4; 3],
     pub previous_transform: [Vec4; 3],
+    // Four 16-bit unsigned normalized UV values packed into a `UVec2`:
+    //
+    //                         <--- MSB                   LSB --->
+    //                         +---- min v ----+ +---- min u ----+
+    //     lightmap_uv_rect.x: vvvvvvvv vvvvvvvv uuuuuuuu uuuuuuuu,
+    //                         +---- max v ----+ +---- max u ----+
+    //     lightmap_uv_rect.y: VVVVVVVV VVVVVVVV UUUUUUUU UUUUUUUU,
+    //
+    // (MSB: most significant bit; LSB: least significant bit.)
+    pub lightmap_uv_rect: UVec2,
     // 3x3 matrix packed in mat2x4 and f32 as:
     //   [0].xyz, [1].x,
     //   [1].yz, [2].xy
@@ -203,13 +224,14 @@ pub struct MeshUniform {
     pub flags: u32,
 }
 
-impl From<&MeshTransforms> for MeshUniform {
-    fn from(mesh_transforms: &MeshTransforms) -> Self {
+impl MeshUniform {
+    fn new(mesh_transforms: &MeshTransforms, maybe_lightmap_uv_rect: Option<Rect>) -> Self {
         let (inverse_transpose_model_a, inverse_transpose_model_b) =
             mesh_transforms.transform.inverse_transpose_3x3();
         Self {
             transform: mesh_transforms.transform.to_transpose(),
             previous_transform: mesh_transforms.previous_transform.to_transpose(),
+            lightmap_uv_rect: lightmap::pack_lightmap_uv_rect(maybe_lightmap_uv_rect),
             inverse_transpose_model_a,
             inverse_transpose_model_b,
             flags: mesh_transforms.flags,
@@ -221,12 +243,13 @@ impl From<&MeshTransforms> for MeshUniform {
 bitflags::bitflags! {
     #[repr(transparent)]
     pub struct MeshFlags: u32 {
-        const SHADOW_RECEIVER            = (1 << 0);
+        const SHADOW_RECEIVER             = 1 << 0;
+        const TRANSMITTED_SHADOW_RECEIVER = 1 << 1;
         // Indicates the sign of the determinant of the 3x3 model matrix. If the sign is positive,
         // then the flag should be set, else it should not be set.
-        const SIGN_DETERMINANT_MODEL_3X3 = (1 << 31);
-        const NONE                       = 0;
-        const UNINITIALIZED              = 0xFFFF;
+        const SIGN_DETERMINANT_MODEL_3X3  = 1 << 31;
+        const NONE                        = 0;
+        const UNINITIALIZED               = 0xFFFF;
     }
 }
 
@@ -257,6 +280,7 @@ pub fn extract_meshes(
             Option<&PreviousGlobalTransform>,
             &Handle<Mesh>,
             Has<NotShadowReceiver>,
+            Has<TransmittedShadowReceiver>,
             Has<NotShadowCaster>,
             Has<NoAutomaticBatching>,
         )>,
@@ -269,8 +293,9 @@ pub fn extract_meshes(
             transform,
             previous_transform,
             handle,
-            not_receiver,
-            not_caster,
+            not_shadow_receiver,
+            transmitted_receiver,
+            not_shadow_caster,
             no_automatic_batching,
         )| {
             if !view_visibility.get() {
@@ -278,11 +303,14 @@ pub fn extract_meshes(
             }
             let transform = transform.affine();
             let previous_transform = previous_transform.map(|t| t.0).unwrap_or(transform);
-            let mut flags = if not_receiver {
+            let mut flags = if not_shadow_receiver {
                 MeshFlags::empty()
             } else {
                 MeshFlags::SHADOW_RECEIVER
             };
+            if transmitted_receiver {
+                flags |= MeshFlags::TRANSMITTED_SHADOW_RECEIVER;
+            }
             if transform.matrix3.determinant().is_sign_positive() {
                 flags |= MeshFlags::SIGN_DETERMINANT_MODEL_3X3;
             }
@@ -298,7 +326,7 @@ pub fn extract_meshes(
                 RenderMeshInstance {
                     mesh_asset_id: handle.id(),
                     transforms,
-                    shadow_caster: !not_caster,
+                    shadow_caster: !not_shadow_caster,
                     material_bind_group_id: MaterialBindGroupId::default(),
                     automatic_batching: !no_automatic_batching,
                 },
@@ -332,12 +360,18 @@ pub struct MeshPipeline {
     /// Use code like this in custom shaders:
     /// ```wgsl
     /// ##ifdef PER_OBJECT_BUFFER_BATCH_SIZE
-    /// @group(2) @binding(0) var<uniform> mesh: array<Mesh, #{PER_OBJECT_BUFFER_BATCH_SIZE}u>;
+    /// @group(1) @binding(0) var<uniform> mesh: array<Mesh, #{PER_OBJECT_BUFFER_BATCH_SIZE}u>;
     /// ##else
-    /// @group(2) @binding(0) var<storage> mesh: array<Mesh>;
+    /// @group(1) @binding(0) var<storage> mesh: array<Mesh>;
     /// ##endif // PER_OBJECT_BUFFER_BATCH_SIZE
     /// ```
     pub per_object_buffer_batch_size: Option<u32>,
+
+    /// Whether binding arrays (a.k.a. bindless textures) are usable on the
+    /// current render device.
+    ///
+    /// This affects whether reflection probes can be used.
+    pub binding_arrays_are_usable: bool,
 
     #[cfg(debug_assertions)]
     pub did_warn_about_too_many_textures: Arc<AtomicBool>,
@@ -361,21 +395,16 @@ impl FromWorld for MeshPipeline {
         let dummy_white_gpu_image = {
             let image = Image::default();
             let texture = render_device.create_texture(&image.texture_descriptor);
-            let sampler = match image.sampler_descriptor {
+            let sampler = match image.sampler {
                 ImageSampler::Default => (**default_sampler).clone(),
                 ImageSampler::Descriptor(ref descriptor) => {
-                    render_device.create_sampler(descriptor)
+                    render_device.create_sampler(&descriptor.as_wgpu())
                 }
             };
 
             let format_size = image.texture_descriptor.format.pixel_size();
             render_queue.write_texture(
-                ImageCopyTexture {
-                    texture: &texture,
-                    mip_level: 0,
-                    origin: Origin3d::ZERO,
-                    aspect: TextureAspect::All,
-                },
+                texture.as_image_copy(),
                 &image.data,
                 ImageDataLayout {
                     offset: 0,
@@ -402,6 +431,7 @@ impl FromWorld for MeshPipeline {
             dummy_white_gpu_image,
             mesh_layouts: MeshLayouts::new(&render_device),
             per_object_buffer_batch_size: GpuArrayBuffer::<MeshUniform>::batch_size(&render_device),
+            binding_arrays_are_usable: binding_arrays_are_usable(&render_device),
             #[cfg(debug_assertions)]
             did_warn_about_too_many_textures: Arc::new(AtomicBool::new(false)),
         }
@@ -445,24 +475,34 @@ impl MeshPipeline {
 }
 
 impl GetBatchData for MeshPipeline {
-    type Param = SRes<RenderMeshInstances>;
-    type Query = Entity;
-    type QueryFilter = With<Mesh3d>;
-    type CompareData = (MaterialBindGroupId, AssetId<Mesh>);
+    type Param = (SRes<RenderMeshInstances>, SRes<RenderLightmaps>);
+    type Data = Entity;
+    type Filter = With<Mesh3d>;
+
+    // The material bind group ID, the mesh ID, and the lightmap ID,
+    // respectively.
+    type CompareData = (MaterialBindGroupId, AssetId<Mesh>, Option<AssetId<Image>>);
+
     type BufferData = MeshUniform;
 
     fn get_batch_data(
-        mesh_instances: &SystemParamItem<Self::Param>,
-        entity: &QueryItem<Self::Query>,
+        (mesh_instances, lightmaps): &SystemParamItem<Self::Param>,
+        entity: &QueryItem<Self::Data>,
     ) -> (Self::BufferData, Option<Self::CompareData>) {
         let mesh_instance = mesh_instances
             .get(entity)
             .expect("Failed to find render mesh instance");
+        let maybe_lightmap = lightmaps.render_lightmaps.get(entity);
+
         (
-            (&mesh_instance.transforms).into(),
+            MeshUniform::new(
+                &mesh_instance.transforms,
+                maybe_lightmap.map(|lightmap| lightmap.uv_rect),
+            ),
             mesh_instance.automatic_batching.then_some((
                 mesh_instance.material_bind_group_id,
                 mesh_instance.mesh_asset_id,
+                maybe_lightmap.map(|lightmap| lightmap.image),
             )),
         )
     }
@@ -475,25 +515,27 @@ bitflags::bitflags! {
     /// MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
     pub struct MeshPipelineKey: u32 {
         const NONE                              = 0;
-        const HDR                               = (1 << 0);
-        const TONEMAP_IN_SHADER                 = (1 << 1);
-        const DEBAND_DITHER                     = (1 << 2);
-        const DEPTH_PREPASS                     = (1 << 3);
-        const NORMAL_PREPASS                    = (1 << 4);
-        const DEFERRED_PREPASS                  = (1 << 5);
-        const MOTION_VECTOR_PREPASS             = (1 << 6);
-        const MAY_DISCARD                       = (1 << 7); // Guards shader codepaths that may discard, allowing early depth tests in most cases
+        const HDR                               = 1 << 0;
+        const TONEMAP_IN_SHADER                 = 1 << 1;
+        const DEBAND_DITHER                     = 1 << 2;
+        const DEPTH_PREPASS                     = 1 << 3;
+        const NORMAL_PREPASS                    = 1 << 4;
+        const DEFERRED_PREPASS                  = 1 << 5;
+        const MOTION_VECTOR_PREPASS             = 1 << 6;
+        const MAY_DISCARD                       = 1 << 7; // Guards shader codepaths that may discard, allowing early depth tests in most cases
                                                             // See: https://www.khronos.org/opengl/wiki/Early_Fragment_Test
-        const ENVIRONMENT_MAP                   = (1 << 8);
-        const SCREEN_SPACE_AMBIENT_OCCLUSION    = (1 << 9);
-        const DEPTH_CLAMP_ORTHO                 = (1 << 10);
-        const TAA                               = (1 << 11);
-        const MORPH_TARGETS                     = (1 << 12);
+        const ENVIRONMENT_MAP                   = 1 << 8;
+        const SCREEN_SPACE_AMBIENT_OCCLUSION    = 1 << 9;
+        const DEPTH_CLAMP_ORTHO                 = 1 << 10;
+        const TEMPORAL_JITTER                   = 1 << 11;
+        const MORPH_TARGETS                     = 1 << 12;
+        const READS_VIEW_TRANSMISSION_TEXTURE   = 1 << 13;
+        const LIGHTMAPPED                       = 1 << 14;
         const BLEND_RESERVED_BITS               = Self::BLEND_MASK_BITS << Self::BLEND_SHIFT_BITS; // ← Bitmask reserving bits for the blend state
-        const BLEND_OPAQUE                      = (0 << Self::BLEND_SHIFT_BITS);                   // ← Values are just sequential within the mask, and can range from 0 to 3
-        const BLEND_PREMULTIPLIED_ALPHA         = (1 << Self::BLEND_SHIFT_BITS);                   //
-        const BLEND_MULTIPLY                    = (2 << Self::BLEND_SHIFT_BITS);                   // ← We still have room for one more value without adding more bits
-        const BLEND_ALPHA                       = (3 << Self::BLEND_SHIFT_BITS);
+        const BLEND_OPAQUE                      = 0 << Self::BLEND_SHIFT_BITS;                   // ← Values are just sequential within the mask, and can range from 0 to 3
+        const BLEND_PREMULTIPLIED_ALPHA         = 1 << Self::BLEND_SHIFT_BITS;                   //
+        const BLEND_MULTIPLY                    = 2 << Self::BLEND_SHIFT_BITS;                   // ← We still have room for one more value without adding more bits
+        const BLEND_ALPHA                       = 3 << Self::BLEND_SHIFT_BITS;
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const PRIMITIVE_TOPOLOGY_RESERVED_BITS  = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
         const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
@@ -514,6 +556,11 @@ bitflags::bitflags! {
         const VIEW_PROJECTION_PERSPECTIVE       = 1 << Self::VIEW_PROJECTION_SHIFT_BITS;
         const VIEW_PROJECTION_ORTHOGRAPHIC      = 2 << Self::VIEW_PROJECTION_SHIFT_BITS;
         const VIEW_PROJECTION_RESERVED          = 3 << Self::VIEW_PROJECTION_SHIFT_BITS;
+        const SCREEN_SPACE_SPECULAR_TRANSMISSION_RESERVED_BITS = Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_MASK_BITS << Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
+        const SCREEN_SPACE_SPECULAR_TRANSMISSION_LOW = 0 << Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
+        const SCREEN_SPACE_SPECULAR_TRANSMISSION_MEDIUM = 1 << Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
+        const SCREEN_SPACE_SPECULAR_TRANSMISSION_HIGH = 2 << Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
+        const SCREEN_SPACE_SPECULAR_TRANSMISSION_ULTRA = 3 << Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
     }
 }
 
@@ -540,6 +587,10 @@ impl MeshPipelineKey {
     const VIEW_PROJECTION_MASK_BITS: u32 = 0b11;
     const VIEW_PROJECTION_SHIFT_BITS: u32 =
         Self::SHADOW_FILTER_METHOD_SHIFT_BITS - Self::VIEW_PROJECTION_MASK_BITS.count_ones();
+
+    const SCREEN_SPACE_SPECULAR_TRANSMISSION_MASK_BITS: u32 = 0b11;
+    const SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS: u32 = Self::VIEW_PROJECTION_SHIFT_BITS
+        - Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_MASK_BITS.count_ones();
 
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits =
@@ -597,21 +648,23 @@ pub fn setup_morph_and_skinning_defs(
         vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(offset + 1));
     };
     let is_morphed = key.intersects(MeshPipelineKey::MORPH_TARGETS);
-    match (is_skinned(layout), is_morphed) {
-        (true, false) => {
+    let is_lightmapped = key.intersects(MeshPipelineKey::LIGHTMAPPED);
+    match (is_skinned(layout), is_morphed, is_lightmapped) {
+        (true, false, _) => {
             add_skin_data();
             mesh_layouts.skinned.clone()
         }
-        (true, true) => {
+        (true, true, _) => {
             add_skin_data();
             shader_defs.push("MORPH_TARGETS".into());
             mesh_layouts.morphed_skinned.clone()
         }
-        (false, true) => {
+        (false, true, _) => {
             shader_defs.push("MORPH_TARGETS".into());
             mesh_layouts.morphed.clone()
         }
-        (false, false) => mesh_layouts.model_only.clone(),
+        (false, false, true) => mesh_layouts.lightmapped.clone(),
+        (false, false, false) => mesh_layouts.model_only.clone(),
     }
 }
 
@@ -647,7 +700,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
         }
 
         if layout.contains(Mesh::ATTRIBUTE_UV_1) {
-            shader_defs.push("VERTEX_UVS_1".into());
+            shader_defs.push("VERTEX_UVS_B".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_1.at_shader_location(3));
         }
 
@@ -659,6 +712,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
         if layout.contains(Mesh::ATTRIBUTE_COLOR) {
             shader_defs.push("VERTEX_COLORS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(5));
+        }
+
+        if cfg!(feature = "pbr_transmission_textures") {
+            shader_defs.push("PBR_TRANSMISSION_TEXTURES_SUPPORTED".into());
         }
 
         let mut bind_group_layout = vec![self.get_view_layout(key.into()).clone()];
@@ -722,7 +779,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             // the current fragment value in the output and the depth is written to the
             // depth buffer
             depth_write_enabled = true;
-            is_opaque = true;
+            is_opaque = !key.contains(MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE);
         }
 
         if key.contains(MeshPipelineKey::NORMAL_PREPASS) {
@@ -794,8 +851,12 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("ENVIRONMENT_MAP".into());
         }
 
-        if key.contains(MeshPipelineKey::TAA) {
-            shader_defs.push("TAA".into());
+        if key.contains(MeshPipelineKey::LIGHTMAPPED) {
+            shader_defs.push("LIGHTMAP".into());
+        }
+
+        if key.contains(MeshPipelineKey::TEMPORAL_JITTER) {
+            shader_defs.push("TEMPORAL_JITTER".into());
         }
 
         let shadow_filter_method =
@@ -806,6 +867,24 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("SHADOW_FILTER_METHOD_CASTANO_13".into());
         } else if shadow_filter_method == MeshPipelineKey::SHADOW_FILTER_METHOD_JIMENEZ_14 {
             shader_defs.push("SHADOW_FILTER_METHOD_JIMENEZ_14".into());
+        }
+
+        let blur_quality =
+            key.intersection(MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_RESERVED_BITS);
+
+        shader_defs.push(ShaderDefVal::Int(
+            "SCREEN_SPACE_SPECULAR_TRANSMISSION_BLUR_TAPS".into(),
+            match blur_quality {
+                MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_LOW => 4,
+                MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_MEDIUM => 8,
+                MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_HIGH => 16,
+                MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_ULTRA => 32,
+                _ => unreachable!(), // Not possible, since the mask is 2 bits, and we've covered all 4 cases
+            },
+        ));
+
+        if self.binding_arrays_are_usable {
+            shader_defs.push("MULTIPLE_LIGHT_PROBES_IN_ARRAY".into());
         }
 
         let format = if key.contains(MeshPipelineKey::HDR) {
@@ -892,36 +971,44 @@ pub struct MeshBindGroups {
     model_only: Option<BindGroup>,
     skinned: Option<BindGroup>,
     morph_targets: HashMap<AssetId<Mesh>, BindGroup>,
+    lightmaps: HashMap<AssetId<Image>, BindGroup>,
 }
 impl MeshBindGroups {
     pub fn reset(&mut self) {
         self.model_only = None;
         self.skinned = None;
         self.morph_targets.clear();
+        self.lightmaps.clear();
     }
-    /// Get the `BindGroup` for `GpuMesh` with given `handle_id`.
+    /// Get the `BindGroup` for `GpuMesh` with given `handle_id` and lightmap
+    /// key `lightmap`.
     pub fn get(
         &self,
         asset_id: AssetId<Mesh>,
+        lightmap: Option<AssetId<Image>>,
         is_skinned: bool,
         morph: bool,
     ) -> Option<&BindGroup> {
-        match (is_skinned, morph) {
-            (_, true) => self.morph_targets.get(&asset_id),
-            (true, false) => self.skinned.as_ref(),
-            (false, false) => self.model_only.as_ref(),
+        match (is_skinned, morph, lightmap) {
+            (_, true, _) => self.morph_targets.get(&asset_id),
+            (true, false, _) => self.skinned.as_ref(),
+            (false, false, Some(lightmap)) => self.lightmaps.get(&lightmap),
+            (false, false, None) => self.model_only.as_ref(),
         }
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn prepare_mesh_bind_group(
     meshes: Res<RenderAssets<Mesh>>,
+    images: Res<RenderAssets<Image>>,
     mut groups: ResMut<MeshBindGroups>,
     mesh_pipeline: Res<MeshPipeline>,
     render_device: Res<RenderDevice>,
     mesh_uniforms: Res<GpuArrayBuffer<MeshUniform>>,
     skins_uniform: Res<SkinUniform>,
     weights_uniform: Res<MorphUniform>,
+    render_lightmaps: Res<RenderLightmaps>,
 ) {
     groups.reset();
     let layouts = &mesh_pipeline.mesh_layouts;
@@ -947,25 +1034,35 @@ pub fn prepare_mesh_bind_group(
             }
         }
     }
+
+    // Create lightmap bindgroups.
+    for &image_id in &render_lightmaps.all_lightmap_images {
+        if let (Entry::Vacant(entry), Some(image)) =
+            (groups.lightmaps.entry(image_id), images.get(image_id))
+        {
+            entry.insert(layouts.lightmapped(&render_device, &model, image));
+        }
+    }
 }
 
 pub struct SetMeshViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> {
     type Param = ();
-    type ViewWorldQuery = (
+    type ViewData = (
         Read<ViewUniformOffset>,
         Read<ViewLightsUniformOffset>,
         Read<ViewFogUniformOffset>,
+        Read<ViewLightProbesUniformOffset>,
         Read<MeshViewBindGroup>,
     );
-    type ItemWorldQuery = ();
+    type ItemData = ();
 
     #[inline]
     fn render<'w>(
         _item: &P,
-        (view_uniform, view_lights, view_fog, mesh_view_bind_group): ROQueryItem<
+        (view_uniform, view_lights, view_fog, view_light_probes, mesh_view_bind_group): ROQueryItem<
             'w,
-            Self::ViewWorldQuery,
+            Self::ViewData,
         >,
         _entity: (),
         _: SystemParamItem<'w, '_, Self::Param>,
@@ -974,7 +1071,12 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
         pass.set_bind_group(
             I,
             &mesh_view_bind_group.value,
-            &[view_uniform.offset, view_lights.offset, view_fog.offset],
+            &[
+                view_uniform.offset,
+                view_lights.offset,
+                view_fog.offset,
+                **view_light_probes,
+            ],
         );
 
         RenderCommandResult::Success
@@ -988,16 +1090,17 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         SRes<RenderMeshInstances>,
         SRes<SkinIndices>,
         SRes<MorphIndices>,
+        SRes<RenderLightmaps>,
     );
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = ();
+    type ViewData = ();
+    type ItemData = ();
 
     #[inline]
     fn render<'w>(
         item: &P,
         _view: (),
         _item_query: (),
-        (bind_groups, mesh_instances, skin_indices, morph_indices): SystemParamItem<
+        (bind_groups, mesh_instances, skin_indices, morph_indices, lightmaps): SystemParamItem<
             'w,
             '_,
             Self::Param,
@@ -1020,10 +1123,17 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         let is_skinned = skin_index.is_some();
         let is_morphed = morph_index.is_some();
 
-        let Some(bind_group) = bind_groups.get(mesh.mesh_asset_id, is_skinned, is_morphed) else {
+        let lightmap = lightmaps
+            .render_lightmaps
+            .get(entity)
+            .map(|render_lightmap| render_lightmap.image);
+
+        let Some(bind_group) =
+            bind_groups.get(mesh.mesh_asset_id, lightmap, is_skinned, is_morphed)
+        else {
             error!(
                 "The MeshBindGroups resource wasn't set in the render phase. \
-                It should be set by the queue_mesh_bind_group system.\n\
+                It should be set by the prepare_mesh_bind_group system.\n\
                 This is a bevy bug! Please open an issue."
             );
             return RenderCommandResult::Failure;
@@ -1052,8 +1162,8 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
 pub struct DrawMesh;
 impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
     type Param = (SRes<RenderAssets<Mesh>>, SRes<RenderMeshInstances>);
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = ();
+    type ViewData = ();
+    type ItemData = ();
     #[inline]
     fn render<'w>(
         item: &P,

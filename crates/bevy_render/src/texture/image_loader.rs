@@ -3,11 +3,12 @@ use bevy_ecs::prelude::{FromWorld, World};
 use thiserror::Error;
 
 use crate::{
+    render_asset::RenderAssetPersistencePolicy,
     renderer::RenderDevice,
     texture::{Image, ImageFormat, ImageType, TextureError},
 };
 
-use super::{CompressedImageFormats, ImageSampler, ImageSamplerDescriptor};
+use super::{CompressedImageFormats, ImageSampler};
 use serde::{Deserialize, Serialize};
 
 /// Loader for images that can be read by the `image` crate.
@@ -45,18 +46,19 @@ pub(crate) const IMG_FILE_EXTENSIONS: &[&str] = &[
     "ppm",
 ];
 
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Serialize, Deserialize, Default, Debug)]
 pub enum ImageFormatSetting {
     #[default]
     FromExtension,
     Format(ImageFormat),
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ImageLoaderSettings {
     pub format: ImageFormatSetting,
     pub is_srgb: bool,
-    pub sampler_descriptor: ImageSamplerDescriptor,
+    pub sampler: ImageSampler,
+    pub cpu_persistent_access: RenderAssetPersistencePolicy,
 }
 
 impl Default for ImageLoaderSettings {
@@ -64,7 +66,8 @@ impl Default for ImageLoaderSettings {
         Self {
             format: ImageFormatSetting::default(),
             is_srgb: true,
-            sampler_descriptor: ImageSamplerDescriptor::default(),
+            sampler: ImageSampler::Default,
+            cpu_persistent_access: RenderAssetPersistencePolicy::Keep,
         }
     }
 }
@@ -103,7 +106,8 @@ impl AssetLoader for ImageLoader {
                 image_type,
                 self.supported_compressed_formats,
                 settings.is_srgb,
-                ImageSampler::Descriptor(settings.sampler_descriptor.into()),
+                settings.sampler.clone(),
+                settings.cpu_persistent_access,
             )
             .map_err(|err| FileTextureError {
                 error: err,
@@ -137,7 +141,7 @@ pub struct FileTextureError {
     path: String,
 }
 impl std::fmt::Display for FileTextureError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         write!(
             f,
             "Error reading image file {}: {}, this is an error in `bevy_render`.",
