@@ -300,7 +300,7 @@ pub trait ComputedStates: States {
     /// containing multiple implementors of [`States`].
     type SourceStates: StateSet;
 
-    /// This function gets called whenever one of the [`SourceStates`] changes.
+    /// This function gets called whenever one of the [`SourceStates`](Self::SourceStates) changes.
     /// The result is used to set the value of [`State<Self>`].
     ///
     /// If the result is [`None`], the [`State<Self>`] resource will be removed from the world.
@@ -308,7 +308,7 @@ pub trait ComputedStates: States {
         sources: <<Self as ComputedStates>::SourceStates as StateSet>::Optionals,
     ) -> Option<Self>;
 
-    /// This function sets up systems that compute the state whenever one of the [`SourceStates`]
+    /// This function sets up systems that compute the state whenever one of the [`SourceStates`](Self::SourceStates)
     /// change. It is called by `App::add_computed_state`, but can be called manually if `App` is not
     /// used.
     fn register_state_compute_systems_in_schedule(schedules: &mut Schedules) {
