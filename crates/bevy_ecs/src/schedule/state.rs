@@ -395,6 +395,53 @@ pub fn apply_state_transition<S: FreelyMutableState>(world: &mut World) {
 /// A Computed State is a state that is deterministically derived from a set of `SourceStates`.
 /// The [`StateSet`] is passed into the `compute` method whenever one of them changes, and the
 /// result becomes the state's value.
+///
+/// ```
+/// /// Computed States require some state to derive from
+/// #[derive(States, Clone, PartialEq, Eq, Hash, Debug, Default)]
+/// enum AppState {
+///     #[default]
+///     Menu,
+///     InGame { paused: bool }
+/// }
+///
+///
+/// #[derive(Clone, PartialEq, Eq, Hash, Debug)]
+/// struct InGame;
+///
+/// impl ComputedStates for InGame {
+///     /// We set the source state to be the state, or set of states,
+///     /// we want to depend on.
+///     type SourceStates = AppState;
+///
+///     /// We then define the compute function, which takes in
+///     /// either a single optional state, or a tuple of optional
+///     /// states based on whether our source is one state
+///     /// or many.
+///     fn compute(sources: Option<AppState>) -> Option<Self> {
+///         match sources {
+///             /// When we are in game, we want to return the InGame state
+///             Some(AppState::InGame { .. }) => Some(InGame)
+///             /// Otherwise, we don't want the `State<InGame>` resource to exist,
+///             /// so we return None.
+///             _ => None
+///         }
+///     }
+/// }
+///
+/// # struct App;
+/// # impl App {
+/// #   fn new() -> Self { App }
+/// #   fn init_state<S: States>(&mut self) -> &mut Self {self}
+/// #   fn add_computed_state<S: ComputedStates>(&mut self) -> &mut Self {self}
+/// # }
+///
+/// /// you can then add it to an App, and from there you use the state as normal
+///     App::new()
+///         .init_state::<AppState>()
+///         .add_computed_state::<InGame>()
+/// ///...
+/// ```
 pub trait ComputedStates: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug {
     /// The set of states from which the [`Self`] is derived.
     ///
