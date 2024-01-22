@@ -397,6 +397,8 @@ pub fn apply_state_transition<S: FreelyMutableState>(world: &mut World) {
 /// result becomes the state's value.
 ///
 /// ```
+/// # use bevy_ecs::prelude::*;
+///
 /// /// Computed States require some state to derive from
 /// #[derive(States, Clone, PartialEq, Eq, Hash, Debug, Default)]
 /// enum AppState {
@@ -421,26 +423,32 @@ pub fn apply_state_transition<S: FreelyMutableState>(world: &mut World) {
 ///     fn compute(sources: Option<AppState>) -> Option<Self> {
 ///         match sources {
 ///             /// When we are in game, we want to return the InGame state
-///             Some(AppState::InGame { .. }) => Some(InGame)
+///             Some(AppState::InGame { .. }) => Some(InGame),
 ///             /// Otherwise, we don't want the `State<InGame>` resource to exist,
 ///             /// so we return None.
 ///             _ => None
 ///         }
 ///     }
 /// }
+/// ```
+///
+/// you can then add it to an App, and from there you use the state as normal
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
 ///
 /// # struct App;
 /// # impl App {
 /// #   fn new() -> Self { App }
-/// #   fn init_state<S: States>(&mut self) -> &mut Self {self}
-/// #   fn add_computed_state<S: ComputedStates>(&mut self) -> &mut Self {self}
+/// #   fn init_state<S>(&mut self) -> &mut Self {self}
+/// #   fn add_computed_state<S>(&mut self) -> &mut Self {self}
 /// # }
+/// # struct AppState;
+/// # struct InGame;
 ///
-/// /// you can then add it to an App, and from there you use the state as normal
 ///     App::new()
 ///         .init_state::<AppState>()
-///         .add_computed_state::<InGame>()
-/// ///...
+///         .add_computed_state::<InGame>();
 /// ```
 pub trait ComputedStates: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug {
     /// The set of states from which the [`Self`] is derived.
