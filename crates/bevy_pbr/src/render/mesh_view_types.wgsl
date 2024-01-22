@@ -111,13 +111,9 @@ struct ClusterOffsetsAndCounts {
 };
 #endif
 
-#if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
 struct IrradianceVolumeData {
-    data: array<vec4<f32>>,
+    data: array<u32>,
 };
-#else
-// TODO
-#endif
 
 struct IrradianceVolume {
     transform: mat4x4<f32>,

@@ -5,7 +5,6 @@ mod bundle;
 pub mod deferred;
 mod extended_material;
 mod fog;
-mod irradiance_volumes;
 mod light;
 mod light_probe;
 mod lightmap;
@@ -20,7 +19,6 @@ pub use alpha::*;
 pub use bundle::*;
 pub use extended_material::*;
 pub use fog::*;
-pub use irradiance_volumes::*;
 pub use light::*;
 pub use light_probe::*;
 pub use lightmap::*;
@@ -77,7 +75,7 @@ use bevy_render::{
 };
 use bevy_transform::TransformSystem;
 
-use crate::deferred::DeferredPbrLightingPlugin;
+use crate::{deferred::DeferredPbrLightingPlugin, irradiance_volume::IrradianceVolumesPlugin};
 
 pub const PBR_TYPES_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1708015359337029744);
 pub const PBR_BINDINGS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(5635987986427308186);

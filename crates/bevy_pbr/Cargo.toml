@@ -9,9 +9,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-default = ["serialize"]
 webgl = []
-serialize = ["serde", "bincode", "bevy_transform/serialize"]
 shader_format_glsl = ["naga_oil/glsl"]
 pbr_transmission_textures = []
 
@@ -33,6 +31,7 @@ bevy_derive = { path = "../bevy_derive", version = "0.12.0" }
 
 # other
 bitflags = "2.3"
+byteorder = "1"
 fixedbitset = "0.4"
 # direct dependency required for derive macro
 bytemuck = { version = "1", features = ["derive"] }
@@ -40,9 +39,6 @@ radsort = "0.1"
 smallvec = "1.6"
 thread_local = "1.0"
 thiserror = "1"
-
-serde = { version = "1", features = ["derive"], optional = true }
-bincode = { version = "1", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 naga_oil = { version = "0.11" }

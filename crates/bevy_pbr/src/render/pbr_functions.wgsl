@@ -10,7 +10,7 @@
     clustered_forward as clustering,
     shadows,
     ambient,
-    irradiance_volumes,
+    irradiance_volume,
     mesh_types::{MESH_FLAGS_SHADOW_RECEIVER_BIT, MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT},
     utils::E,
 }
@@ -382,10 +382,7 @@ fn apply_pbr_lighting(
     indirect_light += in.lightmap_light * diffuse_color;
 #endif
 
-    indirect_light += irradiance_volumes::sample_irradiance_volume(in.world_position.xyz, in.N) *
-        diffuse_color;
-
-    let emissive_light = emissive.rgb * output_color.a;
+    var emissive_light = emissive.rgb * output_color.a;
 
     if specular_transmission > 0.0 {
         transmitted_light += transmission::specular_transmissive_light(in.world_position, in.frag_coord.xyz, view_z, in.N, in.V, F0, ior, thickness, perceptual_roughness, specular_transmissive_color, specular_transmitted_environment_light).rgb;
@@ -419,6 +416,9 @@ fn apply_pbr_lighting(
         offset_and_counts,
         cluster_index,
     );
+
+    output_color = vec4(output_color.rgb + irradiance_volume::sample_irradiance_volume(in.world_position.xyz, in.N) *
+        diffuse_color, output_color.a);
 
     return output_color;
 }

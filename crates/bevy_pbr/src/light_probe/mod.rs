@@ -32,6 +32,7 @@ use crate::light_probe::environment_map::{
 };
 
 pub mod environment_map;
+pub mod irradiance_volume;
 
 /// The maximum number of reflection probes that each view will consider.
 ///

@@ -64,6 +64,7 @@ use bevy_render::{
     texture::{FallbackImage, Image},
 };
 use bevy_utils::HashMap;
+
 use std::num::NonZeroU32;
 use std::ops::Deref;
 

@@ -1,5 +1,5 @@
+use bevy::pbr::irradiance_volume::{IrradianceVolume, IrradianceVoxels};
 use bevy::prelude::*;
-use bevy_internal::pbr::IrradianceVolume;
 
 fn main() {
     App::new()
@@ -21,10 +21,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     commands
         .spawn(SpatialBundle {
-            transform: Transform::IDENTITY,
+            transform: Transform::from_matrix(Mat4::from_cols_array_2d(&[
+                [45.878204, 0.0, 0.0, 0.0],
+                [0.0, 0.0, -45.87819, 0.0],
+                [0.0, 45.87819, 0.0, 0.0],
+                [-529.0034, 22.654373, -25.541794, 1.0],
+            ])),
             ..SpatialBundle::default()
         })
-        .insert(
-            asset_server.load::<IrradianceVolume>("irradiance_volumes/CornellBox.voxelgi.bincode"),
-        );
+        .insert(IrradianceVolume {
+            voxels: asset_server.load::<IrradianceVoxels>("irradiance_volumes/CornellBox.vxgi"),
+            intensity: 150.0,
+        });
 }

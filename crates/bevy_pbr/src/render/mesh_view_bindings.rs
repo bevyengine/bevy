@@ -12,7 +12,6 @@ use bevy_ecs::{
     entity::Entity,
     system::{Commands, Query, Res},
 };
-use bevy_math::Vec4;
 use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},
     render_asset::RenderAssets,
@@ -29,10 +28,10 @@ use bevy_render::render_resource::binding_types::{texture_2d_array, texture_cube
 
 use crate::{
     environment_map::{self, RenderViewBindGroupEntries, RenderViewEnvironmentMaps},
-    prepass, FogMeta, GlobalLightMeta, GpuFog, GpuIrradianceVolume, GpuIrradianceVolumes,
-    GpuLights, GpuPointLights, LightMeta, LightProbesBuffer, LightProbesUniform, MeshPipeline,
-    MeshPipelineKey, RenderIrradianceVolumes, ScreenSpaceAmbientOcclusionTextures, ShadowSamplers,
-    ViewClusterBindings, ViewShadowBindings,
+    irradiance_volume::{GpuIrradianceVolume, GpuIrradianceVolumes, RenderIrradianceVolumes},
+    prepass, FogMeta, GlobalLightMeta, GpuFog, GpuLights, GpuPointLights, LightMeta,
+    LightProbesBuffer, LightProbesUniform, MeshPipeline, MeshPipelineKey,
+    ScreenSpaceAmbientOcclusionTextures, ShadowSamplers, ViewClusterBindings, ViewShadowBindings,
 };
 
 #[derive(Clone)]

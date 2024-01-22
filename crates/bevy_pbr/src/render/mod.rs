@@ -1,5 +1,4 @@
 mod fog;
-mod irradiance_volumes;
 mod light;
 pub(crate) mod mesh;
 mod mesh_bindings;
@@ -8,7 +7,6 @@ mod morph;
 mod skin;
 
 pub use fog::*;
-pub use irradiance_volumes::*;
 pub use light::*;
 pub use mesh::*;
 pub use mesh_bindings::MeshLayouts;
