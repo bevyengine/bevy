@@ -13,7 +13,6 @@ where
     where
         I: IntoParallelIterator<Item = T>,
     {
-        // See the vec_collect benchmarks in rayon-demo for different strategies.
         let par_iter = par_iter.into_par_iter();
         match par_iter.opt_len() {
             Some(len) => {

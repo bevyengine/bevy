@@ -11,7 +11,6 @@ mod from_par_iter;
 mod map;
 mod noop;
 
-// pub use self::collect::special_extend;
 /// This helper function is used to "connect" a parallel iterator to a
 /// consumer. It will convert the `par_iter` into a producer P and
 /// then pull items from P and feed them to `consumer`, splitting and
@@ -20,9 +19,6 @@ mod noop;
 /// This is useful when you are implementing your own parallel
 /// iterators: it is often used as the definition of the
 /// [`drive_unindexed`] or [`drive`] methods.
-///
-/// [`drive_unindexed`]: ../trait.ParallelIterator.html#tymethod.drive_unindexed
-/// [`drive`]: ../trait.IndexedParallelIterator.html#tymethod.drive
 pub fn bridge<I, C>(par_iter: I, consumer: C) -> C::Result
 where
     I: IndexedParallelIterator,
@@ -50,6 +46,7 @@ where
     }
 }
 
+/// ToDO:optimize it
 fn join<A, B, RA, RB>(pool: &TaskPool, op_a: A, op_b: B) -> (RA, RB)
 where
     A: FnOnce() -> RA + Send,
@@ -70,7 +67,15 @@ where
     (ra.unwrap(), rb.unwrap())
 }
 
-/// todo
+/// This helper function is used to "connect" a producer and a
+/// consumer. You may prefer to call [`bridge`], which wraps this
+/// function. This function will draw items from `producer` and feed
+/// them to `consumer`, splitting and creating parallel tasks when
+/// needed.
+///
+/// This is useful when you are implementing your own parallel
+/// iterators: it is often used as the definition of the
+/// [`drive_unindexed`] or [`drive`] methods.
 pub fn bridge_producer_consumer<P, C>(len: usize, producer: P, consumer: C) -> C::Result
 where
     P: Producer,
@@ -87,6 +92,11 @@ where
         if consumer.full() {
             consumer.into_folder().complete()
         } else if splitter.try_split(len) {
+            // TODO: optimize it
+            // Increasing the thread number may not necessarily enhance performance due to the split method.
+            // Additional benefits can only be realized when the number of threads reaches the next power of 2.
+            // Rayon may split tasks into smaller slices in some cases, but Bevy's executor suffers from overhead
+            // when spawning a large number of small tasks.
             let mid = len / 2;
             let (left_producer, right_producer) = producer.split_at(mid);
             let (left_consumer, right_consumer, reducer) = consumer.split_at(mid);
@@ -144,6 +154,27 @@ pub trait Folder<Item>: Sized {
     fn full(&self) -> bool;
 }
 
+/// A `Producer` is effectively a "splittable `IntoIterator`". That
+/// is, a producer is a value which can be converted into an iterator
+/// at any time: at that point, it simply produces items on demand,
+/// like any iterator. But what makes a `Producer` special is that,
+/// *before* we convert to an iterator, we can also **split** it at a
+/// particular point using the `split_at` method. This will yield up
+/// two producers, one producing the items before that point, and one
+/// producing the items after that point (these two producers can then
+/// independently be split further, or be converted into iterators).
+/// In Rayon, this splitting is used to divide between threads.
+/// See [the `plumbing` README][r] for further details.
+///
+/// Note that each producer will always produce a fixed number of
+/// items N. However, this number N is not queryable through the API;
+/// the consumer is expected to track it.
+///
+/// NB. You might expect `Producer` to extend the `IntoIterator`
+/// trait.  However, [rust-lang/rust#20671][20671] prevents us from
+/// declaring the DoubleEndedIterator and ExactSizeIterator
+/// constraints on a required IntoIterator trait, so we inline
+/// IntoIterator here until that issue is fixed.
 pub trait Producer: Send + Sized {
     /// The type of item that will be produced by this producer once
     /// it is converted into an iterator.
@@ -160,12 +191,7 @@ pub trait Producer: Send + Sized {
     /// sequentially. Defaults to 1, which means that we will split
     /// all the way down to a single item. This can be raised higher
     /// using the [`with_min_len`] method, which will force us to
-    /// create sequential tasks at a larger granularity. Note that
-    /// Rayon automatically normally attempts to adjust the size of
-    /// parallel splits to reduce overhead, so this should not be
-    /// needed.
-    ///
-    /// [`with_min_len`]: ../trait.IndexedParallelIterator.html#method.with_min_len
+    /// create sequential tasks at a larger granularity.
     fn min_len(&self) -> usize {
         1
     }
@@ -174,11 +200,7 @@ pub trait Producer: Send + Sized {
     /// sequentially. Defaults to MAX, which means that we can choose
     /// not to split at all. This can be lowered using the
     /// [`with_max_len`] method, which will force us to create more
-    /// parallel tasks. Note that Rayon automatically normally
-    /// attempts to adjust the size of parallel splits to reduce
-    /// overhead, so this should not be needed.
-    ///
-    /// [`with_max_len`]: ../trait.IndexedParallelIterator.html#method.with_max_len
+    /// parallel tasks.
     fn max_len(&self) -> usize {
         usize::MAX
     }
@@ -200,11 +222,7 @@ pub trait Producer: Send + Sized {
 }
 
 /// The `ProducerCallback` trait is a kind of generic closure,
-/// [analogous to `FnOnce`][FnOnce]. See [the corresponding section in
-/// the plumbing README][r] for more details.
-///
-/// [r]: https://github.com/rayon-rs/rayon/blob/master/src/iter/plumbing/README.md#producer-callback
-/// [FnOnce]: https://doc.rust-lang.org/std/ops/trait.FnOnce.html
+/// [analogous to `FnOnce`][FnOnce].
 pub trait ProducerCallback<T> {
     /// The type of value returned by this callback. Analogous to
     /// [`Output` from the `FnOnce` trait][Output].
@@ -279,14 +297,6 @@ pub trait ParallelIterator: Sized + Send {
     /// [`for_each`]: #method.for_each
     type Item: Send;
     /// Executes `OP` on each item produced by the iterator, in parallel.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use rayon::prelude::*;
-    ///
-    /// (0..100).into_par_iter().for_each(|x| println!("{:?}", x));
-    /// ```
     fn for_each<OP>(self, op: OP)
     where
         OP: Fn(Self::Item) + Sync + Send,
@@ -296,18 +306,6 @@ pub trait ParallelIterator: Sized + Send {
 
     /// Applies `map_op` to each item of this iterator, producing a new
     /// iterator with the results.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use rayon::prelude::*;
-    ///
-    /// let mut par_iter = (0..5).into_par_iter().map(|x| x * 2);
-    ///
-    /// let doubles: Vec<_> = par_iter.collect();
-    ///
-    /// assert_eq!(&doubles[..], &[0, 2, 4, 6, 8]);
-    /// ```
     fn map<F, R>(self, map_op: F) -> Map<Self, F>
     where
         F: Fn(Self::Item) -> R + Sync + Send,
@@ -327,16 +325,6 @@ pub trait ParallelIterator: Sized + Send {
 
     /// Internal method used to define the behavior of this parallel
     /// iterator. You should not need to call this directly.
-    ///
-    /// This method causes the iterator `self` to start producing
-    /// items and to feed them to the consumer `consumer` one by one.
-    /// It may split the consumer before doing so to create the
-    /// opportunity to produce in parallel.
-    ///
-    /// See the [README] for more details on the internals of parallel
-    /// iterators.
-    ///
-    /// [README]: https://github.com/rayon-rs/rayon/blob/master/src/iter/plumbing/README.md
     fn drive_unindexed<C>(self, consumer: C) -> C::Result
     where
         C: UnindexedConsumer<Self::Item>;
@@ -369,18 +357,6 @@ pub trait ParallelIterator: Sized + Send {
 pub trait IndexedParallelIterator: ParallelIterator {
     /// Produces an exact count of how many items this iterator will
     /// produce, presuming no panic occurs.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use rayon::prelude::*;
-    ///
-    /// let par_iter = (0..100).into_par_iter().zip(vec![0; 10]);
-    /// assert_eq!(par_iter.len(), 10);
-    ///
-    /// let vec: Vec<_> = par_iter.collect();
-    /// assert_eq!(vec.len(), 10);
-    /// ```
     fn len(&self) -> usize;
 
     /// Internal method used to define the behavior of this parallel
@@ -392,11 +368,6 @@ pub trait IndexedParallelIterator: ParallelIterator {
     /// opportunity to produce in parallel. If a split does happen, it
     /// will inform the consumer of the index where the split should
     /// occur (unlike `ParallelIterator::drive_unindexed()`).
-    ///
-    /// See the [README] for more details on the internals of parallel
-    /// iterators.
-    ///
-    /// [README]: https://github.com/rayon-rs/rayon/blob/master/src/iter/plumbing/README.md
     fn drive<C: Consumer<Self::Item>>(self, consumer: C) -> C::Result;
 
     /// Internal method used to define the behavior of this parallel
@@ -409,11 +380,6 @@ pub trait IndexedParallelIterator: ParallelIterator {
     /// allows the producer type to contain references; it also means
     /// that parallel iterators can adjust that type without causing a
     /// breaking change.
-    ///
-    /// See the [README] for more details on the internals of parallel
-    /// iterators.
-    ///
-    /// [README]: https://github.com/rayon-rs/rayon/blob/master/src/iter/plumbing/README.md
     fn with_producer<CB: ProducerCallback<Self::Item>>(self, callback: CB) -> CB::Output;
 }
 
@@ -423,68 +389,18 @@ pub trait IndexedParallelIterator: ParallelIterator {
 /// created from an iterator.
 ///
 /// `FromParallelIterator` is used through [`ParallelIterator`]'s [`collect()`] method.
-///
-/// [`ParallelIterator`]: trait.ParallelIterator.html
-/// [`collect()`]: trait.ParallelIterator.html#method.collect
-///
-/// # Examples
-///
-/// Implementing `FromParallelIterator` for your type:
-///
-/// ```
-/// use rayon::prelude::*;
-/// use std::mem;
-///
-/// struct BlackHole {
-///     mass: usize,
-/// }
-///
-/// impl<T: Send> FromParallelIterator<T> for BlackHole {
-///     fn from_par_iter<I>(par_iter: I) -> Self
-///         where I: IntoParallelIterator<Item = T>
-///     {
-///         let par_iter = par_iter.into_par_iter();
-///         BlackHole {
-///             mass: par_iter.count() * mem::size_of::<T>(),
-///         }
-///     }
-/// }
-///
-/// let bh: BlackHole = (0i32..1000).into_par_iter().collect();
-/// assert_eq!(bh.mass, 4000);
-/// ```
 pub trait FromParallelIterator<T>
 where
     T: Send,
 {
     /// Creates an instance of the collection from the parallel iterator `par_iter`.
     ///
-    /// If your collection is not naturally parallel, the easiest (and
-    /// fastest) way to do this is often to collect `par_iter` into a
-    /// [`LinkedList`] or other intermediate data structure and then
-    /// sequentially extend your collection. However, a more 'native'
-    /// technique is to use the [`par_iter.fold`] or
-    /// [`par_iter.fold_with`] methods to create the collection.
-    /// Alternatively, if your collection is 'natively' parallel, you
-    /// can use `par_iter.for_each` to process each element in turn.
-    ///
-    /// [`LinkedList`]: https://doc.rust-lang.org/std/collections/struct.LinkedList.html
-    /// [`par_iter.fold`]: trait.ParallelIterator.html#method.fold
-    /// [`par_iter.fold_with`]: trait.ParallelIterator.html#method.fold_with
-    /// [`par_iter.for_each`]: trait.ParallelIterator.html#method.for_each
     fn from_par_iter<I>(par_iter: I) -> Self
     where
         I: IntoParallelIterator<Item = T>;
 }
 
 /// `IntoParallelIterator` implements the conversion to a [`ParallelIterator`].
-///
-/// By implementing `IntoParallelIterator` for a type, you define how it will
-/// transformed into an iterator. This is a parallel version of the standard
-/// library's [`std::iter::IntoIterator`] trait.
-///
-/// [`ParallelIterator`]: trait.ParallelIterator.html
-/// [`std::iter::IntoIterator`]: https://doc.rust-lang.org/std/iter/trait.IntoIterator.html
 pub trait IntoParallelIterator {
     /// The parallel iterator type that will be created.
     type Iter: ParallelIterator<Item = Self::Item>;
@@ -493,27 +409,6 @@ pub trait IntoParallelIterator {
     type Item: Send;
 
     /// Converts `self` into a parallel iterator.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use rayon::prelude::*;
-    ///
-    /// println!("counting in parallel:");
-    /// (0..100).into_par_iter()
-    ///     .for_each(|i| println!("{}", i));
-    /// ```
-    ///
-    /// This conversion is often implicit for arguments to methods like [`zip`].
-    ///
-    /// ```
-    /// use rayon::prelude::*;
-    ///
-    /// let v: Vec<_> = (0..5).into_par_iter().zip(5..10).collect();
-    /// assert_eq!(v, [(0, 5), (1, 6), (2, 7), (3, 8), (4, 9)]);
-    /// ```
-    ///
-    /// [`zip`]: trait.IndexedParallelIterator.html#method.zip
     fn into_par_iter(self) -> Self::Iter;
 }
 
@@ -528,17 +423,6 @@ impl<T: ParallelIterator> IntoParallelIterator for T {
 
 /// `IntoParallelRefIterator` implements the conversion to a
 /// [`ParallelIterator`], providing shared references to the data.
-///
-/// This is a parallel version of the `iter()` method
-/// defined by various collections.
-///
-/// This trait is automatically implemented
-/// `for I where &I: IntoParallelIterator`. In most cases, users
-/// will want to implement [`IntoParallelIterator`] rather than implement
-/// this trait directly.
-///
-/// [`ParallelIterator`]: trait.ParallelIterator.html
-/// [`IntoParallelIterator`]: trait.IntoParallelIterator.html
 pub trait IntoParallelRefIterator<'data> {
     /// The type of the parallel iterator that will be returned.
     type Iter: ParallelIterator<Item = Self::Item>;
@@ -548,20 +432,6 @@ pub trait IntoParallelRefIterator<'data> {
     type Item: Send + 'data;
 
     /// Converts `self` into a parallel iterator.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use rayon::prelude::*;
-    ///
-    /// let v: Vec<_> = (0..100).collect();
-    /// assert_eq!(v.par_iter().sum::<i32>(), 100 * 99 / 2);
-    ///
-    /// // `v.par_iter()` is shorthand for `(&v).into_par_iter()`,
-    /// // producing the exact same references.
-    /// assert!(v.par_iter().zip(&v)
-    ///          .all(|(a, b)| std::ptr::eq(a, b)));
-    /// ```
     fn par_iter(&'data self) -> Self::Iter;
 }
 
@@ -586,16 +456,6 @@ pub trait IntoParallelRefMutIterator<'data> {
     type Item: Send + 'data;
 
     /// Creates the parallel iterator from `self`.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use rayon::prelude::*;
-    ///
-    /// let mut v = vec![0usize; 5];
-    /// v.par_iter_mut().enumerate().for_each(|(i, x)| *x = i);
-    /// assert_eq!(v, [0, 1, 2, 3, 4]);
-    /// ```
     fn par_iter_mut(&'data mut self) -> Self::Iter;
 }
 
@@ -612,53 +472,12 @@ where
 }
 
 /// `ParallelExtend` extends an existing collection with items from a [`ParallelIterator`].
-///
-/// [`ParallelIterator`]: trait.ParallelIterator.html
-///
-/// # Examples
-///
-/// Implementing `ParallelExtend` for your type:
-///
-/// ```
-/// use rayon::prelude::*;
-/// use std::mem;
-///
-/// struct BlackHole {
-///     mass: usize,
-/// }
-///
-/// impl<T: Send> ParallelExtend<T> for BlackHole {
-///     fn par_extend<I>(&mut self, par_iter: I)
-///         where I: IntoParallelIterator<Item = T>
-///     {
-///         let par_iter = par_iter.into_par_iter();
-///         self.mass += par_iter.count() * mem::size_of::<T>();
-///     }
-/// }
-///
-/// let mut bh = BlackHole { mass: 0 };
-/// bh.par_extend(0i32..1000);
-/// assert_eq!(bh.mass, 4000);
-/// bh.par_extend(0i64..10);
-/// assert_eq!(bh.mass, 4080);
-/// ```
 pub trait ParallelExtend<T>
 where
     T: Send,
 {
     /// Extends an instance of the collection with the elements drawn
     /// from the parallel iterator `par_iter`.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use rayon::prelude::*;
-    ///
-    /// let mut vec = vec![];
-    /// vec.par_extend(0..5);
-    /// vec.par_extend((0..5).into_par_iter().map(|i| i * i));
-    /// assert_eq!(vec, [0, 1, 2, 3, 4, 0, 1, 4, 9, 16]);
-    /// ```
     fn par_extend<I>(&mut self, par_iter: I)
     where
         I: IntoParallelIterator<Item = T>;
@@ -681,7 +500,7 @@ impl Splitter {
     #[inline]
     fn new() -> Splitter {
         Splitter {
-            splits: compute_task_pool_thread_num() * 2,
+            splits: compute_task_pool_thread_num(),
         }
     }
 
@@ -694,7 +513,6 @@ impl Splitter {
             self.splits /= 2;
             true
         } else {
-            // Not stolen, and no more splits -- we're done!
             false
         }
     }

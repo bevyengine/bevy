@@ -1,8 +1,8 @@
-use std::hint::black_box;
+use std::{hint::black_box, iter};
 
 use bevy_tasks::{
-    compute_task_pool_thread_num, ComputeTaskPool, IntoParallelRefIterator, ParallelIterator,
-    TaskPool, TaskPoolBuilder,
+    compute_task_pool_thread_num, ComputeTaskPool, FromParallelIterator, IntoParallelRefIterator,
+    ParallelIterator, TaskPool, TaskPoolBuilder,
 };
 use web_time::{Duration, Instant};
 
@@ -13,20 +13,34 @@ pub fn heavy_compute(v: i32) -> i32 {
     }
     v
 }
+struct Test {
+    mass: usize,
+}
+impl<T: Send> FromParallelIterator<T> for Test {
+    fn from_par_iter<I>(par_iter: I) -> Self
+    where
+        I: bevy_tasks::IntoParallelIterator<Item = T>,
+    {
+        let par_iter = par_iter.into_par_iter();
+        Test { mass: 1 }
+    }
+}
 fn main() {
     ComputeTaskPool::get_or_init(|| {
         TaskPoolBuilder::default()
-            .num_threads(5)
+            .num_threads(10)
             .thread_name("Compute Task Pool".to_string())
             .build()
     });
     println!("main {:?}", std::thread::current().id());
     let a: Vec<_> = (0..20000).collect();
     let t0 = Instant::now();
+    // for _ in 0..iter_count {
     a.iter().for_each(|v| {
         black_box(v);
         black_box(heavy_compute(*v));
     });
+    // }
     println!(" iter {:?} elapsed", t0.elapsed());
     const iter_count: usize = 1000;
     let t0 = Instant::now();

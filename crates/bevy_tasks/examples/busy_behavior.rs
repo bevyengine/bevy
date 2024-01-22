@@ -14,6 +14,7 @@ fn main() {
     println!("main {:?}", std::thread::current().id());
     const iter_count: usize = 1000;
     let t0 = Instant::now();
+    let a: Vec<_> = (0..20000).collect();
     for _ in 0..iter_count {
         pool.scope(|s| {
             for i in 0..20 {
