@@ -35,19 +35,8 @@
 
 #![warn(missing_docs)]
 
-mod circle;
-mod ellipse;
-mod rectangle;
-mod regular_polygon;
-mod triangle;
-
-pub use circle::CircleMeshBuilder;
-pub use ellipse::EllipseMeshBuilder;
-pub use rectangle::RectangleMeshBuilder;
-pub use regular_polygon::RegularPolygonMeshBuilder;
-pub use triangle::Triangle2dMeshBuilder;
-
-use super::Mesh;
+mod dim2;
+pub use dim2::{CircleMeshBuilder, EllipseMeshBuilder};
 
 /// A trait for shapes that can be turned into a [`Mesh`].
 pub trait Meshable {
