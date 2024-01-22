@@ -84,6 +84,8 @@ impl TextureAtlasBuilder {
     }
 
     /// Adds a texture to be copied to the texture atlas.
+    ///
+    /// The insertion order will reflect the index of the added texture in the finished TextureAtlas.
     pub fn add_texture(&mut self, image_id: AssetId<Image>, texture: &Image) {
         self.textures_to_place
             .push((image_id, texture.texture_descriptor.size));
@@ -150,6 +152,7 @@ impl TextureAtlasBuilder {
     /// Consumes the builder, and returns the newly created texture handle and
     /// the assciated atlas layout.
     ///
+    /// Assigns indices to the textures based on the insertion order.
     /// Internally it copies all rectangles from the textures and copies them
     /// into a new texture.
     /// It is not useful to hold a strong handle to the texture afterwards else
@@ -259,7 +262,10 @@ impl TextureAtlasBuilder {
 
         let mut texture_rects = Vec::with_capacity(rect_placements.packed_locations().len());
         let mut texture_ids = HashMap::default();
-        for (image_id, (_, packed_location)) in rect_placements.packed_locations() {
+        // We iterate through the textures to place to respect the insertion order for the texture indices
+        for (image_id, _) in &self.textures_to_place {
+            let (_, packed_location) = rect_placements.packed_locations().get(image_id).unwrap();
+
             let texture = textures.get(*image_id).unwrap();
             let min = Vec2::new(packed_location.x() as f32, packed_location.y() as f32);
             let max = min
