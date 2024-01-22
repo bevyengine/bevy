@@ -24,7 +24,7 @@ pub struct TonemappingNode {
 }
 
 impl ViewNode for TonemappingNode {
-    type ViewData = (
+    type ViewQuery = (
         &'static ViewUniformOffset,
         &'static ViewTarget,
         &'static ViewTonemappingPipeline,
@@ -36,7 +36,7 @@ impl ViewNode for TonemappingNode {
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
         (view_uniform_offset, target, view_tonemapping_pipeline, tonemapping): QueryItem<
-            Self::ViewData,
+            Self::ViewQuery,
         >,
         world: &World,
     ) -> Result<(), NodeRunError> {

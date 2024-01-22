@@ -16,7 +16,7 @@ use bevy_utils::tracing::info_span;
 pub struct MainTransparentPass3dNode;
 
 impl ViewNode for MainTransparentPass3dNode {
-    type ViewData = (
+    type ViewQuery = (
         &'static ExtractedCamera,
         &'static RenderPhase<Transparent3d>,
         &'static ViewTarget,
@@ -26,7 +26,7 @@ impl ViewNode for MainTransparentPass3dNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (camera, transparent_phase, target, depth): QueryItem<Self::ViewData>,
+        (camera, transparent_phase, target, depth): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
