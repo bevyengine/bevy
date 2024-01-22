@@ -28,7 +28,6 @@ impl AssetSaver for CompressedImageSaver {
         let is_srgb = image.texture_descriptor.format.is_srgb();
 
         let compressed_basis_data = {
-            // PERF: this should live inside the future, but CompressorParams and Compressor are not Send / can't be owned by the BoxedFuture (which _is_ Send)
             let mut compressor_params = basis_universal::CompressorParams::new();
             compressor_params.set_basis_format(basis_universal::BasisTextureFormat::UASTC4x4);
             compressor_params.set_generate_mipmaps(true);
