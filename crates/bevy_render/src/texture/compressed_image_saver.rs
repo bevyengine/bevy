@@ -19,11 +19,11 @@ impl AssetSaver for CompressedImageSaver {
     type OutputLoader = ImageLoader;
     type Error = CompressedImageSaverError;
 
-    async fn save<'a>(
-        &'a self,
-        writer: &'a mut bevy_asset::io::Writer,
-        image: SavedAsset<'a, Self::Asset>,
-        _settings: &'a Self::Settings,
+    async fn save(
+        &self,
+        writer: &mut bevy_asset::io::Writer,
+        image: SavedAsset<'_, Self::Asset>,
+        _settings: &Self::Settings,
     ) -> Result<ImageLoaderSettings, Self::Error> {
         let is_srgb = image.texture_descriptor.format.is_srgb();
 

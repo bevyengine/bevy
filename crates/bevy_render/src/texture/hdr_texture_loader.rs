@@ -29,11 +29,11 @@ impl AssetLoader for HdrTextureLoader {
     type Asset = Image;
     type Settings = HdrTextureLoaderSettings;
     type Error = HdrTextureLoaderError;
-    async fn load<'a>(
-        &'a self,
-        reader: &'a mut Reader<'_>,
-        settings: &'a Self::Settings,
-        _load_context: &'a mut LoadContext<'_>,
+    async fn load(
+        &self,
+        reader: &mut Reader<'_>,
+        settings: &Self::Settings,
+        _load_context: &mut LoadContext<'_>,
     ) -> Result<Image, Self::Error> {
         let format = TextureFormat::Rgba32Float;
         debug_assert_eq!(

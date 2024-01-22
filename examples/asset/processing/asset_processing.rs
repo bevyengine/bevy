@@ -81,11 +81,11 @@ impl AssetLoader for TextLoader {
     type Asset = Text;
     type Settings = TextSettings;
     type Error = std::io::Error;
-    async fn load<'a>(
-        &'a self,
-        reader: &'a mut Reader<'_>,
-        settings: &'a TextSettings,
-        _load_context: &'a mut LoadContext<'_>,
+    async fn load(
+        &self,
+        reader: &mut Reader<'_>,
+        settings: &TextSettings,
+        _load_context: &mut LoadContext<'_>,
     ) -> Result<Text, Self::Error> {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
@@ -136,11 +136,11 @@ impl AssetLoader for CoolTextLoader {
 
     type Error = CoolTextLoaderError;
 
-    async fn load<'a>(
-        &'a self,
-        reader: &'a mut Reader<'_>,
-        _settings: &'a Self::Settings,
-        load_context: &'a mut LoadContext<'_>,
+    async fn load(
+        &self,
+        reader: &mut Reader<'_>,
+        _settings: &Self::Settings,
+        load_context: &mut LoadContext<'_>,
     ) -> Result<CoolText, Self::Error> {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
@@ -179,11 +179,11 @@ impl AssetSaver for CoolTextSaver {
     type OutputLoader = TextLoader;
     type Error = std::io::Error;
 
-    async fn save<'a>(
-        &'a self,
-        writer: &'a mut Writer,
-        asset: SavedAsset<'a, Self::Asset>,
-        settings: &'a Self::Settings,
+    async fn save(
+        &self,
+        writer: &mut Writer,
+        asset: SavedAsset<'_, Self::Asset>,
+        settings: &Self::Settings,
     ) -> Result<TextSettings, Self::Error> {
         let text = format!("{}{}", asset.text.clone(), settings.appended);
         writer.write_all(text.as_bytes()).await?;

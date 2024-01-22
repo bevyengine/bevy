@@ -87,10 +87,7 @@ impl AssetReader for ProcessorGatedReader {
         Ok(reader)
     }
 
-    async fn read_directory<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> Result<Box<PathStream>, AssetReaderError> {
+    async fn read_directory(&self, path: &Path) -> Result<Box<PathStream>, AssetReaderError> {
         trace!(
             "Waiting for processing to finish before reading directory {:?}",
             path
@@ -101,7 +98,7 @@ impl AssetReader for ProcessorGatedReader {
         Ok(result)
     }
 
-    async fn is_directory<'a>(&'a self, path: &'a Path) -> Result<bool, AssetReaderError> {
+    async fn is_directory(&self, path: &Path) -> Result<bool, AssetReaderError> {
         trace!(
             "Waiting for processing to finish before reading directory {:?}",
             path

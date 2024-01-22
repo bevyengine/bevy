@@ -41,11 +41,11 @@ impl AssetLoader for GzAssetLoader {
     type Asset = GzAsset;
     type Settings = ();
     type Error = GzAssetLoaderError;
-    async fn load<'a>(
-        &'a self,
-        reader: &'a mut Reader<'_>,
-        _settings: &'a (),
-        load_context: &'a mut LoadContext<'_>,
+    async fn load(
+        &self,
+        reader: &mut Reader<'_>,
+        _settings: &(),
+        load_context: &mut LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
         let compressed_path = load_context.path();
         let file_name = compressed_path

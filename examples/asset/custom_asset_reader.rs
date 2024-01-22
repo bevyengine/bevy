@@ -23,14 +23,11 @@ impl AssetReader for CustomAssetReader {
         self.0.read_meta(path).await
     }
 
-    async fn read_directory<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> Result<Box<PathStream>, AssetReaderError> {
+    async fn read_directory(&self, path: &Path) -> Result<Box<PathStream>, AssetReaderError> {
         self.0.read_directory(path).await
     }
 
-    async fn is_directory<'a>(&'a self, path: &'a Path) -> Result<bool, AssetReaderError> {
+    async fn is_directory(&self, path: &Path) -> Result<bool, AssetReaderError> {
         self.0.is_directory(path).await
     }
 }

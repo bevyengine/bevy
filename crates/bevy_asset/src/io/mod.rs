@@ -74,20 +74,20 @@ pub trait AssetReader: Send + Sync + 'static {
         path: &'a Path,
     ) -> impl Future<Output = Result<Box<Reader<'a>>, AssetReaderError>> + WasmNotSend;
     /// Returns an iterator of directory entry names at the provided path.
-    fn read_directory<'a>(
-        &'a self,
-        path: &'a Path,
+    fn read_directory(
+        &self,
+        path: &Path,
     ) -> impl Future<Output = Result<Box<PathStream>, AssetReaderError>> + WasmNotSend;
     /// Returns an iterator of directory entry names at the provided path.
-    fn is_directory<'a>(
-        &'a self,
-        path: &'a Path,
+    fn is_directory(
+        &self,
+        path: &Path,
     ) -> impl Future<Output = Result<bool, AssetReaderError>> + WasmNotSend;
     /// Reads asset metadata bytes at the given `path` into a [`Vec<u8>`]. This is a convenience
     /// function that wraps [`AssetReader::read_meta`] by default.
-    fn read_meta_bytes<'a>(
-        &'a self,
-        path: &'a Path,
+    fn read_meta_bytes(
+        &self,
+        path: &Path,
     ) -> impl Future<Output = Result<Vec<u8>, AssetReaderError>> + WasmNotSend {
         async {
             let mut meta_reader = self.read_meta(path).await?;
@@ -181,61 +181,61 @@ pub enum AssetWriterError {
 /// Also see [`AssetReader`].
 pub trait AssetWriter: Send + Sync + 'static {
     /// Writes the full asset bytes at the provided path.
-    fn write<'a>(
-        &'a self,
-        path: &'a Path,
+    fn write(
+        &self,
+        path: &Path,
     ) -> impl Future<Output = Result<Box<Writer>, AssetWriterError>> + WasmNotSend;
     /// Writes the full asset meta bytes at the provided path.
     /// This _should not_ include storage specific extensions like `.meta`.
-    fn write_meta<'a>(
-        &'a self,
-        path: &'a Path,
+    fn write_meta(
+        &self,
+        path: &Path,
     ) -> impl Future<Output = Result<Box<Writer>, AssetWriterError>> + WasmNotSend;
     /// Removes the asset stored at the given path.
-    fn remove<'a>(
-        &'a self,
-        path: &'a Path,
+    fn remove(
+        &self,
+        path: &Path,
     ) -> impl Future<Output = Result<(), AssetWriterError>> + WasmNotSend;
     /// Removes the asset meta stored at the given path.
     /// This _should not_ include storage specific extensions like `.meta`.
-    fn remove_meta<'a>(
-        &'a self,
-        path: &'a Path,
+    fn remove_meta(
+        &self,
+        path: &Path,
     ) -> impl Future<Output = Result<(), AssetWriterError>> + WasmNotSend;
     /// Renames the asset at `old_path` to `new_path`
-    fn rename<'a>(
-        &'a self,
-        old_path: &'a Path,
-        new_path: &'a Path,
+    fn rename(
+        &self,
+        old_path: &Path,
+        new_path: &Path,
     ) -> impl Future<Output = Result<(), AssetWriterError>> + WasmNotSend;
     /// Renames the asset meta for the asset at `old_path` to `new_path`.
     /// This _should not_ include storage specific extensions like `.meta`.
-    fn rename_meta<'a>(
-        &'a self,
-        old_path: &'a Path,
-        new_path: &'a Path,
+    fn rename_meta(
+        &self,
+        old_path: &Path,
+        new_path: &Path,
     ) -> impl Future<Output = Result<(), AssetWriterError>> + WasmNotSend;
     /// Removes the directory at the given path, including all assets _and_ directories in that directory.
-    fn remove_directory<'a>(
-        &'a self,
-        path: &'a Path,
+    fn remove_directory(
+        &self,
+        path: &Path,
     ) -> impl Future<Output = Result<(), AssetWriterError>> + WasmNotSend;
     /// Removes the directory at the given path, but only if it is completely empty. This will return an error if the
     /// directory is not empty.
-    fn remove_empty_directory<'a>(
-        &'a self,
-        path: &'a Path,
+    fn remove_empty_directory(
+        &self,
+        path: &Path,
     ) -> impl Future<Output = Result<(), AssetWriterError>> + WasmNotSend;
     /// Removes all assets (and directories) in this directory, resulting in an empty directory.
-    fn remove_assets_in_directory<'a>(
-        &'a self,
-        path: &'a Path,
+    fn remove_assets_in_directory(
+        &self,
+        path: &Path,
     ) -> impl Future<Output = Result<(), AssetWriterError>> + WasmNotSend;
     /// Writes the asset `bytes` to the given `path`.
-    fn write_bytes<'a>(
-        &'a self,
-        path: &'a Path,
-        bytes: &'a [u8],
+    fn write_bytes(
+        &self,
+        path: &Path,
+        bytes: &[u8],
     ) -> impl Future<Output = Result<(), AssetWriterError>> + WasmNotSend {
         async {
             let mut writer = self.write(path).await?;
@@ -245,10 +245,10 @@ pub trait AssetWriter: Send + Sync + 'static {
         }
     }
     /// Writes the asset meta `bytes` to the given `path`.
-    fn write_meta_bytes<'a>(
-        &'a self,
-        path: &'a Path,
-        bytes: &'a [u8],
+    fn write_meta_bytes(
+        &self,
+        path: &Path,
+        bytes: &[u8],
     ) -> impl Future<Output = Result<(), AssetWriterError>> + WasmNotSend {
         async {
             let mut meta_writer = self.write_meta(path).await?;
