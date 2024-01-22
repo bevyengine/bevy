@@ -5,10 +5,9 @@ use bevy_render::render_graph::ViewNode;
 use bevy_render::render_resource::StoreOp;
 use bevy_render::{
     camera::ExtractedCamera,
-    prelude::Color,
     render_graph::{NodeRunError, RenderGraphContext},
     render_phase::RenderPhase,
-    render_resource::{LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor},
+    render_resource::RenderPassDescriptor,
     renderer::RenderContext,
     view::ViewDepthTexture,
 };
@@ -83,11 +82,11 @@ impl ViewNode for DeferredGBufferPrepassNode {
                 .map(|deferred_texture| {
                     #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
                     {
-                        RenderPassColorAttachment {
+                        bevy_render::render_resource::RenderPassColorAttachment {
                             view: &deferred_texture.texture.default_view,
                             resolve_target: None,
-                            ops: Operations {
-                                load: LoadOp::Load,
+                            ops: bevy_render::render_resource::Operations {
+                                load: bevy_render::render_resource::LoadOp::Load,
                                 store: StoreOp::Store,
                             },
                         }
@@ -101,14 +100,7 @@ impl ViewNode for DeferredGBufferPrepassNode {
             view_prepass_textures
                 .deferred_lighting_pass_id
                 .as_ref()
-                .map(|deferred_lighting_pass_id| RenderPassColorAttachment {
-                    view: &deferred_lighting_pass_id.default_view,
-                    resolve_target: None,
-                    ops: Operations {
-                        load: LoadOp::Clear(Color::BLACK.into()),
-                        store: StoreOp::Store,
-                    },
-                }),
+                .map(|deferred_lighting_pass_id| deferred_lighting_pass_id.get_attachment()),
         );
 
         if color_attachments.iter().all(Option::is_none) {
