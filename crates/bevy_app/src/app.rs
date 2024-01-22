@@ -424,11 +424,10 @@ impl App {
         self
     }
 
-    /// Initializes a computed [`State`]
+    /// Sets up a type implementing [`ComputedStates`].
     ///
-    /// If the [`State`] already exists, nothing happens.
+    /// If the [`ComputedStates`] has already been set up, this does nothing.
     ///
-    /// Adds a [`NextState<S>`] resource.
     /// For each source state the derived state depends on, it adds this state's derivation
     /// to it's [`ComputeDependantStates<Source>`](bevy_ecs::schedule::ComputeDependantStates<S>) schedule.
     pub fn add_computed_state<S: ComputedStates>(&mut self) -> &mut Self {
