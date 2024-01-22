@@ -1,37 +1,44 @@
 use super::{Aabb2d, BoundingCircle, IntersectsVolume};
-use crate::{primitives::Direction2d, Vec2};
+use crate::{primitives::Direction2d, Ray2d, Vec2};
 
 /// A raycast intersection test for 2D bounding volumes
 pub struct RayTest2d {
-    /// The origin of the ray
-    pub origin: Vec2,
-    /// The direction of the ray
-    pub dir: Direction2d,
-    /// The multiplicative inverse direction of the ray
-    pub dir_recip: Vec2,
+    /// The ray for the test
+    pub ray: Ray2d,
     /// The maximum time of impact of the ray
     pub max: f32,
+    /// The multiplicative inverse direction of the ray
+    dir_recip: Vec2,
 }
 
 impl RayTest2d {
     /// Construct a [`RayTest2d`] from an origin, [`Direction2d`] and max time of impact.
-    pub fn new(origin: Vec2, dir: Direction2d, max: f32) -> Self {
+    pub fn new(origin: Vec2, direction: Direction2d, max: f32) -> Self {
+        Self::from_ray(Ray2d { origin, direction }, max)
+    }
+
+    /// Construct a [`RayTest3d`] from a [`Ray3d`] and max time of impact.
+    pub fn from_ray(ray: Ray2d, max: f32) -> Self {
         Self {
-            origin,
-            dir_recip: dir.recip(),
-            dir,
+            ray,
+            dir_recip: ray.direction.recip(),
             max,
         }
     }
 
+    /// Get the cached multiplicate inverse of the direction of the ray
+    pub fn dir_recip(&self) -> Vec2 {
+        self.dir_recip
+    }
+
     /// Get the time of impact for an intersection with an [`Aabb2d`], if any.
     pub fn aabb_intersection_at(&self, aabb: &Aabb2d) -> Option<f32> {
-        let (min_x, max_x) = if self.dir.x.is_sign_positive() {
+        let (min_x, max_x) = if self.ray.direction.x.is_sign_positive() {
             (aabb.min.x, aabb.max.x)
         } else {
             (aabb.max.x, aabb.min.x)
         };
-        let (min_y, max_y) = if self.dir.y.is_sign_positive() {
+        let (min_y, max_y) = if self.ray.direction.y.is_sign_positive() {
             (aabb.min.y, aabb.max.y)
         } else {
             (aabb.max.y, aabb.min.y)
@@ -40,10 +47,10 @@ impl RayTest2d {
         // Calculate the minimum/maximum time for each based on how much the direction goes that
         // way. These values van get arbitrarily large, or even become NaN, which is handled by the
         // min/max operations below
-        let tmin_x = (min_x - self.origin.x) * self.dir_recip.x;
-        let tmin_y = (min_y - self.origin.y) * self.dir_recip.y;
-        let tmax_x = (max_x - self.origin.x) * self.dir_recip.x;
-        let tmax_y = (max_y - self.origin.y) * self.dir_recip.y;
+        let tmin_x = (min_x - self.ray.origin.x) * self.dir_recip.x;
+        let tmin_y = (min_y - self.ray.origin.y) * self.dir_recip.y;
+        let tmax_x = (max_x - self.ray.origin.x) * self.dir_recip.x;
+        let tmax_y = (max_y - self.ray.origin.y) * self.dir_recip.y;
 
         // An axis that is not relevant to the ray direction will be NaN. When one of the arguments
         // to min/max is NaN, the other argument is used.
@@ -61,9 +68,9 @@ impl RayTest2d {
 
     /// Get the time of impact for an intersection with a [`BoundingCircle`], if any.
     pub fn circle_intersection_at(&self, sphere: &BoundingCircle) -> Option<f32> {
-        let offset = self.origin - sphere.center;
-        let projected = offset.dot(*self.dir);
-        let closest_point = offset - projected * *self.dir;
+        let offset = self.ray.origin - sphere.center;
+        let projected = offset.dot(*self.ray.direction);
+        let closest_point = offset - projected * *self.ray.direction;
         let distance_squared = sphere.radius().powi(2) - closest_point.length_squared();
         if distance_squared < 0. || projected.powi(2).copysign(-projected) < distance_squared {
             None
