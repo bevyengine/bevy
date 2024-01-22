@@ -85,7 +85,7 @@ impl TextureAtlasBuilder {
 
     /// Adds a texture to be copied to the texture atlas.
     ///
-    /// The insertion order will reflect the index of the added texture in the finished TextureAtlas.
+    /// The insertion order will reflect the index of the added texture in the finished texture atlas.
     pub fn add_texture(&mut self, image_id: AssetId<Image>, texture: &Image) {
         self.textures_to_place
             .push((image_id, texture.texture_descriptor.size));
