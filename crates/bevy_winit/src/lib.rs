@@ -407,11 +407,16 @@ pub fn winit_runner(mut app: App) {
                     should_update = true;
                 }
 
+                // Trigger one last update to enter suspended state
+                if runner_state.active == ActiveState::WillSuspend {
+                    should_update = true;
+                }
+
                 if should_update {
                     let visible = windows.iter().any(|window| window.visible);
                     let (_, winit_windows, _, _) =
                         event_writer_system_state.get_mut(&mut app.world);
-                    if visible {
+                    if visible && runner_state.active != ActiveState::WillSuspend {
                         for window in winit_windows.windows.values() {
                             window.request_redraw();
                         }
@@ -427,7 +432,9 @@ pub fn winit_runner(mut app: App) {
                             &mut app_exit_event_reader,
                             &mut redraw_event_reader,
                         );
-                        event_loop.set_control_flow(ControlFlow::Poll);
+                        if runner_state.active != ActiveState::Suspended {
+                            event_loop.set_control_flow(ControlFlow::Poll);
+                        }
                     }
                 }
             }

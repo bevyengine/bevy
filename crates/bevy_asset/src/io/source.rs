@@ -115,7 +115,7 @@ impl<'a> PartialEq for AssetSourceId<'a> {
 #[derive(Default)]
 pub struct AssetSourceBuilder {
     pub reader: Option<Box<dyn FnMut() -> Box<dyn ErasedAssetReader> + Send + Sync>>,
-    pub writer: Option<Box<dyn FnMut() -> Option<Box<dyn ErasedAssetWriter>> + Send + Sync>>,
+    pub writer: Option<Box<dyn FnMut(bool) -> Option<Box<dyn ErasedAssetWriter>> + Send + Sync>>,
     pub watcher: Option<
         Box<
             dyn FnMut(crossbeam_channel::Sender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>>
@@ -125,7 +125,7 @@ pub struct AssetSourceBuilder {
     >,
     pub processed_reader: Option<Box<dyn FnMut() -> Box<dyn ErasedAssetReader> + Send + Sync>>,
     pub processed_writer:
-        Option<Box<dyn FnMut() -> Option<Box<dyn ErasedAssetWriter>> + Send + Sync>>,
+        Option<Box<dyn FnMut(bool) -> Option<Box<dyn ErasedAssetWriter>> + Send + Sync>>,
     pub processed_watcher: Option<
         Box<
             dyn FnMut(crossbeam_channel::Sender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>>
@@ -147,8 +147,8 @@ impl AssetSourceBuilder {
         watch_processed: bool,
     ) -> Option<AssetSource> {
         let reader = self.reader.as_mut()?();
-        let writer = self.writer.as_mut().and_then(|w| w());
-        let processed_writer = self.processed_writer.as_mut().and_then(|w| w());
+        let writer = self.writer.as_mut().and_then(|w| w(false));
+        let processed_writer = self.processed_writer.as_mut().and_then(|w| w(true));
         let mut source = AssetSource {
             id: id.clone(),
             reader,
@@ -205,7 +205,7 @@ impl AssetSourceBuilder {
     /// Will use the given `writer` function to construct unprocessed [`AssetWriter`] instances.
     pub fn with_writer(
         mut self,
-        writer: impl FnMut() -> Option<Box<dyn ErasedAssetWriter>> + Send + Sync + 'static,
+        writer: impl FnMut(bool) -> Option<Box<dyn ErasedAssetWriter>> + Send + Sync + 'static,
     ) -> Self {
         self.writer = Some(Box::new(writer));
         self
@@ -235,7 +235,7 @@ impl AssetSourceBuilder {
     /// Will use the given `writer` function to construct processed [`AssetWriter`] instances.
     pub fn with_processed_writer(
         mut self,
-        writer: impl FnMut() -> Option<Box<dyn ErasedAssetWriter>> + Send + Sync + 'static,
+        writer: impl FnMut(bool) -> Option<Box<dyn ErasedAssetWriter>> + Send + Sync + 'static,
     ) -> Self {
         self.processed_writer = Some(Box::new(writer));
         self
@@ -454,10 +454,13 @@ impl AssetSource {
     /// the asset root. This will return [`None`] if this platform does not support writing assets by default.
     pub fn get_default_writer(
         _path: String,
-    ) -> impl FnMut() -> Option<Box<dyn ErasedAssetWriter>> + Send + Sync {
-        move || {
+    ) -> impl FnMut(bool) -> Option<Box<dyn ErasedAssetWriter>> + Send + Sync {
+        move |_create_root: bool| {
             #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
-            return Some(Box::new(super::file::FileAssetWriter::new(&_path)));
+            return Some(Box::new(super::file::FileAssetWriter::new(
+                &_path,
+                _create_root,
+            )));
             #[cfg(any(target_arch = "wasm32", target_os = "android"))]
             return None;
         }

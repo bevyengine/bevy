@@ -188,9 +188,10 @@ pub struct StateTransitionEvent<S: States> {
 
 /// Run the enter schedule (if it exists) for the current state.
 pub fn run_enter_schedule<S: States>(world: &mut World) {
-    world
-        .try_run_schedule(OnEnter(world.resource::<State<S>>().0.clone()))
-        .ok();
+    let Some(state) = world.get_resource::<State<S>>() else {
+        return;
+    };
+    world.try_run_schedule(OnEnter(state.0.clone())).ok();
 }
 
 /// If a new state is queued in [`NextState<S>`], this system:
@@ -202,26 +203,34 @@ pub fn run_enter_schedule<S: States>(world: &mut World) {
 pub fn apply_state_transition<S: States>(world: &mut World) {
     // We want to take the `NextState` resource,
     // but only mark it as changed if it wasn't empty.
-    let mut next_state_resource = world.resource_mut::<NextState<S>>();
+    let Some(mut next_state_resource) = world.get_resource_mut::<NextState<S>>() else {
+        return;
+    };
     if let Some(entered) = next_state_resource.bypass_change_detection().0.take() {
         next_state_resource.set_changed();
-
-        let mut state_resource = world.resource_mut::<State<S>>();
-        if *state_resource != entered {
-            let exited = mem::replace(&mut state_resource.0, entered.clone());
-            world.send_event(StateTransitionEvent {
-                before: exited.clone(),
-                after: entered.clone(),
-            });
-            // Try to run the schedules if they exist.
-            world.try_run_schedule(OnExit(exited.clone())).ok();
-            world
-                .try_run_schedule(OnTransition {
-                    from: exited,
-                    to: entered.clone(),
-                })
-                .ok();
-            world.try_run_schedule(OnEnter(entered)).ok();
-        }
+        match world.get_resource_mut::<State<S>>() {
+            Some(mut state_resource) => {
+                if *state_resource != entered {
+                    let exited = mem::replace(&mut state_resource.0, entered.clone());
+                    world.send_event(StateTransitionEvent {
+                        before: exited.clone(),
+                        after: entered.clone(),
+                    });
+                    // Try to run the schedules if they exist.
+                    world.try_run_schedule(OnExit(exited.clone())).ok();
+                    world
+                        .try_run_schedule(OnTransition {
+                            from: exited,
+                            to: entered.clone(),
+                        })
+                        .ok();
+                    world.try_run_schedule(OnEnter(entered)).ok();
+                }
+            }
+            None => {
+                world.insert_resource(State(entered.clone()));
+                world.try_run_schedule(OnEnter(entered)).ok();
+            }
+        };
     }
 }

@@ -23,6 +23,7 @@ mod cow_arc;
 mod default;
 mod float_ord;
 pub mod intern;
+mod once;
 
 pub use crate::uuid::Uuid;
 pub use ahash::{AHasher, RandomState};
