@@ -4,7 +4,7 @@ use bevy_ecs::{
     prelude::*,
     schedule::{
         apply_state_transition, common_conditions::run_once as run_once_condition,
-        run_enter_schedule, setup_state_transitions_in_world, ComputedStates,
+        run_enter_schedule, setup_state_transitions_in_world, ComputedStates, FreelyMutableState,
         InternedScheduleLabel, IntoSystemConfigs, IntoSystemSetConfigs, ManualStateTransitions,
         ScheduleBuildSettings, ScheduleLabel, StateTransitionEvent,
     },
@@ -364,8 +364,8 @@ impl App {
     /// you can emulate this behavior using the [`in_state`] [`Condition`].
     ///
     /// Note that you can also apply state transitions at other points in the schedule
-    /// by adding the [`apply_state_transition`] system manually.
-    pub fn init_state<S: States + FromWorld>(&mut self) -> &mut Self {
+    /// by triggering the [`StateTransition`](`bevy_ecs::schedule::StateTransition`) schedule manually.
+    pub fn init_state<S: FreelyMutableState + FromWorld>(&mut self) -> &mut Self {
         if !self.world.contains_resource::<State<S>>() {
             setup_state_transitions_in_world(&mut self.world);
             self.init_resource::<State<S>>()
@@ -402,8 +402,8 @@ impl App {
     /// you can emulate this behavior using the [`in_state`] [`Condition`].
     ///
     /// Note that you can also apply state transitions at other points in the schedule
-    /// by adding the [`apply_state_transition`] system manually.
-    pub fn insert_state<S: States>(&mut self, state: S) -> &mut Self {
+    /// by triggering the [`StateTransition`](`bevy_ecs::schedule::StateTransition`) schedule manually.
+    pub fn insert_state<S: FreelyMutableState>(&mut self, state: S) -> &mut Self {
         setup_state_transitions_in_world(&mut self.world);
         self.insert_resource(State::new(state))
             .init_resource::<NextState<S>>()
@@ -430,15 +430,14 @@ impl App {
     ///
     /// Adds a [`NextState<S>`] resource.
     /// For each source state the derived state depends on, it adds this state's derivation
-    /// and [`apply_state_transition::<S>`] to it's [`ComputeDependantStates<Source>`](bevy_ecs::schedule::ComputeDependantStates<S>) schedule.
-    ///
-    /// If you would like to control how other systems run based on the current state,
-    /// you can emulate this behavior using the [`in_state`] [`Condition`].
+    /// to it's [`ComputeDependantStates<Source>`](bevy_ecs::schedule::ComputeDependantStates<S>) schedule.
     pub fn add_computed_state<S: ComputedStates>(&mut self) -> &mut Self {
-        if !self.world.contains_resource::<NextState<S>>() {
+        if !self
+            .world
+            .contains_resource::<Events<StateTransitionEvent<S>>>()
+        {
             setup_state_transitions_in_world(&mut self.world);
-            self.init_resource::<NextState<S>>()
-                .add_event::<StateTransitionEvent<S>>();
+            self.add_event::<StateTransitionEvent<S>>();
             let mut schedules = self.world.resource_mut::<Schedules>();
             S::register_state_compute_systems_in_schedule(schedules.as_mut());
         }
