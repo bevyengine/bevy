@@ -1,4 +1,4 @@
-use super::{Facing, Mesh, MeshFacingExtension, Meshable};
+use super::{Mesh, Meshable};
 use bevy_math::{
     primitives::{Ellipse, RegularPolygon},
     Vec2,
@@ -9,17 +9,6 @@ use bevy_math::{
 pub struct RegularPolygonMeshBuilder {
     /// The [`RegularPolygon`] shape.
     pub polygon: RegularPolygon,
-    /// The XYZ direction that the mesh is facing.
-    /// The default is [`Facing::Z`].
-    pub facing: Facing,
-}
-
-impl MeshFacingExtension for RegularPolygonMeshBuilder {
-    #[inline]
-    fn facing(mut self, facing: Facing) -> Self {
-        self.facing = facing;
-        self
-    }
 }
 
 impl RegularPolygonMeshBuilder {
@@ -33,7 +22,6 @@ impl RegularPolygonMeshBuilder {
     pub fn new(circumradius: f32, sides: usize) -> Self {
         Self {
             polygon: RegularPolygon::new(circumradius, sides),
-            ..Default::default()
         }
     }
 
@@ -45,7 +33,6 @@ impl RegularPolygonMeshBuilder {
         }
         .mesh()
         .resolution(self.polygon.sides)
-        .facing(self.facing)
         .build()
     }
 }
@@ -54,10 +41,7 @@ impl Meshable for RegularPolygon {
     type Output = RegularPolygonMeshBuilder;
 
     fn mesh(&self) -> Self::Output {
-        RegularPolygonMeshBuilder {
-            polygon: *self,
-            ..Default::default()
-        }
+        RegularPolygonMeshBuilder { polygon: *self }
     }
 }
 

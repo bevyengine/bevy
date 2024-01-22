@@ -1,4 +1,4 @@
-use super::{Facing, Mesh, MeshFacingExtension, Meshable};
+use super::{Mesh, Meshable};
 use crate::{mesh::Indices, render_asset::RenderAssetPersistencePolicy};
 use bevy_math::primitives::Rectangle;
 use wgpu::PrimitiveTopology;
@@ -8,17 +8,6 @@ use wgpu::PrimitiveTopology;
 pub struct RectangleMeshBuilder {
     /// The [`Rectangle`] shape.
     pub rectangle: Rectangle,
-    /// The XYZ direction that the mesh is facing.
-    /// The default is [`Facing::Z`].
-    pub facing: Facing,
-}
-
-impl MeshFacingExtension for RectangleMeshBuilder {
-    #[inline]
-    fn facing(mut self, facing: Facing) -> Self {
-        self.facing = facing;
-        self
-    }
 }
 
 impl RectangleMeshBuilder {
@@ -27,43 +16,21 @@ impl RectangleMeshBuilder {
     pub fn new(width: f32, height: f32) -> Self {
         Self {
             rectangle: Rectangle::new(width, height),
-            facing: Facing::Z,
         }
     }
 
     /// Builds a [`Mesh`] based on the configuration in `self`.
     pub fn build(&self) -> Mesh {
         let [hw, hh] = [self.rectangle.half_size.x, self.rectangle.half_size.y];
-        let positions = match self.facing {
-            Facing::Z | Facing::NegZ => vec![
-                [hw, hh, 0.0],
-                [-hw, hh, 0.0],
-                [-hw, -hh, 0.0],
-                [hw, -hh, 0.0],
-            ],
-            Facing::Y | Facing::NegY => vec![
-                [hw, 0.0, -hh],
-                [-hw, 0.0, -hh],
-                [-hw, 0.0, hh],
-                [hw, 0.0, hh],
-            ],
-            Facing::X | Facing::NegX => vec![
-                [0.0, hh, -hw],
-                [0.0, hh, hw],
-                [0.0, -hh, hw],
-                [0.0, -hh, -hw],
-            ],
-        };
-
-        let normals = vec![self.facing.to_array(); 4];
+        let positions = vec![
+            [hw, hh, 0.0],
+            [-hw, hh, 0.0],
+            [-hw, -hh, 0.0],
+            [hw, -hh, 0.0],
+        ];
+        let normals = vec![[0.0, 0.0, 1.0]; 4];
         let uvs = vec![[1.0, 0.0], [0.0, 0.0], [0.0, 1.0], [1.0, 1.0]];
-
-        // Flip indices if facing -X, -Y, or -Z
-        let indices = if self.facing.signum() > 0 {
-            Indices::U32(vec![0, 1, 2, 0, 2, 3])
-        } else {
-            Indices::U32(vec![0, 2, 1, 0, 3, 2])
-        };
+        let indices = Indices::U32(vec![0, 1, 2, 0, 2, 3]);
 
         Mesh::new(
             PrimitiveTopology::TriangleList,
@@ -80,10 +47,7 @@ impl Meshable for Rectangle {
     type Output = RectangleMeshBuilder;
 
     fn mesh(&self) -> Self::Output {
-        RectangleMeshBuilder {
-            rectangle: *self,
-            ..Default::default()
-        }
+        RectangleMeshBuilder { rectangle: *self }
     }
 }
 

@@ -1,6 +1,6 @@
 use crate::mesh::Mesh;
 
-use super::{Facing, MeshFacingExtension, Meshable};
+use super::Meshable;
 use bevy_math::primitives::{Circle, RegularPolygon};
 
 /// A builder used for creating a [`Mesh`] with a [`Circle`] shape.
@@ -12,9 +12,6 @@ pub struct CircleMeshBuilder {
     /// The default is `32`.
     #[doc(alias = "vertices")]
     pub resolution: usize,
-    /// The XYZ direction that the mesh is facing.
-    /// The default is [`Facing::Z`].
-    pub facing: Facing,
 }
 
 impl Default for CircleMeshBuilder {
@@ -22,16 +19,7 @@ impl Default for CircleMeshBuilder {
         Self {
             circle: Circle::default(),
             resolution: 32,
-            facing: Facing::Z,
         }
-    }
-}
-
-impl MeshFacingExtension for CircleMeshBuilder {
-    #[inline]
-    fn facing(mut self, facing: Facing) -> Self {
-        self.facing = facing;
-        self
     }
 }
 
@@ -42,7 +30,6 @@ impl CircleMeshBuilder {
         Self {
             circle: Circle { radius },
             resolution,
-            facing: Facing::Z,
         }
     }
 
@@ -58,7 +45,6 @@ impl CircleMeshBuilder {
     pub fn build(&self) -> Mesh {
         RegularPolygon::new(self.circle.radius, self.resolution)
             .mesh()
-            .facing(self.facing)
             .build()
     }
 }

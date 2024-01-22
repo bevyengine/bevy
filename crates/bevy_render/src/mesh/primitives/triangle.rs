@@ -1,4 +1,4 @@
-use super::{Facing, Mesh, MeshFacingExtension, Meshable};
+use super::{Mesh, Meshable};
 use crate::{mesh::Indices, render_asset::RenderAssetPersistencePolicy};
 use bevy_math::{
     primitives::{Triangle2d, WindingOrder},
@@ -11,17 +11,6 @@ use wgpu::PrimitiveTopology;
 pub struct Triangle2dMeshBuilder {
     /// The [`Triangle2d`] shape.
     pub triangle: Triangle2d,
-    /// The XYZ direction that the mesh is facing.
-    /// The default is [`Facing::Z`].
-    pub facing: Facing,
-}
-
-impl MeshFacingExtension for Triangle2dMeshBuilder {
-    #[inline]
-    fn facing(mut self, facing: Facing) -> Self {
-        self.facing = facing;
-        self
-    }
 }
 
 impl Triangle2dMeshBuilder {
@@ -30,7 +19,6 @@ impl Triangle2dMeshBuilder {
     pub const fn new(a: Vec2, b: Vec2, c: Vec2) -> Self {
         Self {
             triangle: Triangle2d::new(a, b, c),
-            facing: Facing::Z,
         }
     }
 
@@ -38,13 +26,8 @@ impl Triangle2dMeshBuilder {
     pub fn build(&self) -> Mesh {
         let [a, b, c] = self.triangle.vertices;
 
-        let positions = match self.facing {
-            Facing::X | Facing::NegX => [[0.0, a.y, -a.x], [0.0, b.y, -b.x], [0.0, c.y, -c.x]],
-            Facing::Y | Facing::NegY => [[a.x, 0.0, -a.y], [b.x, 0.0, -b.y], [c.x, 0.0, -c.y]],
-            Facing::Z | Facing::NegZ => [[a.x, a.y, 0.0], [b.x, b.y, 0.0], [c.x, c.y, 0.0]],
-        };
-
-        let normals = vec![self.facing.to_array(); 3];
+        let positions = vec![[a.x, a.y, 0.0], [b.x, b.y, 0.0], [c.x, c.y, 0.0]];
+        let normals = vec![[0.0, 0.0, 1.0]; 3];
 
         // The extents of the bounding box of the triangle,
         // used to compute the UV coordinates of the points.
@@ -55,10 +38,8 @@ impl Triangle2dMeshBuilder {
             c / extents / 2.0 + 0.5,
         ];
 
-        let flipped = self.facing.signum() < 0;
         let is_ccw = self.triangle.winding_order() == WindingOrder::CounterClockwise;
-        let is_cw = self.triangle.winding_order() == WindingOrder::Clockwise;
-        let indices = if (is_ccw && !flipped) || (is_cw && flipped) {
+        let indices = if is_ccw {
             Indices::U32(vec![0, 1, 2])
         } else {
             Indices::U32(vec![0, 2, 1])
@@ -69,7 +50,7 @@ impl Triangle2dMeshBuilder {
             RenderAssetPersistencePolicy::Keep,
         )
         .with_indices(Some(indices))
-        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, Vec::from(positions))
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
     }
@@ -79,10 +60,7 @@ impl Meshable for Triangle2d {
     type Output = Triangle2dMeshBuilder;
 
     fn mesh(&self) -> Triangle2dMeshBuilder {
-        Triangle2dMeshBuilder {
-            triangle: *self,
-            ..Default::default()
-        }
+        Triangle2dMeshBuilder { triangle: *self }
     }
 }
 

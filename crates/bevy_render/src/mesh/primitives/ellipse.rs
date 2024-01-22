@@ -3,8 +3,8 @@ use crate::{
     render_asset::RenderAssetPersistencePolicy,
 };
 
-use super::{Facing, MeshFacingExtension, Meshable};
-use bevy_math::{primitives::Ellipse, Vec2, Vec3};
+use super::Meshable;
+use bevy_math::{primitives::Ellipse, Vec2};
 use wgpu::PrimitiveTopology;
 
 /// A builder used for creating a [`Mesh`] with an [`Ellipse`] shape.
@@ -16,9 +16,6 @@ pub struct EllipseMeshBuilder {
     /// The default is `32`.
     #[doc(alias = "vertices")]
     pub resolution: usize,
-    /// The XYZ direction that the mesh is facing.
-    /// The default is [`Facing::Z`].
-    pub facing: Facing,
 }
 
 impl Default for EllipseMeshBuilder {
@@ -26,16 +23,7 @@ impl Default for EllipseMeshBuilder {
         Self {
             ellipse: Ellipse::default(),
             resolution: 32,
-            facing: Facing::Z,
         }
-    }
-}
-
-impl MeshFacingExtension for EllipseMeshBuilder {
-    #[inline]
-    fn facing(mut self, facing: Facing) -> Self {
-        self.facing = facing;
-        self
     }
 }
 
@@ -48,7 +36,6 @@ impl EllipseMeshBuilder {
                 half_size: Vec2::new(half_width, half_height),
             },
             resolution,
-            facing: Facing::Z,
         }
     }
 
@@ -64,16 +51,27 @@ impl EllipseMeshBuilder {
     pub fn build(&self) -> Mesh {
         let mut indices = Vec::with_capacity((self.resolution - 2) * 3);
         let mut positions = Vec::with_capacity(self.resolution);
-        let mut normals = Vec::with_capacity(self.resolution);
+        let normals = vec![[0.0, 0.0, 1.0]; self.resolution];
         let mut uvs = Vec::with_capacity(self.resolution);
 
-        self.build_mesh_data(
-            Vec3::ZERO,
-            &mut indices,
-            &mut positions,
-            &mut normals,
-            &mut uvs,
-        );
+        // Add pi/2 so that there is a vertex at the top (sin is 1.0 and cos is 0.0)
+        let start_angle = std::f32::consts::FRAC_PI_2;
+        let step = std::f32::consts::TAU / self.resolution as f32;
+
+        for i in 0..self.resolution {
+            // Compute vertex position at angle theta
+            let theta = start_angle + i as f32 * step;
+            let (sin, cos) = theta.sin_cos();
+            let x = cos * self.ellipse.half_size.x;
+            let y = sin * self.ellipse.half_size.y;
+
+            positions.push([x, y, 0.0]);
+            uvs.push([0.5 * (cos + 1.0), 1.0 - 0.5 * (sin + 1.0)]);
+        }
+
+        for i in 1..(self.resolution as u32 - 1) {
+            indices.extend_from_slice(&[0, i, i + 1]);
+        }
 
         Mesh::new(
             PrimitiveTopology::TriangleList,
@@ -83,51 +81,6 @@ impl EllipseMeshBuilder {
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
         .with_indices(Some(Indices::U32(indices)))
-    }
-
-    /// Builds the ellipse mesh and pushes the data to the given vertex attribute data sets.
-    pub(super) fn build_mesh_data(
-        &self,
-        translation: Vec3,
-        indices: &mut Vec<u32>,
-        positions: &mut Vec<[f32; 3]>,
-        normals: &mut Vec<[f32; 3]>,
-        uvs: &mut Vec<[f32; 2]>,
-    ) {
-        let sides = self.resolution;
-        let facing_coords = self.facing.to_array();
-        let normal_sign = self.facing.signum() as f32;
-
-        // The mesh could have existing vertices, so we add an offset to find
-        // the index where the ellipse's own vertices begin.
-        let index_offset = positions.len() as u32;
-
-        // Add pi/2 so that there is a vertex at the top (sin is 1.0 and cos is 0.0)
-        let start_angle = std::f32::consts::FRAC_PI_2;
-        let step = normal_sign * std::f32::consts::TAU / sides as f32;
-
-        for i in 0..sides {
-            // Compute vertex position at angle theta
-            let theta = start_angle + i as f32 * step;
-            let (sin, cos) = theta.sin_cos();
-            let x = cos * self.ellipse.half_size.x;
-            let y = sin * self.ellipse.half_size.y;
-
-            // Transform vertex position based on facing direction
-            let position = match self.facing {
-                Facing::X | Facing::NegX => Vec3::new(0.0, y, -x),
-                Facing::Y | Facing::NegY => Vec3::new(x, 0.0, -y),
-                Facing::Z | Facing::NegZ => Vec3::new(x, y, 0.0),
-            };
-
-            positions.push((position + translation).to_array());
-            normals.push(facing_coords);
-            uvs.push([0.5 * (cos + 1.0), 1.0 - 0.5 * (sin + 1.0)]);
-        }
-
-        for i in 1..(sides as u32 - 1) {
-            indices.extend_from_slice(&[index_offset, index_offset + i, index_offset + i + 1]);
-        }
     }
 }
 
