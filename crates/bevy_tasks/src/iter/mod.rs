@@ -93,7 +93,7 @@ where
             consumer.into_folder().complete()
         } else if splitter.try_split(len) {
             // TODO: optimize it
-            // Increasing the thread number may not necessarily enhance performance due to the split method.
+            // Increasing thread number may not necessarily enhance performance due to the split method.
             // Additional benefits can only be realized when the number of threads reaches the next power of 2.
             // Rayon may split tasks into smaller slices in some cases, but Bevy's executor suffers from overhead
             // when spawning a large number of small tasks.
@@ -116,8 +116,6 @@ where
 /// operation][fold].  It can be fed many items using the `consume`
 /// method. At the end, once all items have been consumed, it can then
 /// be converted (using `complete`) into a final value.
-///
-/// [fold]: https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.fold
 pub trait Folder<Item>: Sized {
     /// The type of result that will ultimately be produced by the folder.
     type Result;
@@ -163,18 +161,6 @@ pub trait Folder<Item>: Sized {
 /// two producers, one producing the items before that point, and one
 /// producing the items after that point (these two producers can then
 /// independently be split further, or be converted into iterators).
-/// In Rayon, this splitting is used to divide between threads.
-/// See [the `plumbing` README][r] for further details.
-///
-/// Note that each producer will always produce a fixed number of
-/// items N. However, this number N is not queryable through the API;
-/// the consumer is expected to track it.
-///
-/// NB. You might expect `Producer` to extend the `IntoIterator`
-/// trait.  However, [rust-lang/rust#20671][20671] prevents us from
-/// declaring the DoubleEndedIterator and ExactSizeIterator
-/// constraints on a required IntoIterator trait, so we inline
-/// IntoIterator here until that issue is fixed.
 pub trait Producer: Send + Sized {
     /// The type of item that will be produced by this producer once
     /// it is converted into an iterator.
@@ -238,12 +224,24 @@ pub trait ProducerCallback<T> {
         P: Producer<Item = T>;
 }
 
+/// The reducer is the final step of a `Consumer` -- after a consumer
+/// has been split into two parts, and each of those parts has been
+/// fully processed, we are left with two results. The reducer is then
+/// used to combine those two results into one.
 pub trait Reducer<Result> {
     /// Reduce two final results into one; this is executed after a
     /// split.
     fn reduce(self, left: Result, right: Result) -> Result;
 }
 
+/// A consumer is effectively a [generalized "fold" operation][fold],
+/// and in fact each consumer will eventually be converted into a
+/// [`Folder`]. What makes a consumer special is that, like a
+/// [`Producer`], it can be **split** into multiple consumers using
+/// the `split_at` method. When a consumer is split, it produces two
+/// consumers, as well as a **reducer**. The two consumers can be fed
+/// items independently, and when they are done the reducer is used to
+/// combine their two results into one.
 pub trait Consumer<Item>: Send + Sized {
     /// The type of folder that this consumer can be converted into.
     type Folder: Folder<Item, Result = Self::Result>;
@@ -289,6 +287,14 @@ pub trait UnindexedConsumer<I>: Consumer<I> {
     fn to_reducer(&self) -> Self::Reducer;
 }
 
+/// Parallel version of the standard iterator trait.
+///
+/// The combinators on this trait are available on **all** parallel
+/// iterators.  Additional methods can be found on the
+/// [`IndexedParallelIterator`] trait: those methods are only
+/// available for parallel iterators where the number of items is
+/// known in advance (so, e.g., after invoking `filter`, those methods
+/// become unavailable).
 pub trait ParallelIterator: Sized + Send {
     /// The type of item that this parallel iterator produces.
     /// For example, if you use the [`for_each`] method, this is the type of
@@ -447,6 +453,16 @@ where
     }
 }
 
+/// `IntoParallelRefMutIterator` implements the conversion to a
+/// [`ParallelIterator`], providing mutable references to the data.
+///
+/// This is a parallel version of the `iter_mut()` method
+/// defined by various collections.
+///
+/// This trait is automatically implemented
+/// `for I where &mut I: IntoParallelIterator`. In most cases, users
+/// will want to implement [`IntoParallelIterator`] rather than implement
+/// this trait directly.
 pub trait IntoParallelRefMutIterator<'data> {
     /// The type of iterator that will be created.
     type Iter: ParallelIterator<Item = Self::Item>;
