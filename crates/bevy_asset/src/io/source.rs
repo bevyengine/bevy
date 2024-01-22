@@ -43,7 +43,7 @@ impl<'a> AssetSourceId<'a> {
     }
 
     /// Returns [`None`] if this is [`AssetSourceId::Default`] and [`Some`] containing the
-    /// the name if this is [`AssetSourceId::Name`].  
+    /// name if this is [`AssetSourceId::Name`].
     pub fn as_str(&self) -> Option<&str> {
         match self {
             AssetSourceId::Default => None,
@@ -111,7 +111,7 @@ impl<'a> PartialEq for AssetSourceId<'a> {
 #[derive(Default)]
 pub struct AssetSourceBuilder {
     pub reader: Option<Box<dyn FnMut() -> Box<dyn AssetReader> + Send + Sync>>,
-    pub writer: Option<Box<dyn FnMut() -> Option<Box<dyn AssetWriter>> + Send + Sync>>,
+    pub writer: Option<Box<dyn FnMut(bool) -> Option<Box<dyn AssetWriter>> + Send + Sync>>,
     pub watcher: Option<
         Box<
             dyn FnMut(crossbeam_channel::Sender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>>
@@ -120,7 +120,8 @@ pub struct AssetSourceBuilder {
         >,
     >,
     pub processed_reader: Option<Box<dyn FnMut() -> Box<dyn AssetReader> + Send + Sync>>,
-    pub processed_writer: Option<Box<dyn FnMut() -> Option<Box<dyn AssetWriter>> + Send + Sync>>,
+    pub processed_writer:
+        Option<Box<dyn FnMut(bool) -> Option<Box<dyn AssetWriter>> + Send + Sync>>,
     pub processed_watcher: Option<
         Box<
             dyn FnMut(crossbeam_channel::Sender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>>
@@ -141,14 +142,14 @@ impl AssetSourceBuilder {
         watch: bool,
         watch_processed: bool,
     ) -> Option<AssetSource> {
-        let reader = (self.reader.as_mut()?)();
-        let writer = self.writer.as_mut().and_then(|w| (w)());
-        let processed_writer = self.processed_writer.as_mut().and_then(|w| (w)());
+        let reader = self.reader.as_mut()?();
+        let writer = self.writer.as_mut().and_then(|w| w(false));
+        let processed_writer = self.processed_writer.as_mut().and_then(|w| w(true));
         let mut source = AssetSource {
             id: id.clone(),
             reader,
             writer,
-            processed_reader: self.processed_reader.as_mut().map(|r| (r)()),
+            processed_reader: self.processed_reader.as_mut().map(|r| r()),
             processed_writer,
             event_receiver: None,
             watcher: None,
@@ -158,7 +159,7 @@ impl AssetSourceBuilder {
 
         if watch {
             let (sender, receiver) = crossbeam_channel::unbounded();
-            match self.watcher.as_mut().and_then(|w| (w)(sender)) {
+            match self.watcher.as_mut().and_then(|w| w(sender)) {
                 Some(w) => {
                     source.watcher = Some(w);
                     source.event_receiver = Some(receiver);
@@ -173,7 +174,7 @@ impl AssetSourceBuilder {
 
         if watch_processed {
             let (sender, receiver) = crossbeam_channel::unbounded();
-            match self.processed_watcher.as_mut().and_then(|w| (w)(sender)) {
+            match self.processed_watcher.as_mut().and_then(|w| w(sender)) {
                 Some(w) => {
                     source.processed_watcher = Some(w);
                     source.processed_event_receiver = Some(receiver);
@@ -200,7 +201,7 @@ impl AssetSourceBuilder {
     /// Will use the given `writer` function to construct unprocessed [`AssetWriter`] instances.
     pub fn with_writer(
         mut self,
-        writer: impl FnMut() -> Option<Box<dyn AssetWriter>> + Send + Sync + 'static,
+        writer: impl FnMut(bool) -> Option<Box<dyn AssetWriter>> + Send + Sync + 'static,
     ) -> Self {
         self.writer = Some(Box::new(writer));
         self
@@ -230,7 +231,7 @@ impl AssetSourceBuilder {
     /// Will use the given `writer` function to construct processed [`AssetWriter`] instances.
     pub fn with_processed_writer(
         mut self,
-        writer: impl FnMut() -> Option<Box<dyn AssetWriter>> + Send + Sync + 'static,
+        writer: impl FnMut(bool) -> Option<Box<dyn AssetWriter>> + Send + Sync + 'static,
     ) -> Self {
         self.processed_writer = Some(Box::new(writer));
         self
@@ -443,10 +444,13 @@ impl AssetSource {
     /// the asset root. This will return [`None`] if this platform does not support writing assets by default.
     pub fn get_default_writer(
         _path: String,
-    ) -> impl FnMut() -> Option<Box<dyn AssetWriter>> + Send + Sync {
-        move || {
+    ) -> impl FnMut(bool) -> Option<Box<dyn AssetWriter>> + Send + Sync {
+        move |_create_root: bool| {
             #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
-            return Some(Box::new(super::file::FileAssetWriter::new(&_path)));
+            return Some(Box::new(super::file::FileAssetWriter::new(
+                &_path,
+                _create_root,
+            )));
             #[cfg(any(target_arch = "wasm32", target_os = "android"))]
             return None;
         }
@@ -486,7 +490,7 @@ impl AssetSource {
                     sender,
                     file_debounce_wait_time,
                 )
-                .unwrap(),
+                .expect("Failed to create file watcher"),
             ));
             #[cfg(any(
                 not(feature = "file_watcher"),
@@ -569,22 +573,22 @@ impl AssetSources {
 }
 
 /// An error returned when an [`AssetSource`] does not exist for a given id.
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 #[error("Asset Source '{0}' does not exist")]
 pub struct MissingAssetSourceError(AssetSourceId<'static>);
 
 /// An error returned when an [`AssetWriter`] does not exist for a given id.
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 #[error("Asset Source '{0}' does not have an AssetWriter.")]
 pub struct MissingAssetWriterError(AssetSourceId<'static>);
 
 /// An error returned when a processed [`AssetReader`] does not exist for a given id.
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 #[error("Asset Source '{0}' does not have a processed AssetReader.")]
 pub struct MissingProcessedAssetReaderError(AssetSourceId<'static>);
 
 /// An error returned when a processed [`AssetWriter`] does not exist for a given id.
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 #[error("Asset Source '{0}' does not have a processed AssetWriter.")]
 pub struct MissingProcessedAssetWriterError(AssetSourceId<'static>);
 

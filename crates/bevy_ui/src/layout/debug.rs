@@ -12,7 +12,7 @@ pub fn print_ui_layout_tree(ui_surface: &UiSurface) {
         .iter()
         .map(|(entity, node)| (*node, *entity))
         .collect();
-    for (&entity, roots) in &ui_surface.window_roots {
+    for (&entity, roots) in &ui_surface.camera_roots {
         let mut out = String::new();
         for root in roots {
             print_node(
@@ -25,7 +25,7 @@ pub fn print_ui_layout_tree(ui_surface: &UiSurface) {
                 &mut out,
             );
         }
-        bevy_log::info!("Layout tree for window entity: {entity:?}\n{out}");
+        bevy_log::info!("Layout tree for camera entity: {entity:?}\n{out}");
     }
 }
 

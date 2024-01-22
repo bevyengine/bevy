@@ -62,6 +62,10 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     out.uv = vertex.uv;
 #endif // VERTEX_UVS
 
+#ifdef VERTEX_UVS_B
+    out.uv_b = vertex.uv_b;
+#endif // VERTEX_UVS_B
+
 #ifdef NORMAL_PREPASS_OR_DEFERRED_PREPASS
 #ifdef SKINNED
     out.world_normal = skinning::skin_normals(model, vertex.normal);

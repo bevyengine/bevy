@@ -6,7 +6,7 @@ use bevy_reflect::Reflect;
 use bevy_render::camera::Camera;
 use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
 use bevy_render::extract_resource::{ExtractResource, ExtractResourcePlugin};
-use bevy_render::render_asset::RenderAssets;
+use bevy_render::render_asset::{RenderAssetPersistencePolicy, RenderAssets};
 use bevy_render::render_resource::binding_types::{
     sampler, texture_2d, texture_3d, uniform_buffer,
 };
@@ -356,6 +356,7 @@ fn setup_tonemapping_lut_image(bytes: &[u8], image_type: ImageType) -> Image {
         CompressedImageFormats::NONE,
         false,
         image_sampler,
+        RenderAssetPersistencePolicy::Unload,
     )
     .unwrap()
 }
@@ -381,5 +382,6 @@ pub fn lut_placeholder() -> Image {
         },
         sampler: ImageSampler::Default,
         texture_view_descriptor: None,
+        cpu_persistent_access: RenderAssetPersistencePolicy::Unload,
     }
 }

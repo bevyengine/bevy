@@ -24,6 +24,21 @@ pub enum InvalidDirectionError {
     NaN,
 }
 
+impl InvalidDirectionError {
+    /// Creates an [`InvalidDirectionError`] from the length of an invalid direction vector.
+    pub fn from_length(length: f32) -> Self {
+        if length.is_nan() {
+            InvalidDirectionError::NaN
+        } else if !length.is_finite() {
+            // If the direction is non-finite but also not NaN, it must be infinite
+            InvalidDirectionError::Infinite
+        } else {
+            // If the direction is invalid but neither NaN nor infinite, it must be zero
+            InvalidDirectionError::Zero
+        }
+    }
+}
+
 impl std::fmt::Display for InvalidDirectionError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
