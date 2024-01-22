@@ -23,6 +23,11 @@ impl FontAtlasSets {
         let id: AssetId<Font> = id.into();
         self.sets.get(&id)
     }
+
+    pub fn get_mut(&mut self, id: impl Into<AssetId<Font>>) -> Option<&mut FontAtlasSet> {
+        let id: AssetId<Font> = id.into();
+        self.sets.get_mut(&id)
+    }
 }
 
 pub fn remove_dropped_font_atlas_sets(
