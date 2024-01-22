@@ -185,21 +185,22 @@ fn main() {
     }
 }
 
-// Constructs `OwningPtr` for each item in `data`
-// By sharing the lifetime of `data` with the resulting ptrs we ensure we don't drop the data before use
-fn to_owning_ptrs(data: &mut [Vec<u64>]) -> Vec<OwningPtr<Aligned>> {
-    let mut ptrs = Vec::new();
-    for data in data.iter_mut() {
-        let ptr = data.as_mut_ptr();
-        // SAFETY:
-        // - Pointers are guaranteed to be non-null
-        // - Data pointed to won't be dropped until `to_insert_data` is dropped
-        unsafe {
-            let non_null = NonNull::new_unchecked(ptr.cast());
-            ptrs.push(OwningPtr::new(non_null));
-        }
-    }
-    ptrs
+// Constructs `OwningPtr` for each item in `components`
+// By sharing the lifetime of `components` with the resulting ptrs we ensure we don't drop the data before use
+fn to_owning_ptrs(components: &mut [Vec<u64>]) -> Vec<OwningPtr<Aligned>> {
+    components
+        .iter_mut()
+        .map(|data| {
+            let ptr = data.as_mut_ptr();
+            // SAFETY:
+            // - Pointers are guaranteed to be non-null
+            // - Memory pointed to won't be dropped until `components` is dropped
+            unsafe {
+                let non_null = NonNull::new_unchecked(ptr.cast());
+                OwningPtr::new(non_null)
+            }
+        })
+        .collect()
 }
 
 fn parse_term<Q: QueryData>(
