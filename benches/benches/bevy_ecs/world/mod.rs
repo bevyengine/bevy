@@ -12,6 +12,7 @@ criterion_group!(
     world_benches,
     empty_commands,
     spawn_commands,
+    spawn_commands_error_handler,
     insert_commands,
     fake_commands,
     zero_sized_commands,

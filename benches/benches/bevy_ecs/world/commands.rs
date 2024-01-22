@@ -1,7 +1,7 @@
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    system::{Command, CommandQueue, Commands},
+    system::{Command, CommandQueue, Commands, CommandErrorHandler},
     world::World,
 };
 use criterion::{black_box, Criterion};
@@ -68,6 +68,49 @@ pub fn spawn_commands(criterion: &mut Criterion) {
 
     group.finish();
 }
+
+pub fn spawn_commands_error_handler(criterion: &mut Criterion) {
+    let mut group = criterion.benchmark_group("spawn_commands_error_handler");
+    group.warm_up_time(std::time::Duration::from_millis(500));
+    group.measurement_time(std::time::Duration::from_secs(4));
+
+    for entity_count in (1..5).map(|i| i * 2 * 1000) {
+        group.bench_function(format!("{}_entities", entity_count), |bencher| {
+            let mut world = World::default();
+            let mut command_queue = CommandQueue::default();
+
+            bencher.iter(|| {
+                let mut commands = Commands::new(&mut command_queue, &world);
+                for i in 0..entity_count {
+                    let mut entity = commands.spawn_empty();
+
+                    if black_box(i % 2 == 0) {
+                        entity.insert(A).on_err(CommandErrorHandler::log);
+                    }
+
+                    if black_box(i % 3 == 0) {
+                        entity.insert(B).on_err(CommandErrorHandler::ignore);
+                    }
+
+                    if black_box(i % 4 == 0) {
+                        entity.insert(C).on_err(|err, _ctx| {
+                            println!("Error: {:?}", err);
+                        });
+                    }
+
+                    if black_box(i % 5 == 0) {
+                        entity.despawn().on_err(CommandErrorHandler::log);
+                    }
+                }
+                command_queue.apply(&mut world);
+            });
+        });
+    }
+
+    group.finish();
+}
+
+
 
 #[derive(Default, Component)]
 struct Matrix([[f32; 4]; 4]);
