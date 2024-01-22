@@ -2,7 +2,10 @@ use crate::tonemapping::{DebandDither, Tonemapping};
 use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
 use bevy_render::{
-    camera::{Camera, CameraProjection, CameraRenderGraph, OrthographicProjection},
+    camera::{
+        Camera, CameraMainTextureUsages, CameraProjection, CameraRenderGraph,
+        OrthographicProjection,
+    },
     extract_component::ExtractComponent,
     primitives::Frustum,
     view::VisibleEntities,
@@ -26,6 +29,7 @@ pub struct Camera2dBundle {
     pub camera_2d: Camera2d,
     pub tonemapping: Tonemapping,
     pub deband_dither: DebandDither,
+    pub main_texture_usages: CameraMainTextureUsages,
 }
 
 impl Default for Camera2dBundle {
@@ -55,6 +59,7 @@ impl Default for Camera2dBundle {
             camera_2d: Camera2d,
             tonemapping: Tonemapping::None,
             deband_dither: DebandDither::Disabled,
+            main_texture_usages: Default::default(),
         }
     }
 }
@@ -93,6 +98,7 @@ impl Camera2dBundle {
             camera_2d: Camera2d,
             tonemapping: Tonemapping::None,
             deband_dither: DebandDither::Disabled,
+            main_texture_usages: Default::default(),
         }
     }
 }

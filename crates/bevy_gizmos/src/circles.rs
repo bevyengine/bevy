@@ -3,7 +3,7 @@
 //! Includes the implementation of [`Gizmos::circle`] and [`Gizmos::circle_2d`],
 //! and assorted support items.
 
-use crate::prelude::Gizmos;
+use crate::prelude::{GizmoConfigGroup, Gizmos};
 use bevy_math::{Quat, Vec2, Vec3};
 use bevy_render::color::Color;
 use std::f32::consts::TAU;
@@ -17,7 +17,7 @@ fn circle_inner(radius: f32, segments: usize) -> impl Iterator<Item = Vec2> {
     })
 }
 
-impl<'s> Gizmos<'s> {
+impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// Draw a circle in 3D at `position` with the flat side facing `normal`.
     ///
     /// This should be called for each frame the circle needs to be rendered.
@@ -45,7 +45,7 @@ impl<'s> Gizmos<'s> {
         normal: Vec3,
         radius: f32,
         color: Color,
-    ) -> CircleBuilder<'_, 's> {
+    ) -> CircleBuilder<'_, 'w, 's, T> {
         CircleBuilder {
             gizmos: self,
             position,
@@ -82,7 +82,7 @@ impl<'s> Gizmos<'s> {
         position: Vec2,
         radius: f32,
         color: Color,
-    ) -> Circle2dBuilder<'_, 's> {
+    ) -> Circle2dBuilder<'_, 'w, 's, T> {
         Circle2dBuilder {
             gizmos: self,
             position,
@@ -94,8 +94,8 @@ impl<'s> Gizmos<'s> {
 }
 
 /// A builder returned by [`Gizmos::circle`].
-pub struct CircleBuilder<'a, 's> {
-    gizmos: &'a mut Gizmos<'s>,
+pub struct CircleBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
+    gizmos: &'a mut Gizmos<'w, 's, T>,
     position: Vec3,
     normal: Vec3,
     radius: f32,
@@ -103,7 +103,7 @@ pub struct CircleBuilder<'a, 's> {
     segments: usize,
 }
 
-impl CircleBuilder<'_, '_> {
+impl<T: GizmoConfigGroup> CircleBuilder<'_, '_, '_, T> {
     /// Set the number of line-segments for this circle.
     pub fn segments(mut self, segments: usize) -> Self {
         self.segments = segments;
@@ -111,8 +111,11 @@ impl CircleBuilder<'_, '_> {
     }
 }
 
-impl Drop for CircleBuilder<'_, '_> {
+impl<T: GizmoConfigGroup> Drop for CircleBuilder<'_, '_, '_, T> {
     fn drop(&mut self) {
+        if !self.gizmos.enabled {
+            return;
+        }
         let rotation = Quat::from_rotation_arc(Vec3::Z, self.normal);
         let positions = circle_inner(self.radius, self.segments)
             .map(|vec2| self.position + rotation * vec2.extend(0.));
@@ -121,15 +124,15 @@ impl Drop for CircleBuilder<'_, '_> {
 }
 
 /// A builder returned by [`Gizmos::circle_2d`].
-pub struct Circle2dBuilder<'a, 's> {
-    gizmos: &'a mut Gizmos<'s>,
+pub struct Circle2dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
+    gizmos: &'a mut Gizmos<'w, 's, T>,
     position: Vec2,
     radius: f32,
     color: Color,
     segments: usize,
 }
 
-impl Circle2dBuilder<'_, '_> {
+impl<T: GizmoConfigGroup> Circle2dBuilder<'_, '_, '_, T> {
     /// Set the number of line-segments for this circle.
     pub fn segments(mut self, segments: usize) -> Self {
         self.segments = segments;
@@ -137,8 +140,11 @@ impl Circle2dBuilder<'_, '_> {
     }
 }
 
-impl Drop for Circle2dBuilder<'_, '_> {
+impl<T: GizmoConfigGroup> Drop for Circle2dBuilder<'_, '_, '_, T> {
     fn drop(&mut self) {
+        if !self.gizmos.enabled {
+            return;
+        }
         let positions = circle_inner(self.radius, self.segments).map(|vec2| vec2 + self.position);
         self.gizmos.linestrip_2d(positions, self.color);
     }
