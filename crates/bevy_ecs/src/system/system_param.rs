@@ -893,7 +893,7 @@ impl<'a, T: SystemBuffer> DerefMut for Deferred<'a, T> {
 impl<T: SystemBuffer> Deferred<'_, T> {
     /// Returns a [`Deferred<T>`] with a smaller lifetime.
     /// This is useful if you have `&mut Deferred<T>` but need `Deferred<T>`.
-    pub fn reborrow(&mut self) -> Deferred<'_, T> {
+    pub fn reborrow(&mut self) -> Deferred<T> {
         Deferred(self.0)
     }
 }
