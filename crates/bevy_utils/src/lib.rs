@@ -55,10 +55,10 @@ use std::{
 
 #[cfg(not(target_arch = "wasm32"))]
 mod conditional_send {
-    /// Use [`FutureSend`] to mark an optional Send trait bound as optional, as on certain platforms (eg. WASM),
+    /// Use [`WasmNotSend`] to mark an optional Send trait bound as optional, as on certain platforms (eg. WASM),
     /// futures aren't Send.
-    pub trait FutureSend: Send {}
-    impl<T: Send> FutureSend for T {}
+    pub trait WasmNotSend: Send {}
+    impl<T: Send> WasmNotSend for T {}
 
     /// An owned and dynamically typed Future used when you can't statically type your result or need to add some indirection.
     pub type BoxedFuture<'a, T> =
@@ -68,8 +68,8 @@ mod conditional_send {
 #[cfg(target_arch = "wasm32")]
 #[allow(missing_docs)]
 mod conditional_send {
-    pub trait FutureSend {}
-    impl<T> FutureSend for T {}
+    pub trait WasmNotSend {}
+    impl<T> WasmNotSend for T {}
     pub type BoxedFuture<'a, T> = std::pin::Pin<Box<dyn std::future::Future<Output = T> + 'a>>;
 }
 
