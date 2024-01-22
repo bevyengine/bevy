@@ -48,7 +48,7 @@ use super::{InternedScheduleLabel, Schedule, Schedules};
 pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug {}
 
 /// This trait allows a state to be mutated directly using the [`NextState<S>`] resource.
-/// 
+///
 /// It is implemented as part of the [`States`] derive, but can also be added manually.
 pub trait FreelyMutableState: States {}
 
