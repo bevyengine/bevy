@@ -5,7 +5,7 @@ use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::*,
-    query::{QueryItem, ROQueryItem},
+    query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_math::{Affine3, Vec4};
@@ -339,25 +339,21 @@ impl Mesh2dPipeline {
 
 impl GetBatchData for Mesh2dPipeline {
     type Param = SRes<RenderMesh2dInstances>;
-    type Data = Entity;
-    type Filter = With<Mesh2d>;
     type CompareData = (Material2dBindGroupId, AssetId<Mesh>);
     type BufferData = Mesh2dUniform;
 
     fn get_batch_data(
         mesh_instances: &SystemParamItem<Self::Param>,
-        entity: &QueryItem<Self::Data>,
-    ) -> (Self::BufferData, Option<Self::CompareData>) {
-        let mesh_instance = mesh_instances
-            .get(entity)
-            .expect("Failed to find render mesh2d instance");
-        (
+        entity: Entity,
+    ) -> Option<(Self::BufferData, Option<Self::CompareData>)> {
+        let mesh_instance = mesh_instances.get(&entity)?;
+        Some((
             (&mesh_instance.transforms).into(),
             mesh_instance.automatic_batching.then_some((
                 mesh_instance.material_bind_group_id,
                 mesh_instance.mesh_asset_id,
             )),
-        )
+        ))
     }
 }
 
@@ -369,9 +365,9 @@ bitflags::bitflags! {
     // FIXME: make normals optional?
     pub struct Mesh2dPipelineKey: u32 {
         const NONE                              = 0;
-        const HDR                               = (1 << 0);
-        const TONEMAP_IN_SHADER                 = (1 << 1);
-        const DEBAND_DITHER                     = (1 << 2);
+        const HDR                               = 1 << 0;
+        const TONEMAP_IN_SHADER                 = 1 << 1;
+        const DEBAND_DITHER                     = 1 << 2;
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const PRIMITIVE_TOPOLOGY_RESERVED_BITS  = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
         const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;

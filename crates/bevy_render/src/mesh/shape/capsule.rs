@@ -1,4 +1,7 @@
-use crate::mesh::{Indices, Mesh};
+use crate::{
+    mesh::{Indices, Mesh},
+    render_asset::RenderAssetPersistencePolicy,
+};
 use bevy_math::{Vec2, Vec3};
 use wgpu::PrimitiveTopology;
 
@@ -364,10 +367,13 @@ impl From<Capsule> for Mesh {
         assert_eq!(vs.len(), vert_len);
         assert_eq!(tris.len(), fs_len);
 
-        Mesh::new(PrimitiveTopology::TriangleList)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vs)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vns)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, vts)
-            .with_indices(Some(Indices::U32(tris)))
+        Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetPersistencePolicy::Keep,
+        )
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vs)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vns)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, vts)
+        .with_indices(Some(Indices::U32(tris)))
     }
 }

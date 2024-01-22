@@ -101,8 +101,8 @@ impl TypeRegistry {
     }
 
     /// Registers the type `T`, adding reflect data as specified in the [`Reflect`] derive:
-    /// ```rust,ignore
-    /// #[derive(Reflect)]
+    /// ```ignore (Neither bevy_ecs nor serde "derive" are available.)
+    /// #[derive(Component, serde::Serialize, serde::Deserialize, Reflect)]
     /// #[reflect(Component, Serialize, Deserialize)] // will register ReflectComponent, ReflectSerialize, ReflectDeserialize
     /// ```
     pub fn register<T>(&mut self)
@@ -143,7 +143,7 @@ impl TypeRegistry {
     /// this method can be used to insert additional type data.
     ///
     /// # Example
-    /// ```rust
+    /// ```
     /// use bevy_reflect::{TypeRegistry, ReflectSerialize, ReflectDeserialize};
     ///
     /// let mut type_registry = TypeRegistry::default();
@@ -499,7 +499,7 @@ impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
 /// from a pointer.
 ///
 /// # Example
-/// ```rust
+/// ```
 /// use bevy_reflect::{TypeRegistry, Reflect, ReflectFromPtr};
 /// use bevy_ptr::Ptr;
 /// use std::ptr::NonNull;

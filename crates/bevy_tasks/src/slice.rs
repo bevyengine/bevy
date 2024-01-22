@@ -10,7 +10,7 @@ pub trait ParallelSlice<T: Sync>: AsRef<[T]> {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_tasks::prelude::*;
     /// # use bevy_tasks::TaskPool;
     /// let task_pool = TaskPool::new();
@@ -54,7 +54,7 @@ pub trait ParallelSlice<T: Sync>: AsRef<[T]> {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_tasks::prelude::*;
     /// # use bevy_tasks::TaskPool;
     /// let task_pool = TaskPool::new();
@@ -104,7 +104,7 @@ pub trait ParallelSliceMut<T: Send>: AsMut<[T]> {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_tasks::prelude::*;
     /// # use bevy_tasks::TaskPool;
     /// let task_pool = TaskPool::new();
@@ -151,7 +151,7 @@ pub trait ParallelSliceMut<T: Send>: AsMut<[T]> {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_tasks::prelude::*;
     /// # use bevy_tasks::TaskPool;
     /// let task_pool = TaskPool::new();
