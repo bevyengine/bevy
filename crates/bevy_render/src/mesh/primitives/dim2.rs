@@ -82,12 +82,10 @@ impl Meshable for RegularPolygon {
 
     fn mesh(&self) -> Self::Output {
         // The ellipse mesh is just a regular polygon with two radii
-        Ellipse {
-            half_size: Vec2::splat(self.circumcircle.radius),
-        }
-        .mesh()
-        .resolution(self.sides)
-        .build()
+        Ellipse::new(self.circumcircle.radius, self.circumcircle.radius)
+            .mesh()
+            .resolution(self.sides)
+            .build()
     }
 }
 
@@ -122,9 +120,7 @@ impl EllipseMeshBuilder {
     #[inline]
     pub const fn new(half_width: f32, half_height: f32, resolution: usize) -> Self {
         Self {
-            ellipse: Ellipse {
-                half_size: Vec2::new(half_width, half_height),
-            },
+            ellipse: Ellipse::new(half_width, half_height),
             resolution,
         }
     }
