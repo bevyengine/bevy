@@ -182,12 +182,12 @@ pub enum BloomCompositeMode {
 }
 
 impl ExtractComponent for BloomSettings {
-    type Data = (&'static Self, &'static Camera);
+    type QueryData = (&'static Self, &'static Camera);
 
-    type Filter = ();
+    type QueryFilter = ();
     type Out = (Self, BloomUniforms);
 
-    fn extract_component((settings, camera): QueryItem<'_, Self::Data>) -> Option<Self::Out> {
+    fn extract_component((settings, camera): QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
         match (
             camera.physical_viewport_rect(),
             camera.physical_viewport_size(),

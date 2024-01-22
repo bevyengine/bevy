@@ -185,11 +185,11 @@ pub(crate) enum RenderViewBindGroupEntries<'a> {
 }
 
 impl ExtractInstance for EnvironmentMapIds {
-    type Data = Read<EnvironmentMapLight>;
+    type QueryData = Read<EnvironmentMapLight>;
 
-    type Filter = ();
+    type QueryFilter = ();
 
-    fn extract(item: QueryItem<'_, Self::Data>) -> Option<Self> {
+    fn extract(item: QueryItem<'_, Self::QueryData>) -> Option<Self> {
         Some(EnvironmentMapIds {
             diffuse: item.diffuse_map.id(),
             specular: item.specular_map.id(),

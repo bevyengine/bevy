@@ -26,7 +26,7 @@ use super::{AlphaMask3dDeferred, Opaque3dDeferred};
 pub struct DeferredGBufferPrepassNode;
 
 impl ViewNode for DeferredGBufferPrepassNode {
-    type ViewData = (
+    type ViewQuery = (
         &'static ExtractedCamera,
         &'static RenderPhase<Opaque3dDeferred>,
         &'static RenderPhase<AlphaMask3dDeferred>,
@@ -44,7 +44,7 @@ impl ViewNode for DeferredGBufferPrepassNode {
             alpha_mask_deferred_phase,
             view_depth_texture,
             view_prepass_textures,
-        ): QueryItem<Self::ViewData>,
+        ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
