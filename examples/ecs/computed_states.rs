@@ -55,6 +55,7 @@ impl ComputedStates for InGame {
         // You might notice that InGame has no values - instead, in this case, the `State<InGame>` resource only exists
         // if the `compute` function would return `Some` - so only when we are in game.
         match sources {
+            // No matter what the value of `paused` or `turbo` is, we're still in the game rather than a menu
             Some(AppState::InGame { .. }) => Some(Self),
             _ => None,
         }
