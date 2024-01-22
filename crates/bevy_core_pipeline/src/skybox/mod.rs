@@ -80,12 +80,12 @@ pub struct Skybox {
 }
 
 impl ExtractComponent for Skybox {
-    type Data = (&'static Self, Option<&'static ExposureSettings>);
-    type Filter = ();
+    type QueryData = (&'static Self, Option<&'static ExposureSettings>);
+    type QueryFilter = ();
     type Out = (Self, SkyboxUniforms);
 
     fn extract_component(
-        (skybox, exposure_settings): QueryItem<'_, Self::Data>,
+        (skybox, exposure_settings): QueryItem<'_, Self::QueryData>,
     ) -> Option<Self::Out> {
         let exposure = exposure_settings
             .map(|e| e.exposure())
