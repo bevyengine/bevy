@@ -1,8 +1,8 @@
 //! Mesh generation for [primitive shapes](bevy_math::primitives).
 //!
 //! Primitives that support meshing implement the [`Meshable`] trait.
-//! Calling [`mesh`](Meshable::mesh) will return a builder that can be used
-//! to specify shape-specific configuration.
+//! Calling [`mesh`](Meshable::mesh) will return either a [`Mesh`] or a builder
+//! that can be used to specify shape-specific configuration for creating the [`Mesh`].
 //!
 //! ```
 //! # use bevy_asset::Assets;
@@ -15,23 +15,11 @@
 //! let circle = meshes.add(primitives::Circle { radius: 25.0 });
 //!
 //! // Specify number of vertices
-//! let circle = meshes.add(primitives::Circle { radius: 25.0 }.mesh().resolution(64));
+//! let circle = meshes.add(primitivesCircle { radius: 25.0 }.mesh().resolution(64));
 //! # }
 //! ```
 //!
-//! Some shapes also support different facing directions through the [`Facing`] enum or builder methods.
-//!
-//! ```
-//! # use bevy_asset::Assets;
-//! # use bevy_ecs::prelude::ResMut;
-//! # use bevy_math::primitives;
-//! # use bevy_render::prelude::*;
-//! #
-//! # fn setup(mut meshes: ResMut<Assets<Mesh>>) {
-//! // Create rectangle mesh facing up
-//! let rectangle = meshes.add(primitives::Rectangle::new(50.0, 25.0).mesh().facing_y());
-//! # }
-//! ```
+//! [`Mesh`]: super::Mesh
 
 #![warn(missing_docs)]
 
