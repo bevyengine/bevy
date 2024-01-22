@@ -7,8 +7,8 @@ pub struct RayTest2d {
     pub origin: Vec2,
     /// The direction of the ray
     pub dir: Direction2d,
-    /// The inverse direction of the ray
-    pub inv_dir: Vec2,
+    /// The multiplicative inverse direction of the ray
+    pub dir_recip: Vec2,
     /// The maximum time of impact of the ray
     pub max: f32,
 }
@@ -18,7 +18,7 @@ impl RayTest2d {
     pub fn new(origin: Vec2, dir: Direction2d, max: f32) -> Self {
         Self {
             origin,
-            inv_dir: Vec2::ONE / *dir,
+            dir_recip: dir.recip(),
             dir,
             max,
         }
@@ -26,20 +26,20 @@ impl RayTest2d {
 
     /// Get the time of impact for an intersection with an [`Aabb2d`], if any.
     pub fn aabb_intersection_at(&self, aabb: &Aabb2d) -> Option<f32> {
-        let (min_x, max_x) = if self.inv_dir.x.is_sign_positive() {
+        let (min_x, max_x) = if self.dir.x.is_sign_positive() {
             (aabb.min.x, aabb.max.x)
         } else {
             (aabb.max.x, aabb.min.x)
         };
-        let (min_y, max_y) = if self.inv_dir.y.is_sign_positive() {
+        let (min_y, max_y) = if self.dir.y.is_sign_positive() {
             (aabb.min.y, aabb.max.y)
         } else {
             (aabb.max.y, aabb.min.y)
         };
-        let tmin_x = (min_x - self.origin.x) * self.inv_dir.x;
-        let tmin_y = (min_y - self.origin.y) * self.inv_dir.y;
-        let tmax_x = (max_x - self.origin.x) * self.inv_dir.x;
-        let tmax_y = (max_y - self.origin.y) * self.inv_dir.y;
+        let tmin_x = (min_x - self.origin.x) * self.dir_recip.x;
+        let tmin_y = (min_y - self.origin.y) * self.dir_recip.y;
+        let tmax_x = (max_x - self.origin.x) * self.dir_recip.x;
+        let tmax_y = (max_y - self.origin.y) * self.dir_recip.y;
 
         let tmin = tmin_x.max(tmin_y).max(0.);
         let tmax = tmax_y.min(tmax_x).min(self.max);

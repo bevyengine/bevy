@@ -7,8 +7,8 @@ pub struct RayTest3d {
     pub origin: Vec3,
     /// The direction of the ray
     pub dir: Direction3d,
-    /// The inverse direction of the ray
-    pub inv_dir: Vec3,
+    /// The multiplicative inverse direction of the ray
+    pub dir_recip: Vec3,
     /// The maximum time of impact of the ray
     pub max: f32,
 }
@@ -18,7 +18,7 @@ impl RayTest3d {
     pub fn new(origin: Vec3, dir: Direction3d, max: f32) -> Self {
         Self {
             origin,
-            inv_dir: Vec3::ONE / *dir,
+            dir_recip: dir.recip(),
             dir,
             max,
         }
@@ -26,27 +26,27 @@ impl RayTest3d {
 
     /// Get the time of impact for an intersection with an [`Aabb3d`], if any.
     pub fn aabb_intersection_at(&self, aabb: &Aabb3d) -> Option<f32> {
-        let (min_x, max_x) = if self.inv_dir.x.is_sign_positive() {
+        let (min_x, max_x) = if self.dir.x.is_sign_positive() {
             (aabb.min.x, aabb.max.x)
         } else {
             (aabb.max.x, aabb.min.x)
         };
-        let (min_y, max_y) = if self.inv_dir.y.is_sign_positive() {
+        let (min_y, max_y) = if self.dir.y.is_sign_positive() {
             (aabb.min.y, aabb.max.y)
         } else {
             (aabb.max.y, aabb.min.y)
         };
-        let (min_z, max_z) = if self.inv_dir.z.is_sign_positive() {
+        let (min_z, max_z) = if self.dir.z.is_sign_positive() {
             (aabb.min.z, aabb.max.z)
         } else {
             (aabb.max.z, aabb.min.z)
         };
-        let tmin_x = (min_x - self.origin.x) * self.inv_dir.x;
-        let tmin_y = (min_y - self.origin.y) * self.inv_dir.y;
-        let tmin_z = (min_z - self.origin.z) * self.inv_dir.z;
-        let tmax_x = (max_x - self.origin.x) * self.inv_dir.x;
-        let tmax_y = (max_y - self.origin.y) * self.inv_dir.y;
-        let tmax_z = (max_z - self.origin.z) * self.inv_dir.z;
+        let tmin_x = (min_x - self.origin.x) * self.dir_recip.x;
+        let tmin_y = (min_y - self.origin.y) * self.dir_recip.y;
+        let tmin_z = (min_z - self.origin.z) * self.dir_recip.z;
+        let tmax_x = (max_x - self.origin.x) * self.dir_recip.x;
+        let tmax_y = (max_y - self.origin.y) * self.dir_recip.y;
+        let tmax_z = (max_z - self.origin.z) * self.dir_recip.z;
 
         let tmin = tmin_x.max(tmin_y).max(tmin_z).max(0.);
         let tmax = tmax_z.min(tmax_y).min(tmax_x).min(self.max);
