@@ -373,7 +373,7 @@ pub fn extract_sprites(
                     Some(sprite_rect)
                 }
             };
-            
+
             // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
             extracted_sprites.sprites.insert(
                 entity,
