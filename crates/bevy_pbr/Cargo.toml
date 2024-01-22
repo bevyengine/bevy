@@ -10,6 +10,7 @@ keywords = ["bevy"]
 
 [features]
 webgl = []
+shader_format_glsl = ["naga_oil/glsl"]
 pbr_transmission_textures = []
 
 [dependencies]
@@ -34,8 +35,17 @@ fixedbitset = "0.4"
 # direct dependency required for derive macro
 bytemuck = { version = "1", features = ["derive"] }
 radsort = "0.1"
-naga_oil = "0.11"
+smallvec = "1.6"
 thread_local = "1.0"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+naga_oil = { version = "0.11" }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# Omit the `glsl` feature in non-WebAssembly by default.
+naga_oil = { version = "0.11", default-features = false, features = [
+  "test_shader",
+] }
 
 [lints]
 workspace = true
