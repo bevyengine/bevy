@@ -21,12 +21,7 @@ pub fn derive_states(input: TokenStream) -> TokenStream {
     let mut state_mutation_trait_path = base_trait_path.clone();
     state_mutation_trait_path
         .segments
-        .push(format_ident!("StateMutation").into());
-
-    let mut state_mutation_type_path = base_trait_path.clone();
-    state_mutation_type_path
-        .segments
-        .push(format_ident!("FreeStateMutation").into());
+        .push(format_ident!("FreelyMutableState").into());
 
     let struct_name = &ast.ident;
 
@@ -34,7 +29,6 @@ pub fn derive_states(input: TokenStream) -> TokenStream {
         impl #impl_generics #trait_path for #struct_name #ty_generics #where_clause {}
 
         impl #impl_generics #state_mutation_trait_path for #struct_name #ty_generics #where_clause {
-            type MutationType = #state_mutation_type_path;
         }
     }
     .into()

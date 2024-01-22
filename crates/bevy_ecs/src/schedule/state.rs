@@ -29,7 +29,7 @@ use super::{InternedScheduleLabel, Schedule, Schedules};
 /// and the queued state with the [`NextState<T>`] resource.
 ///
 /// State transitions typically occur in the [`OnEnter<T::Variant>`] and [`OnExit<T::Variant>`] schedules,
-/// which can be run via the [`apply_state_transition::<T>`] system.
+/// which can be run by triggering the [`StateTransition`] schedule.
 ///
 /// # Example
 ///
@@ -47,38 +47,10 @@ use super::{InternedScheduleLabel, Schedule, Schedules};
 /// ```
 pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug {}
 
-/// Type defining the approach used to mutate [`Self`] when it implements [`State`].
-///
-/// The type itself is auto-implemented for [`ComputedStates`], and an implementation
-/// is included in the derive for [`States`] as well. However - if you are manually
-/// implementing [`States`], you will need to add an implementation yourself.
-pub trait StateMutation: States {
-    /// The manner in which we can mutate [`Self`]
-    ///
-    /// There are 2 built in approaches:
-    /// - [`Free`](`FreeStateMutation`) mutation enables the use of the `NextState<Self>`
-    ///   resource to mutate the state.
-    /// - [`Computed`](`ComputedStateMutation`) mutation relies on automatic computation
-    ///   of the state, based on other states in the world.
-    type MutationType: StateMutationType;
-}
-
-/// A trait defining the available approaches for modifying [`States`].
-///
-/// The trait is sealed.
-pub trait StateMutationType: sealed::StateMutationTypeSealed {}
-
-/// A struct for identifying [`States`] that can be mutated freely
-/// using [`NextState<S>`]
-pub struct FreeStateMutation;
-impl sealed::StateMutationTypeSealed for FreeStateMutation {}
-impl StateMutationType for FreeStateMutation {}
-
-/// A struct for identifying [`States`] that cannot be manualy
-/// mutated, and instead are derived automatically.
-pub struct ComputedStateMutation;
-impl sealed::StateMutationTypeSealed for ComputedStateMutation {}
-impl StateMutationType for ComputedStateMutation {}
+/// This trait allows a state to be mutated directly using the [`NextState<S>`] resource.
+/// 
+/// It is implemented as part of the [`States`] derive, but can also be added manually.
+pub trait FreelyMutableState: States {}
 
 /// The label of a [`Schedule`] that runs whenever [`State<S>`]
 /// enters this state.
@@ -207,7 +179,7 @@ impl<S: States> Deref for State<S> {
     derive(bevy_reflect::Reflect),
     reflect(Resource)
 )]
-pub enum NextState<S: StateMutation<MutationType = FreeStateMutation>> {
+pub enum NextState<S: FreelyMutableState> {
     /// No transition has been planned
     #[default]
     Unchanged,
@@ -217,7 +189,7 @@ pub enum NextState<S: StateMutation<MutationType = FreeStateMutation>> {
     Remove,
 }
 
-impl<S: StateMutation<MutationType = FreeStateMutation>> NextState<S> {
+impl<S: FreelyMutableState> NextState<S> {
     /// Tentatively set a planned state transition to `Some(state)`.
     pub fn set(&mut self, state: S) {
         *self = Self::Set(state);
@@ -389,9 +361,7 @@ pub fn setup_state_transitions_in_world(world: &mut World) {
 /// - Runs the [`OnTransition { from: exited_state, to: entered_state }`](OnTransition), if it exists.
 /// - Derive any dependant states through the [`ComputeDependantStates::<S>`] schedule, if it exists.
 /// - Runs the [`OnEnter(entered_state)`] schedule, if it exists.
-pub fn apply_state_transition<S: StateMutation<MutationType = FreeStateMutation>>(
-    world: &mut World,
-) {
+pub fn apply_state_transition<S: FreelyMutableState>(world: &mut World) {
     // We want to take the `NextState` resource,
     // but only mark it as changed if it wasn't empty.
     let Some(next_state_resource) = world.get_resource::<NextState<S>>() else {
@@ -443,16 +413,10 @@ pub trait ComputedStates: 'static + Send + Sync + Clone + PartialEq + Eq + Hash 
 }
 
 impl<S: ComputedStates> States for S {}
-impl<S: ComputedStates> StateMutation for S {
-    type MutationType = ComputedStateMutation;
-}
 
 mod sealed {
     /// Sealed trait used to prevent external implementations of [`StateSet`](super::StateSet).
     pub trait StateSetSealed {}
-
-    /// Sealed trait used to prevent external implementations of [`StateMutationType`](super::StateMutationType).
-    pub trait StateMutationTypeSealed {}
 }
 
 /// This trait is used allow implementors of [`States`], as well
