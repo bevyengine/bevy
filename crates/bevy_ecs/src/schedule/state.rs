@@ -30,7 +30,7 @@ use super::{InternedScheduleLabel, Schedule, Schedules};
 ///
 /// State transitions typically occur in the [`OnEnter<T::Variant>`] and [`OnExit<T::Variant>`] schedules,
 /// which can be run by triggering the [`StateTransition`] schedule.
-/// 
+///
 /// [`ComputedStates`] should not derive [`States`], since that trait has a blanket implementation
 /// and doesn't support mutation, which the derive macro for [`States`] provides.
 ///
@@ -51,7 +51,7 @@ use super::{InternedScheduleLabel, Schedule, Schedules};
 pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug {}
 
 /// This trait allows a state to be mutated directly using the [`NextState<S>`] resource.
-/// 
+///
 /// This is in contrast with [`ComputedStates`], which do not allow modification - they are
 /// automatically derived.
 ///
