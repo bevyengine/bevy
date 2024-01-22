@@ -1065,7 +1065,7 @@ fn try_insert(bundle: impl Bundle) -> impl EntityCommand {
     }
 }
 
-impl<'w, 's, 'a> AddCommand for EntityCommands<'w, 's, 'a> {
+impl<'a> AddCommand for EntityCommands<'a> {
     fn add_command(&mut self, command: impl Command) {
         self.commands.add_command(command);
     }
