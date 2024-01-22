@@ -457,7 +457,7 @@ struct MainTargetTextures {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn prepare_view_targets(
+pub fn prepare_view_targets(
     mut commands: Commands,
     windows: Res<ExtractedWindows>,
     images: Res<RenderAssets<Image>>,
