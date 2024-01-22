@@ -263,10 +263,7 @@ impl AssetReader for MemoryAssetReader {
             .ok_or_else(|| AssetReaderError::NotFound(path.to_path_buf()))
     }
 
-    async fn read_directory<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> Result<Box<PathStream>, AssetReaderError> {
+    async fn read_directory(&self, path: &Path) -> Result<Box<PathStream>, AssetReaderError> {
         self.root
             .get_dir(path)
             .map(|dir| {
@@ -276,7 +273,7 @@ impl AssetReader for MemoryAssetReader {
             .ok_or_else(|| AssetReaderError::NotFound(path.to_path_buf()))
     }
 
-    async fn is_directory<'a>(&'a self, path: &'a Path) -> Result<bool, AssetReaderError> {
+    async fn is_directory(&self, path: &Path) -> Result<bool, AssetReaderError> {
         Ok(self.root.get_dir(path).is_some())
     }
 }

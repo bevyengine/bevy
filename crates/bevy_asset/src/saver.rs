@@ -20,11 +20,11 @@ pub trait AssetSaver: Send + Sync + 'static {
 
     /// Saves the given runtime [`Asset`] by writing it to a byte format using `writer`. The passed in `settings` can influence how the
     /// `asset` is saved.  
-    fn save<'a>(
-        &'a self,
-        writer: &'a mut Writer,
-        asset: SavedAsset<'a, Self::Asset>,
-        settings: &'a Self::Settings,
+    fn save(
+        &self,
+        writer: &mut Writer,
+        asset: SavedAsset<Self::Asset>,
+        settings: &Self::Settings,
     ) -> impl Future<Output = Result<<Self::OutputLoader as AssetLoader>::Settings, Self::Error>>
            + WasmNotSend;
 }

@@ -72,14 +72,11 @@ impl<R: AssetReader> AssetReader for GatedReader<R> {
         self.reader.read_meta(path).await
     }
 
-    async fn read_directory<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> Result<Box<PathStream>, AssetReaderError> {
+    async fn read_directory(&self, path: &Path) -> Result<Box<PathStream>, AssetReaderError> {
         self.reader.read_directory(path).await
     }
 
-    async fn is_directory<'a>(&'a self, path: &'a Path) -> Result<bool, AssetReaderError> {
+    async fn is_directory(&self, path: &Path) -> Result<bool, AssetReaderError> {
         self.reader.is_directory(path).await
     }
 }

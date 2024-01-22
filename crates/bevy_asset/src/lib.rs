@@ -496,11 +496,11 @@ mod tests {
 
         type Error = CoolTextLoaderError;
 
-        async fn load<'a>(
-            &'a self,
-            reader: &'a mut Reader<'_>,
-            _settings: &'a Self::Settings,
-            load_context: &'a mut LoadContext<'_>,
+        async fn load(
+            &self,
+            reader: &mut Reader<'_>,
+            _settings: &Self::Settings,
+            load_context: &mut LoadContext<'_>,
         ) -> Result<Self::Asset, Self::Error> {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;
@@ -557,12 +557,12 @@ mod tests {
     }
 
     impl AssetReader for UnstableMemoryAssetReader {
-        async fn is_directory<'a>(&'a self, path: &'a Path) -> Result<bool, AssetReaderError> {
+        async fn is_directory(&self, path: &Path) -> Result<bool, AssetReaderError> {
             self.memory_reader.is_directory(path).await
         }
-        async fn read_directory<'a>(
-            &'a self,
-            path: &'a Path,
+        async fn read_directory(
+            &self,
+            path: &Path,
         ) -> Result<Box<bevy_asset::io::PathStream>, AssetReaderError> {
             self.memory_reader.read_directory(path).await
         }

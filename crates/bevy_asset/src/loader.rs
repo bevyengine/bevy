@@ -30,11 +30,11 @@ pub trait AssetLoader: Send + Sync + 'static {
     /// The type of [error](`std::error::Error`) which could be encountered by this loader.
     type Error: Into<Box<dyn std::error::Error + Send + Sync + 'static>>;
     /// Asynchronously loads [`AssetLoader::Asset`] (and any other labeled assets) from the bytes provided by [`Reader`].
-    fn load<'a>(
-        &'a self,
-        reader: &'a mut Reader,
-        settings: &'a Self::Settings,
-        load_context: &'a mut LoadContext,
+    fn load(
+        &self,
+        reader: &mut Reader,
+        settings: &Self::Settings,
+        load_context: &mut LoadContext,
     ) -> impl Future<Output = Result<Self::Asset, Self::Error>> + WasmNotSend;
 
     /// Returns a list of extensions supported by this [`AssetLoader`], without the preceding dot.
