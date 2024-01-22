@@ -36,7 +36,7 @@ use std::{
 /// Derived `SystemParam` structs may have two lifetimes: `'w` for data stored in the [`World`],
 /// and `'s` for data stored in the parameter's state.
 ///
-/// The following list shows the most common SystemParams and which lifetime they require
+/// The following list shows the most common [`SystemParam`]s and which lifetime they require
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
