@@ -52,15 +52,15 @@ impl RayTest2d {
     }
 
     /// Get the time of impact for an intersection with a [`BoundingCircle`], if any.
-    pub fn sphere_intersection_at(&self, sphere: &BoundingCircle) -> Option<f32> {
-        let oc = self.origin - sphere.center;
-        let b = oc.dot(*self.dir);
-        let qc = oc - b * *self.dir;
-        let h = sphere.radius().powi(2) - qc.dot(qc);
-        if h < 0. || h > -b {
+    pub fn circle_intersection_at(&self, sphere: &BoundingCircle) -> Option<f32> {
+        let offset = self.origin - sphere.center;
+        let projected = offset.dot(*self.dir);
+        let closest_point = offset - projected * *self.dir;
+        let distance_squared = sphere.radius().powi(2) - closest_point.length_squared();
+        if distance_squared < 0. || projected.powi(2).copysign(-projected) < distance_squared {
             None
         } else {
-            Some(-b - h)
+            Some(-projected - distance_squared.sqrt())
         }
     }
 }
@@ -73,6 +73,6 @@ impl IntersectsVolume<Aabb2d> for RayTest2d {
 
 impl IntersectsVolume<BoundingCircle> for RayTest2d {
     fn intersects(&self, volume: &BoundingCircle) -> bool {
-        self.sphere_intersection_at(volume).is_some()
+        self.circle_intersection_at(volume).is_some()
     }
 }
