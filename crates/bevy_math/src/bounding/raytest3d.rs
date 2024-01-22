@@ -41,6 +41,10 @@ impl RayTest3d {
         } else {
             (aabb.max.z, aabb.min.z)
         };
+
+        // Calculate the minimum/maximum time for each based on how much the direction goes that
+        // way. These values van get arbitrarily large, or even become NaN, which is handled by the
+        // min/max operations below
         let tmin_x = (min_x - self.origin.x) * self.dir_recip.x;
         let tmin_y = (min_y - self.origin.y) * self.dir_recip.y;
         let tmin_z = (min_z - self.origin.z) * self.dir_recip.z;
@@ -48,6 +52,10 @@ impl RayTest3d {
         let tmax_y = (max_y - self.origin.y) * self.dir_recip.y;
         let tmax_z = (max_z - self.origin.z) * self.dir_recip.z;
 
+        // An axis that is not relevant to the ray direction will be NaN. When one of the arguments
+        // to min/max is NaN, the other argument is used.
+        // An axis for which the direction is the wrong way will return an arbitrarily large
+        // negative value.
         let tmin = tmin_x.max(tmin_y).max(tmin_z).max(0.);
         let tmax = tmax_z.min(tmax_y).min(tmax_x).min(self.max);
 
