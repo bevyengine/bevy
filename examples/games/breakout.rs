@@ -1,8 +1,8 @@
 //! A simplified implementation of the classic game "Breakout".
 
 use bevy::{
+    math::bounding::{Aabb2d, BoundingVolume, IntersectsVolume},
     prelude::*,
-    sprite::collide_aabb::{collide, Collision},
     sprite::MaterialMesh2dBundle,
 };
 
@@ -354,12 +354,14 @@ fn check_for_collisions(
 
     // check collision with walls
     for (collider_entity, transform, maybe_brick) in &collider_query {
-        let collision = collide(
-            ball_transform.translation,
-            ball_size,
-            transform.translation,
-            transform.scale.truncate(),
+        let collision = collide_with_side(
+            Aabb2d::new(ball_transform.translation.truncate(), ball_size / 2.),
+            Aabb2d::new(
+                transform.translation.truncate(),
+                transform.scale.truncate() / 2.,
+            ),
         );
+
         if let Some(collision) = collision {
             // Sends a collision event so that other systems can react to the collision
             collision_events.send_default();
@@ -381,7 +383,6 @@ fn check_for_collisions(
                 Collision::Right => reflect_x = ball_velocity.x < 0.0,
                 Collision::Top => reflect_y = ball_velocity.y < 0.0,
                 Collision::Bottom => reflect_y = ball_velocity.y > 0.0,
-                Collision::Inside => { /* do nothing */ }
             }
 
             // reflect velocity on the x-axis if we hit something on the x-axis
@@ -412,4 +413,40 @@ fn play_collision_sound(
             settings: PlaybackSettings::DESPAWN,
         });
     }
+}
+
+// The side of `b` that `a` hit.
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+enum Collision {
+    Left,
+    Right,
+    Top,
+    Bottom,
+}
+
+// Returns `Some` if `a` collides with `b`.
+fn collide_with_side(a: Aabb2d, b: Aabb2d) -> Option<Collision> {
+    if !a.intersects(&b) {
+        return None;
+    }
+
+    let closest = b.closest_point(a.center());
+    let relative = closest - b.center();
+    let normalized = relative / b.half_size();
+
+    let side = if normalized.x.abs() > normalized.y.abs() {
+        if normalized.x < 0. {
+            Collision::Left
+        } else {
+            Collision::Right
+        }
+    } else {
+        if normalized.y > 0. {
+            Collision::Top
+        } else {
+            Collision::Bottom
+        }
+    };
+
+    Some(side)
 }
