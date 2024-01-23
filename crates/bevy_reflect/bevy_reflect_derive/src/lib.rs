@@ -27,7 +27,6 @@ mod registration;
 mod serialization;
 mod trait_reflection;
 mod type_path;
-mod type_uuid;
 mod utility;
 
 use crate::derive_data::{ReflectDerive, ReflectMeta, ReflectStruct};
