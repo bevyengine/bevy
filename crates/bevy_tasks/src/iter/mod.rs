@@ -58,11 +58,9 @@ where
     let mut rb = None;
     pool.scope(|s| {
         s.spawn(async {
-            ra = Some(op_a());
-        });
-        s.spawn(async {
             rb = Some(op_b());
         });
+        ra = Some(op_a());
     });
     (ra.unwrap(), rb.unwrap())
 }
@@ -167,7 +165,7 @@ pub trait Producer: Send + Sized {
     type Item;
 
     /// The type of iterator we will become.
-    type IntoIter: Iterator<Item = Self::Item> + DoubleEndedIterator + ExactSizeIterator;
+    type IntoIter: Iterator<Item = Self::Item>;
 
     /// Convert `self` into an iterator; at this point, no more parallel splits
     /// are possible.
