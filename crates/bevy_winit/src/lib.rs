@@ -639,12 +639,8 @@ fn handle_winit_event(
             }
 
             match runner_state.active {
-                ActiveState::NotYetStarted => {
-                    app.send_event(ApplicationLifetime::Started);
-                }
-                _ => {
-                    app.send_event(ApplicationLifetime::Resumed);
-                }
+                ActiveState::NotYetStarted => app.send_event(ApplicationLifetime::Started),
+                _ => app.send_event(ApplicationLifetime::Resumed),
             }
             runner_state.active = ActiveState::Active;
             runner_state.redraw_requested = true;
