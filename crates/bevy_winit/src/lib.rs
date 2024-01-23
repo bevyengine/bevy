@@ -660,9 +660,7 @@ fn handle_winit_event(
                     let window = window.clone();
 
                     let (
-                        _,
-                        _,
-                        _,
+                        ..,
                         mut winit_windows,
                         mut adapters,
                         mut handlers,
