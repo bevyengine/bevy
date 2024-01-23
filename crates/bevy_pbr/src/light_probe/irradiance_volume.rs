@@ -161,10 +161,12 @@ impl Default for GpuIrradianceVolumes {
 }
 
 impl ExtractInstance for IrradianceVolumeInstance {
-    type Data = (Read<GlobalTransform>, Read<IrradianceVolume>);
-    type Filter = ();
+    type QueryData = (Read<GlobalTransform>, Read<IrradianceVolume>);
+    type QueryFilter = ();
 
-    fn extract((global_transform, irradiance_volume): QueryItem<'_, Self::Data>) -> Option<Self> {
+    fn extract(
+        (global_transform, irradiance_volume): QueryItem<'_, Self::QueryData>,
+    ) -> Option<Self> {
         Some(IrradianceVolumeInstance {
             transform: global_transform.compute_matrix(),
             voxels: irradiance_volume.voxels.id(),
