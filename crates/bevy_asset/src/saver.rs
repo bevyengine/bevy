@@ -26,7 +26,7 @@ pub trait AssetSaver: Send + Sync + 'static {
         asset: SavedAsset<Self::Asset>,
         settings: &Self::Settings,
     ) -> impl Future<Output = Result<<Self::OutputLoader as AssetLoader>::Settings, Self::Error>>
-           + WasmNotSend;
+           + ConditionalSend;
 }
 
 /// A type-erased dynamic variant of [`AssetSaver`] that allows callers to save assets without knowing the actual type of the [`AssetSaver`].
