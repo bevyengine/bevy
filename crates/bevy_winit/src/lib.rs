@@ -685,38 +685,8 @@ pub fn winit_runner(mut app: App) {
                 #[cfg(any(target_os = "android", target_os = "ios", target_os = "macos"))]
                 {
                     if runner_state.active == ActiveState::NotYetStarted {
-                        let mut create_window_system_state: SystemState<(
-                            Commands,
-                            Query<(Entity, &mut Window)>,
-                            EventWriter<WindowCreated>,
-                            NonSendMut<WinitWindows>,
-                            NonSendMut<AccessKitAdapters>,
-                            ResMut<WinitActionHandlers>,
-                            ResMut<AccessibilityRequested>,
-                        )> = SystemState::from_world(&mut app.world);
-
-                        let (
-                            commands,
-                            mut windows,
-                            event_writer,
-                            winit_windows,
-                            adapters,
-                            handlers,
-                            accessibility_requested,
-                        ) = create_window_system_state.get_mut(&mut app.world);
-
-                        create_windows(
-                            event_loop,
-                            commands,
-                            windows.iter_mut(),
-                            event_writer,
-                            winit_windows,
-                            adapters,
-                            handlers,
-                            accessibility_requested,
-                        );
-
-                        create_window_system_state.apply(&mut app.world);
+                        create_windows(event_loop, create_window.get_mut(&mut app.world));
+                        create_window.apply(&mut app.world);
                     }
                 }
 
