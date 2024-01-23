@@ -1331,7 +1331,7 @@ impl World {
     pub fn get_resource<R: Resource>(&self) -> Option<&R> {
         // SAFETY:
         // - `as_unsafe_world_cell_readonly` gives permission to access everything immutably
-        // - `&self` ensures nothing in world is borrowed immutably
+        // - `&self` ensures nothing in world is borrowed mutably
         unsafe { self.as_unsafe_world_cell_readonly().get_resource() }
     }
 
