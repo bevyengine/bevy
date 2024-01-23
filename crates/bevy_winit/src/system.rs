@@ -10,7 +10,7 @@ use bevy_utils::{
     tracing::{error, info, warn},
     EntityHashMap,
 };
-use bevy_window::{RawHandleWrapper, Window, WindowClosed, WindowCreated};
+use bevy_window::{RawHandleWrapper, Window, WindowClosed, WindowCreated, WindowResized};
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 
 use winit::{
@@ -23,8 +23,7 @@ use crate::{
         self, convert_enabled_buttons, convert_window_level, convert_window_theme,
         convert_winit_theme,
     },
-    get_best_videomode, get_fitting_videomode, CreateWindowParams, WindowAndInputEventWriters,
-    WinitWindows,
+    get_best_videomode, get_fitting_videomode, CreateWindowParams, WinitWindows,
 };
 
 /// Creates new windows on the [`winit`] backend for each entity with a newly-added
@@ -124,7 +123,7 @@ pub struct CachedWindow {
 pub(crate) fn changed_windows(
     mut changed_windows: Query<(Entity, &mut Window, &mut CachedWindow), Changed<Window>>,
     winit_windows: NonSendMut<WinitWindows>,
-    mut event_writers: WindowAndInputEventWriters<'_>,
+    mut window_resized: EventWriter<WindowResized>,
 ) {
     for (entity, mut window, mut cache) in &mut changed_windows {
         if let Some(winit_window) = winit_windows.get_window(entity) {
@@ -162,7 +161,7 @@ pub(crate) fn changed_windows(
                     window.resolution.physical_height(),
                 );
                 if let Some(size_now) = winit_window.request_inner_size(physical_size) {
-                    crate::react_to_resize(&mut window, size_now, &mut event_writers, entity);
+                    crate::react_to_resize(&mut window, size_now, &mut window_resized, entity);
                 }
             }
 
