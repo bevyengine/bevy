@@ -1179,6 +1179,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// #[derive(Component, PartialEq, Debug)]
     /// struct A(usize);
     ///
+    /// # bevy_tasks::ComputeTaskPool::get_or_init(bevy_tasks::TaskPool::new());
+    ///
     /// let mut world = World::new();
     ///
     /// # let entities: Vec<Entity> = (0..3).map(|i| world.spawn(A(i)).id()).collect();
@@ -1202,7 +1204,12 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// # assert_eq!(query_state.get_many_mut(&mut world, [entities[0], entities[0]]).unwrap_err(), QueryEntityError::AliasedMutability(entities[0]));
     /// ```
     ///
+    /// # Panics
+    /// The [`ComputeTaskPool`] is not initialized. If using this from a query that is being
+    /// initialized and run from the ECS scheduler, this should never panic.
+    ///
     /// [`par_iter`]: Self::par_iter
+    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
     pub fn par_iter_mut<'w, 's>(&'s mut self, world: &'w mut World) -> QueryParIter<'w, 's, D, F> {
         self.update_archetypes(world);
