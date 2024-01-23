@@ -223,7 +223,7 @@ impl Entity {
     /// // ... replace the entities with valid ones.
     /// ```
     ///
-    /// Deriving [`Reflect`](bevy_reflect::Reflect) for a component that has an `Entity` field:
+    /// Deriving [`Reflect`] for a component that has an `Entity` field:
     ///
     /// ```no_run
     /// # use bevy_ecs::{prelude::*, component::*};
