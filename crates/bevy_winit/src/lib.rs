@@ -112,12 +112,8 @@ impl Plugin for WinitPlugin {
         #[cfg(target_os = "android")]
         {
             use winit::platform::android::EventLoopBuilderExtAndroid;
-            event_loop_builder.with_android_app(
-                ANDROID_APP
-                    .get()
-                    .expect("Bevy must be setup with the #[bevy_main] macro on Android")
-                    .clone(),
-            );
+            let msg = "Bevy must be setup with the #[bevy_main] macro on Android";
+            event_loop_builder.with_android_app(ANDROID_APP.get().expect(msg).clone());
         }
 
         app.init_non_send_resource::<WinitWindows>()
