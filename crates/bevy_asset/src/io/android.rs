@@ -3,14 +3,16 @@ use crate::io::{
 };
 use bevy_log::error;
 use bevy_utils::BoxedFuture;
+use futures_lite::stream;
 use std::{ffi::CString, path::Path};
 
 /// [`AssetReader`] implementation for Android devices, built on top of Android's [`AssetManager`].
 ///
 /// Implementation details:
 ///
-/// - [`load_path`](AssetIo::load_path) uses the [`AssetManager`] to load files.
-/// - [`read_directory`](AssetIo::read_directory) always returns an empty iterator.
+/// - All functions use the [`AssetManager`] to load files.
+/// - [`is_directory`](AssetReader::is_directory) tris to open the path
+/// as a normal file and treats error as if the path is directory.
 /// - Watching for changes is not supported. The watcher method will do nothing.
 ///
 /// [AssetManager]: https://developer.android.com/reference/android/content/res/AssetManager
@@ -56,18 +58,47 @@ impl AssetReader for AndroidAssetReader {
 
     fn read_directory<'a>(
         &'a self,
-        _path: &'a Path,
+        path: &'a Path,
     ) -> BoxedFuture<'a, Result<Box<PathStream>, AssetReaderError>> {
-        let stream: Box<PathStream> = Box::new(EmptyPathStream);
-        error!("Reading directories is not supported with the AndroidAssetReader");
-        Box::pin(async move { Ok(stream) })
+        Box::pin(async move {
+            let asset_manager = bevy_winit::ANDROID_APP
+                .get()
+                .expect("Bevy must be setup with the #[bevy_main] macro on Android")
+                .asset_manager();
+            let mut opened_assets_dir = asset_manager
+                .open_dir(&CString::new(path.to_str().unwrap()).unwrap())
+                .ok_or(AssetReaderError::NotFound(path.to_path_buf()))?;
+
+            let mapped_stream = opened_assets_dir
+                .filter_map(move |f| {
+                    let file_path = path.join(Path::new(f.to_str().unwrap()));
+                    // filter out meta files as they are not considered assets
+                    if let Some(ext) = file_path.extension().and_then(|e| e.to_str()) {
+                        if ext.eq_ignore_ascii_case("meta") {
+                            return None;
+                        }
+                    }
+                    Some(file_path.to_owned())
+                })
+                .collect::<Vec<_>>();
+
+            let read_dir: Box<PathStream> = Box::new(stream::iter(mapped_stream));
+            Ok(read_dir)
+        })
     }
 
     fn is_directory<'a>(
         &'a self,
-        _path: &'a Path,
+        path: &'a Path,
     ) -> BoxedFuture<'a, std::result::Result<bool, AssetReaderError>> {
-        error!("Reading directories is not supported with the AndroidAssetReader");
-        Box::pin(async move { Ok(false) })
+        Box::pin(async move {
+            let asset_manager = bevy_winit::ANDROID_APP
+                .get()
+                .expect("Bevy must be setup with the #[bevy_main] macro on Android")
+                .asset_manager();
+            Ok(asset_manager
+                .open(&CString::new(path.to_str().unwrap()).unwrap())
+                .map_or(true, |_| false))
+        })
     }
 }
