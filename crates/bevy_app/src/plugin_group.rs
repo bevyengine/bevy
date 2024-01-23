@@ -32,6 +32,11 @@ use std::any::TypeId;
 /// #   #[derive(Default)] pub struct WebCompatibilityPlugin;
 /// #   impl Plugin for WebCompatibilityPlugin { fn build(&self, _: &mut App) {} }
 /// # }
+/// # mod internal {
+/// #   use bevy_app::*;
+/// #   #[derive(Default)] pub struct InternalPlugin;
+/// #   impl Plugin for InternalPlugin { fn build(&self, _: &mut App) {} }
+/// # }
 /// plugin_group!(
 ///     PhysicsPlugins {
 ///         // Due to local ambiguity issues, you have to
@@ -46,7 +51,12 @@ use std::any::TypeId;
 ///         features:::ForcePlugin,
 ///         // You can add any attribute you want like this, but it won't be documented.
 ///         #[custom(cfg(target_arch = "wasm32"))]
-///         web:::WebCompatibilityPlugin
+///         web:::WebCompatibilityPlugin,
+///         // You can hide plugins from documentation.
+///         // NOTE: Due to macro limitations, you can only use
+///         //       #[doc(hidden)] for plugins at the bottom of the macro.
+///         #[doc(hidden)]
+///         internal:::InternalPlugin
 ///     }
 /// );
 /// ```
@@ -56,10 +66,20 @@ macro_rules! plugin_group {
         $(#[$group_meta:meta])*
         $group:ident {
             $(
-                $(#[cfg(feature = $feature:literal)])?
+                $(#[cfg(feature = $plugin_feature:literal)])?
                 $(#[custom($plugin_meta:meta)])*
                 $($plugin_path:ident::)* : $plugin_name:ident
-            ),*$(,)?
+            ),*
+            $(
+                ,$(
+                    #[doc(hidden)]
+                    $(#[cfg(feature = $hidden_plugin_feature:literal)])?
+                    $(#[custom($hidden_plugin_meta:meta)])*
+                    $($hidden_plugin_path:ident::)* : $hidden_plugin_name:ident
+                ),+
+            )?
+
+            $(,)?
         }
         $($(#[doc = $post_doc:literal])+)?
     ) => {
@@ -67,7 +87,7 @@ macro_rules! plugin_group {
         ///
         $(#[doc = concat!(
             "* [`", stringify!($plugin_name), "`](" $(, stringify!($plugin_path), "::")*, stringify!($plugin_name), ")"
-            $(, " - with feature `", $feature, "`")?
+            $(, " - with feature `", $plugin_feature, "`")?
         )])*
         $(
             ///
@@ -79,12 +99,19 @@ macro_rules! plugin_group {
                 let mut group = PluginGroupBuilder::start::<Self>();
 
                 $(
-                    $(#[cfg(feature = $feature)])?
+                    $(#[cfg(feature = $plugin_feature)])?
                     $(#[$plugin_meta])*
                     {
                         group = group.add(<$($plugin_path::)*$plugin_name>::default());
                     }
                 )*
+                $($(
+                    $(#[cfg(feature = $hidden_plugin_feature)])?
+                    $(#[$hidden_plugin_meta])*
+                    {
+                        group = group.add(<$($hidden_plugin_path::)*$hidden_plugin_name>::default());
+                    }
+                )+)?
 
                 group
             }

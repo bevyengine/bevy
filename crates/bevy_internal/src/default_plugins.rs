@@ -52,6 +52,7 @@ plugin_group!(
         bevy_animation:::AnimationPlugin,
         #[cfg(feature = "bevy_gizmos")]
         bevy_gizmos:::GizmoPlugin,
+        #[doc(hidden)]
         :IgnoreAmbiguitiesPlugin,
     }
     /// [`DefaultPlugins`] obeys *Cargo feature* flags. Users may exert control over this plugin group
