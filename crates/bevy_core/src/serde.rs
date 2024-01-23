@@ -1,3 +1,4 @@
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::{
     any,
     fmt::{self, Formatter},
@@ -51,7 +52,11 @@ impl<'de> Visitor<'de> for EntityVisitor {
     where
         A: serde::de::MapAccess<'de>,
     {
-        use ::std::sync::atomic::{AtomicBool, Ordering};
+        #[deprecated(
+            since = "0.13.0",
+            note = "Support for deserializing `Name` from a `{{ \"hash\": _, \"name\" _ }}` map is kept for backwards compatibility, but will be removed in a future version."
+        )]
+        fn _i_am_deprecated() {} // Can't use `#[deprecated]` on a trait impl method
 
         let mut result = Err(Error::missing_field("name"));
 
