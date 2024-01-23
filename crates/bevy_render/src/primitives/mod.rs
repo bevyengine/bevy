@@ -1,8 +1,6 @@
 use std::borrow::Borrow;
 
-use bevy_ecs::{
-    component::Component, entity::EntityHashMap, reflect::ReflectComponent,
-};
+use bevy_ecs::{component::Component, entity::EntityHashMap, reflect::ReflectComponent};
 use bevy_math::{Affine3A, Mat3A, Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles};
 use bevy_reflect::Reflect;
 
