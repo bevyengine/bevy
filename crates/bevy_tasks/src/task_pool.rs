@@ -14,7 +14,7 @@ use futures_lite::FutureExt;
 use crate::{
     block_on,
     thread_executor::{ThreadExecutor, ThreadExecutorTicker},
-    ComputeTaskPool, Task,
+    Task,
 };
 
 struct CallOnDrop(Option<Arc<dyn Fn() + Send + Sync + 'static>>);
