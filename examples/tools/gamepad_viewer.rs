@@ -25,7 +25,6 @@ const NORMAL_BUTTON_COLOR: Color = Color::rgb(0.3, 0.3, 0.3);
 const ACTIVE_BUTTON_COLOR: Color = Color::PURPLE;
 const LIVE_COLOR: Color = Color::rgb(0.4, 0.4, 0.4);
 const DEAD_COLOR: Color = Color::rgb(0.13, 0.13, 0.13);
-const TEXT_COLOR: Color = Color::WHITE;
 
 #[derive(Component, Deref)]
 struct ReactTo(GamepadButtonType);
@@ -317,7 +316,6 @@ fn setup_sticks(
                 // text
                 let style = TextStyle {
                     font_size: 16.,
-                    color: TEXT_COLOR,
                     ..default()
                 };
                 parent.spawn((
@@ -399,7 +397,6 @@ fn setup_triggers(
                             format!("{:.3}", 0.),
                             TextStyle {
                                 font_size: 16.,
-                                color: TEXT_COLOR,
                                 ..default()
                             },
                         ),
@@ -424,7 +421,6 @@ fn setup_triggers(
 
 fn setup_connected(mut commands: Commands) {
     let text_style = TextStyle {
-        color: TEXT_COLOR,
         font_size: 20.,
         ..default()
     };
