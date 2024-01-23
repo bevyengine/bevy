@@ -68,18 +68,12 @@ impl AssetReader for HttpWasmAssetReader {
         Ok(self.fetch_bytes(meta_path).await?)
     }
 
-    async fn read_directory<'a>(
-        &'a self,
-        _path: &'a Path,
-    ) -> Result<Box<PathStream>, AssetReaderError> {
+    async fn read_directory(&self, _path: &Path) -> Result<Box<PathStream>, AssetReaderError> {
         error!("Reading directories is not supported with the HttpWasmAssetReader");
         Ok(Box::new(EmptyPathStream))
     }
 
-    async fn is_directory<'a>(
-        &'a self,
-        _path: &'a Path,
-    ) -> std::result::Result<bool, AssetReaderError> {
+    async fn is_directory(&self, _path: &Path) -> std::result::Result<bool, AssetReaderError> {
         error!("Reading directories is not supported with the HttpWasmAssetReader");
         Ok(false)
     }
