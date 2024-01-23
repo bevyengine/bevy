@@ -86,24 +86,21 @@ impl Plugin for WinitPlugin {
 
         // This is needed because the features checked in the inner
         // block might be enabled on other platforms than linux.
-        #[cfg(target_os = "linux")]
+        #[cfg(all(target_os = "linux", feature = "x11"))]
         {
-            #[cfg(feature = "x11")]
-            {
-                use winit::platform::x11::EventLoopBuilderExtX11;
+            use winit::platform::x11::EventLoopBuilderExtX11;
 
-                // This allows a Bevy app to be started and ran outside of the main thread.
-                // A use case for this is to allow external applications to spawn a thread
-                // which runs a Bevy app without requiring the Bevy app to need to reside on
-                // the main thread, which can be problematic.
-                event_loop_builder.with_any_thread(self.run_on_any_thread);
-            }
+            // This allows a Bevy app to be started and ran outside of the main thread.
+            // A use case for this is to allow external applications to spawn a thread
+            // which runs a Bevy app without requiring the Bevy app to need to reside on
+            // the main thread, which can be problematic.
+            event_loop_builder.with_any_thread(self.run_on_any_thread);
+        }
 
-            #[cfg(feature = "wayland")]
-            {
-                use winit::platform::wayland::EventLoopBuilderExtWayland;
-                event_loop_builder.with_any_thread(self.run_on_any_thread);
-            }
+        #[cfg(all(target_os = "linux", feature = "wayland"))]
+        {
+            use winit::platform::wayland::EventLoopBuilderExtWayland;
+            event_loop_builder.with_any_thread(self.run_on_any_thread);
         }
 
         #[cfg(target_os = "windows")]
