@@ -87,7 +87,7 @@ pub(crate) fn create_windows<F: QueryFilter + 'static>(
 
 /// Cache for closing windows so we can get better debug information.
 #[derive(Debug, Clone, Resource)]
-pub struct WindowTitleCache(EntityHashMap<Entity, String>);
+pub struct WindowTitleCache(#[allow(dead_code)] EntityHashMap<Entity, String>);
 
 pub(crate) fn despawn_windows(
     mut closed: RemovedComponents<Window>,
