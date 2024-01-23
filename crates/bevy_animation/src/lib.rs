@@ -146,15 +146,13 @@ impl Interpolation {
         stride: usize,
     ) -> T {
         match self {
-            Interpolation::Step => keyframes[stride * 0],
             Interpolation::Linear => {
                 let value_start = keyframes[stride * 0];
                 let value_end = keyframes[stride * 1];
                 value_start._lerp(value_end, lerp)
             }
+            Interpolation::Step => keyframes[stride * 0],
             Interpolation::CubicSpline => {
-                println!("b");
-
                 let value_start = keyframes[stride * 1];
                 let tangent_out_start = keyframes[stride * 2];
                 let tangent_in_end = keyframes[stride * 3];
@@ -169,7 +167,7 @@ impl Interpolation {
 
     fn step_size(self) -> usize {
         match self {
-            Interpolation::Step | Interpolation::Linear => 1,
+            Interpolation::Linear | Interpolation::Step => 1,
             Interpolation::CubicSpline => 3,
         }
     }
