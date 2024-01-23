@@ -21,11 +21,10 @@ const BUTTONS_Y: f32 = 80.;
 const STICKS_X: f32 = 150.;
 const STICKS_Y: f32 = -135.;
 
-const NORMAL_BUTTON_COLOR: Color = Color::rgb(0.2, 0.2, 0.2);
+const NORMAL_BUTTON_COLOR: Color = Color::rgb(0.3, 0.3, 0.3);
 const ACTIVE_BUTTON_COLOR: Color = Color::PURPLE;
 const LIVE_COLOR: Color = Color::rgb(0.4, 0.4, 0.4);
-const DEAD_COLOR: Color = Color::rgb(0.3, 0.3, 0.3);
-const EXTENT_COLOR: Color = Color::rgb(0.3, 0.3, 0.3);
+const DEAD_COLOR: Color = Color::rgb(0.13, 0.13, 0.13);
 const TEXT_COLOR: Color = Color::WHITE;
 
 #[derive(Component, Deref)]
@@ -263,8 +262,12 @@ fn setup_sticks(
     mut commands: Commands,
     meshes: Res<ButtonMeshes>,
     materials: Res<ButtonMaterials>,
-    gamepad_settings: Res<GamepadSettings>,
+    mut gamepad_settings: ResMut<GamepadSettings>,
 ) {
+    // XXX old values for testing
+    gamepad_settings.default_axis_settings =
+        bevy::input::gamepad::AxisSettings::new(-0.95, -0.05, 0.05, 0.95, 0.01).unwrap();
+
     let dead_upper =
         STICK_BOUNDS_SIZE * gamepad_settings.default_axis_settings.deadzone_upperbound();
     let dead_lower =
@@ -290,7 +293,7 @@ fn setup_sticks(
                 parent.spawn(SpriteBundle {
                     sprite: Sprite {
                         custom_size: Some(Vec2::splat(STICK_BOUNDS_SIZE * 2.)),
-                        color: EXTENT_COLOR,
+                        color: DEAD_COLOR,
                         ..default()
                     },
                     ..default()
@@ -349,7 +352,7 @@ fn setup_sticks(
                         mesh: meshes.circle.clone(),
                         material: materials.normal.clone(),
                         transform: Transform::from_xyz(0., 0., 5.)
-                            .with_scale(Vec2::splat(0.2).extend(1.)),
+                            .with_scale(Vec2::splat(0.15).extend(1.)),
                         ..default()
                     },
                     MoveWithAxes {
@@ -424,22 +427,31 @@ fn setup_triggers(
 }
 
 fn setup_connected(mut commands: Commands) {
-    let style = TextStyle {
+    let text_style = TextStyle {
         color: TEXT_COLOR,
-        font_size: 30.,
+        font_size: 20.,
         ..default()
     };
     commands.spawn((
-        TextBundle::from_sections([
-            TextSection {
-                value: "Connected Gamepads:\n".to_string(),
-                style: style.clone(),
+        TextBundle {
+            text: Text::from_sections([
+                TextSection {
+                    value: "Connected Gamepads:\n".to_string(),
+                    style: text_style.clone(),
+                },
+                TextSection {
+                    value: "None".to_string(),
+                    style: text_style,
+                },
+            ]),
+            style: Style {
+                position_type: PositionType::Absolute,
+                top: Val::Px(12.),
+                left: Val::Px(12.),
+                ..default()
             },
-            TextSection {
-                value: "None".to_string(),
-                style,
-            },
-        ]),
+            ..default()
+        },
         ConnectedGamepadsText,
     ));
 }
