@@ -662,7 +662,7 @@ pub fn winit_runner(mut app: App) {
                         let position = ivec2(position.x, position.y);
                         window.position.set(position);
                         event_writers.window_moved.send(WindowMoved {
-                            entity: window_entity,
+                            window: window_entity,
                             position,
                         });
                     }
