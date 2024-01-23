@@ -138,6 +138,7 @@ pub enum Interpolation {
 }
 
 impl Interpolation {
+    #[inline(always)]
     fn interpolate<T: Interpolatable>(
         self,
         lerp: f32,
@@ -165,6 +166,7 @@ impl Interpolation {
         }
     }
 
+    #[inline(always)]
     fn step_size(self) -> usize {
         match self {
             Interpolation::Linear | Interpolation::Step => 1,
@@ -177,19 +179,22 @@ trait Interpolatable: Sized + Copy + Mul<f32, Output = Self> + Add<Self, Output 
     fn _lerp(self, rhs: Self, t: f32) -> Self;
 }
 
-impl Interpolatable for Vec3 {
+impl Interpolatable for f32 {
+    #[inline(always)]
     fn _lerp(self, rhs: Self, t: f32) -> Self {
         self.lerp(rhs, t)
     }
 }
 
-impl Interpolatable for f32 {
+impl Interpolatable for Vec3 {
+    #[inline(always)]
     fn _lerp(self, rhs: Self, t: f32) -> Self {
         self.lerp(rhs, t)
     }
 }
 
 impl Interpolatable for Quat {
+    #[inline(always)]
     fn _lerp(self, rhs: Self, t: f32) -> Self {
         self.slerp(rhs, t)
     }
