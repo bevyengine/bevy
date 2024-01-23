@@ -1,6 +1,9 @@
 use std::iter;
 
-use crate::{ParallelIterator, UnindexedConsumer, IndexedParallelIterator, Consumer, ProducerCallback, Producer, Folder};
+use crate::{
+    Consumer, Folder, IndexedParallelIterator, ParallelIterator, Producer, ProducerCallback,
+    UnindexedConsumer,
+};
 
 /// `Map` is an iterator that transforms the elements of an underlying iterator.
 ///

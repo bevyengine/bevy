@@ -1,4 +1,4 @@
-use super::{noop::NoopReducer, Consumer, Folder, UnindexedConsumer, ParallelIterator};
+use super::{noop::NoopReducer, Consumer, Folder, ParallelIterator, UnindexedConsumer};
 
 pub(super) fn for_each<I, F, T>(pi: I, op: &F)
 where

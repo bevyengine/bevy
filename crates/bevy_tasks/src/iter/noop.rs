@@ -1,6 +1,5 @@
 use super::Reducer;
 
-
 pub(super) struct NoopReducer;
 
 impl Reducer<()> for NoopReducer {

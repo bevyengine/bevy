@@ -1,6 +1,6 @@
 use crate::iter::{
-    bridge, Consumer, IndexedParallelIterator, IntoParallelIterator, Producer, ProducerCallback,
-    UnindexedConsumer, ParallelIterator,
+    bridge, Consumer, IndexedParallelIterator, IntoParallelIterator, ParallelIterator, Producer,
+    ProducerCallback, UnindexedConsumer,
 };
 
 impl<'data, T: Sync + 'data> IntoParallelIterator for &'data [T] {

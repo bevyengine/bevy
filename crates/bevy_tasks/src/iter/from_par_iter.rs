@@ -1,4 +1,4 @@
-use crate::iter::{IntoParallelIterator, FromParallelIterator, ParallelExtend};
+use crate::iter::{FromParallelIterator, IntoParallelIterator, ParallelExtend};
 
 /// Creates an empty default collection and extends it.
 fn collect_extended<C, I>(par_iter: I) -> C
