@@ -13,12 +13,12 @@ impl BuildHasher for EntityHash {
     type Hasher = EntityHasher;
 
     fn build_hasher(&self) -> Self::Hasher {
-        EntityHasher::default()
+        Self::Hasher::default()
     }
 }
 
 /// A very fast hash that is only designed to work on generational indices
-/// like [`Entity`].g It will panic if attempting to hash a type containing
+/// like [`Entity`]. It will panic if attempting to hash a type containing
 /// non-u64 fields.
 ///
 /// This is heavily optimized for typical cases, where you have mostly live
@@ -39,7 +39,7 @@ impl Hasher for EntityHasher {
     }
 
     fn write(&mut self, _bytes: &[u8]) {
-        panic!("can only hash u64 using EntityHasher");
+        panic!("EntityHasher can only hash u64 fields.");
     }
 
     #[inline]
