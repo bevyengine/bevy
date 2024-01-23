@@ -542,7 +542,8 @@ mod tests {
         ser::{to_string_pretty, PrettyConfig},
         Deserializer,
     };
-    use serde::{de::DeserializeSeed, Deserialize, Serialize};
+    #[rustfmt::skip]
+    use ::serde::{de::DeserializeSeed, Deserialize, Serialize};
     use std::{
         any::TypeId,
         borrow::Cow,
