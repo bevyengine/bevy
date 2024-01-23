@@ -84,8 +84,7 @@ impl Plugin for WinitPlugin {
     fn build(&self, app: &mut App) {
         let mut event_loop_builder = EventLoopBuilder::<()>::with_user_event();
 
-        // This is needed because the features checked in the inner
-        // block might be enabled on other platforms than linux.
+        // linux check is needed because x11 might be enabled on other platforms.
         #[cfg(all(target_os = "linux", feature = "x11"))]
         {
             use winit::platform::x11::EventLoopBuilderExtX11;
@@ -97,6 +96,7 @@ impl Plugin for WinitPlugin {
             event_loop_builder.with_any_thread(self.run_on_any_thread);
         }
 
+        // linux check is needed because wayland might be enabled on other platforms.
         #[cfg(all(target_os = "linux", feature = "wayland"))]
         {
             use winit::platform::wayland::EventLoopBuilderExtWayland;
@@ -297,7 +297,7 @@ pub fn winit_runner(mut app: App) {
 
     let mut create_window_system_state =
         SystemState::<CreateWindowParams<Added<Window>>>::from_world(&mut app.world);
-    // setup up the event loop
+    // set up the event loop
     let event_handler = move |event: Event<()>, event_loop: &EventLoopWindowTarget<()>| {
         #[cfg(feature = "trace")]
         let _span = bevy_utils::tracing::info_span!("winit event_handler").entered();
