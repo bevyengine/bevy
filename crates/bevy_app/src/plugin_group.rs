@@ -41,6 +41,7 @@ use std::any::TypeId;
 ///         // use 3 colons for the last part of the path.
 ///         collision::capsule:::CapsuleCollisionPlugin,
 ///         velocity:::VelocityPlugin,
+///         // Add a documented feature restriction.
 ///         #[cfg(feature = "external_forces")]
 ///         features:::ForcePlugin,
 ///         // You can add any attribute you want like this, but it won't be documented.
