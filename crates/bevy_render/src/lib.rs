@@ -219,11 +219,6 @@ pub const MATHS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(106653563
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderSet`] and creates the rendering sub-app.
     fn build(&self, app: &mut App) {
-        // TODO: Really ugly hack until we've fixed all the compile time consts and struct padding that webgl2 uses but webgpu doesn't.
-        #[cfg(all(feature = "webgl", feature = "webgpu"))]
-        compile_error!("Bevy can't currently be built with both the `webgl2` and `webgpu` features enabled currently. Please choose one or the other.");
-
-
         app.init_resource::<DeterministicRenderingConfig>();
 
         app.init_asset::<Shader>()
@@ -264,6 +259,15 @@ impl Plugin for RenderPlugin {
                             flags: settings.instance_flags,
                             gles_minor_version: settings.gles3_minor_version,
                         });
+
+                        // This is mostly to give a better error message when you've enabled the `webgpu` feature
+                        // but are using a browser that doesn't support it.
+                        // TODO: Consider removing this once we support webgpu and webgl in the same wasm build.
+                        if instance.enumerate_adapters(backends).is_empty() {
+                            #[cfg(all(target_arch = "wasm32", feature = "webgpu"))]
+                            panic!("No compatible adapters found. This is probably because you enabled the `webgpu` feature but are using a browser that doesn't support it.");
+                        }
+
                         // SAFETY: Plugins should be set up on the main thread.
                         let surface = primary_window.map(|wrapper| unsafe {
                             let handle = wrapper.get_handle();
@@ -343,7 +347,7 @@ impl Plugin for RenderPlugin {
             "instance_index.wgsl",
             Shader::from_wgsl_with_defs,
             vec![
-                #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+                #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
                 "BASE_INSTANCE_WORKAROUND".into()
             ]
         );
