@@ -3,8 +3,9 @@ use bevy_ecs::{
     entity::Entity,
     event::EventWriter,
     prelude::{Changed, Component, Resource},
+    query::QueryFilter,
     removal_detection::RemovedComponents,
-    system::{Commands, NonSendMut, Query, ResMut},
+    system::{Commands, NonSendMut, Query, ResMut, SystemParamItem},
     world::Mut,
 };
 use bevy_utils::{
@@ -25,7 +26,8 @@ use crate::{
         self, convert_enabled_buttons, convert_window_level, convert_window_theme,
         convert_winit_theme,
     },
-    get_best_videomode, get_fitting_videomode, WindowAndInputEventWriters, WinitWindows,
+    get_best_videomode, get_fitting_videomode, CreateWindowParams, WindowAndInputEventWriters,
+    WinitWindows,
 };
 
 /// Creates new windows on the [`winit`] backend for each entity with a newly-added
@@ -34,17 +36,19 @@ use crate::{
 /// If any of these entities are missing required components, those will be added with their
 /// default values.
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn create_windows<'a>(
+pub(crate) fn create_windows<F: QueryFilter + 'static>(
     event_loop: &EventLoopWindowTarget<()>,
-    mut commands: Commands,
-    created_windows: impl Iterator<Item = (Entity, Mut<'a, Window>)>,
-    mut event_writer: EventWriter<WindowCreated>,
-    mut winit_windows: NonSendMut<WinitWindows>,
-    mut adapters: NonSendMut<AccessKitAdapters>,
-    mut handlers: ResMut<WinitActionHandlers>,
-    accessibility_requested: ResMut<AccessibilityRequested>,
+    (
+        mut commands,
+        mut created_windows,
+        mut window_created_events,
+        mut winit_windows,
+        mut adapters,
+        mut handlers,
+        accessibility_requested,
+    ): SystemParamItem<CreateWindowParams<F>>,
 ) {
-    for (entity, mut window) in created_windows {
+    for (entity, mut window) in &mut created_windows {
         if winit_windows.get_window(entity).is_some() {
             continue;
         }
@@ -81,7 +85,7 @@ pub(crate) fn create_windows<'a>(
                 window: window.clone(),
             });
 
-        event_writer.send(WindowCreated { window: entity });
+        window_created_events.send(WindowCreated { window: entity });
     }
 }
 

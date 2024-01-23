@@ -154,62 +154,9 @@ impl Plugin for WinitPlugin {
             // Otherwise, we want to create a window before `bevy_render` initializes the renderer
             // so that we have a surface to use as a hint. This improves compatibility with `wgpu`
             // backends, especially WASM/WebGL2.
-            #[cfg(not(target_arch = "wasm32"))]
-            let mut create_window_system_state: SystemState<(
-                Commands,
-                Query<(Entity, &mut Window)>,
-                EventWriter<WindowCreated>,
-                NonSendMut<WinitWindows>,
-                NonSendMut<AccessKitAdapters>,
-                ResMut<WinitActionHandlers>,
-                ResMut<AccessibilityRequested>,
-            )> = SystemState::from_world(&mut app.world);
-
-            #[cfg(target_arch = "wasm32")]
-            let mut create_window_system_state: SystemState<(
-                Commands,
-                Query<(Entity, &mut Window)>,
-                EventWriter<WindowCreated>,
-                NonSendMut<WinitWindows>,
-                NonSendMut<AccessKitAdapters>,
-                ResMut<WinitActionHandlers>,
-                ResMut<AccessibilityRequested>,
-            )> = SystemState::from_world(&mut app.world);
-
-            #[cfg(not(target_arch = "wasm32"))]
-            let (
-                commands,
-                mut windows,
-                event_writer,
-                winit_windows,
-                adapters,
-                handlers,
-                accessibility_requested,
-            ) = create_window_system_state.get_mut(&mut app.world);
-
-            #[cfg(target_arch = "wasm32")]
-            let (
-                commands,
-                mut windows,
-                event_writer,
-                winit_windows,
-                adapters,
-                handlers,
-                accessibility_requested,
-            ) = create_window_system_state.get_mut(&mut app.world);
-
-            create_windows(
-                &event_loop,
-                commands,
-                windows.iter_mut(),
-                event_writer,
-                winit_windows,
-                adapters,
-                handlers,
-                accessibility_requested,
-            );
-
-            create_window_system_state.apply(&mut app.world);
+            let mut create_window = SystemState::<CreateWindowParams>::from_world(&mut app.world);
+            create_windows(&event_loop, create_window.get_mut(&mut app.world));
+            create_window.apply(&mut app.world);
         }
 
         // `winit`'s windows are bound to the event loop that created them, so the event loop must
@@ -311,6 +258,16 @@ impl Default for WinitAppRunnerState {
     }
 }
 
+type CreateWindowParams<'w, 's, F = ()> = (
+    Commands<'w, 's>,
+    Query<'w, 's, (Entity, &'static mut Window), F>,
+    EventWriter<'w, WindowCreated>,
+    NonSendMut<'w, WinitWindows>,
+    NonSendMut<'w, AccessKitAdapters>,
+    ResMut<'w, WinitActionHandlers>,
+    Res<'w, AccessibilityRequested>,
+);
+
 /// The default [`App::runner`] for the [`WinitPlugin`] plugin.
 ///
 /// Overriding the app's [runner](bevy_app::App::runner) while using `WinitPlugin` will bypass the
@@ -345,16 +302,8 @@ pub fn winit_runner(mut app: App) {
         NonSend<AccessKitAdapters>,
     )> = SystemState::new(&mut app.world);
 
-    let mut create_window_system_state: SystemState<(
-        Commands,
-        Query<(Entity, &mut Window), Added<Window>>,
-        EventWriter<WindowCreated>,
-        NonSendMut<WinitWindows>,
-        NonSendMut<AccessKitAdapters>,
-        ResMut<WinitActionHandlers>,
-        ResMut<AccessibilityRequested>,
-    )> = SystemState::from_world(&mut app.world);
-
+    let mut create_window_system_state =
+        SystemState::<CreateWindowParams<Added<Window>>>::from_world(&mut app.world);
     // setup up the event loop
     let event_handler = move |event: Event<()>, event_loop: &EventLoopWindowTarget<()>| {
         #[cfg(feature = "trace")]
@@ -845,15 +794,7 @@ fn run_app_update_if_should(
     app: &mut App,
     focused_windows_state: &mut SystemState<(Res<WinitSettings>, Query<&Window>)>,
     event_loop: &EventLoopWindowTarget<()>,
-    create_window_system_state: &mut SystemState<(
-        Commands,
-        Query<(Entity, &mut Window), Added<Window>>,
-        EventWriter<WindowCreated>,
-        NonSendMut<WinitWindows>,
-        NonSendMut<AccessKitAdapters>,
-        ResMut<WinitActionHandlers>,
-        ResMut<AccessibilityRequested>,
-    )>,
+    create_window: &mut SystemState<CreateWindowParams<Added<Window>>>,
     app_exit_event_reader: &mut ManualEventReader<AppExit>,
     redraw_event_reader: &mut ManualEventReader<RequestRedraw>,
 ) {
@@ -918,28 +859,8 @@ fn run_app_update_if_should(
 
     // create any new windows
     // (even if app did not update, some may have been created by plugin setup)
-    let (
-        commands,
-        mut windows,
-        event_writer,
-        winit_windows,
-        adapters,
-        handlers,
-        accessibility_requested,
-    ) = create_window_system_state.get_mut(&mut app.world);
-
-    create_windows(
-        event_loop,
-        commands,
-        windows.iter_mut(),
-        event_writer,
-        winit_windows,
-        adapters,
-        handlers,
-        accessibility_requested,
-    );
-
-    create_window_system_state.apply(&mut app.world);
+    create_windows(event_loop, create_window.get_mut(&mut app.world));
+    create_window.apply(&mut app.world);
 }
 
 fn react_to_resize(
