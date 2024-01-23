@@ -1,12 +1,10 @@
-use bevy_a11y::AccessibilityRequested;
 use bevy_ecs::{
     entity::Entity,
     event::EventWriter,
     prelude::{Changed, Component, Resource},
     query::QueryFilter,
     removal_detection::RemovedComponents,
-    system::{Commands, NonSendMut, Query, ResMut, SystemParamItem},
-    world::Mut,
+    system::{NonSendMut, Query, SystemParamItem},
 };
 use bevy_utils::{
     tracing::{error, info, warn},
@@ -21,7 +19,6 @@ use winit::{
 };
 
 use crate::{
-    accessibility::{AccessKitAdapters, WinitActionHandlers},
     converters::{
         self, convert_enabled_buttons, convert_window_level, convert_window_theme,
         convert_winit_theme,
