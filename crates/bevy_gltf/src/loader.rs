@@ -923,7 +923,7 @@ fn load_node(
     load_context: &mut LoadContext,
     settings: &GltfLoaderSettings,
     node_index_to_entity_map: &mut HashMap<usize, Entity>,
-    entity_to_skin_index_map: &mut EntityHashMap<Entity, usize>,
+    entity_to_skin_index_map: &mut EntityHashMap<usize>,
     active_camera_found: &mut bool,
     parent_transform: &Transform,
 ) -> Result<(), GltfError> {

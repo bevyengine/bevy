@@ -27,11 +27,11 @@ use bevy_window::{PrimaryWindow, Window, WindowClosed};
 
 /// Maps window entities to their `AccessKit` [`Adapter`]s.
 #[derive(Default, Deref, DerefMut)]
-pub struct AccessKitAdapters(pub EntityHashMap<Entity, Adapter>);
+pub struct AccessKitAdapters(pub EntityHashMap<Adapter>);
 
 /// Maps window entities to their respective [`WinitActionHandler`]s.
 #[derive(Resource, Default, Deref, DerefMut)]
-pub struct WinitActionHandlers(pub EntityHashMap<Entity, WinitActionHandler>);
+pub struct WinitActionHandlers(pub EntityHashMap<WinitActionHandler>);
 
 /// Forwards `AccessKit` [`ActionRequest`]s from winit to an event channel.
 #[derive(Clone, Default, Deref, DerefMut)]

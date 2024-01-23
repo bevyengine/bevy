@@ -10,7 +10,10 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    entity::EntityHashMap, prelude::Entity, query::{QueryFilter, QueryItem, ReadOnlyQueryData}, system::{lifetimeless::Read, Query, ResMut, Resource}
+    entity::EntityHashMap,
+    prelude::Entity,
+    query::{QueryFilter, QueryItem, ReadOnlyQueryData},
+    system::{lifetimeless::Read, Query, ResMut, Resource},
 };
 
 use crate::{prelude::ViewVisibility, Extract, ExtractSchedule, RenderApp};
@@ -50,7 +53,7 @@ where
 
 /// Stores all extract instances of a type in the render world.
 #[derive(Resource, Deref, DerefMut)]
-pub struct ExtractedInstances<EI>(EntityHashMap<Entity, EI>)
+pub struct ExtractedInstances<EI>(EntityHashMap<EI>)
 where
     EI: ExtractInstance;
 

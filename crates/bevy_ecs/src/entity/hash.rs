@@ -3,6 +3,8 @@ use std::hash::{BuildHasher, Hasher};
 use bevy_reflect::Reflect;
 use bevy_utils::hashbrown;
 
+use super::Entity;
+
 /// A [`BuildHasher`] that results in a [`EntityHasher`].
 #[derive(Default, Clone, Reflect)]
 pub struct EntityHash;
@@ -16,7 +18,7 @@ impl BuildHasher for EntityHash {
 }
 
 /// A very fast hash that is only designed to work on generational indices
-/// like `Entity`. It will panic if attempting to hash a type containing
+/// like [`Entity`](super::Entity). It will panic if attempting to hash a type containing
 /// non-u64 fields.
 ///
 /// This is heavily optimized for typical cases, where you have mostly live
@@ -24,7 +26,7 @@ impl BuildHasher for EntityHash {
 ///
 /// If you have an unusual case -- say all your indices are multiples of 256
 /// or most of the entities are dead generations -- then you might want also to
-/// try [`AHasher`] for a slower hash computation but fewer lookup conflicts.
+/// try [`AHasher`](bevy_utils::AHasher) for a slower hash computation but fewer lookup conflicts.
 #[derive(Debug, Default)]
 pub struct EntityHasher {
     hash: u64,
@@ -74,11 +76,11 @@ impl Hasher for EntityHasher {
     }
 }
 
-/// A [`HashMap`] pre-configured to use [`EntityHash`] hashing.
-pub type EntityHashMap<K, V> = hashbrown::HashMap<K, V, EntityHash>;
+/// A [`HashMap`](hashbrown::HashMap) pre-configured to use [`EntityHash`] hashing.
+pub type EntityHashMap<V> = hashbrown::HashMap<Entity, V, EntityHash>;
 
-/// A [`HashSet`] pre-configured to use [`EntityHash`] hashing.
-pub type EntityHashSet<T> = hashbrown::HashSet<T, EntityHash>;
+/// A [`HashSet`](hashbrown::HashSet) pre-configured to use [`EntityHash`] hashing.
+pub type EntityHashSet = hashbrown::HashSet<Entity, EntityHash>;
 
 #[cfg(test)]
 mod tests {
@@ -87,7 +89,7 @@ mod tests {
     use static_assertions::assert_impl_all;
 
     // Check that the HashMaps are Clone if the key/values are Clone
-    assert_impl_all!(EntityHashMap::<u64, usize>: Clone);
+    assert_impl_all!(EntityHashMap::<usize>: Clone);
     // EntityHashMap should implement Reflect
-    assert_impl_all!(EntityHashMap::<i32, i32>: Reflect);
+    assert_impl_all!(EntityHashMap::<i32>: Reflect);
 }

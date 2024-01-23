@@ -32,7 +32,7 @@ pub type ScreenshotFn = Box<dyn FnOnce(Image) + Send + Sync>;
 #[derive(Resource, Default)]
 pub struct ScreenshotManager {
     // this is in a mutex to enable extraction with only an immutable reference
-    pub(crate) callbacks: Mutex<EntityHashMap<Entity, ScreenshotFn>>,
+    pub(crate) callbacks: Mutex<EntityHashMap<ScreenshotFn>>,
 }
 
 #[derive(Error, Debug)]

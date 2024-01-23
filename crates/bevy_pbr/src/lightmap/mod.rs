@@ -105,7 +105,7 @@ pub struct RenderLightmaps {
     ///
     /// Entities without lightmaps, or for which the mesh or lightmap isn't
     /// loaded, won't have entries in this table.
-    pub(crate) render_lightmaps: EntityHashMap<Entity, RenderLightmap>,
+    pub(crate) render_lightmaps: EntityHashMap<RenderLightmap>,
 
     /// All active lightmap images in the scene.
     ///

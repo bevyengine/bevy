@@ -1,5 +1,6 @@
 use crate::{DynamicScene, Scene};
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
     entity::Entity,
     event::{Event, Events, ManualEventReader},
@@ -9,7 +10,6 @@ use bevy_ecs::{
 };
 use bevy_hierarchy::{Parent, PushChild};
 use bevy_utils::{tracing::error, HashMap, HashSet};
-use bevy_ecs::entity::EntityHashMap;
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -26,7 +26,7 @@ pub struct SceneInstanceReady {
 #[derive(Debug)]
 pub struct InstanceInfo {
     /// Mapping of entities from the scene world to the instance world.
-    pub entity_map: EntityHashMap<Entity, Entity>,
+    pub entity_map: EntityHashMap<Entity>,
 }
 
 /// Unique id identifying a scene instance.
@@ -214,7 +214,7 @@ impl SceneSpawner {
     fn spawn_dynamic_internal(
         world: &mut World,
         id: AssetId<DynamicScene>,
-        entity_map: &mut EntityHashMap<Entity, Entity>,
+        entity_map: &mut EntityHashMap<Entity>,
     ) -> Result<(), SceneSpawnError> {
         world.resource_scope(|world, scenes: Mut<Assets<DynamicScene>>| {
             let scene = scenes

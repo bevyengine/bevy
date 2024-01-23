@@ -108,7 +108,7 @@ pub struct LightProbesUniform {
 
 /// A map from each camera to the light probe uniform associated with it.
 #[derive(Resource, Default, Deref, DerefMut)]
-struct RenderLightProbes(EntityHashMap<Entity, LightProbesUniform>);
+struct RenderLightProbes(EntityHashMap<LightProbesUniform>);
 
 /// A GPU buffer that stores information about all light probes.
 #[derive(Resource, Default, Deref, DerefMut)]

@@ -170,7 +170,7 @@ pub struct ExtractedUiNode {
 
 #[derive(Resource, Default)]
 pub struct ExtractedUiNodes {
-    pub uinodes: EntityHashMap<Entity, ExtractedUiNode>,
+    pub uinodes: EntityHashMap<ExtractedUiNode>,
 }
 
 pub(crate) fn resolve_border_thickness(value: Val, parent_width: f32, viewport_size: Vec2) -> f32 {

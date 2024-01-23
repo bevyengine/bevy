@@ -28,7 +28,7 @@ pub struct WinitWindows {
     /// Stores [`winit`] windows by window identifier.
     pub windows: HashMap<winit::window::WindowId, winit::window::Window>,
     /// Maps entities to `winit` window identifiers.
-    pub entity_to_winit: EntityHashMap<Entity, winit::window::WindowId>,
+    pub entity_to_winit: EntityHashMap<winit::window::WindowId>,
     /// Maps `winit` window identifiers to entities.
     pub winit_to_entity: HashMap<winit::window::WindowId, Entity>,
     // Many `winit` window functions (e.g. `set_window_icon`) can only be called on the main thread.

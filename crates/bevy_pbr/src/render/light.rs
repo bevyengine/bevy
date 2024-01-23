@@ -1,4 +1,5 @@
 use bevy_core_pipeline::core_3d::{Transparent3d, CORE_3D_DEPTH_FORMAT};
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, UVec3, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_render::{
@@ -20,7 +21,6 @@ use bevy_utils::{
     nonmax::NonMaxU32,
     tracing::{error, warn},
 };
-use bevy_ecs::entity::EntityHashMap;
 use std::{hash::Hash, num::NonZeroU64, ops::Range};
 
 use crate::*;
@@ -48,8 +48,8 @@ pub struct ExtractedDirectionalLight {
     shadow_depth_bias: f32,
     shadow_normal_bias: f32,
     cascade_shadow_config: CascadeShadowConfig,
-    cascades: EntityHashMap<Entity, Vec<Cascade>>,
-    frusta: EntityHashMap<Entity, Vec<Frustum>>,
+    cascades: EntityHashMap<Vec<Cascade>>,
+    frusta: EntityHashMap<Vec<Frustum>>,
     render_layers: RenderLayers,
 }
 
@@ -561,7 +561,7 @@ pub const CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT: u32 = 3;
 #[derive(Resource)]
 pub struct GlobalLightMeta {
     pub gpu_point_lights: GpuPointLights,
-    pub entity_to_index: EntityHashMap<Entity, usize>,
+    pub entity_to_index: EntityHashMap<usize>,
 }
 
 impl FromWorld for GlobalLightMeta {

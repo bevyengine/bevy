@@ -4,7 +4,7 @@ use crate::{
 };
 use bevy_asset::Handle;
 use bevy_ecs::entity::EntityHashMap;
-use bevy_ecs::{bundle::Bundle, component::Component, prelude::Entity, reflect::ReflectComponent};
+use bevy_ecs::{bundle::Bundle, component::Component, reflect::ReflectComponent};
 use bevy_reflect::Reflect;
 use bevy_render::{
     mesh::Mesh,
@@ -75,7 +75,7 @@ impl CubemapVisibleEntities {
 pub struct CascadesVisibleEntities {
     /// Map of view entity to the visible entities for each cascade frustum.
     #[reflect(ignore)]
-    pub entities: EntityHashMap<Entity, Vec<VisibleEntities>>,
+    pub entities: EntityHashMap<Vec<VisibleEntities>>,
 }
 
 /// A component bundle for [`PointLight`] entities.

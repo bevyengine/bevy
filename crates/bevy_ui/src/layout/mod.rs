@@ -52,14 +52,14 @@ struct RootNodePair {
 
 #[derive(Resource)]
 pub struct UiSurface {
-    entity_to_taffy: EntityHashMap<Entity, taffy::node::Node>,
-    camera_roots: EntityHashMap<Entity, Vec<RootNodePair>>,
+    entity_to_taffy: EntityHashMap<taffy::node::Node>,
+    camera_roots: EntityHashMap<Vec<RootNodePair>>,
     taffy: Taffy,
 }
 
 fn _assert_send_sync_ui_surface_impl_safe() {
     fn _assert_send_sync<T: Send + Sync>() {}
-    _assert_send_sync::<EntityHashMap<Entity, taffy::node::Node>>();
+    _assert_send_sync::<EntityHashMap<taffy::node::Node>>();
     _assert_send_sync::<Taffy>();
     _assert_send_sync::<UiSurface>();
 }

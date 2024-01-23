@@ -382,7 +382,7 @@ impl From<CascadeShadowConfigBuilder> for CascadeShadowConfig {
 #[reflect(Component)]
 pub struct Cascades {
     /// Map from a view to the configuration of each of its [`Cascade`]s.
-    pub(crate) cascades: EntityHashMap<Entity, Vec<Cascade>>,
+    pub(crate) cascades: EntityHashMap<Vec<Cascade>>,
 }
 
 #[derive(Clone, Debug, Default, Reflect)]

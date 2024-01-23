@@ -31,7 +31,7 @@ impl SkinIndex {
 }
 
 #[derive(Default, Resource, Deref, DerefMut)]
-pub struct SkinIndices(EntityHashMap<Entity, SkinIndex>);
+pub struct SkinIndices(EntityHashMap<SkinIndex>);
 
 // Notes on implementation: see comment on top of the `extract_skins` system.
 #[derive(Resource)]

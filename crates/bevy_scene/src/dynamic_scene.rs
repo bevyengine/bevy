@@ -67,7 +67,7 @@ impl DynamicScene {
     pub fn write_to_world_with(
         &self,
         world: &mut World,
-        entity_map: &mut EntityHashMap<Entity, Entity>,
+        entity_map: &mut EntityHashMap<Entity>,
         type_registry: &AppTypeRegistry,
     ) -> Result<(), SceneSpawnError> {
         let type_registry = type_registry.read();
@@ -165,7 +165,7 @@ impl DynamicScene {
     pub fn write_to_world(
         &self,
         world: &mut World,
-        entity_map: &mut EntityHashMap<Entity, Entity>,
+        entity_map: &mut EntityHashMap<Entity>,
     ) -> Result<(), SceneSpawnError> {
         let registry = world.resource::<AppTypeRegistry>().clone();
         self.write_to_world_with(world, entity_map, &registry)

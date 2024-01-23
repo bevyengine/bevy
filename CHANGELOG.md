@@ -574,7 +574,7 @@ current changes on git with [previous release tags][git_tag_comparison].
 - [Automatic batching/instancing of draw commands][9685]
 - [Directly copy data into uniform buffers][9865]
 - [Allow other plugins to create renderer resources][9925]
-- [Use EntityHashMap<Entity, T> for render world entity storage for better performance][9903]
+- [Use EntityHashMap<T> for render world entity storage for better performance][9903]
 - [Parallelize extract_meshes][9966]
 - [Fix comment grammar][9990]
 - [Allow overriding global wireframe setting.][7328]

@@ -263,7 +263,7 @@ pub struct RenderMeshInstance {
 }
 
 #[derive(Default, Resource, Deref, DerefMut)]
-pub struct RenderMeshInstances(EntityHashMap<Entity, RenderMeshInstance>);
+pub struct RenderMeshInstances(EntityHashMap<RenderMeshInstance>);
 
 #[derive(Component)]
 pub struct Mesh3d;

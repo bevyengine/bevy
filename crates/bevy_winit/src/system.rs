@@ -85,7 +85,7 @@ pub(crate) fn create_windows<'a>(
 
 /// Cache for closing windows so we can get better debug information.
 #[derive(Debug, Clone, Resource)]
-pub struct WindowTitleCache(EntityHashMap<Entity, String>);
+pub struct WindowTitleCache(EntityHashMap<String>);
 
 pub(crate) fn despawn_windows(
     mut closed: RemovedComponents<Window>,

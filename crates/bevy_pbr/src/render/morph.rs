@@ -19,7 +19,7 @@ pub struct MorphIndex {
 }
 
 #[derive(Default, Resource, Deref, DerefMut)]
-pub struct MorphIndices(EntityHashMap<Entity, MorphIndex>);
+pub struct MorphIndices(EntityHashMap<MorphIndex>);
 
 #[derive(Resource)]
 pub struct MorphUniform {

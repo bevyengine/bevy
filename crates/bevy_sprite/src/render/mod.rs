@@ -313,7 +313,7 @@ pub struct ExtractedSprite {
 
 #[derive(Resource, Default)]
 pub struct ExtractedSprites {
-    pub sprites: EntityHashMap<Entity, ExtractedSprite>,
+    pub sprites: EntityHashMap<ExtractedSprite>,
 }
 
 #[derive(Resource, Default)]
