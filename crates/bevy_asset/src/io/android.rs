@@ -44,19 +44,13 @@ impl AssetReader for AndroidAssetReader {
         Ok(reader)
     }
 
-    async fn read_directory<'a>(
-        &'a self,
-        _path: &'a Path,
-    ) -> Result<Box<PathStream>, AssetReaderError> {
+    async fn read_directory(&self, _path: &Path) -> Result<Box<PathStream>, AssetReaderError> {
         let stream: Box<PathStream> = Box::new(EmptyPathStream);
         error!("Reading directories is not supported with the AndroidAssetReader");
         Ok(stream)
     }
 
-    async fn is_directory<'a>(
-        &'a self,
-        _path: &'a Path,
-    ) -> std::result::Result<bool, AssetReaderError> {
+    async fn is_directory(&self, _path: &Path) -> std::result::Result<bool, AssetReaderError> {
         error!("Reading directories is not supported with the AndroidAssetReader");
         Ok(false)
     }
