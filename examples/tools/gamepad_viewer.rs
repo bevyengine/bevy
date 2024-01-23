@@ -262,12 +262,8 @@ fn setup_sticks(
     mut commands: Commands,
     meshes: Res<ButtonMeshes>,
     materials: Res<ButtonMaterials>,
-    mut gamepad_settings: ResMut<GamepadSettings>,
+    gamepad_settings: Res<GamepadSettings>,
 ) {
-    // XXX old values for testing
-    gamepad_settings.default_axis_settings =
-        bevy::input::gamepad::AxisSettings::new(-0.95, -0.05, 0.05, 0.95, 0.01).unwrap();
-
     let dead_upper =
         STICK_BOUNDS_SIZE * gamepad_settings.default_axis_settings.deadzone_upperbound();
     let dead_lower =
