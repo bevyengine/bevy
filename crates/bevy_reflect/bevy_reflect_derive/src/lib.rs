@@ -5,11 +5,11 @@
 //! such as `Struct`, `GetTypeRegistration`, and more— all with a single derive!
 //!
 //! Some other noteworthy exports include the derive macros for [`FromReflect`] and
-//! [`TypeUuid`], as well as the [`reflect_trait`] attribute macro.
+//! [`TypePath`], as well as the [`reflect_trait`] attribute macro.
 //!
 //! [`Reflect`]: crate::derive_reflect
 //! [`FromReflect`]: crate::derive_from_reflect
-//! [`TypeUuid`]: crate::derive_type_uuid
+//! [`TypePath`]: crate::derive_type_path
 //! [`reflect_trait`]: macro@reflect_trait
 
 extern crate proc_macro;
@@ -287,20 +287,6 @@ pub fn derive_type_path(input: TokenStream) -> TokenStream {
     TokenStream::from(quote! {
         const _: () = {
             #type_path_impl
-        };
-    })
-}
-
-// From https://github.com/randomPoison/type-uuid
-#[proc_macro_derive(TypeUuid, attributes(uuid))]
-pub fn derive_type_uuid(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let uuid_impl =
-        type_uuid::type_uuid_derive(input).unwrap_or_else(syn::Error::into_compile_error);
-
-    TokenStream::from(quote! {
-        const _: () = {
-            #uuid_impl
         };
     })
 }
@@ -613,19 +599,6 @@ pub fn impl_type_path(input: TokenStream) -> TokenStream {
     TokenStream::from(quote! {
         const _: () = {
             #type_path_impl
-        };
-    })
-}
-
-/// Derives `TypeUuid` for the given type. This is used internally to implement `TypeUuid` on foreign types, such as those in the std. This macro should be used in the format of `<[Generic Params]> [Type (Path)], [Uuid (String Literal)]`.
-#[proc_macro]
-pub fn impl_type_uuid(input: TokenStream) -> TokenStream {
-    let def = parse_macro_input!(input as type_uuid::TypeUuidDef);
-    let uuid_impl = type_uuid::gen_impl_type_uuid(def);
-
-    TokenStream::from(quote! {
-        const _: () = {
-            #uuid_impl
         };
     })
 }

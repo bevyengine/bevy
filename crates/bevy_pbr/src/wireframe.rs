@@ -2,7 +2,7 @@ use crate::{Material, MaterialPipeline, MaterialPipelineKey, MaterialPlugin};
 use bevy_app::{Plugin, Startup, Update};
 use bevy_asset::{load_internal_asset, Asset, Assets, Handle};
 use bevy_ecs::prelude::*;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath, TypeUuid};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use bevy_render::{
     color::Color,
     extract_resource::ExtractResource,
@@ -194,7 +194,7 @@ fn apply_global_wireframe_material(
     }
 }
 
-#[derive(Default, AsBindGroup, TypeUuid, TypePath, Debug, Clone, Asset)]
+#[derive(Default, AsBindGroup, TypePath, Debug, Clone, Asset)]
 #[uuid = "9e694f70-9963-4418-8bc1-3474c66b13b8"]
 pub struct WireframeMaterial {
     #[uniform(0)]
