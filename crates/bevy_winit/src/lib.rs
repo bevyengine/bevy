@@ -609,9 +609,9 @@ fn handle_winit_event(
             }
 
             let mut windows = app.world.query::<(&mut Window, &mut CachedWindow)>();
-            if let Ok((window, mut cache)) = windows.get_mut(&mut app.world, window) {
-                if window.is_changed() {
-                    cache.window = window.clone();
+            if let Ok((window_component, mut cache)) = windows.get_mut(&mut app.world, window) {
+                if window_component.is_changed() {
+                    cache.window = window_component.clone();
                 }
             }
         }
