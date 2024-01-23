@@ -338,7 +338,7 @@ impl AssetServer {
         self.load_internal(None, path, false, None).await
     }
 
-    /// Load an asset without knowing it's type. The method returns a handle to a [`LoadedUntypedAsset`].
+    /// Load an asset without knowing its type. The method returns a handle to a [`LoadedUntypedAsset`].
     ///
     /// Once the [`LoadedUntypedAsset`] is loaded, an untyped handle for the requested path can be
     /// retrieved from it.
