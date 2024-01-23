@@ -21,10 +21,11 @@ pub struct Sprite {
     /// An optional custom size for the sprite that will be used when rendering, instead of the size
     /// of the sprite's image
     pub custom_size: Option<Vec2>,
-    /// An optional rectangle representing the region of the sprite's image to render, instead of
-    /// rendering the full image. This is an easy one-off alternative to using a [`TextureAtlas`](crate::TextureAtlas).
+    /// An optional rectangle representing the region of the sprite's image to render, instead of rendering
+    /// the full image. This is an easy one-off alternative to using a [`TextureAtlas`](crate::TextureAtlas).
     ///
-    /// When used with a [`TextureAtlas`](crate::TextureAtlas), the rect is offset by the atlas's starting position.
+    /// When used with a [`TextureAtlas`](crate::TextureAtlas), the rect
+    /// is offset by the atlas's minimal (top-left) corner position.
     pub rect: Option<Rect>,
     /// [`Anchor`] point of the sprite in the world
     pub anchor: Anchor,
