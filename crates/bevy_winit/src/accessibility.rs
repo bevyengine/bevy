@@ -15,6 +15,7 @@ use bevy_a11y::{
 use bevy_a11y::{ActionRequest as ActionRequestWrapper, ManageAccessibilityUpdates};
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
     prelude::{DetectChanges, Entity, EventReader, EventWriter},
     query::With,
@@ -22,7 +23,6 @@ use bevy_ecs::{
     system::{NonSend, NonSendMut, Query, Res, ResMut, Resource},
 };
 use bevy_hierarchy::{Children, Parent};
-use bevy_utils::EntityHashMap;
 use bevy_window::{PrimaryWindow, Window, WindowClosed};
 
 /// Maps window entities to their `AccessKit` [`Adapter`]s.

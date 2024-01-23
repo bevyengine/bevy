@@ -1,11 +1,12 @@
 use crate::{ron, DynamicSceneBuilder, Scene, SceneSpawnError};
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
     entity::Entity,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities},
     world::World,
 };
 use bevy_reflect::{Reflect, TypePath, TypeRegistryArc};
-use bevy_utils::{EntityHashMap, HashMap};
+use bevy_utils::HashMap;
 use std::any::TypeId;
 
 #[cfg(feature = "serialize")]
@@ -192,9 +193,9 @@ where
 
 #[cfg(test)]
 mod tests {
+    use bevy_ecs::entity::EntityHashMap;
     use bevy_ecs::{reflect::AppTypeRegistry, system::Command, world::World};
     use bevy_hierarchy::{Parent, PushChild};
-    use bevy_utils::EntityHashMap;
 
     use crate::dynamic_scene_builder::DynamicSceneBuilder;
 

@@ -2,6 +2,7 @@ mod convert;
 pub mod debug;
 
 use crate::{ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiScale};
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     entity::Entity,
@@ -16,7 +17,7 @@ use bevy_log::warn;
 use bevy_math::{UVec2, Vec2};
 use bevy_render::camera::{Camera, NormalizedRenderTarget};
 use bevy_transform::components::Transform;
-use bevy_utils::{default, EntityHashMap, HashMap, HashSet};
+use bevy_utils::{default, HashMap, HashSet};
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 use std::fmt;
 use taffy::{tree::LayoutTree, Taffy};

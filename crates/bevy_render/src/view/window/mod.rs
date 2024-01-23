@@ -7,8 +7,8 @@ use crate::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
-use bevy_ecs::prelude::*;
-use bevy_utils::{default, tracing::debug, EntityHashMap, HashSet};
+use bevy_ecs::{entity::EntityHashMap, prelude::*};
+use bevy_utils::{default, tracing::debug, HashSet};
 use bevy_window::{
     CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosed,
 };

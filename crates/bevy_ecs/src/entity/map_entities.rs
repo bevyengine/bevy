@@ -3,7 +3,8 @@ use crate::{
     identifier::masks::{IdentifierMask, HIGH_MASK},
     world::World,
 };
-use bevy_utils::EntityHashMap;
+
+use super::EntityHashMap;
 
 /// Operation to map all contained [`Entity`] fields in a type to new values.
 ///
@@ -136,12 +137,9 @@ impl<'m> EntityMapper<'m> {
 
 #[cfg(test)]
 mod tests {
-    use bevy_utils::EntityHashMap;
+    use super::{Entity, EntityHashMap, EntityMapper};
 
-    use crate::{
-        entity::{Entity, EntityMapper},
-        world::World,
-    };
+    use crate::world::World;
 
     #[test]
     fn entity_mapper() {

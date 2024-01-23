@@ -4,6 +4,7 @@ use bevy_asset::{
 };
 use bevy_core::Name;
 use bevy_core_pipeline::prelude::Camera3dBundle;
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{entity::Entity, world::World};
 use bevy_hierarchy::{BuildWorldChildren, WorldChildBuilder};
 use bevy_log::{error, warn};
@@ -33,7 +34,7 @@ use bevy_scene::Scene;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::IoTaskPool;
 use bevy_transform::components::Transform;
-use bevy_utils::{EntityHashMap, HashMap, HashSet};
+use bevy_utils::{HashMap, HashSet};
 use gltf::{
     accessor::Iter,
     mesh::{util::ReadIndices, Mode},

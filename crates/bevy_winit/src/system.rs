@@ -1,4 +1,5 @@
 use bevy_a11y::AccessibilityRequested;
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
     entity::Entity,
     event::EventWriter,
@@ -7,10 +8,7 @@ use bevy_ecs::{
     system::{Commands, NonSendMut, Query, ResMut},
     world::Mut,
 };
-use bevy_utils::{
-    tracing::{error, info, warn},
-    EntityHashMap,
-};
+use bevy_utils::tracing::{error, info, warn};
 use bevy_window::{RawHandleWrapper, Window, WindowClosed, WindowCreated};
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 

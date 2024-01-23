@@ -31,6 +31,7 @@ thiserror = "1.0"
 
 [dev-dependencies]
 rand = "0.8"
+static_assertions = "1.1.0"
 
 [[example]]
 name = "events"

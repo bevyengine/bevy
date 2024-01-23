@@ -8,7 +8,8 @@ use bevy_ecs::{
     world::{Mut, World},
 };
 use bevy_hierarchy::{Parent, PushChild};
-use bevy_utils::{tracing::error, EntityHashMap, HashMap, HashSet};
+use bevy_utils::{tracing::error, HashMap, HashSet};
+use bevy_ecs::entity::EntityHashMap;
 use thiserror::Error;
 use uuid::Uuid;
 

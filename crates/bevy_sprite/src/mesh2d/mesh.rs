@@ -30,7 +30,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::EntityHashMap;
+use bevy_ecs::entity::EntityHashMap;
 
 use crate::Material2dBindGroupId;
 

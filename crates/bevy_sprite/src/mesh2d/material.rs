@@ -29,7 +29,8 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
-use bevy_utils::{EntityHashMap, FloatOrd, HashMap, HashSet};
+use bevy_utils::{FloatOrd, HashMap, HashSet};
+use bevy_ecs::entity::EntityHashMap;
 use std::hash::Hash;
 use std::marker::PhantomData;
 

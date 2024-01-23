@@ -19,8 +19,8 @@ use bevy_transform::{components::GlobalTransform, prelude::Transform};
 use bevy_utils::{
     nonmax::NonMaxU32,
     tracing::{error, warn},
-    EntityHashMap,
 };
+use bevy_ecs::entity::EntityHashMap;
 use std::{hash::Hash, num::NonZeroU64, ops::Range};
 
 use crate::*;

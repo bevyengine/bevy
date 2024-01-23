@@ -36,9 +36,13 @@
 //! [`EntityWorldMut::insert`]: crate::world::EntityWorldMut::insert
 //! [`EntityWorldMut::remove`]: crate::world::EntityWorldMut::remove
 mod map_entities;
+use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+pub use map_entities::*;
+
+mod hash;
+pub use hash::*;
 
 use bevy_utils::tracing::warn;
-pub use map_entities::*;
 
 use crate::{
     archetype::{ArchetypeId, ArchetypeRow},
@@ -122,7 +126,8 @@ type IdCursor = isize;
 /// [`EntityCommands`]: crate::system::EntityCommands
 /// [`Query::get`]: crate::system::Query::get
 /// [`World`]: crate::world::World
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Reflect)]
+#[reflect_value(Hash, PartialEq, Serialize, Deserialize)]
 // Alignment repr necessary to allow LLVM to better output
 // optimised codegen for `to_bits`, `PartialEq` and `Ord`.
 #[repr(C, align(8))]
@@ -1092,7 +1097,7 @@ mod tests {
     #[test]
     fn entity_hash_keeps_similar_ids_together() {
         use std::hash::BuildHasher;
-        let hash = bevy_utils::EntityHash;
+        let hash = EntityHash;
 
         let first_id = 0xC0FFEE << 8;
         let first_hash = hash.hash_one(Entity::from_raw(first_id));
@@ -1107,7 +1112,8 @@ mod tests {
     #[test]
     fn entity_hash_id_bitflip_affects_high_7_bits() {
         use std::hash::BuildHasher;
-        let hash = bevy_utils::EntityHash;
+
+        let hash = EntityHash;
 
         let first_id = 0xC0FFEE;
         let first_hash = hash.hash_one(Entity::from_raw(first_id)) >> 57;

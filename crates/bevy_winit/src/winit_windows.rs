@@ -7,7 +7,8 @@ use bevy_a11y::{
 };
 use bevy_ecs::entity::Entity;
 
-use bevy_utils::{tracing::warn, EntityHashMap, HashMap};
+use bevy_ecs::entity::EntityHashMap;
+use bevy_utils::{tracing::warn, HashMap};
 use bevy_window::{CursorGrabMode, Window, WindowMode, WindowPosition, WindowResolution};
 
 use winit::{

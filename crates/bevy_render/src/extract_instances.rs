@@ -10,11 +10,8 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    prelude::Entity,
-    query::{QueryFilter, QueryItem, ReadOnlyQueryData},
-    system::{lifetimeless::Read, Query, ResMut, Resource},
+    entity::EntityHashMap, prelude::Entity, query::{QueryFilter, QueryItem, ReadOnlyQueryData}, system::{lifetimeless::Read, Query, ResMut, Resource}
 };
-use bevy_utils::EntityHashMap;
 
 use crate::{prelude::ViewVisibility, Extract, ExtractSchedule, RenderApp};
 

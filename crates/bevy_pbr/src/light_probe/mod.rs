@@ -4,6 +4,7 @@ use bevy_app::{App, Plugin};
 use bevy_asset::load_internal_asset;
 use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -24,7 +25,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::prelude::GlobalTransform;
-use bevy_utils::{EntityHashMap, FloatOrd};
+use bevy_utils::FloatOrd;
 
 use crate::light_probe::environment_map::{
     binding_arrays_are_usable, EnvironmentMapIds, EnvironmentMapLight, RenderViewEnvironmentMaps,

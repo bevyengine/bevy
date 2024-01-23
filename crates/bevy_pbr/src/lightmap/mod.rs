@@ -30,6 +30,7 @@
 
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, AssetId, Handle};
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -43,7 +44,7 @@ use bevy_render::{
     mesh::Mesh, render_asset::RenderAssets, render_resource::Shader, texture::Image,
     view::ViewVisibility, Extract, ExtractSchedule, RenderApp,
 };
-use bevy_utils::{EntityHashMap, HashSet};
+use bevy_utils::HashSet;
 
 use crate::RenderMeshInstances;
 
