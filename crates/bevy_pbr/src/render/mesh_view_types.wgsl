@@ -111,15 +111,9 @@ struct ClusterOffsetsAndCounts {
 };
 #endif
 
-struct IrradianceVolumeData {
-    data: array<u32>,
-};
-
 struct IrradianceVolume {
     transform: mat4x4<f32>,
     inverse_transform: mat4x4<f32>,
-    resolution: vec3<i32>,
-    start_offset: u32,
 };
 
 struct IrradianceVolumes {

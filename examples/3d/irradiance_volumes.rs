@@ -1,4 +1,4 @@
-use bevy::pbr::irradiance_volume::{IrradianceVolume, IrradianceVoxels};
+use bevy::pbr::irradiance_volume::IrradianceVolume;
 use bevy::prelude::*;
 
 fn main() {
@@ -30,7 +30,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..SpatialBundle::default()
         })
         .insert(IrradianceVolume {
-            voxels: asset_server.load::<IrradianceVoxels>("irradiance_volumes/CornellBox.vxgi"),
+            voxels: asset_server.load::<Image>("irradiance_volumes/CornellBox.vxgi.ktx2"),
             intensity: 150.0,
         });
 }
