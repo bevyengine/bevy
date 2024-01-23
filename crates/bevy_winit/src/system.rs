@@ -1,15 +1,12 @@
 use bevy_ecs::{
     entity::Entity,
     event::EventWriter,
-    prelude::{Changed, Component, Resource},
+    prelude::{Changed, Component},
     query::QueryFilter,
     removal_detection::RemovedComponents,
     system::{NonSendMut, Query, SystemParamItem},
 };
-use bevy_utils::{
-    tracing::{error, info, warn},
-    EntityHashMap,
-};
+use bevy_utils::tracing::{error, info, warn};
 use bevy_window::{RawHandleWrapper, Window, WindowClosed, WindowCreated, WindowResized};
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 
@@ -84,10 +81,6 @@ pub(crate) fn create_windows<F: QueryFilter + 'static>(
         window_created_events.send(WindowCreated { window: entity });
     }
 }
-
-/// Cache for closing windows so we can get better debug information.
-#[derive(Debug, Clone, Resource)]
-pub struct WindowTitleCache(#[allow(dead_code)] EntityHashMap<Entity, String>);
 
 pub(crate) fn despawn_windows(
     mut closed: RemovedComponents<Window>,
