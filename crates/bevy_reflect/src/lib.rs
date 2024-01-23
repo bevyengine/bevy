@@ -536,8 +536,8 @@ pub mod __macro_exports {
 #[allow(clippy::disallowed_types, clippy::approx_constant)]
 mod tests {
     use bevy_utils::HashMap;
-    #[cfg(feature = "glam")]
-    use glam::{quat, vec3, Quat, Vec3};
+    #[rustfmt::skip]
+    use ::glam::{quat, vec3, Quat, Vec3};
     use ron::{
         ser::{to_string_pretty, PrettyConfig},
         Deserializer,
