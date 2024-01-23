@@ -618,9 +618,8 @@ fn handle_winit_event(
         Event::DeviceEvent { event, .. } => {
             runner_state.device_event_received = true;
             if let DeviceEvent::MouseMotion { delta: (x, y) } = event {
-                app.send_event(MouseMotion {
-                    delta: Vec2::new(x as f32, y as f32),
-                });
+                let delta = Vec2::new(x as f32, y as f32);
+                app.send_event(MouseMotion { delta });
             }
         }
         Event::Suspended => {
