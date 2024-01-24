@@ -440,12 +440,10 @@ fn collide_with_side(a: Aabb2d, b: Aabb2d) -> Option<Collision> {
         } else {
             Collision::Right
         }
+    } else if normalized.y > 0. {
+        Collision::Top
     } else {
-        if normalized.y > 0. {
-            Collision::Top
-        } else {
-            Collision::Bottom
-        }
+        Collision::Bottom
     };
 
     Some(side)
