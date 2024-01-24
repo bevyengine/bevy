@@ -45,7 +45,7 @@ unsafe impl Sync for RawHandleWrapper {}
 /// This can only be constructed via the [`RawHandleWrapper::get_handle()`] method;
 /// be sure to read the safety docs there about platform-specific limitations.
 /// In many cases, this should only be constructed on the main thread.
-pub struct ThreadLockedRawWindowHandleWrapper(pub RawHandleWrapper);
+pub struct ThreadLockedRawWindowHandleWrapper(RawHandleWrapper);
 
 // SAFETY: the caller has validated that this is a valid context to get [`RawHandleWrapper`]
 // as otherwise an instance of this type could not have been constructed
