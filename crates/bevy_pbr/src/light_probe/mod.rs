@@ -1,7 +1,7 @@
 //! Light probes for baked global illumination.
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, AssetId};
+use bevy_asset::{load_internal_asset, AssetId, Handle};
 use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -38,6 +38,8 @@ use crate::{
 };
 
 use self::irradiance_volume::IrradianceVolume;
+
+pub const LIGHT_PROBE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(8954249792581071582);
 
 pub mod environment_map;
 pub mod irradiance_volume;
@@ -204,6 +206,12 @@ impl LightProbe {
 
 impl Plugin for LightProbePlugin {
     fn build(&self, app: &mut App) {
+        load_internal_asset!(
+            app,
+            LIGHT_PROBE_SHADER_HANDLE,
+            "light_probe.wgsl",
+            Shader::from_wgsl
+        );
         load_internal_asset!(
             app,
             ENVIRONMENT_MAP_SHADER_HANDLE,

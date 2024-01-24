@@ -1,8 +1,8 @@
 #define_import_path bevy_pbr::environment_map
 
+#import bevy_pbr::light_probe::query_light_probe
 #import bevy_pbr::mesh_view_bindings as bindings
 #import bevy_pbr::mesh_view_bindings::light_probes
-#import bevy_pbr::utils::transpose_affine_matrix
 
 struct EnvironmentMapLight {
     diffuse: vec3<f32>,
@@ -29,58 +29,41 @@ fn compute_radiances(
     var radiances: EnvironmentMapRadiances;
 
     // Search for a reflection probe that contains the fragment.
-    //
-    // TODO: Interpolate between multiple reflection probes.
-    var cubemap_index: i32 = -1;
-    var intensity: f32 = 1.0;
-    for (var reflection_probe_index: i32 = 0;
-            reflection_probe_index < light_probes.reflection_probe_count;
-            reflection_probe_index += 1) {
-        let reflection_probe = light_probes.reflection_probes[reflection_probe_index];
-
-        // Unpack the inverse transform.
-        let inverse_transform =
-            transpose_affine_matrix(reflection_probe.inverse_transpose_transform);
-
-        // Check to see if the transformed point is inside the unit cube
-        // centered at the origin.
-        let probe_space_pos = (inverse_transform * vec4<f32>(world_position, 1.0)).xyz;
-        if (all(abs(probe_space_pos) <= vec3(0.5))) {
-            cubemap_index = reflection_probe.cubemap_index;
-            intensity = reflection_probe.intensity;
-            break;
-        }
-    }
+    var query_result = query_light_probe(
+        light_probes.reflection_probes,
+        light_probes.reflection_probe_count,
+        world_position);
 
     // If we didn't find a reflection probe, use the view environment map if applicable.
-    if (cubemap_index < 0) {
-        cubemap_index = light_probes.view_cubemap_index;
-        intensity = light_probes.intensity_for_view;
+    if (query_result.texture_index < 0) {
+        query_result.texture_index = light_probes.view_cubemap_index;
+        query_result.intensity = light_probes.intensity_for_view;
     }
 
     // If there's no cubemap, bail out.
-    if (cubemap_index < 0) {
+    if (query_result.texture_index < 0) {
         radiances.irradiance = vec3(0.0);
         radiances.radiance = vec3(0.0);
         return radiances;
     }
 
     // Split-sum approximation for image based lighting: https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf
-    let radiance_level = perceptual_roughness * f32(textureNumLevels(bindings::specular_environment_maps[cubemap_index]) - 1u);
+    let radiance_level = perceptual_roughness * f32(textureNumLevels(
+        bindings::specular_environment_maps[query_result.texture_index]) - 1u);
 
 #ifndef LIGHTMAP
     radiances.irradiance = textureSampleLevel(
-        bindings::diffuse_environment_maps[cubemap_index],
+        bindings::diffuse_environment_maps[query_result.texture_index],
         bindings::environment_map_sampler,
         vec3(N.xy, -N.z),
-        0.0).rgb * intensity;
+        0.0).rgb * query_result.intensity;
 #endif  // LIGHTMAP
 
     radiances.radiance = textureSampleLevel(
-        bindings::specular_environment_maps[cubemap_index],
+        bindings::specular_environment_maps[query_result.texture_index],
         bindings::environment_map_sampler,
         vec3(R.xy, -R.z),
-        radiance_level).rgb * intensity;
+        radiance_level).rgb * query_result.intensity;
 
     return radiances;
 }

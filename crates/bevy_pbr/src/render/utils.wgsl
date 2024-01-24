@@ -67,12 +67,3 @@ const SPIRAL_OFFSET_4_ = vec2<f32>( 0.3536, -0.3536);
 const SPIRAL_OFFSET_5_ = vec2<f32>(-0.0000,  0.3750);
 const SPIRAL_OFFSET_6_ = vec2<f32>(-0.1768, -0.1768);
 const SPIRAL_OFFSET_7_ = vec2<f32>( 0.1250,  0.0000);
-
-fn transpose_affine_matrix(matrix: mat3x4<f32>) -> mat4x4<f32> {
-    let matrix4x4 = mat4x4<f32>(
-        matrix[0],
-        matrix[1],
-        matrix[2],
-        vec4<f32>(0.0, 0.0, 0.0, 1.0));
-    return transpose(matrix4x4);
-}

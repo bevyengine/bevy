@@ -1,29 +1,36 @@
 #define_import_path bevy_pbr::irradiance_volume
 
+#import bevy_pbr::light_probe::query_light_probe
 #import bevy_pbr::mesh_view_bindings::{
     irradiance_volumes,
     irradiance_volume,
     irradiance_volume_sampler,
     light_probes,
 };
-#import bevy_pbr::utils::transpose_affine_matrix
 
 // See:
 // https://advances.realtimerendering.com/s2006/Mitchell-ShadingInValvesSourceEngine.pdf
 // Slide 28, "Ambient Cube Basis"
-fn sample_irradiance_volume(P: vec3<f32>, N: vec3<f32>) -> vec3<f32> {
-    // FIXME(pcwalton): Actually look up the proper light probe, once #10057 lands.
-    let inverse_transform =
-        transpose_affine_matrix(light_probes.irradiance_volumes[0].inverse_transpose_transform);
+fn sample_irradiance_volume(world_position: vec3<f32>, N: vec3<f32>) -> vec3<f32> {
+    // Search for an irradiance volume that contains the fragment.
+    let query_result = query_light_probe(
+        light_probes.irradiance_volumes,
+        light_probes.irradiance_volume_count,
+        world_position);
 
-    let irradiance_volume_texture = irradiance_volumes[0];
+    // If there was no irradiance volume found, bail out.
+    if (query_result.texture_index < 0) {
+        return vec3<f32>(0.0);
+    }
+
+    let irradiance_volume_texture = irradiance_volumes[query_result.texture_index];
 
     let atlas_resolution = vec3<f32>(textureDimensions(irradiance_volume_texture));
     let resolution = vec3<f32>(textureDimensions(irradiance_volume_texture) / vec3(1u, 2u, 3u));
 
     // Make sure to clamp to the edges to avoid texture bleed.
-    var unit_pos = (inverse_transform * vec4(P, 1.0f)).xyz;
-    unit_pos = mix(vec3(0.0f), vec3(resolution), (unit_pos + 1.0) * 0.5);
+    var unit_pos = (query_result.inverse_transform * vec4(world_position, 1.0f)).xyz;
+    unit_pos = mix(vec3(0.0f), vec3(resolution), unit_pos + 0.5);
 
     let stp = clamp(unit_pos, vec3(0.5f), resolution - vec3(0.5f));
     let uvw = stp / atlas_resolution;
@@ -42,5 +49,5 @@ fn sample_irradiance_volume(P: vec3<f32>, N: vec3<f32>) -> vec3<f32> {
 
     // Use Valve's formula to sample.
     let NN = N * N;
-    return rgb_x * NN.x + rgb_y * NN.y + rgb_z * NN.z;
+    return (rgb_x * NN.x + rgb_y * NN.y + rgb_z * NN.z) * query_result.intensity;
 }
