@@ -15,18 +15,13 @@ type FontSizeKey = FloatOrd;
 #[derive(Default, Resource)]
 pub struct FontAtlasSets {
     // PERF: in theory this could be optimized with Assets storage ... consider making some fast "simple" AssetMap
-    pub(crate) sets: HashMap<AssetId<Font>, FontAtlasSet>,
+    pub sets: HashMap<AssetId<Font>, FontAtlasSet>,
 }
 
 impl FontAtlasSets {
     pub fn get(&self, id: impl Into<AssetId<Font>>) -> Option<&FontAtlasSet> {
         let id: AssetId<Font> = id.into();
         self.sets.get(&id)
-    }
-
-    pub fn get_mut(&mut self, id: impl Into<AssetId<Font>>) -> Option<&mut FontAtlasSet> {
-        let id: AssetId<Font> = id.into();
-        self.sets.get_mut(&id)
     }
 }
 
