@@ -272,7 +272,7 @@ where
 
     let new_len = vec.len() + len;
 
-    // SAFETY: The assert checks `new_len` is valid 
+    // SAFETY: The assert checks `new_len` is valid
     unsafe {
         vec.set_len(new_len);
     }
