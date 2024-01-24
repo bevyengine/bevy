@@ -360,6 +360,7 @@ pub fn prepare_windows(
         let may_erroneously_timeout = || {
             render_instance
                 .enumerate_adapters(wgpu::Backends::VULKAN)
+                .iter()
                 .any(|adapter| {
                     let name = adapter.get_info().name;
                     name.starts_with("Radeon")
