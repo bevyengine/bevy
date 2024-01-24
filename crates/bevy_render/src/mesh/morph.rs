@@ -68,7 +68,7 @@ impl MorphTargetImage {
     pub fn new(
         targets: impl ExactSizeIterator<Item = impl Iterator<Item = MorphAttributes>>,
         vertex_count: usize,
-        usage: RenderAssetUsages,
+        asset_usage: RenderAssetUsages,
     ) -> Result<Self, MorphBuildError> {
         let max = MAX_TEXTURE_WIDTH;
         let target_count = targets.len();
@@ -108,7 +108,7 @@ impl MorphTargetImage {
             TextureDimension::D3,
             data,
             TextureFormat::R32Float,
-            usage,
+            asset_usage,
         );
         Ok(MorphTargetImage(image))
     }
