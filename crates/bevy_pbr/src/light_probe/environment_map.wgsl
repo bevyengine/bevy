@@ -2,6 +2,7 @@
 
 #import bevy_pbr::mesh_view_bindings as bindings
 #import bevy_pbr::mesh_view_bindings::light_probes
+#import bevy_pbr::utils::transpose_affine_matrix
 
 struct EnvironmentMapLight {
     diffuse: vec3<f32>,
@@ -38,12 +39,8 @@ fn compute_radiances(
         let reflection_probe = light_probes.reflection_probes[reflection_probe_index];
 
         // Unpack the inverse transform.
-        let inverse_transpose_transform = mat4x4<f32>(
-            reflection_probe.inverse_transpose_transform[0],
-            reflection_probe.inverse_transpose_transform[1],
-            reflection_probe.inverse_transpose_transform[2],
-            vec4<f32>(0.0, 0.0, 0.0, 1.0));
-        let inverse_transform = transpose(inverse_transpose_transform);
+        let inverse_transform =
+            transpose_affine_matrix(reflection_probe.inverse_transpose_transform);
 
         // Check to see if the transformed point is inside the unit cube
         // centered at the origin.

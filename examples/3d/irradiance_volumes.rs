@@ -32,5 +32,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .insert(IrradianceVolume {
             voxels: asset_server.load::<Image>("irradiance_volumes/CornellBox.vxgi.ktx2"),
             intensity: 150.0,
-        });
+        })
+        .insert(LightProbe);
 }

@@ -1,37 +1,29 @@
 //! Irradiance volumes.
 
-use bevy_app::{App, Plugin};
-use bevy_ecs::{
-    component::Component,
-    query::QueryItem,
-    schedule::IntoSystemConfigs as _,
-    system::{lifetimeless::Read, Res, ResMut, Resource},
-    world::{FromWorld, World},
-};
+use bevy_ecs::component::Component;
 use bevy_render::{
-    extract_instances::{ExtractInstance, ExtractInstancesPlugin, ExtractedInstances},
     render_asset::RenderAssets,
-    render_resource::{Shader, ShaderType, UniformBuffer},
-    renderer::{RenderDevice, RenderQueue},
-    texture::Image,
-    Render, RenderApp, RenderSet,
+    render_resource::{
+        binding_types, BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, Shader,
+        TextureSampleType, TextureView,
+    },
+    renderer::RenderDevice,
+    texture::{FallbackImage, Image},
 };
-use bevy_transform::components::GlobalTransform;
-use std::io;
-use thiserror::Error;
+use std::{num::NonZeroU32, ops::Deref};
 
-use bevy_asset::{load_internal_asset, AssetId, Handle};
-use bevy_math::Mat4;
+use bevy_asset::{AssetId, Handle};
 use bevy_reflect::{Reflect, TypeUuid};
 
-pub static IRRADIANCE_VOXELS_EXTENSION: &str = "vxgi";
-pub static IRRADIANCE_VOXELS_MAGIC_NUMBER: &[u8; 4] = b"VXGI";
-pub const IRRADIANCE_VOXELS_VERSION: u32 = 0;
+use crate::{
+    add_texture_view, environment_map::binding_arrays_are_usable, RenderViewLightProbes,
+    MAX_VIEW_LIGHT_PROBES,
+};
 
-pub const IRRADIANCE_VOLUMES_SHADER_HANDLE: Handle<Shader> =
+use super::LightProbeComponent;
+
+pub const IRRADIANCE_VOLUME_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(160299515939076705258408299184317675488);
-
-pub const MAX_IRRADIANCE_VOLUMES: usize = 256;
 
 /// The component that defines an irradiance volume.
 #[derive(Clone, Default, Reflect, Component, Debug, TypeUuid)]
@@ -41,135 +33,88 @@ pub struct IrradianceVolume {
     pub intensity: f32,
 }
 
-#[derive(Default)]
-pub struct IrradianceVoxelsAssetLoader;
-
-#[derive(Error, Debug)]
-pub enum IrradianceVoxelsAssetLoadError {
-    #[error("unknown magic number")]
-    BadMagicNumber,
-    #[error("unknown version")]
-    BadVersion,
-    #[error("I/O error: {0}")]
-    Io(#[from] io::Error),
+pub(crate) enum RenderViewIrradianceVolumeBindGroupEntries<'a> {
+    Single {
+        texture_view: &'a TextureView,
+        sampler: &'a Sampler,
+    },
+    Multiple {
+        texture_views: Vec<&'a <TextureView as Deref>::Target>,
+        sampler: &'a Sampler,
+    },
 }
 
-#[derive(Copy, Clone, ShaderType, Default, Debug)]
-pub struct GpuIrradianceVolume {
-    pub transform: Mat4,
-    pub inverse_transform: Mat4,
-}
+impl<'a> RenderViewIrradianceVolumeBindGroupEntries<'a> {
+    pub(crate) fn get(
+        render_view_irradiance_volumes: Option<&RenderViewLightProbes<IrradianceVolume>>,
+        images: &'a RenderAssets<Image>,
+        fallback_image: &'a FallbackImage,
+        render_device: &RenderDevice,
+    ) -> RenderViewIrradianceVolumeBindGroupEntries<'a> {
+        // TODO(pcwalton): No-binding-arrays version.
+        let mut texture_views = vec![];
+        let mut sampler = None;
 
-#[derive(ShaderType)]
-pub struct GpuIrradianceVolumes {
-    pub volumes: [GpuIrradianceVolume; MAX_IRRADIANCE_VOLUMES],
-}
+        if let Some(irradiance_volumes) = render_view_irradiance_volumes {
+            for &cubemap_id in &irradiance_volumes.binding_index_to_cubemap {
+                add_texture_view(
+                    &mut texture_views,
+                    &mut sampler,
+                    cubemap_id,
+                    images,
+                    fallback_image,
+                )
+            }
+        }
 
-#[derive(Resource)]
-pub struct RenderIrradianceVolumes {
-    pub gpu_irradiance_volume_metadata: UniformBuffer<GpuIrradianceVolumes>,
-    pub voxels: Option<AssetId<Image>>,
-}
+        // Pad out the bindings to the size of the binding array using fallback
+        // textures. This is necessary on D3D12 and Metal.
+        texture_views.resize(MAX_VIEW_LIGHT_PROBES, &*fallback_image.d3.texture_view);
 
-pub struct IrradianceVolumeInstance {
-    pub transform: Mat4,
-    pub voxels: AssetId<Image>,
-}
-
-pub struct IrradianceVolumesPlugin;
-
-impl Plugin for IrradianceVolumesPlugin {
-    fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            IRRADIANCE_VOLUMES_SHADER_HANDLE,
-            "irradiance_volume.wgsl",
-            Shader::from_wgsl
-        );
-
-        app.add_plugins(ExtractInstancesPlugin::<IrradianceVolumeInstance>::new());
-
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app.add_systems(
-            Render,
-            prepare_irradiance_volumes.in_set(RenderSet::PrepareResources),
-        );
-    }
-
-    fn finish(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app.init_resource::<RenderIrradianceVolumes>();
-    }
-}
-
-pub fn prepare_irradiance_volumes(
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-    mut render_irradiance_volumes: ResMut<RenderIrradianceVolumes>,
-    irradiance_volumes: Res<ExtractedInstances<IrradianceVolumeInstance>>,
-    image_assets: Res<RenderAssets<Image>>,
-) {
-    // Loop over all irradiance volumes in the scene and update the metadata.
-    let mut irradiance_volume_count = 0;
-    for (_, instance) in irradiance_volumes.iter() {
-        if image_assets.get(instance.voxels).is_none() {
-            continue;
-        };
-
-        let transform = instance.transform;
-
-        render_irradiance_volumes
-            .gpu_irradiance_volume_metadata
-            .get_mut()
-            .volumes[irradiance_volume_count] = GpuIrradianceVolume {
-            transform,
-            inverse_transform: transform.inverse(),
-        };
-
-        render_irradiance_volumes.voxels = Some(instance.voxels);
-
-        irradiance_volume_count += 1;
-    }
-
-    render_irradiance_volumes
-        .gpu_irradiance_volume_metadata
-        .write_buffer(&render_device, &render_queue);
-}
-
-impl FromWorld for RenderIrradianceVolumes {
-    fn from_world(world: &mut World) -> Self {
-        let gpu_irradiance_volume_metadata = UniformBuffer::from_world(world);
-        RenderIrradianceVolumes {
-            gpu_irradiance_volume_metadata,
-            voxels: None,
+        RenderViewIrradianceVolumeBindGroupEntries::Multiple {
+            texture_views,
+            sampler: sampler.unwrap_or(&fallback_image.d3.sampler),
         }
     }
 }
 
-impl Default for GpuIrradianceVolumes {
-    fn default() -> Self {
-        Self {
-            volumes: [GpuIrradianceVolume::default(); MAX_IRRADIANCE_VOLUMES],
-        }
+pub(crate) fn get_bind_group_layout_entries(
+    render_device: &RenderDevice,
+) -> [BindGroupLayoutEntryBuilder; 2] {
+    let mut texture_3d_binding =
+        binding_types::texture_3d(TextureSampleType::Float { filterable: true });
+    if binding_arrays_are_usable(render_device) {
+        texture_3d_binding =
+            texture_3d_binding.count(NonZeroU32::new(MAX_VIEW_LIGHT_PROBES as _).unwrap());
     }
+
+    [
+        texture_3d_binding,
+        binding_types::sampler(SamplerBindingType::Filtering),
+    ]
 }
 
-impl ExtractInstance for IrradianceVolumeInstance {
-    type QueryData = (Read<GlobalTransform>, Read<IrradianceVolume>);
-    type QueryFilter = ();
+impl LightProbeComponent for IrradianceVolume {
+    type Id = AssetId<Image>;
 
-    fn extract(
-        (global_transform, irradiance_volume): QueryItem<'_, Self::QueryData>,
-    ) -> Option<Self> {
-        Some(IrradianceVolumeInstance {
-            transform: global_transform.compute_matrix(),
-            voxels: irradiance_volume.voxels.id(),
-        })
+    type ViewLightProbeInfo = ();
+
+    fn id(&self, image_assets: &RenderAssets<Image>) -> Option<Self::Id> {
+        if image_assets.get(&self.voxels).is_none() {
+            None
+        } else {
+            Some(self.voxels.id())
+        }
+    }
+
+    fn intensity(&self) -> f32 {
+        self.intensity
+    }
+
+    fn create_render_view_light_probes(
+        _: Option<&Self>,
+        _: &RenderAssets<Image>,
+    ) -> RenderViewLightProbes<Self> {
+        RenderViewLightProbes::new()
     }
 }

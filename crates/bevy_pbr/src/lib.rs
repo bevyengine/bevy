@@ -75,7 +75,7 @@ use bevy_render::{
 };
 use bevy_transform::TransformSystem;
 
-use crate::{deferred::DeferredPbrLightingPlugin, irradiance_volume::IrradianceVolumesPlugin};
+use crate::deferred::DeferredPbrLightingPlugin;
 
 pub const PBR_TYPES_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1708015359337029744);
 pub const PBR_BINDINGS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(5635987986427308186);
@@ -261,7 +261,6 @@ impl Plugin for PbrPlugin {
                 FogPlugin,
                 ExtractResourcePlugin::<DefaultOpaqueRendererMethod>::default(),
                 ExtractComponentPlugin::<ShadowFilteringMethod>::default(),
-                IrradianceVolumesPlugin,
                 LightmapPlugin,
                 LightProbePlugin,
             ))

@@ -1,5 +1,5 @@
 use crate::{
-    environment_map::RenderViewEnvironmentMaps, MeshPipeline, MeshViewBindGroup,
+    prelude::EnvironmentMapLight, MeshPipeline, MeshViewBindGroup, RenderViewLightProbes,
     ScreenSpaceAmbientOcclusionSettings, ViewLightProbesUniformOffset,
 };
 use bevy_app::prelude::*;
@@ -408,7 +408,7 @@ pub fn prepare_deferred_lighting_pipelines(
                 Has<DepthPrepass>,
                 Has<MotionVectorPrepass>,
             ),
-            Has<RenderViewEnvironmentMaps>,
+            Has<RenderViewLightProbes<EnvironmentMapLight>>,
         ),
         With<DeferredPrepass>,
     >,
