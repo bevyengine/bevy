@@ -269,7 +269,7 @@ pub(crate) fn get_meta_path(path: &Path) -> PathBuf {
     let mut meta_path = path.to_path_buf();
     let mut extension = path
         .extension()
-        .unwrap_or_else(|| panic!("missing expected extension for asset path {path:?}"))
+        .unwrap_or_else(|| panic!("missing extension for asset path {path:?}"))
         .to_os_string();
     extension.push(".meta");
     meta_path.set_extension(extension);
