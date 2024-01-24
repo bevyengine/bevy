@@ -363,7 +363,7 @@ impl Plugin for PbrPlugin {
         let draw_3d_graph = graph.get_sub_graph_mut(SubGraph3d).unwrap();
         draw_3d_graph.add_node(LabelsPbr::ShadowPass, shadow_pass_node);
         draw_3d_graph.add_node_edge(LabelsPbr::ShadowPass, Labels3d::StartMainPass);
-      
+
         render_app.ignore_ambiguity(
             bevy_render::Render,
             bevy_core_pipeline::core_3d::prepare_core_3d_transmission_textures,
