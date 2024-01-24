@@ -1,7 +1,4 @@
-use crate::io::{
-    get_meta_path, AssetReader, AssetReaderError, EmptyPathStream, PathStream, Reader, VecReader,
-};
-use bevy_log::error;
+use crate::io::{get_meta_path, AssetReader, AssetReaderError, PathStream, Reader, VecReader};
 use bevy_utils::BoxedFuture;
 use futures_lite::stream;
 use std::{ffi::CString, path::Path};
@@ -65,7 +62,7 @@ impl AssetReader for AndroidAssetReader {
                 .get()
                 .expect("Bevy must be setup with the #[bevy_main] macro on Android")
                 .asset_manager();
-            let mut opened_assets_dir = asset_manager
+            let opened_assets_dir = asset_manager
                 .open_dir(&CString::new(path.to_str().unwrap()).unwrap())
                 .ok_or(AssetReaderError::NotFound(path.to_path_buf()))?;
 
