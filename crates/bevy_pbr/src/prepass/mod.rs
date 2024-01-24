@@ -906,11 +906,11 @@ pub fn queue_prepass_material_meshes<M: Material>(
 pub struct SetPrepassViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetPrepassViewBindGroup<I> {
     type Param = SRes<PrepassViewBindGroup>;
-    type ViewData = (
+    type ViewQuery = (
         Read<ViewUniformOffset>,
         Option<Read<PreviousViewProjectionUniformOffset>>,
     );
-    type ItemData = ();
+    type ItemQuery = ();
 
     #[inline]
     fn render<'w>(

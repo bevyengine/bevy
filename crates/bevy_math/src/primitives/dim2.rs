@@ -24,6 +24,17 @@ impl Direction2d {
         Self::new_and_length(value).map(|(dir, _)| dir)
     }
 
+    /// Create a [`Direction2d`] from a [`Vec2`] that is already normalized.
+    ///
+    /// # Warning
+    ///
+    /// `value` must be normalized, i.e it's length must be `1.0`.
+    pub fn new_unchecked(value: Vec2) -> Self {
+        debug_assert!(value.is_normalized());
+
+        Self(value)
+    }
+
     /// Create a direction from a finite, nonzero [`Vec2`], also returning its original length.
     ///
     /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
@@ -34,7 +45,7 @@ impl Direction2d {
 
         direction
             .map(|dir| (Self(dir), length))
-            .map_or(Err(InvalidDirectionError::from_length(length)), Ok)
+            .ok_or(InvalidDirectionError::from_length(length))
     }
 
     /// Create a direction from its `x` and `y` components.
@@ -43,12 +54,6 @@ impl Direction2d {
     /// of the vector formed by the components is zero (or very close to zero), infinite, or `NaN`.
     pub fn from_xy(x: f32, y: f32) -> Result<Self, InvalidDirectionError> {
         Self::new(Vec2::new(x, y))
-    }
-
-    /// Create a direction from a [`Vec2`] that is already normalized.
-    pub fn from_normalized(value: Vec2) -> Self {
-        debug_assert!(value.is_normalized());
-        Self(value)
     }
 }
 
@@ -81,6 +86,27 @@ pub struct Circle {
     pub radius: f32,
 }
 impl Primitive2d for Circle {}
+
+impl Circle {
+    /// Finds the point on the circle that is closest to the given `point`.
+    ///
+    /// If the point is outside the circle, the returned point will be on the perimeter of the circle.
+    /// Otherwise, it will be inside the circle and returned as is.
+    #[inline(always)]
+    pub fn closest_point(&self, point: Vec2) -> Vec2 {
+        let distance_squared = point.length_squared();
+
+        if distance_squared <= self.radius.powi(2) {
+            // The point is inside the circle.
+            point
+        } else {
+            // The point is outside the circle.
+            // Find the closest point on the perimeter of the circle.
+            let dir_to_point = point / distance_squared.sqrt();
+            self.radius * dir_to_point
+        }
+    }
+}
 
 /// An ellipse primitive
 #[derive(Clone, Copy, Debug)]
@@ -187,8 +213,10 @@ impl Segment2d {
     pub fn from_points(point1: Vec2, point2: Vec2) -> (Self, Vec2) {
         let diff = point2 - point1;
         let length = diff.length();
+
         (
-            Self::new(Direction2d::from_normalized(diff / length), length),
+            // We are dividing by the length here, so the vector is normalized.
+            Self::new(Direction2d::new_unchecked(diff / length), length),
             (point1 + point2) / 2.,
         )
     }
@@ -351,6 +379,16 @@ impl Rectangle {
             half_size: size / 2.,
         }
     }
+
+    /// Finds the point on the rectangle that is closest to the given `point`.
+    ///
+    /// If the point is outside the rectangle, the returned point will be on the perimeter of the rectangle.
+    /// Otherwise, it will be inside the rectangle and returned as is.
+    #[inline(always)]
+    pub fn closest_point(&self, point: Vec2) -> Vec2 {
+        // Clamp point coordinates to the rectangle
+        point.clamp(-self.half_size, self.half_size)
+    }
 }
 
 /// A polygon with N vertices.
@@ -477,7 +515,7 @@ mod tests {
         );
         assert_eq!(
             Direction2d::new_and_length(Vec2::X * 6.5),
-            Ok((Direction2d::from_normalized(Vec2::X), 6.5))
+            Ok((Direction2d::X, 6.5))
         );
     }
 
@@ -540,6 +578,31 @@ mod tests {
         assert!(
             (rotated_vertices.next().unwrap() - Vec2::new(-side_sistance, side_sistance)).length()
                 < 1e-7,
+        );
+    }
+
+    #[test]
+    fn rectangle_closest_point() {
+        let rectangle = Rectangle::new(2.0, 2.0);
+        assert_eq!(rectangle.closest_point(Vec2::X * 10.0), Vec2::X);
+        assert_eq!(rectangle.closest_point(Vec2::NEG_ONE * 10.0), Vec2::NEG_ONE);
+        assert_eq!(
+            rectangle.closest_point(Vec2::new(0.25, 0.1)),
+            Vec2::new(0.25, 0.1)
+        );
+    }
+
+    #[test]
+    fn circle_closest_point() {
+        let circle = Circle { radius: 1.0 };
+        assert_eq!(circle.closest_point(Vec2::X * 10.0), Vec2::X);
+        assert_eq!(
+            circle.closest_point(Vec2::NEG_ONE * 10.0),
+            Vec2::NEG_ONE.normalize()
+        );
+        assert_eq!(
+            circle.closest_point(Vec2::new(0.25, 0.1)),
+            Vec2::new(0.25, 0.1)
         );
     }
 }

@@ -33,7 +33,7 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
     var props = deferred_types::pack_unorm3x4_plus_unorm_20_(vec4(
         in.material.reflectance,
         in.material.metallic,
-        diffuse_occlusion, 
+        diffuse_occlusion,
         in.frag_coord.z));
 #else
     var props = deferred_types::pack_unorm4x8_(vec4(

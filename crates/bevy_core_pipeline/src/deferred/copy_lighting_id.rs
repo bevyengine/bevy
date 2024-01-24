@@ -61,7 +61,7 @@ impl CopyDeferredLightingIdNode {
 }
 
 impl ViewNode for CopyDeferredLightingIdNode {
-    type ViewData = (
+    type ViewQuery = (
         &'static ViewTarget,
         &'static ViewPrepassTextures,
         &'static DeferredLightingIdDepthTexture,
@@ -72,7 +72,7 @@ impl ViewNode for CopyDeferredLightingIdNode {
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
         (_view_target, view_prepass_textures, deferred_lighting_id_depth_texture): QueryItem<
-            Self::ViewData,
+            Self::ViewQuery,
         >,
         world: &World,
     ) -> Result<(), NodeRunError> {

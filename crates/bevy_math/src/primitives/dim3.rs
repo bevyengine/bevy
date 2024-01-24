@@ -28,6 +28,17 @@ impl Direction3d {
         Self::new_and_length(value).map(|(dir, _)| dir)
     }
 
+    /// Create a [`Direction3d`] from a [`Vec3`] that is already normalized.
+    ///
+    /// # Warning
+    ///
+    /// `value` must be normalized, i.e it's length must be `1.0`.
+    pub fn new_unchecked(value: Vec3) -> Self {
+        debug_assert!(value.is_normalized());
+
+        Self(value)
+    }
+
     /// Create a direction from a finite, nonzero [`Vec3`], also returning its original length.
     ///
     /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
@@ -38,7 +49,7 @@ impl Direction3d {
 
         direction
             .map(|dir| (Self(dir), length))
-            .map_or(Err(InvalidDirectionError::from_length(length)), Ok)
+            .ok_or(InvalidDirectionError::from_length(length))
     }
 
     /// Create a direction from its `x`, `y`, and `z` components.
@@ -47,12 +58,6 @@ impl Direction3d {
     /// of the vector formed by the components is zero (or very close to zero), infinite, or `NaN`.
     pub fn from_xyz(x: f32, y: f32, z: f32) -> Result<Self, InvalidDirectionError> {
         Self::new(Vec3::new(x, y, z))
-    }
-
-    /// Create a direction from a [`Vec3`] that is already normalized.
-    pub fn from_normalized(value: Vec3) -> Self {
-        debug_assert!(value.is_normalized());
-        Self(value)
     }
 }
 
@@ -85,6 +90,27 @@ pub struct Sphere {
     pub radius: f32,
 }
 impl Primitive3d for Sphere {}
+
+impl Sphere {
+    /// Finds the point on the sphere that is closest to the given `point`.
+    ///
+    /// If the point is outside the sphere, the returned point will be on the surface of the sphere.
+    /// Otherwise, it will be inside the sphere and returned as is.
+    #[inline(always)]
+    pub fn closest_point(&self, point: Vec3) -> Vec3 {
+        let distance_squared = point.length_squared();
+
+        if distance_squared <= self.radius.powi(2) {
+            // The point is inside the sphere.
+            point
+        } else {
+            // The point is outside the sphere.
+            // Find the closest point on the surface of the sphere.
+            let dir_to_point = point / distance_squared.sqrt();
+            self.radius * dir_to_point
+        }
+    }
+}
 
 /// An unbounded plane in 3D space. It forms a separating surface through the origin,
 /// stretching infinitely far
@@ -146,8 +172,10 @@ impl Segment3d {
     pub fn from_points(point1: Vec3, point2: Vec3) -> (Self, Vec3) {
         let diff = point2 - point1;
         let length = diff.length();
+
         (
-            Self::new(Direction3d::from_normalized(diff / length), length),
+            // We are dividing by the length here, so the vector is normalized.
+            Self::new(Direction3d::new_unchecked(diff / length), length),
             (point1 + point2) / 2.,
         )
     }
@@ -237,6 +265,16 @@ impl Cuboid {
         Self {
             half_size: size / 2.,
         }
+    }
+
+    /// Finds the point on the cuboid that is closest to the given `point`.
+    ///
+    /// If the point is outside the cuboid, the returned point will be on the surface of the cuboid.
+    /// Otherwise, it will be inside the cuboid and returned as is.
+    #[inline(always)]
+    pub fn closest_point(&self, point: Vec3) -> Vec3 {
+        // Clamp point coordinates to the cuboid
+        point.clamp(-self.half_size, self.half_size)
     }
 }
 
@@ -423,7 +461,32 @@ mod test {
         );
         assert_eq!(
             Direction3d::new_and_length(Vec3::X * 6.5),
-            Ok((Direction3d::from_normalized(Vec3::X), 6.5))
+            Ok((Direction3d::X, 6.5))
+        );
+    }
+
+    #[test]
+    fn cuboid_closest_point() {
+        let cuboid = Cuboid::new(2.0, 2.0, 2.0);
+        assert_eq!(cuboid.closest_point(Vec3::X * 10.0), Vec3::X);
+        assert_eq!(cuboid.closest_point(Vec3::NEG_ONE * 10.0), Vec3::NEG_ONE);
+        assert_eq!(
+            cuboid.closest_point(Vec3::new(0.25, 0.1, 0.3)),
+            Vec3::new(0.25, 0.1, 0.3)
+        );
+    }
+
+    #[test]
+    fn sphere_closest_point() {
+        let sphere = Sphere { radius: 1.0 };
+        assert_eq!(sphere.closest_point(Vec3::X * 10.0), Vec3::X);
+        assert_eq!(
+            sphere.closest_point(Vec3::NEG_ONE * 10.0),
+            Vec3::NEG_ONE.normalize()
+        );
+        assert_eq!(
+            sphere.closest_point(Vec3::new(0.25, 0.1, 0.3)),
+            Vec3::new(0.25, 0.1, 0.3)
         );
     }
 }
