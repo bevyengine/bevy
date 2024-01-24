@@ -6,8 +6,6 @@ use bevy_utils::{
     HashMap,
 };
 
-#[cfg(feature = "trace")]
-use std::ops::Deref;
 use std::{borrow::Cow, collections::VecDeque};
 use thiserror::Error;
 
