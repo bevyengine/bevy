@@ -139,7 +139,7 @@ fn draw_bounding_spheres(
             for circle in &meshlet_debug.circles {
                 gizmos.circle(
                     circle.0,
-                    (camera_pos - circle.0).normalize(),
+                    Direction3d::new(camera_pos - circle.0).unwrap(),
                     circle.1,
                     Color::BLACK,
                 );
