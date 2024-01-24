@@ -110,7 +110,7 @@ pub struct Image {
     /// The [`ImageSampler`] to use during rendering.
     pub sampler: ImageSampler,
     pub texture_view_descriptor: Option<TextureViewDescriptor<'static>>,
-    pub usage: RenderAssetUsages,
+    pub asset_usage: RenderAssetUsages,
 }
 
 /// Used in [`Image`], this determines what image sampler to use when rendering. The default setting,
@@ -467,7 +467,7 @@ impl Default for Image {
             },
             sampler: ImageSampler::Default,
             texture_view_descriptor: None,
-            usage: RenderAssetUsages::default(),
+            asset_usage: RenderAssetUsages::default(),
         }
     }
 }
@@ -483,7 +483,7 @@ impl Image {
         dimension: TextureDimension,
         data: Vec<u8>,
         format: TextureFormat,
-        usage: RenderAssetUsages,
+        asset_usage: RenderAssetUsages,
     ) -> Self {
         debug_assert_eq!(
             size.volume() * format.pixel_size(),
@@ -497,7 +497,7 @@ impl Image {
         image.texture_descriptor.dimension = dimension;
         image.texture_descriptor.size = size;
         image.texture_descriptor.format = format;
-        image.usage = usage;
+        image.asset_usage = asset_usage;
         image
     }
 
@@ -511,12 +511,12 @@ impl Image {
         dimension: TextureDimension,
         pixel: &[u8],
         format: TextureFormat,
-        usage: RenderAssetUsages,
+        asset_usage: RenderAssetUsages,
     ) -> Self {
         let mut value = Image::default();
         value.texture_descriptor.format = format;
         value.texture_descriptor.dimension = dimension;
-        value.usage = usage;
+        value.asset_usage = asset_usage;
         value.resize(size);
 
         debug_assert_eq!(
@@ -637,7 +637,7 @@ impl Image {
                 }
                 _ => None,
             })
-            .map(|(dyn_img, is_srgb)| Self::from_dynamic(dyn_img, is_srgb, self.usage))
+            .map(|(dyn_img, is_srgb)| Self::from_dynamic(dyn_img, is_srgb, self.asset_usage))
     }
 
     /// Load a bytes buffer in a [`Image`], according to type `image_type`, using the `image`
@@ -817,8 +817,8 @@ impl RenderAsset for Image {
         SRes<DefaultImageSampler>,
     );
 
-    fn usage(&self) -> RenderAssetUsages {
-        self.usage
+    fn asset_usage(&self) -> RenderAssetUsages {
+        self.asset_usage
     }
 
     /// Converts the extracted image into a [`GpuImage`].

@@ -382,6 +382,6 @@ pub fn lut_placeholder() -> Image {
         },
         sampler: ImageSampler::Default,
         texture_view_descriptor: None,
-        usage: RenderAssetUsages::RENDER_WORLD,
+        asset_usage: RenderAssetUsages::RENDER_WORLD,
     }
 }

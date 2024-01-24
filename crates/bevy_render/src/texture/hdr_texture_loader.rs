@@ -13,7 +13,7 @@ pub struct HdrTextureLoader;
 
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct HdrTextureLoaderSettings {
-    pub usage: RenderAssetUsages,
+    pub asset_usage: RenderAssetUsages,
 }
 
 #[non_exhaustive]
@@ -68,7 +68,7 @@ impl AssetLoader for HdrTextureLoader {
                 TextureDimension::D2,
                 rgba_data,
                 format,
-                settings.usage,
+                settings.asset_usage,
             ))
         })
     }

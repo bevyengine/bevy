@@ -57,7 +57,7 @@ impl DynamicTextureAtlasBuilder {
             let atlas_texture = textures.get_mut(atlas_texture_handle).unwrap();
             assert!(
                 atlas_texture
-                    .usage()
+                    .asset_usage()
                     .contains(RenderAssetUsages::MAIN_WORLD),
                 "The asset at atlas_texture_handle must have the RenderAssetUsages::MAIN_WORLD usage flag set"
             );

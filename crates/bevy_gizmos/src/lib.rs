@@ -385,7 +385,7 @@ impl RenderAsset for LineGizmo {
     type PreparedAsset = GpuLineGizmo;
     type Param = SRes<RenderDevice>;
 
-    fn usage(&self) -> RenderAssetUsages {
+    fn asset_usage(&self) -> RenderAssetUsages {
         RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD
     }
 

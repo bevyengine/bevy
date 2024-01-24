@@ -122,7 +122,7 @@ pub struct Mesh {
     indices: Option<Indices>,
     morph_targets: Option<Handle<Image>>,
     morph_target_names: Option<Vec<String>>,
-    pub usage: RenderAssetUsages,
+    pub asset_usage: RenderAssetUsages,
 }
 
 impl Mesh {
@@ -183,14 +183,14 @@ impl Mesh {
     /// Construct a new mesh. You need to provide a [`PrimitiveTopology`] so that the
     /// renderer knows how to treat the vertex data. Most of the time this will be
     /// [`PrimitiveTopology::TriangleList`].
-    pub fn new(primitive_topology: PrimitiveTopology, usage: RenderAssetUsages) -> Self {
+    pub fn new(primitive_topology: PrimitiveTopology, asset_usage: RenderAssetUsages) -> Self {
         Mesh {
             primitive_topology,
             attributes: Default::default(),
             indices: None,
             morph_targets: None,
             morph_target_names: None,
-            usage,
+            asset_usage,
         }
     }
 
@@ -1061,8 +1061,8 @@ impl RenderAsset for Mesh {
     type PreparedAsset = GpuMesh;
     type Param = (SRes<RenderDevice>, SRes<RenderAssets<Image>>);
 
-    fn usage(&self) -> RenderAssetUsages {
-        self.usage
+    fn asset_usage(&self) -> RenderAssetUsages {
+        self.asset_usage
     }
 
     /// Converts the extracted mesh a into [`GpuMesh`].

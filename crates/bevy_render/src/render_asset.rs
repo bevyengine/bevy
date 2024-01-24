@@ -38,7 +38,7 @@ pub trait RenderAsset: Asset + Clone {
     type Param: SystemParam;
 
     /// Whether or not to unload the asset after extracting it to the render world.
-    fn usage(&self) -> RenderAssetUsages;
+    fn asset_usage(&self) -> RenderAssetUsages;
 
     /// Prepares the asset for the GPU by transforming it into a [`RenderAsset::PreparedAsset`].
     ///
@@ -64,7 +64,7 @@ bitflags::bitflags! {
     /// `RENDER_WORLD | MAIN_WORLD`.
     ///
     /// If you have an asset that doesn't actually need to end up in the render world, like an Image
-    /// that will be decoded into another Image asset, use `MAIN_WORLD`.
+    /// that will be decoded into another Image asset, use `MAIN_WORLD` only.
     #[repr(transparent)]
     #[derive(Serialize, TypePath, Deserialize, Hash, Clone, Copy, PartialEq, Eq, Debug)]
     pub struct RenderAssetUsages: u8 {
@@ -302,7 +302,7 @@ fn extract_render_asset<A: RenderAsset>(mut commands: Commands, mut main_world: 
     let mut extracted_assets = Vec::new();
     for id in changed_assets.drain() {
         if let Some(asset) = assets.get(id) {
-            let asset_usage = asset.usage();
+            let asset_usage = asset.asset_usage();
             if asset_usage.contains(RenderAssetUsages::RENDER_WORLD) {
                 if asset_usage == RenderAssetUsages::RENDER_WORLD {
                     if let Some(asset) = assets.remove(id) {
