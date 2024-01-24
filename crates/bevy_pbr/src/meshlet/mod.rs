@@ -1,7 +1,7 @@
 //! Render high-poly 3d meshes using an efficient GPU-driven method. See [`MeshletPlugin`] and [`MeshletMesh`] for details.
 
 mod asset;
-#[cfg(feature = "meshopt")]
+#[cfg(feature = "meshlet_processor")]
 mod from_mesh;
 mod gpu_scene;
 mod material_draw_nodes;
@@ -19,7 +19,7 @@ pub(crate) use self::{
 };
 
 pub use self::asset::{Meshlet, MeshletBoundingSphere, MeshletMesh};
-#[cfg(feature = "meshopt")]
+#[cfg(feature = "meshlet_processor")]
 pub use self::from_mesh::MeshToMeshletMeshConversionError;
 
 use self::{

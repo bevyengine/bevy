@@ -12,8 +12,7 @@ impl MeshletMesh {
     ///
     /// This process is very slow, and should be done ahead of time, and not at runtime.
     ///
-    /// This function requires the `meshopt` cargo feature, as it uses [meshoptimizer](https://github.com/zeux/meshoptimizer)
-    /// to generate meshlets.
+    /// This function requires the `meshlet_processor` cargo feature.
     ///
     /// The input mesh must:
     /// 1. Use [`PrimitiveTopology::TriangleList`]

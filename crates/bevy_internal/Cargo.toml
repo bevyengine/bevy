@@ -149,7 +149,7 @@ file_watcher = ["bevy_asset?/file_watcher"]
 embedded_watcher = ["bevy_asset?/embedded_watcher"]
 
 # Enables processing meshes into meshlet meshes for bevy_pbr
-meshopt = ["bevy_pbr?/meshopt"]
+meshlet_processor = ["bevy_pbr?/meshlet_processor"]
 
 [dependencies]
 # bevy
