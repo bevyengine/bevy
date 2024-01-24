@@ -2,7 +2,7 @@ use super::{Consumer, Folder, ParallelIterator, Reducer, UnindexedConsumer};
 use std::{marker::PhantomData, ptr, slice};
 
 /// We need to transmit raw pointers across threads. It is possible to do this
-/// without any unsafe code by converting pointers to usize or to AtomicPtr<T>
+/// without any unsafe code by converting pointers to usize or to `AtomicPtr`<T>
 /// then back to a raw pointer for use. We prefer this approach because code
 /// that uses this type is more explicit.
 ///
@@ -115,6 +115,7 @@ impl<'c, T> Reducer<CollectResult<'c, T>> for CollectReducer {
         // Merge if the CollectResults are adjacent and in left to right order
         // else: drop the right piece now and total length will end up short in the end,
         // when the correctness of the collected result is asserted.
+        // SAFTY: left and right should be Continuous
         unsafe {
             let left_end = left.start.0.add(left.initialized_len);
             if left_end == right.start.0 {
@@ -126,7 +127,7 @@ impl<'c, T> Reducer<CollectResult<'c, T>> for CollectReducer {
     }
 }
 
-/// CollectResult represents an initialized part of the target slice.
+/// `CollectResult` represents an initialized part of the target slice.
 ///
 /// This is a proxy owner of the elements in the slice; when it drops,
 /// the elements will be dropped, unless its ownership is released before then.
@@ -158,12 +159,14 @@ impl<'c, T> CollectResult<'c, T> {
     }
 }
 
+// SAFETY: CollectResult<'c,T> can be safely sent across threads as long as its generic type `T` is also `Send`.
 unsafe impl<'c, T> Send for CollectResult<'c, T> where T: Send {}
 
 impl<'c, T> Drop for CollectResult<'c, T> {
     fn drop(&mut self) {
         // Drop the first `self.initialized_len` elements, which have been recorded
         // to be initialized by the folder.
+        // SAFETY: Caller assures that `release_ownership` has been called
         unsafe {
             ptr::drop_in_place(slice::from_raw_parts_mut(
                 self.start.0,
@@ -269,6 +272,7 @@ where
 
     let new_len = vec.len() + len;
 
+    // SAFETY: The assert checks `new_len` is valid 
     unsafe {
         vec.set_len(new_len);
     }

@@ -7,7 +7,7 @@ where
     T: Send,
 {
     let consumer = ForEachConsumer { op };
-    pi.drive_unindexed(consumer)
+    pi.drive_unindexed(consumer);
 }
 
 struct ForEachConsumer<'f, F> {

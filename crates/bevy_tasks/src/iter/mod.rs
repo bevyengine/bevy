@@ -305,7 +305,7 @@ pub trait ParallelIterator: Sized + Send {
     where
         OP: Fn(Self::Item) + Sync + Send,
     {
-        for_each::for_each(self, &op)
+        for_each::for_each(self, &op);
     }
 
     /// Applies `map_op` to each item of this iterator, producing a new
@@ -361,6 +361,7 @@ pub trait ParallelIterator: Sized + Send {
 pub trait IndexedParallelIterator: ParallelIterator {
     /// Produces an exact count of how many items this iterator will
     /// produce, presuming no panic occurs.
+    #[allow(clippy::len_without_is_empty)]
     fn len(&self) -> usize;
 
     /// Internal method used to define the behavior of this parallel
