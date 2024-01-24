@@ -318,6 +318,10 @@ fn update_image_viewer(
         }
     }
 
+    if new_image.is_none() && image_events.is_empty() {
+        return;
+    }
+
     for (mat_h, mesh_h) in &image_mesh {
         if let Some(mat) = materials.get_mut(mat_h) {
             if let Some(ref new_image) = new_image {
