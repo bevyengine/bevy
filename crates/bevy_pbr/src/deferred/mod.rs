@@ -1,5 +1,5 @@
 use crate::{
-    graph::LabelsPbr, environment_map::RenderViewEnvironmentMaps, MeshPipeline, MeshViewBindGroup,
+    environment_map::RenderViewEnvironmentMaps, graph::LabelsPbr, MeshPipeline, MeshViewBindGroup,
     ScreenSpaceAmbientOcclusionSettings, ViewLightProbesUniformOffset,
 };
 use bevy_app::prelude::*;
