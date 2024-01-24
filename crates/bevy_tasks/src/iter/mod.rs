@@ -15,10 +15,6 @@ mod noop;
 /// consumer. It will convert the `par_iter` into a producer P and
 /// then pull items from P and feed them to `consumer`, splitting and
 /// creating parallel threads as needed.
-///
-/// This is useful when you are implementing your own parallel
-/// iterators: it is often used as the definition of the
-/// [`drive_unindexed`] or [`drive`] methods.
 pub fn bridge<I, C>(par_iter: I, consumer: C) -> C::Result
 where
     I: IndexedParallelIterator,
@@ -70,10 +66,6 @@ where
 /// function. This function will draw items from `producer` and feed
 /// them to `consumer`, splitting and creating parallel tasks when
 /// needed.
-///
-/// This is useful when you are implementing your own parallel
-/// iterators: it is often used as the definition of the
-/// [`drive_unindexed`] or [`drive`] methods.
 pub fn bridge_producer_consumer<P, C>(len: usize, producer: P, consumer: C) -> C::Result
 where
     P: Producer,
@@ -114,6 +106,8 @@ where
 /// operation][fold].  It can be fed many items using the `consume`
 /// method. At the end, once all items have been consumed, it can then
 /// be converted (using `complete`) into a final value.
+///
+/// [fold]: https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.fold
 pub trait Folder<Item>: Sized {
     /// The type of result that will ultimately be produced by the folder.
     type Result;
@@ -173,18 +167,14 @@ pub trait Producer: Send + Sized {
 
     /// The minimum number of items that we will process
     /// sequentially. Defaults to 1, which means that we will split
-    /// all the way down to a single item. This can be raised higher
-    /// using the [`with_min_len`] method, which will force us to
-    /// create sequential tasks at a larger granularity.
+    /// all the way down to a single item.
     fn min_len(&self) -> usize {
         1
     }
 
     /// The maximum number of items that we will process
     /// sequentially. Defaults to MAX, which means that we can choose
-    /// not to split at all. This can be lowered using the
-    /// [`with_max_len`] method, which will force us to create more
-    /// parallel tasks.
+    /// not to split at all.  
     fn max_len(&self) -> usize {
         usize::MAX
     }
@@ -240,6 +230,8 @@ pub trait Reducer<Result> {
 /// consumers, as well as a **reducer**. The two consumers can be fed
 /// items independently, and when they are done the reducer is used to
 /// combine their two results into one.
+///
+/// [fold]: https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.fold
 pub trait Consumer<Item>: Send + Sized {
     /// The type of folder that this consumer can be converted into.
     type Folder: Folder<Item, Result = Self::Result>;
@@ -393,7 +385,7 @@ pub trait IndexedParallelIterator: ParallelIterator {
 /// `FromParallelIterator` for a given type, you define how it will be
 /// created from an iterator.
 ///
-/// `FromParallelIterator` is used through [`ParallelIterator`]'s [`collect()`] method.
+/// `FromParallelIterator` is used through [`ParallelIterator`]'s [`mod@collect`] method.
 pub trait FromParallelIterator<T>
 where
     T: Send,
