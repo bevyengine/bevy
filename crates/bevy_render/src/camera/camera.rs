@@ -32,7 +32,7 @@ use bevy_window::{
     NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,
     WindowScaleFactorChanged,
 };
-use std::{borrow::Cow, ops::Range};
+use std::ops::Range;
 use wgpu::{BlendState, LoadOp, TextureFormat, TextureUsages};
 
 use super::{ClearColorConfig, Projection};
