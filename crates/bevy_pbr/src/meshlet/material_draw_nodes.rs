@@ -34,7 +34,7 @@ pub mod draw_3d_graph {
 #[derive(Default)]
 pub struct MeshletMainOpaquePass3dNode;
 impl ViewNode for MeshletMainOpaquePass3dNode {
-    type ViewData = (
+    type ViewQuery = (
         &'static ExtractedCamera,
         &'static ViewTarget,
         &'static MeshViewBindGroup,
@@ -62,7 +62,7 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
             meshlet_view_materials,
             meshlet_view_bind_groups,
             meshlet_view_resources,
-        ): QueryItem<Self::ViewData>,
+        ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         if meshlet_view_materials.is_empty() {
@@ -136,7 +136,7 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
 #[derive(Default)]
 pub struct MeshletPrepassNode;
 impl ViewNode for MeshletPrepassNode {
-    type ViewData = (
+    type ViewQuery = (
         &'static ExtractedCamera,
         &'static ViewPrepassTextures,
         &'static ViewUniformOffset,
@@ -158,7 +158,7 @@ impl ViewNode for MeshletPrepassNode {
             meshlet_view_materials,
             meshlet_view_bind_groups,
             meshlet_view_resources,
-        ): QueryItem<Self::ViewData>,
+        ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         if meshlet_view_materials.is_empty() {
@@ -257,7 +257,7 @@ impl ViewNode for MeshletPrepassNode {
 #[derive(Default)]
 pub struct MeshletDeferredGBufferPrepassNode;
 impl ViewNode for MeshletDeferredGBufferPrepassNode {
-    type ViewData = (
+    type ViewQuery = (
         &'static ExtractedCamera,
         &'static ViewPrepassTextures,
         &'static ViewUniformOffset,
@@ -279,7 +279,7 @@ impl ViewNode for MeshletDeferredGBufferPrepassNode {
             meshlet_view_materials,
             meshlet_view_bind_groups,
             meshlet_view_resources,
-        ): QueryItem<Self::ViewData>,
+        ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         if meshlet_view_materials.is_empty() {
