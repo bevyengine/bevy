@@ -51,29 +51,53 @@ impl<'a> RenderViewIrradianceVolumeBindGroupEntries<'a> {
         fallback_image: &'a FallbackImage,
         render_device: &RenderDevice,
     ) -> RenderViewIrradianceVolumeBindGroupEntries<'a> {
-        // TODO(pcwalton): No-binding-arrays version.
-        let mut texture_views = vec![];
-        let mut sampler = None;
+        if binding_arrays_are_usable(render_device) {
+            let mut texture_views = vec![];
+            let mut sampler = None;
+
+            if let Some(irradiance_volumes) = render_view_irradiance_volumes {
+                for &cubemap_id in &irradiance_volumes.binding_index_to_cubemap {
+                    add_texture_view(
+                        &mut texture_views,
+                        &mut sampler,
+                        cubemap_id,
+                        images,
+                        fallback_image,
+                    )
+                }
+            }
+
+            // Pad out the bindings to the size of the binding array using fallback
+            // textures. This is necessary on D3D12 and Metal.
+            texture_views.resize(MAX_VIEW_LIGHT_PROBES, &*fallback_image.d3.texture_view);
+
+            return RenderViewIrradianceVolumeBindGroupEntries::Multiple {
+                texture_views,
+                sampler: sampler.unwrap_or(&fallback_image.d3.sampler),
+            };
+        }
 
         if let Some(irradiance_volumes) = render_view_irradiance_volumes {
-            for &cubemap_id in &irradiance_volumes.binding_index_to_cubemap {
-                add_texture_view(
-                    &mut texture_views,
-                    &mut sampler,
-                    cubemap_id,
-                    images,
-                    fallback_image,
-                )
+            if let Some(irradiance_volume) = irradiance_volumes.render_light_probes.first() {
+                if irradiance_volume.cubemap_index >= 0 {
+                    if let Some(image_id) = irradiance_volumes
+                        .binding_index_to_cubemap
+                        .get(irradiance_volume.cubemap_index as usize)
+                    {
+                        if let Some(image) = images.get(*image_id) {
+                            return RenderViewIrradianceVolumeBindGroupEntries::Single {
+                                texture_view: &image.texture_view,
+                                sampler: &image.sampler,
+                            };
+                        }
+                    }
+                }
             }
         }
 
-        // Pad out the bindings to the size of the binding array using fallback
-        // textures. This is necessary on D3D12 and Metal.
-        texture_views.resize(MAX_VIEW_LIGHT_PROBES, &*fallback_image.d3.texture_view);
-
-        RenderViewIrradianceVolumeBindGroupEntries::Multiple {
-            texture_views,
-            sampler: sampler.unwrap_or(&fallback_image.d3.sampler),
+        RenderViewIrradianceVolumeBindGroupEntries::Single {
+            texture_view: &fallback_image.d3.texture_view,
+            sampler: &fallback_image.d3.sampler,
         }
     }
 }
