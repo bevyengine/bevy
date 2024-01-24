@@ -22,10 +22,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn(SpatialBundle {
             transform: Transform::from_matrix(Mat4::from_cols_array_2d(&[
-                [45.878204, 0.0, 0.0, 0.0],
-                [0.0, 0.0, -45.87819, 0.0],
-                [0.0, 45.87819, 0.0, 0.0],
-                [-529.0034, 22.654373, -25.541794, 1.0],
+                [275.26923, 0.0, 0.0, 0.0],
+                [0.0, 0.0, -275.26913, 0.0],
+                [0.0, 275.26913, 0.0, 0.0],
+                [-253.73419, 297.92352, -300.8109, 1.0],
             ])),
             ..SpatialBundle::default()
         })
