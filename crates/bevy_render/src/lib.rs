@@ -333,16 +333,6 @@ impl Plugin for RenderPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            INSTANCE_INDEX_SHADER_HANDLE,
-            "instance_index.wgsl",
-            Shader::from_wgsl_with_defs,
-            vec![
-                #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-                "BASE_INSTANCE_WORKAROUND".into()
-            ]
-        );
         load_internal_asset!(app, MATHS_SHADER_HANDLE, "maths.wgsl", Shader::from_wgsl);
         if let Some(future_renderer_resources) =
             app.world.remove_resource::<FutureRendererResources>()
