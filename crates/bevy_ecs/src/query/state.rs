@@ -375,7 +375,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         NewF::update_component_access(&filter_state, &mut filter_component_access);
 
         component_access.extend(&filter_component_access);
-        assert!(component_access.is_subset(&self.component_access), "Transmuted state for {} attempts to access terms that are not allowed by original state {}.", std::any::type_name::<(NewD, NewF)>(), std::any::type_name::<(D, F)>() );
+        assert!(
+            component_access.is_subset(&self.component_access),
+            "Transmuted state for {} attempts to access terms that are not allowed by original state {}.",
+            std::any::type_name::<(NewD, NewF)>(), std::any::type_name::<(D, F)>()
+        );
 
         QueryState {
             world_id: self.world_id,
@@ -384,6 +388,80 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             matched_archetype_ids: self.matched_archetype_ids.clone(),
             fetch_state,
             filter_state,
+            component_access: self.component_access.clone(),
+            matched_tables: self.matched_tables.clone(),
+            matched_archetypes: self.matched_archetypes.clone(),
+            archetype_component_access: self.archetype_component_access.clone(),
+            #[cfg(feature = "trace")]
+            par_iter_span: bevy_utils::tracing::info_span!(
+                "par_for_each",
+                query = std::any::type_name::<NewD>(),
+                filter = std::any::type_name::<NewF>(),
+            ),
+        }
+    }
+
+
+    /// TODO: add docs
+    pub fn join<OtherD: QueryData, NewD: QueryData>(&self, world: &World, other: &QueryState<OtherD>)  -> QueryState<NewD, ()> {
+        self.join_filtered::<_, (), NewD, ()>(world, other)
+    }
+
+
+    /// This takes the intersection of matches between two queries and creates a new query state. Similar to [`transmute`] you can change the terms.
+    /// TODO: extend this with more info
+    pub fn join_filtered<
+        OtherD: QueryData,
+        OtherF: QueryFilter,
+        NewD: QueryData,
+        NewF: QueryFilter,
+    >(
+        &self,
+        world: &World,
+        other: &QueryState<OtherD, OtherF>,
+    ) -> QueryState<NewD, NewF> {
+        let mut component_access = FilteredAccess::default();
+        let mut new_fetch_state = NewD::get_state(world)
+            .expect("Could not create fetch_state, Please initialize all referenced components before transmuting.");
+        let new_filter_state = NewF::get_state(world)
+            .expect("Could not create filter_state, Please initialize all referenced components before transmuting.");
+
+        NewD::set_access(&mut new_fetch_state, &self.component_access);
+        NewD::update_component_access(&new_fetch_state, &mut component_access);
+
+        let mut new_filter_component_access = FilteredAccess::default();
+        NewF::update_component_access(&new_filter_state, &mut new_filter_component_access);
+
+        let mut joined_component_access = self.component_access.clone();
+        joined_component_access.extend(&other.component_access);
+
+        assert!(
+            component_access.is_subset(&joined_component_access),
+            "Transmuted state for {} attempts to access terms that are not allowed by original state {}.",
+            std::any::type_name::<(NewD, NewF)>(), std::any::type_name::<(D, F)>()
+        );
+
+        // take the intersection of the matched ids
+        let matched_table_ids: Vec<_> = self
+            .matched_table_ids
+            .iter()
+            .filter(|table_id| other.matched_table_ids.contains(table_id))
+            .cloned()
+            .collect();
+        let matched_archetype_ids: Vec<_> = self
+            .matched_archetype_ids
+            .iter()
+            .filter(|table_id| other.matched_archetype_ids.contains(table_id))
+            .cloned()
+            .collect();
+
+        QueryState {
+            world_id: self.world_id,
+            archetype_generation: self.archetype_generation,
+            matched_table_ids,
+            matched_archetype_ids,
+            fetch_state: new_fetch_state,
+            filter_state: new_filter_state,
             component_access: self.component_access.clone(),
             matched_tables: self.matched_tables.clone(),
             matched_archetypes: self.matched_archetypes.clone(),
@@ -1797,4 +1875,20 @@ mod tests {
 
         assert_eq!(entity_a, detection_query.single(&world));
     }
+
+    #[test]
+    fn join() {
+        let mut world = World::new();
+        world.spawn(A(0));
+        world.spawn(B(1));
+        let entity_ab = world.spawn((A(2), B(3))).id();
+
+        let query_1 = QueryState::<&A>::new(&mut world);
+        let query_2 = QueryState::<&B>::new(&mut world);
+        let mut new_query: QueryState<Entity, ()> = query_1.join(&world, &query_2);
+
+        assert_eq!(new_query.single(&world), entity_ab);
+    }
+
+    // TODO: add more tests for joins
 }
