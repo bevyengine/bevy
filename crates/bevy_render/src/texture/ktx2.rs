@@ -160,7 +160,7 @@ pub fn ktx2_buffer_to_image(
                         texture_format_info.block_dimensions().1,
                     );
                     // Texture is not a depth or stencil format, it is possible to pass `None` and unwrap
-                    let block_bytes = texture_format_info.block_size(None).unwrap();
+                    let block_bytes = texture_format_info.block_copy_size(None).unwrap();
 
                     let transcoder = LowLevelUastcTranscoder::new();
                     for (level, level_data) in levels.iter().enumerate() {
