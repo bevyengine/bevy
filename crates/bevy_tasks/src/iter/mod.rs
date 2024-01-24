@@ -42,7 +42,7 @@ where
     }
 }
 
-/// ToDO:optimize it
+/// TODO: optimize it
 fn join<A, B, RA, RB>(pool: &TaskPool, op_a: A, op_b: B) -> (RA, RB)
 where
     A: FnOnce() -> RA + Send,
@@ -265,7 +265,7 @@ pub trait Consumer<Item>: Send + Sized {
 pub trait UnindexedConsumer<I>: Consumer<I> {
     /// Splits off a "left" consumer and returns it. The `self`
     /// consumer should then be used to consume the "right" portion of
-    /// the data. (The ordering matters for methods like find_first --
+    /// the data. (The ordering matters for methods like `find_first` --
     /// values produced by the returned value are given precedence
     /// over values produced by `self`.) Once the left and right
     /// halves have been fully consumed, you should reduce the results
@@ -350,10 +350,10 @@ pub trait ParallelIterator: Sized + Send {
 ///
 /// **Note:** Not implemented for `u64`, `i64`, `u128`, or `i128` ranges
 // Waiting for `ExactSizeIterator::is_empty` to be stabilized. See rust-lang/rust#35428
+#[allow(clippy::len_without_is_empty)]
 pub trait IndexedParallelIterator: ParallelIterator {
     /// Produces an exact count of how many items this iterator will
     /// produce, presuming no panic occurs.
-    #[allow(clippy::len_without_is_empty)]
     fn len(&self) -> usize;
 
     /// Internal method used to define the behavior of this parallel
@@ -385,7 +385,7 @@ pub trait IndexedParallelIterator: ParallelIterator {
 /// `FromParallelIterator` for a given type, you define how it will be
 /// created from an iterator.
 ///
-/// `FromParallelIterator` is used through [`ParallelIterator`]'s [`mod@collect`] method.
+/// `FromParallelIterator` is used through [`ParallelIterator`]
 pub trait FromParallelIterator<T>
 where
     T: Send,

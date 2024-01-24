@@ -2,7 +2,7 @@ use super::{Consumer, Folder, ParallelIterator, Reducer, UnindexedConsumer};
 use std::{marker::PhantomData, ptr, slice};
 
 /// We need to transmit raw pointers across threads. It is possible to do this
-/// without any unsafe code by converting pointers to usize or to `AtomicPtr`<T>
+/// without any unsafe code by converting pointers to usize or to `AtomicPtr<T>`
 /// then back to a raw pointer for use. We prefer this approach because code
 /// that uses this type is more explicit.
 ///
@@ -115,7 +115,7 @@ impl<'c, T> Reducer<CollectResult<'c, T>> for CollectReducer {
         // Merge if the CollectResults are adjacent and in left to right order
         // else: drop the right piece now and total length will end up short in the end,
         // when the correctness of the collected result is asserted.
-        // SAFTY: left and right should be Continuous
+        // SAFETY: left and right should be Continuous
         unsafe {
             let left_end = left.start.0.add(left.initialized_len);
             if left_end == right.start.0 {
