@@ -18,7 +18,7 @@ pub struct RawHandleWrapper {
 }
 
 impl RawHandleWrapper {
-    /// Returns a [`HasRawWindowHandle`] + [`HasRawDisplayHandle`] impl, which exposes [`RawWindowHandle`] and [`RawDisplayHandle`].
+    /// Returns a [`HasWindowHandle`] + [`HasDisplayHandle`] impl, which exposes [`WindowHandle`] and [`DisplayHandle`].
     ///
     /// # Safety
     ///
