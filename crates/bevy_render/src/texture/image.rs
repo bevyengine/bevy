@@ -832,7 +832,7 @@ impl RenderAsset for Image {
             render_queue,
             &self.texture_descriptor,
             // TODO: Is this correct? Do we need to use `MipMajor` if it's a ktx2 file?
-            wgpu::util::TextureDataOrder::LayerMajor,
+            wgpu::util::TextureDataOrder::default(),
             &self.data,
         );
 

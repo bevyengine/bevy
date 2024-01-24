@@ -101,7 +101,7 @@ fn fallback_image_new(
         render_device.create_texture_with_data(
             render_queue,
             &image.texture_descriptor,
-            wgpu::util::TextureDataOrder::LayerMajor,
+            wgpu::util::TextureDataOrder::default(),
             &image.data,
         )
     } else {
