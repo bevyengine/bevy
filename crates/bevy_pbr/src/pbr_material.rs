@@ -46,6 +46,9 @@ pub struct StandardMaterial {
     #[dependency]
     pub base_color_texture: Option<Handle<Image>>,
 
+    /// TODO docs
+    pub base_color_texture_uv_channel: u8,
+
     // Use a color for user friendliness even though we technically don't use the alpha channel
     // Might be used in the future for exposure correction in HDR
     /// Color the material "emits" to the camera.
@@ -481,6 +484,7 @@ impl Default for StandardMaterial {
             // a texture.
             base_color: Color::rgb(1.0, 1.0, 1.0),
             base_color_texture: None,
+            base_color_texture_uv_channel: 0,
             emissive: Color::BLACK,
             emissive_texture: None,
             // Matches Blender's default roughness.
