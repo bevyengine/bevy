@@ -25,4 +25,4 @@ This is a crate with a collection of benchmarks for Bevy, separate from the rest
 
 ## Criterion
 
-Bevy's benchmarks use [Criterion](https://crates.io/crates/criterion) to chart and plot the performance of benchmarks. If you want to learn more about using Criterion for benchmarking, you can read the [Criterion.rs documentation](https://bheisler.github.io/criterion.rs/book/criterion_rs.html).
+Bevy's benchmarks use [Criterion](https://crates.io/crates/criterion). If you want to learn more about using Criterion for comparing performance against a baseline or generating detailed reports, you can read the [Criterion.rs documentation](https://bheisler.github.io/criterion.rs/book/criterion_rs.html).
