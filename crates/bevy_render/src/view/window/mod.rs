@@ -256,11 +256,11 @@ pub fn prepare_windows(
             .surfaces
             .entry(window.entity)
             .or_insert_with(|| {
-                // SAFETY: The window handles in ExtractedWindows will always be valid objects to create surfaces on
                 let surface_target = SurfaceTargetUnsafe::RawHandle {
                     raw_display_handle: window.handle.display_handle,
                     raw_window_handle: window.handle.window_handle,
                 };
+                // SAFETY: The window handles in ExtractedWindows will always be valid objects to create surfaces on
                 let surface = unsafe {
                     // NOTE: On some OSes this MUST be called from the main thread.
                     // As of wgpu 0.15, only fallible if the given window is a HTML canvas and obtaining a WebGPU or WebGL2 context fails.
