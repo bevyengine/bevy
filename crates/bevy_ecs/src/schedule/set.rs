@@ -131,6 +131,10 @@ impl SystemSet for AnonymousSet {
         true
     }
 
+    fn dyn_clone(&self) -> Box<dyn SystemSet> {
+        Box::new(*self)
+    }
+
     fn as_dyn_eq(&self) -> &dyn DynEq {
         self
     }
@@ -138,10 +142,6 @@ impl SystemSet for AnonymousSet {
     fn dyn_hash(&self, mut state: &mut dyn Hasher) {
         TypeId::of::<Self>().hash(&mut state);
         self.hash(&mut state);
-    }
-
-    fn dyn_clone(&self) -> Box<dyn SystemSet> {
-        Box::new(*self)
     }
 }
 

@@ -3,10 +3,11 @@ pub mod wireframe;
 mod alpha;
 mod bundle;
 pub mod deferred;
-mod environment_map;
 mod extended_material;
 mod fog;
 mod light;
+mod light_probe;
+mod lightmap;
 mod material;
 mod parallax;
 mod pbr_material;
@@ -17,10 +18,11 @@ mod ssao;
 pub use alpha::*;
 use bevy_core_pipeline::core_3d::graph::{Labels3d, SubGraph3d};
 pub use bundle::*;
-pub use environment_map::EnvironmentMapLight;
 pub use extended_material::*;
 pub use fog::*;
 pub use light::*;
+pub use light_probe::*;
+pub use lightmap::*;
 pub use material::*;
 pub use parallax::*;
 pub use pbr_material::*;
@@ -36,9 +38,12 @@ pub mod prelude {
             DirectionalLightBundle, MaterialMeshBundle, PbrBundle, PointLightBundle,
             SpotLightBundle,
         },
-        environment_map::EnvironmentMapLight,
         fog::{FogFalloff, FogSettings},
         light::{AmbientLight, DirectionalLight, PointLight, SpotLight},
+        light_probe::{
+            environment_map::{EnvironmentMapLight, ReflectionProbeBundle},
+            LightProbe,
+        },
         material::{Material, MaterialPlugin},
         parallax::ParallaxMappingMethod,
         pbr_material::StandardMaterial,
@@ -76,7 +81,6 @@ use bevy_render::{
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::TransformSystem;
-use environment_map::EnvironmentMapPlugin;
 
 use crate::{deferred::DeferredPbrLightingPlugin, graph::LabelsPbr};
 
@@ -260,17 +264,17 @@ impl Plugin for PbrPlugin {
                     ..Default::default()
                 },
                 ScreenSpaceAmbientOcclusionPlugin,
-                EnvironmentMapPlugin,
                 ExtractResourcePlugin::<AmbientLight>::default(),
                 FogPlugin,
                 ExtractResourcePlugin::<DefaultOpaqueRendererMethod>::default(),
                 ExtractComponentPlugin::<ShadowFilteringMethod>::default(),
+                LightmapPlugin,
+                LightProbePlugin,
             ))
             .configure_sets(
                 PostUpdate,
                 (
                     SimulationLightSystems::AddClusters,
-                    SimulationLightSystems::AddClustersFlush,
                     SimulationLightSystems::AssignLightsToClusters,
                 )
                     .chain(),
@@ -279,7 +283,6 @@ impl Plugin for PbrPlugin {
                 PostUpdate,
                 (
                     add_clusters.in_set(SimulationLightSystems::AddClusters),
-                    apply_deferred.in_set(SimulationLightSystems::AddClustersFlush),
                     assign_lights_to_clusters
                         .in_set(SimulationLightSystems::AssignLightsToClusters)
                         .after(TransformSystem::TransformPropagate)
@@ -313,7 +316,7 @@ impl Plugin for PbrPlugin {
                         .after(SimulationLightSystems::AssignLightsToClusters),
                     check_light_mesh_visibility
                         .in_set(SimulationLightSystems::CheckLightVisibility)
-                        .after(VisibilitySystems::CalculateBoundsFlush)
+                        .after(VisibilitySystems::CalculateBounds)
                         .after(TransformSystem::TransformPropagate)
                         .after(SimulationLightSystems::UpdateLightFrusta)
                         // NOTE: This MUST be scheduled AFTER the core renderer visibility check
@@ -360,6 +363,15 @@ impl Plugin for PbrPlugin {
         let draw_3d_graph = graph.get_sub_graph_mut(SubGraph3d).unwrap();
         draw_3d_graph.add_node(LabelsPbr::ShadowPass, shadow_pass_node);
         draw_3d_graph.add_node_edge(LabelsPbr::ShadowPass, Labels3d::StartMainPass);
+      
+        render_app.ignore_ambiguity(
+            bevy_render::Render,
+            bevy_core_pipeline::core_3d::prepare_core_3d_transmission_textures,
+            bevy_render::batching::batch_and_prepare_render_phase::<
+                bevy_core_pipeline::core_3d::Transmissive3d,
+                MeshPipeline,
+            >,
+        );
     }
 
     fn finish(&self, app: &mut App) {

@@ -213,7 +213,12 @@ impl From<&Source> for naga_oil::compose::ShaderLanguage {
     fn from(value: &Source) -> Self {
         match value {
             Source::Wgsl(_) => naga_oil::compose::ShaderLanguage::Wgsl,
+            #[cfg(any(feature = "shader_format_glsl", target_arch = "wasm32"))]
             Source::Glsl(_, _) => naga_oil::compose::ShaderLanguage::Glsl,
+            #[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
+            Source::Glsl(_, _) => panic!(
+                "GLSL is not supported in this configuration; use the feature `shader_format_glsl`"
+            ),
             Source::SpirV(_) => panic!("spirv not yet implemented"),
         }
     }
@@ -223,13 +228,16 @@ impl From<&Source> for naga_oil::compose::ShaderType {
     fn from(value: &Source) -> Self {
         match value {
             Source::Wgsl(_) => naga_oil::compose::ShaderType::Wgsl,
-            Source::Glsl(_, naga::ShaderStage::Vertex) => naga_oil::compose::ShaderType::GlslVertex,
-            Source::Glsl(_, naga::ShaderStage::Fragment) => {
-                naga_oil::compose::ShaderType::GlslFragment
-            }
-            Source::Glsl(_, naga::ShaderStage::Compute) => {
-                panic!("glsl compute not yet implemented")
-            }
+            #[cfg(any(feature = "shader_format_glsl", target_arch = "wasm32"))]
+            Source::Glsl(_, shader_stage) => match shader_stage {
+                naga::ShaderStage::Vertex => naga_oil::compose::ShaderType::GlslVertex,
+                naga::ShaderStage::Fragment => naga_oil::compose::ShaderType::GlslFragment,
+                naga::ShaderStage::Compute => panic!("glsl compute not yet implemented"),
+            },
+            #[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
+            Source::Glsl(_, _) => panic!(
+                "GLSL is not supported in this configuration; use the feature `shader_format_glsl`"
+            ),
             Source::SpirV(_) => panic!("spirv not yet implemented"),
         }
     }

@@ -33,6 +33,14 @@ pub trait RenderGraphApp {
 }
 
 impl RenderGraphApp for App {
+    fn add_render_sub_graph(&mut self, sub_graph: impl RenderSubGraph) -> &mut Self {
+        let mut render_graph = self.world.get_resource_mut::<RenderGraph>().expect(
+            "RenderGraph not found. Make sure you are using add_render_sub_graph on the RenderApp",
+        );
+        render_graph.add_sub_graph(sub_graph, RenderGraph::default());
+        self
+    }
+
     fn add_render_graph_node<T: Node + FromWorld>(
         &mut self,
         sub_graph: impl RenderSubGraph,
@@ -89,14 +97,6 @@ impl RenderGraphApp for App {
                 "Tried adding a render graph edge to {sub_graph:?} but the sub graph doesn't exist"
             );
         }
-        self
-    }
-
-    fn add_render_sub_graph(&mut self, sub_graph: impl RenderSubGraph) -> &mut Self {
-        let mut render_graph = self.world.get_resource_mut::<RenderGraph>().expect(
-            "RenderGraph not found. Make sure you are using add_render_sub_graph on the RenderApp",
-        );
-        render_graph.add_sub_graph(sub_graph, RenderGraph::default());
         self
     }
 }

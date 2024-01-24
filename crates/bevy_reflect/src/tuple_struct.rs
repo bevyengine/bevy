@@ -329,9 +329,21 @@ impl Reflect for DynamicTupleStruct {
         self
     }
 
-    #[inline]
-    fn clone_value(&self) -> Box<dyn Reflect> {
-        Box::new(self.clone_dynamic())
+    fn apply(&mut self, value: &dyn Reflect) {
+        if let ReflectRef::TupleStruct(tuple_struct) = value.reflect_ref() {
+            for (i, value) in tuple_struct.iter_fields().enumerate() {
+                if let Some(v) = self.field_mut(i) {
+                    v.apply(value);
+                }
+            }
+        } else {
+            panic!("Attempted to apply non-TupleStruct type to TupleStruct type.");
+        }
+    }
+
+    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+        *self = value.take()?;
+        Ok(())
     }
 
     #[inline]
@@ -349,21 +361,9 @@ impl Reflect for DynamicTupleStruct {
         ReflectOwned::TupleStruct(self)
     }
 
-    fn apply(&mut self, value: &dyn Reflect) {
-        if let ReflectRef::TupleStruct(tuple_struct) = value.reflect_ref() {
-            for (i, value) in tuple_struct.iter_fields().enumerate() {
-                if let Some(v) = self.field_mut(i) {
-                    v.apply(value);
-                }
-            }
-        } else {
-            panic!("Attempted to apply non-TupleStruct type to TupleStruct type.");
-        }
-    }
-
-    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
-        *self = value.take()?;
-        Ok(())
+    #[inline]
+    fn clone_value(&self) -> Box<dyn Reflect> {
+        Box::new(self.clone_dynamic())
     }
 
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
@@ -453,7 +453,12 @@ pub fn tuple_struct_debug(
     dyn_tuple_struct: &dyn TupleStruct,
     f: &mut Formatter<'_>,
 ) -> std::fmt::Result {
-    let mut debug = f.debug_tuple(dyn_tuple_struct.reflect_type_path());
+    let mut debug = f.debug_tuple(
+        dyn_tuple_struct
+            .get_represented_type_info()
+            .map(|s| s.type_path())
+            .unwrap_or("_"),
+    );
     for field in dyn_tuple_struct.iter_fields() {
         debug.field(&field as &dyn Debug);
     }

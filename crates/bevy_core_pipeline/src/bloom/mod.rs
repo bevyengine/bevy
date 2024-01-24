@@ -179,6 +179,8 @@ impl ViewNode for BloomNode {
                         ops: Operations::default(),
                     })],
                     depth_stencil_attachment: None,
+                    timestamp_writes: None,
+                    occlusion_query_set: None,
                 });
             downsampling_first_pass.set_render_pipeline(downsampling_first_pipeline);
             downsampling_first_pass.set_bind_group(
@@ -201,6 +203,8 @@ impl ViewNode for BloomNode {
                         ops: Operations::default(),
                     })],
                     depth_stencil_attachment: None,
+                    timestamp_writes: None,
+                    occlusion_query_set: None,
                 });
             downsampling_pass.set_render_pipeline(downsampling_pipeline);
             downsampling_pass.set_bind_group(
@@ -222,10 +226,12 @@ impl ViewNode for BloomNode {
                         resolve_target: None,
                         ops: Operations {
                             load: LoadOp::Load,
-                            store: true,
+                            store: StoreOp::Store,
                         },
                     })],
                     depth_stencil_attachment: None,
+                    timestamp_writes: None,
+                    occlusion_query_set: None,
                 });
             upsampling_pass.set_render_pipeline(upsampling_pipeline);
             upsampling_pass.set_bind_group(
@@ -249,13 +255,10 @@ impl ViewNode for BloomNode {
             let mut upsampling_final_pass =
                 render_context.begin_tracked_render_pass(RenderPassDescriptor {
                     label: Some("bloom_upsampling_final_pass"),
-                    color_attachments: &[Some(view_target.get_unsampled_color_attachment(
-                        Operations {
-                            load: LoadOp::Load,
-                            store: true,
-                        },
-                    ))],
+                    color_attachments: &[Some(view_target.get_unsampled_color_attachment())],
                     depth_stencil_attachment: None,
+                    timestamp_writes: None,
+                    occlusion_query_set: None,
                 });
             upsampling_final_pass.set_render_pipeline(upsampling_final_pipeline);
             upsampling_final_pass.set_bind_group(

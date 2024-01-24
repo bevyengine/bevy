@@ -72,9 +72,9 @@ impl Source for SineDecoder {
 
 // Finally `Decodable` can be implemented for our `SineAudio`.
 impl Decodable for SineAudio {
-    type Decoder = SineDecoder;
-
     type DecoderItem = <SineDecoder as Iterator>::Item;
+
+    type Decoder = SineDecoder;
 
     fn decoder(&self) -> Self::Decoder {
         SineDecoder::new(self.frequency)

@@ -48,6 +48,7 @@ use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
+    color::Color,
     extract_component::ExtractComponentPlugin,
     prelude::Msaa,
     render_graph::{EmptyNode, RenderGraphApp, ViewNodeRunner},
@@ -60,7 +61,7 @@ use bevy_render::{
         TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView,
     },
     renderer::RenderDevice,
-    texture::{BevyDefault, TextureCache},
+    texture::{BevyDefault, ColorAttachment, TextureCache},
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
@@ -91,6 +92,8 @@ impl Plugin for Core3dPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Camera3d>()
             .register_type::<Camera3dDepthLoadOp>()
+            .register_type::<Camera3dDepthTextureUsage>()
+            .register_type::<ScreenSpaceTransmissionQuality>()
             .add_plugins((SkyboxPlugin, ExtractComponentPlugin::<Camera3d>::default()))
             .add_systems(PostUpdate, check_msaa);
 
@@ -534,7 +537,7 @@ pub fn prepare_core_3d_depth_textures(
     }
 
     let mut textures = HashMap::default();
-    for (entity, camera, _, _) in &views_3d {
+    for (entity, camera, _, camera_3d) in &views_3d {
         let Some(physical_target_size) = camera.physical_target_size else {
             continue;
         };
@@ -568,10 +571,13 @@ pub fn prepare_core_3d_depth_textures(
             })
             .clone();
 
-        commands.entity(entity).insert(ViewDepthTexture {
-            texture: cached_texture.texture,
-            view: cached_texture.default_view,
-        });
+        commands.entity(entity).insert(ViewDepthTexture::new(
+            cached_texture,
+            match camera_3d.depth_load_op {
+                Camera3dDepthLoadOp::Clear(v) => Some(v),
+                Camera3dDepthLoadOp::Load => None,
+            },
+        ));
     }
 }
 
@@ -809,7 +815,7 @@ pub fn prepare_prepass_textures(
                 .clone()
         });
 
-        let deferred_lighting_pass_id_texture = deferred_prepass.then(|| {
+        let cached_deferred_lighting_pass_id_texture = deferred_prepass.then(|| {
             deferred_lighting_id_textures
                 .entry(camera.target.clone())
                 .or_insert_with(|| {
@@ -832,11 +838,16 @@ pub fn prepare_prepass_textures(
         });
 
         commands.entity(entity).insert(ViewPrepassTextures {
-            depth: cached_depth_texture,
-            normal: cached_normals_texture,
-            motion_vectors: cached_motion_vectors_texture,
-            deferred: cached_deferred_texture,
-            deferred_lighting_pass_id: deferred_lighting_pass_id_texture,
+            depth: cached_depth_texture.map(|t| ColorAttachment::new(t, None, Color::BLACK)),
+            normal: cached_normals_texture.map(|t| ColorAttachment::new(t, None, Color::BLACK)),
+            // Red and Green channels are X and Y components of the motion vectors
+            // Blue channel doesn't matter, but set to 0.0 for possible faster clear
+            // https://gpuopen.com/performance/#clears
+            motion_vectors: cached_motion_vectors_texture
+                .map(|t| ColorAttachment::new(t, None, Color::BLACK)),
+            deferred: cached_deferred_texture.map(|t| ColorAttachment::new(t, None, Color::BLACK)),
+            deferred_lighting_pass_id: cached_deferred_lighting_pass_id_texture
+                .map(|t| ColorAttachment::new(t, None, Color::BLACK)),
             size,
         });
     }

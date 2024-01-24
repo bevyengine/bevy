@@ -7,7 +7,7 @@ use bevy_a11y::{
 };
 use bevy_ecs::entity::Entity;
 
-use bevy_utils::{tracing::warn, HashMap};
+use bevy_utils::{tracing::warn, EntityHashMap, HashMap};
 use bevy_window::{CursorGrabMode, Window, WindowMode, WindowPosition, WindowResolution};
 
 use winit::{
@@ -27,7 +27,7 @@ pub struct WinitWindows {
     /// Stores [`winit`] windows by window identifier.
     pub windows: HashMap<winit::window::WindowId, winit::window::Window>,
     /// Maps entities to `winit` window identifiers.
-    pub entity_to_winit: HashMap<Entity, winit::window::WindowId>,
+    pub entity_to_winit: EntityHashMap<Entity, winit::window::WindowId>,
     /// Maps `winit` window identifiers to entities.
     pub winit_to_entity: HashMap<winit::window::WindowId, Entity>,
     // Many `winit` window functions (e.g. `set_window_icon`) can only be called on the main thread.
@@ -82,7 +82,7 @@ impl WinitWindows {
 
                 let logical_size = LogicalSize::new(window.width(), window.height());
                 if let Some(sf) = window.resolution.scale_factor_override() {
-                    winit_window_builder.with_inner_size(logical_size.to_physical::<f64>(sf))
+                    winit_window_builder.with_inner_size(logical_size.to_physical::<f64>(sf.into()))
                 } else {
                     winit_window_builder.with_inner_size(logical_size)
                 }
@@ -140,7 +140,8 @@ impl WinitWindows {
             }
 
             winit_window_builder =
-                winit_window_builder.with_prevent_default(window.prevent_default_event_handling)
+                winit_window_builder.with_prevent_default(window.prevent_default_event_handling);
+            winit_window_builder = winit_window_builder.with_append(true);
         }
 
         let winit_window = winit_window_builder.build(event_loop).unwrap();
@@ -188,22 +189,6 @@ impl WinitWindows {
 
         self.entity_to_winit.insert(entity, winit_window.id());
         self.winit_to_entity.insert(winit_window.id(), entity);
-
-        #[cfg(target_arch = "wasm32")]
-        {
-            use winit::platform::web::WindowExtWebSys;
-
-            if window.canvas.is_none() {
-                let canvas = winit_window.canvas();
-
-                let window = web_sys::window().unwrap();
-                let document = window.document().unwrap();
-                let body = document.body().unwrap();
-
-                body.append_child(&canvas)
-                    .expect("Append canvas to HTML body.");
-            }
-        }
 
         self.windows
             .entry(winit_window.id())
@@ -371,9 +356,3 @@ pub fn winit_window_position(
         }
     }
 }
-
-// WARNING: this only works under the assumption that wasm runtime is single threaded
-#[cfg(target_arch = "wasm32")]
-unsafe impl Send for WinitWindows {}
-#[cfg(target_arch = "wasm32")]
-unsafe impl Sync for WinitWindows {}

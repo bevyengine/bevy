@@ -426,9 +426,22 @@ impl Reflect for DynamicStruct {
         self
     }
 
-    #[inline]
-    fn clone_value(&self) -> Box<dyn Reflect> {
-        Box::new(self.clone_dynamic())
+    fn apply(&mut self, value: &dyn Reflect) {
+        if let ReflectRef::Struct(struct_value) = value.reflect_ref() {
+            for (i, value) in struct_value.iter_fields().enumerate() {
+                let name = struct_value.name_at(i).unwrap();
+                if let Some(v) = self.field_mut(name) {
+                    v.apply(value);
+                }
+            }
+        } else {
+            panic!("Attempted to apply non-struct type to struct type.");
+        }
+    }
+
+    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+        *self = value.take()?;
+        Ok(())
     }
 
     #[inline]
@@ -446,22 +459,9 @@ impl Reflect for DynamicStruct {
         ReflectOwned::Struct(self)
     }
 
-    fn apply(&mut self, value: &dyn Reflect) {
-        if let ReflectRef::Struct(struct_value) = value.reflect_ref() {
-            for (i, value) in struct_value.iter_fields().enumerate() {
-                let name = struct_value.name_at(i).unwrap();
-                if let Some(v) = self.field_mut(name) {
-                    v.apply(value);
-                }
-            }
-        } else {
-            panic!("Attempted to apply non-struct type to struct type.");
-        }
-    }
-
-    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
-        *self = value.take()?;
-        Ok(())
+    #[inline]
+    fn clone_value(&self) -> Box<dyn Reflect> {
+        Box::new(self.clone_dynamic())
     }
 
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
@@ -543,7 +543,12 @@ pub fn struct_partial_eq<S: Struct>(a: &S, b: &dyn Reflect) -> Option<bool> {
 /// ```
 #[inline]
 pub fn struct_debug(dyn_struct: &dyn Struct, f: &mut Formatter<'_>) -> std::fmt::Result {
-    let mut debug = f.debug_struct(dyn_struct.reflect_type_path());
+    let mut debug = f.debug_struct(
+        dyn_struct
+            .get_represented_type_info()
+            .map(|s| s.type_path())
+            .unwrap_or("_"),
+    );
     for field_index in 0..dyn_struct.field_len() {
         let field = dyn_struct.field_at(field_index).unwrap();
         debug.field(

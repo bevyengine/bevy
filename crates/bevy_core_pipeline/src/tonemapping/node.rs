@@ -8,7 +8,7 @@ use bevy_render::{
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
         BindGroup, BindGroupEntries, BufferId, LoadOp, Operations, PipelineCache,
-        RenderPassColorAttachment, RenderPassDescriptor, SamplerDescriptor, TextureViewId,
+        RenderPassColorAttachment, RenderPassDescriptor, SamplerDescriptor, StoreOp, TextureViewId,
     },
     renderer::RenderContext,
     texture::Image,
@@ -113,10 +113,12 @@ impl ViewNode for TonemappingNode {
                 resolve_target: None,
                 ops: Operations {
                     load: LoadOp::Clear(Default::default()), // TODO shouldn't need to be cleared
-                    store: true,
+                    store: StoreOp::Store,
                 },
             })],
             depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
         };
 
         let mut render_pass = render_context

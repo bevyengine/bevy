@@ -1,8 +1,8 @@
 use crate::{
     meta::{AssetHash, MetaTransform},
-    Asset, AssetHandleProvider, AssetPath, DependencyLoadState, ErasedLoadedAsset, Handle,
-    InternalAssetEvent, LoadState, RecursiveDependencyLoadState, StrongHandle, UntypedAssetId,
-    UntypedHandle,
+    Asset, AssetHandleProvider, AssetLoadError, AssetPath, DependencyLoadState, ErasedLoadedAsset,
+    Handle, InternalAssetEvent, LoadState, RecursiveDependencyLoadState, StrongHandle,
+    UntypedAssetId, UntypedHandle,
 };
 use bevy_ecs::world::World;
 use bevy_log::warn;
@@ -74,6 +74,8 @@ pub(crate) struct AssetInfos {
     pub(crate) living_labeled_assets: HashMap<AssetPath<'static>, HashSet<String>>,
     pub(crate) handle_providers: HashMap<TypeId, AssetHandleProvider>,
     pub(crate) dependency_loaded_event_sender: HashMap<TypeId, fn(&mut World, UntypedAssetId)>,
+    pub(crate) dependency_failed_event_sender:
+        HashMap<TypeId, fn(&mut World, UntypedAssetId, AssetPath<'static>, AssetLoadError)>,
 }
 
 impl std::fmt::Debug for AssetInfos {
@@ -197,7 +199,8 @@ impl AssetInfos {
                 let mut should_load = false;
                 if loading_mode == HandleLoadingMode::Force
                     || (loading_mode == HandleLoadingMode::Request
-                        && info.load_state == LoadState::NotLoaded)
+                        && (info.load_state == LoadState::NotLoaded
+                            || info.load_state == LoadState::Failed))
                 {
                     info.load_state = LoadState::Loading;
                     info.dep_load_state = DependencyLoadState::Loading;
@@ -268,8 +271,12 @@ impl AssetInfos {
         self.infos.get_mut(&id)
     }
 
-    pub(crate) fn get_path_handle(&self, path: AssetPath) -> Option<UntypedHandle> {
-        let id = *self.path_to_id.get(&path)?;
+    pub(crate) fn get_path_id(&self, path: &AssetPath) -> Option<UntypedAssetId> {
+        self.path_to_id.get(path).copied()
+    }
+
+    pub(crate) fn get_path_handle(&self, path: &AssetPath) -> Option<UntypedHandle> {
+        let id = *self.path_to_id.get(path)?;
         self.get_id_handle(id)
     }
 
@@ -554,6 +561,35 @@ impl AssetInfos {
         }
     }
 
+    fn remove_dependants_and_labels(
+        info: &AssetInfo,
+        loader_dependants: &mut HashMap<AssetPath<'static>, HashSet<AssetPath<'static>>>,
+        path: &AssetPath<'static>,
+        living_labeled_assets: &mut HashMap<AssetPath<'static>, HashSet<String>>,
+    ) {
+        for loader_dependency in info.loader_dependencies.keys() {
+            if let Some(dependants) = loader_dependants.get_mut(loader_dependency) {
+                dependants.remove(path);
+            }
+        }
+
+        let Some(label) = path.label() else {
+            return;
+        };
+
+        let mut without_label = path.to_owned();
+        without_label.remove_label();
+
+        let Entry::Occupied(mut entry) = living_labeled_assets.entry(without_label) else {
+            return;
+        };
+
+        entry.get_mut().remove(label);
+        if entry.get().is_empty() {
+            entry.remove();
+        }
+    }
+
     fn process_handle_drop_internal(
         infos: &mut HashMap<UntypedAssetId, AssetInfo>,
         path_to_id: &mut HashMap<AssetPath<'static>, UntypedAssetId>,
@@ -562,44 +598,32 @@ impl AssetInfos {
         watching_for_changes: bool,
         id: UntypedAssetId,
     ) -> bool {
-        match infos.entry(id) {
-            Entry::Occupied(mut entry) => {
-                if entry.get_mut().handle_drops_to_skip > 0 {
-                    entry.get_mut().handle_drops_to_skip -= 1;
-                    false
-                } else {
-                    let info = entry.remove();
-                    if let Some(path) = info.path {
-                        if watching_for_changes {
-                            for loader_dependency in info.loader_dependencies.keys() {
-                                if let Some(dependants) =
-                                    loader_dependants.get_mut(loader_dependency)
-                                {
-                                    dependants.remove(&path);
-                                }
-                            }
-                            if let Some(label) = path.label() {
-                                let mut without_label = path.to_owned();
-                                without_label.remove_label();
-                                if let Entry::Occupied(mut entry) =
-                                    living_labeled_assets.entry(without_label)
-                                {
-                                    entry.get_mut().remove(label);
-                                    if entry.get().is_empty() {
-                                        entry.remove();
-                                    }
-                                };
-                            }
-                        }
-                        path_to_id.remove(&path);
-                    }
-                    true
-                }
-            }
+        let Entry::Occupied(mut entry) = infos.entry(id) else {
             // Either the asset was already dropped, it doesn't exist, or it isn't managed by the asset server
             // None of these cases should result in a removal from the Assets collection
-            Entry::Vacant(_) => false,
+            return false;
+        };
+
+        if entry.get_mut().handle_drops_to_skip > 0 {
+            entry.get_mut().handle_drops_to_skip -= 1;
+            return false;
         }
+
+        let info = entry.remove();
+        let Some(path) = &info.path else {
+            return true;
+        };
+
+        if watching_for_changes {
+            Self::remove_dependants_and_labels(
+                &info,
+                loader_dependants,
+                path,
+                living_labeled_assets,
+            );
+        }
+        path_to_id.remove(path);
+        true
     }
 
     /// Consumes all current handle drop events. This will update information in [`AssetInfos`], but it
@@ -625,7 +649,6 @@ impl AssetInfos {
         }
     }
 }
-
 /// Determines how a handle should be initialized
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub(crate) enum HandleLoadingMode {

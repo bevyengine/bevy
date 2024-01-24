@@ -755,9 +755,9 @@ mod tests {
             input_nodes(TestLabels::A, &graph).is_empty(),
             "A has no inputs"
         );
-        assert!(
-            output_nodes(TestLabels::A, &graph)
-                == HashSet::from_iter((TestLabels::C,).into_array()),
+        assert_eq!(
+            output_nodes(TestLabels::A, &graph),
+            HashSet::from_iter((TestLabels::C,).into_array()),
             "A outputs to C"
         );
 
@@ -765,25 +765,26 @@ mod tests {
             input_nodes(TestLabels::B, &graph).is_empty(),
             "B has no inputs"
         );
-        assert!(
-            output_nodes(TestLabels::B, &graph)
-                == HashSet::from_iter((TestLabels::C,).into_array()),
+        assert_eq!(
+            output_nodes(TestLabels::B, &graph),
+            HashSet::from_iter((TestLabels::C,).into_array()),
             "B outputs to C"
         );
 
-        assert!(
-            input_nodes(TestLabels::C, &graph)
-                == HashSet::from_iter((TestLabels::A, TestLabels::B).into_array()),
+        assert_eq!(
+            input_nodes(TestLabels::C, &graph),
+            HashSet::from_iter((TestLabels::A, TestLabels::B).into_array()),
             "A and B input to C"
         );
-        assert!(
-            output_nodes(TestLabels::C, &graph)
-                == HashSet::from_iter((TestLabels::D,).into_array()),
+        assert_eq!(
+            output_nodes(TestLabels::C, &graph),
+            HashSet::from_iter((TestLabels::D,).into_array()),
             "C outputs to D"
         );
 
-        assert!(
-            input_nodes(TestLabels::D, &graph) == HashSet::from_iter((TestLabels::C,).into_array()),
+        assert_eq!(
+            input_nodes(TestLabels::D, &graph),
+            HashSet::from_iter((TestLabels::C,).into_array()),
             "C inputs to D"
         );
         assert!(
@@ -890,22 +891,24 @@ mod tests {
 
         graph.add_node_edges((TestLabels::A, TestLabels::B, TestLabels::C));
 
-        assert!(
-            output_nodes(TestLabels::A, &graph)
-                == HashSet::from_iter((TestLabels::B,).into_array()),
+        assert_eq!(
+            output_nodes(TestLabels::A, &graph),
+            HashSet::from_iter((TestLabels::B,).into_array()),
             "A -> B"
         );
-        assert!(
-            input_nodes(TestLabels::B, &graph) == HashSet::from_iter((TestLabels::A,).into_array()),
+        assert_eq!(
+            input_nodes(TestLabels::B, &graph),
+            HashSet::from_iter((TestLabels::A,).into_array()),
             "A -> B"
         );
-        assert!(
-            output_nodes(TestLabels::B, &graph)
-                == HashSet::from_iter((TestLabels::C,).into_array()),
+        assert_eq!(
+            output_nodes(TestLabels::B, &graph),
+            HashSet::from_iter((TestLabels::C,).into_array()),
             "B -> C"
         );
-        assert!(
-            input_nodes(TestLabels::C, &graph) == HashSet::from_iter((TestLabels::B,).into_array()),
+        assert_eq!(
+            input_nodes(TestLabels::C, &graph),
+            HashSet::from_iter((TestLabels::B,).into_array()),
             "B -> C"
         );
     }

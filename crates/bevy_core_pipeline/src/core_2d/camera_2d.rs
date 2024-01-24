@@ -1,12 +1,14 @@
 use crate::{
-    clear_color::ClearColorConfig,
     core_3d::graph::SubGraph3d,
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
 use bevy_render::{
-    camera::{Camera, CameraProjection, CameraRenderGraph, OrthographicProjection},
+    camera::{
+        Camera, CameraMainTextureUsages, CameraProjection, CameraRenderGraph,
+        OrthographicProjection,
+    },
     extract_component::ExtractComponent,
     primitives::Frustum,
     view::VisibleEntities,
@@ -18,9 +20,7 @@ use super::graph::SubGraph2d;
 #[derive(Component, Default, Reflect, Clone, ExtractComponent)]
 #[extract_component_filter(With<Camera>)]
 #[reflect(Component)]
-pub struct Camera2d {
-    pub clear_color: ClearColorConfig,
-}
+pub struct Camera2d;
 
 #[derive(Bundle)]
 pub struct Camera2dBundle {
@@ -34,6 +34,7 @@ pub struct Camera2dBundle {
     pub camera_2d: Camera2d,
     pub tonemapping: Tonemapping,
     pub deband_dither: DebandDither,
+    pub main_texture_usages: CameraMainTextureUsages,
 }
 
 impl Default for Camera2dBundle {
@@ -60,9 +61,10 @@ impl Default for Camera2dBundle {
             transform,
             global_transform: Default::default(),
             camera: Camera::default(),
-            camera_2d: Camera2d::default(),
+            camera_2d: Camera2d,
             tonemapping: Tonemapping::None,
             deband_dither: DebandDither::Disabled,
+            main_texture_usages: Default::default(),
         }
     }
 }
@@ -98,9 +100,10 @@ impl Camera2dBundle {
             transform,
             global_transform: Default::default(),
             camera: Camera::default(),
-            camera_2d: Camera2d::default(),
+            camera_2d: Camera2d,
             tonemapping: Tonemapping::None,
             deband_dither: DebandDither::Disabled,
+            main_texture_usages: Default::default(),
         }
     }
 }

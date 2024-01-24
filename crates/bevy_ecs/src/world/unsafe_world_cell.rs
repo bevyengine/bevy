@@ -56,7 +56,7 @@ use std::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData};
 /// struct OnlyComponentAccessWorld<'w>(UnsafeWorldCell<'w>);
 ///
 /// impl<'w> OnlyResourceAccessWorld<'w> {
-///     fn get_resource_mut<T: Resource>(&mut self) -> Option<Mut<'w, T>> {
+///     fn get_resource_mut<T: Resource>(&mut self) -> Option<Mut<'_, T>> {
 ///         // SAFETY: resource access is allowed through this UnsafeWorldCell
 ///         unsafe { self.0.get_resource_mut::<T>() }
 ///     }

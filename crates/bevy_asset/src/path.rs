@@ -302,7 +302,7 @@ impl<'a> AssetPath<'a> {
     /// Resolves a relative asset path via concatenation. The result will be an `AssetPath` which
     /// is resolved relative to this "base" path.
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_asset::AssetPath;
     /// assert_eq!(AssetPath::parse("a/b").resolve("c"), Ok(AssetPath::parse("a/b/c")));
     /// assert_eq!(AssetPath::parse("a/b").resolve("./c"), Ok(AssetPath::parse("a/b/c")));
@@ -352,7 +352,7 @@ impl<'a> AssetPath<'a> {
     /// primary use case for this method is resolving relative paths embedded within asset files,
     /// which are relative to the asset in which they are contained.
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_asset::AssetPath;
     /// assert_eq!(AssetPath::parse("a/b").resolve_embed("c"), Ok(AssetPath::parse("a/c")));
     /// assert_eq!(AssetPath::parse("a/b").resolve_embed("./c"), Ok(AssetPath::parse("a/c")));
@@ -626,10 +626,6 @@ impl Reflect for AssetPath<'static> {
         self
     }
     #[inline]
-    fn clone_value(&self) -> Box<dyn Reflect> {
-        Box::new(self.clone())
-    }
-    #[inline]
     fn apply(&mut self, value: &dyn Reflect) {
         let value = Reflect::as_any(value);
         if let Some(value) = value.downcast_ref::<Self>() {
@@ -654,6 +650,10 @@ impl Reflect for AssetPath<'static> {
     }
     fn reflect_owned(self: Box<Self>) -> ReflectOwned {
         ReflectOwned::Value(self)
+    }
+    #[inline]
+    fn clone_value(&self) -> Box<dyn Reflect> {
+        Box::new(self.clone())
     }
     fn reflect_hash(&self) -> Option<u64> {
         let mut hasher = bevy_reflect::utility::reflect_hasher();

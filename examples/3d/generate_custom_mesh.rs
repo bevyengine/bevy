@@ -2,9 +2,11 @@
 // ! assign a custom UV mapping for a custom texture,
 // ! and how to change the UV mapping at run-time.
 use bevy::prelude::*;
-use bevy::render::mesh::Indices;
-use bevy::render::mesh::VertexAttributeValues;
-use bevy::render::render_resource::PrimitiveTopology;
+use bevy::render::{
+    mesh::{Indices, VertexAttributeValues},
+    render_asset::RenderAssetPersistencePolicy,
+    render_resource::PrimitiveTopology,
+};
 
 // Define a "marker" component to mark the custom mesh. Marker components are often used in Bevy for
 // filtering entities in queries with With, they're usually not queried directly since they don't contain information within them.
@@ -56,7 +58,7 @@ fn setup(
     // Light up the scene.
     commands.spawn(PointLightBundle {
         point_light: PointLight {
-            intensity: 1000.0,
+            intensity: 100_000.0,
             range: 100.0,
             ..default()
         },
@@ -85,7 +87,7 @@ fn setup(
 // System to receive input from the user,
 // check out examples/input/ for more examples about user input.
 fn input_handler(
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     mesh_query: Query<&Handle<Mesh>, With<CustomUV>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut query: Query<&mut Transform, With<CustomUV>>,
@@ -96,22 +98,22 @@ fn input_handler(
         let mesh = meshes.get_mut(mesh_handle).unwrap();
         toggle_texture(mesh);
     }
-    if keyboard_input.pressed(KeyCode::X) {
+    if keyboard_input.pressed(KeyCode::KeyX) {
         for mut transform in &mut query {
             transform.rotate_x(time.delta_seconds() / 1.2);
         }
     }
-    if keyboard_input.pressed(KeyCode::Y) {
+    if keyboard_input.pressed(KeyCode::KeyY) {
         for mut transform in &mut query {
             transform.rotate_y(time.delta_seconds() / 1.2);
         }
     }
-    if keyboard_input.pressed(KeyCode::Z) {
+    if keyboard_input.pressed(KeyCode::KeyZ) {
         for mut transform in &mut query {
             transform.rotate_z(time.delta_seconds() / 1.2);
         }
     }
-    if keyboard_input.pressed(KeyCode::R) {
+    if keyboard_input.pressed(KeyCode::KeyR) {
         for mut transform in &mut query {
             transform.look_to(Vec3::NEG_Z, Vec3::Y);
         }
@@ -120,7 +122,8 @@ fn input_handler(
 
 #[rustfmt::skip]
 fn create_cube_mesh() -> Mesh {
-    Mesh::new(PrimitiveTopology::TriangleList)
+    // Keep the mesh data accessible in future frames to be able to mutate it in toggle_texture.
+    Mesh::new(PrimitiveTopology::TriangleList, RenderAssetPersistencePolicy::Keep)
     .with_inserted_attribute(
         Mesh::ATTRIBUTE_POSITION,
         // Each array is an [x, y, z] coordinate in local space.
@@ -159,7 +162,7 @@ fn create_cube_mesh() -> Mesh {
             [0.5, -0.5, -0.5],
         ],
     )
-    // Set-up UV coordinated to point to the upper (V < 0.5), "dirt+grass" part of the texture.
+    // Set-up UV coordinates to point to the upper (V < 0.5), "dirt+grass" part of the texture.
     // Take a look at the custom image (assets/textures/array_texture.png)
     // so the UV coords will make more sense
     // Note: (0.0, 0.0) = Top-Left in UV mapping, (1.0, 1.0) = Bottom-Right in UV mapping

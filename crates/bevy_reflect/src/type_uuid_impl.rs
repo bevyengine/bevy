@@ -2,14 +2,16 @@ use crate::TypeUuid;
 use crate::{self as bevy_reflect, __macro_exports::generate_composite_uuid};
 use bevy_reflect_derive::impl_type_uuid;
 use bevy_utils::{all_tuples, Duration, HashMap, HashSet, Instant, Uuid};
+
 #[cfg(feature = "smallvec")]
-use smallvec::SmallVec;
+use bevy_utils::{smallvec, smallvec::SmallVec};
+
 #[cfg(any(unix, windows))]
 use std::ffi::OsString;
 use std::{
     num::{
         NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroIsize, NonZeroU128,
-        NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8, NonZeroUsize,
+        NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8, NonZeroUsize, Saturating, Wrapping,
     },
     ops::{RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive},
     path::PathBuf,
@@ -67,6 +69,8 @@ impl_type_uuid!(NonZeroI16, "8744c2ec8a10491fae40f8bafa58b30d");
 impl_type_uuid!(NonZeroU16, "c7b8b60780a6495bab4fda2bdfedabcc");
 impl_type_uuid!(NonZeroU8, "635ee104ef7947fb9d7f79dad47255a3");
 impl_type_uuid!(NonZeroI8, "2d3f1570b7f64779826d44da5c7ba069");
+impl_type_uuid!(Saturating<T>, "e9d7c5d5b9e94c9c9c8c8c0f5f3c5c5f");
+impl_type_uuid!(Wrapping<T>, "d5b9e94c9c9c8c8c0f5f3c5c5fe9d7c5");
 #[cfg(any(unix, windows))]
 impl_type_uuid!(OsString, "809e7b3c1ea240979ecd832f91eb842a");
 macro_rules! impl_tuple {
