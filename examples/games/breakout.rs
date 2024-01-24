@@ -431,16 +431,14 @@ fn collide_with_side(ball: BoundingCircle, wall: Aabb2d) -> Option<Collision> {
     }
 
     let closest = wall.closest_point(ball.center());
-    let relative = closest - wall.center();
-    let normalized = relative / wall.half_size();
-
-    let side = if normalized.x.abs() > normalized.y.abs() {
-        if normalized.x < 0. {
+    let offset = ball.center() - closest;
+    let side = if offset.x.abs() > offset.y.abs() {
+        if offset.x < 0. {
             Collision::Left
         } else {
             Collision::Right
         }
-    } else if normalized.y > 0. {
+    } else if offset.y > 0. {
         Collision::Top
     } else {
         Collision::Bottom
