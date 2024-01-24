@@ -424,7 +424,7 @@ enum Collision {
 }
 
 // Returns `Some` if `ball` collides with `wall`. The returned `Collision` is the
-// side of `wall` that `ball`` hit.
+// side of `wall` that `ball` hit.
 fn collide_with_side(ball: BoundingCircle, wall: Aabb2d) -> Option<Collision> {
     if !ball.intersects(&wall) {
         return None;
