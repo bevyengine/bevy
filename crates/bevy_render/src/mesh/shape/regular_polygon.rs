@@ -60,7 +60,7 @@ impl From<RegularPolygon> for Mesh {
 
         Mesh::new(
             PrimitiveTopology::TriangleList,
-            RenderAssetPersistencePolicy::Unload,
+            RenderAssetPersistencePolicy::Keep,
         )
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)

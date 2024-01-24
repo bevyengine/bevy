@@ -10,14 +10,13 @@ use rand::{rngs::StdRng, Rng, SeedableRng};
 fn main() {
     App::new()
         .insert_resource(AmbientLight {
-            brightness: 0.02,
+            brightness: 4.0,
             ..default()
         })
         .add_plugins((
             DefaultPlugins,
             FrameTimeDiagnosticsPlugin,
             LogDiagnosticsPlugin::default(),
-            bevy_internal::core_pipeline::experimental::taa::TemporalAntiAliasPlugin,
         ))
         .add_systems(Startup, setup)
         .add_systems(Update, (light_sway, movement))
@@ -35,15 +34,15 @@ fn setup(
 ) {
     // ground plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(100.0).into()),
-        material: materials.add(Color::WHITE.into()),
+        mesh: meshes.add(shape::Plane::from_size(100.0)),
+        material: materials.add(Color::WHITE),
         ..default()
     });
 
     // cubes
     let mut rng = StdRng::seed_from_u64(19878367467713);
-    let cube_mesh = meshes.add(Mesh::from(shape::Cube { size: 0.5 }));
-    let blue = materials.add(Color::rgb_u8(124, 144, 255).into());
+    let cube_mesh = meshes.add(shape::Cube { size: 0.5 });
+    let blue = materials.add(Color::rgb_u8(124, 144, 255));
     for _ in 0..40 {
         let x = rng.gen_range(-5.0..5.0);
         let y = rng.gen_range(0.0..3.0);
@@ -59,22 +58,22 @@ fn setup(
         ));
     }
 
-    let sphere_mesh = meshes.add(Mesh::from(shape::UVSphere {
+    let sphere_mesh = meshes.add(shape::UVSphere {
         radius: 0.05,
         ..default()
-    }));
-    let sphere_mesh_direction = meshes.add(Mesh::from(shape::UVSphere {
+    });
+    let sphere_mesh_direction = meshes.add(shape::UVSphere {
         radius: 0.1,
         ..default()
-    }));
+    });
     let red_emissive = materials.add(StandardMaterial {
         base_color: Color::RED,
-        emissive: Color::rgba_linear(1.0, 0.0, 0.0, 0.0),
+        emissive: Color::rgba_linear(100.0, 0.0, 0.0, 0.0),
         ..default()
     });
     let maroon_emissive = materials.add(StandardMaterial {
         base_color: Color::MAROON,
-        emissive: Color::rgba_linear(0.369, 0.0, 0.0, 0.0),
+        emissive: Color::rgba_linear(50.0, 0.0, 0.0, 0.0),
         ..default()
     });
     for x in 0..4 {
@@ -87,7 +86,7 @@ fn setup(
                     transform: Transform::from_xyz(1.0 + x, 2.0, z)
                         .looking_at(Vec3::new(1.0 + x, 0.0, z), Vec3::X),
                     spot_light: SpotLight {
-                        intensity: 200.0, // lumens
+                        intensity: 100_000.0, // lumens
                         color: Color::WHITE,
                         shadows_enabled: true,
                         inner_angle: PI / 4.0 * 0.85,

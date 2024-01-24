@@ -98,6 +98,7 @@ where
             )
             .init_resource::<PrepassViewBindGroup>()
             .init_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>()
+            .allow_ambiguous_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>()
             .init_resource::<PreviousViewProjectionUniforms>();
     }
 
@@ -168,7 +169,9 @@ where
                 Render,
                 queue_prepass_material_meshes::<M>
                     .in_set(RenderSet::QueueMeshes)
-                    .after(prepare_materials::<M>),
+                    .after(prepare_materials::<M>)
+                    // queue_material_meshes only writes to `material_bind_group_id`, which `queue_prepass_material_meshes` doesn't read
+                    .ambiguous_with(queue_material_meshes::<StandardMaterial>),
             );
     }
 }
@@ -636,8 +639,8 @@ pub fn prepare_previous_view_projection_uniforms(
 
 #[derive(Default, Resource)]
 pub struct PrepassViewBindGroup {
-    motion_vectors: Option<BindGroup>,
-    no_motion_vectors: Option<BindGroup>,
+    pub motion_vectors: Option<BindGroup>,
+    pub no_motion_vectors: Option<BindGroup>,
 }
 
 pub fn prepare_prepass_view_bind_group<M: Material>(
@@ -892,11 +895,11 @@ pub fn queue_prepass_material_meshes<M: Material>(
 pub struct SetPrepassViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetPrepassViewBindGroup<I> {
     type Param = SRes<PrepassViewBindGroup>;
-    type ViewData = (
+    type ViewQuery = (
         Read<ViewUniformOffset>,
         Option<Read<PreviousViewProjectionUniformOffset>>,
     );
-    type ItemData = ();
+    type ItemQuery = ();
 
     #[inline]
     fn render<'w>(

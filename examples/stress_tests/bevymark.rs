@@ -209,9 +209,7 @@ fn setup(
         textures,
         materials,
         quad: meshes
-            .add(Mesh::from(shape::Quad::new(Vec2::splat(
-                BIRD_TEXTURE_SIZE as f32,
-            ))))
+            .add(shape::Quad::new(Vec2::splat(BIRD_TEXTURE_SIZE as f32)))
             .into(),
         color_rng: StdRng::seed_from_u64(42),
         material_rng: StdRng::seed_from_u64(42),
@@ -519,7 +517,7 @@ fn counter_system(
         text.sections[1].value = counter.count.to_string();
     }
 
-    if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
+    if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) {
         if let Some(raw) = fps.value() {
             text.sections[3].value = format!("{raw:.2}");
         }

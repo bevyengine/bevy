@@ -1,12 +1,13 @@
 use std::ops::Range;
 
 use super::{UiBatch, UiImageBindGroups, UiMeta};
-use crate::{prelude::UiCameraConfig, DefaultCameraView};
+use crate::DefaultCameraView;
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
 };
 use bevy_render::{
+    camera::ExtractedCamera,
     render_graph::*,
     render_phase::*,
     render_resource::{CachedRenderPipelineId, RenderPassDescriptor},
@@ -20,7 +21,7 @@ pub struct UiPassNode {
         (
             &'static RenderPhase<TransparentUi>,
             &'static ViewTarget,
-            Option<&'static UiCameraConfig>,
+            &'static ExtractedCamera,
         ),
         With<ExtractedView>,
     >,
@@ -50,16 +51,12 @@ impl Node for UiPassNode {
     ) -> Result<(), NodeRunError> {
         let input_view_entity = graph.view_entity();
 
-        let Ok((transparent_phase, target, camera_ui)) =
+        let Ok((transparent_phase, target, camera)) =
             self.ui_view_query.get_manual(world, input_view_entity)
         else {
             return Ok(());
         };
         if transparent_phase.items.is_empty() {
-            return Ok(());
-        }
-        // Don't render UI for cameras where it is explicitly disabled
-        if matches!(camera_ui, Some(&UiCameraConfig { show_ui: false })) {
             return Ok(());
         }
 
@@ -79,7 +76,9 @@ impl Node for UiPassNode {
             timestamp_writes: None,
             occlusion_query_set: None,
         });
-
+        if let Some(viewport) = camera.viewport.as_ref() {
+            render_pass.set_camera_viewport(viewport);
+        }
         transparent_phase.render(&mut render_pass, world, view_entity);
 
         Ok(())
@@ -156,8 +155,8 @@ pub type DrawUi = (
 pub struct SetUiViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiViewBindGroup<I> {
     type Param = SRes<UiMeta>;
-    type ViewData = Read<ViewUniformOffset>;
-    type ItemData = ();
+    type ViewQuery = Read<ViewUniformOffset>;
+    type ItemQuery = ();
 
     fn render<'w>(
         _item: &P,
@@ -177,8 +176,8 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiViewBindGroup<I> {
 pub struct SetUiTextureBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiTextureBindGroup<I> {
     type Param = SRes<UiImageBindGroups>;
-    type ViewData = ();
-    type ItemData = Read<UiBatch>;
+    type ViewQuery = ();
+    type ItemQuery = Read<UiBatch>;
 
     #[inline]
     fn render<'w>(
@@ -196,8 +195,8 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiTextureBindGroup<I>
 pub struct DrawUiNode;
 impl<P: PhaseItem> RenderCommand<P> for DrawUiNode {
     type Param = SRes<UiMeta>;
-    type ViewData = ();
-    type ItemData = Read<UiBatch>;
+    type ViewQuery = ();
+    type ItemQuery = Read<UiBatch>;
 
     #[inline]
     fn render<'w>(

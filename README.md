@@ -92,12 +92,6 @@ This [list][cargo_features] outlines the different cargo features supported by B
 
 [cargo_features]: docs/cargo_features.md
 
-## [Third Party Plugins][plugin_guidelines]
-
-Plugins are very welcome to extend Bevy's features. [Guidelines][plugin_guidelines] are available to help integration and usage.
-
-[plugin_guidelines]: docs/plugins_guidelines.md
-
 ## Thanks
 
 Bevy is the result of the hard work of many people. A huge thanks to all Bevy contributors, the many open source projects that have come before us, the [Rust gamedev ecosystem](https://arewegameyet.rs/), and the many libraries we build on.

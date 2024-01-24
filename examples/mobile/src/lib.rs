@@ -62,14 +62,14 @@ fn setup_scene(
 ) {
     // plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(5.0).into()),
-        material: materials.add(Color::rgb(0.1, 0.2, 0.1).into()),
+        mesh: meshes.add(shape::Plane::from_size(5.0)),
+        material: materials.add(Color::rgb(0.1, 0.2, 0.1)),
         ..default()
     });
     // cube
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: materials.add(Color::rgb(0.5, 0.4, 0.3).into()),
+        mesh: meshes.add(shape::Cube { size: 1.0 }),
+        material: materials.add(Color::rgb(0.5, 0.4, 0.3)),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..default()
     });
@@ -82,7 +82,7 @@ fn setup_scene(
             })
             .unwrap(),
         ),
-        material: materials.add(Color::rgb(0.1, 0.4, 0.8).into()),
+        material: materials.add(Color::rgb(0.1, 0.4, 0.8)),
         transform: Transform::from_xyz(1.5, 1.5, 1.5),
         ..default()
     });
@@ -90,7 +90,7 @@ fn setup_scene(
     commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(4.0, 8.0, 4.0),
         point_light: PointLight {
-            intensity: 5000.0,
+            intensity: 1_000_000.0,
             // Shadows makes some Android devices segfault, this is under investigation
             // https://github.com/bevyengine/bevy/issues/8214
             #[cfg(not(target_os = "android"))]

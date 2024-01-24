@@ -55,8 +55,8 @@ pub trait RenderAsset: Asset + Clone {
 /// or only need very infrequent access, then set this to Unload. Otherwise, set this to Keep.
 #[derive(Reflect, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Default, Debug)]
 pub enum RenderAssetPersistencePolicy {
-    #[default]
     Unload,
+    #[default]
     Keep,
 }
 

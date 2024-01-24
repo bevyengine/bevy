@@ -89,7 +89,7 @@ impl From<Torus> for Mesh {
 
         Mesh::new(
             PrimitiveTopology::TriangleList,
-            RenderAssetPersistencePolicy::Unload,
+            RenderAssetPersistencePolicy::Keep,
         )
         .with_indices(Some(Indices::U32(indices)))
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)

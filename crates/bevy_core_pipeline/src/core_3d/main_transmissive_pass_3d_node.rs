@@ -18,7 +18,7 @@ use std::ops::Range;
 pub struct MainTransmissivePass3dNode;
 
 impl ViewNode for MainTransmissivePass3dNode {
-    type ViewData = (
+    type ViewQuery = (
         &'static ExtractedCamera,
         &'static Camera3d,
         &'static RenderPhase<Transmissive3d>,
@@ -32,7 +32,7 @@ impl ViewNode for MainTransmissivePass3dNode {
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
         (camera, camera_3d, transmissive_phase, target, transmission, depth): QueryItem<
-            Self::ViewData,
+            Self::ViewQuery,
         >,
         world: &World,
     ) -> Result<(), NodeRunError> {

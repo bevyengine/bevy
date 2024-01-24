@@ -20,7 +20,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .insert_resource(AmbientLight {
-            brightness: 1.0,
+            brightness: 150.0,
             ..default()
         })
         .add_systems(Startup, setup)
@@ -48,11 +48,10 @@ fn setup(
     });
 
     // Create inverse bindpose matrices for a skeleton consists of 2 joints
-    let inverse_bindposes =
-        skinned_mesh_inverse_bindposes_assets.add(SkinnedMeshInverseBindposes::from(vec![
-            Mat4::from_translation(Vec3::new(-0.5, -1.0, 0.0)),
-            Mat4::from_translation(Vec3::new(-0.5, -1.0, 0.0)),
-        ]));
+    let inverse_bindposes = skinned_mesh_inverse_bindposes_assets.add(vec![
+        Mat4::from_translation(Vec3::new(-0.5, -1.0, 0.0)),
+        Mat4::from_translation(Vec3::new(-0.5, -1.0, 0.0)),
+    ]);
 
     // Create a mesh
     let mesh = Mesh::new(
@@ -148,14 +147,11 @@ fn setup(
         commands.spawn((
             PbrBundle {
                 mesh: mesh.clone(),
-                material: materials.add(
-                    Color::rgb(
-                        rng.gen_range(0.0..1.0),
-                        rng.gen_range(0.0..1.0),
-                        rng.gen_range(0.0..1.0),
-                    )
-                    .into(),
-                ),
+                material: materials.add(Color::rgb(
+                    rng.gen_range(0.0..1.0),
+                    rng.gen_range(0.0..1.0),
+                    rng.gen_range(0.0..1.0),
+                )),
                 ..default()
             },
             SkinnedMesh {
