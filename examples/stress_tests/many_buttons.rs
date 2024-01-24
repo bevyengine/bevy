@@ -42,7 +42,11 @@ struct Args {
 
 /// This example shows what happens when there is a lot of buttons on screen.
 fn main() {
+    #[cfg(not(target_arch = "wasm32"))]
     let args: Args = argh::from_env();
+    #[cfg(target_arch = "wasm32")]
+    let args = Args::from_args(&[], &[]).unwrap();
+
     let mut app = App::new();
 
     app.add_plugins((

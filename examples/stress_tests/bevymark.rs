@@ -94,7 +94,10 @@ impl FromStr for Mode {
 const FIXED_TIMESTEP: f32 = 0.2;
 
 fn main() {
+    #[cfg(not(target_arch = "wasm32"))]
     let args: Args = argh::from_env();
+    #[cfg(target_arch = "wasm32")]
+    let args = Args::from_args(&[], &[]).unwrap();
 
     App::new()
         .add_plugins((
