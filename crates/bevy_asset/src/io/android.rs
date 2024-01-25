@@ -8,8 +8,8 @@ use std::{ffi::CString, path::Path};
 /// Implementation details:
 ///
 /// - All functions use the [`AssetManager`] to load files.
-/// - [`is_directory`](AssetReader::is_directory) tris to open the path
-/// as a normal file and treats error as if the path is directory.
+/// - [`is_directory`](AssetReader::is_directory) tries to open the path
+/// as a normal file and treats an error as if the path is a directory.
 /// - Watching for changes is not supported. The watcher method will do nothing.
 ///
 /// [AssetManager]: https://developer.android.com/reference/android/content/res/AssetManager
