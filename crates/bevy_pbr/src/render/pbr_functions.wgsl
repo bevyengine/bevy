@@ -322,6 +322,10 @@ fn apply_pbr_lighting(
         transmitted_light += ambient::ambient_light(diffuse_transmissive_lobe_world_position, -in.N, -in.V, 1.0, diffuse_transmissive_color, vec3<f32>(0.0), 1.0, vec3<f32>(1.0));
     }
 
+    // Irradiance volume light (indirect)
+    let irradiance_volume_light = irradiance_volume::sample_irradiance_volume(in.world_position.xyz, in.N);
+    indirect_light += irradiance_volume_light * diffuse_color * diffuse_occlusion;
+
     // Environment map light (indirect)
 #ifdef ENVIRONMENT_MAP
     let environment_light = environment_map::environment_map_light(
@@ -416,9 +420,6 @@ fn apply_pbr_lighting(
         offset_and_counts,
         cluster_index,
     );
-
-    output_color = vec4(output_color.rgb + irradiance_volume::sample_irradiance_volume(in.world_position.xyz, in.N) *
-        diffuse_color, output_color.a);
 
     return output_color;
 }
