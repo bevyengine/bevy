@@ -322,7 +322,7 @@ pub struct StandardMaterial {
     /// The UV channel to use when sampling the normal map texture.
     ///
     /// Defaults to 0. Supports 0 or 1.
-    pub normal_map_texture_uv_channel : u32,
+    pub normal_map_texture_uv_channel: u32,
 
     /// Normal map textures authored for DirectX have their y-component flipped. Set this to flip
     /// it to right-handed conventions.
@@ -615,11 +615,11 @@ pub struct StandardMaterialUniform {
     /// in between.
     pub base_color: Vec4,
     /// UV channel selection for base colour texture.
-    pub base_color_texture_uv_channel:u32,
+    pub base_color_texture_uv_channel: u32,
     /// UV channel selection for normal map texture.
-    pub normal_map_texture_uv_channel:u32,
+    pub normal_map_texture_uv_channel: u32,
     /// UV channel selection for occlusion texture.
-    pub occlusion_texture_uv_channel:u32,
+    pub occlusion_texture_uv_channel: u32,
     // Use a color for user friendliness even though we technically don't use the alpha channel
     // Might be used in the future for exposure correction in HDR
     pub emissive: Vec4,
@@ -629,7 +629,7 @@ pub struct StandardMaterialUniform {
     /// From [0.0, 1.0], dielectric to pure metallic
     pub metallic: f32,
     /// UV channel selection for metallic-roughness texture.
-    pub metallic_roughness_texture_uv_channel:u32,
+    pub metallic_roughness_texture_uv_channel: u32,
     /// Specular intensity for non-metals on a linear scale of [0.0, 1.0]
     /// defaults to 0.5 which is mapped to 4% reflectance in the shader
     pub reflectance: f32,
@@ -750,7 +750,7 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             emissive: self.emissive.as_linear_rgba_f32().into(),
             roughness: self.perceptual_roughness,
             metallic: self.metallic,
-            metallic_roughness_texture_uv_channel : self.metallic_roughness_texture_uv_channel,
+            metallic_roughness_texture_uv_channel: self.metallic_roughness_texture_uv_channel,
             reflectance: self.reflectance,
             diffuse_transmission: self.diffuse_transmission,
             specular_transmission: self.specular_transmission,

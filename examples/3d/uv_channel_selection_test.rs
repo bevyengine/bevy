@@ -77,11 +77,19 @@ fn setup(
     });
 
     let mut new_mesh = Mesh::from(shape::UVSphere::default());
-    new_mesh.generate_tangents().expect("Failed to generate tangents. Oh my.");
+    new_mesh
+        .generate_tangents()
+        .expect("Failed to generate tangents. Oh my.");
 
     // Attempt to copy UVs from the first channel.
-    if let Some(uv0) = new_mesh.attribute(Mesh::ATTRIBUTE_UV_0).and_then(|attr| attr.as_float2()) {
-        let uv1: Vec<[f32; 2]> = uv0.iter().map(|&[u, v]| [u * SCALE_FACTOR, v * SCALE_FACTOR]).collect();
+    if let Some(uv0) = new_mesh
+        .attribute(Mesh::ATTRIBUTE_UV_0)
+        .and_then(|attr| attr.as_float2())
+    {
+        let uv1: Vec<[f32; 2]> = uv0
+            .iter()
+            .map(|&[u, v]| [u * SCALE_FACTOR, v * SCALE_FACTOR])
+            .collect();
         new_mesh.insert_attribute(Mesh::ATTRIBUTE_UV_1, uv1);
     } else {
         eprintln!("Failed to copy UVs!");
@@ -94,11 +102,7 @@ fn setup(
         PbrBundle {
             mesh: new_mesh_handle.clone(),
             material: debug_material_1.clone(),
-            transform: Transform::from_xyz(
-                -X_EXTENT / 2.0,
-                2.0,
-                0.0,
-            )
+            transform: Transform::from_xyz(-X_EXTENT / 2.0, 2.0, 0.0)
                 .with_rotation(Quat::from_rotation_x(-PI / 4.)),
             ..default()
         },
@@ -110,11 +114,7 @@ fn setup(
         PbrBundle {
             mesh: new_mesh_handle.clone(),
             material: debug_material_2.clone(),
-            transform: Transform::from_xyz(
-                X_EXTENT / 2.0,
-                2.0,
-                0.0,
-            )
+            transform: Transform::from_xyz(X_EXTENT / 2.0, 2.0, 0.0)
                 .with_rotation(Quat::from_rotation_x(-PI / 4.)),
             ..default()
         },
@@ -126,11 +126,7 @@ fn setup(
         PbrBundle {
             mesh: new_mesh_handle.clone(),
             material: debug_material_3.clone(),
-            transform: Transform::from_xyz(
-                -X_EXTENT / 2.0,
-                -2.0,
-                0.0,
-            )
+            transform: Transform::from_xyz(-X_EXTENT / 2.0, -2.0, 0.0)
                 .with_rotation(Quat::from_rotation_x(-PI / 4.)),
             ..default()
         },
@@ -142,11 +138,7 @@ fn setup(
         PbrBundle {
             mesh: new_mesh_handle.clone(),
             material: debug_material_4.clone(),
-            transform: Transform::from_xyz(
-                X_EXTENT / 2.0,
-                -2.0,
-                0.0,
-            )
+            transform: Transform::from_xyz(X_EXTENT / 2.0, -2.0, 0.0)
                 .with_rotation(Quat::from_rotation_x(-PI / 4.)),
             ..default()
         },
@@ -166,14 +158,15 @@ fn setup(
 
     commands.spawn((
         Camera3dBundle {
-            transform: Transform::from_xyz(0.0, 6., 12.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
+            transform: Transform::from_xyz(0.0, 6., 12.0)
+                .looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
             ..default()
         },
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 150.0,
-        }
+        },
     ));
 }
 
@@ -269,7 +262,8 @@ fn grid_normal_map_texture() -> Image {
             let is_crease = is_crease_x || is_crease_y;
 
             let normal = if is_crease {
-                if (is_crease_x && dx * 2 < CREASE_WIDTH) || (is_crease_y && dy * 2 < CREASE_WIDTH) {
+                if (is_crease_x && dx * 2 < CREASE_WIDTH) || (is_crease_y && dy * 2 < CREASE_WIDTH)
+                {
                     &NORMAL_CREASE_UP
                 } else {
                     &NORMAL_CREASE_DOWN
@@ -313,7 +307,11 @@ fn grid_occlusion_map_texture() -> Image {
             let dy = y % grid_step;
             let is_crease = dx < CREASE_WIDTH || dy < CREASE_WIDTH;
 
-            texture_data[offset..offset + 4].copy_from_slice(if is_crease { &BLACK } else { &WHITE });
+            texture_data[offset..offset + 4].copy_from_slice(if is_crease {
+                &BLACK
+            } else {
+                &WHITE
+            });
         }
     }
 
