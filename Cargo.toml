@@ -542,6 +542,17 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "uv_b_test"
+path = "examples/3d/uv_b_test.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.uv_b_test]
+name = "UV B Test"
+description = "A scene testing the use of the second UV channel"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "3d_viewport_to_world"
 path = "examples/3d/3d_viewport_to_world.rs"
 doc-scrape-examples = true
