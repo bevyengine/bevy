@@ -786,15 +786,14 @@ impl<'s> Drop for RegularPolygonBuilder<'_, 's> {
 // === 3D ===
 
 /// A trait for rendering 3D geometric primitives (`P`) with [`Gizmos`].
-pub trait GizmoPrimitive3d<'s, P: Primitive3d> {
+pub trait GizmoPrimitive3d<P: Primitive3d> {
     /// The output of `primitive_3d`. This is a builder to set non-default values.
     type Output<'a>
     where
-        Self: 's,
-        's: 'a;
+        Self: 'a;
 
     /// Renders a 3D primitive with its associated details.
-    fn primitive_3d<'a>(&'s mut self, primitive: P) -> Self::Output<'a>;
+    fn primitive_3d(&mut self, primitive: P) -> Self::Output<'_>;
 }
 
 // direction 3d
@@ -823,10 +822,10 @@ impl<'a, 's> Direction3dBuilder<'a, 's> {
     }
 }
 
-impl<'s> GizmoPrimitive3d<'s, Direction3d> for Gizmos<'s> {
+impl<'s> GizmoPrimitive3d<Direction3d> for Gizmos<'s> {
     type Output<'a> = Direction3dBuilder<'a, 's> where Self: 's, 's: 'a;
 
-    fn primitive_3d<'a>(&'s mut self, primitive: Direction3d) -> Self::Output<'a> {
+    fn primitive_3d(&mut self, primitive: Direction3d) -> Self::Output<'_> {
         Direction3dBuilder {
             gizmos: self,
             direction: primitive,
@@ -889,10 +888,10 @@ impl<'a, 's> SphereBuilder<'a, 's> {
     }
 }
 
-impl<'s> GizmoPrimitive3d<'s, Sphere> for Gizmos<'s> {
+impl<'s> GizmoPrimitive3d<Sphere> for Gizmos<'s> {
     type Output<'a> = SphereBuilder<'a, 's> where Self: 's, 's: 'a;
 
-    fn primitive_3d<'a>(&'s mut self, primitive: Sphere) -> Self::Output<'a> {
+    fn primitive_3d(&mut self, primitive: Sphere) -> Self::Output<'_> {
         SphereBuilder {
             gizmos: self,
             radius: primitive.radius,
@@ -965,10 +964,10 @@ impl<'a, 's> Plane3dBuilder<'a, 's> {
     }
 }
 
-impl<'s> GizmoPrimitive3d<'s, Plane3d> for Gizmos<'s> {
+impl<'s> GizmoPrimitive3d<Plane3d> for Gizmos<'s> {
     type Output<'a> = Plane3dBuilder<'a, 's> where Self: 's, 's: 'a;
 
-    fn primitive_3d<'a>(&'s mut self, primitive: Plane3d) -> Self::Output<'a> {
+    fn primitive_3d(&mut self, primitive: Plane3d) -> Self::Output<'_> {
         Plane3dBuilder {
             gizmos: self,
             normal: primitive.normal,
@@ -1044,10 +1043,10 @@ impl<'a, 's> Line3dBuilder<'a, 's> {
     }
 }
 
-impl<'s> GizmoPrimitive3d<'s, Line3d> for Gizmos<'s> {
+impl<'s> GizmoPrimitive3d<Line3d> for Gizmos<'s> {
     type Output<'a> = Line3dBuilder<'a, 's> where Self: 's, 's: 'a;
 
-    fn primitive_3d<'a>(&'s mut self, primitive: Line3d) -> Self::Output<'a> {
+    fn primitive_3d(&mut self, primitive: Line3d) -> Self::Output<'_> {
         Line3dBuilder {
             gizmos: self,
             direction: primitive.direction,
@@ -1120,10 +1119,10 @@ impl<'a, 's> Segment3dBuilder<'a, 's> {
     }
 }
 
-impl<'s> GizmoPrimitive3d<'s, Segment3d> for Gizmos<'s> {
+impl<'s> GizmoPrimitive3d<Segment3d> for Gizmos<'s> {
     type Output<'a> = Segment3dBuilder<'a, 's> where Self: 's, 's: 'a;
 
-    fn primitive_3d<'a>(&'s mut self, primitive: Segment3d) -> Self::Output<'a> {
+    fn primitive_3d(&mut self, primitive: Segment3d) -> Self::Output<'_> {
         Segment3dBuilder {
             gizmos: self,
             direction: primitive.direction,
@@ -1186,10 +1185,10 @@ impl<'a, 's, const N: usize> Polyline3dBuilder<'a, 's, N> {
     }
 }
 
-impl<'s, const N: usize> GizmoPrimitive3d<'s, Polyline3d<N>> for Gizmos<'s> {
+impl<'s, const N: usize> GizmoPrimitive3d<Polyline3d<N>> for Gizmos<'s> {
     type Output<'a> = Polyline3dBuilder<'a, 's, N> where Self: 's, 's: 'a;
 
-    fn primitive_3d<'a>(&'s mut self, primitive: Polyline3d<N>) -> Self::Output<'a> {
+    fn primitive_3d(&mut self, primitive: Polyline3d<N>) -> Self::Output<'_> {
         Polyline3dBuilder {
             gizmos: self,
             vertices: primitive.vertices,
@@ -1250,10 +1249,10 @@ impl<'a, 's> BoxedPolyline3dBuilder<'a, 's> {
     }
 }
 
-impl<'s> GizmoPrimitive3d<'s, BoxedPolyline3d> for Gizmos<'s> {
+impl<'s> GizmoPrimitive3d<BoxedPolyline3d> for Gizmos<'s> {
     type Output<'a> = BoxedPolyline3dBuilder<'a, 's> where Self: 's, 's: 'a;
 
-    fn primitive_3d<'a>(&'s mut self, primitive: BoxedPolyline3d) -> Self::Output<'a> {
+    fn primitive_3d(&mut self, primitive: BoxedPolyline3d) -> Self::Output<'_> {
         BoxedPolyline3dBuilder {
             gizmos: self,
             vertices: primitive.vertices,
@@ -1317,10 +1316,10 @@ impl<'a, 's> Cuboid3dBuilder<'a, 's> {
     }
 }
 
-impl<'s> GizmoPrimitive3d<'s, Cuboid> for Gizmos<'s> {
+impl<'s> GizmoPrimitive3d<Cuboid> for Gizmos<'s> {
     type Output<'a> = Cuboid3dBuilder<'a, 's> where Self: 's, 's: 'a;
 
-    fn primitive_3d<'a>(&'s mut self, primitive: Cuboid) -> Self::Output<'a> {
+    fn primitive_3d(&mut self, primitive: Cuboid) -> Self::Output<'_> {
         Cuboid3dBuilder {
             gizmos: self,
             half_extents: primitive.half_extents,
@@ -1416,10 +1415,10 @@ impl<'a, 's> Cylinder3dBuilder<'a, 's> {
     }
 }
 
-impl<'s> GizmoPrimitive3d<'s, Cylinder> for Gizmos<'s> {
+impl<'s> GizmoPrimitive3d<Cylinder> for Gizmos<'s> {
     type Output<'a> = Cylinder3dBuilder<'a, 's> where Self: 's, 's: 'a;
 
-    fn primitive_3d<'a>(&'s mut self, primitive: Cylinder) -> Self::Output<'a> {
+    fn primitive_3d(&mut self, primitive: Cylinder) -> Self::Output<'_> {
         Cylinder3dBuilder {
             gizmos: self,
             radius: primitive.radius,
@@ -1510,10 +1509,10 @@ impl<'a, 's> Capsule3dBuilder<'a, 's> {
     }
 }
 
-impl<'s> GizmoPrimitive3d<'s, Capsule> for Gizmos<'s> {
+impl<'s> GizmoPrimitive3d<Capsule> for Gizmos<'s> {
     type Output<'a> = Capsule3dBuilder<'a, 's> where Self: 's, 's: 'a;
 
-    fn primitive_3d<'a>(&'s mut self, primitive: Capsule) -> Self::Output<'a> {
+    fn primitive_3d(&mut self, primitive: Capsule) -> Self::Output<'_> {
         Capsule3dBuilder {
             gizmos: self,
             radius: primitive.radius,
@@ -1601,10 +1600,10 @@ impl<'a, 's> Cone3dBuilder<'a, 's> {
     }
 }
 
-impl<'s> GizmoPrimitive3d<'s, Cone> for Gizmos<'s> {
+impl<'s> GizmoPrimitive3d<Cone> for Gizmos<'s> {
     type Output<'a> = Cone3dBuilder<'a, 's> where Self: 's, 's: 'a;
 
-    fn primitive_3d<'a>(&'s mut self, primitive: Cone) -> Self::Output<'a> {
+    fn primitive_3d(&mut self, primitive: Cone) -> Self::Output<'_> {
         Cone3dBuilder {
             gizmos: self,
             radius: primitive.radius,
@@ -1685,10 +1684,10 @@ impl<'a, 's> ConicalFrustum3dBuilder<'a, 's> {
     }
 }
 
-impl<'s> GizmoPrimitive3d<'s, ConicalFrustum> for Gizmos<'s> {
+impl<'s> GizmoPrimitive3d<ConicalFrustum> for Gizmos<'s> {
     type Output<'a> = ConicalFrustum3dBuilder<'a, 's> where Self: 's, 's: 'a;
 
-    fn primitive_3d<'a>(&'s mut self, primitive: ConicalFrustum) -> Self::Output<'a> {
+    fn primitive_3d(&mut self, primitive: ConicalFrustum) -> Self::Output<'_> {
         ConicalFrustum3dBuilder {
             gizmos: self,
             radius_top: primitive.radius_top,
@@ -1788,10 +1787,10 @@ impl<'a, 's> Torus3dBuilder<'a, 's> {
     }
 }
 
-impl<'s> GizmoPrimitive3d<'s, Torus> for Gizmos<'s> {
+impl<'s> GizmoPrimitive3d<Torus> for Gizmos<'s> {
     type Output<'a> = Torus3dBuilder<'a, 's> where Self: 's, 's: 'a;
 
-    fn primitive_3d<'a>(&'s mut self, primitive: Torus) -> Self::Output<'a> {
+    fn primitive_3d(&mut self, primitive: Torus) -> Self::Output<'_> {
         Torus3dBuilder {
             gizmos: self,
             minor_radius: primitive.minor_radius,
