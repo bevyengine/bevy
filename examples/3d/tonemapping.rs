@@ -293,7 +293,6 @@ fn setup_image_viewer_scene(
 
 // ----------------------------------------------------------------------------
 
-#[allow(clippy::too_many_arguments)]
 fn drag_drop_image(
     image_mat: Query<&Handle<StandardMaterial>, With<HDRViewer>>,
     text: Query<Entity, (With<Text>, With<SceneNumber>)>,
