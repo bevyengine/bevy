@@ -568,21 +568,23 @@ bitflags::bitflags! {
         const THICKNESS_TEXTURE          = 1 << 11;
         const DIFFUSE_TRANSMISSION_TEXTURE = 1 << 12;
         const ATTENUATION_ENABLED        = 1 << 13;
-        const ALPHA_MODE_RESERVED_BITS   = Self::ALPHA_MODE_MASK_BITS << Self::ALPHA_MODE_SHIFT_BITS; // ← Bitmask reserving bits for the `AlphaMode`
-        const ALPHA_MODE_OPAQUE          = 0 << Self::ALPHA_MODE_SHIFT_BITS;                          // ← Values are just sequential values bitshifted into
-        const ALPHA_MODE_MASK            = 1 << Self::ALPHA_MODE_SHIFT_BITS;                          //   the bitmask, and can range from 0 to 7.
-        const ALPHA_MODE_BLEND           = 2 << Self::ALPHA_MODE_SHIFT_BITS;                          //
-        const ALPHA_MODE_PREMULTIPLIED   = 3 << Self::ALPHA_MODE_SHIFT_BITS;                          //
-        const ALPHA_MODE_ADD             = 4 << Self::ALPHA_MODE_SHIFT_BITS;                          //   Right now only values 0–5 are used, which still gives
-        const ALPHA_MODE_MULTIPLY        = 5 << Self::ALPHA_MODE_SHIFT_BITS;                          // ← us "room" for two more modes without adding more bits
         const NONE                       = 0;
         const UNINITIALIZED              = 0xFFFF;
     }
 }
 
-impl StandardMaterialFlags {
-    const ALPHA_MODE_MASK_BITS: u32 = 0b111;
-    const ALPHA_MODE_SHIFT_BITS: u32 = 32 - Self::ALPHA_MODE_MASK_BITS.count_ones();
+bitflags::bitflags! {
+    /// Bitflags info about the alpha mode of the material a shader is currently rendering.
+    /// This is accessible in the shader in the [`StandardMaterialUniform`]
+    #[repr(transparent)]
+    pub struct StandardMaterialAlphaModeFlags: u32 {
+        const ALPHA_MODE_OPAQUE          = 0;
+        const ALPHA_MODE_MASK            = 1;
+        const ALPHA_MODE_BLEND           = 2;
+        const ALPHA_MODE_PREMULTIPLIED   = 3;
+        const ALPHA_MODE_ADD             = 4;
+        const ALPHA_MODE_MULTIPLY        = 5;
+    }
 }
 
 /// The GPU representation of the uniform data of a [`StandardMaterial`].
@@ -618,6 +620,8 @@ pub struct StandardMaterialUniform {
     pub attenuation_distance: f32,
     /// The [`StandardMaterialFlags`] accessible in the `wgsl` shader.
     pub flags: u32,
+    /// The [`StandardMaterialAlphaModeFlags`] accessible in the `wgsl` shader.
+    pub alpha_mode_flags: u32,
     /// When the alpha mode mask flag is set, any base color alpha above this cutoff means fully opaque,
     /// and any below means fully transparent.
     pub alpha_cutoff: f32,
@@ -697,16 +701,24 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
         }
         // NOTE: 0.5 is from the glTF default - do we want this?
         let mut alpha_cutoff = 0.5;
+
+        let alpha_mode_flags;
         match self.alpha_mode {
-            AlphaMode::Opaque => flags |= StandardMaterialFlags::ALPHA_MODE_OPAQUE,
+            AlphaMode::Opaque => {
+                alpha_mode_flags = StandardMaterialAlphaModeFlags::ALPHA_MODE_OPAQUE
+            }
             AlphaMode::Mask(c) => {
                 alpha_cutoff = c;
-                flags |= StandardMaterialFlags::ALPHA_MODE_MASK;
+                alpha_mode_flags = StandardMaterialAlphaModeFlags::ALPHA_MODE_MASK;
             }
-            AlphaMode::Blend => flags |= StandardMaterialFlags::ALPHA_MODE_BLEND,
-            AlphaMode::Premultiplied => flags |= StandardMaterialFlags::ALPHA_MODE_PREMULTIPLIED,
-            AlphaMode::Add => flags |= StandardMaterialFlags::ALPHA_MODE_ADD,
-            AlphaMode::Multiply => flags |= StandardMaterialFlags::ALPHA_MODE_MULTIPLY,
+            AlphaMode::Blend => alpha_mode_flags = StandardMaterialAlphaModeFlags::ALPHA_MODE_BLEND,
+            AlphaMode::Premultiplied => {
+                alpha_mode_flags = StandardMaterialAlphaModeFlags::ALPHA_MODE_PREMULTIPLIED
+            }
+            AlphaMode::Add => alpha_mode_flags = StandardMaterialAlphaModeFlags::ALPHA_MODE_ADD,
+            AlphaMode::Multiply => {
+                alpha_mode_flags = StandardMaterialAlphaModeFlags::ALPHA_MODE_MULTIPLY
+            }
         };
 
         if self.attenuation_distance.is_finite() {
@@ -726,6 +738,7 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             attenuation_distance: self.attenuation_distance,
             attenuation_color: self.attenuation_color.as_linear_rgba_f32().into(),
             flags: flags.bits(),
+            alpha_mode_flags: alpha_mode_flags.bits(),
             alpha_cutoff,
             parallax_depth_scale: self.parallax_depth_scale,
             max_parallax_layer_count: self.max_parallax_layer_count,
