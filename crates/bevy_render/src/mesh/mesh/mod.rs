@@ -899,7 +899,7 @@ impl VertexAttributeValues {
         }
     }
 
-    /// TODO Docs
+    /// Returns the values as float pairs if possible.
     pub fn as_float2(&self) -> Option<&[[f32; 2]]> {
         match self {
             VertexAttributeValues::Float32x2(values) => Some(values),
