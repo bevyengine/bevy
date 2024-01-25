@@ -70,6 +70,7 @@ fn pbr_input_from_standard_material(
     pbr_input.material.base_color_texture_uv_channel = pbr_bindings::material.base_color_texture_uv_channel;
     pbr_input.material.metallic_roughness_texture_uv_channel = pbr_bindings::material.metallic_roughness_texture_uv_channel;
     pbr_input.material.normal_map_texture_uv_channel = pbr_bindings::material.normal_map_texture_uv_channel;
+    pbr_input.material.occlusion_texture_uv_channel = pbr_bindings::material.occlusion_texture_uv_channel;
     pbr_input.material.deferred_lighting_pass_id = pbr_bindings::material.deferred_lighting_pass_id;
 
     // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
@@ -195,7 +196,17 @@ fn pbr_input_from_standard_material(
         var specular_occlusion: f32 = 1.0;
 #ifdef VERTEX_UVS
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_OCCLUSION_TEXTURE_BIT) != 0u) {
+#ifdef VERTEX_UVS_B
+            var uv_selected: vec2<f32>;
+            if (pbr_input.material.occlusion_texture_uv_channel == 1u) {
+                uv_selected = uv1;
+            } else {
+                uv_selected = uv;
+            }
+            diffuse_occlusion = vec3(textureSampleBias(pbr_bindings::occlusion_texture, pbr_bindings::occlusion_sampler, uv_selected, view.mip_bias).r);
+#else
             diffuse_occlusion = vec3(textureSampleBias(pbr_bindings::occlusion_texture, pbr_bindings::occlusion_sampler, uv, view.mip_bias).r);
+#endif
         }
 #endif
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION

@@ -336,6 +336,8 @@ pub struct StandardMaterial {
     #[dependency]
     pub occlusion_texture: Option<Handle<Image>>,
 
+    pub occlusion_texture_uv_channel: u32,
+
     /// Support two-sided lighting by automatically flipping the normals for "back" faces
     /// within the PBR lighting shader.
     ///
@@ -515,6 +517,7 @@ impl Default for StandardMaterial {
             attenuation_color: Color::WHITE,
             attenuation_distance: f32::INFINITY,
             occlusion_texture: None,
+            occlusion_texture_uv_channel: 0,
             normal_map_texture: None,
             normal_map_texture_uv_channel: 0,
             flip_normal_map_y: false,
@@ -604,6 +607,7 @@ pub struct StandardMaterialUniform {
     /// TODO Docs
     pub base_color_texture_uv_channel:u32,
     pub normal_map_texture_uv_channel:u32,
+    pub occlusion_texture_uv_channel:u32,
     // Use a color for user friendliness even though we technically don't use the alpha channel
     // Might be used in the future for exposure correction in HDR
     pub emissive: Vec4,
@@ -729,6 +733,7 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             base_color: self.base_color.as_linear_rgba_f32().into(),
             base_color_texture_uv_channel: self.base_color_texture_uv_channel,
             normal_map_texture_uv_channel: self.normal_map_texture_uv_channel,
+            occlusion_texture_uv_channel: self.occlusion_texture_uv_channel,
             emissive: self.emissive.as_linear_rgba_f32().into(),
             roughness: self.perceptual_roughness,
             metallic: self.metallic,
