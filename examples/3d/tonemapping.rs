@@ -303,7 +303,7 @@ fn drag_drop_image(
 ) {
     let Some(new_image) = drop_events.read().find_map(|e| match e {
         FileDragAndDrop::DroppedFile { path_buf, .. } => {
-            Some(asset_server.load(&path_buf.to_string_lossy().to_string()))
+            Some(asset_server.load(path_buf.to_string_lossy().to_string()))
         }
         _ => None,
     }) else {
@@ -330,6 +330,7 @@ fn resize_image(
     mut image_events: EventReader<AssetEvent<Image>>,
 ) {
     for event in image_events.read() {
+        #[allow(clippy::manual_let_else)]
         let image_changed_id = match event {
             AssetEvent::Added { id } | AssetEvent::Modified { id } => id,
             _ => continue,
