@@ -67,6 +67,9 @@ pub struct PlaybackSettings {
     /// Note: Bevy does not currently support HRTF or any other high-quality 3D sound rendering
     /// features. Spatial audio is implemented via simple left-right stereo panning.
     pub spatial: bool,
+    /// Optional scale factor applied to the positions of this audio source and the listener,
+    /// overriding the default value configured on [`AudioPlugin::default_spatial_scale`](crate::AudioPlugin::default_spatial_scale).
+    pub spatial_scale: Option<SpatialScale>,
 }
 
 impl Default for PlaybackSettings {
@@ -84,6 +87,7 @@ impl PlaybackSettings {
         speed: 1.0,
         paused: false,
         spatial: false,
+        spatial_scale: None,
     };
 
     /// Will play the associated audio source in a loop.
@@ -125,6 +129,12 @@ impl PlaybackSettings {
     /// Helper to enable or disable spatial audio.
     pub const fn with_spatial(mut self, spatial: bool) -> Self {
         self.spatial = spatial;
+        self
+    }
+
+    /// Helper to use a custom spatial scale.
+    pub const fn with_spatial_scale(mut self, spatial_scale: SpatialScale) -> Self {
+        self.spatial_scale = Some(spatial_scale);
         self
     }
 }
@@ -180,25 +190,22 @@ impl GlobalVolume {
     }
 }
 
-/// The scale factor applied to the positions of audio sources and listeners for
+/// A scale factor applied to the positions of audio sources and listeners for
 /// spatial audio.
 ///
-/// You may need to adjust this scale to fit your world's units.
-///
 /// Default is `Vec3::ONE`.
-#[derive(Resource, Clone, Copy, Reflect)]
-#[reflect(Resource)]
+#[derive(Clone, Copy, Debug, Reflect)]
 pub struct SpatialScale(pub Vec3);
 
 impl SpatialScale {
     /// Create a new `SpatialScale` with the same value for all 3 dimensions.
-    pub fn new(scale: f32) -> Self {
+    pub const fn new(scale: f32) -> Self {
         Self(Vec3::splat(scale))
     }
 
     /// Create a new `SpatialScale` with the same value for `x` and `y`, and `0.0`
     /// for `z`.
-    pub fn new_2d(scale: f32) -> Self {
+    pub const fn new_2d(scale: f32) -> Self {
         Self(Vec3::new(scale, scale, 0.0))
     }
 }
@@ -208,6 +215,16 @@ impl Default for SpatialScale {
         Self(Vec3::ONE)
     }
 }
+
+/// The default scale factor applied to the positions of audio sources and listeners for
+/// spatial audio. Can be overridden for individual sounds in [`PlaybackSettings`].
+///
+/// You may need to adjust this scale to fit your world's units.
+///
+/// Default is `Vec3::ONE`.
+#[derive(Resource, Default, Clone, Copy, Reflect)]
+#[reflect(Resource)]
+pub struct DefaultSpatialScale(pub SpatialScale);
 
 /// Bundle for playing a standard bevy audio asset
 pub type AudioBundle = AudioSourceBundle<AudioSource>;
