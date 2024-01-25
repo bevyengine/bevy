@@ -648,7 +648,7 @@ impl Image {
         #[allow(unused_variables)] supported_compressed_formats: CompressedImageFormats,
         is_srgb: bool,
         image_sampler: ImageSampler,
-        usage: RenderAssetUsages,
+        asset_usage: RenderAssetUsages,
     ) -> Result<Image, TextureError> {
         let format = image_type.to_image_format()?;
 
@@ -677,7 +677,7 @@ impl Image {
                 reader.set_format(image_crate_format);
                 reader.no_limits();
                 let dyn_img = reader.decode()?;
-                Self::from_dynamic(dyn_img, is_srgb, usage)
+                Self::from_dynamic(dyn_img, is_srgb, asset_usage)
             }
         };
         image.sampler = image_sampler;
