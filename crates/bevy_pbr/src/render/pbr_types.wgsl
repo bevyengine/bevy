@@ -2,6 +2,7 @@
 
 struct StandardMaterial {
     base_color: vec4<f32>,
+    base_color_texture_uv_channel: u32,
     emissive: vec4<f32>,
     perceptual_roughness: f32,
     metallic: f32,
@@ -58,6 +59,7 @@ fn standard_material_new() -> StandardMaterial {
 
     // NOTE: Keep in-sync with src/pbr_material.rs!
     material.base_color = vec4<f32>(1.0, 1.0, 1.0, 1.0);
+    material.base_color_texture_uv_channel = 0u;
     material.emissive = vec4<f32>(0.0, 0.0, 0.0, 1.0);
     material.perceptual_roughness = 0.5;
     material.metallic = 0.00;

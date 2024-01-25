@@ -47,7 +47,7 @@ pub struct StandardMaterial {
     pub base_color_texture: Option<Handle<Image>>,
 
     /// TODO docs
-    pub base_color_texture_uv_channel: u8,
+    pub base_color_texture_uv_channel: u32,
 
     // Use a color for user friendliness even though we technically don't use the alpha channel
     // Might be used in the future for exposure correction in HDR
@@ -594,6 +594,7 @@ pub struct StandardMaterialUniform {
     /// Doubles as diffuse albedo for non-metallic, specular for metallic and a mix for everything
     /// in between.
     pub base_color: Vec4,
+    pub base_color_texture_uv_channel:u32,
     // Use a color for user friendliness even though we technically don't use the alpha channel
     // Might be used in the future for exposure correction in HDR
     pub emissive: Vec4,
@@ -716,6 +717,7 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
 
         StandardMaterialUniform {
             base_color: self.base_color.as_linear_rgba_f32().into(),
+            base_color_texture_uv_channel: self.base_color_texture_uv_channel,
             emissive: self.emissive.as_linear_rgba_f32().into(),
             roughness: self.perceptual_roughness,
             metallic: self.metallic,
