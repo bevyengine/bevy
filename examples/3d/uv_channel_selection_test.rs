@@ -20,7 +20,7 @@ fn main() {
         .run();
 }
 
-/// Will rotate our shapes. Stolen from the shape example.
+/// Marker component to let us easily select and then rotate the shapes.
 #[derive(Component)]
 struct Shape;
 
