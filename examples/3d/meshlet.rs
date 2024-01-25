@@ -11,11 +11,13 @@ use bevy::{
     prelude::*,
     render::render_resource::AsBindGroup,
 };
+use bevy_internal::pbr::DirectionalLightShadowMap;
 use camera_controller::{CameraController, CameraControllerPlugin};
 use std::f32::consts::PI;
 
 fn main() {
     App::new()
+        .insert_resource(DirectionalLightShadowMap { size: 4096 })
         .add_plugins((
             DefaultPlugins,
             MeshletPlugin,
@@ -71,6 +73,7 @@ fn setup(
         ..default()
     });
 
+    // A custom file format storing a [`bevy_render::mesh::Mesh`] that has been converted to a [`bevy_pbr::meshlet::MeshletMesh`] using [`bevy_pbr::meshlet::MeshletMesh::from_mesh`], which is a function only available when the `meshlet_processor` cargo feature is enabled.
     let meshlet_mesh_handle = asset_server.load("models/bunny.meshlet_mesh");
     let debug_material = debug_materials.add(MeshletDebugMaterial::default());
 
