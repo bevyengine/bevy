@@ -47,7 +47,7 @@ impl Schedules {
     /// If the map already had an entry for `label`, `schedule` is inserted,
     /// and the old schedule is returned. Otherwise, `None` is returned.
     pub fn insert(&mut self, schedule: Schedule) -> Option<Schedule> {
-        self.inner.insert(schedule.name, schedule)
+        self.inner.insert(schedule.label, schedule)
     }
 
     /// Removes the schedule corresponding to the `label` from the map, returning it if it existed.
@@ -206,7 +206,7 @@ pub enum Chain {
 /// }
 /// ```
 pub struct Schedule {
-    name: InternedScheduleLabel,
+    label: InternedScheduleLabel,
     graph: ScheduleGraph,
     executable: SystemSchedule,
     executor: Box<dyn SystemExecutor>,
@@ -230,7 +230,7 @@ impl Schedule {
     /// Constructs an empty `Schedule`.
     pub fn new(label: impl ScheduleLabel) -> Self {
         Self {
-            name: label.intern(),
+            label: label.intern(),
             graph: ScheduleGraph::new(),
             executable: SystemSchedule::new(),
             executor: make_executor(ExecutorKind::default()),
@@ -319,11 +319,11 @@ impl Schedule {
     /// Runs all systems in this schedule on the `world`, using its current execution strategy.
     pub fn run(&mut self, world: &mut World) {
         #[cfg(feature = "trace")]
-        let _span = info_span!("schedule", name = ?self.name).entered();
+        let _span = info_span!("schedule", name = ?self.label).entered();
 
         world.check_change_ticks();
         self.initialize(world)
-            .unwrap_or_else(|e| panic!("Error when initializing schedule {:?}: {e}", self.name));
+            .unwrap_or_else(|e| panic!("Error when initializing schedule {:?}: {e}", self.label));
         self.executor.run(&mut self.executable, world);
     }
 
@@ -342,7 +342,7 @@ impl Schedule {
                 &mut self.executable,
                 world.components(),
                 &ignored_ambiguities,
-                self.name,
+                self.label,
             )?;
             self.graph.changed = false;
             self.executor_initialized = false;
