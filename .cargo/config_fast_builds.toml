@@ -7,7 +7,7 @@
 linker = "clang"
 rustflags = [
   "-Clink-arg=-fuse-ld=lld", # Use LLD Linker
-  "-Zshare-generics=y" # (Nightly) Make the current crate share its generic instantiations
+  "-Zshare-generics=y",      # (Nightly) Make the current crate share its generic instantiations
 ]
 
 # NOTE: you must install [Mach-O LLD Port](https://lld.llvm.org/MachO/index.html) on mac. you can easily do this by installing llvm which includes lld with the "brew" package manager:
@@ -15,17 +15,17 @@ rustflags = [
 [target.x86_64-apple-darwin]
 rustflags = [
   "-Clink-arg=-fuse-ld=/usr/local/opt/llvm/bin/ld64.lld", # Use LLD Linker
-  "-Zshare-generics=y", # (Nightly) Make the current crate share its generic instantiations
+  "-Zshare-generics=y",                                   # (Nightly) Make the current crate share its generic instantiations
 ]
 
 [target.aarch64-apple-darwin]
 rustflags = [
   "-Clink-arg=-fuse-ld=/opt/homebrew/opt/llvm/bin/ld64.lld", # Use LLD Linker
-  "-Zshare-generics=y", # (Nightly) Make the current crate share its generic instantiations
+  "-Zshare-generics=y",                                      # (Nightly) Make the current crate share its generic instantiations
 ]
 
 [target.x86_64-pc-windows-msvc]
-linker = "rust-lld.exe" # Use LLD Linker
+linker = "rust-lld.exe"            # Use LLD Linker
 rustflags = ["-Zshare-generics=n"]
 
 # Optional: Uncommenting the following improves compile times, but reduces the amount of debug info to 'line number tables only'
