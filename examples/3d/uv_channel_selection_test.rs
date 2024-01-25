@@ -1,5 +1,5 @@
 //! This example demonstrates the use of the second UV channel for mapping various texture properties.
-//! The spheres on the left use UV0 and those on the right use UV1 (which is just a scaled copy).
+//! The spheres on the left use UV0 and those on the right use UV1 (which is just a scaled copy in this case).
 //! The spheres on the top test base colour and metal-roughness. Those on the bottom test normals and occlusion.
 
 use std::f32::consts::PI;
@@ -20,7 +20,7 @@ fn main() {
         .run();
 }
 
-/// Will rotate our shapes. Stolen from the shape example.
+/// Marker component to let us easily select and then rotate the shapes.
 #[derive(Component)]
 struct Shape;
 
