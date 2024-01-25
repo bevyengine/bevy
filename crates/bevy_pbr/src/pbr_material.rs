@@ -573,6 +573,8 @@ bitflags::bitflags! {
     }
 }
 
+// NOTE: These bitflags are separate from StandardMaterialFlags due to a bug on some older GPUs
+// that are unable to use the last 16 bits of a u32
 bitflags::bitflags! {
     /// Bitflags info about the alpha mode of the material a shader is currently rendering.
     /// This is accessible in the shader in the [`StandardMaterialUniform`]

@@ -15,7 +15,9 @@ struct StandardMaterial {
     thickness: f32,
     ior: f32,
     attenuation_distance: f32,
-    // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
+    // 'flags' is a bit field indicating various options.
+    // u32 is 32 bits so we would have up to 32 options. Some lower-end mobile GPUs only support 16-bits
+    // so we can only use half of the u32
     flags: u32,
     alpha_mode_flags: u32,
     alpha_cutoff: f32,
