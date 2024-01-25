@@ -899,6 +899,14 @@ impl VertexAttributeValues {
         }
     }
 
+    /// TODO Docs
+    pub fn as_float2(&self) -> Option<&[[f32; 2]]> {
+        match self {
+            VertexAttributeValues::Float32x2(values) => Some(values),
+            _ => None,
+        }
+    }
+
     // TODO: add vertex format as parameter here and perform type conversions
     /// Flattens the [`VertexAttributeValues`] into a sequence of bytes. This is
     /// useful for serialization and sending to the GPU.
