@@ -67,6 +67,7 @@ fn pbr_input_from_standard_material(
     var pbr_input: pbr_types::PbrInput = pbr_input_from_vertex_output(in, is_front, double_sided);
     pbr_input.material.flags = pbr_bindings::material.flags;
     pbr_input.material.base_color *= pbr_bindings::material.base_color;
+    pbr_input.material.base_color_texture_uv_channel = pbr_bindings::material.base_color_texture_uv_channel;
     pbr_input.material.deferred_lighting_pass_id = pbr_bindings::material.deferred_lighting_pass_id;
 
     // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
@@ -74,6 +75,9 @@ fn pbr_input_from_standard_material(
 
 #ifdef VERTEX_UVS
     var uv = in.uv;
+#ifdef VERTEX_UVS_B
+    var uv1 = in.uv_b;
+#endif
 
 #ifdef VERTEX_TANGENTS
     if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_DEPTH_MAP_BIT) != 0u) {
@@ -97,7 +101,17 @@ fn pbr_input_from_standard_material(
 #endif // VERTEX_TANGENTS
 
     if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u) {
+#ifdef VERTEX_UVS_B
+        var uv_selected: vec2<f32>;
+        if (pbr_input.material.base_color_texture_uv_channel == 1u) {
+            uv_selected = uv1;
+        } else {
+            uv_selected = uv;
+        }
+        pbr_input.material.base_color *= textureSampleBias(pbr_bindings::base_color_texture, pbr_bindings::base_color_sampler, uv_selected, view.mip_bias);
+#else
         pbr_input.material.base_color *= textureSampleBias(pbr_bindings::base_color_texture, pbr_bindings::base_color_sampler, uv, view.mip_bias);
+#endif
     }
 #endif // VERTEX_UVS
 
