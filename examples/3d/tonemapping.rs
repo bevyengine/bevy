@@ -330,10 +330,8 @@ fn resize_image(
     mut image_events: EventReader<AssetEvent<Image>>,
 ) {
     for event in image_events.read() {
-        #[allow(clippy::manual_let_else)]
-        let image_changed_id = match event {
-            AssetEvent::Added { id } | AssetEvent::Modified { id } => id,
-            _ => continue,
+        let (AssetEvent::Added { id } | AssetEvent::Modified { id }) = event else {
+            continue;
         };
 
         for (mat_h, mesh_h) in &image_mesh {
@@ -345,11 +343,11 @@ fn resize_image(
                 continue;
             };
 
-            if *image_changed_id != base_color_texture.id() {
+            if *id != base_color_texture.id() {
                 continue;
             };
 
-            let Some(image_changed) = images.get(*image_changed_id) else {
+            let Some(image_changed) = images.get(*id) else {
                 continue;
             };
 
