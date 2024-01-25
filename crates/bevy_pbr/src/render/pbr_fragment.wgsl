@@ -68,6 +68,7 @@ fn pbr_input_from_standard_material(
     pbr_input.material.flags = pbr_bindings::material.flags;
     pbr_input.material.base_color *= pbr_bindings::material.base_color;
     pbr_input.material.base_color_texture_uv_channel = pbr_bindings::material.base_color_texture_uv_channel;
+    pbr_input.material.metallic_roughness_texture_uv_channel = pbr_bindings::material.metallic_roughness_texture_uv_channel;
     pbr_input.material.deferred_lighting_pass_id = pbr_bindings::material.deferred_lighting_pass_id;
 
     // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
@@ -141,7 +142,18 @@ fn pbr_input_from_standard_material(
         let roughness = lighting::perceptualRoughnessToRoughness(perceptual_roughness);
 #ifdef VERTEX_UVS
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_METALLIC_ROUGHNESS_TEXTURE_BIT) != 0u) {
+
+#ifdef VERTEX_UVS_B
+            var uv_selected: vec2<f32>;
+            if (pbr_input.material.metallic_roughness_texture_uv_channel == 1u) {
+                uv_selected = uv1;
+            } else {
+                uv_selected = uv;
+            }
+            let metallic_roughness = textureSampleBias(pbr_bindings::metallic_roughness_texture, pbr_bindings::metallic_roughness_sampler, uv_selected, view.mip_bias);
+#else
             let metallic_roughness = textureSampleBias(pbr_bindings::metallic_roughness_texture, pbr_bindings::metallic_roughness_sampler, uv, view.mip_bias);
+#endif
             // Sampling from GLTF standard channels for now
             metallic *= metallic_roughness.b;
             perceptual_roughness *= metallic_roughness.g;

@@ -128,6 +128,8 @@ pub struct StandardMaterial {
     #[dependency]
     pub metallic_roughness_texture: Option<Handle<Image>>,
 
+    pub metallic_roughness_texture_uv_channel: u32,
+
     /// Specular intensity for non-metals on a linear scale of `[0.0, 1.0]`.
     ///
     /// Use the value as a way to control the intensity of the
@@ -492,6 +494,7 @@ impl Default for StandardMaterial {
             // Metallic should generally be set to 0.0 or 1.0.
             metallic: 0.0,
             metallic_roughness_texture: None,
+            metallic_roughness_texture_uv_channel: 0,
             // Minimum real-world reflectance is 2%, most materials between 2-5%
             // Expressed in a linear scale and equivalent to 4% reflectance see
             // <https://google.github.io/filament/Material%20Properties.pdf>
@@ -594,6 +597,7 @@ pub struct StandardMaterialUniform {
     /// Doubles as diffuse albedo for non-metallic, specular for metallic and a mix for everything
     /// in between.
     pub base_color: Vec4,
+    /// TODO Docs
     pub base_color_texture_uv_channel:u32,
     // Use a color for user friendliness even though we technically don't use the alpha channel
     // Might be used in the future for exposure correction in HDR
@@ -603,6 +607,7 @@ pub struct StandardMaterialUniform {
     pub roughness: f32,
     /// From [0.0, 1.0], dielectric to pure metallic
     pub metallic: f32,
+    pub metallic_roughness_texture_uv_channel:u32,
     /// Specular intensity for non-metals on a linear scale of [0.0, 1.0]
     /// defaults to 0.5 which is mapped to 4% reflectance in the shader
     pub reflectance: f32,
@@ -721,6 +726,7 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             emissive: self.emissive.as_linear_rgba_f32().into(),
             roughness: self.perceptual_roughness,
             metallic: self.metallic,
+            metallic_roughness_texture_uv_channel : self.metallic_roughness_texture_uv_channel,
             reflectance: self.reflectance,
             diffuse_transmission: self.diffuse_transmission,
             specular_transmission: self.specular_transmission,
