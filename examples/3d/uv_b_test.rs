@@ -69,6 +69,7 @@ fn setup(
     // Normal, UV1. TODO.
     let debug_material_4 = materials.add(StandardMaterial {
         normal_map_texture: image_normal.clone(),
+        normal_map_texture_uv_channel: 1,
         ..default()
     });
 
