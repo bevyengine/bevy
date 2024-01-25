@@ -105,6 +105,7 @@ fn pbr_input_from_standard_material(
 
     if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u) {
 #ifdef VERTEX_UVS_B
+        // Given the existence of a second UV channel, check which is set to be used for this texture.
         var uv_selected: vec2<f32>;
         if (pbr_input.material.base_color_texture_uv_channel == 1u) {
             uv_selected = uv1;
@@ -146,6 +147,7 @@ fn pbr_input_from_standard_material(
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_METALLIC_ROUGHNESS_TEXTURE_BIT) != 0u) {
 
 #ifdef VERTEX_UVS_B
+            // Given the existence of a second UV channel, check which is set to be used for this texture.
             var uv_selected: vec2<f32>;
             if (pbr_input.material.metallic_roughness_texture_uv_channel == 1u) {
                 uv_selected = uv1;
@@ -197,6 +199,7 @@ fn pbr_input_from_standard_material(
 #ifdef VERTEX_UVS
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_OCCLUSION_TEXTURE_BIT) != 0u) {
 #ifdef VERTEX_UVS_B
+            // Given the existence of a second UV channel, check which is set to be used for this texture.
             var uv_selected: vec2<f32>;
             if (pbr_input.material.occlusion_texture_uv_channel == 1u) {
                 uv_selected = uv1;

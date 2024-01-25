@@ -46,7 +46,9 @@ pub struct StandardMaterial {
     #[dependency]
     pub base_color_texture: Option<Handle<Image>>,
 
-    /// TODO docs
+    /// The UV channel to use when sampling the base colour texture.
+    ///
+    /// Defaults to 0. Supports 0 or 1.
     pub base_color_texture_uv_channel: u32,
 
     // Use a color for user friendliness even though we technically don't use the alpha channel
@@ -128,6 +130,9 @@ pub struct StandardMaterial {
     #[dependency]
     pub metallic_roughness_texture: Option<Handle<Image>>,
 
+    /// The UV channel to use when sampling the metallic-roughness texture.
+    ///
+    /// Defaults to 0. Supports 0 or 1.
     pub metallic_roughness_texture_uv_channel: u32,
 
     /// Specular intensity for non-metals on a linear scale of `[0.0, 1.0]`.
@@ -314,7 +319,9 @@ pub struct StandardMaterial {
     #[dependency]
     pub normal_map_texture: Option<Handle<Image>>,
 
-    /// TODO: Docs.
+    /// The UV channel to use when sampling the normal map texture.
+    ///
+    /// Defaults to 0. Supports 0 or 1.
     pub normal_map_texture_uv_channel : u32,
 
     /// Normal map textures authored for DirectX have their y-component flipped. Set this to flip
@@ -336,6 +343,9 @@ pub struct StandardMaterial {
     #[dependency]
     pub occlusion_texture: Option<Handle<Image>>,
 
+    /// The UV channel to use when sampling the occlusion texture.
+    ///
+    /// Defaults to 0. Supports 0 or 1.
     pub occlusion_texture_uv_channel: u32,
 
     /// Support two-sided lighting by automatically flipping the normals for "back" faces
@@ -604,9 +614,11 @@ pub struct StandardMaterialUniform {
     /// Doubles as diffuse albedo for non-metallic, specular for metallic and a mix for everything
     /// in between.
     pub base_color: Vec4,
-    /// TODO Docs
+    /// UV channel selection for base colour texture.
     pub base_color_texture_uv_channel:u32,
+    /// UV channel selection for normal map texture.
     pub normal_map_texture_uv_channel:u32,
+    /// UV channel selection for occlusion texture.
     pub occlusion_texture_uv_channel:u32,
     // Use a color for user friendliness even though we technically don't use the alpha channel
     // Might be used in the future for exposure correction in HDR
@@ -616,6 +628,7 @@ pub struct StandardMaterialUniform {
     pub roughness: f32,
     /// From [0.0, 1.0], dielectric to pure metallic
     pub metallic: f32,
+    /// UV channel selection for metallic-roughness texture.
     pub metallic_roughness_texture_uv_channel:u32,
     /// Specular intensity for non-metals on a linear scale of [0.0, 1.0]
     /// defaults to 0.5 which is mapped to 4% reflectance in the shader

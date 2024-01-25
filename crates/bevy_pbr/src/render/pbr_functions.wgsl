@@ -100,16 +100,18 @@ fn apply_normal_mapping(
 #ifdef VERTEX_TANGENTS
 #ifdef VERTEX_UVS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
-    // Nt is the tangent-space normal.
 #ifdef VERTEX_UVS_B
+    // Given the existence of a second UV channel, check which is set to be used for sampling the normal map texture.
     var uv_selected: vec2<f32>;
     if (normal_map_texture_uv_channel == 1u) {
         uv_selected = uv_b;
     } else {
         uv_selected = uv;
     }
+    // Nt is the tangent-space normal.
     var Nt = textureSampleBias(pbr_bindings::normal_map_texture, pbr_bindings::normal_map_sampler, uv_selected, mip_bias).rgb;
 #else
+    // Nt is the tangent-space normal.
     var Nt = textureSampleBias(pbr_bindings::normal_map_texture, pbr_bindings::normal_map_sampler, uv, mip_bias).rgb;
 #endif
     if (standard_material_flags & pbr_types::STANDARD_MATERIAL_FLAGS_TWO_COMPONENT_NORMAL_MAP) != 0u {
