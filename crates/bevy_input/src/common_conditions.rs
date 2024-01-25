@@ -101,7 +101,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bevy::prelude::{IntoSystemConfigs, KeyCode, Schedule};
+    use crate::prelude::KeyCode;
+    use bevy_ecs::schedule::{IntoSystemConfigs, Schedule};
 
     fn test_system() {}
 
