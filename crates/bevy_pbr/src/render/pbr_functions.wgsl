@@ -71,6 +71,10 @@ fn apply_normal_mapping(
 #endif
 #ifdef VERTEX_UVS
     uv: vec2<f32>,
+#ifdef VERTEX_UVS_B
+    uv_b: vec2<f32>,
+    normal_map_texture_uv_channel : u32,
+#endif
 #endif
     mip_bias: f32,
 ) -> vec3<f32> {
@@ -97,7 +101,17 @@ fn apply_normal_mapping(
 #ifdef VERTEX_UVS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
     // Nt is the tangent-space normal.
+#ifdef VERTEX_UVS_B
+    var uv_selected: vec2<f32>;
+    if (normal_map_texture_uv_channel == 1u) {
+        uv_selected = uv_b;
+    } else {
+        uv_selected = uv;
+    }
+    var Nt = textureSampleBias(pbr_bindings::normal_map_texture, pbr_bindings::normal_map_sampler, uv_selected, mip_bias).rgb;
+#else
     var Nt = textureSampleBias(pbr_bindings::normal_map_texture, pbr_bindings::normal_map_sampler, uv, mip_bias).rgb;
+#endif
     if (standard_material_flags & pbr_types::STANDARD_MATERIAL_FLAGS_TWO_COMPONENT_NORMAL_MAP) != 0u {
         // Only use the xy components and derive z for 2-component normal maps.
         Nt = vec3<f32>(Nt.rg * 2.0 - 1.0, 0.0);

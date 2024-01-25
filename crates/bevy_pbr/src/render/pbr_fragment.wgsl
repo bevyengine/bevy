@@ -69,6 +69,7 @@ fn pbr_input_from_standard_material(
     pbr_input.material.base_color *= pbr_bindings::material.base_color;
     pbr_input.material.base_color_texture_uv_channel = pbr_bindings::material.base_color_texture_uv_channel;
     pbr_input.material.metallic_roughness_texture_uv_channel = pbr_bindings::material.metallic_roughness_texture_uv_channel;
+    pbr_input.material.normal_map_texture_uv_channel = pbr_bindings::material.normal_map_texture_uv_channel;
     pbr_input.material.deferred_lighting_pass_id = pbr_bindings::material.deferred_lighting_pass_id;
 
     // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
@@ -222,6 +223,10 @@ fn pbr_input_from_standard_material(
 #endif
 #ifdef VERTEX_UVS
             uv,
+#ifdef VERTEX_UVS_B
+            uv1,
+            pbr_input.material.normal_map_texture_uv_channel,
+#endif
 #endif
             view.mip_bias,
         );

@@ -314,6 +314,9 @@ pub struct StandardMaterial {
     #[dependency]
     pub normal_map_texture: Option<Handle<Image>>,
 
+    /// TODO: Docs.
+    pub normal_map_texture_uv_channel : u32,
+
     /// Normal map textures authored for DirectX have their y-component flipped. Set this to flip
     /// it to right-handed conventions.
     pub flip_normal_map_y: bool,
@@ -513,6 +516,7 @@ impl Default for StandardMaterial {
             attenuation_distance: f32::INFINITY,
             occlusion_texture: None,
             normal_map_texture: None,
+            normal_map_texture_uv_channel: 0,
             flip_normal_map_y: false,
             double_sided: false,
             cull_mode: Some(Face::Back),
@@ -599,6 +603,7 @@ pub struct StandardMaterialUniform {
     pub base_color: Vec4,
     /// TODO Docs
     pub base_color_texture_uv_channel:u32,
+    pub normal_map_texture_uv_channel:u32,
     // Use a color for user friendliness even though we technically don't use the alpha channel
     // Might be used in the future for exposure correction in HDR
     pub emissive: Vec4,
@@ -723,6 +728,7 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
         StandardMaterialUniform {
             base_color: self.base_color.as_linear_rgba_f32().into(),
             base_color_texture_uv_channel: self.base_color_texture_uv_channel,
+            normal_map_texture_uv_channel: self.normal_map_texture_uv_channel,
             emissive: self.emissive.as_linear_rgba_f32().into(),
             roughness: self.perceptual_roughness,
             metallic: self.metallic,
