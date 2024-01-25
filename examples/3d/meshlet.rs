@@ -6,12 +6,11 @@ mod camera_controller;
 use bevy::{
     pbr::{
         meshlet::{MaterialMeshletMeshBundle, MeshletMesh, MeshletPlugin},
-        CascadeShadowConfigBuilder,
+        CascadeShadowConfigBuilder, DirectionalLightShadowMap,
     },
     prelude::*,
     render::render_resource::AsBindGroup,
 };
-use bevy_internal::pbr::DirectionalLightShadowMap;
 use camera_controller::{CameraController, CameraControllerPlugin};
 use std::f32::consts::PI;
 
