@@ -150,6 +150,7 @@ Example | Description
 [Transmission](../examples/3d/transmission.rs) | Showcases light transmission in the PBR material
 [Transparency in 3D](../examples/3d/transparency_3d.rs) | Demonstrates transparency in 3d
 [Two Passes](../examples/3d/two_passes.rs) | Renders two 3d passes to the same window from different perspectives
+[UV Channel Selection Test](../examples/3d/uv_channel_selection_test.rs) | A scene testing the use of different UV channels when sampling textures.
 [Update glTF Scene](../examples/3d/update_gltf_scene.rs) | Update a scene from a glTF file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene
 [Vertex Colors](../examples/3d/vertex_colors.rs) | Shows the use of vertex colors
 [Wireframe](../examples/3d/wireframe.rs) | Showcases wireframe rendering
