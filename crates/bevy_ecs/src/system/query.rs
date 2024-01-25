@@ -1574,6 +1574,36 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn as_query_lens(&mut self) -> QueryLens<'_, D> {
         self.transmute_lens()
     }
+
+    pub fn join<OtherD: QueryData, NewD: QueryData>(
+        &mut self,
+        other: &Query<OtherD>,
+    ) -> QueryLens<'_, NewD> {
+        self.join_filtered(other)
+    }
+
+    pub fn join_filtered<
+        OtherD: QueryData,
+        OtherF: QueryFilter,
+        NewD: QueryData,
+        NewF: QueryFilter,
+    >(
+        &mut self,
+        other: &Query<OtherD, OtherF>,
+    ) -> QueryLens<'_, NewD, NewF> {
+        // SAFETY: There are no other active borrows of data from world
+        let world = unsafe { self.world.world() };
+        let state = self
+            .state
+            .join_filtered::<OtherD, OtherF, NewD, NewF>(world, &other.state);
+        QueryLens {
+            world: self.world,
+            state,
+            last_run: self.last_run,
+            this_run: self.this_run,
+            force_read_only_component_access: self.force_read_only_component_access,
+        }
+    }
 }
 
 impl<'w, 's, D: QueryData, F: QueryFilter> IntoIterator for &'w Query<'_, 's, D, F> {
