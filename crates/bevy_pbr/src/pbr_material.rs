@@ -705,7 +705,7 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
         let alpha_mode_flags;
         match self.alpha_mode {
             AlphaMode::Opaque => {
-                alpha_mode_flags = StandardMaterialAlphaModeFlags::ALPHA_MODE_OPAQUE
+                alpha_mode_flags = StandardMaterialAlphaModeFlags::ALPHA_MODE_OPAQUE;
             }
             AlphaMode::Mask(c) => {
                 alpha_cutoff = c;
@@ -713,11 +713,11 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             }
             AlphaMode::Blend => alpha_mode_flags = StandardMaterialAlphaModeFlags::ALPHA_MODE_BLEND,
             AlphaMode::Premultiplied => {
-                alpha_mode_flags = StandardMaterialAlphaModeFlags::ALPHA_MODE_PREMULTIPLIED
+                alpha_mode_flags = StandardMaterialAlphaModeFlags::ALPHA_MODE_PREMULTIPLIED;
             }
             AlphaMode::Add => alpha_mode_flags = StandardMaterialAlphaModeFlags::ALPHA_MODE_ADD,
             AlphaMode::Multiply => {
-                alpha_mode_flags = StandardMaterialAlphaModeFlags::ALPHA_MODE_MULTIPLY
+                alpha_mode_flags = StandardMaterialAlphaModeFlags::ALPHA_MODE_MULTIPLY;
             }
         };
 
