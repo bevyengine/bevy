@@ -1,5 +1,5 @@
-//! This example demonstrates the built-in 3d shapes in Bevy.
-//! The scene includes a patterned texture and a rotation for visualizing the normals and UVs.
+//! This example demonstrates the use of the second UV channel for mapping various texture properties.
+//! The spheres on the left use UV0 and those on the right use UV1 (which is just a scaled copy).
 
 use std::f32::consts::PI;
 
@@ -19,7 +19,7 @@ fn main() {
         .run();
 }
 
-/// A marker component for our shapes so we can query them separately from the ground plane
+/// Will rotate our shapes. Stolen from the shape example.
 #[derive(Component)]
 struct Shape;
 
@@ -37,6 +37,7 @@ fn setup(
     let image_bw = Some(images.add(bw_checkerboard_texture()));
     let image_normal = Some(images.add(grid_normal_map_texture()));
     let image_metallic_roughness = Some(images.add(metallic_roughness_uv_texture()));
+    let image_occlusion = Some(images.add(grid_occlusion_map_texture()));
 
     // Material using UV0 (default).
     let debug_material_1 = materials.add(StandardMaterial {
@@ -60,16 +61,19 @@ fn setup(
         ..default()
     });
 
-    // Normal, UV0.
+    // Normal and occlusion, UV0.
     let debug_material_3 = materials.add(StandardMaterial {
         normal_map_texture: image_normal.clone(),
+        occlusion_texture: image_occlusion.clone(),
         ..default()
     });
 
-    // Normal, UV1. TODO.
+    // Normal and occlusion, UV1.
     let debug_material_4 = materials.add(StandardMaterial {
         normal_map_texture: image_normal.clone(),
         normal_map_texture_uv_channel: 1,
+        occlusion_texture: image_occlusion.clone(),
+        occlusion_texture_uv_channel: 1,
         ..default()
     });
 
@@ -160,13 +164,6 @@ fn setup(
         transform: Transform::from_xyz(8.0, 16.0, 8.0),
         ..default()
     });
-
-    // ground plane
-    // commands.spawn(PbrBundle {
-    //     mesh: meshes.add(shape::Plane::from_size(50.0)),
-    //     material: materials.add(Color::SILVER),
-    //     ..default()
-    // });
 
     commands.spawn((
         Camera3dBundle {
@@ -323,6 +320,40 @@ fn grid_normal_map_texture() -> Image {
         TextureDimension::D2,
         &texture_data,
         TextureFormat::Rgba8Unorm,
+        RenderAssetPersistencePolicy::Unload,
+    )
+}
+
+fn grid_occlusion_map_texture() -> Image {
+    const TEXTURE_SIZE: usize = 512;
+    const GRID_SIZE: usize = 8;
+    const CREASE_WIDTH: usize = 1;
+    const WHITE: [u8; 4] = [255, 255, 255, 255]; // White color
+    const BLACK: [u8; 4] = [0, 0, 0, 255]; // Black color for the grid lines
+
+    let mut texture_data = vec![0; TEXTURE_SIZE * TEXTURE_SIZE * 4];
+    let grid_step = TEXTURE_SIZE / GRID_SIZE;
+
+    for y in 0..TEXTURE_SIZE {
+        for x in 0..TEXTURE_SIZE {
+            let offset = (y * TEXTURE_SIZE + x) * 4;
+            let dx = x % grid_step;
+            let dy = y % grid_step;
+            let is_crease = dx < CREASE_WIDTH || dy < CREASE_WIDTH;
+
+            texture_data[offset..offset + 4].copy_from_slice(if is_crease { &BLACK } else { &WHITE });
+        }
+    }
+
+    Image::new_fill(
+        Extent3d {
+            width: TEXTURE_SIZE as u32,
+            height: TEXTURE_SIZE as u32,
+            depth_or_array_layers: 1,
+        },
+        TextureDimension::D2,
+        &texture_data,
+        TextureFormat::Rgba8Unorm, // Use linear color space
         RenderAssetPersistencePolicy::Unload,
     )
 }
