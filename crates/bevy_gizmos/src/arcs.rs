@@ -115,16 +115,23 @@ fn arc_inner(
 // === 3D ===
 
 impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
-    /// Draw an arc, which is a part of the circumference of a circle, in 2D.
+    /// Draw an arc, which is a part of the circumference of a circle, in 3D. This defaults to
+    /// drawing a standard arc. This standard arc starts at `Vec3::X`, is embedded in the XZ plane, rotates counterclockwise and has the following default properties:
+    ///
+    /// - radius: 1.0
+    /// - center: `Vec3::ZERO`
+    /// - rotation: `Quat::IDENTITY` (in XZ plane, normal points upwards)
+    /// - color: white
+    /// - segments: depending on angle
+    ///
+    /// All of these properties can be modified with builder methods which are available on the
+    /// returned struct.
     ///
     /// This should be called for each frame the arc needs to be rendered.
     ///
     /// # Arguments
-    /// - `position` sets the center of this circle.
-    /// - `radius` controls the distance from `position` to this arc, and thus its curvature.
-    /// - `direction_angle` sets the clockwise  angle in radians between `Vec2::Y` and
-    /// the vector from `position` to the midpoint of the arc.
-    /// - `arc_angle` sets the length of this arc, in radians.
+    /// - `angle` sets how much of a circle circumference is passed, e.g. PI is half a circle. This
+    /// value should be in the range (-2 * PI..=2 * PI)
     ///
     /// # Example
     /// ```
@@ -133,35 +140,34 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_math::prelude::*;
     /// # use std::f32::consts::PI;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.arc_2d(Vec2::ZERO, 0., PI / 4., 1., Color::GREEN);
+    ///     gizmos.arc_2d(PI);
     ///
-    ///     // Arcs have 32 line-segments by default.
-    ///     // You may want to increase this for larger arcs.
+    ///     // This example shows how to modify the default settings
+    ///
+    ///     // rotation rotates normal to point in the direction of `Vec3::NEG_ONE`
+    ///     let rotation = Quat::from_rotation_arc(Vec3::Y, Vec3::NEG_ONE.normalize())
+    ///
     ///     gizmos
-    ///         .arc_2d(Vec2::ZERO, 0., PI / 4., 5., Color::RED)
-    ///         .segments(64);
+    ///        .arc_3d(270.0_f32.to_radians())
+    ///        .radius(0.25)
+    ///        .center(Vec3::ONE)
+    ///        .rotation(rotation)
+    ///        .segments(100)
+    ///        .color(Color::ORANGE);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn arc_3d(
-        &mut self,
-        center: Vec3,
-        rotation_axis: Vec3,
-        from: Vec3,
-        angle: f32,
-        radius: f32,
-        color: Color,
-    ) -> Arc3dBuilder<'_, 'w, 's, T> {
+    pub fn arc_3d(&mut self, angle: f32) -> Arc3dBuilder<'_, 'w, 's, T> {
+        let segments = segments_from_angle(angle);
         Arc3dBuilder {
             gizmos: self,
-            center,
-            rotation_axis,
-            from,
+            center: Vec3::ZERO,
+            rotation: Quat::IDENTITY,
             angle,
-            radius,
-            color,
-            segments: None,
+            radius: 1.0,
+            color: Color::default(),
+            segments,
         }
     }
 }
@@ -170,65 +176,79 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
 pub struct Arc3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     gizmos: &'a mut Gizmos<'w, 's, T>,
     center: Vec3,
-    rotation_axis: Vec3,
-    from: Vec3,
+    rotation: Quat,
     angle: f32,
     radius: f32,
     color: Color,
-    segments: Option<usize>,
+    segments: usize,
 }
 
 impl<T: GizmoConfigGroup> Arc3dBuilder<'_, '_, '_, T> {
     /// Set the number of line-segments for this arc.
     pub fn segments(mut self, segments: usize) -> Self {
-        self.segments = Some(segments);
+        self.segments = segments;
+        self
+    }
+
+    /// Set the center of the standard arc
+    pub fn center(mut self, center: Vec3) -> Self {
+        self.center = center;
+        self
+    }
+
+    /// Set the radius of the arc
+    pub fn radius(mut self, radius: f32) -> Self {
+        self.radius = radius;
+        self
+    }
+
+    /// Rotate the standard arc from the XZ plane with this rotation
+    pub fn rotation(mut self, rotation: Quat) -> Self {
+        self.rotation = rotation;
+        self
+    }
+
+    /// Set the color of the arc
+    pub fn color(mut self, color: Color) -> Self {
+        self.color = color;
         self
     }
 }
 
 impl<T: GizmoConfigGroup> Drop for Arc3dBuilder<'_, '_, '_, T> {
     fn drop(&mut self) {
-        let segments = match self.segments {
-            Some(segments) => segments,
-            // Do a linear interpolation between 1 and `DEFAULT_CIRCLE_SEGMENTS`
-            // using the arc angle as scalar.
-            None => ((self.angle.abs() / TAU) * DEFAULT_CIRCLE_SEGMENTS as f32).ceil() as usize,
-        };
-
         let positions = arc3d_inner(
             self.center,
-            self.rotation_axis,
-            self.from,
+            self.rotation,
             self.angle,
             self.radius,
-            segments,
+            self.segments,
         );
+        self.gizmos
+            .sphere(self.center, Quat::IDENTITY, 0.1, self.color);
         self.gizmos.linestrip(positions, self.color);
     }
 }
 
 fn arc3d_inner(
     center: Vec3,
-    rotation_axis: Vec3,
-    from: Vec3,
+    rotation: Quat,
     angle: f32,
     radius: f32,
     segments: usize,
 ) -> impl Iterator<Item = Vec3> {
-    // drawing arcs bigger than 360.0 degrees or smaller than -360.0 degrees makes no sense since
-    // we won't see the overlap
-    let angle = angle.clamp(-360.0, 360.0);
-    (from - center)
-        .try_normalize()
-        .into_iter()
-        .flat_map(move |dir| {
-            let start_point = dir * radius;
+    // drawing arcs bigger than TAU degrees or smaller than -TAU degrees makes no sense since
+    // we won't see the overlap and we would just decrease the level of details since the segments
+    // would be larger
+    let angle = angle.clamp(-TAU, TAU);
+    (0..=segments)
+        .map(move |frac| frac as f32 / segments as f32)
+        .map(move |percentage| angle * percentage)
+        .map(move |frac_angle| Quat::from_axis_angle(Vec3::Y, frac_angle) * Vec3::X)
+        .map(move |p| rotation * (p * radius) + center)
+}
 
-            (0..=segments)
-                .map(move |frac| frac as f32 / segments as f32)
-                .map(move |percentage| {
-                    Quat::from_axis_angle(rotation_axis, percentage * angle).mul_vec3(start_point)
-                })
-                .map(move |p| p + center)
-        })
+// helper function for getting a default value for the segments parameter
+fn segments_from_angle(angle: f32) -> usize {
+    ((angle.abs() / TAU) * DEFAULT_CIRCLE_SEGMENTS as f32).ceil() as usize
 }
