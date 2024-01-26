@@ -29,8 +29,8 @@ use bevy_utils::EntityHashMap;
 ///
 /// impl MapEntities for Spring {
 ///     fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
-///         self.a = entity_mapper.map(self.a);
-///         self.b = entity_mapper.map(self.b);
+///         self.a = entity_mapper.map_entity(self.a);
+///         self.b = entity_mapper.map_entity(self.b);
 ///     }
 /// }
 /// ```
@@ -49,12 +49,12 @@ pub trait MapEntities {
 /// This can be used to map [`Entity`] references from one [`World`] to another.
 pub trait EntityMapper {
     /// Map an entity to another entity
-    fn map(&mut self, entity: Entity) -> Entity;
+    fn map_entity(&mut self, entity: Entity) -> Entity;
 }
 
 impl EntityMapper for SceneEntityMapper<'_> {
     /// Returns the corresponding mapped entity or reserves a new dead entity ID if it is absent.
-    fn map(&mut self, entity: Entity) -> Entity {
+    fn map_entity(&mut self, entity: Entity) -> Entity {
         if let Some(&mapped) = self.map.get(&entity) {
             return mapped;
         }
@@ -100,7 +100,7 @@ impl<'m> SceneEntityMapper<'m> {
     #[deprecated(since = "0.13.0", note = "please use `EntityMapper::map` instead")]
     /// Returns the corresponding mapped entity or reserves a new dead entity ID if it is absent.
     pub fn get_or_reserve(&mut self, entity: Entity) -> Entity {
-        self.map(entity)
+        self.map_entity(entity)
     }
 
     /// Gets a reference to the underlying [`EntityHashMap<Entity, Entity>`].
@@ -171,15 +171,15 @@ mod tests {
         let mut mapper = SceneEntityMapper::new(&mut map, &mut world);
 
         let mapped_ent = Entity::from_raw(FIRST_IDX);
-        let dead_ref = mapper.map(mapped_ent);
+        let dead_ref = mapper.map_entity(mapped_ent);
 
         assert_eq!(
             dead_ref,
-            mapper.map(mapped_ent),
+            mapper.map_entity(mapped_ent),
             "should persist the allocated mapping from the previous line"
         );
         assert_eq!(
-            mapper.map(Entity::from_raw(SECOND_IDX)).index(),
+            mapper.map_entity(Entity::from_raw(SECOND_IDX)).index(),
             dead_ref.index(),
             "should re-use the same index for further dead refs"
         );
@@ -197,7 +197,7 @@ mod tests {
         let mut world = World::new();
 
         let dead_ref = SceneEntityMapper::world_scope(&mut map, &mut world, |_, mapper| {
-            mapper.map(Entity::from_raw(0))
+            mapper.map_entity(Entity::from_raw(0))
         });
 
         // Next allocated entity should be a further generation on the same index
