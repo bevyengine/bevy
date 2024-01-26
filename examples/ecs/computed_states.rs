@@ -41,7 +41,7 @@ enum TutorialState {
     Inactive,
 }
 
-// Because we have 4 distinct "InGame" states, we're going to define
+// Because we have 4 distinct values of `AppState` that mean we're "InGame", we're going to define
 // a separate "InGame" type and implement `ComputedStates` for it.
 // This allows us to only need to check against one type
 // when otherwise we'd need to check against multiple.
