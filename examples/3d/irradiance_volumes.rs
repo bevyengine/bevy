@@ -20,6 +20,8 @@ static START_ROTATION_HELP_TEXT: &str = "Press Enter to start rotation";
 static SWITCH_TO_FOX_HELP_TEXT: &str = "Press Tab to switch to a skinned mesh";
 static SWITCH_TO_SPHERE_HELP_TEXT: &str = "Press Tab to switch to a plain sphere mesh";
 
+static CLICK_TO_MOVE_HELP_TEXT: &str = "Click to move the object";
+
 // The mode the application is in.
 #[derive(Resource)]
 struct AppStatus {
@@ -192,8 +194,11 @@ impl AppStatus {
 
         Text::from_section(
             format!(
-                "{}\n{}\n{}",
-                irradiance_volume_help_text, rotation_help_text, switch_mesh_help_text
+                "{}\n{}\n{}\n{}",
+                CLICK_TO_MOVE_HELP_TEXT,
+                irradiance_volume_help_text,
+                rotation_help_text,
+                switch_mesh_help_text
             ),
             TextStyle {
                 font: asset_server.load("fonts/FiraMono-Medium.ttf"),

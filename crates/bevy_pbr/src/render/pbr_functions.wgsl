@@ -322,9 +322,37 @@ fn apply_pbr_lighting(
         transmitted_light += ambient::ambient_light(diffuse_transmissive_lobe_world_position, -in.N, -in.V, 1.0, diffuse_transmissive_color, vec3<f32>(0.0), 1.0, vec3<f32>(1.0));
     }
 
+    // Diffuse indirect lighting can come from a variety of sources. The
+    // priority goes like this:
+    //
+    // 1. Lightmap (highest)
+    // 2. Irradiance volume
+    // 3. Environment map (lowest)
+    //
+    // When we find a source of diffuse indirect lighting, we set this flag to
+    // true, which stops us accumulating any more diffuse indirect light. This
+    // avoids double-counting if, for example, both lightmaps and irradiance
+    // volumes are present.
+    var found_diffuse_indirect = false;
+
+#ifdef LIGHTMAP
+    if (!found_diffuse_indirect) {
+        indirect_light += in.lightmap_light * diffuse_color;
+        found_diffuse_indirect = true;
+    }
+#endif
+
+#ifdef IRRADIANCE_VOLUME {
     // Irradiance volume light (indirect)
-    let irradiance_volume_light = irradiance_volume::sample_irradiance_volume(in.world_position.xyz, in.N);
-    indirect_light += irradiance_volume_light * diffuse_color * diffuse_occlusion;
+    if (!found_diffuse_indirect) {
+        let irradiance_volume_light = irradiance_volume::sample_irradiance_volume(
+            in.world_position.xyz, in.N);
+        if (irradiance_volume_light.found) {
+            indirect_light += irradiance_volume_light.diffuse * diffuse_color * diffuse_occlusion;
+            found_diffuse_indirect = true;
+        }
+    }
+#endif
 
     // Environment map light (indirect)
 #ifdef ENVIRONMENT_MAP
@@ -337,8 +365,16 @@ fn apply_pbr_lighting(
         in.N,
         R,
         F0,
-        in.world_position.xyz);
-    indirect_light += (environment_light.diffuse * diffuse_occlusion) + (environment_light.specular * specular_occlusion);
+        in.world_position.xyz,
+        found_diffuse_indirect);
+
+    if (environment_light.found) {
+        if (!found_diffuse_indirect) {
+            indirect_light += environment_light.diffuse * diffuse_occlusion;
+            found_diffuse_indirect = true;
+        }
+        indirect_light += environment_light.specular * specular_occlusion;
+    }
 
     // we'll use the specular component of the transmitted environment
     // light in the call to `specular_transmissive_light()` below
@@ -372,7 +408,8 @@ fn apply_pbr_lighting(
             -in.N,
             T,
             vec3<f32>(1.0),
-            in.world_position.xyz);
+            in.world_position.xyz,
+            false);
         transmitted_light += transmitted_environment_light.diffuse * diffuse_transmissive_color;
         specular_transmitted_environment_light = transmitted_environment_light.specular * specular_transmissive_color;
     }
@@ -380,10 +417,6 @@ fn apply_pbr_lighting(
     // If there's no environment map light, there's no transmitted environment
     // light specular component, so we can just hardcode it to zero.
     let specular_transmitted_environment_light = vec3<f32>(0.0);
-#endif
-
-#ifdef LIGHTMAP
-    indirect_light += in.lightmap_light * diffuse_color;
 #endif
 
     var emissive_light = emissive.rgb * output_color.a;

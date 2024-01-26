@@ -306,9 +306,15 @@ fn gather_light_probes<C>(
         );
 
         // Record the per-view light probes.
-        commands
-            .get_or_spawn(view_entity)
-            .insert(render_view_light_probes);
+        if render_view_light_probes.is_empty() {
+            commands
+                .get_or_spawn(view_entity)
+                .remove::<RenderViewLightProbes<C>>();
+        } else {
+            commands
+                .get_or_spawn(view_entity)
+                .insert(render_view_light_probes);
+        }
     }
 }
 
@@ -316,8 +322,8 @@ fn build_light_probes_uniforms(
     mut render_light_probes: ResMut<RenderLightProbes>,
     view_query: Extract<Query<Entity, With<Camera3d>>>,
     mut view_light_probes_query: Query<(
-        &RenderViewLightProbes<EnvironmentMapLight>,
-        &RenderViewLightProbes<IrradianceVolume>,
+        Option<&RenderViewLightProbes<EnvironmentMapLight>>,
+        Option<&RenderViewLightProbes<IrradianceVolume>>,
     )>,
 ) {
     for view_entity in view_query.iter() {
@@ -333,28 +339,37 @@ fn build_light_probes_uniforms(
             reflection_probes: [RenderLightProbe::default(); MAX_VIEW_LIGHT_PROBES],
             irradiance_volumes: [RenderLightProbe::default(); MAX_VIEW_LIGHT_PROBES],
             reflection_probe_count: render_view_environment_maps
-                .len()
+                .map(|maps| maps.len())
+                .unwrap_or_default()
                 .min(MAX_VIEW_LIGHT_PROBES) as i32,
             irradiance_volume_count: render_view_irradiance_volumes
-                .len()
+                .map(|maps| maps.len())
+                .unwrap_or_default()
                 .min(MAX_VIEW_LIGHT_PROBES) as i32,
             view_cubemap_index: render_view_environment_maps
-                .view_light_probe_info
-                .cubemap_index,
+                .map(|maps| maps.view_light_probe_info.cubemap_index)
+                .unwrap_or(-1),
             smallest_specular_mip_level_for_view: render_view_environment_maps
-                .view_light_probe_info
-                .smallest_specular_mip_level,
-            intensity_for_view: render_view_environment_maps.view_light_probe_info.intensity,
+                .map(|maps| maps.view_light_probe_info.smallest_specular_mip_level)
+                .unwrap_or(0),
+            intensity_for_view: render_view_environment_maps
+                .map(|maps| maps.view_light_probe_info.intensity)
+                .unwrap_or(1.0),
         };
 
-        render_view_environment_maps.add_to_uniform(
-            &mut light_probes_uniform.reflection_probes,
-            &mut light_probes_uniform.reflection_probe_count,
-        );
-        render_view_irradiance_volumes.add_to_uniform(
-            &mut light_probes_uniform.irradiance_volumes,
-            &mut light_probes_uniform.irradiance_volume_count,
-        );
+        if let Some(render_view_environment_maps) = render_view_environment_maps {
+            render_view_environment_maps.add_to_uniform(
+                &mut light_probes_uniform.reflection_probes,
+                &mut light_probes_uniform.reflection_probe_count,
+            );
+        }
+
+        if let Some(render_view_irradiance_volumes) = render_view_irradiance_volumes {
+            render_view_irradiance_volumes.add_to_uniform(
+                &mut light_probes_uniform.irradiance_volumes,
+                &mut light_probes_uniform.irradiance_volume_count,
+            );
+        }
 
         render_light_probes.insert(view_entity, light_probes_uniform);
     }
@@ -490,6 +505,10 @@ where
             render_light_probes: vec![],
             view_light_probe_info: C::ViewLightProbeInfo::default(),
         }
+    }
+
+    pub(crate) fn is_empty(&self) -> bool {
+        self.binding_index_to_cubemap.is_empty()
     }
 
     pub(crate) fn len(&self) -> usize {
