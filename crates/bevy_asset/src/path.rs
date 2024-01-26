@@ -686,6 +686,12 @@ mod tests {
             Ok((Some("http"), Path::new("a/b.test"), Some("Foo")))
         );
 
+        let result = AssetPath::parse_internal("http://localhost:80/b.test");
+        assert_eq!(
+            result,
+            Ok((Some("http"), Path::new("localhost:80/b.test"), None))
+        );
+
         let result = AssetPath::parse_internal("http://");
         assert_eq!(result, Ok((Some("http"), Path::new(""), None)));
 
@@ -694,9 +700,6 @@ mod tests {
 
         let result = AssetPath::parse_internal("a/b.test#");
         assert_eq!(result, Err(crate::ParseAssetPathError::MissingLabel));
-
-        let result = AssetPath::parse_internal("http:/");
-        assert_eq!(result, Err(crate::ParseAssetPathError::InvalidSourceSyntax));
     }
 
     #[test]
