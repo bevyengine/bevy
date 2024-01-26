@@ -43,8 +43,8 @@ pub mod prelude {
         schedule::{
             apply_deferred, apply_state_transition, common_conditions::*, ComputedStates,
             Condition, IntoSystemConfigs, IntoSystemSet, IntoSystemSetConfigs, NextState, OnEnter,
-            OnExit, OnTransition, Schedule, Schedules, State, StateSet, StateTransitionEvent,
-            States, SystemSet, StateTransition
+            OnExit, OnTransition, Schedule, Schedules, State, StateSet, StateTransition,
+            StateTransitionEvent, States, SystemSet,
         },
         system::{
             Commands, Deferred, In, IntoSystem, Local, NonSend, NonSendMut, ParallelCommands,
