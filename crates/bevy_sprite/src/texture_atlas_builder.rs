@@ -170,7 +170,7 @@ impl<'a> TextureAtlasBuilder<'a> {
     ///     // Customize it
     ///     // ...
     ///     // Build your texture and the atlas layout
-    ///     let (atlas_layout, texture) = builder.finish(&mut textures).unwrap();
+    ///     let (atlas_layout, texture) = builder.finish().unwrap();
     ///     let texture = textures.add(texture);
     ///     let layout = layouts.add(atlas_layout);
     ///     // Spawn your sprite
