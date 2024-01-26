@@ -308,8 +308,8 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
             rotation,
             angle,
             radius,
-            color,
-            segments: None,
+            color: Color::default(),
+            segments,
         }
     }
 }
@@ -332,7 +332,7 @@ pub struct Arc3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     angle: f32,
     radius: f32,
     color: Color,
-    segments: Option<usize>,
+    segments: usize,
 }
 
 impl<T: GizmoConfigGroup> Arc3dBuilder<'_, '_, '_, T> {

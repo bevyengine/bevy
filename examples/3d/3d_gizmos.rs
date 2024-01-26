@@ -2,12 +2,10 @@
 
 use std::f32::consts::PI;
 
-use bevy::math::primitives::Direction3d;
 use bevy::prelude::*;
 use bevy_internal::gizmos::primitives::GizmoPrimitive3d;
-use bevy_internal::prelude::primitives::{
-    Capsule, Cone, ConicalFrustum, Cuboid, Cylinder, Direction3d, Line3d, Plane3d, Segment3d,
-    Sphere, Torus,
+use bevy_internal::math::primitives::{
+    Capsule, Cone, ConicalFrustum, Cuboid, Cylinder, Line3d, Plane3d, Segment3d, Sphere, Torus,
 };
 
 fn main() {

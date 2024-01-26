@@ -1,6 +1,6 @@
 //! A module for rendering each of the [`bevy_math::primitives`] with [`Gizmos`].
 
-use std::f32::consts::{FRAC_PI_2, TAU};
+use std::f32::consts::TAU;
 
 use bevy_math::primitives::{
     BoxedPolygon, BoxedPolyline2d, BoxedPolyline3d, Capsule, Circle, Cone, ConicalFrustum, Cuboid,
@@ -788,6 +788,8 @@ impl<T: GizmoConfigGroup> Drop for RegularPolygonBuilder<'_, '_, '_, T> {
 
 // === 3D ===
 
+const DEFAULT_NUMBER_SEGMENTS: usize = 5;
+
 /// A trait for rendering 3D geometric primitives (`P`) with [`Gizmos`].
 pub trait GizmoPrimitive3d<P: Primitive3d> {
     /// The output of `primitive_3d`. This is a builder to set non-default values.
@@ -901,7 +903,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Sphere> for Gizmos<'w, 's, T>
             center: Default::default(),
             rotation: Default::default(),
             color: Default::default(),
-            segments: Default::default(),
+            segments: DEFAULT_NUMBER_SEGMENTS,
         }
     }
 }
@@ -919,13 +921,14 @@ impl<T: GizmoConfigGroup> Drop for SphereBuilder<'_, '_, '_, T> {
 
         // draw two caps, one for the "upper half" and one for the "lower" half of the sphere
         [-1.0, 1.0].into_iter().for_each(|sign| {
+            let top = *center + (*rotation * Vec3::Z) * sign * *radius;
             draw_cap(
                 self.gizmos,
                 *radius,
                 *segments,
                 *rotation,
                 *center,
-                sign,
+                top,
                 *color,
             );
         });
@@ -1431,7 +1434,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Cylinder> for Gizmos<'w, 's, 
             center: Default::default(),
             normal: Vec3::Z,
             color: Default::default(),
-            segments: 5,
+            segments: DEFAULT_NUMBER_SEGMENTS,
         }
     }
 }
@@ -1525,7 +1528,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Capsule> for Gizmos<'w, 's, T
             center: Default::default(),
             normal: Vec3::Z,
             color: Default::default(),
-            segments: 5,
+            segments: DEFAULT_NUMBER_SEGMENTS,
         }
     }
 }
@@ -1547,8 +1550,9 @@ impl<T: GizmoConfigGroup> Drop for Capsule3dBuilder<'_, '_, '_, T> {
         [1.0, -1.0].into_iter().for_each(|sign| {
             // use "-" here since rotation is ccw and otherwise the caps would face the wrong way
             // around
-            let center = *center - sign * *half_length * *normal;
-            draw_cap(gizmos, *radius, *segments, rotation, center, sign, *color);
+            let center = *center + sign * *half_length * *normal;
+            let top = center + sign * *radius * *normal;
+            draw_cap(gizmos, *radius, *segments, rotation, center, top, *color);
             draw_circle(gizmos, *radius, *segments, rotation, center, *color);
         });
 
@@ -1616,7 +1620,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Cone> for Gizmos<'w, 's, T> {
             center: Default::default(),
             normal: Vec3::Z,
             color: Default::default(),
-            segments: 5,
+            segments: DEFAULT_NUMBER_SEGMENTS,
         }
     }
 }
@@ -1701,7 +1705,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<ConicalFrustum> for Gizmos<'w
             center: Default::default(),
             normal: Vec3::Z,
             color: Default::default(),
-            segments: 5,
+            segments: DEFAULT_NUMBER_SEGMENTS,
         }
     }
 }
@@ -1803,8 +1807,8 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Torus> for Gizmos<'w, 's, T> 
             center: Default::default(),
             normal: Vec3::Z,
             color: Default::default(),
-            minor_segments: 5,
-            major_segments: 5,
+            minor_segments: DEFAULT_NUMBER_SEGMENTS,
+            major_segments: DEFAULT_NUMBER_SEGMENTS,
         }
     }
 }
@@ -1844,25 +1848,22 @@ impl<T: GizmoConfigGroup> Drop for Torus3dBuilder<'_, '_, '_, T> {
 
         let affine = rotate_then_translate_3d(rotation, *center);
         circle_coordinates(*major_radius, *major_segments)
-            .flat_map(|p| {
-                let translation = affine(p.extend(0.0));
-                let dir_to_translation = (translation - *center).normalize();
-                let rotation_axis = normal.cross(dir_to_translation).normalize();
-                [dir_to_translation, *normal, -dir_to_translation, -*normal]
-                    .map(|dir| dir * *minor_radius)
-                    .map(|offset| translation + offset)
-                    .map(|point| (point, translation, rotation_axis))
+            .flat_map(|major_circle_point| {
+                let minor_center = affine(major_circle_point.extend(0.0));
+                let dir_to_translation = (minor_center - *center).normalize();
+                let points = [dir_to_translation, *normal, -dir_to_translation, -*normal];
+                let points = points.map(|offset| minor_center + offset.normalize() * *minor_radius);
+
+                points
+                    .into_iter()
+                    .zip(points.into_iter().cycle().skip(1))
+                    .map(move |(from, to)| (minor_center, from, to))
+                    .collect::<Vec<_>>()
             })
-            .for_each(|(from, center, rotation_axis)| {
+            .for_each(|(center, from, to)| {
                 gizmos
-                    .arc_3d(
-                        center,
-                        rotation_axis,
-                        from,
-                        FRAC_PI_2,
-                        *minor_radius,
-                        *color,
-                    )
+                    .short_arc_3d_between(center, from, to)
+                    .color(*color)
                     .segments(*minor_segments);
             });
     }
@@ -1900,25 +1901,17 @@ fn draw_cap<T: GizmoConfigGroup>(
     segments: usize,
     rotation: Quat,
     center: Vec3,
-    sign: f32,
+    top: Vec3,
     color: Color,
 ) {
-    let up = rotation * Vec3::Z;
     circle_coordinates(radius, segments)
         .map(|p| p.extend(0.0))
         .map(rotate_then_translate_3d(rotation, center))
         .for_each(|from| {
-            // we need to figure out the local rotation axis for each arc which is 90
-            // degree perpendicular to the (from - center) vector
-            let rotation_axis = {
-                let dir = from - center;
-                let rot = Quat::from_axis_angle(up, FRAC_PI_2);
-                rot * dir
-            };
-
             gizmos
-                .arc_3d(center, rotation_axis, from, sign * FRAC_PI_2, radius, color)
-                .segments(segments / 2);
+                .short_arc_3d_between(center, from, top)
+                .segments(segments / 2)
+                .color(color);
         });
 }
 
