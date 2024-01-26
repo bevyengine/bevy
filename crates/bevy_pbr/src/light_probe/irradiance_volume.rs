@@ -13,7 +13,7 @@ use bevy_render::{
 use std::{num::NonZeroU32, ops::Deref};
 
 use bevy_asset::{AssetId, Handle};
-use bevy_reflect::{Reflect, TypeUuid};
+use bevy_reflect::Reflect;
 
 use crate::{
     add_texture_view, environment_map::binding_arrays_are_usable, RenderViewLightProbes,
@@ -26,8 +26,7 @@ pub const IRRADIANCE_VOLUME_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(160299515939076705258408299184317675488);
 
 /// The component that defines an irradiance volume.
-#[derive(Clone, Default, Reflect, Component, Debug, TypeUuid)]
-#[uuid = "692f12fb-b566-4c28-bf63-e0bc5ee4df87"]
+#[derive(Clone, Default, Reflect, Component, Debug)]
 pub struct IrradianceVolume {
     pub voxels: Handle<Image>,
     pub intensity: f32,
