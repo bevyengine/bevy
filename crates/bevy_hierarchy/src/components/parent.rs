@@ -1,9 +1,8 @@
-use bevy_ecs::entity::Mapper;
 #[cfg(feature = "reflect")]
 use bevy_ecs::reflect::{ReflectComponent, ReflectMapEntities};
 use bevy_ecs::{
     component::Component,
-    entity::{Entity, MapEntities},
+    entity::{Entity, MapEntities, Mapper},
     world::{FromWorld, World},
 };
 use std::ops::Deref;

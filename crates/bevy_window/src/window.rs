@@ -1,6 +1,5 @@
-use bevy_ecs::entity::Mapper;
 use bevy_ecs::{
-    entity::{Entity, MapEntities},
+    entity::{Entity, MapEntities, Mapper},
     prelude::{Component, ReflectComponent},
 };
 use bevy_math::{DVec2, IVec2, Vec2};
