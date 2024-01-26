@@ -132,7 +132,7 @@ impl<'a> AssetPath<'a> {
     fn parse_internal(
         asset_path: &str,
     ) -> Result<(Option<&str>, &Path, Option<&str>), ParseAssetPathError> {
-        let mut chars = asset_path.char_indices();
+        let chars = asset_path.char_indices();
         let mut source_range = None;
         let mut path_range = 0..asset_path.len();
         let mut label_range = None;
