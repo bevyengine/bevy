@@ -510,7 +510,7 @@ pub fn apply_state_transition<S: FreelyMutableState>(world: &mut World) {
 pub trait ComputedStates: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug {
     /// The set of states from which the [`Self`] is derived.
     ///
-    /// This can either be a single implementor of [`States`], or a tuple
+    /// This can either be a single type that implements [`States`], or a tuple
     /// containing multiple implementors of [`States`].
     type SourceStates: StateSet;
 
