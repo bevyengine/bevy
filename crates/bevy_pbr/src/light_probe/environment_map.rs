@@ -67,7 +67,7 @@ use bevy_render::{
 use std::num::NonZeroU32;
 use std::ops::Deref;
 
-use crate::{add_texture_view, LightProbe, MAX_VIEW_LIGHT_PROBES};
+use crate::{add_cubemap_texture_view, LightProbe, MAX_VIEW_LIGHT_PROBES};
 
 use super::{LightProbeComponent, RenderViewLightProbes};
 
@@ -219,15 +219,15 @@ impl<'a> RenderViewEnvironmentMapBindGroupEntries<'a> {
             let mut sampler = None;
 
             if let Some(environment_maps) = render_view_environment_maps {
-                for &cubemap_id in &environment_maps.binding_index_to_cubemap {
-                    add_texture_view(
+                for &cubemap_id in &environment_maps.binding_index_to_textures {
+                    add_cubemap_texture_view(
                         &mut diffuse_texture_views,
                         &mut sampler,
                         cubemap_id.diffuse,
                         images,
                         fallback_image,
                     );
-                    add_texture_view(
+                    add_cubemap_texture_view(
                         &mut specular_texture_views,
                         &mut sampler,
                         cubemap_id.specular,
@@ -251,7 +251,7 @@ impl<'a> RenderViewEnvironmentMapBindGroupEntries<'a> {
         }
 
         if let Some(environment_maps) = render_view_environment_maps {
-            if let Some(cubemap) = environment_maps.binding_index_to_cubemap.first() {
+            if let Some(cubemap) = environment_maps.binding_index_to_textures.first() {
                 if let (Some(diffuse_image), Some(specular_image)) =
                     (images.get(cubemap.diffuse), images.get(cubemap.specular))
                 {
@@ -302,11 +302,11 @@ pub(crate) fn binding_arrays_are_usable(render_device: &RenderDevice) -> bool {
 }
 
 impl LightProbeComponent for EnvironmentMapLight {
-    type Id = EnvironmentMapIds;
+    type AssetId = EnvironmentMapIds;
 
     type ViewLightProbeInfo = EnvironmentMapViewLightProbeInfo;
 
-    fn id(&self, image_assets: &RenderAssets<Image>) -> Option<Self::Id> {
+    fn id(&self, image_assets: &RenderAssets<Image>) -> Option<Self::AssetId> {
         if image_assets.get(&self.diffuse_map).is_none()
             || image_assets.get(&self.specular_map).is_none()
         {

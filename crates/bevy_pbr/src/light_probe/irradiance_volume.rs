@@ -16,7 +16,7 @@ use bevy_asset::{AssetId, Handle};
 use bevy_reflect::Reflect;
 
 use crate::{
-    add_texture_view, environment_map::binding_arrays_are_usable, RenderViewLightProbes,
+    add_cubemap_texture_view, environment_map::binding_arrays_are_usable, RenderViewLightProbes,
     MAX_VIEW_LIGHT_PROBES,
 };
 
@@ -55,8 +55,8 @@ impl<'a> RenderViewIrradianceVolumeBindGroupEntries<'a> {
             let mut sampler = None;
 
             if let Some(irradiance_volumes) = render_view_irradiance_volumes {
-                for &cubemap_id in &irradiance_volumes.binding_index_to_cubemap {
-                    add_texture_view(
+                for &cubemap_id in &irradiance_volumes.binding_index_to_textures {
+                    add_cubemap_texture_view(
                         &mut texture_views,
                         &mut sampler,
                         cubemap_id,
@@ -78,10 +78,10 @@ impl<'a> RenderViewIrradianceVolumeBindGroupEntries<'a> {
 
         if let Some(irradiance_volumes) = render_view_irradiance_volumes {
             if let Some(irradiance_volume) = irradiance_volumes.render_light_probes.first() {
-                if irradiance_volume.cubemap_index >= 0 {
+                if irradiance_volume.texture_index >= 0 {
                     if let Some(image_id) = irradiance_volumes
-                        .binding_index_to_cubemap
-                        .get(irradiance_volume.cubemap_index as usize)
+                        .binding_index_to_textures
+                        .get(irradiance_volume.texture_index as usize)
                     {
                         if let Some(image) = images.get(*image_id) {
                             return RenderViewIrradianceVolumeBindGroupEntries::Single {
@@ -118,11 +118,11 @@ pub(crate) fn get_bind_group_layout_entries(
 }
 
 impl LightProbeComponent for IrradianceVolume {
-    type Id = AssetId<Image>;
+    type AssetId = AssetId<Image>;
 
     type ViewLightProbeInfo = ();
 
-    fn id(&self, image_assets: &RenderAssets<Image>) -> Option<Self::Id> {
+    fn id(&self, image_assets: &RenderAssets<Image>) -> Option<Self::AssetId> {
         if image_assets.get(&self.voxels).is_none() {
             None
         } else {
