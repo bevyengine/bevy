@@ -755,7 +755,10 @@ mod tests {
         assert_eq!(result, Err(crate::ParseAssetPathError::InvalidLabelSyntax));
 
         let result = AssetPath::parse_internal("#insource://a/b.test#://inlabel");
-        assert!(result == Err(crate::ParseAssetPathError::InvalidSourceSyntax) || result == Err(crate::ParseAssetPathError::InvalidLabelSyntax));
+        assert!(
+            result == Err(crate::ParseAssetPathError::InvalidSourceSyntax)
+                || result == Err(crate::ParseAssetPathError::InvalidLabelSyntax)
+        );
 
         let result = AssetPath::parse_internal("http://");
         assert_eq!(result, Ok((Some("http"), Path::new(""), None)));
