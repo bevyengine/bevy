@@ -11,7 +11,7 @@ use bevy_math::primitives::{
 use bevy_math::{Mat2, Quat, Vec2, Vec3};
 use bevy_render::color::Color;
 
-use crate::prelude::Gizmos;
+use crate::prelude::{GizmoConfigGroup, Gizmos};
 
 // BoxedPolyline 2D
 
@@ -20,22 +20,21 @@ use crate::prelude::Gizmos;
 // value
 
 /// A trait for rendering 2D geometric primitives (`P`) with [`Gizmos`].
-pub trait GizmoPrimitive2d<'s, P: Primitive2d> {
+pub trait GizmoPrimitive2d<P: Primitive2d> {
     /// The output of `primitive_2d`. This is a builder to set non-default values.
     type Output<'a>
     where
-        Self: 's,
-        's: 'a;
+        Self: 'a;
 
     /// Renders a 2D primitive with its associated details.
-    fn primitive_2d<'a>(&'s mut self, primitive: P) -> Self::Output<'a>;
+    fn primitive_2d(&mut self, primitive: P) -> Self::Output<'_>;
 }
 
 // direction 2d
 
 /// Builder for configuring the drawing options of [`Direction2d`].
-pub struct Direction2dBuilder<'a, 's> {
-    gizmos: &'a mut Gizmos<'s>,
+pub struct Direction2dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
+    gizmos: &'a mut Gizmos<'w, 's, T>,
 
     direction: Direction2d, // direction the arrow points to
 
@@ -43,7 +42,7 @@ pub struct Direction2dBuilder<'a, 's> {
     color: Color,   // color of the arrow
 }
 
-impl<'a, 's> Direction2dBuilder<'a, 's> {
+impl<T: GizmoConfigGroup> Direction2dBuilder<'_, '_, '_, T> {
     /// set the position of the start of the arrow
     pub fn position(mut self, position: Vec2) -> Self {
         self.position = position;
@@ -57,10 +56,10 @@ impl<'a, 's> Direction2dBuilder<'a, 's> {
     }
 }
 
-impl<'s> GizmoPrimitive2d<'s, Direction2d> for Gizmos<'s> {
-    type Output<'a> = Direction2dBuilder<'a, 's> where Self: 's, 's: 'a;
+impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Direction2d> for Gizmos<'w, 's, T> {
+    type Output<'a> = Direction2dBuilder<'a, 'w, 's, T> where Self: 'a;
 
-    fn primitive_2d<'a>(&'s mut self, primitive: Direction2d) -> Self::Output<'a> {
+    fn primitive_2d(&mut self, primitive: Direction2d) -> Self::Output<'_> {
         Direction2dBuilder {
             gizmos: self,
             direction: primitive,
@@ -70,7 +69,7 @@ impl<'s> GizmoPrimitive2d<'s, Direction2d> for Gizmos<'s> {
     }
 }
 
-impl Drop for Direction2dBuilder<'_, '_> {
+impl<T: GizmoConfigGroup> Drop for Direction2dBuilder<'_, '_, '_, T> {
     fn drop(&mut self) {
         let start = self.position;
         let end = self.position + *self.direction;
@@ -81,8 +80,8 @@ impl Drop for Direction2dBuilder<'_, '_> {
 // circle 2d
 
 /// Builder for configuring the drawing options of [`Circle`].
-pub struct Circle2dBuilder<'a, 's> {
-    gizmos: &'a mut Gizmos<'s>,
+pub struct Circle2dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
+    gizmos: &'a mut Gizmos<'w, 's, T>,
 
     radius: f32, // 2D circle to be rendered
 
@@ -90,7 +89,7 @@ pub struct Circle2dBuilder<'a, 's> {
     color: Color, // color of the circle
 }
 
-impl<'a, 's> Circle2dBuilder<'a, 's> {
+impl<T: GizmoConfigGroup> Circle2dBuilder<'_, '_, '_, T> {
     /// Set the position of the center of the circle.
     pub fn center(mut self, center: Vec2) -> Self {
         self.center = center;
@@ -104,10 +103,10 @@ impl<'a, 's> Circle2dBuilder<'a, 's> {
     }
 }
 
-impl<'s> GizmoPrimitive2d<'s, Circle> for Gizmos<'s> {
-    type Output<'a> = Circle2dBuilder<'a, 's> where Self: 's, 's: 'a;
+impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Circle> for Gizmos<'w, 's, T> {
+    type Output<'a> = Circle2dBuilder<'a, 'w, 's, T> where Self: 'a;
 
-    fn primitive_2d<'a>(&'s mut self, primitive: Circle) -> Self::Output<'a> {
+    fn primitive_2d(&mut self, primitive: Circle) -> Self::Output<'_> {
         Circle2dBuilder {
             gizmos: self,
             radius: primitive.radius,
@@ -117,7 +116,7 @@ impl<'s> GizmoPrimitive2d<'s, Circle> for Gizmos<'s> {
     }
 }
 
-impl Drop for Circle2dBuilder<'_, '_> {
+impl<T: GizmoConfigGroup> Drop for Circle2dBuilder<'_, '_, '_, T> {
     fn drop(&mut self) {
         self.gizmos.circle_2d(self.center, self.radius, self.color);
     }
@@ -126,8 +125,8 @@ impl Drop for Circle2dBuilder<'_, '_> {
 // ellipse 2d
 
 /// Builder for configuring the drawing options of [`Ellipse`].
-pub struct Ellipse2dBuilder<'a, 's> {
-    gizmos: &'a mut Gizmos<'s>,
+pub struct Ellipse2dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
+    gizmos: &'a mut Gizmos<'w, 's, T>,
 
     half_width: f32,  // Half-width of the ellipse
     half_height: f32, // Half-height of the ellipse
@@ -136,7 +135,7 @@ pub struct Ellipse2dBuilder<'a, 's> {
     color: Color, // Color of the ellipse
 }
 
-impl<'a, 's> Ellipse2dBuilder<'a, 's> {
+impl<T: GizmoConfigGroup> Ellipse2dBuilder<'_, '_, '_, T> {
     /// Set the position of the center of the ellipse.
     pub fn center(mut self, center: Vec2) -> Self {
         self.center = center;
@@ -150,21 +149,21 @@ impl<'a, 's> Ellipse2dBuilder<'a, 's> {
     }
 }
 
-impl<'s> GizmoPrimitive2d<'s, Ellipse> for Gizmos<'s> {
-    type Output<'a> = Ellipse2dBuilder<'a, 's> where Self: 's, 's: 'a;
+impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Ellipse> for Gizmos<'w, 's, T> {
+    type Output<'a> = Ellipse2dBuilder<'a, 'w, 's, T> where Self: 'a;
 
-    fn primitive_2d<'a>(&'s mut self, primitive: Ellipse) -> Self::Output<'a> {
+    fn primitive_2d(&mut self, primitive: Ellipse) -> Self::Output<'_> {
         Ellipse2dBuilder {
             gizmos: self,
-            half_width: primitive.half_width,
-            half_height: primitive.half_height,
+            half_width: primitive.half_size.x,
+            half_height: primitive.half_size.y,
             center: Default::default(),
             color: Default::default(),
         }
     }
 }
 
-impl Drop for Ellipse2dBuilder<'_, '_> {
+impl<T: GizmoConfigGroup> Drop for Ellipse2dBuilder<'_, '_, '_, T> {
     fn drop(&mut self) {
         self.gizmos
             .ellipse_2d(self.center, self.half_width, self.half_height, self.color);
@@ -174,8 +173,8 @@ impl Drop for Ellipse2dBuilder<'_, '_> {
 // line 2d
 
 /// Builder for configuring the drawing options of [`Line2d`].
-pub struct Line2dBuilder<'a, 's> {
-    gizmos: &'a mut Gizmos<'s>,
+pub struct Line2dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
+    gizmos: &'a mut Gizmos<'w, 's, T>,
 
     direction: Direction2d, // Direction of the line
 
@@ -183,7 +182,7 @@ pub struct Line2dBuilder<'a, 's> {
     color: Color,         // Color of the line
 }
 
-impl<'a, 's> Line2dBuilder<'a, 's> {
+impl<T: GizmoConfigGroup> Line2dBuilder<'_, '_, '_, T> {
     /// Set the starting position of the line.
     pub fn start_position(mut self, start_position: Vec2) -> Self {
         self.start_position = start_position;
@@ -197,10 +196,10 @@ impl<'a, 's> Line2dBuilder<'a, 's> {
     }
 }
 
-impl<'s> GizmoPrimitive2d<'s, Line2d> for Gizmos<'s> {
-    type Output<'a> = Line2dBuilder<'a, 's> where Self: 's, 's: 'a;
+impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Line2d> for Gizmos<'w, 's, T> {
+    type Output<'a> = Line2dBuilder<'a, 'w, 's, T> where Self: 'a;
 
-    fn primitive_2d<'a>(&'s mut self, primitive: Line2d) -> Self::Output<'a> {
+    fn primitive_2d(&mut self, primitive: Line2d) -> Self::Output<'_> {
         Line2dBuilder {
             gizmos: self,
             direction: primitive.direction,
@@ -210,7 +209,7 @@ impl<'s> GizmoPrimitive2d<'s, Line2d> for Gizmos<'s> {
     }
 }
 
-impl Drop for Line2dBuilder<'_, '_> {
+impl<T: GizmoConfigGroup> Drop for Line2dBuilder<'_, '_, '_, T> {
     fn drop(&mut self) {
         let start = self.start_position;
         let end = self.start_position + *self.direction;
@@ -229,8 +228,8 @@ impl Drop for Line2dBuilder<'_, '_> {
 // plane 2d
 
 /// Builder for configuring the drawing options of [`Plane2d`].
-pub struct Plane2dBuilder<'a, 's> {
-    gizmos: &'a mut Gizmos<'s>,
+pub struct Plane2dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
+    gizmos: &'a mut Gizmos<'w, 's, T>,
 
     normal: Direction2d, // Normal of the plane
 
@@ -238,7 +237,7 @@ pub struct Plane2dBuilder<'a, 's> {
     color: Color,          // Color of the plane
 }
 
-impl<'a, 's> Plane2dBuilder<'a, 's> {
+impl<T: GizmoConfigGroup> Plane2dBuilder<'_, '_, '_, T> {
     /// Set the starting position of the normal of the plane.
     pub fn normal_position(mut self, normal_position: Vec2) -> Self {
         self.normal_position = normal_position;
@@ -252,10 +251,10 @@ impl<'a, 's> Plane2dBuilder<'a, 's> {
     }
 }
 
-impl<'s> GizmoPrimitive2d<'s, Plane2d> for Gizmos<'s> {
-    type Output<'a> = Plane2dBuilder<'a, 's> where Self: 's, 's: 'a;
+impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Plane2d> for Gizmos<'w, 's, T> {
+    type Output<'a> = Plane2dBuilder<'a, 'w, 's, T> where Self: 'a;
 
-    fn primitive_2d<'a>(&'s mut self, primitive: Plane2d) -> Self::Output<'a> {
+    fn primitive_2d(&mut self, primitive: Plane2d) -> Self::Output<'_> {
         Plane2dBuilder {
             gizmos: self,
             normal: primitive.normal,
@@ -265,7 +264,7 @@ impl<'s> GizmoPrimitive2d<'s, Plane2d> for Gizmos<'s> {
     }
 }
 
-impl Drop for Plane2dBuilder<'_, '_> {
+impl<T: GizmoConfigGroup> Drop for Plane2dBuilder<'_, '_, '_, T> {
     fn drop(&mut self) {
         // normal
         let start = self.normal_position;
@@ -273,7 +272,7 @@ impl Drop for Plane2dBuilder<'_, '_> {
         self.gizmos.arrow_2d(start, end, self.color);
 
         // plane line
-        let direction = Direction2d::from_normalized(self.normal.perp());
+        let direction = Direction2d::new_unchecked(self.normal.perp());
         [1.0, -1.0].into_iter().for_each(|sign| {
             self.gizmos.line_2d(
                 self.normal_position,
@@ -287,8 +286,8 @@ impl Drop for Plane2dBuilder<'_, '_> {
 // segment 2d
 
 /// Builder for configuring the drawing options of [`Segment2d`].
-pub struct Segment2dBuilder<'a, 's> {
-    gizmos: &'a mut Gizmos<'s>,
+pub struct Segment2dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
+    gizmos: &'a mut Gizmos<'w, 's, T>,
 
     direction: Direction2d, // Direction of the line segment
     half_length: f32,       // Half-length of the line segment
@@ -298,7 +297,7 @@ pub struct Segment2dBuilder<'a, 's> {
     color: Color,         // Color of the line segment
 }
 
-impl<'a, 's> Segment2dBuilder<'a, 's> {
+impl<T: GizmoConfigGroup> Segment2dBuilder<'_, '_, '_, T> {
     /// Set the drawing mode of the line (arrow vs. plain line)
     pub fn draw_arrow(mut self, is_enabled: bool) -> Self {
         self.draw_arrow = is_enabled;
@@ -318,10 +317,10 @@ impl<'a, 's> Segment2dBuilder<'a, 's> {
     }
 }
 
-impl<'s> GizmoPrimitive2d<'s, Segment2d> for Gizmos<'s> {
-    type Output<'a> = Segment2dBuilder<'a, 's> where Self: 's, 's: 'a;
+impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Segment2d> for Gizmos<'w, 's, T> {
+    type Output<'a> = Segment2dBuilder<'a, 'w, 's, T> where Self: 'a;
 
-    fn primitive_2d<'a>(&'s mut self, primitive: Segment2d) -> Self::Output<'a> {
+    fn primitive_2d(&mut self, primitive: Segment2d) -> Self::Output<'_> {
         Segment2dBuilder {
             gizmos: self,
             direction: primitive.direction,
@@ -333,7 +332,7 @@ impl<'s> GizmoPrimitive2d<'s, Segment2d> for Gizmos<'s> {
     }
 }
 
-impl Drop for Segment2dBuilder<'_, '_> {
+impl<T: GizmoConfigGroup> Drop for Segment2dBuilder<'_, '_, '_, T> {
     fn drop(&mut self) {
         let start = self.start_position;
         let end = self.start_position + *self.direction * 2.0 * self.half_length;
@@ -348,8 +347,8 @@ impl Drop for Segment2dBuilder<'_, '_> {
 // polyline 2d
 
 /// Builder for configuring the drawing options of [`Polyline2d`].
-pub struct Polyline2dBuilder<'a, 's, const N: usize> {
-    gizmos: &'a mut Gizmos<'s>,
+pub struct Polyline2dBuilder<'a, 'w, 's, const N: usize, T: GizmoConfigGroup> {
+    gizmos: &'a mut Gizmos<'w, 's, T>,
 
     vertices: [Vec2; N], // Vertices of the polyline
 
@@ -358,7 +357,7 @@ pub struct Polyline2dBuilder<'a, 's, const N: usize> {
     color: Color,      // Color of the polyline
 }
 
-impl<'a, 's, const N: usize> Polyline2dBuilder<'a, 's, N> {
+impl<const N: usize, T: GizmoConfigGroup> Polyline2dBuilder<'_, '_, '_, N, T> {
     /// Set the offset for all the vertices of the polyline.
     pub fn translation(mut self, translation: Vec2) -> Self {
         self.translation = translation;
@@ -378,10 +377,12 @@ impl<'a, 's, const N: usize> Polyline2dBuilder<'a, 's, N> {
     }
 }
 
-impl<'s, const N: usize> GizmoPrimitive2d<'s, Polyline2d<N>> for Gizmos<'s> {
-    type Output<'a> = Polyline2dBuilder<'a, 's, N> where Self: 's, 's: 'a;
+impl<'w, 's, const N: usize, T: GizmoConfigGroup> GizmoPrimitive2d<Polyline2d<N>>
+    for Gizmos<'w, 's, T>
+{
+    type Output<'a> = Polyline2dBuilder<'a, 'w, 's, N, T> where Self: 'a;
 
-    fn primitive_2d<'a>(&'s mut self, primitive: Polyline2d<N>) -> Self::Output<'a> {
+    fn primitive_2d(&mut self, primitive: Polyline2d<N>) -> Self::Output<'_> {
         Polyline2dBuilder {
             gizmos: self,
             vertices: primitive.vertices,
@@ -392,7 +393,7 @@ impl<'s, const N: usize> GizmoPrimitive2d<'s, Polyline2d<N>> for Gizmos<'s> {
     }
 }
 
-impl<const N: usize> Drop for Polyline2dBuilder<'_, '_, N> {
+impl<const N: usize, T: GizmoConfigGroup> Drop for Polyline2dBuilder<'_, '_, '_, N, T> {
     fn drop(&mut self) {
         self.gizmos.linestrip_2d(
             self.vertices
@@ -407,8 +408,8 @@ impl<const N: usize> Drop for Polyline2dBuilder<'_, '_, N> {
 // boxed polyline 2d
 
 /// Builder for configuring the drawing options of [`BoxedPolyline2d`].
-pub struct BoxedPolylineBuilder<'a, 's> {
-    gizmos: &'a mut Gizmos<'s>,
+pub struct BoxedPolylineBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
+    gizmos: &'a mut Gizmos<'w, 's, T>,
 
     vertices: Box<[Vec2]>, // Vertices of the boxed polyline
 
@@ -417,7 +418,7 @@ pub struct BoxedPolylineBuilder<'a, 's> {
     color: Color,      // Color of the boxed polyline
 }
 
-impl<'a, 's> BoxedPolylineBuilder<'a, 's> {
+impl<T: GizmoConfigGroup> BoxedPolylineBuilder<'_, '_, '_, T> {
     /// Set the offset for all the vertices of the boxed polyline.
     pub fn translation(mut self, translation: Vec2) -> Self {
         self.translation = translation;
@@ -437,10 +438,10 @@ impl<'a, 's> BoxedPolylineBuilder<'a, 's> {
     }
 }
 
-impl<'s> GizmoPrimitive2d<'s, BoxedPolyline2d> for Gizmos<'s> {
-    type Output<'a> = BoxedPolylineBuilder<'a, 's> where Self: 's, 's: 'a;
+impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<BoxedPolyline2d> for Gizmos<'w, 's, T> {
+    type Output<'a> = BoxedPolylineBuilder<'a, 'w, 's, T> where Self: 'a;
 
-    fn primitive_2d<'a>(&'s mut self, primitive: BoxedPolyline2d) -> Self::Output<'a> {
+    fn primitive_2d(&mut self, primitive: BoxedPolyline2d) -> Self::Output<'_> {
         BoxedPolylineBuilder {
             gizmos: self,
             vertices: primitive.vertices,
@@ -451,7 +452,7 @@ impl<'s> GizmoPrimitive2d<'s, BoxedPolyline2d> for Gizmos<'s> {
     }
 }
 
-impl<'s> Drop for BoxedPolylineBuilder<'_, 's> {
+impl<T: GizmoConfigGroup> Drop for BoxedPolylineBuilder<'_, '_, '_, T> {
     fn drop(&mut self) {
         self.gizmos.linestrip_2d(
             self.vertices
@@ -466,8 +467,8 @@ impl<'s> Drop for BoxedPolylineBuilder<'_, 's> {
 // triangle 2d
 
 /// Builder for configuring the drawing options of [`Triangle2d`].
-pub struct TriangleBuilder<'a, 's> {
-    gizmos: &'a mut Gizmos<'s>,
+pub struct TriangleBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
+    gizmos: &'a mut Gizmos<'w, 's, T>,
 
     vertices: [Vec2; 3], // Vertices of the triangle
 
@@ -476,7 +477,7 @@ pub struct TriangleBuilder<'a, 's> {
     color: Color,      // Color of the triangle
 }
 
-impl<'a, 's> TriangleBuilder<'a, 's> {
+impl<T: GizmoConfigGroup> TriangleBuilder<'_, '_, '_, T> {
     /// Set the offset for all the vertices of the triangle.
     pub fn translation(mut self, translation: Vec2) -> Self {
         self.translation = translation;
@@ -496,10 +497,10 @@ impl<'a, 's> TriangleBuilder<'a, 's> {
     }
 }
 
-impl<'s> GizmoPrimitive2d<'s, Triangle2d> for Gizmos<'s> {
-    type Output<'a> = TriangleBuilder<'a, 's> where Self: 's, 's: 'a;
+impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Triangle2d> for Gizmos<'w, 's, T> {
+    type Output<'a> = TriangleBuilder<'a, 'w, 's, T> where Self: 'a;
 
-    fn primitive_2d<'a>(&'s mut self, primitive: Triangle2d) -> Self::Output<'a> {
+    fn primitive_2d(&mut self, primitive: Triangle2d) -> Self::Output<'_> {
         TriangleBuilder {
             gizmos: self,
             vertices: primitive.vertices,
@@ -510,7 +511,7 @@ impl<'s> GizmoPrimitive2d<'s, Triangle2d> for Gizmos<'s> {
     }
 }
 
-impl<'s> Drop for TriangleBuilder<'_, 's> {
+impl<T: GizmoConfigGroup> Drop for TriangleBuilder<'_, '_, '_, T> {
     fn drop(&mut self) {
         let [a, b, c] = self.vertices;
         let positions = [a, b, c, a].map(rotate_then_translate_2d(self.rotation, self.translation));
@@ -521,8 +522,8 @@ impl<'s> Drop for TriangleBuilder<'_, 's> {
 // rectangle 2d
 
 /// Builder for configuring the drawing options of [`Rectangle`].
-pub struct RectangleBuilder<'a, 's> {
-    gizmos: &'a mut Gizmos<'s>,
+pub struct RectangleBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
+    gizmos: &'a mut Gizmos<'w, 's, T>,
 
     half_width: f32,  // Half-width of the rectangle
     half_height: f32, // Half-height of the rectangle
@@ -532,7 +533,7 @@ pub struct RectangleBuilder<'a, 's> {
     color: Color,      // Color of the rectangle
 }
 
-impl<'a, 's> RectangleBuilder<'a, 's> {
+impl<T: GizmoConfigGroup> RectangleBuilder<'_, '_, '_, T> {
     /// Set the half-width of the rectangle.
     pub fn half_width(mut self, half_width: f32) -> Self {
         self.half_width = half_width;
@@ -564,14 +565,14 @@ impl<'a, 's> RectangleBuilder<'a, 's> {
     }
 }
 
-impl<'s> GizmoPrimitive2d<'s, Rectangle> for Gizmos<'s> {
-    type Output<'a> = RectangleBuilder<'a, 's> where Self: 's, 's: 'a;
+impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Rectangle> for Gizmos<'w, 's, T> {
+    type Output<'a> = RectangleBuilder<'a, 'w, 's, T> where Self: 'a;
 
-    fn primitive_2d<'a>(&'s mut self, primitive: Rectangle) -> Self::Output<'a> {
+    fn primitive_2d(&mut self, primitive: Rectangle) -> Self::Output<'_> {
         RectangleBuilder {
             gizmos: self,
-            half_width: primitive.half_width,
-            half_height: primitive.half_height,
+            half_width: primitive.half_size.x,
+            half_height: primitive.half_size.y,
             translation: Default::default(),
             rotation: Default::default(),
             color: Default::default(),
@@ -579,7 +580,7 @@ impl<'s> GizmoPrimitive2d<'s, Rectangle> for Gizmos<'s> {
     }
 }
 
-impl Drop for RectangleBuilder<'_, '_> {
+impl<T: GizmoConfigGroup> Drop for RectangleBuilder<'_, '_, '_, T> {
     fn drop(&mut self) {
         let [a, b, c, d] = [(1.0, 1.0), (1.0, -1.0), (-1.0, -1.0), (-1.0, 1.0)]
             .map(|(sign_x, sign_y)| Vec2::new(self.half_width * sign_x, self.half_height * sign_y));
@@ -592,8 +593,8 @@ impl Drop for RectangleBuilder<'_, '_> {
 // polygon 2d
 
 /// Builder for configuring the drawing options of [`Polygon`].
-pub struct PolygonBuilder<'a, 's, const N: usize> {
-    gizmos: &'a mut Gizmos<'s>,
+pub struct PolygonBuilder<'a, 'w, 's, const N: usize, T: GizmoConfigGroup> {
+    gizmos: &'a mut Gizmos<'w, 's, T>,
 
     vertices: [Vec2; N], // Vertices of the polygon
 
@@ -602,7 +603,7 @@ pub struct PolygonBuilder<'a, 's, const N: usize> {
     color: Color,      // Color of the polygon
 }
 
-impl<'a, 's, const N: usize> PolygonBuilder<'a, 's, N> {
+impl<const N: usize, T: GizmoConfigGroup> PolygonBuilder<'_, '_, '_, N, T> {
     /// Set the offset for all the vertices of the polygon.
     pub fn translation(mut self, translation: Vec2) -> Self {
         self.translation = translation;
@@ -622,10 +623,12 @@ impl<'a, 's, const N: usize> PolygonBuilder<'a, 's, N> {
     }
 }
 
-impl<'s, const N: usize> GizmoPrimitive2d<'s, Polygon<N>> for Gizmos<'s> {
-    type Output<'a> = PolygonBuilder<'a, 's, N> where Self: 's, 's: 'a;
+impl<'w, 's, const N: usize, T: GizmoConfigGroup> GizmoPrimitive2d<Polygon<N>>
+    for Gizmos<'w, 's, T>
+{
+    type Output<'a> = PolygonBuilder<'a, 'w, 's, N, T> where Self: 'a;
 
-    fn primitive_2d<'a>(&'s mut self, primitive: Polygon<N>) -> Self::Output<'a> {
+    fn primitive_2d(&mut self, primitive: Polygon<N>) -> Self::Output<'_> {
         PolygonBuilder {
             gizmos: self,
             vertices: primitive.vertices,
@@ -636,7 +639,7 @@ impl<'s, const N: usize> GizmoPrimitive2d<'s, Polygon<N>> for Gizmos<'s> {
     }
 }
 
-impl<const N: usize> Drop for PolygonBuilder<'_, '_, N> {
+impl<const N: usize, T: GizmoConfigGroup> Drop for PolygonBuilder<'_, '_, '_, N, T> {
     fn drop(&mut self) {
         // Check if the polygon needs a closing point
         let closing_point = {
@@ -661,8 +664,8 @@ impl<const N: usize> Drop for PolygonBuilder<'_, '_, N> {
 // boxed polygon 2d
 
 /// Builder for configuring the drawing options of [`BoxedPolygon`].
-pub struct BoxedPolygonBuilder<'a, 's> {
-    gizmos: &'a mut Gizmos<'s>,
+pub struct BoxedPolygonBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
+    gizmos: &'a mut Gizmos<'w, 's, T>,
 
     vertices: Box<[Vec2]>, // Vertices of the boxed polygon
 
@@ -671,7 +674,7 @@ pub struct BoxedPolygonBuilder<'a, 's> {
     color: Color,      // Color of the boxed polygon
 }
 
-impl<'a, 's> BoxedPolygonBuilder<'a, 's> {
+impl<T: GizmoConfigGroup> BoxedPolygonBuilder<'_, '_, '_, T> {
     /// Set the offset for all the vertices of the boxed polygon.
     pub fn translation(mut self, translation: Vec2) -> Self {
         self.translation = translation;
@@ -691,10 +694,10 @@ impl<'a, 's> BoxedPolygonBuilder<'a, 's> {
     }
 }
 
-impl<'s> GizmoPrimitive2d<'s, BoxedPolygon> for Gizmos<'s> {
-    type Output<'a> = BoxedPolygonBuilder<'a, 's> where Self: 's, 's: 'a;
+impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<BoxedPolygon> for Gizmos<'w, 's, T> {
+    type Output<'a> = BoxedPolygonBuilder<'a, 'w, 's, T> where Self: 'a;
 
-    fn primitive_2d<'a>(&'s mut self, primitive: BoxedPolygon) -> Self::Output<'a> {
+    fn primitive_2d(&mut self, primitive: BoxedPolygon) -> Self::Output<'_> {
         BoxedPolygonBuilder {
             gizmos: self,
             vertices: primitive.vertices,
@@ -705,7 +708,7 @@ impl<'s> GizmoPrimitive2d<'s, BoxedPolygon> for Gizmos<'s> {
     }
 }
 
-impl<'s> Drop for BoxedPolygonBuilder<'_, 's> {
+impl<T: GizmoConfigGroup> Drop for BoxedPolygonBuilder<'_, '_, '_, T> {
     fn drop(&mut self) {
         let closing_point = {
             let last = self.vertices.last();
@@ -728,8 +731,8 @@ impl<'s> Drop for BoxedPolygonBuilder<'_, 's> {
 // regular polygon 2d
 
 /// Builder for configuring the drawing options of [`RegularPolygon`].
-pub struct RegularPolygonBuilder<'a, 's> {
-    gizmos: &'a mut Gizmos<'s>,
+pub struct RegularPolygonBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
+    gizmos: &'a mut Gizmos<'w, 's, T>,
 
     circumcircle_radius: f32, // Radius of the circumcircle of the regular polygon
     sides: usize,             // Number of sides of the regular polygon
@@ -739,7 +742,7 @@ pub struct RegularPolygonBuilder<'a, 's> {
     color: Color,      // Color of the regular polygon
 }
 
-impl<'a, 's> RegularPolygonBuilder<'a, 's> {
+impl<T: GizmoConfigGroup> RegularPolygonBuilder<'_, '_, '_, T> {
     /// Set the offset for all the vertices of the regular polygon.
     pub fn translation(mut self, translation: Vec2) -> Self {
         self.translation = translation;
@@ -759,10 +762,10 @@ impl<'a, 's> RegularPolygonBuilder<'a, 's> {
     }
 }
 
-impl<'s> GizmoPrimitive2d<'s, RegularPolygon> for Gizmos<'s> {
-    type Output<'a> = RegularPolygonBuilder<'a, 's> where Self: 's, 's: 'a;
+impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<RegularPolygon> for Gizmos<'w, 's, T> {
+    type Output<'a> = RegularPolygonBuilder<'a, 'w, 's, T> where Self: 'a;
 
-    fn primitive_2d<'a>(&'s mut self, primitive: RegularPolygon) -> Self::Output<'a> {
+    fn primitive_2d(&mut self, primitive: RegularPolygon) -> Self::Output<'_> {
         RegularPolygonBuilder {
             gizmos: self,
             circumcircle_radius: primitive.circumcircle.radius,
@@ -774,7 +777,7 @@ impl<'s> GizmoPrimitive2d<'s, RegularPolygon> for Gizmos<'s> {
     }
 }
 
-impl<'s> Drop for RegularPolygonBuilder<'_, 's> {
+impl<T: GizmoConfigGroup> Drop for RegularPolygonBuilder<'_, '_, '_, T> {
     fn drop(&mut self) {
         let points = (0..=self.sides)
             .map(|p| single_circle_coordinate(self.circumcircle_radius, self.sides, p, 1.0))
@@ -799,8 +802,8 @@ pub trait GizmoPrimitive3d<P: Primitive3d> {
 // direction 3d
 
 /// Builder for configuring the drawing options of [`Direction3d`].
-pub struct Direction3dBuilder<'a, 's> {
-    gizmos: &'a mut Gizmos<'s>,
+pub struct Direction3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
+    gizmos: &'a mut Gizmos<'w, 's, T>,
 
     direction: Direction3d, // Direction the arrow points to
 
@@ -808,7 +811,7 @@ pub struct Direction3dBuilder<'a, 's> {
     color: Color,   // Color of the arrow
 }
 
-impl<'a, 's> Direction3dBuilder<'a, 's> {
+impl<T: GizmoConfigGroup> Direction3dBuilder<'_, '_, '_, T> {
     /// Set the starting position of the arrow in 3D space.
     pub fn position(mut self, position: Vec3) -> Self {
         self.position = position;
@@ -822,8 +825,8 @@ impl<'a, 's> Direction3dBuilder<'a, 's> {
     }
 }
 
-impl<'s> GizmoPrimitive3d<Direction3d> for Gizmos<'s> {
-    type Output<'a> = Direction3dBuilder<'a, 's> where Self: 's, 's: 'a;
+impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Direction3d> for Gizmos<'w, 's, T> {
+    type Output<'a> = Direction3dBuilder<'a, 'w, 's, T> where Self: 'a;
 
     fn primitive_3d(&mut self, primitive: Direction3d) -> Self::Output<'_> {
         Direction3dBuilder {
@@ -835,7 +838,7 @@ impl<'s> GizmoPrimitive3d<Direction3d> for Gizmos<'s> {
     }
 }
 
-impl<'s> Drop for Direction3dBuilder<'_, 's> {
+impl<T: GizmoConfigGroup> Drop for Direction3dBuilder<'_, '_, '_, T> {
     fn drop(&mut self) {
         self.gizmos
             .arrow(self.position, self.position + *self.direction, self.color);
@@ -845,8 +848,8 @@ impl<'s> Drop for Direction3dBuilder<'_, 's> {
 // sphere
 
 /// Builder for configuring the drawing options of [`Sphere`].
-pub struct SphereBuilder<'a, 's> {
-    gizmos: &'a mut Gizmos<'s>,
+pub struct SphereBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
+    gizmos: &'a mut Gizmos<'w, 's, T>,
 
     radius: f32, // Radius of the sphere
 
@@ -856,7 +859,7 @@ pub struct SphereBuilder<'a, 's> {
     segments: usize, // Number of segments used to approximate the sphere geometry
 }
 
-impl<'a, 's> SphereBuilder<'a, 's> {
+impl<T: GizmoConfigGroup> SphereBuilder<'_, '_, '_, T> {
     /// Set the radius of the sphere.
     pub fn radius(mut self, radius: f32) -> Self {
         self.radius = radius;
@@ -888,8 +891,8 @@ impl<'a, 's> SphereBuilder<'a, 's> {
     }
 }
 
-impl<'s> GizmoPrimitive3d<Sphere> for Gizmos<'s> {
-    type Output<'a> = SphereBuilder<'a, 's> where Self: 's, 's: 'a;
+impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Sphere> for Gizmos<'w, 's, T> {
+    type Output<'a> = SphereBuilder<'a, 'w, 's, T> where Self: 'a;
 
     fn primitive_3d(&mut self, primitive: Sphere) -> Self::Output<'_> {
         SphereBuilder {
@@ -903,7 +906,7 @@ impl<'s> GizmoPrimitive3d<Sphere> for Gizmos<'s> {
     }
 }
 
-impl<'s> Drop for SphereBuilder<'_, 's> {
+impl<T: GizmoConfigGroup> Drop for SphereBuilder<'_, '_, '_, T> {
     fn drop(&mut self) {
         let SphereBuilder {
             radius,
@@ -934,8 +937,8 @@ impl<'s> Drop for SphereBuilder<'_, 's> {
 // plane 3d
 
 /// Builder for configuring the drawing options of [`Plane3d`].
-pub struct Plane3dBuilder<'a, 's> {
-    gizmos: &'a mut Gizmos<'s>,
+pub struct Plane3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
+    gizmos: &'a mut Gizmos<'w, 's, T>,
 
     normal: Direction3d, // Normal vector of the plane
 
@@ -944,7 +947,7 @@ pub struct Plane3dBuilder<'a, 's> {
     color: Color,          // Color of the plane
 }
 
-impl<'a, 's> Plane3dBuilder<'a, 's> {
+impl<T: GizmoConfigGroup> Plane3dBuilder<'_, '_, '_, T> {
     /// Set the normal vector of the plane.
     pub fn normal_position(mut self, normal_position: Vec3) -> Self {
         self.normal_position = normal_position;
@@ -964,8 +967,8 @@ impl<'a, 's> Plane3dBuilder<'a, 's> {
     }
 }
 
-impl<'s> GizmoPrimitive3d<Plane3d> for Gizmos<'s> {
-    type Output<'a> = Plane3dBuilder<'a, 's> where Self: 's, 's: 'a;
+impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Plane3d> for Gizmos<'w, 's, T> {
+    type Output<'a> = Plane3dBuilder<'a, 'w, 's, T> where Self: 'a;
 
     fn primitive_3d(&mut self, primitive: Plane3d) -> Self::Output<'_> {
         Plane3dBuilder {
@@ -978,7 +981,7 @@ impl<'s> GizmoPrimitive3d<Plane3d> for Gizmos<'s> {
     }
 }
 
-impl<'s> Drop for Plane3dBuilder<'_, 's> {
+impl<T: GizmoConfigGroup> Drop for Plane3dBuilder<'_, '_, '_, T> {
     fn drop(&mut self) {
         let Plane3dBuilder {
             gizmos,
@@ -1013,8 +1016,8 @@ impl<'s> Drop for Plane3dBuilder<'_, 's> {
 // line 3d
 
 /// Builder for configuring the drawing options of [`Line3d`].
-pub struct Line3dBuilder<'a, 's> {
-    gizmos: &'a mut Gizmos<'s>,
+pub struct Line3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
+    gizmos: &'a mut Gizmos<'w, 's, T>,
 
     direction: Direction3d, // Direction vector of the line
 
@@ -1023,7 +1026,7 @@ pub struct Line3dBuilder<'a, 's> {
     color: Color,         // Color of the line
 }
 
-impl<'a, 's> Line3dBuilder<'a, 's> {
+impl<T: GizmoConfigGroup> Line3dBuilder<'_, '_, '_, T> {
     /// Set the starting position of the line.
     pub fn start_position(mut self, start_position: Vec3) -> Self {
         self.start_position = start_position;
@@ -1043,8 +1046,8 @@ impl<'a, 's> Line3dBuilder<'a, 's> {
     }
 }
 
-impl<'s> GizmoPrimitive3d<Line3d> for Gizmos<'s> {
-    type Output<'a> = Line3dBuilder<'a, 's> where Self: 's, 's: 'a;
+impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Line3d> for Gizmos<'w, 's, T> {
+    type Output<'a> = Line3dBuilder<'a, 'w, 's, T> where Self: 'a;
 
     fn primitive_3d(&mut self, primitive: Line3d) -> Self::Output<'_> {
         Line3dBuilder {
@@ -1057,7 +1060,7 @@ impl<'s> GizmoPrimitive3d<Line3d> for Gizmos<'s> {
     }
 }
 
-impl<'s> Drop for Line3dBuilder<'_, 's> {
+impl<T: GizmoConfigGroup> Drop for Line3dBuilder<'_, '_, '_, T> {
     fn drop(&mut self) {
         let Line3dBuilder {
             gizmos,
@@ -1082,8 +1085,8 @@ impl<'s> Drop for Line3dBuilder<'_, 's> {
 // segment 3d
 
 /// Builder for configuring the drawing options of [`Segment3d`].
-pub struct Segment3dBuilder<'a, 's> {
-    gizmos: &'a mut Gizmos<'s>,
+pub struct Segment3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
+    gizmos: &'a mut Gizmos<'w, 's, T>,
 
     direction: Direction3d, // Direction vector of the line segment
     half_length: f32,       // Half the length of the Segment
@@ -1093,7 +1096,7 @@ pub struct Segment3dBuilder<'a, 's> {
     color: Color,         // Color of the line segment
 }
 
-impl<'a, 's> Segment3dBuilder<'a, 's> {
+impl<T: GizmoConfigGroup> Segment3dBuilder<'_, '_, '_, T> {
     /// Set the direction vector of the line segment.
     pub fn half_length(mut self, half_length: f32) -> Self {
         self.half_length = half_length;
@@ -1119,8 +1122,8 @@ impl<'a, 's> Segment3dBuilder<'a, 's> {
     }
 }
 
-impl<'s> GizmoPrimitive3d<Segment3d> for Gizmos<'s> {
-    type Output<'a> = Segment3dBuilder<'a, 's> where Self: 's, 's: 'a;
+impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Segment3d> for Gizmos<'w, 's, T> {
+    type Output<'a> = Segment3dBuilder<'a, 'w, 's, T> where Self: 'a;
 
     fn primitive_3d(&mut self, primitive: Segment3d) -> Self::Output<'_> {
         Segment3dBuilder {
@@ -1134,7 +1137,7 @@ impl<'s> GizmoPrimitive3d<Segment3d> for Gizmos<'s> {
     }
 }
 
-impl<'s> Drop for Segment3dBuilder<'_, 's> {
+impl<T: GizmoConfigGroup> Drop for Segment3dBuilder<'_, '_, '_, T> {
     fn drop(&mut self) {
         let Segment3dBuilder {
             gizmos,
@@ -1155,8 +1158,8 @@ impl<'s> Drop for Segment3dBuilder<'_, 's> {
 // polyline 3d
 
 /// Builder for configuring the drawing options of [`Polyline3d`].
-pub struct Polyline3dBuilder<'a, 's, const N: usize> {
-    gizmos: &'a mut Gizmos<'s>,
+pub struct Polyline3dBuilder<'a, 'w, 's, const N: usize, T: GizmoConfigGroup> {
+    gizmos: &'a mut Gizmos<'w, 's, T>,
 
     vertices: [Vec3; N], // Vertices of the polyline
 
@@ -1165,7 +1168,7 @@ pub struct Polyline3dBuilder<'a, 's, const N: usize> {
     color: Color,      // Color of the polyline
 }
 
-impl<'a, 's, const N: usize> Polyline3dBuilder<'a, 's, N> {
+impl<const N: usize, T: GizmoConfigGroup> Polyline3dBuilder<'_, '_, '_, N, T> {
     /// Set the translation applied to all vertices of the polyline.
     pub fn translation(mut self, translation: Vec3) -> Self {
         self.translation = translation;
@@ -1185,8 +1188,10 @@ impl<'a, 's, const N: usize> Polyline3dBuilder<'a, 's, N> {
     }
 }
 
-impl<'s, const N: usize> GizmoPrimitive3d<Polyline3d<N>> for Gizmos<'s> {
-    type Output<'a> = Polyline3dBuilder<'a, 's, N> where Self: 's, 's: 'a;
+impl<'w, 's, const N: usize, T: GizmoConfigGroup> GizmoPrimitive3d<Polyline3d<N>>
+    for Gizmos<'w, 's, T>
+{
+    type Output<'a> = Polyline3dBuilder<'a,  'w, 's, N, T> where Self: 'a;
 
     fn primitive_3d(&mut self, primitive: Polyline3d<N>) -> Self::Output<'_> {
         Polyline3dBuilder {
@@ -1199,7 +1204,7 @@ impl<'s, const N: usize> GizmoPrimitive3d<Polyline3d<N>> for Gizmos<'s> {
     }
 }
 
-impl<const N: usize> Drop for Polyline3dBuilder<'_, '_, N> {
+impl<const N: usize, T: GizmoConfigGroup> Drop for Polyline3dBuilder<'_, '_, '_, N, T> {
     fn drop(&mut self) {
         let Polyline3dBuilder {
             gizmos,
@@ -1219,8 +1224,8 @@ impl<const N: usize> Drop for Polyline3dBuilder<'_, '_, N> {
 // boxed polyline 3d
 
 /// Builder for configuring the drawing options of [`BoxedPolyline3d`].
-pub struct BoxedPolyline3dBuilder<'a, 's> {
-    gizmos: &'a mut Gizmos<'s>,
+pub struct BoxedPolyline3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
+    gizmos: &'a mut Gizmos<'w, 's, T>,
 
     vertices: Box<[Vec3]>, // Vertices of the boxed polyline
 
@@ -1229,7 +1234,7 @@ pub struct BoxedPolyline3dBuilder<'a, 's> {
     color: Color,   // Color of the polyline and the enclosing box
 }
 
-impl<'a, 's> BoxedPolyline3dBuilder<'a, 's> {
+impl<T: GizmoConfigGroup> BoxedPolyline3dBuilder<'_, '_, '_, T> {
     /// Set the translation applied to all vertices of the boxed polyline.
     pub fn translation(mut self, translation: Vec3) -> Self {
         self.translation = translation;
@@ -1249,8 +1254,8 @@ impl<'a, 's> BoxedPolyline3dBuilder<'a, 's> {
     }
 }
 
-impl<'s> GizmoPrimitive3d<BoxedPolyline3d> for Gizmos<'s> {
-    type Output<'a> = BoxedPolyline3dBuilder<'a, 's> where Self: 's, 's: 'a;
+impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<BoxedPolyline3d> for Gizmos<'w, 's, T> {
+    type Output<'a> = BoxedPolyline3dBuilder<'a, 'w, 's, T> where Self: 'a;
 
     fn primitive_3d(&mut self, primitive: BoxedPolyline3d) -> Self::Output<'_> {
         BoxedPolyline3dBuilder {
@@ -1263,7 +1268,7 @@ impl<'s> GizmoPrimitive3d<BoxedPolyline3d> for Gizmos<'s> {
     }
 }
 
-impl<'s> Drop for BoxedPolyline3dBuilder<'_, 's> {
+impl<T: GizmoConfigGroup> Drop for BoxedPolyline3dBuilder<'_, '_, '_, T> {
     fn drop(&mut self) {
         let BoxedPolyline3dBuilder {
             gizmos,
@@ -1286,8 +1291,8 @@ impl<'s> Drop for BoxedPolyline3dBuilder<'_, 's> {
 // cuboid
 
 /// Builder for configuring the drawing options of [`Cuboid3d`].
-pub struct Cuboid3dBuilder<'a, 's> {
-    gizmos: &'a mut Gizmos<'s>,
+pub struct Cuboid3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
+    gizmos: &'a mut Gizmos<'w, 's, T>,
 
     half_extents: Vec3, // Half extents of the cuboid on each axis
 
@@ -1296,7 +1301,7 @@ pub struct Cuboid3dBuilder<'a, 's> {
     color: Color,   // Color of the cuboid
 }
 
-impl<'a, 's> Cuboid3dBuilder<'a, 's> {
+impl<T: GizmoConfigGroup> Cuboid3dBuilder<'_, '_, '_, T> {
     /// Set the center position of the cuboid.
     pub fn center(mut self, center: Vec3) -> Self {
         self.center = center;
@@ -1316,13 +1321,13 @@ impl<'a, 's> Cuboid3dBuilder<'a, 's> {
     }
 }
 
-impl<'s> GizmoPrimitive3d<Cuboid> for Gizmos<'s> {
-    type Output<'a> = Cuboid3dBuilder<'a, 's> where Self: 's, 's: 'a;
+impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Cuboid> for Gizmos<'w, 's, T> {
+    type Output<'a> = Cuboid3dBuilder<'a, 'w, 's, T> where Self: 'a;
 
     fn primitive_3d(&mut self, primitive: Cuboid) -> Self::Output<'_> {
         Cuboid3dBuilder {
             gizmos: self,
-            half_extents: primitive.half_extents,
+            half_extents: primitive.half_size,
             center: Default::default(),
             rotation: Default::default(),
             color: Default::default(),
@@ -1330,7 +1335,7 @@ impl<'s> GizmoPrimitive3d<Cuboid> for Gizmos<'s> {
     }
 }
 
-impl<'s> Drop for Cuboid3dBuilder<'_, 's> {
+impl<T: GizmoConfigGroup> Drop for Cuboid3dBuilder<'_, '_, '_, T> {
     fn drop(&mut self) {
         let Cuboid3dBuilder {
             gizmos,
@@ -1377,8 +1382,8 @@ impl<'s> Drop for Cuboid3dBuilder<'_, 's> {
 // cylinder 3d
 
 /// Builder for configuring the drawing options of [`Cylinder3d`].
-pub struct Cylinder3dBuilder<'a, 's> {
-    gizmos: &'a mut Gizmos<'s>,
+pub struct Cylinder3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
+    gizmos: &'a mut Gizmos<'w, 's, T>,
 
     radius: f32,      // Radius of the cylinder
     half_height: f32, // Half height of the cylinder
@@ -1389,7 +1394,7 @@ pub struct Cylinder3dBuilder<'a, 's> {
     segments: usize, // Number of segments used to approximate the cylinder geometry
 }
 
-impl<'a, 's> Cylinder3dBuilder<'a, 's> {
+impl<T: GizmoConfigGroup> Cylinder3dBuilder<'_, '_, '_, T> {
     /// Set the center position of the cylinder.
     pub fn center(mut self, center: Vec3) -> Self {
         self.center = center;
@@ -1415,8 +1420,8 @@ impl<'a, 's> Cylinder3dBuilder<'a, 's> {
     }
 }
 
-impl<'s> GizmoPrimitive3d<Cylinder> for Gizmos<'s> {
-    type Output<'a> = Cylinder3dBuilder<'a, 's> where Self: 's, 's: 'a;
+impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Cylinder> for Gizmos<'w, 's, T> {
+    type Output<'a> = Cylinder3dBuilder<'a, 'w, 's, T> where Self: 'a;
 
     fn primitive_3d(&mut self, primitive: Cylinder) -> Self::Output<'_> {
         Cylinder3dBuilder {
@@ -1431,7 +1436,7 @@ impl<'s> GizmoPrimitive3d<Cylinder> for Gizmos<'s> {
     }
 }
 
-impl<'s> Drop for Cylinder3dBuilder<'_, 's> {
+impl<T: GizmoConfigGroup> Drop for Cylinder3dBuilder<'_, '_, '_, T> {
     fn drop(&mut self) {
         let Cylinder3dBuilder {
             gizmos,
@@ -1471,8 +1476,8 @@ impl<'s> Drop for Cylinder3dBuilder<'_, 's> {
 // capsule 3d
 
 /// Builder for configuring the drawing options of [`Capsule3d`].
-pub struct Capsule3dBuilder<'a, 's> {
-    gizmos: &'a mut Gizmos<'s>,
+pub struct Capsule3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
+    gizmos: &'a mut Gizmos<'w, 's, T>,
 
     radius: f32,      // Radius of the capsule
     half_length: f32, // Half length of the capsule
@@ -1483,7 +1488,7 @@ pub struct Capsule3dBuilder<'a, 's> {
     segments: usize, // Number of segments used to approximate the capsule geometry
 }
 
-impl<'a, 's> Capsule3dBuilder<'a, 's> {
+impl<T: GizmoConfigGroup> Capsule3dBuilder<'_, '_, '_, T> {
     /// Set the center position of the capsule.
     pub fn center(mut self, center: Vec3) -> Self {
         self.center = center;
@@ -1509,8 +1514,8 @@ impl<'a, 's> Capsule3dBuilder<'a, 's> {
     }
 }
 
-impl<'s> GizmoPrimitive3d<Capsule> for Gizmos<'s> {
-    type Output<'a> = Capsule3dBuilder<'a, 's> where Self: 's, 's: 'a;
+impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Capsule> for Gizmos<'w, 's, T> {
+    type Output<'a> = Capsule3dBuilder<'a, 'w, 's, T> where Self: 'a;
 
     fn primitive_3d(&mut self, primitive: Capsule) -> Self::Output<'_> {
         Capsule3dBuilder {
@@ -1525,7 +1530,7 @@ impl<'s> GizmoPrimitive3d<Capsule> for Gizmos<'s> {
     }
 }
 
-impl<'s> Drop for Capsule3dBuilder<'_, 's> {
+impl<T: GizmoConfigGroup> Drop for Capsule3dBuilder<'_, '_, '_, T> {
     fn drop(&mut self) {
         let Capsule3dBuilder {
             gizmos,
@@ -1562,8 +1567,8 @@ impl<'s> Drop for Capsule3dBuilder<'_, 's> {
 // cone 3d
 
 /// Builder for configuring the drawing options of [`Cone3d`].
-pub struct Cone3dBuilder<'a, 's> {
-    gizmos: &'a mut Gizmos<'s>,
+pub struct Cone3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
+    gizmos: &'a mut Gizmos<'w, 's, T>,
 
     radius: f32, // Radius of the cone
     height: f32, // Height of the cone
@@ -1574,7 +1579,7 @@ pub struct Cone3dBuilder<'a, 's> {
     segments: usize, // Number of segments used to approximate the cone geometry
 }
 
-impl<'a, 's> Cone3dBuilder<'a, 's> {
+impl<T: GizmoConfigGroup> Cone3dBuilder<'_, '_, '_, T> {
     /// Set the center of the base of the cone.
     pub fn center(mut self, center: Vec3) -> Self {
         self.center = center;
@@ -1600,8 +1605,8 @@ impl<'a, 's> Cone3dBuilder<'a, 's> {
     }
 }
 
-impl<'s> GizmoPrimitive3d<Cone> for Gizmos<'s> {
-    type Output<'a> = Cone3dBuilder<'a, 's> where Self: 's, 's: 'a;
+impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Cone> for Gizmos<'w, 's, T> {
+    type Output<'a> = Cone3dBuilder<'a, 'w, 's, T> where Self: 'a;
 
     fn primitive_3d(&mut self, primitive: Cone) -> Self::Output<'_> {
         Cone3dBuilder {
@@ -1616,7 +1621,7 @@ impl<'s> GizmoPrimitive3d<Cone> for Gizmos<'s> {
     }
 }
 
-impl<'s> Drop for Cone3dBuilder<'_, 's> {
+impl<T: GizmoConfigGroup> Drop for Cone3dBuilder<'_, '_, '_, T> {
     fn drop(&mut self) {
         let Cone3dBuilder {
             gizmos,
@@ -1645,8 +1650,8 @@ impl<'s> Drop for Cone3dBuilder<'_, 's> {
 // conical frustum 3d
 
 /// Builder for configuring the drawing options of [`ConicalFrustum3d`].
-pub struct ConicalFrustum3dBuilder<'a, 's> {
-    gizmos: &'a mut Gizmos<'s>,
+pub struct ConicalFrustum3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
+    gizmos: &'a mut Gizmos<'w, 's, T>,
 
     radius_top: f32,    // Radius of the top circle
     radius_bottom: f32, // Radius of the bottom circle
@@ -1658,7 +1663,7 @@ pub struct ConicalFrustum3dBuilder<'a, 's> {
     segments: usize, // Number of segments used to approximate the curved surfaces
 }
 
-impl<'a, 's> ConicalFrustum3dBuilder<'a, 's> {
+impl<T: GizmoConfigGroup> ConicalFrustum3dBuilder<'_, '_, '_, T> {
     /// Set the center of the base circle of the conical frustum.
     pub fn center(mut self, center: Vec3) -> Self {
         self.center = center;
@@ -1684,8 +1689,8 @@ impl<'a, 's> ConicalFrustum3dBuilder<'a, 's> {
     }
 }
 
-impl<'s> GizmoPrimitive3d<ConicalFrustum> for Gizmos<'s> {
-    type Output<'a> = ConicalFrustum3dBuilder<'a, 's> where Self: 's, 's: 'a;
+impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<ConicalFrustum> for Gizmos<'w, 's, T> {
+    type Output<'a> = ConicalFrustum3dBuilder<'a, 'w, 's, T> where Self: 'a;
 
     fn primitive_3d(&mut self, primitive: ConicalFrustum) -> Self::Output<'_> {
         ConicalFrustum3dBuilder {
@@ -1701,7 +1706,7 @@ impl<'s> GizmoPrimitive3d<ConicalFrustum> for Gizmos<'s> {
     }
 }
 
-impl<'s> Drop for ConicalFrustum3dBuilder<'_, 's> {
+impl<T: GizmoConfigGroup> Drop for ConicalFrustum3dBuilder<'_, '_, '_, T> {
     fn drop(&mut self) {
         let ConicalFrustum3dBuilder {
             gizmos,
@@ -1742,8 +1747,8 @@ impl<'s> Drop for ConicalFrustum3dBuilder<'_, 's> {
 // torus 3d
 
 /// Builder for configuring the drawing options of [`Torus3d`].
-pub struct Torus3dBuilder<'a, 's> {
-    gizmos: &'a mut Gizmos<'s>,
+pub struct Torus3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
+    gizmos: &'a mut Gizmos<'w, 's, T>,
 
     minor_radius: f32, // Radius of the minor circle (tube)
     major_radius: f32, // Radius of the major circle (ring)
@@ -1755,7 +1760,7 @@ pub struct Torus3dBuilder<'a, 's> {
     major_segments: usize, // Number of segments in the major (ring) direction
 }
 
-impl<'a, 's> Torus3dBuilder<'a, 's> {
+impl<T: GizmoConfigGroup> Torus3dBuilder<'_, '_, '_, T> {
     /// Set the center of the torus.
     pub fn center(mut self, center: Vec3) -> Self {
         self.center = center;
@@ -1787,8 +1792,8 @@ impl<'a, 's> Torus3dBuilder<'a, 's> {
     }
 }
 
-impl<'s> GizmoPrimitive3d<Torus> for Gizmos<'s> {
-    type Output<'a> = Torus3dBuilder<'a, 's> where Self: 's, 's: 'a;
+impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Torus> for Gizmos<'w, 's, T> {
+    type Output<'a> = Torus3dBuilder<'a, 'w, 's, T> where Self: 'a;
 
     fn primitive_3d(&mut self, primitive: Torus) -> Self::Output<'_> {
         Torus3dBuilder {
@@ -1804,7 +1809,7 @@ impl<'s> GizmoPrimitive3d<Torus> for Gizmos<'s> {
     }
 }
 
-impl<'s> Drop for Torus3dBuilder<'_, 's> {
+impl<T: GizmoConfigGroup> Drop for Torus3dBuilder<'_, '_, '_, T> {
     fn drop(&mut self) {
         let Torus3dBuilder {
             gizmos,
@@ -1889,8 +1894,8 @@ fn circle_coordinates(radius: f32, segments: usize) -> impl Iterator<Item = Vec2
 
 // helper - drawing
 
-fn draw_cap(
-    gizmos: &mut Gizmos,
+fn draw_cap<T: GizmoConfigGroup>(
+    gizmos: &mut Gizmos<'_, '_, T>,
     radius: f32,
     segments: usize,
     rotation: Quat,
@@ -1917,8 +1922,8 @@ fn draw_cap(
         });
 }
 
-fn draw_circle(
-    gizmos: &mut Gizmos,
+fn draw_circle<T: GizmoConfigGroup>(
+    gizmos: &mut Gizmos<'_, '_, T>,
     radius: f32,
     segments: usize,
     rotation: Quat,
@@ -1934,8 +1939,8 @@ fn draw_circle(
     gizmos.linestrip(positions, color);
 }
 
-fn draw_cylinder_vertical_lines(
-    gizmos: &mut Gizmos,
+fn draw_cylinder_vertical_lines<T: GizmoConfigGroup>(
+    gizmos: &mut Gizmos<'_, '_, T>,
     radius: f32,
     segments: usize,
     half_height: f32,
