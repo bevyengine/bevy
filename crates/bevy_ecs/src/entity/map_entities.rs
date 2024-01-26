@@ -10,10 +10,7 @@ use bevy_utils::EntityHashMap;
 /// As entity IDs are valid only for the [`World`] they're sourced from, using [`Entity`]
 /// as references in components copied from another world will be invalid. This trait
 /// allows defining custom mappings for these references via a [`Mapper`], which is a type that knows
-/// how to perform entity mapping. (usually by using a [`EntityHashMap<Entity, Entity>`])
-///
-/// [`MapEntities`] is already implemented for [`Entity`], so you just need to call [`Entity::map_entities`]
-/// for all the [`Entity`] fields in your type.
+/// how to perform entity mapping (usually by using an [`EntityHashMap<Entity, Entity>`]).
 ///
 /// Implementing this trait correctly is required for properly loading components
 /// with entity references from scenes.
@@ -97,7 +94,7 @@ pub struct EntityMapper<'m> {
 }
 
 impl<'m> EntityMapper<'m> {
-    #[deprecated(since = "0.13.0", note = "please use `EntityMapper::Map` instead")]
+    #[deprecated(since = "0.13.0", note = "please use `EntityMapper::map` instead")]
     /// Returns the corresponding mapped entity or reserves a new dead entity ID if it is absent.
     pub fn get_or_reserve(&mut self, entity: Entity) -> Entity {
         self.map(entity)
@@ -157,27 +154,9 @@ mod tests {
     use bevy_utils::EntityHashMap;
 
     use crate::{
-        entity::map_entities::Mapper,
         entity::{Entity, EntityMapper},
         world::World,
     };
-
-    #[test]
-    fn mapper_trait() {
-        const FIRST_IDX: u32 = 1;
-        const SECOND_IDX: u32 = 2;
-
-        let mut map = EntityHashMap::default();
-        map.insert(Entity::from_raw(FIRST_IDX), Entity::from_raw(SECOND_IDX));
-        let mut world = World::new();
-        let mut mapper = EntityMapper::new(&mut map, &mut world);
-
-        // entity is mapped correctly if it exists in the map
-        assert_eq!(
-            mapper.map(Entity::from_raw(FIRST_IDX)),
-            Entity::from_raw(SECOND_IDX)
-        );
-    }
 
     #[test]
     fn entity_mapper() {
