@@ -6,8 +6,8 @@ use bevy_ecs::{
     prelude::EventWriter,
     system::{Res, ResMut, Resource},
 };
-use bevy_reflect::{Reflect, TypePath, Uuid};
-use bevy_utils::HashMap;
+use bevy_reflect::{Reflect, TypePath};
+use bevy_utils::{HashMap, Uuid};
 use crossbeam_channel::{Receiver, Sender};
 use serde::{Deserialize, Serialize};
 use std::{
