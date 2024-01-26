@@ -21,9 +21,13 @@ use bevy_render::{
     view::{Msaa, ViewUniform, ViewUniforms},
 };
 
-#[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+#[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
 use bevy_render::render_resource::binding_types::texture_cube;
-#[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
+#[cfg(any(
+    not(feature = "webgl"),
+    not(target_arch = "wasm32"),
+    feature = "webgpu"
+))]
 use bevy_render::render_resource::binding_types::{texture_2d_array, texture_cube_array};
 use environment_map::EnvironmentMapLight;
 
@@ -184,9 +188,13 @@ fn layout_entries(
             // Point Shadow Texture Cube Array
             (
                 2,
-                #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
+                #[cfg(any(
+                    not(feature = "webgl"),
+                    not(target_arch = "wasm32"),
+                    feature = "webgpu"
+                ))]
                 texture_cube_array(TextureSampleType::Depth),
-                #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+                #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
                 texture_cube(TextureSampleType::Depth),
             ),
             // Point Shadow Texture Array Sampler
@@ -194,9 +202,13 @@ fn layout_entries(
             // Directional Shadow Texture Array
             (
                 4,
-                #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
+                #[cfg(any(
+                    not(feature = "webgl"),
+                    not(target_arch = "wasm32"),
+                    feature = "webgpu"
+                ))]
                 texture_2d_array(TextureSampleType::Depth),
-                #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+                #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
                 texture_2d(TextureSampleType::Depth),
             ),
             // Directional Shadow Texture Array Sampler

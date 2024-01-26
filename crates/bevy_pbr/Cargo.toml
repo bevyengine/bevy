@@ -10,6 +10,7 @@ keywords = ["bevy"]
 
 [features]
 webgl = []
+webgpu = []
 shader_format_glsl = ["naga_oil/glsl"]
 pbr_transmission_textures = []
 
@@ -41,11 +42,11 @@ thread_local = "1.0"
 thiserror = "1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-naga_oil = { version = "0.11" }
+naga_oil = "0.12"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # Omit the `glsl` feature in non-WebAssembly by default.
-naga_oil = { version = "0.11", default-features = false, features = [
+naga_oil = { version = "0.12", default-features = false, features = [
   "test_shader",
 ] }
 
