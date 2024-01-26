@@ -6,13 +6,13 @@ error[E0277]: the trait bound `&'static mut Foo: ReadOnlyQueryData` is not satis
   |
   = help: the following other types implement trait `ReadOnlyQueryData`:
             MutableUnmarked
+            MutableUnmarkedReffed
             MutableMarkedReadOnly
+            MutableMarkedReffed
             NestedMutableUnmarked
+            NestedMutableUnmarkedReffed
             bevy_ecs::change_detection::Ref<'__w, T>
             Has<T>
-            AnyOf<()>
-            AnyOf<(F0,)>
-            AnyOf<(F0, F1)>
           and $N others
 note: required by a bound in `_::assert_readonly`
  --> tests/ui/world_query_derive.rs:7:10
@@ -29,13 +29,13 @@ error[E0277]: the trait bound `MutableMarked: ReadOnlyQueryData` is not satisfie
    |
    = help: the following other types implement trait `ReadOnlyQueryData`:
              MutableUnmarked
+             MutableUnmarkedReffed
              MutableMarkedReadOnly
+             MutableMarkedReffed
              NestedMutableUnmarked
+             NestedMutableUnmarkedReffed
              bevy_ecs::change_detection::Ref<'__w, T>
              Has<T>
-             AnyOf<()>
-             AnyOf<(F0,)>
-             AnyOf<(F0, F1)>
            and $N others
 note: required by a bound in `_::assert_readonly`
   --> tests/ui/world_query_derive.rs:18:10
