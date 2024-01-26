@@ -398,23 +398,16 @@ fn execute_state_transitions(world: &mut World) {
     execute_state_transition_schedules(world);
 }
 
-#[derive(Resource)]
-struct StateTransitionsHaveBeenSetup;
-
 /// Sets up the schedules and systems for handling state transitions
 /// within a [`World`].
 ///
 /// Runs automatically when using `App` to insert states, but needs to
 /// be added manually in other situations.
 pub fn setup_state_transitions_in_world(world: &mut World) {
-    if world
-        .get_resource::<StateTransitionsHaveBeenSetup>()
-        .is_some()
-    {
+    let mut schedules = world.get_resource_or_insert_with(Schedules::default);
+    if schedules.contains(StateTransition) {
         return;
     }
-    world.insert_resource(StateTransitionsHaveBeenSetup);
-    let mut schedules = world.get_resource_or_insert_with(Schedules::default);
     let mut schedule = Schedule::new(StateTransition);
     schedule.add_systems(execute_state_transitions);
     schedules.insert(schedule);
