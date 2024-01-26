@@ -218,7 +218,8 @@ impl Plugin for AssetPlugin {
                 UpdateAssets,
                 TrackAssets.after(handle_internal_asset_events),
             )
-            .add_systems(UpdateAssets, handle_internal_asset_events);
+            .add_systems(UpdateAssets, handle_internal_asset_events)
+            .register_type::<AssetPath>();
 
         let mut order = app.world.resource_mut::<MainScheduleOrder>();
         order.insert_after(First, UpdateAssets);

@@ -9,7 +9,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  NIGHTLY_TOOLCHAIN: nightly-2024-01-17
+  NIGHTLY_TOOLCHAIN: nightly
 
 jobs:
   build:
