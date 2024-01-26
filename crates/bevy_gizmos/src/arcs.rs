@@ -209,7 +209,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///
     /// # Notes
     /// - This method assumes that the points `from` and `to` are distinct from the `center`. If
-    /// the points are coincident with the `center`, the behavior is undefined.
+    /// the points are coincident with the `center`, nothing is rendered.
     /// - The arc is drawn as a portion of a circle with a radius equal to the distance from the
     /// `center` to `from`. If the distance from `center` to `to` is not equal to the radius, then
     /// the results will behave as if this were the case
@@ -259,7 +259,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///
     /// # Notes
     /// - This method assumes that the points `from` and `to` are distinct from the `center`. If
-    /// the points are coincident with the `center`, the behavior is undefined.
+    /// the points are coincident with the `center`, nothing is rendered.
     /// - The arc is drawn as a portion of a circle with a radius equal to the distance from the
     /// `center` to `from`. If the distance from `center` to `to` is not equal to the radius, then
     /// the results will behave as if this were the case.
