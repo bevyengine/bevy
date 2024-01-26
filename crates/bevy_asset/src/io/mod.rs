@@ -78,7 +78,7 @@ pub trait AssetReader: Send + Sync + 'static {
         &'a self,
         path: &'a Path,
     ) -> BoxedFuture<'a, Result<Box<PathStream>, AssetReaderError>>;
-    /// Returns true if the provided path points to a directory
+    /// Returns true if the provided path points to a directory.
     fn is_directory<'a>(
         &'a self,
         path: &'a Path,
