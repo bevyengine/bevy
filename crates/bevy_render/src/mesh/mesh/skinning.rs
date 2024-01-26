@@ -20,7 +20,7 @@ pub struct SkinnedMesh {
 impl MapEntities for SkinnedMesh {
     fn map_entities<M: Mapper>(&mut self, entity_mapper: &mut M) {
         for joint in &mut self.joints {
-            joint.map_entities(entity_mapper);
+            *joint = entity_mapper.map(*joint);
         }
     }
 }

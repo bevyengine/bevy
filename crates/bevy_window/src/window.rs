@@ -63,7 +63,7 @@ impl MapEntities for WindowRef {
     fn map_entities<M: Mapper>(&mut self, entity_mapper: &mut M) {
         match self {
             Self::Entity(entity) => {
-                entity.map_entities(entity_mapper);
+                *entity = entity_mapper.map(*entity);
             }
             Self::Primary => {}
         };

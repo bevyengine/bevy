@@ -32,8 +32,8 @@ use bevy_utils::EntityHashMap;
 ///
 /// impl MapEntities for Spring {
 ///     fn map_entities<M: Mapper>(&mut self, entity_mapper: &mut M) {
-///         self.a.map_entities(entity_mapper);
-///         self.b.map_entities(entity_mapper)
+///         self.a = entity_mapper.map(self.a);
+///         self.b = entity_mapper.map(self.b);
 ///     }
 /// }
 /// ```
@@ -97,7 +97,7 @@ pub struct EntityMapper<'m> {
 }
 
 impl<'m> EntityMapper<'m> {
-    #[deprecated(since="0.13.0", note="please use `EntityMapper::Map` instead")]
+    #[deprecated(since = "0.13.0", note = "please use `EntityMapper::Map` instead")]
     /// Returns the corresponding mapped entity or reserves a new dead entity ID if it is absent.
     pub fn get_or_reserve(&mut self, entity: Entity) -> Entity {
         self.map(entity)
