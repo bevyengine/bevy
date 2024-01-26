@@ -29,7 +29,4 @@ pub mod prelude {
         },
         DynamicPlugin, Plugin, PluginGroup,
     };
-
-    #[doc(hidden)]
-    pub use bevy_ecs::schedule::StateTransition;
 }
