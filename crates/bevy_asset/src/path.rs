@@ -147,7 +147,7 @@ impl<'a> AssetPath<'a> {
         // 4. Verify that there are no `#` characters in the `AssetPath::source` and no `://` substrings in the `AssetPath::label`
         let mut source_delimiter_chars_matched = 0;
         let mut last_found_source_index = 0;
-        while let Some((index, char)) = chars.next() {
+        for (index, char) in chars {
             match char {
                 ':' => {
                     source_delimiter_chars_matched = 1;
@@ -159,9 +159,9 @@ impl<'a> AssetPath<'a> {
                         }
                         2 => {
                             // If we haven't found our first `AssetPath::source` yet, check to make sure it is valid and then store it.
-                            if source_range == None {
+                            if source_range.is_none() {
                                 // If the `AssetPath::source` containes a `#` character, it is invalid.
-                                if label_range != None {
+                                if label_range.is_some() {
                                     return Err(ParseAssetPathError::InvalidSourceSyntax);
                                 }
                                 source_range = Some(0..index - 2);
