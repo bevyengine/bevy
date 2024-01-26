@@ -263,12 +263,10 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 pub unsafe trait QueryData: WorldQuery {
     /// The read-only variant of this [`QueryData`], which satisfies the [`ReadOnlyQueryData`] trait.
     type ReadOnly: ReadOnlyQueryData<State = <Self as WorldQuery>::State>;
-    /// The "reffed" variant of this [`QueryData`]. As in, the [`Ref`] smart pointer for change
-    /// detection. If this [`QueryData`] doesn't have a "reffed" form (for example, [`Entity`]) -
-    /// this type must be identical to [`Self::ReadOnly`]. If this [`QueryData`] does have a
-    /// "reffed" form (for example, &'w T -> Ref<'w, T>) then that would be this type.
-    ///
-    /// Note that &'w mut T should also be turned into Ref<'w, T>.
+    /// The "reffed" variant of this [`QueryData`] (as in, the [`Ref`] smart pointer for change detection).
+    /// - If this [`QueryData`] doesn't have a "reffed" form (for example, [`Entity`]) - this type must be identical to [`Self::ReadOnly`].
+    /// - If this [`QueryData`] does have a "reffed" form (for example, &'w T -> Ref<'w, T>) then that would be this type.
+    /// - Note that &'w mut T should also be turned into Ref<'w, T>.
     type Reffed: ReadOnlyQueryData<State = <Self as WorldQuery>::State>;
 }
 
@@ -283,9 +281,9 @@ pub unsafe trait ReadOnlyQueryData: QueryData<ReadOnly = Self> {}
 pub type QueryItem<'w, Q> = <Q as WorldQuery>::Item<'w>;
 /// The read-only variant of the item type returned when a [`QueryData`] is iterated over immutably
 pub type ROQueryItem<'w, D> = QueryItem<'w, <D as QueryData>::ReadOnly>;
-// TODO: Better docs, not sure about using the term "reffed".
-/// The reffed variant of the item type returned when a "reffed access" is requested. For example,
-/// `Ref<T>` would be "reffed access" of `&T`.
+/// Change-detection enabled read-only access, almost always by in the form of `Ref<T>`. Or, if `T`
+/// can't (shouldn't) be put in a `Ref` (for example: [`Entity`]) - then this is equivalent to [`ROQueryItem`].
+/// Note that this type should always be read-only.
 pub type ReffedQueryItem<'w, D> = QueryItem<'w, <D as QueryData>::Reffed>;
 
 /// SAFETY:

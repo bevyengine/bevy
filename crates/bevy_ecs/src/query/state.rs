@@ -72,9 +72,6 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     pub fn as_reffed(&self) -> &QueryState<D::Reffed, F> {
         // SAFETY: invariant on `WorldQuery` trait upholds that `D::Reffed` and `F::ReadOnly`
         // have a subset of the access, and match the exact same archetypes/tables as `D`/`F` respectively.
-        //
-        // ------- WHICH I'M NOT SURE IS TRUE FOR &T and Ref<T> -------- (remove if PR is reviewed and accepted)
-        //
         unsafe { self.as_transmuted_state::<D::Reffed, F>() }
     }
 
