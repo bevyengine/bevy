@@ -33,7 +33,11 @@ struct Foxes {
 }
 
 fn main() {
+    // `from_env` panics on the web
+    #[cfg(not(target_arch = "wasm32"))]
     let args: Args = argh::from_env();
+    #[cfg(target_arch = "wasm32")]
+    let args = Args::from_args(&[], &[]).unwrap();
 
     App::new()
         .add_plugins((

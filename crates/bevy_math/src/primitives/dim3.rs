@@ -92,6 +92,12 @@ pub struct Sphere {
 impl Primitive3d for Sphere {}
 
 impl Sphere {
+    /// Create a new [`Sphere`] from a `radius`
+    #[inline(always)]
+    pub const fn new(radius: f32) -> Self {
+        Self { radius }
+    }
+
     /// Finds the point on the sphere that is closest to the given `point`.
     ///
     /// If the point is outside the sphere, the returned point will be on the surface of the sphere.

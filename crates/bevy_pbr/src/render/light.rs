@@ -205,13 +205,21 @@ pub const MAX_UNIFORM_BUFFER_POINT_LIGHTS: usize = 256;
 
 //NOTE: When running bevy on Adreno GPU chipsets in WebGL, any value above 1 will result in a crash
 // when loading the wgsl "pbr_functions.wgsl" in the function apply_fog.
-#[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+#[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
 pub const MAX_DIRECTIONAL_LIGHTS: usize = 1;
-#[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
+#[cfg(any(
+    not(feature = "webgl"),
+    not(target_arch = "wasm32"),
+    feature = "webgpu"
+))]
 pub const MAX_DIRECTIONAL_LIGHTS: usize = 10;
-#[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
+#[cfg(any(
+    not(feature = "webgl"),
+    not(target_arch = "wasm32"),
+    feature = "webgpu"
+))]
 pub const MAX_CASCADES_PER_LIGHT: usize = 4;
-#[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+#[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
 pub const MAX_CASCADES_PER_LIGHT: usize = 1;
 
 #[derive(Resource, Clone)]
@@ -698,13 +706,21 @@ pub fn prepare_lights(
     let mut point_lights: Vec<_> = point_lights.iter().collect::<Vec<_>>();
     let mut directional_lights: Vec<_> = directional_lights.iter().collect::<Vec<_>>();
 
-    #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
+    #[cfg(any(
+        not(feature = "webgl"),
+        not(target_arch = "wasm32"),
+        feature = "webgpu"
+    ))]
     let max_texture_array_layers = render_device.limits().max_texture_array_layers as usize;
-    #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
+    #[cfg(any(
+        not(feature = "webgl"),
+        not(target_arch = "wasm32"),
+        feature = "webgpu"
+    ))]
     let max_texture_cubes = max_texture_array_layers / 6;
-    #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
     let max_texture_array_layers = 1;
-    #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
     let max_texture_cubes = 1;
 
     if !*max_directional_lights_warning_emitted && directional_lights.len() > MAX_DIRECTIONAL_LIGHTS
@@ -1177,9 +1193,17 @@ pub fn prepare_lights(
                 .create_view(&TextureViewDescriptor {
                     label: Some("point_light_shadow_map_array_texture_view"),
                     format: None,
-                    #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
+                    #[cfg(any(
+                        not(feature = "webgl"),
+                        not(target_arch = "wasm32"),
+                        feature = "webgpu"
+                    ))]
                     dimension: Some(TextureViewDimension::CubeArray),
-                    #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+                    #[cfg(all(
+                        feature = "webgl",
+                        target_arch = "wasm32",
+                        not(feature = "webgpu")
+                    ))]
                     dimension: Some(TextureViewDimension::Cube),
                     aspect: TextureAspect::DepthOnly,
                     base_mip_level: 0,
@@ -1192,9 +1216,13 @@ pub fn prepare_lights(
             .create_view(&TextureViewDescriptor {
                 label: Some("directional_light_shadow_map_array_texture_view"),
                 format: None,
-                #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
+                #[cfg(any(
+                    not(feature = "webgl"),
+                    not(target_arch = "wasm32"),
+                    feature = "webgpu"
+                ))]
                 dimension: Some(TextureViewDimension::D2Array),
-                #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+                #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
                 dimension: Some(TextureViewDimension::D2),
                 aspect: TextureAspect::DepthOnly,
                 base_mip_level: 0,
