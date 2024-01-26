@@ -5,7 +5,7 @@ mod camera_controller;
 
 use bevy::{
     pbr::{
-        meshlet::{MaterialMeshletMeshBundle, MeshletMesh, MeshletPlugin},
+        experimental::meshlet::{MaterialMeshletMeshBundle, MeshletMesh, MeshletPlugin},
         CascadeShadowConfigBuilder, DirectionalLightShadowMap,
     },
     prelude::*,

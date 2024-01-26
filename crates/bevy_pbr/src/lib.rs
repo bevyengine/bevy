@@ -1,5 +1,14 @@
-pub mod meshlet;
+mod meshlet;
 pub mod wireframe;
+
+/// Experimental features.
+///
+/// Expect bugs, missing features, compatibility issues, or low performance.
+pub mod experimental {
+    pub mod meshlet {
+        pub use crate::meshlet::*;
+    }
+}
 
 mod alpha;
 mod bundle;
