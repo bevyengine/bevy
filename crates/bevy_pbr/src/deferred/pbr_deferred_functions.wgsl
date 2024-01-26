@@ -80,7 +80,7 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
     let props = deferred_types::unpack_unorm3x4_plus_unorm_20_(gbuffer.b);
     // Bias to 0.5 since that's the value for almost all materials.
     pbr.material.reflectance = saturate(props.r - 0.03333333333);
-    pbr.specular_occlusion = props.b; // use diffuse occlusion as specular occlusion because we can't fit both in the g-buffer on webgl
+    pbr.specular_occlusion = props.b; // Treat diffuse occlusion as specular occlusion because we can't fit both in the g-buffer on webgl
 #else
     let props = deferred_types::unpack_unorm4x8_(gbuffer.b);
     pbr.material.reflectance = props.r;
