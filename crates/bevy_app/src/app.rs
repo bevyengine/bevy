@@ -426,7 +426,7 @@ impl App {
 
     /// Sets up a type implementing [`ComputedStates`].
     ///
-    /// If the [`ComputedStates`] has already been set up, this does nothing.
+    /// This method is idempotent: it has no effect when called again using the same generic type.
     ///
     /// For each source state the derived state depends on, it adds this state's derivation
     /// to it's [`ComputeDependantStates<Source>`](bevy_ecs::schedule::ComputeDependantStates<S>) schedule.
