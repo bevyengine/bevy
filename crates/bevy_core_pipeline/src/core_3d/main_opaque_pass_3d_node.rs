@@ -7,11 +7,8 @@ use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::{RenderPhase, TrackedRenderPass},
-    render_resource::{
-        CommandEncoderDescriptor, LoadOp, Operations, PipelineCache,
-        RenderPassDepthStencilAttachment, RenderPassDescriptor,
-    },
-    renderer::{RenderContext, RenderDevice},
+    render_resource::{CommandEncoderDescriptor, PipelineCache, RenderPassDescriptor, StoreOp},
+    renderer::RenderContext,
     view::{ViewDepthTexture, ViewTarget, ViewUniformOffset},
 };
 #[cfg(feature = "trace")]
@@ -50,70 +47,56 @@ impl ViewNode for MainOpaquePass3dNode {
         ): QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
+        if opaque_phase.items.is_empty()
+            && alpha_mask_phase.items.is_empty()
+            && (skybox_bind_group.is_none() || skybox_pipeline.is_none())
+        {
+            return Ok(());
+        }
+
+        let color_attachments = [Some(target.get_color_attachment())];
+        let depth_stencil_attachment = Some(depth.get_attachment(StoreOp::Store));
+
         let view_entity = graph.view_entity();
-
-        let color_attachment = target.get_color_attachment(Operations {
-            load: match camera_3d.clear_color {
-                ClearColorConfig::Default => LoadOp::Clear(world.resource::<ClearColor>().0.into()),
-                ClearColorConfig::Custom(color) => LoadOp::Clear(color.into()),
-                ClearColorConfig::None => LoadOp::Load,
-            },
-            store: true,
-        });
-
-        render_context.add_command_buffer_generation_task(move |render_device: RenderDevice| {
-            // Run the opaque pass, sorted front-to-back
+        render_context.add_command_buffer_generation_task(move |render_device| {
             #[cfg(feature = "trace")]
             let _main_opaque_pass_3d_span = info_span!("main_opaque_pass_3d").entered();
 
+            // Command encoder setup
             let mut command_encoder =
                 render_device.create_command_encoder(&CommandEncoderDescriptor {
                     label: Some("main_opaque_pass_3d_command_encoder"),
                 });
 
-            // Setup render pass
+            // Render pass setup
             let render_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
                 label: Some("main_opaque_pass_3d"),
-                // NOTE: The opaque pass loads the color
-                // buffer as well as writing to it.
-                color_attachments: &[Some(color_attachment)],
-                depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                    view: &depth.view,
-                    // NOTE: The opaque main pass loads the depth buffer and possibly overwrites it
-                    depth_ops: Some(Operations {
-                        load: if depth_prepass.is_some()
-                            || normal_prepass.is_some()
-                            || motion_vector_prepass.is_some()
-                        {
-                            // if any prepass runs, it will generate a depth buffer so we should use it,
-                            // even if only the normal_prepass is used.
-                            Camera3dDepthLoadOp::Load
-                        } else {
-                            // NOTE: 0.0 is the far plane due to bevy's use of reverse-z projections.
-                            camera_3d.depth_load_op.clone()
-                        }
-                        .into(),
-                        store: true,
-                    }),
-                    stencil_ops: None,
-                }),
+                color_attachments: &color_attachments,
+                depth_stencil_attachment,
+                timestamp_writes: None,
+                occlusion_query_set: None,
             });
             let mut render_pass = TrackedRenderPass::new(&render_device, render_pass);
-
             if let Some(viewport) = camera.viewport.as_ref() {
                 render_pass.set_camera_viewport(viewport);
             }
 
             // Opaque draws
-            opaque_phase.render(&mut render_pass, world, view_entity);
+            if !opaque_phase.items.is_empty() {
+                #[cfg(feature = "trace")]
+                let _opaque_main_pass_3d_span = info_span!("opaque_main_pass_3d").entered();
+                opaque_phase.render(&mut render_pass, world, view_entity);
+            }
 
             // Alpha draws
             if !alpha_mask_phase.items.is_empty() {
+                #[cfg(feature = "trace")]
+                let _alpha_mask_main_pass_3d_span = info_span!("alpha_mask_main_pass_3d").entered();
                 alpha_mask_phase.render(&mut render_pass, world, view_entity);
             }
 
-            // Draw the skybox using a fullscreen triangle
-            if let (Some(skybox_pipeline), Some(skybox_bind_group)) =
+            // Skybox draw using a fullscreen triangle
+            if let (Some(skybox_pipeline), Some(SkyboxBindGroup(skybox_bind_group))) =
                 (skybox_pipeline, skybox_bind_group)
             {
                 let pipeline_cache = world.resource::<PipelineCache>();
@@ -122,13 +105,12 @@ impl ViewNode for MainOpaquePass3dNode {
                     render_pass.set_bind_group(
                         0,
                         &skybox_bind_group.0,
-                        &[view_uniform_offset.offset],
+                        &[view_uniform_offset.offset, skybox_bind_group.1],
                     );
                     render_pass.draw(0..3, 0..1);
                 }
             }
 
-            // Finish the command encoder
             drop(render_pass);
             command_encoder.finish()
         });

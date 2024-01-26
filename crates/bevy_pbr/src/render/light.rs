@@ -1799,31 +1799,29 @@ impl Node for ShadowPassNode {
                     continue;
                 }
 
-                render_context.add_command_buffer_generation_task(
-                    move |render_device: RenderDevice| {
-                        let mut command_encoder =
-                            render_device.create_command_encoder(&CommandEncoderDescriptor {
-                                label: Some("shadow_pass_command_encoder"),
-                            });
+                let depth_stencil_attachment =
+                    Some(view_light.depth_attachment.get_attachment(StoreOp::Store));
 
-                        let mut render_pass =
-                            render_context.begin_tracked_render_pass(RenderPassDescriptor {
-                                label: Some(&view_light.pass_name),
-                                color_attachments: &[],
-                                depth_stencil_attachment: Some(
-                                    view_light.depth_attachment.get_attachment(StoreOp::Store),
-                                ),
-                                timestamp_writes: None,
-                                occlusion_query_set: None,
-                            });
-                        let mut render_pass = TrackedRenderPass::new(&render_device, render_pass);
+                render_context.add_command_buffer_generation_task(move |render_device| {
+                    let mut command_encoder =
+                        render_device.create_command_encoder(&CommandEncoderDescriptor {
+                            label: Some("shadow_pass_command_encoder"),
+                        });
 
-                        shadow_phase.render(&mut render_pass, world, view_light_entity);
+                    let render_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
+                        label: Some(&view_light.pass_name),
+                        color_attachments: &[],
+                        depth_stencil_attachment,
+                        timestamp_writes: None,
+                        occlusion_query_set: None,
+                    });
+                    let mut render_pass = TrackedRenderPass::new(&render_device, render_pass);
 
-                        drop(render_pass);
-                        command_encoder.finish()
-                    },
-                );
+                    shadow_phase.render(&mut render_pass, world, view_light_entity);
+
+                    drop(render_pass);
+                    command_encoder.finish()
+                });
             }
         }
 

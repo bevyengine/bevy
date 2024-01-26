@@ -22,31 +22,22 @@ impl ViewNode for MainTransparentPass3dNode {
         &'static ViewTarget,
         &'static ViewDepthTexture,
     );
-    fn run<'w>(
+    fn run(
         &self,
         graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext<'w>,
-        (camera, transparent_phase, target, depth): QueryItem<'w, Self::ViewQuery>,
-        world: &'w World,
+        render_context: &mut RenderContext,
+        (camera, transparent_phase, target, depth): QueryItem<Self::ViewQuery>,
+        world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
 
-        let color_attachment = target.get_color_attachment(Operations {
-            load: LoadOp::Load,
-            store: true,
-        });
-
-        let transparent_phase_render_task = move |render_device: RenderDevice| {
+        if !transparent_phase.items.is_empty() {
             // Run the transparent pass, sorted back-to-front
+            // NOTE: Scoped to drop the mutable borrow of render_context
             #[cfg(feature = "trace")]
             let _main_transparent_pass_3d_span = info_span!("main_transparent_pass_3d").entered();
 
-            let mut command_encoder =
-                render_device.create_command_encoder(&CommandEncoderDescriptor {
-                    label: Some("main_transparent_pass_3d_command_encoder"),
-                });
-
-            let render_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
+            let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some("main_transparent_pass_3d"),
                 color_attachments: &[Some(target.get_color_attachment())],
                 // NOTE: For the transparent pass we load the depth buffer. There should be no
@@ -59,25 +50,17 @@ impl ViewNode for MainTransparentPass3dNode {
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
-            let mut render_pass = TrackedRenderPass::new(&render_device, render_pass);
 
             if let Some(viewport) = camera.viewport.as_ref() {
                 render_pass.set_camera_viewport(viewport);
             }
 
             transparent_phase.render(&mut render_pass, world, view_entity);
-
-            drop(render_pass);
-            command_encoder.finish()
-        };
-
-        if !transparent_phase.items.is_empty() {
-            render_context.add_command_buffer_generation_task(transparent_phase_render_task);
         }
 
         // WebGL2 quirk: if ending with a render pass with a custom viewport, the viewport isn't
         // reset for the next render pass so add an empty render pass without a custom viewport
-        #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+        #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
         if camera.viewport.is_some() {
             #[cfg(feature = "trace")]
             let _reset_viewport_pass_3d = info_span!("reset_viewport_pass_3d").entered();
