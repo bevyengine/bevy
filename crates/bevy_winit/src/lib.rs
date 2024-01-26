@@ -18,7 +18,7 @@ use system::{changed_windows, create_windows, despawn_windows, CachedWindow};
 pub use winit_config::*;
 pub use winit_windows::*;
 
-use bevy_app::{App, AppExit, Last, Plugin, PluginsState};
+use bevy_app::{App, AppExit, Last, Plugin, PluginGroup, PluginSet, PluginsState};
 use bevy_ecs::event::{Events, ManualEventReader};
 use bevy_ecs::prelude::*;
 use bevy_ecs::system::{SystemParam, SystemState};
@@ -137,8 +137,6 @@ impl Plugin for WinitPlugin {
                     .chain(),
             );
 
-        app.add_plugins(AccessKitPlugin);
-
         let event_loop = event_loop_builder
             .build()
             .expect("Failed to build event loop");
@@ -215,6 +213,19 @@ impl Plugin for WinitPlugin {
         // `winit`'s windows are bound to the event loop that created them, so the event loop must
         // be inserted as a resource here to pass it onto the runner.
         app.insert_non_send_resource(event_loop);
+    }
+}
+
+#[derive(Default)]
+/// A plugin group which adds [`WinitPluginGroup`] and it's dependencies:
+/// + [`crate::accessibility::AccessKitPlugin`]
+pub struct WinitPluginGroup {
+    winit_plugin: WinitPlugin,
+}
+
+impl PluginGroup for WinitPluginGroup {
+    fn build(self, set: PluginSet) -> PluginSet {
+        set.add_plugins((self.winit_plugin, AccessKitPlugin))
     }
 }
 

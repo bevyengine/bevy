@@ -170,6 +170,7 @@ mod tests {
     fn runs_spawn_local_tasks() {
         let mut app = App::new();
         app.add_plugins((TaskPoolPlugin::default(), TypeRegistrationPlugin));
+        app.build();
 
         let (async_tx, async_rx) = crossbeam_channel::unbounded();
         AsyncComputeTaskPool::get()
@@ -207,6 +208,7 @@ mod tests {
             TypeRegistrationPlugin,
             FrameCountPlugin,
         ));
+        app.build();
         app.update();
 
         let frame_count = app.world.resource::<FrameCount>();

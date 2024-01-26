@@ -404,6 +404,7 @@ mod test {
     #[test]
     fn correct_transforms_when_no_children() {
         let mut app = App::new();
+        app.build();
         ComputeTaskPool::get_or_init(TaskPool::default);
 
         app.add_systems(Update, (sync_simple_transforms, propagate_transforms));
