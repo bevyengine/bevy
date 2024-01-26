@@ -262,7 +262,7 @@ pub struct ManualStateTransitions;
 
 /// This function actually applies a state change, and registeres the required
 /// schedules for downstream computed states and transition schedules.
-/// 
+///
 /// The `new_state` is an option to allow for removal - `None` will trigger the
 /// removal of the `State<S>` resource from the [`World`].
 fn internal_apply_state_transition<S: States>(world: &mut World, new_state: Option<S>) {
@@ -342,7 +342,7 @@ fn internal_apply_state_transition<S: States>(world: &mut World, new_state: Opti
 
                 world.send_event(StateTransitionEvent {
                     before: Some(resource.get().clone()),
-                    after: None
+                    after: None,
                 });
 
                 let mut state_transition_schedules =

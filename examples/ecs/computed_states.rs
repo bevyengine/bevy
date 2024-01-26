@@ -9,7 +9,7 @@
 //!
 //! In addition, we want to enable a "tutorial" mode, which will involve it's own state that is toggled in the main menu.
 //! This will display instructions about movement and turbo mode when in game and unpaused, and instructions on how to unpause when paused.
-//! 
+//!
 //! To implement this, we will create 2 root-level states: [`AppState`] and [`TutorialState`].
 //! We will then create some computed states that derive from [`AppState`]: [`InGame`] and [`TurboMode`] are marker states implemented
 //! as Zero-Sized Structs (ZSTs), while [`IsPaused`] is an enum with 2 distinct states.
@@ -169,7 +169,6 @@ impl ComputedStates for Tutorial {
 }
 
 fn main() {
-
     // We start the setup like we did in the states example.
     App::new()
         .add_plugins(DefaultPlugins)
