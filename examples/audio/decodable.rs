@@ -72,9 +72,9 @@ impl Source for SineDecoder {
 
 // Finally `Decodable` can be implemented for our `SineAudio`.
 impl Decodable for SineAudio {
-    type Decoder = SineDecoder;
-
     type DecoderItem = <SineDecoder as Iterator>::Item;
+
+    type Decoder = SineDecoder;
 
     fn decoder(&self) -> Self::Decoder {
         SineDecoder::new(self.frequency)
@@ -86,6 +86,7 @@ fn main() {
     // register the audio source so that it can be used
     app.add_plugins(DefaultPlugins.set(AudioPlugin {
         global_volume: GlobalVolume::new(0.2),
+        ..default()
     }))
     .add_audio_source::<SineAudio>()
     .add_systems(Startup, setup)

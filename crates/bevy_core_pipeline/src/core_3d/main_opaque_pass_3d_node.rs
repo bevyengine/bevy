@@ -1,10 +1,8 @@
 use crate::{
-    clear_color::{ClearColor, ClearColorConfig},
-    core_3d::{Camera3d, Opaque3d},
-    prepass::{DepthPrepass, MotionVectorPrepass, NormalPrepass},
+    core_3d::Opaque3d,
     skybox::{SkyboxBindGroup, SkyboxPipelineId},
 };
-use bevy_ecs::{prelude::*, query::QueryItem};
+use bevy_ecs::{prelude::World, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
@@ -19,7 +17,7 @@ use bevy_render::{
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 
-use super::{AlphaMask3d, Camera3dDepthLoadOp};
+use super::AlphaMask3d;
 
 /// A [`bevy_render::render_graph::Node`] that runs the [`Opaque3d`] and [`AlphaMask3d`] [`RenderPhase`].
 #[derive(Default)]
@@ -29,12 +27,8 @@ impl ViewNode for MainOpaquePass3dNode {
         &'static ExtractedCamera,
         &'static RenderPhase<Opaque3d>,
         &'static RenderPhase<AlphaMask3d>,
-        &'static Camera3d,
         &'static ViewTarget,
         &'static ViewDepthTexture,
-        Option<&'static DepthPrepass>,
-        Option<&'static NormalPrepass>,
-        Option<&'static MotionVectorPrepass>,
         Option<&'static SkyboxPipelineId>,
         Option<&'static SkyboxBindGroup>,
         &'static ViewUniformOffset,
@@ -48,12 +42,8 @@ impl ViewNode for MainOpaquePass3dNode {
             camera,
             opaque_phase,
             alpha_mask_phase,
-            camera_3d,
             target,
             depth,
-            depth_prepass,
-            normal_prepass,
-            motion_vector_prepass,
             skybox_pipeline,
             skybox_bind_group,
             view_uniform_offset,

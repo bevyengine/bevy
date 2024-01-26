@@ -1,8 +1,8 @@
 use crate::{
     meta::{AssetHash, MetaTransform},
-    Asset, AssetHandleProvider, AssetPath, DependencyLoadState, ErasedLoadedAsset, Handle,
-    InternalAssetEvent, LoadState, RecursiveDependencyLoadState, StrongHandle, UntypedAssetId,
-    UntypedHandle,
+    Asset, AssetHandleProvider, AssetLoadError, AssetPath, DependencyLoadState, ErasedLoadedAsset,
+    Handle, InternalAssetEvent, LoadState, RecursiveDependencyLoadState, StrongHandle,
+    UntypedAssetId, UntypedHandle,
 };
 use bevy_ecs::world::World;
 use bevy_log::warn;
@@ -69,8 +69,13 @@ pub(crate) struct AssetInfos {
     /// Tracks assets that depend on the "key" asset path inside their asset loaders ("loader dependencies")
     /// This should only be set when watching for changes to avoid unnecessary work.
     pub(crate) loader_dependants: HashMap<AssetPath<'static>, HashSet<AssetPath<'static>>>,
+    /// Tracks living labeled assets for a given source asset.
+    /// This should only be set when watching for changes to avoid unnecessary work.
+    pub(crate) living_labeled_assets: HashMap<AssetPath<'static>, HashSet<String>>,
     pub(crate) handle_providers: HashMap<TypeId, AssetHandleProvider>,
     pub(crate) dependency_loaded_event_sender: HashMap<TypeId, fn(&mut World, UntypedAssetId)>,
+    pub(crate) dependency_failed_event_sender:
+        HashMap<TypeId, fn(&mut World, UntypedAssetId, AssetPath<'static>, AssetLoadError)>,
 }
 
 impl std::fmt::Debug for AssetInfos {
@@ -83,21 +88,6 @@ impl std::fmt::Debug for AssetInfos {
 }
 
 impl AssetInfos {
-    pub(crate) fn create_loading_handle<A: Asset>(&mut self) -> Handle<A> {
-        unwrap_with_context(
-            Self::create_handle_internal(
-                &mut self.infos,
-                &self.handle_providers,
-                TypeId::of::<A>(),
-                None,
-                None,
-                true,
-            ),
-            std::any::type_name::<A>(),
-        )
-        .typed_debug_checked()
-    }
-
     pub(crate) fn create_loading_handle_untyped(
         &mut self,
         type_id: TypeId,
@@ -107,6 +97,8 @@ impl AssetInfos {
             Self::create_handle_internal(
                 &mut self.infos,
                 &self.handle_providers,
+                &mut self.living_labeled_assets,
+                self.watching_for_changes,
                 type_id,
                 None,
                 None,
@@ -114,19 +106,33 @@ impl AssetInfos {
             ),
             type_name,
         )
+        .unwrap()
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn create_handle_internal(
         infos: &mut HashMap<UntypedAssetId, AssetInfo>,
         handle_providers: &HashMap<TypeId, AssetHandleProvider>,
+        living_labeled_assets: &mut HashMap<AssetPath<'static>, HashSet<String>>,
+        watching_for_changes: bool,
         type_id: TypeId,
         path: Option<AssetPath<'static>>,
         meta_transform: Option<MetaTransform>,
         loading: bool,
-    ) -> Result<UntypedHandle, MissingHandleProviderError> {
+    ) -> Result<UntypedHandle, GetOrCreateHandleInternalError> {
         let provider = handle_providers
             .get(&type_id)
             .ok_or(MissingHandleProviderError(type_id))?;
+
+        if watching_for_changes {
+            if let Some(path) = &path {
+                let mut without_label = path.to_owned();
+                if let Some(label) = without_label.take_label() {
+                    let labels = living_labeled_assets.entry(without_label).or_default();
+                    labels.insert(label.to_string());
+                }
+            }
+        }
 
         let handle = provider.reserve_handle_internal(true, path.clone(), meta_transform);
         let mut info = AssetInfo::new(Arc::downgrade(&handle), path);
@@ -136,6 +142,7 @@ impl AssetInfos {
             info.rec_dep_load_state = RecursiveDependencyLoadState::Loading;
         }
         infos.insert(handle.id, info);
+
         Ok(UntypedHandle::Strong(handle))
     }
 
@@ -147,11 +154,13 @@ impl AssetInfos {
     ) -> (Handle<A>, bool) {
         let result = self.get_or_create_path_handle_internal(
             path,
-            TypeId::of::<A>(),
+            Some(TypeId::of::<A>()),
             loading_mode,
             meta_transform,
         );
-        let (handle, should_load) = unwrap_with_context(result, std::any::type_name::<A>());
+        // it is ok to unwrap because TypeId was specified above
+        let (handle, should_load) =
+            unwrap_with_context(result, std::any::type_name::<A>()).unwrap();
         (handle.typed_unchecked(), should_load)
     }
 
@@ -163,20 +172,25 @@ impl AssetInfos {
         loading_mode: HandleLoadingMode,
         meta_transform: Option<MetaTransform>,
     ) -> (UntypedHandle, bool) {
-        let result =
-            self.get_or_create_path_handle_internal(path, type_id, loading_mode, meta_transform);
-        unwrap_with_context(result, type_name)
+        let result = self.get_or_create_path_handle_internal(
+            path,
+            Some(type_id),
+            loading_mode,
+            meta_transform,
+        );
+        // it is ok to unwrap because TypeId was specified above
+        unwrap_with_context(result, type_name).unwrap()
     }
 
     /// Retrieves asset tracking data, or creates it if it doesn't exist.
     /// Returns true if an asset load should be kicked off
-    pub fn get_or_create_path_handle_internal(
+    pub(crate) fn get_or_create_path_handle_internal(
         &mut self,
         path: AssetPath<'static>,
-        type_id: TypeId,
+        type_id: Option<TypeId>,
         loading_mode: HandleLoadingMode,
         meta_transform: Option<MetaTransform>,
-    ) -> Result<(UntypedHandle, bool), MissingHandleProviderError> {
+    ) -> Result<(UntypedHandle, bool), GetOrCreateHandleInternalError> {
         match self.path_to_id.entry(path.clone()) {
             Entry::Occupied(entry) => {
                 let id = *entry.get();
@@ -185,7 +199,8 @@ impl AssetInfos {
                 let mut should_load = false;
                 if loading_mode == HandleLoadingMode::Force
                     || (loading_mode == HandleLoadingMode::Request
-                        && info.load_state == LoadState::NotLoaded)
+                        && (info.load_state == LoadState::NotLoaded
+                            || info.load_state == LoadState::Failed))
                 {
                     info.load_state = LoadState::Loading;
                     info.dep_load_state = DependencyLoadState::Loading;
@@ -207,6 +222,9 @@ impl AssetInfos {
                     // We must create a new strong handle for the existing id and ensure that the drop of the old
                     // strong handle doesn't remove the asset from the Assets collection
                     info.handle_drops_to_skip += 1;
+                    let type_id = type_id.ok_or(
+                        GetOrCreateHandleInternalError::HandleMissingButTypeIdNotSpecified,
+                    )?;
                     let provider = self
                         .handle_providers
                         .get(&type_id)
@@ -223,9 +241,13 @@ impl AssetInfos {
                     HandleLoadingMode::NotLoading => false,
                     HandleLoadingMode::Request | HandleLoadingMode::Force => true,
                 };
+                let type_id = type_id
+                    .ok_or(GetOrCreateHandleInternalError::HandleMissingButTypeIdNotSpecified)?;
                 let handle = Self::create_handle_internal(
                     &mut self.infos,
                     &self.handle_providers,
+                    &mut self.living_labeled_assets,
+                    self.watching_for_changes,
                     type_id,
                     Some(path),
                     meta_transform,
@@ -241,12 +263,20 @@ impl AssetInfos {
         self.infos.get(&id)
     }
 
+    pub(crate) fn contains_key(&self, id: UntypedAssetId) -> bool {
+        self.infos.contains_key(&id)
+    }
+
     pub(crate) fn get_mut(&mut self, id: UntypedAssetId) -> Option<&mut AssetInfo> {
         self.infos.get_mut(&id)
     }
 
-    pub(crate) fn get_path_handle(&self, path: AssetPath) -> Option<UntypedHandle> {
-        let id = *self.path_to_id.get(&path)?;
+    pub(crate) fn get_path_id(&self, path: &AssetPath) -> Option<UntypedAssetId> {
+        self.path_to_id.get(path).copied()
+    }
+
+    pub(crate) fn get_path_handle(&self, path: &AssetPath) -> Option<UntypedHandle> {
+        let id = *self.path_to_id.get(path)?;
         self.get_id_handle(id)
     }
 
@@ -256,7 +286,7 @@ impl AssetInfos {
         Some(UntypedHandle::Strong(strong_handle))
     }
 
-    /// Returns `true` if this path has
+    /// Returns `true` if the asset this path points to is still alive
     pub(crate) fn is_path_alive<'a>(&self, path: impl Into<AssetPath<'a>>) -> bool {
         let path = path.into();
         if let Some(id) = self.path_to_id.get(&path) {
@@ -267,12 +297,26 @@ impl AssetInfos {
         false
     }
 
+    /// Returns `true` if the asset at this path should be reloaded
+    pub(crate) fn should_reload(&self, path: &AssetPath) -> bool {
+        if self.is_path_alive(path) {
+            return true;
+        }
+
+        if let Some(living) = self.living_labeled_assets.get(path) {
+            !living.is_empty()
+        } else {
+            false
+        }
+    }
+
     // Returns `true` if the asset should be removed from the collection
     pub(crate) fn process_handle_drop(&mut self, id: UntypedAssetId) -> bool {
         Self::process_handle_drop_internal(
             &mut self.infos,
             &mut self.path_to_id,
             &mut self.loader_dependants,
+            &mut self.living_labeled_assets,
             self.watching_for_changes,
             id,
         )
@@ -517,39 +561,69 @@ impl AssetInfos {
         }
     }
 
+    fn remove_dependants_and_labels(
+        info: &AssetInfo,
+        loader_dependants: &mut HashMap<AssetPath<'static>, HashSet<AssetPath<'static>>>,
+        path: &AssetPath<'static>,
+        living_labeled_assets: &mut HashMap<AssetPath<'static>, HashSet<String>>,
+    ) {
+        for loader_dependency in info.loader_dependencies.keys() {
+            if let Some(dependants) = loader_dependants.get_mut(loader_dependency) {
+                dependants.remove(path);
+            }
+        }
+
+        let Some(label) = path.label() else {
+            return;
+        };
+
+        let mut without_label = path.to_owned();
+        without_label.remove_label();
+
+        let Entry::Occupied(mut entry) = living_labeled_assets.entry(without_label) else {
+            return;
+        };
+
+        entry.get_mut().remove(label);
+        if entry.get().is_empty() {
+            entry.remove();
+        }
+    }
+
     fn process_handle_drop_internal(
         infos: &mut HashMap<UntypedAssetId, AssetInfo>,
         path_to_id: &mut HashMap<AssetPath<'static>, UntypedAssetId>,
         loader_dependants: &mut HashMap<AssetPath<'static>, HashSet<AssetPath<'static>>>,
+        living_labeled_assets: &mut HashMap<AssetPath<'static>, HashSet<String>>,
         watching_for_changes: bool,
         id: UntypedAssetId,
     ) -> bool {
-        match infos.entry(id) {
-            Entry::Occupied(mut entry) => {
-                if entry.get_mut().handle_drops_to_skip > 0 {
-                    entry.get_mut().handle_drops_to_skip -= 1;
-                    false
-                } else {
-                    let info = entry.remove();
-                    if let Some(path) = info.path {
-                        if watching_for_changes {
-                            for loader_dependency in info.loader_dependencies.keys() {
-                                if let Some(dependants) =
-                                    loader_dependants.get_mut(loader_dependency)
-                                {
-                                    dependants.remove(&path);
-                                }
-                            }
-                        }
-                        path_to_id.remove(&path);
-                    }
-                    true
-                }
-            }
+        let Entry::Occupied(mut entry) = infos.entry(id) else {
             // Either the asset was already dropped, it doesn't exist, or it isn't managed by the asset server
             // None of these cases should result in a removal from the Assets collection
-            Entry::Vacant(_) => false,
+            return false;
+        };
+
+        if entry.get_mut().handle_drops_to_skip > 0 {
+            entry.get_mut().handle_drops_to_skip -= 1;
+            return false;
         }
+
+        let info = entry.remove();
+        let Some(path) = &info.path else {
+            return true;
+        };
+
+        if watching_for_changes {
+            Self::remove_dependants_and_labels(
+                &info,
+                loader_dependants,
+                path,
+                living_labeled_assets,
+            );
+        }
+        path_to_id.remove(path);
+        true
     }
 
     /// Consumes all current handle drop events. This will update information in [`AssetInfos`], but it
@@ -566,6 +640,7 @@ impl AssetInfos {
                         &mut self.infos,
                         &mut self.path_to_id,
                         &mut self.loader_dependants,
+                        &mut self.living_labeled_assets,
                         self.watching_for_changes,
                         id.untyped(provider.type_id),
                     );
@@ -574,7 +649,6 @@ impl AssetInfos {
         }
     }
 }
-
 /// Determines how a handle should be initialized
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub(crate) enum HandleLoadingMode {
@@ -590,13 +664,23 @@ pub(crate) enum HandleLoadingMode {
 #[error("Cannot allocate a handle because no handle provider exists for asset type {0:?}")]
 pub struct MissingHandleProviderError(TypeId);
 
-fn unwrap_with_context<T>(
-    result: Result<T, MissingHandleProviderError>,
+/// An error encountered during [`AssetInfos::get_or_create_path_handle_internal`].
+#[derive(Error, Debug)]
+pub(crate) enum GetOrCreateHandleInternalError {
+    #[error(transparent)]
+    MissingHandleProviderError(#[from] MissingHandleProviderError),
+    #[error("Handle does not exist but TypeId was not specified.")]
+    HandleMissingButTypeIdNotSpecified,
+}
+
+pub(crate) fn unwrap_with_context<T>(
+    result: Result<T, GetOrCreateHandleInternalError>,
     type_name: &'static str,
-) -> T {
+) -> Option<T> {
     match result {
-        Ok(value) => value,
-        Err(_) => {
+        Ok(value) => Some(value),
+        Err(GetOrCreateHandleInternalError::HandleMissingButTypeIdNotSpecified) => None,
+        Err(GetOrCreateHandleInternalError::MissingHandleProviderError(_)) => {
             panic!("Cannot allocate an Asset Handle of type '{type_name}' because the asset type has not been initialized. \
                     Make sure you have called app.init_asset::<{type_name}>()")
         }

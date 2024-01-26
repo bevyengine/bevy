@@ -50,14 +50,23 @@ pub enum ExecutorKind {
 /// [`FixedBitSet`] is used as a smaller, more efficient substitute of `HashSet<usize>`.
 #[derive(Default)]
 pub struct SystemSchedule {
-    pub(super) systems: Vec<BoxedSystem>,
-    pub(super) system_conditions: Vec<Vec<BoxedCondition>>,
-    pub(super) set_conditions: Vec<Vec<BoxedCondition>>,
+    /// List of system node ids.
     pub(super) system_ids: Vec<NodeId>,
-    pub(super) set_ids: Vec<NodeId>,
+    /// Indexed by system node id.
+    pub(super) systems: Vec<BoxedSystem>,
+    /// Indexed by system node id.
+    pub(super) system_conditions: Vec<Vec<BoxedCondition>>,
+    /// Indexed by system node id.
     pub(super) system_dependencies: Vec<usize>,
+    /// Indexed by system node id.
     pub(super) system_dependents: Vec<Vec<usize>>,
+    /// Indexed by system node id.
     pub(super) sets_with_conditions_of_systems: Vec<FixedBitSet>,
+    /// List of system set node ids.
+    pub(super) set_ids: Vec<NodeId>,
+    /// Indexed by system set node id.
+    pub(super) set_conditions: Vec<Vec<BoxedCondition>>,
+    /// Indexed by system set node id.
     pub(super) systems_in_sets_with_conditions: Vec<FixedBitSet>,
 }
 

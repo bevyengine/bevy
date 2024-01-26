@@ -1,18 +1,25 @@
 use bevy_math::Vec2;
+use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
-use bevy_reflect::ReflectDeserialize;
-use bevy_reflect::ReflectSerialize;
-use serde::Deserialize;
-use serde::Serialize;
+use std::ops::Neg;
 use std::ops::{Div, DivAssign, Mul, MulAssign};
 use thiserror::Error;
+
+#[cfg(feature = "serialize")]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 /// Represents the possible value types for layout properties.
 ///
 /// This enum allows specifying values for various [`Style`](crate::Style) properties in different units,
 /// such as logical pixels, percentages, or automatically determined values.
-#[derive(Copy, Clone, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+
+#[derive(Copy, Clone, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum Val {
     /// Automatically determine the value based on the context and other [`Style`](crate::Style) properties.
     Auto,
@@ -154,6 +161,22 @@ impl DivAssign<f32> for Val {
     }
 }
 
+impl Neg for Val {
+    type Output = Val;
+
+    fn neg(self) -> Self::Output {
+        match self {
+            Val::Px(value) => Val::Px(-value),
+            Val::Percent(value) => Val::Percent(-value),
+            Val::Vw(value) => Val::Vw(-value),
+            Val::Vh(value) => Val::Vh(-value),
+            Val::VMin(value) => Val::VMin(-value),
+            Val::VMax(value) => Val::VMax(-value),
+            _ => self,
+        }
+    }
+}
+
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Error)]
 pub enum ValArithmeticError {
     #[error("the variants of the Vals don't match")]
@@ -224,8 +247,14 @@ impl Val {
 ///     bottom: Val::Px(40.0),
 /// };
 /// ```
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+
+#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct UiRect {
     /// The value corresponding to the left side of the UI rect.
     pub left: Val,

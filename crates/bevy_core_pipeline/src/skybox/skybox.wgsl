@@ -1,13 +1,14 @@
-#import bevy_render::view View
-#import bevy_pbr::utils coords_to_viewport_uv
+#import bevy_render::view::View
+#import bevy_pbr::utils::coords_to_viewport_uv
 
 @group(0) @binding(0) var skybox: texture_cube<f32>;
 @group(0) @binding(1) var skybox_sampler: sampler;
 @group(0) @binding(2) var<uniform> view: View;
+@group(0) @binding(3) var<uniform> brightness: f32;
 
 fn coords_to_ray_direction(position: vec2<f32>, viewport: vec4<f32>) -> vec3<f32> {
     // Using world positions of the fragment and camera to calculate a ray direction
-    // break down at large translations. This code only needs to know the ray direction.
+    // breaks down at large translations. This code only needs to know the ray direction.
     // The ray direction is along the direction from the camera to the fragment position.
     // In view space, the camera is at the origin, so the view space ray direction is
     // along the direction of the fragment position - (0,0,0) which is just the
@@ -62,5 +63,5 @@ fn skybox_fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let ray_direction = coords_to_ray_direction(in.position.xy, view.viewport);
 
     // Cube maps are left-handed so we negate the z coordinate.
-    return textureSample(skybox, skybox_sampler, ray_direction * vec3(1.0, 1.0, -1.0));
+    return textureSample(skybox, skybox_sampler, ray_direction * vec3(1.0, 1.0, -1.0)) * brightness;
 }

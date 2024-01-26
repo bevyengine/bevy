@@ -39,7 +39,7 @@ fn extract_frame_count(mut commands: Commands, frame_count: Extract<Res<FrameCou
 }
 
 fn extract_time(mut commands: Commands, time: Extract<Res<Time>>) {
-    commands.insert_resource(time.clone());
+    commands.insert_resource(**time);
 }
 
 /// Contains global values useful when writing shaders.
@@ -56,7 +56,7 @@ pub struct GlobalsUniform {
     /// It wraps to zero when it reaches the maximum value of a u32.
     frame_count: u32,
     /// WebGL2 structs must be 16 byte aligned.
-    #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
     _wasm_padding: f32,
 }
 

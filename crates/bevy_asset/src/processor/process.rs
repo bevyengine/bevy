@@ -1,5 +1,8 @@
 use crate::{
-    io::{AssetReaderError, AssetWriterError, Writer},
+    io::{
+        AssetReaderError, AssetWriterError, MissingAssetWriterError,
+        MissingProcessedAssetReaderError, MissingProcessedAssetWriterError, Writer,
+    },
     meta::{AssetAction, AssetMeta, AssetMetaDyn, ProcessDependencyInfo, ProcessedInfo, Settings},
     processor::AssetProcessor,
     saver::{AssetSaver, SavedAsset},
@@ -8,7 +11,7 @@ use crate::{
 };
 use bevy_utils::BoxedFuture;
 use serde::{Deserialize, Serialize};
-use std::{marker::PhantomData, path::PathBuf};
+use std::marker::PhantomData;
 use thiserror::Error;
 
 /// Asset "processor" logic that reads input asset bytes (stored on [`ProcessContext`]), processes the value in some way,
@@ -70,20 +73,33 @@ pub struct LoadAndSaveSettings<LoaderSettings, SaverSettings> {
 /// An error that is encountered during [`Process::process`].
 #[derive(Error, Debug)]
 pub enum ProcessError {
-    #[error("The asset source file for '{0}' does not exist")]
-    MissingAssetSource(PathBuf),
-    #[error(transparent)]
-    AssetSourceIoError(std::io::Error),
     #[error(transparent)]
     MissingAssetLoaderForExtension(#[from] MissingAssetLoaderForExtensionError),
     #[error(transparent)]
     MissingAssetLoaderForTypeName(#[from] MissingAssetLoaderForTypeNameError),
     #[error("The processor '{0}' does not exist")]
     MissingProcessor(String),
+    #[error("Encountered an AssetReader error for '{path}': {err}")]
+    AssetReaderError {
+        path: AssetPath<'static>,
+        err: AssetReaderError,
+    },
+    #[error("Encountered an AssetWriter error for '{path}': {err}")]
+    AssetWriterError {
+        path: AssetPath<'static>,
+        err: AssetWriterError,
+    },
     #[error(transparent)]
-    AssetWriterError(#[from] AssetWriterError),
-    #[error("Failed to read asset metadata {0:?}")]
-    ReadAssetMetaError(AssetReaderError),
+    MissingAssetWriterError(#[from] MissingAssetWriterError),
+    #[error(transparent)]
+    MissingProcessedAssetReaderError(#[from] MissingProcessedAssetReaderError),
+    #[error(transparent)]
+    MissingProcessedAssetWriterError(#[from] MissingProcessedAssetWriterError),
+    #[error("Failed to read asset metadata for {path}: {err}")]
+    ReadAssetMetaError {
+        path: AssetPath<'static>,
+        err: AssetReaderError,
+    },
     #[error(transparent)]
     DeserializeMetaError(#[from] DeserializeMetaError),
     #[error(transparent)]
@@ -91,7 +107,7 @@ pub enum ProcessError {
     #[error("The wrong meta type was passed into a processor. This is probably an internal implementation error.")]
     WrongMetaType,
     #[error("Encountered an error while saving the asset: {0}")]
-    AssetSaveError(anyhow::Error),
+    AssetSaveError(#[from] Box<dyn std::error::Error + Send + Sync + 'static>),
     #[error("Assets without extensions are not supported.")]
     ExtensionRequired,
 }
@@ -122,7 +138,7 @@ impl<Loader: AssetLoader, Saver: AssetSaver<Asset = Loader::Asset>> Process
                 .saver
                 .save(writer, saved_asset, &settings.saver_settings)
                 .await
-                .map_err(ProcessError::AssetSaveError)?;
+                .map_err(|error| ProcessError::AssetSaveError(error.into()))?;
             Ok(output_settings)
         })
     }
