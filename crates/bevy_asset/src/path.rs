@@ -158,8 +158,9 @@ impl<'a> AssetPath<'a> {
                             source_delimiter_chars_matched = 2;
                         }
                         2 => {
+                            // If we haven't found our first `AssetPath::source` yet, check to make sure it is valid and then store it.
                             if source_range == None {
-                                // If the `AssetPath::source` contained a `#` character, it is invalid.
+                                // If the `AssetPath::source` containes a `#` character, it is invalid.
                                 if label_range != None {
                                     return Err(ParseAssetPathError::InvalidSourceSyntax);
                                 }
@@ -189,8 +190,8 @@ impl<'a> AssetPath<'a> {
                 return Err(ParseAssetPathError::InvalidLabelSyntax);
             }
         }
-        // Try to parse the range of indices that represents the `AssetPath::source` portion of the `AssetPath`.
-        // The only invalid `AssetPath::source` is an empty &str, representing an input such as `://some/file.test`
+        // Try to parse the range of indices that represents the `AssetPath::source` portion of the `AssetPath` to make sure it is not empty.
+        // This would be the case if the input &str was something like `://some/file.test`
         let source = match source_range {
             Some(source_range) => {
                 if source_range.is_empty() {
@@ -200,8 +201,8 @@ impl<'a> AssetPath<'a> {
             }
             None => None,
         };
-        // Try to parse the range of indices that represents the `AssetPath::label` portion of the `AssetPath`.
-        // The only invalid `AssetPath::label` is an empty &str, representing an input such as `some/file.test#`.
+        // Try to parse the range of indices that represents the `AssetPath::label` portion of the `AssetPath` to make sure it is not empty.
+        // This would be the case if the input &str was something like `some/file.test#`.
         let label = match label_range {
             Some(label_range) => {
                 if label_range.is_empty() {
