@@ -96,6 +96,14 @@ fn system(mut gizmos: Gizmos, mut my_gizmos: Gizmos<MyRoundGizmos>, time: Res<Ti
         );
     }
 
+    my_gizmos
+        .arc_3d(180.0_f32.to_radians())
+        .radius(0.2)
+        .center(Vec3::ONE)
+        .rotation(Quat::from_rotation_arc(Vec3::Y, Vec3::ONE.normalize()))
+        .segments(10)
+        .color(Color::ORANGE);
+
     // Circles have 32 line-segments by default.
     my_gizmos.circle(Vec3::ZERO, Direction3d::Y, 3., Color::BLACK);
     // You may want to increase this for larger circles or spheres.
