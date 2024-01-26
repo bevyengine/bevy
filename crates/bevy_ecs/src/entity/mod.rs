@@ -1125,22 +1125,4 @@ mod tests {
             assert_ne!(hash, first_hash);
         }
     }
-
-    #[test]
-    fn entity_map() {
-        use crate::entity::map_entities::SimpleEntityMapper;
-        use bevy_utils::EntityHashMap;
-
-        pub const FIRST_IDX: u32 = 0;
-        pub const SECOND_IDX: u32 = 0;
-
-        let mut map = EntityHashMap::default();
-        map.insert(Entity::from_raw(FIRST_IDX), Entity::from_raw(SECOND_IDX));
-        let mut mapper = SimpleEntityMapper::new(&map);
-
-        let mut entity = Entity::from_raw(FIRST_IDX);
-        entity.map_entities(&mut mapper);
-
-        assert_eq!(entity, Entity::from_raw(SECOND_IDX));
-    }
 }

@@ -22,7 +22,7 @@ use bevy_utils::EntityHashMap;
 ///
 /// ```
 /// use bevy_ecs::prelude::*;
-/// use bevy_ecs::entity::{EntityMapper, MapEntities, Mapper, SimpleEntityMapper};
+/// use bevy_ecs::entity::{EntityMapper, MapEntities, Mapper};
 ///
 /// #[derive(Component)]
 /// struct Spring {
@@ -43,43 +43,13 @@ pub trait MapEntities {
     fn map_entities<M: Mapper>(&mut self, entity_mapper: &mut M);
 }
 
-/// This traits defines a type that knows how to map [`Entity`] references.
+/// Any implementor of this trait knows how to map an [`Entity`] into another [`Entity`].
 ///
-/// Two implementations are provided:
-/// - `SimpleEntityMapper`: tries to map the [`Entity`] reference, but if it can't, it returns the same [`Entity`] reference.
-/// - `EntityMapper`: tries to map the [`Entity`] reference, but if it can't, it allocates a new [`Entity`] reference.
+/// Usually this is done by using a [`EntityHashMap<Entity, Entity>`] to map the [`Entity`] references.
+/// This can be used to map [`Entity`] references from one [`World`] to another.
 pub trait Mapper {
     /// Map an entity to another entity
     fn map(&mut self, entity: Entity) -> Entity;
-}
-
-/// Similar to `EntityMapper`, but does not allocate new [`Entity`] references in case we couldn't map the entity.
-pub struct SimpleEntityMapper<'m> {
-    map: &'m EntityHashMap<Entity, Entity>,
-}
-
-impl Mapper for SimpleEntityMapper<'_> {
-    /// Map the entity to another entity, or return the same entity if we couldn't map it.
-    fn map(&mut self, entity: Entity) -> Entity {
-        self.get(entity).unwrap_or(entity)
-    }
-}
-
-impl<'m> SimpleEntityMapper<'m> {
-    /// Creates a new `SimpleEntityMapper` from an [`EntityHashMap<Entity, Entity>`].
-    pub fn new(map: &'m EntityHashMap<Entity, Entity>) -> Self {
-        Self { map }
-    }
-
-    /// Returns the corresponding mapped entity or None if it is absent.
-    pub fn get(&self, entity: Entity) -> Option<Entity> {
-        self.map.get(&entity).copied()
-    }
-
-    /// Gets a reference to the underlying [`EntityHashMap<Entity, Entity>`].
-    pub fn get_map(&'m self) -> &'m EntityHashMap<Entity, Entity> {
-        self.map
-    }
 }
 
 impl Mapper for EntityMapper<'_> {
@@ -187,31 +157,24 @@ mod tests {
 
     use crate::{
         entity::map_entities::Mapper,
-        entity::{Entity, EntityMapper, SimpleEntityMapper},
+        entity::{Entity, EntityMapper},
         world::World,
     };
 
     #[test]
-    fn simple_entity_mapper() {
+    fn mapper_trait() {
         const FIRST_IDX: u32 = 1;
         const SECOND_IDX: u32 = 2;
 
-        const MISSING_IDX: u32 = 10;
-
         let mut map = EntityHashMap::default();
         map.insert(Entity::from_raw(FIRST_IDX), Entity::from_raw(SECOND_IDX));
-        let mut mapper = SimpleEntityMapper::new(&map);
+        let mut world = World::new();
+        let mut mapper = EntityMapper::new(&mut map, &mut world);
 
         // entity is mapped correctly if it exists in the map
         assert_eq!(
             mapper.map(Entity::from_raw(FIRST_IDX)),
             Entity::from_raw(SECOND_IDX)
-        );
-
-        // entity is just returned as is if it does not exist in the map
-        assert_eq!(
-            mapper.map(Entity::from_raw(MISSING_IDX)),
-            Entity::from_raw(MISSING_IDX)
         );
     }
 
