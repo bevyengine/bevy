@@ -9,6 +9,12 @@
 //!
 //! In addition, we want to enable a "tutorial" mode, which will involve it's own state that is toggled in the main menu.
 //! This will display instructions about movement and turbo mode when in game and unpaused, and instructions on how to unpause when paused.
+//! 
+//! To implement this, we will create 2 root-level states: [`AppState`] and [`TutorialState`].
+//! We will then create some computed states that derive from [`AppState`]: [`InGame`] and [`TurboMode`] are marker states implemented
+//! as Zero-Sized Structs (ZSTs), while [`IsPaused`] is an enum with 2 distinct states.
+//! And lastly, we'll add [`Tutorial`], a computed state deriving from [`TutorialState`], [`InGame`] and [`IsPaused`], with 2 distinct
+//! states to display the 2 tutorial texts.
 
 use bevy::prelude::*;
 
@@ -132,7 +138,8 @@ enum Tutorial {
 
 impl ComputedStates for Tutorial {
     // We can also use tuples of types that implement [`States`] as our [`SourceStates`].
-    // That includes other [`ComputedStates`], but be careful of circular dependencies.
+    // That includes other [`ComputedStates`] - though circular dependencies are not supported
+    // and will produce a compile error.
     //
     // We could define this as relying on [`TutorialState`] and [`AppState`] instead, but
     // then we would need to duplicate the derivation logic for [`InGame`] and [`IsPaused`].
