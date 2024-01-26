@@ -1,7 +1,7 @@
 //! Shows how to animate material properties
 
 use bevy::prelude::*;
-use bevy_internal::utils::HashSet;
+use bevy::utils::HashSet;
 
 fn main() {
     App::new()
