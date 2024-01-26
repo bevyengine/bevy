@@ -75,7 +75,7 @@ pub struct Arc2dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
 impl<T: GizmoConfigGroup> Arc2dBuilder<'_, '_, '_, T> {
     /// Set the number of line-segments for this arc.
     pub fn segments(mut self, segments: usize) -> Self {
-        self.segments = Some(segments);
+        self.segments.replace(segments);
         self
     }
 }
@@ -85,12 +85,10 @@ impl<T: GizmoConfigGroup> Drop for Arc2dBuilder<'_, '_, '_, T> {
         if !self.gizmos.enabled {
             return;
         }
-        let segments = match self.segments {
-            Some(segments) => segments,
-            // Do a linear interpolation between 1 and `DEFAULT_CIRCLE_SEGMENTS`
-            // using the arc angle as scalar.
-            None => ((self.arc_angle.abs() / TAU) * DEFAULT_CIRCLE_SEGMENTS as f32).ceil() as usize,
-        };
+
+        let segments = self
+            .segments
+            .unwrap_or_else(|| segments_from_angle(self.arc_angle));
 
         let positions = arc_inner(self.direction_angle, self.arc_angle, self.radius, segments)
             .map(|vec2| vec2 + self.position);
@@ -159,7 +157,6 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// ```
     #[inline]
     pub fn arc_3d(&mut self, angle: f32) -> Arc3dBuilder<'_, 'w, 's, T> {
-        let segments = segments_from_angle(angle);
         Arc3dBuilder {
             gizmos: self,
             center: Vec3::ZERO,
@@ -167,7 +164,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
             angle,
             radius: 1.0,
             color: Color::default(),
-            segments,
+            segments: None,
         }
     }
 }
@@ -180,13 +177,13 @@ pub struct Arc3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     angle: f32,
     radius: f32,
     color: Color,
-    segments: usize,
+    segments: Option<usize>,
 }
 
 impl<T: GizmoConfigGroup> Arc3dBuilder<'_, '_, '_, T> {
     /// Set the number of line-segments for this arc.
     pub fn segments(mut self, segments: usize) -> Self {
-        self.segments = segments;
+        self.segments.replace(segments);
         self
     }
 
@@ -217,15 +214,21 @@ impl<T: GizmoConfigGroup> Arc3dBuilder<'_, '_, '_, T> {
 
 impl<T: GizmoConfigGroup> Drop for Arc3dBuilder<'_, '_, '_, T> {
     fn drop(&mut self) {
+        if !self.gizmos.enabled {
+            return;
+        }
+
+        let segments = self
+            .segments
+            .unwrap_or_else(|| segments_from_angle(self.angle));
+
         let positions = arc3d_inner(
             self.center,
             self.rotation,
             self.angle,
             self.radius,
-            self.segments,
+            segments,
         );
-        self.gizmos
-            .sphere(self.center, Quat::IDENTITY, 0.1, self.color);
         self.gizmos.linestrip(positions, self.color);
     }
 }
@@ -250,5 +253,7 @@ fn arc3d_inner(
 
 // helper function for getting a default value for the segments parameter
 fn segments_from_angle(angle: f32) -> usize {
+    // Do a linear interpolation between 1 and `DEFAULT_CIRCLE_SEGMENTS`
+    // using the arc angle as scalar.
     ((angle.abs() / TAU) * DEFAULT_CIRCLE_SEGMENTS as f32).ceil() as usize
 }
