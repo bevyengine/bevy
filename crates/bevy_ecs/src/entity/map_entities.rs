@@ -55,7 +55,22 @@ pub trait Mapper {
 impl Mapper for EntityMapper<'_> {
     /// Returns the corresponding mapped entity or reserves a new dead entity ID if it is absent.
     fn map(&mut self, entity: Entity) -> Entity {
-        self.get_or_reserve(entity)
+        if let Some(&mapped) = self.map.get(&entity) {
+            return mapped;
+        }
+
+        // this new entity reference is specifically designed to never represent any living entity
+        let new = Entity::from_raw_and_generation(
+            self.dead_start.index(),
+            IdentifierMask::inc_masked_high_by(self.dead_start.generation, self.generations),
+        );
+
+        // Prevent generations counter from being a greater value than HIGH_MASK.
+        self.generations = (self.generations + 1) & HIGH_MASK;
+
+        self.map.insert(entity, new);
+
+        new
     }
 }
 
@@ -82,24 +97,10 @@ pub struct EntityMapper<'m> {
 }
 
 impl<'m> EntityMapper<'m> {
+    #[deprecated(since="0.13.0", note="please use `EntityMapper::Map` instead")]
     /// Returns the corresponding mapped entity or reserves a new dead entity ID if it is absent.
     pub fn get_or_reserve(&mut self, entity: Entity) -> Entity {
-        if let Some(&mapped) = self.map.get(&entity) {
-            return mapped;
-        }
-
-        // this new entity reference is specifically designed to never represent any living entity
-        let new = Entity::from_raw_and_generation(
-            self.dead_start.index(),
-            IdentifierMask::inc_masked_high_by(self.dead_start.generation, self.generations),
-        );
-
-        // Prevent generations counter from being a greater value than HIGH_MASK.
-        self.generations = (self.generations + 1) & HIGH_MASK;
-
-        self.map.insert(entity, new);
-
-        new
+        self.map(entity)
     }
 
     /// Gets a reference to the underlying [`EntityHashMap<Entity, Entity>`].
@@ -188,15 +189,15 @@ mod tests {
         let mut mapper = EntityMapper::new(&mut map, &mut world);
 
         let mapped_ent = Entity::from_raw(FIRST_IDX);
-        let dead_ref = mapper.get_or_reserve(mapped_ent);
+        let dead_ref = mapper.map(mapped_ent);
 
         assert_eq!(
             dead_ref,
-            mapper.get_or_reserve(mapped_ent),
+            mapper.map(mapped_ent),
             "should persist the allocated mapping from the previous line"
         );
         assert_eq!(
-            mapper.get_or_reserve(Entity::from_raw(SECOND_IDX)).index(),
+            mapper.map(Entity::from_raw(SECOND_IDX)).index(),
             dead_ref.index(),
             "should re-use the same index for further dead refs"
         );
@@ -214,7 +215,7 @@ mod tests {
         let mut world = World::new();
 
         let dead_ref = EntityMapper::world_scope(&mut map, &mut world, |_, mapper| {
-            mapper.get_or_reserve(Entity::from_raw(0))
+            mapper.map(Entity::from_raw(0))
         });
 
         // Next allocated entity should be a further generation on the same index
