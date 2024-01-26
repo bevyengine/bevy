@@ -18,7 +18,7 @@ use bevy_utils::{all_tuples, HashSet};
 
 use self::sealed::StateSetSealed;
 
-use super::{schedule, InternedScheduleLabel, Schedule, Schedules};
+use super::{InternedScheduleLabel, Schedule, Schedules};
 
 /// Types that can define world-wide states in a finite-state machine.
 ///
