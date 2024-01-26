@@ -191,19 +191,12 @@ pub enum NextState<S: FreelyMutableState> {
     Unchanged,
     /// There is a transition planned for state `S`
     Set(S),
-    /// There is a planned removal of the state `S`
-    Remove,
 }
 
 impl<S: FreelyMutableState> NextState<S> {
     /// Tentatively set a planned state transition to `Some(state)`.
     pub fn set(&mut self, state: S) {
         *self = Self::Set(state);
-    }
-
-    /// Tentatively set a planned removal of the [`State<S>`] resource.
-    pub fn remove(&mut self) {
-        *self = Self::Remove;
     }
 
     /// Remove any planned changes to [`State<S>`]
@@ -378,9 +371,6 @@ pub fn apply_state_transition<S: FreelyMutableState>(world: &mut World) {
         NextState::Set(new_state) => {
             let new_state = new_state.clone();
             internal_apply_state_transition(world, Some(new_state));
-        }
-        NextState::Remove => {
-            internal_apply_state_transition::<S>(world, None);
         }
         _ => {
             return;
