@@ -34,7 +34,7 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
         in.material.reflectance, // could be fewer bits
         in.material.metallic, // could be fewer bits
         diffuse_occlusion, // is this worth including?
-        0.0)); // spare
+        in.specular_occlusion));
 #endif // WEBGL2
     let flags = deferred_types::deferred_flags_from_mesh_material_flags(in.flags, in.material.flags);
     let octahedral_normal = octahedral_encode(normalize(in.N));
@@ -80,9 +80,11 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
     let props = deferred_types::unpack_unorm3x4_plus_unorm_20_(gbuffer.b);
     // Bias to 0.5 since that's the value for almost all materials.
     pbr.material.reflectance = saturate(props.r - 0.03333333333);
+    pbr.specular_occlusion = props.b; // use diffuse occlusion as specular occlusion because we can't fit both in the g-buffer on webgl
 #else
     let props = deferred_types::unpack_unorm4x8_(gbuffer.b);
     pbr.material.reflectance = props.r;
+    pbr.specular_occlusion = props.a;
 #endif // WEBGL2
     pbr.material.metallic = props.g;
     pbr.diffuse_occlusion = vec3(props.b);
