@@ -273,8 +273,10 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         self.arc_from_to(center, from, to, |angle| {
             if angle > 0.0 {
                 TAU - angle
-            } else {
+            } else if angle < 0.0 {
                 -TAU - angle
+            } else {
+                0.0
             }
         })
     }
@@ -287,14 +289,17 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         to: Vec3,
         angle_fn: impl Fn(f32) -> f32,
     ) -> Arc3dBuilder<'_, 'w, 's, T> {
-        let axis1 = (from - center).normalize_or_zero();
-        let axis2 = (to - center).normalize_or_zero();
-        let (up, angle) = Quat::from_rotation_arc(axis1, axis2).to_axis_angle();
+        // `from` and `to` can be the same here since in either case nothing gets rendered and the
+        // orientation ambiguity of `up` doesn't matter
+        let from_axis = (from - center).normalize_or_zero();
+        let to_axis = (to - center).normalize_or_zero();
+        let (up, angle) = Quat::from_rotation_arc(from_axis, to_axis).to_axis_angle();
+
         let angle = angle_fn(angle);
         let radius = center.distance(from);
         let rotation = Quat::from_rotation_arc(Vec3::Y, up);
 
-        let start_vertex = rotation.inverse() * axis1;
+        let start_vertex = rotation.inverse() * from_axis;
 
         Arc3dBuilder {
             gizmos: self,
