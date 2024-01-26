@@ -11,6 +11,7 @@ use syn::{
 
 const UNIFORM_ATTRIBUTE_NAME: Symbol = Symbol("uniform");
 const TEXTURE_ATTRIBUTE_NAME: Symbol = Symbol("texture");
+const STORAGE_TEXTURE_ATTRIBUTE_NAME: Symbol = Symbol("storage_texture");
 const SAMPLER_ATTRIBUTE_NAME: Symbol = Symbol("sampler");
 const STORAGE_ATTRIBUTE_NAME: Symbol = Symbol("storage");
 const BIND_GROUP_DATA_ATTRIBUTE_NAME: Symbol = Symbol("bind_group_data");
@@ -19,6 +20,7 @@ const BIND_GROUP_DATA_ATTRIBUTE_NAME: Symbol = Symbol("bind_group_data");
 enum BindingType {
     Uniform,
     Texture,
+    StorageTexture,
     Sampler,
     Storage,
 }
@@ -133,6 +135,8 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                 BindingType::Uniform
             } else if attr_ident == TEXTURE_ATTRIBUTE_NAME {
                 BindingType::Texture
+            } else if attr_ident == STORAGE_TEXTURE_ATTRIBUTE_NAME {
+                BindingType::StorageTexture
             } else if attr_ident == SAMPLER_ATTRIBUTE_NAME {
                 BindingType::Sampler
             } else if attr_ident == STORAGE_ATTRIBUTE_NAME {
@@ -250,6 +254,45 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                                 ty: #render_path::render_resource::BufferBindingType::Storage { read_only: #read_only },
                                 has_dynamic_offset: false,
                                 min_binding_size: #min_binding_size,
+                            },
+                            count: None,
+                        }
+                    });
+                }
+                BindingType::StorageTexture => {
+                    let StorageTextureAttrs {
+                        dimension,
+                        image_format,
+                        access,
+                        visibility,
+                    } = get_storage_texture_binding_attr(nested_meta_items)?;
+
+                    let visibility =
+                        visibility.hygienic_quote(&quote! { #render_path::render_resource });
+
+                    let fallback_image = get_fallback_image(&render_path, dimension);
+
+                    binding_impls.push(quote! {
+                        ( #binding_index,
+                          #render_path::render_resource::OwnedBindingResource::TextureView({
+                              let handle: Option<&#asset_path::Handle<#render_path::texture::Image>> = (&self.#field_name).into();
+                              if let Some(handle) = handle {
+                                  images.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?.texture_view.clone()
+                              } else {
+                                  #fallback_image.texture_view.clone()
+                              }
+                          })
+                        )
+                    });
+
+                    binding_layouts.push(quote! {
+                        #render_path::render_resource::BindGroupLayoutEntry {
+                            binding: #binding_index,
+                            visibility: #visibility,
+                            ty: #render_path::render_resource::BindingType::StorageTexture {
+                                access: #render_path::render_resource::StorageTextureAccess::#access,
+                                format: #render_path::render_resource::TextureFormat::#image_format,
+                                view_dimension: #render_path::render_resource::#dimension,
                             },
                             count: None,
                         }
@@ -585,6 +628,10 @@ impl ShaderStageVisibility {
     fn vertex_fragment() -> Self {
         Self::Flags(VisibilityFlags::vertex_fragment())
     }
+
+    fn compute() -> Self {
+        Self::Flags(VisibilityFlags::compute())
+    }
 }
 
 impl VisibilityFlags {
@@ -592,6 +639,13 @@ impl VisibilityFlags {
         Self {
             vertex: true,
             fragment: true,
+            ..Default::default()
+        }
+    }
+
+    fn compute() -> Self {
+        Self {
+            compute: true,
             ..Default::default()
         }
     }
@@ -741,7 +795,72 @@ impl Default for TextureAttrs {
     }
 }
 
+struct StorageTextureAttrs {
+    dimension: BindingTextureDimension,
+    // Parsing of the image_format parameter is deferred to the type checker,
+    // which will error if the format is not member of the TextureFormat enum.
+    image_format: proc_macro2::TokenStream,
+    // Parsing of the access parameter is deferred to the type checker,
+    // which will error if the access is not member of the StorageTextureAccess enum.
+    access: proc_macro2::TokenStream,
+    visibility: ShaderStageVisibility,
+}
+
+impl Default for StorageTextureAttrs {
+    fn default() -> Self {
+        Self {
+            dimension: Default::default(),
+            image_format: quote! { Rgba8Unorm },
+            access: quote! { ReadWrite },
+            visibility: ShaderStageVisibility::compute(),
+        }
+    }
+}
+
+fn get_storage_texture_binding_attr(metas: Vec<Meta>) -> Result<StorageTextureAttrs> {
+    let mut storage_texture_attrs = StorageTextureAttrs::default();
+
+    for meta in metas {
+        use syn::Meta::{List, NameValue};
+        match meta {
+            // Parse #[storage_texture(0, dimension = "...")].
+            NameValue(m) if m.path == DIMENSION => {
+                let value = get_lit_str(DIMENSION, &m.value)?;
+                storage_texture_attrs.dimension = get_texture_dimension_value(value)?;
+            }
+            // Parse #[storage_texture(0, format = ...))].
+            NameValue(m) if m.path == IMAGE_FORMAT => {
+                storage_texture_attrs.image_format = m.value.into_token_stream();
+            }
+            // Parse #[storage_texture(0, access = ...))].
+            NameValue(m) if m.path == ACCESS => {
+                storage_texture_attrs.access = m.value.into_token_stream();
+            }
+            // Parse #[storage_texture(0, visibility(...))].
+            List(m) if m.path == VISIBILITY => {
+                storage_texture_attrs.visibility = get_visibility_flag_value(&m)?;
+            }
+            NameValue(m) => {
+                return Err(Error::new_spanned(
+                    m.path,
+                    "Not a valid name. Available attributes: `dimension`, `image_format`, `access`.",
+                ));
+            }
+            _ => {
+                return Err(Error::new_spanned(
+                    meta,
+                    "Not a name value pair: `foo = \"...\"`",
+                ));
+            }
+        }
+    }
+
+    Ok(storage_texture_attrs)
+}
+
 const DIMENSION: Symbol = Symbol("dimension");
+const IMAGE_FORMAT: Symbol = Symbol("image_format");
+const ACCESS: Symbol = Symbol("access");
 const SAMPLE_TYPE: Symbol = Symbol("sample_type");
 const FILTERABLE: Symbol = Symbol("filterable");
 const MULTISAMPLED: Symbol = Symbol("multisampled");

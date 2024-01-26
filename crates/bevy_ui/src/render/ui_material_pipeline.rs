@@ -263,8 +263,8 @@ pub type DrawUiMaterial<M> = (
 pub struct SetMatUiViewBindGroup<M: UiMaterial, const I: usize>(PhantomData<M>);
 impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P> for SetMatUiViewBindGroup<M, I> {
     type Param = SRes<UiMaterialMeta<M>>;
-    type ViewData = Read<ViewUniformOffset>;
-    type ItemData = ();
+    type ViewQuery = Read<ViewUniformOffset>;
+    type ItemQuery = ();
 
     fn render<'w>(
         _item: &P,
@@ -287,13 +287,13 @@ impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P>
     for SetUiMaterialBindGroup<M, I>
 {
     type Param = SRes<RenderUiMaterials<M>>;
-    type ViewData = ();
-    type ItemData = Read<UiMaterialBatch<M>>;
+    type ViewQuery = ();
+    type ItemQuery = Read<UiMaterialBatch<M>>;
 
     fn render<'w>(
         _item: &P,
         _view: (),
-        material_handle: ROQueryItem<'_, Self::ItemData>,
+        material_handle: ROQueryItem<'_, Self::ItemQuery>,
         materials: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -308,8 +308,8 @@ impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P>
 pub struct DrawUiMaterialNode<M>(PhantomData<M>);
 impl<P: PhaseItem, M: UiMaterial> RenderCommand<P> for DrawUiMaterialNode<M> {
     type Param = SRes<UiMaterialMeta<M>>;
-    type ViewData = ();
-    type ItemData = Read<UiMaterialBatch<M>>;
+    type ViewQuery = ();
+    type ItemQuery = Read<UiMaterialBatch<M>>;
 
     #[inline]
     fn render<'w>(

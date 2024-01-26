@@ -10,6 +10,7 @@ keywords = ["bevy"]
 
 [features]
 webgl = []
+webgpu = []
 
 [dependencies]
 # bevy

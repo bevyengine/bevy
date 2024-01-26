@@ -734,8 +734,8 @@ pub type DrawSprite = (
 pub struct SetSpriteViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteViewBindGroup<I> {
     type Param = SRes<SpriteMeta>;
-    type ViewData = Read<ViewUniformOffset>;
-    type ItemData = ();
+    type ViewQuery = Read<ViewUniformOffset>;
+    type ItemQuery = ();
 
     fn render<'w>(
         _item: &P,
@@ -755,8 +755,8 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteViewBindGroup<I
 pub struct SetSpriteTextureBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGroup<I> {
     type Param = SRes<ImageBindGroups>;
-    type ViewData = ();
-    type ItemData = Read<SpriteBatch>;
+    type ViewQuery = ();
+    type ItemQuery = Read<SpriteBatch>;
 
     fn render<'w>(
         _item: &P,
@@ -782,8 +782,8 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGrou
 pub struct DrawSpriteBatch;
 impl<P: PhaseItem> RenderCommand<P> for DrawSpriteBatch {
     type Param = SRes<SpriteMeta>;
-    type ViewData = ();
-    type ItemData = Read<SpriteBatch>;
+    type ViewQuery = ();
+    type ItemQuery = Read<SpriteBatch>;
 
     fn render<'w>(
         _item: &P,

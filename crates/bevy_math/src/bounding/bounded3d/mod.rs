@@ -1,6 +1,6 @@
 mod primitive_impls;
 
-use super::BoundingVolume;
+use super::{BoundingVolume, IntersectsVolume};
 use crate::prelude::{Quat, Vec3};
 
 /// Computes the geometric center of the given set of points.
@@ -33,6 +33,16 @@ pub struct Aabb3d {
 }
 
 impl Aabb3d {
+    /// Constructs an AABB from its center and half-size.
+    #[inline(always)]
+    pub fn new(center: Vec3, half_size: Vec3) -> Self {
+        debug_assert!(half_size.x >= 0.0 && half_size.y >= 0.0 && half_size.z >= 0.0);
+        Self {
+            min: center - half_size,
+            max: center + half_size,
+        }
+    }
+
     /// Computes the smallest [`Aabb3d`] containing the given set of points,
     /// transformed by `translation` and `rotation`.
     ///
@@ -63,6 +73,16 @@ impl Aabb3d {
     pub fn bounding_sphere(&self) -> BoundingSphere {
         let radius = self.min.distance(self.max) / 2.0;
         BoundingSphere::new(self.center(), radius)
+    }
+
+    /// Finds the point on the AABB that is closest to the given `point`.
+    ///
+    /// If the point is outside the AABB, the returned point will be on the surface of the AABB.
+    /// Otherwise, it will be inside the AABB and returned as is.
+    #[inline(always)]
+    pub fn closest_point(&self, point: Vec3) -> Vec3 {
+        // Clamp point coordinates to the AABB
+        point.clamp(self.min, self.max)
     }
 }
 
@@ -125,10 +145,33 @@ impl BoundingVolume for Aabb3d {
     }
 }
 
+impl IntersectsVolume<Self> for Aabb3d {
+    #[inline(always)]
+    fn intersects(&self, other: &Self) -> bool {
+        let x_overlaps = self.min.x <= other.max.x && self.max.x >= other.min.x;
+        let y_overlaps = self.min.y <= other.max.y && self.max.y >= other.min.y;
+        let z_overlaps = self.min.z <= other.max.z && self.max.z >= other.min.z;
+        x_overlaps && y_overlaps && z_overlaps
+    }
+}
+
+impl IntersectsVolume<BoundingSphere> for Aabb3d {
+    #[inline(always)]
+    fn intersects(&self, sphere: &BoundingSphere) -> bool {
+        let closest_point = self.closest_point(sphere.center);
+        let distance_squared = sphere.center.distance_squared(closest_point);
+        let radius_squared = sphere.radius().powi(2);
+        distance_squared <= radius_squared
+    }
+}
+
 #[cfg(test)]
 mod aabb3d_tests {
     use super::Aabb3d;
-    use crate::{bounding::BoundingVolume, Vec3};
+    use crate::{
+        bounding::{BoundingSphere, BoundingVolume, IntersectsVolume},
+        Vec3,
+    };
 
     #[test]
     fn center() {
@@ -229,6 +272,53 @@ mod aabb3d_tests {
         assert!(a.contains(&shrunk));
         assert!(!shrunk.contains(&a));
     }
+
+    #[test]
+    fn closest_point() {
+        let aabb = Aabb3d {
+            min: Vec3::NEG_ONE,
+            max: Vec3::ONE,
+        };
+        assert_eq!(aabb.closest_point(Vec3::X * 10.0), Vec3::X);
+        assert_eq!(aabb.closest_point(Vec3::NEG_ONE * 10.0), Vec3::NEG_ONE);
+        assert_eq!(
+            aabb.closest_point(Vec3::new(0.25, 0.1, 0.3)),
+            Vec3::new(0.25, 0.1, 0.3)
+        );
+    }
+
+    #[test]
+    fn intersect_aabb() {
+        let aabb = Aabb3d {
+            min: Vec3::NEG_ONE,
+            max: Vec3::ONE,
+        };
+        assert!(aabb.intersects(&aabb));
+        assert!(aabb.intersects(&Aabb3d {
+            min: Vec3::splat(0.5),
+            max: Vec3::splat(2.0),
+        }));
+        assert!(aabb.intersects(&Aabb3d {
+            min: Vec3::splat(-2.0),
+            max: Vec3::splat(-0.5),
+        }));
+        assert!(!aabb.intersects(&Aabb3d {
+            min: Vec3::new(1.1, 0.0, 0.0),
+            max: Vec3::new(2.0, 0.5, 0.25),
+        }));
+    }
+
+    #[test]
+    fn intersect_bounding_sphere() {
+        let aabb = Aabb3d {
+            min: Vec3::NEG_ONE,
+            max: Vec3::ONE,
+        };
+        assert!(aabb.intersects(&BoundingSphere::new(Vec3::ZERO, 1.0)));
+        assert!(aabb.intersects(&BoundingSphere::new(Vec3::ONE * 1.5, 1.0)));
+        assert!(aabb.intersects(&BoundingSphere::new(Vec3::NEG_ONE * 1.5, 1.0)));
+        assert!(!aabb.intersects(&BoundingSphere::new(Vec3::ONE * 1.75, 1.0)));
+    }
 }
 
 use crate::primitives::Sphere;
@@ -243,7 +333,7 @@ pub struct BoundingSphere {
 }
 
 impl BoundingSphere {
-    /// Construct a bounding sphere from its center and radius.
+    /// Constructs a bounding sphere from its center and radius.
     pub fn new(center: Vec3, radius: f32) -> Self {
         debug_assert!(radius >= 0.);
         Self {
@@ -285,6 +375,15 @@ impl BoundingSphere {
             min: self.center - Vec3::splat(self.radius()),
             max: self.center + Vec3::splat(self.radius()),
         }
+    }
+
+    /// Finds the point on the bounding sphere that is closest to the given `point`.
+    ///
+    /// If the point is outside the sphere, the returned point will be on the surface of the sphere.
+    /// Otherwise, it will be inside the sphere and returned as is.
+    #[inline(always)]
+    pub fn closest_point(&self, point: Vec3) -> Vec3 {
+        self.sphere.closest_point(point - self.center) + self.center
     }
 }
 
@@ -354,10 +453,29 @@ impl BoundingVolume for BoundingSphere {
     }
 }
 
+impl IntersectsVolume<Self> for BoundingSphere {
+    #[inline(always)]
+    fn intersects(&self, other: &Self) -> bool {
+        let center_distance_squared = self.center.distance_squared(other.center);
+        let radius_sum_squared = (self.radius() + other.radius()).powi(2);
+        center_distance_squared <= radius_sum_squared
+    }
+}
+
+impl IntersectsVolume<Aabb3d> for BoundingSphere {
+    #[inline(always)]
+    fn intersects(&self, aabb: &Aabb3d) -> bool {
+        aabb.intersects(self)
+    }
+}
+
 #[cfg(test)]
 mod bounding_sphere_tests {
     use super::BoundingSphere;
-    use crate::{bounding::BoundingVolume, Vec3};
+    use crate::{
+        bounding::{BoundingVolume, IntersectsVolume},
+        Vec3,
+    };
 
     #[test]
     fn area() {
@@ -433,5 +551,28 @@ mod bounding_sphere_tests {
         assert!((shrunk.radius() - 4.5).abs() < std::f32::EPSILON);
         assert!(a.contains(&shrunk));
         assert!(!shrunk.contains(&a));
+    }
+
+    #[test]
+    fn closest_point() {
+        let sphere = BoundingSphere::new(Vec3::ZERO, 1.0);
+        assert_eq!(sphere.closest_point(Vec3::X * 10.0), Vec3::X);
+        assert_eq!(
+            sphere.closest_point(Vec3::NEG_ONE * 10.0),
+            Vec3::NEG_ONE.normalize()
+        );
+        assert_eq!(
+            sphere.closest_point(Vec3::new(0.25, 0.1, 0.3)),
+            Vec3::new(0.25, 0.1, 0.3)
+        );
+    }
+
+    #[test]
+    fn intersect_bounding_sphere() {
+        let sphere = BoundingSphere::new(Vec3::ZERO, 1.0);
+        assert!(sphere.intersects(&BoundingSphere::new(Vec3::ZERO, 1.0)));
+        assert!(sphere.intersects(&BoundingSphere::new(Vec3::ONE * 1.1, 1.0)));
+        assert!(sphere.intersects(&BoundingSphere::new(Vec3::NEG_ONE * 1.1, 1.0)));
+        assert!(!sphere.intersects(&BoundingSphere::new(Vec3::ONE * 1.2, 1.0)));
     }
 }
