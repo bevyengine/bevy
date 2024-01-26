@@ -80,6 +80,10 @@ impl<'a> Display for AssetPath<'a> {
 
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum ParseAssetPathError {
+    #[error("Asset source must not contain a `#` character")]
+    InvalidSourceSyntax,
+    #[error("Asset label must not contain a `://` substring")]
+    InvalidLabelSyntax,
     #[error("Asset source must be at least one character. Either specify the source before the '://' or remove the `://`")]
     MissingSource,
     #[error("Asset label must be at least one character. Either specify the label after the '#' or remove the '#'")]
@@ -124,26 +128,69 @@ impl<'a> AssetPath<'a> {
         })
     }
 
+    // Attempts to Parse a &str into an `AssetPath`'s `AssetPath::source`, `AssetPath::path`, and `AssetPath::label` components.
     fn parse_internal(
         asset_path: &str,
     ) -> Result<(Option<&str>, &Path, Option<&str>), ParseAssetPathError> {
+        let mut chars = asset_path.char_indices();
+        let mut source_range = None;
         let mut path_range = 0..asset_path.len();
+        let mut label_range = None;
 
-        let source_range = match asset_path.find("://") {
-            Some(index) => {
-                path_range.start = index + 3;
-                Some(0..index)
+        // Loop through the characters of the passed in &str to accomplish the following:
+        // 1. Seach for the first instance of the `://` substring. If the `://` substring is found,
+        //  store the range of indices representing everything before the `://` substring as the `source_range`.
+        // 2. Seach for the last instance of the `#` character. If the `#` character is found,
+        //  store the range of indices representing everything after the `#` character as the `label_range`
+        // 3. Set the `path_range` to be everything in between the `source_range` and `label_range`,
+        //  excluding the `://` substring and `#` character.
+        // 4. Verify that there are no `#` characters in the `AssetPath::source` and no `://` substrings in the `AssetPath::label`
+        let mut source_delimiter_chars_matched = 0;
+        let mut last_found_source_index = 0;
+        while let Some((index, char)) = chars.next() {
+            match char {
+                ':' => {
+                    source_delimiter_chars_matched = 1;
+                }
+                '/' => {
+                    match source_delimiter_chars_matched {
+                        1 => {
+                            source_delimiter_chars_matched = 2;
+                        }
+                        2 => {
+                            if source_range == None {
+                                // If the `AssetPath::source` contained a `#` character, it is invalid.
+                                if label_range != None {
+                                    return Err(ParseAssetPathError::InvalidSourceSyntax);
+                                }
+                                source_range = Some(0..index - 2);
+                                path_range.start = index + 1;
+                            }
+                            last_found_source_index = index - 2;
+                            source_delimiter_chars_matched = 0;
+                        }
+                        _ => {}
+                    }
+                }
+                '#' => {
+                    path_range.end = index;
+                    label_range = Some(index + 1..asset_path.len());
+                    source_delimiter_chars_matched = 0;
+                }
+                _ => {
+                    source_delimiter_chars_matched = 0;
+                }
             }
-            None => None,
-        };
-        let label_range = match asset_path.rfind('#') {
-            Some(index) => {
-                path_range.end = index;
-                Some(index + 1..asset_path.len())
+        }
+        // If we found an `AssetPath::label`
+        if let Some(range) = label_range.clone() {
+            // If the `AssetPath::label` contained a `://` substring, it is invalid.
+            if range.start <= last_found_source_index {
+                return Err(ParseAssetPathError::InvalidLabelSyntax);
             }
-            None => None,
-        };
-
+        }
+        // Try to parse the range of indices that represents the `AssetPath::source` portion of the `AssetPath`.
+        // The only invalid `AssetPath::source` is an empty &str, representing an input such as `://some/file.test`
         let source = match source_range {
             Some(source_range) => {
                 if source_range.is_empty() {
@@ -153,6 +200,8 @@ impl<'a> AssetPath<'a> {
             }
             None => None,
         };
+        // Try to parse the range of indices that represents the `AssetPath::label` portion of the `AssetPath`.
+        // The only invalid `AssetPath::label` is an empty &str, representing an input such as `some/file.test#`.
         let label = match label_range {
             Some(label_range) => {
                 if label_range.is_empty() {
@@ -684,11 +733,29 @@ mod tests {
             Ok((Some("http"), Path::new("a/b.test"), Some("Foo")))
         );
 
+        let result = AssetPath::parse_internal("localhost:80/b.test");
+        assert_eq!(result, Ok((None, Path::new("localhost:80/b.test"), None)));
+
         let result = AssetPath::parse_internal("http://localhost:80/b.test");
         assert_eq!(
             result,
             Ok((Some("http"), Path::new("localhost:80/b.test"), None))
         );
+
+        let result = AssetPath::parse_internal("http://localhost:80/b.test#Foo");
+        assert_eq!(
+            result,
+            Ok((Some("http"), Path::new("localhost:80/b.test"), Some("Foo")))
+        );
+
+        let result = AssetPath::parse_internal("#insource://a/b.test");
+        assert_eq!(result, Err(crate::ParseAssetPathError::InvalidSourceSyntax));
+
+        let result = AssetPath::parse_internal("source://a/b.test#://inlabel");
+        assert_eq!(result, Err(crate::ParseAssetPathError::InvalidLabelSyntax));
+
+        let result = AssetPath::parse_internal("#insource://a/b.test#://inlabel");
+        assert!(result == Err(crate::ParseAssetPathError::InvalidSourceSyntax) || result == Err(crate::ParseAssetPathError::InvalidLabelSyntax));
 
         let result = AssetPath::parse_internal("http://");
         assert_eq!(result, Ok((Some("http"), Path::new(""), None)));
