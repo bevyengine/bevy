@@ -56,7 +56,7 @@ impl ComputedStates for InGame {
     // signature actually boils down to `Option<AppState>`, but I wanted to leave the complex version visible
     // so you are aware of what it is in case it is generated for you by your IDE.
     fn compute(
-        sources: <<Self as ComputedStates>::SourceStates as bevy_internal::ecs::schedule::StateSet>::Optionals,
+        sources: <<Self as ComputedStates>::SourceStates as bevy_internal::ecs::schedule::StateSet>::OptionalStateSet,
     ) -> Option<Self> {
         // You might notice that InGame has no values - instead, in this case, the `State<InGame>` resource only exists
         // if the `compute` function would return `Some` - so only when we are in game.
@@ -84,7 +84,7 @@ impl ComputedStates for TurboMode {
     type SourceStates = AppState;
 
     fn compute(
-        sources: <<Self as ComputedStates>::SourceStates as bevy_internal::ecs::schedule::StateSet>::Optionals,
+        sources: <<Self as ComputedStates>::SourceStates as bevy_internal::ecs::schedule::StateSet>::OptionalStateSet,
     ) -> Option<Self> {
         match sources {
             Some(AppState::InGame { turbo: true, .. }) => Some(Self),
@@ -113,7 +113,7 @@ impl ComputedStates for IsPaused {
     type SourceStates = AppState;
 
     fn compute(
-        sources: <<Self as ComputedStates>::SourceStates as bevy_internal::ecs::schedule::StateSet>::Optionals,
+        sources: <<Self as ComputedStates>::SourceStates as bevy_internal::ecs::schedule::StateSet>::OptionalStateSet,
     ) -> Option<Self> {
         // Here we convert from our [`AppState`] to all potential [`IsPaused`] versions.
         match sources {
@@ -149,7 +149,7 @@ impl ComputedStates for Tutorial {
 
     fn compute(
         // This complex type translates to (Option<TutorialState>, Option<InGame>, Option<IsPaused>)
-        (tutorial_state, in_game, is_paused): <<Self as ComputedStates>::SourceStates as StateSet>::Optionals,
+        (tutorial_state, in_game, is_paused): <<Self as ComputedStates>::SourceStates as StateSet>::OptionalStateSet,
     ) -> Option<Self> {
         // If the tutorial is inactive or non-existant, we don't need to worry about it.
         if !matches!(tutorial_state, Some(TutorialState::Active)) {

@@ -512,7 +512,7 @@ pub trait ComputedStates: 'static + Send + Sync + Clone + PartialEq + Eq + Hash 
     ///
     /// If the result is [`None`], the [`State<Self>`] resource will be removed from the world.
     fn compute(
-        sources: <<Self as ComputedStates>::SourceStates as StateSet>::Optionals,
+        sources: <<Self as ComputedStates>::SourceStates as StateSet>::OptionalStateSet,
     ) -> Option<Self>;
 
     /// This function sets up systems that compute the state whenever one of the [`SourceStates`](Self::SourceStates)
@@ -539,8 +539,8 @@ mod sealed {
 /// It is sealed, and auto implemented for all [`States`] types and
 /// tuples containing them.
 pub trait StateSet: sealed::StateSetSealed {
-    /// The combined [`DEPENDENCY_DEPTH`](`States::DEPENDENCY_DEPTH`) of all
-    /// the states that are part of this [`StateSet`].
+    /// The total [`DEPENDENCY_DEPTH`](`States::DEPENDENCY_DEPTH`) of all
+    /// the states that are part of this [`StateSet`], added together.
     ///
     /// Used to de-duplicate computed state executions and prevent cyclic
     /// computed states.
@@ -551,7 +551,7 @@ pub trait StateSet: sealed::StateSetSealed {
     /// If `StateSet` is a single type, it is wrapped in an `Option`;
     /// If `StateSet` is a tuple, each element within the tuple is wrapped instead:
     /// `(S1, S2, S3)` becomes `(Option<S1>, Option<S2>, Option<S3>)`.
-    type Optionals;
+    type OptionalStateSet;
 
     /// Sets up the systems needed to compute `T` whenever any `State` in this
     /// `StateSet` is changed.
@@ -565,7 +565,7 @@ impl<S: States> StateSetSealed for S {}
 impl<S: States> StateSet for S {
     const SET_DEPENDENCY_DEPTH: usize = S::DEPENDENCY_DEPTH;
 
-    type Optionals = Option<S>;
+    type OptionalStateSet = Option<S>;
     fn register_compute_systems_for_dependent_state<T: ComputedStates<SourceStates = Self>>(
         schedules: &mut Schedules,
     ) {
@@ -614,7 +614,7 @@ macro_rules! impl_state_set_sealed_tuples {
 
             const SET_DEPENDENCY_DEPTH : usize = $($param::DEPENDENCY_DEPTH +)* 0;
 
-            type Optionals = ($(Option<$param>,)*);
+            type OptionalStateSet = ($(Option<$param>,)*);
 
             fn register_compute_systems_for_dependent_state<T: ComputedStates<SourceStates = Self>>(schedules: &mut Schedules) {
                 {
@@ -750,7 +750,7 @@ mod tests {
         type SourceStates = (SimpleState, OtherState);
 
         fn compute(
-            sources: <<Self as ComputedStates>::SourceStates as StateSet>::Optionals,
+            sources: <<Self as ComputedStates>::SourceStates as StateSet>::OptionalStateSet,
         ) -> Option<Self> {
             match sources {
                 (Some(simple), Some(complex)) => {
