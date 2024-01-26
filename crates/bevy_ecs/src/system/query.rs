@@ -4,7 +4,7 @@ use crate::{
     query::{
         BatchingStrategy, QueryCombinationIter, QueryComponentError, QueryData, QueryEntityError,
         QueryFilter, QueryIter, QueryManyIter, QueryParIter, QuerySingleError, QueryState,
-        ROQueryItem, ReadOnlyQueryData,
+        ROQueryItem, ReadOnlyQueryData, ReffedQueryItem,
     },
     world::{unsafe_world_cell::UnsafeWorldCell, Mut},
 };
@@ -864,6 +864,53 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
             self.state.as_readonly().get_unchecked_manual(
+                self.world,
+                entity,
+                self.last_run,
+                self.this_run,
+            )
+        }
+    }
+
+    /// Returns the "reffed" query item for the given [`Entity`].
+    ///
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
+    ///
+    /// # Example
+    ///
+    /// Here, `get_ref` is used to retrieve the exact query item of the entity specified by the `SelectedCharacter`
+    /// resource, note that the component will be returned inside the [`Ref`] smart pointer that contains
+    /// change detection info (when was the component last changed, and when was it added).
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Resource)]
+    /// # struct SelectedCharacter { entity: Entity }
+    /// # #[derive(Component)]
+    /// # struct Character { name: String }
+    /// #
+    /// fn print_selected_character_name_system(
+    ///        query: Query<&Character>,
+    ///        selection: Res<SelectedCharacter>
+    /// )
+    /// {
+    ///     if let Ok(selected_character) = query.get_ref(selection.entity) {
+    ///         println!("{}", selected_character.into_inner().name);
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(print_selected_character_name_system);
+    /// ```
+    ///
+    /// # See also
+    ///
+    /// - [`get_mut`](Self::get_mut) to get a mutable query item.
+    #[inline]
+    pub fn get_ref(&self, entity: Entity) -> Result<ReffedQueryItem<'_, D>, QueryEntityError> {
+        // SAFETY: system runs without conflicts with other systems.
+        // same-system queries have runtime borrow checks when they conflict
+        unsafe {
+            self.state.as_reffed().get_unchecked_manual(
                 self.world,
                 entity,
                 self.last_run,

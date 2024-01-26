@@ -454,6 +454,60 @@ mod tests {
     }
 
     #[test]
+    fn system_query_get_ref() {
+        use crate::change_detection::Ref;
+        #[derive(Resource)]
+        struct Added1(Tick);
+
+        #[derive(Resource)]
+        struct Added2(Tick);
+
+        #[derive(Resource)]
+        struct Changed1(Tick);
+
+        #[derive(Resource)]
+        struct Changed2(Tick);
+
+        #[derive(Resource)]
+        struct TargetEntity(Entity);
+
+        fn spawn(mut commands: Commands) {
+            let id = commands.spawn(B).id();
+            commands.insert_resource(TargetEntity(id));
+        }
+
+        fn change(mut query: Query<&mut B>) {
+            query.iter_mut().for_each(|_| {});
+        }
+
+        fn log1(mut commands: Commands, query: Query<Ref<B>>) {
+            commands.insert_resource(Added1(query.get_single().unwrap().ticks.added.clone()));
+            commands.insert_resource(Changed1(query.get_single().unwrap().ticks.changed.clone()));
+        }
+
+        fn log2(mut commands: Commands, query: Query<&B>, te: Res<TargetEntity>) {
+            let te = te.0;
+            commands.insert_resource(Added2(query.get_ref(te).unwrap().ticks.added.clone()));
+            commands.insert_resource(Changed2(query.get_ref(te).unwrap().ticks.changed.clone()));
+        }
+
+        let mut world = World::default();
+
+        run_system(&mut world, spawn);
+        run_system(&mut world, change);
+        run_system(&mut world, log1);
+        run_system(&mut world, log2);
+
+        let added1 = world.resource::<Added1>();
+        let added2 = world.resource::<Added2>();
+        let changed1 = world.resource::<Changed1>();
+        let changed2 = world.resource::<Changed2>();
+
+        assert_eq!(added1.0, added2.0);
+        assert_eq!(changed1.0, changed2.0);
+    }
+
+    #[test]
     fn get_many_is_ordered() {
         use crate::system::Resource;
         const ENTITIES_COUNT: usize = 1000;

@@ -107,7 +107,9 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
         #[allow(clippy::redundant_clone)]
         struct_name.clone()
     };
-
+    let reffed_struct_name = Ident::new(&format!("{struct_name}Reffed"), Span::call_site());
+    let reffed_item_struct_name =
+        Ident::new(&format!("{struct_name}ReffedItem"), Span::call_site());
     let item_struct_name = Ident::new(&format!("{struct_name}Item"), Span::call_site());
     let read_only_item_struct_name = if attributes.is_mutable {
         Ident::new(&format!("{struct_name}ReadOnlyItem"), Span::call_site())
@@ -118,6 +120,10 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
 
     let fetch_struct_name = Ident::new(&format!("{struct_name}Fetch"), Span::call_site());
     let fetch_struct_name = ensure_no_collision(fetch_struct_name, tokens.clone());
+    let reffed_fetch_struct_name = ensure_no_collision(
+        Ident::new(&format!("{struct_name}ReffedFetch"), Span::call_site()),
+        tokens.clone(),
+    );
     let read_only_fetch_struct_name = if attributes.is_mutable {
         let new_ident = Ident::new(&format!("{struct_name}ReadOnlyFetch"), Span::call_site());
         ensure_no_collision(new_ident, tokens.clone())
@@ -149,6 +155,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
     let mut named_field_idents = Vec::new();
     let mut field_types = Vec::new();
     let mut read_only_field_types = Vec::new();
+    let mut reffed_field_types = Vec::new();
     for (i, field) in fields.iter().enumerate() {
         let attrs = match read_world_query_field_info(field) {
             Ok(QueryDataFieldInfo { attrs }) => attrs,
@@ -172,6 +179,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
         let field_ty = field.ty.clone();
         field_types.push(quote!(#field_ty));
         read_only_field_types.push(quote!(<#field_ty as #path::query::QueryData>::ReadOnly));
+        reffed_field_types.push(quote!(<#field_ty as #path::query::QueryData>::Reffed));
     }
 
     let derive_args = &attributes.derive_args;
@@ -201,6 +209,57 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
         &item_struct_name,
         &fetch_struct_name,
         &field_types,
+        &user_impl_generics,
+        &user_impl_generics_with_world,
+        &field_idents,
+        &user_ty_generics,
+        &user_ty_generics_with_world,
+        &named_field_idents,
+        &marker_name,
+        &state_struct_name,
+        user_where_clauses,
+        user_where_clauses_with_world,
+    );
+
+    let reffed_struct = quote! {
+        #[doc = "Automatically generated [`QueryData`] type for a reffed variant of [`"]
+        #[doc = stringify!(#struct_name)]
+        #[doc = "`]."]
+        #[automatically_derived]
+        #visibility struct #reffed_struct_name #user_impl_generics #user_where_clauses {
+            #(
+                #[doc = "Automatically generated reffed field for accessing `"]
+                #[doc = stringify!(#field_types)]
+                #[doc = "`."]
+                #field_visibilities #named_field_idents: #reffed_field_types,
+            )*
+        }
+    };
+
+    let reffed_item_struct = item_struct(
+        &path,
+        fields,
+        &derive_macro_call,
+        &reffed_struct_name,
+        &visibility,
+        &reffed_item_struct_name,
+        &reffed_field_types,
+        &user_impl_generics_with_world,
+        &field_attrs,
+        &field_visibilities,
+        &field_idents,
+        &user_ty_generics,
+        &user_ty_generics_with_world,
+        user_where_clauses_with_world,
+    );
+
+    let reffed_world_query_impl = world_query_impl(
+        &path,
+        &reffed_struct_name,
+        &visibility,
+        &reffed_item_struct_name,
+        &reffed_fetch_struct_name,
+        &reffed_field_types,
         &user_impl_generics,
         &user_impl_generics_with_world,
         &field_idents,
@@ -277,10 +336,18 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                 unsafe impl #user_impl_generics #path::query::QueryData
                 for #read_only_struct_name #user_ty_generics #user_where_clauses {
                     type ReadOnly = #read_only_struct_name #user_ty_generics;
+                    type Reffed = #reffed_struct_name #user_ty_generics;
                 }
             }
         } else {
             quote! {}
+        };
+        let reffed_data_impl = quote! {
+            unsafe impl #user_impl_generics #path::query::QueryData
+            for #reffed_struct_name #user_ty_generics #user_where_clauses {
+                type ReadOnly = Self; // Reffed types are always read-only
+                type Reffed = Self;
+            }
         };
 
         quote! {
@@ -288,9 +355,12 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
             unsafe impl #user_impl_generics #path::query::QueryData
             for #struct_name #user_ty_generics #user_where_clauses {
                 type ReadOnly = #read_only_struct_name #user_ty_generics;
+                type Reffed = #reffed_struct_name #user_ty_generics;
             }
 
             #read_only_data_impl
+
+            #reffed_data_impl
         }
     };
 
@@ -298,6 +368,10 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
         /// SAFETY: we assert fields are readonly below
         unsafe impl #user_impl_generics #path::query::ReadOnlyQueryData
         for #read_only_struct_name #user_ty_generics #user_where_clauses {}
+
+        /// SAFETY: reffed types must be read-only
+        unsafe impl #user_impl_generics #path::query::ReadOnlyQueryData
+        for #reffed_struct_name #user_ty_generics #user_where_clauses {}
     };
 
     let read_only_asserts = if attributes.is_mutable {
@@ -327,7 +401,11 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
     TokenStream::from(quote! {
         #mutable_item_struct
 
+        #reffed_item_struct
+
         #read_only_struct
+
+        #reffed_struct
 
         const _: () = {
             #[doc(hidden)]
@@ -340,6 +418,8 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
             }
 
             #mutable_world_query_impl
+
+            #reffed_world_query_impl
 
             #read_only_impl
 
