@@ -1867,6 +1867,21 @@ bevy_reflect::tests::Test {
     }
 
     #[test]
+    fn box_dyn_reflect() {
+        #[derive(Reflect)]
+        struct Foo {
+            a: u32,
+        }
+
+        let boxed: Box<dyn Reflect> = Box::new(Foo { a: 1 });
+
+        assert_eq!(
+            boxed.reflect_type_path(),
+            "std::boxed::Box(dyn bevy_reflect::Reflect)"
+        );
+    }
+
+    #[test]
     fn recursive_typed_storage_does_not_hang() {
         #[derive(Reflect)]
         struct Recurse<T>(T);

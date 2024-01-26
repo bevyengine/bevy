@@ -6,6 +6,7 @@ use crate::{
 use std::{
     any::{Any, TypeId},
     fmt::Debug,
+    ops::{Deref, DerefMut},
 };
 
 use crate::utility::NonGenericTypeInfoCell;
@@ -324,5 +325,93 @@ impl dyn Reflect {
     #[inline]
     pub fn downcast_mut<T: Reflect>(&mut self) -> Option<&mut T> {
         self.as_any_mut().downcast_mut::<T>()
+    }
+}
+
+impl TypePath for Box<dyn Reflect> {
+    fn type_path() -> &'static str {
+        "std::boxed::Box(dyn bevy_reflect::Reflect)"
+    }
+
+    fn short_type_path() -> &'static str {
+        "Box(dyn Reflect)"
+    }
+
+    fn type_ident() -> Option<&'static str> {
+        Some("Box")
+    }
+
+    fn crate_name() -> Option<&'static str> {
+        Some("std")
+    }
+
+    fn module_path() -> Option<&'static str> {
+        Some("std::boxed")
+    }
+}
+
+impl Reflect for Box<dyn Reflect> {
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+        self.deref().get_represented_type_info()
+    }
+
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
+        Box::new((*self).into_any())
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self.deref().as_any()
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self.deref_mut().as_any_mut()
+    }
+
+    fn apply(&mut self, value: &dyn Reflect) {
+        self.deref_mut().apply(value);
+    }
+
+    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+        self.deref_mut().set(value)
+    }
+
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+        Box::new((*self).into_reflect())
+    }
+
+    fn as_reflect(&self) -> &dyn Reflect {
+        self.deref().as_reflect()
+    }
+
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self.deref_mut().as_reflect_mut()
+    }
+
+    fn reflect_ref(&self) -> ReflectRef {
+        self.deref().reflect_ref()
+    }
+
+    fn reflect_mut(&mut self) -> ReflectMut {
+        self.deref_mut().reflect_mut()
+    }
+
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        (*self).reflect_owned()
+    }
+
+    fn clone_value(&self) -> Box<dyn Reflect> {
+        self.deref().clone_value()
+    }
+
+    fn reflect_hash(&self) -> Option<u64> {
+        self.deref().reflect_hash()
+    }
+
+    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+        self.deref().reflect_partial_eq(value)
+    }
+
+    fn serializable(&self) -> Option<Serializable> {
+        self.deref().serializable()
     }
 }
