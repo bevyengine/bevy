@@ -1,12 +1,12 @@
-use std::fmt::Debug;
 use std::hash::Hash;
 use std::marker::PhantomData;
 use std::mem;
 use std::ops::Deref;
+use std::{collections::BTreeMap, fmt::Debug};
 
 use crate as bevy_ecs;
 use crate::event::Event;
-use crate::prelude::FromWorld;
+use crate::prelude::{FromWorld, ResMut};
 #[cfg(feature = "bevy_reflect")]
 use crate::reflect::ReflectResource;
 use crate::schedule::ScheduleLabel;
@@ -18,7 +18,7 @@ use bevy_utils::{all_tuples, HashSet};
 
 use self::sealed::StateSetSealed;
 
-use super::{InternedScheduleLabel, Schedule, Schedules};
+use super::{schedule, InternedScheduleLabel, Schedule, Schedules};
 
 /// Types that can define world-wide states in a finite-state machine.
 ///
@@ -48,7 +48,12 @@ use super::{InternedScheduleLabel, Schedule, Schedules};
 /// }
 ///
 /// ```
-pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug {}
+pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug {
+    /// How many other states this state depends on.
+    /// Used to help order and de-duplicate [`ComputedStates`], as well as prevent cyclical
+    /// `ComputedState` dependencies.
+    const DEPENDENCY_DEPTH: usize = 1;
+}
 
 /// This trait allows a state to be mutated directly using the [`NextState<S>`] resource.
 ///
@@ -86,6 +91,17 @@ pub struct OnTransition<S: States> {
 pub struct ComputeDependantStates<S: States>(PhantomData<S>);
 
 impl<S: States> Default for ComputeDependantStates<S> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
+/// The label of a [`Schedule`] that runs the system
+/// deriving a given [`ComputedStates`].
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct ComputeComputedState<S: ComputedStates>(PhantomData<S>);
+
+impl<S: ComputedStates> Default for ComputeComputedState<S> {
     fn default() -> Self {
         Self(Default::default())
     }
@@ -230,9 +246,10 @@ pub fn run_enter_schedule<S: States>(world: &mut World) {
 
 #[derive(Resource, Default)]
 struct StateTransitionSchedules {
-    exit_schedules: HashSet<InternedScheduleLabel>,
-    transition_schedules: HashSet<InternedScheduleLabel>,
-    enter_schedules: HashSet<InternedScheduleLabel>,
+    dependant_schedules: BTreeMap<usize, HashSet<InternedScheduleLabel>>,
+    exit_schedules: BTreeMap<usize, HashSet<InternedScheduleLabel>>,
+    transition_schedules: BTreeMap<usize, HashSet<InternedScheduleLabel>>,
+    enter_schedules: BTreeMap<usize, HashSet<InternedScheduleLabel>>,
 }
 
 /// Runs [state transitions](States).
@@ -262,16 +279,24 @@ fn internal_apply_state_transition<S: States>(world: &mut World, new_state: Opti
                             world.get_resource_or_insert_with(StateTransitionSchedules::default);
                         state_transition_schedules
                             .exit_schedules
+                            .entry(S::DEPENDENCY_DEPTH)
+                            .or_default()
                             .insert(OnExit(exited.clone()).intern());
-                        state_transition_schedules.transition_schedules.insert(
-                            OnTransition {
-                                from: exited,
-                                to: entered.clone(),
-                            }
-                            .intern(),
-                        );
+                        state_transition_schedules
+                            .transition_schedules
+                            .entry(S::DEPENDENCY_DEPTH)
+                            .or_default()
+                            .insert(
+                                OnTransition {
+                                    from: exited,
+                                    to: entered.clone(),
+                                }
+                                .intern(),
+                            );
                         state_transition_schedules
                             .enter_schedules
+                            .entry(S::DEPENDENCY_DEPTH)
+                            .or_default()
                             .insert(OnEnter(entered.clone()).intern());
                     }
                 }
@@ -285,6 +310,8 @@ fn internal_apply_state_transition<S: States>(world: &mut World, new_state: Opti
                         world.get_resource_or_insert_with(StateTransitionSchedules::default);
                     state_transition_schedules
                         .enter_schedules
+                        .entry(S::DEPENDENCY_DEPTH)
+                        .or_default()
                         .insert(OnEnter(entered.clone()).intern());
                 }
             };
@@ -299,6 +326,8 @@ fn internal_apply_state_transition<S: States>(world: &mut World, new_state: Opti
                     world.get_resource_or_insert_with(StateTransitionSchedules::default);
                 state_transition_schedules
                     .exit_schedules
+                    .entry(S::DEPENDENCY_DEPTH)
+                    .or_default()
                     .insert(OnExit(resource.0).intern());
             }
         }
@@ -311,16 +340,22 @@ fn prepare_state_transitions(world: &mut World) {
 
 fn execute_state_transition_schedules(world: &mut World) {
     if let Some(schedules) = world.remove_resource::<StateTransitionSchedules>() {
-        for schedule in schedules.exit_schedules {
-            let _ = world.try_run_schedule(schedule);
+        for (_, schedules) in schedules.exit_schedules {
+            for schedule in schedules {
+                let _ = world.try_run_schedule(schedule);
+            }
         }
 
-        for schedule in schedules.transition_schedules {
-            let _ = world.try_run_schedule(schedule);
+        for (_, schedules) in schedules.transition_schedules {
+            for schedule in schedules {
+                let _ = world.try_run_schedule(schedule);
+            }
         }
 
-        for schedule in schedules.enter_schedules {
-            let _ = world.try_run_schedule(schedule);
+        for (_, schedules) in schedules.enter_schedules {
+            for schedule in schedules {
+                let _ = world.try_run_schedule(schedule);
+            }
         }
     }
 }
@@ -328,6 +363,14 @@ fn execute_state_transition_schedules(world: &mut World) {
 fn execute_state_transitions(world: &mut World) {
     prepare_state_transitions(world);
     let _ = world.try_run_schedule(ManualStateTransitions);
+    while let Some((_, compute)) = world
+        .get_resource_mut::<StateTransitionSchedules>()
+        .and_then(|mut schedules| schedules.dependant_schedules.pop_first())
+    {
+        for schedule in compute {
+            let _ = world.try_run_schedule(schedule);
+        }
+    }
     execute_state_transition_schedules(world);
 }
 
@@ -463,7 +506,9 @@ pub trait ComputedStates: 'static + Send + Sync + Clone + PartialEq + Eq + Hash 
     }
 }
 
-impl<S: ComputedStates> States for S {}
+impl<S: ComputedStates> States for S {
+    const DEPENDENCY_DEPTH: usize = S::SourceStates::SET_DEPENDENCY_DEPTH + 1;
+}
 
 mod sealed {
     /// Sealed trait used to prevent external implementations of [`StateSet`](super::StateSet).
@@ -477,6 +522,13 @@ mod sealed {
 /// It is sealed, and auto implemented for all [`States`] types and
 /// tuples containing them.
 pub trait StateSet: sealed::StateSetSealed {
+    /// The combined [`DEPENDENCY_DEPTH`](`States::DEPENDENCY_DEPTH`) of all
+    /// the states that are part of this [`StateSet`].
+    ///
+    /// Used to de-duplicate computed state executions and prevent cyclic
+    /// computed states.
+    const SET_DEPENDENCY_DEPTH: usize;
+
     /// The set of states converted into a set of optional states.
     ///
     /// If `StateSet` is a single type, it is wrapped in an `Option`;
@@ -494,24 +546,44 @@ pub trait StateSet: sealed::StateSetSealed {
 impl<S: States> StateSetSealed for S {}
 
 impl<S: States> StateSet for S {
+    const SET_DEPENDENCY_DEPTH: usize = S::DEPENDENCY_DEPTH;
+
     type Optionals = Option<S>;
     fn register_compute_systems_for_dependent_state<T: ComputedStates<SourceStates = Self>>(
         schedules: &mut Schedules,
     ) {
-        let system = |world: &mut World| {
-            let state_set = world.get_resource::<State<Self>>();
-            let new_state = T::compute(state_set.map(|v| v.0.clone()));
-            internal_apply_state_transition(world, new_state);
-        };
-        let label = ComputeDependantStates::<S>::default();
-        match schedules.get_mut(label.clone()) {
-            Some(schedule) => {
-                schedule.add_systems(system);
-            }
-            None => {
+        {
+            let system = |world: &mut World| {
+                let state_set = world.get_resource::<State<Self>>();
+                let new_state = T::compute(state_set.map(|v| v.0.clone()));
+                internal_apply_state_transition(world, new_state);
+            };
+            let label = ComputeComputedState::<T>::default();
+            schedules.insert({
                 let mut schedule = Schedule::new(label);
                 schedule.add_systems(system);
-                schedules.insert(schedule);
+                schedule
+            });
+        }
+
+        {
+            let system = |mut transitions: ResMut<StateTransitionSchedules>| {
+                transitions
+                    .dependant_schedules
+                    .entry(T::DEPENDENCY_DEPTH)
+                    .or_default()
+                    .insert(ComputeComputedState::<T>::default().intern());
+            };
+            let label = ComputeDependantStates::<S>::default();
+            match schedules.get_mut(label.clone()) {
+                Some(schedule) => {
+                    schedule.add_systems(system);
+                }
+                None => {
+                    let mut schedule = Schedule::new(label);
+                    schedule.add_systems(system);
+                    schedules.insert(schedule);
+                }
             }
         }
     }
@@ -522,28 +594,45 @@ macro_rules! impl_state_set_sealed_tuples {
         impl<$($param: States),*> StateSetSealed for  ($($param,)*) {}
 
         impl<$($param: States),*> StateSet for  ($($param,)*) {
+
+            const SET_DEPENDENCY_DEPTH : usize = $($param::DEPENDENCY_DEPTH +)* 0;
+
             type Optionals = ($(Option<$param>,)*);
 
             fn register_compute_systems_for_dependent_state<T: ComputedStates<SourceStates = Self>>(schedules: &mut Schedules) {
+                {
+                    let system =  |world: &mut World| {
+                        let ($($val),*,) = ($(world.get_resource::<State<$param>>()),*,);
 
-                let system =  |world: &mut World| {
-                    let ($($val),*,) = ($(world.get_resource::<State<$param>>()),*,);
+                        let new_state = T::compute(($($val.map(|v| v.0.clone())),*, ));
+                        internal_apply_state_transition(world, new_state);
+                    };
 
-                    let new_state = T::compute(($($val.map(|v| v.0.clone())),*, ));
-                    internal_apply_state_transition(world, new_state);
-                };
-
-                $(let label = ComputeDependantStates::<$param>::default();
-                match schedules.get_mut(label.clone()) {
-                    Some(schedule) => {
-                        schedule.add_systems(system);
-                    },
-                    None => {
+                    let label = ComputeComputedState::<T>::default();
+                    schedules.insert({
                         let mut schedule = Schedule::new(label);
                         schedule.add_systems(system);
-                        schedules.insert(schedule);
-                    },
-                })*
+                        schedule
+                    });
+                }
+
+                {
+                    let system = |mut transitions: ResMut<StateTransitionSchedules>| {
+                        transitions.dependant_schedules.entry(T::DEPENDENCY_DEPTH).or_default().insert(ComputeComputedState::<T>::default().intern());
+                    };
+
+                    $(let label = ComputeDependantStates::<$param>::default();
+                    match schedules.get_mut(label.clone()) {
+                        Some(schedule) => {
+                            schedule.add_systems(system);
+                        },
+                        None => {
+                            let mut schedule = Schedule::new(label);
+                            schedule.add_systems(system);
+                            schedules.insert(schedule);
+                        },
+                    })*
+                }
             }
         }
     };
@@ -555,6 +644,8 @@ all_tuples!(impl_state_set_sealed_tuples, 1, 15, S, s);
 mod tests {
     use super::*;
     use crate as bevy_ecs;
+
+    use crate::prelude::ResMut;
 
     #[derive(States, PartialEq, Eq, Debug, Default, Hash, Clone)]
     enum SimpleState {
@@ -720,5 +811,174 @@ mod tests {
         }));
         world.run_schedule(StateTransition);
         assert!(!world.contains_resource::<State<ComplexComputedState>>());
+    }
+
+    #[derive(Resource, Default)]
+    struct ComputedStateTransitionCounter {
+        enter: usize,
+        exit: usize,
+    }
+
+    #[derive(States, PartialEq, Eq, Debug, Default, Hash, Clone)]
+    enum SimpleState2 {
+        #[default]
+        A1,
+        B2,
+    }
+
+    #[derive(PartialEq, Eq, Debug, Hash, Clone)]
+    enum TestNewcomputedState {
+        A1,
+        B2,
+        B1,
+    }
+
+    impl ComputedStates for TestNewcomputedState {
+        type SourceStates = (SimpleState, SimpleState2);
+
+        fn compute((s1, s2): (Option<SimpleState>, Option<SimpleState2>)) -> Option<Self> {
+            match (s1, s2) {
+                (Some(SimpleState::A), Some(SimpleState2::A1)) => Some(TestNewcomputedState::A1),
+                (Some(SimpleState::B(true)), Some(SimpleState2::B2)) => {
+                    Some(TestNewcomputedState::B2)
+                }
+                (Some(SimpleState::B(true)), _) => Some(TestNewcomputedState::B1),
+                _ => None,
+            }
+        }
+    }
+
+    #[test]
+    fn computed_state_transitions_are_produced_correctly() {
+        let mut world = World::new();
+        world.init_resource::<State<SimpleState>>();
+        world.init_resource::<State<SimpleState2>>();
+
+        let mut schedules = Schedules::new();
+
+        TestNewcomputedState::register_state_compute_systems_in_schedule(&mut schedules);
+
+        let mut apply_changes = Schedule::new(ManualStateTransitions);
+        apply_changes.add_systems(apply_state_transition::<SimpleState>);
+        apply_changes.add_systems(apply_state_transition::<SimpleState2>);
+        schedules.insert(apply_changes);
+
+        schedules.insert({
+            let mut schedule = Schedule::new(OnEnter(TestNewcomputedState::A1));
+            schedule.add_systems(|mut count: ResMut<ComputedStateTransitionCounter>| {
+                count.enter += 1;
+            });
+            schedule
+        });
+
+        schedules.insert({
+            let mut schedule = Schedule::new(OnExit(TestNewcomputedState::A1));
+            schedule.add_systems(|mut count: ResMut<ComputedStateTransitionCounter>| {
+                count.exit += 1;
+            });
+            schedule
+        });
+
+        schedules.insert({
+            let mut schedule = Schedule::new(OnEnter(TestNewcomputedState::B1));
+            schedule.add_systems(|mut count: ResMut<ComputedStateTransitionCounter>| {
+                count.enter += 1;
+            });
+            schedule
+        });
+
+        schedules.insert({
+            let mut schedule = Schedule::new(OnExit(TestNewcomputedState::B1));
+            schedule.add_systems(|mut count: ResMut<ComputedStateTransitionCounter>| {
+                count.exit += 1;
+            });
+            schedule
+        });
+
+        schedules.insert({
+            let mut schedule = Schedule::new(OnEnter(TestNewcomputedState::B2));
+            schedule.add_systems(|mut count: ResMut<ComputedStateTransitionCounter>| {
+                count.enter += 1;
+            });
+            schedule
+        });
+
+        schedules.insert({
+            let mut schedule = Schedule::new(OnExit(TestNewcomputedState::B2));
+            schedule.add_systems(|mut count: ResMut<ComputedStateTransitionCounter>| {
+                count.exit += 1;
+            });
+            schedule
+        });
+
+        world.insert_resource(schedules);
+
+        world.init_resource::<ComputedStateTransitionCounter>();
+
+        setup_state_transitions_in_world(&mut world);
+
+        assert_eq!(world.resource::<State<SimpleState>>().0, SimpleState::A);
+        assert_eq!(world.resource::<State<SimpleState2>>().0, SimpleState2::A1);
+        assert!(!world.contains_resource::<State<TestNewcomputedState>>());
+
+        world.insert_resource(NextState::Set(SimpleState::B(true)));
+        world.insert_resource(NextState::Set(SimpleState2::B2));
+        world.run_schedule(StateTransition);
+        assert_eq!(
+            world.resource::<State<TestNewcomputedState>>().0,
+            TestNewcomputedState::B2
+        );
+        assert_eq!(world.resource::<ComputedStateTransitionCounter>().enter, 1);
+        assert_eq!(world.resource::<ComputedStateTransitionCounter>().exit, 0);
+
+        world.insert_resource(NextState::Set(SimpleState2::A1));
+        world.insert_resource(NextState::Set(SimpleState::A));
+        world.run_schedule(StateTransition);
+        assert_eq!(
+            world.resource::<State<TestNewcomputedState>>().0,
+            TestNewcomputedState::A1
+        );
+        assert_eq!(
+            world.resource::<ComputedStateTransitionCounter>().enter,
+            2,
+            "Should Only Enter Twice"
+        );
+        assert_eq!(
+            world.resource::<ComputedStateTransitionCounter>().exit,
+            1,
+            "Should Only Exit Once"
+        );
+
+        world.insert_resource(NextState::Set(SimpleState::B(true)));
+        world.insert_resource(NextState::Set(SimpleState2::B2));
+        world.run_schedule(StateTransition);
+        assert_eq!(
+            world.resource::<State<TestNewcomputedState>>().0,
+            TestNewcomputedState::B2
+        );
+        assert_eq!(
+            world.resource::<ComputedStateTransitionCounter>().enter,
+            3,
+            "Should Only Enter Three Times"
+        );
+        assert_eq!(
+            world.resource::<ComputedStateTransitionCounter>().exit,
+            2,
+            "Should Only Exit Twice"
+        );
+
+        world.insert_resource(NextState::Set(SimpleState::A));
+        world.run_schedule(StateTransition);
+        assert!(!world.contains_resource::<State<TestNewcomputedState>>());
+        assert_eq!(
+            world.resource::<ComputedStateTransitionCounter>().enter,
+            3,
+            "Should Only Enter Three Times"
+        );
+        assert_eq!(
+            world.resource::<ComputedStateTransitionCounter>().exit,
+            3,
+            "Should Only Exit Twice"
+        );
     }
 }

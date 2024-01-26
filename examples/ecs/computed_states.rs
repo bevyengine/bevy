@@ -162,6 +162,14 @@ impl ComputedStates for Tutorial {
 }
 
 fn main() {
+    println!("Dependency Depths:");
+    println!("AppState - {}", AppState::DEPENDENCY_DEPTH);
+    println!("TutorialState - {}", TutorialState::DEPENDENCY_DEPTH);
+    println!("InGame - {}", InGame::DEPENDENCY_DEPTH);
+    println!("IsPaused - {}", IsPaused::DEPENDENCY_DEPTH);
+    println!("TurboMode - {}", TurboMode::DEPENDENCY_DEPTH);
+    println!("Tutorial - {}", Tutorial::DEPENDENCY_DEPTH);
+
     // We start the setup like we did in the states example.
     App::new()
         .add_plugins(DefaultPlugins)
