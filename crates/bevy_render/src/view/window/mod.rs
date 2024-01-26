@@ -16,7 +16,9 @@ use std::{
     ops::{Deref, DerefMut},
     sync::PoisonError,
 };
-use wgpu::{BufferUsages, TextureFormat, TextureUsages, TextureViewDescriptor};
+use wgpu::{
+    BufferUsages, SurfaceTargetUnsafe, TextureFormat, TextureUsages, TextureViewDescriptor,
+};
 
 pub mod screenshot;
 
@@ -193,7 +195,8 @@ fn extract_windows(
 }
 
 struct SurfaceData {
-    surface: wgpu::Surface,
+    // TODO: what lifetime should this be?
+    surface: wgpu::Surface<'static>,
     format: TextureFormat,
 }
 
@@ -253,12 +256,16 @@ pub fn prepare_windows(
             .surfaces
             .entry(window.entity)
             .or_insert_with(|| {
+                let surface_target = SurfaceTargetUnsafe::RawHandle {
+                    raw_display_handle: window.handle.display_handle,
+                    raw_window_handle: window.handle.window_handle,
+                };
                 // SAFETY: The window handles in ExtractedWindows will always be valid objects to create surfaces on
                 let surface = unsafe {
                     // NOTE: On some OSes this MUST be called from the main thread.
                     // As of wgpu 0.15, only fallible if the given window is a HTML canvas and obtaining a WebGPU or WebGL2 context fails.
                     render_instance
-                        .create_surface(&window.handle.get_handle())
+                        .create_surface_unsafe(surface_target)
                         .expect("Failed to create wgpu surface")
                 };
                 let caps = surface.get_capabilities(&render_adapter);
@@ -293,6 +300,12 @@ pub fn prepare_windows(
                 PresentMode::AutoVsync => wgpu::PresentMode::AutoVsync,
                 PresentMode::AutoNoVsync => wgpu::PresentMode::AutoNoVsync,
             },
+            // TODO: Expose this as a setting somewhere
+            // 2 is wgpu's default/what we've been using so far.
+            // 1 is the minimum, but may cause lower framerates due to the cpu waiting for the gpu to finish
+            // all work for the previous frame before starting work on the next frame, which then means the gpu
+            // has to wait for the cpu to finish to start on the next frame.
+            desired_maximum_frame_latency: 2,
             alpha_mode: match window.alpha_mode {
                 CompositeAlphaMode::Auto => wgpu::CompositeAlphaMode::Auto,
                 CompositeAlphaMode::Opaque => wgpu::CompositeAlphaMode::Opaque,
@@ -347,6 +360,7 @@ pub fn prepare_windows(
         let may_erroneously_timeout = || {
             render_instance
                 .enumerate_adapters(wgpu::Backends::VULKAN)
+                .iter()
                 .any(|adapter| {
                     let name = adapter.get_info().name;
                     name.starts_with("Radeon")

@@ -5,7 +5,6 @@ use crate::{
 };
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
-use bevy_derive::Deref;
 use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
@@ -22,6 +21,7 @@ use bevy_render::{
     view::{ExtractedView, ViewTarget},
     Render, RenderApp, RenderSet,
 };
+use bevy_utils::default;
 
 mod node;
 
@@ -123,27 +123,37 @@ impl Plugin for FxaaPlugin {
     }
 }
 
-#[derive(Resource, Deref)]
+#[derive(Resource)]
 pub struct FxaaPipeline {
     texture_bind_group: BindGroupLayout,
+    sampler: Sampler,
 }
 
 impl FromWorld for FxaaPipeline {
     fn from_world(render_world: &mut World) -> Self {
-        let texture_bind_group = render_world
-            .resource::<RenderDevice>()
-            .create_bind_group_layout(
-                "fxaa_texture_bind_group_layout",
-                &BindGroupLayoutEntries::sequential(
-                    ShaderStages::FRAGMENT,
-                    (
-                        texture_2d(TextureSampleType::Float { filterable: true }),
-                        sampler(SamplerBindingType::Filtering),
-                    ),
+        let render_device = render_world.resource::<RenderDevice>();
+        let texture_bind_group = render_device.create_bind_group_layout(
+            "fxaa_texture_bind_group_layout",
+            &BindGroupLayoutEntries::sequential(
+                ShaderStages::FRAGMENT,
+                (
+                    texture_2d(TextureSampleType::Float { filterable: true }),
+                    sampler(SamplerBindingType::Filtering),
                 ),
-            );
+            ),
+        );
 
-        FxaaPipeline { texture_bind_group }
+        let sampler = render_device.create_sampler(&SamplerDescriptor {
+            mipmap_filter: FilterMode::Linear,
+            mag_filter: FilterMode::Linear,
+            min_filter: FilterMode::Linear,
+            ..default()
+        });
+
+        FxaaPipeline {
+            texture_bind_group,
+            sampler,
+        }
     }
 }
 
