@@ -50,7 +50,7 @@ use super::{InternedScheduleLabel, Schedule, Schedules};
 /// ```
 pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug {
     /// How many other states this state depends on.
-    /// Used to help order and de-duplicate [`ComputedStates`], as well as prevent cyclical
+    /// Used to help order transitions and de-duplicate [`ComputedStates`], as well as prevent cyclical
     /// `ComputedState` dependencies.
     const DEPENDENCY_DEPTH: usize = 1;
 }
@@ -260,20 +260,30 @@ pub struct StateTransition;
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ManualStateTransitions;
 
+/// This function actually applies a state change, and registeres the required
+/// schedules for downstream computed states and transition schedules.
+/// 
+/// The `new_state` is an option to allow for removal - `None` will trigger the
+/// removal of the `State<S>` resource from the [`World`].
 fn internal_apply_state_transition<S: States>(world: &mut World, new_state: Option<S>) {
     match new_state {
         Some(entered) => {
             match world.get_resource_mut::<State<S>>() {
+                // If the [`State<S>`] resource exists, and the state is not the one we are
+                // entering - we need to set the new value, compute dependant states, send transition events
+                // and register transition schedules.
                 Some(mut state_resource) => {
                     if *state_resource != entered {
                         let exited = mem::replace(&mut state_resource.0, entered.clone());
+
+                        world
+                            .try_run_schedule(ComputeDependantStates::<S>::default())
+                            .ok();
+
                         world.send_event(StateTransitionEvent {
                             before: exited.clone(),
                             after: entered.clone(),
                         });
-                        world
-                            .try_run_schedule(ComputeDependantStates::<S>::default())
-                            .ok();
 
                         let mut state_transition_schedules =
                             world.get_resource_or_insert_with(StateTransitionSchedules::default);
@@ -301,7 +311,9 @@ fn internal_apply_state_transition<S: States>(world: &mut World, new_state: Opti
                     }
                 }
                 None => {
+                    // If the [`State<S>`] resource does not exist, we create it, compute dependant states, and register the `OnEnter` schedule.
                     world.insert_resource(State(entered.clone()));
+
                     world
                         .try_run_schedule(ComputeDependantStates::<S>::default())
                         .ok();
@@ -317,6 +329,7 @@ fn internal_apply_state_transition<S: States>(world: &mut World, new_state: Opti
             };
         }
         None => {
+            // We first remove the [`State<S>`] resource, and if one existed we compute dependant states and run the `OnExit` schedule.
             if let Some(resource) = world.remove_resource::<State<S>>() {
                 world
                     .try_run_schedule(ComputeDependantStates::<S>::default())
