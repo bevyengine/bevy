@@ -2,7 +2,6 @@
 
 use bevy::prelude::*;
 use bevy_internal::utils::HashSet;
-use core::f32::consts::PI;
 
 fn main() {
     App::new()
