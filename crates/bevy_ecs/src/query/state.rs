@@ -401,12 +401,14 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         }
     }
 
-
     /// TODO: add docs
-    pub fn join<OtherD: QueryData, NewD: QueryData>(&self, world: &World, other: &QueryState<OtherD>)  -> QueryState<NewD, ()> {
+    pub fn join<OtherD: QueryData, NewD: QueryData>(
+        &self,
+        world: &World,
+        other: &QueryState<OtherD>,
+    ) -> QueryState<NewD, ()> {
         self.join_filtered::<_, (), NewD, ()>(world, other)
     }
-
 
     /// This takes the intersection of matches between two queries and creates a new query state. Similar to [`transmute`] you can change the terms.
     /// TODO: extend this with more info
@@ -1882,13 +1884,12 @@ mod tests {
         world.spawn(A(0));
         world.spawn(B(1));
         let entity_ab = world.spawn((A(2), B(3))).id();
+        world.spawn((A(4), B(5), C(6)));
 
-        let query_1 = QueryState::<&A>::new(&mut world);
-        let query_2 = QueryState::<&B>::new(&mut world);
-        let mut new_query: QueryState<Entity, ()> = query_1.join(&world, &query_2);
+        let query_1 = QueryState::<&A, Without<C>>::new(&mut world);
+        let query_2 = QueryState::<&B, Without<C>>::new(&mut world);
+        let mut new_query: QueryState<Entity, ()> = query_1.join_filtered(&world, &query_2);
 
         assert_eq!(new_query.single(&world), entity_ab);
     }
-
-    // TODO: add more tests for joins
 }
