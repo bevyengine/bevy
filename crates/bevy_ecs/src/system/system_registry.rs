@@ -376,11 +376,10 @@ impl<I: 'static, O: 'static> RegisterSystem<I, O> {
 impl<I: 'static + Send, O: 'static + Send> Command for RegisterSystem<I, O> {
     fn apply(self, world: &mut World) {
         let _ = world.get_entity_mut(self.entity).map(|mut entity| {
-            entity
-                .insert(RegisteredSystem {
-                    initialized: false,
-                    system: self.system,
-                });
+            entity.insert(RegisteredSystem {
+                initialized: false,
+                system: self.system,
+            });
         });
     }
 }
