@@ -37,6 +37,9 @@ use bevy_utils::EntityHashMap;
 ///
 pub trait MapEntities {
     /// Updates all [`Entity`] references stored inside using `entity_mapper`.
+    ///
+    /// Implementors should look up any and all [`Entity`] values stored within and
+    /// update them to the mapped values via `entity_mapper`.
     fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M);
 }
 
@@ -154,7 +157,7 @@ mod tests {
     use bevy_utils::EntityHashMap;
 
     use crate::{
-        entity::{Entity, SceneEntityMapper},
+        entity::{Entity, EntityMapper, SceneEntityMapper},
         world::World,
     };
 
