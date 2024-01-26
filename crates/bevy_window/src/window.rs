@@ -1,5 +1,5 @@
 use bevy_ecs::{
-    entity::{Entity, MapEntities, Mapper},
+    entity::{Entity, EntityMapper, MapEntities},
     prelude::{Component, ReflectComponent},
 };
 use bevy_math::{DVec2, IVec2, Vec2};
@@ -59,7 +59,7 @@ impl WindowRef {
 }
 
 impl MapEntities for WindowRef {
-    fn map_entities<M: Mapper>(&mut self, entity_mapper: &mut M) {
+    fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
         match self {
             Self::Entity(entity) => {
                 *entity = entity_mapper.map(*entity);

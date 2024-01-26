@@ -2,7 +2,7 @@
 use bevy_ecs::reflect::{ReflectComponent, ReflectMapEntities};
 use bevy_ecs::{
     component::Component,
-    entity::{Entity, MapEntities, Mapper},
+    entity::{Entity, EntityMapper, MapEntities},
     world::{FromWorld, World},
 };
 use std::ops::Deref;
@@ -56,7 +56,7 @@ impl FromWorld for Parent {
 }
 
 impl MapEntities for Parent {
-    fn map_entities<M: Mapper>(&mut self, entity_mapper: &mut M) {
+    fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
         self.0 = entity_mapper.map(self.0);
     }
 }
