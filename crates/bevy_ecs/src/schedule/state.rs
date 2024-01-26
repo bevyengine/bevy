@@ -227,9 +227,9 @@ impl<S: FreelyMutableState> NextState<S> {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Event)]
 pub struct StateTransitionEvent<S: States> {
     /// the state we were in before
-    pub before: S,
+    pub before: Option<S>,
     /// the state we're in now
-    pub after: S,
+    pub after: Option<S>,
 }
 
 /// Run the enter schedule (if it exists) for the current state.
@@ -281,8 +281,8 @@ fn internal_apply_state_transition<S: States>(world: &mut World, new_state: Opti
                             .ok();
 
                         world.send_event(StateTransitionEvent {
-                            before: exited.clone(),
-                            after: entered.clone(),
+                            before: Some(exited.clone()),
+                            after: Some(entered.clone()),
                         });
 
                         let mut state_transition_schedules =
@@ -311,12 +311,17 @@ fn internal_apply_state_transition<S: States>(world: &mut World, new_state: Opti
                     }
                 }
                 None => {
-                    // If the [`State<S>`] resource does not exist, we create it, compute dependant states, and register the `OnEnter` schedule.
+                    // If the [`State<S>`] resource does not exist, we create it, compute dependant states, send a transition event and register the `OnEnter` schedule.
                     world.insert_resource(State(entered.clone()));
 
                     world
                         .try_run_schedule(ComputeDependantStates::<S>::default())
                         .ok();
+
+                    world.send_event(StateTransitionEvent {
+                        before: None,
+                        after: Some(entered.clone()),
+                    });
 
                     let mut state_transition_schedules =
                         world.get_resource_or_insert_with(StateTransitionSchedules::default);
@@ -329,11 +334,16 @@ fn internal_apply_state_transition<S: States>(world: &mut World, new_state: Opti
             };
         }
         None => {
-            // We first remove the [`State<S>`] resource, and if one existed we compute dependant states and run the `OnExit` schedule.
+            // We first remove the [`State<S>`] resource, and if one existed we compute dependant states, send a transition event and run the `OnExit` schedule.
             if let Some(resource) = world.remove_resource::<State<S>>() {
                 world
                     .try_run_schedule(ComputeDependantStates::<S>::default())
                     .ok();
+
+                world.send_event(StateTransitionEvent {
+                    before: Some(resource.get().clone()),
+                    after: None
+                });
 
                 let mut state_transition_schedules =
                     world.get_resource_or_insert_with(StateTransitionSchedules::default);
