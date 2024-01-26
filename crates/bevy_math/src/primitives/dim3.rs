@@ -199,9 +199,10 @@ impl Segment3d {
 ///
 /// For a version without generics: [`BoxedPolyline3d`]
 #[derive(Clone, Debug, PartialEq)]
-// #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Polyline3d<const N: usize> {
     /// The vertices of the polyline
+    #[serde(with = "super::serde::array")]
     pub vertices: [Vec3; N],
 }
 impl<const N: usize> Primitive3d for Polyline3d<N> {}

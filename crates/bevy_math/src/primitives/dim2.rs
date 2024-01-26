@@ -241,9 +241,10 @@ impl Segment2d {
 ///
 /// For a version without generics: [`BoxedPolyline2d`]
 #[derive(Clone, Debug, PartialEq)]
-// #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Polyline2d<const N: usize> {
     /// The vertices of the polyline
+    #[serde(with = "super::serde::array")]
     pub vertices: [Vec2; N],
 }
 impl<const N: usize> Primitive2d for Polyline2d<N> {}
@@ -404,9 +405,10 @@ impl Rectangle {
 ///
 /// For a version without generics: [`BoxedPolygon`]
 #[derive(Clone, Debug, PartialEq)]
-// #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Polygon<const N: usize> {
     /// The vertices of the `Polygon`
+    #[serde(with = "super::serde::array")]
     pub vertices: [Vec2; N],
 }
 impl<const N: usize> Primitive2d for Polygon<N> {}
