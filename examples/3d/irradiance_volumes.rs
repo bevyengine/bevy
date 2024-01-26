@@ -7,7 +7,8 @@ use bevy::window::PrimaryWindow;
 // Rotation speed in radians per frame.
 const ROTATION_SPEED: f32 = 0.005;
 
-const FOX_SCALE: f32 = 0.025;
+const FOX_SCALE: f32 = 0.05;
+const SPHERE_SCALE: f32 = 2.0;
 
 const IRRADIANCE_VOLUME_INTENSITY: f32 = 150.0;
 
@@ -104,10 +105,10 @@ fn setup(
     commands
         .spawn(SpatialBundle {
             transform: Transform::from_matrix(Mat4::from_cols_array_2d(&[
-                [-41.035217, 0.0, 0.0, 0.0],
-                [0.0, 0.0, 43.25, 0.0],
-                [0.0, 15.2161455, 0.0, 0.0],
-                [-0.6411934, 7.923941, 0.67577934, 1.0],
+                [-42.317566, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 44.601563, 0.0],
+                [0.0, 16.73776, 0.0, 0.0],
+                [0.0, 6.544792, 0.0, 1.0],
             ])),
             ..SpatialBundle::default()
         })
@@ -131,7 +132,8 @@ fn setup(
         .spawn(PbrBundle {
             mesh: assets.sphere.clone(),
             material: assets.main_material.clone(),
-            transform: Transform::from_xyz(0.0, 1.0, 0.0),
+            transform: Transform::from_xyz(0.0, SPHERE_SCALE, 0.0)
+                .with_scale(Vec3::splat(SPHERE_SCALE)),
             ..default()
         })
         .insert(MainObject);

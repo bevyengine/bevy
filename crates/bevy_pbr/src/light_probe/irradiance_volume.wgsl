@@ -38,7 +38,7 @@ fn sample_irradiance_volume(world_position: vec3<f32>, N: vec3<f32>) -> Irradian
 
     // Make sure to clamp to the edges to avoid texture bleed.
     var unit_pos = (query_result.inverse_transform * vec4(world_position, 1.0f)).xyz;
-    unit_pos = mix(vec3(0.0f), vec3(resolution), unit_pos + 0.5);
+    unit_pos = mix(vec3(-0.5f), vec3(resolution) + 0.5f, unit_pos + 0.5);
 
     let stp = clamp(unit_pos, vec3(0.5f), resolution - vec3(0.5f));
     let uvw = stp / atlas_resolution;
