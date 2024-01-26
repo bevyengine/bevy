@@ -2,9 +2,9 @@ use crate::container_attributes::REFLECT_DEFAULT;
 use crate::derive_data::ReflectEnum;
 use crate::enum_utility::{get_variant_constructors, EnumVariantConstructors};
 use crate::field_attributes::DefaultBehavior;
-use crate::fq_std::{FQAny, FQClone, FQDefault, FQOption};
 use crate::utility::{extend_where_clause, ident_or_index, WhereClauseOptions};
 use crate::{ReflectMeta, ReflectStruct};
+use bevy_macro_utils::fq_std::{FQAny, FQClone, FQDefault, FQOption};
 use proc_macro2::Span;
 use quote::{quote, ToTokens};
 use syn::{Field, Ident, Lit, LitInt, LitStr, Member};
@@ -73,7 +73,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
                 if let #bevy_reflect_path::ReflectRef::Enum(#ref_value) = #bevy_reflect_path::Reflect::reflect_ref(#ref_value) {
                     match #bevy_reflect_path::Enum::variant_name(#ref_value) {
                         #(#variant_names => #fqoption::Some(#variant_constructors),)*
-                        name => panic!("variant with name `{}` does not exist on enum `{}`", name, ::core::any::type_name::<Self>()),
+                        name => panic!("variant with name `{}` does not exist on enum `{}`", name, <Self as #bevy_reflect_path::TypePath>::type_path()),
                     }
                 } else {
                     #FQOption::None
@@ -189,7 +189,7 @@ fn get_ignored_fields(reflect_struct: &ReflectStruct) -> MemberValuePair {
         reflect_struct
             .ignored_fields()
             .map(|field| {
-                let member = ident_or_index(field.data.ident.as_ref(), field.index);
+                let member = ident_or_index(field.data.ident.as_ref(), field.declaration_index);
 
                 let value = match &field.attrs.default {
                     DefaultBehavior::Func(path) => quote! {#path()},
@@ -218,8 +218,12 @@ fn get_active_fields(
         reflect_struct
             .active_fields()
             .map(|field| {
-                let member = ident_or_index(field.data.ident.as_ref(), field.index);
-                let accessor = get_field_accessor(field.data, field.index, is_tuple);
+                let member = ident_or_index(field.data.ident.as_ref(), field.declaration_index);
+                let accessor = get_field_accessor(
+                    field.data,
+                    field.reflection_index.expect("field should be active"),
+                    is_tuple,
+                );
                 let ty = field.data.ty.clone();
 
                 let get_field = quote! {

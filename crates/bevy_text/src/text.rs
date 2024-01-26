@@ -5,7 +5,7 @@ use bevy_render::color::Color;
 use bevy_utils::default;
 use serde::{Deserialize, Serialize};
 
-use crate::{Font, DEFAULT_FONT_HANDLE};
+use crate::Font;
 
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
@@ -13,7 +13,7 @@ pub struct Text {
     pub sections: Vec<TextSection>,
     /// The text's internal alignment.
     /// Should not affect its position within a container.
-    pub alignment: TextAlignment,
+    pub justify: JustifyText,
     /// How the text should linebreak when running out of the bounds determined by max_size
     pub linebreak_behavior: BreakLineOn,
 }
@@ -22,7 +22,7 @@ impl Default for Text {
     fn default() -> Self {
         Self {
             sections: Default::default(),
-            alignment: TextAlignment::Left,
+            justify: JustifyText::Left,
             linebreak_behavior: BreakLineOn::WordBoundary,
         }
     }
@@ -34,7 +34,7 @@ impl Text {
     /// ```
     /// # use bevy_asset::Handle;
     /// # use bevy_render::color::Color;
-    /// # use bevy_text::{Font, Text, TextStyle, TextAlignment};
+    /// # use bevy_text::{Font, Text, TextStyle, JustifyText};
     /// #
     /// # let font_handle: Handle<Font> = Default::default();
     /// #
@@ -50,14 +50,14 @@ impl Text {
     /// );
     ///
     /// let hello_bevy = Text::from_section(
-    ///     "hello bevy!",
+    ///     "hello world\nand bevy!",
     ///     TextStyle {
     ///         font: font_handle,
     ///         font_size: 60.0,
     ///         color: Color::WHITE,
     ///     },
-    /// ) // You can still add an alignment.
-    /// .with_alignment(TextAlignment::Center);
+    /// ) // You can still add text justifaction.
+    /// .with_justify(JustifyText::Center);
     /// ```
     pub fn from_section(value: impl Into<String>, style: TextStyle) -> Self {
         Self {
@@ -101,9 +101,9 @@ impl Text {
         }
     }
 
-    /// Returns this [`Text`] with a new [`TextAlignment`].
-    pub const fn with_alignment(mut self, alignment: TextAlignment) -> Self {
-        self.alignment = alignment;
+    /// Returns this [`Text`] with a new [`JustifyText`].
+    pub const fn with_justify(mut self, justify: JustifyText) -> Self {
+        self.justify = justify;
         self
     }
 
@@ -139,34 +139,62 @@ impl TextSection {
     }
 }
 
-/// Describes horizontal alignment preference for positioning & bounds.
+#[cfg(feature = "default_font")]
+impl From<&str> for TextSection {
+    fn from(value: &str) -> Self {
+        Self {
+            value: value.into(),
+            ..default()
+        }
+    }
+}
+
+#[cfg(feature = "default_font")]
+impl From<String> for TextSection {
+    fn from(value: String) -> Self {
+        Self {
+            value,
+            ..Default::default()
+        }
+    }
+}
+
+/// Describes the horizontal alignment of multiple lines of text relative to each other.
+/// This only affects the internal positioning of the lines of text within a text entity and
+/// does not affect the text entity's position.
+///
+/// _Has no affect on a single line text entity._
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize)]
-pub enum TextAlignment {
-    /// Leftmost character is immediately to the right of the render position.<br/>
+pub enum JustifyText {
+    /// Leftmost character is immediately to the right of the render position.
     /// Bounds start from the render position and advance rightwards.
     #[default]
     Left,
-    /// Leftmost & rightmost characters are equidistant to the render position.<br/>
+    /// Leftmost & rightmost characters are equidistant to the render position.
     /// Bounds start from the render position and advance equally left & right.
     Center,
-    /// Rightmost character is immediately to the left of the render position.<br/>
+    /// Rightmost character is immediately to the left of the render position.
     /// Bounds start from the render position and advance leftwards.
     Right,
 }
 
-impl From<TextAlignment> for glyph_brush_layout::HorizontalAlign {
-    fn from(val: TextAlignment) -> Self {
+impl From<JustifyText> for glyph_brush_layout::HorizontalAlign {
+    fn from(val: JustifyText) -> Self {
         match val {
-            TextAlignment::Left => glyph_brush_layout::HorizontalAlign::Left,
-            TextAlignment::Center => glyph_brush_layout::HorizontalAlign::Center,
-            TextAlignment::Right => glyph_brush_layout::HorizontalAlign::Right,
+            JustifyText::Left => glyph_brush_layout::HorizontalAlign::Left,
+            JustifyText::Center => glyph_brush_layout::HorizontalAlign::Center,
+            JustifyText::Right => glyph_brush_layout::HorizontalAlign::Right,
         }
     }
 }
 
 #[derive(Clone, Debug, Reflect)]
 pub struct TextStyle {
+    /// If this is not specified, then
+    /// * if `default_font` feature is enabled (enabled by default in `bevy` crate),
+    ///  `FiraMono-subset.ttf` compiled into the library is used.
+    /// * otherwise no text will be rendered.
     pub font: Handle<Font>,
     /// The vertical height of rasterized glyphs in the font atlas in pixels.
     ///
@@ -182,7 +210,7 @@ pub struct TextStyle {
 impl Default for TextStyle {
     fn default() -> Self {
         Self {
-            font: DEFAULT_FONT_HANDLE.typed(),
+            font: Default::default(),
             font_size: 12.0,
             color: Color::WHITE,
         }

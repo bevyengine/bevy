@@ -103,7 +103,7 @@ struct EventInstance<E: Event> {
 /// This collection is meant to be paired with a system that calls
 /// [`Events::update`] exactly once per update/frame.
 ///
-/// [`Events::update_system`] is a system that does this, typically initialized automatically using
+/// [`event_update_system`] is a system that does this, typically initialized automatically using
 /// [`add_event`](https://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event).
 /// [`EventReader`]s are expected to read events from this collection at least once per loop/frame.
 /// Events will persist across a single frame boundary and so ordering of event producers and
@@ -131,12 +131,12 @@ struct EventInstance<E: Event> {
 /// events.send(MyEvent { value: 1 });
 ///
 /// // somewhere else: read the events
-/// for event in reader.iter(&events) {
+/// for event in reader.read(&events) {
 ///     assert_eq!(event.value, 1)
 /// }
 ///
 /// // events are only processed once per reader
-/// assert_eq!(reader.iter(&events).count(), 0);
+/// assert_eq!(reader.read(&events).count(), 0);
 /// ```
 ///
 /// # Details
@@ -191,7 +191,8 @@ impl<E: Event> Events<E> {
 
     /// "Sends" an `event` by writing it to the current event buffer. [`EventReader`]s can then read
     /// the event.
-    pub fn send(&mut self, event: E) {
+    /// This method returns the [ID](`EventId`) of the sent `event`.
+    pub fn send(&mut self, event: E) -> EventId<E> {
         let event_id = EventId {
             id: self.event_count,
             _marker: PhantomData,
@@ -202,14 +203,32 @@ impl<E: Event> Events<E> {
 
         self.events_b.push(event_instance);
         self.event_count += 1;
+
+        event_id
+    }
+
+    /// Sends a list of `events` all at once, which can later be read by [`EventReader`]s.
+    /// This is more efficient than sending each event individually.
+    /// This method returns the [IDs](`EventId`) of the sent `events`.
+    pub fn send_batch(&mut self, events: impl IntoIterator<Item = E>) -> SendBatchIds<E> {
+        let last_count = self.event_count;
+
+        self.extend(events);
+
+        SendBatchIds {
+            last_count,
+            event_count: self.event_count,
+            _marker: PhantomData,
+        }
     }
 
     /// Sends the default value of the event. Useful when the event is an empty struct.
-    pub fn send_default(&mut self)
+    /// This method returns the [ID](`EventId`) of the sent `event`.
+    pub fn send_default(&mut self) -> EventId<E>
     where
         E: Default,
     {
-        self.send(Default::default());
+        self.send(Default::default())
     }
 
     /// Gets a new [`ManualEventReader`]. This will include all events already in the event buffers.
@@ -249,11 +268,6 @@ impl<E: Event> Events<E> {
         );
 
         iter.map(|e| e.event)
-    }
-
-    /// A system that calls [`Events::update`] once per frame.
-    pub fn update_system(mut events: ResMut<Self>) {
-        events.update();
     }
 
     #[inline]
@@ -332,7 +346,7 @@ impl<E: Event> Events<E> {
     }
 }
 
-impl<E: Event> std::iter::Extend<E> for Events<E> {
+impl<E: Event> Extend<E> for Events<E> {
     fn extend<I>(&mut self, iter: I)
     where
         I: IntoIterator<Item = E>,
@@ -393,6 +407,11 @@ impl<E: Event> DerefMut for EventSequence<E> {
 }
 
 /// Reads events of type `T` in order and tracks which events have already been read.
+///
+/// # Concurrency
+///
+/// Unlike [`EventWriter<T>`], systems with `EventReader<T>` param can be executed concurrently
+/// (but not concurrently with `EventWriter<T>` systems for the same event type).
 #[derive(SystemParam, Debug)]
 pub struct EventReader<'w, 's, E: Event> {
     reader: Local<'s, ManualEventReader<E>>,
@@ -407,22 +426,8 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
         self.reader.read(&self.events)
     }
 
-    /// Iterates over the events this [`EventReader`] has not seen yet. This updates the
-    /// [`EventReader`]'s event counter, which means subsequent event reads will not include events
-    /// that happened before now.
-    #[deprecated = "use `.read()` instead."]
-    pub fn iter(&mut self) -> EventIterator<'_, E> {
-        self.reader.read(&self.events)
-    }
-
     /// Like [`read`](Self::read), except also returning the [`EventId`] of the events.
     pub fn read_with_id(&mut self) -> EventIteratorWithId<'_, E> {
-        self.reader.read_with_id(&self.events)
-    }
-
-    /// Like [`iter`](Self::iter), except also returning the [`EventId`] of the events.
-    #[deprecated = "use `.read_with_id() instead."]
-    pub fn iter_with_id(&mut self) -> EventIteratorWithId<'_, E> {
         self.reader.read_with_id(&self.events)
     }
 
@@ -458,8 +463,8 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
 
     /// Consumes all available events.
     ///
-    /// This means these events will not appear in calls to [`EventReader::iter()`] or
-    /// [`EventReader::iter_with_id()`] and [`EventReader::is_empty()`] will return `true`.
+    /// This means these events will not appear in calls to [`EventReader::read()`] or
+    /// [`EventReader::read_with_id()`] and [`EventReader::is_empty()`] will return `true`.
     ///
     /// For usage, see [`EventReader::is_empty()`].
     pub fn clear(&mut self) {
@@ -484,7 +489,12 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
 /// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
 ///
-/// # Limitations
+/// # Concurrency
+///
+/// `EventWriter` param has [`ResMut<Events<T>>`](Events) inside. So two systems declaring `EventWriter<T>` params
+/// for the same event type won't be executed concurrently.
+///
+/// # Untyped events
 ///
 /// `EventWriter` can only send events of one specific type, which must be known at compile-time.
 /// This is not a problem most of the time, but you may find a situation where you cannot know
@@ -517,26 +527,31 @@ pub struct EventWriter<'w, E: Event> {
 
 impl<'w, E: Event> EventWriter<'w, E> {
     /// Sends an `event`, which can later be read by [`EventReader`]s.
+    /// This method returns the [ID](`EventId`) of the sent `event`.
     ///
     /// See [`Events`] for details.
-    pub fn send(&mut self, event: E) {
-        self.events.send(event);
+    pub fn send(&mut self, event: E) -> EventId<E> {
+        self.events.send(event)
     }
 
     /// Sends a list of `events` all at once, which can later be read by [`EventReader`]s.
     /// This is more efficient than sending each event individually.
+    /// This method returns the [IDs](`EventId`) of the sent `events`.
     ///
     /// See [`Events`] for details.
-    pub fn send_batch(&mut self, events: impl IntoIterator<Item = E>) {
-        self.events.extend(events);
+    pub fn send_batch(&mut self, events: impl IntoIterator<Item = E>) -> SendBatchIds<E> {
+        self.events.send_batch(events)
     }
 
     /// Sends the default value of the event. Useful when the event is an empty struct.
-    pub fn send_default(&mut self)
+    /// This method returns the [ID](`EventId`) of the sent `event`.
+    ///
+    /// See [`Events`] for details.
+    pub fn send_default(&mut self) -> EventId<E>
     where
         E: Default,
     {
-        self.events.send_default();
+        self.events.send_default()
     }
 }
 
@@ -564,20 +579,8 @@ impl<E: Event> ManualEventReader<E> {
         self.read_with_id(events).without_id()
     }
 
-    /// See [`EventReader::iter`]
-    #[deprecated = "use `.read()` instead."]
-    pub fn iter<'a>(&'a mut self, events: &'a Events<E>) -> EventIterator<'a, E> {
-        self.read_with_id(events).without_id()
-    }
-
     /// See [`EventReader::read_with_id`]
     pub fn read_with_id<'a>(&'a mut self, events: &'a Events<E>) -> EventIteratorWithId<'a, E> {
-        EventIteratorWithId::new(self, events)
-    }
-
-    /// See [`EventReader::iter_with_id`]
-    #[deprecated = "use `.read_with_id() instead."]
-    pub fn iter_with_id<'a>(&'a mut self, events: &'a Events<E>) -> EventIteratorWithId<'a, E> {
         EventIteratorWithId::new(self, events)
     }
 
@@ -617,21 +620,18 @@ pub struct EventIterator<'a, E: Event> {
     iter: EventIteratorWithId<'a, E>,
 }
 
-/// An iterator that yields any unread events from an [`EventReader`] or [`ManualEventReader`].
-///
-/// This is a type alias for [`EventIterator`], which used to be called `ManualEventIterator`.
-/// This type alias will be removed in the next release of bevy, so you should use [`EventIterator`] directly instead.
-#[deprecated = "This type has been renamed to `EventIterator`."]
-pub type ManualEventIterator<'a, E> = EventIterator<'a, E>;
-
 impl<'a, E: Event> Iterator for EventIterator<'a, E> {
     type Item = &'a E;
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next().map(|(event, _)| event)
     }
 
-    fn nth(&mut self, n: usize) -> Option<Self::Item> {
-        self.iter.nth(n).map(|(event, _)| event)
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
+
+    fn count(self) -> usize {
+        self.iter.count()
     }
 
     fn last(self) -> Option<Self::Item>
@@ -641,12 +641,8 @@ impl<'a, E: Event> Iterator for EventIterator<'a, E> {
         self.iter.last().map(|(event, _)| event)
     }
 
-    fn count(self) -> usize {
-        self.iter.count()
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        self.iter.size_hint()
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        self.iter.nth(n).map(|(event, _)| event)
     }
 }
 
@@ -664,18 +660,15 @@ pub struct EventIteratorWithId<'a, E: Event> {
     unread: usize,
 }
 
-/// An iterator that yields any unread events (and their IDs) from an [`EventReader`] or [`ManualEventReader`].
-///
-/// This is a type alias for [`EventIteratorWithId`], which used to be called `ManualEventIteratorWithId`.
-/// This type alias will be removed in the next release of bevy, so you should use [`EventIteratorWithId`] directly instead.
-#[deprecated = "This type has been renamed to `EventIteratorWithId`."]
-pub type ManualEventIteratorWithId<'a, E> = EventIteratorWithId<'a, E>;
-
 impl<'a, E: Event> EventIteratorWithId<'a, E> {
     /// Creates a new iterator that yields any `events` that have not yet been seen by `reader`.
     pub fn new(reader: &'a mut ManualEventReader<E>, events: &'a Events<E>) -> Self {
-        let a_index = (reader.last_event_count).saturating_sub(events.events_a.start_event_count);
-        let b_index = (reader.last_event_count).saturating_sub(events.events_b.start_event_count);
+        let a_index = reader
+            .last_event_count
+            .saturating_sub(events.events_a.start_event_count);
+        let b_index = reader
+            .last_event_count
+            .saturating_sub(events.events_b.start_event_count);
         let a = events.events_a.get(a_index..).unwrap_or_default();
         let b = events.events_b.get(b_index..).unwrap_or_default();
 
@@ -717,16 +710,13 @@ impl<'a, E: Event> Iterator for EventIteratorWithId<'a, E> {
         }
     }
 
-    fn nth(&mut self, n: usize) -> Option<Self::Item> {
-        if let Some(EventInstance { event_id, event }) = self.chain.nth(n) {
-            self.reader.last_event_count += n + 1;
-            self.unread -= n + 1;
-            Some((event, *event_id))
-        } else {
-            self.reader.last_event_count += self.unread;
-            self.unread = 0;
-            None
-        }
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.chain.size_hint()
+    }
+
+    fn count(self) -> usize {
+        self.reader.last_event_count += self.unread;
+        self.unread
     }
 
     fn last(self) -> Option<Self::Item>
@@ -738,19 +728,87 @@ impl<'a, E: Event> Iterator for EventIteratorWithId<'a, E> {
         Some((event, *event_id))
     }
 
-    fn count(self) -> usize {
-        self.reader.last_event_count += self.unread;
-        self.unread
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        self.chain.size_hint()
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        if let Some(EventInstance { event_id, event }) = self.chain.nth(n) {
+            self.reader.last_event_count += n + 1;
+            self.unread -= n + 1;
+            Some((event, *event_id))
+        } else {
+            self.reader.last_event_count += self.unread;
+            self.unread = 0;
+            None
+        }
     }
 }
 
 impl<'a, E: Event> ExactSizeIterator for EventIteratorWithId<'a, E> {
     fn len(&self) -> usize {
         self.unread
+    }
+}
+
+#[doc(hidden)]
+#[derive(Resource, Default)]
+pub struct EventUpdateSignal(bool);
+
+/// A system that queues a call to [`Events::update`].
+pub fn event_queue_update_system(signal: Option<ResMut<EventUpdateSignal>>) {
+    if let Some(mut s) = signal {
+        s.0 = true;
+    }
+}
+
+/// A system that calls [`Events::update`].
+pub fn event_update_system<T: Event>(
+    signal: Option<ResMut<EventUpdateSignal>>,
+    mut events: ResMut<Events<T>>,
+) {
+    if let Some(mut s) = signal {
+        // If we haven't got a signal to update the events, but we *could* get such a signal
+        // return early and update the events later.
+        if !std::mem::replace(&mut s.0, false) {
+            return;
+        }
+    }
+
+    events.update();
+}
+
+/// A run condition that checks if the event's [`event_update_system`]
+/// needs to run or not.
+pub fn event_update_condition<T: Event>(events: Res<Events<T>>) -> bool {
+    !events.events_a.is_empty() || !events.events_b.is_empty()
+}
+
+/// [`Iterator`] over sent [`EventIds`](`EventId`) from a batch.
+pub struct SendBatchIds<E> {
+    last_count: usize,
+    event_count: usize,
+    _marker: PhantomData<E>,
+}
+
+impl<E: Event> Iterator for SendBatchIds<E> {
+    type Item = EventId<E>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.last_count >= self.event_count {
+            return None;
+        }
+
+        let result = Some(EventId {
+            id: self.last_count,
+            _marker: PhantomData,
+        });
+
+        self.last_count += 1;
+
+        result
+    }
+}
+
+impl<E: Event> ExactSizeIterator for SendBatchIds<E> {
+    fn len(&self) -> usize {
+        self.event_count.saturating_sub(self.last_count)
     }
 }
 
@@ -1112,5 +1170,44 @@ mod tests {
         fn reader_system(_: EventReader<EmptyTestEvent>) {}
 
         assert_is_read_only_system(reader_system);
+    }
+
+    #[test]
+    fn test_send_events_ids() {
+        let mut events = Events::<TestEvent>::default();
+        let event_0 = TestEvent { i: 0 };
+        let event_1 = TestEvent { i: 1 };
+        let event_2 = TestEvent { i: 2 };
+
+        let event_0_id = events.send(event_0);
+
+        assert_eq!(
+            events.get_event(event_0_id.id),
+            Some((&event_0, event_0_id)),
+            "Getting a sent event by ID should return the original event"
+        );
+
+        let mut event_ids = events.send_batch([event_1, event_2]);
+
+        let event_id = event_ids.next().expect("Event 1 must have been sent");
+
+        assert_eq!(
+            events.get_event(event_id.id),
+            Some((&event_1, event_id)),
+            "Getting a sent event by ID should return the original event"
+        );
+
+        let event_id = event_ids.next().expect("Event 2 must have been sent");
+
+        assert_eq!(
+            events.get_event(event_id.id),
+            Some((&event_2, event_id)),
+            "Getting a sent event by ID should return the original event"
+        );
+
+        assert!(
+            event_ids.next().is_none(),
+            "Only sent two events; got more than two IDs"
+        );
     }
 }

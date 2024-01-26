@@ -1,11 +1,12 @@
 use std::{
+    collections::BTreeSet,
     fmt::{Debug, Write},
     result::Result,
 };
 
-use bevy_utils::default;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
+use bevy_utils::{default, tracing::info};
 use bevy_utils::{
     petgraph::{algo::TarjanScc, prelude::*},
     thiserror::Error,
@@ -18,15 +19,18 @@ use fixedbitset::FixedBitSet;
 use crate::{
     self as bevy_ecs,
     component::{ComponentId, Components, Tick},
+    prelude::Component,
     schedule::*,
-    system::{BoxedSystem, Resource, System},
+    system::{BoxedSystem, IntoSystem, Resource, System},
     world::World,
 };
 
-/// Resource that stores [`Schedule`]s mapped to [`ScheduleLabel`]s.
+/// Resource that stores [`Schedule`]s mapped to [`ScheduleLabel`]s excluding the current running [`Schedule`].
 #[derive(Default, Resource)]
 pub struct Schedules {
-    inner: HashMap<BoxedScheduleLabel, Schedule>,
+    inner: HashMap<InternedScheduleLabel, Schedule>,
+    /// List of [`ComponentId`]s to ignore when reporting system order ambiguity conflicts
+    pub ignored_scheduling_ambiguities: BTreeSet<ComponentId>,
 }
 
 impl Schedules {
@@ -34,6 +38,7 @@ impl Schedules {
     pub fn new() -> Self {
         Self {
             inner: HashMap::new(),
+            ignored_scheduling_ambiguities: BTreeSet::new(),
         }
     }
 
@@ -42,36 +47,35 @@ impl Schedules {
     /// If the map already had an entry for `label`, `schedule` is inserted,
     /// and the old schedule is returned. Otherwise, `None` is returned.
     pub fn insert(&mut self, schedule: Schedule) -> Option<Schedule> {
-        let label = schedule.name.dyn_clone();
-        self.inner.insert(label, schedule)
+        self.inner.insert(schedule.label, schedule)
     }
 
     /// Removes the schedule corresponding to the `label` from the map, returning it if it existed.
-    pub fn remove(&mut self, label: &dyn ScheduleLabel) -> Option<Schedule> {
-        self.inner.remove(label)
+    pub fn remove(&mut self, label: impl ScheduleLabel) -> Option<Schedule> {
+        self.inner.remove(&label.intern())
     }
 
     /// Removes the (schedule, label) pair corresponding to the `label` from the map, returning it if it existed.
     pub fn remove_entry(
         &mut self,
-        label: &dyn ScheduleLabel,
-    ) -> Option<(Box<dyn ScheduleLabel>, Schedule)> {
-        self.inner.remove_entry(label)
+        label: impl ScheduleLabel,
+    ) -> Option<(InternedScheduleLabel, Schedule)> {
+        self.inner.remove_entry(&label.intern())
     }
 
     /// Does a schedule with the provided label already exist?
-    pub fn contains(&self, label: &dyn ScheduleLabel) -> bool {
-        self.inner.contains_key(label)
+    pub fn contains(&self, label: impl ScheduleLabel) -> bool {
+        self.inner.contains_key(&label.intern())
     }
 
     /// Returns a reference to the schedule associated with `label`, if it exists.
-    pub fn get(&self, label: &dyn ScheduleLabel) -> Option<&Schedule> {
-        self.inner.get(label)
+    pub fn get(&self, label: impl ScheduleLabel) -> Option<&Schedule> {
+        self.inner.get(&label.intern())
     }
 
     /// Returns a mutable reference to the schedule associated with `label`, if it exists.
-    pub fn get_mut(&mut self, label: &dyn ScheduleLabel) -> Option<&mut Schedule> {
-        self.inner.get_mut(label)
+    pub fn get_mut(&mut self, label: impl ScheduleLabel) -> Option<&mut Schedule> {
+        self.inner.get_mut(&label.intern())
     }
 
     /// Returns an iterator over all schedules. Iteration order is undefined.
@@ -95,7 +99,7 @@ impl Schedules {
         let _all_span = info_span!("check stored schedule ticks").entered();
         // label used when trace feature is enabled
         #[allow(unused_variables)]
-        for (label, schedule) in self.inner.iter_mut() {
+        for (label, schedule) in &mut self.inner {
             #[cfg(feature = "trace")]
             let name = format!("{label:?}");
             #[cfg(feature = "trace")]
@@ -106,9 +110,41 @@ impl Schedules {
 
     /// Applies the provided [`ScheduleBuildSettings`] to all schedules.
     pub fn configure_schedules(&mut self, schedule_build_settings: ScheduleBuildSettings) {
-        for (_, schedule) in self.inner.iter_mut() {
+        for (_, schedule) in &mut self.inner {
             schedule.set_build_settings(schedule_build_settings.clone());
         }
+    }
+
+    /// Ignore system order ambiguities caused by conflicts on [`Component`]s of type `T`.
+    pub fn allow_ambiguous_component<T: Component>(&mut self, world: &mut World) {
+        self.ignored_scheduling_ambiguities
+            .insert(world.init_component::<T>());
+    }
+
+    /// Ignore system order ambiguities caused by conflicts on [`Resource`]s of type `T`.
+    pub fn allow_ambiguous_resource<T: Resource>(&mut self, world: &mut World) {
+        self.ignored_scheduling_ambiguities
+            .insert(world.components.init_resource::<T>());
+    }
+
+    /// Iterate through the [`ComponentId`]'s that will be ignored.
+    pub fn iter_ignored_ambiguities(&self) -> impl Iterator<Item = &ComponentId> + '_ {
+        self.ignored_scheduling_ambiguities.iter()
+    }
+
+    /// Prints the names of the components and resources with [`info`]
+    ///
+    /// May panic or retrieve incorrect names if [`Components`] is not from the same
+    /// world
+    pub fn print_ignored_ambiguities(&self, components: &Components) {
+        let mut message =
+            "System order ambiguities caused by conflicts on the following types are ignored:\n"
+                .to_string();
+        for id in self.iter_ignored_ambiguities() {
+            writeln!(message, "{}", components.get_name(*id).unwrap()).unwrap();
+        }
+
+        info!("{}", message);
     }
 }
 
@@ -118,6 +154,18 @@ fn make_executor(kind: ExecutorKind) -> Box<dyn SystemExecutor> {
         ExecutorKind::SingleThreaded => Box::new(SingleThreadedExecutor::new()),
         ExecutorKind::MultiThreaded => Box::new(MultiThreadedExecutor::new()),
     }
+}
+
+/// Chain systems into dependencies
+#[derive(PartialEq)]
+pub enum Chain {
+    /// Run nodes in order. If there are deferred parameters in preceeding systems a
+    /// [`apply_deferred`] will be added on the edge.
+    Yes,
+    /// Run nodes in order. This will not add [`apply_deferred`] between nodes.
+    YesIgnoreDeferred,
+    /// Nodes are allowed to run in any order.
+    No,
 }
 
 /// A collection of systems, and the metadata and executor needed to run them
@@ -158,7 +206,7 @@ fn make_executor(kind: ExecutorKind) -> Box<dyn SystemExecutor> {
 /// }
 /// ```
 pub struct Schedule {
-    name: BoxedScheduleLabel,
+    label: InternedScheduleLabel,
     graph: ScheduleGraph,
     executable: SystemSchedule,
     executor: Box<dyn SystemExecutor>,
@@ -182,7 +230,7 @@ impl Schedule {
     /// Constructs an empty `Schedule`.
     pub fn new(label: impl ScheduleLabel) -> Self {
         Self {
-            name: label.dyn_clone(),
+            label: label.intern(),
             graph: ScheduleGraph::new(),
             executable: SystemSchedule::new(),
             executor: make_executor(ExecutorKind::default()),
@@ -192,14 +240,38 @@ impl Schedule {
 
     /// Add a collection of systems to the schedule.
     pub fn add_systems<M>(&mut self, systems: impl IntoSystemConfigs<M>) -> &mut Self {
-        self.graph.add_systems_inner(systems.into_configs(), false);
+        self.graph.process_configs(systems.into_configs(), false);
         self
     }
 
-    /// Configures a system set in this schedule, adding it if it does not exist.
+    /// Suppress warnings and errors that would result from systems in these sets having ambiguities
+    /// (conflicting access but indeterminate order) with systems in `set`.
     #[track_caller]
-    pub fn configure_set(&mut self, set: impl IntoSystemSetConfig) -> &mut Self {
-        self.graph.configure_set(set);
+    pub fn ignore_ambiguity<M1, M2, S1, S2>(&mut self, a: S1, b: S2) -> &mut Self
+    where
+        S1: IntoSystemSet<M1>,
+        S2: IntoSystemSet<M2>,
+    {
+        let a = a.into_system_set();
+        let b = b.into_system_set();
+
+        let Some(&a_id) = self.graph.system_set_ids.get(&a.intern()) else {
+            panic!(
+                "Could not mark system as ambiguous, `{:?}` was not found in the schedule.
+                Did you try to call `ambiguous_with` before adding the system to the world?",
+                a
+            );
+        };
+        let Some(&b_id) = self.graph.system_set_ids.get(&b.intern()) else {
+            panic!(
+                "Could not mark system as ambiguous, `{:?}` was not found in the schedule.
+                Did you try to call `ambiguous_with` before adding the system to the world?",
+                b
+            );
+        };
+
+        self.graph.ambiguous_with.add_edge(a_id, b_id, ());
+
         self
     }
 
@@ -237,7 +309,7 @@ impl Schedule {
 
     /// Set whether the schedule applies deferred system buffers on final time or not. This is a catch-all
     /// in case a system uses commands but was not explicitly ordered before an instance of
-    /// [`apply_deferred`](crate::prelude::apply_deferred). By default this
+    /// [`apply_deferred`]. By default this
     /// setting is true, but may be disabled if needed.
     pub fn set_apply_final_deferred(&mut self, apply_final_deferred: bool) -> &mut Self {
         self.executor.set_apply_final_deferred(apply_final_deferred);
@@ -247,11 +319,11 @@ impl Schedule {
     /// Runs all systems in this schedule on the `world`, using its current execution strategy.
     pub fn run(&mut self, world: &mut World) {
         #[cfg(feature = "trace")]
-        let _span = bevy_utils::tracing::info_span!("schedule", name = ?self.name).entered();
+        let _span = info_span!("schedule", name = ?self.label).entered();
 
         world.check_change_ticks();
         self.initialize(world)
-            .unwrap_or_else(|e| panic!("Error when intializing schedule {:?}: {e}", self.name));
+            .unwrap_or_else(|e| panic!("Error when initializing schedule {:?}: {e}", self.label));
         self.executor.run(&mut self.executable, world);
     }
 
@@ -262,8 +334,16 @@ impl Schedule {
     pub fn initialize(&mut self, world: &mut World) -> Result<(), ScheduleBuildError> {
         if self.graph.changed {
             self.graph.initialize(world);
-            self.graph
-                .update_schedule(&mut self.executable, world.components(), &self.name)?;
+            let ignored_ambiguities = world
+                .get_resource_or_insert_with::<Schedules>(Schedules::default)
+                .ignored_scheduling_ambiguities
+                .clone();
+            self.graph.update_schedule(
+                &mut self.executable,
+                world.components(),
+                &ignored_ambiguities,
+                self.label,
+            )?;
             self.graph.changed = false;
             self.executor_initialized = false;
         }
@@ -297,13 +377,13 @@ impl Schedule {
         }
 
         for conditions in &mut self.executable.system_conditions {
-            for system in conditions.iter_mut() {
+            for system in conditions {
                 system.check_change_tick(change_tick);
             }
         }
 
         for conditions in &mut self.executable.set_conditions {
-            for system in conditions.iter_mut() {
+            for system in conditions {
                 system.check_change_tick(change_tick);
             }
         }
@@ -356,11 +436,11 @@ impl Dag {
 
 /// A [`SystemSet`] with metadata, stored in a [`ScheduleGraph`].
 struct SystemSetNode {
-    inner: BoxedSystemSet,
+    inner: InternedSystemSet,
 }
 
 impl SystemSetNode {
-    pub fn new(set: BoxedSystemSet) -> Self {
+    pub fn new(set: InternedSystemSet) -> Self {
         Self { inner: set }
     }
 
@@ -405,15 +485,18 @@ pub struct ScheduleGraph {
     system_conditions: Vec<Vec<BoxedCondition>>,
     system_sets: Vec<SystemSetNode>,
     system_set_conditions: Vec<Vec<BoxedCondition>>,
-    system_set_ids: HashMap<BoxedSystemSet, NodeId>,
+    system_set_ids: HashMap<InternedSystemSet, NodeId>,
     uninit: Vec<(NodeId, usize)>,
     hierarchy: Dag,
     dependency: Dag,
     ambiguous_with: UnGraphMap<NodeId, ()>,
     ambiguous_with_all: HashSet<NodeId>,
     conflicting_systems: Vec<(NodeId, NodeId, Vec<ComponentId>)>,
+    anonymous_sets: usize,
     changed: bool,
     settings: ScheduleBuildSettings,
+    no_sync_edges: BTreeSet<(NodeId, NodeId)>,
+    auto_sync_node_ids: HashMap<u32, NodeId>,
 }
 
 impl ScheduleGraph {
@@ -431,8 +514,11 @@ impl ScheduleGraph {
             ambiguous_with: UnGraphMap::new(),
             ambiguous_with_all: HashSet::new(),
             conflicting_systems: Vec::new(),
+            anonymous_sets: 0,
             changed: false,
             settings: default(),
+            no_sync_edges: BTreeSet::new(),
+            auto_sync_node_ids: HashMap::new(),
         }
     }
 
@@ -522,30 +608,36 @@ impl ScheduleGraph {
         &self.conflicting_systems
     }
 
-    /// Adds the systems to the graph. Returns a vector of all node ids contained the nested `SystemConfigs`
-    /// if `ancestor_chained` is true. Also returns true if "densely chained", meaning that all nested items
-    /// are linearly chained in the order they are defined
-    fn add_systems_inner(
+    /// Adds the config nodes to the graph.
+    ///
+    /// `collect_nodes` controls whether the `NodeId`s of the processed config nodes are stored in the returned [`ProcessConfigsResult`].
+    /// `process_config` is the function which processes each individual config node and returns a corresponding `NodeId`.
+    ///
+    /// The fields on the returned [`ProcessConfigsResult`] are:
+    /// - `nodes`: a vector of all node ids contained in the nested `NodeConfigs`
+    /// - `densely_chained`: a boolean that is true if all nested nodes are linearly chained (with successive `after` orderings) in the order they are defined
+    #[track_caller]
+    fn process_configs<T: ProcessNodeConfig>(
         &mut self,
-        configs: SystemConfigs,
-        ancestor_chained: bool,
-    ) -> AddSystemsInnerResult {
+        configs: NodeConfigs<T>,
+        collect_nodes: bool,
+    ) -> ProcessConfigsResult {
         match configs {
-            SystemConfigs::SystemConfig(config) => {
-                let node_id = self.add_system_inner(config).unwrap();
-                if ancestor_chained {
-                    AddSystemsInnerResult {
+            NodeConfigs::NodeConfig(config) => {
+                let node_id = T::process_config(self, config);
+                if collect_nodes {
+                    ProcessConfigsResult {
                         densely_chained: true,
                         nodes: vec![node_id],
                     }
                 } else {
-                    AddSystemsInnerResult {
+                    ProcessConfigsResult {
                         densely_chained: true,
                         nodes: Vec::new(),
                     }
                 }
             }
-            SystemConfigs::Configs {
+            NodeConfigs::Configs {
                 mut configs,
                 collective_conditions,
                 chained,
@@ -553,13 +645,13 @@ impl ScheduleGraph {
                 let more_than_one_entry = configs.len() > 1;
                 if !collective_conditions.is_empty() {
                     if more_than_one_entry {
-                        let set = AnonymousSet::new();
+                        let set = self.create_anonymous_set();
                         for config in &mut configs {
-                            config.in_set_dyn(set.dyn_clone());
+                            config.in_set_inner(set.intern());
                         }
-                        let mut set_config = set.into_config();
+                        let mut set_config = SystemSetConfig::new(set.intern());
                         set_config.conditions.extend(collective_conditions);
-                        self.configure_set(set_config);
+                        self.configure_set_inner(set_config).unwrap();
                     } else {
                         for condition in collective_conditions {
                             configs[0].run_if_dyn(condition);
@@ -569,17 +661,17 @@ impl ScheduleGraph {
                 let mut config_iter = configs.into_iter();
                 let mut nodes_in_scope = Vec::new();
                 let mut densely_chained = true;
-                if chained {
+                if chained == Chain::Yes || chained == Chain::YesIgnoreDeferred {
                     let Some(prev) = config_iter.next() else {
-                        return AddSystemsInnerResult {
+                        return ProcessConfigsResult {
                             nodes: Vec::new(),
                             densely_chained: true,
                         };
                     };
-                    let mut previous_result = self.add_systems_inner(prev, true);
+                    let mut previous_result = self.process_configs(prev, true);
                     densely_chained = previous_result.densely_chained;
                     for current in config_iter {
-                        let current_result = self.add_systems_inner(current, true);
+                        let current_result = self.process_configs(current, true);
                         densely_chained = densely_chained && current_result.densely_chained;
                         match (
                             previous_result.densely_chained,
@@ -595,6 +687,11 @@ impl ScheduleGraph {
                                     *first_in_current,
                                     (),
                                 );
+
+                                if chained == Chain::YesIgnoreDeferred {
+                                    self.no_sync_edges
+                                        .insert((*last_in_prev, *first_in_current));
+                                }
                             }
                             // The previous group is "densely" chained, so we can simplify the graph by only
                             // chaining the last item from the previous list to every item in the current list
@@ -606,6 +703,10 @@ impl ScheduleGraph {
                                         *current_node,
                                         (),
                                     );
+
+                                    if chained == Chain::YesIgnoreDeferred {
+                                        self.no_sync_edges.insert((*last_in_prev, *current_node));
+                                    }
                                 }
                             }
                             // The current list is currently "densely" chained, so we can simplify the graph by
@@ -618,6 +719,11 @@ impl ScheduleGraph {
                                         *first_in_current,
                                         (),
                                     );
+
+                                    if chained == Chain::YesIgnoreDeferred {
+                                        self.no_sync_edges
+                                            .insert((*previous_node, *first_in_current));
+                                    }
                                 }
                             }
                             // Neither of the lists are "densely" chained, so we must chain every item in the first
@@ -630,12 +736,17 @@ impl ScheduleGraph {
                                             *current_node,
                                             (),
                                         );
+
+                                        if chained == Chain::YesIgnoreDeferred {
+                                            self.no_sync_edges
+                                                .insert((*previous_node, *current_node));
+                                        }
                                     }
                                 }
                             }
                         }
 
-                        if ancestor_chained {
+                        if collect_nodes {
                             nodes_in_scope.append(&mut previous_result.nodes);
                         }
 
@@ -643,14 +754,14 @@ impl ScheduleGraph {
                     }
 
                     // ensure the last config's nodes are added
-                    if ancestor_chained {
+                    if collect_nodes {
                         nodes_in_scope.append(&mut previous_result.nodes);
                     }
                 } else {
                     for config in config_iter {
-                        let result = self.add_systems_inner(config, ancestor_chained);
+                        let result = self.process_configs(config, collect_nodes);
                         densely_chained = densely_chained && result.densely_chained;
-                        if ancestor_chained {
+                        if collect_nodes {
                             nodes_in_scope.extend(result.nodes);
                         }
                     }
@@ -661,7 +772,7 @@ impl ScheduleGraph {
                     }
                 }
 
-                AddSystemsInnerResult {
+                ProcessConfigsResult {
                     nodes: nodes_in_scope,
                     densely_chained,
                 }
@@ -677,7 +788,7 @@ impl ScheduleGraph {
 
         // system init has to be deferred (need `&mut World`)
         self.uninit.push((id, 0));
-        self.systems.push(SystemNode::new(config.system));
+        self.systems.push(SystemNode::new(config.node));
         self.system_conditions.push(config.conditions);
 
         Ok(id)
@@ -685,50 +796,19 @@ impl ScheduleGraph {
 
     #[track_caller]
     fn configure_sets(&mut self, sets: impl IntoSystemSetConfigs) {
-        let SystemSetConfigs { sets, chained } = sets.into_configs();
-        let mut set_iter = sets.into_iter();
-        if chained {
-            let Some(prev) = set_iter.next() else { return };
-            let mut prev_id = self.configure_set_inner(prev).unwrap();
-            for next in set_iter {
-                let next_id = self.configure_set_inner(next).unwrap();
-                self.dependency.graph.add_edge(prev_id, next_id, ());
-                prev_id = next_id;
-            }
-        } else {
-            for set in set_iter {
-                if let Err(e) = self.configure_set_inner(set) {
-                    // using `unwrap_or_else(panic!)` led to the error being reported
-                    // from this line instead of in the user code
-                    panic!("{e}");
-                };
-            }
-        }
+        self.process_configs(sets.into_configs(), false);
     }
 
-    #[track_caller]
-    fn configure_set(&mut self, set: impl IntoSystemSetConfig) {
-        if let Err(e) = self.configure_set_inner(set) {
-            // using `unwrap_or_else(panic!)` led to the error being reported
-            // from this line instead of in the user code
-            panic!("{e}");
-        };
-    }
-
-    #[track_caller]
-    fn configure_set_inner(
-        &mut self,
-        set: impl IntoSystemSetConfig,
-    ) -> Result<NodeId, ScheduleBuildError> {
+    fn configure_set_inner(&mut self, set: SystemSetConfig) -> Result<NodeId, ScheduleBuildError> {
         let SystemSetConfig {
-            set,
+            node: set,
             graph_info,
             mut conditions,
-        } = set.into_config();
+        } = set;
 
         let id = match self.system_set_ids.get(&set) {
             Some(&id) => id,
-            None => self.add_set(set.dyn_clone()),
+            None => self.add_set(set),
         };
 
         // graph updates are immediate
@@ -742,27 +822,33 @@ impl ScheduleGraph {
         Ok(id)
     }
 
-    fn add_set(&mut self, set: BoxedSystemSet) -> NodeId {
+    fn add_set(&mut self, set: InternedSystemSet) -> NodeId {
         let id = NodeId::Set(self.system_sets.len());
-        self.system_sets.push(SystemSetNode::new(set.dyn_clone()));
+        self.system_sets.push(SystemSetNode::new(set));
         self.system_set_conditions.push(Vec::new());
         self.system_set_ids.insert(set, id);
         id
     }
 
-    fn check_set(&mut self, id: &NodeId, set: &dyn SystemSet) -> Result<(), ScheduleBuildError> {
-        match self.system_set_ids.get(set) {
+    fn check_set(&mut self, id: &NodeId, set: InternedSystemSet) -> Result<(), ScheduleBuildError> {
+        match self.system_set_ids.get(&set) {
             Some(set_id) => {
                 if id == set_id {
                     return Err(ScheduleBuildError::HierarchyLoop(self.get_node_name(id)));
                 }
             }
             None => {
-                self.add_set(set.dyn_clone());
+                self.add_set(set);
             }
         }
 
         Ok(())
+    }
+
+    fn create_anonymous_set(&mut self) -> AnonymousSet {
+        let id = self.anonymous_sets;
+        self.anonymous_sets += 1;
+        AnonymousSet::new(id)
     }
 
     fn check_sets(
@@ -770,8 +856,8 @@ impl ScheduleGraph {
         id: &NodeId,
         graph_info: &GraphInfo,
     ) -> Result<(), ScheduleBuildError> {
-        for set in &graph_info.sets {
-            self.check_set(id, &**set)?;
+        for &set in &graph_info.sets {
+            self.check_set(id, set)?;
         }
 
         Ok(())
@@ -790,7 +876,7 @@ impl ScheduleGraph {
                     }
                 }
                 None => {
-                    self.add_set(set.dyn_clone());
+                    self.add_set(*set);
                 }
             }
         }
@@ -798,7 +884,7 @@ impl ScheduleGraph {
         if let Ambiguity::IgnoreWithSet(ambiguous_with) = &graph_info.ambiguous_with {
             for set in ambiguous_with {
                 if !self.system_set_ids.contains_key(set) {
-                    self.add_set(set.dyn_clone());
+                    self.add_set(*set);
                 }
             }
         }
@@ -832,17 +918,21 @@ impl ScheduleGraph {
             self.dependency.graph.add_node(set);
         }
 
-        if !self.dependency.graph.contains_node(id) {
-            self.dependency.graph.add_node(id);
-        }
-
         for (kind, set) in dependencies
             .into_iter()
             .map(|Dependency { kind, set }| (kind, self.system_set_ids[&set]))
         {
             let (lhs, rhs) = match kind {
                 DependencyKind::Before => (id, set),
+                DependencyKind::BeforeNoSync => {
+                    self.no_sync_edges.insert((id, set));
+                    (id, set)
+                }
                 DependencyKind::After => (set, id),
+                DependencyKind::AfterNoSync => {
+                    self.no_sync_edges.insert((set, id));
+                    (set, id)
+                }
             };
             self.dependency.graph.add_edge(lhs, rhs, ());
 
@@ -895,7 +985,8 @@ impl ScheduleGraph {
     pub fn build_schedule(
         &mut self,
         components: &Components,
-        schedule_label: &BoxedScheduleLabel,
+        schedule_label: InternedScheduleLabel,
+        ignored_ambiguities: &BTreeSet<ComponentId>,
     ) -> Result<SystemSchedule, ScheduleBuildError> {
         // check hierarchy for cycles
         self.hierarchy.topsort =
@@ -924,7 +1015,12 @@ impl ScheduleGraph {
         // check that there are no edges to system-type sets that have multiple instances
         self.check_system_type_set_ambiguity(&set_systems)?;
 
-        let dependency_flattened = self.get_dependency_flattened(&set_systems);
+        let mut dependency_flattened = self.get_dependency_flattened(&set_systems);
+
+        // modify graph with auto sync points
+        if self.settings.auto_insert_apply_deferred {
+            dependency_flattened = self.auto_insert_apply_deferred(&mut dependency_flattened)?;
+        }
 
         // topsort
         let mut dependency_flattened_dag = Dag {
@@ -944,13 +1040,94 @@ impl ScheduleGraph {
         let ambiguous_with_flattened = self.get_ambiguous_with_flattened(&set_systems);
 
         // check for conflicts
-        let conflicting_systems =
-            self.get_conflicting_systems(&flat_results.disconnected, &ambiguous_with_flattened);
+        let conflicting_systems = self.get_conflicting_systems(
+            &flat_results.disconnected,
+            &ambiguous_with_flattened,
+            ignored_ambiguities,
+        );
         self.optionally_check_conflicts(&conflicting_systems, components, schedule_label)?;
         self.conflicting_systems = conflicting_systems;
 
         // build the schedule
         Ok(self.build_schedule_inner(dependency_flattened_dag, hier_results.reachable))
+    }
+
+    // modify the graph to have sync nodes for any dependants after a system with deferred system params
+    fn auto_insert_apply_deferred(
+        &mut self,
+        dependency_flattened: &mut GraphMap<NodeId, (), Directed>,
+    ) -> Result<GraphMap<NodeId, (), Directed>, ScheduleBuildError> {
+        let mut sync_point_graph = dependency_flattened.clone();
+        let topo = self.topsort_graph(dependency_flattened, ReportCycles::Dependency)?;
+
+        // calculate the number of sync points each sync point is from the beginning of the graph
+        // use the same sync point if the distance is the same
+        let mut distances: HashMap<usize, Option<u32>> = HashMap::with_capacity(topo.len());
+        for node in &topo {
+            let add_sync_after = self.systems[node.index()].get().unwrap().has_deferred();
+
+            for target in dependency_flattened.neighbors_directed(*node, Outgoing) {
+                let add_sync_on_edge = add_sync_after
+                    && !is_apply_deferred(self.systems[target.index()].get().unwrap())
+                    && !self.no_sync_edges.contains(&(*node, target));
+
+                let weight = if add_sync_on_edge { 1 } else { 0 };
+
+                let distance = distances
+                    .get(&target.index())
+                    .unwrap_or(&None)
+                    .or(Some(0))
+                    .map(|distance| {
+                        distance.max(
+                            distances.get(&node.index()).unwrap_or(&None).unwrap_or(0) + weight,
+                        )
+                    });
+
+                distances.insert(target.index(), distance);
+
+                if add_sync_on_edge {
+                    let sync_point = self.get_sync_point(distances[&target.index()].unwrap());
+                    sync_point_graph.add_edge(*node, sync_point, ());
+                    sync_point_graph.add_edge(sync_point, target, ());
+
+                    // edge is now redundant
+                    sync_point_graph.remove_edge(*node, target);
+                }
+            }
+        }
+
+        Ok(sync_point_graph)
+    }
+
+    /// add an [`apply_deferred`] system with no config
+    fn add_auto_sync(&mut self) -> NodeId {
+        let id = NodeId::System(self.systems.len());
+
+        self.systems
+            .push(SystemNode::new(Box::new(IntoSystem::into_system(
+                apply_deferred,
+            ))));
+        self.system_conditions.push(Vec::new());
+
+        // ignore ambiguities with auto sync points
+        // They aren't under user control, so no one should know or care.
+        self.ambiguous_with_all.insert(id);
+
+        id
+    }
+
+    /// Returns the `NodeId` of the cached auto sync point. Will create
+    /// a new one if needed.
+    fn get_sync_point(&mut self, distance: u32) -> NodeId {
+        self.auto_sync_node_ids
+            .get(&distance)
+            .copied()
+            .or_else(|| {
+                let node_id = self.add_auto_sync();
+                self.auto_sync_node_ids.insert(distance, node_id);
+                Some(node_id)
+            })
+            .unwrap()
     }
 
     fn map_sets_to_systems(
@@ -969,7 +1146,7 @@ impl ScheduleGraph {
             let mut systems = Vec::new();
             let mut system_bitset = FixedBitSet::with_capacity(self.systems.len());
 
-            for child in hierarchy_graph.neighbors_directed(id, Direction::Outgoing) {
+            for child in hierarchy_graph.neighbors_directed(id, Outgoing) {
                 match child {
                     NodeId::System(_) => {
                         systems.push(child);
@@ -991,29 +1168,42 @@ impl ScheduleGraph {
     }
 
     fn get_dependency_flattened(
-        &self,
+        &mut self,
         set_systems: &HashMap<NodeId, Vec<NodeId>>,
     ) -> GraphMap<NodeId, (), Directed> {
         // flatten: combine `in_set` with `before` and `after` information
         // have to do it like this to preserve transitivity
         let mut dependency_flattened = self.dependency.graph.clone();
         let mut temp = Vec::new();
-        for (&set, systems) in set_systems.iter() {
+        for (&set, systems) in set_systems {
             if systems.is_empty() {
-                for a in dependency_flattened.neighbors_directed(set, Direction::Incoming) {
-                    for b in dependency_flattened.neighbors_directed(set, Direction::Outgoing) {
+                // collapse dependencies for empty sets
+                for a in dependency_flattened.neighbors_directed(set, Incoming) {
+                    for b in dependency_flattened.neighbors_directed(set, Outgoing) {
+                        if self.no_sync_edges.contains(&(a, set))
+                            && self.no_sync_edges.contains(&(set, b))
+                        {
+                            self.no_sync_edges.insert((a, b));
+                        }
+
                         temp.push((a, b));
                     }
                 }
             } else {
-                for a in dependency_flattened.neighbors_directed(set, Direction::Incoming) {
+                for a in dependency_flattened.neighbors_directed(set, Incoming) {
                     for &sys in systems {
+                        if self.no_sync_edges.contains(&(a, set)) {
+                            self.no_sync_edges.insert((a, sys));
+                        }
                         temp.push((a, sys));
                     }
                 }
 
-                for b in dependency_flattened.neighbors_directed(set, Direction::Outgoing) {
+                for b in dependency_flattened.neighbors_directed(set, Outgoing) {
                     for &sys in systems {
+                        if self.no_sync_edges.contains(&(set, b)) {
+                            self.no_sync_edges.insert((sys, b));
+                        }
                         temp.push((sys, b));
                     }
                 }
@@ -1065,6 +1255,7 @@ impl ScheduleGraph {
         &self,
         flat_results_disconnected: &Vec<(NodeId, NodeId)>,
         ambiguous_with_flattened: &GraphMap<NodeId, (), Undirected>,
+        ignored_ambiguities: &BTreeSet<ComponentId>,
     ) -> Vec<(NodeId, NodeId, Vec<ComponentId>)> {
         let mut conflicting_systems = Vec::new();
         for &(a, b) in flat_results_disconnected {
@@ -1083,8 +1274,15 @@ impl ScheduleGraph {
                 let access_a = system_a.component_access();
                 let access_b = system_b.component_access();
                 if !access_a.is_compatible(access_b) {
-                    let conflicts = access_a.get_conflicts(access_b);
-                    conflicting_systems.push((a, b, conflicts));
+                    let conflicts: Vec<_> = access_a
+                        .get_conflicts(access_b)
+                        .into_iter()
+                        .filter(|id| !ignored_ambiguities.contains(id))
+                        .collect();
+
+                    if !conflicts.is_empty() {
+                        conflicting_systems.push((a, b, conflicts));
+                    }
                 }
             }
         }
@@ -1138,12 +1336,12 @@ impl ScheduleGraph {
         for &sys_id in &dg_system_ids {
             let num_dependencies = dependency_flattened_dag
                 .graph
-                .neighbors_directed(sys_id, Direction::Incoming)
+                .neighbors_directed(sys_id, Incoming)
                 .count();
 
             let dependents = dependency_flattened_dag
                 .graph
-                .neighbors_directed(sys_id, Direction::Outgoing)
+                .neighbors_directed(sys_id, Outgoing)
                 .map(|dep_id| dg_system_idx_map[&dep_id])
                 .collect::<Vec<_>>();
 
@@ -1196,7 +1394,8 @@ impl ScheduleGraph {
         &mut self,
         schedule: &mut SystemSchedule,
         components: &Components,
-        schedule_label: &BoxedScheduleLabel,
+        ignored_ambiguities: &BTreeSet<ComponentId>,
+        schedule_label: InternedScheduleLabel,
     ) -> Result<(), ScheduleBuildError> {
         if !self.uninit.is_empty() {
             return Err(ScheduleBuildError::Uninitialized);
@@ -1221,7 +1420,7 @@ impl ScheduleGraph {
             self.system_set_conditions[id.index()] = conditions;
         }
 
-        *schedule = self.build_schedule(components, schedule_label)?;
+        *schedule = self.build_schedule(components, schedule_label, ignored_ambiguities)?;
 
         // move systems into new schedule
         for &id in &schedule.system_ids {
@@ -1240,12 +1439,33 @@ impl ScheduleGraph {
     }
 }
 
-/// Values returned by `ScheduleGraph::add_systems_inner`
-struct AddSystemsInnerResult {
-    /// All nodes contained inside this add_systems_inner call's SystemConfigs hierarchy
+/// Values returned by [`ScheduleGraph::process_configs`]
+struct ProcessConfigsResult {
+    /// All nodes contained inside this process_configs call's [`NodeConfigs`] hierarchy,
+    /// if `ancestor_chained` is true
     nodes: Vec<NodeId>,
-    /// True if and only if all nodes are "densely chained"
+    /// True if and only if all nodes are "densely chained", meaning that all nested nodes
+    /// are linearly chained (as if `after` system ordering had been applied between each node)
+    /// in the order they are defined
     densely_chained: bool,
+}
+
+/// Trait used by [`ScheduleGraph::process_configs`] to process a single [`NodeConfig`].
+trait ProcessNodeConfig: Sized {
+    /// Process a single [`NodeConfig`].
+    fn process_config(schedule_graph: &mut ScheduleGraph, config: NodeConfig<Self>) -> NodeId;
+}
+
+impl ProcessNodeConfig for BoxedSystem {
+    fn process_config(schedule_graph: &mut ScheduleGraph, config: NodeConfig<Self>) -> NodeId {
+        schedule_graph.add_system_inner(config).unwrap()
+    }
+}
+
+impl ProcessNodeConfig for InternedSystemSet {
+    fn process_config(schedule_graph: &mut ScheduleGraph, config: NodeConfig<Self>) -> NodeId {
+        schedule_graph.configure_set_inner(config).unwrap()
+    }
 }
 
 /// Used to select the appropriate reporting function.
@@ -1298,7 +1518,7 @@ impl ScheduleGraph {
             "({})",
             self.hierarchy
                 .graph
-                .edges_directed(*id, Direction::Outgoing)
+                .edges_directed(*id, Outgoing)
                 // never get the sets of the members or this will infinite recurse when the report_sets setting is on.
                 .map(|(_, member_id, _)| self.get_node_name_inner(&member_id, false))
                 .reduce(|a, b| format!("{a}, {b}"))
@@ -1318,7 +1538,7 @@ impl ScheduleGraph {
     fn optionally_check_hierarchy_conflicts(
         &self,
         transitive_edges: &[(NodeId, NodeId)],
-        schedule_label: &BoxedScheduleLabel,
+        schedule_label: InternedScheduleLabel,
     ) -> Result<(), ScheduleBuildError> {
         if self.settings.hierarchy_detection == LogLevel::Ignore || transitive_edges.is_empty() {
             return Ok(());
@@ -1460,7 +1680,7 @@ impl ScheduleGraph {
         dep_results: &CheckGraphResults<NodeId>,
         hier_results_connected: &HashSet<(NodeId, NodeId)>,
     ) -> Result<(), ScheduleBuildError> {
-        for &(a, b) in dep_results.connected.iter() {
+        for &(a, b) in &dep_results.connected {
             if hier_results_connected.contains(&(a, b)) || hier_results_connected.contains(&(b, a))
             {
                 let name_a = self.get_node_name(&a);
@@ -1478,7 +1698,7 @@ impl ScheduleGraph {
         set_system_bitsets: &HashMap<NodeId, FixedBitSet>,
     ) -> Result<(), ScheduleBuildError> {
         // check that there is no ordering between system sets that intersect
-        for (a, b) in dep_results_connected.iter() {
+        for (a, b) in dep_results_connected {
             if !(a.is_set() && b.is_set()) {
                 continue;
             }
@@ -1486,7 +1706,7 @@ impl ScheduleGraph {
             let a_systems = set_system_bitsets.get(a).unwrap();
             let b_systems = set_system_bitsets.get(b).unwrap();
 
-            if !(a_systems.is_disjoint(b_systems)) {
+            if !a_systems.is_disjoint(b_systems) {
                 return Err(ScheduleBuildError::SetsHaveOrderButIntersect(
                     self.get_node_name(a),
                     self.get_node_name(b),
@@ -1501,19 +1721,13 @@ impl ScheduleGraph {
         &self,
         set_systems: &HashMap<NodeId, Vec<NodeId>>,
     ) -> Result<(), ScheduleBuildError> {
-        for (&id, systems) in set_systems.iter() {
+        for (&id, systems) in set_systems {
             let set = &self.system_sets[id.index()];
             if set.is_system_type() {
                 let instances = systems.len();
                 let ambiguous_with = self.ambiguous_with.edges(id);
-                let before = self
-                    .dependency
-                    .graph
-                    .edges_directed(id, Direction::Incoming);
-                let after = self
-                    .dependency
-                    .graph
-                    .edges_directed(id, Direction::Outgoing);
+                let before = self.dependency.graph.edges_directed(id, Incoming);
+                let after = self.dependency.graph.edges_directed(id, Outgoing);
                 let relations = before.count() + after.count() + ambiguous_with.count();
                 if instances > 1 && relations > 0 {
                     return Err(ScheduleBuildError::SystemTypeSetAmbiguity(
@@ -1530,7 +1744,7 @@ impl ScheduleGraph {
         &self,
         conflicts: &[(NodeId, NodeId, Vec<ComponentId>)],
         components: &Components,
-        schedule_label: &BoxedScheduleLabel,
+        schedule_label: InternedScheduleLabel,
     ) -> Result<(), ScheduleBuildError> {
         if self.settings.ambiguity_detection == LogLevel::Ignore || conflicts.is_empty() {
             return Ok(());
@@ -1555,9 +1769,9 @@ impl ScheduleGraph {
         let n_ambiguities = ambiguities.len();
 
         let mut message = format!(
-            "{n_ambiguities} pairs of systems with conflicting data access have indeterminate execution order. \
-            Consider adding `before`, `after`, or `ambiguous_with` relationships between these:\n",
-        );
+                "{n_ambiguities} pairs of systems with conflicting data access have indeterminate execution order. \
+                Consider adding `before`, `after`, or `ambiguous_with` relationships between these:\n",
+            );
 
         for (name_a, name_b, conflicts) in self.conflicts_to_string(ambiguities, components) {
             writeln!(message, " -- {name_a} and {name_b}").unwrap();
@@ -1574,7 +1788,7 @@ impl ScheduleGraph {
         message
     }
 
-    /// convert conflics to human readable format
+    /// convert conflicts to human readable format
     pub fn conflicts_to_string<'a>(
         &'a self,
         ambiguities: &'a [(NodeId, NodeId, Vec<ComponentId>)],
@@ -1599,7 +1813,7 @@ impl ScheduleGraph {
     }
 
     fn traverse_sets_containing_node(&self, id: NodeId, f: &mut impl FnMut(NodeId) -> bool) {
-        for (set_id, _, _) in self.hierarchy.graph.edges_directed(id, Direction::Incoming) {
+        for (set_id, _, _) in self.hierarchy.graph.edges_directed(id, Incoming) {
             if f(set_id) {
                 self.traverse_sets_containing_node(set_id, f);
             }
@@ -1685,6 +1899,16 @@ pub struct ScheduleBuildSettings {
     ///
     /// Defaults to [`LogLevel::Warn`].
     pub hierarchy_detection: LogLevel,
+    /// Auto insert [`apply_deferred`] systems into the schedule,
+    /// when there are [`Deferred`](crate::prelude::Deferred)
+    /// in one system and there are ordering dependencies on that system. [`Commands`](crate::system::Commands) is one
+    /// such deferred buffer.
+    ///
+    /// You may want to disable this if you only want to sync deferred params at the end of the schedule,
+    /// or want to manually insert all your sync points.
+    ///
+    /// Defaults to `true`
+    pub auto_insert_apply_deferred: bool,
     /// If set to true, node names will be shortened instead of the fully qualified type path.
     ///
     /// Defaults to `true`.
@@ -1708,6 +1932,7 @@ impl ScheduleBuildSettings {
         Self {
             ambiguity_detection: LogLevel::Ignore,
             hierarchy_detection: LogLevel::Warn,
+            auto_insert_apply_deferred: true,
             use_shortnames: true,
             report_sets: true,
         }
@@ -1718,9 +1943,19 @@ impl ScheduleBuildSettings {
 mod tests {
     use crate::{
         self as bevy_ecs,
-        schedule::{IntoSystemConfigs, IntoSystemSetConfig, Schedule, SystemSet},
+        prelude::{Res, Resource},
+        schedule::{
+            IntoSystemConfigs, IntoSystemSetConfigs, Schedule, ScheduleBuildSettings, SystemSet,
+        },
+        system::Commands,
         world::World,
     };
+
+    #[derive(Resource)]
+    struct Resource1;
+
+    #[derive(Resource)]
+    struct Resource2;
 
     // regression test for https://github.com/bevyengine/bevy/issues/9114
     #[test]
@@ -1731,12 +1966,446 @@ mod tests {
         let mut world = World::new();
         let mut schedule = Schedule::default();
 
-        schedule.configure_set(Set.run_if(|| false));
+        schedule.configure_sets(Set.run_if(|| false));
         schedule.add_systems(
             (|| panic!("This system must not run"))
                 .ambiguous_with(|| ())
                 .in_set(Set),
         );
         schedule.run(&mut world);
+    }
+
+    #[test]
+    fn inserts_a_sync_point() {
+        let mut schedule = Schedule::default();
+        let mut world = World::default();
+        schedule.add_systems(
+            (
+                |mut commands: Commands| commands.insert_resource(Resource1),
+                |_: Res<Resource1>| {},
+            )
+                .chain(),
+        );
+        schedule.run(&mut world);
+
+        // inserted a sync point
+        assert_eq!(schedule.executable.systems.len(), 3);
+    }
+
+    #[test]
+    fn merges_sync_points_into_one() {
+        let mut schedule = Schedule::default();
+        let mut world = World::default();
+        // insert two parallel command systems, it should only create one sync point
+        schedule.add_systems(
+            (
+                (
+                    |mut commands: Commands| commands.insert_resource(Resource1),
+                    |mut commands: Commands| commands.insert_resource(Resource2),
+                ),
+                |_: Res<Resource1>, _: Res<Resource2>| {},
+            )
+                .chain(),
+        );
+        schedule.run(&mut world);
+
+        // inserted sync points
+        assert_eq!(schedule.executable.systems.len(), 4);
+
+        // merges sync points on rebuild
+        schedule.add_systems(((
+            (
+                |mut commands: Commands| commands.insert_resource(Resource1),
+                |mut commands: Commands| commands.insert_resource(Resource2),
+            ),
+            |_: Res<Resource1>, _: Res<Resource2>| {},
+        )
+            .chain(),));
+        schedule.run(&mut world);
+
+        assert_eq!(schedule.executable.systems.len(), 7);
+    }
+
+    #[test]
+    fn adds_multiple_consecutive_syncs() {
+        let mut schedule = Schedule::default();
+        let mut world = World::default();
+        // insert two consecutive command systems, it should create two sync points
+        schedule.add_systems(
+            (
+                |mut commands: Commands| commands.insert_resource(Resource1),
+                |mut commands: Commands| commands.insert_resource(Resource2),
+                |_: Res<Resource1>, _: Res<Resource2>| {},
+            )
+                .chain(),
+        );
+        schedule.run(&mut world);
+
+        assert_eq!(schedule.executable.systems.len(), 5);
+    }
+
+    #[test]
+    fn disable_auto_sync_points() {
+        let mut schedule = Schedule::default();
+        schedule.set_build_settings(ScheduleBuildSettings {
+            auto_insert_apply_deferred: false,
+            ..Default::default()
+        });
+        let mut world = World::default();
+        schedule.add_systems(
+            (
+                |mut commands: Commands| commands.insert_resource(Resource1),
+                |res: Option<Res<Resource1>>| assert!(res.is_none()),
+            )
+                .chain(),
+        );
+        schedule.run(&mut world);
+
+        assert_eq!(schedule.executable.systems.len(), 2);
+    }
+
+    mod no_sync_edges {
+        use super::*;
+
+        fn insert_resource(mut commands: Commands) {
+            commands.insert_resource(Resource1);
+        }
+
+        fn resource_does_not_exist(res: Option<Res<Resource1>>) {
+            assert!(res.is_none());
+        }
+
+        #[derive(SystemSet, Hash, PartialEq, Eq, Debug, Clone)]
+        enum Sets {
+            A,
+            B,
+        }
+
+        fn check_no_sync_edges(add_systems: impl FnOnce(&mut Schedule)) {
+            let mut schedule = Schedule::default();
+            let mut world = World::default();
+            add_systems(&mut schedule);
+
+            schedule.run(&mut world);
+
+            assert_eq!(schedule.executable.systems.len(), 2);
+        }
+
+        #[test]
+        fn system_to_system_after() {
+            check_no_sync_edges(|schedule| {
+                schedule.add_systems((
+                    insert_resource,
+                    resource_does_not_exist.after_ignore_deferred(insert_resource),
+                ));
+            });
+        }
+
+        #[test]
+        fn system_to_system_before() {
+            check_no_sync_edges(|schedule| {
+                schedule.add_systems((
+                    insert_resource.before_ignore_deferred(resource_does_not_exist),
+                    resource_does_not_exist,
+                ));
+            });
+        }
+
+        #[test]
+        fn set_to_system_after() {
+            check_no_sync_edges(|schedule| {
+                schedule
+                    .add_systems((insert_resource, resource_does_not_exist.in_set(Sets::A)))
+                    .configure_sets(Sets::A.after_ignore_deferred(insert_resource));
+            });
+        }
+
+        #[test]
+        fn set_to_system_before() {
+            check_no_sync_edges(|schedule| {
+                schedule
+                    .add_systems((insert_resource.in_set(Sets::A), resource_does_not_exist))
+                    .configure_sets(Sets::A.before_ignore_deferred(resource_does_not_exist));
+            });
+        }
+
+        #[test]
+        fn set_to_set_after() {
+            check_no_sync_edges(|schedule| {
+                schedule
+                    .add_systems((
+                        insert_resource.in_set(Sets::A),
+                        resource_does_not_exist.in_set(Sets::B),
+                    ))
+                    .configure_sets(Sets::B.after_ignore_deferred(Sets::A));
+            });
+        }
+
+        #[test]
+        fn set_to_set_before() {
+            check_no_sync_edges(|schedule| {
+                schedule
+                    .add_systems((
+                        insert_resource.in_set(Sets::A),
+                        resource_does_not_exist.in_set(Sets::B),
+                    ))
+                    .configure_sets(Sets::A.before_ignore_deferred(Sets::B));
+            });
+        }
+    }
+
+    mod no_sync_chain {
+        use super::*;
+
+        #[derive(Resource)]
+        struct Ra;
+
+        #[derive(Resource)]
+        struct Rb;
+
+        #[derive(Resource)]
+        struct Rc;
+
+        fn run_schedule(expected_num_systems: usize, add_systems: impl FnOnce(&mut Schedule)) {
+            let mut schedule = Schedule::default();
+            let mut world = World::default();
+            add_systems(&mut schedule);
+
+            schedule.run(&mut world);
+
+            assert_eq!(schedule.executable.systems.len(), expected_num_systems);
+        }
+
+        #[test]
+        fn only_chain_outside() {
+            run_schedule(5, |schedule: &mut Schedule| {
+                schedule.add_systems(
+                    (
+                        (
+                            |mut commands: Commands| commands.insert_resource(Ra),
+                            |mut commands: Commands| commands.insert_resource(Rb),
+                        ),
+                        (
+                            |res_a: Option<Res<Ra>>, res_b: Option<Res<Rb>>| {
+                                assert!(res_a.is_some());
+                                assert!(res_b.is_some());
+                            },
+                            |res_a: Option<Res<Ra>>, res_b: Option<Res<Rb>>| {
+                                assert!(res_a.is_some());
+                                assert!(res_b.is_some());
+                            },
+                        ),
+                    )
+                        .chain(),
+                );
+            });
+
+            run_schedule(4, |schedule: &mut Schedule| {
+                schedule.add_systems(
+                    (
+                        (
+                            |mut commands: Commands| commands.insert_resource(Ra),
+                            |mut commands: Commands| commands.insert_resource(Rb),
+                        ),
+                        (
+                            |res_a: Option<Res<Ra>>, res_b: Option<Res<Rb>>| {
+                                assert!(res_a.is_none());
+                                assert!(res_b.is_none());
+                            },
+                            |res_a: Option<Res<Ra>>, res_b: Option<Res<Rb>>| {
+                                assert!(res_a.is_none());
+                                assert!(res_b.is_none());
+                            },
+                        ),
+                    )
+                        .chain_ignore_deferred(),
+                );
+            });
+        }
+
+        #[test]
+        fn chain_first() {
+            run_schedule(6, |schedule: &mut Schedule| {
+                schedule.add_systems(
+                    (
+                        (
+                            |mut commands: Commands| commands.insert_resource(Ra),
+                            |mut commands: Commands, res_a: Option<Res<Ra>>| {
+                                commands.insert_resource(Rb);
+                                assert!(res_a.is_some());
+                            },
+                        )
+                            .chain(),
+                        (
+                            |res_a: Option<Res<Ra>>, res_b: Option<Res<Rb>>| {
+                                assert!(res_a.is_some());
+                                assert!(res_b.is_some());
+                            },
+                            |res_a: Option<Res<Ra>>, res_b: Option<Res<Rb>>| {
+                                assert!(res_a.is_some());
+                                assert!(res_b.is_some());
+                            },
+                        ),
+                    )
+                        .chain(),
+                );
+            });
+
+            run_schedule(5, |schedule: &mut Schedule| {
+                schedule.add_systems(
+                    (
+                        (
+                            |mut commands: Commands| commands.insert_resource(Ra),
+                            |mut commands: Commands, res_a: Option<Res<Ra>>| {
+                                commands.insert_resource(Rb);
+                                assert!(res_a.is_some());
+                            },
+                        )
+                            .chain(),
+                        (
+                            |res_a: Option<Res<Ra>>, res_b: Option<Res<Rb>>| {
+                                assert!(res_a.is_some());
+                                assert!(res_b.is_none());
+                            },
+                            |res_a: Option<Res<Ra>>, res_b: Option<Res<Rb>>| {
+                                assert!(res_a.is_some());
+                                assert!(res_b.is_none());
+                            },
+                        ),
+                    )
+                        .chain_ignore_deferred(),
+                );
+            });
+        }
+
+        #[test]
+        fn chain_second() {
+            run_schedule(6, |schedule: &mut Schedule| {
+                schedule.add_systems(
+                    (
+                        (
+                            |mut commands: Commands| commands.insert_resource(Ra),
+                            |mut commands: Commands| commands.insert_resource(Rb),
+                        ),
+                        (
+                            |mut commands: Commands,
+                             res_a: Option<Res<Ra>>,
+                             res_b: Option<Res<Rb>>| {
+                                commands.insert_resource(Rc);
+                                assert!(res_a.is_some());
+                                assert!(res_b.is_some());
+                            },
+                            |res_a: Option<Res<Ra>>,
+                             res_b: Option<Res<Rb>>,
+                             res_c: Option<Res<Rc>>| {
+                                assert!(res_a.is_some());
+                                assert!(res_b.is_some());
+                                assert!(res_c.is_some());
+                            },
+                        )
+                            .chain(),
+                    )
+                        .chain(),
+                );
+            });
+
+            run_schedule(5, |schedule: &mut Schedule| {
+                schedule.add_systems(
+                    (
+                        (
+                            |mut commands: Commands| commands.insert_resource(Ra),
+                            |mut commands: Commands| commands.insert_resource(Rb),
+                        ),
+                        (
+                            |mut commands: Commands,
+                             res_a: Option<Res<Ra>>,
+                             res_b: Option<Res<Rb>>| {
+                                commands.insert_resource(Rc);
+                                assert!(res_a.is_none());
+                                assert!(res_b.is_none());
+                            },
+                            |res_a: Option<Res<Ra>>,
+                             res_b: Option<Res<Rb>>,
+                             res_c: Option<Res<Rc>>| {
+                                assert!(res_a.is_some());
+                                assert!(res_b.is_some());
+                                assert!(res_c.is_some());
+                            },
+                        )
+                            .chain(),
+                    )
+                        .chain_ignore_deferred(),
+                );
+            });
+        }
+
+        #[test]
+        fn chain_all() {
+            run_schedule(7, |schedule: &mut Schedule| {
+                schedule.add_systems(
+                    (
+                        (
+                            |mut commands: Commands| commands.insert_resource(Ra),
+                            |mut commands: Commands, res_a: Option<Res<Ra>>| {
+                                commands.insert_resource(Rb);
+                                assert!(res_a.is_some());
+                            },
+                        )
+                            .chain(),
+                        (
+                            |mut commands: Commands,
+                             res_a: Option<Res<Ra>>,
+                             res_b: Option<Res<Rb>>| {
+                                commands.insert_resource(Rc);
+                                assert!(res_a.is_some());
+                                assert!(res_b.is_some());
+                            },
+                            |res_a: Option<Res<Ra>>,
+                             res_b: Option<Res<Rb>>,
+                             res_c: Option<Res<Rc>>| {
+                                assert!(res_a.is_some());
+                                assert!(res_b.is_some());
+                                assert!(res_c.is_some());
+                            },
+                        )
+                            .chain(),
+                    )
+                        .chain(),
+                );
+            });
+
+            run_schedule(6, |schedule: &mut Schedule| {
+                schedule.add_systems(
+                    (
+                        (
+                            |mut commands: Commands| commands.insert_resource(Ra),
+                            |mut commands: Commands, res_a: Option<Res<Ra>>| {
+                                commands.insert_resource(Rb);
+                                assert!(res_a.is_some());
+                            },
+                        )
+                            .chain(),
+                        (
+                            |mut commands: Commands,
+                             res_a: Option<Res<Ra>>,
+                             res_b: Option<Res<Rb>>| {
+                                commands.insert_resource(Rc);
+                                assert!(res_a.is_some());
+                                assert!(res_b.is_none());
+                            },
+                            |res_a: Option<Res<Ra>>,
+                             res_b: Option<Res<Rb>>,
+                             res_c: Option<Res<Rc>>| {
+                                assert!(res_a.is_some());
+                                assert!(res_b.is_some());
+                                assert!(res_c.is_some());
+                            },
+                        )
+                            .chain(),
+                    )
+                        .chain_ignore_deferred(),
+                );
+            });
+        }
     }
 }

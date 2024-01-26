@@ -8,8 +8,12 @@ use argh::FromArgs;
 use bevy::{
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    render::render_resource::{Extent3d, TextureDimension, TextureFormat},
+    render::{
+        render_asset::RenderAssetPersistencePolicy,
+        render_resource::{Extent3d, TextureDimension, TextureFormat},
+    },
     sprite::{MaterialMesh2dBundle, Mesh2dHandle},
+    utils::Duration,
     window::{PresentMode, WindowResolution},
 };
 use rand::{rngs::StdRng, seq::SliceRandom, Rng, SeedableRng};
@@ -60,6 +64,10 @@ struct Args {
     /// the number of different textures from which to randomly select the material color. 0 means no textures.
     #[argh(option, default = "1")]
     material_texture_count: usize,
+
+    /// generate z values in increasing order rather than randomly
+    #[argh(switch)]
+    ordered_z: bool,
 }
 
 #[derive(Default, Clone)]
@@ -86,14 +94,19 @@ impl FromStr for Mode {
 const FIXED_TIMESTEP: f32 = 0.2;
 
 fn main() {
+    // `from_env` panics on the web
+    #[cfg(not(target_arch = "wasm32"))]
     let args: Args = argh::from_env();
+    #[cfg(target_arch = "wasm32")]
+    let args = Args::from_args(&[], &[]).unwrap();
 
     App::new()
         .add_plugins((
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
                     title: "BevyMark".into(),
-                    resolution: (800., 600.).into(),
+                    resolution: WindowResolution::new(1920.0, 1080.0)
+                        .with_scale_factor_override(1.0),
                     present_mode: PresentMode::AutoNoVsync,
                     ..default()
                 }),
@@ -118,7 +131,9 @@ fn main() {
                 counter_system,
             ),
         )
-        .insert_resource(FixedTime::new_from_secs(FIXED_TIMESTEP))
+        .insert_resource(Time::<Fixed>::from_duration(Duration::from_secs_f32(
+            FIXED_TIMESTEP,
+        )))
         .run();
 }
 
@@ -163,6 +178,7 @@ struct BirdResources {
     color_rng: StdRng,
     material_rng: StdRng,
     velocity_rng: StdRng,
+    transform_rng: StdRng,
 }
 
 #[derive(Component)]
@@ -197,13 +213,12 @@ fn setup(
         textures,
         materials,
         quad: meshes
-            .add(Mesh::from(shape::Quad::new(Vec2::splat(
-                BIRD_TEXTURE_SIZE as f32,
-            ))))
+            .add(shape::Quad::new(Vec2::splat(BIRD_TEXTURE_SIZE as f32)))
             .into(),
         color_rng: StdRng::seed_from_u64(42),
         material_rng: StdRng::seed_from_u64(42),
         velocity_rng: StdRng::seed_from_u64(42),
+        transform_rng: StdRng::seed_from_u64(42),
     };
 
     let text_section = move |color, value: &str| {
@@ -275,7 +290,7 @@ fn mouse_handler(
     mut commands: Commands,
     args: Res<Args>,
     time: Res<Time>,
-    mouse_button_input: Res<Input<MouseButton>>,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
     windows: Query<&Window>,
     bird_resources: ResMut<BirdResources>,
     mut counter: ResMut<BevyCounter>,
@@ -360,7 +375,12 @@ fn spawn_birds(
         Mode::Sprite => {
             let batch = (0..spawn_count)
                 .map(|count| {
-                    let bird_z = (current_count + count) as f32 * 0.00001;
+                    let bird_z = if args.ordered_z {
+                        (current_count + count) as f32 * 0.00001
+                    } else {
+                        bird_resources.transform_rng.gen::<f32>()
+                    };
+
                     let (transform, velocity) = bird_velocity_transform(
                         half_extents,
                         Vec3::new(bird_x, bird_y, bird_z),
@@ -398,7 +418,12 @@ fn spawn_birds(
         Mode::Mesh2d => {
             let batch = (0..spawn_count)
                 .map(|count| {
-                    let bird_z = (current_count + count) as f32 * 0.00001;
+                    let bird_z = if args.ordered_z {
+                        (current_count + count) as f32 * 0.00001
+                    } else {
+                        bird_resources.transform_rng.gen::<f32>()
+                    };
+
                     let (transform, velocity) = bird_velocity_transform(
                         half_extents,
                         Vec3::new(bird_x, bird_y, bird_z),
@@ -463,7 +488,7 @@ fn movement_system(
 
 fn handle_collision(half_extents: Vec2, translation: &Vec3, velocity: &mut Vec3) {
     if (velocity.x > 0. && translation.x + HALF_BIRD_SIZE > half_extents.x)
-        || (velocity.x <= 0. && translation.x - HALF_BIRD_SIZE < -(half_extents.x))
+        || (velocity.x <= 0. && translation.x - HALF_BIRD_SIZE < -half_extents.x)
     {
         velocity.x = -velocity.x;
     }
@@ -496,7 +521,7 @@ fn counter_system(
         text.sections[1].value = counter.count.to_string();
     }
 
-    if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
+    if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) {
         if let Some(raw) = fps.value() {
             text.sections[3].value = format!("{raw:.2}");
         }
@@ -522,6 +547,7 @@ fn init_textures(textures: &mut Vec<Handle<Image>>, args: &Args, images: &mut As
             TextureDimension::D2,
             &pixel,
             TextureFormat::Rgba8UnormSrgb,
+            RenderAssetPersistencePolicy::Unload,
         )));
     }
 }
@@ -541,7 +567,7 @@ fn init_materials(
     let mut materials = Vec::with_capacity(capacity);
     materials.push(assets.add(ColorMaterial {
         color: Color::WHITE,
-        texture: textures.get(0).cloned(),
+        texture: textures.first().cloned(),
     }));
 
     let mut color_rng = StdRng::seed_from_u64(42);

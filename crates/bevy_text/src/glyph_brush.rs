@@ -1,8 +1,9 @@
 use ab_glyph::{Font as _, FontArc, Glyph, PxScaleFont, ScaleFont as _};
-use bevy_asset::{Assets, Handle};
+use bevy_asset::{AssetId, Assets};
 use bevy_math::{Rect, Vec2};
+use bevy_reflect::Reflect;
 use bevy_render::texture::Image;
-use bevy_sprite::TextureAtlas;
+use bevy_sprite::TextureAtlasLayout;
 use bevy_utils::tracing::warn;
 use glyph_brush_layout::{
     BuiltInLineBreaker, FontId, GlyphPositioner, Layout, SectionGeometry, SectionGlyph,
@@ -10,13 +11,13 @@ use glyph_brush_layout::{
 };
 
 use crate::{
-    error::TextError, BreakLineOn, Font, FontAtlasSet, FontAtlasWarning, GlyphAtlasInfo,
-    TextAlignment, TextSettings, YAxisOrientation,
+    error::TextError, BreakLineOn, Font, FontAtlasSet, FontAtlasSets, FontAtlasWarning,
+    GlyphAtlasInfo, JustifyText, TextSettings, YAxisOrientation,
 };
 
 pub struct GlyphBrush {
     fonts: Vec<FontArc>,
-    handles: Vec<Handle<Font>>,
+    asset_ids: Vec<AssetId<Font>>,
     latest_font_id: FontId,
 }
 
@@ -24,7 +25,7 @@ impl Default for GlyphBrush {
     fn default() -> Self {
         GlyphBrush {
             fonts: Vec::new(),
-            handles: Vec::new(),
+            asset_ids: Vec::new(),
             latest_font_id: FontId(0),
         }
     }
@@ -35,7 +36,7 @@ impl GlyphBrush {
         &self,
         sections: &[S],
         bounds: Vec2,
-        text_alignment: TextAlignment,
+        text_alignment: JustifyText,
         linebreak_behavior: BreakLineOn,
     ) -> Result<Vec<SectionGlyph>, TextError> {
         let geom = SectionGeometry {
@@ -57,9 +58,9 @@ impl GlyphBrush {
         &self,
         glyphs: Vec<SectionGlyph>,
         sections: &[SectionText],
-        font_atlas_set_storage: &mut Assets<FontAtlasSet>,
+        font_atlas_sets: &mut FontAtlasSets,
         fonts: &Assets<Font>,
-        texture_atlases: &mut Assets<TextureAtlas>,
+        texture_atlases: &mut Assets<TextureAtlasLayout>,
         textures: &mut Assets<Image>,
         text_settings: &TextSettings,
         font_atlas_warning: &mut FontAtlasWarning,
@@ -72,11 +73,11 @@ impl GlyphBrush {
         let sections_data = sections
             .iter()
             .map(|section| {
-                let handle = &self.handles[section.font_id.0];
-                let font = fonts.get(handle).ok_or(TextError::NoSuchFont)?;
+                let asset_id = &self.asset_ids[section.font_id.0];
+                let font = fonts.get(*asset_id).ok_or(TextError::NoSuchFont)?;
                 let font_size = section.scale.y;
                 Ok((
-                    handle,
+                    asset_id,
                     font,
                     font_size,
                     ab_glyph::Font::as_scaled(&font.font, font_size),
@@ -100,9 +101,10 @@ impl GlyphBrush {
             let section_data = sections_data[sg.section_index];
             if let Some(outlined_glyph) = section_data.1.font.outline_glyph(glyph) {
                 let bounds = outlined_glyph.px_bounds();
-                let handle_font_atlas: Handle<FontAtlasSet> = section_data.0.cast_weak();
-                let font_atlas_set = font_atlas_set_storage
-                    .get_or_insert_with(handle_font_atlas, FontAtlasSet::default);
+                let font_atlas_set = font_atlas_sets
+                    .sets
+                    .entry(*section_data.0)
+                    .or_insert_with(FontAtlasSet::default);
 
                 let atlas_info = font_atlas_set
                     .get_glyph_atlas_info(section_data.2, glyph_id, glyph_position)
@@ -113,9 +115,9 @@ impl GlyphBrush {
 
                 if !text_settings.allow_dynamic_font_size
                     && !font_atlas_warning.warned
-                    && font_atlas_set.num_font_atlases() > text_settings.max_font_atlases.get()
+                    && font_atlas_set.len() > text_settings.soft_max_font_atlases.get()
                 {
-                    warn!("warning[B0005]: Number of font atlases has exceeded the maximum of {}. Performance and memory usage may suffer.", text_settings.max_font_atlases.get());
+                    warn!("warning[B0005]: Number of font atlases has exceeded the maximum of {}. Performance and memory usage may suffer.", text_settings.soft_max_font_atlases.get());
                     font_atlas_warning.warned = true;
                 }
 
@@ -148,16 +150,16 @@ impl GlyphBrush {
         Ok(positioned_glyphs)
     }
 
-    pub fn add_font(&mut self, handle: Handle<Font>, font: FontArc) -> FontId {
+    pub fn add_font(&mut self, asset_id: AssetId<Font>, font: FontArc) -> FontId {
         self.fonts.push(font);
-        self.handles.push(handle);
+        self.asset_ids.push(asset_id);
         let font_id = self.latest_font_id;
         self.latest_font_id = FontId(font_id.0 + 1);
         font_id
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Reflect)]
 pub struct PositionedGlyph {
     pub position: Vec2,
     pub size: Vec2,
@@ -206,13 +208,13 @@ impl GlyphPlacementAdjuster {
 pub(crate) fn compute_text_bounds<T>(
     section_glyphs: &[SectionGlyph],
     get_scaled_font: impl Fn(usize) -> PxScaleFont<T>,
-) -> bevy_math::Rect
+) -> Rect
 where
     T: ab_glyph::Font,
 {
     let mut text_bounds = Rect {
-        min: Vec2::splat(std::f32::MAX),
-        max: Vec2::splat(std::f32::MIN),
+        min: Vec2::splat(f32::MAX),
+        max: Vec2::splat(f32::MIN),
     };
 
     for sg in section_glyphs {

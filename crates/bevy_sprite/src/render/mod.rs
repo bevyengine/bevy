@@ -1,17 +1,16 @@
 use std::ops::Range;
 
 use crate::{
-    texture_atlas::{TextureAtlas, TextureAtlasSprite},
-    Sprite, SPRITE_SHADER_HANDLE,
+    texture_atlas::{TextureAtlas, TextureAtlasLayout},
+    ComputedTextureSlices, Sprite, SPRITE_SHADER_HANDLE,
 };
-use bevy_asset::{AssetEvent, Assets, Handle, HandleId};
+use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_core_pipeline::{
     core_2d::Transparent2d,
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_ecs::{
     prelude::*,
-    storage::SparseSet,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_math::{Affine3A, Quat, Rect, Vec2, Vec4};
@@ -22,7 +21,10 @@ use bevy_render::{
         DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult, RenderPhase, SetItemPipeline,
         TrackedRenderPass,
     },
-    render_resource::*,
+    render_resource::{
+        binding_types::{sampler, texture_2d, uniform_buffer},
+        BindGroupEntries, *,
+    },
     renderer::{RenderDevice, RenderQueue},
     texture::{
         BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
@@ -34,7 +36,7 @@ use bevy_render::{
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{FloatOrd, HashMap, Uuid};
+use bevy_utils::{EntityHashMap, FloatOrd, HashMap};
 use bytemuck::{Pod, Zeroable};
 use fixedbitset::FixedBitSet;
 
@@ -54,61 +56,41 @@ impl FromWorld for SpritePipeline {
         )> = SystemState::new(world);
         let (render_device, default_sampler, render_queue) = system_state.get_mut(world);
 
-        let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[BindGroupLayoutEntry {
-                binding: 0,
-                visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Uniform,
-                    has_dynamic_offset: true,
-                    min_binding_size: Some(ViewUniform::min_size()),
-                },
-                count: None,
-            }],
-            label: Some("sprite_view_layout"),
-        });
+        let view_layout = render_device.create_bind_group_layout(
+            "sprite_view_layout",
+            &BindGroupLayoutEntries::single(
+                ShaderStages::VERTEX_FRAGMENT,
+                uniform_buffer::<ViewUniform>(true),
+            ),
+        );
 
-        let material_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[
-                BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Texture {
-                        multisampled: false,
-                        sample_type: TextureSampleType::Float { filterable: true },
-                        view_dimension: TextureViewDimension::D2,
-                    },
-                    count: None,
-                },
-                BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                    count: None,
-                },
-            ],
-            label: Some("sprite_material_layout"),
-        });
+        let material_layout = render_device.create_bind_group_layout(
+            "sprite_material_layout",
+            &BindGroupLayoutEntries::sequential(
+                ShaderStages::FRAGMENT,
+                (
+                    texture_2d(TextureSampleType::Float { filterable: true }),
+                    sampler(SamplerBindingType::Filtering),
+                ),
+            ),
+        );
         let dummy_white_gpu_image = {
             let image = Image::default();
             let texture = render_device.create_texture(&image.texture_descriptor);
-            let sampler = match image.sampler_descriptor {
+            let sampler = match image.sampler {
                 ImageSampler::Default => (**default_sampler).clone(),
-                ImageSampler::Descriptor(descriptor) => render_device.create_sampler(&descriptor),
+                ImageSampler::Descriptor(ref descriptor) => {
+                    render_device.create_sampler(&descriptor.as_wgpu())
+                }
             };
 
             let format_size = image.texture_descriptor.format.pixel_size();
             render_queue.write_texture(
-                ImageCopyTexture {
-                    texture: &texture,
-                    mip_level: 0,
-                    origin: Origin3d::ZERO,
-                    aspect: TextureAspect::All,
-                },
+                texture.as_image_copy(),
                 &image.data,
                 ImageDataLayout {
                     offset: 0,
-                    bytes_per_row: Some(image.texture_descriptor.size.width * format_size as u32),
+                    bytes_per_row: Some(image.width() * format_size as u32),
                     rows_per_image: None,
                 },
                 image.texture_descriptor.size,
@@ -119,10 +101,7 @@ impl FromWorld for SpritePipeline {
                 texture_view,
                 texture_format: image.texture_descriptor.format,
                 sampler,
-                size: Vec2::new(
-                    image.texture_descriptor.size.width as f32,
-                    image.texture_descriptor.size.height as f32,
-                ),
+                size: image.size_f32(),
                 mip_level_count: image.texture_descriptor.mip_level_count,
             }
         };
@@ -142,10 +121,10 @@ bitflags::bitflags! {
     // MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
     pub struct SpritePipelineKey: u32 {
         const NONE                              = 0;
-        const COLORED                           = (1 << 0);
-        const HDR                               = (1 << 1);
-        const TONEMAP_IN_SHADER                 = (1 << 2);
-        const DEBAND_DITHER                     = (1 << 3);
+        const COLORED                           = 1 << 0;
+        const HDR                               = 1 << 1;
+        const TONEMAP_IN_SHADER                 = 1 << 2;
+        const DEBAND_DITHER                     = 1 << 3;
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_NONE               = 0 << Self::TONEMAP_METHOD_SHIFT_BITS;
@@ -276,13 +255,13 @@ impl SpecializedRenderPipeline for SpritePipeline {
 
         RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: SPRITE_SHADER_HANDLE.typed::<Shader>(),
+                shader: SPRITE_SHADER_HANDLE,
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![instance_rate_vertex_buffer_layout],
             },
             fragment: Some(FragmentState {
-                shader: SPRITE_SHADER_HANDLE.typed::<Shader>(),
+                shader: SPRITE_SHADER_HANDLE,
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
@@ -320,17 +299,20 @@ pub struct ExtractedSprite {
     pub rect: Option<Rect>,
     /// Change the on-screen size of the sprite
     pub custom_size: Option<Vec2>,
-    /// Handle to the [`Image`] of this sprite
-    /// PERF: storing a `HandleId` instead of `Handle<Image>` enables some optimizations (`ExtractedSprite` becomes `Copy` and doesn't need to be dropped)
-    pub image_handle_id: HandleId,
+    /// Asset ID of the [`Image`] of this sprite
+    /// PERF: storing an `AssetId` instead of `Handle<Image>` enables some optimizations (`ExtractedSprite` becomes `Copy` and doesn't need to be dropped)
+    pub image_handle_id: AssetId<Image>,
     pub flip_x: bool,
     pub flip_y: bool,
     pub anchor: Vec2,
+    /// For cases where additional ExtractedSprites are created during extraction, this stores the
+    /// entity that caused that creation for use in determining visibility.
+    pub original_entity: Option<Entity>,
 }
 
 #[derive(Resource, Default)]
 pub struct ExtractedSprites {
-    pub sprites: SparseSet<Entity, ExtractedSprite>,
+    pub sprites: EntityHashMap<Entity, ExtractedSprite>,
 }
 
 #[derive(Resource, Default)]
@@ -345,25 +327,15 @@ pub fn extract_sprite_events(
     let SpriteAssetEvents { ref mut images } = *events;
     images.clear();
 
-    for image in image_events.read() {
-        // AssetEvent: !Clone
-        images.push(match image {
-            AssetEvent::Created { handle } => AssetEvent::Created {
-                handle: handle.clone_weak(),
-            },
-            AssetEvent::Modified { handle } => AssetEvent::Modified {
-                handle: handle.clone_weak(),
-            },
-            AssetEvent::Removed { handle } => AssetEvent::Removed {
-                handle: handle.clone_weak(),
-            },
-        });
+    for event in image_events.read() {
+        images.push(*event);
     }
 }
 
 pub fn extract_sprites(
+    mut commands: Commands,
     mut extracted_sprites: ResMut<ExtractedSprites>,
-    texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
+    texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     sprite_query: Extract<
         Query<(
             Entity,
@@ -371,72 +343,51 @@ pub fn extract_sprites(
             &Sprite,
             &GlobalTransform,
             &Handle<Image>,
-        )>,
-    >,
-    atlas_query: Extract<
-        Query<(
-            Entity,
-            &ViewVisibility,
-            &TextureAtlasSprite,
-            &GlobalTransform,
-            &Handle<TextureAtlas>,
+            Option<&TextureAtlas>,
+            Option<&ComputedTextureSlices>,
         )>,
     >,
 ) {
     extracted_sprites.sprites.clear();
+    for (entity, view_visibility, sprite, transform, handle, sheet, slices) in sprite_query.iter() {
+        if !view_visibility.get() {
+            continue;
+        }
 
-    for (entity, view_visibility, sprite, transform, handle) in sprite_query.iter() {
-        if !view_visibility.get() {
-            continue;
-        }
-        // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
-        extracted_sprites.sprites.insert(
-            entity,
-            ExtractedSprite {
-                color: sprite.color,
-                transform: *transform,
-                rect: sprite.rect,
-                // Pass the custom size
-                custom_size: sprite.custom_size,
-                flip_x: sprite.flip_x,
-                flip_y: sprite.flip_y,
-                image_handle_id: handle.id(),
-                anchor: sprite.anchor.as_vec(),
-            },
-        );
-    }
-    for (entity, view_visibility, atlas_sprite, transform, texture_atlas_handle) in
-        atlas_query.iter()
-    {
-        if !view_visibility.get() {
-            continue;
-        }
-        if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {
-            let rect = Some(
-                *texture_atlas
-                    .textures
-                    .get(atlas_sprite.index)
-                    .unwrap_or_else(|| {
-                        panic!(
-                            "Sprite index {:?} does not exist for texture atlas handle {:?}.",
-                            atlas_sprite.index,
-                            texture_atlas_handle.id(),
-                        )
-                    }),
+        if let Some(slices) = slices {
+            extracted_sprites.sprites.extend(
+                slices
+                    .extract_sprites(transform, entity, sprite, handle)
+                    .map(|e| (commands.spawn_empty().id(), e)),
             );
+        } else {
+            let atlas_rect = sheet.and_then(|s| s.texture_rect(&texture_atlases));
+            let rect = match (atlas_rect, sprite.rect) {
+                (None, None) => None,
+                (None, Some(sprite_rect)) => Some(sprite_rect),
+                (Some(atlas_rect), None) => Some(atlas_rect),
+                (Some(atlas_rect), Some(mut sprite_rect)) => {
+                    sprite_rect.min += atlas_rect.min;
+                    sprite_rect.max += atlas_rect.min;
+
+                    Some(sprite_rect)
+                }
+            };
+
+            // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
             extracted_sprites.sprites.insert(
                 entity,
                 ExtractedSprite {
-                    color: atlas_sprite.color,
+                    color: sprite.color,
                     transform: *transform,
-                    // Select the area in the texture atlas
                     rect,
                     // Pass the custom size
-                    custom_size: atlas_sprite.custom_size,
-                    flip_x: atlas_sprite.flip_x,
-                    flip_y: atlas_sprite.flip_y,
-                    image_handle_id: texture_atlas.texture.id(),
-                    anchor: atlas_sprite.anchor.as_vec(),
+                    custom_size: sprite.custom_size,
+                    flip_x: sprite.flip_x,
+                    flip_y: sprite.flip_y,
+                    image_handle_id: handle.id(),
+                    anchor: sprite.anchor.as_vec(),
+                    original_entity: None,
                 },
             );
         }
@@ -487,13 +438,13 @@ impl Default for SpriteMeta {
 
 #[derive(Component, PartialEq, Eq, Clone)]
 pub struct SpriteBatch {
-    image_handle_id: HandleId,
+    image_handle_id: AssetId<Image>,
     range: Range<u32>,
 }
 
 #[derive(Resource, Default)]
 pub struct ImageBindGroups {
-    values: HashMap<Handle<Image>, BindGroup>,
+    values: HashMap<AssetId<Image>, BindGroup>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -562,7 +513,9 @@ pub fn queue_sprites(
             .reserve(extracted_sprites.sprites.len());
 
         for (entity, extracted_sprite) in extracted_sprites.sprites.iter() {
-            if !view_entities.contains(entity.index() as usize) {
+            let index = extracted_sprite.original_entity.unwrap_or(*entity).index();
+
+            if !view_entities.contains(index as usize) {
                 continue;
             }
 
@@ -576,8 +529,9 @@ pub fn queue_sprites(
                     pipeline: colored_pipeline,
                     entity: *entity,
                     sort_key,
-                    // batch_size will be calculated in prepare_sprites
-                    batch_size: 0,
+                    // batch_range and dynamic_offset will be calculated in prepare_sprites
+                    batch_range: 0..0,
+                    dynamic_offset: None,
                 });
             } else {
                 transparent_phase.add(Transparent2d {
@@ -585,8 +539,9 @@ pub fn queue_sprites(
                     pipeline,
                     entity: *entity,
                     sort_key,
-                    // batch_size will be calculated in prepare_sprites
-                    batch_size: 0,
+                    // batch_range and dynamic_offset will be calculated in prepare_sprites
+                    batch_range: 0..0,
+                    dynamic_offset: None,
                 });
             }
         }
@@ -611,9 +566,12 @@ pub fn prepare_sprites(
     // If an image has changed, the GpuImage has (probably) changed
     for event in &events.images {
         match event {
-            AssetEvent::Created { .. } => None,
-            AssetEvent::Modified { handle } | AssetEvent::Removed { handle } => {
-                image_bind_groups.values.remove(handle)
+            AssetEvent::Added { .. } |
+            AssetEvent::Unused { .. } |
+            // Images don't have dependencies
+            AssetEvent::LoadedWithDependencies { .. } => {}
+            AssetEvent::Modified { id } | AssetEvent::Removed { id } => {
+                image_bind_groups.values.remove(id);
             }
         };
     }
@@ -624,14 +582,11 @@ pub fn prepare_sprites(
         // Clear the sprite instances
         sprite_meta.sprite_instance_buffer.clear();
 
-        sprite_meta.view_bind_group = Some(render_device.create_bind_group(&BindGroupDescriptor {
-            entries: &[BindGroupEntry {
-                binding: 0,
-                resource: view_binding,
-            }],
-            label: Some("sprite_view_bind_group"),
-            layout: &sprite_pipeline.view_layout,
-        }));
+        sprite_meta.view_bind_group = Some(render_device.create_bind_group(
+            "sprite_view_bind_group",
+            &sprite_pipeline.view_layout,
+            &BindGroupEntries::single(view_binding),
+        ));
 
         // Index buffer indices
         let mut index = 0;
@@ -641,26 +596,24 @@ pub fn prepare_sprites(
         for mut transparent_phase in &mut phases {
             let mut batch_item_index = 0;
             let mut batch_image_size = Vec2::ZERO;
-            let mut batch_image_handle = HandleId::Id(Uuid::nil(), u64::MAX);
+            let mut batch_image_handle = AssetId::invalid();
 
             // Iterate through the phase items and detect when successive sprites that can be batched.
             // Spawn an entity with a `SpriteBatch` component for each possible batch.
             // Compatible items share the same entity.
             for item_index in 0..transparent_phase.items.len() {
                 let item = &transparent_phase.items[item_index];
-                let Some(extracted_sprite) = extracted_sprites.sprites.get(item.entity) else {
+                let Some(extracted_sprite) = extracted_sprites.sprites.get(&item.entity) else {
                     // If there is a phase item that is not a sprite, then we must start a new
                     // batch to draw the other phase item(s) and to respect draw order. This can be
                     // done by invalidating the batch_image_handle
-                    batch_image_handle = HandleId::Id(Uuid::nil(), u64::MAX);
+                    batch_image_handle = AssetId::invalid();
                     continue;
                 };
 
                 let batch_image_changed = batch_image_handle != extracted_sprite.image_handle_id;
                 if batch_image_changed {
-                    let Some(gpu_image) =
-                        gpu_images.get(&Handle::weak(extracted_sprite.image_handle_id))
-                    else {
+                    let Some(gpu_image) = gpu_images.get(extracted_sprite.image_handle_id) else {
                         continue;
                     };
 
@@ -668,24 +621,16 @@ pub fn prepare_sprites(
                     batch_image_handle = extracted_sprite.image_handle_id;
                     image_bind_groups
                         .values
-                        .entry(Handle::weak(batch_image_handle))
+                        .entry(batch_image_handle)
                         .or_insert_with(|| {
-                            render_device.create_bind_group(&BindGroupDescriptor {
-                                entries: &[
-                                    BindGroupEntry {
-                                        binding: 0,
-                                        resource: BindingResource::TextureView(
-                                            &gpu_image.texture_view,
-                                        ),
-                                    },
-                                    BindGroupEntry {
-                                        binding: 1,
-                                        resource: BindingResource::Sampler(&gpu_image.sampler),
-                                    },
-                                ],
-                                label: Some("sprite_material_bind_group"),
-                                layout: &sprite_pipeline.material_layout,
-                            })
+                            render_device.create_bind_group(
+                                "sprite_material_bind_group",
+                                &sprite_pipeline.material_layout,
+                                &BindGroupEntries::sequential((
+                                    &gpu_image.texture_view,
+                                    &gpu_image.sampler,
+                                )),
+                            )
                         });
                 }
 
@@ -750,7 +695,9 @@ pub fn prepare_sprites(
                     ));
                 }
 
-                transparent_phase.items[batch_item_index].batch_size += 1;
+                transparent_phase.items[batch_item_index]
+                    .batch_range_mut()
+                    .end += 1;
                 batches.last_mut().unwrap().1.range.end += 1;
                 index += 1;
             }
@@ -788,6 +735,7 @@ pub fn prepare_sprites(
     }
 }
 
+/// [`RenderCommand`] for sprite rendering.
 pub type DrawSprite = (
     SetItemPipeline,
     SetSpriteViewBindGroup<0>,
@@ -798,8 +746,8 @@ pub type DrawSprite = (
 pub struct SetSpriteViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteViewBindGroup<I> {
     type Param = SRes<SpriteMeta>;
-    type ViewWorldQuery = Read<ViewUniformOffset>;
-    type ItemWorldQuery = ();
+    type ViewQuery = Read<ViewUniformOffset>;
+    type ItemQuery = ();
 
     fn render<'w>(
         _item: &P,
@@ -819,8 +767,8 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteViewBindGroup<I
 pub struct SetSpriteTextureBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGroup<I> {
     type Param = SRes<ImageBindGroups>;
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = Read<SpriteBatch>;
+    type ViewQuery = ();
+    type ItemQuery = Read<SpriteBatch>;
 
     fn render<'w>(
         _item: &P,
@@ -835,7 +783,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGrou
             I,
             image_bind_groups
                 .values
-                .get(&Handle::weak(batch.image_handle_id))
+                .get(&batch.image_handle_id)
                 .unwrap(),
             &[],
         );
@@ -846,8 +794,8 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGrou
 pub struct DrawSpriteBatch;
 impl<P: PhaseItem> RenderCommand<P> for DrawSpriteBatch {
     type Param = SRes<SpriteMeta>;
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = Read<SpriteBatch>;
+    type ViewQuery = ();
+    type ItemQuery = Read<SpriteBatch>;
 
     fn render<'w>(
         _item: &P,

@@ -5,8 +5,8 @@
 //! the derive helper attribute for `Reflect`, which looks like:
 //! `#[reflect(PartialEq, Default, ...)]` and `#[reflect_value(PartialEq, Default, ...)]`.
 
-use crate::fq_std::{FQAny, FQOption};
 use crate::utility;
+use bevy_macro_utils::fq_std::{FQAny, FQOption};
 use proc_macro2::{Ident, Span};
 use quote::quote_spanned;
 use syn::parse::{Parse, ParseStream};
@@ -168,9 +168,9 @@ impl TypePathAttrs {
 ///
 /// Registering the `Default` implementation:
 ///
-/// ```ignore
+/// ```ignore (bevy_reflect is not accessible from this crate)
 /// // Import ReflectDefault so it's accessible by the derive macro
-/// use bevy_reflect::prelude::ReflectDefault.
+/// use bevy_reflect::prelude::ReflectDefault;
 ///
 /// #[derive(Reflect, Default)]
 /// #[reflect(Default)]
@@ -179,7 +179,7 @@ impl TypePathAttrs {
 ///
 /// Registering the `Hash` implementation:
 ///
-/// ```ignore
+/// ```ignore (bevy_reflect is not accessible from this crate)
 /// // `Hash` is a "special trait" and does not need (nor have) a ReflectHash struct
 ///
 /// #[derive(Reflect, Hash)]
@@ -189,7 +189,7 @@ impl TypePathAttrs {
 ///
 /// Registering the `Hash` implementation using a custom function:
 ///
-/// ```ignore
+/// ```ignore (bevy_reflect is not accessible from this crate)
 /// // This function acts as our `Hash` implementation and
 /// // corresponds to the `Reflect::reflect_hash` method.
 /// fn get_hash(foo: &Foo) -> Option<u64> {
@@ -446,7 +446,7 @@ fn extract_bool(
     mut mapper: impl FnMut(&LitBool) -> LitBool,
 ) -> Result<LitBool, syn::Error> {
     match value {
-        syn::Expr::Lit(syn::ExprLit {
+        Expr::Lit(syn::ExprLit {
             lit: syn::Lit::Bool(lit),
             ..
         }) => Ok(mapper(lit)),

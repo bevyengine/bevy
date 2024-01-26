@@ -11,7 +11,7 @@ use bevy_render::{
     view::{InheritedVisibility, ViewVisibility, Visibility, VisibleEntities},
 };
 use bevy_transform::components::{GlobalTransform, Transform};
-use bevy_utils::HashMap;
+use bevy_utils::EntityHashMap;
 
 /// A component bundle for PBR entities with a [`Mesh`] and a [`StandardMaterial`].
 pub type PbrBundle = MaterialMeshBundle<StandardMaterial>;
@@ -75,7 +75,7 @@ impl CubemapVisibleEntities {
 pub struct CascadesVisibleEntities {
     /// Map of view entity to the visible entities for each cascade frustum.
     #[reflect(ignore)]
-    pub entities: HashMap<Entity, Vec<VisibleEntities>>,
+    pub entities: EntityHashMap<Entity, Vec<VisibleEntities>>,
 }
 
 /// A component bundle for [`PointLight`] entities.
@@ -123,7 +123,7 @@ pub struct DirectionalLightBundle {
     /// Enables or disables the light
     pub visibility: Visibility,
     /// Inherited visibility of an entity.
-    pub visible_in_hieararchy: InheritedVisibility,
+    pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub view_visibility: ViewVisibility,
 }

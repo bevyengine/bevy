@@ -9,9 +9,10 @@ use std::{
 
 use async_task::FallibleTask;
 use concurrent_queue::ConcurrentQueue;
-use futures_lite::{future, FutureExt};
+use futures_lite::FutureExt;
 
 use crate::{
+    block_on,
     thread_executor::{ThreadExecutor, ThreadExecutorTicker},
     Task,
 };
@@ -176,7 +177,7 @@ impl TaskPool {
                                             local_executor.tick().await;
                                         }
                                     };
-                                    future::block_on(ex.run(tick_forever.or(shutdown_rx.recv())))
+                                    block_on(ex.run(tick_forever.or(shutdown_rx.recv())))
                                 });
                                 if let Ok(value) = res {
                                     // Use unwrap_err because we expect a Closed error
@@ -352,12 +353,17 @@ impl TaskPool {
         // Any usages of the references passed into `Scope` must be accessed through
         // the transmuted reference for the rest of this function.
         let executor: &async_executor::Executor = &self.executor;
+        // SAFETY: As above, all futures must complete in this function so we can change the lifetime
         let executor: &'env async_executor::Executor = unsafe { mem::transmute(executor) };
+        // SAFETY: As above, all futures must complete in this function so we can change the lifetime
         let external_executor: &'env ThreadExecutor<'env> =
             unsafe { mem::transmute(external_executor) };
+        // SAFETY: As above, all futures must complete in this function so we can change the lifetime
         let scope_executor: &'env ThreadExecutor<'env> = unsafe { mem::transmute(scope_executor) };
-        let spawned: ConcurrentQueue<FallibleTask<T>> = ConcurrentQueue::unbounded();
+        let spawned: ConcurrentQueue<FallibleTask<Result<T, Box<(dyn std::any::Any + Send)>>>> =
+            ConcurrentQueue::unbounded();
         // shadow the variable so that the owned value cannot be used for the rest of the function
+        // SAFETY: As above, all futures must complete in this function so we can change the lifetime
         let spawned: &'env ConcurrentQueue<
             FallibleTask<Result<T, Box<(dyn std::any::Any + Send)>>>,
         > = unsafe { mem::transmute(&spawned) };
@@ -372,6 +378,7 @@ impl TaskPool {
         };
 
         // shadow the variable so that the owned value cannot be used for the rest of the function
+        // SAFETY: As above, all futures must complete in this function so we can change the lifetime
         let scope: &'env Scope<'_, 'env, T> = unsafe { mem::transmute(&scope) };
 
         f(scope);
@@ -379,7 +386,7 @@ impl TaskPool {
         if spawned.is_empty() {
             Vec::new()
         } else {
-            future::block_on(async move {
+            block_on(async move {
                 let get_results = async {
                     let mut results = Vec::with_capacity(spawned.len());
                     while let Ok(task) = spawned.pop() {
@@ -554,7 +561,7 @@ impl TaskPool {
     /// the local executor on the main thread as it needs to share time with
     /// other things.
     ///
-    /// ```rust
+    /// ```
     /// use bevy_tasks::TaskPool;
     ///
     /// TaskPool::new().with_local_executor(|local_executor| {
@@ -661,7 +668,7 @@ where
     T: 'scope,
 {
     fn drop(&mut self) {
-        future::block_on(async {
+        block_on(async {
             while let Ok(task) = self.spawned.pop() {
                 task.cancel().await;
             }
@@ -817,17 +824,17 @@ mod tests {
             let count_clone = count.clone();
             let inner_pool = pool.clone();
             let inner_thread_check_failed = thread_check_failed.clone();
-            std::thread::spawn(move || {
+            thread::spawn(move || {
                 inner_pool.scope(|scope| {
                     let inner_count_clone = count_clone.clone();
                     scope.spawn(async move {
                         inner_count_clone.fetch_add(1, Ordering::Release);
                     });
-                    let spawner = std::thread::current().id();
+                    let spawner = thread::current().id();
                     let inner_count_clone = count_clone.clone();
                     scope.spawn_on_scope(async move {
                         inner_count_clone.fetch_add(1, Ordering::Release);
-                        if std::thread::current().id() != spawner {
+                        if thread::current().id() != spawner {
                             // NOTE: This check is using an atomic rather than simply panicking the
                             // thread to avoid deadlocking the barrier on failure
                             inner_thread_check_failed.store(true, Ordering::Release);
@@ -892,9 +899,9 @@ mod tests {
             let count_clone = count.clone();
             let inner_pool = pool.clone();
             let inner_thread_check_failed = thread_check_failed.clone();
-            std::thread::spawn(move || {
+            thread::spawn(move || {
                 inner_pool.scope(|scope| {
-                    let spawner = std::thread::current().id();
+                    let spawner = thread::current().id();
                     let inner_count_clone = count_clone.clone();
                     scope.spawn(async move {
                         inner_count_clone.fetch_add(1, Ordering::Release);
@@ -902,7 +909,7 @@ mod tests {
                         // spawning on the scope from another thread runs the futures on the scope's thread
                         scope.spawn_on_scope(async move {
                             inner_count_clone.fetch_add(1, Ordering::Release);
-                            if std::thread::current().id() != spawner {
+                            if thread::current().id() != spawner {
                                 // NOTE: This check is using an atomic rather than simply panicking the
                                 // thread to avoid deadlocking the barrier on failure
                                 inner_thread_check_failed.store(true, Ordering::Release);
@@ -916,5 +923,24 @@ mod tests {
         barrier.wait();
         assert!(!thread_check_failed.load(Ordering::Acquire));
         assert_eq!(count.load(Ordering::Acquire), 200);
+    }
+
+    // This test will often freeze on other executors.
+    #[test]
+    fn test_nested_scopes() {
+        let pool = TaskPool::new();
+        let count = Arc::new(AtomicI32::new(0));
+
+        pool.scope(|scope| {
+            scope.spawn(async {
+                pool.scope(|scope| {
+                    scope.spawn(async {
+                        count.fetch_add(1, Ordering::Relaxed);
+                    });
+                });
+            });
+        });
+
+        assert_eq!(count.load(Ordering::Acquire), 1);
     }
 }

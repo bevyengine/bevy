@@ -4,21 +4,24 @@ use crate::{
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
 };
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, HandleUntyped};
-use bevy_derive::Deref;
+use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::prelude::*;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypeUuid};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     prelude::Camera,
     render_graph::RenderGraphApp,
     render_graph::ViewNodeRunner,
-    render_resource::*,
+    render_resource::{
+        binding_types::{sampler, texture_2d},
+        *,
+    },
     renderer::RenderDevice,
     texture::BevyDefault,
     view::{ExtractedView, ViewTarget},
     Render, RenderApp, RenderSet,
 };
+use bevy_utils::default;
 
 mod node;
 
@@ -55,7 +58,7 @@ pub struct Fxaa {
 
     /// Use lower sensitivity for a sharper, faster, result.
     /// Use higher sensitivity for a slower, smoother, result.
-    /// [Ultra](`Sensitivity::Ultra`) and [Extreme](`Sensitivity::Extreme`)
+    /// [`Ultra`](`Sensitivity::Ultra`) and [`Extreme`](`Sensitivity::Extreme`)
     /// settings can result in significant smearing and loss of detail.
 
     /// The minimum amount of local contrast required to apply algorithm.
@@ -75,8 +78,7 @@ impl Default for Fxaa {
     }
 }
 
-const FXAA_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 4182761465141723543);
+const FXAA_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(4182761465141723543);
 
 /// Adds support for Fast Approximate Anti-Aliasing (FXAA)
 pub struct FxaaPlugin;
@@ -87,9 +89,8 @@ impl Plugin for FxaaPlugin {
         app.register_type::<Fxaa>();
         app.add_plugins(ExtractComponentPlugin::<Fxaa>::default());
 
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
         };
         render_app
             .init_resource::<SpecializedRenderPipelines<FxaaPipeline>>()
@@ -115,46 +116,44 @@ impl Plugin for FxaaPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
         };
         render_app.init_resource::<FxaaPipeline>();
     }
 }
 
-#[derive(Resource, Deref)]
+#[derive(Resource)]
 pub struct FxaaPipeline {
     texture_bind_group: BindGroupLayout,
+    sampler: Sampler,
 }
 
 impl FromWorld for FxaaPipeline {
     fn from_world(render_world: &mut World) -> Self {
-        let texture_bind_group = render_world
-            .resource::<RenderDevice>()
-            .create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: Some("fxaa_texture_bind_group_layout"),
-                entries: &[
-                    BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Texture {
-                            sample_type: TextureSampleType::Float { filterable: true },
-                            view_dimension: TextureViewDimension::D2,
-                            multisampled: false,
-                        },
-                        count: None,
-                    },
-                    BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                ],
-            });
+        let render_device = render_world.resource::<RenderDevice>();
+        let texture_bind_group = render_device.create_bind_group_layout(
+            "fxaa_texture_bind_group_layout",
+            &BindGroupLayoutEntries::sequential(
+                ShaderStages::FRAGMENT,
+                (
+                    texture_2d(TextureSampleType::Float { filterable: true }),
+                    sampler(SamplerBindingType::Filtering),
+                ),
+            ),
+        );
 
-        FxaaPipeline { texture_bind_group }
+        let sampler = render_device.create_sampler(&SamplerDescriptor {
+            mipmap_filter: FilterMode::Linear,
+            mag_filter: FilterMode::Linear,
+            min_filter: FilterMode::Linear,
+            ..default()
+        });
+
+        FxaaPipeline {
+            texture_bind_group,
+            sampler,
+        }
     }
 }
 
@@ -179,7 +178,7 @@ impl SpecializedRenderPipeline for FxaaPipeline {
             layout: vec![self.texture_bind_group.clone()],
             vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
-                shader: FXAA_SHADER_HANDLE.typed(),
+                shader: FXAA_SHADER_HANDLE,
                 shader_defs: vec![
                     format!("EDGE_THRESH_{}", key.edge_threshold.get_str()).into(),
                     format!("EDGE_THRESH_MIN_{}", key.edge_threshold_min.get_str()).into(),

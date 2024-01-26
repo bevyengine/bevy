@@ -1,43 +1,70 @@
-use crate::UiRect;
+use crate::{UiRect, Val};
 use bevy_asset::Handle;
-use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
+use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
 use bevy_render::{
+    camera::{Camera, RenderTarget},
     color::Color,
-    texture::{Image, DEFAULT_IMAGE_HANDLE},
+    texture::Image,
 };
 use bevy_transform::prelude::GlobalTransform;
-use serde::{Deserialize, Serialize};
-use smallvec::SmallVec;
-use std::{
-    num::{NonZeroI16, NonZeroU16},
-    ops::{Div, DivAssign, Mul, MulAssign},
-};
+use bevy_utils::smallvec::SmallVec;
+use bevy_window::{PrimaryWindow, WindowRef};
+use std::num::{NonZeroI16, NonZeroU16};
 use thiserror::Error;
 
 /// Describes the size of a UI node
 #[derive(Component, Debug, Copy, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct Node {
+    /// The order of the node in the UI layout.
+    /// Nodes with a higher stack index are drawn on top of and recieve interactions before nodes with lower stack indices.
+    pub(crate) stack_index: u32,
     /// The size of the node as width and height in logical pixels
+    ///
     /// automatically calculated by [`super::layout::ui_layout_system`]
     pub(crate) calculated_size: Vec2,
+    /// The width of this node's outline.
+    /// If this value is `Auto`, negative or `0.` then no outline will be rendered.
+    ///
+    /// Automatically calculated by [`super::layout::resolve_outlines_system`].
+    pub(crate) outline_width: f32,
+    /// The amount of space between the outline and the edge of the node.
+    pub(crate) outline_offset: f32,
+    /// The unrounded size of the node as width and height in logical pixels.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    pub(crate) unrounded_size: Vec2,
 }
 
 impl Node {
-    /// The calculated node size as width and height in logical pixels
-    /// automatically calculated by [`super::layout::ui_layout_system`]
+    /// The calculated node size as width and height in logical pixels.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub const fn size(&self) -> Vec2 {
         self.calculated_size
     }
 
+    /// The order of the node in the UI layout.
+    /// Nodes with a higher stack index are drawn on top of and recieve interactions before nodes with lower stack indices.
+    pub const fn stack_index(&self) -> u32 {
+        self.stack_index
+    }
+
+    /// The calculated node size as width and height in logical pixels before rounding.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    pub const fn unrounded_size(&self) -> Vec2 {
+        self.unrounded_size
+    }
+
     /// Returns the size of the node in physical pixels based on the given scale factor and `UiScale`.
     #[inline]
-    pub fn physical_size(&self, scale_factor: f64, ui_scale: f64) -> Vec2 {
+    pub fn physical_size(&self, scale_factor: f32, ui_scale: f32) -> Vec2 {
         Vec2::new(
-            (self.calculated_size.x as f64 * scale_factor * ui_scale) as f32,
-            (self.calculated_size.y as f64 * scale_factor * ui_scale) as f32,
+            self.calculated_size.x * scale_factor * ui_scale,
+            self.calculated_size.y * scale_factor * ui_scale,
         )
     }
 
@@ -52,26 +79,37 @@ impl Node {
     pub fn physical_rect(
         &self,
         transform: &GlobalTransform,
-        scale_factor: f64,
-        ui_scale: f64,
+        scale_factor: f32,
+        ui_scale: f32,
     ) -> Rect {
         let rect = self.logical_rect(transform);
         Rect {
             min: Vec2::new(
-                (rect.min.x as f64 * scale_factor * ui_scale) as f32,
-                (rect.min.y as f64 * scale_factor * ui_scale) as f32,
+                rect.min.x * scale_factor * ui_scale,
+                rect.min.y * scale_factor * ui_scale,
             ),
             max: Vec2::new(
-                (rect.max.x as f64 * scale_factor * ui_scale) as f32,
-                (rect.max.y as f64 * scale_factor * ui_scale) as f32,
+                rect.max.x * scale_factor * ui_scale,
+                rect.max.y * scale_factor * ui_scale,
             ),
         }
+    }
+
+    #[inline]
+    /// Returns the thickness of the UI node's outline.
+    /// If this value is negative or `0.` then no outline will be rendered.
+    pub fn outline_width(&self) -> f32 {
+        self.outline_width
     }
 }
 
 impl Node {
     pub const DEFAULT: Self = Self {
+        stack_index: 0,
         calculated_size: Vec2::ZERO,
+        outline_width: 0.,
+        outline_offset: 0.,
+        unrounded_size: Vec2::ZERO,
     };
 }
 
@@ -81,198 +119,31 @@ impl Default for Node {
     }
 }
 
-/// Represents the possible value types for layout properties.
-///
-/// This enum allows specifying values for various [`Style`] properties in different units,
-/// such as logical pixels, percentages, or automatically determined values.
-#[derive(Copy, Clone, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
-pub enum Val {
-    /// Automatically determine the value based on the context and other [`Style`] properties.
-    Auto,
-    /// Set this value in logical pixels.
-    Px(f32),
-    /// Set the value as a percentage of its parent node's length along a specific axis.
-    ///
-    /// If the UI node has no parent, the percentage is calculated based on the window's length
-    /// along the corresponding axis.
-    ///
-    /// The chosen axis depends on the `Style` field set:
-    /// * For `flex_basis`, the percentage is relative to the main-axis length determined by the `flex_direction`.
-    /// * For `gap`, `min_size`, `size`, and `max_size`:
-    ///   - `width` is relative to the parent's width.
-    ///   - `height` is relative to the parent's height.
-    /// * For `margin`, `padding`, and `border` values: the percentage is relative to the parent node's width.
-    /// * For positions, `left` and `right` are relative to the parent's width, while `bottom` and `top` are relative to the parent's height.
-    Percent(f32),
-    /// Set this value in percent of the viewport width
-    Vw(f32),
-    /// Set this value in percent of the viewport height
-    Vh(f32),
-    /// Set this value in percent of the viewport's smaller dimension.
-    VMin(f32),
-    /// Set this value in percent of the viewport's larger dimension.
-    VMax(f32),
-}
-
-impl PartialEq for Val {
-    fn eq(&self, other: &Self) -> bool {
-        let same_unit = matches!(
-            (self, other),
-            (Self::Auto, Self::Auto)
-                | (Self::Px(_), Self::Px(_))
-                | (Self::Percent(_), Self::Percent(_))
-                | (Self::Vw(_), Self::Vw(_))
-                | (Self::Vh(_), Self::Vh(_))
-                | (Self::VMin(_), Self::VMin(_))
-                | (Self::VMax(_), Self::VMax(_))
-        );
-
-        let left = match self {
-            Self::Auto => None,
-            Self::Px(v)
-            | Self::Percent(v)
-            | Self::Vw(v)
-            | Self::Vh(v)
-            | Self::VMin(v)
-            | Self::VMax(v) => Some(v),
-        };
-
-        let right = match other {
-            Self::Auto => None,
-            Self::Px(v)
-            | Self::Percent(v)
-            | Self::Vw(v)
-            | Self::Vh(v)
-            | Self::VMin(v)
-            | Self::VMax(v) => Some(v),
-        };
-
-        match (same_unit, left, right) {
-            (true, a, b) => a == b,
-            // All zero-value variants are considered equal.
-            (false, Some(&a), Some(&b)) => a == 0. && b == 0.,
-            _ => false,
-        }
-    }
-}
-
-impl Val {
-    pub const DEFAULT: Self = Self::Auto;
-    pub const ZERO: Self = Self::Px(0.0);
-}
-
-impl Default for Val {
-    fn default() -> Self {
-        Self::DEFAULT
-    }
-}
-
-impl Mul<f32> for Val {
-    type Output = Val;
-
-    fn mul(self, rhs: f32) -> Self::Output {
-        match self {
-            Val::Auto => Val::Auto,
-            Val::Px(value) => Val::Px(value * rhs),
-            Val::Percent(value) => Val::Percent(value * rhs),
-            Val::Vw(value) => Val::Vw(value * rhs),
-            Val::Vh(value) => Val::Vh(value * rhs),
-            Val::VMin(value) => Val::VMin(value * rhs),
-            Val::VMax(value) => Val::VMax(value * rhs),
-        }
-    }
-}
-
-impl MulAssign<f32> for Val {
-    fn mul_assign(&mut self, rhs: f32) {
-        match self {
-            Val::Auto => {}
-            Val::Px(value)
-            | Val::Percent(value)
-            | Val::Vw(value)
-            | Val::Vh(value)
-            | Val::VMin(value)
-            | Val::VMax(value) => *value *= rhs,
-        }
-    }
-}
-
-impl Div<f32> for Val {
-    type Output = Val;
-
-    fn div(self, rhs: f32) -> Self::Output {
-        match self {
-            Val::Auto => Val::Auto,
-            Val::Px(value) => Val::Px(value / rhs),
-            Val::Percent(value) => Val::Percent(value / rhs),
-            Val::Vw(value) => Val::Vw(value / rhs),
-            Val::Vh(value) => Val::Vh(value / rhs),
-            Val::VMin(value) => Val::VMin(value / rhs),
-            Val::VMax(value) => Val::VMax(value / rhs),
-        }
-    }
-}
-
-impl DivAssign<f32> for Val {
-    fn div_assign(&mut self, rhs: f32) {
-        match self {
-            Val::Auto => {}
-            Val::Px(value)
-            | Val::Percent(value)
-            | Val::Vw(value)
-            | Val::Vh(value)
-            | Val::VMin(value)
-            | Val::VMax(value) => *value /= rhs,
-        }
-    }
-}
-
-#[derive(Debug, Eq, PartialEq, Clone, Copy, Error)]
-pub enum ValArithmeticError {
-    #[error("the variants of the Vals don't match")]
-    NonIdenticalVariants,
-    #[error("the given variant of Val is not evaluateable (non-numeric)")]
-    NonEvaluateable,
-}
-
-impl Val {
-    /// Resolves a [`Val`] to its value in logical pixels and returns this as an [`f32`].
-    /// Returns a [`ValArithmeticError::NonEvaluateable`] if the [`Val`] is impossible to resolve into a concrete value.
-    ///
-    /// **Note:** If a [`Val::Px`] is resolved, it's inner value is returned unchanged.
-    pub fn resolve(self, parent_size: f32, viewport_size: Vec2) -> Result<f32, ValArithmeticError> {
-        match self {
-            Val::Percent(value) => Ok(parent_size * value / 100.0),
-            Val::Px(value) => Ok(value),
-            Val::Vw(value) => Ok(viewport_size.x * value / 100.0),
-            Val::Vh(value) => Ok(viewport_size.y * value / 100.0),
-            Val::VMin(value) => Ok(viewport_size.min_element() * value / 100.0),
-            Val::VMax(value) => Ok(viewport_size.max_element() * value / 100.0),
-            Val::Auto => Err(ValArithmeticError::NonEvaluateable),
-        }
-    }
-}
-
 /// Describes the style of a UI container node
 ///
-/// Node's can be laid out using either Flexbox or CSS Grid Layout.<br />
+/// Nodes can be laid out using either Flexbox or CSS Grid Layout.
+///
 /// See below for general learning resources and for documentation on the individual style properties.
 ///
 /// ### Flexbox
 ///
-/// - [MDN: Basic Concepts of Grid Layout](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Grid_Layout/Basic_Concepts_of_Grid_Layout)
+/// - [MDN: Basic Concepts of Flexbox](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Flexible_Box_Layout/Basic_Concepts_of_Flexbox)
 /// - [A Complete Guide To Flexbox](https://css-tricks.com/snippets/css/a-guide-to-flexbox/) by CSS Tricks. This is detailed guide with illustrations and comprehensive written explanation of the different Flexbox properties and how they work.
-/// - [Flexbox Froggy](https://flexboxfroggy.com/). An interactive tutorial/game that teaches the essential parts of Flebox in a fun engaging way.
+/// - [Flexbox Froggy](https://flexboxfroggy.com/). An interactive tutorial/game that teaches the essential parts of Flexbox in a fun engaging way.
 ///
 /// ### CSS Grid
 ///
-/// - [MDN: Basic Concepts of Flexbox](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Flexible_Box_Layout/Basic_Concepts_of_Flexbox)
+/// - [MDN: Basic Concepts of Grid Layout](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Grid_Layout/Basic_Concepts_of_Grid_Layout)
 /// - [A Complete Guide To CSS Grid](https://css-tricks.com/snippets/css/complete-guide-grid/) by CSS Tricks. This is detailed guide with illustrations and comprehensive written explanation of the different CSS Grid properties and how they work.
 /// - [CSS Grid Garden](https://cssgridgarden.com/). An interactive tutorial/game that teaches the essential parts of CSS Grid in a fun engaging way.
 
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
 #[reflect(Component, Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Style {
     /// Which layout algorithm to use when laying out this node's contents:
     ///   - [`Display::Flex`]: Use the Flexbox layout algorithm
@@ -282,7 +153,7 @@ pub struct Style {
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/display>
     pub display: Display,
 
-    /// Whether a node should be laid out in-flow with, or independently of it's siblings:
+    /// Whether a node should be laid out in-flow with, or independently of its siblings:
     ///  - [`PositionType::Relative`]: Layout this node in-flow with other nodes using the usual (flexbox/grid) layout algorithm.
     ///  - [`PositionType::Absolute`]: Layout this node on top and independently of other nodes.
     ///
@@ -294,9 +165,10 @@ pub struct Style {
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/overflow>
     pub overflow: Overflow,
 
-    /// Defines the text direction. For example English is written LTR (left-to-right) while Arabic is written RTL (right-to-left).
+    /// Defines the text direction. For example, English is written LTR (left-to-right) while Arabic is written RTL (right-to-left).
     ///
-    /// Note: the corresponding CSS property also affects box layout order, but this isn't yet implemented in bevy.
+    /// Note: the corresponding CSS property also affects box layout order, but this isn't yet implemented in Bevy.
+    ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/direction>
     pub direction: Direction,
 
@@ -338,12 +210,12 @@ pub struct Style {
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/height>
     pub height: Val,
 
-    /// The minimum width of the node. `min_width` is used if it is greater than either `width` and/or `max_width`.
+    /// The minimum width of the node. `min_width` is used if it is greater than `width` and/or `max_width`.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/min-width>
     pub min_width: Val,
 
-    /// The minimum height of the node. `min_height` is used if it is greater than either `height` and/or `max_height`.
+    /// The minimum height of the node. `min_height` is used if it is greater than `height` and/or `max_height`.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/min-height>
     pub min_height: Val,
@@ -363,44 +235,50 @@ pub struct Style {
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/aspect-ratio>
     pub aspect_ratio: Option<f32>,
 
-    /// - For Flexbox containers, sets default cross-axis alignment of the child items.
+    /// Used to control how each individual item is aligned by default within the space they're given.
+    /// - For Flexbox containers, sets default cross axis alignment of the child items.
     /// - For CSS Grid containers, controls block (vertical) axis alignment of children of this grid container within their grid areas.
     ///
-    /// This value is overridden [`JustifySelf`] on the child node is set.
+    /// This value is overridden if [`AlignSelf`] on the child node is set.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-items>
     pub align_items: AlignItems,
 
-    /// - For Flexbox containers, this property has no effect. See `justify_content` for main-axis alignment of flex items.
+    /// Used to control how each individual item is aligned by default within the space they're given.
+    /// - For Flexbox containers, this property has no effect. See `justify_content` for main axis alignment of flex items.
     /// - For CSS Grid containers, sets default inline (horizontal) axis alignment of child items within their grid areas.
     ///
-    /// This value is overridden [`JustifySelf`] on the child node is set.
+    /// This value is overridden if [`JustifySelf`] on the child node is set.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-items>
     pub justify_items: JustifyItems,
 
-    /// - For Flexbox items, controls cross-axis alignment of the item.
-    /// - For CSS Grid items, controls block (vertical) axis alignment of a grid item within it's grid area.
+    /// Used to control how the specified item is aligned within the space it's given.
+    /// - For Flexbox items, controls cross axis alignment of the item.
+    /// - For CSS Grid items, controls block (vertical) axis alignment of a grid item within its grid area.
     ///
     /// If set to `Auto`, alignment is inherited from the value of [`AlignItems`] set on the parent node.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-self>
     pub align_self: AlignSelf,
 
-    /// - For Flexbox items, this property has no effect. See `justify_content` for main-axis alignment of flex items.
-    /// - For CSS Grid items, controls inline (horizontal) axis alignment of a grid item within it's grid area.
+    /// Used to control how the specified item is aligned within the space it's given.
+    /// - For Flexbox items, this property has no effect. See `justify_content` for main axis alignment of flex items.
+    /// - For CSS Grid items, controls inline (horizontal) axis alignment of a grid item within its grid area.
     ///
     /// If set to `Auto`, alignment is inherited from the value of [`JustifyItems`] set on the parent node.
     ///
-    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-items>
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-self>
     pub justify_self: JustifySelf,
 
-    /// - For Flexbox containers, controls alignment of lines if flex_wrap is set to [`FlexWrap::Wrap`] and there are multiple lines of items.
+    /// Used to control how items are distributed.
+    /// - For Flexbox containers, controls alignment of lines if `flex_wrap` is set to [`FlexWrap::Wrap`] and there are multiple lines of items.
     /// - For CSS Grid containers, controls alignment of grid rows.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-content>
     pub align_content: AlignContent,
 
+    /// Used to control how items are distributed.
     /// - For Flexbox containers, controls alignment of items in the main axis.
     /// - For CSS Grid containers, controls alignment of grid columns.
     ///
@@ -424,7 +302,7 @@ pub struct Style {
     ///     ..Default::default()
     /// };
     /// ```
-    /// A node with this style and a parent with dimensions of 100px by 300px, will have calculated margins of 10px on both left and right edges, and 15px on both top and bottom edges.
+    /// A node with this style and a parent with dimensions of 100px by 300px will have calculated margins of 10px on both left and right edges, and 15px on both top and bottom edges.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/margin>
     pub margin: UiRect,
@@ -446,7 +324,7 @@ pub struct Style {
     ///     ..Default::default()
     /// };
     /// ```
-    /// A node with this style and a parent with dimensions of 300px by 100px, will have calculated padding of 3px on the left, 6px on the right, 9px on the top and 12px on the bottom.
+    /// A node with this style and a parent with dimensions of 300px by 100px will have calculated padding of 3px on the left, 6px on the right, 9px on the top and 12px on the bottom.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/padding>
     pub padding: UiRect,
@@ -460,12 +338,12 @@ pub struct Style {
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
     pub border: UiRect,
 
-    /// Whether a Flexbox container should be a row or a column. This property has no effect of Grid nodes.
+    /// Whether a Flexbox container should be a row or a column. This property has no effect on Grid nodes.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/flex-direction>
     pub flex_direction: FlexDirection,
 
-    /// Whether a Flexbox container should wrap it's contents onto multiple line wrap if they overflow. This property has no effect of Grid nodes.
+    /// Whether a Flexbox container should wrap its contents onto multiple lines if they overflow. This property has no effect on Grid nodes.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/flex-wrap>
     pub flex_wrap: FlexWrap,
@@ -482,27 +360,27 @@ pub struct Style {
 
     /// The initial length of a flexbox in the main axis, before flex growing/shrinking properties are applied.
     ///
-    /// `flex_basis` overrides `size` on the main axis if both are set,  but it obeys the bounds defined by `min_size` and `max_size`.
+    /// `flex_basis` overrides `size` on the main axis if both are set, but it obeys the bounds defined by `min_size` and `max_size`.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/flex-basis>
     pub flex_basis: Val,
 
-    /// The size of the gutters between items in a vertical flexbox layout or between rows in a grid layout
+    /// The size of the gutters between items in a vertical flexbox layout or between rows in a grid layout.
     ///
     /// Note: Values of `Val::Auto` are not valid and are treated as zero.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/row-gap>
     pub row_gap: Val,
 
-    /// The size of the gutters between items in a horizontal flexbox layout or between column in a grid layout
+    /// The size of the gutters between items in a horizontal flexbox layout or between column in a grid layout.
     ///
     /// Note: Values of `Val::Auto` are not valid and are treated as zero.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/column-gap>
     pub column_gap: Val,
 
-    /// Controls whether automatically placed grid items are placed row-wise or column-wise. And whether the sparse or dense packing algorithm is used.
-    /// Only affect Grid layouts
+    /// Controls whether automatically placed grid items are placed row-wise or column-wise as well as whether the sparse or dense packing algorithm is used.
+    /// Only affects Grid layouts.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/grid-auto-flow>
     pub grid_auto_flow: GridAutoFlow,
@@ -527,7 +405,7 @@ pub struct Style {
     /// Defines the size of implicitly created columns. Columns are created implicitly when grid items are given explicit placements that are out of bounds
     /// of the columns explicitly created using `grid_template_columns`.
     ///
-    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/grid-template-columns>
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/grid-auto-columns>
     pub grid_auto_columns: Vec<GridTrack>,
 
     /// The row in which a grid item starts and how many rows it spans.
@@ -590,27 +468,36 @@ impl Default for Style {
     }
 }
 
-/// How items are aligned according to the cross axis
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+/// Used to control how each individual item is aligned by default within the space they're given.
+/// - For Flexbox containers, sets default cross axis alignment of the child items.
+/// - For CSS Grid containers, controls block (vertical) axis alignment of children of this grid container within their grid areas.
+///
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-items>
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum AlignItems {
-    /// The items are packed in their default position as if no alignment was applied
+    /// The items are packed in their default position as if no alignment was applied.
     Default,
-    /// Items are packed towards the start of the axis.
+    /// The items are packed towards the start of the axis.
     Start,
-    /// Items are packed towards the end of the axis.
+    /// The items are packed towards the end of the axis.
     End,
-    /// Items are packed towards the start of the axis, unless the flex direction is reversed;
+    /// The items are packed towards the start of the axis, unless the flex direction is reversed;
     /// then they are packed towards the end of the axis.
     FlexStart,
-    /// Items are packed towards the end of the axis, unless the flex direction is reversed;
+    /// The items are packed towards the end of the axis, unless the flex direction is reversed;
     /// then they are packed towards the start of the axis.
     FlexEnd,
-    /// Items are aligned at the center.
+    /// The items are packed along the center of the axis.
     Center,
-    /// Items are aligned at the baseline.
+    /// The items are packed such that their baselines align.
     Baseline,
-    /// Items are stretched across the whole cross axis.
+    /// The items are stretched to fill the space they're given.
     Stretch,
 }
 
@@ -624,21 +511,30 @@ impl Default for AlignItems {
     }
 }
 
-/// How items are aligned according to the main axis
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+/// Used to control how each individual item is aligned by default within the space they're given.
+/// - For Flexbox containers, this property has no effect. See `justify_content` for main axis alignment of flex items.
+/// - For CSS Grid containers, sets default inline (horizontal) axis alignment of child items within their grid areas.
+///
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-items>
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum JustifyItems {
-    /// The items are packed in their default position as if no alignment was applied
+    /// The items are packed in their default position as if no alignment was applied.
     Default,
-    /// Items are packed towards the start of the axis.
+    /// The items are packed towards the start of the axis.
     Start,
-    /// Items are packed towards the end of the axis.
+    /// The items are packed towards the end of the axis.
     End,
-    /// Items are aligned at the center.
+    /// The items are packed along the center of the axis
     Center,
-    /// Items are aligned at the baseline.
+    /// The items are packed such that their baselines align.
     Baseline,
-    /// Items are stretched across the whole main axis.
+    /// The items are stretched to fill the space they're given.
     Stretch,
 }
 
@@ -652,10 +548,18 @@ impl Default for JustifyItems {
     }
 }
 
-/// How this item is aligned according to the cross axis.
-/// Overrides [`AlignItems`].
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+/// Used to control how the specified item is aligned within the space it's given.
+/// - For Flexbox items, controls cross axis alignment of the item.
+/// - For CSS Grid items, controls block (vertical) axis alignment of a grid item within its grid area.
+///
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-self>
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum AlignSelf {
     /// Use the parent node's [`AlignItems`] value to determine how this item should be aligned.
     Auto,
@@ -669,11 +573,11 @@ pub enum AlignSelf {
     /// This item will be aligned with the end of the axis, unless the flex direction is reversed;
     /// then it will be aligned with the start of the axis.
     FlexEnd,
-    /// This item will be aligned at the center.
+    /// This item will be aligned along the center of the axis.
     Center,
     /// This item will be aligned at the baseline.
     Baseline,
-    /// This item will be stretched across the whole cross axis.
+    /// This item will be stretched to fill the container.
     Stretch,
 }
 
@@ -687,10 +591,18 @@ impl Default for AlignSelf {
     }
 }
 
-/// How this item is aligned according to the main axis.
-/// Overrides [`JustifyItems`].
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+/// Used to control how the specified item is aligned within the space it's given.
+/// - For Flexbox items, this property has no effect. See `justify_content` for main axis alignment of flex items.
+/// - For CSS Grid items, controls inline (horizontal) axis alignment of a grid item within its grid area.
+///
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-self>
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum JustifySelf {
     /// Use the parent node's [`JustifyItems`] value to determine how this item should be aligned.
     Auto,
@@ -698,11 +610,11 @@ pub enum JustifySelf {
     Start,
     /// This item will be aligned with the end of the axis.
     End,
-    /// This item will be aligned at the center.
+    /// This item will be aligned along the center of the axis.
     Center,
     /// This item will be aligned at the baseline.
     Baseline,
-    /// This item will be stretched across the whole main axis.
+    /// This item will be stretched to fill the space it's given.
     Stretch,
 }
 
@@ -716,34 +628,40 @@ impl Default for JustifySelf {
     }
 }
 
-/// Defines how each line is aligned within the flexbox.
+/// Used to control how items are distributed.
+/// - For Flexbox containers, controls alignment of lines if `flex_wrap` is set to [`FlexWrap::Wrap`] and there are multiple lines of items.
+/// - For CSS Grid containers, controls alignment of grid rows.
 ///
-/// It only applies if [`FlexWrap::Wrap`] is present and if there are multiple lines of items.
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-content>
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum AlignContent {
-    /// The items are packed in their default position as if no alignment was applied
+    /// The items are packed in their default position as if no alignment was applied.
     Default,
-    /// Each line moves towards the start of the cross axis.
+    /// The items are packed towards the start of the axis.
     Start,
-    /// Each line moves towards the end of the cross axis.
+    /// The items are packed towards the end of the axis.
     End,
-    /// Each line moves towards the start of the cross axis, unless the flex direction is reversed; then the line moves towards the end of the cross axis.
+    /// The items are packed towards the start of the axis, unless the flex direction is reversed;
+    /// then the items are packed towards the end of the axis.
     FlexStart,
-    /// Each line moves towards the end of the cross axis, unless the flex direction is reversed; then the line moves towards the start of the cross axis.
+    /// The items are packed towards the end of the axis, unless the flex direction is reversed;
+    /// then the items are packed towards the start of the axis.
     FlexEnd,
-    /// Each line moves towards the center of the cross axis.
+    /// The items are packed along the center of the axis.
     Center,
-    /// Each line will stretch to fill the remaining space.
+    /// The items are stretched to fill the container along the axis.
     Stretch,
-    /// Each line fills the space it needs, putting the remaining space, if any
-    /// inbetween the lines.
+    /// The items are distributed such that the gap between any two items is equal.
     SpaceBetween,
-    /// The gap between the first and last items is exactly THE SAME as the gap between items.
-    /// The gaps are distributed evenly.
+    /// The items are distributed such that the gap between and around any two items is equal.
     SpaceEvenly,
-    /// Each line fills the space it needs, putting the remaining space, if any
-    /// around the lines.
+    /// The items are distributed such that the gap between and around any two items is equal, with half-size gaps on either end.
     SpaceAround,
 }
 
@@ -757,28 +675,41 @@ impl Default for AlignContent {
     }
 }
 
-/// Defines how items are aligned according to the main axis
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+/// Used to control how items are distributed.
+/// - For Flexbox containers, controls alignment of items in the main axis.
+/// - For CSS Grid containers, controls alignment of grid columns.
+///
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-content>
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum JustifyContent {
-    /// The items are packed in their default position as if no alignment was applied
+    /// The items are packed in their default position as if no alignment was applied.
     Default,
-    /// Items are packed toward the start of the axis.
+    /// The items are packed towards the start of the axis.
     Start,
-    /// Items are packed toward the end of the axis.
+    /// The items are packed towards the end of the axis.
     End,
-    /// Pushed towards the start, unless the flex direction is reversed; then pushed towards the end.
+    /// The items are packed towards the start of the axis, unless the flex direction is reversed;
+    /// then the items are packed towards the end of the axis.
     FlexStart,
-    /// Pushed towards the end, unless the flex direction is reversed; then pushed towards the start.
+    /// The items are packed towards the end of the axis, unless the flex direction is reversed;
+    /// then the items are packed towards the start of the axis.
     FlexEnd,
-    /// Centered along the main axis.
+    /// The items are packed along the center of the axis.
     Center,
-    /// Remaining space is distributed between the items.
+    /// The items are stretched to fill the container along the axis.
+    Stretch,
+    /// The items are distributed such that the gap between any two items is equal.
     SpaceBetween,
-    /// Remaining space is distributed around the items.
-    SpaceAround,
-    /// Like [`JustifyContent::SpaceAround`] but with even spacing between items.
+    /// The items are distributed such that the gap between and around any two items is equal.
     SpaceEvenly,
+    /// The items are distributed such that the gap between and around any two items is equal, with half-size gaps on either end.
+    SpaceAround,
 }
 
 impl JustifyContent {
@@ -791,11 +722,16 @@ impl Default for JustifyContent {
     }
 }
 
-/// Defines the text direction
+/// Defines the text direction.
 ///
-/// For example English is written LTR (left-to-right) while Arabic is written RTL (right-to-left).
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+/// For example, English is written LTR (left-to-right) while Arabic is written RTL (right-to-left).
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum Direction {
     /// Inherit from parent node.
     Inherit,
@@ -815,11 +751,16 @@ impl Default for Direction {
     }
 }
 
-/// Whether to use a Flexbox layout model.
+/// Defines the layout model used by this node.
 ///
 /// Part of the [`Style`] component.
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum Display {
     /// Use Flexbox layout model to determine the position of this [`Node`].
     Flex,
@@ -843,8 +784,13 @@ impl Default for Display {
 }
 
 /// Defines how flexbox items are ordered within a flexbox
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum FlexDirection {
     /// Same way as text direction along the main axis.
     Row,
@@ -867,8 +813,13 @@ impl Default for FlexDirection {
 }
 
 /// Whether to show or hide overflowing items
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect, Serialize, Deserialize)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Overflow {
     /// Whether to show or clip overflowing items on the x axis
     pub x: OverflowAxis,
@@ -927,8 +878,13 @@ impl Default for Overflow {
 }
 
 /// Whether to show or hide overflowing items
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect, Serialize, Deserialize)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum OverflowAxis {
     /// Show overflowing items.
     Visible,
@@ -952,14 +908,17 @@ impl Default for OverflowAxis {
 }
 
 /// The strategy used to position this node
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum PositionType {
     /// Relative to all other nodes with the [`PositionType::Relative`] value.
     Relative,
-    /// Independent of all other nodes.
-    ///
-    /// As usual, the `Style.position` field of this node is specified relative to its parent node.
+    /// Independent of all other nodes, but relative to its parent node.
     Absolute,
 }
 
@@ -974,8 +933,13 @@ impl Default for PositionType {
 }
 
 /// Defines if flexbox items appear on a single line or on multiple lines
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum FlexWrap {
     /// Single line, will overflow if needed.
     NoWrap,
@@ -995,17 +959,23 @@ impl Default for FlexWrap {
     }
 }
 
-/// Controls whether grid items are placed row-wise or column-wise. And whether the sparse or dense packing algorithm is used.
+/// Controls whether grid items are placed row-wise or column-wise as well as whether the sparse or dense packing algorithm is used.
 ///
-/// The "dense" packing algorithm attempts to fill in holes earlier in the grid, if smaller items come up later. This may cause items to appear out-of-order, when doing so would fill in holes left by larger items.
+/// The "dense" packing algorithm attempts to fill in holes earlier in the grid, if smaller items come up later.
+/// This may cause items to appear out-of-order when doing so would fill in holes left by larger items.
 ///
-/// Defaults to [`GridAutoFlow::Row`]
+/// Defaults to [`GridAutoFlow::Row`].
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/grid-auto-flow>
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum GridAutoFlow {
-    /// Items are placed by filling each row in turn, adding new rows as necessary
+    /// Items are placed by filling each row in turn, adding new rows as necessary.
     Row,
     /// Items are placed by filling each column in turn, adding new columns as necessary.
     Column,
@@ -1025,8 +995,13 @@ impl Default for GridAutoFlow {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect_value(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect_value(PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect_value(Serialize, Deserialize)
+)]
 pub enum MinTrackSizingFunction {
     /// Track minimum size should be a fixed pixel value
     Px(f32),
@@ -1040,8 +1015,13 @@ pub enum MinTrackSizingFunction {
     Auto,
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect_value(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect_value(PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect_value(Serialize, Deserialize)
+)]
 pub enum MaxTrackSizingFunction {
     /// Track maximum size should be a fixed pixel value
     Px(f32),
@@ -1058,15 +1038,21 @@ pub enum MaxTrackSizingFunction {
     /// Track maximum size should be automatically sized
     Auto,
     /// The dimension as a fraction of the total available grid space (`fr` units in CSS)
-    /// Specified value is the numerator of the fraction. Denominator is the sum of all fractions specified in that grid dimension
+    /// Specified value is the numerator of the fraction. Denominator is the sum of all fractions specified in that grid dimension.
+    ///
     /// Spec: <https://www.w3.org/TR/css3-grid-layout/#fr-unit>
     Fraction(f32),
 }
 
 /// A [`GridTrack`] is a Row or Column of a CSS Grid. This struct specifies what size the track should be.
 /// See below for the different "track sizing functions" you can specify.
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct GridTrack {
     pub(crate) min_sizing_function: MinTrackSizingFunction,
     pub(crate) max_sizing_function: MaxTrackSizingFunction,
@@ -1098,7 +1084,7 @@ impl GridTrack {
 
     /// Create a grid track with an `fr` size.
     /// Note that this will give the track a content-based minimum size.
-    /// Usually you are best off using `GridTrack::flex` instead which uses a zero minimum size
+    /// Usually you are best off using `GridTrack::flex` instead which uses a zero minimum size.
     pub fn fr<T: From<Self>>(value: f32) -> T {
         Self {
             min_sizing_function: MinTrackSizingFunction::Auto,
@@ -1107,7 +1093,7 @@ impl GridTrack {
         .into()
     }
 
-    /// Create a grid track with an `minmax(0, Nfr)` size.
+    /// Create a grid track with a `minmax(0, Nfr)` size.
     pub fn flex<T: From<Self>>(value: f32) -> T {
         Self {
             min_sizing_function: MinTrackSizingFunction::Px(0.0),
@@ -1116,7 +1102,7 @@ impl GridTrack {
         .into()
     }
 
-    /// Create a grid track which is automatically sized to fit it's contents, and then
+    /// Create a grid track which is automatically sized to fit its contents.
     pub fn auto<T: From<Self>>() -> T {
         Self {
             min_sizing_function: MinTrackSizingFunction::Auto,
@@ -1125,7 +1111,7 @@ impl GridTrack {
         .into()
     }
 
-    /// Create a grid track which is automatically sized to fit it's contents when sized at their "min-content" sizes
+    /// Create a grid track which is automatically sized to fit its contents when sized at their "min-content" sizes
     pub fn min_content<T: From<Self>>() -> T {
         Self {
             min_sizing_function: MinTrackSizingFunction::MinContent,
@@ -1134,7 +1120,7 @@ impl GridTrack {
         .into()
     }
 
-    /// Create a grid track which is automatically sized to fit it's contents when sized at their "max-content" sizes
+    /// Create a grid track which is automatically sized to fit its contents when sized at their "max-content" sizes
     pub fn max_content<T: From<Self>>() -> T {
         Self {
             min_sizing_function: MinTrackSizingFunction::MaxContent,
@@ -1143,7 +1129,7 @@ impl GridTrack {
         .into()
     }
 
-    /// Create a fit-content() grid track with fixed pixel limit
+    /// Create a `fit-content()` grid track with fixed pixel limit.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/fit-content_function>
     pub fn fit_content_px<T: From<Self>>(limit: f32) -> T {
@@ -1154,7 +1140,7 @@ impl GridTrack {
         .into()
     }
 
-    /// Create a fit-content() grid track with percentage limit
+    /// Create a `fit-content()` grid track with percentage limit.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/fit-content_function>
     pub fn fit_content_percent<T: From<Self>>(limit: f32) -> T {
@@ -1165,7 +1151,7 @@ impl GridTrack {
         .into()
     }
 
-    /// Create a minmax() grid track
+    /// Create a `minmax()` grid track.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/minmax>
     pub fn minmax<T: From<Self>>(min: MinTrackSizingFunction, max: MaxTrackSizingFunction) -> T {
@@ -1183,8 +1169,13 @@ impl Default for GridTrack {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect(PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 /// How many times to repeat a repeated grid track
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/repeat>
@@ -1224,17 +1215,22 @@ impl From<usize> for GridTrackRepetition {
 ///
 /// The repetition parameter can either be:
 ///   - The integer `1`, in which case the track is non-repeated.
-///   - a `u16` count to repeat the track N times
-///   - A `GridTrackRepetition::AutoFit` or `GridTrackRepetition::AutoFill`
+///   - a `u16` count to repeat the track N times.
+///   - A `GridTrackRepetition::AutoFit` or `GridTrackRepetition::AutoFill`.
 ///
 /// Note: that in the common case you want a non-repeating track (repetition count 1), you may use the constructor methods on [`GridTrack`]
 /// to create a `RepeatedGridTrack`. i.e. `GridTrack::px(10.0)` is equivalent to `RepeatedGridTrack::px(1, 10.0)`.
 ///
 /// You may only use one auto-repetition per track list. And if your track list contains an auto repetition
-/// then all track (in and outside of the repetition) must be fixed size (px or percent). Integer repetitions are just shorthand for writing out
+/// then all tracks (in and outside of the repetition) must be fixed size (px or percent). Integer repetitions are just shorthand for writing out
 /// N tracks longhand and are not subject to the same limitations.
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Debug, Reflect)]
+#[reflect(PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct RepeatedGridTrack {
     pub(crate) repetition: GridTrackRepetition,
     pub(crate) tracks: SmallVec<[GridTrack; 1]>,
@@ -1270,7 +1266,7 @@ impl RepeatedGridTrack {
 
     /// Create a repeating set of grid tracks with an `fr` size.
     /// Note that this will give the track a content-based minimum size.
-    /// Usually you are best off using `GridTrack::flex` instead which uses a zero minimum size
+    /// Usually you are best off using `GridTrack::flex` instead which uses a zero minimum size.
     pub fn fr<T: From<Self>>(repetition: u16, value: f32) -> T {
         Self {
             repetition: GridTrackRepetition::Count(repetition),
@@ -1279,7 +1275,7 @@ impl RepeatedGridTrack {
         .into()
     }
 
-    /// Create a repeating set of grid tracks with an `minmax(0, Nfr)` size.
+    /// Create a repeating set of grid tracks with a `minmax(0, Nfr)` size.
     pub fn flex<T: From<Self>>(repetition: u16, value: f32) -> T {
         Self {
             repetition: GridTrackRepetition::Count(repetition),
@@ -1306,7 +1302,7 @@ impl RepeatedGridTrack {
         .into()
     }
 
-    /// Create a repeating set of fit-content() grid tracks with fixed pixel limit
+    /// Create a repeating set of `fit-content()` grid tracks with fixed pixel limit
     pub fn fit_content_px<T: From<Self>>(repetition: u16, limit: f32) -> T {
         Self {
             repetition: GridTrackRepetition::Count(repetition),
@@ -1315,7 +1311,7 @@ impl RepeatedGridTrack {
         .into()
     }
 
-    /// Create a repeating set of fit-content() grid tracks with percentage limit
+    /// Create a repeating set of `fit-content()` grid tracks with percentage limit
     pub fn fit_content_percent<T: From<Self>>(repetition: u16, limit: f32) -> T {
         Self {
             repetition: GridTrackRepetition::Count(repetition),
@@ -1324,7 +1320,7 @@ impl RepeatedGridTrack {
         .into()
     }
 
-    /// Create a repeating set of minmax() grid track
+    /// Create a repeating set of `minmax()` grid track
     pub fn minmax<T: From<Self>>(
         repetition: impl Into<GridTrackRepetition>,
         min: MinTrackSizingFunction,
@@ -1383,8 +1379,13 @@ impl From<RepeatedGridTrack> for Vec<RepeatedGridTrack> {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 /// Represents the position of a grid item in a single axis.
 ///
 /// There are 3 fields which may be set:
@@ -1399,17 +1400,25 @@ impl From<RepeatedGridTrack> for Vec<RepeatedGridTrack> {
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Grid_Layout/Line-based_Placement_with_CSS_Grid>
 pub struct GridPlacement {
-    /// The grid line at which the item should start. Lines are 1-indexed. Negative indexes count backwards from the end of the grid. Zero is not a valid index.
+    /// The grid line at which the item should start.
+    /// Lines are 1-indexed.
+    /// Negative indexes count backwards from the end of the grid.
+    /// Zero is not a valid index.
     pub(crate) start: Option<NonZeroI16>,
-    /// How many grid tracks the item should span. Defaults to 1.
+    /// How many grid tracks the item should span.
+    /// Defaults to 1.
     pub(crate) span: Option<NonZeroU16>,
-    /// The grid line at which the item should end. Lines are 1-indexed. Negative indexes count backwards from the end of the grid. Zero is not a valid index.
+    /// The grid line at which the item should end.
+    /// Lines are 1-indexed.
+    /// Negative indexes count backwards from the end of the grid.
+    /// Zero is not a valid index.
     pub(crate) end: Option<NonZeroI16>,
 }
 
 impl GridPlacement {
     pub const DEFAULT: Self = Self {
         start: None,
+        // SAFETY: This is trivially safe as 1 is non-zero.
         span: Some(unsafe { NonZeroU16::new_unchecked(1) }),
         end: None,
     };
@@ -1423,7 +1432,7 @@ impl GridPlacement {
     ///
     /// # Panics
     ///
-    /// Panics if `span` is `0`
+    /// Panics if `span` is `0`.
     pub fn span(span: u16) -> Self {
         Self {
             start: None,
@@ -1436,7 +1445,7 @@ impl GridPlacement {
     ///
     /// # Panics
     ///
-    /// Panics if `start` is `0`
+    /// Panics if `start` is `0`.
     pub fn start(start: i16) -> Self {
         Self {
             start: try_into_grid_index(start).expect("Invalid start value of 0."),
@@ -1448,7 +1457,7 @@ impl GridPlacement {
     ///
     /// # Panics
     ///
-    /// Panics if `end` is `0`
+    /// Panics if `end` is `0`.
     pub fn end(end: i16) -> Self {
         Self {
             end: try_into_grid_index(end).expect("Invalid end value of 0."),
@@ -1460,7 +1469,7 @@ impl GridPlacement {
     ///
     /// # Panics
     ///
-    /// Panics if `start` or `span` is `0`
+    /// Panics if `start` or `span` is `0`.
     pub fn start_span(start: i16, span: u16) -> Self {
         Self {
             start: try_into_grid_index(start).expect("Invalid start value of 0."),
@@ -1473,7 +1482,7 @@ impl GridPlacement {
     ///
     /// # Panics
     ///
-    /// Panics if `start` or `end` is `0`
+    /// Panics if `start` or `end` is `0`.
     pub fn start_end(start: i16, end: i16) -> Self {
         Self {
             start: try_into_grid_index(start).expect("Invalid start value of 0."),
@@ -1486,7 +1495,7 @@ impl GridPlacement {
     ///
     /// # Panics
     ///
-    /// Panics if `end` or `span` is `0`
+    /// Panics if `end` or `span` is `0`.
     pub fn end_span(end: i16, span: u16) -> Self {
         Self {
             start: None,
@@ -1499,7 +1508,7 @@ impl GridPlacement {
     ///
     /// # Panics
     ///
-    /// Panics if `start` is `0`
+    /// Panics if `start` is `0`.
     pub fn set_start(mut self, start: i16) -> Self {
         self.start = try_into_grid_index(start).expect("Invalid start value of 0.");
         self
@@ -1509,7 +1518,7 @@ impl GridPlacement {
     ///
     /// # Panics
     ///
-    /// Panics if `end` is `0`
+    /// Panics if `end` is `0`.
     pub fn set_end(mut self, end: i16) -> Self {
         self.end = try_into_grid_index(end).expect("Invalid end value of 0.");
         self
@@ -1519,7 +1528,7 @@ impl GridPlacement {
     ///
     /// # Panics
     ///
-    /// Panics if `span` is `0`
+    /// Panics if `span` is `0`.
     pub fn set_span(mut self, span: u16) -> Self {
         self.span = try_into_grid_span(span).expect("Invalid span value of 0.");
         self
@@ -1561,7 +1570,7 @@ fn try_into_grid_span(span: u16) -> Result<Option<NonZeroU16>, GridPlacementErro
     ))
 }
 
-/// Errors that occur when setting contraints for a `GridPlacement`
+/// Errors that occur when setting constraints for a `GridPlacement`
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Error)]
 pub enum GridPlacementError {
     #[error("Zero is not a valid grid position")]
@@ -1576,6 +1585,11 @@ pub enum GridPlacementError {
 /// When combined with [`UiImage`], tints the provided texture.
 #[derive(Component, Copy, Clone, Debug, Reflect)]
 #[reflect(Component, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct BackgroundColor(pub Color);
 
 impl BackgroundColor {
@@ -1594,21 +1608,14 @@ impl From<Color> for BackgroundColor {
     }
 }
 
-/// The atlas sprite to be used in a UI Texture Atlas Node
-#[derive(Component, Clone, Debug, Reflect, Default)]
-#[reflect(Component, Default)]
-pub struct UiTextureAtlasImage {
-    /// Texture index in the TextureAtlas
-    pub index: usize,
-    /// Whether to flip the sprite in the X axis
-    pub flip_x: bool,
-    /// Whether to flip the sprite in the Y axis
-    pub flip_y: bool,
-}
-
 /// The border color of the UI node.
 #[derive(Component, Copy, Clone, Debug, Reflect)]
 #[reflect(Component, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct BorderColor(pub Color);
 
 impl From<Color> for BorderColor {
@@ -1627,8 +1634,92 @@ impl Default for BorderColor {
     }
 }
 
+#[derive(Component, Copy, Clone, Default, Debug, Reflect)]
+#[reflect(Component, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+/// The [`Outline`] component adds an outline outside the edge of a UI node.
+/// Outlines do not take up space in the layout.
+///
+/// To add an [`Outline`] to a ui node you can spawn a `(NodeBundle, Outline)` tuple bundle:
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ui::prelude::*;
+/// # use bevy_render::prelude::Color;
+/// fn setup_ui(mut commands: Commands) {
+///     commands.spawn((
+///         NodeBundle {
+///             style: Style {
+///                 width: Val::Px(100.),
+///                 height: Val::Px(100.),
+///                 ..Default::default()
+///             },
+///             background_color: Color::BLUE.into(),
+///             ..Default::default()
+///         },
+///         Outline::new(Val::Px(10.), Val::ZERO, Color::RED)
+///     ));
+/// }
+/// ```
+///
+/// [`Outline`] components can also be added later to existing UI nodes:
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ui::prelude::*;
+/// # use bevy_render::prelude::Color;
+/// fn outline_hovered_button_system(
+///     mut commands: Commands,
+///     mut node_query: Query<(Entity, &Interaction, Option<&mut Outline>), Changed<Interaction>>,
+/// ) {
+///     for (entity, interaction, mut maybe_outline) in node_query.iter_mut() {
+///         let outline_color =
+///             if matches!(*interaction, Interaction::Hovered) {
+///                 Color::WHITE
+///             } else {
+///                 Color::NONE
+///             };
+///         if let Some(mut outline) = maybe_outline {
+///             outline.color = outline_color;
+///         } else {
+///             commands.entity(entity).insert(Outline::new(Val::Px(10.), Val::ZERO, outline_color));
+///         }
+///     }
+/// }
+/// ```
+/// Inserting and removing an [`Outline`] component repeatedly will result in table moves, so it is generally preferable to
+/// set `Outline::color` to `Color::NONE` to hide an outline.
+pub struct Outline {
+    /// The width of the outline.
+    ///
+    /// Percentage `Val` values are resolved based on the width of the outlined [`Node`].
+    pub width: Val,
+    /// The amount of space between a node's outline the edge of the node.
+    ///
+    /// Percentage `Val` values are resolved based on the width of the outlined [`Node`].
+    pub offset: Val,
+    /// The color of the outline.
+    ///
+    /// If you are frequently toggling outlines for a UI node on and off it is recommended to set `Color::None` to hide the outline.
+    /// This avoids the table moves that would occur from the repeated insertion and removal of the `Outline` component.
+    pub color: Color,
+}
+
+impl Outline {
+    /// Create a new outline
+    pub const fn new(width: Val, offset: Val, color: Color) -> Self {
+        Self {
+            width,
+            offset,
+            color,
+        }
+    }
+}
+
 /// The 2D texture displayed for this UI node
-#[derive(Component, Clone, Debug, Reflect)]
+#[derive(Component, Clone, Debug, Reflect, Default)]
 #[reflect(Component, Default)]
 pub struct UiImage {
     /// Handle to the texture
@@ -1639,16 +1730,6 @@ pub struct UiImage {
     pub flip_y: bool,
 }
 
-impl Default for UiImage {
-    fn default() -> UiImage {
-        UiImage {
-            texture: DEFAULT_IMAGE_HANDLE.typed(),
-            flip_x: false,
-            flip_y: false,
-        }
-    }
-}
-
 impl UiImage {
     pub fn new(texture: Handle<Image>) -> Self {
         Self {
@@ -1657,14 +1738,14 @@ impl UiImage {
         }
     }
 
-    /// flip the image along its x-axis
+    /// Flip the image along its x-axis
     #[must_use]
     pub const fn with_flip_x(mut self) -> Self {
         self.flip_x = true;
         self
     }
 
-    /// flip the image along its y-axis
+    /// Flip the image along its y-axis
     #[must_use]
     pub const fn with_flip_y(mut self) -> Self {
         self.flip_y = true;
@@ -1680,7 +1761,7 @@ impl From<Handle<Image>> for UiImage {
 
 /// The calculated clip of the node
 #[derive(Component, Default, Copy, Clone, Debug, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct CalculatedClip {
     /// The rect of the clip
     pub clip: Rect,
@@ -1692,15 +1773,15 @@ pub struct CalculatedClip {
 ///
 /// UI nodes that have the same z-index will appear according to the order in which they
 /// appear in the UI hierarchy. In such a case, the last node to be added to its parent
-/// will appear in front of this parent's other children.
+/// will appear in front of its siblings.
 ///
 /// Internally, nodes with a global z-index share the stacking context of root UI nodes
 /// (nodes that have no parent). Because of this, there is no difference between using
-/// [`ZIndex::Local(n)`] and [`ZIndex::Global(n)`] for root nodes.
+/// `ZIndex::Local(n)` and `ZIndex::Global(n)` for root nodes.
 ///
-/// Nodes without this component will be treated as if they had a value of [`ZIndex::Local(0)`].
+/// Nodes without this component will be treated as if they had a value of `ZIndex::Local(0)`.
 #[derive(Component, Copy, Clone, Debug, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub enum ZIndex {
     /// Indicates the order in which this node should be rendered relative to its siblings.
     Local(i32),
@@ -1717,84 +1798,7 @@ impl Default for ZIndex {
 
 #[cfg(test)]
 mod tests {
-    use super::Val;
     use crate::GridPlacement;
-    use crate::ValArithmeticError;
-    use bevy_math::vec2;
-
-    #[test]
-    fn val_evaluate() {
-        let size = 250.;
-        let viewport_size = vec2(1000., 500.);
-        let result = Val::Percent(80.).resolve(size, viewport_size).unwrap();
-
-        assert_eq!(result, size * 0.8);
-    }
-
-    #[test]
-    fn val_resolve_px() {
-        let size = 250.;
-        let viewport_size = vec2(1000., 500.);
-        let result = Val::Px(10.).resolve(size, viewport_size).unwrap();
-
-        assert_eq!(result, 10.);
-    }
-
-    #[test]
-    fn val_resolve_viewport_coords() {
-        let size = 250.;
-        let viewport_size = vec2(500., 500.);
-
-        for value in (-10..10).map(|value| value as f32) {
-            // for a square viewport there should be no difference between `Vw` and `Vh` and between `Vmin` and `Vmax`.
-            assert_eq!(
-                Val::Vw(value).resolve(size, viewport_size),
-                Val::Vh(value).resolve(size, viewport_size)
-            );
-            assert_eq!(
-                Val::VMin(value).resolve(size, viewport_size),
-                Val::VMax(value).resolve(size, viewport_size)
-            );
-            assert_eq!(
-                Val::VMin(value).resolve(size, viewport_size),
-                Val::Vw(value).resolve(size, viewport_size)
-            );
-        }
-
-        let viewport_size = vec2(1000., 500.);
-        assert_eq!(Val::Vw(100.).resolve(size, viewport_size).unwrap(), 1000.);
-        assert_eq!(Val::Vh(100.).resolve(size, viewport_size).unwrap(), 500.);
-        assert_eq!(Val::Vw(60.).resolve(size, viewport_size).unwrap(), 600.);
-        assert_eq!(Val::Vh(40.).resolve(size, viewport_size).unwrap(), 200.);
-        assert_eq!(Val::VMin(50.).resolve(size, viewport_size).unwrap(), 250.);
-        assert_eq!(Val::VMax(75.).resolve(size, viewport_size).unwrap(), 750.);
-    }
-
-    #[test]
-    fn val_auto_is_non_resolveable() {
-        let size = 250.;
-        let viewport_size = vec2(1000., 500.);
-        let resolve_auto = Val::Auto.resolve(size, viewport_size);
-
-        assert_eq!(resolve_auto, Err(ValArithmeticError::NonEvaluateable));
-    }
-
-    #[test]
-    fn val_arithmetic_error_messages() {
-        assert_eq!(
-            format!("{}", ValArithmeticError::NonIdenticalVariants),
-            "the variants of the Vals don't match"
-        );
-        assert_eq!(
-            format!("{}", ValArithmeticError::NonEvaluateable),
-            "the given variant of Val is not evaluateable (non-numeric)"
-        );
-    }
-
-    #[test]
-    fn default_val_equals_const_default_val() {
-        assert_eq!(Val::default(), Val::DEFAULT);
-    }
 
     #[test]
     fn invalid_grid_placement_values() {
@@ -1820,5 +1824,42 @@ mod tests {
         assert_eq!(GridPlacement::start_end(11, 21).get_span(), None);
         assert_eq!(GridPlacement::start_span(3, 5).get_end(), None);
         assert_eq!(GridPlacement::end_span(-4, 12).get_start(), None);
+    }
+}
+
+/// Indicates that this root [`Node`] entity should be rendered to a specific camera.
+/// UI then will be layed out respecting the camera's viewport and scale factor, and
+/// rendered to this camera's [`bevy_render::camera::RenderTarget`].
+///
+/// Setting this component on a non-root node will have no effect. It will be overriden
+/// by the root node's component.
+///
+/// Optional if there is only one camera in the world. Required otherwise.
+#[derive(Component, Clone, Debug, Reflect, Eq, PartialEq)]
+pub struct TargetCamera(pub Entity);
+
+impl TargetCamera {
+    pub fn entity(&self) -> Entity {
+        self.0
+    }
+}
+
+#[derive(SystemParam)]
+pub struct DefaultUiCamera<'w, 's> {
+    cameras: Query<'w, 's, (Entity, &'static Camera)>,
+    primary_window: Query<'w, 's, Entity, With<PrimaryWindow>>,
+}
+
+impl<'w, 's> DefaultUiCamera<'w, 's> {
+    pub fn get(&self) -> Option<Entity> {
+        self.cameras
+            .iter()
+            .filter(|(_, c)| match c.target {
+                RenderTarget::Window(WindowRef::Primary) => true,
+                RenderTarget::Window(WindowRef::Entity(w)) => self.primary_window.get(w).is_ok(),
+                _ => false,
+            })
+            .max_by_key(|(e, c)| (c.order, *e))
+            .map(|(e, _)| e)
     }
 }

@@ -1,7 +1,7 @@
 use crate::{component::Tick, world::unsafe_world_cell::UnsafeWorldCell};
 use std::ops::Range;
 
-use super::{QueryItem, QueryState, ReadOnlyWorldQuery, WorldQuery};
+use super::{QueryData, QueryFilter, QueryItem, QueryState};
 
 /// Dictates how a parallel query chunks up large tables/archetypes
 /// during iteration.
@@ -11,7 +11,7 @@ use super::{QueryItem, QueryState, ReadOnlyWorldQuery, WorldQuery};
 ///
 /// By default, this batch size is automatically determined by dividing
 /// the size of the largest matched archetype by the number
-/// of threads. This attempts to minimize the overhead of scheduling
+/// of threads (rounded up). This attempts to minimize the overhead of scheduling
 /// tasks onto multiple threads, but assumes each entity has roughly the
 /// same amount of work to be done, which may not hold true in every
 /// workload.
@@ -82,15 +82,15 @@ impl BatchingStrategy {
 ///
 /// This struct is created by the [`Query::par_iter`](crate::system::Query::par_iter) and
 /// [`Query::par_iter_mut`](crate::system::Query::par_iter_mut) methods.
-pub struct QueryParIter<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> {
+pub struct QueryParIter<'w, 's, D: QueryData, F: QueryFilter> {
     pub(crate) world: UnsafeWorldCell<'w>,
-    pub(crate) state: &'s QueryState<Q, F>,
+    pub(crate) state: &'s QueryState<D, F>,
     pub(crate) last_run: Tick,
     pub(crate) this_run: Tick,
     pub(crate) batching_strategy: BatchingStrategy,
 }
 
-impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
+impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
     /// Changes the batching strategy used when iterating.
     ///
     /// For more information on how this affects the resultant iteration, see
@@ -108,7 +108,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
-    pub fn for_each<FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(self, func: FN) {
+    pub fn for_each<FN: Fn(QueryItem<'w, D>) + Send + Sync + Clone>(self, func: FN) {
         #[cfg(any(target = "wasm32", not(feature = "multi-threaded")))]
         {
             // SAFETY:
@@ -118,12 +118,9 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
             // Query or a World, which ensures that multiple aliasing QueryParIters cannot exist
             // at the same time.
             unsafe {
-                self.state.for_each_unchecked_manual(
-                    self.world,
-                    func,
-                    self.last_run,
-                    self.this_run,
-                );
+                self.state
+                    .iter_unchecked_manual(self.world, self.last_run, self.this_run)
+                    .for_each(func);
             }
         }
         #[cfg(all(not(target = "wasm32"), feature = "multi-threaded"))]
@@ -132,12 +129,9 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
             if thread_count <= 1 {
                 // SAFETY: See the safety comment above.
                 unsafe {
-                    self.state.for_each_unchecked_manual(
-                        self.world,
-                        func,
-                        self.last_run,
-                        self.this_run,
-                    );
+                    self.state
+                        .iter_unchecked_manual(self.world, self.last_run, self.this_run)
+                        .for_each(func);
                 }
             } else {
                 // Need a batch size of at least 1.
@@ -156,19 +150,6 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
         }
     }
 
-    /// Runs `func` on each query result in parallel.
-    ///
-    /// # Panics
-    /// If the [`ComputeTaskPool`] is not initialized. If using this from a query that is being
-    /// initialized and run from the ECS scheduler, this should never panic.
-    ///
-    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
-    #[inline]
-    #[deprecated = "use `.for_each(...)` instead."]
-    pub fn for_each_mut<FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(self, func: FN) {
-        self.for_each(func);
-    }
-
     #[cfg(all(not(target = "wasm32"), feature = "multi-threaded"))]
     fn get_batch_size(&self, thread_count: usize) -> usize {
         if self.batching_strategy.batch_size_limits.is_empty() {
@@ -179,7 +160,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
             thread_count > 0,
             "Attempted to run parallel iteration over a query with an empty TaskPool"
         );
-        let max_size = if Q::IS_DENSE && F::IS_DENSE {
+        let max_size = if D::IS_DENSE && F::IS_DENSE {
             // SAFETY: We only access table metadata.
             let tables = unsafe { &self.world.world_metadata().storages().tables };
             self.state
@@ -197,7 +178,10 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
                 .max()
                 .unwrap_or(0)
         };
-        let batch_size = max_size / (thread_count * self.batching_strategy.batches_per_thread);
+
+        let batches = thread_count * self.batching_strategy.batches_per_thread;
+        // Round up to the nearest batch size.
+        let batch_size = (max_size + batches - 1) / batches;
         batch_size.clamp(
             self.batching_strategy.batch_size_limits.start,
             self.batching_strategy.batch_size_limits.end,

@@ -35,6 +35,7 @@ fn assign_clips(
     scene_handle: Res<SceneHandle>,
     clips: Res<Assets<AnimationClip>>,
     gltf_assets: Res<Assets<Gltf>>,
+    assets: Res<AssetServer>,
     mut commands: Commands,
     mut setup: Local<bool>,
 ) {
@@ -56,7 +57,7 @@ fn assign_clips(
         let clips = clips
             .iter()
             .filter_map(|(k, v)| v.compatible_with(name).then_some(k))
-            .map(|id| clips.get_handle(id))
+            .map(|id| assets.get_id_handle(id).unwrap())
             .collect();
         let animations = Clips::new(clips);
         player.play(animations.current()).repeat();
@@ -65,7 +66,7 @@ fn assign_clips(
 }
 
 fn handle_inputs(
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     mut animation_player: Query<(&mut AnimationPlayer, &mut Clips, Entity, Option<&Name>)>,
 ) {
     for (mut player, mut clips, entity, name) in &mut animation_player {
@@ -86,7 +87,7 @@ fn handle_inputs(
             continue;
         }
 
-        if keyboard_input.just_pressed(KeyCode::Return) {
+        if keyboard_input.just_pressed(KeyCode::Enter) {
             info!("switching to new animation for {display_entity_name}");
 
             let resume = !player.is_paused();

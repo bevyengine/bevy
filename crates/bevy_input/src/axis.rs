@@ -40,7 +40,7 @@ where
     ///
     /// If the `input_device`:
     /// - was present before, the position data is updated, and the old value is returned.
-    /// - wasn't present before, [None] is returned.
+    /// - wasn't present before, `None` is returned.
     pub fn set(&mut self, input_device: T, position_data: f32) -> Option<f32> {
         self.axis_data.insert(input_device, position_data)
     }

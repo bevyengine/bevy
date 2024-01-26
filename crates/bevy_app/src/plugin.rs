@@ -25,8 +25,8 @@ pub trait Plugin: Downcast + Any + Send + Sync {
     /// Configures the [`App`] to which this plugin is added.
     fn build(&self, app: &mut App);
 
-    /// Has the plugin finished it's setup? This can be useful for plugins that needs something
-    /// asynchronous to happen before they can finish their setup, like renderer initialization.
+    /// Has the plugin finished its setup? This can be useful for plugins that need something
+    /// asynchronous to happen before they can finish their setup, like the initialization of a renderer.
     /// Once the plugin is ready, [`finish`](Plugin::finish) should be called.
     fn ready(&self, _app: &App) -> bool {
         true
@@ -51,7 +51,7 @@ pub trait Plugin: Downcast + Any + Send + Sync {
         std::any::type_name::<Self>()
     }
 
-    /// If the plugin can be meaningfully instantiated several times in an [`App`](crate::App),
+    /// If the plugin can be meaningfully instantiated several times in an [`App`],
     /// override this method to return `false`.
     fn is_unique(&self) -> bool {
         true
