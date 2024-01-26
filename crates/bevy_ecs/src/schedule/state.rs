@@ -504,7 +504,7 @@ pub trait ComputedStates: 'static + Send + Sync + Clone + PartialEq + Eq + Hash 
     /// The set of states from which the [`Self`] is derived.
     ///
     /// This can either be a single type that implements [`States`], or a tuple
-    /// containing multiple implementors of [`States`].
+    /// containing multiple types that implement [`States`].
     type SourceStates: StateSet;
 
     /// This function gets called whenever one of the [`SourceStates`](Self::SourceStates) changes.
