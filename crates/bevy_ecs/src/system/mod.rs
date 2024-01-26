@@ -481,14 +481,14 @@ mod tests {
         }
 
         fn log1(mut commands: Commands, query: Query<Ref<B>>) {
-            commands.insert_resource(Added1(query.get_single().unwrap().ticks.added.clone()));
-            commands.insert_resource(Changed1(query.get_single().unwrap().ticks.changed.clone()));
+            commands.insert_resource(Added1(*query.get_single().unwrap().ticks.added));
+            commands.insert_resource(Changed1(*query.get_single().unwrap().ticks.changed));
         }
 
         fn log2(mut commands: Commands, query: Query<&B>, te: Res<TargetEntity>) {
             let te = te.0;
-            commands.insert_resource(Added2(query.get_ref(te).unwrap().ticks.added.clone()));
-            commands.insert_resource(Changed2(query.get_ref(te).unwrap().ticks.changed.clone()));
+            commands.insert_resource(Added2(*query.get_ref(te).unwrap().ticks.added));
+            commands.insert_resource(Changed2(*query.get_ref(te).unwrap().ticks.changed));
         }
 
         let mut world = World::default();
