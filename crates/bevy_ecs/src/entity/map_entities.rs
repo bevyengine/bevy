@@ -97,7 +97,10 @@ pub struct SceneEntityMapper<'m> {
 }
 
 impl<'m> SceneEntityMapper<'m> {
-    #[deprecated(since = "0.13.0", note = "please use `EntityMapper::map_entity` instead")]
+    #[deprecated(
+        since = "0.13.0",
+        note = "please use `EntityMapper::map_entity` instead"
+    )]
     /// Returns the corresponding mapped entity or reserves a new dead entity ID if it is absent.
     pub fn get_or_reserve(&mut self, entity: Entity) -> Entity {
         self.map_entity(entity)
