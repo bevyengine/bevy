@@ -853,10 +853,10 @@ impl App {
             .ok_or(label)
     }
 
-    /// Adds a new `schedule` to the [`App`] under the provided `label`.
+    /// Adds a new `schedule` to the [`App`].
     ///
     /// # Warning
-    /// This method will overwrite any existing schedule at that label.
+    /// This method will overwrite any existing schedule with the same label.
     /// To avoid this behavior, use the `init_schedule` method instead.
     pub fn add_schedule(&mut self, schedule: Schedule) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
