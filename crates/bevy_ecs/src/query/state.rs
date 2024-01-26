@@ -406,7 +406,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         }
     }
 
-    /// Gets the query result in "reffed" form (Change-detection enabled read-only access) - most often using the [`Ref`] smart pointer, for the given [`World`] and [`Entity`].
+    /// Gets the query result in "reffed" form (Change-detection enabled read-only access) - most often using the `Ref` smart pointer, for the given [`World`] and [`Entity`].
     ///
     /// This can only be called for read-only queries, see [`Self::get_mut`] for write-queries.
     #[inline]
