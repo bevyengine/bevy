@@ -35,6 +35,7 @@ pub mod prelude {
     pub use bevy_utils::{debug_once, error_once, info_once, once, trace_once, warn_once};
 }
 
+use bevy_ecs::system::Resource;
 pub use bevy_utils::{
     debug_once, error_once, info_once, once, trace_once,
     tracing::{
