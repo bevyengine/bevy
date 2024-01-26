@@ -120,6 +120,7 @@ pub struct LogPlugin {
     /// ## Platform-specific
     ///
     /// **`WASM`** does not support logging to a file.
+    #[cfg(not(target_arch = "wasm32"))]
     pub file_appender_settings: Option<FileAppenderSettings>,
 }
 
@@ -171,14 +172,20 @@ struct FileAppenderWorkerGuard(tracing_appender::non_blocking::WorkerGuard);
 #[derive(Debug, Clone)]
 pub struct FileAppenderSettings {
     /// Controls how often a new file will be created
+    ///
+    /// Defaults to [`Rolling::Never`]
     pub rolling: Rolling,
     /// The path of the directory where the log files will be added
     ///
     /// Defaults to the local directory
     pub path: PathBuf,
     /// The prefix added when creating a file
+    ///
+    /// Defaults to "log"
     pub prefix: String,
     /// When this is enabled, a panic hook will be used and any panic will be logged as an error
+    ///
+    /// Defaults to true
     pub use_panic_hook: bool,
 }
 
@@ -263,16 +270,14 @@ impl Plugin for LogPlugin {
                         meta.fields().field("tracy.frame_mark").is_none()
                     }));
 
-                let subscriber = subscriber.with(fmt_layer);
-
                 #[cfg(feature = "tracing-chrome")]
                 let subscriber = subscriber.with(chrome_layer);
                 #[cfg(feature = "tracing-tracy")]
                 let subscriber = subscriber.with(tracy_layer);
-                subscriber
+                subscriber.with(fmt_layer)
             };
 
-            let file_appender_layer = if let Some(settings) = &self.file_appender_settings {
+            let file_appender_layer = self.file_appender_settings.as_ref().map(|settings| {
                 if settings.use_panic_hook {
                     let old_handler = std::panic::take_hook();
                     std::panic::set_hook(Box::new(move |panic_info| {
@@ -286,7 +291,7 @@ impl Plugin for LogPlugin {
                 }
 
                 if settings.rolling == Rolling::Never && settings.prefix.is_empty() {
-                    panic!("Using the Rolling::Never variant with no prefix will result in an empty filename which is invalid");
+                    panic!("Using the Rolling::Never variant with no prefix will result in an empty filename, which is invalid");
                 }
                 let file_appender = tracing_appender::rolling::RollingFileAppender::new(
                     settings.rolling.into(),
@@ -299,13 +304,10 @@ impl Plugin for LogPlugin {
                 // If it gets dropped then it will silently stop writing to the file
                 app.insert_resource(FileAppenderWorkerGuard(worker_guard));
 
-                let file_fmt_layer = tracing_subscriber::fmt::Layer::default()
+                tracing_subscriber::fmt::Layer::default()
                     .with_ansi(false)
-                    .with_writer(non_blocking);
-                Some(file_fmt_layer)
-            } else {
-                None
-            };
+                    .with_writer(non_blocking)
+            });
             let subscriber = subscriber.with(file_appender_layer);
 
             #[cfg(feature = "tracing-chrome")]
