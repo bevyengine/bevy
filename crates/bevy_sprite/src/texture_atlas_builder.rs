@@ -1,7 +1,9 @@
+use bevy_asset::Handle;
 use bevy_asset::{AssetId, Assets};
 use bevy_log::{debug, error, warn};
 use bevy_math::{Rect, UVec2, Vec2};
 use bevy_render::{
+    render_asset::RenderAssetPersistencePolicy,
     render_resource::{Extent3d, TextureDimension, TextureFormat},
     texture::{Image, TextureFormatPixelInfo},
 };
@@ -12,7 +14,7 @@ use rectangle_pack::{
 };
 use thiserror::Error;
 
-use crate::texture_atlas::TextureAtlas;
+use crate::TextureAtlasLayout;
 
 #[derive(Debug, Error)]
 pub enum TextureAtlasBuilderError {
@@ -82,6 +84,8 @@ impl TextureAtlasBuilder {
     }
 
     /// Adds a texture to be copied to the texture atlas.
+    ///
+    /// The insertion order will reflect the index of the added texture in the finished texture atlas.
     pub fn add_texture(&mut self, image_id: AssetId<Image>, texture: &Image) {
         self.textures_to_place
             .push((image_id, texture.texture_descriptor.size));
@@ -145,12 +149,42 @@ impl TextureAtlasBuilder {
         }
     }
 
-    /// Consumes the builder and returns a result with a new texture atlas.
+    /// Consumes the builder, and returns the newly created texture handle and
+    /// the assciated atlas layout.
     ///
+    /// Assigns indices to the textures based on the insertion order.
     /// Internally it copies all rectangles from the textures and copies them
-    /// into a new texture which the texture atlas will use. It is not useful to
-    /// hold a strong handle to the texture afterwards else it will exist twice
-    /// in memory.
+    /// into a new texture.
+    /// It is not useful to hold a strong handle to the texture afterwards else
+    /// it will exist twice in memory.
+    ///
+    /// # Usage
+    ///
+    /// ```rust
+    /// # use bevy_sprite::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_asset::*;
+    /// # use bevy_render::prelude::*;
+    ///
+    /// fn my_system(mut commands: Commands, mut textures: ResMut<Assets<Image>>, mut layouts: ResMut<Assets<TextureAtlasLayout>>) {
+    ///     // Declare your builder
+    ///     let mut builder = TextureAtlasBuilder::default();
+    ///     // Customize it
+    ///     // ...
+    ///     // Build your texture and the atlas layout
+    ///     let (atlas_layout, texture) = builder.finish(&mut textures).unwrap();
+    ///     let layout = layouts.add(atlas_layout);
+    ///     // Spawn your sprite
+    ///     commands.spawn(SpriteSheetBundle {
+    ///        texture,
+    ///        atlas: TextureAtlas {
+    ///             layout,
+    ///             index: 0
+    ///         },
+    ///       ..Default::default()
+    ///     });
+    /// }
+    /// ```
     ///
     /// # Errors
     ///
@@ -159,7 +193,7 @@ impl TextureAtlasBuilder {
     pub fn finish(
         self,
         textures: &mut Assets<Image>,
-    ) -> Result<TextureAtlas, TextureAtlasBuilderError> {
+    ) -> Result<(TextureAtlasLayout, Handle<Image>), TextureAtlasBuilderError> {
         let initial_width = self.initial_size.x as u32;
         let initial_height = self.initial_size.y as u32;
         let max_width = self.max_size.x as u32;
@@ -208,6 +242,7 @@ impl TextureAtlasBuilder {
                             self.format.pixel_size() * (current_width * current_height) as usize
                         ],
                         self.format,
+                        RenderAssetPersistencePolicy::Keep,
                     );
                     Some(rect_placements)
                 }
@@ -227,7 +262,10 @@ impl TextureAtlasBuilder {
 
         let mut texture_rects = Vec::with_capacity(rect_placements.packed_locations().len());
         let mut texture_ids = HashMap::default();
-        for (image_id, (_, packed_location)) in rect_placements.packed_locations() {
+        // We iterate through the textures to place to respect the insertion order for the texture indices
+        for (image_id, _) in &self.textures_to_place {
+            let (_, packed_location) = rect_placements.packed_locations().get(image_id).unwrap();
+
             let texture = textures.get(*image_id).unwrap();
             let min = Vec2::new(packed_location.x() as f32, packed_location.y() as f32);
             let max = min
@@ -246,11 +284,14 @@ impl TextureAtlasBuilder {
             }
             self.copy_converted_texture(&mut atlas_texture, texture, packed_location);
         }
-        Ok(TextureAtlas {
-            size: atlas_texture.size_f32(),
-            texture: textures.add(atlas_texture),
-            textures: texture_rects,
-            texture_handles: Some(texture_ids),
-        })
+
+        Ok((
+            TextureAtlasLayout {
+                size: atlas_texture.size_f32(),
+                textures: texture_rects,
+                texture_handles: Some(texture_ids),
+            },
+            textures.add(atlas_texture),
+        ))
     }
 }

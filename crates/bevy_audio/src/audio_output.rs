@@ -1,6 +1,6 @@
 use crate::{
     AudioSourceBundle, Decodable, GlobalVolume, PlaybackMode, PlaybackSettings, SpatialAudioSink,
-    SpatialListener, SpatialScale, Volume,
+    SpatialListener, SpatialScale,
 };
 use bevy_asset::{Asset, Assets, Handle};
 use bevy_ecs::{prelude::*, system::SystemParam};
@@ -77,8 +77,8 @@ impl<'w, 's> EarPositions<'w, 's> {
             .unwrap_or_else(|| {
                 let settings = SpatialListener::default();
                 (
-                    (settings.left_ear_offset * self.scale.0),
-                    (settings.right_ear_offset * self.scale.0),
+                    settings.left_ear_offset * self.scale.0,
+                    settings.right_ear_offset * self.scale.0,
                 )
             });
 
@@ -159,10 +159,7 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
             };
 
             sink.set_speed(settings.speed);
-            match settings.volume {
-                Volume::Relative(vol) => sink.set_volume(vol.0 * global_volume.volume.0),
-                Volume::Absolute(vol) => sink.set_volume(vol.0),
-            }
+            sink.set_volume(settings.volume.0 * global_volume.volume.0);
 
             if settings.paused {
                 sink.pause();
@@ -202,10 +199,7 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
             };
 
             sink.set_speed(settings.speed);
-            match settings.volume {
-                Volume::Relative(vol) => sink.set_volume(vol.0 * global_volume.volume.0),
-                Volume::Absolute(vol) => sink.set_volume(vol.0),
-            }
+            sink.set_volume(settings.volume.0 * global_volume.volume.0);
 
             if settings.paused {
                 sink.pause();
@@ -291,7 +285,7 @@ pub(crate) fn audio_output_available(audio_output: Res<AudioOutput>) -> bool {
 
 /// Updates spatial audio sinks when emitter positions change.
 pub(crate) fn update_emitter_positions(
-    mut emitters: Query<(&mut GlobalTransform, &SpatialAudioSink), Changed<GlobalTransform>>,
+    mut emitters: Query<(&GlobalTransform, &SpatialAudioSink), Changed<GlobalTransform>>,
     spatial_scale: Res<SpatialScale>,
 ) {
     for (transform, sink) in emitters.iter_mut() {

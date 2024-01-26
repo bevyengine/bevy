@@ -4,12 +4,12 @@
 //! and assorted support items.
 
 use crate::circles::DEFAULT_CIRCLE_SEGMENTS;
-use crate::prelude::Gizmos;
+use crate::prelude::{GizmoConfigGroup, Gizmos};
 use bevy_math::Vec2;
 use bevy_render::color::Color;
 use std::f32::consts::TAU;
 
-impl<'s> Gizmos<'s> {
+impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// Draw an arc, which is a part of the circumference of a circle, in 2D.
     ///
     /// This should be called for each frame the arc needs to be rendered.
@@ -46,7 +46,7 @@ impl<'s> Gizmos<'s> {
         arc_angle: f32,
         radius: f32,
         color: Color,
-    ) -> Arc2dBuilder<'_, 's> {
+    ) -> Arc2dBuilder<'_, 'w, 's, T> {
         Arc2dBuilder {
             gizmos: self,
             position,
@@ -60,8 +60,8 @@ impl<'s> Gizmos<'s> {
 }
 
 /// A builder returned by [`Gizmos::arc_2d`].
-pub struct Arc2dBuilder<'a, 's> {
-    gizmos: &'a mut Gizmos<'s>,
+pub struct Arc2dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
+    gizmos: &'a mut Gizmos<'w, 's, T>,
     position: Vec2,
     direction_angle: f32,
     arc_angle: f32,
@@ -70,7 +70,7 @@ pub struct Arc2dBuilder<'a, 's> {
     segments: Option<usize>,
 }
 
-impl Arc2dBuilder<'_, '_> {
+impl<T: GizmoConfigGroup> Arc2dBuilder<'_, '_, '_, T> {
     /// Set the number of line-segments for this arc.
     pub fn segments(mut self, segments: usize) -> Self {
         self.segments = Some(segments);
@@ -78,8 +78,11 @@ impl Arc2dBuilder<'_, '_> {
     }
 }
 
-impl Drop for Arc2dBuilder<'_, '_> {
+impl<T: GizmoConfigGroup> Drop for Arc2dBuilder<'_, '_, '_, T> {
     fn drop(&mut self) {
+        if !self.gizmos.enabled {
+            return;
+        }
         let segments = match self.segments {
             Some(segments) => segments,
             // Do a linear interpolation between 1 and `DEFAULT_CIRCLE_SEGMENTS`
@@ -88,7 +91,7 @@ impl Drop for Arc2dBuilder<'_, '_> {
         };
 
         let positions = arc_inner(self.direction_angle, self.arc_angle, self.radius, segments)
-            .map(|vec2| (vec2 + self.position));
+            .map(|vec2| vec2 + self.position);
         self.gizmos.linestrip_2d(positions, self.color);
     }
 }
