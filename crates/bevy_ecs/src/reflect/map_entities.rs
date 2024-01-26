@@ -10,7 +10,7 @@ use bevy_utils::EntityHashMap;
 /// Since a given `Entity` ID is only valid for the world it came from, when performing deserialization
 /// any stored IDs need to be re-allocated in the destination world.
 ///
-/// See [`MapEntities`] for more information.
+/// See [`SceneEntityMapper`] and [`MapEntities`] for more information.
 #[derive(Clone)]
 pub struct ReflectMapEntities {
     map_all_entities: fn(&mut World, &mut SceneEntityMapper),
