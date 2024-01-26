@@ -93,6 +93,17 @@ impl AssetReader for AndroidAssetReader {
                 .get()
                 .expect("Bevy must be setup with the #[bevy_main] macro on Android")
                 .asset_manager();
+            // HACK: `AssetManager` does not provide a way to check if path
+            // points to a directory or a file
+            // `open_dir` succeeds for both files and directories and will only
+            // fail if the path does not exist at all
+            // `open` will fail for directories, but it will work for files
+            // The solution here was to first use `open_dir` to eliminate the case
+            // when the path does not exist at all, and then to use `open` to
+            // see if that path is a file or a directory
+            let _ = asset_manager
+                .open_dir(&CString::new(path.to_str().unwrap()).unwrap())
+                .ok_or(AssetReaderError::NotFound(path.to_path_buf()))?;
             Ok(asset_manager
                 .open(&CString::new(path.to_str().unwrap()).unwrap())
                 .map_or(true, |_| false))
