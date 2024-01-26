@@ -285,7 +285,7 @@ pub type QueryItem<'w, Q> = <Q as WorldQuery>::Item<'w>;
 pub type ROQueryItem<'w, D> = QueryItem<'w, <D as QueryData>::ReadOnly>;
 // TODO: Better docs, not sure about using the term "reffed".
 /// The reffed variant of the item type returned when a "reffed access" is requested. For example,
-/// Ref<T> would be "reffed access" of &T.
+/// `Ref<T>` would be "reffed access" of `&T`.
 pub type ReffedQueryItem<'w, D> = QueryItem<'w, <D as QueryData>::Reffed>;
 
 /// SAFETY:
