@@ -3,6 +3,7 @@
     dependencies: [
     ],
     embedded_dependencies: [
-        "foo/c.cool.ron"
+        "foo/c.cool.ron",
+        "embedded://asset_processing/e.txt"
     ],
 )

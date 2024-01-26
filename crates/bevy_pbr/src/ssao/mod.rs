@@ -340,6 +340,7 @@ impl FromWorld for SsaoPipelines {
                     usage: TextureUsages::TEXTURE_BINDING,
                     view_formats: &[],
                 }),
+                TextureDataOrder::default(),
                 bytemuck::cast_slice(&generate_hilbert_index_lut()),
             )
             .create_view(&TextureViewDescriptor::default());
