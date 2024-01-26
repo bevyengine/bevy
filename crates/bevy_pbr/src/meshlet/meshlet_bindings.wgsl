@@ -38,11 +38,11 @@ struct MeshletBoundingSphere {
 }
 
 struct DrawIndexedIndirectArgs {
-    vertex_count: atomic<u32>,
+    index_count: atomic<u32>,
     instance_count: u32,
-    base_index: u32,
-    vertex_offset: u32,
-    base_instance: u32,
+    first_index: u32,
+    base_vertex: i32,
+    first_instance: u32,
 }
 
 #ifdef MESHLET_CULLING_PASS

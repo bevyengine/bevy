@@ -320,11 +320,11 @@ pub fn prepare_meshlet_per_frame_resources(
             render_device.create_buffer_with_data(&BufferInitDescriptor {
                 label: Some("meshlet_visibility_buffer_draw_command_buffer_first"),
                 contents: DrawIndexedIndirectArgs {
-                    vertex_count: 0,
+                    index_count: 0,
                     instance_count: 1,
-                    base_index: 0,
-                    vertex_offset: 0,
-                    base_instance: 0,
+                    first_index: 0,
+                    base_vertex: 0,
+                    first_instance: 0,
                 }
                 .as_bytes(),
                 usage: BufferUsages::STORAGE | BufferUsages::INDIRECT,
@@ -333,11 +333,11 @@ pub fn prepare_meshlet_per_frame_resources(
             render_device.create_buffer_with_data(&BufferInitDescriptor {
                 label: Some("meshlet_visibility_buffer_draw_command_buffer_second"),
                 contents: DrawIndexedIndirectArgs {
-                    vertex_count: 0,
+                    index_count: 0,
                     instance_count: 1,
-                    base_index: 0,
-                    vertex_offset: 0,
-                    base_instance: 0,
+                    first_index: 0,
+                    base_vertex: 0,
+                    first_instance: 0,
                 }
                 .as_bytes(),
                 usage: BufferUsages::STORAGE | BufferUsages::INDIRECT,

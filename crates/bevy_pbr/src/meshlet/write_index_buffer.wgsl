@@ -31,7 +31,7 @@ fn write_index_buffer(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(n
 
     // Reserve space in the index buffer for this meshlet, and broadcast the start of that slice to all threads
     if triangle_id == 0u {
-        draw_index_buffer_start_workgroup = atomicAdd(&draw_command_buffer.vertex_count, meshlet.triangle_count * 3u);
+        draw_index_buffer_start_workgroup = atomicAdd(&draw_command_buffer.index_count, meshlet.triangle_count * 3u);
     }
     workgroupBarrier();
     let base_index_id = triangle_id * 3u;
