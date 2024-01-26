@@ -80,8 +80,6 @@ impl<'a> Display for AssetPath<'a> {
 
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum ParseAssetPathError {
-    #[error("Asset source must be followed by '://'")]
-    InvalidSourceSyntax,
     #[error("Asset source must be at least one character. Either specify the source before the '://' or remove the `://`")]
     MissingSource,
     #[error("Asset label must be at least one character. Either specify the label after the '#' or remove the '#'")]
