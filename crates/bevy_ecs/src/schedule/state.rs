@@ -432,7 +432,7 @@ pub fn apply_state_transition<S: FreelyMutableState>(world: &mut World) {
             let new_state = new_state.clone();
             internal_apply_state_transition(world, Some(new_state));
         }
-        _ => {
+        NextState::Unchanged => {
             return;
         }
     }
