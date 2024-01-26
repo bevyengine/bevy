@@ -401,7 +401,19 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         }
     }
 
-    /// TODO: add docs
+    /// Use this to combine two queries. The data accessed will be the intersection
+    /// of archetypes included in both queries. This can be useful for accessing a
+    /// subset of the entities between two queries.
+    ///
+    /// You should not call `update_archetypes` on the returned `QueryState` as the result
+    /// could be unpredictable. You might end up with a mix of archetypes that only matched
+    /// the original query + archetypes that only match the new QueryState. Most of the
+    /// safe methods on QueryState call QueryState::update_archetypes internally, so
+    /// this best used through a Query.
+    ///
+    /// ## Panics
+    ///
+    /// Will panic if `NewD` contains accesses not in `Q` or `OtherQ`.
     pub fn join<OtherD: QueryData, NewD: QueryData>(
         &self,
         world: &World,
@@ -410,8 +422,12 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         self.join_filtered::<_, (), NewD, ()>(world, other)
     }
 
-    /// This takes the intersection of matches between two queries and creates a new query state. Similar to [`transmute`] you can change the terms.
-    /// TODO: extend this with more info
+    /// Use this to combine two queries. The data accessed will be the intersection
+    /// of archetypes included in both queries.
+    ///
+    /// ## Panics
+    ///
+    /// Will panic if `NewD` or `NewF` requires accesses not in `Q` or `OtherQ`.
     pub fn join_filtered<
         OtherD: QueryData,
         OtherF: QueryFilter,

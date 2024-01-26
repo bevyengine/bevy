@@ -1575,6 +1575,21 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         self.transmute_lens()
     }
 
+    /// Returns a QueryLens that can be used to get a query with the combined fetch.
+    ///
+    /// For example, this can take a `Query<&A>` and a `Queryy<&B>` and return a `Query<&A, &B>`.
+    /// The returned query will only return items with both `A` and `B`. Note that since filter
+    /// are dropped, non-archetypal filters like `Added` and `Changed` will no be respected.
+    /// To maintain or change filter terms see `Self::join_filtered`.
+    ///
+    /// ## Panics
+    ///
+    /// This will panic if `NewD` is not a subset of the union of the original fetch `Q` and `OtherD`.
+    ///
+    /// ## Allowed Transmutes
+    ///
+    /// Like `transmute_lens` the query terms can be changed with some restrictions.
+    /// See [`transmute_lens`] for more details.
     pub fn join<OtherD: QueryData, NewD: QueryData>(
         &mut self,
         other: &Query<OtherD>,
@@ -1582,6 +1597,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         self.join_filtered(other)
     }
 
+    /// Equivalent to [`join`] but also includes a `QueryFilter` type.
+    ///
+    /// Note that the lens with iterate a subset of the original queries tables
+    /// and arcchetypes. This means that additional archetypal query terms like
+    /// `With` and `Without` will not necessarily be respected and non-archetypal
+    /// terms like `Added` and `Changed` will only be respected if they are in
+    /// the type signature.
     pub fn join_filtered<
         OtherD: QueryData,
         OtherF: QueryFilter,
