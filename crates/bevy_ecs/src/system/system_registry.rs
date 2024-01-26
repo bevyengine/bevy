@@ -113,26 +113,6 @@ impl World {
         }
     }
 
-    /// Register a system with a given entity and returns a [`SystemId`] so it can later be called by [`World::run_system`].
-    ///
-    /// This allows lazy creation of systems so Commands can register systems and return [`SystemId`]
-    /// Returns None if the given entity doesn't exist.
-    pub fn register_boxed_system_with_entity<I: 'static, O: 'static>(
-        &mut self,
-        system: BoxedSystem<I, O>,
-        entity: Entity,
-    ) -> Option<SystemId<I, O>> {
-        self.get_entity_mut(entity).map(|mut entity| SystemId {
-            entity: entity
-                .insert(RegisteredSystem {
-                    initialized: false,
-                    system,
-                })
-                .id(),
-            marker: std::marker::PhantomData,
-        })
-    }
-
     /// Removes a registered system and returns the system, if it exists.
     /// After removing a system, the [`SystemId`] becomes invalid and attempting to use it afterwards will result in errors.
     /// Re-adding the removed system will register it on a new [`SystemId`].
@@ -375,7 +355,7 @@ impl<I: 'static + Send> Command for RunSystemWithInput<I> {
     }
 }
 
-/// The [`Command`] type for [`World::register_boxed_system_with_entity`].
+/// The [`Command`] type for registering one shot systems from [Commands](crate::system::Commands).
 ///
 /// This command needs an already boxed system to register, and an already spawned entity
 pub struct RegisterSystem<I: 'static, O: 'static> {
@@ -395,7 +375,13 @@ impl<I: 'static, O: 'static> RegisterSystem<I, O> {
 
 impl<I: 'static + Send, O: 'static + Send> Command for RegisterSystem<I, O> {
     fn apply(self, world: &mut World) {
-        let _ = world.register_boxed_system_with_entity(self.system, self.entity);
+        let _ = world.get_entity_mut(self.entity).map(|mut entity| {
+            entity
+                .insert(RegisteredSystem {
+                    initialized: false,
+                    system: self.system,
+                });
+        });
     }
 }
 
