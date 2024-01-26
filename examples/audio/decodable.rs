@@ -8,7 +8,6 @@ use bevy::utils::Duration;
 
 // This struct usually contains the data for the audio being played.
 // This is where data read from an audio file would be stored, for example.
-// Implementing `TypeUuid` will automatically implement `Asset`.
 // This allows the type to be registered as an asset.
 #[derive(Asset, TypePath)]
 struct SineAudio {
@@ -72,9 +71,9 @@ impl Source for SineDecoder {
 
 // Finally `Decodable` can be implemented for our `SineAudio`.
 impl Decodable for SineAudio {
-    type Decoder = SineDecoder;
-
     type DecoderItem = <SineDecoder as Iterator>::Item;
+
+    type Decoder = SineDecoder;
 
     fn decoder(&self) -> Self::Decoder {
         SineDecoder::new(self.frequency)

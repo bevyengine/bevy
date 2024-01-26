@@ -9,7 +9,7 @@ use bevy_asset::{Asset, Handle};
 use bevy_ecs::{
     component::Component,
     prelude::*,
-    query::{QueryItem, ReadOnlyWorldQuery, WorldQuery},
+    query::{QueryFilter, QueryItem, ReadOnlyQueryData},
     system::lifetimeless::Read,
 };
 use std::{marker::PhantomData, ops::Deref};
@@ -35,10 +35,10 @@ impl<C: Component> DynamicUniformIndex<C> {
 /// Therefore the component is transferred from the "app world" into the "render world"
 /// in the [`ExtractSchedule`] step.
 pub trait ExtractComponent: Component {
-    /// ECS [`WorldQuery`] to fetch the components to extract.
-    type Query: WorldQuery + ReadOnlyWorldQuery;
+    /// ECS [`ReadOnlyQueryData`] to fetch the components to extract.
+    type QueryData: ReadOnlyQueryData;
     /// Filters the entities with additional constraints.
-    type Filter: WorldQuery + ReadOnlyWorldQuery;
+    type QueryFilter: QueryFilter;
 
     /// The output from extraction.
     ///
@@ -58,7 +58,7 @@ pub trait ExtractComponent: Component {
     // type Out: Component = Self;
 
     /// Defines how the component is transferred into the "render world".
-    fn extract_component(item: QueryItem<'_, Self::Query>) -> Option<Self::Out>;
+    fn extract_component(item: QueryItem<'_, Self::QueryData>) -> Option<Self::Out>;
 }
 
 /// This plugin prepares the components of the corresponding type for the GPU
@@ -195,12 +195,12 @@ impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C> {
 }
 
 impl<T: Asset> ExtractComponent for Handle<T> {
-    type Query = Read<Handle<T>>;
-    type Filter = ();
+    type QueryData = Read<Handle<T>>;
+    type QueryFilter = ();
     type Out = Handle<T>;
 
     #[inline]
-    fn extract_component(handle: QueryItem<'_, Self::Query>) -> Option<Self::Out> {
+    fn extract_component(handle: QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
         Some(handle.clone_weak())
     }
 }
@@ -209,7 +209,7 @@ impl<T: Asset> ExtractComponent for Handle<T> {
 fn extract_components<C: ExtractComponent>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Extract<Query<(Entity, C::Query), C::Filter>>,
+    query: Extract<Query<(Entity, C::QueryData), C::QueryFilter>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, query_item) in &query {
@@ -225,7 +225,7 @@ fn extract_components<C: ExtractComponent>(
 fn extract_visible_components<C: ExtractComponent>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Extract<Query<(Entity, &ViewVisibility, C::Query), C::Filter>>,
+    query: Extract<Query<(Entity, &ViewVisibility, C::QueryData), C::QueryFilter>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, view_visibility, query_item) in &query {

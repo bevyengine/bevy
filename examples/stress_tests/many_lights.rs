@@ -55,12 +55,12 @@ fn setup(
             })
             .unwrap(),
         ),
-        material: materials.add(StandardMaterial::from(Color::WHITE)),
+        material: materials.add(Color::WHITE),
         transform: Transform::from_scale(Vec3::NEG_ONE),
         ..default()
     });
 
-    let mesh = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
+    let mesh = meshes.add(shape::Cube { size: 1.0 });
     let material = materials.add(StandardMaterial {
         base_color: Color::PINK,
         ..default()
@@ -153,9 +153,8 @@ struct LogVisibleLights;
 
 impl Plugin for LogVisibleLights {
     fn build(&self, app: &mut App) {
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
         };
 
         render_app.add_systems(Render, print_visible_light_count.in_set(RenderSet::Prepare));

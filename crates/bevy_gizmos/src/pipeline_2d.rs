@@ -1,6 +1,6 @@
 use crate::{
-    line_gizmo_vertex_buffer_layouts, DrawLineGizmo, GizmoConfig, LineGizmo,
-    LineGizmoUniformBindgroupLayout, SetLineGizmoBindGroup, LINE_SHADER_HANDLE,
+    config::GizmoMeshConfig, line_gizmo_vertex_buffer_layouts, DrawLineGizmo, GizmoRenderSystem,
+    LineGizmo, LineGizmoUniformBindgroupLayout, SetLineGizmoBindGroup, LINE_SHADER_HANDLE,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::Handle;
@@ -8,7 +8,7 @@ use bevy_core_pipeline::core_2d::Transparent2d;
 
 use bevy_ecs::{
     prelude::Entity,
-    schedule::IntoSystemConfigs,
+    schedule::{IntoSystemConfigs, IntoSystemSetConfigs},
     system::{Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
@@ -34,10 +34,14 @@ impl Plugin for LineGizmo2dPlugin {
         render_app
             .add_render_command::<Transparent2d, DrawLineGizmo2d>()
             .init_resource::<SpecializedRenderPipelines<LineGizmoPipeline>>()
+            .configure_sets(
+                Render,
+                GizmoRenderSystem::QueueLineGizmos2d.in_set(RenderSet::Queue),
+            )
             .add_systems(
                 Render,
                 queue_line_gizmos_2d
-                    .in_set(RenderSet::Queue)
+                    .in_set(GizmoRenderSystem::QueueLineGizmos2d)
                     .after(prepare_assets::<LineGizmo>),
             );
     }
@@ -140,8 +144,7 @@ fn queue_line_gizmos_2d(
     mut pipelines: ResMut<SpecializedRenderPipelines<LineGizmoPipeline>>,
     pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
-    config: Res<GizmoConfig>,
-    line_gizmos: Query<(Entity, &Handle<LineGizmo>)>,
+    line_gizmos: Query<(Entity, &Handle<LineGizmo>, &GizmoMeshConfig)>,
     line_gizmo_assets: Res<RenderAssets<LineGizmo>>,
     mut views: Query<(
         &ExtractedView,
@@ -152,14 +155,15 @@ fn queue_line_gizmos_2d(
     let draw_function = draw_functions.read().get_id::<DrawLineGizmo2d>().unwrap();
 
     for (view, mut transparent_phase, render_layers) in &mut views {
-        let render_layers = render_layers.copied().unwrap_or_default();
-        if !config.render_layers.intersects(&render_layers) {
-            continue;
-        }
         let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
             | Mesh2dPipelineKey::from_hdr(view.hdr);
 
-        for (entity, handle) in &line_gizmos {
+        for (entity, handle, config) in &line_gizmos {
+            let render_layers = render_layers.copied().unwrap_or_default();
+            if !config.render_layers.intersects(&render_layers) {
+                continue;
+            }
+
             let Some(line_gizmo) = line_gizmo_assets.get(handle) else {
                 continue;
             };

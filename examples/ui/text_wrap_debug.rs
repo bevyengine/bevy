@@ -11,15 +11,20 @@ use bevy::winit::WinitSettings;
 struct Args {
     #[argh(option)]
     /// window scale factor
-    scale_factor: Option<f64>,
+    scale_factor: Option<f32>,
 
     #[argh(option, default = "1.")]
     /// ui scale factor
-    ui_scale: f64,
+    ui_scale: f32,
 }
 
 fn main() {
+    // `from_env` panics on the web
+    #[cfg(not(target_arch = "wasm32"))]
     let args: Args = argh::from_env();
+    #[cfg(target_arch = "wasm32")]
+    let args = Args::from_args(&[], &[]).unwrap();
+
     let window = if let Some(scale_factor) = args.scale_factor {
         Window {
             resolution: WindowResolution::default().with_scale_factor_override(scale_factor),
@@ -120,7 +125,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                         value: message.clone(),
                         style: text_style.clone(),
                     }],
-                    alignment: TextAlignment::Left,
+                    justify: JustifyText::Left,
                     linebreak_behavior,
                 };
                 let text_id = commands

@@ -9,12 +9,14 @@ use bevy_reflect::{impl_reflect_value, ReflectDeserialize, ReflectSerialize, Typ
 mod bundle;
 mod component;
 mod entity_commands;
+mod from_world;
 mod map_entities;
 mod resource;
 
 pub use bundle::{ReflectBundle, ReflectBundleFns};
 pub use component::{ReflectComponent, ReflectComponentFns};
 pub use entity_commands::ReflectCommandExt;
+pub use from_world::{ReflectFromWorld, ReflectFromWorldFns};
 pub use map_entities::ReflectMapEntities;
 pub use resource::{ReflectResource, ReflectResourceFns};
 
