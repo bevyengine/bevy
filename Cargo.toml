@@ -556,6 +556,17 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "animated_material"
+path = "examples/3d/animated_material.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.animated_material]
+name = "Animated Material"
+description = "Shows how to animate material properties"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "generate_custom_mesh"
 path = "examples/3d/generate_custom_mesh.rs"
 doc-scrape-examples = true
@@ -1341,6 +1352,17 @@ doc-scrape-examples = true
 [package.metadata.example.component_change_detection]
 name = "Component Change Detection"
 description = "Change detection on components"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "custom_schedule"
+path = "examples/ecs/custom_schedule.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_schedule]
+name = "Custom Schedule"
+description = "Demonstrates how to add custom schedules"
 category = "ECS (Entity Component System)"
 wasm = false
 

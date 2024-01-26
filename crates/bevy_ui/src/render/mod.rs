@@ -399,7 +399,6 @@ pub fn extract_uinode_outlines(
 
 pub fn extract_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    images: Extract<Res<Assets<Image>>>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     default_ui_camera: Extract<DefaultUiCamera>,
     uinode_query: Extract<
@@ -429,10 +428,6 @@ pub fn extract_uinodes(
         }
 
         let (image, flip_x, flip_y) = if let Some(image) = maybe_image {
-            // Skip loading images
-            if !images.contains(&image.texture) {
-                continue;
-            }
             (image.texture.id(), image.flip_x, image.flip_y)
         } else {
             (AssetId::default(), false, false)
