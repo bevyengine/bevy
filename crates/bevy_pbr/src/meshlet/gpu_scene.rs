@@ -319,7 +319,7 @@ pub fn prepare_meshlet_per_frame_resources(
         let visibility_buffer_draw_command_buffer_first =
             render_device.create_buffer_with_data(&BufferInitDescriptor {
                 label: Some("meshlet_visibility_buffer_draw_command_buffer_first"),
-                contents: DrawIndexedIndirect {
+                contents: DrawIndexedIndirectArgs {
                     vertex_count: 0,
                     instance_count: 1,
                     base_index: 0,
@@ -332,7 +332,7 @@ pub fn prepare_meshlet_per_frame_resources(
         let visibility_buffer_draw_command_buffer_second =
             render_device.create_buffer_with_data(&BufferInitDescriptor {
                 label: Some("meshlet_visibility_buffer_draw_command_buffer_second"),
-                contents: DrawIndexedIndirect {
+                contents: DrawIndexedIndirectArgs {
                     vertex_count: 0,
                     instance_count: 1,
                     base_index: 0,

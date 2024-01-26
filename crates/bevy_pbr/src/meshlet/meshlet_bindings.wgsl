@@ -37,7 +37,7 @@ struct MeshletBoundingSphere {
     radius: f32,
 }
 
-struct DrawIndexedIndirect {
+struct DrawIndexedIndirectArgs {
     vertex_count: atomic<u32>,
     instance_count: u32,
     base_index: u32,
@@ -77,7 +77,7 @@ fn get_meshlet_previous_occlusion(thread_id: u32) -> bool {
 @group(0) @binding(2) var<storage, read> meshlet_previous_thread_ids: array<u32>;
 @group(0) @binding(3) var<storage, read> meshlet_previous_occlusion: array<u32>; // packed bool's
 @group(0) @binding(4) var<storage, read> meshlets: array<Meshlet>;
-@group(0) @binding(5) var<storage, read_write> draw_command_buffer: DrawIndexedIndirect;
+@group(0) @binding(5) var<storage, read_write> draw_command_buffer: DrawIndexedIndirectArgs;
 @group(0) @binding(6) var<storage, read_write> draw_index_buffer: array<u32>;
 
 fn get_meshlet_occlusion(thread_id: u32) -> bool {
