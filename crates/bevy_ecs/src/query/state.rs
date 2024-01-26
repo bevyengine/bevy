@@ -406,9 +406,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         }
     }
 
-    // TODO: Better explanation, I'm not a fan of the term "reffed".
-    /// Gets the query result in "reffed" form (whatever can go in the [`Ref`](crate::change_detection::Ref) smart pointer - goes into it,
-    /// whatver doesn't - turns into the read-only version) for the given [`World`] and [`Entity`].
+    /// Gets the query result in "reffed" form (Change-detection enabled read-only access) - most often using the [`Ref`] smart pointer, for the given [`World`] and [`Entity`].
     ///
     /// This can only be called for read-only queries, see [`Self::get_mut`] for write-queries.
     #[inline]
