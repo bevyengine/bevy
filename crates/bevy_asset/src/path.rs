@@ -129,36 +129,22 @@ impl<'a> AssetPath<'a> {
     fn parse_internal(
         asset_path: &str,
     ) -> Result<(Option<&str>, &Path, Option<&str>), ParseAssetPathError> {
-        let mut chars = asset_path.char_indices();
-        let mut source_range = None;
         let mut path_range = 0..asset_path.len();
-        let mut label_range = None;
-        while let Some((index, char)) = chars.next() {
-            match char {
-                ':' => {
-                    let (_, char) = chars
-                        .next()
-                        .ok_or(ParseAssetPathError::InvalidSourceSyntax)?;
-                    if char != '/' {
-                        return Err(ParseAssetPathError::InvalidSourceSyntax);
-                    }
-                    let (index, char) = chars
-                        .next()
-                        .ok_or(ParseAssetPathError::InvalidSourceSyntax)?;
-                    if char != '/' {
-                        return Err(ParseAssetPathError::InvalidSourceSyntax);
-                    }
-                    source_range = Some(0..index - 2);
-                    path_range.start = index + 1;
-                }
-                '#' => {
-                    path_range.end = index;
-                    label_range = Some(index + 1..asset_path.len());
-                    break;
-                }
-                _ => {}
+
+        let source_range = match asset_path.find("://") {
+            Some(index) => {
+                path_range.start = index + 3;
+                Some(0..index)
             }
-        }
+            None => None,
+        };
+        let label_range = match asset_path.rfind('#') {
+            Some(index) => {
+                path_range.end = index;
+                Some(index + 1..asset_path.len())
+            }
+            None => None,
+        };
 
         let source = match source_range {
             Some(source_range) => {
