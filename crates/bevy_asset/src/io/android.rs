@@ -106,7 +106,7 @@ impl AssetReader for AndroidAssetReader {
                 .ok_or(AssetReaderError::NotFound(path.to_path_buf()))?;
             Ok(asset_manager
                 .open(&CString::new(path.to_str().unwrap()).unwrap())
-                .map_or(true, |_| false))
+                .is_none()
         })
     }
 }
