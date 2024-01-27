@@ -53,9 +53,7 @@ impl ComputedStates for InGame {
     type SourceStates = AppState;
 
     // The compute function takes in the `SourceStates` wrapped in `Option`'s.
-    fn compute(
-        sources: Option<AppState>,
-    ) -> Option<Self> {
+    fn compute(sources: Option<AppState>) -> Option<Self> {
         // You might notice that InGame has no values - instead, in this case, the `State<InGame>` resource only exists
         // if the `compute` function would return `Some` - so only when we are in game.
         match sources {
@@ -81,9 +79,7 @@ struct TurboMode;
 impl ComputedStates for TurboMode {
     type SourceStates = AppState;
 
-    fn compute(
-        sources: Option<AppState>,
-    ) -> Option<Self> {
+    fn compute(sources: Option<AppState>) -> Option<Self> {
         match sources {
             Some(AppState::InGame { turbo: true, .. }) => Some(Self),
             _ => None,
@@ -110,9 +106,7 @@ enum IsPaused {
 impl ComputedStates for IsPaused {
     type SourceStates = AppState;
 
-    fn compute(
-        sources: Option<AppState>,
-    ) -> Option<Self> {
+    fn compute(sources: Option<AppState>) -> Option<Self> {
         // Here we convert from our [`AppState`] to all potential [`IsPaused`] versions.
         match sources {
             Some(AppState::InGame { paused: true, .. }) => Some(Self::Paused),
@@ -147,7 +141,11 @@ impl ComputedStates for Tutorial {
 
     fn compute(
         // This complex type translates to (Option<TutorialState>, Option<InGame>, Option<IsPaused>)
-        (tutorial_state, in_game, is_paused): (Option<TutorialState>, Option<InGame>, Option<IsPaused>)
+        (tutorial_state, in_game, is_paused): (
+            Option<TutorialState>,
+            Option<InGame>,
+            Option<IsPaused>,
+        ),
     ) -> Option<Self> {
         // If the tutorial is inactive or non-existant, we don't need to worry about it.
         if !matches!(tutorial_state, Some(TutorialState::Active)) {
