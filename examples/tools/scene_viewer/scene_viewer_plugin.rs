@@ -11,7 +11,7 @@ use bevy::{
 use std::f32::consts::*;
 use std::fmt;
 
-use super::camera_controller_plugin::*;
+use super::camera_controller::*;
 
 #[derive(Resource)]
 pub struct SceneHandle {
@@ -73,14 +73,14 @@ impl Plugin for SceneViewerPlugin {
                 (
                     update_lights,
                     camera_tracker,
-                    toggle_bounding_boxes.run_if(input_just_pressed(KeyCode::B)),
+                    toggle_bounding_boxes.run_if(input_just_pressed(KeyCode::KeyB)),
                 ),
             );
     }
 }
 
-fn toggle_bounding_boxes(mut config: ResMut<GizmoConfig>) {
-    config.aabb.draw_all ^= true;
+fn toggle_bounding_boxes(mut config: ResMut<GizmoConfigStore>) {
+    config.config_mut::<AabbGizmoConfigGroup>().1.draw_all ^= true;
 }
 
 fn scene_load_check(
@@ -139,6 +139,7 @@ fn scene_load_check(
         Some(_) => {}
     }
 }
+
 fn update_lights(
     key_input: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
@@ -146,12 +147,12 @@ fn update_lights(
     mut animate_directional_light: Local<bool>,
 ) {
     for (_, mut light) in &mut query {
-        if key_input.just_pressed(KeyCode::U) {
+        if key_input.just_pressed(KeyCode::KeyU) {
             light.shadows_enabled = !light.shadows_enabled;
         }
     }
 
-    if key_input.just_pressed(KeyCode::L) {
+    if key_input.just_pressed(KeyCode::KeyL) {
         *animate_directional_light = !*animate_directional_light;
     }
     if *animate_directional_light {
@@ -215,7 +216,7 @@ fn camera_tracker(
         camera.is_active = camera_tracker.track_camera(entity);
     }
 
-    if keyboard_input.just_pressed(KeyCode::C) {
+    if keyboard_input.just_pressed(KeyCode::KeyC) {
         // disable currently active camera
         if let Some(e) = camera_tracker.active_camera() {
             if let Ok(mut camera) = queries.p2().get_mut(e) {

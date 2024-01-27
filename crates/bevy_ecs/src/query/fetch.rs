@@ -1,11 +1,14 @@
 use crate::{
-    archetype::{Archetype, ArchetypeComponentId},
+    archetype::Archetype,
     change_detection::{Ticks, TicksMut},
     component::{Component, ComponentId, ComponentStorage, StorageType, Tick},
     entity::Entity,
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},
-    world::{unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityRef, Mut, Ref, World},
+    world::{
+        unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityRef, FilteredEntityMut,
+        FilteredEntityRef, Mut, Ref, World,
+    },
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use bevy_utils::all_tuples;
@@ -272,21 +275,19 @@ pub unsafe trait ReadOnlyQueryData: QueryData<ReadOnly = Self> {}
 /// The item type returned when a [`WorldQuery`] is iterated over
 pub type QueryItem<'w, Q> = <Q as WorldQuery>::Item<'w>;
 /// The read-only variant of the item type returned when a [`QueryData`] is iterated over immutably
-pub type ROQueryItem<'w, Q> = QueryItem<'w, <Q as QueryData>::ReadOnly>;
+pub type ROQueryItem<'w, D> = QueryItem<'w, <D as QueryData>::ReadOnly>;
 
 /// SAFETY:
 /// `update_component_access` and `update_archetype_component_access` do nothing.
 /// This is sound because `fetch` does not access components.
 unsafe impl WorldQuery for Entity {
-    type Fetch<'w> = ();
     type Item<'w> = Entity;
+    type Fetch<'w> = ();
     type State = ();
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
         item
     }
-
-    const IS_DENSE: bool = true;
 
     unsafe fn init_fetch<'w>(
         _world: UnsafeWorldCell<'w>,
@@ -295,6 +296,8 @@ unsafe impl WorldQuery for Entity {
         _this_run: Tick,
     ) -> Self::Fetch<'w> {
     }
+
+    const IS_DENSE: bool = true;
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -320,14 +323,11 @@ unsafe impl WorldQuery for Entity {
 
     fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {}
 
-    fn update_archetype_component_access(
-        _state: &Self::State,
-        _archetype: &Archetype,
-        _access: &mut Access<ArchetypeComponentId>,
-    ) {
-    }
-
     fn init_state(_world: &mut World) {}
+
+    fn get_state(_world: &World) -> Option<()> {
+        Some(())
+    }
 
     fn matches_component_set(
         _state: &Self::State,
@@ -350,15 +350,13 @@ unsafe impl ReadOnlyQueryData for Entity {}
 /// This is sound because `update_component_access` and `update_archetype_component_access` set read access for all components and panic when appropriate.
 /// Filters are unchanged.
 unsafe impl<'a> WorldQuery for EntityRef<'a> {
-    type Fetch<'w> = UnsafeWorldCell<'w>;
     type Item<'w> = EntityRef<'w>;
+    type Fetch<'w> = UnsafeWorldCell<'w>;
     type State = ();
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
         item
     }
-
-    const IS_DENSE: bool = true;
 
     unsafe fn init_fetch<'w>(
         world: UnsafeWorldCell<'w>,
@@ -368,6 +366,8 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
     ) -> Self::Fetch<'w> {
         world
     }
+
+    const IS_DENSE: bool = true;
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -402,17 +402,11 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
         access.read_all();
     }
 
-    fn update_archetype_component_access(
-        _state: &Self::State,
-        archetype: &Archetype,
-        access: &mut Access<ArchetypeComponentId>,
-    ) {
-        for component_id in archetype.components() {
-            access.add_read(archetype.get_archetype_component_id(component_id).unwrap());
-        }
-    }
-
     fn init_state(_world: &mut World) {}
+
+    fn get_state(_world: &World) -> Option<()> {
+        Some(())
+    }
 
     fn matches_component_set(
         _state: &Self::State,
@@ -432,15 +426,13 @@ unsafe impl ReadOnlyQueryData for EntityRef<'_> {}
 
 /// SAFETY: The accesses of `Self::ReadOnly` are a subset of the accesses of `Self`
 unsafe impl<'a> WorldQuery for EntityMut<'a> {
-    type Fetch<'w> = UnsafeWorldCell<'w>;
     type Item<'w> = EntityMut<'w>;
+    type Fetch<'w> = UnsafeWorldCell<'w>;
     type State = ();
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
         item
     }
-
-    const IS_DENSE: bool = true;
 
     unsafe fn init_fetch<'w>(
         world: UnsafeWorldCell<'w>,
@@ -450,6 +442,8 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
     ) -> Self::Fetch<'w> {
         world
     }
+
+    const IS_DENSE: bool = true;
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -484,17 +478,11 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
         access.write_all();
     }
 
-    fn update_archetype_component_access(
-        _state: &Self::State,
-        archetype: &Archetype,
-        access: &mut Access<ArchetypeComponentId>,
-    ) {
-        for component_id in archetype.components() {
-            access.add_write(archetype.get_archetype_component_id(component_id).unwrap());
-        }
-    }
-
     fn init_state(_world: &mut World) {}
+
+    fn get_state(_world: &World) -> Option<()> {
+        Some(())
+    }
 
     fn matches_component_set(
         _state: &Self::State,
@@ -507,6 +495,218 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
 /// SAFETY: access of `EntityRef` is a subset of `EntityMut`
 unsafe impl<'a> QueryData for EntityMut<'a> {
     type ReadOnly = EntityRef<'a>;
+}
+
+/// SAFETY: The accesses of `Self::ReadOnly` are a subset of the accesses of `Self`
+unsafe impl<'a> WorldQuery for FilteredEntityRef<'a> {
+    type Fetch<'w> = (UnsafeWorldCell<'w>, Access<ComponentId>);
+    type Item<'w> = FilteredEntityRef<'w>;
+    type State = FilteredAccess<ComponentId>;
+
+    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
+        item
+    }
+
+    const IS_DENSE: bool = false;
+
+    unsafe fn init_fetch<'w>(
+        world: UnsafeWorldCell<'w>,
+        _state: &Self::State,
+        _last_run: Tick,
+        _this_run: Tick,
+    ) -> Self::Fetch<'w> {
+        let mut access = Access::default();
+        access.read_all();
+        (world, access)
+    }
+
+    #[inline]
+    unsafe fn set_archetype<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        state: &Self::State,
+        archetype: &'w Archetype,
+        _table: &Table,
+    ) {
+        let mut access = Access::default();
+        state.access.reads().for_each(|id| {
+            if archetype.contains(id) {
+                access.add_read(id);
+            }
+        });
+        fetch.1 = access;
+    }
+
+    #[inline]
+    unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table) {
+        let mut access = Access::default();
+        state.access.reads().for_each(|id| {
+            if table.has_column(id) {
+                access.add_read(id);
+            }
+        });
+        fetch.1 = access;
+    }
+
+    #[inline]
+    fn set_access<'w>(state: &mut Self::State, access: &FilteredAccess<ComponentId>) {
+        *state = access.clone();
+        state.access_mut().clear_writes();
+    }
+
+    #[inline(always)]
+    unsafe fn fetch<'w>(
+        (world, access): &mut Self::Fetch<'w>,
+        entity: Entity,
+        _table_row: TableRow,
+    ) -> Self::Item<'w> {
+        // SAFETY: `fetch` must be called with an entity that exists in the world
+        let cell = world.get_entity(entity).debug_checked_unwrap();
+        // SAFETY: mutable access to every component has been registered.
+        FilteredEntityRef::new(cell, access.clone())
+    }
+
+    fn update_component_access(
+        state: &Self::State,
+        filtered_access: &mut FilteredAccess<ComponentId>,
+    ) {
+        assert!(
+            filtered_access.access().is_compatible(&state.access),
+            "FilteredEntityRef conflicts with a previous access in this query. Exclusive access cannot coincide with any other accesses.",
+        );
+        filtered_access.access.extend(&state.access);
+    }
+
+    fn init_state(_world: &mut World) -> Self::State {
+        FilteredAccess::default()
+    }
+
+    fn get_state(_world: &World) -> Option<Self::State> {
+        Some(FilteredAccess::default())
+    }
+
+    fn matches_component_set(
+        _state: &Self::State,
+        _set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
+        true
+    }
+}
+
+/// SAFETY: `Self` is the same as `Self::ReadOnly`
+unsafe impl<'a> QueryData for FilteredEntityRef<'a> {
+    type ReadOnly = Self;
+}
+
+/// SAFETY: Access is read-only.
+unsafe impl ReadOnlyQueryData for FilteredEntityRef<'_> {}
+
+/// SAFETY: The accesses of `Self::ReadOnly` are a subset of the accesses of `Self`
+unsafe impl<'a> WorldQuery for FilteredEntityMut<'a> {
+    type Fetch<'w> = (UnsafeWorldCell<'w>, Access<ComponentId>);
+    type Item<'w> = FilteredEntityMut<'w>;
+    type State = FilteredAccess<ComponentId>;
+
+    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
+        item
+    }
+
+    const IS_DENSE: bool = false;
+
+    unsafe fn init_fetch<'w>(
+        world: UnsafeWorldCell<'w>,
+        _state: &Self::State,
+        _last_run: Tick,
+        _this_run: Tick,
+    ) -> Self::Fetch<'w> {
+        let mut access = Access::default();
+        access.write_all();
+        (world, access)
+    }
+
+    #[inline]
+    unsafe fn set_archetype<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        state: &Self::State,
+        archetype: &'w Archetype,
+        _table: &Table,
+    ) {
+        let mut access = Access::default();
+        state.access.reads().for_each(|id| {
+            if archetype.contains(id) {
+                access.add_read(id);
+            }
+        });
+        state.access.writes().for_each(|id| {
+            if archetype.contains(id) {
+                access.add_write(id);
+            }
+        });
+        fetch.1 = access;
+    }
+
+    #[inline]
+    unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table) {
+        let mut access = Access::default();
+        state.access.reads().for_each(|id| {
+            if table.has_column(id) {
+                access.add_read(id);
+            }
+        });
+        state.access.writes().for_each(|id| {
+            if table.has_column(id) {
+                access.add_write(id);
+            }
+        });
+        fetch.1 = access;
+    }
+
+    #[inline]
+    fn set_access<'w>(state: &mut Self::State, access: &FilteredAccess<ComponentId>) {
+        *state = access.clone();
+    }
+
+    #[inline(always)]
+    unsafe fn fetch<'w>(
+        (world, access): &mut Self::Fetch<'w>,
+        entity: Entity,
+        _table_row: TableRow,
+    ) -> Self::Item<'w> {
+        // SAFETY: `fetch` must be called with an entity that exists in the world
+        let cell = world.get_entity(entity).debug_checked_unwrap();
+        // SAFETY: mutable access to every component has been registered.
+        FilteredEntityMut::new(cell, access.clone())
+    }
+
+    fn update_component_access(
+        state: &Self::State,
+        filtered_access: &mut FilteredAccess<ComponentId>,
+    ) {
+        assert!(
+            filtered_access.access().is_compatible(&state.access),
+            "FilteredEntityMut conflicts with a previous access in this query. Exclusive access cannot coincide with any other accesses.",
+        );
+        filtered_access.access.extend(&state.access);
+    }
+
+    fn init_state(_world: &mut World) -> Self::State {
+        FilteredAccess::default()
+    }
+
+    fn get_state(_world: &World) -> Option<Self::State> {
+        Some(FilteredAccess::default())
+    }
+
+    fn matches_component_set(
+        _state: &Self::State,
+        _set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
+        true
+    }
+}
+
+/// SAFETY: access of `FilteredEntityRef` is a subset of `FilteredEntityMut`
+unsafe impl<'a> QueryData for FilteredEntityMut<'a> {
+    type ReadOnly = FilteredEntityRef<'a>;
 }
 
 #[doc(hidden)]
@@ -530,20 +730,13 @@ impl<T> Copy for ReadFetch<'_, T> {}
 /// `update_component_access` adds a `With` filter for a component.
 /// This is sound because `matches_component_set` returns whether the set contains that component.
 unsafe impl<T: Component> WorldQuery for &T {
-    type Fetch<'w> = ReadFetch<'w, T>;
     type Item<'w> = &'w T;
+    type Fetch<'w> = ReadFetch<'w, T>;
     type State = ComponentId;
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: &'wlong T) -> &'wshort T {
         item
     }
-
-    const IS_DENSE: bool = {
-        match T::Storage::STORAGE_TYPE {
-            StorageType::Table => true,
-            StorageType::SparseSet => false,
-        }
-    };
 
     #[inline]
     unsafe fn init_fetch<'w>(
@@ -567,6 +760,13 @@ unsafe impl<T: Component> WorldQuery for &T {
             }),
         }
     }
+
+    const IS_DENSE: bool = {
+        match T::Storage::STORAGE_TYPE {
+            StorageType::Table => true,
+            StorageType::SparseSet => false,
+        }
+    };
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -628,18 +828,12 @@ unsafe impl<T: Component> WorldQuery for &T {
         access.add_read(component_id);
     }
 
-    fn update_archetype_component_access(
-        &component_id: &ComponentId,
-        archetype: &Archetype,
-        access: &mut Access<ArchetypeComponentId>,
-    ) {
-        if let Some(archetype_component_id) = archetype.get_archetype_component_id(component_id) {
-            access.add_read(archetype_component_id);
-        }
-    }
-
     fn init_state(world: &mut World) -> ComponentId {
         world.init_component::<T>()
+    }
+
+    fn get_state(world: &World) -> Option<Self::State> {
+        world.component_id::<T>()
     }
 
     fn matches_component_set(
@@ -686,20 +880,13 @@ impl<T> Copy for RefFetch<'_, T> {}
 /// `update_component_access` adds a `With` filter for a component.
 /// This is sound because `matches_component_set` returns whether the set contains that component.
 unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
-    type Fetch<'w> = RefFetch<'w, T>;
     type Item<'w> = Ref<'w, T>;
+    type Fetch<'w> = RefFetch<'w, T>;
     type State = ComponentId;
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Ref<'wlong, T>) -> Ref<'wshort, T> {
         item
     }
-
-    const IS_DENSE: bool = {
-        match T::Storage::STORAGE_TYPE {
-            StorageType::Table => true,
-            StorageType::SparseSet => false,
-        }
-    };
 
     #[inline]
     unsafe fn init_fetch<'w>(
@@ -722,6 +909,13 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
             this_run,
         }
     }
+
+    const IS_DENSE: bool = {
+        match T::Storage::STORAGE_TYPE {
+            StorageType::Table => true,
+            StorageType::SparseSet => false,
+        }
+    };
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -795,18 +989,12 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         access.add_read(component_id);
     }
 
-    fn update_archetype_component_access(
-        &component_id: &ComponentId,
-        archetype: &Archetype,
-        access: &mut Access<ArchetypeComponentId>,
-    ) {
-        if let Some(archetype_component_id) = archetype.get_archetype_component_id(component_id) {
-            access.add_read(archetype_component_id);
-        }
-    }
-
     fn init_state(world: &mut World) -> ComponentId {
         world.init_component::<T>()
+    }
+
+    fn get_state(world: &World) -> Option<Self::State> {
+        world.component_id::<T>()
     }
 
     fn matches_component_set(
@@ -853,20 +1041,13 @@ impl<T> Copy for WriteFetch<'_, T> {}
 /// `update_component_access` adds a `With` filter for a component.
 /// This is sound because `matches_component_set` returns whether the set contains that component.
 unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
-    type Fetch<'w> = WriteFetch<'w, T>;
     type Item<'w> = Mut<'w, T>;
+    type Fetch<'w> = WriteFetch<'w, T>;
     type State = ComponentId;
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Mut<'wlong, T>) -> Mut<'wshort, T> {
         item
     }
-
-    const IS_DENSE: bool = {
-        match T::Storage::STORAGE_TYPE {
-            StorageType::Table => true,
-            StorageType::SparseSet => false,
-        }
-    };
 
     #[inline]
     unsafe fn init_fetch<'w>(
@@ -889,6 +1070,13 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
             this_run,
         }
     }
+
+    const IS_DENSE: bool = {
+        match T::Storage::STORAGE_TYPE {
+            StorageType::Table => true,
+            StorageType::SparseSet => false,
+        }
+    };
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -962,18 +1150,12 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         access.add_write(component_id);
     }
 
-    fn update_archetype_component_access(
-        &component_id: &ComponentId,
-        archetype: &Archetype,
-        access: &mut Access<ArchetypeComponentId>,
-    ) {
-        if let Some(archetype_component_id) = archetype.get_archetype_component_id(component_id) {
-            access.add_write(archetype_component_id);
-        }
-    }
-
     fn init_state(world: &mut World) -> ComponentId {
         world.init_component::<T>()
+    }
+
+    fn get_state(world: &World) -> Option<Self::State> {
+        world.component_id::<T>()
     }
 
     fn matches_component_set(
@@ -1009,15 +1191,13 @@ impl<T: WorldQuery> Clone for OptionFetch<'_, T> {
 /// This is sound because `update_component_access` and `update_archetype_component_access` add the same accesses as `T`.
 /// Filters are unchanged.
 unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
-    type Fetch<'w> = OptionFetch<'w, T>;
     type Item<'w> = Option<T::Item<'w>>;
+    type Fetch<'w> = OptionFetch<'w, T>;
     type State = T::State;
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
         item.map(T::shrink)
     }
-
-    const IS_DENSE: bool = T::IS_DENSE;
 
     #[inline]
     unsafe fn init_fetch<'w>(
@@ -1031,6 +1211,8 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
             matches: false,
         }
     }
+
+    const IS_DENSE: bool = T::IS_DENSE;
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -1079,18 +1261,12 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
         access.extend_access(&intermediate);
     }
 
-    fn update_archetype_component_access(
-        state: &T::State,
-        archetype: &Archetype,
-        access: &mut Access<ArchetypeComponentId>,
-    ) {
-        if T::matches_component_set(state, &|id| archetype.contains(id)) {
-            T::update_archetype_component_access(state, archetype, access);
-        }
-    }
-
     fn init_state(world: &mut World) -> T::State {
         T::init_state(world)
+    }
+
+    fn get_state(world: &World) -> Option<Self::State> {
+        T::get_state(world)
     }
 
     fn matches_component_set(
@@ -1113,6 +1289,16 @@ unsafe impl<T: ReadOnlyQueryData> ReadOnlyQueryData for Option<T> {}
 ///
 /// This can be used in a [`Query`](crate::system::Query) if you want to know whether or not entities
 /// have the component `T`  but don't actually care about the component's value.
+///
+/// # Footguns
+///
+/// Note that a `Query<Has<T>>` will match all existing entities.
+/// Beware! Even if it matches all entities, it doesn't mean that `query.get(entity)`
+/// will always return `Ok(bool)`.
+///
+/// In the case of a non-existent entity, such as a despawned one, it will return `Err`.
+/// A workaround is to replace `query.get(entity).unwrap()` by
+/// `query.get(entity).unwrap_or_default()`.
 ///
 /// # Examples
 ///
@@ -1168,20 +1354,13 @@ pub struct Has<T>(PhantomData<T>);
 /// `update_component_access` and `update_archetype_component_access` do nothing.
 /// This is sound because `fetch` does not access components.
 unsafe impl<T: Component> WorldQuery for Has<T> {
-    type Fetch<'w> = bool;
     type Item<'w> = bool;
+    type Fetch<'w> = bool;
     type State = ComponentId;
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
         item
     }
-
-    const IS_DENSE: bool = {
-        match T::Storage::STORAGE_TYPE {
-            StorageType::Table => true,
-            StorageType::SparseSet => false,
-        }
-    };
 
     #[inline]
     unsafe fn init_fetch<'w>(
@@ -1192,6 +1371,13 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
     ) -> Self::Fetch<'w> {
         false
     }
+
+    const IS_DENSE: bool = {
+        match T::Storage::STORAGE_TYPE {
+            StorageType::Table => true,
+            StorageType::SparseSet => false,
+        }
+    };
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -1221,15 +1407,12 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
         // Do nothing as presence of `Has<T>` never affects whether two queries are disjoint
     }
 
-    fn update_archetype_component_access(
-        _state: &Self::State,
-        _archetype: &Archetype,
-        _access: &mut Access<ArchetypeComponentId>,
-    ) {
-    }
-
     fn init_state(world: &mut World) -> ComponentId {
         world.init_component::<T>()
+    }
+
+    fn get_state(world: &World) -> Option<Self::State> {
+        world.component_id::<T>()
     }
 
     fn matches_component_set(
@@ -1358,6 +1541,7 @@ macro_rules! impl_anytuple_fetch {
                         _new_access.extend_access(&intermediate);
                     } else {
                         $name::update_component_access($name, &mut _new_access);
+                        _new_access.required = _access.required.clone();
                         _not_first = true;
                     }
                 )*
@@ -1365,17 +1549,12 @@ macro_rules! impl_anytuple_fetch {
                 *_access = _new_access;
             }
 
-            fn update_archetype_component_access(state: &Self::State, _archetype: &Archetype, _access: &mut Access<ArchetypeComponentId>) {
-                let ($($name,)*) = state;
-                $(
-                    if $name::matches_component_set($name, &|id| _archetype.contains(id)) {
-                        $name::update_archetype_component_access($name, _archetype, _access);
-                    }
-                )*
-            }
-
             fn init_state(_world: &mut World) -> Self::State {
                 ($($name::init_state(_world),)*)
+            }
+
+            fn get_state(_world: &World) -> Option<Self::State> {
+                Some(($($name::get_state(_world)?,)*))
             }
 
             fn matches_component_set(_state: &Self::State, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
@@ -1399,43 +1578,43 @@ macro_rules! impl_anytuple_fetch {
 all_tuples!(impl_tuple_query_data, 0, 15, F, S);
 all_tuples!(impl_anytuple_fetch, 0, 15, F, S);
 
-/// [`WorldQuery`] used to nullify queries by turning `Query<Q>` into `Query<NopWorldQuery<Q>>`
+/// [`WorldQuery`] used to nullify queries by turning `Query<D>` into `Query<NopWorldQuery<D>>`
 ///
 /// This will rarely be useful to consumers of `bevy_ecs`.
-pub struct NopWorldQuery<Q: QueryData>(PhantomData<Q>);
+pub struct NopWorldQuery<D: QueryData>(PhantomData<D>);
 
 /// SAFETY:
 /// `update_component_access` and `update_archetype_component_access` do nothing.
 /// This is sound because `fetch` does not access components.
-unsafe impl<Q: QueryData> WorldQuery for NopWorldQuery<Q> {
-    type Fetch<'w> = ();
+unsafe impl<D: QueryData> WorldQuery for NopWorldQuery<D> {
     type Item<'w> = ();
-    type State = Q::State;
+    type Fetch<'w> = ();
+    type State = D::State;
 
     fn shrink<'wlong: 'wshort, 'wshort>(_: ()) {}
-
-    const IS_DENSE: bool = Q::IS_DENSE;
 
     #[inline(always)]
     unsafe fn init_fetch(
         _world: UnsafeWorldCell,
-        _state: &Q::State,
+        _state: &D::State,
         _last_run: Tick,
         _this_run: Tick,
     ) {
     }
 
+    const IS_DENSE: bool = D::IS_DENSE;
+
     #[inline(always)]
     unsafe fn set_archetype(
         _fetch: &mut (),
-        _state: &Q::State,
+        _state: &D::State,
         _archetype: &Archetype,
         _tables: &Table,
     ) {
     }
 
     #[inline(always)]
-    unsafe fn set_table<'w>(_fetch: &mut (), _state: &Q::State, _table: &Table) {}
+    unsafe fn set_table<'w>(_fetch: &mut (), _state: &D::State, _table: &Table) {}
 
     #[inline(always)]
     unsafe fn fetch<'w>(
@@ -1445,34 +1624,31 @@ unsafe impl<Q: QueryData> WorldQuery for NopWorldQuery<Q> {
     ) -> Self::Item<'w> {
     }
 
-    fn update_component_access(_state: &Q::State, _access: &mut FilteredAccess<ComponentId>) {}
-
-    fn update_archetype_component_access(
-        _state: &Q::State,
-        _archetype: &Archetype,
-        _access: &mut Access<ArchetypeComponentId>,
-    ) {
-    }
+    fn update_component_access(_state: &D::State, _access: &mut FilteredAccess<ComponentId>) {}
 
     fn init_state(world: &mut World) -> Self::State {
-        Q::init_state(world)
+        D::init_state(world)
+    }
+
+    fn get_state(world: &World) -> Option<Self::State> {
+        D::get_state(world)
     }
 
     fn matches_component_set(
         state: &Self::State,
         set_contains_id: &impl Fn(ComponentId) -> bool,
     ) -> bool {
-        Q::matches_component_set(state, set_contains_id)
+        D::matches_component_set(state, set_contains_id)
     }
 }
 
 /// SAFETY: `Self::ReadOnly` is `Self`
-unsafe impl<Q: QueryData> QueryData for NopWorldQuery<Q> {
+unsafe impl<D: QueryData> QueryData for NopWorldQuery<D> {
     type ReadOnly = Self;
 }
 
 /// SAFETY: `NopFetch` never accesses any data
-unsafe impl<Q: QueryData> ReadOnlyQueryData for NopWorldQuery<Q> {}
+unsafe impl<D: QueryData> ReadOnlyQueryData for NopWorldQuery<D> {}
 
 /// SAFETY:
 /// `update_component_access` and `update_archetype_component_access` do nothing.
@@ -1517,14 +1693,11 @@ unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
 
     fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {}
 
-    fn update_archetype_component_access(
-        _state: &Self::State,
-        _archetype: &Archetype,
-        _access: &mut Access<ArchetypeComponentId>,
-    ) {
-    }
-
     fn init_state(_world: &mut World) -> Self::State {}
+
+    fn get_state(_world: &World) -> Option<Self::State> {
+        Some(())
+    }
 
     fn matches_component_set(
         _state: &Self::State,
@@ -1601,14 +1774,14 @@ mod tests {
 
             #[derive(QueryData)]
             #[query_data(mutable)]
-            pub struct Q {
+            pub struct D {
                 pub a: &'static mut A,
             }
         }
 
-        let _ = private::QReadOnly { a: &A };
+        let _ = private::DReadOnly { a: &A };
 
-        fn my_system(query: Query<private::Q>) {
+        fn my_system(query: Query<private::D>) {
             for q in &query {
                 let _ = &q.a;
             }

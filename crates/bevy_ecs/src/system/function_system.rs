@@ -25,6 +25,7 @@ pub struct SystemMeta {
     // NOTE: this must be kept private. making a SystemMeta non-send is irreversible to prevent
     // SystemParams from overriding each other
     is_send: bool,
+    has_deferred: bool,
     pub(crate) last_run: Tick,
     #[cfg(feature = "trace")]
     pub(crate) system_span: Span,
@@ -40,6 +41,7 @@ impl SystemMeta {
             archetype_component_access: Access::default(),
             component_access_set: FilteredAccessSet::default(),
             is_send: true,
+            has_deferred: false,
             last_run: Tick::new(0),
             #[cfg(feature = "trace")]
             system_span: info_span!("system", name = name),
@@ -66,6 +68,18 @@ impl SystemMeta {
     #[inline]
     pub fn set_non_send(&mut self) {
         self.is_send = false;
+    }
+
+    /// Returns true if the system has deferred [`SystemParam`]'s
+    #[inline]
+    pub fn has_deferred(&self) -> bool {
+        self.has_deferred
+    }
+
+    /// Marks the system as having deferred buffers like [`Commands`](`super::Commands`)
+    /// This lets the scheduler insert [`apply_deferred`](`crate::prelude::apply_deferred`) systems automatically.
+    pub fn set_has_deferred(&mut self) {
+        self.has_deferred = true;
     }
 }
 
@@ -97,7 +111,7 @@ impl SystemMeta {
 /// # Example
 ///
 /// Basic usage:
-/// ```rust
+/// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::system::SystemState;
 /// # use bevy_ecs::event::Events;
@@ -130,7 +144,7 @@ impl SystemMeta {
 /// // You need to manually call `.apply(world)` on the `SystemState` to apply them.
 /// ```
 /// Caching:
-/// ```rust
+/// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::system::SystemState;
 /// # use bevy_ecs::event::Events;
@@ -465,6 +479,11 @@ where
     }
 
     #[inline]
+    fn has_deferred(&self) -> bool {
+        self.system_meta.has_deferred
+    }
+
+    #[inline]
     unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell) -> Self::Out {
         #[cfg(feature = "trace")]
         let _span_guard = self.system_meta.system_span.enter();
@@ -487,14 +506,6 @@ where
         out
     }
 
-    fn get_last_run(&self) -> Tick {
-        self.system_meta.last_run
-    }
-
-    fn set_last_run(&mut self, last_run: Tick) {
-        self.system_meta.last_run = last_run;
-    }
-
     #[inline]
     fn apply_deferred(&mut self, world: &mut World) {
         let param_state = self.param_state.as_mut().expect(Self::PARAM_MESSAGE);
@@ -509,7 +520,7 @@ where
     }
 
     fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
-        assert!(self.world_id == Some(world.id()), "Encountered a mismatched World. A System cannot be used with Worlds other than the one it was initialized with.");
+        assert_eq!(self.world_id, Some(world.id()), "Encountered a mismatched World. A System cannot be used with Worlds other than the one it was initialized with.");
         let archetypes = world.archetypes();
         let old_generation =
             std::mem::replace(&mut self.archetype_generation, archetypes.generation());
@@ -532,6 +543,14 @@ where
     fn default_system_sets(&self) -> Vec<InternedSystemSet> {
         let set = crate::schedule::SystemTypeSet::<F>::new();
         vec![set.intern()]
+    }
+
+    fn get_last_run(&self) -> Tick {
+        self.system_meta.last_run
+    }
+
+    fn set_last_run(&mut self, last_run: Tick) {
+        self.system_meta.last_run = last_run;
     }
 }
 
@@ -557,7 +576,7 @@ where
 ///
 /// To create something like [`PipeSystem`], but in entirely safe code.
 ///
-/// ```rust
+/// ```
 /// use std::num::ParseIntError;
 ///
 /// use bevy_ecs::prelude::*;

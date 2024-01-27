@@ -64,15 +64,15 @@ fn toggle_resolution(
 ) {
     let mut window = windows.single_mut();
 
-    if keys.just_pressed(KeyCode::Key1) {
+    if keys.just_pressed(KeyCode::Digit1) {
         let res = resolution.small;
         window.resolution.set(res.x, res.y);
     }
-    if keys.just_pressed(KeyCode::Key2) {
+    if keys.just_pressed(KeyCode::Digit2) {
         let res = resolution.medium;
         window.resolution.set(res.x, res.y);
     }
-    if keys.just_pressed(KeyCode::Key3) {
+    if keys.just_pressed(KeyCode::Digit3) {
         let res = resolution.large;
         window.resolution.set(res.x, res.y);
     }

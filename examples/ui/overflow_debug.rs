@@ -274,7 +274,7 @@ fn toggle_overflow(
     keys: Res<ButtonInput<KeyCode>>,
     mut containers: Query<&mut Style, With<Container>>,
 ) {
-    if keys.just_pressed(KeyCode::O) {
+    if keys.just_pressed(KeyCode::KeyO) {
         for mut style in &mut containers {
             style.overflow = match style.overflow {
                 Overflow {
@@ -299,7 +299,7 @@ fn next_container_size(
     keys: Res<ButtonInput<KeyCode>>,
     mut containers: Query<(&mut Style, &mut Container)>,
 ) {
-    if keys.just_pressed(KeyCode::S) {
+    if keys.just_pressed(KeyCode::KeyS) {
         for (mut style, mut container) in &mut containers {
             container.0 = (container.0 + 1) % 3;
 

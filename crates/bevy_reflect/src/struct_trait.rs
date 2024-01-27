@@ -426,9 +426,22 @@ impl Reflect for DynamicStruct {
         self
     }
 
-    #[inline]
-    fn clone_value(&self) -> Box<dyn Reflect> {
-        Box::new(self.clone_dynamic())
+    fn apply(&mut self, value: &dyn Reflect) {
+        if let ReflectRef::Struct(struct_value) = value.reflect_ref() {
+            for (i, value) in struct_value.iter_fields().enumerate() {
+                let name = struct_value.name_at(i).unwrap();
+                if let Some(v) = self.field_mut(name) {
+                    v.apply(value);
+                }
+            }
+        } else {
+            panic!("Attempted to apply non-struct type to struct type.");
+        }
+    }
+
+    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+        *self = value.take()?;
+        Ok(())
     }
 
     #[inline]
@@ -446,22 +459,9 @@ impl Reflect for DynamicStruct {
         ReflectOwned::Struct(self)
     }
 
-    fn apply(&mut self, value: &dyn Reflect) {
-        if let ReflectRef::Struct(struct_value) = value.reflect_ref() {
-            for (i, value) in struct_value.iter_fields().enumerate() {
-                let name = struct_value.name_at(i).unwrap();
-                if let Some(v) = self.field_mut(name) {
-                    v.apply(value);
-                }
-            }
-        } else {
-            panic!("Attempted to apply non-struct type to struct type.");
-        }
-    }
-
-    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
-        *self = value.take()?;
-        Ok(())
+    #[inline]
+    fn clone_value(&self) -> Box<dyn Reflect> {
+        Box::new(self.clone_dynamic())
     }
 
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {

@@ -191,14 +191,6 @@ pub struct Window {
     ///
     /// This value has no effect on non-web platforms.
     pub canvas: Option<String>,
-    /// Whether or not to fit the canvas element's size to its parent element's size.
-    ///
-    /// **Warning**: this will not behave as expected for parents that set their size according to the size of their
-    /// children. This creates a "feedback loop" that will result in the canvas growing on each resize. When using this
-    /// feature, ensure the parent's size is not affected by its children.
-    ///
-    /// This value has no effect on non-web platforms.
-    pub fit_canvas_to_parent: bool,
     /// Whether or not to stop events from propagating out of the canvas element
     ///
     ///  When `true`, this will prevent common browser hotkeys like F5, F12, Ctrl+R, tab, etc.
@@ -266,7 +258,6 @@ impl Default for Window {
             transparent: false,
             focused: true,
             window_level: Default::default(),
-            fit_canvas_to_parent: false,
             prevent_default_event_handling: true,
             canvas: None,
             window_theme: None,
@@ -326,7 +317,7 @@ impl Window {
     ///
     /// Ratio of physical size to logical size, see [`WindowResolution`].
     #[inline]
-    pub fn scale_factor(&self) -> f64 {
+    pub fn scale_factor(&self) -> f32 {
         self.resolution.scale_factor()
     }
 
@@ -338,7 +329,7 @@ impl Window {
     #[inline]
     pub fn cursor_position(&self) -> Option<Vec2> {
         self.physical_cursor_position()
-            .map(|position| (position.as_dvec2() / self.scale_factor()).as_vec2())
+            .map(|position| (position.as_dvec2() / self.scale_factor() as f64).as_vec2())
     }
 
     /// The cursor position in this window in physical pixels.
@@ -369,7 +360,7 @@ impl Window {
     /// See [`WindowResolution`] for an explanation about logical/physical sizes.
     pub fn set_cursor_position(&mut self, position: Option<Vec2>) {
         self.internal.physical_cursor_position =
-            position.map(|p| p.as_dvec2() * self.scale_factor());
+            position.map(|p| p.as_dvec2() * self.scale_factor() as f64);
     }
 
     /// Set the cursor position in this window in physical pixels.
@@ -611,11 +602,11 @@ pub struct WindowResolution {
     /// Code-provided ratio of physical size to logical size.
     ///
     /// Should be used instead of `scale_factor` when set.
-    scale_factor_override: Option<f64>,
+    scale_factor_override: Option<f32>,
     /// OS-provided ratio of physical size to logical size.
     ///
     /// Set automatically depending on the pixel density of the screen.
-    scale_factor: f64,
+    scale_factor: f32,
 }
 
 impl Default for WindowResolution {
@@ -640,7 +631,7 @@ impl WindowResolution {
     }
 
     /// Builder method for adding a scale factor override to the resolution.
-    pub fn with_scale_factor_override(mut self, scale_factor_override: f64) -> Self {
+    pub fn with_scale_factor_override(mut self, scale_factor_override: f32) -> Self {
         self.scale_factor_override = Some(scale_factor_override);
         self
     }
@@ -648,13 +639,13 @@ impl WindowResolution {
     /// The window's client area width in logical pixels.
     #[inline]
     pub fn width(&self) -> f32 {
-        (self.physical_width() as f64 / self.scale_factor()) as f32
+        self.physical_width() as f32 / self.scale_factor()
     }
 
     /// The window's client area height in logical pixels.
     #[inline]
     pub fn height(&self) -> f32 {
-        (self.physical_height() as f64 / self.scale_factor()) as f32
+        self.physical_height() as f32 / self.scale_factor()
     }
 
     /// The window's client area width in physical pixels.
@@ -672,7 +663,7 @@ impl WindowResolution {
     /// The ratio of physical pixels to logical pixels.
     ///
     /// `physical_pixels = logical_pixels * scale_factor`
-    pub fn scale_factor(&self) -> f64 {
+    pub fn scale_factor(&self) -> f32 {
         self.scale_factor_override
             .unwrap_or_else(|| self.base_scale_factor())
     }
@@ -681,7 +672,7 @@ impl WindowResolution {
     ///
     /// This value is unaffected by [`WindowResolution::scale_factor_override`].
     #[inline]
-    pub fn base_scale_factor(&self) -> f64 {
+    pub fn base_scale_factor(&self) -> f32 {
         self.scale_factor
     }
 
@@ -689,7 +680,7 @@ impl WindowResolution {
     ///
     /// This value may be different from the scale factor reported by the window backend.
     #[inline]
-    pub fn scale_factor_override(&self) -> Option<f64> {
+    pub fn scale_factor_override(&self) -> Option<f32> {
         self.scale_factor_override
     }
 
@@ -697,8 +688,8 @@ impl WindowResolution {
     #[inline]
     pub fn set(&mut self, width: f32, height: f32) {
         self.set_physical_resolution(
-            (width as f64 * self.scale_factor()) as u32,
-            (height as f64 * self.scale_factor()) as u32,
+            (width * self.scale_factor()) as u32,
+            (height * self.scale_factor()) as u32,
         );
     }
 
@@ -714,7 +705,7 @@ impl WindowResolution {
 
     /// Set the window's scale factor, this may get overridden by the backend.
     #[inline]
-    pub fn set_scale_factor(&mut self, scale_factor: f64) {
+    pub fn set_scale_factor(&mut self, scale_factor: f32) {
         let (width, height) = (self.width(), self.height());
         self.scale_factor = scale_factor;
         self.set(width, height);
@@ -725,7 +716,7 @@ impl WindowResolution {
     /// This can change the logical and physical sizes if the resulting physical
     /// size is not within the limits.
     #[inline]
-    pub fn set_scale_factor_override(&mut self, scale_factor_override: Option<f64>) {
+    pub fn set_scale_factor_override(&mut self, scale_factor_override: Option<f32>) {
         let (width, height) = (self.width(), self.height());
         self.scale_factor_override = scale_factor_override;
         self.set(width, height);

@@ -12,7 +12,7 @@ use bevy_math::Vec2;
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_render::texture::Image;
-use bevy_sprite::TextureAtlas;
+use bevy_sprite::TextureAtlasLayout;
 use bevy_utils::HashMap;
 use glyph_brush_layout::{FontId, GlyphPositioner, SectionGeometry, SectionText, ToSectionText};
 
@@ -46,12 +46,12 @@ impl TextPipeline {
         &mut self,
         fonts: &Assets<Font>,
         sections: &[TextSection],
-        scale_factor: f64,
+        scale_factor: f32,
         text_alignment: JustifyText,
         linebreak_behavior: BreakLineOn,
         bounds: Vec2,
         font_atlas_sets: &mut FontAtlasSets,
-        texture_atlases: &mut Assets<TextureAtlas>,
+        texture_atlases: &mut Assets<TextureAtlasLayout>,
         textures: &mut Assets<Image>,
         text_settings: &TextSettings,
         font_atlas_warning: &mut FontAtlasWarning,
@@ -129,7 +129,7 @@ impl TextMeasureInfo {
     pub fn from_text(
         text: &Text,
         fonts: &Assets<Font>,
-        scale_factor: f64,
+        scale_factor: f32,
     ) -> Result<TextMeasureInfo, TextError> {
         let sections = &text.sections;
         for section in sections {

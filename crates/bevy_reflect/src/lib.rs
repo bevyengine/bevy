@@ -478,8 +478,6 @@ mod tuple_struct;
 mod type_info;
 mod type_path;
 mod type_registry;
-mod type_uuid;
-mod type_uuid_impl;
 mod impls {
     #[cfg(feature = "glam")]
     mod glam;
@@ -523,7 +521,6 @@ pub use tuple_struct::*;
 pub use type_info::*;
 pub use type_path::*;
 pub use type_registry::*;
-pub use type_uuid::*;
 
 pub use bevy_reflect_derive::*;
 pub use erased_serde;
@@ -538,14 +535,15 @@ pub mod __macro_exports {
 #[cfg(test)]
 #[allow(clippy::disallowed_types, clippy::approx_constant)]
 mod tests {
-    #[cfg(feature = "glam")]
-    use ::glam::{quat, vec3, Quat, Vec3};
-    use ::serde::{de::DeserializeSeed, Deserialize, Serialize};
     use bevy_utils::HashMap;
+    #[rustfmt::skip] // This is used to avoid import conflicts with `super`
+    use ::glam::{quat, vec3, Quat, Vec3};
     use ron::{
         ser::{to_string_pretty, PrettyConfig},
         Deserializer,
     };
+    #[rustfmt::skip] // This is used to avoid import conflicts with `super::`
+    use ::serde::{de::DeserializeSeed, Deserialize, Serialize};
     use std::{
         any::TypeId,
         borrow::Cow,
@@ -1383,6 +1381,7 @@ mod tests {
         // List (SmallVec)
         #[cfg(feature = "smallvec")]
         {
+            use bevy_utils::smallvec;
             type MySmallVec = smallvec::SmallVec<[String; 2]>;
 
             let info = MySmallVec::type_info();
@@ -1556,7 +1555,7 @@ mod tests {
             ///
             /// # Example
             ///
-            /// ```ignore
+            /// ```ignore (This is only used for a unit test, no need to doc test)
             /// let some_struct = SomeStruct;
             /// ```
             #[derive(Reflect)]
@@ -1899,16 +1898,16 @@ bevy_reflect::tests::Test {
                 })
             }
 
+            fn type_ident() -> Option<&'static str> {
+                Some("Foo")
+            }
+
             fn crate_name() -> Option<&'static str> {
                 Some("bevy_reflect")
             }
 
             fn module_path() -> Option<&'static str> {
                 Some("bevy_reflect::tests")
-            }
-
-            fn type_ident() -> Option<&'static str> {
-                Some("Foo")
             }
         }
 

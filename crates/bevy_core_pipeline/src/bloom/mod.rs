@@ -113,7 +113,7 @@ impl Plugin for BloomPlugin {
 #[derive(Default)]
 struct BloomNode;
 impl ViewNode for BloomNode {
-    type ViewData = (
+    type ViewQuery = (
         &'static ExtractedCamera,
         &'static ViewTarget,
         &'static BloomTexture,
@@ -140,7 +140,7 @@ impl ViewNode for BloomNode {
             bloom_settings,
             upsampling_pipeline_ids,
             downsampling_pipeline_ids,
-        ): QueryItem<Self::ViewData>,
+        ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let downsampling_pipeline_res = world.resource::<BloomDownsamplingPipeline>();
@@ -189,6 +189,8 @@ impl ViewNode for BloomNode {
                         ops: Operations::default(),
                     })],
                     depth_stencil_attachment: None,
+                    timestamp_writes: None,
+                    occlusion_query_set: None,
                 });
             downsampling_first_pass.set_render_pipeline(downsampling_first_pipeline);
             downsampling_first_pass.set_bind_group(
@@ -211,6 +213,8 @@ impl ViewNode for BloomNode {
                         ops: Operations::default(),
                     })],
                     depth_stencil_attachment: None,
+                    timestamp_writes: None,
+                    occlusion_query_set: None,
                 });
             downsampling_pass.set_render_pipeline(downsampling_pipeline);
             downsampling_pass.set_bind_group(
@@ -232,10 +236,12 @@ impl ViewNode for BloomNode {
                         resolve_target: None,
                         ops: Operations {
                             load: LoadOp::Load,
-                            store: true,
+                            store: StoreOp::Store,
                         },
                     })],
                     depth_stencil_attachment: None,
+                    timestamp_writes: None,
+                    occlusion_query_set: None,
                 });
             upsampling_pass.set_render_pipeline(upsampling_pipeline);
             upsampling_pass.set_bind_group(
@@ -259,13 +265,10 @@ impl ViewNode for BloomNode {
             let mut upsampling_final_pass =
                 render_context.begin_tracked_render_pass(RenderPassDescriptor {
                     label: Some("bloom_upsampling_final_pass"),
-                    color_attachments: &[Some(view_target.get_unsampled_color_attachment(
-                        Operations {
-                            load: LoadOp::Load,
-                            store: true,
-                        },
-                    ))],
+                    color_attachments: &[Some(view_target.get_unsampled_color_attachment())],
                     depth_stencil_attachment: None,
+                    timestamp_writes: None,
+                    occlusion_query_set: None,
                 });
             upsampling_final_pass.set_render_pipeline(upsampling_final_pipeline);
             upsampling_final_pass.set_bind_group(
@@ -291,16 +294,24 @@ impl ViewNode for BloomNode {
 #[derive(Component)]
 struct BloomTexture {
     // First mip is half the screen resolution, successive mips are half the previous
-    #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
+    #[cfg(any(
+        not(feature = "webgl"),
+        not(target_arch = "wasm32"),
+        feature = "webgpu"
+    ))]
     texture: CachedTexture,
     // WebGL does not support binding specific mip levels for sampling, fallback to separate textures instead
-    #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
     texture: Vec<CachedTexture>,
     mip_count: u32,
 }
 
 impl BloomTexture {
-    #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
+    #[cfg(any(
+        not(feature = "webgl"),
+        not(target_arch = "wasm32"),
+        feature = "webgpu"
+    ))]
     fn view(&self, base_mip_level: u32) -> TextureView {
         self.texture.texture.create_view(&TextureViewDescriptor {
             base_mip_level,
@@ -308,7 +319,7 @@ impl BloomTexture {
             ..Default::default()
         })
     }
-    #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
     fn view(&self, base_mip_level: u32) -> TextureView {
         self.texture[base_mip_level as usize]
             .texture
@@ -351,9 +362,13 @@ fn prepare_bloom_textures(
                 view_formats: &[],
             };
 
-            #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
+            #[cfg(any(
+                not(feature = "webgl"),
+                not(target_arch = "wasm32"),
+                feature = "webgpu"
+            ))]
             let texture = texture_cache.get(&render_device, texture_descriptor);
-            #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+            #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
             let texture: Vec<CachedTexture> = (0..mip_count)
                 .map(|mip| {
                     texture_cache.get(

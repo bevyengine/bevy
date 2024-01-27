@@ -5,7 +5,7 @@ use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::prelude::*;
 use bevy_log::{error, info, info_span};
 use bevy_tasks::AsyncComputeTaskPool;
-use bevy_utils::HashMap;
+use bevy_utils::EntityHashMap;
 use std::sync::Mutex;
 use thiserror::Error;
 use wgpu::{
@@ -14,6 +14,7 @@ use wgpu::{
 
 use crate::{
     prelude::{Image, Shader},
+    render_asset::RenderAssetPersistencePolicy,
     render_resource::{
         binding_types::texture_2d, BindGroup, BindGroupLayout, BindGroupLayoutEntries, Buffer,
         CachedRenderPipelineId, FragmentState, PipelineCache, RenderPipelineDescriptor,
@@ -32,7 +33,7 @@ pub type ScreenshotFn = Box<dyn FnOnce(Image) + Send + Sync>;
 #[derive(Resource, Default)]
 pub struct ScreenshotManager {
     // this is in a mutex to enable extraction with only an immutable reference
-    pub(crate) callbacks: Mutex<HashMap<Entity, ScreenshotFn>>,
+    pub(crate) callbacks: Mutex<EntityHashMap<Entity, ScreenshotFn>>,
 }
 
 #[derive(Error, Debug)]
@@ -290,10 +291,12 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
                         resolve_target: None,
                         ops: wgpu::Operations {
                             load: wgpu::LoadOp::Load,
-                            store: true,
+                            store: wgpu::StoreOp::Store,
                         },
                     })],
                     depth_stencil_attachment: None,
+                    timestamp_writes: None,
+                    occlusion_query_set: None,
                 });
                 pass.set_pipeline(pipeline);
                 pass.set_bind_group(0, &memory.bind_group, &[]);
@@ -361,6 +364,7 @@ pub(crate) fn collect_screenshots(world: &mut World) {
                     wgpu::TextureDimension::D2,
                     result,
                     texture_format,
+                    RenderAssetPersistencePolicy::Unload,
                 ));
             };
 

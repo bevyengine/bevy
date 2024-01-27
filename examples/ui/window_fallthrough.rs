@@ -51,7 +51,7 @@ fn toggle_mouse_passthrough(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut windows: Query<&mut Window>,
 ) {
-    if keyboard_input.just_pressed(KeyCode::P) {
+    if keyboard_input.just_pressed(KeyCode::KeyP) {
         let mut window = windows.single_mut();
         window.cursor.hit_test = !window.cursor.hit_test;
     }
