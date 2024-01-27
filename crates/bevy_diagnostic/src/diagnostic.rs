@@ -13,7 +13,7 @@ use crate::DEFAULT_MAX_HISTORY_LENGTH;
 /// Requirements:
 /// - Can't be empty
 /// - Can't have leading or trailing `/`
-/// - Can't have empty components.
+/// - Can't have empty sections.
 #[derive(Debug, Clone)]
 pub struct DiagnosticPath {
     path: Cow<'static, str>,
@@ -46,7 +46,7 @@ impl DiagnosticPath {
         );
         debug_assert!(
             !path.contains("//"),
-            "diagnostic path can't contain empty components"
+            "diagnostic path can't contain empty sections"
         );
 
         DiagnosticPath {
@@ -55,15 +55,15 @@ impl DiagnosticPath {
         }
     }
 
-    /// Create a new `DiagnosticPath` from an iterator over components.
-    pub fn from_components<'a>(components: impl IntoIterator<Item = &'a str>) -> DiagnosticPath {
+    /// Create a new `DiagnosticPath` from an iterator over sections.
+    pub fn from_sections<'a>(sections: impl IntoIterator<Item = &'a str>) -> DiagnosticPath {
         let mut buf = String::new();
 
-        for (i, component) in components.into_iter().enumerate() {
+        for (i, section) in sections.into_iter().enumerate() {
             if i > 0 {
                 buf.push('/');
             }
-            buf.push_str(component);
+            buf.push_str(section);
         }
 
         DiagnosticPath::new(buf)
@@ -74,8 +74,8 @@ impl DiagnosticPath {
         &self.path
     }
 
-    /// Returns an iterator over path components.
-    pub fn components(&self) -> impl Iterator<Item = &str> + '_ {
+    /// Returns an iterator over path sections.
+    pub fn sections(&self) -> impl Iterator<Item = &str> + '_ {
         self.path.split('/')
     }
 }
