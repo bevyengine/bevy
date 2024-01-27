@@ -220,10 +220,11 @@ fn create_texture_atlas(
             continue;
         };
 
-        texture_atlas_builder.add_texture(id, texture);
+        texture_atlas_builder.add_texture(Some(id), texture);
     }
 
-    let (texture_atlas, texture) = texture_atlas_builder.finish(textures).unwrap();
+    let (texture_atlas, texture) = texture_atlas_builder.finish().unwrap();
+    let texture = textures.add(texture);
 
     // Update the sampling settings of the texture atlas
     let image = textures.get_mut(&texture).unwrap();
