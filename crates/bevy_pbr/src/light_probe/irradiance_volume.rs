@@ -3,8 +3,76 @@
 //! An *irradiance volume* is a cuboid voxel region consisting of
 //! regularly-spaced precomputed samples of diffuse indirect light. They're
 //! ideal if you have a dynamic object such as a character that can move about
-//! static non-moving geometry such a level, and you want that dynamic object to
-//! be affected by the light bouncing off that static geometry.
+//! static non-moving geometry such as a level in a game, and you want that
+//! dynamic object to be affected by the light bouncing off that static
+//! geometry.
+//!
+//! To use irradiance volumes, you need to precompute, or *bake*, the indirect
+//! light in your scene. Bevy doesn't currently come with a way to do this.
+//! Fortunately, [Blender] provides a [baking tool] as part of the Eevee
+//! renderer, and its irradiance volumes are compatible with those used by Bevy.
+//! The [`bevy-baked-gi`] project provides a tool, `export-blender-gi`, that can
+//! extract the baked irradiance volumes from the Blender `.blend` file and
+//! package them up into a `.ktx2` texture for use by the engine. See the
+//! documentation in the `bevy-baked-gi` project for more details as to this
+//! workflow.
+//!
+//! Bevy's irradiance volumes are based on Valve's [*ambient cubes*] as used in
+//! *Half-Life 2* ([Mitchell 2006], slide 27). These encode a single color of
+//! light from the six 3D cardinal directions and blend the sides together
+//! according to the surface normal.
+//! 
+//! The primary reason for choosing ambient cubes is to match Blender, so that
+//! its Eevee renderer can be used for baking. However, they also have some
+//! advantages over the common second-order spherical harmonics approach:
+//! ambient cubes don't suffer from ringing artifacts, and they are smaller (6
+//! colors for ambient cubes as opposed to 9 for spherical harmonics), and
+//! evaluation is faster. A smaller basis allows for a denser grid of voxels
+//! with the same storage requirements.
+//!
+//! If you wish to use a tool other than `export-blender-gi` to produce the
+//! irradiance volumes, you'll need to pack the irradiance volumes in the
+//! following format. The irradiance volume is expected to be a 3D texture of
+//! resolution $R_x$, $R_y$, and $R_z$. The unnormalized texture coordinate $(s,
+//! t, p)$ of the voxel at coordinate $(x, y, z)$ with side $S \in {-X, +X, -Y,
+//! +Y, -Z, +Z}$ is as follows:
+//!
+//! ```math
+//! \begin{align}
+//! s & = x \\
+//! 
+//! t & = y + \left\{
+//! \begin{aligned}
+//! 0 & \text{ if } S \in \{-X, -Y, -Z\} \\
+//! R_y & \text{ if } S \in \{+X, +Y, +Z\}
+//! \end{aligned}
+//! \right. \\
+//! 
+//! p & = z + \left\{
+//! \begin{aligned}
+//! 0 & \text{ if } S \in \{-X, +X \} \\
+//! R_z & \text{ if } S \in \{-Y, +Y \} \\
+//! 2R_z & \text{ if } S \in \{-Z, +Z\}
+//! \end{aligned}
+//! \right. \\
+//! \end{align}
+//! ```
+//! 
+//! A terminology note: Other engines may refer to irradiance volumes as *voxel
+//! global illumination*, *VXGI*, or simply as *light probes*. Sometimes *light
+//! probe* refers to what Bevy calls a reflection probe. In Bevy, *light probe*
+//! is a generic term that encompasses all cuboid bounding regions that capture
+//! indirect illumination, whether based on voxels or not.
+//! 
+//! [*ambient cubes*]: https://advances.realtimerendering.com/s2006/Mitchell-ShadingInValvesSourceEngine.pdf
+//! 
+//! [Mitchell 2006]: https://advances.realtimerendering.com/s2006/Mitchell-ShadingInValvesSourceEngine.pdf
+//!
+//! [Blender]: http://blender.org/
+//!
+//! [baking tool]: https://docs.blender.org/manual/en/latest/render/eevee/render_settings/indirect_lighting.html
+//!
+//! [`bevy-baked-gi`]: https://github.com/pcwalton/bevy-baked-gi
 
 use bevy_ecs::component::Component;
 use bevy_render::{

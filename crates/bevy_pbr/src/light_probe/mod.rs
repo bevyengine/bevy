@@ -72,6 +72,35 @@ pub struct LightProbePlugin;
 /// Note that a light probe will have no effect unless the entity contains some
 /// kind of illumination, which can either be an [`EnvironmentMapLight`] or an
 /// [`IrradianceVolume`].
+///
+/// When multiple sources of indirect illumination can be applied to a fragment,
+/// the highest-quality one is chosen. Diffuse and specular illumination are
+/// considered separately, so, for example, Bevy may decide to sample the
+/// diffuse illumination from an irradiance volume and the specular illumination
+/// from a reflection probe. From highest priority to lowest priority, the
+/// ranking is as follows:
+///
+/// | Rank | Diffuse              | Specular             |
+/// | ---- | -------------------- | -------------------- |
+/// | 1    | Lightmap             | Lightmap             |
+/// | 2    | Irradiance volume    | Reflection probe     |
+/// | 3    | Reflection probe     | View environment map |
+/// | 4    | View environment map |                      |
+///
+/// Note that ambient light is always added to the diffuse component and does
+/// not participate in the ranking. That is, ambient light is applied in
+/// addition to, not instead of, the light sources above.
+/// 
+/// A terminology note: Unfortunately, there is little agreement across game and
+/// graphics engines as to what to call the various techniques that Bevy groups
+/// under the term *light probe*. In Bevy, a *light probe* is the generic term
+/// that encompasses both *reflection probes* and *irradiance volumes*. In
+/// object-oriented terms, *light probe* is the superclass, and *reflection
+/// probe* and *irradiance volume* are subclasses. In other engines, you may see
+/// the term *light probe* refer to an irradiance volume with a single voxel, or
+/// perhaps some other technique, while in Bevy *light probe* refers not to a
+/// specific technique but rather to a class of techniques. Developers familiar
+/// with other engines should be aware of this terminology difference. 
 #[derive(Component, Debug, Clone, Copy, Default, Reflect)]
 #[reflect(Component, Default)]
 pub struct LightProbe;
