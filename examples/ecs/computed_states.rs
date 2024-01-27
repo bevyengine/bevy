@@ -140,7 +140,6 @@ impl ComputedStates for Tutorial {
     type SourceStates = (TutorialState, InGame, IsPaused);
 
     fn compute(
-        // This complex type translates to (Option<TutorialState>, Option<InGame>, Option<IsPaused>)
         (tutorial_state, in_game, is_paused): (
             Option<TutorialState>,
             Option<InGame>,
