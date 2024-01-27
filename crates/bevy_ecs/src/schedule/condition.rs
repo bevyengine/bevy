@@ -203,7 +203,7 @@ pub mod common_conditions {
         prelude::{Component, Query, With},
         removal_detection::RemovedComponents,
         schedule::{State, States},
-        system::{IntoSystem, Res, Resource, System},
+        system::{IntoSystem, NonSend, Res, Resource, System},
     };
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
@@ -646,6 +646,398 @@ pub mod common_conditions {
         let mut existed = false;
         move |res: Option<Res<T>>| {
             if res.is_some() {
+                existed = true;
+                false
+            } else if existed {
+                existed = false;
+                true
+            } else {
+                false
+            }
+        }
+    }
+
+    /// A [`Condition`](super::Condition)-satisfying system that returns `true`
+    /// if the non send resource exists.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Default)]
+    /// # struct Counter(u8);
+    /// # let mut app = Schedule::default();
+    /// # let mut world = World::new();
+    /// app.add_systems(
+    ///     // `non_send_exists` will only return true if the given non sendresource exists in the world
+    ///     my_system.run_if(non_send_exists::<Counter>),
+    /// );
+    ///
+    /// fn my_system(mut counter: NonSendMut<Counter>) {
+    ///     counter.0 += 1;
+    /// }
+    ///
+    /// // `Counter` hasn't been added so `my_system` won't run
+    /// app.run(&mut world);
+    /// world.init_non_send_resource::<Counter>();
+    ///
+    /// // `Counter` has now been added so `my_system` can run
+    /// app.run(&mut world);
+    /// assert_eq!(world.non_send::<Counter>().0, 1);
+    /// ```
+    pub fn non_send_exists<T>(non_send: Option<NonSend<T>>) -> bool {
+        non_send.is_some()
+    }
+
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// if the non send resource is equal to `value`.
+    ///
+    /// # Panics
+    ///
+    /// The condition will panic if the non send resource does not exist.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Default, PartialEq)]
+    /// # struct Counter(u8);
+    /// # let mut app = Schedule::default();
+    /// # let mut world = World::new();
+    /// # world.init_non_send_resource::<Counter>();
+    /// app.add_systems(
+    ///     // `non_send_equals` will only return true if the given non send resource equals the given value
+    ///     my_system.run_if(non_send_equals(Counter(0))),
+    /// );
+    ///
+    /// fn my_system(mut counter: NonSend<Counter>) {
+    ///     counter.0 += 1;
+    /// }
+    ///
+    /// // `Counter` is `0` so `my_system` can run
+    /// app.run(&mut world);
+    /// assert_eq!(world.non_send::<Counter>().0, 1);
+    ///
+    /// // `Counter` is no longer `0` so `my_system` won't run
+    /// app.run(&mut world);
+    /// assert_eq!(world.non_send::<Counter>().0, 1);
+    /// ```
+    pub fn non_send_equals<T>(value: T) -> impl FnMut(NonSend<T>) -> bool
+    where
+        T: PartialEq,
+    {
+        move |non_send: NonSend<T>| *non_send == value
+    }
+
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// if the non send resource exists and is equal to `value`.
+    ///
+    /// The condition will return `false` if the non send does not exist.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Default, PartialEq)]
+    /// # struct Counter(u8);
+    /// # let mut app = Schedule::default();
+    /// # let mut world = World::new();
+    /// app.add_systems(
+    ///     // `non_send_exists_and_equals` will only return true
+    ///     // if the given non send exists and equals the given value
+    ///     my_system.run_if(non_send_exists_and_equals(Counter(0))),
+    /// );
+    ///
+    /// fn my_system(mut counter: NonSend<Counter>) {
+    ///     counter.0 += 1;
+    /// }
+    ///
+    /// // `Counter` hasn't been added so `my_system` can't run
+    /// app.run(&mut world);
+    /// world.init_non_send_resource::<Counter>();
+    ///
+    /// // `Counter` is `0` so `my_system` can run
+    /// app.run(&mut world);
+    /// assert_eq!(world.non_send::<Counter>().0, 1);
+    ///
+    /// // `Counter` is no longer `0` so `my_system` won't run
+    /// app.run(&mut world);
+    /// assert_eq!(world.non_send::<Counter>().0, 1);
+    /// ```
+    pub fn non_send_exists_and_equals<T>(value: T) -> impl FnMut(Option<NonSend<T>>) -> bool
+    where
+        T: PartialEq,
+    {
+        move |non_send: Option<NonSend<T>>| match non_send {
+            Some(non_send) => *non_send == value,
+            None => false,
+        }
+    }
+
+    /// A [`Condition`](super::Condition)-satisfying system that returns `true`
+    /// if the non send resource of the given type has been added since the condition was last checked.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Resource, Default)]
+    /// # struct Counter(u8);
+    /// # let mut app = Schedule::default();
+    /// # let mut world = World::new();
+    /// app.add_systems(
+    ///     // `non_send_added` will only return true if the
+    ///     // given non send resource was just added
+    ///     my_system.run_if(non_send_added::<Counter>),
+    /// );
+    ///
+    /// fn my_system(mut counter: NonSendMut<Counter>) {
+    ///     counter.0 += 1;
+    /// }
+    ///
+    /// world.init_non_send_resource::<Counter>();
+    ///
+    /// // `Counter` was just added so `my_system` will run
+    /// app.run(&mut world);
+    /// assert_eq!(world.non_send::<Counter>().0, 1);
+    ///
+    /// // `Counter` was not just added so `my_system` will not run
+    /// app.run(&mut world);
+    /// assert_eq!(world.non_send::<Counter>().0, 1);
+    /// ```
+    pub fn non_send_added<T>(non_send: Option<NonSend<T>>) -> bool {
+        match non_send {
+            Some(non_send) => non_send.is_added(),
+            None => todo!(),
+        }
+    }
+
+    /// A [`Condition`](super::Condition)-satisfying system that returns `true`
+    /// if the non send resource of the given type has had its value changed since the condition
+    /// was last checked.
+    ///
+    /// The value is considered changed when it is added. The first time this condition
+    /// is checked after the non send resource was added, it will return `true`.
+    /// Change detection behaves like this everywhere in Bevy.
+    ///
+    /// # Panics
+    ///
+    /// The condition will panic if the non send resource does not exist.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Resource, Default)]
+    /// # struct Counter(u8);
+    /// # let mut app = Schedule::default();
+    /// # let mut world = World::new();
+    /// # world.init_non_send_resource::<Counter>();
+    /// app.add_systems(
+    ///     // `non_send_changed` will only return true if the
+    ///     // given non send resource was just changed (or added)
+    ///     my_system.run_if(
+    ///         non_send_changed::<Counter>
+    ///         // By default detecting changes will also trigger if the non send resource was
+    ///         // just added, this won't work with my example so I will add a second
+    ///         // condition to make sure the non send resource wasn't just added
+    ///         .and_then(not(non_send_added::<Counter>))
+    ///     ),
+    /// );
+    ///
+    /// fn my_system(mut counter: NonSendMut<Counter>) {
+    ///     counter.0 += 1;
+    /// }
+    ///
+    /// // `Counter` hasn't been changed so `my_system` won't run
+    /// app.run(&mut world);
+    /// assert_eq!(world.non_send::<Counter>().0, 0);
+    ///
+    /// world.non_send_mut::<Counter>().0 = 50;
+    ///
+    /// // `Counter` was just changed so `my_system` will run
+    /// app.run(&mut world);
+    /// assert_eq!(world.non_send::<Counter>().0, 51);
+    /// ```
+    pub fn non_send_changed<T>(non_send: NonSend<T>) -> bool {
+        non_send.is_changed()
+    }
+
+    /// A [`Condition`](super::Condition)-satisfying system that returns `true`
+    /// if the resource of the given type has had its value changed since the condition
+    /// was last checked.
+    ///
+    /// The value is considered changed when it is added. The first time this condition
+    /// is checked after the resource was added, it will return `true`.
+    /// Change detection behaves like this everywhere in Bevy.
+    ///
+    /// This run condition does not detect when the resource is removed.
+    ///
+    /// The condition will return `false` if the resource does not exist.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Default)]
+    /// # struct Counter(u8);
+    /// # let mut app = Schedule::default();
+    /// # let mut world = World::new();
+    /// app.add_systems(
+    ///     // `non_send_exists_and_changed` will only return true if the
+    ///     // given non send exists and was just changed (or added)
+    ///     my_system.run_if(
+    ///         non_send_exists_and_changed::<Counter>
+    ///         // By default detecting changes will also trigger if the non send resource was
+    ///         // just added, this won't work with my example so I will add a second
+    ///         // condition to make sure the non send wasn't just added
+    ///         .and_then(not(non_send_added::<Counter>))
+    ///     ),
+    /// );
+    ///
+    /// fn my_system(mut counter: NonSendMut<Counter>) {
+    ///     counter.0 += 1;
+    /// }
+    ///
+    /// // `Counter` doesn't exist so `my_system` won't run
+    /// app.run(&mut world);
+    /// world.init_non_send_resource::<Counter>();
+    ///
+    /// // `Counter` hasn't been changed so `my_system` won't run
+    /// app.run(&mut world);
+    /// assert_eq!(world.non_send::<Counter>().0, 0);
+    ///
+    /// world.non_send_mut::<Counter>().0 = 50;
+    ///
+    /// // `Counter` was just changed so `my_system` will run
+    /// app.run(&mut world);
+    /// assert_eq!(world.non_send::<Counter>().0, 51);
+    /// ```
+    pub fn non_send_exists_and_changed<T>(non_send: Option<NonSend<T>>) -> bool {
+        match non_send {
+            Some(non_send) => non_send.is_changed(),
+            None => false,
+        }
+    }
+
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// if the non send resource of the given type has had its value changed since the condition
+    /// was last checked.
+    ///
+    /// The value is considered changed when it is added. The first time this condition
+    /// is checked after the non send resource was added, it will return `true`.
+    /// Change detection behaves like this everywhere in Bevy.
+    ///
+    /// This run condition also detects removal. It will return `true` if the non send
+    /// has been removed since the run condition was last checked.
+    ///
+    /// The condition will return `false` if the non send resource does not exist.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Default)]
+    /// # struct Counter(u8);
+    /// # let mut app = Schedule::default();
+    /// # let mut world = World::new();
+    /// # world.init_non_send_resource::<Counter>();
+    /// app.add_systems(
+    ///     // `non_send_changed_or_removed` will only return true if the
+    ///     // given non send resource was just changed or removed (or added)
+    ///     my_system.run_if(
+    ///         non_send_changed_or_removed::<Counter>()
+    ///         // By default detecting changes will also trigger if the non send resource was
+    ///         // just added, this won't work with my example so I will add a second
+    ///         // condition to make sure the non send resource wasn't just added
+    ///         .and_then(not(non_send_added::<Counter>))
+    ///     ),
+    /// );
+    ///
+    /// #[derive(Default)]
+    /// struct MyResource;
+    ///
+    /// // If `Counter` exists, increment it, otherwise insert `MyResource`
+    /// fn my_system(mut commands: Commands, mut counter: Option<NonSendMut<Counter>>) {
+    ///     if let Some(mut counter) = counter {
+    ///         counter.0 += 1;
+    ///     } else {
+    ///         commands.init_non_send::<MyResource>();
+    ///     }
+    /// }
+    ///
+    /// // `Counter` hasn't been changed so `my_system` won't run
+    /// app.run(&mut world);
+    /// assert_eq!(world.non_send::<Counter>().0, 0);
+    ///
+    /// world.non_send_mut::<Counter>().0 = 50;
+    ///
+    /// // `Counter` was just changed so `my_system` will run
+    /// app.run(&mut world);
+    /// assert_eq!(world.non_send::<Counter>().0, 51);
+    ///
+    /// world.remove_non_send::<Counter>();
+    ///
+    /// // `Counter` was just removed so `my_system` will run
+    /// app.run(&mut world);
+    /// assert_eq!(world.contains_non_send::<MyResource>(), true);
+    /// ```
+    pub fn non_send_changed_or_removed<T>() -> impl FnMut(Option<NonSend<T>>) -> bool + Clone {
+        let mut existed = false;
+        move |non_send: Option<NonSend<T>>| {
+            if let Some(value) = non_send {
+                existed = true;
+                value.is_changed()
+            } else if existed {
+                existed = false;
+                true
+            } else {
+                false
+            }
+        }
+    }
+
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// if the non send resource of the given type has been removed since the condition was last checked.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Default)]
+    /// # struct Counter(u8);
+    /// # let mut app = Schedule::default();
+    /// # let mut world = World::new();
+    /// # world.init_non_send_resource::<Counter>();
+    /// app.add_systems(
+    ///     // `non_send_removed` will only return true if the
+    ///     // given non send resource was just removed
+    ///     my_system.run_if(non_send_removed::<MyResource>()),
+    /// );
+    ///
+    /// #[derive(Default)]
+    /// struct MyResource;
+    ///
+    /// fn my_system(mut counter: NonSendMut<Counter>) {
+    ///     counter.0 += 1;
+    /// }
+    ///
+    /// world.init_non_send_resource::<MyResource>();
+    ///
+    /// // `MyResource` hasn't just been removed so `my_system` won't run
+    /// app.run(&mut world);
+    /// assert_eq!(world.non_send::<Counter>().0, 0);
+    ///
+    /// world.remove_non_send::<MyResource>();
+    ///
+    /// // `MyResource` was just removed so `my_system` will run
+    /// app.run(&mut world);
+    /// assert_eq!(world.non_send::<Counter>().0, 1);
+    /// ```
+    pub fn non_send_removed<T>() -> impl FnMut(Option<NonSend<T>>) -> bool + Clone {
+        let mut existed = false;
+        move |non_send: Option<NonSend<T>>| {
+            if non_send.is_some() {
                 existed = true;
                 false
             } else if existed {
