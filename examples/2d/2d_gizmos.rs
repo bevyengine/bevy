@@ -54,7 +54,13 @@ fn system(mut gizmos: Gizmos, mut my_gizmos: Gizmos<MyRoundGizmos>, time: Res<Ti
 
     // The circles have 32 line-segments by default.
     my_gizmos.circle_2d(Vec2::ZERO, 120., Color::BLACK);
-    my_gizmos.ellipse_2d(Vec2::ZERO, 100., 200., Color::YELLOW_GREEN);
+    my_gizmos.ellipse_2d(
+        Vec2::ZERO,
+        Mat2::from_angle(time.elapsed_seconds() % std::f32::consts::TAU),
+        100.,
+        200.,
+        Color::YELLOW_GREEN,
+    );
     // You may want to increase this for larger circles.
     my_gizmos
         .circle_2d(Vec2::ZERO, 300., Color::NAVY)

@@ -4,6 +4,7 @@
 //! and assorted support items.
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
+use bevy_math::Mat2;
 use bevy_math::{primitives::Direction3d, Quat, Vec2, Vec3};
 use bevy_render::color::Color;
 use std::f32::consts::TAU;
@@ -34,7 +35,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///     // Ellipses have 32 line-segments by default.
     ///     // You may want to increase this for larger ellipses.
     ///     gizmos
-    ///         .ellipse(Vec3::ZERO, Vec3::Z, 5., 1., Color::RED)
+    ///         .ellipse(Vec3::ZERO, Quat::IDENTITY, Vec3::Z, 5., 1., Color::RED)
     ///         .segments(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
@@ -43,7 +44,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     pub fn ellipse(
         &mut self,
         position: Vec3,
-        normal: Vec3,
+        rotation: Quat,
         half_width: f32,
         half_height: f32,
         color: Color,
@@ -51,7 +52,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         EllipseBuilder {
             gizmos: self,
             position,
-            normal,
+            rotation,
             half_width,
             half_height,
             color,
@@ -74,7 +75,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///     // Ellipses have 32 line-segments by default.
     ///     // You may want to increase this for larger ellipses.
     ///     gizmos
-    ///         .ellipse_2d(Vec2::ZERO, 5., 1., Color::RED)
+    ///         .ellipse_2d(Vec2::ZERO, Mat2::IDENTITY, 5., 1., Color::RED)
     ///         .segments(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
@@ -83,6 +84,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     pub fn ellipse_2d(
         &mut self,
         position: Vec2,
+        rotation: Mat2,
         half_width: f32,
         half_height: f32,
         color: Color,
@@ -90,6 +92,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         Ellipse2dBuilder {
             gizmos: self,
             position,
+            rotation,
             half_width,
             half_height,
             color,
@@ -128,7 +131,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         EllipseBuilder {
             gizmos: self,
             position,
-            normal: *normal,
+            rotation: Quat::from_rotation_arc(Vec3::Z, *normal),
             half_width: radius,
             half_height: radius,
             color,
@@ -166,6 +169,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         Ellipse2dBuilder {
             gizmos: self,
             position,
+            rotation: Mat2::IDENTITY,
             half_width: radius,
             half_height: radius,
             color,
@@ -178,7 +182,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
 pub struct EllipseBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     gizmos: &'a mut Gizmos<'w, 's, T>,
     position: Vec3,
-    normal: Vec3,
+    rotation: Quat,
     half_width: f32,
     half_height: f32,
     color: Color,
@@ -199,9 +203,9 @@ impl<T: GizmoConfigGroup> Drop for EllipseBuilder<'_, '_, '_, T> {
             return;
         }
 
-        let rotation = Quat::from_rotation_arc(Vec3::Z, self.normal);
         let positions = ellipse_inner(self.half_width, self.half_height, self.segments)
-            .map(|vec2| (self.position + rotation * vec2.extend(0.)));
+            .map(|vec2| self.rotation * vec2.extend(0.))
+            .map(|vec3| vec3 + self.position);
         self.gizmos.linestrip(positions, self.color);
     }
 }
@@ -210,6 +214,7 @@ impl<T: GizmoConfigGroup> Drop for EllipseBuilder<'_, '_, '_, T> {
 pub struct Ellipse2dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     gizmos: &'a mut Gizmos<'w, 's, T>,
     position: Vec2,
+    rotation: Mat2,
     half_width: f32,
     half_height: f32,
     color: Color,
@@ -228,9 +233,11 @@ impl<T: GizmoConfigGroup> Drop for Ellipse2dBuilder<'_, '_, '_, T> {
     fn drop(&mut self) {
         if !self.gizmos.enabled {
             return;
-        }
+        };
+
         let positions = ellipse_inner(self.half_width, self.half_height, self.segments)
-            .map(|vec2| (vec2 + self.position));
+            .map(|vec2| self.rotation * vec2)
+            .map(|vec2| vec2 + self.position);
         self.gizmos.linestrip_2d(positions, self.color);
     }
 }
