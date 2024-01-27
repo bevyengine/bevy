@@ -21,14 +21,14 @@ use bevy_render::{
     view::{InheritedVisibility, ViewVisibility, Visibility},
     Extract,
 };
-use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, TextureAtlas};
+use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, TextureAtlasLayout};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use bevy_utils::HashSet;
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 
 /// The maximum width and height of text. The text will wrap according to the specified size.
 /// Characters out of the bounds after wrapping will be truncated. Text is aligned according to the
-/// specified [`TextAlignment`](crate::text::TextAlignment).
+/// specified [`JustifyText`](crate::text::JustifyText).
 ///
 /// Note: only characters that are completely out of the bounds will be truncated, so this is not a
 /// reliable limit if it is necessary to contain the text strictly in the bounds. Currently this
@@ -83,7 +83,7 @@ pub struct Text2dBundle {
 pub fn extract_text2d_sprite(
     mut commands: Commands,
     mut extracted_sprites: ResMut<ExtractedSprites>,
-    texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
+    texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
     text2d_query: Extract<
         Query<(
@@ -99,7 +99,7 @@ pub fn extract_text2d_sprite(
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
     let scale_factor = windows
         .get_single()
-        .map(|window| window.resolution.scale_factor() as f32)
+        .map(|window| window.resolution.scale_factor())
         .unwrap_or(1.0);
     let scaling = GlobalTransform::from_scale(Vec2::splat(scale_factor.recip()).extend(1.));
 
@@ -138,7 +138,7 @@ pub fn extract_text2d_sprite(
                     color,
                     rect: Some(atlas.textures[atlas_info.glyph_index]),
                     custom_size: None,
-                    image_handle_id: atlas.texture.id(),
+                    image_handle_id: atlas_info.texture.id(),
                     flip_x: false,
                     flip_y: false,
                     anchor: Anchor::Center.as_vec(),
@@ -166,7 +166,7 @@ pub fn update_text2d_layout(
     mut font_atlas_warning: ResMut<FontAtlasWarning>,
     windows: Query<&Window, With<PrimaryWindow>>,
     mut scale_factor_changed: EventReader<WindowScaleFactorChanged>,
-    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
+    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_sets: ResMut<FontAtlasSets>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(Entity, Ref<Text>, Ref<Text2dBounds>, &mut TextLayoutInfo)>,
@@ -196,7 +196,7 @@ pub fn update_text2d_layout(
                 &fonts,
                 &text.sections,
                 scale_factor,
-                text.alignment,
+                text.justify,
                 text.linebreak_behavior,
                 text_bounds,
                 &mut font_atlas_sets,
@@ -225,6 +225,6 @@ pub fn update_text2d_layout(
 }
 
 /// Scales `value` by `factor`.
-pub fn scale_value(value: f32, factor: f64) -> f32 {
-    (value as f64 * factor) as f32
+pub fn scale_value(value: f32, factor: f32) -> f32 {
+    value * factor
 }

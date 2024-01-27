@@ -42,11 +42,11 @@ struct Config {
     fancy: bool,
 }
 
-fn input(mut config: ResMut<Config>, input: Res<Input<KeyCode>>) {
-    if input.just_pressed(KeyCode::Up) {
+fn input(mut config: ResMut<Config>, input: Res<ButtonInput<KeyCode>>) {
+    if input.just_pressed(KeyCode::ArrowUp) {
         config.line_count += 10_000;
     }
-    if input.just_pressed(KeyCode::Down) {
+    if input.just_pressed(KeyCode::ArrowDown) {
         config.line_count = config.line_count.saturating_sub(10_000);
     }
     if input.just_pressed(KeyCode::Space) {
@@ -93,7 +93,7 @@ fn ui_system(mut query: Query<&mut Text>, config: Res<Config>, diag: Res<Diagnos
     let mut text = query.single_mut();
 
     let Some(fps) = diag
-        .get(FrameTimeDiagnosticsPlugin::FPS)
+        .get(&FrameTimeDiagnosticsPlugin::FPS)
         .and_then(|fps| fps.smoothed())
     else {
         return;

@@ -5,11 +5,11 @@
 //! such as `Struct`, `GetTypeRegistration`, and more— all with a single derive!
 //!
 //! Some other noteworthy exports include the derive macros for [`FromReflect`] and
-//! [`TypeUuid`], as well as the [`reflect_trait`] attribute macro.
+//! [`TypePath`], as well as the [`reflect_trait`] attribute macro.
 //!
 //! [`Reflect`]: crate::derive_reflect
 //! [`FromReflect`]: crate::derive_from_reflect
-//! [`TypeUuid`]: crate::derive_type_uuid
+//! [`TypePath`]: crate::derive_type_path
 //! [`reflect_trait`]: macro@reflect_trait
 
 extern crate proc_macro;
@@ -27,7 +27,6 @@ mod registration;
 mod serialization;
 mod trait_reflection;
 mod type_path;
-mod type_uuid;
 mod utility;
 
 use crate::derive_data::{ReflectDerive, ReflectMeta, ReflectStruct};
@@ -39,7 +38,6 @@ use reflect_value::ReflectValueDef;
 use syn::spanned::Spanned;
 use syn::{parse_macro_input, DeriveInput};
 use type_path::NamedTypePathDef;
-use utility::WhereClauseOptions;
 
 pub(crate) static REFLECT_ATTRIBUTE_NAME: &str = "reflect";
 pub(crate) static REFLECT_VALUE_ATTRIBUTE_NAME: &str = "reflect_value";
@@ -283,29 +281,11 @@ pub fn derive_type_path(input: TokenStream) -> TokenStream {
         Err(err) => return err.into_compile_error().into(),
     };
 
-    let type_path_impl = impls::impl_type_path(
-        derive_data.meta(),
-        // Use `WhereClauseOptions::new_value` here so we don't enforce reflection bounds
-        &WhereClauseOptions::new_value(derive_data.meta()),
-    );
+    let type_path_impl = impls::impl_type_path(derive_data.meta());
 
     TokenStream::from(quote! {
         const _: () = {
             #type_path_impl
-        };
-    })
-}
-
-// From https://github.com/randomPoison/type-uuid
-#[proc_macro_derive(TypeUuid, attributes(uuid))]
-pub fn derive_type_uuid(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let uuid_impl =
-        type_uuid::type_uuid_derive(input).unwrap_or_else(syn::Error::into_compile_error);
-
-    TokenStream::from(quote! {
-        const _: () = {
-            #uuid_impl
         };
     })
 }
@@ -323,7 +303,7 @@ pub fn derive_type_uuid(input: TokenStream) -> TokenStream {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```ignore (bevy_reflect is not accessible from this crate)
 /// # use std::any::TypeId;
 /// # use bevy_reflect_derive::{Reflect, reflect_trait};
 /// #[reflect_trait] // Generates `ReflectMyTrait`
@@ -377,20 +357,20 @@ pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
 ///
 /// Types can be passed with or without registering type data:
 ///
-/// ```ignore
-/// impl_reflect_value!(::my_crate::Foo);
-/// impl_reflect_value!(::my_crate::Bar(Debug, Default, Serialize, Deserialize));
+/// ```ignore (bevy_reflect is not accessible from this crate)
+/// impl_reflect_value!(my_crate::Foo);
+/// impl_reflect_value!(my_crate::Bar(Debug, Default, Serialize, Deserialize));
 /// ```
 ///
 /// Generic types can also specify their parameters and bounds:
 ///
-/// ```ignore
-/// impl_reflect_value!(::my_crate::Foo<T1, T2: Baz> where T1: Bar (Default, Serialize, Deserialize));
+/// ```ignore (bevy_reflect is not accessible from this crate)
+/// impl_reflect_value!(my_crate::Foo<T1, T2: Baz> where T1: Bar (Default, Serialize, Deserialize));
 /// ```
 ///
 /// Custom type paths can be specified:
 ///
-/// ```ignore
+/// ```ignore (bevy_reflect is not accessible from this crate)
 /// impl_reflect_value!((in not_my_crate as NotFoo) Foo(Debug, Default));
 /// ```
 ///
@@ -445,7 +425,7 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
 ///
 /// # Example
 /// Implementing `Reflect` for `bevy::prelude::Vec3` as a struct type:
-/// ```ignore
+/// ```ignore (bevy_reflect is not accessible from this crate)
 /// use bevy::prelude::Vec3;
 ///
 /// impl_reflect_struct!(
@@ -520,7 +500,7 @@ pub fn impl_reflect_struct(input: TokenStream) -> TokenStream {
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```ignore (bevy_reflect is not accessible from this crate)
 /// impl_from_reflect_value!(foo<T1, T2: Baz> where T1: Bar);
 /// ```
 ///
@@ -565,27 +545,27 @@ pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
 /// # Examples
 ///
 /// Implementing `TypePath` on a foreign type:
-/// ```rust,ignore
+/// ```ignore (bevy_reflect is not accessible from this crate)
 /// impl_type_path!(::foreign_crate::foo::bar::Baz);
 /// ```
 ///
 /// On a generic type:
-/// ```rust,ignore
+/// ```ignore (bevy_reflect is not accessible from this crate)
 /// impl_type_path!(::foreign_crate::Foo<T>);
 /// ```
 ///
 /// On a primitive (note this will not compile for a non-primitive type):
-/// ```rust,ignore
+/// ```ignore (bevy_reflect is not accessible from this crate)
 /// impl_type_path!(bool);
 /// ```
 ///
 /// With a custom type path:
-/// ```rust,ignore
+/// ```ignore (bevy_reflect is not accessible from this crate)
 /// impl_type_path!((in other_crate::foo::bar) Baz);
 /// ```
 ///
 /// With a custom type path and a custom type name:
-/// ```rust,ignore
+/// ```ignore (bevy_reflect is not accessible from this crate)
 /// impl_type_path!((in other_crate::foo as Baz) Bar);
 /// ```
 ///
@@ -613,24 +593,11 @@ pub fn impl_type_path(input: TokenStream) -> TokenStream {
 
     let meta = ReflectMeta::new(type_path, ReflectTraits::default());
 
-    let type_path_impl = impls::impl_type_path(&meta, &WhereClauseOptions::new_value(&meta));
+    let type_path_impl = impls::impl_type_path(&meta);
 
     TokenStream::from(quote! {
         const _: () = {
             #type_path_impl
-        };
-    })
-}
-
-/// Derives `TypeUuid` for the given type. This is used internally to implement `TypeUuid` on foreign types, such as those in the std. This macro should be used in the format of `<[Generic Params]> [Type (Path)], [Uuid (String Literal)]`.
-#[proc_macro]
-pub fn impl_type_uuid(input: TokenStream) -> TokenStream {
-    let def = parse_macro_input!(input as type_uuid::TypeUuidDef);
-    let uuid_impl = type_uuid::gen_impl_type_uuid(def);
-
-    TokenStream::from(quote! {
-        const _: () = {
-            #uuid_impl
         };
     })
 }

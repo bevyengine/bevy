@@ -10,5 +10,5 @@ license = "MIT OR Apache-2.0"
 xshell = "0.2"
 clap = { version = "4.0", features = ["derive"] }
 ron = "0.8"
-toml_edit = "0.20"
+toml_edit = { version = "0.21", default-features = false, features = ["parse"] }
 pbr = "1.1"

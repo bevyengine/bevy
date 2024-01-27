@@ -1,21 +1,21 @@
 use bevy_ecs::prelude::*;
-use bevy_ecs::query::WorldQueryData;
+use bevy_ecs::query::QueryData;
 
 #[derive(Component)]
 struct Foo;
 
-#[derive(WorldQueryData)]
+#[derive(QueryData)]
 struct MutableUnmarked {
     a: &'static mut Foo,
 }
 
-#[derive(WorldQueryData)]
-#[world_query_data(mutable)]
+#[derive(QueryData)]
+#[query_data(mutable)]
 struct MutableMarked {
     a: &'static mut Foo,
 }
 
-#[derive(WorldQueryData)]
+#[derive(QueryData)]
 struct NestedMutableUnmarked {
     a: MutableMarked,
 }

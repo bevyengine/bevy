@@ -39,8 +39,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 font_size: 100.0,
                 ..default()
             },
-        ) // Set the alignment of the Text
-        .with_text_alignment(TextAlignment::Center)
+        ) // Set the justification of the Text
+        .with_text_justify(JustifyText::Center)
         // Set the style of the TextBundle itself.
         .with_style(Style {
             position_type: PositionType::Absolute,
@@ -134,7 +134,7 @@ fn text_update_system(
     mut query: Query<&mut Text, With<FpsText>>,
 ) {
     for mut text in &mut query {
-        if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
+        if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) {
             if let Some(value) = fps.smoothed() {
                 // Update the value of the second section
                 text.sections[1].value = format!("{value:.2}");

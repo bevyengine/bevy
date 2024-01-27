@@ -97,6 +97,10 @@ where
         })
     }
 
+    fn extensions(&self) -> &[&str] {
+        <L as AssetLoader>::extensions(self)
+    }
+
     fn deserialize_meta(&self, meta: &[u8]) -> Result<Box<dyn AssetMetaDyn>, DeserializeMetaError> {
         let meta = AssetMeta::<L, ()>::deserialize(meta)?;
         Ok(Box::new(meta))
@@ -109,10 +113,6 @@ where
         }))
     }
 
-    fn extensions(&self) -> &[&str] {
-        <L as AssetLoader>::extensions(self)
-    }
-
     fn type_name(&self) -> &'static str {
         std::any::type_name::<L>()
     }
@@ -121,12 +121,12 @@ where
         TypeId::of::<L>()
     }
 
-    fn asset_type_id(&self) -> TypeId {
-        TypeId::of::<L::Asset>()
-    }
-
     fn asset_type_name(&self) -> &'static str {
         std::any::type_name::<L::Asset>()
+    }
+
+    fn asset_type_id(&self) -> TypeId {
+        TypeId::of::<L::Asset>()
     }
 }
 
@@ -254,7 +254,7 @@ pub struct LoadDirectError {
 }
 
 /// An error that occurs while deserializing [`AssetMeta`].
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 pub enum DeserializeMetaError {
     #[error("Failed to deserialize asset meta: {0:?}")]
     DeserializeSettings(#[from] SpannedError),
@@ -527,11 +527,11 @@ impl<'a> LoadContext<'a> {
     /// deriving a new asset from the referenced asset, or you are building a collection of assets. This will add the `path` as a
     /// "load dependency".
     ///
-    /// If the current loader is used in a [`Process`] "asset preprocessor", such as a [`LoadAndSave`] preprocessor,
+    /// If the current loader is used in a [`Process`] "asset preprocessor", such as a [`LoadTransformAndSave`] preprocessor,
     /// changing a "load dependency" will result in re-processing of the asset.
     ///
     /// [`Process`]: crate::processor::Process
-    /// [`LoadAndSave`]: crate::processor::LoadAndSave
+    /// [`LoadTransformAndSave`]: crate::processor::LoadTransformAndSave
     pub async fn load_direct<'b>(
         &mut self,
         path: impl Into<AssetPath<'b>>,
@@ -575,11 +575,11 @@ impl<'a> LoadContext<'a> {
     /// For example, if you are deriving a new asset from the referenced asset, or you are building a collection of assets. This will add the `path` as a
     /// "load dependency".
     ///
-    /// If the current loader is used in a [`Process`] "asset preprocessor", such as a [`LoadAndSave`] preprocessor,
+    /// If the current loader is used in a [`Process`] "asset preprocessor", such as a [`LoadTransformAndSave`] preprocessor,
     /// changing a "load dependency" will result in re-processing of the asset.
     ///
     /// [`Process`]: crate::processor::Process
-    /// [`LoadAndSave`]: crate::processor::LoadAndSave
+    /// [`LoadTransformAndSave`]: crate::processor::LoadTransformAndSave
     pub async fn load_direct_with_reader<'b>(
         &mut self,
         reader: &mut Reader<'_>,

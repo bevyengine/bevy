@@ -1,21 +1,67 @@
-use super::{Primitive2d, WindingOrder};
+use super::{InvalidDirectionError, Primitive2d, WindingOrder};
 use crate::Vec2;
 
 /// A normalized vector pointing in a direction in 2D space
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Direction2d(Vec2);
 
-impl From<Vec2> for Direction2d {
-    fn from(value: Vec2) -> Self {
-        Self(value.normalize())
+impl Direction2d {
+    /// A unit vector pointing along the positive X axis.
+    pub const X: Self = Self(Vec2::X);
+    /// A unit vector pointing along the positive Y axis.
+    pub const Y: Self = Self(Vec2::Y);
+    /// A unit vector pointing along the negative X axis.
+    pub const NEG_X: Self = Self(Vec2::NEG_X);
+    /// A unit vector pointing along the negative Y axis.
+    pub const NEG_Y: Self = Self(Vec2::NEG_Y);
+
+    /// Create a direction from a finite, nonzero [`Vec2`].
+    ///
+    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
+    /// of the given vector is zero (or very close to zero), infinite, or `NaN`.
+    pub fn new(value: Vec2) -> Result<Self, InvalidDirectionError> {
+        Self::new_and_length(value).map(|(dir, _)| dir)
+    }
+
+    /// Create a [`Direction2d`] from a [`Vec2`] that is already normalized.
+    ///
+    /// # Warning
+    ///
+    /// `value` must be normalized, i.e it's length must be `1.0`.
+    pub fn new_unchecked(value: Vec2) -> Self {
+        debug_assert!(value.is_normalized());
+
+        Self(value)
+    }
+
+    /// Create a direction from a finite, nonzero [`Vec2`], also returning its original length.
+    ///
+    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
+    /// of the given vector is zero (or very close to zero), infinite, or `NaN`.
+    pub fn new_and_length(value: Vec2) -> Result<(Self, f32), InvalidDirectionError> {
+        let length = value.length();
+        let direction = (length.is_finite() && length > 0.0).then_some(value / length);
+
+        direction
+            .map(|dir| (Self(dir), length))
+            .ok_or(InvalidDirectionError::from_length(length))
+    }
+
+    /// Create a direction from its `x` and `y` components.
+    ///
+    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
+    /// of the vector formed by the components is zero (or very close to zero), infinite, or `NaN`.
+    pub fn from_xy(x: f32, y: f32) -> Result<Self, InvalidDirectionError> {
+        Self::new(Vec2::new(x, y))
     }
 }
 
-impl Direction2d {
-    /// Create a direction from a [`Vec2`] that is already normalized
-    pub fn from_normalized(value: Vec2) -> Self {
-        debug_assert!(value.is_normalized());
-        Self(value)
+impl TryFrom<Vec2> for Direction2d {
+    type Error = InvalidDirectionError;
+
+    fn try_from(value: Vec2) -> Result<Self, Self::Error> {
+        Self::new(value)
     }
 }
 
@@ -23,6 +69,13 @@ impl std::ops::Deref for Direction2d {
     type Target = Vec2;
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl std::ops::Neg for Direction2d {
+    type Output = Self;
+    fn neg(self) -> Self::Output {
+        Self(-self.0)
     }
 }
 
@@ -34,23 +87,74 @@ pub struct Circle {
 }
 impl Primitive2d for Circle {}
 
+impl Circle {
+    /// Create a new [`Circle`] from a `radius`
+    #[inline(always)]
+    pub const fn new(radius: f32) -> Self {
+        Self { radius }
+    }
+
+    /// Finds the point on the circle that is closest to the given `point`.
+    ///
+    /// If the point is outside the circle, the returned point will be on the perimeter of the circle.
+    /// Otherwise, it will be inside the circle and returned as is.
+    #[inline(always)]
+    pub fn closest_point(&self, point: Vec2) -> Vec2 {
+        let distance_squared = point.length_squared();
+
+        if distance_squared <= self.radius.powi(2) {
+            // The point is inside the circle.
+            point
+        } else {
+            // The point is outside the circle.
+            // Find the closest point on the perimeter of the circle.
+            let dir_to_point = point / distance_squared.sqrt();
+            self.radius * dir_to_point
+        }
+    }
+}
+
 /// An ellipse primitive
 #[derive(Clone, Copy, Debug)]
 pub struct Ellipse {
-    /// The half "width" of the ellipse
-    pub half_width: f32,
-    /// The half "height" of the ellipse
-    pub half_height: f32,
+    /// Half of the width and height of the ellipse.
+    ///
+    /// This corresponds to the two perpendicular radii defining the ellipse.
+    pub half_size: Vec2,
 }
 impl Primitive2d for Ellipse {}
 
 impl Ellipse {
-    /// Create a new `Ellipse` from a "width" and a "height"
-    pub fn new(width: f32, height: f32) -> Self {
+    /// Create a new `Ellipse` from half of its width and height.
+    ///
+    /// This corresponds to the two perpendicular radii defining the ellipse.
+    #[inline]
+    pub const fn new(half_width: f32, half_height: f32) -> Self {
         Self {
-            half_width: width / 2.0,
-            half_height: height / 2.0,
+            half_size: Vec2::new(half_width, half_height),
         }
+    }
+
+    /// Create a new `Ellipse` from a given full size.
+    ///
+    /// `size.x` is the diameter along the X axis, and `size.y` is the diameter along the Y axis.
+    #[inline]
+    pub fn from_size(size: Vec2) -> Self {
+        Self {
+            half_size: size / 2.0,
+        }
+    }
+
+    /// Returns the length of the semi-major axis. This corresponds to the longest radius of the ellipse.
+    #[inline]
+    pub fn semi_major(self) -> f32 {
+        self.half_size.max_element()
+    }
+
+    /// Returns the length of the semi-minor axis. This corresponds to the shortest radius of the ellipse.
+    #[inline]
+    pub fn semi_minor(self) -> f32 {
+        self.half_size.min_element()
     }
 }
 
@@ -62,6 +166,20 @@ pub struct Plane2d {
     pub normal: Direction2d,
 }
 impl Primitive2d for Plane2d {}
+
+impl Plane2d {
+    /// Create a new `Plane2d` from a normal
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given `normal` is zero (or very close to zero), or non-finite.
+    #[inline]
+    pub fn new(normal: Vec2) -> Self {
+        Self {
+            normal: Direction2d::new(normal).expect("normal must be nonzero and finite"),
+        }
+    }
+}
 
 /// An infinite line along a direction in 2D space.
 ///
@@ -101,8 +219,10 @@ impl Segment2d {
     pub fn from_points(point1: Vec2, point2: Vec2) -> (Self, Vec2) {
         let diff = point2 - point1;
         let length = diff.length();
+
         (
-            Self::new(Direction2d::from_normalized(diff / length), length),
+            // We are dividing by the length here, so the vector is normalized.
+            Self::new(Direction2d::new_unchecked(diff / length), length),
             (point1 + point2) / 2.,
         )
     }
@@ -203,6 +323,41 @@ impl Triangle2d {
         }
     }
 
+    /// Compute the circle passing through all three vertices of the triangle.
+    /// The vector in the returned tuple is the circumcenter.
+    pub fn circumcircle(&self) -> (Circle, Vec2) {
+        // We treat the triangle as translated so that vertex A is at the origin. This simplifies calculations.
+        //
+        //     A = (0, 0)
+        //        *
+        //       / \
+        //      /   \
+        //     /     \
+        //    /       \
+        //   /    U    \
+        //  /           \
+        // *-------------*
+        // B             C
+
+        let a = self.vertices[0];
+        let (b, c) = (self.vertices[1] - a, self.vertices[2] - a);
+        let b_length_sq = b.length_squared();
+        let c_length_sq = c.length_squared();
+
+        // Reference: https://en.wikipedia.org/wiki/Circumcircle#Cartesian_coordinates_2
+        let inv_d = (2.0 * (b.x * c.y - b.y * c.x)).recip();
+        let ux = inv_d * (c.y * b_length_sq - b.y * c_length_sq);
+        let uy = inv_d * (b.x * c_length_sq - c.x * b_length_sq);
+        let u = Vec2::new(ux, uy);
+
+        // Compute true circumcenter and circumradius, adding the tip coordinate so that
+        // A is translated back to its actual coordinate.
+        let center = u + a;
+        let radius = u.length();
+
+        (Circle { radius }, center)
+    }
+
     /// Reverse the [`WindingOrder`] of the triangle
     /// by swapping the second and third vertices
     pub fn reverse(&mut self) {
@@ -214,12 +369,9 @@ impl Triangle2d {
 #[doc(alias = "Quad")]
 #[derive(Clone, Copy, Debug)]
 pub struct Rectangle {
-    /// The half width of the rectangle
-    pub half_width: f32,
-    /// The half height of the rectangle
-    pub half_height: f32,
+    /// Half of the width and height of the rectangle
+    pub half_size: Vec2,
 }
-impl Primitive2d for Rectangle {}
 
 impl Rectangle {
     /// Create a rectangle from a full width and height
@@ -230,9 +382,18 @@ impl Rectangle {
     /// Create a rectangle from a given full size
     pub fn from_size(size: Vec2) -> Self {
         Self {
-            half_width: size.x / 2.,
-            half_height: size.y / 2.,
+            half_size: size / 2.,
         }
+    }
+
+    /// Finds the point on the rectangle that is closest to the given `point`.
+    ///
+    /// If the point is outside the rectangle, the returned point will be on the perimeter of the rectangle.
+    /// Otherwise, it will be inside the rectangle and returned as is.
+    #[inline(always)]
+    pub fn closest_point(&self, point: Vec2) -> Vec2 {
+        // Clamp point coordinates to the rectangle
+        point.clamp(-self.half_size, self.half_size)
     }
 }
 
@@ -291,7 +452,7 @@ impl BoxedPolygon {
     }
 }
 
-/// A polygon where all vertices lie on a circle, equally far apart
+/// A polygon where all vertices lie on a circle, equally far apart.
 #[derive(Clone, Copy, Debug)]
 pub struct RegularPolygon {
     /// The circumcircle on which all vertices lie
@@ -317,11 +478,52 @@ impl RegularPolygon {
             sides,
         }
     }
+
+    /// Returns an iterator over the vertices of the regular polygon,
+    /// rotated counterclockwise by the given angle in radians.
+    ///
+    /// With a rotation of 0, a vertex will be placed at the top `(0.0, circumradius)`.
+    pub fn vertices(self, rotation: f32) -> impl IntoIterator<Item = Vec2> {
+        // Add pi/2 so that the polygon has a vertex at the top (sin is 1.0 and cos is 0.0)
+        let start_angle = rotation + std::f32::consts::FRAC_PI_2;
+        let step = std::f32::consts::TAU / self.sides as f32;
+
+        (0..self.sides).map(move |i| {
+            let theta = start_angle + i as f32 * step;
+            let (sin, cos) = theta.sin_cos();
+            Vec2::new(cos, sin) * self.circumcircle.radius
+        })
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn direction_creation() {
+        assert_eq!(Direction2d::new(Vec2::X * 12.5), Ok(Direction2d::X));
+        assert_eq!(
+            Direction2d::new(Vec2::new(0.0, 0.0)),
+            Err(InvalidDirectionError::Zero)
+        );
+        assert_eq!(
+            Direction2d::new(Vec2::new(f32::INFINITY, 0.0)),
+            Err(InvalidDirectionError::Infinite)
+        );
+        assert_eq!(
+            Direction2d::new(Vec2::new(f32::NEG_INFINITY, 0.0)),
+            Err(InvalidDirectionError::Infinite)
+        );
+        assert_eq!(
+            Direction2d::new(Vec2::new(f32::NAN, 0.0)),
+            Err(InvalidDirectionError::NaN)
+        );
+        assert_eq!(
+            Direction2d::new_and_length(Vec2::X * 6.5),
+            Ok((Direction2d::X, 6.5))
+        );
+    }
 
     #[test]
     fn triangle_winding_order() {
@@ -350,5 +552,63 @@ mod tests {
             Vec2::new(0.0, -1.2),
         );
         assert_eq!(invalid_triangle.winding_order(), WindingOrder::Invalid);
+    }
+
+    #[test]
+    fn triangle_circumcenter() {
+        let triangle = Triangle2d::new(
+            Vec2::new(10.0, 2.0),
+            Vec2::new(-5.0, -3.0),
+            Vec2::new(2.0, -1.0),
+        );
+        let (Circle { radius }, circumcenter) = triangle.circumcircle();
+
+        // Calculated with external calculator
+        assert_eq!(radius, 98.34887);
+        assert_eq!(circumcenter, Vec2::new(-28.5, 92.5));
+    }
+
+    #[test]
+    fn regular_polygon_vertices() {
+        let polygon = RegularPolygon::new(1.0, 4);
+
+        // Regular polygons have a vertex at the top by default
+        let mut vertices = polygon.vertices(0.0).into_iter();
+        assert!((vertices.next().unwrap() - Vec2::Y).length() < 1e-7);
+
+        // Rotate by 45 degrees, forming an axis-aligned square
+        let mut rotated_vertices = polygon.vertices(std::f32::consts::FRAC_PI_4).into_iter();
+
+        // Distance from the origin to the middle of a side, derived using Pythagorean theorem
+        let side_sistance = std::f32::consts::FRAC_1_SQRT_2;
+        assert!(
+            (rotated_vertices.next().unwrap() - Vec2::new(-side_sistance, side_sistance)).length()
+                < 1e-7,
+        );
+    }
+
+    #[test]
+    fn rectangle_closest_point() {
+        let rectangle = Rectangle::new(2.0, 2.0);
+        assert_eq!(rectangle.closest_point(Vec2::X * 10.0), Vec2::X);
+        assert_eq!(rectangle.closest_point(Vec2::NEG_ONE * 10.0), Vec2::NEG_ONE);
+        assert_eq!(
+            rectangle.closest_point(Vec2::new(0.25, 0.1)),
+            Vec2::new(0.25, 0.1)
+        );
+    }
+
+    #[test]
+    fn circle_closest_point() {
+        let circle = Circle { radius: 1.0 };
+        assert_eq!(circle.closest_point(Vec2::X * 10.0), Vec2::X);
+        assert_eq!(
+            circle.closest_point(Vec2::NEG_ONE * 10.0),
+            Vec2::NEG_ONE.normalize()
+        );
+        assert_eq!(
+            circle.closest_point(Vec2::new(0.25, 0.1)),
+            Vec2::new(0.25, 0.1)
+        );
     }
 }
