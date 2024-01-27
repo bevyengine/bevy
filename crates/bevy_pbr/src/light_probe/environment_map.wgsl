@@ -51,7 +51,12 @@ fn compute_radiances(
         if (all(abs(probe_space_pos) <= vec3(0.5))) {
             cubemap_index = reflection_probe.cubemap_index;
             intensity = reflection_probe.intensity;
-            break;
+            // TODO: Workaround for ICE in DXC https://github.com/microsoft/DirectXShaderCompiler/issues/6183
+            // This works because it's the last thing that happens in the for loop, and will break as soon as it
+            // goes back to the top of the loop.
+            // We can't use `break` here because of the ICE.
+            // break;
+            reflection_probe_index = light_probes.reflection_probe_count;
         }
     }
 
