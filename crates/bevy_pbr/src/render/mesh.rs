@@ -806,7 +806,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("VIEW_PROJECTION_ORTHOGRAPHIC".into());
         }
 
-        #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+        #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         shader_defs.push("WEBGL2".into());
 
         if key.contains(MeshPipelineKey::TONEMAP_IN_SHADER) {
@@ -899,7 +899,11 @@ impl SpecializedMeshPipeline for MeshPipeline {
         }
 
         let mut push_constant_ranges = Vec::with_capacity(1);
-        if cfg!(all(feature = "webgl", target_arch = "wasm32")) {
+        if cfg!(all(
+            feature = "webgl",
+            target_arch = "wasm32",
+            not(feature = "webgpu")
+        )) {
             push_constant_ranges.push(PushConstantRange {
                 stages: ShaderStages::VERTEX,
                 range: 0..4,
@@ -1180,7 +1184,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
         pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
 
         let batch_range = item.batch_range();
-        #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+        #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         pass.set_push_constants(
             ShaderStages::VERTEX,
             0,
