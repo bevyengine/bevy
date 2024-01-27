@@ -8,7 +8,7 @@ linker = "clang"
 rustflags = [
   "-Clink-arg=-fuse-ld=lld", # Use LLD Linker
   "-Zshare-generics=y",      # (Nightly) Make the current crate share its generic instantiations
-  "-Zthreads=8",             # (Nightly) Use improved multithreading with 8 threads.
+  "-Zthreads=0",             # (Nightly) Use improved multithreading with the recommended amount of threads.
 ]
 
 # NOTE: you must install [Mach-O LLD Port](https://lld.llvm.org/MachO/index.html) on mac. you can easily do this by installing llvm which includes lld with the "brew" package manager:
@@ -17,20 +17,21 @@ rustflags = [
 rustflags = [
   "-Clink-arg=-fuse-ld=/usr/local/opt/llvm/bin/ld64.lld", # Use LLD Linker
   "-Zshare-generics=y",                                   # (Nightly) Make the current crate share its generic instantiations
-  "-Zthreads=8",                                          # (Nightly) Use improved multithreading with 8 threads.
+  "-Zthreads=0",                                          # (Nightly) Use improved multithreading with the recommended amount of threads.
 ]
 
 [target.aarch64-apple-darwin]
 rustflags = [
   "-Clink-arg=-fuse-ld=/opt/homebrew/opt/llvm/bin/ld64.lld", # Use LLD Linker
   "-Zshare-generics=y",                                      # (Nightly) Make the current crate share its generic instantiations
+  "-Zthreads=0",                                             # (Nightly) Use improved multithreading with the recommended amount of threads.
 ]
 
 [target.x86_64-pc-windows-msvc]
 linker = "rust-lld.exe" # Use LLD Linker
 rustflags = [
   "-Zshare-generics=n",
-  "-Zthreads=8",        # (Nightly) Use improved multithreading with 8 threads.
+  "-Zthreads=0",        # (Nightly) Use improved multithreading with the recommended amount of threads.
 ]
 
 # Optional: Uncommenting the following improves compile times, but reduces the amount of debug info to 'line number tables only'
