@@ -4,6 +4,7 @@ use crate::{
     renderer::RenderContext,
     view::ExtractedWindows,
 };
+use bevy_core::FrameCount;
 use bevy_ecs::{prelude::QueryState, world::World};
 use bevy_utils::HashSet;
 use wgpu::{LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, StoreOp};
@@ -57,10 +58,14 @@ impl Node for CameraDriverNode {
             }
         }
 
+        // For the first few frames, no pipelines have finished compiling, and so no work will have been sent to the GPU,
+        // causing error messages on startup. Scheduling some dummy work bypasses this.
+        let first_few_frames = world.resource::<FrameCount>().0 <= 5;
+
         // wgpu (and some backends) require doing work for swap chains if you call `get_current_texture()` and `present()`
         // This ensures that Bevy doesn't crash, even when there are no cameras (and therefore no work submitted).
         for (id, window) in world.resource::<ExtractedWindows>().iter() {
-            if camera_windows.contains(id) {
+            if camera_windows.contains(id) && !first_few_frames {
                 continue;
             }
 
