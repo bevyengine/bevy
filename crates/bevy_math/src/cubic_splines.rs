@@ -493,7 +493,7 @@ impl<P: Point> CubicNurbs<P> {
     }
 
     /// Normalizes weights vector using L0 norm.
-    /// The resulting weight vector's values will add up to be equal the amoutn of values in the
+    /// The resulting weight vector's values will add up to be equal the amount of values in the
     /// weights vector
     fn normalize_weights(weights: Vec<f32>) -> Vec<f32> {
         let g = weights.len() as f32;
