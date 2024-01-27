@@ -1589,7 +1589,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// ## Allowed Transmutes
     ///
     /// Like `transmute_lens` the query terms can be changed with some restrictions.
-    /// See [`transmute_lens`] for more details.
+    /// See [`Self::transmute_lens`] for more details.
     pub fn join<OtherD: QueryData, NewD: QueryData>(
         &mut self,
         other: &Query<OtherD>,
@@ -1597,7 +1597,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         self.join_filtered(other)
     }
 
-    /// Equivalent to [`join`] but also includes a `QueryFilter` type.
+    /// Equivalent to [`Self::join`] but also includes a `QueryFilter` type.
     ///
     /// Note that the lens with iterate a subset of the original queries tables
     /// and arcchetypes. This means that additional archetypal query terms like
