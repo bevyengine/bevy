@@ -207,13 +207,13 @@ pub enum NextState<S: FreelyMutableState> {
     #[default]
     Unchanged,
     /// There is a transition planned for state `S`
-    Planned(S),
+    Pending(S),
 }
 
 impl<S: FreelyMutableState> NextState<S> {
     /// Tentatively set a planned state transition to `Some(state)`.
     pub fn set(&mut self, state: S) {
-        *self = Self::Planned(state);
+        *self = Self::Pending(state);
     }
 
     /// Remove any planned changes to [`State<S>`]
@@ -428,7 +428,7 @@ pub fn apply_state_transition<S: FreelyMutableState>(world: &mut World) {
     };
 
     match next_state_resource {
-        NextState::Planned(new_state) => {
+        NextState::Pending(new_state) => {
             let new_state = new_state.clone();
             internal_apply_state_transition(world, Some(new_state));
         }
@@ -706,7 +706,7 @@ mod tests {
         assert_eq!(world.resource::<State<SimpleState>>().0, SimpleState::A);
         assert!(!world.contains_resource::<State<TestComputedState>>());
 
-        world.insert_resource(NextState::Planned(SimpleState::B(true)));
+        world.insert_resource(NextState::Pending(SimpleState::B(true)));
         world.run_schedule(StateTransition);
         assert_eq!(
             world.resource::<State<SimpleState>>().0,
@@ -717,7 +717,7 @@ mod tests {
             TestComputedState::BisTrue
         );
 
-        world.insert_resource(NextState::Planned(SimpleState::B(false)));
+        world.insert_resource(NextState::Pending(SimpleState::B(false)));
         world.run_schedule(StateTransition);
         assert_eq!(
             world.resource::<State<SimpleState>>().0,
@@ -728,7 +728,7 @@ mod tests {
             TestComputedState::BisFalse
         );
 
-        world.insert_resource(NextState::Planned(SimpleState::A));
+        world.insert_resource(NextState::Pending(SimpleState::A));
         world.run_schedule(StateTransition);
         assert_eq!(world.resource::<State<SimpleState>>().0, SimpleState::A);
         assert!(!world.contains_resource::<State<TestComputedState>>());
@@ -796,11 +796,11 @@ mod tests {
         );
         assert!(!world.contains_resource::<State<ComplexComputedState>>());
 
-        world.insert_resource(NextState::Planned(SimpleState::B(true)));
+        world.insert_resource(NextState::Pending(SimpleState::B(true)));
         world.run_schedule(StateTransition);
         assert!(!world.contains_resource::<State<ComplexComputedState>>());
 
-        world.insert_resource(NextState::Planned(OtherState {
+        world.insert_resource(NextState::Pending(OtherState {
             a_flexible_value: "felix",
             another_value: 13,
         }));
@@ -810,8 +810,8 @@ mod tests {
             ComplexComputedState::InTrueBAndUsizeAbove8
         );
 
-        world.insert_resource(NextState::Planned(SimpleState::A));
-        world.insert_resource(NextState::Planned(OtherState {
+        world.insert_resource(NextState::Pending(SimpleState::A));
+        world.insert_resource(NextState::Pending(OtherState {
             a_flexible_value: "jane",
             another_value: 13,
         }));
@@ -821,8 +821,8 @@ mod tests {
             ComplexComputedState::InAAndStrIsBobOrJane
         );
 
-        world.insert_resource(NextState::Planned(SimpleState::B(false)));
-        world.insert_resource(NextState::Planned(OtherState {
+        world.insert_resource(NextState::Pending(SimpleState::B(false)));
+        world.insert_resource(NextState::Pending(OtherState {
             a_flexible_value: "jane",
             another_value: 13,
         }));
@@ -938,8 +938,8 @@ mod tests {
         assert_eq!(world.resource::<State<SimpleState2>>().0, SimpleState2::A1);
         assert!(!world.contains_resource::<State<TestNewcomputedState>>());
 
-        world.insert_resource(NextState::Planned(SimpleState::B(true)));
-        world.insert_resource(NextState::Planned(SimpleState2::B2));
+        world.insert_resource(NextState::Pending(SimpleState::B(true)));
+        world.insert_resource(NextState::Pending(SimpleState2::B2));
         world.run_schedule(StateTransition);
         assert_eq!(
             world.resource::<State<TestNewcomputedState>>().0,
@@ -948,8 +948,8 @@ mod tests {
         assert_eq!(world.resource::<ComputedStateTransitionCounter>().enter, 1);
         assert_eq!(world.resource::<ComputedStateTransitionCounter>().exit, 0);
 
-        world.insert_resource(NextState::Planned(SimpleState2::A1));
-        world.insert_resource(NextState::Planned(SimpleState::A));
+        world.insert_resource(NextState::Pending(SimpleState2::A1));
+        world.insert_resource(NextState::Pending(SimpleState::A));
         world.run_schedule(StateTransition);
         assert_eq!(
             world.resource::<State<TestNewcomputedState>>().0,
@@ -966,8 +966,8 @@ mod tests {
             "Should Only Exit Once"
         );
 
-        world.insert_resource(NextState::Planned(SimpleState::B(true)));
-        world.insert_resource(NextState::Planned(SimpleState2::B2));
+        world.insert_resource(NextState::Pending(SimpleState::B(true)));
+        world.insert_resource(NextState::Pending(SimpleState2::B2));
         world.run_schedule(StateTransition);
         assert_eq!(
             world.resource::<State<TestNewcomputedState>>().0,
@@ -984,7 +984,7 @@ mod tests {
             "Should Only Exit Twice"
         );
 
-        world.insert_resource(NextState::Planned(SimpleState::A));
+        world.insert_resource(NextState::Pending(SimpleState::A));
         world.run_schedule(StateTransition);
         assert!(!world.contains_resource::<State<TestNewcomputedState>>());
         assert_eq!(
