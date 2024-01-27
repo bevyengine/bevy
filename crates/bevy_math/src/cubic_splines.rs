@@ -452,7 +452,7 @@ impl<P: Point> CubicNurbs<P> {
     /// start and end points.
     ///
     /// The knot vector will have a knot with multiplicity of 4 at the end and start and elements
-    /// in the middle will have a difference of 1. "Multiplicity" means taht there are N
+    /// in the middle will have a difference of 1. "Multiplicity" means that there are N
     /// consecutive elements that have the same value.
     ///
     /// Will return `None` if there are less than 4 control points
