@@ -47,13 +47,6 @@ impl ViewNode for MainOpaquePass3dNode {
         ): QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
-        if opaque_phase.items.is_empty()
-            && alpha_mask_phase.items.is_empty()
-            && (skybox_bind_group.is_none() || skybox_pipeline.is_none())
-        {
-            return Ok(());
-        }
-
         let color_attachments = [Some(target.get_color_attachment())];
         let depth_stencil_attachment = Some(depth.get_attachment(StoreOp::Store));
 

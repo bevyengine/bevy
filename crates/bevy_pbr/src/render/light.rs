@@ -1795,10 +1795,6 @@ impl Node for ShadowPassNode {
                     .get_manual(world, view_light_entity)
                     .unwrap();
 
-                if shadow_phase.items.is_empty() {
-                    continue;
-                }
-
                 let depth_stencil_attachment =
                     Some(view_light.depth_attachment.get_attachment(StoreOp::Store));
 

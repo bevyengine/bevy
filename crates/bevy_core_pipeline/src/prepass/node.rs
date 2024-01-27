@@ -43,10 +43,6 @@ impl ViewNode for PrepassNode {
         ): QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
-        if opaque_prepass_phase.items.is_empty() && alpha_mask_prepass_phase.items.is_empty() {
-            return Ok(());
-        }
-
         let mut color_attachments = vec![
             view_prepass_textures
                 .normal
@@ -61,7 +57,7 @@ impl ViewNode for PrepassNode {
             None,
         ];
 
-        // All color attachments are none: clear the color attachment list so that no fragment shader is required
+        // If all color attachments are none: clear the color attachment list so that no fragment shader is required
         if color_attachments.iter().all(Option::is_none) {
             color_attachments.clear();
         }
@@ -99,7 +95,7 @@ impl ViewNode for PrepassNode {
                 opaque_prepass_phase.render(&mut render_pass, world, view_entity);
             }
 
-            // Alpha draws
+            // Alpha masked draws
             if !alpha_mask_prepass_phase.items.is_empty() {
                 #[cfg(feature = "trace")]
                 let _alpha_mask_prepass_span = info_span!("alpha_mask_prepass").entered();
@@ -108,7 +104,7 @@ impl ViewNode for PrepassNode {
 
             drop(render_pass);
 
-            // Copy if prepass depth to the main depth texture if deferred isn't going to
+            // Copy prepass depth to the main depth texture if deferred isn't going to
             if deferred_prepass.is_none() {
                 if let Some(prepass_depth_texture) = &view_prepass_textures.depth {
                     command_encoder.copy_texture_to_texture(
