@@ -18,6 +18,7 @@ bmp = ["image/bmp"]
 webp = ["image/webp"]
 dds = ["ddsfile"]
 pnm = ["image/pnm"]
+multi-threaded = ["bevy_tasks/multi-threaded"]
 bevy_ci_testing = ["bevy_app/bevy_ci_testing"]
 
 shader_format_glsl = ["naga/glsl-in", "naga/wgsl-out", "naga_oil/glsl"]
