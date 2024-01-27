@@ -203,10 +203,10 @@ impl<S: States> Deref for State<S> {
     reflect(Resource)
 )]
 pub enum NextState<S: FreelyMutableState> {
-    /// No transition has been planned
+    /// No state transition is pending
     #[default]
     Unchanged,
-    /// There is a transition planned for state `S`
+    /// There is a pending transition for state `S`
     Pending(S),
 }
 
