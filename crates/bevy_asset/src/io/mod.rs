@@ -27,20 +27,32 @@ use futures_lite::{ready, Stream};
 use std::{
     path::{Path, PathBuf},
     pin::Pin,
+    sync::Arc,
     task::Poll,
 };
 use thiserror::Error;
 
 /// Errors that occur while loading assets.
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 pub enum AssetReaderError {
     /// Path not found.
-    #[error("path not found: {0}")]
+    #[error("Path not found: {0}")]
     NotFound(PathBuf),
 
     /// Encountered an I/O error while loading an asset.
-    #[error("encountered an io error while loading asset: {0}")]
-    Io(#[from] std::io::Error),
+    #[error("Encountered an I/O error while loading asset: {0}")]
+    Io(Arc<std::io::Error>),
+
+    /// The HTTP request completed but returned an unhandled [HTTP response status code](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status).
+    /// If the request fails before getting a status code (e.g. request timeout, interrupted connection, etc), expect [`AssetReaderError::Io`].
+    #[error("Encountered HTTP status {0:?} when loading asset")]
+    HttpError(u16),
+}
+
+impl From<std::io::Error> for AssetReaderError {
+    fn from(value: std::io::Error) -> Self {
+        Self::Io(Arc::new(value))
+    }
 }
 
 pub type Reader<'a> = dyn AsyncRead + Unpin + Send + Sync + 'a;
@@ -257,7 +269,7 @@ pub(crate) fn get_meta_path(path: &Path) -> PathBuf {
     let mut meta_path = path.to_path_buf();
     let mut extension = path
         .extension()
-        .expect("asset paths must have extensions")
+        .unwrap_or_else(|| panic!("missing extension for asset path {path:?}"))
         .to_os_string();
     extension.push(".meta");
     meta_path.set_extension(extension);

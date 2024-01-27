@@ -2,7 +2,7 @@ use crate::tonemapping::{DebandDither, Tonemapping};
 use bevy_ecs::prelude::*;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render::{
-    camera::{Camera, CameraRenderGraph, Projection},
+    camera::{Camera, CameraMainTextureUsages, CameraRenderGraph, Projection},
     extract_component::ExtractComponent,
     primitives::Frustum,
     render_resource::{LoadOp, TextureUsages},
@@ -143,6 +143,7 @@ pub struct Camera3dBundle {
     pub tonemapping: Tonemapping,
     pub dither: DebandDither,
     pub color_grading: ColorGrading,
+    pub main_texture_usages: CameraMainTextureUsages,
 }
 
 // NOTE: ideally Perspective and Orthographic defaults can share the same impl, but sadly it breaks rust's type inference
@@ -160,6 +161,7 @@ impl Default for Camera3dBundle {
             tonemapping: Default::default(),
             dither: DebandDither::Enabled,
             color_grading: ColorGrading::default(),
+            main_texture_usages: Default::default(),
         }
     }
 }

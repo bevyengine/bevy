@@ -12,7 +12,7 @@ use bevy_core_pipeline::{
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::*,
-    query::{QueryItem, ROQueryItem},
+    query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_math::{Affine3, Rect, UVec2, Vec4};
@@ -54,6 +54,8 @@ use crate::render::{
     MeshLayouts,
 };
 use crate::*;
+
+use self::environment_map::binding_arrays_are_usable;
 
 use super::skin::SkinIndices;
 
@@ -365,6 +367,12 @@ pub struct MeshPipeline {
     /// ```
     pub per_object_buffer_batch_size: Option<u32>,
 
+    /// Whether binding arrays (a.k.a. bindless textures) are usable on the
+    /// current render device.
+    ///
+    /// This affects whether reflection probes can be used.
+    pub binding_arrays_are_usable: bool,
+
     #[cfg(debug_assertions)]
     pub did_warn_about_too_many_textures: Arc<AtomicBool>,
 }
@@ -423,6 +431,7 @@ impl FromWorld for MeshPipeline {
             dummy_white_gpu_image,
             mesh_layouts: MeshLayouts::new(&render_device),
             per_object_buffer_batch_size: GpuArrayBuffer::<MeshUniform>::batch_size(&render_device),
+            binding_arrays_are_usable: binding_arrays_are_usable(&render_device),
             #[cfg(debug_assertions)]
             did_warn_about_too_many_textures: Arc::new(AtomicBool::new(false)),
         }
@@ -467,9 +476,6 @@ impl MeshPipeline {
 
 impl GetBatchData for MeshPipeline {
     type Param = (SRes<RenderMeshInstances>, SRes<RenderLightmaps>);
-    type Data = Entity;
-    type Filter = With<Mesh3d>;
-
     // The material bind group ID, the mesh ID, and the lightmap ID,
     // respectively.
     type CompareData = (MaterialBindGroupId, AssetId<Mesh>, Option<AssetId<Image>>);
@@ -478,14 +484,12 @@ impl GetBatchData for MeshPipeline {
 
     fn get_batch_data(
         (mesh_instances, lightmaps): &SystemParamItem<Self::Param>,
-        entity: &QueryItem<Self::Data>,
-    ) -> (Self::BufferData, Option<Self::CompareData>) {
-        let mesh_instance = mesh_instances
-            .get(entity)
-            .expect("Failed to find render mesh instance");
-        let maybe_lightmap = lightmaps.render_lightmaps.get(entity);
+        entity: Entity,
+    ) -> Option<(Self::BufferData, Option<Self::CompareData>)> {
+        let mesh_instance = mesh_instances.get(&entity)?;
+        let maybe_lightmap = lightmaps.render_lightmaps.get(&entity);
 
-        (
+        Some((
             MeshUniform::new(
                 &mesh_instance.transforms,
                 maybe_lightmap.map(|lightmap| lightmap.uv_rect),
@@ -495,7 +499,7 @@ impl GetBatchData for MeshPipeline {
                 mesh_instance.mesh_asset_id,
                 maybe_lightmap.map(|lightmap| lightmap.image),
             )),
-        )
+        ))
     }
 }
 
@@ -874,8 +878,9 @@ impl SpecializedMeshPipeline for MeshPipeline {
             },
         ));
 
-        #[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
-        shader_defs.push("MULTIPLE_LIGHT_PROBES_IN_ARRAY".into());
+        if self.binding_arrays_are_usable {
+            shader_defs.push("MULTIPLE_LIGHT_PROBES_IN_ARRAY".into());
+        }
 
         let format = if key.contains(MeshPipelineKey::HDR) {
             ViewTarget::TEXTURE_FORMAT_HDR
@@ -1005,7 +1010,6 @@ pub fn prepare_mesh_bind_group(
     let Some(model) = mesh_uniforms.binding() else {
         return;
     };
-
     groups.model_only = Some(layouts.model_only(&render_device, &model));
 
     let skin = skins_uniform.buffer.buffer();
@@ -1039,21 +1043,21 @@ pub fn prepare_mesh_bind_group(
 pub struct SetMeshViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> {
     type Param = ();
-    type ViewData = (
+    type ViewQuery = (
         Read<ViewUniformOffset>,
         Read<ViewLightsUniformOffset>,
         Read<ViewFogUniformOffset>,
         Read<ViewLightProbesUniformOffset>,
         Read<MeshViewBindGroup>,
     );
-    type ItemData = ();
+    type ItemQuery = ();
 
     #[inline]
     fn render<'w>(
         _item: &P,
         (view_uniform, view_lights, view_fog, view_light_probes, mesh_view_bind_group): ROQueryItem<
             'w,
-            Self::ViewData,
+            Self::ViewQuery,
         >,
         _entity: (),
         _: SystemParamItem<'w, '_, Self::Param>,
@@ -1083,8 +1087,8 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         SRes<MorphIndices>,
         SRes<RenderLightmaps>,
     );
-    type ViewData = ();
-    type ItemData = ();
+    type ViewQuery = ();
+    type ItemQuery = ();
 
     #[inline]
     fn render<'w>(
@@ -1153,8 +1157,8 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
 pub struct DrawMesh;
 impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
     type Param = (SRes<RenderAssets<Mesh>>, SRes<RenderMeshInstances>);
-    type ViewData = ();
-    type ItemData = ();
+    type ViewQuery = ();
+    type ItemQuery = ();
     #[inline]
     fn render<'w>(
         item: &P,
