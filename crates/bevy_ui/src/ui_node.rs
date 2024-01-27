@@ -1880,12 +1880,12 @@ impl TargetCamera {
 ///     ));
 /// }
 /// ```
-pub struct UiDefaultCameraMarker;
+pub struct IsDefaultUiCamera;
 
 #[derive(SystemParam)]
 pub struct DefaultUiCamera<'w, 's> {
     cameras: Query<'w, 's, (Entity, &'static Camera)>,
-    default_cameras: Query<'w, 's, Entity, (With<Camera>, With<UiDefaultCameraMarker>)>,
+    default_cameras: Query<'w, 's, Entity, (With<Camera>, With<IsDefaultUiCamera>)>,
     primary_window: Query<'w, 's, Entity, With<PrimaryWindow>>,
 }
 
@@ -1894,7 +1894,7 @@ impl<'w, 's> DefaultUiCamera<'w, 's> {
         self.default_cameras.get_single().ok().or_else(|| {
             // If there isn't a single camera and the query isn't empty, there is two or more cameras queried.
             if !self.default_cameras.is_empty() {
-                warn_once!("Two or more Entities with UiDefaultCameraMarker found when only one Camera with this marker is allowed.");
+                warn_once!("Two or more Entities with IsDefaultUiCamera found when only one Camera with this marker is allowed.");
             }
             self.cameras
                 .iter()
