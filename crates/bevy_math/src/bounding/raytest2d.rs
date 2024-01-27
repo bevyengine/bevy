@@ -72,10 +72,15 @@ impl RayTest2d {
         let projected = offset.dot(*self.ray.direction);
         let closest_point = offset - projected * *self.ray.direction;
         let distance_squared = sphere.radius().powi(2) - closest_point.length_squared();
-        if distance_squared < 0. || projected.powi(2).copysign(-projected) < distance_squared {
+        if distance_squared < 0. || projected.powi(2).copysign(-projected) < -distance_squared {
             None
         } else {
-            Some(-projected - distance_squared.sqrt())
+            let toi = -projected - distance_squared.sqrt();
+            if toi > self.max {
+                None
+            } else {
+                Some(toi.max(0.))
+            }
         }
     }
 }
