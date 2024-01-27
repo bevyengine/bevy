@@ -2,7 +2,7 @@ use crate::{render_resource::*, renderer::RenderDevice, Extract};
 use bevy_asset::{AssetEvent, AssetId, Assets};
 use bevy_ecs::system::{Res, ResMut};
 use bevy_ecs::{event::EventReader, system::Resource};
-use bevy_tasks::{AsyncComputeTaskPool, Task};
+use bevy_tasks::Task;
 use bevy_utils::{
     default,
     tracing::{debug, error},
@@ -11,6 +11,7 @@ use bevy_utils::{
 use naga::valid::Capabilities;
 use std::{
     borrow::Cow,
+    future::Future,
     hash::Hash,
     mem,
     ops::Deref,
@@ -695,7 +696,7 @@ impl PipelineCache {
         };
 
         let device = self.device.clone();
-        CachedPipelineState::Creating(AsyncComputeTaskPool::get().spawn(async move {
+        create_pipeline_task(async move {
             let vertex_buffer_layouts = descriptor
                 .vertex
                 .buffers
@@ -737,7 +738,7 @@ impl PipelineCache {
             };
 
             Pipeline::RenderPipeline(device.create_render_pipeline(&descriptor))
-        }))
+        })
     }
 
     fn try_start_create_compute_pipeline(
@@ -768,7 +769,7 @@ impl PipelineCache {
         };
 
         let device = self.device.clone();
-        CachedPipelineState::Creating(AsyncComputeTaskPool::get().spawn(async move {
+        create_pipeline_task(async move {
             let descriptor = RawComputePipelineDescriptor {
                 label: descriptor.label.as_deref(),
                 layout: layout.as_deref(),
@@ -777,7 +778,7 @@ impl PipelineCache {
             };
 
             Pipeline::ComputePipeline(device.create_compute_pipeline(&descriptor))
-        }))
+        })
     }
 
     /// Process the pipeline queue and create all pending pipelines if possible.
@@ -846,7 +847,7 @@ impl PipelineCache {
                 }
             },
 
-            CachedPipelineState::Ok(_) => unreachable!(),
+            CachedPipelineState::Ok(_) => {}
         }
 
         // Retry
@@ -878,6 +879,16 @@ impl PipelineCache {
             }
         }
     }
+}
+
+fn create_pipeline_task(
+    task: impl Future<Output = Pipeline> + Send + 'static,
+) -> CachedPipelineState {
+    #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
+    return CachedPipelineState::Creating(bevy_tasks::AsyncComputeTaskPool::get().spawn(task));
+
+    #[cfg(any(target_arch = "wasm32", not(feature = "multi-threaded")))]
+    CachedPipelineState::Ok(futures_lite::future::block_on(task))
 }
 
 /// Type of error returned by a [`PipelineCache`] when the creation of a GPU pipeline object failed.
