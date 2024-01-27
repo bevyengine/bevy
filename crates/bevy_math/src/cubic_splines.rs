@@ -289,7 +289,7 @@ impl<P: Point> CubicGenerator<P> for CubicBSpline<P> {
 
         char_matrix
             .iter_mut()
-            .for_each(|r| r.iter_mut().for_each(|c| *c = *c / 6.0));
+            .for_each(|r| r.iter_mut().for_each(|c| *c /= 6.0));
 
         let segments = self
             .control_points
