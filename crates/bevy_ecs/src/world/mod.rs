@@ -1359,7 +1359,7 @@ impl World {
         unsafe { self.as_unsafe_world_cell_readonly().get_resource() }
     }
 
-    /// Gets a reference to the resource of the given type if it exists
+    /// Gets a reference including change detection to the resource of the given type if it exists.
     #[inline]
     pub fn get_resource_ref<R: Resource>(&self) -> Option<Res<R>> {
         // SAFETY:
