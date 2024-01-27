@@ -282,19 +282,14 @@ async fn load_gltf<'a, 'b, 'c>(
                 }
             }
 
-            let handle = if let Some(name) = animation.name() {
-                let label = if settings.label_by_name {
-                    format!("Animation/{}", name)
-                } else {
-                    format!("Animation{}", animation.index())
-                };
-                let handle = load_context.add_labeled_asset(label, animation_clip);
-                named_animations.insert(name.to_string(), handle.clone());
-                handle
-            } else {
-                load_context
-                    .add_labeled_asset(format!("Animation{}", animation.index()), animation_clip)
+            let label = match (settings.label_by_name, animation.name()) {
+                (true, Some(name)) => format!("Animation/{name}"),
+                _ => format!("Animation{}", animation.index()),
             };
+            let handle = load_context.add_labeled_asset(label, animation_clip);
+            if let Some(name) = animation.name() {
+                named_animations.insert(name.to_string(), handle.clone());
+            }
             animations.push(handle);
         }
         (animations, named_animations, animation_roots)
@@ -449,7 +444,8 @@ async fn load_gltf<'a, 'b, 'c>(
             {
                 let morph_target_reader = reader.read_morph_targets();
                 if morph_target_reader.len() != 0 {
-                    let morph_targets_label = morph_targets_label(&gltf_mesh, &primitive, settings.label_by_name);
+                    let morph_targets_label =
+                        morph_targets_label(&gltf_mesh, &primitive, settings.label_by_name);
                     let morph_target_image = MorphTargetImage::new(
                         morph_target_reader.map(PrimitiveMorphAttributesIter),
                         mesh.count_vertices(),
@@ -1230,7 +1226,10 @@ fn primitive_name(mesh: &gltf::Mesh, primitive: &Primitive) -> String {
 
 /// Returns the label for the morph target of `primitive`.
 fn morph_targets_label(mesh: &gltf::Mesh, primitive: &Primitive, use_name: bool) -> String {
-    format!("{}/MorphTargets", primitive_label(mesh, primitive, use_name))
+    format!(
+        "{}/MorphTargets",
+        primitive_label(mesh, primitive, use_name)
+    )
 }
 
 /// Returns the label for the `material`.
@@ -1256,7 +1255,11 @@ fn texture_label(texture: &gltf::Texture, use_name: bool) -> String {
     }
 }
 
-fn texture_handle(load_context: &mut LoadContext, texture: &gltf::Texture, use_name: bool) -> Handle<Image> {
+fn texture_handle(
+    load_context: &mut LoadContext,
+    texture: &gltf::Texture,
+    use_name: bool,
+) -> Handle<Image> {
     match texture.source().source() {
         gltf::image::Source::View { .. } => {
             let label = texture_label(texture, use_name);
