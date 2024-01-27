@@ -17,7 +17,7 @@ impl RayTest2d {
         Self::from_ray(Ray2d { origin, direction }, max)
     }
 
-    /// Construct a [`RayTest3d`] from a [`Ray3d`] and max time of impact.
+    /// Construct a [`RayTest2d`] from a [`Ray2d`] and max time of impact.
     pub fn from_ray(ray: Ray2d, max: f32) -> Self {
         Self {
             ray,
