@@ -1862,8 +1862,7 @@ impl<T: GizmoConfigGroup> Drop for Torus3dBuilder<'_, '_, '_, T> {
             })
             .for_each(|(center, from, to)| {
                 gizmos
-                    .short_arc_3d_between(center, from, to)
-                    .color(*color)
+                    .short_arc_3d_between(center, from, to, *color)
                     .segments(*minor_segments);
             });
     }
@@ -1909,9 +1908,8 @@ fn draw_cap<T: GizmoConfigGroup>(
         .map(rotate_then_translate_3d(rotation, center))
         .for_each(|from| {
             gizmos
-                .short_arc_3d_between(center, from, top)
-                .segments(segments / 2)
-                .color(color);
+                .short_arc_3d_between(center, from, top, color)
+                .segments(segments / 2);
         });
 }
 

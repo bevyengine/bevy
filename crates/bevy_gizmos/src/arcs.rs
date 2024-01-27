@@ -308,7 +308,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
             rotation,
             angle,
             radius,
-            color: Color::default(),
+            color,
             segments: None,
         }
     }
