@@ -539,12 +539,15 @@ pub mod __macro_exports {
 #[cfg(test)]
 #[allow(clippy::disallowed_types, clippy::approx_constant)]
 mod tests {
-    use ::serde::{de::DeserializeSeed, Deserialize, Serialize};
     use bevy_utils::HashMap;
+    #[rustfmt::skip] // This is used to avoid import conflicts with `super`
+    use ::glam::{quat, vec3, Quat, Vec3};
     use ron::{
         ser::{to_string_pretty, PrettyConfig},
         Deserializer,
     };
+    #[rustfmt::skip] // This is used to avoid import conflicts with `super::`
+    use ::serde::{de::DeserializeSeed, Deserialize, Serialize};
     use std::{
         any::TypeId,
         borrow::Cow,
@@ -1995,9 +1998,8 @@ bevy_reflect::tests::Test {
     }
 
     #[cfg(feature = "glam")]
-    mod glam_tests {
+    mod glam {
         use super::*;
-        use ::glam::{quat, vec3, Quat, Vec3};
 
         #[test]
         fn quat_serialization() {
