@@ -89,6 +89,12 @@ pub struct Circle {
 impl Primitive2d for Circle {}
 
 impl Circle {
+    /// Create a new [`Circle`] from a `radius`
+    #[inline(always)]
+    pub const fn new(radius: f32) -> Self {
+        Self { radius }
+    }
+
     /// Finds the point on the circle that is closest to the given `point`.
     ///
     /// If the point is outside the circle, the returned point will be on the perimeter of the circle.
