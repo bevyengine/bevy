@@ -1,7 +1,7 @@
 #define_import_path bevy_pbr::pbr_deferred_functions
 
 #import bevy_pbr::{
-    pbr_types::{PbrInput, standard_material_new, STANDARD_MATERIAL_FLAGS_UNLIT_BIT},
+    pbr_types::{PbrInput, pbr_input_new, STANDARD_MATERIAL_FLAGS_UNLIT_BIT},
     pbr_deferred_types as deferred_types,
     pbr_functions,
     rgb9e5,
@@ -58,8 +58,7 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
 
 // Creates a PbrInput from the deferred gbuffer.
 fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) -> PbrInput {
-    var pbr: PbrInput;
-    pbr.material = standard_material_new();
+    var pbr = pbr_input_new();
 
     let flags = deferred_types::unpack_flags(gbuffer.a);
     let deferred_flags = deferred_types::mesh_material_flags_from_deferred_flags(flags);
@@ -85,8 +84,6 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
     pbr.material.reflectance = props.r;
 #endif // WEBGL2
     pbr.material.metallic = props.g;
-    // initialize specular_occlusion to 1.0. If SSAO is enabled, then this gets overwritten with proper specular occlusion. If its not, then we get spec envmap unoccluded (we have no data with which to occlude it with).
-    pbr.specular_occlusion = 1.0;
     pbr.diffuse_occlusion = vec3(props.b);
     let octahedral_normal = deferred_types::unpack_24bit_normal(gbuffer.a);
     let N = octahedral_decode(octahedral_normal);

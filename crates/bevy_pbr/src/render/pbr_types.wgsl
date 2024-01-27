@@ -105,6 +105,7 @@ fn pbr_input_new() -> PbrInput {
 
     pbr_input.material = standard_material_new();
     pbr_input.diffuse_occlusion = vec3<f32>(1.0);
+    // If SSAO is enabled, then this gets overwritten with proper specular occlusion. If its not, then we get spec envmap unoccluded (we have no data with which to occlude it with).
     pbr_input.specular_occlusion = 1.0;
 
     pbr_input.frag_coord = vec4<f32>(0.0, 0.0, 0.0, 1.0);
