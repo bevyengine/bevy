@@ -106,6 +106,8 @@ Example | Description
 [Sprite](../examples/2d/sprite.rs) | Renders a sprite
 [Sprite Flipping](../examples/2d/sprite_flipping.rs) | Renders a sprite flipped along an axis
 [Sprite Sheet](../examples/2d/sprite_sheet.rs) | Renders an animated sprite
+[Sprite Slice](../examples/2d/sprite_slice.rs) | Showcases slicing sprites into sections that can be scaled independently via the 9-patch technique
+[Sprite Tile](../examples/2d/sprite_tile.rs) | Renders a sprite tiled in a grid
 [Text 2D](../examples/2d/text2d.rs) | Generates text in 2D
 [Texture Atlas](../examples/2d/texture_atlas.rs) | Generates a texture atlas (sprite sheet) from individual sprites
 [Transparency in 2D](../examples/2d/transparency_2d.rs) | Demonstrates transparency in 2d
@@ -119,6 +121,7 @@ Example | Description
 [3D Scene](../examples/3d/3d_scene.rs) | Simple 3D scene with basic shapes and lighting
 [3D Shapes](../examples/3d/3d_shapes.rs) | A scene showcasing the built-in 3D shapes
 [3D Viewport To World](../examples/3d/3d_viewport_to_world.rs) | Demonstrates how to use the `Camera::viewport_to_world` method
+[Animated Material](../examples/3d/animated_material.rs) | Shows how to animate material properties
 [Anti-aliasing](../examples/3d/anti_aliasing.rs) | Compares different anti-aliasing methods
 [Atmospheric Fog](../examples/3d/atmospheric_fog.rs) | A scene showcasing the atmospheric fog effect
 [Blend Modes](../examples/3d/blend_modes.rs) | Showcases different blend modes
@@ -172,6 +175,7 @@ Example | Description
 [Empty](../examples/app/empty.rs) | An empty application (does nothing)
 [Empty with Defaults](../examples/app/empty_defaults.rs) | An empty application with default plugins
 [Headless](../examples/app/headless.rs) | An application that runs without default plugins
+[Log layers](../examples/app/log_layers.rs) | Illustrate how to add custom log layers
 [Logs](../examples/app/logs.rs) | Illustrate how to use generate log output
 [No Renderer](../examples/app/no_renderer.rs) | An application that runs with default plugins and displays an empty window, but without an actual renderer
 [Plugin](../examples/app/plugin.rs) | Demonstrates the creation and registration of a custom plugin
@@ -222,6 +226,8 @@ Example | Description
 --- | ---
 [Component Change Detection](../examples/ecs/component_change_detection.rs) | Change detection on components
 [Custom Query Parameters](../examples/ecs/custom_query_param.rs) | Groups commonly used compound queries and query filters into a single type
+[Custom Schedule](../examples/ecs/custom_schedule.rs) | Demonstrates how to add custom schedules
+[Dynamic ECS](../examples/ecs/dynamic.rs) | Dynamically create components, spawn entities with those components and query those components
 [ECS Guide](../examples/ecs/ecs_guide.rs) | Full guide to Bevy's ECS
 [Event](../examples/ecs/event.rs) | Illustrates event creation, activation, and reception
 [Fixed Timestep](../examples/ecs/fixed_timestep.rs) | Shows how to create systems that run every fixed timestep, rather than every tick
@@ -367,6 +373,7 @@ Example | Description
 [Overflow](../examples/ui/overflow.rs) | Simple example demonstrating overflow behavior
 [Overflow and Clipping Debug](../examples/ui/overflow_debug.rs) | An example to debug overflow and clipping behavior
 [Relative Cursor Position](../examples/ui/relative_cursor_position.rs) | Showcases the RelativeCursorPosition component
+[Render UI to Texture](../examples/ui/render_ui_to_texture.rs) | An example of rendering UI as a part of a 3D world
 [Size Constraints](../examples/ui/size_constraints.rs) | Demonstrates how the to use the size constraints to control the size of a UI node.
 [Text](../examples/ui/text.rs) | Illustrates creating and updating text
 [Text Debug](../examples/ui/text_debug.rs) | An example for debugging text layout
@@ -555,8 +562,7 @@ ruby -run -ehttpd examples/wasm
 
 Bevy support for WebGPU is being worked on, but is currently experimental.
 
-To build for WebGPU, you'll need to disable default features and add all those you need, making sure to omit the `webgl2` feature.
-
+To build for WebGPU, you'll need to enable the `webgpu` feature. This will override the `webgl2` feature, and builds with the `webgpu` feature enabled won't be able to run on browsers that don't support WebGPU.
 WebGPU depends on unstable APIs so you will also need to pass the `web_sys_unstable_apis` flag to your builds. For example:
 
 ```sh

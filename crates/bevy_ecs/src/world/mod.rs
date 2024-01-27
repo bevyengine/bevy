@@ -7,7 +7,10 @@ pub mod unsafe_world_cell;
 mod world_cell;
 
 pub use crate::change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD};
-pub use entity_ref::{EntityMut, EntityRef, EntityWorldMut, Entry, OccupiedEntry, VacantEntry};
+pub use entity_ref::{
+    EntityMut, EntityRef, EntityWorldMut, Entry, FilteredEntityMut, FilteredEntityRef,
+    OccupiedEntry, VacantEntry,
+};
 pub use spawn_batch::*;
 pub use world_cell::*;
 
@@ -15,7 +18,10 @@ use crate::{
     archetype::{ArchetypeComponentId, ArchetypeId, ArchetypeRow, Archetypes},
     bundle::{Bundle, BundleInserter, BundleSpawner, Bundles},
     change_detection::{MutUntyped, TicksMut},
-    component::{Component, ComponentDescriptor, ComponentId, ComponentInfo, Components, Tick},
+    component::{
+        Component, ComponentDescriptor, ComponentId, ComponentInfo, ComponentTicks, Components,
+        Tick,
+    },
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
     event::{Event, EventId, Events, SendBatchIds},
     query::{DebugCheckedUnwrap, QueryData, QueryEntityError, QueryFilter, QueryState},
@@ -1252,6 +1258,26 @@ impl World {
             .unwrap_or(false)
     }
 
+    /// Retrieves the change ticks for the given resource.
+    pub fn get_resource_change_ticks<R: Resource>(&self) -> Option<ComponentTicks> {
+        self.components
+            .get_resource_id(TypeId::of::<R>())
+            .and_then(|component_id| self.get_resource_change_ticks_by_id(component_id))
+    }
+
+    /// Retrieves the change ticks for the given [`ComponentId`].
+    ///
+    /// **You should prefer to use the typed API [`World::get_resource_change_ticks`] where possible.**
+    pub fn get_resource_change_ticks_by_id(
+        &self,
+        component_id: ComponentId,
+    ) -> Option<ComponentTicks> {
+        self.storages
+            .resources
+            .get(component_id)
+            .and_then(|resource| resource.get_ticks())
+    }
+
     /// Gets a reference to the resource of the given type
     ///
     /// # Panics
@@ -1305,7 +1331,7 @@ impl World {
     pub fn get_resource<R: Resource>(&self) -> Option<&R> {
         // SAFETY:
         // - `as_unsafe_world_cell_readonly` gives permission to access everything immutably
-        // - `&self` ensures nothing in world is borrowed immutably
+        // - `&self` ensures nothing in world is borrowed mutably
         unsafe { self.as_unsafe_world_cell_readonly().get_resource() }
     }
 

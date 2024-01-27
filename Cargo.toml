@@ -277,8 +277,11 @@ shader_format_spirv = ["bevy_internal/shader_format_spirv"]
 # Enable support for transmission-related textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs
 pbr_transmission_textures = ["bevy_internal/pbr_transmission_textures"]
 
-# Enable some limitations to be able to use WebGL2. If not enabled, it will default to WebGPU in Wasm. Please refer to the [WebGL2 and WebGPU](https://github.com/bevyengine/bevy/tree/latest/examples#webgl2-and-webgpu) section of the examples README for more information on how to run Wasm builds with WebGPU.
+# Enable some limitations to be able to use WebGL2. Please refer to the [WebGL2 and WebGPU](https://github.com/bevyengine/bevy/tree/latest/examples#webgl2-and-webgpu) section of the examples README for more information on how to run Wasm builds with WebGPU.
 webgl2 = ["bevy_internal/webgl"]
+
+# Enable support for WebGPU in Wasm. When enabled, this feature will override the `webgl2` feature and you won't be able to run Wasm builds with WebGL2, only with WebGPU. Requires the `RUSTFLAGS` environment variable to be set to `--cfg=web_sys_unstable_apis` when building.
+webgpu = ["bevy_internal/webgpu"]
 
 # Enables the built-in asset processor for processed assets.
 asset_processor = ["bevy_internal/asset_processor"]
@@ -456,6 +459,26 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
+name = "sprite_tile"
+path = "examples/2d/sprite_tile.rs"
+
+[package.metadata.example.sprite_tile]
+name = "Sprite Tile"
+description = "Renders a sprite tiled in a grid"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
+name = "sprite_slice"
+path = "examples/2d/sprite_slice.rs"
+
+[package.metadata.example.sprite_slice]
+name = "Sprite Slice"
+description = "Showcases slicing sprites into sections that can be scaled independently via the 9-patch technique"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
 name = "text2d"
 path = "examples/2d/text2d.rs"
 doc-scrape-examples = true
@@ -529,6 +552,17 @@ doc-scrape-examples = true
 [package.metadata.example.3d_viewport_to_world]
 name = "3D Viewport To World"
 description = "Demonstrates how to use the `Camera::viewport_to_world` method"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "animated_material"
+path = "examples/3d/animated_material.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.animated_material]
+name = "Animated Material"
+description = "Shows how to animate material properties"
 category = "3D Rendering"
 wasm = true
 
@@ -1036,6 +1070,16 @@ category = "Application"
 wasm = true
 
 [[example]]
+name = "log_layers"
+path = "examples/app/log_layers.rs"
+
+[package.metadata.example.log_layers]
+name = "Log layers"
+description = "Illustrate how to add custom log layers"
+category = "Application"
+wasm = false
+
+[[example]]
 name = "plugin"
 path = "examples/app/plugin.rs"
 doc-scrape-examples = true
@@ -1312,6 +1356,17 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "custom_schedule"
+path = "examples/ecs/custom_schedule.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_schedule]
+name = "Custom Schedule"
+description = "Demonstrates how to add custom schedules"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
 name = "custom_query_param"
 path = "examples/ecs/custom_query_param.rs"
 doc-scrape-examples = true
@@ -1319,6 +1374,17 @@ doc-scrape-examples = true
 [package.metadata.example.custom_query_param]
 name = "Custom Query Parameters"
 description = "Groups commonly used compound queries and query filters into a single type"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "dynamic"
+path = "examples/ecs/dynamic.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.dynamic]
+name = "Dynamic ECS"
+description = "Dynamically create components, spawn entities with those components and query those components"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -1856,6 +1922,7 @@ wasm = true
 name = "shader_material_glsl"
 path = "examples/shader/shader_material_glsl.rs"
 doc-scrape-examples = true
+required-features = ["shader_format_glsl"]
 
 [package.metadata.example.shader_material_glsl]
 name = "Material - GLSL"
@@ -2216,6 +2283,17 @@ doc-scrape-examples = true
 [package.metadata.example.relative_cursor_position]
 name = "Relative Cursor Position"
 description = "Showcases the RelativeCursorPosition component"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "render_ui_to_texture"
+path = "examples/ui/render_ui_to_texture.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.render_ui_to_texture]
+name = "Render UI to Texture"
+description = "An example of rendering UI as a part of a 3D world"
 category = "UI (User Interface)"
 wasm = true
 

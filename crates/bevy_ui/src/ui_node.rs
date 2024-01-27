@@ -1,11 +1,16 @@
 use crate::{UiRect, Val};
 use bevy_asset::Handle;
-use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
+use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
-use bevy_render::{color::Color, texture::Image};
+use bevy_render::{
+    camera::{Camera, RenderTarget},
+    color::Color,
+    texture::Image,
+};
 use bevy_transform::prelude::GlobalTransform;
-use bevy_utils::smallvec::SmallVec;
+use bevy_utils::{smallvec::SmallVec, warn_once};
+use bevy_window::{PrimaryWindow, WindowRef};
 use std::num::{NonZeroI16, NonZeroU16};
 use thiserror::Error;
 
@@ -1603,18 +1608,6 @@ impl From<Color> for BackgroundColor {
     }
 }
 
-/// The atlas sprite to be used in a UI Texture Atlas Node
-#[derive(Component, Clone, Debug, Reflect, Default)]
-#[reflect(Component, Default)]
-pub struct UiTextureAtlasImage {
-    /// Texture index in the TextureAtlas
-    pub index: usize,
-    /// Whether to flip the sprite in the X axis
-    pub flip_x: bool,
-    /// Whether to flip the sprite in the Y axis
-    pub flip_y: bool,
-}
-
 /// The border color of the UI node.
 #[derive(Component, Copy, Clone, Debug, Reflect)]
 #[reflect(Component, Default)]
@@ -1831,5 +1824,89 @@ mod tests {
         assert_eq!(GridPlacement::start_end(11, 21).get_span(), None);
         assert_eq!(GridPlacement::start_span(3, 5).get_end(), None);
         assert_eq!(GridPlacement::end_span(-4, 12).get_start(), None);
+    }
+}
+
+/// Indicates that this root [`Node`] entity should be rendered to a specific camera.
+/// UI then will be layed out respecting the camera's viewport and scale factor, and
+/// rendered to this camera's [`bevy_render::camera::RenderTarget`].
+///
+/// Setting this component on a non-root node will have no effect. It will be overriden
+/// by the root node's component.
+///
+/// Optional if there is only one camera in the world. Required otherwise.
+#[derive(Component, Clone, Debug, Reflect, Eq, PartialEq)]
+pub struct TargetCamera(pub Entity);
+
+impl TargetCamera {
+    pub fn entity(&self) -> Entity {
+        self.0
+    }
+}
+
+#[derive(Component)]
+/// Marker used to identify default cameras, they will have priority over the [`PrimaryWindow`] camera.
+///
+/// This is useful if the [`PrimaryWindow`] has two cameras, one of them used
+/// just for debug purposes and the user wants a way to choose the default [`Camera`]
+/// without having to add a [`TargetCamera`] to the root node.
+///
+/// Another use is when the user wants the Ui to be in another window by default,
+/// all that is needed is to place this component on the camera
+///
+/// ```
+/// # use bevy_ui::prelude::*;
+/// # use bevy_ecs::prelude::Commands;
+/// # use bevy_render::camera::{Camera, RenderTarget};
+/// # use bevy_core_pipeline::prelude::Camera2dBundle;
+/// # use bevy_window::{Window, WindowRef};
+///
+/// fn spawn_camera(mut commands: Commands) {
+///     let another_window = commands.spawn(Window {
+///         title: String::from("Another window"),
+///         ..Default::default()
+///     }).id();
+///     commands.spawn((
+///         Camera2dBundle {
+///             camera: Camera {
+///                 target: RenderTarget::Window(WindowRef::Entity(another_window)),
+///                 ..Default::default()
+///             },
+///             ..Default::default()
+///         },
+///         // We add the Marker here so all Ui will spawn in
+///         // another window if no TargetCamera is specified
+///         IsDefaultUiCamera
+///     ));
+/// }
+/// ```
+pub struct IsDefaultUiCamera;
+
+#[derive(SystemParam)]
+pub struct DefaultUiCamera<'w, 's> {
+    cameras: Query<'w, 's, (Entity, &'static Camera)>,
+    default_cameras: Query<'w, 's, Entity, (With<Camera>, With<IsDefaultUiCamera>)>,
+    primary_window: Query<'w, 's, Entity, With<PrimaryWindow>>,
+}
+
+impl<'w, 's> DefaultUiCamera<'w, 's> {
+    pub fn get(&self) -> Option<Entity> {
+        self.default_cameras.get_single().ok().or_else(|| {
+            // If there isn't a single camera and the query isn't empty, there is two or more cameras queried.
+            if !self.default_cameras.is_empty() {
+                warn_once!("Two or more Entities with IsDefaultUiCamera found when only one Camera with this marker is allowed.");
+            }
+            self.cameras
+                .iter()
+                .filter(|(_, c)| match c.target {
+                    RenderTarget::Window(WindowRef::Primary) => true,
+                    RenderTarget::Window(WindowRef::Entity(w)) => {
+                        self.primary_window.get(w).is_ok()
+                    }
+                    _ => false,
+                })
+                .max_by_key(|(e, c)| (c.order, *e))
+                .map(|(e, _)| e)
+        })
     }
 }

@@ -31,6 +31,7 @@ fn compute_radiances(
     //
     // TODO: Interpolate between multiple reflection probes.
     var cubemap_index: i32 = -1;
+    var intensity: f32 = 1.0;
     for (var reflection_probe_index: i32 = 0;
             reflection_probe_index < light_probes.reflection_probe_count;
             reflection_probe_index += 1) {
@@ -49,13 +50,20 @@ fn compute_radiances(
         let probe_space_pos = (inverse_transform * vec4<f32>(world_position, 1.0)).xyz;
         if (all(abs(probe_space_pos) <= vec3(0.5))) {
             cubemap_index = reflection_probe.cubemap_index;
-            break;
+            intensity = reflection_probe.intensity;
+            // TODO: Workaround for ICE in DXC https://github.com/microsoft/DirectXShaderCompiler/issues/6183
+            // This works because it's the last thing that happens in the for loop, and will break as soon as it
+            // goes back to the top of the loop.
+            // We can't use `break` here because of the ICE.
+            // break;
+            reflection_probe_index = light_probes.reflection_probe_count;
         }
     }
 
     // If we didn't find a reflection probe, use the view environment map if applicable.
     if (cubemap_index < 0) {
         cubemap_index = light_probes.view_cubemap_index;
+        intensity = light_probes.intensity_for_view;
     }
 
     // If there's no cubemap, bail out.
@@ -73,14 +81,14 @@ fn compute_radiances(
         bindings::diffuse_environment_maps[cubemap_index],
         bindings::environment_map_sampler,
         vec3(N.xy, -N.z),
-        0.0).rgb;
+        0.0).rgb * intensity;
 #endif  // LIGHTMAP
 
     radiances.radiance = textureSampleLevel(
         bindings::specular_environment_maps[cubemap_index],
         bindings::environment_map_sampler,
         vec3(R.xy, -R.z),
-        radiance_level).rgb;
+        radiance_level).rgb * intensity;
 
     return radiances;
 }
@@ -106,19 +114,21 @@ fn compute_radiances(
     // because textureNumLevels() does not work on WebGL2
     let radiance_level = perceptual_roughness * f32(light_probes.smallest_specular_mip_level_for_view);
 
+    let intensity = light_probes.intensity_for_view;
+
 #ifndef LIGHTMAP
     radiances.irradiance = textureSampleLevel(
         bindings::diffuse_environment_map,
         bindings::environment_map_sampler,
         vec3(N.xy, -N.z),
-        0.0).rgb;
+        0.0).rgb * intensity;
 #endif  // LIGHTMAP
 
     radiances.radiance = textureSampleLevel(
         bindings::specular_environment_map,
         bindings::environment_map_sampler,
         vec3(R.xy, -R.z),
-        radiance_level).rgb;
+        radiance_level).rgb * intensity;
 
     return radiances;
 }
