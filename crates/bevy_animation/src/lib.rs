@@ -2,6 +2,7 @@
 
 #![warn(missing_docs)]
 
+use std::fmt;
 use std::ops::Deref;
 use std::time::Duration;
 
@@ -150,6 +151,21 @@ pub struct AnimationClip {
     curves: Vec<Vec<VariableCurve>>,
     paths: HashMap<EntityPath, usize>,
     duration: f32,
+}
+
+impl fmt::Display for AnimationClip {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            formatter,
+            "AnimationClip: {{ duration: {}, paths: ",
+            self.duration
+        )?;
+        for (path, _) in self.paths.iter() {
+            write!(formatter, "\n\t{:?}", path.parts)?;
+        }
+        write!(formatter, " }}")?;
+        Ok(())
+    }
 }
 
 impl AnimationClip {
