@@ -536,8 +536,6 @@ pub mod __macro_exports {
 #[allow(clippy::disallowed_types, clippy::approx_constant)]
 mod tests {
     use bevy_utils::HashMap;
-    #[rustfmt::skip] // This is used to avoid import conflicts with `super`
-    use ::glam::{quat, vec3, Quat, Vec3};
     use ron::{
         ser::{to_string_pretty, PrettyConfig},
         Deserializer,
