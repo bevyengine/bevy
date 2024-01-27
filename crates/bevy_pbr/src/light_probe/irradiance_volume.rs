@@ -1,4 +1,10 @@
 //! Irradiance volumes, also known as voxel global illumination.
+//!
+//! An *irradiance volume* is a cuboid voxel region consisting of
+//! regularly-spaced precomputed samples of diffuse indirect light. They're
+//! ideal if you have a dynamic object such as a character that can move about
+//! static non-moving geometry such a level, and you want that dynamic object to
+//! be affected by the light bouncing off that static geometry.
 
 use bevy_ecs::component::Component;
 use bevy_render::{
