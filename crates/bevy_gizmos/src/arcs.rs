@@ -90,13 +90,13 @@ impl<T: GizmoConfigGroup> Drop for Arc2dBuilder<'_, '_, '_, T> {
             .segments
             .unwrap_or_else(|| segments_from_angle(self.arc_angle));
 
-        let positions = arc2d_inner(self.direction_angle, self.arc_angle, self.radius, segments)
+        let positions = arc_2d_inner(self.direction_angle, self.arc_angle, self.radius, segments)
             .map(|vec2| (vec2 + self.position));
         self.gizmos.linestrip_2d(positions, self.color);
     }
 }
 
-fn arc2d_inner(
+fn arc_2d_inner(
     direction_angle: f32,
     arc_angle: f32,
     radius: f32,
@@ -113,24 +113,28 @@ fn arc2d_inner(
 // === 3D ===
 
 impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
-    /// Draw an arc, which is a part of the circumference of a circle, in 3D. This defaults to
-    /// drawing a standard arc. This standard arc starts at `Vec3::X`, is embedded in the XZ plane,
-    /// rotates counterclockwise and has the following default properties:
+    /// Draw an arc, which is a part of the circumference of a circle, in 3D. For default values
+    /// this is drawing a standard arc. A standard arc is defined as
     ///
-    /// - radius: 1.0
-    /// - center: `Vec3::ZERO`
-    /// - rotation: `Quat::IDENTITY` (in XZ plane, normal points upwards)
-    /// - color: white
-    /// - segments: depending on angle
-    ///
-    /// All of these properties can be modified with builder methods which are available on the
-    /// returned struct.
+    /// - an arc with a center at `Vec3::ZERO`
+    /// - starting at `Vec3::X`
+    /// - embedded in the XZ plane
+    /// - rotates counterclockwise
     ///
     /// This should be called for each frame the arc needs to be rendered.
     ///
     /// # Arguments
-    /// - `angle` sets how much of a circle circumference is passed, e.g. PI is half a circle. This
+    /// - `angle`: sets how much of a circle circumference is passed, e.g. PI is half a circle. This
     /// value should be in the range (-2 * PI..=2 * PI)
+    /// - `radius`: distance between the arc and it's center point
+    /// - `position`: position of the arcs center point
+    /// - `rotation`: defines orientation of the arc, by default we assume the arc is contained in a
+    /// plane parallel to the XZ plane and the default starting point is (`position + Vec3::X`)
+    /// - `color`: color of the arc
+    ///
+    /// # Builder methods
+    /// The number of segments of the arc (i.e. the level of detail) can be adjusted with the
+    /// `.segements(...)` method.
     ///
     /// # Example
     /// ```
@@ -139,77 +143,75 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_math::prelude::*;
     /// # use std::f32::consts::PI;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.arc_3d(PI);
-    ///
-    ///     // This example shows how to modify the default settings
-    ///
     ///     // rotation rotates normal to point in the direction of `Vec3::NEG_ONE`
     ///     let rotation = Quat::from_rotation_arc(Vec3::Y, Vec3::NEG_ONE.normalize());
     ///
     ///     gizmos
-    ///        .arc_3d(270.0_f32.to_radians())
-    ///        .radius(0.25)
-    ///        .center(Vec3::ONE)
-    ///        .rotation(rotation)
-    ///        .segments(100)
-    ///        .color(Color::ORANGE);
+    ///        .arc_3d(
+    ///          270.0_f32.to_radians(),
+    ///          0.25,
+    ///          Vec3::ONE,
+    ///          rotation,
+    ///          Color::ORANGE
+    ///          )
+    ///          .segments(100);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn arc_3d(&mut self, angle: f32) -> Arc3dBuilder<'_, 'w, 's, T> {
+    pub fn arc_3d(
+        &mut self,
+        angle: f32,
+        radius: f32,
+        position: Vec3,
+        rotation: Quat,
+        color: Color,
+    ) -> Arc3dBuilder<'_, 'w, 's, T> {
         Arc3dBuilder {
             gizmos: self,
             start_vertex: Vec3::X,
-            center: Vec3::ZERO,
-            rotation: Quat::IDENTITY,
+            center: position,
+            rotation,
             angle,
-            radius: 1.0,
-            color: Color::default(),
+            radius,
+            color,
             segments: None,
         }
     }
 
     /// Draws the shortest arc between two points (`from` and `to`) relative to a specified `center` point.
     ///
-    /// The arc can be mofified via the arc builder pattern. The following properties can be
-    /// adjusted:
-    ///
-    /// - radius
-    /// - center
-    /// - rotation
-    /// - color
-    /// - segments
-    ///
     /// # Arguments
     ///
-    /// - `center` - The center point around which the arc is drawn.
-    /// - `from` - The starting point of the arc.
-    /// - `to` - The ending point of the arc.
+    /// - `center`: The center point around which the arc is drawn.
+    /// - `from`: The starting point of the arc.
+    /// - `to`: The ending point of the arc.
+    /// - `color`: color of the arc
+    ///
+    /// # Builder methods
+    /// The number of segments of the arc (i.e. the level of detail) can be adjusted with the
+    /// `.segements(...)` method.
     ///
     /// # Examples
     /// ```
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
-    /// # use std::f32::consts::PI;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.short_arc_3d_between(Vec3::ZERO, Vec3::X, Vec3::Y);
-    ///
-    ///     // This example shows how to modify the default settings
-    ///
-    ///     gizmos.short_arc_3d_between(Vec3::ONE, Vec3::ONE + Vec3::NEG_ONE, Vec3::ZERO)
-    ///        .radius(0.25)
-    ///        .center(Vec3::ZERO)
-    ///        .segments(100)
-    ///        .color(Color::ORANGE);
+    ///     gizmos.short_arc_3d_between(
+    ///        Vec3::ONE,
+    ///        Vec3::ONE + Vec3::NEG_ONE,
+    ///        Vec3::ZERO,
+    ///        Color::ORANGE
+    ///        )
+    ///        .segments(100);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     ///
     /// # Notes
-    /// - This method assumes that the points `from` and `to` are distinct from the `center`. If
-    /// the points are coincident with the `center`, nothing is rendered.
+    /// - This method assumes that the points `from` and `to` are distinct from `center`. If one of
+    /// the points is coincident with `center`, nothing is rendered.
     /// - The arc is drawn as a portion of a circle with a radius equal to the distance from the
     /// `center` to `from`. If the distance from `center` to `to` is not equal to the radius, then
     /// the results will behave as if this were the case
@@ -219,47 +221,43 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         center: Vec3,
         from: Vec3,
         to: Vec3,
+        color: Color,
     ) -> Arc3dBuilder<'_, 'w, 's, T> {
-        self.arc_from_to(center, from, to, |x| x)
+        self.arc_from_to(center, from, to, color, |x| x)
     }
 
     /// Draws the longest arc between two points (`from` and `to`) relative to a specified `center` point.
     ///
-    /// The arc can be modified via the arc builder pattern. The following properties can be adjusted:
-    ///
-    /// - radius
-    /// - center
-    /// - rotation
-    /// - color
-    /// - segments
-    ///
     /// # Arguments
-    /// - `center` - The center point around which the arc is drawn.
-    /// - `from` - The starting point of the arc.
-    /// - `to` - The ending point of the arc.
+    /// - `center`: The center point around which the arc is drawn.
+    /// - `from`: The starting point of the arc.
+    /// - `to`: The ending point of the arc.
+    /// - `color`: color of the arc
+    ///
+    /// # Builder methods
+    /// The number of segments of the arc (i.e. the level of detail) can be adjusted with the
+    /// `.segements(...)` method.
     ///
     /// # Examples
     /// ```
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
-    /// # use std::f32::consts::PI;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.long_arc_3d_between(Vec3::ZERO, Vec3::X, Vec3::Y);
-    ///
-    ///     // This example shows how to modify the default settings
-    ///     gizmos.long_arc_3d_between(Vec3::ONE, Vec3::ONE + Vec3::NEG_ONE, Vec3::ZERO)
-    ///        .radius(0.25)
-    ///        .center(Vec3::ZERO)
-    ///        .segments(100)
-    ///        .color(Color::ORANGE);
+    ///     gizmos.long_arc_3d_between(
+    ///        Vec3::ONE,
+    ///        Vec3::ONE + Vec3::NEG_ONE,
+    ///        Vec3::ZERO,
+    ///        Color::ORANGE
+    ///        )
+    ///        .segments(100);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     ///
     /// # Notes
-    /// - This method assumes that the points `from` and `to` are distinct from the `center`. If
-    /// the points are coincident with the `center`, nothing is rendered.
+    /// - This method assumes that the points `from` and `to` are distinct from `center`. If one of
+    /// the points is coincident with `center`, nothing is rendered.
     /// - The arc is drawn as a portion of a circle with a radius equal to the distance from the
     /// `center` to `from`. If the distance from `center` to `to` is not equal to the radius, then
     /// the results will behave as if this were the case.
@@ -269,8 +267,9 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         center: Vec3,
         from: Vec3,
         to: Vec3,
+        color: Color,
     ) -> Arc3dBuilder<'_, 'w, 's, T> {
-        self.arc_from_to(center, from, to, |angle| {
+        self.arc_from_to(center, from, to, color, |angle| {
             if angle > 0.0 {
                 TAU - angle
             } else if angle < 0.0 {
@@ -287,6 +286,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         center: Vec3,
         from: Vec3,
         to: Vec3,
+        color: Color,
         angle_fn: impl Fn(f32) -> f32,
     ) -> Arc3dBuilder<'_, 'w, 's, T> {
         // `from` and `to` can be the same here since in either case nothing gets rendered and the
@@ -308,7 +308,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
             rotation,
             angle,
             radius,
-            color: Color::default(),
+            color,
             segments: None,
         }
     }
@@ -341,30 +341,6 @@ impl<T: GizmoConfigGroup> Arc3dBuilder<'_, '_, '_, T> {
         self.segments.replace(segments);
         self
     }
-
-    /// Set the center of the standard arc
-    pub fn center(mut self, center: Vec3) -> Self {
-        self.center = center;
-        self
-    }
-
-    /// Set the radius of the arc
-    pub fn radius(mut self, radius: f32) -> Self {
-        self.radius = radius;
-        self
-    }
-
-    /// Rotate the standard arc from the XZ plane with this rotation
-    pub fn rotation(mut self, rotation: Quat) -> Self {
-        self.rotation = rotation;
-        self
-    }
-
-    /// Set the color of the arc
-    pub fn color(mut self, color: Color) -> Self {
-        self.color = color;
-        self
-    }
 }
 
 impl<T: GizmoConfigGroup> Drop for Arc3dBuilder<'_, '_, '_, T> {
@@ -377,7 +353,7 @@ impl<T: GizmoConfigGroup> Drop for Arc3dBuilder<'_, '_, '_, T> {
             .segments
             .unwrap_or_else(|| segments_from_angle(self.angle));
 
-        let positions = arc3d_inner(
+        let positions = arc_3d_inner(
             self.start_vertex,
             self.center,
             self.rotation,
@@ -389,7 +365,7 @@ impl<T: GizmoConfigGroup> Drop for Arc3dBuilder<'_, '_, '_, T> {
     }
 }
 
-fn arc3d_inner(
+fn arc_3d_inner(
     start_vertex: Vec3,
     center: Vec3,
     rotation: Quat,
