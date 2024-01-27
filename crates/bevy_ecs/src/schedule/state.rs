@@ -211,7 +211,7 @@ pub enum NextState<S: FreelyMutableState> {
 }
 
 impl<S: FreelyMutableState> NextState<S> {
-    /// Tentatively set a planned state transition to `Some(state)`.
+    /// Tentatively set a pending state transition to `Some(state)`.
     pub fn set(&mut self, state: S) {
         *self = Self::Pending(state);
     }
