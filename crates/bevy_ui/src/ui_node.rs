@@ -1876,7 +1876,7 @@ impl TargetCamera {
 ///         },
 ///         // We add the Marker here so all Ui will spawn in
 ///         // another window if no TargetCamera is specified
-///         UiDefaultCameraMarker
+///         IsDefaultUiCamera
 ///     ));
 /// }
 /// ```
