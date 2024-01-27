@@ -3,8 +3,10 @@
 use std::f32::consts::PI;
 use std::time::Duration;
 
-use bevy::{animation::RepeatAnimation, pbr::CascadeShadowConfigBuilder, prelude::*};
-use bevy_internal::gltf::GltfLoaderSettings;
+use bevy::{
+    animation::RepeatAnimation, gltf::GltfLoaderSettings, pbr::CascadeShadowConfigBuilder,
+    prelude::*,
+};
 
 fn main() {
     App::new()

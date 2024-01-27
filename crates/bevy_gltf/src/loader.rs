@@ -378,7 +378,7 @@ async fn load_gltf<'a, 'b, 'c>(
     let mut named_materials = HashMap::default();
     // NOTE: materials must be loaded after textures because image load() calls will happen before load_with_settings, preventing is_srgb from being set properly
     for material in gltf.materials() {
-        let handle = load_material(&material, load_context, false);
+        let handle = load_material(&material, load_context, false, settings.label_by_name);
         if let Some(name) = material.name() {
             named_materials.insert(name.to_string(), handle.clone());
         }
@@ -784,8 +784,9 @@ fn load_material(
     material: &Material,
     load_context: &mut LoadContext,
     is_scale_inverted: bool,
+    use_name: bool,
 ) -> Handle<StandardMaterial> {
-    let material_label = material_label(material, is_scale_inverted);
+    let material_label = material_label(material, is_scale_inverted, use_name);
     load_context.labeled_asset_scope(material_label, |load_context| {
         let pbr = material.pbr_metallic_roughness();
 
@@ -1000,7 +1001,8 @@ fn load_node(
                 // append primitives
                 for primitive in mesh.primitives() {
                     let material = primitive.material();
-                    let material_label = material_label(&material, is_scale_inverted);
+                    let material_label =
+                        material_label(&material, is_scale_inverted, settings.label_by_name);
 
                     // This will make sure we load the default material now since it would not have been
                     // added when iterating over all the gltf materials (since the default material is
@@ -1009,7 +1011,12 @@ fn load_node(
                     if !root_load_context.has_labeled_asset(&material_label)
                         && !load_context.has_labeled_asset(&material_label)
                     {
-                        load_material(&material, load_context, is_scale_inverted);
+                        load_material(
+                            &material,
+                            load_context,
+                            is_scale_inverted,
+                            settings.label_by_name,
+                        );
                     }
 
                     let primitive_label =
@@ -1211,14 +1218,17 @@ fn morph_targets_label(mesh: &gltf::Mesh, primitive: &Primitive) -> String {
 }
 
 /// Returns the label for the `material`.
-fn material_label(material: &Material, is_scale_inverted: bool) -> String {
-    if let Some(index) = material.index() {
-        format!(
-            "Material{index}{}",
-            if is_scale_inverted { " (inverted)" } else { "" }
-        )
+fn material_label(material: &Material, is_scale_inverted: bool, use_name: bool) -> String {
+    let label = match (use_name, material.name(), material.index()) {
+        (true, Some(name), _) => format!("Material/{name}"),
+        (_, _, Some(index)) => format!("Material{index}"),
+        // MaterialDefault does not get `(inverted)` label, so return it here
+        (_, _, None) => return "MaterialDefault".to_string(),
+    };
+    if is_scale_inverted {
+        format!("{label} (inverted)")
     } else {
-        "MaterialDefault".to_string()
+        label
     }
 }
 
