@@ -18,7 +18,7 @@ use std::{any::TypeId, borrow::Borrow, fmt, mem::MaybeUninit};
 
 use super::{
     NopWorldQuery, QueryBuilder, QueryComponentError, QueryData, QueryEntityError, QueryFilter,
-    QueryManyIter, QuerySingleError, ROQueryItem, ReffedQueryItem,
+    QueryManyIter, QuerySingleError, ROQueryItem, ROQueryItemRef,
 };
 
 /// Provides scoped access to a [`World`] state according to a given [`QueryData`] and [`QueryFilter`].
@@ -67,12 +67,12 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         unsafe { self.as_transmuted_state::<D::ReadOnly, F>() }
     }
 
-    /// Converts this `QueryState` reference to a `QueryState` with "reffed" access (read-only +
-    /// change detection using the [`Ref`](crate::change_detection::Ref) smart pointer)
-    pub fn as_reffed(&self) -> &QueryState<D::Reffed, F> {
-        // SAFETY: invariant on `WorldQuery` trait upholds that `D::Reffed` and `F::ReadOnly`
+    /// Converts this `QueryState` reference to a change-detection-enabled reference.
+    /// (Most often using the [`Ref`](crate::change_detection::Ref) smart pointer)
+    pub fn as_readonly_smart_ref(&self) -> &QueryState<D::ReadOnlySmartRef, F> {
+        // SAFETY: invariant on `WorldQuery` trait upholds that `D::ReadOnlySmartRef` and `F::ReadOnly`
         // have a subset of the access, and match the exact same archetypes/tables as `D`/`F` respectively.
-        unsafe { self.as_transmuted_state::<D::Reffed, F>() }
+        unsafe { self.as_transmuted_state::<D::ReadOnlySmartRef, F>() }
     }
 
     /// Converts this `QueryState` reference to a `QueryState` that does not return any data
@@ -406,7 +406,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         }
     }
 
-    /// Gets the query result in "reffed" form (Change-detection enabled read-only access) - most often using the `Ref` smart pointer, for the given [`World`] and [`Entity`].
+    /// Get change-detection enabled read-only access to the query result - according to
+    /// [`QueryData::ReadOnlySmartRef`]
     ///
     /// This can only be called for read-only queries, see [`Self::get_mut`] for write-queries.
     #[inline]
@@ -414,11 +415,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &mut self,
         world: &'w World,
         entity: Entity,
-    ) -> Result<ReffedQueryItem<'w, D>, QueryEntityError> {
+    ) -> Result<ROQueryItemRef<'w, D>, QueryEntityError> {
         self.update_archetypes(world);
         // SAFETY: query is read only
         unsafe {
-            self.as_reffed().get_unchecked_manual(
+            self.as_readonly_smart_ref().get_unchecked_manual(
                 world.as_unsafe_world_cell_readonly(),
                 entity,
                 world.last_change_tick(),

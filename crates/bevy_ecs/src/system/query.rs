@@ -4,7 +4,7 @@ use crate::{
     query::{
         BatchingStrategy, QueryCombinationIter, QueryComponentError, QueryData, QueryEntityError,
         QueryFilter, QueryIter, QueryManyIter, QueryParIter, QuerySingleError, QueryState,
-        ROQueryItem, ReadOnlyQueryData, ReffedQueryItem,
+        ROQueryItem, ROQueryItemRef, ReadOnlyQueryData,
     },
     world::{unsafe_world_cell::UnsafeWorldCell, Mut},
 };
@@ -872,7 +872,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         }
     }
 
-    /// Returns the "reffed" query item for the given [`Entity`].
+    /// Returns a change-detection-enabled shared-reference to the query data.
     ///
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
     ///
@@ -906,11 +906,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`get_mut`](Self::get_mut) to get a mutable query item.
     #[inline]
-    pub fn get_ref(&self, entity: Entity) -> Result<ReffedQueryItem<'_, D>, QueryEntityError> {
+    pub fn get_ref(&self, entity: Entity) -> Result<ROQueryItemRef<'_, D>, QueryEntityError> {
         // SAFETY: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
-            self.state.as_reffed().get_unchecked_manual(
+            self.state.as_readonly_smart_ref().get_unchecked_manual(
                 self.world,
                 entity,
                 self.last_run,

@@ -179,7 +179,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
         let field_ty = field.ty.clone();
         field_types.push(quote!(#field_ty));
         read_only_field_types.push(quote!(<#field_ty as #path::query::QueryData>::ReadOnly));
-        reffed_field_types.push(quote!(<#field_ty as #path::query::QueryData>::Reffed));
+        reffed_field_types.push(quote!(<#field_ty as #path::query::QueryData>::ReadOnlySmartRef));
     }
 
     let derive_args = &attributes.derive_args;
@@ -336,7 +336,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                 unsafe impl #user_impl_generics #path::query::QueryData
                 for #read_only_struct_name #user_ty_generics #user_where_clauses {
                     type ReadOnly = #read_only_struct_name #user_ty_generics;
-                    type Reffed = #reffed_struct_name #user_ty_generics;
+                    type ReadOnlySmartRef = #reffed_struct_name #user_ty_generics;
                 }
             }
         } else {
@@ -345,8 +345,8 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
         let reffed_data_impl = quote! {
             unsafe impl #user_impl_generics #path::query::QueryData
             for #reffed_struct_name #user_ty_generics #user_where_clauses {
-                type ReadOnly = Self; // Reffed types are always read-only
-                type Reffed = Self;
+                type ReadOnly = Self;
+                type ReadOnlySmartRef = Self;
             }
         };
 
@@ -355,7 +355,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
             unsafe impl #user_impl_generics #path::query::QueryData
             for #struct_name #user_ty_generics #user_where_clauses {
                 type ReadOnly = #read_only_struct_name #user_ty_generics;
-                type Reffed = #reffed_struct_name #user_ty_generics;
+                type ReadOnlySmartRef = #reffed_struct_name #user_ty_generics;
             }
 
             #read_only_data_impl

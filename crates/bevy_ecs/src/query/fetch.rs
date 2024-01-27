@@ -263,11 +263,13 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 pub unsafe trait QueryData: WorldQuery {
     /// The read-only variant of this [`QueryData`], which satisfies the [`ReadOnlyQueryData`] trait.
     type ReadOnly: ReadOnlyQueryData<State = <Self as WorldQuery>::State>;
-    /// The "reffed" variant of this [`QueryData`] (as in, the [`Ref`] smart pointer for change detection).
-    /// - If this [`QueryData`] doesn't have a "reffed" form (for example, [`Entity`]) - this type must be identical to [`Self::ReadOnly`].
-    /// - If this [`QueryData`] does have a "reffed" form (for example, &'w T -> Ref<'w, T>) then that would be this type.
-    /// - Note that &'w mut T should also be turned into Ref<'w, T>.
-    type Reffed: ReadOnlyQueryData<State = <Self as WorldQuery>::State>;
+    /// Change-detection enabled (if possible) shared access variant of this [`QueryData`].
+    /// - If this [`QueryData`] doesn't support change-detection (e.g, [`Entity`]) - this type must the same as [`Self::ReadOnly`].
+    /// - If this [`QueryData`] supports change-detection (for example, &'w T: Component) - this
+    /// type should be a change-detection-enabled reference, almost always using [`Ref`].
+    /// - Note that &'w mut T should also be turned into Ref<'w, T>, because this type is
+    /// explicitly read-only.
+    type ReadOnlySmartRef: ReadOnlyQueryData<State = <Self as WorldQuery>::State>;
 }
 
 /// A [`QueryData`] that is read only.
@@ -281,10 +283,10 @@ pub unsafe trait ReadOnlyQueryData: QueryData<ReadOnly = Self> {}
 pub type QueryItem<'w, Q> = <Q as WorldQuery>::Item<'w>;
 /// The read-only variant of the item type returned when a [`QueryData`] is iterated over immutably
 pub type ROQueryItem<'w, D> = QueryItem<'w, <D as QueryData>::ReadOnly>;
-/// Change-detection enabled read-only access, almost always by in the form of `Ref<T>`. Or, if `T`
-/// can't (shouldn't) be put in a `Ref` (for example: [`Entity`]) - then this is equivalent to [`ROQueryItem`].
+/// Change-detection enabled read-only access, almost always in the form of `Ref<T>`. Or, if `T`
+/// can't be accessed with a `Ref` (for example: [`Entity`]) - then this is equivalent to [`ROQueryItem`].
 /// Note that this type should always be read-only.
-pub type ReffedQueryItem<'w, D> = QueryItem<'w, <D as QueryData>::Reffed>;
+pub type ROQueryItemRef<'w, D> = QueryItem<'w, <D as QueryData>::ReadOnlySmartRef>;
 
 /// SAFETY:
 /// `update_component_access` and `update_archetype_component_access` do nothing.
@@ -349,7 +351,7 @@ unsafe impl WorldQuery for Entity {
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl QueryData for Entity {
     type ReadOnly = Self;
-    type Reffed = Self::ReadOnly;
+    type ReadOnlySmartRef = Self::ReadOnly;
 }
 
 /// SAFETY: access is read only
@@ -429,7 +431,7 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl<'a> QueryData for EntityRef<'a> {
     type ReadOnly = Self;
-    type Reffed = Self::ReadOnly;
+    type ReadOnlySmartRef = Self::ReadOnly;
 }
 
 /// SAFETY: access is read only
@@ -506,7 +508,7 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
 /// SAFETY: access of `EntityRef` is a subset of `EntityMut`
 unsafe impl<'a> QueryData for EntityMut<'a> {
     type ReadOnly = EntityRef<'a>;
-    type Reffed = Self::ReadOnly;
+    type ReadOnlySmartRef = Self::ReadOnly;
 }
 
 /// SAFETY: The accesses of `Self::ReadOnly` are a subset of the accesses of `Self`
@@ -607,7 +609,7 @@ unsafe impl<'a> WorldQuery for FilteredEntityRef<'a> {
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl<'a> QueryData for FilteredEntityRef<'a> {
     type ReadOnly = Self;
-    type Reffed = Self::ReadOnly;
+    type ReadOnlySmartRef = Self::ReadOnly;
 }
 
 /// SAFETY: Access is read-only.
@@ -720,7 +722,7 @@ unsafe impl<'a> WorldQuery for FilteredEntityMut<'a> {
 /// SAFETY: access of `FilteredEntityRef` is a subset of `FilteredEntityMut`
 unsafe impl<'a> QueryData for FilteredEntityMut<'a> {
     type ReadOnly = FilteredEntityRef<'a>;
-    type Reffed = Self::ReadOnly;
+    type ReadOnlySmartRef = Self::ReadOnly;
 }
 
 #[doc(hidden)]
@@ -861,7 +863,7 @@ unsafe impl<T: Component> WorldQuery for &T {
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl<'a, T: Component> QueryData for &'a T {
     type ReadOnly = Self;
-    type Reffed = Ref<'a, T>;
+    type ReadOnlySmartRef = Ref<'a, T>;
 }
 
 /// SAFETY: access is read only
@@ -1023,7 +1025,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
     type ReadOnly = Self;
-    type Reffed = Self;
+    type ReadOnlySmartRef = Self;
 }
 
 /// SAFETY: access is read only
@@ -1185,7 +1187,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
 /// SAFETY: access of `&T` is a subset of `&mut T`
 unsafe impl<'__w, T: Component> QueryData for &'__w mut T {
     type ReadOnly = &'__w T;
-    type Reffed = Ref<'__w, T>;
+    type ReadOnlySmartRef = Ref<'__w, T>;
 }
 
 #[doc(hidden)]
@@ -1297,7 +1299,7 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
 // SAFETY: defers to soundness of `T: WorldQuery` impl
 unsafe impl<T: QueryData> QueryData for Option<T> {
     type ReadOnly = Option<T::ReadOnly>;
-    type Reffed = Option<T::Reffed>;
+    type ReadOnlySmartRef = Option<T::ReadOnlySmartRef>;
 }
 
 /// SAFETY: [`OptionFetch`] is read only because `T` is read only
@@ -1445,7 +1447,7 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl<T: Component> QueryData for Has<T> {
     type ReadOnly = Self;
-    type Reffed = Self::ReadOnly;
+    type ReadOnlySmartRef = Self::ReadOnly;
 }
 
 /// SAFETY: [`Has`] is read only
@@ -1466,7 +1468,7 @@ macro_rules! impl_tuple_query_data {
         // SAFETY: defers to soundness `$name: WorldQuery` impl
         unsafe impl<$($name: QueryData),*> QueryData for ($($name,)*) {
             type ReadOnly = ($($name::ReadOnly,)*);
-            type Reffed = ($($name::Reffed,)*);
+            type ReadOnlySmartRef = ($($name::ReadOnlySmartRef,)*);
         }
 
         /// SAFETY: each item in the tuple is read only
@@ -1588,7 +1590,7 @@ macro_rules! impl_anytuple_fetch {
         // SAFETY: defers to soundness of `$name: WorldQuery` impl
         unsafe impl<$($name: QueryData),*> QueryData for AnyOf<($($name,)*)> {
             type ReadOnly = AnyOf<($($name::ReadOnly,)*)>;
-            type Reffed = AnyOf<($($name::Reffed,)*)>;
+            type ReadOnlySmartRef = AnyOf<($($name::ReadOnlySmartRef,)*)>;
         }
 
         /// SAFETY: each item in the tuple is read only
@@ -1666,7 +1668,7 @@ unsafe impl<D: QueryData> WorldQuery for NopWorldQuery<D> {
 /// SAFETY: `Self::ReadOnly` is `Self`
 unsafe impl<D: QueryData> QueryData for NopWorldQuery<D> {
     type ReadOnly = Self;
-    type Reffed = Self::ReadOnly;
+    type ReadOnlySmartRef = Self::ReadOnly;
 }
 
 /// SAFETY: `NopFetch` never accesses any data
@@ -1732,7 +1734,7 @@ unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
 /// SAFETY: `Self::ReadOnly` is `Self`
 unsafe impl<T: ?Sized> QueryData for PhantomData<T> {
     type ReadOnly = Self;
-    type Reffed = Self::ReadOnly;
+    type ReadOnlySmartRef = Self::ReadOnly;
 }
 
 /// SAFETY: `PhantomData` never accesses any world data.
