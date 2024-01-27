@@ -202,7 +202,7 @@ impl Segment3d {
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Polyline3d<const N: usize> {
     /// The vertices of the polyline
-    #[serde(with = "super::serde::array")]
+    #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
     pub vertices: [Vec3; N],
 }
 impl<const N: usize> Primitive3d for Polyline3d<N> {}

@@ -244,7 +244,7 @@ impl Segment2d {
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Polyline2d<const N: usize> {
     /// The vertices of the polyline
-    #[serde(with = "super::serde::array")]
+    #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
     pub vertices: [Vec2; N],
 }
 impl<const N: usize> Primitive2d for Polyline2d<N> {}
@@ -408,7 +408,7 @@ impl Rectangle {
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Polygon<const N: usize> {
     /// The vertices of the `Polygon`
-    #[serde(with = "super::serde::array")]
+    #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
     pub vertices: [Vec2; N],
 }
 impl<const N: usize> Primitive2d for Polygon<N> {}
