@@ -28,7 +28,7 @@ pub enum TextureAtlasBuilderError {
 /// A builder which is used to create a texture atlas from many individual
 /// sprites.
 pub struct TextureAtlasBuilder<'a> {
-    /// Collection of textures and their size to be packed into an atlas
+    /// Collection of texture's asset id (optional) and image data to be packed into an atlas
     textures_to_place: Vec<(Option<AssetId<Image>>, &'a Image)>,
     /// The initial atlas size in pixels.
     initial_size: Vec2,
@@ -84,6 +84,7 @@ impl<'a> TextureAtlasBuilder<'a> {
 
     /// Adds a texture to be copied to the texture atlas.
     ///
+    /// Optionally an asset id can be passed that can later be used with the texture layout to retrieve the index of this texture.
     /// The insertion order will reflect the index of the added texture in the finished texture atlas.
     pub fn add_texture(&mut self, image_id: Option<AssetId<Image>>, texture: &'a Image) {
         self.textures_to_place.push((image_id, texture));
@@ -153,8 +154,6 @@ impl<'a> TextureAtlasBuilder<'a> {
     /// Assigns indices to the textures based on the insertion order.
     /// Internally it copies all rectangles from the textures and copies them
     /// into a new texture.
-    /// It is not useful to hold a strong handle to the texture afterwards else
-    /// it will exist twice in memory.
     ///
     /// # Usage
     ///
