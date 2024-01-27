@@ -407,9 +407,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// You should not call `update_archetypes` on the returned `QueryState` as the result
     /// could be unpredictable. You might end up with a mix of archetypes that only matched
-    /// the original query + archetypes that only match the new QueryState. Most of the
-    /// safe methods on QueryState call QueryState::update_archetypes internally, so
-    /// this best used through a Query.
+    /// the original query + archetypes that only match the new `QueryState`. Most of the
+    /// safe methods on `QueryState` call [`QueryState::update_archetypes`] internally, so
+    /// this best used through a `Query`.
     ///
     /// ## Panics
     ///

@@ -1617,7 +1617,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         let world = unsafe { self.world.world() };
         let state = self
             .state
-            .join_filtered::<OtherD, OtherF, NewD, NewF>(world, &other.state);
+            .join_filtered::<OtherD, OtherF, NewD, NewF>(world, other.state);
         QueryLens {
             world: self.world,
             state,
