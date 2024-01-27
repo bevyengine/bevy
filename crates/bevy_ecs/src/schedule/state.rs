@@ -216,7 +216,7 @@ impl<S: FreelyMutableState> NextState<S> {
         *self = Self::Pending(state);
     }
 
-    /// Remove any planned changes to [`State<S>`]
+    /// Remove any pending changes to [`State<S>`]
     pub fn reset(&mut self) {
         *self = Self::Unchanged;
     }
