@@ -1,3 +1,16 @@
+//! This example shows how irradiance volumes affect the indirect lighting of
+//! objects in a scene.
+//!
+//! The controls are as follows:
+//!
+//! * Space toggles the irradiance volume on and off.
+//!
+//! * Enter toggles the camera rotation on and off.
+//!
+//! * Tab switches the object between a plain sphere and a running fox.
+//!
+//! * Clicking anywhere moves the object.
+
 use bevy::math::vec3;
 use bevy::pbr::irradiance_volume::IrradianceVolume;
 use bevy::prelude::shape::UVSphere;
@@ -26,28 +39,54 @@ static CLICK_TO_MOVE_HELP_TEXT: &str = "Click to move the object";
 // The mode the application is in.
 #[derive(Resource)]
 struct AppStatus {
+    // Whether the user wants the irradiance volume to be applied.
     irradiance_volume_present: bool,
-    fox_present: bool,
+    // Whether the user wants the unskinned sphere mesh or the skinned fox mesh.
+    model: ExampleModel,
     // Whether the user has requested the scene to rotate.
     rotating: bool,
 }
 
+// Which model the user wants to display.
+#[derive(Clone, Copy, PartialEq)]
+enum ExampleModel {
+    // The plain sphere.
+    Sphere,
+    // The fox, which is skinned.
+    Fox,
+}
+
+// Handles to all the assets used in this example.
 #[derive(Resource)]
 struct ExampleAssets {
-    sphere: Handle<Mesh>,
-    fox: Handle<Scene>,
-    main_material: Handle<StandardMaterial>,
+    // The glTF scene containing the colored floor.
     main_scene: Handle<Scene>,
+    // The 3D texture containing the irradiance volume.
     irradiance_volume: Handle<Image>,
+    // The plain sphere mesh.
+    sphere: Handle<Mesh>,
+    // The material used for the sphere.
+    sphere_material: Handle<StandardMaterial>,
+    // The glTF scene containing the animated fox.
+    fox: Handle<Scene>,
+    // The animation that the fox will play.
     fox_animation: Handle<AnimationClip>,
 }
 
+// The sphere and fox both have this component.
 #[derive(Component)]
 struct MainObject;
 
 fn main() {
+    // Create the example app.
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Bevy Irradiance Volumes Example".into(),
+                ..default()
+            }),
+            ..default()
+        }))
         .init_resource::<AppStatus>()
         .init_resource::<ExampleAssets>()
         .add_systems(Startup, setup)
@@ -86,22 +125,37 @@ fn main() {
         .run();
 }
 
+// Spawns all the scene objects.
 fn setup(
     mut commands: Commands,
     assets: Res<ExampleAssets>,
     app_status: Res<AppStatus>,
     asset_server: Res<AssetServer>,
 ) {
+    spawn_main_scene(&mut commands, &assets);
+    spawn_camera(&mut commands);
+    spawn_irradiance_volume(&mut commands, &assets);
+    spawn_light(&mut commands);
+    spawn_sphere(&mut commands, &assets);
+    spawn_fox(&mut commands, &assets);
+    spawn_text(&mut commands, &app_status, &asset_server);
+}
+
+fn spawn_main_scene(commands: &mut Commands, assets: &ExampleAssets) {
     commands.spawn(SceneBundle {
         scene: assets.main_scene.clone(),
         ..SceneBundle::default()
     });
+}
 
+fn spawn_camera(commands: &mut Commands) {
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-10.012, 4.8605, 13.281).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
+}
 
+fn spawn_irradiance_volume(commands: &mut Commands, assets: &ExampleAssets) {
     commands
         .spawn(SpatialBundle {
             transform: Transform::from_matrix(Mat4::from_cols_array_2d(&[
@@ -117,7 +171,9 @@ fn setup(
             intensity: IRRADIANCE_VOLUME_INTENSITY,
         })
         .insert(LightProbe);
+}
 
+fn spawn_light(commands: &mut Commands) {
     commands.spawn(PointLightBundle {
         point_light: PointLight {
             intensity: 250000.0,
@@ -127,17 +183,21 @@ fn setup(
         transform: Transform::from_xyz(4.0762, 5.9039, 1.0055),
         ..default()
     });
+}
 
+fn spawn_sphere(commands: &mut Commands, assets: &ExampleAssets) {
     commands
         .spawn(PbrBundle {
             mesh: assets.sphere.clone(),
-            material: assets.main_material.clone(),
+            material: assets.sphere_material.clone(),
             transform: Transform::from_xyz(0.0, SPHERE_SCALE, 0.0)
                 .with_scale(Vec3::splat(SPHERE_SCALE)),
             ..default()
         })
         .insert(MainObject);
+}
 
+fn spawn_fox(commands: &mut Commands, assets: &ExampleAssets) {
     commands
         .spawn(SceneBundle {
             scene: assets.fox.clone(),
@@ -146,7 +206,9 @@ fn setup(
             ..default()
         })
         .insert(MainObject);
+}
 
+fn spawn_text(commands: &mut Commands, app_status: &AppStatus, asset_server: &AssetServer) {
     commands.spawn(
         TextBundle {
             text: app_status.create_text(&asset_server),
@@ -188,10 +250,9 @@ impl AppStatus {
             START_ROTATION_HELP_TEXT
         };
 
-        let switch_mesh_help_text = if self.fox_present {
-            SWITCH_TO_SPHERE_HELP_TEXT
-        } else {
-            SWITCH_TO_FOX_HELP_TEXT
+        let switch_mesh_help_text = match self.model {
+            ExampleModel::Sphere => SWITCH_TO_FOX_HELP_TEXT,
+            ExampleModel::Fox => SWITCH_TO_SPHERE_HELP_TEXT,
         };
 
         Text::from_section(
@@ -229,6 +290,8 @@ fn rotate_camera(
     }
 }
 
+// Toggles between the unskinned sphere model and the skinned fox model if the
+// user requests it.
 fn change_main_object(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut app_status: ResMut<AppStatus>,
@@ -248,14 +311,17 @@ fn change_main_object(
         return;
     };
 
-    if !app_status.fox_present {
-        *sphere_visibility = Visibility::Hidden;
-        *fox_visibility = Visibility::Visible;
-        app_status.fox_present = true;
-    } else {
-        *sphere_visibility = Visibility::Visible;
-        *fox_visibility = Visibility::Hidden;
-        app_status.fox_present = false;
+    match app_status.model {
+        ExampleModel::Sphere => {
+            *sphere_visibility = Visibility::Hidden;
+            *fox_visibility = Visibility::Visible;
+            app_status.model = ExampleModel::Fox;
+        }
+        ExampleModel::Fox => {
+            *sphere_visibility = Visibility::Visible;
+            *fox_visibility = Visibility::Hidden;
+            app_status.model = ExampleModel::Sphere;
+        }
     }
 }
 
@@ -263,12 +329,13 @@ impl Default for AppStatus {
     fn default() -> Self {
         Self {
             irradiance_volume_present: true,
-            fox_present: false,
             rotating: true,
+            model: ExampleModel::Sphere,
         }
     }
 }
 
+// Turns on and off the irradiance volume as requested by the user.
 fn toggle_irradiance_volumes(
     mut commands: Commands,
     keyboard: Res<ButtonInput<KeyCode>>,
@@ -302,6 +369,7 @@ fn toggle_rotation(keyboard: Res<ButtonInput<KeyCode>>, mut app_status: ResMut<A
     }
 }
 
+// Handles clicks on the plane that reposition the object.
 fn handle_mouse_clicks(
     buttons: Res<ButtonInput<MouseButton>>,
     windows: Query<&Window, With<PrimaryWindow>>,
@@ -322,6 +390,7 @@ fn handle_mouse_clicks(
         return;
     };
 
+    // Figure out where the user clicked on the plane.
     let Some(ray) = camera.viewport_to_world(camera_transform, mouse_position) else {
         return;
     };
@@ -330,6 +399,7 @@ fn handle_mouse_clicks(
     };
     let plane_intersection = ray.origin + ray.direction.normalize() * ray_distance;
 
+    // Move all the main objeccts.
     for mut transform in main_objects.iter_mut() {
         transform.translation = vec3(
             plane_intersection.x,
@@ -341,6 +411,7 @@ fn handle_mouse_clicks(
 
 impl FromWorld for ExampleAssets {
     fn from_world(world: &mut World) -> Self {
+        // Load all the assets.
         let asset_server = world.resource::<AssetServer>();
         let fox = asset_server.load("models/animated/Fox.glb#Scene0");
         let main_scene =
@@ -358,7 +429,7 @@ impl FromWorld for ExampleAssets {
         ExampleAssets {
             sphere,
             fox,
-            main_material,
+            sphere_material: main_material,
             main_scene,
             irradiance_volume,
             fox_animation,
@@ -366,8 +437,10 @@ impl FromWorld for ExampleAssets {
     }
 }
 
+// Plays the animation on the fox.
 fn play_animations(assets: Res<ExampleAssets>, mut players: Query<&mut AnimationPlayer>) {
     for mut player in players.iter_mut() {
+        // This will safely do nothing if the animation is already playing.
         player.play(assets.fox_animation.clone()).repeat();
     }
 }
