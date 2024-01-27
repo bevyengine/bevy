@@ -34,7 +34,7 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
         in.material.reflectance, // could be fewer bits
         in.material.metallic, // could be fewer bits
         diffuse_occlusion, // is this worth including?
-        in.specular_occlusion));
+        0.0)); // spare
 #endif // WEBGL2
     let flags = deferred_types::deferred_flags_from_mesh_material_flags(in.flags, in.material.flags);
     let octahedral_normal = octahedral_encode(normalize(in.N));
@@ -80,13 +80,13 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
     let props = deferred_types::unpack_unorm3x4_plus_unorm_20_(gbuffer.b);
     // Bias to 0.5 since that's the value for almost all materials.
     pbr.material.reflectance = saturate(props.r - 0.03333333333);
-    pbr.specular_occlusion = props.b; // Treat diffuse occlusion as specular occlusion because we can't fit both in the g-buffer on webgl
 #else
     let props = deferred_types::unpack_unorm4x8_(gbuffer.b);
     pbr.material.reflectance = props.r;
-    pbr.specular_occlusion = props.a;
 #endif // WEBGL2
     pbr.material.metallic = props.g;
+    // initialize specular_occlusion to 1.0. If SSAO is enabled, then this gets overwritten with proper specular occlusion. If its not, then we get spec envmap unoccluded (we have no data with which to occlude it with).
+    pbr.specular_occlusion = 1.0;
     pbr.diffuse_occlusion = vec3(props.b);
     let octahedral_normal = deferred_types::unpack_24bit_normal(gbuffer.a);
     let N = octahedral_decode(octahedral_normal);
