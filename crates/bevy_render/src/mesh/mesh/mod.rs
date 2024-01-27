@@ -618,9 +618,12 @@ impl Mesh {
             };
 
             for weights in joints.iter_mut() {
+                // force negative weights to zero
+                weights.iter_mut().for_each(|w| *w = w.max(0.0));
+
                 let sum: f32 = weights.iter().sum();
                 if sum == 0.0 {
-                    // zero weights are invalid
+                    // all-zero weights are invalid
                     weights[0] = 1.0;
                 } else {
                     let recip = sum.recip();
