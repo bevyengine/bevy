@@ -55,8 +55,6 @@ use crate::render::{
 };
 use crate::*;
 
-use self::environment_map::binding_arrays_are_usable;
-
 use super::skin::SkinIndices;
 
 #[derive(Default)]

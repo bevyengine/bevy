@@ -20,6 +20,7 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_resource::{DynamicUniformBuffer, Sampler, Shader, ShaderType, TextureView},
     renderer::{RenderDevice, RenderQueue},
+    settings::WgpuFeatures,
     texture::{FallbackImage, Image},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
@@ -32,8 +33,7 @@ use std::ops::Deref;
 use crate::{
     irradiance_volume::IRRADIANCE_VOLUME_SHADER_HANDLE,
     light_probe::environment_map::{
-        binding_arrays_are_usable, EnvironmentMapIds, EnvironmentMapLight,
-        ENVIRONMENT_MAP_SHADER_HANDLE,
+        EnvironmentMapIds, EnvironmentMapLight, ENVIRONMENT_MAP_SHADER_HANDLE,
     },
 };
 
@@ -49,6 +49,10 @@ pub mod irradiance_volume;
 /// Because the fragment shader does a linear search through the list for each
 /// fragment, this number needs to be relatively small.
 pub const MAX_VIEW_LIGHT_PROBES: usize = 8;
+
+/// How many texture bindings are used in the fragment shader, *not* counting
+/// environment maps or irradiance volumes.
+const STANDARD_MATERIAL_FRAGMENT_SHADER_MIN_TEXTURE_BINDINGS: usize = 16;
 
 /// Adds support for light probes: cuboid bounding regions that apply global
 /// illumination to objects within them.
@@ -201,16 +205,57 @@ where
     /// array.
     render_light_probes: Vec<RenderLightProbe>,
 
+    /// Information needed to render the light probe attached directly to the
+    /// view, if applicable.
+    ///
+    /// A light probe attached directly to a view represents a "global" light
+    /// probe that affects all objects not in the bounding region of any light
+    /// probe. Currently, the only light probe type that supports this is the
+    /// [`EnvironmentMapLight`].
     view_light_probe_info: C::ViewLightProbeInfo,
 }
 
-/// A trait
+/// A trait implemented by all components that represent light probes.
+///
+/// Currently, the two light probe types are [`EnvironmentMapLight`] and
+/// [`IrradianceVolume`], for reflection probes and irradiance volumes
+/// respectively.
+///
+/// Most light probe systems are written to be generic over the type of light
+/// probe. This allows much of the code to be shared and enables easy addition
+/// of more light probe types (e.g. real-times reflection planes) in the future.
 pub trait LightProbeComponent: Send + Sync + Component + Sized {
+    /// Holds [`AssetId`]s of the texture or textures that this light probe
+    /// references.
+    ///
+    /// This can just be [`AssetId`] if the light probe only references one
+    /// texture. If it references multiple textures, it will be a structure
+    /// containing those asset IDs.
     type AssetId: Send + Sync + Clone + Eq + Hash;
+
+    /// If the light probe can be attached to the view itself (as opposed to a
+    /// cuboid region within the scene), this contains the information that will
+    /// be passed to the GPU in order to render it. Otherwise, this will be
+    /// `()`.
+    ///
+    /// Currently, only reflection probes (i.e. [`EnvironmentMapLight`]) can be
+    /// attached directly to views.
     type ViewLightProbeInfo: Send + Sync + Default;
 
+    /// Returns the asset ID or asset IDs of the texture or textures referenced
+    /// by this light probe.
     fn id(&self, image_assets: &RenderAssets<Image>) -> Option<Self::AssetId>;
+
+    /// Returns the intensity of this light probe.
+    ///
+    /// This is a scaling factor that will be multiplied by the value or values
+    /// sampled from the texture.
     fn intensity(&self) -> f32;
+
+    /// Creates an instance of [`RenderViewLightProbes`] containing all the
+    /// information needed to render this light probe.
+    ///
+    /// This is called for every light probe in view every frame.
     fn create_render_view_light_probes(
         view_component: Option<&Self>,
         image_assets: &RenderAssets<Image>,
@@ -275,8 +320,8 @@ impl Plugin for LightProbePlugin {
     }
 }
 
-/// Gathers up all light probes in the scene and assigns them to views,
-/// performing frustum culling and distance sorting in the process.
+/// Gathers up all light probes of a single type in the scene and assigns them
+/// to views, performing frustum culling and distance sorting in the process.
 ///
 /// This populates the [`RenderLightProbes`] resource.
 #[allow(clippy::too_many_arguments)]
@@ -321,11 +366,8 @@ fn gather_light_probes<C>(
         let mut render_view_light_probes =
             C::create_render_view_light_probes(view_component, &image_assets);
 
-        maybe_gather_light_probes(
-            &mut render_view_light_probes,
-            &view_reflection_probes,
-            &render_device,
-        );
+        // Gather up the light probes in the list.
+        render_view_light_probes.maybe_gather_light_probes(&view_reflection_probes, &render_device);
 
         // Record the per-view light probes.
         if render_view_light_probes.is_empty() {
@@ -340,6 +382,12 @@ fn gather_light_probes<C>(
     }
 }
 
+// A system that runs after [`gather_light_probes`] and populates the GPU
+// uniforms with the results.
+//
+// Note that, unlike [`gather_light_probes`], this system is not generic over
+// the type of light probe. It collects light probes of all types together into
+// a single structure, ready to be passed to the shader.
 fn build_light_probes_uniforms(
     mut render_light_probes: ResMut<RenderLightProbes>,
     view_query: Extract<Query<Entity, With<Camera3d>>>,
@@ -356,7 +404,8 @@ fn build_light_probes_uniforms(
             continue;
         };
 
-        // Initialize the uniform.
+        // Initialize the uniform with only the view environment map, if there
+        // is one.
         let mut light_probes_uniform = LightProbesUniform {
             reflection_probes: [RenderLightProbe::default(); MAX_VIEW_LIGHT_PROBES],
             irradiance_volumes: [RenderLightProbe::default(); MAX_VIEW_LIGHT_PROBES],
@@ -379,6 +428,8 @@ fn build_light_probes_uniforms(
                 .unwrap_or(1.0),
         };
 
+        // Add any environment maps that [`gather_light_probes`] found to the
+        // uniform.
         if let Some(render_view_environment_maps) = render_view_environment_maps {
             render_view_environment_maps.add_to_uniform(
                 &mut light_probes_uniform.reflection_probes,
@@ -386,6 +437,8 @@ fn build_light_probes_uniforms(
             );
         }
 
+        // Add any irradiance volumes that [`gather_light_probes`] found to the
+        // uniform.
         if let Some(render_view_irradiance_volumes) = render_view_irradiance_volumes {
             render_view_irradiance_volumes.add_to_uniform(
                 &mut light_probes_uniform.irradiance_volumes,
@@ -393,11 +446,12 @@ fn build_light_probes_uniforms(
             );
         }
 
+        // Attach the resulting uniform to the view.
         render_light_probes.insert(view_entity, light_probes_uniform);
     }
 }
 
-/// Uploads the result of [`gather_light_probes`] to the GPU.
+/// Uploads the result of [`build_light_probes_uniforms`] to the GPU.
 fn upload_light_probes(
     mut commands: Commands,
     light_probes_uniforms: Res<RenderLightProbes>,
@@ -433,43 +487,6 @@ impl Default for LightProbesUniform {
             smallest_specular_mip_level_for_view: 0,
             intensity_for_view: 1.0,
         }
-    }
-}
-
-/// Gathers up all reflection probes in the scene and writes them into this
-/// uniform and `render_view_environment_maps`.
-fn maybe_gather_light_probes<C>(
-    render_view_light_probes: &mut RenderViewLightProbes<C>,
-    light_probes: &[LightProbeInfo<C>],
-    render_device: &RenderDevice,
-) where
-    C: LightProbeComponent,
-{
-    if !binding_arrays_are_usable(render_device) {
-        return;
-    }
-
-    for light_probe in light_probes.iter().take(MAX_VIEW_LIGHT_PROBES) {
-        // Determine the index of the cubemap in the binding array.
-        let cubemap_index = render_view_light_probes.get_or_insert_cubemap(&light_probe.asset_id);
-
-        // Transpose the inverse transform to compress the structure on the
-        // GPU (from 4 `Vec4`s to 3 `Vec4`s). The shader will transpose it
-        // to recover the original inverse transform.
-        let inverse_transpose_transform = light_probe.inverse_transform.transpose();
-
-        // Write in the reflection probe data.
-        render_view_light_probes
-            .render_light_probes
-            .push(RenderLightProbe {
-                inverse_transpose_transform: [
-                    inverse_transpose_transform.x_axis,
-                    inverse_transpose_transform.y_axis,
-                    inverse_transpose_transform.z_axis,
-                ],
-                texture_index: cubemap_index as i32,
-                intensity: light_probe.intensity,
-            });
     }
 }
 
@@ -520,6 +537,7 @@ impl<C> RenderViewLightProbes<C>
 where
     C: LightProbeComponent,
 {
+    /// Creates a new empty list of light probes.
     fn new() -> RenderViewLightProbes<C> {
         RenderViewLightProbes {
             binding_index_to_textures: vec![],
@@ -529,10 +547,12 @@ where
         }
     }
 
+    /// Returns true if there are no light probes in the list.
     pub(crate) fn is_empty(&self) -> bool {
         self.binding_index_to_textures.is_empty()
     }
 
+    /// Returns the number of light probes in the list.
     pub(crate) fn len(&self) -> usize {
         self.binding_index_to_textures.len()
     }
@@ -550,6 +570,8 @@ where
             })
     }
 
+    /// Adds all the light probes in this structure to the supplied array, which
+    /// is expected to be shipped to the GPU.
     fn add_to_uniform(
         &self,
         render_light_probes: &mut [RenderLightProbe; MAX_VIEW_LIGHT_PROBES],
@@ -558,6 +580,39 @@ where
         render_light_probes[0..self.render_light_probes.len()]
             .copy_from_slice(&self.render_light_probes[..]);
         *render_light_probe_count = self.render_light_probes.len() as i32;
+    }
+
+    /// Gathers up all light probes of the given type in the scene and records
+    /// them in this structure.
+    fn maybe_gather_light_probes(
+        &mut self,
+        light_probes: &[LightProbeInfo<C>],
+        render_device: &RenderDevice,
+    ) {
+        if !binding_arrays_are_usable(render_device) {
+            return;
+        }
+
+        for light_probe in light_probes.iter().take(MAX_VIEW_LIGHT_PROBES) {
+            // Determine the index of the cubemap in the binding array.
+            let cubemap_index = self.get_or_insert_cubemap(&light_probe.asset_id);
+
+            // Transpose the inverse transform to compress the structure on the
+            // GPU (from 4 `Vec4`s to 3 `Vec4`s). The shader will transpose it
+            // to recover the original inverse transform.
+            let inverse_transpose_transform = light_probe.inverse_transform.transpose();
+
+            // Write in the reflection probe data.
+            self.render_light_probes.push(RenderLightProbe {
+                inverse_transpose_transform: [
+                    inverse_transpose_transform.x_axis,
+                    inverse_transpose_transform.y_axis,
+                    inverse_transpose_transform.z_axis,
+                ],
+                texture_index: cubemap_index as i32,
+                intensity: light_probe.intensity,
+            });
+        }
     }
 }
 
@@ -598,4 +653,33 @@ pub(crate) fn add_cubemap_texture_view<'a>(
             texture_views.push(&*image.texture_view);
         }
     }
+}
+
+/// Many things can go wrong when attempting to use texture binding arrays
+/// (a.k.a. bindless textures). This function checks for these pitfalls:
+///
+/// 1. If GLSL support is enabled at the feature level, then in debug mode
+/// `naga_oil` will attempt to compile all shader modules under GLSL to check
+/// validity of names, even if GLSL isn't actually used. This will cause a crash
+/// if binding arrays are enabled, because binding arrays are currently
+/// unimplemented in the GLSL backend of Naga. Therefore, we disable binding
+/// arrays if the `shader_format_glsl` feature is present.
+///
+/// 2. If there aren't enough texture bindings available to accommodate all the
+/// binding arrays, the driver will panic. So we also bail out if there aren't
+/// enough texture bindings available in the fragment shader.
+///
+/// 3. If binding arrays aren't supported on the hardware, then we obviously
+/// can't use them.
+///
+/// If binding arrays aren't usable, we disable reflection probes and limit the
+/// number of irradiance volumes in the scene to 1.
+pub(crate) fn binding_arrays_are_usable(render_device: &RenderDevice) -> bool {
+    !cfg!(feature = "shader_format_glsl")
+        && render_device.limits().max_storage_textures_per_shader_stage
+            >= (STANDARD_MATERIAL_FRAGMENT_SHADER_MIN_TEXTURE_BINDINGS + MAX_VIEW_LIGHT_PROBES)
+                as u32
+        && render_device
+            .features()
+            .contains(WgpuFeatures::TEXTURE_BINDING_ARRAY)
 }

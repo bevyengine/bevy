@@ -60,24 +60,21 @@ use bevy_render::{
         TextureSampleType, TextureView,
     },
     renderer::RenderDevice,
-    settings::WgpuFeatures,
     texture::{FallbackImage, Image},
 };
 
 use std::num::NonZeroU32;
 use std::ops::Deref;
 
-use crate::{add_cubemap_texture_view, LightProbe, MAX_VIEW_LIGHT_PROBES};
+use crate::{
+    add_cubemap_texture_view, binding_arrays_are_usable, LightProbe, MAX_VIEW_LIGHT_PROBES,
+};
 
 use super::{LightProbeComponent, RenderViewLightProbes};
 
 /// A handle to the environment map helper shader.
 pub const ENVIRONMENT_MAP_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(154476556247605696);
-
-/// How many texture bindings are used in the fragment shader, *not* counting
-/// environment maps.
-const STANDARD_MATERIAL_FRAGMENT_SHADER_MIN_TEXTURE_BINDINGS: usize = 16;
 
 /// A pair of cubemap textures that represent the surroundings of a specific
 /// area in space.
@@ -146,12 +143,12 @@ pub(crate) enum RenderViewEnvironmentMapBindGroupEntries<'a> {
         sampler: &'a Sampler,
     },
 
-    /// The version used when binding arrays aren't available on the current
+    /// The version used when binding arrays are available on the current
     /// platform.
     Multiple {
         /// A texture view of each diffuse cubemap, in the same order that they are
         /// supplied to the view (i.e. in the same order as
-        /// `binding_index_to_cubemap` in [`RenderViewEnvironmentMaps`]).
+        /// `binding_index_to_cubemap` in [`RenderViewLightProbes`]).
         ///
         /// This is a vector of `wgpu::TextureView`s. But we don't want to import
         /// `wgpu` in this crate, so we refer to it indirectly like this.
@@ -270,35 +267,6 @@ impl<'a> RenderViewEnvironmentMapBindGroupEntries<'a> {
             sampler: &fallback_image.cube.sampler,
         }
     }
-}
-
-/// Many things can go wrong when attempting to use texture binding arrays
-/// (a.k.a. bindless textures). This function checks for these pitfalls:
-///
-/// 1. If GLSL support is enabled at the feature level, then in debug mode
-/// `naga_oil` will attempt to compile all shader modules under GLSL to check
-/// validity of names, even if GLSL isn't actually used. This will cause a crash
-/// if binding arrays are enabled, because binding arrays are currently
-/// unimplemented in the GLSL backend of Naga. Therefore, we disable binding
-/// arrays if the `shader_format_glsl` feature is present.
-///
-/// 2. If there aren't enough texture bindings available to accommodate all the
-/// binding arrays, the driver will panic. So we also bail out if there aren't
-/// enough texture bindings available in the fragment shader.
-///
-/// 3. If binding arrays aren't supported on the hardware, then we obviously
-/// can't use them.
-///
-/// If binding arrays aren't usable, we disable reflection probes, as they rely
-/// on them.
-pub(crate) fn binding_arrays_are_usable(render_device: &RenderDevice) -> bool {
-    !cfg!(feature = "shader_format_glsl")
-        && render_device.limits().max_storage_textures_per_shader_stage
-            >= (STANDARD_MATERIAL_FRAGMENT_SHADER_MIN_TEXTURE_BINDINGS + MAX_VIEW_LIGHT_PROBES)
-                as u32
-        && render_device
-            .features()
-            .contains(WgpuFeatures::TEXTURE_BINDING_ARRAY)
 }
 
 impl LightProbeComponent for EnvironmentMapLight {

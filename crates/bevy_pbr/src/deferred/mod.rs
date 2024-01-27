@@ -475,13 +475,13 @@ pub fn prepare_deferred_lighting_pipelines(
             view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
         }
 
-        // We don't need to check to see whether the environment maps and/or
-        // irradiance volumes are loaded because [`gather_light_probes`] already
-        // checked that for us before adding the [`RenderViewEnvironmentMaps`]
-        // component.
+        // We don't need to check to see whether the environment map is loaded
+        // because [`gather_light_probes`] already checked that for us before
+        // adding the [`RenderViewEnvironmentMaps`] component.
         if has_environment_maps {
             view_key |= MeshPipelineKey::ENVIRONMENT_MAP;
         }
+
         if has_irradiance_volumes {
             view_key |= MeshPipelineKey::IRRADIANCE_VOLUME;
         }
