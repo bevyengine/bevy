@@ -168,24 +168,6 @@ impl Ellipse {
 
     /// Returns the length of the semi-major axis. This corresponds to the longest radius of the ellipse.
     #[inline(always)]
-    pub const fn new(half_width: f32, half_height: f32) -> Self {
-        Self {
-            half_size: Vec2::new(half_width, half_height),
-        }
-    }
-
-    /// Create a new `Ellipse` from a given full size.
-    ///
-    /// `size.x` is the diameter along the X axis, and `size.y` is the diameter along the Y axis.
-    #[inline]
-    pub fn from_size(size: Vec2) -> Self {
-        Self {
-            half_size: size / 2.0,
-        }
-    }
-
-    /// Returns the length of the semi-major axis. This corresponds to the longest radius of the ellipse.
-    #[inline]
     pub fn semi_major(self) -> f32 {
         self.half_size.max_element()
     }
@@ -200,11 +182,6 @@ impl Ellipse {
     #[inline(always)]
     pub fn area(&self) -> f32 {
         PI * self.half_size.x * self.half_size.y
-    }
-  
-    #[inline]
-    pub fn semi_minor(self) -> f32 {
-        self.half_size.min_element()
     }
 }
 
