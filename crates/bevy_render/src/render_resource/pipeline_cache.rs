@@ -707,15 +707,13 @@ impl PipelineCache {
                 })
                 .collect::<Vec<_>>();
 
-            let fragment_data = if let Some(fragment) = &descriptor.fragment {
-                Some((
+            let fragment_data = descriptor.fragment.as_ref().map(|fragment| {
+                (
                     fragment_module.unwrap(),
                     fragment.entry_point.deref(),
                     fragment.targets.as_slice(),
-                ))
-            } else {
-                None
-            };
+                )
+            });
 
             let descriptor = RawRenderPipelineDescriptor {
                 multiview: None,
