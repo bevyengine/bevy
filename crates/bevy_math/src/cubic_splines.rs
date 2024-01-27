@@ -365,10 +365,10 @@ impl<P: Point> CubicNurbs<P> {
     /// Build a Non-Uniform Rational B-Spline.
     ///
     /// If provided, weights vector must have the same amount of items as the control points
-    /// vector.
+    /// vector. Defaults to equal weights.
     ///
     /// If provided, the knot vector must have n + 4 elements, where n is the amount of control
-    /// points.
+    /// points. Defaults to open uniform knot vector: [`Self::open_uniform_knot_vector`].
     ///
     /// At least 4 points must be provided, otherwise an error will be returned.
     pub fn new(
