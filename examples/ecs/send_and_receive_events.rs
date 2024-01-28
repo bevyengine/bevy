@@ -34,7 +34,7 @@ fn main() {
                 debug_events,
                 send_and_receive_param_set,
                 debug_events,
-                send_and_receive_local_event_reader,
+                send_and_receive_manual_event_reader,
                 debug_events,
             )
                 .chain(),
@@ -137,7 +137,7 @@ fn send_and_receive_param_set(
 }
 
 /// A system that both sends and receives events using a [`Local`] [`ManualEventReader`].
-fn send_and_receive_local_event_reader(
+fn send_and_receive_manual_event_reader(
     // The `Local` `SystemParam` stores state inside the system itself, rather than in the world.
     // `ManualEventReader<T>` is the internal state of `EventReader<T>`, which tracks which events have been seen.
     mut local_event_reader: Local<ManualEventReader<DebugEvent>>,
