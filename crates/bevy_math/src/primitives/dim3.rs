@@ -84,7 +84,8 @@ impl std::ops::Neg for Direction3d {
 }
 
 /// A sphere primitive
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Sphere {
     /// The radius of the sphere
     pub radius: f32,
@@ -120,7 +121,8 @@ impl Sphere {
 
 /// An unbounded plane in 3D space. It forms a separating surface through the origin,
 /// stretching infinitely far
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Plane3d {
     /// The normal of the plane. The plane will be placed perpendicular to this direction
     pub normal: Direction3d,
@@ -144,7 +146,8 @@ impl Plane3d {
 /// An infinite line along a direction in 3D space.
 ///
 /// For a finite line: [`Segment3d`]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Line3d {
     /// The direction of the line
     pub direction: Direction3d,
@@ -153,7 +156,8 @@ impl Primitive3d for Line3d {}
 
 /// A segment of a line along a direction in 3D space.
 #[doc(alias = "LineSegment3d")]
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Segment3d {
     /// The direction of the line
     pub direction: Direction3d,
@@ -200,9 +204,11 @@ impl Segment3d {
 /// A series of connected line segments in 3D space.
 ///
 /// For a version without generics: [`BoxedPolyline3d`]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Polyline3d<const N: usize> {
     /// The vertices of the polyline
+    #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
     pub vertices: [Vec3; N],
 }
 impl<const N: usize> Primitive3d for Polyline3d<N> {}
@@ -229,7 +235,8 @@ impl<const N: usize> Polyline3d<N> {
 /// in a `Box<[Vec3]>`.
 ///
 /// For a version without alloc: [`Polyline3d`]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct BoxedPolyline3d {
     /// The vertices of the polyline
     pub vertices: Box<[Vec3]>,
@@ -253,7 +260,8 @@ impl BoxedPolyline3d {
 }
 
 /// A cuboid primitive, more commonly known as a box.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Cuboid {
     /// Half of the width, height and depth of the cuboid
     pub half_size: Vec3,
@@ -285,7 +293,8 @@ impl Cuboid {
 }
 
 /// A cylinder primitive
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Cylinder {
     /// The radius of the cylinder
     pub radius: f32,
@@ -306,7 +315,8 @@ impl Cylinder {
 
 /// A capsule primitive.
 /// A capsule is defined as a surface at a distance (radius) from a line
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Capsule {
     /// The radius of the capsule
     pub radius: f32,
@@ -327,7 +337,8 @@ impl Capsule {
 }
 
 /// A cone primitive.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Cone {
     /// The radius of the base
     pub radius: f32,
@@ -339,7 +350,8 @@ impl Primitive3d for Cone {}
 /// A conical frustum primitive.
 /// A conical frustum can be created
 /// by slicing off a section of a cone.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct ConicalFrustum {
     /// The radius of the top of the frustum
     pub radius_top: f32,
@@ -370,6 +382,7 @@ pub enum TorusKind {
 
 /// A torus primitive, often representing a ring or donut shape
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Torus {
     /// The radius of the tube of the torus
     #[doc(

@@ -21,7 +21,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         with:
           path: |
             target
@@ -42,7 +42,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/bin/
@@ -78,7 +78,7 @@ jobs:
           sudo apt-get update
           sudo apt install -y xvfb libegl1-mesa libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
       - uses: actions/checkout@v4
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/bin/
@@ -134,7 +134,7 @@ jobs:
         with:
           target: wasm32-unknown-unknown
 
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/bin/
@@ -219,7 +219,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/bin/

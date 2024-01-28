@@ -482,7 +482,11 @@ mod impls {
     #[cfg(feature = "glam")]
     mod glam;
     #[cfg(feature = "bevy_math")]
-    mod rect;
+    mod math {
+        mod primitives2d;
+        mod primitives3d;
+        mod rect;
+    }
     #[cfg(feature = "smallvec")]
     mod smallvec;
     #[cfg(feature = "smol_str")]
@@ -541,6 +545,7 @@ mod tests {
         ser::{to_string_pretty, PrettyConfig},
         Deserializer,
     };
+    use static_assertions::{assert_impl_all, assert_not_impl_all};
     use std::{
         any::TypeId,
         borrow::Cow,
@@ -1864,18 +1869,108 @@ bevy_reflect::tests::Test {
     }
 
     #[test]
+    fn should_allow_custom_where() {
+        #[derive(Reflect)]
+        #[reflect(where T: Default)]
+        struct Foo<T>(String, #[reflect(ignore)] PhantomData<T>);
+
+        #[derive(Default, TypePath)]
+        struct Bar;
+
+        #[derive(TypePath)]
+        struct Baz;
+
+        assert_impl_all!(Foo<Bar>: Reflect);
+        assert_not_impl_all!(Foo<Baz>: Reflect);
+    }
+
+    #[test]
+    fn should_allow_empty_custom_where() {
+        #[derive(Reflect)]
+        #[reflect(where)]
+        struct Foo<T>(String, #[reflect(ignore)] PhantomData<T>);
+
+        #[derive(TypePath)]
+        struct Bar;
+
+        assert_impl_all!(Foo<Bar>: Reflect);
+    }
+
+    #[test]
+    fn should_allow_multiple_custom_where() {
+        #[derive(Reflect)]
+        #[reflect(where T: Default + FromReflect)]
+        #[reflect(where U: std::ops::Add<T> + FromReflect)]
+        struct Foo<T, U>(T, U);
+
+        #[derive(Reflect)]
+        struct Baz {
+            a: Foo<i32, i32>,
+            b: Foo<u32, u32>,
+        }
+
+        assert_impl_all!(Foo<i32, i32>: Reflect);
+        assert_not_impl_all!(Foo<i32, usize>: Reflect);
+    }
+
+    #[test]
+    fn should_allow_custom_where_wtih_assoc_type() {
+        trait Trait {
+            type Assoc: FromReflect + TypePath;
+        }
+
+        // We don't need `T` to be `Reflect` since we only care about `T::Assoc`
+        #[derive(Reflect)]
+        #[reflect(where T::Assoc: FromReflect)]
+        struct Foo<T: Trait>(T::Assoc);
+
+        #[derive(TypePath)]
+        struct Bar;
+
+        impl Trait for Bar {
+            type Assoc = usize;
+        }
+
+        assert_impl_all!(Foo<Bar>: Reflect);
+    }
+
+    #[test]
     fn recursive_typed_storage_does_not_hang() {
         #[derive(Reflect)]
         struct Recurse<T>(T);
 
         let _ = <Recurse<Recurse<()>> as Typed>::type_info();
         let _ = <Recurse<Recurse<()>> as TypePath>::type_path();
+
+        #[derive(Reflect)]
+        struct SelfRecurse {
+            recurse: Vec<SelfRecurse>,
+        }
+
+        let _ = <SelfRecurse as Typed>::type_info();
+        let _ = <SelfRecurse as TypePath>::type_path();
+
+        #[derive(Reflect)]
+        enum RecurseA {
+            Recurse(RecurseB),
+        }
+
+        #[derive(Reflect)]
+        struct RecurseB {
+            vector: Vec<RecurseA>,
+        }
+
+        let _ = <RecurseA as Typed>::type_info();
+        let _ = <RecurseA as TypePath>::type_path();
+        let _ = <RecurseB as Typed>::type_info();
+        let _ = <RecurseB as TypePath>::type_path();
     }
 
     #[test]
     fn can_opt_out_type_path() {
         #[derive(Reflect)]
         #[reflect(type_path = false)]
+        #[reflect(where)]
         struct Foo<T> {
             #[reflect(ignore)]
             _marker: PhantomData<T>,
