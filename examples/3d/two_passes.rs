@@ -1,6 +1,5 @@
 //! Renders two 3d passes to the same window from different perspectives.
 
-use bevy::pbr::light_consts;
 use bevy::prelude::*;
 
 fn main() {

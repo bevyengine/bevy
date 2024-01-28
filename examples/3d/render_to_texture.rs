@@ -93,7 +93,7 @@ fn setup(
         PointLightBundle {
             transform: Transform::from_translation(Vec3::new(0.0, 0.0, 10.0)),
             point_light: PointLight {
-                intensity: 150_000.0,
+                intensity: 10_000_000.0,
                 ..default()
             },
             ..default()

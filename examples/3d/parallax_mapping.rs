@@ -3,7 +3,11 @@
 
 use std::fmt;
 
-use bevy::{prelude::*, render::render_resource::TextureFormat, window::close_on_esc};
+use bevy::{
+    prelude::*,
+    render::{camera::ExposureSettings, render_resource::TextureFormat},
+    window::close_on_esc,
+};
 
 fn main() {
     App::new()
@@ -217,6 +221,7 @@ fn setup(
             ..default()
         },
         CameraController,
+        ExposureSettings::INDOOR,
     ));
 
     // light

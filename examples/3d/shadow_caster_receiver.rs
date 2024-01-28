@@ -3,7 +3,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    pbr::{CascadeShadowConfigBuilder, NotShadowCaster, NotShadowReceiver},
+    pbr::{light_consts, CascadeShadowConfigBuilder, NotShadowCaster, NotShadowReceiver},
     prelude::*,
 };
 
@@ -98,7 +98,7 @@ fn setup(
 
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            illuminance: 1500.0,
+            illuminance: light_consts::lux::FULL_DAYLIGHT,
             shadows_enabled: true,
             ..default()
         },
@@ -142,7 +142,7 @@ fn toggle_light(
         for mut light in &mut directional_lights {
             light.illuminance = if light.illuminance == 0.0 {
                 println!("Using DirectionalLight");
-                1500.0
+                light_consts::lux::OVERCAST_DAY
             } else {
                 0.0
             };

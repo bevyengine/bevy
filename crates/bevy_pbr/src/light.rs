@@ -621,7 +621,7 @@ fn calculate_cascade(
 /// # use bevy_ecs::system::ResMut;
 /// # use bevy_pbr::AmbientLight;
 /// fn setup_ambient_light(mut ambient_light: ResMut<AmbientLight>) {
-///    ambient_light.brightness = 20.0;
+///    ambient_light.brightness = 100.0;
 /// }
 /// ```
 #[derive(Resource, Clone, Debug, ExtractResource, Reflect)]
@@ -636,7 +636,7 @@ impl Default for AmbientLight {
     fn default() -> Self {
         Self {
             color: Color::rgb(1.0, 1.0, 1.0),
-            brightness: 8.0,
+            brightness: 50.0,
         }
     }
 }

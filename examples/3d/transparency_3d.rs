@@ -2,7 +2,6 @@
 //! Shows the effects of different blend modes.
 //! The `fade_transparency` system smoothly changes the transparency over time.
 
-use bevy::pbr::light_consts;
 use bevy::prelude::*;
 
 fn main() {

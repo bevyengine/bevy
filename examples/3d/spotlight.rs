@@ -1,6 +1,6 @@
 use std::f32::consts::*;
 
-use bevy::{pbr::NotShadowCaster, render::camera::ExposureSettings, prelude::*};
+use bevy::{pbr::NotShadowCaster, prelude::*, render::camera::ExposureSettings};
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
 fn main() {

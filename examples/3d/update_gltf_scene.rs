@@ -1,7 +1,6 @@
 //! Update a scene from a glTF file, either by spawning the scene as a child of another entity,
 //! or by accessing the entities of the scene.
 
-use bevy::pbr::light_consts;
 use bevy::{pbr::DirectionalLightShadowMap, prelude::*};
 
 fn main() {
