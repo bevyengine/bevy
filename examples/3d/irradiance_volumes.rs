@@ -211,7 +211,7 @@ fn spawn_fox(commands: &mut Commands, assets: &ExampleAssets) {
 fn spawn_text(commands: &mut Commands, app_status: &AppStatus, asset_server: &AssetServer) {
     commands.spawn(
         TextBundle {
-            text: app_status.create_text(&asset_server),
+            text: app_status.create_text(asset_server),
             ..TextBundle::default()
         }
         .with_style(Style {
