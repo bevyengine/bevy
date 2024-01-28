@@ -155,11 +155,6 @@ pub trait AppGizmoBuilder {
         group: T,
         config: GizmoConfig,
     ) -> &mut Self;
-
-    /// Insert the [`GizmoConfig`] in the given [`GizmoConfigGroup`]
-    ///
-    /// This method expects the given group to be already inserted in [`GizmoConfigStore`].
-    fn set_gizmo_group_config<T: GizmoConfigGroup>(&mut self, config: GizmoConfig) -> &mut Self;
 }
 
 impl AppGizmoBuilder for App {
@@ -205,18 +200,6 @@ impl AppGizmoBuilder for App {
         };
 
         render_app.add_systems(ExtractSchedule, extract_gizmo_data::<T>);
-
-        self
-    }
-
-    fn set_gizmo_group_config<T: GizmoConfigGroup>(&mut self, config: GizmoConfig) -> &mut Self {
-        if let Some((old_config, _)) = self
-            .world
-            .get_resource_or_insert_with::<GizmoConfigStore>(Default::default)
-            .get_config_mut_dyn(&TypeId::of::<T>())
-        {
-            *old_config = config;
-        }
 
         self
     }
