@@ -19,7 +19,7 @@ use bevy_utils::EntityHashMap;
 ///
 /// ```
 /// use bevy_ecs::prelude::*;
-/// use bevy_ecs::entity::{MapEntities};
+/// use bevy_ecs::entity::MapEntities;
 ///
 /// #[derive(Component)]
 /// struct Spring {
@@ -38,22 +38,24 @@ use bevy_utils::EntityHashMap;
 pub trait MapEntities {
     /// Updates all [`Entity`] references stored inside using `entity_mapper`.
     ///
-    /// Implementors should look up any and all [`Entity`] values stored within and
+    /// Implementors should look up any and all [`Entity`] values stored within `self` and
     /// update them to the mapped values via `entity_mapper`.
     fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M);
 }
 
-/// Any implementor of this trait knows how to map an [`Entity`] into another [`Entity`].
+/// An implementor of this trait knows how to map an [`Entity`] into another [`Entity`].
 ///
-/// Usually this is done by using a [`EntityHashMap<Entity, Entity>`] to map the [`Entity`] references.
-/// This can be used to map [`Entity`] references from one [`World`] to another.
+/// Usually this is done by using an [`EntityHashMap<Entity, Entity>`] to map source entities
+/// (mapper inputs) to the current world's entities (mapper outputs).
+///
+/// More generally, this can be used to map [`Entity`] references between any two [`Worlds`](World).
 pub trait EntityMapper {
     /// Map an entity to another entity
     fn map_entity(&mut self, entity: Entity) -> Entity;
 }
 
 impl EntityMapper for SceneEntityMapper<'_> {
-    /// Returns the corresponding mapped entity or reserves a new dead entity ID if it is absent.
+    /// Returns the corresponding mapped entity or reserves a new dead entity ID in the current world if it is absent.
     fn map_entity(&mut self, entity: Entity) -> Entity {
         if let Some(&mapped) = self.map.get(&entity) {
             return mapped;
@@ -101,7 +103,7 @@ impl<'m> SceneEntityMapper<'m> {
         since = "0.13.0",
         note = "please use `EntityMapper::map_entity` instead"
     )]
-    /// Returns the corresponding mapped entity or reserves a new dead entity ID if it is absent.
+    /// Returns the corresponding mapped entity or reserves a new dead entity ID in the current world if it is absent.
     pub fn get_or_reserve(&mut self, entity: Entity) -> Entity {
         self.map_entity(entity)
     }
