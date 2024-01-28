@@ -691,6 +691,9 @@ pub(crate) fn add_cubemap_texture_view<'a>(
 /// 3. If binding arrays aren't supported on the hardware, then we obviously
 /// can't use them.
 ///
+/// 4. If binding arrays are supported on the hardware, but they can only be
+/// accessed by uniform indices, that's not good enough, and we bail out.
+///
 /// If binding arrays aren't usable, we disable reflection probes and limit the
 /// number of irradiance volumes in the scene to 1.
 pub(crate) fn binding_arrays_are_usable(render_device: &RenderDevice) -> bool {
@@ -698,7 +701,8 @@ pub(crate) fn binding_arrays_are_usable(render_device: &RenderDevice) -> bool {
         && render_device.limits().max_storage_textures_per_shader_stage
             >= (STANDARD_MATERIAL_FRAGMENT_SHADER_MIN_TEXTURE_BINDINGS + MAX_VIEW_LIGHT_PROBES)
                 as u32
-        && render_device
-            .features()
-            .contains(WgpuFeatures::TEXTURE_BINDING_ARRAY)
+        && render_device.features().contains(
+            WgpuFeatures::TEXTURE_BINDING_ARRAY
+                | WgpuFeatures::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING,
+        )
 }
