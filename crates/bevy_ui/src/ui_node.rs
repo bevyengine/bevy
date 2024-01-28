@@ -14,7 +14,14 @@ use bevy_window::{PrimaryWindow, WindowRef};
 use std::num::{NonZeroI16, NonZeroU16};
 use thiserror::Error;
 
-/// Describes the size of a UI node
+/// Base component for a UI node, which also provides the computed size of the node.
+///
+/// # See also
+///
+/// - [`node_bundles`](crate::node_bundles) for the list of built-in bundles that set up UI node
+/// - [`RelativeCursorPosition`](crate::RelativeCursorPosition)
+///   to obtain the cursor position relative to this node
+/// - [`Interaction`](crate::Interaction) to obtain the interaction state of this node
 #[derive(Component, Debug, Copy, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct Node {
