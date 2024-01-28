@@ -1307,7 +1307,7 @@ impl World {
     /// # Panics
     ///
     /// Panics if the resource does not exist.
-    /// Use [`get_resource`](World::get_resource) instead if you want to handle this case.
+    /// Use [`get_resource_ref`](World::get_resource_ref) instead if you want to handle this case.
     ///
     /// If you want to instead insert a value if the resource does not exist,
     /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
