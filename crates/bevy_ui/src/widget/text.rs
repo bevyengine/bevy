@@ -92,7 +92,9 @@ fn create_text_measure(
     match TextMeasureInfo::from_text(&text, fonts, scale_factor) {
         Ok(measure) => {
             if text.linebreak_behavior == BreakLineOn::NoWrap {
-                content_size.set(FixedMeasure { size: Vec2::new(measure.max.x, measure.min.y) });
+                content_size.set(FixedMeasure {
+                    size: Vec2::new(measure.max.x, measure.min.y),
+                });
             } else {
                 content_size.set(TextMeasure { info: measure });
             }
