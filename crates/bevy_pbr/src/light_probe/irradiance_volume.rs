@@ -17,6 +17,12 @@
 //! documentation in the `bevy-baked-gi` project for more details as to this
 //! workflow.
 //!
+//! Like all light probes in Bevy, irradiance volumes are 1×1×1 cubes that can
+//! be arbitrarily scaled, rotated, and positioned in a scene with the
+//! [`bevy_transform::components::Transform`] component. The 3D voxel grid will
+//! be stretched to fill the interior of the cube, and the illumination from the
+//! irradiance volume will apply to all fragments within that bounding region.
+//!
 //! Bevy's irradiance volumes are based on Valve's [*ambient cubes*] as used in
 //! *Half-Life 2* ([Mitchell 2006], slide 27). These encode a single color of
 //! light from the six 3D cardinal directions and blend the sides together
@@ -33,31 +39,29 @@
 //! If you wish to use a tool other than `export-blender-gi` to produce the
 //! irradiance volumes, you'll need to pack the irradiance volumes in the
 //! following format. The irradiance volume is expected to be a 3D texture of
-//! resolution $R_x$, $R_y$, and $R_z$. The unnormalized texture coordinate $(s,
-//! t, p)$ of the voxel at coordinate $(x, y, z)$ with side $S \in {-X, +X, -Y,
-//! +Y, -Z, +Z}$ is as follows:
+//! resolution *Rx*, *Ry*, and *Rz*. The unnormalized texture coordinate *(s, t,
+//! p)* of the voxel at coordinate *(x, y, z)* with side *S* ∈ *{-X, +X, -Y, +Y,
+//! -Z, +Z}* is as follows:
 //!
-//! ```math
-//! \begin{align}
-//! s & = x \\
+//! ```text
+//! s = x
 //! 
-//! t & = y + \left\{
-//! \begin{aligned}
-//! 0 & \text{ if } S \in \{-X, -Y, -Z\} \\
-//! R_y & \text{ if } S \in \{+X, +Y, +Z\}
-//! \end{aligned}
-//! \right. \\
+//! t = ⎰  0 if S ∈ {-X, -Y, -Z}
+//!     ⎱ Ry if S ∈ {+X, +Y, +Z}
 //! 
-//! p & = z + \left\{
-//! \begin{aligned}
-//! 0 & \text{ if } S \in \{-X, +X \} \\
-//! R_z & \text{ if } S \in \{-Y, +Y \} \\
-//! 2R_z & \text{ if } S \in \{-Z, +Z\}
-//! \end{aligned}
-//! \right. \\
-//! \end{align}
+//!     ⎧   0 if S ∈ {-X, +X}
+//! p = ⎨  Rz if S ∈ {-Y, +Y}
+//!     ⎩ 2Rz if S ∈ {-Z, +Z}
 //! ```
 //! 
+//! Visually, in a left-handed coordinate system with Y up, viewed from the
+//! right, the 3D texture looks like a stacked series of voxel grids, one for
+//! each cube side, in this order:
+//!
+//! | **+X** | **+Y** | **+Z** |
+//! | ------ | ------ | ------ |
+//! | **-X** | **-Y** | **-Z** |
+//!
 //! A terminology note: Other engines may refer to irradiance volumes as *voxel
 //! global illumination*, *VXGI*, or simply as *light probes*. Sometimes *light
 //! probe* refers to what Bevy calls a reflection probe. In Bevy, *light probe*
@@ -145,6 +149,8 @@ pub(crate) enum RenderViewIrradianceVolumeBindGroupEntries<'a> {
 }
 
 impl<'a> RenderViewIrradianceVolumeBindGroupEntries<'a> {
+    /// Looks up and returns the bindings for any irradiance volumes visible in
+    /// the view, as well as the sampler.
     pub(crate) fn get(
         render_view_irradiance_volumes: Option<&RenderViewLightProbes<IrradianceVolume>>,
         images: &'a RenderAssets<Image>,
@@ -166,6 +172,9 @@ impl<'a> RenderViewIrradianceVolumeBindGroupEntries<'a> {
         }
     }
 
+    /// Looks up and returns the bindings for any irradiance volumes visible in
+    /// the view, as well as the sampler. This is the version used when binding
+    /// arrays are available on the current platform.
     fn get_multiple(
         render_view_irradiance_volumes: Option<&RenderViewLightProbes<IrradianceVolume>>,
         images: &'a RenderAssets<Image>,
@@ -196,6 +205,9 @@ impl<'a> RenderViewIrradianceVolumeBindGroupEntries<'a> {
         }
     }
 
+    /// Looks up and returns the bindings for any irradiance volumes visible in
+    /// the view, as well as the sampler. This is the version used when binding
+    /// arrays aren't available on the current platform.
     fn get_single(
         render_view_irradiance_volumes: Option<&RenderViewLightProbes<IrradianceVolume>>,
         images: &'a RenderAssets<Image>,
@@ -247,6 +259,8 @@ pub(crate) fn get_bind_group_layout_entries(
 impl LightProbeComponent for IrradianceVolume {
     type AssetId = AssetId<Image>;
 
+    // Irradiance volumes can't be attached to the view, so we store nothing
+    // here.
     type ViewLightProbeInfo = ();
 
     fn id(&self, image_assets: &RenderAssets<Image>) -> Option<Self::AssetId> {
