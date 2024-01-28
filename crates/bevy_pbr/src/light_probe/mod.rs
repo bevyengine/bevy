@@ -641,9 +641,9 @@ where
 {
     fn clone(&self) -> Self {
         Self {
-            inverse_transform: self.inverse_transform.clone(),
-            affine_transform: self.affine_transform.clone(),
-            intensity: self.intensity.clone(),
+            inverse_transform: self.inverse_transform,
+            affine_transform: self.affine_transform,
+            intensity: self.intensity,
             asset_id: self.asset_id.clone(),
         }
     }

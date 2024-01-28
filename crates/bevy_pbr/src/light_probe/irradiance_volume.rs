@@ -27,7 +27,7 @@
 //! *Half-Life 2* ([Mitchell 2006], slide 27). These encode a single color of
 //! light from the six 3D cardinal directions and blend the sides together
 //! according to the surface normal.
-//! 
+//!
 //! The primary reason for choosing ambient cubes is to match Blender, so that
 //! its Eevee renderer can be used for baking. However, they also have some
 //! advantages over the common second-order spherical harmonics approach:
@@ -45,15 +45,15 @@
 //!
 //! ```text
 //! s = x
-//! 
+//!
 //! t = y + ⎰  0 if S ∈ {-X, -Y, -Z}
 //!         ⎱ Ry if S ∈ {+X, +Y, +Z}
-//! 
+//!
 //!         ⎧   0 if S ∈ {-X, +X}
 //! p = z + ⎨  Rz if S ∈ {-Y, +Y}
 //!         ⎩ 2Rz if S ∈ {-Z, +Z}
 //! ```
-//! 
+//!
 //! Visually, in a left-handed coordinate system with Y up, viewed from the
 //! right, the 3D texture looks like a stacked series of voxel grids, one for
 //! each cube side, in this order:
@@ -71,9 +71,9 @@
 //! Note that, if binding arrays aren't supported (e.g. on WebGPU or WebGL 2),
 //! then only the closest irradiance volume to the view will be taken into
 //! account during rendering.
-//! 
+//!
 //! [*ambient cubes*]: https://advances.realtimerendering.com/s2006/Mitchell-ShadingInValvesSourceEngine.pdf
-//! 
+//!
 //! [Mitchell 2006]: https://advances.realtimerendering.com/s2006/Mitchell-ShadingInValvesSourceEngine.pdf
 //!
 //! [Blender]: http://blender.org/
@@ -195,7 +195,7 @@ impl<'a> RenderViewIrradianceVolumeBindGroupEntries<'a> {
                     cubemap_id,
                     images,
                     fallback_image,
-                )
+                );
             }
         }
 
