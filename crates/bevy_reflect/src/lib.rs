@@ -478,13 +478,15 @@ mod tuple_struct;
 mod type_info;
 mod type_path;
 mod type_registry;
-mod type_uuid;
-mod type_uuid_impl;
 mod impls {
     #[cfg(feature = "glam")]
     mod glam;
     #[cfg(feature = "bevy_math")]
-    mod rect;
+    mod math {
+        mod primitives2d;
+        mod primitives3d;
+        mod rect;
+    }
     #[cfg(feature = "smallvec")]
     mod smallvec;
     #[cfg(feature = "smol_str")]
@@ -523,7 +525,6 @@ pub use tuple_struct::*;
 pub use type_info::*;
 pub use type_path::*;
 pub use type_registry::*;
-pub use type_uuid::*;
 
 pub use bevy_reflect_derive::*;
 pub use erased_serde;
@@ -538,8 +539,6 @@ pub mod __macro_exports {
 #[cfg(test)]
 #[allow(clippy::disallowed_types, clippy::approx_constant)]
 mod tests {
-    #[cfg(feature = "glam")]
-    use ::glam::{quat, vec3, Quat, Vec3};
     use ::serde::{de::DeserializeSeed, Deserialize, Serialize};
     use bevy_utils::HashMap;
     use ron::{
@@ -1998,6 +1997,7 @@ bevy_reflect::tests::Test {
     #[cfg(feature = "glam")]
     mod glam {
         use super::*;
+        use ::glam::{quat, vec3, Quat, Vec3};
 
         #[test]
         fn quat_serialization() {
