@@ -57,17 +57,6 @@ fn setup(
         ..default()
     });
 
-    // light
-    commands.spawn(PointLightBundle {
-        transform: Transform::from_xyz(50.0, 50.0, 50.0),
-        point_light: PointLight {
-            intensity: 100_000_000.,
-            range: 100.,
-            ..default()
-        },
-        ..default()
-    });
-
     // labels
     commands.spawn(
         TextBundle::from_section(
@@ -138,7 +127,7 @@ fn setup(
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
-            intensity: 150.0,
+            intensity: 200.0,
         },
     ));
 }
