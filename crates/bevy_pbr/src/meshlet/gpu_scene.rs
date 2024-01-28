@@ -56,7 +56,7 @@ pub fn extract_meshlet_meshes(
     gpu_scene.reset();
 
     for asset_event in asset_events.read() {
-        if let AssetEvent::Unused { id } = asset_event {
+        if let AssetEvent::Unused { id } | AssetEvent::Modified { id } = asset_event {
             if let Some((
                 [vertex_data_slice, vertex_ids_slice, indices_slice, meshlets_slice, meshlet_bunding_spheres_slice],
                 _,
