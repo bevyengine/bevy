@@ -580,7 +580,7 @@ impl<'w, E: Event> EventWriter<'w, E> {
 ///     // `ManualEventReader<T>` is the internal state of `EventReader<T>`, which tracks which events have been seen.
 ///     mut local_event_reader: Local<ManualEventReader<MyEvent>>,
 ///     // We can access the `Events` resource mutably, allowing us to both read and write its contents.
-///     mut events: ResMut<Events<DebugEvent>>,
+///     mut events: ResMut<Events<MyEvent>>,
 /// ) {
 ///     // We must collect the events to re-emit, because we can't mutate events while we're iterating over the events.
 ///     let mut events_to_re_emit = Vec::new();
@@ -593,6 +593,8 @@ impl<'w, E: Event> EventWriter<'w, E> {
 ///         events.send(MyEvent);
 ///     }
 /// }
+///
+/// # bevy_ecs::system::assert_is_system(send_and_receive_manual_event_reader);
 /// ```
 #[derive(Debug)]
 pub struct ManualEventReader<E: Event> {
