@@ -149,7 +149,7 @@ pub trait AppGizmoBuilder {
 
     /// Insert the [`GizmoConfigGroup`] in the app with the given value and [`GizmoConfig`].
     ///
-    /// This method should be preferred over [`init_gizmo_group`] if and only if you need to configure fields upon initialization.
+    /// This method should be preferred over [`AppGizmoBuilder::init_gizmo_group`] if and only if you need to configure fields upon initialization.
     fn insert_gizmo_group<T: GizmoConfigGroup>(
         &mut self,
         group: T,
