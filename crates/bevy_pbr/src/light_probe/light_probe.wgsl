@@ -2,9 +2,16 @@
 
 #import bevy_pbr::mesh_view_types::LightProbe
 
+// The result of searching for a light probe.
 struct LightProbeQueryResult {
+    // The index of the light probe texture or textures in the binding array or
+    // arrays.
     texture_index: i32,
+    // A scale factor that's applied to the diffuse and specular light from the
+    // light probe.
     intensity: f32,
+    // Transform from world space to the light probe model space. In light probe
+    // model space, the light probe is a 1×1×1 cube centered on the origin.
     inverse_transform: mat4x4<f32>,
 };
 
@@ -16,6 +23,7 @@ fn transpose_affine_matrix(matrix: mat3x4<f32>) -> mat4x4<f32> {
         vec4<f32>(0.0, 0.0, 0.0, 1.0));
     return transpose(matrix4x4);
 }
+
 // Searches for a light probe that contains the fragment.
 //
 // TODO: Interpolate between multiple light probes.

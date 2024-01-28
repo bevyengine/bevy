@@ -163,9 +163,16 @@ pub(crate) enum RenderViewEnvironmentMapBindGroupEntries<'a> {
     },
 }
 
+/// Information about the environment map attached to the view, if any. This is
+/// a global environment map that lights everything visible in the view, as
+/// opposed to a light probe which affects only a specific area.
 pub struct EnvironmentMapViewLightProbeInfo {
+    /// The index of the diffuse and specular cubemaps in the binding arrays.
     pub(crate) cubemap_index: i32,
+    /// The smallest mip level of the specular cubemap.
     pub(crate) smallest_specular_mip_level: u32,
+    /// The scale factor applied to the diffuse and specular light in the
+    /// cubemap.
     pub(crate) intensity: f32,
 }
 
@@ -272,6 +279,8 @@ impl<'a> RenderViewEnvironmentMapBindGroupEntries<'a> {
 impl LightProbeComponent for EnvironmentMapLight {
     type AssetId = EnvironmentMapIds;
 
+    // Information needed to render with the environment map attached to the
+    // view.
     type ViewLightProbeInfo = EnvironmentMapViewLightProbeInfo;
 
     fn id(&self, image_assets: &RenderAssets<Image>) -> Option<Self::AssetId> {

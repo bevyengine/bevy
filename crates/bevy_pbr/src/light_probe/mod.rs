@@ -252,7 +252,7 @@ where
 ///
 /// Most light probe systems are written to be generic over the type of light
 /// probe. This allows much of the code to be shared and enables easy addition
-/// of more light probe types (e.g. real-times reflection planes) in the future.
+/// of more light probe types (e.g. real-time reflection planes) in the future.
 pub trait LightProbeComponent: Send + Sync + Component + Sized {
     /// Holds [`AssetId`]s of the texture or textures that this light probe
     /// references.

@@ -212,7 +212,6 @@ macro_rules! impl_to_indexed_binding_slice {
 
 all_tuples_with_size!(impl_to_indexed_binding_slice, 1, 32, T, n, s);
 
-#[derive(Debug)]
 pub struct DynamicBindGroupEntries<'b> {
     entries: Vec<BindGroupEntry<'b>>,
 }
