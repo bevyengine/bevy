@@ -600,7 +600,9 @@ impl Mesh {
         {
             // Rotate normals by transform rotation
             normals.iter_mut().for_each(|normal| {
-                *normal = (transform.rotation * Vec3::from_slice(normal)).to_array();
+                // Normals must be divided by scale and then normalized to account for non-uniform scaling
+                let n = (Vec3::from_slice(normal) / transform.scale).normalize();
+                *normal = (transform.rotation * n).to_array();
             });
         }
 
@@ -609,7 +611,9 @@ impl Mesh {
         {
             // Rotate tangents by transform rotation
             tangents.iter_mut().for_each(|tangent| {
-                *tangent = (transform.rotation * Vec3::from_slice(tangent)).to_array();
+                // Tangents must be divided by scale and then normalized to account for non-uniform scaling
+                let t = (Vec3::from_slice(tangent) / transform.scale).normalize();
+                *tangent = (transform.rotation * t).to_array();
             });
         }
     }
