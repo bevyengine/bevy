@@ -12,8 +12,6 @@ use bevy_render::color::Color;
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 
-// === 3D ===
-
 const DEFAULT_NUMBER_SEGMENTS: usize = 5;
 
 /// A trait for rendering 3D geometric primitives (`P`) with [`Gizmos`].

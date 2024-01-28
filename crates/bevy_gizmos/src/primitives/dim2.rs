@@ -11,12 +11,6 @@ use bevy_render::color::Color;
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 
-// BoxedPolyline 2D
-
-// NOTE: not sure here yet, maybe we should use a reference to some of the primitives instead since
-// cloning all the vertices for drawing might defeat its purpose if we pass in the primitive by
-// value
-
 /// A trait for rendering 2D geometric primitives (`P`) with [`Gizmos`].
 pub trait GizmoPrimitive2d<P: Primitive2d> {
     /// The output of `primitive_2d`. This is a builder to set non-default values.
