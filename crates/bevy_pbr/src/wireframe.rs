@@ -2,7 +2,7 @@ use crate::{Material, MaterialPipeline, MaterialPipelineKey, MaterialPlugin};
 use bevy_app::{Plugin, Startup, Update};
 use bevy_asset::{load_internal_asset, Asset, Assets, Handle};
 use bevy_ecs::prelude::*;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath, TypeUuid};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use bevy_render::{
     color::Color,
     extract_resource::ExtractResource,
@@ -43,10 +43,10 @@ impl Plugin for WireframePlugin {
             .add_systems(
                 Update,
                 (
-                    global_color_changed.run_if(resource_changed::<WireframeConfig>()),
+                    global_color_changed.run_if(resource_changed::<WireframeConfig>),
                     wireframe_color_changed,
                     apply_wireframe_material,
-                    apply_global_wireframe_material.run_if(resource_changed::<WireframeConfig>()),
+                    apply_global_wireframe_material.run_if(resource_changed::<WireframeConfig>),
                 ),
             );
     }
@@ -194,8 +194,7 @@ fn apply_global_wireframe_material(
     }
 }
 
-#[derive(Default, AsBindGroup, TypeUuid, TypePath, Debug, Clone, Asset)]
-#[uuid = "9e694f70-9963-4418-8bc1-3474c66b13b8"]
+#[derive(Default, AsBindGroup, TypePath, Debug, Clone, Asset)]
 pub struct WireframeMaterial {
     #[uniform(0)]
     pub color: Color,

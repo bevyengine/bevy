@@ -139,7 +139,7 @@ impl DynamicScene {
                 // If the entity already has the given component attached,
                 // just apply the (possibly) new value, otherwise add the
                 // component to the entity.
-                reflect_component.apply_or_insert(entity_mut, &**component);
+                reflect_component.apply_or_insert(entity_mut, &**component, &type_registry);
             }
         }
 

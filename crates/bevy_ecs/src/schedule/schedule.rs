@@ -27,7 +27,7 @@ use crate::{
 
 pub use stepping::Stepping;
 
-/// Resource that stores [`Schedule`]s mapped to [`ScheduleLabel`]s.
+/// Resource that stores [`Schedule`]s mapped to [`ScheduleLabel`]s excluding the current running [`Schedule`].
 #[derive(Default, Resource)]
 pub struct Schedules {
     inner: HashMap<InternedScheduleLabel, Schedule>,
@@ -49,7 +49,7 @@ impl Schedules {
     /// If the map already had an entry for `label`, `schedule` is inserted,
     /// and the old schedule is returned. Otherwise, `None` is returned.
     pub fn insert(&mut self, schedule: Schedule) -> Option<Schedule> {
-        self.inner.insert(schedule.name, schedule)
+        self.inner.insert(schedule.label, schedule)
     }
 
     /// Removes the schedule corresponding to the `label` from the map, returning it if it existed.
@@ -208,7 +208,7 @@ pub enum Chain {
 /// }
 /// ```
 pub struct Schedule {
-    name: InternedScheduleLabel,
+    label: InternedScheduleLabel,
     graph: ScheduleGraph,
     executable: SystemSchedule,
     executor: Box<dyn SystemExecutor>,
@@ -232,7 +232,7 @@ impl Schedule {
     /// Constructs an empty `Schedule`.
     pub fn new(label: impl ScheduleLabel) -> Self {
         Self {
-            name: label.intern(),
+            label: label.intern(),
             graph: ScheduleGraph::new(),
             executable: SystemSchedule::new(),
             executor: make_executor(ExecutorKind::default()),
@@ -241,8 +241,8 @@ impl Schedule {
     }
 
     /// Get the `InternedScheduleLabel` for this `Schedule`.
-    pub fn name(&self) -> InternedScheduleLabel {
-        self.name
+    pub fn label(&self) -> InternedScheduleLabel {
+        self.label
     }
 
     /// Add a collection of systems to the schedule.
@@ -326,11 +326,11 @@ impl Schedule {
     /// Runs all systems in this schedule on the `world`, using its current execution strategy.
     pub fn run(&mut self, world: &mut World) {
         #[cfg(feature = "trace")]
-        let _span = info_span!("schedule", name = ?self.name).entered();
+        let _span = info_span!("schedule", name = ?self.label).entered();
 
         world.check_change_ticks();
         self.initialize(world)
-            .unwrap_or_else(|e| panic!("Error when initializing schedule {:?}: {e}", self.name));
+            .unwrap_or_else(|e| panic!("Error when initializing schedule {:?}: {e}", self.label));
 
         #[cfg(not(feature = "bevy_debug_stepping"))]
         let skip_systems = None;
@@ -359,7 +359,7 @@ impl Schedule {
                 &mut self.executable,
                 world.components(),
                 &ignored_ambiguities,
-                self.name,
+                self.label,
             )?;
             self.graph.changed = false;
             self.executor_initialized = false;

@@ -522,7 +522,7 @@ impl Stepping {
         }
 
         // grab the label and state for this schedule
-        let label = schedule.name();
+        let label = schedule.label();
         let state = self.schedule_states.get_mut(&label)?;
 
         // Stepping is enabled, and this schedule is supposed to be stepped.
@@ -1467,7 +1467,7 @@ mod tests {
         // helper to build a cursor tuple for the supplied schedule
         fn cursor(schedule: &Schedule, index: usize) -> (InternedScheduleLabel, NodeId) {
             let node_id = schedule.executable().system_ids[index];
-            (schedule.name(), node_id)
+            (schedule.label(), node_id)
         }
 
         let mut world = World::new();
