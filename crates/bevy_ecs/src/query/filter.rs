@@ -1079,11 +1079,12 @@ macro_rules! impl_archetype_filter_tuple {
 
 all_tuples!(impl_archetype_filter_tuple, 0, 15, F);
 
-/// A [`QueryFilter`] that always produces a boolean value.
+/// A [`WorldQuery`] that always produces a specific boolean value.
+/// 
+/// `Always<false>` does not filter archetypes, use `Never` instead.
 pub struct Always<const VALUE: bool>;
 
-/// Safety:
-/// Safe since this query does not access anything.
+/// Safety: Safe since this query does not access any data.
 unsafe impl<const VALUE: bool> WorldQuery for Always<VALUE> {
     type Item<'a> = bool;
 
@@ -1147,3 +1148,73 @@ unsafe impl<const VALUE: bool> QueryData for Always<VALUE> {
 
 /// Safety: Always does not access any data.
 unsafe impl<const VALUE: bool> ReadOnlyQueryData for Always<VALUE> {}
+
+/// A [`QueryFilter`] that filters out all archetypes.
+pub struct Never;
+
+/// Safety: Safe since this query does not access any data.
+unsafe impl WorldQuery for Never {
+    type Item<'a> = bool;
+
+    type Fetch<'a> = ();
+
+    type State = ();
+
+    fn shrink<'wlong: 'wshort, 'wshort>(_: Self::Item<'wlong>) -> Self::Item<'wshort> {
+        false
+    }
+
+    unsafe fn init_fetch<'w>(
+        _: UnsafeWorldCell<'w>,
+        _: &Self::State,
+        _: Tick,
+        _: Tick,
+    ) -> Self::Fetch<'w> {
+    }
+
+    const IS_DENSE: bool = false;
+
+    unsafe fn set_archetype<'w>(
+        _: &mut Self::Fetch<'w>,
+        _: &Self::State,
+        _: &'w Archetype,
+        _: &'w Table,
+    ) {
+    }
+
+    unsafe fn set_table<'w>(_: &mut Self::Fetch<'w>, _: &Self::State, _: &'w Table) {}
+
+    unsafe fn fetch<'w>(_: &mut Self::Fetch<'w>, _: Entity, _: TableRow) -> Self::Item<'w> {
+        false
+    }
+
+    fn update_component_access(_: &Self::State, _: &mut FilteredAccess<ComponentId>) {}
+
+    fn init_state(_: &mut World) -> Self::State {}
+
+    fn get_state(_: &World) -> Option<Self::State> {
+        Some(())
+    }
+
+    fn matches_component_set(_: &Self::State, _: &impl Fn(ComponentId) -> bool) -> bool {
+        false
+    }
+}
+
+impl QueryFilter for Never {
+    const IS_ARCHETYPAL: bool = true;
+
+    unsafe fn filter_fetch(_: &mut Self::Fetch<'_>, _: Entity, _: TableRow) -> bool {
+        false
+    }
+}
+
+/// Safety: Always query never access any data.
+unsafe impl QueryData for Never {
+    type ReadOnly = Never;
+}
+
+/// Safety: Always does not access any data.
+unsafe impl ReadOnlyQueryData for Never {}
+
+impl ArchetypeFilter for Never {}
