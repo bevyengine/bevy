@@ -32,10 +32,44 @@ fn compute_radiances(
     var radiances: EnvironmentMapRadiances;
 
     // Search for a reflection probe that contains the fragment.
+<<<<<<< HEAD
     var query_result = query_light_probe(
         light_probes.reflection_probes,
         light_probes.reflection_probe_count,
         world_position);
+=======
+    //
+    // TODO: Interpolate between multiple reflection probes.
+    var cubemap_index: i32 = -1;
+    var intensity: f32 = 1.0;
+    for (var reflection_probe_index: i32 = 0;
+            reflection_probe_index < light_probes.reflection_probe_count;
+            reflection_probe_index += 1) {
+        let reflection_probe = light_probes.reflection_probes[reflection_probe_index];
+
+        // Unpack the inverse transform.
+        let inverse_transpose_transform = mat4x4<f32>(
+            reflection_probe.inverse_transpose_transform[0],
+            reflection_probe.inverse_transpose_transform[1],
+            reflection_probe.inverse_transpose_transform[2],
+            vec4<f32>(0.0, 0.0, 0.0, 1.0));
+        let inverse_transform = transpose(inverse_transpose_transform);
+
+        // Check to see if the transformed point is inside the unit cube
+        // centered at the origin.
+        let probe_space_pos = (inverse_transform * vec4<f32>(world_position, 1.0)).xyz;
+        if (all(abs(probe_space_pos) <= vec3(0.5))) {
+            cubemap_index = reflection_probe.cubemap_index;
+            intensity = reflection_probe.intensity;
+            // TODO: Workaround for ICE in DXC https://github.com/microsoft/DirectXShaderCompiler/issues/6183
+            // This works because it's the last thing that happens in the for loop, and will break as soon as it
+            // goes back to the top of the loop.
+            // We can't use `break` here because of the ICE.
+            // break;
+            reflection_probe_index = light_probes.reflection_probe_count;
+        }
+    }
+>>>>>>> origin/main
 
     // If we didn't find a reflection probe, use the view environment map if applicable.
     if (query_result.texture_index < 0) {

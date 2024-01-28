@@ -31,7 +31,7 @@ fn query_light_probe(
     result.texture_index = -1;
 
     for (var light_probe_index: i32 = 0;
-            light_probe_index < light_probe_count;
+            light_probe_index < light_probe_count && result.texture_index < 0;
             light_probe_index += 1) {
         let light_probe = light_probes[light_probe_index];
 
@@ -46,7 +46,12 @@ fn query_light_probe(
             result.texture_index = light_probe.cubemap_index;
             result.intensity = light_probe.intensity;
             result.inverse_transform = inverse_transform;
-            break;
+
+            // TODO: Workaround for ICE in DXC https://github.com/microsoft/DirectXShaderCompiler/issues/6183
+            // This works because it's the last thing that happens in the for loop, and will break as soon as it
+            // goes back to the top of the loop.
+            // We can't use `break` here because of the ICE.
+            // break;
         }
     }
 
