@@ -71,7 +71,7 @@ impl_reflect_struct!(
 impl_reflect_struct!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize)]
     #[type_path = "bevy_math::primitives"]
-    struct Capsule {
+    struct Capsule3d {
         radius: f32,
         half_length: f32,
     }

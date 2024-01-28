@@ -510,6 +510,30 @@ impl RegularPolygon {
     }
 }
 
+/// A 2D capsule primitive, also known as a stadium or pill shape.
+///
+/// A two-dimensional capsule is defined as a neighborhood of points at a distance (radius) from a line
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[doc(alias = "stadium", alias = "pill")]
+pub struct Capsule2d {
+    /// The radius of the capsule
+    pub radius: f32,
+    /// Half the height of the capsule, excluding the hemispheres
+    pub half_length: f32,
+}
+impl Primitive2d for Capsule2d {}
+
+impl Capsule2d {
+    /// Create a new `Capsule2d` from a radius and length
+    pub fn new(radius: f32, length: f32) -> Self {
+        Self {
+            radius,
+            half_length: length / 2.0,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
