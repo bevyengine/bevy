@@ -47,7 +47,7 @@
 @group(0) @binding(15) var environment_map_sampler: sampler;
 
 #ifdef MULTIPLE_LIGHT_PROBES_IN_ARRAY
-@group(0) @binding(16) var irradiance_volumes: binding_array<texture_3d<f32>>;
+@group(0) @binding(16) var irradiance_volumes: binding_array<texture_3d<f32>, 8u>;
 #else
 @group(0) @binding(16) var irradiance_volume: texture_3d<f32>;
 #endif

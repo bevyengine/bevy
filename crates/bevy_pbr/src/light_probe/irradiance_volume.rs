@@ -38,10 +38,10 @@
 //!
 //! If you wish to use a tool other than `export-blender-gi` to produce the
 //! irradiance volumes, you'll need to pack the irradiance volumes in the
-//! following format. The irradiance volume is expected to be a 3D texture of
-//! resolution *Rx*, *Ry*, and *Rz*. The unnormalized texture coordinate *(s, t,
-//! p)* of the voxel at coordinate *(x, y, z)* with side *S* ∈ *{-X, +X, -Y, +Y,
-//! -Z, +Z}* is as follows:
+//! following format. The irradiance volume of resolution *(Rx, Ry, Rz)* is
+//! expected to be a 3D texture of dimensions *(Rx, 2Ry, 3Rz)*. The unnormalized
+//! texture coordinate *(s, t, p)* of the voxel at coordinate *(x, y, z)* with
+//! side *S* ∈ *{-X, +X, -Y, +Y, -Z, +Z}* is as follows:
 //!
 //! ```text
 //! s = x
