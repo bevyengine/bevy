@@ -556,7 +556,14 @@ impl<'w, E: Event> EventWriter<'w, E> {
 }
 
 /// Stores the state for an [`EventReader`].
+///
 /// Access to the [`Events<E>`] resource is required to read any incoming events.
+///
+/// In almost all cases, you should just use an [`EventReader`],
+/// which will automatically manage the state for you.
+///
+/// However, to see how to manually track events (and why you might want to do so),
+/// take a look at the [send_and_receive_events example](https://github.com/bevyengine/bevy/blob/latest/examples/ecs/send_and_receive_events.rs).
 #[derive(Debug)]
 pub struct ManualEventReader<E: Event> {
     last_event_count: usize,
