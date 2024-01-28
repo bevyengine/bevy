@@ -872,8 +872,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// This can only be called for read-only queries, see [`Self::iter_mut`] for write-queries.
     #[inline]
     pub fn iter_ref<'w, 's>(
-        &'s mut self, 
-        world: &'w World
+        &'s mut self,
+        world: &'w World,
     ) -> QueryIter<'w, 's, D::ReadOnlySmartRef, F> {
         self.update_archetypes(world);
         // SAFETY: query is read only
