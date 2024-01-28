@@ -27,7 +27,7 @@ fn main() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins)
         .add_event::<DebugEvent>()
-        .add_systems(Update, read_and_write_different_type)
+        .add_systems(Update, read_and_write_different_event_types)
         .add_systems(
             Update,
             (
@@ -56,7 +56,7 @@ struct B;
 // so the borrows of the `EventWriter` and `EventReader` don't overlap.
 // Note that these borrowing rules are checked at system initialization time,
 // not at compile time, as Bevy uses internal unsafe code to split the `World` into disjoint pieces.
-fn read_and_write_different_type(mut a: EventWriter<A>, mut b: EventReader<B>) {
+fn read_and_write_different_event_types(mut a: EventWriter<A>, mut b: EventReader<B>) {
     for _ in b.read() {}
     a.send(A);
 }
