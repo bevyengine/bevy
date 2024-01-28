@@ -2,6 +2,7 @@ use super::{Aabb3d, BoundingSphere, IntersectsVolume};
 use crate::{primitives::Direction3d, Ray3d, Vec3};
 
 /// A raycast intersection test for 3D bounding volumes
+#[derive(Debug)]
 pub struct RayTest3d {
     /// The ray for the test
     pub ray: Ray3d,
@@ -101,5 +102,244 @@ impl IntersectsVolume<Aabb3d> for RayTest3d {
 impl IntersectsVolume<BoundingSphere> for RayTest3d {
     fn intersects(&self, volume: &BoundingSphere) -> bool {
         self.sphere_intersection_at(volume).is_some()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const EPSILON: f32 = 0.001;
+
+    #[test]
+    fn test_ray_intersection_sphere_hits() {
+        for (test, volume, expected_distance) in &[
+            (
+                // Hit the center of a centered bounding sphere
+                RayTest3d::new(Vec3::Y * -5., Direction3d::Y, 90.),
+                BoundingSphere::new(Vec3::ZERO, 1.),
+                4.,
+            ),
+            (
+                // Hit the center of a centered bounding sphere, but from the other side
+                RayTest3d::new(Vec3::Y * 5., -Direction3d::Y, 90.),
+                BoundingSphere::new(Vec3::ZERO, 1.),
+                4.,
+            ),
+            (
+                // Hit the center of an offset sphere
+                RayTest3d::new(Vec3::ZERO, Direction3d::Y, 90.),
+                BoundingSphere::new(Vec3::Y * 3., 2.),
+                1.,
+            ),
+            (
+                // Just barely hit the sphere before the max distance
+                RayTest3d::new(Vec3::X, Direction3d::Y, 1.),
+                BoundingSphere::new(Vec3::new(1., 1., 0.), 0.01),
+                0.99,
+            ),
+            (
+                // Hit a sphere off-center
+                RayTest3d::new(Vec3::X, Direction3d::Y, 90.),
+                BoundingSphere::new(Vec3::Y * 5., 2.),
+                3.268,
+            ),
+            (
+                // Barely hit a sphere on the side
+                RayTest3d::new(Vec3::X * 0.99999, Direction3d::Y, 90.),
+                BoundingSphere::new(Vec3::Y * 5., 1.),
+                4.996,
+            ),
+        ] {
+            let case = format!(
+                "Case:\n  Test: {:?}\n  Volume: {:?}\n  Expected distance: {:?}",
+                test, volume, expected_distance
+            );
+            assert!(test.intersects(volume), "{}", case);
+            let actual_distance = test.sphere_intersection_at(volume).unwrap();
+            assert!(
+                (actual_distance - expected_distance).abs() < EPSILON,
+                "{}\n  Actual distance: {}",
+                case,
+                actual_distance
+            );
+
+            let inverted_ray = RayTest3d::new(test.ray.origin, -test.ray.direction, test.max);
+            assert!(!inverted_ray.intersects(volume), "{}", case);
+        }
+    }
+
+    #[test]
+    fn test_ray_intersection_sphere_misses() {
+        for (test, volume) in &[
+            (
+                // The ray doesn't go in the right direction
+                RayTest3d::new(Vec3::ZERO, Direction3d::X, 90.),
+                BoundingSphere::new(Vec3::Y * 2., 1.),
+            ),
+            (
+                // Ray's alignment isn't enough to hit the sphere
+                RayTest3d::new(Vec3::ZERO, Direction3d::from_xyz(1., 1., 1.).unwrap(), 90.),
+                BoundingSphere::new(Vec3::Y * 2., 1.),
+            ),
+            (
+                // The ray's maximum distance isn't high enough
+                RayTest3d::new(Vec3::ZERO, Direction3d::Y, 0.5),
+                BoundingSphere::new(Vec3::Y * 2., 1.),
+            ),
+        ] {
+            assert!(
+                !test.intersects(volume),
+                "Case:\n  Test: {:?}\n  Volume: {:?}",
+                test,
+                volume,
+            );
+        }
+    }
+
+    #[test]
+    fn test_ray_intersection_sphere_inside() {
+        let volume = BoundingSphere::new(Vec3::splat(0.5), 1.);
+        for origin in &[Vec3::X, Vec3::Y, Vec3::ONE, Vec3::ZERO] {
+            for direction in &[
+                Direction3d::X,
+                Direction3d::Y,
+                -Direction3d::X,
+                -Direction3d::Y,
+            ] {
+                for max in &[0., 1., 900.] {
+                    let test = RayTest3d::new(*origin, *direction, *max);
+
+                    let case = format!(
+                        "Case:\n  origin: {:?}\n  Direction: {:?}\n  Max: {}",
+                        origin, direction, max,
+                    );
+                    assert!(test.intersects(&volume), "{}", case);
+
+                    let actual_distance = test.sphere_intersection_at(&volume);
+                    assert_eq!(actual_distance, Some(0.), "{}", case,);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_ray_intersection_aabb_hits() {
+        for (test, volume, expected_distance) in &[
+            (
+                // Hit the center of a centered aabb
+                RayTest3d::new(Vec3::Y * -5., Direction3d::Y, 90.),
+                Aabb3d::new(Vec3::ZERO, Vec3::ONE),
+                4.,
+            ),
+            (
+                // Hit the center of a centered aabb, but from the other side
+                RayTest3d::new(Vec3::Y * 5., -Direction3d::Y, 90.),
+                Aabb3d::new(Vec3::ZERO, Vec3::ONE),
+                4.,
+            ),
+            (
+                // Hit the center of an offset aabb
+                RayTest3d::new(Vec3::ZERO, Direction3d::Y, 90.),
+                Aabb3d::new(Vec3::Y * 3., Vec3::splat(2.)),
+                1.,
+            ),
+            (
+                // Just barely hit the aabb before the max distance
+                RayTest3d::new(Vec3::X, Direction3d::Y, 1.),
+                Aabb3d::new(Vec3::new(1., 1., 0.), Vec3::splat(0.01)),
+                0.99,
+            ),
+            (
+                // Hit an aabb off-center
+                RayTest3d::new(Vec3::X, Direction3d::Y, 90.),
+                Aabb3d::new(Vec3::Y * 5., Vec3::splat(2.)),
+                3.,
+            ),
+            (
+                // Barely hit an aabb on corner
+                RayTest3d::new(
+                    Vec3::X * -0.001,
+                    Direction3d::from_xyz(1., 1., 1.).unwrap(),
+                    90.,
+                ),
+                Aabb3d::new(Vec3::Y * 2., Vec3::ONE),
+                1.732,
+            ),
+        ] {
+            let case = format!(
+                "Case:\n  Test: {:?}\n  Volume: {:?}\n  Expected distance: {:?}",
+                test, volume, expected_distance
+            );
+            assert!(test.intersects(volume), "{}", case);
+            let actual_distance = test.aabb_intersection_at(volume).unwrap();
+            assert!(
+                (actual_distance - expected_distance).abs() < EPSILON,
+                "{}\n  Actual distance: {}",
+                case,
+                actual_distance
+            );
+
+            let inverted_ray = RayTest3d::new(test.ray.origin, -test.ray.direction, test.max);
+            assert!(!inverted_ray.intersects(volume), "{}", case);
+        }
+    }
+
+    #[test]
+    fn test_ray_intersection_aabb_misses() {
+        for (test, volume) in &[
+            (
+                // The ray doesn't go in the right direction
+                RayTest3d::new(Vec3::ZERO, Direction3d::X, 90.),
+                Aabb3d::new(Vec3::Y * 2., Vec3::ONE),
+            ),
+            (
+                // Ray's alignment isn't enough to hit the aabb
+                RayTest3d::new(
+                    Vec3::ZERO,
+                    Direction3d::from_xyz(1., 0.99, 1.).unwrap(),
+                    90.,
+                ),
+                Aabb3d::new(Vec3::Y * 2., Vec3::ONE),
+            ),
+            (
+                // The ray's maximum distance isn't high enough
+                RayTest3d::new(Vec3::ZERO, Direction3d::Y, 0.5),
+                Aabb3d::new(Vec3::Y * 2., Vec3::ONE),
+            ),
+        ] {
+            assert!(
+                !test.intersects(volume),
+                "Case:\n  Test: {:?}\n  Volume: {:?}",
+                test,
+                volume,
+            );
+        }
+    }
+
+    #[test]
+    fn test_ray_intersection_aabb_inside() {
+        let volume = Aabb3d::new(Vec3::splat(0.5), Vec3::ONE);
+        for origin in &[Vec3::X, Vec3::Y, Vec3::ONE, Vec3::ZERO] {
+            for direction in &[
+                Direction3d::X,
+                Direction3d::Y,
+                -Direction3d::X,
+                -Direction3d::Y,
+            ] {
+                for max in &[0., 1., 900.] {
+                    let test = RayTest3d::new(*origin, *direction, *max);
+
+                    let case = format!(
+                        "Case:\n  origin: {:?}\n  Direction: {:?}\n  Max: {}",
+                        origin, direction, max,
+                    );
+                    assert!(test.intersects(&volume), "{}", case);
+
+                    let actual_distance = test.aabb_intersection_at(&volume);
+                    assert_eq!(actual_distance, Some(0.), "{}", case,);
+                }
+            }
+        }
     }
 }
