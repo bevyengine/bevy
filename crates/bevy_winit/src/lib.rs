@@ -651,7 +651,7 @@ fn handle_winit_event(
                         .world
                         .query_filtered::<(Entity, &Window), (With<CachedWindow>, Without<bevy_window::RawHandleWrapper>)>();
                 if let Ok((entity, window)) = query.get_single(&app.world) {
-                    use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
+                    use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
                     let window = window.clone();
 
                     let (
@@ -672,8 +672,8 @@ fn handle_winit_event(
                     );
 
                     let wrapper = RawHandleWrapper {
-                        window_handle: winit_window.raw_window_handle(),
-                        display_handle: winit_window.raw_display_handle(),
+                        window_handle: winit_window.window_handle().unwrap().as_raw(),
+                        display_handle: winit_window.display_handle().unwrap().as_raw(),
                     };
 
                     app.world.entity_mut(entity).insert(wrapper);

@@ -9,12 +9,19 @@ use bevy_render::{
     texture::Image,
 };
 use bevy_transform::prelude::GlobalTransform;
-use bevy_utils::smallvec::SmallVec;
+use bevy_utils::{smallvec::SmallVec, warn_once};
 use bevy_window::{PrimaryWindow, WindowRef};
 use std::num::{NonZeroI16, NonZeroU16};
 use thiserror::Error;
 
-/// Describes the size of a UI node
+/// Base component for a UI node, which also provides the computed size of the node.
+///
+/// # See also
+///
+/// - [`node_bundles`](crate::node_bundles) for the list of built-in bundles that set up UI node
+/// - [`RelativeCursorPosition`](crate::RelativeCursorPosition)
+///   to obtain the cursor position relative to this node
+/// - [`Interaction`](crate::Interaction) to obtain the interaction state of this node
 #[derive(Component, Debug, Copy, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct Node {
@@ -1844,22 +1851,69 @@ impl TargetCamera {
     }
 }
 
+#[derive(Component)]
+/// Marker used to identify default cameras, they will have priority over the [`PrimaryWindow`] camera.
+///
+/// This is useful if the [`PrimaryWindow`] has two cameras, one of them used
+/// just for debug purposes and the user wants a way to choose the default [`Camera`]
+/// without having to add a [`TargetCamera`] to the root node.
+///
+/// Another use is when the user wants the Ui to be in another window by default,
+/// all that is needed is to place this component on the camera
+///
+/// ```
+/// # use bevy_ui::prelude::*;
+/// # use bevy_ecs::prelude::Commands;
+/// # use bevy_render::camera::{Camera, RenderTarget};
+/// # use bevy_core_pipeline::prelude::Camera2dBundle;
+/// # use bevy_window::{Window, WindowRef};
+///
+/// fn spawn_camera(mut commands: Commands) {
+///     let another_window = commands.spawn(Window {
+///         title: String::from("Another window"),
+///         ..Default::default()
+///     }).id();
+///     commands.spawn((
+///         Camera2dBundle {
+///             camera: Camera {
+///                 target: RenderTarget::Window(WindowRef::Entity(another_window)),
+///                 ..Default::default()
+///             },
+///             ..Default::default()
+///         },
+///         // We add the Marker here so all Ui will spawn in
+///         // another window if no TargetCamera is specified
+///         IsDefaultUiCamera
+///     ));
+/// }
+/// ```
+pub struct IsDefaultUiCamera;
+
 #[derive(SystemParam)]
 pub struct DefaultUiCamera<'w, 's> {
     cameras: Query<'w, 's, (Entity, &'static Camera)>,
+    default_cameras: Query<'w, 's, Entity, (With<Camera>, With<IsDefaultUiCamera>)>,
     primary_window: Query<'w, 's, Entity, With<PrimaryWindow>>,
 }
 
 impl<'w, 's> DefaultUiCamera<'w, 's> {
     pub fn get(&self) -> Option<Entity> {
-        self.cameras
-            .iter()
-            .filter(|(_, c)| match c.target {
-                RenderTarget::Window(WindowRef::Primary) => true,
-                RenderTarget::Window(WindowRef::Entity(w)) => self.primary_window.get(w).is_ok(),
-                _ => false,
-            })
-            .max_by_key(|(e, c)| (c.order, *e))
-            .map(|(e, _)| e)
+        self.default_cameras.get_single().ok().or_else(|| {
+            // If there isn't a single camera and the query isn't empty, there is two or more cameras queried.
+            if !self.default_cameras.is_empty() {
+                warn_once!("Two or more Entities with IsDefaultUiCamera found when only one Camera with this marker is allowed.");
+            }
+            self.cameras
+                .iter()
+                .filter(|(_, c)| match c.target {
+                    RenderTarget::Window(WindowRef::Primary) => true,
+                    RenderTarget::Window(WindowRef::Entity(w)) => {
+                        self.primary_window.get(w).is_ok()
+                    }
+                    _ => false,
+                })
+                .max_by_key(|(e, c)| (c.order, *e))
+                .map(|(e, _)| e)
+        })
     }
 }

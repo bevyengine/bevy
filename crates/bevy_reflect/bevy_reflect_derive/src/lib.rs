@@ -5,11 +5,11 @@
 //! such as `Struct`, `GetTypeRegistration`, and more— all with a single derive!
 //!
 //! Some other noteworthy exports include the derive macros for [`FromReflect`] and
-//! [`TypeUuid`], as well as the [`reflect_trait`] attribute macro.
+//! [`TypePath`], as well as the [`reflect_trait`] attribute macro.
 //!
 //! [`Reflect`]: crate::derive_reflect
 //! [`FromReflect`]: crate::derive_from_reflect
-//! [`TypeUuid`]: crate::derive_type_uuid
+//! [`TypePath`]: crate::derive_type_path
 //! [`reflect_trait`]: macro@reflect_trait
 
 extern crate proc_macro;
@@ -27,7 +27,6 @@ mod registration;
 mod serialization;
 mod trait_reflection;
 mod type_path;
-mod type_uuid;
 mod utility;
 
 use crate::derive_data::{ReflectDerive, ReflectMeta, ReflectStruct};
@@ -132,6 +131,53 @@ pub(crate) static TYPE_NAME_ATTRIBUTE_NAME: &str = "type_name";
 /// This is useful for when a type can't or shouldn't implement `TypePath`,
 /// or if a manual implementation is desired.
 ///
+/// ## `#[reflect(where T: Trait, U::Assoc: Trait, ...)]`
+///
+/// By default, the derive macro will automatically add certain trait bounds to all generic type parameters
+/// in order to make them compatible with reflection without the user needing to add them manually.
+/// This includes traits like `Reflect` and `FromReflect`.
+/// However, this may not always be desired, and some type paramaters can't or shouldn't require those bounds
+/// (i.e. their usages in fields are ignored or they're only used for their associated types).
+///
+/// With this attribute, you can specify a custom `where` clause to be used instead of the default.
+/// If this attribute is present, none of the type parameters will receive the default bounds.
+/// Only the bounds specified by the type itself and by this attribute will be used.
+/// The only exceptions to this are the `Any`, `Send`, `Sync`, and `TypePath` bounds,
+/// which will always be added regardless of this attribute due to their necessity for reflection
+/// in general.
+///
+/// This means that if you want to opt-out of the default bounds for _all_ type parameters,
+/// you can add `#[reflect(where)]` to the container item to indicate
+/// that an empty `where` clause should be used.
+///
+/// ### Example
+///
+/// ```ignore
+/// trait Trait {
+///   type Assoc;
+/// }
+///
+/// #[derive(Reflect)]
+/// #[reflect(where T::Assoc: FromReflect)]
+/// struct Foo<T: Trait> where T::Assoc: Default {
+///   value: T::Assoc,
+/// }
+///
+/// // Generates a where clause like the following
+/// // (notice that `T` does not have any `Reflect` or `FromReflect` bounds):
+/// //
+/// // impl<T: Trait> bevy_reflect::Reflect for Foo<T>
+/// // where
+/// //   Self: 'static,
+/// //   T::Assoc: Default,
+/// //   T: bevy_reflect::TypePath
+/// //     + ::core::any::Any
+/// //     + ::core::marker::Send
+/// //     + ::core::marker::Sync,
+/// //   T::Assoc: FromReflect,
+/// // {/* ... */}
+/// ```
+///
 /// # Field Attributes
 ///
 /// Along with the container attributes, this macro comes with some attributes that may be applied
@@ -144,6 +190,10 @@ pub(crate) static TYPE_NAME_ATTRIBUTE_NAME: &str = "type_name";
 /// This allows fields to completely opt-out of reflection,
 /// which may be useful for maintaining invariants, keeping certain data private,
 /// or allowing the use of types that do not implement `Reflect` within the container.
+///
+/// If the field contains a generic type parameter, you will likely need to add a
+/// [`#[reflect(where)]`](#reflectwheret-trait-uassoc-trait-)
+/// attribute to the container in order to avoid the default bounds being applied to the type parameter.
 ///
 /// ## `#[reflect(skip_serializing)]`
 ///
@@ -287,20 +337,6 @@ pub fn derive_type_path(input: TokenStream) -> TokenStream {
     TokenStream::from(quote! {
         const _: () = {
             #type_path_impl
-        };
-    })
-}
-
-// From https://github.com/randomPoison/type-uuid
-#[proc_macro_derive(TypeUuid, attributes(uuid))]
-pub fn derive_type_uuid(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let uuid_impl =
-        type_uuid::type_uuid_derive(input).unwrap_or_else(syn::Error::into_compile_error);
-
-    TokenStream::from(quote! {
-        const _: () = {
-            #uuid_impl
         };
     })
 }
@@ -613,19 +649,6 @@ pub fn impl_type_path(input: TokenStream) -> TokenStream {
     TokenStream::from(quote! {
         const _: () = {
             #type_path_impl
-        };
-    })
-}
-
-/// Derives `TypeUuid` for the given type. This is used internally to implement `TypeUuid` on foreign types, such as those in the std. This macro should be used in the format of `<[Generic Params]> [Type (Path)], [Uuid (String Literal)]`.
-#[proc_macro]
-pub fn impl_type_uuid(input: TokenStream) -> TokenStream {
-    let def = parse_macro_input!(input as type_uuid::TypeUuidDef);
-    let uuid_impl = type_uuid::gen_impl_type_uuid(def);
-
-    TokenStream::from(quote! {
-        const _: () = {
-            #uuid_impl
         };
     })
 }

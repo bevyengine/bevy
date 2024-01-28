@@ -59,3 +59,8 @@ mod bounded2d;
 pub use bounded2d::*;
 mod bounded3d;
 pub use bounded3d::*;
+
+mod raytest2d;
+pub use raytest2d::*;
+mod raytest3d;
+pub use raytest3d::*;

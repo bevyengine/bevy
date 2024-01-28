@@ -11,6 +11,7 @@ use bevy_app::{Plugin, PluginGroup, PluginGroupBuilder};
 /// * [`DiagnosticsPlugin`](crate::diagnostic::DiagnosticsPlugin)
 /// * [`InputPlugin`](crate::input::InputPlugin)
 /// * [`WindowPlugin`](crate::window::WindowPlugin)
+/// * [`AccessibilityPlugin`](crate::a11y::AccessibilityPlugin)
 /// * [`AssetPlugin`](crate::asset::AssetPlugin) - with feature `bevy_asset`
 /// * [`ScenePlugin`](crate::scene::ScenePlugin) - with feature `bevy_scene`
 /// * [`WinitPlugin`](crate::winit::WinitPlugin) - with feature `bevy_winit`
