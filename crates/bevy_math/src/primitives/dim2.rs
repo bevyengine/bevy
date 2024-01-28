@@ -80,7 +80,8 @@ impl std::ops::Neg for Direction2d {
 }
 
 /// A circle primitive
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Circle {
     /// The radius of the circle
     pub radius: f32,
@@ -115,7 +116,8 @@ impl Circle {
 }
 
 /// An ellipse primitive
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Ellipse {
     /// Half of the width and height of the ellipse.
     ///
@@ -160,7 +162,8 @@ impl Ellipse {
 
 /// An unbounded plane in 2D space. It forms a separating surface through the origin,
 /// stretching infinitely far
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Plane2d {
     /// The normal of the plane. The plane will be placed perpendicular to this direction
     pub normal: Direction2d,
@@ -184,7 +187,8 @@ impl Plane2d {
 /// An infinite line along a direction in 2D space.
 ///
 /// For a finite line: [`Segment2d`]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Line2d {
     /// The direction of the line. The line extends infinitely in both the given direction
     /// and its opposite direction
@@ -194,7 +198,8 @@ impl Primitive2d for Line2d {}
 
 /// A segment of a line along a direction in 2D space.
 #[doc(alias = "LineSegment2d")]
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Segment2d {
     /// The direction of the line segment
     pub direction: Direction2d,
@@ -241,9 +246,11 @@ impl Segment2d {
 /// A series of connected line segments in 2D space.
 ///
 /// For a version without generics: [`BoxedPolyline2d`]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Polyline2d<const N: usize> {
     /// The vertices of the polyline
+    #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
     pub vertices: [Vec2; N],
 }
 impl<const N: usize> Primitive2d for Polyline2d<N> {}
@@ -270,7 +277,8 @@ impl<const N: usize> Polyline2d<N> {
 /// in a `Box<[Vec2]>`.
 ///
 /// For a version without alloc: [`Polyline2d`]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct BoxedPolyline2d {
     /// The vertices of the polyline
     pub vertices: Box<[Vec2]>,
@@ -294,7 +302,8 @@ impl BoxedPolyline2d {
 }
 
 /// A triangle in 2D space
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Triangle2d {
     /// The vertices of the triangle
     pub vertices: [Vec2; 3],
@@ -367,7 +376,8 @@ impl Triangle2d {
 
 /// A rectangle primitive
 #[doc(alias = "Quad")]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Rectangle {
     /// Half of the width and height of the rectangle
     pub half_size: Vec2,
@@ -400,9 +410,11 @@ impl Rectangle {
 /// A polygon with N vertices.
 ///
 /// For a version without generics: [`BoxedPolygon`]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Polygon<const N: usize> {
     /// The vertices of the `Polygon`
+    #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
     pub vertices: [Vec2; N],
 }
 impl<const N: usize> Primitive2d for Polygon<N> {}
@@ -429,7 +441,8 @@ impl<const N: usize> Polygon<N> {
 /// in a `Box<[Vec2]>`.
 ///
 /// For a version without alloc: [`Polygon`]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct BoxedPolygon {
     /// The vertices of the `BoxedPolygon`
     pub vertices: Box<[Vec2]>,
@@ -453,7 +466,8 @@ impl BoxedPolygon {
 }
 
 /// A polygon where all vertices lie on a circle, equally far apart.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct RegularPolygon {
     /// The circumcircle on which all vertices lie
     pub circumcircle: Circle,
