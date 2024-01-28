@@ -332,17 +332,22 @@ pub enum CubicNurbsError {
     },
 }
 
-/// A spline interpolated continuously across the nearest four control points.
+/// A cubic non-uniform rational B-spline (NURBS). Generates a smooth curve from a
+/// sequence of control points by interpolating between four points at a time.
 ///
 /// ### Interpolation
-/// The curve does not pass through control points, unless the knot vector has 4 consecutive values
-/// that are equal to each other
+/// The knot vector is a non-decreasing sequence that controls which four
+/// control points are assigned to each segment of the curve. It can be used to make
+/// sharp corners. The curve will not pass through the control points unless the
+/// knot vector has the same value four times in a row.
 ///
-/// ### Tangency
-/// Automatically computed based on the position of control points.
-///
-/// ### Continuity
-/// C2 continuous! The acceleration continuity of this spline makes it useful for camera paths.
+/// ### Curvature
+/// The tangents automatically calculated based on the position of the control
+/// points. The curve is C2 continuous (meaning both the velocity and
+/// acceleration are smooth), making it useful for camera paths and moving objects.
+/// The continuity reduces if the curve's knot vector has repeating values, which is called knot
+/// multiplicity. Knot multiplicity of 2 would reduce the continuity to C1, multiplicity of 3 would
+/// reduce the continuity to C0.
 ///
 /// ### Usage
 ///
