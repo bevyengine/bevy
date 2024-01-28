@@ -4,7 +4,7 @@ use crate::{
 };
 use bevy_utils::all_tuples;
 
-use super::{Added, Always, And, Changed, Has, Never, Or, QueryFilter, With, Without};
+use super::{Added, Always, And, Changed, Has, Never, Or, QueryFilter, With, Without, WorldQuery};
 
 /// A helper trait that can be used to generate
 /// queries and filters based on multiple components.
@@ -18,8 +18,8 @@ use super::{Added, Always, And, Changed, Has, Never, Or, QueryFilter, With, With
 /// # use std::marker::PhantomData;
 /// # use std::any::type_name;
 /// # use bevy_ecs::component::Component;
-/// # use bevy_ecs::query::ComponentGroup;
 /// # use bevy_ecs::prelude::Query;
+/// # use bevy_ecs::query::{Is, ComponentGroup};
 /// # #[derive(Component, Debug, Hash, Eq, PartialEq, Clone, Copy)]
 /// # struct Transform(usize);
 /// # #[derive(Component, Debug, Eq, PartialEq, Clone, Copy)]
@@ -31,7 +31,7 @@ use super::{Added, Always, And, Changed, Has, Never, Or, QueryFilter, With, With
 /// type WithoutPhysics = <(Transform, RigidBody) as ComponentGroup>::Without;
 ///
 /// // As generics
-/// pub fn count_system<T: ComponentGroup>(query: Query<(T::Has, T::Changed), WithPhysics>) {
+/// pub fn count_system<T: ComponentGroup>(query: Query<(T::Has, Is<T::Changed>), WithPhysics>) {
 ///     let mut total = 0;
 ///     let mut num_changed = 0;
 ///     for (has, changed) in query.iter() {
@@ -50,7 +50,11 @@ use super::{Added, Always, And, Changed, Has, Never, Or, QueryFilter, With, With
 /// }
 ///
 /// ```
-pub trait ComponentGroup {
+pub trait ComponentGroup
+where
+    for<'t> Self::Has: WorldQuery<Item<'t> = bool>,
+    for<'t> Self::HasAny: WorldQuery<Item<'t> = bool>,
+{
     /// Generate a read only query based on this type.
     type ReadQuery: ReadOnlyQueryData;
     /// Generate a mutable query based on this type.
