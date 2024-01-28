@@ -1,6 +1,7 @@
 //! Illustrates the use of vertex colors.
 
 use bevy::{prelude::*, render::mesh::VertexAttributeValues};
+use bevy::pbr::light_consts;
 
 fn main() {
     App::new()
@@ -46,7 +47,7 @@ fn setup(
     // Light
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            illuminance: DirectionalLight::OVERCAST_DAY_LUX,
+            illuminance: light_consts::lux::OVERCAST_DAY,
             shadows_enabled: true,
             ..default()
         },

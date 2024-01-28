@@ -12,12 +12,12 @@ use bevy::{
     pbr::wireframe::{NoWireframe, Wireframe, WireframeColor, WireframeConfig, WireframePlugin},
     prelude::*,
     render::{
+        camera::ExposureSettings,
         render_resource::WgpuFeatures,
         settings::{RenderCreation, WgpuSettings},
         RenderPlugin,
     },
 };
-use bevy_internal::render::camera::ExposureSettings;
 
 fn main() {
     App::new()

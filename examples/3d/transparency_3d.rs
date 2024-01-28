@@ -3,6 +3,7 @@
 //! The `fade_transparency` system smoothly changes the transparency over time.
 
 use bevy::prelude::*;
+use bevy::pbr::light_consts;
 
 fn main() {
     App::new()
@@ -18,13 +19,14 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // opaque plane, uses `alpha_mode: Opaque` by default
+    // Opaque plane, uses `alpha_mode: Opaque` by default
     commands.spawn(PbrBundle {
         mesh: meshes.add(shape::Plane::from_size(6.0)),
         material: materials.add(Color::rgb(0.3, 0.5, 0.3)),
         ..default()
     });
-    // transparent sphere, uses `alpha_mode: Mask(f32)`
+
+    // Transparent sphere, uses `alpha_mode: Mask(f32)`
     commands.spawn(PbrBundle {
         mesh: meshes.add(
             Mesh::try_from(shape::Icosphere {
@@ -47,7 +49,8 @@ fn setup(
         transform: Transform::from_xyz(1.0, 0.5, -1.5),
         ..default()
     });
-    // transparent unlit sphere, uses `alpha_mode: Mask(f32)`
+
+    // Transparent unlit sphere, uses `alpha_mode: Mask(f32)`
     commands.spawn(PbrBundle {
         mesh: meshes.add(
             Mesh::try_from(shape::Icosphere {
@@ -65,7 +68,8 @@ fn setup(
         transform: Transform::from_xyz(-1.0, 0.5, -1.5),
         ..default()
     });
-    // transparent cube, uses `alpha_mode: Blend`
+
+    // Transparent cube, uses `alpha_mode: Blend`
     commands.spawn(PbrBundle {
         mesh: meshes.add(shape::Cube { size: 1.0 }),
         // Notice how there is no need to set the `alpha_mode` explicitly here.
@@ -75,7 +79,7 @@ fn setup(
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..default()
     });
-    // opaque sphere
+    // Opaque sphere
     commands.spawn(PbrBundle {
         mesh: meshes.add(
             Mesh::try_from(shape::Icosphere {
@@ -88,17 +92,19 @@ fn setup(
         transform: Transform::from_xyz(0.0, 0.5, -1.5),
         ..default()
     });
-    // light
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            intensity: 1_000_000.0,
+
+    // Light
+    commands.spawn(DirectionalLightBundle {
+        directional_light: DirectionalLight {
+            illuminance: light_consts::lux::CLEAR_SUNRISE,
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
+        transform: Transform::from_xyz(4.0, 8.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
-    // camera
+
+    // Camera
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-2.0, 3.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()

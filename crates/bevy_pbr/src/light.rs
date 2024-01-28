@@ -20,6 +20,52 @@ use bevy_utils::{tracing::warn, EntityHashMap};
 
 use crate::*;
 
+pub mod light_consts {
+    /// Approximations for converting the wattage of lamps to lumens.
+    /// 
+    /// The lumen (symbol: lm) is the unit of luminous flux, a measure of
+    /// the total quantityof visible light emitted by a source per unit of time,
+    /// in the International System of Units (SI).
+    /// 
+    /// For more information, see [wikipedia](https://en.wikipedia.org/wiki/Lumen_(unit))
+    pub mod lumens {
+        pub const LUMENS_PER_LED_WATTS: f32 = 90.0;
+        pub const LUMENS_PER_INCANDESCENT_WATTS: f32 = 13.8;
+        pub const LUMENS_PER_HALOGEN_WATTS: f32 = 19.8;
+    }
+
+    /// Predefined for lux values in several locations.
+    ///
+    /// The lux (symbol: *lx*) is the unit of illuminance, or luminous flux per unit area,
+    /// in the International System of Units (SI). It is equal to one lumen per square metre.
+    ///
+    /// For more information, see [wikipedia](https://en.wikipedia.org/wiki/Lux)
+    pub mod lux {
+        /// The amount of light (lux) in a moonless, overcast night sky. (starlight)
+        pub const MOONLESS_NIGHT: f32 = 0.0001;
+        /// The amount of light (lux) in a full moon on a clear night.
+        pub const FULL_MOON_NIGHT: f32 = 0.05;
+        /// The amount of light (lux) in dark limit of civil twilight under a clear sky.
+        pub const CIVIL_TWILIGHT: f32 = 3.4;
+        /// The amount of light (lux) in a dark limit of civil twilight under a clear sky.
+        pub const LIVING_ROOM: f32 = 50.;
+        /// The amount of light (lux) in a office building hallway/toilet lighting.
+        pub const HALLWAY: f32 = 80.;
+        /// The amount of light (lux) in a family living room lights.
+        pub const DARK_OVERCAST_DAY: f32 = 100.;
+        /// The amount of light (lux) in a office.
+        pub const OFFICE: f32 = 320.;
+        /// The amount of light (lux) on Sunrise or sunset on a clear day.
+        pub const CLEAR_SUNRISE: f32 = 400.;
+        /// The amount of light (lux) on very dark overcast day.
+        pub const OVERCAST_DAY: f32 = 1000.;
+        /// The amount of light (lux) in full daylight. (not direct sun)
+        pub const FULL_DAYLIGHT: f32 = 10_000.;
+        /// The amount of light (lux) in Direct sunlight.
+        pub const DIRECT_SUNLIGHT: f32 = 50_000.;
+    }
+}
+
 /// A light that emits light in all directions from a central point.
 ///
 /// Real-world values for `intensity` (luminous power in lumens) based on the electrical power
@@ -217,29 +263,6 @@ impl Default for DirectionalLight {
 impl DirectionalLight {
     pub const DEFAULT_SHADOW_DEPTH_BIAS: f32 = 0.02;
     pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 1.8;
-
-    /// The amount of light (lux) in a moonless, overcast night sky. (starlight)
-    pub const MOONLESS_NIGHT_LUX: f32 = 0.0001;
-    /// The amount of light (lux) in a full moon on a clear night.
-    pub const FULL_MOON_NIGHT_LUX: f32 = 0.05;
-    /// The amount of light (lux) in dark limit of civil twilight under a clear sky.
-    pub const CIVIL_TWILIGHT_LUX: f32 = 3.4;
-    /// The amount of light (lux) in a dark limit of civil twilight under a clear sky.
-    pub const LIVING_ROOM_LUX: f32 = 50.;
-    /// The amount of light (lux) in a office building hallway/toilet lighting.
-    pub const HALLWAY_LUX: f32 = 80.;
-    /// The amount of light (lux) in a family living room lights.
-    pub const DARK_OVERCAST_DAY_LUX: f32 = 100.;
-    /// The amount of light (lux) in a office.
-    pub const OFFICE_LUX: f32 = 320.;
-    /// The amount of light (lux) on Sunrise or sunset on a clear day.
-    pub const CLEAR_SUNRISE_LUX: f32 = 400.;
-    /// The amount of light (lux) on very dark overcast day.
-    pub const OVERCAST_DAY_LUX: f32 = 1000.;
-    /// The amount of light (lux) in full daylight. (not direct sun)
-    pub const FULL_DAYLIGHT: f32 = 10_000.;
-    /// The amount of light (lux) in Direct sunlight.
-    pub const DIRECT_SUNLIGHT: f32 = 50_000.;
 }
 
 /// Controls the resolution of [`DirectionalLight`] shadow maps.

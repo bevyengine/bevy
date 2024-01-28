@@ -1,7 +1,6 @@
 use std::f32::consts::*;
 
 use bevy::{
-    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     pbr::NotShadowCaster,
     prelude::*,
 };
@@ -13,11 +12,7 @@ fn main() {
             brightness: 4.0,
             ..default()
         })
-        .add_plugins((
-            DefaultPlugins,
-            FrameTimeDiagnosticsPlugin,
-            LogDiagnosticsPlugin::default(),
-        ))
+        .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, (light_sway, movement))
         .run();
@@ -86,7 +81,7 @@ fn setup(
                     transform: Transform::from_xyz(1.0 + x, 2.0, z)
                         .looking_at(Vec3::new(1.0 + x, 0.0, z), Vec3::X),
                     spot_light: SpotLight {
-                        intensity: 100_000.0, // lumens
+                        intensity: 4000.0, // lumens
                         color: Color::WHITE,
                         shadows_enabled: true,
                         inner_angle: PI / 4.0 * 0.85,

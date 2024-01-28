@@ -4,7 +4,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    pbr::CascadeShadowConfigBuilder,
+    pbr::{CascadeShadowConfigBuilder, light_consts},
     prelude::*,
     render::camera::{ExposureSettings, PhysicalCameraParameters},
 };
@@ -220,7 +220,7 @@ fn setup(
     // directional 'sun' light
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            illuminance: DirectionalLight::OVERCAST_DAY_LUX,
+            illuminance: light_consts::lux::OVERCAST_DAY,
             shadows_enabled: true,
             ..default()
         },
