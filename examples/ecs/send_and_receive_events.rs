@@ -106,8 +106,6 @@ fn debug_events(mut events: EventReader<DebugEvent>) {
 
 /// A system that both sends and receives events using [`ParamSet`].
 fn send_and_receive_param_set(
-    // Note: we can make this even prettier using the `SystemParam` derive macro
-    // to make our own `SystemParam` type to put inside of the `ParamSet`.
     mut param_set: ParamSet<(EventReader<DebugEvent>, EventWriter<DebugEvent>)>,
     frame_count: Res<FrameCount>,
 ) {
