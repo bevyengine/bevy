@@ -90,7 +90,7 @@ pub struct LightProbePlugin;
 /// Note that ambient light is always added to the diffuse component and does
 /// not participate in the ranking. That is, ambient light is applied in
 /// addition to, not instead of, the light sources above.
-/// 
+///
 /// A terminology note: Unfortunately, there is little agreement across game and
 /// graphics engines as to what to call the various techniques that Bevy groups
 /// under the term *light probe*. In Bevy, a *light probe* is the generic term
@@ -100,7 +100,7 @@ pub struct LightProbePlugin;
 /// the term *light probe* refer to an irradiance volume with a single voxel, or
 /// perhaps some other technique, while in Bevy *light probe* refers not to a
 /// specific technique but rather to a class of techniques. Developers familiar
-/// with other engines should be aware of this terminology difference. 
+/// with other engines should be aware of this terminology difference.
 #[derive(Component, Debug, Clone, Copy, Default, Reflect)]
 #[reflect(Component, Default)]
 pub struct LightProbe;
@@ -353,11 +353,9 @@ impl Plugin for LightProbePlugin {
 /// to views, performing frustum culling and distance sorting in the process.
 ///
 /// This populates the [`RenderLightProbes`] resource.
-#[allow(clippy::too_many_arguments)]
 fn gather_light_probes<C>(
     mut render_light_probes: ResMut<RenderLightProbes>,
     image_assets: Res<RenderAssets<Image>>,
-    render_device: Res<RenderDevice>,
     light_probe_query: Extract<Query<(&GlobalTransform, &C), With<LightProbe>>>,
     view_query: Extract<Query<(Entity, &GlobalTransform, &Frustum, Option<&C>), With<Camera3d>>>,
     mut reflection_probes: Local<Vec<LightProbeInfo<C>>>,
@@ -396,7 +394,7 @@ fn gather_light_probes<C>(
             C::create_render_view_light_probes(view_component, &image_assets);
 
         // Gather up the light probes in the list.
-        render_view_light_probes.maybe_gather_light_probes(&view_reflection_probes, &render_device);
+        render_view_light_probes.maybe_gather_light_probes(&view_reflection_probes);
 
         // Record the per-view light probes.
         if render_view_light_probes.is_empty() {
@@ -613,15 +611,7 @@ where
 
     /// Gathers up all light probes of the given type in the scene and records
     /// them in this structure.
-    fn maybe_gather_light_probes(
-        &mut self,
-        light_probes: &[LightProbeInfo<C>],
-        render_device: &RenderDevice,
-    ) {
-        if !binding_arrays_are_usable(render_device) {
-            return;
-        }
-
+    fn maybe_gather_light_probes(&mut self, light_probes: &[LightProbeInfo<C>]) {
         for light_probe in light_probes.iter().take(MAX_VIEW_LIGHT_PROBES) {
             // Determine the index of the cubemap in the binding array.
             let cubemap_index = self.get_or_insert_cubemap(&light_probe.asset_id);
@@ -631,7 +621,7 @@ where
             // to recover the original inverse transform.
             let inverse_transpose_transform = light_probe.inverse_transform.transpose();
 
-            // Write in the reflection probe data.
+            // Write in the light probe data.
             self.render_light_probes.push(RenderLightProbe {
                 inverse_transpose_transform: [
                     inverse_transpose_transform.x_axis,

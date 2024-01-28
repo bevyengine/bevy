@@ -31,7 +31,11 @@ fn sample_irradiance_volume(world_position: vec3<f32>, N: vec3<f32>) -> Irradian
         return irradiance_volume_light;
     }
 
+#ifdef MULTIPLE_LIGHT_PROBES_IN_ARRAY
     let irradiance_volume_texture = irradiance_volumes[query_result.texture_index];
+#else
+    let irradiance_volume_texture = irradiance_volume;
+#endif
 
     let atlas_resolution = vec3<f32>(textureDimensions(irradiance_volume_texture));
     let resolution = vec3<f32>(textureDimensions(irradiance_volume_texture) / vec3(1u, 2u, 3u));
