@@ -146,6 +146,15 @@ pub trait AppGizmoBuilder {
     ///
     /// Configurations can be set using the [`GizmoConfigStore`] [`Resource`].
     fn init_gizmo_group<T: GizmoConfigGroup + Default>(&mut self) -> &mut Self;
+
+    /// Insert the [`GizmoConfigGroup`] in the app with the given value and [`GizmoConfig`].
+    ///
+    /// This method should be preferred over [`AppGizmoBuilder::init_gizmo_group`] if and only if you need to configure fields upon initialization.
+    fn insert_gizmo_group<T: GizmoConfigGroup>(
+        &mut self,
+        group: T,
+        config: GizmoConfig,
+    ) -> &mut Self;
 }
 
 impl AppGizmoBuilder for App {
@@ -160,6 +169,31 @@ impl AppGizmoBuilder for App {
         self.world
             .get_resource_or_insert_with::<GizmoConfigStore>(Default::default)
             .register::<T>();
+
+        let Ok(render_app) = self.get_sub_app_mut(RenderApp) else {
+            return self;
+        };
+
+        render_app.add_systems(ExtractSchedule, extract_gizmo_data::<T>);
+
+        self
+    }
+
+    fn insert_gizmo_group<T: GizmoConfigGroup>(
+        &mut self,
+        group: T,
+        config: GizmoConfig,
+    ) -> &mut Self {
+        if self.world.contains_resource::<GizmoStorage<T>>() {
+            return self;
+        }
+
+        self.init_resource::<GizmoStorage<T>>()
+            .add_systems(Last, update_gizmo_meshes::<T>);
+
+        self.world
+            .get_resource_or_insert_with::<GizmoConfigStore>(Default::default)
+            .insert(config, group);
 
         let Ok(render_app) = self.get_sub_app_mut(RenderApp) else {
             return self;

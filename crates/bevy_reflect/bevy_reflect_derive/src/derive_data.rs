@@ -167,10 +167,8 @@ impl<'a> ReflectDerive<'a> {
                     }
 
                     reflect_mode = Some(ReflectMode::Normal);
-                    let new_traits = ReflectTraits::from_metas(
-                        meta_list.parse_args_with(Punctuated::<Meta, Comma>::parse_terminated)?,
-                        is_from_reflect_derive,
-                    )?;
+                    let new_traits =
+                        ReflectTraits::from_meta_list(meta_list, is_from_reflect_derive)?;
                     traits.merge(new_traits)?;
                 }
                 Meta::List(meta_list) if meta_list.path.is_ident(REFLECT_VALUE_ATTRIBUTE_NAME) => {
@@ -182,10 +180,8 @@ impl<'a> ReflectDerive<'a> {
                     }
 
                     reflect_mode = Some(ReflectMode::Value);
-                    let new_traits = ReflectTraits::from_metas(
-                        meta_list.parse_args_with(Punctuated::<Meta, Comma>::parse_terminated)?,
-                        is_from_reflect_derive,
-                    )?;
+                    let new_traits =
+                        ReflectTraits::from_meta_list(meta_list, is_from_reflect_derive)?;
                     traits.merge(new_traits)?;
                 }
                 Meta::Path(path) if path.is_ident(REFLECT_VALUE_ATTRIBUTE_NAME) => {
@@ -484,7 +480,7 @@ impl<'a> ReflectStruct<'a> {
     }
 
     pub fn where_clause_options(&self) -> WhereClauseOptions {
-        WhereClauseOptions::new(self.meta(), self.active_fields(), self.ignored_fields())
+        WhereClauseOptions::new(self.meta())
     }
 }
 
@@ -507,22 +503,8 @@ impl<'a> ReflectEnum<'a> {
         &self.variants
     }
 
-    /// Get an iterator of fields which are exposed to the reflection API
-    pub fn active_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
-        self.variants()
-            .iter()
-            .flat_map(|variant| variant.active_fields())
-    }
-
-    /// Get an iterator of fields which are ignored by the reflection API
-    pub fn ignored_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
-        self.variants()
-            .iter()
-            .flat_map(|variant| variant.ignored_fields())
-    }
-
     pub fn where_clause_options(&self) -> WhereClauseOptions {
-        WhereClauseOptions::new(self.meta(), self.active_fields(), self.ignored_fields())
+        WhereClauseOptions::new(self.meta())
     }
 }
 
@@ -668,6 +650,7 @@ impl<'a> ReflectTypePath<'a> {
             where_clause: None,
             params: Punctuated::new(),
         };
+
         match self {
             Self::Internal { generics, .. } | Self::External { generics, .. } => generics,
             _ => EMPTY_GENERICS,
