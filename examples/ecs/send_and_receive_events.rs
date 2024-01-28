@@ -2,7 +2,7 @@
 //!
 //! Of course, this results in an error: the borrows of [`EventWriter`] and [`EventReader`] overlap,
 //! if and only if the [`Event`] type is the same.
-//! One system parameter borrows the [`Events`] resource mutably, and another system parameter borrows the [`Events`] resource immutably immutably.
+//! One system parameter borrows the [`Events`] resource mutably, and another system parameter borrows the [`Events`] resource immutably.
 //! If Bevy allowed this, there would be Undefined Behavior!
 //!
 //! There are two ways to solve this problem:
