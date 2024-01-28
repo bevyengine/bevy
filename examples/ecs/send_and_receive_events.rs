@@ -25,7 +25,8 @@ use bevy::prelude::*;
 fn main() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins)
-        .add_event::<MyEvent>()
+        .add_event::<DebugEvent>()
+        .add_systems(Update, read_and_write_different_type)
         .add_systems(
             Update,
             (
@@ -44,34 +45,49 @@ fn main() {
     app.update();
 }
 
+#[derive(Event)]
+struct A;
+
+#[derive(Event)]
+struct B;
+
+// This works fine, because the types are different,
+// so the borrows of the `EventWriter` and `EventReader` don't overlap.
+// Note that these borrowing rules are checked at system initialization time,
+// not at compile time, as Bevy uses internal unsafe code to split the `World` into disjoint pieces.
+fn read_and_write_different_type(mut a: EventWriter<A>, mut b: EventReader<B>) {
+    for _ in b.read() {}
+    a.send(A);
+}
+
 /// A dummy event type.
 #[derive(Debug, Clone, Event)]
-struct MyEvent {
+struct DebugEvent {
     re_emit_from_param_set: bool,
     re_emit_from_local_event_reader: bool,
     times_sent: u8,
 }
 
 /// A system that sends all combinations of events.
-fn send_events(mut events: EventWriter<MyEvent>, frame_count: Res<FrameCount>) {
+fn send_events(mut events: EventWriter<DebugEvent>, frame_count: Res<FrameCount>) {
     info!("Sending events for frame {:?}", *frame_count);
 
-    events.send(MyEvent {
+    events.send(DebugEvent {
         re_emit_from_param_set: false,
         re_emit_from_local_event_reader: false,
         times_sent: 1,
     });
-    events.send(MyEvent {
+    events.send(DebugEvent {
         re_emit_from_param_set: true,
         re_emit_from_local_event_reader: false,
         times_sent: 1,
     });
-    events.send(MyEvent {
+    events.send(DebugEvent {
         re_emit_from_param_set: false,
         re_emit_from_local_event_reader: true,
         times_sent: 1,
     });
-    events.send(MyEvent {
+    events.send(DebugEvent {
         re_emit_from_param_set: true,
         re_emit_from_local_event_reader: true,
         times_sent: 1,
@@ -81,7 +97,7 @@ fn send_events(mut events: EventWriter<MyEvent>, frame_count: Res<FrameCount>) {
 /// A system that prints all events sent since the last time this system ran.
 ///
 /// Note that some events will be printed twice, because they were sent twice.
-fn debug_events(mut events: EventReader<MyEvent>) {
+fn debug_events(mut events: EventReader<DebugEvent>) {
     for event in events.read() {
         println!("{:?}", event);
     }
@@ -91,7 +107,7 @@ fn debug_events(mut events: EventReader<MyEvent>) {
 fn send_and_receive_param_set(
     // Note: we can make this even prettier using the `SystemParam` derive macro
     // to make our own `SystemParam` type to put inside of the `ParamSet`.
-    mut param_set: ParamSet<(EventReader<MyEvent>, EventWriter<MyEvent>)>,
+    mut param_set: ParamSet<(EventReader<DebugEvent>, EventWriter<DebugEvent>)>,
     frame_count: Res<FrameCount>,
 ) {
     info!(
@@ -111,7 +127,7 @@ fn send_and_receive_param_set(
 
     // This is p1, as the second parameter in the `ParamSet` is the writer.
     for event in events_to_re_emit {
-        param_set.p1().send(MyEvent {
+        param_set.p1().send(DebugEvent {
             times_sent: event.times_sent + 1,
             // This is struct update syntax! Here, we're copying all of the fields from `event`,
             // except for the `times_sent` field, which we're incrementing.
@@ -124,9 +140,9 @@ fn send_and_receive_param_set(
 fn send_and_receive_local_event_reader(
     // The Local SystemParam stores state inside the system itself, rather than in the world.
     // ManualEventReader<T> is the internal state of EventReader<T>, which tracks which events have been seen.
-    mut local_event_reader: Local<ManualEventReader<MyEvent>>,
+    mut local_event_reader: Local<ManualEventReader<DebugEvent>>,
     // We can access the `Events` resource mutably, allowing us to both read and write its contents.
-    mut events: ResMut<Events<MyEvent>>,
+    mut events: ResMut<Events<DebugEvent>>,
     frame_count: Res<FrameCount>,
 ) {
     info!(
@@ -148,7 +164,7 @@ fn send_and_receive_local_event_reader(
     }
 
     for event in events_to_re_emit {
-        events.send(MyEvent {
+        events.send(DebugEvent {
             times_sent: event.times_sent + 1,
             // This is struct update syntax! Here, we're copying all of the fields from `event`,
             // except for the `times_sent` field, which we're incrementing.
