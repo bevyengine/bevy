@@ -3,7 +3,7 @@
 use std::f32::consts::PI;
 
 use bevy::prelude::*;
-use bevy_internal::gizmos::primitives::GizmoPrimitive3d;
+use bevy_internal::gizmos::primitives::dim3::GizmoPrimitive3d;
 use bevy_internal::math::primitives::{
     Capsule, Cone, ConicalFrustum, Cuboid, Cylinder, Line3d, Plane3d, Segment3d, Sphere, Torus,
 };
@@ -193,93 +193,114 @@ fn system(
         PrimitiveState::Nothing => {}
         PrimitiveState::Sphere => {
             gizmos
-                .primitive_3d(Sphere { radius: 1.0 })
-                .center(center)
-                .rotation(rotation)
+                .primitive_3d(Sphere { radius: 1.0 }, center, rotation, Color::default())
                 .segments(segments);
         }
         PrimitiveState::Plane => {
-            gizmos
-                .primitive_3d(Plane3d {
+            gizmos.primitive_3d(
+                Plane3d {
                     normal: Direction3d::new(Vec3::Y).unwrap(),
-                })
-                .normal_position(center)
-                .rotation(rotation);
+                },
+                center,
+                rotation,
+                Color::default(),
+            );
         }
         PrimitiveState::Line => {
-            gizmos
-                .primitive_3d(Line3d {
+            gizmos.primitive_3d(
+                Line3d {
                     direction: Direction3d::new(Vec3::X).unwrap(),
-                })
-                .start_position(center)
-                .rotation(rotation);
+                },
+                center,
+                rotation,
+                Color::default(),
+            );
         }
         PrimitiveState::LineSegment => {
-            gizmos
-                .primitive_3d(Segment3d {
+            gizmos.primitive_3d(
+                Segment3d {
                     direction: Direction3d::new(Vec3::X).unwrap(),
                     half_length: 1.0,
-                })
-                .start_position(center)
-                .rotation(rotation);
+                },
+                center,
+                rotation,
+                Color::default(),
+            );
         }
         PrimitiveState::Cuboid => {
-            gizmos
-                .primitive_3d(Cuboid {
+            gizmos.primitive_3d(
+                Cuboid {
                     half_size: Vec3::new(1.0, 0.5, 2.0),
-                })
-                .center(center)
-                .rotation(rotation);
+                },
+                center,
+                rotation,
+                Color::default(),
+            );
         }
         PrimitiveState::Cylinder => {
             gizmos
-                .primitive_3d(Cylinder {
-                    radius: 1.0,
-                    half_height: 1.0,
-                })
-                .center(center)
-                .normal(normal)
+                .primitive_3d(
+                    Cylinder {
+                        radius: 1.0,
+                        half_height: 1.0,
+                    },
+                    center,
+                    rotation,
+                    Color::default(),
+                )
                 .segments(segments);
         }
         PrimitiveState::Capsule => {
             gizmos
-                .primitive_3d(Capsule {
-                    radius: 1.0,
-                    half_length: 1.0,
-                })
-                .center(center)
-                .normal(normal)
+                .primitive_3d(
+                    Capsule {
+                        radius: 1.0,
+                        half_length: 1.0,
+                    },
+                    center,
+                    rotation,
+                    Color::default(),
+                )
                 .segments(segments);
         }
         PrimitiveState::Cone => {
             gizmos
-                .primitive_3d(Cone {
-                    radius: 1.0,
-                    height: 1.0,
-                })
-                .center(center)
-                .normal(normal)
+                .primitive_3d(
+                    Cone {
+                        radius: 1.0,
+                        height: 1.0,
+                    },
+                    center,
+                    rotation,
+                    Color::default(),
+                )
                 .segments(segments);
         }
         PrimitiveState::ConicalFrustum => {
             gizmos
-                .primitive_3d(ConicalFrustum {
-                    radius_top: 0.5,
-                    radius_bottom: 1.0,
-                    height: 1.0,
-                })
-                .center(center)
-                .normal(normal)
+                .primitive_3d(
+                    ConicalFrustum {
+                        radius_top: 0.5,
+                        radius_bottom: 1.0,
+                        height: 1.0,
+                    },
+                    center,
+                    rotation,
+                    Color::default(),
+                )
                 .segments(segments);
         }
         PrimitiveState::Torus => {
             gizmos
-                .primitive_3d(Torus {
-                    minor_radius: 0.3,
-                    major_radius: 1.0,
-                })
-                .center(center)
-                .normal(normal)
+                .primitive_3d(
+                    Torus {
+                        minor_radius: 0.3,
+                        major_radius: 1.0,
+                    },
+                    center,
+                    rotation,
+                    Color::default(),
+                )
                 .major_segments(segments)
                 .minor_segments((segments / 4).max(1));
         }
@@ -351,10 +372,10 @@ fn update_config(
     if keyboard.just_pressed(KeyCode::ArrowDown) {
         next_primitive_state.set(primitive_state.get().last());
     }
-    if keyboard.just_pressed(KeyCode::KeyM) {
+    if keyboard.pressed(KeyCode::KeyM) {
         segments.0 += 1;
     }
-    if keyboard.just_pressed(KeyCode::KeyN) {
-        segments.0 -= 1;
+    if keyboard.pressed(KeyCode::KeyN) {
+        segments.0 = segments.0.saturating_sub(1);
     }
 }
