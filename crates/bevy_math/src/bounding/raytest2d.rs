@@ -68,11 +68,11 @@ impl RayTest2d {
     }
 
     /// Get the distance of an intersection with a [`BoundingCircle`], if any.
-    pub fn circle_intersection_at(&self, sphere: &BoundingCircle) -> Option<f32> {
-        let offset = self.ray.origin - sphere.center;
+    pub fn circle_intersection_at(&self, circle: &BoundingCircle) -> Option<f32> {
+        let offset = self.ray.origin - circle.center;
         let projected = offset.dot(*self.ray.direction);
         let closest_point = offset - projected * *self.ray.direction;
-        let distance_squared = sphere.radius().powi(2) - closest_point.length_squared();
+        let distance_squared = circle.radius().powi(2) - closest_point.length_squared();
         if distance_squared < 0. || projected.powi(2).copysign(-projected) < -distance_squared {
             None
         } else {
