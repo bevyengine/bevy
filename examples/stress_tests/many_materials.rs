@@ -8,6 +8,9 @@ use bevy::{
 };
 use std::f32::consts::PI;
 
+#[derive(Component)]
+struct Floor;
+
 fn main() {
     App::new()
         .add_plugins((
@@ -29,21 +32,29 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
     let n = 4;
 
     // Camera
+    commands.spawn(Camera3dBundle {
+        transform: Transform::from_xyz(n as f32 + 1.0, 1.0, n as f32 + 1.0)
+            .looking_at(Vec3::new(0.0, -0.5, 0.0), Vec3::Y),
+        ..default()
+    });
+
+    // Plane
     commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(n as f32 + 1.0, 1.0, n as f32 + 1.0)
-                .looking_at(Vec3::new(0.0, -0.5, 0.0), Vec3::Y),
+        PbrBundle {
+            mesh: meshes.add(shape::Plane::from_size(50.0)),
+            material: materials.add(Color::rgb(0.3, 0.5, 0.3)),
             ..default()
         },
-        EnvironmentMapLight {
-            diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
-            specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
-            intensity: 150.0,
-        },
+        Floor,
     ));
 
     // Light
@@ -51,6 +62,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         transform: Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
         directional_light: DirectionalLight {
             illuminance: 3000.0,
+            shadows_enabled: true,
             ..default()
         },
         ..default()
@@ -82,7 +94,6 @@ fn animate_materials(
                 0.5,
             );
             material.base_color = color;
-            material.emissive = color;
         }
     }
 }
@@ -90,7 +101,7 @@ fn animate_materials(
 /// This is needed because by default assets are loaded with shared materials
 /// But we want to animate every helmet independently of the others, so we must duplicate the materials
 fn make_materials_unique(
-    mut material_handles: Query<&mut Handle<StandardMaterial>>,
+    mut material_handles: Query<&mut Handle<StandardMaterial>, Without<Floor>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut ran: Local<bool>,
 ) {
