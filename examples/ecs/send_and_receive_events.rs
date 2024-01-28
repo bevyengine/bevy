@@ -114,7 +114,7 @@ fn send_and_receive_param_set(
         frame_count.0
     );
 
-    // We must collect the events to re-emit, because we can't access the writer while we're iterating over the reader.
+    // We must collect the events to resend, because we can't access the writer while we're iterating over the reader.
     let mut events_to_resend = Vec::new();
 
     // This is p0, as the first parameter in the `ParamSet` is the reader.
