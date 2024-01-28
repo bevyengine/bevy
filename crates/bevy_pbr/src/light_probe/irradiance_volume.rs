@@ -67,6 +67,10 @@
 //! probe* refers to what Bevy calls a reflection probe. In Bevy, *light probe*
 //! is a generic term that encompasses all cuboid bounding regions that capture
 //! indirect illumination, whether based on voxels or not.
+//!
+//! Note that, if binding arrays aren't supported (e.g. on WebGPU or WebGL 2),
+//! then only the closest irradiance volume to the view will be taken into
+//! account during rendering.
 //! 
 //! [*ambient cubes*]: https://advances.realtimerendering.com/s2006/Mitchell-ShadingInValvesSourceEngine.pdf
 //! 
