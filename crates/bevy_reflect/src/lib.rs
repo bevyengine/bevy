@@ -541,6 +541,7 @@ mod tests {
         ser::{to_string_pretty, PrettyConfig},
         Deserializer,
     };
+    use static_assertions::{assert_impl_all, assert_not_impl_all};
     use std::{
         any::TypeId,
         borrow::Cow,
@@ -1866,40 +1867,36 @@ bevy_reflect::tests::Test {
     #[test]
     fn should_allow_custom_where() {
         #[derive(Reflect)]
-        #[reflect(custom_where(T: Default))]
+        #[reflect(where T: Default)]
         struct Foo<T>(String, #[reflect(ignore)] PhantomData<T>);
 
         #[derive(Default, TypePath)]
         struct Bar;
 
-        #[derive(Reflect)]
-        struct Baz {
-            a: Foo<Bar>,
-            b: Foo<usize>,
-        }
+        #[derive(TypePath)]
+        struct Baz;
+
+        assert_impl_all!(Foo<Bar>: Reflect);
+        assert_not_impl_all!(Foo<Baz>: Reflect);
     }
 
     #[test]
     fn should_allow_empty_custom_where() {
         #[derive(Reflect)]
-        #[reflect(custom_where())]
+        #[reflect(where)]
         struct Foo<T>(String, #[reflect(ignore)] PhantomData<T>);
 
         #[derive(TypePath)]
         struct Bar;
 
-        #[derive(Reflect)]
-        struct Baz {
-            a: Foo<Bar>,
-            b: Foo<usize>,
-        }
+        assert_impl_all!(Foo<Bar>: Reflect);
     }
 
     #[test]
     fn should_allow_multiple_custom_where() {
         #[derive(Reflect)]
-        #[reflect(custom_where(T: Default + FromReflect))]
-        #[reflect(custom_where(U: std::ops::Add<T> + FromReflect))]
+        #[reflect(where T: Default + FromReflect)]
+        #[reflect(where U: std::ops::Add<T> + FromReflect)]
         struct Foo<T, U>(T, U);
 
         #[derive(Reflect)]
@@ -1907,6 +1904,9 @@ bevy_reflect::tests::Test {
             a: Foo<i32, i32>,
             b: Foo<u32, u32>,
         }
+
+        assert_impl_all!(Foo<i32, i32>: Reflect);
+        assert_not_impl_all!(Foo<i32, usize>: Reflect);
     }
 
     #[test]
@@ -1917,7 +1917,7 @@ bevy_reflect::tests::Test {
 
         // We don't need `T` to be `Reflect` since we only care about `T::Assoc`
         #[derive(Reflect)]
-        #[reflect(custom_where(T::Assoc: FromReflect))]
+        #[reflect(where T::Assoc: FromReflect)]
         struct Foo<T: Trait>(T::Assoc);
 
         #[derive(TypePath)]
@@ -1927,10 +1927,7 @@ bevy_reflect::tests::Test {
             type Assoc = usize;
         }
 
-        #[derive(Reflect)]
-        struct Baz {
-            a: Foo<Bar>,
-        }
+        assert_impl_all!(Foo<Bar>: Reflect);
     }
 
     #[test]
@@ -1969,7 +1966,7 @@ bevy_reflect::tests::Test {
     fn can_opt_out_type_path() {
         #[derive(Reflect)]
         #[reflect(type_path = false)]
-        #[reflect(custom_where())]
+        #[reflect(where)]
         struct Foo<T> {
             #[reflect(ignore)]
             _marker: PhantomData<T>,

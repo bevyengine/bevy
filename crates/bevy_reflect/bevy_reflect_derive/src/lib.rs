@@ -131,7 +131,7 @@ pub(crate) static TYPE_NAME_ATTRIBUTE_NAME: &str = "type_name";
 /// This is useful for when a type can't or shouldn't implement `TypePath`,
 /// or if a manual implementation is desired.
 ///
-/// ## `#[reflect(custom_where(T: Trait, U::Assoc: Trait, ...))]`
+/// ## `#[reflect(where T: Trait, U::Assoc: Trait, ...)]`
 ///
 /// By default, the derive macro will automatically add certain trait bounds to all generic type parameters
 /// in order to make them compatible with reflection without the user needing to add them manually.
@@ -147,7 +147,7 @@ pub(crate) static TYPE_NAME_ATTRIBUTE_NAME: &str = "type_name";
 /// in general.
 ///
 /// This means that if you want to opt-out of the default bounds for _all_ type parameters,
-/// you can add `#[reflect(custom_where())]` to the container item to indicate
+/// you can add `#[reflect(where)]` to the container item to indicate
 /// that an empty `where` clause should be used.
 ///
 /// ### Example
@@ -158,7 +158,7 @@ pub(crate) static TYPE_NAME_ATTRIBUTE_NAME: &str = "type_name";
 /// }
 ///
 /// #[derive(Reflect)]
-/// #[reflect(custom_where(T::Assoc: FromReflect))]
+/// #[reflect(where T::Assoc: FromReflect)]
 /// struct Foo<T: Trait> where T::Assoc: Default {
 ///   value: T::Assoc,
 /// }
@@ -192,7 +192,7 @@ pub(crate) static TYPE_NAME_ATTRIBUTE_NAME: &str = "type_name";
 /// or allowing the use of types that do not implement `Reflect` within the container.
 ///
 /// If the field contains a generic type parameter, you will likely need to add a
-/// [`#[reflect(custom_where())]`](#reflectcustom_wheret-trait-uassoc-trait-)
+/// [`#[reflect(where)]`](#reflectwheret-trait-uassoc-trait-)
 /// attribute to the container in order to avoid the default bounds being applied to the type parameter.
 ///
 /// ## `#[reflect(skip_serializing)]`

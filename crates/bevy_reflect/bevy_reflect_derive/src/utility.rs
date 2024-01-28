@@ -112,7 +112,7 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
     ///
     /// This will only add bounds for generic type parameters.
     ///
-    /// If the container has a `#[reflect(custom_where(...))]` attribute,
+    /// If the container has a `#[reflect(where)]` attribute,
     /// this method will extend the type parameters with the _required_ bounds.
     /// If the attribute is not present, it will extend the type parameters with the _additional_ bounds.
     ///
@@ -138,7 +138,7 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
     ///
     /// It has type parameters `T` and `U`.
     ///
-    /// Since there is no `#[reflect(custom_where(...))]` attribute, this method will extend the type parameters
+    /// Since there is no `#[reflect(where)]` attribute, this method will extend the type parameters
     /// with the additional bounds:
     ///
     /// ```ignore (bevy_reflect is not accessible from this crate)
@@ -150,7 +150,7 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
     /// If we had this struct:
     /// ```ignore (bevy_reflect is not accessible from this crate)
     /// #[derive(Reflect)]
-    /// #[reflect(custom_where(T: FromReflect + Default))]
+    /// #[reflect(where T: FromReflect + Default)]
     /// struct Foo<T, U> {
     ///   a: T,
     ///   #[reflect(ignore)]
@@ -158,7 +158,7 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
     /// }
     /// ```
     ///
-    /// Since there is a `#[reflect(custom_where(...))]` attribute, this method will extend the type parameters
+    /// Since there is a `#[reflect(where)]` attribute, this method will extend the type parameters
     /// with _just_ the required bounds along with the predicates specified in the attribute:
     ///
     /// ```ignore (bevy_reflect is not accessible from this crate)
@@ -181,7 +181,11 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
 
         // Add additional reflection trait bounds
         let types = self.type_param_idents();
-        let custom_where = self.meta.traits().custom_where();
+        let custom_where = self
+            .meta
+            .traits()
+            .custom_where()
+            .map(|clause| &clause.predicates);
         let trait_bounds = self.trait_bounds();
 
         generic_where_clause.extend(quote! {

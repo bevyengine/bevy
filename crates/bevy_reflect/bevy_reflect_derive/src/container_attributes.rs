@@ -7,13 +7,13 @@
 
 use crate::utility;
 use bevy_macro_utils::fq_std::{FQAny, FQOption};
-use proc_macro2::{Ident, Span};
+use proc_macro2::{Ident, Span, TokenTree};
 use quote::quote_spanned;
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Comma;
-use syn::{Expr, LitBool, Meta, Path, Token, WherePredicate};
+use syn::{Expr, LitBool, Meta, MetaList, Path, WhereClause};
 
 // The "special" trait idents that are used internally for reflection.
 // Received via attributes like `#[reflect(PartialEq, Hash, ...)]`
@@ -30,9 +30,6 @@ const FROM_REFLECT_ATTR: &str = "from_reflect";
 
 // Attributes for `TypePath` implementation
 const TYPE_PATH_ATTR: &str = "type_path";
-
-// Attributes for `Reflect` implementation
-const CUSTOM_WHERE_ATTR: &str = "custom_where";
 
 // The error message to show when a trait/type is specified multiple times
 const CONFLICTING_TYPE_DATA_MESSAGE: &str = "conflicting type data registration";
@@ -214,12 +211,29 @@ pub(crate) struct ReflectTraits {
     partial_eq: TraitImpl,
     from_reflect_attrs: FromReflectAttrs,
     type_path_attrs: TypePathAttrs,
-    custom_where: Option<Punctuated<WherePredicate, Token![,]>>,
+    custom_where: Option<WhereClause>,
     idents: Vec<Ident>,
 }
 
 impl ReflectTraits {
-    pub fn from_metas(
+    pub fn from_meta_list(
+        meta: &MetaList,
+        is_from_reflect_derive: bool,
+    ) -> Result<Self, syn::Error> {
+        match meta.tokens.clone().into_iter().next() {
+            // Handles `#[reflect(where T: Trait, U::Assoc: Trait)]`
+            Some(TokenTree::Ident(ident)) if ident == "where" => Ok(Self {
+                custom_where: Some(meta.parse_args::<WhereClause>()?),
+                ..Self::default()
+            }),
+            _ => Self::from_metas(
+                meta.parse_args_with(Punctuated::<Meta, Comma>::parse_terminated)?,
+                is_from_reflect_derive,
+            ),
+        }
+    }
+
+    fn from_metas(
         metas: Punctuated<Meta, Comma>,
         is_from_reflect_derive: bool,
     ) -> Result<Self, syn::Error> {
@@ -257,12 +271,6 @@ impl ReflectTraits {
                         }
                     }
                 }
-                // Handles `#[reflect(custom_where(T: Trait, U::Assoc: Trait))]`
-                Meta::List(list) if list.path.is_ident(CUSTOM_WHERE_ATTR) => {
-                    let predicate: Punctuated<WherePredicate, Token![,]> =
-                        list.parse_args_with(Punctuated::parse_terminated)?;
-                    traits.merge_custom_where(Some(predicate));
-                }
                 // Handles `#[reflect( Debug(custom_debug_fn) )]`
                 Meta::List(list) if list.path.is_ident(DEBUG_ATTR) => {
                     let ident = list.path.get_ident().unwrap();
@@ -290,7 +298,9 @@ impl ReflectTraits {
                 Meta::List(list) => {
                     return Err(syn::Error::new_spanned(
                         list,
-                        format!("expected one of [{DEBUG_ATTR:?}, {PARTIAL_EQ_ATTR:?}, {HASH_ATTR:?}, {CUSTOM_WHERE_ATTR:?}]")
+                        format!(
+                            "expected one of [{DEBUG_ATTR:?}, {PARTIAL_EQ_ATTR:?}, {HASH_ATTR:?}]"
+                        ),
                     ));
                 }
                 Meta::NameValue(pair) => {
@@ -408,7 +418,7 @@ impl ReflectTraits {
         }
     }
 
-    pub fn custom_where(&self) -> Option<&Punctuated<WherePredicate, Token![,]>> {
+    pub fn custom_where(&self) -> Option<&WhereClause> {
         self.custom_where.as_ref()
     }
 
@@ -430,10 +440,10 @@ impl ReflectTraits {
         Ok(())
     }
 
-    fn merge_custom_where(&mut self, other: Option<Punctuated<WherePredicate, Token![,]>>) {
+    fn merge_custom_where(&mut self, other: Option<WhereClause>) {
         match (&mut self.custom_where, other) {
             (Some(this), Some(other)) => {
-                this.extend(other);
+                this.predicates.extend(other.predicates);
             }
             (None, Some(other)) => {
                 self.custom_where = Some(other);
