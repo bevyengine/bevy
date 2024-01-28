@@ -49,6 +49,25 @@ pub trait MapEntities {
 /// (mapper inputs) to the current world's entities (mapper outputs).
 ///
 /// More generally, this can be used to map [`Entity`] references between any two [`Worlds`](World).
+///
+/// ## Example
+///
+/// ```
+/// # use bevy_ecs::entity::{Entity, EntityMapper};
+/// # use bevy_utils::EntityHashMap;
+///
+/// pub struct SimpleEntityMapper {
+///   map: EntityHashMap<Entity, Entity>,
+/// }
+///
+/// // Example implementation of EntityMapper where we map an entity to another entity if it exists
+/// // in the underlying `EntityHashMap`, otherwise we just return the original entity.
+/// impl EntityMapper for SimpleEntityMapper {
+///     fn map_entity(&mut self, entity: Entity) -> Entity {
+///         self.map.get(&entity).copied().unwrap_or(entity)
+///     }
+/// }
+/// ```
 pub trait EntityMapper {
     /// Map an entity to another entity
     fn map_entity(&mut self, entity: Entity) -> Entity;
