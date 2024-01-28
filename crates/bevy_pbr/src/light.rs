@@ -215,8 +215,45 @@ impl Default for DirectionalLight {
 }
 
 impl DirectionalLight {
+    /// | 0.0001            |        |
+/// | 0.002             | Moonless clear night sky with airglow          |
+/// | 0.05–0.3          | Full moon on a clear night                     |
+/// | 3.4               | Dark limit of civil twilight under a clear sky |
+/// | 20–50             | Public areas with dark surroundings            |
+/// | 50                | Family living room lights                      |
+/// | 80                | Office building hallway/toilet lighting        |
+/// | 100               | Very dark overcast day                         |
+/// | 150               | Train station platforms                        |
+/// | 320–500           | Office lighting                                |
+/// | 400               | Sunrise or sunset on a clear day.              |
+/// | 1000              | Overcast day; typical TV studio lighting       |
+/// | 10,000–25,000     | Full daylight (not direct sun)                 |
+/// | 32,000–100,000    | Direct sunlight                                |
     pub const DEFAULT_SHADOW_DEPTH_BIAS: f32 = 0.02;
     pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 1.8;
+
+    /// The amount of light (lux) in a moonless, overcast night sky. (starlight)
+    pub const MOONLESS_NIGHT_LUX: f32 = 0.0001;
+    /// The amount of light (lux) in a moonless clear night sky with airglow.
+    pub const FULL_MOON_NIGHT_LUX: f32 = 0.05;
+    /// The amount of light (lux) in a full moon on a clear night.
+    pub const CIVIL_TWILIGHT_LUX: f32 = 3.4;
+    /// The amount of light (lux) in a dark limit of civil twilight under a clear sky.
+    pub const LIVING_ROOM_LUX: f32 = 50.;
+    /// The amount of light (lux) in a office building hallway/toilet lighting.
+    pub const HALLWAY_LUX: f32 = 80.;
+    /// The amount of light (lux) in a family living room lights.
+    pub const DARK_OVERCAST_DAY_LUX: f32 = 100.;
+    /// The amount of light (lux) in a office.
+    pub const OFFICE_LUX: f32 = 320.;
+    /// The amount of light (lux) on Sunrise or sunset on a clear day.
+    pub const CLEAR_SUNRISE_LUX: f32 = 400.;
+    /// The amount of light (lux) on very dark overcast day.
+    pub const OVERCAST_DAY_LUX: f32 = 1000.;
+    /// The amount of light (lux) in full daylight. (not direct sun)
+    pub const FULL_DAYLIGHT: f32 = 10_000.;
+    /// The amount of light (lux) in Direct sunlight.
+    pub const DIRECT_SUNLIGHT: f32 = 50_000.;
 }
 
 /// Controls the resolution of [`DirectionalLight`] shadow maps.
