@@ -138,8 +138,8 @@ fn send_and_receive_param_set(
 
 /// A system that both sends and receives events using a [`Local`] [`ManualEventReader`].
 fn send_and_receive_local_event_reader(
-    // The Local SystemParam stores state inside the system itself, rather than in the world.
-    // ManualEventReader<T> is the internal state of EventReader<T>, which tracks which events have been seen.
+    // The `Local` `SystemParam` stores state inside the system itself, rather than in the world.
+    // `ManualEventReader<T>` is the internal state of `EventReader<T>`, which tracks which events have been seen.
     mut local_event_reader: Local<ManualEventReader<DebugEvent>>,
     // We can access the `Events` resource mutably, allowing us to both read and write its contents.
     mut events: ResMut<Events<DebugEvent>>,
