@@ -382,6 +382,7 @@ pub struct Rectangle {
     /// Half of the width and height of the rectangle
     pub half_size: Vec2,
 }
+impl Primitive2d for Rectangle {}
 
 impl Rectangle {
     /// Create a rectangle from a full width and height
