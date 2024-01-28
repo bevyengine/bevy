@@ -4,8 +4,10 @@
 //! This UI is laid out with the Flexbox and CSS Grid layout models (see <https://cssreference.io/flexbox/>)
 
 pub mod measurement;
+pub use measurement::*;
 pub mod node_bundles;
 pub mod ui_material;
+pub use ui_material::*;
 pub mod update;
 pub mod widget;
 
@@ -16,19 +18,17 @@ use bevy_text::TextLayoutInfo;
 #[cfg(feature = "bevy_text")]
 mod accessibility;
 mod focus;
+pub use focus::*;
 mod geometry;
+pub use geometry::*;
 mod layout;
+pub use layout::*;
 mod render;
+pub use render::*;
 mod stack;
 mod ui_node;
-
-pub use focus::*;
-pub use geometry::*;
-pub use layout::*;
-pub use measurement::*;
-pub use render::*;
-pub use ui_material::*;
 pub use ui_node::*;
+
 use widget::UiImageSize;
 
 #[doc(hidden)]
