@@ -69,17 +69,13 @@ where
     type Without: QueryFilter + BooleanQuery;
     /// Generate a [`Added`] query based on this type.
     ///
-    /// Returns true when some component is added
-    /// and all components are present.
-    ///
-    /// [`IsAdded`](ComponentGroup::IsAdded) should be used outside of a filter.
+    /// Returns true when some component is added,
+    /// **only if** all components are present.
     type Added: QueryFilter + BooleanQuery;
     /// Generate a [`Changed`] query based on this type.
     ///
-    /// Returns true when some component is changed
-    /// and all components are present.
-    ///
-    /// [`IsChanged`](ComponentGroup::IsChanged) should be used outside of a filter.
+    /// Returns true when some component is changed,
+    /// **only if** all components are present.
     type Changed: QueryFilter + BooleanQuery;
     /// Generate a [`Has`] query based on this type.
     ///
