@@ -210,7 +210,7 @@ mod tests {
                     assert!(test.intersects(&volume), "{}", case);
 
                     let actual_distance = test.circle_intersection_at(&volume);
-                    assert_eq!(actual_distance, Some(0.), "{}", case,);
+                    assert_eq!(actual_distance, Some(0.), "{}", case);
                 }
             }
         }
