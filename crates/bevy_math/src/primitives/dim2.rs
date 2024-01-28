@@ -519,7 +519,7 @@ impl RegularPolygon {
 pub struct Capsule2d {
     /// The radius of the capsule
     pub radius: f32,
-    /// Half the height of the capsule, excluding the hemispheres
+    /// Half the height of the capsule, excluding the hemicircles
     pub half_length: f32,
 }
 impl Primitive2d for Capsule2d {}

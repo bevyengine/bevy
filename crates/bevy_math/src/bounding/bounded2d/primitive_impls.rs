@@ -232,7 +232,7 @@ impl Bounded2d for RegularPolygon {
 
 impl Bounded2d for Capsule2d {
     fn aabb_2d(&self, translation: Vec2, rotation: f32) -> Aabb2d {
-        // Get the line segment between the hemispheres of the rotated capsule
+        // Get the line segment between the hemicircles of the rotated capsule
         let segment = Segment2d {
             // Multiplying a normalized vector (Vec2::Y) with a rotation returns a normalized vector.
             direction: Direction2d::new_unchecked(Mat2::from_angle(rotation) * Vec2::Y),
