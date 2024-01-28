@@ -131,6 +131,53 @@ pub(crate) static TYPE_NAME_ATTRIBUTE_NAME: &str = "type_name";
 /// This is useful for when a type can't or shouldn't implement `TypePath`,
 /// or if a manual implementation is desired.
 ///
+/// ## `#[reflect(where T: Trait, U::Assoc: Trait, ...)]`
+///
+/// By default, the derive macro will automatically add certain trait bounds to all generic type parameters
+/// in order to make them compatible with reflection without the user needing to add them manually.
+/// This includes traits like `Reflect` and `FromReflect`.
+/// However, this may not always be desired, and some type paramaters can't or shouldn't require those bounds
+/// (i.e. their usages in fields are ignored or they're only used for their associated types).
+///
+/// With this attribute, you can specify a custom `where` clause to be used instead of the default.
+/// If this attribute is present, none of the type parameters will receive the default bounds.
+/// Only the bounds specified by the type itself and by this attribute will be used.
+/// The only exceptions to this are the `Any`, `Send`, `Sync`, and `TypePath` bounds,
+/// which will always be added regardless of this attribute due to their necessity for reflection
+/// in general.
+///
+/// This means that if you want to opt-out of the default bounds for _all_ type parameters,
+/// you can add `#[reflect(where)]` to the container item to indicate
+/// that an empty `where` clause should be used.
+///
+/// ### Example
+///
+/// ```ignore
+/// trait Trait {
+///   type Assoc;
+/// }
+///
+/// #[derive(Reflect)]
+/// #[reflect(where T::Assoc: FromReflect)]
+/// struct Foo<T: Trait> where T::Assoc: Default {
+///   value: T::Assoc,
+/// }
+///
+/// // Generates a where clause like the following
+/// // (notice that `T` does not have any `Reflect` or `FromReflect` bounds):
+/// //
+/// // impl<T: Trait> bevy_reflect::Reflect for Foo<T>
+/// // where
+/// //   Self: 'static,
+/// //   T::Assoc: Default,
+/// //   T: bevy_reflect::TypePath
+/// //     + ::core::any::Any
+/// //     + ::core::marker::Send
+/// //     + ::core::marker::Sync,
+/// //   T::Assoc: FromReflect,
+/// // {/* ... */}
+/// ```
+///
 /// # Field Attributes
 ///
 /// Along with the container attributes, this macro comes with some attributes that may be applied
@@ -143,6 +190,10 @@ pub(crate) static TYPE_NAME_ATTRIBUTE_NAME: &str = "type_name";
 /// This allows fields to completely opt-out of reflection,
 /// which may be useful for maintaining invariants, keeping certain data private,
 /// or allowing the use of types that do not implement `Reflect` within the container.
+///
+/// If the field contains a generic type parameter, you will likely need to add a
+/// [`#[reflect(where)]`](#reflectwheret-trait-uassoc-trait-)
+/// attribute to the container in order to avoid the default bounds being applied to the type parameter.
 ///
 /// ## `#[reflect(skip_serializing)]`
 ///
