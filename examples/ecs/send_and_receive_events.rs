@@ -94,7 +94,10 @@ fn send_and_receive_param_set(
     mut param_set: ParamSet<(EventReader<MyEvent>, EventWriter<MyEvent>)>,
     frame_count: Res<FrameCount>,
 ) {
-    info!("Sending and receiving events for frame {:?}", *frame_count);
+    info!(
+        "Sending and receiving events for frame {} with a `ParamSet`",
+        frame_count.0
+    );
 
     // We must collect the events to re-emit, because we can't access the writer while we're iterating over the reader.
     let mut events_to_re_emit = Vec::new();
@@ -126,7 +129,10 @@ fn send_and_receive_local_event_reader(
     mut events: ResMut<Events<MyEvent>>,
     frame_count: Res<FrameCount>,
 ) {
-    info!("Sending and receiving events for frame {:?}", *frame_count);
+    info!(
+        "Sending and receiving events for frame {} with a `Local<ManualEventReader>",
+        frame_count.0
+    );
 
     // We must collect the events to re-emit, because we can't mutate events while we're iterating over the events.
     let mut events_to_re_emit = Vec::new();
