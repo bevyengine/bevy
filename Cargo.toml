@@ -2087,6 +2087,17 @@ category = "Stress Tests"
 wasm = true
 
 [[example]]
+name = "many_materials"
+path = "examples/stress_tests/many_materials.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.many_materials]
+name = "Many Lights"
+description = "Benchmark to test rendering many animated materials"
+category = "Stress Tests"
+wasm = true
+
+[[example]]
 name = "many_sprites"
 path = "examples/stress_tests/many_sprites.rs"
 doc-scrape-examples = true

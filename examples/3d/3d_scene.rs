@@ -1,12 +1,25 @@
 //! A simple 3D scene with light shining over a cube sitting on a plane.
 
+use bevy::pbr::NotShadowCaster;
 use bevy::prelude::*;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
+        //.add_systems(Update, update)
         .run();
+}
+
+#[derive(Component)]
+struct Marker;
+
+fn update(time: Res<Time>, mut commands: Commands, delete: Query<Entity, With<Marker>>) {
+    if let Some(delete) = delete.get_single().ok() {
+        if time.elapsed_seconds() > 5.0 {
+            commands.entity(delete).despawn();
+        }
+    }
 }
 
 /// set up a simple 3D scene
@@ -16,19 +29,27 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // circular base
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Circle::new(4.0)),
-        material: materials.add(Color::WHITE),
-        transform: Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
-        ..default()
-    });
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(shape::Circle::new(4.0)),
+            material: materials.add(Color::WHITE),
+            transform: Transform::from_rotation(Quat::from_rotation_x(
+                -std::f32::consts::FRAC_PI_2,
+            )),
+            ..default()
+        },
+        NotShadowCaster,
+    ));
     // cube
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Cube { size: 1.0 }),
-        material: materials.add(Color::rgb_u8(124, 144, 255)),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        ..default()
-    });
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(shape::Cube { size: 1.0 }),
+            material: materials.add(Color::rgb_u8(124, 144, 255)),
+            transform: Transform::from_xyz(0.0, 0.5, 0.0),
+            ..default()
+        },
+        Marker,
+    ));
     // light
     commands.spawn(PointLightBundle {
         point_light: PointLight {
