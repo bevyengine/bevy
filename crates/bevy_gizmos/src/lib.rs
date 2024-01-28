@@ -146,6 +146,20 @@ pub trait AppGizmoBuilder {
     ///
     /// Configurations can be set using the [`GizmoConfigStore`] [`Resource`].
     fn init_gizmo_group<T: GizmoConfigGroup + Default>(&mut self) -> &mut Self;
+
+    /// Insert the [`GizmoConfigGroup`] in the app with the given value and [`GizmoConfig`].
+    ///
+    /// This might be useful for groups with fields configurations.
+    fn insert_gizmo_group<T: GizmoConfigGroup>(
+        &mut self,
+        group: T,
+        config: GizmoConfig,
+    ) -> &mut Self;
+
+    /// Insert the [`GizmoConfig`] in the given [`GizmoConfigGroup`]
+    ///
+    /// This method expects the given group to be already inserted in [`GizmoConfigStore`].
+    fn set_gizmo_group_config<T: GizmoConfigGroup>(&mut self, config: GizmoConfig) -> &mut Self;
 }
 
 impl AppGizmoBuilder for App {
@@ -166,6 +180,42 @@ impl AppGizmoBuilder for App {
         };
 
         render_app.add_systems(ExtractSchedule, extract_gizmo_data::<T>);
+
+        self
+    }
+
+    fn insert_gizmo_group<T: GizmoConfigGroup>(
+        &mut self,
+        group: T,
+        config: GizmoConfig,
+    ) -> &mut Self {
+        if self.world.contains_resource::<GizmoStorage<T>>() {
+            return self;
+        }
+
+        self.init_resource::<GizmoStorage<T>>()
+            .add_systems(Last, update_gizmo_meshes::<T>);
+
+        self.world
+            .get_resource_or_insert_with::<GizmoConfigStore>(Default::default)
+            .insert(config, group);
+
+        let Ok(render_app) = self.get_sub_app_mut(RenderApp) else {
+            return self;
+        };
+
+        render_app.add_systems(ExtractSchedule, extract_gizmo_data::<T>);
+
+        self
+    }
+
+    fn set_gizmo_group_config<T: GizmoConfigGroup>(&mut self, config: GizmoConfig) -> &mut Self {
+        self.world
+            .get_resource_or_insert_with::<GizmoConfigStore>(Default::default)
+            .get_config_mut_dyn(&TypeId::of::<T>())
+            .map(|(old_config, _)| {
+                *old_config = config;
+            });
 
         self
     }
