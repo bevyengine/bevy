@@ -798,7 +798,6 @@ impl MeshletGpuScene {
         // TODO: Remove unused entries for previous_occlusion_buffers
     }
 
-    /// TODO: Documentation
     fn queue_meshlet_mesh_upload(
         &mut self,
         instance: Entity,
@@ -843,10 +842,12 @@ impl MeshletGpuScene {
             )
         };
 
+        // Append instance data for this frame
         self.instances
             .push((instance, render_layers, not_shadow_caster));
         self.instance_material_ids.get_mut().push(0);
 
+        // If the MeshletMesh asset has not been uploaded to the GPU yet, queue it for uploading
         let (buffer_slices, index_count) = self
             .meshlet_mesh_slices
             .entry(handle.id())
@@ -861,6 +862,7 @@ impl MeshletGpuScene {
         self.scene_meshlet_count += meshlets_slice.end - meshlets_slice.start;
         self.scene_index_count += index_count;
 
+        // Calculate the previous thread IDs for each meshlet
         let previous_thread_id_start = self
             .previous_thread_id_starts
             .entry((instance, handle.id()))
@@ -872,6 +874,7 @@ impl MeshletGpuScene {
             start..(meshlets_slice.len() as u32 + start)
         };
 
+        // Append per-meshlet thread for this frame
         self.thread_instance_ids
             .get_mut()
             .extend(std::iter::repeat(instance_index).take(meshlets_slice.len()));

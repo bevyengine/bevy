@@ -19,6 +19,7 @@ impl MeshletMesh {
     /// 2. Use indices
     /// 3. Have the exact following set of vertex attributes: `{POSITION, NORMAL, UV_0, TANGENT}`
     pub fn from_mesh(mesh: &Mesh) -> Result<Self, MeshToMeshletMeshConversionError> {
+        // Validate mesh format
         if mesh.primitive_topology() != PrimitiveTopology::TriangleList {
             return Err(MeshToMeshletMeshConversionError::WrongMeshPrimitiveTopology);
         }
@@ -46,8 +47,10 @@ impl MeshletMesh {
         )
         .unwrap();
 
+        // Split the mesh into meshlets
         let meshopt_meshlets = build_meshlets(&indices, &vertices, 64, 64, 0.0);
 
+        // Calculate meshlet bounding spheres
         let meshlet_bounding_spheres = meshopt_meshlets
             .iter()
             .map(|meshlet| {
@@ -65,6 +68,7 @@ impl MeshletMesh {
             })
             .collect();
 
+        // Assemble into the final asset
         let mut total_meshlet_indices = 0;
         let meshlets = meshopt_meshlets
             .meshlets
