@@ -177,10 +177,10 @@ impl TextMeasureInfo {
             max: Vec2::ZERO,
         };
 
-        let min = info.compute_size(Vec2::new(0.0, f32::INFINITY));
-        let max = info.compute_size(Vec2::INFINITY);
-        info.min = min;
-        info.max = max;
+        let min_width = info.compute_size(Vec2::new(0.0, f32::INFINITY));
+        let max_width = info.compute_size(Vec2::INFINITY);
+        info.min = min_width.min(max_width);
+        info.max = min_width.max(max_width);
         info
     }
 
