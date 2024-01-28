@@ -1,6 +1,6 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
-    change_detection::Mut,
+    change_detection::{Mut, Ref},
     component::{ComponentId, Tick},
     entity::Entity,
     prelude::{Component, FromWorld},
@@ -688,6 +688,38 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         }
     }
 
+    /// Returns a change-detection-enabled shared reference to the component `T` of the given [`Entity`].
+    ///
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
+    #[inline]
+    pub(crate) fn get_component_ref<'w, T: Component>(
+        &self,
+        world: UnsafeWorldCell<'w>,
+        entity: Entity,
+    ) -> Result<Ref<'w, T>, QueryComponentError> {
+        let entity_ref = world
+            .get_entity(entity)
+            .ok_or(QueryComponentError::NoSuchEntity)?;
+        let component_id = world
+            .components()
+            .get_id(TypeId::of::<T>())
+            .ok_or(QueryComponentError::MissingComponent)?;
+        let archetype_component = entity_ref
+            .archetype()
+            .get_archetype_component_id(component_id)
+            .ok_or(QueryComponentError::MissingComponent)?;
+        if self
+            .archetype_component_access
+            .has_read(archetype_component)
+        {
+            // SAFETY: `world` must have access to the component `T` for this entity,
+            // since it was registered in `self`'s archetype component access set.
+            unsafe { entity_ref.get_ref::<T>() }.ok_or(QueryComponentError::MissingComponent)
+        } else {
+            Err(QueryComponentError::MissingReadAccess)
+        }
+    }
+
     /// Returns a shared reference to the component `T` of the given [`Entity`].
     ///
     /// # Panics
@@ -828,6 +860,22 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         // SAFETY: query is read only
         unsafe {
             self.as_readonly().iter_unchecked_manual(
+                world.as_unsafe_world_cell_readonly(),
+                world.last_change_tick(),
+                world.read_change_tick(),
+            )
+        }
+    }
+
+    /// Returns an [`Iterator`] over the change-detection-enabled query results for the given [`World`].
+    ///
+    /// This can only be called for read-only queries, see [`Self::iter_mut`] for write-queries.
+    #[inline]
+    pub fn iter_ref<'w, 's>(&'s mut self, world: &'w World) -> QueryIter<'w, 's, D::ReadOnlySmartRef, F> {
+        self.update_archetypes(world);
+        // SAFETY: query is read only
+        unsafe {
+            self.as_readonly_smart_ref().iter_unchecked_manual(
                 world.as_unsafe_world_cell_readonly(),
                 world.last_change_tick(),
                 world.read_change_tick(),

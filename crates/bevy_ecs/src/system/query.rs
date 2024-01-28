@@ -1,4 +1,5 @@
 use crate::{
+    change_detection::Ref,
     component::{Component, Tick},
     entity::Entity,
     query::{
@@ -438,6 +439,48 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         }
     }
 
+    /// Returns an [`Iterator`] over the change-detection-enabled read-only query items.
+    ///
+    /// # Example
+    ///
+    /// Here, the `report_names_system` iterates over the `Player` component of every entity that contains it, and prints if it was changed:
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct Player { name: String }
+    /// #
+    /// fn report_names_system(query: Query<&Player>) {
+    ///     for player in query.iter_ref() { // `player` is of the type Ref<Player>
+    ///         if player.is_changed() {
+    ///             println!("{} was changed!", player.name);
+    ///         } else {
+    ///             println!("{} was not changed!", player.name);
+    ///         }
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(report_names_system);
+    /// ```
+    ///
+    /// # See also
+    ///
+    /// - [`iter_mut`](Self::iter_mut) for mutable query items.
+    /// - [`for_each`](Self::for_each) for the closure based alternative.
+    #[inline]
+    pub fn iter_ref(&self) -> QueryIter<'_, 's, D::ReadOnlySmartRef, F> {
+        // SAFETY:
+        // - `self.world` has permission to access the required components.
+        // - The query is read-only, so it can be aliased even if it was originally mutable.
+        unsafe {
+            self.state.as_readonly_smart_ref().iter_unchecked_manual(
+                self.world,
+                self.last_run,
+                self.this_run,
+            )
+        }
+    }
+
     /// Returns an [`Iterator`] over the query items.
     ///
     /// # Example
@@ -503,6 +546,42 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
                 self.last_run,
                 self.this_run,
             )
+        }
+    }
+
+    /// Returns a [`QueryCombinationIter`] over all combinations of `K` change-detection-enabled read-only query items without repetition.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Component)]
+    /// # struct ComponentA;
+    /// #
+    /// fn some_system(query: Query<&ComponentA>) {
+    ///     for [a1, a2] in query.iter_combinations_ref() {
+    ///         // a1 and a2 have type `Ref<ComponentA>`
+    ///         if a1.last_changed() == a2.last_changed() {
+    ///             println!("Found two individual instances of a component that were changed at the same time!");
+    ///         }
+    ///     }
+    /// }
+    /// ```
+    ///
+    /// # See also
+    ///
+    /// - [`iter_combinations_mut`](Self::iter_combinations_mut) for mutable query item combinations.
+    #[inline]
+    pub fn iter_combinations_ref<const K: usize>(
+        &self,
+    ) -> QueryCombinationIter<'_, 's, D::ReadOnlySmartRef, F, K> {
+        // SAFETY:
+        // - `self.world` has permission to access the required components.
+        // - The query is read-only, so it can be aliased even if it was originally mutable.
+        unsafe {
+            self.state
+                .as_readonly_smart_ref()
+                .iter_combinations_unchecked_manual(self.world, self.last_run, self.this_run)
         }
     }
 
@@ -590,6 +669,63 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
                 self.last_run,
                 self.this_run,
             )
+        }
+    }
+
+    /// Returns an [`Iterator`] over the change-detection-enabled read-only query items generated from an [`Entity`] list.
+    ///
+    /// Items are returned in the order of the list of entities.
+    /// Entities that don't match the query are skipped.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Component)]
+    /// # struct Counter {
+    /// #     value: i32
+    /// # }
+    /// #
+    /// // A component containing an entity list.
+    /// #[derive(Component)]
+    /// struct Friends {
+    ///     list: Vec<Entity>,
+    /// }
+    ///
+    /// fn system(
+    ///     friends_query: Query<&Friends>,
+    ///     counter_query: Query<(Entity, &Counter)>,
+    /// ) {
+    ///     for friends in &friends_query {
+    ///         for (entity, counter) in counter_query.iter_many_ref(&friends.list) {
+    ///             // `counter` has type `Ref<Counter>` because components support change-detection.
+    ///             // `entity` has type `Entity` because it doesn't support change-detection, so
+    ///             // we get regular read-only access.
+    ///             println!("Friend's counter was last changed at {:?}", counter.last_changed());
+    ///         }
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    ///
+    /// # See also
+    ///
+    /// - [`iter_many_mut`](Self::iter_many_mut) to get mutable query items.
+    #[inline]
+    pub fn iter_many_ref<EntityList: IntoIterator>(
+        &self,
+        entities: EntityList,
+    ) -> QueryManyIter<'_, 's, D::ReadOnlySmartRef, F, EntityList::IntoIter>
+    where
+        EntityList::Item: Borrow<Entity>,
+    {
+        // SAFETY:
+        // - `self.world` has permission to access the required components.
+        // - The query is read-only, so it can be aliased even if it was originally mutable.
+        unsafe {
+            self.state
+                .as_readonly_smart_ref()
+                .iter_many_unchecked_manual(entities, self.world, self.last_run, self.this_run)
         }
     }
 
@@ -804,6 +940,23 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         QueryParIter {
             world: self.world,
             state: self.state.as_readonly(),
+            last_run: self.last_run,
+            this_run: self.this_run,
+            batching_strategy: BatchingStrategy::new(),
+        }
+    }
+
+    /// Returns a parallel iterator over the change-detection-enabled query results for the given [`World`].
+    ///
+    /// This can only be called for read-only queries, see [`par_iter_mut`] for write-queries.
+    ///
+    /// [`par_iter_mut`]: Self::par_iter_mut
+    /// [`World`]: crate::world::World
+    #[inline]
+    pub fn par_iter_ref(&self) -> QueryParIter<'_, '_, D::ReadOnlySmartRef, F> {
+        QueryParIter {
+            world: self.world,
+            state: self.state.as_readonly_smart_ref(),
             last_run: self.last_run,
             this_run: self.this_run,
             batching_strategy: BatchingStrategy::new(),
@@ -1163,6 +1316,46 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         self.state.get_component(self.world, entity)
     }
 
+    /// Returns a change-detection-enabled shared reference to the component `T` of the given [`Entity`].
+    ///
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
+    ///
+    /// # Example
+    ///
+    /// Here, `get_component_ref` is used to retrieve the `Character` component of the entity specified by the `SelectedCharacter` resource.
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Resource)]
+    /// # struct SelectedCharacter { entity: Entity }
+    /// # #[derive(Component)]
+    /// # struct Character { name: String }
+    /// #
+    /// fn print_selected_character_name_system(
+    ///        query: Query<&Character>,
+    ///        selection: Res<SelectedCharacter>
+    /// )
+    /// {
+    ///     if let Ok(selected_character) = query.get_component_ref::<Character>(selection.entity) {
+    ///         println!("{} was last modified at {:?}", selected_character.name, selected_character.last_changed());
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(print_selected_character_name_system);
+    /// ```
+    ///
+    /// # See also
+    ///
+    /// - [`component`](Self::component) a panicking version of this function.
+    /// - [`get_component_mut`](Self::get_component_mut) to get a mutable reference of a component.
+    #[inline]
+    pub fn get_component_ref<T: Component>(
+        &self,
+        entity: Entity,
+    ) -> Result<Ref<'_, T>, QueryComponentError> {
+        self.state.get_component_ref(self.world, entity)
+    }
+
     /// Returns a mutable reference to the component `T` of the given entity.
     ///
     /// In case of a nonexisting entity, mismatched component or missing write access, a [`QueryComponentError`] is returned instead.
@@ -1214,6 +1407,30 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     #[track_caller]
     pub fn component<T: Component>(&self, entity: Entity) -> &T {
         self.state.component(self.world, entity)
+    }
+
+    /// Returns a change-detection-enabled shared reference to the component `T` of the given [`Entity`].
+    ///
+    /// # Panics
+    ///
+    /// Panics in case of a nonexisting entity or mismatched component.
+    ///
+    /// # See also
+    ///
+    /// - [`get_component`](Self::get_component) a non-panicking version of this function.
+    /// - [`component_mut`](Self::component_mut) to get a mutable reference of a component.
+    #[inline]
+    #[track_caller]
+    pub fn component_ref<T: Component>(&self, entity: Entity) -> Ref<'_, T> {
+        match self.get_component_ref(entity) {
+            Ok(component) => component,
+            Err(error) => {
+                panic!(
+                    "Cannot get component `{:?}` from {entity:?}: {error}",
+                    TypeId::of::<T>()
+                )
+            }
+        }
     }
 
     /// Returns a mutable reference to the component `T` of the given entity.
@@ -1301,6 +1518,36 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         self.get_single().unwrap()
     }
 
+    /// Returns a single change-detection-enabled read-only query item when there is exactly one entity matching the query.
+    ///
+    /// # Panics
+    ///
+    /// This method panics if the number of query items is **not** exactly one.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Component)]
+    /// # struct Player;
+    /// # #[derive(Component)]
+    /// # struct Position(f32, f32);
+    /// fn player_system(query: Query<&Position, With<Player>>) {
+    ///     let player_position = query.single_ref();
+    ///     // do something with player_position
+    /// }
+    /// # bevy_ecs::system::assert_is_system(player_system);
+    /// ```
+    ///
+    /// # See also
+    ///
+    /// - [`get_single`](Self::get_single) for the non-panicking version.
+    /// - [`single_mut`](Self::single_mut) to get the mutable query item.
+    #[track_caller]
+    pub fn single_ref(&self) -> ROQueryItemRef<'_, D> {
+        self.get_single_ref().unwrap()
+    }
+
     /// Returns a single read-only query item when there is exactly one entity matching the query.
     ///
     /// If the number of query items is not exactly one, a [`QuerySingleError`] is returned instead.
@@ -1343,6 +1590,49 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
                 self.last_run,
                 self.this_run,
             )
+        }
+    }
+
+    /// Returns a single change-detection-enabled read-only query item when there is exactly one entity matching the query.
+    ///
+    /// If the number of query items is not exactly one, a [`QuerySingleError`] is returned instead.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::query::QuerySingleError;
+    /// # #[derive(Component)]
+    /// # struct PlayerScore(i32);
+    /// fn player_scoring_system(query: Query<&PlayerScore>) {
+    ///     match query.get_single_ref() {
+    ///         Ok(score) => {
+    ///             println!("The score is: {}, and it was last changed at {:?} (in ticks)", score.0, score.last_changed());
+    ///         }
+    ///         Err(QuerySingleError::NoEntities(_)) => {
+    ///             println!("Error: There is no player!");
+    ///         }
+    ///         Err(QuerySingleError::MultipleEntities(_)) => {
+    ///             println!("Error: There is more than one player!");
+    ///         }
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(player_scoring_system);
+    /// ```
+    ///
+    /// # See also
+    ///
+    /// - [`get_single_mut`](Self::get_single_mut) to get the mutable query item.
+    /// - [`single`](Self::single) for the panicking version.
+    #[inline]
+    pub fn get_single_ref(&self) -> Result<ROQueryItemRef<'_, D>, QuerySingleError> {
+        // SAFETY:
+        // the query ensures that the components it accesses are not mutably accessible somewhere else
+        // and the query is read only.
+        unsafe {
+            self.state
+                .as_readonly_smart_ref()
+                .get_single_unchecked_manual(self.world, self.last_run, self.this_run)
         }
     }
 
