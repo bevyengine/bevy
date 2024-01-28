@@ -12,7 +12,9 @@ readme = "README.md"
 [features]
 default = []
 # When enabled, provides Bevy-related reflection implementations
-bevy = ["glam", "smallvec", "bevy_math", "smol_str"]
+bevy = ["smallvec", "bevy_math", "smol_str"]
+glam = ["dep:glam"]
+bevy_math = ["glam", "dep:bevy_math"]
 smallvec = []
 # When enabled, allows documentation comments to be accessed via reflection
 documentation = ["bevy_reflect_derive/documentation"]

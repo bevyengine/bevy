@@ -146,6 +146,15 @@ pub trait AppGizmoBuilder {
     ///
     /// Configurations can be set using the [`GizmoConfigStore`] [`Resource`].
     fn init_gizmo_group<T: GizmoConfigGroup + Default>(&mut self) -> &mut Self;
+
+    /// Insert the [`GizmoConfigGroup`] in the app with the given value and [`GizmoConfig`].
+    ///
+    /// This method should be preferred over [`AppGizmoBuilder::init_gizmo_group`] if and only if you need to configure fields upon initialization.
+    fn insert_gizmo_group<T: GizmoConfigGroup>(
+        &mut self,
+        group: T,
+        config: GizmoConfig,
+    ) -> &mut Self;
 }
 
 impl AppGizmoBuilder for App {
@@ -160,6 +169,31 @@ impl AppGizmoBuilder for App {
         self.world
             .get_resource_or_insert_with::<GizmoConfigStore>(Default::default)
             .register::<T>();
+
+        let Ok(render_app) = self.get_sub_app_mut(RenderApp) else {
+            return self;
+        };
+
+        render_app.add_systems(ExtractSchedule, extract_gizmo_data::<T>);
+
+        self
+    }
+
+    fn insert_gizmo_group<T: GizmoConfigGroup>(
+        &mut self,
+        group: T,
+        config: GizmoConfig,
+    ) -> &mut Self {
+        if self.world.contains_resource::<GizmoStorage<T>>() {
+            return self;
+        }
+
+        self.init_resource::<GizmoStorage<T>>()
+            .add_systems(Last, update_gizmo_meshes::<T>);
+
+        self.world
+            .get_resource_or_insert_with::<GizmoConfigStore>(Default::default)
+            .insert(config, group);
 
         let Ok(render_app) = self.get_sub_app_mut(RenderApp) else {
             return self;
@@ -343,14 +377,14 @@ fn prepare_line_gizmo_bind_group(
 struct SetLineGizmoBindGroup<const I: usize>;
 impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetLineGizmoBindGroup<I> {
     type Param = SRes<LineGizmoUniformBindgroup>;
-    type ViewData = ();
-    type ItemData = Read<DynamicUniformIndex<LineGizmoUniform>>;
+    type ViewQuery = ();
+    type ItemQuery = Read<DynamicUniformIndex<LineGizmoUniform>>;
 
     #[inline]
     fn render<'w>(
         _item: &P,
-        _view: ROQueryItem<'w, Self::ViewData>,
-        uniform_index: ROQueryItem<'w, Self::ItemData>,
+        _view: ROQueryItem<'w, Self::ViewQuery>,
+        uniform_index: ROQueryItem<'w, Self::ItemQuery>,
         bind_group: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -366,14 +400,14 @@ impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetLineGizmoBindGroup<I>
 struct DrawLineGizmo;
 impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
     type Param = SRes<RenderAssets<LineGizmo>>;
-    type ViewData = ();
-    type ItemData = Read<Handle<LineGizmo>>;
+    type ViewQuery = ();
+    type ItemQuery = Read<Handle<LineGizmo>>;
 
     #[inline]
     fn render<'w>(
         _item: &P,
-        _view: ROQueryItem<'w, Self::ViewData>,
-        handle: ROQueryItem<'w, Self::ItemData>,
+        _view: ROQueryItem<'w, Self::ViewQuery>,
+        handle: ROQueryItem<'w, Self::ItemQuery>,
         line_gizmos: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {

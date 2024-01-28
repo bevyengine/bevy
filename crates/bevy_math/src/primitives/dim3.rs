@@ -84,16 +84,45 @@ impl std::ops::Neg for Direction3d {
 }
 
 /// A sphere primitive
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Sphere {
     /// The radius of the sphere
     pub radius: f32,
 }
 impl Primitive3d for Sphere {}
 
+impl Sphere {
+    /// Create a new [`Sphere`] from a `radius`
+    #[inline(always)]
+    pub const fn new(radius: f32) -> Self {
+        Self { radius }
+    }
+
+    /// Finds the point on the sphere that is closest to the given `point`.
+    ///
+    /// If the point is outside the sphere, the returned point will be on the surface of the sphere.
+    /// Otherwise, it will be inside the sphere and returned as is.
+    #[inline(always)]
+    pub fn closest_point(&self, point: Vec3) -> Vec3 {
+        let distance_squared = point.length_squared();
+
+        if distance_squared <= self.radius.powi(2) {
+            // The point is inside the sphere.
+            point
+        } else {
+            // The point is outside the sphere.
+            // Find the closest point on the surface of the sphere.
+            let dir_to_point = point / distance_squared.sqrt();
+            self.radius * dir_to_point
+        }
+    }
+}
+
 /// An unbounded plane in 3D space. It forms a separating surface through the origin,
 /// stretching infinitely far
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Plane3d {
     /// The normal of the plane. The plane will be placed perpendicular to this direction
     pub normal: Direction3d,
@@ -117,7 +146,8 @@ impl Plane3d {
 /// An infinite line along a direction in 3D space.
 ///
 /// For a finite line: [`Segment3d`]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Line3d {
     /// The direction of the line
     pub direction: Direction3d,
@@ -126,7 +156,8 @@ impl Primitive3d for Line3d {}
 
 /// A segment of a line along a direction in 3D space.
 #[doc(alias = "LineSegment3d")]
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Segment3d {
     /// The direction of the line
     pub direction: Direction3d,
@@ -173,9 +204,11 @@ impl Segment3d {
 /// A series of connected line segments in 3D space.
 ///
 /// For a version without generics: [`BoxedPolyline3d`]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Polyline3d<const N: usize> {
     /// The vertices of the polyline
+    #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
     pub vertices: [Vec3; N],
 }
 impl<const N: usize> Primitive3d for Polyline3d<N> {}
@@ -202,7 +235,8 @@ impl<const N: usize> Polyline3d<N> {
 /// in a `Box<[Vec3]>`.
 ///
 /// For a version without alloc: [`Polyline3d`]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct BoxedPolyline3d {
     /// The vertices of the polyline
     pub vertices: Box<[Vec3]>,
@@ -226,7 +260,8 @@ impl BoxedPolyline3d {
 }
 
 /// A cuboid primitive, more commonly known as a box.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Cuboid {
     /// Half of the width, height and depth of the cuboid
     pub half_size: Vec3,
@@ -245,10 +280,21 @@ impl Cuboid {
             half_size: size / 2.,
         }
     }
+
+    /// Finds the point on the cuboid that is closest to the given `point`.
+    ///
+    /// If the point is outside the cuboid, the returned point will be on the surface of the cuboid.
+    /// Otherwise, it will be inside the cuboid and returned as is.
+    #[inline(always)]
+    pub fn closest_point(&self, point: Vec3) -> Vec3 {
+        // Clamp point coordinates to the cuboid
+        point.clamp(-self.half_size, self.half_size)
+    }
 }
 
 /// A cylinder primitive
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Cylinder {
     /// The radius of the cylinder
     pub radius: f32,
@@ -269,7 +315,8 @@ impl Cylinder {
 
 /// A capsule primitive.
 /// A capsule is defined as a surface at a distance (radius) from a line
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Capsule {
     /// The radius of the capsule
     pub radius: f32,
@@ -290,7 +337,8 @@ impl Capsule {
 }
 
 /// A cone primitive.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Cone {
     /// The radius of the base
     pub radius: f32,
@@ -302,7 +350,8 @@ impl Primitive3d for Cone {}
 /// A conical frustum primitive.
 /// A conical frustum can be created
 /// by slicing off a section of a cone.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct ConicalFrustum {
     /// The radius of the top of the frustum
     pub radius_top: f32,
@@ -333,6 +382,7 @@ pub enum TorusKind {
 
 /// A torus primitive, often representing a ring or donut shape
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Torus {
     /// The radius of the tube of the torus
     #[doc(
@@ -431,6 +481,31 @@ mod test {
         assert_eq!(
             Direction3d::new_and_length(Vec3::X * 6.5),
             Ok((Direction3d::X, 6.5))
+        );
+    }
+
+    #[test]
+    fn cuboid_closest_point() {
+        let cuboid = Cuboid::new(2.0, 2.0, 2.0);
+        assert_eq!(cuboid.closest_point(Vec3::X * 10.0), Vec3::X);
+        assert_eq!(cuboid.closest_point(Vec3::NEG_ONE * 10.0), Vec3::NEG_ONE);
+        assert_eq!(
+            cuboid.closest_point(Vec3::new(0.25, 0.1, 0.3)),
+            Vec3::new(0.25, 0.1, 0.3)
+        );
+    }
+
+    #[test]
+    fn sphere_closest_point() {
+        let sphere = Sphere { radius: 1.0 };
+        assert_eq!(sphere.closest_point(Vec3::X * 10.0), Vec3::X);
+        assert_eq!(
+            sphere.closest_point(Vec3::NEG_ONE * 10.0),
+            Vec3::NEG_ONE.normalize()
+        );
+        assert_eq!(
+            sphere.closest_point(Vec3::new(0.25, 0.1, 0.3)),
+            Vec3::new(0.25, 0.1, 0.3)
         );
     }
 }

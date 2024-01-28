@@ -214,24 +214,13 @@ impl Mesh {
         attribute: MeshVertexAttribute,
         values: impl Into<VertexAttributeValues>,
     ) {
-        let mut values = values.into();
+        let values = values.into();
         let values_format = VertexFormat::from(&values);
         if values_format != attribute.format {
             panic!(
                 "Failed to insert attribute. Invalid attribute format for {}. Given format is {values_format:?} but expected {:?}",
                 attribute.name, attribute.format
             );
-        }
-
-        // validate attributes
-        if attribute.id == Self::ATTRIBUTE_JOINT_WEIGHT.id {
-            let VertexAttributeValues::Float32x4(ref mut values) = values else {
-                unreachable!() // we confirmed the format above
-            };
-            for value in values.iter_mut().filter(|v| *v == &[0.0, 0.0, 0.0, 0.0]) {
-                // zero weights are invalid
-                value[0] = 1.0;
-            }
         }
 
         self.attributes
@@ -676,6 +665,31 @@ impl Mesh {
     pub fn morph_target_names(&self) -> Option<&[String]> {
         self.morph_target_names.as_deref()
     }
+
+    /// Normalize joint weights so they sum to 1.
+    pub fn normalize_joint_weights(&mut self) {
+        if let Some(joints) = self.attribute_mut(Self::ATTRIBUTE_JOINT_WEIGHT) {
+            let VertexAttributeValues::Float32x4(ref mut joints) = joints else {
+                panic!("unexpected joint weight format");
+            };
+
+            for weights in joints.iter_mut() {
+                // force negative weights to zero
+                weights.iter_mut().for_each(|w| *w = w.max(0.0));
+
+                let sum: f32 = weights.iter().sum();
+                if sum == 0.0 {
+                    // all-zero weights are invalid
+                    weights[0] = 1.0;
+                } else {
+                    let recip = sum.recip();
+                    for weight in weights.iter_mut() {
+                        *weight *= recip;
+                    }
+                }
+            }
+        }
+    }
 }
 
 impl core::ops::Mul<Mesh> for Transform {
@@ -732,6 +746,13 @@ pub struct InnerMeshVertexBufferLayout {
 }
 
 impl InnerMeshVertexBufferLayout {
+    pub fn new(attribute_ids: Vec<MeshVertexAttributeId>, layout: VertexBufferLayout) -> Self {
+        Self {
+            attribute_ids,
+            layout,
+        }
+    }
+
     #[inline]
     pub fn contains(&self, attribute_id: impl Into<MeshVertexAttributeId>) -> bool {
         self.attribute_ids.contains(&attribute_id.into())

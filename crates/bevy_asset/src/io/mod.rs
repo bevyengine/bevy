@@ -78,7 +78,7 @@ pub trait AssetReader: Send + Sync + 'static {
         &'a self,
         path: &'a Path,
     ) -> BoxedFuture<'a, Result<Box<PathStream>, AssetReaderError>>;
-    /// Returns an iterator of directory entry names at the provided path.
+    /// Returns true if the provided path points to a directory.
     fn is_directory<'a>(
         &'a self,
         path: &'a Path,
@@ -269,7 +269,7 @@ pub(crate) fn get_meta_path(path: &Path) -> PathBuf {
     let mut meta_path = path.to_path_buf();
     let mut extension = path
         .extension()
-        .expect("asset paths must have extensions")
+        .unwrap_or_else(|| panic!("missing extension for asset path {path:?}"))
         .to_os_string();
     extension.push(".meta");
     meta_path.set_extension(extension);
