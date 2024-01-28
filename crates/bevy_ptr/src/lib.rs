@@ -1,6 +1,8 @@
 #![doc = include_str!("../README.md")]
 #![no_std]
 #![warn(missing_docs)]
+// FIXME(11590): remove this once the lint is fixed
+#![allow(unsafe_op_in_unsafe_fn)]
 
 use core::fmt::{self, Formatter, Pointer};
 use core::{
