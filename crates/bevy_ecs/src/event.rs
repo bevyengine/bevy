@@ -562,8 +562,38 @@ impl<'w, E: Event> EventWriter<'w, E> {
 /// In almost all cases, you should just use an [`EventReader`],
 /// which will automatically manage the state for you.
 ///
-/// However, to see how to manually track events (and why you might want to do so),
-/// take a look at the [send_and_receive_events example](https://github.com/bevyengine/bevy/blob/latest/examples/ecs/send_and_receive_events.rs).
+/// However, this type can be useful if you need to manually track events,
+/// such as when you're attempting to send and receive events of the same type in the same system.
+///
+/// # Example
+///
+/// ```rust
+/// use bevy_ecs::prelude::*;
+/// use bevy_ecs::event::{Event, Events, ManualEventReader};
+///
+/// #[derive(Event, Clone, Debug)]
+/// struct MyEvent;
+///
+/// /// A system that both sends and receives events using a [`Local`] [`ManualEventReader`].
+/// fn send_and_receive_manual_event_reader(
+///     // The `Local` `SystemParam` stores state inside the system itself, rather than in the world.
+///     // `ManualEventReader<T>` is the internal state of `EventReader<T>`, which tracks which events have been seen.
+///     mut local_event_reader: Local<ManualEventReader<MyEvent>>,
+///     // We can access the `Events` resource mutably, allowing us to both read and write its contents.
+///     mut events: ResMut<Events<DebugEvent>>,
+/// ) {
+///     // We must collect the events to re-emit, because we can't mutate events while we're iterating over the events.
+///     let mut events_to_re_emit = Vec::new();
+///
+///     for event in local_event_reader.read(&events) {
+///          events_to_re_emit.push(event.clone());
+///     }
+///
+///     for event in events_to_re_emit {
+///         events.send(MyEvent);
+///     }
+/// }
+/// ```
 #[derive(Debug)]
 pub struct ManualEventReader<E: Event> {
     last_event_count: usize,

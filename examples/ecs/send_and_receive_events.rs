@@ -64,8 +64,8 @@ fn read_and_write_different_type(mut a: EventWriter<A>, mut b: EventReader<B>) {
 /// A dummy event type.
 #[derive(Debug, Clone, Event)]
 struct DebugEvent {
-    re_emit_from_param_set: bool,
-    re_emit_from_local_event_reader: bool,
+    resend_from_param_set: bool,
+    resend_from_local_event_reader: bool,
     times_sent: u8,
 }
 
@@ -74,23 +74,23 @@ fn send_events(mut events: EventWriter<DebugEvent>, frame_count: Res<FrameCount>
     info!("Sending events for frame {:?}", *frame_count);
 
     events.send(DebugEvent {
-        re_emit_from_param_set: false,
-        re_emit_from_local_event_reader: false,
+        resend_from_param_set: false,
+        resend_from_local_event_reader: false,
         times_sent: 1,
     });
     events.send(DebugEvent {
-        re_emit_from_param_set: true,
-        re_emit_from_local_event_reader: false,
+        resend_from_param_set: true,
+        resend_from_local_event_reader: false,
         times_sent: 1,
     });
     events.send(DebugEvent {
-        re_emit_from_param_set: false,
-        re_emit_from_local_event_reader: true,
+        resend_from_param_set: false,
+        resend_from_local_event_reader: true,
         times_sent: 1,
     });
     events.send(DebugEvent {
-        re_emit_from_param_set: true,
-        re_emit_from_local_event_reader: true,
+        resend_from_param_set: true,
+        resend_from_local_event_reader: true,
         times_sent: 1,
     });
 }
@@ -115,17 +115,17 @@ fn send_and_receive_param_set(
     );
 
     // We must collect the events to re-emit, because we can't access the writer while we're iterating over the reader.
-    let mut events_to_re_emit = Vec::new();
+    let mut events_to_resend = Vec::new();
 
     // This is p0, as the first parameter in the `ParamSet` is the reader.
     for event in param_set.p0().read() {
-        if event.re_emit_from_param_set {
-            events_to_re_emit.push(event.clone());
+        if event.resend_from_param_set {
+            events_to_resend.push(event.clone());
         }
     }
 
     // This is p1, as the second parameter in the `ParamSet` is the writer.
-    for event in events_to_re_emit {
+    for event in events_to_resend {
         param_set.p1().send(DebugEvent {
             times_sent: event.times_sent + 1,
             // This is struct update syntax! Here, we're copying all of the fields from `event`,
@@ -150,19 +150,19 @@ fn send_and_receive_manual_event_reader(
     );
 
     // We must collect the events to re-emit, because we can't mutate events while we're iterating over the events.
-    let mut events_to_re_emit = Vec::new();
+    let mut events_to_resend = Vec::new();
 
     for event in local_event_reader.read(&events) {
-        if event.re_emit_from_local_event_reader {
+        if event.resend_from_local_event_reader {
             // For simplicity, we're cloning the event.
             // In this case, since we have mutable access to the `Events` resource,
             // we could also just mutate the event in-place,
-            // or drain the event queue into our `events_to_re_emit` vector.
-            events_to_re_emit.push(event.clone());
+            // or drain the event queue into our `events_to_resend` vector.
+            events_to_resend.push(event.clone());
         }
     }
 
-    for event in events_to_re_emit {
+    for event in events_to_resend {
         events.send(DebugEvent {
             times_sent: event.times_sent + 1,
             // This is struct update syntax! Here, we're copying all of the fields from `event`,
