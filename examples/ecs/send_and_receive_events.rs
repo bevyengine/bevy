@@ -1,4 +1,4 @@
-//! From time-to-time, you may find that you want to both send and receive and event of the same type in a single system.
+//! From time to time, you may find that you want to both send and receive an event of the same type in a single system.
 //!
 //! Of course, this results in an error: the borrows of [`EventWriter`] and [`EventReader`] overlap,
 //! if and only if the [`Event`] type is the same.
