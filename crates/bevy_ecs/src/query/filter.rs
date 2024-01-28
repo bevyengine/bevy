@@ -1080,7 +1080,7 @@ macro_rules! impl_archetype_filter_tuple {
 all_tuples!(impl_archetype_filter_tuple, 0, 15, F);
 
 /// A [`WorldQuery`] that always produces a specific boolean value.
-/// 
+///
 /// `Always<false>` does not filter archetypes, use `Never` instead.
 pub struct Always<const VALUE: bool>;
 
