@@ -4,7 +4,7 @@ use crate::{
 };
 use bevy_utils::all_tuples;
 
-use super::{Added, Always, And, Changed, Has, Or, QueryFilter, With, Without};
+use super::{Added, Always, And, Changed, Has, Never, Or, QueryFilter, With, Without};
 
 /// A helper trait that can be used to generate
 /// queries and filters based on multiple components.
@@ -91,7 +91,7 @@ impl ComponentGroup for () {
     type ReadQuery = ();
     type WriteQuery = ();
     type With = Always<true>;
-    type Without = Always<false>;
+    type Without = Never;
     type Has = Always<true>;
     type HasAny = Always<true>;
     type Added = Always<false>;
