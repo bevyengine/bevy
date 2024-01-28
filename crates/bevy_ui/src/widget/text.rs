@@ -92,6 +92,9 @@ fn create_text_measure(
     match TextMeasureInfo::from_text(&text, fonts, scale_factor) {
         Ok(measure) => {
             if text.linebreak_behavior == BreakLineOn::NoWrap {
+                // with no wrapping the text will always be a single line, which is as wide as
+                // possible and as short as possible. so we use the max width and min height 
+                // directly.
                 content_size.set(FixedMeasure {
                     size: Vec2::new(measure.max.x, measure.min.y),
                 });
