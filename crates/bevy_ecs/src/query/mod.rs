@@ -2,6 +2,7 @@
 
 mod access;
 mod builder;
+mod components;
 mod error;
 mod fetch;
 mod filter;
@@ -13,6 +14,7 @@ mod world_query;
 pub use access::*;
 pub use bevy_ecs_macros::{QueryData, QueryFilter};
 pub use builder::*;
+pub use components::*;
 pub use error::*;
 pub use fetch::*;
 pub use filter::*;
@@ -71,8 +73,10 @@ impl<T> DebugCheckedUnwrap for Option<T> {
 mod tests {
     use bevy_ecs_macros::{QueryData, QueryFilter};
 
-    use crate::prelude::{AnyOf, Changed, Entity, Or, QueryState, With, Without};
-    use crate::query::{ArchetypeFilter, Has, QueryCombinationIter, ReadOnlyQueryData};
+    use crate::prelude::{Added, AnyOf, Changed, Entity, Or, QueryState, With, Without};
+    use crate::query::{
+        Always, And, ArchetypeFilter, Has, Is, QueryCombinationIter, ReadOnlyQueryData,
+    };
     use crate::schedule::{IntoSystemConfigs, Schedule};
     use crate::system::{IntoSystem, Query, System, SystemState};
     use crate::{self as bevy_ecs, component::Component, world::World};
@@ -415,6 +419,61 @@ mod tests {
             .into_iter()
             .collect::<HashSet<_>>()
         );
+
+        world.clear_trackers();
+    }
+
+    #[test]
+    fn query_data_position_filter_query() {
+        // Check if Added<T> works on the data side.
+        let mut world = World::new();
+
+        world.spawn((A(1), B(1)));
+        world.spawn((A(2), B(2)));
+        world.spawn((A(3), B(3)));
+        world.spawn((A(4), B(4)));
+
+        let mut query_added = world.query::<Is<Added<A>>>();
+
+        assert_eq!(query_added.iter(&world).filter(|x| *x).count(), 4);
+        assert_eq!(query_added.iter(&world).filter(|x| !*x).count(), 0);
+
+        world.clear_trackers();
+        world.spawn(A(5));
+
+        assert_eq!(query_added.iter(&world).filter(|x| *x).count(), 1);
+        assert_eq!(query_added.iter(&world).filter(|x| !*x).count(), 4);
+
+        world.clear_trackers();
+        world.spawn(A(6));
+        world.spawn(A(7));
+
+        assert_eq!(query_added.iter(&world).filter(|x| *x).count(), 2);
+        assert_eq!(query_added.iter(&world).filter(|x| !*x).count(), 5);
+
+        world.clear_trackers();
+        world.spawn(A(8));
+        world.spawn(A(9));
+        world.spawn(A(10));
+
+        assert_eq!(query_added.iter(&world).filter(|x| *x).count(), 3);
+        assert_eq!(query_added.iter(&world).filter(|x| !*x).count(), 7);
+
+        world.clear_trackers();
+
+        let mut query_added = world.query::<Is<Changed<A>>>();
+
+        assert_eq!(query_added.iter(&world).filter(|x| *x).count(), 0);
+        assert_eq!(query_added.iter(&world).filter(|x| !*x).count(), 10);
+
+        let mut query_mut = world.query::<&mut A>();
+
+        query_mut
+            .iter_mut(&mut world)
+            .take(3)
+            .for_each(|mut x| x.0 = 3);
+        assert_eq!(query_added.iter(&world).filter(|x| *x).count(), 3);
+        assert_eq!(query_added.iter(&world).filter(|x| !*x).count(), 7);
     }
 
     #[test]
@@ -483,6 +542,45 @@ mod tests {
     }
 
     #[test]
+    fn always_query() {
+        let mut world = World::new();
+
+        world.spawn((A(1), B(1)));
+        world.spawn(A(2));
+        world.spawn((A(3), B(2)));
+        world.spawn(A(4));
+
+        let values: Vec<(&A, bool, bool)> = world
+            .query::<(&A, Always<true>, Always<false>)>()
+            .iter(&world)
+            .collect();
+
+        assert_eq!(
+            values,
+            vec![
+                (&A(1), true, false),
+                (&A(3), true, false),
+                (&A(2), true, false),
+                (&A(4), true, false),
+            ]
+        );
+
+        let values: Vec<&A> = world
+            .query_filtered::<&A, Always<true>>()
+            .iter(&world)
+            .collect();
+
+        assert_eq!(values, vec![&A(1), &A(3), &A(2), &A(4),]);
+
+        let values: Vec<&A> = world
+            .query_filtered::<&A, Always<false>>()
+            .iter(&world)
+            .collect();
+
+        assert!(values.is_empty());
+    }
+
+    #[test]
     fn has_query() {
         let mut world = World::new();
 
@@ -497,6 +595,46 @@ mod tests {
         assert_eq!(
             values,
             vec![(&A(1), true), (&A(3), true), (&A(2), false), (&A(4), false),]
+        );
+
+        let mut world = World::new();
+        world.spawn((A(1), B(1), C(1), D(1)));
+        world.spawn((A(2), B(2), C(2)));
+        world.spawn((A(3), C(3), D(3)));
+        world.spawn((A(4), B(4), D(4)));
+
+        let values: Vec<(&A, bool, bool)> = world
+            .query::<(&A, And<(Has<B>, Has<C>)>, And<(Has<C>, Has<D>)>)>()
+            .iter(&world)
+            .collect();
+
+        assert_eq!(
+            values,
+            vec![
+                (&A(1), true, true),
+                (&A(2), true, false),
+                (&A(3), false, true),
+                (&A(4), false, false),
+            ]
+        );
+
+        let mut world = World::new();
+        world.spawn((A(1), B(2)));
+        world.spawn((A(2), C(3)));
+        world.spawn((A(3), D(4)));
+
+        let values: Vec<(&A, bool, bool)> = world
+            .query::<(&A, Or<(Has<B>, Has<C>)>, Or<(Has<C>, Has<D>)>)>()
+            .iter(&world)
+            .collect();
+
+        assert_eq!(
+            values,
+            vec![
+                (&A(1), true, false),
+                (&A(2), true, true),
+                (&A(3), false, true),
+            ]
         );
     }
 

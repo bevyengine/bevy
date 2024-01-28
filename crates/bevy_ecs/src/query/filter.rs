@@ -10,6 +10,8 @@ use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use bevy_utils::all_tuples;
 use std::{cell::UnsafeCell, marker::PhantomData};
 
+use super::{QueryData, ReadOnlyQueryData};
+
 /// Types that filter the results of a [`Query`].
 ///
 /// There are many types that natively implement this trait:
@@ -312,6 +314,42 @@ impl<T: Component> QueryFilter for Without<T> {
     }
 }
 
+/// Enable usage of a boolean filter like `Changed` on the data side.
+///
+/// # Example
+///
+/// ```
+/// # use bevy_ecs::component::Component;
+/// # use bevy_ecs::entity::Entity;
+/// # use bevy_ecs::query::Changed;
+/// # use bevy_ecs::query::Is;
+/// # use bevy_ecs::system::IntoSystem;
+/// # use bevy_ecs::system::Query;
+/// #
+/// # #[derive(Component, Debug)]
+/// # struct Color {};
+/// # #[derive(Component)]
+/// # struct Style {};
+/// #
+/// fn print_cool_entity_system(query: Query<(Entity, Is<Changed<Color>>)>) {
+///     for (entity, changed) in &query {
+///         if changed {
+///             println!("Entity {:?} got a new style or color", entity);
+///         }
+///     }
+/// }
+/// # bevy_ecs::system::assert_is_system(print_cool_entity_system);
+/// ```
+pub type Is<T> = And<(T,)>;
+
+/// The `Or` query combinator.
+///
+/// # Data Side
+///
+/// Aggregates boolean values and perform the `or` operation, returns a boolean value.
+///
+/// # Filter Side
+///
 /// A filter that tests if any of the given filters apply.
 ///
 /// This is useful for example if a system with multiple components in a query only wants to run
@@ -344,13 +382,48 @@ impl<T: Component> QueryFilter for Without<T> {
 /// ```
 pub struct Or<T>(PhantomData<T>);
 
+/// The `And` query combinator.
+///
+/// # Data Side
+///
+/// Aggregates boolean values and perform the `and` operation, returns a boolean value.
+///
+/// # Filter Side
+///
+/// A filter that tests if all of the given filters apply.
+///
+/// A [`prim@tuple`] does the same thing on filter position and is preferred.
+///
+/// # Examples
+///
+/// ```
+/// # use bevy_ecs::component::Component;
+/// # use bevy_ecs::entity::Entity;
+/// # use bevy_ecs::query::Changed;
+/// # use bevy_ecs::query::Or;
+/// # use bevy_ecs::system::IntoSystem;
+/// # use bevy_ecs::system::Query;
+/// #
+/// # #[derive(Component, Debug)]
+/// # struct Color {};
+/// # #[derive(Component)]
+/// # struct Style {};
+/// #
+/// fn print_cool_entity_system(query: Query<Entity, And<(Changed<Color>, Changed<Style>)>>) {
+///     for entity in &query {
+///         println!("Entity {:?} got a new style and color", entity);
+///     }
+/// }
+/// # bevy_ecs::system::assert_is_system(print_cool_entity_system);
+/// ```
+pub struct And<T>(PhantomData<T>);
+
 #[doc(hidden)]
-pub struct OrFetch<'w, T: WorldQuery> {
+pub struct BoolFetch<'w, T: WorldQuery> {
     fetch: T::Fetch<'w>,
     matches: bool,
 }
-
-impl<T: WorldQuery> Clone for OrFetch<'_, T> {
+impl<T: WorldQuery> Clone for BoolFetch<'_, T> {
     fn clone(&self) -> Self {
         Self {
             fetch: self.fetch.clone(),
@@ -359,8 +432,62 @@ impl<T: WorldQuery> Clone for OrFetch<'_, T> {
     }
 }
 
-macro_rules! impl_query_filter_tuple {
+#[doc(hidden)]
+pub trait CoalesceBooleans {
+    fn coalesce_booleans(self) -> bool;
+}
+
+impl CoalesceBooleans for bool {
+    fn coalesce_booleans(self) -> bool {
+        self
+    }
+}
+
+impl CoalesceBooleans for () {
+    fn coalesce_booleans(self) -> bool {
+        true
+    }
+}
+
+macro_rules! impl_coalesce_booleans {
+    () => {};
+    ($($names: ident),*) => {
+        impl<$($names: CoalesceBooleans),*> CoalesceBooleans for ($($names,)*) {
+            #[allow(nonstandard_style)]
+            fn coalesce_booleans(self) -> bool {
+                let ($($names,)*) = self;
+                true $(&& $names.coalesce_booleans())*
+            }
+        }
+    };
+}
+
+all_tuples!(impl_coalesce_booleans, 1, 15, T);
+
+/// A query with output [`bool`], or a tuple of [`BooleanQuery`]s;
+#[doc(hidden)]
+pub trait BooleanQuery: WorldQuery {
+    unsafe fn fetch_bool(fetch: &mut Self::Fetch<'_>, entity: Entity, table_row: TableRow) -> bool;
+}
+
+impl<T: WorldQuery> BooleanQuery for T
+where
+    for<'t> T::Item<'t>: CoalesceBooleans,
+{
+    unsafe fn fetch_bool(fetch: &mut T::Fetch<'_>, entity: Entity, table_row: TableRow) -> bool {
+        T::fetch(fetch, entity, table_row).coalesce_booleans()
+    }
+}
+
+macro_rules! impl_query_filter_tuples {
     ($(($filter: ident, $state: ident)),*) => {
+        impl_query_filter_tuple!(Or, BoolFetch, false, ||, $(($filter, $state)),*);
+        impl_query_filter_tuple!(And, BoolFetch, true, &&, $(($filter, $state)),*);
+    }
+}
+
+macro_rules! impl_query_filter_tuple {
+    ($name: ident, $fetch: ident, $base: literal, $punct:tt, $(($filter: ident, $state: ident)),*) => {
         #[allow(unused_variables)]
         #[allow(non_snake_case)]
         #[allow(clippy::unused_unit)]
@@ -369,8 +496,8 @@ macro_rules! impl_query_filter_tuple {
         /// This is sound because `update_component_access` and `update_archetype_component_access` adds accesses according to the implementations of all the subqueries.
         /// `update_component_access` replace the filters with a disjunction where every element is a conjunction of the previous filters and the filters of one of the subqueries.
         /// This is sound because `matches_component_set` returns a disjunction of the results of the subqueries' implementations.
-        unsafe impl<$($filter: QueryFilter),*> WorldQuery for Or<($($filter,)*)> {
-            type Fetch<'w> = ($(OrFetch<'w, $filter>,)*);
+        unsafe impl<$($filter: WorldQuery),*> WorldQuery for $name<($($filter,)*)> where $($filter: BooleanQuery),* {
+            type Fetch<'w> = ($($fetch<'w, $filter>,)*);
             type Item<'w> = bool;
             type State = ($($filter::State,)*);
 
@@ -383,7 +510,7 @@ macro_rules! impl_query_filter_tuple {
             #[inline]
             unsafe fn init_fetch<'w>(world: UnsafeWorldCell<'w>, state: &Self::State, last_run: Tick, this_run: Tick) -> Self::Fetch<'w> {
                 let ($($filter,)*) = state;
-                ($(OrFetch {
+                ($($fetch {
                     fetch: $filter::init_fetch(world, $filter, last_run, this_run),
                     matches: false,
                 },)*)
@@ -425,7 +552,7 @@ macro_rules! impl_query_filter_tuple {
                 _table_row: TableRow
             ) -> Self::Item<'w> {
                 let ($($filter,)*) = fetch;
-                false $(|| ($filter.matches && $filter::filter_fetch(&mut $filter.fetch, _entity, _table_row)))*
+                $base $($punct ($filter.matches && $filter::fetch_bool(&mut $filter.fetch, _entity, _table_row)))*
             }
 
             fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
@@ -459,11 +586,11 @@ macro_rules! impl_query_filter_tuple {
 
             fn matches_component_set(_state: &Self::State, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
                 let ($($filter,)*) = _state;
-                false $(|| $filter::matches_component_set($filter, _set_contains_id))*
+                $base $($punct $filter::matches_component_set($filter, _set_contains_id))*
             }
         }
 
-        impl<$($filter: QueryFilter),*> QueryFilter for Or<($($filter,)*)> {
+        impl<$($filter: QueryFilter),*> QueryFilter for $name<($($filter,)*)>  where $($filter: BooleanQuery),* {
             const IS_ARCHETYPAL: bool = true $(&& $filter::IS_ARCHETYPAL)*;
 
             #[inline(always)]
@@ -475,6 +602,16 @@ macro_rules! impl_query_filter_tuple {
                 Self::fetch(fetch, entity, table_row)
             }
         }
+
+        /// SAFETY: [`And`] and [`Or`] are read only
+        unsafe impl<$($filter: BooleanQuery),*> QueryData for $name<($($filter,)*)> {
+            type ReadOnly = Self;
+        }
+
+        /// SAFETY: [`And`] and [`Or`] are read only
+        unsafe impl<$($filter: BooleanQuery),*> ReadOnlyQueryData for $name<($($filter,)*)> {
+        }
+
     };
 }
 
@@ -502,7 +639,7 @@ macro_rules! impl_tuple_query_filter {
 }
 
 all_tuples!(impl_tuple_query_filter, 0, 15, F);
-all_tuples!(impl_query_filter_tuple, 0, 15, F, S);
+all_tuples!(impl_query_filter_tuples, 0, 15, F, T);
 
 /// A filter on a component that only retains results added after the system last ran.
 ///
@@ -696,6 +833,13 @@ impl<T: Component> QueryFilter for Added<T> {
         Self::fetch(fetch, entity, table_row)
     }
 }
+
+// unsafe impl<T: Component> QueryData for Added<T> {
+//     type ReadOnly = Self;
+// }
+
+// unsafe impl<T: Component> ReadOnlyQueryData for Added<T> {
+// }
 
 /// A filter on a component that only retains results added or mutably dereferenced after the system last ran.
 ///
@@ -898,6 +1042,14 @@ impl<T: Component> QueryFilter for Changed<T> {
     }
 }
 
+// unsafe impl<T: Component> QueryData for Changed<T> {
+//     type ReadOnly = Self;
+// }
+//
+// unsafe impl<T: Component> ReadOnlyQueryData for Changed<T> {
+//
+// }
+
 /// A marker trait to indicate that the filter works at an archetype level.
 ///
 /// This is needed to implement [`ExactSizeIterator`] for
@@ -919,8 +1071,79 @@ macro_rules! impl_archetype_filter_tuple {
     ($($filter: ident),*) => {
         impl<$($filter: ArchetypeFilter),*> ArchetypeFilter for ($($filter,)*) {}
 
-        impl<$($filter: ArchetypeFilter),*> ArchetypeFilter for Or<($($filter,)*)> {}
+        impl<$($filter: ArchetypeFilter),*> ArchetypeFilter for Or<($($filter,)*)> where $($filter: BooleanQuery),*{}
+
+        impl<$($filter: ArchetypeFilter),*> ArchetypeFilter for And<($($filter,)*)> where $($filter: BooleanQuery),*{}
     };
 }
 
 all_tuples!(impl_archetype_filter_tuple, 0, 15, F);
+
+/// A [`QueryFilter`] that always produces a boolean value.
+pub struct Always<const VALUE: bool>;
+
+/// Safety:
+/// Safe since this query does not access anything.
+unsafe impl<const VALUE: bool> WorldQuery for Always<VALUE> {
+    type Item<'a> = bool;
+
+    type Fetch<'a> = ();
+
+    type State = ();
+
+    fn shrink<'wlong: 'wshort, 'wshort>(_: Self::Item<'wlong>) -> Self::Item<'wshort> {
+        VALUE
+    }
+
+    unsafe fn init_fetch<'w>(
+        _: UnsafeWorldCell<'w>,
+        _: &Self::State,
+        _: Tick,
+        _: Tick,
+    ) -> Self::Fetch<'w> {
+    }
+
+    const IS_DENSE: bool = false;
+
+    unsafe fn set_archetype<'w>(
+        _: &mut Self::Fetch<'w>,
+        _: &Self::State,
+        _: &'w Archetype,
+        _: &'w Table,
+    ) {
+    }
+
+    unsafe fn set_table<'w>(_: &mut Self::Fetch<'w>, _: &Self::State, _: &'w Table) {}
+
+    unsafe fn fetch<'w>(_: &mut Self::Fetch<'w>, _: Entity, _: TableRow) -> Self::Item<'w> {
+        VALUE
+    }
+
+    fn update_component_access(_: &Self::State, _: &mut FilteredAccess<ComponentId>) {}
+
+    fn init_state(_: &mut World) -> Self::State {}
+
+    fn get_state(_: &World) -> Option<Self::State> {
+        Some(())
+    }
+
+    fn matches_component_set(_: &Self::State, _: &impl Fn(ComponentId) -> bool) -> bool {
+        true
+    }
+}
+
+impl<const VALUE: bool> QueryFilter for Always<VALUE> {
+    const IS_ARCHETYPAL: bool = false;
+
+    unsafe fn filter_fetch(_: &mut Self::Fetch<'_>, _: Entity, _: TableRow) -> bool {
+        VALUE
+    }
+}
+
+/// Safety: Always query never access any data.
+unsafe impl<const VALUE: bool> QueryData for Always<VALUE> {
+    type ReadOnly = Always<VALUE>;
+}
+
+/// Safety: Always does not access any data.
+unsafe impl<const VALUE: bool> ReadOnlyQueryData for Always<VALUE> {}
