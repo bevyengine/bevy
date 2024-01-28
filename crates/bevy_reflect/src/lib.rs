@@ -482,7 +482,11 @@ mod impls {
     #[cfg(feature = "glam")]
     mod glam;
     #[cfg(feature = "bevy_math")]
-    mod rect;
+    mod math {
+        mod primitives2d;
+        mod primitives3d;
+        mod rect;
+    }
     #[cfg(feature = "smallvec")]
     mod smallvec;
     #[cfg(feature = "smol_str")]
