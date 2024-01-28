@@ -20,14 +20,19 @@ use bevy_utils::{tracing::warn, EntityHashMap};
 
 use crate::*;
 
+/// Constants for operating with the light units: [lumens], and [lux].
 pub mod light_consts {
     /// Approximations for converting the wattage of lamps to lumens.
-    /// 
-    /// The lumen (symbol: lm) is the unit of luminous flux, a measure of
-    /// the total quantityof visible light emitted by a source per unit of time,
-    /// in the International System of Units (SI).
-    /// 
+    ///
+    /// The **lumen** (symbol: **lm**) is the unit of [luminous flux], a measure
+    /// of the total quantity of [visible light] emitted by a source per unit of
+    /// time, in the [International System of Units] (SI).
+    ///
     /// For more information, see [wikipedia](https://en.wikipedia.org/wiki/Lumen_(unit))
+    ///
+    /// [luminous flux]: https://en.wikipedia.org/wiki/Luminous_flux
+    /// [visible light]: https://en.wikipedia.org/wiki/Visible_light
+    /// [International System of Units]: https://en.wikipedia.org/wiki/International_System_of_Units
     pub mod lumens {
         pub const LUMENS_PER_LED_WATTS: f32 = 90.0;
         pub const LUMENS_PER_INCANDESCENT_WATTS: f32 = 13.8;
@@ -36,10 +41,14 @@ pub mod light_consts {
 
     /// Predefined for lux values in several locations.
     ///
-    /// The lux (symbol: *lx*) is the unit of illuminance, or luminous flux per unit area,
-    /// in the International System of Units (SI). It is equal to one lumen per square metre.
+    /// The **lux** (symbol: **lx**) is the unit of [illuminance], or [luminous flux] per unit area,
+    /// in the [International System of Units] (SI). It is equal to one [lumen](super::lumens) per square metre.
     ///
     /// For more information, see [wikipedia](https://en.wikipedia.org/wiki/Lux)
+    ///
+    /// [illuminance]: https://en.wikipedia.org/wiki/Illuminance
+    /// [luminous flux]: https://en.wikipedia.org/wiki/Luminous_flux
+    /// [International System of Units]: https://en.wikipedia.org/wiki/International_System_of_Units
     pub mod lux {
         /// The amount of light (lux) in a moonless, overcast night sky. (starlight)
         pub const MOONLESS_NIGHT: f32 = 0.0001;
@@ -252,7 +261,7 @@ impl Default for DirectionalLight {
     fn default() -> Self {
         DirectionalLight {
             color: Color::rgb(1.0, 1.0, 1.0),
-            illuminance: 100000.0,
+            illuminance: light_consts::lux::FULL_DAYLIGHT,
             shadows_enabled: false,
             shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
             shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,

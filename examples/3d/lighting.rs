@@ -4,7 +4,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    pbr::{CascadeShadowConfigBuilder, light_consts},
+    pbr::{light_consts, CascadeShadowConfigBuilder},
     prelude::*,
     render::camera::{ExposureSettings, PhysicalCameraParameters},
 };

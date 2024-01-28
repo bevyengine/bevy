@@ -2,8 +2,8 @@
 //! Shows the effects of different blend modes.
 //! The `fade_transparency` system smoothly changes the transparency over time.
 
-use bevy::prelude::*;
 use bevy::pbr::light_consts;
+use bevy::prelude::*;
 
 fn main() {
     App::new()
@@ -96,7 +96,7 @@ fn setup(
     // Light
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            illuminance: light_consts::lux::CLEAR_SUNRISE,
+            illuminance: light_consts::lux::FULL_DAYLIGHT,
             shadows_enabled: true,
             ..default()
         },

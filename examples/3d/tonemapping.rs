@@ -3,7 +3,7 @@
 use bevy::{
     core_pipeline::tonemapping::Tonemapping,
     math::vec2,
-    pbr::CascadeShadowConfigBuilder,
+    pbr::{CascadeShadowConfigBuilder, light_consts},
     prelude::*,
     reflect::TypePath,
     render::{
@@ -196,7 +196,7 @@ fn setup_basic_scene(
         DirectionalLightBundle {
             directional_light: DirectionalLight {
                 shadows_enabled: true,
-                illuminance: 3000.0,
+                illuminance: light_consts::lux::FULL_DAYLIGHT,
                 ..default()
             },
             transform: Transform::from_rotation(Quat::from_euler(

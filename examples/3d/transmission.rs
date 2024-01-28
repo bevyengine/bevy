@@ -358,9 +358,7 @@ fn setup(
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
         },
         BloomSettings::default(),
-        ExposureSettings {
-            ev100: ExposureSettings::EV100_INDOOR,
-        },
+        ExposureSettings::INDOOR,
     ));
 
     // Controls Text

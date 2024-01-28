@@ -1,6 +1,7 @@
 //! Update a scene from a glTF file, either by spawning the scene as a child of another entity,
 //! or by accessing the entities of the scene.
 
+use bevy::pbr::light_consts;
 use bevy::{pbr::DirectionalLightShadowMap, prelude::*};
 
 fn main() {
@@ -19,7 +20,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(DirectionalLightBundle {
         transform: Transform::from_xyz(4.0, 25.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
         directional_light: DirectionalLight {
-            illuminance: 2000.0,
+            illuminance: light_consts::lux::FULL_DAYLIGHT,
             shadows_enabled: true,
             ..default()
         },

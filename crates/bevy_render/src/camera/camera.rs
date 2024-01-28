@@ -95,6 +95,16 @@ pub struct ExposureSettings {
 }
 
 impl ExposureSettings {
+    pub const SUNLIGHT: Self = Self {
+        ev100: Self::EV100_SUNLIGHT,
+    };
+    pub const OVERCAST: Self = Self {
+        ev100: Self::EV100_OVERCAST,
+    };
+    pub const INDOOR: Self = Self {
+        ev100: Self::EV100_INDOOR,
+    };
+
     pub const EV100_SUNLIGHT: f32 = 15.0;
     pub const EV100_OVERCAST: f32 = 12.0;
     pub const EV100_INDOOR: f32 = 7.0;
@@ -115,9 +125,7 @@ impl ExposureSettings {
 
 impl Default for ExposureSettings {
     fn default() -> Self {
-        Self {
-            ev100: Self::EV100_INDOOR,
-        }
+        Self::OVERCAST
     }
 }
 
