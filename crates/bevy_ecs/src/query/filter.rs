@@ -400,7 +400,7 @@ pub struct Or<T>(PhantomData<T>);
 /// # use bevy_ecs::component::Component;
 /// # use bevy_ecs::entity::Entity;
 /// # use bevy_ecs::query::Changed;
-/// # use bevy_ecs::query::Or;
+/// # use bevy_ecs::query::And;
 /// # use bevy_ecs::system::IntoSystem;
 /// # use bevy_ecs::system::Query;
 /// #
