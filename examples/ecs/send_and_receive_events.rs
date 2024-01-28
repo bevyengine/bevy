@@ -125,13 +125,9 @@ fn send_and_receive_param_set(
     }
 
     // This is p1, as the second parameter in the `ParamSet` is the writer.
-    for event in events_to_resend {
-        param_set.p1().send(DebugEvent {
-            times_sent: event.times_sent + 1,
-            // This is struct update syntax! Here, we're copying all of the fields from `event`,
-            // except for the `times_sent` field, which we're incrementing.
-            ..event
-        });
+    for mut event in events_to_resend {
+        event.times_sent += 1;
+        param_set.p1().send(event);
     }
 }
 
@@ -162,12 +158,8 @@ fn send_and_receive_manual_event_reader(
         }
     }
 
-    for event in events_to_resend {
-        events.send(DebugEvent {
-            times_sent: event.times_sent + 1,
-            // This is struct update syntax! Here, we're copying all of the fields from `event`,
-            // except for the `times_sent` field, which we're incrementing.
-            ..event
-        });
+    for mut event in events_to_resend {
+        event.times_sent += 1;
+        events.send(event);
     }
 }
