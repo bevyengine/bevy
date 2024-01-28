@@ -128,7 +128,7 @@ impl AssetServer {
         self.data.sources.get(source.into())
     }
 
-    /// Whether the [`AssetServer`] watches asset sources and hot reload them.
+    /// Returns true if the [`AssetServer`] watches for changes.
     pub fn watching_for_changes(&self) -> bool {
         self.data.infos.read().watching_for_changes
     }
