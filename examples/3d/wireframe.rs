@@ -17,6 +17,7 @@ use bevy::{
         RenderPlugin,
     },
 };
+use bevy_internal::render::camera::ExposureSettings;
 
 fn main() {
     App::new()
@@ -94,19 +95,24 @@ fn setup(
 
     // light
     commands.spawn(PointLightBundle {
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
+        transform: Transform::from_xyz(0.0, 2.0, 0.0),
         point_light: PointLight {
-            intensity: 150_000.0,
+            intensity: 4000.0,
             ..default()
         },
         ..default()
     });
 
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3dBundle {
+            transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+            ..default()
+        },
+        ExposureSettings {
+            ev100: ExposureSettings::EV100_INDOOR,
+        },
+    ));
 
     // Text used to show controls
     commands.spawn(
