@@ -204,8 +204,10 @@ mod tests {
             for direction in &[
                 Direction3d::X,
                 Direction3d::Y,
+                Direction3d::Z,
                 -Direction3d::X,
                 -Direction3d::Y,
+                -Direction3d::Z,
             ] {
                 for max in &[0., 1., 900.] {
                     let test = RayTest3d::new(*origin, *direction, *max);
@@ -324,8 +326,10 @@ mod tests {
             for direction in &[
                 Direction3d::X,
                 Direction3d::Y,
+                Direction3d::Z,
                 -Direction3d::X,
                 -Direction3d::Y,
+                -Direction3d::Z,
             ] {
                 for max in &[0., 1., 900.] {
                     let test = RayTest3d::new(*origin, *direction, *max);
