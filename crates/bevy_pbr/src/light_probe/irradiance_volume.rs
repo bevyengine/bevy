@@ -31,7 +31,7 @@
 //! The primary reason for choosing ambient cubes is to match Blender, so that
 //! its Eevee renderer can be used for baking. However, they also have some
 //! advantages over the common second-order spherical harmonics approach:
-//! ambient cubes don't suffer from ringing artifacts, and they are smaller (6
+//! ambient cubes don't suffer from ringing artifacts, they are smaller (6
 //! colors for ambient cubes as opposed to 9 for spherical harmonics), and
 //! evaluation is faster. A smaller basis allows for a denser grid of voxels
 //! with the same storage requirements.
@@ -46,12 +46,12 @@
 //! ```text
 //! s = x
 //! 
-//! t = ⎰  0 if S ∈ {-X, -Y, -Z}
-//!     ⎱ Ry if S ∈ {+X, +Y, +Z}
+//! t = y + ⎰  0 if S ∈ {-X, -Y, -Z}
+//!         ⎱ Ry if S ∈ {+X, +Y, +Z}
 //! 
-//!     ⎧   0 if S ∈ {-X, +X}
-//! p = ⎨  Rz if S ∈ {-Y, +Y}
-//!     ⎩ 2Rz if S ∈ {-Z, +Z}
+//!         ⎧   0 if S ∈ {-X, +X}
+//! p = z + ⎨  Rz if S ∈ {-Y, +Y}
+//!         ⎩ 2Rz if S ∈ {-Z, +Z}
 //! ```
 //! 
 //! Visually, in a left-handed coordinate system with Y up, viewed from the
