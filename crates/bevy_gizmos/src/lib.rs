@@ -210,12 +210,13 @@ impl AppGizmoBuilder for App {
     }
 
     fn set_gizmo_group_config<T: GizmoConfigGroup>(&mut self, config: GizmoConfig) -> &mut Self {
-        self.world
+        if let Some((old_config, _)) = self
+            .world
             .get_resource_or_insert_with::<GizmoConfigStore>(Default::default)
             .get_config_mut_dyn(&TypeId::of::<T>())
-            .map(|(old_config, _)| {
-                *old_config = config;
-            });
+        {
+            *old_config = config;
+        }
 
         self
     }
