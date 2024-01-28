@@ -34,7 +34,7 @@ use thiserror::Error;
 /// The general process to load an asset is:
 /// 1. Initialize a new [`Asset`] type with the [`AssetServer`] via [`AssetApp::init_asset`], which will internally call [`AssetServer::register_asset`]
 /// and set up related ECS [`Assets`] storage and systems.
-/// 2. Register one or more [`AssetLoader`]s for that asset with [`AssetApp::init_asset_loader`]  
+/// 2. Register one or more [`AssetLoader`]s for that asset with [`AssetApp::init_asset_loader`]
 /// 3. Add the asset to your asset folder (defaults to `assets`).
 /// 4. Call [`AssetServer::load`] with a path to your asset.
 ///
@@ -126,6 +126,11 @@ impl AssetServer {
         source: impl Into<AssetSourceId<'a>>,
     ) -> Result<&'a AssetSource, MissingAssetSourceError> {
         self.data.sources.get(source.into())
+    }
+
+    /// Whether the [`AssetServer`] watches asset sources and hot reload them.
+    pub fn watching_for_changes(&self) -> bool {
+        self.data.infos.read().watching_for_changes
     }
 
     /// Registers a new [`AssetLoader`]. [`AssetLoader`]s must be registered before they can be used.
@@ -1114,7 +1119,7 @@ enum MaybeAssetLoader {
     },
 }
 
-/// Internal events for asset load results  
+/// Internal events for asset load results
 #[allow(clippy::large_enum_variant)]
 pub(crate) enum InternalAssetEvent {
     Loaded {
