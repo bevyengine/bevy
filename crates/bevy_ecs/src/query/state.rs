@@ -68,7 +68,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     }
 
     /// Converts this `QueryState` reference to a change-detection-enabled reference.
-    /// (Most often using the [`Ref`](crate::change_detection::Ref) smart pointer)
+    /// (Most often using the [`Ref`] smart pointer)
     pub fn as_readonly_smart_ref(&self) -> &QueryState<D::ReadOnlySmartRef, F> {
         // SAFETY: invariant on `WorldQuery` trait upholds that `D::ReadOnlySmartRef` and `F::ReadOnly`
         // have a subset of the access, and match the exact same archetypes/tables as `D`/`F` respectively.

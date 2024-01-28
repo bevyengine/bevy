@@ -1032,7 +1032,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # Example
     ///
     /// Here, `get_ref` is used to retrieve the exact query item of the entity specified by the `SelectedCharacter`
-    /// resource, note that the component will be returned inside the [`Ref`](crate::change_detection::Ref) smart pointer that contains
+    /// resource, note that the component will be returned inside the [`Ref`] smart pointer that contains
     /// change detection info (when was the component last changed, and when was it added).
     ///
     /// ```
