@@ -51,14 +51,6 @@ impl_reflect_struct!(
     }
 );
 
-// impl_reflect_struct!(
-//     #[reflect(Debug, PartialEq, Serialize, Deserialize)]
-//     #[type_path = "bevy_math::primitives"]
-//     struct BoxedPolyline3d {
-//         vertices: Box<[Vec3]>,
-//     }
-// );
-
 impl_reflect_struct!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize)]
     #[type_path = "bevy_math::primitives"]

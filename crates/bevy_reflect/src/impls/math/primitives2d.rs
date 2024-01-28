@@ -59,14 +59,6 @@ impl_reflect_struct!(
     }
 );
 
-// impl_reflect_struct!(
-//     #[reflect(Debug, PartialEq, Serialize, Deserialize)]
-//     #[type_path = "bevy_math::primitives"]
-//     struct BoxedPolyline2d {
-//         vertices: Box<[Vec2]>,
-//     }
-// );
-
 impl_reflect_struct!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize)]
     #[type_path = "bevy_math::primitives"]
@@ -90,14 +82,6 @@ impl_reflect_struct!(
         vertices: [Vec2; N],
     }
 );
-
-// impl_reflect_struct!(
-//     #[reflect(Debug, PartialEq, Serialize, Deserialize)]
-//     #[type_path = "bevy_math::primitives"]
-//     struct BoxedPolygon {
-//         vertices: Box<[Vec2]>,
-//     }
-// );
 
 impl_reflect_struct!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize)]
