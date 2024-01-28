@@ -582,14 +582,14 @@ impl<'w, E: Event> EventWriter<'w, E> {
 ///     // We can access the `Events` resource mutably, allowing us to both read and write its contents.
 ///     mut events: ResMut<Events<MyEvent>>,
 /// ) {
-///     // We must collect the events to re-emit, because we can't mutate events while we're iterating over the events.
-///     let mut events_to_re_emit = Vec::new();
+///     // We must collect the events to resend, because we can't mutate events while we're iterating over the events.
+///     let mut events_to_resend = Vec::new();
 ///
 ///     for event in local_event_reader.read(&events) {
-///          events_to_re_emit.push(event.clone());
+///          events_to_resend.push(event.clone());
 ///     }
 ///
-///     for event in events_to_re_emit {
+///     for event in events_to_resend {
 ///         events.send(MyEvent);
 ///     }
 /// }
