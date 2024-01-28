@@ -567,7 +567,7 @@ impl<'w, E: Event> EventWriter<'w, E> {
 ///
 /// # Example
 ///
-/// ```rust
+/// ```
 /// use bevy_ecs::prelude::*;
 /// use bevy_ecs::event::{Event, Events, ManualEventReader};
 ///

@@ -145,7 +145,7 @@ fn send_and_receive_manual_event_reader(
         frame_count.0
     );
 
-    // We must collect the events to re-emit, because we can't mutate events while we're iterating over the events.
+    // We must collect the events to resend, because we can't mutate events while we're iterating over the events.
     let mut events_to_resend = Vec::new();
 
     for event in local_event_reader.read(&events) {
