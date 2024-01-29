@@ -91,3 +91,12 @@ impl_reflect_struct!(
         sides: usize,
     }
 );
+
+impl_reflect_struct!(
+    #[reflect(Debug, PartialEq, Serialize, Deserialize)]
+    #[type_path = "bevy_math::primitives"]
+    struct Capsule2d {
+        radius: f32,
+        half_length: f32,
+    }
+);

@@ -3,8 +3,8 @@
 use glam::{Mat2, Vec2};
 
 use crate::primitives::{
-    BoxedPolygon, BoxedPolyline2d, Circle, Ellipse, Line2d, Plane2d, Polygon, Polyline2d,
-    Rectangle, RegularPolygon, Segment2d, Triangle2d,
+    BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, Direction2d, Ellipse, Line2d, Plane2d,
+    Polygon, Polyline2d, Rectangle, RegularPolygon, Segment2d, Triangle2d,
 };
 
 use super::{Aabb2d, Bounded2d, BoundingCircle};
@@ -230,6 +230,31 @@ impl Bounded2d for RegularPolygon {
     }
 }
 
+impl Bounded2d for Capsule2d {
+    fn aabb_2d(&self, translation: Vec2, rotation: f32) -> Aabb2d {
+        // Get the line segment between the hemicircles of the rotated capsule
+        let segment = Segment2d {
+            // Multiplying a normalized vector (Vec2::Y) with a rotation returns a normalized vector.
+            direction: Direction2d::new_unchecked(Mat2::from_angle(rotation) * Vec2::Y),
+            half_length: self.half_length,
+        };
+        let (a, b) = (segment.point1(), segment.point2());
+
+        // Expand the line segment by the capsule radius to get the capsule half-extents
+        let min = a.min(b) - Vec2::splat(self.radius);
+        let max = a.max(b) + Vec2::splat(self.radius);
+
+        Aabb2d {
+            min: min + translation,
+            max: max + translation,
+        }
+    }
+
+    fn bounding_circle(&self, translation: Vec2, _rotation: f32) -> BoundingCircle {
+        BoundingCircle::new(translation, self.radius + self.half_length)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use glam::Vec2;
@@ -237,8 +262,8 @@ mod tests {
     use crate::{
         bounding::Bounded2d,
         primitives::{
-            Circle, Direction2d, Ellipse, Line2d, Plane2d, Polygon, Polyline2d, Rectangle,
-            RegularPolygon, Segment2d, Triangle2d,
+            Capsule2d, Circle, Direction2d, Ellipse, Line2d, Plane2d, Polygon, Polyline2d,
+            Rectangle, RegularPolygon, Segment2d, Triangle2d,
         },
     };
 
@@ -439,5 +464,19 @@ mod tests {
         let bounding_circle = regular_polygon.bounding_circle(translation, 0.0);
         assert_eq!(bounding_circle.center, translation);
         assert_eq!(bounding_circle.radius(), 1.0);
+    }
+
+    #[test]
+    fn capsule() {
+        let capsule = Capsule2d::new(0.5, 2.0);
+        let translation = Vec2::new(2.0, 1.0);
+
+        let aabb = capsule.aabb_2d(translation, 0.0);
+        assert_eq!(aabb.min, translation - Vec2::new(0.5, 1.5));
+        assert_eq!(aabb.max, translation + Vec2::new(0.5, 1.5));
+
+        let bounding_circle = capsule.bounding_circle(translation, 0.0);
+        assert_eq!(bounding_circle.center, translation);
+        assert_eq!(bounding_circle.radius(), 1.5);
     }
 }

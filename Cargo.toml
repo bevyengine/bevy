@@ -402,7 +402,7 @@ doc-scrape-examples = true
 
 [package.metadata.example.2d_shapes]
 name = "2D Shapes"
-description = "Renders a rectangle, circle, and hexagon"
+description = "Renders simple 2D primitive shapes like circles and polygons"
 category = "2D Rendering"
 wasm = true
 
@@ -1410,6 +1410,17 @@ doc-scrape-examples = true
 [package.metadata.example.event]
 name = "Event"
 description = "Illustrates event creation, activation, and reception"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "send_and_receive_events"
+path = "examples/ecs/send_and_receive_events.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.send_and_receive_events]
+name = "Send and receive events"
+description = "Demonstrates how to send and receive events of the same type in a single system"
 category = "ECS (Entity Component System)"
 wasm = false
 
