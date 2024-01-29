@@ -94,14 +94,11 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
     /// - `Self` has the bounds `Any + Send + Sync`
     /// - Type parameters have the bound `TypePath` unless `#[reflect(type_path = false)]` is present
     /// - Active fields have the bounds `TypePath` and either `Reflect` if `#[reflect(from_reflect = false)]` is present
-    ///   or `FromReflect` otherwise
+    ///   or `FromReflect` otherwise (or no bounds at all if `#[reflect(no_field_bounds)]` is present)
     ///
-    /// When the derive is used with `#[reflect(where)]`, only the `Self` bounds are kept.
-    /// The others are replaced with the ones specified in the attribute.
+    /// When the derive is used with `#[reflect(where)]`, the bounds specified in the attribute are added as well.
     ///
     /// # Example
-    ///
-    /// Take the following struct:
     ///
     /// ```ignore (bevy_reflect is not accessible from this crate)
     /// #[derive(Reflect)]
@@ -112,9 +109,7 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
     /// }
     /// ```
     ///
-    /// It has type parameters `T` and `U`.
-    ///
-    /// Since there is no `#[reflect(where)]` attribute, this method will extend the where clause like so:
+    /// Generates the following where clause:
     ///
     /// ```ignore (bevy_reflect is not accessible from this crate)
     /// where
@@ -127,25 +122,32 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
     ///   T: FromReflect + TypePath,
     /// ```
     ///
-    /// Now take this struct:
-    /// ```ignore (bevy_reflect is not accessible from this crate)
-    /// #[derive(Reflect)]
-    /// #[reflect(where T: FromReflect + Default)]
-    /// struct Foo<T, U> {
-    ///   a: T,
-    ///   #[reflect(ignore)]
-    ///   b: U
-    /// }
-    /// ```
-    ///
-    /// Since there is a `#[reflect(where)]` attribute, this method will extend the where clause like so:
+    /// If we had added `#[reflect(where T: MyTrait)]` to the type, it would instead generate:
     ///
     /// ```ignore (bevy_reflect is not accessible from this crate)
     /// where
     ///   // `Self` bounds:
     ///   Self: Any + Send + Sync,
-    ///   // Custom bounds:
-    ///   T: FromReflect + Default,
+    ///   // Type parameter bounds:
+    ///   T: TypePath,
+    ///   U: TypePath,
+    ///   // Field bounds
+    ///   T: FromReflect + TypePath,
+    ///   // Custom bounds
+    ///   T: MyTrait,
+    /// ```
+    ///
+    /// And if we also added `#[reflect(no_field_bounds)]` to the type, it would instead generate:
+    ///
+    /// ```ignore (bevy_reflect is not accessible from this crate)
+    /// where
+    ///   // `Self` bounds:
+    ///   Self: Any + Send + Sync,
+    ///   // Type parameter bounds:
+    ///   T: TypePath,
+    ///   U: TypePath,
+    ///   // Custom bounds
+    ///   T: MyTrait,
     /// ```
     pub fn extend_where_clause(
         &self,
@@ -177,10 +179,12 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
             predicates.extend(type_param_predicates);
         }
 
+        if let Some(field_predicates) = self.active_field_predicates() {
+            predicates.extend(field_predicates);
+        }
+
         if let Some(custom_where) = self.meta.traits().custom_where() {
             predicates.push(custom_where.predicates.to_token_stream());
-        } else {
-            predicates.extend(self.active_field_predicates());
         }
 
         predicates
@@ -203,15 +207,21 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
     }
 
     /// Returns an iterator over the where clause predicates for the active fields.
-    fn active_field_predicates(&self) -> impl Iterator<Item = TokenStream> + '_ {
-        let bevy_reflect_path = self.meta.bevy_reflect_path();
-        let reflect_bound = self.reflect_bound();
+    fn active_field_predicates(&self) -> Option<impl Iterator<Item = TokenStream> + '_> {
+        if self.meta.traits().no_field_bounds() {
+            None
+        } else {
+            let bevy_reflect_path = self.meta.bevy_reflect_path();
+            let reflect_bound = self.reflect_bound();
 
-        // `TypePath` is always required for active fields since they are used to
-        // construct `NamedField` and `UnnamedField` instances for the `Typed` impl.
-        self.active_fields
-            .iter()
-            .map(move |ty| quote!(#ty : #reflect_bound + #bevy_reflect_path::TypePath))
+            // `TypePath` is always required for active fields since they are used to
+            // construct `NamedField` and `UnnamedField` instances for the `Typed` impl.
+            Some(
+                self.active_fields
+                    .iter()
+                    .map(move |ty| quote!(#ty : #reflect_bound + #bevy_reflect_path::TypePath)),
+            )
+        }
     }
 
     /// The `Reflect` or `FromReflect` bound to use based on `#[reflect(from_reflect = false)]`.
