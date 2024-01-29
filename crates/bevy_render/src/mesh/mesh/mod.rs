@@ -579,30 +579,31 @@ impl Mesh {
                 .for_each(|pos| *pos = transform.transform_point(Vec3::from_slice(pos)).to_array());
         }
 
-        // No need to rotate normals or tangents if rotation is near identity
-        if transform.rotation.is_near_identity() {
+        // No need to transform normals or tangents if rotation is near identity and scale is uniform
+        if transform.rotation.is_near_identity()
+            && transform.scale.x == transform.scale.y
+            && transform.scale.y == transform.scale.z
+        {
             return;
         }
 
         if let Some(VertexAttributeValues::Float32x3(ref mut normals)) =
             self.attribute_mut(Mesh::ATTRIBUTE_NORMAL)
         {
-            // Rotate normals by transform rotation
+            // Transform normals, taking into account non-uniform scaling and rotation
             normals.iter_mut().for_each(|normal| {
-                // Normals must be divided by scale and then normalized to account for non-uniform scaling
-                let n = (Vec3::from_slice(normal) / transform.scale).normalize();
-                *normal = (transform.rotation * n).to_array();
+                let n = Vec3::from_slice(normal) * transform.scale.yzx() * transform.scale.zxy();
+                *normal = (transform.rotation * n.normalize()).to_array();
             });
         }
 
         if let Some(VertexAttributeValues::Float32x3(ref mut tangents)) =
             self.attribute_mut(Mesh::ATTRIBUTE_TANGENT)
         {
-            // Rotate tangents by transform rotation
+            // Transform tangents, taking into account non-uniform scaling and rotation
             tangents.iter_mut().for_each(|tangent| {
-                // Tangents must be divided by scale and then normalized to account for non-uniform scaling
-                let t = (Vec3::from_slice(tangent) / transform.scale).normalize();
-                *tangent = (transform.rotation * t).to_array();
+                let t = Vec3::from_slice(tangent) * transform.scale.yzx() * transform.scale.zxy();
+                *tangent = (transform.rotation * t.normalize()).to_array();
             });
         }
     }
