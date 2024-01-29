@@ -332,7 +332,7 @@ pub enum FileDragAndDrop {
 )]
 pub struct WindowMoved {
     /// Window that moved.
-    pub entity: Entity,
+    pub window: Entity,
     /// Where the window moved to in physical pixels.
     pub position: IVec2,
 }

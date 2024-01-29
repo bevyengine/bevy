@@ -1,6 +1,6 @@
 use crate::{
     component::Component,
-    entity::{Entity, EntityMapper, MapEntities},
+    entity::{Entity, MapEntities, SceneEntityMapper},
     world::World,
 };
 use bevy_reflect::FromType;
@@ -10,11 +10,11 @@ use bevy_utils::EntityHashMap;
 /// Since a given `Entity` ID is only valid for the world it came from, when performing deserialization
 /// any stored IDs need to be re-allocated in the destination world.
 ///
-/// See [`MapEntities`] for more information.
+/// See [`SceneEntityMapper`] and [`MapEntities`] for more information.
 #[derive(Clone)]
 pub struct ReflectMapEntities {
-    map_all_entities: fn(&mut World, &mut EntityMapper),
-    map_entities: fn(&mut World, &mut EntityMapper, &[Entity]),
+    map_all_entities: fn(&mut World, &mut SceneEntityMapper),
+    map_entities: fn(&mut World, &mut SceneEntityMapper, &[Entity]),
 }
 
 impl ReflectMapEntities {
@@ -32,7 +32,7 @@ impl ReflectMapEntities {
         world: &mut World,
         entity_map: &mut EntityHashMap<Entity, Entity>,
     ) {
-        EntityMapper::world_scope(entity_map, world, self.map_all_entities);
+        SceneEntityMapper::world_scope(entity_map, world, self.map_all_entities);
     }
 
     /// A general method for applying [`MapEntities`] behavior to elements in an [`EntityHashMap<Entity, Entity>`]. Unlike
@@ -47,7 +47,7 @@ impl ReflectMapEntities {
         entity_map: &mut EntityHashMap<Entity, Entity>,
         entities: &[Entity],
     ) {
-        EntityMapper::world_scope(entity_map, world, |world, mapper| {
+        SceneEntityMapper::world_scope(entity_map, world, |world, mapper| {
             (self.map_entities)(world, mapper, entities);
         });
     }
