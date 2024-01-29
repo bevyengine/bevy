@@ -1,4 +1,7 @@
-use crate::mesh::{Indices, Mesh};
+use crate::{
+    mesh::{Indices, Mesh},
+    render_asset::RenderAssetPersistencePolicy,
+};
 use wgpu::PrimitiveTopology;
 
 /// A regular polygon in the `XY` plane
@@ -50,15 +53,19 @@ impl From<RegularPolygon> for Mesh {
 
         let mut indices = Vec::with_capacity((sides - 2) * 3);
         for i in 1..(sides as u32 - 1) {
+            // Vertices are generated in CW order above, hence the reversed indices here
+            // to emit triangle vertices in CCW order.
             indices.extend_from_slice(&[0, i + 1, i]);
         }
 
-        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-        mesh.set_indices(Some(Indices::U32(indices)));
-        mesh
+        Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetPersistencePolicy::Keep,
+        )
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+        .with_indices(Some(Indices::U32(indices)))
     }
 }
 
@@ -102,5 +109,66 @@ impl From<Circle> for RegularPolygon {
 impl From<Circle> for Mesh {
     fn from(circle: Circle) -> Self {
         Mesh::from(RegularPolygon::from(circle))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::mesh::shape::RegularPolygon;
+    use crate::mesh::{Mesh, VertexAttributeValues};
+
+    /// Sin/cos and multiplication computations result in numbers like 0.4999999.
+    /// Round these to numbers we expect like 0.5.
+    fn fix_floats<const N: usize>(points: &mut [[f32; N]]) {
+        for point in points.iter_mut() {
+            for coord in point.iter_mut() {
+                let round = (*coord * 2.).round() / 2.;
+                if (*coord - round).abs() < 0.00001 {
+                    *coord = round;
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_regular_polygon() {
+        let mut mesh = Mesh::from(RegularPolygon {
+            radius: 7.,
+            sides: 4,
+        });
+
+        let Some(VertexAttributeValues::Float32x3(mut positions)) =
+            mesh.remove_attribute(Mesh::ATTRIBUTE_POSITION)
+        else {
+            panic!("Expected positions f32x3");
+        };
+        let Some(VertexAttributeValues::Float32x2(mut uvs)) =
+            mesh.remove_attribute(Mesh::ATTRIBUTE_UV_0)
+        else {
+            panic!("Expected uvs f32x2");
+        };
+        let Some(VertexAttributeValues::Float32x3(normals)) =
+            mesh.remove_attribute(Mesh::ATTRIBUTE_NORMAL)
+        else {
+            panic!("Expected normals f32x3");
+        };
+
+        fix_floats(&mut positions);
+        fix_floats(&mut uvs);
+
+        assert_eq!(
+            [
+                [0.0, 7.0, 0.0],
+                [7.0, 0.0, 0.0],
+                [0.0, -7.0, 0.0],
+                [-7.0, 0.0, 0.0],
+            ],
+            &positions[..]
+        );
+
+        // Note V coordinate increases in the opposite direction to the Y coordinate.
+        assert_eq!([[0.5, 0.0], [1.0, 0.5], [0.5, 1.0], [0.0, 0.5]], &uvs[..]);
+
+        assert_eq!(&[[0.0, 0.0, 1.0]; 4], &normals[..]);
     }
 }

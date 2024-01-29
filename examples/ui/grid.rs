@@ -144,7 +144,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextStyle {
                             font: font.clone(),
                             font_size: 24.0,
-                            color: Color::WHITE,
+                            ..default()
                         },
                     ));
                     builder.spawn(TextBundle::from_section(
@@ -152,7 +152,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextStyle {
                             font: font.clone(),
                             font_size: 16.0,
-                            color: Color::WHITE,
+                            ..default()
                         },
                     ));
                     builder.spawn(NodeBundle::default());

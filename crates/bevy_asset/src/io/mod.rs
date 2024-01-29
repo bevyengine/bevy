@@ -1,5 +1,13 @@
+#[cfg(all(feature = "file_watcher", target_arch = "wasm32"))]
+compile_error!(
+    "The \"file_watcher\" feature for hot reloading does not work \
+    on WASM.\nDisable \"file_watcher\" \
+    when compiling to WASM"
+);
+
 #[cfg(target_os = "android")]
 pub mod android;
+pub mod embedded;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod file;
 pub mod gated;
@@ -8,32 +16,43 @@ pub mod processor_gated;
 #[cfg(target_arch = "wasm32")]
 pub mod wasm;
 
-mod provider;
+mod source;
 
 pub use futures_lite::{AsyncReadExt, AsyncWriteExt};
-pub use provider::*;
+pub use source::*;
 
 use bevy_utils::BoxedFuture;
-use crossbeam_channel::Sender;
 use futures_io::{AsyncRead, AsyncWrite};
 use futures_lite::{ready, Stream};
 use std::{
     path::{Path, PathBuf},
     pin::Pin,
+    sync::Arc,
     task::Poll,
 };
 use thiserror::Error;
 
 /// Errors that occur while loading assets.
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 pub enum AssetReaderError {
     /// Path not found.
-    #[error("path not found: {0}")]
+    #[error("Path not found: {0}")]
     NotFound(PathBuf),
 
     /// Encountered an I/O error while loading an asset.
-    #[error("encountered an io error while loading asset: {0}")]
-    Io(#[from] std::io::Error),
+    #[error("Encountered an I/O error while loading asset: {0}")]
+    Io(Arc<std::io::Error>),
+
+    /// The HTTP request completed but returned an unhandled [HTTP response status code](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status).
+    /// If the request fails before getting a status code (e.g. request timeout, interrupted connection, etc), expect [`AssetReaderError::Io`].
+    #[error("Encountered HTTP status {0:?} when loading asset")]
+    HttpError(u16),
+}
+
+impl From<std::io::Error> for AssetReaderError {
+    fn from(value: std::io::Error) -> Self {
+        Self::Io(Arc::new(value))
+    }
 }
 
 pub type Reader<'a> = dyn AsyncRead + Unpin + Send + Sync + 'a;
@@ -59,18 +78,11 @@ pub trait AssetReader: Send + Sync + 'static {
         &'a self,
         path: &'a Path,
     ) -> BoxedFuture<'a, Result<Box<PathStream>, AssetReaderError>>;
-    /// Returns an iterator of directory entry names at the provided path.
+    /// Returns true if the provided path points to a directory.
     fn is_directory<'a>(
         &'a self,
         path: &'a Path,
     ) -> BoxedFuture<'a, Result<bool, AssetReaderError>>;
-
-    /// Returns an Asset watcher that will send events on the given channel.
-    /// If this reader does not support watching for changes, this will return [`None`].
-    fn watch_for_changes(
-        &self,
-        event_sender: Sender<AssetSourceEvent>,
-    ) -> Option<Box<dyn AssetWatcher>>;
 
     /// Reads asset metadata bytes at the given `path` into a [`Vec<u8>`]. This is a convenience
     /// function that wraps [`AssetReader::read_meta`] by default.
@@ -179,7 +191,7 @@ pub trait AssetWriter: Send + Sync + 'static {
 }
 
 /// An "asset source change event" that occurs whenever asset (or asset metadata) is created/added/removed
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AssetSourceEvent {
     /// An asset at this path was added.
     AddedAsset(PathBuf),
@@ -218,8 +230,6 @@ pub enum AssetSourceEvent {
 
 /// A handle to an "asset watcher" process, that will listen for and emit [`AssetSourceEvent`] values for as long as
 /// [`AssetWatcher`] has not been dropped.
-///
-/// See [`AssetReader::watch_for_changes`].
 pub trait AssetWatcher: Send + Sync + 'static {}
 
 /// An [`AsyncRead`] implementation capable of reading a [`Vec<u8>`].
@@ -240,10 +250,10 @@ impl VecReader {
 
 impl AsyncRead for VecReader {
     fn poll_read(
-        mut self: std::pin::Pin<&mut Self>,
+        mut self: Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
         buf: &mut [u8],
-    ) -> std::task::Poll<futures_io::Result<usize>> {
+    ) -> Poll<futures_io::Result<usize>> {
         if self.bytes_read >= self.bytes.len() {
             Poll::Ready(Ok(0))
         } else {
@@ -259,7 +269,7 @@ pub(crate) fn get_meta_path(path: &Path) -> PathBuf {
     let mut meta_path = path.to_path_buf();
     let mut extension = path
         .extension()
-        .expect("asset paths must have extensions")
+        .unwrap_or_else(|| panic!("missing extension for asset path {path:?}"))
         .to_os_string();
     extension.push(".meta");
     meta_path.set_extension(extension);

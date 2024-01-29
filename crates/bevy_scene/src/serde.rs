@@ -1,3 +1,5 @@
+//! `serde` serialization and deserialization implementation for Bevy scenes.
+
 use crate::{DynamicEntity, DynamicScene};
 use bevy_ecs::entity::Entity;
 use bevy_reflect::serde::{TypedReflectDeserializer, TypedReflectSerializer};
@@ -14,11 +16,16 @@ use serde::{
 };
 use std::fmt::Formatter;
 
+/// Name of the serialized scene struct type.
 pub const SCENE_STRUCT: &str = "Scene";
+/// Name of the serialized resources field in a scene struct.
 pub const SCENE_RESOURCES: &str = "resources";
+/// Name of the serialized entities field in a scene struct.
 pub const SCENE_ENTITIES: &str = "entities";
 
+/// Name of the serialized entity struct type.
 pub const ENTITY_STRUCT: &str = "Entity";
+/// Name of the serialized component field in an entity struct.
 pub const ENTITY_FIELD_COMPONENTS: &str = "components";
 
 /// Serializer for a [`DynamicScene`].
@@ -46,6 +53,49 @@ pub const ENTITY_FIELD_COMPONENTS: &str = "components";
 /// // Serialize through any serde-compatible Serializer
 /// let ron_string = ron::ser::to_string(&scene_serializer);
 /// ```
+/// Handles serialization of a scene as a struct containing its entities and resources.
+///
+/// # Examples
+///
+/// ```
+/// # use bevy_scene::{serde::SceneSerializer, DynamicScene};
+/// # use bevy_ecs::{
+/// #     prelude::{Component, World},
+/// #     reflect::{AppTypeRegistry, ReflectComponent},
+/// # };
+/// # use bevy_reflect::Reflect;
+/// // Define an example component type.
+/// #[derive(Component, Reflect, Default)]
+/// #[reflect(Component)]
+/// struct MyComponent {
+///     foo: [usize; 3],
+///     bar: (f32, f32),
+///     baz: String,
+/// }
+///
+/// // Create our world, provide it with a type registry.
+/// // Normally, [`App`] handles providing the type registry.
+/// let mut world = World::new();
+/// let registry = AppTypeRegistry::default();
+/// {
+///     let mut registry = registry.write();
+///     // Register our component. Primitives and String are registered by default.
+///     // Sequence types are automatically handled.
+///     registry.register::<MyComponent>();
+/// }
+/// world.insert_resource(registry);
+/// world.spawn(MyComponent {
+///     foo: [1, 2, 3],
+///     bar: (1.3, 3.7),
+///     baz: String::from("test"),
+/// });
+///
+/// // Print out our serialized scene in the RON format.
+/// let registry = world.resource::<AppTypeRegistry>();
+/// let scene = DynamicScene::from_world(&world);
+/// let scene_serializer = SceneSerializer::new(&scene, &registry.0);
+/// println!("{}", bevy_scene::serialize_ron(scene_serializer).unwrap());
+/// ```
 pub struct SceneSerializer<'a> {
     /// The scene to serialize.
     pub scene: &'a DynamicScene,
@@ -68,7 +118,7 @@ impl<'a> SceneSerializer<'a> {
 impl<'a> Serialize for SceneSerializer<'a> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: serde::Serializer,
+        S: Serializer,
     {
         let mut state = serializer.serialize_struct(SCENE_STRUCT, 2)?;
         state.serialize_field(
@@ -89,8 +139,11 @@ impl<'a> Serialize for SceneSerializer<'a> {
     }
 }
 
+/// Handles serialization of multiple entities as a map of entity id to serialized entity.
 pub struct EntitiesSerializer<'a> {
+    /// The entities to serialize.
     pub entities: &'a [DynamicEntity],
+    /// Type registry in which the component types used by the entities are registered.
     pub registry: &'a TypeRegistry,
 }
 
@@ -113,15 +166,18 @@ impl<'a> Serialize for EntitiesSerializer<'a> {
     }
 }
 
+/// Handles entity serialization as a map of component type to component value.
 pub struct EntitySerializer<'a> {
+    /// The entity to serialize.
     pub entity: &'a DynamicEntity,
+    /// Type registry in which the component types used by the entity are registered.
     pub registry: &'a TypeRegistry,
 }
 
 impl<'a> Serialize for EntitySerializer<'a> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: serde::Serializer,
+        S: Serializer,
     {
         let mut state = serializer.serialize_struct(ENTITY_STRUCT, 1)?;
         state.serialize_field(
@@ -135,15 +191,22 @@ impl<'a> Serialize for EntitySerializer<'a> {
     }
 }
 
+/// Handles serializing a list of values with a unique type as a map of type to value.
+///
+/// Used to serialize scene resources in [`SceneSerializer`] and entity components in [`EntitySerializer`].
+/// Note that having several entries of the same type in `entries` will lead to an error when using the RON format and
+/// deserializing through [`SceneMapDeserializer`].
 pub struct SceneMapSerializer<'a> {
+    /// List of boxed values of unique type to serialize.
     pub entries: &'a [Box<dyn Reflect>],
+    /// Type registry in which the types used in `entries` are registered.
     pub registry: &'a TypeRegistry,
 }
 
 impl<'a> Serialize for SceneMapSerializer<'a> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: serde::Serializer,
+        S: Serializer,
     {
         let mut state = serializer.serialize_map(Some(self.entries.len()))?;
         for reflect in self.entries {
@@ -169,7 +232,9 @@ enum EntityField {
     Components,
 }
 
+/// Handles scene deserialization.
 pub struct SceneDeserializer<'a> {
+    /// Type registry in which the components and resources types used in the scene to deserialize are registered.
     pub type_registry: &'a TypeRegistry,
 }
 
@@ -178,7 +243,7 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneDeserializer<'a> {
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
-        D: serde::Deserializer<'de>,
+        D: Deserializer<'de>,
     {
         deserializer.deserialize_struct(
             SCENE_STRUCT,
@@ -201,7 +266,29 @@ impl<'a, 'de> Visitor<'de> for SceneVisitor<'a> {
         formatter.write_str("scene struct")
     }
 
-    fn visit_map<A>(self, mut map: A) -> std::result::Result<Self::Value, A::Error>
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let resources = seq
+            .next_element_seed(SceneMapDeserializer {
+                registry: self.type_registry,
+            })?
+            .ok_or_else(|| Error::missing_field(SCENE_RESOURCES))?;
+
+        let entities = seq
+            .next_element_seed(SceneEntitiesDeserializer {
+                type_registry: self.type_registry,
+            })?
+            .ok_or_else(|| Error::missing_field(SCENE_ENTITIES))?;
+
+        Ok(DynamicScene {
+            resources,
+            entities,
+        })
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
     where
         A: MapAccess<'de>,
     {
@@ -236,31 +323,11 @@ impl<'a, 'de> Visitor<'de> for SceneVisitor<'a> {
             entities,
         })
     }
-
-    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
-    where
-        A: SeqAccess<'de>,
-    {
-        let resources = seq
-            .next_element_seed(SceneMapDeserializer {
-                registry: self.type_registry,
-            })?
-            .ok_or_else(|| Error::missing_field(SCENE_RESOURCES))?;
-
-        let entities = seq
-            .next_element_seed(SceneEntitiesDeserializer {
-                type_registry: self.type_registry,
-            })?
-            .ok_or_else(|| Error::missing_field(SCENE_ENTITIES))?;
-
-        Ok(DynamicScene {
-            resources,
-            entities,
-        })
-    }
 }
 
+/// Handles deserialization for a collection of entities.
 pub struct SceneEntitiesDeserializer<'a> {
+    /// Type registry in which the component types used by the entities to deserialize are registered.
     pub type_registry: &'a TypeRegistry,
 }
 
@@ -284,7 +351,7 @@ struct SceneEntitiesVisitor<'a> {
 impl<'a, 'de> Visitor<'de> for SceneEntitiesVisitor<'a> {
     type Value = Vec<DynamicEntity>;
 
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
         formatter.write_str("map of entities")
     }
 
@@ -305,8 +372,11 @@ impl<'a, 'de> Visitor<'de> for SceneEntitiesVisitor<'a> {
     }
 }
 
+/// Handle deserialization of an entity and its components.
 pub struct SceneEntityDeserializer<'a> {
+    /// Id of the deserialized entity.
     pub entity: Entity,
+    /// Type registry in which the component types used by the entity to deserialize are registered.
     pub type_registry: &'a TypeRegistry,
 }
 
@@ -315,7 +385,7 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneEntityDeserializer<'a> {
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
-        D: serde::Deserializer<'de>,
+        D: Deserializer<'de>,
     {
         deserializer.deserialize_struct(
             ENTITY_STRUCT,
@@ -336,11 +406,11 @@ struct SceneEntityVisitor<'a> {
 impl<'a, 'de> Visitor<'de> for SceneEntityVisitor<'a> {
     type Value = DynamicEntity;
 
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
         formatter.write_str("entities")
     }
 
-    fn visit_seq<A>(self, mut seq: A) -> std::result::Result<Self::Value, A::Error>
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
     where
         A: SeqAccess<'de>,
     {
@@ -385,7 +455,9 @@ impl<'a, 'de> Visitor<'de> for SceneEntityVisitor<'a> {
     }
 }
 
+/// Handles deserialization of a sequence of values with unique types.
 pub struct SceneMapDeserializer<'a> {
+    /// Type registry in which the types of the values to deserialize are registered.
     pub registry: &'a TypeRegistry,
 }
 
@@ -394,7 +466,7 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneMapDeserializer<'a> {
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
-        D: serde::Deserializer<'de>,
+        D: Deserializer<'de>,
     {
         deserializer.deserialize_map(SceneMapVisitor {
             registry: self.registry,
@@ -409,32 +481,8 @@ struct SceneMapVisitor<'a> {
 impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a> {
     type Value = Vec<Box<dyn Reflect>>;
 
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
         formatter.write_str("map of reflect types")
-    }
-
-    fn visit_map<A>(self, mut map: A) -> std::result::Result<Self::Value, A::Error>
-    where
-        A: MapAccess<'de>,
-    {
-        let mut added = HashSet::new();
-        let mut entries = Vec::new();
-        while let Some(registration) =
-            map.next_key_seed(TypeRegistrationDeserializer::new(self.registry))?
-        {
-            if !added.insert(registration.type_id()) {
-                return Err(Error::custom(format_args!(
-                    "duplicate reflect type: `{}`",
-                    registration.type_name()
-                )));
-            }
-
-            entries.push(
-                map.next_value_seed(TypedReflectDeserializer::new(registration, self.registry))?,
-            );
-        }
-
-        Ok(entries)
     }
 
     fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
@@ -450,10 +498,35 @@ impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a> {
 
         Ok(dynamic_properties)
     }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let mut added = HashSet::new();
+        let mut entries = Vec::new();
+        while let Some(registration) =
+            map.next_key_seed(TypeRegistrationDeserializer::new(self.registry))?
+        {
+            if !added.insert(registration.type_id()) {
+                return Err(Error::custom(format_args!(
+                    "duplicate reflect type: `{}`",
+                    registration.type_info().type_path(),
+                )));
+            }
+
+            entries.push(
+                map.next_value_seed(TypedReflectDeserializer::new(registration, self.registry))?,
+            );
+        }
+
+        Ok(entries)
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::ron;
     use crate::serde::{SceneDeserializer, SceneSerializer};
     use crate::{DynamicScene, DynamicSceneBuilder};
     use bevy_ecs::entity::{Entity, EntityMapper, MapEntities};
@@ -462,7 +535,7 @@ mod tests {
     use bevy_ecs::reflect::{AppTypeRegistry, ReflectMapEntities};
     use bevy_ecs::world::FromWorld;
     use bevy_reflect::{Reflect, ReflectSerialize};
-    use bevy_utils::HashMap;
+    use bevy_utils::EntityHashMap;
     use bincode::Options;
     use serde::de::DeserializeSeed;
     use serde::Serialize;
@@ -507,8 +580,8 @@ mod tests {
     struct MyEntityRef(Entity);
 
     impl MapEntities for MyEntityRef {
-        fn map_entities(&mut self, entity_mapper: &mut EntityMapper) {
-            self.0 = entity_mapper.get_or_reserve(self.0);
+        fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
+            self.0 = entity_mapper.map_entity(self.0);
         }
     }
 
@@ -550,10 +623,10 @@ mod tests {
 
         world.insert_resource(MyResource { foo: 123 });
 
-        let mut builder = DynamicSceneBuilder::from_world(&world);
-        builder.extract_entities([a, b, c].into_iter());
-        builder.extract_resources();
-        let scene = builder.build();
+        let scene = DynamicSceneBuilder::from_world(&world)
+            .extract_entities([a, b, c].into_iter())
+            .extract_resources()
+            .build();
 
         let expected = r#"(
   resources: {
@@ -562,18 +635,18 @@ mod tests {
     ),
   },
   entities: {
-    0: (
+    4294967296: (
       components: {
         "bevy_scene::serde::tests::Foo": (123),
       },
     ),
-    1: (
+    4294967297: (
       components: {
         "bevy_scene::serde::tests::Foo": (123),
         "bevy_scene::serde::tests::Bar": (345),
       },
     ),
-    2: (
+    4294967298: (
       components: {
         "bevy_scene::serde::tests::Foo": (123),
         "bevy_scene::serde::tests::Bar": (345),
@@ -599,18 +672,18 @@ mod tests {
     ),
   },
   entities: {
-    0: (
+    4294967296: (
       components: {
         "bevy_scene::serde::tests::Foo": (123),
       },
     ),
-    1: (
+    4294967297: (
       components: {
         "bevy_scene::serde::tests::Foo": (123),
         "bevy_scene::serde::tests::Bar": (345),
       },
     ),
-    2: (
+    4294967298: (
       components: {
         "bevy_scene::serde::tests::Foo": (123),
         "bevy_scene::serde::tests::Bar": (345),
@@ -636,7 +709,7 @@ mod tests {
             "expected `entities` to contain 3 entities"
         );
 
-        let mut map = HashMap::default();
+        let mut map = EntityHashMap::default();
         let mut dst_world = create_world();
         scene.write_to_world(&mut dst_world, &mut map).unwrap();
 
@@ -675,7 +748,7 @@ mod tests {
 
         let deserialized_scene = scene_deserializer.deserialize(&mut deserializer).unwrap();
 
-        let mut map = HashMap::default();
+        let mut map = EntityHashMap::default();
         let mut dst_world = create_world();
         deserialized_scene
             .write_to_world(&mut dst_world, &mut map)
@@ -721,10 +794,10 @@ mod tests {
 
         assert_eq!(
             vec![
-                0, 1, 0, 1, 37, 98, 101, 118, 121, 95, 115, 99, 101, 110, 101, 58, 58, 115, 101,
-                114, 100, 101, 58, 58, 116, 101, 115, 116, 115, 58, 58, 77, 121, 67, 111, 109, 112,
-                111, 110, 101, 110, 116, 1, 2, 3, 102, 102, 166, 63, 205, 204, 108, 64, 1, 12, 72,
-                101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33
+                0, 1, 128, 128, 128, 128, 16, 1, 37, 98, 101, 118, 121, 95, 115, 99, 101, 110, 101,
+                58, 58, 115, 101, 114, 100, 101, 58, 58, 116, 101, 115, 116, 115, 58, 58, 77, 121,
+                67, 111, 109, 112, 111, 110, 101, 110, 116, 1, 2, 3, 102, 102, 166, 63, 205, 204,
+                108, 64, 1, 12, 72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33
             ],
             serialized_scene
         );
@@ -762,11 +835,11 @@ mod tests {
 
         assert_eq!(
             vec![
-                146, 128, 129, 0, 145, 129, 217, 37, 98, 101, 118, 121, 95, 115, 99, 101, 110, 101,
-                58, 58, 115, 101, 114, 100, 101, 58, 58, 116, 101, 115, 116, 115, 58, 58, 77, 121,
-                67, 111, 109, 112, 111, 110, 101, 110, 116, 147, 147, 1, 2, 3, 146, 202, 63, 166,
-                102, 102, 202, 64, 108, 204, 205, 129, 165, 84, 117, 112, 108, 101, 172, 72, 101,
-                108, 108, 111, 32, 87, 111, 114, 108, 100, 33
+                146, 128, 129, 207, 0, 0, 0, 1, 0, 0, 0, 0, 145, 129, 217, 37, 98, 101, 118, 121,
+                95, 115, 99, 101, 110, 101, 58, 58, 115, 101, 114, 100, 101, 58, 58, 116, 101, 115,
+                116, 115, 58, 58, 77, 121, 67, 111, 109, 112, 111, 110, 101, 110, 116, 147, 147, 1,
+                2, 3, 146, 202, 63, 166, 102, 102, 202, 64, 108, 204, 205, 129, 165, 84, 117, 112,
+                108, 101, 172, 72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33
             ],
             buf
         );
@@ -804,7 +877,7 @@ mod tests {
 
         assert_eq!(
             vec![
-                0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0,
                 0, 0, 0, 0, 37, 0, 0, 0, 0, 0, 0, 0, 98, 101, 118, 121, 95, 115, 99, 101, 110, 101,
                 58, 58, 115, 101, 114, 100, 101, 58, 58, 116, 101, 115, 116, 115, 58, 58, 77, 121,
                 67, 111, 109, 112, 111, 110, 101, 110, 116, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0,
@@ -848,9 +921,15 @@ mod tests {
                 let received = received
                     .components
                     .iter()
-                    .find(|component| component.type_name() == expected.type_name())
+                    .find(|component| {
+                        component.get_represented_type_info().unwrap().type_path()
+                            == expected.get_represented_type_info().unwrap().type_path()
+                    })
                     .unwrap_or_else(|| {
-                        panic!("missing component (expected: `{}`)", expected.type_name())
+                        panic!(
+                            "missing component (expected: `{}`)",
+                            expected.get_represented_type_info().unwrap().type_path()
+                        )
                     });
 
                 assert!(

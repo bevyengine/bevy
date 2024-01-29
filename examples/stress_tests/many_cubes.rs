@@ -15,8 +15,11 @@ use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::{DVec2, DVec3},
     prelude::*,
-    render::render_resource::{Extent3d, TextureDimension, TextureFormat},
-    window::{PresentMode, WindowPlugin},
+    render::{
+        render_asset::RenderAssetPersistencePolicy,
+        render_resource::{Extent3d, TextureDimension, TextureFormat},
+    },
+    window::{PresentMode, WindowPlugin, WindowResolution},
 };
 use rand::{rngs::StdRng, seq::SliceRandom, Rng, SeedableRng};
 
@@ -63,13 +66,19 @@ impl FromStr for Layout {
 }
 
 fn main() {
+    // `from_env` panics on the web
+    #[cfg(not(target_arch = "wasm32"))]
     let args: Args = argh::from_env();
+    #[cfg(target_arch = "wasm32")]
+    let args = Args::from_args(&[], &[]).unwrap();
 
     App::new()
         .add_plugins((
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
                     present_mode: PresentMode::AutoNoVsync,
+                    resolution: WindowResolution::new(1920.0, 1080.0)
+                        .with_scale_factor_override(1.0),
                     ..default()
                 }),
                 ..default()
@@ -99,7 +108,7 @@ fn setup(
     let images = images.into_inner();
     let material_assets = material_assets.into_inner();
 
-    let mesh = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
+    let mesh = meshes.add(shape::Cube { size: 1.0 });
 
     let material_textures = init_textures(args, images);
     let materials = init_materials(args, &material_textures, material_assets);
@@ -196,6 +205,7 @@ fn init_textures(args: &Args, images: &mut Assets<Image>) -> Vec<Handle<Image>> 
                 TextureDimension::D2,
                 pixel,
                 TextureFormat::Rgba8UnormSrgb,
+                RenderAssetPersistencePolicy::Unload,
             ))
         })
         .collect()
@@ -219,7 +229,7 @@ fn init_materials(
     let mut materials = Vec::with_capacity(capacity);
     materials.push(assets.add(StandardMaterial {
         base_color: Color::WHITE,
-        base_color_texture: textures.get(0).cloned(),
+        base_color_texture: textures.first().cloned(),
         ..default()
     }));
 

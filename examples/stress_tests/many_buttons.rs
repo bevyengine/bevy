@@ -3,7 +3,7 @@ use argh::FromArgs;
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    window::{PresentMode, WindowPlugin},
+    window::{PresentMode, WindowPlugin, WindowResolution},
 };
 
 const FONT_SIZE: f32 = 7.0;
@@ -42,13 +42,19 @@ struct Args {
 
 /// This example shows what happens when there is a lot of buttons on screen.
 fn main() {
+    // `from_env` panics on the web
+    #[cfg(not(target_arch = "wasm32"))]
     let args: Args = argh::from_env();
+    #[cfg(target_arch = "wasm32")]
+    let args = Args::from_args(&[], &[]).unwrap();
+
     let mut app = App::new();
 
     app.add_plugins((
         DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 present_mode: PresentMode::AutoNoVsync,
+                resolution: WindowResolution::new(1920.0, 1080.0).with_scale_factor_override(1.0),
                 ..default()
             }),
             ..default()
@@ -66,13 +72,17 @@ fn main() {
 
     if args.relayout {
         app.add_systems(Update, |mut style_query: Query<&mut Style>| {
-            style_query.for_each_mut(|mut style| style.set_changed());
+            style_query
+                .iter_mut()
+                .for_each(|mut style| style.set_changed());
         });
     }
 
     if args.recompute_text {
         app.add_systems(Update, |mut text_query: Query<&mut Text>| {
-            text_query.for_each_mut(|mut text| text.set_changed());
+            text_query
+                .iter_mut()
+                .for_each(|mut text| text.set_changed());
         });
     }
 

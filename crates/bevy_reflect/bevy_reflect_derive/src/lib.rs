@@ -5,11 +5,11 @@
 //! such as `Struct`, `GetTypeRegistration`, and more— all with a single derive!
 //!
 //! Some other noteworthy exports include the derive macros for [`FromReflect`] and
-//! [`TypeUuid`], as well as the [`reflect_trait`] attribute macro.
+//! [`TypePath`], as well as the [`reflect_trait`] attribute macro.
 //!
 //! [`Reflect`]: crate::derive_reflect
 //! [`FromReflect`]: crate::derive_from_reflect
-//! [`TypeUuid`]: crate::derive_type_uuid
+//! [`TypePath`]: crate::derive_type_path
 //! [`reflect_trait`]: macro@reflect_trait
 
 extern crate proc_macro;
@@ -20,18 +20,16 @@ mod derive_data;
 mod documentation;
 mod enum_utility;
 mod field_attributes;
-mod fq_std;
 mod from_reflect;
 mod impls;
 mod reflect_value;
 mod registration;
+mod serialization;
 mod trait_reflection;
 mod type_path;
-mod type_uuid;
 mod utility;
 
 use crate::derive_data::{ReflectDerive, ReflectMeta, ReflectStruct};
-use crate::type_uuid::gen_impl_type_uuid;
 use container_attributes::ReflectTraits;
 use derive_data::ReflectTypePath;
 use proc_macro::TokenStream;
@@ -40,8 +38,6 @@ use reflect_value::ReflectValueDef;
 use syn::spanned::Spanned;
 use syn::{parse_macro_input, DeriveInput};
 use type_path::NamedTypePathDef;
-use type_uuid::TypeUuidDef;
-use utility::WhereClauseOptions;
 
 pub(crate) static REFLECT_ATTRIBUTE_NAME: &str = "reflect";
 pub(crate) static REFLECT_VALUE_ATTRIBUTE_NAME: &str = "reflect_value";
@@ -135,6 +131,53 @@ pub(crate) static TYPE_NAME_ATTRIBUTE_NAME: &str = "type_name";
 /// This is useful for when a type can't or shouldn't implement `TypePath`,
 /// or if a manual implementation is desired.
 ///
+/// ## `#[reflect(where T: Trait, U::Assoc: Trait, ...)]`
+///
+/// By default, the derive macro will automatically add certain trait bounds to all generic type parameters
+/// in order to make them compatible with reflection without the user needing to add them manually.
+/// This includes traits like `Reflect` and `FromReflect`.
+/// However, this may not always be desired, and some type paramaters can't or shouldn't require those bounds
+/// (i.e. their usages in fields are ignored or they're only used for their associated types).
+///
+/// With this attribute, you can specify a custom `where` clause to be used instead of the default.
+/// If this attribute is present, none of the type parameters will receive the default bounds.
+/// Only the bounds specified by the type itself and by this attribute will be used.
+/// The only exceptions to this are the `Any`, `Send`, `Sync`, and `TypePath` bounds,
+/// which will always be added regardless of this attribute due to their necessity for reflection
+/// in general.
+///
+/// This means that if you want to opt-out of the default bounds for _all_ type parameters,
+/// you can add `#[reflect(where)]` to the container item to indicate
+/// that an empty `where` clause should be used.
+///
+/// ### Example
+///
+/// ```ignore
+/// trait Trait {
+///   type Assoc;
+/// }
+///
+/// #[derive(Reflect)]
+/// #[reflect(where T::Assoc: FromReflect)]
+/// struct Foo<T: Trait> where T::Assoc: Default {
+///   value: T::Assoc,
+/// }
+///
+/// // Generates a where clause like the following
+/// // (notice that `T` does not have any `Reflect` or `FromReflect` bounds):
+/// //
+/// // impl<T: Trait> bevy_reflect::Reflect for Foo<T>
+/// // where
+/// //   Self: 'static,
+/// //   T::Assoc: Default,
+/// //   T: bevy_reflect::TypePath
+/// //     + ::core::any::Any
+/// //     + ::core::marker::Send
+/// //     + ::core::marker::Sync,
+/// //   T::Assoc: FromReflect,
+/// // {/* ... */}
+/// ```
+///
 /// # Field Attributes
 ///
 /// Along with the container attributes, this macro comes with some attributes that may be applied
@@ -147,6 +190,10 @@ pub(crate) static TYPE_NAME_ATTRIBUTE_NAME: &str = "type_name";
 /// This allows fields to completely opt-out of reflection,
 /// which may be useful for maintaining invariants, keeping certain data private,
 /// or allowing the use of types that do not implement `Reflect` within the container.
+///
+/// If the field contains a generic type parameter, you will likely need to add a
+/// [`#[reflect(where)]`](#reflectwheret-trait-uassoc-trait-)
+/// attribute to the container in order to avoid the default bounds being applied to the type parameter.
 ///
 /// ## `#[reflect(skip_serializing)]`
 ///
@@ -204,8 +251,10 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
     };
 
     TokenStream::from(quote! {
-        #reflect_impls
-        #from_reflect_impl
+        const _: () = {
+            #reflect_impls
+            #from_reflect_impl
+        };
     })
 }
 
@@ -244,15 +293,20 @@ pub fn derive_from_reflect(input: TokenStream) -> TokenStream {
         Err(err) => return err.into_compile_error().into(),
     };
 
-    match derive_data {
+    let from_reflect_impl = match derive_data {
         ReflectDerive::Struct(struct_data) | ReflectDerive::UnitStruct(struct_data) => {
             from_reflect::impl_struct(&struct_data)
         }
         ReflectDerive::TupleStruct(struct_data) => from_reflect::impl_tuple_struct(&struct_data),
         ReflectDerive::Enum(meta) => from_reflect::impl_enum(&meta),
         ReflectDerive::Value(meta) => from_reflect::impl_value(&meta),
-    }
-    .into()
+    };
+
+    TokenStream::from(quote! {
+        const _: () = {
+            #from_reflect_impl
+        };
+    })
 }
 
 /// Derives the `TypePath` trait, providing a stable alternative to [`std::any::type_name`].
@@ -278,18 +332,13 @@ pub fn derive_type_path(input: TokenStream) -> TokenStream {
         Err(err) => return err.into_compile_error().into(),
     };
 
-    impls::impl_type_path(
-        derive_data.meta(),
-        // Use `WhereClauseOptions::new_value` here so we don't enforce reflection bounds
-        &WhereClauseOptions::new_value(derive_data.meta()),
-    )
-    .into()
-}
+    let type_path_impl = impls::impl_type_path(derive_data.meta());
 
-// From https://github.com/randomPoison/type-uuid
-#[proc_macro_derive(TypeUuid, attributes(uuid))]
-pub fn derive_type_uuid(input: TokenStream) -> TokenStream {
-    type_uuid::type_uuid_derive(input)
+    TokenStream::from(quote! {
+        const _: () = {
+            #type_path_impl
+        };
+    })
 }
 
 /// A macro that automatically generates type data for traits, which their implementors can then register.
@@ -305,7 +354,7 @@ pub fn derive_type_uuid(input: TokenStream) -> TokenStream {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```ignore (bevy_reflect is not accessible from this crate)
 /// # use std::any::TypeId;
 /// # use bevy_reflect_derive::{Reflect, reflect_trait};
 /// #[reflect_trait] // Generates `ReflectMyTrait`
@@ -359,20 +408,20 @@ pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
 ///
 /// Types can be passed with or without registering type data:
 ///
-/// ```ignore
-/// impl_reflect_value!(::my_crate::Foo);
-/// impl_reflect_value!(::my_crate::Bar(Debug, Default, Serialize, Deserialize));
+/// ```ignore (bevy_reflect is not accessible from this crate)
+/// impl_reflect_value!(my_crate::Foo);
+/// impl_reflect_value!(my_crate::Bar(Debug, Default, Serialize, Deserialize));
 /// ```
 ///
 /// Generic types can also specify their parameters and bounds:
 ///
-/// ```ignore
-/// impl_reflect_value!(::my_crate::Foo<T1, T2: Baz> where T1: Bar (Default, Serialize, Deserialize));
+/// ```ignore (bevy_reflect is not accessible from this crate)
+/// impl_reflect_value!(my_crate::Foo<T1, T2: Baz> where T1: Bar (Default, Serialize, Deserialize));
 /// ```
 ///
 /// Custom type paths can be specified:
 ///
-/// ```ignore
+/// ```ignore (bevy_reflect is not accessible from this crate)
 /// impl_reflect_value!((in not_my_crate as NotFoo) Foo(Debug, Default));
 /// ```
 ///
@@ -401,8 +450,10 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
     let from_reflect_impl = from_reflect::impl_value(&meta);
 
     TokenStream::from(quote! {
-        #reflect_impls
-        #from_reflect_impl
+        const _: () = {
+            #reflect_impls
+            #from_reflect_impl
+        };
     })
 }
 
@@ -425,7 +476,7 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
 ///
 /// # Example
 /// Implementing `Reflect` for `bevy::prelude::Vec3` as a struct type:
-/// ```ignore
+/// ```ignore (bevy_reflect is not accessible from this crate)
 /// use bevy::prelude::Vec3;
 ///
 /// impl_reflect_struct!(
@@ -446,7 +497,7 @@ pub fn impl_reflect_struct(input: TokenStream) -> TokenStream {
         Err(err) => return err.into_compile_error().into(),
     };
 
-    match derive_data {
+    let output = match derive_data {
         ReflectDerive::Struct(struct_data) => {
             if !struct_data.meta().type_path().has_custom_path() {
                 return syn::Error::new(
@@ -460,27 +511,30 @@ pub fn impl_reflect_struct(input: TokenStream) -> TokenStream {
             let impl_struct = impls::impl_struct(&struct_data);
             let impl_from_struct = from_reflect::impl_struct(&struct_data);
 
-            TokenStream::from(quote! {
+            quote! {
                 #impl_struct
                 #impl_from_struct
-            })
+            }
         }
         ReflectDerive::TupleStruct(..) => syn::Error::new(
             ast.span(),
             "impl_reflect_struct does not support tuple structs",
         )
-        .into_compile_error()
-        .into(),
+        .into_compile_error(),
         ReflectDerive::UnitStruct(..) => syn::Error::new(
             ast.span(),
             "impl_reflect_struct does not support unit structs",
         )
-        .into_compile_error()
-        .into(),
+        .into_compile_error(),
         _ => syn::Error::new(ast.span(), "impl_reflect_struct only supports structs")
-            .into_compile_error()
-            .into(),
-    }
+            .into_compile_error(),
+    };
+
+    TokenStream::from(quote! {
+        const _: () = {
+            #output
+        };
+    })
 }
 
 /// A macro used to generate a `FromReflect` trait implementation for the given type.
@@ -497,7 +551,7 @@ pub fn impl_reflect_struct(input: TokenStream) -> TokenStream {
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```ignore (bevy_reflect is not accessible from this crate)
 /// impl_from_reflect_value!(foo<T1, T2: Baz> where T1: Bar);
 /// ```
 ///
@@ -521,7 +575,14 @@ pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
         }
     };
 
-    from_reflect::impl_value(&ReflectMeta::new(type_path, def.traits.unwrap_or_default())).into()
+    let from_reflect_impl =
+        from_reflect::impl_value(&ReflectMeta::new(type_path, def.traits.unwrap_or_default()));
+
+    TokenStream::from(quote! {
+        const _: () = {
+            #from_reflect_impl
+        };
+    })
 }
 
 /// A replacement for [deriving `TypePath`] for use on foreign types.
@@ -535,27 +596,27 @@ pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
 /// # Examples
 ///
 /// Implementing `TypePath` on a foreign type:
-/// ```rust,ignore
+/// ```ignore (bevy_reflect is not accessible from this crate)
 /// impl_type_path!(::foreign_crate::foo::bar::Baz);
 /// ```
 ///
 /// On a generic type:
-/// ```rust,ignore
+/// ```ignore (bevy_reflect is not accessible from this crate)
 /// impl_type_path!(::foreign_crate::Foo<T>);
 /// ```
 ///
 /// On a primitive (note this will not compile for a non-primitive type):
-/// ```rust,ignore
+/// ```ignore (bevy_reflect is not accessible from this crate)
 /// impl_type_path!(bool);
 /// ```
 ///
 /// With a custom type path:
-/// ```rust,ignore
+/// ```ignore (bevy_reflect is not accessible from this crate)
 /// impl_type_path!((in other_crate::foo::bar) Baz);
 /// ```
 ///
 /// With a custom type path and a custom type name:
-/// ```rust,ignore
+/// ```ignore (bevy_reflect is not accessible from this crate)
 /// impl_type_path!((in other_crate::foo as Baz) Bar);
 /// ```
 ///
@@ -583,12 +644,11 @@ pub fn impl_type_path(input: TokenStream) -> TokenStream {
 
     let meta = ReflectMeta::new(type_path, ReflectTraits::default());
 
-    impls::impl_type_path(&meta, &WhereClauseOptions::new_value(&meta)).into()
-}
+    let type_path_impl = impls::impl_type_path(&meta);
 
-/// Derives `TypeUuid` for the given type. This is used internally to implement `TypeUuid` on foreign types, such as those in the std. This macro should be used in the format of `<[Generic Params]> [Type (Path)], [Uuid (String Literal)]`.
-#[proc_macro]
-pub fn impl_type_uuid(input: TokenStream) -> TokenStream {
-    let def = parse_macro_input!(input as TypeUuidDef);
-    gen_impl_type_uuid(def)
+    TokenStream::from(quote! {
+        const _: () = {
+            #type_path_impl
+        };
+    })
 }

@@ -2,6 +2,7 @@ use crate::{
     archetype::ArchetypeComponentId,
     component::{ComponentId, Tick},
     query::Access,
+    schedule::{InternedSystemSet, SystemSet},
     system::{
         check_system_change_tick, ExclusiveSystemParam, ExclusiveSystemParamItem, In, IntoSystem,
         System, SystemMeta,
@@ -88,6 +89,17 @@ where
     }
 
     #[inline]
+    fn is_exclusive(&self) -> bool {
+        true
+    }
+
+    #[inline]
+    fn has_deferred(&self) -> bool {
+        // exclusive systems have no deferred system params
+        false
+    }
+
+    #[inline]
     unsafe fn run_unsafe(&mut self, _input: Self::In, _world: UnsafeWorldCell) -> Self::Out {
         panic!("Cannot run exclusive systems with a shared World reference");
     }
@@ -114,19 +126,6 @@ where
     }
 
     #[inline]
-    fn is_exclusive(&self) -> bool {
-        true
-    }
-
-    fn get_last_run(&self) -> Tick {
-        self.system_meta.last_run
-    }
-
-    fn set_last_run(&mut self, last_run: Tick) {
-        self.system_meta.last_run = last_run;
-    }
-
-    #[inline]
     fn apply_deferred(&mut self, _world: &mut World) {
         // "pure" exclusive systems do not have any buffers to apply.
         // Systems made by piping a normal system with an exclusive system
@@ -150,9 +149,17 @@ where
         );
     }
 
-    fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule::SystemSet>> {
+    fn default_system_sets(&self) -> Vec<InternedSystemSet> {
         let set = crate::schedule::SystemTypeSet::<F>::new();
-        vec![Box::new(set)]
+        vec![set.intern()]
+    }
+
+    fn get_last_run(&self) -> Tick {
+        self.system_meta.last_run
+    }
+
+    fn set_last_run(&mut self, last_run: Tick) {
+        self.system_meta.last_run = last_run;
     }
 }
 

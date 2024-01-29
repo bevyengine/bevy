@@ -1,8 +1,6 @@
 use crate::io::{
-    get_meta_path, AssetReader, AssetReaderError, AssetWatcher, EmptyPathStream, PathStream,
-    Reader, VecReader,
+    get_meta_path, AssetReader, AssetReaderError, EmptyPathStream, PathStream, Reader, VecReader,
 };
-use anyhow::Result;
 use bevy_log::error;
 use bevy_utils::BoxedFuture;
 use std::{ffi::CString, path::Path};
@@ -31,7 +29,7 @@ impl AssetReader for AndroidAssetReader {
             let mut opened_asset = asset_manager
                 .open(&CString::new(path.to_str().unwrap()).unwrap())
                 .ok_or(AssetReaderError::NotFound(path.to_path_buf()))?;
-            let bytes = opened_asset.get_buffer()?;
+            let bytes = opened_asset.buffer()?;
             let reader: Box<Reader> = Box::new(VecReader::new(bytes.to_vec()));
             Ok(reader)
         })
@@ -50,7 +48,7 @@ impl AssetReader for AndroidAssetReader {
             let mut opened_asset = asset_manager
                 .open(&CString::new(meta_path.to_str().unwrap()).unwrap())
                 .ok_or(AssetReaderError::NotFound(meta_path))?;
-            let bytes = opened_asset.get_buffer()?;
+            let bytes = opened_asset.buffer()?;
             let reader: Box<Reader> = Box::new(VecReader::new(bytes.to_vec()));
             Ok(reader)
         })
@@ -71,12 +69,5 @@ impl AssetReader for AndroidAssetReader {
     ) -> BoxedFuture<'a, std::result::Result<bool, AssetReaderError>> {
         error!("Reading directories is not supported with the AndroidAssetReader");
         Box::pin(async move { Ok(false) })
-    }
-
-    fn watch_for_changes(
-        &self,
-        _event_sender: crossbeam_channel::Sender<super::AssetSourceEvent>,
-    ) -> Option<Box<dyn AssetWatcher>> {
-        None
     }
 }

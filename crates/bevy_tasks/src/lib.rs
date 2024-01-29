@@ -1,5 +1,4 @@
 #![warn(missing_docs)]
-#![allow(clippy::type_complexity)]
 #![doc = include_str!("../README.md")]
 
 mod slice;
@@ -16,7 +15,7 @@ pub use task_pool::{Scope, TaskPool, TaskPoolBuilder};
 #[cfg(any(target_arch = "wasm32", not(feature = "multi-threaded")))]
 mod single_threaded_task_pool;
 #[cfg(any(target_arch = "wasm32", not(feature = "multi-threaded")))]
-pub use single_threaded_task_pool::{Scope, TaskPool, TaskPoolBuilder, ThreadExecutor};
+pub use single_threaded_task_pool::{FakeTask, Scope, TaskPool, TaskPoolBuilder, ThreadExecutor};
 
 mod usages;
 #[cfg(not(target_arch = "wasm32"))]
@@ -28,13 +27,21 @@ mod thread_executor;
 #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
 pub use thread_executor::{ThreadExecutor, ThreadExecutorTicker};
 
+#[cfg(feature = "async-io")]
+pub use async_io::block_on;
+#[cfg(not(feature = "async-io"))]
+pub use futures_lite::future::block_on;
+
 mod iter;
 pub use iter::ParallelIterator;
+
+pub use futures_lite;
 
 #[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
+        block_on,
         iter::ParallelIterator,
         slice::{ParallelSlice, ParallelSliceMut},
         usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool},
