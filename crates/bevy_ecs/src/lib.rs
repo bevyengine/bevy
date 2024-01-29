@@ -38,7 +38,8 @@ pub mod prelude {
         component::Component,
         entity::{Entity, EntityMapper},
         event::{Event, EventReader, EventWriter, Events},
-        query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
+        query::{Added, Always, And, AnyOf, Changed, Has, Is, Never, Or, With, Without},
+        query::{ComponentGroup, QueryBuilder, QueryState},
         removal_detection::RemovedComponents,
         schedule::{
             apply_deferred, apply_state_transition, common_conditions::*, Condition,

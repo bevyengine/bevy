@@ -75,7 +75,7 @@ mod tests {
 
     use crate::prelude::{Added, AnyOf, Changed, Entity, Or, QueryState, With, Without};
     use crate::query::{
-        Always, And, ArchetypeFilter, Has, Is, QueryCombinationIter, ReadOnlyQueryData,
+        Always, And, ArchetypeFilter, Has, Is, Never, QueryCombinationIter, ReadOnlyQueryData,
     };
     use crate::schedule::{IntoSystemConfigs, Schedule};
     use crate::system::{IntoSystem, Query, System, SystemState};
@@ -578,6 +578,10 @@ mod tests {
             .collect();
 
         assert!(values.is_empty());
+
+        // Always<Never> does not filter archetypes, Never does.
+        assert_eq!(world.query::<Always<false>>().iter(&world).count(), 4);
+        assert_eq!(world.query::<Never>().iter(&world).count(), 0);
     }
 
     #[test]
