@@ -476,6 +476,8 @@ fn play_animations(assets: Res<ExampleAssets>, mut players: Query<&mut Animation
     }
 }
 
+// Draws gizmos showing the bounds of the irradiance volume, as well as the
+// center of each voxel.
 fn draw_gizmos(
     mut gizmos: Gizmos,
     irradiance_volume_query: Query<(&GlobalTransform, &IrradianceVolume)>,
@@ -496,6 +498,7 @@ fn draw_gizmos(
         let resolution = image.texture_descriptor.size;
         let scale = vec3(1.0 / resolution.width as f32, 1.0 / resolution.height as f32, 1.0 / resolution.depth_or_array_layers as f32);
 
+        // Display each voxel.
         for z in 0..resolution.depth_or_array_layers {
             for y in 0..resolution.height {
                 for x in 0..resolution.width {
@@ -509,6 +512,7 @@ fn draw_gizmos(
     }
 }
 
+// Handles a request from the user to toggle the gizmos on and off.
 fn toggle_gizmos(keyboard: Res<ButtonInput<KeyCode>>, mut app_status: ResMut<AppStatus>) {
     if keyboard.just_pressed(KeyCode::Backspace) {
         app_status.voxels_gizmo_visible = !app_status.voxels_gizmo_visible;
