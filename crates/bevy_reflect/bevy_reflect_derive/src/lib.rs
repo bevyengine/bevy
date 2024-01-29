@@ -131,26 +131,64 @@ pub(crate) static TYPE_NAME_ATTRIBUTE_NAME: &str = "type_name";
 /// This is useful for when a type can't or shouldn't implement `TypePath`,
 /// or if a manual implementation is desired.
 ///
-/// ## `#[reflect(where T: Trait, U::Assoc: Trait, ...)]`
+/// ## `#[reflect(no_field_bounds)]`
 ///
-/// By default, the derive macro will automatically add certain trait bounds to all generic type parameters
-/// in order to make them compatible with reflection without the user needing to add them manually.
-/// This includes traits like `Reflect` and `FromReflect`.
-/// However, this may not always be desired, and some type paramaters can't or shouldn't require those bounds
-/// (i.e. their usages in fields are ignored or they're only used for their associated types).
+/// This attribute will opt-out of the default trait bounds added to all field types
+/// for the generated reflection trait impls.
 ///
-/// With this attribute, you can specify a custom `where` clause to be used instead of the default.
-/// If this attribute is present, none of the type parameters will receive the default bounds.
-/// Only the bounds specified by the type itself and by this attribute will be used.
-/// The only exceptions to this are the `Any`, `Send`, `Sync`, and `TypePath` bounds,
-/// which will always be added regardless of this attribute due to their necessity for reflection
-/// in general.
-///
-/// This means that if you want to opt-out of the default bounds for _all_ type parameters,
-/// you can add `#[reflect(where)]` to the container item to indicate
-/// that an empty `where` clause should be used.
+/// Normally, all fields will have the bounds `TypePath`, and either `FromReflect` or `Reflect`
+/// depending on if `#[reflect(from_reflect = false)]` is used.
+/// However, this might not always be desirable, and so this attribute may be used to remove those bounds.
 ///
 /// ### Example
+///
+/// If a type is recursive the default bounds will cause an overflow error when building:
+///
+/// ```ignore (bevy_reflect is not accessible from this crate)
+/// #[derive(Reflect)] // ERROR: overflow evaluating the requirement `Foo: FromReflect`
+/// struct Foo {
+///   foo: Vec<Foo>,
+/// }
+///
+/// // Generates a where clause like:
+/// // impl bevy_reflect::Reflect for Foo
+/// // where
+/// //   Self: Any + Send + Sync,
+/// //   Vec<Foo>: FromReflect + TypePath,
+/// ```
+///
+/// In this case, `Foo` is given the bounds `Vec<Foo>: FromReflect + TypePath`,
+/// which requires that `Foo` implements `FromReflect`,
+/// which requires that `Vec<Foo>` implements `FromReflect`,
+/// and so on, resulting in the error.
+///
+/// To fix this, we can add `#[reflect(no_field_bounds)]` to `Foo` to remove the bounds on `Vec<Foo>`:
+///
+/// ```ignore (bevy_reflect is not accessible from this crate)
+/// #[derive(Reflect)]
+/// #[reflect(no_field_bounds)]
+/// struct Foo {
+///   foo: Vec<Foo>,
+/// }
+///
+/// // Generates a where clause like:
+/// // impl bevy_reflect::Reflect for Foo
+/// // where
+/// //   Self: Any + Send + Sync,
+/// ```
+///
+/// ## `#[reflect(where T: Trait, U::Assoc: Trait, ...)]`
+///
+/// This attribute can be used to add additional bounds to the generated reflection trait impls.
+///
+/// This is useful for when a type needs certain bounds only applied to the reflection impls
+/// that are not otherwise automatically added by the derive macro.
+///
+/// ### Example
+///
+/// In the example below, we want to enforce that `T::Assoc: List` is required in order for
+/// `Foo<T>` to be reflectable, but we don't want it to prevent `Foo<T>` from being used
+/// in places where `T::Assoc: List` is not required.
 ///
 /// ```ignore
 /// trait Trait {
@@ -158,23 +196,20 @@ pub(crate) static TYPE_NAME_ATTRIBUTE_NAME: &str = "type_name";
 /// }
 ///
 /// #[derive(Reflect)]
-/// #[reflect(where T::Assoc: FromReflect)]
+/// #[reflect(where T::Assoc: List)]
 /// struct Foo<T: Trait> where T::Assoc: Default {
 ///   value: T::Assoc,
 /// }
 ///
-/// // Generates a where clause like the following
-/// // (notice that `T` does not have any `Reflect` or `FromReflect` bounds):
+/// // Generates a where clause like:
 /// //
 /// // impl<T: Trait> bevy_reflect::Reflect for Foo<T>
 /// // where
-/// //   Self: 'static,
+/// //   Self: Any + Send + Sync,
 /// //   T::Assoc: Default,
-/// //   T: bevy_reflect::TypePath
-/// //     + ::core::any::Any
-/// //     + ::core::marker::Send
-/// //     + ::core::marker::Sync,
-/// //   T::Assoc: FromReflect,
+/// //   T: TypePath,
+/// //   T::Assoc: FromReflect + TypePath,
+/// //   T::Assoc: List,
 /// // {/* ... */}
 /// ```
 ///
@@ -190,10 +225,6 @@ pub(crate) static TYPE_NAME_ATTRIBUTE_NAME: &str = "type_name";
 /// This allows fields to completely opt-out of reflection,
 /// which may be useful for maintaining invariants, keeping certain data private,
 /// or allowing the use of types that do not implement `Reflect` within the container.
-///
-/// If the field contains a generic type parameter, you will likely need to add a
-/// [`#[reflect(where)]`](#reflectwheret-trait-uassoc-trait-)
-/// attribute to the container in order to avoid the default bounds being applied to the type parameter.
 ///
 /// ## `#[reflect(skip_serializing)]`
 ///

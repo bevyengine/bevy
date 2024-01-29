@@ -25,6 +25,9 @@ const HASH_ATTR: &str = "Hash";
 // but useful to know exist nonetheless
 pub(crate) const REFLECT_DEFAULT: &str = "ReflectDefault";
 
+// Attributes for `Reflect` implementation
+const NO_FIELD_BOUNDS_ATTR: &str = "no_field_bounds";
+
 // Attributes for `FromReflect` implementation
 const FROM_REFLECT_ATTR: &str = "from_reflect";
 
@@ -212,6 +215,7 @@ pub(crate) struct ReflectTraits {
     from_reflect_attrs: FromReflectAttrs,
     type_path_attrs: TypePathAttrs,
     custom_where: Option<WhereClause>,
+    no_field_bounds: bool,
     idents: Vec<Ident>,
 }
 
@@ -259,6 +263,9 @@ impl ReflectTraits {
                         }
                         HASH_ATTR => {
                             traits.hash.merge(TraitImpl::Implemented(span))?;
+                        }
+                        NO_FIELD_BOUNDS_ATTR => {
+                            traits.no_field_bounds = true;
                         }
                         // We only track reflected idents for traits not considered special
                         _ => {
@@ -422,6 +429,10 @@ impl ReflectTraits {
         self.custom_where.as_ref()
     }
 
+    pub fn no_field_bounds(&self) -> bool {
+        self.no_field_bounds
+    }
+
     /// Merges the trait implementations of this [`ReflectTraits`] with another one.
     ///
     /// An error is returned if the two [`ReflectTraits`] have conflicting implementations.
@@ -433,6 +444,8 @@ impl ReflectTraits {
         self.type_path_attrs.merge(other.type_path_attrs)?;
 
         self.merge_custom_where(other.custom_where);
+
+        self.no_field_bounds |= other.no_field_bounds;
 
         for ident in other.idents {
             add_unique_ident(&mut self.idents, ident)?;

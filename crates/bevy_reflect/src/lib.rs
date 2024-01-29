@@ -1899,8 +1899,8 @@ bevy_reflect::tests::Test {
     #[test]
     fn should_allow_multiple_custom_where() {
         #[derive(Reflect)]
-        #[reflect(where T: Default + FromReflect)]
-        #[reflect(where U: std::ops::Add<T> + FromReflect)]
+        #[reflect(where T: Default)]
+        #[reflect(where U: std::ops::Add<T>)]
         struct Foo<T, U>(T, U);
 
         #[derive(Reflect)]
@@ -1916,12 +1916,12 @@ bevy_reflect::tests::Test {
     #[test]
     fn should_allow_custom_where_wtih_assoc_type() {
         trait Trait {
-            type Assoc: FromReflect + TypePath;
+            type Assoc;
         }
 
         // We don't need `T` to be `Reflect` since we only care about `T::Assoc`
         #[derive(Reflect)]
-        #[reflect(where T::Assoc: FromReflect)]
+        #[reflect(where T::Assoc: core::fmt::Display)]
         struct Foo<T: Trait>(T::Assoc);
 
         #[derive(TypePath)]
@@ -1931,7 +1931,15 @@ bevy_reflect::tests::Test {
             type Assoc = usize;
         }
 
+        #[derive(TypePath)]
+        struct Baz;
+
+        impl Trait for Baz {
+            type Assoc = (f32, f32);
+        }
+
         assert_impl_all!(Foo<Bar>: Reflect);
+        assert_not_impl_all!(Foo<Baz>: Reflect);
     }
 
     #[test]
@@ -1943,6 +1951,7 @@ bevy_reflect::tests::Test {
         let _ = <Recurse<Recurse<()>> as TypePath>::type_path();
 
         #[derive(Reflect)]
+        #[reflect(no_field_bounds)]
         struct SelfRecurse {
             recurse: Vec<SelfRecurse>,
         }
@@ -1951,11 +1960,13 @@ bevy_reflect::tests::Test {
         let _ = <SelfRecurse as TypePath>::type_path();
 
         #[derive(Reflect)]
+        #[reflect(no_field_bounds)]
         enum RecurseA {
             Recurse(RecurseB),
         }
 
         #[derive(Reflect)]
+        // `#[reflect(no_field_bounds)]` not needed since already added to `RecurseA`
         struct RecurseB {
             vector: Vec<RecurseA>,
         }
@@ -1970,7 +1981,6 @@ bevy_reflect::tests::Test {
     fn can_opt_out_type_path() {
         #[derive(Reflect)]
         #[reflect(type_path = false)]
-        #[reflect(where)]
         struct Foo<T> {
             #[reflect(ignore)]
             _marker: PhantomData<T>,
