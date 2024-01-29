@@ -26,21 +26,8 @@
 //! Bevy's irradiance volumes are based on Valve's [*ambient cubes*] as used in
 //! *Half-Life 2* ([Mitchell 2006, slide 27]). These encode a single color of
 //! light from the six 3D cardinal directions and blend the sides together
-//! according to the surface normal.
-//!
-//! The primary reason for choosing ambient cubes over a more popular approach
-//! such as level 1 [spherical harmonics] is that in an HDR setting ambient
-//! cubes provide higher quality for the same amount of GPU memory. This may
-//! seem surprising, given that ambient cubes have 6 coefficients as opposed to
-//! 4 for L1 spherical harmonics. However, ambient cubes have the advantage that
-//! the coefficients are unsigned, which enables their face colors to be stored
-//! in the very efficient [R9G9B9E5 texture format]. This texture format is now
-//! widely supported across GPU hardware and packs 3 floating point values into
-//! only 4 bytes. By contrast, spherical harmonic coefficients are signed, so
-//! the best approach supported by hardware is [16-bit float], which requires 6
-//! bytes for each 3 floating-point values. As a result, when packed into the
-//! most efficient format widely supported by hardware, ambient cubes provide
-//! more detail for the same amount of storage.
+//! according to the surface normal. For an explanation of why ambient cubes
+//! were chosen over spherical harmonics, see [Why ambient cubes?] below.
 //!
 //! If you wish to use a tool other than `export-blender-gi` to produce the
 //! irradiance volumes, you'll need to pack the irradiance volumes in the
@@ -80,13 +67,60 @@
 //! [`bevy_render::settings::WgpuFeatures::TEXTURE_BINDING_ARRAY`] and
 //! [`bevy_render::settings::WgpuFeatures::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING`].
 //!
+//! ## Why ambient cubes?
+//! 
+//! This section describes the motivation behind the decision to use ambient
+//! cubes in Bevy. It's not needed to use the feature; feel free to skip it
+//! unless you're interested in its internal design.
+//! 
+//! Bevy uses *Half-Life 2*-style ambient cubes (usually abbreviated as *HL2*)
+//! as the representation of irradiance for light probes instead of the
+//! more-popular spherical harmonics (*SH*). This might seem to be a surprising
+//! choice, but it turns out to work well for the specific case of voxel
+//! sampling on the GPU. Spherical harmonics have two problems that make them
+//! less ideal for this use case:
+//!
+//! 1. The level 1 spherical harmonic coefficients can be negative. That
+//! prevents the use of the efficient [RGB9E5 texture format], which only
+//! encodes unsigned floating point numbers, and forces the use of the
+//! less-efficient [RGBA16F format] if hardware interpolation is desired.
+//! 
+//! 2. As an alternative to RGBA16F, level 1 spherical harmonics can be
+//! normalized and scaled to the SH0 base color, as [Frostbite] does. This
+//! allows them to be packed in standard LDR RGBA8 textures. However, this
+//! prevents the use of hardware trilinear filtering, as the nonuniform scale
+//! factor means that hardware interpolation no longer produces correct results.
+//! The 8 texture fetches needed to interpolate between voxels can be upwards of
+//! twice as slow as the hardware interpolation.
+//! 
+//! The following chart summarizes the costs and benefits of ambient cubes,
+//! level 1 spherical harmonics, and level 2 spherical harmonics:
+//! 
+//! | Technique                | HW-interpolated samples | Texel fetches | Bytes per voxel | Quality |
+//! | ------------------------ | ----------------------- | ------------- | --------------- | ------- |
+//! | Ambient cubes            |                       3 |             0 |              24 | Medium  |
+//! | Level 1 SH, compressed   |                       0 |            36 |              16 | Low     |
+//! | Level 1 SH, uncompressed |                       4 |             0 |              24 | Low     |
+//! | Level 2 SH, compressed   |                       0 |            72 |              28 | High    |
+//! | Level 2 SH, uncompressed |                       9 |             0 |              54 | High    |
+//!
+//! (Note that the number of bytes per voxel can be reduced using various
+//! texture compression methods, but the overall ratios remain similar.)
+//!
+//! From these data, we can see that ambient cubes balance fast lookups (from
+//! leveraging hardware interpolation) with relatively-small storage
+//! requirements and acceptable quality. Hence, they were chosen for irradiance
+//! volumes in Bevy.
+//!
 //! [*ambient cubes*]: https://advances.realtimerendering.com/s2006/Mitchell-ShadingInValvesSourceEngine.pdf
 //!
 //! [spherical harmonics]: https://en.wikipedia.org/wiki/Spherical_harmonic_lighting
 //!
-//! [R9G9B9E5 texture format]: https://www.khronos.org/opengl/wiki/Small_Float_Formats#RGB9_E5
+//! [RGB9E5 texture format]: https://www.khronos.org/opengl/wiki/Small_Float_Formats#RGB9_E5
 //!
-//! [16-bit float]: https://www.khronos.org/opengl/wiki/Small_Float_Formats#Low-bitdepth_floats
+//! [RGBA16F format]: https://www.khronos.org/opengl/wiki/Small_Float_Formats#Low-bitdepth_floats
+//! 
+//! [Frostbite]: https://media.contentapi.ea.com/content/dam/eacom/frostbite/files/gdc2018-precomputedgiobalilluminationinfrostbite.pdf#page=53
 //!
 //! [Mitchell 2006, slide 27]: https://advances.realtimerendering.com/s2006/Mitchell-ShadingInValvesSourceEngine.pdf#page=27
 //!
