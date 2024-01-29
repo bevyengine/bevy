@@ -52,11 +52,11 @@ pub mod light_consts {
     pub mod lux {
         /// The amount of light (lux) in a moonless, overcast night sky. (starlight)
         pub const MOONLESS_NIGHT: f32 = 0.0001;
-        /// The amount of light (lux) in a full moon on a clear night.
+        /// The amount of light (lux) during a full moon on a clear night.
         pub const FULL_MOON_NIGHT: f32 = 0.05;
-        /// The amount of light (lux) in dark limit of civil twilight under a clear sky.
+        /// The amount of light (lux) during the dark limit of civil twilight under a clear sky.
         pub const CIVIL_TWILIGHT: f32 = 3.4;
-        /// The amount of light (lux) in a dark limit of civil twilight under a clear sky.
+        /// The amount of light (lux) in a family living room lights.
         pub const LIVING_ROOM: f32 = 50.;
         /// The amount of light (lux) in a office building hallway/toilet lighting.
         pub const HALLWAY: f32 = 80.;
@@ -64,13 +64,13 @@ pub mod light_consts {
         pub const DARK_OVERCAST_DAY: f32 = 100.;
         /// The amount of light (lux) in a office.
         pub const OFFICE: f32 = 320.;
-        /// The amount of light (lux) on Sunrise or sunset on a clear day.
+        /// The amount of light (lux) during sunrise or sunset on a clear day.
         pub const CLEAR_SUNRISE: f32 = 400.;
         /// The amount of light (lux) on very dark overcast day.
         pub const OVERCAST_DAY: f32 = 1000.;
         /// The amount of light (lux) in full daylight. (not direct sun)
         pub const FULL_DAYLIGHT: f32 = 10_000.;
-        /// The amount of light (lux) in Direct sunlight.
+        /// The amount of light (lux) in direct sunlight.
         pub const DIRECT_SUNLIGHT: f32 = 50_000.;
     }
 }
