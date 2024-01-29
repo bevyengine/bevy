@@ -7,15 +7,11 @@
 struct EnvironmentMapLight {
     diffuse: vec3<f32>,
     specular: vec3<f32>,
-    // Whether any applicable reflection probe was found.
-    found: bool,
 };
 
 struct EnvironmentMapRadiances {
     irradiance: vec3<f32>,
     radiance: vec3<f32>,
-    // Whether any applicable reflection probe was found.
-    found: bool,
 }
 
 // Define two versions of this function, one for the case in which there are
@@ -49,7 +45,6 @@ fn compute_radiances(
     if (query_result.texture_index < 0) {
         radiances.irradiance = vec3(0.0);
         radiances.radiance = vec3(0.0);
-        radiances.found = false;
         return radiances;
     }
 
@@ -71,7 +66,6 @@ fn compute_radiances(
         vec3(R.xy, -R.z),
         radiance_level).rgb * query_result.intensity;
 
-    radiances.found = true;
     return radiances;
 }
 
@@ -89,7 +83,6 @@ fn compute_radiances(
     if (light_probes.view_cubemap_index < 0) {
         radiances.irradiance = vec3(0.0);
         radiances.radiance = vec3(0.0);
-        radiances.found = false;
         return radiances;
     }
 
@@ -113,8 +106,6 @@ fn compute_radiances(
         bindings::environment_map_sampler,
         vec3(R.xy, -R.z),
         radiance_level).rgb * intensity;
-
-    radiances.found = true;
 
     return radiances;
 }
@@ -141,10 +132,9 @@ fn environment_map_light(
         R,
         world_position,
         found_diffuse_indirect);
-    if (!radiances.found) {
+    if (all(radiances.irradiance == vec3(0.0)) && all(radiances.radiance == vec3(0.0))) {
         out.diffuse = vec3(0.0);
         out.specular = vec3(0.0);
-        out.found = false;
         return out;
     }
 
@@ -174,6 +164,5 @@ fn environment_map_light(
     }
 
     out.specular = FssEss * radiances.radiance;
-    out.found = true;
     return out;
 }

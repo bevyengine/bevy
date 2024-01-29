@@ -8,17 +8,10 @@
     light_probes,
 };
 
-struct IrradianceVolumeLight {
-    diffuse: vec3<f32>,
-    found: bool,
-}
-
 // See:
 // https://advances.realtimerendering.com/s2006/Mitchell-ShadingInValvesSourceEngine.pdf
 // Slide 28, "Ambient Cube Basis"
-fn sample_irradiance_volume(world_position: vec3<f32>, N: vec3<f32>) -> IrradianceVolumeLight {
-    var irradiance_volume_light: IrradianceVolumeLight;
-
+fn sample_irradiance_volume(world_position: vec3<f32>, N: vec3<f32>) -> vec3<f32> {
     // Search for an irradiance volume that contains the fragment.
     let query_result = query_light_probe(
         light_probes.irradiance_volumes,
@@ -27,8 +20,7 @@ fn sample_irradiance_volume(world_position: vec3<f32>, N: vec3<f32>) -> Irradian
 
     // If there was no irradiance volume found, bail out.
     if (query_result.texture_index < 0) {
-        irradiance_volume_light.found = false;
-        return irradiance_volume_light;
+        return vec3(0.0f);
     }
 
 #ifdef MULTIPLE_LIGHT_PROBES_IN_ARRAY
@@ -61,8 +53,5 @@ fn sample_irradiance_volume(world_position: vec3<f32>, N: vec3<f32>) -> Irradian
 
     // Use Valve's formula to sample.
     let NN = N * N;
-    irradiance_volume_light.diffuse = (rgb_x * NN.x + rgb_y * NN.y + rgb_z * NN.z) *
-        query_result.intensity;
-    irradiance_volume_light.found = true;
-    return irradiance_volume_light;
+    return (rgb_x * NN.x + rgb_y * NN.y + rgb_z * NN.z) * query_result.intensity;
 }
