@@ -702,7 +702,7 @@ mod tests {
 
     #[test]
     fn capsule_math() {
-        let capsule = Capsule::new(2.0, 9.0);
+        let capsule = Capsule3d::new(2.0, 9.0);
         assert_eq!(
             capsule.to_cylinder(),
             Cylinder::new(2.0, 9.0),
