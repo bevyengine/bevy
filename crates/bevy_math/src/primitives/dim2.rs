@@ -90,6 +90,13 @@ pub struct Circle {
 }
 impl Primitive2d for Circle {}
 
+impl Default for Circle {
+    /// Returns the default [`Circle`] with a radius of `0.5`.
+    fn default() -> Self {
+        Self { radius: 0.5 }
+    }
+}
+
 impl Circle {
     /// Create a new [`Circle`] from a `radius`
     #[inline(always)]
@@ -147,6 +154,15 @@ pub struct Ellipse {
 }
 impl Primitive2d for Ellipse {}
 
+impl Default for Ellipse {
+    /// Returns the default [`Ellipse`] with a half-width of `1.0` and a half-height of `0.5`.
+    fn default() -> Self {
+        Self {
+            half_size: Vec2::new(1.0, 0.5),
+        }
+    }
+}
+
 impl Ellipse {
     /// Create a new `Ellipse` from half of its width and height.
     ///
@@ -196,6 +212,15 @@ pub struct Plane2d {
     pub normal: Direction2d,
 }
 impl Primitive2d for Plane2d {}
+
+impl Default for Plane2d {
+    /// Returns the default [`Plane2d`] with a normal pointing in the `+Y` direction.
+    fn default() -> Self {
+        Self {
+            normal: Direction2d::Y,
+        }
+    }
+}
 
 impl Plane2d {
     /// Create a new `Plane2d` from a normal
@@ -343,10 +368,19 @@ pub struct Triangle2d {
 }
 impl Primitive2d for Triangle2d {}
 
+impl Default for Triangle2d {
+    /// Returns the default [`Triangle2d`] with the vertices `[0.0, 0.5]`, `[-0.5, -0.5]`, and `[0.5, -0.5]`.
+    fn default() -> Self {
+        Self {
+            vertices: [Vec2::Y * 0.5, Vec2::new(-0.5, -0.5), Vec2::new(0.5, -0.5)],
+        }
+    }
+}
+
 impl Triangle2d {
     /// Create a new `Triangle2d` from points `a`, `b`, and `c`
     #[inline(always)]
-    pub fn new(a: Vec2, b: Vec2, c: Vec2) -> Self {
+    pub const fn new(a: Vec2, b: Vec2, c: Vec2) -> Self {
         Self {
             vertices: [a, b, c],
         }
@@ -436,6 +470,15 @@ impl Triangle2d {
 pub struct Rectangle {
     /// Half of the width and height of the rectangle
     pub half_size: Vec2,
+}
+
+impl Default for Rectangle {
+    /// Returns the default [`Rectangle`] with a half-width and half-height of `0.5`.
+    fn default() -> Self {
+        Self {
+            half_size: Vec2::splat(0.5),
+        }
+    }
 }
 
 impl Rectangle {
@@ -559,9 +602,19 @@ pub struct RegularPolygon {
 }
 impl Primitive2d for RegularPolygon {}
 
+impl Default for RegularPolygon {
+    /// Returns the default [`RegularPolygon`] with six sides (a hexagon) and a circumradius of `0.5`.
+    fn default() -> Self {
+        Self {
+            circumcircle: Circle { radius: 0.5 },
+            sides: 6,
+        }
+    }
+}
+
 impl RegularPolygon {
     /// Create a new `RegularPolygon`
-    /// from the radius of the circumcircle and number of sides
+    /// from the radius of the circumcircle and a number of sides
     ///
     /// # Panics
     ///
