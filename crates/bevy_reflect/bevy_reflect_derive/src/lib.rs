@@ -139,7 +139,7 @@ pub(crate) static TYPE_NAME_ATTRIBUTE_NAME: &str = "type_name";
 /// By default the bounds are:
 /// * `Self` has the bounds `Any + Send + Sync`
 /// * Type parameters have the bound `TypePath` unless `#[reflect(type_path = false)]` is present
-/// * Active fields have the bound `Reflect` if `#[reflect(from_reflect = false)]` is present
+/// * Active fields have the bounds `TypePath` and either `Reflect` if `#[reflect(from_reflect = false)]` is present
 ///   or `FromReflect` otherwise
 ///
 /// However, there may be cases when these bounds are not desired.

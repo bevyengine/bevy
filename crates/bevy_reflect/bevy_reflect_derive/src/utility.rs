@@ -93,7 +93,8 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
     /// The default bounds added are as follows:
     /// - `Self` has the bounds `Any + Send + Sync`
     /// - Type parameters have the bound `TypePath` unless `#[reflect(type_path = false)]` is present
-    /// - Active fields have the bound `Reflect` if `#[reflect(from_reflect = false)]` or `FromReflect` otherwise
+    /// - Active fields have the bounds `TypePath` and either `Reflect` if `#[reflect(from_reflect = false)]` is present
+    ///   or `FromReflect` otherwise
     ///
     /// When the derive is used with `#[reflect(where)]`, only the `Self` bounds are kept.
     /// The others are replaced with the ones specified in the attribute.
@@ -123,7 +124,7 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
     ///   T: TypePath,
     ///   U: TypePath,
     ///   // Field bounds
-    ///   T: FromReflect,
+    ///   T: FromReflect + TypePath,
     /// ```
     ///
     /// Now take this struct:
@@ -203,11 +204,14 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
 
     /// Returns an iterator over the where clause predicates for the active fields.
     fn active_field_predicates(&self) -> impl Iterator<Item = TokenStream> + '_ {
+        let bevy_reflect_path = self.meta.bevy_reflect_path();
         let reflect_bound = self.reflect_bound();
 
+        // `TypePath` is always required for active fields since they are used to
+        // construct `NamedField` and `UnnamedField` instances for the `Typed` impl.
         self.active_fields
             .iter()
-            .map(move |ty| quote!(#ty : #reflect_bound))
+            .map(move |ty| quote!(#ty : #reflect_bound + #bevy_reflect_path::TypePath))
     }
 
     /// The `Reflect` or `FromReflect` bound to use based on `#[reflect(from_reflect = false)]`.
