@@ -25,16 +25,16 @@ const SPHERE_SCALE: f32 = 2.0;
 
 const IRRADIANCE_VOLUME_INTENSITY: f32 = 150.0;
 
-static DISABLE_IRRADIANCE_VOLUME_HELP_TEXT: &str = "Press Space to disable the irradiance volume";
-static ENABLE_IRRADIANCE_VOLUME_HELP_TEXT: &str = "Press Space to enable the irradiance volume";
+static DISABLE_IRRADIANCE_VOLUME_HELP_TEXT: &str = "Space: Disable the irradiance volume";
+static ENABLE_IRRADIANCE_VOLUME_HELP_TEXT: &str = "Space: Enable the irradiance volume";
 
-static STOP_ROTATION_HELP_TEXT: &str = "Press Enter to stop rotation";
-static START_ROTATION_HELP_TEXT: &str = "Press Enter to start rotation";
+static STOP_ROTATION_HELP_TEXT: &str = "Enter: Stop rotation";
+static START_ROTATION_HELP_TEXT: &str = "Enter: Start rotation";
 
-static SWITCH_TO_FOX_HELP_TEXT: &str = "Press Tab to switch to a skinned mesh";
-static SWITCH_TO_SPHERE_HELP_TEXT: &str = "Press Tab to switch to a plain sphere mesh";
+static SWITCH_TO_FOX_HELP_TEXT: &str = "Tab: Switch to a skinned mesh";
+static SWITCH_TO_SPHERE_HELP_TEXT: &str = "Tab: Switch to a plain sphere mesh";
 
-static CLICK_TO_MOVE_HELP_TEXT: &str = "Click to move the object";
+static CLICK_TO_MOVE_HELP_TEXT: &str = "Left click: Move the object";
 
 // The mode the application is in.
 #[derive(Resource)]

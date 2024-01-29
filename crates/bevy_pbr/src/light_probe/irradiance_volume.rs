@@ -24,17 +24,23 @@
 //! irradiance volume will apply to all fragments within that bounding region.
 //!
 //! Bevy's irradiance volumes are based on Valve's [*ambient cubes*] as used in
-//! *Half-Life 2* ([Mitchell 2006], slide 27). These encode a single color of
+//! *Half-Life 2* ([Mitchell 2006, slide 27]). These encode a single color of
 //! light from the six 3D cardinal directions and blend the sides together
 //! according to the surface normal.
 //!
-//! The primary reason for choosing ambient cubes is to match Blender, so that
-//! its Eevee renderer can be used for baking. However, they also have some
-//! advantages over the common second-order spherical harmonics approach:
-//! ambient cubes don't suffer from ringing artifacts, they are smaller (6
-//! colors for ambient cubes as opposed to 9 for spherical harmonics), and
-//! evaluation is faster. A smaller basis allows for a denser grid of voxels
-//! with the same storage requirements.
+//! The primary reason for choosing ambient cubes over a more popular approach
+//! such as [spherical harmonics] is that in an HDR setting ambient cubes
+//! provide higher quality for the same amount of GPU memory. This may seem
+//! surprising, given that ambient cubes have 6 coefficients as opposed to 4 for
+//! level 1 spherical harmonics. However, ambient cubes have the advantage that
+//! the coefficients are unsigned, which enables voxels to be stored in the very
+//! efficient [R9G9B9E5 texture format]. This texture format is now widely
+//! supported across GPU hardware and packs 3 floating point values into only 4
+//! bytes. By contrast, spherical harmonic coefficients are signed, so the best
+//! approach supported by hardware is [16-bit float], which requires 6 bytes for
+//! each 3 floating-point values. As a result, when packed into the most
+//! efficient format widely supported by hardware, ambient cubes provide more
+//! detail for the same amount of storage.
 //!
 //! If you wish to use a tool other than `export-blender-gi` to produce the
 //! irradiance volumes, you'll need to pack the irradiance volumes in the
@@ -74,7 +80,13 @@
 //!
 //! [*ambient cubes*]: https://advances.realtimerendering.com/s2006/Mitchell-ShadingInValvesSourceEngine.pdf
 //!
-//! [Mitchell 2006]: https://advances.realtimerendering.com/s2006/Mitchell-ShadingInValvesSourceEngine.pdf
+//! [spherical harmonics]: https://en.wikipedia.org/wiki/Spherical_harmonic_lighting
+//!
+//! [R9G9B9E5 texture format]: https://www.khronos.org/opengl/wiki/Small_Float_Formats#RGB9_E5
+//!
+//! [16-bit float]: https://www.khronos.org/opengl/wiki/Small_Float_Formats#Low-bitdepth_floats
+//!
+//! [Mitchell 2006, slide 27]: https://advances.realtimerendering.com/s2006/Mitchell-ShadingInValvesSourceEngine.pdf#page=27
 //!
 //! [Blender]: http://blender.org/
 //!
