@@ -57,7 +57,7 @@ pub trait MapEntities {
 /// ```
 /// # use bevy_ecs::entity::{Entity, EntityMapper};
 /// # use bevy_utils::EntityHashMap;
-///
+/// #
 /// pub struct SimpleEntityMapper {
 ///   map: EntityHashMap<Entity, Entity>,
 /// }
