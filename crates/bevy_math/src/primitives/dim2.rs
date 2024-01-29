@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use super::{InvalidDirectionError, Primitive2d, WindingOrder};
 use crate::Vec2;
 
@@ -95,6 +97,25 @@ impl Circle {
         Self { radius }
     }
 
+    /// Get the diameter of the circle
+    #[inline(always)]
+    pub fn diameter(&self) -> f32 {
+        2.0 * self.radius
+    }
+
+    /// Get the area of the circle
+    #[inline(always)]
+    pub fn area(&self) -> f32 {
+        PI * self.radius.powi(2)
+    }
+
+    /// Get the perimeter or circumference of the circle
+    #[inline(always)]
+    #[doc(alias = "circumference")]
+    pub fn perimeter(&self) -> f32 {
+        2.0 * PI * self.radius
+    }
+
     /// Finds the point on the circle that is closest to the given `point`.
     ///
     /// If the point is outside the circle, the returned point will be on the perimeter of the circle.
@@ -130,7 +151,7 @@ impl Ellipse {
     /// Create a new `Ellipse` from half of its width and height.
     ///
     /// This corresponds to the two perpendicular radii defining the ellipse.
-    #[inline]
+    #[inline(always)]
     pub const fn new(half_width: f32, half_height: f32) -> Self {
         Self {
             half_size: Vec2::new(half_width, half_height),
@@ -140,7 +161,7 @@ impl Ellipse {
     /// Create a new `Ellipse` from a given full size.
     ///
     /// `size.x` is the diameter along the X axis, and `size.y` is the diameter along the Y axis.
-    #[inline]
+    #[inline(always)]
     pub fn from_size(size: Vec2) -> Self {
         Self {
             half_size: size / 2.0,
@@ -148,15 +169,21 @@ impl Ellipse {
     }
 
     /// Returns the length of the semi-major axis. This corresponds to the longest radius of the ellipse.
-    #[inline]
+    #[inline(always)]
     pub fn semi_major(self) -> f32 {
         self.half_size.max_element()
     }
 
     /// Returns the length of the semi-minor axis. This corresponds to the shortest radius of the ellipse.
-    #[inline]
+    #[inline(always)]
     pub fn semi_minor(self) -> f32 {
         self.half_size.min_element()
+    }
+
+    /// Get the area of the ellipse
+    #[inline(always)]
+    pub fn area(&self) -> f32 {
+        PI * self.half_size.x * self.half_size.y
     }
 }
 
@@ -176,7 +203,7 @@ impl Plane2d {
     /// # Panics
     ///
     /// Panics if the given `normal` is zero (or very close to zero), or non-finite.
-    #[inline]
+    #[inline(always)]
     pub fn new(normal: Vec2) -> Self {
         Self {
             normal: Direction2d::new(normal).expect("normal must be nonzero and finite"),
@@ -197,9 +224,9 @@ pub struct Line2d {
 impl Primitive2d for Line2d {}
 
 /// A segment of a line along a direction in 2D space.
-#[doc(alias = "LineSegment2d")]
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[doc(alias = "LineSegment2d")]
 pub struct Segment2d {
     /// The direction of the line segment
     pub direction: Direction2d,
@@ -210,17 +237,21 @@ pub struct Segment2d {
 impl Primitive2d for Segment2d {}
 
 impl Segment2d {
-    /// Create a line segment from a direction and full length of the segment
+    /// Create a new `Segment2d` from a direction and full length of the segment
+    #[inline(always)]
     pub fn new(direction: Direction2d, length: f32) -> Self {
         Self {
             direction,
-            half_length: length / 2.,
+            half_length: length / 2.0,
         }
     }
 
-    /// Get a line segment and translation from two points at each end of a line segment
+    /// Create a new `Segment2d` from its endpoints and compute its geometric center
     ///
-    /// Panics if point1 == point2
+    /// # Panics
+    ///
+    /// Panics if `point1 == point2`
+    #[inline(always)]
     pub fn from_points(point1: Vec2, point2: Vec2) -> (Self, Vec2) {
         let diff = point2 - point1;
         let length = diff.length();
@@ -233,11 +264,13 @@ impl Segment2d {
     }
 
     /// Get the position of the first point on the line segment
+    #[inline(always)]
     pub fn point1(&self) -> Vec2 {
         *self.direction * -self.half_length
     }
 
     /// Get the position of the second point on the line segment
+    #[inline(always)]
     pub fn point2(&self) -> Vec2 {
         *self.direction * self.half_length
     }
@@ -312,13 +345,34 @@ impl Primitive2d for Triangle2d {}
 
 impl Triangle2d {
     /// Create a new `Triangle2d` from points `a`, `b`, and `c`
+    #[inline(always)]
     pub fn new(a: Vec2, b: Vec2, c: Vec2) -> Self {
         Self {
             vertices: [a, b, c],
         }
     }
 
+    /// Get the area of the triangle
+    #[inline(always)]
+    pub fn area(&self) -> f32 {
+        let [a, b, c] = self.vertices;
+        (a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y)).abs() / 2.0
+    }
+
+    /// Get the perimeter of the triangle
+    #[inline(always)]
+    pub fn perimeter(&self) -> f32 {
+        let [a, b, c] = self.vertices;
+
+        let ab = a.distance(b);
+        let bc = b.distance(c);
+        let ca = c.distance(a);
+
+        ab + bc + ca
+    }
+
     /// Get the [`WindingOrder`] of the triangle
+    #[inline(always)]
     #[doc(alias = "orientation")]
     pub fn winding_order(&self) -> WindingOrder {
         let [a, b, c] = self.vertices;
@@ -369,31 +423,60 @@ impl Triangle2d {
 
     /// Reverse the [`WindingOrder`] of the triangle
     /// by swapping the second and third vertices
+    #[inline(always)]
     pub fn reverse(&mut self) {
         self.vertices.swap(1, 2);
     }
 }
 
 /// A rectangle primitive
-#[doc(alias = "Quad")]
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[doc(alias = "Quad")]
 pub struct Rectangle {
     /// Half of the width and height of the rectangle
     pub half_size: Vec2,
 }
 
 impl Rectangle {
-    /// Create a rectangle from a full width and height
+    /// Create a new `Rectangle` from a full width and height
+    #[inline(always)]
     pub fn new(width: f32, height: f32) -> Self {
         Self::from_size(Vec2::new(width, height))
     }
 
-    /// Create a rectangle from a given full size
+    /// Create a new `Rectangle` from a given full size
+    #[inline(always)]
     pub fn from_size(size: Vec2) -> Self {
         Self {
-            half_size: size / 2.,
+            half_size: size / 2.0,
         }
+    }
+
+    /// Create a new `Rectangle` from two corner points
+    #[inline(always)]
+    pub fn from_corners(point1: Vec2, point2: Vec2) -> Self {
+        Self {
+            half_size: (point2 - point1).abs() / 2.0,
+        }
+    }
+
+    /// Get the size of the rectangle
+    #[inline(always)]
+    pub fn size(&self) -> Vec2 {
+        2.0 * self.half_size
+    }
+
+    /// Get the area of the rectangle
+    #[inline(always)]
+    pub fn area(&self) -> f32 {
+        4.0 * self.half_size.x * self.half_size.y
+    }
+
+    /// Get the perimeter of the rectangle
+    #[inline(always)]
+    pub fn perimeter(&self) -> f32 {
+        4.0 * (self.half_size.x + self.half_size.y)
     }
 
     /// Finds the point on the rectangle that is closest to the given `point`.
@@ -482,15 +565,90 @@ impl RegularPolygon {
     ///
     /// # Panics
     ///
-    /// Panics if `circumcircle_radius` is non-positive
-    pub fn new(circumcircle_radius: f32, sides: usize) -> Self {
-        assert!(circumcircle_radius > 0.0);
+    /// Panics if `circumradius` is non-positive
+    #[inline(always)]
+    pub fn new(circumradius: f32, sides: usize) -> Self {
+        assert!(circumradius > 0.0, "polygon has a non-positive radius");
+        assert!(sides > 2, "polygon has less than 3 sides");
+
         Self {
             circumcircle: Circle {
-                radius: circumcircle_radius,
+                radius: circumradius,
             },
             sides,
         }
+    }
+
+    /// Get the radius of the circumcircle on which all vertices
+    /// of the regular polygon lie
+    #[inline(always)]
+    pub fn circumradius(&self) -> f32 {
+        self.circumcircle.radius
+    }
+
+    /// Get the inradius or apothem of the regular polygon.
+    /// This is the radius of the largest circle that can
+    /// be drawn within the polygon
+    #[inline(always)]
+    #[doc(alias = "apothem")]
+    pub fn inradius(&self) -> f32 {
+        self.circumradius() * (PI / self.sides as f32).cos()
+    }
+
+    /// Get the length of one side of the regular polygon
+    #[inline(always)]
+    pub fn side_length(&self) -> f32 {
+        2.0 * self.circumradius() * (PI / self.sides as f32).sin()
+    }
+
+    /// Get the area of the regular polygon
+    #[inline(always)]
+    pub fn area(&self) -> f32 {
+        let angle: f32 = 2.0 * PI / (self.sides as f32);
+        (self.sides as f32) * self.circumradius().powi(2) * angle.sin() / 2.0
+    }
+
+    /// Get the perimeter of the regular polygon.
+    /// This is the sum of its sides
+    #[inline(always)]
+    pub fn perimeter(&self) -> f32 {
+        self.sides as f32 * self.side_length()
+    }
+
+    /// Get the internal angle of the regular polygon in degrees.
+    ///
+    /// This is the angle formed by two adjacent sides with points
+    /// within the angle being in the interior of the polygon
+    #[inline(always)]
+    pub fn internal_angle_degrees(&self) -> f32 {
+        (self.sides - 2) as f32 / self.sides as f32 * 180.0
+    }
+
+    /// Get the internal angle of the regular polygon in radians.
+    ///
+    /// This is the angle formed by two adjacent sides with points
+    /// within the angle being in the interior of the polygon
+    #[inline(always)]
+    pub fn internal_angle_radians(&self) -> f32 {
+        (self.sides - 2) as f32 * PI / self.sides as f32
+    }
+
+    /// Get the external angle of the regular polygon in degrees.
+    ///
+    /// This is the angle formed by two adjacent sides with points
+    /// within the angle being in the exterior of the polygon
+    #[inline(always)]
+    pub fn external_angle_degrees(&self) -> f32 {
+        360.0 / self.sides as f32
+    }
+
+    /// Get the external angle of the regular polygon in radians.
+    ///
+    /// This is the angle formed by two adjacent sides with points
+    /// within the angle being in the exterior of the polygon
+    #[inline(always)]
+    pub fn external_angle_radians(&self) -> f32 {
+        2.0 * PI / self.sides as f32
     }
 
     /// Returns an iterator over the vertices of the regular polygon,
@@ -512,7 +670,35 @@ impl RegularPolygon {
 
 #[cfg(test)]
 mod tests {
+    // Reference values were computed by hand and/or with external tools
+
     use super::*;
+    use approx::assert_relative_eq;
+
+    #[test]
+    fn circle_math() {
+        let circle = Circle { radius: 3.0 };
+        assert_eq!(circle.diameter(), 6.0, "incorrect diameter");
+        assert_eq!(circle.area(), 28.274334, "incorrect area");
+        assert_eq!(circle.perimeter(), 18.849556, "incorrect perimeter");
+    }
+
+    #[test]
+    fn ellipse_math() {
+        let ellipse = Ellipse::new(3.0, 1.0);
+        assert_eq!(ellipse.area(), 9.424778, "incorrect area");
+    }
+
+    #[test]
+    fn triangle_math() {
+        let triangle = Triangle2d::new(
+            Vec2::new(-2.0, -1.0),
+            Vec2::new(1.0, 4.0),
+            Vec2::new(7.0, 0.0),
+        );
+        assert_eq!(triangle.area(), 21.0, "incorrect area");
+        assert_eq!(triangle.perimeter(), 22.097439, "incorrect perimeter");
+    }
 
     #[test]
     fn direction_creation() {
@@ -566,6 +752,46 @@ mod tests {
             Vec2::new(0.0, -1.2),
         );
         assert_eq!(invalid_triangle.winding_order(), WindingOrder::Invalid);
+    }
+
+    #[test]
+    fn rectangle_math() {
+        let rectangle = Rectangle::new(3.0, 7.0);
+        assert_eq!(
+            rectangle,
+            Rectangle::from_corners(Vec2::new(-1.5, -3.5), Vec2::new(1.5, 3.5))
+        );
+        assert_eq!(rectangle.area(), 21.0, "incorrect area");
+        assert_eq!(rectangle.perimeter(), 20.0, "incorrect perimeter");
+    }
+
+    #[test]
+    fn regular_polygon_math() {
+        let polygon = RegularPolygon::new(3.0, 6);
+        assert_eq!(polygon.inradius(), 2.598076, "incorrect inradius");
+        assert_eq!(polygon.side_length(), 3.0, "incorrect side length");
+        assert_relative_eq!(polygon.area(), 23.38268, epsilon = 0.00001);
+        assert_eq!(polygon.perimeter(), 18.0, "incorrect perimeter");
+        assert_eq!(
+            polygon.internal_angle_degrees(),
+            120.0,
+            "incorrect internal angle"
+        );
+        assert_eq!(
+            polygon.internal_angle_radians(),
+            120_f32.to_radians(),
+            "incorrect internal angle"
+        );
+        assert_eq!(
+            polygon.external_angle_degrees(),
+            60.0,
+            "incorrect external angle"
+        );
+        assert_eq!(
+            polygon.external_angle_radians(),
+            60_f32.to_radians(),
+            "incorrect external angle"
+        );
     }
 
     #[test]
