@@ -12,6 +12,9 @@ keywords = ["bevy"]
 glam = { version = "0.25", features = ["bytemuck"] }
 serde = { version = "1", features = ["derive"], optional = true }
 
+[dev-dependencies]
+approx = "0.5"
+
 [features]
 serialize = ["dep:serde", "glam/serde"]
 # Enable approx for glam types to approximate floating point equality comparisons and assertions
