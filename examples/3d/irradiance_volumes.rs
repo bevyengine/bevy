@@ -11,7 +11,7 @@
 //!
 //! * Clicking anywhere moves the object.
 
-use bevy::math::vec3;
+use bevy::math::{uvec3, vec3};
 use bevy::pbr::irradiance_volume::IrradianceVolume;
 use bevy::prelude::shape::UVSphere;
 use bevy::prelude::*;
@@ -25,11 +25,13 @@ const SPHERE_SCALE: f32 = 2.0;
 
 const IRRADIANCE_VOLUME_INTENSITY: f32 = 150.0;
 
+const VOXEL_GIZMO_RADIUS: f32 = 0.1;
+
 static DISABLE_IRRADIANCE_VOLUME_HELP_TEXT: &str = "Space: Disable the irradiance volume";
 static ENABLE_IRRADIANCE_VOLUME_HELP_TEXT: &str = "Space: Enable the irradiance volume";
 
-static HIDE_GIZMO_HELP_TEXT: &str = "Backspace: Hide the irradiance volume boundaries";
-static SHOW_GIZMO_HELP_TEXT: &str = "Backspace: Show the irradiance volume boundaries";
+static HIDE_GIZMO_HELP_TEXT: &str = "Backspace: Hide the voxels";
+static SHOW_GIZMO_HELP_TEXT: &str = "Backspace: Show the voxels";
 
 static STOP_ROTATION_HELP_TEXT: &str = "Enter: Stop rotation";
 static START_ROTATION_HELP_TEXT: &str = "Enter: Start rotation";
@@ -476,15 +478,34 @@ fn play_animations(assets: Res<ExampleAssets>, mut players: Query<&mut Animation
 
 fn draw_gizmos(
     mut gizmos: Gizmos,
-    irradiance_volume_query: Query<&GlobalTransform, With<IrradianceVolume>>,
+    irradiance_volume_query: Query<(&GlobalTransform, &IrradianceVolume)>,
+    camera_query: Query<&GlobalTransform, With<Camera>>,
+    images: Res<Assets<Image>>,
     app_status: Res<AppStatus>,
 ) {
     if !app_status.voxels_gizmo_visible {
         return;
     }
 
-    for transform in irradiance_volume_query.iter() {
+    let Some(camera_pos) = camera_query.iter().map(|transform| transform.translation()).next() else { return };
+
+    for (transform, irradiance_volume) in irradiance_volume_query.iter() {
         gizmos.cuboid(*transform, GIZMO_COLOR);
+
+        let Some(image) = images.get(&irradiance_volume.voxels) else { continue };
+        let resolution = image.texture_descriptor.size;
+        let scale = vec3(1.0 / resolution.width as f32, 1.0 / resolution.height as f32, 1.0 / resolution.depth_or_array_layers as f32);
+
+        for z in 0..resolution.depth_or_array_layers {
+            for y in 0..resolution.height {
+                for x in 0..resolution.width {
+                    let uvw = (uvec3(x, y, z).as_vec3() + 0.5) * scale - 0.5;
+                    let pos = transform.transform_point(uvw);
+                    let Ok(normal) = Direction3d::new(camera_pos - pos) else { continue };
+                    gizmos.circle(pos, normal, VOXEL_GIZMO_RADIUS, GIZMO_COLOR);
+                }
+            }
+        }
     }
 }
 
