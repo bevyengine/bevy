@@ -206,15 +206,22 @@ impl TextureSlicer {
     /// Panics if any border values are bigger than `rect` half extents
     #[must_use]
     pub fn compute_slices(&self, rect: Rect, render_size: Option<Vec2>) -> Vec<TextureSlice> {
+        let render_size = render_size.unwrap_or_else(|| rect.size());
         let rect_size = rect.size() / 2.0;
         if self.border.left >= rect_size.x
             || self.border.right >= rect_size.x
             || self.border.top >= rect_size.y
             || self.border.bottom >= rect_size.y
         {
-            panic!("TextureSlicer border has out of bounds values");
+            bevy_log::error!(
+                "TextureSlicer::border has out of bounds values. No slicing will be applied"
+            );
+            return vec![TextureSlice {
+                texture_rect: rect,
+                draw_size: render_size,
+                offset: Vec2::ZERO,
+            }];
         }
-        let render_size = render_size.unwrap_or_else(|| rect.size());
         let mut slices = Vec::with_capacity(9);
         // Corners
         let corners = self.corner_slices(rect, render_size);
