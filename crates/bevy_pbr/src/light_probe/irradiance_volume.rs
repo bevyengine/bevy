@@ -29,18 +29,18 @@
 //! according to the surface normal.
 //!
 //! The primary reason for choosing ambient cubes over a more popular approach
-//! such as [spherical harmonics] is that in an HDR setting ambient cubes
-//! provide higher quality for the same amount of GPU memory. This may seem
-//! surprising, given that ambient cubes have 6 coefficients as opposed to 4 for
-//! level 1 spherical harmonics. However, ambient cubes have the advantage that
-//! the coefficients are unsigned, which enables voxels to be stored in the very
-//! efficient [R9G9B9E5 texture format]. This texture format is now widely
-//! supported across GPU hardware and packs 3 floating point values into only 4
-//! bytes. By contrast, spherical harmonic coefficients are signed, so the best
-//! approach supported by hardware is [16-bit float], which requires 6 bytes for
-//! each 3 floating-point values. As a result, when packed into the most
-//! efficient format widely supported by hardware, ambient cubes provide more
-//! detail for the same amount of storage.
+//! such as level 1 [spherical harmonics] is that in an HDR setting ambient
+//! cubes provide higher quality for the same amount of GPU memory. This may
+//! seem surprising, given that ambient cubes have 6 coefficients as opposed to
+//! 4 for L1 spherical harmonics. However, ambient cubes have the advantage that
+//! the coefficients are unsigned, which enables their face colors to be stored
+//! in the very efficient [R9G9B9E5 texture format]. This texture format is now
+//! widely supported across GPU hardware and packs 3 floating point values into
+//! only 4 bytes. By contrast, spherical harmonic coefficients are signed, so
+//! the best approach supported by hardware is [16-bit float], which requires 6
+//! bytes for each 3 floating-point values. As a result, when packed into the
+//! most efficient format widely supported by hardware, ambient cubes provide
+//! more detail for the same amount of storage.
 //!
 //! If you wish to use a tool other than `export-blender-gi` to produce the
 //! irradiance volumes, you'll need to pack the irradiance volumes in the

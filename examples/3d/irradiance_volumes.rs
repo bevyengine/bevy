@@ -28,6 +28,9 @@ const IRRADIANCE_VOLUME_INTENSITY: f32 = 150.0;
 static DISABLE_IRRADIANCE_VOLUME_HELP_TEXT: &str = "Space: Disable the irradiance volume";
 static ENABLE_IRRADIANCE_VOLUME_HELP_TEXT: &str = "Space: Enable the irradiance volume";
 
+static HIDE_GIZMO_HELP_TEXT: &str = "Backspace: Hide the irradiance volume boundaries";
+static SHOW_GIZMO_HELP_TEXT: &str = "Backspace: Show the irradiance volume boundaries";
+
 static STOP_ROTATION_HELP_TEXT: &str = "Enter: Stop rotation";
 static START_ROTATION_HELP_TEXT: &str = "Enter: Start rotation";
 
@@ -35,6 +38,8 @@ static SWITCH_TO_FOX_HELP_TEXT: &str = "Tab: Switch to a skinned mesh";
 static SWITCH_TO_SPHERE_HELP_TEXT: &str = "Tab: Switch to a plain sphere mesh";
 
 static CLICK_TO_MOVE_HELP_TEXT: &str = "Left click: Move the object";
+
+static GIZMO_COLOR: Color = Color::YELLOW;
 
 // The mode the application is in.
 #[derive(Resource)]
@@ -45,6 +50,8 @@ struct AppStatus {
     model: ExampleModel,
     // Whether the user has requested the scene to rotate.
     rotating: bool,
+    // Whether the user has requested the voxels gizmo to be displayed.
+    voxels_gizmo_visible: bool,
 }
 
 // Which model the user wants to display.
@@ -112,7 +119,20 @@ fn main() {
         )
         .add_systems(
             Update,
+            toggle_gizmos.after(rotate_camera).after(play_animations),
+        )
+        .add_systems(
+            Update,
             toggle_rotation.after(rotate_camera).after(play_animations),
+        )
+        .add_systems(
+            Update,
+            draw_gizmos
+                .after(handle_mouse_clicks)
+                .after(change_main_object)
+                .after(toggle_irradiance_volumes)
+                .after(toggle_gizmos)
+                .after(toggle_rotation),
         )
         .add_systems(
             Update,
@@ -120,6 +140,7 @@ fn main() {
                 .after(handle_mouse_clicks)
                 .after(change_main_object)
                 .after(toggle_irradiance_volumes)
+                .after(toggle_gizmos)
                 .after(toggle_rotation),
         )
         .run();
@@ -244,6 +265,12 @@ impl AppStatus {
             ENABLE_IRRADIANCE_VOLUME_HELP_TEXT
         };
 
+        let voxels_gizmo_help_text = if self.voxels_gizmo_visible {
+            HIDE_GIZMO_HELP_TEXT
+        } else {
+            SHOW_GIZMO_HELP_TEXT
+        };
+
         let rotation_help_text = if self.rotating {
             STOP_ROTATION_HELP_TEXT
         } else {
@@ -257,8 +284,9 @@ impl AppStatus {
 
         Text::from_section(
             format!(
-                "{}\n{}\n{}\n{}",
+                "{}\n{}\n{}\n{}\n{}",
                 CLICK_TO_MOVE_HELP_TEXT,
+                voxels_gizmo_help_text,
                 irradiance_volume_help_text,
                 rotation_help_text,
                 switch_mesh_help_text
@@ -331,6 +359,7 @@ impl Default for AppStatus {
             irradiance_volume_present: true,
             rotating: true,
             model: ExampleModel::Sphere,
+            voxels_gizmo_visible: false,
         }
     }
 }
@@ -442,5 +471,27 @@ fn play_animations(assets: Res<ExampleAssets>, mut players: Query<&mut Animation
     for mut player in players.iter_mut() {
         // This will safely do nothing if the animation is already playing.
         player.play(assets.fox_animation.clone()).repeat();
+    }
+}
+
+fn draw_gizmos(
+    mut gizmos: Gizmos,
+    irradiance_volume_query: Query<(&GlobalTransform, &IrradianceVolume)>,
+    camera_query: Query<&GlobalTransform, With<Camera>>,
+    images: Res<Assets<Image>>,
+    app_status: Res<AppStatus>,
+) {
+    if !app_status.voxels_gizmo_visible {
+        return;
+    }
+
+    for (transform, irradiance_volume) in irradiance_volume_query.iter() {
+        gizmos.cuboid(*transform, GIZMO_COLOR);
+    }
+}
+
+fn toggle_gizmos(keyboard: Res<ButtonInput<KeyCode>>, mut app_status: ResMut<AppStatus>) {
+    if keyboard.just_pressed(KeyCode::Backspace) {
+        app_status.voxels_gizmo_visible = !app_status.voxels_gizmo_visible;
     }
 }
