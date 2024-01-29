@@ -40,16 +40,19 @@ impl TextureSlice {
         // Each tile expected size
         let expected_size = Vec2::new(
             if tile_x {
-                rect_size.x * stretch_value
+                // No slice should be less than 1 pixel wide
+                (rect_size.x * stretch_value).max(1.0)
             } else {
                 self.draw_size.x
             },
             if tile_y {
-                rect_size.y * stretch_value
+                // No slice should be less than 1 pixel high
+                (rect_size.y * stretch_value).max(1.0)
             } else {
                 self.draw_size.y
             },
-        );
+        )
+        .min(self.draw_size);
         let mut slices = Vec::new();
         let base_offset = Vec2::new(
             -self.draw_size.x / 2.0,
@@ -81,6 +84,9 @@ impl TextureSlice {
             }
             offset.y -= size_y / 2.0;
             remaining_columns -= size_y;
+        }
+        if slices.len() > 1_000 {
+            bevy_log::warn!("One of your tiled textures has generated {} slices. You might want to use higher stretch values to avoid a great performance cost", slices.len());
         }
         slices
     }
