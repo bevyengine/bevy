@@ -847,7 +847,7 @@ impl PipelineCache {
                 }
             },
 
-            CachedPipelineState::Ok(_) => {}
+            CachedPipelineState::Ok(_) => return,
         }
 
         // Retry
