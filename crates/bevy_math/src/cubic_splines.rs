@@ -597,6 +597,7 @@ impl<P: Point> CubicSegment<P> {
         c * 2.0 + d * 6.0 * t
     }
 
+    /// Calculate polynomial coefficients for the cubic curve using a characteristic matrix.
     #[inline]
     fn coefficients(p: [P; 4], char_matrix: [[f32; 4]; 4]) -> Self {
         let [c0, c1, c2, c3] = char_matrix;
