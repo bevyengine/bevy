@@ -46,7 +46,7 @@ pub fn draw_cap<T: GizmoConfigGroup>(
     color: Color,
 ) {
     circle_coordinates(radius, segments)
-        .map(|p| p.extend(0.0))
+        .map(|p| Vec3::new(p.x, 0.0, p.y))
         .map(rotate_then_translate_3d(rotation, center))
         .for_each(|from| {
             gizmos
@@ -67,7 +67,7 @@ pub fn draw_circle<T: GizmoConfigGroup>(
         .map(|frac| frac as f32 / segments as f32)
         .map(|percentage| percentage * TAU)
         .map(|angle| Vec2::from(angle.sin_cos()) * radius)
-        .map(|p| p.extend(0.0))
+        .map(|p| Vec3::new(p.x, 0.0, p.y))
         .map(rotate_then_translate_3d(rotation, translation));
     gizmos.linestrip(positions, color);
 }
@@ -85,7 +85,7 @@ pub fn draw_cylinder_vertical_lines<T: GizmoConfigGroup>(
         .map(move |point_2d| {
             [1.0, -1.0]
                 .map(|sign| sign * half_height)
-                .map(|height| point_2d.extend(height))
+                .map(|height| Vec3::new(point_2d.x, height, point_2d.y))
         })
         .map(|ps| ps.map(rotate_then_translate_3d(rotation, center)))
         .for_each(|[start, end]| {

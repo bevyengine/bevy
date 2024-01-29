@@ -7,7 +7,7 @@ use bevy_math::primitives::{
     BoxedPolyline3d, Capsule, Cone, ConicalFrustum, Cuboid, Cylinder, Direction3d, Line3d, Plane3d,
     Polyline3d, Primitive3d, Segment3d, Sphere, Torus,
 };
-use bevy_math::{Quat, Vec2, Vec3};
+use bevy_math::{Quat, Vec3};
 use bevy_render::color::Color;
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
@@ -108,7 +108,7 @@ impl<T: GizmoConfigGroup> Drop for SphereBuilder<'_, '_, '_, T> {
 
         // draw two caps, one for the "upper half" and one for the "lower" half of the sphere
         [-1.0, 1.0].into_iter().for_each(|sign| {
-            let top = *center + (*rotation * Vec3::Z) * sign * *radius;
+            let top = *center + (*rotation * Vec3::Y) * sign * *radius;
             draw_cap(
                 self.gizmos,
                 *radius,
@@ -331,7 +331,7 @@ pub struct Cylinder3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     position: Vec3,
     // Rotation of the cylinder
     //
-    // default orientation is: the cylinder is aligned with `Vec3::Z` axis
+    // default orientation is: the cylinder is aligned with `Vec3::Y` axis
     rotation: Quat,
     // Color of the cylinder
     color: Color,
@@ -386,7 +386,7 @@ impl<T: GizmoConfigGroup> Drop for Cylinder3dBuilder<'_, '_, '_, T> {
             segments,
         } = self;
 
-        let normal = *rotation * Vec3::Z;
+        let normal = *rotation * Vec3::Y;
 
         [-1.0, 1.0].into_iter().for_each(|sign| {
             draw_circle(
@@ -426,7 +426,7 @@ pub struct Capsule3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     position: Vec3,
     // Rotation of the capsule
     //
-    // default orientation is: the capsule is aligned with `Vec3::Z` axis
+    // default orientation is: the capsule is aligned with `Vec3::Y` axis
     rotation: Quat,
     // Color of the capsule
     color: Color,
@@ -481,7 +481,7 @@ impl<T: GizmoConfigGroup> Drop for Capsule3dBuilder<'_, '_, '_, T> {
             segments,
         } = self;
 
-        let normal = *rotation * Vec3::Z;
+        let normal = *rotation * Vec3::Y;
 
         [1.0, -1.0].into_iter().for_each(|sign| {
             // use "-" here since rotation is ccw and otherwise the caps would face the wrong way
@@ -519,7 +519,7 @@ pub struct Cone3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     position: Vec3,
     // Rotation of the cone
     //
-    // default orientation is: cone base shape normal is aligned with the `Vec3::Z` axis
+    // default orientation is: cone base shape normal is aligned with the `Vec3::Y` axis
     rotation: Quat,
     // Color of the cone
     color: Color,
@@ -575,9 +575,10 @@ impl<T: GizmoConfigGroup> Drop for Cone3dBuilder<'_, '_, '_, T> {
 
         draw_circle(gizmos, *radius, *segments, *rotation, *position, *color);
 
-        let end = Vec2::ZERO.extend(*height);
+        let end = Vec3::Y * *height;
         circle_coordinates(*radius, *segments)
-            .map(move |p| [p.extend(0.0), end])
+            .map(|p| Vec3::new(p.x, 0.0, p.y))
+            .map(move |p| [p, end])
             .map(|ps| ps.map(rotate_then_translate_3d(*rotation, *position)))
             .for_each(|[start, end]| {
                 gizmos.line(start, end, *color);
@@ -602,7 +603,7 @@ pub struct ConicalFrustum3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     position: Vec3,
     // Rotation of the conical frustrum
     //
-    // default orientation is: conical frustrum base shape normals are aligned with `Vec3::Z` axis
+    // default orientation is: conical frustrum base shape normals are aligned with `Vec3::Y` axis
     rotation: Quat,
     // Color of the conical frustum
     color: Color,
@@ -658,7 +659,7 @@ impl<T: GizmoConfigGroup> Drop for ConicalFrustum3dBuilder<'_, '_, '_, T> {
             segments,
         } = self;
 
-        let normal = *rotation * Vec3::Z;
+        let normal = *rotation * Vec3::Y;
         [(*radius_top, *height), (*radius_bottom, 0.0)]
             .into_iter()
             .for_each(|(radius, height)| {
@@ -673,8 +674,8 @@ impl<T: GizmoConfigGroup> Drop for ConicalFrustum3dBuilder<'_, '_, '_, T> {
             });
 
         circle_coordinates(*radius_top, *segments)
-            .map(move |p| p.extend(*height))
-            .zip(circle_coordinates(*radius_bottom, *segments).map(|p| p.extend(0.0)))
+            .map(move |p| Vec3::new(p.x, *height, p.y))
+            .zip(circle_coordinates(*radius_bottom, *segments).map(|p| Vec3::new(p.x, 0.0, p.y)))
             .map(|(start, end)| [start, end])
             .map(|ps| ps.map(rotate_then_translate_3d(*rotation, *position)))
             .for_each(|[start, end]| {
@@ -698,7 +699,7 @@ pub struct Torus3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     position: Vec3,
     // Rotation of the conical frustrum
     //
-    // default orientation is: major circle normal is aligned with `Vec3::Z` axis
+    // default orientation is: major circle normal is aligned with `Vec3::Y` axis
     rotation: Quat,
     // Color of the torus
     color: Color,
@@ -763,7 +764,7 @@ impl<T: GizmoConfigGroup> Drop for Torus3dBuilder<'_, '_, '_, T> {
             major_segments,
         } = self;
 
-        let normal = *rotation * Vec3::Z;
+        let normal = *rotation * Vec3::Y;
 
         [
             (*major_radius - *minor_radius, 0.0),
@@ -785,8 +786,9 @@ impl<T: GizmoConfigGroup> Drop for Torus3dBuilder<'_, '_, '_, T> {
 
         let affine = rotate_then_translate_3d(*rotation, *position);
         circle_coordinates(*major_radius, *major_segments)
+            .map(|p| Vec3::new(p.x, 0.0, p.y))
             .flat_map(|major_circle_point| {
-                let minor_center = affine(major_circle_point.extend(0.0));
+                let minor_center = affine(major_circle_point);
                 let dir_to_translation = (minor_center - *position).normalize();
                 let points = [dir_to_translation, normal, -dir_to_translation, -normal];
                 let points = points.map(|offset| minor_center + offset.normalize() * *minor_radius);
