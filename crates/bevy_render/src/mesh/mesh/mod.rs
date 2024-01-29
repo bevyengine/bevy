@@ -570,9 +570,11 @@ impl Mesh {
 
     /// Transforms the vertex positions, normals, and tangents of the mesh in place by the given [`Transform`].
     pub fn transform_by(&mut self, transform: Transform) {
+        // Needed when transforming normals and tangents
+        let bivector_scaling = transform.scale.yzx() * transform.scale.zxy();
+
         debug_assert!(
-            transform.scale.x == 0.0 && (transform.scale.y == 0.0 || transform.scale.z == 0.0)
-                || transform.scale.y == 0.0 && transform.scale.z == 0.0,
+            bivector_scaling != Vec3::ZERO,
             "mesh transform scale cannot be zero on more than one axis"
         );
 
@@ -598,8 +600,8 @@ impl Mesh {
         {
             // Transform normals, taking into account non-uniform scaling and rotation
             normals.iter_mut().for_each(|normal| {
-                let n = Vec3::from_slice(normal) * transform.scale.yzx() * transform.scale.zxy();
-                *normal = (transform.rotation * n.normalize_or_zero()).to_array();
+                let scaled_normal = Vec3::from_slice(normal) * bivector_scaling;
+                *normal = (transform.rotation * scaled_normal.normalize_or_zero()).to_array();
             });
         }
 
@@ -608,8 +610,8 @@ impl Mesh {
         {
             // Transform tangents, taking into account non-uniform scaling and rotation
             tangents.iter_mut().for_each(|tangent| {
-                let t = Vec3::from_slice(tangent) * transform.scale.yzx() * transform.scale.zxy();
-                *tangent = (transform.rotation * t.normalize_or_zero()).to_array();
+                let scaled_tangent = Vec3::from_slice(tangent) * bivector_scaling;
+                *tangent = (transform.rotation * scaled_tangent.normalize_or_zero()).to_array();
             });
         }
     }
