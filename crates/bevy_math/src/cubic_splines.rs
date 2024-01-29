@@ -531,7 +531,7 @@ impl<P: Point> CubicGenerator<P> for CubicNurbs<P> {
     }
 }
 
-/// A spline interpolated linearly across nearest 2 points.
+/// A spline interpolated linearly between the nearest 2 points.
 pub struct LinearSpline<P: Point> {
     points: Vec<P>,
 }
