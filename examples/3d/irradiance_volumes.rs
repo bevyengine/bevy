@@ -476,16 +476,14 @@ fn play_animations(assets: Res<ExampleAssets>, mut players: Query<&mut Animation
 
 fn draw_gizmos(
     mut gizmos: Gizmos,
-    irradiance_volume_query: Query<(&GlobalTransform, &IrradianceVolume)>,
-    camera_query: Query<&GlobalTransform, With<Camera>>,
-    images: Res<Assets<Image>>,
+    irradiance_volume_query: Query<&GlobalTransform, With<IrradianceVolume>>,
     app_status: Res<AppStatus>,
 ) {
     if !app_status.voxels_gizmo_visible {
         return;
     }
 
-    for (transform, irradiance_volume) in irradiance_volume_query.iter() {
+    for transform in irradiance_volume_query.iter() {
         gizmos.cuboid(*transform, GIZMO_COLOR);
     }
 }
