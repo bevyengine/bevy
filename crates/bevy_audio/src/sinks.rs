@@ -189,8 +189,8 @@ impl SpatialAudioSink {
     /// Set the listener position, with an ear on each side separated by `gap`.
     pub fn set_listener_position(&self, position: Transform, gap: f32) {
         self.set_ears_position(
-            position.translation + position.left() * gap / 2.0,
-            position.translation + position.right() * gap / 2.0,
+            position.translation + *position.left() * gap / 2.0,
+            position.translation + *position.right() * gap / 2.0,
         );
     }
 
