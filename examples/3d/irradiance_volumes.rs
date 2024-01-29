@@ -25,6 +25,8 @@ const SPHERE_SCALE: f32 = 2.0;
 
 const IRRADIANCE_VOLUME_INTENSITY: f32 = 150.0;
 
+const AMBIENT_LIGHT_BRIGHTNESS: f32 = 0.06;
+
 const VOXEL_GIZMO_RADIUS: f32 = 0.1;
 
 static DISABLE_IRRADIANCE_VOLUME_HELP_TEXT: &str = "Space: Disable the irradiance volume";
@@ -98,6 +100,10 @@ fn main() {
         }))
         .init_resource::<AppStatus>()
         .init_resource::<ExampleAssets>()
+        .insert_resource(AmbientLight {
+            color: Color::WHITE,
+            brightness: 0.0,
+        })
         .add_systems(Startup, setup)
         .add_systems(Update, rotate_camera)
         .add_systems(Update, play_animations)
@@ -373,6 +379,7 @@ fn toggle_irradiance_volumes(
     light_probe_query: Query<Entity, With<LightProbe>>,
     mut app_status: ResMut<AppStatus>,
     assets: Res<ExampleAssets>,
+    mut ambient_light: ResMut<AmbientLight>,
 ) {
     if !keyboard.just_pressed(KeyCode::Space) {
         return;
@@ -384,12 +391,14 @@ fn toggle_irradiance_volumes(
 
     if app_status.irradiance_volume_present {
         commands.entity(light_probe).remove::<IrradianceVolume>();
+        ambient_light.brightness = AMBIENT_LIGHT_BRIGHTNESS * IRRADIANCE_VOLUME_INTENSITY;
         app_status.irradiance_volume_present = false;
     } else {
         commands.entity(light_probe).insert(IrradianceVolume {
             voxels: assets.irradiance_volume.clone(),
             intensity: IRRADIANCE_VOLUME_INTENSITY,
         });
+        ambient_light.brightness = 0.0;
         app_status.irradiance_volume_present = true;
     }
 }
@@ -489,14 +498,26 @@ fn draw_gizmos(
         return;
     }
 
-    let Some(camera_pos) = camera_query.iter().map(|transform| transform.translation()).next() else { return };
+    let Some(camera_pos) = camera_query
+        .iter()
+        .map(|transform| transform.translation())
+        .next()
+    else {
+        return;
+    };
 
     for (transform, irradiance_volume) in irradiance_volume_query.iter() {
         gizmos.cuboid(*transform, GIZMO_COLOR);
 
-        let Some(image) = images.get(&irradiance_volume.voxels) else { continue };
+        let Some(image) = images.get(&irradiance_volume.voxels) else {
+            continue;
+        };
         let resolution = image.texture_descriptor.size;
-        let scale = vec3(1.0 / resolution.width as f32, 1.0 / resolution.height as f32, 1.0 / resolution.depth_or_array_layers as f32);
+        let scale = vec3(
+            1.0 / resolution.width as f32,
+            1.0 / resolution.height as f32,
+            1.0 / resolution.depth_or_array_layers as f32,
+        );
 
         // Display each voxel.
         for z in 0..resolution.depth_or_array_layers {
@@ -504,7 +525,9 @@ fn draw_gizmos(
                 for x in 0..resolution.width {
                     let uvw = (uvec3(x, y, z).as_vec3() + 0.5) * scale - 0.5;
                     let pos = transform.transform_point(uvw);
-                    let Ok(normal) = Direction3d::new(camera_pos - pos) else { continue };
+                    let Ok(normal) = Direction3d::new(camera_pos - pos) else {
+                        continue;
+                    };
                     gizmos.circle(pos, normal, VOXEL_GIZMO_RADIUS, GIZMO_COLOR);
                 }
             }
