@@ -211,7 +211,7 @@ impl<'a> Serialize for SceneMapSerializer<'a> {
         let mut state = serializer.serialize_map(Some(self.entries.len()))?;
         for reflect in self.entries {
             state.serialize_entry(
-                reflect.type_name(),
+                reflect.reflect_type_path(),
                 &TypedReflectSerializer::new(&**reflect, self.registry),
             )?;
         }
