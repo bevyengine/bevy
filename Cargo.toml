@@ -2092,7 +2092,7 @@ path = "examples/stress_tests/many_materials.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.many_materials]
-name = "Many Lights"
+name = "Many Animated Materials"
 description = "Benchmark to test rendering many animated materials"
 category = "Stress Tests"
 wasm = true
