@@ -1,4 +1,4 @@
-use crate::container_attributes::{FromReflectAttrs, ReflectTraits};
+use crate::container_attributes::{FromReflectAttrs, ReflectTraits, TypePathAttrs};
 use crate::field_attributes::{parse_field_attrs, ReflectFieldAttr};
 use crate::type_path::parse_path_no_leading_colon;
 use crate::utility::{StringExpr, WhereClauseOptions};
@@ -402,6 +402,11 @@ impl<'a> ReflectMeta<'a> {
         self.traits.from_reflect_attrs()
     }
 
+    /// The `TypePath` attributes on this type.
+    pub fn type_path_attrs(&self) -> &TypePathAttrs {
+        self.traits.type_path_attrs()
+    }
+
     /// The path to this type.
     pub fn type_path(&self) -> &ReflectTypePath<'a> {
         &self.type_path
@@ -480,7 +485,7 @@ impl<'a> ReflectStruct<'a> {
     }
 
     pub fn where_clause_options(&self) -> WhereClauseOptions {
-        WhereClauseOptions::new(self.meta())
+        WhereClauseOptions::new_with_fields(self.meta(), self.active_types().into_boxed_slice())
     }
 }
 
@@ -503,26 +508,31 @@ impl<'a> ReflectEnum<'a> {
         &self.variants
     }
 
+    /// Get a collection of types which are exposed to the reflection API
+    pub fn active_types(&self) -> Vec<Type> {
+        self.active_fields()
+            .map(|field| field.data.ty.clone())
+            .collect()
+    }
+
+    /// Get an iterator of fields which are exposed to the reflection API
+    pub fn active_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
+        self.variants
+            .iter()
+            .flat_map(|variant| variant.active_fields())
+    }
+
     pub fn where_clause_options(&self) -> WhereClauseOptions {
-        WhereClauseOptions::new(self.meta())
+        WhereClauseOptions::new_with_fields(self.meta(), self.active_types().into_boxed_slice())
     }
 }
 
 impl<'a> EnumVariant<'a> {
     /// Get an iterator of fields which are exposed to the reflection API
-    #[allow(dead_code)]
     pub fn active_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
         self.fields()
             .iter()
             .filter(|field| field.attrs.ignore.is_active())
-    }
-
-    /// Get an iterator of fields which are ignored by the reflection API
-    #[allow(dead_code)]
-    pub fn ignored_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
-        self.fields()
-            .iter()
-            .filter(|field| field.attrs.ignore.is_ignored())
     }
 
     /// The complete set of fields in this variant.

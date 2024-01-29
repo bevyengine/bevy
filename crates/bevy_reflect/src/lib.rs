@@ -1943,6 +1943,7 @@ bevy_reflect::tests::Test {
         let _ = <Recurse<Recurse<()>> as TypePath>::type_path();
 
         #[derive(Reflect)]
+        #[reflect(where)]
         struct SelfRecurse {
             recurse: Vec<SelfRecurse>,
         }
@@ -1951,11 +1952,13 @@ bevy_reflect::tests::Test {
         let _ = <SelfRecurse as TypePath>::type_path();
 
         #[derive(Reflect)]
+        #[reflect(where)]
         enum RecurseA {
             Recurse(RecurseB),
         }
 
         #[derive(Reflect)]
+        #[reflect(where)]
         struct RecurseB {
             vector: Vec<RecurseA>,
         }
