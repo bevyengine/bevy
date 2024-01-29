@@ -129,6 +129,8 @@
 //! [baking tool]: https://docs.blender.org/manual/en/latest/render/eevee/render_settings/indirect_lighting.html
 //!
 //! [`bevy-baked-gi`]: https://github.com/pcwalton/bevy-baked-gi
+//!
+//! [Why ambient cubes?]: #why-ambient-cubes
 
 use bevy_ecs::component::Component;
 use bevy_render::{
