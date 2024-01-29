@@ -177,7 +177,7 @@ impl<'a, A: IsAligned> Ptr<'a, A> {
     #[inline]
     pub unsafe fn deref<T>(self) -> &'a T {
         let ptr = self.as_ptr().cast::<T>().debug_ensure_aligned();
-        // SAFETY: The caller ensures the pointee is of type `T` and uphold safety for dereferencing the pointer.
+        // SAFETY: The caller ensures the pointee is of type `T` and the pointer can be dereferenced.
         unsafe { &*ptr }
     }
 
@@ -233,7 +233,7 @@ impl<'a, A: IsAligned> PtrMut<'a, A> {
     #[inline]
     pub unsafe fn deref_mut<T>(self) -> &'a mut T {
         let ptr = self.as_ptr().cast::<T>().debug_ensure_aligned();
-        // SAFETY: The caller ensures the pointee is of type `T` and uphold safety for dereferencing the pointer.
+        // SAFETY: The caller ensures the pointee is of type `T` and the pointer can be dereferenced.
         unsafe { &mut *ptr }
     }
 
@@ -304,7 +304,7 @@ impl<'a, A: IsAligned> OwningPtr<'a, A> {
     #[inline]
     pub unsafe fn read<T>(self) -> T {
         let ptr = self.as_ptr().cast::<T>().debug_ensure_aligned();
-        // SAFETY: The caller ensure the pointee is of type `T` and uphold safety for reading the pointer.
+        // SAFETY: The caller ensure the pointee is of type `T` and uphold safety for `read`.
         unsafe { ptr.read() }
     }
 
@@ -446,12 +446,12 @@ pub trait UnsafeCellDeref<'a, T>: private::SealedUnsafeCell {
 impl<'a, T> UnsafeCellDeref<'a, T> for &'a UnsafeCell<T> {
     #[inline]
     unsafe fn deref_mut(self) -> &'a mut T {
-        // SAFETY: It's up to the caller to ensure the alias rules.
+        // SAFETY: The caller upholds the alias rules.
         unsafe { &mut *self.get() }
     }
     #[inline]
     unsafe fn deref(self) -> &'a T {
-        // SAFETY: It's up to the caller to ensure the alias rules.
+        // SAFETY: The caller upholds the alias rules.
         unsafe { &*self.get() }
     }
 
@@ -460,7 +460,7 @@ impl<'a, T> UnsafeCellDeref<'a, T> for &'a UnsafeCell<T> {
     where
         T: Copy,
     {
-        // SAFETY: It's up to the caller to ensure the alias rules.
+        // SAFETY: The caller upholds the alias rules.
         unsafe { self.get().read() }
     }
 }
