@@ -14,9 +14,9 @@ pub use render_pass::*;
 pub use ui_material_pipeline::*;
 
 use crate::{
-    BackgroundColor, BorderColor, CalculatedClip, ContentSize, Node, Style, UiImage, UiScale, Val,
+    BackgroundColor, BorderColor, CalculatedClip, ContentSize, DefaultUiCamera, Node, Outline,
+    Style, TargetCamera, UiImage, UiScale, Val,
 };
-use crate::{DefaultUiCamera, Outline, TargetCamera};
 
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
@@ -34,7 +34,6 @@ use bevy_render::{
     view::{ExtractedView, ViewUniforms},
     Extract, RenderApp, RenderSet,
 };
-#[cfg(feature = "bevy_text")]
 use bevy_sprite::TextureAtlasLayout;
 #[cfg(feature = "bevy_text")]
 use bevy_text::{PositionedGlyph, Text, TextLayoutInfo};

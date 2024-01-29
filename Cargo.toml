@@ -40,6 +40,9 @@ match_same_arms = "warn"
 semicolon_if_nothing_returned = "warn"
 map_flatten = "warn"
 
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "warn"
+
 [lints]
 workspace = true
 
