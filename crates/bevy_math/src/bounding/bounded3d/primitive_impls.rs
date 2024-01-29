@@ -5,7 +5,7 @@ use glam::{Mat3, Quat, Vec2, Vec3};
 use crate::{
     bounding::{Bounded2d, BoundingCircle},
     primitives::{
-        BoxedPolyline3d, Capsule, Cone, ConicalFrustum, Cuboid, Cylinder, Direction3d, Line3d,
+        BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Direction3d, Line3d,
         Plane3d, Polyline3d, Segment3d, Sphere, Torus, Triangle2d,
     },
 };
@@ -146,7 +146,7 @@ impl Bounded3d for Cylinder {
     }
 }
 
-impl Bounded3d for Capsule {
+impl Bounded3d for Capsule3d {
     fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
         // Get the line segment between the hemispheres of the rotated capsule
         let segment = Segment3d {
@@ -311,7 +311,7 @@ mod tests {
     use crate::{
         bounding::Bounded3d,
         primitives::{
-            Capsule, Cone, ConicalFrustum, Cuboid, Cylinder, Direction3d, Line3d, Plane3d,
+            Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Direction3d, Line3d, Plane3d,
             Polyline3d, Segment3d, Sphere, Torus,
         },
     };
@@ -463,7 +463,7 @@ mod tests {
 
     #[test]
     fn capsule() {
-        let capsule = Capsule::new(0.5, 2.0);
+        let capsule = Capsule3d::new(0.5, 2.0);
         let translation = Vec3::new(2.0, 1.0, 0.0);
 
         let aabb = capsule.aabb_3d(translation, Quat::IDENTITY);

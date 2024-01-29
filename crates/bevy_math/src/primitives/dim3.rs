@@ -423,22 +423,20 @@ impl Cylinder {
     }
 }
 
-/// A capsule primitive.
-/// A capsule is defined as a surface at a distance (radius) from a line
+/// A 3D capsule primitive.
+/// A three-dimensional capsule is defined as a surface at a distance (radius) from a line
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-pub struct Capsule {
+pub struct Capsule3d {
     /// The radius of the capsule
     pub radius: f32,
     /// Half the height of the capsule, excluding the hemispheres
     pub half_length: f32,
 }
-impl super::Primitive2d for Capsule {}
-impl Primitive3d for Capsule {}
+impl Primitive3d for Capsule3d {}
 
-impl Capsule {
-    /// Create a new `Capsule` from a radius and length
-    #[inline(always)]
+impl Capsule3d {
+    /// Create a new `Capsule3d` from a radius and length
     pub fn new(radius: f32, length: f32) -> Self {
         Self {
             radius,
@@ -704,7 +702,7 @@ mod tests {
 
     #[test]
     fn capsule_math() {
-        let capsule = Capsule::new(2.0, 9.0);
+        let capsule = Capsule3d::new(2.0, 9.0);
         assert_eq!(
             capsule.to_cylinder(),
             Cylinder::new(2.0, 9.0),
