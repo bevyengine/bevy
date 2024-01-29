@@ -570,6 +570,12 @@ impl Mesh {
 
     /// Transforms the vertex positions, normals, and tangents of the mesh in place by the given [`Transform`].
     pub fn transform_by(&mut self, transform: Transform) {
+        debug_assert!(
+            transform.scale.x == 0.0 && (transform.scale.y == 0.0 || transform.scale.z == 0.0)
+                || transform.scale.y == 0.0 && transform.scale.z == 0.0,
+            "mesh transform scale cannot be zero on more than one axis"
+        );
+
         if let Some(VertexAttributeValues::Float32x3(ref mut positions)) =
             self.attribute_mut(Mesh::ATTRIBUTE_POSITION)
         {
