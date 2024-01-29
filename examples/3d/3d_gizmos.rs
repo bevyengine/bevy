@@ -119,7 +119,9 @@ fn setup(
             Hold 'Left' or 'Right' to change the line width of straight gizmos\n\
             Hold 'Up' or 'Down' to change the line width of round gizmos\n\
             Press '1' or '2' to toggle the visibility of straight gizmos or round gizmos\n\
-            Press 'A' to show all AABB boxes",
+            Press 'A' to show all AABB boxes\n\
+            Press 'Up/Down' to cycle through primitives rendered with gizmos\n\
+            Press 'N/M' to decrease/increase the amount of segments in the primitives",
             TextStyle {
                 font_size: 20.,
                 ..default()
@@ -186,8 +188,7 @@ fn system(
 
     let angle = time.elapsed_seconds().to_radians() * 10.0;
     let center = Quat::from_axis_angle(Vec3::Z, angle) * Vec3::X;
-    let normal = (Quat::from_axis_angle(Vec3::ONE, angle) * Vec3::Y).normalize();
-    let rotation = Quat::from_rotation_arc(Vec3::Y, normal);
+    let rotation = Quat::from_axis_angle(Vec3::Y, angle);
     let segments = segments.0;
     match primitive_state.get() {
         PrimitiveState::Nothing => {}
@@ -372,10 +373,10 @@ fn update_config(
     if keyboard.just_pressed(KeyCode::ArrowDown) {
         next_primitive_state.set(primitive_state.get().last());
     }
-    if keyboard.pressed(KeyCode::KeyM) {
+    if keyboard.just_pressed(KeyCode::KeyM) {
         segments.0 += 1;
     }
-    if keyboard.pressed(KeyCode::KeyN) {
+    if keyboard.just_pressed(KeyCode::KeyN) {
         segments.0 = segments.0.saturating_sub(1);
     }
 }
