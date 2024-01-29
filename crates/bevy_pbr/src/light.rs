@@ -56,7 +56,7 @@ pub mod light_consts {
         pub const FULL_MOON_NIGHT: f32 = 0.05;
         /// The amount of light (lux) during the dark limit of civil twilight under a clear sky.
         pub const CIVIL_TWILIGHT: f32 = 3.4;
-        /// The amount of light (lux) in a family living room lights.
+        /// The amount of light (lux) in family living room lights.
         pub const LIVING_ROOM: f32 = 50.;
         /// The amount of light (lux) in a office building hallway/toilet lighting.
         pub const HALLWAY: f32 = 80.;
