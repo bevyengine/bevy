@@ -17,8 +17,8 @@ pub use ui_material_pipeline::*;
 
 use crate::graph::{LabelsUi, SubGraphUi};
 use crate::{
-    BackgroundColor, BorderColor, CalculatedClip, ContentSize, DefaultUiCamera, Node, Outline,
-    Style, TargetCamera, UiImage, UiScale, Val,
+    texture_slice::ComputedTextureSlices, BackgroundColor, BorderColor, CalculatedClip,
+    ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiImage, UiScale, Val,
 };
 
 use bevy_app::prelude::*;
@@ -377,6 +377,7 @@ pub fn extract_uinode_outlines(
 }
 
 pub fn extract_uinodes(
+    mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     default_ui_camera: Extract<DefaultUiCamera>,
@@ -391,11 +392,22 @@ pub fn extract_uinodes(
             Option<&CalculatedClip>,
             Option<&TextureAtlas>,
             Option<&TargetCamera>,
+            Option<&ComputedTextureSlices>,
         )>,
     >,
 ) {
-    for (entity, uinode, transform, color, maybe_image, view_visibility, clip, atlas, camera) in
-        uinode_query.iter()
+    for (
+        entity,
+        uinode,
+        transform,
+        color,
+        maybe_image,
+        view_visibility,
+        clip,
+        atlas,
+        camera,
+        slices,
+    ) in uinode_query.iter()
     {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
@@ -403,6 +415,15 @@ pub fn extract_uinodes(
         };
         // Skip invisible and completely transparent nodes
         if !view_visibility.get() || color.0.is_fully_transparent() {
+            continue;
+        }
+
+        if let Some((image, slices)) = maybe_image.zip(slices) {
+            extracted_uinodes.uinodes.extend(
+                slices
+                    .extract_ui_nodes(transform, uinode, color, image, clip, camera_entity)
+                    .map(|e| (commands.spawn_empty().id(), e)),
+            );
             continue;
         }
 

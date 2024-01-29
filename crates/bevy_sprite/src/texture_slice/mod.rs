@@ -10,8 +10,9 @@ pub(crate) use computed_slices::{
     compute_slices_on_asset_event, compute_slices_on_sprite_change, ComputedTextureSlices,
 };
 
+/// Single texture slice, representing a texture rect to draw in a given area
 #[derive(Debug, Clone)]
-pub(crate) struct TextureSlice {
+pub struct TextureSlice {
     /// texture area to draw
     pub texture_rect: Rect,
     /// slice draw size

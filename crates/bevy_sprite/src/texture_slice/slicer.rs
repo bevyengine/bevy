@@ -1,3 +1,5 @@
+use core::panic;
+
 use super::{BorderRect, TextureSlice};
 use bevy_math::{vec2, Rect, Vec2};
 use bevy_reflect::Reflect;
@@ -198,12 +200,20 @@ impl TextureSlicer {
     ///
     /// * `rect` - The section of the texture to slice in 9 parts
     /// * `render_size` - The optional draw size of the texture. If not set the `rect` size will be used.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any border values are bigger than `rect` half extents
     #[must_use]
-    pub(crate) fn compute_slices(
-        &self,
-        rect: Rect,
-        render_size: Option<Vec2>,
-    ) -> Vec<TextureSlice> {
+    pub fn compute_slices(&self, rect: Rect, render_size: Option<Vec2>) -> Vec<TextureSlice> {
+        let rect_size = rect.size() / 2.0;
+        if self.border.left >= rect_size.x
+            || self.border.right >= rect_size.x
+            || self.border.top >= rect_size.y
+            || self.border.bottom >= rect_size.y
+        {
+            panic!("TextureSlicer border has out of bounds values");
+        }
         let render_size = render_size.unwrap_or_else(|| rect.size());
         let mut slices = Vec::with_capacity(9);
         // Corners
