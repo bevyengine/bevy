@@ -599,7 +599,7 @@ impl Mesh {
             // Transform normals, taking into account non-uniform scaling and rotation
             normals.iter_mut().for_each(|normal| {
                 let n = Vec3::from_slice(normal) * transform.scale.yzx() * transform.scale.zxy();
-                *normal = (transform.rotation * n.normalize()).to_array();
+                *normal = (transform.rotation * n.normalize_or_zero()).to_array();
             });
         }
 
@@ -609,7 +609,7 @@ impl Mesh {
             // Transform tangents, taking into account non-uniform scaling and rotation
             tangents.iter_mut().for_each(|tangent| {
                 let t = Vec3::from_slice(tangent) * transform.scale.yzx() * transform.scale.zxy();
-                *tangent = (transform.rotation * t.normalize()).to_array();
+                *tangent = (transform.rotation * t.normalize_or_zero()).to_array();
             });
         }
     }
