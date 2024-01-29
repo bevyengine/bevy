@@ -821,34 +821,37 @@ impl PipelineCache {
                         self.try_start_create_compute_pipeline(id, *descriptor.clone())
                     }
                 };
-                self.waiting_pipelines.insert(id);
             }
 
             CachedPipelineState::Creating(ref mut task) => {
                 if let Some(pipeline) = bevy_utils::futures::check_ready(task) {
                     cached_pipeline.state = CachedPipelineState::Ok(pipeline);
+                    return;
                 }
             }
 
             CachedPipelineState::Err(err) => match err {
                 // Retry
                 PipelineCacheError::ShaderNotLoaded(_)
-                | PipelineCacheError::ShaderImportNotYetAvailable => {
-                    self.waiting_pipelines.insert(id);
-                }
+                | PipelineCacheError::ShaderImportNotYetAvailable => {}
 
                 // Shader could not be processed ... retrying won't help
                 PipelineCacheError::ProcessShaderError(err) => {
                     let error_detail = err.emit_to_string(&self.shader_cache.composer);
                     error!("failed to process shader:\n{}", error_detail);
+                    return;
                 }
                 PipelineCacheError::CreateShaderModule(description) => {
                     error!("failed to create shader module: {}", description);
+                    return;
                 }
             },
 
             CachedPipelineState::Ok(_) => {}
         }
+
+        // Retry
+        self.waiting_pipelines.insert(id);
     }
 
     pub(crate) fn process_pipeline_queue_system(mut cache: ResMut<Self>) {
