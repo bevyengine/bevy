@@ -56,7 +56,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         })
         .with_children(|parent| {
             for [w, h] in [[150.0, 150.0], [300.0, 150.0], [150.0, 300.0]] {
-                let id = parent
+                parent
                     .spawn(ButtonBundle {
                         style: Style {
                             width: Val::Px(w),
@@ -81,9 +81,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 color: Color::rgb(0.9, 0.9, 0.9),
                             },
                         ));
-                    })
-                    .id();
-                println!("{id:?}");
+                    });
             }
         });
 }
