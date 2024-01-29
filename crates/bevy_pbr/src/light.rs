@@ -20,7 +20,7 @@ use bevy_utils::{tracing::warn, EntityHashMap};
 
 use crate::*;
 
-/// Constants for operating with the light units: [lumens], and [lux].
+/// Constants for operating with the light units: lumens, and lux.
 pub mod light_consts {
     /// Approximations for converting the wattage of lamps to lumens.
     ///
@@ -42,7 +42,7 @@ pub mod light_consts {
     /// Predefined for lux values in several locations.
     ///
     /// The **lux** (symbol: **lx**) is the unit of [illuminance], or [luminous flux] per unit area,
-    /// in the [International System of Units] (SI). It is equal to one [lumen](super::lumens) per square metre.
+    /// in the [International System of Units] (SI). It is equal to one lumen per square metre.
     ///
     /// For more information, see [wikipedia](https://en.wikipedia.org/wiki/Lux)
     ///
