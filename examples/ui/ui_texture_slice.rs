@@ -1,4 +1,5 @@
 //! This example illustrates how to create a button that has its image sliced
+//! and kept in proportion instead of being stretched by the button dimensions
 
 use bevy::{prelude::*, winit::WinitSettings};
 
