@@ -7,7 +7,7 @@
 linker = "clang"
 rustflags = [
   "-Clink-arg=-fuse-ld=lld", # Use LLD Linker
-  "-Zshare-generics=y",       # (Nightly) Make the current crate share its generic instantiations
+  "-Zshare-generics=y",      # (Nightly) Make the current crate share its generic instantiations
 ]
 
 # NOTE: you must install [Mach-O LLD Port](https://lld.llvm.org/MachO/index.html) on mac. you can easily do this by installing llvm which includes lld with the "brew" package manager:
