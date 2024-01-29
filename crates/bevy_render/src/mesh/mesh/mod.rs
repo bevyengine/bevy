@@ -1,5 +1,6 @@
 mod conversions;
 pub mod skinning;
+use bevy_transform::components::Transform;
 pub use wgpu::PrimitiveTopology;
 
 use crate::{
@@ -561,6 +562,60 @@ impl Mesh {
         Ok(self)
     }
 
+    /// Transforms the vertex positions, normals, and tangents of the mesh by the given [`Transform`].
+    pub fn transformed_by(mut self, transform: Transform) -> Self {
+        self.transform_by(transform);
+        self
+    }
+
+    /// Transforms the vertex positions, normals, and tangents of the mesh in place by the given [`Transform`].
+    pub fn transform_by(&mut self, transform: Transform) {
+        // Needed when transforming normals and tangents
+        let covector_scale = transform.scale.yzx() * transform.scale.zxy();
+
+        debug_assert!(
+            covector_scale != Vec3::ZERO,
+            "mesh transform scale cannot be zero on more than one axis"
+        );
+
+        if let Some(VertexAttributeValues::Float32x3(ref mut positions)) =
+            self.attribute_mut(Mesh::ATTRIBUTE_POSITION)
+        {
+            // Apply scale, rotation, and translation to vertex positions
+            positions
+                .iter_mut()
+                .for_each(|pos| *pos = transform.transform_point(Vec3::from_slice(pos)).to_array());
+        }
+
+        // No need to transform normals or tangents if rotation is near identity and scale is uniform
+        if transform.rotation.is_near_identity()
+            && transform.scale.x == transform.scale.y
+            && transform.scale.y == transform.scale.z
+        {
+            return;
+        }
+
+        if let Some(VertexAttributeValues::Float32x3(ref mut normals)) =
+            self.attribute_mut(Mesh::ATTRIBUTE_NORMAL)
+        {
+            // Transform normals, taking into account non-uniform scaling and rotation
+            normals.iter_mut().for_each(|normal| {
+                let scaled_normal = Vec3::from_slice(normal) * covector_scale;
+                *normal = (transform.rotation * scaled_normal.normalize_or_zero()).to_array();
+            });
+        }
+
+        if let Some(VertexAttributeValues::Float32x3(ref mut tangents)) =
+            self.attribute_mut(Mesh::ATTRIBUTE_TANGENT)
+        {
+            // Transform tangents, taking into account non-uniform scaling and rotation
+            tangents.iter_mut().for_each(|tangent| {
+                let scaled_tangent = Vec3::from_slice(tangent) * covector_scale;
+                *tangent = (transform.rotation * scaled_tangent.normalize_or_zero()).to_array();
+            });
+        }
+    }
+
     /// Compute the Axis-Aligned Bounding Box of the mesh vertices in model space
     ///
     /// Returns `None` if `self` doesn't have [`Mesh::ATTRIBUTE_POSITION`] of
@@ -643,6 +698,14 @@ impl Mesh {
                 }
             }
         }
+    }
+}
+
+impl core::ops::Mul<Mesh> for Transform {
+    type Output = Mesh;
+
+    fn mul(self, rhs: Mesh) -> Self::Output {
+        rhs.transformed_by(self)
     }
 }
 
