@@ -450,6 +450,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         let mut new_filter_component_access = FilteredAccess::default();
         NewF::update_component_access(&new_filter_state, &mut new_filter_component_access);
 
+        component_access.extend(&new_filter_component_access);  
+
         let mut joined_component_access = self.component_access.clone();
         joined_component_access.extend(&other.component_access);
 
@@ -1895,6 +1897,19 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(
+        expected = "Transmuted state for (bevy_ecs::entity::Entity, bevy_ecs::query::filter::Changed<bevy_ecs::query::state::tests::B>) attempts to access terms that are not allowed by original state (&bevy_ecs::query::state::tests::A, ())."
+    )]
+    fn cannot_transmute_changed_without_access() {
+        let mut world = World::new();
+        world.init_component::<A>();
+        world.init_component::<B>();
+        let query = QueryState::<&A>::new(&mut world);
+        let _new_query = query.transmute_filtered::<Entity, Changed<B>>(&world);
+
+    }
+
+    #[test]
     fn join() {
         let mut world = World::new();
         world.spawn(A(0));
@@ -1907,5 +1922,29 @@ mod tests {
         let mut new_query: QueryState<Entity, ()> = query_1.join_filtered(&world, &query_2);
 
         assert_eq!(new_query.single(&world), entity_ab);
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "Transmuted state for (&bevy_ecs::query::state::tests::C, ()) attempts to access terms that are not allowed by original state (&bevy_ecs::query::state::tests::A, ())."
+    )]
+    fn cannot_join_wrong_fetch() {
+        let mut world = World::new();
+        world.init_component::<C>();
+        let query_1 = QueryState::<&A>::new(&mut world);
+        let query_2 = QueryState::<&B>::new(&mut world);
+        let _query: QueryState<&C> = query_1.join(&world, &query_2);
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "Transmuted state for (bevy_ecs::entity::Entity, bevy_ecs::query::filter::Changed<bevy_ecs::query::state::tests::C>) attempts to access terms that are not allowed by original state (&bevy_ecs::query::state::tests::A, bevy_ecs::query::filter::Without<bevy_ecs::query::state::tests::C>)."
+    )]
+    fn cannot_join_wrong_filter() {
+        let mut world = World::new();
+        let query_1 = QueryState::<&A, Without<C>>::new(&mut world);
+        let query_2 = QueryState::<&B, Without<C>>::new(&mut world);
+        let _: QueryState<Entity, Changed<C>> = query_1.join_filtered(&world, &query_2);
+        
     }
 }
