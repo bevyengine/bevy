@@ -32,13 +32,13 @@ fn sample_irradiance_volume(world_position: vec3<f32>, N: vec3<f32>) -> Irradian
     }
 
 #ifdef MULTIPLE_LIGHT_PROBES_IN_ARRAY
-    let volume_texture = irradiance_volumes[query_result.texture_index];
+    let irradiance_volume_texture = irradiance_volumes[query_result.texture_index];
 #else
-    let volume_texture = irradiance_volume;
+    let irradiance_volume_texture = irradiance_volume;
 #endif
 
-    let atlas_resolution = vec3<f32>(textureDimensions(volume_texture));
-    let resolution = vec3<f32>(textureDimensions(volume_texture) / vec3(1u, 2u, 2u));
+    let atlas_resolution = vec3<f32>(textureDimensions(irradiance_volume_texture));
+    let resolution = vec3<f32>(textureDimensions(irradiance_volume_texture) / vec3(1u, 2u, 3u));
 
     // Make sure to clamp to the edges to avoid texture bleed.
     var unit_pos = (query_result.inverse_transform * vec4(world_position, 1.0f)).xyz;
@@ -47,20 +47,22 @@ fn sample_irradiance_volume(world_position: vec3<f32>, N: vec3<f32>) -> Irradian
     let stp = clamp(unit_pos, vec3(0.5f), resolution - vec3(0.5f));
     let uvw = stp / atlas_resolution;
 
-    let uvw_sh0   = uvw + vec3(0.0f, 0.0f, 0.0f);
-    let uvw_sh1_x = uvw + vec3(0.0f, 0.0f, 0.5f);
-    let uvw_sh1_y = uvw + vec3(0.0f, 0.5f, 0.0f);
-    let uvw_sh1_z = uvw + vec3(0.0f, 0.5f, 0.5f);
+    // The bottom half of each cube slice is the negative part, so choose it if applicable on each
+    // slice.
+    let neg_offset = select(vec3(0.0f), vec3(0.5f), N < vec3(0.0f));
 
-    let rgb_sh0   = textureSample(volume_texture, irradiance_volume_sampler, uvw_sh0).rgb;
-    let rgb_sh1_x = textureSample(volume_texture, irradiance_volume_sampler, uvw_sh1_x).rgb;
-    let rgb_sh1_y = textureSample(volume_texture, irradiance_volume_sampler, uvw_sh1_y).rgb;
-    let rgb_sh1_z = textureSample(volume_texture, irradiance_volume_sampler, uvw_sh1_z).rgb;
+    let uvw_x = uvw + vec3(0.0f, neg_offset.x, 0.0f);
+    let uvw_y = uvw + vec3(0.0f, neg_offset.y, 1.0f / 3.0f);
+    let uvw_z = uvw + vec3(0.0f, neg_offset.z, 2.0f / 3.0f);
 
-    // Reconstruct the irradiance distribution from the spherical harmonics.
+    let rgb_x = textureSample(irradiance_volume_texture, irradiance_volume_sampler, uvw_x).rgb;
+    let rgb_y = textureSample(irradiance_volume_texture, irradiance_volume_sampler, uvw_y).rgb;
+    let rgb_z = textureSample(irradiance_volume_texture, irradiance_volume_sampler, uvw_z).rgb;
+
+    // Use Valve's formula to sample.
     let NN = N * N;
-    let r1_dot_n = rgb_sh1_x * N.x + rgb_sh1_y * N.y + rgb_sh1_z * N.z;
-    irradiance_volume_light.diffuse = (rgb_sh0 + 2.0 * r1_dot_n) * query_result.intensity;
+    irradiance_volume_light.diffuse = (rgb_x * NN.x + rgb_y * NN.y + rgb_z * NN.z) *
+        query_result.intensity;
     irradiance_volume_light.found = true;
     return irradiance_volume_light;
 }
