@@ -53,49 +53,6 @@ pub const ENTITY_FIELD_COMPONENTS: &str = "components";
 /// // Serialize through any serde-compatible Serializer
 /// let ron_string = ron::ser::to_string(&scene_serializer);
 /// ```
-/// Handles serialization of a scene as a struct containing its entities and resources.
-///
-/// # Examples
-///
-/// ```
-/// # use bevy_scene::{serde::SceneSerializer, DynamicScene};
-/// # use bevy_ecs::{
-/// #     prelude::{Component, World},
-/// #     reflect::{AppTypeRegistry, ReflectComponent},
-/// # };
-/// # use bevy_reflect::Reflect;
-/// // Define an example component type.
-/// #[derive(Component, Reflect, Default)]
-/// #[reflect(Component)]
-/// struct MyComponent {
-///     foo: [usize; 3],
-///     bar: (f32, f32),
-///     baz: String,
-/// }
-///
-/// // Create our world, provide it with a type registry.
-/// // Normally, [`App`] handles providing the type registry.
-/// let mut world = World::new();
-/// let registry = AppTypeRegistry::default();
-/// {
-///     let mut registry = registry.write();
-///     // Register our component. Primitives and String are registered by default.
-///     // Sequence types are automatically handled.
-///     registry.register::<MyComponent>();
-/// }
-/// world.insert_resource(registry);
-/// world.spawn(MyComponent {
-///     foo: [1, 2, 3],
-///     bar: (1.3, 3.7),
-///     baz: String::from("test"),
-/// });
-///
-/// // Print out our serialized scene in the RON format.
-/// let registry = world.resource::<AppTypeRegistry>();
-/// let scene = DynamicScene::from_world(&world);
-/// let scene_serializer = SceneSerializer::new(&scene, &registry.0);
-/// println!("{}", bevy_scene::serialize_ron(scene_serializer).unwrap());
-/// ```
 pub struct SceneSerializer<'a> {
     /// The scene to serialize.
     pub scene: &'a DynamicScene,
