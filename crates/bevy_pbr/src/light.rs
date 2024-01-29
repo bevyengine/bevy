@@ -112,7 +112,7 @@ impl Default for PointLight {
     fn default() -> Self {
         PointLight {
             color: Color::rgb(1.0, 1.0, 1.0),
-            intensity: 800.0, // Roughly a 60W non-halogen incandescent bulb
+            intensity: 4000.0, // Roughly a 300W non-halogen incandescent bulb
             range: 20.0,
             radius: 0.0,
             shadows_enabled: false,
@@ -180,7 +180,7 @@ impl Default for SpotLight {
         // a quarter arc attenuating from the center
         Self {
             color: Color::rgb(1.0, 1.0, 1.0),
-            intensity: 800.0, // Roughly a 60W non-halogen incandescent bulb
+            intensity: 4000.0, // Roughly a 300W non-halogen incandescent bulb
             range: 20.0,
             radius: 0.0,
             shadows_enabled: false,
@@ -635,10 +635,16 @@ pub struct AmbientLight {
 impl Default for AmbientLight {
     fn default() -> Self {
         Self {
-            color: Color::rgb(1.0, 1.0, 1.0),
-            brightness: 50.0,
+            color: Color::WHITE,
+            brightness: 500.0,
         }
     }
+}
+impl AmbientLight {
+    pub const NONE: AmbientLight = AmbientLight {
+        color: Color::WHITE,
+        brightness: 0.0,
+    };
 }
 
 /// Add this component to make a [`Mesh`](bevy_render::mesh::Mesh) not cast shadows.

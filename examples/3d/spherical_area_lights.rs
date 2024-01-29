@@ -4,6 +4,7 @@ use bevy::{prelude::*, render::camera::ExposureSettings};
 
 fn main() {
     App::new()
+        .insert_resource(AmbientLight::NONE)
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .run();

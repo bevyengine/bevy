@@ -6,6 +6,7 @@ use bevy::{
         tonemapping::Tonemapping,
     },
     prelude::*,
+    render::camera::ExposureSettings,
 };
 use std::{
     collections::hash_map::DefaultHasher,
@@ -36,6 +37,7 @@ fn setup_scene(
             ..default()
         },
         BloomSettings::default(), // 3. Enable bloom for the camera
+        ExposureSettings::INDOOR,
     ));
 
     let material_emissive1 = materials.add(StandardMaterial {

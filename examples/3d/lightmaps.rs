@@ -2,6 +2,7 @@
 
 use bevy::pbr::Lightmap;
 use bevy::prelude::*;
+use bevy::render::camera::ExposureSettings;
 
 fn main() {
     App::new()
@@ -21,10 +22,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ..default()
     });
 
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-278.0, 273.0, 800.0),
-        ..default()
-    });
+    commands.spawn((
+        Camera3dBundle {
+            transform: Transform::from_xyz(-278.0, 273.0, 800.0),
+            ..default()
+        },
+        ExposureSettings::INDOOR,
+    ));
 }
 
 fn add_lightmaps_to_meshes(

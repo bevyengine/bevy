@@ -60,7 +60,7 @@ fn setup(
     });
     // light
     commands.spawn(DirectionalLightBundle {
-        transform: Transform::from_xyz(3.0, 8.0, 5.0),
+        transform: Transform::from_xyz(3.0, 8.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         directional_light: DirectionalLight {
             illuminance: light_consts::lux::FULL_DAYLIGHT,
             ..default()

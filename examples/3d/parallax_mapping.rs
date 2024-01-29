@@ -3,11 +3,7 @@
 
 use std::fmt;
 
-use bevy::{
-    prelude::*,
-    render::{camera::ExposureSettings, render_resource::TextureFormat},
-    window::close_on_esc,
-};
+use bevy::{prelude::*, render::render_resource::TextureFormat, window::close_on_esc};
 
 fn main() {
     App::new()
@@ -221,7 +217,6 @@ fn setup(
             ..default()
         },
         CameraController,
-        ExposureSettings::INDOOR,
     ));
 
     // light
@@ -229,7 +224,7 @@ fn setup(
         .spawn(PointLightBundle {
             transform: Transform::from_xyz(1.8, 0.7, -1.1),
             point_light: PointLight {
-                intensity: 50_000.0,
+                intensity: 1_000_000.0, // Mini-sun point light
                 shadows_enabled: true,
                 ..default()
             },

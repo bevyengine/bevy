@@ -50,16 +50,15 @@ fn setup(
         Transform::from_xyz(1.8, 1.8, 1.8).looking_at(Vec3::ZERO, Vec3::Y);
 
     // Camera in 3D space.
-    commands.spawn(Camera3dBundle {
+    commands.spawn((Camera3dBundle {
         transform: camera_and_light_transform,
         ..default()
-    });
+    },));
 
     // Light up the scene.
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            intensity: 100_000.0,
-            range: 100.0,
+    commands.spawn(DirectionalLightBundle {
+        directional_light: DirectionalLight {
+            illuminance: light_consts::lux::FULL_DAYLIGHT,
             ..default()
         },
         transform: camera_and_light_transform,
