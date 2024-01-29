@@ -450,7 +450,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         let mut new_filter_component_access = FilteredAccess::default();
         NewF::update_component_access(&new_filter_state, &mut new_filter_component_access);
 
-        component_access.extend(&new_filter_component_access);  
+        component_access.extend(&new_filter_component_access);
 
         let mut joined_component_access = self.component_access.clone();
         joined_component_access.extend(&other.component_access);
@@ -1906,7 +1906,6 @@ mod tests {
         world.init_component::<B>();
         let query = QueryState::<&A>::new(&mut world);
         let _new_query = query.transmute_filtered::<Entity, Changed<B>>(&world);
-
     }
 
     #[test]
@@ -1945,6 +1944,5 @@ mod tests {
         let query_1 = QueryState::<&A, Without<C>>::new(&mut world);
         let query_2 = QueryState::<&B, Without<C>>::new(&mut world);
         let _: QueryState<Entity, Changed<C>> = query_1.join_filtered(&world, &query_2);
-        
     }
 }

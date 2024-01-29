@@ -1616,7 +1616,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         &mut self,
         other: &mut Query<OtherD, OtherF>,
     ) -> QueryLens<'_, NewD, NewF> {
-        // SAFETY: 
+        // SAFETY:
         // - The queries have correctly captured their access.
         // - We have exclusive access to both queries.
         // - Access for QueryLens is checked when state is created.
