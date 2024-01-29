@@ -1558,7 +1558,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn transmute_lens_filtered<NewD: QueryData, NewF: QueryFilter>(
         &mut self,
     ) -> QueryLens<'_, NewD, NewF> {
-        // SAFETY: There are no other active borrows of data from world
+        // SAFETY:
+        // - We have exclusive access to the query
+        // - `self` has correctly captured it's access
+        // - Access is checked to be a subset of the query's access when the state is created.
         let world = unsafe { self.world.world() };
         let state = self.state.transmute_filtered::<NewD, NewF>(world);
         QueryLens {
@@ -1592,7 +1595,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// See [`Self::transmute_lens`] for more details.
     pub fn join<OtherD: QueryData, NewD: QueryData>(
         &mut self,
-        other: &Query<OtherD>,
+        other: &mut Query<OtherD>,
     ) -> QueryLens<'_, NewD> {
         self.join_filtered(other)
     }
@@ -1611,9 +1614,12 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         NewF: QueryFilter,
     >(
         &mut self,
-        other: &Query<OtherD, OtherF>,
+        other: &mut Query<OtherD, OtherF>,
     ) -> QueryLens<'_, NewD, NewF> {
-        // SAFETY: There are no other active borrows of data from world
+        // SAFETY: 
+        // - The queries have correctly captured their access.
+        // - We have exclusive access to both queries.
+        // - Access for QueryLens is checked when state is created.
         let world = unsafe { self.world.world() };
         let state = self
             .state
