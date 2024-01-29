@@ -7,7 +7,7 @@ use bevy_math::primitives::{
     BoxedPolyline3d, Capsule, Cone, ConicalFrustum, Cuboid, Cylinder, Direction3d, Line3d, Plane3d,
     Polyline3d, Primitive3d, Segment3d, Sphere, Torus,
 };
-use bevy_math::{Quat, Vec3};
+use bevy_math::{Quat, Vec2, Vec3};
 use bevy_render::color::Color;
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
@@ -573,11 +573,21 @@ impl<T: GizmoConfigGroup> Drop for Cone3dBuilder<'_, '_, '_, T> {
             segments,
         } = self;
 
-        draw_circle(gizmos, *radius, *segments, *rotation, *position, *color);
+        let half_height = *height * 0.5;
 
-        let end = Vec3::Y * *height;
+        {
+            let positions = (0..=*segments)
+                .map(|frac| frac as f32 / *segments as f32)
+                .map(|percentage| percentage * TAU)
+                .map(|angle| Vec2::from(angle.sin_cos()) * *radius)
+                .map(|p| Vec3::new(p.x, -half_height, p.y))
+                .map(rotate_then_translate_3d(*rotation, *position));
+            gizmos.linestrip(positions, *color);
+        };
+
+        let end = Vec3::Y * half_height;
         circle_coordinates(*radius, *segments)
-            .map(|p| Vec3::new(p.x, 0.0, p.y))
+            .map(|p| Vec3::new(p.x, -half_height, p.y))
             .map(move |p| [p, end])
             .map(|ps| ps.map(rotate_then_translate_3d(*rotation, *position)))
             .for_each(|[start, end]| {
@@ -659,8 +669,9 @@ impl<T: GizmoConfigGroup> Drop for ConicalFrustum3dBuilder<'_, '_, '_, T> {
             segments,
         } = self;
 
+        let half_height = *height * 0.5;
         let normal = *rotation * Vec3::Y;
-        [(*radius_top, *height), (*radius_bottom, 0.0)]
+        [(*radius_top, half_height), (*radius_bottom, -half_height)]
             .into_iter()
             .for_each(|(radius, height)| {
                 draw_circle(
@@ -674,8 +685,11 @@ impl<T: GizmoConfigGroup> Drop for ConicalFrustum3dBuilder<'_, '_, '_, T> {
             });
 
         circle_coordinates(*radius_top, *segments)
-            .map(move |p| Vec3::new(p.x, *height, p.y))
-            .zip(circle_coordinates(*radius_bottom, *segments).map(|p| Vec3::new(p.x, 0.0, p.y)))
+            .map(move |p| Vec3::new(p.x, half_height, p.y))
+            .zip(
+                circle_coordinates(*radius_bottom, *segments)
+                    .map(|p| Vec3::new(p.x, -half_height, p.y)),
+            )
             .map(|(start, end)| [start, end])
             .map(|ps| ps.map(rotate_then_translate_3d(*rotation, *position)))
             .for_each(|[start, end]| {
