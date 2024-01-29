@@ -14,7 +14,7 @@
 //! The [`bevy-baked-gi`] project provides a tool, `export-blender-gi`, that can
 //! extract the baked irradiance volumes from the Blender `.blend` file and
 //! package them up into a `.ktx2` texture for use by the engine. See the
-//! documentation in the `bevy-baked-gi` project for more details as to this
+//! documentation in the `bevy-baked-gi` project for more details on this
 //! workflow.
 //!
 //! Like all light probes in Bevy, irradiance volumes are 1×1×1 cubes that can
@@ -76,7 +76,9 @@
 //!
 //! Note that, if binding arrays aren't supported (e.g. on WebGPU or WebGL 2),
 //! then only the closest irradiance volume to the view will be taken into
-//! account during rendering.
+//! account during rendering. The required `wgpu` features are
+//! [`bevy_render::settings::WgpuFeatures::TEXTURE_BINDING_ARRAY`] and
+//! [`bevy_render::settings::WgpuFeatures::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING`].
 //!
 //! [*ambient cubes*]: https://advances.realtimerendering.com/s2006/Mitchell-ShadingInValvesSourceEngine.pdf
 //!
