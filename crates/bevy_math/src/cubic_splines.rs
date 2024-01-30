@@ -1087,11 +1087,30 @@ impl<P: Point> IntoIterator for RationalCurve<P> {
     }
 }
 
+impl<P: Point> From<CubicSegment<P>> for RationalSegment<P> {
+    fn from(value: CubicSegment<P>) -> Self {
+        Self {
+            coeff: value.coeff,
+            weight_coeff: [1.0, 0.0, 0.0, 0.0],
+        }
+    }
+}
+
+impl<P: Point> From<CubicCurve<P>> for RationalCurve<P> {
+    fn from(value: CubicCurve<P>) -> Self {
+        Self {
+            segments: value.segments.into_iter().map(Into::into).collect()
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use glam::{vec2, Vec2};
 
-    use crate::cubic_splines::{CubicBezier, CubicGenerator, CubicSegment};
+    use crate::cubic_splines::{CubicBezier, CubicBSpline, CubicGenerator, CubicSegment};
+
+    use super::RationalCurve;
 
     /// How close two floats can be and still be considered equal
     const FLOAT_EQ: f32 = 1e-5;
@@ -1153,5 +1172,43 @@ mod tests {
         assert_eq!(bezier.ease(0.0), 0.0);
         assert!(bezier.ease(0.5) < -0.5);
         assert_eq!(bezier.ease(1.0), 1.0);
+    }
+
+    #[test]
+    fn cubic_to_rational() {
+        const EPSILON: f32 = 0.00001;
+
+        let points = [
+            vec2(0.0, 0.0),
+            vec2(1.0, 1.0),
+            vec2(1.0, 1.0),
+            vec2(2.0, -1.0),
+            vec2(3.0, 1.0),
+            vec2(0.0, 0.0),
+        ];
+
+        let b_spline = CubicBSpline::new(points).to_curve();
+        let rational_b_spline = RationalCurve::from(b_spline.clone());
+
+        /// Tests if two vectors of points are approximately the same
+        fn compare_vectors(cubic_curve: Vec<Vec2>, rational_curve: Vec<Vec2>, name: &str) {
+            assert_eq!(cubic_curve.len(), rational_curve.len(), "{name} vector lengths mismatch");
+            for (a,b) in cubic_curve.iter().zip(rational_curve.iter()) {
+                assert!(a.distance(*b) < EPSILON, "Mismatch between {name} values CubicCurve: {} Converted RationalCurve: {}", a, b);
+            }
+        }
+
+        // Both curves should yield the same values
+        let cubic_positions: Vec<_> = b_spline.iter_positions(10).collect();
+        let rational_positions: Vec<_> = rational_b_spline.iter_positions(10).collect();
+        compare_vectors(cubic_positions, rational_positions, "position");
+
+        let cubic_velocities: Vec<_> = b_spline.iter_velocities(10).collect();
+        let rational_velocities: Vec<_> = rational_b_spline.iter_velocities(10).collect();
+        compare_vectors(cubic_velocities, rational_velocities, "position");
+
+        let cubic_accelerations: Vec<_> = b_spline.iter_accelerations(10).collect();
+        let rational_accelerations: Vec<_> = rational_b_spline.iter_accelerations(10).collect();
+        compare_vectors(cubic_accelerations, rational_accelerations, "position");
     }
 }
