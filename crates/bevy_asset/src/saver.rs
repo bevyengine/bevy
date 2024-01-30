@@ -116,7 +116,7 @@ impl<'a, A: Asset> SavedAsset<'a, A> {
         Some(&labeled.asset)
     }
 
-    /// Returns the [`UntypedHandle`] of the [`LabeledAsset`] with the provided 'label', if it exists.
+    /// Returns the [`UntypedHandle`] of the labeled asset with the provided 'label', if it exists.
     pub fn get_untyped_handle(
         &self,
         label: impl Into<CowArc<'static, str>>,
