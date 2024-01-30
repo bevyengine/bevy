@@ -27,6 +27,8 @@ fn main() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins)
         .add_event::<DebugEvent>()
+        .add_event::<A>()
+        .add_event::<B>()
         .add_systems(Update, read_and_write_different_event_types)
         .add_systems(
             Update,
