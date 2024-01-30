@@ -11,7 +11,7 @@
 // See:
 // https://advances.realtimerendering.com/s2006/Mitchell-ShadingInValvesSourceEngine.pdf
 // Slide 28, "Ambient Cube Basis"
-fn sample_irradiance_volume(world_position: vec3<f32>, N: vec3<f32>) -> vec3<f32> {
+fn irradiance_volume_light(world_position: vec3<f32>, N: vec3<f32>) -> vec3<f32> {
     // Search for an irradiance volume that contains the fragment.
     let query_result = query_light_probe(
         light_probes.irradiance_volumes,

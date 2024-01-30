@@ -341,7 +341,7 @@ fn apply_pbr_lighting(
 #ifdef IRRADIANCE_VOLUME {
     // Irradiance volume light (indirect)
     if (all(indirect_light == vec3(0.0f))) {
-        let irradiance_volume_light = irradiance_volume::sample_irradiance_volume(
+        let irradiance_volume_light = irradiance_volume::irradiance_volume_light(
             in.world_position.xyz, in.N);
         indirect_light += irradiance_volume_light * diffuse_color * diffuse_occlusion;
     }

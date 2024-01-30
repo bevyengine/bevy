@@ -13,8 +13,10 @@
 
 use bevy::math::{uvec3, vec3};
 use bevy::pbr::irradiance_volume::IrradianceVolume;
+use bevy::pbr::{ExtendedMaterial, MaterialExtension, NotShadowCaster};
 use bevy::prelude::shape::UVSphere;
 use bevy::prelude::*;
+use bevy::render::render_resource::{AsBindGroup, ShaderRef};
 use bevy::window::PrimaryWindow;
 
 // Rotation speed in radians per frame.
@@ -27,13 +29,13 @@ const IRRADIANCE_VOLUME_INTENSITY: f32 = 150.0;
 
 const AMBIENT_LIGHT_BRIGHTNESS: f32 = 0.06;
 
-const VOXEL_GIZMO_RADIUS: f32 = 0.1;
+const VOXEL_SPHERE_SCALE: f32 = 0.4;
 
 static DISABLE_IRRADIANCE_VOLUME_HELP_TEXT: &str = "Space: Disable the irradiance volume";
 static ENABLE_IRRADIANCE_VOLUME_HELP_TEXT: &str = "Space: Enable the irradiance volume";
 
-static HIDE_GIZMO_HELP_TEXT: &str = "Backspace: Hide the voxels";
-static SHOW_GIZMO_HELP_TEXT: &str = "Backspace: Show the voxels";
+static HIDE_VOXELS_HELP_TEXT: &str = "Backspace: Hide the voxels";
+static SHOW_VOXELS_HELP_TEXT: &str = "Backspace: Show the voxels";
 
 static STOP_ROTATION_HELP_TEXT: &str = "Enter: Stop rotation";
 static START_ROTATION_HELP_TEXT: &str = "Enter: Start rotation";
@@ -45,6 +47,13 @@ static CLICK_TO_MOVE_HELP_TEXT: &str = "Left click: Move the object";
 
 static GIZMO_COLOR: Color = Color::YELLOW;
 
+static VOXEL_TRANSFORM: Mat4 = Mat4::from_cols_array_2d(&[
+    [-42.317566, 0.0, 0.0, 0.0],
+    [0.0, 0.0, 44.601563, 0.0],
+    [0.0, 16.73776, 0.0, 0.0],
+    [0.0, 6.544792, 0.0, 1.0],
+]);
+
 // The mode the application is in.
 #[derive(Resource)]
 struct AppStatus {
@@ -54,8 +63,8 @@ struct AppStatus {
     model: ExampleModel,
     // Whether the user has requested the scene to rotate.
     rotating: bool,
-    // Whether the user has requested the voxels gizmo to be displayed.
-    voxels_gizmo_visible: bool,
+    // Whether the user has requested the voxels to be displayed.
+    voxels_visible: bool,
 }
 
 // Which model the user wants to display.
@@ -75,18 +84,36 @@ struct ExampleAssets {
     // The 3D texture containing the irradiance volume.
     irradiance_volume: Handle<Image>,
     // The plain sphere mesh.
-    sphere: Handle<Mesh>,
+    main_sphere: Handle<Mesh>,
     // The material used for the sphere.
-    sphere_material: Handle<StandardMaterial>,
+    main_sphere_material: Handle<StandardMaterial>,
     // The glTF scene containing the animated fox.
     fox: Handle<Scene>,
     // The animation that the fox will play.
     fox_animation: Handle<AnimationClip>,
+    // The voxel sphere mesh.
+    voxel_sphere: Handle<Mesh>,
+    // The special material on the voxel spheres that shows the appropriate
+    // ambient cube.
+    voxel_sphere_material: Handle<VoxelVisualizationMaterial>,
 }
 
 // The sphere and fox both have this component.
 #[derive(Component)]
 struct MainObject;
+
+// Marks each of the voxel spheres.
+#[derive(Component)]
+struct VoxelSphere;
+
+// Marks the voxel sphere parent object.
+#[derive(Component)]
+struct VoxelSphereParent;
+
+type VoxelVisualizationMaterial = ExtendedMaterial<StandardMaterial, VoxelVisualizationExtension>;
+
+#[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
+struct VoxelVisualizationExtension {}
 
 fn main() {
     // Create the example app.
@@ -98,6 +125,7 @@ fn main() {
             }),
             ..default()
         }))
+        .add_plugins(MaterialPlugin::<VoxelVisualizationMaterial>::default())
         .init_resource::<AppStatus>()
         .init_resource::<ExampleAssets>()
         .insert_resource(AmbientLight {
@@ -105,6 +133,7 @@ fn main() {
             brightness: 0.0,
         })
         .add_systems(Startup, setup)
+        .add_systems(PreUpdate, create_spheres)
         .add_systems(Update, rotate_camera)
         .add_systems(Update, play_animations)
         .add_systems(
@@ -127,7 +156,9 @@ fn main() {
         )
         .add_systems(
             Update,
-            toggle_gizmos.after(rotate_camera).after(play_animations),
+            toggle_voxel_visibility
+                .after(rotate_camera)
+                .after(play_animations),
         )
         .add_systems(
             Update,
@@ -135,11 +166,11 @@ fn main() {
         )
         .add_systems(
             Update,
-            draw_gizmos
+            draw_gizmo
                 .after(handle_mouse_clicks)
                 .after(change_main_object)
                 .after(toggle_irradiance_volumes)
-                .after(toggle_gizmos)
+                .after(toggle_voxel_visibility)
                 .after(toggle_rotation),
         )
         .add_systems(
@@ -148,7 +179,7 @@ fn main() {
                 .after(handle_mouse_clicks)
                 .after(change_main_object)
                 .after(toggle_irradiance_volumes)
-                .after(toggle_gizmos)
+                .after(toggle_voxel_visibility)
                 .after(toggle_rotation),
         )
         .run();
@@ -166,6 +197,7 @@ fn setup(
     spawn_irradiance_volume(&mut commands, &assets);
     spawn_light(&mut commands);
     spawn_sphere(&mut commands, &assets);
+    spawn_voxel_sphere_parent(&mut commands);
     spawn_fox(&mut commands, &assets);
     spawn_text(&mut commands, &app_status, &asset_server);
 }
@@ -187,12 +219,7 @@ fn spawn_camera(commands: &mut Commands) {
 fn spawn_irradiance_volume(commands: &mut Commands, assets: &ExampleAssets) {
     commands
         .spawn(SpatialBundle {
-            transform: Transform::from_matrix(Mat4::from_cols_array_2d(&[
-                [-42.317566, 0.0, 0.0, 0.0],
-                [0.0, 0.0, 44.601563, 0.0],
-                [0.0, 16.73776, 0.0, 0.0],
-                [0.0, 6.544792, 0.0, 1.0],
-            ])),
+            transform: Transform::from_matrix(VOXEL_TRANSFORM),
             ..SpatialBundle::default()
         })
         .insert(IrradianceVolume {
@@ -217,13 +244,22 @@ fn spawn_light(commands: &mut Commands) {
 fn spawn_sphere(commands: &mut Commands, assets: &ExampleAssets) {
     commands
         .spawn(PbrBundle {
-            mesh: assets.sphere.clone(),
-            material: assets.sphere_material.clone(),
+            mesh: assets.main_sphere.clone(),
+            material: assets.main_sphere_material.clone(),
             transform: Transform::from_xyz(0.0, SPHERE_SCALE, 0.0)
                 .with_scale(Vec3::splat(SPHERE_SCALE)),
             ..default()
         })
         .insert(MainObject);
+}
+
+fn spawn_voxel_sphere_parent(commands: &mut Commands) {
+    commands
+        .spawn(SpatialBundle {
+            visibility: Visibility::Hidden,
+            ..default()
+        })
+        .insert(VoxelSphereParent);
 }
 
 fn spawn_fox(commands: &mut Commands, assets: &ExampleAssets) {
@@ -273,10 +309,10 @@ impl AppStatus {
             ENABLE_IRRADIANCE_VOLUME_HELP_TEXT
         };
 
-        let voxels_gizmo_help_text = if self.voxels_gizmo_visible {
-            HIDE_GIZMO_HELP_TEXT
+        let voxels_help_text = if self.voxels_visible {
+            HIDE_VOXELS_HELP_TEXT
         } else {
-            SHOW_GIZMO_HELP_TEXT
+            SHOW_VOXELS_HELP_TEXT
         };
 
         let rotation_help_text = if self.rotating {
@@ -294,7 +330,7 @@ impl AppStatus {
             format!(
                 "{}\n{}\n{}\n{}\n{}",
                 CLICK_TO_MOVE_HELP_TEXT,
-                voxels_gizmo_help_text,
+                voxels_help_text,
                 irradiance_volume_help_text,
                 rotation_help_text,
                 switch_mesh_help_text
@@ -367,7 +403,7 @@ impl Default for AppStatus {
             irradiance_volume_present: true,
             rotating: true,
             model: ExampleModel::Sphere,
-            voxels_gizmo_visible: false,
+            voxels_visible: false,
         }
     }
 }
@@ -461,18 +497,28 @@ impl FromWorld for ExampleAssets {
             asset_server.load::<AnimationClip>("models/animated/Fox.glb#Animation1");
 
         let mut mesh_assets = world.resource_mut::<Assets<Mesh>>();
-        let sphere = mesh_assets.add(UVSphere::default());
+        let main_sphere = mesh_assets.add(UVSphere::default());
+        let voxel_sphere = mesh_assets.add(UVSphere::default());
 
         let mut standard_material_assets = world.resource_mut::<Assets<StandardMaterial>>();
         let main_material = standard_material_assets.add(Color::SILVER);
 
+        let mut voxel_visualization_material_assets =
+            world.resource_mut::<Assets<VoxelVisualizationMaterial>>();
+        let voxel_sphere_material = voxel_visualization_material_assets.add(ExtendedMaterial {
+            base: StandardMaterial::from(Color::RED),
+            extension: VoxelVisualizationExtension {},
+        });
+
         ExampleAssets {
-            sphere,
+            main_sphere,
             fox,
-            sphere_material: main_material,
+            main_sphere_material: main_material,
             main_scene,
             irradiance_volume,
             fox_animation,
+            voxel_sphere,
+            voxel_sphere_material,
         }
     }
 }
@@ -485,33 +531,28 @@ fn play_animations(assets: Res<ExampleAssets>, mut players: Query<&mut Animation
     }
 }
 
-// Draws gizmos showing the bounds of the irradiance volume, as well as the
-// center of each voxel.
-fn draw_gizmos(
-    mut gizmos: Gizmos,
-    irradiance_volume_query: Query<(&GlobalTransform, &IrradianceVolume)>,
-    camera_query: Query<&GlobalTransform, With<Camera>>,
-    images: Res<Assets<Image>>,
-    app_status: Res<AppStatus>,
+fn create_spheres(
+    image_assets: Res<Assets<Image>>,
+    mut commands: Commands,
+    irradiance_volumes: Query<(&IrradianceVolume, &GlobalTransform)>,
+    voxel_sphere_parents: Query<Entity, With<VoxelSphereParent>>,
+    voxel_spheres: Query<Entity, With<VoxelSphere>>,
+    example_assets: Res<ExampleAssets>,
 ) {
-    if !app_status.voxels_gizmo_visible {
+    // If voxel spheres have already been spawned, don't do anything.
+    if !voxel_spheres.is_empty() {
         return;
     }
 
-    let Some(camera_pos) = camera_query
-        .iter()
-        .map(|transform| transform.translation())
-        .next()
-    else {
+    let Some(voxel_sphere_parent) = voxel_sphere_parents.iter().next() else {
         return;
     };
 
-    for (transform, irradiance_volume) in irradiance_volume_query.iter() {
-        gizmos.cuboid(*transform, GIZMO_COLOR);
-
-        let Some(image) = images.get(&irradiance_volume.voxels) else {
+    for (irradiance_volume, global_transform) in irradiance_volumes.iter() {
+        let Some(image) = image_assets.get(&irradiance_volume.voxels) else {
             continue;
         };
+
         let resolution = image.texture_descriptor.size;
         let scale = vec3(
             1.0 / resolution.width as f32,
@@ -519,25 +560,67 @@ fn draw_gizmos(
             1.0 / resolution.depth_or_array_layers as f32,
         );
 
-        // Display each voxel.
+        // Spawn a sphere for each voxel.
         for z in 0..resolution.depth_or_array_layers {
             for y in 0..resolution.height {
                 for x in 0..resolution.width {
                     let uvw = (uvec3(x, y, z).as_vec3() + 0.5) * scale - 0.5;
-                    let pos = transform.transform_point(uvw);
-                    let Ok(normal) = Direction3d::new(camera_pos - pos) else {
-                        continue;
-                    };
-                    gizmos.circle(pos, normal, VOXEL_GIZMO_RADIUS, GIZMO_COLOR);
+                    let pos = global_transform.transform_point(uvw);
+                    let voxel_sphere = commands
+                        .spawn(MaterialMeshBundle {
+                            mesh: example_assets.voxel_sphere.clone(),
+                            material: example_assets.voxel_sphere_material.clone(),
+                            transform: Transform::from_scale(Vec3::splat(VOXEL_SPHERE_SCALE))
+                                .with_translation(pos),
+                            ..default()
+                        })
+                        .insert(VoxelSphere)
+                        .insert(NotShadowCaster)
+                        .id();
+
+                    commands.entity(voxel_sphere_parent).add_child(voxel_sphere);
                 }
             }
         }
     }
 }
 
-// Handles a request from the user to toggle the gizmos on and off.
-fn toggle_gizmos(keyboard: Res<ButtonInput<KeyCode>>, mut app_status: ResMut<AppStatus>) {
-    if keyboard.just_pressed(KeyCode::Backspace) {
-        app_status.voxels_gizmo_visible = !app_status.voxels_gizmo_visible;
+// Draws a gizmo showing the bounds of the irradiance volume.
+fn draw_gizmo(
+    mut gizmos: Gizmos,
+    irradiance_volume_query: Query<&GlobalTransform, With<IrradianceVolume>>,
+    app_status: Res<AppStatus>,
+) {
+    if app_status.voxels_visible {
+        for transform in irradiance_volume_query.iter() {
+            gizmos.cuboid(*transform, GIZMO_COLOR);
+        }
+    }
+}
+
+// Handles a request from the user to toggle the voxel visibility on and off.
+fn toggle_voxel_visibility(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut app_status: ResMut<AppStatus>,
+    mut voxel_sphere_parent_query: Query<&mut Visibility, With<VoxelSphereParent>>,
+) {
+    if !keyboard.just_pressed(KeyCode::Backspace) {
+        return;
+    }
+
+    app_status.voxels_visible = !app_status.voxels_visible;
+
+    for mut visibility in voxel_sphere_parent_query.iter_mut() {
+        *visibility = if app_status.voxels_visible {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        };
+    }
+}
+
+impl MaterialExtension for VoxelVisualizationExtension {
+    fn fragment_shader() -> ShaderRef {
+        "shaders/irradiance_volume_voxel_visualization.wgsl".into()
     }
 }
