@@ -115,11 +115,11 @@ impl<'a, A: Asset> SavedAsset<'a, A> {
         let labeled = self.labeled_assets.get(&label.into())?;
         Some(&labeled.asset)
     }
-    
+
     /// Returns the UntypedHandle of the LabeledAsset with Label 'label', if it exists.
     pub fn get_untyped_handle(
         &self,
-        label: impl Into<CowArc<'static, str>>
+        label: impl Into<CowArc<'static, str>>,
     ) -> Option<&UntypedHandle> {
         let labeled = self.labeled_assets.get(&label.into())?;
         Some(&labeled.handle)
