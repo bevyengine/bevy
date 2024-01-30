@@ -40,6 +40,9 @@ match_same_arms = "warn"
 semicolon_if_nothing_returned = "warn"
 map_flatten = "warn"
 
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "warn"
+
 [lints]
 workspace = true
 
@@ -277,8 +280,11 @@ shader_format_spirv = ["bevy_internal/shader_format_spirv"]
 # Enable support for transmission-related textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs
 pbr_transmission_textures = ["bevy_internal/pbr_transmission_textures"]
 
-# Enable some limitations to be able to use WebGL2. If not enabled, it will default to WebGPU in Wasm. Please refer to the [WebGL2 and WebGPU](https://github.com/bevyengine/bevy/tree/latest/examples#webgl2-and-webgpu) section of the examples README for more information on how to run Wasm builds with WebGPU.
+# Enable some limitations to be able to use WebGL2. Please refer to the [WebGL2 and WebGPU](https://github.com/bevyengine/bevy/tree/latest/examples#webgl2-and-webgpu) section of the examples README for more information on how to run Wasm builds with WebGPU.
 webgl2 = ["bevy_internal/webgl"]
+
+# Enable support for WebGPU in Wasm. When enabled, this feature will override the `webgl2` feature and you won't be able to run Wasm builds with WebGL2, only with WebGPU. Requires the `RUSTFLAGS` environment variable to be set to `--cfg=web_sys_unstable_apis` when building.
+webgpu = ["bevy_internal/webgpu"]
 
 # Enables the built-in asset processor for processed assets.
 asset_processor = ["bevy_internal/asset_processor"]
@@ -396,7 +402,7 @@ doc-scrape-examples = true
 
 [package.metadata.example.2d_shapes]
 name = "2D Shapes"
-description = "Renders a rectangle, circle, and hexagon"
+description = "Renders simple 2D primitive shapes like circles and polygons"
 category = "2D Rendering"
 wasm = true
 
@@ -549,6 +555,17 @@ doc-scrape-examples = true
 [package.metadata.example.3d_viewport_to_world]
 name = "3D Viewport To World"
 description = "Demonstrates how to use the `Camera::viewport_to_world` method"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "animated_material"
+path = "examples/3d/animated_material.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.animated_material]
+name = "Animated Material"
+description = "Shows how to animate material properties"
 category = "3D Rendering"
 wasm = true
 
@@ -1342,6 +1359,17 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "custom_schedule"
+path = "examples/ecs/custom_schedule.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_schedule]
+name = "Custom Schedule"
+description = "Demonstrates how to add custom schedules"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
 name = "custom_query_param"
 path = "examples/ecs/custom_query_param.rs"
 doc-scrape-examples = true
@@ -1371,6 +1399,17 @@ doc-scrape-examples = true
 [package.metadata.example.event]
 name = "Event"
 description = "Illustrates event creation, activation, and reception"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "send_and_receive_events"
+path = "examples/ecs/send_and_receive_events.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.send_and_receive_events]
+name = "Send and receive events"
+description = "Demonstrates how to send and receive events of the same type in a single system"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -1897,6 +1936,7 @@ wasm = true
 name = "shader_material_glsl"
 path = "examples/shader/shader_material_glsl.rs"
 doc-scrape-examples = true
+required-features = ["shader_format_glsl"]
 
 [package.metadata.example.shader_material_glsl]
 name = "Material - GLSL"

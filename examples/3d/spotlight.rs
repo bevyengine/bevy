@@ -17,7 +17,6 @@ fn main() {
             DefaultPlugins,
             FrameTimeDiagnosticsPlugin,
             LogDiagnosticsPlugin::default(),
-            bevy_internal::core_pipeline::experimental::taa::TemporalAntiAliasPlugin,
         ))
         .add_systems(Startup, setup)
         .add_systems(Update, (light_sway, movement))

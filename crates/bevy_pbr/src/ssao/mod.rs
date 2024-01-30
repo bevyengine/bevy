@@ -199,7 +199,7 @@ impl ScreenSpaceAmbientOcclusionQualityLevel {
 struct SsaoNode {}
 
 impl ViewNode for SsaoNode {
-    type ViewData = (
+    type ViewQuery = (
         &'static ExtractedCamera,
         &'static SsaoPipelineId,
         &'static SsaoBindGroups,
@@ -210,7 +210,7 @@ impl ViewNode for SsaoNode {
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (camera, pipeline_id, bind_groups, view_uniform_offset): QueryItem<Self::ViewData>,
+        (camera, pipeline_id, bind_groups, view_uniform_offset): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let pipelines = world.resource::<SsaoPipelines>();
@@ -340,6 +340,7 @@ impl FromWorld for SsaoPipelines {
                     usage: TextureUsages::TEXTURE_BINDING,
                     view_formats: &[],
                 }),
+                TextureDataOrder::default(),
                 bytemuck::cast_slice(&generate_hilbert_index_lut()),
             )
             .create_view(&TextureViewDescriptor::default());

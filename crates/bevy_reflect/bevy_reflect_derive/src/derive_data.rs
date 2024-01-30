@@ -1,6 +1,6 @@
 use core::fmt;
 
-use crate::container_attributes::{FromReflectAttrs, ReflectTraits};
+use crate::container_attributes::{FromReflectAttrs, ReflectTraits, TypePathAttrs};
 use crate::field_attributes::{parse_field_attrs, ReflectFieldAttr};
 use crate::type_path::parse_path_no_leading_colon;
 use crate::utility::{StringExpr, WhereClauseOptions};
@@ -205,10 +205,7 @@ impl<'a> ReflectDerive<'a> {
                     }
 
                     reflect_mode = Some(ReflectMode::Normal);
-                    let new_traits = ReflectTraits::from_metas(
-                        meta_list.parse_args_with(Punctuated::<Meta, Comma>::parse_terminated)?,
-                        provenance.trait_,
-                    )?;
+                    let new_traits = ReflectTraits::from_meta_list(meta_list, provenance.trait_)?;
                     traits.merge(new_traits)?;
                 }
                 Meta::List(meta_list) if meta_list.path.is_ident(REFLECT_VALUE_ATTRIBUTE_NAME) => {
@@ -220,10 +217,7 @@ impl<'a> ReflectDerive<'a> {
                     }
 
                     reflect_mode = Some(ReflectMode::Value);
-                    let new_traits = ReflectTraits::from_metas(
-                        meta_list.parse_args_with(Punctuated::<Meta, Comma>::parse_terminated)?,
-                        provenance.trait_,
-                    )?;
+                    let new_traits = ReflectTraits::from_meta_list(meta_list, provenance.trait_)?;
                     traits.merge(new_traits)?;
                 }
                 Meta::Path(path) if path.is_ident(REFLECT_VALUE_ATTRIBUTE_NAME) => {
@@ -454,6 +448,11 @@ impl<'a> ReflectMeta<'a> {
         self.traits.from_reflect_attrs()
     }
 
+    /// The `TypePath` attributes on this type.
+    pub fn type_path_attrs(&self) -> &TypePathAttrs {
+        self.traits.type_path_attrs()
+    }
+
     /// The path to this type.
     pub fn type_path(&self) -> &ReflectTypePath<'a> {
         &self.type_path
@@ -532,7 +531,7 @@ impl<'a> ReflectStruct<'a> {
     }
 
     pub fn where_clause_options(&self) -> WhereClauseOptions {
-        WhereClauseOptions::new(self.meta(), self.active_fields(), self.ignored_fields())
+        WhereClauseOptions::new_with_fields(self.meta(), self.active_types().into_boxed_slice())
     }
 }
 
@@ -555,40 +554,31 @@ impl<'a> ReflectEnum<'a> {
         &self.variants
     }
 
+    /// Get a collection of types which are exposed to the reflection API
+    pub fn active_types(&self) -> Vec<Type> {
+        self.active_fields()
+            .map(|field| field.data.ty.clone())
+            .collect()
+    }
+
     /// Get an iterator of fields which are exposed to the reflection API
     pub fn active_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
-        self.variants()
+        self.variants
             .iter()
             .flat_map(|variant| variant.active_fields())
     }
 
-    /// Get an iterator of fields which are ignored by the reflection API
-    pub fn ignored_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
-        self.variants()
-            .iter()
-            .flat_map(|variant| variant.ignored_fields())
-    }
-
     pub fn where_clause_options(&self) -> WhereClauseOptions {
-        WhereClauseOptions::new(self.meta(), self.active_fields(), self.ignored_fields())
+        WhereClauseOptions::new_with_fields(self.meta(), self.active_types().into_boxed_slice())
     }
 }
 
 impl<'a> EnumVariant<'a> {
     /// Get an iterator of fields which are exposed to the reflection API
-    #[allow(dead_code)]
     pub fn active_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
         self.fields()
             .iter()
             .filter(|field| field.attrs.ignore.is_active())
-    }
-
-    /// Get an iterator of fields which are ignored by the reflection API
-    #[allow(dead_code)]
-    pub fn ignored_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
-        self.fields()
-            .iter()
-            .filter(|field| field.attrs.ignore.is_ignored())
     }
 
     /// The complete set of fields in this variant.
@@ -716,6 +706,7 @@ impl<'a> ReflectTypePath<'a> {
             where_clause: None,
             params: Punctuated::new(),
         };
+
         match self {
             Self::Internal { generics, .. } | Self::External { generics, .. } => generics,
             _ => EMPTY_GENERICS,

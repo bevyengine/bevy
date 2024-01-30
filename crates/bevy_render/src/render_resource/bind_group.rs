@@ -87,6 +87,8 @@ impl Deref for BindGroup {
 ///     values: Vec<f32>,
 ///     #[storage(4, read_only, buffer)]
 ///     buffer: Buffer,
+///     #[storage_texture(5)]
+///     storage_texture: Handle<Image>,
 /// }
 /// ```
 ///
@@ -97,6 +99,7 @@ impl Deref for BindGroup {
 /// @group(2) @binding(1) var color_texture: texture_2d<f32>;
 /// @group(2) @binding(2) var color_sampler: sampler;
 /// @group(2) @binding(3) var<storage> values: array<f32>;
+/// @group(2) @binding(5) var storage_texture: texture_storage_2d<rgba8unorm, read_write>;
 /// ```
 /// Note that the "group" index is determined by the usage context. It is not defined in [`AsBindGroup`]. For example, in Bevy material bind groups
 /// are generally bound to group 2.
@@ -122,6 +125,19 @@ impl Deref for BindGroup {
 /// | `filterable` = ...    | `true`, `false`                                                         | `true`               |
 /// | `multisampled` = ...  | `true`, `false`                                                         | `false`              |
 /// | `visibility(...)`     | `all`, `none`, or a list-combination of `vertex`, `fragment`, `compute` | `vertex`, `fragment` |
+///
+/// * `storage_texture(BINDING_INDEX, arguments)`
+///     * This field's [`Handle<Image>`](bevy_asset::Handle) will be used to look up the matching [`Texture`](crate::render_resource::Texture)
+///     GPU resource, which will be bound as a storage texture in shaders. The field will be assumed to implement [`Into<Option<Handle<Image>>>`]. In practice,
+///     most fields should be a [`Handle<Image>`](bevy_asset::Handle) or [`Option<Handle<Image>>`]. If the value of an [`Option<Handle<Image>>`] is
+///     [`None`], the [`FallbackImage`] resource will be used instead.
+///
+/// | Arguments              | Values                                                                                     | Default       |
+/// |------------------------|--------------------------------------------------------------------------------------------|---------------|
+/// | `dimension` = "..."    | `"1d"`, `"2d"`, `"2d_array"`, `"3d"`, `"cube"`, `"cube_array"`                             | `"2d"`        |
+/// | `image_format` = ...   | any member of [`TextureFormat`](crate::render_resource::TextureFormat)                     | `Rgba8Unorm`  |
+/// | `access` = ...         | any member of [`StorageTextureAccess`](crate::render_resource::StorageTextureAccess)       | `ReadWrite`   |
+/// | `visibility(...)`      | `all`, `none`, or a list-combination of `vertex`, `fragment`, `compute`                    | `compute`     |
 ///
 /// * `sampler(BINDING_INDEX, arguments)`
 ///     * This field's [`Handle<Image>`](bevy_asset::Handle) will be used to look up the matching [`Sampler`] GPU
