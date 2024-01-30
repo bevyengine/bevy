@@ -492,7 +492,10 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
     let meta = ReflectMeta::new(
         type_path,
         def.traits.unwrap_or_default(),
-        ReflectImplSource::Macro,
+        ReflectProvenance {
+            source: ReflectImplSource::ImplRemoteType,
+            trait_: ReflectTraitToImpl::Reflect,
+        },
     );
 
     #[cfg(feature = "documentation")]
@@ -590,7 +593,7 @@ pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
         type_path,
         def.traits.unwrap_or_default(),
         ReflectProvenance {
-            source: ReflectImplSource::Macro,
+            source: ReflectImplSource::ImplRemoteType,
             trait_: ReflectTraitToImpl::FromReflect,
         },
     ));
@@ -662,7 +665,10 @@ pub fn impl_type_path(input: TokenStream) -> TokenStream {
     let meta = ReflectMeta::new(
         type_path,
         ReflectTraits::default(),
-        ReflectImplSource::Macro,
+        ReflectProvenance {
+            source: ReflectImplSource::ImplRemoteType,
+            trait_: ReflectTraitToImpl::TypePath,
+        },
     );
 
     let type_path_impl = impls::impl_type_path(&meta);
