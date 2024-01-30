@@ -1,3 +1,4 @@
+pub mod debug_lines;
 pub mod wireframe;
 
 mod alpha;
