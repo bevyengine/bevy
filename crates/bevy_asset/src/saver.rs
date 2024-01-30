@@ -2,7 +2,7 @@ use crate::{io::Writer, meta::Settings, Asset, ErasedLoadedAsset};
 use crate::{AssetLoader, LabeledAsset, UntypedHandle};
 use bevy_utils::{BoxedFuture, CowArc, HashMap};
 use serde::{Deserialize, Serialize};
-use std::ops::Deref;
+use std::{borrow::Borrow, hash::Hash, ops::Deref};
 
 /// Saves an [`Asset`] of a given [`AssetSaver::Asset`] type. [`AssetSaver::OutputLoader`] will then be used to load the saved asset
 /// in the final deployed application. The saver should produce asset bytes in a format that [`AssetSaver::OutputLoader`] can read.
