@@ -16,7 +16,7 @@ use super::{
 pub trait ObserverSystem<E: 'static>:
     System<In = Observer<'static, E>, Out = ()> + Send + 'static
 {
-    fn queue_deferred(&mut self, world: DeferredWorld) {}
+    fn queue_deferred(&mut self, _world: DeferredWorld);
 }
 
 pub trait ObserverSystemParam: SystemParam {}

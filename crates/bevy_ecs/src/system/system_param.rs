@@ -756,7 +756,7 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
     /// Applies any deferred mutations to the [`World`].
     fn apply(&mut self, system_meta: &SystemMeta, world: &mut World);
 
-    fn queue(&mut self, system_meta: &SystemMeta, mut world: DeferredWorld) {}
+    fn queue(&mut self, _system_meta: &SystemMeta, _world: DeferredWorld) {}
 }
 
 /// A [`SystemParam`] that stores a buffer which gets applied to the [`World`] during

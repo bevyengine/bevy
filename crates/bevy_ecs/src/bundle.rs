@@ -721,7 +721,6 @@ impl<'w> BundleInserter<'w> {
 
                 // SAFETY: We have no oustanding mutable references to world as they were dropped
                 let new_archetype = &**new_archetype;
-                let mut world = self.world.into_deferred();
                 trigger_hooks(new_archetype, self.world.into_deferred());
                 new_location
             }

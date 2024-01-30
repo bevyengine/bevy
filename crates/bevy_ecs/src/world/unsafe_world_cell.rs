@@ -583,6 +583,10 @@ impl<'w> UnsafeWorldCell<'w> {
         // - caller ensures that we have permission to access the queue
         unsafe { &mut *addr_of_mut!((*self.0).command_queue) }
     }
+
+    pub(crate) unsafe fn increment_event_id(self) {
+        unsafe { (*self.0).last_event_id += 1 }
+    }
 }
 
 impl Debug for UnsafeWorldCell<'_> {

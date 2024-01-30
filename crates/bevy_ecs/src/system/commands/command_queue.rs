@@ -31,7 +31,7 @@ pub struct CommandQueue {
     // For each command, one `CommandMeta` is stored, followed by zero or more bytes
     // to store the command itself. To interpret these bytes, a pointer must
     // be passed to the corresponding `CommandMeta.apply_command_and_get_size` fn pointer.
-    bytes: Vec<MaybeUninit<u8>>,
+    pub(crate) bytes: Vec<MaybeUninit<u8>>,
 }
 
 // SAFETY: All commands [`Command`] implement [`Send`]

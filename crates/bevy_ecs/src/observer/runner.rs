@@ -51,7 +51,6 @@ impl ObserverComponent {
                 if trigger.source == Entity::PLACEHOLDER {
                     return;
                 }
-                println!("Trigger: {:?}", std::any::type_name::<E>());
                 let world = world.as_unsafe_world_cell();
                 let observer_cell =
                     unsafe { world.get_entity(trigger.observer).debug_checked_unwrap() };

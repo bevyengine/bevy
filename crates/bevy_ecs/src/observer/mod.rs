@@ -135,6 +135,7 @@ impl Observers {
     ) {
         let (mut world, observers) = unsafe {
             let world = world.as_unsafe_world_cell();
+            world.increment_event_id();
             let observers = world.observers();
             let Some(observers) = observers.try_get_observers(event) else {
                 return;
