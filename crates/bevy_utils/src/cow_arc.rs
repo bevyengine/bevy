@@ -45,6 +45,13 @@ impl<'a, T: ?Sized> Borrow<T> for CowArc<'a, T> {
     }
 }
 
+impl<'a, T: ?Sized> AsRef<T> for CowArc<'a, T> {
+    #[inline]
+    fn as_ref(&self) -> &T {
+        self
+    }
+}
+
 impl<'a, T: ?Sized> CowArc<'a, T>
 where
     &'a T: Into<Arc<T>>,
