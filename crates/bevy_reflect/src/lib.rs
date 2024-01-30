@@ -2064,7 +2064,7 @@ bevy_reflect::tests::Test {
         assert_eq!(Printer(Debuggable).to_string(), "Caterpillar!");
         assert_eq!(
             Printer(NotDebuggable).to_string(),
-            "bevy_reflect::tests::debug_specialization::NotDebuggable"
+            "bevy_reflect::tests::NotDebuggable",
         );
     }
 
