@@ -14,9 +14,9 @@ pub use render_pass::*;
 pub use ui_material_pipeline::*;
 
 use crate::{
-    BackgroundColor, BorderColor, CalculatedClip, ContentSize, Node, Style, UiImage, UiScale, Val,
+    BackgroundColor, BorderColor, CalculatedClip, ContentSize, DefaultUiCamera, Node, Outline,
+    Style, TargetCamera, UiImage, UiScale, Val,
 };
-use crate::{DefaultUiCamera, Outline, TargetCamera};
 
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
@@ -34,7 +34,6 @@ use bevy_render::{
     view::{ExtractedView, ViewUniforms},
     Extract, RenderApp, RenderSet,
 };
-#[cfg(feature = "bevy_text")]
 use bevy_sprite::TextureAtlasLayout;
 #[cfg(feature = "bevy_text")]
 use bevy_text::{PositionedGlyph, Text, TextLayoutInfo};
@@ -399,7 +398,6 @@ pub fn extract_uinode_outlines(
 
 pub fn extract_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    images: Extract<Res<Assets<Image>>>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     default_ui_camera: Extract<DefaultUiCamera>,
     uinode_query: Extract<
@@ -429,10 +427,6 @@ pub fn extract_uinodes(
         }
 
         let (image, flip_x, flip_y) = if let Some(image) = maybe_image {
-            // Skip loading images
-            if !images.contains(&image.texture) {
-                continue;
-            }
             (image.texture.id(), image.flip_x, image.flip_y)
         } else {
             (AssetId::default(), false, false)

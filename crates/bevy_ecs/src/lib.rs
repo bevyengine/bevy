@@ -1,3 +1,5 @@
+// FIXME(11590): remove this once the lint is fixed
+#![allow(unsafe_op_in_unsafe_fn)]
 #![warn(missing_docs)]
 #![doc = include_str!("../README.md")]
 
@@ -28,13 +30,15 @@ pub use bevy_ptr as ptr;
 pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "bevy_reflect")]
-    pub use crate::reflect::{AppTypeRegistry, ReflectComponent, ReflectResource};
+    pub use crate::reflect::{
+        AppTypeRegistry, ReflectComponent, ReflectFromWorld, ReflectResource,
+    };
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
         change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
         component::Component,
-        entity::Entity,
+        entity::{Entity, EntityMapper},
         event::{Event, EventReader, EventWriter, Events},
         query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         removal_detection::RemovedComponents,

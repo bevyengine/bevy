@@ -1,4 +1,4 @@
-use std::mem::MaybeUninit;
+use std::{fmt::Debug, mem::MaybeUninit};
 
 use bevy_ptr::{OwningPtr, Unaligned};
 use bevy_utils::tracing::warn;
@@ -32,6 +32,19 @@ pub struct CommandQueue {
     // to store the command itself. To interpret these bytes, a pointer must
     // be passed to the corresponding `CommandMeta.apply_command_and_get_size` fn pointer.
     bytes: Vec<MaybeUninit<u8>>,
+}
+
+// CommandQueue needs to implement Debug manually, rather than deriving it, because the derived impl just prints
+// [core::mem::maybe_uninit::MaybeUninit<u8>, core::mem::maybe_uninit::MaybeUninit<u8>, ..] for every byte in the vec,
+// which gets extremely verbose very quickly, while also providing no useful information.
+// It is not possible to soundly print the values of the contained bytes, as some of them may be padding or uninitialized (#4863)
+// So instead, the manual impl just prints the length of vec.
+impl Debug for CommandQueue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CommandQueue")
+            .field("len_bytes", &self.bytes.len())
+            .finish_non_exhaustive()
+    }
 }
 
 // SAFETY: All commands [`Command`] implement [`Send`]

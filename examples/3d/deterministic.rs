@@ -26,7 +26,12 @@ fn setup(
     deterministic_rendering_config.stable_sort_z_fighting = true;
 
     // Help message will be rendered there.
-    commands.spawn(TextBundle::default());
+    commands.spawn(TextBundle::default().with_style(Style {
+        position_type: PositionType::Absolute,
+        top: Val::Px(12.0),
+        left: Val::Px(12.0),
+        ..default()
+    }));
 
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(3.0, 3.0, 3.0).looking_at(Vec3::new(0., 0., 0.), Vec3::Y),
@@ -34,8 +39,9 @@ fn setup(
     });
 
     let mesh = meshes.add(Plane::from_size(2.0));
-    for i in 0..360 {
-        let color = Color::hsl(i as f32, 1.0, 0.5);
+    let nb_plane = 10;
+    for i in 0..nb_plane {
+        let color = Color::hsl(i as f32 * 360.0 / nb_plane as f32, 1.0, 0.5);
         commands.spawn(PbrBundle {
             mesh: mesh.clone(),
             material: materials.add(StandardMaterial {
