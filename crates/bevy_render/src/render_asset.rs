@@ -77,9 +77,9 @@ bitflags::bitflags! {
 impl Default for RenderAssetUsages {
     /// Returns the default render asset usage flags:
     /// `RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD`
-    /// 
+    ///
     /// This default configuration ensures the asset persists in the main world, even after being prepared for rendering.
-    /// 
+    ///
     /// If your asset does not change, consider using `RenderAssetUsages::RENDER_WORLD` exclusively. This will cause
     /// the asset to be unloaded from the main world once it has been prepared for rendering. If the asset does not need
     /// to reach the render world at all, use `RenderAssetUsages::MAIN_WORLD` exclusively.
