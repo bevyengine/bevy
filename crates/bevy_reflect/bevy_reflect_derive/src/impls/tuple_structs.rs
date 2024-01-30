@@ -1,7 +1,6 @@
-use crate::fq_std::{FQAny, FQBox, FQDefault, FQOption, FQResult};
 use crate::impls::{impl_type_path, impl_typed};
-use crate::utility::extend_where_clause;
 use crate::ReflectStruct;
+use bevy_macro_utils::fq_std::{FQAny, FQBox, FQDefault, FQOption, FQResult};
 use quote::{quote, ToTokens};
 use syn::{Index, Member};
 
@@ -14,7 +13,7 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
 
     let field_idents = reflect_struct
         .active_fields()
-        .map(|field| Member::Unnamed(Index::from(field.index)))
+        .map(|field| Member::Unnamed(Index::from(field.declaration_index)))
         .collect::<Vec<_>>();
     let field_types = reflect_struct.active_types();
     let field_count = field_idents.len();
@@ -27,7 +26,10 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
         .meta()
         .traits()
         .get_hash_impl(bevy_reflect_path);
-    let debug_fn = reflect_struct.meta().traits().get_debug_impl();
+    let debug_fn = reflect_struct
+        .meta()
+        .traits()
+        .get_debug_impl(bevy_reflect_path);
     let partial_eq_fn = reflect_struct
         .meta()
         .traits()
@@ -44,7 +46,7 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
     let field_generator = {
         let docs = reflect_struct
             .active_fields()
-            .map(|field| quote::ToTokens::to_token_stream(&field.doc));
+            .map(|field| ToTokens::to_token_stream(&field.doc));
         quote! {
             #(#bevy_reflect_path::UnnamedField::new::<#field_types>(#field_idents).with_docs(#docs) ,)*
         }
@@ -57,20 +59,18 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
         }
     };
 
-    let string_name = struct_path.get_ident().unwrap().to_string();
-
     #[cfg(feature = "documentation")]
     let info_generator = {
         let doc = reflect_struct.meta().doc();
         quote! {
-           #bevy_reflect_path::TupleStructInfo::new::<Self>(#string_name, &fields).with_docs(#doc)
+           #bevy_reflect_path::TupleStructInfo::new::<Self>(&fields).with_docs(#doc)
         }
     };
 
     #[cfg(not(feature = "documentation"))]
     let info_generator = {
         quote! {
-            #bevy_reflect_path::TupleStructInfo::new::<Self>(#string_name, &fields)
+            #bevy_reflect_path::TupleStructInfo::new::<Self>(&fields)
         }
     };
 
@@ -84,7 +84,7 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
         },
     );
 
-    let type_path_impl = impl_type_path(reflect_struct.meta(), &where_clause_options);
+    let type_path_impl = impl_type_path(reflect_struct.meta());
 
     let (impl_generics, ty_generics, where_clause) = reflect_struct
         .meta()
@@ -92,7 +92,7 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
         .generics()
         .split_for_impl();
 
-    let where_reflect_clause = extend_where_clause(where_clause, &where_clause_options);
+    let where_reflect_clause = where_clause_options.extend_where_clause(where_clause);
 
     quote! {
         #get_type_registration_impl
@@ -133,11 +133,6 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
         }
 
         impl #impl_generics #bevy_reflect_path::Reflect for #struct_path #ty_generics #where_reflect_clause {
-            #[inline]
-            fn type_name(&self) -> &str {
-                ::core::any::type_name::<Self>()
-            }
-
             #[inline]
             fn get_represented_type_info(&self) -> #FQOption<&'static #bevy_reflect_path::TypeInfo> {
                 #FQOption::Some(<Self as #bevy_reflect_path::Typed>::type_info())

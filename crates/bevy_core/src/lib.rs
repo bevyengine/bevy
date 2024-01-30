@@ -1,5 +1,5 @@
 #![warn(missing_docs)]
-#![allow(clippy::type_complexity)]
+
 //! This crate provides core functionality for Bevy Engine.
 
 mod name;
@@ -23,7 +23,7 @@ pub mod prelude {
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
-use bevy_utils::{Duration, HashSet, Instant};
+use bevy_utils::{Duration, HashSet, Instant, Uuid};
 use std::borrow::Cow;
 use std::ffi::OsString;
 use std::marker::PhantomData;
@@ -61,7 +61,8 @@ fn register_rust_types(app: &mut App) {
         .register_type::<Cow<'static, str>>()
         .register_type::<Cow<'static, Path>>()
         .register_type::<Duration>()
-        .register_type::<Instant>();
+        .register_type::<Instant>()
+        .register_type::<Uuid>();
 }
 
 fn register_math_types(app: &mut App) {
@@ -139,7 +140,7 @@ fn tick_global_task_pools(_main_thread_marker: Option<NonSend<NonSendMarker>>) {
 /// [`FrameCount`] will wrap to 0 after exceeding [`u32::MAX`]. Within reasonable
 /// assumptions, one may exploit wrapping arithmetic to determine the number of frames
 /// that have elapsed between two observations – see [`u32::wrapping_sub()`].
-#[derive(Default, Resource, Clone, Copy)]
+#[derive(Debug, Default, Resource, Clone, Copy)]
 pub struct FrameCount(pub u32);
 
 /// Adds frame counting functionality to Apps.
@@ -153,7 +154,10 @@ impl Plugin for FrameCountPlugin {
     }
 }
 
-fn update_frame_count(mut frame_count: ResMut<FrameCount>) {
+/// A system used to increment [`FrameCount`] with wrapping addition.
+///
+/// See [`FrameCount`] for more details.
+pub fn update_frame_count(mut frame_count: ResMut<FrameCount>) {
     frame_count.0 = frame_count.0.wrapping_add(1);
 }
 

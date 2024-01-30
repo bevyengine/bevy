@@ -7,7 +7,6 @@ impl_reflect_value!(::bevy_utils::Uuid(
     Serialize,
     Deserialize,
     Default,
-    Debug,
     PartialEq,
     Hash
 ));

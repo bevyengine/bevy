@@ -1,9 +1,18 @@
-#![allow(clippy::type_complexity)]
-
 //! This crate contains Bevy's UI system, which can be used to create UI for both 2D and 3D games
 //! # Basic usage
 //! Spawn UI elements with [`node_bundles::ButtonBundle`], [`node_bundles::ImageBundle`], [`node_bundles::TextBundle`] and [`node_bundles::NodeBundle`]
 //! This UI is laid out with the Flexbox and CSS Grid layout models (see <https://cssreference.io/flexbox/>)
+
+pub mod measurement;
+pub mod node_bundles;
+pub mod ui_material;
+pub mod update;
+pub mod widget;
+
+use bevy_derive::{Deref, DerefMut};
+use bevy_reflect::Reflect;
+#[cfg(feature = "bevy_text")]
+mod accessibility;
 mod focus;
 mod geometry;
 mod layout;
@@ -11,23 +20,12 @@ mod render;
 mod stack;
 mod ui_node;
 
-#[cfg(feature = "bevy_text")]
-mod accessibility;
-pub mod camera_config;
-pub mod measurement;
-pub mod node_bundles;
-pub mod update;
-pub mod widget;
-
-use bevy_derive::{Deref, DerefMut};
-#[cfg(feature = "bevy_text")]
-use bevy_render::camera::CameraUpdateSystem;
-use bevy_render::{extract_component::ExtractComponentPlugin, RenderApp};
 pub use focus::*;
 pub use geometry::*;
 pub use layout::*;
 pub use measurement::*;
 pub use render::*;
+pub use ui_material::*;
 pub use ui_node::*;
 use widget::UiImageSize;
 
@@ -35,19 +33,19 @@ use widget::UiImageSize;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        camera_config::*, geometry::*, node_bundles::*, ui_node::*, widget::Button, widget::Label,
-        Interaction, UiScale,
+        geometry::*, node_bundles::*, ui_material::*, ui_node::*, widget::Button, widget::Label,
+        Interaction, UiMaterialPlugin, UiScale,
     };
 }
 
-use crate::prelude::UiCameraConfig;
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
+use bevy_render::RenderApp;
 use bevy_transform::TransformSystem;
 use stack::ui_stack_system;
 pub use stack::UiStack;
-use update::update_clipping_system;
+use update::{update_clipping_system, update_target_camera_system};
 
 /// The basic plugin for Bevy UI
 #[derive(Default)]
@@ -62,14 +60,16 @@ pub enum UiSystem {
     Focus,
     /// After this label, the [`UiStack`] resource has been updated
     Stack,
+    /// After this label, node outline widths have been updated
+    Outlines,
 }
 
 /// The current scale of the UI.
 ///
 /// A multiplier to fixed-sized ui values.
 /// **Note:** This will only affect fixed ui values like [`Val::Px`]
-#[derive(Debug, Resource, Deref, DerefMut)]
-pub struct UiScale(pub f64);
+#[derive(Debug, Reflect, Resource, Deref, DerefMut)]
+pub struct UiScale(pub f32);
 
 impl Default for UiScale {
     fn default() -> Self {
@@ -77,10 +77,17 @@ impl Default for UiScale {
     }
 }
 
+// Marks systems that can be ambiguous with [`widget::text_system`] if the `bevy_text` feature is enabled.
+// See https://github.com/bevyengine/bevy/pull/11391 for more details.
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+struct AmbiguousWithTextSystem;
+
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+struct AmbiguousWithUpdateText2DLayout;
+
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(ExtractComponentPlugin::<UiCameraConfig>::default())
-            .init_resource::<UiSurface>()
+        app.init_resource::<UiSurface>()
             .init_resource::<UiScale>()
             .init_resource::<UiStack>()
             .register_type::<AlignContent>()
@@ -110,76 +117,115 @@ impl Plugin for UiPlugin {
             .register_type::<RelativeCursorPosition>()
             .register_type::<RepeatedGridTrack>()
             .register_type::<Style>()
+            .register_type::<TargetCamera>()
             .register_type::<UiImage>()
             .register_type::<UiImageSize>()
             .register_type::<UiRect>()
+            .register_type::<UiScale>()
             .register_type::<Val>()
             .register_type::<BorderColor>()
             .register_type::<widget::Button>()
             .register_type::<widget::Label>()
             .register_type::<ZIndex>()
+            .register_type::<Outline>()
             .add_systems(
                 PreUpdate,
                 ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),
             );
-        // add these systems to front because these must run before transform update systems
-        #[cfg(feature = "bevy_text")]
-        app.add_systems(
-            PostUpdate,
-            (
-                widget::measure_text_system
-                    .before(UiSystem::Layout)
-                    // Potential conflict: `Assets<Image>`
-                    // In practice, they run independently since `bevy_render::camera_update_system`
-                    // will only ever observe its own render target, and `widget::measure_text_system`
-                    // will never modify a pre-existing `Image` asset.
-                    .ambiguous_with(CameraUpdateSystem)
-                    // Potential conflict: `Assets<Image>`
-                    // Since both systems will only ever insert new [`Image`] assets,
-                    // they will never observe each other's effects.
-                    .ambiguous_with(bevy_text::update_text2d_layout),
-                widget::text_system.after(UiSystem::Layout),
-            ),
-        );
-        #[cfg(feature = "bevy_text")]
-        app.add_plugins(accessibility::AccessibilityPlugin);
-        app.add_systems(PostUpdate, {
-            let system = widget::update_image_content_size_system.before(UiSystem::Layout);
-            // Potential conflicts: `Assets<Image>`
-            // They run independently since `widget::image_node_system` will only ever observe
-            // its own UiImage, and `widget::text_system` & `bevy_text::update_text2d_layout`
-            // will never modify a pre-existing `Image` asset.
-            #[cfg(feature = "bevy_text")]
-            let system = system
-                .ambiguous_with(bevy_text::update_text2d_layout)
-                .ambiguous_with(widget::text_system);
 
-            system
-        });
-        app.add_systems(
-            PostUpdate,
-            widget::update_atlas_content_size_system.before(UiSystem::Layout),
-        );
         app.add_systems(
             PostUpdate,
             (
+                update_target_camera_system.before(UiSystem::Layout),
+                apply_deferred
+                    .after(update_target_camera_system)
+                    .before(UiSystem::Layout),
                 ui_layout_system
                     .in_set(UiSystem::Layout)
                     .before(TransformSystem::TransformPropagate),
-                ui_stack_system.in_set(UiSystem::Stack),
+                resolve_outlines_system
+                    .in_set(UiSystem::Outlines)
+                    .after(UiSystem::Layout)
+                    // clipping doesn't care about outlines
+                    .ambiguous_with(update_clipping_system)
+                    .in_set(AmbiguousWithTextSystem),
+                ui_stack_system
+                    .in_set(UiSystem::Stack)
+                    // the systems don't care about stack index
+                    .ambiguous_with(update_clipping_system)
+                    .ambiguous_with(resolve_outlines_system)
+                    .ambiguous_with(ui_layout_system)
+                    .in_set(AmbiguousWithTextSystem),
                 update_clipping_system.after(TransformSystem::TransformPropagate),
+                // Potential conflicts: `Assets<Image>`
+                // They run independently since `widget::image_node_system` will only ever observe
+                // its own UiImage, and `widget::text_system` & `bevy_text::update_text2d_layout`
+                // will never modify a pre-existing `Image` asset.
+                widget::update_image_content_size_system
+                    .before(UiSystem::Layout)
+                    .in_set(AmbiguousWithTextSystem)
+                    .in_set(AmbiguousWithUpdateText2DLayout),
             ),
         );
 
-        crate::render::build_ui_render(app);
+        #[cfg(feature = "bevy_text")]
+        build_text_interop(app);
+
+        build_ui_render(app);
     }
 
     fn finish(&self, app: &mut App) {
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
         };
 
         render_app.init_resource::<UiPipeline>();
     }
+}
+
+/// A function that should be called from [`UiPlugin::build`] when [`bevy_text`] is enabled.
+#[cfg(feature = "bevy_text")]
+fn build_text_interop(app: &mut App) {
+    use crate::widget::TextFlags;
+    use bevy_text::TextLayoutInfo;
+
+    app.register_type::<TextLayoutInfo>()
+        .register_type::<TextFlags>();
+
+    app.add_systems(
+        PostUpdate,
+        (
+            widget::measure_text_system
+                .before(UiSystem::Layout)
+                // Potential conflict: `Assets<Image>`
+                // In practice, they run independently since `bevy_render::camera_update_system`
+                // will only ever observe its own render target, and `widget::measure_text_system`
+                // will never modify a pre-existing `Image` asset.
+                .ambiguous_with(bevy_render::camera::CameraUpdateSystem)
+                // Potential conflict: `Assets<Image>`
+                // Since both systems will only ever insert new [`Image`] assets,
+                // they will never observe each other's effects.
+                .ambiguous_with(bevy_text::update_text2d_layout)
+                // We assume Text is on disjoint UI entities to UiImage and UiTextureAtlasImage
+                // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
+                .ambiguous_with(widget::update_image_content_size_system),
+            widget::text_system
+                .after(UiSystem::Layout)
+                .after(bevy_text::remove_dropped_font_atlas_sets)
+                // Text2d and bevy_ui text are entirely on separate entities
+                .ambiguous_with(bevy_text::update_text2d_layout),
+        ),
+    );
+
+    app.add_plugins(accessibility::AccessibilityPlugin);
+
+    app.configure_sets(
+        PostUpdate,
+        AmbiguousWithTextSystem.ambiguous_with(widget::text_system),
+    );
+
+    app.configure_sets(
+        PostUpdate,
+        AmbiguousWithUpdateText2DLayout.ambiguous_with(bevy_text::update_text2d_layout),
+    );
 }

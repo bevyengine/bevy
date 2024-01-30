@@ -1,3 +1,4 @@
+use crate::system::{ExclusiveSystemParam, SystemMeta};
 use crate::{
     component::Tick,
     storage::SparseSetIndex,
@@ -53,7 +54,7 @@ unsafe impl SystemParam for WorldId {
 
     type Item<'world, 'state> = WorldId;
 
-    fn init_state(_: &mut super::World, _: &mut crate::system::SystemMeta) -> Self::State {}
+    fn init_state(_: &mut World, _: &mut crate::system::SystemMeta) -> Self::State {}
 
     unsafe fn get_param<'world, 'state>(
         _: &'state mut Self::State,
@@ -62,6 +63,19 @@ unsafe impl SystemParam for WorldId {
         _: Tick,
     ) -> Self::Item<'world, 'state> {
         world.id()
+    }
+}
+
+impl ExclusiveSystemParam for WorldId {
+    type State = WorldId;
+    type Item<'s> = WorldId;
+
+    fn init(world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
+        world.id()
+    }
+
+    fn get_param<'s>(state: &'s mut Self::State, _system_meta: &SystemMeta) -> Self::Item<'s> {
+        *state
     }
 }
 
@@ -93,6 +107,30 @@ mod tests {
                 assert_ne!(id1, id2, "WorldIds should not repeat");
             }
         }
+    }
+
+    #[test]
+    fn world_id_system_param() {
+        fn test_system(world_id: WorldId) -> WorldId {
+            world_id
+        }
+
+        let mut world = World::default();
+        let system_id = world.register_system(test_system);
+        let world_id = world.run_system(system_id).unwrap();
+        assert_eq!(world.id(), world_id);
+    }
+
+    #[test]
+    fn world_id_exclusive_system_param() {
+        fn test_system(_world: &mut World, world_id: WorldId) -> WorldId {
+            world_id
+        }
+
+        let mut world = World::default();
+        let system_id = world.register_system(test_system);
+        let world_id = world.run_system(system_id).unwrap();
+        assert_eq!(world.id(), world_id);
     }
 
     // We cannot use this test as-is, as it causes other tests to panic due to using the same atomic variable.

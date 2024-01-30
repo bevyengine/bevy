@@ -6,7 +6,7 @@ use bevy::{
     core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass, NormalPrepass},
     pbr::{NotShadowCaster, PbrPlugin},
     prelude::*,
-    reflect::{TypePath, TypeUuid},
+    reflect::TypePath,
     render::render_resource::{AsBindGroup, ShaderRef, ShaderType},
 };
 
@@ -61,8 +61,8 @@ fn setup(
 
     // plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(5.0).into()),
-        material: std_materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+        mesh: meshes.add(shape::Plane::from_size(5.0)),
+        material: std_materials.add(Color::rgb(0.3, 0.5, 0.3)),
         ..default()
     });
 
@@ -71,7 +71,7 @@ fn setup(
     // For a real application, this isn't ideal.
     commands.spawn((
         MaterialMeshBundle {
-            mesh: meshes.add(shape::Quad::new(Vec2::new(20.0, 20.0)).into()),
+            mesh: meshes.add(shape::Quad::new(Vec2::new(20.0, 20.0))),
             material: depth_materials.add(PrepassOutputMaterial {
                 settings: ShowPrepassSettings::default(),
             }),
@@ -85,7 +85,7 @@ fn setup(
     // Opaque cube
     commands.spawn((
         MaterialMeshBundle {
-            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+            mesh: meshes.add(shape::Cube { size: 1.0 }),
             material: materials.add(CustomMaterial {
                 color: Color::WHITE,
                 color_texture: Some(asset_server.load("branding/icon.png")),
@@ -99,7 +99,7 @@ fn setup(
 
     // Cube with alpha mask
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+        mesh: meshes.add(shape::Cube { size: 1.0 }),
         material: std_materials.add(StandardMaterial {
             alpha_mode: AlphaMode::Mask(1.0),
             base_color_texture: Some(asset_server.load("branding/icon.png")),
@@ -112,7 +112,7 @@ fn setup(
     // Cube with alpha blending.
     // Transparent materials are ignored by the prepass
     commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+        mesh: meshes.add(shape::Cube { size: 1.0 }),
         material: materials.add(CustomMaterial {
             color: Color::WHITE,
             color_texture: Some(asset_server.load("branding/icon.png")),
@@ -125,7 +125,7 @@ fn setup(
     // light
     commands.spawn(PointLightBundle {
         point_light: PointLight {
-            intensity: 1500.0,
+            intensity: 300_000.0,
             shadows_enabled: true,
             ..default()
         },
@@ -135,7 +135,6 @@ fn setup(
 
     let style = TextStyle {
         font_size: 18.0,
-        color: Color::WHITE,
         ..default()
     };
 
@@ -157,8 +156,7 @@ fn setup(
 }
 
 // This is the struct that will be passed to your shader
-#[derive(AsBindGroup, TypePath, TypeUuid, Debug, Clone)]
-#[uuid = "f690fdae-d598-45ab-8225-97e2a3f056e0"]
+#[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 pub struct CustomMaterial {
     #[uniform(0)]
     color: Color,
@@ -206,8 +204,7 @@ struct ShowPrepassSettings {
 }
 
 // This shader simply loads the prepass texture and outputs it directly
-#[derive(AsBindGroup, TypePath, TypeUuid, Debug, Clone)]
-#[uuid = "0af99895-b96e-4451-bc12-c6b1c1c52750"]
+#[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 pub struct PrepassOutputMaterial {
     #[uniform(0)]
     settings: ShowPrepassSettings,
@@ -227,7 +224,7 @@ impl Material for PrepassOutputMaterial {
 /// Every time you press space, it will cycle between transparent, depth and normals view
 fn toggle_prepass_view(
     mut prepass_view: Local<u32>,
-    keycode: Res<Input<KeyCode>>,
+    keycode: Res<ButtonInput<KeyCode>>,
     material_handle: Query<&Handle<PrepassOutputMaterial>>,
     mut materials: ResMut<Assets<PrepassOutputMaterial>>,
     mut text: Query<&mut Text>,

@@ -28,7 +28,7 @@ fn play_pitch(
     mut events: EventReader<PlayPitch>,
     mut commands: Commands,
 ) {
-    for _ in events.iter() {
+    for _ in events.read() {
         info!("playing pitch with frequency: {}", frequency.0);
         commands.spawn(PitchBundle {
             source: pitch_assets.add(Pitch::new(frequency.0, Duration::new(1, 0))),
@@ -39,14 +39,14 @@ fn play_pitch(
 }
 
 fn keyboard_input_system(
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     mut frequency: ResMut<PitchFrequency>,
     mut events: EventWriter<PlayPitch>,
 ) {
-    if keyboard_input.just_pressed(KeyCode::Up) {
+    if keyboard_input.just_pressed(KeyCode::ArrowUp) {
         frequency.0 *= 2.0f32.powf(1.0 / 12.0);
     }
-    if keyboard_input.just_pressed(KeyCode::Down) {
+    if keyboard_input.just_pressed(KeyCode::ArrowDown) {
         frequency.0 /= 2.0f32.powf(1.0 / 12.0);
     }
     if keyboard_input.just_pressed(KeyCode::Space) {

@@ -1,6 +1,6 @@
 //! The gamepad input functionality.
 
-use crate::{Axis, ButtonState, Input};
+use crate::{Axis, ButtonInput, ButtonState};
 use bevy_ecs::event::{Event, EventReader, EventWriter};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
@@ -81,7 +81,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// The `ID` of a gamepad is fixed until the gamepad disconnects or the app is restarted.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect)]
-#[reflect(Debug, Hash, PartialEq)]
+#[reflect(Hash, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -101,7 +101,7 @@ impl Gamepad {
 
 /// Metadata associated with a [`Gamepad`].
 #[derive(Debug, Clone, PartialEq, Eq, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -165,10 +165,10 @@ impl Gamepads {
 ///
 /// This is used to determine which button has changed its value when receiving a
 /// [`GamepadButtonChangedEvent`]. It is also used in the [`GamepadButton`]
-/// which in turn is used to create the [`Input<GamepadButton>`] or
+/// which in turn is used to create the [`ButtonInput<GamepadButton>`] or
 /// [`Axis<GamepadButton>`] `bevy` resources.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect)]
-#[reflect(Debug, Hash, PartialEq)]
+#[reflect(Hash, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -226,14 +226,14 @@ pub enum GamepadButtonType {
 ///
 /// ## Usage
 ///
-/// It is used as the generic `T` value of an [`Input`] and [`Axis`] to create `bevy` resources. These
+/// It is used as the generic `T` value of an [`ButtonInput`] and [`Axis`] to create `bevy` resources. These
 /// resources store the data of the buttons of a gamepad and can be accessed inside of a system.
 ///
 /// ## Updating
 ///
 /// The gamepad button resources are updated inside of the [`gamepad_button_event_system`].
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect)]
-#[reflect(Debug, Hash, PartialEq)]
+#[reflect(Hash, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -269,7 +269,7 @@ impl GamepadButton {
 
 /// A gamepad button input event.
 #[derive(Event, Debug, Clone, Copy, PartialEq, Eq, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -290,7 +290,7 @@ pub struct GamepadButtonInput {
 /// [`GamepadAxisChangedEvent`]. It is also used in the [`GamepadAxis`]
 /// which in turn is used to create the [`Axis<GamepadAxis>`] `bevy` resource.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect)]
-#[reflect(Debug, Hash, PartialEq)]
+#[reflect(Hash, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -326,7 +326,7 @@ pub enum GamepadAxisType {
 ///
 /// The gamepad axes resources are updated inside of the [`gamepad_axis_event_system`].
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect)]
-#[reflect(Debug, Hash, PartialEq)]
+#[reflect(Hash, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -371,7 +371,7 @@ impl GamepadAxis {
 /// should register as a [`GamepadEvent`]. Events that don't meet the change thresholds defined in [`GamepadSettings`]
 /// will not register. To modify these settings, mutate the corresponding resource.
 #[derive(Resource, Default, Debug, Reflect)]
-#[reflect(Debug, Default)]
+#[reflect(Default)]
 pub struct GamepadSettings {
     /// The default button settings.
     pub default_button_settings: ButtonSettings,
@@ -454,7 +454,7 @@ impl GamepadSettings {
 ///
 /// Allowed values: `0.0 <= ``release_threshold`` <= ``press_threshold`` <= 1.0`
 #[derive(Debug, Clone, Reflect)]
-#[reflect(Debug, Default)]
+#[reflect(Default)]
 pub struct ButtonSettings {
     press_threshold: f32,
     release_threshold: f32,
@@ -516,14 +516,14 @@ impl ButtonSettings {
     /// Returns `true` if the button is pressed.
     ///
     /// A button is considered pressed if the `value` passed is greater than or equal to the press threshold.
-    fn is_pressed(&self, value: f32) -> bool {
+    pub fn is_pressed(&self, value: f32) -> bool {
         value >= self.press_threshold
     }
 
     /// Returns `true` if the button is released.
     ///
     /// A button is considered released if the `value` passed is lower than or equal to the release threshold.
-    fn is_released(&self, value: f32) -> bool {
+    pub fn is_released(&self, value: f32) -> bool {
         value <= self.release_threshold
     }
 
@@ -614,7 +614,7 @@ impl ButtonSettings {
 ///
 /// The valid range is `[-1.0, 1.0]`.
 #[derive(Debug, Clone, Reflect, PartialEq)]
-#[reflect(Debug, Default)]
+#[reflect(Default)]
 pub struct AxisSettings {
     /// Values that are higher than `livezone_upperbound` will be rounded up to 1.0.
     livezone_upperbound: f32,
@@ -631,10 +631,10 @@ pub struct AxisSettings {
 impl Default for AxisSettings {
     fn default() -> Self {
         AxisSettings {
-            livezone_upperbound: 0.95,
+            livezone_upperbound: 1.0,
             deadzone_upperbound: 0.05,
             deadzone_lowerbound: -0.05,
-            livezone_lowerbound: -0.95,
+            livezone_lowerbound: -1.0,
             threshold: 0.01,
         }
     }
@@ -946,7 +946,7 @@ impl AxisSettings {
 ///
 /// The current value of a button is received through the [`GamepadButtonChangedEvent`].
 #[derive(Debug, Clone, Reflect)]
-#[reflect(Debug, Default)]
+#[reflect(Default)]
 pub struct ButtonAxisSettings {
     /// The high value at which to apply rounding.
     pub high: f32,
@@ -1011,7 +1011,7 @@ impl ButtonAxisSettings {
 /// Handles [`GamepadConnectionEvent`]s and updates gamepad resources.
 ///
 /// Updates the [`Gamepads`] resource and resets and/or initializes
-/// the [`Axis<GamepadButton>`] and [`Input<GamepadButton>`] resources.
+/// the [`Axis<GamepadButton>`] and [`ButtonInput<GamepadButton>`] resources.
 ///
 /// ## Note
 ///
@@ -1021,9 +1021,9 @@ pub fn gamepad_connection_system(
     mut connection_events: EventReader<GamepadConnectionEvent>,
     mut axis: ResMut<Axis<GamepadAxis>>,
     mut button_axis: ResMut<Axis<GamepadButton>>,
-    mut button_input: ResMut<Input<GamepadButton>>,
+    mut button_input: ResMut<ButtonInput<GamepadButton>>,
 ) {
-    for connection_event in connection_events.iter() {
+    for connection_event in connection_events.read() {
         let gamepad = connection_event.gamepad;
 
         if let GamepadConnection::Connected(info) = &connection_event.connection {
@@ -1056,7 +1056,7 @@ pub fn gamepad_connection_system(
 
 /// The connection status of a gamepad.
 #[derive(Debug, Clone, PartialEq, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -1072,7 +1072,7 @@ pub enum GamepadConnection {
 /// A Gamepad connection event. Created when a connection to a gamepad
 /// is established and when a gamepad is disconnected.
 #[derive(Event, Debug, Clone, PartialEq, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -1108,7 +1108,7 @@ impl GamepadConnectionEvent {
 /// Gamepad event for when the "value" on the axis changes
 /// by an amount larger than the threshold defined in [`GamepadSettings`].
 #[derive(Event, Debug, Clone, PartialEq, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -1137,7 +1137,7 @@ impl GamepadAxisChangedEvent {
 /// Gamepad event for when the "value" (amount of pressure) on the button
 /// changes by an amount larger than the threshold defined in [`GamepadSettings`].
 #[derive(Event, Debug, Clone, PartialEq, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -1163,25 +1163,25 @@ impl GamepadButtonChangedEvent {
     }
 }
 
-/// Uses [`GamepadAxisChangedEvent`]s to update the relevant [`Input`] and [`Axis`] values.
+/// Uses [`GamepadAxisChangedEvent`]s to update the relevant [`ButtonInput`] and [`Axis`] values.
 pub fn gamepad_axis_event_system(
     mut gamepad_axis: ResMut<Axis<GamepadAxis>>,
     mut axis_events: EventReader<GamepadAxisChangedEvent>,
 ) {
-    for axis_event in axis_events.iter() {
+    for axis_event in axis_events.read() {
         let axis = GamepadAxis::new(axis_event.gamepad, axis_event.axis_type);
         gamepad_axis.set(axis, axis_event.value);
     }
 }
 
-/// Uses [`GamepadButtonChangedEvent`]s to update the relevant [`Input`] and [`Axis`] values.
+/// Uses [`GamepadButtonChangedEvent`]s to update the relevant [`ButtonInput`] and [`Axis`] values.
 pub fn gamepad_button_event_system(
     mut button_changed_events: EventReader<GamepadButtonChangedEvent>,
-    mut button_input: ResMut<Input<GamepadButton>>,
+    mut button_input: ResMut<ButtonInput<GamepadButton>>,
     mut button_input_events: EventWriter<GamepadButtonInput>,
     settings: Res<GamepadSettings>,
 ) {
-    for button_event in button_changed_events.iter() {
+    for button_event in button_changed_events.read() {
         let button = GamepadButton::new(button_event.gamepad, button_event.button_type);
         let value = button_event.value;
         let button_property = settings.get_button_settings(button);
@@ -1216,7 +1216,7 @@ pub fn gamepad_button_event_system(
 /// [`GamepadButtonChangedEvent`] and [`GamepadAxisChangedEvent`] when
 /// the in-frame relative ordering of events is important.
 #[derive(Event, Debug, Clone, PartialEq, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -1255,16 +1255,20 @@ pub fn gamepad_event_system(
     mut connection_events: EventWriter<GamepadConnectionEvent>,
     mut button_events: EventWriter<GamepadButtonChangedEvent>,
     mut axis_events: EventWriter<GamepadAxisChangedEvent>,
-    mut button_input: ResMut<Input<GamepadButton>>,
+    mut button_input: ResMut<ButtonInput<GamepadButton>>,
 ) {
     button_input.bypass_change_detection().clear();
-    for gamepad_event in gamepad_events.iter() {
+    for gamepad_event in gamepad_events.read() {
         match gamepad_event {
             GamepadEvent::Connection(connection_event) => {
                 connection_events.send(connection_event.clone());
             }
-            GamepadEvent::Button(button_event) => button_events.send(button_event.clone()),
-            GamepadEvent::Axis(axis_event) => axis_events.send(axis_event.clone()),
+            GamepadEvent::Button(button_event) => {
+                button_events.send(button_event.clone());
+            }
+            GamepadEvent::Axis(axis_event) => {
+                axis_events.send(axis_event.clone());
+            }
         }
     }
 }
@@ -1529,7 +1533,7 @@ mod tests {
         ];
 
         for (new_value, expected) in cases {
-            let settings = AxisSettings::default();
+            let settings = AxisSettings::new(-0.95, -0.05, 0.05, 0.95, 0.01).unwrap();
             test_axis_settings_filter(settings, new_value, None, expected);
         }
     }
@@ -1556,7 +1560,7 @@ mod tests {
         ];
 
         for (new_value, old_value, expected) in cases {
-            let settings = AxisSettings::default();
+            let settings = AxisSettings::new(-0.95, -0.05, 0.05, 0.95, 0.01).unwrap();
             test_axis_settings_filter(settings, new_value, old_value, expected);
         }
     }

@@ -21,7 +21,7 @@ You also need to select a `tracing` backend using one of the following cargo fea
 
 When your app is bottlenecked by the GPU, you may encounter frames that have multiple prepare-set systems all taking an unusually long time to complete, and all finishing at about the same time.
 
-Improvements are planned to resolve this issue, you can find more details in the doc comment for [`prepare_windows`](../crates/bevy_render/src/view/window/mod.rs).
+Improvements are planned to resolve this issue, you can find more details in the docs for [`prepare_windows`](https://docs.rs/bevy/latest/bevy/render/view/fn.prepare_windows.html).
 
 ![prepare_windows span bug](https://github.com/bevyengine/bevy/assets/2771466/15c0819b-0e07-4665-aa1e-579caa24fece)
 
@@ -40,7 +40,7 @@ The [Tracy profiling tool](https://github.com/wolfpld/tracy) is:
 
 There are binaries available for Windows, and installation / build instructions for other operating systems can be found in the [Tracy documentation PDF](https://github.com/wolfpld/tracy/releases/latest/download/tracy.pdf).
 
-It has a command line capture tool that can record the execution of graphical applications, saving it as a profile file. Tracy has a GUI to inspect these profile files. The GUI app also supports live capture, showing you in real time the trace of your app. The version of tracy must be matched to the version of tracing-tracy used in bevy. A compatibility table can be found on [crates.io](https://crates.io/crates/tracing-tracy) and the version used can be found [here](https://github.com/bevyengine/bevy/blob/latest/crates/bevy_log/Cargo.toml#L21).
+It has a command line capture tool that can record the execution of graphical applications, saving it as a profile file. Tracy has a GUI to inspect these profile files. The GUI app also supports live capture, showing you in real time the trace of your app. The version of tracy must be matched to the version of tracing-tracy used in bevy. A compatibility table can be found on [crates.io](https://crates.io/crates/tracing-tracy) and the version used can be found [here](https://github.com/bevyengine/bevy/blob/latest/crates/bevy_log/Cargo.toml).
 
 In one terminal, run:
 `./capture-release -o my_capture.tracy`

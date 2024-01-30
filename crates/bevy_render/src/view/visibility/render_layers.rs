@@ -32,14 +32,14 @@ impl std::fmt::Debug for RenderLayers {
     }
 }
 
-impl std::iter::FromIterator<Layer> for RenderLayers {
+impl FromIterator<Layer> for RenderLayers {
     fn from_iter<T: IntoIterator<Item = Layer>>(i: T) -> Self {
         i.into_iter().fold(Self::none(), |mask, g| mask.with(g))
     }
 }
 
-/// Defaults to containing to layer `0`, the first layer.
 impl Default for RenderLayers {
+    /// By default, this structure includes layer `0`, which represents the first layer.
     fn default() -> Self {
         RenderLayers::layer(0)
     }
@@ -110,6 +110,11 @@ impl RenderLayers {
     pub fn intersects(&self, other: &RenderLayers) -> bool {
         (self.0 & other.0) > 0
     }
+
+    /// get the bitmask representation of the contained layers
+    pub fn bits(&self) -> u32 {
+        self.0
+    }
 }
 
 #[cfg(test)]
@@ -174,7 +179,7 @@ mod rendering_mask_tests {
         );
         assert_eq!(
             RenderLayers::from_layers(&[0, 1, 2]),
-            <RenderLayers as std::iter::FromIterator<Layer>>::from_iter(vec![0, 1, 2]),
+            <RenderLayers as FromIterator<Layer>>::from_iter(vec![0, 1, 2]),
             "from_layers and from_iter are equivalent"
         );
     }

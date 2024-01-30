@@ -400,12 +400,12 @@ mod tests {
     #[derive(Reflect)]
     struct B {
         foo: usize,
-        bar: C,
+        łørđ: C,
     }
 
     #[derive(Reflect)]
     struct C {
-        baz: f32,
+        mосква: f32,
     }
 
     #[derive(Reflect)]
@@ -418,7 +418,7 @@ mod tests {
     enum F {
         Unit,
         Tuple(u32, u32),
-        Struct { value: char },
+        Şķràźÿ { 東京: char },
     }
 
     fn a_sample() -> A {
@@ -426,13 +426,13 @@ mod tests {
             w: 1,
             x: B {
                 foo: 10,
-                bar: C { baz: 3.14 },
+                łørđ: C { mосква: 3.14 },
             },
-            y: vec![C { baz: 1.0 }, C { baz: 2.0 }],
+            y: vec![C { mосква: 1.0 }, C { mосква: 2.0 }],
             z: D(E(10.0, 42)),
             unit_variant: F::Unit,
             tuple_variant: F::Tuple(123, 321),
-            struct_variant: F::Struct { value: 'm' },
+            struct_variant: F::Şķràźÿ { 東京: 'm' },
             array: [86, 75, 309],
             tuple: (true, 1.23),
         }
@@ -460,19 +460,19 @@ mod tests {
             &[(access_field("x"), 1), (access_field("foo"), 2)]
         );
         assert_eq!(
-            &*ParsedPath::parse("x.bar.baz").unwrap().0,
+            &*ParsedPath::parse("x.łørđ.mосква").unwrap().0,
             &[
                 (access_field("x"), 1),
-                (access_field("bar"), 2),
-                (access_field("baz"), 6)
+                (access_field("łørđ"), 2),
+                (access_field("mосква"), 10)
             ]
         );
         assert_eq!(
-            &*ParsedPath::parse("y[1].baz").unwrap().0,
+            &*ParsedPath::parse("y[1].mосква").unwrap().0,
             &[
                 (access_field("y"), 1),
                 (Access::ListIndex(1), 2),
-                (access_field("baz"), 5)
+                (access_field("mосква"), 5)
             ]
         );
         assert_eq!(
@@ -503,14 +503,14 @@ mod tests {
 
         let b = ParsedPath::parse("w").unwrap();
         let c = ParsedPath::parse("x.foo").unwrap();
-        let d = ParsedPath::parse("x.bar.baz").unwrap();
-        let e = ParsedPath::parse("y[1].baz").unwrap();
+        let d = ParsedPath::parse("x.łørđ.mосква").unwrap();
+        let e = ParsedPath::parse("y[1].mосква").unwrap();
         let f = ParsedPath::parse("z.0.1").unwrap();
         let g = ParsedPath::parse("x#0").unwrap();
         let h = ParsedPath::parse("x#1#0").unwrap();
         let i = ParsedPath::parse("unit_variant").unwrap();
         let j = ParsedPath::parse("tuple_variant.1").unwrap();
-        let k = ParsedPath::parse("struct_variant.value").unwrap();
+        let k = ParsedPath::parse("struct_variant.東京").unwrap();
         let l = ParsedPath::parse("struct_variant#0").unwrap();
         let m = ParsedPath::parse("array[2]").unwrap();
         let n = ParsedPath::parse("tuple.1").unwrap();
@@ -580,15 +580,15 @@ mod tests {
 
         assert_eq!(*a.path::<usize>("w").unwrap(), 1);
         assert_eq!(*a.path::<usize>("x.foo").unwrap(), 10);
-        assert_eq!(*a.path::<f32>("x.bar.baz").unwrap(), 3.14);
-        assert_eq!(*a.path::<f32>("y[1].baz").unwrap(), 2.0);
+        assert_eq!(*a.path::<f32>("x.łørđ.mосква").unwrap(), 3.14);
+        assert_eq!(*a.path::<f32>("y[1].mосква").unwrap(), 2.0);
         assert_eq!(*a.path::<usize>("z.0.1").unwrap(), 42);
         assert_eq!(*a.path::<usize>("x#0").unwrap(), 10);
         assert_eq!(*a.path::<f32>("x#1#0").unwrap(), 3.14);
 
         assert_eq!(*a.path::<F>("unit_variant").unwrap(), F::Unit);
         assert_eq!(*a.path::<u32>("tuple_variant.1").unwrap(), 321);
-        assert_eq!(*a.path::<char>("struct_variant.value").unwrap(), 'm');
+        assert_eq!(*a.path::<char>("struct_variant.東京").unwrap(), 'm');
         assert_eq!(*a.path::<char>("struct_variant#0").unwrap(), 'm');
 
         assert_eq!(*a.path::<i32>("array[2]").unwrap(), 309);
@@ -597,8 +597,8 @@ mod tests {
         *a.path_mut::<f32>("tuple.1").unwrap() = 3.21;
         assert_eq!(*a.path::<f32>("tuple.1").unwrap(), 3.21);
 
-        *a.path_mut::<f32>("y[1].baz").unwrap() = 3.0;
-        assert_eq!(a.y[1].baz, 3.0);
+        *a.path_mut::<f32>("y[1].mосква").unwrap() = 3.0;
+        assert_eq!(a.y[1].mосква, 3.0);
 
         *a.path_mut::<u32>("tuple_variant.0").unwrap() = 1337;
         assert_eq!(a.tuple_variant, F::Tuple(1337, 321));
@@ -649,8 +649,8 @@ mod tests {
             &[(Access::TupleIndex(5), 1)]
         );
         assert_eq!(
-            &*ParsedPath::parse("[0].bar").unwrap().0,
-            &[(Access::ListIndex(0), 1), (access_field("bar"), 4)]
+            &*ParsedPath::parse("[0].łørđ").unwrap().0,
+            &[(Access::ListIndex(0), 1), (access_field("łørđ"), 4)]
         );
     }
 }

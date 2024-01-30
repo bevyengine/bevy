@@ -3,7 +3,7 @@
 use bevy::{
     pbr::{MaterialPipeline, MaterialPipelineKey},
     prelude::*,
-    reflect::{TypePath, TypeUuid},
+    reflect::TypePath,
     render::{
         mesh::MeshVertexBufferLayout,
         render_resource::{
@@ -27,7 +27,7 @@ fn setup(
 ) {
     // blue cube
     commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+        mesh: meshes.add(shape::Cube { size: 1.0 }),
         transform: Transform::from_xyz(-1.0, 0.5, 0.0),
         material: materials.add(CustomMaterial {
             color: Color::BLUE,
@@ -38,7 +38,7 @@ fn setup(
 
     // red cube (with green color overridden by the IS_RED "shader def")
     commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+        mesh: meshes.add(shape::Cube { size: 1.0 }),
         transform: Transform::from_xyz(1.0, 0.5, 0.0),
         material: materials.add(CustomMaterial {
             color: Color::GREEN,
@@ -74,8 +74,7 @@ impl Material for CustomMaterial {
 }
 
 // This is the struct that will be passed to your shader
-#[derive(AsBindGroup, TypeUuid, TypePath, Debug, Clone)]
-#[uuid = "f690fdae-d598-45ab-8225-97e2a3f056e0"]
+#[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 #[bind_group_data(CustomMaterialKey)]
 pub struct CustomMaterial {
     #[uniform(0)]

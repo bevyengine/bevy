@@ -1,0 +1,17 @@
+diff --git a/crates/bevy_winit/src/lib.rs b/crates/bevy_winit/src/lib.rs
+index 63d79b1d2..83ed56293 100644
+--- a/crates/bevy_winit/src/lib.rs
++++ b/crates/bevy_winit/src/lib.rs
+@@ -429,6 +429,12 @@ fn handle_winit_event(
+ 
+             runner_state.window_event_received = true;
+ 
++            window_resized.send(WindowResized {
++                window,
++                width: win.width(),
++                height: win.height(),
++            });
++
+             match event {
+                 WindowEvent::Resized(size) => {
+                     react_to_resize(&mut win, size, &mut window_resized, window);

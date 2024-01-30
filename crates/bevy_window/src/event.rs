@@ -4,6 +4,7 @@ use bevy_ecs::entity::Entity;
 use bevy_ecs::event::Event;
 use bevy_math::{IVec2, Vec2};
 use bevy_reflect::Reflect;
+use smol_str::SmolStr;
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
@@ -12,7 +13,7 @@ use crate::WindowTheme;
 
 /// A window event that is sent whenever a window's logical size has changed.
 #[derive(Event, Debug, Clone, PartialEq, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -30,7 +31,7 @@ pub struct WindowResized {
 /// An event that indicates all of the application's windows should be redrawn,
 /// even if their control flow is set to `Wait` and there have been no window events.
 #[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -42,7 +43,7 @@ pub struct RequestRedraw;
 ///
 /// To create a new window, spawn an entity with a [`crate::Window`] on it.
 #[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -57,14 +58,14 @@ pub struct WindowCreated {
 /// be closed. This will be sent when the close button of the window is pressed.
 ///
 /// If the default [`WindowPlugin`] is used, these events are handled
-/// by closing the corresponding [`Window`].  
+/// by closing the corresponding [`Window`].
 /// To disable this behavior, set `close_when_requested` on the [`WindowPlugin`]
 /// to `false`.
 ///
 /// [`WindowPlugin`]: crate::WindowPlugin
 /// [`Window`]: crate::Window
 #[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -78,7 +79,7 @@ pub struct WindowCloseRequested {
 /// An event that is sent whenever a window is closed. This will be sent when
 /// the window entity loses its [`Window`](crate::window::Window) component or is despawned.
 #[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -97,7 +98,7 @@ pub struct WindowClosed {
 /// Note that if your application only has a single window, this event may be your last chance to
 /// persist state before the application terminates.
 #[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -121,7 +122,7 @@ pub struct WindowDestroyed {
 /// [`WindowEvent::CursorMoved`]: https://docs.rs/winit/latest/winit/event/enum.WindowEvent.html#variant.CursorMoved
 /// [`MouseMotion`]: bevy_input::mouse::MouseMotion
 #[derive(Event, Debug, Clone, PartialEq, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -136,7 +137,7 @@ pub struct CursorMoved {
 
 /// An event that is sent whenever the user's cursor enters a window.
 #[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -149,7 +150,7 @@ pub struct CursorEntered {
 
 /// An event that is sent whenever the user's cursor leaves a window.
 #[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -162,7 +163,7 @@ pub struct CursorLeft {
 
 /// An event that is sent whenever a window receives a character from the OS or underlying system.
 #[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -172,7 +173,7 @@ pub struct ReceivedCharacter {
     /// Window that received the character.
     pub window: Entity,
     /// Received character.
-    pub char: char,
+    pub char: SmolStr,
 }
 
 /// A Input Method Editor event.
@@ -181,7 +182,7 @@ pub struct ReceivedCharacter {
 ///
 /// It is only sent if IME was enabled on the window with [`Window::ime_enabled`](crate::window::Window::ime_enabled).
 #[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -223,7 +224,7 @@ pub enum Ime {
 
 /// An event that indicates a window has received or lost focus.
 #[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -236,9 +237,32 @@ pub struct WindowFocused {
     pub focused: bool,
 }
 
+/// The window has been occluded (completely hidden from view).
+///
+/// This is different to window visibility as it depends on
+/// whether the window is closed, minimised, set invisible,
+/// or fully occluded by another window.
+///
+/// It is the translated version of [`WindowEvent::Occluded`] from the `winit` crate.
+///
+/// [`WindowEvent::Occluded`]: https://docs.rs/winit/latest/winit/event/enum.WindowEvent.html#variant.Occluded
+#[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
+#[reflect(PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct WindowOccluded {
+    /// Window that changed occluded state.
+    pub window: Entity,
+    /// Whether it was occluded (true) or not occluded (false).
+    pub occluded: bool,
+}
+
 /// An event that indicates a window's scale factor has changed.
 #[derive(Event, Debug, Clone, PartialEq, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -253,7 +277,7 @@ pub struct WindowScaleFactorChanged {
 
 /// An event that indicates a window's OS-reported scale factor has changed.
 #[derive(Event, Debug, Clone, PartialEq, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -268,7 +292,7 @@ pub struct WindowBackendScaleFactorChanged {
 
 /// Events related to files being dragged and dropped on a window.
 #[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -300,7 +324,7 @@ pub enum FileDragAndDrop {
 
 /// An event that is sent when a window is repositioned in physical pixels.
 #[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -308,23 +332,44 @@ pub enum FileDragAndDrop {
 )]
 pub struct WindowMoved {
     /// Window that moved.
-    pub entity: Entity,
+    pub window: Entity,
     /// Where the window moved to in physical pixels.
     pub position: IVec2,
 }
 
-/// An event sent when system changed window theme.
+/// An event sent when the system theme changes for a window.
 ///
 /// This event is only sent when the window is relying on the system theme to control its appearance.
 /// i.e. It is only sent when [`Window::window_theme`](crate::window::Window::window_theme) is `None` and the system theme changes.
 #[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub struct WindowThemeChanged {
+    /// Window for which the system theme has changed.
     pub window: Entity,
+    /// The new system theme.
     pub theme: WindowTheme,
+}
+
+/// Application lifetime events
+#[derive(Event, Debug, Clone, Copy, PartialEq, Eq, Reflect)]
+#[reflect(PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub enum ApplicationLifetime {
+    /// The application just started.
+    Started,
+    /// The application was suspended.
+    ///
+    /// On Android, applications have one frame to react to this event before being paused in the background.
+    Suspended,
+    /// The application was resumed.
+    Resumed,
 }

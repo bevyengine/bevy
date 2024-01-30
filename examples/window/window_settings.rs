@@ -2,9 +2,10 @@
 //! the mouse pointer in various ways.
 
 use bevy::{
+    core::FrameCount,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    window::{CursorGrabMode, PresentMode, PrimaryWindow, WindowLevel, WindowTheme},
+    window::{CursorGrabMode, PresentMode, WindowLevel, WindowTheme},
 };
 
 fn main() {
@@ -15,8 +16,6 @@ fn main() {
                     title: "I am a window!".into(),
                     resolution: (500., 300.).into(),
                     present_mode: PresentMode::AutoVsync,
-                    // Tells wasm to resize the window according to the available canvas
-                    fit_canvas_to_parent: true,
                     // Tells wasm not to override default event handling, like F5, Ctrl+R etc.
                     prevent_default_event_handling: false,
                     window_theme: Some(WindowTheme::Dark),
@@ -25,7 +24,7 @@ fn main() {
                         ..Default::default()
                     },
                     // This will spawn an invisible window
-                    // The window will be made visible in the setup() function
+                    // The window will be made visible in the make_visible() system after 3 frames.
                     // This is useful when you want to avoid the white window that shows up before the GPU is ready to render the app.
                     visible: false,
                     ..default()
@@ -35,7 +34,6 @@ fn main() {
             LogDiagnosticsPlugin::default(),
             FrameTimeDiagnosticsPlugin,
         ))
-        .add_systems(Startup, setup)
         .add_systems(
             Update,
             (
@@ -46,22 +44,26 @@ fn main() {
                 toggle_window_controls,
                 cycle_cursor_icon,
                 switch_level,
+                make_visible,
             ),
         )
         .run();
 }
 
-fn setup(mut primary_window: Query<&mut Window, With<PrimaryWindow>>) {
-    // At this point the gpu is ready to show the app so we can make the window visible
-    // There might still be a white frame when doing it in startup.
-    // Alternatively, you could have a system that waits a few seconds before making the window visible.
-    primary_window.single_mut().visible = true;
+fn make_visible(mut window: Query<&mut Window>, frames: Res<FrameCount>) {
+    // The delay may be different for your app or system.
+    if frames.0 == 3 {
+        // At this point the gpu is ready to show the app so we can make the window visible.
+        // Alternatively, you could toggle the visibility in Startup.
+        // It will work, but it will have one white frame before it starts rendering
+        window.single_mut().visible = true;
+    }
 }
 
 /// This system toggles the vsync mode when pressing the button V.
 /// You'll see fps increase displayed in the console.
-fn toggle_vsync(input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
-    if input.just_pressed(KeyCode::V) {
+fn toggle_vsync(input: Res<ButtonInput<KeyCode>>, mut windows: Query<&mut Window>) {
+    if input.just_pressed(KeyCode::KeyV) {
         let mut window = windows.single_mut();
 
         window.present_mode = if matches!(window.present_mode, PresentMode::AutoVsync) {
@@ -80,8 +82,9 @@ fn toggle_vsync(input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
 /// This feature only works on some platforms. Please check the
 /// [documentation](https://docs.rs/bevy/latest/bevy/prelude/struct.Window.html#structfield.window_level)
 /// for more details.
-fn switch_level(input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
-    if input.just_pressed(KeyCode::T) {
+
+fn switch_level(input: Res<ButtonInput<KeyCode>>, mut windows: Query<&mut Window>) {
+    if input.just_pressed(KeyCode::KeyT) {
         let mut window = windows.single_mut();
 
         window.window_level = match window.window_level {
@@ -98,10 +101,10 @@ fn switch_level(input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
 /// This feature only works on some platforms. Please check the
 /// [documentation](https://docs.rs/bevy/latest/bevy/prelude/struct.Window.html#structfield.enabled_buttons)
 /// for more details.
-fn toggle_window_controls(input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
-    let toggle_minimize = input.just_pressed(KeyCode::Key1);
-    let toggle_maximize = input.just_pressed(KeyCode::Key2);
-    let toggle_close = input.just_pressed(KeyCode::Key3);
+fn toggle_window_controls(input: Res<ButtonInput<KeyCode>>, mut windows: Query<&mut Window>) {
+    let toggle_minimize = input.just_pressed(KeyCode::Digit1);
+    let toggle_maximize = input.just_pressed(KeyCode::Digit2);
+    let toggle_close = input.just_pressed(KeyCode::Digit3);
 
     if toggle_minimize || toggle_maximize || toggle_close {
         let mut window = windows.single_mut();
@@ -127,7 +130,7 @@ fn change_title(mut windows: Query<&mut Window>, time: Res<Time>) {
     );
 }
 
-fn toggle_cursor(mut windows: Query<&mut Window>, input: Res<Input<KeyCode>>) {
+fn toggle_cursor(mut windows: Query<&mut Window>, input: Res<ButtonInput<KeyCode>>) {
     if input.just_pressed(KeyCode::Space) {
         let mut window = windows.single_mut();
 
@@ -140,8 +143,8 @@ fn toggle_cursor(mut windows: Query<&mut Window>, input: Res<Input<KeyCode>>) {
 }
 
 // This system will toggle the color theme used by the window
-fn toggle_theme(mut windows: Query<&mut Window>, input: Res<Input<KeyCode>>) {
-    if input.just_pressed(KeyCode::F) {
+fn toggle_theme(mut windows: Query<&mut Window>, input: Res<ButtonInput<KeyCode>>) {
+    if input.just_pressed(KeyCode::KeyF) {
         let mut window = windows.single_mut();
 
         if let Some(current_theme) = window.window_theme {
@@ -156,14 +159,14 @@ fn toggle_theme(mut windows: Query<&mut Window>, input: Res<Input<KeyCode>>) {
 /// This system cycles the cursor's icon through a small set of icons when clicking
 fn cycle_cursor_icon(
     mut windows: Query<&mut Window>,
-    input: Res<Input<MouseButton>>,
+    input: Res<ButtonInput<MouseButton>>,
     mut index: Local<usize>,
 ) {
     let mut window = windows.single_mut();
 
     const ICONS: &[CursorIcon] = &[
         CursorIcon::Default,
-        CursorIcon::Hand,
+        CursorIcon::Pointer,
         CursorIcon::Wait,
         CursorIcon::Text,
         CursorIcon::Copy,
