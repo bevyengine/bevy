@@ -3,7 +3,7 @@
 use std::{
     fmt::Debug,
     iter::Sum,
-    ops::{Add, Mul, Sub},
+    ops::{Add, Mul, Sub, Div},
 };
 
 use bevy_utils::{thiserror, thiserror::Error};
@@ -13,6 +13,7 @@ use glam::Vec2;
 /// interpolation.
 pub trait Point:
     Mul<f32, Output = Self>
+    + Div<f32, Output = Self>
     + Add<Self, Output = Self>
     + Sub<Self, Output = Self>
     + Add<f32, Output = Self>
@@ -27,6 +28,7 @@ pub trait Point:
 
 impl<T> Point for T where
     T: Mul<f32, Output = Self>
+        + Div<f32, Output = Self>
         + Add<Self, Output = Self>
         + Sub<Self, Output = Self>
         + Add<f32, Output = Self>
@@ -364,6 +366,7 @@ pub enum CubicNurbsError {
 /// ```
 pub struct CubicNurbs<P: Point> {
     control_points: Vec<P>,
+    weights: Vec<f32>,
     knot_vector: Vec<f32>,
 }
 impl<P: Point> CubicNurbs<P> {
@@ -427,11 +430,12 @@ impl<P: Point> CubicNurbs<P> {
 
         control_points
             .iter_mut()
-            .zip(weights)
-            .for_each(|(p, w)| *p = *p * w);
+            .zip(weights.iter())
+            .for_each(|(p, w)| *p = *p * *w);
 
         Ok(Self {
             control_points,
+            weights,
             knot_vector,
         })
     }
@@ -505,29 +509,6 @@ impl<P: Point> CubicNurbs<P> {
         let weights_sum: f32 = weights.iter().sum();
         let mul = g / weights_sum;
         weights.into_iter().map(|w| w * mul).collect()
-    }
-}
-impl<P: Point> CubicGenerator<P> for CubicNurbs<P> {
-    #[inline]
-    fn to_curve(&self) -> CubicCurve<P> {
-        let segments = self
-            .control_points
-            .windows(4)
-            .zip(self.knot_vector.windows(8))
-            .map(|(points, knot_vector_segment)| {
-                let knot_vector_segment = knot_vector_segment
-                    .try_into()
-                    .expect("Knot vector windows are of length 8");
-                let matrix = Self::generate_matrix(knot_vector_segment);
-                CubicSegment::coefficients(
-                    points
-                        .try_into()
-                        .expect("Points vector windows are of length 4"),
-                    matrix,
-                )
-            })
-            .collect();
-        CubicCurve { segments }
     }
 }
 
@@ -840,6 +821,263 @@ impl<P: Point> IntoIterator for CubicCurve<P> {
     type IntoIter = <Vec<CubicSegment<P>> as IntoIterator>::IntoIter;
 
     type Item = CubicSegment<P>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.segments.into_iter()
+    }
+}
+
+impl<P: Point> RationalGenerator<P> for CubicNurbs<P> {
+    #[inline]
+    fn to_curve(&self) -> RationalCurve<P> {
+        let segments = self
+            .control_points.windows(4)
+            .zip(self.weights.windows(4))
+            .zip(self.knot_vector.windows(8))
+            .map(|((points, weights), knot_vector_segment)| {
+                let knot_vector_segment = knot_vector_segment
+                    .try_into()
+                    .expect("Knot vector windows are of length 8");
+                let matrix = Self::generate_matrix(knot_vector_segment);
+                RationalSegment::coefficients(
+                    points
+                        .try_into()
+                        .expect("Points vector windows are of length 4"),
+                    weights
+                        .try_into()
+                        .expect("Weights vector windows are of length 4"),
+                    matrix,
+                )
+            })
+            .collect();
+        RationalCurve { segments }
+    }
+}
+
+/// Implement this on cubic splines that can generate a curve from their spline parameters.
+pub trait RationalGenerator<P: Point> {
+    /// Build a [`RationalCurve`] by computing the interpolation coefficients for each curve segment.
+    fn to_curve(&self) -> RationalCurve<P>;
+}
+
+/// A segment of a rational cubic curve, used to hold precomputed coefficients for fast interpolation.
+///
+/// Segments can be chained together to form a longer compound curve.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct RationalSegment<P: Point> {
+    coeff: [P; 4],
+    weight_coeff: [f32; 4],
+}
+
+impl<P: Point> RationalSegment<P> {
+    /// Instantaneous position of a point at parametric value `t`.
+    #[inline]
+    pub fn position(&self, t: f32) -> P {
+        let [a, b, c, d] = self.coeff;
+        let [x, y, z, w] = self.weight_coeff;
+        // Compute a cubic polynomial for the control points
+        let numerator = a + (b + (c + d * t) * t) * t;
+        // Compute a cubic polynomial for the weights
+        let denominator = x + (y + (z + w * t) * t) * t;
+        numerator / denominator
+    }
+
+    /// Instantaneous velocity of a point at parametric value `t`.
+    #[inline]
+    pub fn velocity(&self, t: f32) -> P {
+        let [a, b, c, d] = self.coeff;
+        let [x, y, z, w] = self.weight_coeff;
+        // Compute a cubic polynomial for the control points
+        let numerator = a + (b + (c + d * t) * t) * t;
+        // Compute a cubic polynomial for the weights
+        let denominator = x + (y + (z + w * t) * t) * t;
+
+        // Compute the derivative of the control point polynomial
+        let numerator_derivative = b + (c * 2.0 + d * 3.0 * t) * t;
+        // Compute the derivative of the weight polynomial
+        let denominator_derivative = y + (z * 2.0 + w * 3.0 * t) * t;
+
+        // Velocity is the first derivative (wrt to the parameter `t`)
+        // Position = N/D therefore
+        // Velocity = (N/D)' = N'/D - N * D'/D^2 = (N' * D - N * D')/D^2
+        numerator_derivative / denominator - numerator * (denominator_derivative / denominator.powi(2))
+    }
+
+    /// Instantaneous acceleration of a point at parametric value `t`.
+    #[inline]
+    pub fn acceleration(&self, t: f32) -> P {
+        let [a, b, c, d] = self.coeff;
+        let [x, y, z, w] = self.weight_coeff;
+        // Compute a cubic polynomial for the control points
+        let numerator = a + (b + (c + d * t) * t) * t;
+        // Compute a cubic polynomial for the weights
+        let denominator = x + (y + (z + w * t) * t) * t;
+
+        // Compute the derivative of the control point polynomial
+        let numerator_derivative = b + (c * 2.0 + d * 3.0 * t) * t;
+        // Compute the derivative of the weight polynomial
+        let denominator_derivative = y + (z * 2.0 + w * 3.0 * t) * t;
+
+        // Compute the second derivative of the control point polynomial
+        let numerator_second_derivative = c * 2.0 + d * 6.0 * t;
+        // Compute the second derivative of the weight polynomial
+        let denominator_second_derivative = z * 2.0 + w * 6.0 * t;
+
+        // Velocity is the first derivative (wrt to the parameter `t`)
+        // Position = N/D therefore
+        // Velocity = (N/D)' = N'/D - N * D'/D^2 = (N' * D - N * D')/D^2
+        // Acceleration = (N/D)'' = ((N' * D - N * D')/D^2)' = N''/D + N' * (-2D'/D^2) + N * (-D''/D^2 + 2D'^2/D^3)
+        numerator_second_derivative/denominator +
+        numerator_derivative * (-2.0 * denominator_derivative/denominator.powi(2)) +
+        numerator * (-denominator_second_derivative/denominator.powi(2) + 2.0 * denominator_derivative.powi(2)/denominator.powi(3))
+    }
+
+    /// Calculate polynomial coefficients for the cubic polynomials using a characteristic matrix.
+    #[inline]
+    fn coefficients(control_points: [P; 4], weights: [f32; 4], char_matrix: [[f32; 4]; 4]) -> Self {
+        let [c0, c1, c2, c3] = char_matrix;
+        let p = control_points;
+        let w = weights;
+        // These are the control point polynomial coefficients, computed by multiplying the characteristic
+        // matrix by the point matrix.
+        let coeff = [
+            p[0] * c0[0] + p[1] * c0[1] + p[2] * c0[2] + p[3] * c0[3],
+            p[0] * c1[0] + p[1] * c1[1] + p[2] * c1[2] + p[3] * c1[3],
+            p[0] * c2[0] + p[1] * c2[1] + p[2] * c2[2] + p[3] * c2[3],
+            p[0] * c3[0] + p[1] * c3[1] + p[2] * c3[2] + p[3] * c3[3],
+        ];
+        // These are the weight polynomial coefficients, computed by multiplying the characteristic
+        // matrix by the weight matrix.
+        let weight_coeff = [
+            w[0] * c0[0] + w[1] * c0[1] + w[2] * c0[2] + w[3] * c0[3],
+            w[0] * c1[0] + w[1] * c1[1] + w[2] * c1[2] + w[3] * c1[3],
+            w[0] * c2[0] + w[1] * c2[1] + w[2] * c2[2] + w[3] * c2[3],
+            w[0] * c3[0] + w[1] * c3[1] + w[2] * c3[2] + w[3] * c3[3],
+        ];
+        Self { coeff, weight_coeff }
+    }
+}
+
+/// A collection of [`RationalSegment`]s chained into a curve.
+///
+/// Use any struct that implements the [`RationalGenerator`] trait to create a new curve, such as
+/// [`CubicNURBS`].
+#[derive(Clone, Debug, PartialEq)]
+pub struct RationalCurve<P: Point> {
+    segments: Vec<RationalSegment<P>>,
+}
+
+impl<P: Point> RationalCurve<P> {
+    /// Compute the position of a point on the curve at the parametric value `t`.
+    ///
+    /// Note that `t` varies from `0..=(n_points - 3)`.
+    #[inline]
+    pub fn position(&self, t: f32) -> P {
+        let (segment, t) = self.segment(t);
+        segment.position(t)
+    }
+
+    /// Compute the first derivative with respect to t at `t`. This is the instantaneous velocity of
+    /// a point on the curve at `t`.
+    ///
+    /// Note that `t` varies from `0..=(n_points - 3)`.
+    #[inline]
+    pub fn velocity(&self, t: f32) -> P {
+        let (segment, t) = self.segment(t);
+        segment.velocity(t)
+    }
+
+    /// Compute the second derivative with respect to t at `t`. This is the instantaneous
+    /// acceleration of a point on the curve at `t`.
+    ///
+    /// Note that `t` varies from `0..=(n_points - 3)`.
+    #[inline]
+    pub fn acceleration(&self, t: f32) -> P {
+        let (segment, t) = self.segment(t);
+        segment.acceleration(t)
+    }
+
+    /// A flexible iterator used to sample curves with arbitrary functions.
+    ///
+    /// This splits the curve into `subdivisions` of evenly spaced `t` values across the
+    /// length of the curve from start (t = 0) to end (t = n), where `n = self.segment_count()`,
+    /// returning an iterator evaluating the curve with the supplied `sample_function` at each `t`.
+    ///
+    /// For `subdivisions = 2`, this will split the curve into two lines, or three points, and
+    /// return an iterator with 3 items, the three points, one at the start, middle, and end.
+    #[inline]
+    pub fn iter_samples<'a, 'b: 'a>(
+        &'b self,
+        subdivisions: usize,
+        mut sample_function: impl FnMut(&Self, f32) -> P + 'a,
+    ) -> impl Iterator<Item = P> + 'a {
+        self.iter_uniformly(subdivisions)
+            .map(move |t| sample_function(self, t))
+    }
+
+    /// An iterator that returns values of `t` uniformly spaced over `0..=subdivisions`.
+    #[inline]
+    fn iter_uniformly(&self, subdivisions: usize) -> impl Iterator<Item = f32> {
+        let segments = self.segments.len() as f32;
+        let step = segments / subdivisions as f32;
+        (0..=subdivisions).map(move |i| i as f32 * step)
+    }
+
+    /// The list of segments contained in this `RationalCurve`.
+    ///
+    /// This spline's global `t` value is equal to how many segments it has.
+    ///
+    /// All method accepting `t` on `RationalCurve` depends on the global `t`.
+    /// When sampling over the entire curve, you should either use one of the
+    /// `iter_*` methods or account for the segment count using `curve.segments().len()`.
+    #[inline]
+    pub fn segments(&self) -> &[RationalSegment<P>] {
+        &self.segments
+    }
+
+    /// Iterate over the curve split into `subdivisions`, sampling the position at each step.
+    pub fn iter_positions(&self, subdivisions: usize) -> impl Iterator<Item = P> + '_ {
+        self.iter_samples(subdivisions, Self::position)
+    }
+
+    /// Iterate over the curve split into `subdivisions`, sampling the velocity at each step.
+    pub fn iter_velocities(&self, subdivisions: usize) -> impl Iterator<Item = P> + '_ {
+        self.iter_samples(subdivisions, Self::velocity)
+    }
+
+    /// Iterate over the curve split into `subdivisions`, sampling the acceleration at each step.
+    pub fn iter_accelerations(&self, subdivisions: usize) -> impl Iterator<Item = P> + '_ {
+        self.iter_samples(subdivisions, Self::acceleration)
+    }
+
+    #[inline]
+    /// Adds a segment to the curve
+    pub fn push_segment(&mut self, segment: RationalSegment<P>) {
+        self.segments.push(segment);
+    }
+
+    /// Returns the [`RationalSegment`] and local `t` value given a spline's global `t` value.
+    #[inline]
+    fn segment(&self, t: f32) -> (&RationalSegment<P>, f32) {
+        if self.segments.len() == 1 {
+            (&self.segments[0], t)
+        } else {
+            let i = (t.floor() as usize).clamp(0, self.segments.len() - 1);
+            (&self.segments[i], t - i as f32)
+        }
+    }
+}
+
+impl<P: Point> Extend<RationalSegment<P>> for RationalCurve<P> {
+    fn extend<T: IntoIterator<Item = RationalSegment<P>>>(&mut self, iter: T) {
+        self.segments.extend(iter);
+    }
+}
+
+impl<P: Point> IntoIterator for RationalCurve<P> {
+    type IntoIter = <Vec<RationalSegment<P>> as IntoIterator>::IntoIter;
+
+    type Item = RationalSegment<P>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.segments.into_iter()
