@@ -31,11 +31,10 @@ mod utility;
 
 use crate::derive_data::{ReflectDerive, ReflectMeta, ReflectStruct};
 use container_attributes::ReflectTraits;
-use derive_data::ReflectTypePath;
+use derive_data::{ReflectImplSource, ReflectProvenance, ReflectTraitToImpl, ReflectTypePath};
 use proc_macro::TokenStream;
 use quote::quote;
 use reflect_value::ReflectValueDef;
-use syn::spanned::Spanned;
 use syn::{parse_macro_input, DeriveInput};
 use type_path::NamedTypePathDef;
 
@@ -43,6 +42,65 @@ pub(crate) static REFLECT_ATTRIBUTE_NAME: &str = "reflect";
 pub(crate) static REFLECT_VALUE_ATTRIBUTE_NAME: &str = "reflect_value";
 pub(crate) static TYPE_PATH_ATTRIBUTE_NAME: &str = "type_path";
 pub(crate) static TYPE_NAME_ATTRIBUTE_NAME: &str = "type_name";
+
+/// Used both for [`impl_reflect`] and [`derive_reflect`].
+///
+/// [`impl_reflect`]: macro@impl_reflect
+/// [`derive_reflect`]: derive_reflect()
+fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStream {
+    let derive_data = match ReflectDerive::from_input(
+        &ast,
+        ReflectProvenance {
+            source,
+            trait_: ReflectTraitToImpl::Reflect,
+        },
+    ) {
+        Ok(data) => data,
+        Err(err) => return err.into_compile_error().into(),
+    };
+
+    let (reflect_impls, from_reflect_impl) = match derive_data {
+        ReflectDerive::Struct(struct_data) | ReflectDerive::UnitStruct(struct_data) => (
+            impls::impl_struct(&struct_data),
+            if struct_data.meta().from_reflect().should_auto_derive() {
+                Some(from_reflect::impl_struct(&struct_data))
+            } else {
+                None
+            },
+        ),
+        ReflectDerive::TupleStruct(struct_data) => (
+            impls::impl_tuple_struct(&struct_data),
+            if struct_data.meta().from_reflect().should_auto_derive() {
+                Some(from_reflect::impl_tuple_struct(&struct_data))
+            } else {
+                None
+            },
+        ),
+        ReflectDerive::Enum(enum_data) => (
+            impls::impl_enum(&enum_data),
+            if enum_data.meta().from_reflect().should_auto_derive() {
+                Some(from_reflect::impl_enum(&enum_data))
+            } else {
+                None
+            },
+        ),
+        ReflectDerive::Value(meta) => (
+            impls::impl_value(&meta),
+            if meta.from_reflect().should_auto_derive() {
+                Some(from_reflect::impl_value(&meta))
+            } else {
+                None
+            },
+        ),
+    };
+
+    TokenStream::from(quote! {
+        const _: () = {
+            #reflect_impls
+            #from_reflect_impl
+        };
+    })
+}
 
 /// The main derive macro used by `bevy_reflect` for deriving its `Reflect` trait.
 ///
@@ -131,6 +189,88 @@ pub(crate) static TYPE_NAME_ATTRIBUTE_NAME: &str = "type_name";
 /// This is useful for when a type can't or shouldn't implement `TypePath`,
 /// or if a manual implementation is desired.
 ///
+/// ## `#[reflect(no_field_bounds)]`
+///
+/// This attribute will opt-out of the default trait bounds added to all field types
+/// for the generated reflection trait impls.
+///
+/// Normally, all fields will have the bounds `TypePath`, and either `FromReflect` or `Reflect`
+/// depending on if `#[reflect(from_reflect = false)]` is used.
+/// However, this might not always be desirable, and so this attribute may be used to remove those bounds.
+///
+/// ### Example
+///
+/// If a type is recursive the default bounds will cause an overflow error when building:
+///
+/// ```ignore (bevy_reflect is not accessible from this crate)
+/// #[derive(Reflect)] // ERROR: overflow evaluating the requirement `Foo: FromReflect`
+/// struct Foo {
+///   foo: Vec<Foo>,
+/// }
+///
+/// // Generates a where clause like:
+/// // impl bevy_reflect::Reflect for Foo
+/// // where
+/// //   Self: Any + Send + Sync,
+/// //   Vec<Foo>: FromReflect + TypePath,
+/// ```
+///
+/// In this case, `Foo` is given the bounds `Vec<Foo>: FromReflect + TypePath`,
+/// which requires that `Foo` implements `FromReflect`,
+/// which requires that `Vec<Foo>` implements `FromReflect`,
+/// and so on, resulting in the error.
+///
+/// To fix this, we can add `#[reflect(no_field_bounds)]` to `Foo` to remove the bounds on `Vec<Foo>`:
+///
+/// ```ignore (bevy_reflect is not accessible from this crate)
+/// #[derive(Reflect)]
+/// #[reflect(no_field_bounds)]
+/// struct Foo {
+///   foo: Vec<Foo>,
+/// }
+///
+/// // Generates a where clause like:
+/// // impl bevy_reflect::Reflect for Foo
+/// // where
+/// //   Self: Any + Send + Sync,
+/// ```
+///
+/// ## `#[reflect(where T: Trait, U::Assoc: Trait, ...)]`
+///
+/// This attribute can be used to add additional bounds to the generated reflection trait impls.
+///
+/// This is useful for when a type needs certain bounds only applied to the reflection impls
+/// that are not otherwise automatically added by the derive macro.
+///
+/// ### Example
+///
+/// In the example below, we want to enforce that `T::Assoc: List` is required in order for
+/// `Foo<T>` to be reflectable, but we don't want it to prevent `Foo<T>` from being used
+/// in places where `T::Assoc: List` is not required.
+///
+/// ```ignore
+/// trait Trait {
+///   type Assoc;
+/// }
+///
+/// #[derive(Reflect)]
+/// #[reflect(where T::Assoc: List)]
+/// struct Foo<T: Trait> where T::Assoc: Default {
+///   value: T::Assoc,
+/// }
+///
+/// // Generates a where clause like:
+/// //
+/// // impl<T: Trait> bevy_reflect::Reflect for Foo<T>
+/// // where
+/// //   Self: Any + Send + Sync,
+/// //   T::Assoc: Default,
+/// //   T: TypePath,
+/// //   T::Assoc: FromReflect + TypePath,
+/// //   T::Assoc: List,
+/// // {/* ... */}
+/// ```
+///
 /// # Field Attributes
 ///
 /// Along with the container attributes, this macro comes with some attributes that may be applied
@@ -158,53 +298,7 @@ pub(crate) static TYPE_NAME_ATTRIBUTE_NAME: &str = "type_name";
 #[proc_macro_derive(Reflect, attributes(reflect, reflect_value, type_path, type_name))]
 pub fn derive_reflect(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
-
-    let derive_data = match ReflectDerive::from_input(&ast, false) {
-        Ok(data) => data,
-        Err(err) => return err.into_compile_error().into(),
-    };
-
-    let (reflect_impls, from_reflect_impl) = match derive_data {
-        ReflectDerive::Struct(struct_data) | ReflectDerive::UnitStruct(struct_data) => (
-            impls::impl_struct(&struct_data),
-            if struct_data.meta().from_reflect().should_auto_derive() {
-                Some(from_reflect::impl_struct(&struct_data))
-            } else {
-                None
-            },
-        ),
-        ReflectDerive::TupleStruct(struct_data) => (
-            impls::impl_tuple_struct(&struct_data),
-            if struct_data.meta().from_reflect().should_auto_derive() {
-                Some(from_reflect::impl_tuple_struct(&struct_data))
-            } else {
-                None
-            },
-        ),
-        ReflectDerive::Enum(enum_data) => (
-            impls::impl_enum(&enum_data),
-            if enum_data.meta().from_reflect().should_auto_derive() {
-                Some(from_reflect::impl_enum(&enum_data))
-            } else {
-                None
-            },
-        ),
-        ReflectDerive::Value(meta) => (
-            impls::impl_value(&meta),
-            if meta.from_reflect().should_auto_derive() {
-                Some(from_reflect::impl_value(&meta))
-            } else {
-                None
-            },
-        ),
-    };
-
-    TokenStream::from(quote! {
-        const _: () = {
-            #reflect_impls
-            #from_reflect_impl
-        };
-    })
+    match_reflect_impls(ast, ReflectImplSource::DeriveLocalType)
 }
 
 /// Derives the `FromReflect` trait.
@@ -237,7 +331,13 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
 pub fn derive_from_reflect(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
 
-    let derive_data = match ReflectDerive::from_input(&ast, true) {
+    let derive_data = match ReflectDerive::from_input(
+        &ast,
+        ReflectProvenance {
+            source: ReflectImplSource::DeriveLocalType,
+            trait_: ReflectTraitToImpl::FromReflect,
+        },
+    ) {
         Ok(data) => data,
         Err(err) => return err.into_compile_error().into(),
     };
@@ -276,7 +376,13 @@ pub fn derive_from_reflect(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(TypePath, attributes(type_path, type_name))]
 pub fn derive_type_path(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
-    let derive_data = match ReflectDerive::from_input(&ast, false) {
+    let derive_data = match ReflectDerive::from_input(
+        &ast,
+        ReflectProvenance {
+            source: ReflectImplSource::DeriveLocalType,
+            trait_: ReflectTraitToImpl::TypePath,
+        },
+    ) {
         Ok(data) => data,
         Err(err) => return err.into_compile_error().into(),
     };
@@ -377,7 +483,7 @@ pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
 /// [deriving `Reflect`]: Reflect
 #[proc_macro]
 pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
-    let def = parse_macro_input!(input as ReflectValueDef);
+    let def = parse_macro_input!(input with ReflectValueDef::parse_reflect);
 
     let default_name = &def.type_path.segments.last().unwrap().ident;
     let type_path = if def.type_path.leading_colon.is_none() && def.custom_path.is_none() {
@@ -410,8 +516,9 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
 /// the definitions of cannot be altered.
 ///
 /// This macro is an alternative to [`impl_reflect_value!`] and [`impl_from_reflect_value!`]
-/// which implement foreign types as Value types. Note that there is no `impl_from_reflect_struct`,
-/// as this macro will do the job of both. This macro implements them as `Struct` types,
+/// which implement foreign types as Value types. Note that there is no `impl_from_reflect`,
+/// as this macro will do the job of both. This macro implements them using one of the reflect
+/// variant traits (`bevy_reflect::{Struct, TupleStruct, Enum}`, etc.),
 /// which have greater functionality. The type being reflected must be in scope, as you cannot
 /// qualify it in the macro as e.g. `bevy::prelude::Vec3`.
 ///
@@ -428,7 +535,7 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
 /// ```ignore (bevy_reflect is not accessible from this crate)
 /// use bevy::prelude::Vec3;
 ///
-/// impl_reflect_struct!(
+/// impl_reflect!(
 ///     #[reflect(PartialEq, Serialize, Deserialize, Default)]
 ///     #[type_path = "bevy::prelude"]
 ///     struct Vec3 {
@@ -439,51 +546,9 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
 /// );
 /// ```
 #[proc_macro]
-pub fn impl_reflect_struct(input: TokenStream) -> TokenStream {
+pub fn impl_reflect(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
-    let derive_data = match ReflectDerive::from_input(&ast, false) {
-        Ok(data) => data,
-        Err(err) => return err.into_compile_error().into(),
-    };
-
-    let output = match derive_data {
-        ReflectDerive::Struct(struct_data) => {
-            if !struct_data.meta().type_path().has_custom_path() {
-                return syn::Error::new(
-                    struct_data.meta().type_path().span(),
-                    format!("a #[{TYPE_PATH_ATTRIBUTE_NAME} = \"...\"] attribute must be specified when using `impl_reflect_struct`")
-                )
-                    .into_compile_error()
-                    .into();
-            }
-
-            let impl_struct = impls::impl_struct(&struct_data);
-            let impl_from_struct = from_reflect::impl_struct(&struct_data);
-
-            quote! {
-                #impl_struct
-                #impl_from_struct
-            }
-        }
-        ReflectDerive::TupleStruct(..) => syn::Error::new(
-            ast.span(),
-            "impl_reflect_struct does not support tuple structs",
-        )
-        .into_compile_error(),
-        ReflectDerive::UnitStruct(..) => syn::Error::new(
-            ast.span(),
-            "impl_reflect_struct does not support unit structs",
-        )
-        .into_compile_error(),
-        _ => syn::Error::new(ast.span(), "impl_reflect_struct only supports structs")
-            .into_compile_error(),
-    };
-
-    TokenStream::from(quote! {
-        const _: () = {
-            #output
-        };
-    })
+    match_reflect_impls(ast, ReflectImplSource::ImplRemoteType)
 }
 
 /// A macro used to generate a `FromReflect` trait implementation for the given type.
@@ -508,7 +573,7 @@ pub fn impl_reflect_struct(input: TokenStream) -> TokenStream {
 /// [derives `Reflect`]: Reflect
 #[proc_macro]
 pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
-    let def = parse_macro_input!(input as ReflectValueDef);
+    let def = parse_macro_input!(input with ReflectValueDef::parse_from_reflect);
 
     let default_name = &def.type_path.segments.last().unwrap().ident;
     let type_path = if def.type_path.leading_colon.is_none()
