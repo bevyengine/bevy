@@ -1,7 +1,8 @@
 #![doc = include_str!("../README.md")]
 #![no_std]
 #![warn(missing_docs)]
-#![allow(clippy::type_complexity)]
+// FIXME(11590): remove this once the lint is fixed
+#![allow(unsafe_op_in_unsafe_fn)]
 
 use core::fmt::{self, Formatter, Pointer};
 use core::{
@@ -245,14 +246,14 @@ impl<'a, A: IsAligned> PtrMut<'a, A> {
     /// Gets a [`PtrMut`] from this with a smaller lifetime.
     #[inline]
     pub fn reborrow(&mut self) -> PtrMut<'_, A> {
-        // SAFE: the ptrmut we're borrowing from is assumed to be valid
+        // SAFETY: the ptrmut we're borrowing from is assumed to be valid
         unsafe { PtrMut::new(self.0) }
     }
 
     /// Gets an immutable reference from this mutable reference
     #[inline]
     pub fn as_ref(&self) -> Ptr<'_, A> {
-        // SAFE: The `PtrMut` type's guarantees about the validity of this pointer are a superset of `Ptr` s guarantees
+        // SAFETY: The `PtrMut` type's guarantees about the validity of this pointer are a superset of `Ptr` s guarantees
         unsafe { Ptr::new(self.0) }
     }
 }
@@ -328,14 +329,14 @@ impl<'a, A: IsAligned> OwningPtr<'a, A> {
     /// Gets an immutable pointer from this owned pointer.
     #[inline]
     pub fn as_ref(&self) -> Ptr<'_, A> {
-        // SAFE: The `Owning` type's guarantees about the validity of this pointer are a superset of `Ptr` s guarantees
+        // SAFETY: The `Owning` type's guarantees about the validity of this pointer are a superset of `Ptr` s guarantees
         unsafe { Ptr::new(self.0) }
     }
 
     /// Gets a mutable pointer from this owned pointer.
     #[inline]
     pub fn as_mut(&mut self) -> PtrMut<'_, A> {
-        // SAFE: The `Owning` type's guarantees about the validity of this pointer are a superset of `Ptr` s guarantees
+        // SAFETY: The `Owning` type's guarantees about the validity of this pointer are a superset of `Ptr` s guarantees
         unsafe { PtrMut::new(self.0) }
     }
 }
@@ -465,12 +466,13 @@ impl<T: Sized> DebugEnsureAligned for *mut T {
         // ptr.is_aligned_to.
         //
         // Replace once https://github.com/rust-lang/rust/issues/96284 is stable.
-        assert!(
-            self as usize & (align - 1) == 0,
+        assert_eq!(
+            self as usize & (align - 1),
+            0,
             "pointer is not aligned. Address {:p} does not have alignment {} for type {}",
             self,
             align,
-            core::any::type_name::<T>(),
+            core::any::type_name::<T>()
         );
         self
     }

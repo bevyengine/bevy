@@ -1,14 +1,18 @@
 use crate::{
-    archetype::{ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
+    archetype::{ArchetypeComponentId, ArchetypeGeneration},
     component::{ComponentId, Tick},
     prelude::FromWorld,
     query::{Access, FilteredAccessSet},
+    schedule::{InternedSystemSet, SystemSet},
     system::{check_system_change_tick, ReadOnlySystemParam, System, SystemParam, SystemParamItem},
     world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
 };
 
 use bevy_utils::all_tuples;
 use std::{any::TypeId, borrow::Cow, marker::PhantomData};
+
+#[cfg(feature = "trace")]
+use bevy_utils::tracing::{info_span, Span};
 
 use super::{In, IntoSystem, ReadOnlySystem};
 
@@ -21,17 +25,28 @@ pub struct SystemMeta {
     // NOTE: this must be kept private. making a SystemMeta non-send is irreversible to prevent
     // SystemParams from overriding each other
     is_send: bool,
+    has_deferred: bool,
     pub(crate) last_run: Tick,
+    #[cfg(feature = "trace")]
+    pub(crate) system_span: Span,
+    #[cfg(feature = "trace")]
+    pub(crate) commands_span: Span,
 }
 
 impl SystemMeta {
     pub(crate) fn new<T>() -> Self {
+        let name = std::any::type_name::<T>();
         Self {
-            name: std::any::type_name::<T>().into(),
+            name: name.into(),
             archetype_component_access: Access::default(),
             component_access_set: FilteredAccessSet::default(),
             is_send: true,
+            has_deferred: false,
             last_run: Tick::new(0),
+            #[cfg(feature = "trace")]
+            system_span: info_span!("system", name = name),
+            #[cfg(feature = "trace")]
+            commands_span: info_span!("system_commands", name = name),
         }
     }
 
@@ -54,14 +69,28 @@ impl SystemMeta {
     pub fn set_non_send(&mut self) {
         self.is_send = false;
     }
+
+    /// Returns true if the system has deferred [`SystemParam`]'s
+    #[inline]
+    pub fn has_deferred(&self) -> bool {
+        self.has_deferred
+    }
+
+    /// Marks the system as having deferred buffers like [`Commands`](`super::Commands`)
+    /// This lets the scheduler insert [`apply_deferred`](`crate::prelude::apply_deferred`) systems automatically.
+    pub fn set_has_deferred(&mut self) {
+        self.has_deferred = true;
+    }
 }
 
 // TODO: Actually use this in FunctionSystem. We should probably only do this once Systems are constructed using a World reference
 // (to avoid the need for unwrapping to retrieve SystemMeta)
 /// Holds on to persistent state required to drive [`SystemParam`] for a [`System`].
 ///
-/// This is a very powerful and convenient tool for working with exclusive world access,
+/// This is a powerful and convenient tool for working with exclusive world access,
 /// allowing you to fetch data from the [`World`] as if you were running a [`System`].
+/// However, simply calling `world::run_system(my_system)` using a [`World::run_system`](World::run_system)
+/// can be significantly simpler and ensures that change detection and command flushing work as expected.
 ///
 /// Borrow-checking is handled for you, allowing you to mutably access multiple compatible system parameters at once,
 /// and arbitrary system parameters (like [`EventWriter`](crate::event::EventWriter)) can be conveniently fetched.
@@ -77,10 +106,12 @@ impl SystemMeta {
 /// - [`Local`](crate::system::Local) variables that hold state
 /// - [`EventReader`](crate::event::EventReader) system parameters, which rely on a [`Local`](crate::system::Local) to track which events have been seen
 ///
+/// Note that this is automatically handled for you when using a [`World::run_system`](World::run_system).
+///
 /// # Example
 ///
 /// Basic usage:
-/// ```rust
+/// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::system::SystemState;
 /// # use bevy_ecs::event::Events;
@@ -113,7 +144,7 @@ impl SystemMeta {
 /// // You need to manually call `.apply(world)` on the `SystemState` to apply them.
 /// ```
 /// Caching:
-/// ```rust
+/// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::system::SystemState;
 /// # use bevy_ecs::event::Events;
@@ -139,7 +170,7 @@ impl SystemMeta {
 /// world.resource_scope(|world, mut cached_state: Mut<CachedSystemState>| {
 ///     let mut event_reader = cached_state.event_state.get_mut(world);
 ///
-///     for events in event_reader.iter() {
+///     for events in event_reader.read() {
 ///         println!("Hello World!");
 ///     }
 /// });
@@ -216,8 +247,18 @@ impl<Param: SystemParam> SystemState<Param> {
 
     /// Asserts that the [`SystemState`] matches the provided world.
     #[inline]
+    #[track_caller]
     fn validate_world(&self, world_id: WorldId) {
-        assert!(self.matches_world(world_id), "Encountered a mismatched World. A SystemState cannot be used with Worlds other than the one it was created with.");
+        #[inline(never)]
+        #[track_caller]
+        #[cold]
+        fn panic_mismatched(this: WorldId, other: WorldId) -> ! {
+            panic!("Encountered a mismatched World. This SystemState was created from {this:?}, but a method was called using {other:?}.");
+        }
+
+        if !self.matches_world(world_id) {
+            panic_mismatched(self.world_id, world_id);
+        }
     }
 
     /// Updates the state's internal view of the [`World`]'s archetypes. If this is not called before fetching the parameters,
@@ -244,16 +285,11 @@ impl<Param: SystemParam> SystemState<Param> {
     #[inline]
     pub fn update_archetypes_unsafe_world_cell(&mut self, world: UnsafeWorldCell) {
         let archetypes = world.archetypes();
-        let new_generation = archetypes.generation();
-        let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
-        let archetype_index_range = old_generation.value()..new_generation.value();
+        let old_generation =
+            std::mem::replace(&mut self.archetype_generation, archetypes.generation());
 
-        for archetype_index in archetype_index_range {
-            Param::new_archetype(
-                &mut self.param_state,
-                &archetypes[ArchetypeId::new(archetype_index)],
-                &mut self.meta,
-            );
+        for archetype in &archetypes[old_generation..] {
+            Param::new_archetype(&mut self.param_state, archetype, &mut self.meta);
         }
     }
 
@@ -443,7 +479,15 @@ where
     }
 
     #[inline]
+    fn has_deferred(&self) -> bool {
+        self.system_meta.has_deferred
+    }
+
+    #[inline]
     unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell) -> Self::Out {
+        #[cfg(feature = "trace")]
+        let _span_guard = self.system_meta.system_span.enter();
+
         let change_tick = world.increment_change_tick();
 
         // SAFETY:
@@ -462,14 +506,6 @@ where
         out
     }
 
-    fn get_last_run(&self) -> Tick {
-        self.system_meta.last_run
-    }
-
-    fn set_last_run(&mut self, last_run: Tick) {
-        self.system_meta.last_run = last_run;
-    }
-
     #[inline]
     fn apply_deferred(&mut self, world: &mut World) {
         let param_state = self.param_state.as_mut().expect(Self::PARAM_MESSAGE);
@@ -484,19 +520,14 @@ where
     }
 
     fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
-        assert!(self.world_id == Some(world.id()), "Encountered a mismatched World. A System cannot be used with Worlds other than the one it was initialized with.");
+        assert_eq!(self.world_id, Some(world.id()), "Encountered a mismatched World. A System cannot be used with Worlds other than the one it was initialized with.");
         let archetypes = world.archetypes();
-        let new_generation = archetypes.generation();
-        let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
-        let archetype_index_range = old_generation.value()..new_generation.value();
+        let old_generation =
+            std::mem::replace(&mut self.archetype_generation, archetypes.generation());
 
-        for archetype_index in archetype_index_range {
+        for archetype in &archetypes[old_generation..] {
             let param_state = self.param_state.as_mut().unwrap();
-            F::Param::new_archetype(
-                param_state,
-                &archetypes[ArchetypeId::new(archetype_index)],
-                &mut self.system_meta,
-            );
+            F::Param::new_archetype(param_state, archetype, &mut self.system_meta);
         }
     }
 
@@ -509,9 +540,17 @@ where
         );
     }
 
-    fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule::SystemSet>> {
+    fn default_system_sets(&self) -> Vec<InternedSystemSet> {
         let set = crate::schedule::SystemTypeSet::<F>::new();
-        vec![Box::new(set)]
+        vec![set.intern()]
+    }
+
+    fn get_last_run(&self) -> Tick {
+        self.system_meta.last_run
+    }
+
+    fn set_last_run(&mut self, last_run: Tick) {
+        self.system_meta.last_run = last_run;
     }
 }
 
@@ -537,7 +576,7 @@ where
 ///
 /// To create something like [`PipeSystem`], but in entirely safe code.
 ///
-/// ```rust
+/// ```
 /// use std::num::ParseIntError;
 ///
 /// use bevy_ecs::prelude::*;

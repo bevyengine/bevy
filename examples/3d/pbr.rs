@@ -61,7 +61,7 @@ fn setup(
     commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(50.0, 50.0, 50.0),
         point_light: PointLight {
-            intensity: 600000.,
+            intensity: 100_000_000.,
             range: 100.,
             ..default()
         },
@@ -74,7 +74,6 @@ fn setup(
             "Perceptual Roughness",
             TextStyle {
                 font_size: 36.0,
-                color: Color::WHITE,
                 ..default()
             },
         )
@@ -91,14 +90,13 @@ fn setup(
             "Metallic",
             TextStyle {
                 font_size: 36.0,
-                color: Color::WHITE,
                 ..default()
             },
         ),
         style: Style {
             position_type: PositionType::Absolute,
             top: Val::Px(130.0),
-            right: Val::Px(0.0),
+            right: Val::ZERO,
             ..default()
         },
         transform: Transform {
@@ -140,6 +138,7 @@ fn setup(
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            intensity: 150.0,
         },
     ));
 }
@@ -151,8 +150,8 @@ fn environment_map_load_finish(
     label_query: Query<Entity, With<EnvironmentMapLabel>>,
 ) {
     if let Ok(environment_map) = environment_maps.get_single() {
-        if asset_server.get_load_state(&environment_map.diffuse_map) == LoadState::Loaded
-            && asset_server.get_load_state(&environment_map.specular_map) == LoadState::Loaded
+        if asset_server.load_state(&environment_map.diffuse_map) == LoadState::Loaded
+            && asset_server.load_state(&environment_map.specular_map) == LoadState::Loaded
         {
             if let Ok(label_entity) = label_query.get_single() {
                 commands.entity(label_entity).despawn();

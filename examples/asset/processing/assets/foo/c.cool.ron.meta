@@ -1,0 +1,13 @@
+(
+    meta_format_version: "1.0",
+    asset: Process(
+        processor: "bevy_asset::processor::process::LoadTransformAndSave<asset_processing::CoolTextLoader, asset_processing::CoolTextTransformer, asset_processing::CoolTextSaver>",
+        settings: (
+            loader_settings: (),
+            transformer_settings: (
+                appended: "",
+            ),
+            saver_settings: (),
+        ),
+    ),
+)

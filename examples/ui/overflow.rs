@@ -8,6 +8,7 @@ fn main() {
         // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
         .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
+        .add_systems(Update, update_outlines)
         .run();
 }
 
@@ -17,7 +18,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let text_style = TextStyle {
         font: asset_server.load("fonts/FiraMono-Medium.ttf"),
         font_size: 20.0,
-        color: Color::WHITE,
+        ..default()
     };
 
     let image = asset_server.load("branding/icon.png");
@@ -25,9 +26,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn(NodeBundle {
             style: Style {
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
-                width: Val::Percent(100.),
                 ..Default::default()
             },
             background_color: Color::ANTIQUE_WHITE.into(),
@@ -85,18 +87,39 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 ..Default::default()
                             })
                             .with_children(|parent| {
-                                parent.spawn(ImageBundle {
-                                    image: UiImage::new(image.clone()),
-                                    style: Style {
-                                        min_width: Val::Px(100.),
-                                        min_height: Val::Px(100.),
+                                parent.spawn((
+                                    ImageBundle {
+                                        image: UiImage::new(image.clone()),
+                                        style: Style {
+                                            min_width: Val::Px(100.),
+                                            min_height: Val::Px(100.),
+                                            ..Default::default()
+                                        },
+                                        background_color: Color::WHITE.into(),
+
                                         ..Default::default()
                                     },
-                                    background_color: Color::WHITE.into(),
-                                    ..Default::default()
-                                });
+                                    Interaction::default(),
+                                    Outline {
+                                        width: Val::Px(2.),
+                                        offset: Val::Px(2.),
+                                        color: Color::NONE,
+                                    },
+                                ));
                             });
                     });
             }
         });
+}
+
+fn update_outlines(mut outlines_query: Query<(&mut Outline, Ref<Interaction>)>) {
+    for (mut outline, interaction) in outlines_query.iter_mut() {
+        if interaction.is_changed() {
+            outline.color = match *interaction {
+                Interaction::Pressed => Color::RED,
+                Interaction::Hovered => Color::WHITE,
+                Interaction::None => Color::NONE,
+            };
+        }
+    }
 }

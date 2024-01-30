@@ -25,7 +25,15 @@ mod tests {
         let info = MyEnum::type_info();
         if let TypeInfo::Enum(info) = info {
             assert!(info.is::<MyEnum>(), "expected type to be `MyEnum`");
-            assert_eq!(std::any::type_name::<MyEnum>(), info.type_name());
+            assert_eq!(MyEnum::type_path(), info.type_path());
+            assert_eq!(MyEnum::type_path(), info.type_path_table().path());
+            assert_eq!(MyEnum::type_ident(), info.type_path_table().ident());
+            assert_eq!(MyEnum::module_path(), info.type_path_table().module_path());
+            assert_eq!(MyEnum::crate_name(), info.type_path_table().crate_name());
+            assert_eq!(
+                MyEnum::short_type_path(),
+                info.type_path_table().short_path()
+            );
 
             // === MyEnum::A === //
             assert_eq!("A", info.variant_at(0).unwrap().name());
@@ -275,7 +283,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "`((usize, i32))` is not an enum")]
+    #[should_panic(expected = "`bevy_reflect::DynamicTuple` is not an enum")]
     fn applying_non_enum_should_panic() {
         let mut value = MyEnum::B(0, 0);
         let mut dyn_tuple = DynamicTuple::default();

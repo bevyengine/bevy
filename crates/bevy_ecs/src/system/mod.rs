@@ -6,7 +6,7 @@
 //!
 //! System functions can have parameters, through which one can query and mutate Bevy ECS state.
 //! Only types that implement [`SystemParam`] can be used, automatically fetching data from
-//! the [`World`](crate::world::World).
+//! the [`World`].
 //!
 //! System functions often look like this:
 //!
@@ -46,7 +46,7 @@
 //! You can **explicitly order** systems:
 //!
 //! - by calling the `.before(this_system)` or `.after(that_system)` methods when adding them to your schedule
-//! - by adding them to a [`SystemSet`], and then using `.configure_set(ThisSet.before(ThatSet))` syntax to configure many systems at once
+//! - by adding them to a [`SystemSet`], and then using `.configure_sets(ThisSet.before(ThatSet))` syntax to configure many systems at once
 //! - through the use of `.add_systems((system_a, system_b, system_c).chain())`
 //!
 //! [`SystemSet`]: crate::schedule::SystemSet
@@ -55,7 +55,7 @@
 //!
 //! ```
 //! # use bevy_ecs::prelude::*;
-//! # let mut schedule = Schedule::new();
+//! # let mut schedule = Schedule::default();
 //! # let mut world = World::new();
 //! // Configure these systems to run in order using `chain()`.
 //! schedule.add_systems((print_first, print_last).chain());
@@ -91,7 +91,6 @@
 //! - [`EventWriter`](crate::event::EventWriter)
 //! - [`NonSend`] and `Option<NonSend>`
 //! - [`NonSendMut`] and `Option<NonSendMut>`
-//! - [`&World`](crate::world::World)
 //! - [`RemovedComponents`](crate::removal_detection::RemovedComponents)
 //! - [`SystemName`]
 //! - [`SystemChangeTick`]
@@ -102,6 +101,7 @@
 //! - All tuples between 1 to 16 elements where each element implements [`SystemParam`]
 //! - [`()` (unit primitive type)](https://doc.rust-lang.org/stable/std/primitive.unit.html)
 
+mod adapter_system;
 mod combinator;
 mod commands;
 mod exclusive_function_system;
@@ -110,10 +110,13 @@ mod function_system;
 mod query;
 #[allow(clippy::module_inception)]
 mod system;
+mod system_name;
 mod system_param;
+mod system_registry;
 
 use std::borrow::Cow;
 
+pub use adapter_system::*;
 pub use combinator::*;
 pub use commands::*;
 pub use exclusive_function_system::*;
@@ -121,7 +124,9 @@ pub use exclusive_system_param::*;
 pub use function_system::*;
 pub use query::*;
 pub use system::*;
+pub use system_name::*;
 pub use system_param::*;
+pub use system_registry::*;
 
 use crate::world::World;
 
@@ -151,8 +156,8 @@ pub trait IntoSystem<In, Out, Marker>: Sized {
 
     /// Pass the output of this system `A` into a second system `B`, creating a new compound system.
     ///
-    /// The second system must have `In<T>` as its first parameter, where `T`
-    /// is the return type of the first system.
+    /// The second system must have [`In<T>`](crate::system::In) as its first parameter,
+    /// where `T` is the return type of the first system.
     fn pipe<B, Final, MarkerB>(self, system: B) -> PipeSystem<Self::System, B::System>
     where
         B: IntoSystem<Out, Final, MarkerB>,
@@ -161,6 +166,34 @@ pub trait IntoSystem<In, Out, Marker>: Sized {
         let system_b = IntoSystem::into_system(system);
         let name = format!("Pipe({}, {})", system_a.name(), system_b.name());
         PipeSystem::new(system_a, system_b, Cow::Owned(name))
+    }
+
+    /// Pass the output of this system into the passed function `f`, creating a new system that
+    /// outputs the value returned from the function.
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # let mut schedule = Schedule::default();
+    /// // Ignores the output of a system that may fail.
+    /// schedule.add_systems(my_system.map(drop));
+    /// # let mut world = World::new();
+    /// # world.insert_resource(T);
+    /// # schedule.run(&mut world);
+    ///
+    /// # #[derive(Resource)] struct T;
+    /// # type Err = ();
+    /// fn my_system(res: Res<T>) -> Result<(), Err> {
+    ///     // ...
+    ///     # Err(())
+    /// }
+    /// ```
+    fn map<T, F>(self, f: F) -> AdapterSystem<F, Self::System>
+    where
+        F: Send + Sync + 'static + FnMut(Out) -> T,
+    {
+        let system = Self::into_system(self);
+        let name = system.name();
+        AdapterSystem::new(f, system, name)
     }
 }
 
@@ -199,218 +232,6 @@ impl<T: System> IntoSystem<T::In, T::Out, ()> for T {
 /// }
 /// ```
 pub struct In<In>(pub In);
-
-/// A collection of common adapters for [piping](crate::system::PipeSystem) the result of a system.
-pub mod adapter {
-    use crate::system::In;
-    use bevy_utils::tracing;
-    use std::fmt::Debug;
-
-    /// Converts a regular function into a system adapter.
-    ///
-    /// # Examples
-    /// ```
-    /// use bevy_ecs::prelude::*;
-    ///
-    /// fn return1() -> u64 { 1 }
-    ///
-    /// return1
-    ///     .pipe(system_adapter::new(u32::try_from))
-    ///     .pipe(system_adapter::unwrap)
-    ///     .pipe(print);
-    ///
-    /// fn print(In(x): In<impl std::fmt::Debug>) {
-    ///     println!("{x:?}");
-    /// }
-    /// ```
-    pub fn new<T, U>(mut f: impl FnMut(T) -> U) -> impl FnMut(In<T>) -> U {
-        move |In(x)| f(x)
-    }
-
-    /// System adapter that unwraps the `Ok` variant of a [`Result`].
-    /// This is useful for fallible systems that should panic in the case of an error.
-    ///
-    /// There is no equivalent adapter for [`Option`]. Instead, it's best to provide
-    /// an error message and convert to a `Result` using `ok_or{_else}`.
-    ///
-    /// # Examples
-    ///
-    /// Panicking on error
-    ///
-    /// ```
-    /// use bevy_ecs::prelude::*;
-    ///
-    /// // Building a new schedule/app...
-    /// let mut sched = Schedule::default();
-    /// sched.add_systems(
-    ///         // Panic if the load system returns an error.
-    ///         load_save_system.pipe(system_adapter::unwrap)
-    ///     )
-    ///     // ...
-    /// #   ;
-    /// # let mut world = World::new();
-    /// # sched.run(&mut world);
-    ///
-    /// // A system which may fail irreparably.
-    /// fn load_save_system() -> Result<(), std::io::Error> {
-    ///     let save_file = open_file("my_save.json")?;
-    ///     dbg!(save_file);
-    ///     Ok(())
-    /// }
-    /// # fn open_file(name: &str) -> Result<&'static str, std::io::Error>
-    /// # { Ok("hello world") }
-    /// ```
-    pub fn unwrap<T, E: Debug>(In(res): In<Result<T, E>>) -> T {
-        res.unwrap()
-    }
-
-    /// System adapter that utilizes the [`bevy_utils::tracing::info!`] macro to print system information.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use bevy_ecs::prelude::*;
-    ///
-    /// // Building a new schedule/app...
-    /// let mut sched = Schedule::default();
-    /// sched.add_systems(
-    ///         // Prints system information.
-    ///         data_pipe_system.pipe(system_adapter::info)
-    ///     )
-    ///     // ...
-    /// #   ;
-    /// # let mut world = World::new();
-    /// # sched.run(&mut world);
-    ///
-    /// // A system that returns a String output.
-    /// fn data_pipe_system() -> String {
-    ///     "42".to_string()
-    /// }
-    /// ```
-    pub fn info<T: Debug>(In(data): In<T>) {
-        tracing::info!("{:?}", data);
-    }
-
-    /// System adapter that utilizes the [`bevy_utils::tracing::debug!`] macro to print the output of a system.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use bevy_ecs::prelude::*;
-    ///
-    /// // Building a new schedule/app...
-    /// let mut sched = Schedule::default();
-    /// sched.add_systems(
-    ///         // Prints debug data from system.
-    ///         parse_message_system.pipe(system_adapter::dbg)
-    ///     )
-    ///     // ...
-    /// #   ;
-    /// # let mut world = World::new();
-    /// # sched.run(&mut world);
-    ///
-    /// // A system that returns a Result<usize, String> output.
-    /// fn parse_message_system() -> Result<usize, std::num::ParseIntError> {
-    ///     Ok("42".parse()?)
-    /// }
-    /// ```
-    pub fn dbg<T: Debug>(In(data): In<T>) {
-        tracing::debug!("{:?}", data);
-    }
-
-    /// System adapter that utilizes the [`bevy_utils::tracing::warn!`] macro to print the output of a system.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use bevy_ecs::prelude::*;
-    ///
-    /// // Building a new schedule/app...
-    /// # let mut sched = Schedule::default();
-    /// sched.add_systems(
-    ///         // Prints system warning if system returns an error.
-    ///         warning_pipe_system.pipe(system_adapter::warn)
-    ///     )
-    ///     // ...
-    /// #   ;
-    /// # let mut world = World::new();
-    /// # sched.run(&mut world);
-    ///
-    /// // A system that returns a Result<(), String> output.
-    /// fn warning_pipe_system() -> Result<(), String> {
-    ///     Err("Got to rusty?".to_string())
-    /// }
-    /// ```
-    pub fn warn<E: Debug>(In(res): In<Result<(), E>>) {
-        if let Err(warn) = res {
-            tracing::warn!("{:?}", warn);
-        }
-    }
-
-    /// System adapter that utilizes the [`bevy_utils::tracing::error!`] macro to print the output of a system.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use bevy_ecs::prelude::*;
-    /// // Building a new schedule/app...
-    /// let mut sched = Schedule::default();
-    /// sched.add_systems(
-    ///         // Prints system error if system fails.
-    ///         parse_error_message_system.pipe(system_adapter::error)
-    ///     )
-    ///     // ...
-    /// #   ;
-    /// # let mut world = World::new();
-    /// # sched.run(&mut world);
-    ///
-    /// // A system that returns a Result<())> output.
-    /// fn parse_error_message_system() -> Result<(), String> {
-    ///    Err("Some error".to_owned())
-    /// }
-    /// ```
-    pub fn error<E: Debug>(In(res): In<Result<(), E>>) {
-        if let Err(error) = res {
-            tracing::error!("{:?}", error);
-        }
-    }
-
-    /// System adapter that ignores the output of the previous system in a pipe.
-    /// This is useful for fallible systems that should simply return early in case of an `Err`/`None`.
-    ///
-    /// # Examples
-    ///
-    /// Returning early
-    ///
-    /// ```
-    /// use bevy_ecs::prelude::*;
-    ///
-    /// // Marker component for an enemy entity.
-    /// #[derive(Component)]
-    /// struct Monster;
-    ///
-    /// // Building a new schedule/app...
-    /// # let mut sched = Schedule::default(); sched
-    ///     .add_systems(
-    ///         // If the system fails, just move on and try again next frame.
-    ///         fallible_system.pipe(system_adapter::ignore)
-    ///     )
-    ///     // ...
-    /// #   ;
-    /// # let mut world = World::new();
-    /// # sched.run(&mut world);
-    ///
-    /// // A system which may return early. It's more convenient to use the `?` operator for this.
-    /// fn fallible_system(
-    ///     q: Query<Entity, With<Monster>>
-    /// ) -> Option<()> {
-    ///     let monster_id = q.iter().next()?;
-    ///     println!("Monster entity is {monster_id:?}");
-    ///     Some(())
-    /// }
-    /// ```
-    pub fn ignore<T>(In(_): In<T>) {}
-}
 
 /// Ensure that a given function is a [system](System).
 ///
@@ -489,6 +310,20 @@ pub fn assert_system_does_not_conflict<Out, Params, S: IntoSystem<(), Out, Param
     system.run((), &mut world);
 }
 
+impl<T> std::ops::Deref for In<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T> std::ops::DerefMut for In<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::any::TypeId;
@@ -510,8 +345,8 @@ mod tests {
             Schedule,
         },
         system::{
-            adapter::new, Commands, In, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query,
-            QueryComponentError, Res, ResMut, Resource, System, SystemState,
+            Commands, In, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, Res, ResMut,
+            Resource, StaticSystemParam, System, SystemState,
         },
         world::{FromWorld, World},
     };
@@ -1134,7 +969,7 @@ mod tests {
             mut n_systems: ResMut<NSystems>,
         ) {
             assert_eq!(
-                removed_i32.iter().collect::<Vec<_>>(),
+                removed_i32.read().collect::<Vec<_>>(),
                 &[despawned.0],
                 "despawning causes the correct entity to show up in the 'RemovedComponent' system parameter."
             );
@@ -1162,7 +997,7 @@ mod tests {
             // The despawned entity from the previous frame was
             // double buffered so we now have it in this system as well.
             assert_eq!(
-                removed_i32.iter().collect::<Vec<_>>(),
+                removed_i32.read().collect::<Vec<_>>(),
                 &[despawned.0, removed.0],
                 "removing a component causes the correct entity to show up in the 'RemovedComponent' system parameter."
             );
@@ -1195,7 +1030,7 @@ mod tests {
                 let archetype = archetypes.get(location.archetype_id).unwrap();
                 let archetype_components = archetype.components().collect::<Vec<_>>();
                 let bundle_id = bundles
-                    .get_id(std::any::TypeId::of::<(W<i32>, W<bool>)>())
+                    .get_id(TypeId::of::<(W<i32>, W<bool>)>())
                     .expect("Bundle used to spawn entity should exist");
                 let bundle_info = bundles.get(bundle_id).unwrap();
                 let mut bundle_components = bundle_info.components().to_vec();
@@ -1721,6 +1556,8 @@ mod tests {
 
     #[test]
     fn readonly_query_get_mut_component_fails() {
+        use crate::query::QueryComponentError;
+
         let mut world = World::new();
         let entity = world.spawn(W(42u32)).id();
         run_system(&mut world, move |q: Query<&mut W<u32>>| {
@@ -1733,7 +1570,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic = "Attempted to use bevy_ecs::query::state::QueryState<()> with a mismatched World."]
+    #[should_panic = "Encountered a mismatched World."]
     fn query_validates_world_id() {
         let mut world1 = World::new();
         let world2 = World::new();
@@ -1781,14 +1618,29 @@ mod tests {
             unimplemented!()
         }
 
+        fn static_system_param(_: StaticSystemParam<Query<'static, 'static, &W<u32>>>) {
+            unimplemented!()
+        }
+
+        fn exclusive_with_state(
+            _: &mut World,
+            _: Local<bool>,
+            _: (&mut QueryState<&W<i32>>, &mut SystemState<Query<&W<u32>>>),
+            _: (),
+        ) {
+            unimplemented!()
+        }
+
         fn not(In(val): In<bool>) -> bool {
             !val
         }
 
-        assert_is_system(returning::<Result<u32, std::io::Error>>.pipe(unwrap));
-        assert_is_system(returning::<Option<()>>.pipe(ignore));
-        assert_is_system(returning::<&str>.pipe(new(u64::from_str)).pipe(unwrap));
-        assert_is_system(exclusive_in_out::<(), Result<(), std::io::Error>>.pipe(error));
+        assert_is_system(returning::<Result<u32, std::io::Error>>.map(Result::unwrap));
+        assert_is_system(returning::<Option<()>>.map(drop));
+        assert_is_system(returning::<&str>.map(u64::from_str).map(Result::unwrap));
+        assert_is_system(static_system_param);
+        assert_is_system(exclusive_in_out::<(), Result<(), std::io::Error>>.map(bevy_utils::error));
+        assert_is_system(exclusive_with_state);
         assert_is_system(returning::<bool>.pipe(exclusive_in_out::<bool, ()>));
 
         returning::<()>.run_if(returning::<bool>.pipe(not));
@@ -1878,17 +1730,17 @@ mod tests {
 
         world.insert_resource(A);
         world.insert_resource(C(0));
-        let mut sched = Schedule::new();
+        let mut sched = Schedule::default();
         sched.add_systems(
             (
-                (|mut res: ResMut<C>| {
+                |mut res: ResMut<C>| {
                     res.0 += 1;
-                }),
-                (|mut res: ResMut<C>| {
+                },
+                |mut res: ResMut<C>| {
                     res.0 += 2;
-                }),
+                },
             )
-                .distributive_run_if(resource_exists::<A>().or_else(resource_exists::<B>())),
+                .distributive_run_if(resource_exists::<A>.or_else(resource_exists::<B>)),
         );
         sched.initialize(&mut world).unwrap();
         sched.run(&mut world);
