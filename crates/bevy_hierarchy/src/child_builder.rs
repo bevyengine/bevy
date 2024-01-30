@@ -6,7 +6,7 @@ use bevy_ecs::{
     system::{Command, Commands, EntityCommands},
     world::{EntityWorldMut, World},
 };
-use smallvec::SmallVec;
+use bevy_utils::smallvec::{smallvec, SmallVec};
 
 // Do not use `world.send_event_batch` as it prints error message when the Events are not available in the world,
 // even though it's a valid use case to execute commands on a world without events. Loading a GLTF file for example
@@ -24,7 +24,7 @@ fn push_child_unchecked(world: &mut World, parent: Entity, child: Entity) {
     if let Some(mut children) = parent.get_mut::<Children>() {
         children.0.push(child);
     } else {
-        parent.insert(Children(smallvec::smallvec![child]));
+        parent.insert(Children(smallvec![child]));
     }
 }
 
@@ -161,14 +161,14 @@ fn clear_children(parent: Entity, world: &mut World) {
 
 /// Command that adds a child to an entity.
 #[derive(Debug)]
-pub struct AddChild {
+pub struct PushChild {
     /// Parent entity to add the child to.
     pub parent: Entity,
     /// Child entity to add.
     pub child: Entity,
 }
 
-impl Command for AddChild {
+impl Command for PushChild {
     fn apply(self, world: &mut World) {
         world.entity_mut(self.parent).add_child(self.child);
     }
@@ -253,15 +253,36 @@ impl Command for RemoveParent {
 }
 
 /// Struct for building children entities and adding them to a parent entity.
-pub struct ChildBuilder<'w, 's, 'a> {
-    commands: &'a mut Commands<'w, 's>,
+///
+/// # Example
+///
+/// This example creates three entities, a parent and two children.
+///
+/// ```
+/// # use bevy_ecs::bundle::Bundle;
+/// # use bevy_ecs::system::Commands;
+/// # use bevy_hierarchy::BuildChildren;
+/// # #[derive(Bundle)]
+/// # struct MyBundle {}
+/// # #[derive(Bundle)]
+/// # struct MyChildBundle {}
+/// #
+/// # fn test(mut commands: Commands) {
+/// commands.spawn(MyBundle {}).with_children(|child_builder| {
+///     child_builder.spawn(MyChildBundle {});
+///     child_builder.spawn(MyChildBundle {});
+/// });
+/// # }
+/// ```
+pub struct ChildBuilder<'a> {
+    commands: Commands<'a, 'a>,
     push_children: PushChildren,
 }
 
-impl<'w, 's, 'a> ChildBuilder<'w, 's, 'a> {
+impl ChildBuilder<'_> {
     /// Spawns an entity with the given bundle and inserts it into the parent entity's [`Children`].
     /// Also adds [`Parent`] component to the created entity.
-    pub fn spawn(&mut self, bundle: impl Bundle) -> EntityCommands<'w, 's, '_> {
+    pub fn spawn(&mut self, bundle: impl Bundle) -> EntityCommands {
         let e = self.commands.spawn(bundle);
         self.push_children.children.push(e.id());
         e
@@ -269,7 +290,7 @@ impl<'w, 's, 'a> ChildBuilder<'w, 's, 'a> {
 
     /// Spawns an [`Entity`] with no components and inserts it into the parent entity's [`Children`].
     /// Also adds [`Parent`] component to the created entity.
-    pub fn spawn_empty(&mut self) -> EntityCommands<'w, 's, '_> {
+    pub fn spawn_empty(&mut self) -> EntityCommands {
         let e = self.commands.spawn_empty();
         self.push_children.children.push(e.id());
         e
@@ -281,7 +302,7 @@ impl<'w, 's, 'a> ChildBuilder<'w, 's, 'a> {
     }
 
     /// Adds a command to be executed, like [`Commands::add`].
-    pub fn add_command<C: Command + 'static>(&mut self, command: C) -> &mut Self {
+    pub fn add_command<C: Command>(&mut self, command: C) -> &mut Self {
         self.commands.add(command);
         self
     }
@@ -353,7 +374,7 @@ pub trait BuildChildren {
     fn remove_parent(&mut self) -> &mut Self;
 }
 
-impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
+impl BuildChildren for EntityCommands<'_> {
     fn with_children(&mut self, spawn_children: impl FnOnce(&mut ChildBuilder)) -> &mut Self {
         let parent = self.id();
         let mut builder = ChildBuilder {
@@ -412,7 +433,7 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
         if child == parent {
             panic!("Cannot add entity as a child of itself.");
         }
-        self.commands().add(AddChild { child, parent });
+        self.commands().add(PushChild { child, parent });
         self
     }
 
@@ -439,7 +460,7 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
         if child == parent {
             panic!("Cannot set parent to itself");
         }
-        self.commands().add(AddChild { child, parent });
+        self.commands().add(PushChild { child, parent });
         self
     }
 
@@ -675,7 +696,7 @@ mod tests {
         components::{Children, Parent},
         HierarchyEvent::{self, ChildAdded, ChildMoved, ChildRemoved},
     };
-    use smallvec::{smallvec, SmallVec};
+    use bevy_utils::smallvec::{smallvec, SmallVec};
 
     use bevy_ecs::{
         component::Component,

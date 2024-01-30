@@ -101,8 +101,8 @@ impl TypeRegistry {
     }
 
     /// Registers the type `T`, adding reflect data as specified in the [`Reflect`] derive:
-    /// ```rust,ignore
-    /// #[derive(Reflect)]
+    /// ```ignore (Neither bevy_ecs nor serde "derive" are available.)
+    /// #[derive(Component, serde::Serialize, serde::Deserialize, Reflect)]
     /// #[reflect(Component, Serialize, Deserialize)] // will register ReflectComponent, ReflectSerialize, ReflectDeserialize
     /// ```
     pub fn register<T>(&mut self)
@@ -143,7 +143,7 @@ impl TypeRegistry {
     /// this method can be used to insert additional type data.
     ///
     /// # Example
-    /// ```rust
+    /// ```
     /// use bevy_reflect::{TypeRegistry, ReflectSerialize, ReflectDeserialize};
     ///
     /// let mut type_registry = TypeRegistry::default();
@@ -167,7 +167,6 @@ impl TypeRegistry {
     ///
     /// If the specified type has not been registered, returns `None`.
     ///
-    /// [`TypeId`]: std::any::TypeId
     pub fn get(&self, type_id: TypeId) -> Option<&TypeRegistration> {
         self.registrations.get(&type_id)
     }
@@ -177,7 +176,6 @@ impl TypeRegistry {
     ///
     /// If the specified type has not been registered, returns `None`.
     ///
-    /// [`TypeId`]: std::any::TypeId
     pub fn get_mut(&mut self, type_id: TypeId) -> Option<&mut TypeRegistration> {
         self.registrations.get_mut(&type_id)
     }
@@ -335,7 +333,6 @@ impl Debug for TypeRegistration {
 impl TypeRegistration {
     /// Returns the [`TypeId`] of the type.
     ///
-    /// [`TypeId`]: std::any::TypeId
     #[inline]
     pub fn type_id(&self) -> TypeId {
         self.type_info.type_id()
@@ -502,7 +499,7 @@ impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
 /// from a pointer.
 ///
 /// # Example
-/// ```rust
+/// ```
 /// use bevy_reflect::{TypeRegistry, Reflect, ReflectFromPtr};
 /// use bevy_ptr::Ptr;
 /// use std::ptr::NonNull;
@@ -543,7 +540,8 @@ impl ReflectFromPtr {
     /// `val` must be a pointer to value of the type that the [`ReflectFromPtr`] was constructed for.
     /// This can be verified by checking that the type id returned by [`ReflectFromPtr::type_id`] is the expected one.
     pub unsafe fn as_reflect<'a>(&self, val: Ptr<'a>) -> &'a dyn Reflect {
-        (self.from_ptr)(val)
+        // SAFETY: contract uphold by the caller.
+        unsafe { (self.from_ptr)(val) }
     }
 
     /// Convert `PtrMut` into `&mut dyn Reflect`.
@@ -553,7 +551,8 @@ impl ReflectFromPtr {
     /// `val` must be a pointer to a value of the type that the [`ReflectFromPtr`] was constructed for
     /// This can be verified by checking that the type id returned by [`ReflectFromPtr::type_id`] is the expected one.
     pub unsafe fn as_reflect_mut<'a>(&self, val: PtrMut<'a>) -> &'a mut dyn Reflect {
-        (self.from_ptr_mut)(val)
+        // SAFETY: contract uphold by the caller.
+        unsafe { (self.from_ptr_mut)(val) }
     }
     /// Get a function pointer to turn a `Ptr` into `&dyn Reflect` for
     /// the type this [`ReflectFromPtr`] was constructed for.
@@ -582,7 +581,7 @@ impl ReflectFromPtr {
 impl<T: Reflect> FromType<T> for ReflectFromPtr {
     fn from_type() -> Self {
         ReflectFromPtr {
-            type_id: std::any::TypeId::of::<T>(),
+            type_id: TypeId::of::<T>(),
             from_ptr: |ptr| {
                 // SAFETY: `from_ptr_mut` is either called in `ReflectFromPtr::as_reflect`
                 // or returned by `ReflectFromPtr::from_ptr`, both lay out the invariants

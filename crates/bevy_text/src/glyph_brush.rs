@@ -3,7 +3,7 @@ use bevy_asset::{AssetId, Assets};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::Reflect;
 use bevy_render::texture::Image;
-use bevy_sprite::TextureAtlas;
+use bevy_sprite::TextureAtlasLayout;
 use bevy_utils::tracing::warn;
 use glyph_brush_layout::{
     BuiltInLineBreaker, FontId, GlyphPositioner, Layout, SectionGeometry, SectionGlyph,
@@ -12,7 +12,7 @@ use glyph_brush_layout::{
 
 use crate::{
     error::TextError, BreakLineOn, Font, FontAtlasSet, FontAtlasSets, FontAtlasWarning,
-    GlyphAtlasInfo, TextAlignment, TextSettings, YAxisOrientation,
+    GlyphAtlasInfo, JustifyText, TextSettings, YAxisOrientation,
 };
 
 pub struct GlyphBrush {
@@ -36,7 +36,7 @@ impl GlyphBrush {
         &self,
         sections: &[S],
         bounds: Vec2,
-        text_alignment: TextAlignment,
+        text_alignment: JustifyText,
         linebreak_behavior: BreakLineOn,
     ) -> Result<Vec<SectionGlyph>, TextError> {
         let geom = SectionGeometry {
@@ -60,7 +60,7 @@ impl GlyphBrush {
         sections: &[SectionText],
         font_atlas_sets: &mut FontAtlasSets,
         fonts: &Assets<Font>,
-        texture_atlases: &mut Assets<TextureAtlas>,
+        texture_atlases: &mut Assets<TextureAtlasLayout>,
         textures: &mut Assets<Image>,
         text_settings: &TextSettings,
         font_atlas_warning: &mut FontAtlasWarning,
@@ -208,13 +208,13 @@ impl GlyphPlacementAdjuster {
 pub(crate) fn compute_text_bounds<T>(
     section_glyphs: &[SectionGlyph],
     get_scaled_font: impl Fn(usize) -> PxScaleFont<T>,
-) -> bevy_math::Rect
+) -> Rect
 where
     T: ab_glyph::Font,
 {
     let mut text_bounds = Rect {
-        min: Vec2::splat(std::f32::MAX),
-        max: Vec2::splat(std::f32::MIN),
+        min: Vec2::splat(f32::MAX),
+        max: Vec2::splat(f32::MIN),
     };
 
     for sg in section_glyphs {

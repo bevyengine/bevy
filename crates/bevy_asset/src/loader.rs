@@ -97,6 +97,10 @@ where
         })
     }
 
+    fn extensions(&self) -> &[&str] {
+        <L as AssetLoader>::extensions(self)
+    }
+
     fn deserialize_meta(&self, meta: &[u8]) -> Result<Box<dyn AssetMetaDyn>, DeserializeMetaError> {
         let meta = AssetMeta::<L, ()>::deserialize(meta)?;
         Ok(Box::new(meta))
@@ -109,10 +113,6 @@ where
         }))
     }
 
-    fn extensions(&self) -> &[&str] {
-        <L as AssetLoader>::extensions(self)
-    }
-
     fn type_name(&self) -> &'static str {
         std::any::type_name::<L>()
     }
@@ -121,12 +121,12 @@ where
         TypeId::of::<L>()
     }
 
-    fn asset_type_id(&self) -> TypeId {
-        TypeId::of::<L::Asset>()
-    }
-
     fn asset_type_name(&self) -> &'static str {
         std::any::type_name::<L::Asset>()
+    }
+
+    fn asset_type_id(&self) -> TypeId {
+        TypeId::of::<L::Asset>()
     }
 }
 
@@ -254,7 +254,7 @@ pub struct LoadDirectError {
 }
 
 /// An error that occurs while deserializing [`AssetMeta`].
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 pub enum DeserializeMetaError {
     #[error("Failed to deserialize asset meta: {0:?}")]
     DeserializeSettings(#[from] SpannedError),
@@ -353,6 +353,13 @@ impl<'a> LoadContext<'a> {
 
     /// This will add the given `asset` as a "labeled [`Asset`]" with the `label` label.
     ///
+    /// # Warning
+    ///
+    /// This will not assign dependencies to the given `asset`. If adding an asset
+    /// with dependencies generated from calls such as [`LoadContext::load`], use
+    /// [`LoadContext::labeled_asset_scope`] or [`LoadContext::begin_labeled_asset`] to generate a
+    /// new [`LoadContext`] to track the dependencies for the labeled asset.
+    ///
     /// See [`AssetPath`] for more on labeled assets.
     pub fn add_labeled_asset<A: Asset>(&mut self, label: String, asset: A) -> Handle<A> {
         self.labeled_asset_scope(label, |_| asset)
@@ -389,7 +396,7 @@ impl<'a> LoadContext<'a> {
     /// See [`AssetPath`] for more on labeled assets.
     pub fn has_labeled_asset<'b>(&self, label: impl Into<CowArc<'b, str>>) -> bool {
         let path = self.asset_path.clone().with_label(label.into());
-        !self.asset_server.get_handles_untyped(&path).is_empty()
+        self.asset_server.get_handle_untyped(&path).is_some()
     }
 
     /// "Finishes" this context by populating the final [`Asset`] value (and the erased [`AssetMeta`] value, if it exists).
@@ -520,11 +527,11 @@ impl<'a> LoadContext<'a> {
     /// deriving a new asset from the referenced asset, or you are building a collection of assets. This will add the `path` as a
     /// "load dependency".
     ///
-    /// If the current loader is used in a [`Process`] "asset preprocessor", such as a [`LoadAndSave`] preprocessor,
+    /// If the current loader is used in a [`Process`] "asset preprocessor", such as a [`LoadTransformAndSave`] preprocessor,
     /// changing a "load dependency" will result in re-processing of the asset.
     ///
     /// [`Process`]: crate::processor::Process
-    /// [`LoadAndSave`]: crate::processor::LoadAndSave
+    /// [`LoadTransformAndSave`]: crate::processor::LoadTransformAndSave
     pub async fn load_direct<'b>(
         &mut self,
         path: impl Into<AssetPath<'b>>,
@@ -539,7 +546,7 @@ impl<'a> LoadContext<'a> {
         let loaded_asset = {
             let (meta, loader, mut reader) = self
                 .asset_server
-                .get_meta_loader_and_reader(&path, None)
+                .get_meta_loader_and_reader(&path)
                 .await
                 .map_err(to_error)?;
             self.asset_server
@@ -568,12 +575,12 @@ impl<'a> LoadContext<'a> {
     /// For example, if you are deriving a new asset from the referenced asset, or you are building a collection of assets. This will add the `path` as a
     /// "load dependency".
     ///
-    /// If the current loader is used in a [`Process`] "asset preprocessor", such as a [`LoadAndSave`] preprocessor,
+    /// If the current loader is used in a [`Process`] "asset preprocessor", such as a [`LoadTransformAndSave`] preprocessor,
     /// changing a "load dependency" will result in re-processing of the asset.
     ///
     /// [`Process`]: crate::processor::Process
-    /// [`LoadAndSave`]: crate::processor::LoadAndSave
-    pub async fn load_direct_with_reader_and_path<'b>(
+    /// [`LoadTransformAndSave`]: crate::processor::LoadTransformAndSave
+    pub async fn load_direct_with_reader<'b>(
         &mut self,
         reader: &mut Reader<'_>,
         path: impl Into<AssetPath<'b>>,
@@ -615,90 +622,6 @@ impl<'a> LoadContext<'a> {
         let hash = info.map(|i| i.full_hash).unwrap_or_default();
 
         self.loader_dependencies.insert(path, hash);
-
-        Ok(loaded_asset)
-    }
-
-    /// Loads the asset from the given `reader` directly as the asset type `type_id`. This is an async function that will wait until the asset is fully loaded before
-    /// returning. Use this if you need the _value_ of another asset in order to load the current asset, and that value comes from your [`Reader`].
-    /// For example, if you are deriving a new asset from the referenced asset, or you are building a collection of assets.
-    pub async fn load_direct_with_reader_and_type_id<'b>(
-        &mut self,
-        reader: &mut Reader<'_>,
-        type_id: TypeId,
-    ) -> Result<ErasedLoadedAsset, LoadDirectError> {
-        let loader = self
-            .asset_server
-            .get_asset_loader_with_asset_type_id(type_id)
-            .await
-            .map_err(|error| LoadDirectError {
-                dependency: self.asset_path.clone_owned(),
-                error: error.into(),
-            })?;
-
-        let meta = loader.default_meta();
-
-        let load_context = LoadContext::new(
-            self.asset_server,
-            self.asset_path.clone_owned(),
-            self.should_load_dependencies,
-            self.populate_hashes,
-        );
-
-        let loaded_asset = loader
-            .load(reader, meta, load_context)
-            .await
-            .map_err(|error| LoadDirectError {
-                dependency: self.asset_path.clone_owned(),
-                error: AssetLoadError::AssetLoaderError {
-                    path: self.asset_path.clone_owned(),
-                    loader_name: loader.type_name(),
-                    error,
-                },
-            })?;
-
-        Ok(loaded_asset)
-    }
-
-    /// Loads the asset from the given `reader` directly as the asset type `type_id`. This is an async function that will wait until the asset is fully loaded before
-    /// returning. Use this if you need the _value_ of another asset in order to load the current asset, and that value comes from your [`Reader`].
-    /// For example, if you are deriving a new asset from the referenced asset, or you are building a collection of assets.
-    pub async fn load_direct_with_reader<'b, A: Asset>(
-        &mut self,
-        reader: &mut Reader<'_>,
-    ) -> Result<A, LoadDirectError> {
-        let loader = self
-            .asset_server
-            .get_asset_loader_with_asset_type::<A>()
-            .await
-            .map_err(|error| LoadDirectError {
-                dependency: self.asset_path.clone_owned(),
-                error: error.into(),
-            })?;
-
-        let meta = loader.default_meta();
-
-        let load_context = LoadContext::new(
-            self.asset_server,
-            self.asset_path.clone_owned(),
-            self.should_load_dependencies,
-            self.populate_hashes,
-        );
-
-        let loaded_asset = loader
-            .load(reader, meta, load_context)
-            .await
-            .map_err(|error| LoadDirectError {
-                dependency: self.asset_path.clone_owned(),
-                error: AssetLoadError::AssetLoaderError {
-                    path: self.asset_path.clone_owned(),
-                    loader_name: loader.type_name(),
-                    error,
-                },
-            })?
-            .take::<A>()
-            // AssetServer::get_asset_loader_with_asset_type::<A> can only return an `AssetLoader<Asset = A>`
-            .unwrap();
 
         Ok(loaded_asset)
     }

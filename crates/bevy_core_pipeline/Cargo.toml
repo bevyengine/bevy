@@ -3,8 +3,8 @@ name = "bevy_core_pipeline"
 version = "0.12.0"
 edition = "2021"
 authors = [
-    "Bevy Contributors <bevyengine@gmail.com>",
-    "Carter Anderson <mcanders1@gmail.com>",
+  "Bevy Contributors <bevyengine@gmail.com>",
+  "Carter Anderson <mcanders1@gmail.com>",
 ]
 description = "Provides a core render pipeline for Bevy Engine."
 homepage = "https://bevyengine.org"
@@ -15,6 +15,7 @@ keywords = ["bevy"]
 [features]
 trace = []
 webgl = []
+webgpu = []
 tonemapping_luts = ["bevy_render/ktx2", "bevy_render/zstd"]
 
 [dependencies]
@@ -34,3 +35,6 @@ bevy_utils = { path = "../bevy_utils", version = "0.12.0" }
 serde = { version = "1", features = ["derive"] }
 bitflags = "2.3"
 radsort = "0.1"
+
+[lints]
+workspace = true

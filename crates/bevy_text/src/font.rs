@@ -2,6 +2,7 @@ use ab_glyph::{FontArc, FontVec, InvalidFont, OutlinedGlyph};
 use bevy_asset::Asset;
 use bevy_reflect::TypePath;
 use bevy_render::{
+    render_asset::RenderAssetPersistencePolicy,
     render_resource::{Extent3d, TextureDimension, TextureFormat},
     texture::Image,
 };
@@ -44,6 +45,7 @@ impl Font {
                 .flat_map(|a| vec![255, 255, 255, (*a * 255.0) as u8])
                 .collect::<Vec<u8>>(),
             TextureFormat::Rgba8UnormSrgb,
+            RenderAssetPersistencePolicy::Unload,
         )
     }
 }

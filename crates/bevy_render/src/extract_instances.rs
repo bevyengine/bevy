@@ -11,7 +11,7 @@ use bevy_asset::{Asset, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::Entity,
-    query::{QueryItem, ReadOnlyWorldQuery, WorldQuery},
+    query::{QueryFilter, QueryItem, ReadOnlyQueryData},
     system::{lifetimeless::Read, Query, ResMut, Resource},
 };
 use bevy_utils::EntityHashMap;
@@ -28,13 +28,13 @@ use crate::{prelude::ViewVisibility, Extract, ExtractSchedule, RenderApp};
 /// [`ExtractComponent`](crate::extract_component::ExtractComponent), but
 /// higher-performance because it avoids the ECS overhead.
 pub trait ExtractInstance: Send + Sync + Sized + 'static {
-    /// ECS [`WorldQuery`] to fetch the components to extract.
-    type Query: WorldQuery + ReadOnlyWorldQuery;
+    /// ECS [`ReadOnlyQueryData`] to fetch the components to extract.
+    type QueryData: ReadOnlyQueryData;
     /// Filters the entities with additional constraints.
-    type Filter: WorldQuery + ReadOnlyWorldQuery;
+    type QueryFilter: QueryFilter;
 
     /// Defines how the component is transferred into the "render world".
-    fn extract(item: QueryItem<'_, Self::Query>) -> Option<Self>;
+    fn extract(item: QueryItem<'_, Self::QueryData>) -> Option<Self>;
 }
 
 /// This plugin extracts one or more components into the "render world" as
@@ -107,7 +107,7 @@ where
 
 fn extract_all<EI>(
     mut extracted_instances: ResMut<ExtractedInstances<EI>>,
-    query: Extract<Query<(Entity, EI::Query), EI::Filter>>,
+    query: Extract<Query<(Entity, EI::QueryData), EI::QueryFilter>>,
 ) where
     EI: ExtractInstance,
 {
@@ -121,7 +121,7 @@ fn extract_all<EI>(
 
 fn extract_visible<EI>(
     mut extracted_instances: ResMut<ExtractedInstances<EI>>,
-    query: Extract<Query<(Entity, &ViewVisibility, EI::Query), EI::Filter>>,
+    query: Extract<Query<(Entity, &ViewVisibility, EI::QueryData), EI::QueryFilter>>,
 ) where
     EI: ExtractInstance,
 {
@@ -139,10 +139,10 @@ impl<A> ExtractInstance for AssetId<A>
 where
     A: Asset,
 {
-    type Query = Read<Handle<A>>;
-    type Filter = ();
+    type QueryData = Read<Handle<A>>;
+    type QueryFilter = ();
 
-    fn extract(item: QueryItem<'_, Self::Query>) -> Option<Self> {
+    fn extract(item: QueryItem<'_, Self::QueryData>) -> Option<Self> {
         Some(item.id())
     }
 }

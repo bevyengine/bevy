@@ -18,10 +18,6 @@
 //! | `D`                | Toggle Depth Prepass                                 |
 //! | `T`                | Toggle TAA                                           |
 
-// This lint usually gives bad advice in the context of Bevy -- hiding complex queries behind
-// type aliases tends to obfuscate code while offering no improvement in code cleanliness.
-#![allow(clippy::type_complexity)]
-
 use std::f32::consts::PI;
 
 use bevy::{
@@ -80,25 +76,22 @@ fn setup(
         .unwrap(),
     );
 
-    let cube_mesh = meshes.add(Mesh::from(shape::Cube { size: 0.7 }));
+    let cube_mesh = meshes.add(shape::Cube { size: 0.7 });
 
-    let plane_mesh = meshes.add(shape::Plane::from_size(2.0).into());
+    let plane_mesh = meshes.add(shape::Plane::from_size(2.0));
 
-    let cylinder_mesh = meshes.add(
-        Mesh::try_from(shape::Cylinder {
-            radius: 0.5,
-            height: 2.0,
-            resolution: 50,
-            segments: 1,
-        })
-        .unwrap(),
-    );
+    let cylinder_mesh = meshes.add(shape::Cylinder {
+        radius: 0.5,
+        height: 2.0,
+        resolution: 50,
+        segments: 1,
+    });
 
     // Cube #1
     commands.spawn((
         PbrBundle {
             mesh: cube_mesh.clone(),
-            material: materials.add(StandardMaterial { ..default() }),
+            material: materials.add(StandardMaterial::default()),
             transform: Transform::from_xyz(0.25, 0.5, -2.0).with_rotation(Quat::from_euler(
                 EulerRot::XYZ,
                 1.4,
@@ -118,7 +111,7 @@ fn setup(
     commands.spawn((
         PbrBundle {
             mesh: cube_mesh,
-            material: materials.add(StandardMaterial { ..default() }),
+            material: materials.add(StandardMaterial::default()),
             transform: Transform::from_xyz(-0.75, 0.7, -2.0).with_rotation(Quat::from_euler(
                 EulerRot::XYZ,
                 0.4,
@@ -160,7 +153,7 @@ fn setup(
         PbrBundle {
             mesh: icosphere_mesh.clone(),
             material: materials.add(StandardMaterial {
-                emissive: Color::ANTIQUE_WHITE * 20.0 + Color::ORANGE_RED * 4.0,
+                emissive: Color::ANTIQUE_WHITE * 80.0 + Color::ORANGE_RED * 16.0,
                 diffuse_transmission: 1.0,
                 ..default()
             }),
@@ -332,7 +325,7 @@ fn setup(
             transform: Transform::from_xyz(-1.0, 1.7, 0.0),
             point_light: PointLight {
                 color: Color::ANTIQUE_WHITE * 0.8 + Color::ORANGE_RED * 0.2,
-                intensity: 1600.0,
+                intensity: 60_000.0,
                 radius: 0.2,
                 range: 5.0,
                 shadows_enabled: true,
@@ -352,7 +345,6 @@ fn setup(
             },
             transform: Transform::from_xyz(1.0, 1.8, 7.0).looking_at(Vec3::ZERO, Vec3::Y),
             color_grading: ColorGrading {
-                exposure: -2.0,
                 post_saturation: 1.2,
                 ..default()
             },
@@ -362,6 +354,7 @@ fn setup(
         #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
         TemporalAntiAliasBundle::default(),
         EnvironmentMapLight {
+            intensity: 25.0,
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
         },
@@ -442,45 +435,45 @@ fn example_control_system(
     mut display: Query<&mut Text, With<ExampleDisplay>>,
     mut state: Local<ExampleState>,
     time: Res<Time>,
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
 ) {
-    if input.pressed(KeyCode::Key2) {
+    if input.pressed(KeyCode::Digit2) {
         state.diffuse_transmission = (state.diffuse_transmission + time.delta_seconds()).min(1.0);
-    } else if input.pressed(KeyCode::Key1) {
+    } else if input.pressed(KeyCode::Digit1) {
         state.diffuse_transmission = (state.diffuse_transmission - time.delta_seconds()).max(0.0);
     }
 
-    if input.pressed(KeyCode::W) {
+    if input.pressed(KeyCode::KeyW) {
         state.specular_transmission = (state.specular_transmission + time.delta_seconds()).min(1.0);
-    } else if input.pressed(KeyCode::Q) {
+    } else if input.pressed(KeyCode::KeyQ) {
         state.specular_transmission = (state.specular_transmission - time.delta_seconds()).max(0.0);
     }
 
-    if input.pressed(KeyCode::S) {
+    if input.pressed(KeyCode::KeyS) {
         state.thickness = (state.thickness + time.delta_seconds()).min(5.0);
-    } else if input.pressed(KeyCode::A) {
+    } else if input.pressed(KeyCode::KeyA) {
         state.thickness = (state.thickness - time.delta_seconds()).max(0.0);
     }
 
-    if input.pressed(KeyCode::X) {
+    if input.pressed(KeyCode::KeyX) {
         state.ior = (state.ior + time.delta_seconds()).min(3.0);
-    } else if input.pressed(KeyCode::Z) {
+    } else if input.pressed(KeyCode::KeyZ) {
         state.ior = (state.ior - time.delta_seconds()).max(1.0);
     }
 
-    if input.pressed(KeyCode::I) {
+    if input.pressed(KeyCode::KeyI) {
         state.reflectance = (state.reflectance + time.delta_seconds()).min(1.0);
-    } else if input.pressed(KeyCode::U) {
+    } else if input.pressed(KeyCode::KeyU) {
         state.reflectance = (state.reflectance - time.delta_seconds()).max(0.0);
     }
 
-    if input.pressed(KeyCode::R) {
+    if input.pressed(KeyCode::KeyR) {
         state.perceptual_roughness = (state.perceptual_roughness + time.delta_seconds()).min(1.0);
-    } else if input.pressed(KeyCode::E) {
+    } else if input.pressed(KeyCode::KeyE) {
         state.perceptual_roughness = (state.perceptual_roughness - time.delta_seconds()).max(0.0);
     }
 
-    let randomize_colors = input.just_pressed(KeyCode::C);
+    let randomize_colors = input.just_pressed(KeyCode::KeyC);
 
     for (material_handle, controls) in &controllable {
         let material = materials.get_mut(material_handle).unwrap();
@@ -512,12 +505,12 @@ fn example_control_system(
         temporal_jitter,
     ) = camera.single_mut();
 
-    if input.just_pressed(KeyCode::H) {
+    if input.just_pressed(KeyCode::KeyH) {
         camera.hdr = !camera.hdr;
     }
 
     #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
-    if input.just_pressed(KeyCode::D) {
+    if input.just_pressed(KeyCode::KeyD) {
         if depth_prepass.is_none() {
             commands.entity(camera_entity).insert(DepthPrepass);
         } else {
@@ -526,7 +519,7 @@ fn example_control_system(
     }
 
     #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
-    if input.just_pressed(KeyCode::T) {
+    if input.just_pressed(KeyCode::KeyT) {
         if temporal_jitter.is_none() {
             commands.entity(camera_entity).insert((
                 TemporalJitter::default(),
@@ -539,24 +532,24 @@ fn example_control_system(
         }
     }
 
-    if input.just_pressed(KeyCode::O) && camera_3d.screen_space_specular_transmission_steps > 0 {
+    if input.just_pressed(KeyCode::KeyO) && camera_3d.screen_space_specular_transmission_steps > 0 {
         camera_3d.screen_space_specular_transmission_steps -= 1;
     }
 
-    if input.just_pressed(KeyCode::P) && camera_3d.screen_space_specular_transmission_steps < 4 {
+    if input.just_pressed(KeyCode::KeyP) && camera_3d.screen_space_specular_transmission_steps < 4 {
         camera_3d.screen_space_specular_transmission_steps += 1;
     }
 
-    if input.just_pressed(KeyCode::J) {
+    if input.just_pressed(KeyCode::KeyJ) {
         camera_3d.screen_space_specular_transmission_quality = ScreenSpaceTransmissionQuality::Low;
     }
 
-    if input.just_pressed(KeyCode::K) {
+    if input.just_pressed(KeyCode::KeyK) {
         camera_3d.screen_space_specular_transmission_quality =
             ScreenSpaceTransmissionQuality::Medium;
     }
 
-    if input.just_pressed(KeyCode::L) {
+    if input.just_pressed(KeyCode::KeyL) {
         camera_3d.screen_space_specular_transmission_quality = ScreenSpaceTransmissionQuality::High;
     }
 
@@ -565,10 +558,10 @@ fn example_control_system(
             ScreenSpaceTransmissionQuality::Ultra;
     }
 
-    let rotation = if input.pressed(KeyCode::Right) {
+    let rotation = if input.pressed(KeyCode::ArrowRight) {
         state.auto_camera = false;
         time.delta_seconds()
-    } else if input.pressed(KeyCode::Left) {
+    } else if input.pressed(KeyCode::ArrowLeft) {
         state.auto_camera = false;
         -time.delta_seconds()
     } else if state.auto_camera {
@@ -578,9 +571,9 @@ fn example_control_system(
     };
 
     let distance_change =
-        if input.pressed(KeyCode::Down) && camera_transform.translation.length() < 25.0 {
+        if input.pressed(KeyCode::ArrowDown) && camera_transform.translation.length() < 25.0 {
             time.delta_seconds()
-        } else if input.pressed(KeyCode::Up) && camera_transform.translation.length() > 2.0 {
+        } else if input.pressed(KeyCode::ArrowUp) && camera_transform.translation.length() > 2.0 {
             -time.delta_seconds()
         } else {
             0.0
@@ -655,7 +648,7 @@ fn flicker_system(
     let c = (s * 7.0).cos() * 0.0125 + (s * 2.0).cos() * 0.025;
     let (mut light, mut light_transform) = light.single_mut();
     let mut flame_transform = flame.single_mut();
-    light.intensity = 1600.0 + 3000.0 * (a + b + c);
+    light.intensity = 60_000.0 + 3000.0 * (a + b + c);
     flame_transform.translation = Vec3::new(-1.0, 1.23, 0.0);
     flame_transform.look_at(Vec3::new(-1.0 - c, 1.7 - b, 0.0 - a), Vec3::X);
     flame_transform.rotate(Quat::from_euler(EulerRot::XYZ, 0.0, 0.0, PI / 2.0));

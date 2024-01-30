@@ -21,7 +21,7 @@ pub struct RemovedSystem<I = (), O = ()> {
     system: BoxedSystem<I, O>,
 }
 
-impl RemovedSystem {
+impl<I, O> RemovedSystem<I, O> {
     /// Is the system initialized?
     /// A system is initialized the first time it's ran.
     pub fn initialized(&self) -> bool {
@@ -29,7 +29,7 @@ impl RemovedSystem {
     }
 
     /// The system removed from the storage.
-    pub fn system(self) -> BoxedSystem {
+    pub fn system(self) -> BoxedSystem<I, O> {
         self.system
     }
 }
@@ -145,13 +145,12 @@ impl World {
     /// # Limitations
     ///
     ///  - Stored systems cannot be recursive, they cannot call themselves through [`Commands::run_system`](crate::system::Commands).
-    ///  - Exclusive systems cannot be used.
     ///
     /// # Examples
     ///
     /// ## Running a system
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_ecs::prelude::*;
     /// #[derive(Resource, Default)]
     /// struct Counter(u8);
@@ -171,7 +170,7 @@ impl World {
     ///
     /// ## Change detection
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_ecs::prelude::*;
     /// #[derive(Resource, Default)]
     /// struct ChangeDetector;
@@ -195,7 +194,7 @@ impl World {
     ///
     /// ## Getting system output
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_ecs::prelude::*;
     ///
     /// #[derive(Resource)]
@@ -239,11 +238,10 @@ impl World {
     /// # Limitations
     ///
     ///  - Stored systems cannot be recursive, they cannot call themselves through [`Commands::run_system`](crate::system::Commands).
-    ///  - Exclusive systems cannot be used.
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_ecs::prelude::*;
     /// #[derive(Resource, Default)]
     /// struct Counter(u8);
@@ -322,7 +320,7 @@ pub struct RunSystemWithInput<I: 'static> {
 /// Running slow systems can become a bottleneck.
 ///
 /// If the system needs an [`In<_>`](crate::system::In) input value to run, use the
-/// [`crate::system::RunSystemWithInput`] type instead.
+/// [`RunSystemWithInput`] type instead.
 ///
 /// There is no way to get the output of a system when run as a command, because the
 /// execution of the system happens later. To get the output of a system, use
@@ -503,6 +501,17 @@ mod tests {
         let output = world.run_system(id).expect("system runs successfully");
         assert_eq!(*world.resource::<Counter>(), Counter(3));
         assert_eq!(output, NonCopy(3));
+    }
+
+    #[test]
+    fn exclusive_system() {
+        let mut world = World::new();
+        let exclusive_system_id = world.register_system(|world: &mut World| {
+            world.spawn_empty();
+        });
+        let entity_count = world.entities.len();
+        let _ = world.run_system(exclusive_system_id);
+        assert_eq!(world.entities.len(), entity_count + 1);
     }
 
     #[test]

@@ -117,8 +117,7 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
         render_device: &RenderDevice,
         images: &RenderAssets<Image>,
         fallback_image: &FallbackImage,
-    ) -> Result<bevy_render::render_resource::UnpreparedBindGroup<Self::Data>, AsBindGroupError>
-    {
+    ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError> {
         // add together the bindings of the base material and the user material
         let UnpreparedBindGroup {
             mut bindings,
@@ -154,50 +153,26 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
 }
 
 impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
-    fn vertex_shader() -> bevy_render::render_resource::ShaderRef {
+    fn vertex_shader() -> ShaderRef {
         match E::vertex_shader() {
             ShaderRef::Default => B::vertex_shader(),
             specified => specified,
         }
     }
 
-    fn fragment_shader() -> bevy_render::render_resource::ShaderRef {
+    fn fragment_shader() -> ShaderRef {
         match E::fragment_shader() {
             ShaderRef::Default => B::fragment_shader(),
             specified => specified,
         }
     }
 
-    fn prepass_vertex_shader() -> bevy_render::render_resource::ShaderRef {
-        match E::prepass_vertex_shader() {
-            ShaderRef::Default => B::prepass_vertex_shader(),
-            specified => specified,
-        }
-    }
-
-    fn prepass_fragment_shader() -> bevy_render::render_resource::ShaderRef {
-        match E::prepass_fragment_shader() {
-            ShaderRef::Default => B::prepass_fragment_shader(),
-            specified => specified,
-        }
-    }
-
-    fn deferred_vertex_shader() -> bevy_render::render_resource::ShaderRef {
-        match E::deferred_vertex_shader() {
-            ShaderRef::Default => B::deferred_vertex_shader(),
-            specified => specified,
-        }
-    }
-
-    fn deferred_fragment_shader() -> bevy_render::render_resource::ShaderRef {
-        match E::deferred_fragment_shader() {
-            ShaderRef::Default => B::deferred_fragment_shader(),
-            specified => specified,
-        }
-    }
-
     fn alpha_mode(&self) -> crate::AlphaMode {
         B::alpha_mode(&self.base)
+    }
+
+    fn opaque_render_method(&self) -> crate::OpaqueRendererMethod {
+        B::opaque_render_method(&self.base)
     }
 
     fn depth_bias(&self) -> f32 {
@@ -208,8 +183,32 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
         B::reads_view_transmission_texture(&self.base)
     }
 
-    fn opaque_render_method(&self) -> crate::OpaqueRendererMethod {
-        B::opaque_render_method(&self.base)
+    fn prepass_vertex_shader() -> ShaderRef {
+        match E::prepass_vertex_shader() {
+            ShaderRef::Default => B::prepass_vertex_shader(),
+            specified => specified,
+        }
+    }
+
+    fn prepass_fragment_shader() -> ShaderRef {
+        match E::prepass_fragment_shader() {
+            ShaderRef::Default => B::prepass_fragment_shader(),
+            specified => specified,
+        }
+    }
+
+    fn deferred_vertex_shader() -> ShaderRef {
+        match E::deferred_vertex_shader() {
+            ShaderRef::Default => B::deferred_vertex_shader(),
+            specified => specified,
+        }
+    }
+
+    fn deferred_fragment_shader() -> ShaderRef {
+        match E::deferred_fragment_shader() {
+            ShaderRef::Default => B::deferred_fragment_shader(),
+            specified => specified,
+        }
     }
 
     fn specialize(

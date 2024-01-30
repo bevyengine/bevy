@@ -4,6 +4,7 @@ use bevy_ecs::entity::Entity;
 use bevy_ecs::event::Event;
 use bevy_math::{IVec2, Vec2};
 use bevy_reflect::Reflect;
+use smol_str::SmolStr;
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
@@ -57,7 +58,7 @@ pub struct WindowCreated {
 /// be closed. This will be sent when the close button of the window is pressed.
 ///
 /// If the default [`WindowPlugin`] is used, these events are handled
-/// by closing the corresponding [`Window`].  
+/// by closing the corresponding [`Window`].
 /// To disable this behavior, set `close_when_requested` on the [`WindowPlugin`]
 /// to `false`.
 ///
@@ -172,7 +173,7 @@ pub struct ReceivedCharacter {
     /// Window that received the character.
     pub window: Entity,
     /// Received character.
-    pub char: char,
+    pub char: SmolStr,
 }
 
 /// A Input Method Editor event.
@@ -234,6 +235,29 @@ pub struct WindowFocused {
     pub window: Entity,
     /// Whether it was focused (true) or lost focused (false).
     pub focused: bool,
+}
+
+/// The window has been occluded (completely hidden from view).
+///
+/// This is different to window visibility as it depends on
+/// whether the window is closed, minimised, set invisible,
+/// or fully occluded by another window.
+///
+/// It is the translated version of [`WindowEvent::Occluded`] from the `winit` crate.
+///
+/// [`WindowEvent::Occluded`]: https://docs.rs/winit/latest/winit/event/enum.WindowEvent.html#variant.Occluded
+#[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
+#[reflect(Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct WindowOccluded {
+    /// Window that changed occluded state.
+    pub window: Entity,
+    /// Whether it was occluded (true) or not occluded (false).
+    pub occluded: bool,
 }
 
 /// An event that indicates a window's scale factor has changed.
@@ -308,7 +332,7 @@ pub enum FileDragAndDrop {
 )]
 pub struct WindowMoved {
     /// Window that moved.
-    pub entity: Entity,
+    pub window: Entity,
     /// Where the window moved to in physical pixels.
     pub position: IVec2,
 }
