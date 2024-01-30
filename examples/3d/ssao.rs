@@ -14,7 +14,7 @@ use std::f32::consts::PI;
 fn main() {
     App::new()
         .insert_resource(AmbientLight {
-            brightness: light_consts::lux::FULL_DAYLIGHT,
+            brightness: light_consts::lux::OVERCAST_DAY,
             ..default()
         })
         .add_plugins((DefaultPlugins, TemporalAntiAliasPlugin))
@@ -85,7 +85,7 @@ fn setup(
 
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            illuminance: light_consts::lux::FULL_DAYLIGHT,
+            illuminance: light_consts::lux::OVERCAST_DAY,
             shadows_enabled: true,
             ..default()
         },

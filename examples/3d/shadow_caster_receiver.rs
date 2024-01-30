@@ -98,7 +98,7 @@ fn setup(
 
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            illuminance: light_consts::lux::FULL_DAYLIGHT,
+            illuminance: light_consts::lux::OVERCAST_DAY,
             shadows_enabled: true,
             ..default()
         },
@@ -134,7 +134,7 @@ fn toggle_light(
         for mut light in &mut point_lights {
             light.intensity = if light.intensity == 0.0 {
                 println!("Using PointLight");
-                10_000_000.0 // Mini-sun point light
+                1_000_000.0 // Mini-sun point light
             } else {
                 0.0
             };
@@ -142,7 +142,7 @@ fn toggle_light(
         for mut light in &mut directional_lights {
             light.illuminance = if light.illuminance == 0.0 {
                 println!("Using DirectionalLight");
-                light_consts::lux::FULL_DAYLIGHT
+                light_consts::lux::OVERCAST_DAY
             } else {
                 0.0
             };

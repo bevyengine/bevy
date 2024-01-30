@@ -224,7 +224,7 @@ fn setup(
         .spawn(PointLightBundle {
             transform: Transform::from_xyz(1.8, 0.7, -1.1),
             point_light: PointLight {
-                intensity: 1_000_000.0, // Mini-sun point light
+                intensity: 100_000.0, // Mini-sun point light
                 shadows_enabled: true,
                 ..default()
             },

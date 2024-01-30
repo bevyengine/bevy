@@ -77,7 +77,7 @@ fn setup(
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
-            intensity: 150.0,
+            intensity: 50.0,
         },
     ));
 
@@ -196,7 +196,7 @@ fn setup_basic_scene(
         DirectionalLightBundle {
             directional_light: DirectionalLight {
                 shadows_enabled: true,
-                illuminance: light_consts::lux::FULL_DAYLIGHT,
+                illuminance: light_consts::lux::OVERCAST_DAY,
                 ..default()
             },
             transform: Transform::from_rotation(Quat::from_euler(

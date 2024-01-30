@@ -125,7 +125,7 @@ impl ExposureSettings {
 
 impl Default for ExposureSettings {
     fn default() -> Self {
-        Self::OVERCAST
+        Self::INDOOR
     }
 }
 

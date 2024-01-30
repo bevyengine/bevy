@@ -58,7 +58,7 @@ fn setup(
     // Light up the scene.
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            illuminance: light_consts::lux::FULL_DAYLIGHT,
+            illuminance: light_consts::lux::OVERCAST_DAY,
             ..default()
         },
         transform: camera_and_light_transform,

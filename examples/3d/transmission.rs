@@ -27,7 +27,7 @@ use bevy::{
     },
     pbr::{NotShadowCaster, PointLightShadowMap, TransmittedShadowReceiver},
     prelude::*,
-    render::camera::{ExposureSettings, TemporalJitter},
+    render::camera::TemporalJitter,
     render::view::ColorGrading,
 };
 
@@ -358,7 +358,6 @@ fn setup(
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
         },
         BloomSettings::default(),
-        ExposureSettings::INDOOR,
     ));
 
     // Controls Text

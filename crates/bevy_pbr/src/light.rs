@@ -60,13 +60,13 @@ pub mod light_consts {
         pub const LIVING_ROOM: f32 = 50.;
         /// The amount of light (lux) in a office building hallway/toilet lighting.
         pub const HALLWAY: f32 = 80.;
-        /// The amount of light (lux) in a family living room lights.
+        /// The amount of light (lux) in very dark overcast day
         pub const DARK_OVERCAST_DAY: f32 = 100.;
         /// The amount of light (lux) in a office.
         pub const OFFICE: f32 = 320.;
         /// The amount of light (lux) during sunrise or sunset on a clear day.
         pub const CLEAR_SUNRISE: f32 = 400.;
-        /// The amount of light (lux) on very dark overcast day.
+        /// The amount of light (lux) on a overcast day; typical TV studio lighting
         pub const OVERCAST_DAY: f32 = 1000.;
         /// The amount of light (lux) in full daylight. (not direct sun)
         pub const FULL_DAYLIGHT: f32 = 10_000.;
@@ -112,7 +112,7 @@ impl Default for PointLight {
     fn default() -> Self {
         PointLight {
             color: Color::rgb(1.0, 1.0, 1.0),
-            intensity: 4000.0, // Roughly a 300W non-halogen incandescent bulb
+            intensity: 2000.0, // Roughly a 20-watt LED bulb
             range: 20.0,
             radius: 0.0,
             shadows_enabled: false,
@@ -180,7 +180,7 @@ impl Default for SpotLight {
         // a quarter arc attenuating from the center
         Self {
             color: Color::rgb(1.0, 1.0, 1.0),
-            intensity: 4000.0, // Roughly a 300W non-halogen incandescent bulb
+            intensity: 2000.0, // Roughly a 20-watt LED bulb
             range: 20.0,
             radius: 0.0,
             shadows_enabled: false,
@@ -261,7 +261,7 @@ impl Default for DirectionalLight {
     fn default() -> Self {
         DirectionalLight {
             color: Color::rgb(1.0, 1.0, 1.0),
-            illuminance: light_consts::lux::FULL_DAYLIGHT,
+            illuminance: light_consts::lux::OVERCAST_DAY,
             shadows_enabled: false,
             shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
             shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
@@ -636,7 +636,7 @@ impl Default for AmbientLight {
     fn default() -> Self {
         Self {
             color: Color::WHITE,
-            brightness: 500.0,
+            brightness: 20.0,
         }
     }
 }

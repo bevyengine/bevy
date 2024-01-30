@@ -1,6 +1,6 @@
 //! This example shows how to configure Physically Based Rendering (PBR) parameters.
 
-use bevy::{asset::LoadState, prelude::*};
+use bevy::{asset::LoadState, prelude::*, render::camera::ExposureSettings};
 
 fn main() {
     App::new()
@@ -129,6 +129,7 @@ fn setup(
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 7000.0,
         },
+        ExposureSettings::OVERCAST,
     ));
 }
 

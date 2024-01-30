@@ -77,7 +77,7 @@ fn setup(
             });
             builder.spawn(DirectionalLightBundle {
                 directional_light: DirectionalLight {
-                    illuminance: light_consts::lux::FULL_DAYLIGHT,
+                    illuminance: light_consts::lux::OVERCAST_DAY,
                     shadow_depth_bias: 0.0,
                     shadow_normal_bias: 0.0,
                     shadows_enabled: true,

@@ -12,7 +12,6 @@ use bevy::{
     pbr::wireframe::{NoWireframe, Wireframe, WireframeColor, WireframeConfig, WireframePlugin},
     prelude::*,
     render::{
-        camera::ExposureSettings,
         render_resource::WgpuFeatures,
         settings::{RenderCreation, WgpuSettings},
         RenderPlugin,
@@ -97,20 +96,17 @@ fn setup(
     commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(0.0, 2.0, 0.0),
         point_light: PointLight {
-            intensity: 4000.0,
+            intensity: 2000.0, // Roughly a 20-watt LED bulb
             ..default()
         },
         ..default()
     });
 
     // camera
-    commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
-        },
-        ExposureSettings::INDOOR,
-    ));
+    commands.spawn(Camera3dBundle {
+        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        ..default()
+    });
 
     // Text used to show controls
     commands.spawn(
