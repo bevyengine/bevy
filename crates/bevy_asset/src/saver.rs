@@ -95,13 +95,10 @@ impl<'a, A: Asset> SavedAsset<'a, A> {
     }
 
     /// Returns the labeled asset, if it exists and matches this type.
-    pub fn get_labeled<B: Asset, Q>(
-        &self,
-        label: &Q,
-    ) -> Option<SavedAsset<B>> 
+    pub fn get_labeled<B: Asset, Q>(&self, label: &Q) -> Option<SavedAsset<B>>
     where
         CowArc<'static, str>: Borrow<Q>,
-        Q: ?Sized + Hash + Eq
+        Q: ?Sized + Hash + Eq,
     {
         let labeled = self.labeled_assets.get(label)?;
         let value = labeled.asset.value.downcast_ref::<B>()?;
@@ -112,10 +109,7 @@ impl<'a, A: Asset> SavedAsset<'a, A> {
     }
 
     /// Returns the type-erased labeled asset, if it exists and matches this type.
-    pub fn get_erased_labeled<Q>(
-        &self,
-        label: &Q,
-    ) -> Option<&ErasedLoadedAsset> 
+    pub fn get_erased_labeled<Q>(&self, label: &Q) -> Option<&ErasedLoadedAsset>
     where
         CowArc<'static, str>: Borrow<Q>,
         Q: ?Sized + Hash + Eq,
@@ -125,10 +119,7 @@ impl<'a, A: Asset> SavedAsset<'a, A> {
     }
 
     /// Returns the [`UntypedHandle`] of the labeled asset with the provided 'label', if it exists.
-    pub fn get_untyped_handle<Q>(
-        &self,
-        label: &Q,
-    ) -> Option<&UntypedHandle> 
+    pub fn get_untyped_handle<Q>(&self, label: &Q) -> Option<&UntypedHandle>
     where
         CowArc<'static, str>: Borrow<Q>,
         Q: ?Sized + Hash + Eq,
