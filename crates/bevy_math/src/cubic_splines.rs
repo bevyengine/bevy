@@ -280,12 +280,16 @@ impl<P: Point> CubicBSpline<P> {
 impl<P: Point> CubicGenerator<P> for CubicBSpline<P> {
     #[inline]
     fn to_curve(&self) -> CubicCurve<P> {
-        let char_matrix = [
-            [1.0 / 6.0, 4.0 / 6.0, 1.0 / 6.0, 0.0 / 6.0],
-            [-3.0 / 6.0, 0.0 / 6.0, 3.0 / 6.0, 0.0 / 6.0],
-            [3.0 / 6.0, -6.0 / 6.0, 3.0 / 6.0, 0.0 / 6.0],
-            [-1.0 / 6.0, 3.0 / 6.0, -3.0 / 6.0, 1.0 / 6.0],
+        let mut char_matrix = [
+            [1.0, 4.0, 1.0, 0.0],
+            [-3.0, 0.0, 3.0, 0.0],
+            [3.0, -6.0, 3.0, 0.0],
+            [-1.0, 3.0, -3.0, 1.0],
         ];
+
+        char_matrix
+            .iter_mut()
+            .for_each(|r| r.iter_mut().for_each(|c| *c /= 6.0));
 
         let segments = self
             .control_points
