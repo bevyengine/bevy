@@ -1,5 +1,5 @@
 use crate::{io::Writer, meta::Settings, Asset, ErasedLoadedAsset};
-use crate::{AssetLoader, LabeledAsset};
+use crate::{AssetLoader, LabeledAsset, UntypedHandle};
 use bevy_utils::{BoxedFuture, CowArc, HashMap};
 use serde::{Deserialize, Serialize};
 use std::ops::Deref;
@@ -115,9 +115,18 @@ impl<'a, A: Asset> SavedAsset<'a, A> {
         let labeled = self.labeled_assets.get(&label.into())?;
         Some(&labeled.asset)
     }
+    
+    /// Returns the UntypedHandle of the LabeledAsset with Label 'label', if it exists.
+    pub fn get_untyped_handle(
+        &self,
+        label: impl Into<CowArc<'static, str>>
+    ) -> Option<&UntypedHandle> {
+        let labeled = self.labeled_assets.get(&label.into())?;
+        Some(&labeled.handle)
+    }
 
     /// Iterate over all labels for "labeled assets" in the loaded asset
-    pub fn iter_labels(&self) -> impl Iterator<Item = &str> {
-        self.labeled_assets.keys().map(|s| &**s)
+    pub fn iter_labels(&self) -> impl Iterator<Item = &CowArc<'static, str>> {
+        self.labeled_assets.keys()
     }
 }
