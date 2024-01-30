@@ -69,7 +69,12 @@ impl<'w, E: EcsEvent> ObserverBuilder<'w, E> {
     }
 
     /// Spawns the resulting observer into the world.
-    pub fn run<M>(&mut self, callback: impl IntoObserverSystem<E, M>) -> Entity {
+    pub fn run<B: Bundle, M>(&mut self, callback: impl IntoObserverSystem<E, B, M>) -> Entity {
+        B::component_ids(
+            &mut self.world.components,
+            &mut self.world.storages,
+            &mut |id| self.descriptor.components.push(id),
+        );
         let entity = self.enqueue(callback);
         self.world.flush_commands();
         entity
@@ -85,7 +90,12 @@ impl<'w, E: EcsEvent> ObserverBuilder<'w, E> {
     }
 
     /// Enqueues a command to spawn the resulting observer in the world.
-    pub fn enqueue<M>(&mut self, callback: impl IntoObserverSystem<E, M>) -> Entity {
+    pub fn enqueue<B: Bundle, M>(&mut self, callback: impl IntoObserverSystem<E, B, M>) -> Entity {
+        B::component_ids(
+            &mut self.world.components,
+            &mut self.world.storages,
+            &mut |id| self.descriptor.components.push(id),
+        );
         let component = ObserverComponent::from(self.world, self.descriptor.clone(), callback);
         self.world.spawn_observer(component)
     }

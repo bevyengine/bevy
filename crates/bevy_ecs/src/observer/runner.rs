@@ -6,7 +6,7 @@ use super::*;
 /// Typically refers to the default runner defined in [`ObserverComponent::from`]
 pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut);
 
-pub type BoxedObserverSystem<E = ()> = Box<dyn ObserverSystem<E>>;
+pub type BoxedObserverSystem<E = (), B = ()> = Box<dyn ObserverSystem<E, B>>;
 
 pub(crate) struct ObserverComponent {
     pub(crate) descriptor: ObserverDescriptor,
@@ -33,10 +33,10 @@ impl Component for ObserverComponent {
 }
 
 impl ObserverComponent {
-    pub(crate) fn from<E: 'static, M>(
+    pub(crate) fn from<E: 'static, B: Bundle, M>(
         world: &mut World,
         descriptor: ObserverDescriptor,
-        system: impl IntoObserverSystem<E, M>,
+        system: impl IntoObserverSystem<E, B, M>,
     ) -> Self {
         let mut system = IntoObserverSystem::into_system(system);
         assert!(
@@ -44,7 +44,7 @@ impl ObserverComponent {
             "Cannot run exclusive systems in Observers"
         );
         system.initialize(world);
-        let system: BoxedObserverSystem<E> = Box::new(system);
+        let system: BoxedObserverSystem<E, B> = Box::new(system);
         Self {
             descriptor,
             runner: |mut world, trigger, ptr| {
@@ -65,8 +65,8 @@ impl ObserverComponent {
                 }
                 state.last_event_id = last_event;
 
-                let observer: Observer<E> = Observer::new(unsafe { ptr.deref_mut() }, trigger);
-                let mut system: Box<dyn ObserverSystem<E>> = unsafe {
+                let observer: Observer<E, B> = Observer::new(unsafe { ptr.deref_mut() }, trigger);
+                let mut system: Box<dyn ObserverSystem<E, B>> = unsafe {
                     let system = state.system.take().debug_checked_unwrap();
                     std::mem::transmute(system)
                 };

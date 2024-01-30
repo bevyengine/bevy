@@ -1003,7 +1003,10 @@ impl EntityCommands<'_> {
 
     /// Creates an [`Observer`] listening for `E` events targetting this entity.
     /// In order to trigger the callback the entity must also match the query when the event is fired.
-    pub fn observe<E: EcsEvent, M>(&mut self, system: impl IntoObserverSystem<E, M>) -> &mut Self {
+    pub fn observe<E: EcsEvent, B: Bundle, M>(
+        &mut self,
+        system: impl IntoObserverSystem<E, B, M>,
+    ) -> &mut Self {
         self.commands.add(Observe::<E, _> {
             entity: self.entity,
             system: IntoObserverSystem::into_system(system),
@@ -1152,16 +1155,16 @@ fn log_components(entity: Entity, world: &mut World) {
 
 /// A [`Command`] that spawns an observer attached to a specific entity.
 #[derive(Debug)]
-pub struct Observe<E: EcsEvent, C: ObserverSystem<E>> {
+pub struct Observe<E: EcsEvent, B: Bundle, C: ObserverSystem<E, B>> {
     /// The entity that will be observed.
     pub entity: Entity,
     /// The callback to run when the event is observed.
     pub system: C,
     /// Marker for type parameters
-    pub marker: PhantomData<E>,
+    pub marker: PhantomData<(E, B)>,
 }
 
-impl<E: EcsEvent, C: ObserverSystem<E>> Command for Observe<E, C> {
+impl<E: EcsEvent, B: Bundle, C: ObserverSystem<E, B>> Command for Observe<E, B, C> {
     fn apply(self, world: &mut World) {
         world.entity_mut(self.entity).observe(self.system);
     }

@@ -1181,9 +1181,9 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Creates an [`Observer`] listening for `E` events targetting this entity.
     /// In order to trigger the callback the entity must also match the query when the event is fired.
-    pub fn observe<E: EcsEvent, M>(
+    pub fn observe<E: EcsEvent, B: Bundle, M>(
         &mut self,
-        callback: impl IntoObserverSystem<E, M>,
+        callback: impl IntoObserverSystem<E, B, M>,
     ) -> &mut Self {
         let observer = ObserverBuilder::new(self.world)
             .source(self.entity)

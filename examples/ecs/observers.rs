@@ -22,8 +22,10 @@ fn setup(world: &mut World) {
     world.init_resource::<ResizeCount>();
 
     // Triggered when &CompA is added to an entity, runs any non-exclusive system
-    let observer = world.observer_builder().components::<CompA>().run(
-        |observer: Observer<OnAdd>, mut commands: Commands, query: Query<&CompA, With<CompB>>| {
+    let observer = world.observer(
+        |observer: Observer<OnAdd, CompA>,
+         mut commands: Commands,
+         query: Query<&CompA, With<CompB>>| {
             // Get source entity that triggered the observer
             let source = observer.source();
             // Able to read component data via a query

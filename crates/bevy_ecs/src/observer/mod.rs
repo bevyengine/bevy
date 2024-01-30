@@ -3,6 +3,8 @@
 mod builder;
 mod runner;
 
+use std::marker::PhantomData;
+
 pub use builder::*;
 pub use runner::*;
 
@@ -27,14 +29,19 @@ impl<E: Component> EcsEvent for E {}
 
 /// Type used in callbacks registered for observers.
 /// TODO: Proper docs and examples
-pub struct Observer<'w, E> {
+pub struct Observer<'w, E, B: Bundle = ()> {
     data: &'w mut E,
     trigger: ObserverTrigger,
+    _marker: PhantomData<B>,
 }
 
-impl<'w, E> Observer<'w, E> {
+impl<'w, E, B: Bundle> Observer<'w, E, B> {
     pub(crate) fn new(data: &'w mut E, trigger: ObserverTrigger) -> Self {
-        Self { data, trigger }
+        Self {
+            data,
+            trigger,
+            _marker: PhantomData,
+        }
     }
 
     /// Returns the event id for the triggering event
@@ -334,7 +341,10 @@ impl World {
     }
 
     /// Spawn an [`Observer`] and returns it's [`Entity`]
-    pub fn observer<E: EcsEvent, M>(&mut self, callback: impl IntoObserverSystem<E, M>) -> Entity {
+    pub fn observer<E: EcsEvent, B: Bundle, M>(
+        &mut self,
+        callback: impl IntoObserverSystem<E, B, M>,
+    ) -> Entity {
         ObserverBuilder::new(self).run(callback)
     }
 

@@ -1,5 +1,5 @@
 use crate::{
-    prelude::Observer,
+    prelude::{Bundle, Observer},
     query::{QueryData, QueryFilter},
     system::{System, SystemParam, SystemParamFunction, SystemParamItem},
     world::DeferredWorld,
@@ -11,8 +11,8 @@ use bevy_utils::tracing::{info_span, Span};
 
 use super::{Commands, FunctionSystem, IntoSystem, Query, Res, ResMut, Resource};
 
-pub trait ObserverSystem<E: 'static>:
-    System<In = Observer<'static, E>, Out = ()> + Send + 'static
+pub trait ObserverSystem<E: 'static, B: Bundle>:
+    System<In = Observer<'static, E, B>, Out = ()> + Send + 'static
 {
     fn queue_deferred(&mut self, _world: DeferredWorld);
 }
@@ -31,10 +31,10 @@ impl<'w, T: Resource> ObserverSystemParam for ResMut<'w, T> {}
 impl<'w> ObserverSystemParam for Commands<'w, 'w> {}
 
 /// SAFETY: `F`'s param is [`ReadOnlySystemParam`], so this system will only read from the world.
-impl<E: 'static, Marker, F> ObserverSystem<E> for FunctionSystem<Marker, F>
+impl<E: 'static, B: Bundle, Marker, F> ObserverSystem<E, B> for FunctionSystem<Marker, F>
 where
     Marker: 'static,
-    F: SystemParamFunction<Marker, In = Observer<'static, E>, Out = ()>,
+    F: SystemParamFunction<Marker, In = Observer<'static, E, B>, Out = ()>,
     F::Param: ObserverSystemParam,
 {
     fn queue_deferred(&mut self, world: DeferredWorld) {
@@ -43,17 +43,18 @@ where
     }
 }
 
-pub trait IntoObserverSystem<E: 'static, M> {
-    type System: ObserverSystem<E>;
+pub trait IntoObserverSystem<E: 'static, B: Bundle, M> {
+    type System: ObserverSystem<E, B>;
 
     fn into_system(this: Self) -> Self::System;
 }
 
-impl<S: IntoSystem<Observer<'static, E>, (), M>, M, E: 'static> IntoObserverSystem<E, M> for S
+impl<S: IntoSystem<Observer<'static, E, B>, (), M>, M, E: 'static, B: Bundle>
+    IntoObserverSystem<E, B, M> for S
 where
-    S::System: ObserverSystem<E>,
+    S::System: ObserverSystem<E, B>,
 {
-    type System = <S as IntoSystem<Observer<'static, E>, (), M>>::System;
+    type System = <S as IntoSystem<Observer<'static, E, B>, (), M>>::System;
 
     fn into_system(this: Self) -> Self::System {
         IntoSystem::into_system(this)
@@ -74,21 +75,21 @@ all_tuples!(impl_observer_system_param_tuple, 0, 16, P);
 macro_rules! impl_system_function {
     ($($param: ident),*) => {
         #[allow(non_snake_case)]
-        impl<E: 'static, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<fn(Observer<E>, $($param,)*)> for Func
+        impl<E: 'static, B: Bundle, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<fn(Observer<E, B>, $($param,)*)> for Func
         where
         for <'a> &'a mut Func:
-                FnMut(Observer<E>, $($param),*) +
-                FnMut(Observer<E>, $(SystemParamItem<$param>),*)
+                FnMut(Observer<E, B>, $($param),*) +
+                FnMut(Observer<E, B>, $(SystemParamItem<$param>),*)
         {
-            type In = Observer<'static, E>;
+            type In = Observer<'static, E, B>;
             type Out = ();
             type Param = ($($param,)*);
             #[inline]
-            fn run(&mut self, input: Observer<'static, E>, param_value: SystemParamItem< ($($param,)*)>) {
+            fn run(&mut self, input: Observer<'static, E, B>, param_value: SystemParamItem< ($($param,)*)>) {
                 #[allow(clippy::too_many_arguments)]
-                fn call_inner<E: 'static, $($param,)*>(
-                    mut f: impl FnMut(Observer<'static, E>, $($param,)*),
-                    input: Observer<'static, E>,
+                fn call_inner<E: 'static, B: Bundle, $($param,)*>(
+                    mut f: impl FnMut(Observer<'static, E, B>, $($param,)*),
+                    input: Observer<'static, E, B>,
                     $($param: $param,)*
                 ){
                     f(input, $($param,)*)
