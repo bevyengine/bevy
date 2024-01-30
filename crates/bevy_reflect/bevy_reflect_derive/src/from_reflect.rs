@@ -1,4 +1,4 @@
-use crate::derive_data::{ReflectEnum, ReflectImplSource};
+use crate::derive_data::ReflectEnum;
 use crate::enum_utility::{get_variant_constructors, EnumVariantConstructors};
 use crate::field_attributes::DefaultBehavior;
 use crate::utility::{ident_or_index, WhereClauseOptions};

@@ -330,7 +330,7 @@ impl<'a> ReflectDerive<'a> {
 
         let meta = ReflectMeta::new(type_path, traits, provenance);
 
-        if provenance.source == ReflectImplSource::ImplRemoteType
+        if meta.provenance().source == ReflectImplSource::ImplRemoteType
             && meta.traits.type_path_attrs().should_auto_derive()
             && !meta.type_path().has_custom_path()
         {
