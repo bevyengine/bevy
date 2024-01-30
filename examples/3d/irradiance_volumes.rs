@@ -14,7 +14,7 @@
 use bevy::math::{uvec3, vec3};
 use bevy::pbr::irradiance_volume::IrradianceVolume;
 use bevy::pbr::{ExtendedMaterial, MaterialExtension, NotShadowCaster};
-use bevy::prelude::shape::UVSphere;
+use bevy::prelude::shape::{Cube, UVSphere};
 use bevy::prelude::*;
 use bevy::render::render_resource::{AsBindGroup, ShaderRef};
 use bevy::window::PrimaryWindow;
@@ -29,7 +29,7 @@ const IRRADIANCE_VOLUME_INTENSITY: f32 = 150.0;
 
 const AMBIENT_LIGHT_BRIGHTNESS: f32 = 0.06;
 
-const VOXEL_SPHERE_SCALE: f32 = 0.4;
+const VOXEL_CUBE_SCALE: f32 = 0.4;
 
 static DISABLE_IRRADIANCE_VOLUME_HELP_TEXT: &str = "Space: Disable the irradiance volume";
 static ENABLE_IRRADIANCE_VOLUME_HELP_TEXT: &str = "Space: Enable the irradiance volume";
@@ -92,10 +92,10 @@ struct ExampleAssets {
     // The animation that the fox will play.
     fox_animation: Handle<AnimationClip>,
     // The voxel sphere mesh.
-    voxel_sphere: Handle<Mesh>,
+    voxel_cube: Handle<Mesh>,
     // The special material on the voxel spheres that shows the appropriate
     // ambient cube.
-    voxel_sphere_material: Handle<VoxelVisualizationMaterial>,
+    voxel_cube_material: Handle<VoxelVisualizationMaterial>,
 }
 
 // The sphere and fox both have this component.
@@ -104,11 +104,11 @@ struct MainObject;
 
 // Marks each of the voxel spheres.
 #[derive(Component)]
-struct VoxelSphere;
+struct VoxelCube;
 
 // Marks the voxel sphere parent object.
 #[derive(Component)]
-struct VoxelSphereParent;
+struct VoxelCubeParent;
 
 type VoxelVisualizationMaterial = ExtendedMaterial<StandardMaterial, VoxelVisualizationExtension>;
 
@@ -197,7 +197,7 @@ fn setup(
     spawn_irradiance_volume(&mut commands, &assets);
     spawn_light(&mut commands);
     spawn_sphere(&mut commands, &assets);
-    spawn_voxel_sphere_parent(&mut commands);
+    spawn_voxel_cube_parent(&mut commands);
     spawn_fox(&mut commands, &assets);
     spawn_text(&mut commands, &app_status, &asset_server);
 }
@@ -253,13 +253,13 @@ fn spawn_sphere(commands: &mut Commands, assets: &ExampleAssets) {
         .insert(MainObject);
 }
 
-fn spawn_voxel_sphere_parent(commands: &mut Commands) {
+fn spawn_voxel_cube_parent(commands: &mut Commands) {
     commands
         .spawn(SpatialBundle {
             visibility: Visibility::Hidden,
             ..default()
         })
-        .insert(VoxelSphereParent);
+        .insert(VoxelCubeParent);
 }
 
 fn spawn_fox(commands: &mut Commands, assets: &ExampleAssets) {
@@ -498,14 +498,14 @@ impl FromWorld for ExampleAssets {
 
         let mut mesh_assets = world.resource_mut::<Assets<Mesh>>();
         let main_sphere = mesh_assets.add(UVSphere::default());
-        let voxel_sphere = mesh_assets.add(UVSphere::default());
+        let voxel_cube = mesh_assets.add(Cube::default());
 
         let mut standard_material_assets = world.resource_mut::<Assets<StandardMaterial>>();
         let main_material = standard_material_assets.add(Color::SILVER);
 
         let mut voxel_visualization_material_assets =
             world.resource_mut::<Assets<VoxelVisualizationMaterial>>();
-        let voxel_sphere_material = voxel_visualization_material_assets.add(ExtendedMaterial {
+        let voxel_cube_material = voxel_visualization_material_assets.add(ExtendedMaterial {
             base: StandardMaterial::from(Color::RED),
             extension: VoxelVisualizationExtension {},
         });
@@ -517,8 +517,8 @@ impl FromWorld for ExampleAssets {
             main_scene,
             irradiance_volume,
             fox_animation,
-            voxel_sphere,
-            voxel_sphere_material,
+            voxel_cube,
+            voxel_cube_material,
         }
     }
 }
@@ -535,16 +535,16 @@ fn create_spheres(
     image_assets: Res<Assets<Image>>,
     mut commands: Commands,
     irradiance_volumes: Query<(&IrradianceVolume, &GlobalTransform)>,
-    voxel_sphere_parents: Query<Entity, With<VoxelSphereParent>>,
-    voxel_spheres: Query<Entity, With<VoxelSphere>>,
+    voxel_cube_parents: Query<Entity, With<VoxelCubeParent>>,
+    voxel_cubes: Query<Entity, With<VoxelCube>>,
     example_assets: Res<ExampleAssets>,
 ) {
     // If voxel spheres have already been spawned, don't do anything.
-    if !voxel_spheres.is_empty() {
+    if !voxel_cubes.is_empty() {
         return;
     }
 
-    let Some(voxel_sphere_parent) = voxel_sphere_parents.iter().next() else {
+    let Some(voxel_cube_parent) = voxel_cube_parents.iter().next() else {
         return;
     };
 
@@ -566,19 +566,19 @@ fn create_spheres(
                 for x in 0..resolution.width {
                     let uvw = (uvec3(x, y, z).as_vec3() + 0.5) * scale - 0.5;
                     let pos = global_transform.transform_point(uvw);
-                    let voxel_sphere = commands
+                    let voxel_cube = commands
                         .spawn(MaterialMeshBundle {
-                            mesh: example_assets.voxel_sphere.clone(),
-                            material: example_assets.voxel_sphere_material.clone(),
-                            transform: Transform::from_scale(Vec3::splat(VOXEL_SPHERE_SCALE))
+                            mesh: example_assets.voxel_cube.clone(),
+                            material: example_assets.voxel_cube_material.clone(),
+                            transform: Transform::from_scale(Vec3::splat(VOXEL_CUBE_SCALE))
                                 .with_translation(pos),
                             ..default()
                         })
-                        .insert(VoxelSphere)
+                        .insert(VoxelCube)
                         .insert(NotShadowCaster)
                         .id();
 
-                    commands.entity(voxel_sphere_parent).add_child(voxel_sphere);
+                    commands.entity(voxel_cube_parent).add_child(voxel_cube);
                 }
             }
         }
@@ -602,7 +602,7 @@ fn draw_gizmo(
 fn toggle_voxel_visibility(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut app_status: ResMut<AppStatus>,
-    mut voxel_sphere_parent_query: Query<&mut Visibility, With<VoxelSphereParent>>,
+    mut voxel_cube_parent_query: Query<&mut Visibility, With<VoxelCubeParent>>,
 ) {
     if !keyboard.just_pressed(KeyCode::Backspace) {
         return;
@@ -610,7 +610,7 @@ fn toggle_voxel_visibility(
 
     app_status.voxels_visible = !app_status.voxels_visible;
 
-    for mut visibility in voxel_sphere_parent_query.iter_mut() {
+    for mut visibility in voxel_cube_parent_query.iter_mut() {
         *visibility = if app_status.voxels_visible {
             Visibility::Visible
         } else {
