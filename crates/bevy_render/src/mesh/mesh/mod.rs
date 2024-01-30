@@ -6,7 +6,7 @@ pub use wgpu::PrimitiveTopology;
 use crate::{
     prelude::Image,
     primitives::Aabb,
-    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPersistencePolicy, RenderAssets},
+    render_asset::{PrepareAssetError, RenderAsset, RenderAssetUsages, RenderAssets},
     render_resource::{Buffer, TextureView, VertexBufferLayout},
     renderer::RenderDevice,
 };
@@ -49,10 +49,10 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// ```
 /// # use bevy_render::mesh::{Mesh, Indices};
 /// # use bevy_render::render_resource::PrimitiveTopology;
-/// # use bevy_render::render_asset::RenderAssetPersistencePolicy;
+/// # use bevy_render::render_asset::RenderAssetUsages;
 /// fn create_simple_parallelogram() -> Mesh {
 ///     // Create a new mesh using a triangle list topology, where each set of 3 vertices composes a triangle.
-///     Mesh::new(PrimitiveTopology::TriangleList, RenderAssetPersistencePolicy::Unload)
+///     Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default())
 ///         // Add 4 vertices, each with its own position attribute (coordinate in
 ///         // 3D space), for each of the corners of the parallelogram.
 ///         .with_inserted_attribute(
@@ -123,7 +123,7 @@ pub struct Mesh {
     indices: Option<Indices>,
     morph_targets: Option<Handle<Image>>,
     morph_target_names: Option<Vec<String>>,
-    pub cpu_persistent_access: RenderAssetPersistencePolicy,
+    pub asset_usage: RenderAssetUsages,
 }
 
 impl Mesh {
@@ -184,17 +184,14 @@ impl Mesh {
     /// Construct a new mesh. You need to provide a [`PrimitiveTopology`] so that the
     /// renderer knows how to treat the vertex data. Most of the time this will be
     /// [`PrimitiveTopology::TriangleList`].
-    pub fn new(
-        primitive_topology: PrimitiveTopology,
-        cpu_persistent_access: RenderAssetPersistencePolicy,
-    ) -> Self {
+    pub fn new(primitive_topology: PrimitiveTopology, asset_usage: RenderAssetUsages) -> Self {
         Mesh {
             primitive_topology,
             attributes: Default::default(),
             indices: None,
             morph_targets: None,
             morph_target_names: None,
-            cpu_persistent_access,
+            asset_usage,
         }
     }
 
@@ -1148,8 +1145,8 @@ impl RenderAsset for Mesh {
     type PreparedAsset = GpuMesh;
     type Param = (SRes<RenderDevice>, SRes<RenderAssets<Image>>);
 
-    fn persistence_policy(&self) -> RenderAssetPersistencePolicy {
-        self.cpu_persistent_access
+    fn asset_usage(&self) -> RenderAssetUsages {
+        self.asset_usage
     }
 
     /// Converts the extracted mesh a into [`GpuMesh`].
@@ -1317,7 +1314,7 @@ fn generate_tangents_for_mesh(mesh: &Mesh) -> Result<Vec<[f32; 4]>, GenerateTang
 #[cfg(test)]
 mod tests {
     use super::Mesh;
-    use crate::render_asset::RenderAssetPersistencePolicy;
+    use crate::render_asset::RenderAssetUsages;
     use wgpu::PrimitiveTopology;
 
     #[test]
@@ -1325,7 +1322,7 @@ mod tests {
     fn panic_invalid_format() {
         let _mesh = Mesh::new(
             PrimitiveTopology::TriangleList,
-            RenderAssetPersistencePolicy::Unload,
+            RenderAssetUsages::default(),
         )
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.0, 0.0, 0.0]]);
     }
