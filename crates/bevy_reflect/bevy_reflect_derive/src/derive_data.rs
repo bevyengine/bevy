@@ -27,11 +27,11 @@ pub(crate) enum ReflectDerive<'a> {
     Value(ReflectMeta<'a>),
 }
 
-/// The manner in which the implementation was invoked.
-#[derive(Clone, Copy, Debug, PartialEq)]
+/// How the macro was invoked.
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub(crate) enum ReflectImplSource {
-    Derive,
-    Macro,
+    ImplRemoteType,
+    DeriveLocalType,
 }
 
 /// Metadata present on all reflected types, including name, generics, and attributes.
