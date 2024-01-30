@@ -7,11 +7,11 @@ pub use builder::*;
 pub use runner::*;
 
 use crate::{
-    archetype::{ArchetypeFlags, Archetypes},
+    archetype::ArchetypeFlags,
     component::{ComponentInfo, SparseStorage},
     entity::EntityLocation,
     query::DebugCheckedUnwrap,
-    system::{EmitEcsEvent, Insert, IntoObserverSystem},
+    system::{EmitEcsEvent, IntoObserverSystem},
     world::*,
 };
 
@@ -44,12 +44,12 @@ impl<'w, E> Observer<'w, E> {
 
     /// Returns a reference to the data associated with the event that triggered the observer.
     pub fn data(&self) -> &E {
-        &self.data
+        self.data
     }
 
     /// Returns a mutable reference to the data associated with the event that triggered the observer.
     pub fn data_mut(&mut self) -> &mut E {
-        &mut self.data
+        self.data
     }
 
     /// Returns a pointer to the data associated with the event that triggered the observer.
@@ -125,76 +125,23 @@ impl Observers {
         }
     }
 
-    pub(crate) fn register(
-        &mut self,
-        archetypes: &mut Archetypes,
-        entity: Entity,
-        observer: &ObserverComponent,
-    ) {
-        for &event in &observer.descriptor.events {
-            let cache = self.get_observers(event);
-            for &component in &observer.descriptor.components {
-                let observers = cache.component_observers.entry(component).or_default();
-                observers.insert(entity, observer.runner);
-                if observers.len() == 1 {
-                    if let Some(flag) = Self::is_archetype_cached(event) {
-                        archetypes.update_flags(component, flag, true);
-                    }
-                }
-            }
-            for &source in &observer.descriptor.sources {
-                let observers = cache.entity_observers.entry(source).or_default();
-                observers.insert(entity, observer.runner);
-            }
-        }
-    }
-
-    pub(crate) fn unregister(
-        &mut self,
-        archetypes: &mut Archetypes,
-        entity: Entity,
-        observer: &ObserverComponent,
-    ) {
-        for &event in &observer.descriptor.events {
-            let Some(cache) = self.try_get_observers_mut(event) else {
-                continue;
-            };
-            for component in &observer.descriptor.components {
-                let Some(observers) = cache.component_observers.get_mut(component) else {
-                    continue;
-                };
-                observers.remove(&entity);
-                if observers.is_empty() {
-                    cache.component_observers.remove(component);
-                    if let Some(flag) = Self::is_archetype_cached(event) {
-                        archetypes.update_flags(*component, flag, false);
-                    }
-                }
-            }
-            for source in &observer.descriptor.sources {
-                let Some(observers) = cache.entity_observers.get_mut(source) else {
-                    continue;
-                };
-                observers.remove(&entity);
-                if observers.is_empty() {
-                    cache.entity_observers.remove(source);
-                }
-            }
-        }
-    }
-
     pub(crate) fn invoke<E>(
-        &self,
+        mut world: DeferredWorld,
         event: ComponentId,
         source: Entity,
         location: EntityLocation,
         components: impl Iterator<Item = ComponentId>,
-        mut world: DeferredWorld,
         data: &mut E,
     ) {
-        let Some(observers) = self.try_get_observers(event) else {
-            return;
+        let (mut world, observers) = unsafe {
+            let world = world.as_unsafe_world_cell();
+            let observers = world.observers();
+            let Some(observers) = observers.try_get_observers(event) else {
+                return;
+            };
+            (world.into_deferred(), observers)
         };
+
         // Run entity observers for source
         if let Some(observers) = observers.entity_observers.get(&source) {
             observers.iter().for_each(|(&observer, runner)| {
@@ -222,8 +169,8 @@ impl Observers {
                         source,
                     },
                     data.into(),
-                )
-            })
+                );
+            });
         }
         // Run component observers for each component
         for component in components {
@@ -377,10 +324,7 @@ impl World {
     }
 
     /// Spawn an [`Observer`] and returns it's [`Entity`]
-    pub fn observer<E: EcsEvent, M: 'static>(
-        &mut self,
-        callback: impl IntoObserverSystem<E, M> + 'static,
-    ) -> Entity {
+    pub fn observer<E: EcsEvent, M>(&mut self, callback: impl IntoObserverSystem<E, M>) -> Entity {
         ObserverBuilder::new(self).run(callback)
     }
 
@@ -391,10 +335,7 @@ impl World {
         EventBuilder::new(event, self.commands())
     }
 
-    pub(crate) fn spawn_observer<E: EcsEvent>(
-        &mut self,
-        mut observer: ObserverComponent,
-    ) -> Entity {
+    pub(crate) fn spawn_observer(&mut self, mut observer: ObserverComponent) -> Entity {
         let components = &mut observer.descriptor.components;
         let sources = &observer.descriptor.sources;
         // If the observer has no explicit targets use the accesses of the query
@@ -402,11 +343,72 @@ impl World {
             components.push(ANY);
         }
         let entity = self.entities.reserve_entity();
-        self.command_queue.push(Insert {
-            entity,
-            bundle: observer,
+
+        self.command_queue.push(move |world: &mut World| {
+            if let Some(mut entity) = world.get_entity_mut(entity) {
+                entity.insert(observer);
+            }
         });
 
         entity
+    }
+
+    pub(crate) fn register_observer(&mut self, entity: Entity) {
+        let observer_component: *const ObserverComponent =
+            self.get::<ObserverComponent>(entity).unwrap();
+        // TODO: Make less nasty
+        let observer_component = unsafe { &*observer_component };
+
+        for &event in &observer_component.descriptor.events {
+            let cache = self.observers.get_observers(event);
+            for &component in &observer_component.descriptor.components {
+                let observers = cache.component_observers.entry(component).or_default();
+                observers.insert(entity, observer_component.runner);
+                if observers.len() == 1 {
+                    if let Some(flag) = Observers::is_archetype_cached(event) {
+                        self.archetypes.update_flags(component, flag, true);
+                    }
+                }
+            }
+            for &source in &observer_component.descriptor.sources {
+                let observers = cache.entity_observers.entry(source).or_default();
+                observers.insert(entity, observer_component.runner);
+            }
+        }
+    }
+
+    pub(crate) fn unregister_observer(&mut self, entity: Entity) {
+        let observer_component: *const ObserverComponent =
+            self.get::<ObserverComponent>(entity).unwrap();
+
+        // TODO: Make less nasty
+        let observer_component = unsafe { &*observer_component };
+
+        for &event in &observer_component.descriptor.events {
+            let Some(cache) = self.observers.try_get_observers_mut(event) else {
+                continue;
+            };
+            for component in &observer_component.descriptor.components {
+                let Some(observers) = cache.component_observers.get_mut(component) else {
+                    continue;
+                };
+                observers.remove(&entity);
+                if observers.is_empty() {
+                    cache.component_observers.remove(component);
+                    if let Some(flag) = Observers::is_archetype_cached(event) {
+                        self.archetypes.update_flags(*component, flag, false);
+                    }
+                }
+            }
+            for source in &observer_component.descriptor.sources {
+                let Some(observers) = cache.entity_observers.get_mut(source) else {
+                    continue;
+                };
+                observers.remove(&entity);
+                if observers.is_empty() {
+                    cache.entity_observers.remove(source);
+                }
+            }
+        }
     }
 }

@@ -7,8 +7,9 @@ use crate::{
     component::ComponentId,
     entity::{Entities, Entity},
     observer::EcsEvent,
+    prelude::Observer,
     system::{RunSystemWithInput, SystemId},
-    world::{EntityWorldMut, FromWorld, World},
+    world::{DeferredWorld, EntityWorldMut, FromWorld, World},
 };
 use bevy_ecs_macros::SystemParam;
 use bevy_utils::tracing::{error, info};
@@ -16,7 +17,9 @@ pub use command_queue::CommandQueue;
 pub use parallel_scope::*;
 use std::marker::PhantomData;
 
-use super::{Deferred, IntoObserverSystem, ObserverSystem, Resource, SystemBuffer, SystemMeta};
+use super::{
+    Deferred, IntoObserverSystem, IntoSystem, ObserverSystem, Resource, SystemBuffer, SystemMeta,
+};
 
 /// A [`World`] mutation.
 ///
@@ -113,7 +116,7 @@ pub trait Command: Send + 'static {
 /// [`Schedule::apply_deferred`]: crate::schedule::Schedule::apply_deferred
 #[derive(SystemParam)]
 pub struct Commands<'w, 's> {
-    pub(crate) queue: Deferred<'s, CommandQueue>,
+    queue: Deferred<'s, CommandQueue>,
     entities: &'w Entities,
 }
 
@@ -123,6 +126,11 @@ impl SystemBuffer for CommandQueue {
         #[cfg(feature = "trace")]
         let _span_guard = _system_meta.commands_span.enter();
         self.apply(world);
+    }
+
+    #[inline]
+    fn queue(&mut self, _system_meta: &SystemMeta, mut world: DeferredWorld) {
+        world.commands().append(self);
     }
 }
 
@@ -972,13 +980,10 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
 
     /// Creates an [`Observer`] listening for `E` events targetting this entity.
     /// In order to trigger the callback the entity must also match the query when the event is fired.
-    pub fn observe<E: EcsEvent, M: Send + 'static>(
-        &mut self,
-        callback: impl IntoObserverSystem<E, M>,
-    ) -> &mut Self {
+    pub fn observe<E: EcsEvent, M>(&mut self, system: impl IntoObserverSystem<E, M>) -> &mut Self {
         self.commands.add(Observe::<E, _> {
             entity: self.entity,
-            callback: IntoObserverSystem::into_system(callback),
+            system: IntoObserverSystem::into_system(system),
             marker: PhantomData::default(),
         });
         self
@@ -1124,18 +1129,18 @@ fn log_components(entity: Entity, world: &mut World) {
 
 /// A [`Command`] that spawns an observer attached to a specific entity.
 #[derive(Debug)]
-pub struct Observe<E: EcsEvent, C: ObserverSystem<Event = E>> {
+pub struct Observe<E: EcsEvent, C: ObserverSystem<E>> {
     /// The entity that will be observed.
     pub entity: Entity,
     /// The callback to run when the event is observed.
-    pub callback: C,
+    pub system: C,
     /// Marker for type parameters
     pub marker: PhantomData<E>,
 }
 
-impl<E: EcsEvent, C: ObserverSystem<Event = E> + Send + 'static> Command for Observe<E, C> {
+impl<E: EcsEvent, C: ObserverSystem<E>> Command for Observe<E, C> {
     fn apply(self, world: &mut World) {
-        world.entity_mut(self.entity).observe(self.callback);
+        world.entity_mut(self.entity).observe(self.system);
     }
 }
 

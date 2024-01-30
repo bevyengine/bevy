@@ -4,7 +4,6 @@ use core::fmt::Debug;
 use crate::component::Tick;
 use crate::schedule::InternedSystemSet;
 use crate::world::unsafe_world_cell::UnsafeWorldCell;
-use crate::world::DeferredWorld;
 use crate::{archetype::ArchetypeComponentId, component::ComponentId, query::Access, world::World};
 
 use std::any::TypeId;

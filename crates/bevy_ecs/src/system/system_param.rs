@@ -10,7 +10,7 @@ use crate::{
         ReadOnlyQueryData,
     },
     system::{Query, SystemMeta},
-    world::{unsafe_world_cell::UnsafeWorldCell, FromWorld, World},
+    world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FromWorld, World},
 };
 use bevy_ecs_macros::impl_param_set;
 pub use bevy_ecs_macros::Resource;
@@ -124,6 +124,10 @@ pub unsafe trait SystemParam: Sized {
     #[inline]
     #[allow(unused_variables)]
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {}
+
+    #[inline]
+    #[allow(unused_variables)]
+    fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {}
 
     /// Creates a parameter to be passed into a [`SystemParamFunction`].
     ///
@@ -751,6 +755,8 @@ unsafe impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
 pub trait SystemBuffer: FromWorld + Send + 'static {
     /// Applies any deferred mutations to the [`World`].
     fn apply(&mut self, system_meta: &SystemMeta, world: &mut World);
+
+    fn queue(&mut self, system_meta: &SystemMeta, mut world: DeferredWorld) {}
 }
 
 /// A [`SystemParam`] that stores a buffer which gets applied to the [`World`] during
@@ -905,6 +911,10 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
 
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
         state.get().apply(system_meta, world);
+    }
+
+    fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
+        state.get().queue(system_meta, world);
     }
 
     unsafe fn get_param<'w, 's>(
@@ -1311,6 +1321,11 @@ macro_rules! impl_system_param_tuple {
             #[inline]
             fn apply(($($param,)*): &mut Self::State, _system_meta: &SystemMeta, _world: &mut World) {
                 $($param::apply($param, _system_meta, _world);)*
+            }
+
+            #[inline]
+            fn queue(($($param,)*): &mut Self::State, _system_meta: &SystemMeta, mut _world: DeferredWorld) {
+                $($param::queue($param, _system_meta, _world.reborrow());)*
             }
 
             #[inline]

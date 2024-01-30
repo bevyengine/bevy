@@ -568,12 +568,8 @@ impl<'w> UnsafeWorldCell<'w> {
             .get_with_ticks()
     }
 
-    pub(crate) unsafe fn archetypes_mut(self) -> &'w mut Archetypes {
-        unsafe { &mut self.world_mut().archetypes }
-    }
-
-    pub(crate) unsafe fn observers_mut(self) -> &'w mut Observers {
-        unsafe { &mut self.world_mut().observers }
+    pub(crate) unsafe fn observers(self) -> &'w Observers {
+        &unsafe { self.world_metadata() }.observers
     }
 
     // Returns a mutable reference to the underlying world's [`CommandQueue`].

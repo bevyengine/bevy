@@ -5,10 +5,11 @@ use crate::{
     component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
     observer::{AttachObserver, EcsEvent, ObserverBuilder, Observers},
-    query::{Access, QueryData, QueryFilter},
+    prelude::Observer,
+    query::{Access, DebugCheckedUnwrap},
     removal_detection::RemovedComponentEvents,
     storage::Storages,
-    system::IntoObserverSystem,
+    system::{IntoObserverSystem, IntoSystem},
     world::{Mut, World},
 };
 use bevy_ptr::{OwningPtr, Ptr};
@@ -712,7 +713,7 @@ impl<'w> EntityWorldMut<'w> {
                     self.entity,
                     self.location,
                     bundle_info.iter_components(),
-                )
+                );
             }
         }
 
@@ -888,7 +889,7 @@ impl<'w> EntityWorldMut<'w> {
                     entity,
                     self.location,
                     bundle_info.iter_components(),
-                )
+                );
             }
         }
 
@@ -993,7 +994,7 @@ impl<'w> EntityWorldMut<'w> {
                     self.entity,
                     self.location,
                     archetype.components(),
-                )
+                );
             }
         }
 

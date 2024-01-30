@@ -8,7 +8,7 @@ use crate::{
     prelude::World,
     query::Access,
     schedule::InternedSystemSet,
-    world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld},
+    world::unsafe_world_cell::UnsafeWorldCell,
 };
 
 use super::{ReadOnlySystem, System};

@@ -22,7 +22,7 @@ impl<'w, E: EcsEvent> ObserverBuilder<'w, E> {
         Self {
             world,
             descriptor,
-            _marker: PhantomData::default(),
+            _marker: PhantomData,
         }
     }
 
@@ -69,7 +69,7 @@ impl<'w, E: EcsEvent> ObserverBuilder<'w, E> {
     }
 
     /// Spawns the resulting observer into the world.
-    pub fn run<M: 'static>(&mut self, callback: impl IntoObserverSystem<E, M> + 'static) -> Entity {
+    pub fn run<M>(&mut self, callback: impl IntoObserverSystem<E, M>) -> Entity {
         let entity = self.enqueue(callback);
         self.world.flush_commands();
         entity
@@ -85,19 +85,18 @@ impl<'w, E: EcsEvent> ObserverBuilder<'w, E> {
     }
 
     /// Enqueues a command to spawn the resulting observer in the world.
-    pub fn enqueue<M: 'static>(&mut self, callback: impl IntoObserverSystem<E, M>) -> Entity {
+    pub fn enqueue<M>(&mut self, callback: impl IntoObserverSystem<E, M>) -> Entity {
         let component = ObserverComponent::from(self.world, self.descriptor.clone(), callback);
-        self.world.spawn_observer::<E>(component)
+        self.world.spawn_observer(component)
     }
 
     /// Enqueues a command to spawn the resulting observer in the world using a [`ObserverRunner`] callback.
     /// This is not advised unless you want to respond to events that may not be associated with an entity
     /// or otherwise want to override the default runner behaviour.
     pub fn enqueue_runner(&mut self, runner: ObserverRunner) -> Entity {
-        self.world
-            .spawn_observer::<E>(ObserverComponent::from_runner(
-                self.descriptor.clone(),
-                runner,
-            ))
+        self.world.spawn_observer(ObserverComponent::from_runner(
+            self.descriptor.clone(),
+            runner,
+        ))
     }
 }

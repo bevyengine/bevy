@@ -640,7 +640,7 @@ impl<'w> BundleInserter<'w> {
             let bundle_info = &*self.bundle_info;
             let add_bundle = &*self.add_bundle;
 
-            world.trigger_on_add(archetype, entity, bundle_info.added.iter().cloned());
+            world.trigger_on_add(archetype, entity, add_bundle.added.iter().cloned());
             if archetype.has_add_observer() {
                 world.trigger_observers(ON_ADD, entity, location, add_bundle.added.iter().cloned());
             }
@@ -919,11 +919,11 @@ impl<'w> BundleSpawner<'w> {
         let mut world = self.world.into_deferred();
         world.trigger_on_add(archetype, entity, bundle_info.iter_components());
         if archetype.has_add_observer() {
-            world.trigger_observers(ON_ADD, entity, location, bundle_info.iter_components())
+            world.trigger_observers(ON_ADD, entity, location, bundle_info.iter_components());
         }
         world.trigger_on_insert(archetype, entity, bundle_info.iter_components());
         if archetype.has_insert_observer() {
-            world.trigger_observers(ON_INSERT, entity, location, bundle_info.iter_components())
+            world.trigger_observers(ON_INSERT, entity, location, bundle_info.iter_components());
         }
         location
     }

@@ -846,7 +846,7 @@ impl Archetypes {
         // This is terrible, we need to refactor the component index
         for archetype in &mut self.archetypes {
             if archetype.contains(component_id) {
-                archetype.flags.set(flags, set)
+                archetype.flags.set(flags, set);
             }
         }
     }

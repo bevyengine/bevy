@@ -6,7 +6,7 @@ use crate::{
     component::ComponentId,
     entity::{Entity, EntityLocation},
     event::{Event, EventId, Events, SendBatchIds},
-    observer::{EcsEvent, EventBuilder},
+    observer::{EcsEvent, EventBuilder, Observers},
     prelude::{Component, QueryState},
     query::{QueryData, QueryFilter},
     system::{Commands, Query, Resource},
@@ -331,12 +331,14 @@ impl<'w> DeferredWorld<'w> {
         location: EntityLocation,
         components: impl Iterator<Item = ComponentId>,
     ) {
-        let (world, observers) = unsafe {
-            let world = self.as_unsafe_world_cell();
-            world.world_mut().last_event_id += 1;
-            (world.into_deferred(), &world.world().observers)
-        };
-        observers.invoke(event, target, location, components, world, &mut ());
+        Observers::invoke(
+            self.reborrow(),
+            event,
+            target,
+            location,
+            components,
+            &mut (),
+        );
     }
 
     /// Triggers all event observers for [`ComponentId`] in target.
@@ -352,12 +354,7 @@ impl<'w> DeferredWorld<'w> {
         components: impl Iterator<Item = ComponentId>,
         data: &mut E,
     ) {
-        let (world, observers) = unsafe {
-            let world = self.as_unsafe_world_cell();
-            world.world_mut().last_event_id += 1;
-            (world.into_deferred(), &world.world().observers)
-        };
-        observers.invoke(event, target, location, components, world, data);
+        Observers::invoke(self.reborrow(), event, target, location, components, data);
     }
 
     /// Constructs an [`EventBuilder`] for an [`EcsEvent`].

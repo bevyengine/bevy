@@ -429,6 +429,10 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                     <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::apply(&mut state.state, system_meta, world);
                 }
 
+                fn queue(state: &mut Self::State, system_meta: &#path::system::SystemMeta, world: #path::world::DeferredWorld) {
+                    <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::queue(&mut state.state, system_meta, world);
+                }
+
                 unsafe fn get_param<'w, 's>(
                     state: &'s mut Self::State,
                     system_meta: &#path::system::SystemMeta,
