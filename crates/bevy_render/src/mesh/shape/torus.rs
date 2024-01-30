@@ -1,6 +1,6 @@
 use crate::{
     mesh::{Indices, Mesh},
-    render_asset::RenderAssetPersistencePolicy,
+    render_asset::RenderAssetUsages,
 };
 use bevy_math::Vec3;
 use wgpu::PrimitiveTopology;
@@ -89,7 +89,7 @@ impl From<Torus> for Mesh {
 
         Mesh::new(
             PrimitiveTopology::TriangleList,
-            RenderAssetPersistencePolicy::Keep,
+            RenderAssetUsages::default(),
         )
         .with_indices(Some(Indices::U32(indices)))
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
