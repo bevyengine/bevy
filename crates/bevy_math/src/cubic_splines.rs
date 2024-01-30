@@ -561,20 +561,23 @@ impl<P: Point> CubicSegment<P> {
     #[inline]
     pub fn position(&self, t: f32) -> P {
         let [a, b, c, d] = self.coeff;
-        a + b * t + c * t.powi(2) + d * t.powi(3)
+        // Evaluate `a + bt + ct^2 + dt^3`
+        a + (b + (c + d * t) * t) * t
     }
 
     /// Instantaneous velocity of a point at parametric value `t`.
     #[inline]
     pub fn velocity(&self, t: f32) -> P {
         let [_, b, c, d] = self.coeff;
-        b + c * 2.0 * t + d * 3.0 * t.powi(2)
+        // Evaluate the derivative, which is `b + 2ct + 3dt^2`
+        b + (c * 2.0 + d * 3.0 * t) * t
     }
 
     /// Instantaneous acceleration of a point at parametric value `t`.
     #[inline]
     pub fn acceleration(&self, t: f32) -> P {
         let [_, _, c, d] = self.coeff;
+        // Evaluate the second derivative, which is `2c + 6dt`
         c * 2.0 + d * 6.0 * t
     }
 
