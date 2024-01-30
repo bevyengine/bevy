@@ -73,7 +73,7 @@ struct DebugEvent {
 
 /// A system that sends all combinations of events.
 fn send_events(mut events: EventWriter<DebugEvent>, frame_count: Res<FrameCount>) {
-    println!("Sending events for frame {:?}", *frame_count);
+    println!("Sending events for frame {:?}", frame_count.0);
 
     events.send(DebugEvent {
         resend_from_param_set: false,
