@@ -1,21 +1,66 @@
-use super::Primitive3d;
+use super::{InvalidDirectionError, Primitive3d};
 use crate::Vec3;
 
 /// A normalized vector pointing in a direction in 3D space
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Direction3d(Vec3);
 
-impl From<Vec3> for Direction3d {
-    fn from(value: Vec3) -> Self {
-        Self(value.normalize())
-    }
-}
-
 impl Direction3d {
-    /// Create a direction from a [`Vec3`] that is already normalized
+    /// A unit vector pointing along the positive X axis.
+    pub const X: Self = Self(Vec3::X);
+    /// A unit vector pointing along the positive Y axis.
+    pub const Y: Self = Self(Vec3::Y);
+    /// A unit vector pointing along the positive Z axis.
+    pub const Z: Self = Self(Vec3::Z);
+    /// A unit vector pointing along the negative X axis.
+    pub const NEG_X: Self = Self(Vec3::NEG_X);
+    /// A unit vector pointing along the negative Y axis.
+    pub const NEG_Y: Self = Self(Vec3::NEG_Y);
+    /// A unit vector pointing along the negative Z axis.
+    pub const NEG_Z: Self = Self(Vec3::NEG_Z);
+
+    /// Create a direction from a finite, nonzero [`Vec3`].
+    ///
+    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
+    /// of the given vector is zero (or very close to zero), infinite, or `NaN`.
+    pub fn new(value: Vec3) -> Result<Self, InvalidDirectionError> {
+        Self::new_and_length(value).map(|(dir, _)| dir)
+    }
+
+    /// Create a direction from a finite, nonzero [`Vec3`], also returning its original length.
+    ///
+    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
+    /// of the given vector is zero (or very close to zero), infinite, or `NaN`.
+    pub fn new_and_length(value: Vec3) -> Result<(Self, f32), InvalidDirectionError> {
+        let length = value.length();
+        let direction = (length.is_finite() && length > 0.0).then_some(value / length);
+
+        direction
+            .map(|dir| (Self(dir), length))
+            .map_or(Err(InvalidDirectionError::from_length(length)), Ok)
+    }
+
+    /// Create a direction from its `x`, `y`, and `z` components.
+    ///
+    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
+    /// of the vector formed by the components is zero (or very close to zero), infinite, or `NaN`.
+    pub fn from_xyz(x: f32, y: f32, z: f32) -> Result<Self, InvalidDirectionError> {
+        Self::new(Vec3::new(x, y, z))
+    }
+
+    /// Create a direction from a [`Vec3`] that is already normalized.
     pub fn from_normalized(value: Vec3) -> Self {
         debug_assert!(value.is_normalized());
         Self(value)
+    }
+}
+
+impl TryFrom<Vec3> for Direction3d {
+    type Error = InvalidDirectionError;
+
+    fn try_from(value: Vec3) -> Result<Self, Self::Error> {
+        Self::new(value)
     }
 }
 
@@ -23,6 +68,13 @@ impl std::ops::Deref for Direction3d {
     type Target = Vec3;
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl std::ops::Neg for Direction3d {
+    type Output = Self;
+    fn neg(self) -> Self::Output {
+        Self(-self.0)
     }
 }
 
@@ -42,6 +94,20 @@ pub struct Plane3d {
     pub normal: Direction3d,
 }
 impl Primitive3d for Plane3d {}
+
+impl Plane3d {
+    /// Create a new `Plane3d` from a normal
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given `normal` is zero (or very close to zero), or non-finite.
+    #[inline]
+    pub fn new(normal: Vec3) -> Self {
+        Self {
+            normal: Direction3d::new(normal).expect("normal must be nonzero and finite"),
+        }
+    }
+}
 
 /// An infinite line along a direction in 3D space.
 ///
@@ -329,5 +395,35 @@ impl Torus {
             std::cmp::Ordering::Equal => TorusKind::Horn,
             std::cmp::Ordering::Less => TorusKind::Spindle,
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn direction_creation() {
+        assert_eq!(Direction3d::new(Vec3::X * 12.5), Ok(Direction3d::X));
+        assert_eq!(
+            Direction3d::new(Vec3::new(0.0, 0.0, 0.0)),
+            Err(InvalidDirectionError::Zero)
+        );
+        assert_eq!(
+            Direction3d::new(Vec3::new(f32::INFINITY, 0.0, 0.0)),
+            Err(InvalidDirectionError::Infinite)
+        );
+        assert_eq!(
+            Direction3d::new(Vec3::new(f32::NEG_INFINITY, 0.0, 0.0)),
+            Err(InvalidDirectionError::Infinite)
+        );
+        assert_eq!(
+            Direction3d::new(Vec3::new(f32::NAN, 0.0, 0.0)),
+            Err(InvalidDirectionError::NaN)
+        );
+        assert_eq!(
+            Direction3d::new_and_length(Vec3::X * 6.5),
+            Ok((Direction3d::from_normalized(Vec3::X), 6.5))
+        );
     }
 }

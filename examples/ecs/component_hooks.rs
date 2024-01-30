@@ -80,7 +80,11 @@ fn setup(world: &mut World) {
         });
 }
 
-fn trigger_hooks(mut commands: Commands, keys: Res<Input<KeyCode>>, index: Res<MyComponentIndex>) {
+fn trigger_hooks(
+    mut commands: Commands,
+    keys: Res<ButtonInput<KeyCode>>,
+    index: Res<MyComponentIndex>,
+) {
     for (key, entity) in index.iter() {
         if !keys.pressed(*key) {
             commands.entity(*entity).remove::<MyComponent>();

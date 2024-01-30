@@ -313,6 +313,7 @@ impl ComponentInfo {
     }
 
     /// Register a [`ComponentHook`] that will be run when this component is removed from an entity.
+    /// Despawning an entity counts as removing all of it's components.
     ///
     /// Will panic if the component already has an `on_remove` hook
     pub fn on_remove(&mut self, hook: ComponentHook) -> &mut Self {
@@ -519,8 +520,8 @@ impl ComponentDescriptor {
 #[derive(Debug, Default)]
 pub struct Components {
     components: Vec<ComponentInfo>,
-    indices: TypeIdMap<usize>,
-    resource_indices: TypeIdMap<usize>,
+    indices: TypeIdMap<ComponentId>,
+    resource_indices: TypeIdMap<ComponentId>,
 }
 
 impl Components {
@@ -541,16 +542,15 @@ impl Components {
             components,
             ..
         } = self;
-        let index = indices.entry(type_id).or_insert_with(|| {
+        *indices.entry(type_id).or_insert_with(|| {
             let index = Components::init_component_inner(
                 components,
                 storages,
                 ComponentDescriptor::new::<T>(),
             );
-            T::init_component_info(&mut components[index]);
+            T::init_component_info(&mut components[index.index()]);
             index
-        });
-        ComponentId(*index)
+        })
     }
 
     /// Initializes a component described by `descriptor`.
@@ -569,8 +569,7 @@ impl Components {
         storages: &mut Storages,
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
-        let index = Components::init_component_inner(&mut self.components, storages, descriptor);
-        ComponentId(index)
+        Components::init_component_inner(&mut self.components, storages, descriptor)
     }
 
     #[inline]
@@ -578,14 +577,14 @@ impl Components {
         components: &mut Vec<ComponentInfo>,
         storages: &mut Storages,
         descriptor: ComponentDescriptor,
-    ) -> usize {
-        let index = components.len();
-        let info = ComponentInfo::new(ComponentId(index), descriptor);
+    ) -> ComponentId {
+        let component_id = ComponentId(components.len());
+        let info = ComponentInfo::new(component_id, descriptor);
         if info.descriptor.storage_type == StorageType::SparseSet {
             storages.sparse_sets.get_or_insert(&info);
         }
         components.push(info);
-        index
+        component_id
     }
 
     /// Returns the number of components registered with this instance.
@@ -634,7 +633,7 @@ impl Components {
     /// Type-erased equivalent of [`Components::component_id()`].
     #[inline]
     pub fn get_id(&self, type_id: TypeId) -> Option<ComponentId> {
-        self.indices.get(&type_id).map(|index| ComponentId(*index))
+        self.indices.get(&type_id).copied()
     }
 
     /// Returns the [`ComponentId`] of the given [`Component`] type `T`.
@@ -646,7 +645,7 @@ impl Components {
     /// Returns [`None`] if the `Component` type has not
     /// yet been initialized using [`Components::init_component()`].
     ///
-    /// ```rust
+    /// ```
     /// use bevy_ecs::prelude::*;
     ///
     /// let mut world = World::new();
@@ -672,9 +671,7 @@ impl Components {
     /// Type-erased equivalent of [`Components::resource_id()`].
     #[inline]
     pub fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
-        self.resource_indices
-            .get(&type_id)
-            .map(|index| ComponentId(*index))
+        self.resource_indices.get(&type_id).copied()
     }
 
     /// Returns the [`ComponentId`] of the given [`Resource`] type `T`.
@@ -686,7 +683,7 @@ impl Components {
     /// Returns [`None`] if the `Resource` type has not
     /// yet been initialized using [`Components::init_resource()`].
     ///
-    /// ```rust
+    /// ```
     /// use bevy_ecs::prelude::*;
     ///
     /// let mut world = World::new();
@@ -748,14 +745,12 @@ impl Components {
         func: impl FnOnce() -> ComponentDescriptor,
     ) -> ComponentId {
         let components = &mut self.components;
-        let index = self.resource_indices.entry(type_id).or_insert_with(|| {
+        *self.resource_indices.entry(type_id).or_insert_with(|| {
             let descriptor = func();
-            let index = components.len();
-            components.push(ComponentInfo::new(ComponentId(index), descriptor));
-            index
-        });
-
-        ComponentId(*index)
+            let component_id = ComponentId(components.len());
+            components.push(ComponentInfo::new(component_id, descriptor));
+            component_id
+        })
     }
 
     /// Gets an iterator over all components registered with this instance.
@@ -904,7 +899,7 @@ impl ComponentTicks {
     /// However, components and resources that make use of interior mutability might require manual updates.
     ///
     /// # Example
-    /// ```rust,no_run
+    /// ```no_run
     /// # use bevy_ecs::{world::World, component::ComponentTicks};
     /// let world: World = unimplemented!();
     /// let component_ticks: ComponentTicks = unimplemented!();
@@ -920,7 +915,7 @@ impl ComponentTicks {
 /// A [`SystemParam`] that provides access to the [`ComponentId`] for a specific type.
 ///
 /// # Example
-/// ```rust
+/// ```
 /// # use bevy_ecs::{system::Local, component::{Component, ComponentId, ComponentIdFor}};
 /// #[derive(Component)]
 /// struct Player;

@@ -12,6 +12,7 @@ use bevy_transform::{components::GlobalTransform, TransformSystem};
 use std::cell::Cell;
 use thread_local::ThreadLocal;
 
+use crate::deterministic::DeterministicRenderingConfig;
 use crate::{
     camera::{
         camera_system, Camera, CameraProjection, OrthographicProjection, PerspectiveProjection,
@@ -85,7 +86,7 @@ impl InheritedVisibility {
     }
 }
 
-/// Algorithmically-computed indication or whether an entity is visible and should be extracted for rendering.
+/// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering.
 ///
 /// Each frame, this will be reset to `false` during [`VisibilityPropagate`] systems in [`PostUpdate`].
 /// Later in the frame, systems in [`CheckVisibility`] will mark any visible entities using [`ViewVisibility::set`].
@@ -191,8 +192,6 @@ pub enum VisibilitySystems {
     /// Label for the [`calculate_bounds`] and `calculate_bounds_2d` systems,
     /// calculating and inserting an [`Aabb`] to relevant entities.
     CalculateBounds,
-    /// Label for the [`apply_deferred`] call after [`VisibilitySystems::CalculateBounds`]
-    CalculateBoundsFlush,
     /// Label for the [`update_frusta<OrthographicProjection>`] system.
     UpdateOrthographicFrusta,
     /// Label for the [`update_frusta<PerspectiveProjection>`] system.
@@ -213,47 +212,42 @@ impl Plugin for VisibilityPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         use VisibilitySystems::*;
 
-        app
-            // We add an AABB component in CalculateBounds, which must be ready on the same frame.
-            .add_systems(PostUpdate, apply_deferred.in_set(CalculateBoundsFlush))
-            .configure_sets(PostUpdate, CalculateBoundsFlush.after(CalculateBounds))
-            .add_systems(
-                PostUpdate,
-                (
-                    calculate_bounds.in_set(CalculateBounds),
-                    update_frusta::<OrthographicProjection>
-                        .in_set(UpdateOrthographicFrusta)
-                        .after(camera_system::<OrthographicProjection>)
-                        .after(TransformSystem::TransformPropagate)
-                        // We assume that no camera will have more than one projection component,
-                        // so these systems will run independently of one another.
-                        // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
-                        .ambiguous_with(update_frusta::<PerspectiveProjection>)
-                        .ambiguous_with(update_frusta::<Projection>),
-                    update_frusta::<PerspectiveProjection>
-                        .in_set(UpdatePerspectiveFrusta)
-                        .after(camera_system::<PerspectiveProjection>)
-                        .after(TransformSystem::TransformPropagate)
-                        // We assume that no camera will have more than one projection component,
-                        // so these systems will run independently of one another.
-                        // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
-                        .ambiguous_with(update_frusta::<Projection>),
-                    update_frusta::<Projection>
-                        .in_set(UpdateProjectionFrusta)
-                        .after(camera_system::<Projection>)
-                        .after(TransformSystem::TransformPropagate),
-                    (visibility_propagate_system, reset_view_visibility)
-                        .in_set(VisibilityPropagate),
-                    check_visibility
-                        .in_set(CheckVisibility)
-                        .after(CalculateBoundsFlush)
-                        .after(UpdateOrthographicFrusta)
-                        .after(UpdatePerspectiveFrusta)
-                        .after(UpdateProjectionFrusta)
-                        .after(VisibilityPropagate)
-                        .after(TransformSystem::TransformPropagate),
-                ),
-            );
+        app.add_systems(
+            PostUpdate,
+            (
+                calculate_bounds.in_set(CalculateBounds),
+                update_frusta::<OrthographicProjection>
+                    .in_set(UpdateOrthographicFrusta)
+                    .after(camera_system::<OrthographicProjection>)
+                    .after(TransformSystem::TransformPropagate)
+                    // We assume that no camera will have more than one projection component,
+                    // so these systems will run independently of one another.
+                    // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
+                    .ambiguous_with(update_frusta::<PerspectiveProjection>)
+                    .ambiguous_with(update_frusta::<Projection>),
+                update_frusta::<PerspectiveProjection>
+                    .in_set(UpdatePerspectiveFrusta)
+                    .after(camera_system::<PerspectiveProjection>)
+                    .after(TransformSystem::TransformPropagate)
+                    // We assume that no camera will have more than one projection component,
+                    // so these systems will run independently of one another.
+                    // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
+                    .ambiguous_with(update_frusta::<Projection>),
+                update_frusta::<Projection>
+                    .in_set(UpdateProjectionFrusta)
+                    .after(camera_system::<Projection>)
+                    .after(TransformSystem::TransformPropagate),
+                (visibility_propagate_system, reset_view_visibility).in_set(VisibilityPropagate),
+                check_visibility
+                    .in_set(CheckVisibility)
+                    .after(CalculateBounds)
+                    .after(UpdateOrthographicFrusta)
+                    .after(UpdatePerspectiveFrusta)
+                    .after(UpdateProjectionFrusta)
+                    .after(VisibilityPropagate)
+                    .after(TransformSystem::TransformPropagate),
+            ),
+        );
     }
 }
 
@@ -399,6 +393,7 @@ pub fn check_visibility(
         &GlobalTransform,
         Has<NoFrustumCulling>,
     )>,
+    deterministic_rendering_config: Res<DeterministicRenderingConfig>,
 ) {
     for (mut visible_entities, frustum, maybe_view_mask, camera) in &mut view_query {
         if !camera.is_active {
@@ -458,6 +453,11 @@ pub fn check_visibility(
 
         for cell in &mut thread_queues {
             visible_entities.entities.append(cell.get_mut());
+        }
+        if deterministic_rendering_config.stable_sort_z_fighting {
+            // We can use the faster unstable sort here because
+            // the values (`Entity`) are guaranteed to be unique.
+            visible_entities.entities.sort_unstable();
         }
     }
 }

@@ -10,6 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/bevyengine/bevy"
+documentation = "https://docs.rs/bevy"
 rust-version = "1.74.0"
 
 [workspace]
@@ -455,6 +456,26 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
+name = "sprite_tile"
+path = "examples/2d/sprite_tile.rs"
+
+[package.metadata.example.sprite_tile]
+name = "Sprite Tile"
+description = "Renders a sprite tiled in a grid"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
+name = "sprite_slice"
+path = "examples/2d/sprite_slice.rs"
+
+[package.metadata.example.sprite_slice]
+name = "Sprite Slice"
+description = "Showcases slicing sprites into sections that can be scaled independently via the 9-patch technique"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
 name = "text2d"
 path = "examples/2d/text2d.rs"
 doc-scrape-examples = true
@@ -488,13 +509,12 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
-name = "pixel_perfect"
-path = "examples/2d/pixel_perfect.rs"
-doc-scrape-examples = true
+name = "pixel_grid_snap"
+path = "examples/2d/pixel_grid_snap.rs"
 
-[package.metadata.example.pixel_perfect]
-name = "Pixel Perfect"
-description = "Demonstrates pixel perfect in 2d"
+[package.metadata.example.pixel_grid_snap]
+name = "Pixel Grid Snapping"
+description = "Shows how to create graphics that snap to the pixel grid by rendering to a texture in 2D"
 category = "2D Rendering"
 wasm = true
 
@@ -595,6 +615,17 @@ doc-scrape-examples = true
 [package.metadata.example.blend_modes]
 name = "Blend Modes"
 description = "Showcases different blend modes"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "deterministic"
+path = "examples/3d/deterministic.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.deterministic]
+name = "Deterministic rendering"
+description = "Stop flickering from z-fighting at a performance cost"
 category = "3D Rendering"
 wasm = true
 
@@ -872,6 +903,17 @@ category = "3D Rendering"
 wasm = false
 
 [[example]]
+name = "lightmaps"
+path = "examples/3d/lightmaps.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.lightmaps]
+name = "Lightmaps"
+description = "Rendering a scene with baked lightmaps"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "no_prepass"
 path = "tests/3d/no_prepass.rs"
 doc-scrape-examples = true
@@ -1012,6 +1054,16 @@ name = "Logs"
 description = "Illustrate how to use generate log output"
 category = "Application"
 wasm = true
+
+[[example]]
+name = "log_layers"
+path = "examples/app/log_layers.rs"
+
+[package.metadata.example.log_layers]
+name = "Log layers"
+description = "Illustrate how to add custom log layers"
+category = "Application"
+wasm = false
 
 [[example]]
 name = "plugin"
@@ -1272,11 +1324,6 @@ description = "Full guide to Bevy's ECS"
 category = "ECS (Entity Component System)"
 wasm = false
 
-[[example]]
-name = "apply_deferred"
-path = "examples/ecs/apply_deferred.rs"
-doc-scrape-examples = true
-
 [package.metadata.example.apply_deferred]
 name = "Apply System Buffers"
 description = "Show how to use `apply_deferred` system"
@@ -1313,6 +1360,17 @@ doc-scrape-examples = true
 [package.metadata.example.custom_query_param]
 name = "Custom Query Parameters"
 description = "Groups commonly used compound queries and query filters into a single type"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "dynamic"
+path = "examples/ecs/dynamic.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.dynamic]
+name = "Dynamic ECS"
+description = "Dynamically create components, spawn entities with those components and query those components"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -2221,6 +2279,17 @@ doc-scrape-examples = true
 [package.metadata.example.relative_cursor_position]
 name = "Relative Cursor Position"
 description = "Showcases the RelativeCursorPosition component"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "render_ui_to_texture"
+path = "examples/ui/render_ui_to_texture.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.render_ui_to_texture]
+name = "Render UI to Texture"
+description = "An example of rendering UI as a part of a 3D world"
 category = "UI (User Interface)"
 wasm = true
 

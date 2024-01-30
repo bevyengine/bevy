@@ -15,10 +15,10 @@ use crate::{
     prelude::Component,
     removal_detection::RemovedComponentEvents,
     storage::{Column, ComponentSparseSet, Storages},
-    system::Resource,
+    system::{CommandQueue, Resource},
 };
 use bevy_ptr::Ptr;
-use std::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData};
+use std::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, ptr::addr_of_mut};
 
 /// Variant of the [`World`] where resource and component accesses take `&self`, and the responsibility to avoid
 /// aliasing violations are given to the caller instead of being checked at compile-time by rust's unique XOR shared rule.
@@ -57,7 +57,7 @@ use std::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData};
 /// struct OnlyComponentAccessWorld<'w>(UnsafeWorldCell<'w>);
 ///
 /// impl<'w> OnlyResourceAccessWorld<'w> {
-///     fn get_resource_mut<T: Resource>(&mut self) -> Option<Mut<'w, T>> {
+///     fn get_resource_mut<T: Resource>(&mut self) -> Option<Mut<'_, T>> {
 ///         // SAFETY: resource access is allowed through this UnsafeWorldCell
 ///         unsafe { self.0.get_resource_mut::<T>() }
 ///     }
@@ -574,6 +574,18 @@ impl<'w> UnsafeWorldCell<'w> {
 
     pub(crate) unsafe fn observers_mut(self) -> &'w mut Observers {
         unsafe { &mut self.world_mut().observers }
+    }
+
+    // Returns a mutable reference to the underlying world's [`CommandQueue`].
+    /// # Safety
+    /// It is the callers responsibility to ensure that
+    /// - the [`UnsafeWorldCell`] has permission to access the queue mutably
+    /// - no mutable references to the queue exist at the same time
+    pub(crate) unsafe fn get_command_queue(self) -> &'w mut CommandQueue {
+        // SAFETY:
+        // - caller ensures there are no existing mutable references
+        // - caller ensures that we have permission to access the queue
+        unsafe { &mut *addr_of_mut!((*self.0).command_queue) }
     }
 }
 

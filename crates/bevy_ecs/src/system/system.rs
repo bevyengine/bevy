@@ -4,6 +4,7 @@ use core::fmt::Debug;
 use crate::component::Tick;
 use crate::schedule::InternedSystemSet;
 use crate::world::unsafe_world_cell::UnsafeWorldCell;
+use crate::world::DeferredWorld;
 use crate::{archetype::ArchetypeComponentId, component::ComponentId, query::Access, world::World};
 
 use std::any::TypeId;
@@ -41,6 +42,9 @@ pub trait System: Send + Sync + 'static {
 
     /// Returns true if the system must be run exclusively.
     fn is_exclusive(&self) -> bool;
+
+    /// Returns true if system as deferred buffers
+    fn has_deferred(&self) -> bool;
 
     /// Runs the system with the given input in the world. Unlike [`System::run`], this function
     /// can be called in parallel with other systems and may break Rust's aliasing rules

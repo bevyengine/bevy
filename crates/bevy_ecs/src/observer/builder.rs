@@ -1,5 +1,7 @@
 use std::marker::PhantomData;
 
+use crate::system::IntoObserverSystem;
+
 use super::*;
 
 /// Builder struct for [`Observer`].
@@ -67,10 +69,7 @@ impl<'w, E: EcsEvent> ObserverBuilder<'w, E> {
     }
 
     /// Spawns the resulting observer into the world.
-    pub fn run<Q: WorldQueryData + 'static, F: WorldQueryFilter + 'static>(
-        &mut self,
-        callback: impl ObserverCallback<E, Q, F> + 'static,
-    ) -> Entity {
+    pub fn run<M: 'static>(&mut self, callback: impl IntoObserverSystem<E, M> + 'static) -> Entity {
         let entity = self.enqueue(callback);
         self.world.flush_commands();
         entity
@@ -79,33 +78,24 @@ impl<'w, E: EcsEvent> ObserverBuilder<'w, E> {
     /// Spawns the resulting observer into the world using a [`ObserverRunner`] callback.
     /// This is not advised unless you want to respond to events that may not be associated with an entity
     /// or otherwise want to override the default runner behaviour.
-    pub fn runner<Q: WorldQueryData + 'static, F: WorldQueryFilter + 'static>(
-        &mut self,
-        runner: ObserverRunner,
-    ) -> Entity {
-        let entity = self.enqueue_runner::<Q, F>(runner);
+    pub fn runner(&mut self, runner: ObserverRunner) -> Entity {
+        let entity = self.enqueue_runner(runner);
         self.world.flush_commands();
         entity
     }
 
     /// Enqueues a command to spawn the resulting observer in the world.
-    pub fn enqueue<Q: WorldQueryData + 'static, F: WorldQueryFilter + 'static>(
-        &mut self,
-        callback: impl ObserverCallback<E, Q, F> + 'static,
-    ) -> Entity {
-        self.world
-            .spawn_observer::<E, Q, F>(ObserverComponent::from(self.descriptor.clone(), callback))
+    pub fn enqueue<M: 'static>(&mut self, callback: impl IntoObserverSystem<E, M>) -> Entity {
+        let component = ObserverComponent::from(self.world, self.descriptor.clone(), callback);
+        self.world.spawn_observer::<E>(component)
     }
 
     /// Enqueues a command to spawn the resulting observer in the world using a [`ObserverRunner`] callback.
     /// This is not advised unless you want to respond to events that may not be associated with an entity
     /// or otherwise want to override the default runner behaviour.
-    pub fn enqueue_runner<Q: WorldQueryData + 'static, F: WorldQueryFilter + 'static>(
-        &mut self,
-        runner: ObserverRunner,
-    ) -> Entity {
+    pub fn enqueue_runner(&mut self, runner: ObserverRunner) -> Entity {
         self.world
-            .spawn_observer::<E, Q, F>(ObserverComponent::from_runner(
+            .spawn_observer::<E>(ObserverComponent::from_runner(
                 self.descriptor.clone(),
                 runner,
             ))

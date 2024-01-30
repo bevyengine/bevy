@@ -164,7 +164,8 @@ fn apply_pbr_lighting(
 
     let specular_transmissive_color = specular_transmission * in.material.base_color.rgb;
 
-    let occlusion = in.occlusion;
+    let diffuse_occlusion = in.diffuse_occlusion;
+    let specular_occlusion = in.specular_occlusion;
 
     // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
     let NdotV = max(dot(in.N, in.V), 0.0001);
@@ -267,6 +268,13 @@ fn apply_pbr_lighting(
     // directional lights (direct)
     let n_directional_lights = view_bindings::lights.n_directional_lights;
     for (var i: u32 = 0u; i < n_directional_lights; i = i + 1u) {
+        // check the directional light render layers intersect the view render layers
+        // note this is not necessary for point and spot lights, as the relevant lights are filtered in `assign_lights_to_clusters`
+        let light = &view_bindings::lights.directional_lights[i];
+        if ((*light).render_layers & view_bindings::view.render_layers) == 0u {
+            continue;
+        }
+
         var shadow: f32 = 1.0;
         if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
                 && (view_bindings::lights.directional_lights[i].flags & mesh_view_types::DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
@@ -299,7 +307,7 @@ fn apply_pbr_lighting(
     }
 
     // Ambient light (indirect)
-    var indirect_light = ambient::ambient_light(in.world_position, in.N, in.V, NdotV, diffuse_color, F0, perceptual_roughness, occlusion);
+    var indirect_light = ambient::ambient_light(in.world_position, in.N, in.V, NdotV, diffuse_color, F0, perceptual_roughness, diffuse_occlusion);
 
     if diffuse_transmission > 0.0 {
         // NOTE: We use the diffuse transmissive color, the second Lambertian lobe's calculated
@@ -309,14 +317,14 @@ fn apply_pbr_lighting(
         // perceptual_roughness = 1.0;
         // NdotV = 1.0;
         // F0 = vec3<f32>(0.0)
-        // occlusion = vec3<f32>(1.0)
+        // diffuse_occlusion = vec3<f32>(1.0)
         transmitted_light += ambient::ambient_light(diffuse_transmissive_lobe_world_position, -in.N, -in.V, 1.0, diffuse_transmissive_color, vec3<f32>(0.0), 1.0, vec3<f32>(1.0));
     }
 
     // Environment map light (indirect)
 #ifdef ENVIRONMENT_MAP
     let environment_light = environment_map::environment_map_light(perceptual_roughness, roughness, diffuse_color, NdotV, f_ab, in.N, R, F0);
-    indirect_light += (environment_light.diffuse * occlusion) + environment_light.specular;
+    indirect_light += (environment_light.diffuse * diffuse_occlusion) + (environment_light.specular * specular_occlusion);
 
     // we'll use the specular component of the transmitted environment
     // light in the call to `specular_transmissive_light()` below
@@ -331,7 +339,7 @@ fn apply_pbr_lighting(
         // NdotV = 1.0;
         // R = T // see definition below
         // F0 = vec3<f32>(1.0)
-        // occlusion = 1.0
+        // diffuse_occlusion = 1.0
         //
         // (This one is slightly different from the other light types above, because the environment
         // map light returns both diffuse and specular components separately, and we want to use both)
@@ -349,6 +357,10 @@ fn apply_pbr_lighting(
     // If there's no environment map light, there's no transmitted environment
     // light specular component, so we can just hardcode it to zero.
     let specular_transmitted_environment_light = vec3<f32>(0.0);
+#endif
+
+#ifdef LIGHTMAP
+    indirect_light += in.lightmap_light * diffuse_color;
 #endif
 
     let emissive_light = emissive.rgb * output_color.a;
@@ -374,7 +386,7 @@ fn apply_pbr_lighting(
 
     // Total light
     output_color = vec4<f32>(
-        transmitted_light + direct_light + indirect_light + emissive_light,
+        view_bindings::view.exposure * (transmitted_light + direct_light + indirect_light + emissive_light),
         output_color.a
     );
 
@@ -411,7 +423,7 @@ fn apply_fog(fog_params: mesh_view_types::Fog, input_color: vec4<f32>, fragment_
                     0.0
                 ),
                 fog_params.directional_light_exponent
-            ) * light.color.rgb;
+            ) * light.color.rgb * view_bindings::view.exposure;
         }
     }
 

@@ -86,29 +86,17 @@ fn main(){
 
 Bevy can be built just fine using default configuration on stable Rust. However for really fast iterative compiles, you should enable the "fast compiles" setup by [following the instructions here](http://bevyengine.org/learn/book/getting-started/setup/).
 
-## Libraries Used
-
-Bevy is only possible because of the hard work put into these foundational technologies:
-
-* [wgpu](https://wgpu.rs/): modern / low-level / cross-platform graphics library based on the [WebGPU](https://gpuweb.github.io/gpuweb/) API.
-* [glam-rs](https://github.com/bitshifter/glam-rs): a simple and fast 3D math library for games and graphics
-* [winit](https://github.com/rust-windowing/winit): cross-platform window creation and management in Rust
-
 ## [Bevy Cargo Features][cargo_features]
 
 This [list][cargo_features] outlines the different cargo features supported by Bevy. These allow you to customize the Bevy feature set for your use-case.
 
 [cargo_features]: docs/cargo_features.md
 
-## [Third Party Plugins][plugin_guidelines]
+## Thanks
 
-Plugins are very welcome to extend Bevy's features. [Guidelines][plugin_guidelines] are available to help integration and usage.
+Bevy is the result of the hard work of many people. A huge thanks to all Bevy contributors, the many open source projects that have come before us, the [Rust gamedev ecosystem](https://arewegameyet.rs/), and the many libraries we build on.
 
-[plugin_guidelines]: docs/plugins_guidelines.md
-
-## Thanks and Alternatives
-
-Additionally, we would like to thank the [Amethyst](https://github.com/amethyst/amethyst), [macroquad](https://github.com/not-fl3/macroquad), [coffee](https://github.com/hecrj/coffee), [ggez](https://github.com/ggez/ggez), [Fyrox](https://github.com/FyroxEngine/Fyrox), and [Piston](https://github.com/PistonDevelopers/piston) projects for providing solid examples of game engine development in Rust. If you are looking for a Rust game engine, it is worth considering all of your options. Each engine has different design goals, and some will likely resonate with you more than others.
+A huge thanks to Bevy's [generous sponsors](https://bevyengine.org). Bevy will always be free and open source, but it isn't free to make. Please consider [sponsoring our work](https://bevyengine.org/community/donate/) if you like what we're building.
 
 <!-- This next line need to stay exactly as is. It is required for BrowserStack sponsorship. -->
 This project is tested with BrowserStack.

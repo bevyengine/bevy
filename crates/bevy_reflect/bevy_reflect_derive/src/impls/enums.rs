@@ -83,7 +83,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
         },
     );
 
-    let type_path_impl = impl_type_path(reflect_enum.meta(), &where_clause_options);
+    let type_path_impl = impl_type_path(reflect_enum.meta());
 
     let get_type_registration_impl = reflect_enum
         .meta()

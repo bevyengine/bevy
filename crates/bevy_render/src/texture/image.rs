@@ -6,7 +6,7 @@ use super::dds::*;
 use super::ktx2::*;
 
 use crate::{
-    render_asset::{PrepareAssetError, RenderAsset},
+    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPersistencePolicy},
     render_resource::{Sampler, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     texture::BevyDefault,
@@ -14,7 +14,7 @@ use crate::{
 use bevy_asset::Asset;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{lifetimeless::SRes, Resource, SystemParamItem};
-use bevy_math::{UVec2, Vec2};
+use bevy_math::{AspectRatio, UVec2, Vec2};
 use bevy_reflect::Reflect;
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
@@ -110,6 +110,7 @@ pub struct Image {
     /// The [`ImageSampler`] to use during rendering.
     pub sampler: ImageSampler,
     pub texture_view_descriptor: Option<TextureViewDescriptor<'static>>,
+    pub cpu_persistent_access: RenderAssetPersistencePolicy,
 }
 
 /// Used in [`Image`], this determines what image sampler to use when rendering. The default setting,
@@ -147,6 +148,8 @@ impl ImageSampler {
 pub struct DefaultImageSampler(pub(crate) Sampler);
 
 /// How edges should be handled in texture addressing.
+///
+/// See [`ImageSamplerDescriptor`] for information how to configure this.
 ///
 /// This type mirrors [`wgpu::AddressMode`].
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
@@ -464,6 +467,7 @@ impl Default for Image {
             },
             sampler: ImageSampler::Default,
             texture_view_descriptor: None,
+            cpu_persistent_access: RenderAssetPersistencePolicy::Keep,
         }
     }
 }
@@ -479,6 +483,7 @@ impl Image {
         dimension: TextureDimension,
         data: Vec<u8>,
         format: TextureFormat,
+        cpu_persistent_access: RenderAssetPersistencePolicy,
     ) -> Self {
         debug_assert_eq!(
             size.volume() * format.pixel_size(),
@@ -492,6 +497,7 @@ impl Image {
         image.texture_descriptor.dimension = dimension;
         image.texture_descriptor.size = size;
         image.texture_descriptor.format = format;
+        image.cpu_persistent_access = cpu_persistent_access;
         image
     }
 
@@ -505,10 +511,12 @@ impl Image {
         dimension: TextureDimension,
         pixel: &[u8],
         format: TextureFormat,
+        cpu_persistent_access: RenderAssetPersistencePolicy,
     ) -> Self {
         let mut value = Image::default();
         value.texture_descriptor.format = format;
         value.texture_descriptor.dimension = dimension;
+        value.cpu_persistent_access = cpu_persistent_access;
         value.resize(size);
 
         debug_assert_eq!(
@@ -539,10 +547,10 @@ impl Image {
         self.texture_descriptor.size.height
     }
 
-    /// Returns the aspect ratio (height/width) of a 2D image.
+    /// Returns the aspect ratio (width / height) of a 2D image.
     #[inline]
-    pub fn aspect_ratio(&self) -> f32 {
-        self.height() as f32 / self.width() as f32
+    pub fn aspect_ratio(&self) -> AspectRatio {
+        AspectRatio::from_pixels(self.width(), self.height())
     }
 
     /// Returns the size of a 2D image as f32.
@@ -573,8 +581,9 @@ impl Image {
     /// # Panics
     /// Panics if the `new_size` does not have the same volume as to old one.
     pub fn reinterpret_size(&mut self, new_size: Extent3d) {
-        assert!(
-            new_size.volume() == self.texture_descriptor.size.volume(),
+        assert_eq!(
+            new_size.volume(),
+            self.texture_descriptor.size.volume(),
             "Incompatible sizes: old = {:?} new = {:?}",
             self.texture_descriptor.size,
             new_size
@@ -592,8 +601,8 @@ impl Image {
     /// the `layers`.
     pub fn reinterpret_stacked_2d_as_array(&mut self, layers: u32) {
         // Must be a stacked image, and the height must be divisible by layers.
-        assert!(self.texture_descriptor.dimension == TextureDimension::D2);
-        assert!(self.texture_descriptor.size.depth_or_array_layers == 1);
+        assert_eq!(self.texture_descriptor.dimension, TextureDimension::D2);
+        assert_eq!(self.texture_descriptor.size.depth_or_array_layers, 1);
         assert_eq!(self.height() % layers, 0);
 
         self.reinterpret_size(Extent3d {
@@ -628,7 +637,9 @@ impl Image {
                 }
                 _ => None,
             })
-            .map(|(dyn_img, is_srgb)| Self::from_dynamic(dyn_img, is_srgb))
+            .map(|(dyn_img, is_srgb)| {
+                Self::from_dynamic(dyn_img, is_srgb, self.cpu_persistent_access)
+            })
     }
 
     /// Load a bytes buffer in a [`Image`], according to type `image_type`, using the `image`
@@ -639,6 +650,7 @@ impl Image {
         #[allow(unused_variables)] supported_compressed_formats: CompressedImageFormats,
         is_srgb: bool,
         image_sampler: ImageSampler,
+        cpu_persistent_access: RenderAssetPersistencePolicy,
     ) -> Result<Image, TextureError> {
         let format = image_type.to_image_format()?;
 
@@ -667,7 +679,7 @@ impl Image {
                 reader.set_format(image_crate_format);
                 reader.no_limits();
                 let dyn_img = reader.decode()?;
-                Self::from_dynamic(dyn_img, is_srgb)
+                Self::from_dynamic(dyn_img, is_srgb, cpu_persistent_access)
             }
         };
         image.sampler = image_sampler;
@@ -800,7 +812,6 @@ pub struct GpuImage {
 }
 
 impl RenderAsset for Image {
-    type ExtractedAsset = Image;
     type PreparedAsset = GpuImage;
     type Param = (
         SRes<RenderDevice>,
@@ -808,34 +819,32 @@ impl RenderAsset for Image {
         SRes<DefaultImageSampler>,
     );
 
-    /// Clones the Image.
-    fn extract_asset(&self) -> Self::ExtractedAsset {
-        self.clone()
+    fn persistence_policy(&self) -> RenderAssetPersistencePolicy {
+        self.cpu_persistent_access
     }
 
     /// Converts the extracted image into a [`GpuImage`].
     fn prepare_asset(
-        image: Self::ExtractedAsset,
+        self,
         (render_device, render_queue, default_sampler): &mut SystemParamItem<Self::Param>,
-    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
+    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self>> {
         let texture = render_device.create_texture_with_data(
             render_queue,
-            &image.texture_descriptor,
-            &image.data,
+            &self.texture_descriptor,
+            &self.data,
         );
 
         let texture_view = texture.create_view(
-            image
-                .texture_view_descriptor
+            self.texture_view_descriptor
                 .or_else(|| Some(TextureViewDescriptor::default()))
                 .as_ref()
                 .unwrap(),
         );
         let size = Vec2::new(
-            image.texture_descriptor.size.width as f32,
-            image.texture_descriptor.size.height as f32,
+            self.texture_descriptor.size.width as f32,
+            self.texture_descriptor.size.height as f32,
         );
-        let sampler = match image.sampler {
+        let sampler = match self.sampler {
             ImageSampler::Default => (***default_sampler).clone(),
             ImageSampler::Descriptor(descriptor) => {
                 render_device.create_sampler(&descriptor.as_wgpu())
@@ -845,10 +854,10 @@ impl RenderAsset for Image {
         Ok(GpuImage {
             texture,
             texture_view,
-            texture_format: image.texture_descriptor.format,
+            texture_format: self.texture_descriptor.format,
             sampler,
             size,
-            mip_level_count: image.texture_descriptor.mip_level_count,
+            mip_level_count: self.texture_descriptor.mip_level_count,
         })
     }
 }
@@ -858,9 +867,9 @@ bitflags::bitflags! {
     #[repr(transparent)]
     pub struct CompressedImageFormats: u32 {
         const NONE     = 0;
-        const ASTC_LDR = (1 << 0);
-        const BC       = (1 << 1);
-        const ETC2     = (1 << 2);
+        const ASTC_LDR = 1 << 0;
+        const BC       = 1 << 1;
+        const ETC2     = 1 << 2;
     }
 }
 
@@ -915,6 +924,7 @@ impl CompressedImageFormats {
 mod test {
 
     use super::*;
+    use crate::render_asset::RenderAssetPersistencePolicy;
 
     #[test]
     fn image_size() {
@@ -928,6 +938,7 @@ mod test {
             TextureDimension::D2,
             &[0, 0, 0, 255],
             TextureFormat::Rgba8Unorm,
+            RenderAssetPersistencePolicy::Unload,
         );
         assert_eq!(
             Vec2::new(size.width as f32, size.height as f32),

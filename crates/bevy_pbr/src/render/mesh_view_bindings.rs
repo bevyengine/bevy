@@ -15,15 +15,7 @@ use bevy_ecs::{
 use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},
     render_asset::RenderAssets,
-    render_resource::{
-        binding_types::{
-            sampler, storage_buffer_read_only_sized, storage_buffer_sized, texture_2d,
-            uniform_buffer, uniform_buffer_sized,
-        },
-        BindGroup, BindGroupLayout, BindGroupLayoutEntry, BindGroupLayoutEntryBuilder, BindingType,
-        BufferBindingType, DynamicBindGroupEntries, DynamicBindGroupLayoutEntries,
-        SamplerBindingType, ShaderStages, TextureFormat, TextureSampleType,
-    },
+    render_resource::{binding_types::*, *},
     renderer::RenderDevice,
     texture::{BevyDefault, FallbackImageCubemap, FallbackImageMsaa, FallbackImageZero, Image},
     view::{Msaa, ViewUniform, ViewUniforms},
@@ -57,11 +49,11 @@ bitflags::bitflags! {
     #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
     #[repr(transparent)]
     pub struct MeshPipelineViewLayoutKey: u32 {
-        const MULTISAMPLED                = (1 << 0);
-        const DEPTH_PREPASS               = (1 << 1);
-        const NORMAL_PREPASS              = (1 << 2);
-        const MOTION_VECTOR_PREPASS       = (1 << 3);
-        const DEFERRED_PREPASS            = (1 << 4);
+        const MULTISAMPLED                = 1 << 0;
+        const DEPTH_PREPASS               = 1 << 1;
+        const NORMAL_PREPASS              = 1 << 2;
+        const MOTION_VECTOR_PREPASS       = 1 << 3;
+        const DEFERRED_PREPASS            = 1 << 4;
     }
 }
 

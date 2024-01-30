@@ -5,7 +5,7 @@ use crate::widget::TextFlags;
 use crate::{
     widget::{Button, UiImageSize},
     BackgroundColor, BorderColor, ContentSize, FocusPolicy, Interaction, Node, Style, UiImage,
-    UiMaterial, UiTextureAtlasImage, ZIndex,
+    UiMaterial, ZIndex,
 };
 use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
@@ -15,7 +15,7 @@ use bevy_render::{
 };
 use bevy_sprite::TextureAtlas;
 #[cfg(feature = "bevy_text")]
-use bevy_text::{BreakLineOn, Text, TextAlignment, TextLayoutInfo, TextSection, TextStyle};
+use bevy_text::{BreakLineOn, JustifyText, Text, TextLayoutInfo, TextSection, TextStyle};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
 /// The basic UI node
@@ -115,6 +115,8 @@ pub struct ImageBundle {
 }
 
 /// A UI node that is a texture atlas sprite
+///
+/// This bundle is identical to [`ImageBundle`] with an additional [`TextureAtlas`] component.
 #[derive(Bundle, Debug, Default)]
 pub struct AtlasImageBundle {
     /// Describes the logical size of the node
@@ -128,10 +130,10 @@ pub struct AtlasImageBundle {
     ///
     /// Combines with `UiImage` to tint the provided image.
     pub background_color: BackgroundColor,
+    /// The image of the node
+    pub image: UiImage,
     /// A handle to the texture atlas to use for this Ui Node
-    pub texture_atlas: Handle<TextureAtlas>,
-    /// The descriptor for which sprite to use from the given texture atlas
-    pub texture_atlas_image: UiTextureAtlasImage,
+    pub texture_atlas: TextureAtlas,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The size of the image in pixels
@@ -245,9 +247,9 @@ impl TextBundle {
         }
     }
 
-    /// Returns this [`TextBundle`] with a new [`TextAlignment`] on [`Text`].
-    pub const fn with_text_alignment(mut self, alignment: TextAlignment) -> Self {
-        self.text.alignment = alignment;
+    /// Returns this [`TextBundle`] with a new [`JustifyText`] on [`Text`].
+    pub const fn with_text_justify(mut self, justify: JustifyText) -> Self {
+        self.text.justify = justify;
         self
     }
 

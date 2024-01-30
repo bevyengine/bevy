@@ -276,7 +276,7 @@ pub struct ArchetypeEntity {
 impl ArchetypeEntity {
     /// The ID of the entity.
     #[inline]
-    pub const fn entity(&self) -> Entity {
+    pub const fn id(&self) -> Entity {
         self.entity
     }
 

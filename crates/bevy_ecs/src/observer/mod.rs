@@ -2,26 +2,23 @@
 
 mod builder;
 mod runner;
-mod state;
 
 pub use builder::*;
 pub use runner::*;
-use state::*;
 
 use crate::{
-    self as bevy_ecs,
     archetype::{ArchetypeFlags, Archetypes},
     component::{ComponentInfo, SparseStorage},
     entity::EntityLocation,
-    query::{DebugCheckedUnwrap, FilteredAccess, WorldQuery, WorldQueryData},
-    system::{EmitEcsEvent, Insert},
+    query::DebugCheckedUnwrap,
+    system::{EmitEcsEvent, Insert, IntoObserverSystem},
     world::*,
 };
 
 use bevy_ptr::{Ptr, PtrMut};
 use bevy_utils::{EntityHashMap, HashMap};
 
-use crate::{component::ComponentId, prelude::*, query::WorldQueryFilter, world::DeferredWorld};
+use crate::{component::ComponentId, prelude::*, world::DeferredWorld};
 
 /// Trait used to mark components used as ECS events.
 pub trait EcsEvent: Component {}
@@ -30,67 +27,19 @@ impl<E: Component> EcsEvent for E {}
 
 /// Type used in callbacks registered for observers.
 /// TODO: Proper docs and examples
-pub struct Observer<'w, E, Q: WorldQueryData, F: WorldQueryFilter = ()> {
-    world: DeferredWorld<'w>,
-    state: &'w ObserverState<Q, F>,
+pub struct Observer<'w, E> {
     data: &'w mut E,
     trigger: ObserverTrigger,
 }
 
-impl<'w, E, Q: WorldQueryData, F: WorldQueryFilter> Observer<'w, E, Q, F> {
-    pub(crate) fn new(
-        world: DeferredWorld<'w>,
-        state: &'w mut ObserverState<Q, F>,
-        data: &'w mut E,
-        trigger: ObserverTrigger,
-    ) -> Self {
-        Self {
-            world,
-            state,
-            data,
-            trigger,
-        }
+impl<'w, E> Observer<'w, E> {
+    pub(crate) fn new(data: &'w mut E, trigger: ObserverTrigger) -> Self {
+        Self { data, trigger }
     }
 
     /// Returns the event id for the triggering event
     pub fn event(&self) -> ComponentId {
         self.trigger.event
-    }
-
-    /// Gets read access to the data for [`Q`] from the triggering entity
-    pub fn fetch(&self) -> <Q::ReadOnly as WorldQuery>::Item<'_> {
-        let location = self.world.entities.get(self.trigger.source).unwrap();
-        let world = self.world.as_unsafe_world_cell_readonly();
-        unsafe {
-            let mut fetch = Q::ReadOnly::init_fetch(
-                world,
-                &self.state.fetch_state,
-                world.last_change_tick(),
-                world.change_tick(),
-            );
-            let archetype = world.archetypes().get(location.archetype_id).unwrap();
-            let table = world.storages().tables.get(location.table_id).unwrap();
-            Q::ReadOnly::set_archetype(&mut fetch, &self.state.fetch_state, archetype, table);
-            Q::ReadOnly::fetch(&mut fetch, self.trigger.source, location.table_row)
-        }
-    }
-
-    /// Gets write access to the data for [`Q`] from the triggering entity
-    pub fn fetch_mut(&mut self) -> Q::Item<'_> {
-        let location = self.world.entities.get(self.trigger.source).unwrap();
-        let world = self.world.as_unsafe_world_cell();
-        unsafe {
-            let mut fetch = Q::init_fetch(
-                world,
-                &self.state.fetch_state,
-                world.last_change_tick(),
-                world.change_tick(),
-            );
-            let archetype = world.archetypes().get(location.archetype_id).unwrap();
-            let table = world.storages().tables.get(location.table_id).unwrap();
-            Q::set_archetype(&mut fetch, &self.state.fetch_state, archetype, table);
-            Q::fetch(&mut fetch, self.trigger.source, location.table_row)
-        }
     }
 
     /// Returns a reference to the data associated with the event that triggered the observer.
@@ -111,16 +60,6 @@ impl<'w, E, Q: WorldQueryData, F: WorldQueryFilter> Observer<'w, E, Q, F> {
     /// Returns the entity that triggered the observer.
     pub fn source(&self) -> Entity {
         self.trigger.source
-    }
-
-    /// Returns a reference to the underlying [`DeferredWorld`]
-    pub fn world(&self) -> &DeferredWorld {
-        &self.world
-    }
-
-    /// Returns a mutable reference to the underlying [`DeferredWorld`]
-    pub fn world_mut(&mut self) -> &mut DeferredWorld<'w> {
-        &mut self.world
     }
 }
 
@@ -382,7 +321,7 @@ impl Component for ObservedBy {
 
 /// Type used to construct and emit a [`EcsEvent`]
 pub struct EventBuilder<'w, E> {
-    world: DeferredWorld<'w>,
+    commands: Commands<'w, 'w>,
     targets: Vec<Entity>,
     components: Vec<ComponentId>,
     data: Option<E>,
@@ -390,9 +329,10 @@ pub struct EventBuilder<'w, E> {
 
 impl<'w, E: EcsEvent> EventBuilder<'w, E> {
     /// Constructs a new builder that will write it's event to `world`'s command queue
-    pub fn new(data: E, world: DeferredWorld<'w>) -> Self {
+    #[must_use]
+    pub fn new(data: E, commands: Commands<'w, 'w>) -> Self {
         Self {
-            world,
+            commands,
             targets: Vec::new(),
             components: Vec::new(),
             data: Some(data),
@@ -400,33 +340,33 @@ impl<'w, E: EcsEvent> EventBuilder<'w, E> {
     }
 
     /// Adds `target` to the list of entities targeted by `self`
+    #[must_use]
     pub fn entity(&mut self, target: Entity) -> &mut Self {
         self.targets.push(target);
         self
     }
 
-    /// Add the [`ComponentId`] of `T` to the list of components targeted by `self`
-    pub fn component<T: Component>(&mut self) -> &mut Self {
-        let component_id = self.world.components().component_id::<T>().expect(
-            "Cannot emit event for component that does not exist, initialize components before emitting events targeting them."
-        );
-        self.components.push(component_id);
-        self
-    }
-
     /// Adds `component_id` to the list of components targeted by `self`
-    pub fn component_id(&mut self, component_id: ComponentId) -> &mut Self {
+    #[must_use]
+    pub fn component(&mut self, component_id: ComponentId) -> &mut Self {
         self.components.push(component_id);
         self
     }
 
     /// Add the event to the command queue of world
     pub fn emit(&mut self) {
-        self.world.commands().add(EmitEcsEvent::<E> {
+        self.commands.add(EmitEcsEvent::<E> {
             data: std::mem::take(&mut self.data).unwrap(),
             entities: std::mem::take(&mut self.targets),
             components: std::mem::take(&mut self.components),
         });
+    }
+}
+
+impl<'w, 's> Commands<'w, 's> {
+    /// Constructs an [`EventBuilder`] for an [`EcsEvent`].
+    pub fn event<E: EcsEvent>(&mut self, event: E) -> EventBuilder<E> {
+        EventBuilder::new(event, self.reborrow())
     }
 }
 
@@ -436,12 +376,10 @@ impl World {
         ObserverBuilder::new(self)
     }
 
-    /// Create an [`Observer`] for the components accessed in `Q`.
-    /// For more control over targetting components see [`Self::observer_builder`].
-    /// For observing events targetting a specific entity see [`EntityWorldMut::observe`].
-    pub fn observer<E: EcsEvent, Q: WorldQueryData + 'static, F: WorldQueryFilter + 'static>(
+    /// Spawn an [`Observer`] and returns it's [`Entity`]
+    pub fn observer<E: EcsEvent, M: 'static>(
         &mut self,
-        callback: impl ObserverCallback<E, Q, F> + 'static,
+        callback: impl IntoObserverSystem<E, M> + 'static,
     ) -> Entity {
         ObserverBuilder::new(self).run(callback)
     }
@@ -450,34 +388,23 @@ impl World {
     pub fn ecs_event<E: EcsEvent>(&mut self, event: E) -> EventBuilder<E> {
         self.init_component::<E>();
         // TODO: Safe into deferred for world
-        EventBuilder::new(event, unsafe {
-            self.as_unsafe_world_cell().into_deferred()
-        })
+        EventBuilder::new(event, self.commands())
     }
 
-    pub(crate) fn spawn_observer<
-        E: EcsEvent,
-        Q: WorldQueryData + 'static,
-        F: WorldQueryFilter + 'static,
-    >(
+    pub(crate) fn spawn_observer<E: EcsEvent>(
         &mut self,
         mut observer: ObserverComponent,
     ) -> Entity {
-        let iterator_state = ObserverState::<Q, F>::new(self);
         let components = &mut observer.descriptor.components;
         let sources = &observer.descriptor.sources;
         // If the observer has no explicit targets use the accesses of the query
         if components.is_empty() && sources.is_empty() {
-            components.extend(iterator_state.component_access.access().reads_and_writes());
-            // If there are still no targets add the ANY target
-            if components.is_empty() {
-                components.push(ANY);
-            }
+            components.push(ANY);
         }
         let entity = self.entities.reserve_entity();
         self.command_queue.push(Insert {
             entity,
-            bundle: (iterator_state, observer),
+            bundle: observer,
         });
 
         entity

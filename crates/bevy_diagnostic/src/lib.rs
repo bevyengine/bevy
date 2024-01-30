@@ -1,3 +1,7 @@
+//! This crate provides a straightforward solution for integrating diagnostics in the [Bevy game engine](https://bevyengine.org/).
+//! It allows users to easily add diagnostic functionality to their Bevy applications, enhancing
+//! their ability to monitor and optimize their game's.
+
 mod diagnostic;
 mod entity_count_diagnostics_plugin;
 mod frame_time_diagnostics_plugin;

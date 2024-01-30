@@ -21,36 +21,38 @@ fn main() {
 fn setup(world: &mut World) {
     world.init_resource::<ResizeCount>();
 
-    // Triggered when &CompA is added to any component that also has ComponentB
-    // This can take any query types that implement WorldQueryData and WorldQueryFilter
-    let observer = world.observer(|mut observer: Observer<OnAdd, &CompA, With<CompB>>| {
-        println!("Hello");
-        // Get source entity that triggered the observer
-        let source = observer.source();
-        // Able to read requested component data as if it was a query
-        let data = observer.fetch().0;
-        // Access to all resources and components through DeferredWorld
-        let world = observer.world_mut();
-        // Can submit commands for any structural changes
-        world.commands().entity(source).remove::<CompB>();
-        // Or to raise other events
-        world.ecs_event(Resize(2, 4)).entity(data).emit();
-    });
+    // Triggered when &CompA is added to an entity, runs any non-exclusive system
+    let observer = world.observer_builder().components::<CompA>().run(
+        |observer: Observer<OnAdd>, mut commands: Commands, query: Query<&CompA, With<CompB>>| {
+            // Get source entity that triggered the observer
+            let source = observer.source();
+            // Able to read component data via a query
+            if let Ok(data) = query.get(source) {
+                println!("Hello");
+                // Can submit commands for any structural changes
+                commands.entity(source).remove::<CompB>();
+                // Or to raise other events
+                commands.event(Resize(2, 4)).entity(data.0).emit();
+            }
+        },
+    );
 
     let entity = world
         // This will not trigger the observer as the entity does not have CompB
         .spawn(CompA(observer))
         // Respond to events targeting a specific entity
-        // Still must match the query in order to trigger
-        .observe(|mut observer: Observer<Resize, &CompA>| {
-            // Since Resize carries data you can read/write that data from the observer
-            let size = observer.data();
-            // Simultaneously read components
-            let data = observer.fetch();
-            println!("Received resize: {:?} while data was: {:?}", size, data);
-            // Write to resources
-            observer.world_mut().resource_mut::<ResizeCount>().0 += 1;
-        })
+        .observe(
+            |observer: Observer<Resize>, query: Query<&CompA>, mut res: ResMut<ResizeCount>| {
+                // Since Resize carries data you can read/write that data from the observer
+                let size = observer.data();
+                // Simultaneously read components
+                if let Ok(data) = query.get(observer.source()) {
+                    println!("Received resize: {:?} while data was: {:?}", size, data);
+                    // Write to resources
+                    res.0 += 1;
+                }
+            },
+        )
         .id();
 
     world.flush_commands();
