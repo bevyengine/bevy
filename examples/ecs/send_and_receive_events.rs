@@ -73,7 +73,7 @@ struct DebugEvent {
 
 /// A system that sends all combinations of events.
 fn send_events(mut events: EventWriter<DebugEvent>, frame_count: Res<FrameCount>) {
-    info!("Sending events for frame {:?}", *frame_count);
+    println!("Sending events for frame {:?}", *frame_count);
 
     events.send(DebugEvent {
         resend_from_param_set: false,
@@ -111,7 +111,7 @@ fn send_and_receive_param_set(
     mut param_set: ParamSet<(EventReader<DebugEvent>, EventWriter<DebugEvent>)>,
     frame_count: Res<FrameCount>,
 ) {
-    info!(
+    println!(
         "Sending and receiving events for frame {} with a `ParamSet`",
         frame_count.0
     );
@@ -142,7 +142,7 @@ fn send_and_receive_manual_event_reader(
     mut events: ResMut<Events<DebugEvent>>,
     frame_count: Res<FrameCount>,
 ) {
-    info!(
+    println!(
         "Sending and receiving events for frame {} with a `Local<ManualEventReader>",
         frame_count.0
     );
