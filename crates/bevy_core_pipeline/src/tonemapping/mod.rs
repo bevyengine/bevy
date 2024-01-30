@@ -114,6 +114,7 @@ impl Plugin for TonemappingPlugin {
 #[derive(Resource)]
 pub struct TonemappingPipeline {
     texture_bind_group: BindGroupLayout,
+    sampler: Sampler,
 }
 
 /// Optionally enables a tonemapping shader that attempts to map linear input stimulus into a perceptually uniform image for a given [`Camera`] entity.
@@ -266,12 +267,15 @@ impl FromWorld for TonemappingPipeline {
         entries =
             entries.extend_with_indices(((3, lut_layout_entries[0]), (4, lut_layout_entries[1])));
 
-        let tonemap_texture_bind_group = render_world
-            .resource::<RenderDevice>()
+        let render_device = render_world.resource::<RenderDevice>();
+        let tonemap_texture_bind_group = render_device
             .create_bind_group_layout("tonemapping_hdr_texture_bind_group_layout", &entries);
+
+        let sampler = render_device.create_sampler(&SamplerDescriptor::default());
 
         TonemappingPipeline {
             texture_bind_group: tonemap_texture_bind_group,
+            sampler,
         }
     }
 }

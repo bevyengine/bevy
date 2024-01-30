@@ -6,6 +6,8 @@ mod dim2;
 pub use dim2::*;
 mod dim3;
 pub use dim3::*;
+#[cfg(feature = "serialize")]
+mod serde;
 
 /// A marker trait for 2D primitives
 pub trait Primitive2d {}

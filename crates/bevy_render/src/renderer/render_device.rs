@@ -5,7 +5,7 @@ use crate::render_resource::{
 use bevy_ecs::system::Resource;
 use wgpu::{
     util::DeviceExt, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
-    BindGroupLayoutEntry, BufferAsyncError, BufferBindingType,
+    BindGroupLayoutEntry, BufferAsyncError, BufferBindingType, MaintainResult,
 };
 
 use super::RenderQueue;
@@ -61,7 +61,7 @@ impl RenderDevice {
     ///
     /// no-op on the web, device is automatically polled.
     #[inline]
-    pub fn poll(&self, maintain: wgpu::Maintain) -> bool {
+    pub fn poll(&self, maintain: wgpu::Maintain) -> MaintainResult {
         self.device.poll(maintain)
     }
 
@@ -161,11 +161,12 @@ impl RenderDevice {
         &self,
         render_queue: &RenderQueue,
         desc: &wgpu::TextureDescriptor,
+        order: wgpu::util::TextureDataOrder,
         data: &[u8],
     ) -> Texture {
-        let wgpu_texture = self
-            .device
-            .create_texture_with_data(render_queue.as_ref(), desc, data);
+        let wgpu_texture =
+            self.device
+                .create_texture_with_data(render_queue.as_ref(), desc, order, data);
         Texture::from(wgpu_texture)
     }
 

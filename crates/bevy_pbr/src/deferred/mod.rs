@@ -1,4 +1,7 @@
-use crate::{MeshPipeline, MeshViewBindGroup, ScreenSpaceAmbientOcclusionSettings};
+use crate::{
+    environment_map::RenderViewEnvironmentMaps, MeshPipeline, MeshViewBindGroup,
+    ScreenSpaceAmbientOcclusionSettings, ViewLightProbesUniformOffset,
+};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_core_pipeline::{
@@ -14,25 +17,17 @@ use bevy_render::{
     extract_component::{
         ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
     },
-    render_asset::RenderAssets,
-    render_graph::{NodeRunError, RenderGraphContext, ViewNode, ViewNodeRunner},
-    render_resource::{
-        binding_types::uniform_buffer, Operations, PipelineCache, RenderPassDescriptor,
-    },
+    render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
+    render_resource::binding_types::uniform_buffer,
+    render_resource::*,
     renderer::{RenderContext, RenderDevice},
-    texture::Image,
-    view::{ViewTarget, ViewUniformOffset},
-    Render, RenderSet,
-};
-
-use bevy_render::{
-    render_graph::RenderGraphApp, render_resource::*, texture::BevyDefault, view::ExtractedView,
-    RenderApp,
+    texture::BevyDefault,
+    view::{ExtractedView, ViewTarget, ViewUniformOffset},
+    Render, RenderApp, RenderSet,
 };
 
 use crate::{
-    EnvironmentMapLight, MeshPipelineKey, ShadowFilteringMethod, ViewFogUniformOffset,
-    ViewLightsUniformOffset,
+    MeshPipelineKey, ShadowFilteringMethod, ViewFogUniformOffset, ViewLightsUniformOffset,
 };
 
 pub struct DeferredPbrLightingPlugin;
@@ -48,11 +43,11 @@ pub const DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID: u8 = 1;
 pub struct PbrDeferredLightingDepthId {
     depth_id: u32,
 
-    #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
     _webgl2_padding_0: f32,
-    #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
     _webgl2_padding_1: f32,
-    #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
     _webgl2_padding_2: f32,
 }
 
@@ -61,11 +56,11 @@ impl PbrDeferredLightingDepthId {
         PbrDeferredLightingDepthId {
             depth_id: value as u32,
 
-            #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+            #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
             _webgl2_padding_0: 0.0,
-            #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+            #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
             _webgl2_padding_1: 0.0,
-            #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+            #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
             _webgl2_padding_2: 0.0,
         }
     }
@@ -84,11 +79,11 @@ impl Default for PbrDeferredLightingDepthId {
         PbrDeferredLightingDepthId {
             depth_id: DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID as u32,
 
-            #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+            #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
             _webgl2_padding_0: 0.0,
-            #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+            #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
             _webgl2_padding_1: 0.0,
-            #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+            #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
             _webgl2_padding_2: 0.0,
         }
     }
@@ -147,10 +142,11 @@ pub const DEFERRED_LIGHTING_PASS: &str = "deferred_opaque_pbr_lighting_pass_3d";
 pub struct DeferredOpaquePass3dPbrLightingNode;
 
 impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
-    type ViewData = (
+    type ViewQuery = (
         &'static ViewUniformOffset,
         &'static ViewLightsUniformOffset,
         &'static ViewFogUniformOffset,
+        &'static ViewLightProbesUniformOffset,
         &'static MeshViewBindGroup,
         &'static ViewTarget,
         &'static DeferredLightingIdDepthTexture,
@@ -165,11 +161,12 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
             view_uniform_offset,
             view_lights_offset,
             view_fog_offset,
+            view_light_probes_offset,
             mesh_view_bind_group,
             target,
             deferred_lighting_id_depth_texture,
             deferred_lighting_pipeline,
-        ): QueryItem<Self::ViewData>,
+        ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();
@@ -218,6 +215,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
                 view_uniform_offset.offset,
                 view_lights_offset.offset,
                 view_fog_offset.offset,
+                **view_light_probes_offset,
             ],
         );
         render_pass.set_bind_group(1, &bind_group_1, &[]);
@@ -247,7 +245,7 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
         // Let the shader code know that it's running in a deferred pipeline.
         shader_defs.push("DEFERRED_LIGHTING_PIPELINE".into());
 
-        #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+        #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         shader_defs.push("WEBGL2".into());
 
         if key.contains(MeshPipelineKey::TONEMAP_IN_SHADER) {
@@ -312,7 +310,7 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
             shader_defs.push("SHADOW_FILTER_METHOD_JIMENEZ_14".into());
         }
 
-        #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+        #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
 
         RenderPipelineDescriptor {
@@ -403,7 +401,6 @@ pub fn prepare_deferred_lighting_pipelines(
             &ExtractedView,
             Option<&Tonemapping>,
             Option<&DebandDither>,
-            Option<&EnvironmentMapLight>,
             Option<&ShadowFilteringMethod>,
             Has<ScreenSpaceAmbientOcclusionSettings>,
             (
@@ -411,20 +408,20 @@ pub fn prepare_deferred_lighting_pipelines(
                 Has<DepthPrepass>,
                 Has<MotionVectorPrepass>,
             ),
+            Has<RenderViewEnvironmentMaps>,
         ),
         With<DeferredPrepass>,
     >,
-    images: Res<RenderAssets<Image>>,
 ) {
     for (
         entity,
         view,
         tonemapping,
         dither,
-        environment_map,
         shadow_filter_method,
         ssao,
         (normal_prepass, depth_prepass, motion_vector_prepass),
+        has_environment_maps,
     ) in &views
     {
         let mut view_key = MeshPipelineKey::from_hdr(view.hdr);
@@ -471,11 +468,10 @@ pub fn prepare_deferred_lighting_pipelines(
             view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
         }
 
-        let environment_map_loaded = match environment_map {
-            Some(environment_map) => environment_map.is_loaded(&images),
-            None => false,
-        };
-        if environment_map_loaded {
+        // We don't need to check to see whether the environment map is loaded
+        // because [`gather_light_probes`] already checked that for us before
+        // adding the [`RenderViewEnvironmentMaps`] component.
+        if has_environment_maps {
             view_key |= MeshPipelineKey::ENVIRONMENT_MAP;
         }
 

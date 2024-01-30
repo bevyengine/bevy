@@ -59,12 +59,13 @@ jobs:
           echo "<meta http-equiv=\"refresh\" content=\"0; url=bevy/index.html\">" > target/doc/index.html
           echo "dev-docs.bevyengine.org" > target/doc/CNAME
           echo "User-Agent: *\nDisallow: /" > target/doc/robots.txt
+          rm target/doc/.lock
 
       - name: Upload site artifact
-        uses: actions/upload-pages-artifact@v1
+        uses: actions/upload-pages-artifact@v3
         with:
           path: target/doc
 
       - name: Deploy to Github Pages
         id: deployment
-        uses: actions/deploy-pages@v2
+        uses: actions/deploy-pages@v4

@@ -5,11 +5,11 @@
 //! such as `Struct`, `GetTypeRegistration`, and more— all with a single derive!
 //!
 //! Some other noteworthy exports include the derive macros for [`FromReflect`] and
-//! [`TypeUuid`], as well as the [`reflect_trait`] attribute macro.
+//! [`TypePath`], as well as the [`reflect_trait`] attribute macro.
 //!
 //! [`Reflect`]: crate::derive_reflect
 //! [`FromReflect`]: crate::derive_from_reflect
-//! [`TypeUuid`]: crate::derive_type_uuid
+//! [`TypePath`]: crate::derive_type_path
 //! [`reflect_trait`]: macro@reflect_trait
 
 extern crate proc_macro;
@@ -27,7 +27,6 @@ mod registration;
 mod serialization;
 mod trait_reflection;
 mod type_path;
-mod type_uuid;
 mod utility;
 
 use crate::derive_data::{ReflectDerive, ReflectMeta, ReflectStruct};
@@ -131,6 +130,88 @@ pub(crate) static TYPE_NAME_ATTRIBUTE_NAME: &str = "type_name";
 ///
 /// This is useful for when a type can't or shouldn't implement `TypePath`,
 /// or if a manual implementation is desired.
+///
+/// ## `#[reflect(no_field_bounds)]`
+///
+/// This attribute will opt-out of the default trait bounds added to all field types
+/// for the generated reflection trait impls.
+///
+/// Normally, all fields will have the bounds `TypePath`, and either `FromReflect` or `Reflect`
+/// depending on if `#[reflect(from_reflect = false)]` is used.
+/// However, this might not always be desirable, and so this attribute may be used to remove those bounds.
+///
+/// ### Example
+///
+/// If a type is recursive the default bounds will cause an overflow error when building:
+///
+/// ```ignore (bevy_reflect is not accessible from this crate)
+/// #[derive(Reflect)] // ERROR: overflow evaluating the requirement `Foo: FromReflect`
+/// struct Foo {
+///   foo: Vec<Foo>,
+/// }
+///
+/// // Generates a where clause like:
+/// // impl bevy_reflect::Reflect for Foo
+/// // where
+/// //   Self: Any + Send + Sync,
+/// //   Vec<Foo>: FromReflect + TypePath,
+/// ```
+///
+/// In this case, `Foo` is given the bounds `Vec<Foo>: FromReflect + TypePath`,
+/// which requires that `Foo` implements `FromReflect`,
+/// which requires that `Vec<Foo>` implements `FromReflect`,
+/// and so on, resulting in the error.
+///
+/// To fix this, we can add `#[reflect(no_field_bounds)]` to `Foo` to remove the bounds on `Vec<Foo>`:
+///
+/// ```ignore (bevy_reflect is not accessible from this crate)
+/// #[derive(Reflect)]
+/// #[reflect(no_field_bounds)]
+/// struct Foo {
+///   foo: Vec<Foo>,
+/// }
+///
+/// // Generates a where clause like:
+/// // impl bevy_reflect::Reflect for Foo
+/// // where
+/// //   Self: Any + Send + Sync,
+/// ```
+///
+/// ## `#[reflect(where T: Trait, U::Assoc: Trait, ...)]`
+///
+/// This attribute can be used to add additional bounds to the generated reflection trait impls.
+///
+/// This is useful for when a type needs certain bounds only applied to the reflection impls
+/// that are not otherwise automatically added by the derive macro.
+///
+/// ### Example
+///
+/// In the example below, we want to enforce that `T::Assoc: List` is required in order for
+/// `Foo<T>` to be reflectable, but we don't want it to prevent `Foo<T>` from being used
+/// in places where `T::Assoc: List` is not required.
+///
+/// ```ignore
+/// trait Trait {
+///   type Assoc;
+/// }
+///
+/// #[derive(Reflect)]
+/// #[reflect(where T::Assoc: List)]
+/// struct Foo<T: Trait> where T::Assoc: Default {
+///   value: T::Assoc,
+/// }
+///
+/// // Generates a where clause like:
+/// //
+/// // impl<T: Trait> bevy_reflect::Reflect for Foo<T>
+/// // where
+/// //   Self: Any + Send + Sync,
+/// //   T::Assoc: Default,
+/// //   T: TypePath,
+/// //   T::Assoc: FromReflect + TypePath,
+/// //   T::Assoc: List,
+/// // {/* ... */}
+/// ```
 ///
 /// # Field Attributes
 ///
@@ -287,20 +368,6 @@ pub fn derive_type_path(input: TokenStream) -> TokenStream {
     TokenStream::from(quote! {
         const _: () = {
             #type_path_impl
-        };
-    })
-}
-
-// From https://github.com/randomPoison/type-uuid
-#[proc_macro_derive(TypeUuid, attributes(uuid))]
-pub fn derive_type_uuid(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let uuid_impl =
-        type_uuid::type_uuid_derive(input).unwrap_or_else(syn::Error::into_compile_error);
-
-    TokenStream::from(quote! {
-        const _: () = {
-            #uuid_impl
         };
     })
 }
@@ -613,19 +680,6 @@ pub fn impl_type_path(input: TokenStream) -> TokenStream {
     TokenStream::from(quote! {
         const _: () = {
             #type_path_impl
-        };
-    })
-}
-
-/// Derives `TypeUuid` for the given type. This is used internally to implement `TypeUuid` on foreign types, such as those in the std. This macro should be used in the format of `<[Generic Params]> [Type (Path)], [Uuid (String Literal)]`.
-#[proc_macro]
-pub fn impl_type_uuid(input: TokenStream) -> TokenStream {
-    let def = parse_macro_input!(input as type_uuid::TypeUuidDef);
-    let uuid_impl = type_uuid::gen_impl_type_uuid(def);
-
-    TokenStream::from(quote! {
-        const _: () = {
-            #uuid_impl
         };
     })
 }

@@ -145,7 +145,6 @@ impl World {
     /// # Limitations
     ///
     ///  - Stored systems cannot be recursive, they cannot call themselves through [`Commands::run_system`](crate::system::Commands).
-    ///  - Exclusive systems cannot be used.
     ///
     /// # Examples
     ///
@@ -239,7 +238,6 @@ impl World {
     /// # Limitations
     ///
     ///  - Stored systems cannot be recursive, they cannot call themselves through [`Commands::run_system`](crate::system::Commands).
-    ///  - Exclusive systems cannot be used.
     ///
     /// # Examples
     ///
@@ -503,6 +501,17 @@ mod tests {
         let output = world.run_system(id).expect("system runs successfully");
         assert_eq!(*world.resource::<Counter>(), Counter(3));
         assert_eq!(output, NonCopy(3));
+    }
+
+    #[test]
+    fn exclusive_system() {
+        let mut world = World::new();
+        let exclusive_system_id = world.register_system(|world: &mut World| {
+            world.spawn_empty();
+        });
+        let entity_count = world.entities.len();
+        let _ = world.run_system(exclusive_system_id);
+        assert_eq!(world.entities.len(), entity_count + 1);
     }
 
     #[test]

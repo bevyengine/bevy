@@ -5,6 +5,7 @@ use bevy_ecs::{
     prelude::{Commands, EventReader, IntoSystemConfigs, ResMut, Resource},
     schedule::SystemConfigs,
     system::{StaticSystemParam, SystemParam, SystemParamItem, SystemState},
+    world::{FromWorld, Mut},
 };
 use bevy_reflect::{
     utility::{reflect_hasher, NonGenericTypeInfoCell},
@@ -185,6 +186,7 @@ impl<A: RenderAsset, AFTER: RenderAssetDependency + 'static> Plugin
     for RenderAssetPlugin<A, AFTER>
 {
     fn build(&self, app: &mut App) {
+        app.init_resource::<CachedExtractRenderAssetSystemState<A>>();
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<ExtractedAssets<A>>()
@@ -273,52 +275,72 @@ impl<A: RenderAsset> RenderAssets<A> {
     }
 }
 
+#[derive(Resource)]
+struct CachedExtractRenderAssetSystemState<A: RenderAsset> {
+    state: SystemState<(
+        EventReader<'static, 'static, AssetEvent<A>>,
+        ResMut<'static, Assets<A>>,
+    )>,
+}
+
+impl<A: RenderAsset> FromWorld for CachedExtractRenderAssetSystemState<A> {
+    fn from_world(world: &mut bevy_ecs::world::World) -> Self {
+        Self {
+            state: SystemState::new(world),
+        }
+    }
+}
+
 /// This system extracts all created or modified assets of the corresponding [`RenderAsset`] type
 /// into the "render world".
 fn extract_render_asset<A: RenderAsset>(mut commands: Commands, mut main_world: ResMut<MainWorld>) {
-    let mut system_state: SystemState<(EventReader<AssetEvent<A>>, ResMut<Assets<A>>)> =
-        SystemState::new(&mut main_world);
-    let (mut events, mut assets) = system_state.get_mut(&mut main_world);
+    main_world.resource_scope(
+        |world, mut cached_state: Mut<CachedExtractRenderAssetSystemState<A>>| {
+            let (mut events, mut assets) = cached_state.state.get_mut(world);
 
-    let mut changed_assets = HashSet::default();
-    let mut removed = Vec::new();
-    for event in events.read() {
-        #[allow(clippy::match_same_arms)]
-        match event {
-            AssetEvent::Added { id } | AssetEvent::Modified { id } => {
-                changed_assets.insert(*id);
-            }
-            AssetEvent::Removed { .. } => {}
-            AssetEvent::Unused { id } => {
-                changed_assets.remove(id);
-                removed.push(*id);
-            }
-            AssetEvent::LoadedWithDependencies { .. } => {
-                // TODO: handle this
-            }
-        }
-    }
+            let mut changed_assets = HashSet::default();
+            let mut removed = Vec::new();
 
-    let mut extracted_assets = Vec::new();
-    for id in changed_assets.drain() {
-        if let Some(asset) = assets.get(id) {
-            let asset_usage = asset.asset_usage();
-            if asset_usage.contains(RenderAssetUsages::RENDER_WORLD) {
-                if asset_usage == RenderAssetUsages::RENDER_WORLD {
-                    if let Some(asset) = assets.remove(id) {
-                        extracted_assets.push((id, asset));
+            for event in events.read() {
+                #[allow(clippy::match_same_arms)]
+                match event {
+                    AssetEvent::Added { id } | AssetEvent::Modified { id } => {
+                        changed_assets.insert(*id);
                     }
-                } else {
-                    extracted_assets.push((id, asset.clone()));
+                    AssetEvent::Removed { .. } => {}
+                    AssetEvent::Unused { id } => {
+                        changed_assets.remove(id);
+                        removed.push(*id);
+                    }
+                    AssetEvent::LoadedWithDependencies { .. } => {
+                        // TODO: handle this
+                    }
                 }
             }
-        }
-    }
 
-    commands.insert_resource(ExtractedAssets {
-        extracted: extracted_assets,
-        removed,
-    });
+            let mut extracted_assets = Vec::new();
+            for id in changed_assets.drain() {
+                if let Some(asset) = assets.get(id) {
+                    let asset_usage = asset.asset_usage();
+                    if asset_usage.contains(RenderAssetUsages::RENDER_WORLD) {
+                        if asset_usage == RenderAssetUsages::RENDER_WORLD {
+                            if let Some(asset) = assets.remove(id) {
+                                extracted_assets.push((id, asset));
+                            }
+                        } else {
+                            extracted_assets.push((id, asset.clone()));
+                        }
+                    }
+                }
+            }
+
+            commands.insert_resource(ExtractedAssets {
+                extracted: extracted_assets,
+                removed,
+            });
+            cached_state.state.apply(world);
+        },
+    );
 }
 
 // TODO: consider storing inside system?

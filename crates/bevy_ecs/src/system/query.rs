@@ -797,6 +797,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// This can only be called for read-only queries, see [`par_iter_mut`] for write-queries.
     ///
+    /// Note that you must use the `for_each` method to iterate over the
+    /// results, see [`par_iter_mut`] for an example.
+    ///
     /// [`par_iter_mut`]: Self::par_iter_mut
     /// [`World`]: crate::world::World
     #[inline]
@@ -813,6 +816,24 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// Returns a parallel iterator over the query results for the given [`World`].
     ///
     /// This can only be called for mutable queries, see [`par_iter`] for read-only-queries.
+    ///
+    /// # Example
+    ///
+    /// Here, the `gravity_system` updates the `Velocity` component of every entity that contains it:
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct Velocity { x: f32, y: f32, z: f32 }
+    /// fn gravity_system(mut query: Query<&mut Velocity>) {
+    ///     const DELTA: f32 = 1.0 / 60.0;
+    ///     query.par_iter_mut().for_each(|mut velocity| {
+    ///         velocity.y -= 9.8 * DELTA;
+    ///     });
+    /// }
+    /// # bevy_ecs::system::assert_is_system(gravity_system);
+    /// ```
     ///
     /// [`par_iter`]: Self::par_iter
     /// [`World`]: crate::world::World

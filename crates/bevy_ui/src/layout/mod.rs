@@ -102,10 +102,15 @@ impl UiSurface {
         }
     }
 
-    /// Update the `MeasureFunc` of the taffy node corresponding to the given [`Entity`].
-    pub fn update_measure(&mut self, entity: Entity, measure_func: taffy::node::MeasureFunc) {
-        let taffy_node = self.entity_to_taffy.get(&entity).unwrap();
-        self.taffy.set_measure(*taffy_node, Some(measure_func)).ok();
+    /// Update the `MeasureFunc` of the taffy node corresponding to the given [`Entity`] if the node exists.
+    pub fn try_update_measure(
+        &mut self,
+        entity: Entity,
+        measure_func: taffy::node::MeasureFunc,
+    ) -> Option<()> {
+        let taffy_node = self.entity_to_taffy.get(&entity)?;
+
+        self.taffy.set_measure(*taffy_node, Some(measure_func)).ok()
     }
 
     /// Update the children of the taffy node corresponding to the given [`Entity`].
@@ -305,7 +310,7 @@ pub fn ui_layout_system(
             Some(camera_entity) => {
                 let Ok((_, camera)) = cameras.get(camera_entity) else {
                     warn!(
-                        "TargetCamera is pointing to a camera {:?} which doesn't exist",
+                        "TargetCamera (of root UI node {entity:?}) is pointing to a camera {:?} which doesn't exist",
                         camera_entity
                     );
                     continue;
@@ -356,7 +361,7 @@ pub fn ui_layout_system(
     }
     for (entity, mut content_size) in &mut measure_query {
         if let Some(measure_func) = content_size.measure_func.take() {
-            ui_surface.update_measure(entity, measure_func);
+            ui_surface.try_update_measure(entity, measure_func);
         }
     }
 

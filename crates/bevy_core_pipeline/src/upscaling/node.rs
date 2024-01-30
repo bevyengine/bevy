@@ -5,7 +5,7 @@ use bevy_render::{
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
         BindGroup, BindGroupEntries, LoadOp, Operations, PipelineCache, RenderPassColorAttachment,
-        RenderPassDescriptor, SamplerDescriptor, StoreOp, TextureViewId,
+        RenderPassDescriptor, StoreOp, TextureViewId,
     },
     renderer::RenderContext,
     view::ViewTarget,
@@ -18,7 +18,7 @@ pub struct UpscalingNode {
 }
 
 impl ViewNode for UpscalingNode {
-    type ViewData = (
+    type ViewQuery = (
         &'static ViewTarget,
         &'static ViewUpscalingPipeline,
         Option<&'static ExtractedCamera>,
@@ -28,7 +28,7 @@ impl ViewNode for UpscalingNode {
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (target, upscaling_target, camera): QueryItem<Self::ViewData>,
+        (target, upscaling_target, camera): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.get_resource::<PipelineCache>().unwrap();
@@ -52,14 +52,10 @@ impl ViewNode for UpscalingNode {
         let bind_group = match &mut *cached_bind_group {
             Some((id, bind_group)) if upscaled_texture.id() == *id => bind_group,
             cached_bind_group => {
-                let sampler = render_context
-                    .render_device()
-                    .create_sampler(&SamplerDescriptor::default());
-
                 let bind_group = render_context.render_device().create_bind_group(
                     None,
                     &blit_pipeline.texture_bind_group,
-                    &BindGroupEntries::sequential((upscaled_texture, &sampler)),
+                    &BindGroupEntries::sequential((upscaled_texture, &blit_pipeline.sampler)),
                 );
 
                 let (_, bind_group) = cached_bind_group.insert((upscaled_texture.id(), bind_group));

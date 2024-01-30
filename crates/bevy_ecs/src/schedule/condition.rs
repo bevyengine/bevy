@@ -194,6 +194,8 @@ mod sealed {
 
 /// A collection of [run conditions](Condition) that may be useful in any bevy app.
 pub mod common_conditions {
+    use bevy_utils::warn_once;
+
     use super::NotSystem;
     use crate::{
         change_detection::DetectChanges,
@@ -701,9 +703,7 @@ pub mod common_conditions {
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if the state machine is currently in `state`.
     ///
-    /// # Panics
-    ///
-    /// The condition will panic if the resource does not exist.
+    /// Will return `false` if the state does not exist or if not in `state`.
     ///
     /// # Example
     ///
@@ -748,10 +748,26 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
     /// ```
-    pub fn in_state<S: States>(state: S) -> impl FnMut(Res<State<S>>) -> bool + Clone {
-        move |current_state: Res<State<S>>| *current_state == state
+    pub fn in_state<S: States>(state: S) -> impl FnMut(Option<Res<State<S>>>) -> bool + Clone {
+        move |current_state: Option<Res<State<S>>>| match current_state {
+            Some(current_state) => *current_state == state,
+            None => {
+                warn_once!("No state matching the type for {} exists - did you forget to `add_state` when initializing the app?", {
+                        let debug_state = format!("{state:?}");
+                        let result = debug_state
+                            .split("::")
+                            .next()
+                            .unwrap_or("Unknown State Type");
+                        result.to_string()
+                    });
+
+                false
+            }
+        }
     }
 
+    /// Identical to [`in_state`] - use that instead.
+    ///
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if the state machine exists and is currently in `state`.
     ///
@@ -804,13 +820,11 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
     /// ```
+    #[deprecated(since = "0.13.0", note = "use `in_state` instead.")]
     pub fn state_exists_and_equals<S: States>(
         state: S,
     ) -> impl FnMut(Option<Res<State<S>>>) -> bool + Clone {
-        move |current_state: Option<Res<State<S>>>| match current_state {
-            Some(current_state) => *current_state == state,
-            None => false,
-        }
+        in_state(state)
     }
 
     /// A [`Condition`](super::Condition)-satisfying system that returns `true`
@@ -819,9 +833,7 @@ pub mod common_conditions {
     /// To do things on transitions to/from specific states, use their respective OnEnter/OnExit
     /// schedules. Use this run condition if you want to detect any change, regardless of the value.
     ///
-    /// # Panics
-    ///
-    /// The condition will panic if the resource does not exist.
+    /// Returns false if the state does not exist or the state has not changed.
     ///
     /// # Example
     ///
@@ -866,7 +878,10 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 2);
     /// ```
-    pub fn state_changed<S: States>(current_state: Res<State<S>>) -> bool {
+    pub fn state_changed<S: States>(current_state: Option<Res<State<S>>>) -> bool {
+        let Some(current_state) = current_state else {
+            return false;
+        };
         current_state.is_changed()
     }
 

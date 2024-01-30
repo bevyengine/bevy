@@ -5,10 +5,9 @@ use bevy_render::render_graph::ViewNode;
 use bevy_render::render_resource::StoreOp;
 use bevy_render::{
     camera::ExtractedCamera,
-    prelude::Color,
     render_graph::{NodeRunError, RenderGraphContext},
     render_phase::RenderPhase,
-    render_resource::{LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor},
+    render_resource::RenderPassDescriptor,
     renderer::RenderContext,
     view::ViewDepthTexture,
 };
@@ -26,7 +25,7 @@ use super::{AlphaMask3dDeferred, Opaque3dDeferred};
 pub struct DeferredGBufferPrepassNode;
 
 impl ViewNode for DeferredGBufferPrepassNode {
-    type ViewData = (
+    type ViewQuery = (
         &'static ExtractedCamera,
         &'static RenderPhase<Opaque3dDeferred>,
         &'static RenderPhase<AlphaMask3dDeferred>,
@@ -44,7 +43,7 @@ impl ViewNode for DeferredGBufferPrepassNode {
             alpha_mask_deferred_phase,
             view_depth_texture,
             view_prepass_textures,
-        ): QueryItem<Self::ViewData>,
+        ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
@@ -68,7 +67,7 @@ impl ViewNode for DeferredGBufferPrepassNode {
         // Firefox: WebGL warning: clearBufferu?[fi]v: This attachment is of type FLOAT, but this function is of type UINT.
         // Appears to be unsupported: https://registry.khronos.org/webgl/specs/latest/2.0/#3.7.9
         // For webgl2 we fallback to manually clearing
-        #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+        #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         if let Some(deferred_texture) = &view_prepass_textures.deferred {
             render_context.command_encoder().clear_texture(
                 &deferred_texture.texture.texture,
@@ -81,18 +80,22 @@ impl ViewNode for DeferredGBufferPrepassNode {
                 .deferred
                 .as_ref()
                 .map(|deferred_texture| {
-                    #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+                    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
                     {
-                        RenderPassColorAttachment {
+                        bevy_render::render_resource::RenderPassColorAttachment {
                             view: &deferred_texture.texture.default_view,
                             resolve_target: None,
-                            ops: Operations {
-                                load: LoadOp::Load,
+                            ops: bevy_render::render_resource::Operations {
+                                load: bevy_render::render_resource::LoadOp::Load,
                                 store: StoreOp::Store,
                             },
                         }
                     }
-                    #[cfg(not(all(feature = "webgl", target_arch = "wasm32")))]
+                    #[cfg(any(
+                        not(feature = "webgl"),
+                        not(target_arch = "wasm32"),
+                        feature = "webgpu"
+                    ))]
                     deferred_texture.get_attachment()
                 }),
         );
@@ -101,14 +104,7 @@ impl ViewNode for DeferredGBufferPrepassNode {
             view_prepass_textures
                 .deferred_lighting_pass_id
                 .as_ref()
-                .map(|deferred_lighting_pass_id| RenderPassColorAttachment {
-                    view: &deferred_lighting_pass_id.default_view,
-                    resolve_target: None,
-                    ops: Operations {
-                        load: LoadOp::Clear(Color::BLACK.into()),
-                        store: StoreOp::Store,
-                    },
-                }),
+                .map(|deferred_lighting_pass_id| deferred_lighting_pass_id.get_attachment()),
         );
 
         if color_attachments.iter().all(Option::is_none) {

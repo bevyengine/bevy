@@ -18,14 +18,17 @@ use crate::{
     archetype::{ArchetypeComponentId, ArchetypeId, ArchetypeRow, Archetypes},
     bundle::{Bundle, BundleInserter, BundleSpawner, Bundles},
     change_detection::{MutUntyped, TicksMut},
-    component::{Component, ComponentDescriptor, ComponentId, ComponentInfo, Components, Tick},
+    component::{
+        Component, ComponentDescriptor, ComponentId, ComponentInfo, ComponentTicks, Components,
+        Tick,
+    },
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
     event::{Event, EventId, Events, SendBatchIds},
     query::{DebugCheckedUnwrap, QueryData, QueryEntityError, QueryFilter, QueryState},
     removal_detection::RemovedComponentEvents,
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
-    system::Resource,
+    system::{Res, Resource},
     world::error::TryRunScheduleError,
 };
 use bevy_ptr::{OwningPtr, Ptr};
@@ -1255,6 +1258,26 @@ impl World {
             .unwrap_or(false)
     }
 
+    /// Retrieves the change ticks for the given resource.
+    pub fn get_resource_change_ticks<R: Resource>(&self) -> Option<ComponentTicks> {
+        self.components
+            .get_resource_id(TypeId::of::<R>())
+            .and_then(|component_id| self.get_resource_change_ticks_by_id(component_id))
+    }
+
+    /// Retrieves the change ticks for the given [`ComponentId`].
+    ///
+    /// **You should prefer to use the typed API [`World::get_resource_change_ticks`] where possible.**
+    pub fn get_resource_change_ticks_by_id(
+        &self,
+        component_id: ComponentId,
+    ) -> Option<ComponentTicks> {
+        self.storages
+            .resources
+            .get(component_id)
+            .and_then(|resource| resource.get_ticks())
+    }
+
     /// Gets a reference to the resource of the given type
     ///
     /// # Panics
@@ -1268,6 +1291,30 @@ impl World {
     #[track_caller]
     pub fn resource<R: Resource>(&self) -> &R {
         match self.get_resource() {
+            Some(x) => x,
+            None => panic!(
+                "Requested resource {} does not exist in the `World`.
+                Did you forget to add it using `app.insert_resource` / `app.init_resource`?
+                Resources are also implicitly added via `app.add_event`,
+                and can be added by plugins.",
+                std::any::type_name::<R>()
+            ),
+        }
+    }
+
+    /// Gets a reference to the resource of the given type
+    ///
+    /// # Panics
+    ///
+    /// Panics if the resource does not exist.
+    /// Use [`get_resource_ref`](World::get_resource_ref) instead if you want to handle this case.
+    ///
+    /// If you want to instead insert a value if the resource does not exist,
+    /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
+    #[inline]
+    #[track_caller]
+    pub fn resource_ref<R: Resource>(&self) -> Res<R> {
+        match self.get_resource_ref() {
             Some(x) => x,
             None => panic!(
                 "Requested resource {} does not exist in the `World`.
@@ -1308,8 +1355,17 @@ impl World {
     pub fn get_resource<R: Resource>(&self) -> Option<&R> {
         // SAFETY:
         // - `as_unsafe_world_cell_readonly` gives permission to access everything immutably
-        // - `&self` ensures nothing in world is borrowed immutably
+        // - `&self` ensures nothing in world is borrowed mutably
         unsafe { self.as_unsafe_world_cell_readonly().get_resource() }
+    }
+
+    /// Gets a reference including change detection to the resource of the given type if it exists.
+    #[inline]
+    pub fn get_resource_ref<R: Resource>(&self) -> Option<Res<R>> {
+        // SAFETY:
+        // - `as_unsafe_world_cell_readonly` gives permission to access everything immutably
+        // - `&self` ensures nothing in world is borrowed mutably
+        unsafe { self.as_unsafe_world_cell_readonly().get_resource_ref() }
     }
 
     /// Gets a mutable reference to the resource of the given type if it exists
@@ -1852,7 +1908,7 @@ impl World {
     }
 
     /// Runs both [`clear_entities`](Self::clear_entities) and [`clear_resources`](Self::clear_resources),
-    /// invalidating all [`Entity`] and resource fetches such as [`Res`](crate::system::Res), [`ResMut`](crate::system::ResMut)
+    /// invalidating all [`Entity`] and resource fetches such as [`Res`], [`ResMut`](crate::system::ResMut)
     pub fn clear_all(&mut self) {
         self.clear_entities();
         self.clear_resources();
