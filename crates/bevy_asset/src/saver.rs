@@ -95,11 +95,15 @@ impl<'a, A: Asset> SavedAsset<'a, A> {
     }
 
     /// Returns the labeled asset, if it exists and matches this type.
-    pub fn get_labeled<B: Asset>(
+    pub fn get_labeled<B: Asset, Q>(
         &self,
-        label: impl Into<CowArc<'static, str>>,
-    ) -> Option<SavedAsset<B>> {
-        let labeled = self.labeled_assets.get(&label.into())?;
+        label: &Q,
+    ) -> Option<SavedAsset<B>> 
+    where
+        CowArc<'static, str>: Borrow<Q>,
+        Q: ?Sized + Hash + Eq
+    {
+        let labeled = self.labeled_assets.get(label)?;
         let value = labeled.asset.value.downcast_ref::<B>()?;
         Some(SavedAsset {
             value,
@@ -108,25 +112,33 @@ impl<'a, A: Asset> SavedAsset<'a, A> {
     }
 
     /// Returns the type-erased labeled asset, if it exists and matches this type.
-    pub fn get_erased_labeled(
+    pub fn get_erased_labeled<Q>(
         &self,
-        label: impl Into<CowArc<'static, str>>,
-    ) -> Option<&ErasedLoadedAsset> {
-        let labeled = self.labeled_assets.get(&label.into())?;
+        label: &Q,
+    ) -> Option<&ErasedLoadedAsset> 
+    where
+        CowArc<'static, str>: Borrow<Q>,
+        Q: ?Sized + Hash + Eq,
+    {
+        let labeled = self.labeled_assets.get(label)?;
         Some(&labeled.asset)
     }
 
     /// Returns the [`UntypedHandle`] of the labeled asset with the provided 'label', if it exists.
-    pub fn get_untyped_handle(
+    pub fn get_untyped_handle<Q>(
         &self,
-        label: impl Into<CowArc<'static, str>>,
-    ) -> Option<&UntypedHandle> {
-        let labeled = self.labeled_assets.get(&label.into())?;
+        label: &Q,
+    ) -> Option<&UntypedHandle> 
+    where
+        CowArc<'static, str>: Borrow<Q>,
+        Q: ?Sized + Hash + Eq,
+    {
+        let labeled = self.labeled_assets.get(label)?;
         Some(&labeled.handle)
     }
 
     /// Iterate over all labels for "labeled assets" in the loaded asset
-    pub fn iter_labels(&self) -> impl Iterator<Item = &CowArc<'static, str>> {
-        self.labeled_assets.keys()
+    pub fn iter_labels(&self) -> impl Iterator<Item = &str> {
+        self.labeled_assets.keys().map(|s| &**s)
     }
 }
