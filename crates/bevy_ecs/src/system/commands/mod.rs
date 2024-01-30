@@ -1007,7 +1007,7 @@ impl EntityCommands<'_> {
         &mut self,
         system: impl IntoObserverSystem<E, B, M>,
     ) -> &mut Self {
-        self.commands.add(Observe::<E, _> {
+        self.commands.add(Observe::<E, B, _> {
             entity: self.entity,
             system: IntoObserverSystem::into_system(system),
             marker: PhantomData::default(),
