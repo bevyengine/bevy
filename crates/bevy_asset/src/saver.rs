@@ -1,8 +1,8 @@
 use crate::{io::Writer, meta::Settings, Asset, ErasedLoadedAsset};
-use crate::{AssetLoader, LabeledAsset};
+use crate::{AssetLoader, LabeledAsset, UntypedHandle};
 use bevy_utils::{BoxedFuture, CowArc, HashMap};
 use serde::{Deserialize, Serialize};
-use std::ops::Deref;
+use std::{borrow::Borrow, hash::Hash, ops::Deref};
 
 /// Saves an [`Asset`] of a given [`AssetSaver::Asset`] type. [`AssetSaver::OutputLoader`] will then be used to load the saved asset
 /// in the final deployed application. The saver should produce asset bytes in a format that [`AssetSaver::OutputLoader`] can read.
@@ -95,11 +95,12 @@ impl<'a, A: Asset> SavedAsset<'a, A> {
     }
 
     /// Returns the labeled asset, if it exists and matches this type.
-    pub fn get_labeled<B: Asset>(
-        &self,
-        label: impl Into<CowArc<'static, str>>,
-    ) -> Option<SavedAsset<B>> {
-        let labeled = self.labeled_assets.get(&label.into())?;
+    pub fn get_labeled<B: Asset, Q>(&self, label: &Q) -> Option<SavedAsset<B>>
+    where
+        CowArc<'static, str>: Borrow<Q>,
+        Q: ?Sized + Hash + Eq,
+    {
+        let labeled = self.labeled_assets.get(label)?;
         let value = labeled.asset.value.downcast_ref::<B>()?;
         Some(SavedAsset {
             value,
@@ -108,12 +109,23 @@ impl<'a, A: Asset> SavedAsset<'a, A> {
     }
 
     /// Returns the type-erased labeled asset, if it exists and matches this type.
-    pub fn get_erased_labeled(
-        &self,
-        label: impl Into<CowArc<'static, str>>,
-    ) -> Option<&ErasedLoadedAsset> {
-        let labeled = self.labeled_assets.get(&label.into())?;
+    pub fn get_erased_labeled<Q>(&self, label: &Q) -> Option<&ErasedLoadedAsset>
+    where
+        CowArc<'static, str>: Borrow<Q>,
+        Q: ?Sized + Hash + Eq,
+    {
+        let labeled = self.labeled_assets.get(label)?;
         Some(&labeled.asset)
+    }
+
+    /// Returns the [`UntypedHandle`] of the labeled asset with the provided 'label', if it exists.
+    pub fn get_untyped_handle<Q>(&self, label: &Q) -> Option<&UntypedHandle>
+    where
+        CowArc<'static, str>: Borrow<Q>,
+        Q: ?Sized + Hash + Eq,
+    {
+        let labeled = self.labeled_assets.get(label)?;
+        Some(&labeled.handle)
     }
 
     /// Iterate over all labels for "labeled assets" in the loaded asset
