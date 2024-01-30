@@ -3,10 +3,10 @@ pub mod wireframe;
 mod alpha;
 mod bundle;
 pub mod deferred;
-mod environment_map;
 mod extended_material;
 mod fog;
 mod light;
+mod light_probe;
 mod lightmap;
 mod material;
 mod parallax;
@@ -17,10 +17,10 @@ mod ssao;
 
 pub use alpha::*;
 pub use bundle::*;
-pub use environment_map::EnvironmentMapLight;
 pub use extended_material::*;
 pub use fog::*;
 pub use light::*;
+pub use light_probe::*;
 pub use lightmap::*;
 pub use material::*;
 pub use parallax::*;
@@ -37,9 +37,12 @@ pub mod prelude {
             DirectionalLightBundle, MaterialMeshBundle, PbrBundle, PointLightBundle,
             SpotLightBundle,
         },
-        environment_map::EnvironmentMapLight,
         fog::{FogFalloff, FogSettings},
         light::{AmbientLight, DirectionalLight, PointLight, SpotLight},
+        light_probe::{
+            environment_map::{EnvironmentMapLight, ReflectionProbeBundle},
+            LightProbe,
+        },
         material::{Material, MaterialPlugin},
         parallax::ParallaxMappingMethod,
         pbr_material::StandardMaterial,
@@ -71,7 +74,6 @@ use bevy_render::{
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::TransformSystem;
-use environment_map::EnvironmentMapPlugin;
 
 use crate::deferred::DeferredPbrLightingPlugin;
 
@@ -255,12 +257,12 @@ impl Plugin for PbrPlugin {
                     ..Default::default()
                 },
                 ScreenSpaceAmbientOcclusionPlugin,
-                EnvironmentMapPlugin,
                 ExtractResourcePlugin::<AmbientLight>::default(),
                 FogPlugin,
                 ExtractResourcePlugin::<DefaultOpaqueRendererMethod>::default(),
                 ExtractComponentPlugin::<ShadowFilteringMethod>::default(),
                 LightmapPlugin,
+                LightProbePlugin,
             ))
             .configure_sets(
                 PostUpdate,

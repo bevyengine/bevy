@@ -5,11 +5,10 @@ use crate::{
     component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
     observer::{AttachObserver, EcsEvent, ObserverBuilder, Observers},
-    prelude::Observer,
     query::{Access, DebugCheckedUnwrap},
     removal_detection::RemovedComponentEvents,
     storage::Storages,
-    system::{IntoObserverSystem, IntoSystem},
+    system::IntoObserverSystem,
     world::{Mut, World},
 };
 use bevy_ptr::{OwningPtr, Ptr};

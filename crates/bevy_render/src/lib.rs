@@ -34,7 +34,7 @@ pub mod prelude {
             Projection,
         },
         color::Color,
-        mesh::{morph::MorphWeights, shape, Mesh},
+        mesh::{morph::MorphWeights, primitives::Meshable, shape, Mesh},
         render_resource::Shader,
         spatial_bundle::SpatialBundle,
         texture::{Image, ImagePlugin},
@@ -259,11 +259,12 @@ impl Plugin for RenderPlugin {
                             flags: settings.instance_flags,
                             gles_minor_version: settings.gles3_minor_version,
                         });
+
                         // SAFETY: Plugins should be set up on the main thread.
                         let surface = primary_window.map(|wrapper| unsafe {
                             let handle = wrapper.get_handle();
                             instance
-                                .create_surface(&handle)
+                                .create_surface(handle)
                                 .expect("Failed to create wgpu surface")
                         });
 
@@ -332,16 +333,6 @@ impl Plugin for RenderPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            INSTANCE_INDEX_SHADER_HANDLE,
-            "instance_index.wgsl",
-            Shader::from_wgsl_with_defs,
-            vec![
-                #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
-                "BASE_INSTANCE_WORKAROUND".into()
-            ]
-        );
         load_internal_asset!(app, MATHS_SHADER_HANDLE, "maths.wgsl", Shader::from_wgsl);
         if let Some(future_renderer_resources) =
             app.world.remove_resource::<FutureRendererResources>()

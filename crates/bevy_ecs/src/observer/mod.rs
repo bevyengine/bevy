@@ -269,6 +269,7 @@ impl Component for ObservedBy {
 
 /// Type used to construct and emit a [`EcsEvent`]
 pub struct EventBuilder<'w, E> {
+    event: Option<ComponentId>,
     commands: Commands<'w, 'w>,
     targets: Vec<Entity>,
     components: Vec<ComponentId>,
@@ -280,11 +281,18 @@ impl<'w, E: EcsEvent> EventBuilder<'w, E> {
     #[must_use]
     pub fn new(data: E, commands: Commands<'w, 'w>) -> Self {
         Self {
+            event: None,
             commands,
             targets: Vec::new(),
             components: Vec::new(),
             data: Some(data),
         }
+    }
+
+    #[must_use]
+    pub fn event_id(&mut self, id: ComponentId) -> &mut Self {
+        self.event = Some(id);
+        self
     }
 
     /// Adds `target` to the list of entities targeted by `self`
@@ -304,6 +312,7 @@ impl<'w, E: EcsEvent> EventBuilder<'w, E> {
     /// Add the event to the command queue of world
     pub fn emit(&mut self) {
         self.commands.add(EmitEcsEvent::<E> {
+            event: self.event,
             data: std::mem::take(&mut self.data).unwrap(),
             entities: std::mem::take(&mut self.targets),
             components: std::mem::take(&mut self.components),

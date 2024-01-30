@@ -7,7 +7,6 @@ use crate::{
     component::ComponentId,
     entity::{Entities, Entity},
     observer::EcsEvent,
-    prelude::Observer,
     system::{RunSystemWithInput, SystemId},
     world::{DeferredWorld, EntityWorldMut, FromWorld, World},
 };
@@ -17,9 +16,7 @@ pub use command_queue::CommandQueue;
 pub use parallel_scope::*;
 use std::marker::PhantomData;
 
-use super::{
-    Deferred, IntoObserverSystem, IntoSystem, ObserverSystem, Resource, SystemBuffer, SystemMeta,
-};
+use super::{Deferred, IntoObserverSystem, ObserverSystem, Resource, SystemBuffer, SystemMeta};
 
 /// A [`World`] mutation.
 ///
@@ -156,6 +153,31 @@ impl<'w, 's> Commands<'w, 's> {
         }
     }
 
+    /// Returns a [`Commands`] with a smaller lifetime.
+    /// This is useful if you have `&mut Commands` but need `Commands`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// fn my_system(mut commands: Commands) {
+    ///     // We do our initialization in a separate function,
+    ///     // which expects an owned `Commands`.
+    ///     do_initialization(commands.reborrow());
+    ///
+    ///     // Since we only reborrowed the commands instead of moving them, we can still use them.
+    ///     commands.spawn_empty();
+    /// }
+    /// #
+    /// # fn do_initialization(_: Commands) {}
+    /// ```
+    pub fn reborrow(&mut self) -> Commands<'w, '_> {
+        Commands {
+            queue: self.queue.reborrow(),
+            entities: self.entities,
+        }
+    }
+
     /// Take all commands from `other` and append them to `self`, leaving `other` empty
     pub fn append(&mut self, other: &mut CommandQueue) {
         self.queue.append(other);
@@ -196,11 +218,11 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// - [`spawn`](Self::spawn) to spawn an entity with a bundle.
     /// - [`spawn_batch`](Self::spawn_batch) to spawn entities with a bundle each.
-    pub fn spawn_empty<'a>(&'a mut self) -> EntityCommands<'w, 's, 'a> {
+    pub fn spawn_empty(&mut self) -> EntityCommands {
         let entity = self.entities.reserve_entity();
         EntityCommands {
             entity,
-            commands: self,
+            commands: self.reborrow(),
         }
     }
 
@@ -218,13 +240,13 @@ impl<'w, 's> Commands<'w, 's> {
     /// [`Commands::spawn`]. This method should generally only be used for sharing entities across
     /// apps, and only when they have a scheme worked out to share an ID space (which doesn't happen
     /// by default).
-    pub fn get_or_spawn<'a>(&'a mut self, entity: Entity) -> EntityCommands<'w, 's, 'a> {
+    pub fn get_or_spawn(&mut self, entity: Entity) -> EntityCommands {
         self.add(move |world: &mut World| {
             world.get_or_spawn(entity);
         });
         EntityCommands {
             entity,
-            commands: self,
+            commands: self.reborrow(),
         }
     }
 
@@ -278,7 +300,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// - [`spawn_empty`](Self::spawn_empty) to spawn an entity without any components.
     /// - [`spawn_batch`](Self::spawn_batch) to spawn entities with a bundle each.
-    pub fn spawn<'a, T: Bundle>(&'a mut self, bundle: T) -> EntityCommands<'w, 's, 'a> {
+    pub fn spawn<T: Bundle>(&mut self, bundle: T) -> EntityCommands {
         let mut e = self.spawn_empty();
         e.insert(bundle);
         e
@@ -320,7 +342,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// - [`get_entity`](Self::get_entity) for the fallible version.
     #[inline]
     #[track_caller]
-    pub fn entity<'a>(&'a mut self, entity: Entity) -> EntityCommands<'w, 's, 'a> {
+    pub fn entity(&mut self, entity: Entity) -> EntityCommands {
         #[inline(never)]
         #[cold]
         #[track_caller]
@@ -369,10 +391,10 @@ impl<'w, 's> Commands<'w, 's> {
     /// - [`entity`](Self::entity) for the panicking version.
     #[inline]
     #[track_caller]
-    pub fn get_entity<'a>(&'a mut self, entity: Entity) -> Option<EntityCommands<'w, 's, 'a>> {
+    pub fn get_entity(&mut self, entity: Entity) -> Option<EntityCommands> {
         self.entities.contains(entity).then_some(EntityCommands {
             entity,
-            commands: self,
+            commands: self.reborrow(),
         })
     }
 
@@ -595,14 +617,6 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn add<C: Command>(&mut self, command: C) {
         self.queue.push(command);
     }
-
-    /// Reborrow self as a new instance of [`Commands`]
-    pub fn reborrow(&mut self) -> Commands {
-        Commands {
-            queue: Deferred(self.queue.0),
-            entities: self.entities,
-        }
-    }
 }
 
 /// A [`Command`] which gets executed for a given [`Entity`].
@@ -692,12 +706,12 @@ where
 }
 
 /// A list of commands that will be run to modify an [entity](crate::entity).
-pub struct EntityCommands<'w, 's, 'a> {
+pub struct EntityCommands<'a> {
     pub(crate) entity: Entity,
-    pub(crate) commands: &'a mut Commands<'w, 's>,
+    pub(crate) commands: Commands<'a, 'a>,
 }
 
-impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
+impl EntityCommands<'_> {
     /// Returns the [`Entity`] id of the entity.
     ///
     /// # Example
@@ -714,6 +728,15 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
     pub fn id(&self) -> Entity {
         self.entity
+    }
+
+    /// Returns an [`EntityCommands`] with a smaller lifetime.
+    /// This is useful if you have `&mut EntityCommands` but you need `EntityCommands`.
+    pub fn reborrow(&mut self) -> EntityCommands {
+        EntityCommands {
+            entity: self.entity,
+            commands: self.commands.reborrow(),
+        }
     }
 
     /// Adds a [`Bundle`] of components to the entity.
@@ -974,8 +997,8 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     }
 
     /// Returns the underlying [`Commands`].
-    pub fn commands(&mut self) -> &mut Commands<'w, 's> {
-        self.commands
+    pub fn commands(&mut self) -> Commands {
+        self.commands.reborrow()
     }
 
     /// Creates an [`Observer`] listening for `E` events targetting this entity.
@@ -1147,6 +1170,7 @@ impl<E: EcsEvent, C: ObserverSystem<E>> Command for Observe<E, C> {
 /// A [`Command`] that emits an event to be received by observers.
 #[derive(Debug)]
 pub struct EmitEcsEvent<E: EcsEvent> {
+    pub event: Option<ComponentId>,
     /// Data for the event.
     pub data: E,
     /// Components to trigger observers for.
@@ -1157,7 +1181,7 @@ pub struct EmitEcsEvent<E: EcsEvent> {
 
 impl<E: EcsEvent> Command for EmitEcsEvent<E> {
     fn apply(mut self, world: &mut World) {
-        let event = world.init_component::<E>();
+        let event = self.event.unwrap_or_else(|| world.init_component::<E>());
         let mut world = unsafe { world.as_unsafe_world_cell().into_deferred() };
 
         for &target in &self.entities {
