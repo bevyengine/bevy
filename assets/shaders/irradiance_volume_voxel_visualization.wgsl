@@ -4,6 +4,9 @@
 
 @fragment
 fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
+    // Using `irradiance_volumes[0]` is a little dodgy, but we know we only have
+    // one irradiance volume in this scene, so it's fine.
+    //
     // `irradiance_volume_light()` multiplies by intensity, so cancel it out.
     // If we take intensity into account, these spheres will be way too bright.
     let rgb = irradiance_volume::irradiance_volume_light(

@@ -68,11 +68,11 @@
 //! [`bevy_render::settings::WgpuFeatures::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING`].
 //!
 //! ## Why ambient cubes?
-//! 
+//!
 //! This section describes the motivation behind the decision to use ambient
 //! cubes in Bevy. It's not needed to use the feature; feel free to skip it
 //! unless you're interested in its internal design.
-//! 
+//!
 //! Bevy uses *Half-Life 2*-style ambient cubes (usually abbreviated as *HL2*)
 //! as the representation of irradiance for light probes instead of the
 //! more-popular spherical harmonics (*SH*). This might seem to be a surprising
@@ -84,7 +84,7 @@
 //! prevents the use of the efficient [RGB9E5 texture format], which only
 //! encodes unsigned floating point numbers, and forces the use of the
 //! less-efficient [RGBA16F format] if hardware interpolation is desired.
-//! 
+//!
 //! 2. As an alternative to RGBA16F, level 1 spherical harmonics can be
 //! normalized and scaled to the SH0 base color, as [Frostbite] does. This
 //! allows them to be packed in standard LDR RGBA8 textures. However, this
@@ -92,10 +92,10 @@
 //! factor means that hardware interpolation no longer produces correct results.
 //! The 8 texture fetches needed to interpolate between voxels can be upwards of
 //! twice as slow as the hardware interpolation.
-//! 
+//!
 //! The following chart summarizes the costs and benefits of ambient cubes,
 //! level 1 spherical harmonics, and level 2 spherical harmonics:
-//! 
+//!
 //! | Technique                | HW-interpolated samples | Texel fetches | Bytes per voxel | Quality |
 //! | ------------------------ | ----------------------- | ------------- | --------------- | ------- |
 //! | Ambient cubes            |                       3 |             0 |              24 | Medium  |
@@ -119,7 +119,7 @@
 //! [RGB9E5 texture format]: https://www.khronos.org/opengl/wiki/Small_Float_Formats#RGB9_E5
 //!
 //! [RGBA16F format]: https://www.khronos.org/opengl/wiki/Small_Float_Formats#Low-bitdepth_floats
-//! 
+//!
 //! [Frostbite]: https://media.contentapi.ea.com/content/dam/eacom/frostbite/files/gdc2018-precomputedgiobalilluminationinfrostbite.pdf#page=53
 //!
 //! [Mitchell 2006, slide 27]: https://advances.realtimerendering.com/s2006/Mitchell-ShadingInValvesSourceEngine.pdf#page=27
