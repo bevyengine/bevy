@@ -7,6 +7,10 @@ struct NonReflect;
 
 struct NonReflectNonDefault;
 
+fn ex_nihilo() -> NonReflectNonDefault {
+    NonReflectNonDefault
+}
+
 mod structs {
     use super::*;
 
@@ -14,14 +18,10 @@ mod structs {
     struct ReflectGeneric<T> {
         foo: T,
         #[reflect(ignore)]
-        _ignored: NonReflect,
-    }
-
-    #[derive(Reflect)]
-    struct FromReflectGeneric<T> {
-        foo: T,
+        _ignored1: NonReflect,
         #[reflect(ignore)]
-        _ignored: NonReflect,
+        #[reflect(default = "ex_nihilo")]
+        _ignored2: NonReflectNonDefault,
     }
 
     #[derive(Reflect)]
@@ -29,14 +29,18 @@ mod structs {
     struct DefaultGeneric<T> {
         foo: Option<T>,
         #[reflect(ignore)]
-        _ignored: NonReflectNonDefault,
+        _ignored1: NonReflect,
+        #[reflect(ignore)]
+        #[reflect(default = "ex_nihilo")]
+        _ignored2: NonReflectNonDefault,
     }
 
     impl<T> Default for DefaultGeneric<T> {
         fn default() -> Self {
             Self {
                 foo: None,
-                _ignored: NonReflectNonDefault,
+                _ignored1: NonReflect,
+                _ignored2: NonReflectNonDefault,
             }
         }
     }
@@ -49,41 +53,28 @@ mod structs {
     }
 
     #[derive(Reflect)]
-    struct FromReflectBoundGeneric<T: Clone> {
-        foo: T,
-        #[reflect(ignore)]
-        _ignored: NonReflect,
-    }
-
-    #[derive(Reflect)]
     #[reflect(Default)]
     struct DefaultBoundGeneric<T: Clone> {
         foo: Option<T>,
         #[reflect(ignore)]
-        _ignored: NonReflectNonDefault,
+        _ignored1: NonReflect,
+        #[reflect(ignore)]
+        #[reflect(default = "ex_nihilo")]
+        _ignored2: NonReflectNonDefault,
     }
 
     impl<T: Clone> Default for DefaultBoundGeneric<T> {
         fn default() -> Self {
             Self {
                 foo: None,
-                _ignored: NonReflectNonDefault,
+                _ignored1: NonReflect,
+                _ignored2: NonReflectNonDefault,
             }
         }
     }
 
     #[derive(Reflect)]
     struct ReflectGenericWithWhere<T>
-    where
-        T: Clone,
-    {
-        foo: T,
-        #[reflect(ignore)]
-        _ignored: NonReflect,
-    }
-
-    #[derive(Reflect)]
-    struct FromReflectGenericWithWhere<T>
     where
         T: Clone,
     {
@@ -100,7 +91,7 @@ mod structs {
     {
         foo: Option<T>,
         #[reflect(ignore)]
-        _ignored: NonReflectNonDefault,
+        _ignored: NonReflect,
     }
 
     impl<T> Default for DefaultGenericWithWhere<T>
@@ -110,7 +101,7 @@ mod structs {
         fn default() -> Self {
             Self {
                 foo: None,
-                _ignored: NonReflectNonDefault,
+                _ignored: NonReflect,
             }
         }
     }
@@ -146,7 +137,7 @@ mod structs {
     {
         foo: Option<T>,
         #[reflect(ignore)]
-        _ignored: NonReflectNonDefault,
+        _ignored: NonReflect,
     }
 
     impl<T> Default for DefaultGenericWithWhereNoTrailingComma<T>
@@ -156,7 +147,7 @@ mod structs {
         fn default() -> Self {
             Self {
                 foo: None,
-                _ignored: NonReflectNonDefault,
+                _ignored: NonReflect,
             }
         }
     }
@@ -166,18 +157,27 @@ mod tuple_structs {
     use super::*;
 
     #[derive(Reflect)]
-    struct ReflectGeneric<T>(T, #[reflect(ignore)] NonReflect);
-
-    #[derive(Reflect)]
-    struct FromReflectGeneric<T>(T, #[reflect(ignore)] NonReflect);
+    struct ReflectGeneric<T>(
+        T,
+        #[reflect(ignore)] NonReflect,
+        #[reflect(ignore)]
+        #[reflect(default = "ex_nihilo")]
+        NonReflectNonDefault,
+    );
 
     #[derive(Reflect)]
     #[reflect(Default)]
-    struct DefaultGeneric<T>(Option<T>, #[reflect(ignore)] NonReflectNonDefault);
+    struct DefaultGeneric<T>(
+        Option<T>,
+        #[reflect(ignore)] NonReflect,
+        #[reflect(ignore)]
+        #[reflect(default = "ex_nihilo")]
+        NonReflectNonDefault,
+    );
 
     impl<T> Default for DefaultGeneric<T> {
         fn default() -> Self {
-            Self(None, NonReflectNonDefault)
+            Self(None, NonReflect, NonReflectNonDefault)
         }
     }
 
@@ -189,11 +189,17 @@ mod tuple_structs {
 
     #[derive(Reflect)]
     #[reflect(Default)]
-    struct DefaultBoundGeneric<T: Clone>(Option<T>, #[reflect(ignore)] NonReflectNonDefault);
+    struct DefaultBoundGeneric<T: Clone>(
+        Option<T>,
+        #[reflect(ignore)] NonReflect,
+        #[reflect(ignore)]
+        #[reflect(default = "ex_nihilo")]
+        NonReflectNonDefault,
+    );
 
     impl<T: Clone> Default for DefaultBoundGeneric<T> {
         fn default() -> Self {
-            Self(None, NonReflectNonDefault)
+            Self(None, NonReflect, NonReflectNonDefault)
         }
     }
 
@@ -209,7 +215,7 @@ mod tuple_structs {
 
     #[derive(Reflect)]
     #[reflect(Default)]
-    struct DefaultGenericWithWhere<T>(Option<T>, #[reflect(ignore)] NonReflectNonDefault)
+    struct DefaultGenericWithWhere<T>(Option<T>, #[reflect(ignore)] NonReflect)
     where
         T: Clone;
 
@@ -218,7 +224,7 @@ mod tuple_structs {
         T: Clone,
     {
         fn default() -> Self {
-            Self(None, NonReflectNonDefault)
+            Self(None, NonReflect)
         }
     }
 }
