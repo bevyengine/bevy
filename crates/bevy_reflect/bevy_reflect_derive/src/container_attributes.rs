@@ -5,7 +5,9 @@
 //! the derive helper attribute for `Reflect`, which looks like:
 //! `#[reflect(PartialEq, Default, ...)]` and `#[reflect_value(PartialEq, Default, ...)]`.
 
-use crate::derive_data::ReflectTraitToImpl;
+use crate::derive_data::{
+    ReflectImplSource, ReflectProvenance, ReflectTraitToImpl, ReflectTypeKind,
+};
 use crate::utility;
 use bevy_macro_utils::fq_std::{FQAny, FQOption};
 use proc_macro2::{Ident, Span, TokenTree};
@@ -14,7 +16,7 @@ use syn::parse::ParseStream;
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Comma;
-use syn::{Expr, LitBool, Meta, MetaList, Path, WhereClause};
+use syn::{Expr, ExprPath, LitBool, Meta, MetaList, Path, WhereClause};
 
 // The "special" trait idents that are used internally for reflection.
 // Received via attributes like `#[reflect(PartialEq, Hash, ...)]`
@@ -23,7 +25,10 @@ const PARTIAL_EQ_ATTR: &str = "PartialEq";
 const HASH_ATTR: &str = "Hash";
 
 // Attributes for `Reflect` implementation
+/// Allows preventing automatic generation of bounds on the active fields of our type.
 const NO_FIELD_BOUNDS_ATTR: &str = "no_field_bounds";
+/// Allows specifying default constructor to create a value in a `FromReflect` impl.
+const CONTAINER_DEFAULT_ATTR: &str = "container_default";
 
 // Attributes for `FromReflect` implementation
 const FROM_REFLECT_ATTR: &str = "from_reflect";
@@ -72,6 +77,10 @@ impl TraitImpl {
 #[derive(Clone, Default)]
 pub(crate) struct FromReflectAttrs {
     auto_derive: Option<LitBool>,
+    /// Exclusively for creating default values in [`impl_reflect`]'s `FromReflect` impl.
+    ///
+    /// [`impl_reflect`]: macro@crate::impl_reflect
+    pub container_default: Option<ExprPath>,
 }
 
 impl FromReflectAttrs {
@@ -96,6 +105,27 @@ impl FromReflectAttrs {
             } else {
                 self.auto_derive = Some(new);
             }
+        }
+
+        if let Some(container_default) = other.container_default {
+            self.insert_container_default(container_default)?;
+        }
+
+        Ok(())
+    }
+
+    pub fn insert_container_default(
+        &mut self,
+        container_default: ExprPath,
+    ) -> Result<(), syn::Error> {
+        match &mut self.container_default {
+            Some(old) => {
+                return Err(syn::Error::new(
+                    old.span(),
+                    format!("`{CONTAINER_DEFAULT_ATTR}` already set"),
+                ))
+            }
+            old @ None => *old = Some(container_default),
         }
 
         Ok(())
@@ -217,7 +247,10 @@ pub(crate) struct ReflectTraits {
 }
 
 impl ReflectTraits {
-    pub fn from_meta_list(meta: &MetaList, trait_: ReflectTraitToImpl) -> Result<Self, syn::Error> {
+    pub fn from_meta_list(
+        meta: &MetaList,
+        provenance: ReflectProvenance,
+    ) -> Result<Self, syn::Error> {
         match meta.tokens.clone().into_iter().next() {
             // Handles `#[reflect(where T: Trait, U::Assoc: Trait)]`
             Some(TokenTree::Ident(ident)) if ident == "where" => Ok(Self {
@@ -226,17 +259,17 @@ impl ReflectTraits {
             }),
             _ => Self::from_metas(
                 meta.parse_args_with(Punctuated::<Meta, Comma>::parse_terminated)?,
-                trait_,
+                provenance,
             ),
         }
     }
 
     fn from_metas(
         metas: Punctuated<Meta, Comma>,
-        trait_: ReflectTraitToImpl,
+        provenance: ReflectProvenance,
     ) -> Result<Self, syn::Error> {
         let mut traits = ReflectTraits::default();
-        for meta in &metas {
+        for meta in metas {
             match meta {
                 // Handles `#[reflect( Debug, PartialEq, Hash, SomeTrait )]`
                 Meta::Path(path) => {
@@ -260,6 +293,12 @@ impl ReflectTraits {
                         }
                         NO_FIELD_BOUNDS_ATTR => {
                             traits.no_field_bounds = true;
+                        }
+                        CONTAINER_DEFAULT_ATTR => {
+                            return Err(syn::Error::new(
+                                span,
+                                format!("expected `#[reflect({CONTAINER_DEFAULT_ATTR} = ...)]`"),
+                            ))
                         }
                         // We only track reflected idents for traits not considered special
                         _ => {
@@ -311,13 +350,33 @@ impl ReflectTraits {
                                 // Override `lit` if this is a `FromReflect` derive.
                                 // This typically means a user is opting out of the default implementation
                                 // from the `Reflect` derive and using the `FromReflect` derive directly instead.
-                                (trait_ == ReflectTraitToImpl::FromReflect)
+                                (provenance.trait_ == ReflectTraitToImpl::FromReflect)
                                     .then(|| LitBool::new(true, Span::call_site()))
                                     .unwrap_or_else(|| lit.clone())
                             })?);
                     } else if pair.path.is_ident(TYPE_PATH_ATTR) {
                         traits.type_path_attrs.auto_derive =
                             Some(extract_bool(&pair.value, Clone::clone)?);
+                    } else if pair.path.is_ident(CONTAINER_DEFAULT_ATTR) {
+                        if provenance.source == ReflectImplSource::DeriveLocalType {
+                            return Err(syn::Error::new(
+                                pair.span(),
+                                format!("`#[reflect({CONTAINER_DEFAULT_ATTR} = ...)]` is only applicable when using `impl_reflect`."),
+                            ));
+                        } else if !matches!(
+                            provenance.type_kind,
+                            ReflectTypeKind::Struct | ReflectTypeKind::TupleStruct
+                        ) {
+                            return Err(syn::Error::new(
+                                pair.span(),
+                                format!("`#[reflect({CONTAINER_DEFAULT_ATTR} = ...)]` is only applicable on structs."),
+                            ));
+                        }
+                        if let Expr::Path(path) = pair.value {
+                            traits.from_reflect_attrs.insert_container_default(path)?;
+                        } else {
+                            return Err(syn::Error::new(pair.value.span(), "expected a path"));
+                        }
                     } else {
                         return Err(syn::Error::new(pair.path.span(), "Unknown attribute"));
                     }
@@ -328,8 +387,8 @@ impl ReflectTraits {
         Ok(traits)
     }
 
-    pub fn parse(input: ParseStream, trait_: ReflectTraitToImpl) -> syn::Result<Self> {
-        ReflectTraits::from_metas(Punctuated::parse_terminated(input)?, trait_)
+    pub fn parse(input: ParseStream, provenance: ReflectProvenance) -> syn::Result<Self> {
+        ReflectTraits::from_metas(Punctuated::parse_terminated(input)?, provenance)
     }
 
     /// The list of reflected traits by their reflected ident (i.e. `ReflectDefault` for `Default`).

@@ -31,7 +31,9 @@ mod utility;
 
 use crate::derive_data::{ReflectDerive, ReflectMeta, ReflectStruct};
 use container_attributes::ReflectTraits;
-use derive_data::{ReflectImplSource, ReflectProvenance, ReflectTraitToImpl, ReflectTypePath};
+use derive_data::{
+    ReflectImplSource, ReflectProvenance, ReflectTraitToImpl, ReflectTypeKind, ReflectTypePath,
+};
 use proc_macro::TokenStream;
 use quote::quote;
 use reflect_value::ReflectValueDef;
@@ -48,13 +50,7 @@ pub(crate) static TYPE_NAME_ATTRIBUTE_NAME: &str = "type_name";
 /// [`impl_reflect`]: macro@impl_reflect
 /// [`derive_reflect`]: derive_reflect()
 fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStream {
-    let derive_data = match ReflectDerive::from_input(
-        &ast,
-        ReflectProvenance {
-            source,
-            trait_: ReflectTraitToImpl::Reflect,
-        },
-    ) {
+    let derive_data = match ReflectDerive::from_input(&ast, source, ReflectTraitToImpl::Reflect) {
         Ok(data) => data,
         Err(err) => return err.into_compile_error().into(),
     };
@@ -326,10 +322,8 @@ pub fn derive_from_reflect(input: TokenStream) -> TokenStream {
 
     let derive_data = match ReflectDerive::from_input(
         &ast,
-        ReflectProvenance {
-            source: ReflectImplSource::DeriveLocalType,
-            trait_: ReflectTraitToImpl::FromReflect,
-        },
+        ReflectImplSource::DeriveLocalType,
+        ReflectTraitToImpl::FromReflect,
     ) {
         Ok(data) => data,
         Err(err) => return err.into_compile_error().into(),
@@ -371,10 +365,8 @@ pub fn derive_type_path(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let derive_data = match ReflectDerive::from_input(
         &ast,
-        ReflectProvenance {
-            source: ReflectImplSource::DeriveLocalType,
-            trait_: ReflectTraitToImpl::TypePath,
-        },
+        ReflectImplSource::DeriveLocalType,
+        ReflectTraitToImpl::TypePath,
     ) {
         Ok(data) => data,
         Err(err) => return err.into_compile_error().into(),
@@ -495,6 +487,7 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
         ReflectProvenance {
             source: ReflectImplSource::ImplRemoteType,
             trait_: ReflectTraitToImpl::Reflect,
+            type_kind: ReflectTypeKind::Value,
         },
     );
 
@@ -595,6 +588,7 @@ pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
         ReflectProvenance {
             source: ReflectImplSource::ImplRemoteType,
             trait_: ReflectTraitToImpl::FromReflect,
+            type_kind: ReflectTypeKind::Value,
         },
     ));
 
@@ -668,6 +662,7 @@ pub fn impl_type_path(input: TokenStream) -> TokenStream {
         ReflectProvenance {
             source: ReflectImplSource::ImplRemoteType,
             trait_: ReflectTraitToImpl::TypePath,
+            type_kind: ReflectTypeKind::Value,
         },
     );
 

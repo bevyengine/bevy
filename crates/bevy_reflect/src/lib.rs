@@ -845,7 +845,7 @@ mod tests {
             foo: String,
         }
 
-        impl_reflect_struct! {
+        impl_reflect! {
             #[type_path = "my_crate::foo::Bar"]
             #[reflect(Default)]
             struct Bar {
@@ -2128,6 +2128,58 @@ bevy_reflect::tests::Test {
         assert_impl_all!(Struct: Reflect);
         assert_impl_all!(TupleStruct: Reflect);
         assert_impl_all!(Enum: Reflect);
+    }
+
+    #[test]
+    fn impl_reflect_can_hide_fields() {
+        use std::ops::{Deref, DerefMut};
+
+        #[derive(Default)]
+        struct Foo {
+            x: (),
+            _y: (),
+        }
+
+        struct DerefFoo(Foo);
+
+        impl DerefFoo {
+            pub fn empty() -> Self {
+                Self(Foo::default())
+            }
+        }
+
+        impl Deref for DerefFoo {
+            type Target = Foo;
+
+            fn deref(&self) -> &Self::Target {
+                &self.0
+            }
+        }
+
+        impl DerefMut for DerefFoo {
+            fn deref_mut(&mut self) -> &mut Self::Target {
+                &mut self.0
+            }
+        }
+
+        impl_reflect!(
+            #[type_path = "my_crate::foo"]
+            #[reflect(container_default = Foo::default)]
+            struct Foo {
+                x: (),
+            }
+        );
+
+        impl_reflect!(
+            #[type_path = "my_crate::foo"]
+            #[reflect(container_default = DerefFoo::empty)]
+            struct DerefFoo {
+                x: (),
+            }
+        );
+
+        assert_impl_all!(Foo: Reflect);
+        assert_impl_all!(DerefFoo: Reflect);
     }
 
     #[cfg(feature = "glam")]

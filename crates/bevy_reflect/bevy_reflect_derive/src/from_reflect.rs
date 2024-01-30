@@ -99,18 +99,21 @@ fn impl_struct_internal(
 
     let MemberValuePair(ignored_members, ignored_values) = get_ignored_fields(reflect_struct);
 
-    // We special-case this for `impl_reflect!` because we can't always use a literal
+    // We allow special-casing construction for `impl_reflect!` because we can't always use a literal
     // constructor since (especially for `glam`) some fields may be accessed through `DerefMut`.
-    let special_case_default =
-        reflect_struct.meta().provenance().source == ReflectImplSource::ImplRemoteType;
-    let constructor = if special_case_default {
-        quote!(
-            let mut __this: Self = #FQDefault::default();
+    let constructor = if let Some(cons) = &reflect_struct
+        .meta()
+        .traits()
+        .from_reflect_attrs()
+        .container_default
+    {
+        quote! {
+            let mut __this: Self = (#cons)();
             #(
                 if let #fqoption::Some(__field) = #active_values() {
                     __this.#active_members = __field;
                 } else {
-                    return None;
+                    return #fqoption::None;
                 }
             )*
             #(
@@ -119,11 +122,11 @@ fn impl_struct_internal(
                 if let #fqoption::Some(__field) = #ignored_values {
                     __this.#ignored_members = __field;
                 } else {
-                    return None;
+                    return #fqoption::None;
                 }
             )*
             #FQOption::Some(__this)
-        )
+        }
     } else {
         quote!(
             #FQOption::Some(

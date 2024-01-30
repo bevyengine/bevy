@@ -159,11 +159,21 @@ pub(crate) enum ReflectTraitToImpl {
     TypePath,
 }
 
+/// What sort of type we generate an impl for.
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub(crate) enum ReflectTypeKind {
+    Struct,
+    TupleStruct,
+    Enum,
+    Value,
+}
+
 /// The provenance of a macro invocation.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub(crate) struct ReflectProvenance {
     pub source: ReflectImplSource,
     pub trait_: ReflectTraitToImpl,
+    pub type_kind: ReflectTypeKind,
 }
 
 impl fmt::Display for ReflectProvenance {
@@ -183,8 +193,30 @@ impl fmt::Display for ReflectProvenance {
 impl<'a> ReflectDerive<'a> {
     pub fn from_input(
         input: &'a DeriveInput,
-        provenance: ReflectProvenance,
+        source: ReflectImplSource,
+        trait_: ReflectTraitToImpl,
     ) -> Result<Self, syn::Error> {
+        let provenance = {
+            let type_kind = match &input.data {
+                Data::Struct(data) => match &data.fields {
+                    Fields::Named(_) | Fields::Unit => ReflectTypeKind::Struct,
+                    Fields::Unnamed(_) => ReflectTypeKind::TupleStruct,
+                },
+                Data::Enum(_) => ReflectTypeKind::Enum,
+                Data::Union(_) => {
+                    return Err(syn::Error::new(
+                        input.span(),
+                        "reflection not supported for unions",
+                    ))
+                }
+            };
+            ReflectProvenance {
+                source,
+                trait_,
+                type_kind,
+            }
+        };
+
         let mut traits = ReflectTraits::default();
         // Should indicate whether `#[reflect_value]` was used.
         let mut reflect_mode = None;
@@ -207,7 +239,7 @@ impl<'a> ReflectDerive<'a> {
                     }
 
                     reflect_mode = Some(ReflectMode::Normal);
-                    let new_traits = ReflectTraits::from_meta_list(meta_list, provenance.trait_)?;
+                    let new_traits = ReflectTraits::from_meta_list(meta_list, provenance)?;
                     traits.merge(new_traits)?;
                 }
                 Meta::List(meta_list) if meta_list.path.is_ident(REFLECT_VALUE_ATTRIBUTE_NAME) => {
@@ -219,7 +251,7 @@ impl<'a> ReflectDerive<'a> {
                     }
 
                     reflect_mode = Some(ReflectMode::Value);
-                    let new_traits = ReflectTraits::from_meta_list(meta_list, provenance.trait_)?;
+                    let new_traits = ReflectTraits::from_meta_list(meta_list, provenance)?;
                     traits.merge(new_traits)?;
                 }
                 Meta::Path(path) if path.is_ident(REFLECT_VALUE_ATTRIBUTE_NAME) => {
@@ -339,10 +371,7 @@ impl<'a> ReflectDerive<'a> {
                 let reflect_enum = ReflectEnum { meta, variants };
                 Ok(Self::Enum(reflect_enum))
             }
-            Data::Union(..) => Err(syn::Error::new(
-                input.span(),
-                "reflection not supported for unions",
-            )),
+            Data::Union(..) => unreachable!(),
         };
     }
 
