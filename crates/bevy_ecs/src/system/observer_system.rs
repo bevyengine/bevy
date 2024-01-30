@@ -1,7 +1,7 @@
 use crate::{
     prelude::Observer,
     query::{QueryData, QueryFilter},
-    system::{System, SystemParam},
+    system::{System, SystemParam, SystemParamFunction, SystemParamItem},
     world::DeferredWorld,
 };
 
@@ -9,9 +9,7 @@ use bevy_utils::all_tuples;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::{info_span, Span};
 
-use super::{
-    Commands, FunctionSystem, IntoSystem, Query, Res, ResMut, Resource, SystemParamFunction,
-};
+use super::{Commands, FunctionSystem, IntoSystem, Query, Res, ResMut, Resource};
 
 pub trait ObserverSystem<E: 'static>:
     System<In = Observer<'static, E>, Out = ()> + Send + 'static
@@ -72,3 +70,34 @@ macro_rules! impl_observer_system_param_tuple {
 }
 
 all_tuples!(impl_observer_system_param_tuple, 0, 16, P);
+
+macro_rules! impl_system_function {
+    ($($param: ident),*) => {
+        #[allow(non_snake_case)]
+        impl<E: 'static, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<fn(Observer<E>, $($param,)*)> for Func
+        where
+        for <'a> &'a mut Func:
+                FnMut(Observer<E>, $($param),*) +
+                FnMut(Observer<E>, $(SystemParamItem<$param>),*)
+        {
+            type In = Observer<'static, E>;
+            type Out = ();
+            type Param = ($($param,)*);
+            #[inline]
+            fn run(&mut self, input: Observer<'static, E>, param_value: SystemParamItem< ($($param,)*)>) {
+                #[allow(clippy::too_many_arguments)]
+                fn call_inner<E: 'static, $($param,)*>(
+                    mut f: impl FnMut(Observer<'static, E>, $($param,)*),
+                    input: Observer<'static, E>,
+                    $($param: $param,)*
+                ){
+                    f(input, $($param,)*)
+                }
+                let ($($param,)*) = param_value;
+                call_inner(self, input, $($param),*)
+            }
+        }
+    }
+}
+
+all_tuples!(impl_system_function, 0, 16, F);

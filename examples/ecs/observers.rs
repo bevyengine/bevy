@@ -23,9 +23,7 @@ fn setup(world: &mut World) {
 
     // Triggered when &CompA is added to an entity, runs any non-exclusive system
     let observer = world.observer_builder().components::<CompA>().run(
-        |observer: In<Observer<OnAdd>>,
-         mut commands: Commands,
-         query: Query<&CompA, With<CompB>>| {
+        |observer: Observer<OnAdd>, mut commands: Commands, query: Query<&CompA, With<CompB>>| {
             // Get source entity that triggered the observer
             let source = observer.source();
             // Able to read component data via a query
@@ -43,7 +41,7 @@ fn setup(world: &mut World) {
         .spawn(CompA(observer))
         // Respond to events targeting a specific entity
         .observe(
-            |observer: In<Observer<Resize>>, query: Query<&CompA>, mut res: ResMut<ResizeCount>| {
+            |observer: Observer<Resize>, query: Query<&CompA>, mut res: ResMut<ResizeCount>| {
                 // Since Resize carries data you can read/write that data from the observer
                 let size = observer.data();
                 // Simultaneously read components
