@@ -107,20 +107,20 @@ impl IntersectsVolume<BoundingSphere> for RayTest3d {
 
 /// An intersection test that casts an [`Aabb3d`] along a ray.
 #[derive(Debug)]
-pub struct Aabb3dCast {
+pub struct AabbCast3d {
     /// The ray along which to cast the bounding volume
     pub ray: RayTest3d,
     /// The aabb that is being cast
     pub aabb: Aabb3d,
 }
 
-impl Aabb3dCast {
-    /// Construct an [`Aabb3dCast`] from an [`Aabb3d`], origin, [`Direction3d`] and max distance.
+impl AabbCast3d {
+    /// Construct an [`AabbCast3d`] from an [`Aabb3d`], origin, [`Direction3d`] and max distance.
     pub fn new(aabb: Aabb3d, origin: Vec3, direction: Direction3d, max: f32) -> Self {
         Self::from_ray(aabb, Ray3d { origin, direction }, max)
     }
 
-    /// Construct an [`Aabb3dCast`] from an [`Aabb3d`], [`Ray3d`] and max distance.
+    /// Construct an [`AabbCast3d`] from an [`Aabb3d`], [`Ray3d`] and max distance.
     pub fn from_ray(aabb: Aabb3d, ray: Ray3d, max: f32) -> Self {
         Self {
             ray: RayTest3d::from_ray(ray, max),
@@ -129,17 +129,16 @@ impl Aabb3dCast {
     }
 
     /// Get the distance at which the [`Aabb3d`]s collide, if at all.
-    pub fn aabb_collision_at(&self, aabb: &Aabb3d) -> Option<f32> {
-        let mut aabb = aabb.clone();
+    pub fn aabb_collision_at(&self, mut aabb: Aabb3d) -> Option<f32> {
         aabb.min -= self.aabb.max;
         aabb.max -= self.aabb.min;
         self.ray.aabb_intersection_at(&aabb)
     }
 }
 
-impl IntersectsVolume<Aabb3d> for Aabb3dCast {
+impl IntersectsVolume<Aabb3d> for AabbCast3d {
     fn intersects(&self, volume: &Aabb3d) -> bool {
-        self.aabb_collision_at(volume).is_some()
+        self.aabb_collision_at(*volume).is_some()
     }
 }
 
@@ -153,12 +152,12 @@ pub struct BoundingSphereCast {
 }
 
 impl BoundingSphereCast {
-    /// Construct an [`BoundingSphereCast`] from an [`BoundingSphere`], origin, [`Direction3d`] and max distance.
+    /// Construct a [`BoundingSphereCast`] from a [`BoundingSphere`], origin, [`Direction3d`] and max distance.
     pub fn new(sphere: BoundingSphere, origin: Vec3, direction: Direction3d, max: f32) -> Self {
         Self::from_ray(sphere, Ray3d { origin, direction }, max)
     }
 
-    /// Construct an [`BoundingSphereCast`] from an [`BoundingSphere`], [`Ray3d`] and max distance.
+    /// Construct a [`BoundingSphereCast`] from a [`BoundingSphere`], [`Ray3d`] and max distance.
     pub fn from_ray(sphere: BoundingSphere, ray: Ray3d, max: f32) -> Self {
         Self {
             ray: RayTest3d::from_ray(ray, max),
@@ -167,8 +166,7 @@ impl BoundingSphereCast {
     }
 
     /// Get the distance at which the [`BoundingSphere`]s collide, if at all.
-    pub fn sphere_collision_at(&self, sphere: &BoundingSphere) -> Option<f32> {
-        let mut sphere = sphere.clone();
+    pub fn sphere_collision_at(&self, mut sphere: BoundingSphere) -> Option<f32> {
         sphere.center -= self.sphere.center;
         sphere.sphere.radius += self.sphere.radius();
         self.ray.sphere_intersection_at(&sphere)
@@ -177,7 +175,7 @@ impl BoundingSphereCast {
 
 impl IntersectsVolume<BoundingSphere> for BoundingSphereCast {
     fn intersects(&self, volume: &BoundingSphere) -> bool {
-        self.sphere_collision_at(volume).is_some()
+        self.sphere_collision_at(*volume).is_some()
     }
 }
 
@@ -427,8 +425,8 @@ mod tests {
     fn test_aabb_cast_hits() {
         for (test, volume, expected_distance) in &[
             (
-                // Hit the center an aabb, that a ray also would've hit
-                Aabb3dCast::new(
+                // Hit the center of the aabb, that a ray would've also hit
+                AabbCast3d::new(
                     Aabb3d::new(Vec3::ZERO, Vec3::ONE),
                     Vec3::ZERO,
                     Direction3d::Y,
@@ -438,8 +436,8 @@ mod tests {
                 3.,
             ),
             (
-                // Hit the center an aabb, but from the other side
-                Aabb3dCast::new(
+                // Hit the center of the aabb, but from the other side
+                AabbCast3d::new(
                     Aabb3d::new(Vec3::ZERO, Vec3::ONE),
                     Vec3::Y * 10.,
                     -Direction3d::Y,
@@ -449,8 +447,8 @@ mod tests {
                 3.,
             ),
             (
-                // Hit the edge an aabb, that a ray would've missed
-                Aabb3dCast::new(
+                // Hit the edge of the aabb, that a ray would've missed
+                AabbCast3d::new(
                     Aabb3d::new(Vec3::ZERO, Vec3::ONE),
                     Vec3::X * 1.5,
                     Direction3d::Y,
@@ -460,8 +458,8 @@ mod tests {
                 3.,
             ),
             (
-                // Hit the edge an aabb, by casting an off-center AABB
-                Aabb3dCast::new(
+                // Hit the edge of the aabb, by casting an off-center AABB
+                AabbCast3d::new(
                     Aabb3d::new(Vec3::X * -2., Vec3::ONE),
                     Vec3::X * 3.,
                     Direction3d::Y,
@@ -476,7 +474,7 @@ mod tests {
                 test, volume, expected_distance
             );
             assert!(test.intersects(volume), "{}", case);
-            let actual_distance = test.aabb_collision_at(volume).unwrap();
+            let actual_distance = test.aabb_collision_at(*volume).unwrap();
             assert!(
                 (actual_distance - expected_distance).abs() < EPSILON,
                 "{}\n  Actual distance: {}",
@@ -494,7 +492,7 @@ mod tests {
     fn test_sphere_cast_hits() {
         for (test, volume, expected_distance) in &[
             (
-                // Hit the center an aabb, that a ray also would've hit
+                // Hit the center of the bounding sphere, that a ray would've also hit
                 BoundingSphereCast::new(
                     BoundingSphere::new(Vec3::ZERO, 1.),
                     Vec3::ZERO,
@@ -505,7 +503,7 @@ mod tests {
                 3.,
             ),
             (
-                // Hit the center an aabb, but from the other side
+                // Hit the center of the bounding sphere, but from the other side
                 BoundingSphereCast::new(
                     BoundingSphere::new(Vec3::ZERO, 1.),
                     Vec3::Y * 10.,
@@ -543,7 +541,7 @@ mod tests {
                 test, volume, expected_distance
             );
             assert!(test.intersects(volume), "{}", case);
-            let actual_distance = test.sphere_collision_at(volume).unwrap();
+            let actual_distance = test.sphere_collision_at(*volume).unwrap();
             assert!(
                 (actual_distance - expected_distance).abs() < EPSILON,
                 "{}\n  Actual distance: {}",

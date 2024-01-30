@@ -100,20 +100,20 @@ impl IntersectsVolume<BoundingCircle> for RayTest2d {
 
 /// An intersection test that casts an [`Aabb2d`] along a ray.
 #[derive(Debug)]
-pub struct Aabb2dCast {
+pub struct AabbCast2d {
     /// The ray along which to cast the bounding volume
     pub ray: RayTest2d,
     /// The aabb that is being cast
     pub aabb: Aabb2d,
 }
 
-impl Aabb2dCast {
-    /// Construct an [`Aabb2dCast`] from an [`Aabb2d`], origin, [`Direction2d`] and max distance.
+impl AabbCast2d {
+    /// Construct an [`AabbCast2d`] from an [`Aabb2d`], origin, [`Direction2d`] and max distance.
     pub fn new(aabb: Aabb2d, origin: Vec2, direction: Direction2d, max: f32) -> Self {
         Self::from_ray(aabb, Ray2d { origin, direction }, max)
     }
 
-    /// Construct an [`Aabb2dCast`] from an [`Aabb2d`], [`Ray2d`] and max distance.
+    /// Construct an [`AabbCast2d`] from an [`Aabb2d`], [`Ray2d`] and max distance.
     pub fn from_ray(aabb: Aabb2d, ray: Ray2d, max: f32) -> Self {
         Self {
             ray: RayTest2d::from_ray(ray, max),
@@ -122,17 +122,16 @@ impl Aabb2dCast {
     }
 
     /// Get the distance at which the [`Aabb2d`]s collide, if at all.
-    pub fn aabb_collision_at(&self, aabb: &Aabb2d) -> Option<f32> {
-        let mut aabb = aabb.clone();
+    pub fn aabb_collision_at(&self, mut aabb: Aabb2d) -> Option<f32> {
         aabb.min -= self.aabb.max;
         aabb.max -= self.aabb.min;
         self.ray.aabb_intersection_at(&aabb)
     }
 }
 
-impl IntersectsVolume<Aabb2d> for Aabb2dCast {
+impl IntersectsVolume<Aabb2d> for AabbCast2d {
     fn intersects(&self, volume: &Aabb2d) -> bool {
-        self.aabb_collision_at(volume).is_some()
+        self.aabb_collision_at(*volume).is_some()
     }
 }
 
@@ -146,12 +145,12 @@ pub struct BoundingCircleCast {
 }
 
 impl BoundingCircleCast {
-    /// Construct an [`BoundingCircleCast`] from an [`BoundingCircle`], origin, [`Direction2d`] and max distance.
+    /// Construct a [`BoundingCircleCast`] from a [`BoundingCircle`], origin, [`Direction2d`] and max distance.
     pub fn new(circle: BoundingCircle, origin: Vec2, direction: Direction2d, max: f32) -> Self {
         Self::from_ray(circle, Ray2d { origin, direction }, max)
     }
 
-    /// Construct an [`BoundingCircleCast`] from an [`BoundingCircle`], [`Ray2d`] and max distance.
+    /// Construct a [`BoundingCircleCast`] from a [`BoundingCircle`], [`Ray2d`] and max distance.
     pub fn from_ray(circle: BoundingCircle, ray: Ray2d, max: f32) -> Self {
         Self {
             ray: RayTest2d::from_ray(ray, max),
@@ -160,8 +159,7 @@ impl BoundingCircleCast {
     }
 
     /// Get the distance at which the [`BoundingCircle`]s collide, if at all.
-    pub fn circle_collision_at(&self, circle: &BoundingCircle) -> Option<f32> {
-        let mut circle = circle.clone();
+    pub fn circle_collision_at(&self, mut circle: BoundingCircle) -> Option<f32> {
         circle.center -= self.circle.center;
         circle.circle.radius += self.circle.radius();
         self.ray.circle_intersection_at(&circle)
@@ -170,7 +168,7 @@ impl BoundingCircleCast {
 
 impl IntersectsVolume<BoundingCircle> for BoundingCircleCast {
     fn intersects(&self, volume: &BoundingCircle) -> bool {
-        self.circle_collision_at(volume).is_some()
+        self.circle_collision_at(*volume).is_some()
     }
 }
 
@@ -408,8 +406,8 @@ mod tests {
     fn test_aabb_cast_hits() {
         for (test, volume, expected_distance) in &[
             (
-                // Hit the center an aabb, that a ray also would've hit
-                Aabb2dCast::new(
+                // Hit the center of the aabb, that a ray would've also hit
+                AabbCast2d::new(
                     Aabb2d::new(Vec2::ZERO, Vec2::ONE),
                     Vec2::ZERO,
                     Direction2d::Y,
@@ -419,8 +417,8 @@ mod tests {
                 3.,
             ),
             (
-                // Hit the center an aabb, but from the other side
-                Aabb2dCast::new(
+                // Hit the center of the aabb, but from the other side
+                AabbCast2d::new(
                     Aabb2d::new(Vec2::ZERO, Vec2::ONE),
                     Vec2::Y * 10.,
                     -Direction2d::Y,
@@ -430,8 +428,8 @@ mod tests {
                 3.,
             ),
             (
-                // Hit the edge an aabb, that a ray would've missed
-                Aabb2dCast::new(
+                // Hit the edge of the aabb, that a ray would've missed
+                AabbCast2d::new(
                     Aabb2d::new(Vec2::ZERO, Vec2::ONE),
                     Vec2::X * 1.5,
                     Direction2d::Y,
@@ -441,8 +439,8 @@ mod tests {
                 3.,
             ),
             (
-                // Hit the edge an aabb, by casting an off-center AABB
-                Aabb2dCast::new(
+                // Hit the edge of the aabb, by casting an off-center AABB
+                AabbCast2d::new(
                     Aabb2d::new(Vec2::X * -2., Vec2::ONE),
                     Vec2::X * 3.,
                     Direction2d::Y,
@@ -457,7 +455,7 @@ mod tests {
                 test, volume, expected_distance
             );
             assert!(test.intersects(volume), "{}", case);
-            let actual_distance = test.aabb_collision_at(volume).unwrap();
+            let actual_distance = test.aabb_collision_at(*volume).unwrap();
             assert!(
                 (actual_distance - expected_distance).abs() < EPSILON,
                 "{}\n  Actual distance: {}",
@@ -475,7 +473,7 @@ mod tests {
     fn test_circle_cast_hits() {
         for (test, volume, expected_distance) in &[
             (
-                // Hit the center an aabb, that a ray also would've hit
+                // Hit the center of the bounding circle, that a ray would've also hit
                 BoundingCircleCast::new(
                     BoundingCircle::new(Vec2::ZERO, 1.),
                     Vec2::ZERO,
@@ -486,7 +484,7 @@ mod tests {
                 3.,
             ),
             (
-                // Hit the center an aabb, but from the other side
+                // Hit the center a the bounding circle, but from the other side
                 BoundingCircleCast::new(
                     BoundingCircle::new(Vec2::ZERO, 1.),
                     Vec2::Y * 10.,
@@ -524,7 +522,7 @@ mod tests {
                 test, volume, expected_distance
             );
             assert!(test.intersects(volume), "{}", case);
-            let actual_distance = test.circle_collision_at(volume).unwrap();
+            let actual_distance = test.circle_collision_at(*volume).unwrap();
             assert!(
                 (actual_distance - expected_distance).abs() < EPSILON,
                 "{}\n  Actual distance: {}",
