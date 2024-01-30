@@ -5,6 +5,7 @@ use crate::{
         RawVertexState, RenderPipeline, RenderPipelineDescriptor, Shader, ShaderImport, Source,
     },
     renderer::RenderDevice,
+    settings::NagaShaderOutputFormat,
     Extract,
 };
 use bevy_asset::{AssetEvent, AssetId, Assets};
@@ -16,6 +17,10 @@ use bevy_utils::{
     Entry, HashMap, HashSet,
 };
 use naga::valid::Capabilities;
+use naga_oil::compose::ComposerErrorInner;
+use std::fs::File;
+use std::io::Write;
+use std::path::{Path, PathBuf};
 use std::{
     borrow::Cow,
     hash::Hash,
@@ -251,6 +256,7 @@ impl ShaderCache {
         pipeline: CachedPipelineId,
         id: AssetId<Shader>,
         shader_defs: &[ShaderDefVal],
+        dump_shaders: &Option<NagaShaderOutputFormat>,
     ) -> Result<ErasedShaderModule, PipelineCacheError> {
         let shader = self
             .shaders
@@ -333,6 +339,10 @@ impl ShaderCache {
                                 ..shader.into()
                             },
                         )?;
+
+                        if let Some(dump_shaders) = dump_shaders {
+                            dump_naga_shaders(&naga, &dump_shaders, &shader.path);
+                        }
 
                         wgpu::ShaderSource::Naga(Cow::Owned(naga))
                     }
@@ -480,6 +490,7 @@ pub struct PipelineCache {
     pipelines: Vec<CachedPipeline>,
     waiting_pipelines: HashSet<CachedPipelineId>,
     new_pipelines: Mutex<Vec<CachedPipeline>>,
+    dump_shaders: Option<NagaShaderOutputFormat>,
 }
 
 impl PipelineCache {
@@ -488,7 +499,7 @@ impl PipelineCache {
     }
 
     /// Create a new pipeline cache associated with the given render device.
-    pub fn new(device: RenderDevice) -> Self {
+    pub fn new(device: RenderDevice, dump_shaders: Option<NagaShaderOutputFormat>) -> Self {
         Self {
             shader_cache: ShaderCache::new(&device),
             device,
@@ -496,6 +507,7 @@ impl PipelineCache {
             waiting_pipelines: default(),
             new_pipelines: default(),
             pipelines: default(),
+            dump_shaders,
         }
     }
 
@@ -663,6 +675,7 @@ impl PipelineCache {
             id,
             descriptor.vertex.shader.id(),
             &descriptor.vertex.shader_defs,
+            &self.dump_shaders,
         ) {
             Ok(module) => module,
             Err(err) => {
@@ -676,6 +689,7 @@ impl PipelineCache {
                 id,
                 fragment.shader.id(),
                 &fragment.shader_defs,
+                &self.dump_shaders,
             ) {
                 Ok(module) => module,
                 Err(err) => {
@@ -748,6 +762,7 @@ impl PipelineCache {
             id,
             descriptor.shader.id(),
             &descriptor.shader_defs,
+            &self.dump_shaders,
         ) {
             Ok(module) => module,
             Err(err) => {
@@ -786,7 +801,6 @@ impl PipelineCache {
     pub fn process_queue(&mut self) {
         let mut waiting_pipelines = mem::take(&mut self.waiting_pipelines);
         let mut pipelines = mem::take(&mut self.pipelines);
-
         {
             let mut new_pipelines = self
                 .new_pipelines
@@ -862,6 +876,115 @@ impl PipelineCache {
                 }
             }
         }
+    }
+}
+
+fn dump_naga_shaders(
+    composed: &naga::Module,
+    output_format: &NagaShaderOutputFormat,
+    path: &String,
+) {
+    let shader_path = Path::new(path);
+    let suffix = match output_format {
+        NagaShaderOutputFormat::Wgsl => "wgsl",
+        NagaShaderOutputFormat::Glsl => "glsl",
+        NagaShaderOutputFormat::Hlsl => "hlsl",
+        NagaShaderOutputFormat::Spirv => "spv",
+    };
+    let mut output = PathBuf::from("shader_dump/");
+    std::fs::create_dir_all(&output).unwrap();
+    output.push(shader_path.file_stem().unwrap());
+    output.set_extension(suffix);
+    let mut target = File::create(output).expect("Failed to dump shaders to given path.");
+
+    let capabilities = Capabilities::all();
+    let shader_stage = composed.entry_points.first().unwrap().stage;
+    let entry_point = composed.entry_points.first().unwrap().name.clone();
+
+    let info = naga::valid::Validator::new(naga::valid::ValidationFlags::all(), capabilities)
+        .validate(composed)
+        .map_err(ComposerErrorInner::HeaderValidationError)
+        .unwrap();
+
+    match output_format {
+        NagaShaderOutputFormat::Wgsl => {
+            let output = naga::back::wgsl::write_string(
+                &composed,
+                &info,
+                naga::back::wgsl::WriterFlags::EXPLICIT_TYPES,
+            )
+            .unwrap();
+            target.write_all(output.as_bytes()).unwrap();
+        }
+        NagaShaderOutputFormat::Glsl => {
+            #[cfg(feature = "shader_format_glsl")]
+            {
+                let mut string = String::new();
+                let options = naga::back::glsl::Options {
+                    version: naga::back::glsl::Version::Desktop(450),
+                    writer_flags: naga::back::glsl::WriterFlags::INCLUDE_UNUSED_ITEMS,
+                    ..Default::default()
+                };
+                let pipeline_options = naga::back::glsl::PipelineOptions {
+                    shader_stage,
+                    entry_point,
+                    multiview: None,
+                };
+                let mut writer = naga::back::glsl::Writer::new(
+                    &mut string,
+                    &composed,
+                    &info,
+                    &options,
+                    &pipeline_options,
+                    naga::proc::BoundsCheckPolicies::default(),
+                )
+                .map_err(ComposerErrorInner::GlslBackError)
+                .unwrap();
+
+                writer
+                    .write()
+                    .map_err(ComposerErrorInner::GlslBackError)
+                    .unwrap();
+                target.write_all(string.as_bytes()).unwrap();
+            }
+        }
+        NagaShaderOutputFormat::Spirv => {
+            // #[cfg(feature = "shader_format_spirv")]
+            let vec = naga::back::spv::write_vec(
+                &composed,
+                &info,
+                &naga::back::spv::Options::default(),
+                Some(&naga::back::spv::PipelineOptions {
+                    shader_stage,
+                    entry_point,
+                }),
+            )
+            .unwrap();
+            for long in vec.iter() {
+                for b in long.to_be_bytes() {
+                    target.write_all(&[b]).unwrap();
+                }
+            }
+        }
+        NagaShaderOutputFormat::Hlsl => {
+            let mut string = String::new();
+            let options = &naga::back::hlsl::Options {
+                shader_model: naga::back::hlsl::ShaderModel::V6_0,
+                ..default() // binding_map: todo!(),
+                            // fake_missing_bindings: todo!(),
+                            // special_constants_binding: todo!(),
+                            // push_constants_target: todo!(),
+                            // zero_initialize_workgroup_memory: todo!(),
+            };
+            let mut writer = naga::back::hlsl::Writer::new(&mut string, options);
+
+            writer.write(composed, &info).unwrap();
+
+            target.write_all(string.as_bytes()).unwrap();
+        } // TODO: Unimplemented
+          // NagaShaderOutputFormat::Naga => target
+          //     .write_all(&serde_json::to_vec(&composed).unwrap())
+          //     .unwrap(),
     }
 }
 

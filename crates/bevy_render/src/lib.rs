@@ -337,6 +337,11 @@ impl Plugin for RenderPlugin {
         if let Some(future_renderer_resources) =
             app.world.remove_resource::<FutureRendererResources>()
         {
+            let dump_shaders = match &self.render_creation {
+                RenderCreation::Manual(_, _, _, _, _) => None,
+                RenderCreation::Automatic(wgpu_settings) => wgpu_settings.dump_naga_shaders.clone(),
+            };
+
             let (device, queue, adapter_info, render_adapter, instance) =
                 future_renderer_resources.0.lock().unwrap().take().unwrap();
 
@@ -349,7 +354,7 @@ impl Plugin for RenderPlugin {
 
             render_app
                 .insert_resource(instance)
-                .insert_resource(PipelineCache::new(device.clone()))
+                .insert_resource(PipelineCache::new(device.clone(), dump_shaders))
                 .insert_resource(device)
                 .insert_resource(queue)
                 .insert_resource(render_adapter)
