@@ -27,13 +27,6 @@ pub(crate) enum ReflectDerive<'a> {
     Value(ReflectMeta<'a>),
 }
 
-/// How the macro was invoked.
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub(crate) enum ReflectImplSource {
-    ImplRemoteType,
-    DeriveLocalType,
-}
-
 /// Metadata present on all reflected types, including name, generics, and attributes.
 ///
 /// # Example
@@ -149,6 +142,13 @@ enum ReflectMode {
     Normal,
     /// Reflect the type as a value.
     Value,
+}
+
+/// How the macro was invoked.
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub(crate) enum ReflectImplSource {
+    ImplRemoteType,
+    DeriveLocalType,
 }
 
 /// Which trait the macro explicitly implements.
@@ -332,6 +332,16 @@ impl<'a> ReflectDerive<'a> {
 
         if provenance.source == ReflectImplSource::ImplRemoteType
             && meta.traits.type_path_attrs().should_auto_derive()
+            && !meta.type_path().has_custom_path()
+        {
+            return Err(syn::Error::new(
+                meta.type_path().span(),
+                format!("a #[{TYPE_PATH_ATTRIBUTE_NAME} = \"...\"] attribute must be specified when using {provenance}")
+            ));
+        }
+
+        if provenance.source == ReflectImplSource::ImplRemoteType
+            && meta.type_path_attrs().should_auto_derive()
             && !meta.type_path().has_custom_path()
         {
             return Err(syn::Error::new(

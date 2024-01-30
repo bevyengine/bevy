@@ -1,6 +1,6 @@
 use crate::{
     mesh::{Indices, Mesh},
-    render_asset::RenderAssetPersistencePolicy,
+    render_asset::RenderAssetUsages,
 };
 use hexasphere::shapes::IcoSphere;
 use thiserror::Error;
@@ -108,7 +108,7 @@ impl TryFrom<Icosphere> for Mesh {
 
         Ok(Mesh::new(
             PrimitiveTopology::TriangleList,
-            RenderAssetPersistencePolicy::Keep,
+            RenderAssetUsages::default(),
         )
         .with_indices(Some(indices))
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, points)
