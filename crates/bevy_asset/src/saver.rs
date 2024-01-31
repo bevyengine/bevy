@@ -1,5 +1,6 @@
+use crate::transformer::TransformedAsset;
 use crate::{io::Writer, meta::Settings, Asset, ErasedLoadedAsset};
-use crate::{AssetLoader, LabeledAsset, UntypedHandle};
+use crate::{AssetLoader, Handle, LabeledAsset, UntypedHandle};
 use bevy_utils::{BoxedFuture, CowArc, HashMap};
 use serde::{Deserialize, Serialize};
 use std::{borrow::Borrow, hash::Hash, ops::Deref};
@@ -88,6 +89,14 @@ impl<'a, A: Asset> SavedAsset<'a, A> {
         })
     }
 
+    /// Creates a new [`SavedAsset`] from the TransformedAsset `asset`
+    pub fn from_transformed(asset: &'a TransformedAsset<A>) -> Self {
+        Self {
+            value: &asset.value,
+            labeled_assets: &asset.labeled_assets,
+        }
+    }
+
     /// Retrieves the value of this asset.
     #[inline]
     pub fn get(&self) -> &'a A {
@@ -119,13 +128,26 @@ impl<'a, A: Asset> SavedAsset<'a, A> {
     }
 
     /// Returns the [`UntypedHandle`] of the labeled asset with the provided 'label', if it exists.
-    pub fn get_untyped_handle<Q>(&self, label: &Q) -> Option<&UntypedHandle>
+    pub fn get_untyped_handle<Q>(&self, label: &Q) -> Option<UntypedHandle>
     where
         CowArc<'static, str>: Borrow<Q>,
         Q: ?Sized + Hash + Eq,
     {
         let labeled = self.labeled_assets.get(label)?;
-        Some(&labeled.handle)
+        Some(labeled.handle.clone())
+    }
+
+    /// Returns the [`Handle`] of the labeled asset with the provided 'label', if it exists and is an asset of type `B`
+    pub fn get_handle<Q, B: Asset>(&self, label: &Q) -> Option<Handle<B>>
+    where
+        CowArc<'static, str>: Borrow<Q>,
+        Q: ?Sized + Hash + Eq,
+    {
+        let labeled = self.labeled_assets.get(label)?;
+        if let Ok(handle) = labeled.handle.clone().try_typed::<B>() {
+            return Some(handle);
+        }
+        return None;
     }
 
     /// Iterate over all labels for "labeled assets" in the loaded asset
