@@ -10,8 +10,8 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .init_gizmo_group::<MyRoundGizmos>()
         .add_systems(Startup, setup)
-        .add_systems(Update, (system, update_config))
-        .add_systems(Update, (primitives, update_primitives))
+        .add_systems(Update, (draw_example_collection, update_config))
+        .add_systems(Update, (draw_primitives, update_primitives))
         .run();
 }
 
@@ -82,7 +82,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 }
 
-fn system(mut gizmos: Gizmos, mut my_gizmos: Gizmos<MyRoundGizmos>, time: Res<Time>) {
+fn draw_example_collection(
+    mut gizmos: Gizmos,
+    mut my_gizmos: Gizmos<MyRoundGizmos>,
+    time: Res<Time>,
+) {
     let sin = time.elapsed_seconds().sin() * 50.;
     gizmos.line_2d(Vec2::Y * -sin, Vec2::splat(-80.), Color::RED);
     gizmos.ray_2d(Vec2::Y * sin, Vec2::splat(80.), Color::GREEN);
@@ -126,7 +130,11 @@ fn system(mut gizmos: Gizmos, mut my_gizmos: Gizmos<MyRoundGizmos>, time: Res<Ti
     );
 }
 
-fn primitives(mut gizmos: Gizmos, time: Res<Time>, primitive_state: Res<State<PrimitiveState>>) {
+fn draw_primitives(
+    mut gizmos: Gizmos,
+    time: Res<Time>,
+    primitive_state: Res<State<PrimitiveState>>,
+) {
     let angle = time.elapsed_seconds();
     let rotation = Mat2::from_angle(angle);
     let position = rotation * Vec2::X;
@@ -208,19 +216,6 @@ fn primitives(mut gizmos: Gizmos, time: Res<Time>, primitive_state: Res<State<Pr
     }
 }
 
-fn update_primitives(
-    keyboard: Res<ButtonInput<KeyCode>>,
-    mut next_primitive_state: ResMut<NextState<PrimitiveState>>,
-    primitive_state: Res<State<PrimitiveState>>,
-) {
-    if keyboard.just_pressed(KeyCode::KeyJ) {
-        next_primitive_state.set(primitive_state.get().last());
-    }
-    if keyboard.just_pressed(KeyCode::KeyK) {
-        next_primitive_state.set(primitive_state.get().next());
-    }
-}
-
 fn update_config(
     mut config_store: ResMut<GizmoConfigStore>,
     keyboard: Res<ButtonInput<KeyCode>>,
@@ -250,5 +245,18 @@ fn update_config(
     }
     if keyboard.just_pressed(KeyCode::Digit2) {
         my_config.enabled ^= true;
+    }
+}
+
+fn update_primitives(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut next_primitive_state: ResMut<NextState<PrimitiveState>>,
+    primitive_state: Res<State<PrimitiveState>>,
+) {
+    if keyboard.just_pressed(KeyCode::KeyJ) {
+        next_primitive_state.set(primitive_state.get().last());
+    }
+    if keyboard.just_pressed(KeyCode::KeyK) {
+        next_primitive_state.set(primitive_state.get().next());
     }
 }

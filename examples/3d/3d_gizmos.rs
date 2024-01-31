@@ -14,8 +14,9 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .init_gizmo_group::<MyRoundGizmos>()
         .add_systems(Startup, setup)
-        .add_systems(Update, (system, rotate_camera, update_config))
-        .add_systems(Update, (primitives, update_primitives))
+        .add_systems(Update, rotate_camera)
+        .add_systems(Update, (draw_example_collection, update_config))
+        .add_systems(Update, (draw_primitives, update_primitives))
         .run();
 }
 
@@ -135,6 +136,12 @@ fn setup(
             ..default()
         }),
     );
+}
+
+fn rotate_camera(mut query: Query<&mut Transform, With<Camera>>, time: Res<Time>) {
+    let mut transform = query.single_mut();
+
+    transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(time.delta_seconds() / 2.));
 }
 
 fn draw_example_collection(
@@ -325,35 +332,6 @@ fn draw_primitives(
     }
 }
 
-fn update_primitives(
-    keyboard: Res<ButtonInput<KeyCode>>,
-    primitive_state: Res<State<PrimitiveState>>,
-    mut next_primitive_state: ResMut<NextState<PrimitiveState>>,
-    mut segments: ResMut<PrimitiveSegments>,
-    mut segments_f: Local<f32>,
-) {
-    if keyboard.just_pressed(KeyCode::KeyK) {
-        next_primitive_state.set(primitive_state.get().next());
-    }
-    if keyboard.just_pressed(KeyCode::KeyJ) {
-        next_primitive_state.set(primitive_state.get().last());
-    }
-    if keyboard.pressed(KeyCode::KeyL) {
-        *segments_f = (*segments_f + 0.05).max(2.0);
-        segments.0 = segments_f.floor() as usize;
-    }
-    if keyboard.pressed(KeyCode::KeyH) {
-        *segments_f = (*segments_f - 0.05).max(2.0);
-        segments.0 = segments_f.floor() as usize;
-    }
-}
-
-fn rotate_camera(mut query: Query<&mut Transform, With<Camera>>, time: Res<Time>) {
-    let mut transform = query.single_mut();
-
-    transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(time.delta_seconds() / 2.));
-}
-
 fn update_config(
     mut config_store: ResMut<GizmoConfigStore>,
     keyboard: Res<ButtonInput<KeyCode>>,
@@ -403,5 +381,28 @@ fn update_config(
         // AABB gizmos are normally only drawn on entities with a ShowAabbGizmo component
         // We can change this behaviour in the configuration of AabbGizmoGroup
         config_store.config_mut::<AabbGizmoConfigGroup>().1.draw_all ^= true;
+    }
+}
+
+fn update_primitives(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    primitive_state: Res<State<PrimitiveState>>,
+    mut next_primitive_state: ResMut<NextState<PrimitiveState>>,
+    mut segments: ResMut<PrimitiveSegments>,
+    mut segments_f: Local<f32>,
+) {
+    if keyboard.just_pressed(KeyCode::KeyK) {
+        next_primitive_state.set(primitive_state.get().next());
+    }
+    if keyboard.just_pressed(KeyCode::KeyJ) {
+        next_primitive_state.set(primitive_state.get().last());
+    }
+    if keyboard.pressed(KeyCode::KeyL) {
+        *segments_f = (*segments_f + 0.05).max(2.0);
+        segments.0 = segments_f.floor() as usize;
+    }
+    if keyboard.pressed(KeyCode::KeyH) {
+        *segments_f = (*segments_f - 0.05).max(2.0);
+        segments.0 = segments_f.floor() as usize;
     }
 }
