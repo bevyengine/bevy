@@ -2,10 +2,10 @@
 
 use std::f32::consts::PI;
 
-use bevy::prelude::*;
-use bevy_internal::math::primitives::{
+use bevy::math::primitives::{
     Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Line3d, Plane3d, Segment3d, Sphere, Torus,
 };
+use bevy::prelude::*;
 
 fn main() {
     App::new()
