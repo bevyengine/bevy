@@ -482,7 +482,11 @@ mod impls {
     #[cfg(feature = "glam")]
     mod glam;
     #[cfg(feature = "bevy_math")]
-    mod rect;
+    mod math {
+        mod primitives2d;
+        mod primitives3d;
+        mod rect;
+    }
     #[cfg(feature = "smallvec")]
     mod smallvec;
     #[cfg(feature = "smol_str")]
@@ -541,6 +545,7 @@ mod tests {
         ser::{to_string_pretty, PrettyConfig},
         Deserializer,
     };
+    use static_assertions::{assert_impl_all, assert_not_impl_all};
     use std::{
         any::TypeId,
         borrow::Cow,
@@ -1560,7 +1565,7 @@ mod tests {
 
             let info = <SomeStruct as Typed>::type_info();
             assert_eq!(
-                Some(" Some struct.\n\n # Example\n\n ```ignore\n let some_struct = SomeStruct;\n ```"),
+                Some(" Some struct.\n\n # Example\n\n ```ignore (This is only used for a unit test, no need to doc test)\n let some_struct = SomeStruct;\n ```"),
                 info.docs()
             );
 
@@ -1864,12 +1869,112 @@ bevy_reflect::tests::Test {
     }
 
     #[test]
+    fn should_allow_custom_where() {
+        #[derive(Reflect)]
+        #[reflect(where T: Default)]
+        struct Foo<T>(String, #[reflect(ignore)] PhantomData<T>);
+
+        #[derive(Default, TypePath)]
+        struct Bar;
+
+        #[derive(TypePath)]
+        struct Baz;
+
+        assert_impl_all!(Foo<Bar>: Reflect);
+        assert_not_impl_all!(Foo<Baz>: Reflect);
+    }
+
+    #[test]
+    fn should_allow_empty_custom_where() {
+        #[derive(Reflect)]
+        #[reflect(where)]
+        struct Foo<T>(String, #[reflect(ignore)] PhantomData<T>);
+
+        #[derive(TypePath)]
+        struct Bar;
+
+        assert_impl_all!(Foo<Bar>: Reflect);
+    }
+
+    #[test]
+    fn should_allow_multiple_custom_where() {
+        #[derive(Reflect)]
+        #[reflect(where T: Default)]
+        #[reflect(where U: std::ops::Add<T>)]
+        struct Foo<T, U>(T, U);
+
+        #[derive(Reflect)]
+        struct Baz {
+            a: Foo<i32, i32>,
+            b: Foo<u32, u32>,
+        }
+
+        assert_impl_all!(Foo<i32, i32>: Reflect);
+        assert_not_impl_all!(Foo<i32, usize>: Reflect);
+    }
+
+    #[test]
+    fn should_allow_custom_where_wtih_assoc_type() {
+        trait Trait {
+            type Assoc;
+        }
+
+        // We don't need `T` to be `Reflect` since we only care about `T::Assoc`
+        #[derive(Reflect)]
+        #[reflect(where T::Assoc: core::fmt::Display)]
+        struct Foo<T: Trait>(T::Assoc);
+
+        #[derive(TypePath)]
+        struct Bar;
+
+        impl Trait for Bar {
+            type Assoc = usize;
+        }
+
+        #[derive(TypePath)]
+        struct Baz;
+
+        impl Trait for Baz {
+            type Assoc = (f32, f32);
+        }
+
+        assert_impl_all!(Foo<Bar>: Reflect);
+        assert_not_impl_all!(Foo<Baz>: Reflect);
+    }
+
+    #[test]
     fn recursive_typed_storage_does_not_hang() {
         #[derive(Reflect)]
         struct Recurse<T>(T);
 
         let _ = <Recurse<Recurse<()>> as Typed>::type_info();
         let _ = <Recurse<Recurse<()>> as TypePath>::type_path();
+
+        #[derive(Reflect)]
+        #[reflect(no_field_bounds)]
+        struct SelfRecurse {
+            recurse: Vec<SelfRecurse>,
+        }
+
+        let _ = <SelfRecurse as Typed>::type_info();
+        let _ = <SelfRecurse as TypePath>::type_path();
+
+        #[derive(Reflect)]
+        #[reflect(no_field_bounds)]
+        enum RecurseA {
+            Recurse(RecurseB),
+        }
+
+        #[derive(Reflect)]
+        // `#[reflect(no_field_bounds)]` not needed since already added to `RecurseA`
+        struct RecurseB {
+            vector: Vec<RecurseA>,
+        }
+
+        let _ = <RecurseA as Typed>::type_info();
+        let _ = <RecurseA as TypePath>::type_path();
+        let _ = <RecurseB as Typed>::type_info();
+        let _ = <RecurseB as TypePath>::type_path();
     }
 
     #[test]
@@ -1988,6 +2093,42 @@ bevy_reflect::tests::Test {
                 unknown_tuplestruct: DynamicTupleStruct(_(14)) \
             })"
         );
+    }
+
+    #[test]
+    fn assert_impl_reflect_macro_on_all() {
+        struct Struct {
+            foo: (),
+        }
+        struct TupleStruct(());
+        enum Enum {
+            Foo { foo: () },
+            Bar(()),
+        }
+
+        impl_reflect!(
+            #[type_path = "my_crate::foo"]
+            struct Struct {
+                foo: (),
+            }
+        );
+
+        impl_reflect!(
+            #[type_path = "my_crate::foo"]
+            struct TupleStruct(());
+        );
+
+        impl_reflect!(
+            #[type_path = "my_crate::foo"]
+            enum Enum {
+                Foo { foo: () },
+                Bar(()),
+            }
+        );
+
+        assert_impl_all!(Struct: Reflect);
+        assert_impl_all!(TupleStruct: Reflect);
+        assert_impl_all!(Enum: Reflect);
     }
 
     #[cfg(feature = "glam")]

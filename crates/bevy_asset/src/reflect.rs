@@ -88,7 +88,7 @@ impl ReflectAsset {
         handle: UntypedHandle,
     ) -> Option<&'w mut dyn Reflect> {
         // SAFETY: requirements are deferred to the caller
-        (self.get_unchecked_mut)(world, handle)
+        unsafe { (self.get_unchecked_mut)(world, handle) }
     }
 
     /// Equivalent of [`Assets::add`]

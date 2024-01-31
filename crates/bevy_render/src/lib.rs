@@ -34,7 +34,7 @@ pub mod prelude {
             Projection,
         },
         color::Color,
-        mesh::{morph::MorphWeights, shape, Mesh},
+        mesh::{morph::MorphWeights, primitives::Meshable, shape, Mesh},
         render_resource::Shader,
         spatial_bundle::SpatialBundle,
         texture::{Image, ImagePlugin},
@@ -187,10 +187,11 @@ impl DerefMut for MainWorld {
     }
 }
 
-pub mod main_graph {
-    pub mod node {
-        pub const CAMERA_DRIVER: &str = "camera_driver";
-    }
+pub mod graph {
+    use crate::render_graph::RenderLabel;
+
+    #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
+    pub struct CameraDriverLabel;
 }
 
 #[derive(Resource)]
