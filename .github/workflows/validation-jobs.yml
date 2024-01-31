@@ -222,7 +222,7 @@ jobs:
       - name: Save screenshots
         uses: actions/upload-artifact@v4
         with:
-          name: screenshots
+          name: screenshots-wasm
           path: .github/start-wasm-example/screenshot-*.png
 
   build-without-default-features:
