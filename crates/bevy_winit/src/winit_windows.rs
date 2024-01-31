@@ -98,42 +98,47 @@ impl WinitWindows {
             .with_transparent(window.transparent)
             .with_visible(window.visible);
 
-        #[cfg(all(
-            feature = "wayland",
-            any(
-                target_os = "linux",
-                target_os = "dragonfly",
-                target_os = "freebsd",
-                target_os = "netbsd",
-                target_os = "openbsd"
-            )
-        ))]
-        {
-            winit_window_builder = winit::platform::wayland::WindowBuilderExtWayland::with_name(
-                winit_window_builder,
-                window.app_id.clone(),
-                "",
-            );
-        }
+        match &window.app_id {
+            None => {}
+            Some(id) => {
+                #[cfg(all(
+                    feature = "wayland",
+                    any(
+                        target_os = "linux",
+                        target_os = "dragonfly",
+                        target_os = "freebsd",
+                        target_os = "netbsd",
+                        target_os = "openbsd"
+                    )
+                ))]
+                {
+                    winit_window_builder =
+                        winit::platform::wayland::WindowBuilderExtWayland::with_name(
+                            winit_window_builder,
+                            id.clone(),
+                            "",
+                        );
+                }
 
-        #[cfg(all(
-            feature = "x11",
-            any(
-                target_os = "linux",
-                target_os = "dragonfly",
-                target_os = "freebsd",
-                target_os = "netbsd",
-                target_os = "openbsd"
-            )
-        ))]
-        {
-            winit_window_builder = winit::platform::x11::WindowBuilderExtX11::with_name(
-                winit_window_builder,
-                window.app_id.clone(),
-                "",
-            );
+                #[cfg(all(
+                    feature = "x11",
+                    any(
+                        target_os = "linux",
+                        target_os = "dragonfly",
+                        target_os = "freebsd",
+                        target_os = "netbsd",
+                        target_os = "openbsd"
+                    )
+                ))]
+                {
+                    winit_window_builder = winit::platform::x11::WindowBuilderExtX11::with_name(
+                        winit_window_builder,
+                        id.clone(),
+                        "",
+                    );
+                }
+            }
         }
-
         let constraints = window.resize_constraints.check_constraints();
         let min_inner_size = LogicalSize {
             width: constraints.min_width,
