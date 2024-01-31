@@ -589,8 +589,8 @@ impl MeshPipelineKey {
 
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits =
-            (msaa_samples.trailing_zeros() & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
-        Self::from_bits_retain(msaa_bits)
+            (msaa_samples.trailing_zeros() as u32 & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
+        Self::from_bits_retain(msaa_bits as u32)
     }
 
     pub fn from_hdr(hdr: bool) -> Self {
@@ -775,6 +775,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
             // depth buffer
             depth_write_enabled = true;
             is_opaque = !key.contains(MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE);
+        }
+
+        if key.contains(MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE) {
+            shader_defs.push("READS_VIEW_TRANSMISSION_TEXTURE".into());
         }
 
         if key.contains(MeshPipelineKey::NORMAL_PREPASS) {
