@@ -1,3 +1,4 @@
+use crate::transformer::TransformedAsset;
 use crate::{io::Writer, meta::Settings, Asset, ErasedLoadedAsset};
 use crate::{AssetLoader, Handle, LabeledAsset, UntypedHandle};
 use bevy_utils::{BoxedFuture, CowArc, HashMap};
@@ -88,11 +89,11 @@ impl<'a, A: Asset> SavedAsset<'a, A> {
         })
     }
 
-    /// Creates a new [`SavedAsset`] from the `asset` and the `labeled_assets` in loaded
-    pub fn from_asset_and_loaded(asset: &'a A, loaded: &'a ErasedLoadedAsset) -> Self {
+    /// Creates a new [`SavedAsset`] from the a [`TransformedAsset`]
+    pub fn from_transformed(asset: &'a TransformedAsset<A>) -> Self {
         Self {
-            value: asset,
-            labeled_assets: &loaded.labeled_assets,
+            value: &asset.value,
+            labeled_assets: &asset.labeled_assets,
         }
     }
 

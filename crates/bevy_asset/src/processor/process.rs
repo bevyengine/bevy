@@ -187,21 +187,19 @@ impl<
                 loader: std::any::type_name::<Loader>().to_string(),
                 settings: settings.loader_settings,
             });
-            let mut loaded_asset = context.load_source_asset(loader_meta).await?;
+            let pre_transformed_asset = TransformedAsset::<Loader::Asset>::from_loaded(
+                context.load_source_asset(loader_meta).await?,
+            )
+            .unwrap();
 
-            let transformed_asset = self
+            let post_transformed_asset = self
                 .transformer
-                .transform(
-                    TransformedAsset::<Loader::Asset>::from_loaded(&mut loaded_asset).unwrap(),
-                    &settings.transformer_settings,
-                )
+                .transform(pre_transformed_asset, &settings.transformer_settings)
                 .await
                 .map_err(|err| ProcessError::AssetTransformError(err.into()))?;
 
-            let saved_asset = SavedAsset::<T::AssetOutput>::from_asset_and_loaded(
-                &transformed_asset,
-                &loaded_asset,
-            );
+            let saved_asset =
+                SavedAsset::<T::AssetOutput>::from_transformed(&post_transformed_asset);
 
             let output_settings = self
                 .saver
