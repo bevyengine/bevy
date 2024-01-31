@@ -1205,10 +1205,10 @@ mod tests {
 
         let cubic_velocities: Vec<_> = b_spline.iter_velocities(10).collect();
         let rational_velocities: Vec<_> = rational_b_spline.iter_velocities(10).collect();
-        compare_vectors(cubic_velocities, rational_velocities, "position");
+        compare_vectors(cubic_velocities, rational_velocities, "velocity");
 
         let cubic_accelerations: Vec<_> = b_spline.iter_accelerations(10).collect();
         let rational_accelerations: Vec<_> = rational_b_spline.iter_accelerations(10).collect();
-        compare_vectors(cubic_accelerations, rational_accelerations, "position");
+        compare_vectors(cubic_accelerations, rational_accelerations, "acceleration");
     }
 }
