@@ -137,7 +137,7 @@ impl WinitWindows {
                         "",
                     );
                 }
-                #[cfg(any(target_os = "windows"))]
+                #[cfg(target_os = "windows")]
                 {
                     winit_window_builder =
                         winit::platform::windows::WindowBuilderExtWindos::with_class_name(
