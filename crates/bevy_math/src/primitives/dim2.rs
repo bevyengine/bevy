@@ -736,6 +736,17 @@ pub struct Capsule2d {
 }
 impl Primitive2d for Capsule2d {}
 
+impl Default for Capsule2d {
+    /// Returns the default [`Capsule2d`] with a radius of `0.5` and a half-height of `0.5`,
+    /// excluding the hemicircles.
+    fn default() -> Self {
+        Self {
+            radius: 0.5,
+            half_length: 0.5,
+        }
+    }
+}
+
 impl Capsule2d {
     /// Create a new `Capsule2d` from a radius and length
     pub fn new(radius: f32, length: f32) -> Self {
