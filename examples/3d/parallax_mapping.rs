@@ -224,7 +224,7 @@ fn setup(
         .spawn(PointLightBundle {
             transform: Transform::from_xyz(1.8, 0.7, -1.1),
             point_light: PointLight {
-                intensity: 226.0,
+                intensity: 50_000.0,
                 shadows_enabled: true,
                 ..default()
             },

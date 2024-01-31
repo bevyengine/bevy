@@ -16,7 +16,7 @@ use bevy::{
     math::{DVec2, DVec3},
     prelude::*,
     render::{
-        render_asset::RenderAssetPersistencePolicy,
+        render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
     },
     window::{PresentMode, WindowPlugin, WindowResolution},
@@ -66,7 +66,11 @@ impl FromStr for Layout {
 }
 
 fn main() {
+    // `from_env` panics on the web
+    #[cfg(not(target_arch = "wasm32"))]
     let args: Args = argh::from_env();
+    #[cfg(target_arch = "wasm32")]
+    let args = Args::from_args(&[], &[]).unwrap();
 
     App::new()
         .add_plugins((
@@ -201,7 +205,7 @@ fn init_textures(args: &Args, images: &mut Assets<Image>) -> Vec<Handle<Image>> 
                 TextureDimension::D2,
                 pixel,
                 TextureFormat::Rgba8UnormSrgb,
-                RenderAssetPersistencePolicy::Unload,
+                RenderAssetUsages::RENDER_WORLD,
             ))
         })
         .collect()

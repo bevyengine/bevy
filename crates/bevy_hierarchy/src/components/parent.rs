@@ -27,6 +27,7 @@ pub struct Parent(pub(crate) Entity);
 
 impl Parent {
     /// Gets the [`Entity`] ID of the parent.
+    #[inline(always)]
     pub fn get(&self) -> Entity {
         self.0
     }
@@ -37,6 +38,7 @@ impl Parent {
     /// for both [`Children`] & [`Parent`] that is agnostic to edge direction.
     ///
     /// [`Children`]: super::children::Children
+    #[inline(always)]
     pub fn as_slice(&self) -> &[Entity] {
         std::slice::from_ref(&self.0)
     }
@@ -47,20 +49,22 @@ impl Parent {
 // However Parent should only ever be set with a real user-defined entity.  Its worth looking into
 // better ways to handle cases like this.
 impl FromWorld for Parent {
+    #[inline(always)]
     fn from_world(_world: &mut World) -> Self {
         Parent(Entity::PLACEHOLDER)
     }
 }
 
 impl MapEntities for Parent {
-    fn map_entities(&mut self, entity_mapper: &mut EntityMapper) {
-        self.0 = entity_mapper.get_or_reserve(self.0);
+    fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
+        self.0 = entity_mapper.map_entity(self.0);
     }
 }
 
 impl Deref for Parent {
     type Target = Entity;
 
+    #[inline(always)]
     fn deref(&self) -> &Self::Target {
         &self.0
     }

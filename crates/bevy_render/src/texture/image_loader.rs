@@ -3,7 +3,7 @@ use bevy_ecs::prelude::{FromWorld, World};
 use thiserror::Error;
 
 use crate::{
-    render_asset::RenderAssetPersistencePolicy,
+    render_asset::{RenderAssetPersistencePolicy, RenderAssetUsages},
     render_resource::{TextureDescriptor, TextureDimension, TextureFormat, TextureUsages},
     renderer::RenderDevice,
     texture::{Image, ImageFormat, ImageType, TextureError},
@@ -59,6 +59,7 @@ pub struct ImageLoaderSettings {
     pub format: ImageFormatSetting,
     pub is_srgb: bool,
     pub sampler: ImageSampler,
+    pub asset_usage: RenderAssetUsages,
     pub cpu_persistent_access: RenderAssetPersistencePolicy,
     pub sample_count: Option<u32>,
     #[serde(skip)]
@@ -84,6 +85,7 @@ impl Default for ImageLoaderSettings {
             format: ImageFormatSetting::default(),
             is_srgb: true,
             sampler: ImageSampler::Default,
+            asset_usage: RenderAssetUsages::default(),
             cpu_persistent_access: RenderAssetPersistencePolicy::Keep,
             sample_count: None,
             dimension: None,
@@ -129,7 +131,7 @@ impl AssetLoader for ImageLoader {
                 self.supported_compressed_formats,
                 settings.is_srgb,
                 settings.sampler.clone(),
-                settings.cpu_persistent_access,
+                settings.asset_usage,
             )
             .map_err(|err| FileTextureError {
                 error: err,

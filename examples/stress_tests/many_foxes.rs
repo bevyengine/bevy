@@ -15,7 +15,7 @@ use bevy::{
 #[derive(FromArgs, Resource)]
 /// `many_foxes` stress test
 struct Args {
-    /// wether all foxes run in sync.
+    /// whether all foxes run in sync.
     #[argh(switch)]
     sync: bool,
 
@@ -33,7 +33,11 @@ struct Foxes {
 }
 
 fn main() {
+    // `from_env` panics on the web
+    #[cfg(not(target_arch = "wasm32"))]
     let args: Args = argh::from_env();
+    #[cfg(target_arch = "wasm32")]
+    let args = Args::from_args(&[], &[]).unwrap();
 
     App::new()
         .add_plugins((
@@ -58,7 +62,7 @@ fn main() {
         })
         .insert_resource(AmbientLight {
             color: Color::WHITE,
-            brightness: 1.0,
+            brightness: 100.0,
         })
         .add_systems(Startup, setup)
         .add_systems(
@@ -194,6 +198,7 @@ fn setup(
     commands.spawn(DirectionalLightBundle {
         transform: Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
         directional_light: DirectionalLight {
+            illuminance: 3000.0,
             shadows_enabled: true,
             ..default()
         },

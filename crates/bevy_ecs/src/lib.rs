@@ -1,3 +1,5 @@
+// FIXME(11590): remove this once the lint is fixed
+#![allow(unsafe_op_in_unsafe_fn)]
 #![warn(missing_docs)]
 #![doc = include_str!("../README.md")]
 
@@ -10,6 +12,7 @@ pub mod change_detection;
 pub mod component;
 pub mod entity;
 pub mod event;
+pub mod identifier;
 pub mod query;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
@@ -27,15 +30,17 @@ pub use bevy_ptr as ptr;
 pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "bevy_reflect")]
-    pub use crate::reflect::{AppTypeRegistry, ReflectComponent, ReflectResource};
+    pub use crate::reflect::{
+        AppTypeRegistry, ReflectComponent, ReflectFromWorld, ReflectResource,
+    };
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
         change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
         component::Component,
-        entity::Entity,
+        entity::{Entity, EntityMapper},
         event::{Event, EventReader, EventWriter, Events},
-        query::{Added, AnyOf, Changed, Has, Or, QueryState, With, Without},
+        query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         removal_detection::RemovedComponents,
         schedule::{
             apply_deferred, apply_state_transition, common_conditions::*, Condition,
@@ -53,7 +58,32 @@ pub mod prelude {
 pub use bevy_utils::all_tuples;
 
 /// A specialized hashmap type with Key of [`TypeId`]
-type TypeIdMap<V> = rustc_hash::FxHashMap<TypeId, V>;
+type TypeIdMap<V> =
+    std::collections::HashMap<TypeId, V, std::hash::BuildHasherDefault<NoOpTypeIdHasher>>;
+
+#[doc(hidden)]
+#[derive(Default)]
+struct NoOpTypeIdHasher(u64);
+
+// TypeId already contains a high-quality hash, so skip re-hashing that hash.
+impl std::hash::Hasher for NoOpTypeIdHasher {
+    fn finish(&self) -> u64 {
+        self.0
+    }
+
+    fn write(&mut self, bytes: &[u8]) {
+        // This will never be called: TypeId always just calls write_u64 once!
+        // This is a known trick and unlikely to change, but isn't officially guaranteed.
+        // Don't break applications (slower fallback, just check in test):
+        self.0 = bytes.iter().fold(self.0, |hash, b| {
+            hash.rotate_left(8).wrapping_add(*b as u64)
+        });
+    }
+
+    fn write_u64(&mut self, i: u64) {
+        self.0 = i;
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -69,6 +99,7 @@ mod tests {
         world::{EntityRef, Mut, World},
     };
     use bevy_tasks::{ComputeTaskPool, TaskPool};
+    use std::num::NonZeroU32;
     use std::{
         any::TypeId,
         marker::PhantomData,
@@ -1590,7 +1621,8 @@ mod tests {
             "spawning into existing `world_b` entities works"
         );
 
-        let e4_mismatched_generation = Entity::new(3, 2).unwrap();
+        let e4_mismatched_generation =
+            Entity::from_raw_and_generation(3, NonZeroU32::new(2).unwrap());
         assert!(
             world_b.get_or_spawn(e4_mismatched_generation).is_none(),
             "attempting to spawn on top of an entity with a mismatched entity generation fails"
@@ -1685,7 +1717,7 @@ mod tests {
         let e0 = world.spawn(A(0)).id();
         let e1 = Entity::from_raw(1);
         let e2 = world.spawn_empty().id();
-        let invalid_e2 = Entity::new(e2.index(), 2).unwrap();
+        let invalid_e2 = Entity::from_raw_and_generation(e2.index(), NonZeroU32::new(2).unwrap());
 
         let values = vec![(e0, (B(0), C)), (e1, (B(1), C)), (invalid_e2, (B(2), C))];
 
@@ -1722,6 +1754,23 @@ mod tests {
             Some(&C),
             "new entity was spawned and received C component"
         );
+    }
+
+    #[test]
+    fn fast_typeid_hash() {
+        struct Hasher;
+
+        impl std::hash::Hasher for Hasher {
+            fn finish(&self) -> u64 {
+                0
+            }
+            fn write(&mut self, _: &[u8]) {
+                panic!("Hashing of std::any::TypeId changed");
+            }
+            fn write_u64(&mut self, _: u64) {}
+        }
+
+        std::hash::Hash::hash(&TypeId::of::<()>(), &mut Hasher);
     }
 
     #[derive(Component)]

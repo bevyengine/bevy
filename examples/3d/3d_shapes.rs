@@ -6,7 +6,7 @@ use std::f32::consts::PI;
 use bevy::{
     prelude::*,
     render::{
-        render_asset::RenderAssetPersistencePolicy,
+        render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
     },
 };
@@ -67,7 +67,7 @@ fn setup(
 
     commands.spawn(PointLightBundle {
         point_light: PointLight {
-            intensity: 9000.0,
+            intensity: 1500000.0,
             range: 100.,
             shadows_enabled: true,
             ..default()
@@ -120,6 +120,6 @@ fn uv_debug_texture() -> Image {
         TextureDimension::D2,
         &texture_data,
         TextureFormat::Rgba8UnormSrgb,
-        RenderAssetPersistencePolicy::Unload,
+        RenderAssetUsages::RENDER_WORLD,
     )
 }

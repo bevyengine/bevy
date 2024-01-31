@@ -4,7 +4,7 @@
 use bevy::prelude::*;
 use bevy::render::{
     mesh::{Indices, VertexAttributeValues},
-    render_asset::RenderAssetPersistencePolicy,
+    render_asset::RenderAssetUsages,
     render_resource::PrimitiveTopology,
 };
 
@@ -58,7 +58,7 @@ fn setup(
     // Light up the scene.
     commands.spawn(PointLightBundle {
         point_light: PointLight {
-            intensity: 1000.0,
+            intensity: 100_000.0,
             range: 100.0,
             ..default()
         },
@@ -123,7 +123,7 @@ fn input_handler(
 #[rustfmt::skip]
 fn create_cube_mesh() -> Mesh {
     // Keep the mesh data accessible in future frames to be able to mutate it in toggle_texture.
-    Mesh::new(PrimitiveTopology::TriangleList, RenderAssetPersistencePolicy::Keep)
+    Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD)
     .with_inserted_attribute(
         Mesh::ATTRIBUTE_POSITION,
         // Each array is an [x, y, z] coordinate in local space.
@@ -162,7 +162,7 @@ fn create_cube_mesh() -> Mesh {
             [0.5, -0.5, -0.5],
         ],
     )
-    // Set-up UV coordinated to point to the upper (V < 0.5), "dirt+grass" part of the texture.
+    // Set-up UV coordinates to point to the upper (V < 0.5), "dirt+grass" part of the texture.
     // Take a look at the custom image (assets/textures/array_texture.png)
     // so the UV coords will make more sense
     // Note: (0.0, 0.0) = Top-Left in UV mapping, (1.0, 1.0) = Bottom-Right in UV mapping

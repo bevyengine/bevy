@@ -1,6 +1,6 @@
 use crate::{
     mesh::Mesh,
-    render_asset::RenderAssetPersistencePolicy,
+    render_asset::RenderAssetUsages,
     render_resource::{Extent3d, TextureDimension, TextureFormat},
     texture::Image,
 };
@@ -68,7 +68,7 @@ impl MorphTargetImage {
     pub fn new(
         targets: impl ExactSizeIterator<Item = impl Iterator<Item = MorphAttributes>>,
         vertex_count: usize,
-        cpu_persistent_access: RenderAssetPersistencePolicy,
+        asset_usage: RenderAssetUsages,
     ) -> Result<Self, MorphBuildError> {
         let max = MAX_TEXTURE_WIDTH;
         let target_count = targets.len();
@@ -108,7 +108,7 @@ impl MorphTargetImage {
             TextureDimension::D3,
             data,
             TextureFormat::R32Float,
-            cpu_persistent_access,
+            asset_usage,
         );
         Ok(MorphTargetImage(image))
     }

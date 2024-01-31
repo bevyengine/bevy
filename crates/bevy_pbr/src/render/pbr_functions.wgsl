@@ -164,7 +164,8 @@ fn apply_pbr_lighting(
 
     let specular_transmissive_color = specular_transmission * in.material.base_color.rgb;
 
-    let occlusion = in.occlusion;
+    let diffuse_occlusion = in.diffuse_occlusion;
+    let specular_occlusion = in.specular_occlusion;
 
     // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
     let NdotV = max(dot(in.N, in.V), 0.0001);
@@ -306,7 +307,7 @@ fn apply_pbr_lighting(
     }
 
     // Ambient light (indirect)
-    var indirect_light = ambient::ambient_light(in.world_position, in.N, in.V, NdotV, diffuse_color, F0, perceptual_roughness, occlusion);
+    var indirect_light = ambient::ambient_light(in.world_position, in.N, in.V, NdotV, diffuse_color, F0, perceptual_roughness, diffuse_occlusion);
 
     if diffuse_transmission > 0.0 {
         // NOTE: We use the diffuse transmissive color, the second Lambertian lobe's calculated
@@ -316,7 +317,7 @@ fn apply_pbr_lighting(
         // perceptual_roughness = 1.0;
         // NdotV = 1.0;
         // F0 = vec3<f32>(0.0)
-        // occlusion = vec3<f32>(1.0)
+        // diffuse_occlusion = vec3<f32>(1.0)
         transmitted_light += ambient::ambient_light(diffuse_transmissive_lobe_world_position, -in.N, -in.V, 1.0, diffuse_transmissive_color, vec3<f32>(0.0), 1.0, vec3<f32>(1.0));
     }
 
@@ -332,7 +333,7 @@ fn apply_pbr_lighting(
         R,
         F0,
         in.world_position.xyz);
-    indirect_light += (environment_light.diffuse * occlusion) + environment_light.specular;
+    indirect_light += (environment_light.diffuse * diffuse_occlusion) + (environment_light.specular * specular_occlusion);
 
     // we'll use the specular component of the transmitted environment
     // light in the call to `specular_transmissive_light()` below
@@ -347,7 +348,7 @@ fn apply_pbr_lighting(
         // NdotV = 1.0;
         // R = T // see definition below
         // F0 = vec3<f32>(1.0)
-        // occlusion = 1.0
+        // diffuse_occlusion = 1.0
         //
         // (This one is slightly different from the other light types above, because the environment
         // map light returns both diffuse and specular components separately, and we want to use both)
@@ -403,7 +404,7 @@ fn apply_pbr_lighting(
 
     // Total light
     output_color = vec4<f32>(
-        transmitted_light + direct_light + indirect_light + emissive_light,
+        view_bindings::view.exposure * (transmitted_light + direct_light + indirect_light + emissive_light),
         output_color.a
     );
 
@@ -440,7 +441,7 @@ fn apply_fog(fog_params: mesh_view_types::Fog, input_color: vec4<f32>, fragment_
                     0.0
                 ),
                 fog_params.directional_light_exponent
-            ) * light.color.rgb;
+            ) * light.color.rgb * view_bindings::view.exposure;
         }
     }
 

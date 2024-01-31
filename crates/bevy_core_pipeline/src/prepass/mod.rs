@@ -34,7 +34,7 @@ use bevy_reflect::Reflect;
 use bevy_render::{
     render_phase::{CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItem},
     render_resource::{CachedRenderPipelineId, Extent3d, TextureFormat, TextureView},
-    texture::{CachedTexture, ColorAttachment},
+    texture::ColorAttachment,
 };
 use bevy_utils::{nonmax::NonMaxU32, FloatOrd};
 
@@ -78,7 +78,7 @@ pub struct ViewPrepassTextures {
     pub deferred: Option<ColorAttachment>,
     /// A texture that specifies the deferred lighting pass id for a material.
     /// Exists only if [`DeferredPrepass`] is added to the `ViewTarget`
-    pub deferred_lighting_pass_id: Option<CachedTexture>,
+    pub deferred_lighting_pass_id: Option<ColorAttachment>,
     /// The size of the textures.
     pub size: Extent3d,
 }

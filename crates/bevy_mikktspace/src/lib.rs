@@ -1,4 +1,8 @@
-#![allow(clippy::all, clippy::undocumented_unsafe_blocks)]
+#![allow(
+    unsafe_op_in_unsafe_fn,
+    clippy::all,
+    clippy::undocumented_unsafe_blocks
+)]
 
 use glam::{Vec2, Vec3};
 
