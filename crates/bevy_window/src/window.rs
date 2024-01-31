@@ -148,7 +148,7 @@ pub struct Window {
     /// - **`Windows`**: Can only be set while building the window, setting the window's window class name.
     /// - **`Wayland`**: Can only be set while building the window, setting the window's application ID.
     /// - **`X11`**: Can only be set while building the window, setting the window's `WM_CLASS`.
-    /// - **`iOS`**, **`Android`**, and **`Web`**: not applicable.
+    /// - **`macOS`**, **`iOS`**, **`Android`**, and **`Web`**: not applicable.
     ///
     /// Notes: Changing this field during runtime will have no effect for now.
     pub app_id: Option<String>,
