@@ -313,6 +313,17 @@ impl<'w> EntityMut<'w> {
         unsafe { self.0.get_mut() }
     }
 
+    /// Gets mutable access to the component of type `T` for the current entity.
+    /// Returns `None` if the entity does not have a component of type `T`.
+    ///
+    /// # Safety
+    ///
+    /// The same component should not be accessed for duration of returned value.
+    #[inline]
+    pub unsafe fn get_unchecked<T: Component>(&self) -> Option<Mut<'w, T>> {
+        self.0.get_mut()
+    }
+
     /// Retrieves the change ticks for the given component. This can be useful for implementing change
     /// detection in custom runtimes.
     #[inline]
