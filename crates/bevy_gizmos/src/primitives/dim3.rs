@@ -4,8 +4,8 @@ use super::helpers::*;
 use std::f32::consts::TAU;
 
 use bevy_math::primitives::{
-    BoxedPolyline3d, Capsule, Cone, ConicalFrustum, Cuboid, Cylinder, Direction3d, Line3d, Plane3d,
-    Polyline3d, Primitive3d, Segment3d, Sphere, Torus,
+    BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Direction3d, Line3d,
+    Plane3d, Polyline3d, Primitive3d, Segment3d, Sphere, Torus,
 };
 use bevy_math::{Quat, Vec2, Vec3};
 use bevy_render::color::Color;
@@ -443,12 +443,12 @@ impl<T: GizmoConfigGroup> Capsule3dBuilder<'_, '_, '_, T> {
     }
 }
 
-impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Capsule> for Gizmos<'w, 's, T> {
+impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Capsule3d> for Gizmos<'w, 's, T> {
     type Output<'a> = Capsule3dBuilder<'a, 'w, 's, T> where Self: 'a;
 
     fn primitive_3d(
         &mut self,
-        primitive: Capsule,
+        primitive: Capsule3d,
         position: Vec3,
         rotation: Quat,
         color: Color,

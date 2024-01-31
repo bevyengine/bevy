@@ -5,7 +5,7 @@ use std::f32::consts::PI;
 use bevy::prelude::*;
 use bevy_internal::gizmos::primitives::dim3::GizmoPrimitive3d;
 use bevy_internal::math::primitives::{
-    Capsule, Cone, ConicalFrustum, Cuboid, Cylinder, Line3d, Plane3d, Segment3d, Sphere, Torus,
+    Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Line3d, Plane3d, Segment3d, Sphere, Torus,
 };
 
 fn main() {
@@ -254,7 +254,7 @@ fn system(
         PrimitiveState::Capsule => {
             gizmos
                 .primitive_3d(
-                    Capsule {
+                    Capsule3d {
                         radius: 1.0,
                         half_length: 1.0,
                     },
