@@ -100,7 +100,7 @@ impl WinitWindows {
 
         match &window.app_id {
             None => {}
-            Some(id) => {
+            Some(_id) => {
                 #[cfg(all(
                     feature = "wayland",
                     any(
@@ -115,7 +115,7 @@ impl WinitWindows {
                     winit_window_builder =
                         winit::platform::wayland::WindowBuilderExtWayland::with_name(
                             winit_window_builder,
-                            id.clone(),
+                            _id.clone(),
                             "",
                         );
                 }
@@ -133,7 +133,7 @@ impl WinitWindows {
                 {
                     winit_window_builder = winit::platform::x11::WindowBuilderExtX11::with_name(
                         winit_window_builder,
-                        id.clone(),
+                        _id.clone(),
                         "",
                     );
                 }
