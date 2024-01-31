@@ -3,6 +3,7 @@
 use std::f32::consts::PI;
 
 use bevy::prelude::*;
+use bevy_internal::gizmos::primitives::dim2::GizmoPrimitive2d;
 
 fn main() {
     App::new()
@@ -65,6 +66,15 @@ fn system(mut gizmos: Gizmos, mut my_gizmos: Gizmos<MyRoundGizmos>, time: Res<Ti
     my_gizmos
         .circle_2d(Vec2::ZERO, 300., Color::NAVY)
         .segments(64);
+
+    my_gizmos.primitive_2d(
+        Plane2d {
+            normal: Direction2d::new_unchecked(Vec2::ONE),
+        },
+        Vec2::ZERO,
+        Mat2::from_angle(time.elapsed_seconds()),
+        Color::ORANGE,
+    );
 
     // Arcs default amount of segments is linearly interpolated between
     // 1 and 32, using the arc length as scalar.

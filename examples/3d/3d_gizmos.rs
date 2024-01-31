@@ -186,9 +186,16 @@ fn system(
 
     gizmos.arrow(Vec3::ZERO, Vec3::ONE * 1.5, Color::YELLOW);
 
+    let normal = Vec3::new(
+        time.elapsed_seconds().sin(),
+        time.elapsed_seconds().cos(),
+        time.elapsed_seconds().sin().cos(),
+    )
+    .try_normalize()
+    .unwrap_or(Vec3::X);
     let angle = time.elapsed_seconds().to_radians() * 10.0;
     let center = Quat::from_axis_angle(Vec3::Z, angle) * Vec3::X;
-    let rotation = Quat::from_axis_angle(Vec3::Y, angle);
+    let rotation = Quat::from_rotation_arc(Vec3::Y, normal);
     let segments = segments.0;
     match primitive_state.get() {
         PrimitiveState::Nothing => {}

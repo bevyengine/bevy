@@ -11,6 +11,12 @@ use bevy_render::color::Color;
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 
+// some magic number since using directions as offsets will result in lines of length 1 pixel
+const MIN_LINE_LEN: f32 = 50.0;
+const HALF_MIN_LINE_LEN: f32 = 25.0;
+// length used to simulate infinite lines
+const INFINITE_LEN: f32 = 100_000.0;
+
 /// A trait for rendering 2D geometric primitives (`P`) with [`Gizmos`].
 pub trait GizmoPrimitive2d<P: Primitive2d> {
     /// The output of `primitive_2d`. This is a builder to set non-default values.
@@ -44,8 +50,10 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Direction2d> for Gizmos<'w, '
             return;
         }
 
+        let direction = rotation * *primitive;
+
         let start = position;
-        let end = position + (rotation * *primitive);
+        let end = position + MIN_LINE_LEN * direction;
         self.arrow_2d(start, end, color);
     }
 }
@@ -114,17 +122,13 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Line2d> for Gizmos<'w, 's, T>
 
         let direction = rotation * *primitive.direction;
 
-        let start = position;
-        let end = position + direction;
-        self.arrow_2d(start, end, color);
+        self.arrow_2d(position, position + direction * MIN_LINE_LEN, color);
 
-        [1.0, -1.0].into_iter().for_each(|sign| {
-            self.line_2d(
-                position,
-                position + sign * direction.clamp_length(1000.0, 1000.0),
-                color,
-            );
-        });
+        let [start, end] = [1.0, -1.0]
+            .map(|sign| sign * INFINITE_LEN)
+            .map(|length| direction * length)
+            .map(|offset| position + offset);
+        self.line_2d(start, end, color);
     }
 }
 
@@ -144,22 +148,24 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Plane2d> for Gizmos<'w, 's, T
             return;
         }
 
-        let normal = rotation * *primitive.normal;
-
         // normal
-        let start = position;
-        let end = position + normal;
-        self.arrow_2d(start, end, color);
+        let normal = rotation * *primitive.normal;
+        let normal_segment = Segment2d {
+            direction: Direction2d::new_unchecked(normal),
+            half_length: HALF_MIN_LINE_LEN,
+        };
+        let normal_direction = rotation * normal;
+        self.primitive_2d(
+            normal_segment,
+            position + HALF_MIN_LINE_LEN * normal_direction,
+            rotation,
+            color,
+        )
+        .draw_arrow(true);
 
         // plane line
         let direction = Direction2d::new_unchecked(normal.perp());
-        [1.0, -1.0].into_iter().for_each(|sign| {
-            self.line_2d(
-                position,
-                position + sign * direction.clamp_length(1000.0, 1000.0),
-                color,
-            );
-        });
+        self.primitive_2d(Line2d { direction }, position, rotation, color);
     }
 }
 

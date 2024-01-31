@@ -13,6 +13,8 @@ use bevy_render::color::Color;
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 
 const DEFAULT_NUMBER_SEGMENTS: usize = 5;
+// length used to simulate infinite lines
+const INFINITE_LEN: f32 = 10_000.0;
 
 /// A trait for rendering 3D geometric primitives (`P`) with [`Gizmos`].
 pub trait GizmoPrimitive3d<P: Primitive3d> {
@@ -126,8 +128,43 @@ impl<T: GizmoConfigGroup> Drop for SphereBuilder<'_, '_, '_, T> {
 
 // plane 3d
 
+/// Builder for configuring the drawing options of [`Sphere`].
+pub struct Plane3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
+    gizmos: &'a mut Gizmos<'w, 's, T>,
+
+    normal: Direction3d, // direction of the normal orthogonal to the plane
+
+    rotation: Quat, // Rotation of the sphere around the origin in 3D space
+    position: Vec3, // Center position of the sphere in 3D space
+    color: Color,   // Color of the sphere
+
+    num_axis: usize,     // Number of axis to hint the plane
+    num_segments: usize, // Number of segments used to hint the plane
+    len_segments: f32,   // Length of segments used to hint the plane
+}
+
+impl<T: GizmoConfigGroup> Plane3dBuilder<'_, '_, '_, T> {
+    /// Set the number of segments used to hint the plane.
+    pub fn segments(mut self, segments: usize) -> Self {
+        self.num_segments = segments;
+        self
+    }
+
+    /// Set the length of segments used to hint the plane.
+    pub fn len_segments(mut self, length: f32) -> Self {
+        self.len_segments = length;
+        self
+    }
+
+    /// Set the number of hinting axis used to hint the plane.
+    pub fn num_axis(mut self, num_axis: usize) -> Self {
+        self.num_axis = num_axis;
+        self
+    }
+}
+
 impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Plane3d> for Gizmos<'w, 's, T> {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a> = Plane3dBuilder<'a, 'w, 's, T> where Self: 'a;
 
     fn primitive_3d(
         &mut self,
@@ -136,26 +173,54 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Plane3d> for Gizmos<'w, 's, T
         rotation: Quat,
         color: Color,
     ) -> Self::Output<'_> {
-        if !self.enabled {
+        Plane3dBuilder {
+            gizmos: self,
+            normal: primitive.normal,
+            rotation,
+            position,
+            color,
+            num_axis: 4,
+            num_segments: 3,
+            len_segments: 0.25,
+        }
+    }
+}
+
+impl<T: GizmoConfigGroup> Drop for Plane3dBuilder<'_, '_, '_, T> {
+    fn drop(&mut self) {
+        if !self.gizmos.enabled {
             return;
         }
 
-        let normal = rotation * *primitive.normal;
-        self.arrow(position, position + normal, color);
-        let ortho = normal.any_orthonormal_vector();
-        (0..4)
-            .map(|i| i as f32 * 0.25 * TAU)
+        let normal = self.rotation * *self.normal;
+        self.gizmos
+            .primitive_3d(self.normal, self.position, self.rotation, self.color);
+        let normals_normal = normal.any_orthonormal_vector();
+
+        // get rotation for each direction
+        (0..self.num_axis)
+            .map(|i| i as f32 * (1.0 / self.num_axis as f32) * TAU)
             .map(|angle| Quat::from_axis_angle(normal, angle))
             .for_each(|quat| {
-                let dir = quat * ortho;
+                let axis_direction = quat * normals_normal;
+                let direction = Direction3d::new_unchecked(axis_direction);
+
+                // for each axis draw dotted line
                 (0..)
                     .filter(|i| i % 2 == 0)
-                    .map(|i| [i, i + 1])
-                    .map(|percents| percents.map(|p| p as f32 * 0.25 * dir))
-                    .map(|vs| vs.map(|v| v + position))
-                    .take(3)
-                    .for_each(|[start, end]| {
-                        self.line(start, end, color);
+                    .map(|percent| (percent as f32 + 0.5) * self.len_segments * axis_direction)
+                    .map(|position| position + self.position)
+                    .take(self.num_segments)
+                    .for_each(|position| {
+                        self.gizmos.primitive_3d(
+                            Segment3d {
+                                direction,
+                                half_length: self.len_segments * 0.5,
+                            },
+                            position,
+                            Quat::IDENTITY,
+                            self.color,
+                        );
                     });
             });
     }
@@ -177,15 +242,14 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Line3d> for Gizmos<'w, 's, T>
             return;
         }
 
-        let dir = rotation * *primitive.direction;
-        self.arrow(position, position + dir, color);
-        [1.0, -1.0].into_iter().for_each(|sign| {
-            self.line(
-                position,
-                position + sign * dir.clamp_length(1000.0, 1000.0),
-                color,
-            );
-        });
+        let direction = rotation * *primitive.direction;
+        self.arrow(position, position + direction, color);
+
+        let [start, end] = [1.0, -1.0]
+            .map(|sign| sign * INFINITE_LEN)
+            .map(|length| direction * length)
+            .map(|offset| position + offset);
+        self.line(start, end, color);
     }
 }
 
@@ -205,9 +269,9 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Segment3d> for Gizmos<'w, 's,
             return;
         }
 
-        let dir = rotation * *primitive.direction;
-        let start = position - dir * primitive.half_length;
-        let end = position + dir * primitive.half_length;
+        let direction = rotation * *primitive.direction;
+        let start = position - direction * primitive.half_length;
+        let end = position + direction * primitive.half_length;
         self.line(start, end, color);
     }
 }
@@ -484,8 +548,6 @@ impl<T: GizmoConfigGroup> Drop for Capsule3dBuilder<'_, '_, '_, T> {
         let normal = *rotation * Vec3::Y;
 
         [1.0, -1.0].into_iter().for_each(|sign| {
-            // use "-" here since rotation is ccw and otherwise the caps would face the wrong way
-            // around
             let center = *position + sign * *half_length * normal;
             let top = center + sign * *radius * normal;
             draw_cap(gizmos, *radius, *segments, *rotation, center, top, *color);
@@ -515,11 +577,11 @@ pub struct Cone3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     // Height of the cone
     height: f32,
 
-    // Center of the base of the cone
+    // Center of the cone, half-way between the tip and the base
     position: Vec3,
     // Rotation of the cone
     //
-    // default orientation is: cone base shape normal is aligned with the `Vec3::Y` axis
+    // default orientation is: cone base normal is aligned with the `Vec3::Y` axis
     rotation: Quat,
     // Color of the cone
     color: Color,
@@ -609,7 +671,7 @@ pub struct ConicalFrustum3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     // Height of the conical frustum
     height: f32,
 
-    // Center of the base circle of the conical frustum
+    // Center of conical frustum, half-way between the top and the bottom
     position: Vec3,
     // Rotation of the conical frustrum
     //
