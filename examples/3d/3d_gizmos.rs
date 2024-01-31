@@ -121,8 +121,8 @@ fn setup(
             Hold 'Up' or 'Down' to change the line width of round gizmos\n\
             Press '1' or '2' to toggle the visibility of straight gizmos or round gizmos\n\
             Press 'A' to show all AABB boxes\n\
-            Press 'Up/Down' to cycle through primitives rendered with gizmos\n\
-            Press 'N/M' to decrease/increase the amount of segments in the primitives",
+            Press 'k/j' to cycle through primitives rendered with gizmos\n\
+            Press 'h/l' to decrease/increase the amount of segments in the primitives",
             TextStyle {
                 font_size: 20.,
                 ..default()
@@ -137,7 +137,11 @@ fn setup(
     );
 }
 
-fn system(mut gizmos: Gizmos, mut my_gizmos: Gizmos<MyRoundGizmos>, time: Res<Time>) {
+fn draw_example_collection(
+    mut gizmos: Gizmos,
+    mut my_gizmos: Gizmos<MyRoundGizmos>,
+    time: Res<Time>,
+) {
     gizmos.cuboid(
         Transform::from_translation(Vec3::Y * 0.5).with_scale(Vec3::splat(1.25)),
         Color::BLACK,
@@ -182,7 +186,7 @@ fn system(mut gizmos: Gizmos, mut my_gizmos: Gizmos<MyRoundGizmos>, time: Res<Ti
     gizmos.arrow(Vec3::ZERO, Vec3::ONE * 1.5, Color::YELLOW);
 }
 
-fn primitives(
+fn draw_primitives(
     mut gizmos: Gizmos,
     time: Res<Time>,
     primitive_state: Res<State<PrimitiveState>>,
@@ -210,20 +214,20 @@ fn primitives(
             gizmos
                 .primitive_3d(
                     Plane3d {
-                        normal: Direction3d::new(Vec3::Y).unwrap(),
+                        normal: Direction3d::Y,
                     },
                     center,
                     rotation,
                     Color::default(),
                 )
-                .num_axis((segments / 5).max(4))
-                .segments(segments)
-                .len_segments(1.0 / segments as f32);
+                .axis_count((segments / 5).max(4))
+                .segment_count(segments)
+                .segment_length(1.0 / segments as f32);
         }
         PrimitiveState::Line => {
             gizmos.primitive_3d(
                 Line3d {
-                    direction: Direction3d::new(Vec3::X).unwrap(),
+                    direction: Direction3d::X,
                 },
                 center,
                 rotation,
@@ -233,7 +237,7 @@ fn primitives(
         PrimitiveState::LineSegment => {
             gizmos.primitive_3d(
                 Segment3d {
-                    direction: Direction3d::new(Vec3::X).unwrap(),
+                    direction: Direction3d::X,
                     half_length: 1.0,
                 },
                 center,

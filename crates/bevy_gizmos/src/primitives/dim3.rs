@@ -138,27 +138,27 @@ pub struct Plane3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     position: Vec3, // Center position of the sphere in 3D space
     color: Color,   // Color of the sphere
 
-    num_axis: usize,     // Number of axis to hint the plane
-    num_segments: usize, // Number of segments used to hint the plane
-    len_segments: f32,   // Length of segments used to hint the plane
+    axis_count: usize,    // Number of axis to hint the plane
+    segment_count: usize, // Number of segments used to hint the plane
+    segment_length: f32,  // Length of segments used to hint the plane
 }
 
 impl<T: GizmoConfigGroup> Plane3dBuilder<'_, '_, '_, T> {
     /// Set the number of segments used to hint the plane.
-    pub fn segments(mut self, segments: usize) -> Self {
-        self.num_segments = segments;
+    pub fn segment_count(mut self, count: usize) -> Self {
+        self.segment_count = count;
         self
     }
 
     /// Set the length of segments used to hint the plane.
-    pub fn len_segments(mut self, length: f32) -> Self {
-        self.len_segments = length;
+    pub fn segment_length(mut self, length: f32) -> Self {
+        self.segment_length = length;
         self
     }
 
-    /// Set the number of hinting axis used to hint the plane.
-    pub fn num_axis(mut self, num_axis: usize) -> Self {
-        self.num_axis = num_axis;
+    /// Set the number of axis used to hint the plane.
+    pub fn axis_count(mut self, count: usize) -> Self {
+        self.axis_count = count;
         self
     }
 }
@@ -179,9 +179,9 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Plane3d> for Gizmos<'w, 's, T
             rotation,
             position,
             color,
-            num_axis: 4,
-            num_segments: 3,
-            len_segments: 0.25,
+            axis_count: 4,
+            segment_count: 3,
+            segment_length: 0.25,
         }
     }
 }
@@ -198,8 +198,8 @@ impl<T: GizmoConfigGroup> Drop for Plane3dBuilder<'_, '_, '_, T> {
         let normals_normal = normal.any_orthonormal_vector();
 
         // get rotation for each direction
-        (0..self.num_axis)
-            .map(|i| i as f32 * (1.0 / self.num_axis as f32) * TAU)
+        (0..self.axis_count)
+            .map(|i| i as f32 * (1.0 / self.axis_count as f32) * TAU)
             .map(|angle| Quat::from_axis_angle(normal, angle))
             .for_each(|quat| {
                 let axis_direction = quat * normals_normal;
@@ -208,14 +208,14 @@ impl<T: GizmoConfigGroup> Drop for Plane3dBuilder<'_, '_, '_, T> {
                 // for each axis draw dotted line
                 (0..)
                     .filter(|i| i % 2 != 0)
-                    .map(|percent| (percent as f32 + 0.5) * self.len_segments * axis_direction)
+                    .map(|percent| (percent as f32 + 0.5) * self.segment_length * axis_direction)
                     .map(|position| position + self.position)
-                    .take(self.num_segments)
+                    .take(self.segment_count)
                     .for_each(|position| {
                         self.gizmos.primitive_3d(
                             Segment3d {
                                 direction,
-                                half_length: self.len_segments * 0.5,
+                                half_length: self.segment_length * 0.5,
                             },
                             position,
                             Quat::IDENTITY,

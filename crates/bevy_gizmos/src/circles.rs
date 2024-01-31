@@ -70,12 +70,12 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.ellipse_2d(Vec2::ZERO, 1., 2., Color::GREEN);
+    ///     gizmos.ellipse_2d(Vec2::ZERO, 180.0_f32.to_radians(), 2., Color::GREEN);
     ///
     ///     // Ellipses have 32 line-segments by default.
     ///     // You may want to increase this for larger ellipses.
     ///     gizmos
-    ///         .ellipse_2d(Vec2::ZERO, Mat2::IDENTITY, 5., 1., Color::RED)
+    ///         .ellipse_2d(Vec2::ZERO, 180.0_f32.to_radians(), 5., 1., Color::RED)
     ///         .segments(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
@@ -84,7 +84,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     pub fn ellipse_2d(
         &mut self,
         position: Vec2,
-        rotation: Mat2,
+        angle: f32,
         half_width: f32,
         half_height: f32,
         color: Color,
@@ -92,7 +92,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         Ellipse2dBuilder {
             gizmos: self,
             position,
-            rotation,
+            rotation: Mat2::from_angle(angle),
             half_width,
             half_height,
             color,

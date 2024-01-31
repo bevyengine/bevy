@@ -7,8 +7,8 @@ use crate::prelude::{GizmoConfigGroup, Gizmos};
 
 // helpers - affine transform
 
-pub fn rotate_then_translate_2d(rotation: Mat2, position: Vec2) -> impl Fn(Vec2) -> Vec2 {
-    move |v| rotation * v + position
+pub fn rotate_then_translate_2d(angle: f32, position: Vec2) -> impl Fn(Vec2) -> Vec2 {
+    move |v| Mat2::from_angle(angle) * v + position
 }
 
 pub fn rotate_then_translate_3d(rotation: Quat, translation: Vec3) -> impl Fn(Vec3) -> Vec3 {

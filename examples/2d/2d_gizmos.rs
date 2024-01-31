@@ -1,6 +1,6 @@
 //! This example demonstrates Bevy's immediate mode drawing API intended for visual debugging.
 
-use std::f32::consts::PI;
+use std::f32::consts::{PI, TAU};
 
 use bevy::prelude::*;
 
@@ -72,7 +72,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(TextBundle::from_section(
         "Hold 'Left' or 'Right' to change the line width of straight gizmos\n\
         Hold 'Up' or 'Down' to change the line width of round gizmos\n\
-        Press '1' or '2' to toggle the visibility of straight gizmos or round gizmos",
+        Press '1' or '2' to toggle the visibility of straight gizmos or round gizmos\n\
+        Press 'k/j' to cycle through primitives rendered with gizmos",
         TextStyle {
             font: asset_server.load("fonts/FiraMono-Medium.ttf"),
             font_size: 24.,
@@ -105,7 +106,7 @@ fn system(mut gizmos: Gizmos, mut my_gizmos: Gizmos<MyRoundGizmos>, time: Res<Ti
     my_gizmos.circle_2d(Vec2::ZERO, 120., Color::BLACK);
     my_gizmos.ellipse_2d(
         Vec2::ZERO,
-        Mat2::from_angle(time.elapsed_seconds() % std::f32::consts::TAU),
+        time.elapsed_seconds() % TAU,
         100.,
         200.,
         Color::YELLOW_GREEN,
@@ -136,14 +137,14 @@ fn primitives(mut gizmos: Gizmos, time: Res<Time>, primitive_state: Res<State<Pr
     match primitive_state.get() {
         PrimitiveState::Nothing => {}
         PrimitiveState::Circle => {
-            gizmos.primitive_2d(Circle { radius: SIZE }, position, rotation, color);
+            gizmos.primitive_2d(Circle { radius: SIZE }, position, angle, color);
         }
         PrimitiveState::Ellipse => gizmos.primitive_2d(
             Ellipse {
                 half_size: Vec2::new(SIZE, SIZE * 0.5),
             },
             position,
-            rotation,
+            angle,
             color,
         ),
         PrimitiveState::Capsule => gizmos.primitive_2d(
@@ -152,32 +153,32 @@ fn primitives(mut gizmos: Gizmos, time: Res<Time>, primitive_state: Res<State<Pr
                 half_length: SIZE,
             },
             position,
-            rotation,
+            angle,
             color,
         ),
         PrimitiveState::Line => gizmos.primitive_2d(
             Line2d {
-                direction: Direction2d::new_unchecked(Vec2::X),
+                direction: Direction2d::X,
             },
             position,
-            rotation,
+            angle,
             color,
         ),
         PrimitiveState::Plane => gizmos.primitive_2d(
             Plane2d {
-                normal: Direction2d::new_unchecked(Vec2::Y),
+                normal: Direction2d::Y,
             },
             position,
-            rotation,
+            angle,
             color,
         ),
         PrimitiveState::Segment => drop(gizmos.primitive_2d(
             Segment2d {
-                direction: Direction2d::new_unchecked(Vec2::X),
+                direction: Direction2d::X,
                 half_length: SIZE * 0.5,
             },
             position,
-            rotation,
+            angle,
             color,
         )),
         PrimitiveState::Triangle => gizmos.primitive_2d(
@@ -185,7 +186,7 @@ fn primitives(mut gizmos: Gizmos, time: Res<Time>, primitive_state: Res<State<Pr
                 vertices: [Vec2::ZERO, Vec2::Y, Vec2::X].map(|p| p * SIZE * 0.5),
             },
             position,
-            rotation,
+            angle,
             color,
         ),
         PrimitiveState::Rectangle => gizmos.primitive_2d(
@@ -193,7 +194,7 @@ fn primitives(mut gizmos: Gizmos, time: Res<Time>, primitive_state: Res<State<Pr
                 half_size: Vec2::splat(SIZE * 0.5),
             },
             position,
-            rotation,
+            angle,
             color,
         ),
         PrimitiveState::RegularPolygon => gizmos.primitive_2d(
@@ -202,7 +203,7 @@ fn primitives(mut gizmos: Gizmos, time: Res<Time>, primitive_state: Res<State<Pr
                 sides: 5,
             },
             position,
-            rotation,
+            angle,
             color,
         ),
     }
@@ -213,10 +214,10 @@ fn update_primitives(
     mut next_primitive_state: ResMut<NextState<PrimitiveState>>,
     primitive_state: Res<State<PrimitiveState>>,
 ) {
-    if keyboard.just_pressed(KeyCode::KeyN) {
+    if keyboard.just_pressed(KeyCode::KeyJ) {
         next_primitive_state.set(primitive_state.get().last());
     }
-    if keyboard.just_pressed(KeyCode::KeyM) {
+    if keyboard.just_pressed(KeyCode::KeyK) {
         next_primitive_state.set(primitive_state.get().next());
     }
 }

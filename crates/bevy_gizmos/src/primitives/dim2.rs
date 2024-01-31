@@ -31,7 +31,7 @@ pub trait GizmoPrimitive2d<P: Primitive2d> {
         &mut self,
         primitive: P,
         position: Vec2,
-        rotation: Mat2,
+        angle: f32,
         color: Color,
     ) -> Self::Output<'_>;
 }
@@ -45,14 +45,14 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Direction2d> for Gizmos<'w, '
         &mut self,
         primitive: Direction2d,
         position: Vec2,
-        rotation: Mat2,
+        angle: f32,
         color: Color,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
         }
 
-        let direction = rotation * *primitive;
+        let direction = Mat2::from_angle(angle) * *primitive;
 
         let start = position;
         let end = position + MIN_LINE_LEN * direction;
@@ -69,7 +69,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Circle> for Gizmos<'w, 's, T>
         &mut self,
         primitive: Circle,
         position: Vec2,
-        _rotation: Mat2,
+        _angle: f32,
         color: Color,
     ) -> Self::Output<'_> {
         if !self.enabled {
@@ -89,7 +89,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Ellipse> for Gizmos<'w, 's, T
         &mut self,
         primitive: Ellipse,
         position: Vec2,
-        rotation: Mat2,
+        angle: f32,
         color: Color,
     ) -> Self::Output<'_> {
         if !self.enabled {
@@ -98,7 +98,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Ellipse> for Gizmos<'w, 's, T
 
         self.ellipse_2d(
             position,
-            rotation,
+            angle,
             primitive.half_size.x,
             primitive.half_size.y,
             color,
@@ -115,12 +115,14 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Capsule2d> for Gizmos<'w, 's,
         &mut self,
         primitive: Capsule2d,
         position: Vec2,
-        rotation: Mat2,
+        angle: f32,
         color: Color,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
         }
+
+        let rotation = Mat2::from_angle(angle);
 
         // transform points from the reference unit capsule to actual points
         let [top_left, top_right, bottom_left, bottom_right, top_center, bottom_center] = [
@@ -137,7 +139,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Capsule2d> for Gizmos<'w, 's,
             let scaling = Vec2::X * primitive.radius + Vec2::Y * primitive.half_length;
             reference_point * scaling
         })
-        .map(rotate_then_translate_2d(rotation, position));
+        .map(rotate_then_translate_2d(angle, position));
 
         let angle_offset = (rotation * Vec2::Y).angle_between(Vec2::Y);
         let start_angle_top = angle_offset;
@@ -165,14 +167,14 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Line2d> for Gizmos<'w, 's, T>
         &mut self,
         primitive: Line2d,
         position: Vec2,
-        rotation: Mat2,
+        angle: f32,
         color: Color,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
         }
 
-        let direction = rotation * *primitive.direction;
+        let direction = Mat2::from_angle(angle) * *primitive.direction;
 
         self.arrow_2d(position, position + direction * MIN_LINE_LEN, color);
 
@@ -193,12 +195,14 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Plane2d> for Gizmos<'w, 's, T
         &mut self,
         primitive: Plane2d,
         position: Vec2,
-        rotation: Mat2,
+        angle: f32,
         color: Color,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
         }
+
+        let rotation = Mat2::from_angle(angle);
 
         // normal
         let normal = rotation * *primitive.normal;
@@ -210,14 +214,14 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Plane2d> for Gizmos<'w, 's, T
         self.primitive_2d(
             normal_segment,
             position + HALF_MIN_LINE_LEN * normal_direction,
-            rotation,
+            angle,
             color,
         )
         .draw_arrow(true);
 
         // plane line
         let direction = Direction2d::new_unchecked(normal.perp());
-        self.primitive_2d(Line2d { direction }, position, rotation, color);
+        self.primitive_2d(Line2d { direction }, position, angle, color);
     }
 }
 
@@ -252,7 +256,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Segment2d> for Gizmos<'w, 's,
         &mut self,
         primitive: Segment2d,
         position: Vec2,
-        rotation: Mat2,
+        angle: f32,
         color: Color,
     ) -> Self::Output<'_> {
         Segment2dBuilder {
@@ -261,7 +265,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Segment2d> for Gizmos<'w, 's,
             half_length: primitive.half_length,
 
             position,
-            rotation,
+            rotation: Mat2::from_angle(angle),
             color,
 
             draw_arrow: Default::default(),
@@ -298,7 +302,7 @@ impl<'w, 's, const N: usize, T: GizmoConfigGroup> GizmoPrimitive2d<Polyline2d<N>
         &mut self,
         primitive: Polyline2d<N>,
         position: Vec2,
-        rotation: Mat2,
+        angle: f32,
         color: Color,
     ) -> Self::Output<'_> {
         if !self.enabled {
@@ -310,7 +314,7 @@ impl<'w, 's, const N: usize, T: GizmoConfigGroup> GizmoPrimitive2d<Polyline2d<N>
                 .vertices
                 .iter()
                 .copied()
-                .map(rotate_then_translate_2d(rotation, position)),
+                .map(rotate_then_translate_2d(angle, position)),
             color,
         );
     }
@@ -325,7 +329,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<BoxedPolyline2d> for Gizmos<'
         &mut self,
         primitive: BoxedPolyline2d,
         position: Vec2,
-        rotation: Mat2,
+        angle: f32,
         color: Color,
     ) -> Self::Output<'_> {
         if !self.enabled {
@@ -337,7 +341,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<BoxedPolyline2d> for Gizmos<'
                 .vertices
                 .iter()
                 .copied()
-                .map(rotate_then_translate_2d(rotation, position)),
+                .map(rotate_then_translate_2d(angle, position)),
             color,
         );
     }
@@ -352,14 +356,14 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Triangle2d> for Gizmos<'w, 's
         &mut self,
         primitive: Triangle2d,
         position: Vec2,
-        rotation: Mat2,
+        angle: f32,
         color: Color,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
         }
         let [a, b, c] = primitive.vertices;
-        let positions = [a, b, c, a].map(rotate_then_translate_2d(rotation, position));
+        let positions = [a, b, c, a].map(rotate_then_translate_2d(angle, position));
         self.linestrip_2d(positions, color);
     }
 }
@@ -373,7 +377,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Rectangle> for Gizmos<'w, 's,
         &mut self,
         primitive: Rectangle,
         position: Vec2,
-        rotation: Mat2,
+        angle: f32,
         color: Color,
     ) -> Self::Output<'_> {
         if !self.enabled {
@@ -387,7 +391,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Rectangle> for Gizmos<'w, 's,
                     primitive.half_size.y * sign_y,
                 )
             });
-        let positions = [a, b, c, d, a].map(rotate_then_translate_2d(rotation, position));
+        let positions = [a, b, c, d, a].map(rotate_then_translate_2d(angle, position));
         self.linestrip_2d(positions, color);
     }
 }
@@ -403,7 +407,7 @@ impl<'w, 's, const N: usize, T: GizmoConfigGroup> GizmoPrimitive2d<Polygon<N>>
         &mut self,
         primitive: Polygon<N>,
         position: Vec2,
-        rotation: Mat2,
+        angle: f32,
         color: Color,
     ) -> Self::Output<'_> {
         if !self.enabled {
@@ -425,7 +429,7 @@ impl<'w, 's, const N: usize, T: GizmoConfigGroup> GizmoPrimitive2d<Polygon<N>>
                 .iter()
                 .copied()
                 .chain(closing_point)
-                .map(rotate_then_translate_2d(rotation, position)),
+                .map(rotate_then_translate_2d(angle, position)),
             color,
         );
     }
@@ -440,7 +444,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<BoxedPolygon> for Gizmos<'w, 
         &mut self,
         primitive: BoxedPolygon,
         position: Vec2,
-        rotation: Mat2,
+        angle: f32,
         color: Color,
     ) -> Self::Output<'_> {
         if !self.enabled {
@@ -460,7 +464,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<BoxedPolygon> for Gizmos<'w, 
                 .iter()
                 .copied()
                 .chain(closing_point)
-                .map(rotate_then_translate_2d(rotation, position)),
+                .map(rotate_then_translate_2d(angle, position)),
             color,
         );
     }
@@ -475,7 +479,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<RegularPolygon> for Gizmos<'w
         &mut self,
         primitive: RegularPolygon,
         position: Vec2,
-        rotation: Mat2,
+        angle: f32,
         color: Color,
     ) -> Self::Output<'_> {
         if !self.enabled {
@@ -486,7 +490,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<RegularPolygon> for Gizmos<'w
             .map(|p| {
                 single_circle_coordinate(primitive.circumcircle.radius, primitive.sides, p, 1.0)
             })
-            .map(rotate_then_translate_2d(rotation, position));
+            .map(rotate_then_translate_2d(angle, position));
         self.linestrip_2d(points, color);
     }
 }
