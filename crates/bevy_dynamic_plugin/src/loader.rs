@@ -21,7 +21,7 @@ pub enum DynamicPluginLoadError {
 /// The specified plugin must be linked against the exact same libbevy.so as this program.
 /// In addition the `_bevy_create_plugin` symbol must not be manually created, but instead created
 /// by deriving `DynamicPlugin` on a unit struct implementing [`Plugin`].
-/// 
+///
 /// Dynamically loading plugins is orchestrated through dynamic linking. When linking against foreign
 /// code, initialization routines may be run (as well as termination routines when the program exits).
 /// The caller of this function is responsible for ensuring these routines are sound. For more
@@ -36,7 +36,7 @@ pub unsafe fn dynamically_load_plugin<P: AsRef<OsStr>>(
     // instead automatically generate it through `DynamicPlugin`.
     let func: Symbol<CreatePlugin> = unsafe {
         lib.get(b"_bevy_create_plugin")
-        .map_err(DynamicPluginLoadError::Plugin)?
+            .map_err(DynamicPluginLoadError::Plugin)?
     };
 
     // SAFETY: `func` is automatically generated and is guaranteed to return a pointer created using
