@@ -22,7 +22,7 @@ use bevy_render::{
     },
     prelude::SpatialBundle,
     primitives::Aabb,
-    render_asset::RenderAssetPersistencePolicy,
+    render_asset::RenderAssetUsages,
     render_resource::{Face, PrimitiveTopology},
     texture::{
         CompressedImageFormats, Image, ImageAddressMode, ImageFilterMode, ImageLoaderSettings,
@@ -393,7 +393,7 @@ async fn load_gltf<'a, 'b, 'c>(
             let primitive_label = primitive_label(&gltf_mesh, &primitive);
             let primitive_topology = get_primitive_topology(primitive.mode())?;
 
-            let mut mesh = Mesh::new(primitive_topology, RenderAssetPersistencePolicy::Keep);
+            let mut mesh = Mesh::new(primitive_topology, RenderAssetUsages::default());
 
             // Read vertex attributes
             for (semantic, accessor) in primitive.attributes() {
@@ -437,7 +437,7 @@ async fn load_gltf<'a, 'b, 'c>(
                     let morph_target_image = MorphTargetImage::new(
                         morph_target_reader.map(PrimitiveMorphAttributesIter),
                         mesh.count_vertices(),
-                        RenderAssetPersistencePolicy::Keep,
+                        RenderAssetUsages::default(),
                     )?;
                     let handle =
                         load_context.add_labeled_asset(morph_targets_label, morph_target_image.0);
@@ -744,7 +744,7 @@ async fn load_image<'a, 'b>(
                 supported_compressed_formats,
                 is_srgb,
                 ImageSampler::Descriptor(sampler_descriptor),
-                RenderAssetPersistencePolicy::Keep,
+                RenderAssetUsages::default(),
             )?;
             Ok(ImageOrPath::Image {
                 image,
@@ -766,7 +766,7 @@ async fn load_image<'a, 'b>(
                         supported_compressed_formats,
                         is_srgb,
                         ImageSampler::Descriptor(sampler_descriptor),
-                        RenderAssetPersistencePolicy::Keep,
+                        RenderAssetUsages::default(),
                     )?,
                     label: texture_label(&gltf_texture),
                 })
