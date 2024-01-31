@@ -1,84 +1,137 @@
 use std::fmt;
 
-use thiserror::Error;
+use super::Access;
+use crate::{Reflect, ReflectMut, ReflectRef, VariantType};
 
-use super::{Access, Offset};
-use crate::{ReflectMut, ReflectRef, VariantType};
+/// The kind of [`AccessError`], along with some kind-specific information.
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum AccessErrorKind {
+    /// An error that occurs when a certain type doesn't
+    /// contain the value referenced by the [`Access`].
+    MissingField(TypeKind),
 
-#[derive(Debug, PartialEq, Eq, Error, Clone, Copy)]
-pub(super) enum AccessErrorKind {
-    #[error("Invalid access for {0} type")]
-    MissingAccess(TypeKind),
-
-    #[error("Invalid type kind, expected {expected} type, got {actual} type")]
-    InvalidType {
+    /// An error that occurs when using an [`Access`] on the wrong type.
+    /// (i.e. a [`ListIndex`](Access::ListIndex) on a struct, or a [`TupleIndex`](Access::TupleIndex) on a list)
+    IncompatibleTypes {
+        /// The [`TypeKind`] that was expected based on the [`Access`].
         expected: TypeKind,
+        /// The actual [`TypeKind`] that was found.
         actual: TypeKind,
     },
-    #[error("Invalid variant kind, expected {expected:?} variant, got {actual:?} variant")]
-    InvalidEnumVariant {
+
+    /// An error that occurs when using an [`Access`] on the wrong enum variant.
+    /// (i.e. a [`ListIndex`](Access::ListIndex) on a struct variant, or a [`TupleIndex`](Access::TupleIndex) on a unit variant)
+    IncompatibleEnumVariantTypes {
+        /// The [`VariantType`] that was expected based on the [`Access`].
         expected: VariantType,
+        /// The actual [`VariantType`] that was found.
         actual: VariantType,
     },
 }
 
 impl AccessErrorKind {
-    pub(super) fn with_access<'a>(
-        self,
-        access: &Access<'a>,
-        offset: Offset,
-    ) -> crate::ReflectPathError<'a> {
-        crate::ReflectPathError::InvalidAccess(AccessError::new(self, access.clone(), offset))
-    }
-
-    pub(super) fn invalid_type(expected: impl Into<TypeKind>, actual: impl Into<TypeKind>) -> Self {
-        Self::InvalidType {
-            expected: expected.into(),
-            actual: actual.into(),
+    pub(super) fn with_access(self, access: Access, offset: Option<usize>) -> AccessError {
+        AccessError {
+            kind: self,
+            access,
+            offset,
         }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct AccessOffsetDisplay(Offset);
-
-impl fmt::Display for AccessOffsetDisplay {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(index) = self.0.get() {
-            write!(f, " at offset {index} in path")?;
-        }
-        Ok(())
     }
 }
 
 /// An error originating from an [`Access`] of an element within a type.
 ///
-/// Use the `Display` impl of this type to get informations on the error.
+/// Use the `Display` impl of this type to get information on the error.
+///
 /// Some sample messages:
+///
 /// ```text
-/// Error accessing element at offset 10 in path with '.x': Invalid access for tuple type.
-/// Error accessing element with '[0]': Invalid type kind, expected list type, got struct type.
+/// Error accessing element with `.alpha` access (offset 14): The struct accessed doesn't have an "alpha" field
+/// Error accessing element with '[0]' access: Expected index access to access a list, found a struct instead.
+/// Error accessing element with '.4' access: Expected variant index access to access a Tuple variant, found a Unit variant instead.
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq, Error)]
-#[error("Error accessing element{offset} with '{access}': {error}.")]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AccessError<'a> {
-    error: AccessErrorKind,
-    access: Access<'a>,
-    offset: AccessOffsetDisplay,
+    pub(super) kind: AccessErrorKind,
+    pub(super) access: Access<'a>,
+    pub(super) offset: Option<usize>,
 }
 
 impl<'a> AccessError<'a> {
-    pub(super) fn new(error: AccessErrorKind, access: Access<'a>, offset: Offset) -> Self {
-        Self {
-            error,
+    /// Returns the kind of [`AccessError`].
+    pub const fn kind(&self) -> &AccessErrorKind {
+        &self.kind
+    }
+
+    /// The returns the [`Access`] that this [`AccessError`] occured in.
+    pub const fn access(&self) -> &Access {
+        &self.access
+    }
+
+    /// If the [`Access`] was created with a parser or an offset was manually provided,
+    /// returns the offset of the [`Access`] in it's path string.
+    pub const fn offset(&self) -> Option<&usize> {
+        self.offset.as_ref()
+    }
+}
+impl std::fmt::Display for AccessError<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let AccessError {
+            kind,
             access,
-            offset: AccessOffsetDisplay(offset),
+            offset,
+        } = self;
+
+        write!(f, "Error accessing element with `{access}` access")?;
+        if let Some(offset) = offset {
+            write!(f, "(offset {offset})")?;
+        }
+        write!(f, ": ")?;
+
+        match kind {
+            AccessErrorKind::MissingField(type_accessed) => {
+                match access {
+                    Access::Field(field) => write!(
+                        f,
+                        "The {type_accessed} accessed doesn't have {} `{}` field",
+                        if let Some("a" | "e" | "i" | "o" | "u") = field.get(0..1) {
+                            "an"
+                        } else {
+                            "a"
+                        },
+                        access.display_value()
+                    ),
+                    Access::FieldIndex(_) => write!(
+                        f,
+                        "The {type_accessed} accessed doesn't have field index `{}`",
+                        access.display_value(),
+                    ),
+                    Access::TupleIndex(_) | Access::ListIndex(_) => write!(
+                        f,
+                        "The {type_accessed} accessed doesn't have index `{}`",
+                        access.display_value()
+                    )
+                }
+            }
+            AccessErrorKind::IncompatibleTypes { expected, actual } => write!(
+                f,
+                "Expected {} access to access a {expected}, found a {actual} instead.",
+                access.kind()
+            ),
+            AccessErrorKind::IncompatibleEnumVariantTypes { expected, actual } => write!(
+                f,
+                "Expected variant {} access to access a {expected:?} variant, found a {actual:?} variant instead.",
+                access.kind()
+            ),
         }
     }
 }
+impl std::error::Error for AccessError<'_> {}
 
+/// The kind of the type trying to be accessed.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub(super) enum TypeKind {
+#[allow(missing_docs /* Variants are self-explanatory */)]
+pub enum TypeKind {
     Struct,
     TupleStruct,
     Tuple,
@@ -92,22 +145,21 @@ pub(super) enum TypeKind {
 
 impl fmt::Display for TypeKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let name = match self {
-            TypeKind::Struct => "struct",
-            TypeKind::TupleStruct => "tuple struct",
-            TypeKind::Tuple => "tuple",
-            TypeKind::List => "list",
-            TypeKind::Array => "array",
-            TypeKind::Map => "map",
-            TypeKind::Enum => "enum",
-            TypeKind::Value => "value",
-            TypeKind::Unit => "unit",
-        };
-        write!(f, "{name}")
+        match self {
+            TypeKind::Struct => f.pad("struct"),
+            TypeKind::TupleStruct => f.pad("tuple struct"),
+            TypeKind::Tuple => f.pad("tuple"),
+            TypeKind::List => f.pad("list"),
+            TypeKind::Array => f.pad("array"),
+            TypeKind::Map => f.pad("map"),
+            TypeKind::Enum => f.pad("enum"),
+            TypeKind::Value => f.pad("value"),
+            TypeKind::Unit => f.pad("unit"),
+        }
     }
 }
-impl<'a> From<ReflectRef<'a>> for TypeKind {
-    fn from(value: ReflectRef<'a>) -> Self {
+impl From<ReflectRef<'_>> for TypeKind {
+    fn from(value: ReflectRef) -> Self {
         match value {
             ReflectRef::Struct(_) => TypeKind::Struct,
             ReflectRef::TupleStruct(_) => TypeKind::TupleStruct,
@@ -120,8 +172,13 @@ impl<'a> From<ReflectRef<'a>> for TypeKind {
         }
     }
 }
-impl<'a> From<ReflectMut<'a>> for TypeKind {
-    fn from(value: ReflectMut<'a>) -> Self {
+impl From<&dyn Reflect> for TypeKind {
+    fn from(value: &dyn Reflect) -> Self {
+        value.reflect_ref().into()
+    }
+}
+impl From<ReflectMut<'_>> for TypeKind {
+    fn from(value: ReflectMut) -> Self {
         match value {
             ReflectMut::Struct(_) => TypeKind::Struct,
             ReflectMut::TupleStruct(_) => TypeKind::TupleStruct,
@@ -132,6 +189,11 @@ impl<'a> From<ReflectMut<'a>> for TypeKind {
             ReflectMut::Enum(_) => TypeKind::Enum,
             ReflectMut::Value(_) => TypeKind::Value,
         }
+    }
+}
+impl From<&mut dyn Reflect> for TypeKind {
+    fn from(value: &mut dyn Reflect) -> Self {
+        value.reflect_ref().into()
     }
 }
 impl From<VariantType> for TypeKind {

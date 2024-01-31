@@ -1,18 +1,18 @@
 #![warn(missing_docs)]
 
 pub mod access;
+pub use access::*;
+
 mod error;
+pub use error::*;
+
 mod parse;
-
-use std::fmt;
-
-use thiserror::Error;
-
-use crate::Reflect;
-use access::Access;
-pub use error::AccessError;
 pub use parse::ParseError;
 use parse::PathParser;
+
+use crate::Reflect;
+use std::fmt;
+use thiserror::Error;
 
 type PathResult<'a, T> = Result<T, ReflectPathError<'a>>;
 
@@ -38,6 +38,11 @@ pub enum ReflectPathError<'a> {
         /// The underlying error.
         error: ParseError<'a>,
     },
+}
+impl<'a> From<AccessError<'a>> for ReflectPathError<'a> {
+    fn from(value: AccessError<'a>) -> Self {
+        Self::InvalidAccess(value)
+    }
 }
 
 /// Something that can be interpreted as a reflection path in [`GetPath`].
@@ -76,13 +81,14 @@ pub trait ReflectPath<'a>: Sized {
 impl<'a> ReflectPath<'a> for &'a str {
     fn reflect_element(self, mut root: &dyn Reflect) -> PathResult<'a, &dyn Reflect> {
         for (access, offset) in PathParser::new(self) {
-            root = access?.element(root, Offset::some(offset))?;
+            let a = access?;
+            root = a.element(root, Some(offset))?;
         }
         Ok(root)
     }
     fn reflect_element_mut(self, mut root: &mut dyn Reflect) -> PathResult<'a, &mut dyn Reflect> {
         for (access, offset) in PathParser::new(self) {
-            root = access?.element_mut(root, Offset::some(offset))?;
+            root = access?.element_mut(root, Some(offset))?;
         }
         Ok(root)
     }
@@ -278,43 +284,14 @@ pub struct OffsetAccess {
     /// The [`Access`] itself.
     pub access: Access<'static>,
     /// A character offset in the string the path was parsed from.
-    offset: Offset,
-}
-
-impl OffsetAccess {
-    /// An `OffsetAccess` with a tracked offset.
-    pub fn new(access: Access<'static>, offset: usize) -> Self {
-        let offset = Offset::some(offset);
-        Self { access, offset }
-    }
-    /// An `OffsetAccess` without a tracked offset.
-    pub fn untracked_offset(access: Access<'static>) -> Self {
-        let offset = Offset::NONE;
-        Self { access, offset }
-    }
+    pub offset: Option<usize>,
 }
 
 impl From<Access<'static>> for OffsetAccess {
     fn from(access: Access<'static>) -> Self {
-        OffsetAccess::untracked_offset(access)
-    }
-}
-
-/// A character offset in the string the path was parsed from.
-#[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-struct Offset(usize);
-
-impl Offset {
-    const NONE: Self = Self(usize::MAX);
-
-    fn some(index: usize) -> Self {
-        Self(index)
-    }
-    fn get(self) -> Option<usize> {
-        if self.0 == usize::MAX {
-            None
-        } else {
-            Some(self.0)
+        OffsetAccess {
+            access,
+            offset: None,
         }
     }
 }
@@ -426,7 +403,10 @@ impl ParsedPath {
     pub fn parse(string: &str) -> PathResult<Self> {
         let mut parts = Vec::new();
         for (access, offset) in PathParser::new(string) {
-            parts.push(OffsetAccess::new(access?.into_owned(), offset));
+            parts.push(OffsetAccess {
+                access: access?.into_owned(),
+                offset: Some(offset),
+            });
         }
         Ok(Self(parts))
     }
@@ -436,7 +416,10 @@ impl ParsedPath {
     pub fn parse_static(string: &'static str) -> PathResult<Self> {
         let mut parts = Vec::new();
         for (access, offset) in PathParser::new(string) {
-            parts.push(OffsetAccess::new(access?, offset));
+            parts.push(OffsetAccess {
+                access: access?,
+                offset: Some(offset),
+            });
         }
         Ok(Self(parts))
     }
@@ -470,7 +453,10 @@ impl From<Vec<Access<'static>>> for ParsedPath {
         ParsedPath(
             value
                 .into_iter()
-                .map(OffsetAccess::untracked_offset)
+                .map(|access| OffsetAccess {
+                    access,
+                    offset: None,
+                })
                 .collect(),
         )
     }
@@ -564,7 +550,10 @@ mod tests {
     }
 
     fn offset(access: Access<'static>, offset: usize) -> OffsetAccess {
-        OffsetAccess::new(access, offset)
+        OffsetAccess {
+            access,
+            offset: Some(offset),
+        }
     }
 
     fn access_field(field: &'static str) -> Access {
@@ -579,11 +568,11 @@ mod tests {
         expected: TypeKind,
         access: &'static str,
     ) -> StaticError {
-        ReflectPathError::InvalidAccess(AccessError::new(
-            AccessErrorKind::InvalidType { actual, expected },
-            ParsedPath::parse_static(access).unwrap()[1].access.clone(),
-            Offset::some(offset),
-        ))
+        ReflectPathError::InvalidAccess(AccessError {
+            kind: AccessErrorKind::IncompatibleTypes { actual, expected },
+            access: ParsedPath::parse_static(access).unwrap()[1].access.clone(),
+            offset: Some(offset),
+        })
     }
 
     #[test]
@@ -745,25 +734,25 @@ mod tests {
 
         assert_eq!(
             a.reflect_path("x.notreal").err().unwrap(),
-            ReflectPathError::InvalidAccess(AccessError::new(
-                AccessErrorKind::MissingAccess(TypeKind::Struct),
-                access_field("notreal"),
-                Offset::some(2),
-            ))
+            ReflectPathError::InvalidAccess(AccessError {
+                kind: AccessErrorKind::MissingField(TypeKind::Struct),
+                access: access_field("notreal"),
+                offset: Some(2),
+            })
         );
 
         assert_eq!(
             a.reflect_path("unit_variant.0").err().unwrap(),
-            ReflectPathError::InvalidAccess(AccessError::new(
-                AccessErrorKind::InvalidEnumVariant {
+            ReflectPathError::InvalidAccess(AccessError {
+                kind: AccessErrorKind::IncompatibleEnumVariantTypes {
                     actual: VariantType::Unit,
                     expected: VariantType::Tuple,
                 },
-                ParsedPath::parse_static("unit_variant.0").unwrap()[1]
+                access: ParsedPath::parse_static("unit_variant.0").unwrap()[1]
                     .access
                     .clone(),
-                Offset::some(13),
-            ))
+                offset: Some(13),
+            })
         );
         assert_eq!(
             a.reflect_path("x[0]").err().unwrap(),
