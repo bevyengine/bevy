@@ -777,10 +777,6 @@ impl SpecializedMeshPipeline for MeshPipeline {
             is_opaque = !key.contains(MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE);
         }
 
-        if key.contains(MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE) {
-            shader_defs.push("READS_VIEW_TRANSMISSION_TEXTURE".into());
-        }
-
         if key.contains(MeshPipelineKey::NORMAL_PREPASS) {
             shader_defs.push("NORMAL_PREPASS".into());
         }
