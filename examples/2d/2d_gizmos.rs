@@ -68,8 +68,9 @@ fn system(mut gizmos: Gizmos, mut my_gizmos: Gizmos<MyRoundGizmos>, time: Res<Ti
         .segments(64);
 
     my_gizmos.primitive_2d(
-        Plane2d {
-            normal: Direction2d::new_unchecked(Vec2::ONE),
+        Capsule2d {
+            radius: 25.0,
+            half_length: 50.0,
         },
         Vec2::ZERO,
         Mat2::from_angle(time.elapsed_seconds()),

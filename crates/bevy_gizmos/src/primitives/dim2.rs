@@ -1,10 +1,12 @@
 //! A module for rendering each of the 2D [`bevy_math::primitives`] with [`Gizmos`].
 
+use std::f32::consts::PI;
+
 use super::helpers::*;
 
 use bevy_math::primitives::{
-    BoxedPolygon, BoxedPolyline2d, Circle, Direction2d, Ellipse, Line2d, Plane2d, Polygon,
-    Polyline2d, Primitive2d, Rectangle, RegularPolygon, Segment2d, Triangle2d,
+    BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, Direction2d, Ellipse, Line2d, Plane2d,
+    Polygon, Polyline2d, Primitive2d, Rectangle, RegularPolygon, Segment2d, Triangle2d,
 };
 use bevy_math::{Mat2, Vec2};
 use bevy_render::color::Color;
@@ -99,6 +101,56 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Ellipse> for Gizmos<'w, 's, T
             rotation,
             primitive.half_size.x,
             primitive.half_size.y,
+            color,
+        );
+    }
+}
+
+// capsule 2d
+
+impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Capsule2d> for Gizmos<'w, 's, T> {
+    type Output<'a> = () where Self: 'a;
+
+    fn primitive_2d(
+        &mut self,
+        primitive: Capsule2d,
+        position: Vec2,
+        rotation: Mat2,
+        color: Color,
+    ) -> Self::Output<'_> {
+        if !self.enabled {
+            return;
+        }
+
+        // transform points from the reference unit capsule to actual points
+        let [top_left, top_right, bottom_left, bottom_right, top_center, bottom_center] = [
+            [-1.0, 1.0],
+            [1.0, 1.0],
+            [-1.0, -1.0],
+            [1.0, -1.0],
+            // just reuse the pipeline for these points as well
+            [0.0, 1.0],
+            [0.0, -1.0],
+        ]
+        .map(|[sign_x, sign_y]| Vec2::X * sign_x + Vec2::Y * sign_y)
+        .map(|reference_point| {
+            let scaling = Vec2::X * primitive.radius + Vec2::Y * primitive.half_length;
+            reference_point * scaling
+        })
+        .map(rotate_then_translate_2d(rotation, position));
+
+        let angle_offset = (rotation * Vec2::Y).angle_between(Vec2::Y);
+        let start_angle_top = angle_offset;
+        let start_angle_bottom = PI + angle_offset;
+
+        self.line_2d(bottom_left, top_left, color);
+        self.line_2d(bottom_right, top_right, color);
+        self.arc_2d(top_center, start_angle_top, PI, primitive.radius, color);
+        self.arc_2d(
+            bottom_center,
+            start_angle_bottom,
+            PI,
+            primitive.radius,
             color,
         );
     }
