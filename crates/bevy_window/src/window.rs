@@ -255,7 +255,7 @@ pub struct Window {
 impl Default for Window {
     fn default() -> Self {
         Self {
-            title: "Bevy App".to_owned(),
+            title: "App".to_owned(),
             app_id: None,
             cursor: Default::default(),
             present_mode: Default::default(),
