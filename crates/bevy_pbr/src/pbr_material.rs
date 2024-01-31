@@ -815,7 +815,7 @@ impl Material for StandardMaterial {
             let shader_defs = &mut fragment.shader_defs;
 
             if key.bind_group_data.normal_map {
-                shader_defs.push("STANDARDMATERIAL_NORMAL_MAP".into());
+                shader_defs.push("STANDARD_MATERIAL_NORMAL_MAP".into());
             }
             if key.bind_group_data.relief_mapping {
                 shader_defs.push("RELIEF_MAPPING".into());

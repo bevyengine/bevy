@@ -50,7 +50,7 @@ fn prepare_world_normal(
 ) -> vec3<f32> {
     var output: vec3<f32> = world_normal;
 #ifndef VERTEX_TANGENTS
-#ifndef STANDARDMATERIAL_NORMAL_MAP
+#ifndef STANDARD_MATERIAL_NORMAL_MAP
     // NOTE: When NOT using normal-mapping, if looking at the back face of a double-sided
     // material, the normal needs to be inverted. This is a branchless version of that.
     output = (f32(!double_sided || is_front) * 2.0 - 1.0) * output;
@@ -65,7 +65,7 @@ fn apply_normal_mapping(
     double_sided: bool,
     is_front: bool,
 #ifdef VERTEX_TANGENTS
-#ifdef STANDARDMATERIAL_NORMAL_MAP
+#ifdef STANDARD_MATERIAL_NORMAL_MAP
     world_tangent: vec4<f32>,
 #endif
 #endif
@@ -83,7 +83,7 @@ fn apply_normal_mapping(
     var N: vec3<f32> = world_normal;
 
 #ifdef VERTEX_TANGENTS
-#ifdef STANDARDMATERIAL_NORMAL_MAP
+#ifdef STANDARD_MATERIAL_NORMAL_MAP
     // NOTE: The mikktspace method of normal mapping explicitly requires that these NOT be
     // normalized nor any Gram-Schmidt applied to ensure the vertex normal is orthogonal to the
     // vertex tangent! Do not change this code unless you really know what you are doing.
@@ -95,7 +95,7 @@ fn apply_normal_mapping(
 
 #ifdef VERTEX_TANGENTS
 #ifdef VERTEX_UVS
-#ifdef STANDARDMATERIAL_NORMAL_MAP
+#ifdef STANDARD_MATERIAL_NORMAL_MAP
     // Nt is the tangent-space normal.
     var Nt = textureSampleBias(pbr_bindings::normal_map_texture, pbr_bindings::normal_map_sampler, uv, mip_bias).rgb;
     if (standard_material_flags & pbr_types::STANDARD_MATERIAL_FLAGS_TWO_COMPONENT_NORMAL_MAP) != 0u {
