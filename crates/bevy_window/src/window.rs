@@ -141,7 +141,7 @@ pub struct Window {
     /// Stores the application ID (on **`Wayland`**), `WM_CLASS` (on **`X11`**) or window class name (on **`Windows`**) of the window.
     ///
     /// For details about application ID conventions, see the [Desktop Entry Spec](https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-latest.html#desktop-file-id).
-    /// For details about **`Windows`**'s window class names, see the [About Window Classes](https://learn.microsoft.com/en-us/windows/win32/winmsg/about-window-classes).
+    /// For details about **`Windows`**'s window class names, see [About Window Classes](https://learn.microsoft.com/en-us/windows/win32/winmsg/about-window-classes).
     ///
     /// ## Platform-specific
     ///
