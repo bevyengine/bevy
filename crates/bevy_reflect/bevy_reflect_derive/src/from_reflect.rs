@@ -23,8 +23,7 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> proc_macro2::TokenStream {
     let type_path = meta.type_path();
     let bevy_reflect_path = meta.bevy_reflect_path();
     let (impl_generics, ty_generics, where_clause) = type_path.generics().split_for_impl();
-    let where_from_reflect_clause =
-        WhereClauseOptions::new_type_path(meta).extend_where_clause(where_clause);
+    let where_from_reflect_clause = WhereClauseOptions::new(meta).extend_where_clause(where_clause);
     quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #type_path #ty_generics #where_from_reflect_clause  {
             fn from_reflect(reflect: &dyn #bevy_reflect_path::Reflect) -> #FQOption<Self> {
@@ -50,8 +49,9 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
     let (impl_generics, ty_generics, where_clause) = enum_path.generics().split_for_impl();
 
     // Add FromReflect bound for each active field
-    let where_from_reflect_clause =
-        WhereClauseOptions::new(reflect_enum.meta()).extend_where_clause(where_clause);
+    let where_from_reflect_clause = reflect_enum
+        .where_clause_options()
+        .extend_where_clause(where_clause);
 
     quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #enum_path #ty_generics #where_from_reflect_clause  {
@@ -130,8 +130,9 @@ fn impl_struct_internal(
         .split_for_impl();
 
     // Add FromReflect bound for each active field
-    let where_from_reflect_clause =
-        WhereClauseOptions::new(reflect_struct.meta()).extend_where_clause(where_clause);
+    let where_from_reflect_clause = reflect_struct
+        .where_clause_options()
+        .extend_where_clause(where_clause);
 
     quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #struct_path #ty_generics #where_from_reflect_clause {

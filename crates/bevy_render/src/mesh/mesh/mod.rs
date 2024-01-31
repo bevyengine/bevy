@@ -1,11 +1,12 @@
 mod conversions;
 pub mod skinning;
+use bevy_transform::components::Transform;
 pub use wgpu::PrimitiveTopology;
 
 use crate::{
     prelude::Image,
     primitives::Aabb,
-    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPersistencePolicy, RenderAssets},
+    render_asset::{PrepareAssetError, RenderAsset, RenderAssetUsages, RenderAssets},
     render_resource::{Buffer, TextureView, VertexBufferLayout},
     renderer::RenderDevice,
 };
@@ -48,10 +49,10 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// ```
 /// # use bevy_render::mesh::{Mesh, Indices};
 /// # use bevy_render::render_resource::PrimitiveTopology;
-/// # use bevy_render::render_asset::RenderAssetPersistencePolicy;
+/// # use bevy_render::render_asset::RenderAssetUsages;
 /// fn create_simple_parallelogram() -> Mesh {
 ///     // Create a new mesh using a triangle list topology, where each set of 3 vertices composes a triangle.
-///     Mesh::new(PrimitiveTopology::TriangleList, RenderAssetPersistencePolicy::Unload)
+///     Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default())
 ///         // Add 4 vertices, each with its own position attribute (coordinate in
 ///         // 3D space), for each of the corners of the parallelogram.
 ///         .with_inserted_attribute(
@@ -122,7 +123,7 @@ pub struct Mesh {
     indices: Option<Indices>,
     morph_targets: Option<Handle<Image>>,
     morph_target_names: Option<Vec<String>>,
-    pub cpu_persistent_access: RenderAssetPersistencePolicy,
+    pub asset_usage: RenderAssetUsages,
 }
 
 impl Mesh {
@@ -183,17 +184,14 @@ impl Mesh {
     /// Construct a new mesh. You need to provide a [`PrimitiveTopology`] so that the
     /// renderer knows how to treat the vertex data. Most of the time this will be
     /// [`PrimitiveTopology::TriangleList`].
-    pub fn new(
-        primitive_topology: PrimitiveTopology,
-        cpu_persistent_access: RenderAssetPersistencePolicy,
-    ) -> Self {
+    pub fn new(primitive_topology: PrimitiveTopology, asset_usage: RenderAssetUsages) -> Self {
         Mesh {
             primitive_topology,
             attributes: Default::default(),
             indices: None,
             morph_targets: None,
             morph_target_names: None,
-            cpu_persistent_access,
+            asset_usage,
         }
     }
 
@@ -561,6 +559,60 @@ impl Mesh {
         Ok(self)
     }
 
+    /// Transforms the vertex positions, normals, and tangents of the mesh by the given [`Transform`].
+    pub fn transformed_by(mut self, transform: Transform) -> Self {
+        self.transform_by(transform);
+        self
+    }
+
+    /// Transforms the vertex positions, normals, and tangents of the mesh in place by the given [`Transform`].
+    pub fn transform_by(&mut self, transform: Transform) {
+        // Needed when transforming normals and tangents
+        let covector_scale = transform.scale.yzx() * transform.scale.zxy();
+
+        debug_assert!(
+            covector_scale != Vec3::ZERO,
+            "mesh transform scale cannot be zero on more than one axis"
+        );
+
+        if let Some(VertexAttributeValues::Float32x3(ref mut positions)) =
+            self.attribute_mut(Mesh::ATTRIBUTE_POSITION)
+        {
+            // Apply scale, rotation, and translation to vertex positions
+            positions
+                .iter_mut()
+                .for_each(|pos| *pos = transform.transform_point(Vec3::from_slice(pos)).to_array());
+        }
+
+        // No need to transform normals or tangents if rotation is near identity and scale is uniform
+        if transform.rotation.is_near_identity()
+            && transform.scale.x == transform.scale.y
+            && transform.scale.y == transform.scale.z
+        {
+            return;
+        }
+
+        if let Some(VertexAttributeValues::Float32x3(ref mut normals)) =
+            self.attribute_mut(Mesh::ATTRIBUTE_NORMAL)
+        {
+            // Transform normals, taking into account non-uniform scaling and rotation
+            normals.iter_mut().for_each(|normal| {
+                let scaled_normal = Vec3::from_slice(normal) * covector_scale;
+                *normal = (transform.rotation * scaled_normal.normalize_or_zero()).to_array();
+            });
+        }
+
+        if let Some(VertexAttributeValues::Float32x3(ref mut tangents)) =
+            self.attribute_mut(Mesh::ATTRIBUTE_TANGENT)
+        {
+            // Transform tangents, taking into account non-uniform scaling and rotation
+            tangents.iter_mut().for_each(|tangent| {
+                let scaled_tangent = Vec3::from_slice(tangent) * covector_scale;
+                *tangent = (transform.rotation * scaled_tangent.normalize_or_zero()).to_array();
+            });
+        }
+    }
+
     /// Compute the Axis-Aligned Bounding Box of the mesh vertices in model space
     ///
     /// Returns `None` if `self` doesn't have [`Mesh::ATTRIBUTE_POSITION`] of
@@ -643,6 +695,14 @@ impl Mesh {
                 }
             }
         }
+    }
+}
+
+impl core::ops::Mul<Mesh> for Transform {
+    type Output = Mesh;
+
+    fn mul(self, rhs: Mesh) -> Self::Output {
+        rhs.transformed_by(self)
     }
 }
 
@@ -1085,8 +1145,8 @@ impl RenderAsset for Mesh {
     type PreparedAsset = GpuMesh;
     type Param = (SRes<RenderDevice>, SRes<RenderAssets<Image>>);
 
-    fn persistence_policy(&self) -> RenderAssetPersistencePolicy {
-        self.cpu_persistent_access
+    fn asset_usage(&self) -> RenderAssetUsages {
+        self.asset_usage
     }
 
     /// Converts the extracted mesh a into [`GpuMesh`].
@@ -1254,7 +1314,7 @@ fn generate_tangents_for_mesh(mesh: &Mesh) -> Result<Vec<[f32; 4]>, GenerateTang
 #[cfg(test)]
 mod tests {
     use super::Mesh;
-    use crate::render_asset::RenderAssetPersistencePolicy;
+    use crate::render_asset::RenderAssetUsages;
     use wgpu::PrimitiveTopology;
 
     #[test]
@@ -1262,7 +1322,7 @@ mod tests {
     fn panic_invalid_format() {
         let _mesh = Mesh::new(
             PrimitiveTopology::TriangleList,
-            RenderAssetPersistencePolicy::Unload,
+            RenderAssetUsages::default(),
         )
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.0, 0.0, 0.0]]);
     }
