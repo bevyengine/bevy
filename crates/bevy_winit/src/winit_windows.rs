@@ -140,7 +140,7 @@ impl WinitWindows {
                 #[cfg(target_os = "windows")]
                 {
                     winit_window_builder =
-                        winit::platform::windows::WindowBuilderExtWindos::with_class_name(
+                        winit::platform::windows::WindowBuilderExtWindows::with_class_name(
                             winit_window_builder,
                             _id.clone(),
                         );
