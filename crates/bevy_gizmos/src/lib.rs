@@ -46,6 +46,7 @@ pub mod prelude {
         aabb::{AabbGizmoConfigGroup, ShowAabbGizmo},
         config::{DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore},
         gizmos::Gizmos,
+        primitives::{dim2::GizmoPrimitive2d, dim3::GizmoPrimitive3d},
         AppGizmoBuilder,
     };
 }
