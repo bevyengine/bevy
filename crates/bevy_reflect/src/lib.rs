@@ -1565,7 +1565,7 @@ mod tests {
 
             let info = <SomeStruct as Typed>::type_info();
             assert_eq!(
-                Some(" Some struct.\n\n # Example\n\n ```ignore\n let some_struct = SomeStruct;\n ```"),
+                Some(" Some struct.\n\n # Example\n\n ```ignore (This is only used for a unit test, no need to doc test)\n let some_struct = SomeStruct;\n ```"),
                 info.docs()
             );
 
@@ -1899,8 +1899,8 @@ bevy_reflect::tests::Test {
     #[test]
     fn should_allow_multiple_custom_where() {
         #[derive(Reflect)]
-        #[reflect(where T: Default + FromReflect)]
-        #[reflect(where U: std::ops::Add<T> + FromReflect)]
+        #[reflect(where T: Default)]
+        #[reflect(where U: std::ops::Add<T>)]
         struct Foo<T, U>(T, U);
 
         #[derive(Reflect)]
@@ -1916,12 +1916,12 @@ bevy_reflect::tests::Test {
     #[test]
     fn should_allow_custom_where_wtih_assoc_type() {
         trait Trait {
-            type Assoc: FromReflect + TypePath;
+            type Assoc;
         }
 
         // We don't need `T` to be `Reflect` since we only care about `T::Assoc`
         #[derive(Reflect)]
-        #[reflect(where T::Assoc: FromReflect)]
+        #[reflect(where T::Assoc: core::fmt::Display)]
         struct Foo<T: Trait>(T::Assoc);
 
         #[derive(TypePath)]
@@ -1931,7 +1931,15 @@ bevy_reflect::tests::Test {
             type Assoc = usize;
         }
 
+        #[derive(TypePath)]
+        struct Baz;
+
+        impl Trait for Baz {
+            type Assoc = (f32, f32);
+        }
+
         assert_impl_all!(Foo<Bar>: Reflect);
+        assert_not_impl_all!(Foo<Baz>: Reflect);
     }
 
     #[test]
@@ -1943,6 +1951,7 @@ bevy_reflect::tests::Test {
         let _ = <Recurse<Recurse<()>> as TypePath>::type_path();
 
         #[derive(Reflect)]
+        #[reflect(no_field_bounds)]
         struct SelfRecurse {
             recurse: Vec<SelfRecurse>,
         }
@@ -1951,11 +1960,13 @@ bevy_reflect::tests::Test {
         let _ = <SelfRecurse as TypePath>::type_path();
 
         #[derive(Reflect)]
+        #[reflect(no_field_bounds)]
         enum RecurseA {
             Recurse(RecurseB),
         }
 
         #[derive(Reflect)]
+        // `#[reflect(no_field_bounds)]` not needed since already added to `RecurseA`
         struct RecurseB {
             vector: Vec<RecurseA>,
         }
@@ -1970,7 +1981,6 @@ bevy_reflect::tests::Test {
     fn can_opt_out_type_path() {
         #[derive(Reflect)]
         #[reflect(type_path = false)]
-        #[reflect(where)]
         struct Foo<T> {
             #[reflect(ignore)]
             _marker: PhantomData<T>,
@@ -2083,6 +2093,42 @@ bevy_reflect::tests::Test {
                 unknown_tuplestruct: DynamicTupleStruct(_(14)) \
             })"
         );
+    }
+
+    #[test]
+    fn assert_impl_reflect_macro_on_all() {
+        struct Struct {
+            foo: (),
+        }
+        struct TupleStruct(());
+        enum Enum {
+            Foo { foo: () },
+            Bar(()),
+        }
+
+        impl_reflect!(
+            #[type_path = "my_crate::foo"]
+            struct Struct {
+                foo: (),
+            }
+        );
+
+        impl_reflect!(
+            #[type_path = "my_crate::foo"]
+            struct TupleStruct(());
+        );
+
+        impl_reflect!(
+            #[type_path = "my_crate::foo"]
+            enum Enum {
+                Foo { foo: () },
+                Bar(()),
+            }
+        );
+
+        assert_impl_all!(Struct: Reflect);
+        assert_impl_all!(TupleStruct: Reflect);
+        assert_impl_all!(Enum: Reflect);
     }
 
     #[cfg(feature = "glam")]
