@@ -27,6 +27,8 @@ fn main() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins)
         .add_event::<DebugEvent>()
+        .add_event::<A>()
+        .add_event::<B>()
         .add_systems(Update, read_and_write_different_event_types)
         .add_systems(
             Update,
@@ -71,7 +73,7 @@ struct DebugEvent {
 
 /// A system that sends all combinations of events.
 fn send_events(mut events: EventWriter<DebugEvent>, frame_count: Res<FrameCount>) {
-    info!("Sending events for frame {:?}", *frame_count);
+    println!("Sending events for frame {:?}", frame_count.0);
 
     events.send(DebugEvent {
         resend_from_param_set: false,
@@ -109,7 +111,7 @@ fn send_and_receive_param_set(
     mut param_set: ParamSet<(EventReader<DebugEvent>, EventWriter<DebugEvent>)>,
     frame_count: Res<FrameCount>,
 ) {
-    info!(
+    println!(
         "Sending and receiving events for frame {} with a `ParamSet`",
         frame_count.0
     );
@@ -140,7 +142,7 @@ fn send_and_receive_manual_event_reader(
     mut events: ResMut<Events<DebugEvent>>,
     frame_count: Res<FrameCount>,
 ) {
-    info!(
+    println!(
         "Sending and receiving events for frame {} with a `Local<ManualEventReader>",
         frame_count.0
     );

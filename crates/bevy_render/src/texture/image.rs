@@ -6,7 +6,7 @@ use super::dds::*;
 use super::ktx2::*;
 
 use crate::{
-    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPersistencePolicy},
+    render_asset::{PrepareAssetError, RenderAsset, RenderAssetUsages},
     render_resource::{Sampler, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     texture::BevyDefault,
@@ -110,7 +110,7 @@ pub struct Image {
     /// The [`ImageSampler`] to use during rendering.
     pub sampler: ImageSampler,
     pub texture_view_descriptor: Option<TextureViewDescriptor<'static>>,
-    pub cpu_persistent_access: RenderAssetPersistencePolicy,
+    pub asset_usage: RenderAssetUsages,
 }
 
 /// Used in [`Image`], this determines what image sampler to use when rendering. The default setting,
@@ -467,7 +467,7 @@ impl Default for Image {
             },
             sampler: ImageSampler::Default,
             texture_view_descriptor: None,
-            cpu_persistent_access: RenderAssetPersistencePolicy::Keep,
+            asset_usage: RenderAssetUsages::default(),
         }
     }
 }
@@ -483,7 +483,7 @@ impl Image {
         dimension: TextureDimension,
         data: Vec<u8>,
         format: TextureFormat,
-        cpu_persistent_access: RenderAssetPersistencePolicy,
+        asset_usage: RenderAssetUsages,
     ) -> Self {
         debug_assert_eq!(
             size.volume() * format.pixel_size(),
@@ -497,7 +497,7 @@ impl Image {
         image.texture_descriptor.dimension = dimension;
         image.texture_descriptor.size = size;
         image.texture_descriptor.format = format;
-        image.cpu_persistent_access = cpu_persistent_access;
+        image.asset_usage = asset_usage;
         image
     }
 
@@ -511,12 +511,12 @@ impl Image {
         dimension: TextureDimension,
         pixel: &[u8],
         format: TextureFormat,
-        cpu_persistent_access: RenderAssetPersistencePolicy,
+        asset_usage: RenderAssetUsages,
     ) -> Self {
         let mut value = Image::default();
         value.texture_descriptor.format = format;
         value.texture_descriptor.dimension = dimension;
-        value.cpu_persistent_access = cpu_persistent_access;
+        value.asset_usage = asset_usage;
         value.resize(size);
 
         debug_assert_eq!(
@@ -637,9 +637,7 @@ impl Image {
                 }
                 _ => None,
             })
-            .map(|(dyn_img, is_srgb)| {
-                Self::from_dynamic(dyn_img, is_srgb, self.cpu_persistent_access)
-            })
+            .map(|(dyn_img, is_srgb)| Self::from_dynamic(dyn_img, is_srgb, self.asset_usage))
     }
 
     /// Load a bytes buffer in a [`Image`], according to type `image_type`, using the `image`
@@ -650,7 +648,7 @@ impl Image {
         #[allow(unused_variables)] supported_compressed_formats: CompressedImageFormats,
         is_srgb: bool,
         image_sampler: ImageSampler,
-        cpu_persistent_access: RenderAssetPersistencePolicy,
+        asset_usage: RenderAssetUsages,
     ) -> Result<Image, TextureError> {
         let format = image_type.to_image_format()?;
 
@@ -679,7 +677,7 @@ impl Image {
                 reader.set_format(image_crate_format);
                 reader.no_limits();
                 let dyn_img = reader.decode()?;
-                Self::from_dynamic(dyn_img, is_srgb, cpu_persistent_access)
+                Self::from_dynamic(dyn_img, is_srgb, asset_usage)
             }
         };
         image.sampler = image_sampler;
@@ -819,8 +817,8 @@ impl RenderAsset for Image {
         SRes<DefaultImageSampler>,
     );
 
-    fn persistence_policy(&self) -> RenderAssetPersistencePolicy {
-        self.cpu_persistent_access
+    fn asset_usage(&self) -> RenderAssetUsages {
+        self.asset_usage
     }
 
     /// Converts the extracted image into a [`GpuImage`].
@@ -926,7 +924,7 @@ impl CompressedImageFormats {
 mod test {
 
     use super::*;
-    use crate::render_asset::RenderAssetPersistencePolicy;
+    use crate::render_asset::RenderAssetUsages;
 
     #[test]
     fn image_size() {
@@ -940,7 +938,7 @@ mod test {
             TextureDimension::D2,
             &[0, 0, 0, 255],
             TextureFormat::Rgba8Unorm,
-            RenderAssetPersistencePolicy::Unload,
+            RenderAssetUsages::MAIN_WORLD,
         );
         assert_eq!(
             Vec2::new(size.width as f32, size.height as f32),

@@ -1,4 +1,7 @@
-use crate::tonemapping::{DebandDither, Tonemapping};
+use crate::{
+    core_3d::graph::SubGraph3d,
+    tonemapping::{DebandDither, Tonemapping},
+};
 use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
 use bevy_render::{
@@ -11,6 +14,8 @@ use bevy_render::{
     view::VisibleEntities,
 };
 use bevy_transform::prelude::{GlobalTransform, Transform};
+
+use super::graph::SubGraph2d;
 
 #[derive(Component, Default, Reflect, Clone, ExtractComponent)]
 #[extract_component_filter(With<Camera>)]
@@ -49,7 +54,7 @@ impl Default for Camera2dBundle {
             projection.far(),
         );
         Self {
-            camera_render_graph: CameraRenderGraph::new(crate::core_2d::graph::NAME),
+            camera_render_graph: CameraRenderGraph::new(SubGraph2d),
             projection,
             visible_entities: VisibleEntities::default(),
             frustum,
@@ -88,7 +93,7 @@ impl Camera2dBundle {
             projection.far(),
         );
         Self {
-            camera_render_graph: CameraRenderGraph::new(crate::core_2d::graph::NAME),
+            camera_render_graph: CameraRenderGraph::new(SubGraph3d),
             projection,
             visible_entities: VisibleEntities::default(),
             frustum,

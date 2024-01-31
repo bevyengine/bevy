@@ -37,8 +37,10 @@ pub trait AssetLoader: Send + Sync + 'static {
         load_context: &'a mut LoadContext,
     ) -> BoxedFuture<'a, Result<Self::Asset, Self::Error>>;
 
-    /// Returns a list of extensions supported by this asset loader, without the preceding dot.
-    fn extensions(&self) -> &[&str];
+    /// Returns a list of extensions supported by this [`AssetLoader`], without the preceding dot.
+    fn extensions(&self) -> &[&str] {
+        &[]
+    }
 }
 
 /// Provides type-erased access to an [`AssetLoader`].
@@ -396,7 +398,7 @@ impl<'a> LoadContext<'a> {
     /// See [`AssetPath`] for more on labeled assets.
     pub fn has_labeled_asset<'b>(&self, label: impl Into<CowArc<'b, str>>) -> bool {
         let path = self.asset_path.clone().with_label(label.into());
-        self.asset_server.get_handle_untyped(&path).is_some()
+        !self.asset_server.get_handles_untyped(&path).is_empty()
     }
 
     /// "Finishes" this context by populating the final [`Asset`] value (and the erased [`AssetMeta`] value, if it exists).
@@ -546,7 +548,7 @@ impl<'a> LoadContext<'a> {
         let loaded_asset = {
             let (meta, loader, mut reader) = self
                 .asset_server
-                .get_meta_loader_and_reader(&path)
+                .get_meta_loader_and_reader(&path, None)
                 .await
                 .map_err(to_error)?;
             self.asset_server
