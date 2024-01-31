@@ -88,10 +88,10 @@ impl<'a, A: Asset> SavedAsset<'a, A> {
         })
     }
 
-    /// Creates a new [`SavedAsset`] from the `asset` and the labeled_assets in loaded
+    /// Creates a new [`SavedAsset`] from the `asset` and the `labeled_assets` in loaded
     pub fn from_asset_and_loaded(asset: &'a A, loaded: &'a ErasedLoadedAsset) -> Self {
         Self {
-            value: &asset,
+            value: asset,
             labeled_assets: &loaded.labeled_assets,
         }
     }
@@ -146,7 +146,7 @@ impl<'a, A: Asset> SavedAsset<'a, A> {
         if let Ok(handle) = labeled.handle.clone().try_typed::<B>() {
             return Some(handle);
         }
-        return None;
+        None
     }
 
     /// Iterate over all labels for "labeled assets" in the loaded asset

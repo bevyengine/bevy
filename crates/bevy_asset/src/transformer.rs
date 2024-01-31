@@ -15,7 +15,7 @@ pub trait AssetTransformer: Send + Sync + 'static {
     type Error: Into<Box<dyn std::error::Error + Send + Sync + 'static>>;
 
     /// Transformes the given [`TransformedAsset`] to [`AssetTransformer::AssetOutput`].
-    /// The [`TransformedAsset`]'s labeled_assets can be altered to add new Labeled Sub-Assets
+    /// The [`TransformedAsset`]'s `labeled_assets` can be altered to add new Labeled Sub-Assets
     /// The passed in `settings` can influence how the `asset` is transformed
     fn transform<'a>(
         &'a self,
@@ -33,7 +33,7 @@ pub struct TransformedAsset<'a, A: Asset> {
 impl<'a, A: Asset> Deref for TransformedAsset<'a, A> {
     type Target = A;
     fn deref(&self) -> &Self::Target {
-        &self.value
+        self.value
     }
 }
 
@@ -49,12 +49,12 @@ impl<'a, A: Asset> TransformedAsset<'a, A> {
     /// Retrieves the value of this asset.
     #[inline]
     pub fn get(&self) -> &A {
-        &self.value
+        self.value
     }
     /// Mutably retrieves the value of this asset.
     #[inline]
     pub fn get_mut(&mut self) -> &mut A {
-        &mut self.value
+        self.value
     }
     /// Returns the labeled asset, if it exists and matches this type.
     pub fn get_labeled<B: Asset, Q>(&mut self, label: &Q) -> Option<TransformedAsset<B>>
@@ -97,7 +97,7 @@ impl<'a, A: Asset> TransformedAsset<'a, A> {
         if let Ok(handle) = labeled.handle.clone().try_typed::<B>() {
             return Some(handle);
         }
-        return None;
+        None
     }
     /// Adds `asset` as a labeled sub asset using `label` and `handle`
     pub fn insert_labeled(
