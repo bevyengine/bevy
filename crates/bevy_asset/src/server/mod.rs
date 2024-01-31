@@ -606,7 +606,24 @@ impl AssetServer {
         let path = path.into().into_owned();
         IoTaskPool::get()
             .spawn(async move {
-                if server.data.infos.read().should_reload(&path) {
+                let mut reloaded = false;
+
+                let requests = server
+                    .data
+                    .infos
+                    .read()
+                    .get_path_handles(&path)
+                    .map(|handle| server.load_internal(Some(handle), path.clone(), true, None))
+                    .collect::<Vec<_>>();
+
+                for result in requests {
+                    match result.await {
+                        Ok(_) => reloaded = true,
+                        Err(err) => error!("{}", err),
+                    }
+                }
+
+                if !reloaded && server.data.infos.read().should_reload(&path) {
                     if let Err(err) = server.load_internal(None, path, true, None).await {
                         error!("{}", err);
                     }
