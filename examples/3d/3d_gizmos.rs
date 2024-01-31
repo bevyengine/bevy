@@ -3,7 +3,6 @@
 use std::f32::consts::PI;
 
 use bevy::prelude::*;
-use bevy_internal::gizmos::primitives::dim3::GizmoPrimitive3d;
 use bevy_internal::math::primitives::{
     Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Line3d, Plane3d, Segment3d, Sphere, Torus,
 };
@@ -16,6 +15,7 @@ fn main() {
         .init_gizmo_group::<MyRoundGizmos>()
         .add_systems(Startup, setup)
         .add_systems(Update, (system, rotate_camera, update_config))
+        .add_systems(Update, (primitives, update_primitives))
         .run();
 }
 
@@ -47,34 +47,35 @@ enum PrimitiveState {
 }
 
 impl PrimitiveState {
-    pub fn from_raw(n: u8) -> Self {
-        match n {
-            1 => Self::Sphere,
-            2 => Self::Plane,
-            3 => Self::Line,
-            4 => Self::LineSegment,
-            5 => Self::Cuboid,
-            6 => Self::Cylinder,
-            7 => Self::Capsule,
-            8 => Self::Cone,
-            9 => Self::ConicalFrustum,
-            10 => Self::Torus,
-            _ => Self::Nothing,
-        }
+    const ALL: [Self; 11] = [
+        Self::Sphere,
+        Self::Plane,
+        Self::Line,
+        Self::LineSegment,
+        Self::Cuboid,
+        Self::Cylinder,
+        Self::Capsule,
+        Self::Cone,
+        Self::ConicalFrustum,
+        Self::Torus,
+        Self::Nothing,
+    ];
+    fn next(self) -> Self {
+        Self::ALL
+            .into_iter()
+            .cycle()
+            .skip_while(|&x| x != self)
+            .nth(1)
+            .unwrap()
     }
-
-    pub fn count() -> u8 {
-        11
-    }
-
-    pub fn next(self) -> Self {
-        let next = (self as u8 + 1) % Self::count();
-        Self::from_raw(next)
-    }
-
-    pub fn last(self) -> Self {
-        let next = (self as u8 + (Self::count() - 1)) % Self::count();
-        Self::from_raw(next)
+    fn last(self) -> Self {
+        Self::ALL
+            .into_iter()
+            .rev()
+            .cycle()
+            .skip_while(|&x| x != self)
+            .nth(1)
+            .unwrap()
     }
 }
 
@@ -136,13 +137,7 @@ fn setup(
     );
 }
 
-fn system(
-    mut gizmos: Gizmos,
-    mut my_gizmos: Gizmos<MyRoundGizmos>,
-    time: Res<Time>,
-    primitive_state: Res<State<PrimitiveState>>,
-    segments: Res<PrimitiveSegments>,
-) {
+fn system(mut gizmos: Gizmos, mut my_gizmos: Gizmos<MyRoundGizmos>, time: Res<Time>) {
     gizmos.cuboid(
         Transform::from_translation(Vec3::Y * 0.5).with_scale(Vec3::splat(1.25)),
         Color::BLACK,
@@ -185,7 +180,14 @@ fn system(
         .circle_segments(64);
 
     gizmos.arrow(Vec3::ZERO, Vec3::ONE * 1.5, Color::YELLOW);
+}
 
+fn primitives(
+    mut gizmos: Gizmos,
+    time: Res<Time>,
+    primitive_state: Res<State<PrimitiveState>>,
+    segments: Res<PrimitiveSegments>,
+) {
     let normal = Vec3::new(
         time.elapsed_seconds().sin(),
         time.elapsed_seconds().cos(),
@@ -205,14 +207,18 @@ fn system(
                 .segments(segments);
         }
         PrimitiveState::Plane => {
-            gizmos.primitive_3d(
-                Plane3d {
-                    normal: Direction3d::new(Vec3::Y).unwrap(),
-                },
-                center,
-                rotation,
-                Color::default(),
-            );
+            gizmos
+                .primitive_3d(
+                    Plane3d {
+                        normal: Direction3d::new(Vec3::Y).unwrap(),
+                    },
+                    center,
+                    rotation,
+                    Color::default(),
+                )
+                .num_axis((segments / 5).max(4))
+                .segments(segments)
+                .len_segments(1.0 / segments as f32);
         }
         PrimitiveState::Line => {
             gizmos.primitive_3d(
@@ -315,6 +321,29 @@ fn system(
     }
 }
 
+fn update_primitives(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    primitive_state: Res<State<PrimitiveState>>,
+    mut next_primitive_state: ResMut<NextState<PrimitiveState>>,
+    mut segments: ResMut<PrimitiveSegments>,
+    mut segments_f: Local<f32>,
+) {
+    if keyboard.just_pressed(KeyCode::KeyK) {
+        next_primitive_state.set(primitive_state.get().next());
+    }
+    if keyboard.just_pressed(KeyCode::KeyJ) {
+        next_primitive_state.set(primitive_state.get().last());
+    }
+    if keyboard.pressed(KeyCode::KeyL) {
+        *segments_f = (*segments_f + 0.05).max(2.0);
+        segments.0 = segments_f.floor() as usize;
+    }
+    if keyboard.pressed(KeyCode::KeyH) {
+        *segments_f = (*segments_f - 0.05).max(2.0);
+        segments.0 = segments_f.floor() as usize;
+    }
+}
+
 fn rotate_camera(mut query: Query<&mut Transform, With<Camera>>, time: Res<Time>) {
     let mut transform = query.single_mut();
 
@@ -325,9 +354,6 @@ fn update_config(
     mut config_store: ResMut<GizmoConfigStore>,
     keyboard: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
-    primitive_state: Res<State<PrimitiveState>>,
-    mut next_primitive_state: ResMut<NextState<PrimitiveState>>,
-    mut segments: ResMut<PrimitiveSegments>,
 ) {
     if keyboard.just_pressed(KeyCode::KeyD) {
         for (_, config, _) in config_store.iter_mut() {
@@ -373,17 +399,5 @@ fn update_config(
         // AABB gizmos are normally only drawn on entities with a ShowAabbGizmo component
         // We can change this behaviour in the configuration of AabbGizmoGroup
         config_store.config_mut::<AabbGizmoConfigGroup>().1.draw_all ^= true;
-    }
-    if keyboard.just_pressed(KeyCode::ArrowUp) {
-        next_primitive_state.set(primitive_state.get().next());
-    }
-    if keyboard.just_pressed(KeyCode::ArrowDown) {
-        next_primitive_state.set(primitive_state.get().last());
-    }
-    if keyboard.just_pressed(KeyCode::KeyM) {
-        segments.0 += 1;
-    }
-    if keyboard.just_pressed(KeyCode::KeyN) {
-        segments.0 = segments.0.saturating_sub(1);
     }
 }

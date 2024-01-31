@@ -207,7 +207,7 @@ impl<T: GizmoConfigGroup> Drop for Plane3dBuilder<'_, '_, '_, T> {
 
                 // for each axis draw dotted line
                 (0..)
-                    .filter(|i| i % 2 == 0)
+                    .filter(|i| i % 2 != 0)
                     .map(|percent| (percent as f32 + 0.5) * self.len_segments * axis_direction)
                     .map(|position| position + self.position)
                     .take(self.num_segments)
