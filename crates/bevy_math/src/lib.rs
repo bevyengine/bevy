@@ -25,7 +25,7 @@ pub mod prelude {
     pub use crate::{
         cubic_splines::{
             CubicBSpline, CubicBezier, CubicCardinalSpline, CubicGenerator, CubicHermite,
-            CubicNurbs, CubicNurbsError, CubicSegment,
+            CubicNurbs, CubicNurbsError, CubicCurve, CubicSegment, RationalGenerator, RationalCurve, RationalSegment
         },
         primitives::*,
         BVec2, BVec3, BVec4, EulerRot, FloatExt, IRect, IVec2, IVec3, IVec4, Mat2, Mat3, Mat4,
