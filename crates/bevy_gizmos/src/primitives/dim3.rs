@@ -382,7 +382,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Cuboid> for Gizmos<'w, 's, T>
 
 // cylinder 3d
 
-/// Builder for configuring the drawing options of [`Cylinder3d`].
+/// Builder for configuring the drawing options of [`Cylinder`].
 pub struct Cylinder3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     gizmos: &'a mut Gizmos<'w, 's, T>,
 
@@ -568,7 +568,7 @@ impl<T: GizmoConfigGroup> Drop for Capsule3dBuilder<'_, '_, '_, T> {
 
 // cone 3d
 
-/// Builder for configuring the drawing options of [`Cone3d`].
+/// Builder for configuring the drawing options of [`Cone`].
 pub struct Cone3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     gizmos: &'a mut Gizmos<'w, 's, T>,
 
@@ -660,7 +660,7 @@ impl<T: GizmoConfigGroup> Drop for Cone3dBuilder<'_, '_, '_, T> {
 
 // conical frustum 3d
 
-/// Builder for configuring the drawing options of [`ConicalFrustum3d`].
+/// Builder for configuring the drawing options of [`ConicalFrustum`].
 pub struct ConicalFrustum3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     gizmos: &'a mut Gizmos<'w, 's, T>,
 
@@ -762,7 +762,7 @@ impl<T: GizmoConfigGroup> Drop for ConicalFrustum3dBuilder<'_, '_, '_, T> {
 
 // torus 3d
 
-/// Builder for configuring the drawing options of [`Torus3d`].
+/// Builder for configuring the drawing options of [`Torus`].
 pub struct Torus3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     gizmos: &'a mut Gizmos<'w, 's, T>,
 
