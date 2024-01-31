@@ -98,9 +98,9 @@ impl WinitWindows {
             .with_transparent(window.transparent)
             .with_visible(window.visible);
 
-        match &window.app_id {
+        match &window.name {
             None => {}
-            Some(_id) => {
+            Some(_name) => {
                 #[cfg(all(
                     feature = "wayland",
                     any(
@@ -115,7 +115,7 @@ impl WinitWindows {
                     winit_window_builder =
                         winit::platform::wayland::WindowBuilderExtWayland::with_name(
                             winit_window_builder,
-                            _id.clone(),
+                            _name.clone(),
                             "",
                         );
                 }
@@ -133,7 +133,7 @@ impl WinitWindows {
                 {
                     winit_window_builder = winit::platform::x11::WindowBuilderExtX11::with_name(
                         winit_window_builder,
-                        _id.clone(),
+                        _name.clone(),
                         "",
                     );
                 }
@@ -142,7 +142,7 @@ impl WinitWindows {
                     winit_window_builder =
                         winit::platform::windows::WindowBuilderExtWindows::with_class_name(
                             winit_window_builder,
-                            _id.clone(),
+                            _name.clone(),
                         );
                 }
             }
