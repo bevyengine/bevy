@@ -3,7 +3,7 @@ use bevy_ecs::prelude::{FromWorld, World};
 use thiserror::Error;
 
 use crate::{
-    render_asset::{RenderAssetPersistencePolicy, RenderAssetUsages},
+    render_asset::RenderAssetUsages,
     render_resource::{TextureDescriptor, TextureDimension, TextureFormat, TextureUsages},
     renderer::RenderDevice,
     texture::{Image, ImageFormat, ImageType, TextureError},
@@ -60,22 +60,19 @@ pub struct ImageLoaderSettings {
     pub is_srgb: bool,
     pub sampler: ImageSampler,
     pub asset_usage: RenderAssetUsages,
-    pub cpu_persistent_access: RenderAssetPersistencePolicy,
-    pub sample_count: Option<u32>,
     #[serde(skip)]
-    pub dimension: Option<TextureDimension>,
+    pub texture_dimension: Option<TextureDimension>,
     #[serde(skip)]
     pub texture_format: Option<TextureFormat>,
     #[serde(skip)]
-    pub usage: Option<TextureUsages>,
+    pub texture_usage: Option<TextureUsages>,
 }
 
 impl ImageLoaderSettings {
-    fn apply_to(&self, descriptor: &mut TextureDescriptor) {
-        descriptor.sample_count = self.sample_count.unwrap_or(descriptor.sample_count);
-        descriptor.dimension = self.dimension.unwrap_or(descriptor.dimension);
+    pub fn apply_to(&self, descriptor: &mut TextureDescriptor) {
+        descriptor.dimension = self.texture_dimension.unwrap_or(descriptor.dimension);
         descriptor.format = self.texture_format.unwrap_or(descriptor.format);
-        descriptor.usage = self.usage.unwrap_or(descriptor.usage);
+        descriptor.usage = self.texture_usage.unwrap_or(descriptor.usage);
     }
 }
 
@@ -86,11 +83,9 @@ impl Default for ImageLoaderSettings {
             is_srgb: true,
             sampler: ImageSampler::Default,
             asset_usage: RenderAssetUsages::default(),
-            cpu_persistent_access: RenderAssetPersistencePolicy::Keep,
-            sample_count: None,
-            dimension: None,
+            texture_dimension: None,
             texture_format: None,
-            usage: None,
+            texture_usage: None,
         }
     }
 }
