@@ -3,7 +3,7 @@
 use std::{
     fmt::Debug,
     iter::Sum,
-    ops::{Add, Mul, Sub, Div},
+    ops::{Add, Div, Mul, Sub},
 };
 
 use bevy_utils::{thiserror, thiserror::Error};
@@ -838,7 +838,8 @@ impl<P: Point> RationalGenerator<P> for CubicNurbs<P> {
     #[inline]
     fn to_curve(&self) -> RationalCurve<P> {
         let segments = self
-            .control_points.windows(4)
+            .control_points
+            .windows(4)
             .zip(self.weights.windows(4))
             .zip(self.knot_vector.windows(8))
             .map(|((points, weights), knot_vector_segment)| {
@@ -907,7 +908,8 @@ impl<P: Point> RationalSegment<P> {
         // Velocity is the first derivative (wrt to the parameter `t`)
         // Position = N/D therefore
         // Velocity = (N/D)' = N'/D - N * D'/D^2 = (N' * D - N * D')/D^2
-        numerator_derivative / denominator - numerator * (denominator_derivative / denominator.powi(2))
+        numerator_derivative / denominator
+            - numerator * (denominator_derivative / denominator.powi(2))
     }
 
     /// Instantaneous acceleration of a point at parametric value `t`.
@@ -934,9 +936,11 @@ impl<P: Point> RationalSegment<P> {
         // Position = N/D therefore
         // Velocity = (N/D)' = N'/D - N * D'/D^2 = (N' * D - N * D')/D^2
         // Acceleration = (N/D)'' = ((N' * D - N * D')/D^2)' = N''/D + N' * (-2D'/D^2) + N * (-D''/D^2 + 2D'^2/D^3)
-        numerator_second_derivative/denominator +
-        numerator_derivative * (-2.0 * denominator_derivative/denominator.powi(2)) +
-        numerator * (-denominator_second_derivative/denominator.powi(2) + 2.0 * denominator_derivative.powi(2)/denominator.powi(3))
+        numerator_second_derivative / denominator
+            + numerator_derivative * (-2.0 * denominator_derivative / denominator.powi(2))
+            + numerator
+                * (-denominator_second_derivative / denominator.powi(2)
+                    + 2.0 * denominator_derivative.powi(2) / denominator.powi(3))
     }
 
     /// Calculate polynomial coefficients for the cubic polynomials using a characteristic matrix.
@@ -961,7 +965,10 @@ impl<P: Point> RationalSegment<P> {
             w[0] * c2[0] + w[1] * c2[1] + w[2] * c2[2] + w[3] * c2[3],
             w[0] * c3[0] + w[1] * c3[1] + w[2] * c3[2] + w[3] * c3[3],
         ];
-        Self { coeff, weight_coeff }
+        Self {
+            coeff,
+            weight_coeff,
+        }
     }
 }
 
@@ -1103,7 +1110,7 @@ impl<P: Point> From<CubicSegment<P>> for RationalSegment<P> {
 impl<P: Point> From<CubicCurve<P>> for RationalCurve<P> {
     fn from(value: CubicCurve<P>) -> Self {
         Self {
-            segments: value.segments.into_iter().map(Into::into).collect()
+            segments: value.segments.into_iter().map(Into::into).collect(),
         }
     }
 }
@@ -1112,9 +1119,8 @@ impl<P: Point> From<CubicCurve<P>> for RationalCurve<P> {
 mod tests {
     use glam::{vec2, Vec2};
 
-    use crate::cubic_splines::{CubicBezier, CubicBSpline, CubicGenerator, CubicSegment};
-
     use super::RationalCurve;
+    use crate::cubic_splines::{CubicBSpline, CubicBezier, CubicGenerator, CubicSegment};
 
     /// How close two floats can be and still be considered equal
     const FLOAT_EQ: f32 = 1e-5;
@@ -1196,9 +1202,18 @@ mod tests {
 
         /// Tests if two vectors of points are approximately the same
         fn compare_vectors(cubic_curve: Vec<Vec2>, rational_curve: Vec<Vec2>, name: &str) {
-            assert_eq!(cubic_curve.len(), rational_curve.len(), "{name} vector lengths mismatch");
-            for (a,b) in cubic_curve.iter().zip(rational_curve.iter()) {
-                assert!(a.distance(*b) < EPSILON, "Mismatch between {name} values CubicCurve: {} Converted RationalCurve: {}", a, b);
+            assert_eq!(
+                cubic_curve.len(),
+                rational_curve.len(),
+                "{name} vector lengths mismatch"
+            );
+            for (a, b) in cubic_curve.iter().zip(rational_curve.iter()) {
+                assert!(
+                    a.distance(*b) < EPSILON,
+                    "Mismatch between {name} values CubicCurve: {} Converted RationalCurve: {}",
+                    a,
+                    b
+                );
             }
         }
 
