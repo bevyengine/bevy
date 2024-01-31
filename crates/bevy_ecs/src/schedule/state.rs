@@ -364,7 +364,7 @@ fn prepare_state_transitions(world: &mut World) {
 
 fn execute_state_transition_schedules(world: &mut World) {
     if let Some(schedules) = world.remove_resource::<StateTransitionSchedules>() {
-        for (_, schedules) in schedules.exit_schedules {
+        for (_, schedules) in schedules.exit_schedules.into_iter().rev() {
             for schedule in schedules {
                 let _ = world.try_run_schedule(schedule);
             }
