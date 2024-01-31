@@ -138,15 +138,15 @@ pub struct Window {
     pub resolution: WindowResolution,
     /// Stores the title of the window.
     pub title: String,
-    /// Stores the application ID (on **`Wayland`**) or `wm_class` (on **`X11`**) of the window.
+    /// Stores the application ID (on **`Wayland`**) or `wm_class` (on **`X11`**) attribute of the window.
     ///
     /// For details about application ID conventions, see the [Desktop Entry Spec](https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-latest.html#desktop-file-id).
     ///
     /// ## Platform-specific
     ///
     /// - **`Windows`**, **`iOS`**, **`Android`**, and **`Web`**: not applicable.
-    /// - **`X11`**: Can only be set while building the window, setting your App's `wm_class` property.
-    /// - **`Wayland`**: Can only be set while building the window, setting your App's application ID property.
+    /// - **`X11`**: Can only be set while building the window, setting the window's `wm_class`.
+    /// - **`Wayland`**: Can only be set while building the window, setting the window's application ID.
     ///
     /// Notes: Changing this field during runtime will have no effect for now.
     pub app_id: Option<String>,
