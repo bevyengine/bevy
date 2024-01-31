@@ -330,8 +330,8 @@ impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P>
         SRes<RenderMaterials2d<M>>,
         SRes<RenderMaterial2dInstances<M>>,
     );
-    type ViewData = ();
-    type ItemData = ();
+    type ViewQuery = ();
+    type ItemQuery = ();
 
     #[inline]
     fn render<'w>(

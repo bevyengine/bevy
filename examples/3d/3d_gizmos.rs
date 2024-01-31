@@ -2,6 +2,7 @@
 
 use std::f32::consts::PI;
 
+use bevy::math::primitives::Direction3d;
 use bevy::prelude::*;
 
 fn main() {
@@ -95,11 +96,21 @@ fn system(mut gizmos: Gizmos, mut my_gizmos: Gizmos<MyRoundGizmos>, time: Res<Ti
         );
     }
 
+    my_gizmos
+        .arc_3d(
+            180.0_f32.to_radians(),
+            0.2,
+            Vec3::ONE,
+            Quat::from_rotation_arc(Vec3::Y, Vec3::ONE.normalize()),
+            Color::ORANGE,
+        )
+        .segments(10);
+
     // Circles have 32 line-segments by default.
-    my_gizmos.circle(Vec3::ZERO, Vec3::Y, 3., Color::BLACK);
+    my_gizmos.circle(Vec3::ZERO, Direction3d::Y, 3., Color::BLACK);
     // You may want to increase this for larger circles or spheres.
     my_gizmos
-        .circle(Vec3::ZERO, Vec3::Y, 3.1, Color::NAVY)
+        .circle(Vec3::ZERO, Direction3d::Y, 3.1, Color::NAVY)
         .segments(64);
     my_gizmos
         .sphere(Vec3::ZERO, Quat::IDENTITY, 3.2, Color::BLACK)

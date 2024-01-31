@@ -8,7 +8,7 @@ use bevy_ecs::{
     system::{Deferred, ReadOnlySystemParam, Res, Resource, SystemBuffer, SystemMeta, SystemParam},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
-use bevy_math::{Mat2, Quat, Vec2, Vec3};
+use bevy_math::{primitives::Direction3d, Mat2, Quat, Vec2, Vec3};
 use bevy_render::color::Color;
 use bevy_transform::TransformPoint;
 
@@ -52,7 +52,7 @@ type GizmosState<T> = (
 pub struct GizmosFetchState<T: GizmoConfigGroup> {
     state: <GizmosState<T> as SystemParam>::State,
 }
-// SAFETY: All methods are delegated to existing `SystemParam` implemntations
+// SAFETY: All methods are delegated to existing `SystemParam` implementations
 unsafe impl<T: GizmoConfigGroup> SystemParam for Gizmos<'_, '_, T> {
     type State = GizmosFetchState<T>;
     type Item<'w, 's> = Gizmos<'w, 's, T>;
@@ -77,8 +77,10 @@ unsafe impl<T: GizmoConfigGroup> SystemParam for Gizmos<'_, '_, T> {
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        let (f0, f1) =
-            GizmosState::<T>::get_param(&mut state.state, system_meta, world, change_tick);
+        // SAFETY: Delegated to existing `SystemParam` implementations
+        let (f0, f1) = unsafe {
+            GizmosState::<T>::get_param(&mut state.state, system_meta, world, change_tick)
+        };
         // Accessing the GizmoConfigStore in the immediate mode API reduces performance significantly.
         // Implementing SystemParam manually allows us to do it to here
         // Having config available allows for early returns when gizmos are disabled
@@ -618,7 +620,12 @@ impl<T: GizmoConfigGroup> Drop for SphereBuilder<'_, '_, '_, T> {
         }
         for axis in Vec3::AXES {
             self.gizmos
-                .circle(self.position, self.rotation * axis, self.radius, self.color)
+                .circle(
+                    self.position,
+                    Direction3d::new_unchecked(self.rotation * axis),
+                    self.radius,
+                    self.color,
+                )
                 .segments(self.circle_segments);
         }
     }

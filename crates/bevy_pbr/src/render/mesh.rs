@@ -806,7 +806,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("VIEW_PROJECTION_ORTHOGRAPHIC".into());
         }
 
-        #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+        #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         shader_defs.push("WEBGL2".into());
 
         if key.contains(MeshPipelineKey::TONEMAP_IN_SHADER) {
@@ -899,7 +899,11 @@ impl SpecializedMeshPipeline for MeshPipeline {
         }
 
         let mut push_constant_ranges = Vec::with_capacity(1);
-        if cfg!(all(feature = "webgl", target_arch = "wasm32")) {
+        if cfg!(all(
+            feature = "webgl",
+            target_arch = "wasm32",
+            not(feature = "webgpu")
+        )) {
             push_constant_ranges.push(PushConstantRange {
                 stages: ShaderStages::VERTEX,
                 range: 0..4,
@@ -1043,21 +1047,21 @@ pub fn prepare_mesh_bind_group(
 pub struct SetMeshViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> {
     type Param = ();
-    type ViewData = (
+    type ViewQuery = (
         Read<ViewUniformOffset>,
         Read<ViewLightsUniformOffset>,
         Read<ViewFogUniformOffset>,
         Read<ViewLightProbesUniformOffset>,
         Read<MeshViewBindGroup>,
     );
-    type ItemData = ();
+    type ItemQuery = ();
 
     #[inline]
     fn render<'w>(
         _item: &P,
         (view_uniform, view_lights, view_fog, view_light_probes, mesh_view_bind_group): ROQueryItem<
             'w,
-            Self::ViewData,
+            Self::ViewQuery,
         >,
         _entity: (),
         _: SystemParamItem<'w, '_, Self::Param>,
@@ -1087,8 +1091,8 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         SRes<MorphIndices>,
         SRes<RenderLightmaps>,
     );
-    type ViewData = ();
-    type ItemData = ();
+    type ViewQuery = ();
+    type ItemQuery = ();
 
     #[inline]
     fn render<'w>(
@@ -1157,8 +1161,8 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
 pub struct DrawMesh;
 impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
     type Param = (SRes<RenderAssets<Mesh>>, SRes<RenderMeshInstances>);
-    type ViewData = ();
-    type ItemData = ();
+    type ViewQuery = ();
+    type ItemQuery = ();
     #[inline]
     fn render<'w>(
         item: &P,
@@ -1180,7 +1184,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
         pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
 
         let batch_range = item.batch_range();
-        #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+        #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         pass.set_push_constants(
             ShaderStages::VERTEX,
             0,
