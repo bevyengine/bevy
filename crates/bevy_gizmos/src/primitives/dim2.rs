@@ -96,13 +96,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Ellipse> for Gizmos<'w, 's, T
             return;
         }
 
-        self.ellipse_2d(
-            position,
-            angle,
-            primitive.half_size.x,
-            primitive.half_size.y,
-            color,
-        );
+        self.ellipse_2d(position, angle, primitive.half_size, color);
     }
 }
 

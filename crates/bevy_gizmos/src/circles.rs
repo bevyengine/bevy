@@ -11,11 +11,11 @@ use std::f32::consts::TAU;
 
 pub(crate) const DEFAULT_CIRCLE_SEGMENTS: usize = 32;
 
-fn ellipse_inner(half_width: f32, half_height: f32, segments: usize) -> impl Iterator<Item = Vec2> {
+fn ellipse_inner(half_size: Vec2, segments: usize) -> impl Iterator<Item = Vec2> {
     (0..segments + 1).map(move |i| {
         let angle = i as f32 * TAU / segments as f32;
         let (x, y) = angle.sin_cos();
-        Vec2::new(x * half_width, y * half_height)
+        Vec2::new(x, y) * half_size
     })
 }
 
@@ -30,12 +30,12 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.ellipse(Vec3::ZERO, Vec3::Z, 1., 2., Color::GREEN);
+    ///     gizmos.ellipse(Vec3::ZERO, Quat::IDENTITY, Vec2::new(1., 2.), Color::GREEN);
     ///
     ///     // Ellipses have 32 line-segments by default.
     ///     // You may want to increase this for larger ellipses.
     ///     gizmos
-    ///         .ellipse(Vec3::ZERO, Quat::IDENTITY, Vec3::Z, 5., 1., Color::RED)
+    ///         .ellipse(Vec3::ZERO, Quat::IDENTITY, Vec2::new(5., 1.), Color::RED)
     ///         .segments(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
@@ -45,16 +45,14 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         &mut self,
         position: Vec3,
         rotation: Quat,
-        half_width: f32,
-        half_height: f32,
+        half_size: Vec2,
         color: Color,
     ) -> EllipseBuilder<'_, 'w, 's, T> {
         EllipseBuilder {
             gizmos: self,
             position,
             rotation,
-            half_width,
-            half_height,
+            half_size,
             color,
             segments: DEFAULT_CIRCLE_SEGMENTS,
         }
@@ -70,12 +68,12 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.ellipse_2d(Vec2::ZERO, 180.0_f32.to_radians(), 2., Color::GREEN);
+    ///     gizmos.ellipse_2d(Vec2::ZERO, 180.0_f32.to_radians(), Vec2::new(2., 1.), Color::GREEN);
     ///
     ///     // Ellipses have 32 line-segments by default.
     ///     // You may want to increase this for larger ellipses.
     ///     gizmos
-    ///         .ellipse_2d(Vec2::ZERO, 180.0_f32.to_radians(), 5., 1., Color::RED)
+    ///         .ellipse_2d(Vec2::ZERO, 180.0_f32.to_radians(), Vec2::new(5., 1.), Color::RED)
     ///         .segments(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
@@ -85,16 +83,14 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         &mut self,
         position: Vec2,
         angle: f32,
-        half_width: f32,
-        half_height: f32,
+        half_size: Vec2,
         color: Color,
     ) -> Ellipse2dBuilder<'_, 'w, 's, T> {
         Ellipse2dBuilder {
             gizmos: self,
             position,
             rotation: Mat2::from_angle(angle),
-            half_width,
-            half_height,
+            half_size,
             color,
             segments: DEFAULT_CIRCLE_SEGMENTS,
         }
@@ -132,8 +128,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
             gizmos: self,
             position,
             rotation: Quat::from_rotation_arc(Vec3::Z, *normal),
-            half_width: radius,
-            half_height: radius,
+            half_size: Vec2::splat(radius),
             color,
             segments: DEFAULT_CIRCLE_SEGMENTS,
         }
@@ -170,8 +165,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
             gizmos: self,
             position,
             rotation: Mat2::IDENTITY,
-            half_width: radius,
-            half_height: radius,
+            half_size: Vec2::splat(radius),
             color,
             segments: DEFAULT_CIRCLE_SEGMENTS,
         }
@@ -183,8 +177,7 @@ pub struct EllipseBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     gizmos: &'a mut Gizmos<'w, 's, T>,
     position: Vec3,
     rotation: Quat,
-    half_width: f32,
-    half_height: f32,
+    half_size: Vec2,
     color: Color,
     segments: usize,
 }
@@ -203,7 +196,7 @@ impl<T: GizmoConfigGroup> Drop for EllipseBuilder<'_, '_, '_, T> {
             return;
         }
 
-        let positions = ellipse_inner(self.half_width, self.half_height, self.segments)
+        let positions = ellipse_inner(self.half_size, self.segments)
             .map(|vec2| self.rotation * vec2.extend(0.))
             .map(|vec3| vec3 + self.position);
         self.gizmos.linestrip(positions, self.color);
@@ -215,8 +208,7 @@ pub struct Ellipse2dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     gizmos: &'a mut Gizmos<'w, 's, T>,
     position: Vec2,
     rotation: Mat2,
-    half_width: f32,
-    half_height: f32,
+    half_size: Vec2,
     color: Color,
     segments: usize,
 }
@@ -235,7 +227,7 @@ impl<T: GizmoConfigGroup> Drop for Ellipse2dBuilder<'_, '_, '_, T> {
             return;
         };
 
-        let positions = ellipse_inner(self.half_width, self.half_height, self.segments)
+        let positions = ellipse_inner(self.half_size, self.segments)
             .map(|vec2| self.rotation * vec2)
             .map(|vec2| vec2 + self.position);
         self.gizmos.linestrip_2d(positions, self.color);

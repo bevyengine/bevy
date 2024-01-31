@@ -107,8 +107,7 @@ fn system(mut gizmos: Gizmos, mut my_gizmos: Gizmos<MyRoundGizmos>, time: Res<Ti
     my_gizmos.ellipse_2d(
         Vec2::ZERO,
         time.elapsed_seconds() % TAU,
-        100.,
-        200.,
+        Vec2::new(100., 200.),
         Color::YELLOW_GREEN,
     );
     // You may want to increase this for larger circles.
