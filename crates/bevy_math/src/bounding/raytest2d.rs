@@ -13,7 +13,7 @@ pub struct RayTest2d {
 }
 
 impl RayTest2d {
-    /// Construct a [`RayTest2d`] from an origin, [`Direction2d`] and max distance.
+    /// Construct a [`RayTest2d`] from an origin, [`Direction2d`], and max distance.
     pub fn new(origin: Vec2, direction: Direction2d, max: f32) -> Self {
         Self::from_ray(Ray2d { origin, direction }, max)
     }
@@ -108,12 +108,12 @@ pub struct AabbCast2d {
 }
 
 impl AabbCast2d {
-    /// Construct an [`AabbCast2d`] from an [`Aabb2d`], origin, [`Direction2d`] and max distance.
+    /// Construct an [`AabbCast2d`] from an [`Aabb2d`], origin, [`Direction2d`], and max distance.
     pub fn new(aabb: Aabb2d, origin: Vec2, direction: Direction2d, max: f32) -> Self {
         Self::from_ray(aabb, Ray2d { origin, direction }, max)
     }
 
-    /// Construct an [`AabbCast2d`] from an [`Aabb2d`], [`Ray2d`] and max distance.
+    /// Construct an [`AabbCast2d`] from an [`Aabb2d`], [`Ray2d`], and max distance.
     pub fn from_ray(aabb: Aabb2d, ray: Ray2d, max: f32) -> Self {
         Self {
             ray: RayTest2d::from_ray(ray, max),
@@ -145,12 +145,12 @@ pub struct BoundingCircleCast {
 }
 
 impl BoundingCircleCast {
-    /// Construct a [`BoundingCircleCast`] from a [`BoundingCircle`], origin, [`Direction2d`] and max distance.
+    /// Construct a [`BoundingCircleCast`] from a [`BoundingCircle`], origin, [`Direction2d`], and max distance.
     pub fn new(circle: BoundingCircle, origin: Vec2, direction: Direction2d, max: f32) -> Self {
         Self::from_ray(circle, Ray2d { origin, direction }, max)
     }
 
-    /// Construct a [`BoundingCircleCast`] from a [`BoundingCircle`], [`Ray2d`] and max distance.
+    /// Construct a [`BoundingCircleCast`] from a [`BoundingCircle`], [`Ray2d`], and max distance.
     pub fn from_ray(circle: BoundingCircle, ray: Ray2d, max: f32) -> Self {
         Self {
             ray: RayTest2d::from_ray(ray, max),
@@ -484,7 +484,7 @@ mod tests {
                 3.,
             ),
             (
-                // Hit the center a the bounding circle, but from the other side
+                // Hit the center of the bounding circle, but from the other side
                 BoundingCircleCast::new(
                     BoundingCircle::new(Vec2::ZERO, 1.),
                     Vec2::Y * 10.,

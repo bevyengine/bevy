@@ -13,7 +13,7 @@ pub struct RayTest3d {
 }
 
 impl RayTest3d {
-    /// Construct a [`RayTest3d`] from an origin, [`Direction3d`] and max distance.
+    /// Construct a [`RayTest3d`] from an origin, [`Direction3d`], and max distance.
     pub fn new(origin: Vec3, direction: Direction3d, max: f32) -> Self {
         Self::from_ray(Ray3d { origin, direction }, max)
     }
@@ -115,12 +115,12 @@ pub struct AabbCast3d {
 }
 
 impl AabbCast3d {
-    /// Construct an [`AabbCast3d`] from an [`Aabb3d`], origin, [`Direction3d`] and max distance.
+    /// Construct an [`AabbCast3d`] from an [`Aabb3d`], origin, [`Direction3d`], and max distance.
     pub fn new(aabb: Aabb3d, origin: Vec3, direction: Direction3d, max: f32) -> Self {
         Self::from_ray(aabb, Ray3d { origin, direction }, max)
     }
 
-    /// Construct an [`AabbCast3d`] from an [`Aabb3d`], [`Ray3d`] and max distance.
+    /// Construct an [`AabbCast3d`] from an [`Aabb3d`], [`Ray3d`], and max distance.
     pub fn from_ray(aabb: Aabb3d, ray: Ray3d, max: f32) -> Self {
         Self {
             ray: RayTest3d::from_ray(ray, max),
@@ -152,12 +152,12 @@ pub struct BoundingSphereCast {
 }
 
 impl BoundingSphereCast {
-    /// Construct a [`BoundingSphereCast`] from a [`BoundingSphere`], origin, [`Direction3d`] and max distance.
+    /// Construct a [`BoundingSphereCast`] from a [`BoundingSphere`], origin, [`Direction3d`], and max distance.
     pub fn new(sphere: BoundingSphere, origin: Vec3, direction: Direction3d, max: f32) -> Self {
         Self::from_ray(sphere, Ray3d { origin, direction }, max)
     }
 
-    /// Construct a [`BoundingSphereCast`] from a [`BoundingSphere`], [`Ray3d`] and max distance.
+    /// Construct a [`BoundingSphereCast`] from a [`BoundingSphere`], [`Ray3d`], and max distance.
     pub fn from_ray(sphere: BoundingSphere, ray: Ray3d, max: f32) -> Self {
         Self {
             ray: RayTest3d::from_ray(ray, max),
