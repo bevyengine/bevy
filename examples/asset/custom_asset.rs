@@ -116,7 +116,7 @@ fn setup(mut state: ResMut<State>, asset_server: Res<AssetServer>) {
     // Recommended way to load an asset
     state.handle = asset_server.load("data/asset.custom");
 
-    // File extensions are optional, but are recommended
+    // File extensions are optional, but are recommended for project management and last-resort inference
     state.other_handle = asset_server.load("data/asset_no_extension");
 
     // Will use BlobAssetLoader instead of CustomAssetLoader thanks to type inference
