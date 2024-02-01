@@ -283,6 +283,10 @@ macro_rules! impl_reflect_for_veclike {
             fn as_fixed_len_list(&self) -> &dyn FixedLenList {
                 self
             }
+
+            fn as_fixed_len_list_mut(&mut self) -> &mut dyn FixedLenList {
+                self
+            }
         }
 
         impl<T: FromReflect + TypePath> Reflect for $ty {
@@ -1222,6 +1226,10 @@ impl<T: FromReflect + Clone + TypePath> List for Cow<'static, [T]> {
     }
 
     fn as_fixed_len_list(&self) -> &dyn FixedLenList {
+        self
+    }
+
+    fn as_fixed_len_list_mut(&mut self) -> &mut dyn FixedLenList {
         self
     }
 }

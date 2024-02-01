@@ -85,6 +85,10 @@ where
     fn as_fixed_len_list(&self) -> &dyn FixedLenList {
         self
     }
+
+    fn as_fixed_len_list_mut(&mut self) -> &mut dyn FixedLenList {
+        self
+    }
 }
 
 impl<T: smallvec::Array + TypePath + Send + Sync> Reflect for SmallVec<T>
