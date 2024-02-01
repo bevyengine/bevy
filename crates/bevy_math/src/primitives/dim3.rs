@@ -1,7 +1,7 @@
 use std::f32::consts::{FRAC_PI_3, PI};
 
 use super::{Circle, InvalidDirectionError, Primitive3d};
-use crate::Vec3;
+use crate::{Quat, Vec3};
 
 /// A normalized vector pointing in a direction in 3D space
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -82,6 +82,53 @@ impl std::ops::Neg for Direction3d {
     type Output = Self;
     fn neg(self) -> Self::Output {
         Self(-self.0)
+    }
+}
+
+impl std::ops::Mul<Direction3d> for Quat {
+    type Output = Direction3d;
+
+    /// Rotates the [`Direction3d`] using a [`Quat`].
+    fn mul(self, direction: Direction3d) -> Self::Output {
+        let rotated = self * *direction;
+
+        // Make sure the result is normalized.
+        // This can fail for non-unit quaternions.
+        debug_assert!(rotated.is_normalized());
+
+        Direction3d::new_unchecked(rotated)
+    }
+}
+
+#[cfg(feature = "approx")]
+impl approx::AbsDiffEq for Direction3d {
+    type Epsilon = f32;
+    fn default_epsilon() -> f32 {
+        f32::EPSILON
+    }
+    fn abs_diff_eq(&self, other: &Self, epsilon: f32) -> bool {
+        self.as_ref().abs_diff_eq(other.as_ref(), epsilon)
+    }
+}
+
+#[cfg(feature = "approx")]
+impl approx::RelativeEq for Direction3d {
+    fn default_max_relative() -> f32 {
+        f32::EPSILON
+    }
+    fn relative_eq(&self, other: &Self, epsilon: f32, max_relative: f32) -> bool {
+        self.as_ref()
+            .relative_eq(other.as_ref(), epsilon, max_relative)
+    }
+}
+
+#[cfg(feature = "approx")]
+impl approx::UlpsEq for Direction3d {
+    fn default_max_ulps() -> u32 {
+        4
+    }
+    fn ulps_eq(&self, other: &Self, epsilon: f32, max_ulps: u32) -> bool {
+        self.as_ref().ulps_eq(other.as_ref(), epsilon, max_ulps)
     }
 }
 
@@ -656,6 +703,62 @@ mod tests {
     use approx::assert_relative_eq;
 
     #[test]
+    fn direction_creation() {
+        assert_eq!(Direction3d::new(Vec3::X * 12.5), Ok(Direction3d::X));
+        assert_eq!(
+            Direction3d::new(Vec3::new(0.0, 0.0, 0.0)),
+            Err(InvalidDirectionError::Zero)
+        );
+        assert_eq!(
+            Direction3d::new(Vec3::new(f32::INFINITY, 0.0, 0.0)),
+            Err(InvalidDirectionError::Infinite)
+        );
+        assert_eq!(
+            Direction3d::new(Vec3::new(f32::NEG_INFINITY, 0.0, 0.0)),
+            Err(InvalidDirectionError::Infinite)
+        );
+        assert_eq!(
+            Direction3d::new(Vec3::new(f32::NAN, 0.0, 0.0)),
+            Err(InvalidDirectionError::NaN)
+        );
+        assert_eq!(
+            Direction3d::new_and_length(Vec3::X * 6.5),
+            Ok((Direction3d::X, 6.5))
+        );
+
+        // Test rotation
+        assert!(
+            (Quat::from_rotation_z(std::f32::consts::FRAC_PI_2) * Direction3d::X)
+                .abs_diff_eq(Vec3::Y, 10e-6)
+        );
+    }
+
+    #[test]
+    fn cuboid_closest_point() {
+        let cuboid = Cuboid::new(2.0, 2.0, 2.0);
+        assert_eq!(cuboid.closest_point(Vec3::X * 10.0), Vec3::X);
+        assert_eq!(cuboid.closest_point(Vec3::NEG_ONE * 10.0), Vec3::NEG_ONE);
+        assert_eq!(
+            cuboid.closest_point(Vec3::new(0.25, 0.1, 0.3)),
+            Vec3::new(0.25, 0.1, 0.3)
+        );
+    }
+
+    #[test]
+    fn sphere_closest_point() {
+        let sphere = Sphere { radius: 1.0 };
+        assert_eq!(sphere.closest_point(Vec3::X * 10.0), Vec3::X);
+        assert_eq!(
+            sphere.closest_point(Vec3::NEG_ONE * 10.0),
+            Vec3::NEG_ONE.normalize()
+        );
+        assert_eq!(
+            sphere.closest_point(Vec3::new(0.25, 0.1, 0.3)),
+            Vec3::new(0.25, 0.1, 0.3)
+        );
+    }
+
+    #[test]
     fn sphere_math() {
         let sphere = Sphere { radius: 4.0 };
         assert_eq!(sphere.diameter(), 8.0, "incorrect diameter");
@@ -756,60 +859,5 @@ mod tests {
         );
         assert_relative_eq!(torus.area(), 33.16187);
         assert_relative_eq!(torus.volume(), 4.97428, epsilon = 0.00001);
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn direction_creation() {
-        assert_eq!(Direction3d::new(Vec3::X * 12.5), Ok(Direction3d::X));
-        assert_eq!(
-            Direction3d::new(Vec3::new(0.0, 0.0, 0.0)),
-            Err(InvalidDirectionError::Zero)
-        );
-        assert_eq!(
-            Direction3d::new(Vec3::new(f32::INFINITY, 0.0, 0.0)),
-            Err(InvalidDirectionError::Infinite)
-        );
-        assert_eq!(
-            Direction3d::new(Vec3::new(f32::NEG_INFINITY, 0.0, 0.0)),
-            Err(InvalidDirectionError::Infinite)
-        );
-        assert_eq!(
-            Direction3d::new(Vec3::new(f32::NAN, 0.0, 0.0)),
-            Err(InvalidDirectionError::NaN)
-        );
-        assert_eq!(
-            Direction3d::new_and_length(Vec3::X * 6.5),
-            Ok((Direction3d::X, 6.5))
-        );
-    }
-
-    #[test]
-    fn cuboid_closest_point() {
-        let cuboid = Cuboid::new(2.0, 2.0, 2.0);
-        assert_eq!(cuboid.closest_point(Vec3::X * 10.0), Vec3::X);
-        assert_eq!(cuboid.closest_point(Vec3::NEG_ONE * 10.0), Vec3::NEG_ONE);
-        assert_eq!(
-            cuboid.closest_point(Vec3::new(0.25, 0.1, 0.3)),
-            Vec3::new(0.25, 0.1, 0.3)
-        );
-    }
-
-    #[test]
-    fn sphere_closest_point() {
-        let sphere = Sphere { radius: 1.0 };
-        assert_eq!(sphere.closest_point(Vec3::X * 10.0), Vec3::X);
-        assert_eq!(
-            sphere.closest_point(Vec3::NEG_ONE * 10.0),
-            Vec3::NEG_ONE.normalize()
-        );
-        assert_eq!(
-            sphere.closest_point(Vec3::new(0.25, 0.1, 0.3)),
-            Vec3::new(0.25, 0.1, 0.3)
-        );
     }
 }
