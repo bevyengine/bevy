@@ -662,7 +662,7 @@ pub fn extract_text_uinodes(
             }
             if let Some(atlas) = texture_atlases.get(&atlas_info.texture_atlas) {
                 let mut uv_rect = atlas.textures[atlas_info.glyph_index];
-                let scaled_glyph_size = uv_rect.size() * inverse_scale_factor;
+                let scaled_glyph_size = (uv_rect.size() - 2.) * inverse_scale_factor;
                 let scaled_glyph_position = *glyph_position * inverse_scale_factor;
                 uv_rect.min /= atlas.size;
                 uv_rect.max /= atlas.size;
