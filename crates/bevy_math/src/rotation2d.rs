@@ -7,11 +7,13 @@ use crate::prelude::{Direction2d, Mat2, Vec2};
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Rotation2d {
     /// The cosine of the rotation angle in radians.
-    /// This is the real part of the unit complex number.
-    cos: f32,
+    ///
+    /// This is the real part of the unit complex number representing the rotation.
+    pub cos: f32,
     /// The sine of the rotation angle in radians.
-    /// This is the imaginary part of the unit complex number.
-    sin: f32,
+    ///
+    /// This is the imaginary part of the unit complex number representing the rotation.
+    pub sin: f32,
 }
 
 impl Default for Rotation2d {
@@ -60,11 +62,11 @@ impl Rotation2d {
     pub fn as_radians(self) -> f32 {
         #[cfg(feature = "libm")]
         {
-            libm::atan2(libm::sin(self), libm::cos(self))
+            libm::atan2(self.sin, self.cos)
         }
         #[cfg(not(feature = "libm"))]
         {
-            f32::atan2(self.sin(), self.cos())
+            f32::atan2(self.sin, self.cos)
         }
     }
 
@@ -78,18 +80,6 @@ impl Rotation2d {
     #[inline]
     pub fn sin_cos(self) -> (f32, f32) {
         (self.sin, self.cos)
-    }
-
-    /// Returns the cosine of the rotation angle in radians.
-    #[inline]
-    pub fn cos(self) -> f32 {
-        self.cos
-    }
-
-    /// Returns the sine of the rotation angle in radians.
-    #[inline]
-    pub fn sin(self) -> f32 {
-        self.sin
     }
 
     /// Returns `true` if the rotation is neither infinite nor NaN.
@@ -152,7 +142,7 @@ impl Rotation2d {
     /// ```
     #[inline]
     pub fn lerp(self, end: Self, s: f32) -> Self {
-        Self::from_sin_cos(self.sin().lerp(end.sin(), s), self.cos().lerp(end.cos(), s))
+        Self::from_sin_cos(self.sin.lerp(end.sin, s), self.cos.lerp(end.cos, s))
     }
 
     /// Performs a spherical linear interpolation between `self` and `end`
@@ -197,8 +187,8 @@ impl std::ops::Mul for Rotation2d {
 
     fn mul(self, rhs: Self) -> Self::Output {
         Self {
-            cos: self.cos * rhs.cos() - self.sin * rhs.sin(),
-            sin: self.sin * rhs.cos() + self.cos * rhs.sin(),
+            cos: self.cos * rhs.cos - self.sin * rhs.sin,
+            sin: self.sin * rhs.cos + self.cos * rhs.sin,
         }
     }
 }
@@ -214,8 +204,8 @@ impl std::ops::Mul<Vec2> for Rotation2d {
 
     fn mul(self, rhs: Vec2) -> Self::Output {
         Vec2::new(
-            rhs.x * self.cos() - rhs.y * self.sin(),
-            rhs.x * self.sin() + rhs.y * self.cos(),
+            rhs.x * self.cos - rhs.y * self.sin,
+            rhs.x * self.sin + rhs.y * self.cos,
         )
     }
 }
