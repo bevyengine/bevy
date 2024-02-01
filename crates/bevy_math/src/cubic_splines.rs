@@ -47,14 +47,20 @@ impl<T> Point for T where
 /// [`CubicSegment::new_bezier`] for use in easing.
 ///
 /// ### Interpolation
-/// The curve only passes through the first and last control point in each set of four points.
+/// The curve only passes through the first and last control point in each set of four points. The curve
+/// is divided into "segments" by every fourth control point.
 ///
 /// ### Tangency
-/// Manually defined by the two intermediate control points within each set of four points.
+/// Tangents are manually defined by the two intermediate control points within each set of four points.
+/// You can think of the control points the curve passes through as "anchors", and as the intermediate
+/// control points as the anchors displaced along their tangent vectors
 ///
 /// ### Continuity
-/// At minimum C0 continuous, up to C2. Continuity greater than C0 can result in a loss of local
-/// control over the spline due to the curvature constraints.
+/// A Bezier curve is at minimum C0 continuous, meaning it has no holes or jumps. Each curve segment is
+/// C2, meaning the tangent vector changes smoothly between each set of four control points, but this
+/// doesn't hold at the control points between segments. Making the whole curve C1 or C2 requires moving
+/// the intermediate control points to align the tangent vectors between segments, and can result in a
+/// loss of local control.
 ///
 /// ### Usage
 ///
@@ -84,6 +90,9 @@ impl<P: Point> CubicBezier<P> {
 impl<P: Point> CubicGenerator<P> for CubicBezier<P> {
     #[inline]
     fn to_curve(&self) -> CubicCurve<P> {
+        // A derivation for this matrix can be found in "General Matrix Representations for B-splines" by Kaihuai Qin.
+        // <https://xiaoxingchen.github.io/2020/03/02/bspline_in_so3/general_matrix_representation_for_bsplines.pdf>
+        // See section 4.2 and equation 11.
         let char_matrix = [
             [1., 0., 0., 0.],
             [-3., 3., 0., 0.],
@@ -112,10 +121,11 @@ impl<P: Point> CubicGenerator<P> for CubicBezier<P> {
 /// The curve passes through every control point.
 ///
 /// ### Tangency
-/// Explicitly defined at each control point.
+/// Tangents are explicitly defined at each control point.
 ///
 /// ### Continuity
-/// At minimum C0 continuous, up to C1.
+/// The curve is at minimum C0 continuous, meaning it has no holes or jumps. It is also C1, meaning the
+/// tangent vector has no sudden jumps.
 ///
 /// ### Usage
 ///
@@ -182,10 +192,11 @@ impl<P: Point> CubicGenerator<P> for CubicHermite<P> {
 /// The curve passes through every control point.
 ///
 /// ### Tangency
-/// Automatically defined at each control point.
+/// Tangents are automatically computed based on the position of control points.
 ///
 /// ### Continuity
-/// C1 continuous.
+/// The curve is at minimum C0 continuous, meaning it has no holes or jumps. It is also C1, meaning the
+/// tangent vector has no sudden jumps.
 ///
 /// ### Usage
 ///
@@ -250,10 +261,11 @@ impl<P: Point> CubicGenerator<P> for CubicCardinalSpline<P> {
 /// The curve does not pass through control points.
 ///
 /// ### Tangency
-/// Automatically computed based on the position of control points.
+/// Tangents are automatically computed based on the position of control points.
 ///
 /// ### Continuity
-/// C2 continuous! The acceleration continuity of this spline makes it useful for camera paths.
+/// The curve is C2 continuous, meaning it has no holes or jumps, and the tangent vector changes smoothly along
+/// the entire curve length. The acceleration continuity of this spline makes it useful for camera paths.
 ///
 /// ### Usage
 ///
@@ -282,6 +294,9 @@ impl<P: Point> CubicBSpline<P> {
 impl<P: Point> CubicGenerator<P> for CubicBSpline<P> {
     #[inline]
     fn to_curve(&self) -> CubicCurve<P> {
+        // A derivation for this matrix can be found in "General Matrix Representations for B-splines" by Kaihuai Qin.
+        // <https://xiaoxingchen.github.io/2020/03/02/bspline_in_so3/general_matrix_representation_for_bsplines.pdf>
+        // See section 4.1 and equations 7 and 8.
         let mut char_matrix = [
             [1.0, 4.0, 1.0, 0.0],
             [-3.0, 0.0, 3.0, 0.0],
@@ -334,22 +349,33 @@ pub enum CubicNurbsError {
     },
 }
 
-/// A cubic non-uniform rational B-spline (NURBS). Generates a smooth curve from a
-/// sequence of control points by interpolating between four points at a time.
+/// Non-uniform Rational B-Splines (NURBS) are powerful generalization of the [`CubicBSpline`] which can
+/// represent a much more diverse class of curves (like perfect circles and ellipses).
+///
+/// ### Non-uniformity
+/// The 'NU' part of NURBS stands for "Non-Uniform". This has to do with a parameter called the Knot
+/// Vector. This is a non-decreasing sequence, where each successive pair of knots corresponds to
+/// one segment of the final curve. The difference between each pair of knots roughly corresponds to the
+/// length of each segment. Multiple repeated knot values are called "Knot multiplicity". Each repeated
+/// value causes a "zero-length" segment, which is ignored.
+///
+/// ### Rationality
+/// The 'R' part of NURBS stands for "Rational". This has to do with NURBS allowing each control point to
+/// be assigned a weighting, which controls how much it effects the curve recitative to the other points.
 ///
 /// ### Interpolation
-/// The knot vector is a non-decreasing sequence that controls which four
-/// control points are assigned to each segment of the curve. It can be used to make
-/// sharp corners. The curve will not pass through the control points unless the
-/// knot vector has the same value four times in a row.
+/// The curve will not pass through the control points unless the knot vector has the same value four times
+/// in a row.
 ///
-/// ### Curvature
-/// The tangents automatically calculated based on the position of the control
-/// points. The curve is C2 continuous (meaning both the velocity and
-/// acceleration are smooth), making it useful for camera paths and moving objects.
-/// The continuity reduces if the curve's knot vector has repeating values, which is called knot
-/// multiplicity. Knot multiplicity of 2 would reduce the continuity to C1, multiplicity of 3 would
-/// reduce the continuity to C0.
+/// ### Tangency
+/// Tangents are automatically computed based on the position of control points.
+///
+/// ### Continuity
+/// When there is no Knot Multiplicity, the curve is C2 continuous, meaning it has no holes or jumps, and the
+/// tangent vector changes smoothly along the entire curve length. Like the [`CubicBSpline`], the acceleration
+/// continuity makes it useful for camera paths. Knot multiplicity of 2 reduces the continuity to C2, and Knot
+/// multiplicity of 3 reduces the continuity to C0. The curve is always at-least C0, meaning it has no jumps
+/// or holes.
 ///
 /// ### Usage
 ///
@@ -380,7 +406,8 @@ impl<P: Point> CubicNurbs<P> {
     /// vector. Defaults to equal weights.
     ///
     /// If provided, the knot vector must have n + 4 elements, where n is the amount of control
-    /// points. Defaults to open uniform knot vector: [`Self::open_uniform_knot_vector`].
+    /// points. Defaults to open uniform knot vector: [`Self::open_uniform_knot_vector`]. A constant
+    /// knot vector is invalid.
     ///
     /// At least 4 points must be provided, otherwise an error will be returned.
     pub fn new(
@@ -488,8 +515,10 @@ impl<P: Point> CubicNurbs<P> {
         control_points_len + 4
     }
 
-    /// Based on <https://xiaoxingchen.github.io/2020/03/02/bspline_in_so3/general_matrix_representation_for_bsplines.pdf>
     fn generate_matrix(knot_vector_segment: &[f32; 8]) -> [[f32; 4]; 4] {
+        // A derivation for this matrix can be found in "General Matrix Representations for B-splines" by Kaihuai Qin.
+        // <https://xiaoxingchen.github.io/2020/03/02/bspline_in_so3/general_matrix_representation_for_bsplines.pdf>
+        // See section 3.1.
         let t = knot_vector_segment;
         let m00 = (t[4] - t[3]).powi(2) / ((t[4] - t[2]) * (t[4] - t[1]));
         let m02 = (t[3] - t[2]).powi(2) / ((t[5] - t[2]) * (t[4] - t[2]));
@@ -515,8 +544,44 @@ impl<P: Point> CubicNurbs<P> {
         weights.into_iter().map(|w| w * mul).collect()
     }
 }
+impl<P: Point> RationalGenerator<P> for CubicNurbs<P> {
+    #[inline]
+    fn to_curve(&self) -> RationalCurve<P> {
+        let segments = self
+            .control_points
+            .windows(4)
+            .zip(self.weights.windows(4))
+            .zip(self.knot_vector.windows(8))
+            .map(|((points, weights), knot_vector_segment)| {
+                let knot_vector_segment = knot_vector_segment
+                    .try_into()
+                    .expect("Knot vector windows are of length 8");
+                let matrix = Self::generate_matrix(knot_vector_segment);
+                RationalSegment::coefficients(
+                    points
+                        .try_into()
+                        .expect("Points vector windows are of length 4"),
+                    weights
+                        .try_into()
+                        .expect("Weights vector windows are of length 4"),
+                    matrix,
+                )
+            })
+            .collect();
+        RationalCurve { segments }
+    }
+}
 
 /// A spline interpolated linearly between the nearest 2 points.
+///
+/// ### Interpolation
+/// The curve passes through every control point.
+///
+/// ### Tangency
+/// The curve is not generally differentiable at control points.
+///
+/// ### Continuity
+/// The curve is C0 continuous, meaning it has no holes or jumps.
 pub struct LinearSpline<P: Point> {
     points: Vec<P>,
 }
@@ -546,13 +611,14 @@ impl<P: Point> CubicGenerator<P> for LinearSpline<P> {
     }
 }
 
-/// Implement this on cubic splines that can generate a curve from their spline parameters.
+/// Implement this on cubic splines that can generate a cubic curve from their spline parameters.
 pub trait CubicGenerator<P: Point> {
     /// Build a [`CubicCurve`] by computing the interpolation coefficients for each curve segment.
     fn to_curve(&self) -> CubicCurve<P>;
 }
 
 /// A segment of a cubic curve, used to hold precomputed coefficients for fast interpolation.
+/// Can be evaluated as a parametric curve over the domain `[0, 1)`.
 ///
 /// Segments can be chained together to form a longer compound curve.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -565,7 +631,7 @@ impl<P: Point> CubicSegment<P> {
     #[inline]
     pub fn position(&self, t: f32) -> P {
         let [a, b, c, d] = self.coeff;
-        // Evaluate `a + bt + ct^2 + dt^3`
+        // Evaluate `a + bt + ct^2 + dt^3`, avoiding exponentiation
         a + (b + (c + d * t) * t) * t
     }
 
@@ -573,7 +639,7 @@ impl<P: Point> CubicSegment<P> {
     #[inline]
     pub fn velocity(&self, t: f32) -> P {
         let [_, b, c, d] = self.coeff;
-        // Evaluate the derivative, which is `b + 2ct + 3dt^2`
+        // Evaluate the derivative, which is `b + 2ct + 3dt^2`, avoiding exponentiation
         b + (c * 2.0 + d * 3.0 * t) * t
     }
 
@@ -708,7 +774,8 @@ impl CubicSegment<Vec2> {
     }
 }
 
-/// A collection of [`CubicSegment`]s chained into a curve.
+/// A collection of [`CubicSegment`]s chained into a single parametric curve. Has domain `[0, N)`
+/// where `N` is the number of attached segments.
 ///
 /// Use any struct that implements the [`CubicGenerator`] trait to create a new curve, such as
 /// [`CubicBezier`].
@@ -834,51 +901,28 @@ impl<P: Point> IntoIterator for CubicCurve<P> {
     }
 }
 
-impl<P: Point> RationalGenerator<P> for CubicNurbs<P> {
-    #[inline]
-    fn to_curve(&self) -> RationalCurve<P> {
-        let segments = self
-            .control_points
-            .windows(4)
-            .zip(self.weights.windows(4))
-            .zip(self.knot_vector.windows(8))
-            .map(|((points, weights), knot_vector_segment)| {
-                let knot_vector_segment = knot_vector_segment
-                    .try_into()
-                    .expect("Knot vector windows are of length 8");
-                let matrix = Self::generate_matrix(knot_vector_segment);
-                RationalSegment::coefficients(
-                    points
-                        .try_into()
-                        .expect("Points vector windows are of length 4"),
-                    weights
-                        .try_into()
-                        .expect("Weights vector windows are of length 4"),
-                    matrix,
-                )
-            })
-            .collect();
-        RationalCurve { segments }
-    }
-}
-
-/// Implement this on cubic splines that can generate a curve from their spline parameters.
+/// Implement this on cubic splines that can generate a rational cubic curve from their spline parameters.
 pub trait RationalGenerator<P: Point> {
     /// Build a [`RationalCurve`] by computing the interpolation coefficients for each curve segment.
     fn to_curve(&self) -> RationalCurve<P>;
 }
 
 /// A segment of a rational cubic curve, used to hold precomputed coefficients for fast interpolation.
+/// Can be evaluted as a parametric curve over the domain `[0, knot_span)`.
 ///
 /// Segments can be chained together to form a longer compound curve.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct RationalSegment<P: Point> {
+    /// The coefficents matrix of the cubic curve.
     coeff: [P; 4],
+    /// The homogenious weight coefficients.
     weight_coeff: [f32; 4],
+    /// The width of the domain of this segment.
+    knot_span: f32,
 }
 
 impl<P: Point> RationalSegment<P> {
-    /// Instantaneous position of a point at parametric value `t`.
+    /// Instantaneous position of a point at parametric value `t` in `[0, knot_span)`.
     #[inline]
     pub fn position(&self, t: f32) -> P {
         let [a, b, c, d] = self.coeff;
@@ -890,9 +934,12 @@ impl<P: Point> RationalSegment<P> {
         numerator / denominator
     }
 
-    /// Instantaneous velocity of a point at parametric value `t`.
+    /// Instantaneous velocity of a point at parametric value `t` in `[0, knot_span)`.
     #[inline]
     pub fn velocity(&self, t: f32) -> P {
+        // A derivation for the following equations can be found in "Matrix representation for NURBS
+        // curves and surfaces" by Choi et al. See equation 19.
+
         let [a, b, c, d] = self.coeff;
         let [x, y, z, w] = self.weight_coeff;
         // Compute a cubic polynomial for the control points
@@ -912,9 +959,15 @@ impl<P: Point> RationalSegment<P> {
             - numerator * (denominator_derivative / denominator.powi(2))
     }
 
-    /// Instantaneous acceleration of a point at parametric value `t`.
+    /// Instantaneous acceleration of a point at parametric value `t` in `[0, knot_span)`.
     #[inline]
     pub fn acceleration(&self, t: f32) -> P {
+        // A derivation for the following equations can be found in "Matrix representation for NURBS
+        // curves and surfaces" by Choi et al. See equation 20. Note: In come copies of this paper, equation 20
+        // is printed with the following two errors:
+        // + The first term has incorrect sign.
+        // + The second term should uses R when it should use the first dericative.
+
         let [a, b, c, d] = self.coeff;
         let [x, y, z, w] = self.weight_coeff;
         // Compute a cubic polynomial for the control points
@@ -946,6 +999,9 @@ impl<P: Point> RationalSegment<P> {
     /// Calculate polynomial coefficients for the cubic polynomials using a characteristic matrix.
     #[inline]
     fn coefficients(control_points: [P; 4], weights: [f32; 4], char_matrix: [[f32; 4]; 4]) -> Self {
+        // An explanation of this use can be found in "Matrix representation for NURBS curves and surfaces"
+        // by Choi et al. See section "Evaluation of NURB Curves and Surfaces", and equation 16.
+
         let [c0, c1, c2, c3] = char_matrix;
         let p = control_points;
         let w = weights;
@@ -968,14 +1024,16 @@ impl<P: Point> RationalSegment<P> {
         Self {
             coeff,
             weight_coeff,
+            knot_span: 0.0, // TODO: Actually calculate the correct knot span here.
         }
     }
 }
 
-/// A collection of [`RationalSegment`]s chained into a curve.
+/// A collection of [`RationalSegment`]s chained into a single parametric curve. Has domain `[0, N)` where
+/// `N` is at-least the number of segments.
 ///
 /// Use any struct that implements the [`RationalGenerator`] trait to create a new curve, such as
-/// [`CubicNURBS`].
+/// [`CubicNURBS`], or convert [`CubicCurve`] using `into/from`.
 #[derive(Clone, Debug, PartialEq)]
 pub struct RationalCurve<P: Point> {
     segments: Vec<RationalSegment<P>>,
@@ -1103,6 +1161,7 @@ impl<P: Point> From<CubicSegment<P>> for RationalSegment<P> {
         Self {
             coeff: value.coeff,
             weight_coeff: [1.0, 0.0, 0.0, 0.0],
+            knot_span: 1.0, // Cubic curves are uniform, so every segment has domain [0, 1).
         }
     }
 }
