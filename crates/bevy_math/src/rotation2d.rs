@@ -254,6 +254,7 @@ impl std::ops::Mul<Vec2> for Rotation2d {
 impl std::ops::Mul<Direction2d> for Rotation2d {
     type Output = Direction2d;
 
+    /// Rotates a [`Direction2d`] by a [`Rotation2d`].
     fn mul(self, rhs: Direction2d) -> Self::Output {
         Direction2d::new_unchecked(self * *rhs)
     }
