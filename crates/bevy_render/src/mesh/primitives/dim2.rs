@@ -314,7 +314,7 @@ impl Capsule2dMeshBuilder {
         let vertex_count = 2 * self.resolution;
 
         // Six extra indices for the two triangles between the hemicircles
-        let mut indices = Vec::with_capacity((vertex_count - 2) * 3 + 6);
+        let mut indices = Vec::with_capacity((self.resolution - 2) * 2 * 3 + 6);
         let mut positions = Vec::with_capacity(vertex_count);
         let normals = vec![[0.0, 0.0, 1.0]; vertex_count];
         let mut uvs = Vec::with_capacity(vertex_count);
