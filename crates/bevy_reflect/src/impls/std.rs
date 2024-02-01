@@ -1,5 +1,5 @@
 use crate::std_traits::ReflectDefault;
-use crate::{self as bevy_reflect, ReflectFromPtr, ReflectFromReflect, ReflectOwned};
+use crate::{self as bevy_reflect, FixedLenList, ReflectFromPtr, ReflectFromReflect, ReflectOwned};
 use crate::{
     impl_type_path, map_apply, map_partial_eq, Array, ArrayInfo, ArrayIter, DynamicEnum,
     DynamicMap, Enum, EnumInfo, FromReflect, FromType, GetTypeRegistration, List, ListInfo,
@@ -220,7 +220,7 @@ impl_reflect_value!(::std::ffi::OsString(Debug, Hash, PartialEq));
 
 macro_rules! impl_reflect_for_veclike {
     ($ty:path, $insert:expr, $remove:expr, $push:expr, $pop:expr, $sub:ty) => {
-        impl<T: FromReflect + TypePath> List for $ty {
+        impl<T: FromReflect + TypePath> FixedLenList for $ty {
             #[inline]
             fn get(&self, index: usize) -> Option<&dyn Reflect> {
                 <$sub>::get(self, index).map(|value| value as &dyn Reflect)
@@ -231,6 +231,18 @@ macro_rules! impl_reflect_for_veclike {
                 <$sub>::get_mut(self, index).map(|value| value as &mut dyn Reflect)
             }
 
+            #[inline]
+            fn len(&self) -> usize {
+                <$sub>::len(self)
+            }
+
+            #[inline]
+            fn iter(&self) -> ListIter {
+                ListIter::new(self)
+            }
+        }
+
+        impl<T: FromReflect + TypePath> List for $ty {
             fn insert(&mut self, index: usize, value: Box<dyn Reflect>) {
                 let value = value.take::<T>().unwrap_or_else(|value| {
                     T::from_reflect(&*value).unwrap_or_else(|| {
@@ -262,20 +274,14 @@ macro_rules! impl_reflect_for_veclike {
             }
 
             #[inline]
-            fn len(&self) -> usize {
-                <$sub>::len(self)
-            }
-
-            #[inline]
-            fn iter(&self) -> ListIter {
-                ListIter::new(self)
-            }
-
-            #[inline]
             fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
                 self.into_iter()
                     .map(|value| Box::new(value) as Box<dyn Reflect>)
                     .collect()
+            }
+
+            fn as_fixed_len_list(&self) -> &dyn FixedLenList {
+                self
             }
         }
 
@@ -1156,7 +1162,7 @@ where
     }
 }
 
-impl<T: FromReflect + Clone + TypePath> List for Cow<'static, [T]> {
+impl<T: FromReflect + Clone + TypePath> FixedLenList for Cow<'static, [T]> {
     fn get(&self, index: usize) -> Option<&dyn Reflect> {
         self.as_ref().get(index).map(|x| x as &dyn Reflect)
     }
@@ -1165,6 +1171,16 @@ impl<T: FromReflect + Clone + TypePath> List for Cow<'static, [T]> {
         self.to_mut().get_mut(index).map(|x| x as &mut dyn Reflect)
     }
 
+    fn len(&self) -> usize {
+        self.as_ref().len()
+    }
+
+    fn iter(&self) -> ListIter {
+        ListIter::new(self)
+    }
+}
+
+impl<T: FromReflect + Clone + TypePath> List for Cow<'static, [T]> {
     fn insert(&mut self, index: usize, element: Box<dyn Reflect>) {
         let value = element.take::<T>().unwrap_or_else(|value| {
             T::from_reflect(&*value).unwrap_or_else(|| {
@@ -1197,14 +1213,6 @@ impl<T: FromReflect + Clone + TypePath> List for Cow<'static, [T]> {
             .map(|value| Box::new(value) as Box<dyn Reflect>)
     }
 
-    fn len(&self) -> usize {
-        self.as_ref().len()
-    }
-
-    fn iter(&self) -> ListIter {
-        ListIter::new(self)
-    }
-
     fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
         // into_owned() is not unnecessary here because it avoids cloning whenever you have a Cow::Owned already
         #[allow(clippy::unnecessary_to_owned)]
@@ -1212,6 +1220,10 @@ impl<T: FromReflect + Clone + TypePath> List for Cow<'static, [T]> {
             .into_iter()
             .map(|value| value.clone_value())
             .collect()
+    }
+
+    fn as_fixed_len_list(&self) -> &dyn FixedLenList {
+        self
     }
 }
 
@@ -1266,7 +1278,7 @@ impl<T: FromReflect + Clone + TypePath> Reflect for Cow<'static, [T]> {
     }
 
     fn clone_value(&self) -> Box<dyn Reflect> {
-        Box::new(List::clone_dynamic(self))
+        Box::new(FixedLenList::clone_dynamic(self))
     }
 
     fn reflect_hash(&self) -> Option<u64> {

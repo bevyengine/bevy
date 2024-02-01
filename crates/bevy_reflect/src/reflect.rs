@@ -1,7 +1,7 @@
 use crate::{
     array_debug, enum_debug, list_debug, map_debug, serde::Serializable, struct_debug, tuple_debug,
-    tuple_struct_debug, Array, DynamicTypePath, Enum, List, Map, Struct, Tuple, TupleStruct,
-    TypeInfo, TypePath, Typed, ValueInfo,
+    tuple_struct_debug, Array, DynamicTypePath, Enum, FixedLenList, List, Map, Struct, Tuple,
+    TupleStruct, TypeInfo, TypePath, Typed, ValueInfo,
 };
 use std::{
     any::{Any, TypeId},
@@ -20,6 +20,7 @@ pub enum ReflectRef<'a> {
     Struct(&'a dyn Struct),
     TupleStruct(&'a dyn TupleStruct),
     Tuple(&'a dyn Tuple),
+    FixedLenList(&'a dyn FixedLenList),
     List(&'a dyn List),
     Array(&'a dyn Array),
     Map(&'a dyn Map),
@@ -37,6 +38,7 @@ pub enum ReflectMut<'a> {
     Struct(&'a mut dyn Struct),
     TupleStruct(&'a mut dyn TupleStruct),
     Tuple(&'a mut dyn Tuple),
+    FixedLenList(&'a mut dyn FixedLenList),
     List(&'a mut dyn List),
     Array(&'a mut dyn Array),
     Map(&'a mut dyn Map),
@@ -54,6 +56,7 @@ pub enum ReflectOwned {
     Struct(Box<dyn Struct>),
     TupleStruct(Box<dyn TupleStruct>),
     Tuple(Box<dyn Tuple>),
+    FixedLenList(Box<dyn FixedLenList>),
     List(Box<dyn List>),
     Array(Box<dyn Array>),
     Map(Box<dyn Map>),
@@ -206,7 +209,7 @@ pub trait Reflect: DynamicTypePath + Any + Send + Sync {
             ReflectRef::Struct(dyn_struct) => struct_debug(dyn_struct, f),
             ReflectRef::TupleStruct(dyn_tuple_struct) => tuple_struct_debug(dyn_tuple_struct, f),
             ReflectRef::Tuple(dyn_tuple) => tuple_debug(dyn_tuple, f),
-            ReflectRef::List(dyn_list) => list_debug(dyn_list, f),
+            ReflectRef::List(dyn_list) => list_debug(dyn_list.as_fixed_len_list(), f),
             ReflectRef::Array(dyn_array) => array_debug(dyn_array, f),
             ReflectRef::Map(dyn_map) => map_debug(dyn_map, f),
             ReflectRef::Enum(dyn_enum) => enum_debug(dyn_enum, f),
