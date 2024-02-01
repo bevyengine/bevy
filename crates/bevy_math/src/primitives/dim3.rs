@@ -100,22 +100,6 @@ impl std::ops::Mul<Direction3d> for Quat {
     }
 }
 
-impl std::ops::Mul<Quat> for Direction3d {
-    type Output = Self;
-
-    /// Rotates the [`Direction3d`] using a [`Quat`].
-    fn mul(self, quat: Quat) -> Self::Output {
-        quat * self
-    }
-}
-
-impl std::ops::MulAssign<Quat> for Direction3d {
-    /// Rotates the [`Direction3d`] in place using a [`Quat`].
-    fn mul_assign(&mut self, quat: Quat) {
-        *self = quat * *self;
-    }
-}
-
 /// A sphere primitive
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
