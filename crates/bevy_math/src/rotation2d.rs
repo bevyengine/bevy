@@ -3,6 +3,8 @@ use glam::FloatExt;
 use crate::prelude::{Direction2d, Mat2, Vec2};
 
 /// A counterclockwise 2D rotation in radians.
+///
+/// The rotation angle is wrapped to be within the `]-pi, pi]` range.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Rotation2d {
