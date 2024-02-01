@@ -50,11 +50,7 @@ impl Node for CameraDriverNode {
                 }
             }
             if run_graph {
-                graph.run_sub_graph(
-                    camera.render_graph.clone(),
-                    vec![],
-                    Some(sorted_camera.entity),
-                )?;
+                graph.run_sub_graph(camera.render_graph, vec![], Some(sorted_camera.entity))?;
             }
         }
 

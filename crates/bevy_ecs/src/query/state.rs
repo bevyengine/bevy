@@ -1150,6 +1150,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// This can only be called for read-only queries, see [`par_iter_mut`] for write-queries.
     ///
+    /// Note that you must use the `for_each` method to iterate over the
+    /// results, see [`par_iter_mut`] for an example.
+    ///
     /// [`par_iter_mut`]: Self::par_iter_mut
     #[inline]
     pub fn par_iter<'w, 's>(
@@ -1170,7 +1173,46 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// This can only be called for mutable queries, see [`par_iter`] for read-only-queries.
     ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    /// use bevy_ecs::query::QueryEntityError;
+    ///
+    /// #[derive(Component, PartialEq, Debug)]
+    /// struct A(usize);
+    ///
+    /// # bevy_tasks::ComputeTaskPool::get_or_init(|| bevy_tasks::TaskPool::new());
+    ///
+    /// let mut world = World::new();
+    ///
+    /// # let entities: Vec<Entity> = (0..3).map(|i| world.spawn(A(i)).id()).collect();
+    /// # let entities: [Entity; 3] = entities.try_into().unwrap();
+    ///
+    /// let mut query_state = world.query::<&mut A>();
+    ///
+    /// query_state.par_iter_mut(&mut world).for_each(|mut a| {
+    ///     a.0 += 5;
+    /// });
+    ///
+    /// # let component_values = query_state.get_many(&world, entities).unwrap();
+    ///
+    /// # assert_eq!(component_values, [&A(5), &A(6), &A(7)]);
+    ///
+    /// # let wrong_entity = Entity::from_raw(57);
+    /// # let invalid_entity = world.spawn_empty().id();
+    ///
+    /// # assert_eq!(query_state.get_many_mut(&mut world, [wrong_entity]).unwrap_err(), QueryEntityError::NoSuchEntity(wrong_entity));
+    /// # assert_eq!(query_state.get_many_mut(&mut world, [invalid_entity]).unwrap_err(), QueryEntityError::QueryDoesNotMatch(invalid_entity));
+    /// # assert_eq!(query_state.get_many_mut(&mut world, [entities[0], entities[0]]).unwrap_err(), QueryEntityError::AliasedMutability(entities[0]));
+    /// ```
+    ///
+    /// # Panics
+    /// The [`ComputeTaskPool`] is not initialized. If using this from a query that is being
+    /// initialized and run from the ECS scheduler, this should never panic.
+    ///
     /// [`par_iter`]: Self::par_iter
+    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
     pub fn par_iter_mut<'w, 's>(&'s mut self, world: &'w mut World) -> QueryParIter<'w, 's, D, F> {
         self.update_archetypes(world);
