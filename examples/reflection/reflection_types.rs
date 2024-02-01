@@ -93,6 +93,10 @@ fn setup() {
         // `Enum` is a trait automatically implemented for enums that derive Reflect. This trait allows you
         // to interact with the current variant and its fields (if it has any)
         ReflectRef::Enum(_) => {}
+        // `FixedLenList` is a special trait that can be manually implemented (instead of deriving Reflect).
+        // This exposes "list" operations on your type that doesn't change the len of the list.
+        // `FixedLenList` is automatically implemented for relevant core types like Vec<T> or Box<[T]>.
+        ReflectRef::FixedLenList(_) => {}
         // `List` is a special trait that can be manually implemented (instead of deriving Reflect).
         // This exposes "list" operations on your type, such as insertion. `List` is automatically
         // implemented for relevant core types like Vec<T>.
