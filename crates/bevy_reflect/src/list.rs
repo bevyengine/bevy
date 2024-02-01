@@ -489,6 +489,29 @@ pub fn list_apply<L: List>(a: &mut L, b: &dyn Reflect) {
     }
 }
 
+/// Applies the elements of `b` to the corresponding elements of `a`.
+///
+/// If the length of `b` is greater than that of `a`, the excess elements of `b`
+/// are ignored.
+///
+/// # Panics
+///
+/// This function panics if `b` is not a list.
+#[inline]
+pub fn fixed_len_list_apply<L: FixedLenList>(a: &mut L, b: &dyn Reflect) {
+    let list_value = match b.reflect_ref() {
+        ReflectRef::FixedLenList(list) => list,
+        ReflectRef::List(list) => list.as_fixed_len_list(),
+        _ => panic!("Attempted to apply a non-list type to a list type."),
+    };
+
+    for (i, value) in list_value.iter().enumerate().take(a.len()) {
+        if let Some(v) = a.get_mut(i) {
+            v.apply(value);
+        }
+    }
+}
+
 /// Compares a [`FixedLenList`] with a [`Reflect`] value.
 ///
 /// Returns true if and only if all of the following are true:
