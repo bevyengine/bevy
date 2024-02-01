@@ -320,7 +320,10 @@ impl<'w> RenderContext<'w> {
         let force_serial =
             adapter_info.driver.contains("AMD") && adapter_info.backend == Backend::Vulkan;
         #[cfg(not(target_os = "windows"))]
-        let force_serial = false;
+        let force_serial = {
+            drop(adapter_info);
+            false
+        };
 
         Self {
             render_device,
