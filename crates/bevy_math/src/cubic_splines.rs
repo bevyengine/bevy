@@ -321,30 +321,33 @@ impl<P: Point> CubicGenerator<P> for CubicBSpline<P> {
 /// Error during construction of [`CubicNurbs`]
 #[derive(Debug, Error)]
 pub enum CubicNurbsError {
-    /// Provided knot vector had an invalid length.
-    #[error("Invalid knot vector length: expected {expected}, provided {provided}")]
-    InvalidKnotVectorLength {
-        /// Expected knot vector length
+    /// Provided the wrong number of knots.
+    #[error("Wrong number of knots: expected {expected}, provided {provided}")]
+    KnotsMismatch {
+        /// Expected number of knots
         expected: usize,
-        /// Provided knot vector length
+        /// Provided number of knots
         provided: usize,
     },
-    /// Knot vector has invalid values. Values of a knot vector must be nondescending, meaning the
-    /// next element must be greater than or equal to the previous one.
-    #[error("Invalid knot vector values: elements are not nondescending")]
-    InvalidKnotVectorValues,
-    /// Provided weights vector didn't have the same amount of values as the control points vector.
-    #[error("Invalid weights vector length: expected {expected}, provided {provided}")]
-    WeightsVectorMismatch {
-        /// Expected weights vector length
+    /// The provided knots had a descending knot pair. Subsequent knots must
+    /// either increase or stay the same.
+    #[error("Invalid knots: contains descending knot pair")]
+    DescendingKnots,
+    /// The provided knots were all equal. Knots must contain at-least one increasing pair.
+    #[error("Invalid knots: all knots are equal")]
+    ConstantKnots,
+    /// Provided a different number of weights and control points.
+    #[error("Incorect number of weights: expected {expected}, provided {provided}")]
+    WeightsMismatch {
+        /// Expected number of weights
         expected: usize,
-        /// Provided weights vector length
+        /// Provided number of weights
         provided: usize,
     },
-    /// The amount of control points provided is less than 4.
+    /// The number of control points provided is less than 4.
     #[error("Not enough control points, at least 4 are required, {provided} were provided")]
     NotEnoughControlPoints {
-        /// The amount of control points provided
+        /// The number of control points provided
         provided: usize,
     },
 }
@@ -353,29 +356,29 @@ pub enum CubicNurbsError {
 /// represent a much more diverse class of curves (like perfect circles and ellipses).
 ///
 /// ### Non-uniformity
-/// The 'NU' part of NURBS stands for "Non-Uniform". This has to do with a parameter called the Knot
-/// Vector. This is a non-decreasing sequence, where each successive pair of knots corresponds to
-/// one segment of the final curve. The difference between each pair of knots roughly corresponds to the
-/// length of each segment. Multiple repeated knot values are called "Knot multiplicity". Each repeated
-/// value causes a "zero-length" segment, which is ignored.
+/// The 'NU' part of NURBS stands for "Non-Uniform". This has to do with a parameter called 'knots'.
+/// The knots are a non-decreasing sequence of floating point numbers. The first and last three pairs of
+/// knots controll the behavior of the curve as it approaches it's endpoints. The intermediate pairs
+/// each control the length of one segment of the curve. Multiple repeated knot values are called
+/// "knot multiplicity". Knot multiplicity in the intermediate knots causes a "zero-length" segments,
+/// and can create sharp corners.
 ///
 /// ### Rationality
 /// The 'R' part of NURBS stands for "Rational". This has to do with NURBS allowing each control point to
 /// be assigned a weighting, which controls how much it effects the curve recitative to the other points.
 ///
 /// ### Interpolation
-/// The curve will not pass through the control points unless the knot vector has the same value four times
-/// in a row.
+/// The curve will not pass through the control points except where a knot has multiplicity four.
 ///
 /// ### Tangency
 /// Tangents are automatically computed based on the position of control points.
 ///
 /// ### Continuity
-/// When there is no Knot Multiplicity, the curve is C2 continuous, meaning it has no holes or jumps, and the
+/// When there is no knot multiplicity, the curve is C2 continuous, meaning it has no holes or jumps and the
 /// tangent vector changes smoothly along the entire curve length. Like the [`CubicBSpline`], the acceleration
-/// continuity makes it useful for camera paths. Knot multiplicity of 2 reduces the continuity to C2, and Knot
-/// multiplicity of 3 reduces the continuity to C0. The curve is always at-least C0, meaning it has no jumps
-/// or holes.
+/// continuity makes it useful for camera paths. Knot multiplicity of 2 in intermediate knots reduces the
+/// continuity to C2, and Knot multiplicity of 3 reduces the continuity to C0. The curve is always at-least
+/// C0, meaning it has no jumps or holes.
 ///
 /// ### Usage
 ///
@@ -388,8 +391,8 @@ pub enum CubicNurbsError {
 ///     vec2(9.0, 8.0),
 /// ];
 /// let weights = [1.0, 1.0, 2.0, 1.0];
-/// let knot_vector = [0.0, 0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 5.0];
-/// let nurbs = CubicNurbs::new(points, Some(weights), Some(knot_vector))
+/// let knots = [0.0, 0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 5.0];
+/// let nurbs = CubicNurbs::new(points, Some(weights), Some(knots))
 ///     .expect("NURBS construction failed!")
 ///     .to_curve();
 /// let positions: Vec<_> = nurbs.iter_positions(100).collect();
@@ -397,23 +400,22 @@ pub enum CubicNurbsError {
 pub struct CubicNurbs<P: Point> {
     control_points: Vec<P>,
     weights: Vec<f32>,
-    knot_vector: Vec<f32>,
+    knots: Vec<f32>,
 }
 impl<P: Point> CubicNurbs<P> {
     /// Build a Non-Uniform Rational B-Spline.
     ///
-    /// If provided, weights vector must have the same amount of items as the control points
-    /// vector. Defaults to equal weights.
+    /// If provided, weights must be the same length as the control points. Defaults to equal weights.
     ///
-    /// If provided, the knot vector must have n + 4 elements, where n is the amount of control
-    /// points. Defaults to open uniform knot vector: [`Self::open_uniform_knot_vector`]. A constant
-    /// knot vector is invalid.
+    /// If provided, the number of knots must be n + 4 elements, where n is the amount of control
+    /// points. Defaults to open uniform knots: [`Self::open_uniform_knots`]. Knots cannot
+    /// all be equal.
     ///
     /// At least 4 points must be provided, otherwise an error will be returned.
     pub fn new(
         control_points: impl Into<Vec<P>>,
         weights: Option<impl Into<Vec<f32>>>,
-        knot_vector: Option<impl Into<Vec<f32>>>,
+        knots: Option<impl Into<Vec<f32>>>,
     ) -> Result<Self, CubicNurbsError> {
         let mut control_points: Vec<P> = control_points.into();
         let control_points_len = control_points.len();
@@ -424,40 +426,55 @@ impl<P: Point> CubicNurbs<P> {
             });
         }
 
-        let mut weights = weights
+        let weights = weights
             .map(Into::into)
             .unwrap_or_else(|| vec![1.0; control_points_len]);
 
-        let knot_vector: Vec<f32> = knot_vector.map(Into::into).unwrap_or_else(|| {
-            Self::open_uniform_knot_vector(control_points_len)
+        let mut knots: Vec<f32> = knots.map(Into::into).unwrap_or_else(|| {
+            Self::open_uniform_knots(control_points_len)
                 .expect("The amount of control points was checked")
         });
 
-        let knot_vector_expected_length = Self::knot_vector_length(control_points_len);
+        let expected_knots_len = Self::knots_len(control_points_len);
 
-        // Check the knot vector length
-        if knot_vector.len() != knot_vector_expected_length {
-            return Err(CubicNurbsError::InvalidKnotVectorLength {
-                expected: knot_vector_expected_length,
-                provided: knot_vector.len(),
+        // Check the number of knots is correct
+        if knots.len() != expected_knots_len {
+            return Err(CubicNurbsError::KnotsMismatch {
+                expected: expected_knots_len,
+                provided: knots.len(),
             });
         }
 
-        // Check the knot vector for being nondescending (previous elements is less than or equal
+        // Ensure the knots are non-descending (previous elements is less than or equal
         // to the next)
-        if knot_vector.windows(2).any(|win| win[0] > win[1]) {
-            return Err(CubicNurbsError::InvalidKnotVectorValues);
+        if knots.windows(2).any(|win| win[0] > win[1]) {
+            return Err(CubicNurbsError::DescendingKnots);
         }
 
-        // Check the weights vector length
+        // Ensure the knots are non-constant
+        if knots.windows(2).all(|win| win[0] == win[1]) {
+            return Err(CubicNurbsError::ConstantKnots);
+        }
+
+        // Check that the number of weights equals the number of control points
         if weights.len() != control_points_len {
-            return Err(CubicNurbsError::WeightsVectorMismatch {
+            return Err(CubicNurbsError::WeightsMismatch {
                 expected: control_points_len,
                 provided: weights.len(),
             });
         }
 
-        weights = Self::normalize_weights(weights);
+        // To align the evaluation behavior of nurbs with the other splines,
+        // make the intervals between knots form an exact cover of [0, N], where N is
+        // the number of segments of the final curve.
+        let curve_length = (control_points.len() - 3) as f32;
+        let min = knots.first().unwrap().clone();
+        let max = knots.last().unwrap().clone();
+        knots = knots
+            .into_iter()
+            .map(|k| k - min)
+            .map(|k| k * curve_length / max)
+            .collect();
 
         control_points
             .iter_mut()
@@ -467,36 +484,34 @@ impl<P: Point> CubicNurbs<P> {
         Ok(Self {
             control_points,
             weights,
-            knot_vector,
+            knots,
         })
     }
 
-    /// Generates a uniform knot vector that will generate the same curve as [`CubicBSpline`].
+    /// Generates uniform knots that will generate the same curve as [`CubicBSpline`].
     ///
-    /// "Uniform" means that the difference between two knot values next to each other is the same
-    /// through the entire knot vector.
+    /// "Uniform" means that the difference between two subsequent knots is the same.
     ///
-    /// Will return `None` if there are less than 4 control points
-    pub fn uniform_knot_vector(control_points: usize) -> Option<Vec<f32>> {
+    /// Will return `None` if there are less than 4 control points.
+    pub fn uniform_knots(control_points: usize) -> Option<Vec<f32>> {
         if control_points < 4 {
             return None;
         }
         Some(
-            (0..Self::knot_vector_length(control_points))
+            (0..Self::knots_len(control_points))
                 .map(|v| v as f32)
                 .collect(),
         )
     }
 
-    /// Generates an open uniform knot vector, which makes the ends of the curve pass through the
+    /// Generates open uniform knots, which makes the ends of the curve pass through the
     /// start and end points.
     ///
-    /// The knot vector will have a knot with multiplicity of 4 at the end and start and elements
-    /// in the middle will have a difference of 1. "Multiplicity" means that there are N
-    /// consecutive elements that have the same value.
+    /// The start and end knots have multiplicity 4, and intermediate knots have multiplicity 0 and
+    /// difference of 1. "Multiplicity" means that there are N consecutive elements that have the same value.
     ///
     /// Will return `None` if there are less than 4 control points
-    pub fn open_uniform_knot_vector(control_points: usize) -> Option<Vec<f32>> {
+    pub fn open_uniform_knots(control_points: usize) -> Option<Vec<f32>> {
         if control_points < 4 {
             return None;
         }
@@ -511,15 +526,27 @@ impl<P: Point> CubicNurbs<P> {
     }
 
     #[inline(always)]
-    const fn knot_vector_length(control_points_len: usize) -> usize {
+    const fn knots_len(control_points_len: usize) -> usize {
         control_points_len + 4
     }
 
-    fn generate_matrix(knot_vector_segment: &[f32; 8]) -> [[f32; 4]; 4] {
+    /// Generates a nonuniform B-spline charictartistic matrix from a sequence of six knots. Each six
+    /// knots describe the relationship between four successive controll points. For padding reasons,
+    /// this takes a vector of 8 knots, but only six are actually used.
+    fn generate_matrix(knots: &[f32; 8]) -> [[f32; 4]; 4] {
         // A derivation for this matrix can be found in "General Matrix Representations for B-splines" by Kaihuai Qin.
         // <https://xiaoxingchen.github.io/2020/03/02/bspline_in_so3/general_matrix_representation_for_bsplines.pdf>
         // See section 3.1.
-        let t = knot_vector_segment;
+
+        let t = knots;
+        // In the notation of the paper:
+        // t[1] := t_i-2
+        // t[2] := t_i-1
+        // t[3] := t_i   (the lower extent of the current knot span)
+        // t[4] := t_i+1 (the upper extent of the current knot span)
+        // t[5] := t_i+2
+        // t[6] := t_i+3
+
         let m00 = (t[4] - t[3]).powi(2) / ((t[4] - t[2]) * (t[4] - t[1]));
         let m02 = (t[3] - t[2]).powi(2) / ((t[5] - t[2]) * (t[4] - t[2]));
         let m12 = (3.0 * (t[4] - t[3]) * (t[3] - t[2])) / ((t[5] - t[2]) * (t[4] - t[2]));
@@ -533,16 +560,6 @@ impl<P: Point> CubicNurbs<P> {
             [-m00, m00 - m32 - m33, m32, m33],
         ]
     }
-
-    /// Normalizes weights vector using L0 norm.
-    /// The resulting weight vector's values will add up to be equal the amount of values in the
-    /// weights vector
-    fn normalize_weights(weights: Vec<f32>) -> Vec<f32> {
-        let g = weights.len() as f32;
-        let weights_sum: f32 = weights.iter().sum();
-        let mul = g / weights_sum;
-        weights.into_iter().map(|w| w * mul).collect()
-    }
 }
 impl<P: Point> RationalGenerator<P> for CubicNurbs<P> {
     #[inline]
@@ -551,19 +568,20 @@ impl<P: Point> RationalGenerator<P> for CubicNurbs<P> {
             .control_points
             .windows(4)
             .zip(self.weights.windows(4))
-            .zip(self.knot_vector.windows(8))
-            .map(|((points, weights), knot_vector_segment)| {
-                let knot_vector_segment = knot_vector_segment
-                    .try_into()
-                    .expect("Knot vector windows are of length 8");
-                let matrix = Self::generate_matrix(knot_vector_segment);
+            .zip(self.knots.windows(8))
+            .filter(|(_, knots)| knots[4] - knots[3] > 0.0)
+            .map(|((points, weights), knots)| {
+                // This is curve segment i. It uses control points P_i, P_i+2, P_i+2 and P_i+3,
+                // It is associated with knot span i+3 (which is the interval between knots i+3
+                // and i+4) and it's charictartistic matrix uses knots i+1 through i+6 (because
+                // those define the two knot spans on either side).
+                let span = knots[4] - knots[3];
+                let coefficent_knots = knots.try_into().expect("Knot windows are of length 6");
+                let matrix = Self::generate_matrix(coefficent_knots);
                 RationalSegment::coefficients(
-                    points
-                        .try_into()
-                        .expect("Points vector windows are of length 4"),
-                    weights
-                        .try_into()
-                        .expect("Weights vector windows are of length 4"),
+                    points.try_into().expect("Point windows are of length 4"),
+                    weights.try_into().expect("Weight windows are of length 4"),
+                    span,
                     matrix,
                 )
             })
@@ -908,14 +926,14 @@ pub trait RationalGenerator<P: Point> {
 }
 
 /// A segment of a rational cubic curve, used to hold precomputed coefficients for fast interpolation.
-/// Can be evaluted as a parametric curve over the domain `[0, knot_span)`.
+/// Can be evaluated as a parametric curve over the domain `[0, knot_span)`.
 ///
 /// Segments can be chained together to form a longer compound curve.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct RationalSegment<P: Point> {
-    /// The coefficents matrix of the cubic curve.
+    /// The coefficients matrix of the cubic curve.
     coeff: [P; 4],
-    /// The homogenious weight coefficients.
+    /// The homogeneous weight coefficients.
     weight_coeff: [f32; 4],
     /// The width of the domain of this segment.
     knot_span: f32,
@@ -966,7 +984,7 @@ impl<P: Point> RationalSegment<P> {
         // curves and surfaces" by Choi et al. See equation 20. Note: In come copies of this paper, equation 20
         // is printed with the following two errors:
         // + The first term has incorrect sign.
-        // + The second term should uses R when it should use the first dericative.
+        // + The second term should uses R when it should use the first derivative.
 
         let [a, b, c, d] = self.coeff;
         let [x, y, z, w] = self.weight_coeff;
@@ -998,7 +1016,12 @@ impl<P: Point> RationalSegment<P> {
 
     /// Calculate polynomial coefficients for the cubic polynomials using a characteristic matrix.
     #[inline]
-    fn coefficients(control_points: [P; 4], weights: [f32; 4], char_matrix: [[f32; 4]; 4]) -> Self {
+    fn coefficients(
+        control_points: [P; 4],
+        weights: [f32; 4],
+        knot_span: f32,
+        char_matrix: [[f32; 4]; 4],
+    ) -> Self {
         // An explanation of this use can be found in "Matrix representation for NURBS curves and surfaces"
         // by Choi et al. See section "Evaluation of NURB Curves and Surfaces", and equation 16.
 
@@ -1024,7 +1047,7 @@ impl<P: Point> RationalSegment<P> {
         Self {
             coeff,
             weight_coeff,
-            knot_span: 0.0, // TODO: Actually calculate the correct knot span here.
+            knot_span,
         }
     }
 }
@@ -1090,8 +1113,8 @@ impl<P: Point> RationalCurve<P> {
     /// An iterator that returns values of `t` uniformly spaced over `0..=subdivisions`.
     #[inline]
     fn iter_uniformly(&self, subdivisions: usize) -> impl Iterator<Item = f32> {
-        let segments = self.segments.len() as f32;
-        let step = segments / subdivisions as f32;
+        let domain = self.domain();
+        let step = domain / subdivisions as f32;
         (0..=subdivisions).map(move |i| i as f32 * step)
     }
 
@@ -1122,21 +1145,41 @@ impl<P: Point> RationalCurve<P> {
         self.iter_samples(subdivisions, Self::acceleration)
     }
 
+    /// Adds a segment to the curve.
     #[inline]
-    /// Adds a segment to the curve
     pub fn push_segment(&mut self, segment: RationalSegment<P>) {
         self.segments.push(segment);
     }
 
     /// Returns the [`RationalSegment`] and local `t` value given a spline's global `t` value.
+    /// Input `t` will be clamped to the domain of the curve. Returned value will be in `[0, 1]`.
     #[inline]
-    fn segment(&self, t: f32) -> (&RationalSegment<P>, f32) {
-        if self.segments.len() == 1 {
-            (&self.segments[0], t)
+    fn segment(&self, mut t: f32) -> (&RationalSegment<P>, f32) {
+        if t <= 0.0 {
+            (&self.segments[0], 0.0)
+        } else if self.segments.len() == 1 {
+            (&self.segments[0], t / self.segments[0].knot_span)
         } else {
-            let i = (t.floor() as usize).clamp(0, self.segments.len() - 1);
-            (&self.segments[i], t - i as f32)
+            // Try to fit t into each segment domain
+            for segment in self.segments.iter() {
+                if t < segment.knot_span {
+                    // The division here makes t a normalized parameter in [0, 1] that can be properly
+                    // evaluated against a cubic curve segment. See equations 6 & 16 from "Matrix representation
+                    // of NURBS curves and surfaces" by Choi et al. or equation 3 from "General Matrix
+                    // Representations for B-Splines" by Qin.
+                    return (segment, t / segment.knot_span);
+                } else {
+                    t = t - segment.knot_span
+                }
+            }
+            return (self.segments.last().unwrap(), 1.0);
         }
+    }
+
+    /// Returns the length of of the domain of the parametric curve.
+    #[inline]
+    fn domain(&self) -> f32 {
+        self.segments.iter().map(|segment| segment.knot_span).sum()
     }
 }
 
@@ -1178,8 +1221,10 @@ impl<P: Point> From<CubicCurve<P>> for RationalCurve<P> {
 mod tests {
     use glam::{vec2, Vec2};
 
-    use super::RationalCurve;
-    use crate::cubic_splines::{CubicBSpline, CubicBezier, CubicGenerator, CubicSegment};
+    use crate::cubic_splines::{
+        CubicBSpline, CubicBezier, CubicGenerator, CubicNurbs, CubicSegment, RationalCurve,
+        RationalGenerator,
+    };
 
     /// How close two floats can be and still be considered equal
     const FLOAT_EQ: f32 = 1e-5;
@@ -1243,6 +1288,8 @@ mod tests {
         assert_eq!(bezier.ease(1.0), 1.0);
     }
 
+    /// Test that RationalCurve properly generalizes CubicCurve. A Cubic upgraded to a rational
+    /// should produce pretty much the same output.
     #[test]
     fn cubic_to_rational() {
         const EPSILON: f32 = 0.00001;
@@ -1266,10 +1313,10 @@ mod tests {
                 rational_curve.len(),
                 "{name} vector lengths mismatch"
             );
-            for (a, b) in cubic_curve.iter().zip(rational_curve.iter()) {
+            for (i, (a, b)) in cubic_curve.iter().zip(rational_curve.iter()).enumerate() {
                 assert!(
                     a.distance(*b) < EPSILON,
-                    "Mismatch between {name} values CubicCurve: {} Converted RationalCurve: {}",
+                    "Mismatch at {name} value {i}. CubicCurve: {} Converted RationalCurve: {}",
                     a,
                     b
                 );
@@ -1288,5 +1335,34 @@ mod tests {
         let cubic_accelerations: Vec<_> = b_spline.iter_accelerations(10).collect();
         let rational_accelerations: Vec<_> = rational_b_spline.iter_accelerations(10).collect();
         compare_vectors(cubic_accelerations, rational_accelerations, "acceleration");
+    }
+
+    /// Test that a curbs curve can approximate a portion of a circle.
+    #[test]
+    fn nurbs_circular_arc() {
+        use std::f32::consts::SQRT_2;
+        const EPSILON: f32 = 0.1;
+        // It's not an especially precise approximation because all our nurbs are cubic.
+        // A quadratic or quintic curve rational would be exact. it just needs to be better
+        // than a raw B-spline.
+
+        let points = [
+            vec2(1.0, 0.0),
+            vec2(1.0, 1.0),
+            vec2(0.0, 1.0),
+            vec2(-1.0, 1.0),
+            vec2(-1.0, 0.0),
+        ];
+
+        let weights = vec![1., SQRT_2 / 2., 1., SQRT_2 / 2., 1.];
+        let spline = CubicNurbs::new(points, Some(weights), None as Option<Vec<f32>>).unwrap();
+        let curve = spline.to_curve();
+        for (i, point) in curve.iter_positions(10).enumerate() {
+            assert!(
+                point.length() - 1.0 < EPSILON,
+                "Point {i} is not on the unit circle: {point:?} has length {}",
+                point.length()
+            )
+        }
     }
 }
