@@ -699,6 +699,8 @@ impl PipelineCache {
                     ))
                 };
 
+            drop((shader_cache, layout_cache));
+
             let vertex_buffer_layouts = descriptor
                 .vertex
                 .buffers
@@ -777,6 +779,8 @@ impl PipelineCache {
                         descriptor.push_constant_ranges.to_vec(),
                     ))
                 };
+
+            drop((shader_cache, layout_cache));
 
             let descriptor = RawComputePipelineDescriptor {
                 label: descriptor.label.as_deref(),
@@ -881,6 +885,7 @@ impl PipelineCache {
         for event in events.read() {
             #[allow(clippy::match_same_arms)]
             match event {
+                // PERF: Instead of blocking waiting for the shader cache lock, try again next frame if the lock is currently held
                 AssetEvent::Added { id } | AssetEvent::Modified { id } => {
                     if let Some(shader) = shaders.get(*id) {
                         cache.set_shader(*id, shader);
