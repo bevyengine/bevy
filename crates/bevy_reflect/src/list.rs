@@ -33,9 +33,6 @@ use crate::{
 ///
 /// let foo: &mut dyn FixedLenList = &mut vec![123_u32, 456_u32, 789_u32];
 /// assert_eq!(foo.len(), 3);
-///
-/// let last_field: Box<dyn Reflect> = foo.pop().unwrap();
-/// assert_eq!(last_field.downcast_ref::<u32>(), Some(&789));
 /// ```
 ///
 /// [reflection]: crate
