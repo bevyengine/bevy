@@ -20,7 +20,7 @@ fn ellipse_inner(half_size: Vec2, segments: usize) -> impl Iterator<Item = Vec2>
 }
 
 impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
-    /// Draw a ellipse in 3D at `position` with the flat side facing `normal`.
+    /// Draw an ellipse in 3D at `position` with the flat side facing `normal`.
     ///
     /// This should be called for each frame the ellipse needs to be rendered.
     ///
@@ -58,7 +58,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         }
     }
 
-    /// Draw a ellipse in 2D.
+    /// Draw an ellipse in 2D.
     ///
     /// This should be called for each frame the ellipse needs to be rendered.
     ///
