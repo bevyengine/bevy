@@ -288,6 +288,7 @@ impl ComponentInfo {
 /// from a `World` using [`World::component_id()`] or via [`Components::component_id()`]. Access
 /// to the `ComponentId` for a [`Resource`] is available via [`Components::resource_id()`].
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq, Reflect)]
+#[reflect(Debug, Hash, PartialEq)]
 pub struct ComponentId(usize);
 
 impl ComponentId {
@@ -671,6 +672,7 @@ impl Components {
 /// A value that tracks when a system ran relative to other systems.
 /// This is used to power change detection.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Reflect)]
+#[reflect(Debug, PartialEq)]
 pub struct Tick {
     tick: u32,
 }
@@ -764,6 +766,7 @@ impl<'a> TickCells<'a> {
 
 /// Records when a component was added and when it was last mutably dereferenced (or added).
 #[derive(Copy, Clone, Debug, Reflect)]
+#[reflect(Debug)]
 pub struct ComponentTicks {
     pub(crate) added: Tick,
     pub(crate) changed: Tick,
