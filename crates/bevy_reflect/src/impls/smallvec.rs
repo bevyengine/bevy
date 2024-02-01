@@ -166,15 +166,17 @@ where
     T::Item: FromReflect + TypePath,
 {
     fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
-        if let ReflectRef::List(ref_list) = reflect.reflect_ref() {
-            let mut new_list = Self::with_capacity(ref_list.len());
-            for field in ref_list.iter() {
-                new_list.push(<T as smallvec::Array>::Item::from_reflect(field)?);
-            }
-            Some(new_list)
-        } else {
-            None
+        let ref_list = match reflect.reflect_ref() {
+            ReflectRef::FixedLenList(list) => list,
+            ReflectRef::List(list) => list.as_fixed_len_list(),
+            _ => return None,
+        };
+
+        let mut new_list = Self::with_capacity(ref_list.len());
+        for field in ref_list.iter() {
+            new_list.push(<T as smallvec::Array>::Item::from_reflect(field)?);
         }
+        Some(new_list)
     }
 }
 

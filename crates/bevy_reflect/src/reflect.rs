@@ -209,6 +209,7 @@ pub trait Reflect: DynamicTypePath + Any + Send + Sync {
             ReflectRef::Struct(dyn_struct) => struct_debug(dyn_struct, f),
             ReflectRef::TupleStruct(dyn_tuple_struct) => tuple_struct_debug(dyn_tuple_struct, f),
             ReflectRef::Tuple(dyn_tuple) => tuple_debug(dyn_tuple, f),
+            ReflectRef::FixedLenList(dyn_list) => list_debug(dyn_list, f),
             ReflectRef::List(dyn_list) => list_debug(dyn_list.as_fixed_len_list(), f),
             ReflectRef::Array(dyn_array) => array_debug(dyn_array, f),
             ReflectRef::Map(dyn_map) => map_debug(dyn_map, f),

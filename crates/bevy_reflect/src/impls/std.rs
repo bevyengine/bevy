@@ -367,15 +367,17 @@ macro_rules! impl_reflect_for_veclike {
 
         impl<T: FromReflect + TypePath> FromReflect for $ty {
             fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
-                if let ReflectRef::List(ref_list) = reflect.reflect_ref() {
-                    let mut new_list = Self::with_capacity(ref_list.len());
-                    for field in ref_list.iter() {
-                        $push(&mut new_list, T::from_reflect(field)?);
-                    }
-                    Some(new_list)
-                } else {
-                    None
+                let ref_list = match reflect.reflect_ref() {
+                    ReflectRef::FixedLenList(list) => list,
+                    ReflectRef::List(list) => list.as_fixed_len_list(),
+                    _ => return None,
+                };
+
+                let mut new_list = Self::with_capacity(ref_list.len());
+                for field in ref_list.iter() {
+                    $push(&mut new_list, T::from_reflect(field)?);
                 }
+                Some(new_list)
             }
         }
     };
@@ -1305,15 +1307,17 @@ impl<T: FromReflect + Clone + TypePath> GetTypeRegistration for Cow<'static, [T]
 
 impl<T: FromReflect + Clone + TypePath> FromReflect for Cow<'static, [T]> {
     fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
-        if let ReflectRef::List(ref_list) = reflect.reflect_ref() {
-            let mut temp_vec = Vec::with_capacity(ref_list.len());
-            for field in ref_list.iter() {
-                temp_vec.push(T::from_reflect(field)?);
-            }
-            Some(temp_vec.into())
-        } else {
-            None
+        let ref_list = match reflect.reflect_ref() {
+            ReflectRef::FixedLenList(list) => list,
+            ReflectRef::List(list) => list.as_fixed_len_list(),
+            _ => return None,
+        };
+
+        let mut temp_vec = Vec::with_capacity(ref_list.len());
+        for field in ref_list.iter() {
+            temp_vec.push(T::from_reflect(field)?);
         }
+        Some(temp_vec.into())
     }
 }
 
