@@ -57,10 +57,11 @@ impl RenderGraphRunner {
         graph: &RenderGraph,
         render_device: RenderDevice,
         queue: &wgpu::Queue,
+        adapter: &wgpu::Adapter,
         world: &World,
         finalizer: impl FnOnce(&mut wgpu::CommandEncoder),
     ) -> Result<(), RenderGraphRunnerError> {
-        let mut render_context = RenderContext::new(render_device);
+        let mut render_context = RenderContext::new(render_device, adapter.get_info());
         Self::run_graph(graph, None, &mut render_context, world, &[], None)?;
         finalizer(render_context.command_encoder());
 

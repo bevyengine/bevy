@@ -19,7 +19,8 @@ use bevy_time::TimeSender;
 use bevy_utils::Instant;
 use std::sync::Arc;
 use wgpu::{
-    Adapter, AdapterInfo, CommandBuffer, CommandEncoder, Instance, Queue, RequestAdapterOptions,
+    Adapter, AdapterInfo, Backend, CommandBuffer, CommandEncoder, Instance, Queue,
+    RequestAdapterOptions,
 };
 
 /// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
@@ -30,11 +31,13 @@ pub fn render_system(world: &mut World) {
     let graph = world.resource::<RenderGraph>();
     let render_device = world.resource::<RenderDevice>();
     let render_queue = world.resource::<RenderQueue>();
+    let render_adapter = world.resource::<RenderAdapter>();
 
     if let Err(e) = RenderGraphRunner::run(
         graph,
         render_device.clone(), // TODO: is this clone really necessary?
         &render_queue.0,
+        &render_adapter.0,
         world,
         |encoder| {
             crate::view::screenshot::submit_screenshot_commands(world, encoder);
@@ -306,15 +309,24 @@ pub struct RenderContext<'w> {
     render_device: RenderDevice,
     command_encoder: Option<CommandEncoder>,
     command_buffer_queue: Vec<QueuedCommandBuffer<'w>>,
+    force_serial: bool,
 }
 
 impl<'w> RenderContext<'w> {
     /// Creates a new [`RenderContext`] from a [`RenderDevice`].
-    pub fn new(render_device: RenderDevice) -> Self {
+    pub fn new(render_device: RenderDevice, adapter_info: AdapterInfo) -> Self {
+        // HACK: Parallel command encoding is currently bugged on AMD + Windows + Vulkan with wgpu 0.19.1
+        #[cfg(target_os = "windows")]
+        let force_serial =
+            adapter_info.driver.contains("AMD") && adapter_info.backend == Backend::Vulkan;
+        #[cfg(not(target_os = "windows"))]
+        let force_serial = false;
+
         Self {
             render_device,
             command_encoder: None,
             command_buffer_queue: Vec::new(),
+            force_serial,
         }
     }
 
@@ -400,9 +412,14 @@ impl<'w> RenderContext<'w> {
                         }
                         QueuedCommandBuffer::Task(command_buffer_generation_task) => {
                             let render_device = self.render_device.clone();
-                            task_pool.spawn(async move {
-                                (i, command_buffer_generation_task(render_device))
-                            });
+                            if self.force_serial {
+                                command_buffers
+                                    .push((i, command_buffer_generation_task(render_device)));
+                            } else {
+                                task_pool.spawn(async move {
+                                    (i, command_buffer_generation_task(render_device))
+                                });
+                            }
                         }
                     }
                 }
