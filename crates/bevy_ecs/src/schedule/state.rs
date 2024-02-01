@@ -62,7 +62,7 @@ pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug 
 /// automatically derived.
 ///
 /// It is implemented as part of the [`States`] derive, but can also be added manually.
-pub trait FreelyMutableState: States { }
+pub trait FreelyMutableState: States {}
 
 /// The label of a [`Schedule`] that runs whenever [`State<S>`]
 /// enters this state.
@@ -421,15 +421,17 @@ pub fn setup_state_transitions_in_world(world: &mut World) {
 /// - Runs the [`OnTransition { from: exited_state, to: entered_state }`](OnTransition), if it exists.
 /// - Derive any dependant states through the [`ComputeDependantStates::<S>`] schedule, if it exists.
 /// - Runs the [`OnEnter(entered_state)`] schedule, if it exists.
-/// 
+///
 /// If the [`State<S>`] resource does not exist, it does nothing. Removing or adding states
 /// should be done at App creation or at your own risk.
 pub fn apply_state_transition<S: FreelyMutableState>(world: &mut World) {
     // We want to check if the State and NextState resources exist
-    let (Some(next_state_resource), Some(current_state)) = (world.get_resource::<NextState<S>>(), world.get_resource::<State<S>>()) else {
+    let (Some(next_state_resource), Some(current_state)) = (
+        world.get_resource::<NextState<S>>(),
+        world.get_resource::<State<S>>(),
+    ) else {
         return;
     };
-
 
     match next_state_resource {
         NextState::Pending(new_state) => {
@@ -630,7 +632,7 @@ impl<S: States> StateSet for S {
                         if !world.contains_resource::<State<T>>() {
                             internal_apply_state_transition(world, Some(value));
                         }
-                    },
+                    }
                     None => internal_apply_state_transition::<T>(world, None),
                 };
             };
@@ -665,16 +667,59 @@ impl<S: States> StateSet for S {
     }
 }
 
-
 /// Trait defining a state that is automatically derived from other [`States`].
 ///
 /// A Sub State is a state that exists only when the source state meet certain conditions,
 /// but unlike [`ComputedStates`] - while they exist they can be manually modified.
-/// 
+///
 /// The [`StateSet`] is passed into the `exist` method whenever one of them changes, and the
 /// result is used to handle it's existance. If the result is `Some(Self)`, and the state doesn't exist,
 /// the state is set to the provided value. If it is `None`, the state is removed. Otherwise - the computation
 /// is not used to impact the state's value at all.
+///
+/// The default approach to creating [`SubStates`] is using the derive macro, and defining a single source state
+/// and value to determine it's existance.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+///
+/// #[derive(States, Clone, PartialEq, Eq, Hash, Debug, Default)]
+/// enum AppState {
+///     #[default]
+///     Menu,
+///     InGame
+/// }
+///
+///
+/// #[derive(SubStatesClone, PartialEq, Eq, Hash, Debug)]
+/// #[source(AppState = AppState::InGame)]
+/// enum GamePhase {
+///     Setup,
+///     Battle,
+///     Conclusion
+/// }
+/// ```
+///
+/// you can then add it to an App, and from there you use the state as normal:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+///
+/// # struct App;
+/// # impl App {
+/// #   fn new() -> Self { App }
+/// #   fn init_state<S>(&mut self) -> &mut Self {self}
+/// #   fn add_sub_state<S>(&mut self) -> &mut Self {self}
+/// # }
+/// # struct AppState;
+/// # struct GamePhase;
+///
+///     App::new()
+///         .init_state::<AppState>()
+///         .add_sub_state::<GamePhase>();
+/// ```
+///
+/// In more complex situations, the recommendation is to use an intermediary compute state, like so:
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -687,6 +732,50 @@ impl<S: States> StateSet for S {
 ///     InGame { paused: bool }
 /// }
 ///
+/// #[derive(Clone, PartialEq, Eq, Hash, Debug)]
+/// struct InGame;
+///
+/// impl ComputedStates for InGame {
+///     /// We set the source state to be the state, or set of states,
+///     /// we want to depend on.
+///     type SourceStates = AppState;
+///
+///     /// We then define the compute function, which takes in
+///     /// either a single optional state, or a tuple of optional
+///     /// states based on whether our source is one state
+///     /// or many.
+///     fn compute(sources: Option<AppState>) -> Option<Self> {
+///         match sources {
+///             /// When we are in game, we want to return the InGame state
+///             Some(AppState::InGame { .. }) => Some(InGame),
+///             /// Otherwise, we don't want the `State<InGame>` resource to exist,
+///             /// so we return None.
+///             _ => None
+///         }
+///     }
+/// }
+///
+/// #[derive(SubStates, Clone, PartialEq, Eq, Hash, Debug)]
+/// #[sources(InGame = InGame)]
+/// enum GamePhase {
+///     Setup,
+///     Battle,
+///     Conclusion
+/// }
+/// ```
+///
+/// However, you can also manually implement them. Note that you'll also need to manually implement the `States` & `FreelyMutableState` traits:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+///
+/// /// Computed States require some state to derive from
+/// #[derive(States, Clone, PartialEq, Eq, Hash, Debug, Default)]
+/// enum AppState {
+///     #[default]
+///     Menu,
+///     InGame { paused: bool }
+/// }
 ///
 /// #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 /// enum GamePhase {
@@ -715,25 +804,12 @@ impl<S: States> StateSet for S {
 ///         }
 ///     }
 /// }
-/// ```
 ///
-/// you can then add it to an App, and from there you use the state as normal
+/// impl States for GamePhase {
+///     const DEPENDENCY_DEPTH : usize = GamePhase::SourceStates::SET_DEPENDENCY_DEPTH + 1;
+/// }
 ///
-/// ```
-/// # use bevy_ecs::prelude::*;
-///
-/// # struct App;
-/// # impl App {
-/// #   fn new() -> Self { App }
-/// #   fn init_state<S>(&mut self) -> &mut Self {self}
-/// #   fn add_sub_state<S>(&mut self) -> &mut Self {self}
-/// # }
-/// # struct AppState;
-/// # struct GamePhase;
-///
-///     App::new()
-///         .init_state::<AppState>()
-///         .add_sub_state::<GamePhase>();
+/// impl FreelyMutableState for GamePhase {}
 /// ```
 pub trait SubStates: States + FreelyMutableState {
     /// The set of states from which the [`Self`] is derived.
@@ -804,7 +880,7 @@ macro_rules! impl_state_set_sealed_tuples {
                     })*
                 }
             }
-            
+
 
             fn register_state_exist_systems_in_schedule<T: SubStates<SourceStates = Self>>(schedules: &mut Schedules) {
                 {
@@ -938,7 +1014,7 @@ mod tests {
     enum SubState {
         #[default]
         One,
-        Two
+        Two,
     }
 
     #[test]
@@ -960,7 +1036,6 @@ mod tests {
         assert_eq!(world.resource::<State<SimpleState>>().0, SimpleState::A);
         assert!(!world.contains_resource::<State<SubState>>());
 
-        
         world.insert_resource(NextState::Pending(SubState::Two));
         world.run_schedule(StateTransition);
         assert_eq!(world.resource::<State<SimpleState>>().0, SimpleState::A);
@@ -972,10 +1047,7 @@ mod tests {
             world.resource::<State<SimpleState>>().0,
             SimpleState::B(true)
         );
-        assert_eq!(
-            world.resource::<State<SubState>>().0,
-            SubState::One
-        );
+        assert_eq!(world.resource::<State<SubState>>().0, SubState::One);
 
         world.insert_resource(NextState::Pending(SubState::Two));
         world.run_schedule(StateTransition);
@@ -983,24 +1055,23 @@ mod tests {
             world.resource::<State<SimpleState>>().0,
             SimpleState::B(true)
         );
-        assert_eq!(
-            world.resource::<State<SubState>>().0,
-            SubState::Two
-        );
-        
+        assert_eq!(world.resource::<State<SubState>>().0, SubState::Two);
+
         world.insert_resource(NextState::Pending(SimpleState::B(false)));
         world.run_schedule(StateTransition);
-        assert_eq!(world.resource::<State<SimpleState>>().0, SimpleState::B(false));
+        assert_eq!(
+            world.resource::<State<SimpleState>>().0,
+            SimpleState::B(false)
+        );
         assert!(!world.contains_resource::<State<SubState>>());
     }
 
-    
     #[derive(SubStates, PartialEq, Eq, Debug, Default, Hash, Clone)]
     #[source(TestComputedState = TestComputedState::BisTrue)]
     enum SubStateOfComputed {
         #[default]
         One,
-        Two
+        Two,
     }
 
     #[test]
@@ -1023,7 +1094,6 @@ mod tests {
         assert_eq!(world.resource::<State<SimpleState>>().0, SimpleState::A);
         assert!(!world.contains_resource::<State<SubStateOfComputed>>());
 
-        
         world.insert_resource(NextState::Pending(SubStateOfComputed::Two));
         world.run_schedule(StateTransition);
         assert_eq!(world.resource::<State<SimpleState>>().0, SimpleState::A);
@@ -1050,10 +1120,13 @@ mod tests {
             world.resource::<State<SubStateOfComputed>>().0,
             SubStateOfComputed::Two
         );
-        
+
         world.insert_resource(NextState::Pending(SimpleState::B(false)));
         world.run_schedule(StateTransition);
-        assert_eq!(world.resource::<State<SimpleState>>().0, SimpleState::B(false));
+        assert_eq!(
+            world.resource::<State<SimpleState>>().0,
+            SimpleState::B(false)
+        );
         assert!(!world.contains_resource::<State<SubStateOfComputed>>());
     }
 

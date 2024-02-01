@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{ parse_macro_input, spanned::Spanned,  DeriveInput, Expr, Path, Result};
+use syn::{parse_macro_input, spanned::Spanned, DeriveInput, Expr, Path, Result};
 
 use crate::bevy_ecs_path;
 
@@ -36,37 +36,47 @@ pub fn derive_states(input: TokenStream) -> TokenStream {
 
 struct Source {
     source_type: Path,
-    source_value: Expr
+    source_value: Expr,
 }
 
 fn parse_sources_attr(ast: &DeriveInput) -> Result<Source> {
-    let mut result = ast.attrs.iter().filter(|a| a.path().is_ident("source")).map(|meta| {
-        let mut source = None;
-        let value = meta.parse_nested_meta(|nested | {
+    let mut result = ast
+        .attrs
+        .iter()
+        .filter(|a| a.path().is_ident("source"))
+        .map(|meta| {
+            let mut source = None;
+            let value = meta.parse_nested_meta(|nested| {
                 let source_type = nested.path.clone();
                 let source_value = nested.value()?.parse::<Expr>()?;
-                source = Some(Source { source_type, source_value});
+                source = Some(Source {
+                    source_type,
+                    source_value,
+                });
                 Ok(())
             });
-        match source {
-            Some(value) => Ok(value),
-            None => match value {
-                Ok(_) => Err(syn::Error::new(ast.span(), "Couldn't parse SubStates source")),
-                Err(e) => Err(e),
-            },
-        }
-        }).collect::<Result<Vec<_>>>()?;
-    
+            match source {
+                Some(value) => Ok(value),
+                None => match value {
+                    Ok(_) => Err(syn::Error::new(
+                        ast.span(),
+                        "Couldn't parse SubStates source",
+                    )),
+                    Err(e) => Err(e),
+                },
+            }
+        })
+        .collect::<Result<Vec<_>>>()?;
+
     if result.len() > 1 {
-        return Err(
-            syn::Error::new(ast.span(), "Only one source is allowed for SubStates")
-        );
+        return Err(syn::Error::new(
+            ast.span(),
+            "Only one source is allowed for SubStates",
+        ));
     }
 
     let Some(result) = result.pop() else {
-        return Err(
-            syn::Error::new(ast.span(), "SubStates require a source")
-        );
+        return Err(syn::Error::new(ast.span(), "SubStates require a source"));
     };
 
     Ok(result)
@@ -87,13 +97,15 @@ pub fn derive_substates(input: TokenStream) -> TokenStream {
     let mut trait_path = base_trait_path.clone();
     trait_path.segments.push(format_ident!("SubStates").into());
 
-    
     let mut state_set_trait_path = base_trait_path.clone();
-    state_set_trait_path.segments.push(format_ident!("StateSet").into());
+    state_set_trait_path
+        .segments
+        .push(format_ident!("StateSet").into());
 
-    
     let mut state_trait_path = base_trait_path.clone();
-    state_trait_path.segments.push(format_ident!("States").into());
+    state_trait_path
+        .segments
+        .push(format_ident!("States").into());
 
     let mut state_mutation_trait_path = base_trait_path.clone();
     state_mutation_trait_path
