@@ -73,7 +73,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         "Hold 'Left' or 'Right' to change the line width of straight gizmos\n\
         Hold 'Up' or 'Down' to change the line width of round gizmos\n\
         Press '1' or '2' to toggle the visibility of straight gizmos or round gizmos\n\
-        Press 'k/j' to cycle through primitives rendered with gizmos",
+        Press 'K' or 'J' to cycle through primitives rendered with gizmos",
         TextStyle {
             font: asset_server.load("fonts/FiraMono-Medium.ttf"),
             font_size: 24.,

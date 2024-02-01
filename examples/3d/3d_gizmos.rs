@@ -122,8 +122,8 @@ fn setup(
             Hold 'Up' or 'Down' to change the line width of round gizmos\n\
             Press '1' or '2' to toggle the visibility of straight gizmos or round gizmos\n\
             Press 'A' to show all AABB boxes\n\
-            Press 'k/j' to cycle through primitives rendered with gizmos\n\
-            Press 'h/l' to decrease/increase the amount of segments in the primitives",
+            Press 'K' or 'J' to cycle through primitives rendered with gizmos\n\
+            Press 'H' or 'L' to decrease/increase the amount of segments in the primitives",
             TextStyle {
                 font_size: 20.,
                 ..default()
