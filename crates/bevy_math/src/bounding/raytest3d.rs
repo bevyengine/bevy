@@ -2,7 +2,7 @@ use super::{Aabb3d, BoundingSphere, IntersectsVolume};
 use crate::{primitives::Direction3d, Ray3d, Vec3};
 
 /// A raycast intersection test for 3D bounding volumes
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct RayTest3d {
     /// The ray for the test
     pub ray: Ray3d,
@@ -106,7 +106,7 @@ impl IntersectsVolume<BoundingSphere> for RayTest3d {
 }
 
 /// An intersection test that casts an [`Aabb3d`] along a ray.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct AabbCast3d {
     /// The ray along which to cast the bounding volume
     pub ray: RayTest3d,
@@ -143,7 +143,7 @@ impl IntersectsVolume<Aabb3d> for AabbCast3d {
 }
 
 /// An intersection test that casts a [`BoundingSphere`] along a ray.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct BoundingSphereCast {
     /// The ray along which to cast the bounding volume
     pub ray: RayTest3d,
