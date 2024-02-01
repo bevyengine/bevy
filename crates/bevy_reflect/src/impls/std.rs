@@ -1326,47 +1326,7 @@ impl<T: FromReflect + Clone + TypePath> FromReflect for Cow<'static, [T]> {
     }
 }
 
-// FIXME: un-inline this macro after the relax of the `Sized` bound.
-// impl_type_path!(alloc::boxed::Box<T>);
-
-// NOTE: inline of `impl_type_path!(alloc::boxed::Box<T>);` this is required to mark `T` as `?Sized`
-const _: () = {
-    impl<T: ?Sized> bevy_reflect::TypePath for ::alloc::boxed::Box<T>
-    where
-        Self: ::core::any::Any + ::core::marker::Send + ::core::marker::Sync,
-        T: bevy_reflect::TypePath,
-    {
-        fn type_path() -> &'static str {
-            static CELL: bevy_reflect::utility::GenericTypePathCell =
-                bevy_reflect::utility::GenericTypePathCell::new();
-            CELL.get_or_insert::<Self, _>(|| {
-                ::std::string::ToString::to_string(::core::concat!(
-                    ::core::concat!(::core::concat!("alloc::boxed", "::"), "Box"),
-                    "<"
-                )) + <T as bevy_reflect::TypePath>::type_path()
-                    + ">"
-            })
-        }
-        fn short_type_path() -> &'static str {
-            static CELL: bevy_reflect::utility::GenericTypePathCell =
-                bevy_reflect::utility::GenericTypePathCell::new();
-            CELL.get_or_insert::<Self, _>(|| {
-                ::std::string::ToString::to_string(::core::concat!("Box", "<"))
-                    + <T as bevy_reflect::TypePath>::short_type_path()
-                    + ">"
-            })
-        }
-        fn type_ident() -> Option<&'static str> {
-            ::core::option::Option::Some("Box")
-        }
-        fn crate_name() -> Option<&'static str> {
-            ::core::option::Option::Some("alloc")
-        }
-        fn module_path() -> Option<&'static str> {
-            ::core::option::Option::Some("alloc::boxed")
-        }
-    }
-};
+impl_type_path!(::alloc::boxed::Box<T: ?Sized>);
 
 impl<T: FromReflect + TypePath> FixedLenList for Box<[T]> {
     fn get(&self, index: usize) -> Option<&dyn Reflect> {
