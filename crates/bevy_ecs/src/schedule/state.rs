@@ -62,7 +62,7 @@ pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug 
 /// automatically derived.
 ///
 /// It is implemented as part of the [`States`] derive, but can also be added manually.
-pub trait FreelyMutableState: States {}
+pub trait FreelyMutableState: States { }
 
 /// The label of a [`Schedule`] that runs whenever [`State<S>`]
 /// enters this state.
@@ -98,11 +98,12 @@ impl<S: States> Default for ComputeDependantStates<S> {
 }
 
 /// The label of a [`Schedule`] that runs the system
-/// deriving a given [`ComputedStates`].
+/// deriving a given [`ComputedStates`] or the existance of
+/// a given [`SubStates`].
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct ComputeComputedState<S: ComputedStates>(PhantomData<S>);
+pub struct ComputeComputedState<S: States>(PhantomData<S>);
 
-impl<S: ComputedStates> Default for ComputeComputedState<S> {
+impl<S: States> Default for ComputeComputedState<S> {
     fn default() -> Self {
         Self(Default::default())
     }
@@ -420,19 +421,25 @@ pub fn setup_state_transitions_in_world(world: &mut World) {
 /// - Runs the [`OnTransition { from: exited_state, to: entered_state }`](OnTransition), if it exists.
 /// - Derive any dependant states through the [`ComputeDependantStates::<S>`] schedule, if it exists.
 /// - Runs the [`OnEnter(entered_state)`] schedule, if it exists.
+/// 
+/// If the [`State<S>`] resource does not exist, it does nothing. Removing or adding states
+/// should be done at App creation or at your own risk.
 pub fn apply_state_transition<S: FreelyMutableState>(world: &mut World) {
-    // We want to take the `NextState` resource,
-    // but only mark it as changed if it wasn't empty.
-    let Some(next_state_resource) = world.get_resource::<NextState<S>>() else {
+    // We want to check if the State and NextState resources exist
+    let (Some(next_state_resource), Some(current_state)) = (world.get_resource::<NextState<S>>(), world.get_resource::<State<S>>()) else {
         return;
     };
 
+
     match next_state_resource {
         NextState::Pending(new_state) => {
-            let new_state = new_state.clone();
-            internal_apply_state_transition(world, Some(new_state));
+            if new_state != current_state.get() {
+                let new_state = new_state.clone();
+                internal_apply_state_transition(world, Some(new_state));
+            }
         }
         NextState::Unchanged => {
+            // This is the default value, so we don't need to re-insert the resource
             return;
         }
     }
@@ -558,6 +565,12 @@ pub trait StateSet: sealed::StateSetSealed {
     fn register_compute_systems_for_dependent_state<T: ComputedStates<SourceStates = Self>>(
         schedules: &mut Schedules,
     );
+
+    /// Sets up the systems needed to compute whether `T` exists whenever any `State` in this
+    /// `StateSet` is changed.
+    fn register_state_exist_systems_in_schedule<T: SubStates<SourceStates = Self>>(
+        schedules: &mut Schedules,
+    );
 }
 
 impl<S: States> StateSetSealed for S {}
@@ -603,6 +616,146 @@ impl<S: States> StateSet for S {
                 }
             }
         }
+    }
+
+    fn register_state_exist_systems_in_schedule<T: SubStates<SourceStates = Self>>(
+        schedules: &mut Schedules,
+    ) {
+        {
+            let system = |world: &mut World| {
+                let state_set = world.get_resource::<State<Self>>();
+                let new_state = T::exists(state_set.map(|v| v.0.clone()));
+                match new_state {
+                    Some(value) => {
+                        if !world.contains_resource::<State<T>>() {
+                            internal_apply_state_transition(world, Some(value));
+                        }
+                    },
+                    None => internal_apply_state_transition::<T>(world, None),
+                };
+            };
+            let label = ComputeComputedState::<T>::default();
+            schedules.insert({
+                let mut schedule = Schedule::new(label);
+                schedule.add_systems(system);
+                schedule
+            });
+        }
+
+        {
+            let system = |mut transitions: ResMut<StateTransitionSchedules>| {
+                transitions
+                    .dependant_schedules
+                    .entry(T::DEPENDENCY_DEPTH)
+                    .or_default()
+                    .insert(ComputeComputedState::<T>::default().intern());
+            };
+            let label = ComputeDependantStates::<S>::default();
+            match schedules.get_mut(label.clone()) {
+                Some(schedule) => {
+                    schedule.add_systems(system);
+                }
+                None => {
+                    let mut schedule = Schedule::new(label);
+                    schedule.add_systems(system);
+                    schedules.insert(schedule);
+                }
+            }
+        }
+    }
+}
+
+
+/// Trait defining a state that is automatically derived from other [`States`].
+///
+/// A Sub State is a state that exists only when the source state meet certain conditions,
+/// but unlike [`ComputedStates`] - while they exist they can be manually modified.
+/// 
+/// The [`StateSet`] is passed into the `exist` method whenever one of them changes, and the
+/// result is used to handle it's existance. If the result is `Some(Self)`, and the state doesn't exist,
+/// the state is set to the provided value. If it is `None`, the state is removed. Otherwise - the computation
+/// is not used to impact the state's value at all.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+///
+/// /// Computed States require some state to derive from
+/// #[derive(States, Clone, PartialEq, Eq, Hash, Debug, Default)]
+/// enum AppState {
+///     #[default]
+///     Menu,
+///     InGame { paused: bool }
+/// }
+///
+///
+/// #[derive(Clone, PartialEq, Eq, Hash, Debug)]
+/// enum GamePhase {
+///     Setup,
+///     Battle,
+///     Conclusion
+/// }
+///
+/// impl SubStates for GamePhase {
+///     /// We set the source state to be the state, or set of states,
+///     /// we want to depend on.
+///     type SourceStates = AppState;
+///
+///     /// We then define the compute function, which takes in
+///     /// either a single optional state, or a tuple of optional
+///     /// states based on whether our source is one state
+///     /// or many.
+///     fn exists(sources: Option<AppState>) -> Option<Self> {
+///         match sources {
+///             /// When we are in game, so we want a GamePhase state to exist, and the default is
+///             /// GamePhase::Setup
+///             Some(AppState::InGame { .. }) => Some(GamePhase::Setup),
+///             /// Otherwise, we don't want the `State<GamePhase>` resource to exist,
+///             /// so we return None.
+///             _ => None
+///         }
+///     }
+/// }
+/// ```
+///
+/// you can then add it to an App, and from there you use the state as normal
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+///
+/// # struct App;
+/// # impl App {
+/// #   fn new() -> Self { App }
+/// #   fn init_state<S>(&mut self) -> &mut Self {self}
+/// #   fn add_sub_state<S>(&mut self) -> &mut Self {self}
+/// # }
+/// # struct AppState;
+/// # struct GamePhase;
+///
+///     App::new()
+///         .init_state::<AppState>()
+///         .add_sub_state::<GamePhase>();
+/// ```
+pub trait SubStates: States + FreelyMutableState {
+    /// The set of states from which the [`Self`] is derived.
+    ///
+    /// This can either be a single type that implements [`States`], or a tuple
+    /// containing multiple types that implement [`States`].
+    type SourceStates: StateSet;
+
+    /// This function gets called whenever one of the [`SourceStates`](Self::SourceStates) changes.
+    /// The result is used to determine the existance of [`State<Self>`].
+    ///
+    /// If the result is [`None`], the [`State<Self>`] resource will be removed from the world, otherwise
+    /// if the [`State<Self>`] resource doesn't exist - it will be created with the [`Some`] value.
+    fn exists(
+        sources: <<Self as SubStates>::SourceStates as StateSet>::OptionalStateSet,
+    ) -> Option<Self>;
+
+    /// This function sets up systems that compute the state whenever one of the [`SourceStates`](Self::SourceStates)
+    /// change. It is called by `App::add_computed_state`, but can be called manually if `App` is not
+    /// used.
+    fn register_state_exist_systems_in_schedules(schedules: &mut Schedules) {
+        Self::SourceStates::register_state_exist_systems_in_schedule::<Self>(schedules);
     }
 }
 
@@ -651,6 +804,50 @@ macro_rules! impl_state_set_sealed_tuples {
                     })*
                 }
             }
+            
+
+            fn register_state_exist_systems_in_schedule<T: SubStates<SourceStates = Self>>(schedules: &mut Schedules) {
+                {
+                    let system =  |world: &mut World| {
+                        let ($($val),*,) = ($(world.get_resource::<State<$param>>()),*,);
+
+                        let new_state = T::exists(($($val.map(|v| v.0.clone())),*, ));
+                        match new_state {
+                            Some(value) => {
+                                if !world.contains_resource::<State<T>>() {
+                                    internal_apply_state_transition(world, Some(value));
+                                }
+                            },
+                            None => internal_apply_state_transition::<T>(world, None),
+                        };
+                    };
+
+                    let label = ComputeComputedState::<T>::default();
+                    schedules.insert({
+                        let mut schedule = Schedule::new(label);
+                        schedule.add_systems(system);
+                        schedule
+                    });
+                }
+
+                {
+                    let system = |mut transitions: ResMut<StateTransitionSchedules>| {
+                        transitions.dependant_schedules.entry(T::DEPENDENCY_DEPTH).or_default().insert(ComputeComputedState::<T>::default().intern());
+                    };
+
+                    $(let label = ComputeDependantStates::<$param>::default();
+                    match schedules.get_mut(label.clone()) {
+                        Some(schedule) => {
+                            schedule.add_systems(system);
+                        },
+                        None => {
+                            let mut schedule = Schedule::new(label);
+                            schedule.add_systems(system);
+                            schedules.insert(schedule);
+                        },
+                    })*
+                }
+            }
         }
     };
 }
@@ -659,6 +856,8 @@ all_tuples!(impl_state_set_sealed_tuples, 1, 15, S, s);
 
 #[cfg(test)]
 mod tests {
+    use bevy_ecs_macros::SubStates;
+
     use super::*;
     use crate as bevy_ecs;
 
@@ -732,6 +931,130 @@ mod tests {
         world.run_schedule(StateTransition);
         assert_eq!(world.resource::<State<SimpleState>>().0, SimpleState::A);
         assert!(!world.contains_resource::<State<TestComputedState>>());
+    }
+
+    #[derive(SubStates, PartialEq, Eq, Debug, Default, Hash, Clone)]
+    #[source(SimpleState = SimpleState::B(true))]
+    enum SubState {
+        #[default]
+        One,
+        Two
+    }
+
+    #[test]
+    fn sub_state_exists_only_when_allowed_but_can_be_modified_freely() {
+        let mut world = World::new();
+        world.init_resource::<State<SimpleState>>();
+        let mut schedules = Schedules::new();
+        SubState::register_state_exist_systems_in_schedules(&mut schedules);
+        let mut apply_changes = Schedule::new(ManualStateTransitions);
+        apply_changes.add_systems(apply_state_transition::<SimpleState>);
+        apply_changes.add_systems(apply_state_transition::<SubState>);
+        schedules.insert(apply_changes);
+
+        world.insert_resource(schedules);
+
+        setup_state_transitions_in_world(&mut world);
+
+        world.run_schedule(StateTransition);
+        assert_eq!(world.resource::<State<SimpleState>>().0, SimpleState::A);
+        assert!(!world.contains_resource::<State<SubState>>());
+
+        
+        world.insert_resource(NextState::Pending(SubState::Two));
+        world.run_schedule(StateTransition);
+        assert_eq!(world.resource::<State<SimpleState>>().0, SimpleState::A);
+        assert!(!world.contains_resource::<State<SubState>>());
+
+        world.insert_resource(NextState::Pending(SimpleState::B(true)));
+        world.run_schedule(StateTransition);
+        assert_eq!(
+            world.resource::<State<SimpleState>>().0,
+            SimpleState::B(true)
+        );
+        assert_eq!(
+            world.resource::<State<SubState>>().0,
+            SubState::One
+        );
+
+        world.insert_resource(NextState::Pending(SubState::Two));
+        world.run_schedule(StateTransition);
+        assert_eq!(
+            world.resource::<State<SimpleState>>().0,
+            SimpleState::B(true)
+        );
+        assert_eq!(
+            world.resource::<State<SubState>>().0,
+            SubState::Two
+        );
+        
+        world.insert_resource(NextState::Pending(SimpleState::B(false)));
+        world.run_schedule(StateTransition);
+        assert_eq!(world.resource::<State<SimpleState>>().0, SimpleState::B(false));
+        assert!(!world.contains_resource::<State<SubState>>());
+    }
+
+    
+    #[derive(SubStates, PartialEq, Eq, Debug, Default, Hash, Clone)]
+    #[source(TestComputedState = TestComputedState::BisTrue)]
+    enum SubStateOfComputed {
+        #[default]
+        One,
+        Two
+    }
+
+    #[test]
+    fn substate_of_computed_states_works_appropriately() {
+        let mut world = World::new();
+        world.init_resource::<State<SimpleState>>();
+        let mut schedules = Schedules::new();
+        TestComputedState::register_state_compute_systems_in_schedule(&mut schedules);
+        SubStateOfComputed::register_state_exist_systems_in_schedules(&mut schedules);
+        let mut apply_changes = Schedule::new(ManualStateTransitions);
+        apply_changes.add_systems(apply_state_transition::<SimpleState>);
+        apply_changes.add_systems(apply_state_transition::<SubStateOfComputed>);
+        schedules.insert(apply_changes);
+
+        world.insert_resource(schedules);
+
+        setup_state_transitions_in_world(&mut world);
+
+        world.run_schedule(StateTransition);
+        assert_eq!(world.resource::<State<SimpleState>>().0, SimpleState::A);
+        assert!(!world.contains_resource::<State<SubStateOfComputed>>());
+
+        
+        world.insert_resource(NextState::Pending(SubStateOfComputed::Two));
+        world.run_schedule(StateTransition);
+        assert_eq!(world.resource::<State<SimpleState>>().0, SimpleState::A);
+        assert!(!world.contains_resource::<State<SubStateOfComputed>>());
+
+        world.insert_resource(NextState::Pending(SimpleState::B(true)));
+        world.run_schedule(StateTransition);
+        assert_eq!(
+            world.resource::<State<SimpleState>>().0,
+            SimpleState::B(true)
+        );
+        assert_eq!(
+            world.resource::<State<SubStateOfComputed>>().0,
+            SubStateOfComputed::One
+        );
+
+        world.insert_resource(NextState::Pending(SubStateOfComputed::Two));
+        world.run_schedule(StateTransition);
+        assert_eq!(
+            world.resource::<State<SimpleState>>().0,
+            SimpleState::B(true)
+        );
+        assert_eq!(
+            world.resource::<State<SubStateOfComputed>>().0,
+            SubStateOfComputed::Two
+        );
+        
+        world.insert_resource(NextState::Pending(SimpleState::B(false)));
+        world.run_schedule(StateTransition);
+        assert_eq!(world.resource::<State<SimpleState>>().0, SimpleState::B(false));
+        assert!(!world.contains_resource::<State<SubStateOfComputed>>());
     }
 
     #[derive(States, PartialEq, Eq, Debug, Default, Hash, Clone)]
