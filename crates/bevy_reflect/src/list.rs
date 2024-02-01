@@ -153,7 +153,7 @@ pub struct ListInfo {
 
 impl ListInfo {
     /// Create a new [`ListInfo`].
-    pub fn new<TList: List + TypePath, TItem: FromReflect + TypePath>() -> Self {
+    pub fn new<TList: FixedLenList + TypePath, TItem: FromReflect + TypePath>() -> Self {
         Self {
             type_path: TypePathTable::of::<TList>(),
             type_id: TypeId::of::<TList>(),
