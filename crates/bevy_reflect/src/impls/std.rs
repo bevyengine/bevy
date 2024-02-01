@@ -1149,10 +1149,7 @@ impl FromReflect for Cow<'static, str> {
     }
 }
 
-impl<T: TypePath> TypePath for [T]
-where
-    [T]: ToOwned,
-{
+impl<T: TypePath> TypePath for [T] {
     fn type_path() -> &'static str {
         static CELL: GenericTypePathCell = GenericTypePathCell::new();
         CELL.get_or_insert::<Self, _>(|| format!("[{}]", <T>::type_path()))
@@ -1306,6 +1303,158 @@ impl<T: FromReflect + Clone + TypePath> GetTypeRegistration for Cow<'static, [T]
 }
 
 impl<T: FromReflect + Clone + TypePath> FromReflect for Cow<'static, [T]> {
+    fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
+        let ref_list = match reflect.reflect_ref() {
+            ReflectRef::FixedLenList(list) => list,
+            ReflectRef::List(list) => list.as_fixed_len_list(),
+            _ => return None,
+        };
+
+        let mut temp_vec = Vec::with_capacity(ref_list.len());
+        for field in ref_list.iter() {
+            temp_vec.push(T::from_reflect(field)?);
+        }
+        Some(temp_vec.into())
+    }
+}
+
+// FIXME: un-inline this macro after the relax of the `Sized` bound.
+// impl_type_path!(alloc::boxed::Box<T>);
+
+// NOTE: inline of `impl_type_path!(alloc::boxed::Box<T>);` this is required to mark `T` as `?Sized`
+const _: () = {
+    impl<T: ?Sized> bevy_reflect::TypePath for ::alloc::boxed::Box<T>
+    where
+        Self: ::core::any::Any + ::core::marker::Send + ::core::marker::Sync,
+        T: bevy_reflect::TypePath,
+    {
+        fn type_path() -> &'static str {
+            static CELL: bevy_reflect::utility::GenericTypePathCell =
+                bevy_reflect::utility::GenericTypePathCell::new();
+            CELL.get_or_insert::<Self, _>(|| {
+                ::std::string::ToString::to_string(::core::concat!(
+                    ::core::concat!(::core::concat!("alloc::boxed", "::"), "Box"),
+                    "<"
+                )) + <T as bevy_reflect::TypePath>::type_path()
+                    + ">"
+            })
+        }
+        fn short_type_path() -> &'static str {
+            static CELL: bevy_reflect::utility::GenericTypePathCell =
+                bevy_reflect::utility::GenericTypePathCell::new();
+            CELL.get_or_insert::<Self, _>(|| {
+                ::std::string::ToString::to_string(::core::concat!("Box", "<"))
+                    + <T as bevy_reflect::TypePath>::short_type_path()
+                    + ">"
+            })
+        }
+        fn type_ident() -> Option<&'static str> {
+            ::core::option::Option::Some("Box")
+        }
+        fn crate_name() -> Option<&'static str> {
+            ::core::option::Option::Some("alloc")
+        }
+        fn module_path() -> Option<&'static str> {
+            ::core::option::Option::Some("alloc::boxed")
+        }
+    }
+};
+
+impl<T: FromReflect + TypePath> FixedLenList for Box<[T]> {
+    fn get(&self, index: usize) -> Option<&dyn Reflect> {
+        self.as_ref().get(index).map(|x| x as &dyn Reflect)
+    }
+
+    fn get_mut(&mut self, index: usize) -> Option<&mut dyn Reflect> {
+        self.as_mut().get_mut(index).map(|x| x as &mut dyn Reflect)
+    }
+
+    fn len(&self) -> usize {
+        self.as_ref().len()
+    }
+
+    fn iter(&self) -> ListIter {
+        ListIter::new(self)
+    }
+}
+
+impl<T: FromReflect + TypePath> Reflect for Box<[T]> {
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+        Some(<Self as Typed>::type_info())
+    }
+
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
+        self
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+        self
+    }
+
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self
+    }
+
+    fn apply(&mut self, value: &dyn Reflect) {
+        crate::fixed_len_list_apply(self, value);
+    }
+
+    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+        *self = value.take()?;
+        Ok(())
+    }
+
+    fn reflect_ref(&self) -> ReflectRef {
+        ReflectRef::FixedLenList(self)
+    }
+
+    fn reflect_mut(&mut self) -> ReflectMut {
+        ReflectMut::FixedLenList(self)
+    }
+
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::FixedLenList(self)
+    }
+
+    fn clone_value(&self) -> Box<dyn Reflect> {
+        Box::new(FixedLenList::clone_dynamic(self))
+    }
+
+    fn reflect_hash(&self) -> Option<u64> {
+        crate::list_hash(self)
+    }
+
+    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+        crate::list_partial_eq(self, value)
+    }
+}
+
+impl<T: FromReflect + TypePath> Typed for Box<[T]> {
+    fn type_info() -> &'static TypeInfo {
+        static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
+        CELL.get_or_insert::<Self, _>(|| TypeInfo::List(ListInfo::new::<Self, T>()))
+    }
+}
+
+impl<T: FromReflect + TypePath> GetTypeRegistration for Box<[T]> {
+    fn get_type_registration() -> TypeRegistration {
+        TypeRegistration::of::<Box<[T]>>()
+    }
+}
+
+impl<T: FromReflect + TypePath> FromReflect for Box<[T]> {
     fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
         let ref_list = match reflect.reflect_ref() {
             ReflectRef::FixedLenList(list) => list,
