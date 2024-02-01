@@ -181,8 +181,8 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
         Ok(())
     }
 
-    /// Specify a batch key to use for shadows. Returning Some(value) allows batching of distinct materials which will produce 
-    /// the same depth-prepass output (such as opaque [`StandardMaterial`]s with different textures), rendering with the first 
+    /// Specify a batch key to use for shadows. Returning Some(value) allows batching of distinct materials which will produce
+    /// the same depth-prepass output (such as opaque [`StandardMaterial`]s with different textures), rendering with the first
     /// material of the batch for all meshes.
     fn shadow_material_key(&self) -> Option<u64> {
         None
