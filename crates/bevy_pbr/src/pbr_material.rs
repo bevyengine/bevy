@@ -801,6 +801,11 @@ impl Material for StandardMaterial {
         PBR_SHADER_HANDLE.into()
     }
 
+    fn shadow_material_key(&self) -> Option<u64> {
+        // we can batch all pure opaque materials together for shadow rendering
+        (self.alpha_mode == AlphaMode::Opaque).then_some(0)
+    }
+
     fn specialize(
         _pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,

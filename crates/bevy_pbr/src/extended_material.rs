@@ -67,6 +67,12 @@ pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
         ShaderRef::Default
     }
 
+    /// Specifies the shadow batch key (see [`Material::shadow_material_key`]). By default, extended materials
+    /// use the base material key.
+    fn shadow_material_key(&self, base_key: Option<u64>) -> Option<u64> {
+        base_key
+    }
+
     /// Customizes the default [`RenderPipelineDescriptor`] for a specific entity using the entity's
     /// [`MaterialPipelineKey`] and [`MeshVertexBufferLayout`] as input.
     /// Specialization for the base material is applied before this function is called.
@@ -209,6 +215,11 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
             ShaderRef::Default => B::deferred_fragment_shader(),
             specified => specified,
         }
+    }
+
+    fn shadow_material_key(&self) -> Option<u64> {
+        self.extension
+            .shadow_material_key(self.base.shadow_material_key())
     }
 
     fn specialize(
