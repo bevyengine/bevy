@@ -287,7 +287,7 @@ impl ComponentInfo {
 /// Given a type `T` which implements [`Component`], the `ComponentId` for `T` can be retrieved
 /// from a `World` using [`World::component_id()`] or via [`Components::component_id()`]. Access
 /// to the `ComponentId` for a [`Resource`] is available via [`Components::resource_id()`].
-#[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq, Reflect)]
 pub struct ComponentId(usize);
 
 impl ComponentId {
@@ -763,7 +763,7 @@ impl<'a> TickCells<'a> {
 }
 
 /// Records when a component was added and when it was last mutably dereferenced (or added).
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Reflect)]
 pub struct ComponentTicks {
     pub(crate) added: Tick,
     pub(crate) changed: Tick,
