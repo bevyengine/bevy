@@ -10,6 +10,7 @@ use crate::{
 };
 pub use bevy_ecs_macros::Component;
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
+use bevy_reflect::Reflect;
 use std::cell::UnsafeCell;
 use std::{
     alloc::Layout,
@@ -18,7 +19,6 @@ use std::{
     marker::PhantomData,
     mem::needs_drop,
 };
-use bevy_reflect::Reflect;
 
 /// A data type that can be used to store data for an [entity].
 ///
