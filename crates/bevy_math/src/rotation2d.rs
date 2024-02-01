@@ -26,6 +26,39 @@ impl Rotation2d {
     /// No rotation.
     pub const IDENTITY: Self = Self { cos: 1.0, sin: 0.0 };
 
+    /// A rotation of π radians.
+    pub const PI: Self = Self {
+        cos: -1.0,
+        sin: 0.0,
+    };
+
+    /// A counterclockwise rotation of π/2 radians.
+    pub const FRAC_PI_2: Self = Self { cos: 0.0, sin: 1.0 };
+
+    /// A counterclockwise rotation of π/3 radians.
+    pub const FRAC_PI_3: Self = Self {
+        cos: 0.5,
+        sin: 0.866_025_4,
+    };
+
+    /// A counterclockwise rotation of π/4 radians.
+    pub const FRAC_PI_4: Self = Self {
+        cos: std::f32::consts::FRAC_1_SQRT_2,
+        sin: std::f32::consts::FRAC_1_SQRT_2,
+    };
+
+    /// A counterclockwise rotation of π/6 radians.
+    pub const FRAC_PI_6: Self = Self {
+        cos: 0.866_025_4,
+        sin: 0.5,
+    };
+
+    /// A counterclockwise rotation of π/8 radians.
+    pub const FRAC_PI_8: Self = Self {
+        cos: 0.923_879_5,
+        sin: 0.382_683_43,
+    };
+
     /// Creates a [`Rotation2d`] from a counterclockwise angle in radians.
     ///
     /// This is equivalent to [`Self::from_radians`].
