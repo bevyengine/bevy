@@ -137,27 +137,47 @@ impl AssetServer {
     pub fn register_loader<L: AssetLoader>(&self, loader: L) {
         let mut loaders = self.data.loaders.write();
         let type_name = std::any::type_name::<L>();
+        let loader_asset_type = TypeId::of::<L::Asset>();
+        let loader_asset_type_name = std::any::type_name::<L::Asset>();
         let loader = Arc::new(loader);
         let (loader_index, is_new) =
             if let Some(index) = loaders.preregistered_loaders.remove(type_name) {
                 (index, false)
             } else {
-                (TypeId::of::<L::Asset>(), true)
+                (loaders.loaders.len(), true)
             };
-        for extension in loader.extensions() {
-            loaders
-                .extension_to_type_id
-                .insert(extension.to_string(), loader_index);
-        }
 
         if is_new {
-            loaders.type_name_to_type_id.insert(type_name, loader_index);
-            loaders
-                .type_id_to_loader
-                .insert(loader_index, MaybeAssetLoader::Ready(loader));
+            for extension in loader.extensions() {
+                let list = loaders
+                    .extension_to_loaders
+                    .entry(extension.to_string())
+                    .or_default();
+
+                if !list.is_empty() {
+                    warn!("duplicate registration for extension `{extension}`.");
+                }
+
+                list.push(loader_index);
+            }
+
+            loaders.type_name_to_loader.insert(type_name, loader_index);
+
+            let list = loaders
+                .type_id_to_loaders
+                .entry(loader_asset_type)
+                .or_default();
+
+            if !list.is_empty() {
+                info!("duplicate registration for type `{loader_asset_type_name}`.");
+            }
+
+            list.push(loader_index);
+
+            loaders.loaders.push(MaybeAssetLoader::Ready(loader));
         } else {
             let maybe_loader = std::mem::replace(
-                loaders.type_id_to_loader.get_mut(&loader_index).unwrap(),
+                loaders.loaders.get_mut(loader_index).unwrap(),
                 MaybeAssetLoader::Ready(loader.clone()),
             );
             match maybe_loader {
@@ -214,6 +234,86 @@ impl AssetServer {
             .insert(handle_provider.type_id, handle_provider);
     }
 
+    /// Attempts to find the index of an [`AssetLoader`] matching the provided criteria
+    fn find_asset_loader_index<'a>(
+        &self,
+        type_name: Option<&str>,
+        asset_type_id: Option<TypeId>,
+        extension: Option<&str>,
+        asset_path: Option<impl Into<AssetPath<'a>>>,
+    ) -> Option<usize> {
+        let loaders = self.data.loaders.read();
+
+        // If provided the type name of the loader, return that immediately
+        if let Some(type_name) = type_name {
+            return loaders.type_name_to_loader.get(type_name).copied();
+        }
+
+        let asset_path: Option<AssetPath<'a>> = asset_path.map(|path| path.into());
+
+        let label = if let Some(ref asset_path) = asset_path {
+            asset_path.label()
+        } else {
+            None
+        };
+
+        // Try multiple resolution techniques
+        let candidates = if let Some(type_id) = asset_type_id {
+            if label.is_none() {
+                loaders.type_id_to_loaders.get(&type_id)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        if let Some(candidates) = candidates {
+            if candidates.len() == 1 {
+                return candidates.first().copied();
+            }
+        }
+
+        let try_extension = |extension| {
+            if let Some(indices) = loaders.extension_to_loaders.get(extension) {
+                if let Some(candidates) = candidates {
+                    if candidates.is_empty() {
+                        indices.last()
+                    } else {
+                        indices
+                            .iter()
+                            .rev()
+                            .find(|index| candidates.contains(index))
+                    }
+                } else {
+                    indices.last()
+                }
+            } else {
+                None
+            }
+        };
+
+        if let Some(extension) = extension {
+            if let Some(result) = try_extension(extension) {
+                return Some(*result);
+            }
+        }
+
+        if let Some(full_extension) = asset_path.and_then(|path| path.get_full_extension()) {
+            if let Some(result) = try_extension(full_extension.as_str()) {
+                return Some(*result);
+            }
+
+            for extension in AssetPath::iter_secondary_extensions(&full_extension) {
+                if let Some(result) = try_extension(extension) {
+                    return Some(*result);
+                }
+            }
+        }
+
+        None
+    }
+
     /// Returns the registered [`AssetLoader`] associated with the given extension, if it exists.
     pub async fn get_asset_loader_with_extension(
         &self,
@@ -221,12 +321,15 @@ impl AssetServer {
     ) -> Result<Arc<dyn ErasedAssetLoader>, MissingAssetLoaderForExtensionError> {
         let loader = {
             let loaders = self.data.loaders.read();
-            let index = *loaders.extension_to_type_id.get(extension).ok_or_else(|| {
-                MissingAssetLoaderForExtensionError {
+            let index = *loaders
+                .extension_to_loaders
+                .get(extension)
+                .and_then(|indices| indices.last())
+                .ok_or_else(|| MissingAssetLoaderForExtensionError {
                     extensions: vec![extension.to_string()],
-                }
-            })?;
-            loaders.type_id_to_loader[&index].clone()
+                })?;
+
+            loaders.loaders[index].clone()
         };
 
         match loader {
@@ -242,13 +345,13 @@ impl AssetServer {
     ) -> Result<Arc<dyn ErasedAssetLoader>, MissingAssetLoaderForTypeNameError> {
         let loader = {
             let loaders = self.data.loaders.read();
-            let index = *loaders.type_name_to_type_id.get(type_name).ok_or_else(|| {
+            let index = *loaders.type_name_to_loader.get(type_name).ok_or_else(|| {
                 MissingAssetLoaderForTypeNameError {
                     type_name: type_name.to_string(),
                 }
             })?;
 
-            loaders.type_id_to_loader[&index].clone()
+            loaders.loaders[index].clone()
         };
         match loader {
             MaybeAssetLoader::Ready(loader) => Ok(loader),
@@ -288,11 +391,13 @@ impl AssetServer {
     ) -> Result<Arc<dyn ErasedAssetLoader>, MissingAssetLoaderForTypeIdError> {
         let loader = {
             let loaders = self.data.loaders.read();
-            loaders
-                .type_id_to_loader
+            let index = *loaders
+                .type_id_to_loaders
                 .get(&type_id)
-                .ok_or(MissingAssetLoaderForTypeIdError { type_id })?
-                .clone()
+                .and_then(|indices| indices.last())
+                .ok_or(MissingAssetLoaderForTypeIdError { type_id })?;
+
+            loaders.loaders[index].clone()
         };
 
         match loader {
@@ -938,26 +1043,43 @@ impl AssetServer {
     /// real loader is added.
     pub fn preregister_loader<L: AssetLoader>(&self, extensions: &[&str]) {
         let mut loaders = self.data.loaders.write();
-        let loader_index = TypeId::of::<L::Asset>();
+        let loader_asset_type = TypeId::of::<L::Asset>();
+        let loader_asset_type_name = std::any::type_name::<L::Asset>();
         let type_name = std::any::type_name::<L>();
+        let loader_index = loaders.loaders.len();
         loaders
             .preregistered_loaders
             .insert(type_name, loader_index);
-        loaders.type_name_to_type_id.insert(type_name, loader_index);
+        loaders.type_name_to_loader.insert(type_name, loader_index);
         for extension in extensions {
-            if loaders
-                .extension_to_type_id
-                .insert(extension.to_string(), loader_index)
-                .is_some()
-            {
-                warn!("duplicate preregistration for `{extension}`, any assets loaded with the previous loader will never complete.");
+            let list = loaders
+                .extension_to_loaders
+                .entry(extension.to_string())
+                .or_default();
+
+            if !list.is_empty() {
+                warn!("duplicate preregistration for extension `{extension}`.");
             }
+
+            list.push(loader_index);
         }
+
+        let list = loaders
+            .type_id_to_loaders
+            .entry(loader_asset_type)
+            .or_default();
+
+        if !list.is_empty() {
+            info!("duplicate preregistration for type `{loader_asset_type_name}`.");
+        }
+
+        list.push(loader_index);
+
         let (mut sender, receiver) = async_broadcast::broadcast(1);
         sender.set_overflow(true);
         loaders
-            .type_id_to_loader
-            .insert(loader_index, MaybeAssetLoader::Pending { sender, receiver });
+            .loaders
+            .push(MaybeAssetLoader::Pending { sender, receiver });
     }
 
     /// Retrieve a handle for the given path. This will create a handle (and [`AssetInfo`]) if it does not exist
@@ -1058,37 +1180,23 @@ impl AssetServer {
     /// Prefers [`TypeId`], and falls back to reading the file extension in the provided [`AssetPath`] otherwise.
     async fn resolve_loader<'a>(
         &'a self,
-        asset_path: &'a AssetPath<'_>,
-        asset_type_id: Option<TypeId>,
+        path: &'a AssetPath<'_>,
+        type_id: Option<TypeId>,
     ) -> Result<Arc<dyn ErasedAssetLoader>, MissingAssetLoaderForExtensionError> {
-        let loader = 'type_resolution: {
-            let Some(type_id) = asset_type_id else {
-                // If not provided an asset_type_id, type inference is broken
-                break 'type_resolution None;
-            };
+        let index = self.find_asset_loader_index(None, type_id, None, Some(path));
 
-            let None = asset_path.label() else {
-                // Labelled sub-assets could be any type, not just the one registered for the loader
-                break 'type_resolution None;
-            };
+        if let Some(index) = index {
+            let loader = { self.data.loaders.read().loaders[index].clone() };
 
-            let Ok(loader) = self.get_asset_loader_with_asset_type_id(type_id).await else {
-                bevy_log::warn!(
-                    "Could not load asset via type_id: no asset loader registered for {:?}",
-                    type_id
-                );
-                break 'type_resolution None;
-            };
+            match loader {
+                MaybeAssetLoader::Ready(loader) => return Ok(loader),
+                MaybeAssetLoader::Pending { mut receiver, .. } => {
+                    return Ok(receiver.recv().await.unwrap())
+                }
+            }
+        }
 
-            Some(loader)
-        };
-
-        let loader = match loader {
-            Some(loader) => loader,
-            None => self.get_path_asset_loader(asset_path).await?,
-        };
-
-        Ok(loader)
+        self.get_path_asset_loader(path).await
     }
 
     pub(crate) async fn load_with_meta_loader_and_reader(
@@ -1238,10 +1346,11 @@ pub fn handle_internal_asset_events(world: &mut World) {
 
 #[derive(Default)]
 pub(crate) struct AssetLoaders {
-    type_id_to_loader: HashMap<TypeId, MaybeAssetLoader>,
-    extension_to_type_id: HashMap<String, TypeId>,
-    type_name_to_type_id: HashMap<&'static str, TypeId>,
-    preregistered_loaders: HashMap<&'static str, TypeId>,
+    loaders: Vec<MaybeAssetLoader>,
+    type_id_to_loaders: HashMap<TypeId, Vec<usize>>,
+    extension_to_loaders: HashMap<String, Vec<usize>>,
+    type_name_to_loader: HashMap<&'static str, usize>,
+    preregistered_loaders: HashMap<&'static str, usize>,
 }
 
 #[derive(Clone)]
