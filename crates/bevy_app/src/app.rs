@@ -6,7 +6,7 @@ use bevy_ecs::{
         apply_state_transition, common_conditions::run_once as run_once_condition,
         run_enter_schedule, setup_state_transitions_in_world, ComputedStates, FreelyMutableState,
         InternedScheduleLabel, IntoSystemConfigs, IntoSystemSetConfigs, ManualStateTransitions,
-        ScheduleBuildSettings, ScheduleLabel, StateTransitionEvent,
+        ScheduleBuildSettings, ScheduleLabel, StateTransitionEvent, SubStates,
     },
 };
 use bevy_utils::{intern::Interned, thiserror::Error, tracing::debug, HashMap, HashSet};
@@ -439,6 +439,26 @@ impl App {
             self.add_event::<StateTransitionEvent<S>>();
             let mut schedules = self.world.resource_mut::<Schedules>();
             S::register_state_compute_systems_in_schedule(schedules.as_mut());
+        }
+
+        self
+    }
+
+    /// Sets up a type implementing [`SubStates`].
+    ///
+    /// This method is idempotent: it has no effect when called again using the same generic type.
+    ///
+    /// For each source state the derived state depends on, it adds this state's existance check
+    /// to it's [`ComputeDependantStates<Source>`](bevy_ecs::schedule::ComputeDependantStates<S>) schedule.
+    pub fn add_sub_state<S: SubStates>(&mut self) -> &mut Self {
+        if !self
+            .world
+            .contains_resource::<Events<StateTransitionEvent<S>>>()
+        {
+            setup_state_transitions_in_world(&mut self.world);
+            self.add_event::<StateTransitionEvent<S>>();
+            let mut schedules = self.world.resource_mut::<Schedules>();
+            S::register_state_exist_systems_in_schedules(schedules.as_mut());
         }
 
         self
