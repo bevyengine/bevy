@@ -18,6 +18,7 @@ use std::{
     marker::PhantomData,
     mem::needs_drop,
 };
+use bevy_reflect::Reflect;
 
 /// A data type that can be used to store data for an [entity].
 ///
@@ -669,7 +670,7 @@ impl Components {
 
 /// A value that tracks when a system ran relative to other systems.
 /// This is used to power change detection.
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Reflect)]
 pub struct Tick {
     tick: u32,
 }
