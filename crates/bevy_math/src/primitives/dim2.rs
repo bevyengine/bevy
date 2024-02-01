@@ -81,6 +81,38 @@ impl std::ops::Neg for Direction2d {
     }
 }
 
+#[cfg(feature = "approx")]
+impl approx::AbsDiffEq for Direction2d {
+    type Epsilon = f32;
+    fn default_epsilon() -> f32 {
+        f32::EPSILON
+    }
+    fn abs_diff_eq(&self, other: &Self, epsilon: f32) -> bool {
+        self.as_ref().abs_diff_eq(other.as_ref(), epsilon)
+    }
+}
+
+#[cfg(feature = "approx")]
+impl approx::RelativeEq for Direction2d {
+    fn default_max_relative() -> f32 {
+        f32::EPSILON
+    }
+    fn relative_eq(&self, other: &Self, epsilon: f32, max_relative: f32) -> bool {
+        self.as_ref()
+            .relative_eq(other.as_ref(), epsilon, max_relative)
+    }
+}
+
+#[cfg(feature = "approx")]
+impl approx::UlpsEq for Direction2d {
+    fn default_max_ulps() -> u32 {
+        4
+    }
+    fn ulps_eq(&self, other: &Self, epsilon: f32, max_ulps: u32) -> bool {
+        self.as_ref().ulps_eq(other.as_ref(), epsilon, max_ulps)
+    }
+}
+
 /// A circle primitive
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
