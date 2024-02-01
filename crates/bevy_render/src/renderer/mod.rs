@@ -19,8 +19,7 @@ use bevy_time::TimeSender;
 use bevy_utils::Instant;
 use std::sync::Arc;
 use wgpu::{
-    Adapter, AdapterInfo, Backend, CommandBuffer, CommandEncoder, Instance, Queue,
-    RequestAdapterOptions,
+    Adapter, AdapterInfo, CommandBuffer, CommandEncoder, Instance, Queue, RequestAdapterOptions,
 };
 
 /// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
@@ -318,7 +317,7 @@ impl<'w> RenderContext<'w> {
         // HACK: Parallel command encoding is currently bugged on AMD + Windows + Vulkan with wgpu 0.19.1
         #[cfg(target_os = "windows")]
         let force_serial =
-            adapter_info.driver.contains("AMD") && adapter_info.backend == Backend::Vulkan;
+            adapter_info.driver.contains("AMD") && adapter_info.backend == wgpu::Backend::Vulkan;
         #[cfg(not(target_os = "windows"))]
         let force_serial = {
             drop(adapter_info);
