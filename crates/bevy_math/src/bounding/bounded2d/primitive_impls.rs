@@ -297,7 +297,7 @@ impl Bounded2d for Capsule2d {
         // Get the line segment between the hemicircles of the rotated capsule
         let segment = Segment2d {
             // Multiplying a normalized vector (Vec2::Y) with a rotation returns a normalized vector.
-            direction: Direction2d::new_unchecked(rotation * Vec2::Y),
+            direction: rotation * Direction2d::Y,
             half_length: self.half_length,
         };
         let (a, b) = (segment.point1(), segment.point2());
