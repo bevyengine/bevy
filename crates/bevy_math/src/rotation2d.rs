@@ -79,7 +79,10 @@ impl Rotation2d {
     #[inline]
     pub fn from_radians(radians: f32) -> Self {
         #[cfg(feature = "libm")]
-        let (sin, cos) = libm::sin_cos(radians);
+        let (sin, cos) = (
+            libm::sin(radians as f64) as f32,
+            libm::cos(radians as f64) as f32,
+        );
         #[cfg(not(feature = "libm"))]
         let (sin, cos) = radians.sin_cos();
 
@@ -97,7 +100,7 @@ impl Rotation2d {
     pub fn as_radians(self) -> f32 {
         #[cfg(feature = "libm")]
         {
-            libm::atan2(self.sin, self.cos)
+            libm::atan2(self.sin as f64, self.cos as f64) as f32
         }
         #[cfg(not(feature = "libm"))]
         {
