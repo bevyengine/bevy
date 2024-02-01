@@ -8,7 +8,7 @@ use bevy_ecs::{
     system::{Deferred, ReadOnlySystemParam, Res, Resource, SystemBuffer, SystemMeta, SystemParam},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
-use bevy_math::{primitives::Direction3d, Mat2, Quat, Vec2, Vec3};
+use bevy_math::{primitives::Direction3d, Quat, Rotation2d, Vec2, Vec3};
 use bevy_render::color::Color;
 use bevy_transform::TransformPoint;
 
@@ -554,11 +554,17 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn rect_2d(&mut self, position: Vec2, rotation: f32, size: Vec2, color: Color) {
+    pub fn rect_2d(
+        &mut self,
+        position: Vec2,
+        rotation: impl Into<Rotation2d>,
+        size: Vec2,
+        color: Color,
+    ) {
         if !self.enabled {
             return;
         }
-        let rotation = Mat2::from_angle(rotation);
+        let rotation: Rotation2d = rotation.into();
         let [tl, tr, br, bl] = rect_inner(size).map(|vec2| position + rotation * vec2);
         self.linestrip_2d([tl, tr, br, bl, tl], color);
     }

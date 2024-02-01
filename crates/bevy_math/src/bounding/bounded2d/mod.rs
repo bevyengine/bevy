@@ -1,9 +1,7 @@
 mod primitive_impls;
 
-use glam::Mat2;
-
 use super::{BoundingVolume, IntersectsVolume};
-use crate::prelude::Vec2;
+use crate::prelude::{Rotation2d, Vec2};
 
 /// Computes the geometric center of the given set of points.
 #[inline(always)]
@@ -21,10 +19,11 @@ fn point_cloud_2d_center(points: &[Vec2]) -> Vec2 {
 pub trait Bounded2d {
     /// Get an axis-aligned bounding box for the shape with the given translation and rotation.
     /// The rotation is in radians, counterclockwise, with 0 meaning no rotation.
-    fn aabb_2d(&self, translation: Vec2, rotation: f32) -> Aabb2d;
+    fn aabb_2d(&self, translation: Vec2, rotation: impl Into<Rotation2d>) -> Aabb2d;
     /// Get a bounding circle for the shape
     /// The rotation is in radians, counterclockwise, with 0 meaning no rotation.
-    fn bounding_circle(&self, translation: Vec2, rotation: f32) -> BoundingCircle;
+    fn bounding_circle(&self, translation: Vec2, rotation: impl Into<Rotation2d>)
+        -> BoundingCircle;
 }
 
 /// A 2D axis-aligned bounding box, or bounding rectangle
@@ -55,10 +54,14 @@ impl Aabb2d {
     ///
     /// Panics if the given set of points is empty.
     #[inline(always)]
-    pub fn from_point_cloud(translation: Vec2, rotation: f32, points: &[Vec2]) -> Aabb2d {
+    pub fn from_point_cloud(
+        translation: Vec2,
+        rotation: impl Into<Rotation2d>,
+        points: &[Vec2],
+    ) -> Aabb2d {
         // Transform all points by rotation
-        let rotation_mat = Mat2::from_angle(rotation);
-        let mut iter = points.iter().map(|point| rotation_mat * *point);
+        let rotation: Rotation2d = rotation.into();
+        let mut iter = points.iter().map(|point| rotation * *point);
 
         let first = iter
             .next()
@@ -352,7 +355,12 @@ impl BoundingCircle {
     ///
     /// The bounding circle is not guaranteed to be the smallest possible.
     #[inline(always)]
-    pub fn from_point_cloud(translation: Vec2, rotation: f32, points: &[Vec2]) -> BoundingCircle {
+    pub fn from_point_cloud(
+        translation: Vec2,
+        rotation: impl Into<Rotation2d>,
+        points: &[Vec2],
+    ) -> BoundingCircle {
+        let rotation: Rotation2d = rotation.into();
         let center = point_cloud_2d_center(points);
         let mut radius_squared = 0.0;
 
@@ -364,10 +372,7 @@ impl BoundingCircle {
             }
         }
 
-        BoundingCircle::new(
-            Mat2::from_angle(rotation) * center + translation,
-            radius_squared.sqrt(),
-        )
+        BoundingCircle::new(rotation * center + translation, radius_squared.sqrt())
     }
 
     /// Get the radius of the bounding circle
