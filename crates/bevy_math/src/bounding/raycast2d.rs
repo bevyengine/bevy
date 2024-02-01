@@ -2,7 +2,7 @@ use super::{Aabb2d, BoundingCircle, IntersectsVolume};
 use crate::{primitives::Direction2d, Ray2d, Vec2};
 
 /// A raycast intersection test for 2D bounding volumes
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct RayCast2d {
     /// The ray for the test
     pub ray: Ray2d,
@@ -99,7 +99,7 @@ impl IntersectsVolume<BoundingCircle> for RayCast2d {
 }
 
 /// An intersection test that casts an [`Aabb2d`] along a ray.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct AabbCast2d {
     /// The ray along which to cast the bounding volume
     pub ray: RayCast2d,
@@ -136,7 +136,7 @@ impl IntersectsVolume<Aabb2d> for AabbCast2d {
 }
 
 /// An intersection test that casts a [`BoundingCircle`] along a ray.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct BoundingCircleCast {
     /// The ray along which to cast the bounding volume
     pub ray: RayCast2d,
