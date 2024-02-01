@@ -78,7 +78,7 @@ impl Rotation2d {
 
     /// Returns the sine and cosine of the rotation angle in radians.
     #[inline]
-    pub fn sin_cos(self) -> (f32, f32) {
+    pub const fn sin_cos(self) -> (f32, f32) {
         (self.sin, self.cos)
     }
 
@@ -171,12 +171,14 @@ impl Rotation2d {
 }
 
 impl From<f32> for Rotation2d {
+    /// Creates a [`Rotation2d`] from a counterclockwise angle in radians.
     fn from(rotation: f32) -> Self {
         Self::from_radians(rotation)
     }
 }
 
 impl From<Rotation2d> for Mat2 {
+    /// Creates a [`Mat2`] rotation matrix from a [`Rotation2d`].
     fn from(rot: Rotation2d) -> Self {
         Mat2::from_cols_array(&[rot.cos, -rot.sin, rot.sin, rot.cos])
     }
@@ -202,6 +204,7 @@ impl std::ops::MulAssign for Rotation2d {
 impl std::ops::Mul<Vec2> for Rotation2d {
     type Output = Vec2;
 
+    /// Rotates a [`Vec2`] by a [`Rotation2d`].
     fn mul(self, rhs: Vec2) -> Self::Output {
         Vec2::new(
             rhs.x * self.cos - rhs.y * self.sin,
