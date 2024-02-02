@@ -5,6 +5,28 @@ use crate::prelude::{Direction2d, Mat2, Vec2};
 /// A counterclockwise 2D rotation in radians.
 ///
 /// The rotation angle is wrapped to be within the `(-pi, pi]` range.
+///
+/// # Example
+///
+/// ```
+/// # use approx::assert_relative_eq;
+/// # use bevy_math::{Rotation2d, Vec2};
+/// use std::f32::consts::PI;
+///
+/// // Create rotatons from radians or degrees
+/// let rotation1 = Rotation2d::from_radians(PI / 2.0);
+/// let rotation2 = Rotation2d::from_degrees(45.0);
+///
+/// // Get the angle back as radians or degrees
+/// assert_eq!(rotation1.as_degrees(), 90.0);
+/// assert_eq!(rotation2.as_radians(), PI / 4.0);
+///
+/// // "Add" rotations together using `*`
+/// assert_relative_eq!(rotation1 * rotation2, Rotation2d::from_degrees(135.0));
+///
+/// // Rotate vectors
+/// assert_relative_eq!(rotation1 * Vec2::X, Vec2::Y);
+/// ```
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Rotation2d {
@@ -251,6 +273,39 @@ impl std::ops::Mul<Direction2d> for Rotation2d {
     /// Rotates a [`Direction2d`] by a [`Rotation2d`].
     fn mul(self, rhs: Direction2d) -> Self::Output {
         Direction2d::new_unchecked(self * *rhs)
+    }
+}
+
+#[cfg(feature = "approx")]
+impl approx::AbsDiffEq for Rotation2d {
+    type Epsilon = f32;
+    fn default_epsilon() -> f32 {
+        f32::EPSILON
+    }
+    fn abs_diff_eq(&self, other: &Self, epsilon: f32) -> bool {
+        self.cos.abs_diff_eq(&other.cos, epsilon) && self.sin.abs_diff_eq(&other.sin, epsilon)
+    }
+}
+
+#[cfg(feature = "approx")]
+impl approx::RelativeEq for Rotation2d {
+    fn default_max_relative() -> f32 {
+        f32::EPSILON
+    }
+    fn relative_eq(&self, other: &Self, epsilon: f32, max_relative: f32) -> bool {
+        self.cos.relative_eq(&other.cos, epsilon, max_relative)
+            && self.sin.relative_eq(&other.sin, epsilon, max_relative)
+    }
+}
+
+#[cfg(feature = "approx")]
+impl approx::UlpsEq for Rotation2d {
+    fn default_max_ulps() -> u32 {
+        4
+    }
+    fn ulps_eq(&self, other: &Self, epsilon: f32, max_ulps: u32) -> bool {
+        self.cos.ulps_eq(&other.cos, epsilon, max_ulps)
+            && self.sin.ulps_eq(&other.sin, epsilon, max_ulps)
     }
 }
 
