@@ -1,3 +1,6 @@
+// FIXME(3492): remove once docs is ready
+#![allow(missing_docs)]
+
 pub mod io;
 pub mod meta;
 pub mod processor;
