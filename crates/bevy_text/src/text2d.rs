@@ -10,6 +10,7 @@ use bevy_ecs::{
     entity::Entity,
     event::EventReader,
     prelude::With,
+    query::{Changed, Or, Without},
     reflect::ReflectComponent,
     system::{Commands, Local, Query, Res, ResMut},
 };
@@ -17,8 +18,9 @@ use bevy_math::Vec2;
 use bevy_reflect::Reflect;
 use bevy_render::{
     prelude::LegacyColor,
+    primitives::Aabb,
     texture::Image,
-    view::{InheritedVisibility, ViewVisibility, Visibility},
+    view::{InheritedVisibility, NoFrustumCulling, ViewVisibility, Visibility},
     Extract,
 };
 use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, TextureAtlasLayout};
@@ -225,4 +227,28 @@ pub fn update_text2d_layout(
 /// Scales `value` by `factor`.
 pub fn scale_value(value: f32, factor: f32) -> f32 {
     value * factor
+}
+
+/// System calculating and inserting an [`Aabb`] component to entities with some
+/// [`TextLayoutInfo`] and [`Anchor`] components, and without a [`NoFrustumCulling`] component.
+///
+/// Used in system set [`VisibilitySystems::CalculateBounds`](bevy_render::view::VisibilitySystems::CalculateBounds).
+pub fn calculate_bounds_text2d(
+    mut commands: Commands,
+    text_to_update_aabb: Query<
+        (Entity, &TextLayoutInfo, &Anchor),
+        (
+            Or<(Without<Aabb>, Changed<TextLayoutInfo>)>,
+            Without<NoFrustumCulling>,
+        ),
+    >,
+) {
+    for (entity, layout_info, anchor) in &text_to_update_aabb {
+        commands.entity(entity).try_insert(Aabb {
+            center: (-anchor.as_vec() * layout_info.logical_size)
+                .extend(0.0)
+                .into(),
+            half_extents: (layout_info.logical_size / 2.0).extend(0.0).into(),
+        });
+    }
 }
