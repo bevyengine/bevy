@@ -4,6 +4,7 @@ use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     window::{PresentMode, WindowPlugin, WindowResolution},
+    winit::{UpdateMode, WinitSettings},
 };
 
 const FONT_SIZE: f32 = 7.0;
@@ -42,7 +43,12 @@ struct Args {
 
 /// This example shows what happens when there is a lot of buttons on screen.
 fn main() {
+    // `from_env` panics on the web
+    #[cfg(not(target_arch = "wasm32"))]
     let args: Args = argh::from_env();
+    #[cfg(target_arch = "wasm32")]
+    let args = Args::from_args(&[], &[]).unwrap();
+
     let mut app = App::new();
 
     app.add_plugins((
@@ -57,6 +63,10 @@ fn main() {
         FrameTimeDiagnosticsPlugin,
         LogDiagnosticsPlugin::default(),
     ))
+    .insert_resource(WinitSettings {
+        focused_mode: UpdateMode::Continuous,
+        unfocused_mode: UpdateMode::Continuous,
+    })
     .add_systems(Update, button_system);
 
     if args.grid {

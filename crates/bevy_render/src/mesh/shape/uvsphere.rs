@@ -2,7 +2,7 @@ use wgpu::PrimitiveTopology;
 
 use crate::{
     mesh::{Indices, Mesh},
-    render_asset::RenderAssetPersistencePolicy,
+    render_asset::RenderAssetUsages,
 };
 use std::f32::consts::PI;
 
@@ -85,7 +85,7 @@ impl From<UVSphere> for Mesh {
 
         Mesh::new(
             PrimitiveTopology::TriangleList,
-            RenderAssetPersistencePolicy::Keep,
+            RenderAssetUsages::default(),
         )
         .with_indices(Some(Indices::U32(indices)))
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vertices)

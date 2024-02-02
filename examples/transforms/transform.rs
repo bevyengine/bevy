@@ -93,6 +93,10 @@ fn setup(
 
     // Add a light source for better 3d visibility.
     commands.spawn(PointLightBundle {
+        point_light: PointLight {
+            intensity: 150_000.0,
+            ..default()
+        },
         transform: Transform::from_translation(Vec3::ONE * 3.0),
         ..default()
     });
@@ -123,7 +127,7 @@ fn rotate_cube(
     // Update the rotation of the cube(s).
     for (mut transform, cube) in &mut cubes {
         // Calculate the rotation of the cube if it would be looking at the sphere in the center.
-        let look_at_sphere = transform.looking_at(center, transform.local_y());
+        let look_at_sphere = transform.looking_at(center, *transform.local_y());
         // Interpolate between the current rotation and the fully turned rotation
         // when looking a the sphere,  with a given turn speed to get a smooth motion.
         // With higher speed the curvature of the orbit would be smaller.

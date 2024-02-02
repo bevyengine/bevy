@@ -22,7 +22,7 @@ use bevy_render::{
     },
     prelude::SpatialBundle,
     primitives::Aabb,
-    render_asset::RenderAssetPersistencePolicy,
+    render_asset::RenderAssetUsages,
     render_resource::{Face, PrimitiveTopology},
     texture::{
         CompressedImageFormats, Image, ImageAddressMode, ImageFilterMode, ImageLoaderSettings,
@@ -33,7 +33,7 @@ use bevy_scene::Scene;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::IoTaskPool;
 use bevy_transform::components::Transform;
-use bevy_utils::{HashMap, HashSet};
+use bevy_utils::{EntityHashMap, HashMap, HashSet};
 use gltf::{
     accessor::Iter,
     mesh::{util::ReadIndices, Mode},
@@ -131,6 +131,8 @@ pub struct GltfLoaderSettings {
     pub load_cameras: bool,
     /// If true, the loader will spawn lights for gltf light nodes.
     pub load_lights: bool,
+    /// If true, the loader will include the root of the gltf root node.
+    pub include_source: bool,
 }
 
 impl Default for GltfLoaderSettings {
@@ -139,6 +141,7 @@ impl Default for GltfLoaderSettings {
             load_meshes: true,
             load_cameras: true,
             load_lights: true,
+            include_source: false,
         }
     }
 }
@@ -390,7 +393,7 @@ async fn load_gltf<'a, 'b, 'c>(
             let primitive_label = primitive_label(&gltf_mesh, &primitive);
             let primitive_topology = get_primitive_topology(primitive.mode())?;
 
-            let mut mesh = Mesh::new(primitive_topology, RenderAssetPersistencePolicy::Keep);
+            let mut mesh = Mesh::new(primitive_topology, RenderAssetUsages::default());
 
             // Read vertex attributes
             for (semantic, accessor) in primitive.attributes() {
@@ -434,7 +437,7 @@ async fn load_gltf<'a, 'b, 'c>(
                     let morph_target_image = MorphTargetImage::new(
                         morph_target_reader.map(PrimitiveMorphAttributesIter),
                         mesh.count_vertices(),
-                        RenderAssetPersistencePolicy::Keep,
+                        RenderAssetUsages::default(),
                     )?;
                     let handle =
                         load_context.add_labeled_asset(morph_targets_label, morph_target_image.0);
@@ -522,20 +525,7 @@ async fn load_gltf<'a, 'b, 'c>(
                     .mesh()
                     .map(|mesh| mesh.index())
                     .and_then(|i| meshes.get(i).cloned()),
-                transform: match node.transform() {
-                    gltf::scene::Transform::Matrix { matrix } => {
-                        Transform::from_matrix(Mat4::from_cols_array_2d(&matrix))
-                    }
-                    gltf::scene::Transform::Decomposed {
-                        translation,
-                        rotation,
-                        scale,
-                    } => Transform {
-                        translation: bevy_math::Vec3::from(translation),
-                        rotation: bevy_math::Quat::from_array(rotation),
-                        scale: bevy_math::Vec3::from(scale),
-                    },
-                },
+                transform: node_transform(&node),
                 extras: get_gltf_extras(node.extras()),
             },
             node.children()
@@ -583,7 +573,7 @@ async fn load_gltf<'a, 'b, 'c>(
         let mut err = None;
         let mut world = World::default();
         let mut node_index_to_entity_map = HashMap::new();
-        let mut entity_to_skin_index_map = HashMap::new();
+        let mut entity_to_skin_index_map = EntityHashMap::default();
         let mut scene_load_context = load_context.begin_labeled_asset();
         world
             .spawn(SpatialBundle::INHERITED_IDENTITY)
@@ -673,6 +663,11 @@ async fn load_gltf<'a, 'b, 'c>(
         animations,
         #[cfg(feature = "bevy_animation")]
         named_animations,
+        source: if settings.include_source {
+            Some(gltf)
+        } else {
+            None
+        },
     })
 }
 
@@ -680,6 +675,29 @@ fn get_gltf_extras(extras: &gltf::json::Extras) -> Option<GltfExtras> {
     extras.as_ref().map(|extras| GltfExtras {
         value: extras.get().to_string(),
     })
+}
+
+/// Calculate the transform of gLTF node.
+///
+/// This should be used instead of calling [`gltf::scene::Transform::matrix()`]
+/// on [`Node::transform()`] directly because it uses optimized glam types and
+/// if `libm` feature of `bevy_math` crate is enabled also handles cross
+/// platform determinism properly.
+fn node_transform(node: &Node) -> Transform {
+    match node.transform() {
+        gltf::scene::Transform::Matrix { matrix } => {
+            Transform::from_matrix(Mat4::from_cols_array_2d(&matrix))
+        }
+        gltf::scene::Transform::Decomposed {
+            translation,
+            rotation,
+            scale,
+        } => Transform {
+            translation: bevy_math::Vec3::from(translation),
+            rotation: bevy_math::Quat::from_array(rotation),
+            scale: bevy_math::Vec3::from(scale),
+        },
+    }
 }
 
 fn node_name(node: &Node) -> Name {
@@ -726,7 +744,7 @@ async fn load_image<'a, 'b>(
                 supported_compressed_formats,
                 is_srgb,
                 ImageSampler::Descriptor(sampler_descriptor),
-                RenderAssetPersistencePolicy::Keep,
+                RenderAssetUsages::default(),
             )?;
             Ok(ImageOrPath::Image {
                 image,
@@ -748,7 +766,7 @@ async fn load_image<'a, 'b>(
                         supported_compressed_formats,
                         is_srgb,
                         ImageSampler::Descriptor(sampler_descriptor),
-                        RenderAssetPersistencePolicy::Keep,
+                        RenderAssetUsages::default(),
                     )?,
                     label: texture_label(&gltf_texture),
                 })
@@ -904,13 +922,12 @@ fn load_node(
     load_context: &mut LoadContext,
     settings: &GltfLoaderSettings,
     node_index_to_entity_map: &mut HashMap<usize, Entity>,
-    entity_to_skin_index_map: &mut HashMap<Entity, usize>,
+    entity_to_skin_index_map: &mut EntityHashMap<Entity, usize>,
     active_camera_found: &mut bool,
     parent_transform: &Transform,
 ) -> Result<(), GltfError> {
-    let transform = gltf_node.transform();
     let mut gltf_error = None;
-    let transform = Transform::from_matrix(Mat4::from_cols_array_2d(&transform.matrix()));
+    let transform = node_transform(gltf_node);
     let world_transform = *parent_transform * transform;
     // according to https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#instantiation,
     // if the determinant of the transform is negative we must invert the winding order of

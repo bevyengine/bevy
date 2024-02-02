@@ -4,7 +4,7 @@
 use bevy::prelude::*;
 use bevy::render::{
     mesh::{Indices, VertexAttributeValues},
-    render_asset::RenderAssetPersistencePolicy,
+    render_asset::RenderAssetUsages,
     render_resource::PrimitiveTopology,
 };
 
@@ -58,7 +58,7 @@ fn setup(
     // Light up the scene.
     commands.spawn(PointLightBundle {
         point_light: PointLight {
-            intensity: 1000.0,
+            intensity: 100_000.0,
             range: 100.0,
             ..default()
         },
@@ -123,7 +123,7 @@ fn input_handler(
 #[rustfmt::skip]
 fn create_cube_mesh() -> Mesh {
     // Keep the mesh data accessible in future frames to be able to mutate it in toggle_texture.
-    Mesh::new(PrimitiveTopology::TriangleList, RenderAssetPersistencePolicy::Keep)
+    Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD)
     .with_inserted_attribute(
         Mesh::ATTRIBUTE_POSITION,
         // Each array is an [x, y, z] coordinate in local space.

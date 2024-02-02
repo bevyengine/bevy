@@ -11,7 +11,7 @@ use bevy::{
             skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
             Indices, PrimitiveTopology, VertexAttributeValues,
         },
-        render_asset::RenderAssetPersistencePolicy,
+        render_asset::RenderAssetUsages,
     },
 };
 use rand::{rngs::StdRng, Rng, SeedableRng};
@@ -20,7 +20,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .insert_resource(AmbientLight {
-            brightness: 1.0,
+            brightness: 150.0,
             ..default()
         })
         .add_systems(Startup, setup)
@@ -56,7 +56,7 @@ fn setup(
     // Create a mesh
     let mesh = Mesh::new(
         PrimitiveTopology::TriangleList,
-        RenderAssetPersistencePolicy::Unload,
+        RenderAssetUsages::RENDER_WORLD,
     )
     // Set mesh vertex positions
     .with_inserted_attribute(

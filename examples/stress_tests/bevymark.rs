@@ -9,12 +9,13 @@ use bevy::{
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     render::{
-        render_asset::RenderAssetPersistencePolicy,
+        render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
     },
     sprite::{MaterialMesh2dBundle, Mesh2dHandle},
     utils::Duration,
     window::{PresentMode, WindowResolution},
+    winit::{UpdateMode, WinitSettings},
 };
 use rand::{rngs::StdRng, seq::SliceRandom, Rng, SeedableRng};
 
@@ -94,7 +95,11 @@ impl FromStr for Mode {
 const FIXED_TIMESTEP: f32 = 0.2;
 
 fn main() {
+    // `from_env` panics on the web
+    #[cfg(not(target_arch = "wasm32"))]
     let args: Args = argh::from_env();
+    #[cfg(target_arch = "wasm32")]
+    let args = Args::from_args(&[], &[]).unwrap();
 
     App::new()
         .add_plugins((
@@ -111,6 +116,10 @@ fn main() {
             FrameTimeDiagnosticsPlugin,
             LogDiagnosticsPlugin::default(),
         ))
+        .insert_resource(WinitSettings {
+            focused_mode: UpdateMode::Continuous,
+            unfocused_mode: UpdateMode::Continuous,
+        })
         .insert_resource(args)
         .insert_resource(BevyCounter {
             count: 0,
@@ -517,7 +526,7 @@ fn counter_system(
         text.sections[1].value = counter.count.to_string();
     }
 
-    if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
+    if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) {
         if let Some(raw) = fps.value() {
             text.sections[3].value = format!("{raw:.2}");
         }
@@ -543,7 +552,7 @@ fn init_textures(textures: &mut Vec<Handle<Image>>, args: &Args, images: &mut As
             TextureDimension::D2,
             &pixel,
             TextureFormat::Rgba8UnormSrgb,
-            RenderAssetPersistencePolicy::Unload,
+            RenderAssetUsages::RENDER_WORLD,
         )));
     }
 }

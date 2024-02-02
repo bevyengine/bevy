@@ -1,4 +1,4 @@
-use crate::{Real, Time, Timer, TimerMode};
+use crate::{Real, Time, Timer, TimerMode, Virtual};
 use bevy_ecs::system::Res;
 use bevy_utils::Duration;
 
@@ -203,6 +203,38 @@ pub fn repeating_after_real_delay(
     }
 }
 
+/// Run condition that is active when the [`Time<Virtual>`] clock is paused.
+/// Use [`bevy_ecs::schedule::common_conditions::not`] to make it active when
+/// it's not paused.
+///
+/// ```rust,no_run
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup, Update};
+/// # use bevy_ecs::schedule::{common_conditions::not, IntoSystemConfigs};
+/// # use bevy_time::common_conditions::paused;
+/// fn main() {
+///     App::new()
+///         .add_plugins(DefaultPlugins)
+///         .add_systems(
+///             Update,
+///             (
+///                 is_paused.run_if(paused),
+///                 not_paused.run_if(not(paused)),
+///             )
+///         )
+///     .run();
+/// }
+/// fn is_paused() {
+///     // ran when time is paused
+/// }
+///
+/// fn not_paused() {
+///     // ran when time is not paused
+/// }
+/// ```
+pub fn paused(time: Res<Time<Virtual>>) -> bool {
+    time.is_paused()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -215,7 +247,9 @@ mod tests {
     #[test]
     fn distributive_run_if_compiles() {
         Schedule::default().add_systems(
-            (test_system, test_system).distributive_run_if(on_timer(Duration::new(1, 0))),
+            (test_system, test_system)
+                .distributive_run_if(on_timer(Duration::new(1, 0)))
+                .distributive_run_if(paused),
         );
     }
 }

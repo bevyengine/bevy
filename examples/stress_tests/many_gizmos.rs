@@ -4,6 +4,7 @@ use bevy::{
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
     window::{PresentMode, WindowResolution},
+    winit::{UpdateMode, WinitSettings},
 };
 
 const SYSTEM_COUNT: u32 = 10;
@@ -22,6 +23,10 @@ fn main() {
         }),
         FrameTimeDiagnosticsPlugin,
     ))
+    .insert_resource(WinitSettings {
+        focused_mode: UpdateMode::Continuous,
+        unfocused_mode: UpdateMode::Continuous,
+    })
     .insert_resource(Config {
         line_count: 50_000,
         fancy: false,
@@ -93,7 +98,7 @@ fn ui_system(mut query: Query<&mut Text>, config: Res<Config>, diag: Res<Diagnos
     let mut text = query.single_mut();
 
     let Some(fps) = diag
-        .get(FrameTimeDiagnosticsPlugin::FPS)
+        .get(&FrameTimeDiagnosticsPlugin::FPS)
         .and_then(|fps| fps.smoothed())
     else {
         return;

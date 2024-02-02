@@ -12,8 +12,8 @@ pub use manual_texture_view::*;
 pub use projection::*;
 
 use crate::{
-    extract_resource::ExtractResourcePlugin, render_graph::RenderGraph, ExtractSchedule, Render,
-    RenderApp, RenderSet,
+    extract_component::ExtractComponentPlugin, extract_resource::ExtractResourcePlugin,
+    render_graph::RenderGraph, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::schedule::IntoSystemConfigs;
@@ -27,7 +27,6 @@ impl Plugin for CameraPlugin {
             .register_type::<Viewport>()
             .register_type::<Option<Viewport>>()
             .register_type::<ScalingMode>()
-            .register_type::<CameraRenderGraph>()
             .register_type::<RenderTarget>()
             .register_type::<ClearColor>()
             .register_type::<ClearColorConfig>()
@@ -39,6 +38,7 @@ impl Plugin for CameraPlugin {
                 CameraProjectionPlugin::<PerspectiveProjection>::default(),
                 ExtractResourcePlugin::<ManualTextureViews>::default(),
                 ExtractResourcePlugin::<ClearColor>::default(),
+                ExtractComponentPlugin::<CameraMainTextureUsages>::default(),
             ));
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
@@ -48,7 +48,7 @@ impl Plugin for CameraPlugin {
                 .add_systems(Render, sort_cameras.in_set(RenderSet::ManageViews));
             let camera_driver_node = CameraDriverNode::new(&mut render_app.world);
             let mut render_graph = render_app.world.resource_mut::<RenderGraph>();
-            render_graph.add_node(crate::main_graph::node::CAMERA_DRIVER, camera_driver_node);
+            render_graph.add_node(crate::graph::CameraDriverLabel, camera_driver_node);
         }
     }
 }

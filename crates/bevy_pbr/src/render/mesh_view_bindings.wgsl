@@ -38,8 +38,8 @@
 @group(0) @binding(12) var screen_space_ambient_occlusion_texture: texture_2d<f32>;
 
 #ifdef MULTIPLE_LIGHT_PROBES_IN_ARRAY
-@group(0) @binding(13) var diffuse_environment_maps: binding_array<texture_cube<f32>>;
-@group(0) @binding(14) var specular_environment_maps: binding_array<texture_cube<f32>>;
+@group(0) @binding(13) var diffuse_environment_maps: binding_array<texture_cube<f32>, 8u>;
+@group(0) @binding(14) var specular_environment_maps: binding_array<texture_cube<f32>, 8u>;
 #else
 @group(0) @binding(13) var diffuse_environment_map: texture_cube<f32>;
 @group(0) @binding(14) var specular_environment_map: texture_cube<f32>;
