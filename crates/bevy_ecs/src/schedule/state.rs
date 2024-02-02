@@ -678,7 +678,7 @@ impl<S: States> StateSet for S {
 /// is not used to impact the state's value at all.
 ///
 /// The default approach to creating [`SubStates`] is using the derive macro, and defining a single source state
-/// and value to determine it's existance.
+/// and value to determine it's existance. Note that this approach requires implementing [`Default`] as well.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -691,9 +691,10 @@ impl<S: States> StateSet for S {
 /// }
 ///
 ///
-/// #[derive(SubStatesClone, PartialEq, Eq, Hash, Debug)]
+/// #[derive(SubStatesClone, PartialEq, Eq, Hash, Debug, Default)]
 /// #[source(AppState = AppState::InGame)]
 /// enum GamePhase {
+///     #[default]
 ///     Setup,
 ///     Battle,
 ///     Conclusion
@@ -755,16 +756,19 @@ impl<S: States> StateSet for S {
 ///     }
 /// }
 ///
-/// #[derive(SubStates, Clone, PartialEq, Eq, Hash, Debug)]
+/// #[derive(SubStates, Clone, PartialEq, Eq, Hash, Debug, Default)]
 /// #[source(InGame = InGame)]
 /// enum GamePhase {
+///     #[default]
 ///     Setup,
 ///     Battle,
 ///     Conclusion
 /// }
 /// ```
 ///
-/// However, you can also manually implement them. Note that you'll also need to manually implement the `States` & `FreelyMutableState` traits:
+/// However, you can also manually implement them. Note that you'll also need to manually implement the `States` & `FreelyMutableState` traits.
+/// Unlike the derive, this does not require an implementation of [`Default`], since you are providing the `exists` function
+/// directly.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
