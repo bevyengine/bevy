@@ -34,7 +34,7 @@ struct Spin;
 
 fn spin(time: Res<Time>, mut query: Query<&mut Transform, With<Spin>>) {
     for mut transform in query.iter_mut() {
-        transform.rotate_local_z(time.delta_seconds() / 5.);
+        transform.rotation *= Quat::from_rotation_z(time.delta_seconds() / 5.);
     }
 }
 
@@ -92,34 +92,33 @@ enum Shape {
     Circle(Circle),
     Triangle(Triangle2d),
     Line(Segment2d),
-    // Capsule(Capsule2d),
+    Capsule(Capsule2d),
+    Polygon(RegularPolygon),
 }
 
 fn render_shapes(mut gizmos: Gizmos, query: Query<(&Shape, &Transform)>) {
-    // TODO: Use primitive gizmos or meshing so we can spin triangles and lines without
-    // implementing rotations all over again
     let color = Color::GRAY;
     for (shape, transform) in query.iter() {
         let translation = transform.translation.xy();
-        let rotation = transform.rotation.z;
+        let rotation = transform.rotation.to_euler(EulerRot::YXZ).2;
         match shape {
             Shape::Rectangle(r) => {
-                gizmos.rect_2d(translation, rotation, r.half_size * 2., color);
+                gizmos.primitive_2d(*r, translation, rotation, color);
             }
             Shape::Circle(c) => {
-                gizmos.circle_2d(translation, c.radius, color);
+                gizmos.primitive_2d(*c, translation, rotation, color);
             }
             Shape::Triangle(t) => {
-                let [a, b, c] = t.vertices;
-                let [a, b, c] = [a + translation, b + translation, c + translation];
-                gizmos.line_2d(a, b, color);
-                gizmos.line_2d(a, c, color);
-                gizmos.line_2d(b, c, color);
+                gizmos.primitive_2d(*t, translation, rotation, color);
             }
             Shape::Line(l) => {
-                let (a, b) = (l.point1(), l.point2());
-                let (a, b) = (a + translation, b + translation);
-                gizmos.line_2d(a, b, color);
+                gizmos.primitive_2d(*l, translation, rotation, color);
+            }
+            Shape::Capsule(c) => {
+                gizmos.primitive_2d(*c, translation, rotation, color);
+            }
+            Shape::Polygon(p) => {
+                gizmos.primitive_2d(*p, translation, rotation, color);
             }
         }
     }
@@ -146,7 +145,7 @@ fn update_volumes(
 ) {
     for (entity, desired_volume, shape, transform) in query.iter() {
         let translation = transform.translation.xy();
-        let rotation = transform.rotation.z;
+        let rotation = transform.rotation.to_euler(EulerRot::YXZ).2;
         match desired_volume {
             DesiredVolume::Aabb => {
                 let aabb = match shape {
@@ -154,6 +153,8 @@ fn update_volumes(
                     Shape::Circle(c) => c.aabb_2d(translation, rotation),
                     Shape::Triangle(t) => t.aabb_2d(translation, rotation),
                     Shape::Line(l) => l.aabb_2d(translation, rotation),
+                    Shape::Capsule(c) => c.aabb_2d(translation, rotation),
+                    Shape::Polygon(p) => p.aabb_2d(translation, rotation),
                 };
                 commands.entity(entity).insert(CurrentVolume::Aabb(aabb));
             }
@@ -163,6 +164,8 @@ fn update_volumes(
                     Shape::Circle(c) => c.bounding_circle(translation, rotation),
                     Shape::Triangle(t) => t.bounding_circle(translation, rotation),
                     Shape::Line(l) => l.bounding_circle(translation, rotation),
+                    Shape::Capsule(c) => c.bounding_circle(translation, rotation),
+                    Shape::Polygon(p) => p.bounding_circle(translation, rotation),
                 };
                 commands
                     .entity(entity)
@@ -229,6 +232,7 @@ fn setup(mut commands: Commands, loader: Res<AssetServer>) {
             Vec2::new(-20., 40.),
             Vec2::new(40., 50.),
         )),
+        Spin,
         DesiredVolume::Aabb,
         Intersects::default(),
     ));
@@ -239,6 +243,7 @@ fn setup(mut commands: Commands, loader: Res<AssetServer>) {
             ..default()
         },
         Shape::Line(Segment2d::new(Direction2d::from_xy(1., 0.3).unwrap(), 90.)),
+        Spin,
         DesiredVolume::Circle,
         Intersects::default(),
     ));
@@ -248,7 +253,8 @@ fn setup(mut commands: Commands, loader: Res<AssetServer>) {
             transform: Transform::from_xyz(0., -OFFSET_Y, 0.),
             ..default()
         },
-        Shape::Circle(Circle::new(30.)),
+        Shape::Capsule(Capsule2d::new(25., 50.)),
+        Spin,
         DesiredVolume::Aabb,
         Intersects::default(),
     ));
@@ -258,7 +264,8 @@ fn setup(mut commands: Commands, loader: Res<AssetServer>) {
             transform: Transform::from_xyz(OFFSET_X, -OFFSET_Y, 0.),
             ..default()
         },
-        Shape::Circle(Circle::new(30.)),
+        Shape::Polygon(RegularPolygon::new(50., 6)),
+        Spin,
         DesiredVolume::Circle,
         Intersects::default(),
     ));
