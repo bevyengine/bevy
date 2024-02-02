@@ -7,6 +7,7 @@ use bevy_macro_utils::{
 };
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, ToTokens};
+use syn::parse::{Parse, ParseStream, Parser, Peek};
 use syn::punctuated::Punctuated;
 use syn::{spanned::Spanned, LitStr, Member, Path, Token, Type, WhereClause};
 
@@ -403,5 +404,38 @@ impl FromIterator<StringExpr> for StringExpr {
             }
             None => Default::default(),
         }
+    }
+}
+
+/// Returns a [`Parser`] which parses a stream of `T` separated by `P` (with optional trailing `P`).
+///
+/// This is functionally the same as [`Punctuated::parse_terminated`],
+/// but accepts a closure rather than a function pointer.
+pub(crate) fn terminated_parser<T, P, F: FnMut(ParseStream) -> syn::Result<T>>(
+    terminator: P,
+    mut parser: F,
+) -> impl Parser<Output = Punctuated<T, P::Token>>
+where
+    P: Peek,
+    P::Token: Parse,
+{
+    let _ = terminator;
+    move |stream: ParseStream| {
+        let mut punctuated = Punctuated::new();
+
+        loop {
+            if stream.is_empty() {
+                break;
+            }
+            let value = parser(stream)?;
+            punctuated.push_value(value);
+            if stream.is_empty() {
+                break;
+            }
+            let punct = stream.parse()?;
+            punctuated.push_punct(punct);
+        }
+
+        Ok(punctuated)
     }
 }
