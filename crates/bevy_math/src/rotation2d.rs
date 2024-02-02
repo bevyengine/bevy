@@ -4,7 +4,7 @@ use crate::prelude::{Direction2d, Mat2, Vec2};
 
 /// A counterclockwise 2D rotation in radians.
 ///
-/// The rotation angle is wrapped to be within the `]-pi, pi]` range.
+/// The rotation angle is wrapped to be within the `(-pi, pi]` range.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Rotation2d {
@@ -97,7 +97,7 @@ impl Rotation2d {
         Self::from_radians(degrees.to_radians())
     }
 
-    /// Returns the rotation in radians in the `]-pi, pi]` range.
+    /// Returns the rotation in radians in the `(-pi, pi]` range.
     #[inline]
     pub fn as_radians(self) -> f32 {
         #[cfg(feature = "libm")]
@@ -110,7 +110,7 @@ impl Rotation2d {
         }
     }
 
-    /// Returns the rotation in degrees in the `]-180, 180]` range.
+    /// Returns the rotation in degrees in the `(-180, 180]` range.
     #[inline]
     pub fn as_degrees(self) -> f32 {
         self.as_radians().to_degrees()
