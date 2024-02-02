@@ -24,7 +24,7 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     let rounded_world_pos = (irradiance_volume_info.transform * vec4(stp_rounded, 1.0f)).xyz;
 
     // `irradiance_volume_light()` multiplies by intensity, so cancel it out.
-    // If we take intensity into account, these spheres will be way too bright.
+    // If we take intensity into account, the cubes will be way too bright.
     let rgb = irradiance_volume::irradiance_volume_light(
         mesh.world_position.xyz,
         mesh.world_normal) / irradiance_volume_info.intensity;
