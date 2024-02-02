@@ -7,7 +7,7 @@ use bevy_math::primitives::{
     BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Direction3d, Line3d,
     Plane3d, Polyline3d, Primitive3d, Segment3d, Sphere, Torus,
 };
-use bevy_math::{Quat, Vec2, Vec3};
+use bevy_math::{Quat, Vec3};
 use bevy_render::color::Color;
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
@@ -55,13 +55,18 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Direction3d> for Gizmos<'w, '
 pub struct SphereBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     gizmos: &'a mut Gizmos<'w, 's, T>,
 
-    radius: f32, // Radius of the sphere
+    // Radius of the sphere
+    radius: f32,
 
-    rotation: Quat, // Rotation of the sphere around the origin in 3D space
-    position: Vec3, // Center position of the sphere in 3D space
-    color: Color,   // Color of the sphere
+    // Rotation of the sphere around the origin in 3D space
+    rotation: Quat,
+    // Center position of the sphere in 3D space
+    position: Vec3,
+    // Color of the sphere
+    color: Color,
 
-    segments: usize, // Number of segments used to approximate the sphere geometry
+    // Number of segments used to approximate the sphere geometry
+    segments: usize,
 }
 
 impl<T: GizmoConfigGroup> SphereBuilder<'_, '_, '_, T> {
@@ -108,10 +113,10 @@ impl<T: GizmoConfigGroup> Drop for SphereBuilder<'_, '_, '_, T> {
             ..
         } = self;
 
-        // draw two caps, one for the "upper half" and one for the "lower" half of the sphere
+        // draws the upper and lower semi spheres
         [-1.0, 1.0].into_iter().for_each(|sign| {
             let top = *center + (*rotation * Vec3::Y) * sign * *radius;
-            draw_cap(
+            draw_semi_sphere(
                 self.gizmos,
                 *radius,
                 *segments,
@@ -122,7 +127,8 @@ impl<T: GizmoConfigGroup> Drop for SphereBuilder<'_, '_, '_, T> {
             );
         });
 
-        draw_circle(self.gizmos, *radius, *segments, *rotation, *center, *color);
+        // draws one great circle of the sphere
+        draw_circle_3d(self.gizmos, *radius, *segments, *rotation, *center, *color);
     }
 }
 
@@ -132,15 +138,22 @@ impl<T: GizmoConfigGroup> Drop for SphereBuilder<'_, '_, '_, T> {
 pub struct Plane3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     gizmos: &'a mut Gizmos<'w, 's, T>,
 
-    normal: Direction3d, // direction of the normal orthogonal to the plane
+    // direction of the normal orthogonal to the plane
+    normal: Direction3d,
 
-    rotation: Quat, // Rotation of the sphere around the origin in 3D space
-    position: Vec3, // Center position of the sphere in 3D space
-    color: Color,   // Color of the sphere
+    // Rotation of the sphere around the origin in 3D space
+    rotation: Quat,
+    // Center position of the sphere in 3D space
+    position: Vec3,
+    // Color of the sphere
+    color: Color,
 
-    axis_count: usize,    // Number of axis to hint the plane
-    segment_count: usize, // Number of segments used to hint the plane
-    segment_length: f32,  // Length of segments used to hint the plane
+    // Number of axis to hint the plane
+    axis_count: usize,
+    // Number of segments used to hint the plane
+    segment_count: usize,
+    // Length of segments used to hint the plane
+    segment_length: f32,
 }
 
 impl<T: GizmoConfigGroup> Plane3dBuilder<'_, '_, '_, T> {
@@ -192,11 +205,13 @@ impl<T: GizmoConfigGroup> Drop for Plane3dBuilder<'_, '_, '_, T> {
             return;
         }
 
+        // draws the normal
         let normal = self.rotation * *self.normal;
         self.gizmos
             .primitive_3d(self.normal, self.position, self.rotation, self.color);
         let normals_normal = normal.any_orthonormal_vector();
 
+        // draws the axes
         // get rotation for each direction
         (0..self.axis_count)
             .map(|i| i as f32 * (1.0 / self.axis_count as f32) * TAU)
@@ -348,6 +363,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Cuboid> for Gizmos<'w, 's, T>
 
         let [half_extend_x, half_extend_y, half_extend_z] = primitive.half_size.to_array();
 
+        // transform the points from the reference unit cube to the cuboid coords
         let vertices @ [a, b, c, d, e, f, g, h] = [
             [1.0, 1.0, 1.0],
             [-1.0, 1.0, 1.0],
@@ -361,14 +377,17 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Cuboid> for Gizmos<'w, 's, T>
         .map(|[sx, sy, sz]| Vec3::new(sx * half_extend_x, sy * half_extend_y, sz * half_extend_z))
         .map(rotate_then_translate_3d(rotation, position));
 
+        // lines for the upper rectangle of the cuboid
         let upper = [a, b, c, d]
             .into_iter()
             .zip([a, b, c, d].into_iter().cycle().skip(1));
 
+        // lines for the lower rectangle of the cuboid
         let lower = [e, f, g, h]
             .into_iter()
             .zip([e, f, g, h].into_iter().cycle().skip(1));
 
+        // lines connecting upper and lower rectangles of the cuboid
         let connections = vertices.into_iter().zip(vertices.into_iter().skip(4));
 
         upper
@@ -452,8 +471,9 @@ impl<T: GizmoConfigGroup> Drop for Cylinder3dBuilder<'_, '_, '_, T> {
 
         let normal = *rotation * Vec3::Y;
 
+        // draw upper and lower circle of the cylinder
         [-1.0, 1.0].into_iter().for_each(|sign| {
-            draw_circle(
+            draw_circle_3d(
                 gizmos,
                 *radius,
                 *segments,
@@ -463,6 +483,7 @@ impl<T: GizmoConfigGroup> Drop for Cylinder3dBuilder<'_, '_, '_, T> {
             );
         });
 
+        // draw lines connecting the two cylinder circles
         draw_cylinder_vertical_lines(
             gizmos,
             *radius,
@@ -547,13 +568,15 @@ impl<T: GizmoConfigGroup> Drop for Capsule3dBuilder<'_, '_, '_, T> {
 
         let normal = *rotation * Vec3::Y;
 
+        // draw two semi spheres for the capsule
         [1.0, -1.0].into_iter().for_each(|sign| {
             let center = *position + sign * *half_length * normal;
             let top = center + sign * *radius * normal;
-            draw_cap(gizmos, *radius, *segments, *rotation, center, top, *color);
-            draw_circle(gizmos, *radius, *segments, *rotation, center, *color);
+            draw_semi_sphere(gizmos, *radius, *segments, *rotation, center, top, *color);
+            draw_circle_3d(gizmos, *radius, *segments, *rotation, center, *color);
         });
 
+        // connect the two semi spheres with lines
         draw_cylinder_vertical_lines(
             gizmos,
             *radius,
@@ -586,7 +609,8 @@ pub struct Cone3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     // Color of the cone
     color: Color,
 
-    segments: usize, // Number of segments used to approximate the cone geometry
+    // Number of segments used to approximate the cone geometry
+    segments: usize,
 }
 
 impl<T: GizmoConfigGroup> Cone3dBuilder<'_, '_, '_, T> {
@@ -637,16 +661,17 @@ impl<T: GizmoConfigGroup> Drop for Cone3dBuilder<'_, '_, '_, T> {
 
         let half_height = *height * 0.5;
 
-        {
-            let positions = (0..=*segments)
-                .map(|frac| frac as f32 / *segments as f32)
-                .map(|percentage| percentage * TAU)
-                .map(|angle| Vec2::from(angle.sin_cos()) * *radius)
-                .map(|p| Vec3::new(p.x, -half_height, p.y))
-                .map(rotate_then_translate_3d(*rotation, *position));
-            gizmos.linestrip(positions, *color);
-        };
+        // draw the base circle of the cone
+        draw_circle_3d(
+            gizmos,
+            *radius,
+            *segments,
+            *rotation,
+            *position - *rotation * Vec3::Y * half_height,
+            *color,
+        );
 
+        // connect the base circle with the tip of the cone
         let end = Vec3::Y * half_height;
         circle_coordinates(*radius, *segments)
             .map(|p| Vec3::new(p.x, -half_height, p.y))
@@ -680,7 +705,8 @@ pub struct ConicalFrustum3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     // Color of the conical frustum
     color: Color,
 
-    segments: usize, // Number of segments used to approximate the curved surfaces
+    // Number of segments used to approximate the curved surfaces
+    segments: usize,
 }
 
 impl<T: GizmoConfigGroup> ConicalFrustum3dBuilder<'_, '_, '_, T> {
@@ -733,10 +759,12 @@ impl<T: GizmoConfigGroup> Drop for ConicalFrustum3dBuilder<'_, '_, '_, T> {
 
         let half_height = *height * 0.5;
         let normal = *rotation * Vec3::Y;
+
+        // draw the two circles of the conical frustrum
         [(*radius_top, half_height), (*radius_bottom, -half_height)]
             .into_iter()
             .for_each(|(radius, height)| {
-                draw_circle(
+                draw_circle_3d(
                     gizmos,
                     radius,
                     *segments,
@@ -746,6 +774,7 @@ impl<T: GizmoConfigGroup> Drop for ConicalFrustum3dBuilder<'_, '_, '_, T> {
                 );
             });
 
+        // connect the two circles of the conical frustrum
         circle_coordinates(*radius_top, *segments)
             .map(move |p| Vec3::new(p.x, half_height, p.y))
             .zip(
@@ -842,6 +871,7 @@ impl<T: GizmoConfigGroup> Drop for Torus3dBuilder<'_, '_, '_, T> {
 
         let normal = *rotation * Vec3::Y;
 
+        // draw 4 circles with major_radius
         [
             (*major_radius - *minor_radius, 0.0),
             (*major_radius + *minor_radius, 0.0),
@@ -850,7 +880,7 @@ impl<T: GizmoConfigGroup> Drop for Torus3dBuilder<'_, '_, '_, T> {
         ]
         .into_iter()
         .for_each(|(radius, height)| {
-            draw_circle(
+            draw_circle_3d(
                 gizmos,
                 radius,
                 *major_segments,
@@ -860,18 +890,23 @@ impl<T: GizmoConfigGroup> Drop for Torus3dBuilder<'_, '_, '_, T> {
             );
         });
 
+        // along the major circle draw orthogonal minor circles
         let affine = rotate_then_translate_3d(*rotation, *position);
         circle_coordinates(*major_radius, *major_segments)
             .map(|p| Vec3::new(p.x, 0.0, p.y))
             .flat_map(|major_circle_point| {
                 let minor_center = affine(major_circle_point);
-                let dir_to_translation = (minor_center - *position).normalize();
-                let points = [dir_to_translation, normal, -dir_to_translation, -normal];
-                let points = points.map(|offset| minor_center + offset.normalize() * *minor_radius);
 
-                points
+                // direction facing from the center of the torus towards the minor circles center
+                let dir_to_translation = (minor_center - *position).normalize();
+
+                // the minor circle is draw with 4 arcs this is done to make the minor circle
+                // connect properly with each of the major circles
+                let circle_points = [dir_to_translation, normal, -dir_to_translation, -normal]
+                    .map(|offset| minor_center + offset.normalize() * *minor_radius);
+                circle_points
                     .into_iter()
-                    .zip(points.into_iter().cycle().skip(1))
+                    .zip(circle_points.into_iter().cycle().skip(1))
                     .map(move |(from, to)| (minor_center, from, to))
                     .collect::<Vec<_>>()
             })

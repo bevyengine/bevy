@@ -118,7 +118,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Capsule2d> for Gizmos<'w, 's,
 
         let rotation = Mat2::from_angle(angle);
 
-        // transform points from the reference unit capsule to actual points
+        // transform points from the reference unit square to capsule "rectangle"
         let [top_left, top_right, bottom_left, bottom_right, top_center, bottom_center] = [
             [-1.0, 1.0],
             [1.0, 1.0],
@@ -135,12 +135,17 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Capsule2d> for Gizmos<'w, 's,
         })
         .map(rotate_then_translate_2d(angle, position));
 
+        // draw left and right side of capsule "rectangle"
+        self.line_2d(bottom_left, top_left, color);
+        self.line_2d(bottom_right, top_right, color);
+
+        // if the capsule is rotated we have to start the arc at a different offset angle,
+        // calculate that here
         let angle_offset = (rotation * Vec2::Y).angle_between(Vec2::Y);
         let start_angle_top = angle_offset;
         let start_angle_bottom = PI + angle_offset;
 
-        self.line_2d(bottom_left, top_left, color);
-        self.line_2d(bottom_right, top_right, color);
+        // draw arcs
         self.arc_2d(top_center, start_angle_top, PI, primitive.radius, color);
         self.arc_2d(
             bottom_center,
@@ -153,9 +158,30 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Capsule2d> for Gizmos<'w, 's,
 }
 
 // line 2d
+//
+/// Builder for configuring the drawing options of [`Line2d`].
+pub struct Line2dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
+    gizmos: &'a mut Gizmos<'w, 's, T>,
+
+    direction: Direction2d, // Direction of the line
+
+    position: Vec2, // position of the center of the line
+    rotation: Mat2, // rotation of the line
+    color: Color,   // color of the line
+
+    draw_arrow: bool, // decides whether to indicate the direction of the line with an arrow
+}
+
+impl<T: GizmoConfigGroup> Line2dBuilder<'_, '_, '_, T> {
+    /// Set the drawing mode of the line (arrow vs. plain line)
+    pub fn draw_arrow(mut self, is_enabled: bool) -> Self {
+        self.draw_arrow = is_enabled;
+        self
+    }
+}
 
 impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Line2d> for Gizmos<'w, 's, T> {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a> = Line2dBuilder<'a, 'w, 's, T> where Self: 'a;
 
     fn primitive_2d(
         &mut self,
@@ -164,19 +190,42 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Line2d> for Gizmos<'w, 's, T>
         angle: f32,
         color: Color,
     ) -> Self::Output<'_> {
-        if !self.enabled {
+        Line2dBuilder {
+            gizmos: self,
+            direction: primitive.direction,
+            position,
+            rotation: Mat2::from_angle(angle),
+            color,
+            draw_arrow: false,
+        }
+    }
+}
+
+impl<T: GizmoConfigGroup> Drop for Line2dBuilder<'_, '_, '_, T> {
+    fn drop(&mut self) {
+        if !self.gizmos.enabled {
             return;
         }
 
-        let direction = Mat2::from_angle(angle) * *primitive.direction;
-
-        self.arrow_2d(position, position + direction * MIN_LINE_LEN, color);
+        let direction = self.rotation * *self.direction;
 
         let [start, end] = [1.0, -1.0]
             .map(|sign| sign * INFINITE_LEN)
+            // offset the line from the origin infinitely into the given direction
             .map(|length| direction * length)
-            .map(|offset| position + offset);
-        self.line_2d(start, end, color);
+            // translate the line to the given position
+            .map(|offset| self.position + offset);
+
+        self.gizmos.line_2d(start, end, self.color);
+
+        // optionally draw an arrow head at the center of the line
+        if self.draw_arrow {
+            self.gizmos.arrow_2d(
+                self.position - direction * MIN_LINE_LEN,
+                self.position,
+                self.color,
+            );
+        }
     }
 }
 
@@ -195,27 +244,35 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Plane2d> for Gizmos<'w, 's, T
         if !self.enabled {
             return;
         }
-
         let rotation = Mat2::from_angle(angle);
 
-        // normal
-        let normal = rotation * *primitive.normal;
+        // draw normal of the plane (orthogonal to the plane itself)
+        let normal = primitive.normal;
         let normal_segment = Segment2d {
-            direction: Direction2d::new_unchecked(normal),
+            direction: normal,
             half_length: HALF_MIN_LINE_LEN,
         };
-        let normal_direction = rotation * normal;
         self.primitive_2d(
             normal_segment,
-            position + HALF_MIN_LINE_LEN * normal_direction,
+            // offset the normal so it starts on the plane line
+            position + HALF_MIN_LINE_LEN * rotation * *normal,
             angle,
             color,
         )
         .draw_arrow(true);
 
-        // plane line
-        let direction = Direction2d::new_unchecked(normal.perp());
-        self.primitive_2d(Line2d { direction }, position, angle, color);
+        // draw the plane line
+        let direction = Direction2d::new_unchecked(-normal.perp());
+        self.primitive_2d(Line2d { direction }, position, angle, color)
+            .draw_arrow(false);
+
+        // draw an arrow such that the normal is always left side of the plane with respect to the
+        // planes direction. This is to follow the "counter-clockwise" convention
+        self.arrow_2d(
+            position,
+            position + MIN_LINE_LEN * (rotation * *direction),
+            color,
+        );
     }
 }
 
@@ -228,9 +285,9 @@ pub struct Segment2dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     direction: Direction2d, // Direction of the line segment
     half_length: f32,       // Half-length of the line segment
 
-    position: Vec2,
-    rotation: Mat2,
-    color: Color,
+    position: Vec2, // position of the center of the line segment
+    rotation: Mat2, // rotation of the line segment
+    color: Color,   // color of the line segment
 
     draw_arrow: bool, // decides whether to draw just a line or an arrow
 }
@@ -481,9 +538,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<RegularPolygon> for Gizmos<'w
         }
 
         let points = (0..=primitive.sides)
-            .map(|p| {
-                single_circle_coordinate(primitive.circumcircle.radius, primitive.sides, p, 1.0)
-            })
+            .map(|p| single_circle_coordinate(primitive.circumcircle.radius, primitive.sides, p))
             .map(rotate_then_translate_2d(angle, position));
         self.linestrip_2d(points, color);
     }

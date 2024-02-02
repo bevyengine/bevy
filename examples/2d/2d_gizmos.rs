@@ -163,14 +163,14 @@ fn draw_primitives(
             angle,
             color,
         ),
-        PrimitiveState::Line => gizmos.primitive_2d(
+        PrimitiveState::Line => drop(gizmos.primitive_2d(
             Line2d {
                 direction: Direction2d::X,
             },
             position,
             angle,
             color,
-        ),
+        )),
         PrimitiveState::Plane => gizmos.primitive_2d(
             Plane2d {
                 normal: Direction2d::Y,

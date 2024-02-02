@@ -5,38 +5,53 @@ use bevy_render::color::Color;
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 
-// helpers - affine transform
-
-pub fn rotate_then_translate_2d(angle: f32, position: Vec2) -> impl Fn(Vec2) -> Vec2 {
+/// Performs an isometric transformation on 2D vectors.
+///
+/// This function takes angle and a position vector, and returns a closure that applies
+/// the isometric transformation to any given 2D vector. The transformation involves rotating
+/// the vector by the specified angle and then translating it by the given position.
+pub(crate) fn rotate_then_translate_2d(angle: f32, position: Vec2) -> impl Fn(Vec2) -> Vec2 {
     move |v| Mat2::from_angle(angle) * v + position
 }
 
-pub fn rotate_then_translate_3d(rotation: Quat, translation: Vec3) -> impl Fn(Vec3) -> Vec3 {
+/// Performs an isometric transformation on 3D vectors.
+///
+/// This function takes a quaternion representing rotation and a 3D vector representing
+/// translation, and returns a closure that applies the isometric transformation to any
+/// given 3D vector. The transformation involves rotating the vector by the specified
+/// quaternion and then translating it by the given translation vector.
+pub(crate) fn rotate_then_translate_3d(rotation: Quat, translation: Vec3) -> impl Fn(Vec3) -> Vec3 {
     move |v| rotation * v + translation
 }
 
-// helpers - circle related things
-
-pub fn single_circle_coordinate(
-    radius: f32,
-    segments: usize,
-    nth_point: usize,
-    fraction: f32,
-) -> Vec2 {
-    let angle = nth_point as f32 * TAU * fraction / segments as f32;
+/// Calculates the `nth` coordinate of a circle segment.
+///
+/// Given a circle's radiu and the number of segments, this function computes the position
+/// of the `nth` point along the circumference of the circle. The rotation starts at `(0.0, radius)`
+/// and proceeds counter-clockwise.
+pub(crate) fn single_circle_coordinate(radius: f32, segments: usize, nth_point: usize) -> Vec2 {
+    let angle = nth_point as f32 * TAU / segments as f32;
     let (x, y) = angle.sin_cos();
     Vec2::new(x, y) * radius
 }
 
-pub fn circle_coordinates(radius: f32, segments: usize) -> impl Iterator<Item = Vec2> {
+/// Generates an iterator over the coordinates of a circle segment.
+///
+/// This function creates an iterator that yields the positions of points approximating a
+/// circle with the given radius, divided into linear segments. The iterator produces `segments`
+/// number of points.
+pub(crate) fn circle_coordinates(radius: f32, segments: usize) -> impl Iterator<Item = Vec2> {
     (0..)
-        .map(move |p| single_circle_coordinate(radius, segments, p, 1.0))
+        .map(move |p| single_circle_coordinate(radius, segments, p))
         .take(segments)
 }
 
-// helper - drawing
-
-pub fn draw_cap<T: GizmoConfigGroup>(
+/// Draws a semi-sphere.
+///
+/// This function draws a semi-sphere at the specified `center` point with the given `rotation`,
+/// `radius`, and `color`. The `segments` parameter determines the level of detail, and the `top`
+/// argument specifies the shape of the semi-sphere's tip.
+pub(crate) fn draw_semi_sphere<T: GizmoConfigGroup>(
     gizmos: &mut Gizmos<'_, '_, T>,
     radius: f32,
     segments: usize,
@@ -55,7 +70,12 @@ pub fn draw_cap<T: GizmoConfigGroup>(
         });
 }
 
-pub fn draw_circle<T: GizmoConfigGroup>(
+/// Draws a circle in 3D space.
+///
+/// # Note
+///
+/// This function is necessary to use instead of `gizmos.circle` for certain primitives to ensure that points align correctly. For example, the major circles of a torus are drawn with this method, and using `gizmos.circle` would result in the minor circles not being positioned precisely on the major circles' segment points.
+pub(crate) fn draw_circle_3d<T: GizmoConfigGroup>(
     gizmos: &mut Gizmos<'_, '_, T>,
     radius: f32,
     segments: usize,
@@ -72,7 +92,8 @@ pub fn draw_circle<T: GizmoConfigGroup>(
     gizmos.linestrip(positions, color);
 }
 
-pub fn draw_cylinder_vertical_lines<T: GizmoConfigGroup>(
+/// Draws the connecting lines of a cylinder between the top circle and the bottom circle.
+pub(crate) fn draw_cylinder_vertical_lines<T: GizmoConfigGroup>(
     gizmos: &mut Gizmos<'_, '_, T>,
     radius: f32,
     segments: usize,
