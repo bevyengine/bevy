@@ -916,7 +916,10 @@ fn create_pipeline_task(
         target_os = "macos",
         not(feature = "multi-threaded")
     ))]
-    CachedPipelineState::Ok(futures_lite::future::block_on(task))
+    match futures_lite::future::block_on(task) {
+        Ok(pipeline) => CachedPipelineState::Ok(pipeline),
+        Err(err) => CachedPipelineState::Err(err),
+    }
 }
 
 /// Type of error returned by a [`PipelineCache`] when the creation of a GPU pipeline object failed.
