@@ -14,15 +14,15 @@ use crate::prelude::{Direction2d, Mat2, Vec2};
 /// use std::f32::consts::PI;
 ///
 /// // Create rotatons from radians or degrees
-/// let rotation1 = Rotation2d::from_radians(PI / 2.0);
-/// let rotation2 = Rotation2d::from_degrees(45.0);
+/// let rotation1 = Rotation2d::radians(PI / 2.0);
+/// let rotation2 = Rotation2d::degrees(45.0);
 ///
 /// // Get the angle back as radians or degrees
 /// assert_eq!(rotation1.as_degrees(), 90.0);
 /// assert_eq!(rotation2.as_radians(), PI / 4.0);
 ///
 /// // "Add" rotations together using `*`
-/// assert_relative_eq!(rotation1 * rotation2, Rotation2d::from_degrees(135.0));
+/// assert_relative_eq!(rotation1 * rotation2, Rotation2d::degrees(135.0));
 ///
 /// // Rotate vectors
 /// assert_relative_eq!(rotation1 * Vec2::X, Vec2::Y);
@@ -85,7 +85,7 @@ impl Rotation2d {
 
     /// Creates a [`Rotation2d`] from a counterclockwise angle in radians.
     #[inline]
-    pub fn from_radians(radians: f32) -> Self {
+    pub fn radians(radians: f32) -> Self {
         #[cfg(feature = "libm")]
         let (sin, cos) = (
             libm::sin(radians as f64) as f32,
@@ -99,8 +99,8 @@ impl Rotation2d {
 
     /// Creates a [`Rotation2d`] from a counterclockwise angle in degrees.
     #[inline]
-    pub fn from_degrees(degrees: f32) -> Self {
-        Self::from_radians(degrees.to_radians())
+    pub fn degrees(degrees: f32) -> Self {
+        Self::radians(degrees.to_radians())
     }
 
     /// Creates a [`Rotation2d`] from the sine and cosine of an angle in radians.
@@ -188,7 +188,7 @@ impl Rotation2d {
     /// # use bevy_math::Rotation2d;
     /// #
     /// let rot1 = Rotation2d::IDENTITY;
-    /// let rot2 = Rotation2d::from_radians(std::f32::consts::FRAC_PI_2);
+    /// let rot2 = Rotation2d::radians(std::f32::consts::FRAC_PI_2);
     ///
     /// let result = rot1.lerp(rot2, 0.5);
     ///
@@ -210,8 +210,8 @@ impl Rotation2d {
     /// ```
     /// # use bevy_math::Rotation2d;
     /// #
-    /// let rot1 = Rotation2d::from_radians(std::f32::consts::FRAC_PI_4);
-    /// let rot2 = Rotation2d::from_radians(-std::f32::consts::PI);
+    /// let rot1 = Rotation2d::radians(std::f32::consts::FRAC_PI_4);
+    /// let rot2 = Rotation2d::radians(-std::f32::consts::PI);
     ///
     /// let result = rot1.slerp(rot2, 1.0 / 3.0);
     ///
@@ -220,14 +220,14 @@ impl Rotation2d {
     #[inline]
     pub fn slerp(self, end: Self, s: f32) -> Self {
         let delta = end * self.inverse();
-        self * Self::from_radians(delta.as_radians() * s)
+        self * Self::radians(delta.as_radians() * s)
     }
 }
 
 impl From<f32> for Rotation2d {
     /// Creates a [`Rotation2d`] from a counterclockwise angle in radians.
     fn from(rotation: f32) -> Self {
-        Self::from_radians(rotation)
+        Self::radians(rotation)
     }
 }
 
@@ -317,8 +317,8 @@ mod tests {
 
     #[test]
     fn creation() {
-        let rotation1 = Rotation2d::from_radians(std::f32::consts::FRAC_PI_2);
-        let rotation2 = Rotation2d::from_degrees(90.0);
+        let rotation1 = Rotation2d::radians(std::f32::consts::FRAC_PI_2);
+        let rotation2 = Rotation2d::degrees(90.0);
         let rotation3 = Rotation2d::from_sin_cos(1.0, 0.0);
 
         // All three rotations should be equal
@@ -334,7 +334,7 @@ mod tests {
 
     #[test]
     fn rotate() {
-        let rotation = Rotation2d::from_degrees(90.0);
+        let rotation = Rotation2d::degrees(90.0);
 
         assert_relative_eq!(rotation * Vec2::X, Vec2::Y);
         assert_relative_eq!(rotation * Direction2d::Y, Direction2d::NEG_X);
@@ -342,8 +342,8 @@ mod tests {
 
     #[test]
     fn add() {
-        let rotation1 = Rotation2d::from_degrees(90.0);
-        let rotation2 = Rotation2d::from_degrees(180.0);
+        let rotation1 = Rotation2d::degrees(90.0);
+        let rotation2 = Rotation2d::degrees(180.0);
 
         // 90 deg + 180 deg becomes -90 deg after it wraps around to be within the ]-180, 180] range
         assert_eq!((rotation1 * rotation2).as_degrees(), -90.0);
@@ -351,8 +351,8 @@ mod tests {
 
     #[test]
     fn subtract() {
-        let rotation1 = Rotation2d::from_degrees(90.0);
-        let rotation2 = Rotation2d::from_degrees(45.0);
+        let rotation1 = Rotation2d::degrees(90.0);
+        let rotation2 = Rotation2d::degrees(45.0);
 
         assert_relative_eq!((rotation1 * rotation2.inverse()).as_degrees(), 45.0);
 
@@ -366,15 +366,15 @@ mod tests {
     #[test]
     fn lerp() {
         let rotation1 = Rotation2d::IDENTITY;
-        let rotation2 = Rotation2d::from_radians(std::f32::consts::FRAC_PI_2);
+        let rotation2 = Rotation2d::radians(std::f32::consts::FRAC_PI_2);
         let result = rotation1.lerp(rotation2, 0.5);
         assert_eq!(result.as_radians(), std::f32::consts::FRAC_PI_4);
     }
 
     #[test]
     fn slerp() {
-        let rotation1 = Rotation2d::from_radians(std::f32::consts::FRAC_PI_4);
-        let rotation2 = Rotation2d::from_radians(-std::f32::consts::PI);
+        let rotation1 = Rotation2d::radians(std::f32::consts::FRAC_PI_4);
+        let rotation2 = Rotation2d::radians(-std::f32::consts::PI);
         let result = rotation1.slerp(rotation2, 1.0 / 3.0);
         assert_eq!(result.as_radians(), std::f32::consts::FRAC_PI_2);
     }
