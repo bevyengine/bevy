@@ -9,7 +9,8 @@ use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     text::{BreakLineOn, Text2dBounds},
-    window::{PresentMode, WindowPlugin},
+    window::{PresentMode, WindowPlugin, WindowResolution},
+    winit::{UpdateMode, WinitSettings},
 };
 
 fn main() {
@@ -18,6 +19,7 @@ fn main() {
         DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 present_mode: PresentMode::AutoNoVsync,
+                resolution: WindowResolution::new(1920.0, 1080.0).with_scale_factor_override(1.0),
                 ..default()
             }),
             ..default()
@@ -25,6 +27,10 @@ fn main() {
         FrameTimeDiagnosticsPlugin,
         LogDiagnosticsPlugin::default(),
     ))
+    .insert_resource(WinitSettings {
+        focused_mode: UpdateMode::Continuous,
+        unfocused_mode: UpdateMode::Continuous,
+    })
     .add_systems(Startup, setup);
 
     if std::env::args().any(|arg| arg == "recompute-text") {
@@ -43,18 +49,17 @@ fn setup(mut commands: Commands) {
             value: "0123456789".repeat(10_000),
             style: TextStyle {
                 font_size: 4.,
-                color: Color::WHITE,
                 ..default()
             },
         }],
-        alignment: TextAlignment::Left,
+        justify: JustifyText::Left,
         linebreak_behavior: BreakLineOn::AnyCharacter,
     };
 
     commands
         .spawn(NodeBundle {
             style: Style {
-                flex_basis: Val::Percent(100.),
+                width: Val::Percent(100.),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 ..default()

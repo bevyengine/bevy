@@ -51,7 +51,7 @@ fn deterministic_rand() -> ChaCha8Rng {
 
 fn setup<T: Component + Default>(entity_count: u32) -> World {
     let mut world = World::default();
-    world.spawn_batch((0..entity_count).map(|_| (T::default(),)));
+    world.spawn_batch((0..entity_count).map(|_| T::default()));
     black_box(world)
 }
 

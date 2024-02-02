@@ -1,11 +1,11 @@
-use crate::Reflect;
+use crate::{Reflect, TypePath, TypePathTable};
 use std::any::{Any, TypeId};
 
 /// The named field of a reflected struct.
 #[derive(Clone, Debug)]
 pub struct NamedField {
     name: &'static str,
-    type_name: &'static str,
+    type_path: TypePathTable,
     type_id: TypeId,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
@@ -13,10 +13,10 @@ pub struct NamedField {
 
 impl NamedField {
     /// Create a new [`NamedField`].
-    pub fn new<T: Reflect>(name: &'static str) -> Self {
+    pub fn new<T: Reflect + TypePath>(name: &'static str) -> Self {
         Self {
             name,
-            type_name: std::any::type_name::<T>(),
+            type_path: TypePathTable::of::<T>(),
             type_id: TypeId::of::<T>(),
             #[cfg(feature = "documentation")]
             docs: None,
@@ -34,11 +34,21 @@ impl NamedField {
         self.name
     }
 
-    /// The [type name] of the field.
+    /// A representation of the type path of the field.
     ///
-    /// [type name]: std::any::type_name
-    pub fn type_name(&self) -> &'static str {
-        self.type_name
+    /// Provides dynamic access to all methods on [`TypePath`].
+    pub fn type_path_table(&self) -> &TypePathTable {
+        &self.type_path
+    }
+
+    /// The [stable, full type path] of the field.
+    ///
+    /// Use [`type_path_table`] if you need access to the other methods on [`TypePath`].
+    ///
+    /// [stable, full type path]: TypePath
+    /// [`type_path_table`]: Self::type_path_table
+    pub fn type_path(&self) -> &'static str {
+        self.type_path_table().path()
     }
 
     /// The [`TypeId`] of the field.
@@ -62,17 +72,17 @@ impl NamedField {
 #[derive(Clone, Debug)]
 pub struct UnnamedField {
     index: usize,
-    type_name: &'static str,
+    type_path: TypePathTable,
     type_id: TypeId,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
 }
 
 impl UnnamedField {
-    pub fn new<T: Reflect>(index: usize) -> Self {
+    pub fn new<T: Reflect + TypePath>(index: usize) -> Self {
         Self {
             index,
-            type_name: std::any::type_name::<T>(),
+            type_path: TypePathTable::of::<T>(),
             type_id: TypeId::of::<T>(),
             #[cfg(feature = "documentation")]
             docs: None,
@@ -90,11 +100,21 @@ impl UnnamedField {
         self.index
     }
 
-    /// The [type name] of the field.
+    /// A representation of the type path of the field.
     ///
-    /// [type name]: std::any::type_name
-    pub fn type_name(&self) -> &'static str {
-        self.type_name
+    /// Provides dynamic access to all methods on [`TypePath`].
+    pub fn type_path_table(&self) -> &TypePathTable {
+        &self.type_path
+    }
+
+    /// The [stable, full type path] of the field.
+    ///
+    /// Use [`type_path_table`] if you need access to the other methods on [`TypePath`].
+    ///
+    /// [stable, full type path]: TypePath
+    /// [`type_path_table`]: Self::type_path_table
+    pub fn type_path(&self) -> &'static str {
+        self.type_path_table().path()
     }
 
     /// The [`TypeId`] of the field.

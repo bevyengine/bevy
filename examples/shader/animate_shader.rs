@@ -3,8 +3,8 @@
 
 use bevy::{
     prelude::*,
-    reflect::{TypePath, TypeUuid},
-    render::render_resource::*,
+    reflect::TypePath,
+    render::render_resource::{AsBindGroup, ShaderRef},
 };
 
 fn main() {
@@ -21,7 +21,7 @@ fn setup(
 ) {
     // cube
     commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+        mesh: meshes.add(shape::Cube { size: 1.0 }),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         material: materials.add(CustomMaterial {}),
         ..default()
@@ -34,8 +34,7 @@ fn setup(
     });
 }
 
-#[derive(AsBindGroup, TypeUuid, TypePath, Debug, Clone)]
-#[uuid = "a3d71c04-d054-4946-80f8-ba6cfbc90cad"]
+#[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 struct CustomMaterial {}
 
 impl Material for CustomMaterial {

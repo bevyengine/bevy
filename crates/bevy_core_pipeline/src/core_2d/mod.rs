@@ -2,22 +2,29 @@ mod camera_2d;
 mod main_pass_2d_node;
 
 pub mod graph {
-    pub const NAME: &str = "core_2d";
+    use bevy_render::render_graph::{RenderLabel, RenderSubGraph};
+
+    #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderSubGraph)]
+    pub struct SubGraph2d;
+
     pub mod input {
         pub const VIEW_ENTITY: &str = "view_entity";
     }
-    pub mod node {
-        pub const MSAA_WRITEBACK: &str = "msaa_writeback";
-        pub const MAIN_PASS: &str = "main_pass";
-        pub const BLOOM: &str = "bloom";
-        pub const TONEMAPPING: &str = "tonemapping";
-        pub const FXAA: &str = "fxaa";
-        pub const UPSCALING: &str = "upscaling";
-        pub const CONTRAST_ADAPTIVE_SHARPENING: &str = "contrast_adaptive_sharpening";
-        pub const END_MAIN_PASS_POST_PROCESSING: &str = "end_main_pass_post_processing";
+
+    #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
+    pub enum Labels2d {
+        MsaaWriteback,
+        MainPass,
+        Bloom,
+        Tonemapping,
+        Fxaa,
+        Upscaling,
+        ConstrastAdaptiveSharpening,
+        EndMainPassPostProcessing,
     }
 }
-pub const CORE_2D: &str = graph::NAME;
+
+use std::ops::Range;
 
 pub use camera_2d::*;
 pub use main_pass_2d_node::*;
@@ -29,16 +36,17 @@ use bevy_render::{
     extract_component::ExtractComponentPlugin,
     render_graph::{EmptyNode, RenderGraphApp, ViewNodeRunner},
     render_phase::{
-        batch_phase_system, sort_phase_system, BatchedPhaseItem, CachedRenderPipelinePhaseItem,
-        DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase,
+        sort_phase_system, CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem,
+        RenderPhase,
     },
     render_resource::CachedRenderPipelineId,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_utils::FloatOrd;
-use std::ops::Range;
+use bevy_utils::{nonmax::NonMaxU32, FloatOrd};
 
 use crate::{tonemapping::TonemappingNode, upscaling::UpscalingNode};
+
+use self::graph::{Labels2d, SubGraph2d};
 
 pub struct Core2dPlugin;
 
@@ -47,9 +55,8 @@ impl Plugin for Core2dPlugin {
         app.register_type::<Camera2d>()
             .add_plugins(ExtractComponentPlugin::<Camera2d>::default());
 
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
         };
 
         render_app
@@ -57,29 +64,26 @@ impl Plugin for Core2dPlugin {
             .add_systems(ExtractSchedule, extract_core_2d_camera_phases)
             .add_systems(
                 Render,
-                (
-                    sort_phase_system::<Transparent2d>.in_set(RenderSet::PhaseSort),
-                    batch_phase_system::<Transparent2d>
-                        .after(sort_phase_system::<Transparent2d>)
-                        .in_set(RenderSet::PhaseSort),
-                ),
+                sort_phase_system::<Transparent2d>.in_set(RenderSet::PhaseSort),
             );
 
-        use graph::node::*;
         render_app
-            .add_render_sub_graph(CORE_2D)
-            .add_render_graph_node::<MainPass2dNode>(CORE_2D, MAIN_PASS)
-            .add_render_graph_node::<ViewNodeRunner<TonemappingNode>>(CORE_2D, TONEMAPPING)
-            .add_render_graph_node::<EmptyNode>(CORE_2D, END_MAIN_PASS_POST_PROCESSING)
-            .add_render_graph_node::<ViewNodeRunner<UpscalingNode>>(CORE_2D, UPSCALING)
+            .add_render_sub_graph(SubGraph2d)
+            .add_render_graph_node::<MainPass2dNode>(SubGraph2d, Labels2d::MainPass)
+            .add_render_graph_node::<ViewNodeRunner<TonemappingNode>>(
+                SubGraph2d,
+                Labels2d::Tonemapping,
+            )
+            .add_render_graph_node::<EmptyNode>(SubGraph2d, Labels2d::EndMainPassPostProcessing)
+            .add_render_graph_node::<ViewNodeRunner<UpscalingNode>>(SubGraph2d, Labels2d::Upscaling)
             .add_render_graph_edges(
-                CORE_2D,
-                &[
-                    MAIN_PASS,
-                    TONEMAPPING,
-                    END_MAIN_PASS_POST_PROCESSING,
-                    UPSCALING,
-                ],
+                SubGraph2d,
+                (
+                    Labels2d::MainPass,
+                    Labels2d::Tonemapping,
+                    Labels2d::EndMainPassPostProcessing,
+                    Labels2d::Upscaling,
+                ),
             );
     }
 }
@@ -89,8 +93,8 @@ pub struct Transparent2d {
     pub entity: Entity,
     pub pipeline: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
-    /// Range in the vertex buffer of this item
-    pub batch_range: Option<Range<u32>>,
+    pub batch_range: Range<u32>,
+    pub dynamic_offset: Option<NonMaxU32>,
 }
 
 impl PhaseItem for Transparent2d {
@@ -113,7 +117,28 @@ impl PhaseItem for Transparent2d {
 
     #[inline]
     fn sort(items: &mut [Self]) {
-        items.sort_by_key(|item| item.sort_key());
+        // radsort is a stable radix sort that performed better than `slice::sort_by_key` or `slice::sort_unstable_by_key`.
+        radsort::sort_by_key(items, |item| item.sort_key().0);
+    }
+
+    #[inline]
+    fn batch_range(&self) -> &Range<u32> {
+        &self.batch_range
+    }
+
+    #[inline]
+    fn batch_range_mut(&mut self) -> &mut Range<u32> {
+        &mut self.batch_range
+    }
+
+    #[inline]
+    fn dynamic_offset(&self) -> Option<NonMaxU32> {
+        self.dynamic_offset
+    }
+
+    #[inline]
+    fn dynamic_offset_mut(&mut self) -> &mut Option<NonMaxU32> {
+        &mut self.dynamic_offset
     }
 }
 
@@ -121,16 +146,6 @@ impl CachedRenderPipelinePhaseItem for Transparent2d {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
         self.pipeline
-    }
-}
-
-impl BatchedPhaseItem for Transparent2d {
-    fn batch_range(&self) -> &Option<Range<u32>> {
-        &self.batch_range
-    }
-
-    fn batch_range_mut(&mut self) -> &mut Option<Range<u32>> {
-        &mut self.batch_range
     }
 }
 

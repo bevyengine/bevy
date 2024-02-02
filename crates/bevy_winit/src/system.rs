@@ -1,52 +1,47 @@
-use bevy_a11y::AccessibilityRequested;
 use bevy_ecs::{
     entity::Entity,
     event::EventWriter,
-    prelude::{Changed, Component, Resource},
+    prelude::{Changed, Component},
+    query::QueryFilter,
     removal_detection::RemovedComponents,
-    system::{Commands, NonSendMut, Query, ResMut},
-    world::Mut,
+    system::{NonSendMut, Query, SystemParamItem},
 };
-use bevy_utils::{
-    tracing::{error, info, warn},
-    HashMap,
-};
-use bevy_window::{RawHandleWrapper, Window, WindowClosed, WindowCreated};
-use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
+use bevy_utils::tracing::{error, info, warn};
+use bevy_window::{RawHandleWrapper, Window, WindowClosed, WindowCreated, WindowResized};
 
+use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use winit::{
     dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize},
     event_loop::EventLoopWindowTarget,
 };
 
-#[cfg(target_arch = "wasm32")]
-use crate::web_resize::{CanvasParentResizeEventChannel, WINIT_CANVAS_SELECTOR};
 use crate::{
-    accessibility::{AccessKitAdapters, WinitActionHandlers},
     converters::{
         self, convert_enabled_buttons, convert_window_level, convert_window_theme,
         convert_winit_theme,
     },
-    get_best_videomode, get_fitting_videomode, WinitWindows,
+    get_best_videomode, get_fitting_videomode, CreateWindowParams, WinitWindows,
 };
 
-/// System responsible for creating new windows whenever a [`Window`] component is added
-/// to an entity.
+/// Creates new windows on the [`winit`] backend for each entity with a newly-added
+/// [`Window`] component.
 ///
-/// This will default any necessary components if they are not already added.
+/// If any of these entities are missing required components, those will be added with their
+/// default values.
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn create_window<'a>(
-    mut commands: Commands,
+pub(crate) fn create_windows<F: QueryFilter + 'static>(
     event_loop: &EventLoopWindowTarget<()>,
-    created_windows: impl Iterator<Item = (Entity, Mut<'a, Window>)>,
-    mut event_writer: EventWriter<WindowCreated>,
-    mut winit_windows: NonSendMut<WinitWindows>,
-    mut adapters: NonSendMut<AccessKitAdapters>,
-    mut handlers: ResMut<WinitActionHandlers>,
-    mut accessibility_requested: ResMut<AccessibilityRequested>,
-    #[cfg(target_arch = "wasm32")] event_channel: ResMut<CanvasParentResizeEventChannel>,
+    (
+        mut commands,
+        mut created_windows,
+        mut window_created_events,
+        mut winit_windows,
+        mut adapters,
+        mut handlers,
+        accessibility_requested,
+    ): SystemParamItem<CreateWindowParams<F>>,
 ) {
-    for (entity, mut window) in created_windows {
+    for (entity, mut window) in &mut created_windows {
         if winit_windows.get_window(entity).is_some() {
             continue;
         }
@@ -63,7 +58,7 @@ pub(crate) fn create_window<'a>(
             &window,
             &mut adapters,
             &mut handlers,
-            &mut accessibility_requested,
+            &accessibility_requested,
         );
 
         if let Some(theme) = winit_window.theme() {
@@ -72,44 +67,28 @@ pub(crate) fn create_window<'a>(
 
         window
             .resolution
-            .set_scale_factor(winit_window.scale_factor());
+            .set_scale_factor(winit_window.scale_factor() as f32);
         commands
             .entity(entity)
             .insert(RawHandleWrapper {
-                window_handle: winit_window.raw_window_handle(),
-                display_handle: winit_window.raw_display_handle(),
+                window_handle: winit_window.window_handle().unwrap().as_raw(),
+                display_handle: winit_window.display_handle().unwrap().as_raw(),
             })
             .insert(CachedWindow {
                 window: window.clone(),
             });
 
-        #[cfg(target_arch = "wasm32")]
-        {
-            if window.fit_canvas_to_parent {
-                let selector = if let Some(selector) = &window.canvas {
-                    selector
-                } else {
-                    WINIT_CANVAS_SELECTOR
-                };
-                event_channel.listen_to_selector(entity, selector);
-            }
-        }
-
-        event_writer.send(WindowCreated { window: entity });
+        window_created_events.send(WindowCreated { window: entity });
     }
 }
 
-/// Cache for closing windows so we can get better debug information.
-#[derive(Debug, Clone, Resource)]
-pub struct WindowTitleCache(HashMap<Entity, String>);
-
-pub(crate) fn despawn_window(
+pub(crate) fn despawn_windows(
     mut closed: RemovedComponents<Window>,
     window_entities: Query<&Window>,
     mut close_events: EventWriter<WindowClosed>,
     mut winit_windows: NonSendMut<WinitWindows>,
 ) {
-    for window in closed.iter() {
+    for window in closed.read() {
         info!("Closing window {:?}", window);
         // Guard to verify that the window is in fact actually gone,
         // rather than having the component added and removed in the same frame.
@@ -126,16 +105,18 @@ pub struct CachedWindow {
     pub window: Window,
 }
 
-// Detect changes to the window and update the winit window accordingly.
-//
-// Notes:
-// - [`Window::present_mode`] and [`Window::composite_alpha_mode`] updating should be handled in the bevy render crate.
-// - [`Window::transparent`] currently cannot be updated after startup for winit.
-// - [`Window::canvas`] currently cannot be updated after startup, not entirely sure if it would work well with the
-//   event channel stuff.
-pub(crate) fn changed_window(
+/// Propagates changes from [`Window`] entities to the [`winit`] backend.
+///
+/// # Notes
+///
+/// - [`Window::present_mode`] and [`Window::composite_alpha_mode`] changes are handled by the `bevy_render` crate.
+/// - [`Window::transparent`] cannot be changed after the window is created.
+/// - [`Window::canvas`] cannot be changed after the window is created.
+/// - [`Window::focused`] cannot be manually changed to `false` after the window is created.
+pub(crate) fn changed_windows(
     mut changed_windows: Query<(Entity, &mut Window, &mut CachedWindow), Changed<Window>>,
     winit_windows: NonSendMut<WinitWindows>,
+    mut window_resized: EventWriter<WindowResized>,
 ) {
     for (entity, mut window, mut cache) in &mut changed_windows {
         if let Some(winit_window) = winit_windows.get_window(entity) {
@@ -172,18 +153,14 @@ pub(crate) fn changed_window(
                     window.resolution.physical_width(),
                     window.resolution.physical_height(),
                 );
-                winit_window.set_inner_size(physical_size);
+                if let Some(size_now) = winit_window.request_inner_size(physical_size) {
+                    crate::react_to_resize(&mut window, size_now, &mut window_resized, entity);
+                }
             }
 
             if window.physical_cursor_position() != cache.window.physical_cursor_position() {
                 if let Some(physical_position) = window.physical_cursor_position() {
-                    let inner_size = winit_window.inner_size();
-
-                    let position = PhysicalPosition::new(
-                        physical_position.x,
-                        // Flip the coordinate space back to winit's context.
-                        inner_size.height as f32 - physical_position.y,
-                    );
+                    let position = PhysicalPosition::new(physical_position.x, physical_position.y);
 
                     if let Err(err) = winit_window.set_cursor_position(position) {
                         error!("could not set cursor position: {:?}", err);
@@ -302,14 +279,18 @@ pub(crate) fn changed_window(
             }
 
             if window.ime_position != cache.window.ime_position {
-                winit_window.set_ime_position(LogicalPosition::new(
-                    window.ime_position.x,
-                    window.ime_position.y,
-                ));
+                winit_window.set_ime_cursor_area(
+                    LogicalPosition::new(window.ime_position.x, window.ime_position.y),
+                    PhysicalSize::new(10, 10),
+                );
             }
 
             if window.window_theme != cache.window.window_theme {
                 winit_window.set_theme(window.window_theme.map(convert_window_theme));
+            }
+
+            if window.visible != cache.window.visible {
+                winit_window.set_visible(window.visible);
             }
 
             cache.window = window.clone();

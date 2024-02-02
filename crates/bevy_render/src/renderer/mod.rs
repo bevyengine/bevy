@@ -82,6 +82,10 @@ pub fn render_system(world: &mut World) {
         for window in windows.values_mut() {
             if let Some(wrapped_texture) = window.swap_chain_texture.take() {
                 if let Some(surface_texture) = wrapped_texture.try_unwrap() {
+                    // TODO(clean): winit docs recommends calling pre_present_notify before this.
+                    // though `present()` doesn't present the frame, it schedules it to be presented
+                    // by wgpu.
+                    // https://docs.rs/winit/0.29.9/wasm32-unknown-unknown/winit/window/struct.Window.html#method.pre_present_notify
                     surface_texture.present();
                 }
             }
@@ -99,9 +103,16 @@ pub fn render_system(world: &mut World) {
 
     // update the time and send it to the app world
     let time_sender = world.resource::<TimeSender>();
-    time_sender.0.try_send(Instant::now()).expect(
-        "The TimeSender channel should always be empty during render. You might need to add the bevy::core::time_system to your app.",
-    );
+    if let Err(error) = time_sender.0.try_send(Instant::now()) {
+        match error {
+            bevy_time::TrySendError::Full(_) => {
+                panic!("The TimeSender channel should always be empty during render. You might need to add the bevy::core::time_system to your app.",);
+            }
+            bevy_time::TrySendError::Disconnected(_) => {
+                // ignore disconnected errors, the main world probably just got dropped during shutdown
+            }
+        }
+    }
 }
 
 /// This queue is used to enqueue tasks for the GPU to execute asynchronously.
@@ -109,14 +120,14 @@ pub fn render_system(world: &mut World) {
 pub struct RenderQueue(pub Arc<Queue>);
 
 /// The handle to the physical device being used for rendering.
-/// See [`wgpu::Adapter`] for more info.
+/// See [`Adapter`] for more info.
 #[derive(Resource, Clone, Debug, Deref, DerefMut)]
 pub struct RenderAdapter(pub Arc<Adapter>);
 
 /// The GPU instance is used to initialize the [`RenderQueue`] and [`RenderDevice`],
 /// as well as to create [`WindowSurfaces`](crate::view::window::WindowSurfaces).
-#[derive(Resource, Deref, DerefMut)]
-pub struct RenderInstance(pub Instance);
+#[derive(Resource, Clone, Deref, DerefMut)]
+pub struct RenderInstance(pub Arc<Instance>);
 
 /// The [`AdapterInfo`] of the adapter in use by the renderer.
 #[derive(Resource, Clone, Deref, DerefMut)]
@@ -133,7 +144,7 @@ const GPU_NOT_FOUND_ERROR_MESSAGE: &str = if cfg!(target_os = "linux") {
 pub async fn initialize_renderer(
     instance: &Instance,
     options: &WgpuSettings,
-    request_adapter_options: &RequestAdapterOptions<'_>,
+    request_adapter_options: &RequestAdapterOptions<'_, '_>,
 ) -> (RenderDevice, RenderQueue, RenderAdapterInfo, RenderAdapter) {
     let adapter = instance
         .request_adapter(request_adapter_options)
@@ -270,6 +281,9 @@ pub async fn initialize_renderer(
             max_bindings_per_bind_group: limits
                 .max_bindings_per_bind_group
                 .min(constrained_limits.max_bindings_per_bind_group),
+            max_non_sampler_bindings: limits
+                .max_non_sampler_bindings
+                .min(constrained_limits.max_non_sampler_bindings),
         };
     }
 
@@ -277,8 +291,8 @@ pub async fn initialize_renderer(
         .request_device(
             &wgpu::DeviceDescriptor {
                 label: options.device_label.as_ref().map(|a| a.as_ref()),
-                features,
-                limits,
+                required_features: features,
+                required_limits: limits,
             },
             trace_path,
         )

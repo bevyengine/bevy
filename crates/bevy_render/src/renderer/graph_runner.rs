@@ -1,18 +1,19 @@
 use bevy_ecs::{prelude::Entity, world::World};
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
-use bevy_utils::HashMap;
-use smallvec::{smallvec, SmallVec};
-#[cfg(feature = "trace")]
-use std::ops::Deref;
+use bevy_utils::{
+    smallvec::{smallvec, SmallVec},
+    HashMap,
+};
+
 use std::{borrow::Cow, collections::VecDeque};
 use thiserror::Error;
 
 use crate::{
     diagnostic::internal::{DiagnosticsRecorder, RenderDiagnosticsMutex},
     render_graph::{
-        Edge, NodeId, NodeRunError, NodeState, RenderGraph, RenderGraphContext, SlotLabel,
-        SlotType, SlotValue,
+        Edge, InternedRenderLabel, InternedRenderSubGraph, NodeRunError, NodeState, RenderGraph,
+        RenderGraphContext, SlotLabel, SlotType, SlotValue,
     },
     renderer::{RenderContext, RenderDevice},
 };
@@ -29,11 +30,11 @@ pub enum RenderGraphRunnerError {
         slot_index: usize,
         slot_name: Cow<'static, str>,
     },
-    #[error("graph (name: '{graph_name:?}') could not be run because slot '{slot_name}' at index {slot_index} has no value")]
+    #[error("graph '{sub_graph:?}' could not be run because slot '{slot_name}' at index {slot_index} has no value")]
     MissingInput {
         slot_index: usize,
         slot_name: Cow<'static, str>,
-        graph_name: Option<Cow<'static, str>>,
+        sub_graph: Option<InternedRenderSubGraph>,
     },
     #[error("attempted to use the wrong type for input slot")]
     MismatchedInputSlotType {
@@ -46,7 +47,7 @@ pub enum RenderGraphRunnerError {
         "node (name: '{node_name:?}') has {slot_count} input slots, but was provided {value_count} values"
     )]
     MismatchedInputCount {
-        node_name: Option<Cow<'static, str>>,
+        node_name: InternedRenderLabel,
         slot_count: usize,
         value_count: usize,
     },
@@ -91,16 +92,17 @@ impl RenderGraphRunner {
 
     fn run_graph(
         graph: &RenderGraph,
-        graph_name: Option<Cow<'static, str>>,
+        sub_graph: Option<InternedRenderSubGraph>,
         render_context: &mut RenderContext,
         world: &World,
         inputs: &[SlotValue],
         view_entity: Option<Entity>,
     ) -> Result<(), RenderGraphRunnerError> {
-        let mut node_outputs: HashMap<NodeId, SmallVec<[SlotValue; 4]>> = HashMap::default();
+        let mut node_outputs: HashMap<InternedRenderLabel, SmallVec<[SlotValue; 4]>> =
+            HashMap::default();
         #[cfg(feature = "trace")]
-        let span = if let Some(name) = &graph_name {
-            info_span!("run_graph", name = name.deref())
+        let span = if let Some(label) = &sub_graph {
+            info_span!("run_graph", name = format!("{label:?}"))
         } else {
             info_span!("run_graph", name = "main_graph")
         };
@@ -131,28 +133,31 @@ impl RenderGraphRunner {
                     return Err(RenderGraphRunnerError::MissingInput {
                         slot_index: i,
                         slot_name: input_slot.name.clone(),
-                        graph_name,
+                        sub_graph,
                     });
                 }
             }
 
-            node_outputs.insert(input_node.id, input_values);
+            node_outputs.insert(input_node.label, input_values);
 
-            for (_, node_state) in graph.iter_node_outputs(input_node.id).expect("node exists") {
+            for (_, node_state) in graph
+                .iter_node_outputs(input_node.label)
+                .expect("node exists")
+            {
                 node_queue.push_front(node_state);
             }
         }
 
         'handle_node: while let Some(node_state) = node_queue.pop_back() {
             // skip nodes that are already processed
-            if node_outputs.contains_key(&node_state.id) {
+            if node_outputs.contains_key(&node_state.label) {
                 continue;
             }
 
             let mut slot_indices_and_inputs: SmallVec<[(usize, SlotValue); 4]> = SmallVec::new();
             // check if all dependencies have finished running
             for (edge, input_node) in graph
-                .iter_node_inputs(node_state.id)
+                .iter_node_inputs(node_state.label)
                 .expect("node is in graph")
             {
                 match edge {
@@ -161,7 +166,7 @@ impl RenderGraphRunner {
                         input_index,
                         ..
                     } => {
-                        if let Some(outputs) = node_outputs.get(&input_node.id) {
+                        if let Some(outputs) = node_outputs.get(&input_node.label) {
                             slot_indices_and_inputs
                                 .push((*input_index, outputs[*output_index].clone()));
                         } else {
@@ -170,7 +175,7 @@ impl RenderGraphRunner {
                         }
                     }
                     Edge::NodeEdge { .. } => {
-                        if !node_outputs.contains_key(&input_node.id) {
+                        if !node_outputs.contains_key(&input_node.label) {
                             node_queue.push_front(node_state);
                             continue 'handle_node;
                         }
@@ -187,7 +192,7 @@ impl RenderGraphRunner {
 
             if inputs.len() != node_state.input_slots.len() {
                 return Err(RenderGraphRunnerError::MismatchedInputCount {
-                    node_name: node_state.name.clone(),
+                    node_name: node_state.label,
                     slot_count: node_state.input_slots.len(),
                     value_count: inputs.len(),
                 });
@@ -210,11 +215,11 @@ impl RenderGraphRunner {
 
                 for run_sub_graph in context.finish() {
                     let sub_graph = graph
-                        .get_sub_graph(&run_sub_graph.name)
+                        .get_sub_graph(run_sub_graph.sub_graph)
                         .expect("sub graph exists because it was validated when queued.");
                     Self::run_graph(
                         sub_graph,
-                        Some(run_sub_graph.name),
+                        Some(run_sub_graph.sub_graph),
                         render_context,
                         world,
                         &run_sub_graph.inputs,
@@ -236,9 +241,12 @@ impl RenderGraphRunner {
                     });
                 }
             }
-            node_outputs.insert(node_state.id, values);
+            node_outputs.insert(node_state.label, values);
 
-            for (_, node_state) in graph.iter_node_outputs(node_state.id).expect("node exists") {
+            for (_, node_state) in graph
+                .iter_node_outputs(node_state.label)
+                .expect("node exists")
+            {
                 node_queue.push_front(node_state);
             }
         }

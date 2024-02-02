@@ -2,7 +2,7 @@
 
 use bevy::{
     prelude::*,
-    reflect::{TypePath, TypeUuid},
+    reflect::TypePath,
     render::render_resource::{AsBindGroup, ShaderRef},
 };
 
@@ -25,17 +25,21 @@ fn setup(
     mut standard_materials: ResMut<Assets<StandardMaterial>>,
 ) {
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(5.0).into()),
-        material: standard_materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+        mesh: meshes.add(shape::Plane::from_size(5.0)),
+        material: standard_materials.add(Color::rgb(0.3, 0.5, 0.3)),
         ..default()
     });
     commands.spawn(PointLightBundle {
+        point_light: PointLight {
+            intensity: 150_000.0,
+            ..default()
+        },
         transform: Transform::from_xyz(4.0, 8.0, 4.0),
         ..default()
     });
 
     commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+        mesh: meshes.add(shape::Cube { size: 1.0 }),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         material: custom_materials.add(CustomMaterial {
             texture: asset_server.load(
@@ -65,8 +69,7 @@ fn rotate_camera(mut camera: Query<&mut Transform, With<MainCamera>>, time: Res<
     cam_transform.look_at(Vec3::ZERO, Vec3::Y);
 }
 
-#[derive(AsBindGroup, Debug, Clone, TypeUuid, TypePath)]
-#[uuid = "b62bb455-a72c-4b56-87bb-81e0554e234f"]
+#[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 pub struct CustomMaterial {
     #[texture(0)]
     #[sampler(1)]

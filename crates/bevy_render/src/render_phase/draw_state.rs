@@ -122,6 +122,11 @@ impl<'a> TrackedRenderPass<'a> {
         }
     }
 
+    /// Returns the wgpu [`RenderPass`].
+    pub fn wgpu_pass(&mut self) -> &mut RenderPass<'a> {
+        &mut self.pass
+    }
+
     /// Sets the active [`RenderPipeline`].
     ///
     /// Subsequent draw calls will exhibit the behavior defined by the `pipeline`.
@@ -265,7 +270,7 @@ impl<'a> TrackedRenderPass<'a> {
     ///
     /// The structure expected in `indirect_buffer` is the following:
     ///
-    /// ```rust
+    /// ```
     /// #[repr(C)]
     /// struct DrawIndirect {
     ///     vertex_count: u32, // The number of vertices to draw.
@@ -288,7 +293,7 @@ impl<'a> TrackedRenderPass<'a> {
     ///
     /// The structure expected in `indirect_buffer` is the following:
     ///
-    /// ```rust
+    /// ```
     /// #[repr(C)]
     /// struct DrawIndexedIndirect {
     ///     vertex_count: u32, // The number of vertices to draw.
@@ -316,7 +321,7 @@ impl<'a> TrackedRenderPass<'a> {
     ///
     /// `indirect_buffer` should contain `count` tightly packed elements of the following structure:
     ///
-    /// ```rust
+    /// ```
     /// #[repr(C)]
     /// struct DrawIndirect {
     ///     vertex_count: u32, // The number of vertices to draw.
@@ -354,7 +359,7 @@ impl<'a> TrackedRenderPass<'a> {
     ///
     /// `indirect_buffer` should contain `count` tightly packed elements of the following structure:
     ///
-    /// ```rust
+    /// ```
     /// #[repr(C)]
     /// struct DrawIndirect {
     ///     vertex_count: u32, // The number of vertices to draw.
@@ -397,7 +402,7 @@ impl<'a> TrackedRenderPass<'a> {
     ///
     /// `indirect_buffer` should contain `count` tightly packed elements of the following structure:
     ///
-    /// ```rust
+    /// ```
     /// #[repr(C)]
     /// struct DrawIndexedIndirect {
     ///     vertex_count: u32, // The number of vertices to draw.
@@ -437,7 +442,7 @@ impl<'a> TrackedRenderPass<'a> {
     ///
     /// `indirect_buffer` should contain `count` tightly packed elements of the following structure:
     ///
-    /// ```rust
+    /// ```
     /// #[repr(C)]
     /// struct DrawIndexedIndirect {
     ///     vertex_count: u32, // The number of vertices to draw.

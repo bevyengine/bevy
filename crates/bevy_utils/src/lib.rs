@@ -2,9 +2,8 @@
 //!
 //! [Bevy]: https://bevyengine.org/
 //!
-#![allow(clippy::type_complexity)]
+
 #![warn(missing_docs)]
-#![warn(clippy::undocumented_unsafe_blocks)]
 
 #[allow(missing_docs)]
 pub mod prelude {
@@ -18,19 +17,31 @@ pub use short_names::get_short_name;
 pub mod synccell;
 pub mod syncunsafecell;
 
+pub mod uuid;
+
+mod cow_arc;
 mod default;
 mod float_ord;
+pub mod intern;
+mod once;
 
+pub use crate::uuid::Uuid;
 pub use ahash::{AHasher, RandomState};
 pub use bevy_utils_proc_macros::*;
+pub use cow_arc::*;
 pub use default::default;
 pub use float_ord::*;
 pub use hashbrown;
-pub use instant::{Duration, Instant};
 pub use petgraph;
+pub use smallvec;
 pub use thiserror;
 pub use tracing;
-pub use uuid::Uuid;
+pub use web_time::{Duration, Instant, SystemTime, SystemTimeError, TryFromFloatSecsError};
+
+#[allow(missing_docs)]
+pub mod nonmax {
+    pub use nonmax::*;
+}
 
 use hashbrown::hash_map::RawEntryMut;
 use std::{
@@ -58,7 +69,7 @@ pub type Entry<'a, K, V> = hashbrown::hash_map::Entry<'a, K, V, BuildHasherDefau
 #[derive(Debug, Clone, Default)]
 pub struct FixedState;
 
-impl std::hash::BuildHasher for FixedState {
+impl BuildHasher for FixedState {
     type Hasher = AHasher;
 
     #[inline]
@@ -117,11 +128,8 @@ pub struct Hashed<V, H = FixedState> {
 impl<V: Hash, H: BuildHasher + Default> Hashed<V, H> {
     /// Pre-hashes the given value using the [`BuildHasher`] configured in the [`Hashed`] type.
     pub fn new(value: V) -> Self {
-        let builder = H::default();
-        let mut hasher = builder.build_hasher();
-        value.hash(&mut hasher);
         Self {
-            hash: hasher.finish(),
+            hash: H::default().hash_one(&value),
             value,
             marker: PhantomData,
         }
@@ -182,7 +190,7 @@ impl<V: Clone, H> Clone for Hashed<V, H> {
 impl<V: Eq, H> Eq for Hashed<V, H> {}
 
 /// A [`BuildHasher`] that results in a [`PassHasher`].
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct PassHash;
 
 impl BuildHasher for PassHash {
@@ -201,6 +209,11 @@ pub struct PassHasher {
 }
 
 impl Hasher for PassHasher {
+    #[inline]
+    fn finish(&self) -> u64 {
+        self.hash
+    }
+
     fn write(&mut self, _bytes: &[u8]) {
         panic!("can only hash u64 using PassHasher");
     }
@@ -208,11 +221,6 @@ impl Hasher for PassHasher {
     #[inline]
     fn write_u64(&mut self, i: u64) {
         self.hash = i;
-    }
-
-    #[inline]
-    fn finish(&self) -> u64 {
-        self.hash
     }
 }
 
@@ -242,6 +250,83 @@ impl<K: Hash + Eq + PartialEq + Clone, V> PreHashMapExt<K, V> for PreHashMap<K, 
         }
     }
 }
+
+/// A [`BuildHasher`] that results in a [`EntityHasher`].
+#[derive(Default, Clone)]
+pub struct EntityHash;
+
+impl BuildHasher for EntityHash {
+    type Hasher = EntityHasher;
+
+    fn build_hasher(&self) -> Self::Hasher {
+        EntityHasher::default()
+    }
+}
+
+/// A very fast hash that is only designed to work on generational indices
+/// like `Entity`. It will panic if attempting to hash a type containing
+/// non-u64 fields.
+///
+/// This is heavily optimized for typical cases, where you have mostly live
+/// entities, and works particularly well for contiguous indices.
+///
+/// If you have an unusual case -- say all your indices are multiples of 256
+/// or most of the entities are dead generations -- then you might want also to
+/// try [`AHasher`] for a slower hash computation but fewer lookup conflicts.
+#[derive(Debug, Default)]
+pub struct EntityHasher {
+    hash: u64,
+}
+
+impl Hasher for EntityHasher {
+    #[inline]
+    fn finish(&self) -> u64 {
+        self.hash
+    }
+
+    fn write(&mut self, _bytes: &[u8]) {
+        panic!("can only hash u64 using EntityHasher");
+    }
+
+    #[inline]
+    fn write_u64(&mut self, bits: u64) {
+        // SwissTable (and thus `hashbrown`) cares about two things from the hash:
+        // - H1: low bits (masked by `2ⁿ-1`) to pick the slot in which to store the item
+        // - H2: high 7 bits are used to SIMD optimize hash collision probing
+        // For more see <https://abseil.io/about/design/swisstables#metadata-layout>
+
+        // This hash function assumes that the entity ids are still well-distributed,
+        // so for H1 leaves the entity id alone in the low bits so that id locality
+        // will also give memory locality for things spawned together.
+        // For H2, take advantage of the fact that while multiplication doesn't
+        // spread entropy to the low bits, it's incredibly good at spreading it
+        // upward, which is exactly where we need it the most.
+
+        // While this does include the generation in the output, it doesn't do so
+        // *usefully*.  H1 won't care until you have over 3 billion entities in
+        // the table, and H2 won't care until something hits generation 33 million.
+        // Thus the comment suggesting that this is best for live entities,
+        // where there won't be generation conflicts where it would matter.
+
+        // The high 32 bits of this are ⅟φ for Fibonacci hashing.  That works
+        // particularly well for hashing for the same reason as described in
+        // <https://extremelearning.com.au/unreasonable-effectiveness-of-quasirandom-sequences/>
+        // It loses no information because it has a modular inverse.
+        // (Specifically, `0x144c_bc89_u32 * 0x9e37_79b9_u32 == 1`.)
+        //
+        // The low 32 bits make that part of the just product a pass-through.
+        const UPPER_PHI: u64 = 0x9e37_79b9_0000_0001;
+
+        // This is `(MAGIC * index + generation) << 32 + index`, in a single instruction.
+        self.hash = bits.wrapping_mul(UPPER_PHI);
+    }
+}
+
+/// A [`HashMap`] pre-configured to use [`EntityHash`] hashing.
+pub type EntityHashMap<K, V> = hashbrown::HashMap<K, V, EntityHash>;
+
+/// A [`HashSet`] pre-configured to use [`EntityHash`] hashing.
+pub type EntityHashSet<T> = hashbrown::HashSet<T, EntityHash>;
 
 /// A type which calls a function when dropped.
 /// This can be used to ensure that cleanup code is run even in case of a panic.
@@ -298,6 +383,30 @@ impl<F: FnOnce()> Drop for OnDrop<F> {
     }
 }
 
+/// Calls the [`tracing::info!`] macro on a value.
+pub fn info<T: Debug>(data: T) {
+    tracing::info!("{:?}", data);
+}
+
+/// Calls the [`tracing::debug!`] macro on a value.
+pub fn dbg<T: Debug>(data: T) {
+    tracing::debug!("{:?}", data);
+}
+
+/// Processes a [`Result`] by calling the [`tracing::warn!`] macro in case of an [`Err`] value.
+pub fn warn<E: Debug>(result: Result<(), E>) {
+    if let Err(warn) = result {
+        tracing::warn!("{:?}", warn);
+    }
+}
+
+/// Processes a [`Result`] by calling the [`tracing::error!`] macro in case of an [`Err`] value.
+pub fn error<E: Debug>(result: Result<(), E>) {
+    if let Err(error) = result {
+        tracing::error!("{:?}", error);
+    }
+}
+
 /// Like [`tracing::trace`], but conditional on cargo feature `detailed_trace`.
 #[macro_export]
 macro_rules! detailed_trace {
@@ -306,4 +415,14 @@ macro_rules! detailed_trace {
             bevy_utils::tracing::trace!($($tts)*);
         }
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use static_assertions::assert_impl_all;
+
+    // Check that the HashMaps are Clone if the key/values are Clone
+    assert_impl_all!(EntityHashMap::<u64, usize>: Clone);
+    assert_impl_all!(PreHashMap::<u64, usize>: Clone);
 }

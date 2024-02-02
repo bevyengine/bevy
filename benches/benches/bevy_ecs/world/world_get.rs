@@ -230,7 +230,7 @@ pub fn world_query_for_each(criterion: &mut Criterion) {
 
             bencher.iter(|| {
                 let mut count = 0;
-                query.for_each(&world, |comp| {
+                query.iter(&world).for_each(|comp| {
                     black_box(comp);
                     count += 1;
                     black_box(count);
@@ -244,7 +244,7 @@ pub fn world_query_for_each(criterion: &mut Criterion) {
 
             bencher.iter(|| {
                 let mut count = 0;
-                query.for_each(&world, |comp| {
+                query.iter(&world).for_each(|comp| {
                     black_box(comp);
                     count += 1;
                     black_box(count);
@@ -383,7 +383,7 @@ pub fn query_get(criterion: &mut Criterion) {
         group.bench_function(format!("{}_entities_sparse", entity_count), |bencher| {
             let mut world = World::default();
             let mut entities: Vec<_> = world
-                .spawn_batch((0..entity_count).map(|_| (Sparse::default(),)))
+                .spawn_batch((0..entity_count).map(|_| Sparse::default()))
                 .collect();
             entities.shuffle(&mut deterministic_rand());
             let mut query = SystemState::<Query<&Sparse>>::new(&mut world);

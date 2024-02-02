@@ -194,7 +194,7 @@ impl PluginGroupBuilder {
 }
 
 /// A plugin group which doesn't do anything. Useful for examples:
-/// ```rust
+/// ```
 /// # use bevy_app::prelude::*;
 /// use bevy_app::NoopPluginGroup as MinimalPlugins;
 ///

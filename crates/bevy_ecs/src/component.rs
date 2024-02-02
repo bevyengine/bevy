@@ -10,6 +10,8 @@ use crate::{
 };
 pub use bevy_ecs_macros::Component;
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::Reflect;
 use std::cell::UnsafeCell;
 use std::{
     alloc::Layout,
@@ -202,7 +204,7 @@ pub enum StorageType {
 }
 
 /// Stores metadata for a type of component or resource stored in a specific [`World`].
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ComponentInfo {
     id: ComponentId,
     descriptor: ComponentDescriptor,
@@ -266,11 +268,11 @@ impl ComponentInfo {
 }
 
 /// A value which uniquely identifies the type of a [`Component`] within a
-/// [`World`](crate::world::World).
+/// [`World`].
 ///
 /// Each time a new `Component` type is registered within a `World` using
-/// [`World::init_component`](crate::world::World::init_component) or
-/// [`World::init_component_with_descriptor`](crate::world::World::init_component_with_descriptor),
+/// [`World::init_component`](World::init_component) or
+/// [`World::init_component_with_descriptor`](World::init_component_with_descriptor),
 /// a corresponding `ComponentId` is created to track it.
 ///
 /// While the distinction between `ComponentId` and [`TypeId`] may seem superficial, breaking them
@@ -282,7 +284,16 @@ impl ComponentInfo {
 /// A `ComponentId` is tightly coupled to its parent `World`. Attempting to use a `ComponentId` from
 /// one `World` to access the metadata of a `Component` in a different `World` is undefined behavior
 /// and must not be attempted.
+///
+/// Given a type `T` which implements [`Component`], the `ComponentId` for `T` can be retrieved
+/// from a `World` using [`World::component_id()`] or via [`Components::component_id()`]. Access
+/// to the `ComponentId` for a [`Resource`] is available via [`Components::resource_id()`].
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Hash, PartialEq)
+)]
 pub struct ComponentId(usize);
 
 impl ComponentId {
@@ -315,6 +326,7 @@ impl SparseSetIndex for ComponentId {
 }
 
 /// A value describing a component or resource, which may or may not correspond to a Rust type.
+#[derive(Clone)]
 pub struct ComponentDescriptor {
     name: Cow<'static, str>,
     // SAFETY: This must remain private. It must match the statically known StorageType of the
@@ -434,14 +446,19 @@ impl ComponentDescriptor {
 #[derive(Debug, Default)]
 pub struct Components {
     components: Vec<ComponentInfo>,
-    indices: TypeIdMap<usize>,
-    resource_indices: TypeIdMap<usize>,
+    indices: TypeIdMap<ComponentId>,
+    resource_indices: TypeIdMap<ComponentId>,
 }
 
 impl Components {
     /// Initializes a component of type `T` with this instance.
     /// If a component of this type has already been initialized, this will return
     /// the ID of the pre-existing component.
+    ///
+    /// # See also
+    ///
+    /// * [`Components::component_id()`]
+    /// * [`Components::init_component_with_descriptor()`]
     #[inline]
     pub fn init_component<T: Component>(&mut self, storages: &mut Storages) -> ComponentId {
         let type_id = TypeId::of::<T>();
@@ -451,10 +468,9 @@ impl Components {
             components,
             ..
         } = self;
-        let index = indices.entry(type_id).or_insert_with(|| {
+        *indices.entry(type_id).or_insert_with(|| {
             Components::init_component_inner(components, storages, ComponentDescriptor::new::<T>())
-        });
-        ComponentId(*index)
+        })
     }
 
     /// Initializes a component described by `descriptor`.
@@ -463,13 +479,17 @@ impl Components {
     ///
     /// If this method is called multiple times with identical descriptors, a distinct `ComponentId`
     /// will be created for each one.
+    ///
+    /// # See also
+    ///
+    /// * [`Components::component_id()`]
+    /// * [`Components::init_component()`]
     pub fn init_component_with_descriptor(
         &mut self,
         storages: &mut Storages,
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
-        let index = Components::init_component_inner(&mut self.components, storages, descriptor);
-        ComponentId(index)
+        Components::init_component_inner(&mut self.components, storages, descriptor)
     }
 
     #[inline]
@@ -477,14 +497,14 @@ impl Components {
         components: &mut Vec<ComponentInfo>,
         storages: &mut Storages,
         descriptor: ComponentDescriptor,
-    ) -> usize {
-        let index = components.len();
-        let info = ComponentInfo::new(ComponentId(index), descriptor);
+    ) -> ComponentId {
+        let component_id = ComponentId(components.len());
+        let info = ComponentInfo::new(component_id, descriptor);
         if info.descriptor.storage_type == StorageType::SparseSet {
             storages.sparse_sets.get_or_insert(&info);
         }
         components.push(info);
-        index
+        component_id
     }
 
     /// Returns the number of components registered with this instance.
@@ -525,10 +545,10 @@ impl Components {
         self.components.get_unchecked(id.0)
     }
 
-    /// Type-erased equivalent of [`Components::component_id`].
+    /// Type-erased equivalent of [`Components::component_id()`].
     #[inline]
     pub fn get_id(&self, type_id: TypeId) -> Option<ComponentId> {
-        self.indices.get(&type_id).map(|index| ComponentId(*index))
+        self.indices.get(&type_id).copied()
     }
 
     /// Returns the [`ComponentId`] of the given [`Component`] type `T`.
@@ -538,9 +558,9 @@ impl Components {
     /// instance.
     ///
     /// Returns [`None`] if the `Component` type has not
-    /// yet been initialized using [`Components::init_component`].
+    /// yet been initialized using [`Components::init_component()`].
     ///
-    /// ```rust
+    /// ```
     /// use bevy_ecs::prelude::*;
     ///
     /// let mut world = World::new();
@@ -552,17 +572,21 @@ impl Components {
     ///
     /// assert_eq!(component_a_id, world.components().component_id::<ComponentA>().unwrap())
     /// ```
+    ///
+    /// # See also
+    ///
+    /// * [`Components::get_id()`]
+    /// * [`Components::resource_id()`]
+    /// * [`World::component_id()`]
     #[inline]
     pub fn component_id<T: Component>(&self) -> Option<ComponentId> {
         self.get_id(TypeId::of::<T>())
     }
 
-    /// Type-erased equivalent of [`Components::resource_id`].
+    /// Type-erased equivalent of [`Components::resource_id()`].
     #[inline]
     pub fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
-        self.resource_indices
-            .get(&type_id)
-            .map(|index| ComponentId(*index))
+        self.resource_indices.get(&type_id).copied()
     }
 
     /// Returns the [`ComponentId`] of the given [`Resource`] type `T`.
@@ -572,9 +596,9 @@ impl Components {
     /// instance.
     ///
     /// Returns [`None`] if the `Resource` type has not
-    /// yet been initialized using [`Components::init_resource`].
+    /// yet been initialized using [`Components::init_resource()`].
     ///
-    /// ```rust
+    /// ```
     /// use bevy_ecs::prelude::*;
     ///
     /// let mut world = World::new();
@@ -586,6 +610,11 @@ impl Components {
     ///
     /// assert_eq!(resource_a_id, world.components().resource_id::<ResourceA>().unwrap())
     /// ```
+    ///
+    /// # See also
+    ///
+    /// * [`Components::component_id()`]
+    /// * [`Components::get_resource_id()`]
     #[inline]
     pub fn resource_id<T: Resource>(&self) -> Option<ComponentId> {
         self.get_resource_id(TypeId::of::<T>())
@@ -594,6 +623,10 @@ impl Components {
     /// Initializes a [`Resource`] of type `T` with this instance.
     /// If a resource of this type has already been initialized, this will return
     /// the ID of the pre-existing resource.
+    ///
+    /// # See also
+    ///
+    /// * [`Components::resource_id()`]
     #[inline]
     pub fn init_resource<T: Resource>(&mut self) -> ComponentId {
         // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
@@ -627,14 +660,12 @@ impl Components {
         func: impl FnOnce() -> ComponentDescriptor,
     ) -> ComponentId {
         let components = &mut self.components;
-        let index = self.resource_indices.entry(type_id).or_insert_with(|| {
+        *self.resource_indices.entry(type_id).or_insert_with(|| {
             let descriptor = func();
-            let index = components.len();
-            components.push(ComponentInfo::new(ComponentId(index), descriptor));
-            index
-        });
-
-        ComponentId(*index)
+            let component_id = ComponentId(components.len());
+            components.push(ComponentInfo::new(component_id, descriptor));
+            component_id
+        })
     }
 
     /// Gets an iterator over all components registered with this instance.
@@ -646,13 +677,14 @@ impl Components {
 /// A value that tracks when a system ran relative to other systems.
 /// This is used to power change detection.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
 pub struct Tick {
     tick: u32,
 }
 
 impl Tick {
     /// The maximum relative age for a change tick.
-    /// The value of this is equal to [`crate::change_detection::MAX_CHANGE_AGE`].
+    /// The value of this is equal to [`MAX_CHANGE_AGE`].
     ///
     /// Since change detection will not work for any ticks older than this,
     /// ticks are periodically scanned to ensure their relative values are below this.
@@ -739,6 +771,7 @@ impl<'a> TickCells<'a> {
 
 /// Records when a component was added and when it was last mutably dereferenced (or added).
 #[derive(Copy, Clone, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct ComponentTicks {
     pub(crate) added: Tick,
     pub(crate) changed: Tick,
@@ -783,7 +816,7 @@ impl ComponentTicks {
     /// However, components and resources that make use of interior mutability might require manual updates.
     ///
     /// # Example
-    /// ```rust,no_run
+    /// ```no_run
     /// # use bevy_ecs::{world::World, component::ComponentTicks};
     /// let world: World = unimplemented!();
     /// let component_ticks: ComponentTicks = unimplemented!();
@@ -799,7 +832,7 @@ impl ComponentTicks {
 /// A [`SystemParam`] that provides access to the [`ComponentId`] for a specific type.
 ///
 /// # Example
-/// ```rust
+/// ```
 /// # use bevy_ecs::{system::Local, component::{Component, ComponentId, ComponentIdFor}};
 /// #[derive(Component)]
 /// struct Player;
