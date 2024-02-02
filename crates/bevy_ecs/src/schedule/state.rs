@@ -691,7 +691,7 @@ impl<S: States> StateSet for S {
 /// }
 ///
 ///
-/// #[derive(SubStatesClone, PartialEq, Eq, Hash, Debug, Default)]
+/// #[derive(SubStates, Clone, PartialEq, Eq, Hash, Debug, Default)]
 /// #[source(AppState = AppState::InGame)]
 /// enum GamePhase {
 ///     #[default]
@@ -772,6 +772,7 @@ impl<S: States> StateSet for S {
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::schedule::FreelyMutableState;
 ///
 /// /// Computed States require some state to derive from
 /// #[derive(States, Clone, PartialEq, Eq, Hash, Debug, Default)]
