@@ -13,7 +13,7 @@ use crate::schedule::ScheduleLabel;
 use crate::system::Resource;
 use crate::world::World;
 
-pub use bevy_ecs_macros::States;
+pub use bevy_ecs_macros::{States, SubStates};
 use bevy_utils::{all_tuples, HashSet};
 
 use self::sealed::StateSetSealed;

@@ -456,9 +456,11 @@ impl App {
             .contains_resource::<Events<StateTransitionEvent<S>>>()
         {
             setup_state_transitions_in_world(&mut self.world);
+            self.init_resource::<NextState<S>>();
             self.add_event::<StateTransitionEvent<S>>();
             let mut schedules = self.world.resource_mut::<Schedules>();
             S::register_state_exist_systems_in_schedules(schedules.as_mut());
+            self.add_systems(ManualStateTransitions, apply_state_transition::<S>);
         }
 
         self
