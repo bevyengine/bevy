@@ -81,6 +81,38 @@ impl std::ops::Neg for Direction2d {
     }
 }
 
+#[cfg(feature = "approx")]
+impl approx::AbsDiffEq for Direction2d {
+    type Epsilon = f32;
+    fn default_epsilon() -> f32 {
+        f32::EPSILON
+    }
+    fn abs_diff_eq(&self, other: &Self, epsilon: f32) -> bool {
+        self.as_ref().abs_diff_eq(other.as_ref(), epsilon)
+    }
+}
+
+#[cfg(feature = "approx")]
+impl approx::RelativeEq for Direction2d {
+    fn default_max_relative() -> f32 {
+        f32::EPSILON
+    }
+    fn relative_eq(&self, other: &Self, epsilon: f32, max_relative: f32) -> bool {
+        self.as_ref()
+            .relative_eq(other.as_ref(), epsilon, max_relative)
+    }
+}
+
+#[cfg(feature = "approx")]
+impl approx::UlpsEq for Direction2d {
+    fn default_max_ulps() -> u32 {
+        4
+    }
+    fn ulps_eq(&self, other: &Self, epsilon: f32, max_ulps: u32) -> bool {
+        self.as_ref().ulps_eq(other.as_ref(), epsilon, max_ulps)
+    }
+}
+
 /// A circle primitive
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -89,6 +121,13 @@ pub struct Circle {
     pub radius: f32,
 }
 impl Primitive2d for Circle {}
+
+impl Default for Circle {
+    /// Returns the default [`Circle`] with a radius of `0.5`.
+    fn default() -> Self {
+        Self { radius: 0.5 }
+    }
+}
 
 impl Circle {
     /// Create a new [`Circle`] from a `radius`
@@ -147,6 +186,15 @@ pub struct Ellipse {
 }
 impl Primitive2d for Ellipse {}
 
+impl Default for Ellipse {
+    /// Returns the default [`Ellipse`] with a half-width of `1.0` and a half-height of `0.5`.
+    fn default() -> Self {
+        Self {
+            half_size: Vec2::new(1.0, 0.5),
+        }
+    }
+}
+
 impl Ellipse {
     /// Create a new `Ellipse` from half of its width and height.
     ///
@@ -196,6 +244,15 @@ pub struct Plane2d {
     pub normal: Direction2d,
 }
 impl Primitive2d for Plane2d {}
+
+impl Default for Plane2d {
+    /// Returns the default [`Plane2d`] with a normal pointing in the `+Y` direction.
+    fn default() -> Self {
+        Self {
+            normal: Direction2d::Y,
+        }
+    }
+}
 
 impl Plane2d {
     /// Create a new `Plane2d` from a normal
@@ -343,10 +400,19 @@ pub struct Triangle2d {
 }
 impl Primitive2d for Triangle2d {}
 
+impl Default for Triangle2d {
+    /// Returns the default [`Triangle2d`] with the vertices `[0.0, 0.5]`, `[-0.5, -0.5]`, and `[0.5, -0.5]`.
+    fn default() -> Self {
+        Self {
+            vertices: [Vec2::Y * 0.5, Vec2::new(-0.5, -0.5), Vec2::new(0.5, -0.5)],
+        }
+    }
+}
+
 impl Triangle2d {
     /// Create a new `Triangle2d` from points `a`, `b`, and `c`
     #[inline(always)]
-    pub fn new(a: Vec2, b: Vec2, c: Vec2) -> Self {
+    pub const fn new(a: Vec2, b: Vec2, c: Vec2) -> Self {
         Self {
             vertices: [a, b, c],
         }
@@ -436,6 +502,16 @@ impl Triangle2d {
 pub struct Rectangle {
     /// Half of the width and height of the rectangle
     pub half_size: Vec2,
+}
+impl Primitive2d for Rectangle {}
+
+impl Default for Rectangle {
+    /// Returns the default [`Rectangle`] with a half-width and half-height of `0.5`.
+    fn default() -> Self {
+        Self {
+            half_size: Vec2::splat(0.5),
+        }
+    }
 }
 
 impl Rectangle {
@@ -559,9 +635,19 @@ pub struct RegularPolygon {
 }
 impl Primitive2d for RegularPolygon {}
 
+impl Default for RegularPolygon {
+    /// Returns the default [`RegularPolygon`] with six sides (a hexagon) and a circumradius of `0.5`.
+    fn default() -> Self {
+        Self {
+            circumcircle: Circle { radius: 0.5 },
+            sides: 6,
+        }
+    }
+}
+
 impl RegularPolygon {
     /// Create a new `RegularPolygon`
-    /// from the radius of the circumcircle and number of sides
+    /// from the radius of the circumcircle and a number of sides
     ///
     /// # Panics
     ///
@@ -668,37 +754,36 @@ impl RegularPolygon {
     }
 }
 
+/// A 2D capsule primitive, also known as a stadium or pill shape.
+///
+/// A two-dimensional capsule is defined as a neighborhood of points at a distance (radius) from a line
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[doc(alias = "stadium", alias = "pill")]
+pub struct Capsule2d {
+    /// The radius of the capsule
+    pub radius: f32,
+    /// Half the height of the capsule, excluding the hemicircles
+    pub half_length: f32,
+}
+impl Primitive2d for Capsule2d {}
+
+impl Capsule2d {
+    /// Create a new `Capsule2d` from a radius and length
+    pub fn new(radius: f32, length: f32) -> Self {
+        Self {
+            radius,
+            half_length: length / 2.0,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     // Reference values were computed by hand and/or with external tools
 
     use super::*;
     use approx::assert_relative_eq;
-
-    #[test]
-    fn circle_math() {
-        let circle = Circle { radius: 3.0 };
-        assert_eq!(circle.diameter(), 6.0, "incorrect diameter");
-        assert_eq!(circle.area(), 28.274334, "incorrect area");
-        assert_eq!(circle.perimeter(), 18.849556, "incorrect perimeter");
-    }
-
-    #[test]
-    fn ellipse_math() {
-        let ellipse = Ellipse::new(3.0, 1.0);
-        assert_eq!(ellipse.area(), 9.424778, "incorrect area");
-    }
-
-    #[test]
-    fn triangle_math() {
-        let triangle = Triangle2d::new(
-            Vec2::new(-2.0, -1.0),
-            Vec2::new(1.0, 4.0),
-            Vec2::new(7.0, 0.0),
-        );
-        assert_eq!(triangle.area(), 21.0, "incorrect area");
-        assert_eq!(triangle.perimeter(), 22.097439, "incorrect perimeter");
-    }
 
     #[test]
     fn direction_creation() {
@@ -723,6 +808,56 @@ mod tests {
             Direction2d::new_and_length(Vec2::X * 6.5),
             Ok((Direction2d::X, 6.5))
         );
+    }
+
+    #[test]
+    fn rectangle_closest_point() {
+        let rectangle = Rectangle::new(2.0, 2.0);
+        assert_eq!(rectangle.closest_point(Vec2::X * 10.0), Vec2::X);
+        assert_eq!(rectangle.closest_point(Vec2::NEG_ONE * 10.0), Vec2::NEG_ONE);
+        assert_eq!(
+            rectangle.closest_point(Vec2::new(0.25, 0.1)),
+            Vec2::new(0.25, 0.1)
+        );
+    }
+
+    #[test]
+    fn circle_closest_point() {
+        let circle = Circle { radius: 1.0 };
+        assert_eq!(circle.closest_point(Vec2::X * 10.0), Vec2::X);
+        assert_eq!(
+            circle.closest_point(Vec2::NEG_ONE * 10.0),
+            Vec2::NEG_ONE.normalize()
+        );
+        assert_eq!(
+            circle.closest_point(Vec2::new(0.25, 0.1)),
+            Vec2::new(0.25, 0.1)
+        );
+    }
+
+    #[test]
+    fn circle_math() {
+        let circle = Circle { radius: 3.0 };
+        assert_eq!(circle.diameter(), 6.0, "incorrect diameter");
+        assert_eq!(circle.area(), 28.274334, "incorrect area");
+        assert_eq!(circle.perimeter(), 18.849556, "incorrect perimeter");
+    }
+
+    #[test]
+    fn ellipse_math() {
+        let ellipse = Ellipse::new(3.0, 1.0);
+        assert_eq!(ellipse.area(), 9.424778, "incorrect area");
+    }
+
+    #[test]
+    fn triangle_math() {
+        let triangle = Triangle2d::new(
+            Vec2::new(-2.0, -1.0),
+            Vec2::new(1.0, 4.0),
+            Vec2::new(7.0, 0.0),
+        );
+        assert_eq!(triangle.area(), 21.0, "incorrect area");
+        assert_eq!(triangle.perimeter(), 22.097439, "incorrect perimeter");
     }
 
     #[test]
@@ -824,31 +959,6 @@ mod tests {
         assert!(
             (rotated_vertices.next().unwrap() - Vec2::new(-side_sistance, side_sistance)).length()
                 < 1e-7,
-        );
-    }
-
-    #[test]
-    fn rectangle_closest_point() {
-        let rectangle = Rectangle::new(2.0, 2.0);
-        assert_eq!(rectangle.closest_point(Vec2::X * 10.0), Vec2::X);
-        assert_eq!(rectangle.closest_point(Vec2::NEG_ONE * 10.0), Vec2::NEG_ONE);
-        assert_eq!(
-            rectangle.closest_point(Vec2::new(0.25, 0.1)),
-            Vec2::new(0.25, 0.1)
-        );
-    }
-
-    #[test]
-    fn circle_closest_point() {
-        let circle = Circle { radius: 1.0 };
-        assert_eq!(circle.closest_point(Vec2::X * 10.0), Vec2::X);
-        assert_eq!(
-            circle.closest_point(Vec2::NEG_ONE * 10.0),
-            Vec2::NEG_ONE.normalize()
-        );
-        assert_eq!(
-            circle.closest_point(Vec2::new(0.25, 0.1)),
-            Vec2::new(0.25, 0.1)
         );
     }
 }

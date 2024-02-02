@@ -1,0 +1,32 @@
+diff --git a/crates/bevy_audio/src/audio_output.rs b/crates/bevy_audio/src/audio_output.rs
+index 3e8082e23..624769443 100644
+--- a/crates/bevy_audio/src/audio_output.rs
++++ b/crates/bevy_audio/src/audio_output.rs
+@@ -7,7 +7,7 @@ use bevy_ecs::{prelude::*, system::SystemParam};
+ use bevy_math::Vec3;
+ use bevy_transform::prelude::GlobalTransform;
+ use bevy_utils::tracing::warn;
+-use rodio::{OutputStream, OutputStreamHandle, Sink, Source, SpatialSink};
++use rodio::{OutputStreamHandle, Sink, Source, SpatialSink};
+ 
+ use crate::AudioSink;
+ 
+@@ -30,18 +30,10 @@ pub(crate) struct AudioOutput {
+ 
+ impl Default for AudioOutput {
+     fn default() -> Self {
+-        if let Ok((stream, stream_handle)) = OutputStream::try_default() {
+-            // We leak `OutputStream` to prevent the audio from stopping.
+-            std::mem::forget(stream);
+-            Self {
+-                stream_handle: Some(stream_handle),
+-            }
+-        } else {
+         warn!("No audio device found.");
+         Self {
+             stream_handle: None,
+         }
+-        }
+     }
+ }
+ 
