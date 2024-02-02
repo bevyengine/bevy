@@ -107,10 +107,10 @@ impl<'w> DeferredWorld<'w> {
     /// # Panics
     ///
     /// Panics if the resource does not exist.
-    /// Use [`get_resource_mut`](World::get_resource_mut) instead if you want to handle this case.
+    /// Use [`get_resource_mut`](DeferredWorld::get_resource_mut) instead if you want to handle this case.
     ///
     /// If you want to instead insert a value if the resource does not exist,
-    /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
+    /// use [`get_resource_or_insert_with`](DeferredWorld::get_resource_or_insert_with).
     #[inline]
     #[track_caller]
     pub fn resource_mut<R: Resource>(&mut self) -> Mut<'_, R> {
