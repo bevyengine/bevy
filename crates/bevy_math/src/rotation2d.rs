@@ -129,7 +129,7 @@ impl Rotation2d {
     /// Returns `true` if the rotation is NaN.
     #[inline]
     pub fn is_nan(self) -> bool {
-        self.sin.is_nan() && self.cos.is_nan()
+        self.sin.is_nan() || self.cos.is_nan()
     }
 
     /// Returns `true` if the rotation is near [`Rotation2d::IDENTITY`].
