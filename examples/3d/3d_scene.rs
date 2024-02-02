@@ -1,14 +1,15 @@
 //! A simple 3D scene with light shining over a cube sitting on a plane.
 
+use bevy::diagnostic::LogDiagnosticsPlugin;
 use bevy::prelude::*;
-use bevy::render::diagnostic::{RenderDiagnostics, RenderDiagnosticsPlugin};
+use bevy::render::diagnostic::RenderDiagnosticsPlugin;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(RenderDiagnosticsPlugin)
+        .add_plugins(LogDiagnosticsPlugin::default())
         .add_systems(Startup, setup)
-        .add_systems(Update, print_render_diagnostics)
         .run();
 }
 
@@ -47,8 +48,4 @@ fn setup(
         transform: Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
-}
-
-fn print_render_diagnostics(diagnostics: Res<RenderDiagnostics>) {
-    dbg!(diagnostics);
 }

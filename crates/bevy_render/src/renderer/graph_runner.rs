@@ -83,7 +83,7 @@ impl RenderGraphRunner {
         if let Some(recorder) = &mut diagnostics_recorder {
             let render_diagnostics_mutex = world.resource::<RenderDiagnosticsMutex>().0.clone();
             recorder.finish_frame(&render_device, move |diagnostics| {
-                *render_diagnostics_mutex.lock() = Some(diagnostics);
+                *render_diagnostics_mutex.lock().expect("lock poisoned") = Some(diagnostics);
             });
         }
 

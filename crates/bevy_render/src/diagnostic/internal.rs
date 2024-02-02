@@ -1,5 +1,6 @@
 use std::{
-    ops::Range,
+    borrow::Cow,
+    ops::{DerefMut, Range},
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -8,9 +9,9 @@ use std::{
     time::Instant,
 };
 
+use bevy_diagnostic::{Diagnostic, DiagnosticMeasurement, DiagnosticPath, DiagnosticsStore};
 use bevy_ecs::system::{Res, ResMut, Resource};
-use bevy_utils::Duration;
-use parking_lot::Mutex;
+use std::sync::Mutex;
 use wgpu::{
     Buffer, BufferDescriptor, BufferUsages, CommandEncoder, ComputePass, Features, MapMode,
     PipelineStatisticsTypes, QuerySet, QuerySetDescriptor, QueryType, Queue, RenderPass,
@@ -18,7 +19,7 @@ use wgpu::{
 
 use crate::renderer::RenderDevice;
 
-use super::{RecordDiagnostics, RenderDiagnostics, SpanDiagnostics, SpanKind, SpanName, SpanPath};
+use super::RecordDiagnostics;
 
 // buffer offset must be divisible by 256, so this constant must be divisible by 32 (=256/8)
 const MAX_TIMESTAMP_QUERIES: u32 = 256;
@@ -31,7 +32,7 @@ const PIPELINE_STATISTICS_SIZE: u64 = 40;
 /// spans and indices to the corresponding entries in the [`QuerySet`].
 #[derive(Resource)]
 pub struct DiagnosticsRecorder {
-    timestamp_period: f32,
+    timestamp_period_ns: f32,
     features: Features,
     current_frame: Mutex<FrameData>,
     submitted_frames: Vec<FrameData>,
@@ -43,14 +44,14 @@ impl DiagnosticsRecorder {
     pub fn new(device: &RenderDevice, queue: &Queue) -> DiagnosticsRecorder {
         let features = device.features();
 
-        let timestamp_period = if features.contains(Features::TIMESTAMP_QUERY) {
+        let timestamp_period_ns = if features.contains(Features::TIMESTAMP_QUERY) {
             queue.get_timestamp_period()
         } else {
             0.0
         };
 
         DiagnosticsRecorder {
-            timestamp_period,
+            timestamp_period_ns,
             features,
             current_frame: Mutex::new(FrameData::new(device, features)),
             submitted_frames: Vec::new(),
@@ -58,11 +59,19 @@ impl DiagnosticsRecorder {
         }
     }
 
+    fn current_frame_mut(&mut self) -> &mut FrameData {
+        self.current_frame.get_mut().expect("lock poisoned")
+    }
+
+    fn current_frame_lock(&self) -> impl DerefMut<Target = FrameData> + '_ {
+        self.current_frame.lock().expect("lock poisoned")
+    }
+
     /// Begins recording diagnostics for a new frame.
     pub fn begin_frame(&mut self) {
         let mut idx = 0;
         while idx < self.submitted_frames.len() {
-            if self.submitted_frames[idx].run_mapped_callback(self.timestamp_period) {
+            if self.submitted_frames[idx].run_mapped_callback(self.timestamp_period_ns) {
                 self.finished_frames
                     .push(self.submitted_frames.swap_remove(idx));
             } else {
@@ -70,14 +79,14 @@ impl DiagnosticsRecorder {
             }
         }
 
-        self.current_frame.get_mut().begin();
+        self.current_frame_mut().begin();
     }
 
     /// Copies data from [`QuerySet`]'s to a [`Buffer`], after which it can be downloaded to CPU.
     ///
     /// Should be called before [`DiagnosticsRecorder::finish_frame`]
     pub fn resolve(&mut self, encoder: &mut CommandEncoder) {
-        self.current_frame.get_mut().resolve(encoder);
+        self.current_frame_mut().resolve(encoder);
     }
 
     /// Finishes recording diagnostics for the current frame.
@@ -91,7 +100,7 @@ impl DiagnosticsRecorder {
         device: &RenderDevice,
         callback: impl FnOnce(RenderDiagnostics) + Send + Sync + 'static,
     ) {
-        self.current_frame.get_mut().finish(callback);
+        self.current_frame_mut().finish(callback);
 
         // reuse one of the finished frames, if we can
         let new_frame = match self.finished_frames.pop() {
@@ -99,28 +108,27 @@ impl DiagnosticsRecorder {
             None => FrameData::new(device, self.features),
         };
 
-        let old_frame = std::mem::replace(self.current_frame.get_mut(), new_frame);
+        let old_frame = std::mem::replace(self.current_frame_mut(), new_frame);
         self.submitted_frames.push(old_frame);
     }
 }
 
 impl RecordDiagnostics for DiagnosticsRecorder {
-    fn begin_time_span<E: WriteTimestamp>(&self, encoder: &mut E, span_name: SpanName) {
-        self.current_frame
-            .lock()
+    fn begin_time_span<E: WriteTimestamp>(&self, encoder: &mut E, span_name: Cow<'static, str>) {
+        self.current_frame_lock()
             .begin_time_span(encoder, span_name);
     }
 
     fn end_time_span<E: WriteTimestamp>(&self, encoder: &mut E) {
-        self.current_frame.lock().end_time_span(encoder);
+        self.current_frame_lock().end_time_span(encoder);
     }
 
-    fn begin_pass_span<P: Pass>(&self, pass: &mut P, span_name: SpanName) {
-        self.current_frame.lock().begin_pass(pass, span_name);
+    fn begin_pass_span<P: Pass>(&self, pass: &mut P, span_name: Cow<'static, str>) {
+        self.current_frame_lock().begin_pass(pass, span_name);
     }
 
     fn end_pass_span<P: Pass>(&self, pass: &mut P) {
-        self.current_frame.lock().end_pass(pass);
+        self.current_frame_lock().end_pass(pass);
     }
 }
 
@@ -145,7 +153,7 @@ struct FrameData {
     pipeline_statistics_buffer_offset: u64,
     resolve_buffer: Option<Buffer>,
     read_buffer: Option<Buffer>,
-    path_components: Vec<SpanName>,
+    path_components: Vec<Cow<'static, str>>,
     open_spans: Vec<SpanRecord>,
     closed_spans: Vec<SpanRecord>,
     is_mapped: Arc<AtomicBool>,
@@ -262,14 +270,14 @@ impl FrameData {
         }
     }
 
-    fn open_span(&mut self, kind: SpanKind, name: SpanName) -> &mut SpanRecord {
+    fn open_span(&mut self, kind: SpanKind, name: Cow<'static, str>) -> &mut SpanRecord {
         let thread_id = thread::current().id();
 
         let parent = self
             .open_spans
             .iter()
             .filter(|v| v.thread_id == thread_id)
-            .max_by_key(|v| v.path_range.len());
+            .last();
 
         let path_range = match &parent {
             Some(parent) if parent.path_range.end == self.path_components.len() => {
@@ -278,7 +286,7 @@ impl FrameData {
             Some(parent) => {
                 self.path_components
                     .extend_from_within(parent.path_range.clone());
-                self.path_components.len()..self.path_components.len() + parent.path_range.len() + 1
+                self.path_components.len() - parent.path_range.len()..self.path_components.len() + 1
             }
             None => self.path_components.len()..self.path_components.len() + 1,
         };
@@ -306,7 +314,7 @@ impl FrameData {
         let (index, _) = iter
             .enumerate()
             .filter(|(_, v)| v.thread_id == thread_id)
-            .max_by_key(|(_, v)| v.path_range.len())
+            .last()
             .unwrap();
 
         let span = self.open_spans.swap_remove(index);
@@ -314,7 +322,7 @@ impl FrameData {
         self.closed_spans.last_mut().unwrap()
     }
 
-    fn begin_time_span(&mut self, encoder: &mut impl WriteTimestamp, name: SpanName) {
+    fn begin_time_span(&mut self, encoder: &mut impl WriteTimestamp, name: Cow<'static, str>) {
         let begin_instant = Instant::now();
         let begin_timestamp_index = self.write_timestamp(encoder, false);
 
@@ -331,7 +339,7 @@ impl FrameData {
         span.end_instant = Some(Instant::now());
     }
 
-    fn begin_pass<P: Pass>(&mut self, pass: &mut P, name: SpanName) {
+    fn begin_pass<P: Pass>(&mut self, pass: &mut P, name: Cow<'static, str>) {
         let begin_instant = Instant::now();
 
         let begin_timestamp_index = self.write_timestamp(pass, true);
@@ -389,30 +397,31 @@ impl FrameData {
         encoder.copy_buffer_to_buffer(resolve_buffer, 0, read_buffer, 0, self.buffer_size);
     }
 
+    fn diagnostic_path(&self, range: &Range<usize>, field: &str) -> DiagnosticPath {
+        DiagnosticPath::from_components(
+            std::iter::once("render")
+                .chain(self.path_components[range.clone()].iter().map(|v| &**v))
+                .chain(std::iter::once(field)),
+        )
+    }
+
     fn finish(&mut self, callback: impl FnOnce(RenderDiagnostics) + Send + Sync + 'static) {
         let Some(read_buffer) = &self.read_buffer else {
             // we still have cpu timings, so let's use them
 
-            let diagnostics = self.closed_spans.iter().map(|span| SpanDiagnostics {
-                path: SpanPath::new(
-                    self.path_components[span.path_range.clone()]
-                        .iter()
-                        .cloned(),
-                ),
-                kind: span.kind,
-                elapsed_cpu: match (span.begin_instant, span.end_instant) {
-                    (Some(begin), Some(end)) => Some(end - begin),
-                    _ => None,
-                },
-                elapsed_gpu: None,
-                vertex_shader_invocations: None,
-                clipper_invocations: None,
-                clipper_primitives_out: None,
-                fragment_shader_invocations: None,
-                compute_shader_invocations: None,
-            });
+            let mut diagnostics = Vec::new();
 
-            callback(RenderDiagnostics(diagnostics.collect()));
+            for span in &self.closed_spans {
+                if let (Some(begin), Some(end)) = (span.begin_instant, span.end_instant) {
+                    diagnostics.push(RenderDiagnostic {
+                        path: self.diagnostic_path(&span.path_range, "elapsed_cpu"),
+                        suffix: "ms",
+                        value: (end - begin).as_secs_f64() * 1000.0,
+                    });
+                }
+            }
+
+            callback(RenderDiagnostics(diagnostics));
             return;
         };
 
@@ -430,7 +439,7 @@ impl FrameData {
     }
 
     // returns true if the frame is considered finished, false otherwise
-    fn run_mapped_callback(&mut self, timestamp_period: f32) -> bool {
+    fn run_mapped_callback(&mut self, timestamp_period_ns: f32) -> bool {
         let Some(read_buffer) = &self.read_buffer else {
             return true;
         };
@@ -456,50 +465,70 @@ impl FrameData {
             .map(|v| u64::from_ne_bytes(v.try_into().unwrap()))
             .collect::<Vec<u64>>();
 
-        let diagnostics = self.closed_spans.iter().map(|span| {
-            let mut diagnostics = SpanDiagnostics {
-                path: SpanPath::new(
-                    self.path_components[span.path_range.clone()]
-                        .iter()
-                        .cloned(),
-                ),
-                kind: span.kind,
-                elapsed_cpu: match (span.begin_instant, span.end_instant) {
-                    (Some(begin), Some(end)) => Some(end - begin),
-                    _ => None,
-                },
-                elapsed_gpu: match (span.begin_timestamp_index, span.end_timestamp_index) {
-                    (Some(begin), Some(end)) => {
-                        let begin = timestamps[begin as usize] as f64;
-                        let end = timestamps[end as usize] as f64;
-                        let nanos = ((end - begin) * (timestamp_period as f64)).round() as u64;
-                        Some(Duration::from_nanos(nanos))
-                    }
-                    _ => None,
-                },
-                vertex_shader_invocations: None,
-                clipper_invocations: None,
-                clipper_primitives_out: None,
-                fragment_shader_invocations: None,
-                compute_shader_invocations: None,
-            };
+        let mut diagnostics = Vec::new();
+
+        for span in &self.closed_spans {
+            if let (Some(begin), Some(end)) = (span.begin_instant, span.end_instant) {
+                diagnostics.push(RenderDiagnostic {
+                    path: self.diagnostic_path(&span.path_range, "elapsed_cpu"),
+                    suffix: "ms",
+                    value: (end - begin).as_secs_f64() * 1000.0,
+                });
+            }
+
+            if let (Some(begin), Some(end)) = (span.begin_timestamp_index, span.end_timestamp_index)
+            {
+                let begin = timestamps[begin as usize] as f64;
+                let end = timestamps[end as usize] as f64;
+                let value = (end - begin) * (timestamp_period_ns as f64) / 1e6;
+
+                diagnostics.push(RenderDiagnostic {
+                    path: self.diagnostic_path(&span.path_range, "elapsed_gpu"),
+                    suffix: "ms",
+                    value,
+                });
+            }
 
             if let Some(index) = span.pipeline_statistics_index {
                 let index = (index as usize) * 5;
+
                 if span.kind == SpanKind::RenderPass {
-                    diagnostics.vertex_shader_invocations = Some(pipeline_statistics[index]);
-                    diagnostics.clipper_invocations = Some(pipeline_statistics[index + 1]);
-                    diagnostics.clipper_primitives_out = Some(pipeline_statistics[index + 2]);
-                    diagnostics.fragment_shader_invocations = Some(pipeline_statistics[index + 3]);
-                } else {
-                    diagnostics.compute_shader_invocations = Some(pipeline_statistics[index + 4]);
+                    diagnostics.push(RenderDiagnostic {
+                        path: self.diagnostic_path(&span.path_range, "vertex_shader_invocations"),
+                        suffix: "",
+                        value: pipeline_statistics[index] as f64,
+                    });
+
+                    diagnostics.push(RenderDiagnostic {
+                        path: self.diagnostic_path(&span.path_range, "clipper_invocations"),
+                        suffix: "",
+                        value: pipeline_statistics[index + 1] as f64,
+                    });
+
+                    diagnostics.push(RenderDiagnostic {
+                        path: self.diagnostic_path(&span.path_range, "clipper_primitives_out"),
+                        suffix: "",
+                        value: pipeline_statistics[index + 2] as f64,
+                    });
+
+                    diagnostics.push(RenderDiagnostic {
+                        path: self.diagnostic_path(&span.path_range, "fragment_shader_invocations"),
+                        suffix: "",
+                        value: pipeline_statistics[index + 3] as f64,
+                    });
+                }
+
+                if span.kind == SpanKind::ComputePass {
+                    diagnostics.push(RenderDiagnostic {
+                        path: self.diagnostic_path(&span.path_range, "compute_shader_invocations"),
+                        suffix: "",
+                        value: pipeline_statistics[index + 4] as f64,
+                    });
                 }
             }
+        }
 
-            diagnostics
-        });
-
-        callback(RenderDiagnostics(diagnostics.collect()));
+        callback(RenderDiagnostics(diagnostics));
 
         drop(data);
         read_buffer.unmap();
@@ -509,20 +538,62 @@ impl FrameData {
     }
 }
 
-/// Stores [`RenderDiagnostics`] shared between render app and main app.
-///
-/// This mutex is locked twice per frame: in `PreUpdate`, during [`sync_diagnostics`],
-/// and after rendering has finished and statistics have been downloaded from GPU.
+/// Resource which stores render diagnostics of the most recent frame.
 #[derive(Debug, Default, Clone, Resource)]
-pub struct RenderDiagnosticsMutex(pub Arc<Mutex<Option<RenderDiagnostics>>>);
+pub struct RenderDiagnostics(Vec<RenderDiagnostic>);
 
-/// Copies fresh [`RenderDiagnostics`] from [`RenderDiagnosticsMutex`].
-pub fn sync_diagnostics(
-    mutex: Res<RenderDiagnosticsMutex>,
-    mut diagnostics: ResMut<RenderDiagnostics>,
-) {
-    if let Some(v) = mutex.0.lock().take() {
-        *diagnostics = v;
+#[derive(Debug, Clone, Resource)]
+pub struct RenderDiagnostic {
+    pub path: DiagnosticPath,
+    pub suffix: &'static str,
+    pub value: f64,
+}
+
+/// Kinds of render diagnostic spans.
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+pub(crate) enum SpanKind {
+    /// An explicit time span.
+    ///
+    /// See also: [`RecordDiagnostics::time_span`]
+    Time,
+    /// A [`wgpu::RenderPass`]. Records timestamps, as well as pipeline statistics.
+    ///
+    /// See also: [`RecordDiagnostics::pass_span`]
+    RenderPass,
+    /// A [`wgpu::ComputePass`]. Records timestamps, as well as pipeline statistics.
+    ///
+    /// See also: [`RecordDiagnostics::pass_span`]
+    ComputePass,
+}
+
+/// Stores render diagnostics before they can be synced with the main app.
+///
+/// This mutex is locked twice per frame:
+///  1. in `PreUpdate`, during [`sync_diagnostics`],
+///  2. after rendering has finished and statistics have been downloaded from GPU.
+#[derive(Debug, Default, Clone, Resource)]
+pub struct RenderDiagnosticsMutex(pub(crate) Arc<Mutex<Option<RenderDiagnostics>>>);
+
+/// Updates render diagnostics measurements.
+pub fn sync_diagnostics(mutex: Res<RenderDiagnosticsMutex>, mut store: ResMut<DiagnosticsStore>) {
+    let Some(diagnostics) = mutex.0.lock().ok().and_then(|mut v| v.take()) else {
+        return;
+    };
+
+    let time = Instant::now();
+
+    for diagnostic in &diagnostics.0 {
+        if store.get(&diagnostic.path).is_none() {
+            store.add(Diagnostic::new(diagnostic.path.clone()).with_suffix(diagnostic.suffix));
+        }
+
+        store
+            .get_mut(&diagnostic.path)
+            .unwrap()
+            .add_measurement(DiagnosticMeasurement {
+                time,
+                value: diagnostic.value,
+            });
     }
 }
 

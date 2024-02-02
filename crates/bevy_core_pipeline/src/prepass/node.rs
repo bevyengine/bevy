@@ -5,7 +5,6 @@ use bevy_render::render_resource::StoreOp;
 use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
-    prelude::Color,
     render_graph::{NodeRunError, RenderGraphContext},
     render_phase::RenderPhase,
     render_resource::RenderPassDescriptor,
