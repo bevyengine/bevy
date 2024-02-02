@@ -24,8 +24,8 @@ use bevy_utils::{tracing::warn, HashMap};
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        animatable::*, AnimationClip, AnimationPlayer, AnimationPlugin, EntityPath, Interpolation, Keyframes,
-        VariableCurve,
+        animatable::*, AnimationClip, AnimationPlayer, AnimationPlugin, EntityPath, Interpolation,
+        Keyframes, VariableCurve,
     };
 }
 
