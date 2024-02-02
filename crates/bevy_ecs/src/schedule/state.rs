@@ -756,7 +756,7 @@ impl<S: States> StateSet for S {
 /// }
 ///
 /// #[derive(SubStates, Clone, PartialEq, Eq, Hash, Debug)]
-/// #[sources(InGame = InGame)]
+/// #[source(InGame = InGame)]
 /// enum GamePhase {
 ///     Setup,
 ///     Battle,
