@@ -9,6 +9,8 @@
 //!
 //! * Tab switches the object between a plain sphere and a running fox.
 //!
+//! * Backspace shows and hides the voxel cubes.
+//!
 //! * Clicking anywhere moves the object.
 
 use bevy::math::{uvec3, vec3};
@@ -16,7 +18,7 @@ use bevy::pbr::irradiance_volume::IrradianceVolume;
 use bevy::pbr::{ExtendedMaterial, MaterialExtension, NotShadowCaster};
 use bevy::prelude::shape::{Cube, UVSphere};
 use bevy::prelude::*;
-use bevy::render::render_resource::{AsBindGroup, ShaderRef};
+use bevy::render::render_resource::{AsBindGroup, ShaderRef, ShaderType};
 use bevy::window::PrimaryWindow;
 
 // Rotation speed in radians per frame.
@@ -81,39 +83,53 @@ enum ExampleModel {
 struct ExampleAssets {
     // The glTF scene containing the colored floor.
     main_scene: Handle<Scene>,
+
     // The 3D texture containing the irradiance volume.
     irradiance_volume: Handle<Image>,
+
     // The plain sphere mesh.
     main_sphere: Handle<Mesh>,
+
     // The material used for the sphere.
     main_sphere_material: Handle<StandardMaterial>,
+
     // The glTF scene containing the animated fox.
     fox: Handle<Scene>,
+
     // The animation that the fox will play.
     fox_animation: Handle<AnimationClip>,
-    // The voxel sphere mesh.
+
+    // The voxel cube mesh.
     voxel_cube: Handle<Mesh>,
-    // The special material on the voxel spheres that shows the appropriate
-    // ambient cube.
-    voxel_cube_material: Handle<VoxelVisualizationMaterial>,
 }
 
 // The sphere and fox both have this component.
 #[derive(Component)]
 struct MainObject;
 
-// Marks each of the voxel spheres.
+// Marks each of the voxel cubes.
 #[derive(Component)]
 struct VoxelCube;
 
-// Marks the voxel sphere parent object.
+// Marks the voxel cube parent object.
 #[derive(Component)]
 struct VoxelCubeParent;
 
 type VoxelVisualizationMaterial = ExtendedMaterial<StandardMaterial, VoxelVisualizationExtension>;
 
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
-struct VoxelVisualizationExtension {}
+struct VoxelVisualizationExtension {
+    #[uniform(100)]
+    irradiance_volume_info: VoxelVisualizationIrradianceVolumeInfo,
+}
+
+#[derive(ShaderType, Debug, Clone)]
+struct VoxelVisualizationIrradianceVolumeInfo {
+    transform: Mat4,
+    inverse_transform: Mat4,
+    resolution: UVec3,
+    intensity: f32,
+}
 
 fn main() {
     // Create the example app.
@@ -133,7 +149,7 @@ fn main() {
             brightness: 0.0,
         })
         .add_systems(Startup, setup)
-        .add_systems(PreUpdate, create_spheres)
+        .add_systems(PreUpdate, create_cubes)
         .add_systems(Update, rotate_camera)
         .add_systems(Update, play_animations)
         .add_systems(
@@ -503,13 +519,6 @@ impl FromWorld for ExampleAssets {
         let mut standard_material_assets = world.resource_mut::<Assets<StandardMaterial>>();
         let main_material = standard_material_assets.add(Color::SILVER);
 
-        let mut voxel_visualization_material_assets =
-            world.resource_mut::<Assets<VoxelVisualizationMaterial>>();
-        let voxel_cube_material = voxel_visualization_material_assets.add(ExtendedMaterial {
-            base: StandardMaterial::from(Color::RED),
-            extension: VoxelVisualizationExtension {},
-        });
-
         ExampleAssets {
             main_sphere,
             fox,
@@ -518,7 +527,6 @@ impl FromWorld for ExampleAssets {
             irradiance_volume,
             fox_animation,
             voxel_cube,
-            voxel_cube_material,
         }
     }
 }
@@ -531,15 +539,16 @@ fn play_animations(assets: Res<ExampleAssets>, mut players: Query<&mut Animation
     }
 }
 
-fn create_spheres(
+fn create_cubes(
     image_assets: Res<Assets<Image>>,
     mut commands: Commands,
     irradiance_volumes: Query<(&IrradianceVolume, &GlobalTransform)>,
     voxel_cube_parents: Query<Entity, With<VoxelCubeParent>>,
     voxel_cubes: Query<Entity, With<VoxelCube>>,
     example_assets: Res<ExampleAssets>,
+    mut voxel_visualization_material_assets: ResMut<Assets<VoxelVisualizationMaterial>>,
 ) {
-    // If voxel spheres have already been spawned, don't do anything.
+    // If voxel cubes have already been spawned, don't do anything.
     if !voxel_cubes.is_empty() {
         return;
     }
@@ -554,13 +563,30 @@ fn create_spheres(
         };
 
         let resolution = image.texture_descriptor.size;
+
+        let voxel_cube_material = voxel_visualization_material_assets.add(ExtendedMaterial {
+            base: StandardMaterial::from(Color::RED),
+            extension: VoxelVisualizationExtension {
+                irradiance_volume_info: VoxelVisualizationIrradianceVolumeInfo {
+                    transform: VOXEL_TRANSFORM.inverse(),
+                    inverse_transform: VOXEL_TRANSFORM,
+                    resolution: uvec3(
+                        resolution.width,
+                        resolution.height,
+                        resolution.depth_or_array_layers,
+                    ),
+                    intensity: IRRADIANCE_VOLUME_INTENSITY,
+                },
+            },
+        });
+
         let scale = vec3(
             1.0 / resolution.width as f32,
             1.0 / resolution.height as f32,
             1.0 / resolution.depth_or_array_layers as f32,
         );
 
-        // Spawn a sphere for each voxel.
+        // Spawn a cube for each voxel.
         for z in 0..resolution.depth_or_array_layers {
             for y in 0..resolution.height {
                 for x in 0..resolution.width {
@@ -569,7 +595,7 @@ fn create_spheres(
                     let voxel_cube = commands
                         .spawn(MaterialMeshBundle {
                             mesh: example_assets.voxel_cube.clone(),
-                            material: example_assets.voxel_cube_material.clone(),
+                            material: voxel_cube_material.clone(),
                             transform: Transform::from_scale(Vec3::splat(VOXEL_CUBE_SCALE))
                                 .with_translation(pos),
                             ..default()

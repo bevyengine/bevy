@@ -2,16 +2,32 @@
 #import bevy_pbr::irradiance_volume
 #import bevy_pbr::mesh_view_bindings
 
+struct VoxelVisualizationIrradianceVolumeInfo {
+    transform: mat4x4<f32>,
+    inverse_transform: mat4x4<f32>,
+    resolution: vec3<u32>,
+    intensity: f32,
+}
+
+@group(2) @binding(100)
+var<uniform> irradiance_volume_info: VoxelVisualizationIrradianceVolumeInfo;
+
 @fragment
 fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
-    // Using `irradiance_volumes[0]` is a little dodgy, but we know we only have
-    // one irradiance volume in this scene, so it's fine.
-    //
+    // Snap the world position we provide to `irradiance_volume_light()` to the
+    // middle of the nearest texel.
+    var unit_pos = (irradiance_volume_info.inverse_transform *
+        vec4(mesh.world_position.xyz, 1.0f)).xyz;
+    let resolution = vec3<f32>(irradiance_volume_info.resolution);
+    let stp = clamp((unit_pos + 0.5) * resolution, vec3(0.5f), resolution - vec3(0.5f));
+    let stp_rounded = round(stp - 0.5f) + 0.5f;
+    let rounded_world_pos = (irradiance_volume_info.transform * vec4(stp_rounded, 1.0f)).xyz;
+
     // `irradiance_volume_light()` multiplies by intensity, so cancel it out.
     // If we take intensity into account, these spheres will be way too bright.
     let rgb = irradiance_volume::irradiance_volume_light(
         mesh.world_position.xyz,
-        mesh.world_normal) / mesh_view_bindings::light_probes.irradiance_volumes[0].intensity;
+        mesh.world_normal) / irradiance_volume_info.intensity;
 
     return vec4<f32>(rgb, 1.0f);
 }

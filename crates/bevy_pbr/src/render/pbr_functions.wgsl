@@ -413,7 +413,7 @@ fn apply_pbr_lighting(
     // Ambient light (indirect)
     indirect_light += ambient::ambient_light(in.world_position, in.N, in.V, NdotV, diffuse_color, F0, perceptual_roughness, diffuse_occlusion);
 
-    var emissive_light = emissive.rgb * output_color.a;
+    let emissive_light = emissive.rgb * output_color.a;
 
     if specular_transmission > 0.0 {
         transmitted_light += transmission::specular_transmissive_light(in.world_position, in.frag_coord.xyz, view_z, in.N, in.V, F0, ior, thickness, perceptual_roughness, specular_transmissive_color, specular_transmitted_environment_light).rgb;
