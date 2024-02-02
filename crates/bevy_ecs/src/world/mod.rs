@@ -1857,8 +1857,7 @@ impl World {
     #[inline]
     pub fn flush_commands(&mut self) {
         if !self.command_queue.is_empty() {
-            let mut commands = std::mem::take(&mut self.command_queue);
-            commands.apply(self);
+            CommandQueue::default().apply(self);
         }
     }
 
