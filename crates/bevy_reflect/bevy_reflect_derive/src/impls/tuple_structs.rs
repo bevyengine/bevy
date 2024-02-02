@@ -187,6 +187,10 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
                 }
             }
 
+            fn reflect_kind(&self) -> #bevy_reflect_path::ReflectKind {
+                #bevy_reflect_path::ReflectKind::TupleStruct
+            }
+
             fn reflect_ref(&self) -> #bevy_reflect_path::ReflectRef {
                 #bevy_reflect_path::ReflectRef::TupleStruct(self)
             }

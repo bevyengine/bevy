@@ -1,7 +1,7 @@
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::all_tuples;
 
-use crate::TypePathTable;
+use crate::{ReflectKind, TypePathTable};
 use crate::{
     self as bevy_reflect, utility::GenericTypePathCell, FromReflect, GetTypeRegistration, Reflect,
     ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath, TypeRegistration, Typed,
@@ -345,6 +345,11 @@ impl Reflect for DynamicTuple {
     }
 
     #[inline]
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::Tuple
+    }
+
+    #[inline]
     fn reflect_ref(&self) -> ReflectRef {
         ReflectRef::Tuple(self)
     }
@@ -543,6 +548,10 @@ macro_rules! impl_reflect_tuple {
             fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
                 *self = value.take()?;
                 Ok(())
+            }
+            
+            fn reflect_kind(&self) -> ReflectKind {
+                ReflectKind::Tuple
             }
 
             fn reflect_ref(&self) -> ReflectRef {

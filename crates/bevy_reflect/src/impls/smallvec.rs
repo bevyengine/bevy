@@ -6,9 +6,7 @@ use std::any::Any;
 
 use crate::utility::GenericTypeInfoCell;
 use crate::{
-    self as bevy_reflect, FromReflect, FromType, GetTypeRegistration, List, ListInfo, ListIter,
-    Reflect, ReflectFromPtr, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath,
-    TypeRegistration, Typed,
+    self as bevy_reflect, FromReflect, FromType, GetTypeRegistration, List, ListInfo, ListIter, Reflect, ReflectFromPtr, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath, TypeRegistration, Typed
 };
 
 impl<T: smallvec::Array + TypePath + Send + Sync> List for SmallVec<T>
@@ -117,6 +115,10 @@ where
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
         *self = value.take()?;
         Ok(())
+    }
+
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::List
     }
 
     fn reflect_ref(&self) -> ReflectRef {
