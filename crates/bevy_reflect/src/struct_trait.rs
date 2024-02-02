@@ -1,5 +1,6 @@
 use crate::{
-    self as bevy_reflect, NamedField, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath, TypePathTable
+    self as bevy_reflect, NamedField, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef,
+    TypeInfo, TypePath, TypePathTable,
 };
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::{Entry, HashMap};

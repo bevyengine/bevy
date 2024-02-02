@@ -1,6 +1,9 @@
 use crate::io::AssetSourceId;
 use bevy_reflect::{
-    std_traits::ReflectDefault, utility::NonGenericTypeInfoCell, FromReflect, FromType, GetTypeRegistration, Reflect, ReflectDeserialize, ReflectFromPtr, ReflectFromReflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, ReflectSerialize, TypeInfo, TypePath, TypeRegistration, Typed, ValueInfo
+    std_traits::ReflectDefault, utility::NonGenericTypeInfoCell, FromReflect, FromType,
+    GetTypeRegistration, Reflect, ReflectDeserialize, ReflectFromPtr, ReflectFromReflect,
+    ReflectKind, ReflectMut, ReflectOwned, ReflectRef, ReflectSerialize, TypeInfo, TypePath,
+    TypeRegistration, Typed, ValueInfo,
 };
 use bevy_utils::CowArc;
 use serde::{de::Visitor, Deserialize, Serialize};

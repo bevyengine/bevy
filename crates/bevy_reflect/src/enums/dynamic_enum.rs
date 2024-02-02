@@ -1,7 +1,9 @@
 use bevy_reflect_derive::impl_type_path;
 
 use crate::{
-    self as bevy_reflect, enum_debug, enum_hash, enum_partial_eq, DynamicStruct, DynamicTuple, Enum, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Struct, Tuple, TypeInfo, VariantFieldIter, VariantType
+    self as bevy_reflect, enum_debug, enum_hash, enum_partial_eq, DynamicStruct, DynamicTuple,
+    Enum, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Struct, Tuple, TypeInfo,
+    VariantFieldIter, VariantType,
 };
 use std::any::Any;
 use std::fmt::Formatter;

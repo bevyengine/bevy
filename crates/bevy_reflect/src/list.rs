@@ -6,7 +6,8 @@ use bevy_reflect_derive::impl_type_path;
 
 use crate::utility::reflect_hasher;
 use crate::{
-    self as bevy_reflect, FromReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath, TypePathTable
+    self as bevy_reflect, FromReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef,
+    TypeInfo, TypePath, TypePathTable,
 };
 
 /// A trait used to power [list-like] operations via [reflection].

@@ -225,7 +225,7 @@ pub trait Reflect: DynamicTypePath + Any + Send + Sync {
     /// containing the trait object.
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>>;
 
-    /// Returns an enumeration of "kinds" of type.
+    /// Returns a zero-sized enumeration of "kinds" of type.
     ///
     /// See [`ReflectKind`].
     fn reflect_kind(&self) -> ReflectKind {
