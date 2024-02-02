@@ -6,8 +6,11 @@
 
 use crate::utility::terminated_parser;
 use crate::REFLECT_ATTRIBUTE_NAME;
-use syn::parse::ParseStream;
-use syn::{Attribute, LitStr, Meta, Token};
+use proc_macro2::Ident;
+use std::collections::HashMap;
+use syn::parse::{Parse, ParseStream};
+use syn::punctuated::Punctuated;
+use syn::{parenthesized, Attribute, Lit, LitStr, Meta, Token};
 
 mod kw {
     syn::custom_keyword!(ignore);
@@ -66,6 +69,11 @@ pub(crate) enum DefaultBehavior {
     Func(syn::ExprPath),
 }
 
+#[derive(Default, Clone)]
+pub(crate) struct CustomAttributes {
+    attributes: HashMap<String, Lit>,
+}
+
 /// A container for attributes defined on a reflected type's field.
 #[derive(Default, Clone)]
 pub(crate) struct FieldAttributes {
@@ -73,6 +81,8 @@ pub(crate) struct FieldAttributes {
     pub ignore: ReflectIgnoreBehavior,
     /// Sets the default behavior of this field.
     pub default: DefaultBehavior,
+    /// Custom attributes created via `#[reflect(@(...))]`.
+    pub custom_attributes: CustomAttributes,
 }
 
 impl FieldAttributes {
@@ -114,6 +124,8 @@ impl FieldAttributes {
             self.parse_skip_serializing(input)
         } else if lookahead.peek(kw::default) {
             self.parse_default(input)
+        } else if lookahead.peek(Token![@]) {
+            self.parse_custom_attribute(input)
         } else {
             Err(lookahead.error())
         }
@@ -172,6 +184,59 @@ impl FieldAttributes {
             self.default = DefaultBehavior::Func(lit.parse()?);
         } else {
             self.default = DefaultBehavior::Default;
+        }
+
+        Ok(())
+    }
+
+    /// Parse `@` (custom attribute) attribute.
+    ///
+    /// Examples:
+    /// - `#[reflect(@(foo = "bar"))]`
+    /// - `#[reflect(@(min = 0.0, max = 1.0))]`
+    fn parse_custom_attribute(&mut self, input: ParseStream) -> syn::Result<()> {
+        struct CustomAttribute {
+            name: Punctuated<Ident, Token![::]>,
+            _eq: Token![=],
+            value: Lit,
+        }
+
+        impl Parse for CustomAttribute {
+            fn parse(input: ParseStream) -> syn::Result<Self> {
+                Ok(Self {
+                    name: Punctuated::<Ident, Token![::]>::parse_separated_nonempty(input)?,
+                    _eq: input.parse::<Token![=]>()?,
+                    value: input.parse::<Lit>()?,
+                })
+            }
+        }
+
+        // ---
+
+        input.parse::<Token![@]>()?;
+
+        let content;
+        parenthesized!(content in input);
+
+        let custom_attrs = content.parse_terminated(CustomAttribute::parse, Token![,])?;
+        for custom_attr in custom_attrs {
+            let name = custom_attr
+                .name
+                .iter()
+                .map(Ident::to_string)
+                .collect::<Vec<_>>()
+                .join("::");
+
+            if self.custom_attributes.attributes.contains_key(&name) {
+                return Err(syn::Error::new_spanned(
+                    custom_attr.name,
+                    "duplicate user attribute",
+                ));
+            }
+
+            self.custom_attributes
+                .attributes
+                .insert(name, custom_attr.value);
         }
 
         Ok(())
