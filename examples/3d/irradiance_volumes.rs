@@ -13,6 +13,7 @@
 //!
 //! * Clicking anywhere moves the object.
 
+use bevy::core_pipeline::Skybox;
 use bevy::math::{uvec3, vec3};
 use bevy::pbr::irradiance_volume::IrradianceVolume;
 use bevy::pbr::{ExtendedMaterial, MaterialExtension, NotShadowCaster};
@@ -101,6 +102,9 @@ struct ExampleAssets {
 
     // The voxel cube mesh.
     voxel_cube: Handle<Mesh>,
+
+    // The skybox.
+    skybox: Handle<Image>,
 }
 
 // The sphere and fox both have this component.
@@ -209,7 +213,7 @@ fn setup(
     asset_server: Res<AssetServer>,
 ) {
     spawn_main_scene(&mut commands, &assets);
-    spawn_camera(&mut commands);
+    spawn_camera(&mut commands, &assets);
     spawn_irradiance_volume(&mut commands, &assets);
     spawn_light(&mut commands);
     spawn_sphere(&mut commands, &assets);
@@ -225,11 +229,16 @@ fn spawn_main_scene(commands: &mut Commands, assets: &ExampleAssets) {
     });
 }
 
-fn spawn_camera(commands: &mut Commands) {
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-10.012, 4.8605, 13.281).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+fn spawn_camera(commands: &mut Commands, assets: &ExampleAssets) {
+    commands
+        .spawn(Camera3dBundle {
+            transform: Transform::from_xyz(-10.012, 4.8605, 13.281).looking_at(Vec3::ZERO, Vec3::Y),
+            ..default()
+        })
+        .insert(Skybox {
+            image: assets.skybox.clone(),
+            brightness: 150.0,
+        });
 }
 
 fn spawn_irradiance_volume(commands: &mut Commands, assets: &ExampleAssets) {
@@ -512,6 +521,11 @@ impl FromWorld for ExampleAssets {
         let fox_animation =
             asset_server.load::<AnimationClip>("models/animated/Fox.glb#Animation1");
 
+        // Just use a specular map for the skybox since it's not too blurry.
+        // In reality you wouldn't do this--you'd use a real skybox texture--but
+        // reusing the textures like this saves space in the Bevy repository.
+        let skybox = asset_server.load::<Image>("environment_maps/pisa_specular_rgb9e5_zstd.ktx2");
+
         let mut mesh_assets = world.resource_mut::<Assets<Mesh>>();
         let main_sphere = mesh_assets.add(UVSphere::default());
         let voxel_cube = mesh_assets.add(Cube::default());
@@ -527,6 +541,7 @@ impl FromWorld for ExampleAssets {
             irradiance_volume,
             fox_animation,
             voxel_cube,
+            skybox,
         }
     }
 }
