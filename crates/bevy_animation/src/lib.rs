@@ -1,7 +1,5 @@
 //! Animation for the game engine Bevy
 
-#![warn(missing_docs)]
-
 use std::ops::{Add, Deref, Mul};
 use std::time::Duration;
 
