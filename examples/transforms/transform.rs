@@ -106,7 +106,7 @@ fn setup(
 fn move_cube(mut cubes: Query<(&mut Transform, &mut CubeState)>, timer: Res<Time>) {
     for (mut transform, cube) in &mut cubes {
         // Move the cube forward smoothly at a given move_speed.
-        let forward = *transform.forward();
+        let forward = transform.forward();
         transform.translation += forward * cube.move_speed * timer.delta_seconds();
     }
 }
