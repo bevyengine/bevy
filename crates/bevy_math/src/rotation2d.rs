@@ -62,22 +62,6 @@ impl Rotation2d {
     };
 
     /// Creates a [`Rotation2d`] from a counterclockwise angle in radians.
-    ///
-    /// This is equivalent to [`Self::from_radians`].
-    #[inline]
-    pub fn new(radians: f32) -> Self {
-        Self::from_radians(radians)
-    }
-
-    /// Creates a [`Rotation2d`] from the sine and cosine of an angle in radians.
-    ///
-    /// The rotation is only valid if `sin.asin() == cos.acos()`.
-    #[inline]
-    pub const fn from_sin_cos(sin: f32, cos: f32) -> Self {
-        Self { sin, cos }
-    }
-
-    /// Creates a [`Rotation2d`] from a counterclockwise angle in radians.
     #[inline]
     pub fn from_radians(radians: f32) -> Self {
         #[cfg(feature = "libm")]
@@ -95,6 +79,14 @@ impl Rotation2d {
     #[inline]
     pub fn from_degrees(degrees: f32) -> Self {
         Self::from_radians(degrees.to_radians())
+    }
+
+    /// Creates a [`Rotation2d`] from the sine and cosine of an angle in radians.
+    ///
+    /// The rotation is only valid if `sin.asin() == cos.acos()`.
+    #[inline]
+    pub const fn from_sin_cos(sin: f32, cos: f32) -> Self {
+        Self { sin, cos }
     }
 
     /// Returns the rotation in radians in the `(-pi, pi]` range.
@@ -319,15 +311,15 @@ mod tests {
     #[test]
     fn lerp() {
         let rotation1 = Rotation2d::IDENTITY;
-        let rotation2 = Rotation2d::new(std::f32::consts::FRAC_PI_2);
+        let rotation2 = Rotation2d::from_radians(std::f32::consts::FRAC_PI_2);
         let result = rotation1.lerp(rotation2, 0.5);
         assert_eq!(result.as_radians(), std::f32::consts::FRAC_PI_4);
     }
 
     #[test]
     fn slerp() {
-        let rotation1 = Rotation2d::new(std::f32::consts::FRAC_PI_4);
-        let rotation2 = Rotation2d::new(-std::f32::consts::PI);
+        let rotation1 = Rotation2d::from_radians(std::f32::consts::FRAC_PI_4);
+        let rotation2 = Rotation2d::from_radians(-std::f32::consts::PI);
         let result = rotation1.slerp(rotation2, 1.0 / 3.0);
         assert_eq!(result.as_radians(), std::f32::consts::FRAC_PI_2);
     }
