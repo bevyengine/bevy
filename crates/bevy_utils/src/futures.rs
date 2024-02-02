@@ -10,17 +10,25 @@ use std::{
 ///
 /// This will cancel the future if it's not ready.
 pub fn now_or_never<F: Future>(mut future: F) -> Option<F::Output> {
-    check_ready(&mut future)
-}
-
-/// Polls a future once, and returns the output if ready
-/// or returns `None` if it wasn't ready yet.
-pub fn check_ready<F: Future>(future: &mut F) -> Option<F::Output> {
     let noop_waker = noop_waker();
     let mut cx = Context::from_waker(&noop_waker);
 
     // SAFETY: `future` is not moved and the original value is shadowed
-    let future = unsafe { Pin::new_unchecked(future) };
+    let future = unsafe { Pin::new_unchecked(&mut future) };
+
+    match future.poll(&mut cx) {
+        Poll::Ready(x) => Some(x),
+        _ => None,
+    }
+}
+
+/// Polls a future once, and returns the output if ready
+/// or returns `None` if it wasn't ready yet.
+pub fn check_ready<F: Future + Unpin>(future: &mut F) -> Option<F::Output> {
+    let noop_waker = noop_waker();
+    let mut cx = Context::from_waker(&noop_waker);
+
+    let future = Pin::new(future);
 
     match future.poll(&mut cx) {
         Poll::Ready(x) => Some(x),
