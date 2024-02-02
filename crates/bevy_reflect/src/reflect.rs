@@ -228,10 +228,9 @@ pub trait Reflect: DynamicTypePath + Any + Send + Sync {
     /// Returns an enumeration of "kinds" of type.
     ///
     /// See [`ReflectKind`].
-    fn reflect_kind(&self) -> ReflectKind;
-    //  {
-    //     self.reflect_ref().kind()
-    // }
+    fn reflect_kind(&self) -> ReflectKind {
+        self.reflect_ref().kind()
+    }
 
     /// Returns an immutable enumeration of "kinds" of type.
     ///
