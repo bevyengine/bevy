@@ -192,7 +192,7 @@ impl<P: Point> CubicGenerator<P> for CubicHermite<P> {
 /// The curve passes through every control point.
 ///
 /// ### Tangency
-/// Tangents are automatically computed based on the position of control points.
+/// Tangents are automatically computed based on the positions of control points.
 ///
 /// ### Continuity
 /// The curve is at minimum C0 continuous, meaning it has no holes or jumps. It is also C1, meaning the
@@ -323,7 +323,7 @@ impl<P: Point> CubicGenerator<P> for CubicBSpline<P> {
 pub enum CubicNurbsError {
     /// Provided the wrong number of knots.
     #[error("Wrong number of knots: expected {expected}, provided {provided}")]
-    KnotsMismatch {
+    KnotsNumberMismatch {
         /// Expected number of knots
         expected: usize,
         /// Provided number of knots
@@ -333,12 +333,12 @@ pub enum CubicNurbsError {
     /// either increase or stay the same.
     #[error("Invalid knots: contains descending knot pair")]
     DescendingKnots,
-    /// The provided knots were all equal. Knots must contain at-least one increasing pair.
+    /// The provided knots were all equal. Knots must contain at least one increasing pair.
     #[error("Invalid knots: all knots are equal")]
     ConstantKnots,
     /// Provided a different number of weights and control points.
     #[error("Incorect number of weights: expected {expected}, provided {provided}")]
-    WeightsMismatch {
+    WeightsNumberMismatch {
         /// Expected number of weights
         expected: usize,
         /// Provided number of weights
@@ -358,14 +358,14 @@ pub enum CubicNurbsError {
 /// ### Non-uniformity
 /// The 'NU' part of NURBS stands for "Non-Uniform". This has to do with a parameter called 'knots'.
 /// The knots are a non-decreasing sequence of floating point numbers. The first and last three pairs of
-/// knots controll the behavior of the curve as it approaches it's endpoints. The intermediate pairs
+/// knots control the behavior of the curve as it approaches it's endpoints. The intermediate pairs
 /// each control the length of one segment of the curve. Multiple repeated knot values are called
 /// "knot multiplicity". Knot multiplicity in the intermediate knots causes a "zero-length" segments,
 /// and can create sharp corners.
 ///
 /// ### Rationality
 /// The 'R' part of NURBS stands for "Rational". This has to do with NURBS allowing each control point to
-/// be assigned a weighting, which controls how much it effects the curve recitative to the other points.
+/// be assigned a weighting, which controls how much it effects the curve compared to the other points.
 ///
 /// ### Interpolation
 /// The curve will not pass through the control points except where a knot has multiplicity four.
@@ -377,7 +377,7 @@ pub enum CubicNurbsError {
 /// When there is no knot multiplicity, the curve is C2 continuous, meaning it has no holes or jumps and the
 /// tangent vector changes smoothly along the entire curve length. Like the [`CubicBSpline`], the acceleration
 /// continuity makes it useful for camera paths. Knot multiplicity of 2 in intermediate knots reduces the
-/// continuity to C2, and Knot multiplicity of 3 reduces the continuity to C0. The curve is always at-least
+/// continuity to C2, and Knot multiplicity of 3 reduces the continuity to C0. The curve is always at least
 /// C0, meaning it has no jumps or holes.
 ///
 /// ### Usage
@@ -439,7 +439,7 @@ impl<P: Point> CubicNurbs<P> {
 
         // Check the number of knots is correct
         if knots.len() != expected_knots_len {
-            return Err(CubicNurbsError::KnotsMismatch {
+            return Err(CubicNurbsError::KnotsNumberMismatch {
                 expected: expected_knots_len,
                 provided: knots.len(),
             });
@@ -458,7 +458,7 @@ impl<P: Point> CubicNurbs<P> {
 
         // Check that the number of weights equals the number of control points
         if weights.len() != control_points_len {
-            return Err(CubicNurbsError::WeightsMismatch {
+            return Err(CubicNurbsError::WeightsNumberMismatch {
                 expected: control_points_len,
                 provided: weights.len(),
             });
@@ -468,8 +468,8 @@ impl<P: Point> CubicNurbs<P> {
         // make the intervals between knots form an exact cover of [0, N], where N is
         // the number of segments of the final curve.
         let curve_length = (control_points.len() - 3) as f32;
-        let min = knots.first().unwrap().clone();
-        let max = knots.last().unwrap().clone();
+        let min = *knots.first().unwrap();
+        let max = *knots.last().unwrap();
         knots = knots
             .into_iter()
             .map(|k| k - min)
@@ -508,7 +508,7 @@ impl<P: Point> CubicNurbs<P> {
     /// start and end points.
     ///
     /// The start and end knots have multiplicity 4, and intermediate knots have multiplicity 0 and
-    /// difference of 1. "Multiplicity" means that there are N consecutive elements that have the same value.
+    /// difference of 1.
     ///
     /// Will return `None` if there are less than 4 control points
     pub fn open_uniform_knots(control_points: usize) -> Option<Vec<f32>> {
@@ -984,7 +984,7 @@ impl<P: Point> RationalSegment<P> {
         // curves and surfaces" by Choi et al. See equation 20. Note: In come copies of this paper, equation 20
         // is printed with the following two errors:
         // + The first term has incorrect sign.
-        // + The second term should uses R when it should use the first derivative.
+        // + The second term uses R when it should use the first derivative.
 
         let [a, b, c, d] = self.coeff;
         let [x, y, z, w] = self.weight_coeff;
@@ -1052,8 +1052,7 @@ impl<P: Point> RationalSegment<P> {
     }
 }
 
-/// A collection of [`RationalSegment`]s chained into a single parametric curve. Has domain `[0, N)` where
-/// `N` is at-least the number of segments.
+/// A collection of [`RationalSegment`]s chained into a single parametric curve.
 ///
 /// Use any struct that implements the [`RationalGenerator`] trait to create a new curve, such as
 /// [`CubicNURBS`], or convert [`CubicCurve`] using `into/from`.
@@ -1169,7 +1168,7 @@ impl<P: Point> RationalCurve<P> {
                     // Representations for B-Splines" by Qin.
                     return (segment, t / segment.knot_span);
                 } else {
-                    t = t - segment.knot_span
+                    t -= segment.knot_span;
                 }
             }
             return (self.segments.last().unwrap(), 1.0);
@@ -1178,7 +1177,7 @@ impl<P: Point> RationalCurve<P> {
 
     /// Returns the length of of the domain of the parametric curve.
     #[inline]
-    fn domain(&self) -> f32 {
+    pub fn domain(&self) -> f32 {
         self.segments.iter().map(|segment| segment.knot_span).sum()
     }
 }
