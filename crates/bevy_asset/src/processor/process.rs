@@ -6,8 +6,8 @@ use crate::{
     meta::{AssetAction, AssetMeta, AssetMetaDyn, ProcessDependencyInfo, ProcessedInfo, Settings},
     processor::AssetProcessor,
     saver::{AssetSaver, SavedAsset},
-    transformer::AssetTransformer,
-    AssetLoadError, AssetLoader, AssetPath, DeserializeMetaError, ErasedLoadedAsset, LoadedAsset,
+    transformer::{AssetTransformer, TransformedAsset},
+    AssetLoadError, AssetLoader, AssetPath, DeserializeMetaError, ErasedLoadedAsset,
     MissingAssetLoaderForExtensionError, MissingAssetLoaderForTypeNameError,
 };
 use bevy_utils::BoxedFuture;
@@ -158,6 +158,8 @@ pub enum ProcessError {
     WrongMetaType,
     #[error("Encountered an error while saving the asset: {0}")]
     AssetSaveError(#[from] Box<dyn std::error::Error + Send + Sync + 'static>),
+    #[error("Encountered an error while transforming the asset: {0}")]
+    AssetTransformError(Box<dyn std::error::Error + Send + Sync + 'static>),
     #[error("Assets without extensions are not supported.")]
     ExtensionRequired,
 }
@@ -185,18 +187,19 @@ impl<
                 loader: std::any::type_name::<Loader>().to_string(),
                 settings: settings.loader_settings,
             });
-            let loaded_asset = context
-                .load_source_asset(loader_meta)
-                .await?
-                .take::<Loader::Asset>()
-                .expect("Asset type is known");
-            let transformed_asset = self
+            let pre_transformed_asset = TransformedAsset::<Loader::Asset>::from_loaded(
+                context.load_source_asset(loader_meta).await?,
+            )
+            .unwrap();
+
+            let post_transformed_asset = self
                 .transformer
-                .transform(loaded_asset, &settings.transformer_settings)?;
-            let loaded_transformed_asset =
-                ErasedLoadedAsset::from(LoadedAsset::from(transformed_asset));
+                .transform(pre_transformed_asset, &settings.transformer_settings)
+                .await
+                .map_err(|err| ProcessError::AssetTransformError(err.into()))?;
+
             let saved_asset =
-                SavedAsset::<T::AssetOutput>::from_loaded(&loaded_transformed_asset).unwrap();
+                SavedAsset::<T::AssetOutput>::from_transformed(&post_transformed_asset);
 
             let output_settings = self
                 .saver
