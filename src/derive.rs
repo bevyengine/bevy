@@ -4,7 +4,7 @@ use naga::{
     FunctionResult, GlobalVariable, Handle, ImageQuery, LocalVariable, Module, SampleLevel, Span,
     Statement, StructMember, SwitchCase, Type, TypeInner, UniqueArena,
 };
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
 
 use crate::compose::util::expression_eq;
 
@@ -13,11 +13,11 @@ pub struct DerivedModule<'a> {
     shader: Option<&'a Module>,
     span_offset: usize,
 
-    type_map: HashMap<Handle<Type>, Handle<Type>>,
-    const_map: HashMap<Handle<Constant>, Handle<Constant>>,
-    const_expression_map: Rc<RefCell<HashMap<Handle<Expression>, Handle<Expression>>>>,
-    global_map: HashMap<Handle<GlobalVariable>, Handle<GlobalVariable>>,
-    function_map: HashMap<String, Handle<Function>>,
+    type_map: IndexMap<Handle<Type>, Handle<Type>>,
+    const_map: IndexMap<Handle<Constant>, Handle<Constant>>,
+    const_expression_map: Rc<RefCell<IndexMap<Handle<Expression>, Handle<Expression>>>>,
+    global_map: IndexMap<Handle<GlobalVariable>, Handle<GlobalVariable>>,
+    function_map: IndexMap<String, Handle<Function>>,
 
     types: UniqueArena<Type>,
     constants: Arena<Constant>,
@@ -201,7 +201,7 @@ impl<'a> DerivedModule<'a> {
         &mut self,
         block: &Block,
         old_expressions: &Arena<Expression>,
-        already_imported: Rc<RefCell<HashMap<Handle<Expression>, Handle<Expression>>>>,
+        already_imported: Rc<RefCell<IndexMap<Handle<Expression>, Handle<Expression>>>>,
         new_expressions: Rc<RefCell<Arena<Expression>>>,
     ) -> Block {
         macro_rules! map_expr {
@@ -388,7 +388,7 @@ impl<'a> DerivedModule<'a> {
         &mut self,
         h_expr: Handle<Expression>,
         old_expressions: &Arena<Expression>,
-        already_imported: Rc<RefCell<HashMap<Handle<Expression>, Handle<Expression>>>>,
+        already_imported: Rc<RefCell<IndexMap<Handle<Expression>, Handle<Expression>>>>,
         new_expressions: Rc<RefCell<Arena<Expression>>>,
         non_emitting_only: bool, // only brings items that should NOT be emitted into scope
         unique: bool,            // ensure expressions are unique with custom comparison
@@ -635,7 +635,7 @@ impl<'a> DerivedModule<'a> {
         });
 
         let expressions = Rc::new(RefCell::new(Arena::new()));
-        let expr_map = Rc::new(RefCell::new(HashMap::new()));
+        let expr_map = Rc::new(RefCell::new(IndexMap::new()));
 
         let mut local_variables = Arena::new();
         for (h_l, l) in func.local_variables.iter() {

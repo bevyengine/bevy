@@ -1,17 +1,17 @@
-
-
-
-
-    let _e1: u32 = doubleX_naga_oil_mod_XMNXW443UOMX(XX_naga_oil_mod_XMNXW443UOMX);
-    let _e1: u32 = doubleX_naga_oil_mod_XMNXW443UOMX(YX_naga_oil_mod_XMNXW443UOMX);
-    return (in * 2u);
-    return _e1;
-    return _e1;
 const XX_naga_oil_mod_XMNXW443UOMX: u32 = 1u;
 const YX_naga_oil_mod_XMNXW443UOMX: u32 = 2u;
+
 fn doubleX_naga_oil_mod_XMNXW443UOMX(in: u32) -> u32 {
+    return (in * 2u);
+}
+
 fn main() -> u32 {
+    let _e1: u32 = doubleX_naga_oil_mod_XMNXW443UOMX(XX_naga_oil_mod_XMNXW443UOMX);
+    return _e1;
+}
+
 fn other() -> u32 {
+    let _e1: u32 = doubleX_naga_oil_mod_XMNXW443UOMX(YX_naga_oil_mod_XMNXW443UOMX);
+    return _e1;
 }
-}
-}
+

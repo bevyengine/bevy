@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
+use indexmap::IndexMap;
 use regex::Regex;
 
 use super::{
@@ -234,8 +235,8 @@ impl Preprocessor {
         shader_defs: &HashMap<String, ShaderDefValue>,
         validate_len: bool,
     ) -> Result<PreprocessOutput, ComposerErrorInner> {
-        let mut declared_imports = HashMap::new();
-        let mut used_imports = HashMap::new();
+        let mut declared_imports = IndexMap::new();
+        let mut used_imports = IndexMap::new();
         let mut scope = Scope::new();
         let mut final_string = String::new();
         let mut offset = 0;
@@ -390,8 +391,8 @@ impl Preprocessor {
         shader_str: &str,
         allow_defines: bool,
     ) -> Result<PreprocessorMetaData, ComposerErrorInner> {
-        let mut declared_imports = HashMap::default();
-        let mut used_imports = HashMap::default();
+        let mut declared_imports = IndexMap::default();
+        let mut used_imports = IndexMap::default();
         let mut name = None;
         let mut offset = 0;
         let mut defines = HashMap::default();

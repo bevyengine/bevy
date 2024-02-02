@@ -1,16 +1,16 @@
+const PIX_naga_oil_mod_XMNXW443UOMX: f32 = 3.1f;
 
+fn fX_naga_oil_mod_XMEX() -> f32 {
+    return 3.1f;
+}
 
+fn fX_naga_oil_mod_XMIX() -> f32 {
+    return 6.2f;
+}
 
-
+fn main() -> f32 {
     let _e0: f32 = fX_naga_oil_mod_XMEX();
     let _e1: f32 = fX_naga_oil_mod_XMIX();
     return (_e0 * _e1);
-    return 3.1f;
-    return 6.2f;
-const PIX_naga_oil_mod_XMNXW443UOMX: f32 = 3.1f;
-fn fX_naga_oil_mod_XMEX() -> f32 {
-fn fX_naga_oil_mod_XMIX() -> f32 {
-fn main() -> f32 {
 }
-}
-}
+

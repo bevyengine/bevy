@@ -1,39 +1,39 @@
-
-
-
-
-
-
-
-
-    d.fine = 3f;
-    e.fine_member = 4f;
+struct IsFineX_naga_oil_mod_XON2HE5LDORZQX {
     fine: f32,
+}
+
+struct Isbad_X_naga_oil_mod_XON2HE5LDORZQX {
     fine_member: f32,
-    let _e1: f32 = fineX_naga_oil_mod_XMZXHGX(1f);
-    let _e20: f32 = d.fine;
-    let _e23: f32 = e.fine_member;
-    let _e3: f32 = bad_X_naga_oil_mod_XMZXHGX(2f);
-    let _e6: f32 = fineX_naga_oil_mod_XM5WG6YTBNRZQX;
-    let _e8: f32 = bad_X_naga_oil_mod_XM5WG6YTBNRZQX;
-    let b: f32 = (_e1 + _e3);
-    let c: f32 = (_e6 + _e8);
-    return ((((2f + b) + c) + _e20) + _e23);
+}
+
+const fineX_naga_oil_mod_XMNXW443UOMX: f32 = 1f;
+const bad_X_naga_oil_mod_XMNXW443UOMX: f32 = 1f;
+
+var<private> fineX_naga_oil_mod_XM5WG6YTBNRZQX: f32 = 1f;
+var<private> bad_X_naga_oil_mod_XM5WG6YTBNRZQX: f32 = 1f;
+
+fn fineX_naga_oil_mod_XMZXHGX(in: f32) -> f32 {
     return in;
+}
+
+fn bad_X_naga_oil_mod_XMZXHGX(in_1: f32) -> f32 {
     return in_1;
+}
+
+fn main() -> f32 {
     var d: IsFineX_naga_oil_mod_XON2HE5LDORZQX;
     var e: Isbad_X_naga_oil_mod_XON2HE5LDORZQX;
-const bad_X_naga_oil_mod_XMNXW443UOMX: f32 = 1f;
-const fineX_naga_oil_mod_XMNXW443UOMX: f32 = 1f;
-fn bad_X_naga_oil_mod_XMZXHGX(in_1: f32) -> f32 {
-fn fineX_naga_oil_mod_XMZXHGX(in: f32) -> f32 {
-fn main() -> f32 {
-struct IsFineX_naga_oil_mod_XON2HE5LDORZQX {
-struct Isbad_X_naga_oil_mod_XON2HE5LDORZQX {
-var<private> bad_X_naga_oil_mod_XM5WG6YTBNRZQX: f32 = 1f;
-var<private> fineX_naga_oil_mod_XM5WG6YTBNRZQX: f32 = 1f;
+
+    let _e1: f32 = fineX_naga_oil_mod_XMZXHGX(1f);
+    let _e3: f32 = bad_X_naga_oil_mod_XMZXHGX(2f);
+    let b: f32 = (_e1 + _e3);
+    let _e6: f32 = fineX_naga_oil_mod_XM5WG6YTBNRZQX;
+    let _e8: f32 = bad_X_naga_oil_mod_XM5WG6YTBNRZQX;
+    let c: f32 = (_e6 + _e8);
+    d.fine = 3f;
+    e.fine_member = 4f;
+    let _e20: f32 = d.fine;
+    let _e23: f32 = e.fine_member;
+    return ((((2f + b) + c) + _e20) + _e23);
 }
-}
-}
-}
-}
+

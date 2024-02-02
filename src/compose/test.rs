@@ -156,9 +156,6 @@ mod test {
             naga::back::wgsl::WriterFlags::EXPLICIT_TYPES,
         )
         .unwrap();
-        let mut wgsl: Vec<_> = wgsl.lines().collect();
-        wgsl.sort();
-        let wgsl = wgsl.join("\n");
 
         // println!("{}", wgsl);
         // let mut f = std::fs::File::create("dup_import.txt").unwrap();
@@ -338,21 +335,11 @@ mod test {
         )
         .unwrap();
 
-        // unfortunately glsl variables are emitted in random order...
-        // so this is better than nothing
-        let mut wgsl: Vec<_> = wgsl.lines().collect();
-        wgsl.sort();
-        let wgsl = wgsl.join("\n");
-
         // let mut f = std::fs::File::create("wgsl_call_glsl.txt").unwrap();
         // f.write_all(wgsl.as_bytes()).unwrap();
         // drop(f);
 
-        // assert_eq!(wgsl, include_str!("tests/expected/wgsl_call_glsl.txt"));
-
-        // actually it's worse than that ... glsl output seems volatile over struct names
-        // i suppose at least we are testing that it doesn't throw any errors ..?
-        let _ = wgsl;
+        output_eq!(wgsl, "tests/expected/wgsl_call_glsl.txt");
     }
 
     #[cfg(feature = "glsl")]
@@ -852,11 +839,6 @@ mod test {
         )
         .unwrap();
 
-        // println!("{}", wgsl);
-        let mut wgsl = wgsl.lines().collect::<Vec<_>>();
-        wgsl.sort();
-        let wgsl = wgsl.join("\n");
-
         // let mut f = std::fs::File::create("item_import_test.txt").unwrap();
         // f.write_all(wgsl.as_bytes()).unwrap();
         // drop(f);
@@ -923,9 +905,6 @@ mod test {
             naga::back::wgsl::WriterFlags::EXPLICIT_TYPES,
         )
         .unwrap();
-        let mut wgsl: Vec<_> = wgsl.lines().collect();
-        wgsl.sort();
-        let wgsl = wgsl.join("\n");
 
         // let mut f = std::fs::File::create("bad_identifiers.txt").unwrap();
         // f.write_all(wgsl.as_bytes()).unwrap();
@@ -992,9 +971,6 @@ mod test {
             naga::back::wgsl::WriterFlags::EXPLICIT_TYPES,
         )
         .unwrap();
-        let mut wgsl: Vec<_> = wgsl.lines().collect();
-        wgsl.sort();
-        let wgsl = wgsl.join("\n");
 
         // let mut f = std::fs::File::create("dup_struct_import.txt").unwrap();
         // f.write_all(wgsl.as_bytes()).unwrap();

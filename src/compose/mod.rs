@@ -1,3 +1,4 @@
+use indexmap::IndexMap;
 /// the compose module allows construction of shaders from modules (which are themselves shaders).
 ///
 /// it does this by treating shaders as modules, and
@@ -235,7 +236,7 @@ pub struct ComposableModule {
     pub virtual_functions: HashSet<String>,
     // overriding functions defined in this module
     // target function -> Vec<replacement functions>
-    pub override_functions: HashMap<String, Vec<String>>,
+    pub override_functions: IndexMap<String, Vec<String>>,
     // naga module, built against headers for any imports
     module_ir: naga::Module,
     // headers in different shader languages, used for building modules/shaders that import this module
@@ -397,7 +398,7 @@ const DECORATION_OVERRIDE_PRE: &str = "X_naga_oil_vrt_X";
 struct IrBuildResult {
     module: naga::Module,
     start_offset: usize,
-    override_functions: HashMap<String, Vec<String>>,
+    override_functions: IndexMap<String, Vec<String>>,
 }
 
 impl Composer {
@@ -583,7 +584,7 @@ impl Composer {
             ShaderLanguage::Glsl => String::from("#version 450\n"),
         };
 
-        let mut override_functions: HashMap<String, Vec<String>> = HashMap::default();
+        let mut override_functions: IndexMap<String, Vec<String>> = IndexMap::default();
         let mut added_imports: HashSet<String> = HashSet::new();
         let mut header_module = DerivedModule::default();
 
@@ -611,7 +612,7 @@ impl Composer {
             if !module.override_functions.is_empty() {
                 for (original, replacements) in &module.override_functions {
                     match override_functions.entry(original.clone()) {
-                        Entry::Occupied(o) => {
+                        indexmap::map::Entry::Occupied(o) => {
                             let existing = o.into_mut();
                             let new_replacements: Vec<_> = replacements
                                 .iter()
@@ -620,7 +621,7 @@ impl Composer {
                                 .collect();
                             existing.extend(new_replacements);
                         }
-                        Entry::Vacant(v) => {
+                        indexmap::map::Entry::Vacant(v) => {
                             v.insert(replacements.clone());
                         }
                     }
@@ -723,7 +724,7 @@ impl Composer {
                 })?,
         };
 
-        let recompiled_types: HashMap<_, _> = recompiled
+        let recompiled_types: IndexMap<_, _> = recompiled
             .types
             .iter()
             .flat_map(|(h, ty)| ty.name.as_deref().map(|name| (name, h)))
@@ -869,7 +870,7 @@ impl Composer {
             });
 
         // record and rename override functions
-        let mut local_override_functions: HashMap<String, String> = Default::default();
+        let mut local_override_functions: IndexMap<String, String> = Default::default();
 
         #[cfg(not(feature = "override_any"))]
         let mut override_error = None;
@@ -992,7 +993,7 @@ impl Composer {
         }
 
         // rename and record owned items (except types which can't be mutably accessed)
-        let mut owned_constants = HashMap::new();
+        let mut owned_constants = IndexMap::new();
         for (h, c) in source_ir.constants.iter_mut() {
             if let Some(name) = c.name.as_mut() {
                 if !name.contains(DECORATION_PRE) {
@@ -1002,7 +1003,7 @@ impl Composer {
             }
         }
 
-        let mut owned_vars = HashMap::new();
+        let mut owned_vars = IndexMap::new();
         for (h, gv) in source_ir.global_variables.iter_mut() {
             if let Some(name) = gv.name.as_mut() {
                 if !name.contains(DECORATION_PRE) {
@@ -1013,7 +1014,7 @@ impl Composer {
             }
         }
 
-        let mut owned_functions = HashMap::new();
+        let mut owned_functions = IndexMap::new();
         for (h_f, f) in source_ir.functions.iter_mut() {
             if let Some(name) = f.name.as_mut() {
                 if !name.contains(DECORATION_PRE) {

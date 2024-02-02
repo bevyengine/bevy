@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use indexmap::IndexMap;
 
 use super::{
     tokenizer::{Token, Tokenizer},
@@ -7,7 +7,7 @@ use super::{
 
 pub fn parse_imports<'a>(
     input: &'a str,
-    declared_imports: &mut HashMap<String, Vec<String>>,
+    declared_imports: &mut IndexMap<String, Vec<String>>,
 ) -> Result<(), (&'a str, usize)> {
     let mut tokens = Tokenizer::new(input, false).peekable();
 
@@ -116,8 +116,8 @@ pub fn parse_imports<'a>(
 pub fn substitute_identifiers(
     input: &str,
     offset: usize,
-    declared_imports: &HashMap<String, Vec<String>>,
-    used_imports: &mut HashMap<String, ImportDefWithOffset>,
+    declared_imports: &IndexMap<String, Vec<String>>,
+    used_imports: &mut IndexMap<String, ImportDefWithOffset>,
     allow_ambiguous: bool,
 ) -> Result<String, usize> {
     let tokens = Tokenizer::new(input, true);
@@ -193,8 +193,8 @@ pub fn substitute_identifiers(
 }
 
 #[cfg(test)]
-fn test_parse(input: &str) -> Result<HashMap<String, Vec<String>>, (&str, usize)> {
-    let mut declared_imports = HashMap::default();
+fn test_parse(input: &str) -> Result<IndexMap<String, Vec<String>>, (&str, usize)> {
+    let mut declared_imports = IndexMap::default();
     parse_imports(input, &mut declared_imports)?;
     Ok(declared_imports)
 }
@@ -206,7 +206,7 @@ fn import_tokens() {
     ";
     assert_eq!(
         test_parse(input),
-        Ok(HashMap::from_iter([(
+        Ok(IndexMap::from_iter([(
             "b".to_owned(),
             vec!("a::b".to_owned())
         )]))
@@ -217,7 +217,7 @@ fn import_tokens() {
     ";
     assert_eq!(
         test_parse(input),
-        Ok(HashMap::from_iter([
+        Ok(IndexMap::from_iter([
             ("b".to_owned(), vec!("a::b".to_owned())),
             ("c".to_owned(), vec!("a::c".to_owned())),
         ]))
@@ -228,7 +228,7 @@ fn import_tokens() {
     ";
     assert_eq!(
         test_parse(input),
-        Ok(HashMap::from_iter([
+        Ok(IndexMap::from_iter([
             ("d".to_owned(), vec!("a::b".to_owned())),
             ("c".to_owned(), vec!("a::c".to_owned())),
         ]))
@@ -239,7 +239,7 @@ fn import_tokens() {
     ";
     assert_eq!(
         test_parse(input),
-        Ok(HashMap::from_iter([
+        Ok(IndexMap::from_iter([
             ("c".to_owned(), vec!("a::b::c".to_owned())),
             ("d".to_owned(), vec!("a::b::d".to_owned())),
             ("e".to_owned(), vec!("a::e".to_owned())),
@@ -251,7 +251,7 @@ fn import_tokens() {
     ";
     assert_eq!(
         test_parse(input),
-        Ok(HashMap::from_iter([
+        Ok(IndexMap::from_iter([
             ("c".to_owned(), vec!("a::b::c".to_owned())),
             ("d".to_owned(), vec!("a::b::d".to_owned())),
             ("e".to_owned(), vec!("e".to_owned())),
@@ -263,7 +263,7 @@ fn import_tokens() {
     ";
     assert_eq!(
         test_parse(input),
-        Ok(HashMap::from_iter([
+        Ok(IndexMap::from_iter([
             ("a".to_owned(), vec!("a".to_owned())),
             ("b".to_owned(), vec!("b".to_owned())),
         ]))
@@ -274,7 +274,7 @@ fn import_tokens() {
     ";
     assert_eq!(
         test_parse(input),
-        Ok(HashMap::from_iter([
+        Ok(IndexMap::from_iter([
             ("c".to_owned(), vec!("a::b::c".to_owned())),
             ("d".to_owned(), vec!("a::b::d".to_owned())),
         ]))
@@ -285,7 +285,7 @@ fn import_tokens() {
     ";
     assert_eq!(
         test_parse(input),
-        Ok(HashMap::from_iter([(
+        Ok(IndexMap::from_iter([(
             "c".to_owned(),
             vec!("a::b::c".to_owned())
         ),]))
@@ -296,7 +296,7 @@ fn import_tokens() {
     ";
     assert_eq!(
         test_parse(input),
-        Ok(HashMap::from_iter([
+        Ok(IndexMap::from_iter([
             ("d".to_owned(), vec!("a::b::c::d".to_owned())),
             ("e".to_owned(), vec!("a::b::c::e".to_owned())),
             ("f".to_owned(), vec!("a::b::f".to_owned())),
@@ -317,7 +317,7 @@ fn import_tokens() {
     ";
     assert_eq!(
         test_parse(input),
-        Ok(HashMap::from_iter([
+        Ok(IndexMap::from_iter([
             ("d".to_owned(), vec!("a::b::c::d".to_owned())),
             ("e".to_owned(), vec!("a::b::c::e".to_owned())),
             ("f".to_owned(), vec!("a::b::f".to_owned())),
@@ -331,7 +331,7 @@ fn import_tokens() {
     "#;
     assert_eq!(
         test_parse(input),
-        Ok(HashMap::from_iter([
+        Ok(IndexMap::from_iter([
             (
                 "a".to_owned(),
                 vec!(r#""path//with\ all sorts of .stuff"::a"#.to_owned())
