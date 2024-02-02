@@ -73,7 +73,7 @@ wgpu = { version = "0.19.1", default-features = false, features = [
   "fragile-send-sync-non-atomic-wasm",
 ] }
 naga = { version = "0.19", features = ["wgsl-in"] }
-naga_oil = { version = "0.12", default-features = false, features = [
+naga_oil = { version = "0.13", default-features = false, features = [
   "test_shader",
 ] }
 serde = { version = "1", features = ["derive"] }
