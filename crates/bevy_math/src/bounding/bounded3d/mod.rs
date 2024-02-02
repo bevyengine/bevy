@@ -24,7 +24,7 @@ pub trait Bounded3d {
 }
 
 /// A 3D axis-aligned bounding box
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct Aabb3d {
     /// The minimum point of the box
     pub min: Vec3,
@@ -324,7 +324,7 @@ mod aabb3d_tests {
 use crate::primitives::Sphere;
 
 /// A bounding sphere
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct BoundingSphere {
     /// The center of the bounding sphere
     pub center: Vec3,
@@ -417,10 +417,10 @@ impl BoundingVolume for BoundingSphere {
         let diff = other.center - self.center;
         let length = diff.length();
         if self.radius() >= length + other.radius() {
-            return self.clone();
+            return *self;
         }
         if other.radius() >= length + self.radius() {
-            return other.clone();
+            return *other;
         }
         let dir = diff / length;
         Self::new(
