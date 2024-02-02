@@ -56,9 +56,10 @@ fn query_light_probe(
             result.inverse_transform = inverse_transform;
 
             // TODO: Workaround for ICE in DXC https://github.com/microsoft/DirectXShaderCompiler/issues/6183
-            // This works because it's the last thing that happens in the for loop, and will break as soon as it
-            // goes back to the top of the loop.
             // We can't use `break` here because of the ICE.
+            // So instead we rely on the fact that we set `result.texture_index`
+            // above and check its value in the `for` loop header before
+            // looping.
             // break;
         }
     }
