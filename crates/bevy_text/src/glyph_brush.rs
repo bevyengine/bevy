@@ -136,7 +136,7 @@ impl GlyphBrush {
                     }
                 };
 
-                let position = adjust.position(Vec2::new(x, y));
+                let position = adjust.position(Vec2::new(x, y) - 1.);
 
                 positioned_glyphs.push(PositionedGlyph {
                     position,
