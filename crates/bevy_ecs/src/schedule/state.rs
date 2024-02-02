@@ -811,7 +811,7 @@ impl<S: States> StateSet for S {
 /// }
 ///
 /// impl States for GamePhase {
-///     const DEPENDENCY_DEPTH : usize = GamePhase::SourceStates::SET_DEPENDENCY_DEPTH + 1;
+///     const DEPENDENCY_DEPTH : usize = <GamePhase as SubStates>::SourceStates::SET_DEPENDENCY_DEPTH + 1;
 /// }
 ///
 /// impl FreelyMutableState for GamePhase {}
