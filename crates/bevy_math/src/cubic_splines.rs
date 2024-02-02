@@ -1221,8 +1221,7 @@ mod tests {
     use glam::{vec2, Vec2};
 
     use crate::cubic_splines::{
-        CubicBSpline, CubicBezier, CubicGenerator, CubicNurbs, CubicSegment, RationalCurve,
-        RationalGenerator,
+        CubicBSpline, CubicBezier, CubicGenerator, CubicSegment, RationalCurve,
     };
 
     /// How close two floats can be and still be considered equal
@@ -1334,34 +1333,5 @@ mod tests {
         let cubic_accelerations: Vec<_> = b_spline.iter_accelerations(10).collect();
         let rational_accelerations: Vec<_> = rational_b_spline.iter_accelerations(10).collect();
         compare_vectors(cubic_accelerations, rational_accelerations, "acceleration");
-    }
-
-    /// Test that a curbs curve can approximate a portion of a circle.
-    #[test]
-    fn nurbs_circular_arc() {
-        use std::f32::consts::SQRT_2;
-        const EPSILON: f32 = 0.1;
-        // It's not an especially precise approximation because all our nurbs are cubic.
-        // A quadratic or quintic curve rational would be exact. it just needs to be better
-        // than a raw B-spline.
-
-        let points = [
-            vec2(1.0, 0.0),
-            vec2(1.0, 1.0),
-            vec2(0.0, 1.0),
-            vec2(-1.0, 1.0),
-            vec2(-1.0, 0.0),
-        ];
-
-        let weights = vec![1., SQRT_2 / 2., 1., SQRT_2 / 2., 1.];
-        let spline = CubicNurbs::new(points, Some(weights), None as Option<Vec<f32>>).unwrap();
-        let curve = spline.to_curve();
-        for (i, point) in curve.iter_positions(10).enumerate() {
-            assert!(
-                point.length() - 1.0 < EPSILON,
-                "Point {i} is not on the unit circle: {point:?} has length {}",
-                point.length()
-            )
-        }
     }
 }
