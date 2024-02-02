@@ -46,6 +46,11 @@ pub struct StandardMaterial {
     #[dependency]
     pub base_color_texture: Option<Handle<Image>>,
 
+    /// The UV channel to use when sampling the base colour texture.
+    ///
+    /// Defaults to 0. Supports 0 or 1.
+    pub base_color_texture_uv_channel: u32,
+
     // Use a color for user friendliness even though we technically don't use the alpha channel
     // Might be used in the future for exposure correction in HDR
     /// Color the material "emits" to the camera.
@@ -124,6 +129,11 @@ pub struct StandardMaterial {
     #[sampler(6)]
     #[dependency]
     pub metallic_roughness_texture: Option<Handle<Image>>,
+
+    /// The UV channel to use when sampling the metallic-roughness texture.
+    ///
+    /// Defaults to 0. Supports 0 or 1.
+    pub metallic_roughness_texture_uv_channel: u32,
 
     /// Specular intensity for non-metals on a linear scale of `[0.0, 1.0]`.
     ///
@@ -309,6 +319,11 @@ pub struct StandardMaterial {
     #[dependency]
     pub normal_map_texture: Option<Handle<Image>>,
 
+    /// The UV channel to use when sampling the normal map texture.
+    ///
+    /// Defaults to 0. Supports 0 or 1.
+    pub normal_map_texture_uv_channel: u32,
+
     /// Normal map textures authored for DirectX have their y-component flipped. Set this to flip
     /// it to right-handed conventions.
     pub flip_normal_map_y: bool,
@@ -327,6 +342,11 @@ pub struct StandardMaterial {
     #[sampler(8)]
     #[dependency]
     pub occlusion_texture: Option<Handle<Image>>,
+
+    /// The UV channel to use when sampling the occlusion texture.
+    ///
+    /// Defaults to 0. Supports 0 or 1.
+    pub occlusion_texture_uv_channel: u32,
 
     /// Support two-sided lighting by automatically flipping the normals for "back" faces
     /// within the PBR lighting shader.
@@ -481,6 +501,7 @@ impl Default for StandardMaterial {
             // a texture.
             base_color: Color::rgb(1.0, 1.0, 1.0),
             base_color_texture: None,
+            base_color_texture_uv_channel: 0,
             emissive: Color::BLACK,
             emissive_texture: None,
             // Matches Blender's default roughness.
@@ -488,6 +509,7 @@ impl Default for StandardMaterial {
             // Metallic should generally be set to 0.0 or 1.0.
             metallic: 0.0,
             metallic_roughness_texture: None,
+            metallic_roughness_texture_uv_channel: 0,
             // Minimum real-world reflectance is 2%, most materials between 2-5%
             // Expressed in a linear scale and equivalent to 4% reflectance see
             // <https://google.github.io/filament/Material%20Properties.pdf>
@@ -505,7 +527,9 @@ impl Default for StandardMaterial {
             attenuation_color: Color::WHITE,
             attenuation_distance: f32::INFINITY,
             occlusion_texture: None,
+            occlusion_texture_uv_channel: 0,
             normal_map_texture: None,
+            normal_map_texture_uv_channel: 0,
             flip_normal_map_y: false,
             double_sided: false,
             cull_mode: Some(Face::Back),
@@ -590,6 +614,12 @@ pub struct StandardMaterialUniform {
     /// Doubles as diffuse albedo for non-metallic, specular for metallic and a mix for everything
     /// in between.
     pub base_color: Vec4,
+    /// UV channel selection for base colour texture.
+    pub base_color_texture_uv_channel: u32,
+    /// UV channel selection for normal map texture.
+    pub normal_map_texture_uv_channel: u32,
+    /// UV channel selection for occlusion texture.
+    pub occlusion_texture_uv_channel: u32,
     // Use a color for user friendliness even though we technically don't use the alpha channel
     // Might be used in the future for exposure correction in HDR
     pub emissive: Vec4,
@@ -598,6 +628,8 @@ pub struct StandardMaterialUniform {
     pub roughness: f32,
     /// From [0.0, 1.0], dielectric to pure metallic
     pub metallic: f32,
+    /// UV channel selection for metallic-roughness texture.
+    pub metallic_roughness_texture_uv_channel: u32,
     /// Specular intensity for non-metals on a linear scale of [0.0, 1.0]
     /// defaults to 0.5 which is mapped to 4% reflectance in the shader
     pub reflectance: f32,
@@ -712,9 +744,13 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
 
         StandardMaterialUniform {
             base_color: self.base_color.as_linear_rgba_f32().into(),
+            base_color_texture_uv_channel: self.base_color_texture_uv_channel,
+            normal_map_texture_uv_channel: self.normal_map_texture_uv_channel,
+            occlusion_texture_uv_channel: self.occlusion_texture_uv_channel,
             emissive: self.emissive.as_linear_rgba_f32().into(),
             roughness: self.perceptual_roughness,
             metallic: self.metallic,
+            metallic_roughness_texture_uv_channel: self.metallic_roughness_texture_uv_channel,
             reflectance: self.reflectance,
             diffuse_transmission: self.diffuse_transmission,
             specular_transmission: self.specular_transmission,
