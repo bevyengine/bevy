@@ -7,9 +7,9 @@ use bevy::{
     prelude::*,
     render::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
-        render_asset::RenderAssetPersistencePolicy,
+        render_asset::RenderAssetUsages,
         render_asset::RenderAssets,
-        render_graph::{self, RenderGraph},
+        render_graph::{self, RenderGraph, RenderLabel},
         render_resource::*,
         renderer::{RenderContext, RenderDevice},
         Render, RenderApp, RenderSet,
@@ -49,7 +49,7 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
         TextureDimension::D2,
         &[0, 0, 0, 255],
         TextureFormat::Rgba8Unorm,
-        RenderAssetPersistencePolicy::Unload,
+        RenderAssetUsages::RENDER_WORLD,
     );
     image.texture_descriptor.usage =
         TextureUsages::COPY_DST | TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING;
@@ -70,6 +70,9 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
 
 pub struct GameOfLifeComputePlugin;
 
+#[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
+pub struct GameOfLifeLabel;
+
 impl Plugin for GameOfLifeComputePlugin {
     fn build(&self, app: &mut App) {
         // Extract the game of life image resource from the main world into the render world
@@ -82,11 +85,8 @@ impl Plugin for GameOfLifeComputePlugin {
         );
 
         let mut render_graph = render_app.world.resource_mut::<RenderGraph>();
-        render_graph.add_node("game_of_life", GameOfLifeNode::default());
-        render_graph.add_node_edge(
-            "game_of_life",
-            bevy::render::main_graph::node::CAMERA_DRIVER,
-        );
+        render_graph.add_node(GameOfLifeLabel, GameOfLifeNode::default());
+        render_graph.add_node_edge(GameOfLifeLabel, bevy::render::graph::CameraDriverLabel);
     }
 
     fn finish(&self, app: &mut App) {

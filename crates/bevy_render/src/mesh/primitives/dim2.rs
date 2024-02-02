@@ -1,6 +1,6 @@
 use crate::{
     mesh::{Indices, Mesh},
-    render_asset::RenderAssetPersistencePolicy,
+    render_asset::RenderAssetUsages,
 };
 
 use super::Meshable;
@@ -161,7 +161,7 @@ impl EllipseMeshBuilder {
 
         Mesh::new(
             PrimitiveTopology::TriangleList,
-            RenderAssetPersistencePolicy::Keep,
+            RenderAssetUsages::default(),
         )
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
@@ -220,7 +220,7 @@ impl Meshable for Triangle2d {
 
         Mesh::new(
             PrimitiveTopology::TriangleList,
-            RenderAssetPersistencePolicy::Keep,
+            RenderAssetUsages::default(),
         )
         .with_indices(Some(indices))
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
@@ -252,7 +252,7 @@ impl Meshable for Rectangle {
 
         Mesh::new(
             PrimitiveTopology::TriangleList,
-            RenderAssetPersistencePolicy::Keep,
+            RenderAssetUsages::default(),
         )
         .with_indices(Some(indices))
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)

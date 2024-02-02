@@ -5,11 +5,12 @@
 //! the derive helper attribute for `Reflect`, which looks like:
 //! `#[reflect(PartialEq, Default, ...)]` and `#[reflect_value(PartialEq, Default, ...)]`.
 
+use crate::derive_data::ReflectTraitToImpl;
 use crate::utility;
 use bevy_macro_utils::fq_std::{FQAny, FQOption};
 use proc_macro2::{Ident, Span, TokenTree};
 use quote::quote_spanned;
-use syn::parse::{Parse, ParseStream};
+use syn::parse::ParseStream;
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Comma;
@@ -220,10 +221,7 @@ pub(crate) struct ReflectTraits {
 }
 
 impl ReflectTraits {
-    pub fn from_meta_list(
-        meta: &MetaList,
-        is_from_reflect_derive: bool,
-    ) -> Result<Self, syn::Error> {
+    pub fn from_meta_list(meta: &MetaList, trait_: ReflectTraitToImpl) -> Result<Self, syn::Error> {
         match meta.tokens.clone().into_iter().next() {
             // Handles `#[reflect(where T: Trait, U::Assoc: Trait)]`
             Some(TokenTree::Ident(ident)) if ident == "where" => Ok(Self {
@@ -232,14 +230,14 @@ impl ReflectTraits {
             }),
             _ => Self::from_metas(
                 meta.parse_args_with(Punctuated::<Meta, Comma>::parse_terminated)?,
-                is_from_reflect_derive,
+                trait_,
             ),
         }
     }
 
     fn from_metas(
         metas: Punctuated<Meta, Comma>,
-        is_from_reflect_derive: bool,
+        trait_: ReflectTraitToImpl,
     ) -> Result<Self, syn::Error> {
         let mut traits = ReflectTraits::default();
         for meta in &metas {
@@ -317,7 +315,7 @@ impl ReflectTraits {
                                 // Override `lit` if this is a `FromReflect` derive.
                                 // This typically means a user is opting out of the default implementation
                                 // from the `Reflect` derive and using the `FromReflect` derive directly instead.
-                                is_from_reflect_derive
+                                (trait_ == ReflectTraitToImpl::FromReflect)
                                     .then(|| LitBool::new(true, Span::call_site()))
                                     .unwrap_or_else(|| lit.clone())
                             })?);
@@ -332,6 +330,10 @@ impl ReflectTraits {
         }
 
         Ok(traits)
+    }
+
+    pub fn parse(input: ParseStream, trait_: ReflectTraitToImpl) -> syn::Result<Self> {
+        ReflectTraits::from_metas(Punctuated::parse_terminated(input)?, trait_)
     }
 
     /// Returns true if the given reflected trait name (i.e. `ReflectDefault` for `Default`)
@@ -463,12 +465,6 @@ impl ReflectTraits {
             }
             _ => {}
         }
-    }
-}
-
-impl Parse for ReflectTraits {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        ReflectTraits::from_metas(Punctuated::<Meta, Comma>::parse_terminated(input)?, false)
     }
 }
 

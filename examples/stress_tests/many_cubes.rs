@@ -16,10 +16,11 @@ use bevy::{
     math::{DVec2, DVec3},
     prelude::*,
     render::{
-        render_asset::RenderAssetPersistencePolicy,
+        render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
     },
     window::{PresentMode, WindowPlugin, WindowResolution},
+    winit::{UpdateMode, WinitSettings},
 };
 use rand::{rngs::StdRng, seq::SliceRandom, Rng, SeedableRng};
 
@@ -86,6 +87,10 @@ fn main() {
             FrameTimeDiagnosticsPlugin,
             LogDiagnosticsPlugin::default(),
         ))
+        .insert_resource(WinitSettings {
+            focused_mode: UpdateMode::Continuous,
+            unfocused_mode: UpdateMode::Continuous,
+        })
         .insert_resource(args)
         .add_systems(Startup, setup)
         .add_systems(Update, (move_camera, print_mesh_count))
@@ -205,7 +210,7 @@ fn init_textures(args: &Args, images: &mut Assets<Image>) -> Vec<Handle<Image>> 
                 TextureDimension::D2,
                 pixel,
                 TextureFormat::Rgba8UnormSrgb,
-                RenderAssetPersistencePolicy::Unload,
+                RenderAssetUsages::RENDER_WORLD,
             ))
         })
         .collect()

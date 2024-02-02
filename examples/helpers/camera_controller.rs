@@ -171,8 +171,8 @@ fn run_camera_controller(
                 controller.velocity = Vec3::ZERO;
             }
         }
-        let forward = transform.forward();
-        let right = transform.right();
+        let forward = *transform.forward();
+        let right = *transform.right();
         transform.translation += controller.velocity.x * dt * right
             + controller.velocity.y * dt * Vec3::Y
             + controller.velocity.z * dt * forward;
