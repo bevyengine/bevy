@@ -1,11 +1,11 @@
 use crate::{
-    environment_map::RenderViewEnvironmentMaps, MeshPipeline, MeshViewBindGroup,
+    environment_map::RenderViewEnvironmentMaps, graph::LabelsPbr, MeshPipeline, MeshViewBindGroup,
     ScreenSpaceAmbientOcclusionSettings, ViewLightProbesUniformOffset,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_core_pipeline::{
-    core_3d,
+    core_3d::graph::{Labels3d, SubGraph3d},
     deferred::{
         copy_lighting_id::DeferredLightingIdDepthTexture, DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT,
     },
@@ -115,16 +115,16 @@ impl Plugin for DeferredPbrLightingPlugin {
                 (prepare_deferred_lighting_pipelines.in_set(RenderSet::Prepare),),
             )
             .add_render_graph_node::<ViewNodeRunner<DeferredOpaquePass3dPbrLightingNode>>(
-                core_3d::graph::NAME,
-                DEFERRED_LIGHTING_PASS,
+                SubGraph3d,
+                LabelsPbr::DeferredLightingPass,
             )
             .add_render_graph_edges(
-                core_3d::graph::NAME,
-                &[
-                    core_3d::graph::node::START_MAIN_PASS,
-                    DEFERRED_LIGHTING_PASS,
-                    core_3d::graph::node::MAIN_OPAQUE_PASS,
-                ],
+                SubGraph3d,
+                (
+                    Labels3d::StartMainPass,
+                    LabelsPbr::DeferredLightingPass,
+                    Labels3d::MainOpaquePass,
+                ),
             );
     }
 
@@ -137,7 +137,6 @@ impl Plugin for DeferredPbrLightingPlugin {
     }
 }
 
-pub const DEFERRED_LIGHTING_PASS: &str = "deferred_opaque_pbr_lighting_pass_3d";
 #[derive(Default)]
 pub struct DeferredOpaquePass3dPbrLightingNode;
 
