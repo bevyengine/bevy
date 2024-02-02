@@ -561,6 +561,22 @@ impl PipelineCache {
         }
     }
 
+    /// Wait for a render pipeline to finish compiling.
+    #[inline]
+    pub fn block_on_render_pipeline(&mut self, id: CachedRenderPipelineId) {
+        if self.pipelines.len() <= id.0 {
+            self.process_queue();
+        }
+
+        let state = &mut self.pipelines[id.0].state;
+        if let CachedPipelineState::Creating(task) = state {
+            *state = match bevy_tasks::block_on(task) {
+                Ok(p) => CachedPipelineState::Ok(p),
+                Err(e) => CachedPipelineState::Err(e),
+            };
+        }
+    }
+
     /// Try to retrieve a compute pipeline GPU object from a cached ID.
     ///
     /// # Returns
