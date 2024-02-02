@@ -10,7 +10,7 @@ use crate::{
     TypePath, TypePathTable,
 };
 
-/// A trait used to power list-like operations via [reflection].
+/// A trait used to power [list-like] operations via [reflection].
 ///
 /// This corresponds to types, like [`Box<[T]>`](std::boxed::Box), which contain an ordered sequence
 /// of elements that implement [`Reflect`].
@@ -35,6 +35,7 @@ use crate::{
 /// assert_eq!(foo.len(), 3);
 /// ```
 ///
+/// [list-like]: https://doc.rust-lang.org/book/ch08-01-vectors.html
 /// [reflection]: crate
 /// [type-erasing]: https://doc.rust-lang.org/book/ch17-02-trait-objects.html
 pub trait FixedLenList: Reflect {
