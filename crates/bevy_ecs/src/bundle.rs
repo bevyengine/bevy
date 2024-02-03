@@ -3,7 +3,7 @@
 //! This module contains the [`Bundle`] trait and some other helper types.
 
 pub use bevy_ecs_macros::Bundle;
-use bevy_utils::{HashMap, HashSet};
+use bevy_utils::{HashMap, HashSet, TypeIdMap};
 
 use crate::{
     archetype::{
@@ -14,7 +14,6 @@ use crate::{
     entity::{Entities, Entity, EntityLocation},
     query::DebugCheckedUnwrap,
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
-    TypeIdMap,
 };
 use bevy_ptr::OwningPtr;
 use bevy_utils::all_tuples;
