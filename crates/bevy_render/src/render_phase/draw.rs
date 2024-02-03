@@ -5,8 +5,9 @@ use bevy_ecs::{
     query::{QueryState, ROQueryItem, ReadOnlyQueryData},
     system::{ReadOnlySystemParam, Resource, SystemParam, SystemParamItem, SystemState},
     world::World,
+    TypeIdMap,
 };
-use bevy_utils::{all_tuples, HashMap};
+use bevy_utils::all_tuples;
 use std::{
     any::TypeId,
     fmt::Debug,
@@ -47,7 +48,7 @@ pub struct DrawFunctionId(u32);
 /// For retrieval, the [`Draw`] functions are mapped to their respective [`TypeId`]s.
 pub struct DrawFunctionsInternal<P: PhaseItem> {
     pub draw_functions: Vec<Box<dyn Draw<P>>>,
-    pub indices: HashMap<TypeId, DrawFunctionId>,
+    pub indices: TypeIdMap<DrawFunctionId>,
 }
 
 impl<P: PhaseItem> DrawFunctionsInternal<P> {
@@ -111,7 +112,7 @@ impl<P: PhaseItem> Default for DrawFunctions<P> {
         Self {
             internal: RwLock::new(DrawFunctionsInternal {
                 draw_functions: Vec::new(),
-                indices: HashMap::default(),
+                indices: Default::default(),
             }),
         }
     }

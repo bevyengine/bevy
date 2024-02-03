@@ -58,12 +58,12 @@ pub mod prelude {
 pub use bevy_utils::all_tuples;
 
 /// A specialized hashmap type with Key of [`TypeId`]
-type TypeIdMap<V> =
+pub type TypeIdMap<V> =
     std::collections::HashMap<TypeId, V, std::hash::BuildHasherDefault<NoOpTypeIdHasher>>;
 
 #[doc(hidden)]
 #[derive(Default)]
-struct NoOpTypeIdHasher(u64);
+pub struct NoOpTypeIdHasher(u64);
 
 // TypeId already contains a high-quality hash, so skip re-hashing that hash.
 impl std::hash::Hasher for NoOpTypeIdHasher {

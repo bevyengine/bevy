@@ -63,6 +63,7 @@ use bevy_ecs::{
         lifetimeless::{Read, SRes},
         Commands, Res, ResMut, Resource, SystemParamItem,
     },
+    TypeIdMap,
 };
 use bevy_reflect::TypePath;
 use bevy_render::{
@@ -79,7 +80,7 @@ use bevy_render::{
     renderer::RenderDevice,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_utils::{tracing::warn, HashMap};
+use bevy_utils::tracing::warn;
 use config::{
     DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore, GizmoMeshConfig,
 };
@@ -208,8 +209,8 @@ impl AppGizmoBuilder for App {
 
 #[derive(Resource, Default)]
 struct LineGizmoHandles {
-    list: HashMap<TypeId, Handle<LineGizmo>>,
-    strip: HashMap<TypeId, Handle<LineGizmo>>,
+    list: TypeIdMap<Handle<LineGizmo>>,
+    strip: TypeIdMap<Handle<LineGizmo>>,
 }
 
 fn update_gizmo_meshes<T: GizmoConfigGroup>(

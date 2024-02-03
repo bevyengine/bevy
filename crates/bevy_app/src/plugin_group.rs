@@ -1,5 +1,6 @@
 use crate::{App, AppError, Plugin};
-use bevy_utils::{tracing::debug, tracing::warn, HashMap};
+use bevy_ecs::TypeIdMap;
+use bevy_utils::{tracing::debug, tracing::warn};
 use std::any::TypeId;
 
 /// Combines multiple [`Plugin`]s into a single unit.
@@ -33,7 +34,7 @@ impl PluginGroup for PluginGroupBuilder {
 /// can be disabled, enabled or reordered.
 pub struct PluginGroupBuilder {
     group_name: String,
-    plugins: HashMap<TypeId, PluginEntry>,
+    plugins: TypeIdMap<PluginEntry>,
     order: Vec<TypeId>,
 }
 
