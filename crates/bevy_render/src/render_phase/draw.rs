@@ -142,22 +142,28 @@ impl<P: PhaseItem> DrawFunctions<P> {
 /// Compared to the draw function the required ECS data is fetched automatically
 /// (by the [`RenderCommandState`]) from the render world.
 /// Therefore the three types [`Param`](RenderCommand::Param),
-/// [`ViewData`](RenderCommand::ViewData) and
-/// [`ItemData`](RenderCommand::ItemData) are used.
+/// [`ViewQuery`](RenderCommand::ViewQuery) and
+/// [`ItemQuery`](RenderCommand::ItemQuery) are used.
 /// They specify which information is required to execute the render command.
 ///
 /// Multiple render commands can be combined together by wrapping them in a tuple.
 ///
 /// # Example
-/// The `DrawPbr` draw function is created from the following render command
+///
+/// The `DrawMaterial` draw function is created from the following render command
 /// tuple. Const generics are used to set specific bind group locations:
 ///
-/// ```ignore
-/// pub type DrawPbr = (
+/// ```
+/// # use bevy_render::render_phase::SetItemPipeline;
+/// # struct SetMeshViewBindGroup<const N: usize>;
+/// # struct SetMeshBindGroup<const N: usize>;
+/// # struct SetMaterialBindGroup<M, const N: usize>(core::marker::PhantomData<M>);
+/// # struct DrawMesh;
+/// pub type DrawMaterial<M> = (
 ///     SetItemPipeline,
 ///     SetMeshViewBindGroup<0>,
-///     SetStandardMaterialBindGroup<1>,
-///     SetTransformBindGroup<2>,
+///     SetMeshBindGroup<1>,
+///     SetMaterialBindGroup<M, 2>,
 ///     DrawMesh,
 /// );
 /// ```
@@ -179,19 +185,19 @@ pub trait RenderCommand<P: PhaseItem> {
     /// The view entity refers to the camera, or shadow-casting light, etc. from which the phase
     /// item will be rendered from.
     /// All components have to be accessed read only.
-    type ViewData: ReadOnlyQueryData;
+    type ViewQuery: ReadOnlyQueryData;
     /// Specifies the ECS data of the item entity required by [`RenderCommand::render`].
     ///
     /// The item is the entity that will be rendered for the corresponding view.
     /// All components have to be accessed read only.
-    type ItemData: ReadOnlyQueryData;
+    type ItemQuery: ReadOnlyQueryData;
 
     /// Renders a [`PhaseItem`] by recording commands (e.g. setting pipelines, binding bind groups,
     /// issuing draw calls, etc.) via the [`TrackedRenderPass`].
     fn render<'w>(
         item: &P,
-        view: ROQueryItem<'w, Self::ViewData>,
-        entity: ROQueryItem<'w, Self::ItemData>,
+        view: ROQueryItem<'w, Self::ViewQuery>,
+        entity: ROQueryItem<'w, Self::ItemQuery>,
         param: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult;
@@ -207,14 +213,14 @@ macro_rules! render_command_tuple_impl {
     ($(($name: ident, $view: ident, $entity: ident)),*) => {
         impl<P: PhaseItem, $($name: RenderCommand<P>),*> RenderCommand<P> for ($($name,)*) {
             type Param = ($($name::Param,)*);
-            type ViewData = ($($name::ViewData,)*);
-            type ItemData = ($($name::ItemData,)*);
+            type ViewQuery = ($($name::ViewQuery,)*);
+            type ItemQuery = ($($name::ItemQuery,)*);
 
             #[allow(non_snake_case)]
             fn render<'w>(
                 _item: &P,
-                ($($view,)*): ROQueryItem<'w, Self::ViewData>,
-                ($($entity,)*): ROQueryItem<'w, Self::ItemData>,
+                ($($view,)*): ROQueryItem<'w, Self::ViewQuery>,
+                ($($entity,)*): ROQueryItem<'w, Self::ItemQuery>,
                 ($($name,)*): SystemParamItem<'w, '_, Self::Param>,
                 _pass: &mut TrackedRenderPass<'w>,
             ) -> RenderCommandResult {
@@ -231,12 +237,12 @@ all_tuples!(render_command_tuple_impl, 0, 15, C, V, E);
 
 /// Wraps a [`RenderCommand`] into a state so that it can be used as a [`Draw`] function.
 ///
-/// The [`RenderCommand::Param`], [`RenderCommand::ViewData`] and
-/// [`RenderCommand::ItemData`] are fetched from the ECS and passed to the command.
+/// The [`RenderCommand::Param`], [`RenderCommand::ViewQuery`] and
+/// [`RenderCommand::ItemQuery`] are fetched from the ECS and passed to the command.
 pub struct RenderCommandState<P: PhaseItem + 'static, C: RenderCommand<P>> {
     state: SystemState<C::Param>,
-    view: QueryState<C::ViewData>,
-    entity: QueryState<C::ItemData>,
+    view: QueryState<C::ViewQuery>,
+    entity: QueryState<C::ItemQuery>,
 }
 
 impl<P: PhaseItem, C: RenderCommand<P>> RenderCommandState<P, C> {

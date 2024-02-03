@@ -29,7 +29,7 @@ impl AssetReader for AndroidAssetReader {
             let mut opened_asset = asset_manager
                 .open(&CString::new(path.to_str().unwrap()).unwrap())
                 .ok_or(AssetReaderError::NotFound(path.to_path_buf()))?;
-            let bytes = opened_asset.get_buffer()?;
+            let bytes = opened_asset.buffer()?;
             let reader: Box<Reader> = Box::new(VecReader::new(bytes.to_vec()));
             Ok(reader)
         })
@@ -48,7 +48,7 @@ impl AssetReader for AndroidAssetReader {
             let mut opened_asset = asset_manager
                 .open(&CString::new(meta_path.to_str().unwrap()).unwrap())
                 .ok_or(AssetReaderError::NotFound(meta_path))?;
-            let bytes = opened_asset.get_buffer()?;
+            let bytes = opened_asset.buffer()?;
             let reader: Box<Reader> = Box::new(VecReader::new(bytes.to_vec()));
             Ok(reader)
         })

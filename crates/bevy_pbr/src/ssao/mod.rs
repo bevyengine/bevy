@@ -1,13 +1,13 @@
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_core_pipeline::{
-    core_3d::CORE_3D,
+    core_3d::graph::{Labels3d, SubGraph3d},
     prelude::Camera3d,
     prepass::{DepthPrepass, NormalPrepass, ViewPrepassTextures},
 };
 use bevy_ecs::{
     prelude::{Bundle, Component, Entity},
-    query::{QueryItem, With},
+    query::{Has, QueryItem, With},
     reflect::ReflectComponent,
     schedule::IntoSystemConfigs,
     system::{Commands, Query, Res, ResMut, Resource},
@@ -37,12 +37,7 @@ use bevy_utils::{
 };
 use std::mem;
 
-pub mod draw_3d_graph {
-    pub mod node {
-        /// Label for the screen space ambient occlusion render node.
-        pub const SCREEN_SPACE_AMBIENT_OCCLUSION: &str = "screen_space_ambient_occlusion";
-    }
-}
+use crate::LabelsPbr;
 
 const PREPROCESS_DEPTH_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(102258915420479);
 const GTAO_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(253938746510568);
@@ -117,17 +112,17 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
                 ),
             )
             .add_render_graph_node::<ViewNodeRunner<SsaoNode>>(
-                CORE_3D,
-                draw_3d_graph::node::SCREEN_SPACE_AMBIENT_OCCLUSION,
+                SubGraph3d,
+                LabelsPbr::ScreenSpaceAmbientOcclusion,
             )
             .add_render_graph_edges(
-                CORE_3D,
-                &[
+                SubGraph3d,
+                (
                     // END_PRE_PASSES -> SCREEN_SPACE_AMBIENT_OCCLUSION -> MAIN_PASS
-                    bevy_core_pipeline::core_3d::graph::node::END_PREPASSES,
-                    draw_3d_graph::node::SCREEN_SPACE_AMBIENT_OCCLUSION,
-                    bevy_core_pipeline::core_3d::graph::node::START_MAIN_PASS,
-                ],
+                    Labels3d::EndPrepasses,
+                    LabelsPbr::ScreenSpaceAmbientOcclusion,
+                    Labels3d::StartMainPass,
+                ),
             );
     }
 }
@@ -199,7 +194,7 @@ impl ScreenSpaceAmbientOcclusionQualityLevel {
 struct SsaoNode {}
 
 impl ViewNode for SsaoNode {
-    type ViewData = (
+    type ViewQuery = (
         &'static ExtractedCamera,
         &'static SsaoPipelineId,
         &'static SsaoBindGroups,
@@ -210,7 +205,7 @@ impl ViewNode for SsaoNode {
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (camera, pipeline_id, bind_groups, view_uniform_offset): QueryItem<Self::ViewData>,
+        (camera, pipeline_id, bind_groups, view_uniform_offset): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let pipelines = world.resource::<SsaoPipelines>();
@@ -340,6 +335,7 @@ impl FromWorld for SsaoPipelines {
                     usage: TextureUsages::TEXTURE_BINDING,
                     view_formats: &[],
                 }),
+                TextureDataOrder::default(),
                 bytemuck::cast_slice(&generate_hilbert_index_lut()),
             )
             .create_view(&TextureViewDescriptor::default());
@@ -612,7 +608,7 @@ fn prepare_ssao_pipelines(
     views: Query<(
         Entity,
         &ScreenSpaceAmbientOcclusionSettings,
-        Option<&TemporalJitter>,
+        Has<TemporalJitter>,
     )>,
 ) {
     for (entity, ssao_settings, temporal_jitter) in &views {
@@ -621,7 +617,7 @@ fn prepare_ssao_pipelines(
             &pipeline,
             SsaoPipelineKey {
                 ssao_settings: ssao_settings.clone(),
-                temporal_jitter: temporal_jitter.is_some(),
+                temporal_jitter,
             },
         );
 
@@ -681,7 +677,7 @@ fn prepare_ssao_bind_groups(
             "ssao_preprocess_depth_bind_group",
             &pipelines.preprocess_depth_bind_group_layout,
             &BindGroupEntries::sequential((
-                &prepass_textures.depth.as_ref().unwrap().default_view,
+                prepass_textures.depth_view().unwrap(),
                 &create_depth_view(0),
                 &create_depth_view(1),
                 &create_depth_view(2),
@@ -695,7 +691,7 @@ fn prepare_ssao_bind_groups(
             &pipelines.gtao_bind_group_layout,
             &BindGroupEntries::sequential((
                 &ssao_textures.preprocessed_depth_texture.default_view,
-                &prepass_textures.normal.as_ref().unwrap().default_view,
+                prepass_textures.normal_view().unwrap(),
                 &pipelines.hilbert_index_lut,
                 &ssao_textures.ssao_noisy_texture.default_view,
                 &ssao_textures.depth_differences_texture.default_view,

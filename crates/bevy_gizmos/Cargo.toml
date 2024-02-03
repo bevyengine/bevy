@@ -10,6 +10,7 @@ keywords = ["bevy"]
 
 [features]
 webgl = []
+webgpu = []
 
 [dependencies]
 # Bevy
@@ -25,6 +26,8 @@ bevy_core = { path = "../bevy_core", version = "0.12.0" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.12.0" }
 bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.12.0" }
 bevy_transform = { path = "../bevy_transform", version = "0.12.0" }
+bevy_log = { path = "../bevy_log", version = "0.12.0" }
+bevy_gizmos_macros = { path = "macros", version = "0.12.0" }
 
 [lints]
 workspace = true

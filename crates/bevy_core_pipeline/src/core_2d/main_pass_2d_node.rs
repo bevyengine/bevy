@@ -1,13 +1,10 @@
-use crate::{
-    clear_color::{ClearColor, ClearColorConfig},
-    core_2d::{camera_2d::Camera2d, Transparent2d},
-};
+use crate::core_2d::Transparent2d;
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_phase::RenderPhase,
-    render_resource::{LoadOp, Operations, RenderPassDescriptor, StoreOp},
+    render_resource::RenderPassDescriptor,
     renderer::RenderContext,
     view::{ExtractedView, ViewTarget},
 };
@@ -20,7 +17,6 @@ pub struct MainPass2dNode {
             &'static ExtractedCamera,
             &'static RenderPhase<Transparent2d>,
             &'static ViewTarget,
-            &'static Camera2d,
         ),
         With<ExtractedView>,
     >,
@@ -46,28 +42,19 @@ impl Node for MainPass2dNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
-        let Ok((camera, transparent_phase, target, camera_2d)) =
-            self.query.get_manual(world, view_entity)
+        let Ok((camera, transparent_phase, target)) = self.query.get_manual(world, view_entity)
         else {
             // no target
             return Ok(());
         };
+
         {
             #[cfg(feature = "trace")]
             let _main_pass_2d = info_span!("main_pass_2d").entered();
 
             let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some("main_pass_2d"),
-                color_attachments: &[Some(target.get_color_attachment(Operations {
-                    load: match camera_2d.clear_color {
-                        ClearColorConfig::Default => {
-                            LoadOp::Clear(world.resource::<ClearColor>().0.into())
-                        }
-                        ClearColorConfig::Custom(color) => LoadOp::Clear(color.into()),
-                        ClearColorConfig::None => LoadOp::Load,
-                    },
-                    store: StoreOp::Store,
-                }))],
+                color_attachments: &[Some(target.get_color_attachment())],
                 depth_stencil_attachment: None,
                 timestamp_writes: None,
                 occlusion_query_set: None,
@@ -82,16 +69,13 @@ impl Node for MainPass2dNode {
 
         // WebGL2 quirk: if ending with a render pass with a custom viewport, the viewport isn't
         // reset for the next render pass so add an empty render pass without a custom viewport
-        #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+        #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         if camera.viewport.is_some() {
             #[cfg(feature = "trace")]
             let _reset_viewport_pass_2d = info_span!("reset_viewport_pass_2d").entered();
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("reset_viewport_pass_2d"),
-                color_attachments: &[Some(target.get_color_attachment(Operations {
-                    load: LoadOp::Load,
-                    store: StoreOp::Store,
-                }))],
+                color_attachments: &[Some(target.get_color_attachment())],
                 depth_stencil_attachment: None,
                 timestamp_writes: None,
                 occlusion_query_set: None,

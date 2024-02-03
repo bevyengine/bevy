@@ -8,9 +8,9 @@ use bevy_app::{App, CreatePlugin, Plugin};
 #[derive(Debug, Error)]
 pub enum DynamicPluginLoadError {
     #[error("cannot load library for dynamic plugin: {0}")]
-    Library(libloading::Error),
+    Library(#[source] libloading::Error),
     #[error("dynamic library does not contain a valid Bevy dynamic plugin")]
-    Plugin(libloading::Error),
+    Plugin(#[source] libloading::Error),
 }
 
 /// Dynamically links a plugin at the given path. The plugin must export a function with the

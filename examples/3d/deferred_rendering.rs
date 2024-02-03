@@ -62,6 +62,7 @@ fn setup(
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            intensity: 150.0,
         },
         DepthPrepass,
         MotionVectorPrepass,
@@ -71,6 +72,7 @@ fn setup(
 
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
+            illuminance: 4000.0,
             shadows_enabled: true,
             ..default()
         },
@@ -103,16 +105,16 @@ fn setup(
 
     // Plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(50.0).into()),
+        mesh: meshes.add(shape::Plane::from_size(50.0)),
         material: forward_mat_h.clone(),
         ..default()
     });
 
-    let cube_h = meshes.add(Mesh::from(shape::Cube { size: 0.1 }));
-    let sphere_h = meshes.add(Mesh::from(shape::UVSphere {
+    let cube_h = meshes.add(shape::Cube { size: 0.1 });
+    let sphere_h = meshes.add(shape::UVSphere {
         radius: 0.125,
         ..default()
-    }));
+    });
 
     // Cubes
     commands.spawn(PbrBundle {
@@ -145,7 +147,7 @@ fn setup(
     // Light
     commands.spawn(PointLightBundle {
         point_light: PointLight {
-            intensity: 1.0,
+            intensity: 150.0,
             radius: 0.125,
             shadows_enabled: true,
             color: sphere_color,
@@ -196,7 +198,7 @@ fn setup(
     // sky
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Box::default())),
+            mesh: meshes.add(shape::Box::default()),
             material: materials.add(StandardMaterial {
                 base_color: Color::hex("888888").unwrap(),
                 unlit: true,
@@ -352,7 +354,7 @@ fn switch_mode(
         pause.0 = !pause.0;
     }
 
-    if keys.just_pressed(KeyCode::Key1) {
+    if keys.just_pressed(KeyCode::Digit1) {
         *mode = DefaultRenderMode::Deferred;
         default_opaque_renderer_method.set_to_deferred();
         println!("DefaultOpaqueRendererMethod: Deferred");
@@ -364,7 +366,7 @@ fn switch_mode(
             commands.entity(camera).insert(DeferredPrepass);
         }
     }
-    if keys.just_pressed(KeyCode::Key2) {
+    if keys.just_pressed(KeyCode::Digit2) {
         *mode = DefaultRenderMode::Forward;
         default_opaque_renderer_method.set_to_forward();
         println!("DefaultOpaqueRendererMethod: Forward");
@@ -376,7 +378,7 @@ fn switch_mode(
             commands.entity(camera).remove::<DeferredPrepass>();
         }
     }
-    if keys.just_pressed(KeyCode::Key3) {
+    if keys.just_pressed(KeyCode::Digit3) {
         *mode = DefaultRenderMode::ForwardPrepass;
         default_opaque_renderer_method.set_to_forward();
         println!("DefaultOpaqueRendererMethod: Forward + Prepass");
@@ -389,7 +391,7 @@ fn switch_mode(
         }
     }
 
-    if keys.just_pressed(KeyCode::H) {
+    if keys.just_pressed(KeyCode::KeyH) {
         *hide_ui = !*hide_ui;
     }
 

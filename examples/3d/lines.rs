@@ -6,6 +6,7 @@ use bevy::{
     reflect::TypePath,
     render::{
         mesh::{MeshVertexBufferLayout, PrimitiveTopology},
+        render_asset::RenderAssetUsages,
         render_resource::{
             AsBindGroup, PolygonMode, RenderPipelineDescriptor, ShaderRef,
             SpecializedMeshPipelineError,
@@ -27,12 +28,12 @@ fn setup(
 ) {
     // Spawn a list of lines with start and end points for each lines
     commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Mesh::from(LineList {
+        mesh: meshes.add(LineList {
             lines: vec![
                 (Vec3::ZERO, Vec3::new(1.0, 1.0, 0.0)),
                 (Vec3::new(1.0, 1.0, 0.0), Vec3::new(1.0, 0.0, 0.0)),
             ],
-        })),
+        }),
         transform: Transform::from_xyz(-1.5, 0.0, 0.0),
         material: materials.add(LineMaterial {
             color: Color::GREEN,
@@ -42,13 +43,13 @@ fn setup(
 
     // Spawn a line strip that goes from point to point
     commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Mesh::from(LineStrip {
+        mesh: meshes.add(LineStrip {
             points: vec![
                 Vec3::ZERO,
                 Vec3::new(1.0, 1.0, 0.0),
                 Vec3::new(1.0, 0.0, 0.0),
             ],
-        })),
+        }),
         transform: Transform::from_xyz(0.5, 0.0, 0.0),
         material: materials.add(LineMaterial { color: Color::BLUE }),
         ..default()
@@ -94,11 +95,14 @@ impl From<LineList> for Mesh {
     fn from(line: LineList) -> Self {
         let vertices: Vec<_> = line.lines.into_iter().flat_map(|(a, b)| [a, b]).collect();
 
-        // This tells wgpu that the positions are list of lines
-        // where every pair is a start and end point
-        Mesh::new(PrimitiveTopology::LineList)
-            // Add the vertices positions as an attribute
-            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vertices)
+        Mesh::new(
+            // This tells wgpu that the positions are list of lines
+            // where every pair is a start and end point
+            PrimitiveTopology::LineList,
+            RenderAssetUsages::RENDER_WORLD,
+        )
+        // Add the vertices positions as an attribute
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vertices)
     }
 }
 
@@ -110,10 +114,13 @@ pub struct LineStrip {
 
 impl From<LineStrip> for Mesh {
     fn from(line: LineStrip) -> Self {
-        // This tells wgpu that the positions are a list of points
-        // where a line will be drawn between each consecutive point
-        Mesh::new(PrimitiveTopology::LineStrip)
-            // Add the point positions as an attribute
-            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, line.points)
+        Mesh::new(
+            // This tells wgpu that the positions are a list of points
+            // where a line will be drawn between each consecutive point
+            PrimitiveTopology::LineStrip,
+            RenderAssetUsages::RENDER_WORLD,
+        )
+        // Add the point positions as an attribute
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, line.points)
     }
 }

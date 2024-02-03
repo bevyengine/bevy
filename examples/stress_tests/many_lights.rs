@@ -10,6 +10,7 @@ use bevy::{
     prelude::*,
     render::{camera::ScalingMode, Render, RenderApp, RenderSet},
     window::{PresentMode, WindowPlugin, WindowResolution},
+    winit::{UpdateMode, WinitSettings},
 };
 use rand::{thread_rng, Rng};
 
@@ -30,6 +31,10 @@ fn main() {
             LogDiagnosticsPlugin::default(),
             LogVisibleLights,
         ))
+        .insert_resource(WinitSettings {
+            focused_mode: UpdateMode::Continuous,
+            unfocused_mode: UpdateMode::Continuous,
+        })
         .add_systems(Startup, setup)
         .add_systems(Update, (move_camera, print_light_count))
         .run();
@@ -55,12 +60,12 @@ fn setup(
             })
             .unwrap(),
         ),
-        material: materials.add(StandardMaterial::from(Color::WHITE)),
+        material: materials.add(Color::WHITE),
         transform: Transform::from_scale(Vec3::NEG_ONE),
         ..default()
     });
 
-    let mesh = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
+    let mesh = meshes.add(shape::Cube { size: 1.0 });
     let material = materials.add(StandardMaterial {
         base_color: Color::PINK,
         ..default()

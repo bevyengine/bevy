@@ -1,11 +1,8 @@
-use crate::{
-    clear_color::ClearColorConfig,
-    tonemapping::{DebandDither, Tonemapping},
-};
+use crate::tonemapping::{DebandDither, Tonemapping};
 use bevy_ecs::prelude::*;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render::{
-    camera::{Camera, CameraRenderGraph, Projection},
+    camera::{Camera, CameraMainTextureUsages, CameraRenderGraph, Projection},
     extract_component::ExtractComponent,
     primitives::Frustum,
     render_resource::{LoadOp, TextureUsages},
@@ -14,13 +11,13 @@ use bevy_render::{
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use serde::{Deserialize, Serialize};
 
+use super::graph::SubGraph3d;
+
 /// Configuration for the "main 3d render graph".
 #[derive(Component, Reflect, Clone, ExtractComponent)]
 #[extract_component_filter(With<Camera>)]
 #[reflect(Component)]
 pub struct Camera3d {
-    /// The clear color operation to perform for the main 3d pass.
-    pub clear_color: ClearColorConfig,
     /// The depth clear operation to perform for the main 3d pass.
     pub depth_load_op: Camera3dDepthLoadOp,
     /// The texture usages for the depth texture created for the main 3d pass.
@@ -37,7 +34,7 @@ pub struct Camera3d {
     ///   regardless of this setting.
     /// - Setting this to `0` disables the screen-space refraction effect entirely, and falls
     ///   back to refracting only the environment map light's texture.
-    /// - If set to more than `0`, any opaque [`clear_color`](Camera3d::clear_color) will obscure the environment
+    /// - If set to more than `0`, any opaque [`clear_color`](Camera::clear_color) will obscure the environment
     ///   map light's texture, preventing it from being visible “through” transmissive materials. If you'd like
     ///   to still have the environment map show up in your refractions, you can set the clear color's alpha to `0.0`.
     ///   Keep in mind that depending on the platform and your window settings, this may cause the window to become
@@ -55,7 +52,6 @@ pub struct Camera3d {
 impl Default for Camera3d {
     fn default() -> Self {
         Self {
-            clear_color: ClearColorConfig::Default,
             depth_load_op: Default::default(),
             depth_texture_usages: TextureUsages::RENDER_ATTACHMENT.into(),
             screen_space_specular_transmission_steps: 1,
@@ -64,7 +60,8 @@ impl Default for Camera3d {
     }
 }
 
-#[derive(Clone, Copy, Reflect)]
+#[derive(Clone, Copy, Reflect, Serialize, Deserialize)]
+#[reflect(Serialize, Deserialize)]
 pub struct Camera3dDepthTextureUsage(u32);
 
 impl From<TextureUsages> for Camera3dDepthTextureUsage {
@@ -148,13 +145,14 @@ pub struct Camera3dBundle {
     pub tonemapping: Tonemapping,
     pub dither: DebandDither,
     pub color_grading: ColorGrading,
+    pub main_texture_usages: CameraMainTextureUsages,
 }
 
 // NOTE: ideally Perspective and Orthographic defaults can share the same impl, but sadly it breaks rust's type inference
 impl Default for Camera3dBundle {
     fn default() -> Self {
         Self {
-            camera_render_graph: CameraRenderGraph::new(crate::core_3d::graph::NAME),
+            camera_render_graph: CameraRenderGraph::new(SubGraph3d),
             camera: Default::default(),
             projection: Default::default(),
             visible_entities: Default::default(),
@@ -165,6 +163,7 @@ impl Default for Camera3dBundle {
             tonemapping: Default::default(),
             dither: DebandDither::Enabled,
             color_grading: ColorGrading::default(),
+            main_texture_usages: Default::default(),
         }
     }
 }

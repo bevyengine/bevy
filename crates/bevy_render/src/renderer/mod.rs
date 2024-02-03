@@ -71,6 +71,10 @@ pub fn render_system(world: &mut World) {
         for window in windows.values_mut() {
             if let Some(wrapped_texture) = window.swap_chain_texture.take() {
                 if let Some(surface_texture) = wrapped_texture.try_unwrap() {
+                    // TODO(clean): winit docs recommends calling pre_present_notify before this.
+                    // though `present()` doesn't present the frame, it schedules it to be presented
+                    // by wgpu.
+                    // https://docs.rs/winit/0.29.9/wasm32-unknown-unknown/winit/window/struct.Window.html#method.pre_present_notify
                     surface_texture.present();
                 }
             }
@@ -129,7 +133,7 @@ const GPU_NOT_FOUND_ERROR_MESSAGE: &str = if cfg!(target_os = "linux") {
 pub async fn initialize_renderer(
     instance: &Instance,
     options: &WgpuSettings,
-    request_adapter_options: &RequestAdapterOptions<'_>,
+    request_adapter_options: &RequestAdapterOptions<'_, '_>,
 ) -> (RenderDevice, RenderQueue, RenderAdapterInfo, RenderAdapter) {
     let adapter = instance
         .request_adapter(request_adapter_options)
@@ -276,8 +280,8 @@ pub async fn initialize_renderer(
         .request_device(
             &wgpu::DeviceDescriptor {
                 label: options.device_label.as_ref().map(|a| a.as_ref()),
-                features,
-                limits,
+                required_features: features,
+                required_limits: limits,
             },
             trace_path,
         )
