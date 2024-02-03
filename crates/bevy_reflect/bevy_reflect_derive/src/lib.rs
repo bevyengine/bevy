@@ -140,11 +140,6 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
 ///
 /// There are a few "special" identifiers that work a bit differently:
 ///
-/// * `#[reflect(Debug)]` will force the implementation of `Reflect::reflect_debug` to rely on
-///   the type's [`Debug`] implementation.
-///   A custom implementation may be provided using `#[reflect(Debug(my_debug_func))]` where
-///   `my_debug_func` is the path to a function matching the signature:
-///   `(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result`.
 /// * `#[reflect(PartialEq)]` will force the implementation of `Reflect::reflect_partial_eq` to rely on
 ///   the type's [`PartialEq`] implementation.
 ///   A custom implementation may be provided using `#[reflect(PartialEq(my_partial_eq_func))]` where
