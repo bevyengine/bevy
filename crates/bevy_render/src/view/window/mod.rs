@@ -1,17 +1,24 @@
 use crate::{
-    render_resource::{PipelineCache, SpecializedRenderPipelines, SurfaceTexture, TextureView},
+    render_resource::{
+        BindGroupEntries, PipelineCache, SpecializedRenderPipelines, SurfaceTexture, TextureView,
+    },
     renderer::{RenderAdapter, RenderDevice, RenderInstance},
     texture::TextureFormatPixelInfo,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
-use bevy_utils::{default, tracing::debug, HashMap, HashSet};
+use bevy_utils::{default, tracing::debug, EntityHashMap, HashSet};
 use bevy_window::{
     CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosed,
 };
-use std::ops::{Deref, DerefMut};
-use wgpu::{BufferUsages, TextureFormat, TextureUsages, TextureViewDescriptor};
+use std::{
+    ops::{Deref, DerefMut},
+    sync::PoisonError,
+};
+use wgpu::{
+    BufferUsages, SurfaceTargetUnsafe, TextureFormat, TextureUsages, TextureViewDescriptor,
+};
 
 pub mod screenshot;
 
@@ -35,7 +42,6 @@ impl Plugin for WindowRenderPlugin {
             render_app
                 .init_resource::<ExtractedWindows>()
                 .init_resource::<WindowSurfaces>()
-                .init_non_send_resource::<NonSendMarker>()
                 .add_systems(ExtractSchedule, extract_windows)
                 .add_systems(Render, prepare_windows.in_set(RenderSet::ManageViews));
         }
@@ -84,11 +90,11 @@ impl ExtractedWindow {
 #[derive(Default, Resource)]
 pub struct ExtractedWindows {
     pub primary: Option<Entity>,
-    pub windows: HashMap<Entity, ExtractedWindow>,
+    pub windows: EntityHashMap<Entity, ExtractedWindow>,
 }
 
 impl Deref for ExtractedWindows {
-    type Target = HashMap<Entity, ExtractedWindow>;
+    type Target = EntityHashMap<Entity, ExtractedWindow>;
 
     fn deref(&self) -> &Self::Target {
         &self.windows
@@ -106,6 +112,8 @@ fn extract_windows(
     screenshot_manager: Extract<Res<ScreenshotManager>>,
     mut closed: Extract<EventReader<WindowClosed>>,
     windows: Extract<Query<(Entity, &Window, &RawHandleWrapper, Option<&PrimaryWindow>)>>,
+    mut removed: Extract<RemovedComponents<RawHandleWrapper>>,
+    mut window_surfaces: ResMut<WindowSurfaces>,
 ) {
     for (entity, window, handle, primary) in windows.iter() {
         if primary.is_some() {
@@ -163,12 +171,22 @@ fn extract_windows(
 
     for closed_window in closed.read() {
         extracted_windows.remove(&closed_window.window);
+        window_surfaces.remove(&closed_window.window);
+    }
+    for removed_window in removed.read() {
+        extracted_windows.remove(&removed_window);
+        window_surfaces.remove(&removed_window);
     }
     // This lock will never block because `callbacks` is `pub(crate)` and this is the singular callsite where it's locked.
     // Even if a user had multiple copies of this system, since the system has a mutable resource access the two systems would never run
     // at the same time
     // TODO: since this is guaranteed, should the lock be replaced with an UnsafeCell to remove the overhead, or is it minor enough to be ignored?
-    for (window, screenshot_func) in screenshot_manager.callbacks.lock().drain() {
+    for (window, screenshot_func) in screenshot_manager
+        .callbacks
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .drain()
+    {
         if let Some(window) = extracted_windows.get_mut(&window) {
             window.screenshot_func = Some(screenshot_func);
         }
@@ -176,15 +194,23 @@ fn extract_windows(
 }
 
 struct SurfaceData {
-    surface: wgpu::Surface,
+    // TODO: what lifetime should this be?
+    surface: wgpu::Surface<'static>,
     format: TextureFormat,
 }
 
 #[derive(Resource, Default)]
 pub struct WindowSurfaces {
-    surfaces: HashMap<Entity, SurfaceData>,
+    surfaces: EntityHashMap<Entity, SurfaceData>,
     /// List of windows that we have already called the initial `configure_surface` for
     configured_windows: HashSet<Entity>,
+}
+
+impl WindowSurfaces {
+    fn remove(&mut self, window: &Entity) {
+        self.surfaces.remove(window);
+        self.configured_windows.remove(window);
+    }
 }
 
 /// Creates and (re)configures window surfaces, and obtains a swapchain texture for rendering.
@@ -211,8 +237,8 @@ pub struct WindowSurfaces {
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_windows(
     // By accessing a NonSend resource, we tell the scheduler to put this system on the main thread,
-    // which is necessary for some OS s
-    _marker: NonSend<NonSendMarker>,
+    // which is necessary for some OS's
+    #[cfg(any(target_os = "macos", target_os = "ios"))] _marker: Option<NonSend<NonSendMarker>>,
     mut windows: ResMut<ExtractedWindows>,
     mut window_surfaces: ResMut<WindowSurfaces>,
     render_device: Res<RenderDevice>,
@@ -228,18 +254,25 @@ pub fn prepare_windows(
         let surface_data = window_surfaces
             .surfaces
             .entry(window.entity)
-            .or_insert_with(|| unsafe {
-                // NOTE: On some OSes this MUST be called from the main thread.
-                // As of wgpu 0.15, only failable if the given window is a HTML canvas and obtaining a WebGPU or WebGL2 context fails.
-                let surface = render_instance
-                    .create_surface(&window.handle.get_handle())
-                    .expect("Failed to create wgpu surface");
+            .or_insert_with(|| {
+                let surface_target = SurfaceTargetUnsafe::RawHandle {
+                    raw_display_handle: window.handle.display_handle,
+                    raw_window_handle: window.handle.window_handle,
+                };
+                // SAFETY: The window handles in ExtractedWindows will always be valid objects to create surfaces on
+                let surface = unsafe {
+                    // NOTE: On some OSes this MUST be called from the main thread.
+                    // As of wgpu 0.15, only fallible if the given window is a HTML canvas and obtaining a WebGPU or WebGL2 context fails.
+                    render_instance
+                        .create_surface_unsafe(surface_target)
+                        .expect("Failed to create wgpu surface")
+                };
                 let caps = surface.get_capabilities(&render_adapter);
                 let formats = caps.formats;
                 // For future HDR output support, we'll need to request a format that supports HDR,
                 // but as of wgpu 0.15 that is not yet supported.
                 // Prefer sRGB formats for surfaces, but fall back to first available format if no sRGB formats are available.
-                let mut format = *formats.get(0).expect("No supported formats for surface");
+                let mut format = *formats.first().expect("No supported formats for surface");
                 for available_format in formats {
                     // Rgba8UnormSrgb and Bgra8UnormSrgb and the only sRGB formats wgpu exposes that we can use for surfaces.
                     if available_format == TextureFormat::Rgba8UnormSrgb
@@ -257,7 +290,7 @@ pub fn prepare_windows(
             format: surface_data.format,
             width: window.physical_width,
             height: window.physical_height,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            usage: TextureUsages::RENDER_ATTACHMENT,
             present_mode: match window.present_mode {
                 PresentMode::Fifo => wgpu::PresentMode::Fifo,
                 PresentMode::FifoRelaxed => wgpu::PresentMode::FifoRelaxed,
@@ -266,6 +299,12 @@ pub fn prepare_windows(
                 PresentMode::AutoVsync => wgpu::PresentMode::AutoVsync,
                 PresentMode::AutoNoVsync => wgpu::PresentMode::AutoNoVsync,
             },
+            // TODO: Expose this as a setting somewhere
+            // 2 is wgpu's default/what we've been using so far.
+            // 1 is the minimum, but may cause lower framerates due to the cpu waiting for the gpu to finish
+            // all work for the previous frame before starting work on the next frame, which then means the gpu
+            // has to wait for the cpu to finish to start on the next frame.
+            desired_maximum_frame_latency: 2,
             alpha_mode: match window.alpha_mode {
                 CompositeAlphaMode::Auto => wgpu::CompositeAlphaMode::Auto,
                 CompositeAlphaMode::Opaque => wgpu::CompositeAlphaMode::Opaque,
@@ -320,9 +359,12 @@ pub fn prepare_windows(
         let may_erroneously_timeout = || {
             render_instance
                 .enumerate_adapters(wgpu::Backends::VULKAN)
+                .iter()
                 .any(|adapter| {
                     let name = adapter.get_info().name;
-                    name.starts_with("AMD") || name.starts_with("Intel")
+                    name.starts_with("Radeon")
+                        || name.starts_with("AMD")
+                        || name.starts_with("Intel")
                 })
         };
 
@@ -389,14 +431,11 @@ pub fn prepare_windows(
                 usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             });
-            let bind_group = render_device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("screenshot-to-screen-bind-group"),
-                layout: &screenshot_pipeline.bind_group_layout,
-                entries: &[wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&texture_view),
-                }],
-            });
+            let bind_group = render_device.create_bind_group(
+                "screenshot-to-screen-bind-group",
+                &screenshot_pipeline.bind_group_layout,
+                &BindGroupEntries::single(&texture_view),
+            );
             let pipeline_id = pipelines.specialize(
                 &pipeline_cache,
                 &screenshot_pipeline,

@@ -3,9 +3,9 @@
 //! Illustrates:
 //!
 //! - How to access and modify individual morph target weights.
-//!   See the [`update_weights`] system for details.
-//! - How to read morph target names in [`name_morphs`].
-//! - How to play morph target animations in [`setup_animations`].
+//!   See the `update_weights` system for details.
+//! - How to read morph target names in `name_morphs`.
+//! - How to play morph target animations in `setup_animations`.
 
 use bevy::prelude::*;
 use std::f32::consts::PI;
@@ -20,7 +20,7 @@ fn main() {
             ..default()
         }))
         .insert_resource(AmbientLight {
-            brightness: 1.0,
+            brightness: 150.0,
             ..default()
         })
         .add_systems(Startup, setup)
@@ -46,7 +46,7 @@ fn setup(asset_server: Res<AssetServer>, mut commands: Commands) {
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
             color: Color::WHITE,
-            illuminance: 19350.0,
+            illuminance: 1000.0,
             ..default()
         },
         transform: Transform::from_rotation(Quat::from_rotation_z(PI / 2.0)),

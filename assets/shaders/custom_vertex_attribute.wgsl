@@ -1,10 +1,9 @@
-#import bevy_pbr::mesh_bindings   mesh
-#import bevy_pbr::mesh_functions  get_model_matrix, mesh_position_local_to_clip
+#import bevy_pbr::mesh_functions::{get_model_matrix, mesh_position_local_to_clip}
 
 struct CustomMaterial {
     color: vec4<f32>,
 };
-@group(1) @binding(0) var<uniform> material: CustomMaterial;
+@group(2) @binding(0) var<uniform> material: CustomMaterial;
 
 struct Vertex {
     @builtin(instance_index) instance_index: u32,

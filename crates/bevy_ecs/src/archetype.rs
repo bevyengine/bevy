@@ -27,7 +27,7 @@ use crate::{
 };
 use std::{
     hash::Hash,
-    ops::{Index, IndexMut},
+    ops::{Index, IndexMut, RangeFrom},
 };
 
 /// An opaque location within a [`Archetype`].
@@ -69,8 +69,8 @@ impl ArchetypeRow {
 /// [`EMPTY`] which is guaranteed to be identical for all Worlds.
 ///
 /// [`World`]: crate::world::World
-/// [`EMPTY`]: crate::archetype::ArchetypeId::EMPTY
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+/// [`EMPTY`]: ArchetypeId::EMPTY
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 // SAFETY: Must be repr(transparent) due to the safety requirements on EntityLocation
 #[repr(transparent)]
 pub struct ArchetypeId(u32);
@@ -83,13 +83,26 @@ impl ArchetypeId {
     /// This must always have an all-1s bit pattern to ensure soundness in fast entity id space allocation.
     pub const INVALID: ArchetypeId = ArchetypeId(u32::MAX);
 
+    /// Create an `ArchetypeId` from a plain value.
+    ///
+    /// This is useful if you need to store the `ArchetypeId` as a plain value,
+    /// for example in a specialized data structure such as a bitset.
+    ///
+    /// While it doesn't break any safety invariants, you should ensure the
+    /// values comes from a pre-existing [`ArchetypeId::index`] in this world
+    /// to avoid panics and other unexpected behaviors.
     #[inline]
-    pub(crate) const fn new(index: usize) -> Self {
+    pub const fn new(index: usize) -> Self {
         ArchetypeId(index as u32)
     }
 
+    /// The plain value of this `ArchetypeId`.
+    ///
+    /// In bevy, this is mostly used to store archetype ids in [`FixedBitSet`]s.
+    ///
+    /// [`FixedBitSet`]: fixedbitset::FixedBitSet
     #[inline]
-    pub(crate) fn index(self) -> usize {
+    pub fn index(self) -> usize {
         self.0 as usize
     }
 }
@@ -259,7 +272,7 @@ pub struct ArchetypeEntity {
 impl ArchetypeEntity {
     /// The ID of the entity.
     #[inline]
-    pub const fn entity(&self) -> Entity {
+    pub const fn id(&self) -> Entity {
         self.entity
     }
 
@@ -525,24 +538,23 @@ impl Archetype {
     }
 }
 
-/// An opaque generational id that changes every time the set of [`Archetypes`] changes.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub struct ArchetypeGeneration(usize);
+/// The next [`ArchetypeId`] in an [`Archetypes`] collection.
+///
+/// This is used in archetype update methods to limit archetype updates to the
+/// ones added since the last time the method ran.
+#[derive(Debug, Copy, Clone)]
+pub struct ArchetypeGeneration(ArchetypeId);
 
 impl ArchetypeGeneration {
+    /// The first archetype.
     #[inline]
-    pub(crate) const fn initial() -> Self {
-        ArchetypeGeneration(0)
-    }
-
-    #[inline]
-    pub(crate) fn value(self) -> usize {
-        self.0
+    pub const fn initial() -> Self {
+        ArchetypeGeneration(ArchetypeId::EMPTY)
     }
 }
 
 #[derive(Hash, PartialEq, Eq)]
-struct ArchetypeIdentity {
+struct ArchetypeComponents {
     table_components: Box<[ComponentId]>,
     sparse_set_components: Box<[ComponentId]>,
 }
@@ -576,13 +588,6 @@ struct ArchetypeIdentity {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct ArchetypeComponentId(usize);
 
-impl ArchetypeComponentId {
-    #[inline]
-    pub(crate) const fn new(index: usize) -> Self {
-        Self(index)
-    }
-}
-
 impl SparseSetIndex for ArchetypeComponentId {
     #[inline]
     fn sparse_set_index(&self) -> usize {
@@ -602,26 +607,30 @@ impl SparseSetIndex for ArchetypeComponentId {
 /// [module level documentation]: crate::archetype
 pub struct Archetypes {
     pub(crate) archetypes: Vec<Archetype>,
-    pub(crate) archetype_component_count: usize,
-    archetype_ids: bevy_utils::HashMap<ArchetypeIdentity, ArchetypeId>,
+    archetype_component_count: usize,
+    by_components: bevy_utils::HashMap<ArchetypeComponents, ArchetypeId>,
 }
 
 impl Archetypes {
     pub(crate) fn new() -> Self {
         let mut archetypes = Archetypes {
             archetypes: Vec::new(),
-            archetype_ids: Default::default(),
+            by_components: Default::default(),
             archetype_component_count: 0,
         };
         archetypes.get_id_or_insert(TableId::empty(), Vec::new(), Vec::new());
         archetypes
     }
 
-    /// Returns the current archetype generation. This is an ID indicating the current set of archetypes
-    /// that are registered with the world.
+    /// Returns the "generation", a handle to the current highest archetype ID.
+    ///
+    /// This can be used with the `Index` [`Archetypes`] implementation to
+    /// iterate over newly introduced [`Archetype`]s since the last time this
+    /// function was called.
     #[inline]
     pub fn generation(&self) -> ArchetypeGeneration {
-        ArchetypeGeneration(self.archetypes.len())
+        let id = ArchetypeId::new(self.archetypes.len());
+        ArchetypeGeneration(id)
     }
 
     /// Fetches the total number of [`Archetype`]s within the world.
@@ -648,6 +657,22 @@ impl Archetypes {
             self.archetypes
                 .get_unchecked_mut(ArchetypeId::EMPTY.index())
         }
+    }
+
+    /// Generate and store a new [`ArchetypeComponentId`].
+    ///
+    /// This simply increment the counter and return the new value.
+    ///
+    /// # Panics
+    ///
+    /// On archetype component id overflow.
+    pub(crate) fn new_archetype_component_id(&mut self) -> ArchetypeComponentId {
+        let id = ArchetypeComponentId(self.archetype_component_count);
+        self.archetype_component_count = self
+            .archetype_component_count
+            .checked_add(1)
+            .expect("archetype_component_count overflow");
+        id
     }
 
     /// Fetches an immutable reference to an [`Archetype`] using its
@@ -692,7 +717,7 @@ impl Archetypes {
         table_components: Vec<ComponentId>,
         sparse_set_components: Vec<ComponentId>,
     ) -> ArchetypeId {
-        let archetype_identity = ArchetypeIdentity {
+        let archetype_identity = ArchetypeComponents {
             sparse_set_components: sparse_set_components.clone().into_boxed_slice(),
             table_components: table_components.clone().into_boxed_slice(),
         };
@@ -700,7 +725,7 @@ impl Archetypes {
         let archetypes = &mut self.archetypes;
         let archetype_component_count = &mut self.archetype_component_count;
         *self
-            .archetype_ids
+            .by_components
             .entry(archetype_identity)
             .or_insert_with(move || {
                 let id = ArchetypeId::new(archetypes.len());
@@ -739,6 +764,14 @@ impl Archetypes {
     }
 }
 
+impl Index<RangeFrom<ArchetypeGeneration>> for Archetypes {
+    type Output = [Archetype];
+
+    #[inline]
+    fn index(&self, index: RangeFrom<ArchetypeGeneration>) -> &Self::Output {
+        &self.archetypes[index.start.0.index()..]
+    }
+}
 impl Index<ArchetypeId> for Archetypes {
     type Output = Archetype;
 

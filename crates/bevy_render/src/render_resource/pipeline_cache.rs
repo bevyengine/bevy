@@ -16,8 +16,13 @@ use bevy_utils::{
     Entry, HashMap, HashSet,
 };
 use naga::valid::Capabilities;
-use parking_lot::Mutex;
-use std::{borrow::Cow, hash::Hash, mem, ops::Deref};
+use std::{
+    borrow::Cow,
+    hash::Hash,
+    mem,
+    ops::Deref,
+    sync::{Mutex, PoisonError},
+};
 use thiserror::Error;
 #[cfg(feature = "shader_format_spirv")]
 use wgpu::util::make_spirv;
@@ -192,6 +197,10 @@ impl ShaderCache {
             }
         }
 
+        // TODO: Check if this is supported, though I'm not sure if bevy works without this feature?
+        // We can't compile for native at least without it.
+        capabilities |= Capabilities::CUBE_ARRAY_TEXTURES;
+
         #[cfg(debug_assertions)]
         let composer = naga_oil::compose::Composer::default();
         #[cfg(not(debug_assertions))]
@@ -268,7 +277,7 @@ impl ShaderCache {
             Entry::Occupied(entry) => entry.into_mut(),
             Entry::Vacant(entry) => {
                 let mut shader_defs = shader_defs.to_vec();
-                #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+                #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
                 {
                     shader_defs.push("NO_ARRAY_TEXTURES_SUPPORT".into());
                     shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
@@ -587,7 +596,10 @@ impl PipelineCache {
         &self,
         descriptor: RenderPipelineDescriptor,
     ) -> CachedRenderPipelineId {
-        let mut new_pipelines = self.new_pipelines.lock();
+        let mut new_pipelines = self
+            .new_pipelines
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
         let id = CachedRenderPipelineId(self.pipelines.len() + new_pipelines.len());
         new_pipelines.push(CachedPipeline {
             descriptor: PipelineDescriptor::RenderPipelineDescriptor(Box::new(descriptor)),
@@ -613,7 +625,10 @@ impl PipelineCache {
         &self,
         descriptor: ComputePipelineDescriptor,
     ) -> CachedComputePipelineId {
-        let mut new_pipelines = self.new_pipelines.lock();
+        let mut new_pipelines = self
+            .new_pipelines
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
         let id = CachedComputePipelineId(self.pipelines.len() + new_pipelines.len());
         new_pipelines.push(CachedPipeline {
             descriptor: PipelineDescriptor::ComputePipelineDescriptor(Box::new(descriptor)),
@@ -773,7 +788,10 @@ impl PipelineCache {
         let mut pipelines = mem::take(&mut self.pipelines);
 
         {
-            let mut new_pipelines = self.new_pipelines.lock();
+            let mut new_pipelines = self
+                .new_pipelines
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner);
             for new_pipeline in new_pipelines.drain(..) {
                 let id = pipelines.len();
                 pipelines.push(new_pipeline);
@@ -830,6 +848,7 @@ impl PipelineCache {
         mut events: Extract<EventReader<AssetEvent<Shader>>>,
     ) {
         for event in events.read() {
+            #[allow(clippy::match_same_arms)]
             match event {
                 AssetEvent::Added { id } | AssetEvent::Modified { id } => {
                     if let Some(shader) = shaders.get(*id) {
@@ -837,6 +856,7 @@ impl PipelineCache {
                     }
                 }
                 AssetEvent::Removed { id } => cache.remove_shader(*id),
+                AssetEvent::Unused { .. } => {}
                 AssetEvent::LoadedWithDependencies { .. } => {
                     // TODO: handle this
                 }

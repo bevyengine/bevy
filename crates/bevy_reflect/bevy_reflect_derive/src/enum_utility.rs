@@ -1,10 +1,10 @@
 use crate::derive_data::StructField;
 use crate::field_attributes::DefaultBehavior;
-use crate::fq_std::{FQDefault, FQOption};
 use crate::{
     derive_data::{EnumVariantFields, ReflectEnum},
     utility::ident_or_index,
 };
+use bevy_macro_utils::fq_std::{FQDefault, FQOption};
 use proc_macro2::Ident;
 use quote::{quote, ToTokens};
 use syn::Member;

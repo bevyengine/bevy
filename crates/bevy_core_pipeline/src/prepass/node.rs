@@ -1,22 +1,19 @@
 use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryItem;
 use bevy_render::render_graph::ViewNode;
+use bevy_render::render_resource::StoreOp;
 use bevy_render::{
     camera::ExtractedCamera,
-    prelude::Color,
     render_graph::{NodeRunError, RenderGraphContext},
     render_phase::RenderPhase,
-    render_resource::{
-        LoadOp, Operations, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
-        RenderPassDescriptor,
-    },
+    render_resource::RenderPassDescriptor,
     renderer::RenderContext,
     view::ViewDepthTexture,
 };
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 
-use super::{AlphaMask3dPrepass, Opaque3dPrepass, ViewPrepassTextures};
+use super::{AlphaMask3dPrepass, DeferredPrepass, Opaque3dPrepass, ViewPrepassTextures};
 
 /// Render node used by the prepass.
 ///
@@ -31,6 +28,7 @@ impl ViewNode for PrepassNode {
         &'static RenderPhase<AlphaMask3dPrepass>,
         &'static ViewDepthTexture,
         &'static ViewPrepassTextures,
+        Option<&'static DeferredPrepass>,
     );
 
     fn run(
@@ -43,38 +41,26 @@ impl ViewNode for PrepassNode {
             alpha_mask_prepass_phase,
             view_depth_texture,
             view_prepass_textures,
+            deferred_prepass,
         ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
 
-        let mut color_attachments = vec![];
-        color_attachments.push(
+        let mut color_attachments = vec![
             view_prepass_textures
                 .normal
                 .as_ref()
-                .map(|view_normals_texture| RenderPassColorAttachment {
-                    view: &view_normals_texture.default_view,
-                    resolve_target: None,
-                    ops: Operations {
-                        load: LoadOp::Clear(Color::BLACK.into()),
-                        store: true,
-                    },
-                }),
-        );
-        color_attachments.push(view_prepass_textures.motion_vectors.as_ref().map(
-            |view_motion_vectors_texture| RenderPassColorAttachment {
-                view: &view_motion_vectors_texture.default_view,
-                resolve_target: None,
-                ops: Operations {
-                    // Red and Green channels are X and Y components of the motion vectors
-                    // Blue channel doesn't matter, but set to 0.0 for possible faster clear
-                    // https://gpuopen.com/performance/#clears
-                    load: LoadOp::Clear(Color::rgb_linear(0.0, 0.0, 0.0).into()),
-                    store: true,
-                },
-            },
-        ));
+                .map(|normals_texture| normals_texture.get_attachment()),
+            view_prepass_textures
+                .motion_vectors
+                .as_ref()
+                .map(|motion_vectors_texture| motion_vectors_texture.get_attachment()),
+            // Use None in place of Deferred attachments
+            None,
+            None,
+        ];
+
         if color_attachments.iter().all(Option::is_none) {
             // all attachments are none: clear the attachment list so that no fragment shader is required
             color_attachments.clear();
@@ -85,14 +71,9 @@ impl ViewNode for PrepassNode {
             let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some("prepass"),
                 color_attachments: &color_attachments,
-                depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                    view: &view_depth_texture.view,
-                    depth_ops: Some(Operations {
-                        load: LoadOp::Clear(0.0),
-                        store: true,
-                    }),
-                    stencil_ops: None,
-                }),
+                depth_stencil_attachment: Some(view_depth_texture.get_attachment(StoreOp::Store)),
+                timestamp_writes: None,
+                occlusion_query_set: None,
             });
             if let Some(viewport) = camera.viewport.as_ref() {
                 render_pass.set_camera_viewport(viewport);
@@ -113,16 +94,17 @@ impl ViewNode for PrepassNode {
                 alpha_mask_prepass_phase.render(&mut render_pass, world, view_entity);
             }
         }
-
-        if let Some(prepass_depth_texture) = &view_prepass_textures.depth {
-            // Copy depth buffer to texture
-            render_context.command_encoder().copy_texture_to_texture(
-                view_depth_texture.texture.as_image_copy(),
-                prepass_depth_texture.texture.as_image_copy(),
-                view_prepass_textures.size,
-            );
+        if deferred_prepass.is_none() {
+            // Copy if deferred isn't going to
+            if let Some(prepass_depth_texture) = &view_prepass_textures.depth {
+                // Copy depth buffer to texture
+                render_context.command_encoder().copy_texture_to_texture(
+                    view_depth_texture.texture.as_image_copy(),
+                    prepass_depth_texture.texture.texture.as_image_copy(),
+                    view_prepass_textures.size,
+                );
+            }
         }
-
         Ok(())
     }
 }
