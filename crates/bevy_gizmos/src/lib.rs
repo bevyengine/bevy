@@ -77,7 +77,7 @@ use bevy_render::{
     renderer::RenderDevice,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_utils::{tracing::warn, HashMap, TypeIdMap};
+use bevy_utils::TypeIdMap;
 use config::{
     DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore, GizmoMeshConfig,
 };
