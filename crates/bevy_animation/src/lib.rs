@@ -1,7 +1,5 @@
 //! Animation for the game engine Bevy
 
-#![warn(missing_docs)]
-
 mod animatable;
 mod util;
 

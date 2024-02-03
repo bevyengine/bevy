@@ -1,5 +1,3 @@
-#![warn(missing_docs)]
-
 //! This crate adds an immediate mode drawing api to Bevy for visual debugging.
 //!
 //! # Example
@@ -79,7 +77,7 @@ use bevy_render::{
     renderer::RenderDevice,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_utils::{tracing::warn, HashMap};
+use bevy_utils::HashMap;
 use config::{
     DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore, GizmoMeshConfig,
 };

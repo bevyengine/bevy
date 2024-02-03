@@ -68,10 +68,10 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     commands.insert_resource(GameOfLifeImage { texture: image });
 }
 
-pub struct GameOfLifeComputePlugin;
+struct GameOfLifeComputePlugin;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
-pub struct GameOfLifeLabel;
+struct GameOfLifeLabel;
 
 impl Plugin for GameOfLifeComputePlugin {
     fn build(&self, app: &mut App) {
@@ -121,7 +121,7 @@ fn prepare_bind_group(
 }
 
 #[derive(Resource)]
-pub struct GameOfLifePipeline {
+struct GameOfLifePipeline {
     texture_bind_group_layout: BindGroupLayout,
     init_pipeline: CachedComputePipelineId,
     update_pipeline: CachedComputePipelineId,

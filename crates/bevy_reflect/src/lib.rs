@@ -1,3 +1,6 @@
+// FIXME(3492): remove once docs are ready
+#![allow(missing_docs)]
+
 //! Reflection in Rust.
 //!
 //! [Reflection] is a powerful tool provided within many programming languages

@@ -1,5 +1,3 @@
-#![warn(missing_docs)]
-
 use accesskit_winit::Adapter;
 use bevy_a11y::{
     accesskit::{NodeBuilder, NodeClassSet, NodeId, Role, Tree, TreeUpdate},
