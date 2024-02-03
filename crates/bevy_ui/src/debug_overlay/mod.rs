@@ -236,14 +236,11 @@ fn outline_roots(
             };
             match camera.target {
                 RenderTarget::Window(window_ref) => {
-                    match window_ref {
-                        WindowRef::Entity(window_entity) => {
-                            if cam.primary_window.get(window_entity).is_err() {
-                                // This window isn't the primary, so we skip this root.
-                                continue;
-                            }
+                    if let WindowRef::Entity(window_entity) = window_ref {
+                        if cam.primary_window.get(window_entity).is_err() {
+                            // This window isn't the primary, so we skip this root.
+                            continue;
                         }
-                        _ => {}
                     }
                 }
                 // Hard to know the results of this, better skip this target.
