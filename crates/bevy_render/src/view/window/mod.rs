@@ -245,6 +245,7 @@ pub fn prepare_windows(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>,
     mut msaa: ResMut<Msaa>,
+    #[cfg(any(target_os = "linux"))] render_instance: Res<RenderInstance>,
 ) {
     for window in windows.windows.values_mut() {
         let window_surfaces = window_surfaces.deref_mut();
