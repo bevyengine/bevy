@@ -93,11 +93,12 @@ impl Aabb2d {
 }
 
 impl BoundingVolume for Aabb2d {
-    type Position = Vec2;
+    type Translation = Vec2;
+    type Rotation = f32;
     type HalfSize = Vec2;
 
     #[inline(always)]
-    fn center(&self) -> Self::Position {
+    fn center(&self) -> Self::Translation {
         (self.min + self.max) / 2.
     }
 
@@ -146,6 +147,20 @@ impl BoundingVolume for Aabb2d {
         };
         debug_assert!(b.min.x <= b.max.x && b.min.y <= b.max.y);
         b
+    }
+
+    #[inline(always)]
+    fn translate_by(&mut self, translation: Vec2) {
+        self.min += translation;
+        self.max += translation;
+    }
+
+    #[inline(always)]
+    fn rotate_by(&mut self, rotation: f32) {
+        let (sin, cos) = rotation.sin_cos();
+        let abs_rot_mat = Mat2::from_cols_array(&[cos.abs(), sin.abs(), sin.abs(), cos.abs()]);
+        let half_size = abs_rot_mat * self.half_size();
+        *self = Self::new(self.center(), half_size);
     }
 }
 
@@ -278,6 +293,24 @@ mod aabb2d_tests {
     }
 
     #[test]
+    fn transform() {
+        let a = Aabb2d {
+            min: Vec2::new(-2.0, -2.0),
+            max: Vec2::new(2.0, 2.0),
+        };
+        let transformed = a.transformed_by(Vec2::new(2.0, -2.0), std::f32::consts::FRAC_PI_4);
+        let half_length = 2_f32.hypot(2.0);
+        assert_eq!(
+            transformed.min,
+            Vec2::new(2.0 - half_length, -half_length - 2.0)
+        );
+        assert_eq!(
+            transformed.max,
+            Vec2::new(2.0 + half_length, half_length - 2.0)
+        );
+    }
+
+    #[test]
     fn closest_point() {
         let aabb = Aabb2d {
             min: Vec2::NEG_ONE,
@@ -396,11 +429,12 @@ impl BoundingCircle {
 }
 
 impl BoundingVolume for BoundingCircle {
-    type Position = Vec2;
+    type Translation = Vec2;
+    type Rotation = f32;
     type HalfSize = f32;
 
     #[inline(always)]
-    fn center(&self) -> Self::Position {
+    fn center(&self) -> Self::Translation {
         self.center
     }
 
@@ -449,6 +483,14 @@ impl BoundingVolume for BoundingCircle {
         debug_assert!(self.radius() >= amount);
         Self::new(self.center, self.radius() - amount)
     }
+
+    #[inline(always)]
+    fn translate_by(&mut self, translation: Vec2) {
+        self.center += translation;
+    }
+
+    #[inline(always)]
+    fn rotate_by(&mut self, _rotation: f32) {}
 }
 
 impl IntersectsVolume<Self> for BoundingCircle {
@@ -549,6 +591,14 @@ mod bounding_circle_tests {
         assert!((shrunk.radius() - 4.5).abs() < std::f32::EPSILON);
         assert!(a.contains(&shrunk));
         assert!(!shrunk.contains(&a));
+    }
+
+    #[test]
+    fn transform() {
+        let a = BoundingCircle::new(Vec2::ONE, 5.0);
+        let transformed = a.transformed_by(Vec2::new(2.0, -2.0), std::f32::consts::FRAC_PI_4);
+        assert_eq!(transformed.center, Vec2::new(3.0, -1.0));
+        assert_eq!(transformed.radius(), 5.0);
     }
 
     #[test]

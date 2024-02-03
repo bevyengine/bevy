@@ -1,5 +1,7 @@
 mod primitive_impls;
 
+use glam::Mat3;
+
 use super::{BoundingVolume, IntersectsVolume};
 use crate::prelude::{Quat, Vec3};
 
@@ -87,11 +89,12 @@ impl Aabb3d {
 }
 
 impl BoundingVolume for Aabb3d {
-    type Position = Vec3;
+    type Translation = Vec3;
+    type Rotation = Quat;
     type HalfSize = Vec3;
 
     #[inline(always)]
-    fn center(&self) -> Self::Position {
+    fn center(&self) -> Self::Translation {
         (self.min + self.max) / 2.
     }
 
@@ -143,6 +146,26 @@ impl BoundingVolume for Aabb3d {
         debug_assert!(b.min.x <= b.max.x && b.min.y <= b.max.y && b.min.z <= b.max.z);
         b
     }
+
+    #[inline(always)]
+    fn translate_by(&mut self, translation: Vec3) {
+        self.min += translation;
+        self.max += translation;
+    }
+
+    #[inline(always)]
+    fn rotate_by(&mut self, rotation: Quat) {
+        // Compute the AABB of the rotated cuboid by transforming the half-size
+        // by an absolute rotation matrix.
+        let rot_mat = Mat3::from_quat(rotation);
+        let abs_rot_mat = Mat3::from_cols(
+            rot_mat.x_axis.abs(),
+            rot_mat.y_axis.abs(),
+            rot_mat.z_axis.abs(),
+        );
+        let half_size = abs_rot_mat * self.half_size();
+        *self = Self::new(self.center(), half_size);
+    }
 }
 
 impl IntersectsVolume<Self> for Aabb3d {
@@ -170,7 +193,7 @@ mod aabb3d_tests {
     use super::Aabb3d;
     use crate::{
         bounding::{BoundingSphere, BoundingVolume, IntersectsVolume},
-        Vec3,
+        Quat, Vec3,
     };
 
     #[test]
@@ -271,6 +294,27 @@ mod aabb3d_tests {
         assert!((shrunk.max - Vec3::new(1., 1., 1.)).length() < std::f32::EPSILON);
         assert!(a.contains(&shrunk));
         assert!(!shrunk.contains(&a));
+    }
+
+    #[test]
+    fn transform() {
+        let a = Aabb3d {
+            min: Vec3::new(-2.0, -2.0, -2.0),
+            max: Vec3::new(2.0, 2.0, 2.0),
+        };
+        let transformed = a.transformed_by(
+            Vec3::new(2.0, -2.0, 4.0),
+            Quat::from_rotation_z(std::f32::consts::FRAC_PI_4),
+        );
+        let half_length = 2_f32.hypot(2.0);
+        assert_eq!(
+            transformed.min,
+            Vec3::new(2.0 - half_length, -half_length - 2.0, 2.0)
+        );
+        assert_eq!(
+            transformed.max,
+            Vec3::new(2.0 + half_length, half_length - 2.0, 6.0)
+        );
     }
 
     #[test]
@@ -388,11 +432,12 @@ impl BoundingSphere {
 }
 
 impl BoundingVolume for BoundingSphere {
-    type Position = Vec3;
+    type Translation = Vec3;
+    type Rotation = Quat;
     type HalfSize = f32;
 
     #[inline(always)]
-    fn center(&self) -> Self::Position {
+    fn center(&self) -> Self::Translation {
         self.center
     }
 
@@ -451,6 +496,14 @@ impl BoundingVolume for BoundingSphere {
             },
         }
     }
+
+    #[inline(always)]
+    fn translate_by(&mut self, translation: Vec3) {
+        self.center += translation;
+    }
+
+    #[inline(always)]
+    fn rotate_by(&mut self, _rotation: Quat) {}
 }
 
 impl IntersectsVolume<Self> for BoundingSphere {
@@ -474,7 +527,7 @@ mod bounding_sphere_tests {
     use super::BoundingSphere;
     use crate::{
         bounding::{BoundingVolume, IntersectsVolume},
-        Vec3,
+        Quat, Vec3,
     };
 
     #[test]
@@ -551,6 +604,17 @@ mod bounding_sphere_tests {
         assert!((shrunk.radius() - 4.5).abs() < std::f32::EPSILON);
         assert!(a.contains(&shrunk));
         assert!(!shrunk.contains(&a));
+    }
+
+    #[test]
+    fn transform() {
+        let a = BoundingSphere::new(Vec3::ONE, 5.0);
+        let transformed = a.transformed_by(
+            Vec3::new(2.0, -2.0, 4.0),
+            Quat::from_rotation_z(std::f32::consts::FRAC_PI_4),
+        );
+        assert_eq!(transformed.center, Vec3::new(3.0, -1.0, 5.0));
+        assert_eq!(transformed.radius(), 5.0);
     }
 
     #[test]
