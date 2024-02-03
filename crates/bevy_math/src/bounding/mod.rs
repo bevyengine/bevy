@@ -42,40 +42,46 @@ pub trait BoundingVolume: Sized {
     /// Computes the smallest bounding volume that contains both `self` and `other`.
     fn merge(&self, other: &Self) -> Self;
 
-    /// Increase the size of the bounding volume in each direction by the given amount
+    /// Increases the size of the bounding volume in each direction by the given amount.
     fn grow(&self, amount: Self::HalfSize) -> Self;
 
-    /// Decrease the size of the bounding volume in each direction by the given amount
+    /// Decreases the size of the bounding volume in each direction by the given amount.
     fn shrink(&self, amount: Self::HalfSize) -> Self;
 
-    /// Transform the bounding volume by the given translation and rotation
+    /// Transforms the bounding volume by the given translation and rotation.
     fn transformed_by(mut self, translation: Self::Translation, rotation: Self::Rotation) -> Self {
         self.transform_by(translation, rotation);
         self
     }
 
-    /// Transform the bounding volume in place by the given translation and rotation
+    /// Transforms the bounding volume by the given translation and rotation.
     fn transform_by(&mut self, translation: Self::Translation, rotation: Self::Rotation) {
         self.translate_by(translation);
         self.rotate_by(rotation);
     }
 
-    /// Translate the bounding volume by the given translation
+    /// Translates the bounding volume by the given translation.
     fn translated_by(mut self, translation: Self::Translation) -> Self {
         self.translate_by(translation);
         self
     }
 
-    /// Translate the bounding volume in place by the given translation
+    /// Translates the bounding volume by the given translation.
     fn translate_by(&mut self, translation: Self::Translation);
 
-    /// Rotate the bounding volume by the given rotation
+    /// Rotates the bounding volume by the given rotation.
+    ///
+    /// Thw result is a combination of the original volume and the rotated volume,
+    /// so it is guaranteed to be either the same size or larger as the original.
     fn rotated_by(mut self, rotation: Self::Rotation) -> Self {
         self.rotate_by(rotation);
         self
     }
 
-    /// Rotate the bounding volume in place by the given rotation
+    /// Rotates the bounding volume by the given rotation.
+    ///
+    /// Thw result is a combination of the original volume and the rotated volume,
+    /// so it is guaranteed to be either the same size or larger as the original
     fn rotate_by(&mut self, rotation: Self::Rotation);
 }
 
