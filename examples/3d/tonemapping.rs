@@ -704,7 +704,7 @@ impl Material for ColorGradientMaterial {
 }
 
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
-pub struct ColorGradientMaterial {}
+struct ColorGradientMaterial {}
 
 #[derive(Resource)]
 struct CameraTransform(Transform);

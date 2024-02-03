@@ -87,8 +87,8 @@ impl Material for LineMaterial {
 
 /// A list of lines with a start and end position
 #[derive(Debug, Clone)]
-pub struct LineList {
-    pub lines: Vec<(Vec3, Vec3)>,
+struct LineList {
+    lines: Vec<(Vec3, Vec3)>,
 }
 
 impl From<LineList> for Mesh {
@@ -108,8 +108,8 @@ impl From<LineList> for Mesh {
 
 /// A list of points that will have a line drawn between each consecutive points
 #[derive(Debug, Clone)]
-pub struct LineStrip {
-    pub points: Vec<Vec3>,
+struct LineStrip {
+    points: Vec<Vec3>,
 }
 
 impl From<LineStrip> for Mesh {

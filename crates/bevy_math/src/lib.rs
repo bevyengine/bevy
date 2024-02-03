@@ -4,8 +4,6 @@
 //! matrices like [`Mat2`], [`Mat3`] and [`Mat4`] and orientation representations
 //! like [`Quat`].
 
-#![warn(missing_docs)]
-
 mod affine3;
 mod aspect_ratio;
 pub mod bounding;
