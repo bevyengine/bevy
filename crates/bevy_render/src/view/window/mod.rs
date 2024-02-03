@@ -42,7 +42,6 @@ impl Plugin for WindowRenderPlugin {
             render_app
                 .init_resource::<ExtractedWindows>()
                 .init_resource::<WindowSurfaces>()
-                .init_non_send_resource::<NonSendMarker>()
                 .add_systems(ExtractSchedule, extract_windows)
                 .add_systems(Render, prepare_windows.in_set(RenderSet::ManageViews));
         }
@@ -238,8 +237,8 @@ impl WindowSurfaces {
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_windows(
     // By accessing a NonSend resource, we tell the scheduler to put this system on the main thread,
-    // which is necessary for some OS s
-    _marker: NonSend<NonSendMarker>,
+    // which is necessary for some OS's
+    #[cfg(any(target_os = "macos", target_os = "ios"))] _marker: Option<NonSend<NonSendMarker>>,
     mut windows: ResMut<ExtractedWindows>,
     mut window_surfaces: ResMut<WindowSurfaces>,
     render_device: Res<RenderDevice>,

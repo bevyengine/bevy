@@ -3,7 +3,7 @@ use crate::{primitives::Direction3d, Ray3d, Vec3};
 
 /// A raycast intersection test for 3D bounding volumes
 #[derive(Clone, Debug)]
-pub struct RayTest3d {
+pub struct RayCast3d {
     /// The ray for the test
     pub ray: Ray3d,
     /// The maximum distance for the ray
@@ -12,13 +12,13 @@ pub struct RayTest3d {
     direction_recip: Vec3,
 }
 
-impl RayTest3d {
-    /// Construct a [`RayTest3d`] from an origin, [`Direction3d`], and max distance.
+impl RayCast3d {
+    /// Construct a [`RayCast3d`] from an origin, [`Direction3d`], and max distance.
     pub fn new(origin: Vec3, direction: Direction3d, max: f32) -> Self {
         Self::from_ray(Ray3d { origin, direction }, max)
     }
 
-    /// Construct a [`RayTest3d`] from a [`Ray3d`] and max distance.
+    /// Construct a [`RayCast3d`] from a [`Ray3d`] and max distance.
     pub fn from_ray(ray: Ray3d, max: f32) -> Self {
         Self {
             ray,
@@ -93,13 +93,13 @@ impl RayTest3d {
     }
 }
 
-impl IntersectsVolume<Aabb3d> for RayTest3d {
+impl IntersectsVolume<Aabb3d> for RayCast3d {
     fn intersects(&self, volume: &Aabb3d) -> bool {
         self.aabb_intersection_at(volume).is_some()
     }
 }
 
-impl IntersectsVolume<BoundingSphere> for RayTest3d {
+impl IntersectsVolume<BoundingSphere> for RayCast3d {
     fn intersects(&self, volume: &BoundingSphere) -> bool {
         self.sphere_intersection_at(volume).is_some()
     }
@@ -109,7 +109,7 @@ impl IntersectsVolume<BoundingSphere> for RayTest3d {
 #[derive(Clone, Debug)]
 pub struct AabbCast3d {
     /// The ray along which to cast the bounding volume
-    pub ray: RayTest3d,
+    pub ray: RayCast3d,
     /// The aabb that is being cast
     pub aabb: Aabb3d,
 }
@@ -123,7 +123,7 @@ impl AabbCast3d {
     /// Construct an [`AabbCast3d`] from an [`Aabb3d`], [`Ray3d`], and max distance.
     pub fn from_ray(aabb: Aabb3d, ray: Ray3d, max: f32) -> Self {
         Self {
-            ray: RayTest3d::from_ray(ray, max),
+            ray: RayCast3d::from_ray(ray, max),
             aabb,
         }
     }
@@ -146,7 +146,7 @@ impl IntersectsVolume<Aabb3d> for AabbCast3d {
 #[derive(Clone, Debug)]
 pub struct BoundingSphereCast {
     /// The ray along which to cast the bounding volume
-    pub ray: RayTest3d,
+    pub ray: RayCast3d,
     /// The sphere that is being cast
     pub sphere: BoundingSphere,
 }
@@ -160,7 +160,7 @@ impl BoundingSphereCast {
     /// Construct a [`BoundingSphereCast`] from a [`BoundingSphere`], [`Ray3d`], and max distance.
     pub fn from_ray(sphere: BoundingSphere, ray: Ray3d, max: f32) -> Self {
         Self {
-            ray: RayTest3d::from_ray(ray, max),
+            ray: RayCast3d::from_ray(ray, max),
             sphere,
         }
     }
@@ -190,37 +190,37 @@ mod tests {
         for (test, volume, expected_distance) in &[
             (
                 // Hit the center of a centered bounding sphere
-                RayTest3d::new(Vec3::Y * -5., Direction3d::Y, 90.),
+                RayCast3d::new(Vec3::Y * -5., Direction3d::Y, 90.),
                 BoundingSphere::new(Vec3::ZERO, 1.),
                 4.,
             ),
             (
                 // Hit the center of a centered bounding sphere, but from the other side
-                RayTest3d::new(Vec3::Y * 5., -Direction3d::Y, 90.),
+                RayCast3d::new(Vec3::Y * 5., -Direction3d::Y, 90.),
                 BoundingSphere::new(Vec3::ZERO, 1.),
                 4.,
             ),
             (
                 // Hit the center of an offset sphere
-                RayTest3d::new(Vec3::ZERO, Direction3d::Y, 90.),
+                RayCast3d::new(Vec3::ZERO, Direction3d::Y, 90.),
                 BoundingSphere::new(Vec3::Y * 3., 2.),
                 1.,
             ),
             (
                 // Just barely hit the sphere before the max distance
-                RayTest3d::new(Vec3::X, Direction3d::Y, 1.),
+                RayCast3d::new(Vec3::X, Direction3d::Y, 1.),
                 BoundingSphere::new(Vec3::new(1., 1., 0.), 0.01),
                 0.99,
             ),
             (
                 // Hit a sphere off-center
-                RayTest3d::new(Vec3::X, Direction3d::Y, 90.),
+                RayCast3d::new(Vec3::X, Direction3d::Y, 90.),
                 BoundingSphere::new(Vec3::Y * 5., 2.),
                 3.268,
             ),
             (
                 // Barely hit a sphere on the side
-                RayTest3d::new(Vec3::X * 0.99999, Direction3d::Y, 90.),
+                RayCast3d::new(Vec3::X * 0.99999, Direction3d::Y, 90.),
                 BoundingSphere::new(Vec3::Y * 5., 1.),
                 4.996,
             ),
@@ -238,7 +238,7 @@ mod tests {
                 actual_distance
             );
 
-            let inverted_ray = RayTest3d::new(test.ray.origin, -test.ray.direction, test.max);
+            let inverted_ray = RayCast3d::new(test.ray.origin, -test.ray.direction, test.max);
             assert!(!inverted_ray.intersects(volume), "{}", case);
         }
     }
@@ -248,17 +248,17 @@ mod tests {
         for (test, volume) in &[
             (
                 // The ray doesn't go in the right direction
-                RayTest3d::new(Vec3::ZERO, Direction3d::X, 90.),
+                RayCast3d::new(Vec3::ZERO, Direction3d::X, 90.),
                 BoundingSphere::new(Vec3::Y * 2., 1.),
             ),
             (
                 // Ray's alignment isn't enough to hit the sphere
-                RayTest3d::new(Vec3::ZERO, Direction3d::from_xyz(1., 1., 1.).unwrap(), 90.),
+                RayCast3d::new(Vec3::ZERO, Direction3d::from_xyz(1., 1., 1.).unwrap(), 90.),
                 BoundingSphere::new(Vec3::Y * 2., 1.),
             ),
             (
                 // The ray's maximum distance isn't high enough
-                RayTest3d::new(Vec3::ZERO, Direction3d::Y, 0.5),
+                RayCast3d::new(Vec3::ZERO, Direction3d::Y, 0.5),
                 BoundingSphere::new(Vec3::Y * 2., 1.),
             ),
         ] {
@@ -284,7 +284,7 @@ mod tests {
                 -Direction3d::Z,
             ] {
                 for max in &[0., 1., 900.] {
-                    let test = RayTest3d::new(*origin, *direction, *max);
+                    let test = RayCast3d::new(*origin, *direction, *max);
 
                     let case = format!(
                         "Case:\n  origin: {:?}\n  Direction: {:?}\n  Max: {}",
@@ -304,37 +304,37 @@ mod tests {
         for (test, volume, expected_distance) in &[
             (
                 // Hit the center of a centered aabb
-                RayTest3d::new(Vec3::Y * -5., Direction3d::Y, 90.),
+                RayCast3d::new(Vec3::Y * -5., Direction3d::Y, 90.),
                 Aabb3d::new(Vec3::ZERO, Vec3::ONE),
                 4.,
             ),
             (
                 // Hit the center of a centered aabb, but from the other side
-                RayTest3d::new(Vec3::Y * 5., -Direction3d::Y, 90.),
+                RayCast3d::new(Vec3::Y * 5., -Direction3d::Y, 90.),
                 Aabb3d::new(Vec3::ZERO, Vec3::ONE),
                 4.,
             ),
             (
                 // Hit the center of an offset aabb
-                RayTest3d::new(Vec3::ZERO, Direction3d::Y, 90.),
+                RayCast3d::new(Vec3::ZERO, Direction3d::Y, 90.),
                 Aabb3d::new(Vec3::Y * 3., Vec3::splat(2.)),
                 1.,
             ),
             (
                 // Just barely hit the aabb before the max distance
-                RayTest3d::new(Vec3::X, Direction3d::Y, 1.),
+                RayCast3d::new(Vec3::X, Direction3d::Y, 1.),
                 Aabb3d::new(Vec3::new(1., 1., 0.), Vec3::splat(0.01)),
                 0.99,
             ),
             (
                 // Hit an aabb off-center
-                RayTest3d::new(Vec3::X, Direction3d::Y, 90.),
+                RayCast3d::new(Vec3::X, Direction3d::Y, 90.),
                 Aabb3d::new(Vec3::Y * 5., Vec3::splat(2.)),
                 3.,
             ),
             (
                 // Barely hit an aabb on corner
-                RayTest3d::new(
+                RayCast3d::new(
                     Vec3::X * -0.001,
                     Direction3d::from_xyz(1., 1., 1.).unwrap(),
                     90.,
@@ -356,7 +356,7 @@ mod tests {
                 actual_distance
             );
 
-            let inverted_ray = RayTest3d::new(test.ray.origin, -test.ray.direction, test.max);
+            let inverted_ray = RayCast3d::new(test.ray.origin, -test.ray.direction, test.max);
             assert!(!inverted_ray.intersects(volume), "{}", case);
         }
     }
@@ -366,12 +366,12 @@ mod tests {
         for (test, volume) in &[
             (
                 // The ray doesn't go in the right direction
-                RayTest3d::new(Vec3::ZERO, Direction3d::X, 90.),
+                RayCast3d::new(Vec3::ZERO, Direction3d::X, 90.),
                 Aabb3d::new(Vec3::Y * 2., Vec3::ONE),
             ),
             (
                 // Ray's alignment isn't enough to hit the aabb
-                RayTest3d::new(
+                RayCast3d::new(
                     Vec3::ZERO,
                     Direction3d::from_xyz(1., 0.99, 1.).unwrap(),
                     90.,
@@ -380,7 +380,7 @@ mod tests {
             ),
             (
                 // The ray's maximum distance isn't high enough
-                RayTest3d::new(Vec3::ZERO, Direction3d::Y, 0.5),
+                RayCast3d::new(Vec3::ZERO, Direction3d::Y, 0.5),
                 Aabb3d::new(Vec3::Y * 2., Vec3::ONE),
             ),
         ] {
@@ -406,7 +406,7 @@ mod tests {
                 -Direction3d::Z,
             ] {
                 for max in &[0., 1., 900.] {
-                    let test = RayTest3d::new(*origin, *direction, *max);
+                    let test = RayCast3d::new(*origin, *direction, *max);
 
                     let case = format!(
                         "Case:\n  origin: {:?}\n  Direction: {:?}\n  Max: {}",
@@ -483,7 +483,7 @@ mod tests {
             );
 
             let inverted_ray =
-                RayTest3d::new(test.ray.ray.origin, -test.ray.ray.direction, test.ray.max);
+                RayCast3d::new(test.ray.ray.origin, -test.ray.ray.direction, test.ray.max);
             assert!(!inverted_ray.intersects(volume), "{}", case);
         }
     }
@@ -550,7 +550,7 @@ mod tests {
             );
 
             let inverted_ray =
-                RayTest3d::new(test.ray.ray.origin, -test.ray.ray.direction, test.ray.max);
+                RayCast3d::new(test.ray.ray.origin, -test.ray.ray.direction, test.ray.max);
             assert!(!inverted_ray.intersects(volume), "{}", case);
         }
     }

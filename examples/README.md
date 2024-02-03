@@ -193,6 +193,7 @@ Example | Description
 [Asset Processing](../examples/asset/processing/asset_processing.rs) | Demonstrates how to process and load custom assets
 [Custom Asset](../examples/asset/custom_asset.rs) | Implements a custom asset loader
 [Custom Asset IO](../examples/asset/custom_asset_reader.rs) | Implements a custom AssetReader
+[Embedded Asset](../examples/asset/embedded_asset.rs) | Embed an asset in the application binary and load it
 [Hot Reloading of Assets](../examples/asset/hot_asset_reloading.rs) | Demonstrates automatic reloading of assets when modified on disk
 
 ## Async Tasks
@@ -245,6 +246,7 @@ Example | Description
 [System Closure](../examples/ecs/system_closure.rs) | Show how to use closures as systems, and how to configure `Local` variables by capturing external state
 [System Parameter](../examples/ecs/system_param.rs) | Illustrates creating custom system parameters with `SystemParam`
 [System Piping](../examples/ecs/system_piping.rs) | Pipe the output of one system into a second, allowing you to handle any errors gracefully
+[System Stepping](../examples/ecs/system_stepping.rs) | Demonstrate stepping through systems in order of execution
 
 ## Games
 
