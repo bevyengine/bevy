@@ -1167,9 +1167,8 @@ impl<P: Point> RationalCurve<P> {
                     // of NURBS curves and surfaces" by Choi et al. or equation 3 from "General Matrix
                     // Representations for B-Splines" by Qin.
                     return (segment, t / segment.knot_span);
-                } else {
-                    t -= segment.knot_span;
                 }
+                t -= segment.knot_span;
             }
             return (self.segments.last().unwrap(), 1.0);
         }
