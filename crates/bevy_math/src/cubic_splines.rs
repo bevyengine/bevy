@@ -1286,7 +1286,7 @@ mod tests {
         assert_eq!(bezier.ease(1.0), 1.0);
     }
 
-    /// Test that RationalCurve properly generalizes CubicCurve. A Cubic upgraded to a rational
+    /// Test that [`RationalCurve`] properly generalizes [`CubicCurve`]. A Cubic upgraded to a rational
     /// should produce pretty much the same output.
     #[test]
     fn cubic_to_rational() {
@@ -1365,7 +1365,7 @@ mod tests {
                 f32::abs(point.length() - 1.0) < EPSILON,
                 "Point {i} is not on the unit circle: {point:?} has length {}",
                 point.length()
-            )
+            );
         }
     }
 }
