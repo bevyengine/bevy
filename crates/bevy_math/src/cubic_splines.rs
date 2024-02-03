@@ -573,7 +573,7 @@ impl<P: Point> RationalGenerator<P> for CubicNurbs<P> {
             .map(|((points, weights), knots)| {
                 // This is curve segment i. It uses control points P_i, P_i+2, P_i+2 and P_i+3,
                 // It is associated with knot span i+3 (which is the interval between knots i+3
-                // and i+4) and it's charictartistic matrix uses knots i+1 through i+6 (because
+                // and i+4) and it's characteristic matrix uses knots i+1 through i+6 (because
                 // those define the two knot spans on either side).
                 let span = knots[4] - knots[3];
                 let coefficent_knots = knots.try_into().expect("Knot windows are of length 6");
@@ -1335,7 +1335,7 @@ mod tests {
         compare_vectors(cubic_accelerations, rational_accelerations, "acceleration");
     }
 
-    /// Test that a curbs curve can approximate a portion of a circle.
+    /// Test that a nurbs curve can approximate a portion of a circle.
     #[test]
     fn nurbs_circular_arc() {
         use std::f32::consts::FRAC_PI_2;
