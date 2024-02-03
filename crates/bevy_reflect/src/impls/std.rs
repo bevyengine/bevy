@@ -1111,6 +1111,10 @@ impl Reflect for Cow<'static, str> {
             Some(false)
         }
     }
+
+    fn debug(&self, f: &mut fmt::Formatter<'_>) -> core::fmt::Result {
+        fmt::Debug::fmt(self, f)
+    }
 }
 
 impl Typed for Cow<'static, str> {
