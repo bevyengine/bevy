@@ -1,21 +1,26 @@
 //! A visual representation of UI node sizes.
+use std::any::Any;
+
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_core::Name;
 use bevy_core_pipeline::core_2d::Camera2dBundle;
 use bevy_ecs::{prelude::*, system::SystemParam};
-use bevy_gizmos::prelude::{GizmoConfig, Gizmos};
+use bevy_gizmos::AppGizmoBuilder;
+use bevy_gizmos::config::GizmoConfigStore;
+use bevy_gizmos::prelude::Gizmos;
 use bevy_hierarchy::{Children, Parent};
-use bevy_log::warn;
 use bevy_math::{Vec2, Vec3Swizzles};
+use bevy_render::camera::RenderTarget;
 use bevy_render::view::VisibilitySystems;
 use bevy_render::{camera::ClearColorConfig, prelude::*, view::RenderLayers};
 use bevy_transform::{prelude::GlobalTransform, TransformSystem};
-use bevy_utils::default;
-use bevy_window::{PrimaryWindow, Window};
+use bevy_utils::{default, warn_once};
+use bevy_window::{PrimaryWindow, Window, WindowRef};
 
-use crate::prelude::UiCameraConfig;
-use crate::{Display, Node, Style, UiScale};
+use crate::{DefaultUiCamera, Display, Node, Style, TargetCamera, UiScale};
 use inset::InsetGizmo;
+
+use self::inset::UiGizmosDebug;
 
 mod inset;
 
@@ -69,7 +74,7 @@ impl UiDebugOptions {
 
 /// The system responsible to change the [`Camera`] config based on changes in [`UiDebugOptions`] and [`GizmoConfig`].
 fn update_debug_camera(
-    mut gizmo_config: ResMut<GizmoConfig>,
+    mut gizmo_config: ResMut<GizmoConfigStore>,
     mut options: ResMut<UiDebugOptions>,
     mut cmds: Commands,
     mut debug_cams: Query<&mut Camera, With<DebugOverlayCamera>>,
@@ -85,11 +90,12 @@ fn update_debug_camera(
             return;
         };
         cam.is_active = false;
-        gizmo_config.render_layers = RenderLayers::all();
+        if let Some((config, _)) = gizmo_config.get_config_mut_dyn(&UiGizmosDebug.type_id()) {
+            config.render_layers = RenderLayers::all();
+        }
     } else {
         let spawn_cam = || {
             cmds.spawn((
-                UiCameraConfig { show_ui: false },
                 Camera2dBundle {
                     projection: OrthographicProjection {
                         far: 1000.0,
@@ -109,8 +115,10 @@ fn update_debug_camera(
             ))
             .id()
         };
-        gizmo_config.enabled = true;
-        gizmo_config.render_layers = LAYOUT_DEBUG_LAYERS;
+        if let Some((config, _)) = gizmo_config.get_config_mut_dyn(&UiGizmosDebug.type_id()) {
+            config.enabled = true;
+            config.render_layers = LAYOUT_DEBUG_LAYERS;
+        }
         let cam = *options.layout_gizmos_camera.get_or_insert_with(spawn_cam);
         let Ok(mut cam) = debug_cams.get_mut(cam) else {
             return;
@@ -154,7 +162,7 @@ type NodesQuery = (
 
 #[derive(SystemParam)]
 struct OutlineParam<'w, 's> {
-    gizmo_config: Res<'w, GizmoConfig>,
+    gizmo_config: Res<'w, GizmoConfigStore>,
     children: Query<'w, 's, &'static Children>,
     nodes: Query<'w, 's, NodesQuery>,
     view_visibility: Query<'w, 's, &'static ViewVisibility>,
@@ -163,12 +171,20 @@ struct OutlineParam<'w, 's> {
 
 type CameraQuery<'w, 's> = Query<'w, 's, &'static Camera, With<DebugOverlayCamera>>;
 
+#[derive(SystemParam)]
+struct CameraParam<'w, 's> {
+    debug_camera: Query<'w, 's, &'static Camera, With<DebugOverlayCamera>>,
+    cameras: Query<'w, 's, &'static Camera, Without<DebugOverlayCamera>>,
+    primary_window: Query<'w, 's, &'static Window, With<PrimaryWindow>>,
+    default_ui_camera: DefaultUiCamera<'w, 's>
+}
+
 /// system responsible for drawing the gizmos lines around all the node roots, iterating recursively through all visible children.
 fn outline_roots(
     outline: OutlineParam,
-    draw: Gizmos,
-    cam: CameraQuery,
-    roots: Query<(Entity, &GlobalTransform, &Node, Option<&ViewVisibility>), Without<Parent>>,
+    draw: Gizmos<UiGizmosDebug>,
+    cam: CameraParam,
+    roots: Query<(Entity, &GlobalTransform, &Node, Option<&ViewVisibility>, Option<&TargetCamera>), Without<Parent>>,
     window: Query<&Window, With<PrimaryWindow>>,
     nonprimary_windows: Query<&Window, Without<PrimaryWindow>>,
     options: Res<UiDebugOptions>,
@@ -186,15 +202,40 @@ fn outline_roots(
     let scale_factor = window_scale * outline.ui_scale.0;
 
     // We let the line be defined by the window scale alone
-    let line_width = outline.gizmo_config.line_width / window_scale;
-    let mut draw = InsetGizmo::new(draw, cam, line_width);
-    for (entity, trans, node, view_visibility) in &roots {
+    let line_width = outline.gizmo_config.get_config_dyn(&UiGizmosDebug.type_id()).map_or(2., |(config, _)| config.line_width) / window_scale;
+    let mut draw = InsetGizmo::new(draw, cam.debug_camera, line_width);
+    for (entity, trans, node, view_visibility, maybe_target_camera) in &roots {
         if let Some(view_visibility) = view_visibility {
             // If the entity isn't visible, we will not drawn any lines.
             if !view_visibility.get() {
                 continue;
             }
         }
+        // We skip ui in other windows that are not the primary one
+        if let Some(camera_entity) = maybe_target_camera.map(|target| {target.0}).or(cam.default_ui_camera.get()) {
+            let Ok(camera) = cam.cameras.get(camera_entity) else {
+                // The camera wasn't found. Either the Camera don't exist or the Camera is the debug Camera, that we want to skip and warn
+                warn_once!("Camera {:?} wasn't found for debug overlay", camera_entity);
+                continue;
+            };
+            match camera.target {
+                RenderTarget::Window(window_ref) => {
+                    match window_ref {
+                        WindowRef::Entity(window_entity) => {
+                            if cam.primary_window.get(window_entity).is_err() {
+                                // This window isn't the primary, so we skip this root.
+                                continue;
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                // Hard to know the results of this, better skip this target.
+                _ => continue
+            }
+
+        }
+
         let rect = LayoutRect::new(trans, node, scale_factor);
         outline_node(entity, rect, &mut draw);
         outline_nodes(&outline, &mut draw, entity, scale_factor);
@@ -221,7 +262,9 @@ fn outline_node(entity: Entity, rect: LayoutRect, draw: &mut InsetGizmo) {
 pub struct DebugUiPlugin;
 impl Plugin for DebugUiPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<UiDebugOptions>().add_systems(
+        app.init_resource::<UiDebugOptions>()
+        .init_gizmo_group::<UiGizmosDebug>()
+        .add_systems(
             PostUpdate,
             (
                 update_debug_camera,

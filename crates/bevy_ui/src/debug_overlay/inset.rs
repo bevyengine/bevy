@@ -1,5 +1,6 @@
-use bevy_gizmos::prelude::Gizmos;
+use bevy_gizmos::{prelude::Gizmos, config::GizmoConfigGroup};
 use bevy_math::{Vec2, Vec2Swizzles};
+use bevy_reflect::Reflect;
 use bevy_render::prelude::Color;
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::HashMap;
@@ -114,14 +115,17 @@ impl DrawnLines {
     }
 }
 
+#[derive(GizmoConfigGroup, Reflect, Default)]
+pub struct UiGizmosDebug;
+
 pub(super) struct InsetGizmo<'w, 's> {
-    draw: Gizmos<'s>,
+    draw: Gizmos<'w, 's, UiGizmosDebug>,
     cam: CameraQuery<'w, 's>,
     known_y: DrawnLines,
     known_x: DrawnLines,
 }
 impl<'w, 's> InsetGizmo<'w, 's> {
-    pub(super) fn new(draw: Gizmos<'s>, cam: CameraQuery<'w, 's>, line_width: f32) -> Self {
+    pub(super) fn new(draw: Gizmos<'w, 's, UiGizmosDebug>, cam: CameraQuery<'w, 's>, line_width: f32) -> Self {
         InsetGizmo {
             draw,
             cam,
