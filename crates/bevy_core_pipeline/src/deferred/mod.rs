@@ -51,7 +51,7 @@ impl PhaseItem for Opaque3dDeferred {
 
     #[inline]
     fn sort(items: &mut [Self]) {
-        items.sort_unstable_by_key(Self::sort_key)
+        items.sort_unstable_by_key(Self::sort_key);
     }
 
     #[inline]

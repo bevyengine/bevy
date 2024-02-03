@@ -140,8 +140,7 @@ impl PhaseItem for Opaque3dPrepass {
 
     #[inline]
     fn sort(items: &mut [Self]) {
-        // Key negated to match reversed SortKey ordering
-        items.sort_unstable_by_key(Self::sort_key)
+        items.sort_unstable_by_key(Self::sort_key);
     }
 
     #[inline]
