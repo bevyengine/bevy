@@ -766,6 +766,7 @@ mod tests {
         q.for_each(|_: &Foo| ());
 
         let _: Option<&Foo> = q.get(e).ok();
+        let _: Option<&Foo> = q.get_component(e).ok();
         let _: Option<[&Foo; 1]> = q.get_many([e]).ok();
         let _: Option<&Foo> = q.get_single().ok();
         let _: [&Foo; 1] = q.many([e]);
