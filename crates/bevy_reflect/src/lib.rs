@@ -544,7 +544,7 @@ mod tests {
         ser::{to_string_pretty, PrettyConfig},
         Deserializer,
     };
-    use static_assertions::assert_impl_all;
+    use static_assertions::{assert_impl_all, assert_not_impl_all};
     use std::{
         any::TypeId,
         borrow::Cow,
