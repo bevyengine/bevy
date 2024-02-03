@@ -48,13 +48,13 @@ pub trait BoundingVolume: Sized {
     /// Decreases the size of the bounding volume in each direction by the given amount.
     fn shrink(&self, amount: Self::HalfSize) -> Self;
 
-    /// Transforms the bounding volume by the given translation and rotation.
+    /// Transforms the bounding volume by first rotating it around the origin and then applying a translation.
     fn transformed_by(mut self, translation: Self::Translation, rotation: Self::Rotation) -> Self {
         self.transform_by(translation, rotation);
         self
     }
 
-    /// Transforms the bounding volume by the given translation and rotation.
+    /// Transforms the bounding volume by first rotating it around the origin and then applying a translation.
     fn transform_by(&mut self, translation: Self::Translation, rotation: Self::Rotation) {
         self.rotate_by(rotation);
         self.translate_by(translation);
@@ -69,7 +69,7 @@ pub trait BoundingVolume: Sized {
     /// Translates the bounding volume by the given translation.
     fn translate_by(&mut self, translation: Self::Translation);
 
-    /// Rotates the bounding volume by the given rotation.
+    /// Rotates the bounding volume around the origin by the given rotation.
     ///
     /// The result is a combination of the original volume and the rotated volume,
     /// so it is guaranteed to be either the same size or larger as the original.
@@ -78,7 +78,7 @@ pub trait BoundingVolume: Sized {
         self
     }
 
-    /// Rotates the bounding volume by the given rotation.
+    /// Rotates the bounding volume around the origin by the given rotation.
     ///
     /// The result is a combination of the original volume and the rotated volume,
     /// so it is guaranteed to be either the same size or larger as the original
