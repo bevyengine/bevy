@@ -59,8 +59,8 @@ use bevy_render::{
         RenderPhase,
     },
     render_resource::{
-        CachedRenderPipelineId, Extent3d, FilterMode, Sampler, SamplerDescriptor, Texture,
-        TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView,
+        BindGroupId, CachedRenderPipelineId, Extent3d, FilterMode, Sampler, SamplerDescriptor,
+        Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView,
     },
     renderer::RenderDevice,
     texture::{BevyDefault, ColorAttachment, TextureCache},
@@ -185,6 +185,7 @@ impl Plugin for Core3dPlugin {
 
 pub struct Opaque3d {
     pub asset_id: AssetId<Mesh>,
+    pub bind_group_id: BindGroupId,
     pub pipeline: CachedRenderPipelineId,
     pub entity: Entity,
     pub draw_function: DrawFunctionId,
@@ -193,7 +194,7 @@ pub struct Opaque3d {
 }
 
 impl PhaseItem for Opaque3d {
-    type SortKey = (usize, AssetId<Mesh>);
+    type SortKey = (usize, BindGroupId, AssetId<Mesh>);
 
     #[inline]
     fn entity(&self) -> Entity {
@@ -203,7 +204,7 @@ impl PhaseItem for Opaque3d {
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
         // Sort by pipeline, then by mesh to massively decrease drawcall counts in real scenes.
-        (self.pipeline.id(), self.asset_id)
+        (self.pipeline.id(), self.bind_group_id, self.asset_id)
     }
 
     #[inline]
