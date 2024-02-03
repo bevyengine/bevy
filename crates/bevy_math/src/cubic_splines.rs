@@ -1221,7 +1221,8 @@ mod tests {
     use glam::{vec2, Vec2};
 
     use crate::cubic_splines::{
-        CubicBSpline, CubicBezier, CubicGenerator, CubicSegment, RationalCurve,
+        CubicBSpline, CubicBezier, CubicGenerator, CubicNurbs, CubicSegment, RationalCurve,
+        RationalGenerator,
     };
 
     /// How close two floats can be and still be considered equal
@@ -1333,5 +1334,39 @@ mod tests {
         let cubic_accelerations: Vec<_> = b_spline.iter_accelerations(10).collect();
         let rational_accelerations: Vec<_> = rational_b_spline.iter_accelerations(10).collect();
         compare_vectors(cubic_accelerations, rational_accelerations, "acceleration");
+    }
+
+    /// Test that a curbs curve can approximate a portion of a circle.
+    #[test]
+    fn nurbs_circular_arc() {
+        use std::f32::consts::FRAC_PI_2;
+        const EPSILON: f32 = 0.0000001;
+
+        // The following NURBS parameters were determined by constraining the first two
+        // points to the line y=1, the second two points to the line x=1, and the distance
+        // between each pair of points to be equal. One can solve the weights by assuming the
+        // first and last weights to be one, the intermediate weights to be equal, and
+        // subjecting ones self to a lot of tedious matrix algebra.
+
+        let alpha = FRAC_PI_2;
+        let leg = 2.0 * f32::sin(alpha / 2.0) / (1.0 + 2.0 * f32::cos(alpha / 2.0));
+        let weight = (1.0 + 2.0 * f32::cos(alpha / 2.0)) / 3.0;
+        let points = [
+            vec2(1.0, 0.0),
+            vec2(1.0, leg),
+            vec2(leg, 1.0),
+            vec2(0.0, 1.0),
+        ];
+        let weights = [1.0, weight, weight, 1.0];
+        let knots = [0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0];
+        let spline = CubicNurbs::new(points, Some(weights), Some(knots)).unwrap();
+        let curve = spline.to_curve();
+        for (i, point) in curve.iter_positions(10).enumerate() {
+            assert!(
+                f32::abs(point.length() - 1.0) < EPSILON,
+                "Point {i} is not on the unit circle: {point:?} has length {}",
+                point.length()
+            )
+        }
     }
 }
