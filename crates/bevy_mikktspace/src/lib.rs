@@ -3,7 +3,7 @@
     clippy::all,
     clippy::undocumented_unsafe_blocks
 )]
-// FIXME(3492): remove once docs is ready
+// FIXME(3492): remove once docs are ready
 #![allow(missing_docs)]
 
 use glam::{Vec2, Vec3};

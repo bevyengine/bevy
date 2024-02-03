@@ -1,4 +1,4 @@
-// FIXME(3492): remove once docs is ready
+// FIXME(3492): remove once docs are ready
 #![allow(missing_docs)]
 
 //! This crate provides a straightforward solution for integrating diagnostics in the [Bevy game engine](https://bevyengine.org/).
