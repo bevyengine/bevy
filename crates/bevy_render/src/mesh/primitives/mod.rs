@@ -19,8 +19,6 @@
 //! # }
 //! ```
 
-#![warn(missing_docs)]
-
 mod dim2;
 pub use dim2::{CircleMeshBuilder, EllipseMeshBuilder};
 

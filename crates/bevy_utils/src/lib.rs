@@ -3,8 +3,6 @@
 //! [Bevy]: https://bevyengine.org/
 //!
 
-#![warn(missing_docs)]
-
 #[allow(missing_docs)]
 pub mod prelude {
     pub use crate::default;

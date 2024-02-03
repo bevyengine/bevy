@@ -47,7 +47,7 @@ fn setup(
 
 // This is the struct that will be passed to your shader
 #[derive(Asset, TypePath, AsBindGroup, Clone)]
-pub struct CustomMaterial {
+struct CustomMaterial {
     #[uniform(0)]
     color: Color,
     #[texture(1)]

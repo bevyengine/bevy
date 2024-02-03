@@ -42,6 +42,7 @@ map_flatten = "warn"
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "warn"
+missing_docs = "warn"
 
 [lints]
 workspace = true
