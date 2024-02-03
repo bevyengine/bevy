@@ -475,7 +475,8 @@ impl ReflectTraits {
 ///
 /// Returns an error if the identifier already exists in the list.
 fn add_unique_ident(idents: &mut Vec<Ident>, ident: Ident) -> Result<(), syn::Error> {
-    if idents.iter().any(|i| i == &ident) {
+    let ident_name = ident.to_string();
+    if idents.iter().any(|i| i == ident_name.as_str()) {
         return Err(syn::Error::new(ident.span(), CONFLICTING_TYPE_DATA_MESSAGE));
     }
 

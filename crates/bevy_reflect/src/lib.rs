@@ -1849,6 +1849,111 @@ bevy_reflect::tests::Test {
     }
 
     #[test]
+    fn debug_specialization() {
+        use std::fmt;
+
+        #[derive(Reflect)]
+        struct Debuggable;
+
+        impl fmt::Debug for Debuggable {
+            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+                write!(f, "Caterpillar!")
+            }
+        }
+
+        #[derive(Reflect)]
+        struct NotDebuggable;
+
+        struct Printer<T>(T);
+
+        impl<T: Reflect> fmt::Display for Printer<T> {
+            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+                self.0.debug(f)
+            }
+        }
+
+        assert_eq!(Printer(Debuggable).to_string(), "Caterpillar!");
+        assert_eq!(
+            Printer(NotDebuggable).to_string(),
+            "bevy_reflect::tests::NotDebuggable",
+        );
+    }
+
+    #[test]
+    fn should_allow_custom_where() {
+        #[derive(Reflect)]
+        #[reflect(where T: Default)]
+        struct Foo<T>(String, #[reflect(ignore)] PhantomData<T>);
+
+        #[derive(Default, TypePath)]
+        struct Bar;
+
+        #[derive(TypePath)]
+        struct Baz;
+
+        assert_impl_all!(Foo<Bar>: Reflect);
+        assert_not_impl_all!(Foo<Baz>: Reflect);
+    }
+
+    #[test]
+    fn should_allow_empty_custom_where() {
+        #[derive(Reflect)]
+        #[reflect(where)]
+        struct Foo<T>(String, #[reflect(ignore)] PhantomData<T>);
+
+        #[derive(TypePath)]
+        struct Bar;
+
+        assert_impl_all!(Foo<Bar>: Reflect);
+    }
+
+    #[test]
+    fn should_allow_multiple_custom_where() {
+        #[derive(Reflect)]
+        #[reflect(where T: Default)]
+        #[reflect(where U: std::ops::Add<T>)]
+        struct Foo<T, U>(T, U);
+
+        #[derive(Reflect)]
+        struct Baz {
+            a: Foo<i32, i32>,
+            b: Foo<u32, u32>,
+        }
+
+        assert_impl_all!(Foo<i32, i32>: Reflect);
+        assert_not_impl_all!(Foo<i32, usize>: Reflect);
+    }
+
+    #[test]
+    fn should_allow_custom_where_wtih_assoc_type() {
+        trait Trait {
+            type Assoc;
+        }
+
+        // We don't need `T` to be `Reflect` since we only care about `T::Assoc`
+        #[derive(Reflect)]
+        #[reflect(where T::Assoc: core::fmt::Display)]
+        struct Foo<T: Trait>(T::Assoc);
+
+        #[derive(TypePath)]
+        struct Bar;
+
+        impl Trait for Bar {
+            type Assoc = usize;
+        }
+
+        #[derive(TypePath)]
+        struct Baz;
+
+        impl Trait for Baz {
+            type Assoc = (f32, f32);
+        }
+
+        assert_impl_all!(Foo<Bar>: Reflect);
+        assert_not_impl_all!(Foo<Baz>: Reflect);
+    }
+
+    #[test]
     fn recursive_typed_storage_does_not_hang() {
         #[derive(Reflect)]
         struct Recurse<T>(T);
@@ -2035,37 +2140,6 @@ bevy_reflect::tests::Test {
         assert_impl_all!(Struct: Reflect);
         assert_impl_all!(TupleStruct: Reflect);
         assert_impl_all!(Enum: Reflect);
-    }
-
-    #[test]
-    fn debug_specialization() {
-        use std::fmt;
-
-        #[derive(Reflect)]
-        struct Debuggable;
-
-        impl fmt::Debug for Debuggable {
-            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-                write!(f, "Caterpillar!")
-            }
-        }
-
-        #[derive(Reflect)]
-        struct NotDebuggable;
-
-        struct Printer<T>(T);
-
-        impl<T: Reflect> fmt::Display for Printer<T> {
-            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-                self.0.debug(f)
-            }
-        }
-
-        assert_eq!(Printer(Debuggable).to_string(), "Caterpillar!");
-        assert_eq!(
-            Printer(NotDebuggable).to_string(),
-            "bevy_reflect::tests::NotDebuggable",
-        );
     }
 
     #[cfg(feature = "glam")]
