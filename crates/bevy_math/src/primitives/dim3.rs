@@ -155,6 +155,13 @@ pub struct Sphere {
 }
 impl Primitive3d for Sphere {}
 
+impl Default for Sphere {
+    /// Returns the default [`Sphere`] with a radius of `0.5`.
+    fn default() -> Self {
+        Self { radius: 0.5 }
+    }
+}
+
 impl Sphere {
     /// Create a new [`Sphere`] from a `radius`
     #[inline(always)]
@@ -209,6 +216,15 @@ pub struct Plane3d {
     pub normal: Direction3d,
 }
 impl Primitive3d for Plane3d {}
+
+impl Default for Plane3d {
+    /// Returns the default [`Plane3d`] with a normal pointing in the `+Y` direction.
+    fn default() -> Self {
+        Self {
+            normal: Direction3d::Y,
+        }
+    }
+}
 
 impl Plane3d {
     /// Create a new `Plane3d` from a normal
@@ -374,6 +390,15 @@ pub struct Cuboid {
 }
 impl Primitive3d for Cuboid {}
 
+impl Default for Cuboid {
+    /// Returns the default [`Cuboid`] with a width, height, and depth of `1.0`.
+    fn default() -> Self {
+        Self {
+            half_size: Vec3::splat(0.5),
+        }
+    }
+}
+
 impl Cuboid {
     /// Create a new `Cuboid` from a full x, y, and z length
     #[inline(always)]
@@ -439,6 +464,16 @@ pub struct Cylinder {
 }
 impl Primitive3d for Cylinder {}
 
+impl Default for Cylinder {
+    /// Returns the default [`Cylinder`] with a radius of `0.5` and a height of `1.0`.
+    fn default() -> Self {
+        Self {
+            radius: 0.5,
+            half_height: 0.5,
+        }
+    }
+}
+
 impl Cylinder {
     /// Create a new `Cylinder` from a radius and full height
     #[inline(always)]
@@ -495,6 +530,17 @@ pub struct Capsule3d {
     pub half_length: f32,
 }
 impl Primitive3d for Capsule3d {}
+
+impl Default for Capsule3d {
+    /// Returns the default [`Capsule3d`] with a radius of `0.5` and a segment length of `1.0`.
+    /// The total height is `2.0`.
+    fn default() -> Self {
+        Self {
+            radius: 0.5,
+            half_length: 0.5,
+        }
+    }
+}
 
 impl Capsule3d {
     /// Create a new `Capsule3d` from a radius and length
@@ -635,6 +681,16 @@ pub struct Torus {
     pub major_radius: f32,
 }
 impl Primitive3d for Torus {}
+
+impl Default for Torus {
+    /// Returns the default [`Torus`] with a minor radius of `0.25` and a major radius of `0.75`.
+    fn default() -> Self {
+        Self {
+            minor_radius: 0.25,
+            major_radius: 0.75,
+        }
+    }
+}
 
 impl Torus {
     /// Create a new `Torus` from an inner and outer radius.
