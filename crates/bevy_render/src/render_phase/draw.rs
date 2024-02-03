@@ -5,9 +5,8 @@ use bevy_ecs::{
     query::{QueryState, ROQueryItem, ReadOnlyQueryData},
     system::{ReadOnlySystemParam, Resource, SystemParam, SystemParamItem, SystemState},
     world::World,
-    TypeIdMap,
 };
-use bevy_utils::all_tuples;
+use bevy_utils::{all_tuples, TypeIdMap};
 use std::{
     any::TypeId,
     fmt::Debug,

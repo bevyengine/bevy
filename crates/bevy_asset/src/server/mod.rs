@@ -16,10 +16,10 @@ use crate::{
     DeserializeMetaError, ErasedLoadedAsset, Handle, LoadedUntypedAsset, UntypedAssetId,
     UntypedAssetLoadFailedEvent, UntypedHandle,
 };
-use bevy_ecs::{prelude::*, TypeIdMap};
+use bevy_ecs::prelude::*;
 use bevy_log::{error, info, warn};
 use bevy_tasks::IoTaskPool;
-use bevy_utils::{CowArc, HashMap, HashSet};
+use bevy_utils::{CowArc, HashMap, HashSet, TypeIdMap};
 use crossbeam_channel::{Receiver, Sender};
 use futures_lite::StreamExt;
 use info::*;

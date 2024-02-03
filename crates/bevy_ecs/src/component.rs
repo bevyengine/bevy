@@ -6,12 +6,12 @@ use crate::{
     storage::{SparseSetIndex, Storages},
     system::{Local, Resource, SystemParam},
     world::{FromWorld, World},
-    TypeIdMap,
 };
 pub use bevy_ecs_macros::Component;
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
+use bevy_utils::TypeIdMap;
 use std::cell::UnsafeCell;
 use std::{
     alloc::Layout,

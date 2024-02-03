@@ -3,9 +3,10 @@
 use crate as bevy_gizmos;
 pub use bevy_gizmos_macros::GizmoConfigGroup;
 
-use bevy_ecs::{component::Component, system::Resource, TypeIdMap};
+use bevy_ecs::{component::Component, system::Resource};
 use bevy_reflect::{Reflect, TypePath};
 use bevy_render::view::RenderLayers;
+use bevy_utils::TypeIdMap;
 use core::panic;
 use std::{
     any::TypeId,

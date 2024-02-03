@@ -5,11 +5,11 @@ use std::collections::HashMap;
 use crate::{
     schedule::{InternedScheduleLabel, NodeId, Schedule, ScheduleLabel},
     system::{IntoSystem, ResMut, Resource, System},
-    TypeIdMap,
 };
 use bevy_utils::{
     thiserror::Error,
     tracing::{error, info, warn},
+    TypeIdMap,
 };
 
 #[cfg(test)]

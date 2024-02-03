@@ -63,7 +63,6 @@ use bevy_ecs::{
         lifetimeless::{Read, SRes},
         Commands, Res, ResMut, Resource, SystemParamItem,
     },
-    TypeIdMap,
 };
 use bevy_reflect::TypePath;
 use bevy_render::{
@@ -80,7 +79,7 @@ use bevy_render::{
     renderer::RenderDevice,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_utils::tracing::warn;
+use bevy_utils::{tracing::warn, TypeIdMap};
 use config::{
     DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore, GizmoMeshConfig,
 };

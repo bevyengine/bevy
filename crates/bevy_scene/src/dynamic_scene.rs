@@ -3,10 +3,9 @@ use bevy_ecs::{
     entity::Entity,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities},
     world::World,
-    TypeIdMap,
 };
 use bevy_reflect::{Reflect, TypePath, TypeRegistryArc};
-use bevy_utils::EntityHashMap;
+use bevy_utils::{EntityHashMap, TypeIdMap};
 
 #[cfg(feature = "serialize")]
 use crate::serde::SceneSerializer;

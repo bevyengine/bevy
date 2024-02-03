@@ -1,6 +1,5 @@
 use crate::{App, AppError, Plugin};
-use bevy_ecs::TypeIdMap;
-use bevy_utils::{tracing::debug, tracing::warn};
+use bevy_utils::{tracing::debug, tracing::warn, TypeIdMap};
 use std::any::TypeId;
 
 /// Combines multiple [`Plugin`]s into a single unit.
