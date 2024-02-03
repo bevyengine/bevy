@@ -7,7 +7,6 @@
 use bevy::{
     core_pipeline::{
         bloom::BloomSettings,
-        fxaa::Fxaa,
         motion_blur::{MotionBlur, MotionBlurBundle},
         tonemapping::Tonemapping,
     },
@@ -19,7 +18,7 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, CameraControllerPlugin))
+        .add_plugins((DefaultPlugins.build(), CameraControllerPlugin))
         .add_systems(Startup, (setup, setup_ui))
         .add_systems(Update, (translate, rotate, scale, update_settings).chain())
         .insert_resource(Msaa::Off)
@@ -50,20 +49,20 @@ fn setup(
             // Configure motion blur settings per-camera
             motion_blur: MotionBlur {
                 shutter_angle: 0.5, // Amount of blur
-                samples: 4,         // Quality
+                samples: 2,         // Quality
                 ..default()
             },
             ..default()
         },
         CameraController::default(),
-        BloomSettings::default(),
-        Fxaa::default(),
+        BloomSettings { ..default() },
+        // Fxaa::default(),
     ));
 
     // Add a light
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            illuminance: 30000.,
+            illuminance: 80000.,
             shadows_enabled: true,
             ..default()
         },
@@ -83,6 +82,7 @@ fn setup(
                 base_color: Color::CYAN,
                 base_color_texture: Some(image.clone()),
                 unlit: true,
+                reflectance: 0.0,
                 ..default()
             }),
             transform: Transform::from_scale(Vec3::splat(-100000.0))
@@ -99,7 +99,7 @@ fn setup(
         material: materials.add(StandardMaterial {
             base_color: Color::DARK_GRAY,
             base_color_texture: Some(image.clone()),
-            perceptual_roughness: 1.0,
+            perceptual_roughness: 0.1,
             reflectance: 0.0,
             ..default()
         }),
@@ -112,13 +112,14 @@ fn setup(
             base_color_texture: Some(image.clone()),
             base_color,
             perceptual_roughness: 0.2,
+            reflectance: 1.0,
             ..default()
         })
     };
     commands.spawn((
         PbrBundle {
             mesh: sphere.clone(),
-            material: sphere_matl(Color::BLUE),
+            material: sphere_matl(Color::BLACK),
             transform: Transform::from_xyz(0.0, 0.0, 40.0),
             ..default()
         },

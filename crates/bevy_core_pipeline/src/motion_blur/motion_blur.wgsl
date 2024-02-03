@@ -70,7 +70,8 @@ fn fragment(
     // This means that for a frame time of 20ms, the shutter is only open for 10ms.
     //
     // Using a shutter angle larger than 1.0 is non-physical, objects would need to move further
-    // than they physically travelled during a frame, which is not possible.
+    // than they physically travelled during a frame, which is not possible. Note: we allow values
+    // larger than 1.0 because it may be desired for artistic reasons.
     let exposure_vector = shutter_angle * this_motion_vector;
 
     var accumulator: vec4<f32>;
@@ -126,8 +127,8 @@ fn fragment(
             // ensure you check all oclusion/disocclusion scenarios and fullscreen camera rotation
             // blur for regressions.
             let frag_speed = length(step_vector);
-            let sample_speed = length(sample_motion / 2.0); // Halved because the sample is centered
-            let cos_angle = dot(step_vector, sample_motion) / (frag_speed * sample_speed);
+            let sample_speed = length(sample_motion) / 2.0; // Halved because the sample is centered
+            let cos_angle = dot(step_vector, sample_motion) / (frag_speed * sample_speed * 2.0);
             let motion_similarity = clamp(abs(cos_angle), 0.0, 1.0);
             if sample_speed * motion_similarity < frag_speed {
                 // Project the sample's motion onto the frag's motion vector. If the sample did not

@@ -3,7 +3,10 @@
 //! Add the [`MotionBlurBundle`] to a camera to enable motion blur. See [`MotionBlur`] for more
 //! documentation.
 
-use crate::core_3d;
+use crate::{
+    core_3d,
+    prepass::{DepthPrepass, MotionVectorPrepass},
+};
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::{bundle::Bundle, component::Component, schedule::IntoSystemConfigs};
@@ -22,8 +25,8 @@ pub mod pipeline;
 #[derive(Bundle, Default)]
 pub struct MotionBlurBundle {
     pub motion_blur: MotionBlur,
-    pub depth_prepass: crate::prepass::DepthPrepass,
-    pub motion_vector_prepass: crate::prepass::MotionVectorPrepass,
+    pub depth_prepass: DepthPrepass,
+    pub motion_vector_prepass: MotionVectorPrepass,
 }
 
 /// A component that enables and configures motion blur when added to a camera.
