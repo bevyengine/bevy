@@ -5,9 +5,8 @@ use bevy::{
     prelude::*,
 };
 
-/// The curve used to animate the cube.
 #[derive(Component)]
-pub struct Curve(CubicCurve<Vec3>);
+struct Curve(CubicCurve<Vec3>);
 
 fn main() {
     App::new()
