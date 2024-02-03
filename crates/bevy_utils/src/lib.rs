@@ -43,6 +43,7 @@ pub mod nonmax {
 
 use hashbrown::hash_map::RawEntryMut;
 use std::{
+    any::TypeId,
     fmt::Debug,
     future::Future,
     hash::{BuildHasher, BuildHasherDefault, Hash, Hasher},
@@ -328,7 +329,7 @@ pub type EntityHashSet<T> = hashbrown::HashSet<T, EntityHash>;
 
 /// A specialized hashmap type with Key of [`TypeId`]
 pub type TypeIdMap<V> =
-    hashbrown::HashMap<std::any::TypeId, V, std::hash::BuildHasherDefault<NoOpTypeIdHasher>>;
+    hashbrown::HashMap<TypeId, V, std::hash::BuildHasherDefault<NoOpTypeIdHasher>>;
 
 #[doc(hidden)]
 #[derive(Default)]
@@ -466,6 +467,6 @@ mod tests {
             fn write_u64(&mut self, _: u64) {}
         }
 
-        std::hash::Hash::hash(&std::any::TypeId::of::<()>(), &mut Hasher);
+        std::hash::Hash::hash(&TypeId::of::<()>(), &mut Hasher);
     }
 }
