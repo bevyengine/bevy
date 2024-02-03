@@ -132,7 +132,7 @@ impl DynamicScene {
                 if registration.data::<ReflectMapEntities>().is_some() {
                     scene_mappings
                         .entry(registration.type_id())
-                        .or_insert(Vec::new())
+                        .or_default()
                         .push(entity);
                 }
 
