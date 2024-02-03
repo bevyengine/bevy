@@ -470,10 +470,11 @@ impl<P: Point> CubicNurbs<P> {
         let curve_length = (control_points.len() - 3) as f32;
         let min = *knots.first().unwrap();
         let max = *knots.last().unwrap();
+        let knot_delta = max - min;
         knots = knots
             .into_iter()
             .map(|k| k - min)
-            .map(|k| k * curve_length / max)
+            .map(|k| k * curve_length / knot_delta)
             .collect();
 
         control_points
