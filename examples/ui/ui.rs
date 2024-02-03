@@ -26,7 +26,7 @@ fn main() {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Camera
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn((Camera2dBundle::default(), IsDefaultUiCamera));
 
     // root node
     commands
