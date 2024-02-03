@@ -72,7 +72,7 @@ impl UiDebugOptions {
     }
 }
 
-/// The system responsible to change the [`Camera`] config based on changes in [`UiDebugOptions`] and [`GizmoConfig`].
+/// The system responsible to change the [`Camera`] config based on changes in [`UiDebugOptions`] and [`GizmoConfig`](bevy_gizmos::prelude::GizmoConfig).
 fn update_debug_camera(
     mut gizmo_config: ResMut<GizmoConfigStore>,
     mut options: ResMut<UiDebugOptions>,
