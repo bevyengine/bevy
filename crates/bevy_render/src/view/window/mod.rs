@@ -420,7 +420,6 @@ pub fn prepare_windows(
 }
 
 /// Creates window surfaces.
-#[allow(clippy::too_many_arguments)]
 pub fn create_surfaces(
     // By accessing a NonSend resource, we tell the scheduler to put this system on the main thread,
     // which is necessary for some OS's
