@@ -34,7 +34,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 #endif
 
 #ifdef SKINNED
-    let skin_index = mesh[get_instance_index(vertex_no_morph.instance_index)].skin_index;
+    let skin_index = mesh[vertex_no_morph.instance_index].skin_index;
     var model = bevy_pbr::skinning::skin_model(skin_index, vertex.joint_indices, vertex.joint_weights);
 #else
     // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.

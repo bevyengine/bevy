@@ -19,7 +19,10 @@ mod layout_entry {
     use crate::MeshUniform;
     use bevy_render::{
         render_resource::{
-            binding_types::{sampler, texture_2d, texture_3d, uniform_buffer_sized},
+            binding_types::{
+                sampler, storage_buffer_read_only_sized, texture_2d, texture_3d,
+                uniform_buffer_sized,
+            },
             BindGroupLayoutEntryBuilder, BufferSize, GpuArrayBuffer, SamplerBindingType,
             ShaderStages, TextureSampleType,
         },
@@ -37,7 +40,11 @@ mod layout_entry {
         } else {
             JOINT_BUFFER_SIZE
         };
-        uniform_buffer_sized(!is_storage, BufferSize::new(min_binding_size as u64))
+        if is_storage {
+            storage_buffer_read_only_sized(!is_storage, BufferSize::new(min_binding_size as u64))
+        } else {
+            uniform_buffer_sized(!is_storage, BufferSize::new(min_binding_size as u64))
+        }
     }
     pub(super) fn weights() -> BindGroupLayoutEntryBuilder {
         uniform_buffer_sized(true, BufferSize::new(MORPH_BUFFER_SIZE as u64))
