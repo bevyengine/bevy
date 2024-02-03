@@ -1,3 +1,7 @@
+//! Infrastructure for recording render diagnostics.
+//!
+//! For more info, see [`RenderDiagnosticsPlugin`].
+
 pub(crate) mod internal;
 
 use std::{borrow::Cow, marker::PhantomData, sync::Arc};
@@ -14,6 +18,26 @@ use super::{RenderDevice, RenderQueue};
 
 /// Enables collecting render diagnostics, such as CPU/GPU elapsed time per render pass,
 /// as well as pipeline statistics (number of primitives, number of shader invocations, etc).
+///
+/// To access the diagnostics, you can use [`DiagnosticsStore`](bevy_diagnostic::DiagnosticsStore) resource,
+/// or add [`LogDiagnosticsPlugin`](bevy_diagnostic::LogDiagnosticsPlugin).
+///
+/// To record diagnostics in your own passes:
+///  1. First, obtain the diagnostic recorder using [`RenderContext::diagnostic_recorder`](crate::renderer::RenderContext::diagnostic_recorder).
+///
+///     It won't do anything unless [`RenderDiagnosticsPlugin`] is present,
+///     so you're free to omit `#[cfg]` clauses.
+///     ```ignore
+///     let diagnostics = render_context.diagnostic_recorder();
+///     ```
+///  2. Begin the span inside a command encoder, or a render/compute pass encoder.
+///     ```ignore
+///     let time_span = diagnostics.time_span(render_context.command_encoder(), "shadows");
+///     ```
+///  3. End the span, providing the same encoder.
+///     ```ignore
+///     time_span.end(render_context.command_encoder());
+///     ```
 ///
 /// # Supported platforms
 /// Timestamp queries and pipeline statistics are currently supported only on Vulkan and DX12.
@@ -44,26 +68,34 @@ impl Plugin for RenderDiagnosticsPlugin {
     }
 }
 
+/// Allows recording diagnostic spans.
 pub trait RecordDiagnostics: Send + Sync {
-    fn time_span<E, N>(&self, encoder: &mut E, name: N) -> TimeSpanScope<'_, Self, E>
+    /// Begin a time span, which will record elapsed CPU and GPU time.
+    ///
+    /// Returns a guard, which will panic on drop unless you end the span.
+    fn time_span<E, N>(&self, encoder: &mut E, name: N) -> TimeSpanGuard<'_, Self, E>
     where
         E: WriteTimestamp,
         N: Into<Cow<'static, str>>,
     {
         self.begin_time_span(encoder, name.into());
-        TimeSpanScope {
+        TimeSpanGuard {
             recorder: self,
             marker: PhantomData,
         }
     }
 
-    fn pass_span<P, N>(&self, pass: &mut P, name: N) -> PassSpanScope<'_, Self, P>
+    /// Begin a pass span, which will record elapsed CPU and GPU time,
+    /// as well as pipeline statistics on supported platforms.
+    ///
+    /// Returns a guard, which will panic on drop unless you end the span.
+    fn pass_span<P, N>(&self, pass: &mut P, name: N) -> PassSpanGuard<'_, Self, P>
     where
         P: Pass,
         N: Into<Cow<'static, str>>,
     {
         self.begin_pass_span(pass, name.into());
-        PassSpanScope {
+        PassSpanGuard {
             recorder: self,
             marker: PhantomData,
         }
@@ -82,37 +114,45 @@ pub trait RecordDiagnostics: Send + Sync {
     fn end_pass_span<P: Pass>(&self, pass: &mut P);
 }
 
-pub struct TimeSpanScope<'a, R: ?Sized, E> {
+/// Guard returned by [`RecordDiagnostics::time_span`].
+///
+/// Will panic on drop unless [`TimeSpanGuard::end`] is called.
+pub struct TimeSpanGuard<'a, R: ?Sized, E> {
     recorder: &'a R,
     marker: PhantomData<E>,
 }
 
-impl<R: RecordDiagnostics + ?Sized, E: WriteTimestamp> TimeSpanScope<'_, R, E> {
+impl<R: RecordDiagnostics + ?Sized, E: WriteTimestamp> TimeSpanGuard<'_, R, E> {
+    /// End the span. You have to provide the same encoder which was used to begin the span.
     pub fn end(self, encoder: &mut E) {
         self.recorder.end_time_span(encoder);
         std::mem::forget(self);
     }
 }
 
-impl<R: ?Sized, E> Drop for TimeSpanScope<'_, R, E> {
+impl<R: ?Sized, E> Drop for TimeSpanGuard<'_, R, E> {
     fn drop(&mut self) {
         panic!("TimeSpanScope::end was never called")
     }
 }
 
-pub struct PassSpanScope<'a, R: ?Sized, P> {
+/// Guard returned by [`RecordDiagnostics::pass_span`].
+///
+/// Will panic on drop unless [`PassSpanGuard::end`] is called.
+pub struct PassSpanGuard<'a, R: ?Sized, P> {
     recorder: &'a R,
     marker: PhantomData<P>,
 }
 
-impl<R: RecordDiagnostics + ?Sized, P: Pass> PassSpanScope<'_, R, P> {
+impl<R: RecordDiagnostics + ?Sized, P: Pass> PassSpanGuard<'_, R, P> {
+    /// End the span. You have to provide the same encoder which was used to begin the span.
     pub fn end(self, pass: &mut P) {
         self.recorder.end_pass_span(pass);
         std::mem::forget(self);
     }
 }
 
-impl<R: ?Sized, P> Drop for PassSpanScope<'_, R, P> {
+impl<R: ?Sized, P> Drop for PassSpanGuard<'_, R, P> {
     fn drop(&mut self) {
         panic!("PassSpanScope::end was never called")
     }

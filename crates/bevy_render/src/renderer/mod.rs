@@ -380,8 +380,6 @@ impl RenderContext {
     }
 
     /// Finalizes the queue and returns the queue of [`CommandBuffer`]s.
-    ///
-    /// When the render diagnostics become available, `diagnostics_callback` will be invoked.
     pub fn finish(
         mut self,
     ) -> (

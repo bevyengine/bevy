@@ -135,7 +135,7 @@ impl RecordDiagnostics for DiagnosticsRecorder {
 struct SpanRecord {
     thread_id: ThreadId,
     path_range: Range<usize>,
-    kind: SpanKind,
+    pass_kind: Option<PassKind>,
     begin_timestamp_index: Option<u32>,
     end_timestamp_index: Option<u32>,
     begin_instant: Option<Instant>,
@@ -244,33 +244,37 @@ impl FrameData {
             return None;
         }
 
-        match &self.timestamps_query_set {
-            Some(set) if self.num_timestamps < MAX_TIMESTAMP_QUERIES => {
-                let index = self.num_timestamps;
-                encoder.write_timestamp(set, index);
-                self.num_timestamps += 1;
-                Some(index)
-            }
-            _ => None,
+        if self.num_timestamps >= MAX_TIMESTAMP_QUERIES {
+            return None;
         }
+
+        let set = self.timestamps_query_set.as_ref()?;
+        let index = self.num_timestamps;
+        encoder.write_timestamp(set, index);
+        self.num_timestamps += 1;
+        Some(index)
     }
 
     fn write_pipeline_statistics(
         &mut self,
         encoder: &mut impl WritePipelineStatistics,
     ) -> Option<u32> {
-        match &self.pipeline_statistics_query_set {
-            Some(set) if self.num_pipeline_statistics < MAX_PIPELINE_STATISTICS => {
-                let index = self.num_pipeline_statistics;
-                encoder.begin_pipeline_statistics_query(set, index);
-                self.num_pipeline_statistics += 1;
-                Some(index)
-            }
-            _ => None,
+        if self.num_pipeline_statistics >= MAX_PIPELINE_STATISTICS {
+            return None;
         }
+
+        let set = self.pipeline_statistics_query_set.as_ref()?;
+        let index = self.num_pipeline_statistics;
+        encoder.begin_pipeline_statistics_query(set, index);
+        self.num_pipeline_statistics += 1;
+        Some(index)
     }
 
-    fn open_span(&mut self, kind: SpanKind, name: Cow<'static, str>) -> &mut SpanRecord {
+    fn open_span(
+        &mut self,
+        pass_kind: Option<PassKind>,
+        name: Cow<'static, str>,
+    ) -> &mut SpanRecord {
         let thread_id = thread::current().id();
 
         let parent = self
@@ -296,7 +300,7 @@ impl FrameData {
         self.open_spans.push(SpanRecord {
             thread_id,
             path_range,
-            kind,
+            pass_kind,
             begin_timestamp_index: None,
             end_timestamp_index: None,
             begin_instant: None,
@@ -326,7 +330,7 @@ impl FrameData {
         let begin_instant = Instant::now();
         let begin_timestamp_index = self.write_timestamp(encoder, false);
 
-        let span = self.open_span(SpanKind::Time, name);
+        let span = self.open_span(None, name);
         span.begin_instant = Some(begin_instant);
         span.begin_timestamp_index = begin_timestamp_index;
     }
@@ -345,12 +349,7 @@ impl FrameData {
         let begin_timestamp_index = self.write_timestamp(pass, true);
         let pipeline_statistics_index = self.write_pipeline_statistics(pass);
 
-        let kind = match P::KIND {
-            PassKind::Render => SpanKind::RenderPass,
-            PassKind::Compute => SpanKind::ComputePass,
-        };
-
-        let span = self.open_span(kind, name);
+        let span = self.open_span(Some(P::KIND), name);
         span.begin_instant = Some(begin_instant);
         span.begin_timestamp_index = begin_timestamp_index;
         span.pipeline_statistics_index = pipeline_statistics_index;
@@ -370,8 +369,7 @@ impl FrameData {
     }
 
     fn resolve(&mut self, encoder: &mut CommandEncoder) {
-        let (Some(resolve_buffer), Some(read_buffer)) = (&self.resolve_buffer, &self.read_buffer)
-        else {
+        let Some(resolve_buffer) = &self.resolve_buffer else {
             return;
         };
 
@@ -393,6 +391,10 @@ impl FrameData {
             }
             _ => {}
         }
+
+        let Some(read_buffer) = &self.read_buffer else {
+            return;
+        };
 
         encoder.copy_buffer_to_buffer(resolve_buffer, 0, read_buffer, 0, self.buffer_size);
     }
@@ -492,7 +494,7 @@ impl FrameData {
             if let Some(index) = span.pipeline_statistics_index {
                 let index = (index as usize) * 5;
 
-                if span.kind == SpanKind::RenderPass {
+                if span.pass_kind == Some(PassKind::Render) {
                     diagnostics.push(RenderDiagnostic {
                         path: self.diagnostic_path(&span.path_range, "vertex_shader_invocations"),
                         suffix: "",
@@ -518,7 +520,7 @@ impl FrameData {
                     });
                 }
 
-                if span.kind == SpanKind::ComputePass {
+                if span.pass_kind == Some(PassKind::Compute) {
                     diagnostics.push(RenderDiagnostic {
                         path: self.diagnostic_path(&span.path_range, "compute_shader_invocations"),
                         suffix: "",
@@ -542,28 +544,12 @@ impl FrameData {
 #[derive(Debug, Default, Clone, Resource)]
 pub struct RenderDiagnostics(Vec<RenderDiagnostic>);
 
+/// A render diagnostic which has been recorded, but not yet stored in [`DiagnosticStore`].
 #[derive(Debug, Clone, Resource)]
 pub struct RenderDiagnostic {
     pub path: DiagnosticPath,
     pub suffix: &'static str,
     pub value: f64,
-}
-
-/// Kinds of render diagnostic spans.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
-pub(crate) enum SpanKind {
-    /// An explicit time span.
-    ///
-    /// See also: [`RecordDiagnostics::time_span`]
-    Time,
-    /// A [`wgpu::RenderPass`]. Records timestamps, as well as pipeline statistics.
-    ///
-    /// See also: [`RecordDiagnostics::pass_span`]
-    RenderPass,
-    /// A [`wgpu::ComputePass`]. Records timestamps, as well as pipeline statistics.
-    ///
-    /// See also: [`RecordDiagnostics::pass_span`]
-    ComputePass,
 }
 
 /// Stores render diagnostics before they can be synced with the main app.
