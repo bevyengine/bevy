@@ -33,5 +33,8 @@ glyph_brush_layout = "0.2.1"
 thiserror = "1.0"
 serde = { version = "1", features = ["derive"] }
 
+[dev-dependencies]
+approx = "0.5.1"
+
 [lints]
 workspace = true
