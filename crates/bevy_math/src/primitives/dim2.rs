@@ -7,6 +7,7 @@ use crate::Vec2;
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Direction2d(Vec2);
+impl Primitive2d for Direction2d {}
 
 impl Direction2d {
     /// A unit vector pointing along the positive X axis.

@@ -256,6 +256,12 @@ impl Plugin for MainSchedulePlugin {
             .init_resource::<FixedMainScheduleOrder>()
             .add_systems(Main, Main::run_main)
             .add_systems(FixedMain, FixedMain::run_fixed_main);
+
+        #[cfg(feature = "bevy_debug_stepping")]
+        {
+            use bevy_ecs::schedule::{IntoSystemConfigs, Stepping};
+            app.add_systems(Main, Stepping::begin_frame.before(Main::run_main));
+        }
     }
 }
 
