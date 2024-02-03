@@ -5,6 +5,7 @@ use bevy::{
     prelude::*,
 };
 
+/// The curve used to animate the cube.
 #[derive(Component)]
 pub struct Curve(CubicCurve<Vec3>);
 
@@ -72,11 +73,7 @@ fn setup(
     });
 }
 
-pub fn animate_cube(
-    time: Res<Time>,
-    mut query: Query<(&mut Transform, &Curve)>,
-    mut gizmos: Gizmos,
-) {
+fn animate_cube(time: Res<Time>, mut query: Query<(&mut Transform, &Curve)>, mut gizmos: Gizmos) {
     let t = (time.elapsed_seconds().sin() + 1.) / 2.;
 
     for (mut transform, cubic_curve) in &mut query {
