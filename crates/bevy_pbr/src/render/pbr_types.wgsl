@@ -24,7 +24,7 @@ struct StandardMaterial {
 };
 
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-// NOTE: if these flags are updated or changed. Be sure to also update 
+// NOTE: if these flags are updated or changed. Be sure to also update
 // deferred_flags_from_mesh_material_flags and mesh_material_flags_from_deferred_flags
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 const STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT: u32         = 1u;
@@ -74,13 +74,15 @@ fn standard_material_new() -> StandardMaterial {
     material.max_parallax_layer_count = 16.0;
     material.max_relief_mapping_search_steps = 5u;
     material.deferred_lighting_pass_id = 1u;
-    
+
     return material;
 }
 
 struct PbrInput {
     material: StandardMaterial,
+    // Note: this gets monochromized upon deferred PbrInput reconstruction.
     diffuse_occlusion: vec3<f32>,
+    // Note: this is 1.0 (entirely unoccluded) when SSAO is off.
     specular_occlusion: f32,
     frag_coord: vec4<f32>,
     world_position: vec4<f32>,
@@ -103,6 +105,7 @@ fn pbr_input_new() -> PbrInput {
 
     pbr_input.material = standard_material_new();
     pbr_input.diffuse_occlusion = vec3<f32>(1.0);
+    // If SSAO is enabled, then this gets overwritten with proper specular occlusion. If its not, then we get specular environment map unoccluded (we have no data with which to occlude it with).
     pbr_input.specular_occlusion = 1.0;
 
     pbr_input.frag_coord = vec4<f32>(0.0, 0.0, 0.0, 1.0);

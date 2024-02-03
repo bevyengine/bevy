@@ -7,7 +7,7 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
     render::{
-        render_asset::RenderAssetPersistencePolicy,
+        render_asset::RenderAssetUsages,
         render_resource::{AsBindGroup, Extent3d, ShaderRef, TextureDimension, TextureFormat},
         texture::{ImageSampler, ImageSamplerDescriptor},
         view::ColorGrading,
@@ -40,7 +40,8 @@ fn main() {
         .add_systems(
             Update,
             (
-                update_image_viewer,
+                drag_drop_image,
+                resize_image,
                 toggle_scene,
                 toggle_tonemapping_method,
                 update_color_grading_settings,
@@ -223,7 +224,7 @@ fn setup_color_gradient_scene(
     camera_transform: Res<CameraTransform>,
 ) {
     let mut transform = camera_transform.0;
-    transform.translation += transform.forward();
+    transform.translation += *transform.forward();
 
     commands.spawn((
         MaterialMeshBundle {
@@ -247,7 +248,7 @@ fn setup_image_viewer_scene(
     camera_transform: Res<CameraTransform>,
 ) {
     let mut transform = camera_transform.0;
-    transform.translation += transform.forward();
+    transform.translation += *transform.forward();
 
     // exr/hdr viewer (exr requires enabling bevy feature)
     commands.spawn((
@@ -292,58 +293,68 @@ fn setup_image_viewer_scene(
 
 // ----------------------------------------------------------------------------
 
-#[allow(clippy::too_many_arguments)]
-fn update_image_viewer(
-    image_mesh: Query<(&Handle<StandardMaterial>, &Handle<Mesh>), With<HDRViewer>>,
+fn drag_drop_image(
+    image_mat: Query<&Handle<StandardMaterial>, With<HDRViewer>>,
     text: Query<Entity, (With<Text>, With<SceneNumber>)>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    images: Res<Assets<Image>>,
     mut drop_events: EventReader<FileDragAndDrop>,
-    mut drop_hovered: Local<bool>,
     asset_server: Res<AssetServer>,
-    mut image_events: EventReader<AssetEvent<Image>>,
     mut commands: Commands,
 ) {
-    let mut new_image: Option<Handle<Image>> = None;
+    let Some(new_image) = drop_events.read().find_map(|e| match e {
+        FileDragAndDrop::DroppedFile { path_buf, .. } => {
+            Some(asset_server.load(path_buf.to_string_lossy().to_string()))
+        }
+        _ => None,
+    }) else {
+        return;
+    };
 
-    for event in drop_events.read() {
-        match event {
-            FileDragAndDrop::DroppedFile { path_buf, .. } => {
-                new_image = Some(asset_server.load(&path_buf.to_string_lossy().to_string()));
-                *drop_hovered = false;
+    for mat_h in &image_mat {
+        if let Some(mat) = materials.get_mut(mat_h) {
+            mat.base_color_texture = Some(new_image.clone());
+
+            // Despawn the image viewer instructions
+            if let Ok(text_entity) = text.get_single() {
+                commands.entity(text_entity).despawn();
             }
-            FileDragAndDrop::HoveredFile { .. } => *drop_hovered = true,
-            FileDragAndDrop::HoveredFileCanceled { .. } => *drop_hovered = false,
         }
     }
+}
 
-    for (mat_h, mesh_h) in &image_mesh {
-        if let Some(mat) = materials.get_mut(mat_h) {
-            if let Some(ref new_image) = new_image {
-                mat.base_color_texture = Some(new_image.clone());
+fn resize_image(
+    image_mesh: Query<(&Handle<StandardMaterial>, &Handle<Mesh>), With<HDRViewer>>,
+    materials: Res<Assets<StandardMaterial>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    images: Res<Assets<Image>>,
+    mut image_events: EventReader<AssetEvent<Image>>,
+) {
+    for event in image_events.read() {
+        let (AssetEvent::Added { id } | AssetEvent::Modified { id }) = event else {
+            continue;
+        };
 
-                if let Ok(text_entity) = text.get_single() {
-                    commands.entity(text_entity).despawn();
-                }
-            }
+        for (mat_h, mesh_h) in &image_mesh {
+            let Some(mat) = materials.get(mat_h) else {
+                continue;
+            };
 
-            for event in image_events.read() {
-                let image_changed_id = *match event {
-                    AssetEvent::Added { id } | AssetEvent::Modified { id } => id,
-                    _ => continue,
-                };
-                if let Some(base_color_texture) = mat.base_color_texture.clone() {
-                    if image_changed_id == base_color_texture.id() {
-                        if let Some(image_changed) = images.get(image_changed_id) {
-                            let size = image_changed.size_f32().normalize_or_zero() * 1.4;
-                            // Resize Mesh
-                            let quad = Mesh::from(shape::Quad::new(size));
-                            meshes.insert(mesh_h, quad);
-                        }
-                    }
-                }
-            }
+            let Some(ref base_color_texture) = mat.base_color_texture else {
+                continue;
+            };
+
+            if *id != base_color_texture.id() {
+                continue;
+            };
+
+            let Some(image_changed) = images.get(*id) else {
+                continue;
+            };
+
+            let size = image_changed.size_f32().normalize_or_zero() * 1.4;
+            // Resize Mesh
+            let quad = Mesh::from(shape::Quad::new(size));
+            meshes.insert(mesh_h, quad);
         }
     }
 }
@@ -680,7 +691,7 @@ fn uv_debug_texture() -> Image {
         TextureDimension::D2,
         &texture_data,
         TextureFormat::Rgba8UnormSrgb,
-        RenderAssetPersistencePolicy::Unload,
+        RenderAssetUsages::RENDER_WORLD,
     );
     img.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor::default());
     img

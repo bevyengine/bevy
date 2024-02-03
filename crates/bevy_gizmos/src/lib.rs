@@ -32,6 +32,7 @@ pub mod arrows;
 pub mod circles;
 pub mod config;
 pub mod gizmos;
+pub mod primitives;
 
 #[cfg(feature = "bevy_sprite")]
 mod pipeline_2d;
@@ -45,6 +46,7 @@ pub mod prelude {
         aabb::{AabbGizmoConfigGroup, ShowAabbGizmo},
         config::{DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore},
         gizmos::Gizmos,
+        primitives::{dim2::GizmoPrimitive2d, dim3::GizmoPrimitive3d},
         AppGizmoBuilder,
     };
 }
@@ -66,8 +68,7 @@ use bevy_reflect::TypePath;
 use bevy_render::{
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     render_asset::{
-        PrepareAssetError, RenderAsset, RenderAssetPersistencePolicy, RenderAssetPlugin,
-        RenderAssets,
+        PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssetUsages, RenderAssets,
     },
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::{
@@ -146,6 +147,15 @@ pub trait AppGizmoBuilder {
     ///
     /// Configurations can be set using the [`GizmoConfigStore`] [`Resource`].
     fn init_gizmo_group<T: GizmoConfigGroup + Default>(&mut self) -> &mut Self;
+
+    /// Insert the [`GizmoConfigGroup`] in the app with the given value and [`GizmoConfig`].
+    ///
+    /// This method should be preferred over [`AppGizmoBuilder::init_gizmo_group`] if and only if you need to configure fields upon initialization.
+    fn insert_gizmo_group<T: GizmoConfigGroup>(
+        &mut self,
+        group: T,
+        config: GizmoConfig,
+    ) -> &mut Self;
 }
 
 impl AppGizmoBuilder for App {
@@ -160,6 +170,31 @@ impl AppGizmoBuilder for App {
         self.world
             .get_resource_or_insert_with::<GizmoConfigStore>(Default::default)
             .register::<T>();
+
+        let Ok(render_app) = self.get_sub_app_mut(RenderApp) else {
+            return self;
+        };
+
+        render_app.add_systems(ExtractSchedule, extract_gizmo_data::<T>);
+
+        self
+    }
+
+    fn insert_gizmo_group<T: GizmoConfigGroup>(
+        &mut self,
+        group: T,
+        config: GizmoConfig,
+    ) -> &mut Self {
+        if self.world.contains_resource::<GizmoStorage<T>>() {
+            return self;
+        }
+
+        self.init_resource::<GizmoStorage<T>>()
+            .add_systems(Last, update_gizmo_meshes::<T>);
+
+        self.world
+            .get_resource_or_insert_with::<GizmoConfigStore>(Default::default)
+            .insert(config, group);
 
         let Ok(render_app) = self.get_sub_app_mut(RenderApp) else {
             return self;
@@ -282,8 +317,8 @@ impl RenderAsset for LineGizmo {
     type PreparedAsset = GpuLineGizmo;
     type Param = SRes<RenderDevice>;
 
-    fn persistence_policy(&self) -> RenderAssetPersistencePolicy {
-        RenderAssetPersistencePolicy::Keep
+    fn asset_usage(&self) -> RenderAssetUsages {
+        RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD
     }
 
     fn prepare_asset(

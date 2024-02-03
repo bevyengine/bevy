@@ -325,7 +325,7 @@ where
         // The main limitation right now is that bind group order is hardcoded in shaders.
         bind_group_layouts.push(self.material_layout.clone());
 
-        #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+        #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         shader_defs.push("WEBGL2".into());
 
         shader_defs.push("VERTEX_OUTPUT_INSTANCE_INDEX".into());
@@ -518,7 +518,11 @@ where
         };
 
         let mut push_constant_ranges = Vec::with_capacity(1);
-        if cfg!(all(feature = "webgl", target_arch = "wasm32")) {
+        if cfg!(all(
+            feature = "webgl",
+            target_arch = "wasm32",
+            not(feature = "webgpu")
+        )) {
             push_constant_ranges.push(PushConstantRange {
                 stages: ShaderStages::VERTEX,
                 range: 0..4,

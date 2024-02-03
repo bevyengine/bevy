@@ -103,6 +103,14 @@ webgl = [
   "bevy_sprite?/webgl",
 ]
 
+webgpu = [
+  "bevy_core_pipeline?/webgpu",
+  "bevy_pbr?/webgpu",
+  "bevy_render?/webgpu",
+  "bevy_gizmos?/webgpu",
+  "bevy_sprite?/webgpu",
+]
+
 # enable systems that allow for automated testing on CI
 bevy_ci_testing = [
   "bevy_app/bevy_ci_testing",
@@ -150,6 +158,12 @@ embedded_watcher = ["bevy_asset?/embedded_watcher"]
 
 # Enable the bevy_ui debug overlay
 bevy_ui_debug = ["bevy_ui?/debug_layout"]
+
+# Enable system stepping support
+bevy_debug_stepping = [
+  "bevy_ecs/bevy_debug_stepping",
+  "bevy_app/bevy_debug_stepping",
+]
 
 [dependencies]
 # bevy

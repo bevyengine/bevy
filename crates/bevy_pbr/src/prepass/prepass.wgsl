@@ -7,8 +7,6 @@
     mesh_view_bindings::{view, previous_view_proj},
 }
 
-#import bevy_render::instance_index::get_instance_index
-
 #ifdef DEFERRED_PREPASS
 #import bevy_pbr::rgb9e5
 #endif
@@ -74,7 +72,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
         vertex.normal,
         // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
         // See https://github.com/gfx-rs/naga/issues/2416
-        get_instance_index(vertex_no_morph.instance_index)
+        vertex_no_morph.instance_index
     );
 #endif // SKINNED
 
@@ -84,7 +82,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
         vertex.tangent,
         // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
         // See https://github.com/gfx-rs/naga/issues/2416
-        get_instance_index(vertex_no_morph.instance_index)
+        vertex_no_morph.instance_index
     );
 #endif // VERTEX_TANGENTS
 #endif // NORMAL_PREPASS_OR_DEFERRED_PREPASS
@@ -107,13 +105,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 #ifdef VERTEX_OUTPUT_INSTANCE_INDEX
     // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
     // See https://github.com/gfx-rs/naga/issues/2416
-    out.instance_index = get_instance_index(vertex_no_morph.instance_index);
-#endif
-#ifdef BASE_INSTANCE_WORKAROUND
-    // Hack: this ensures the push constant is always used, which works around this issue:
-    // https://github.com/bevyengine/bevy/issues/10509
-    // This can be removed when wgpu 0.19 is released
-    out.position.x += min(f32(get_instance_index(0u)), 0.0);
+    out.instance_index = vertex_no_morph.instance_index;
 #endif
 
     return out;

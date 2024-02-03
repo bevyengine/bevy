@@ -205,13 +205,21 @@ pub const MAX_UNIFORM_BUFFER_POINT_LIGHTS: usize = 256;
 
 //NOTE: When running bevy on Adreno GPU chipsets in WebGL, any value above 1 will result in a crash
 // when loading the wgsl "pbr_functions.wgsl" in the function apply_fog.
-#[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+#[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
 pub const MAX_DIRECTIONAL_LIGHTS: usize = 1;
-#[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
+#[cfg(any(
+    not(feature = "webgl"),
+    not(target_arch = "wasm32"),
+    feature = "webgpu"
+))]
 pub const MAX_DIRECTIONAL_LIGHTS: usize = 10;
-#[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
+#[cfg(any(
+    not(feature = "webgl"),
+    not(target_arch = "wasm32"),
+    feature = "webgpu"
+))]
 pub const MAX_CASCADES_PER_LIGHT: usize = 4;
-#[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+#[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
 pub const MAX_CASCADES_PER_LIGHT: usize = 1;
 
 #[derive(Resource, Clone)]
@@ -259,9 +267,14 @@ pub struct ExtractedClusterConfig {
     dimensions: UVec3,
 }
 
+enum ExtractedClustersPointLightsElement {
+    ClusterHeader(u32, u32),
+    LightEntity(Entity),
+}
+
 #[derive(Component)]
 pub struct ExtractedClustersPointLights {
-    data: Vec<VisiblePointLights>,
+    data: Vec<ExtractedClustersPointLightsElement>,
 }
 
 pub fn extract_clusters(
@@ -273,10 +286,20 @@ pub fn extract_clusters(
             continue;
         }
 
+        let num_entities: usize = clusters.lights.iter().map(|l| l.entities.len()).sum();
+        let mut data = Vec::with_capacity(clusters.lights.len() + num_entities);
+        for cluster_lights in &clusters.lights {
+            data.push(ExtractedClustersPointLightsElement::ClusterHeader(
+                cluster_lights.point_light_count as u32,
+                cluster_lights.spot_light_count as u32,
+            ));
+            for l in &cluster_lights.entities {
+                data.push(ExtractedClustersPointLightsElement::LightEntity(*l));
+            }
+        }
+
         commands.get_or_spawn(entity).insert((
-            ExtractedClustersPointLights {
-                data: clusters.lights.clone(),
-            },
+            ExtractedClustersPointLights { data },
             ExtractedClusterConfig {
                 near: clusters.near,
                 far: clusters.far,
@@ -698,13 +721,21 @@ pub fn prepare_lights(
     let mut point_lights: Vec<_> = point_lights.iter().collect::<Vec<_>>();
     let mut directional_lights: Vec<_> = directional_lights.iter().collect::<Vec<_>>();
 
-    #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
+    #[cfg(any(
+        not(feature = "webgl"),
+        not(target_arch = "wasm32"),
+        feature = "webgpu"
+    ))]
     let max_texture_array_layers = render_device.limits().max_texture_array_layers as usize;
-    #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
+    #[cfg(any(
+        not(feature = "webgl"),
+        not(target_arch = "wasm32"),
+        feature = "webgpu"
+    ))]
     let max_texture_cubes = max_texture_array_layers / 6;
-    #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
     let max_texture_array_layers = 1;
-    #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
     let max_texture_cubes = 1;
 
     if !*max_directional_lights_warning_emitted && directional_lights.len() > MAX_DIRECTIONAL_LIGHTS
@@ -1177,9 +1208,17 @@ pub fn prepare_lights(
                 .create_view(&TextureViewDescriptor {
                     label: Some("point_light_shadow_map_array_texture_view"),
                     format: None,
-                    #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
+                    #[cfg(any(
+                        not(feature = "webgl"),
+                        not(target_arch = "wasm32"),
+                        feature = "webgpu"
+                    ))]
                     dimension: Some(TextureViewDimension::CubeArray),
-                    #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+                    #[cfg(all(
+                        feature = "webgl",
+                        target_arch = "wasm32",
+                        not(feature = "webgpu")
+                    ))]
                     dimension: Some(TextureViewDimension::Cube),
                     aspect: TextureAspect::DepthOnly,
                     base_mip_level: 0,
@@ -1192,9 +1231,13 @@ pub fn prepare_lights(
             .create_view(&TextureViewDescriptor {
                 label: Some("directional_light_shadow_map_array_texture_view"),
                 format: None,
-                #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
+                #[cfg(any(
+                    not(feature = "webgl"),
+                    not(target_arch = "wasm32"),
+                    feature = "webgpu"
+                ))]
                 dimension: Some(TextureViewDimension::D2Array),
-                #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+                #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
                 dimension: Some(TextureViewDimension::D2),
                 aspect: TextureAspect::DepthOnly,
                 base_mip_level: 0,
@@ -1496,57 +1539,41 @@ pub fn prepare_clusters(
     render_queue: Res<RenderQueue>,
     mesh_pipeline: Res<MeshPipeline>,
     global_light_meta: Res<GlobalLightMeta>,
-    views: Query<
-        (
-            Entity,
-            &ExtractedClusterConfig,
-            &ExtractedClustersPointLights,
-        ),
-        With<RenderPhase<Transparent3d>>,
-    >,
+    views: Query<(Entity, &ExtractedClustersPointLights), With<RenderPhase<Transparent3d>>>,
 ) {
     let render_device = render_device.into_inner();
     let supports_storage_buffers = matches!(
         mesh_pipeline.clustered_forward_buffer_binding_type,
         BufferBindingType::Storage { .. }
     );
-    for (entity, cluster_config, extracted_clusters) in &views {
+    for (entity, extracted_clusters) in &views {
         let mut view_clusters_bindings =
             ViewClusterBindings::new(mesh_pipeline.clustered_forward_buffer_binding_type);
         view_clusters_bindings.clear();
 
-        let mut indices_full = false;
-
-        let mut cluster_index = 0;
-        for _y in 0..cluster_config.dimensions.y {
-            for _x in 0..cluster_config.dimensions.x {
-                for _z in 0..cluster_config.dimensions.z {
+        for record in &extracted_clusters.data {
+            match record {
+                ExtractedClustersPointLightsElement::ClusterHeader(
+                    point_light_count,
+                    spot_light_count,
+                ) => {
                     let offset = view_clusters_bindings.n_indices();
-                    let cluster_lights = &extracted_clusters.data[cluster_index];
                     view_clusters_bindings.push_offset_and_counts(
                         offset,
-                        cluster_lights.point_light_count,
-                        cluster_lights.spot_light_count,
+                        *point_light_count as usize,
+                        *spot_light_count as usize,
                     );
-
-                    if !indices_full {
-                        for entity in cluster_lights.iter() {
-                            if let Some(light_index) = global_light_meta.entity_to_index.get(entity)
-                            {
-                                if view_clusters_bindings.n_indices()
-                                    >= ViewClusterBindings::MAX_INDICES
-                                    && !supports_storage_buffers
-                                {
-                                    warn!("Cluster light index lists is full! The PointLights in the view are affecting too many clusters.");
-                                    indices_full = true;
-                                    break;
-                                }
-                                view_clusters_bindings.push_index(*light_index);
-                            }
+                }
+                ExtractedClustersPointLightsElement::LightEntity(entity) => {
+                    if let Some(light_index) = global_light_meta.entity_to_index.get(entity) {
+                        if view_clusters_bindings.n_indices() >= ViewClusterBindings::MAX_INDICES
+                            && !supports_storage_buffers
+                        {
+                            warn!("Cluster light index lists is full! The PointLights in the view are affecting too many clusters.");
+                            break;
                         }
+                        view_clusters_bindings.push_index(*light_index);
                     }
-
-                    cluster_index += 1;
                 }
             }
         }
