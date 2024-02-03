@@ -157,10 +157,10 @@ impl BoundingVolume for Aabb2d {
 
     #[inline(always)]
     fn rotate_by(&mut self, rotation: f32) {
-        let (sin, cos) = rotation.sin_cos();
-        let abs_rot_mat = Mat2::from_cols_array(&[cos.abs(), sin.abs(), sin.abs(), cos.abs()]);
+        let rot_mat = Mat2::from_angle(rotation);
+        let abs_rot_mat = Mat2::from_cols(rot_mat.x_axis.abs(), rot_mat.y_axis.abs());
         let half_size = abs_rot_mat * self.half_size();
-        *self = Self::new(self.center(), half_size);
+        *self = Self::new(rot_mat * self.center(), half_size);
     }
 }
 
@@ -490,7 +490,9 @@ impl BoundingVolume for BoundingCircle {
     }
 
     #[inline(always)]
-    fn rotate_by(&mut self, _rotation: f32) {}
+    fn rotate_by(&mut self, rotation: f32) {
+        self.center = Mat2::from_angle(rotation) * self.center;
+    }
 }
 
 impl IntersectsVolume<Self> for BoundingCircle {
@@ -597,7 +599,10 @@ mod bounding_circle_tests {
     fn transform() {
         let a = BoundingCircle::new(Vec2::ONE, 5.0);
         let transformed = a.transformed_by(Vec2::new(2.0, -2.0), std::f32::consts::FRAC_PI_4);
-        assert_eq!(transformed.center, Vec2::new(3.0, -1.0));
+        assert_eq!(
+            transformed.center,
+            Vec2::new(2.0, std::f32::consts::SQRT_2 - 2.0)
+        );
         assert_eq!(transformed.radius(), 5.0);
     }
 

@@ -56,8 +56,8 @@ pub trait BoundingVolume: Sized {
 
     /// Transforms the bounding volume by the given translation and rotation.
     fn transform_by(&mut self, translation: Self::Translation, rotation: Self::Rotation) {
-        self.translate_by(translation);
         self.rotate_by(rotation);
+        self.translate_by(translation);
     }
 
     /// Translates the bounding volume by the given translation.

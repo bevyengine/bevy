@@ -155,8 +155,6 @@ impl BoundingVolume for Aabb3d {
 
     #[inline(always)]
     fn rotate_by(&mut self, rotation: Quat) {
-        // Compute the AABB of the rotated cuboid by transforming the half-size
-        // by an absolute rotation matrix.
         let rot_mat = Mat3::from_quat(rotation);
         let abs_rot_mat = Mat3::from_cols(
             rot_mat.x_axis.abs(),
@@ -164,7 +162,7 @@ impl BoundingVolume for Aabb3d {
             rot_mat.z_axis.abs(),
         );
         let half_size = abs_rot_mat * self.half_size();
-        *self = Self::new(self.center(), half_size);
+        *self = Self::new(rot_mat * self.center(), half_size);
     }
 }
 
@@ -503,7 +501,9 @@ impl BoundingVolume for BoundingSphere {
     }
 
     #[inline(always)]
-    fn rotate_by(&mut self, _rotation: Quat) {}
+    fn rotate_by(&mut self, rotation: Quat) {
+        self.center = rotation * self.center;
+    }
 }
 
 impl IntersectsVolume<Self> for BoundingSphere {
@@ -524,6 +524,8 @@ impl IntersectsVolume<Aabb3d> for BoundingSphere {
 
 #[cfg(test)]
 mod bounding_sphere_tests {
+    use approx::assert_relative_eq;
+
     use super::BoundingSphere;
     use crate::{
         bounding::{BoundingVolume, IntersectsVolume},
@@ -613,7 +615,10 @@ mod bounding_sphere_tests {
             Vec3::new(2.0, -2.0, 4.0),
             Quat::from_rotation_z(std::f32::consts::FRAC_PI_4),
         );
-        assert_eq!(transformed.center, Vec3::new(3.0, -1.0, 5.0));
+        assert_relative_eq!(
+            transformed.center,
+            Vec3::new(2.0, std::f32::consts::SQRT_2 - 2.0, 5.0)
+        );
         assert_eq!(transformed.radius(), 5.0);
     }
 
