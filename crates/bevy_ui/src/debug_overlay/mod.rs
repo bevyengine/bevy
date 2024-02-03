@@ -193,7 +193,7 @@ fn outline_roots(
         return;
     }
     if !nonprimary_windows.is_empty() {
-        warn!(
+        warn_once!(
             "The layout debug view only uses the primary window scale, \
             you might notice gaps between container lines"
         );
