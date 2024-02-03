@@ -11,7 +11,10 @@ use bevy_render::{
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::{smallvec::SmallVec, warn_once};
 use bevy_window::{PrimaryWindow, WindowRef};
-use std::num::{NonZeroI16, NonZeroU16};
+use std::{
+    num::{NonZeroI16, NonZeroU16},
+    ops::{Mul, MulAssign},
+};
 use thiserror::Error;
 
 /// Base component for a UI node, which also provides the computed size of the node.
@@ -1612,6 +1615,42 @@ impl Default for BackgroundColor {
 impl From<Color> for BackgroundColor {
     fn from(color: Color) -> Self {
         Self(color)
+    }
+}
+
+/// The calculated opacity of the node after handling parent's opacity
+/// 
+/// Based off of BackgroundColor's alpha field
+#[derive(Component, Copy, Clone, Debug, Reflect)]
+#[reflect(Component, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct CalculatedOpacity(pub f32);
+
+impl Default for CalculatedOpacity {
+    fn default() -> Self {
+        Self(1.0)
+    }
+}
+
+impl Mul<f32> for CalculatedOpacity {
+    type Output = f32;
+
+    #[inline]
+    fn mul(self, rhs: f32) -> Self::Output {
+        self.0 * rhs
+    }
+}
+
+impl Mul<Color> for CalculatedOpacity {
+    type Output = Color;
+
+    #[inline]
+    fn mul(self, rhs: Color) -> Self::Output {
+        rhs * self.0
     }
 }
 
