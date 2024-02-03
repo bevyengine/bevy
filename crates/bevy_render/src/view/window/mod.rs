@@ -430,7 +430,6 @@ pub fn create_surfaces(
     render_adapter: Res<RenderAdapter>,
 ) {
     for window in windows.windows.values() {
-        let window_surfaces = window_surfaces.deref_mut();
         window_surfaces
             .surfaces
             .entry(window.entity)
