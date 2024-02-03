@@ -1055,7 +1055,7 @@ impl<P: Point> RationalSegment<P> {
 /// A collection of [`RationalSegment`]s chained into a single parametric curve.
 ///
 /// Use any struct that implements the [`RationalGenerator`] trait to create a new curve, such as
-/// [`CubicNURBS`], or convert [`CubicCurve`] using `into/from`.
+/// [`CubicNurbs`], or convert [`CubicCurve`] using `into/from`.
 #[derive(Clone, Debug, PartialEq)]
 pub struct RationalCurve<P: Point> {
     segments: Vec<RationalSegment<P>>,
