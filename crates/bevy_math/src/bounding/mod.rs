@@ -60,7 +60,7 @@ pub use bounded2d::*;
 mod bounded3d;
 pub use bounded3d::*;
 
-mod raytest2d;
-pub use raytest2d::*;
-mod raytest3d;
-pub use raytest3d::*;
+mod raycast2d;
+pub use raycast2d::*;
+mod raycast3d;
+pub use raycast3d::*;

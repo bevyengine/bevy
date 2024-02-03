@@ -32,6 +32,7 @@ pub mod arrows;
 pub mod circles;
 pub mod config;
 pub mod gizmos;
+pub mod primitives;
 
 #[cfg(feature = "bevy_sprite")]
 mod pipeline_2d;
@@ -45,6 +46,7 @@ pub mod prelude {
         aabb::{AabbGizmoConfigGroup, ShowAabbGizmo},
         config::{DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore},
         gizmos::Gizmos,
+        primitives::{dim2::GizmoPrimitive2d, dim3::GizmoPrimitive3d},
         AppGizmoBuilder,
     };
 }

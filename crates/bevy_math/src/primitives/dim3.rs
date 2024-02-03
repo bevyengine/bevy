@@ -7,6 +7,7 @@ use crate::{Quat, Vec3};
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Direction3d(Vec3);
+impl Primitive3d for Direction3d {}
 
 impl Direction3d {
     /// A unit vector pointing along the positive X axis.
@@ -71,6 +72,12 @@ impl TryFrom<Vec3> for Direction3d {
     }
 }
 
+impl From<Direction3d> for Vec3 {
+    fn from(value: Direction3d) -> Self {
+        value.0
+    }
+}
+
 impl std::ops::Deref for Direction3d {
     type Target = Vec3;
     fn deref(&self) -> &Self::Target {
@@ -82,6 +89,13 @@ impl std::ops::Neg for Direction3d {
     type Output = Self;
     fn neg(self) -> Self::Output {
         Self(-self.0)
+    }
+}
+
+impl std::ops::Mul<f32> for Direction3d {
+    type Output = Vec3;
+    fn mul(self, rhs: f32) -> Self::Output {
+        self.0 * rhs
     }
 }
 
