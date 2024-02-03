@@ -4,7 +4,7 @@ use bevy_render::{
     globals::GlobalsBuffer,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
-        BindGroupEntry, BindingResource, Operations, PipelineCache, RenderPassColorAttachment,
+        BindGroupEntries, Operations, PipelineCache, RenderPassColorAttachment,
         RenderPassDescriptor,
     },
     renderer::RenderContext,
@@ -22,7 +22,7 @@ use super::{
 pub struct MotionBlurNode;
 
 impl ViewNode for MotionBlurNode {
-    type ViewData = (
+    type ViewQuery = (
         &'static ViewTarget,
         &'static MotionBlurPipelineId,
         &'static ViewPrepassTextures,
@@ -31,7 +31,7 @@ impl ViewNode for MotionBlurNode {
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (view_target, pipeline_id, prepass_textures): QueryItem<Self::ViewData>,
+        (view_target, pipeline_id, prepass_textures): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let motion_blur_pipeline = world.resource::<MotionBlurPipeline>();
@@ -65,34 +65,14 @@ impl ViewNode for MotionBlurNode {
         let bind_group = render_context.render_device().create_bind_group(
             Some("motion_blur_bind_group"),
             layout,
-            &[
-                BindGroupEntry {
-                    binding: 0,
-                    resource: BindingResource::TextureView(post_process.source),
-                },
-                BindGroupEntry {
-                    binding: 1,
-                    resource: BindingResource::TextureView(
-                        &prepass_motion_vectors_texture.default_view,
-                    ),
-                },
-                BindGroupEntry {
-                    binding: 2,
-                    resource: BindingResource::TextureView(&prepass_depth_texture.default_view),
-                },
-                BindGroupEntry {
-                    binding: 3,
-                    resource: BindingResource::Sampler(&motion_blur_pipeline.sampler),
-                },
-                BindGroupEntry {
-                    binding: 4,
-                    resource: settings_binding.clone(),
-                },
-                BindGroupEntry {
-                    binding: 5,
-                    resource: globals_uniforms.clone(),
-                },
-            ],
+            &BindGroupEntries::sequential((
+                post_process.source,
+                &prepass_motion_vectors_texture.texture.default_view,
+                &prepass_depth_texture.texture.default_view,
+                &motion_blur_pipeline.sampler,
+                settings_binding.clone(),
+                globals_uniforms.clone(),
+            )),
         );
 
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {

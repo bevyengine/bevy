@@ -21,7 +21,6 @@ fn main() {
         .add_plugins((DefaultPlugins.build(), CameraControllerPlugin))
         .add_systems(Startup, (setup, setup_ui))
         .add_systems(Update, (translate, rotate, scale, update_settings).chain())
-        .insert_resource(Msaa::Off)
         .run();
 }
 
@@ -56,13 +55,12 @@ fn setup(
         },
         CameraController::default(),
         BloomSettings { ..default() },
-        // Fxaa::default(),
     ));
 
     // Add a light
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            illuminance: 80000.,
+            illuminance: 5000.,
             shadows_enabled: true,
             ..default()
         },
@@ -172,25 +170,25 @@ fn setup(
     commands.spawn((
         PbrBundle {
             mesh: cube.clone(),
-            material: sphere_matl(Color::WHITE),
+            material: sphere_matl(Color::GRAY),
             transform: Transform::from_xyz(100.0, 50.0, -100.0)
                 .with_scale(Vec3::splat(40.0))
                 .with_rotation(Quat::from_rotation_z(FRAC_PI_2)),
             ..default()
         },
-        Rotates(10.0),
+        Rotates(50.0),
     ));
 
     commands.spawn((
         PbrBundle {
             mesh: sphere.clone(),
-            material: sphere_matl(Color::WHITE),
+            material: sphere_matl(Color::GRAY),
             transform: Transform::from_xyz(100.0, 50.0, 100.0)
                 .with_scale(Vec3::splat(40.0))
                 .with_rotation(Quat::from_rotation_z(FRAC_PI_2)),
             ..default()
         },
-        Rotates(10.0),
+        Rotates(50.0),
     ));
 }
 
@@ -244,7 +242,7 @@ fn translate(time: Res<Time>, mut moves: Query<(&mut Transform, &Translates)>) {
 fn rotate(time: Res<Time>, mut moves: Query<(&mut Transform, &Rotates)>) {
     for (mut transform, rotate) in &mut moves {
         transform
-            .rotate_local_z(rotate.0 * time.delta_seconds() * (time.elapsed_seconds() * 1.0).sin());
+            .rotate_local_z(rotate.0 * time.delta_seconds() * (time.elapsed_seconds() * 0.2).sin());
     }
 }
 
@@ -269,19 +267,19 @@ fn update_settings(
         if press.state != bevy::input::ButtonState::Pressed {
             continue;
         }
-        if press.key_code == Some(KeyCode::Key1) {
+        if press.key_code == KeyCode::Digit1 {
             settings.shutter_angle -= 0.25;
         }
-        if press.key_code == Some(KeyCode::Key2) {
+        if press.key_code == KeyCode::Digit2 {
             settings.shutter_angle += 0.25;
         }
-        if press.key_code == Some(KeyCode::Key3) {
+        if press.key_code == KeyCode::Digit3 {
             settings.samples = settings.samples.saturating_sub(1);
         }
-        if press.key_code == Some(KeyCode::Key4) {
+        if press.key_code == KeyCode::Digit4 {
             settings.samples += 1;
         }
-        if press.key_code == Some(KeyCode::Space) {
+        if press.key_code == KeyCode::Digit5 {
             *follow = !*follow;
         }
         settings.shutter_angle = settings.shutter_angle.clamp(0.0, 100.0);
@@ -330,15 +328,15 @@ impl Default for CameraController {
             enabled: true,
             initialized: false,
             sensitivity: 1.0,
-            key_forward: KeyCode::W,
-            key_back: KeyCode::S,
-            key_left: KeyCode::A,
-            key_right: KeyCode::D,
-            key_up: KeyCode::E,
-            key_down: KeyCode::Q,
+            key_forward: KeyCode::KeyW,
+            key_back: KeyCode::KeyS,
+            key_left: KeyCode::KeyA,
+            key_right: KeyCode::KeyD,
+            key_up: KeyCode::KeyE,
+            key_down: KeyCode::KeyQ,
             key_run: KeyCode::ShiftLeft,
             mouse_key_enable_mouse: MouseButton::Left,
-            keyboard_key_enable_mouse: KeyCode::M,
+            keyboard_key_enable_mouse: KeyCode::KeyM,
             walk_speed: 20.0,
             run_speed: 100.0,
             friction: 0.5,
@@ -457,8 +455,8 @@ fn camera_controller(
                 options.velocity = Vec3::ZERO;
             }
         }
-        let forward = transform.forward();
-        let right = transform.right();
+        let forward = *transform.forward();
+        let right = *transform.right();
         transform.translation += options.velocity.x * dt * right
             + options.velocity.y * dt * Vec3::Y
             + options.velocity.z * dt * forward;

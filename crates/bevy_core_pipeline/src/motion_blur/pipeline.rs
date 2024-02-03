@@ -8,11 +8,15 @@ use bevy_ecs::{
 use bevy_render::{
     globals::GlobalsUniform,
     render_resource::{
-        BindGroupLayout, BindGroupLayoutEntry, BindingType, BufferBindingType,
-        CachedRenderPipelineId, ColorTargetState, ColorWrites, FragmentState, MultisampleState,
-        PipelineCache, PrimitiveState, RenderPipelineDescriptor, Sampler, SamplerBindingType,
-        SamplerDescriptor, ShaderDefVal, ShaderStages, ShaderType, SpecializedRenderPipeline,
-        SpecializedRenderPipelines, TextureFormat, TextureSampleType, TextureViewDimension,
+        binding_types::{
+            sampler, texture_2d, texture_2d_multisampled, texture_depth_2d,
+            texture_depth_2d_multisampled, uniform_buffer_sized,
+        },
+        BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId, ColorTargetState,
+        ColorWrites, FragmentState, MultisampleState, PipelineCache, PrimitiveState,
+        RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, ShaderDefVal,
+        ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines,
+        TextureFormat, TextureSampleType,
     },
     renderer::RenderDevice,
     texture::BevyDefault,
@@ -32,135 +36,41 @@ pub struct MotionBlurPipeline {
 
 impl MotionBlurPipeline {
     pub(crate) fn new(render_device: &RenderDevice) -> Self {
-        let mb_layout = &[
-            // The screen texture
-            BindGroupLayoutEntry {
-                binding: 0,
-                visibility: ShaderStages::FRAGMENT,
-                ty: BindingType::Texture {
-                    sample_type: TextureSampleType::Float { filterable: true },
-                    view_dimension: TextureViewDimension::D2,
-                    multisampled: false,
-                },
-                count: None,
-            },
-            // Motion Vectors
-            BindGroupLayoutEntry {
-                binding: 1,
-                visibility: ShaderStages::FRAGMENT,
-                ty: BindingType::Texture {
-                    sample_type: TextureSampleType::Float { filterable: true },
-                    view_dimension: TextureViewDimension::D2,
-                    multisampled: false,
-                },
-                count: None,
-            },
-            // Depth
-            BindGroupLayoutEntry {
-                binding: 2,
-                visibility: ShaderStages::FRAGMENT,
-                ty: BindingType::Texture {
-                    sample_type: TextureSampleType::Depth,
-                    view_dimension: TextureViewDimension::D2,
-                    multisampled: false,
-                },
-                count: None,
-            },
-            // The sampler that will be used to sample the screen texture
-            BindGroupLayoutEntry {
-                binding: 3,
-                visibility: ShaderStages::FRAGMENT,
-                ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                count: None,
-            },
-            // The settings uniform that will control the effect
-            BindGroupLayoutEntry {
-                binding: 4,
-                visibility: ShaderStages::FRAGMENT,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: Some(MotionBlur::min_size()),
-                },
-                count: None,
-            },
-            // Global uniforms
-            BindGroupLayoutEntry {
-                binding: 5,
-                visibility: ShaderStages::FRAGMENT,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: Some(GlobalsUniform::min_size()),
-                },
-                count: None,
-            },
-        ];
+        let mb_layout = &BindGroupLayoutEntries::sequential(
+            ShaderStages::FRAGMENT,
+            (
+                // View target (read)
+                texture_2d(TextureSampleType::Float { filterable: true }),
+                // Motion Vectors
+                texture_2d(TextureSampleType::Float { filterable: true }),
+                // Depth
+                texture_depth_2d(),
+                // Linear Sampler
+                sampler(SamplerBindingType::Filtering),
+                // Motion blur settings uniform input
+                uniform_buffer_sized(false, Some(MotionBlur::min_size())),
+                // Globals uniform input
+                uniform_buffer_sized(false, Some(GlobalsUniform::min_size())),
+            ),
+        );
 
-        let mb_layout_msaa = &[
-            // The screen texture
-            BindGroupLayoutEntry {
-                binding: 0,
-                visibility: ShaderStages::FRAGMENT,
-                ty: BindingType::Texture {
-                    sample_type: TextureSampleType::Float { filterable: true },
-                    view_dimension: TextureViewDimension::D2,
-                    multisampled: false,
-                },
-                count: None,
-            },
-            // Motion Vectors
-            BindGroupLayoutEntry {
-                binding: 1,
-                visibility: ShaderStages::FRAGMENT,
-                ty: BindingType::Texture {
-                    sample_type: TextureSampleType::Float { filterable: false },
-                    view_dimension: TextureViewDimension::D2,
-                    multisampled: true,
-                },
-                count: None,
-            },
-            // Depth
-            BindGroupLayoutEntry {
-                binding: 2,
-                visibility: ShaderStages::FRAGMENT,
-                ty: BindingType::Texture {
-                    sample_type: TextureSampleType::Depth,
-                    view_dimension: TextureViewDimension::D2,
-                    multisampled: true,
-                },
-                count: None,
-            },
-            // The sampler that will be used to sample the screen texture
-            BindGroupLayoutEntry {
-                binding: 3,
-                visibility: ShaderStages::FRAGMENT,
-                ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                count: None,
-            },
-            // The settings uniform that will control the effect
-            BindGroupLayoutEntry {
-                binding: 4,
-                visibility: ShaderStages::FRAGMENT,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: Some(MotionBlur::min_size()),
-                },
-                count: None,
-            },
-            // Global uniforms
-            BindGroupLayoutEntry {
-                binding: 5,
-                visibility: ShaderStages::FRAGMENT,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: Some(GlobalsUniform::min_size()),
-                },
-                count: None,
-            },
-        ];
+        let mb_layout_msaa = &BindGroupLayoutEntries::sequential(
+            ShaderStages::FRAGMENT,
+            (
+                // View target (read)
+                texture_2d(TextureSampleType::Float { filterable: true }),
+                // Motion Vectors
+                texture_2d_multisampled(TextureSampleType::Float { filterable: false }),
+                // Depth
+                texture_depth_2d_multisampled(),
+                // Linear Sampler
+                sampler(SamplerBindingType::Filtering),
+                // Motion blur settings uniform input
+                uniform_buffer_sized(false, Some(MotionBlur::min_size())),
+                // Globals uniform input
+                uniform_buffer_sized(false, Some(GlobalsUniform::min_size())),
+            ),
+        );
 
         let sampler = render_device.create_sampler(&SamplerDescriptor::default());
         let layout = render_device.create_bind_group_layout("motion_blur_layout", mb_layout);

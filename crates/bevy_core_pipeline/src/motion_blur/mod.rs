@@ -4,13 +4,18 @@
 //! documentation.
 
 use crate::{
-    core_3d,
+    core_3d::graph::{Labels3d, SubGraph3d},
     prepass::{DepthPrepass, MotionVectorPrepass},
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
-use bevy_ecs::{bundle::Bundle, component::Component, schedule::IntoSystemConfigs};
+use bevy_ecs::{
+    bundle::Bundle, component::Component, query::With, reflect::ReflectComponent,
+    schedule::IntoSystemConfigs,
+};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
+    camera::Camera,
     extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
     render_graph::{RenderGraphApp, ViewNodeRunner},
     render_resource::{Shader, ShaderType, SpecializedRenderPipelines},
@@ -59,7 +64,9 @@ pub struct MotionBlurBundle {
 /// ));
 /// # }
 /// ````
-#[derive(Component, Clone, Copy, Debug, ExtractComponent, ShaderType)]
+#[derive(Reflect, Component, Clone, ExtractComponent, ShaderType)]
+#[reflect(Component, Default)]
+#[extract_component_filter(With<Camera>)]
 pub struct MotionBlur {
     /// The strength of motion blur from `0.0` to `1.0`.
     ///
@@ -140,16 +147,16 @@ impl Plugin for MotionBlurPlugin {
 
         render_app
             .add_render_graph_node::<ViewNodeRunner<node::MotionBlurNode>>(
-                core_3d::graph::NAME,
-                core_3d::graph::node::MOTION_BLUR,
+                SubGraph3d,
+                Labels3d::MotionBlur,
             )
             .add_render_graph_edges(
-                core_3d::graph::NAME,
-                &[
-                    core_3d::graph::node::END_MAIN_PASS,
-                    core_3d::graph::node::MOTION_BLUR,
-                    core_3d::graph::node::BLOOM, // we want blurred areas to bloom and tonemap properly.
-                ],
+                SubGraph3d,
+                (
+                    Labels3d::EndMainPass,
+                    Labels3d::MotionBlur,
+                    Labels3d::Bloom, // we want blurred areas to bloom and tonemap properly.
+                ),
             );
 
         render_app.init_resource::<pipeline::MotionBlurPipeline>();
