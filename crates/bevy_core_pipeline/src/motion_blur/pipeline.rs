@@ -3,6 +3,7 @@ use bevy_ecs::{
     entity::Entity,
     query::With,
     system::{Commands, Query, Res, ResMut, Resource},
+    world::FromWorld,
 };
 use bevy_render::{
     globals::GlobalsUniform,
@@ -174,6 +175,13 @@ impl MotionBlurPipeline {
     }
 }
 
+impl FromWorld for MotionBlurPipeline {
+    fn from_world(render_world: &mut bevy_ecs::world::World) -> Self {
+        let render_device = render_world.resource::<RenderDevice>().clone();
+        MotionBlurPipeline::new(&render_device)
+    }
+}
+
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
 pub struct MotionBlurPipelineKey {
     hdr: bool,
@@ -198,7 +206,6 @@ impl SpecializedRenderPipeline for MotionBlurPipeline {
 
         #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
         {
-            shader_defs.push("NO_ARRAY_TEXTURES_SUPPORT".into());
             shader_defs.push("NO_DEPTH_TEXTURE_SUPPORT".into());
             shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
         }

@@ -297,12 +297,7 @@ pub fn generate_view_layouts(
         #[cfg(debug_assertions)]
         let texture_count: usize = entries
             .iter()
-            .filter(|entry| {
-                matches!(
-                    entry.ty,
-                    bevy_render::render_resource::BindingType::Texture { .. }
-                )
-            })
+            .filter(|entry| matches!(entry.ty, BindingType::Texture { .. }))
             .count();
 
         MeshPipelineViewLayout {
