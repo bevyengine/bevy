@@ -251,6 +251,9 @@ impl Stepping {
         schedule: impl ScheduleLabel,
         system: impl IntoSystem<(), (), Marker>,
     ) -> &mut Self {
+        // PERF: ideally we don't actually need to construct the system to retrieve the TypeId.
+        // Unfortunately currently IntoSystem::into_system(system).type_id() != TypeId::of::<I::System>()
+        // If these are aligned, we can use TypeId::of::<I::System>() here
         let type_id = IntoSystem::into_system(system).type_id();
         self.updates.push(Update::SetBehavior(
             schedule.intern(),
@@ -664,6 +667,8 @@ impl ScheduleState {
         // Systems may be present multiple times within a schedule, so we
         // iterate through all systems in the schedule, and check our behavior
         // updates for the system TypeId.
+        // PERF: If we add a way to efficiently query schedule systems by their TypeId, we could remove the full
+        // system scan here
         for (node_id, system) in schedule.systems().unwrap() {
             let behavior = self.behavior_updates.get(&system.type_id());
             match behavior {
@@ -707,7 +712,7 @@ impl ScheduleState {
         if self.first.is_none() {
             for (i, (node_id, _)) in schedule.systems().unwrap().enumerate() {
                 match self.behaviors.get(&node_id) {
-                    Some(SystemBehavior::AlwaysRun) | Some(SystemBehavior::NeverRun) => continue,
+                    Some(SystemBehavior::AlwaysRun | SystemBehavior::NeverRun) => continue,
                     Some(_) | None => {
                         self.first = Some(i);
                         break;

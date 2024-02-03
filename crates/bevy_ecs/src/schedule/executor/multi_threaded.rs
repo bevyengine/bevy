@@ -166,7 +166,7 @@ impl SystemExecutor for MultiThreadedExecutor {
     fn run(
         &mut self,
         schedule: &mut SystemSchedule,
-        #[allow(unused_variables)] skip_systems: Option<FixedBitSet>,
+        _skip_systems: Option<FixedBitSet>,
         world: &mut World,
     ) {
         // reset counts
@@ -189,7 +189,7 @@ impl SystemExecutor for MultiThreadedExecutor {
         // If stepping is enabled, make sure we skip those systems that should
         // not be run.
         #[cfg(feature = "bevy_debug_stepping")]
-        if let Some(mut skipped_systems) = skip_systems {
+        if let Some(mut skipped_systems) = _skip_systems {
             debug_assert_eq!(skipped_systems.len(), self.completed_systems.len());
             // mark skipped systems as completed
             self.completed_systems |= &skipped_systems;
