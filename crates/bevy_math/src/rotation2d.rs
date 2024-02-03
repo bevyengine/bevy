@@ -219,8 +219,7 @@ impl Rotation2d {
     /// ```
     #[inline]
     pub fn slerp(self, end: Self, s: f32) -> Self {
-        let delta = end * self.inverse();
-        self * Self::radians(delta.as_radians() * s)
+        self * Self::radians(self.angle_between(end) * s)
     }
 }
 
