@@ -603,12 +603,12 @@ async fn load_gltf<'a, 'b, 'c>(
         #[cfg(feature = "bevy_animation")]
         {
             // for each node root in a scene, check if it's the root of an animation
-            // if it is, add the AnimationPlayer component
+            // if it is, add the AnimationGraph component
             for node in scene.nodes() {
                 if animation_roots.contains(&node.index()) {
                     world
                         .entity_mut(*node_index_to_entity_map.get(&node.index()).unwrap())
-                        .insert(bevy_animation::AnimationPlayer::default());
+                        .insert(bevy_animation::AnimationGraph::default());
                 }
             }
         }

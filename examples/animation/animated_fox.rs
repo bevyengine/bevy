@@ -3,7 +3,7 @@
 use std::f32::consts::PI;
 use std::time::Duration;
 
-use bevy::{animation::RepeatAnimation, pbr::CascadeShadowConfigBuilder, prelude::*};
+use bevy::{pbr::CascadeShadowConfigBuilder, prelude::*};
 
 fn main() {
     App::new()
@@ -22,6 +22,9 @@ fn main() {
 
 #[derive(Resource)]
 struct Animations(Vec<Handle<AnimationClip>>);
+
+#[derive(Component)]
+struct AnimationNodes(Vec<AnimationNodeIndex>);
 
 fn setup(
     mut commands: Commands,
@@ -84,76 +87,104 @@ fn setup(
 
 // Once the scene is loaded, start the animation
 fn setup_scene_once_loaded(
+    mut commands: Commands,
     animations: Res<Animations>,
-    mut players: Query<&mut AnimationPlayer, Added<AnimationPlayer>>,
+    mut players: Query<(Entity, &mut AnimationGraph), Added<AnimationGraph>>,
 ) {
-    for mut player in &mut players {
-        player.play(animations.0[0].clone_weak()).repeat();
+    for (entity, mut player) in &mut players {
+        let root_node = player.root_node();
+        let mut animation_nodes = AnimationNodes(vec![]);
+        for (clip_index, clip) in animations.0.iter().enumerate() {
+            let node = player.add_clip_node_from(root_node, clip.clone_weak());
+            player[node]
+                .set_weight(if clip_index == 0 { 1.0 } else { 0.0 })
+                .repeat_forever()
+                .play();
+            animation_nodes.0.push(node);
+        }
+
+        commands
+            .entity(entity)
+            .insert(AnimationTransitions::new())
+            .insert(animation_nodes);
     }
 }
 
 fn keyboard_animation_control(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut animation_players: Query<&mut AnimationPlayer>,
+    mut animation_players: Query<(
+        &mut AnimationGraph,
+        &mut AnimationTransitions,
+        &AnimationNodes,
+    )>,
     animations: Res<Animations>,
     mut current_animation: Local<usize>,
+    time: Res<Time>,
 ) {
-    for mut player in &mut animation_players {
+    for (mut player, mut transitions, nodes) in &mut animation_players {
+        let node_index = nodes.0[*current_animation];
+        if keyboard_input.just_pressed(KeyCode::Enter) {
+            let next_animation = (*current_animation + 1) % animations.0.len();
+            let duration = Duration::from_millis(250);
+            transitions.transition_from_current(&time, &player, node_index, 0.0, duration);
+            transitions.transition_from_current(
+                &time,
+                &player,
+                nodes.0[next_animation],
+                1.0,
+                duration,
+            );
+
+            *current_animation = next_animation;
+        }
+
+        let node = &mut player[node_index];
+
         if keyboard_input.just_pressed(KeyCode::Space) {
-            if player.is_paused() {
-                player.resume();
+            if node.paused() {
+                node.play();
             } else {
-                player.pause();
+                node.pause();
             }
         }
 
         if keyboard_input.just_pressed(KeyCode::ArrowUp) {
-            let speed = player.speed();
-            player.set_speed(speed * 1.2);
+            let speed = node.speed();
+            node.set_speed(speed * 1.2);
         }
 
         if keyboard_input.just_pressed(KeyCode::ArrowDown) {
-            let speed = player.speed();
-            player.set_speed(speed * 0.8);
+            let speed = node.speed();
+            node.set_speed(speed * 0.8);
         }
 
         if keyboard_input.just_pressed(KeyCode::ArrowLeft) {
-            let elapsed = player.seek_time();
-            player.seek_to(elapsed - 0.1);
+            let elapsed = node.seek_time();
+            node.set_seek_time(elapsed - 0.1);
         }
 
         if keyboard_input.just_pressed(KeyCode::ArrowRight) {
-            let elapsed = player.seek_time();
-            player.seek_to(elapsed + 0.1);
-        }
-
-        if keyboard_input.just_pressed(KeyCode::Enter) {
-            *current_animation = (*current_animation + 1) % animations.0.len();
-            player
-                .play_with_transition(
-                    animations.0[*current_animation].clone_weak(),
-                    Duration::from_millis(250),
-                )
-                .repeat();
+            let elapsed = node.seek_time();
+            node.set_seek_time(elapsed + 0.1);
         }
 
         if keyboard_input.just_pressed(KeyCode::Digit1) {
-            player.set_repeat(RepeatAnimation::Count(1));
-            player.replay();
+            node.repeat_n(1);
+            node.restart();
         }
 
         if keyboard_input.just_pressed(KeyCode::Digit3) {
-            player.set_repeat(RepeatAnimation::Count(3));
-            player.replay();
+            node.repeat_n(3);
+            node.restart();
         }
 
         if keyboard_input.just_pressed(KeyCode::Digit5) {
-            player.set_repeat(RepeatAnimation::Count(5));
-            player.replay();
+            node.repeat_n(5);
+            node.restart();
         }
 
         if keyboard_input.just_pressed(KeyCode::KeyL) {
-            player.set_repeat(RepeatAnimation::Forever);
+            node.repeat_forever();
         }
     }
 }

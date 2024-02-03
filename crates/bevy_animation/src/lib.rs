@@ -3,6 +3,8 @@
 #![warn(missing_docs)]
 
 mod animatable;
+mod graph;
+mod transition;
 mod util;
 
 use std::ops::{Add, Deref, Mul};
@@ -19,15 +21,20 @@ use bevy_render::mesh::morph::MorphWeights;
 use bevy_time::Time;
 use bevy_transform::{prelude::Transform, TransformSystem};
 use bevy_utils::{tracing::warn, HashMap};
+use graph::evaluate_animation_graphs;
 
 #[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        animatable::*, AnimationClip, AnimationPlayer, AnimationPlugin, EntityPath, Interpolation,
-        Keyframes, VariableCurve,
+        animatable::*, graph::*, transition::*, AnimationClip, AnimationPlayer, AnimationPlugin,
+        EntityPath, Interpolation, Keyframes, VariableCurve,
     };
 }
+
+pub use graph::AnimationGraph;
+use transition::update_animation_transitions;
+pub use transition::AnimationTransitions;
 
 /// List of keyframes for one of the attribute of a [`Transform`].
 #[derive(Reflect, Clone, Debug)]
@@ -217,7 +224,7 @@ pub enum RepeatAnimation {
     Forever,
 }
 
-#[derive(Debug, Reflect)]
+#[derive(Clone, Debug, Reflect)]
 struct PlayingAnimation {
     repeat: RepeatAnimation,
     speed: f32,
@@ -325,6 +332,12 @@ pub struct AnimationPlayer {
     // Once a transition is finished, it will be automatically removed from the list
     #[reflect(ignore)]
     transitions: Vec<AnimationTransition>,
+}
+
+#[derive(Bundle)]
+pub struct AnimationBundle {
+    pub graph: AnimationGraph,
+    pub transitions: AnimationTransitions,
 }
 
 impl AnimationPlayer {
@@ -539,16 +552,16 @@ fn entity_from_path(
 /// Verify that there are no ancestors of a given entity that have an [`AnimationPlayer`].
 fn verify_no_ancestor_player(
     player_parent: Option<&Parent>,
-    parents: &Query<(Has<AnimationPlayer>, Option<&Parent>)>,
+    parents: &Query<(Has<AnimationPlayer>, Has<AnimationGraph>, Option<&Parent>)>,
 ) -> bool {
     let Some(mut current) = player_parent.map(Parent::get) else {
         return true;
     };
     loop {
-        let Ok((has_player, parent)) = parents.get(current) else {
+        let Ok((has_player, has_graph, parent)) = parents.get(current) else {
             return true;
         };
-        if has_player {
+        if has_player || has_graph {
             return false;
         }
         if let Some(parent) = parent {
@@ -569,7 +582,7 @@ pub fn animation_player(
     names: Query<&Name>,
     transforms: Query<&mut Transform>,
     morphs: Query<&mut MorphWeights>,
-    parents: Query<(Has<AnimationPlayer>, Option<&Parent>)>,
+    parents: Query<(Has<AnimationPlayer>, Has<AnimationGraph>, Option<&Parent>)>,
     mut animation_players: Query<(Entity, Option<&Parent>, &mut AnimationPlayer)>,
 ) {
     animation_players
@@ -601,7 +614,7 @@ fn run_animation_player(
     transforms: &Query<&mut Transform>,
     morphs: &Query<&mut MorphWeights>,
     maybe_parent: Option<&Parent>,
-    parents: &Query<(Has<AnimationPlayer>, Option<&Parent>)>,
+    parents: &Query<(Has<AnimationPlayer>, Has<AnimationGraph>, Option<&Parent>)>,
     children: &Query<&Children>,
 ) {
     let paused = player.paused;
@@ -705,7 +718,7 @@ fn apply_animation(
     transforms: &Query<&mut Transform>,
     morphs: &Query<&mut MorphWeights>,
     maybe_parent: Option<&Parent>,
-    parents: &Query<(Has<AnimationPlayer>, Option<&Parent>)>,
+    parents: &Query<(Has<AnimationPlayer>, Has<AnimationGraph>, Option<&Parent>)>,
     children: &Query<&Children>,
 ) {
     let Some(animation_clip) = animations.get(&animation.animation_clip) else {
@@ -960,9 +973,21 @@ impl Plugin for AnimationPlugin {
         app.init_asset::<AnimationClip>()
             .register_asset_reflect::<AnimationClip>()
             .register_type::<AnimationPlayer>()
+            .register_type::<AnimationGraph>()
+            .register_type::<AnimationTransitions>()
+            .add_systems(
+                PostUpdate,
+                update_animation_transitions
+                    .before(animation_player)
+                    .before(evaluate_animation_graphs),
+            )
             .add_systems(
                 PostUpdate,
                 animation_player.before(TransformSystem::TransformPropagate),
+            )
+            .add_systems(
+                PostUpdate,
+                evaluate_animation_graphs.before(TransformSystem::TransformPropagate),
             );
     }
 }

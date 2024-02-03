@@ -13,9 +13,11 @@ keywords = ["bevy"]
 bevy_app = { path = "../bevy_app", version = "0.12.0" }
 bevy_asset = { path = "../bevy_asset", version = "0.12.0" }
 bevy_core = { path = "../bevy_core", version = "0.12.0" }
+bevy_derive = { path = "../bevy_derive", version = "0.12.0" }
 bevy_math = { path = "../bevy_math", version = "0.12.0" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.12.0", features = [
   "bevy",
+  "petgraph",
 ] }
 bevy_render = { path = "../bevy_render", version = "0.12.0" }
 bevy_time = { path = "../bevy_time", version = "0.12.0" }
@@ -23,6 +25,9 @@ bevy_utils = { path = "../bevy_utils", version = "0.12.0" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.12.0" }
 bevy_transform = { path = "../bevy_transform", version = "0.12.0" }
 bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.12.0" }
+
+# other
+petgraph = "0.6"
 
 [lints]
 workspace = true
