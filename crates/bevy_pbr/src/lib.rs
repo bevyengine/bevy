@@ -244,6 +244,8 @@ impl Plugin for PbrPlugin {
             .register_type::<PointLightShadowMap>()
             .register_type::<SpotLight>()
             .register_type::<ShadowFilteringMethod>()
+            .register_type::<ParallaxMappingMethod>()
+            .register_type::<OpaqueRendererMethod>()
             .init_resource::<AmbientLight>()
             .init_resource::<GlobalVisiblePointLights>()
             .init_resource::<DirectionalLightShadowMap>()
