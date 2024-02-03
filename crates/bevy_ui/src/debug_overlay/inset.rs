@@ -1,4 +1,4 @@
-use bevy_gizmos::{prelude::Gizmos, config::GizmoConfigGroup};
+use bevy_gizmos::{config::GizmoConfigGroup, prelude::Gizmos};
 use bevy_math::{Vec2, Vec2Swizzles};
 use bevy_reflect::Reflect;
 use bevy_render::prelude::Color;
@@ -125,7 +125,11 @@ pub(super) struct InsetGizmo<'w, 's> {
     known_x: DrawnLines,
 }
 impl<'w, 's> InsetGizmo<'w, 's> {
-    pub(super) fn new(draw: Gizmos<'w, 's, UiGizmosDebug>, cam: CameraQuery<'w, 's>, line_width: f32) -> Self {
+    pub(super) fn new(
+        draw: Gizmos<'w, 's, UiGizmosDebug>,
+        cam: CameraQuery<'w, 's>,
+        line_width: f32,
+    ) -> Self {
         InsetGizmo {
             draw,
             cam,
