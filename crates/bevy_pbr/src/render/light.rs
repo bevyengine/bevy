@@ -1,3 +1,4 @@
+use bevy_asset::AssetId;
 use bevy_core_pipeline::core_3d::{Transparent3d, CORE_3D_DEPTH_FORMAT};
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, UVec3, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
@@ -1595,7 +1596,7 @@ pub fn queue_shadows<M: Material>(
     render_material_instances: Res<RenderMaterialInstances<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
-    view_lights: Query<(Entity, &ExtractedView, &ViewLightEntities)>,
+    view_lights: Query<(Entity, &ViewLightEntities)>,
     mut view_light_shadow_phases: Query<(&LightEntity, &mut RenderPhase<Shadow>)>,
     point_light_entities: Query<&CubemapVisibleEntities, With<ExtractedPointLight>>,
     directional_light_entities: Query<&CascadesVisibleEntities, With<ExtractedDirectionalLight>>,
@@ -1603,8 +1604,7 @@ pub fn queue_shadows<M: Material>(
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    for (entity, view, view_lights) in &view_lights {
-        let rangefinder = view.rangefinder3d();
+    for (entity, view_lights) in &view_lights {
         let draw_shadow_mesh = shadow_draw_functions.read().id::<DrawPrepass<M>>();
         for view_light_entity in view_lights.lights.iter().copied() {
             let (light_entity, mut shadow_phase) =
@@ -1688,14 +1688,11 @@ pub fn queue_shadows<M: Material>(
 
                 mesh_instance.prepass_material_bind_group_id = material.shadow_bind_group_id;
 
-                let distance = rangefinder
-                    .distance_translation(&mesh_instance.transforms.transform.translation);
-
                 shadow_phase.add(Shadow {
                     draw_function: draw_shadow_mesh,
                     pipeline: pipeline_id,
                     entity,
-                    distance,
+                    asset_id: mesh_instance.mesh_asset_id,
                     batch_range: 0..1,
                     dynamic_offset: None,
                 });
@@ -1705,7 +1702,7 @@ pub fn queue_shadows<M: Material>(
 }
 
 pub struct Shadow {
-    pub distance: f32,
+    pub asset_id: AssetId<Mesh>,
     pub entity: Entity,
     pub pipeline: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
@@ -1714,7 +1711,7 @@ pub struct Shadow {
 }
 
 impl PhaseItem for Shadow {
-    type SortKey = usize;
+    type SortKey = (usize, AssetId<Mesh>);
 
     #[inline]
     fn entity(&self) -> Entity {
@@ -1723,7 +1720,7 @@ impl PhaseItem for Shadow {
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
-        self.pipeline.id()
+        (self.pipeline.id(), self.asset_id)
     }
 
     #[inline]
@@ -1733,10 +1730,11 @@ impl PhaseItem for Shadow {
 
     #[inline]
     fn sort(items: &mut [Self]) {
-        // The shadow phase is sorted by pipeline id for performance reasons.
+        // The shadow phase is sorted by pipeline id and mesh id for performance reasons.
         // Grouping all draw commands using the same pipeline together performs
-        // better than rebinding everything at a high rate.
-        radsort::sort_by_key(items, |item| item.sort_key());
+        // better than rebinding everything at a high rate, and grouping by mesh
+        // allows batching to reduce draw calls.
+        items.sort_by_key(Self::sort_key);
     }
 
     #[inline]
