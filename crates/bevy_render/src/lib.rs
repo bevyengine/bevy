@@ -43,6 +43,8 @@ pub mod prelude {
     };
 }
 
+use bevy_ecs::schedule::ScheduleBuildSettings;
+use bevy_utils::prelude::default;
 pub use extract_param::Extract;
 
 use bevy_hierarchy::ValidParentCheckPlugin;
@@ -388,6 +390,12 @@ unsafe fn initialize_render_app(app: &mut App) {
     render_app.main_schedule_label = Render.intern();
 
     let mut extract_schedule = Schedule::new(ExtractSchedule);
+    // We skip applying any commands during the ExtractSchedule
+    // so commands can be applied on the render thread.
+    extract_schedule.set_build_settings(ScheduleBuildSettings {
+        auto_insert_apply_deferred: false,
+        ..default()
+    });
     extract_schedule.set_apply_final_deferred(false);
 
     render_app

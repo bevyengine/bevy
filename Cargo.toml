@@ -71,6 +71,7 @@ default = [
   "tonemapping_luts",
   "default_font",
   "webgl2",
+  "bevy_debug_stepping",
 ]
 
 # Force dynamic linking, which improves iterative compile times
@@ -294,6 +295,9 @@ file_watcher = ["bevy_internal/file_watcher"]
 
 # Enables watching in memory asset providers for Bevy Asset hot-reloading
 embedded_watcher = ["bevy_internal/embedded_watcher"]
+
+# Enable stepping-based debugging of Bevy systems
+bevy_debug_stepping = ["bevy_internal/bevy_debug_stepping"]
 
 [dependencies]
 bevy_dylib = { path = "crates/bevy_dylib", version = "0.12.0", default-features = false, optional = true }
@@ -1574,6 +1578,17 @@ doc-scrape-examples = true
 [package.metadata.example.system_param]
 name = "System Parameter"
 description = "Illustrates creating custom system parameters with `SystemParam`"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "system_stepping"
+path = "examples/ecs/system_stepping.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.system_stepping]
+name = "System Stepping"
+description = "Demonstrate stepping through systems in order of execution"
 category = "ECS (Entity Component System)"
 wasm = false
 
