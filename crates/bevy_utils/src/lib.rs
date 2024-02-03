@@ -451,4 +451,21 @@ mod tests {
     // Check that the HashMaps are Clone if the key/values are Clone
     assert_impl_all!(EntityHashMap::<u64, usize>: Clone);
     assert_impl_all!(PreHashMap::<u64, usize>: Clone);
+
+    #[test]
+    fn fast_typeid_hash() {
+        struct Hasher;
+
+        impl std::hash::Hasher for Hasher {
+            fn finish(&self) -> u64 {
+                0
+            }
+            fn write(&mut self, _: &[u8]) {
+                panic!("Hashing of std::any::TypeId changed");
+            }
+            fn write_u64(&mut self, _: u64) {}
+        }
+
+        std::hash::Hash::hash(&std::any::TypeId::of::<()>(), &mut Hasher);
+    }
 }

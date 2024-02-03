@@ -1725,23 +1725,6 @@ mod tests {
         );
     }
 
-    #[test]
-    fn fast_typeid_hash() {
-        struct Hasher;
-
-        impl std::hash::Hasher for Hasher {
-            fn finish(&self) -> u64 {
-                0
-            }
-            fn write(&mut self, _: &[u8]) {
-                panic!("Hashing of std::any::TypeId changed");
-            }
-            fn write_u64(&mut self, _: u64) {}
-        }
-
-        std::hash::Hash::hash(&TypeId::of::<()>(), &mut Hasher);
-    }
-
     #[derive(Component)]
     struct ComponentA(u32);
 
