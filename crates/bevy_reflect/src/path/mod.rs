@@ -1,5 +1,3 @@
-#![warn(missing_docs)]
-
 pub mod access;
 pub use access::*;
 

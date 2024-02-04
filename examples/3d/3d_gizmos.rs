@@ -25,7 +25,7 @@ fn main() {
 struct MyRoundGizmos {}
 
 #[derive(Debug, Clone, Resource)]
-pub struct PrimitiveSegments(usize);
+struct PrimitiveSegments(usize);
 impl Default for PrimitiveSegments {
     fn default() -> Self {
         Self(10)

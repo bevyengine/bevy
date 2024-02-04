@@ -9,6 +9,7 @@ use crate::{
 use bevy_utils::{
     thiserror::Error,
     tracing::{error, info, warn},
+    TypeIdMap,
 };
 
 #[cfg(test)]
@@ -617,7 +618,7 @@ struct ScheduleState {
 
     /// changes to system behavior that should be applied the next time
     /// [`ScheduleState::skipped_systems()`] is called
-    behavior_updates: HashMap<TypeId, Option<SystemBehavior>>,
+    behavior_updates: TypeIdMap<Option<SystemBehavior>>,
 
     /// This field contains the first steppable system in the schedule.
     first: Option<usize>,

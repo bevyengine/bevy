@@ -1,5 +1,3 @@
-#![warn(missing_docs)]
-
 //! This crate provides core functionality for Bevy Engine.
 
 mod name;
