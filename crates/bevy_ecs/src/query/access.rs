@@ -121,7 +121,7 @@ impl<T: SparseSetIndex> Access<T> {
 
     /// Adds an archetypal (indirect) access to the element given by `index`.
     ///
-    /// This is for elements that are not accessed (and thus will never cause conflicts),
+    /// This is for elements whose values are not accessed (and thus will never cause conflicts),
     /// but whose presence in an archetype may affect query results.
     pub fn add_archetypal(&mut self, index: T) {
         self.archetypal.grow(index.sparse_set_index() + 1);
@@ -150,7 +150,7 @@ impl<T: SparseSetIndex> Access<T> {
 
     /// Returns true if this has an archetypal (indirect) access to the element given by `index`.
     ///
-    /// This is an element that is not accessed (and thus will never cause conflicts),
+    /// This is an element whose value is not accessed (and thus will never cause conflicts),
     /// but whose presence in an archetype may affect query results.
     pub fn has_archetypal(&self, index: T) -> bool {
         self.archetypal.contains(index.sparse_set_index())
@@ -295,7 +295,7 @@ impl<T: SparseSetIndex> Access<T> {
 
     /// Returns the indices of the elements that this has an archetypal access to.
     ///
-    /// These are elements that are not accessed (and thus will never cause conflicts),
+    /// These are elements whose values are not accessed (and thus will never cause conflicts),
     /// but whose presence in an archetype may affect query results.
     pub fn archetypal(&self) -> impl Iterator<Item = T> + '_ {
         self.archetypal.ones().map(T::get_sparse_set_index)
