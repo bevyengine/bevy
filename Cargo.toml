@@ -311,9 +311,10 @@ flate2 = "1.0"
 serde = { version = "1", features = ["derive"] }
 bytemuck = "1.7"
 # Needed to poll Task examples
-futures-lite = "2.0.1"
 crossbeam-channel = "0.5.0"
 argh = "0.1.12"
+# Needed to web request example
+ehttp = { version = "0.4.0", features = ["native-async"] }
 
 [[example]]
 name = "hello_world"
@@ -1253,6 +1254,17 @@ doc-scrape-examples = true
 [package.metadata.example.async_compute]
 name = "Async Compute"
 description = "How to use `AsyncComputeTaskPool` to complete longer running tasks"
+category = "Async Tasks"
+wasm = false
+
+[[example]]
+name = "async_web_request"
+path = "examples/async_tasks/async_web_request.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.async_web_request]
+name = "Async Web Request"
+description = "How to use `AsyncComputeTaskPool` to perform web request using `ehttp` library"
 category = "Async Tasks"
 wasm = false
 
