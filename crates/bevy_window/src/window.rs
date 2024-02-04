@@ -152,7 +152,7 @@ pub struct Window {
     /// - **`macOS`**, **`iOS`**, **`Android`**, and **`Web`**: not applicable.
     ///
     /// Notes: Changing this field during runtime will have no effect for now.
-    pub name: Option<String>,
+    pub name: Option<&'static str>,
     /// How the alpha channel of textures should be handled while compositing.
     pub composite_alpha_mode: CompositeAlphaMode,
     /// The limits of the window's logical size
