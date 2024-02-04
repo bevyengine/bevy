@@ -35,7 +35,6 @@ pub struct HttpResponseError(pub String);
 #[derive(Component)]
 pub struct RequestTask(pub Task<Result<Response, ehttp::Error>>);
 
-/// timer component
 #[derive(Resource, Deref, DerefMut)]
 pub struct ApiTimer(pub Timer);
 
