@@ -1443,14 +1443,45 @@ pub enum Key {
 }
 
 impl Key {
-    /// Returns a `Key` with uppercase character if `self` is `Key::Character`.
+    /// Returns an uppercase version if `self` is a `Key::Character`.
     /// Otherwise, returns a `Clone` of `self`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bevy_input::keyboard::Key;
+    ///
+    /// assert_eq!(Key::Character("B".into()).to_uppercase_character(), Key::Character("B".into()));
+    /// assert_eq!(Key::Character("b".into()).to_uppercase_character(), Key::Character("B".into()));
+    /// assert_eq!(Key::ArrowUp.to_uppercase_character(), Key::ArrowUp);
+    /// ```
     pub fn to_uppercase_character(&self) -> Self {
         match self.clone() {
             Key::Character(character) => {
                 Self::Character(character.to_string().to_uppercase().into())
             }
             other_kind => other_kind,
+        }
+    }
+
+    /// Returns true if `self` is a `Key::Character(character_self)`
+    /// and `character_self` is an ASCII case-insensitive match with the given `character`.
+    /// Otherwise, it means they are not matched or if `self` is not a `Key::Character`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bevy_input::keyboard::Key;
+    ///
+    /// assert!(Key::Character("B".into()).eq_ignore_ascii_case("B"));
+    /// assert!(Key::Character("b".into()).eq_ignore_ascii_case("B"));
+    /// assert!(!Key::ArrowUp.eq_ignore_ascii_case("B"));
+    /// ```
+    pub fn eq_ignore_ascii_case(&self, character: impl AsRef<str>) -> bool {
+        if let Key::Character(character_self) = self {
+            character_self.eq_ignore_ascii_case(character.as_ref())
+        } else {
+            false
         }
     }
 }
