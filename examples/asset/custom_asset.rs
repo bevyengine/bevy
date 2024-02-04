@@ -73,19 +73,17 @@ impl AssetLoader for BlobAssetLoader {
     type Settings = ();
     type Error = BlobAssetLoaderError;
 
-    fn load<'a>(
-        &'a self,
-        reader: &'a mut Reader,
-        _settings: &'a (),
-        _load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
-        Box::pin(async move {
-            info!("Loading Blob...");
-            let mut bytes = Vec::new();
-            reader.read_to_end(&mut bytes).await?;
+    async fn load(
+        &self,
+        reader: &mut Reader<'_>,
+        _settings: &(),
+        _load_context: &mut LoadContext<'_>,
+    ) -> Result<Self::Asset, Self::Error> {
+        info!("Loading Blob...");
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes).await?;
 
-            Ok(Blob { bytes })
-        })
+        Ok(Blob { bytes })
     }
 }
 

@@ -180,15 +180,13 @@ impl AssetTransformer for CoolTextTransformer {
     type Settings = CoolTextTransformerSettings;
     type Error = Infallible;
 
-    fn transform<'a>(
-        &'a self,
+    async fn transform(
+        &self,
         mut asset: TransformedAsset<Self::AssetInput>,
-        settings: &'a Self::Settings,
-    ) -> BoxedFuture<'a, Result<TransformedAsset<Self::AssetOutput>, Self::Error>> {
-        Box::pin(async move {
-            asset.text = format!("{}{}", asset.text, settings.appended);
-            Ok(asset)
-        })
+        settings: &Self::Settings,
+    ) -> Result<TransformedAsset<Self::AssetOutput>, Self::Error> {
+        asset.text = format!("{}{}", asset.text, settings.appended);
+        Ok(asset)
     }
 }
 
