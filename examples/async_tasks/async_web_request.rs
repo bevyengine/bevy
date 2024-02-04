@@ -32,11 +32,9 @@ fn send_request(mut commands: Commands, mut text_query: Query<&mut Text>) {
     let thread_pool = IoTaskPool::get();
     let s = thread_pool.spawn(async { ehttp::fetch_async(req).await });
     commands.spawn(RequestTask(s));
-    let text = text_query.get_single_mut();
-    if text.is_err() {
+    let Ok(mut text) = text_query.get_single_mut() else {
         return;
-    }
-    let mut text = text.unwrap();
+    };
     text.sections[0].value = format!("Request started:\n{}", url);
     text.sections[0].style.color = Color::WHITE;
 }
@@ -65,7 +63,7 @@ fn update_text(
     mut text_query: Query<&mut Text>,
     mut request_tasks: Query<(Entity, &mut RequestTask)>,
 ) {
-    let Ok(text) = text_query.get_single_mut() else {
+    let Ok(mut text) = text_query.get_single_mut() else {
         return;
     };
 
