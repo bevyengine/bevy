@@ -96,7 +96,7 @@ impl WinitWindows {
             .with_transparent(window.transparent)
             .with_visible(window.visible);
 
-        if let Some(name) = &window.name {
+        if let Some(_name) = &window.name {
             #[cfg(all(
                 feature = "wayland",
                 any(
@@ -110,7 +110,7 @@ impl WinitWindows {
             {
                 winit_window_builder = winit::platform::wayland::WindowBuilderExtWayland::with_name(
                     winit_window_builder,
-                    name.clone(),
+                    _name.clone(),
                     "",
                 );
             }
@@ -128,7 +128,7 @@ impl WinitWindows {
             {
                 winit_window_builder = winit::platform::x11::WindowBuilderExtX11::with_name(
                     winit_window_builder,
-                    name.clone(),
+                    _name.clone(),
                     "",
                 );
             }
@@ -137,7 +137,7 @@ impl WinitWindows {
                 winit_window_builder =
                     winit::platform::windows::WindowBuilderExtWindows::with_class_name(
                         winit_window_builder,
-                        name.clone(),
+                        _name.clone(),
                     );
             }
         }
