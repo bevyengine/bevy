@@ -41,9 +41,8 @@ fn send_request(mut commands: Commands, mut text_query: Query<&mut Text>) {
 
 /// This system is used to setup text and camera for the environment
 fn setup_env(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     let text_style = TextStyle {
-        font: font.clone(),
+        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
         font_size: 30.0,
         color: Color::WHITE,
     };
