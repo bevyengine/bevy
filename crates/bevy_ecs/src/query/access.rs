@@ -469,6 +469,20 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     pub fn is_subset(&self, other: &FilteredAccess<T>) -> bool {
         self.required.is_subset(&other.required) && self.access().is_subset(other.access())
     }
+
+    /// Returns the components this access filters for.
+    pub fn get_with(&self) -> impl Iterator<Item = T> + '_ {
+        self.filter_sets
+            .iter()
+            .flat_map(|f| f.with.ones().map(T::get_sparse_set_index))
+    }
+
+    /// Returns the components this access filters out.
+    pub fn get_without(&self) -> impl Iterator<Item = T> + '_ {
+        self.filter_sets
+            .iter()
+            .flat_map(|f| f.without.ones().map(T::get_sparse_set_index))
+    }
 }
 
 #[derive(Clone, Eq, PartialEq)]
