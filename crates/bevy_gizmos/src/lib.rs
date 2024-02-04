@@ -77,7 +77,7 @@ use bevy_render::{
     renderer::RenderDevice,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_utils::HashMap;
+use bevy_utils::TypeIdMap;
 use config::{
     DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore, GizmoMeshConfig,
 };
@@ -206,8 +206,8 @@ impl AppGizmoBuilder for App {
 
 #[derive(Resource, Default)]
 struct LineGizmoHandles {
-    list: HashMap<TypeId, Handle<LineGizmo>>,
-    strip: HashMap<TypeId, Handle<LineGizmo>>,
+    list: TypeIdMap<Handle<LineGizmo>>,
+    strip: TypeIdMap<Handle<LineGizmo>>,
 }
 
 fn update_gizmo_meshes<T: GizmoConfigGroup>(
