@@ -96,53 +96,49 @@ impl WinitWindows {
             .with_transparent(window.transparent)
             .with_visible(window.visible);
 
-        match &window.name {
-            None => {}
-            Some(_name) => {
-                #[cfg(all(
-                    feature = "wayland",
-                    any(
-                        target_os = "linux",
-                        target_os = "dragonfly",
-                        target_os = "freebsd",
-                        target_os = "netbsd",
-                        target_os = "openbsd"
-                    )
-                ))]
-                {
-                    winit_window_builder =
-                        winit::platform::wayland::WindowBuilderExtWayland::with_name(
-                            winit_window_builder,
-                            _name.clone(),
-                            "",
-                        );
-                }
+        if let Some(name) = &window.name {
+            #[cfg(all(
+                feature = "wayland",
+                any(
+                    target_os = "linux",
+                    target_os = "dragonfly",
+                    target_os = "freebsd",
+                    target_os = "netbsd",
+                    target_os = "openbsd"
+                )
+            ))]
+            {
+                winit_window_builder = winit::platform::wayland::WindowBuilderExtWayland::with_name(
+                    winit_window_builder,
+                    name.clone(),
+                    "",
+                );
+            }
 
-                #[cfg(all(
-                    feature = "x11",
-                    any(
-                        target_os = "linux",
-                        target_os = "dragonfly",
-                        target_os = "freebsd",
-                        target_os = "netbsd",
-                        target_os = "openbsd"
-                    )
-                ))]
-                {
-                    winit_window_builder = winit::platform::x11::WindowBuilderExtX11::with_name(
+            #[cfg(all(
+                feature = "x11",
+                any(
+                    target_os = "linux",
+                    target_os = "dragonfly",
+                    target_os = "freebsd",
+                    target_os = "netbsd",
+                    target_os = "openbsd"
+                )
+            ))]
+            {
+                winit_window_builder = winit::platform::x11::WindowBuilderExtX11::with_name(
+                    winit_window_builder,
+                    name.clone(),
+                    "",
+                );
+            }
+            #[cfg(target_os = "windows")]
+            {
+                winit_window_builder =
+                    winit::platform::windows::WindowBuilderExtWindows::with_class_name(
                         winit_window_builder,
-                        _name.clone(),
-                        "",
+                        name.clone(),
                     );
-                }
-                #[cfg(target_os = "windows")]
-                {
-                    winit_window_builder =
-                        winit::platform::windows::WindowBuilderExtWindows::with_class_name(
-                            winit_window_builder,
-                            _name.clone(),
-                        );
-                }
             }
         }
         let constraints = window.resize_constraints.check_constraints();
