@@ -26,7 +26,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::prelude::GlobalTransform;
-use bevy_utils::{tracing::error, EntityHashMap, FloatOrd, HashMap};
+use bevy_utils::{tracing::error, FloatOrd, HashMap};
 
 use std::hash::Hash;
 use std::ops::Deref;
@@ -159,11 +159,6 @@ pub struct LightProbesUniform {
     intensity_for_view: f32,
 }
 
-/// A map from each camera to the light probes uniform associated with it.
-#[derive(Resource, Default, Deref, DerefMut)]
-struct RenderLightProbes(EntityHashMap<Entity, LightProbesUniform>);
-
-/// A GPU buffer that stores information about all light probes.
 #[derive(Resource, Default, Deref, DerefMut)]
 pub struct LightProbesBuffer(DynamicUniformBuffer<LightProbesUniform>);
 
@@ -334,15 +329,8 @@ impl Plugin for LightProbePlugin {
         render_app
             .add_plugins(ExtractInstancesPlugin::<EnvironmentMapIds>::new())
             .init_resource::<LightProbesBuffer>()
-            .init_resource::<RenderLightProbes>()
             .add_systems(ExtractSchedule, gather_light_probes::<EnvironmentMapLight>)
             .add_systems(ExtractSchedule, gather_light_probes::<IrradianceVolume>)
-            .add_systems(
-                ExtractSchedule,
-                build_light_probes_uniforms
-                    .after(gather_light_probes::<EnvironmentMapLight>)
-                    .after(gather_light_probes::<IrradianceVolume>),
-            )
             .add_systems(
                 Render,
                 upload_light_probes.in_set(RenderSet::PrepareResources),
@@ -352,10 +340,7 @@ impl Plugin for LightProbePlugin {
 
 /// Gathers up all light probes of a single type in the scene and assigns them
 /// to views, performing frustum culling and distance sorting in the process.
-///
-/// This populates the [`RenderLightProbes`] resource.
 fn gather_light_probes<C>(
-    mut render_light_probes: ResMut<RenderLightProbes>,
     image_assets: Res<RenderAssets<Image>>,
     light_probe_query: Extract<Query<(&GlobalTransform, &C), With<LightProbe>>>,
     view_query: Extract<Query<(Entity, &GlobalTransform, &Frustum, Option<&C>), With<Camera3d>>>,
@@ -374,7 +359,6 @@ fn gather_light_probes<C>(
     );
 
     // Build up the light probes uniform and the key table.
-    render_light_probes.clear();
     for (view_entity, view_transform, view_frustum, view_component) in view_query.iter() {
         // Cull light probes outside the view frustum.
         view_reflection_probes.clear();
@@ -416,18 +400,28 @@ fn gather_light_probes<C>(
 // Note that, unlike [`gather_light_probes`], this system is not generic over
 // the type of light probe. It collects light probes of all types together into
 // a single structure, ready to be passed to the shader.
-fn build_light_probes_uniforms(
-    mut render_light_probes: ResMut<RenderLightProbes>,
-    view_query: Extract<Query<Entity, With<Camera3d>>>,
+fn upload_light_probes(
+    mut commands: Commands,
+    views: Query<Entity, With<ExtractedView>>,
+    mut light_probes_buffer: ResMut<LightProbesBuffer>,
     mut view_light_probes_query: Query<(
         Option<&RenderViewLightProbes<EnvironmentMapLight>>,
         Option<&RenderViewLightProbes<IrradianceVolume>>,
     )>,
+    render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
 ) {
-    for view_entity in view_query.iter() {
+    // Initialize the uniform buffer writer.
+    let mut writer = light_probes_buffer
+        .get_writer(views.iter().len(), &render_device, &render_queue)
+        .unwrap();
+
+    // Process each view.
+    for view_entity in views.iter() {
         let Ok((render_view_environment_maps, render_view_irradiance_volumes)) =
             view_light_probes_query.get_mut(view_entity)
         else {
+            error!("Failed to find `RenderViewLightProbes` for the view!");
             continue;
         };
 
@@ -473,55 +467,13 @@ fn build_light_probes_uniforms(
             );
         }
 
-        // Attach the resulting uniform to the view.
-        render_light_probes.insert(view_entity, light_probes_uniform);
-    }
-}
-
-/// Uploads the result of [`build_light_probes_uniforms`] to the GPU.
-fn upload_light_probes(
-    mut commands: Commands,
-    views: Query<Entity, With<ExtractedView>>,
-    mut render_light_probes: ResMut<RenderLightProbes>,
-    mut light_probes_buffer: ResMut<LightProbesBuffer>,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-) {
-    // Get the uniform buffer writer. We need to bind *some* uniform buffer to
-    // the slot in the shader, so allocate some space even if we have no light
-    // probes.
-    let mut writer = light_probes_buffer
-        .get_writer(
-            render_light_probes.len().max(1),
-            &render_device,
-            &render_queue,
-        )
-        .unwrap();
-
-    let mut any_written = false;
-    for view_entity in views.iter() {
-        let uniform_offset = match render_light_probes.get(&view_entity) {
-            Some(light_probes_uniform) => {
-                // Queue the view's uniforms to be written to the GPU.
-                any_written = true;
-                writer.write(light_probes_uniform)
-            }
-            None => 0,
-        };
+        // Queue the view's uniforms to be written to the GPU.
+        let uniform_offset = writer.write(&light_probes_uniform);
 
         commands
             .entity(view_entity)
             .insert(ViewLightProbesUniformOffset(uniform_offset));
     }
-
-    // If nothing was written, then write a dummy value in. Otherwise the GPU
-    // will crash as the buffer was never initialized.
-    if !any_written {
-        let offset = writer.write(&LightProbesUniform::default());
-        debug_assert_eq!(offset, 0);
-    }
-
-    render_light_probes.clear();
 }
 
 impl Default for LightProbesUniform {
