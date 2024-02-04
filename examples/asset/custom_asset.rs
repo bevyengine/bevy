@@ -75,9 +75,9 @@ impl AssetLoader for BlobAssetLoader {
 
     async fn load(
         &self,
-        reader: &mut Reader,
+        reader: &mut Reader<'_>,
         _settings: &(),
-        _load_context: &mut LoadContext,
+        _load_context: &mut LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
         info!("Loading Blob...");
         let mut bytes = Vec::new();
