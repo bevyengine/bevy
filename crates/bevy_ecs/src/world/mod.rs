@@ -1854,6 +1854,7 @@ impl World {
     }
 
     /// Applies any commands in the world's internal [`CommandQueue`].
+    /// This does not apply commands from any systems, only those in stored in the world.
     #[inline]
     pub fn flush_commands(&mut self) {
         if !self.command_queue.is_empty() {
