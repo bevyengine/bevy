@@ -8,7 +8,6 @@ use bevy_input::{
 use bevy_math::Vec2;
 use bevy_window::{CursorIcon, EnabledButtons, WindowLevel, WindowTheme};
 use winit::keyboard::{Key, NamedKey, NativeKey};
-use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
 
 pub fn convert_keyboard_input(
     keyboard_input: &winit::event::KeyEvent,
@@ -17,7 +16,7 @@ pub fn convert_keyboard_input(
     KeyboardInput {
         state: convert_element_state(keyboard_input.state),
         key_code: convert_physical_key_code(keyboard_input.physical_key),
-        logical_key: convert_logical_key(&keyboard_input.key_without_modifiers()),
+        logical_key: convert_logical_key(&keyboard_input.logical_key),
         window,
     }
 }
@@ -288,7 +287,9 @@ pub fn convert_physical_key_code(virtual_key_code: winit::keyboard::PhysicalKey)
 
 pub fn convert_logical_key(logical_key_code: &winit::keyboard::Key) -> bevy_input::keyboard::Key {
     match logical_key_code {
-        Key::Character(s) => bevy_input::keyboard::Key::Character(s.clone()),
+        Key::Character(s) => {
+            bevy_input::keyboard::Key::Character(s.to_string().to_uppercase().into())
+        }
         Key::Unidentified(nk) => bevy_input::keyboard::Key::Unidentified(convert_native_key(nk)),
         Key::Dead(c) => bevy_input::keyboard::Key::Dead(c.to_owned()),
         Key::Named(NamedKey::Alt) => bevy_input::keyboard::Key::Alt,
