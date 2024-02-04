@@ -12,7 +12,10 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .init_resource::<ApiTimer>()
         .add_systems(Startup, setup_env)
-        .add_systems(Update, (send_request,handle_request, handle_response, update_text))
+        .add_systems(
+            Update,
+            (send_request, handle_request, handle_response, update_text),
+        )
         .run();
 }
 
@@ -101,9 +104,10 @@ fn setup_env(mut commands: Commands, asset_server: Res<AssetServer>) {
     // 2d camera
     commands.spawn(Camera2dBundle::default());
     commands.spawn(Text2dBundle {
-            text: Text::from_section("Hi! Request will start in few seconds.", text_style.clone()).with_justify(text_justification),
-            ..default()
-        });
+        text: Text::from_section("Hi! Request will start in few seconds.", text_style.clone())
+            .with_justify(text_justification),
+        ..default()
+    });
 }
 
 /// This system will update text based on requests progress
