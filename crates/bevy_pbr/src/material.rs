@@ -659,8 +659,6 @@ pub fn queue_material_meshes<M: Material>(
                             draw_function: draw_opaque_pbr,
                             pipeline: pipeline_id,
                             asset_id: mesh_instance.mesh_asset_id,
-                            // TODO: Remove this unwrap somehow. Sorting by the bind_group_id gets us another 9% fps in my testing
-                            bind_group_id: mesh_instance.material_bind_group_id.0.unwrap(),
                             batch_range: 0..1,
                             dynamic_offset: None,
                         });
