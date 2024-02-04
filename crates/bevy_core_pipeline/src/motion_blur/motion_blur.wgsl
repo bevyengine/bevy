@@ -40,10 +40,6 @@ fn fragment(
     let base_color = textureSample(screen_texture, texture_sampler, in.uv);
 #endif
 
-    if i32(settings.samples) <= 0 || settings.shutter_angle <= 0.0 {
-        return base_color;
-    }
-
     let shutter_angle = settings.shutter_angle;
 
 #ifdef MULTISAMPLED
