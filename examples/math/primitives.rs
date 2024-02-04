@@ -1,5 +1,6 @@
 //! This example demonstrates how each of Bevy's math primitives look like in 2D and 3D with meshes
 //! and with gizmos
+#![allow(clippy::match_same_arms)]
 
 use bevy::prelude::*;
 use bevy_internal::input::common_conditions::input_just_pressed;
@@ -469,11 +470,9 @@ fn draw_gizmos_3d(mut gizmos: Gizmos, state: Res<State<PrimitiveState>>, time: R
         PrimitiveState::Ellipse => {}
         PrimitiveState::Triangle => {}
         PrimitiveState::Plane => drop(gizmos.primitive_3d(PLANE3D, POSITION, rotation, color)),
-        PrimitiveState::Line => drop(gizmos.primitive_3d(LINE3D, POSITION, rotation, color)),
-        PrimitiveState::Segment => drop(gizmos.primitive_3d(SEGMENT3D, POSITION, rotation, color)),
-        PrimitiveState::Polyline => {
-            drop(gizmos.primitive_3d(POLYLINE3D, POSITION, rotation, color))
-        }
+        PrimitiveState::Line => gizmos.primitive_3d(LINE3D, POSITION, rotation, color),
+        PrimitiveState::Segment => gizmos.primitive_3d(SEGMENT3D, POSITION, rotation, color),
+        PrimitiveState::Polyline => gizmos.primitive_3d(POLYLINE3D, POSITION, rotation, color),
         PrimitiveState::Polygon => {}
         PrimitiveState::RegularPolygon => {}
         PrimitiveState::Capsule => drop(
