@@ -5,6 +5,7 @@
 //! the derive helper attribute for `Reflect`, which looks like:
 //! `#[reflect(PartialEq, Default, ...)]` and `#[reflect_value(PartialEq, Default, ...)]`.
 
+use crate::custom_attributes::CustomAttributes;
 use crate::derive_data::ReflectTraitToImpl;
 use crate::utility;
 use crate::utility::terminated_parser;
@@ -214,6 +215,7 @@ pub(crate) struct ReflectTraits {
     type_path_attrs: TypePathAttrs,
     custom_where: Option<WhereClause>,
     no_field_bounds: bool,
+    custom_attributes: CustomAttributes,
     idents: Vec<Ident>,
 }
 
@@ -245,7 +247,9 @@ impl ReflectTraits {
         trait_: ReflectTraitToImpl,
     ) -> syn::Result<()> {
         let lookahead = input.lookahead1();
-        if lookahead.peek(Token![where]) {
+        if lookahead.peek(Token![@]) {
+            self.custom_attributes.parse_custom_attribute(input)
+        } else if lookahead.peek(Token![where]) {
             self.parse_custom_where(input)
         } else if lookahead.peek(kw::from_reflect) {
             self.parse_from_reflect(input, trait_)

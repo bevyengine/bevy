@@ -4,14 +4,11 @@
 //! as opposed to an entire struct or enum. An example of such an attribute is
 //! the derive helper attribute for `Reflect`, which looks like: `#[reflect(ignore)]`.
 
+use crate::custom_attributes::CustomAttributes;
 use crate::utility::terminated_parser;
 use crate::REFLECT_ATTRIBUTE_NAME;
-use proc_macro2::{Ident, TokenStream};
-use quote::quote;
-use std::collections::HashMap;
-use syn::parse::{Parse, ParseStream};
-use syn::punctuated::Punctuated;
-use syn::{parenthesized, Attribute, Lit, LitStr, Meta, Path, Token};
+use syn::parse::ParseStream;
+use syn::{Attribute, LitStr, Meta, Token};
 
 pub(crate) const IGNORE_SERIALIZATION_ATTR: &str = "skip_serializing";
 pub(crate) const IGNORE_ALL_ATTR: &str = "ignore";
@@ -81,27 +78,6 @@ pub(crate) enum DefaultBehavior {
     Func(syn::ExprPath),
 }
 
-#[derive(Default, Clone)]
-pub(crate) struct CustomAttributes {
-    attributes: HashMap<String, Lit>,
-}
-
-impl CustomAttributes {
-    /// Generates a `TokenStream` for `CustomAttributes` construction.
-    pub fn to_tokens(&self, bevy_reflect_path: &Path) -> TokenStream {
-        let attributes = self.attributes.iter().map(|(name, value)| {
-            quote! {
-                .with_attribute(#name, #value)
-            }
-        });
-
-        quote! {
-            #bevy_reflect_path::attributes::CustomAttributes::default()
-                #(#attributes)*
-        }
-    }
-}
-
 /// Parse all field attributes marked "reflect" (such as `#[reflect(ignore)]`).
 pub(crate) fn parse_field_attrs(attrs: &[Attribute]) -> Result<ReflectFieldAttr, syn::Error> {
     let mut args = ReflectFieldAttr::default();
@@ -147,7 +123,7 @@ fn parse_field_attribute(attrs: &mut ReflectFieldAttr, input: ParseStream) -> sy
     } else if lookahead.peek(kw::default) {
         parse_default(attrs, input)
     } else if lookahead.peek(Token![@]) {
-        parse_custom_attribute(attrs, input)
+        attrs.custom_attributes.parse_custom_attribute(input)
     } else {
         Err(lookahead.error())
     }
@@ -206,60 +182,6 @@ fn parse_default(attrs: &mut ReflectFieldAttr, input: ParseStream) -> syn::Resul
         attrs.default = DefaultBehavior::Func(lit.parse()?);
     } else {
         attrs.default = DefaultBehavior::Default;
-    }
-
-    Ok(())
-}
-
-/// Parse `@` (custom attribute) attribute.
-///
-/// Examples:
-/// - `#[reflect(@(foo = "bar"))]`
-/// - `#[reflect(@(min = 0.0, max = 1.0))]`
-fn parse_custom_attribute(attrs: &mut ReflectFieldAttr, input: ParseStream) -> syn::Result<()> {
-    struct CustomAttribute {
-        name: Punctuated<Ident, Token![::]>,
-        _eq: Token![=],
-        value: Lit,
-    }
-
-    impl Parse for CustomAttribute {
-        fn parse(input: ParseStream) -> syn::Result<Self> {
-            Ok(Self {
-                name: Punctuated::<Ident, Token![::]>::parse_separated_nonempty(input)?,
-                _eq: input.parse::<Token![=]>()?,
-                value: input.parse::<Lit>()?,
-            })
-        }
-    }
-
-    // ---
-
-    input.parse::<Token![@]>()?;
-
-    let content;
-    parenthesized!(content in input);
-
-    let custom_attrs = content.parse_terminated(CustomAttribute::parse, Token![,])?;
-    for custom_attr in custom_attrs {
-        let name = custom_attr
-            .name
-            .iter()
-            .map(Ident::to_string)
-            .collect::<Vec<_>>()
-            .join("::");
-
-        if attrs.custom_attributes.attributes.contains_key(&name) {
-            return Err(syn::Error::new_spanned(
-                custom_attr.name,
-                "duplicate user attribute",
-            ));
-        }
-
-        attrs
-            .custom_attributes
-            .attributes
-            .insert(name, custom_attr.value);
     }
 
     Ok(())
