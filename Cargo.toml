@@ -1265,7 +1265,7 @@ doc-scrape-examples = true
 
 [package.metadata.example.async_web_request]
 name = "Async Web Request"
-description = "How to use `AsyncComputeTaskPool` to perform web request using `ehttp` library"
+description = "How to use `IoTaskPool` to perform web request using `ehttp` library"
 category = "Async Tasks"
 wasm = false
 
