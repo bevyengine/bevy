@@ -51,7 +51,7 @@ impl Default for Capsule3dMeshBuilder {
 }
 
 impl Capsule3dMeshBuilder {
-    /// Creates a new [`Capsule3dMeshBuilder`] from a given radius, height, longitudes and latitudes.
+    /// Creates a new [`Capsule3dMeshBuilder`] from a given radius, height, longitudes, and latitudes.
     ///
     /// Note that `height` is the distance between the centers of the hemispheres.
     /// `radius` will be added to both ends to get the real height of the mesh.
