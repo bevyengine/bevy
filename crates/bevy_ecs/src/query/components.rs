@@ -211,11 +211,22 @@ where
     }
 }
 
-macro_rules! comparisons {
-    ($first: ident) => {true};
-    ($first: ident $(,$rest: ident)*) => {
-        $(TypeId::of::<$first>() != TypeId::of::<$rest>())&&* && comparisons!($($rest),*)
+// This should be const once
+// https://github.com/rust-lang/rust/issues/101871
+// stablizes.
+fn array_unique<const N: usize>(arr: [TypeId; N]) -> bool {
+    let mut i = 0;
+    while i < N {
+        let mut j = i + 1;
+        while j < N {
+            if arr[i] == arr[j] {
+                return false;
+            }
+            j += 1;
+        }
+        i += 1;
     }
+    true
 }
 
 macro_rules! impl_component_tuple {
@@ -241,7 +252,7 @@ macro_rules! impl_component_tuple {
 
             fn is_disjoint() -> bool {
                 $(!$t::is_nested() &&)*
-                comparisons!($($t),*)
+                array_unique([$(TypeId::of::<$t>()),*])
             }
 
             fn from_entity_ref(entity: EntityRef) -> Option<Self::Ref<'_>> {
