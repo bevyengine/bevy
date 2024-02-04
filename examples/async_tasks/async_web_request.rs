@@ -1,4 +1,4 @@
-//! This example shows how to use the ECS and the [`AsyncComputeTaskPool`]
+//! This example shows how to use the ECS and the [`IoTaskPool`]
 //! to spawn, poll, and complete web request.
 
 use std::time::Duration;
