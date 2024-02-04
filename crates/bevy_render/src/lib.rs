@@ -1,3 +1,6 @@
+// FIXME(3492): remove once docs are ready
+#![allow(missing_docs)]
+
 #[cfg(target_pointer_width = "16")]
 compile_error!("bevy_render cannot compile for a 16-bit platform.");
 
@@ -43,6 +46,8 @@ pub mod prelude {
     };
 }
 
+use bevy_ecs::schedule::ScheduleBuildSettings;
+use bevy_utils::prelude::default;
 pub use extract_param::Extract;
 
 use bevy_hierarchy::ValidParentCheckPlugin;
@@ -187,10 +192,11 @@ impl DerefMut for MainWorld {
     }
 }
 
-pub mod main_graph {
-    pub mod node {
-        pub const CAMERA_DRIVER: &str = "camera_driver";
-    }
+pub mod graph {
+    use crate::render_graph::RenderLabel;
+
+    #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
+    pub struct CameraDriverLabel;
 }
 
 #[derive(Resource)]
@@ -387,6 +393,12 @@ unsafe fn initialize_render_app(app: &mut App) {
     render_app.main_schedule_label = Render.intern();
 
     let mut extract_schedule = Schedule::new(ExtractSchedule);
+    // We skip applying any commands during the ExtractSchedule
+    // so commands can be applied on the render thread.
+    extract_schedule.set_build_settings(ScheduleBuildSettings {
+        auto_insert_apply_deferred: false,
+        ..default()
+    });
     extract_schedule.set_apply_final_deferred(false);
 
     render_app

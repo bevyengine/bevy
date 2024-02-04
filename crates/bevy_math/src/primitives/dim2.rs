@@ -7,6 +7,7 @@ use crate::Vec2;
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Direction2d(Vec2);
+impl Primitive2d for Direction2d {}
 
 impl Direction2d {
     /// A unit vector pointing along the positive X axis.
@@ -78,6 +79,38 @@ impl std::ops::Neg for Direction2d {
     type Output = Self;
     fn neg(self) -> Self::Output {
         Self(-self.0)
+    }
+}
+
+#[cfg(feature = "approx")]
+impl approx::AbsDiffEq for Direction2d {
+    type Epsilon = f32;
+    fn default_epsilon() -> f32 {
+        f32::EPSILON
+    }
+    fn abs_diff_eq(&self, other: &Self, epsilon: f32) -> bool {
+        self.as_ref().abs_diff_eq(other.as_ref(), epsilon)
+    }
+}
+
+#[cfg(feature = "approx")]
+impl approx::RelativeEq for Direction2d {
+    fn default_max_relative() -> f32 {
+        f32::EPSILON
+    }
+    fn relative_eq(&self, other: &Self, epsilon: f32, max_relative: f32) -> bool {
+        self.as_ref()
+            .relative_eq(other.as_ref(), epsilon, max_relative)
+    }
+}
+
+#[cfg(feature = "approx")]
+impl approx::UlpsEq for Direction2d {
+    fn default_max_ulps() -> u32 {
+        4
+    }
+    fn ulps_eq(&self, other: &Self, epsilon: f32, max_ulps: u32) -> bool {
+        self.as_ref().ulps_eq(other.as_ref(), epsilon, max_ulps)
     }
 }
 
@@ -736,6 +769,17 @@ pub struct Capsule2d {
 }
 impl Primitive2d for Capsule2d {}
 
+impl Default for Capsule2d {
+    /// Returns the default [`Capsule2d`] with a radius of `0.5` and a half-height of `0.5`,
+    /// excluding the hemicircles.
+    fn default() -> Self {
+        Self {
+            radius: 0.5,
+            half_length: 0.5,
+        }
+    }
+}
+
 impl Capsule2d {
     /// Create a new `Capsule2d` from a radius and length
     pub fn new(radius: f32, length: f32) -> Self {
@@ -752,31 +796,6 @@ mod tests {
 
     use super::*;
     use approx::assert_relative_eq;
-
-    #[test]
-    fn circle_math() {
-        let circle = Circle { radius: 3.0 };
-        assert_eq!(circle.diameter(), 6.0, "incorrect diameter");
-        assert_eq!(circle.area(), 28.274334, "incorrect area");
-        assert_eq!(circle.perimeter(), 18.849556, "incorrect perimeter");
-    }
-
-    #[test]
-    fn ellipse_math() {
-        let ellipse = Ellipse::new(3.0, 1.0);
-        assert_eq!(ellipse.area(), 9.424778, "incorrect area");
-    }
-
-    #[test]
-    fn triangle_math() {
-        let triangle = Triangle2d::new(
-            Vec2::new(-2.0, -1.0),
-            Vec2::new(1.0, 4.0),
-            Vec2::new(7.0, 0.0),
-        );
-        assert_eq!(triangle.area(), 21.0, "incorrect area");
-        assert_eq!(triangle.perimeter(), 22.097439, "incorrect perimeter");
-    }
 
     #[test]
     fn direction_creation() {
@@ -801,6 +820,56 @@ mod tests {
             Direction2d::new_and_length(Vec2::X * 6.5),
             Ok((Direction2d::X, 6.5))
         );
+    }
+
+    #[test]
+    fn rectangle_closest_point() {
+        let rectangle = Rectangle::new(2.0, 2.0);
+        assert_eq!(rectangle.closest_point(Vec2::X * 10.0), Vec2::X);
+        assert_eq!(rectangle.closest_point(Vec2::NEG_ONE * 10.0), Vec2::NEG_ONE);
+        assert_eq!(
+            rectangle.closest_point(Vec2::new(0.25, 0.1)),
+            Vec2::new(0.25, 0.1)
+        );
+    }
+
+    #[test]
+    fn circle_closest_point() {
+        let circle = Circle { radius: 1.0 };
+        assert_eq!(circle.closest_point(Vec2::X * 10.0), Vec2::X);
+        assert_eq!(
+            circle.closest_point(Vec2::NEG_ONE * 10.0),
+            Vec2::NEG_ONE.normalize()
+        );
+        assert_eq!(
+            circle.closest_point(Vec2::new(0.25, 0.1)),
+            Vec2::new(0.25, 0.1)
+        );
+    }
+
+    #[test]
+    fn circle_math() {
+        let circle = Circle { radius: 3.0 };
+        assert_eq!(circle.diameter(), 6.0, "incorrect diameter");
+        assert_eq!(circle.area(), 28.274334, "incorrect area");
+        assert_eq!(circle.perimeter(), 18.849556, "incorrect perimeter");
+    }
+
+    #[test]
+    fn ellipse_math() {
+        let ellipse = Ellipse::new(3.0, 1.0);
+        assert_eq!(ellipse.area(), 9.424778, "incorrect area");
+    }
+
+    #[test]
+    fn triangle_math() {
+        let triangle = Triangle2d::new(
+            Vec2::new(-2.0, -1.0),
+            Vec2::new(1.0, 4.0),
+            Vec2::new(7.0, 0.0),
+        );
+        assert_eq!(triangle.area(), 21.0, "incorrect area");
+        assert_eq!(triangle.perimeter(), 22.097439, "incorrect perimeter");
     }
 
     #[test]
@@ -902,31 +971,6 @@ mod tests {
         assert!(
             (rotated_vertices.next().unwrap() - Vec2::new(-side_sistance, side_sistance)).length()
                 < 1e-7,
-        );
-    }
-
-    #[test]
-    fn rectangle_closest_point() {
-        let rectangle = Rectangle::new(2.0, 2.0);
-        assert_eq!(rectangle.closest_point(Vec2::X * 10.0), Vec2::X);
-        assert_eq!(rectangle.closest_point(Vec2::NEG_ONE * 10.0), Vec2::NEG_ONE);
-        assert_eq!(
-            rectangle.closest_point(Vec2::new(0.25, 0.1)),
-            Vec2::new(0.25, 0.1)
-        );
-    }
-
-    #[test]
-    fn circle_closest_point() {
-        let circle = Circle { radius: 1.0 };
-        assert_eq!(circle.closest_point(Vec2::X * 10.0), Vec2::X);
-        assert_eq!(
-            circle.closest_point(Vec2::NEG_ONE * 10.0),
-            Vec2::NEG_ONE.normalize()
-        );
-        assert_eq!(
-            circle.closest_point(Vec2::new(0.25, 0.1)),
-            Vec2::new(0.25, 0.1)
         );
     }
 }

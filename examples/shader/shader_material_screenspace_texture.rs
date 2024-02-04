@@ -70,7 +70,7 @@ fn rotate_camera(mut camera: Query<&mut Transform, With<MainCamera>>, time: Res<
 }
 
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
-pub struct CustomMaterial {
+struct CustomMaterial {
     #[texture(0)]
     #[sampler(1)]
     texture: Handle<Image>,
