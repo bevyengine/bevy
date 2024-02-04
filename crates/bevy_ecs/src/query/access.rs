@@ -119,7 +119,10 @@ impl<T: SparseSetIndex> Access<T> {
         self.writes.insert(index.sparse_set_index());
     }
 
-    /// Adds an archetypal (inderect) access to the element given by `index`.
+    /// Adds an archetypal (indirect) access to the element given by `index`.
+    ///
+    /// This is for elements that are not accessed (and thus will never cause to conflicts),
+    /// but whose presence in an archetype may affect query results.
     pub fn add_archetypal(&mut self, index: T) {
         self.archetypal.grow(index.sparse_set_index() + 1);
         self.archetypal.insert(index.sparse_set_index());
@@ -147,8 +150,8 @@ impl<T: SparseSetIndex> Access<T> {
 
     /// Returns true if this has an archetypal (indirect) access to the element given by `index`.
     ///
-    /// This is an element that is not accessed (and thus will never lead to conflicts),
-    /// but whose presence in an archetype affects a query result.
+    /// This is an element that is not accessed (and thus will never cause conflicts),
+    /// but whose presence in an archetype may affect query results.
     pub fn has_archetypal(&self, index: T) -> bool {
         self.archetypal.contains(index.sparse_set_index())
     }
@@ -292,8 +295,8 @@ impl<T: SparseSetIndex> Access<T> {
 
     /// Returns the indices of the elements that this has an archetypal access to.
     ///
-    /// Archetypal accesses will never lead to conflicts, but the presence of the data
-    /// they refer to affects query results
+    /// These are elements that are not access (and thus will never cause conflicts),
+    /// but whose presence in an archetype may affect query results.
     pub fn archetypal(&self) -> impl Iterator<Item = T> + '_ {
         self.archetypal.ones().map(T::get_sparse_set_index)
     }
@@ -495,15 +498,15 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
         self.required.is_subset(&other.required) && self.access().is_subset(other.access())
     }
 
-    /// Returns the components this access filters for.
-    pub fn get_with(&self) -> impl Iterator<Item = T> + '_ {
+    /// Returns the indices of the elements that this access filters for.
+    pub fn with_filters(&self) -> impl Iterator<Item = T> + '_ {
         self.filter_sets
             .iter()
             .flat_map(|f| f.with.ones().map(T::get_sparse_set_index))
     }
 
-    /// Returns the components this access filters out.
-    pub fn get_without(&self) -> impl Iterator<Item = T> + '_ {
+    /// Returns the indices of the elements that this access filters out.
+    pub fn without_filters(&self) -> impl Iterator<Item = T> + '_ {
         self.filter_sets
             .iter()
             .flat_map(|f| f.without.ones().map(T::get_sparse_set_index))
