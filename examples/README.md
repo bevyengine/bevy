@@ -202,7 +202,7 @@ Example | Description
 Example | Description
 --- | ---
 [Async Compute](../examples/async_tasks/async_compute.rs) | How to use `AsyncComputeTaskPool` to complete longer running tasks
-[Async Web Request](../examples/async_tasks/async_web_request.rs) | How to use `AsyncComputeTaskPool` to perform web request using `ehttp` library
+[Async Web Request](../examples/async_tasks/async_web_request.rs) | How to use `IoTaskPool` to perform web request using `ehttp` library
 [External Source of Data on an External Thread](../examples/async_tasks/external_source_external_thread.rs) | How to use an external thread to run an infinite task and communicate with a channel
 
 ## Audio
