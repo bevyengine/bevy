@@ -291,29 +291,29 @@ fn setup(
 }
 
 fn update_exposure(
-    key_input: Res<ButtonInput<KeyCode>>,
+    key_input: Res<ButtonInput<PhysicalKey>>,
     mut parameters: ResMut<Parameters>,
     mut query: Query<&mut ExposureSettings>,
     mut text: Query<&mut Text>,
 ) {
     // TODO: Clamp values to a reasonable range
     let mut text = text.single_mut();
-    if key_input.just_pressed(KeyCode::Digit2) {
+    if key_input.just_pressed(PhysicalKey::Digit2) {
         parameters.aperture_f_stops *= 2.0;
-    } else if key_input.just_pressed(KeyCode::Digit1) {
+    } else if key_input.just_pressed(PhysicalKey::Digit1) {
         parameters.aperture_f_stops *= 0.5;
     }
-    if key_input.just_pressed(KeyCode::Digit4) {
+    if key_input.just_pressed(PhysicalKey::Digit4) {
         parameters.shutter_speed_s *= 2.0;
-    } else if key_input.just_pressed(KeyCode::Digit3) {
+    } else if key_input.just_pressed(PhysicalKey::Digit3) {
         parameters.shutter_speed_s *= 0.5;
     }
-    if key_input.just_pressed(KeyCode::Digit6) {
+    if key_input.just_pressed(PhysicalKey::Digit6) {
         parameters.sensitivity_iso += 100.0;
-    } else if key_input.just_pressed(KeyCode::Digit5) {
+    } else if key_input.just_pressed(PhysicalKey::Digit5) {
         parameters.sensitivity_iso -= 100.0;
     }
-    if key_input.just_pressed(KeyCode::KeyR) {
+    if key_input.just_pressed(PhysicalKey::KeyR) {
         *parameters = Parameters::default();
     }
 
@@ -337,22 +337,22 @@ fn animate_light_direction(
 }
 
 fn movement(
-    input: Res<ButtonInput<KeyCode>>,
+    input: Res<ButtonInput<PhysicalKey>>,
     time: Res<Time>,
     mut query: Query<&mut Transform, With<Movable>>,
 ) {
     for mut transform in &mut query {
         let mut direction = Vec3::ZERO;
-        if input.pressed(KeyCode::ArrowUp) {
+        if input.pressed(PhysicalKey::ArrowUp) {
             direction.y += 1.0;
         }
-        if input.pressed(KeyCode::ArrowDown) {
+        if input.pressed(PhysicalKey::ArrowDown) {
             direction.y -= 1.0;
         }
-        if input.pressed(KeyCode::ArrowLeft) {
+        if input.pressed(PhysicalKey::ArrowLeft) {
             direction.x -= 1.0;
         }
-        if input.pressed(KeyCode::ArrowRight) {
+        if input.pressed(PhysicalKey::ArrowRight) {
             direction.x += 1.0;
         }
 

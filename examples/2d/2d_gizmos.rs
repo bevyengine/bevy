@@ -218,45 +218,45 @@ fn draw_primitives(
 
 fn update_config(
     mut config_store: ResMut<GizmoConfigStore>,
-    keyboard: Res<ButtonInput<KeyCode>>,
+    keyboard: Res<ButtonInput<PhysicalKey>>,
     time: Res<Time>,
 ) {
     let (config, _) = config_store.config_mut::<DefaultGizmoConfigGroup>();
-    if keyboard.pressed(KeyCode::ArrowRight) {
+    if keyboard.pressed(PhysicalKey::ArrowRight) {
         config.line_width += 5. * time.delta_seconds();
         config.line_width = config.line_width.clamp(0., 50.);
     }
-    if keyboard.pressed(KeyCode::ArrowLeft) {
+    if keyboard.pressed(PhysicalKey::ArrowLeft) {
         config.line_width -= 5. * time.delta_seconds();
         config.line_width = config.line_width.clamp(0., 50.);
     }
-    if keyboard.just_pressed(KeyCode::Digit1) {
+    if keyboard.just_pressed(PhysicalKey::Digit1) {
         config.enabled ^= true;
     }
 
     let (my_config, _) = config_store.config_mut::<MyRoundGizmos>();
-    if keyboard.pressed(KeyCode::ArrowUp) {
+    if keyboard.pressed(PhysicalKey::ArrowUp) {
         my_config.line_width += 5. * time.delta_seconds();
         my_config.line_width = my_config.line_width.clamp(0., 50.);
     }
-    if keyboard.pressed(KeyCode::ArrowDown) {
+    if keyboard.pressed(PhysicalKey::ArrowDown) {
         my_config.line_width -= 5. * time.delta_seconds();
         my_config.line_width = my_config.line_width.clamp(0., 50.);
     }
-    if keyboard.just_pressed(KeyCode::Digit2) {
+    if keyboard.just_pressed(PhysicalKey::Digit2) {
         my_config.enabled ^= true;
     }
 }
 
 fn update_primitives(
-    keyboard: Res<ButtonInput<KeyCode>>,
+    keyboard: Res<ButtonInput<PhysicalKey>>,
     mut next_primitive_state: ResMut<NextState<PrimitiveState>>,
     primitive_state: Res<State<PrimitiveState>>,
 ) {
-    if keyboard.just_pressed(KeyCode::KeyJ) {
+    if keyboard.just_pressed(PhysicalKey::KeyJ) {
         next_primitive_state.set(primitive_state.get().last());
     }
-    if keyboard.just_pressed(KeyCode::KeyK) {
+    if keyboard.just_pressed(PhysicalKey::KeyK) {
         next_primitive_state.set(primitive_state.get().next());
     }
 }

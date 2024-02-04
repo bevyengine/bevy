@@ -66,7 +66,7 @@ fn assign_clips(
 }
 
 fn handle_inputs(
-    keyboard_input: Res<ButtonInput<KeyCode>>,
+    keyboard_input: Res<ButtonInput<PhysicalKey>>,
     mut animation_player: Query<(&mut AnimationPlayer, &mut Clips, Entity, Option<&Name>)>,
 ) {
     for (mut player, mut clips, entity, name) in &mut animation_player {
@@ -74,7 +74,7 @@ fn handle_inputs(
             Some(name) => name.to_string(),
             None => format!("entity {entity:?}"),
         };
-        if keyboard_input.just_pressed(KeyCode::Space) {
+        if keyboard_input.just_pressed(PhysicalKey::Space) {
             if player.is_paused() {
                 info!("resuming animation for {display_entity_name}");
                 player.resume();
@@ -87,7 +87,7 @@ fn handle_inputs(
             continue;
         }
 
-        if keyboard_input.just_pressed(KeyCode::Enter) {
+        if keyboard_input.just_pressed(PhysicalKey::Enter) {
             info!("switching to new animation for {display_entity_name}");
 
             let resume = !player.is_paused();

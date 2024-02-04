@@ -73,7 +73,7 @@ impl Plugin for SceneViewerPlugin {
                 (
                     update_lights,
                     camera_tracker,
-                    toggle_bounding_boxes.run_if(input_just_pressed(KeyCode::KeyB)),
+                    toggle_bounding_boxes.run_if(input_just_pressed(PhysicalKey::KeyB)),
                 ),
             );
     }
@@ -141,18 +141,18 @@ fn scene_load_check(
 }
 
 fn update_lights(
-    key_input: Res<ButtonInput<KeyCode>>,
+    key_input: Res<ButtonInput<PhysicalKey>>,
     time: Res<Time>,
     mut query: Query<(&mut Transform, &mut DirectionalLight)>,
     mut animate_directional_light: Local<bool>,
 ) {
     for (_, mut light) in &mut query {
-        if key_input.just_pressed(KeyCode::KeyU) {
+        if key_input.just_pressed(PhysicalKey::KeyU) {
             light.shadows_enabled = !light.shadows_enabled;
         }
     }
 
-    if key_input.just_pressed(KeyCode::KeyL) {
+    if key_input.just_pressed(PhysicalKey::KeyL) {
         *animate_directional_light = !*animate_directional_light;
     }
     if *animate_directional_light {
@@ -198,7 +198,7 @@ impl CameraTracker {
 
 fn camera_tracker(
     mut camera_tracker: ResMut<CameraTracker>,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
+    keyboard_input: Res<ButtonInput<PhysicalKey>>,
     mut queries: ParamSet<(
         Query<(Entity, &mut Camera), (Added<Camera>, Without<CameraController>)>,
         Query<(Entity, &mut Camera), (Added<Camera>, With<CameraController>)>,
@@ -216,7 +216,7 @@ fn camera_tracker(
         camera.is_active = camera_tracker.track_camera(entity);
     }
 
-    if keyboard_input.just_pressed(KeyCode::KeyC) {
+    if keyboard_input.just_pressed(PhysicalKey::KeyC) {
         // disable currently active camera
         if let Some(e) = camera_tracker.active_camera() {
             if let Ok(mut camera) = queries.p2().get_mut(e) {

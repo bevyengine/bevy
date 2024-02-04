@@ -334,15 +334,15 @@ fn draw_primitives(
 
 fn update_config(
     mut config_store: ResMut<GizmoConfigStore>,
-    keyboard: Res<ButtonInput<KeyCode>>,
+    keyboard: Res<ButtonInput<PhysicalKey>>,
     time: Res<Time>,
 ) {
-    if keyboard.just_pressed(KeyCode::KeyD) {
+    if keyboard.just_pressed(PhysicalKey::KeyD) {
         for (_, config, _) in config_store.iter_mut() {
             config.depth_bias = if config.depth_bias == 0. { -1. } else { 0. };
         }
     }
-    if keyboard.just_pressed(KeyCode::KeyP) {
+    if keyboard.just_pressed(PhysicalKey::KeyP) {
         for (_, config, _) in config_store.iter_mut() {
             // Toggle line_perspective
             config.line_perspective ^= true;
@@ -352,32 +352,32 @@ fn update_config(
     }
 
     let (config, _) = config_store.config_mut::<DefaultGizmoConfigGroup>();
-    if keyboard.pressed(KeyCode::ArrowRight) {
+    if keyboard.pressed(PhysicalKey::ArrowRight) {
         config.line_width += 5. * time.delta_seconds();
         config.line_width = config.line_width.clamp(0., 50.);
     }
-    if keyboard.pressed(KeyCode::ArrowLeft) {
+    if keyboard.pressed(PhysicalKey::ArrowLeft) {
         config.line_width -= 5. * time.delta_seconds();
         config.line_width = config.line_width.clamp(0., 50.);
     }
-    if keyboard.just_pressed(KeyCode::Digit1) {
+    if keyboard.just_pressed(PhysicalKey::Digit1) {
         config.enabled ^= true;
     }
 
     let (my_config, _) = config_store.config_mut::<MyRoundGizmos>();
-    if keyboard.pressed(KeyCode::ArrowUp) {
+    if keyboard.pressed(PhysicalKey::ArrowUp) {
         my_config.line_width += 5. * time.delta_seconds();
         my_config.line_width = my_config.line_width.clamp(0., 50.);
     }
-    if keyboard.pressed(KeyCode::ArrowDown) {
+    if keyboard.pressed(PhysicalKey::ArrowDown) {
         my_config.line_width -= 5. * time.delta_seconds();
         my_config.line_width = my_config.line_width.clamp(0., 50.);
     }
-    if keyboard.just_pressed(KeyCode::Digit2) {
+    if keyboard.just_pressed(PhysicalKey::Digit2) {
         my_config.enabled ^= true;
     }
 
-    if keyboard.just_pressed(KeyCode::KeyA) {
+    if keyboard.just_pressed(PhysicalKey::KeyA) {
         // AABB gizmos are normally only drawn on entities with a ShowAabbGizmo component
         // We can change this behaviour in the configuration of AabbGizmoGroup
         config_store.config_mut::<AabbGizmoConfigGroup>().1.draw_all ^= true;
@@ -385,23 +385,23 @@ fn update_config(
 }
 
 fn update_primitives(
-    keyboard: Res<ButtonInput<KeyCode>>,
+    keyboard: Res<ButtonInput<PhysicalKey>>,
     primitive_state: Res<State<PrimitiveState>>,
     mut next_primitive_state: ResMut<NextState<PrimitiveState>>,
     mut segments: ResMut<PrimitiveSegments>,
     mut segments_f: Local<f32>,
 ) {
-    if keyboard.just_pressed(KeyCode::KeyK) {
+    if keyboard.just_pressed(PhysicalKey::KeyK) {
         next_primitive_state.set(primitive_state.get().next());
     }
-    if keyboard.just_pressed(KeyCode::KeyJ) {
+    if keyboard.just_pressed(PhysicalKey::KeyJ) {
         next_primitive_state.set(primitive_state.get().last());
     }
-    if keyboard.pressed(KeyCode::KeyL) {
+    if keyboard.pressed(PhysicalKey::KeyL) {
         *segments_f = (*segments_f + 0.05).max(2.0);
         segments.0 = segments_f.floor() as usize;
     }
-    if keyboard.pressed(KeyCode::KeyH) {
+    if keyboard.pressed(PhysicalKey::KeyH) {
         *segments_f = (*segments_f - 0.05).max(2.0);
         segments.0 = segments_f.floor() as usize;
     }

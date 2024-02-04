@@ -88,33 +88,33 @@ fn setup(
 // System to receive input from the user,
 // check out examples/input/ for more examples about user input.
 fn input_handler(
-    keyboard_input: Res<ButtonInput<KeyCode>>,
+    keyboard_input: Res<ButtonInput<PhysicalKey>>,
     mesh_query: Query<&Handle<Mesh>, With<CustomUV>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut query: Query<&mut Transform, With<CustomUV>>,
     time: Res<Time>,
 ) {
-    if keyboard_input.just_pressed(KeyCode::Space) {
+    if keyboard_input.just_pressed(PhysicalKey::Space) {
         let mesh_handle = mesh_query.get_single().expect("Query not successful");
         let mesh = meshes.get_mut(mesh_handle).unwrap();
         toggle_texture(mesh);
     }
-    if keyboard_input.pressed(KeyCode::KeyX) {
+    if keyboard_input.pressed(PhysicalKey::KeyX) {
         for mut transform in &mut query {
             transform.rotate_x(time.delta_seconds() / 1.2);
         }
     }
-    if keyboard_input.pressed(KeyCode::KeyY) {
+    if keyboard_input.pressed(PhysicalKey::KeyY) {
         for mut transform in &mut query {
             transform.rotate_y(time.delta_seconds() / 1.2);
         }
     }
-    if keyboard_input.pressed(KeyCode::KeyZ) {
+    if keyboard_input.pressed(PhysicalKey::KeyZ) {
         for mut transform in &mut query {
             transform.rotate_z(time.delta_seconds() / 1.2);
         }
     }
-    if keyboard_input.pressed(KeyCode::KeyR) {
+    if keyboard_input.pressed(PhysicalKey::KeyR) {
         for mut transform in &mut query {
             transform.look_to(Vec3::NEG_Z, Vec3::Y);
         }

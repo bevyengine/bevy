@@ -159,7 +159,7 @@ fn update_system(
     mut camera: Query<(&mut FogSettings, &mut Transform)>,
     mut text: Query<&mut Text>,
     time: Res<Time>,
-    keycode: Res<ButtonInput<KeyCode>>,
+    keycode: Res<ButtonInput<PhysicalKey>>,
 ) {
     let now = time.elapsed_seconds();
     let delta = time.delta_seconds();
@@ -184,7 +184,7 @@ fn update_system(
         .value
         .push_str("\n\n1 / 2 / 3 - Fog Falloff Mode");
 
-    if keycode.pressed(KeyCode::Digit1) {
+    if keycode.pressed(PhysicalKey::Digit1) {
         if let FogFalloff::Linear { .. } = fog.falloff {
             // No change
         } else {
@@ -195,7 +195,7 @@ fn update_system(
         };
     }
 
-    if keycode.pressed(KeyCode::Digit2) {
+    if keycode.pressed(PhysicalKey::Digit2) {
         if let FogFalloff::Exponential { .. } = fog.falloff {
             // No change
         } else if let FogFalloff::ExponentialSquared { density } = fog.falloff {
@@ -205,7 +205,7 @@ fn update_system(
         };
     }
 
-    if keycode.pressed(KeyCode::Digit3) {
+    if keycode.pressed(PhysicalKey::Digit3) {
         if let FogFalloff::Exponential { density } = fog.falloff {
             fog.falloff = FogFalloff::ExponentialSquared { density };
         } else if let FogFalloff::ExponentialSquared { .. } = fog.falloff {
@@ -225,16 +225,16 @@ fn update_system(
             .value
             .push_str("\nA / S - Move Start Distance\nZ / X - Move End Distance");
 
-        if keycode.pressed(KeyCode::KeyA) {
+        if keycode.pressed(PhysicalKey::KeyA) {
             *start -= delta * 3.0;
         }
-        if keycode.pressed(KeyCode::KeyS) {
+        if keycode.pressed(PhysicalKey::KeyS) {
             *start += delta * 3.0;
         }
-        if keycode.pressed(KeyCode::KeyZ) {
+        if keycode.pressed(PhysicalKey::KeyZ) {
             *end -= delta * 3.0;
         }
-        if keycode.pressed(KeyCode::KeyX) {
+        if keycode.pressed(PhysicalKey::KeyX) {
             *end += delta * 3.0;
         }
     }
@@ -243,13 +243,13 @@ fn update_system(
     if let FogFalloff::Exponential { ref mut density } = &mut fog.falloff {
         text.sections[0].value.push_str("\nA / S - Change Density");
 
-        if keycode.pressed(KeyCode::KeyA) {
+        if keycode.pressed(PhysicalKey::KeyA) {
             *density -= delta * 0.5 * *density;
             if *density < 0.0 {
                 *density = 0.0;
             }
         }
-        if keycode.pressed(KeyCode::KeyS) {
+        if keycode.pressed(PhysicalKey::KeyS) {
             *density += delta * 0.5 * *density;
         }
     }
@@ -258,13 +258,13 @@ fn update_system(
     if let FogFalloff::ExponentialSquared { ref mut density } = &mut fog.falloff {
         text.sections[0].value.push_str("\nA / S - Change Density");
 
-        if keycode.pressed(KeyCode::KeyA) {
+        if keycode.pressed(PhysicalKey::KeyA) {
             *density -= delta * 0.5 * *density;
             if *density < 0.0 {
                 *density = 0.0;
             }
         }
-        if keycode.pressed(KeyCode::KeyS) {
+        if keycode.pressed(PhysicalKey::KeyS) {
             *density += delta * 0.5 * *density;
         }
     }
@@ -274,42 +274,42 @@ fn update_system(
         .value
         .push_str("\n\n- / = - Red\n[ / ] - Green\n; / ' - Blue\n. / ? - Alpha");
 
-    if keycode.pressed(KeyCode::Minus) {
+    if keycode.pressed(PhysicalKey::Minus) {
         let r = (fog.color.r() - 0.1 * delta).max(0.0);
         fog.color.set_r(r);
     }
 
-    if keycode.any_pressed([KeyCode::Equal, KeyCode::NumpadEqual]) {
+    if keycode.any_pressed([PhysicalKey::Equal, PhysicalKey::NumpadEqual]) {
         let r = (fog.color.r() + 0.1 * delta).min(1.0);
         fog.color.set_r(r);
     }
 
-    if keycode.pressed(KeyCode::BracketLeft) {
+    if keycode.pressed(PhysicalKey::BracketLeft) {
         let g = (fog.color.g() - 0.1 * delta).max(0.0);
         fog.color.set_g(g);
     }
 
-    if keycode.pressed(KeyCode::BracketRight) {
+    if keycode.pressed(PhysicalKey::BracketRight) {
         let g = (fog.color.g() + 0.1 * delta).min(1.0);
         fog.color.set_g(g);
     }
 
-    if keycode.pressed(KeyCode::Semicolon) {
+    if keycode.pressed(PhysicalKey::Semicolon) {
         let b = (fog.color.b() - 0.1 * delta).max(0.0);
         fog.color.set_b(b);
     }
 
-    if keycode.pressed(KeyCode::Quote) {
+    if keycode.pressed(PhysicalKey::Quote) {
         let b = (fog.color.b() + 0.1 * delta).min(1.0);
         fog.color.set_b(b);
     }
 
-    if keycode.pressed(KeyCode::Period) {
+    if keycode.pressed(PhysicalKey::Period) {
         let a = (fog.color.a() - 0.1 * delta).max(0.0);
         fog.color.set_a(a);
     }
 
-    if keycode.pressed(KeyCode::Slash) {
+    if keycode.pressed(PhysicalKey::Slash) {
         let a = (fog.color.a() + 0.1 * delta).min(1.0);
         fog.color.set_a(a);
     }

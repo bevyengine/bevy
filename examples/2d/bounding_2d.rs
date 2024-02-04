@@ -49,11 +49,11 @@ enum Test {
 }
 
 fn update_test_state(
-    keycode: Res<ButtonInput<KeyCode>>,
+    keycode: Res<ButtonInput<PhysicalKey>>,
     cur_state: Res<State<Test>>,
     mut state: ResMut<NextState<Test>>,
 ) {
-    if !keycode.just_pressed(KeyCode::Space) {
+    if !keycode.just_pressed(PhysicalKey::Space) {
         return;
     }
 

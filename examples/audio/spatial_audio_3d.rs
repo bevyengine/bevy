@@ -101,10 +101,10 @@ struct Emitter {
 fn update_positions(
     time: Res<Time>,
     mut emitters: Query<(&mut Transform, &mut Emitter), With<Emitter>>,
-    keyboard: Res<ButtonInput<KeyCode>>,
+    keyboard: Res<ButtonInput<PhysicalKey>>,
 ) {
     for (mut emitter_transform, mut emitter) in emitters.iter_mut() {
-        if keyboard.just_pressed(KeyCode::Space) {
+        if keyboard.just_pressed(PhysicalKey::Space) {
             emitter.stopped = !emitter.stopped;
         }
 
@@ -116,7 +116,7 @@ fn update_positions(
 }
 
 fn update_listener(
-    keyboard: Res<ButtonInput<KeyCode>>,
+    keyboard: Res<ButtonInput<PhysicalKey>>,
     time: Res<Time>,
     mut listeners: Query<&mut Transform, With<SpatialListener>>,
 ) {
@@ -124,16 +124,16 @@ fn update_listener(
 
     let speed = 2.;
 
-    if keyboard.pressed(KeyCode::ArrowRight) {
+    if keyboard.pressed(PhysicalKey::ArrowRight) {
         transform.translation.x += speed * time.delta_seconds();
     }
-    if keyboard.pressed(KeyCode::ArrowLeft) {
+    if keyboard.pressed(PhysicalKey::ArrowLeft) {
         transform.translation.x -= speed * time.delta_seconds();
     }
-    if keyboard.pressed(KeyCode::ArrowDown) {
+    if keyboard.pressed(PhysicalKey::ArrowDown) {
         transform.translation.z += speed * time.delta_seconds();
     }
-    if keyboard.pressed(KeyCode::ArrowUp) {
+    if keyboard.pressed(PhysicalKey::ArrowUp) {
         transform.translation.z -= speed * time.delta_seconds();
     }
 }

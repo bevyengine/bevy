@@ -128,7 +128,7 @@ fn update(
     mut text: Query<&mut Text>,
     mut sphere: Query<&mut Transform, With<SphereMarker>>,
     mut commands: Commands,
-    keycode: Res<ButtonInput<KeyCode>>,
+    keycode: Res<ButtonInput<PhysicalKey>>,
     time: Res<Time>,
 ) {
     let mut sphere = sphere.single_mut();
@@ -137,30 +137,30 @@ fn update(
     let (camera_entity, ssao_settings, temporal_jitter) = camera.single();
 
     let mut commands = commands.entity(camera_entity);
-    if keycode.just_pressed(KeyCode::Digit1) {
+    if keycode.just_pressed(PhysicalKey::Digit1) {
         commands.remove::<ScreenSpaceAmbientOcclusionSettings>();
     }
-    if keycode.just_pressed(KeyCode::Digit2) {
+    if keycode.just_pressed(PhysicalKey::Digit2) {
         commands.insert(ScreenSpaceAmbientOcclusionSettings {
             quality_level: ScreenSpaceAmbientOcclusionQualityLevel::Low,
         });
     }
-    if keycode.just_pressed(KeyCode::Digit3) {
+    if keycode.just_pressed(PhysicalKey::Digit3) {
         commands.insert(ScreenSpaceAmbientOcclusionSettings {
             quality_level: ScreenSpaceAmbientOcclusionQualityLevel::Medium,
         });
     }
-    if keycode.just_pressed(KeyCode::Digit4) {
+    if keycode.just_pressed(PhysicalKey::Digit4) {
         commands.insert(ScreenSpaceAmbientOcclusionSettings {
             quality_level: ScreenSpaceAmbientOcclusionQualityLevel::High,
         });
     }
-    if keycode.just_pressed(KeyCode::Digit5) {
+    if keycode.just_pressed(PhysicalKey::Digit5) {
         commands.insert(ScreenSpaceAmbientOcclusionSettings {
             quality_level: ScreenSpaceAmbientOcclusionQualityLevel::Ultra,
         });
     }
-    if keycode.just_pressed(KeyCode::Space) {
+    if keycode.just_pressed(PhysicalKey::Space) {
         if temporal_jitter.is_some() {
             commands.remove::<TemporalJitter>();
         } else {

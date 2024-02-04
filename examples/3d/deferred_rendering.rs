@@ -337,7 +337,7 @@ enum DefaultRenderMode {
 fn switch_mode(
     mut text: Query<&mut Text>,
     mut commands: Commands,
-    keys: Res<ButtonInput<KeyCode>>,
+    keys: Res<ButtonInput<PhysicalKey>>,
     mut default_opaque_renderer_method: ResMut<DefaultOpaqueRendererMethod>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     cameras: Query<Entity, With<Camera>>,
@@ -350,11 +350,11 @@ fn switch_mode(
 
     text.clear();
 
-    if keys.just_pressed(KeyCode::Space) {
+    if keys.just_pressed(PhysicalKey::Space) {
         pause.0 = !pause.0;
     }
 
-    if keys.just_pressed(KeyCode::Digit1) {
+    if keys.just_pressed(PhysicalKey::Digit1) {
         *mode = DefaultRenderMode::Deferred;
         default_opaque_renderer_method.set_to_deferred();
         println!("DefaultOpaqueRendererMethod: Deferred");
@@ -366,7 +366,7 @@ fn switch_mode(
             commands.entity(camera).insert(DeferredPrepass);
         }
     }
-    if keys.just_pressed(KeyCode::Digit2) {
+    if keys.just_pressed(PhysicalKey::Digit2) {
         *mode = DefaultRenderMode::Forward;
         default_opaque_renderer_method.set_to_forward();
         println!("DefaultOpaqueRendererMethod: Forward");
@@ -378,7 +378,7 @@ fn switch_mode(
             commands.entity(camera).remove::<DeferredPrepass>();
         }
     }
-    if keys.just_pressed(KeyCode::Digit3) {
+    if keys.just_pressed(PhysicalKey::Digit3) {
         *mode = DefaultRenderMode::ForwardPrepass;
         default_opaque_renderer_method.set_to_forward();
         println!("DefaultOpaqueRendererMethod: Forward + Prepass");
@@ -391,7 +391,7 @@ fn switch_mode(
         }
     }
 
-    if keys.just_pressed(KeyCode::KeyH) {
+    if keys.just_pressed(PhysicalKey::KeyH) {
         *hide_ui = !*hide_ui;
     }
 

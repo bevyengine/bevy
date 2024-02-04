@@ -60,9 +60,9 @@ fn setup(
 
 fn keys(
     mut deterministic_rendering_config: ResMut<DeterministicRenderingConfig>,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
+    keyboard_input: Res<ButtonInput<PhysicalKey>>,
 ) {
-    if keyboard_input.just_pressed(KeyCode::KeyD) {
+    if keyboard_input.just_pressed(PhysicalKey::KeyD) {
         deterministic_rendering_config.stable_sort_z_fighting ^= true;
     }
 }

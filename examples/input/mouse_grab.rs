@@ -14,7 +14,7 @@ fn main() {
 fn grab_mouse(
     mut windows: Query<&mut Window>,
     mouse: Res<ButtonInput<MouseButton>>,
-    key: Res<ButtonInput<KeyCode>>,
+    key: Res<ButtonInput<PhysicalKey>>,
 ) {
     let mut window = windows.single_mut();
 
@@ -23,7 +23,7 @@ fn grab_mouse(
         window.cursor.grab_mode = CursorGrabMode::Locked;
     }
 
-    if key.just_pressed(KeyCode::Escape) {
+    if key.just_pressed(PhysicalKey::Escape) {
         window.cursor.visible = true;
         window.cursor.grab_mode = CursorGrabMode::None;
     }

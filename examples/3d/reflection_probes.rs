@@ -202,12 +202,12 @@ fn change_reflection_type(
     mut commands: Commands,
     light_probe_query: Query<Entity, With<LightProbe>>,
     camera_query: Query<Entity, With<Camera3d>>,
-    keyboard: Res<ButtonInput<KeyCode>>,
+    keyboard: Res<ButtonInput<PhysicalKey>>,
     mut app_status: ResMut<AppStatus>,
     cubemaps: Res<Cubemaps>,
 ) {
     // Only do anything if space was pressed.
-    if !keyboard.just_pressed(KeyCode::Space) {
+    if !keyboard.just_pressed(PhysicalKey::Space) {
         return;
     }
 
@@ -240,8 +240,8 @@ fn change_reflection_type(
 }
 
 // A system that handles enabling and disabling rotation.
-fn toggle_rotation(keyboard: Res<ButtonInput<KeyCode>>, mut app_status: ResMut<AppStatus>) {
-    if keyboard.just_pressed(KeyCode::Enter) {
+fn toggle_rotation(keyboard: Res<ButtonInput<PhysicalKey>>, mut app_status: ResMut<AppStatus>) {
+    if keyboard.just_pressed(PhysicalKey::Enter) {
         app_status.rotating = !app_status.rotating;
     }
 }

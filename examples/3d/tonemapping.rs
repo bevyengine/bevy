@@ -360,16 +360,16 @@ fn resize_image(
 }
 
 fn toggle_scene(
-    keys: Res<ButtonInput<KeyCode>>,
+    keys: Res<ButtonInput<PhysicalKey>>,
     mut query: Query<(&mut Visibility, &SceneNumber)>,
     mut current_scene: ResMut<CurrentScene>,
 ) {
     let mut pressed = None;
-    if keys.just_pressed(KeyCode::KeyQ) {
+    if keys.just_pressed(PhysicalKey::KeyQ) {
         pressed = Some(1);
-    } else if keys.just_pressed(KeyCode::KeyW) {
+    } else if keys.just_pressed(PhysicalKey::KeyW) {
         pressed = Some(2);
-    } else if keys.just_pressed(KeyCode::KeyE) {
+    } else if keys.just_pressed(PhysicalKey::KeyE) {
         pressed = Some(3);
     }
 
@@ -387,7 +387,7 @@ fn toggle_scene(
 }
 
 fn toggle_tonemapping_method(
-    keys: Res<ButtonInput<KeyCode>>,
+    keys: Res<ButtonInput<PhysicalKey>>,
     mut tonemapping: Query<&mut Tonemapping>,
     mut color_grading: Query<&mut ColorGrading>,
     per_method_settings: Res<PerMethodSettings>,
@@ -395,21 +395,21 @@ fn toggle_tonemapping_method(
     let mut method = tonemapping.single_mut();
     let mut color_grading = color_grading.single_mut();
 
-    if keys.just_pressed(KeyCode::Digit1) {
+    if keys.just_pressed(PhysicalKey::Digit1) {
         *method = Tonemapping::None;
-    } else if keys.just_pressed(KeyCode::Digit2) {
+    } else if keys.just_pressed(PhysicalKey::Digit2) {
         *method = Tonemapping::Reinhard;
-    } else if keys.just_pressed(KeyCode::Digit3) {
+    } else if keys.just_pressed(PhysicalKey::Digit3) {
         *method = Tonemapping::ReinhardLuminance;
-    } else if keys.just_pressed(KeyCode::Digit4) {
+    } else if keys.just_pressed(PhysicalKey::Digit4) {
         *method = Tonemapping::AcesFitted;
-    } else if keys.just_pressed(KeyCode::Digit5) {
+    } else if keys.just_pressed(PhysicalKey::Digit5) {
         *method = Tonemapping::AgX;
-    } else if keys.just_pressed(KeyCode::Digit6) {
+    } else if keys.just_pressed(PhysicalKey::Digit6) {
         *method = Tonemapping::SomewhatBoringDisplayTransform;
-    } else if keys.just_pressed(KeyCode::Digit7) {
+    } else if keys.just_pressed(PhysicalKey::Digit7) {
         *method = Tonemapping::TonyMcMapface;
-    } else if keys.just_pressed(KeyCode::Digit8) {
+    } else if keys.just_pressed(PhysicalKey::Digit8) {
         *method = Tonemapping::BlenderFilmic;
     }
 
@@ -435,7 +435,7 @@ impl SelectedParameter {
 }
 
 fn update_color_grading_settings(
-    keys: Res<ButtonInput<KeyCode>>,
+    keys: Res<ButtonInput<PhysicalKey>>,
     time: Res<Time>,
     mut per_method_settings: ResMut<PerMethodSettings>,
     tonemapping: Query<&Tonemapping>,
@@ -445,17 +445,17 @@ fn update_color_grading_settings(
     let method = tonemapping.single();
     let color_grading = per_method_settings.settings.get_mut(method).unwrap();
     let mut dt = time.delta_seconds() * 0.25;
-    if keys.pressed(KeyCode::ArrowLeft) {
+    if keys.pressed(PhysicalKey::ArrowLeft) {
         dt = -dt;
     }
 
-    if keys.just_pressed(KeyCode::ArrowDown) {
+    if keys.just_pressed(PhysicalKey::ArrowDown) {
         selected_parameter.next();
     }
-    if keys.just_pressed(KeyCode::ArrowUp) {
+    if keys.just_pressed(PhysicalKey::ArrowUp) {
         selected_parameter.prev();
     }
-    if keys.pressed(KeyCode::ArrowLeft) || keys.pressed(KeyCode::ArrowRight) {
+    if keys.pressed(PhysicalKey::ArrowLeft) || keys.pressed(PhysicalKey::ArrowRight) {
         match selected_parameter.value {
             0 => {
                 color_grading.exposure += dt;
@@ -473,13 +473,13 @@ fn update_color_grading_settings(
         }
     }
 
-    if keys.just_pressed(KeyCode::Space) {
+    if keys.just_pressed(PhysicalKey::Space) {
         for (_, grading) in per_method_settings.settings.iter_mut() {
             *grading = ColorGrading::default();
         }
     }
 
-    if keys.just_pressed(KeyCode::Enter) && current_scene.0 == 1 {
+    if keys.just_pressed(PhysicalKey::Enter) && current_scene.0 == 1 {
         for (mapper, grading) in per_method_settings.settings.iter_mut() {
             *grading = PerMethodSettings::basic_scene_recommendation(*mapper);
         }
@@ -492,7 +492,7 @@ fn update_ui(
     current_scene: Res<CurrentScene>,
     selected_parameter: Res<SelectedParameter>,
     mut hide_ui: Local<bool>,
-    keys: Res<ButtonInput<KeyCode>>,
+    keys: Res<ButtonInput<PhysicalKey>>,
 ) {
     let (method, color_grading) = settings.single();
     let method = *method;
@@ -500,7 +500,7 @@ fn update_ui(
     let mut text = text.single_mut();
     let text = &mut text.sections[0].value;
 
-    if keys.just_pressed(KeyCode::KeyH) {
+    if keys.just_pressed(PhysicalKey::KeyH) {
         *hide_ui = !*hide_ui;
     }
     text.clear();

@@ -1,19 +1,19 @@
 //! The keyboard input functionality.
 
 // This file contains a substantial portion of the UI Events Specification by the W3C. In
-// particular, the variant names within `KeyCode` and their documentation are modified
+// particular, the variant names within `PhysicalKey` and their documentation are modified
 // versions of contents of the aforementioned specification.
 //
 // The original documents are:
 //
 //
-// ### For `KeyCode`
+// ### For `PhysicalKey`
 // UI Events KeyboardEvent code Values
 // https://www.w3.org/TR/2017/CR-uievents-code-20170601/
 // Copyright © 2017 W3C® (MIT, ERCIM, Keio, Beihang).
 //
 // These documents were used under the terms of the following license. This W3C license as well as
-// the W3C short notice apply to the `KeyCode` enums and their variants and the
+// the W3C short notice apply to the `PhysicalKey` enums and their variants and the
 // documentation attached to their variants.
 
 // --------- BEGGINING OF W3C LICENSE --------------------------------------------------------------
@@ -86,7 +86,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// ## Usage
 ///
 /// The event is consumed inside of the [`keyboard_input_system`]
-/// to update the [`Input<KeyCode>`](ButtonInput<KeyCode>) resource.
+/// to update the [`Input<PhysicalKey>`](ButtonInput<PhysicalKey>) resource.
 #[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
@@ -96,7 +96,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 )]
 pub struct KeyboardInput {
     /// The physical key code of the key.
-    pub key_code: KeyCode,
+    pub key_code: PhysicalKey,
     /// The logical key of the input
     pub logical_key: Key,
     /// The press state of the key.
@@ -105,14 +105,14 @@ pub struct KeyboardInput {
     pub window: Entity,
 }
 
-/// Updates the [`ButtonInput<KeyCode>`] resource with the latest [`KeyboardInput`] events.
+/// Updates the [`ButtonInput<PhysicalKey>`] resource with the latest [`KeyboardInput`] events.
 ///
 /// ## Differences
 ///
-/// The main difference between the [`KeyboardInput`] event and the [`ButtonInput<KeyCode>`] resources is that
+/// The main difference between the [`KeyboardInput`] event and the [`ButtonInput<PhysicalKey>`] resources is that
 /// the latter have convenient functions such as [`ButtonInput::pressed`], [`ButtonInput::just_pressed`] and [`ButtonInput::just_released`].
 pub fn keyboard_input_system(
-    mut key_input: ResMut<ButtonInput<KeyCode>>,
+    mut key_input: ResMut<ButtonInput<PhysicalKey>>,
     mut keyboard_input_events: EventReader<KeyboardInput>,
 ) {
     // Avoid clearing if it's not empty to ensure change detection is not triggered.
@@ -134,8 +134,8 @@ pub fn keyboard_input_system(
 /// enum), but the values are primarily tied to the key's physical location on the keyboard.
 ///
 /// This enum is primarily used to store raw keycodes when Winit doesn't map a given native
-/// physical key identifier to a meaningful [`KeyCode`] variant. In the presence of identifiers we
-/// haven't mapped for you yet, this lets you use use [`KeyCode`] to:
+/// physical key identifier to a meaningful [`PhysicalKey`] variant. In the presence of identifiers we
+/// haven't mapped for you yet, this lets you use use [`PhysicalKey`] to:
 ///
 /// - Correctly match key press and release events.
 /// - On non-web platforms, support assigning keybinds to virtually any key through a UI.
@@ -162,7 +162,7 @@ pub enum NativeKeyCode {
 ///
 /// ## Usage
 ///
-/// It is used as the generic `T` value of an [`ButtonInput`] to create a `Res<Input<KeyCode>>`.
+/// It is used as the generic `T` value of an [`ButtonInput`] to create a `Res<ButtonInput<PhysicalKey>>`.
 ///
 /// Code representing the location of a physical key
 /// This mostly conforms to the UI Events Specification's [`KeyboardEvent.code`] with a few
@@ -184,11 +184,11 @@ pub enum NativeKeyCode {
     reflect(Serialize, Deserialize)
 )]
 #[repr(u32)]
-pub enum KeyCode {
+pub enum PhysicalKey {
     /// This variant is used when the key cannot be translated to any other variant.
     ///
     /// The native keycode is provided (if available) so you're able to more reliably match
-    /// key-press and key-release events by hashing the [`KeyCode`]. It is also possible to use
+    /// key-press and key-release events by hashing the [`PhysicalKey`]. It is also possible to use
     /// this for keybinds for non-standard keys, but such keybinds are tied to a given platform.
     Unidentified(NativeKeyCode),
     /// <kbd>`</kbd> on a US keyboard. This is also called a backtick or grave.

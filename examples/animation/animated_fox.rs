@@ -93,13 +93,13 @@ fn setup_scene_once_loaded(
 }
 
 fn keyboard_animation_control(
-    keyboard_input: Res<ButtonInput<KeyCode>>,
+    keyboard_input: Res<ButtonInput<PhysicalKey>>,
     mut animation_players: Query<&mut AnimationPlayer>,
     animations: Res<Animations>,
     mut current_animation: Local<usize>,
 ) {
     for mut player in &mut animation_players {
-        if keyboard_input.just_pressed(KeyCode::Space) {
+        if keyboard_input.just_pressed(PhysicalKey::Space) {
             if player.is_paused() {
                 player.resume();
             } else {
@@ -107,27 +107,27 @@ fn keyboard_animation_control(
             }
         }
 
-        if keyboard_input.just_pressed(KeyCode::ArrowUp) {
+        if keyboard_input.just_pressed(PhysicalKey::ArrowUp) {
             let speed = player.speed();
             player.set_speed(speed * 1.2);
         }
 
-        if keyboard_input.just_pressed(KeyCode::ArrowDown) {
+        if keyboard_input.just_pressed(PhysicalKey::ArrowDown) {
             let speed = player.speed();
             player.set_speed(speed * 0.8);
         }
 
-        if keyboard_input.just_pressed(KeyCode::ArrowLeft) {
+        if keyboard_input.just_pressed(PhysicalKey::ArrowLeft) {
             let elapsed = player.seek_time();
             player.seek_to(elapsed - 0.1);
         }
 
-        if keyboard_input.just_pressed(KeyCode::ArrowRight) {
+        if keyboard_input.just_pressed(PhysicalKey::ArrowRight) {
             let elapsed = player.seek_time();
             player.seek_to(elapsed + 0.1);
         }
 
-        if keyboard_input.just_pressed(KeyCode::Enter) {
+        if keyboard_input.just_pressed(PhysicalKey::Enter) {
             *current_animation = (*current_animation + 1) % animations.0.len();
             player
                 .play_with_transition(
@@ -137,22 +137,22 @@ fn keyboard_animation_control(
                 .repeat();
         }
 
-        if keyboard_input.just_pressed(KeyCode::Digit1) {
+        if keyboard_input.just_pressed(PhysicalKey::Digit1) {
             player.set_repeat(RepeatAnimation::Count(1));
             player.replay();
         }
 
-        if keyboard_input.just_pressed(KeyCode::Digit3) {
+        if keyboard_input.just_pressed(PhysicalKey::Digit3) {
             player.set_repeat(RepeatAnimation::Count(3));
             player.replay();
         }
 
-        if keyboard_input.just_pressed(KeyCode::Digit5) {
+        if keyboard_input.just_pressed(PhysicalKey::Digit5) {
             player.set_repeat(RepeatAnimation::Count(5));
             player.replay();
         }
 
-        if keyboard_input.just_pressed(KeyCode::KeyL) {
+        if keyboard_input.just_pressed(PhysicalKey::KeyL) {
             player.set_repeat(RepeatAnimation::Forever);
         }
     }

@@ -29,7 +29,7 @@ fn main() {
 }
 
 fn modify_aa(
-    keys: Res<ButtonInput<KeyCode>>,
+    keys: Res<ButtonInput<PhysicalKey>>,
     mut camera: Query<
         (
             Entity,
@@ -45,14 +45,14 @@ fn modify_aa(
     let mut camera = commands.entity(camera_entity);
 
     // No AA
-    if keys.just_pressed(KeyCode::Digit1) {
+    if keys.just_pressed(PhysicalKey::Digit1) {
         *msaa = Msaa::Off;
         camera.remove::<Fxaa>();
         camera.remove::<TemporalAntiAliasBundle>();
     }
 
     // MSAA
-    if keys.just_pressed(KeyCode::Digit2) && *msaa == Msaa::Off {
+    if keys.just_pressed(PhysicalKey::Digit2) && *msaa == Msaa::Off {
         camera.remove::<Fxaa>();
         camera.remove::<TemporalAntiAliasBundle>();
 
@@ -61,19 +61,19 @@ fn modify_aa(
 
     // MSAA Sample Count
     if *msaa != Msaa::Off {
-        if keys.just_pressed(KeyCode::KeyQ) {
+        if keys.just_pressed(PhysicalKey::KeyQ) {
             *msaa = Msaa::Sample2;
         }
-        if keys.just_pressed(KeyCode::KeyW) {
+        if keys.just_pressed(PhysicalKey::KeyW) {
             *msaa = Msaa::Sample4;
         }
-        if keys.just_pressed(KeyCode::KeyE) {
+        if keys.just_pressed(PhysicalKey::KeyE) {
             *msaa = Msaa::Sample8;
         }
     }
 
     // FXAA
-    if keys.just_pressed(KeyCode::Digit3) && fxaa.is_none() {
+    if keys.just_pressed(PhysicalKey::Digit3) && fxaa.is_none() {
         *msaa = Msaa::Off;
         camera.remove::<TemporalAntiAliasBundle>();
 
@@ -82,30 +82,30 @@ fn modify_aa(
 
     // FXAA Settings
     if let Some(mut fxaa) = fxaa {
-        if keys.just_pressed(KeyCode::KeyQ) {
+        if keys.just_pressed(PhysicalKey::KeyQ) {
             fxaa.edge_threshold = Sensitivity::Low;
             fxaa.edge_threshold_min = Sensitivity::Low;
         }
-        if keys.just_pressed(KeyCode::KeyW) {
+        if keys.just_pressed(PhysicalKey::KeyW) {
             fxaa.edge_threshold = Sensitivity::Medium;
             fxaa.edge_threshold_min = Sensitivity::Medium;
         }
-        if keys.just_pressed(KeyCode::KeyE) {
+        if keys.just_pressed(PhysicalKey::KeyE) {
             fxaa.edge_threshold = Sensitivity::High;
             fxaa.edge_threshold_min = Sensitivity::High;
         }
-        if keys.just_pressed(KeyCode::KeyR) {
+        if keys.just_pressed(PhysicalKey::KeyR) {
             fxaa.edge_threshold = Sensitivity::Ultra;
             fxaa.edge_threshold_min = Sensitivity::Ultra;
         }
-        if keys.just_pressed(KeyCode::KeyT) {
+        if keys.just_pressed(PhysicalKey::KeyT) {
             fxaa.edge_threshold = Sensitivity::Extreme;
             fxaa.edge_threshold_min = Sensitivity::Extreme;
         }
     }
 
     // TAA
-    if keys.just_pressed(KeyCode::Digit4) && taa.is_none() {
+    if keys.just_pressed(PhysicalKey::Digit4) && taa.is_none() {
         *msaa = Msaa::Off;
         camera.remove::<Fxaa>();
 
@@ -114,23 +114,23 @@ fn modify_aa(
 }
 
 fn modify_sharpening(
-    keys: Res<ButtonInput<KeyCode>>,
+    keys: Res<ButtonInput<PhysicalKey>>,
     mut query: Query<&mut ContrastAdaptiveSharpeningSettings>,
 ) {
     for mut cas in &mut query {
-        if keys.just_pressed(KeyCode::Digit0) {
+        if keys.just_pressed(PhysicalKey::Digit0) {
             cas.enabled = !cas.enabled;
         }
         if cas.enabled {
-            if keys.just_pressed(KeyCode::Minus) {
+            if keys.just_pressed(PhysicalKey::Minus) {
                 cas.sharpening_strength -= 0.1;
                 cas.sharpening_strength = cas.sharpening_strength.clamp(0.0, 1.0);
             }
-            if keys.just_pressed(KeyCode::Equal) {
+            if keys.just_pressed(PhysicalKey::Equal) {
                 cas.sharpening_strength += 0.1;
                 cas.sharpening_strength = cas.sharpening_strength.clamp(0.0, 1.0);
             }
-            if keys.just_pressed(KeyCode::KeyD) {
+            if keys.just_pressed(PhysicalKey::KeyD) {
                 cas.denoise = !cas.denoise;
             }
         }

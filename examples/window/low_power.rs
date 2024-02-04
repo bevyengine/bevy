@@ -97,9 +97,9 @@ pub(crate) mod test_setup {
     /// Switch between update modes when the mouse is clicked.
     pub(crate) fn cycle_modes(
         mut mode: ResMut<ExampleMode>,
-        mouse_button_input: Res<ButtonInput<KeyCode>>,
+        mouse_button_input: Res<ButtonInput<PhysicalKey>>,
     ) {
-        if mouse_button_input.just_pressed(KeyCode::Space) {
+        if mouse_button_input.just_pressed(PhysicalKey::Space) {
             *mode = match *mode {
                 ExampleMode::Game => ExampleMode::Application,
                 ExampleMode::Application => ExampleMode::ApplicationWithRedraw,

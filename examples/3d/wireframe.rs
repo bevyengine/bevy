@@ -121,7 +121,7 @@ fn setup(
 
 /// This system let's you toggle various wireframe settings
 fn update_colors(
-    keyboard_input: Res<ButtonInput<KeyCode>>,
+    keyboard_input: Res<ButtonInput<PhysicalKey>>,
     mut config: ResMut<WireframeConfig>,
     mut wireframe_colors: Query<&mut WireframeColor>,
     mut text: Query<&mut Text>,
@@ -143,12 +143,12 @@ Color: {:?}
     );
 
     // Toggle showing a wireframe on all meshes
-    if keyboard_input.just_pressed(KeyCode::KeyZ) {
+    if keyboard_input.just_pressed(PhysicalKey::KeyZ) {
         config.global = !config.global;
     }
 
     // Toggle the global wireframe color
-    if keyboard_input.just_pressed(KeyCode::KeyX) {
+    if keyboard_input.just_pressed(PhysicalKey::KeyX) {
         config.default_color = if config.default_color == Color::WHITE {
             Color::PINK
         } else {
@@ -157,7 +157,7 @@ Color: {:?}
     }
 
     // Toggle the color of a wireframe using WireframeColor and not the global color
-    if keyboard_input.just_pressed(KeyCode::KeyC) {
+    if keyboard_input.just_pressed(PhysicalKey::KeyC) {
         for mut color in &mut wireframe_colors {
             color.color = if color.color == Color::GREEN {
                 Color::RED

@@ -129,21 +129,21 @@ fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
 const SPEED: f32 = 100.0;
 fn movement(
     time: Res<Time>,
-    input: Res<ButtonInput<KeyCode>>,
+    input: Res<ButtonInput<PhysicalKey>>,
     mut query: Query<&mut Transform, With<Sprite>>,
 ) {
     for mut transform in &mut query {
         let mut direction = Vec3::ZERO;
-        if input.pressed(KeyCode::ArrowLeft) {
+        if input.pressed(PhysicalKey::ArrowLeft) {
             direction.x -= 1.0;
         }
-        if input.pressed(KeyCode::ArrowRight) {
+        if input.pressed(PhysicalKey::ArrowRight) {
             direction.x += 1.0;
         }
-        if input.pressed(KeyCode::ArrowUp) {
+        if input.pressed(PhysicalKey::ArrowUp) {
             direction.y += 1.0;
         }
-        if input.pressed(KeyCode::ArrowDown) {
+        if input.pressed(PhysicalKey::ArrowDown) {
             direction.y -= 1.0;
         }
 

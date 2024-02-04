@@ -239,11 +239,11 @@ fn spawn_container(
 fn update_animation(
     mut animation: ResMut<AnimationState>,
     time: Res<Time>,
-    keys: Res<ButtonInput<KeyCode>>,
+    keys: Res<ButtonInput<PhysicalKey>>,
 ) {
     let time = time.elapsed_seconds();
 
-    if keys.just_pressed(KeyCode::Space) {
+    if keys.just_pressed(PhysicalKey::Space) {
         animation.playing = !animation.playing;
 
         if !animation.playing {
@@ -271,10 +271,10 @@ fn update_transform<T: UpdateTransform + Component>(
 }
 
 fn toggle_overflow(
-    keys: Res<ButtonInput<KeyCode>>,
+    keys: Res<ButtonInput<PhysicalKey>>,
     mut containers: Query<&mut Style, With<Container>>,
 ) {
-    if keys.just_pressed(KeyCode::KeyO) {
+    if keys.just_pressed(PhysicalKey::KeyO) {
         for mut style in &mut containers {
             style.overflow = match style.overflow {
                 Overflow {
@@ -296,10 +296,10 @@ fn toggle_overflow(
 }
 
 fn next_container_size(
-    keys: Res<ButtonInput<KeyCode>>,
+    keys: Res<ButtonInput<PhysicalKey>>,
     mut containers: Query<(&mut Style, &mut Container)>,
 ) {
-    if keys.just_pressed(KeyCode::KeyS) {
+    if keys.just_pressed(PhysicalKey::KeyS) {
         for (mut style, mut container) in &mut containers {
             container.0 = (container.0 + 1) % 3;
 

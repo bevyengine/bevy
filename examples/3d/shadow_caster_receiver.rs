@@ -126,11 +126,11 @@ fn setup(
 }
 
 fn toggle_light(
-    input: Res<ButtonInput<KeyCode>>,
+    input: Res<ButtonInput<PhysicalKey>>,
     mut point_lights: Query<&mut PointLight>,
     mut directional_lights: Query<&mut DirectionalLight>,
 ) {
-    if input.just_pressed(KeyCode::KeyL) {
+    if input.just_pressed(PhysicalKey::KeyL) {
         for mut light in &mut point_lights {
             light.intensity = if light.intensity == 0.0 {
                 println!("Using PointLight");
@@ -152,7 +152,7 @@ fn toggle_light(
 
 fn toggle_shadows(
     mut commands: Commands,
-    input: Res<ButtonInput<KeyCode>>,
+    input: Res<ButtonInput<PhysicalKey>>,
     mut queries: ParamSet<(
         Query<Entity, (With<Handle<Mesh>>, With<NotShadowCaster>)>,
         Query<Entity, (With<Handle<Mesh>>, With<NotShadowReceiver>)>,
@@ -160,7 +160,7 @@ fn toggle_shadows(
         Query<Entity, (With<Handle<Mesh>>, Without<NotShadowReceiver>)>,
     )>,
 ) {
-    if input.just_pressed(KeyCode::KeyC) {
+    if input.just_pressed(PhysicalKey::KeyC) {
         println!("Toggling casters");
         for entity in queries.p0().iter() {
             commands.entity(entity).remove::<NotShadowCaster>();
@@ -169,7 +169,7 @@ fn toggle_shadows(
             commands.entity(entity).insert(NotShadowCaster);
         }
     }
-    if input.just_pressed(KeyCode::KeyR) {
+    if input.just_pressed(PhysicalKey::KeyR) {
         println!("Toggling receivers");
         for entity in queries.p1().iter() {
             commands.entity(entity).remove::<NotShadowReceiver>();

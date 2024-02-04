@@ -79,18 +79,18 @@ impl CurrentMethod {
 }
 
 fn update_parallax_depth_scale(
-    input: Res<ButtonInput<KeyCode>>,
+    input: Res<ButtonInput<PhysicalKey>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut target_depth: Local<TargetDepth>,
     mut depth_update: Local<bool>,
     mut text: Query<&mut Text>,
 ) {
-    if input.just_pressed(KeyCode::Digit1) {
+    if input.just_pressed(PhysicalKey::Digit1) {
         target_depth.0 -= DEPTH_UPDATE_STEP;
         target_depth.0 = target_depth.0.max(0.0);
         *depth_update = true;
     }
-    if input.just_pressed(KeyCode::Digit2) {
+    if input.just_pressed(PhysicalKey::Digit2) {
         target_depth.0 += DEPTH_UPDATE_STEP;
         target_depth.0 = target_depth.0.min(MAX_DEPTH);
         *depth_update = true;
@@ -110,12 +110,12 @@ fn update_parallax_depth_scale(
 }
 
 fn switch_method(
-    input: Res<ButtonInput<KeyCode>>,
+    input: Res<ButtonInput<PhysicalKey>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut text: Query<&mut Text>,
     mut current: Local<CurrentMethod>,
 ) {
-    if input.just_pressed(KeyCode::Space) {
+    if input.just_pressed(PhysicalKey::Space) {
         current.next_method();
     } else {
         return;
@@ -129,15 +129,15 @@ fn switch_method(
 }
 
 fn update_parallax_layers(
-    input: Res<ButtonInput<KeyCode>>,
+    input: Res<ButtonInput<PhysicalKey>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut target_layers: Local<TargetLayers>,
     mut text: Query<&mut Text>,
 ) {
-    if input.just_pressed(KeyCode::Digit3) {
+    if input.just_pressed(PhysicalKey::Digit3) {
         target_layers.0 -= 1.0;
         target_layers.0 = target_layers.0.max(0.0);
-    } else if input.just_pressed(KeyCode::Digit4) {
+    } else if input.just_pressed(PhysicalKey::Digit4) {
         target_layers.0 += 1.0;
     } else {
         return;

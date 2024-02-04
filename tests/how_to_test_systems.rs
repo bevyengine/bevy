@@ -37,8 +37,8 @@ fn hurt_enemies(mut enemies: Query<&mut Enemy>) {
     }
 }
 
-fn spawn_enemy(mut commands: Commands, keyboard_input: Res<ButtonInput<KeyCode>>) {
-    if keyboard_input.just_pressed(KeyCode::Space) {
+fn spawn_enemy(mut commands: Commands, keyboard_input: Res<ButtonInput<PhysicalKey>>) {
+    if keyboard_input.just_pressed(PhysicalKey::Space) {
         commands.spawn(Enemy {
             hit_points: 5,
             score_value: 3,
@@ -124,8 +124,8 @@ fn spawn_enemy_using_input_resource() {
     app.add_systems(Update, spawn_enemy);
 
     // Setup test resource
-    let mut input = ButtonInput::<KeyCode>::default();
-    input.press(KeyCode::Space);
+    let mut input = ButtonInput::<PhysicalKey>::default();
+    input.press(PhysicalKey::Space);
     app.insert_resource(input);
 
     // Run systems
@@ -134,8 +134,8 @@ fn spawn_enemy_using_input_resource() {
     // Check resulting changes, one entity has been spawned with `Enemy` component
     assert_eq!(app.world.query::<&Enemy>().iter(&app.world).len(), 1);
 
-    // Clear the `just_pressed` status for all `KeyCode`s
-    app.world.resource_mut::<ButtonInput<KeyCode>>().clear();
+    // Clear the `just_pressed` status for all `PhysicalKey`s
+    app.world.resource_mut::<ButtonInput<PhysicalKey>>().clear();
 
     // Run systems
     app.update();

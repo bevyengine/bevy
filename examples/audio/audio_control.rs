@@ -30,10 +30,10 @@ fn update_speed(music_controller: Query<&AudioSink, With<MyMusic>>, time: Res<Ti
 }
 
 fn pause(
-    keyboard_input: Res<ButtonInput<KeyCode>>,
+    keyboard_input: Res<ButtonInput<PhysicalKey>>,
     music_controller: Query<&AudioSink, With<MyMusic>>,
 ) {
-    if keyboard_input.just_pressed(KeyCode::Space) {
+    if keyboard_input.just_pressed(PhysicalKey::Space) {
         if let Ok(sink) = music_controller.get_single() {
             sink.toggle();
         }
@@ -41,13 +41,13 @@ fn pause(
 }
 
 fn volume(
-    keyboard_input: Res<ButtonInput<KeyCode>>,
+    keyboard_input: Res<ButtonInput<PhysicalKey>>,
     music_controller: Query<&AudioSink, With<MyMusic>>,
 ) {
     if let Ok(sink) = music_controller.get_single() {
-        if keyboard_input.just_pressed(KeyCode::Equal) {
+        if keyboard_input.just_pressed(PhysicalKey::Equal) {
             sink.set_volume(sink.volume() + 0.1);
-        } else if keyboard_input.just_pressed(KeyCode::Minus) {
+        } else if keyboard_input.just_pressed(PhysicalKey::Minus) {
             sink.set_volume(sink.volume() - 0.1);
         }
     }

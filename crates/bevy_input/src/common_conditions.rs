@@ -7,12 +7,12 @@ use std::hash::Hash;
 /// ```no_run
 /// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, Update};
 /// # use bevy_ecs::prelude::IntoSystemConfigs;
-/// # use bevy_input::{common_conditions::input_toggle_active, prelude::KeyCode};
+/// # use bevy_input::{common_conditions::input_toggle_active, prelude::PhysicalKey};
 ///
 /// fn main() {
 ///     App::new()
 ///         .add_plugins(DefaultPlugins)
-///         .add_systems(Update, pause_menu.run_if(input_toggle_active(false, KeyCode::Escape)))
+///         .add_systems(Update, pause_menu.run_if(input_toggle_active(false, PhysicalKey::Escape)))
 ///         .run();
 /// }
 ///
@@ -26,7 +26,7 @@ use std::hash::Hash;
 /// ```no_run
 /// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, Update};
 /// # use bevy_ecs::prelude::{IntoSystemConfigs, Res, ResMut, Resource};
-/// # use bevy_input::{common_conditions::input_just_pressed, prelude::KeyCode};
+/// # use bevy_input::{common_conditions::input_just_pressed, prelude::PhysicalKey};
 ///
 /// #[derive(Resource, Default)]
 /// struct Paused(bool);
@@ -35,7 +35,7 @@ use std::hash::Hash;
 ///     App::new()
 ///         .add_plugins(DefaultPlugins)
 ///         .init_resource::<Paused>()
-///         .add_systems(Update, toggle_pause_state.run_if(input_just_pressed(KeyCode::Escape)))
+///         .add_systems(Update, toggle_pause_state.run_if(input_just_pressed(PhysicalKey::Escape)))
 ///         .add_systems(Update, pause_menu.run_if(|paused: Res<Paused>| paused.0))
 ///         .run();
 /// }
@@ -76,11 +76,11 @@ where
 /// ```no_run
 /// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, Update};
 /// # use bevy_ecs::prelude::IntoSystemConfigs;
-/// # use bevy_input::{common_conditions::input_just_pressed, prelude::KeyCode};
+/// # use bevy_input::{common_conditions::input_just_pressed, prelude::PhysicalKey};
 /// fn main() {
 ///     App::new()
 ///         .add_plugins(DefaultPlugins)
-///         .add_systems(Update, jump.run_if(input_just_pressed(KeyCode::Space)))
+///         .add_systems(Update, jump.run_if(input_just_pressed(PhysicalKey::Space)))
 ///         .run();
 /// }
 ///
@@ -104,7 +104,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::KeyCode;
+    use crate::prelude::PhysicalKey;
     use bevy_ecs::schedule::{IntoSystemConfigs, Schedule};
 
     fn test_system() {}
@@ -114,10 +114,10 @@ mod tests {
     fn distributive_run_if_compiles() {
         Schedule::default().add_systems(
             (test_system, test_system)
-                .distributive_run_if(input_toggle_active(false, KeyCode::Escape))
-                .distributive_run_if(input_pressed(KeyCode::Escape))
-                .distributive_run_if(input_just_pressed(KeyCode::Escape))
-                .distributive_run_if(input_just_released(KeyCode::Escape)),
+                .distributive_run_if(input_toggle_active(false, PhysicalKey::Escape))
+                .distributive_run_if(input_pressed(PhysicalKey::Escape))
+                .distributive_run_if(input_just_pressed(PhysicalKey::Escape))
+                .distributive_run_if(input_just_released(PhysicalKey::Escape)),
         );
     }
 }

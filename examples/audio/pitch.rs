@@ -39,17 +39,17 @@ fn play_pitch(
 }
 
 fn keyboard_input_system(
-    keyboard_input: Res<ButtonInput<KeyCode>>,
+    keyboard_input: Res<ButtonInput<PhysicalKey>>,
     mut frequency: ResMut<PitchFrequency>,
     mut events: EventWriter<PlayPitch>,
 ) {
-    if keyboard_input.just_pressed(KeyCode::ArrowUp) {
+    if keyboard_input.just_pressed(PhysicalKey::ArrowUp) {
         frequency.0 *= 2.0f32.powf(1.0 / 12.0);
     }
-    if keyboard_input.just_pressed(KeyCode::ArrowDown) {
+    if keyboard_input.just_pressed(PhysicalKey::ArrowDown) {
         frequency.0 /= 2.0f32.powf(1.0 / 12.0);
     }
-    if keyboard_input.just_pressed(KeyCode::Space) {
+    if keyboard_input.just_pressed(PhysicalKey::Space) {
         events.send(PlayPitch);
     }
 }

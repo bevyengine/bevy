@@ -49,14 +49,14 @@ struct Config {
     fancy: bool,
 }
 
-fn input(mut config: ResMut<Config>, input: Res<ButtonInput<KeyCode>>) {
-    if input.just_pressed(KeyCode::ArrowUp) {
+fn input(mut config: ResMut<Config>, input: Res<ButtonInput<PhysicalKey>>) {
+    if input.just_pressed(PhysicalKey::ArrowUp) {
         config.line_count += 10_000;
     }
-    if input.just_pressed(KeyCode::ArrowDown) {
+    if input.just_pressed(PhysicalKey::ArrowDown) {
         config.line_count = config.line_count.saturating_sub(10_000);
     }
-    if input.just_pressed(KeyCode::Space) {
+    if input.just_pressed(PhysicalKey::Space) {
         config.fancy = !config.fancy;
     }
 }
