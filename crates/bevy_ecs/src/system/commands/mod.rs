@@ -12,7 +12,6 @@ use bevy_ecs_macros::SystemParam;
 use bevy_utils::tracing::{error, info};
 pub use command_queue::CommandQueue;
 pub use parallel_scope::*;
-use std::marker::PhantomData;
 
 use super::{Deferred, Resource, SystemBuffer, SystemMeta};
 
@@ -667,34 +666,14 @@ impl<'w, 's> Commands<'w, 's> {
 /// ```
 pub trait EntityCommand<Marker = ()>: Send + 'static {
     /// Executes this command for the given [`Entity`].
-    fn apply(self, id: Entity, world: &mut World);
+    fn apply(self, entity: Entity, world: &mut World);
+
     /// Returns a [`Command`] which executes this [`EntityCommand`] for the given [`Entity`].
-    fn with_entity(self, id: Entity) -> WithEntity<Marker, Self>
+    fn with_entity(self, entity: Entity) -> impl Command
     where
         Self: Sized,
     {
-        WithEntity {
-            cmd: self,
-            id,
-            marker: PhantomData,
-        }
-    }
-}
-
-/// Turns an [`EntityCommand`] type into a [`Command`] type.
-pub struct WithEntity<Marker, C: EntityCommand<Marker>> {
-    cmd: C,
-    id: Entity,
-    marker: PhantomData<fn() -> Marker>,
-}
-
-impl<M, C: EntityCommand<M>> Command for WithEntity<M, C>
-where
-    M: 'static,
-{
-    #[inline]
-    fn apply(self, world: &mut World) {
-        self.cmd.apply(self.id, world);
+        move |world: &mut World| self.apply(entity, world)
     }
 }
 
