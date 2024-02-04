@@ -1441,3 +1441,16 @@ pub enum Key {
     /// General-purpose function key.
     F35,
 }
+
+impl Key {
+    /// Returns a `Key` with uppercase character if `self` is `Key::Character`.
+    /// Otherwise, returns a `Clone` of `self`.
+    pub fn to_uppercase_character(&self) -> Self {
+        match self.clone() {
+            Key::Character(character) => {
+                Self::Character(character.to_string().to_uppercase().into())
+            }
+            other_kind => other_kind,
+        }
+    }
+}
