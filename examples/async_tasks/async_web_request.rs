@@ -79,7 +79,7 @@ fn update_text(
                     text.sections[0].style.color = Color::RED;
                 }
             }
-            commands.entity(entity).despawn_recursive();
+            commands.entity(entity).despawn();
         }
     }
 }
