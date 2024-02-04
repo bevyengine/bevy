@@ -7,10 +7,11 @@
 use crate::utility::terminated_parser;
 use crate::REFLECT_ATTRIBUTE_NAME;
 use proc_macro2::Ident;
+use quote::quote;
 use std::collections::HashMap;
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
-use syn::{parenthesized, Attribute, Lit, LitStr, Meta, Token};
+use syn::{parenthesized, Attribute, Lit, LitStr, Meta, Path, Token};
 
 mod kw {
     syn::custom_keyword!(ignore);
@@ -72,6 +73,22 @@ pub(crate) enum DefaultBehavior {
 #[derive(Default, Clone)]
 pub(crate) struct CustomAttributes {
     attributes: HashMap<String, Lit>,
+}
+
+impl CustomAttributes {
+    /// Generates a `TokenStream` for `CustomAttributes` construction.
+    pub fn to_tokens(&self, bevy_reflect_path: &Path) -> proc_macro2::TokenStream {
+        let attributes = self.attributes.iter().map(|(name, value)| {
+            quote! {
+                .with_attribute(#name, #value)
+            }
+        });
+
+        quote! {
+            #bevy_reflect_path::attributes::CustomAttributes::default()
+                #(#attributes)*
+        }
+    }
 }
 
 /// A container for attributes defined on a reflected type's field.

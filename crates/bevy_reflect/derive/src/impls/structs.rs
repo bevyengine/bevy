@@ -26,7 +26,6 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
         .active_fields()
         .map(|field| ident_or_index(field.data.ident.as_ref(), field.declaration_index))
         .collect::<Vec<_>>();
-    let field_types = reflect_struct.active_types();
     let field_count = field_idents.len();
     let field_indices = (0..field_count).collect::<Vec<usize>>();
 
@@ -46,22 +45,9 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
             }
         });
 
-    #[cfg(feature = "documentation")]
-    let field_generator = {
-        let docs = reflect_struct
-            .active_fields()
-            .map(|field| ToTokens::to_token_stream(&field.doc));
-        quote! {
-            #(#bevy_reflect_path::NamedField::new::<#field_types>(#field_names).with_docs(#docs) ,)*
-        }
-    };
-
-    #[cfg(not(feature = "documentation"))]
-    let field_generator = {
-        quote! {
-            #(#bevy_reflect_path::NamedField::new::<#field_types>(#field_names) ,)*
-        }
-    };
+    let field_infos = reflect_struct
+        .active_fields()
+        .map(|field| field.to_info_tokens(bevy_reflect_path));
 
     #[cfg(feature = "documentation")]
     let info_generator = {
@@ -83,7 +69,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
         reflect_struct.meta(),
         &where_clause_options,
         quote! {
-            let fields = [#field_generator];
+            let fields = [#(#field_infos),*];
             let info = #info_generator;
             #bevy_reflect_path::TypeInfo::Struct(info)
         },

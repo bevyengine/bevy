@@ -409,19 +409,7 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
                         #unit { #declare_field : value, .. } if #ref_index == #reflect_idx => #FQOption::Some(value)
                     });
 
-                    #[cfg(feature = "documentation")]
-                    let with_docs = {
-                        let doc = quote::ToTokens::to_token_stream(&field.doc);
-                        Some(quote!(.with_docs(#doc)))
-                    };
-                    #[cfg(not(feature = "documentation"))]
-                    let with_docs: Option<proc_macro2::TokenStream> = None;
-
-                    let field_ty = &field.data.ty;
-                    quote! {
-                        #bevy_reflect_path::UnnamedField::new::<#field_ty>(#reflect_idx)
-                        #with_docs
-                    }
+                    field.to_info_tokens(bevy_reflect_path)
                 });
 
                 let field_len = args.len();
@@ -444,19 +432,7 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
                         #unit{ .. } if #ref_index == #reflect_idx => #FQOption::Some(#field_name)
                     });
 
-                    #[cfg(feature = "documentation")]
-                    let with_docs = {
-                        let doc = quote::ToTokens::to_token_stream(&field.doc);
-                        Some(quote!(.with_docs(#doc)))
-                    };
-                    #[cfg(not(feature = "documentation"))]
-                    let with_docs: Option<proc_macro2::TokenStream> = None;
-
-                    let field_ty = &field.data.ty;
-                    quote! {
-                        #bevy_reflect_path::NamedField::new::<#field_ty>(#field_name)
-                        #with_docs
-                    }
+                    field.to_info_tokens(bevy_reflect_path)
                 });
 
                 let field_len = args.len();

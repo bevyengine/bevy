@@ -481,6 +481,44 @@ impl<'a> ReflectMeta<'a> {
     }
 }
 
+impl<'a> StructField<'a> {
+    /// Generates a `TokenStream` for `NamedField` or `UnnamedField` construction.
+    pub fn to_info_tokens(&self, bevy_reflect_path: &Path) -> proc_macro2::TokenStream {
+        let name = match &self.data.ident {
+            Some(ident) => ident.to_string().to_token_stream(),
+            None => self.reflection_index.to_token_stream(),
+        };
+
+        let field_info = if self.data.ident.is_some() {
+            quote! {
+                #bevy_reflect_path::NamedField
+            }
+        } else {
+            quote! {
+                #bevy_reflect_path::UnnamedField
+            }
+        };
+
+        let ty = &self.data.ty;
+        let custom_attributes = self.attrs.custom_attributes.to_tokens(bevy_reflect_path);
+
+        #[allow(unused_mut)] // Needs mutability for the feature gate
+        let mut info = quote! {
+            #field_info::new::<#ty>(#name).with_custom_attributes(#custom_attributes)
+        };
+
+        #[cfg(feature = "documentation")]
+        {
+            let docs = &self.doc;
+            info.extend(quote! {
+                .with_docs(#docs)
+            });
+        }
+
+        info
+    }
+}
+
 impl<'a> ReflectStruct<'a> {
     /// Access the metadata associated with this struct definition.
     pub fn meta(&self) -> &ReflectMeta<'a> {
