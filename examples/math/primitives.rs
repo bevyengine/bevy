@@ -2,9 +2,9 @@
 //! and with gizmos
 #![allow(clippy::match_same_arms)]
 
-use bevy::prelude::*;
-use bevy_internal::input::common_conditions::input_just_pressed;
-use bevy_internal::sprite::MaterialMesh2dBundle;
+use bevy::{
+    input::common_conditions::input_just_pressed, prelude::*, sprite::MaterialMesh2dBundle,
+};
 
 const LEFT_RIGHT_OFFSET_2D: f32 = 200.0;
 const LEFT_RIGHT_OFFSET_3D: f32 = 2.0;
