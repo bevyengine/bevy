@@ -64,12 +64,12 @@ fn handle_request(
     for (entity, request) in requests.iter() {
         let req = request.clone();
 
-        let s = thread_pool.spawn(async { ehttp::fetch_async(req.0).await });
+        let task = thread_pool.spawn(async { ehttp::fetch_async(req.0).await });
 
         commands
             .entity(entity)
             .remove::<HttpRequest>()
-            .insert(RequestTask(s));
+            .insert(RequestTask(task));
     }
 }
 
