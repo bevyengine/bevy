@@ -1,195 +1,173 @@
 //! Demonstrates how to enable per-object motion blur. This rendering feature can be configured per
-//! camera using the [`MotionBlur`] component.
-//!
-//! This example animates some meshes and adds a camera controller to help visualize the effect of
-//! the motion blur parameters.
+//! camera using the [`MotionBlur`] component.z
 
 use bevy::{
-    core_pipeline::{
-        bloom::BloomSettings,
-        motion_blur::{MotionBlur, MotionBlurBundle},
-        tonemapping::Tonemapping,
-    },
-    input::mouse::MouseMotion,
-    pbr::NotShadowReceiver,
+    core_pipeline::motion_blur::{MotionBlur, MotionBlurBundle},
     prelude::*,
-    window::CursorGrabMode,
 };
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins.build(), CameraControllerPlugin))
-        .add_systems(Startup, (setup, setup_ui))
-        .add_systems(Update, (translate, rotate, scale, update_settings).chain())
+        .add_plugins(DefaultPlugins)
+        .add_systems(Startup, (setup_camera, setup_scene, setup_ui))
+        .add_systems(Update, (update_settings, move_cars, update_cam).chain())
         .run();
 }
 
-/// Set up a simple 3D scene
-fn setup(
+fn setup_camera(mut commands: Commands) {
+    commands.spawn((
+        Camera3dBundle::default(),
+        // Add the MotionBlurBundle to a camera to enable motion blur.
+        // Motion blur requires the depth and motion vector prepass, which this bundle adds.
+        // Configure the amount and quality of motion blur per-camera using this component.
+        MotionBlurBundle::default(),
+    ));
+}
+
+// Everything past this point is used to build the example, but is not required for usage.
+
+#[derive(Component)]
+struct Moves(f32);
+
+#[derive(Component)]
+struct CameraTracked;
+
+#[derive(Component)]
+struct Rotates;
+
+fn setup_scene(
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    asset_server: Res<AssetServer>,
 ) {
-    #[allow(clippy::needless_update)]
-    commands.spawn((
-        Camera3dBundle {
-            camera: Camera {
-                hdr: true,
-                ..default()
-            },
-            transform: Transform::from_translation(Vec3::new(-35.0, 8.0, 45.0))
-                .looking_at(Vec3::new(0.0, -4.0, 20.0), Vec3::Y),
-            tonemapping: Tonemapping::TonyMcMapface,
-            ..default()
-        },
-        // Adding this bundle to a camera will add motion blur to objects rendered by it.
-        MotionBlurBundle {
-            // Configure motion blur settings per-camera
-            motion_blur: MotionBlur {
-                shutter_angle: 0.5, // Amount of blur
-                samples: 2,         // Quality
-                ..default()
-            },
-            ..default()
-        },
-        CameraController::default(),
-        BloomSettings { ..default() },
-    ));
-
-    // Add a light
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            illuminance: 5000.,
+            illuminance: 2_000.0,
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_translation(Vec3::Y * 100.0).looking_at(Vec3::X, Vec3::Y),
+        transform: Transform::default().looking_to(Vec3::new(-1.0, -0.7, -1.0), Vec3::X),
+        ..default()
+    });
+    // Sky
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(shape::UVSphere::default()),
+        material: materials.add(StandardMaterial {
+            unlit: true,
+            base_color: Color::rgb(0.3, 0.8, 1.0),
+            ..default()
+        }),
+        transform: Transform::default().with_scale(Vec3::splat(-4000.0)),
+        ..default()
+    });
+    // Ground
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(shape::Plane::default()),
+        material: materials.add(StandardMaterial {
+            base_color: Color::rgb(0.3, 0.5, 0.25),
+            perceptual_roughness: 1.0,
+            ..default()
+        }),
+        transform: Transform::from_xyz(0.0, -0.65, 0.0).with_scale(Vec3::splat(100.0)),
+        ..default()
+    });
+    commands.spawn(SceneBundle {
+        scene: asset_server.load("models/terrain/Mountains.gltf#Scene0"),
+        transform: Transform::from_scale(Vec3::new(4000.0, 800.0, 4000.0))
+            .with_translation(Vec3::new(0.0, -2.0, 0.0)),
         ..default()
     });
 
-    let sphere = meshes.add(Mesh::from(shape::UVSphere::default()));
-    let cube = meshes.add(Mesh::from(shape::Cube::default()));
+    // Cars
 
-    let image = asset_server.load("textures/checkered.png");
-    // Acts like a skybox to allow testing the effects of full screen blur due to camera movement.
-    commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::UVSphere::default())),
-            material: materials.add(StandardMaterial {
-                base_color: Color::CYAN,
-                base_color_texture: Some(image.clone()),
-                unlit: true,
-                reflectance: 0.0,
-                ..default()
-            }),
-            transform: Transform::from_scale(Vec3::splat(-100000.0))
-                .with_translation(Vec3::Y * -200.0),
-            ..default()
-        },
-        NotShadowReceiver,
-    ));
-    commands.spawn((PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane {
-            size: 500.0,
-            subdivisions: 10,
-        })),
-        material: materials.add(StandardMaterial {
-            base_color: Color::DARK_GRAY,
-            base_color_texture: Some(image.clone()),
-            perceptual_roughness: 0.1,
-            reflectance: 0.0,
-            ..default()
-        }),
-        transform: Transform::from_xyz(0.0, -10.0, 0.0),
+    let box_mesh = meshes.add(shape::Box::new(0.3, 0.15, 0.55));
+    let cylinder = meshes.add(shape::Cylinder::default());
+    let logo = asset_server.load("branding/icon.png");
+    let wheel_matl = materials.add(StandardMaterial {
+        base_color: Color::WHITE,
+        base_color_texture: Some(logo.clone()),
         ..default()
-    },));
-    // The rest of the spheres
-    let mut sphere_matl = |base_color: Color| {
-        materials.add(StandardMaterial {
-            base_color_texture: Some(image.clone()),
-            base_color,
-            perceptual_roughness: 0.2,
-            reflectance: 1.0,
-            ..default()
-        })
-    };
-    commands.spawn((
-        PbrBundle {
-            mesh: sphere.clone(),
-            material: sphere_matl(Color::BLACK),
-            transform: Transform::from_xyz(0.0, 0.0, 40.0),
-            ..default()
-        },
-        Translates(0.8),
-    ));
-    commands.spawn((
-        PbrBundle {
-            mesh: sphere.clone(),
-            material: sphere_matl(Color::GREEN),
-            transform: Transform::from_xyz(0.0, 0.0, 30.0),
-            ..default()
-        },
-        Translates(1.0),
-    ));
-    commands.spawn((
-        PbrBundle {
-            mesh: sphere.clone(),
-            material: sphere_matl(Color::RED),
-            transform: Transform::from_xyz(0.0, 0.0, 20.0),
-            ..default()
-        },
-        Translates(1.2),
-        Trackable,
-    ));
-    commands.spawn((
-        PbrBundle {
-            mesh: sphere.clone(),
-            material: sphere_matl(Color::YELLOW),
-            transform: Transform::from_xyz(0.0, 0.0, 10.0),
-            ..default()
-        },
-        Translates(1.4),
-    ));
+    });
 
-    commands.spawn((
-        PbrBundle {
-            mesh: sphere.clone(),
-            material: sphere_matl(Color::FUCHSIA),
-            transform: Transform::from_xyz(0.0, 0.0, -30.0).with_rotation(Quat::from_euler(
-                EulerRot::XYZ,
-                FRAC_PI_4,
-                -FRAC_PI_4,
-                FRAC_PI_4,
-            )),
-            ..default()
-        },
-        Scales(2.0),
-    ));
+    let colors = [
+        materials.add(Color::RED),
+        materials.add(Color::YELLOW),
+        materials.add(Color::BLACK),
+        materials.add(Color::BLUE),
+        materials.add(Color::GREEN),
+        materials.add(Color::PURPLE),
+        materials.add(Color::BEIGE),
+        materials.add(Color::ORANGE),
+    ];
 
-    commands.spawn((
-        PbrBundle {
-            mesh: cube.clone(),
-            material: sphere_matl(Color::GRAY),
-            transform: Transform::from_xyz(100.0, 50.0, -100.0)
-                .with_scale(Vec3::splat(40.0))
-                .with_rotation(Quat::from_rotation_z(FRAC_PI_2)),
-            ..default()
-        },
-        Rotates(50.0),
-    ));
+    for i in 0..40 {
+        let color = colors[i % colors.len()].clone();
+        let mut entity = commands.spawn((
+            PbrBundle {
+                mesh: box_mesh.clone(),
+                material: color.clone(),
+                ..default()
+            },
+            Moves(i as f32),
+        ));
+        if i == 0 {
+            entity.insert(CameraTracked);
+        }
+        entity.with_children(|parent| {
+            parent.spawn(PbrBundle {
+                mesh: box_mesh.clone(),
+                material: color,
+                transform: Transform::from_xyz(0.0, 0.08, 0.03)
+                    .with_scale(Vec3::new(1.0, 1.0, 0.5)),
+                ..default()
+            });
+            let mut spawn_wheel = |x: f32, z: f32| {
+                parent.spawn((
+                    PbrBundle {
+                        mesh: cylinder.clone(),
+                        material: wheel_matl.clone(),
+                        transform: Transform::from_xyz(0.14 * x, -0.045, 0.15 * z)
+                            .with_scale(Vec3::new(0.15, 0.05, 0.15))
+                            .with_rotation(Quat::from_rotation_z(std::f32::consts::FRAC_PI_2)),
+                        ..default()
+                    },
+                    Rotates,
+                ));
+            };
+            spawn_wheel(1.0, 1.0);
+            spawn_wheel(1.0, -1.0);
+            spawn_wheel(-1.0, 1.0);
+            spawn_wheel(-1.0, -1.0);
+        });
+    }
 
-    commands.spawn((
-        PbrBundle {
+    // Trees
+
+    let capsule = meshes.add(shape::Capsule::default());
+    let sphere = meshes.add(shape::UVSphere::default());
+    let leaves = materials.add(Color::GREEN);
+    let trunk = materials.add(Color::rgb(0.4, 0.2, 0.2));
+    let n_trees = 50;
+    for theta in 0..n_trees * 4 {
+        let theta = theta as f32 * 1.3;
+        let dist = 40.0 + theta * 0.3;
+        let x = (theta / n_trees as f32 * 2.0 * std::f32::consts::PI).sin() * dist;
+        let z = (theta / n_trees as f32 * 2.0 * std::f32::consts::PI).cos() * dist;
+        commands.spawn(PbrBundle {
             mesh: sphere.clone(),
-            material: sphere_matl(Color::GRAY),
-            transform: Transform::from_xyz(100.0, 50.0, 100.0)
-                .with_scale(Vec3::splat(40.0))
-                .with_rotation(Quat::from_rotation_z(FRAC_PI_2)),
+            material: leaves.clone(),
+            transform: Transform::from_xyz(x + 3.0, 0.8, z + 3.0),
             ..default()
-        },
-        Rotates(50.0),
-    ));
+        });
+        commands.spawn(PbrBundle {
+            mesh: capsule.clone(),
+            material: trunk.clone(),
+            transform: Transform::from_xyz(x + 3.0, -0.4, z + 3.0)
+                .with_scale(Vec3::new(0.3, 2.0, 0.3)),
+            ..default()
+        });
+    }
 }
 
 fn setup_ui(mut commands: Commands) {
@@ -197,17 +175,11 @@ fn setup_ui(mut commands: Commands) {
         font_size: 20.0,
         ..default()
     };
-
     commands.spawn(
         TextBundle::from_sections(vec![
             TextSection::new(String::new(), style.clone()),
             TextSection::new(String::new(), style.clone()),
-            TextSection::new(String::new(), style.clone()),
-            TextSection::new("\n\n", style.clone()),
-            TextSection::new("Controls:\n", style.clone()),
-            TextSection::new("Spacebar - Toggle camera tracking\n", style.clone()),
-            TextSection::new("WASD + Mouse - Move camera\n", style.clone()),
-            TextSection::new("1/2 - Decrease/Increase shutter angle\n", style.clone()),
+            TextSection::new("\n1/2 - Decrease/Increase shutter angle\n", style.clone()),
             TextSection::new("3/4 - Decrease/Increase sample count\n", style.clone()),
         ])
         .with_style(Style {
@@ -219,275 +191,64 @@ fn setup_ui(mut commands: Commands) {
     );
 }
 
-#[derive(Component)]
-struct Translates(f32);
-
-#[derive(Component)]
-struct Scales(f32);
-
-#[derive(Component)]
-struct Rotates(f32);
-
-#[derive(Component)]
-struct Trackable;
-
-fn translate(time: Res<Time>, mut moves: Query<(&mut Transform, &Translates)>) {
-    for (mut transform, moves) in &mut moves {
-        let t = time.elapsed_seconds();
-        transform.translation.x =
-            ((((t + moves.0) * moves.0 * 3.).sin() * 0.5 + 0.5).powi(4) - 0.5) * 100.;
-    }
-}
-
-fn rotate(time: Res<Time>, mut moves: Query<(&mut Transform, &Rotates)>) {
-    for (mut transform, rotate) in &mut moves {
-        transform
-            .rotate_local_z(rotate.0 * time.delta_seconds() * (time.elapsed_seconds() * 0.2).sin());
-    }
-}
-
-fn scale(time: Res<Time>, mut moves: Query<(&mut Transform, &Scales)>) {
-    for (mut transform, scales) in &mut moves {
-        transform.scale =
-            Vec3::splat(((time.elapsed_seconds() * 20.0).sin() + 1.0).powi(2) * scales.0 + 1.0);
-    }
-}
-
-// Change the intensity over time to show that the effect is controlled from the main world
 fn update_settings(
     mut settings: Query<&mut MotionBlur>,
-    mut presses: EventReader<bevy::input::keyboard::KeyboardInput>,
+    presses: Res<ButtonInput<KeyCode>>,
     mut text: Query<&mut Text>,
-    mut follow: Local<bool>,
-    mut camera: Query<&mut Transform, With<Camera>>,
-    trackable: Query<&Transform, (With<Trackable>, Without<Camera>)>,
 ) {
     let mut settings = settings.single_mut();
-    for press in presses.read() {
-        if press.state != bevy::input::ButtonState::Pressed {
-            continue;
-        }
-        if press.key_code == KeyCode::Digit1 {
-            settings.shutter_angle -= 0.25;
-        }
-        if press.key_code == KeyCode::Digit2 {
-            settings.shutter_angle += 0.25;
-        }
-        if press.key_code == KeyCode::Digit3 {
-            settings.samples = settings.samples.saturating_sub(1);
-        }
-        if press.key_code == KeyCode::Digit4 {
-            settings.samples += 1;
-        }
-        if press.key_code == KeyCode::Digit5 {
-            *follow = !*follow;
-        }
-        settings.shutter_angle = settings.shutter_angle.clamp(0.0, 100.0);
-        settings.samples = settings.samples.clamp(0, 1000);
+    if presses.just_pressed(KeyCode::Digit1) {
+        settings.shutter_angle -= 0.1;
+    } else if presses.just_pressed(KeyCode::Digit2) {
+        settings.shutter_angle += 0.1;
+    } else if presses.just_pressed(KeyCode::Digit3) {
+        settings.samples = settings.samples.saturating_sub(1);
+    } else if presses.just_pressed(KeyCode::Digit4) {
+        settings.samples += 1;
     }
+    settings.shutter_angle = settings.shutter_angle.clamp(0.0, 1.0);
+    settings.samples = settings.samples.clamp(0, 64);
     let mut text = text.single_mut();
     text.sections[0].value = format!("Shutter angle: {:.5}\n", settings.shutter_angle);
     text.sections[1].value = format!("Samples: {:.5}\n", settings.samples);
-
-    if *follow {
-        let mut camera = camera.single_mut();
-        camera.look_at(trackable.single().translation, Vec3::Y);
-    }
 }
 
-use std::fmt;
-use std::{collections::VecDeque, f32::consts::*};
-
-pub const RADIANS_PER_DOT: f32 = 1.0 / 360.0;
-
-#[derive(Component)]
-pub struct CameraController {
-    pub enabled: bool,
-    pub initialized: bool,
-    pub sensitivity: f32,
-    pub key_forward: KeyCode,
-    pub key_back: KeyCode,
-    pub key_left: KeyCode,
-    pub key_right: KeyCode,
-    pub key_up: KeyCode,
-    pub key_down: KeyCode,
-    pub key_run: KeyCode,
-    pub mouse_key_enable_mouse: MouseButton,
-    pub keyboard_key_enable_mouse: KeyCode,
-    pub walk_speed: f32,
-    pub run_speed: f32,
-    pub friction: f32,
-    pub pitch: f32,
-    pub yaw: f32,
-    pub velocity: Vec3,
-}
-
-impl Default for CameraController {
-    fn default() -> Self {
-        Self {
-            enabled: true,
-            initialized: false,
-            sensitivity: 1.0,
-            key_forward: KeyCode::KeyW,
-            key_back: KeyCode::KeyS,
-            key_left: KeyCode::KeyA,
-            key_right: KeyCode::KeyD,
-            key_up: KeyCode::KeyE,
-            key_down: KeyCode::KeyQ,
-            key_run: KeyCode::ShiftLeft,
-            mouse_key_enable_mouse: MouseButton::Left,
-            keyboard_key_enable_mouse: KeyCode::KeyM,
-            walk_speed: 20.0,
-            run_speed: 100.0,
-            friction: 0.5,
-            pitch: 0.0,
-            yaw: 0.0,
-            velocity: Vec3::ZERO,
-        }
-    }
-}
-
-impl fmt::Display for CameraController {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "
-Freecam Controls:
-    MOUSE\t- Move camera orientation
-    {:?}/{:?}\t- Enable mouse movement
-    {:?}{:?}\t- forward/backward
-    {:?}{:?}\t- strafe left/right
-    {:?}\t- 'run'
-    {:?}\t- up
-    {:?}\t- down",
-            self.mouse_key_enable_mouse,
-            self.keyboard_key_enable_mouse,
-            self.key_forward,
-            self.key_back,
-            self.key_left,
-            self.key_right,
-            self.key_run,
-            self.key_up,
-            self.key_down
-        )
-    }
-}
-
-pub struct CameraControllerPlugin;
-
-impl Plugin for CameraControllerPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(PreUpdate, camera_controller);
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
-fn camera_controller(
+fn move_cars(
     time: Res<Time>,
-    mut windows: Query<&mut Window>,
-    mut mouse_events: EventReader<MouseMotion>,
-    mut motion_buffer: Local<VecDeque<Vec2>>,
-    mouse_button_input: Res<ButtonInput<MouseButton>>,
-    key_input: Res<ButtonInput<KeyCode>>,
-    mut move_toggled: Local<bool>,
-    mut query: Query<(&mut Transform, &mut CameraController), With<Camera>>,
+    mut movables: Query<(&mut Transform, &Moves, &Children)>,
+    mut spins: Query<&mut Transform, (Without<Moves>, With<Rotates>)>,
 ) {
-    if !mouse_events.is_empty() {
-        for mouse_move in mouse_events.read().map(|a| a.delta) {
-            motion_buffer.push_front(mouse_move);
-        }
-    } else {
-        motion_buffer.push_front(Vec2::ZERO);
-    }
-    let smoothing_window = 4;
-    motion_buffer.truncate(smoothing_window);
-    let smoothed_motion = motion_buffer.iter().sum::<Vec2>() / smoothing_window as f32;
-
-    let dt = time.delta_seconds();
-
-    if let Ok((mut transform, mut options)) = query.get_single_mut() {
-        if !options.initialized {
-            let (yaw, pitch, _roll) = transform.rotation.to_euler(EulerRot::YXZ);
-            options.yaw = yaw;
-            options.pitch = pitch;
-            options.initialized = true;
-        }
-        if !options.enabled {
-            return;
-        }
-
-        // Handle key input
-        let mut axis_input = Vec3::ZERO;
-        if key_input.pressed(options.key_forward) {
-            axis_input.z += 1.0;
-        }
-        if key_input.pressed(options.key_back) {
-            axis_input.z -= 1.0;
-        }
-        if key_input.pressed(options.key_right) {
-            axis_input.x += 1.0;
-        }
-        if key_input.pressed(options.key_left) {
-            axis_input.x -= 1.0;
-        }
-        if key_input.pressed(options.key_up) {
-            axis_input.y += 1.0;
-        }
-        if key_input.pressed(options.key_down) {
-            axis_input.y -= 1.0;
-        }
-        if key_input.just_pressed(options.keyboard_key_enable_mouse) {
-            *move_toggled = !*move_toggled;
-        }
-
-        // Apply movement update
-        if axis_input != Vec3::ZERO {
-            let max_speed = if key_input.pressed(options.key_run) {
-                options.run_speed
-            } else {
-                options.walk_speed
+    for (mut transform, moves, children) in &mut movables {
+        let time = time.elapsed_seconds() * 0.3;
+        let t = time + 0.5 * moves.0;
+        let t = t + t.sin() * 0.5 + 0.5;
+        let prev = transform.translation;
+        transform.translation.x = (1.0 * t).sin() * 10.0;
+        transform.translation.z = (3.0 * t).cos() * 10.0;
+        transform.translation.y = -0.53;
+        let delta = transform.translation - prev;
+        transform.look_to(delta, Vec3::Y);
+        for child in children.iter() {
+            let Ok(mut wheel) = spins.get_mut(*child) else {
+                continue;
             };
-            options.velocity = axis_input.normalize() * max_speed;
-        } else {
-            let friction = options.friction.clamp(0.0, 1.0);
-            options.velocity *= 1.0 - friction;
-            if options.velocity.length_squared() < 1e-6 {
-                options.velocity = Vec3::ZERO;
-            }
-        }
-        let forward = *transform.forward();
-        let right = *transform.right();
-        transform.translation += options.velocity.x * dt * right
-            + options.velocity.y * dt * Vec3::Y
-            + options.velocity.z * dt * forward;
-
-        // Handle mouse input
-        let mut mouse_delta = Vec2::ZERO;
-        if mouse_button_input.pressed(options.mouse_key_enable_mouse) || *move_toggled {
-            for mut window in &mut windows {
-                if !window.focused {
-                    continue;
-                }
-
-                window.cursor.grab_mode = CursorGrabMode::Locked;
-                window.cursor.visible = false;
-            }
-
-            mouse_delta = smoothed_motion;
-        }
-        if mouse_button_input.just_released(options.mouse_key_enable_mouse) {
-            for mut window in &mut windows {
-                window.cursor.grab_mode = CursorGrabMode::None;
-                window.cursor.visible = true;
-            }
-        }
-
-        if mouse_delta != Vec2::ZERO {
-            // Apply look update
-            options.pitch = (options.pitch - mouse_delta.y * RADIANS_PER_DOT * options.sensitivity)
-                .clamp(-PI / 2., PI / 2.);
-            options.yaw -= mouse_delta.x * RADIANS_PER_DOT * options.sensitivity;
-            transform.rotation = Quat::from_euler(EulerRot::ZYX, 0.0, options.yaw, options.pitch);
+            let radius = wheel.scale.x;
+            let circumference = 2.0 * std::f32::consts::PI * radius;
+            let angle = delta.length() / circumference * std::f32::consts::PI * 2.0;
+            wheel.rotate_local_y(angle);
         }
     }
+}
+
+fn update_cam(
+    mut camera: Query<(&mut Transform, &mut Projection, &mut Camera)>,
+    tracked: Query<&Transform, (With<CameraTracked>, Without<Camera>)>,
+) {
+    let tracked = tracked.single();
+    let (mut transform, mut projection, mut camera) = camera.single_mut();
+    transform.look_at(tracked.translation, Vec3::Y);
+    if let Projection::Perspective(perspective) = &mut *projection {
+        perspective.fov = 0.3;
+    }
+    camera.hdr = true;
 }
