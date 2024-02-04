@@ -303,7 +303,7 @@ impl Frustum {
     }
 }
 
-#[derive(Component, Debug, Default, Reflect)]
+#[derive(Component, Clone, Debug, Default, Reflect)]
 #[reflect(Component)]
 pub struct CubemapFrusta {
     #[reflect(ignore)]

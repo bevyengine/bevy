@@ -1,3 +1,6 @@
+// FIXME(3492): remove once docs are ready
+#![allow(missing_docs)]
+
 //! Provides 2D sprite rendering functionality.
 mod bundle;
 mod dynamic_texture_atlas_builder;
@@ -7,8 +10,6 @@ mod sprite;
 mod texture_atlas;
 mod texture_atlas_builder;
 mod texture_slice;
-
-pub mod collide_aabb;
 
 pub mod prelude {
     #[doc(hidden)]

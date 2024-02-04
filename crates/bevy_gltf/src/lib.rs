@@ -3,8 +3,6 @@
 //!
 //! The [glTF 2.0 specification](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html) defines the format of the glTF files.
 
-#![warn(missing_docs)]
-
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::AnimationClip;
 use bevy_utils::HashMap;

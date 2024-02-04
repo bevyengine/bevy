@@ -1,3 +1,5 @@
+//! Illustrates spot lights.
+
 use std::f32::consts::*;
 
 use bevy::{
@@ -17,7 +19,6 @@ fn main() {
             DefaultPlugins,
             FrameTimeDiagnosticsPlugin,
             LogDiagnosticsPlugin::default(),
-            bevy_internal::core_pipeline::experimental::taa::TemporalAntiAliasPlugin,
         ))
         .add_systems(Startup, setup)
         .add_systems(Update, (light_sway, movement))

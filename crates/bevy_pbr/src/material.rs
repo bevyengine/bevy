@@ -48,7 +48,7 @@ use std::marker::PhantomData;
 /// ```
 /// # use bevy_pbr::{Material, MaterialMeshBundle};
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_reflect::{TypeUuid, TypePath};
+/// # use bevy_reflect::TypePath;
 /// # use bevy_render::{render_resource::{AsBindGroup, ShaderRef}, texture::Image, color::Color};
 /// # use bevy_asset::{Handle, AssetServer, Assets, Asset};
 ///
@@ -379,8 +379,8 @@ type DrawMaterial<M> = (
 pub struct SetMaterialBindGroup<M: Material, const I: usize>(PhantomData<M>);
 impl<P: PhaseItem, M: Material, const I: usize> RenderCommand<P> for SetMaterialBindGroup<M, I> {
     type Param = (SRes<RenderMaterials<M>>, SRes<RenderMaterialInstances<M>>);
-    type ViewData = ();
-    type ItemData = ();
+    type ViewQuery = ();
+    type ItemQuery = ();
 
     #[inline]
     fn render<'w>(

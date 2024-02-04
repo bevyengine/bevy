@@ -361,7 +361,19 @@ pub fn extract_sprites(
                     .map(|e| (commands.spawn_empty().id(), e)),
             );
         } else {
-            let rect = sheet.and_then(|s| s.texture_rect(&texture_atlases));
+            let atlas_rect = sheet.and_then(|s| s.texture_rect(&texture_atlases));
+            let rect = match (atlas_rect, sprite.rect) {
+                (None, None) => None,
+                (None, Some(sprite_rect)) => Some(sprite_rect),
+                (Some(atlas_rect), None) => Some(atlas_rect),
+                (Some(atlas_rect), Some(mut sprite_rect)) => {
+                    sprite_rect.min += atlas_rect.min;
+                    sprite_rect.max += atlas_rect.min;
+
+                    Some(sprite_rect)
+                }
+            };
+
             // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
             extracted_sprites.sprites.insert(
                 entity,
@@ -734,8 +746,8 @@ pub type DrawSprite = (
 pub struct SetSpriteViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteViewBindGroup<I> {
     type Param = SRes<SpriteMeta>;
-    type ViewData = Read<ViewUniformOffset>;
-    type ItemData = ();
+    type ViewQuery = Read<ViewUniformOffset>;
+    type ItemQuery = ();
 
     fn render<'w>(
         _item: &P,
@@ -755,8 +767,8 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteViewBindGroup<I
 pub struct SetSpriteTextureBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGroup<I> {
     type Param = SRes<ImageBindGroups>;
-    type ViewData = ();
-    type ItemData = Read<SpriteBatch>;
+    type ViewQuery = ();
+    type ItemQuery = Read<SpriteBatch>;
 
     fn render<'w>(
         _item: &P,
@@ -782,8 +794,8 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGrou
 pub struct DrawSpriteBatch;
 impl<P: PhaseItem> RenderCommand<P> for DrawSpriteBatch {
     type Param = SRes<SpriteMeta>;
-    type ViewData = ();
-    type ItemData = Read<SpriteBatch>;
+    type ViewQuery = ();
+    type ItemQuery = Read<SpriteBatch>;
 
     fn render<'w>(
         _item: &P,
