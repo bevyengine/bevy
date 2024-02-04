@@ -4,14 +4,11 @@
 //! as opposed to an entire struct or enum. An example of such an attribute is
 //! the derive helper attribute for `Reflect`, which looks like: `#[reflect(ignore)]`.
 
+use crate::custom_attributes::CustomAttributes;
 use crate::utility::terminated_parser;
 use crate::REFLECT_ATTRIBUTE_NAME;
-use proc_macro2::Ident;
-use quote::quote;
-use std::collections::HashMap;
-use syn::parse::{Parse, ParseStream};
-use syn::punctuated::Punctuated;
-use syn::{parenthesized, Attribute, Lit, LitStr, Meta, Path, Token};
+use syn::parse::ParseStream;
+use syn::{Attribute, LitStr, Meta, Token};
 
 mod kw {
     syn::custom_keyword!(ignore);
@@ -68,27 +65,6 @@ pub(crate) enum DefaultBehavior {
     /// This assumes the function is in scope, is callable with zero arguments,
     /// and returns the expected type.
     Func(syn::ExprPath),
-}
-
-#[derive(Default, Clone)]
-pub(crate) struct CustomAttributes {
-    attributes: HashMap<String, Lit>,
-}
-
-impl CustomAttributes {
-    /// Generates a `TokenStream` for `CustomAttributes` construction.
-    pub fn to_tokens(&self, bevy_reflect_path: &Path) -> proc_macro2::TokenStream {
-        let attributes = self.attributes.iter().map(|(name, value)| {
-            quote! {
-                .with_attribute(#name, #value)
-            }
-        });
-
-        quote! {
-            #bevy_reflect_path::attributes::CustomAttributes::default()
-                #(#attributes)*
-        }
-    }
 }
 
 /// A container for attributes defined on a reflected type's field.
@@ -212,50 +188,6 @@ impl FieldAttributes {
     /// - `#[reflect(@(foo = "bar"))]`
     /// - `#[reflect(@(min = 0.0, max = 1.0))]`
     fn parse_custom_attribute(&mut self, input: ParseStream) -> syn::Result<()> {
-        struct CustomAttribute {
-            name: Punctuated<Ident, Token![::]>,
-            _eq: Token![=],
-            value: Lit,
-        }
-
-        impl Parse for CustomAttribute {
-            fn parse(input: ParseStream) -> syn::Result<Self> {
-                Ok(Self {
-                    name: Punctuated::<Ident, Token![::]>::parse_separated_nonempty(input)?,
-                    _eq: input.parse::<Token![=]>()?,
-                    value: input.parse::<Lit>()?,
-                })
-            }
-        }
-
-        // ---
-
-        input.parse::<Token![@]>()?;
-
-        let content;
-        parenthesized!(content in input);
-
-        let custom_attrs = content.parse_terminated(CustomAttribute::parse, Token![,])?;
-        for custom_attr in custom_attrs {
-            let name = custom_attr
-                .name
-                .iter()
-                .map(Ident::to_string)
-                .collect::<Vec<_>>()
-                .join("::");
-
-            if self.custom_attributes.attributes.contains_key(&name) {
-                return Err(syn::Error::new_spanned(
-                    custom_attr.name,
-                    "duplicate user attribute",
-                ));
-            }
-
-            self.custom_attributes
-                .attributes
-                .insert(name, custom_attr.value);
-        }
-
-        Ok(())
+        self.custom_attributes.parse_custom_attribute(input)
     }
 }

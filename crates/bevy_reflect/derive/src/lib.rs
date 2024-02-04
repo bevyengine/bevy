@@ -17,6 +17,7 @@
 extern crate proc_macro;
 
 mod container_attributes;
+mod custom_attributes;
 mod derive_data;
 #[cfg(feature = "documentation")]
 mod documentation;
