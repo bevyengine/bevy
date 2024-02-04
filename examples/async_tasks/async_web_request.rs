@@ -31,7 +31,7 @@ pub struct HttpResponse(pub Response);
 #[derive(Component, Debug, Clone, Deref, DerefMut)]
 pub struct HttpResponseError(pub String);
 
-/// task for ehttp response result
+/// Task for ehttp response result
 #[derive(Component)]
 pub struct RequestTask(pub Task<Result<Response, ehttp::Error>>);
 
