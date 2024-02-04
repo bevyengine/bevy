@@ -113,7 +113,7 @@ impl WinitWindows {
                     winit_window_builder =
                         winit::platform::wayland::WindowBuilderExtWayland::with_name(
                             winit_window_builder,
-                            *_name,
+                            _name.clone(),
                             "",
                         );
                 }
@@ -131,7 +131,7 @@ impl WinitWindows {
                 {
                     winit_window_builder = winit::platform::x11::WindowBuilderExtX11::with_name(
                         winit_window_builder,
-                        *_name,
+                        _name.clone(),
                         "",
                     );
                 }
@@ -140,7 +140,7 @@ impl WinitWindows {
                     winit_window_builder =
                         winit::platform::windows::WindowBuilderExtWindows::with_class_name(
                             winit_window_builder,
-                            *_name,
+                            _name.clone(),
                         );
                 }
             }
