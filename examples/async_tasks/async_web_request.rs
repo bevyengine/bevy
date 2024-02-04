@@ -45,6 +45,7 @@ impl Default for ApiTimer {
     }
 }
 
+/// system that will tick timer and send request each time timer has just finished
 fn send_request(mut commands: Commands, time: Res<Time>, mut timer: ResMut<ApiTimer>) {
     timer.tick(time.delta());
 
@@ -54,6 +55,7 @@ fn send_request(mut commands: Commands, time: Res<Time>, mut timer: ResMut<ApiTi
     }
 }
 
+/// system that will spawn task for each request
 fn handle_request(
     mut commands: Commands,
     requests: Query<(Entity, &HttpRequest), Without<RequestTask>>,
@@ -71,6 +73,7 @@ fn handle_request(
     }
 }
 
+/// system that will detect when request task has finished and parse the result
 fn handle_response(mut commands: Commands, mut request_tasks: Query<(Entity, &mut RequestTask)>) {
     for (entity, mut task) in request_tasks.iter_mut() {
         if let Some(result) = block_on(future::poll_once(&mut task.0)) {
@@ -92,7 +95,7 @@ fn handle_response(mut commands: Commands, mut request_tasks: Query<(Entity, &mu
     }
 }
 
-/// This system is only used to setup light and camera for the environment
+/// This system is used to setup text and camera for the environment
 fn setup_env(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     let text_style = TextStyle {
