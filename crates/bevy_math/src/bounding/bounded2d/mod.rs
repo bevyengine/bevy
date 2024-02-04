@@ -29,7 +29,7 @@ pub trait Bounded2d {
 
 /// A 2D axis-aligned bounding box, or bounding rectangle
 #[doc(alias = "BoundingRectangle")]
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct Aabb2d {
     /// The minimum, conventionally bottom-left, point of the box
     pub min: Vec2,
@@ -328,7 +328,7 @@ mod aabb2d_tests {
 use crate::primitives::Circle;
 
 /// A bounding circle
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct BoundingCircle {
     /// The center of the bounding circle
     pub center: Vec2,
@@ -425,10 +425,10 @@ impl BoundingVolume for BoundingCircle {
         let diff = other.center - self.center;
         let length = diff.length();
         if self.radius() >= length + other.radius() {
-            return self.clone();
+            return *self;
         }
         if other.radius() >= length + self.radius() {
-            return other.clone();
+            return *other;
         }
         let dir = diff / length;
         Self::new(

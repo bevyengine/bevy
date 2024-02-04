@@ -19,7 +19,7 @@ use crate::{
 use bevy_ecs::prelude::*;
 use bevy_log::{error, info, warn};
 use bevy_tasks::IoTaskPool;
-use bevy_utils::{CowArc, HashMap, HashSet};
+use bevy_utils::{CowArc, HashMap, HashSet, TypeIdMap};
 use crossbeam_channel::{Receiver, Sender};
 use futures_lite::StreamExt;
 use info::*;
@@ -1238,7 +1238,7 @@ pub fn handle_internal_asset_events(world: &mut World) {
 
 #[derive(Default)]
 pub(crate) struct AssetLoaders {
-    type_id_to_loader: HashMap<TypeId, MaybeAssetLoader>,
+    type_id_to_loader: TypeIdMap<MaybeAssetLoader>,
     extension_to_type_id: HashMap<String, TypeId>,
     type_name_to_type_id: HashMap<&'static str, TypeId>,
     preregistered_loaders: HashMap<&'static str, TypeId>,

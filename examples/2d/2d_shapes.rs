@@ -20,7 +20,7 @@ fn setup(
     commands.spawn(MaterialMesh2dBundle {
         mesh: meshes.add(Circle { radius: 50.0 }).into(),
         material: materials.add(Color::VIOLET),
-        transform: Transform::from_translation(Vec3::new(-225.0, 0.0, 0.0)),
+        transform: Transform::from_translation(Vec3::new(-275.0, 0.0, 0.0)),
         ..default()
     });
 
@@ -28,23 +28,31 @@ fn setup(
     commands.spawn(MaterialMesh2dBundle {
         mesh: meshes.add(Ellipse::new(25.0, 50.0)).into(),
         material: materials.add(Color::TURQUOISE),
-        transform: Transform::from_translation(Vec3::new(-100.0, 0.0, 0.0)),
+        transform: Transform::from_translation(Vec3::new(-150.0, 0.0, 0.0)),
+        ..default()
+    });
+
+    // Capsule
+    commands.spawn(MaterialMesh2dBundle {
+        mesh: meshes.add(Capsule2d::new(25.0, 50.0)).into(),
+        material: materials.add(Color::LIME_GREEN),
+        transform: Transform::from_translation(Vec3::new(-50.0, 0.0, 0.0)),
         ..default()
     });
 
     // Rectangle
     commands.spawn(MaterialMesh2dBundle {
         mesh: meshes.add(Rectangle::new(50.0, 100.0)).into(),
-        material: materials.add(Color::LIME_GREEN),
-        transform: Transform::from_translation(Vec3::new(0.0, 0.0, 0.0)),
+        material: materials.add(Color::YELLOW),
+        transform: Transform::from_translation(Vec3::new(50.0, 0.0, 0.0)),
         ..default()
     });
 
     // Hexagon
     commands.spawn(MaterialMesh2dBundle {
         mesh: meshes.add(RegularPolygon::new(50.0, 6)).into(),
-        material: materials.add(Color::YELLOW),
-        transform: Transform::from_translation(Vec3::new(125.0, 0.0, 0.0)),
+        material: materials.add(Color::ORANGE),
+        transform: Transform::from_translation(Vec3::new(175.0, 0.0, 0.0)),
         ..default()
     });
 
@@ -57,8 +65,8 @@ fn setup(
                 Vec2::new(50.0, -50.0),
             ))
             .into(),
-        material: materials.add(Color::ORANGE),
-        transform: Transform::from_translation(Vec3::new(250.0, 0.0, 0.0)),
+        material: materials.add(Color::ORANGE_RED),
+        transform: Transform::from_translation(Vec3::new(300.0, 0.0, 0.0)),
         ..default()
     });
 }

@@ -1,3 +1,5 @@
+//! A 3d Scene with a button and playing sound.
+
 use bevy::{
     input::touch::TouchPhase,
     prelude::*,

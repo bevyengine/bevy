@@ -1,5 +1,3 @@
-#![warn(missing_docs)]
-
 //! This crate provides core functionality for Bevy Engine.
 
 mod name;
@@ -21,6 +19,7 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
+use bevy_ecs::component::{ComponentId, ComponentTicks, Tick};
 use bevy_ecs::prelude::*;
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use bevy_utils::{Duration, HashSet, Instant, Uuid};
@@ -40,11 +39,19 @@ pub struct TypeRegistrationPlugin;
 
 impl Plugin for TypeRegistrationPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<Entity>().register_type::<Name>();
+        app.register_type::<Name>();
 
+        register_ecs_types(app);
         register_rust_types(app);
         register_math_types(app);
     }
+}
+
+fn register_ecs_types(app: &mut App) {
+    app.register_type::<Entity>()
+        .register_type::<ComponentId>()
+        .register_type::<Tick>()
+        .register_type::<ComponentTicks>();
 }
 
 fn register_rust_types(app: &mut App) {

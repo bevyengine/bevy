@@ -224,7 +224,7 @@ fn setup_color_gradient_scene(
     camera_transform: Res<CameraTransform>,
 ) {
     let mut transform = camera_transform.0;
-    transform.translation += transform.forward();
+    transform.translation += *transform.forward();
 
     commands.spawn((
         MaterialMeshBundle {
@@ -248,7 +248,7 @@ fn setup_image_viewer_scene(
     camera_transform: Res<CameraTransform>,
 ) {
     let mut transform = camera_transform.0;
-    transform.translation += transform.forward();
+    transform.translation += *transform.forward();
 
     // exr/hdr viewer (exr requires enabling bevy feature)
     commands.spawn((
@@ -704,7 +704,7 @@ impl Material for ColorGradientMaterial {
 }
 
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
-pub struct ColorGradientMaterial {}
+struct ColorGradientMaterial {}
 
 #[derive(Resource)]
 struct CameraTransform(Transform);

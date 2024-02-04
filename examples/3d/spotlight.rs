@@ -1,3 +1,5 @@
+//! Illustrates spot lights.
+
 use std::f32::consts::*;
 
 use bevy::{
