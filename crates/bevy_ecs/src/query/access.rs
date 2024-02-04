@@ -59,6 +59,8 @@ pub struct Access<T: SparseSetIndex> {
     /// Is `true` if this has mutable access to all elements in the collection.
     /// If this is true, then `reads_all` must also be true.
     writes_all: bool,
+    // Elements that are not accessed, but whose presence in an archetype affect query results.
+    archetypal: FixedBitSet,
     marker: PhantomData<T>,
 }
 
@@ -90,6 +92,7 @@ impl<T: SparseSetIndex> Access<T> {
             writes_all: false,
             reads_and_writes: FixedBitSet::new(),
             writes: FixedBitSet::new(),
+            archetypal: FixedBitSet::new(),
             marker: PhantomData,
         }
     }
@@ -116,6 +119,12 @@ impl<T: SparseSetIndex> Access<T> {
         self.writes.insert(index.sparse_set_index());
     }
 
+    /// Adds an archetypal (inderect) access to the element given by `index`.
+    pub fn add_archetypal(&mut self, index: T) {
+        self.archetypal.grow(index.sparse_set_index() + 1);
+        self.archetypal.insert(index.sparse_set_index());
+    }
+
     /// Returns `true` if this can access the element given by `index`.
     pub fn has_read(&self, index: T) -> bool {
         self.reads_all || self.reads_and_writes.contains(index.sparse_set_index())
@@ -134,6 +143,14 @@ impl<T: SparseSetIndex> Access<T> {
     /// Returns `true` if this accesses anything mutably.
     pub fn has_any_write(&self) -> bool {
         self.writes_all || !self.writes.is_clear()
+    }
+
+    /// Returns true if this has an archetypal (indirect) access to the element given by `index`.
+    /// 
+    /// This is an element that is not accessed (and thus will never lead to conflicts),
+    /// but whose presence in an archetype affects a query result.
+    pub fn has_archetypal(&self, index: T) -> bool {
+        self.archetypal.contains(index.sparse_set_index())
     }
 
     /// Sets this as having access to all indexed elements (i.e. `&World`).
@@ -271,6 +288,14 @@ impl<T: SparseSetIndex> Access<T> {
     /// Returns the indices of the elements this has exclusive access to.
     pub fn writes(&self) -> impl Iterator<Item = T> + '_ {
         self.writes.ones().map(T::get_sparse_set_index)
+    }
+
+    /// Returns the indices of the elements that this has an archetypal access to.
+    /// 
+    /// Archetypal accesses will never lead to conflicts, but the presence of the data
+    /// they refer to affects query results
+    pub fn archetypal(&self) -> impl Iterator<Item = T> + '_ {
+        self.archetypal.ones().map(T::get_sparse_set_index)
     }
 }
 
