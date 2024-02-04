@@ -1,6 +1,3 @@
-use winit::keyboard::{Key, NamedKey, NativeKey};
-use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
-
 use bevy_ecs::entity::Entity;
 use bevy_input::{
     keyboard::{KeyCode, KeyboardInput, NativeKeyCode},
@@ -10,6 +7,8 @@ use bevy_input::{
 };
 use bevy_math::Vec2;
 use bevy_window::{CursorIcon, EnabledButtons, WindowLevel, WindowTheme};
+use winit::keyboard::{Key, NamedKey, NativeKey};
+use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
 
 pub fn convert_keyboard_input(
     keyboard_input: &winit::event::KeyEvent,
