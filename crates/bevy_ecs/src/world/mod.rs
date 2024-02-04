@@ -1797,13 +1797,11 @@ impl World {
         &mut self,
         component_id: ComponentId,
     ) -> &mut ResourceData<true> {
-        let archetype_component_count = &mut self.archetypes.archetype_component_count;
+        let archetypes = &mut self.archetypes;
         self.storages
             .resources
             .initialize_with(component_id, &self.components, || {
-                let id = ArchetypeComponentId::new(*archetype_component_count);
-                *archetype_component_count += 1;
-                id
+                archetypes.new_archetype_component_id()
             })
     }
 
@@ -1814,13 +1812,11 @@ impl World {
         &mut self,
         component_id: ComponentId,
     ) -> &mut ResourceData<false> {
-        let archetype_component_count = &mut self.archetypes.archetype_component_count;
+        let archetypes = &mut self.archetypes;
         self.storages
             .non_send_resources
             .initialize_with(component_id, &self.components, || {
-                let id = ArchetypeComponentId::new(*archetype_component_count);
-                *archetype_component_count += 1;
-                id
+                archetypes.new_archetype_component_id()
             })
     }
 

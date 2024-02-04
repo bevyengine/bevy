@@ -1,4 +1,5 @@
-/// General UI benchmark that stress tests layouting, text, interaction and rendering
+//! General UI benchmark that stress tests layouting, text, interaction and rendering
+
 use argh::FromArgs;
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},

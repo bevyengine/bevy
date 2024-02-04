@@ -1,3 +1,6 @@
+// FIXME(3492): remove once docs are ready
+#![allow(missing_docs)]
+
 mod as_bind_group;
 mod extract_component;
 mod extract_resource;
