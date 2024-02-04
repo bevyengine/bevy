@@ -1466,7 +1466,7 @@ impl Key {
 
     /// Returns true if `self` is a `Key::Character(character_self)`
     /// and `character_self` is an ASCII case-insensitive match with the given `character`.
-    /// Otherwise, it means they are not matched or if `self` is not a `Key::Character`.
+    /// Otherwise, it means they are not matched or `self` is not a `Key::Character`.
     ///
     /// # Examples
     ///
