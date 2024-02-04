@@ -4,7 +4,7 @@ use bevy_asset::{io::Reader, Asset, AssetLoader, AssetPath, Handle, LoadContext}
 use bevy_reflect::TypePath;
 use bevy_utils::{tracing::error, BoxedFuture};
 use futures_lite::AsyncReadExt;
-use std::{borrow::Cow, marker::Copy};
+use std::borrow::Cow;
 use thiserror::Error;
 
 define_atomic_id!(ShaderId);
@@ -71,6 +71,7 @@ impl Shader {
         let source = source.into();
         let path = path.into();
         let (import_path, imports) = Shader::preprocess(&source, &path);
+
         Shader {
             path,
             imports,

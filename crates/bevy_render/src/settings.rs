@@ -50,6 +50,8 @@ pub struct WgpuSettings {
     pub gles3_minor_version: Gles3MinorVersion,
     /// These are for controlling WGPU's debug information to eg. enable validation and shader debug info in release builds.
     pub instance_flags: InstanceFlags,
+    /// This allows for dumping the
+    pub dump_naga_shaders: Option<NagaShaderOutputFormat>,
 }
 
 impl Default for WgpuSettings {
@@ -113,6 +115,7 @@ impl Default for WgpuSettings {
             dx12_shader_compiler: dx12_compiler,
             gles3_minor_version,
             instance_flags,
+            dump_naga_shaders: None,
         }
     }
 }
@@ -170,4 +173,14 @@ pub fn settings_priority_from_env() -> Option<WgpuSettingsPriority> {
             _ => return None,
         },
     )
+}
+
+#[derive(Clone)]
+pub enum NagaShaderOutputFormat {
+    Wgsl,
+    Glsl,
+    Hlsl,
+    Spirv,
+    // TODO: Unsupported
+    // Naga,
 }
