@@ -274,7 +274,14 @@ fn setup_text(mut commands: Commands, asset_server: Res<AssetServer>, window: Qu
         font_size: 24.,
         color: Color::WHITE,
     };
-    let text = Text::from_section(text, style);
+    let instructions = "Press 'C' to switch between 2D and 3D mode\n\
+        Press 'Up' or 'Down' to switch to the next/last primitive";
+    let text = Text::from_sections([
+        TextSection::new("Primitive: ", style.clone()),
+        TextSection::new(text, style.clone()),
+        TextSection::new("\n\n", style.clone()),
+        TextSection::new(instructions, style),
+    ]);
 
     let window_height = window.get_single().map_or(0.0, |window| window.height());
 
@@ -312,9 +319,9 @@ fn update_text(
 ) {
     let new_text = format!("{text:?}", text = primitive_state.get());
     header.iter_mut().for_each(|mut header_text| {
-        header_text.sections.iter_mut().for_each(|section| {
-            section.value = new_text.clone();
-        });
+        if let Some(kind) = header_text.sections.get_mut(1) {
+            kind.value = new_text.clone();
+        };
     });
 }
 
