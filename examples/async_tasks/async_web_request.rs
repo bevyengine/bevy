@@ -65,11 +65,9 @@ fn update_text(
     mut text_query: Query<&mut Text>,
     mut request_tasks: Query<(Entity, &mut RequestTask)>,
 ) {
-    let text = text_query.get_single_mut();
-    if text.is_err() {
+    let Ok(text) = text_query.get_single_mut() else {
         return;
-    }
-    let mut text = text.unwrap();
+    };
 
     for (entity, mut task) in request_tasks.iter_mut() {
         if let Some(result) = block_on(future::poll_once(&mut task.0)) {
