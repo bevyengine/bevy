@@ -29,9 +29,9 @@ pub struct RequestTask(pub Task<Result<ehttp::Response, ehttp::Error>>);
 fn send_request(mut commands: Commands, mut text_query: Query<&mut Text>) {
     let url = "https://api.ipify.org?format=json";
     let req = ehttp::Request::get(url);
-    let thread_pool = IoTaskPool::get();
-    let s = thread_pool.spawn(async { ehttp::fetch_async(req).await });
-    commands.spawn(RequestTask(s));
+    let task_pool = IoTaskPool::get();
+    let task = task_pool.spawn(async { ehttp::fetch_async(req).await });
+    commands.spawn(RequestTask(task));
     let Ok(mut text) = text_query.get_single_mut() else {
         return;
     };
