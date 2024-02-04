@@ -146,7 +146,7 @@ impl<T: SparseSetIndex> Access<T> {
     }
 
     /// Returns true if this has an archetypal (indirect) access to the element given by `index`.
-    /// 
+    ///
     /// This is an element that is not accessed (and thus will never lead to conflicts),
     /// but whose presence in an archetype affects a query result.
     pub fn has_archetypal(&self, index: T) -> bool {
@@ -291,7 +291,7 @@ impl<T: SparseSetIndex> Access<T> {
     }
 
     /// Returns the indices of the elements that this has an archetypal access to.
-    /// 
+    ///
     /// Archetypal accesses will never lead to conflicts, but the presence of the data
     /// they refer to affects query results
     pub fn archetypal(&self) -> impl Iterator<Item = T> + '_ {
