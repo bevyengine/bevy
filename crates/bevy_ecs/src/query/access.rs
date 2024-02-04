@@ -295,7 +295,7 @@ impl<T: SparseSetIndex> Access<T> {
 
     /// Returns the indices of the elements that this has an archetypal access to.
     ///
-    /// These are elements that are not access (and thus will never cause conflicts),
+    /// These are elements that are not accessed (and thus will never cause conflicts),
     /// but whose presence in an archetype may affect query results.
     pub fn archetypal(&self) -> impl Iterator<Item = T> + '_ {
         self.archetypal.ones().map(T::get_sparse_set_index)
