@@ -121,7 +121,7 @@ impl<T: SparseSetIndex> Access<T> {
 
     /// Adds an archetypal (indirect) access to the element given by `index`.
     ///
-    /// This is for elements that are not accessed (and thus will never cause to conflicts),
+    /// This is for elements that are not accessed (and thus will never cause conflicts),
     /// but whose presence in an archetype may affect query results.
     pub fn add_archetypal(&mut self, index: T) {
         self.archetypal.grow(index.sparse_set_index() + 1);
