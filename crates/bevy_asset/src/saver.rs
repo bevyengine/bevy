@@ -18,7 +18,7 @@ pub trait AssetSaver: Send + Sync + 'static {
     type Error: Into<Box<dyn std::error::Error + Send + Sync + 'static>>;
 
     /// Saves the given runtime [`Asset`] by writing it to a byte format using `writer`. The passed in `settings` can influence how the
-    /// `asset` is saved.  
+    /// `asset` is saved.
     fn save<'a>(
         &'a self,
         writer: &'a mut Writer,
@@ -32,7 +32,7 @@ pub trait AssetSaver: Send + Sync + 'static {
 /// A type-erased dynamic variant of [`AssetSaver`] that allows callers to save assets without knowing the actual type of the [`AssetSaver`].
 pub trait ErasedAssetSaver: Send + Sync + 'static {
     /// Saves the given runtime [`ErasedLoadedAsset`] by writing it to a byte format using `writer`. The passed in `settings` can influence how the
-    /// `asset` is saved.  
+    /// `asset` is saved.
     fn save<'a>(
         &'a self,
         writer: &'a mut Writer,
@@ -146,10 +146,7 @@ impl<'a, A: Asset> SavedAsset<'a, A> {
         Q: ?Sized + Hash + Eq,
     {
         let labeled = self.labeled_assets.get(label)?;
-        if let Ok(handle) = labeled.handle.clone().try_typed::<B>() {
-            return Some(handle);
-        }
-        None
+        labeled.handle.clone().try_typed::<B>().ok()
     }
 
     /// Iterate over all labels for "labeled assets" in the loaded asset

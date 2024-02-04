@@ -50,13 +50,11 @@ impl<A: Asset> DerefMut for TransformedAsset<A> {
 impl<A: Asset> TransformedAsset<A> {
     /// Creates a new [`TransformedAsset`] from `asset` if its internal value matches `A`.
     pub fn from_loaded(asset: ErasedLoadedAsset) -> Option<Self> {
-        if let Ok(value) = asset.value.downcast::<A>() {
-            return Some(TransformedAsset {
-                value: *value,
-                labeled_assets: asset.labeled_assets,
-            });
-        }
-        None
+        let value = asset.value.downcast::<A>().ok()?;
+        Some(TransformedAsset {
+            value: *value,
+            labeled_assets: asset.labeled_assets,
+        })
     }
     /// Creates a new [`TransformedAsset`] from `asset`, transferring the `labeled_assets` from this [`TransformedAsset`] to the new one
     pub fn replace_asset<B: Asset>(self, asset: B) -> TransformedAsset<B> {
@@ -217,10 +215,7 @@ impl<'a, A: Asset> TransformedSubAsset<'a, A> {
         Q: ?Sized + Hash + Eq,
     {
         let labeled = self.labeled_assets.get(label)?;
-        if let Ok(handle) = labeled.handle.clone().try_typed::<B>() {
-            return Some(handle);
-        }
-        None
+        labeled.handle.clone().try_typed::<B>().ok()
     }
     /// Adds `asset` as a labeled sub asset using `label` and `handle`
     pub fn insert_labeled(
