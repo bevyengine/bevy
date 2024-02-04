@@ -6,7 +6,7 @@ pub use bevy_gizmos_macros::GizmoConfigGroup;
 use bevy_ecs::{component::Component, system::Resource};
 use bevy_reflect::{Reflect, TypePath};
 use bevy_render::view::RenderLayers;
-use bevy_utils::HashMap;
+use bevy_utils::TypeIdMap;
 use core::panic;
 use std::{
     any::TypeId,
@@ -30,7 +30,7 @@ pub struct DefaultGizmoConfigGroup;
 #[derive(Resource, Default)]
 pub struct GizmoConfigStore {
     // INVARIANT: must map TypeId::of::<T>() to correct type T
-    store: HashMap<TypeId, (GizmoConfig, Box<dyn Reflect>)>,
+    store: TypeIdMap<(GizmoConfig, Box<dyn Reflect>)>,
 }
 
 impl GizmoConfigStore {

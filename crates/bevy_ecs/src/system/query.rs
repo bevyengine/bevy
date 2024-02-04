@@ -2,9 +2,9 @@ use crate::{
     component::{Component, Tick},
     entity::Entity,
     query::{
-        BatchingStrategy, QueryCombinationIter, QueryComponentError, QueryData, QueryEntityError,
-        QueryFilter, QueryIter, QueryManyIter, QueryParIter, QuerySingleError, QueryState,
-        ROQueryItem, ReadOnlyQueryData,
+        BatchingStrategy, QueryCombinationIter, QueryData, QueryEntityError, QueryFilter,
+        QueryIter, QueryManyIter, QueryParIter, QuerySingleError, QueryState, ROQueryItem,
+        ReadOnlyQueryData,
     },
     world::{unsafe_world_cell::UnsafeWorldCell, Mut},
 };
@@ -797,6 +797,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// This can only be called for read-only queries, see [`par_iter_mut`] for write-queries.
     ///
+    /// Note that you must use the `for_each` method to iterate over the
+    /// results, see [`par_iter_mut`] for an example.
+    ///
     /// [`par_iter_mut`]: Self::par_iter_mut
     /// [`World`]: crate::world::World
     #[inline]
@@ -813,6 +816,24 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// Returns a parallel iterator over the query results for the given [`World`].
     ///
     /// This can only be called for mutable queries, see [`par_iter`] for read-only-queries.
+    ///
+    /// # Example
+    ///
+    /// Here, the `gravity_system` updates the `Velocity` component of every entity that contains it:
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct Velocity { x: f32, y: f32, z: f32 }
+    /// fn gravity_system(mut query: Query<&mut Velocity>) {
+    ///     const DELTA: f32 = 1.0 / 60.0;
+    ///     query.par_iter_mut().for_each(|mut velocity| {
+    ///         velocity.y -= 9.8 * DELTA;
+    ///     });
+    /// }
+    /// # bevy_ecs::system::assert_is_system(gravity_system);
+    /// ```
     ///
     /// [`par_iter`]: Self::par_iter
     /// [`World`]: crate::world::World
@@ -1111,8 +1132,16 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`component`](Self::component) a panicking version of this function.
     /// - [`get_component_mut`](Self::get_component_mut) to get a mutable reference of a component.
+    #[deprecated(
+        since = "0.13.0",
+        note = "Please use `get` and select for the exact component based on the structure of the exact query as required."
+    )]
+    #[allow(deprecated)]
     #[inline]
-    pub fn get_component<T: Component>(&self, entity: Entity) -> Result<&T, QueryComponentError> {
+    pub fn get_component<T: Component>(
+        &self,
+        entity: Entity,
+    ) -> Result<&T, crate::query::QueryComponentError> {
         self.state.get_component(self.world, entity)
     }
 
@@ -1144,11 +1173,18 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`component_mut`](Self::component_mut) a panicking version of this function.
     /// - [`get_component`](Self::get_component) to get a shared reference of a component.
+    ///
+    /// [`QueryComponentError`]: crate::query::QueryComponentError
+    #[deprecated(
+        since = "0.13.0",
+        note = "Please use `get_mut` and select for the exact component based on the structure of the exact query as required."
+    )]
+    #[allow(deprecated)]
     #[inline]
     pub fn get_component_mut<T: Component>(
         &mut self,
         entity: Entity,
-    ) -> Result<Mut<'_, T>, QueryComponentError> {
+    ) -> Result<Mut<'_, T>, crate::query::QueryComponentError> {
         // SAFETY: unique access to query (preventing aliased access)
         unsafe { self.get_component_unchecked_mut(entity) }
     }
@@ -1163,6 +1199,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`get_component`](Self::get_component) a non-panicking version of this function.
     /// - [`component_mut`](Self::component_mut) to get a mutable reference of a component.
+    #[deprecated(
+        since = "0.13.0",
+        note = "Please use `get` and select for the exact component based on the structure of the exact query as required."
+    )]
+    #[allow(deprecated)]
     #[inline]
     #[track_caller]
     pub fn component<T: Component>(&self, entity: Entity) -> &T {
@@ -1179,6 +1220,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`get_component_mut`](Self::get_component_mut) a non-panicking version of this function.
     /// - [`component`](Self::component) to get a shared reference of a component.
+    #[deprecated(
+        since = "0.13.0",
+        note = "Please use `get_mut` and select for the exact component based on the structure of the exact query as required."
+    )]
+    #[allow(deprecated)]
     #[inline]
     #[track_caller]
     pub fn component_mut<T: Component>(&mut self, entity: Entity) -> Mut<'_, T> {
@@ -1205,15 +1251,22 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # See also
     ///
     /// - [`get_component_mut`](Self::get_component_mut) for the safe version.
+    ///
+    /// [`QueryComponentError`]: crate::query::QueryComponentError
+    #[deprecated(
+        since = "0.13.0",
+        note = "Please use `get_unchecked` and select for the exact component based on the structure of the exact query as required."
+    )]
+    #[allow(deprecated)]
     #[inline]
     pub unsafe fn get_component_unchecked_mut<T: Component>(
         &self,
         entity: Entity,
-    ) -> Result<Mut<'_, T>, QueryComponentError> {
+    ) -> Result<Mut<'_, T>, crate::query::QueryComponentError> {
         // This check is required to ensure soundness in the case of `to_readonly().get_component_mut()`
         // See the comments on the `force_read_only_component_access` field for more info.
         if self.force_read_only_component_access {
-            return Err(QueryComponentError::MissingWriteAccess);
+            return Err(crate::query::QueryComponentError::MissingWriteAccess);
         }
 
         // SAFETY: The above check ensures we are not a readonly query.

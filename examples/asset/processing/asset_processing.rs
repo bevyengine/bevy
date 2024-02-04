@@ -1,12 +1,13 @@
-//! This example illustrates how to define custom `AssetLoader`s and `AssetSaver`s, how to configure them, and how to register asset processors.
+//! This example illustrates how to define custom `AssetLoader`s, `AssetTransfomers`, and `AssetSaver`s, how to configure them, and how to register asset processors.
 
 use bevy::{
     asset::{
         embedded_asset,
         io::{Reader, Writer},
-        processor::LoadAndSave,
+        processor::LoadTransformAndSave,
         ron,
         saver::{AssetSaver, SavedAsset},
+        transformer::{AssetTransformer, TransformedAsset},
         AssetLoader, AsyncReadExt, AsyncWriteExt, LoadContext,
     },
     prelude::*,
@@ -14,6 +15,7 @@ use bevy::{
     utils::thiserror,
 };
 use serde::{Deserialize, Serialize};
+use std::convert::Infallible;
 use thiserror::Error;
 
 fn main() {
@@ -59,10 +61,10 @@ impl Plugin for TextPlugin {
             .init_asset::<Text>()
             .register_asset_loader(CoolTextLoader)
             .register_asset_loader(TextLoader)
-            .register_asset_processor::<LoadAndSave<CoolTextLoader, CoolTextSaver>>(
-                LoadAndSave::from(CoolTextSaver),
+            .register_asset_processor::<LoadTransformAndSave<CoolTextLoader, CoolTextTransformer, CoolTextSaver>>(
+                LoadTransformAndSave::new(CoolTextTransformer, CoolTextSaver),
             )
-            .set_default_asset_processor::<LoadAndSave<CoolTextLoader, CoolTextSaver>>("cool.ron");
+            .set_default_asset_processor::<LoadTransformAndSave<CoolTextLoader, CoolTextTransformer, CoolTextSaver>>("cool.ron");
     }
 }
 
@@ -103,14 +105,14 @@ impl AssetLoader for TextLoader {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct CoolTextRon {
+struct CoolTextRon {
     text: String,
     dependencies: Vec<String>,
     embedded_dependencies: Vec<String>,
 }
 
 #[derive(Asset, TypePath, Debug)]
-pub struct CoolText {
+struct CoolText {
     text: String,
     #[allow(unused)]
     dependencies: Vec<Handle<Text>>,
@@ -131,9 +133,7 @@ enum CoolTextLoaderError {
 
 impl AssetLoader for CoolTextLoader {
     type Asset = CoolText;
-
     type Settings = ();
-
     type Error = CoolTextLoaderError;
 
     async fn load(
@@ -166,16 +166,37 @@ impl AssetLoader for CoolTextLoader {
     }
 }
 
-struct CoolTextSaver;
+#[derive(Default)]
+struct CoolTextTransformer;
 
 #[derive(Default, Serialize, Deserialize)]
-pub struct CoolTextSaverSettings {
+struct CoolTextTransformerSettings {
     appended: String,
 }
 
+impl AssetTransformer for CoolTextTransformer {
+    type AssetInput = CoolText;
+    type AssetOutput = CoolText;
+    type Settings = CoolTextTransformerSettings;
+    type Error = Infallible;
+
+    fn transform<'a>(
+        &'a self,
+        mut asset: TransformedAsset<Self::AssetInput>,
+        settings: &'a Self::Settings,
+    ) -> BoxedFuture<'a, Result<TransformedAsset<Self::AssetOutput>, Self::Error>> {
+        Box::pin(async move {
+            asset.text = format!("{}{}", asset.text, settings.appended);
+            Ok(asset)
+        })
+    }
+}
+
+struct CoolTextSaver;
+
 impl AssetSaver for CoolTextSaver {
     type Asset = CoolText;
-    type Settings = CoolTextSaverSettings;
+    type Settings = ();
     type OutputLoader = TextLoader;
     type Error = std::io::Error;
 
@@ -183,10 +204,9 @@ impl AssetSaver for CoolTextSaver {
         &self,
         writer: &mut Writer,
         asset: SavedAsset<'_, Self::Asset>,
-        settings: &Self::Settings,
+        _settings: &Self::Settings,
     ) -> Result<TextSettings, Self::Error> {
-        let text = format!("{}{}", asset.text.clone(), settings.appended);
-        writer.write_all(text.as_bytes()).await?;
+        writer.write_all(asset.text.as_bytes()).await?;
         Ok(TextSettings::default())
     }
 }

@@ -1,7 +1,11 @@
+// FIXME(3492): remove once docs are ready
+#![allow(missing_docs)]
+
 pub mod io;
 pub mod meta;
 pub mod processor;
 pub mod saver;
+pub mod transformer;
 
 pub mod prelude {
     #[doc(hidden)]
@@ -216,7 +220,8 @@ impl Plugin for AssetPlugin {
                 UpdateAssets,
                 TrackAssets.after(handle_internal_asset_events),
             )
-            .add_systems(UpdateAssets, handle_internal_asset_events);
+            .add_systems(UpdateAssets, handle_internal_asset_events)
+            .register_type::<AssetPath>();
 
         let mut order = app.world.resource_mut::<MainScheduleOrder>();
         order.insert_after(First, UpdateAssets);
