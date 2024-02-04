@@ -96,7 +96,7 @@ pub type HashMap<K, V> = hashbrown::HashMap<K, V, BuildHasherDefault<AHasher>>;
 /// A stable hash map implementing aHash, a high speed keyed hashing algorithm
 /// intended for use in in-memory hashmaps.
 ///
-/// Unlike [`HashMap`] the iteration order is stable between executions
+/// Unlike [`HashMap`] the iteration order stability extends between executions
 /// using the same Bevy version on the same device.
 ///
 /// aHash is designed for performance and is NOT cryptographically secure.
@@ -115,7 +115,7 @@ pub type HashSet<K> = hashbrown::HashSet<K, BuildHasherDefault<AHasher>>;
 /// A stable hash set implementing aHash, a high speed keyed hashing algorithm
 /// intended for use in in-memory hashmaps.
 ///
-/// Unlike [`HashMap`] the iteration order is stable between executions
+/// Unlike [`HashMap`] the iteration order stability extends between executions
 /// using the same Bevy version on the same device.
 ///
 /// aHash is designed for performance and is NOT cryptographically secure.
