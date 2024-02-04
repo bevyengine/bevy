@@ -287,7 +287,7 @@ impl<'a> TextureAtlasBuilder<'a> {
 
         Ok((
             TextureAtlasLayout {
-                size: atlas_texture.size_f32(),
+                size: atlas_texture.size(),
                 textures: texture_rects,
                 texture_handles: Some(texture_ids),
             },

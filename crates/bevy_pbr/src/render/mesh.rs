@@ -408,7 +408,7 @@ impl FromWorld for MeshPipeline {
                 texture_view,
                 texture_format: image.texture_descriptor.format,
                 sampler,
-                size: image.size_f32(),
+                size: image.size(),
                 mip_level_count: image.texture_descriptor.mip_level_count,
             }
         };

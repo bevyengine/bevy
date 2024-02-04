@@ -440,7 +440,7 @@ pub fn extract_uinodes(
                     continue;
                 };
                 let mut atlas_rect = layout.textures[atlas.index];
-                let mut atlas_size = layout.size;
+                let mut atlas_size = layout.size.as_vec2();
                 let scale = uinode.size() / atlas_rect.size();
                 atlas_rect.min *= scale;
                 atlas_rect.max *= scale;
@@ -628,7 +628,7 @@ pub fn extract_text_uinodes(
                     color,
                     rect,
                     image: atlas_info.texture.id(),
-                    atlas_size: Some(atlas.size * inverse_scale_factor),
+                    atlas_size: Some(atlas.size.as_vec2() * inverse_scale_factor),
                     clip: clip.map(|clip| clip.clip),
                     flip_x: false,
                     flip_y: false,

@@ -1,6 +1,6 @@
 use crate::TextureAtlasLayout;
 use bevy_asset::{Assets, Handle};
-use bevy_math::{IVec2, Rect, Vec2};
+use bevy_math::{IVec2, Rect, UVec2};
 use bevy_render::{
     render_asset::{RenderAsset, RenderAssetUsages},
     texture::{Image, TextureFormatPixelInfo},
@@ -23,7 +23,7 @@ impl DynamicTextureAtlasBuilder {
     ///
     /// * `size` - total size for the atlas
     /// * `padding` - gap added between textures in the atlas, both in x axis and y axis
-    pub fn new(size: Vec2, padding: i32) -> Self {
+    pub fn new(size: UVec2, padding: i32) -> Self {
         Self {
             atlas_allocator: AtlasAllocator::new(to_size2(size)),
             padding,
@@ -102,6 +102,6 @@ fn to_rect(rectangle: guillotiere::Rectangle) -> Rect {
     }
 }
 
-fn to_size2(vec2: Vec2) -> guillotiere::Size {
+fn to_size2(vec2: UVec2) -> guillotiere::Size {
     guillotiere::Size::new(vec2.x as i32, vec2.y as i32)
 }
