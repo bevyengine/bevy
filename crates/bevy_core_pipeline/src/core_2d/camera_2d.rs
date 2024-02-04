@@ -45,14 +45,7 @@ impl Default for Camera2dBundle {
             ..Default::default()
         };
         let transform = Transform::default();
-        let view_projection =
-            projection.get_projection_matrix() * transform.compute_matrix().inverse();
-        let frustum = Frustum::from_view_projection_custom_far(
-            &view_projection,
-            &transform.translation,
-            &transform.back(),
-            projection.far(),
-        );
+        let frustum = projection.compute_frustum(&GlobalTransform::from(transform));
         Self {
             camera_render_graph: CameraRenderGraph::new(SubGraph2d),
             projection,
@@ -84,14 +77,7 @@ impl Camera2dBundle {
             ..Default::default()
         };
         let transform = Transform::from_xyz(0.0, 0.0, far - 0.1);
-        let view_projection =
-            projection.get_projection_matrix() * transform.compute_matrix().inverse();
-        let frustum = Frustum::from_view_projection_custom_far(
-            &view_projection,
-            &transform.translation,
-            &transform.back(),
-            projection.far(),
-        );
+        let frustum = projection.compute_frustum(&GlobalTransform::from(transform));
         Self {
             camera_render_graph: CameraRenderGraph::new(SubGraph3d),
             projection,
