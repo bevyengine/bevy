@@ -22,6 +22,7 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     settings::WgpuFeatures,
     texture::{FallbackImage, Image},
+    view::ExtractedView,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::prelude::GlobalTransform;
@@ -427,7 +428,6 @@ fn build_light_probes_uniforms(
         let Ok((render_view_environment_maps, render_view_irradiance_volumes)) =
             view_light_probes_query.get_mut(view_entity)
         else {
-            error!("Failed to find `RenderViewLightProbes` for the view!");
             continue;
         };
 
@@ -481,26 +481,47 @@ fn build_light_probes_uniforms(
 /// Uploads the result of [`build_light_probes_uniforms`] to the GPU.
 fn upload_light_probes(
     mut commands: Commands,
-    light_probes_uniforms: Res<RenderLightProbes>,
+    views: Query<Entity, With<ExtractedView>>,
+    mut render_light_probes: ResMut<RenderLightProbes>,
     mut light_probes_buffer: ResMut<LightProbesBuffer>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
 ) {
-    // Get the uniform buffer writer.
-    let Some(mut writer) =
-        light_probes_buffer.get_writer(light_probes_uniforms.len(), &render_device, &render_queue)
-    else {
-        return;
-    };
+    // Get the uniform buffer writer. We need to bind *some* uniform buffer to
+    // the slot in the shader, so allocate some space even if we have no light
+    // probes.
+    let mut writer = light_probes_buffer
+        .get_writer(
+            render_light_probes.len().max(1),
+            &render_device,
+            &render_queue,
+        )
+        .unwrap();
 
-    // Send each view's uniforms to the GPU.
-    for (&view_entity, light_probes_uniform) in light_probes_uniforms.iter() {
+    let mut any_written = false;
+    for view_entity in views.iter() {
+        let uniform_offset = match render_light_probes.get(&view_entity) {
+            Some(light_probes_uniform) => {
+                // Queue the view's uniforms to be written to the GPU.
+                any_written = true;
+                writer.write(light_probes_uniform)
+            }
+            None => 0,
+        };
+
         commands
             .entity(view_entity)
-            .insert(ViewLightProbesUniformOffset(
-                writer.write(light_probes_uniform),
-            ));
+            .insert(ViewLightProbesUniformOffset(uniform_offset));
     }
+
+    // If nothing was written, then write a dummy value in. Otherwise the GPU
+    // will crash as the buffer was never initialized.
+    if !any_written {
+        let offset = writer.write(&LightProbesUniform::default());
+        debug_assert_eq!(offset, 0);
+    }
+
+    render_light_probes.clear();
 }
 
 impl Default for LightProbesUniform {
