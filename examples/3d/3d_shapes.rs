@@ -23,7 +23,7 @@ fn main() {
 #[derive(Component)]
 struct Shape;
 
-const X_EXTENT: f32 = 14.5;
+const X_EXTENT: f32 = 12.0;
 
 fn setup(
     mut commands: Commands,
