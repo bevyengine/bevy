@@ -313,7 +313,7 @@ bytemuck = "1.7"
 # Needed to poll Task examples
 crossbeam-channel = "0.5.0"
 argh = "0.1.12"
-# Needed to web request example
+# Needed for `async_web_request` example
 ehttp = { version = "0.4.0", features = ["native-async"] }
 
 [[example]]
