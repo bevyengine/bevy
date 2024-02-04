@@ -80,6 +80,8 @@ impl Debug for CustomAttribute {
 mod tests {
     use super::*;
     use crate as bevy_reflect;
+    use crate::type_info::Typed;
+    use crate::{TypeInfo, VariantInfo};
 
     #[test]
     fn should_create_custom_attributes() {
@@ -94,8 +96,8 @@ mod tests {
 
     #[test]
     fn should_debug_custom_attributes() {
-        let attributes = CustomAttributes::default()
-            .with_attribute("label", String::from("My awesome custom attribute!"));
+        let attributes =
+            CustomAttributes::default().with_attribute("label", "My awesome custom attribute!");
 
         let debug = format!("{:?}", attributes);
 
@@ -117,5 +119,104 @@ mod tests {
             r#"CustomAttributes { attributes: {"foo": bevy_reflect::attributes::tests::Foo { value: 42 }} }"#,
             debug
         );
+    }
+
+    #[test]
+    fn should_derive_custom_attributes_on_struct_fields() {
+        #[derive(Reflect)]
+        struct Slider {
+            #[reflect(@(min = 0.0, max = 1.0))]
+            #[reflect(@(bevy_editor::hint = "Range: 0.0 to 1.0"))]
+            value: f32,
+        }
+
+        let TypeInfo::Struct(info) = Slider::type_info() else {
+            panic!("expected struct info");
+        };
+
+        let field_attributes = info.field("value").unwrap().custom_attributes();
+
+        let min = field_attributes.get("min").unwrap().value::<f64>();
+        let max = field_attributes.get("max").unwrap().value::<f64>();
+        let hint = field_attributes
+            .get("bevy_editor::hint")
+            .unwrap()
+            .value::<&str>();
+
+        assert_eq!(Some(&0.0), min);
+        assert_eq!(Some(&1.0), max);
+        assert_eq!(Some(&"Range: 0.0 to 1.0"), hint);
+    }
+
+    #[test]
+    fn should_derive_custom_attributes_on_tuple_struct_fields() {
+        #[derive(Reflect)]
+        struct Slider(
+            #[reflect(@(min = 0.0, max = 1.0))]
+            #[reflect(@(bevy_editor::hint = "Range: 0.0 to 1.0"))]
+            f32,
+        );
+
+        let TypeInfo::TupleStruct(info) = Slider::type_info() else {
+            panic!("expected tuple struct info");
+        };
+
+        let field_attributes = info.field_at(0).unwrap().custom_attributes();
+
+        let min = field_attributes.get("min").unwrap().value::<f64>();
+        let max = field_attributes.get("max").unwrap().value::<f64>();
+        let hint = field_attributes
+            .get("bevy_editor::hint")
+            .unwrap()
+            .value::<&str>();
+
+        assert_eq!(Some(&0.0), min);
+        assert_eq!(Some(&1.0), max);
+        assert_eq!(Some(&"Range: 0.0 to 1.0"), hint);
+    }
+
+    #[test]
+    fn should_derive_custom_attributes_on_enum_variant_fields() {
+        #[derive(Reflect)]
+        enum Color {
+            Transparent,
+            Grayscale(#[reflect(@(min = 0.0, max = 1.0))] f32),
+            Rgb {
+                #[reflect(@(min = 0u8, max = 255u8))]
+                r: u8,
+                #[reflect(@(min = 0u8, max = 255u8))]
+                g: u8,
+                #[reflect(@(min = 0u8, max = 255u8))]
+                b: u8,
+            },
+        }
+
+        let TypeInfo::Enum(info) = Color::type_info() else {
+            panic!("expected enum info");
+        };
+
+        let VariantInfo::Tuple(grayscale_variant) = info.variant("Grayscale").unwrap() else {
+            panic!("expected tuple variant");
+        };
+
+        let grayscale_attributes = grayscale_variant.field_at(0).unwrap().custom_attributes();
+
+        let min = grayscale_attributes.get("min").unwrap().value::<f64>();
+        let max = grayscale_attributes.get("max").unwrap().value::<f64>();
+
+        assert_eq!(Some(&0.0), min);
+        assert_eq!(Some(&1.0), max);
+
+        let VariantInfo::Struct(rgb_variant) = info.variant("Rgb").unwrap() else {
+            panic!("expected struct variant");
+        };
+
+        let g_attributes = rgb_variant.field("g").unwrap().custom_attributes();
+
+        let min = g_attributes.get("min").unwrap().value::<u8>();
+        let max = g_attributes.get("max").unwrap().value::<u8>();
+
+        assert_eq!(Some(&0), min);
+        assert_eq!(Some(&255), max);
     }
 }

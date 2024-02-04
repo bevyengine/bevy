@@ -6,11 +6,12 @@
 
 use crate::utility::terminated_parser;
 use crate::REFLECT_ATTRIBUTE_NAME;
-use proc_macro2::Ident;
+use proc_macro2::{Ident, TokenStream};
+use quote::quote;
 use std::collections::HashMap;
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
-use syn::{parenthesized, Attribute, Lit, LitStr, Meta, Token};
+use syn::{parenthesized, Attribute, Lit, LitStr, Meta, Path, Token};
 
 pub(crate) const IGNORE_SERIALIZATION_ATTR: &str = "skip_serializing";
 pub(crate) const IGNORE_ALL_ATTR: &str = "ignore";
@@ -83,6 +84,22 @@ pub(crate) enum DefaultBehavior {
 #[derive(Default, Clone)]
 pub(crate) struct CustomAttributes {
     attributes: HashMap<String, Lit>,
+}
+
+impl CustomAttributes {
+    /// Generates a `TokenStream` for `CustomAttributes` construction.
+    pub fn to_tokens(&self, bevy_reflect_path: &Path) -> TokenStream {
+        let attributes = self.attributes.iter().map(|(name, value)| {
+            quote! {
+                .with_attribute(#name, #value)
+            }
+        });
+
+        quote! {
+            #bevy_reflect_path::attributes::CustomAttributes::default()
+                #(#attributes)*
+        }
+    }
 }
 
 /// Parse all field attributes marked "reflect" (such as `#[reflect(ignore)]`).

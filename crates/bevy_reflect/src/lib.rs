@@ -1873,15 +1873,6 @@ bevy_reflect::tests::Test {
     }
 
     #[test]
-    fn should_allow_custom_attributes() {
-        #[derive(Reflect)]
-        struct Slider {
-            #[reflect(@(min = 0.0, max = 1.0))]
-            value: f32,
-        }
-    }
-
-    #[test]
     fn should_allow_custom_where() {
         #[derive(Reflect)]
         #[reflect(where T: Default)]
