@@ -5,13 +5,12 @@ mod ui_material_pipeline;
 use bevy_core_pipeline::core_2d::graph::{Labels2d, SubGraph2d};
 use bevy_core_pipeline::core_3d::graph::{Labels3d, SubGraph3d};
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
-use bevy_hierarchy::{Children, Parent};
+use bevy_hierarchy::Parent;
 use bevy_render::{
     render_phase::PhaseItem, render_resource::BindGroupEntries, view::ViewVisibility,
     ExtractSchedule, Render,
 };
 use bevy_sprite::{SpriteAssetEvents, TextureAtlas};
-use bevy_transform::TransformSystem;
 pub use pipeline::*;
 pub use render_pass::*;
 pub use ui_material_pipeline::*;
@@ -81,10 +80,6 @@ pub fn build_ui_render(app: &mut App) {
         .allow_ambiguous_resource::<ExtractedUiNodes>()
         .init_resource::<DrawFunctions<TransparentUi>>()
         .add_render_command::<TransparentUi, DrawUi>()
-        .add_systems(
-            PostUpdate,
-            (opacity_propagate_system).after(TransformSystem::TransformPropagate),
-        )
         .add_systems(
             ExtractSchedule,
             (
@@ -381,51 +376,6 @@ pub fn extract_uinode_outlines(
     }
 }
 
-pub fn opacity_propagate_system(
-    changed: Query<
-        (Entity, &BackgroundColor, Option<&Parent>, Option<&Children>),
-        (With<CalculatedOpacity>, Changed<BackgroundColor>),
-    >,
-    mut opacity_query: Query<(&BackgroundColor, &mut CalculatedOpacity)>,
-    children_query: Query<&Children, (With<BackgroundColor>, With<CalculatedOpacity>)>,
-) {
-    for (entity, color, parent, children) in &changed {
-        let mut alpha = color.0.a();
-        if let Some(parent) = parent {
-            let Ok((_, parent_opacity)) = opacity_query.get(parent.get()) else {
-                return;
-            };
-            alpha = *parent_opacity * alpha;
-        }
-
-        let (_, mut opacity) = opacity_query
-            .get_mut(entity)
-            .expect("With<CalculatedOpacity> ensures this query will return a value");
-        opacity.0 = alpha;
-
-        for &child in children.into_iter().flatten() {
-            propagate_opacity(alpha, child, &mut opacity_query, &children_query);
-        }
-    }
-}
-
-fn propagate_opacity(
-    parent_opacity: f32,
-    entity: Entity,
-    opacity_query: &mut Query<(&BackgroundColor, &mut CalculatedOpacity)>,
-    children_query: &Query<&Children, (With<BackgroundColor>, With<CalculatedOpacity>)>,
-) {
-    let Ok((color, mut opacity)) = opacity_query.get_mut(entity) else {
-        return;
-    };
-    let alpha = color.0.a();
-    opacity.0 = color.0.a() * parent_opacity;
-
-    for &child in children_query.get(entity).ok().into_iter().flatten() {
-        propagate_opacity(alpha, child, opacity_query, children_query);
-    }
-}
-
 pub fn extract_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
@@ -501,7 +451,7 @@ pub fn extract_uinodes(
             ExtractedUiNode {
                 stack_index: uinode.stack_index,
                 transform: transform.compute_matrix(),
-                color: *opacity * color.0,
+                color: opacity * color.0,
                 rect,
                 clip: clip.map(|clip| clip.clip),
                 image,
@@ -601,6 +551,7 @@ pub fn extract_text_uinodes(
             &Node,
             &GlobalTransform,
             &Text,
+            &CalculatedOpacity,
             &TextLayoutInfo,
             &ViewVisibility,
             Option<&CalculatedClip>,
@@ -608,8 +559,16 @@ pub fn extract_text_uinodes(
         )>,
     >,
 ) {
-    for (uinode, global_transform, text, text_layout_info, view_visibility, clip, camera) in
-        uinode_query.iter()
+    for (
+        uinode,
+        global_transform,
+        text,
+        opacity,
+        text_layout_info,
+        view_visibility,
+        clip,
+        camera,
+    ) in uinode_query.iter()
     {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
@@ -665,7 +624,7 @@ pub fn extract_text_uinodes(
                     stack_index: uinode.stack_index,
                     transform: transform
                         * Mat4::from_translation(position.extend(0.) * inverse_scale_factor),
-                    color,
+                    color: opacity * color,
                     rect,
                     image: atlas_info.texture.id(),
                     atlas_size: Some(atlas.size * inverse_scale_factor),

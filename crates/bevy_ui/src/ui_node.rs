@@ -13,7 +13,7 @@ use bevy_utils::{smallvec::SmallVec, warn_once};
 use bevy_window::{PrimaryWindow, WindowRef};
 use std::{
     num::{NonZeroI16, NonZeroU16},
-    ops::{Mul, MulAssign},
+    ops::Mul,
 };
 use thiserror::Error;
 
@@ -1619,7 +1619,34 @@ impl From<Color> for BackgroundColor {
 }
 
 /// The calculated opacity of the node after handling parent's opacity
-/// 
+///
+/// Based off of BackgroundColor's alpha field
+#[derive(Component, Copy, Clone, Debug, Reflect)]
+#[reflect(Component, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct Opacity(pub f32);
+
+impl Default for Opacity {
+    fn default() -> Self {
+        Self(1.0)
+    }
+}
+
+impl Mul<f32> for &Opacity {
+    type Output = f32;
+
+    #[inline]
+    fn mul(self, rhs: f32) -> Self::Output {
+        self.0 * rhs
+    }
+}
+
+/// The calculated opacity of the node after handling parent's opacity
+///
 /// Based off of BackgroundColor's alpha field
 #[derive(Component, Copy, Clone, Debug, Reflect)]
 #[reflect(Component, Default)]
@@ -1636,21 +1663,13 @@ impl Default for CalculatedOpacity {
     }
 }
 
-impl Mul<f32> for CalculatedOpacity {
-    type Output = f32;
-
-    #[inline]
-    fn mul(self, rhs: f32) -> Self::Output {
-        self.0 * rhs
-    }
-}
-
-impl Mul<Color> for CalculatedOpacity {
+impl Mul<Color> for &CalculatedOpacity {
     type Output = Color;
 
     #[inline]
     fn mul(self, rhs: Color) -> Self::Output {
-        rhs * self.0
+        let alpha = rhs.a() * self.0;
+        *rhs.clone().set_a(alpha)
     }
 }
 

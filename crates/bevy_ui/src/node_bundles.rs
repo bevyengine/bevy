@@ -5,7 +5,7 @@ use crate::widget::TextFlags;
 use crate::{
     widget::{Button, UiImageSize},
     BackgroundColor, BorderColor, CalculatedOpacity, ContentSize, FocusPolicy, Interaction, Node,
-    Style, UiImage, UiMaterial, ZIndex,
+    Opacity, Style, UiImage, UiMaterial, ZIndex,
 };
 use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
@@ -32,7 +32,9 @@ pub struct NodeBundle {
     pub style: Style,
     /// The background color, which serves as a "fill" for this node
     pub background_color: BackgroundColor,
-    /// The opacity of the node, calculated from the alpha of its parents and self
+    /// The opacity of the node, set by the user
+    pub opacity: Opacity,
+    /// The calculatedopacity of the node, calculated from the alpha of its parents and self
     pub calculated_opacity: CalculatedOpacity,
     /// The color of the Node's border
     pub border_color: BorderColor,
@@ -63,6 +65,7 @@ impl Default for NodeBundle {
         NodeBundle {
             // Transparent background
             background_color: Color::NONE.into(),
+            opacity: Default::default(),
             calculated_opacity: Default::default(),
             border_color: Color::NONE.into(),
             node: Default::default(),
@@ -92,6 +95,8 @@ pub struct ImageBundle {
     ///
     /// Combines with `UiImage` to tint the provided image.
     pub background_color: BackgroundColor,
+    /// The opacity of the node, set by the user
+    pub opacity: Opacity,
     /// The opacity of the node, calculated from the alpha of its parents and self
     pub calculated_opacity: CalculatedOpacity,
     /// The image of the node
@@ -137,6 +142,8 @@ pub struct AtlasImageBundle {
     ///
     /// Combines with `UiImage` to tint the provided image.
     pub background_color: BackgroundColor,
+    /// The opacity of the node, set by the user
+    pub opacity: Opacity,
     /// The opacity of the node, calculated from the alpha of its parents and self
     pub calculated_opacity: CalculatedOpacity,
     /// The image of the node
@@ -209,6 +216,8 @@ pub struct TextBundle {
     pub z_index: ZIndex,
     /// The background color that will fill the containing node
     pub background_color: BackgroundColor,
+    /// The opacity of the node, set by the user
+    pub opacity: Opacity,
     /// The opacity of the node, calculated from the alpha of its parents and self
     pub calculated_opacity: CalculatedOpacity,
 }
@@ -232,6 +241,7 @@ impl Default for TextBundle {
             z_index: Default::default(),
             // Transparent background
             background_color: BackgroundColor(Color::NONE),
+            opacity: Default::default(),
             calculated_opacity: Default::default(),
         }
     }
