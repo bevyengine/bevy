@@ -136,7 +136,7 @@ pub struct CursorMoved {
     pub window: Entity,
     /// The cursor position in logical pixels.
     pub position: Vec2,
-    /// The change in the position of the cursoe since the last event was sent.
+    /// The change in the position of the cursor since the last event was sent.
     /// This value is `None` if the cursor was outside the window area during the last frame.
     pub delta: Option<Vec2>,
 }
