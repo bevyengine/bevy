@@ -1,5 +1,3 @@
-use core::panic;
-
 use super::{BorderRect, TextureSlice};
 use bevy_math::{vec2, Rect, Vec2};
 use bevy_reflect::Reflect;
