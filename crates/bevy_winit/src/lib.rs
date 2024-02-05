@@ -179,6 +179,8 @@ struct WinitAppRunnerState {
     redraw_requested: bool,
     /// Is `true` if enough time has elapsed since `last_update` to run another update.
     wait_elapsed: bool,
+    /// Is `true` if a [`DeviceEvent`] was received in the previous update.
+    device_event_received_previous_update: bool,
     /// The time the last update started.
     last_update: Instant,
     /// The time the next update is scheduled to start.
@@ -189,6 +191,7 @@ struct WinitAppRunnerState {
 
 impl WinitAppRunnerState {
     fn reset_on_update(&mut self) {
+        self.device_event_received_previous_update = self.device_event_received;
         self.redraw_requested = false;
         self.window_event_received = false;
         self.device_event_received = false;
@@ -224,6 +227,7 @@ impl Default for WinitAppRunnerState {
             wait_elapsed: false,
             last_update: Instant::now(),
             scheduled_update: None,
+            device_event_received_previous_update: false,
             // 3 seems to be enough, 5 is a safe margin
             startup_forced_updates: 5,
         }
@@ -368,6 +372,19 @@ fn handle_winit_event(
             // Trigger one last update to enter suspended state
             if runner_state.active == ActiveState::WillSuspend {
                 should_update = true;
+            }
+
+            // On platforms that need to have part of the render app run on the main thread
+            // We need two updates after a device event, to ensure completing of the associated rendering.
+            // With the pipelined rendered, the render app for this update will be executed next frame
+            // and in Reactive modes, the renderer part that must run on the main thread will be blocked
+            // as the  main thread will be waiting for a new event.
+            //
+            // The `#cfg` here must match the `#cfg` of the `NonSendMarker` argument of the
+            // `create_surfaces` function in `crates/bevy_render/src/view/window/mod.rs`
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            {
+                should_update |= runner_state.device_event_received_previous_update;
             }
 
             if should_update {
