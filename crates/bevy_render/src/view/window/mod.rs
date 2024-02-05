@@ -7,7 +7,6 @@ use crate::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
-use bevy_core::NonSendMarker;
 use bevy_ecs::prelude::*;
 use bevy_utils::{default, tracing::debug, EntityHashMap, HashSet};
 use bevy_window::{
@@ -437,7 +436,9 @@ pub fn need_new_surfaces(
 pub fn create_surfaces(
     // By accessing a NonSend resource, we tell the scheduler to put this system on the main thread,
     // which is necessary for some OS's
-    #[cfg(any(target_os = "macos", target_os = "ios"))] _marker: Option<NonSend<NonSendMarker>>,
+    #[cfg(any(target_os = "macos", target_os = "ios"))] _marker: Option<
+        NonSend<bevy_core::NonSendMarker>,
+    >,
     windows: Res<ExtractedWindows>,
     mut window_surfaces: ResMut<WindowSurfaces>,
     render_instance: Res<RenderInstance>,
