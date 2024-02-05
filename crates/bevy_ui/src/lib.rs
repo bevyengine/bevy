@@ -99,6 +99,7 @@ impl Plugin for UiPlugin {
             .register_type::<AlignSelf>()
             .register_type::<BackgroundColor>()
             .register_type::<CalculatedClip>()
+            .register_type::<CalculatedOpacity>()
             .register_type::<ContentSize>()
             .register_type::<Direction>()
             .register_type::<Display>()
@@ -113,6 +114,7 @@ impl Plugin for UiPlugin {
             .register_type::<JustifyItems>()
             .register_type::<JustifySelf>()
             .register_type::<Node>()
+            .register_type::<Opacity>()
             // NOTE: used by Style::aspect_ratio
             .register_type::<Option<f32>>()
             .register_type::<Overflow>()

@@ -2414,6 +2414,12 @@ name = "opacity"
 path = "examples/ui/opacity.rs"
 doc-scrape-examples = true
 
+[package.metadata.example.opacity]
+name = "Opacity"
+description = "Demonstrates how opacity with a hierarchy works"
+category = "UI (User Interface)"
+wasm = true
+
 [package.metadata.example.grid]
 name = "CSS Grid"
 description = "An example for CSS Grid layout"
