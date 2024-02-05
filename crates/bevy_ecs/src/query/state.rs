@@ -17,8 +17,8 @@ use fixedbitset::FixedBitSet;
 use std::{any::TypeId, borrow::Borrow, fmt, mem::MaybeUninit};
 
 use super::{
-    NopWorldQuery, QueryBuilder, QueryComponentError, QueryData, QueryEntityError, QueryFilter,
-    QueryManyIter, QuerySingleError, ROQueryItem,
+    NopWorldQuery, QueryBuilder, QueryData, QueryEntityError, QueryFilter, QueryManyIter,
+    QuerySingleError, ROQueryItem,
 };
 
 /// Provides scoped access to a [`World`] state according to a given [`QueryData`] and [`QueryFilter`].
@@ -629,32 +629,37 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Returns a shared reference to the component `T` of the given [`Entity`].
     ///
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
+    #[deprecated(
+        since = "0.13.0",
+        note = "Please use `get` and select for the exact component based on the structure of the exact query as required."
+    )]
+    #[allow(deprecated)]
     #[inline]
     pub(crate) fn get_component<'w, T: Component>(
         &self,
         world: UnsafeWorldCell<'w>,
         entity: Entity,
-    ) -> Result<&'w T, QueryComponentError> {
+    ) -> Result<&'w T, super::QueryComponentError> {
         let entity_ref = world
             .get_entity(entity)
-            .ok_or(QueryComponentError::NoSuchEntity)?;
+            .ok_or(super::QueryComponentError::NoSuchEntity)?;
         let component_id = world
             .components()
             .get_id(TypeId::of::<T>())
-            .ok_or(QueryComponentError::MissingComponent)?;
+            .ok_or(super::QueryComponentError::MissingComponent)?;
         let archetype_component = entity_ref
             .archetype()
             .get_archetype_component_id(component_id)
-            .ok_or(QueryComponentError::MissingComponent)?;
+            .ok_or(super::QueryComponentError::MissingComponent)?;
         if self
             .archetype_component_access
             .has_read(archetype_component)
         {
             // SAFETY: `world` must have access to the component `T` for this entity,
             // since it was registered in `self`'s archetype component access set.
-            unsafe { entity_ref.get::<T>() }.ok_or(QueryComponentError::MissingComponent)
+            unsafe { entity_ref.get::<T>() }.ok_or(super::QueryComponentError::MissingComponent)
         } else {
-            Err(QueryComponentError::MissingReadAccess)
+            Err(super::QueryComponentError::MissingReadAccess)
         }
     }
 
@@ -663,6 +668,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// # Panics
     ///
     /// If given a nonexisting entity or mismatched component, this will panic.
+    #[deprecated(
+        since = "0.13.0",
+        note = "Please use `get` and select for the exact component based on the structure of the exact query as required."
+    )]
+    #[allow(deprecated)]
     #[inline]
     pub(crate) fn component<'w, T: Component>(
         &self,
@@ -688,6 +698,13 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// This function makes it possible to violate Rust's aliasing guarantees.
     /// You must make sure this call does not result in multiple mutable references to the same component.
+    ///
+    /// [`QueryComponentError`]: super::QueryComponentError
+    #[deprecated(
+        since = "0.13.0",
+        note = "Please use QueryState::get_unchecked_manual and select for the exact component based on the structure of the exact query as required."
+    )]
+    #[allow(deprecated)]
     #[inline]
     pub unsafe fn get_component_unchecked_mut<'w, T: Component>(
         &self,
@@ -695,18 +712,18 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         entity: Entity,
         last_run: Tick,
         this_run: Tick,
-    ) -> Result<Mut<'w, T>, QueryComponentError> {
+    ) -> Result<Mut<'w, T>, super::QueryComponentError> {
         let entity_ref = world
             .get_entity(entity)
-            .ok_or(QueryComponentError::NoSuchEntity)?;
+            .ok_or(super::QueryComponentError::NoSuchEntity)?;
         let component_id = world
             .components()
             .get_id(TypeId::of::<T>())
-            .ok_or(QueryComponentError::MissingComponent)?;
+            .ok_or(super::QueryComponentError::MissingComponent)?;
         let archetype_component = entity_ref
             .archetype()
             .get_archetype_component_id(component_id)
-            .ok_or(QueryComponentError::MissingComponent)?;
+            .ok_or(super::QueryComponentError::MissingComponent)?;
         if self
             .archetype_component_access
             .has_write(archetype_component)
@@ -715,9 +732,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             // mutable reference to this entity's component `T`.
             let result = unsafe { entity_ref.get_mut_using_ticks::<T>(last_run, this_run) };
 
-            result.ok_or(QueryComponentError::MissingComponent)
+            result.ok_or(super::QueryComponentError::MissingComponent)
         } else {
-            Err(QueryComponentError::MissingWriteAccess)
+            Err(super::QueryComponentError::MissingWriteAccess)
         }
     }
 

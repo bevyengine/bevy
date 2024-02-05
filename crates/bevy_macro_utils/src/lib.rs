@@ -1,4 +1,3 @@
-#![warn(missing_docs)]
 #![deny(unsafe_code)]
 //! A collection of helper types and functions for working on macros within the Bevy ecosystem.
 

@@ -162,7 +162,11 @@ pub fn ui_focus_system(
 
     // reset entities that were both clicked and released in the last frame
     for entity in state.entities_to_reset.drain(..) {
-        if let Ok(mut interaction) = node_query.get_component_mut::<Interaction>(entity) {
+        if let Ok(NodeQueryItem {
+            interaction: Some(mut interaction),
+            ..
+        }) = node_query.get_mut(entity)
+        {
             *interaction = Interaction::None;
         }
     }
