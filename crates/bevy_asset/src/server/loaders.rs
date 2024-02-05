@@ -5,14 +5,14 @@ use crate::{
 use async_broadcast::RecvError;
 use bevy_log::{error, info, warn};
 use bevy_tasks::IoTaskPool;
-use bevy_utils::HashMap;
+use bevy_utils::{HashMap, TypeIdMap};
 use std::{any::TypeId, sync::Arc};
 use thiserror::Error;
 
 #[derive(Default)]
 pub(crate) struct AssetLoaders {
     loaders: Vec<MaybeAssetLoader>,
-    type_id_to_loaders: HashMap<TypeId, Vec<usize>>,
+    type_id_to_loaders: TypeIdMap<Vec<usize>>,
     extension_to_loaders: HashMap<String, Vec<usize>>,
     type_name_to_loader: HashMap<&'static str, usize>,
     preregistered_loaders: HashMap<&'static str, usize>,
