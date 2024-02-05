@@ -241,21 +241,22 @@ pub fn recalculate_opacity(
     children_query: Query<&Children, (With<Opacity>, With<CalculatedOpacity>)>,
 ) {
     for (entity, parent) in &changed {
-        let parent_opacity = if let Some(parent) = parent {
-            let Ok((_, parent_opacity)) = opacity_query.get(parent.get()) else {
-                continue;
-            };
-            parent_opacity.0
+        let inherited_opacity = if let Some(parent) = parent {
+            if let Ok((_, parent_opacity)) = opacity_query.get(parent.get()) {
+                parent_opacity.0
+            } else {
+                1.0 // parent doesnt have opacity for some reason
+            }
         } else {
-            1.0
+            1.0 // no parent
         };
 
-        set_opacity_recursive(parent_opacity, entity, &mut opacity_query, &children_query);
+        set_opacity_recursive(inherited_opacity, entity, &mut opacity_query, &children_query);
     }
 }
 
 fn set_opacity_recursive(
-    parent_opacity: f32,
+    inherited_opacity: f32,
     entity: Entity,
     opacity_query: &mut Query<(&Opacity, &mut CalculatedOpacity)>,
     children_query: &Query<&Children, (With<Opacity>, With<CalculatedOpacity>)>,
@@ -263,7 +264,7 @@ fn set_opacity_recursive(
     let Ok((opacity, mut calc)) = opacity_query.get_mut(entity) else {
         return;
     };
-    let new_opacity = opacity * parent_opacity;
+    let new_opacity = opacity * inherited_opacity;
     calc.0 = new_opacity;
 
     for &child in children_query.get(entity).ok().into_iter().flatten() {
