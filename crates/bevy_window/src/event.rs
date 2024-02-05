@@ -115,7 +115,7 @@ pub struct WindowDestroyed {
 /// An event reporting that the mouse cursor has moved inside a window.
 ///
 /// The event is sent only if the cursor is over one of the application's windows.
-/// It is the translated version of [`WindowEvent::CursorMoved`] from the `winit` crate with the addition fo `delta`.
+/// It is the translated version of [`WindowEvent::CursorMoved`] from the `winit` crate with the addition of `delta`.
 ///
 /// Not to be confused with the [`MouseMotion`] event from `bevy_input`.
 ///
