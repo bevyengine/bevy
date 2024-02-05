@@ -267,7 +267,7 @@ fn outline_node(entity: Entity, rect: LayoutRect, draw: &mut InsetGizmo) {
 ///
 /// This spawns a new camera with a low order, and draws gizmo.
 ///
-/// Note that due to limitation with bevy_gizmos, multiple windows with this feature
+/// Note that due to limitation with [`bevy_gizmos`], multiple windows with this feature
 /// enabled isn't supported and the lines are only drawn in the [`PrimaryWindow`]
 pub struct DebugUiPlugin;
 impl Plugin for DebugUiPlugin {
