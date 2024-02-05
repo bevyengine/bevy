@@ -25,5 +25,9 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.12.0" }
 bevy_transform = { path = "../bevy_transform", version = "0.12.0" }
 bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.12.0" }
 
+# other
+sha1_smol = { version = "1.0" }
+uuid = { version = "1.7", features = ["v5"] }
+
 [lints]
 workspace = true

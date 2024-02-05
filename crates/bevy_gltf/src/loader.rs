@@ -1,4 +1,5 @@
 use crate::{vertex_attributes::convert_attribute, Gltf, GltfExtras, GltfNode};
+use bevy_animation::{AnimationTarget, AnimationTargetId};
 use bevy_asset::{
     io::Reader, AssetLoadError, AssetLoader, AsyncReadExt, Handle, LoadContext, ReadAssetBytesError,
 };
@@ -258,11 +259,9 @@ async fn load_gltf<'a, 'b, 'c>(
                 };
 
                 if let Some((root_index, path)) = paths.get(&node.index()) {
-                    animation_roots.insert(root_index);
+                    animation_roots.insert(*root_index);
                     animation_clip.add_curve_to_path(
-                        bevy_animation::EntityPath {
-                            parts: path.clone(),
-                        },
+                        AnimationTargetId::from_names(path),
                         bevy_animation::VariableCurve {
                             keyframe_timestamps,
                             keyframes,
@@ -588,7 +587,9 @@ async fn load_gltf<'a, 'b, 'c>(
                         &mut node_index_to_entity_map,
                         &mut entity_to_skin_index_map,
                         &mut active_camera_found,
+                        &animation_roots,
                         &Transform::default(),
+                        None,
                     );
                     if result.is_err() {
                         err = Some(result);
@@ -924,7 +925,9 @@ fn load_node(
     node_index_to_entity_map: &mut HashMap<usize, Entity>,
     entity_to_skin_index_map: &mut EntityHashMap<Entity, usize>,
     active_camera_found: &mut bool,
+    animation_roots: &HashSet<usize>,
     parent_transform: &Transform,
+    animation_root: Option<(Entity, &[Name])>,
 ) -> Result<(), GltfError> {
     let mut gltf_error = None;
     let transform = node_transform(gltf_node);
@@ -938,7 +941,31 @@ fn load_node(
     let is_scale_inverted = world_transform.scale.is_negative_bitmask().count_ones() & 1 == 1;
     let mut node = world_builder.spawn(SpatialBundle::from(transform));
 
-    node.insert(node_name(gltf_node));
+    let name = node_name(gltf_node);
+    node.insert(name.clone());
+
+    let mut path_buf = vec![];
+    let animation_root = match animation_root {
+        None => {
+            if animation_roots.contains(&gltf_node.index()) {
+                path_buf.push(name);
+                Some((node.id(), &path_buf[..]))
+            } else {
+                None
+            }
+        }
+        Some((root, path)) => {
+            path_buf.extend(path.iter().cloned());
+            path_buf.push(name);
+
+            node.insert(AnimationTarget {
+                id: AnimationTargetId::from_names(&path_buf),
+                root,
+            });
+
+            Some((root, &path_buf[..]))
+        }
+    };
 
     if let Some(extras) = gltf_node.extras() {
         node.insert(GltfExtras {
@@ -1151,7 +1178,9 @@ fn load_node(
                 node_index_to_entity_map,
                 entity_to_skin_index_map,
                 active_camera_found,
+                animation_roots,
                 &world_transform,
+                animation_root,
             ) {
                 gltf_error = Some(err);
                 return;

@@ -9,7 +9,9 @@ use std::time::Duration;
 use bevy_app::{App, Plugin, PostUpdate, Update};
 use bevy_asset::{Asset, AssetApp, Assets, Handle};
 use bevy_core::Name;
+use bevy_ecs::entity::MapEntities;
 use bevy_ecs::prelude::*;
+use bevy_ecs::reflect::ReflectMapEntities;
 use bevy_ecs::system::SystemState;
 use bevy_hierarchy::{Children, Parent};
 use bevy_log::error;
@@ -18,16 +20,19 @@ use bevy_reflect::Reflect;
 use bevy_render::mesh::morph::MorphWeights;
 use bevy_time::Time;
 use bevy_transform::{prelude::Transform, TransformSystem};
-use bevy_utils::{EntityHashMap, EntityHashSet, HashMap};
+use bevy_utils::{EntityHashMap, EntityHashSet, HashMap, Uuid};
+use sha1_smol::Sha1;
 
 #[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        animatable::*, AnimationClip, AnimationPlayer, AnimationPlugin, EntityPath, Interpolation,
-        Keyframes, VariableCurve,
+        animatable::*, AnimationClip, AnimationPlayer, AnimationPlugin, Interpolation, Keyframes,
+        VariableCurve,
     };
 }
+
+pub static ANIMATION_TARGET_NAMESPACE: Uuid = Uuid::from_u128(0x3179f519d9274ff2b5966fd077023911);
 
 /// List of keyframes for one of the attribute of a [`Transform`].
 #[derive(Reflect, Clone, Debug)]
@@ -140,31 +145,33 @@ pub enum Interpolation {
     CubicSpline,
 }
 
-/// Path to an entity, with [`Name`]s. Each entity in a path must have a name.
-#[derive(Reflect, Clone, Debug, Hash, PartialEq, Eq, Default)]
-pub struct EntityPath {
-    /// Parts of the path
-    pub parts: Vec<Name>,
-}
-
-/// A list of [`VariableCurve`], and the [`EntityPath`] to which they apply.
+/// A list of [`VariableCurve`], and the [`AnimationTargetId`] to which they apply.
 #[derive(Asset, Reflect, Clone, Debug, Default)]
 pub struct AnimationClip {
-    curves: Vec<Vec<VariableCurve>>,
-    paths: HashMap<EntityPath, usize>,
+    curves: HashMap<AnimationTargetId, Vec<VariableCurve>>,
     duration: f32,
 }
 
-#[derive(Clone, Component)]
+// TODO: Use a custom Hash implementation that doesn't actually hash the results.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect, Debug)]
+pub struct AnimationTargetId(pub Uuid);
+
+#[derive(Clone, Component, Reflect)]
+#[reflect(Component, MapEntities)]
 pub struct AnimationTarget {
-    root: Entity,
-    path: EntityPath,
+    /// The ID of this bone.
+    ///
+    /// Typically, this is derived from the path.
+    pub id: AnimationTargetId,
+
+    /// The entity containing the [`AnimationPlayer`].
+    pub root: Entity,
 }
 
 impl AnimationClip {
     #[inline]
     /// [`VariableCurve`]s for each bone. Indexed by the bone ID.
-    pub fn curves(&self) -> &Vec<Vec<VariableCurve>> {
+    pub fn curves(&self) -> &HashMap<AnimationTargetId, Vec<VariableCurve>> {
         &self.curves
     }
 
@@ -172,16 +179,8 @@ impl AnimationClip {
     ///
     /// Returns `None` if the bone is invalid.
     #[inline]
-    pub fn get_curves(&self, bone_id: usize) -> Option<&'_ Vec<VariableCurve>> {
-        self.curves.get(bone_id)
-    }
-
-    /// Gets the curves by it's [`EntityPath`].
-    ///
-    /// Returns `None` if the bone is invalid.
-    #[inline]
-    pub fn get_curves_by_path(&self, path: &EntityPath) -> Option<&'_ Vec<VariableCurve>> {
-        self.paths.get(path).and_then(|id| self.curves.get(*id))
+    pub fn get_curves(&self, bone_id: AnimationTargetId) -> Option<&'_ Vec<VariableCurve>> {
+        self.curves.get(&bone_id)
     }
 
     /// Duration of the clip, represented in seconds
@@ -191,23 +190,12 @@ impl AnimationClip {
     }
 
     /// Add a [`VariableCurve`] to an [`EntityPath`].
-    pub fn add_curve_to_path(&mut self, path: EntityPath, curve: VariableCurve) {
+    pub fn add_curve_to_path(&mut self, bone_id: AnimationTargetId, curve: VariableCurve) {
         // Update the duration of the animation by this curve duration if it's longer
         self.duration = self
             .duration
             .max(*curve.keyframe_timestamps.last().unwrap_or(&0.0));
-        if let Some(bone_id) = self.paths.get(&path) {
-            self.curves[*bone_id].push(curve);
-        } else {
-            let idx = self.curves.len();
-            self.curves.push(vec![curve]);
-            self.paths.insert(path, idx);
-        }
-    }
-
-    /// Whether this animation clip can run on entity with given [`Name`].
-    pub fn compatible_with(&self, name: &Name) -> bool {
-        self.paths.keys().any(|path| &path.parts[0] == name)
+        self.curves.entry(bone_id).or_default().push(curve);
     }
 }
 
@@ -485,156 +473,6 @@ impl AnimationPlayer {
     }
 }
 
-pub fn update_animation_targets(
-    mut commands: Commands,
-    candidate_targets: Query<
-        (
-            Entity,
-            Option<&Parent>,
-            Option<&Children>,
-            &Name,
-            Option<&AnimationTarget>,
-        ),
-        Without<AnimationPlayer>,
-    >,
-    players: Query<(
-        Entity,
-        Ref<AnimationPlayer>,
-        Option<Ref<Children>>,
-        Ref<Name>,
-    )>,
-    changed_targets: Query<Entity, Or<(Changed<Parent>, Changed<Name>)>>,
-    mut entities_with_removed_parents: RemovedComponents<Parent>,
-    mut entities_with_removed_names: RemovedComponents<Name>,
-) {
-    // Mark the roots of all dirty subtrees.
-    //
-    // TODO: Make this a `Local`.
-    let mut worklist: Vec<Entity> = vec![];
-
-    // If an entity was renamed or moved in the tree (changed `Parent`), it's
-    // dirty if its new parent is either an animation target or an animation
-    // player.
-    for entity in changed_targets.iter() {
-        if candidate_targets.get(entity).is_ok_and(|(_, maybe_parent, _, _, _)| {
-            maybe_parent.is_some_and(|parent| {
-                candidate_targets.get(parent.get()).is_ok_and(|(_, _, _, _, target)| {
-                    target.is_some() || players.contains(entity)
-                })
-            })
-        }) {
-            worklist.push(entity);
-        }
-    }
-
-    // If an entity was removed from the tree (removed `Parent`), or had its
-    // name removed and was previously an animation target, it's dirty.
-    for entity in entities_with_removed_parents.read().chain(entities_with_removed_names.read()) {
-        if candidate_targets.get(entity).is_ok_and(|(_, _, _, _, target)| target.is_some()) {
-            worklist.push(entity);
-        }
-    }
-
-    // If an animation player was just added to the tree or changed names, all
-    // its children are dirty.
-    for (_, player, maybe_kids, name) in players.iter() {
-        if player.is_added() || name.is_changed() {
-            if let Some(kids) = maybe_kids {
-                worklist.extend(kids.iter());
-            }
-        }
-    }
-
-    // Iteratively mark all descendants of dirty entities as dirty themselves.
-    // At the end of this process, `dirty_entities` will consist of a forest.
-    let mut dirty_entities: EntityHashSet<Entity> = EntityHashSet::default();
-    while let Some(entity) = worklist.pop() {
-        if dirty_entities.contains(&entity) {
-            continue;
-        }
-        if let Ok((_, _, Some(kids), _, _)) = candidate_targets.get(entity) {
-            worklist.extend(kids.iter().map(|&kid| kid));
-        }
-        dirty_entities.insert(entity);
-    }
-
-    // Find the roots of the trees in the forest.
-    worklist = dirty_entities
-        .iter()
-        .filter(|&&entity| {
-            // Do we have a clean parent? If so, we're a root.
-            !candidate_targets
-                .get(entity)
-                .is_ok_and(|(_, parent, _, _, _)| {
-                    parent.is_some_and(|parent| dirty_entities.contains(&parent.get()))
-                })
-        })
-        .cloned()
-        .collect();
-
-    // Compute new `AnimationTarget` components.
-    let mut new_targets: EntityHashMap<Entity, AnimationTarget> = EntityHashMap::default();
-    let mut removed_targets: EntityHashSet<Entity> = EntityHashSet::default();
-    while let Some(entity) = worklist.pop() {
-        let (_, parent, kids, name, _) = candidate_targets
-            .get(entity)
-            .expect("Shouldn't have dirtied an entity that wasn't a target");
-
-        // Determine the path based on our parent.
-        let mut new_target = AnimationTarget::new();
-        if let Some(parent) = parent {
-            // Figure out the parent path. First, if we've already computed the path
-            // of the parent, just use that.
-            if let Some(parent_target) = new_targets.get(&parent.get()) {
-                new_target = parent_target.clone();
-            }
-
-            // Otherwise, if this is a root of a tree in the forest, we know the
-            // parent's `AnimationTarget` is up to date, so fetch that.
-            if new_target.path.is_empty() {
-                if let Ok((_, _, _, _, Some(parent_target))) = candidate_targets.get(parent.get()) {
-                    new_target = parent_target.clone();
-                }
-            }
-
-            // If we still didn't find an `AnimationTarget` for the parent, we could
-            // be an immediate child of an animation player. Handle that case.
-            if new_target.path.is_empty() {
-                if let Ok((_, _, _, name)) = players.get(parent.get()) {
-                    new_target = AnimationTarget {
-                        root: parent.get(),
-                        path: EntityPath::from(name.clone()),
-                    };
-                }
-            }
-        }
-
-        // If we still don't have an animation target after all that, we're part
-        // of a subtree that was once an animation target but got disconnected.
-        // Remove the `AnimationTarget` component entirely.
-        if new_target.path.is_empty() {
-            removed_targets.insert(entity);
-        } else {
-            // Push our own name onto the path and record it.
-            new_target.path.parts.push(name.clone());
-            new_targets.insert(entity, new_target);
-        }
-
-        // Enqueue children.
-        if let Some(kids) = kids {
-            worklist.extend(kids);
-        }
-    }
-
-    // Finally, update the `AnimationTarget` components.
-    for (entity, animation_target) in new_targets.drain() {
-        commands.entity(entity).insert(animation_target);
-    }
-    for entity in removed_targets.drain() {
-        commands.entity(entity).remove::<AnimationTarget>();
-    }
-}
-
 pub fn animation_player(
     time: Res<Time>,
     animation_clips: Res<Assets<AnimationClip>>,
@@ -681,7 +519,8 @@ pub fn animate_targets(
             let target = target_entity.get::<AnimationTarget>().unwrap();
             let Ok(player) = players.get(target.root) else {
                 error!(
-                    "Couldn't find the animation player for {:?}",
+                    "Couldn't find the animation player {:?} for {:?}",
+                    target.root,
                     target_entity.id()
                 );
                 return;
@@ -756,23 +595,13 @@ impl Plugin for AnimationPlugin {
         app.init_asset::<AnimationClip>()
             .register_asset_reflect::<AnimationClip>()
             .register_type::<AnimationPlayer>()
-            .add_systems(Update, update_animation_targets)
+            .register_type::<AnimationTarget>()
             .add_systems(
                 PostUpdate,
                 (animation_player, animate_targets)
                     .chain()
                     .before(TransformSystem::TransformPropagate),
             );
-    }
-}
-
-impl AnimationTarget {
-    // For private use in `update_animation_targets` only.
-    fn new() -> AnimationTarget {
-        AnimationTarget {
-            root: Entity::PLACEHOLDER,
-            path: EntityPath::new(),
-        }
     }
 }
 
@@ -791,22 +620,6 @@ fn update_animation(
     animation.update(delta, animation_clip.duration);
 }
 
-impl From<Name> for EntityPath {
-    fn from(value: Name) -> Self {
-        EntityPath { parts: vec![value] }
-    }
-}
-
-impl EntityPath {
-    fn new() -> EntityPath {
-        EntityPath { parts: vec![] }
-    }
-
-    fn is_empty(&self) -> bool {
-        self.parts.is_empty()
-    }
-}
-
 impl PlayingAnimation {
     fn apply(&self, clips: &Assets<AnimationClip>, weight: f32, target_entity: &mut EntityMut) {
         let target = target_entity.get::<AnimationTarget>().unwrap();
@@ -819,13 +632,7 @@ impl PlayingAnimation {
             return;
         };
 
-        // Extract the bone ID. If this bone isn't being animated, bail.
-        let Some(bone_id) = clip.paths.get(&target.path) else {
-            return;
-        };
-
-        let Some(curves) = clip.get_curves(*bone_id) else {
-            error!("Couldn't find the curves for bone {:?}", target.path);
+        let Some(curves) = clip.get_curves(target.id) else {
             return;
         };
 
@@ -1082,6 +889,22 @@ impl PlayingAnimation {
                 lerp_morph_weights(morphs.weights_mut(), result, weight);
             }
         }
+    }
+}
+
+impl AnimationTargetId {
+    pub fn from_names(names: &[Name]) -> AnimationTargetId {
+        let mut sha1 = Sha1::new();
+        sha1.update(ANIMATION_TARGET_NAMESPACE.as_bytes());
+        names.iter().for_each(|name| sha1.update(name.as_bytes()));
+        let hash = sha1.digest().bytes()[0..16].try_into().unwrap();
+        AnimationTargetId(*uuid::Builder::from_sha1_bytes(hash).as_uuid())
+    }
+}
+
+impl MapEntities for AnimationTarget {
+    fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
+        self.root = entity_mapper.map_entity(self.root);
     }
 }
 

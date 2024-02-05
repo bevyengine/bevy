@@ -3,6 +3,7 @@
 use std::f32::consts::PI;
 
 use bevy::prelude::*;
+use bevy_internal::animation::{AnimationTarget, AnimationTargetId};
 
 fn main() {
     App::new()
@@ -36,9 +37,7 @@ fn setup(
     let mut animation = AnimationClip::default();
     // A curve can modify a single part of a transform, here the translation
     animation.add_curve_to_path(
-        EntityPath {
-            parts: vec![planet.clone()],
-        },
+        AnimationTargetId::from_names(&[planet.clone()]),
         VariableCurve {
             keyframe_timestamps: vec![0.0, 1.0, 2.0, 3.0, 4.0],
             keyframes: Keyframes::Translation(vec![
@@ -56,10 +55,10 @@ fn setup(
     // Or it can modify the rotation of the transform.
     // To find the entity to modify, the hierarchy will be traversed looking for
     // an entity with the right name at each level
+    let orbit_controller_animation_target_id =
+        AnimationTargetId::from_names(&[planet.clone(), orbit_controller.clone()]);
     animation.add_curve_to_path(
-        EntityPath {
-            parts: vec![planet.clone(), orbit_controller.clone()],
-        },
+        orbit_controller_animation_target_id,
         VariableCurve {
             keyframe_timestamps: vec![0.0, 1.0, 2.0, 3.0, 4.0],
             keyframes: Keyframes::Rotation(vec![
@@ -75,10 +74,13 @@ fn setup(
     // If a curve in an animation is shorter than the other, it will not repeat
     // until all other curves are finished. In that case, another animation should
     // be created for each part that would have a different duration / period
+    let satellite_animation_target_id = AnimationTargetId::from_names(&[
+        planet.clone(),
+        orbit_controller.clone(),
+        satellite.clone(),
+    ]);
     animation.add_curve_to_path(
-        EntityPath {
-            parts: vec![planet.clone(), orbit_controller.clone(), satellite.clone()],
-        },
+        satellite_animation_target_id,
         VariableCurve {
             keyframe_timestamps: vec![0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0],
             keyframes: Keyframes::Scale(vec![
@@ -97,9 +99,11 @@ fn setup(
     );
     // There can be more than one curve targeting the same entity path
     animation.add_curve_to_path(
-        EntityPath {
-            parts: vec![planet.clone(), orbit_controller.clone(), satellite.clone()],
-        },
+        AnimationTargetId::from_names(&[
+            planet.clone(),
+            orbit_controller.clone(),
+            satellite.clone(),
+        ]),
         VariableCurve {
             keyframe_timestamps: vec![0.0, 1.0, 2.0, 3.0, 4.0],
             keyframes: Keyframes::Rotation(vec![
@@ -119,7 +123,7 @@ fn setup(
 
     // Create the scene that will be animated
     // First entity is the planet
-    commands
+    let planet_entity = commands
         .spawn((
             PbrBundle {
                 mesh: meshes.add(Mesh::try_from(shape::Icosphere::default()).unwrap()),
@@ -130,25 +134,34 @@ fn setup(
             planet,
             player,
         ))
+        .id();
+    commands.entity(planet_entity).with_children(|p| {
+        // This entity is just used for animation, but doesn't display anything
+        p.spawn((
+            SpatialBundle::INHERITED_IDENTITY,
+            // Add the Name component
+            orbit_controller,
+            AnimationTarget {
+                id: orbit_controller_animation_target_id,
+                root: planet_entity,
+            },
+        ))
         .with_children(|p| {
-            // This entity is just used for animation, but doesn't display anything
+            // The satellite, placed at a distance of the planet
             p.spawn((
-                SpatialBundle::INHERITED_IDENTITY,
+                PbrBundle {
+                    transform: Transform::from_xyz(1.5, 0.0, 0.0),
+                    mesh: meshes.add(shape::Cube { size: 0.5 }),
+                    material: materials.add(Color::rgb(0.3, 0.9, 0.3)),
+                    ..default()
+                },
                 // Add the Name component
-                orbit_controller,
-            ))
-            .with_children(|p| {
-                // The satellite, placed at a distance of the planet
-                p.spawn((
-                    PbrBundle {
-                        transform: Transform::from_xyz(1.5, 0.0, 0.0),
-                        mesh: meshes.add(shape::Cube { size: 0.5 }),
-                        material: materials.add(Color::rgb(0.3, 0.9, 0.3)),
-                        ..default()
-                    },
-                    // Add the Name component
-                    satellite,
-                ));
-            });
+                satellite,
+                AnimationTarget {
+                    id: satellite_animation_target_id,
+                    root: planet_entity,
+                },
+            ));
         });
+    });
 }
