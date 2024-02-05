@@ -11,7 +11,7 @@ use crate::{
 };
 
 use bevy_utils::all_tuples;
-use std::{any::TypeId, borrow::Cow, marker::PhantomData};
+use std::{borrow::Cow, marker::PhantomData};
 
 /// A function system that runs with exclusive [`World`] access.
 ///
@@ -63,11 +63,6 @@ where
     #[inline]
     fn name(&self) -> Cow<'static, str> {
         self.system_meta.name.clone()
-    }
-
-    #[inline]
-    fn type_id(&self) -> TypeId {
-        TypeId::of::<F>()
     }
 
     #[inline]
