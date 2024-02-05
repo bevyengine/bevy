@@ -1620,7 +1620,7 @@ impl From<Color> for BackgroundColor {
 
 /// The calculated opacity of the node after handling parent's opacity
 ///
-/// Based off of BackgroundColor's alpha field
+/// Based off of `BackgroundColor`'s alpha field
 #[derive(Component, Copy, Clone, Debug, Reflect)]
 #[reflect(Component, Default)]
 #[cfg_attr(
@@ -1647,7 +1647,7 @@ impl Mul<f32> for &Opacity {
 
 /// The calculated opacity of the node after handling parent's opacity
 ///
-/// Based off of BackgroundColor's alpha field
+/// Based off of `BackgroundColor`'s alpha field
 #[derive(Component, Copy, Clone, Debug, Reflect)]
 #[reflect(Component, Default)]
 #[cfg_attr(
