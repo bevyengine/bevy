@@ -8,7 +8,7 @@ struct LightProbeQueryResult {
     // arrays.
     texture_index: i32,
     // A scale factor that's applied to the diffuse and specular light from the
-    // light probe.
+    // light probe. This is in units of cd/m² (candela per square meter).
     intensity: f32,
     // Transform from world space to the light probe model space. In light probe
     // model space, the light probe is a 1×1×1 cube centered on the origin.

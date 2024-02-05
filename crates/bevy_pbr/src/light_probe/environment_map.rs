@@ -172,7 +172,7 @@ pub struct EnvironmentMapViewLightProbeInfo {
     /// The smallest mip level of the specular cubemap.
     pub(crate) smallest_specular_mip_level: u32,
     /// The scale factor applied to the diffuse and specular light in the
-    /// cubemap.
+    /// cubemap. This is in units of cd/m² (candela per square meter).
     pub(crate) intensity: f32,
 }
 

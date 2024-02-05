@@ -6,6 +6,8 @@ struct VoxelVisualizationIrradianceVolumeInfo {
     transform: mat4x4<f32>,
     inverse_transform: mat4x4<f32>,
     resolution: vec3<u32>,
+    // A scale factor that's applied to the diffuse and specular light from the
+    // light probe. This is in units of cd/m² (candela per square meter).
     intensity: f32,
 }
 
