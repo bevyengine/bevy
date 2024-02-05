@@ -43,8 +43,8 @@ impl Plugin for WindowRenderPlugin {
                 .init_resource::<ExtractedWindows>()
                 .init_resource::<WindowSurfaces>()
                 .add_systems(ExtractSchedule, extract_windows)
-                .add_systems(Render, prepare_windows.in_set(RenderSet::PrepareAssets))
-                .add_systems(Render, create_surfaces.in_set(RenderSet::ManageViews));
+                .add_systems(Render, create_surfaces.in_set(RenderSet::PrepareAssets))
+                .add_systems(Render, prepare_windows.in_set(RenderSet::ManageViews));
         }
     }
 
