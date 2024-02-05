@@ -219,7 +219,7 @@ fn outline_roots(
     let mut draw = InsetGizmo::new(draw, cam.debug_camera, line_width);
     for (entity, trans, node, view_visibility, maybe_target_camera) in &roots {
         if let Some(view_visibility) = view_visibility {
-            // If the entity isn't visible, we will not drawn any lines.
+            // If the entity isn't visible, we will not draw any lines.
             if !view_visibility.get() {
                 continue;
             }
