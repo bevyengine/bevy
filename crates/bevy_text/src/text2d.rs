@@ -1,6 +1,6 @@
 use crate::{
-    BreakLineOn, Font, FontAtlasSets, FontAtlasWarning, PositionedGlyph, Text, TextError,
-    TextLayoutInfo, TextPipeline, TextSettings, YAxisOrientation,
+    BreakLineOn, Font, FontAtlasSets, PositionedGlyph, Text, TextError, TextLayoutInfo,
+    TextPipeline, TextSettings, YAxisOrientation,
 };
 use bevy_asset::Assets;
 use bevy_ecs::{
@@ -163,7 +163,6 @@ pub fn update_text2d_layout(
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
     text_settings: Res<TextSettings>,
-    mut font_atlas_warning: ResMut<FontAtlasWarning>,
     windows: Query<&Window, With<PrimaryWindow>>,
     mut scale_factor_changed: EventReader<WindowScaleFactorChanged>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
@@ -203,7 +202,6 @@ pub fn update_text2d_layout(
                 &mut texture_atlases,
                 &mut textures,
                 text_settings.as_ref(),
-                &mut font_atlas_warning,
                 YAxisOrientation::BottomToTop,
             ) {
                 Err(TextError::NoSuchFont) => {
