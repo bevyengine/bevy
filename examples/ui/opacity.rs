@@ -15,13 +15,21 @@ fn setup(mut commands: Commands) {
 
     // root node
     commands.spawn(root()).with_children(|parent| {
-        parent.spawn(holder(0.5)).with_children(|parent| {
-            parent.spawn(text("Test"));
-            parent.spawn(bar(Color::RED));
-        });
         parent.spawn(holder(1.0)).with_children(|parent| {
-            parent.spawn(text("Test 2"));
+            parent.spawn(text("Fully Opaque"));
             parent.spawn(bar(Color::GREEN));
+        });
+        parent.spawn(holder(0.5)).with_children(|parent| {
+            parent.spawn(text("Half Opaque"));
+            parent.spawn(bar(Color::RED));
+            parent.spawn(holder(1.0)).with_children(|parent| {
+                parent.spawn(text("Half Opaque"));
+                parent.spawn(bar(Color::PURPLE));
+            });
+            parent.spawn(holder(0.5)).with_children(|parent| {
+                parent.spawn(text("Quarter Opaque"));
+                parent.spawn(bar(Color::BLUE));
+            });
         });
     });
 }
@@ -32,6 +40,7 @@ fn root() -> impl Bundle {
             style: Style {
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
+                flex_direction: FlexDirection::Column,
                 justify_content: JustifyContent::Center,
                 ..default()
             },

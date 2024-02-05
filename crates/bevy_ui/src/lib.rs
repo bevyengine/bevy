@@ -251,7 +251,12 @@ pub fn recalculate_opacity(
             1.0 // no parent
         };
 
-        set_opacity_recursive(inherited_opacity, entity, &mut opacity_query, &children_query);
+        set_opacity_recursive(
+            inherited_opacity,
+            entity,
+            &mut opacity_query,
+            &children_query,
+        );
     }
 }
 
