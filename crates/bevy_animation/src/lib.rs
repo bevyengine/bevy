@@ -490,37 +490,57 @@ pub fn update_animation_targets(
     candidate_targets: Query<
         (
             Entity,
-            &Parent,
+            Option<&Parent>,
             Option<&Children>,
             &Name,
             Option<&AnimationTarget>,
         ),
-        (Or<(With<Parent>, With<Children>)>, Without<AnimationPlayer>),
+        Without<AnimationPlayer>,
     >,
     players: Query<(
         Entity,
-        &mut AnimationPlayer,
+        Ref<AnimationPlayer>,
         Option<Ref<Children>>,
         Ref<Name>,
     )>,
-    changed_targets: Query<Entity, (With<AnimationTarget>, Or<(Changed<Parent>, Changed<Name>)>)>,
-    mut removed_entities: RemovedComponents<Parent>,
+    changed_targets: Query<Entity, Or<(Changed<Parent>, Changed<Name>)>>,
+    mut entities_with_removed_parents: RemovedComponents<Parent>,
+    mut entities_with_removed_names: RemovedComponents<Name>,
 ) {
-    // Get ready to mark all dirty entities. Start with all targets that moved
-    // in the tree (changed `Parent`). Also, if the player itself was renamed,
-    // invalidate all its children.
+    // Mark the roots of all dirty subtrees.
     //
-    // TODO: Make this a Local.
-    let mut worklist: Vec<Entity> = changed_targets.iter().collect();
-    worklist.extend(
-        removed_entities
-            .read()
-            .filter(|&entity| candidate_targets.contains(entity)),
-    );
-    for (_, _, kids, name) in players.iter() {
-        if let Some(kids) = kids {
-            if name.is_changed() {
-                worklist.extend(kids.iter().map(|kid| *kid));
+    // TODO: Make this a `Local`.
+    let mut worklist: Vec<Entity> = vec![];
+
+    // If an entity was renamed or moved in the tree (changed `Parent`), it's
+    // dirty if its new parent is either an animation target or an animation
+    // player.
+    for entity in changed_targets.iter() {
+        if candidate_targets.get(entity).is_ok_and(|(_, maybe_parent, _, _, _)| {
+            maybe_parent.is_some_and(|parent| {
+                candidate_targets.get(parent.get()).is_ok_and(|(_, _, _, _, target)| {
+                    target.is_some() || players.contains(entity)
+                })
+            })
+        }) {
+            worklist.push(entity);
+        }
+    }
+
+    // If an entity was removed from the tree (removed `Parent`), or had its
+    // name removed and was previously an animation target, it's dirty.
+    for entity in entities_with_removed_parents.read().chain(entities_with_removed_names.read()) {
+        if candidate_targets.get(entity).is_ok_and(|(_, _, _, _, target)| target.is_some()) {
+            worklist.push(entity);
+        }
+    }
+
+    // If an animation player was just added to the tree or changed names, all
+    // its children are dirty.
+    for (_, player, maybe_kids, name) in players.iter() {
+        if player.is_added() || name.is_changed() {
+            if let Some(kids) = maybe_kids {
+                worklist.extend(kids.iter());
             }
         }
     }
@@ -545,7 +565,9 @@ pub fn update_animation_targets(
             // Do we have a clean parent? If so, we're a root.
             !candidate_targets
                 .get(entity)
-                .is_ok_and(|(_, parent, _, _, _)| dirty_entities.contains(&parent.get()))
+                .is_ok_and(|(_, parent, _, _, _)| {
+                    parent.is_some_and(|parent| dirty_entities.contains(&parent.get()))
+                })
         })
         .cloned()
         .collect();
@@ -558,29 +580,32 @@ pub fn update_animation_targets(
             .get(entity)
             .expect("Shouldn't have dirtied an entity that wasn't a target");
 
-        // Figure out the parent path. First, if we've already computed the path
-        // of the parent, just use that.
+        // Determine the path based on our parent.
         let mut new_target = AnimationTarget::new();
-        if let Some(parent_target) = new_targets.get(&parent.get()) {
-            new_target = parent_target.clone();
-        }
-
-        // Otherwise, if this is a root of a tree in the forest, we know the
-        // parent's `AnimationTarget` is up to date, so fetch that.
-        if new_target.path.is_empty() {
-            if let Ok((_, _, _, _, Some(parent_target))) = candidate_targets.get(parent.get()) {
+        if let Some(parent) = parent {
+            // Figure out the parent path. First, if we've already computed the path
+            // of the parent, just use that.
+            if let Some(parent_target) = new_targets.get(&parent.get()) {
                 new_target = parent_target.clone();
             }
-        }
 
-        // If we still didn't find an `AnimationTarget` for the parent, we could
-        // be an immediate child of an animation player. Handle that case.
-        if new_target.path.is_empty() {
-            if let Ok((_, _, _, name)) = players.get(parent.get()) {
-                new_target = AnimationTarget {
-                    root: parent.get(),
-                    path: EntityPath::from(name.clone()),
-                };
+            // Otherwise, if this is a root of a tree in the forest, we know the
+            // parent's `AnimationTarget` is up to date, so fetch that.
+            if new_target.path.is_empty() {
+                if let Ok((_, _, _, _, Some(parent_target))) = candidate_targets.get(parent.get()) {
+                    new_target = parent_target.clone();
+                }
+            }
+
+            // If we still didn't find an `AnimationTarget` for the parent, we could
+            // be an immediate child of an animation player. Handle that case.
+            if new_target.path.is_empty() {
+                if let Ok((_, _, _, name)) = players.get(parent.get()) {
+                    new_target = AnimationTarget {
+                        root: parent.get(),
+                        path: EntityPath::from(name.clone()),
+                    };
+                }
             }
         }
 
