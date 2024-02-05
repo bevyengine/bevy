@@ -260,9 +260,7 @@ async fn load_gltf<'a, 'b, 'c>(
                 if let Some((root_index, path)) = paths.get(&node.index()) {
                     animation_roots.insert(root_index);
                     animation_clip.add_curve_to_path(
-                        bevy_animation::EntityPath {
-                            parts: path.clone(),
-                        },
+                        bevy_animation::EntityPath::from_names(&path),
                         bevy_animation::VariableCurve {
                             keyframe_timestamps,
                             keyframes,

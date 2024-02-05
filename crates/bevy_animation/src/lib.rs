@@ -1,6 +1,7 @@
 //! Animation for the game engine Bevy
 
 mod animatable;
+mod entity_path;
 mod util;
 
 use std::ops::{Add, Deref, Mul};
@@ -16,16 +17,19 @@ use bevy_reflect::Reflect;
 use bevy_render::mesh::morph::MorphWeights;
 use bevy_time::Time;
 use bevy_transform::{prelude::Transform, TransformSystem};
+use bevy_utils::smallvec::SmallVec;
 use bevy_utils::{tracing::warn, HashMap};
 
 #[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        animatable::*, AnimationClip, AnimationPlayer, AnimationPlugin, EntityPath, Interpolation,
-        Keyframes, VariableCurve,
+        animatable::*, entity_path::*, AnimationClip, AnimationPlayer, AnimationPlugin,
+        Interpolation, Keyframes, VariableCurve,
     };
 }
+
+pub use crate::entity_path::EntityPath;
 
 /// List of keyframes for one of the attribute of a [`Transform`].
 #[derive(Reflect, Clone, Debug)]
@@ -138,13 +142,6 @@ pub enum Interpolation {
     CubicSpline,
 }
 
-/// Path to an entity, with [`Name`]s. Each entity in a path must have a name.
-#[derive(Reflect, Clone, Debug, Hash, PartialEq, Eq, Default)]
-pub struct EntityPath {
-    /// Parts of the path
-    pub parts: Vec<Name>,
-}
-
 /// A list of [`VariableCurve`], and the [`EntityPath`] to which they apply.
 #[derive(Asset, Reflect, Clone, Debug, Default)]
 pub struct AnimationClip {
@@ -199,7 +196,7 @@ impl AnimationClip {
 
     /// Whether this animation clip can run on entity with given [`Name`].
     pub fn compatible_with(&self, name: &Name) -> bool {
-        self.paths.keys().any(|path| &path.parts[0] == name)
+        self.paths.keys().any(|path| &path.root() == &name)
     }
 }
 
@@ -488,9 +485,10 @@ fn entity_from_path(
 ) -> Option<Entity> {
     // PERF: finding the target entity can be optimised
     let mut current_entity = root;
-    path_cache.resize(path.parts.len(), None);
+    path_cache.resize(path.len(), None);
 
-    let mut parts = path.parts.iter().enumerate();
+    let parts_vec: SmallVec<[&Name; 8]> = path.iter().map(|path| path.name()).collect();
+    let mut parts = parts_vec.iter().rev().enumerate();
 
     // check the first name is the root node which we already have
     let Some((_, root_name)) = parts.next() else {
@@ -506,7 +504,7 @@ fn entity_from_path(
         if let Some(cached) = path_cache[idx] {
             if children.contains(&cached) {
                 if let Ok(name) = names.get(cached) {
-                    if name == part {
+                    if name == *part {
                         current_entity = cached;
                         found = true;
                     }
@@ -516,7 +514,7 @@ fn entity_from_path(
         if !found {
             for child in children.deref() {
                 if let Ok(name) = names.get(*child) {
-                    if name == part {
+                    if name == *part {
                         // Found a children with the right name, continue to the next part
                         current_entity = *child;
                         path_cache[idx] = Some(*child);

@@ -36,9 +36,7 @@ fn setup(
     let mut animation = AnimationClip::default();
     // A curve can modify a single part of a transform, here the translation
     animation.add_curve_to_path(
-        EntityPath {
-            parts: vec![planet.clone()],
-        },
+        EntityPath::from_name(planet.clone()),
         VariableCurve {
             keyframe_timestamps: vec![0.0, 1.0, 2.0, 3.0, 4.0],
             keyframes: Keyframes::Translation(vec![
@@ -57,9 +55,7 @@ fn setup(
     // To find the entity to modify, the hierarchy will be traversed looking for
     // an entity with the right name at each level
     animation.add_curve_to_path(
-        EntityPath {
-            parts: vec![planet.clone(), orbit_controller.clone()],
-        },
+        EntityPath::from_names(&[planet.clone(), orbit_controller.clone()]),
         VariableCurve {
             keyframe_timestamps: vec![0.0, 1.0, 2.0, 3.0, 4.0],
             keyframes: Keyframes::Rotation(vec![
@@ -76,9 +72,7 @@ fn setup(
     // until all other curves are finished. In that case, another animation should
     // be created for each part that would have a different duration / period
     animation.add_curve_to_path(
-        EntityPath {
-            parts: vec![planet.clone(), orbit_controller.clone(), satellite.clone()],
-        },
+        EntityPath::from_names(&[planet.clone(), orbit_controller.clone(), satellite.clone()]),
         VariableCurve {
             keyframe_timestamps: vec![0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0],
             keyframes: Keyframes::Scale(vec![
@@ -97,9 +91,7 @@ fn setup(
     );
     // There can be more than one curve targeting the same entity path
     animation.add_curve_to_path(
-        EntityPath {
-            parts: vec![planet.clone(), orbit_controller.clone(), satellite.clone()],
-        },
+        EntityPath::from_names(&[planet.clone(), orbit_controller.clone(), satellite.clone()]),
         VariableCurve {
             keyframe_timestamps: vec![0.0, 1.0, 2.0, 3.0, 4.0],
             keyframes: Keyframes::Rotation(vec![
