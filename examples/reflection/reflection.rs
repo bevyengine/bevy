@@ -49,7 +49,7 @@ pub struct Bar {
 }
 
 #[derive(Default)]
-pub struct NonReflectedValue {
+struct NonReflectedValue {
     _a: usize,
 }
 

@@ -18,7 +18,12 @@ use crate::{
 pub(super) trait SystemExecutor: Send + Sync {
     fn kind(&self) -> ExecutorKind;
     fn init(&mut self, schedule: &SystemSchedule);
-    fn run(&mut self, schedule: &mut SystemSchedule, world: &mut World);
+    fn run(
+        &mut self,
+        schedule: &mut SystemSchedule,
+        skip_systems: Option<FixedBitSet>,
+        world: &mut World,
+    );
     fn set_apply_final_deferred(&mut self, value: bool);
 }
 

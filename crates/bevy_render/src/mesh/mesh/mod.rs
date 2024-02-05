@@ -129,11 +129,15 @@ pub struct Mesh {
 impl Mesh {
     /// Where the vertex is located in space. Use in conjunction with [`Mesh::insert_attribute`]
     /// or [`Mesh::with_inserted_attribute`].
+    ///
+    /// The format of this attribute is [`VertexFormat::Float32x3`].
     pub const ATTRIBUTE_POSITION: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_Position", 0, VertexFormat::Float32x3);
 
     /// The direction the vertex normal is facing in.
     /// Use in conjunction with [`Mesh::insert_attribute`] or [`Mesh::with_inserted_attribute`].
+    ///
+    /// The format of this attribute is [`VertexFormat::Float32x3`].
     pub const ATTRIBUTE_NORMAL: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_Normal", 1, VertexFormat::Float32x3);
 
@@ -149,6 +153,8 @@ impl Mesh {
     ///
     /// For different mapping outside of `0..=1` range,
     /// see [`ImageAddressMode`](crate::texture::ImageAddressMode).
+    ///
+    /// The format of this attribute is [`VertexFormat::Float32x2`].
     pub const ATTRIBUTE_UV_0: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_Uv", 2, VertexFormat::Float32x2);
 
@@ -157,27 +163,37 @@ impl Mesh {
     ///
     /// Typically, these are used for lightmaps, textures that provide
     /// precomputed illumination.
+    ///
+    /// The format of this attribute is [`VertexFormat::Float32x2`].
     pub const ATTRIBUTE_UV_1: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_Uv_1", 3, VertexFormat::Float32x2);
 
     /// The direction of the vertex tangent. Used for normal mapping.
     /// Usually generated with [`generate_tangents`](Mesh::generate_tangents) or
     /// [`with_generated_tangents`](Mesh::with_generated_tangents).
+    ///
+    /// The format of this attribute is [`VertexFormat::Float32x4`].
     pub const ATTRIBUTE_TANGENT: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_Tangent", 4, VertexFormat::Float32x4);
 
     /// Per vertex coloring. Use in conjunction with [`Mesh::insert_attribute`]
     /// or [`Mesh::with_inserted_attribute`].
+    ///
+    /// The format of this attribute is [`VertexFormat::Float32x4`].
     pub const ATTRIBUTE_COLOR: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_Color", 5, VertexFormat::Float32x4);
 
     /// Per vertex joint transform matrix weight. Use in conjunction with [`Mesh::insert_attribute`]
     /// or [`Mesh::with_inserted_attribute`].
+    ///
+    /// The format of this attribute is [`VertexFormat::Float32x4`].
     pub const ATTRIBUTE_JOINT_WEIGHT: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_JointWeight", 6, VertexFormat::Float32x4);
 
     /// Per vertex joint transform matrix index. Use in conjunction with [`Mesh::insert_attribute`]
     /// or [`Mesh::with_inserted_attribute`].
+    ///
+    /// The format of this attribute is [`VertexFormat::Uint16x4`].
     pub const ATTRIBUTE_JOINT_INDEX: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_JointIndex", 7, VertexFormat::Uint16x4);
 
@@ -609,6 +625,120 @@ impl Mesh {
             tangents.iter_mut().for_each(|tangent| {
                 let scaled_tangent = Vec3::from_slice(tangent) * covector_scale;
                 *tangent = (transform.rotation * scaled_tangent.normalize_or_zero()).to_array();
+            });
+        }
+    }
+
+    /// Translates the vertex positions of the mesh by the given [`Vec3`].
+    pub fn translated_by(mut self, translation: Vec3) -> Self {
+        self.translate_by(translation);
+        self
+    }
+
+    /// Translates the vertex positions of the mesh in place by the given [`Vec3`].
+    pub fn translate_by(&mut self, translation: Vec3) {
+        if translation == Vec3::ZERO {
+            return;
+        }
+
+        if let Some(VertexAttributeValues::Float32x3(ref mut positions)) =
+            self.attribute_mut(Mesh::ATTRIBUTE_POSITION)
+        {
+            // Apply translation to vertex positions
+            positions
+                .iter_mut()
+                .for_each(|pos| *pos = (Vec3::from_slice(pos) + translation).to_array());
+        }
+    }
+
+    /// Rotates the vertex positions, normals, and tangents of the mesh by the given [`Quat`].
+    pub fn rotated_by(mut self, rotation: Quat) -> Self {
+        self.rotate_by(rotation);
+        self
+    }
+
+    /// Rotates the vertex positions, normals, and tangents of the mesh in place by the given [`Quat`].
+    pub fn rotate_by(&mut self, rotation: Quat) {
+        if let Some(VertexAttributeValues::Float32x3(ref mut positions)) =
+            self.attribute_mut(Mesh::ATTRIBUTE_POSITION)
+        {
+            // Apply rotation to vertex positions
+            positions
+                .iter_mut()
+                .for_each(|pos| *pos = (rotation * Vec3::from_slice(pos)).to_array());
+        }
+
+        // No need to transform normals or tangents if rotation is near identity
+        if rotation.is_near_identity() {
+            return;
+        }
+
+        if let Some(VertexAttributeValues::Float32x3(ref mut normals)) =
+            self.attribute_mut(Mesh::ATTRIBUTE_NORMAL)
+        {
+            // Transform normals
+            normals.iter_mut().for_each(|normal| {
+                *normal = (rotation * Vec3::from_slice(normal).normalize_or_zero()).to_array();
+            });
+        }
+
+        if let Some(VertexAttributeValues::Float32x3(ref mut tangents)) =
+            self.attribute_mut(Mesh::ATTRIBUTE_TANGENT)
+        {
+            // Transform tangents
+            tangents.iter_mut().for_each(|tangent| {
+                *tangent = (rotation * Vec3::from_slice(tangent).normalize_or_zero()).to_array();
+            });
+        }
+    }
+
+    /// Scales the vertex positions, normals, and tangents of the mesh by the given [`Vec3`].
+    pub fn scaled_by(mut self, scale: Vec3) -> Self {
+        self.scale_by(scale);
+        self
+    }
+
+    /// Scales the vertex positions, normals, and tangents of the mesh in place by the given [`Vec3`].
+    pub fn scale_by(&mut self, scale: Vec3) {
+        // Needed when transforming normals and tangents
+        let covector_scale = scale.yzx() * scale.zxy();
+
+        debug_assert!(
+            covector_scale != Vec3::ZERO,
+            "mesh transform scale cannot be zero on more than one axis"
+        );
+
+        if let Some(VertexAttributeValues::Float32x3(ref mut positions)) =
+            self.attribute_mut(Mesh::ATTRIBUTE_POSITION)
+        {
+            // Apply scale to vertex positions
+            positions
+                .iter_mut()
+                .for_each(|pos| *pos = (scale * Vec3::from_slice(pos)).to_array());
+        }
+
+        // No need to transform normals or tangents if scale is uniform
+        if scale.x == scale.y && scale.y == scale.z {
+            return;
+        }
+
+        if let Some(VertexAttributeValues::Float32x3(ref mut normals)) =
+            self.attribute_mut(Mesh::ATTRIBUTE_NORMAL)
+        {
+            // Transform normals, taking into account non-uniform scaling
+            normals.iter_mut().for_each(|normal| {
+                let scaled_normal = Vec3::from_slice(normal) * covector_scale;
+                *normal = scaled_normal.normalize_or_zero().to_array();
+            });
+        }
+
+        if let Some(VertexAttributeValues::Float32x3(ref mut tangents)) =
+            self.attribute_mut(Mesh::ATTRIBUTE_TANGENT)
+        {
+            // Transform tangents, taking into account non-uniform scaling
+            tangents.iter_mut().for_each(|tangent| {
+                let scaled_tangent = Vec3::from_slice(tangent) * covector_scale;
+                *tangent = scaled_tangent.normalize_or_zero().to_array();
             });
         }
     }

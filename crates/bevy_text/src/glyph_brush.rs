@@ -136,7 +136,9 @@ impl GlyphBrush {
                     }
                 };
 
-                let position = adjust.position(Vec2::new(x, y));
+                // We must offset by 1 to account for glyph texture padding.
+                // See https://github.com/bevyengine/bevy/pull/11662
+                let position = adjust.position(Vec2::new(x, y) - 1.);
 
                 positioned_glyphs.push(PositionedGlyph {
                     position,

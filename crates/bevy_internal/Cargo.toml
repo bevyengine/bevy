@@ -156,6 +156,12 @@ file_watcher = ["bevy_asset?/file_watcher"]
 # Enables watching embedded files for Bevy Asset hot-reloading
 embedded_watcher = ["bevy_asset?/embedded_watcher"]
 
+# Enable system stepping support
+bevy_debug_stepping = [
+  "bevy_ecs/bevy_debug_stepping",
+  "bevy_app/bevy_debug_stepping",
+]
+
 [dependencies]
 # bevy
 bevy_a11y = { path = "../bevy_a11y", version = "0.12.0" }

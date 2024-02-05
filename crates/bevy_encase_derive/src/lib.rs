@@ -1,3 +1,6 @@
+// FIXME(3492): remove once docs are ready
+#![allow(missing_docs)]
+
 use bevy_macro_utils::BevyManifest;
 use encase_derive_impl::{implement, syn};
 
