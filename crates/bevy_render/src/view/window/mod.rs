@@ -7,6 +7,7 @@ use crate::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
+use bevy_core::NonSendMarker;
 use bevy_ecs::prelude::*;
 use bevy_utils::{default, tracing::debug, EntityHashMap, HashSet};
 use bevy_window::{
@@ -27,10 +28,6 @@ use screenshot::{
 };
 
 use super::Msaa;
-
-/// Token to ensure a system runs on the main thread.
-#[derive(Resource, Default)]
-pub struct NonSendMarker;
 
 pub struct WindowRenderPlugin;
 
