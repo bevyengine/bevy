@@ -103,7 +103,7 @@ impl PrimitiveState {
             .unwrap()
     }
 
-    fn last(self) -> Self {
+    fn previous(self) -> Self {
         Self::ALL
             .into_iter()
             .rev()
@@ -337,7 +337,7 @@ fn switch_to_last_primitive(
     current: Res<State<PrimitiveState>>,
     mut next: ResMut<NextState<PrimitiveState>>,
 ) {
-    let next_state = current.get().last();
+    let next_state = current.get().previous();
     next.set(next_state);
 }
 
