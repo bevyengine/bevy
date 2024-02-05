@@ -1,5 +1,5 @@
 //! A visual representation of UI node sizes.
-use std::any::Any;
+use std::any::{Any, TypeId};
 
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_core::Name;
@@ -90,8 +90,8 @@ fn update_debug_camera(
             return;
         };
         cam.is_active = false;
-        if let Some((config, _)) = gizmo_config.get_config_mut_dyn(&UiGizmosDebug.type_id()) {
-            config.render_layers = RenderLayers::all();
+        if let Some((config, _)) = gizmo_config.get_config_mut_dyn(&TypeId::of::<UiGizmosDebug>()) {
+            config.enabled = false;
         }
     } else {
         let spawn_cam = || {
@@ -115,7 +115,7 @@ fn update_debug_camera(
             ))
             .id()
         };
-        if let Some((config, _)) = gizmo_config.get_config_mut_dyn(&UiGizmosDebug.type_id()) {
+        if let Some((config, _)) = gizmo_config.get_config_mut_dyn(&TypeId::of::<UiGizmosDebug>()) {
             config.enabled = true;
             config.render_layers = LAYOUT_DEBUG_LAYERS;
         }
