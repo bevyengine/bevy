@@ -40,7 +40,7 @@ smallvec = "1.6"
 thread_local = "1.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-naga_oil = "0.12"
+naga_oil = "0.13"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # Omit the `glsl` feature in non-WebAssembly by default.
