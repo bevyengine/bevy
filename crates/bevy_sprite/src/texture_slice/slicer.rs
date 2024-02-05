@@ -200,10 +200,6 @@ impl TextureSlicer {
     ///
     /// * `rect` - The section of the texture to slice in 9 parts
     /// * `render_size` - The optional draw size of the texture. If not set the `rect` size will be used.
-    ///
-    /// # Panics
-    ///
-    /// Panics if any border values are bigger than `rect` half extents
     #[must_use]
     pub fn compute_slices(&self, rect: Rect, render_size: Option<Vec2>) -> Vec<TextureSlice> {
         let render_size = render_size.unwrap_or_else(|| rect.size());
