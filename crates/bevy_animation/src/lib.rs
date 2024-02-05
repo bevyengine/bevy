@@ -495,11 +495,7 @@ pub fn update_animation_targets(
             &Name,
             Option<&AnimationTarget>,
         ),
-        (
-            Or<(With<Parent>, With<Children>)>,
-            Or<(Changed<Parent>, Changed<Children>, Changed<Name>)>,
-            Without<AnimationPlayer>,
-        ),
+        (Or<(With<Parent>, With<Children>)>, Without<AnimationPlayer>),
     >,
     players: Query<(
         Entity,
@@ -507,16 +503,23 @@ pub fn update_animation_targets(
         Option<Ref<Children>>,
         Ref<Name>,
     )>,
+    changed_targets: Query<Entity, (With<AnimationTarget>, Or<(Changed<Parent>, Changed<Name>)>)>,
+    mut removed_entities: RemovedComponents<Parent>,
 ) {
-    // Get ready to mark all dirty entities. Start with all targets that were
-    // modified, as well as any children of animation players that were
-    // modified.
+    // Get ready to mark all dirty entities. Start with all targets that moved
+    // in the tree (changed `Parent`). Also, if the player itself was renamed,
+    // invalidate all its children.
     //
     // TODO: Make this a Local.
-    let mut worklist: Vec<Entity> = candidate_targets.iter().map(|row| row.0).collect();
+    let mut worklist: Vec<Entity> = changed_targets.iter().collect();
+    worklist.extend(
+        removed_entities
+            .read()
+            .filter(|&entity| candidate_targets.contains(entity)),
+    );
     for (_, _, kids, name) in players.iter() {
         if let Some(kids) = kids {
-            if name.is_changed() || kids.is_changed() {
+            if name.is_changed() {
                 worklist.extend(kids.iter().map(|kid| *kid));
             }
         }
@@ -539,6 +542,7 @@ pub fn update_animation_targets(
     worklist = dirty_entities
         .iter()
         .filter(|&&entity| {
+            // Do we have a clean parent? If so, we're a root.
             !candidate_targets
                 .get(entity)
                 .is_ok_and(|(_, parent, _, _, _)| dirty_entities.contains(&parent.get()))
@@ -548,6 +552,7 @@ pub fn update_animation_targets(
 
     // Compute new `AnimationTarget` components.
     let mut new_targets: EntityHashMap<Entity, AnimationTarget> = EntityHashMap::default();
+    let mut removed_targets: EntityHashSet<Entity> = EntityHashSet::default();
     while let Some(entity) = worklist.pop() {
         let (_, parent, kids, name, _) = candidate_targets
             .get(entity)
@@ -568,29 +573,27 @@ pub fn update_animation_targets(
             }
         }
 
-        // If we still didn't find an `AnimationTarget` for the parent, we must be an
-        // immediate child of an animation player. Handle that case.
+        // If we still didn't find an `AnimationTarget` for the parent, we could
+        // be an immediate child of an animation player. Handle that case.
         if new_target.path.is_empty() {
-            match players.get(parent.get()) {
-                Ok((_, _, _, name)) => {
-                    new_target = AnimationTarget {
-                        root: parent.get(),
-                        path: EntityPath::from(name.clone()),
-                    }
-                }
-                Err(_) => {
-                    error!(
-                        "Couldn't determine an appropriate path for {:?}. Is the tree malformed?",
-                        entity
-                    );
-                    break;
-                }
+            if let Ok((_, _, _, name)) = players.get(parent.get()) {
+                new_target = AnimationTarget {
+                    root: parent.get(),
+                    path: EntityPath::from(name.clone()),
+                };
             }
         }
 
-        // Push our own name onto the path and record it.
-        new_target.path.parts.push(name.clone());
-        new_targets.insert(entity, new_target);
+        // If we still don't have an animation target after all that, we're part
+        // of a subtree that was once an animation target but got disconnected.
+        // Remove the `AnimationTarget` component entirely.
+        if new_target.path.is_empty() {
+            removed_targets.insert(entity);
+        } else {
+            // Push our own name onto the path and record it.
+            new_target.path.parts.push(name.clone());
+            new_targets.insert(entity, new_target);
+        }
 
         // Enqueue children.
         if let Some(kids) = kids {
@@ -601,6 +604,9 @@ pub fn update_animation_targets(
     // Finally, update the `AnimationTarget` components.
     for (entity, animation_target) in new_targets.drain() {
         commands.entity(entity).insert(animation_target);
+    }
+    for entity in removed_targets.drain() {
+        commands.entity(entity).remove::<AnimationTarget>();
     }
 }
 
