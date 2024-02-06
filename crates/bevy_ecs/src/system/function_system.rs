@@ -697,11 +697,37 @@ mod tests {
 
     #[test]
     fn into_system_type_id_consistency() {
-        fn test_system() {}
+        fn test<T, In, Out, Marker>(function: T)
+        where
+            T: IntoSystem<In, Out, Marker> + Copy,
+        {
+            fn reference_system() {}
 
-        assert_eq!(
-            test_system.system_type_id(),
-            IntoSystem::into_system(test_system).type_id()
-        );
+            use std::any::TypeId;
+
+            let system = IntoSystem::into_system(function);
+
+            assert_eq!(
+                system.type_id(),
+                function.system_type_id(),
+                "System::type_id should be consistent with IntoSystem::system_type_id"
+            );
+
+            assert_eq!(
+                system.type_id(),
+                TypeId::of::<T::System>(),
+                "System::type_id should be consistent with TypeId::of::<T::System>()"
+            );
+
+            assert_ne!(
+                system.type_id(),
+                IntoSystem::into_system(reference_system).type_id(),
+                "Different systems should have different TypeIds"
+            );
+        }
+
+        fn function_system() {}
+
+        test(function_system);
     }
 }
