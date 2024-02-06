@@ -608,6 +608,16 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
             .extend(filtered_access_set.filtered_accesses);
     }
 
+    /// Marks the set as reading all T.
+    pub fn read_all(&mut self) {
+        self.combined_access.read_all();
+    }
+
+    /// Marks the set as writing all T.
+    pub fn write_all(&mut self) {
+        self.combined_access.write_all();
+    }
+
     /// Removes all accesses stored in this set.
     pub fn clear(&mut self) {
         self.combined_access.clear();

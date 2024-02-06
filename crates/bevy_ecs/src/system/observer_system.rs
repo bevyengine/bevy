@@ -33,8 +33,10 @@ unsafe impl<'w, T: Resource> ObserverSystemParam for Res<'w, T> {}
 /// # Safety: `ResMut` can make no structural changes
 unsafe impl<'w, T: Resource> ObserverSystemParam for ResMut<'w, T> {}
 
-/// # Safety: `Commands` can't make structural changes
+/// # Safety: `Commands` can make no structural changes
 unsafe impl<'w> ObserverSystemParam for Commands<'w, 'w> {}
+
+/// # Safety: `DeferredWorld` can make no structural changes
 
 impl<E: 'static, B: Bundle, Marker, F> ObserverSystem<E, B> for FunctionSystem<Marker, F>
 where
