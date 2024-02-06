@@ -265,11 +265,19 @@ fn setup_cameras(mut commands: Commands) {
     });
 }
 
+/// Marker component for header text
+#[derive(Debug, Clone, Component, Default, Reflect)]
+pub struct HeaderText;
+
+/// Marker component for header node
+#[derive(Debug, Clone, Component, Default, Reflect)]
+pub struct HeaderNode;
+
 fn update_active_cameras(
     state: Res<State<CameraActive>>,
     mut camera_2d: Query<(Entity, &mut Camera), With<Camera2d>>,
     mut camera_3d: Query<(Entity, &mut Camera), (With<Camera3d>, Without<Camera2d>)>,
-    mut text: Query<&mut TargetCamera, With<Header>>,
+    mut text: Query<&mut TargetCamera, With<HeaderNode>>,
 ) {
     let (entity_2d, mut cam_2d) = camera_2d.single_mut();
     let (entity_3d, mut cam_3d) = camera_3d.single_mut();
@@ -288,10 +296,6 @@ fn update_active_cameras(
         *target_camera = TargetCamera(active_camera);
     });
 }
-
-/// Marker component for header text
-#[derive(Debug, Clone, Component, Default, Reflect)]
-pub struct Header;
 
 fn switch_cameras(current: Res<State<CameraActive>>, mut next: ResMut<NextState<CameraActive>>) {
     let next_state = match current.get() {
@@ -319,7 +323,7 @@ fn setup_text(
         color: Color::WHITE,
     };
     let instructions = "Press 'C' to switch between 2D and 3D mode\n\
-        Press 'Up' or 'Down' to switch to the next/last primitive";
+        Press 'Up' or 'Down' to switch to the next/previous primitive";
     let text = [
         TextSection::new("Primitive: ", style.clone()),
         TextSection::new(text, style.clone()),
@@ -327,14 +331,14 @@ fn setup_text(
         TextSection::new(instructions, style.clone()),
         TextSection::new("\n\n", style.clone()),
         TextSection::new(
-            "(If nothing is displayed, there's not rendering support yet)",
+            "(If nothing is displayed, there's no rendering support yet)",
             style.clone(),
         ),
     ];
 
     commands
         .spawn((
-            Header,
+            HeaderNode,
             NodeBundle {
                 style: Style {
                     justify_self: JustifySelf::Center,
@@ -346,13 +350,16 @@ fn setup_text(
             TargetCamera(active_camera),
         ))
         .with_children(|parent| {
-            parent.spawn((TextBundle::from_sections(text).with_text_justify(JustifyText::Center),));
+            parent.spawn((
+                HeaderText,
+                TextBundle::from_sections(text).with_text_justify(JustifyText::Center),
+            ));
         });
 }
 
 fn update_text(
     primitive_state: Res<State<PrimitiveSelected>>,
-    mut header: Query<&mut Text, With<Header>>,
+    mut header: Query<&mut Text, With<HeaderText>>,
 ) {
     let new_text = format!("{text}", text = primitive_state.get());
     header.iter_mut().for_each(|mut header_text| {
