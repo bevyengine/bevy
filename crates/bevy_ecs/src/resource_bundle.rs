@@ -30,8 +30,8 @@ pub trait ResourceBundle {
 
 /// This isn't public and part of the [`ResourceBundle`] trait because [`BundleAccessTable`] shouldn't be public.
 trait AccessConflictTracker {
-    /// The [`access table`](BundleAccessTable) that tracks for access conflicts with a bundled type.
-    fn access_table() -> BundleAccessTable;
+    /// Merge the internal [`access table`](BundleAccessTable) with some external one.
+    fn merge_with(other: &mut BundleAccessTable);
     /// Return `true` if there is conflicting access within the bundle. For example, two mutable references
     /// to the same resource.
     fn contains_conflicting_access() -> bool {
@@ -63,22 +63,6 @@ impl BundleAccessTable {
             table: TypeIdMap::default(),
             conflicted: false,
         }
-    }
-
-    /// Absorb the keys and values of another [`access table`](Self) and update the internal
-    /// access conflict flag.
-    /// # NOTE
-    /// If `self` or `other` are already conflicted, the function will not absorb `other`'s
-    /// table and instead just return (with the internal conflict flag set to `true`).
-    fn merge_and_check_conflict(&mut self, other: BundleAccessTable) {
-        if self.conflicted || other.conflicted {
-            self.conflicted = true;
-            return;
-        }
-        other
-            .table
-            .into_iter()
-            .for_each(|(k, v)| self.insert_checked(k, v));
     }
 
     /// Insert a key-value pair to the table. If the insert causes an access conflict,
@@ -122,18 +106,14 @@ impl<R: Resource> ResourceBundle for &mut R {
 }
 
 impl<R: Resource> AccessConflictTracker for &mut R {
-    fn access_table() -> BundleAccessTable {
-        let mut access_table = BundleAccessTable::new();
-        access_table.insert_checked(TypeId::of::<R>(), Access::Exclusive);
-        access_table
+    fn merge_with(other: &mut BundleAccessTable) {
+        other.insert_checked(TypeId::of::<R>(), Access::Exclusive);
     }
 }
 
 impl<R: Resource> AccessConflictTracker for &R {
-    fn access_table() -> BundleAccessTable {
-        let mut access_table = BundleAccessTable::new();
-        access_table.insert_checked(TypeId::of::<R>(), Access::Shared);
-        access_table
+    fn merge_with(other: &mut BundleAccessTable) {
+        other.insert_checked(TypeId::of::<R>(), Access::Shared);
     }
 }
 
@@ -141,13 +121,13 @@ macro_rules! impl_conflict_tracker {
     ($($tracker:ident),*) => {
         impl <$($tracker: AccessConflictTracker),*> AccessConflictTracker for ($($tracker,)*) {
             fn contains_conflicting_access() -> bool {
-                Self::access_table().is_conflicted()
+                let mut tmp_table = BundleAccessTable::new();
+                Self::merge_with(&mut tmp_table);
+                tmp_table.is_conflicted()
             }
 
-            fn access_table() -> BundleAccessTable {
-                let mut access_table = BundleAccessTable::new();
-                $(access_table.merge_and_check_conflict($tracker::access_table());)*
-                access_table
+            fn merge_with(other: &mut BundleAccessTable) {
+                $($tracker::merge_with(other));*
             }
         }
     };
