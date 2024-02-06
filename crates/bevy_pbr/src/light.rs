@@ -246,7 +246,7 @@ impl Default for DirectionalLightShadowMap {
 /// }.into();
 /// ```
 #[derive(Component, Clone, Debug, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct CascadeShadowConfig {
     /// The (positive) distance to the far boundary of each cascade.
     pub bounds: Vec<f32>,
