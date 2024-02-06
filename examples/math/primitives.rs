@@ -3,7 +3,9 @@
 #![allow(clippy::match_same_arms)]
 
 use bevy::{
-    input::common_conditions::input_just_pressed, prelude::*, sprite::MaterialMesh2dBundle,
+    input::common_conditions::input_just_pressed,
+    prelude::*,
+    sprite::{Anchor, MaterialMesh2dBundle},
 };
 
 const LEFT_RIGHT_OFFSET_2D: f32 = 200.0;
@@ -13,14 +15,14 @@ fn main() {
     let mut app = App::new();
 
     app.add_plugins(DefaultPlugins)
-        .init_state::<PrimitiveState>()
-        .init_state::<CameraState>();
+        .init_state::<PrimitiveSelected>()
+        .init_state::<CameraActive>();
 
     // cameras
     app.add_systems(Startup, setup_cameras).add_systems(
         Update,
         (
-            update_active_cameras.run_if(state_changed::<CameraState>),
+            update_active_cameras.run_if(state_changed::<CameraActive>),
             switch_cameras.run_if(input_just_pressed(KeyCode::KeyC)),
         ),
     );
@@ -28,7 +30,7 @@ fn main() {
     // text
     app.add_systems(Startup, setup_text).add_systems(
         Update,
-        (update_text.run_if(state_changed::<PrimitiveState>),),
+        (update_text.run_if(state_changed::<PrimitiveSelected>),),
     );
 
     // primitives
@@ -36,30 +38,34 @@ fn main() {
         Update,
         (
             switch_to_next_primitive.run_if(input_just_pressed(KeyCode::ArrowUp)),
-            switch_to_last_primitive.run_if(input_just_pressed(KeyCode::ArrowDown)),
-            draw_gizmos_2d.run_if(in_mode(CameraState::D2)),
-            draw_gizmos_3d.run_if(in_mode(CameraState::D3)),
-            update_primtive_meshes
-                .run_if(state_changed::<PrimitiveState>.or_else(state_changed::<CameraState>)),
-            rotate_primtive_meshes,
+            switch_to_previous_primitive.run_if(input_just_pressed(KeyCode::ArrowDown)),
+            draw_gizmos_2d.run_if(in_mode(CameraActive::Dim2)),
+            draw_gizmos_3d.run_if(in_mode(CameraActive::Dim3)),
+            update_primitive_meshes
+                .run_if(state_changed::<PrimitiveSelected>.or_else(state_changed::<CameraActive>)),
+            rotate_primitive_meshes,
         ),
     );
 
     app.run();
 }
 
+/// State for tracking which of the two cameras (2D & 3D) is currently active
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, States, Default, Reflect)]
-enum CameraState {
+enum CameraActive {
     #[default]
-    D2,
-    D3,
+    /// 2D Camera is active
+    Dim2,
+    /// 3D Camera is active
+    Dim3,
 }
 
+/// State for tracking which primitives are currently displayed
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, States, Default, Reflect)]
-enum PrimitiveState {
+enum PrimitiveSelected {
     #[default]
-    Rectangle,
-    Circle,
+    RectangleAndCuboid,
+    CircleAndSphere,
     Ellipse,
     Triangle,
     Plane,
@@ -75,10 +81,21 @@ enum PrimitiveState {
     Torus,
 }
 
-impl PrimitiveState {
+impl std::fmt::Display for PrimitiveSelected {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let name = match self {
+            PrimitiveSelected::RectangleAndCuboid => String::from("Rectangle/Cuboid"),
+            PrimitiveSelected::CircleAndSphere => String::from("Circle/Sphere"),
+            other => format!("{other:?}"),
+        };
+        write!(f, "{name}")
+    }
+}
+
+impl PrimitiveSelected {
     const ALL: [Self; 15] = [
-        Self::Rectangle,
-        Self::Circle,
+        Self::RectangleAndCuboid,
+        Self::CircleAndSphere,
         Self::Ellipse,
         Self::Triangle,
         Self::Plane,
@@ -114,33 +131,39 @@ impl PrimitiveState {
     }
 }
 
+const SMALL_2D: f32 = 50.0;
+const BIG_2D: f32 = 100.0;
+
+const SMALL_3D: f32 = 0.5;
+const BIG_3D: f32 = 1.0;
+
 // primitives
 const RECTANGLE: Rectangle = Rectangle {
-    half_size: Vec2::new(50.0, 100.0),
+    half_size: Vec2::new(SMALL_2D, BIG_2D),
 };
 const CUBOID: Cuboid = Cuboid {
-    half_size: Vec3::new(1.0, 2.0, 1.0),
+    half_size: Vec3::new(BIG_3D, SMALL_3D, BIG_3D),
 };
 
-const CIRCLE: Circle = Circle { radius: 50.0 };
-const SPHERE: Sphere = Sphere { radius: 1.0 };
+const CIRCLE: Circle = Circle { radius: BIG_2D };
+const SPHERE: Sphere = Sphere { radius: BIG_3D };
 
 const ELLIPSE: Ellipse = Ellipse {
-    half_size: Vec2::new(50.0, 100.0),
+    half_size: Vec2::new(BIG_2D, SMALL_2D),
 };
 
 const TRIANGLE: Triangle2d = Triangle2d {
     vertices: [
-        Vec2::new(25.0, 0.0),
-        Vec2::new(0.0, 25.0),
-        Vec2::new(-25.0, 0.0),
+        Vec2::new(SMALL_2D, 0.0),
+        Vec2::new(0.0, SMALL_2D),
+        Vec2::new(-SMALL_2D, 0.0),
     ],
 };
 
-const PLANE2D: Plane2d = Plane2d {
+const PLANE_2D: Plane2d = Plane2d {
     normal: Direction2d::Y,
 };
-const PLANE3D: Plane3d = Plane3d {
+const PLANE_3D: Plane3d = Plane3d {
     normal: Direction3d::Y,
 };
 
@@ -151,105 +174,105 @@ const LINE3D: Line3d = Line3d {
     direction: Direction3d::X,
 };
 
-const SEGMENT2D: Segment2d = Segment2d {
+const SEGMENT_2D: Segment2d = Segment2d {
     direction: Direction2d::X,
-    half_length: 50.0,
+    half_length: BIG_2D,
 };
-const SEGMENT3D: Segment3d = Segment3d {
+const SEGMENT_3D: Segment3d = Segment3d {
     direction: Direction3d::X,
-    half_length: 1.0,
+    half_length: BIG_3D,
 };
 
-const POLYLINE2D: Polyline2d<4> = Polyline2d {
+const POLYLINE_2D: Polyline2d<4> = Polyline2d {
     vertices: [
-        Vec2::new(-50.0, -25.0),
-        Vec2::new(-25.0, 25.0),
-        Vec2::new(25.0, -25.0),
-        Vec2::new(50.0, 25.0),
+        Vec2::new(-BIG_2D, -SMALL_2D),
+        Vec2::new(-SMALL_2D, SMALL_2D),
+        Vec2::new(SMALL_2D, -SMALL_2D),
+        Vec2::new(BIG_2D, SMALL_2D),
     ],
 };
-const POLYLINE3D: Polyline3d<4> = Polyline3d {
+const POLYLINE_3D: Polyline3d<4> = Polyline3d {
     vertices: [
-        Vec3::new(-1.0, -0.5, -0.5),
-        Vec3::new(0.5, 0.5, 0.0),
-        Vec3::new(-0.5, -0.5, 0.0),
-        Vec3::new(1.0, 0.5, 0.5),
+        Vec3::new(-BIG_3D, -SMALL_3D, -SMALL_3D),
+        Vec3::new(SMALL_3D, SMALL_3D, 0.0),
+        Vec3::new(-SMALL_3D, -SMALL_3D, 0.0),
+        Vec3::new(BIG_3D, SMALL_3D, SMALL_3D),
     ],
 };
 
-const POLYGON2D: Polygon<5> = Polygon {
+const POLYGON_2D: Polygon<5> = Polygon {
     vertices: [
-        Vec2::new(-50.0, -25.0),
-        Vec2::new(50.0, -25.0),
-        Vec2::new(50.0, 25.0),
+        Vec2::new(-BIG_2D, -SMALL_2D),
+        Vec2::new(BIG_2D, -SMALL_2D),
+        Vec2::new(BIG_2D, SMALL_2D),
         Vec2::new(0.0, 0.0),
-        Vec2::new(-50.0, 25.0),
+        Vec2::new(-BIG_2D, SMALL_2D),
     ],
 };
 
 const REGULAR_POLYGON: RegularPolygon = RegularPolygon {
-    circumcircle: Circle { radius: 50.0 },
+    circumcircle: Circle { radius: BIG_2D },
     sides: 5,
 };
 
-const CAPSULE2D: Capsule2d = Capsule2d {
-    radius: 50.0,
-    half_length: 50.0,
+const CAPSULE_2D: Capsule2d = Capsule2d {
+    radius: SMALL_2D,
+    half_length: SMALL_2D,
 };
-const CAPSULE3D: Capsule3d = Capsule3d {
-    radius: 1.0,
-    half_length: 1.0,
+const CAPSULE_3D: Capsule3d = Capsule3d {
+    radius: SMALL_3D,
+    half_length: SMALL_3D,
 };
 
 const CYLINDER: Cylinder = Cylinder {
-    radius: 1.0,
-    half_height: 1.0,
+    radius: SMALL_3D,
+    half_height: SMALL_3D,
 };
 
 const CONE: Cone = Cone {
-    radius: 1.0,
-    height: 1.0,
+    radius: BIG_3D,
+    height: BIG_3D,
 };
 
 const CONICAL_FRUSTRUM: ConicalFrustum = ConicalFrustum {
-    radius_top: 1.0,
-    radius_bottom: 0.5,
-    height: 1.0,
+    radius_top: BIG_3D,
+    radius_bottom: SMALL_3D,
+    height: BIG_3D,
 };
 
 const TORUS: Torus = Torus {
-    minor_radius: 0.5,
-    major_radius: 1.0,
+    minor_radius: SMALL_3D / 2.0,
+    major_radius: SMALL_3D * 1.5,
 };
 
 fn setup_cameras(mut commands: Commands) {
     let start_in_2d = true;
-    let mk_camera = |is_active| Camera {
+    let make_camera = |is_active| Camera {
         is_active,
         ..Default::default()
     };
 
     commands.spawn(Camera2dBundle {
-        camera: mk_camera(start_in_2d),
+        camera: make_camera(start_in_2d),
         ..Default::default()
     });
 
     commands.spawn(Camera3dBundle {
-        camera: mk_camera(!start_in_2d),
+        camera: make_camera(!start_in_2d),
         transform: Transform::from_xyz(0.0, 10.0, 0.0).looking_at(Vec3::ZERO, Vec3::Z),
         ..Default::default()
     });
 }
 
 fn update_active_cameras(
-    state: Res<State<CameraState>>,
+    state: Res<State<CameraActive>>,
     mut cameras: Query<(&mut Camera, Has<Camera2d>, Has<Camera3d>)>,
 ) {
     match state.get() {
-        CameraState::D2 => cameras.iter_mut().for_each(|(mut camera, has_2d, _)| {
+        CameraActive::Dim2 => cameras.iter_mut().for_each(|(mut camera, has_2d, _)| {
             camera.is_active = has_2d;
         }),
-        CameraState::D3 => cameras.iter_mut().for_each(|(mut camera, _, has_3d)| {
+        CameraActive::Dim3 => cameras.iter_mut().for_each(|(mut camera, _, has_3d)| {
             camera.is_active = has_3d;
         }),
     }
@@ -259,19 +282,22 @@ fn update_active_cameras(
 #[derive(Debug, Clone, Component, Default, Reflect)]
 pub struct Header;
 
-fn switch_cameras(current: Res<State<CameraState>>, mut next: ResMut<NextState<CameraState>>) {
+fn switch_cameras(current: Res<State<CameraActive>>, mut next: ResMut<NextState<CameraActive>>) {
     let next_state = match current.get() {
-        CameraState::D2 => CameraState::D3,
-        CameraState::D3 => CameraState::D2,
+        CameraActive::Dim2 => CameraActive::Dim3,
+        CameraActive::Dim3 => CameraActive::Dim2,
     };
     next.set(next_state);
 }
 
 fn setup_text(mut commands: Commands, asset_server: Res<AssetServer>, window: Query<&Window>) {
-    let text = format!("{text:?}", text = PrimitiveState::default());
+    let text = format!("{text}", text = PrimitiveSelected::default());
+    let font_size = 24.0;
+    let font: Handle<Font> = asset_server.load("fonts/FiraMono-Medium.ttf");
+    let guessed_line_gap = 5.0;
     let style = TextStyle {
-        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-        font_size: 24.,
+        font,
+        font_size,
         color: Color::WHITE,
     };
     let instructions = "Press 'C' to switch between 2D and 3D mode\n\
@@ -280,19 +306,25 @@ fn setup_text(mut commands: Commands, asset_server: Res<AssetServer>, window: Qu
         TextSection::new("Primitive: ", style.clone()),
         TextSection::new(text, style.clone()),
         TextSection::new("\n\n", style.clone()),
-        TextSection::new(instructions, style),
-    ]);
+        TextSection::new(instructions, style.clone()),
+        TextSection::new("\n\n", style.clone()),
+        TextSection::new(
+            "(If nothing is displayed, there's not rendering support yet)",
+            style.clone(),
+        ),
+    ])
+    .with_justify(JustifyText::Center);
 
     let window_height = window.get_single().map_or(0.0, |window| window.height());
-
-    // yikes, getting the same position is a bit hard 🙈
+    let text_offset = text.sections.len() as f32 * font_size;
 
     // 2d
     commands.spawn((
         Header,
         Text2dBundle {
             text: text.clone(),
-            transform: Transform::from_xyz(0.0, window_height / 2.0, 0.0),
+            text_anchor: Anchor::Center,
+            transform: Transform::from_translation(Vec3::new(0.0, window_height / 2.0, 0.0)),
             ..Default::default()
         },
     ));
@@ -303,7 +335,7 @@ fn setup_text(mut commands: Commands, asset_server: Res<AssetServer>, window: Qu
         TextBundle {
             text,
             style: Style {
-                top: Val::Px(120.0),
+                top: Val::Px(text_offset / 2.0),
                 align_self: AlignSelf::Start,
                 justify_self: JustifySelf::Center,
                 ..Default::default()
@@ -314,10 +346,10 @@ fn setup_text(mut commands: Commands, asset_server: Res<AssetServer>, window: Qu
 }
 
 fn update_text(
-    primitive_state: Res<State<PrimitiveState>>,
+    primitive_state: Res<State<PrimitiveSelected>>,
     mut header: Query<&mut Text, With<Header>>,
 ) {
-    let new_text = format!("{text:?}", text = primitive_state.get());
+    let new_text = format!("{text}", text = primitive_state.get());
     header.iter_mut().for_each(|mut header_text| {
         if let Some(kind) = header_text.sections.get_mut(1) {
             kind.value = new_text.clone();
@@ -326,56 +358,58 @@ fn update_text(
 }
 
 fn switch_to_next_primitive(
-    current: Res<State<PrimitiveState>>,
-    mut next: ResMut<NextState<PrimitiveState>>,
+    current: Res<State<PrimitiveSelected>>,
+    mut next: ResMut<NextState<PrimitiveSelected>>,
 ) {
     let next_state = current.get().next();
     next.set(next_state);
 }
 
-fn switch_to_last_primitive(
-    current: Res<State<PrimitiveState>>,
-    mut next: ResMut<NextState<PrimitiveState>>,
+fn switch_to_previous_primitive(
+    current: Res<State<PrimitiveSelected>>,
+    mut next: ResMut<NextState<PrimitiveSelected>>,
 ) {
     let next_state = current.get().previous();
     next.set(next_state);
 }
 
-fn in_mode(active: CameraState) -> impl Fn(Res<State<CameraState>>) -> bool {
+fn in_mode(active: CameraActive) -> impl Fn(Res<State<CameraActive>>) -> bool {
     move |state| *state.get() == active
 }
 
-fn draw_gizmos_2d(mut gizmos: Gizmos, state: Res<State<PrimitiveState>>, time: Res<Time>) {
+fn draw_gizmos_2d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time: Res<Time>) {
     const POSITION: Vec2 = Vec2::new(-LEFT_RIGHT_OFFSET_2D, 0.0);
     let angle = time.elapsed_seconds();
     let color = Color::WHITE;
 
     match state.get() {
-        PrimitiveState::Rectangle => gizmos.primitive_2d(RECTANGLE, POSITION, angle, color),
-        PrimitiveState::Circle => gizmos.primitive_2d(CIRCLE, POSITION, angle, color),
-        PrimitiveState::Ellipse => gizmos.primitive_2d(ELLIPSE, POSITION, angle, color),
-        PrimitiveState::Triangle => gizmos.primitive_2d(TRIANGLE, POSITION, angle, color),
-        PrimitiveState::Plane => gizmos.primitive_2d(PLANE2D, POSITION, angle, color),
-        PrimitiveState::Line => drop(gizmos.primitive_2d(LINE2D, POSITION, angle, color)),
-        PrimitiveState::Segment => drop(gizmos.primitive_2d(SEGMENT2D, POSITION, angle, color)),
-        PrimitiveState::Polyline => gizmos.primitive_2d(POLYLINE2D, POSITION, angle, color),
-        PrimitiveState::Polygon => gizmos.primitive_2d(POLYGON2D, POSITION, angle, color),
-        PrimitiveState::RegularPolygon => {
+        PrimitiveSelected::RectangleAndCuboid => {
+            gizmos.primitive_2d(RECTANGLE, POSITION, angle, color)
+        }
+        PrimitiveSelected::CircleAndSphere => gizmos.primitive_2d(CIRCLE, POSITION, angle, color),
+        PrimitiveSelected::Ellipse => gizmos.primitive_2d(ELLIPSE, POSITION, angle, color),
+        PrimitiveSelected::Triangle => gizmos.primitive_2d(TRIANGLE, POSITION, angle, color),
+        PrimitiveSelected::Plane => gizmos.primitive_2d(PLANE_2D, POSITION, angle, color),
+        PrimitiveSelected::Line => drop(gizmos.primitive_2d(LINE2D, POSITION, angle, color)),
+        PrimitiveSelected::Segment => drop(gizmos.primitive_2d(SEGMENT_2D, POSITION, angle, color)),
+        PrimitiveSelected::Polyline => gizmos.primitive_2d(POLYLINE_2D, POSITION, angle, color),
+        PrimitiveSelected::Polygon => gizmos.primitive_2d(POLYGON_2D, POSITION, angle, color),
+        PrimitiveSelected::RegularPolygon => {
             gizmos.primitive_2d(REGULAR_POLYGON, POSITION, angle, color);
         }
-        PrimitiveState::Capsule => gizmos.primitive_2d(CAPSULE2D, POSITION, angle, color),
-        PrimitiveState::Cylinder => {}
-        PrimitiveState::Cone => {}
-        PrimitiveState::ConicalFrustrum => {}
-        PrimitiveState::Torus => {}
+        PrimitiveSelected::Capsule => gizmos.primitive_2d(CAPSULE_2D, POSITION, angle, color),
+        PrimitiveSelected::Cylinder => {}
+        PrimitiveSelected::Cone => {}
+        PrimitiveSelected::ConicalFrustrum => {}
+        PrimitiveSelected::Torus => {}
     }
 }
 
-/// marker for primitive meshes to record in which state they should be visible in
+/// Marker for primitive meshes to record in which state they should be visible in
 #[derive(Debug, Clone, Component, Default, Reflect)]
 pub struct PrimitiveData {
-    camera_mode: CameraState,
-    primtive_state: PrimitiveState,
+    camera_mode: CameraActive,
+    primitive_state: PrimitiveSelected,
 }
 
 fn spawn_primitive_2d(
@@ -385,7 +419,7 @@ fn spawn_primitive_2d(
 ) {
     const POSITION: Vec3 = Vec3::new(LEFT_RIGHT_OFFSET_2D, 0.0, 0.0);
     let material: Handle<ColorMaterial> = materials.add(Color::WHITE);
-    let camera_mode = CameraState::D2;
+    let camera_mode = CameraActive::Dim2;
     [
         Some(RECTANGLE.mesh()),
         Some(CIRCLE.mesh().build()),
@@ -397,20 +431,20 @@ fn spawn_primitive_2d(
         None, // polyline
         None, // polygon
         Some(REGULAR_POLYGON.mesh()),
-        Some(CAPSULE2D.mesh().build()),
+        Some(CAPSULE_2D.mesh().build()),
         None, // cylinder
         None, // cone
         None, // conical frustrum
         None, // torus
     ]
     .into_iter()
-    .zip(PrimitiveState::ALL)
+    .zip(PrimitiveSelected::ALL)
     .for_each(|(maybe_mesh, state)| {
         if let Some(mesh) = maybe_mesh {
             commands.spawn((
                 PrimitiveData {
                     camera_mode,
-                    primtive_state: state,
+                    primitive_state: state,
                 },
                 MaterialMesh2dBundle {
                     mesh: meshes.add(mesh).into(),
@@ -423,14 +457,14 @@ fn spawn_primitive_2d(
     });
 }
 
-fn update_primtive_meshes(
-    camera_state: Res<State<CameraState>>,
-    primitive_state: Res<State<PrimitiveState>>,
+fn update_primitive_meshes(
+    camera_state: Res<State<CameraActive>>,
+    primitive_state: Res<State<PrimitiveSelected>>,
     mut primitives: Query<(&mut Visibility, &PrimitiveData)>,
 ) {
     primitives.iter_mut().for_each(|(mut vis, primitive)| {
         let visible = primitive.camera_mode == *camera_state.get()
-            && primitive.primtive_state == *primitive_state.get();
+            && primitive.primitive_state == *primitive_state.get();
         *vis = if visible {
             Visibility::Inherited
         } else {
@@ -439,7 +473,7 @@ fn update_primtive_meshes(
     });
 }
 
-fn rotate_primtive_meshes(
+fn rotate_primitive_meshes(
     mut primitives: Query<(&mut Transform, &ViewVisibility), With<PrimitiveData>>,
     time: Res<Time>,
 ) {
@@ -452,7 +486,7 @@ fn rotate_primtive_meshes(
         });
 }
 
-fn draw_gizmos_3d(mut gizmos: Gizmos, state: Res<State<PrimitiveState>>, time: Res<Time>) {
+fn draw_gizmos_3d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time: Res<Time>) {
     const POSITION: Vec3 = Vec3::new(LEFT_RIGHT_OFFSET_3D, 0.0, 0.0);
     let rotation = Quat::from_rotation_arc(
         Vec3::Z,
@@ -468,40 +502,42 @@ fn draw_gizmos_3d(mut gizmos: Gizmos, state: Res<State<PrimitiveState>>, time: R
     let segments = 10;
 
     match state.get() {
-        PrimitiveState::Rectangle => gizmos.primitive_3d(CUBOID, POSITION, rotation, color),
-        PrimitiveState::Circle => drop(
+        PrimitiveSelected::RectangleAndCuboid => {
+            gizmos.primitive_3d(CUBOID, POSITION, rotation, color)
+        }
+        PrimitiveSelected::CircleAndSphere => drop(
             gizmos
                 .primitive_3d(SPHERE, POSITION, rotation, color)
                 .segments(segments),
         ),
-        PrimitiveState::Ellipse => {}
-        PrimitiveState::Triangle => {}
-        PrimitiveState::Plane => drop(gizmos.primitive_3d(PLANE3D, POSITION, rotation, color)),
-        PrimitiveState::Line => gizmos.primitive_3d(LINE3D, POSITION, rotation, color),
-        PrimitiveState::Segment => gizmos.primitive_3d(SEGMENT3D, POSITION, rotation, color),
-        PrimitiveState::Polyline => gizmos.primitive_3d(POLYLINE3D, POSITION, rotation, color),
-        PrimitiveState::Polygon => {}
-        PrimitiveState::RegularPolygon => {}
-        PrimitiveState::Capsule => drop(
+        PrimitiveSelected::Ellipse => {}
+        PrimitiveSelected::Triangle => {}
+        PrimitiveSelected::Plane => drop(gizmos.primitive_3d(PLANE_3D, POSITION, rotation, color)),
+        PrimitiveSelected::Line => gizmos.primitive_3d(LINE3D, POSITION, rotation, color),
+        PrimitiveSelected::Segment => gizmos.primitive_3d(SEGMENT_3D, POSITION, rotation, color),
+        PrimitiveSelected::Polyline => gizmos.primitive_3d(POLYLINE_3D, POSITION, rotation, color),
+        PrimitiveSelected::Polygon => {}
+        PrimitiveSelected::RegularPolygon => {}
+        PrimitiveSelected::Capsule => drop(
             gizmos
-                .primitive_3d(CAPSULE3D, POSITION, rotation, color)
+                .primitive_3d(CAPSULE_3D, POSITION, rotation, color)
                 .segments(segments),
         ),
-        PrimitiveState::Cylinder => drop(
+        PrimitiveSelected::Cylinder => drop(
             gizmos
                 .primitive_3d(CYLINDER, POSITION, rotation, color)
                 .segments(segments),
         ),
-        PrimitiveState::Cone => drop(
+        PrimitiveSelected::Cone => drop(
             gizmos
                 .primitive_3d(CONE, POSITION, rotation, color)
                 .segments(segments),
         ),
-        PrimitiveState::ConicalFrustrum => {
+        PrimitiveSelected::ConicalFrustrum => {
             gizmos.primitive_3d(CONICAL_FRUSTRUM, POSITION, rotation, color);
         }
 
-        PrimitiveState::Torus => drop(
+        PrimitiveSelected::Torus => drop(
             gizmos
                 .primitive_3d(TORUS, POSITION, rotation, color)
                 .minor_segments(segments)
