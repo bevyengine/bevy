@@ -15,8 +15,8 @@ use crate::{
 /// This corresponds to types, like [`Box<[T]>`](std::boxed::Box), which contain an ordered sequence
 /// of elements that implement [`Reflect`].
 ///
-/// Unlike the [`Array`](crate::Array) trait, implementors of this trait are not expected to
-/// maintain a constant length known at compile time.
+/// This trait provides any list manipulation that will not add or remove items from the list.
+/// A list type that allows adding or removing items must also implement [`List`].
 ///
 /// This trait expects its elements to be ordered linearly from front to back.
 /// The _front_ element starts at index 0 with the _back_ element ending at the largest index.
