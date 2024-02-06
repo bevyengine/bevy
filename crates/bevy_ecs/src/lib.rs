@@ -16,7 +16,7 @@ pub mod query;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
 pub mod removal_detection;
-mod resource_bundle;
+pub mod resource_bundle;
 pub mod schedule;
 pub mod storage;
 pub mod system;
