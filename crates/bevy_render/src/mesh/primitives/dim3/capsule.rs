@@ -417,7 +417,7 @@ impl Capsule3dMeshBuilder {
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vs)
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vns)
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, vts)
-        .with_indices(Some(Indices::U32(tris)))
+        .with_inserted_indices(Indices::U32(tris))
     }
 }
 
