@@ -43,7 +43,7 @@ impl Plugin for WindowRenderPlugin {
                     Render,
                     create_surfaces
                         .run_if(need_new_surfaces)
-                        .in_set(RenderSet::PrepareAssets),
+                        .before(prepare_windows),
                 )
                 .add_systems(Render, prepare_windows.in_set(RenderSet::ManageViews));
         }
