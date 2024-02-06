@@ -506,7 +506,7 @@ impl AnimationPlayer {
 }
 
 /// A system that advances the time for all playing animations.
-pub fn update_animations(
+pub fn advance_animations(
     time: Res<Time>,
     animation_clips: Res<Assets<AnimationClip>>,
     mut players: Query<&mut AnimationPlayer>,
@@ -629,7 +629,7 @@ impl Plugin for AnimationPlugin {
             .register_type::<AnimationTarget>()
             .add_systems(
                 PostUpdate,
-                (update_animations, animate_targets)
+                (advance_animations, animate_targets)
                     .chain()
                     .before(TransformSystem::TransformPropagate),
             );
