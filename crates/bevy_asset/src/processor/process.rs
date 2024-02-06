@@ -252,7 +252,7 @@ pub trait ErasedProcessor: Send + Sync {
         context: &'a mut ProcessContext,
         meta: Box<dyn AssetMetaDyn>,
         writer: &'a mut Writer,
-    ) -> BoxedFuture<'a, Result<Box<dyn AssetMetaDyn>, ProcessError>>;
+    ) -> BoxedFuture<Result<Box<dyn AssetMetaDyn>, ProcessError>>;
     /// Deserialized `meta` as type-erased [`AssetMeta`], operating under the assumption that it matches the meta
     /// for the underlying [`Process`] impl.
     fn deserialize_meta(&self, meta: &[u8]) -> Result<Box<dyn AssetMetaDyn>, DeserializeMetaError>;
@@ -266,7 +266,7 @@ impl<P: Process> ErasedProcessor for P {
         context: &'a mut ProcessContext,
         meta: Box<dyn AssetMetaDyn>,
         writer: &'a mut Writer,
-    ) -> BoxedFuture<'a, Result<Box<dyn AssetMetaDyn>, ProcessError>> {
+    ) -> BoxedFuture<Result<Box<dyn AssetMetaDyn>, ProcessError>> {
         Box::pin(async move {
             let meta = meta
                 .downcast::<AssetMeta<(), P>>()

@@ -52,10 +52,7 @@ pub trait ErasedAssetLoader: Send + Sync + 'static {
         reader: &'a mut Reader,
         meta: Box<dyn AssetMetaDyn>,
         load_context: LoadContext<'a>,
-    ) -> BoxedFuture<
-        'a,
-        Result<ErasedLoadedAsset, Box<dyn std::error::Error + Send + Sync + 'static>>,
-    >;
+    ) -> BoxedFuture<Result<ErasedLoadedAsset, Box<dyn std::error::Error + Send + Sync + 'static>>>;
 
     /// Returns a list of extensions supported by this asset loader, without the preceding dot.
     fn extensions(&self) -> &[&str];
@@ -83,10 +80,8 @@ where
         reader: &'a mut Reader,
         meta: Box<dyn AssetMetaDyn>,
         mut load_context: LoadContext<'a>,
-    ) -> BoxedFuture<
-        'a,
-        Result<ErasedLoadedAsset, Box<dyn std::error::Error + Send + Sync + 'static>>,
-    > {
+    ) -> BoxedFuture<Result<ErasedLoadedAsset, Box<dyn std::error::Error + Send + Sync + 'static>>>
+    {
         Box::pin(async move {
             let settings = meta
                 .loader_settings()
