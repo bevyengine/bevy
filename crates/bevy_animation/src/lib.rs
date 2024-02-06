@@ -555,19 +555,11 @@ pub fn advance_animations(
 ///
 pub fn animate_targets(
     world: &mut World,
-    mut system_state: Local<
-        Option<
-            SystemState<(
-                Query<&AnimationPlayer, Without<AnimationTarget>>,
-                Query<EntityMut, With<AnimationTarget>>,
-            )>,
-        >,
-    >,
+    system_state: &mut SystemState<(
+        Query<&AnimationPlayer, Without<AnimationTarget>>,
+        Query<EntityMut, With<AnimationTarget>>,
+    )>,
 ) {
-    if system_state.is_none() {
-        *system_state = Some(SystemState::new(world));
-    }
-
     // We use two queries here: one read-only query for animation players and
     // one read-write query for animation targets (bones). The `AnimationPlayer`
     // query is read-only shared memory accessible from all animation targets,
@@ -576,7 +568,7 @@ pub fn animate_targets(
     // This elaborate setup using `resource_scope` is a workaround for the fact
     // that `EntityMut` queries lock out resources. This is a known bug in Bevy.
     world.resource_scope(|world, clips: Mut<Assets<AnimationClip>>| {
-        let (players, mut targets) = system_state.as_mut().unwrap().get_mut(world);
+        let (players, mut targets) = system_state.get_mut(world);
 
         // Iterate over all animation targets (bones) in parallel.
         targets.par_iter_mut().for_each(|mut target_entity| {
