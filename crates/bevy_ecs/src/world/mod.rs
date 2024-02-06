@@ -1394,6 +1394,10 @@ impl World {
     }
 
     /// Gets access to a bundle of resources at once, without checking for access conflicts within the bundle.
+    /// # Safety
+    /// The caller must ensure that there are no access conflicts within the [`ResourceBundle`]. For example: (for any resources R, T, F)
+    /// (&R, &mut R)      -    *Not Allowed!*  Both mutable and immutable references can't exist at the same time!
+    /// (&R, &T, &mut F)  -    *Allowed!*  No access conflicts
     #[inline]
     pub unsafe fn resources_unchecked<B: ResourceBundle>(&mut self) -> Option<B::Bundle<'_>> {
         B::get_resource_bundle(self.as_unsafe_world_cell())

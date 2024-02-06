@@ -15,12 +15,12 @@ pub trait ResourceBundle {
     /// The read-only version of this resource bundle.
     type ReadOnlyBundle<'a>;
     /// Get this resource bundle from the world.
-    /// # SAFETY:
+    /// # Safety
     /// The caller must ensure that each resource in this bundle ([`Self::Bundle`]) is safe to access.
     /// For example, if `&R` is in the bundle, there should not be any valid mutable references to R.
-    unsafe fn get_resource_bundle<'w>(world: UnsafeWorldCell<'w>) -> Option<Self::Bundle<'w>>;
+    unsafe fn get_resource_bundle(world: UnsafeWorldCell<'_>) -> Option<Self::Bundle<'_>>;
     /// Get the read-only version of this bundle from the world.
-    fn get_read_only_resource_bundle<'w>(world: &'w World) -> Option<Self::ReadOnlyBundle<'w>>;
+    fn get_read_only_resource_bundle(world: &World) -> Option<Self::ReadOnlyBundle<'_>>;
     /// Return `true` if there are access conflicts within the bundle. For example, two mutable references to the same resource.
     /// If the bundled types aren't capable of tracking conflicts, this defaults to `false`.
     fn contains_access_conflicts() -> bool {
@@ -47,10 +47,7 @@ enum Access {
 
 impl Access {
     fn is_conflicting(&self, other: Self) -> bool {
-        match (self, other) {
-            (Self::Shared, Self::Shared) => false,
-            _ => true,
-        }
+        !matches!((self, other), (Self::Shared, Self::Shared))
     }
 }
 
@@ -89,9 +86,9 @@ impl BundleAccessTable {
     /// # NOTE
     /// Even if the insertion solved an existing conflict, this will not be reflected.
     fn insert_checked(&mut self, id: TypeId, val: Access) {
-        self.table
-            .insert(id, val)
-            .map(|a| self.conflicted |= a.is_conflicting(val));
+        if let Some(prev_val) = self.table.insert(id, val) {
+            self.conflicted |= prev_val.is_conflicting(val);
+        }
     }
 
     /// Returns the internal access conflict flag.
@@ -105,10 +102,10 @@ impl BundleAccessTable {
 impl<R: Resource> ResourceBundle for &R {
     type Bundle<'a> = &'a R;
     type ReadOnlyBundle<'a> = &'a R;
-    unsafe fn get_resource_bundle<'w>(world: UnsafeWorldCell<'w>) -> Option<Self::Bundle<'w>> {
+    unsafe fn get_resource_bundle(world: UnsafeWorldCell<'_>) -> Option<Self::Bundle<'_>> {
         world.get_resource::<R>()
     }
-    fn get_read_only_resource_bundle<'w>(world: &'w World) -> Option<Self::ReadOnlyBundle<'w>> {
+    fn get_read_only_resource_bundle(world: &'_ World) -> Option<Self::ReadOnlyBundle<'_>> {
         world.get_resource::<R>()
     }
 }
@@ -116,10 +113,10 @@ impl<R: Resource> ResourceBundle for &R {
 impl<R: Resource> ResourceBundle for &mut R {
     type Bundle<'a> = Mut<'a, R>;
     type ReadOnlyBundle<'a> = &'a R;
-    unsafe fn get_resource_bundle<'w>(world: UnsafeWorldCell<'w>) -> Option<Self::Bundle<'w>> {
+    unsafe fn get_resource_bundle(world: UnsafeWorldCell<'_>) -> Option<Self::Bundle<'_>> {
         world.get_resource_mut::<R>()
     }
-    fn get_read_only_resource_bundle<'w>(world: &'w World) -> Option<Self::ReadOnlyBundle<'w>> {
+    fn get_read_only_resource_bundle(world: &World) -> Option<Self::ReadOnlyBundle<'_>> {
         world.get_resource::<R>()
     }
 }
@@ -161,10 +158,10 @@ macro_rules! impl_resource_bundle {
         impl<$($bundle: ResourceBundle + AccessConflictTracker),*> ResourceBundle for ($($bundle,)*) {
             type Bundle<'a> = ($($bundle::Bundle<'a>,)*);
             type ReadOnlyBundle<'a> = ($($bundle::ReadOnlyBundle<'a>,)*);
-            unsafe fn get_resource_bundle<'w>(world: UnsafeWorldCell<'w>) -> Option<Self::Bundle<'w>> {
+            unsafe fn get_resource_bundle(world: UnsafeWorldCell<'_>) -> Option<Self::Bundle<'_>> {
                 Some(($($bundle::get_resource_bundle(world)?,)*))
             }
-            fn get_read_only_resource_bundle<'w>(world: &'w World) -> Option<Self::ReadOnlyBundle<'w>> {
+            fn get_read_only_resource_bundle(world: &World) -> Option<Self::ReadOnlyBundle<'_>> {
                 Some(($($bundle::get_read_only_resource_bundle(world)?,)*))
             }
             fn contains_access_conflicts() -> bool {
