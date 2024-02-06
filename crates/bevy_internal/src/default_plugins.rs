@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use bevy_app::{plugin_group, Plugin, PluginGroup, PluginGroupBuilder};
+use bevy_app::{plugin_group, Plugin};
 
 plugin_group! {
     /// This plugin group will add all the default plugins for a *Bevy* application:
