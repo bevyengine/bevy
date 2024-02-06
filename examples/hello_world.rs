@@ -1,3 +1,5 @@
+//! A minimal example that outputs "hello world"
+
 use bevy::prelude::*;
 
 fn main() {

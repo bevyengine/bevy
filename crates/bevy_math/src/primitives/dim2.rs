@@ -7,6 +7,7 @@ use crate::Vec2;
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Direction2d(Vec2);
+impl Primitive2d for Direction2d {}
 
 impl Direction2d {
     /// A unit vector pointing along the positive X axis.
@@ -767,6 +768,17 @@ pub struct Capsule2d {
     pub half_length: f32,
 }
 impl Primitive2d for Capsule2d {}
+
+impl Default for Capsule2d {
+    /// Returns the default [`Capsule2d`] with a radius of `0.5` and a half-height of `0.5`,
+    /// excluding the hemicircles.
+    fn default() -> Self {
+        Self {
+            radius: 0.5,
+            half_length: 0.5,
+        }
+    }
+}
 
 impl Capsule2d {
     /// Create a new `Capsule2d` from a radius and length

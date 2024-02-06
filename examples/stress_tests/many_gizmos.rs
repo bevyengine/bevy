@@ -1,3 +1,5 @@
+//! Test rendering of many gizmos.
+
 use std::f32::consts::TAU;
 
 use bevy::{

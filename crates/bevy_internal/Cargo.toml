@@ -77,6 +77,7 @@ serialize = [
 multi-threaded = [
   "bevy_asset/multi-threaded",
   "bevy_ecs/multi-threaded",
+  "bevy_render/multi-threaded",
   "bevy_tasks/multi-threaded",
 ]
 async-io = ["bevy_tasks/async-io"]
@@ -155,6 +156,12 @@ file_watcher = ["bevy_asset?/file_watcher"]
 
 # Enables watching embedded files for Bevy Asset hot-reloading
 embedded_watcher = ["bevy_asset?/embedded_watcher"]
+
+# Enable system stepping support
+bevy_debug_stepping = [
+  "bevy_ecs/bevy_debug_stepping",
+  "bevy_app/bevy_debug_stepping",
+]
 
 [dependencies]
 # bevy
