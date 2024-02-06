@@ -30,7 +30,7 @@ pub trait ResourceBundle {
 
 /// This isn't public and part of the [`ResourceBundle`] trait because [`BundleAccessTable`] shouldn't be public.
 trait AccessConflictTracker {
-    /// The [`access table`](bundleAccessTable) that tracks for access conflicts with a bundled type.
+    /// The [`access table`](BundleAccessTable) that tracks for access conflicts with a bundled type.
     fn access_table() -> BundleAccessTable;
     /// Return `true` if the is conflicting access within the bundle. For example, two mutable references
     /// to the same resource.
