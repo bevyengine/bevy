@@ -1442,7 +1442,7 @@ mod tests {
         world.insert_resource(Num(1_000));
 
         let (_small, _num, mut _num_mut) = world
-            .resources_mut::<(&SmallNum, &Num, &mut Num)>()
+            .resources_mut::<(&SmallNum, &Num, &mut Num)>() // This is an access conflict!
             .unwrap();
     }
 
