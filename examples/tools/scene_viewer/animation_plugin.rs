@@ -31,7 +31,7 @@ impl Clips {
 /// animation clips for given entities in the [`Clips`] component we defined
 /// earlier in this file.
 fn assign_clips(
-    mut players: Query<(Entity, &mut AnimationPlayer, &Name)>,
+    mut players: Query<(Entity, &mut AnimationPlayer)>,
     scene_handle: Res<SceneHandle>,
     clips: Res<Assets<AnimationClip>>,
     gltf_assets: Res<Assets<Gltf>>,
@@ -53,10 +53,10 @@ fn assign_clips(
         let names: Vec<_> = gltf.named_animations.keys().collect();
         info!("Animation names: {names:?}");
     }
-    for (entity, mut player, name) in &mut players {
+    for (entity, mut player) in &mut players {
         let clips = clips
             .iter()
-            .filter_map(|(k, v)| v.compatible_with(name).then_some(k))
+            .map(|(k, _)| k)
             .map(|id| assets.get_id_handle(id).unwrap())
             .collect();
         let animations = Clips::new(clips);

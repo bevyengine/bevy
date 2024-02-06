@@ -34,7 +34,10 @@ use bevy_scene::Scene;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::IoTaskPool;
 use bevy_transform::components::Transform;
-use bevy_utils::{EntityHashMap, HashMap, HashSet};
+use bevy_utils::{
+    smallvec::{smallvec, SmallVec},
+    EntityHashMap, HashMap, HashSet,
+};
 use gltf::{
     accessor::Iter,
     mesh::{util::ReadIndices, Mode},
@@ -260,8 +263,8 @@ async fn load_gltf<'a, 'b, 'c>(
 
                 if let Some((root_index, path)) = paths.get(&node.index()) {
                     animation_roots.insert(*root_index);
-                    animation_clip.add_curve_to_path(
-                        AnimationTargetId::from_names(path),
+                    animation_clip.add_curve_to_target(
+                        AnimationTargetId::from_names(path.iter()),
                         bevy_animation::VariableCurve {
                             keyframe_timestamps,
                             keyframes,
@@ -587,8 +590,8 @@ async fn load_gltf<'a, 'b, 'c>(
                         &mut node_index_to_entity_map,
                         &mut entity_to_skin_index_map,
                         &mut active_camera_found,
-                        &animation_roots,
                         &Transform::default(),
+                        &animation_roots,
                         None,
                     );
                     if result.is_err() {
@@ -925,9 +928,9 @@ fn load_node(
     node_index_to_entity_map: &mut HashMap<usize, Entity>,
     entity_to_skin_index_map: &mut EntityHashMap<Entity, usize>,
     active_camera_found: &mut bool,
-    animation_roots: &HashSet<usize>,
     parent_transform: &Transform,
-    animation_root: Option<(Entity, &[Name])>,
+    animation_roots: &HashSet<usize>,
+    mut animation_context: Option<AnimationContext>,
 ) -> Result<(), GltfError> {
     let mut gltf_error = None;
     let transform = node_transform(gltf_node);
@@ -944,26 +947,24 @@ fn load_node(
     let name = node_name(gltf_node);
     node.insert(name.clone());
 
-    let mut path_buf = vec![];
-    let animation_root = match animation_root {
+    #[cfg(feature = "bevy_animation")]
+    match animation_context {
         None => {
             if animation_roots.contains(&gltf_node.index()) {
-                path_buf.push(name);
-                Some((node.id(), &path_buf[..]))
-            } else {
-                None
+                // This is an animation root. Make a new animation context.
+                animation_context = Some(AnimationContext {
+                    root: node.id(),
+                    path: smallvec![name],
+                });
             }
         }
-        Some((root, path)) => {
-            path_buf.extend(path.iter().cloned());
-            path_buf.push(name);
+        Some(ref mut animation_context) => {
+            animation_context.path.push(name);
 
             node.insert(AnimationTarget {
-                id: AnimationTargetId::from_names(&path_buf),
-                root,
+                id: AnimationTargetId::from_names(animation_context.path.iter()),
+                root: animation_context.root,
             });
-
-            Some((root, &path_buf[..]))
         }
     };
 
@@ -1178,9 +1179,9 @@ fn load_node(
                 node_index_to_entity_map,
                 entity_to_skin_index_map,
                 active_camera_found,
-                animation_roots,
                 &world_transform,
-                animation_root,
+                animation_roots,
+                animation_context.clone(),
             ) {
                 gltf_error = Some(err);
                 return;
@@ -1536,6 +1537,22 @@ impl<'s> Iterator for PrimitiveMorphAttributesIter<'s> {
 struct MorphTargetNames {
     pub target_names: Vec<String>,
 }
+
+// A helper structure for `load_node` that contains information about the
+// nearest ancestor animation root.
+#[cfg(feature = "bevy_animation")]
+#[derive(Clone)]
+struct AnimationContext {
+    // The nearest ancestor animation root.
+    root: Entity,
+    // The path to the animation root. This is used for constructing the
+    // animation target UUIDs.
+    path: SmallVec<[Name; 8]>,
+}
+
+#[cfg(not(feature = "bevy_animation"))]
+#[derive(Clone)]
+struct AnimationContext;
 
 #[cfg(test)]
 mod test {

@@ -3,24 +3,26 @@
 mod animatable;
 mod util;
 
+use std::hash::{Hash, Hasher};
+use std::iter;
 use std::ops::{Add, Mul};
 use std::time::Duration;
 
-use bevy_app::{App, Plugin, PostUpdate, Update};
+use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::{Asset, AssetApp, Assets, Handle};
 use bevy_core::Name;
 use bevy_ecs::entity::MapEntities;
 use bevy_ecs::prelude::*;
 use bevy_ecs::reflect::ReflectMapEntities;
 use bevy_ecs::system::SystemState;
-use bevy_hierarchy::{Children, Parent};
-use bevy_log::error;
+use bevy_log::{error, warn};
 use bevy_math::{FloatExt, Quat, Vec3};
 use bevy_reflect::Reflect;
 use bevy_render::mesh::morph::MorphWeights;
 use bevy_time::Time;
 use bevy_transform::{prelude::Transform, TransformSystem};
-use bevy_utils::{EntityHashMap, EntityHashSet, HashMap, Uuid};
+use bevy_utils::hashbrown::HashMap;
+use bevy_utils::{NoOpHash, Uuid};
 use sha1_smol::Sha1;
 
 #[allow(missing_docs)]
@@ -32,6 +34,9 @@ pub mod prelude {
     };
 }
 
+/// The [UUID namespace] of animation targets (bones).
+///
+/// [UUID namespace]: https://en.wikipedia.org/wiki/Universally_unique_identifier#Versions_3_and_5_(namespace_name-based)
 pub static ANIMATION_TARGET_NAMESPACE: Uuid = Uuid::from_u128(0x3179f519d9274ff2b5966fd077023911);
 
 /// List of keyframes for one of the attribute of a [`Transform`].
@@ -145,21 +150,48 @@ pub enum Interpolation {
     CubicSpline,
 }
 
-/// A list of [`VariableCurve`], and the [`AnimationTargetId`] to which they apply.
+/// A list of [`VariableCurve`]s and the [`AnimationTargetId`]s to which they
+/// apply.
+///
+/// Because animation clips refer to targets by UUID, they can target any
+/// [`AnimationTarget`] with that ID.
 #[derive(Asset, Reflect, Clone, Debug, Default)]
 pub struct AnimationClip {
-    curves: HashMap<AnimationTargetId, Vec<VariableCurve>>,
+    curves: HashMap<AnimationTargetId, Vec<VariableCurve>, NoOpHash>,
     duration: f32,
 }
 
-// TODO: Use a custom Hash implementation that doesn't actually hash the results.
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect, Debug)]
+/// A unique [UUID] for an animation target (bone).
+///
+/// The [`AnimationClip`] asset and the [`AnimationTarget`] component both use
+/// this to refer to targets (bones) to be animated.
+///
+/// When importing an armature or an animation clip, asset loaders typically use
+/// the full path name from the armature to the bone to generate these IDs. So,
+/// for example, any imported armature with a bone at the root named `Hips` will
+/// assign the same [`AnimationTargetId`] to its root bone. Likewise, any
+/// imported animation clip that animates a root bone named `Hips` will
+/// reference the same [`AnimationTargetId`]. What this means is that any
+/// animation is playable on any armature as long as the bone names match,
+/// which allows for easy animation retargeting.
+///
+/// Note that asset loaders generally use the *full* path name to generate the
+/// [`AnimationTargetId`]. Thus a bone named `Chest` directly connected to a
+/// bone named `Hips` will have a different ID from a bone named `Chest` that's
+/// connected to a bone named `Stomach`.
+///
+/// [UUID]: https://en.wikipedia.org/wiki/Universally_unique_identifier
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Reflect, Debug)]
 pub struct AnimationTargetId(pub Uuid);
 
+/// An entity that can be animated by an [`AnimationPlayer`].
+///
+/// These are frequently referred to as *bones* or *joints*, because they often
+/// refer to individually-animatable parts of an armature.
 #[derive(Clone, Component, Reflect)]
 #[reflect(Component, MapEntities)]
 pub struct AnimationTarget {
-    /// The ID of this bone.
+    /// The ID of this animation target.
     ///
     /// Typically, this is derived from the path.
     pub id: AnimationTargetId,
@@ -170,32 +202,32 @@ pub struct AnimationTarget {
 
 impl AnimationClip {
     #[inline]
-    /// [`VariableCurve`]s for each bone. Indexed by the bone ID.
-    pub fn curves(&self) -> &HashMap<AnimationTargetId, Vec<VariableCurve>> {
+    /// [`VariableCurve`]s for each animation target. Indexed by the [`AnimationTargetId`].
+    pub fn curves(&self) -> &HashMap<AnimationTargetId, Vec<VariableCurve>, NoOpHash> {
         &self.curves
     }
 
     /// Gets the curves for a bone.
     ///
-    /// Returns `None` if the bone is invalid.
+    /// Returns `None` if this clip doesn't animate this bone.
     #[inline]
     pub fn get_curves(&self, bone_id: AnimationTargetId) -> Option<&'_ Vec<VariableCurve>> {
         self.curves.get(&bone_id)
     }
 
-    /// Duration of the clip, represented in seconds
+    /// Duration of the clip, represented in seconds.
     #[inline]
     pub fn duration(&self) -> f32 {
         self.duration
     }
 
-    /// Add a [`VariableCurve`] to an [`EntityPath`].
-    pub fn add_curve_to_path(&mut self, bone_id: AnimationTargetId, curve: VariableCurve) {
+    /// Adds a [`VariableCurve`] to an [`AnimationTarget`] named by an ID.
+    pub fn add_curve_to_target(&mut self, target_id: AnimationTargetId, curve: VariableCurve) {
         // Update the duration of the animation by this curve duration if it's longer
         self.duration = self
             .duration
             .max(*curve.keyframe_timestamps.last().unwrap_or(&0.0));
-        self.curves.entry(bone_id).or_default().push(curve);
+        self.curves.entry(target_id).or_default().push(curve);
     }
 }
 
@@ -473,7 +505,8 @@ impl AnimationPlayer {
     }
 }
 
-pub fn animation_player(
+/// A system that advances the time for all playing animations.
+pub fn update_animations(
     time: Res<Time>,
     animation_clips: Res<Assets<AnimationClip>>,
     mut players: Query<&mut AnimationPlayer>,
@@ -491,11 +524,13 @@ pub fn animation_player(
 
         // Update transition animations.
         for transition in &mut player.transitions {
-            update_animation(&mut transition.animation, paused, &time, &animation_clips)
+            update_animation(&mut transition.animation, paused, &time, &animation_clips);
         }
     }
 }
 
+/// A system that modifies animation targets (bones) according to the
+/// currently-playing animation.
 pub fn animate_targets(
     world: &mut World,
     mut system_state: Local<
@@ -598,7 +633,7 @@ impl Plugin for AnimationPlugin {
             .register_type::<AnimationTarget>()
             .add_systems(
                 PostUpdate,
-                (animation_player, animate_targets)
+                (update_animations, animate_targets)
                     .chain()
                     .before(TransformSystem::TransformPropagate),
             );
@@ -625,7 +660,7 @@ impl PlayingAnimation {
         let target = target_entity.get::<AnimationTarget>().unwrap();
 
         let Some(clip) = clips.get(&self.animation_clip) else {
-            error!(
+            warn!(
                 "Couldn't find the animation clip for {:?}",
                 target_entity.id()
             );
@@ -636,7 +671,7 @@ impl PlayingAnimation {
             return;
         };
 
-        self.apply_curves(curves, weight, target_entity)
+        self.apply_curves(curves, weight, target_entity);
     }
 
     fn apply_curves(&self, curves: &[VariableCurve], weight: f32, target: &mut EntityMut) {
@@ -893,18 +928,34 @@ impl PlayingAnimation {
 }
 
 impl AnimationTargetId {
-    pub fn from_names(names: &[Name]) -> AnimationTargetId {
+    /// Creates a new [`AnimationTargetId`] by hashing a list of names.
+    ///
+    /// Typically, this will be the path from the animation root to the
+    /// animation target (bone) that is to be animated.
+    pub fn from_names<'a>(names: impl Iterator<Item = &'a Name>) -> Self {
         let mut sha1 = Sha1::new();
         sha1.update(ANIMATION_TARGET_NAMESPACE.as_bytes());
-        names.iter().for_each(|name| sha1.update(name.as_bytes()));
+        names.for_each(|name| sha1.update(name.as_bytes()));
         let hash = sha1.digest().bytes()[0..16].try_into().unwrap();
-        AnimationTargetId(*uuid::Builder::from_sha1_bytes(hash).as_uuid())
+        Self(*uuid::Builder::from_sha1_bytes(hash).as_uuid())
+    }
+
+    /// Creates a new [`AnimationTargetId`] by hashing a single name.
+    pub fn from_name(name: &Name) -> Self {
+        Self::from_names(iter::once(name))
     }
 }
 
 impl MapEntities for AnimationTarget {
     fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
         self.root = entity_mapper.map_entity(self.root);
+    }
+}
+
+impl Hash for AnimationTargetId {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        let (hi, lo) = self.0.as_u64_pair();
+        state.write_u64(hi ^ lo);
     }
 }
 

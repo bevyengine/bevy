@@ -36,8 +36,8 @@ fn setup(
     // Creating the animation
     let mut animation = AnimationClip::default();
     // A curve can modify a single part of a transform, here the translation
-    animation.add_curve_to_path(
-        AnimationTargetId::from_names(&[planet.clone()]),
+    animation.add_curve_to_target(
+        AnimationTargetId::from_name(&planet),
         VariableCurve {
             keyframe_timestamps: vec![0.0, 1.0, 2.0, 3.0, 4.0],
             keyframes: Keyframes::Translation(vec![
@@ -56,8 +56,8 @@ fn setup(
     // To find the entity to modify, the hierarchy will be traversed looking for
     // an entity with the right name at each level
     let orbit_controller_animation_target_id =
-        AnimationTargetId::from_names(&[planet.clone(), orbit_controller.clone()]);
-    animation.add_curve_to_path(
+        AnimationTargetId::from_names([planet.clone(), orbit_controller.clone()].iter());
+    animation.add_curve_to_target(
         orbit_controller_animation_target_id,
         VariableCurve {
             keyframe_timestamps: vec![0.0, 1.0, 2.0, 3.0, 4.0],
@@ -74,12 +74,10 @@ fn setup(
     // If a curve in an animation is shorter than the other, it will not repeat
     // until all other curves are finished. In that case, another animation should
     // be created for each part that would have a different duration / period
-    let satellite_animation_target_id = AnimationTargetId::from_names(&[
-        planet.clone(),
-        orbit_controller.clone(),
-        satellite.clone(),
-    ]);
-    animation.add_curve_to_path(
+    let satellite_animation_target_id = AnimationTargetId::from_names(
+        [planet.clone(), orbit_controller.clone(), satellite.clone()].iter(),
+    );
+    animation.add_curve_to_target(
         satellite_animation_target_id,
         VariableCurve {
             keyframe_timestamps: vec![0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0],
@@ -98,12 +96,10 @@ fn setup(
         },
     );
     // There can be more than one curve targeting the same entity path
-    animation.add_curve_to_path(
-        AnimationTargetId::from_names(&[
-            planet.clone(),
-            orbit_controller.clone(),
-            satellite.clone(),
-        ]),
+    animation.add_curve_to_target(
+        AnimationTargetId::from_names(
+            [planet.clone(), orbit_controller.clone(), satellite.clone()].iter(),
+        ),
         VariableCurve {
             keyframe_timestamps: vec![0.0, 1.0, 2.0, 3.0, 4.0],
             keyframes: Keyframes::Rotation(vec![
