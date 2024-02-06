@@ -245,3 +245,18 @@ macro_rules! impl_exclusive_system_function {
 // Note that we rely on the highest impl to be <= the highest order of the tuple impls
 // of `SystemParam` created.
 all_tuples!(impl_exclusive_system_function, 0, 16, F);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn into_system_type_id_consistency() {
+        fn test_system(_world: &mut World) {}
+
+        assert_eq!(
+            test_system.system_type_id(),
+            IntoSystem::into_system(test_system).type_id()
+        );
+    }
+}
