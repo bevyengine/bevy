@@ -512,7 +512,10 @@ pub fn update_animations(
     mut players: Query<&mut AnimationPlayer>,
 ) {
     for mut player in players.iter_mut() {
-        update_transitions(&mut player, &time);
+        player.transitions.retain_mut(|animation| {
+            animation.current_weight -= animation.weight_decline_per_sec * time.delta_seconds();
+            animation.current_weight > 0.0
+        });
 
         let paused = player.paused;
         if paused {
@@ -612,13 +615,6 @@ where
         + tangent_out_start * (step_duration) * (lerp.powi(3) - 2.0 * lerp.powi(2) + lerp)
         + value_end * (-2.0 * lerp.powi(3) + 3.0 * lerp.powi(2))
         + tangent_in_end * step_duration * (lerp.powi(3) - lerp.powi(2))
-}
-
-fn update_transitions(player: &mut AnimationPlayer, time: &Time) {
-    player.transitions.retain_mut(|animation| {
-        animation.current_weight -= animation.weight_decline_per_sec * time.delta_seconds();
-        animation.current_weight > 0.0
-    });
 }
 
 /// Adds animation support to an app
