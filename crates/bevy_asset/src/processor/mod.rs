@@ -440,7 +440,7 @@ impl AssetProcessor {
         scope: &'scope bevy_tasks::Scope<'scope, '_, ()>,
         source: &'scope AssetSource,
         path: PathBuf,
-    ) -> BoxedFuture<'scope, Result<(), AssetReaderError>> {
+    ) -> BoxedFuture<Result<(), AssetReaderError>> {
         Box::pin(async move {
             if source.reader().is_directory(&path).await? {
                 let mut path_stream = source.reader().read_directory(&path).await?;

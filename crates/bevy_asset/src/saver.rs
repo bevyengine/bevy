@@ -38,7 +38,7 @@ pub trait ErasedAssetSaver: Send + Sync + 'static {
         writer: &'a mut Writer,
         asset: &'a ErasedLoadedAsset,
         settings: &'a dyn Settings,
-    ) -> BoxedFuture<'a, Result<(), Box<dyn std::error::Error + Send + Sync + 'static>>>;
+    ) -> BoxedFuture<Result<(), Box<dyn std::error::Error + Send + Sync + 'static>>>;
 
     /// The type name of the [`AssetSaver`].
     fn type_name(&self) -> &'static str;
@@ -50,7 +50,7 @@ impl<S: AssetSaver> ErasedAssetSaver for S {
         writer: &'a mut Writer,
         asset: &'a ErasedLoadedAsset,
         settings: &'a dyn Settings,
-    ) -> BoxedFuture<'a, Result<(), Box<dyn std::error::Error + Send + Sync + 'static>>> {
+    ) -> BoxedFuture<Result<(), Box<dyn std::error::Error + Send + Sync + 'static>>> {
         Box::pin(async move {
             let settings = settings
                 .downcast_ref::<S::Settings>()
