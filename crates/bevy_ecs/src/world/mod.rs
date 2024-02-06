@@ -1382,9 +1382,10 @@ impl World {
     /// references could be bundled together) to a bundle of resources at once.
     #[inline]
     pub fn resources_mut<B: ResourceBundle>(&mut self) -> Option<B::Bundle<'_>> {
-        (!B::contains_access_conflicts())
-            // SAFETY: We have a mutable access to the world + we checked there are not conflicts withing the bundle
-            .then_some(unsafe { B::get_resource_bundle(self.as_unsafe_world_cell())? })
+        assert!(!B::contains_access_conflicts(), "Found access conflicts in resource bundle. 
+            Make sure that if there is a mutable reference to some type R, it is the only reference to R in the bundle.");
+        // SAFETY: We have a mutable access to the world + we checked there are not conflicts withing the bundle
+        unsafe { B::get_resource_bundle(self.as_unsafe_world_cell()) }
     }
 
     /// Gets the read-only version of the resource bundle. Similar to transmuting a query with a mutable reference to the read-only version.
