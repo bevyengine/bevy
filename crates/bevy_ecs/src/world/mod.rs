@@ -26,6 +26,7 @@ use crate::{
     event::{Event, EventId, Events, SendBatchIds},
     query::{DebugCheckedUnwrap, QueryData, QueryEntityError, QueryFilter, QueryState},
     removal_detection::RemovedComponentEvents,
+    resource_bundle::ResourceBundle,
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
     system::{Res, Resource},
@@ -1375,6 +1376,27 @@ impl World {
         // - `as_unsafe_world_cell` gives permission to access everything mutably
         // - `&mut self` ensures nothing in world is borrowed
         unsafe { self.as_unsafe_world_cell().get_resource_mut() }
+    }
+
+    /// Gets full access (the access is not necessarily exclusive, because shared and mutable
+    /// references could be bundled together) to a bundle of resources at once.
+    #[inline]
+    pub fn resources_mut<B: ResourceBundle>(&mut self) -> Option<B::Bundle<'_>> {
+        (!B::contains_access_conflicts())
+            // SAFETY: We have a mutable access to the world + we checked there are not conflicts withing the bundle
+            .then_some(unsafe { B::get_resource_bundle(self.as_unsafe_world_cell())? })
+    }
+
+    /// Gets the read-only version of the resource bundle. Similar to transmuting a query with a mutable reference to the read-only version.
+    #[inline]
+    pub fn resources<B: ResourceBundle>(&self) -> Option<B::ReadOnlyBundle<'_>> {
+        B::get_read_only_resource_bundle(self)
+    }
+
+    /// Gets access to a bundle of resources at once, without checking for access conflicts within the bundle.
+    #[inline]
+    pub unsafe fn resources_unchecked<B: ResourceBundle>(&mut self) -> Option<B::Bundle<'_>> {
+        B::get_resource_bundle(self.as_unsafe_world_cell())
     }
 
     /// Gets a mutable reference to the resource of type `T` if it exists,

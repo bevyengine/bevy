@@ -16,6 +16,7 @@ pub mod query;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
 pub mod removal_detection;
+mod resource_bundle;
 pub mod schedule;
 pub mod storage;
 pub mod system;
@@ -1401,6 +1402,48 @@ mod tests {
         let mut query = world_a.query::<&A>();
         query.iter(&world_a).for_each(|_| {});
         query.iter(&world_b).for_each(|_| {});
+    }
+
+    #[derive(Resource)]
+    struct Num(isize);
+
+    #[derive(Resource)]
+    struct BigNum(i128);
+
+    #[derive(Resource)]
+    struct SmallNum(i8);
+
+    #[test]
+    fn resource_bundle() {
+        let mut world = World::new();
+        world.insert_resource(SmallNum(1));
+        world.insert_resource(Num(1_000));
+        world.insert_resource(BigNum(1_000_000));
+
+        let (small_num, mut normal_num, big_num) = world
+            .resources_mut::<(&SmallNum, &mut Num, &BigNum)>()
+            .expect("Couldn't get bundle");
+
+        assert_eq!(small_num.0, 1);
+        assert_eq!(big_num.0, 1_000_000);
+
+        normal_num.0 *= 2;
+
+        let normal_num = world.get_resource::<Num>().unwrap();
+
+        assert_eq!(normal_num.0, 2_000);
+    }
+
+    #[test]
+    #[should_panic]
+    fn access_conflict_in_resource_bundle() {
+        let mut world = World::new();
+        world.insert_resource(SmallNum(1));
+        world.insert_resource(Num(1_000));
+
+        let (_small, _num, mut _num_mut) = world
+            .resources_mut::<(&SmallNum, &Num, &mut Num)>()
+            .unwrap();
     }
 
     #[test]
