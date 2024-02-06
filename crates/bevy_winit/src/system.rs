@@ -7,7 +7,9 @@ use bevy_ecs::{
     system::{NonSendMut, Query, SystemParamItem},
 };
 use bevy_utils::tracing::{error, info, warn};
-use bevy_window::{RawHandleWrapper, Window, WindowClosed, WindowCreated, WindowResized};
+use bevy_window::{
+    RawHandleWrapper, Window, WindowClosed, WindowCreated, WindowMode, WindowResized,
+};
 
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use winit::{
@@ -126,26 +128,34 @@ pub(crate) fn changed_windows(
 
             if window.mode != cache.window.mode {
                 let new_mode = match window.mode {
-                    bevy_window::WindowMode::BorderlessFullscreen => {
-                        Some(winit::window::Fullscreen::Borderless(None))
+                    WindowMode::BorderlessFullscreen => {
+                        Some(Some(winit::window::Fullscreen::Borderless(None)))
                     }
-                    bevy_window::WindowMode::Fullscreen => {
-                        Some(winit::window::Fullscreen::Exclusive(get_best_videomode(
-                            &winit_window.current_monitor().unwrap(),
-                        )))
+                    mode @ (WindowMode::Fullscreen | WindowMode::SizedFullscreen) => {
+                        if let Some(current_monitor) = winit_window.current_monitor() {
+                            let videomode = match mode {
+                                WindowMode::Fullscreen => get_best_videomode(&current_monitor),
+                                WindowMode::SizedFullscreen => get_fitting_videomode(
+                                    &current_monitor,
+                                    window.width() as u32,
+                                    window.height() as u32,
+                                ),
+                                _ => unreachable!(),
+                            };
+
+                            Some(Some(winit::window::Fullscreen::Exclusive(videomode)))
+                        } else {
+                            warn!("Could not determine current monitor, ignoring exclusive fullscreen request for window {:?}", window.title);
+                            None
+                        }
                     }
-                    bevy_window::WindowMode::SizedFullscreen => {
-                        Some(winit::window::Fullscreen::Exclusive(get_fitting_videomode(
-                            &winit_window.current_monitor().unwrap(),
-                            window.width() as u32,
-                            window.height() as u32,
-                        )))
-                    }
-                    bevy_window::WindowMode::Windowed => None,
+                    WindowMode::Windowed => Some(None),
                 };
 
-                if winit_window.fullscreen() != new_mode {
-                    winit_window.set_fullscreen(new_mode);
+                if let Some(new_mode) = new_mode {
+                    if winit_window.fullscreen() != new_mode {
+                        winit_window.set_fullscreen(new_mode);
+                    }
                 }
             }
             if window.resolution != cache.window.resolution {
