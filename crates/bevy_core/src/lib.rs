@@ -58,6 +58,7 @@ fn register_rust_types(app: &mut App) {
         .register_type::<Option<String>>()
         .register_type::<Option<bool>>()
         .register_type::<Option<f64>>()
+        .register_type::<Vec<f32>>()
         .register_type::<Cow<'static, str>>()
         .register_type::<Cow<'static, Path>>()
         .register_type::<Duration>()
