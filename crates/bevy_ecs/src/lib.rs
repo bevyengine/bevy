@@ -1436,6 +1436,7 @@ mod tests {
 
     #[test]
     #[should_panic]
+    #[cfg(not(miri))]
     fn access_conflict_in_resource_bundle() {
         let mut world = World::new();
         world.insert_resource(SmallNum(1));
