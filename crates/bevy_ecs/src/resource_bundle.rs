@@ -8,6 +8,7 @@ use crate::{
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
+/// Bundle of resources. With this trait we can fetch multiple resources at once from a world.
 pub trait ResourceBundle {
     /// The resource bundle as it will be returned once fetched.
     type Bundle<'a>;
@@ -16,7 +17,7 @@ pub trait ResourceBundle {
     /// Get this resource bundle from the world.
     /// # SAFETY:
     /// The caller must ensure that each resource in this bundle ([`Self::Bundle`]) is safe to access.
-    /// For example, if `&R` is in the bundle, there should be any valid mutable references to R.
+    /// For example, if `&R` is in the bundle, there should not be any valid mutable references to R.
     unsafe fn get_resource_bundle<'w>(world: UnsafeWorldCell<'w>) -> Option<Self::Bundle<'w>>;
     /// Get the read-only version of this bundle from the world.
     fn get_read_only_resource_bundle<'w>(world: &'w World) -> Option<Self::ReadOnlyBundle<'w>>;
