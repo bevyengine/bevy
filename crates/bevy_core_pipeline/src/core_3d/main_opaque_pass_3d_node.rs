@@ -47,7 +47,7 @@ impl ViewNode for MainOpaquePass3dNode {
         ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        // Run the opaque pass, sorted front-to-back
+        // Run the opaque pass, sorted by pipeline key and mesh id to greatly improve batching.
         // NOTE: Scoped to drop the mutable borrow of render_context
         #[cfg(feature = "trace")]
         let _main_opaque_pass_3d_span = info_span!("main_opaque_pass_3d").entered();

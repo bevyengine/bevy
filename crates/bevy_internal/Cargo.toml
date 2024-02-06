@@ -77,6 +77,7 @@ serialize = [
 multi-threaded = [
   "bevy_asset/multi-threaded",
   "bevy_ecs/multi-threaded",
+  "bevy_render/multi-threaded",
   "bevy_tasks/multi-threaded",
 ]
 async-io = ["bevy_tasks/async-io"]
