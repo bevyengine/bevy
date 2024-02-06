@@ -16,6 +16,16 @@
 
 ---
 
+## Showcase
+
+> This section is optional. If this PR does not include a visual change or does not add a new feature, you can delete this section.
+
+- Help others understand the result of this PR by showcasing your awesome work!
+- If this PR adds a new feature or public API, consider adding a brief pseudo-code snippet of it in action
+- If this PR includes a visual change, consider adding a screenshot, GIF, or video
+  - If you want, you could even include a before/after comparison!
+- If the Changelog or Migration Guide adequately cover the changes, you can delete this section
+
 ## Changelog
 
 > This section is optional. If this was a trivial fix, or has no externally-visible impact, you can delete this section.
