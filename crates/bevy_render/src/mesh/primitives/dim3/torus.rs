@@ -69,7 +69,6 @@ impl TorusMeshBuilder {
     /// Builds a [`Mesh`] according to the configuration in `self`.
     pub fn build(&self) -> Mesh {
         // code adapted from http://apparat-engine.blogspot.com/2013/04/procedural-meshes-torus.html
-        // (source code at https://github.com/SEilers/Apparat)
 
         let n_vertices = (self.major_resolution + 1) * (self.minor_resolution + 1);
         let mut positions: Vec<[f32; 3]> = Vec::with_capacity(n_vertices);
