@@ -37,7 +37,7 @@ use std::any::TypeId;
 /// #   #[derive(Default)] pub struct InternalPlugin;
 /// #   impl Plugin for InternalPlugin { fn build(&self, _: &mut App) {} }
 /// # }
-/// plugin_group!(
+/// plugin_group! {
 ///     PhysicsPlugins {
 ///         // Due to local ambiguity issues, you have to
 ///         // use a colon before the plugin's name.
@@ -58,11 +58,11 @@ use std::any::TypeId;
 ///         #[doc(hidden)]
 ///         internal:::InternalPlugin
 ///     }
-/// );
+/// }
 /// ```
 #[macro_export]
 macro_rules! plugin_group {
-    (
+    {
         $(#[$group_meta:meta])*
         $group:ident {
             $(
@@ -82,7 +82,7 @@ macro_rules! plugin_group {
             $(,)?
         }
         $($(#[doc = $post_doc:literal])+)?
-    ) => {
+    } => {
         $(#[$group_meta])*
         ///
         $(#[doc = concat!(
@@ -94,9 +94,9 @@ macro_rules! plugin_group {
             $(#[doc = $post_doc])+
         )?
         pub struct $group;
-        impl PluginGroup for $group {
-            fn build(self) -> PluginGroupBuilder {
-                let mut group = PluginGroupBuilder::start::<Self>();
+        impl $crate::PluginGroup for $group {
+            fn build(self) -> $crate::PluginGroupBuilder {
+                let mut group = $crate::PluginGroupBuilder::start::<Self>();
 
                 $(
                     $(#[cfg(feature = $plugin_feature)])?

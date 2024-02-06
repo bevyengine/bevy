@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 use bevy_app::{plugin_group, Plugin, PluginGroup, PluginGroupBuilder};
 
-plugin_group!(
+plugin_group! {
     /// This plugin group will add all the default plugins for a *Bevy* application:
     DefaultPlugins {
         bevy_log:::LogPlugin,
@@ -62,7 +62,7 @@ plugin_group!(
     /// [`DefaultPlugins`] contains all the plugins typically required to build
     /// a *Bevy* application which includes a *window* and presentation components.
     /// For *headless* cases – without a *window* or presentation, see [`MinimalPlugins`].
-);
+}
 
 #[derive(Default)]
 struct IgnoreAmbiguitiesPlugin;
@@ -105,7 +105,7 @@ impl Plugin for IgnoreAmbiguitiesPlugin {
     }
 }
 
-plugin_group!(
+plugin_group! {
     /// This plugin group will add the minimal plugins for a *Bevy* application:
     MinimalPlugins {
         bevy_core:::TaskPoolPlugin,
@@ -122,4 +122,4 @@ plugin_group!(
     ///
     /// Windowed applications that wish to use a reduced set of plugins should consider the
     /// [`DefaultPlugins`] plugin group which can be controlled with *Cargo* *feature* flags.
-);
+}
