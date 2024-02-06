@@ -1380,11 +1380,20 @@ impl World {
 
     /// Gets full access (the access is not necessarily exclusive, because shared and mutable
     /// references could be bundled together) to a bundle of resources at once.
+    ///
+    /// Return `None` if one of the resources couldn't be fetched from the [`World`].
+    ///
+    /// # Panics
+    /// This method will panic if there are access conflicts within provided resource bundle.
+    /// For example, for any resources R, T, F:
+    ///
+    /// (&R, &mut R)      -    *Panics!*  Both mutable and immutable references can't exist at the same time!
+    /// (&R, &T, &mut F)  -    No access conflicts
     #[inline]
     pub fn resources_mut<B: ResourceBundle>(&mut self) -> Option<B::Bundle<'_>> {
         assert!(!B::contains_access_conflicts(), "Found access conflicts in resource bundle. 
             Make sure that if there is a mutable reference to some type R, it is the only reference to R in the bundle.");
-        // SAFETY: We have a mutable access to the world + we checked there are not conflicts withing the bundle
+        // SAFETY: We have a mutable access to the world + we checked that there are no access conflicts within the bundle
         unsafe { B::get_resource_bundle(self.as_unsafe_world_cell()) }
     }
 
