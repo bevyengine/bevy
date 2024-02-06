@@ -320,7 +320,7 @@ impl<'w> DeferredWorld<'w> {
     /// Triggers all event observers for [`ComponentId`] in target.
     ///
     /// # Safety
-    /// Caller must ensure [`ComponentId`] in target exist in self.
+    /// Caller must ensure observers listening for `event` can accept ZST pointers
     #[inline]
     pub(crate) unsafe fn trigger_observers(
         &mut self,
