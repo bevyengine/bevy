@@ -114,7 +114,7 @@ mod system_name;
 mod system_param;
 mod system_registry;
 
-use std::borrow::Cow;
+use std::{any::TypeId, borrow::Cow};
 
 pub use adapter_system::*;
 pub use combinator::*;
@@ -194,6 +194,12 @@ pub trait IntoSystem<In, Out, Marker>: Sized {
         let system = Self::into_system(self);
         let name = system.name();
         AdapterSystem::new(f, system, name)
+    }
+
+    /// Get the [`TypeId`] of the [`System`] produced after calling [`into_system`](`IntoSystem::into_system`).
+    #[inline]
+    fn system_type_id(&self) -> TypeId {
+        TypeId::of::<Self::System>()
     }
 }
 
