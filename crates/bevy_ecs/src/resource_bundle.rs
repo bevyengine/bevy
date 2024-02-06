@@ -32,7 +32,7 @@ pub trait ResourceBundle {
 trait AccessConflictTracker {
     /// The [`access table`](BundleAccessTable) that tracks for access conflicts with a bundled type.
     fn access_table() -> BundleAccessTable;
-    /// Return `true` if the is conflicting access within the bundle. For example, two mutable references
+    /// Return `true` if there is conflicting access within the bundle. For example, two mutable references
     /// to the same resource.
     fn contains_conflicting_access() -> bool {
         false
@@ -84,7 +84,7 @@ impl BundleAccessTable {
     /// Insert a key-value pair to the table. If the insert causes an access conflict,
     /// the internal conflict flag will be set to `true`.
     /// # NOTE
-    /// Even if the insertion solved an existing conflict, this will not be reflected.
+    /// Even if the insertion solved an existing conflict, this will not be reflected in the internal conflict flag.
     fn insert_checked(&mut self, id: TypeId, val: Access) {
         if let Some(prev_val) = self.table.insert(id, val) {
             self.conflicted |= prev_val.is_conflicting(val);
