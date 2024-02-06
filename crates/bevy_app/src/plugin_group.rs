@@ -71,7 +71,7 @@ macro_rules! plugin_group {
                 $($plugin_path:ident::)* : $plugin_name:ident
             ),*
             $(
-                ,$(
+                $(,)?$(
                     #[doc(hidden)]
                     $(#[cfg(feature = $hidden_plugin_feature:literal)])?
                     $(#[custom($hidden_plugin_meta:meta)])*
