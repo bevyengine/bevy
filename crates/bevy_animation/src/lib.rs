@@ -224,7 +224,12 @@ impl AnimationClip {
         self.duration
     }
 
-    /// Adds a [`VariableCurve`] to an [`AnimationTarget`] named by an ID.
+    /// Adds a [`VariableCurve`] to an [`AnimationTarget`] named by an
+    /// [`AnimationTargetId`].
+    ///
+    /// If the curve extends beyond the current duration of this clip, this
+    /// method lengthens this clip to include the entire time span that the
+    /// curve covers.
     pub fn add_curve_to_target(&mut self, target_id: AnimationTargetId, curve: VariableCurve) {
         // Update the duration of the animation by this curve duration if it's longer
         self.duration = self
