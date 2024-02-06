@@ -307,8 +307,8 @@ impl<'w> DeferredWorld<'w> {
     ) {
         if archetype.has_remove_hook() {
             for component_id in targets {
-                // SAFETY: Caller ensures that these components exist
                 let hooks =
+                // SAFETY: Caller ensures that these components exist
                     unsafe { self.world.components().get_info_unchecked(component_id) }.hooks();
                 if let Some(hook) = hooks.on_remove {
                     hook(DeferredWorld { world: self.world }, entity, component_id);

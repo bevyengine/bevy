@@ -5,11 +5,8 @@ use crate::{
     world::DeferredWorld,
 };
 
-use bevy_utils::all_tuples;
-#[cfg(feature = "trace")]
-use bevy_utils::tracing::{info_span, Span};
-
 use super::{Commands, FunctionSystem, IntoSystem, Query, Res, ResMut, Resource};
+use bevy_utils::all_tuples;
 
 /// Implemented for systems that have an [`Observer`] as the first argument and only [`ObserverSystemParam`] implementors as parameters.
 pub trait ObserverSystem<E: 'static, B: Bundle>:
@@ -20,20 +17,25 @@ pub trait ObserverSystem<E: 'static, B: Bundle>:
 }
 
 /// Implemented for [`SystemParam`] that can be used in [`Observer`] systems.
-pub trait ObserverSystemParam: SystemParam {}
+/// # Safety
+/// Implementing types must ensure their implementation of [`SystemParam::get_param`] does not use `world` except as a [`DeferredWorld`]
+pub unsafe trait ObserverSystemParam: SystemParam {}
 
-impl<'w, D: QueryData + 'static, F: QueryFilter + 'static> ObserverSystemParam
+/// # Safety: `Query` can make no structural changes
+unsafe impl<'w, D: QueryData + 'static, F: QueryFilter + 'static> ObserverSystemParam
     for Query<'w, 'w, D, F>
 {
 }
 
-impl<'w, T: Resource> ObserverSystemParam for Res<'w, T> {}
+/// # Safety: `Res` can make no structural changes
+unsafe impl<'w, T: Resource> ObserverSystemParam for Res<'w, T> {}
 
-impl<'w, T: Resource> ObserverSystemParam for ResMut<'w, T> {}
+/// # Safety: `ResMut` can make no structural changes
+unsafe impl<'w, T: Resource> ObserverSystemParam for ResMut<'w, T> {}
 
-impl<'w> ObserverSystemParam for Commands<'w, 'w> {}
+/// # Safety: `Commands` can't make structural changes
+unsafe impl<'w> ObserverSystemParam for Commands<'w, 'w> {}
 
-/// SAFETY: `F`'s param is [`ReadOnlySystemParam`], so this system will only read from the world.
 impl<E: 'static, B: Bundle, Marker, F> ObserverSystem<E, B> for FunctionSystem<Marker, F>
 where
     Marker: 'static,
@@ -71,7 +73,7 @@ macro_rules! impl_observer_system_param_tuple {
     ($($param: ident),*) => {
         #[allow(clippy::undocumented_unsafe_blocks)]
         #[allow(non_snake_case)]
-        impl<$($param: ObserverSystemParam),*> ObserverSystemParam for ($($param,)*) {
+        unsafe impl<$($param: ObserverSystemParam),*> ObserverSystemParam for ($($param,)*) {
         }
     };
 }

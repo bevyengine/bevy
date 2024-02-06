@@ -3,7 +3,8 @@ use crate::system::{IntoObserverSystem, ObserverSystem};
 use super::*;
 
 /// Type for function that is run when an observer is triggered
-/// Typically refers to the default runner defined in [`ObserverComponent::from`]
+/// Typically refers to the default runner that runs the contained,
+/// but can be overriden for custom behaviour.
 pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut);
 
 /// Equivalent to [`BoxedSystem`](crate::system::BoxedSystem) for [`ObserverSystem`].
@@ -56,6 +57,7 @@ impl ObserverComponent {
                 let observer_cell =
                 // SAFETY: Observer was triggered so must still exist in world
                     unsafe { world.get_entity(trigger.observer).debug_checked_unwrap() };
+                // SAFETY: Observer was triggered so must have an `ObserverComponent`
                 let mut state = unsafe {
                     observer_cell
                         .get_mut::<ObserverComponent>()
@@ -77,6 +79,11 @@ impl ObserverComponent {
                 };
 
                 system.update_archetype_component_access(world);
+                // SAFETY:
+                // - `update_archetype_component_access` was just called
+                // - there are no oustanding references to world except a private component
+                // - system is an `ObserverSystem` so won't mutate world beyond the access of a `DeferredWorld`
+                // - system is the same type erased system from above
                 unsafe {
                     system.run_unsafe(std::mem::transmute(observer), world);
                     system.queue_deferred(world.into_deferred());

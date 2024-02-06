@@ -203,7 +203,7 @@ unsafe impl<C: Component> Bundle for C {
     }
 
     fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)) {
-        ids(components.get_id(TypeId::of::<C>()))
+        ids(components.get_id(TypeId::of::<C>()));
     }
 }
 

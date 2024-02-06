@@ -152,7 +152,7 @@ impl<'w, E: EcsEvent> EventBuilder<'w, E> {
     }
 
     /// Sets the event id of the resulting event, used for dynamic events
-    /// # Safety :
+    /// # Safety
     /// Caller must ensure that the component associated with `id` has the same layout as E
     #[must_use]
     pub unsafe fn event_id(&mut self, id: ComponentId) -> &mut Self {
