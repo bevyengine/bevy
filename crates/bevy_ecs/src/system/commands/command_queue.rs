@@ -112,7 +112,7 @@ impl CommandQueue {
         }
     }
 
-    /// Execute the queued [`Command`]s in the world.
+    /// Execute the queued [`Command`]s in the world after applying any commands in the world's internal queue.
     /// This clears the queue.
     #[inline]
     pub fn apply(&mut self, world: &mut World) {
@@ -139,9 +139,23 @@ impl CommandQueue {
         // In the loop below, ownership of each command will be transferred into user code.
         let bytes = std::mem::take(&mut self.bytes);
 
-        let mut resolving_commands = vec![(cursor, end, bytes)];
+        // Create a stack for the command queue's we will be applying as commands may queue additional commands.
+        // This is preferred over recursion to avoid stack overflows.
+        let mut resolving_commands = vec![(cursor, end)];
+        // Take ownership of buffers so they are not free'd uintil they are iterated.
+        let mut buffers = vec![bytes];
 
-        while let Some((mut cursor, mut end, mut bytes)) = resolving_commands.pop() {
+        // Add any commands in the world's internal queue to the top of the stack.
+        if let Some(world) = &mut world {
+            if !world.command_queue.is_empty() {
+                let mut bytes = std::mem::take(&mut world.command_queue.bytes);
+                let bytes_range = bytes.as_mut_ptr_range();
+                resolving_commands.push((bytes_range.start, bytes_range.end));
+                buffers.push(bytes);
+            }
+        }
+
+        while let Some((mut cursor, mut end)) = resolving_commands.pop() {
             while cursor < end {
                 // SAFETY: The cursor is either at the start of the buffer, or just after the previous command.
                 // Since we know that the cursor is in bounds, it must point to the start of a new command.
@@ -170,26 +184,31 @@ impl CommandQueue {
                 cursor = unsafe { cursor.add(size) };
 
                 if let Some(world) = &mut world {
-                    // Mark world as flushing so calls to `World::flush_commands` don't cause multiple queues to be applying simultaneously
-                    world.flushing_commands = true;
                     // If the command we just applied generated more commands we must apply those first
                     if !world.command_queue.is_empty() {
                         // If our current list of commands isn't complete push it to the `resolving_commands` stack to be applied after
                         if cursor < end {
-                            resolving_commands.push((cursor, end, bytes));
+                            resolving_commands.push((cursor, end));
                         }
+                        let mut bytes = std::mem::take(&mut world.command_queue.bytes);
+
                         // Set our variables to start applying the new queue
-                        bytes = std::mem::take(&mut world.command_queue.bytes);
                         let bytes_range = bytes.as_mut_ptr_range();
                         cursor = bytes_range.start;
                         end = bytes_range.end;
+
+                        // Store our buffer so it is not dropped;
+                        buffers.push(bytes);
                     }
                 }
             }
         }
-        if let Some(world) = world {
-            // Unblock future calls to `World::flush_commands`
-            world.flushing_commands = false;
+
+        // Reset the buffer, so it can be reused after this function ends.
+        if let Some(bytes) = buffers.first_mut() {
+            self.bytes = std::mem::take(bytes);
+            // SAFETY: `set_len(0)` is always valid.
+            unsafe { self.bytes.set_len(0) }
         }
     }
 

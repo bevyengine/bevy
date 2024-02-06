@@ -7,7 +7,7 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
     render::{
-        render_asset::RenderAssetPersistencePolicy,
+        render_asset::RenderAssetUsages,
         render_resource::{AsBindGroup, Extent3d, ShaderRef, TextureDimension, TextureFormat},
         texture::{ImageSampler, ImageSamplerDescriptor},
         view::ColorGrading,
@@ -224,7 +224,7 @@ fn setup_color_gradient_scene(
     camera_transform: Res<CameraTransform>,
 ) {
     let mut transform = camera_transform.0;
-    transform.translation += transform.forward();
+    transform.translation += *transform.forward();
 
     commands.spawn((
         MaterialMeshBundle {
@@ -248,7 +248,7 @@ fn setup_image_viewer_scene(
     camera_transform: Res<CameraTransform>,
 ) {
     let mut transform = camera_transform.0;
-    transform.translation += transform.forward();
+    transform.translation += *transform.forward();
 
     // exr/hdr viewer (exr requires enabling bevy feature)
     commands.spawn((
@@ -691,7 +691,7 @@ fn uv_debug_texture() -> Image {
         TextureDimension::D2,
         &texture_data,
         TextureFormat::Rgba8UnormSrgb,
-        RenderAssetPersistencePolicy::Unload,
+        RenderAssetUsages::RENDER_WORLD,
     );
     img.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor::default());
     img
@@ -704,7 +704,7 @@ impl Material for ColorGradientMaterial {
 }
 
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
-pub struct ColorGradientMaterial {}
+struct ColorGradientMaterial {}
 
 #[derive(Resource)]
 struct CameraTransform(Transform);

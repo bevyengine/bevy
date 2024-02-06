@@ -42,8 +42,9 @@ impl<'w> DeferredWorld<'w> {
     /// Creates a [`Commands`] instance that pushes to the world's command queue
     #[inline]
     pub fn commands(&mut self) -> Commands {
-        // SAFETY: Commands cannot make structural changes.
-        unsafe { self.world.world_mut().commands() }
+        // SAFETY: &mut self ensure that there are no outstanding accesses to the queue
+        let queue = unsafe { self.world.get_command_queue() };
+        Commands::new_from_entities(queue, self.world.entities(), self.world.components())
     }
 
     /// Retrieves a mutable reference to the given `entity`'s [`Component`] of the given type.
@@ -117,10 +118,7 @@ impl<'w> DeferredWorld<'w> {
     /// # Panics
     ///
     /// Panics if the resource does not exist.
-    /// Use [`get_resource_mut`](World::get_resource_mut) instead if you want to handle this case.
-    ///
-    /// If you want to instead insert a value if the resource does not exist,
-    /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
+    /// Use [`get_resource_mut`](DeferredWorld::get_resource_mut) instead if you want to handle this case.
     #[inline]
     #[track_caller]
     pub fn resource_mut<R: Resource>(&mut self) -> Mut<'_, R> {
@@ -344,7 +342,7 @@ impl<'w> DeferredWorld<'w> {
     /// Triggers all event observers for [`ComponentId`] in target.
     ///
     /// # Safety
-    /// Caller must ensure [`ComponentId`] in target exist in self.
+    /// Caller must ensure observers listening for `event` can accept types sharing a layout with `E`
     #[inline]
     pub(crate) unsafe fn trigger_observers_with_data<E>(
         &mut self,

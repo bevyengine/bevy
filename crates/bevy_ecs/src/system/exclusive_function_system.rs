@@ -121,6 +121,7 @@ where
         self.system_meta.last_run.set(*change_tick);
         *change_tick = change_tick.wrapping_add(1);
         world.last_change_tick = saved_last_tick;
+        world.flush_commands();
 
         out
     }

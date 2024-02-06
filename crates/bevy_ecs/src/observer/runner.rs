@@ -6,6 +6,7 @@ use super::*;
 /// Typically refers to the default runner defined in [`ObserverComponent::from`]
 pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut);
 
+/// Equivalent to [`BoxedSystem`](crate::system::BoxedSystem) for [`ObserverSystem`].
 pub type BoxedObserverSystem<E = (), B = ()> = Box<dyn ObserverSystem<E, B>>;
 
 pub(crate) struct ObserverComponent {
@@ -53,19 +54,23 @@ impl ObserverComponent {
                 }
                 let world = world.as_unsafe_world_cell();
                 let observer_cell =
+                // SAFETY: Observer was triggered so must still exist in world
                     unsafe { world.get_entity(trigger.observer).debug_checked_unwrap() };
                 let mut state = unsafe {
                     observer_cell
                         .get_mut::<ObserverComponent>()
                         .debug_checked_unwrap()
                 };
-                let last_event = unsafe { world.world() }.last_event_id;
+                // SAFETY: We only access world metadata
+                let last_event = unsafe { world.world_metadata() }.last_event_id;
                 if state.last_event_id == last_event {
                     return;
                 }
                 state.last_event_id = last_event;
 
+                // SAFETY: Caller ensures `ptr` is castable to `E`
                 let observer: Observer<E, B> = Observer::new(unsafe { ptr.deref_mut() }, trigger);
+                // SAFETY: System is from component
                 let mut system: Box<dyn ObserverSystem<E, B>> = unsafe {
                     let system = state.system.take().debug_checked_unwrap();
                     std::mem::transmute(system)

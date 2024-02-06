@@ -8,10 +8,12 @@ use crate::{
     storage::{SparseSetIndex, Storages},
     system::{Local, Resource, SystemParam},
     world::{DeferredWorld, FromWorld, World},
-    TypeIdMap,
 };
 pub use bevy_ecs_macros::Component;
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::Reflect;
+use bevy_utils::TypeIdMap;
 use std::cell::UnsafeCell;
 use std::{
     alloc::Layout,
@@ -286,30 +288,23 @@ impl ComponentInfo {
         }
     }
 
-    /// Register a [`ComponentHook`] that will be run when this component is added to an entity
+    /// Register a [`ComponentHook`] that will be run when this component is added to an entity.
+    /// An `on_add` hook will always be followed by `on_insert`.
     ///
     /// Will panic if the component already has an `on_add` hook
     pub fn on_add(&mut self, hook: ComponentHook) -> &mut Self {
-        assert!(
-            self.hooks.on_add.is_none(),
-            "Component id: {:?}, already has an on_add hook",
-            self.id()
-        );
-        self.hooks.on_add = Some(hook);
-        self
+        self.try_on_add(hook)
+            .expect("Component id: {:?}, already has an on_add hook")
     }
 
     /// Register a [`ComponentHook`] that will be run when this component is added or set by `.insert`
+    /// An `on_insert` hook will run even if the entity already has the component unlike `on_add`,
+    /// `on_insert` also always runs after any `on_add` hooks.
     ///
     /// Will panic if the component already has an `on_insert` hook
     pub fn on_insert(&mut self, hook: ComponentHook) -> &mut Self {
-        assert!(
-            self.hooks.on_insert.is_none(),
-            "Component id: {:?}, already has an on_insert hook",
-            self.id()
-        );
-        self.hooks.on_insert = Some(hook);
-        self
+        self.try_on_insert(hook)
+            .expect("Component id: {:?}, already has an on_insert hook")
     }
 
     /// Register a [`ComponentHook`] that will be run when this component is removed from an entity.
@@ -317,13 +312,38 @@ impl ComponentInfo {
     ///
     /// Will panic if the component already has an `on_remove` hook
     pub fn on_remove(&mut self, hook: ComponentHook) -> &mut Self {
-        assert!(
-            self.hooks.on_remove.is_none(),
-            "Component id: {:?}, already has an on_remove hook",
-            self.id()
-        );
+        self.try_on_remove(hook)
+            .expect("Component id: {:?}, already has an on_remove hook")
+    }
+
+    /// Fallible version of [`Self::on_add`].
+    /// Returns `None` if the component already has an `on_add` hook.
+    pub fn try_on_add(&mut self, hook: ComponentHook) -> Option<&mut Self> {
+        if self.hooks.on_add.is_some() {
+            return None;
+        }
+        self.hooks.on_add = Some(hook);
+        Some(self)
+    }
+
+    /// Fallible version of [`Self::on_insert`].
+    /// Returns `None` if the component already has an `on_insert` hook.
+    pub fn try_on_insert(&mut self, hook: ComponentHook) -> Option<&mut Self> {
+        if self.hooks.on_insert.is_some() {
+            return None;
+        }
+        self.hooks.on_insert = Some(hook);
+        Some(self)
+    }
+
+    /// Fallible version of [`Self::on_remove`].
+    /// Returns `None` if the component already has an `on_remove` hook.
+    pub fn try_on_remove(&mut self, hook: ComponentHook) -> Option<&mut Self> {
+        if self.hooks.on_remove.is_some() {
+            return None;
+        }
         self.hooks.on_remove = Some(hook);
-        self
+        Some(self)
     }
 
     /// Update the given flags to include any [`ComponentHook`] registered to self
@@ -368,6 +388,11 @@ impl ComponentInfo {
 /// from a `World` using [`World::component_id()`] or via [`Components::component_id()`]. Access
 /// to the `ComponentId` for a [`Resource`] is available via [`Components::resource_id()`].
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Hash, PartialEq)
+)]
 pub struct ComponentId(usize);
 
 impl ComponentId {
@@ -762,6 +787,7 @@ impl Components {
 /// A value that tracks when a system ran relative to other systems.
 /// This is used to power change detection.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
 pub struct Tick {
     tick: u32,
 }
@@ -855,6 +881,7 @@ impl<'a> TickCells<'a> {
 
 /// Records when a component was added and when it was last mutably dereferenced (or added).
 #[derive(Copy, Clone, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct ComponentTicks {
     pub(crate) added: Tick,
     pub(crate) changed: Tick,

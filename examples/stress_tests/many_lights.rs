@@ -10,6 +10,7 @@ use bevy::{
     prelude::*,
     render::{camera::ScalingMode, Render, RenderApp, RenderSet},
     window::{PresentMode, WindowPlugin, WindowResolution},
+    winit::{UpdateMode, WinitSettings},
 };
 use rand::{thread_rng, Rng};
 
@@ -30,6 +31,10 @@ fn main() {
             LogDiagnosticsPlugin::default(),
             LogVisibleLights,
         ))
+        .insert_resource(WinitSettings {
+            focused_mode: UpdateMode::Continuous,
+            unfocused_mode: UpdateMode::Continuous,
+        })
         .add_systems(Startup, setup)
         .add_systems(Update, (move_camera, print_light_count))
         .run();

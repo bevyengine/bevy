@@ -4,7 +4,7 @@ mod parallel_scope;
 use crate::{
     self as bevy_ecs,
     bundle::Bundle,
-    component::ComponentId,
+    component::{ComponentId, Components},
     entity::{Entities, Entity},
     observer::EcsEvent,
     system::{RunSystemWithInput, SystemId},
@@ -115,6 +115,7 @@ pub trait Command: Send + 'static {
 pub struct Commands<'w, 's> {
     queue: Deferred<'s, CommandQueue>,
     entities: &'w Entities,
+    components: &'w Components,
 }
 
 impl SystemBuffer for CommandQueue {
@@ -138,7 +139,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// [system parameter]: crate::system::SystemParam
     pub fn new(queue: &'s mut CommandQueue, world: &'w World) -> Self {
-        Self::new_from_entities(queue, world.entities())
+        Self::new_from_entities(queue, &world.entities, &world.components)
     }
 
     /// Returns a new `Commands` instance from a [`CommandQueue`] and an [`Entities`] reference.
@@ -146,9 +147,14 @@ impl<'w, 's> Commands<'w, 's> {
     /// It is not required to call this constructor when using `Commands` as a [system parameter].
     ///
     /// [system parameter]: crate::system::SystemParam
-    pub fn new_from_entities(queue: &'s mut CommandQueue, entities: &'w Entities) -> Self {
+    pub fn new_from_entities(
+        queue: &'s mut CommandQueue,
+        entities: &'w Entities,
+        components: &'w Components,
+    ) -> Self {
         Self {
             queue: Deferred(queue),
+            components,
             entities,
         }
     }
@@ -175,6 +181,7 @@ impl<'w, 's> Commands<'w, 's> {
         Commands {
             queue: self.queue.reborrow(),
             entities: self.entities,
+            components: self.components,
         }
     }
 
@@ -617,6 +624,11 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn add<C: Command>(&mut self, command: C) {
         self.queue.push(command);
     }
+
+    /// Returns a reference to the [`World`]'s [`Components`].
+    pub fn components(&self) -> &Components {
+        self.components
+    }
 }
 
 /// A [`Command`] which gets executed for a given [`Entity`].
@@ -1010,7 +1022,7 @@ impl EntityCommands<'_> {
         self.commands.add(Observe::<E, B, _> {
             entity: self.entity,
             system: IntoObserverSystem::into_system(system),
-            marker: PhantomData::default(),
+            marker: PhantomData,
         });
         self
     }
@@ -1173,6 +1185,7 @@ impl<E: EcsEvent, B: Bundle, C: ObserverSystem<E, B>> Command for Observe<E, B, 
 /// A [`Command`] that emits an event to be received by observers.
 #[derive(Debug)]
 pub struct EmitEcsEvent<E: EcsEvent> {
+    /// [`ComponentId`] for this event, if not set will use the id of `E`.
     pub event: Option<ComponentId>,
     /// Data for the event.
     pub data: E,
@@ -1185,10 +1198,11 @@ pub struct EmitEcsEvent<E: EcsEvent> {
 impl<E: EcsEvent> Command for EmitEcsEvent<E> {
     fn apply(mut self, world: &mut World) {
         let event = self.event.unwrap_or_else(|| world.init_component::<E>());
-        let mut world = unsafe { world.as_unsafe_world_cell().into_deferred() };
+        let mut world = DeferredWorld::from(world);
 
         for &target in &self.entities {
             if let Some(location) = world.entities().get(target) {
+                // SAFETY: We called `init_component` for this event or it was passed
                 unsafe {
                     world.trigger_observers_with_data(
                         event,

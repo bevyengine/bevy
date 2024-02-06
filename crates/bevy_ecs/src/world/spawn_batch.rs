@@ -51,7 +51,9 @@ where
     I::Item: Bundle,
 {
     fn drop(&mut self) {
+        // Iterate through self in order to spawn remaining bundles.
         for _ in &mut *self {}
+        // Apply any commands from those operations.
         // SAFETY: `self.spawner` will be dropped immediately after this call.
         unsafe { self.spawner.flush_commands() };
     }

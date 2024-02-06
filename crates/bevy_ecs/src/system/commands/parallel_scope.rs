@@ -4,6 +4,7 @@ use thread_local::ThreadLocal;
 
 use crate::{
     self as bevy_ecs,
+    component::Components,
     entity::Entities,
     prelude::World,
     system::{Deferred, SystemBuffer, SystemMeta, SystemParam},
@@ -46,6 +47,7 @@ struct ParallelCommandQueue {
 pub struct ParallelCommands<'w, 's> {
     state: Deferred<'s, ParallelCommandQueue>,
     entities: &'w Entities,
+    components: &'w Components,
 }
 
 impl SystemBuffer for ParallelCommandQueue {
@@ -71,6 +73,7 @@ impl<'w, 's> ParallelCommands<'w, 's> {
         let r = f(Commands::new_from_entities(
             &mut command_queue,
             self.entities,
+            self.components,
         ));
 
         command_queue_cell.set(command_queue);

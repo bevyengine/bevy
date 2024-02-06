@@ -11,12 +11,15 @@ use bevy_utils::tracing::{info_span, Span};
 
 use super::{Commands, FunctionSystem, IntoSystem, Query, Res, ResMut, Resource};
 
+/// Implemented for systems that have an [`Observer`] as the first argument and only [`ObserverSystemParam`] implementors as parameters.
 pub trait ObserverSystem<E: 'static, B: Bundle>:
     System<In = Observer<'static, E, B>, Out = ()> + Send + 'static
 {
+    /// Queues any deferred mutations to to be applied at the next [`apply_deferred`](crate::prelude::apply_deferred).
     fn queue_deferred(&mut self, _world: DeferredWorld);
 }
 
+/// Implemented for [`SystemParam`] that can be used in [`Observer`] systems.
 pub trait ObserverSystemParam: SystemParam {}
 
 impl<'w, D: QueryData + 'static, F: QueryFilter + 'static> ObserverSystemParam
@@ -43,13 +46,16 @@ where
     }
 }
 
-pub trait IntoObserverSystem<E: 'static, B: Bundle, M> {
+/// Implemented for systems that convert into [`ObserverSystem`].
+pub trait IntoObserverSystem<E: 'static, B: Bundle, M>: Send + 'static {
+    /// The type of [`System`] that this instance converts into.
     type System: ObserverSystem<E, B>;
 
+    /// Turns this value into its corresponding [`System`].
     fn into_system(this: Self) -> Self::System;
 }
 
-impl<S: IntoSystem<Observer<'static, E, B>, (), M>, M, E: 'static, B: Bundle>
+impl<S: IntoSystem<Observer<'static, E, B>, (), M> + Send + 'static, M, E: 'static, B: Bundle>
     IntoObserverSystem<E, B, M> for S
 where
     S::System: ObserverSystem<E, B>,

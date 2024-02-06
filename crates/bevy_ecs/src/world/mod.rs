@@ -85,7 +85,6 @@ pub struct World {
     pub(crate) last_check_tick: Tick,
     pub(crate) last_event_id: u32,
     pub(crate) command_queue: CommandQueue,
-    pub(crate) flushing_commands: bool,
 }
 
 impl Default for World {
@@ -107,7 +106,6 @@ impl Default for World {
             last_check_tick: Tick::new(0),
             last_event_id: 0,
             command_queue: CommandQueue::default(),
-            flushing_commands: false,
         };
         world.bootstrap();
         world
@@ -117,7 +115,6 @@ impl Default for World {
 impl World {
     #[inline]
     fn bootstrap(&mut self) {
-        assert_eq!(ANY, self.init_component::<Any>());
         assert_eq!(NO_EVENT, self.init_component::<NoEvent>());
         assert_eq!(ON_ADD, self.init_component::<OnAdd>());
         assert_eq!(ON_INSERT, self.init_component::<OnInsert>());
@@ -210,7 +207,7 @@ impl World {
     /// Use [`World::flush_commands`] to apply all queued commands
     #[inline]
     pub fn commands(&mut self) -> Commands {
-        Commands::new_from_entities(&mut self.command_queue, &self.entities)
+        Commands::new_from_entities(&mut self.command_queue, &self.entities, &self.components)
     }
 
     /// Initializes a new [`Component`] type and returns the [`ComponentId`] created for it.
@@ -1816,13 +1813,11 @@ impl World {
         &mut self,
         component_id: ComponentId,
     ) -> &mut ResourceData<true> {
-        let archetype_component_count = &mut self.archetypes.archetype_component_count;
+        let archetypes = &mut self.archetypes;
         self.storages
             .resources
             .initialize_with(component_id, &self.components, || {
-                let id = ArchetypeComponentId::new(*archetype_component_count);
-                *archetype_component_count += 1;
-                id
+                archetypes.new_archetype_component_id()
             })
     }
 
@@ -1833,13 +1828,11 @@ impl World {
         &mut self,
         component_id: ComponentId,
     ) -> &mut ResourceData<false> {
-        let archetype_component_count = &mut self.archetypes.archetype_component_count;
+        let archetypes = &mut self.archetypes;
         self.storages
             .non_send_resources
             .initialize_with(component_id, &self.components, || {
-                let id = ArchetypeComponentId::new(*archetype_component_count);
-                *archetype_component_count += 1;
-                id
+                archetypes.new_archetype_component_id()
             })
     }
 
@@ -1872,12 +1865,12 @@ impl World {
         }
     }
 
-    /// Applies the internal [`CommandQueue`] to self
+    /// Applies any commands in the world's internal [`CommandQueue`].
+    /// This does not apply commands from any systems, only those in stored in the world.
     #[inline]
     pub fn flush_commands(&mut self) {
-        if !self.flushing_commands && !self.command_queue.is_empty() {
-            let mut commands = std::mem::take(&mut self.command_queue);
-            commands.apply(self);
+        if !self.command_queue.is_empty() {
+            CommandQueue::default().apply(self);
         }
     }
 

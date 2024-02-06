@@ -7,7 +7,7 @@ use bevy::{
         processor::LoadTransformAndSave,
         ron,
         saver::{AssetSaver, SavedAsset},
-        transformer::AssetTransformer,
+        transformer::{AssetTransformer, TransformedAsset},
         AssetLoader, AsyncReadExt, AsyncWriteExt, LoadContext,
     },
     prelude::*,
@@ -107,14 +107,14 @@ impl AssetLoader for TextLoader {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct CoolTextRon {
+struct CoolTextRon {
     text: String,
     dependencies: Vec<String>,
     embedded_dependencies: Vec<String>,
 }
 
 #[derive(Asset, TypePath, Debug)]
-pub struct CoolText {
+struct CoolText {
     text: String,
     #[allow(unused)]
     dependencies: Vec<Handle<Text>>,
@@ -174,7 +174,7 @@ impl AssetLoader for CoolTextLoader {
 struct CoolTextTransformer;
 
 #[derive(Default, Serialize, Deserialize)]
-pub struct CoolTextTransformerSettings {
+struct CoolTextTransformerSettings {
     appended: String,
 }
 
@@ -186,12 +186,12 @@ impl AssetTransformer for CoolTextTransformer {
 
     fn transform<'a>(
         &'a self,
-        asset: Self::AssetInput,
+        mut asset: TransformedAsset<Self::AssetInput>,
         settings: &'a Self::Settings,
-    ) -> Result<Self::AssetOutput, Box<dyn std::error::Error + Send + Sync + 'static>> {
-        Ok(CoolText {
-            text: format!("{}{}", asset.text, settings.appended),
-            dependencies: asset.dependencies.clone(),
+    ) -> BoxedFuture<'a, Result<TransformedAsset<Self::AssetOutput>, Self::Error>> {
+        Box::pin(async move {
+            asset.text = format!("{}{}", asset.text, settings.appended);
+            Ok(asset)
         })
     }
 }

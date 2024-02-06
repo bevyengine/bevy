@@ -1,3 +1,6 @@
+// FIXME(3492): remove once docs are ready
+#![allow(missing_docs)]
+
 extern crate proc_macro;
 
 mod component;
@@ -70,6 +73,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         .collect::<Vec<_>>();
 
     let mut field_component_ids = Vec::new();
+    let mut field_get_component_ids = Vec::new();
     let mut field_get_components = Vec::new();
     let mut field_from_components = Vec::new();
     for (((i, field_type), field_kind), field) in field_type
@@ -82,6 +86,9 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             BundleFieldKind::Component => {
                 field_component_ids.push(quote! {
                 <#field_type as #ecs_path::bundle::Bundle>::component_ids(components, storages, &mut *ids);
+                });
+                field_get_component_ids.push(quote! {
+                    <#field_type as #ecs_path::bundle::Bundle>::get_component_ids(components, &mut *ids);
                 });
                 match field {
                     Some(field) => {
@@ -127,6 +134,13 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 ids: &mut impl FnMut(#ecs_path::component::ComponentId)
             ){
                 #(#field_component_ids)*
+            }
+
+            fn get_component_ids(
+                components: &#ecs_path::component::Components,
+                ids: &mut impl FnMut(Option<#ecs_path::component::ComponentId>)
+            ){
+                #(#field_get_component_ids)*
             }
 
             #[allow(unused_variables, non_snake_case)]

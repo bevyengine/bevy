@@ -1185,9 +1185,9 @@ impl<'w> EntityWorldMut<'w> {
         &mut self,
         callback: impl IntoObserverSystem<E, B, M>,
     ) -> &mut Self {
-        let observer = ObserverBuilder::new(self.world)
+        let observer = ObserverBuilder::new(self.world.commands())
             .source(self.entity)
-            .enqueue(IntoObserverSystem::into_system(callback));
+            .run(IntoObserverSystem::into_system(callback));
         self.world
             .ecs_event(AttachObserver(observer))
             .entity(self.entity)

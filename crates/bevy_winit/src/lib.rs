@@ -1,4 +1,3 @@
-#![warn(missing_docs)]
 //! `bevy_winit` provides utilities to handle window creation and the eventloop through [`winit`]
 //!
 //! Most commonly, the [`WinitPlugin`] is used as part of

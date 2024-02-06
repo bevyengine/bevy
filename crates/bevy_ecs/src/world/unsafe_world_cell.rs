@@ -233,6 +233,13 @@ impl<'w> UnsafeWorldCell<'w> {
         &unsafe { self.world_metadata() }.removed_components
     }
 
+    /// Retrieves this world's [`Observers`] collection.
+    pub(crate) unsafe fn observers(self) -> &'w Observers {
+        // SAFETY:
+        // - we only access world metadata
+        &unsafe { self.world_metadata() }.observers
+    }
+
     /// Retrieves this world's [`Bundles`] collection.
     #[inline]
     pub fn bundles(self) -> &'w Bundles {
@@ -592,10 +599,6 @@ impl<'w> UnsafeWorldCell<'w> {
             .get_with_ticks()
     }
 
-    pub(crate) unsafe fn observers(self) -> &'w Observers {
-        &unsafe { self.world_metadata() }.observers
-    }
-
     // Returns a mutable reference to the underlying world's [`CommandQueue`].
     /// # Safety
     /// It is the callers responsibility to ensure that
@@ -608,7 +611,11 @@ impl<'w> UnsafeWorldCell<'w> {
         unsafe { &mut *addr_of_mut!((*self.0).command_queue) }
     }
 
+    /// # Safety
+    /// It is the callers responsibility to ensure that there are no oustanding
+    /// references to `last_event_id`.
     pub(crate) unsafe fn increment_event_id(self) {
+        // SAFETY: Caller ensure there are no outstanding references
         unsafe { (*self.0).last_event_id += 1 }
     }
 }

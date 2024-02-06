@@ -1,3 +1,6 @@
+// FIXME(3492): remove once docs are ready
+#![allow(missing_docs)]
+
 //! Reflection in Rust.
 //!
 //! [Reflection] is a powerful tool provided within many programming languages
@@ -1565,7 +1568,7 @@ mod tests {
 
             let info = <SomeStruct as Typed>::type_info();
             assert_eq!(
-                Some(" Some struct.\n\n # Example\n\n ```ignore\n let some_struct = SomeStruct;\n ```"),
+                Some(" Some struct.\n\n # Example\n\n ```ignore (This is only used for a unit test, no need to doc test)\n let some_struct = SomeStruct;\n ```"),
                 info.docs()
             );
 
@@ -2093,6 +2096,42 @@ bevy_reflect::tests::Test {
                 unknown_tuplestruct: DynamicTupleStruct(_(14)) \
             })"
         );
+    }
+
+    #[test]
+    fn assert_impl_reflect_macro_on_all() {
+        struct Struct {
+            foo: (),
+        }
+        struct TupleStruct(());
+        enum Enum {
+            Foo { foo: () },
+            Bar(()),
+        }
+
+        impl_reflect!(
+            #[type_path = "my_crate::foo"]
+            struct Struct {
+                foo: (),
+            }
+        );
+
+        impl_reflect!(
+            #[type_path = "my_crate::foo"]
+            struct TupleStruct(());
+        );
+
+        impl_reflect!(
+            #[type_path = "my_crate::foo"]
+            enum Enum {
+                Foo { foo: () },
+                Bar(()),
+            }
+        );
+
+        assert_impl_all!(Struct: Reflect);
+        assert_impl_all!(TupleStruct: Reflect);
+        assert_impl_all!(Enum: Reflect);
     }
 
     #[cfg(feature = "glam")]

@@ -2,8 +2,11 @@
 //!
 //! This module contains the [`Bundle`] trait and some other helper types.
 
+use std::any::TypeId;
+
 pub use bevy_ecs_macros::Bundle;
-use bevy_utils::{HashMap, HashSet};
+use bevy_ptr::OwningPtr;
+use bevy_utils::{all_tuples, HashMap, HashSet, TypeIdMap};
 
 use crate::{
     archetype::{
@@ -17,11 +20,7 @@ use crate::{
     query::DebugCheckedUnwrap,
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, ON_ADD, ON_INSERT},
-    TypeIdMap,
 };
-use bevy_ptr::OwningPtr;
-use bevy_utils::all_tuples;
-use std::any::TypeId;
 
 /// The `Bundle` trait enables insertion and removal of [`Component`]s from an entity.
 ///
@@ -151,6 +150,9 @@ pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
         ids: &mut impl FnMut(ComponentId),
     );
 
+    /// Gets this [`Bundle`]'s component ids, will be `None` if the components has not been registered.
+    fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>));
+
     /// Calls `func`, which should return data for each component in the bundle, in the order of
     /// this bundle's [`Component`]s
     ///
@@ -199,6 +201,10 @@ unsafe impl<C: Component> Bundle for C {
         // Safety: The id given in `component_ids` is for `Self`
         func(ctx).read()
     }
+
+    fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)) {
+        ids(components.get_id(TypeId::of::<C>()))
+    }
 }
 
 impl<C: Component> DynamicBundle for C {
@@ -220,6 +226,11 @@ macro_rules! tuple_impl {
             #[allow(unused_variables)]
             fn component_ids(components: &mut Components, storages: &mut Storages, ids: &mut impl FnMut(ComponentId)){
                 $(<$name as Bundle>::component_ids(components, storages, ids);)*
+            }
+
+            #[allow(unused_variables)]
+            fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)){
+                $(<$name as Bundle>::get_component_ids(components, ids);)*
             }
 
             #[allow(unused_variables, unused_mut)]

@@ -8,7 +8,7 @@ struct CompA(Entity);
 #[derive(Component, Debug)]
 struct CompB;
 
-#[derive(Component, Debug)]
+#[derive(Component)]
 struct Resize(u64, u64);
 
 #[derive(Resource, Default)]
@@ -20,6 +20,7 @@ fn main() {
 
 fn setup(world: &mut World) {
     world.init_resource::<ResizeCount>();
+    world.init_component::<Resize>();
 
     // Triggered when &CompA is added to an entity, runs any non-exclusive system
     let observer = world.observer(
@@ -48,7 +49,10 @@ fn setup(world: &mut World) {
                 let size = observer.data();
                 // Simultaneously read components
                 if let Ok(data) = query.get(observer.source()) {
-                    println!("Received resize: {:?} while data was: {:?}", size, data);
+                    println!(
+                        "Received resize: {}, {} while data was: {:?}",
+                        size.0, size.1, data
+                    );
                     // Write to resources
                     res.0 += 1;
                 }
