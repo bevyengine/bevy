@@ -71,12 +71,12 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 ///         )
 ///         // After defining all the vertices and their attributes, build each triangle using the
 ///         // indices of the vertices that make it up in a counter-clockwise order.
-///         .with_indices(Some(Indices::U32(vec![
+///         .with_inserted_indices(Indices::U32(vec![
 ///             // First triangle
 ///             0, 3, 1,
 ///             // Second triangle
 ///             1, 3, 2
-///         ])))
+///         ]))
 /// }
 /// ```
 ///
@@ -330,7 +330,7 @@ impl Mesh {
     /// are constructed out of the vertex attributes and are therefore only useful for the
     /// [`PrimitiveTopology`] variants that use triangles.
     ///
-    /// (Alternatively, you can use [`Mesh::set_indices`] to mutate an existing mesh in-place)
+    /// (Alternatively, you can use [`Mesh::insert_indices`] to mutate an existing mesh in-place)
     #[must_use]
     #[inline]
     pub fn with_inserted_indices(mut self, indices: Indices) -> Self {
