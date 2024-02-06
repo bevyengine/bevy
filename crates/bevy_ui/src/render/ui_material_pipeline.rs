@@ -120,6 +120,7 @@ impl<M: UiMaterial> Default for UiMaterialMeta<M> {
 pub struct UiMaterialVertex {
     pub position: [f32; 3],
     pub uv: [f32; 2],
+    pub size: [f32; 2],
     pub border_widths: [f32; 4],
 }
 
@@ -155,6 +156,8 @@ where
                 // position
                 VertexFormat::Float32x3,
                 // uv
+                VertexFormat::Float32x2,
+                // size
                 VertexFormat::Float32x2,
                 // border_widths
                 VertexFormat::Float32x4,
@@ -558,6 +561,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                         ui_meta.vertices.push(UiMaterialVertex {
                             position: positions_clipped[i].into(),
                             uv: uvs[i].into(),
+                            size: extracted_uinode.rect.size().into(),
                             border_widths: extracted_uinode.border,
                         });
                     }

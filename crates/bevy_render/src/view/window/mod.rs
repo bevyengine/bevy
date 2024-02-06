@@ -28,10 +28,6 @@ use screenshot::{
 
 use super::Msaa;
 
-/// Token to ensure a system runs on the main thread.
-#[derive(Resource, Default)]
-pub struct NonSendMarker;
-
 pub struct WindowRenderPlugin;
 
 impl Plugin for WindowRenderPlugin {
@@ -440,7 +436,9 @@ pub fn need_new_surfaces(
 pub fn create_surfaces(
     // By accessing a NonSend resource, we tell the scheduler to put this system on the main thread,
     // which is necessary for some OS's
-    #[cfg(any(target_os = "macos", target_os = "ios"))] _marker: Option<NonSend<NonSendMarker>>,
+    #[cfg(any(target_os = "macos", target_os = "ios"))] _marker: Option<
+        NonSend<bevy_core::NonSendMarker>,
+    >,
     windows: Res<ExtractedWindows>,
     mut window_surfaces: ResMut<WindowSurfaces>,
     render_instance: Res<RenderInstance>,

@@ -350,6 +350,12 @@ impl Mesh {
         self.indices.as_mut()
     }
 
+    /// Removes the vertex `indices` from the mesh and returns them.
+    #[inline]
+    pub fn remove_indices(&mut self) -> Option<Indices> {
+        std::mem::take(&mut self.indices)
+    }
+
     /// Computes and returns the index data of the mesh as bytes.
     /// This is used to transform the index data into a GPU friendly format.
     pub fn get_index_buffer_bytes(&self) -> Option<&[u8]> {
