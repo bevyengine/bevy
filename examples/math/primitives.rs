@@ -3,9 +3,7 @@
 #![allow(clippy::match_same_arms)]
 
 use bevy::{
-    input::common_conditions::input_just_pressed,
-    prelude::*,
-    sprite::{Anchor, MaterialMesh2dBundle},
+    input::common_conditions::input_just_pressed, prelude::*, sprite::MaterialMesh2dBundle,
 };
 
 const LEFT_RIGHT_OFFSET_2D: f32 = 200.0;
@@ -28,7 +26,10 @@ fn main() {
     );
 
     // text
-    app.add_systems(Startup, setup_text).add_systems(
+
+    // PostStartup since we need the cameras to exist
+    app.add_systems(PostStartup, setup_text);
+    app.add_systems(
         Update,
         (update_text.run_if(state_changed::<PrimitiveSelected>),),
     );
@@ -266,16 +267,26 @@ fn setup_cameras(mut commands: Commands) {
 
 fn update_active_cameras(
     state: Res<State<CameraActive>>,
-    mut cameras: Query<(&mut Camera, Has<Camera2d>, Has<Camera3d>)>,
+    mut camera_2d: Query<(Entity, &mut Camera), With<Camera2d>>,
+    mut camera_3d: Query<(Entity, &mut Camera), (With<Camera3d>, Without<Camera2d>)>,
+    mut text: Query<&mut TargetCamera, With<Header>>,
 ) {
-    match state.get() {
-        CameraActive::Dim2 => cameras.iter_mut().for_each(|(mut camera, has_2d, _)| {
-            camera.is_active = has_2d;
-        }),
-        CameraActive::Dim3 => cameras.iter_mut().for_each(|(mut camera, _, has_3d)| {
-            camera.is_active = has_3d;
-        }),
-    }
+    let (entity_2d, mut cam_2d) = camera_2d.single_mut();
+    let (entity_3d, mut cam_3d) = camera_3d.single_mut();
+    let is_camera_2d_active = matches!(*state.get(), CameraActive::Dim2);
+
+    cam_2d.is_active = is_camera_2d_active;
+    cam_3d.is_active = !is_camera_2d_active;
+
+    let active_camera = if is_camera_2d_active {
+        entity_2d
+    } else {
+        entity_3d
+    };
+
+    text.iter_mut().for_each(|mut target_camera| {
+        *target_camera = TargetCamera(active_camera);
+    });
 }
 
 /// Marker component for header text
@@ -290,11 +301,18 @@ fn switch_cameras(current: Res<State<CameraActive>>, mut next: ResMut<NextState<
     next.set(next_state);
 }
 
-fn setup_text(mut commands: Commands, asset_server: Res<AssetServer>, window: Query<&Window>) {
+fn setup_text(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    cameras: Query<(Entity, &Camera)>,
+) {
+    let active_camera = cameras
+        .iter()
+        .find_map(|(entity, camera)| camera.is_active.then_some(entity))
+        .expect("run condition ensures existence");
     let text = format!("{text}", text = PrimitiveSelected::default());
     let font_size = 24.0;
     let font: Handle<Font> = asset_server.load("fonts/FiraMono-Medium.ttf");
-    let guessed_line_gap = 5.0;
     let style = TextStyle {
         font,
         font_size,
@@ -302,7 +320,7 @@ fn setup_text(mut commands: Commands, asset_server: Res<AssetServer>, window: Qu
     };
     let instructions = "Press 'C' to switch between 2D and 3D mode\n\
         Press 'Up' or 'Down' to switch to the next/last primitive";
-    let text = Text::from_sections([
+    let text = [
         TextSection::new("Primitive: ", style.clone()),
         TextSection::new(text, style.clone()),
         TextSection::new("\n\n", style.clone()),
@@ -312,37 +330,24 @@ fn setup_text(mut commands: Commands, asset_server: Res<AssetServer>, window: Qu
             "(If nothing is displayed, there's not rendering support yet)",
             style.clone(),
         ),
-    ])
-    .with_justify(JustifyText::Center);
+    ];
 
-    let window_height = window.get_single().map_or(0.0, |window| window.height());
-    let text_offset = text.sections.len() as f32 * font_size;
-
-    // 2d
-    commands.spawn((
-        Header,
-        Text2dBundle {
-            text: text.clone(),
-            text_anchor: Anchor::Center,
-            transform: Transform::from_translation(Vec3::new(0.0, window_height / 2.0, 0.0)),
-            ..Default::default()
-        },
-    ));
-
-    // 3d
-    commands.spawn((
-        Header,
-        TextBundle {
-            text,
-            style: Style {
-                top: Val::Px(text_offset / 2.0),
-                align_self: AlignSelf::Start,
-                justify_self: JustifySelf::Center,
+    commands
+        .spawn((
+            Header,
+            NodeBundle {
+                style: Style {
+                    justify_self: JustifySelf::Center,
+                    top: Val::Px(5.0),
+                    ..Default::default()
+                },
                 ..Default::default()
             },
-            ..Default::default()
-        },
-    ));
+            TargetCamera(active_camera),
+        ))
+        .with_children(|parent| {
+            parent.spawn((TextBundle::from_sections(text).with_text_justify(JustifyText::Center),));
+        });
 }
 
 fn update_text(
@@ -384,7 +389,7 @@ fn draw_gizmos_2d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time
 
     match state.get() {
         PrimitiveSelected::RectangleAndCuboid => {
-            gizmos.primitive_2d(RECTANGLE, POSITION, angle, color)
+            gizmos.primitive_2d(RECTANGLE, POSITION, angle, color);
         }
         PrimitiveSelected::CircleAndSphere => gizmos.primitive_2d(CIRCLE, POSITION, angle, color),
         PrimitiveSelected::Ellipse => gizmos.primitive_2d(ELLIPSE, POSITION, angle, color),
@@ -503,7 +508,7 @@ fn draw_gizmos_3d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time
 
     match state.get() {
         PrimitiveSelected::RectangleAndCuboid => {
-            gizmos.primitive_3d(CUBOID, POSITION, rotation, color)
+            gizmos.primitive_3d(CUBOID, POSITION, rotation, color);
         }
         PrimitiveSelected::CircleAndSphere => drop(
             gizmos
