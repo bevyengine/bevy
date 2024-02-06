@@ -175,8 +175,9 @@ Individual contributors often lead major new features and reworks. However these
 1. A need or opportunity is identified and an issue is made, laying out the general problem.
 2. As needed, this is discussed further on that issue thread, in cross-linked [GitHub Discussion] threads, or on [Discord] in the Engine Development channels.
 3. Either a Draft Pull Request or an RFC is made. As discussed in the [RFC repo](https://github.com/bevyengine/rfcs), complex features need RFCs, but these can be submitted before or after prototyping work has been started.
-4. The community as a whole helps improve the Draft PR and/or RFC, leaving comments, making suggestions, and submitting pull requests to the original branch.
-5. Once the RFC is merged and/or the Draft Pull Request is transitioned out of draft mode, the [normal change process outlined in the previous section](#making-changes-to-bevy) can begin.
+4. If feasible, parts that work on their own (even if they're only useful once the full complex change is merged) get split out into individual PRs to make them easier to review.
+5. The community as a whole helps improve the Draft PR and/or RFC, leaving comments, making suggestions, and submitting pull requests to the original branch.
+6. Once the RFC is merged and/or the Draft Pull Request is transitioned out of draft mode, the [normal change process outlined in the previous section](#making-changes-to-bevy) can begin.
 
 ## How you can help
 
