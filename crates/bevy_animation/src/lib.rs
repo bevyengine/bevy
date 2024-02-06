@@ -157,9 +157,12 @@ pub enum Interpolation {
 /// [`AnimationTarget`] with that ID.
 #[derive(Asset, Reflect, Clone, Debug, Default)]
 pub struct AnimationClip {
-    curves: HashMap<AnimationTargetId, Vec<VariableCurve>, NoOpHash>,
+    curves: AnimationCurves,
     duration: f32,
 }
+
+/// A mapping from [`AnimationTargetId`] (bone) to the animation curves.
+pub type AnimationCurves = HashMap<AnimationTargetId, Vec<VariableCurve>, NoOpHash>;
 
 /// A unique [UUID] for an animation target (bone).
 ///
@@ -203,7 +206,7 @@ pub struct AnimationTarget {
 impl AnimationClip {
     #[inline]
     /// [`VariableCurve`]s for each animation target. Indexed by the [`AnimationTargetId`].
-    pub fn curves(&self) -> &HashMap<AnimationTargetId, Vec<VariableCurve>, NoOpHash> {
+    pub fn curves(&self) -> &AnimationCurves {
         &self.curves
     }
 
