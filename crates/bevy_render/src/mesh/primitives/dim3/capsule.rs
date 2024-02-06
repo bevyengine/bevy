@@ -1,6 +1,5 @@
-use super::Meshable;
 use crate::{
-    mesh::{Indices, Mesh},
+    mesh::{Indices, Mesh, Meshable},
     render_asset::RenderAssetUsages,
 };
 use bevy_math::{primitives::Capsule3d, Vec2, Vec3};

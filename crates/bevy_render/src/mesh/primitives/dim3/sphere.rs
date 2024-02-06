@@ -1,7 +1,9 @@
 use std::f32::consts::PI;
 
-use super::{Mesh, Meshable};
-use crate::{mesh::Indices, render_asset::RenderAssetUsages};
+use crate::{
+    mesh::{Indices, Mesh, Meshable},
+    render_asset::RenderAssetUsages,
+};
 use bevy_math::primitives::Sphere;
 use hexasphere::shapes::IcoSphere;
 use thiserror::Error;
