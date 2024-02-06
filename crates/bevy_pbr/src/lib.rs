@@ -243,6 +243,8 @@ impl Plugin for PbrPlugin {
             .register_type::<PointLight>()
             .register_type::<PointLightShadowMap>()
             .register_type::<SpotLight>()
+            .register_type::<FogSettings>()
+            .register_type::<FogFalloff>()
             .register_type::<ShadowFilteringMethod>()
             .register_type::<ParallaxMappingMethod>()
             .register_type::<OpaqueRendererMethod>()
