@@ -114,6 +114,11 @@ macro_rules! plugin_group {
                     $(#[cfg(feature = $hidden_plugin_feature)])?
                     $(#[$hidden_plugin_meta])*
                     {
+                        const _: () = {
+                            const fn check_default<T: Default>() {}
+                            check_default::<$($hidden_plugin_path::)*$hidden_plugin_name>();
+                        };
+
                         group = group.add(<$($hidden_plugin_path::)*$hidden_plugin_name>::default());
                     }
                 )+)?
