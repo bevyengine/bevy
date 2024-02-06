@@ -1,9 +1,11 @@
-/// General UI benchmark that stress tests layouting, text, interaction and rendering
+//! General UI benchmark that stress tests layouting, text, interaction and rendering
+
 use argh::FromArgs;
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     window::{PresentMode, WindowPlugin, WindowResolution},
+    winit::{UpdateMode, WinitSettings},
 };
 
 const FONT_SIZE: f32 = 7.0;
@@ -42,7 +44,12 @@ struct Args {
 
 /// This example shows what happens when there is a lot of buttons on screen.
 fn main() {
+    // `from_env` panics on the web
+    #[cfg(not(target_arch = "wasm32"))]
     let args: Args = argh::from_env();
+    #[cfg(target_arch = "wasm32")]
+    let args = Args::from_args(&[], &[]).unwrap();
+
     let mut app = App::new();
 
     app.add_plugins((
@@ -57,6 +64,10 @@ fn main() {
         FrameTimeDiagnosticsPlugin,
         LogDiagnosticsPlugin::default(),
     ))
+    .insert_resource(WinitSettings {
+        focused_mode: UpdateMode::Continuous,
+        unfocused_mode: UpdateMode::Continuous,
+    })
     .add_systems(Update, button_system);
 
     if args.grid {
@@ -67,13 +78,17 @@ fn main() {
 
     if args.relayout {
         app.add_systems(Update, |mut style_query: Query<&mut Style>| {
-            style_query.for_each_mut(|mut style| style.set_changed());
+            style_query
+                .iter_mut()
+                .for_each(|mut style| style.set_changed());
         });
     }
 
     if args.recompute_text {
         app.add_systems(Update, |mut text_query: Query<&mut Text>| {
-            text_query.for_each_mut(|mut text| text.set_changed());
+            text_query
+                .iter_mut()
+                .for_each(|mut text| text.set_changed());
         });
     }
 

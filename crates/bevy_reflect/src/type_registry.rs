@@ -1,6 +1,6 @@
 use crate::{serde::Serializable, Reflect, TypeInfo, TypePath, Typed};
 use bevy_ptr::{Ptr, PtrMut};
-use bevy_utils::{HashMap, HashSet};
+use bevy_utils::{HashMap, HashSet, TypeIdMap};
 use downcast_rs::{impl_downcast, Downcast};
 use serde::Deserialize;
 use std::{
@@ -22,7 +22,7 @@ use std::{
 /// [Registering]: TypeRegistry::register
 /// [crate-level documentation]: crate
 pub struct TypeRegistry {
-    registrations: HashMap<TypeId, TypeRegistration>,
+    registrations: TypeIdMap<TypeRegistration>,
     short_path_to_id: HashMap<&'static str, TypeId>,
     type_path_to_id: HashMap<&'static str, TypeId>,
     ambiguous_names: HashSet<&'static str>,
@@ -101,8 +101,8 @@ impl TypeRegistry {
     }
 
     /// Registers the type `T`, adding reflect data as specified in the [`Reflect`] derive:
-    /// ```rust,ignore
-    /// #[derive(Reflect)]
+    /// ```ignore (Neither bevy_ecs nor serde "derive" are available.)
+    /// #[derive(Component, serde::Serialize, serde::Deserialize, Reflect)]
     /// #[reflect(Component, Serialize, Deserialize)] // will register ReflectComponent, ReflectSerialize, ReflectDeserialize
     /// ```
     pub fn register<T>(&mut self)
@@ -143,7 +143,7 @@ impl TypeRegistry {
     /// this method can be used to insert additional type data.
     ///
     /// # Example
-    /// ```rust
+    /// ```
     /// use bevy_reflect::{TypeRegistry, ReflectSerialize, ReflectDeserialize};
     ///
     /// let mut type_registry = TypeRegistry::default();
@@ -318,7 +318,7 @@ impl TypeRegistryArc {
 ///
 /// [crate-level documentation]: crate
 pub struct TypeRegistration {
-    data: HashMap<TypeId, Box<dyn TypeData>>,
+    data: TypeIdMap<Box<dyn TypeData>>,
     type_info: &'static TypeInfo,
 }
 
@@ -373,7 +373,7 @@ impl TypeRegistration {
     /// Creates type registration information for `T`.
     pub fn of<T: Reflect + Typed + TypePath>() -> Self {
         Self {
-            data: HashMap::default(),
+            data: Default::default(),
             type_info: T::type_info(),
         }
     }
@@ -381,7 +381,7 @@ impl TypeRegistration {
 
 impl Clone for TypeRegistration {
     fn clone(&self) -> Self {
-        let mut data = HashMap::default();
+        let mut data = TypeIdMap::default();
         for (id, type_data) in &self.data {
             data.insert(*id, (*type_data).clone_type_data());
         }
@@ -499,7 +499,7 @@ impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
 /// from a pointer.
 ///
 /// # Example
-/// ```rust
+/// ```
 /// use bevy_reflect::{TypeRegistry, Reflect, ReflectFromPtr};
 /// use bevy_ptr::Ptr;
 /// use std::ptr::NonNull;
@@ -540,7 +540,8 @@ impl ReflectFromPtr {
     /// `val` must be a pointer to value of the type that the [`ReflectFromPtr`] was constructed for.
     /// This can be verified by checking that the type id returned by [`ReflectFromPtr::type_id`] is the expected one.
     pub unsafe fn as_reflect<'a>(&self, val: Ptr<'a>) -> &'a dyn Reflect {
-        (self.from_ptr)(val)
+        // SAFETY: contract uphold by the caller.
+        unsafe { (self.from_ptr)(val) }
     }
 
     /// Convert `PtrMut` into `&mut dyn Reflect`.
@@ -550,7 +551,8 @@ impl ReflectFromPtr {
     /// `val` must be a pointer to a value of the type that the [`ReflectFromPtr`] was constructed for
     /// This can be verified by checking that the type id returned by [`ReflectFromPtr::type_id`] is the expected one.
     pub unsafe fn as_reflect_mut<'a>(&self, val: PtrMut<'a>) -> &'a mut dyn Reflect {
-        (self.from_ptr_mut)(val)
+        // SAFETY: contract uphold by the caller.
+        unsafe { (self.from_ptr_mut)(val) }
     }
     /// Get a function pointer to turn a `Ptr` into `&dyn Reflect` for
     /// the type this [`ReflectFromPtr`] was constructed for.

@@ -1,11 +1,20 @@
-use crate::texture::{Image, TextureFormatPixelInfo};
+use crate::{
+    render_asset::RenderAssetUsages,
+    texture::{Image, TextureFormatPixelInfo},
+};
 use bevy_asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext};
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use wgpu::{Extent3d, TextureDimension, TextureFormat};
 
 /// Loads HDR textures as Texture assets
 #[derive(Clone, Default)]
 pub struct HdrTextureLoader;
+
+#[derive(Serialize, Deserialize, Default, Debug)]
+pub struct HdrTextureLoaderSettings {
+    pub asset_usage: RenderAssetUsages,
+}
 
 #[non_exhaustive]
 #[derive(Debug, Error)]
@@ -18,12 +27,12 @@ pub enum HdrTextureLoaderError {
 
 impl AssetLoader for HdrTextureLoader {
     type Asset = Image;
-    type Settings = ();
+    type Settings = HdrTextureLoaderSettings;
     type Error = HdrTextureLoaderError;
     fn load<'a>(
         &'a self,
         reader: &'a mut Reader,
-        _settings: &'a (),
+        settings: &'a Self::Settings,
         _load_context: &'a mut LoadContext,
     ) -> bevy_utils::BoxedFuture<'a, Result<Image, Self::Error>> {
         Box::pin(async move {
@@ -59,6 +68,7 @@ impl AssetLoader for HdrTextureLoader {
                 TextureDimension::D2,
                 rgba_data,
                 format,
+                settings.asset_usage,
             ))
         })
     }

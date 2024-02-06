@@ -1,8 +1,8 @@
 use crate::{
-    archetype::{Archetype, ArchetypeComponentId},
+    archetype::Archetype,
     component::{Component, ComponentId, ComponentStorage, StorageType, Tick},
     entity::Entity,
-    query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
+    query::{DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{Column, ComponentSparseSet, Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
@@ -17,29 +17,29 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 ///   [`With`] and [`Without`] filters can be applied to check if the queried entity does or does not contain a particular component.
 /// - **Change detection filters.**
 ///   [`Added`] and [`Changed`] filters can be applied to detect component changes to an entity.
-/// - **`WorldQueryFilter` tuples.**
-///   If every element of a tuple implements `WorldQueryFilter`, then the tuple itself also implements the same trait.
+/// - **`QueryFilter` tuples.**
+///   If every element of a tuple implements `QueryFilter`, then the tuple itself also implements the same trait.
 ///   This enables a single `Query` to filter over multiple conditions.
 ///   Due to the current lack of variadic generics in Rust, the trait has been implemented for tuples from 0 to 15 elements,
-///   but nesting of tuples allows infinite `WorldQueryFilter`s.
+///   but nesting of tuples allows infinite `QueryFilter`s.
 /// - **Filter disjunction operator.**
 ///   By default, tuples compose query filters in such a way that all conditions must be satisfied to generate a query item for a given entity.
 ///   Wrapping a tuple inside an [`Or`] operator will relax the requirement to just one condition.
 ///
 /// Implementing the trait manually can allow for a fundamentally new type of behavior.
 ///
-/// Query design can be easily structured by deriving `WorldQueryFilter` for custom types.
-/// Despite the added complexity, this approach has several advantages over using `WorldQueryFilter` tuples.
+/// Query design can be easily structured by deriving `QueryFilter` for custom types.
+/// Despite the added complexity, this approach has several advantages over using `QueryFilter` tuples.
 /// The most relevant improvements are:
 ///
 /// - Reusability across multiple systems.
 /// - Filters can be composed together to create a more complex filter.
 ///
-/// This trait can only be derived for structs if each field also implements `WorldQueryFilter`.
+/// This trait can only be derived for structs if each field also implements `QueryFilter`.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_ecs::{query::WorldQueryFilter, component::Component};
+/// # use bevy_ecs::{query::QueryFilter, component::Component};
 /// #
 /// # #[derive(Component)]
 /// # struct ComponentA;
@@ -52,7 +52,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// # #[derive(Component)]
 /// # struct ComponentE;
 /// #
-/// #[derive(WorldQueryFilter)]
+/// #[derive(QueryFilter)]
 /// struct MyFilter<T: Component, P: Component> {
 ///     // Field names are not relevant, since they are never manually accessed.
 ///     with_a: With<ComponentA>,
@@ -73,7 +73,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// [`update_archetype_component_access`]: Self::update_archetype_component_access
 /// [`update_component_access`]: Self::update_component_access
 
-pub trait WorldQueryFilter: WorldQuery {
+pub trait QueryFilter: WorldQuery {
     /// Returns true if (and only if) this Filter relies strictly on archetypes to limit which
     /// components are accessed by the Query.
     ///
@@ -128,8 +128,8 @@ pub struct With<T>(PhantomData<T>);
 /// `update_component_access` adds a `With` filter for `T`.
 /// This is sound because `matches_component_set` returns whether the set contains the component.
 unsafe impl<T: Component> WorldQuery for With<T> {
-    type Fetch<'w> = ();
     type Item<'w> = ();
+    type Fetch<'w> = ();
     type State = ComponentId;
 
     fn shrink<'wlong: 'wshort, 'wshort>(_: Self::Item<'wlong>) -> Self::Item<'wshort> {}
@@ -151,9 +151,6 @@ unsafe impl<T: Component> WorldQuery for With<T> {
     };
 
     #[inline]
-    unsafe fn set_table(_fetch: &mut (), _state: &ComponentId, _table: &Table) {}
-
-    #[inline]
     unsafe fn set_archetype(
         _fetch: &mut (),
         _state: &ComponentId,
@@ -161,6 +158,9 @@ unsafe impl<T: Component> WorldQuery for With<T> {
         _table: &Table,
     ) {
     }
+
+    #[inline]
+    unsafe fn set_table(_fetch: &mut (), _state: &ComponentId, _table: &Table) {}
 
     #[inline(always)]
     unsafe fn fetch<'w>(
@@ -175,16 +175,12 @@ unsafe impl<T: Component> WorldQuery for With<T> {
         access.and_with(id);
     }
 
-    #[inline]
-    fn update_archetype_component_access(
-        _state: &ComponentId,
-        _archetype: &Archetype,
-        _access: &mut Access<ArchetypeComponentId>,
-    ) {
-    }
-
     fn init_state(world: &mut World) -> ComponentId {
         world.init_component::<T>()
+    }
+
+    fn get_state(world: &World) -> Option<Self::State> {
+        world.component_id::<T>()
     }
 
     fn matches_component_set(
@@ -195,7 +191,7 @@ unsafe impl<T: Component> WorldQuery for With<T> {
     }
 }
 
-impl<T: Component> WorldQueryFilter for With<T> {
+impl<T: Component> QueryFilter for With<T> {
     const IS_ARCHETYPAL: bool = true;
 
     #[inline(always)]
@@ -240,8 +236,8 @@ pub struct Without<T>(PhantomData<T>);
 /// `update_component_access` adds a `Without` filter for `T`.
 /// This is sound because `matches_component_set` returns whether the set does not contain the component.
 unsafe impl<T: Component> WorldQuery for Without<T> {
-    type Fetch<'w> = ();
     type Item<'w> = ();
+    type Fetch<'w> = ();
     type State = ComponentId;
 
     fn shrink<'wlong: 'wshort, 'wshort>(_: Self::Item<'wlong>) -> Self::Item<'wshort> {}
@@ -263,9 +259,6 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
     };
 
     #[inline]
-    unsafe fn set_table(_fetch: &mut (), _state: &Self::State, _table: &Table) {}
-
-    #[inline]
     unsafe fn set_archetype(
         _fetch: &mut (),
         _state: &ComponentId,
@@ -273,6 +266,9 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
         _table: &Table,
     ) {
     }
+
+    #[inline]
+    unsafe fn set_table(_fetch: &mut (), _state: &Self::State, _table: &Table) {}
 
     #[inline(always)]
     unsafe fn fetch<'w>(
@@ -287,16 +283,12 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
         access.and_without(id);
     }
 
-    #[inline]
-    fn update_archetype_component_access(
-        _state: &ComponentId,
-        _archetype: &Archetype,
-        _access: &mut Access<ArchetypeComponentId>,
-    ) {
-    }
-
     fn init_state(world: &mut World) -> ComponentId {
         world.init_component::<T>()
+    }
+
+    fn get_state(world: &World) -> Option<Self::State> {
+        world.component_id::<T>()
     }
 
     fn matches_component_set(
@@ -307,7 +299,7 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
     }
 }
 
-impl<T: Component> WorldQueryFilter for Without<T> {
+impl<T: Component> QueryFilter for Without<T> {
     const IS_ARCHETYPAL: bool = true;
 
     #[inline(always)]
@@ -377,7 +369,7 @@ macro_rules! impl_query_filter_tuple {
         /// This is sound because `update_component_access` and `update_archetype_component_access` adds accesses according to the implementations of all the subqueries.
         /// `update_component_access` replace the filters with a disjunction where every element is a conjunction of the previous filters and the filters of one of the subqueries.
         /// This is sound because `matches_component_set` returns a disjunction of the results of the subqueries' implementations.
-        unsafe impl<$($filter: WorldQueryFilter),*> WorldQuery for Or<($($filter,)*)> {
+        unsafe impl<$($filter: QueryFilter),*> WorldQuery for Or<($($filter,)*)> {
             type Fetch<'w> = ($(OrFetch<'w, $filter>,)*);
             type Item<'w> = bool;
             type State = ($($filter::State,)*);
@@ -449,6 +441,7 @@ macro_rules! impl_query_filter_tuple {
                         _new_access.extend_access(&intermediate);
                     } else {
                         $filter::update_component_access($filter, &mut _new_access);
+                        _new_access.required = access.required.clone();
                         _not_first = true;
                     }
                 )*
@@ -456,13 +449,12 @@ macro_rules! impl_query_filter_tuple {
                 *access = _new_access;
             }
 
-            fn update_archetype_component_access(state: &Self::State, archetype: &Archetype, access: &mut Access<ArchetypeComponentId>) {
-                let ($($filter,)*) = state;
-                $($filter::update_archetype_component_access($filter, archetype, access);)*
-            }
-
             fn init_state(world: &mut World) -> Self::State {
                 ($($filter::init_state(world),)*)
+            }
+
+            fn get_state(world: &World) -> Option<Self::State> {
+                Some(($($filter::get_state(world)?,)*))
             }
 
             fn matches_component_set(_state: &Self::State, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
@@ -471,7 +463,7 @@ macro_rules! impl_query_filter_tuple {
             }
         }
 
-        impl<$($filter: WorldQueryFilter),*> WorldQueryFilter for Or<($($filter,)*)> {
+        impl<$($filter: QueryFilter),*> QueryFilter for Or<($($filter,)*)> {
             const IS_ARCHETYPAL: bool = true $(&& $filter::IS_ARCHETYPAL)*;
 
             #[inline(always)]
@@ -486,13 +478,13 @@ macro_rules! impl_query_filter_tuple {
     };
 }
 
-macro_rules! impl_tuple_world_query_filter {
+macro_rules! impl_tuple_query_filter {
     ($($name: ident),*) => {
         #[allow(unused_variables)]
         #[allow(non_snake_case)]
         #[allow(clippy::unused_unit)]
 
-        impl<$($name: WorldQueryFilter),*> WorldQueryFilter for ($($name,)*) {
+        impl<$($name: QueryFilter),*> QueryFilter for ($($name,)*) {
             const IS_ARCHETYPAL: bool = true $(&& $name::IS_ARCHETYPAL)*;
 
             #[inline(always)]
@@ -509,7 +501,7 @@ macro_rules! impl_tuple_world_query_filter {
     };
 }
 
-all_tuples!(impl_tuple_world_query_filter, 0, 15, F);
+all_tuples!(impl_tuple_query_filter, 0, 15, F);
 all_tuples!(impl_query_filter_tuple, 0, 15, F, S);
 
 /// A filter on a component that only retains results added after the system last ran.
@@ -524,6 +516,36 @@ all_tuples!(impl_query_filter_tuple, 0, 15, F, S);
 /// Note, that entity modifications issued with [`Commands`](crate::system::Commands)
 /// are visible only after deferred operations are applied,
 /// typically at the end of the schedule iteration.
+///
+/// # Time complexity
+///
+/// `Added` is not [`ArchetypeFilter`], which practically means that
+/// if query (with `T` component filter) matches million entities,
+/// `Added<T>` filter will iterate over all of them even if none of them were just added.
+///
+/// For example, these two systems are roughly equivalent in terms of performance:
+///
+/// ```
+/// # use bevy_ecs::change_detection::{DetectChanges, Ref};
+/// # use bevy_ecs::entity::Entity;
+/// # use bevy_ecs::query::Added;
+/// # use bevy_ecs::system::Query;
+/// # use bevy_ecs_macros::Component;
+/// # #[derive(Component)]
+/// # struct MyComponent;
+/// # #[derive(Component)]
+/// # struct Transform;
+///
+/// fn system1(q: Query<&MyComponent, Added<Transform>>) {
+///     for item in &q { /* component added */ }
+/// }
+///
+/// fn system2(q: Query<(&MyComponent, Ref<Transform>)>) {
+///     for item in &q {
+///         if item.1.is_added() { /* component added */ }
+///     }
+/// }
+/// ```
 ///
 /// # Examples
 ///
@@ -561,8 +583,8 @@ pub struct AddedFetch<'w> {
 /// `update_component_access` adds a `With` filter for a component.
 /// This is sound because `matches_component_set` returns whether the set contains that component.
 unsafe impl<T: Component> WorldQuery for Added<T> {
-    type Fetch<'w> = AddedFetch<'w>;
     type Item<'w> = bool;
+    type Fetch<'w> = AddedFetch<'w>;
     type State = ComponentId;
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
@@ -593,18 +615,6 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
     };
 
     #[inline]
-    unsafe fn set_table<'w>(
-        fetch: &mut Self::Fetch<'w>,
-        &component_id: &ComponentId,
-        table: &'w Table,
-    ) {
-        fetch.table_ticks = Some(
-            Column::get_added_ticks_slice(table.get_column(component_id).debug_checked_unwrap())
-                .into(),
-        );
-    }
-
-    #[inline]
     unsafe fn set_archetype<'w>(
         fetch: &mut Self::Fetch<'w>,
         component_id: &ComponentId,
@@ -614,6 +624,18 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
         if Self::IS_DENSE {
             Self::set_table(fetch, component_id, table);
         }
+    }
+
+    #[inline]
+    unsafe fn set_table<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        &component_id: &ComponentId,
+        table: &'w Table,
+    ) {
+        fetch.table_ticks = Some(
+            Column::get_added_ticks_slice(table.get_column(component_id).debug_checked_unwrap())
+                .into(),
+        );
     }
 
     #[inline(always)]
@@ -626,7 +648,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
             StorageType::Table => fetch
                 .table_ticks
                 .debug_checked_unwrap()
-                .get(table_row.index())
+                .get(table_row.as_usize())
                 .deref()
                 .is_newer_than(fetch.last_run, fetch.this_run),
             StorageType::SparseSet => {
@@ -647,19 +669,12 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
         access.add_read(id);
     }
 
-    #[inline]
-    fn update_archetype_component_access(
-        &id: &ComponentId,
-        archetype: &Archetype,
-        access: &mut Access<ArchetypeComponentId>,
-    ) {
-        if let Some(archetype_component_id) = archetype.get_archetype_component_id(id) {
-            access.add_read(archetype_component_id);
-        }
-    }
-
     fn init_state(world: &mut World) -> ComponentId {
         world.init_component::<T>()
+    }
+
+    fn get_state(world: &World) -> Option<ComponentId> {
+        world.component_id::<T>()
     }
 
     fn matches_component_set(
@@ -670,7 +685,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
     }
 }
 
-impl<T: Component> WorldQueryFilter for Added<T> {
+impl<T: Component> QueryFilter for Added<T> {
     const IS_ARCHETYPAL: bool = false;
     #[inline(always)]
     unsafe fn filter_fetch(
@@ -698,6 +713,37 @@ impl<T: Component> WorldQueryFilter for Added<T> {
 /// (like entity creation or entity component addition or removal)
 /// are visible only after deferred operations are applied,
 /// typically at the end of the schedule iteration.
+///
+/// # Time complexity
+///
+/// `Changed` is not [`ArchetypeFilter`], which practically means that
+/// if query (with `T` component filter) matches million entities,
+/// `Changed<T>` filter will iterate over all of them even if none of them were changed.
+///
+/// For example, these two systems are roughly equivalent in terms of performance:
+///
+/// ```
+/// # use bevy_ecs::change_detection::DetectChanges;
+/// # use bevy_ecs::entity::Entity;
+/// # use bevy_ecs::query::Changed;
+/// # use bevy_ecs::system::Query;
+/// # use bevy_ecs::world::Ref;
+/// # use bevy_ecs_macros::Component;
+/// # #[derive(Component)]
+/// # struct MyComponent;
+/// # #[derive(Component)]
+/// # struct Transform;
+///
+/// fn system1(q: Query<&MyComponent, Changed<Transform>>) {
+///     for item in &q { /* component changed */ }
+/// }
+///
+/// fn system2(q: Query<(&MyComponent, Ref<Transform>)>) {
+///     for item in &q {
+///         if item.1.is_changed() { /* component changed */ }
+///     }
+/// }
+/// ```
 ///
 /// # Examples
 ///
@@ -737,8 +783,8 @@ pub struct ChangedFetch<'w> {
 /// `update_component_access` adds a `With` filter for a component.
 /// This is sound because `matches_component_set` returns whether the set contains that component.
 unsafe impl<T: Component> WorldQuery for Changed<T> {
-    type Fetch<'w> = ChangedFetch<'w>;
     type Item<'w> = bool;
+    type Fetch<'w> = ChangedFetch<'w>;
     type State = ComponentId;
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
@@ -769,18 +815,6 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
     };
 
     #[inline]
-    unsafe fn set_table<'w>(
-        fetch: &mut Self::Fetch<'w>,
-        &component_id: &ComponentId,
-        table: &'w Table,
-    ) {
-        fetch.table_ticks = Some(
-            Column::get_changed_ticks_slice(table.get_column(component_id).debug_checked_unwrap())
-                .into(),
-        );
-    }
-
-    #[inline]
     unsafe fn set_archetype<'w>(
         fetch: &mut Self::Fetch<'w>,
         component_id: &ComponentId,
@@ -790,6 +824,18 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
         if Self::IS_DENSE {
             Self::set_table(fetch, component_id, table);
         }
+    }
+
+    #[inline]
+    unsafe fn set_table<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        &component_id: &ComponentId,
+        table: &'w Table,
+    ) {
+        fetch.table_ticks = Some(
+            Column::get_changed_ticks_slice(table.get_column(component_id).debug_checked_unwrap())
+                .into(),
+        );
     }
 
     #[inline(always)]
@@ -802,7 +848,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
             StorageType::Table => fetch
                 .table_ticks
                 .debug_checked_unwrap()
-                .get(table_row.index())
+                .get(table_row.as_usize())
                 .deref()
                 .is_newer_than(fetch.last_run, fetch.this_run),
             StorageType::SparseSet => {
@@ -823,19 +869,12 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
         access.add_read(id);
     }
 
-    #[inline]
-    fn update_archetype_component_access(
-        &id: &ComponentId,
-        archetype: &Archetype,
-        access: &mut Access<ArchetypeComponentId>,
-    ) {
-        if let Some(archetype_component_id) = archetype.get_archetype_component_id(id) {
-            access.add_read(archetype_component_id);
-        }
-    }
-
     fn init_state(world: &mut World) -> ComponentId {
         world.init_component::<T>()
+    }
+
+    fn get_state(world: &World) -> Option<ComponentId> {
+        world.component_id::<T>()
     }
 
     fn matches_component_set(
@@ -846,7 +885,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
     }
 }
 
-impl<T: Component> WorldQueryFilter for Changed<T> {
+impl<T: Component> QueryFilter for Changed<T> {
     const IS_ARCHETYPAL: bool = false;
 
     #[inline(always)]
@@ -864,14 +903,14 @@ impl<T: Component> WorldQueryFilter for Changed<T> {
 /// This is needed to implement [`ExactSizeIterator`] for
 /// [`QueryIter`](crate::query::QueryIter) that contains archetype-level filters.
 ///
-/// The trait must only be implemented for filters where its corresponding [`WorldQueryFilter::IS_ARCHETYPAL`]
+/// The trait must only be implemented for filters where its corresponding [`QueryFilter::IS_ARCHETYPAL`]
 /// is [`prim@true`]. As such, only the [`With`] and [`Without`] filters can implement the trait.
 /// [Tuples](prim@tuple) and [`Or`] filters are automatically implemented with the trait only if its containing types
 /// also implement the same trait.
 ///
 /// [`Added`] and [`Changed`] works with entities, and therefore are not archetypal. As such
 /// they do not implement [`ArchetypeFilter`].
-pub trait ArchetypeFilter: WorldQueryFilter {}
+pub trait ArchetypeFilter: QueryFilter {}
 
 impl<T: Component> ArchetypeFilter for With<T> {}
 impl<T: Component> ArchetypeFilter for Without<T> {}

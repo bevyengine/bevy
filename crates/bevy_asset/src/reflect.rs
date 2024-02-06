@@ -61,7 +61,7 @@ impl ReflectAsset {
     /// Furthermore, this does *not* allow you to have look up two distinct handles,
     /// you can only have at most one alive at the same time.
     /// This means that this is *not allowed*:
-    /// ```rust,no_run
+    /// ```no_run
     /// # use bevy_asset::{ReflectAsset, UntypedHandle};
     /// # use bevy_ecs::prelude::World;
     /// # let reflect_asset: ReflectAsset = unimplemented!();
@@ -88,7 +88,7 @@ impl ReflectAsset {
         handle: UntypedHandle,
     ) -> Option<&'w mut dyn Reflect> {
         // SAFETY: requirements are deferred to the caller
-        (self.get_unchecked_mut)(world, handle)
+        unsafe { (self.get_unchecked_mut)(world, handle) }
     }
 
     /// Equivalent of [`Assets::add`]
@@ -176,7 +176,7 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
 /// the [`ReflectAsset`] type data on the corresponding `T` asset type:
 ///
 ///
-/// ```rust,no_run
+/// ```no_run
 /// # use bevy_reflect::{TypeRegistry, prelude::*};
 /// # use bevy_ecs::prelude::*;
 /// use bevy_asset::{ReflectHandle, ReflectAsset};

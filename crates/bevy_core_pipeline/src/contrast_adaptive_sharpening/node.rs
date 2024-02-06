@@ -63,7 +63,9 @@ impl Node for CASNode {
             return Ok(());
         };
 
-        let pipeline = pipeline_cache.get_render_pipeline(pipeline.0).unwrap();
+        let Some(pipeline) = pipeline_cache.get_render_pipeline(pipeline.0) else {
+            return Ok(());
+        };
 
         let view_target = target.post_process_write();
         let source = view_target.source;
@@ -101,6 +103,8 @@ impl Node for CASNode {
                 ops: Operations::default(),
             })],
             depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
         };
 
         let mut render_pass = render_context

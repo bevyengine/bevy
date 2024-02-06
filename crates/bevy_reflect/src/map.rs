@@ -248,8 +248,28 @@ impl Map for DynamicMap {
             .map(move |index| &mut *self.values.get_mut(index).unwrap().1)
     }
 
+    fn get_at(&self, index: usize) -> Option<(&dyn Reflect, &dyn Reflect)> {
+        self.values
+            .get(index)
+            .map(|(key, value)| (&**key, &**value))
+    }
+
+    fn get_at_mut(&mut self, index: usize) -> Option<(&dyn Reflect, &mut dyn Reflect)> {
+        self.values
+            .get_mut(index)
+            .map(|(key, value)| (&**key, &mut **value))
+    }
+
     fn len(&self) -> usize {
         self.values.len()
+    }
+
+    fn iter(&self) -> MapIter {
+        MapIter::new(self)
+    }
+
+    fn drain(self: Box<Self>) -> Vec<(Box<dyn Reflect>, Box<dyn Reflect>)> {
+        self.values
     }
 
     fn clone_dynamic(&self) -> DynamicMap {
@@ -262,22 +282,6 @@ impl Map for DynamicMap {
                 .collect(),
             indices: self.indices.clone(),
         }
-    }
-
-    fn iter(&self) -> MapIter {
-        MapIter::new(self)
-    }
-
-    fn get_at(&self, index: usize) -> Option<(&dyn Reflect, &dyn Reflect)> {
-        self.values
-            .get(index)
-            .map(|(key, value)| (&**key, &**value))
-    }
-
-    fn get_at_mut(&mut self, index: usize) -> Option<(&dyn Reflect, &mut dyn Reflect)> {
-        self.values
-            .get_mut(index)
-            .map(|(key, value)| (&**key, &mut **value))
     }
 
     fn insert_boxed(
@@ -305,10 +309,6 @@ impl Map for DynamicMap {
             .remove(&key.reflect_hash().expect(HASH_ERROR))?;
         let (_key, value) = self.values.remove(index);
         Some(value)
-    }
-
-    fn drain(self: Box<Self>) -> Vec<(Box<dyn Reflect>, Box<dyn Reflect>)> {
-        self.values
     }
 }
 

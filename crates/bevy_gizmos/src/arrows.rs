@@ -3,20 +3,20 @@
 //! Includes the implementation of [`Gizmos::arrow`] and [`Gizmos::arrow_2d`],
 //! and assorted support items.
 
-use crate::prelude::Gizmos;
+use crate::prelude::{GizmoConfigGroup, Gizmos};
 use bevy_math::{Quat, Vec2, Vec3};
 use bevy_render::color::Color;
 
 /// A builder returned by [`Gizmos::arrow`] and [`Gizmos::arrow_2d`]
-pub struct ArrowBuilder<'a, 's> {
-    gizmos: &'a mut Gizmos<'s>,
+pub struct ArrowBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
+    gizmos: &'a mut Gizmos<'w, 's, T>,
     start: Vec3,
     end: Vec3,
     color: Color,
     tip_length: f32,
 }
 
-impl ArrowBuilder<'_, '_> {
+impl<T: GizmoConfigGroup> ArrowBuilder<'_, '_, '_, T> {
     /// Change the length of the tips to be `length`.
     /// The default tip length is [length of the arrow]/10.
     ///
@@ -37,9 +37,12 @@ impl ArrowBuilder<'_, '_> {
     }
 }
 
-impl Drop for ArrowBuilder<'_, '_> {
+impl<T: GizmoConfigGroup> Drop for ArrowBuilder<'_, '_, '_, T> {
     /// Draws the arrow, by drawing lines with the stored [`Gizmos`]
     fn drop(&mut self) {
+        if !self.gizmos.enabled {
+            return;
+        }
         // first, draw the body of the arrow
         self.gizmos.line(self.start, self.end, self.color);
         // now the hard part is to draw the head in a sensible way
@@ -63,8 +66,8 @@ impl Drop for ArrowBuilder<'_, '_> {
     }
 }
 
-impl<'s> Gizmos<'s> {
-    /// Draw an arrow in 3D, from `start` to `end`. Has four tips for convienent viewing from any direction.
+impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
+    /// Draw an arrow in 3D, from `start` to `end`. Has four tips for convenient viewing from any direction.
     ///
     /// This should be called for each frame the arrow needs to be rendered.
     ///
@@ -78,7 +81,7 @@ impl<'s> Gizmos<'s> {
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
-    pub fn arrow(&mut self, start: Vec3, end: Vec3, color: Color) -> ArrowBuilder<'_, 's> {
+    pub fn arrow(&mut self, start: Vec3, end: Vec3, color: Color) -> ArrowBuilder<'_, 'w, 's, T> {
         let length = (end - start).length();
         ArrowBuilder {
             gizmos: self,
@@ -103,7 +106,12 @@ impl<'s> Gizmos<'s> {
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
-    pub fn arrow_2d(&mut self, start: Vec2, end: Vec2, color: Color) -> ArrowBuilder<'_, 's> {
+    pub fn arrow_2d(
+        &mut self,
+        start: Vec2,
+        end: Vec2,
+        color: Color,
+    ) -> ArrowBuilder<'_, 'w, 's, T> {
         self.arrow(start.extend(0.), end.extend(0.), color)
     }
 }

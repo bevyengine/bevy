@@ -3,8 +3,8 @@ use crate::{
     UntypedAssetId,
 };
 use bevy_ecs::prelude::*;
-use bevy_reflect::{Reflect, TypePath, Uuid};
-use bevy_utils::get_short_name;
+use bevy_reflect::{Reflect, TypePath};
+use bevy_utils::{get_short_name, Uuid};
 use crossbeam_channel::{Receiver, Sender};
 use std::{
     any::TypeId,
@@ -124,7 +124,7 @@ impl std::fmt::Debug for StrongHandle {
 #[reflect(Component)]
 pub enum Handle<A: Asset> {
     /// A "strong" reference to a live (or loading) [`Asset`]. If a [`Handle`] is [`Handle::Strong`], the [`Asset`] will be kept
-    /// alive until the [`Handle`] is dropped. Strong handles also provide access to additional asset metadata.  
+    /// alive until the [`Handle`] is dropped. Strong handles also provide access to additional asset metadata.
     Strong(Arc<StrongHandle>),
     /// A "weak" reference to an [`Asset`]. If a [`Handle`] is [`Handle::Weak`], it does not necessarily reference a live [`Asset`],
     /// nor will it keep assets alive.
@@ -189,7 +189,7 @@ impl<A: Asset> Handle<A> {
 
     /// Converts this [`Handle`] to an "untyped" / "generic-less" [`UntypedHandle`], which stores the [`Asset`] type information
     /// _inside_ [`UntypedHandle`]. This will return [`UntypedHandle::Strong`] for [`Handle::Strong`] and [`UntypedHandle::Weak`] for
-    /// [`Handle::Weak`].  
+    /// [`Handle::Weak`].
     #[inline]
     pub fn untyped(self) -> UntypedHandle {
         self.into()

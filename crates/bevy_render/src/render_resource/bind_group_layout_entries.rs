@@ -5,7 +5,7 @@ use wgpu::{BindGroupLayoutEntry, BindingType, ShaderStages};
 /// Helper for constructing bind group layouts.
 ///
 /// Allows constructing the layout's entries as:
-/// ```ignore
+/// ```ignore (render_device cannot be easily accessed)
 /// let layout = render_device.create_bind_group_layout(
 ///     "my_bind_group_layout",
 ///     &BindGroupLayoutEntries::with_indices(
@@ -23,7 +23,7 @@ use wgpu::{BindGroupLayoutEntry, BindingType, ShaderStages};
 ///
 /// instead of
 ///
-/// ```ignore
+/// ```ignore (render_device cannot be easily accessed)
 /// let layout = render_device.create_bind_group_layout(
 ///     "my_bind_group_layout",
 ///     &[
@@ -51,7 +51,7 @@ use wgpu::{BindGroupLayoutEntry, BindingType, ShaderStages};
 ///
 /// or
 ///
-/// ```ignore
+/// ```ignore (render_device cannot be easily accessed)
 /// render_device.create_bind_group_layout(
 ///     "my_bind_group_layout",
 ///     &BindGroupLayoutEntries::sequential(
@@ -68,7 +68,7 @@ use wgpu::{BindGroupLayoutEntry, BindingType, ShaderStages};
 ///
 /// instead of
 ///
-/// ```ignore
+/// ```ignore (render_device cannot be easily accessed)
 /// let layout = render_device.create_bind_group_layout(
 ///     "my_bind_group_layout",
 ///     &[
@@ -96,7 +96,7 @@ use wgpu::{BindGroupLayoutEntry, BindingType, ShaderStages};
 ///
 /// or
 ///
-/// ```ignore
+/// ```ignore (render_device cannot be easily accessed)
 /// render_device.create_bind_group_layout(
 ///     "my_bind_group_layout",
 ///     &BindGroupLayoutEntries::single(
@@ -108,7 +108,7 @@ use wgpu::{BindGroupLayoutEntry, BindingType, ShaderStages};
 ///
 /// instead of
 ///
-/// ```ignore
+/// ```ignore (render_device cannot be easily accessed)
 /// let layout = render_device.create_bind_group_layout(
 ///     "my_bind_group_layout",
 ///     &[

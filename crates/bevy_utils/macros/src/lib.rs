@@ -1,3 +1,6 @@
+// FIXME(3492): remove once docs are ready
+#![allow(missing_docs)]
+
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{

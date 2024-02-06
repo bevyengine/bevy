@@ -22,10 +22,13 @@ tracing-subscriber = { version = "0.3.1", features = [
   "env-filter",
 ] }
 tracing-chrome = { version = "0.7.0", optional = true }
-tracing-tracy = { version = "0.10.0", optional = true }
 tracing-log = "0.1.2"
 tracing-error = { version = "0.2.0", optional = true }
-tracy-client = { version = "0.16", optional = true }
+
+# Tracy dependency compatibility table:
+# https://github.com/nagisa/rust_tracy_client
+tracing-tracy = { version = "0.11.0", optional = true }
+tracy-client = { version = "0.17.0", optional = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
 android_log-sys = "0.3.0"

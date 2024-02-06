@@ -18,11 +18,22 @@ use bevy_ecs::{
 /// * [`First`]
 /// * [`PreUpdate`]
 /// * [`StateTransition`]
-/// * [`RunFixedUpdateLoop`]
-///     * This will run [`FixedUpdate`] zero to many times, based on how much time has elapsed.
+/// * [`RunFixedMainLoop`]
+///     * This will run [`FixedMain`] zero to many times, based on how much time has elapsed.
 /// * [`Update`]
 /// * [`PostUpdate`]
 /// * [`Last`]
+///
+/// # Rendering
+///
+/// Note rendering is not executed in the main schedule by default.
+/// Instead, rendering is performed in a separate [`SubApp`](crate::app::SubApp)
+/// which exchanges data with the main app in between the main schedule runs.
+///
+/// See [`RenderPlugin`] and [`PipelinedRenderingPlugin`] for more details.
+///
+/// [`RenderPlugin`]: https://docs.rs/bevy/latest/bevy/render/struct.RenderPlugin.html
+/// [`PipelinedRenderingPlugin`]: https://docs.rs/bevy/latest/bevy/render/pipelined_rendering/struct.PipelinedRenderingPlugin.html
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Main;
 
@@ -67,25 +78,62 @@ pub struct PreUpdate;
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct StateTransition;
 
-/// Runs the [`FixedUpdate`] schedule in a loop according until all relevant elapsed time has been "consumed".
+/// Runs the [`FixedMain`] schedule in a loop according until all relevant elapsed time has been "consumed".
 ///
 /// See the [`Main`] schedule for some details about how schedules are run.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct RunFixedUpdateLoop;
+pub struct RunFixedMainLoop;
+
+/// Runs first in the [`FixedMain`] schedule.
+///
+/// See the [`FixedMain`] schedule for details on how fixed updates work.
+/// See the [`Main`] schedule for some details about how schedules are run.
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct FixedFirst;
+
+/// The schedule that contains logic that must run before [`FixedUpdate`].
+///
+/// See the [`FixedMain`] schedule for details on how fixed updates work.
+/// See the [`Main`] schedule for some details about how schedules are run.
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct FixedPreUpdate;
+
+/// The schedule that contains most gameplay logic.
+///
+/// See the [`FixedMain`] schedule for details on how fixed updates work.
+/// See the [`Main`] schedule for some details about how schedules are run.
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct FixedUpdate;
+
+/// The schedule that runs after the [`FixedUpdate`] schedule, for reacting
+/// to changes made in the main update logic.
+///
+/// See the [`FixedMain`] schedule for details on how fixed updates work.
+/// See the [`Main`] schedule for some details about how schedules are run.
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct FixedPostUpdate;
+
+/// The schedule that runs last in [`FixedMain`]
+///
+/// See the [`FixedMain`] schedule for details on how fixed updates work.
+/// See the [`Main`] schedule for some details about how schedules are run.
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct FixedLast;
 
 /// The schedule that contains systems which only run after a fixed period of time has elapsed.
 ///
-/// The exclusive `run_fixed_update_schedule` system runs this schedule.
-/// This is run by the [`RunFixedUpdateLoop`] schedule.
+/// The exclusive `run_fixed_main_schedule` system runs this schedule.
+/// This is run by the [`RunFixedMainLoop`] schedule.
 ///
 /// Frequency of execution is configured by inserting `Time<Fixed>` resource, 64 Hz by default.
 /// See [this example](https://github.com/bevyengine/bevy/blob/latest/examples/time/time.rs).
 ///
 /// See the [`Main`] schedule for some details about how schedules are run.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct FixedUpdate;
+pub struct FixedMain;
 
-/// The schedule that contains app logic.
+/// The schedule that contains app logic. Ideally containing anything that must run once per
+/// render frame, such as UI.
 ///
 /// See the [`Main`] schedule for some details about how schedules are run.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
@@ -118,8 +166,10 @@ pub struct Last;
 /// their order.
 #[derive(Resource, Debug)]
 pub struct MainScheduleOrder {
-    /// The labels to run for the [`Main`] schedule (in the order they will be run).
+    /// The labels to run for the main phase of the [`Main`] schedule (in the order they will be run).
     pub labels: Vec<InternedScheduleLabel>,
+    /// The labels to run for the startup phase of the [`Main`] schedule (in the order they will be run).
+    pub startup_labels: Vec<InternedScheduleLabel>,
 }
 
 impl Default for MainScheduleOrder {
@@ -129,18 +179,19 @@ impl Default for MainScheduleOrder {
                 First.intern(),
                 PreUpdate.intern(),
                 StateTransition.intern(),
-                RunFixedUpdateLoop.intern(),
+                RunFixedMainLoop.intern(),
                 Update.intern(),
                 SpawnScene.intern(),
                 PostUpdate.intern(),
                 Last.intern(),
             ],
+            startup_labels: vec![PreStartup.intern(), Startup.intern(), PostStartup.intern()],
         }
     }
 }
 
 impl MainScheduleOrder {
-    /// Adds the given `schedule` after the `after` schedule
+    /// Adds the given `schedule` after the `after` schedule in the main list of schedules.
     pub fn insert_after(&mut self, after: impl ScheduleLabel, schedule: impl ScheduleLabel) {
         let index = self
             .labels
@@ -149,15 +200,31 @@ impl MainScheduleOrder {
             .unwrap_or_else(|| panic!("Expected {after:?} to exist"));
         self.labels.insert(index + 1, schedule.intern());
     }
+
+    /// Adds the given `schedule` after the `after` schedule in the list of startup schedules.
+    pub fn insert_startup_after(
+        &mut self,
+        after: impl ScheduleLabel,
+        schedule: impl ScheduleLabel,
+    ) {
+        let index = self
+            .startup_labels
+            .iter()
+            .position(|current| (**current).eq(&after))
+            .unwrap_or_else(|| panic!("Expected {after:?} to exist"));
+        self.startup_labels.insert(index + 1, schedule.intern());
+    }
 }
 
 impl Main {
     /// A system that runs the "main schedule"
     pub fn run_main(world: &mut World, mut run_at_least_once: Local<bool>) {
         if !*run_at_least_once {
-            let _ = world.try_run_schedule(PreStartup);
-            let _ = world.try_run_schedule(Startup);
-            let _ = world.try_run_schedule(PostStartup);
+            world.resource_scope(|world, order: Mut<MainScheduleOrder>| {
+                for &label in &order.startup_labels {
+                    let _ = world.try_run_schedule(label);
+                }
+            });
             *run_at_least_once = true;
         }
 
@@ -169,7 +236,7 @@ impl Main {
     }
 }
 
-/// Initializes the [`Main`] schedule, sub schedules,  and resources for a given [`App`].
+/// Initializes the [`Main`] schedule, sub schedules, and resources for a given [`App`].
 pub struct MainSchedulePlugin;
 
 impl Plugin for MainSchedulePlugin {
@@ -177,12 +244,68 @@ impl Plugin for MainSchedulePlugin {
         // simple "facilitator" schedules benefit from simpler single threaded scheduling
         let mut main_schedule = Schedule::new(Main);
         main_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
-        let mut fixed_update_loop_schedule = Schedule::new(RunFixedUpdateLoop);
-        fixed_update_loop_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+        let mut fixed_main_schedule = Schedule::new(FixedMain);
+        fixed_main_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+        let mut fixed_main_loop_schedule = Schedule::new(RunFixedMainLoop);
+        fixed_main_loop_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
 
         app.add_schedule(main_schedule)
-            .add_schedule(fixed_update_loop_schedule)
+            .add_schedule(fixed_main_schedule)
+            .add_schedule(fixed_main_loop_schedule)
             .init_resource::<MainScheduleOrder>()
-            .add_systems(Main, Main::run_main);
+            .init_resource::<FixedMainScheduleOrder>()
+            .add_systems(Main, Main::run_main)
+            .add_systems(FixedMain, FixedMain::run_fixed_main);
+
+        #[cfg(feature = "bevy_debug_stepping")]
+        {
+            use bevy_ecs::schedule::{IntoSystemConfigs, Stepping};
+            app.add_systems(Main, Stepping::begin_frame.before(Main::run_main));
+        }
+    }
+}
+
+/// Defines the schedules to be run for the [`FixedMain`] schedule, including
+/// their order.
+#[derive(Resource, Debug)]
+pub struct FixedMainScheduleOrder {
+    /// The labels to run for the [`FixedMain`] schedule (in the order they will be run).
+    pub labels: Vec<InternedScheduleLabel>,
+}
+
+impl Default for FixedMainScheduleOrder {
+    fn default() -> Self {
+        Self {
+            labels: vec![
+                FixedFirst.intern(),
+                FixedPreUpdate.intern(),
+                FixedUpdate.intern(),
+                FixedPostUpdate.intern(),
+                FixedLast.intern(),
+            ],
+        }
+    }
+}
+
+impl FixedMainScheduleOrder {
+    /// Adds the given `schedule` after the `after` schedule
+    pub fn insert_after(&mut self, after: impl ScheduleLabel, schedule: impl ScheduleLabel) {
+        let index = self
+            .labels
+            .iter()
+            .position(|current| (**current).eq(&after))
+            .unwrap_or_else(|| panic!("Expected {after:?} to exist"));
+        self.labels.insert(index + 1, schedule.intern());
+    }
+}
+
+impl FixedMain {
+    /// A system that runs the fixed timestep's "main schedule"
+    pub fn run_fixed_main(world: &mut World) {
+        world.resource_scope(|world, order: Mut<FixedMainScheduleOrder>| {
+            for &label in &order.labels {
+                let _ = world.try_run_schedule(label);
+            }
+        });
     }
 }

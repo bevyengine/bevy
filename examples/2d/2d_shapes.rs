@@ -18,38 +18,55 @@ fn setup(
 
     // Circle
     commands.spawn(MaterialMesh2dBundle {
-        mesh: meshes.add(shape::Circle::new(50.).into()).into(),
-        material: materials.add(ColorMaterial::from(Color::PURPLE)),
-        transform: Transform::from_translation(Vec3::new(-150., 0., 0.)),
+        mesh: meshes.add(Circle { radius: 50.0 }).into(),
+        material: materials.add(Color::VIOLET),
+        transform: Transform::from_translation(Vec3::new(-275.0, 0.0, 0.0)),
+        ..default()
+    });
+
+    // Ellipse
+    commands.spawn(MaterialMesh2dBundle {
+        mesh: meshes.add(Ellipse::new(25.0, 50.0)).into(),
+        material: materials.add(Color::TURQUOISE),
+        transform: Transform::from_translation(Vec3::new(-150.0, 0.0, 0.0)),
+        ..default()
+    });
+
+    // Capsule
+    commands.spawn(MaterialMesh2dBundle {
+        mesh: meshes.add(Capsule2d::new(25.0, 50.0)).into(),
+        material: materials.add(Color::LIME_GREEN),
+        transform: Transform::from_translation(Vec3::new(-50.0, 0.0, 0.0)),
         ..default()
     });
 
     // Rectangle
-    commands.spawn(SpriteBundle {
-        sprite: Sprite {
-            color: Color::rgb(0.25, 0.25, 0.75),
-            custom_size: Some(Vec2::new(50.0, 100.0)),
-            ..default()
-        },
-        transform: Transform::from_translation(Vec3::new(-50., 0., 0.)),
-        ..default()
-    });
-
-    // Quad
     commands.spawn(MaterialMesh2dBundle {
-        mesh: meshes
-            .add(shape::Quad::new(Vec2::new(50., 100.)).into())
-            .into(),
-        material: materials.add(ColorMaterial::from(Color::LIME_GREEN)),
-        transform: Transform::from_translation(Vec3::new(50., 0., 0.)),
+        mesh: meshes.add(Rectangle::new(50.0, 100.0)).into(),
+        material: materials.add(Color::YELLOW),
+        transform: Transform::from_translation(Vec3::new(50.0, 0.0, 0.0)),
         ..default()
     });
 
     // Hexagon
     commands.spawn(MaterialMesh2dBundle {
-        mesh: meshes.add(shape::RegularPolygon::new(50., 6).into()).into(),
-        material: materials.add(ColorMaterial::from(Color::TURQUOISE)),
-        transform: Transform::from_translation(Vec3::new(150., 0., 0.)),
+        mesh: meshes.add(RegularPolygon::new(50.0, 6)).into(),
+        material: materials.add(Color::ORANGE),
+        transform: Transform::from_translation(Vec3::new(175.0, 0.0, 0.0)),
+        ..default()
+    });
+
+    // Triangle
+    commands.spawn(MaterialMesh2dBundle {
+        mesh: meshes
+            .add(Triangle2d::new(
+                Vec2::Y * 50.0,
+                Vec2::new(-50.0, -50.0),
+                Vec2::new(50.0, -50.0),
+            ))
+            .into(),
+        material: materials.add(Color::ORANGE_RED),
+        transform: Transform::from_translation(Vec3::new(300.0, 0.0, 0.0)),
         ..default()
     });
 }

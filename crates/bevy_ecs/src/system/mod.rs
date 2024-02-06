@@ -110,6 +110,7 @@ mod function_system;
 mod query;
 #[allow(clippy::module_inception)]
 mod system;
+mod system_name;
 mod system_param;
 mod system_registry;
 
@@ -123,6 +124,7 @@ pub use exclusive_system_param::*;
 pub use function_system::*;
 pub use query::*;
 pub use system::*;
+pub use system_name::*;
 pub use system_param::*;
 pub use system_registry::*;
 
@@ -308,6 +310,20 @@ pub fn assert_system_does_not_conflict<Out, Params, S: IntoSystem<(), Out, Param
     system.run((), &mut world);
 }
 
+impl<T> std::ops::Deref for In<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T> std::ops::DerefMut for In<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::any::TypeId;
@@ -330,7 +346,7 @@ mod tests {
         },
         system::{
             Commands, In, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, Res, ResMut,
-            Resource, System, SystemState,
+            Resource, StaticSystemParam, System, SystemState,
         },
         world::{FromWorld, World},
     };
@@ -379,6 +395,7 @@ mod tests {
         schedule.run(world);
     }
 
+    #[allow(deprecated)]
     #[test]
     fn query_system_gets() {
         fn query_system(
@@ -1538,6 +1555,7 @@ mod tests {
         });
     }
 
+    #[allow(deprecated)]
     #[test]
     fn readonly_query_get_mut_component_fails() {
         use crate::query::QueryComponentError;
@@ -1602,6 +1620,19 @@ mod tests {
             unimplemented!()
         }
 
+        fn static_system_param(_: StaticSystemParam<Query<'static, 'static, &W<u32>>>) {
+            unimplemented!()
+        }
+
+        fn exclusive_with_state(
+            _: &mut World,
+            _: Local<bool>,
+            _: (&mut QueryState<&W<i32>>, &mut SystemState<Query<&W<u32>>>),
+            _: (),
+        ) {
+            unimplemented!()
+        }
+
         fn not(In(val): In<bool>) -> bool {
             !val
         }
@@ -1609,7 +1640,9 @@ mod tests {
         assert_is_system(returning::<Result<u32, std::io::Error>>.map(Result::unwrap));
         assert_is_system(returning::<Option<()>>.map(drop));
         assert_is_system(returning::<&str>.map(u64::from_str).map(Result::unwrap));
+        assert_is_system(static_system_param);
         assert_is_system(exclusive_in_out::<(), Result<(), std::io::Error>>.map(bevy_utils::error));
+        assert_is_system(exclusive_with_state);
         assert_is_system(returning::<bool>.pipe(exclusive_in_out::<bool, ()>));
 
         returning::<()>.run_if(returning::<bool>.pipe(not));
@@ -1702,14 +1735,14 @@ mod tests {
         let mut sched = Schedule::default();
         sched.add_systems(
             (
-                (|mut res: ResMut<C>| {
+                |mut res: ResMut<C>| {
                     res.0 += 1;
-                }),
-                (|mut res: ResMut<C>| {
+                },
+                |mut res: ResMut<C>| {
                     res.0 += 2;
-                }),
+                },
             )
-                .distributive_run_if(resource_exists::<A>().or_else(resource_exists::<B>())),
+                .distributive_run_if(resource_exists::<A>.or_else(resource_exists::<B>)),
         );
         sched.initialize(&mut world).unwrap();
         sched.run(&mut world);

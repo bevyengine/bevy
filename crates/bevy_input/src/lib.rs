@@ -1,5 +1,3 @@
-#![warn(missing_docs)]
-
 //! Input functionality for the [Bevy game engine](https://bevyengine.org/).
 //!
 //! # Supported input devices
@@ -7,17 +5,17 @@
 //! `bevy` currently supports keyboard, mouse, gamepad, and touch inputs.
 
 mod axis;
+mod button_input;
 /// Common run conditions
 pub mod common_conditions;
 pub mod gamepad;
-mod input;
 pub mod keyboard;
 pub mod mouse;
 pub mod touch;
 pub mod touchpad;
 
 pub use axis::*;
-pub use input::*;
+pub use button_input::*;
 
 /// Most commonly used re-exported types.
 pub mod prelude {
@@ -26,17 +24,17 @@ pub mod prelude {
         gamepad::{
             Gamepad, GamepadAxis, GamepadAxisType, GamepadButton, GamepadButtonType, Gamepads,
         },
-        keyboard::{KeyCode, ScanCode},
+        keyboard::KeyCode,
         mouse::MouseButton,
         touch::{TouchInput, Touches},
-        Axis, Input,
+        Axis, ButtonInput,
     };
 }
 
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
-use keyboard::{keyboard_input_system, KeyCode, KeyboardInput, ScanCode};
+use keyboard::{keyboard_input_system, Key, KeyCode, KeyboardInput, NativeKey, NativeKeyCode};
 use mouse::{
     mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotion, MouseScrollUnit,
     MouseWheel,
@@ -68,14 +66,13 @@ impl Plugin for InputPlugin {
         app
             // keyboard
             .add_event::<KeyboardInput>()
-            .init_resource::<Input<KeyCode>>()
-            .init_resource::<Input<ScanCode>>()
+            .init_resource::<ButtonInput<KeyCode>>()
             .add_systems(PreUpdate, keyboard_input_system.in_set(InputSystem))
             // mouse
             .add_event::<MouseButtonInput>()
             .add_event::<MouseMotion>()
             .add_event::<MouseWheel>()
-            .init_resource::<Input<MouseButton>>()
+            .init_resource::<ButtonInput<MouseButton>>()
             .add_systems(PreUpdate, mouse_button_input_system.in_set(InputSystem))
             .add_event::<TouchpadMagnify>()
             .add_event::<TouchpadRotate>()
@@ -88,7 +85,7 @@ impl Plugin for InputPlugin {
             .add_event::<GamepadRumbleRequest>()
             .init_resource::<GamepadSettings>()
             .init_resource::<Gamepads>()
-            .init_resource::<Input<GamepadButton>>()
+            .init_resource::<ButtonInput<GamepadButton>>()
             .init_resource::<Axis<GamepadAxis>>()
             .init_resource::<Axis<GamepadButton>>()
             .add_systems(
@@ -116,7 +113,9 @@ impl Plugin for InputPlugin {
         // Register keyboard types
         app.register_type::<KeyboardInput>()
             .register_type::<KeyCode>()
-            .register_type::<ScanCode>();
+            .register_type::<NativeKeyCode>()
+            .register_type::<Key>()
+            .register_type::<NativeKey>();
 
         // Register mouse types
         app.register_type::<MouseButtonInput>()
