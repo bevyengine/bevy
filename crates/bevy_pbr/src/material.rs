@@ -639,12 +639,12 @@ pub fn queue_material_meshes<M: Material>(
 
             mesh_instance.material_bind_group_id = material.get_bind_group_id();
 
-            let distance = rangefinder
-                .distance_translation(&mesh_instance.transforms.transform.translation)
-                + material.properties.depth_bias;
             match material.properties.alpha_mode {
                 AlphaMode::Opaque => {
                     if material.properties.reads_view_transmission_texture {
+                        let distance = rangefinder
+                            .distance_translation(&mesh_instance.transforms.transform.translation)
+                            + material.properties.depth_bias;
                         transmissive_phase.add(Transmissive3d {
                             entity: *visible_entity,
                             draw_function: draw_transmissive_pbr,
@@ -658,13 +658,16 @@ pub fn queue_material_meshes<M: Material>(
                             entity: *visible_entity,
                             draw_function: draw_opaque_pbr,
                             pipeline: pipeline_id,
-                            distance,
+                            asset_id: mesh_instance.mesh_asset_id,
                             batch_range: 0..1,
                             dynamic_offset: None,
                         });
                     }
                 }
                 AlphaMode::Mask(_) => {
+                    let distance = rangefinder
+                        .distance_translation(&mesh_instance.transforms.transform.translation)
+                        + material.properties.depth_bias;
                     if material.properties.reads_view_transmission_texture {
                         transmissive_phase.add(Transmissive3d {
                             entity: *visible_entity,
@@ -689,6 +692,9 @@ pub fn queue_material_meshes<M: Material>(
                 | AlphaMode::Premultiplied
                 | AlphaMode::Add
                 | AlphaMode::Multiply => {
+                    let distance = rangefinder
+                        .distance_translation(&mesh_instance.transforms.transform.translation)
+                        + material.properties.depth_bias;
                     transparent_phase.add(Transparent3d {
                         entity: *visible_entity,
                         draw_function: draw_transparent_pbr,

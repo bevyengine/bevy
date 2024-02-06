@@ -129,11 +129,15 @@ pub struct Mesh {
 impl Mesh {
     /// Where the vertex is located in space. Use in conjunction with [`Mesh::insert_attribute`]
     /// or [`Mesh::with_inserted_attribute`].
+    ///
+    /// The format of this attribute is [`VertexFormat::Float32x3`].
     pub const ATTRIBUTE_POSITION: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_Position", 0, VertexFormat::Float32x3);
 
     /// The direction the vertex normal is facing in.
     /// Use in conjunction with [`Mesh::insert_attribute`] or [`Mesh::with_inserted_attribute`].
+    ///
+    /// The format of this attribute is [`VertexFormat::Float32x3`].
     pub const ATTRIBUTE_NORMAL: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_Normal", 1, VertexFormat::Float32x3);
 
@@ -149,6 +153,8 @@ impl Mesh {
     ///
     /// For different mapping outside of `0..=1` range,
     /// see [`ImageAddressMode`](crate::texture::ImageAddressMode).
+    ///
+    /// The format of this attribute is [`VertexFormat::Float32x2`].
     pub const ATTRIBUTE_UV_0: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_Uv", 2, VertexFormat::Float32x2);
 
@@ -157,27 +163,37 @@ impl Mesh {
     ///
     /// Typically, these are used for lightmaps, textures that provide
     /// precomputed illumination.
+    ///
+    /// The format of this attribute is [`VertexFormat::Float32x2`].
     pub const ATTRIBUTE_UV_1: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_Uv_1", 3, VertexFormat::Float32x2);
 
     /// The direction of the vertex tangent. Used for normal mapping.
     /// Usually generated with [`generate_tangents`](Mesh::generate_tangents) or
     /// [`with_generated_tangents`](Mesh::with_generated_tangents).
+    ///
+    /// The format of this attribute is [`VertexFormat::Float32x4`].
     pub const ATTRIBUTE_TANGENT: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_Tangent", 4, VertexFormat::Float32x4);
 
     /// Per vertex coloring. Use in conjunction with [`Mesh::insert_attribute`]
     /// or [`Mesh::with_inserted_attribute`].
+    ///
+    /// The format of this attribute is [`VertexFormat::Float32x4`].
     pub const ATTRIBUTE_COLOR: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_Color", 5, VertexFormat::Float32x4);
 
     /// Per vertex joint transform matrix weight. Use in conjunction with [`Mesh::insert_attribute`]
     /// or [`Mesh::with_inserted_attribute`].
+    ///
+    /// The format of this attribute is [`VertexFormat::Float32x4`].
     pub const ATTRIBUTE_JOINT_WEIGHT: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_JointWeight", 6, VertexFormat::Float32x4);
 
     /// Per vertex joint transform matrix index. Use in conjunction with [`Mesh::insert_attribute`]
     /// or [`Mesh::with_inserted_attribute`].
+    ///
+    /// The format of this attribute is [`VertexFormat::Uint16x4`].
     pub const ATTRIBUTE_JOINT_INDEX: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_JointIndex", 7, VertexFormat::Uint16x4);
 
@@ -332,6 +348,12 @@ impl Mesh {
     #[inline]
     pub fn indices_mut(&mut self) -> Option<&mut Indices> {
         self.indices.as_mut()
+    }
+
+    /// Removes the vertex `indices` from the mesh and returns them.
+    #[inline]
+    pub fn remove_indices(&mut self) -> Option<Indices> {
+        std::mem::take(&mut self.indices)
     }
 
     /// Computes and returns the index data of the mesh as bytes.

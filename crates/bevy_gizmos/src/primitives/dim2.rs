@@ -467,9 +467,9 @@ impl<'w, 's, const N: usize, T: GizmoConfigGroup> GizmoPrimitive2d<Polygon<N>>
 
         // Check if the polygon needs a closing point
         let closing_point = {
-            let last = primitive.vertices.last();
-            (primitive.vertices.first() != last)
-                .then_some(last)
+            let first = primitive.vertices.first();
+            (primitive.vertices.last() != first)
+                .then_some(first)
                 .flatten()
                 .cloned()
         };
@@ -503,9 +503,9 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<BoxedPolygon> for Gizmos<'w, 
         }
 
         let closing_point = {
-            let last = primitive.vertices.last();
-            (primitive.vertices.first() != last)
-                .then_some(last)
+            let first = primitive.vertices.first();
+            (primitive.vertices.last() != first)
+                .then_some(first)
                 .flatten()
                 .cloned()
         };
