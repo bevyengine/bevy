@@ -512,28 +512,39 @@ pub fn advance_animations(
     mut players: Query<&mut AnimationPlayer>,
 ) {
     for mut player in players.iter_mut() {
-        player.transitions.retain_mut(|animation| {
-            animation.current_weight -= animation.weight_decline_per_sec * time.delta_seconds();
-            animation.current_weight > 0.0
-        });
-
         let paused = player.paused;
         if paused {
             continue;
         }
 
-        // Update the main animation.
-        update_animation(&mut player.animation, paused, &time, &animation_clips);
+        // Advance the main animation.
+        if let Some(animation_clip) = animation_clips.get(&player.animation.animation_clip) {
+            player
+                .animation
+                .update(time.delta_seconds(), animation_clip.duration);
+        };
 
-        // Update transition animations.
+        // Advance transition animations.
         for transition in &mut player.transitions {
-            update_animation(&mut transition.animation, paused, &time, &animation_clips);
+            // Decrease weight. But don't expire the transition yet if the time
+            // ran out; we still need to update the bones.
+            transition.current_weight = (transition.current_weight
+                - transition.weight_decline_per_sec * time.delta_seconds())
+            .max(0.0);
+
+            if let Some(animation_clip) = animation_clips.get(&transition.animation.animation_clip)
+            {
+                transition
+                    .animation
+                    .update(time.delta_seconds(), animation_clip.duration);
+            };
         }
     }
 }
 
 /// A system that modifies animation targets (bones) according to the
 /// currently-playing animation.
+///
 pub fn animate_targets(
     world: &mut World,
     mut system_state: Local<
@@ -549,17 +560,25 @@ pub fn animate_targets(
         *system_state = Some(SystemState::new(world));
     }
 
+    // We use two queries here: one read-only query for animation players and
+    // one read-write query for animation targets (bones). The `AnimationPlayer`
+    // query is read-only shared memory accessible from all animation targets,
+    // which are evaluated in parallel.
+
     // This elaborate setup using `resource_scope` is a workaround for the fact
     // that `EntityMut` queries lock out resources. This is a known bug in Bevy.
     world.resource_scope(|world, clips: Mut<Assets<AnimationClip>>| {
         let (players, mut targets) = system_state.as_mut().unwrap().get_mut(world);
+
+        // Iterate over all animation targets (bones) in parallel.
         targets.par_iter_mut().for_each(|mut target_entity| {
             let target = target_entity.get::<AnimationTarget>().unwrap();
             let Ok(player) = players.get(target.root) else {
                 error!(
-                    "Couldn't find the animation player {:?} for {:?}",
+                    "Couldn't find the animation player {:?} for {:?} ({:?})",
                     target.root,
-                    target_entity.id()
+                    target_entity.id(),
+                    target_entity.get::<Name>()
                 );
                 return;
             };
@@ -573,6 +592,18 @@ pub fn animate_targets(
             }
         });
     });
+}
+
+/// Removes animation transitions that have expired.
+///
+/// This needs to be done after applying the animations so that transitions
+/// don't miss applying their last frame on the frame they expire.
+pub fn expire_animation_transitions(mut players: Query<&mut AnimationPlayer>) {
+    for mut player in players.iter_mut() {
+        player
+            .transitions
+            .retain_mut(|transition| transition.current_weight > 0.0);
+    }
 }
 
 /// Update `weights` based on weights in `keyframe` with a linear interpolation
@@ -629,26 +660,15 @@ impl Plugin for AnimationPlugin {
             .register_type::<AnimationTarget>()
             .add_systems(
                 PostUpdate,
-                (advance_animations, animate_targets)
+                (
+                    advance_animations,
+                    animate_targets,
+                    expire_animation_transitions,
+                )
                     .chain()
                     .before(TransformSystem::TransformPropagate),
             );
     }
-}
-
-fn update_animation(
-    animation: &mut PlayingAnimation,
-    paused: bool,
-    time: &Time,
-    animation_clips: &Assets<AnimationClip>,
-) {
-    let Some(animation_clip) = animation_clips.get(&animation.animation_clip) else {
-        return;
-    };
-
-    let delta = if paused { 0.0 } else { time.delta_seconds() };
-
-    animation.update(delta, animation_clip.duration);
 }
 
 impl PlayingAnimation {
@@ -657,8 +677,9 @@ impl PlayingAnimation {
 
         let Some(clip) = clips.get(&self.animation_clip) else {
             warn!(
-                "Couldn't find the animation clip for {:?}",
-                target_entity.id()
+                "Couldn't find the animation clip for {:?} ({:?})",
+                target_entity.id(),
+                target_entity.get::<Name>()
             );
             return;
         };
@@ -722,8 +743,9 @@ impl PlayingAnimation {
             Keyframes::Weights(keyframes) => {
                 let Some(mut morphs) = target.get_mut::<MorphWeights>() else {
                     error!(
-                        "Tried to animate morphs on {:?}, but no `MorphWeights` was found",
-                        target.id()
+                        "Tried to animate morphs on {:?} ({:?}), but no `MorphWeights` was found",
+                        target.id(),
+                        target.get::<Name>()
                     );
                     return;
                 };
