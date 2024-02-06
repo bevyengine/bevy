@@ -108,10 +108,6 @@ impl Default for PlaneMeshBuilder {
 
 impl PlaneMeshBuilder {
     /// Creates a new [`PlaneMeshBuilder`] from a given normal and size.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the given `normal` is zero (or very close to zero), or non-finite.
     #[inline]
     pub fn new(normal: Direction3d, size: Vec2) -> Self {
         Self {
@@ -130,10 +126,6 @@ impl PlaneMeshBuilder {
     }
 
     /// Sets the normal of the plane, aka the direction the plane is facing.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the given `normal` is zero (or very close to zero), or non-finite.
     #[inline]
     #[doc(alias = "facing")]
     pub fn normal(mut self, normal: Direction3d) -> Self {
