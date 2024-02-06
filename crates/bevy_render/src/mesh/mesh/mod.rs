@@ -216,7 +216,7 @@ impl Mesh {
         self.primitive_topology
     }
 
-    /// Sets the data for a vertex attribute (position, normal etc.). The name will
+    /// Sets the data for a vertex attribute (position, normal, etc.). The name will
     /// often be one of the associated constants such as [`Mesh::ATTRIBUTE_POSITION`].
     ///
     /// # Panics
@@ -240,7 +240,7 @@ impl Mesh {
             .insert(attribute.id, MeshAttributeData { attribute, values });
     }
 
-    /// Consumes the mesh and returns a mesh with data set for a vertex attribute (position, normal etc.).
+    /// Consumes the mesh and returns a mesh with data set for a vertex attribute (position, normal, etc.).
     /// The name will often be one of the associated constants such as [`Mesh::ATTRIBUTE_POSITION`].
     ///
     /// (Alternatively, you can use [`Mesh::insert_attribute`] to mutate an existing mesh in-place)
