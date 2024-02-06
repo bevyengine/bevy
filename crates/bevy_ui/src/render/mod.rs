@@ -176,6 +176,7 @@ pub fn extract_uinode_borders(
                 &GlobalTransform,
                 &Style,
                 &BorderColor,
+                &CalculatedOpacity,
                 Option<&Parent>,
                 &ViewVisibility,
                 Option<&CalculatedClip>,
@@ -188,7 +189,7 @@ pub fn extract_uinode_borders(
 ) {
     let image = AssetId::<Image>::default();
 
-    for (node, global_transform, style, border_color, parent, view_visibility, clip, camera) in
+    for (node, global_transform, style, border_color, opacity, parent, view_visibility, clip, camera) in
         &uinode_query
     {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
@@ -267,7 +268,7 @@ pub fn extract_uinode_borders(
                         stack_index: node.stack_index,
                         // This translates the uinode's transform to the center of the current border rectangle
                         transform: transform * Mat4::from_translation(edge.center().extend(0.)),
-                        color: border_color.0,
+                        color: opacity * border_color.0,
                         rect: Rect {
                             max: edge.size(),
                             ..Default::default()
@@ -294,6 +295,7 @@ pub fn extract_uinode_outlines(
             &Node,
             &GlobalTransform,
             &Outline,
+            &CalculatedOpacity,
             &ViewVisibility,
             Option<&CalculatedClip>,
             Option<&TargetCamera>,
@@ -301,7 +303,7 @@ pub fn extract_uinode_outlines(
     >,
 ) {
     let image = AssetId::<Image>::default();
-    for (node, global_transform, outline, view_visibility, maybe_clip, camera) in &uinode_query {
+    for (node, global_transform, outline, opacity, view_visibility, maybe_clip, camera) in &uinode_query {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
             continue;
@@ -358,7 +360,7 @@ pub fn extract_uinode_outlines(
                         stack_index: node.stack_index,
                         // This translates the uinode's transform to the center of the current border rectangle
                         transform: transform * Mat4::from_translation(edge.center().extend(0.)),
-                        color: outline.color,
+                        color: opacity * outline.color,
                         rect: Rect {
                             max: edge.size(),
                             ..Default::default()

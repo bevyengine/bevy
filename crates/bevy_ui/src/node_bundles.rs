@@ -34,7 +34,7 @@ pub struct NodeBundle {
     pub background_color: BackgroundColor,
     /// The opacity of the node, set by the user
     pub opacity: Opacity,
-    /// The calculatedopacity of the node, calculated from the alpha of its parents and self
+    /// The calculated opacity of the node, calculated from the alpha of its parents and self
     pub calculated_opacity: CalculatedOpacity,
     /// The color of the Node's border
     pub border_color: BorderColor,

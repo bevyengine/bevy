@@ -13,7 +13,6 @@ pub mod update;
 pub mod widget;
 
 use bevy_derive::{Deref, DerefMut};
-use bevy_hierarchy::{Children, Parent};
 use bevy_reflect::Reflect;
 #[cfg(feature = "bevy_text")]
 mod accessibility;
@@ -146,6 +145,7 @@ impl Plugin for UiPlugin {
                 apply_deferred
                     .after(update_target_camera_system)
                     .before(UiSystem::Layout),
+                recalculate_opacity.before(UiSystem::Layout),
                 ui_layout_system
                     .in_set(UiSystem::Layout)
                     .before(TransformSystem::TransformPropagate),
@@ -162,7 +162,6 @@ impl Plugin for UiPlugin {
                     .ambiguous_with(resolve_outlines_system)
                     .ambiguous_with(ui_layout_system)
                     .in_set(AmbiguousWithTextSystem),
-                recalculate_opacity,
                 update_clipping_system.after(TransformSystem::TransformPropagate),
                 // Potential conflicts: `Assets<Image>`
                 // They run independently since `widget::image_node_system` will only ever observe
@@ -235,46 +234,4 @@ fn build_text_interop(app: &mut App) {
         PostUpdate,
         AmbiguousWithUpdateText2DLayout.ambiguous_with(bevy_text::update_text2d_layout),
     );
-}
-
-pub fn recalculate_opacity(
-    changed: Query<(Entity, Option<&Parent>), (With<CalculatedOpacity>, Changed<Opacity>)>,
-    mut opacity_query: Query<(&Opacity, &mut CalculatedOpacity)>,
-    children_query: Query<&Children, (With<Opacity>, With<CalculatedOpacity>)>,
-) {
-    for (entity, parent) in &changed {
-        let inherited_opacity = if let Some(parent) = parent {
-            if let Ok((_, parent_opacity)) = opacity_query.get(parent.get()) {
-                parent_opacity.0
-            } else {
-                1.0 // parent doesnt have opacity for some reason
-            }
-        } else {
-            1.0 // no parent
-        };
-
-        set_opacity_recursive(
-            inherited_opacity,
-            entity,
-            &mut opacity_query,
-            &children_query,
-        );
-    }
-}
-
-fn set_opacity_recursive(
-    inherited_opacity: f32,
-    entity: Entity,
-    opacity_query: &mut Query<(&Opacity, &mut CalculatedOpacity)>,
-    children_query: &Query<&Children, (With<Opacity>, With<CalculatedOpacity>)>,
-) {
-    let Ok((opacity, mut calc)) = opacity_query.get_mut(entity) else {
-        return;
-    };
-    let new_opacity = opacity * inherited_opacity;
-    calc.0 = new_opacity;
-
-    for &child in children_query.get(entity).ok().into_iter().flatten() {
-        set_opacity_recursive(new_opacity, child, opacity_query, children_query);
-    }
 }

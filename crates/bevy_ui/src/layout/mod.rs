@@ -1,12 +1,12 @@
 mod convert;
 pub mod debug;
 
-use crate::{ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiScale};
+use crate::{CalculatedOpacity, ContentSize, DefaultUiCamera, Node, Opacity, Outline, Style, TargetCamera, UiScale};
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     entity::Entity,
     event::EventReader,
-    query::{With, Without},
+    query::{Changed, With, Without},
     removal_detection::RemovedComponents,
     system::{Query, Res, ResMut, Resource},
     world::Ref,
@@ -474,6 +474,51 @@ pub fn resolve_outlines_system(
             .resolve(node.size().x, viewport_size)
             .unwrap_or(0.)
             .max(0.);
+    }
+}
+
+pub fn recalculate_opacity(
+    changed: Query<(Entity, Option<&Parent>), (With<CalculatedOpacity>, Changed<Opacity>)>,
+    mut opacity_query: Query<(&Opacity, &mut CalculatedOpacity)>,
+    children_query: Query<&Children, (With<Opacity>, With<CalculatedOpacity>)>,
+) {
+    for (entity, parent) in &changed {
+        let inherited_opacity = if let Some(parent) = parent {
+            if let Ok((_, parent_opacity)) = opacity_query.get(parent.get()) {
+                parent_opacity.0
+            } else {
+                1.0 // parent doesnt have opacity for some reason
+            }
+        } else {
+            1.0 // no parent
+        };
+
+        set_opacity_recursive(
+            inherited_opacity,
+            entity,
+            &mut opacity_query,
+            &children_query,
+        );
+    }
+}
+
+fn set_opacity_recursive(
+    inherited_opacity: f32,
+    entity: Entity,
+    opacity_query: &mut Query<(&Opacity, &mut CalculatedOpacity)>,
+    children_query: &Query<&Children, (With<Opacity>, With<CalculatedOpacity>)>,
+) {
+    let Ok((opacity, mut calc)) = opacity_query.get_mut(entity) else {
+        return;
+    };
+    let new_opacity = opacity * inherited_opacity;
+    calc.0 = new_opacity;
+
+    let Ok(children) = children_query.get(entity) else {
+        return;
+    };
+    for &child in children {
+        set_opacity_recursive(new_opacity, child, opacity_query, children_query);
     }
 }
 

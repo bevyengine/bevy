@@ -1669,8 +1669,21 @@ impl Mul<Color> for &CalculatedOpacity {
     #[inline]
     fn mul(self, rhs: Color) -> Self::Output {
         let alpha = rhs.a() * self.0;
-        *rhs.clone().set_a(alpha)
+        *rhs.clone().set_a(alpha.clamp(0.0, 1.0))
     }
+}
+
+/// A [`Bundle`] of the [`Opacity`] and [`CalculatedOpacity`]
+/// [`Component`]s, which describe the opacity of an entity.
+///
+/// * To fade-in or fade-out a UI entity (and its children), you should set its [`Opacity`].
+/// * To get the calculated opacity of an entity, you should get its [`CalculatedOpacity`]. (Mostly for in-engine use)
+#[derive(Bundle, Debug, Clone, Default)]
+pub struct OpacityBundle {
+    /// The opacity of the entity.
+    pub opacity: Opacity,
+    // The calculated opacity of the entity from its parents.
+    pub calculated_opacity: CalculatedOpacity,
 }
 
 /// The border color of the UI node.
