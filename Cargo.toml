@@ -2645,11 +2645,11 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "render-primitives"
-path = "examples/math/render-primitives.rs"
+name = "render_primitives"
+path = "examples/math/render_primitives.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.render-primitives]
+[package.metadata.example.render_primitives]
 name = "Rendering Primitives"
 description = "Shows off rendering for all math primitives as both Meshes and Gizmos"
 category = "Math"
