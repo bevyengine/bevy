@@ -65,7 +65,7 @@ impl From<RegularPolygon> for Mesh {
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
-        .with_indices(Some(Indices::U32(indices)))
+        .with_inserted_indices(Indices::U32(indices))
     }
 }
 

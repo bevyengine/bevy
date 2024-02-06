@@ -322,8 +322,8 @@ impl Mesh {
     /// vertex attributes and are therefore only useful for the [`PrimitiveTopology`] variants
     /// that use triangles.
     #[inline]
-    pub fn set_indices(&mut self, indices: Option<Indices>) {
-        self.indices = indices;
+    pub fn insert_indices(&mut self, indices: Indices) {
+        self.indices = Some(indices);
     }
 
     /// Consumes the mesh and returns a mesh with the given vertex indices. They describe how triangles
@@ -333,8 +333,8 @@ impl Mesh {
     /// (Alternatively, you can use [`Mesh::set_indices`] to mutate an existing mesh in-place)
     #[must_use]
     #[inline]
-    pub fn with_indices(mut self, indices: Option<Indices>) -> Self {
-        self.set_indices(indices);
+    pub fn with_inserted_indices(mut self, indices: Indices) -> Self {
+        self.insert_indices(indices);
         self
     }
 
@@ -354,6 +354,15 @@ impl Mesh {
     #[inline]
     pub fn remove_indices(&mut self) -> Option<Indices> {
         std::mem::take(&mut self.indices)
+    }
+
+    /// Consumes the mesh and returns a mesh without the vertex `indices` of the mesh.
+    ///
+    /// (Alternatively, you can use [`Mesh::remove_indices`] to mutate an existing mesh in-place)
+    #[must_use]
+    pub fn with_removed_indices(mut self) -> Self {
+        self.remove_indices();
+        self
     }
 
     /// Computes and returns the index data of the mesh as bytes.
