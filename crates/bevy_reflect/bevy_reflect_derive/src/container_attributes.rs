@@ -535,29 +535,41 @@ impl ReflectTraits {
     ///
     /// An error is returned if the two [`ReflectTraits`] have conflicting implementations.
     pub fn merge(&mut self, other: ReflectTraits) -> Result<(), syn::Error> {
-        self.debug.merge(other.debug)?;
-        self.hash.merge(other.hash)?;
-        self.partial_eq.merge(other.partial_eq)?;
-        self.from_reflect_attrs.merge(other.from_reflect_attrs)?;
-        self.type_path_attrs.merge(other.type_path_attrs)?;
+        // Destructuring is used to help ensure that all fields are merged
+        let Self {
+            debug,
+            hash,
+            partial_eq,
+            from_reflect_attrs,
+            type_path_attrs,
+            custom_where,
+            no_field_bounds,
+            idents,
+        } = self;
 
-        self.merge_custom_where(other.custom_where);
+        debug.merge(other.debug)?;
+        hash.merge(other.hash)?;
+        partial_eq.merge(other.partial_eq)?;
+        from_reflect_attrs.merge(other.from_reflect_attrs)?;
+        type_path_attrs.merge(other.type_path_attrs)?;
 
-        self.no_field_bounds |= other.no_field_bounds;
+        Self::merge_custom_where(custom_where, other.custom_where);
+
+        *no_field_bounds |= other.no_field_bounds;
 
         for ident in other.idents {
-            add_unique_ident(&mut self.idents, ident)?;
+            add_unique_ident(idents, ident)?;
         }
         Ok(())
     }
 
-    fn merge_custom_where(&mut self, other: Option<WhereClause>) {
-        match (&mut self.custom_where, other) {
+    fn merge_custom_where(this: &mut Option<WhereClause>, other: Option<WhereClause>) {
+        match (this, other) {
             (Some(this), Some(other)) => {
                 this.predicates.extend(other.predicates);
             }
-            (None, Some(other)) => {
-                self.custom_where = Some(other);
+            (this @ None, Some(other)) => {
+                *this = Some(other);
             }
             _ => {}
         }
