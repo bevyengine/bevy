@@ -4,7 +4,7 @@ use quote::quote;
 use std::collections::HashMap;
 use syn::parse::ParseStream;
 use syn::spanned::Spanned;
-use syn::{Expr, LitStr, Path, Token};
+use syn::{Expr, ExprLit, Lit, LitBool, LitStr, Path, Token};
 
 #[derive(Default, Clone)]
 pub(crate) struct CustomAttributes {
@@ -41,14 +41,22 @@ impl CustomAttributes {
     /// Parse `@` (custom attribute) attribute.
     ///
     /// Examples:
-    /// - `#[reflect(@foo = "bar"))]`
+    /// - `#[reflect(@hidden))]`
+    /// - `#[reflect(@foo = Bar::baz("qux"))]`
     /// - `#[reflect(@min = 0.0, @max = 1.0)]`
     pub fn parse_custom_attribute(&mut self, input: ParseStream) -> syn::Result<()> {
         input.parse::<Token![@]>()?;
 
         let path = Path::parse_mod_style(input)?;
-        input.parse::<Token![=]>()?;
-        let value = input.parse::<Expr>()?;
+        let value = if input.peek(Token![=]) {
+            input.parse::<Token![=]>()?;
+            input.parse::<Expr>()?
+        } else {
+            Expr::Lit(ExprLit {
+                attrs: Vec::new(),
+                lit: Lit::Bool(LitBool::new(true, path.span())),
+            })
+        };
 
         let mut name = path
             .segments
