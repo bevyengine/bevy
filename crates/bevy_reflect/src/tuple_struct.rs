@@ -1,5 +1,6 @@
 use bevy_reflect_derive::impl_type_path;
 
+use crate::attributes::CustomAttributes;
 use crate::{
     self as bevy_reflect, ApplyError, DynamicTuple, Reflect, ReflectKind, ReflectMut, ReflectOwned,
     ReflectRef, Tuple, TypeInfo, TypePath, TypePathTable, UnnamedField,
@@ -7,6 +8,7 @@ use crate::{
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
 use std::slice::Iter;
+use std::sync::Arc;
 
 /// A trait used to power [tuple struct-like] operations via [reflection].
 ///
@@ -59,6 +61,7 @@ pub struct TupleStructInfo {
     type_path: TypePathTable,
     type_id: TypeId,
     fields: Box<[UnnamedField]>,
+    custom_attributes: Arc<CustomAttributes>,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
 }
@@ -75,6 +78,7 @@ impl TupleStructInfo {
             type_path: TypePathTable::of::<T>(),
             type_id: TypeId::of::<T>(),
             fields: fields.to_vec().into_boxed_slice(),
+            custom_attributes: Arc::new(CustomAttributes::default()),
             #[cfg(feature = "documentation")]
             docs: None,
         }
@@ -84,6 +88,14 @@ impl TupleStructInfo {
     #[cfg(feature = "documentation")]
     pub fn with_docs(self, docs: Option<&'static str>) -> Self {
         Self { docs, ..self }
+    }
+
+    /// Sets the custom attributes for this struct.
+    pub fn with_custom_attributes(self, custom_attributes: CustomAttributes) -> Self {
+        Self {
+            custom_attributes: Arc::new(custom_attributes),
+            ..self
+        }
     }
 
     /// Get the field at the given index.
@@ -126,6 +138,11 @@ impl TupleStructInfo {
     /// Check if the given type matches the tuple struct type.
     pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id
+    }
+
+    /// The custom attributes of this struct.
+    pub fn custom_attributes(&self) -> &CustomAttributes {
+        &self.custom_attributes
     }
 
     /// The docstring of this struct, if any.

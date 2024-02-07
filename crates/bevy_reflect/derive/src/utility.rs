@@ -7,6 +7,7 @@ use bevy_macro_utils::{
 };
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, ToTokens};
+use std::hash::{Hash, Hasher};
 use syn::parse::{Parse, ParseStream, Peek};
 use syn::punctuated::Punctuated;
 use syn::{spanned::Spanned, LitStr, Member, Path, Token, Type, WhereClause};
@@ -442,5 +443,41 @@ where
         }
 
         Ok(punctuated)
+    }
+}
+
+#[derive(Clone)]
+pub(crate) struct SpannedString {
+    pub value: String,
+    pub span: Span,
+}
+
+impl ToTokens for SpannedString {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let lit = LitStr::new(&self.value, self.span);
+        lit.to_tokens(tokens);
+    }
+}
+
+impl From<LitStr> for SpannedString {
+    fn from(value: LitStr) -> Self {
+        Self {
+            value: value.value(),
+            span: value.span(),
+        }
+    }
+}
+
+impl Eq for SpannedString {}
+
+impl PartialEq for SpannedString {
+    fn eq(&self, other: &Self) -> bool {
+        self.value == other.value
+    }
+}
+
+impl Hash for SpannedString {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.value.hash(state);
     }
 }

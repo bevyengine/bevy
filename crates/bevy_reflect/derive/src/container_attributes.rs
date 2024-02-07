@@ -513,6 +513,10 @@ impl ContainerAttributes {
         }
     }
 
+    pub fn custom_attributes(&self) -> &CustomAttributes {
+        &self.custom_attributes
+    }
+
     /// The custom where configuration found within `#[reflect(...)]` attributes on this type.
     pub fn custom_where(&self) -> Option<&WhereClause> {
         self.custom_where.as_ref()

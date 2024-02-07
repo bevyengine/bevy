@@ -1,14 +1,14 @@
-use proc_macro2::{Ident, TokenStream};
+use crate::utility::SpannedString;
+use proc_macro2::TokenStream;
 use quote::quote;
 use std::collections::HashMap;
 use syn::parse::{Parse, ParseStream};
-use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::{parenthesized, Lit, LitStr, Path, Token};
 
 #[derive(Default, Clone)]
 pub(crate) struct CustomAttributes {
-    attributes: HashMap<String, Lit>,
+    attributes: HashMap<SpannedString, Lit>,
 }
 
 impl CustomAttributes {
@@ -27,13 +27,13 @@ impl CustomAttributes {
     }
 
     /// Inserts a custom attribute into the map.
-    pub fn insert(&mut self, name: LitStr, value: Lit) -> syn::Result<()> {
-        let key = name.value();
-        if self.attributes.contains_key(&key) {
+    pub fn insert(&mut self, name: impl Into<SpannedString>, value: Lit) -> syn::Result<()> {
+        let name = name.into();
+        if self.attributes.contains_key(&name) {
             return Err(syn::Error::new_spanned(name, "duplicate custom attribute"));
         }
 
-        self.attributes.insert(key, value);
+        self.attributes.insert(name, value);
 
         Ok(())
     }
@@ -52,14 +52,22 @@ impl CustomAttributes {
         let custom_attrs = content.parse_terminated(CustomAttribute::parse, Token![,])?;
 
         for custom_attr in custom_attrs {
-            let name = custom_attr
+            let mut name = custom_attr
                 .name
+                .segments
                 .iter()
-                .map(Ident::to_string)
+                .map(|segment| segment.ident.to_string())
                 .collect::<Vec<_>>()
                 .join("::");
 
+            if custom_attr.name.leading_colon.is_some() {
+                name.insert_str(0, "::");
+            }
+
             self.insert(
+                // Note that the call to `.span()` will only return the span of the first token.
+                // This isn't ideal, but should be fine— especially for single-ident names.
+                // See: https://docs.rs/syn/2.0.48/syn/spanned/index.html#limitations
                 LitStr::new(&name, custom_attr.name.span()),
                 custom_attr.value,
             )?;
@@ -70,7 +78,7 @@ impl CustomAttributes {
 }
 
 pub(crate) struct CustomAttribute {
-    name: Punctuated<Ident, Token![::]>,
+    name: Path,
     _eq: Token![=],
     value: Lit,
 }
@@ -78,7 +86,7 @@ pub(crate) struct CustomAttribute {
 impl Parse for CustomAttribute {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         Ok(Self {
-            name: Punctuated::<Ident, Token![::]>::parse_separated_nonempty(input)?,
+            name: Path::parse_mod_style(input)?,
             _eq: input.parse::<Token![=]>()?,
             value: input.parse::<Lit>()?,
         })
