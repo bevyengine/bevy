@@ -1405,13 +1405,13 @@ mod tests {
     }
 
     #[derive(Resource)]
+    struct SmallNum(i8);
+
+    #[derive(Resource)]
     struct Num(isize);
 
     #[derive(Resource)]
     struct BigNum(i128);
-
-    #[derive(Resource)]
-    struct SmallNum(i8);
 
     #[test]
     fn resource_bundle() {
@@ -1420,18 +1420,21 @@ mod tests {
         world.insert_resource(Num(1_000));
         world.insert_resource(BigNum(1_000_000));
 
-        let (small_num, mut normal_num, big_num) = world
+        let (mut small_num, mut normal_num, mut big_num) = world
             .get_resources_mut::<(SmallNum, Num, BigNum)>()
             .expect("Couldn't get one of the resources in the bundle.");
 
-        assert_eq!(small_num.0, 1);
-        assert_eq!(big_num.0, 1_000_000);
-
         normal_num.0 *= 2;
+        small_num.0 *= 2;
+        big_num.0 *= 2;
 
-        let normal_num = world.get_resource::<Num>().unwrap();
+        let (small_num, normal_num, big_num) = world
+            .get_resources::<(SmallNum, Num, BigNum)>()
+            .expect("Couldn't get one of the resources in the bundle.");
 
+        assert_eq!(small_num.0, 2);
         assert_eq!(normal_num.0, 2_000);
+        assert_eq!(big_num.0, 2_000_000);
     }
 
     #[test]
