@@ -31,17 +31,20 @@ impl ComputedTextureSlices {
         sprite: &'a Sprite,
         handle: &'a Handle<Image>,
     ) -> impl ExactSizeIterator<Item = ExtractedSprite> + 'a {
+        let x = if sprite.flip_x { -1.0 } else { 1.0 };
+        let y = if sprite.flip_y { -1.0 } else { 1.0 };
+        let flip = Vec2::new(x, y);
         self.0.iter().map(move |slice| {
-            let transform =
-                transform.mul_transform(Transform::from_translation(slice.offset.extend(0.0)));
+            let offset = (slice.offset * flip).extend(0.0);
+            let transform = transform.mul_transform(Transform::from_translation(offset));
             ExtractedSprite {
                 original_entity: Some(original_entity),
                 color: sprite.color,
                 transform,
                 rect: Some(slice.texture_rect),
                 custom_size: Some(slice.draw_size),
-                flip_x: sprite.flip_x,
-                flip_y: sprite.flip_y,
+                flip_x: false,
+                flip_y: false,
                 image_handle_id: handle.id(),
                 anchor: sprite.anchor.as_vec(),
             }
