@@ -227,15 +227,27 @@ mod kw {
 }
 
 impl ReflectTraits {
-    /// Parse the contents of a `#[reflect(...)]` attribute into a [`ReflectTraits`] instance.
-    pub fn from_meta_list(meta: &MetaList, trait_: ReflectTraitToImpl) -> Result<Self, syn::Error> {
+    /// Parse a comma-separated list of container attributes.
+    ///
+    /// # Example
+    /// - `Hash, Debug(custom_debug), MyTrait`
+    pub fn parse_terminated(input: ParseStream, trait_: ReflectTraitToImpl) -> syn::Result<Self> {
         let mut this = Self::default();
 
-        meta.parse_args_with(terminated_parser(Token![,], |stream| {
+        terminated_parser(Token![,], |stream| {
             this.parse_container_attribute(stream, trait_)
-        }))?;
+        })(input)?;
 
         Ok(this)
+    }
+
+    /// Parse the contents of a `#[reflect(...)]` attribute into a [`ReflectTraits`] instance.
+    ///
+    /// # Example
+    /// - `#[reflect(Hash, Debug(custom_debug), MyTrait)]`
+    /// - `#[reflect(no_field_bounds)]`
+    pub fn parse_meta_list(meta: &MetaList, trait_: ReflectTraitToImpl) -> syn::Result<Self> {
+        meta.parse_args_with(|stream: ParseStream| Self::parse_terminated(stream, trait_))
     }
 
     /// Parse a single container attribute.
@@ -418,16 +430,6 @@ impl ReflectTraits {
         Ok(())
     }
 
-    pub fn parse(input: ParseStream, trait_: ReflectTraitToImpl) -> syn::Result<Self> {
-        let mut this = Self::default();
-
-        terminated_parser(Token![,], |stream| {
-            this.parse_container_attribute(stream, trait_)
-        })(input)?;
-
-        Ok(this)
-    }
-
     /// Returns true if the given reflected trait name (i.e. `ReflectDefault` for `Default`)
     /// is registered for this type.
     pub fn contains(&self, name: &str) -> bool {
@@ -519,10 +521,12 @@ impl ReflectTraits {
         }
     }
 
+    /// The custom where configuration found within `#[reflect(...)]` attributes on this type.
     pub fn custom_where(&self) -> Option<&WhereClause> {
         self.custom_where.as_ref()
     }
 
+    /// Returns true if the `no_field_bounds` attribute was found on this type.
     pub fn no_field_bounds(&self) -> bool {
         self.no_field_bounds
     }

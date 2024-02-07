@@ -407,7 +407,8 @@ impl FromIterator<StringExpr> for StringExpr {
     }
 }
 
-/// Returns a [`syn::parse::Parser`] which parses a stream of `T` separated by `P` (with optional trailing `P`).
+/// Returns a [`syn::parse::Parser`] which parses a stream of zero or more occurences of `T`
+/// separated by punctuation of type `P`, with optional trailing punctuation.
 ///
 /// This is functionally the same as [`Punctuated::parse_terminated`],
 /// but accepts a closure rather than a function pointer.

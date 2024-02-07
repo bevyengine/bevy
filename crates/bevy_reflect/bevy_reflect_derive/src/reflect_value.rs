@@ -55,7 +55,7 @@ impl ReflectValueDef {
         if input.peek(Paren) {
             let content;
             parenthesized!(content in input);
-            traits = Some(ReflectTraits::parse(&content, trait_)?);
+            traits = Some(ReflectTraits::parse_terminated(&content, trait_)?);
         }
         Ok(ReflectValueDef {
             attrs,

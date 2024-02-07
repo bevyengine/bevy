@@ -205,7 +205,7 @@ impl<'a> ReflectDerive<'a> {
                     }
 
                     reflect_mode = Some(ReflectMode::Normal);
-                    let new_traits = ReflectTraits::from_meta_list(meta_list, provenance.trait_)?;
+                    let new_traits = ReflectTraits::parse_meta_list(meta_list, provenance.trait_)?;
                     traits.merge(new_traits)?;
                 }
                 Meta::List(meta_list) if meta_list.path.is_ident(REFLECT_VALUE_ATTRIBUTE_NAME) => {
@@ -217,7 +217,7 @@ impl<'a> ReflectDerive<'a> {
                     }
 
                     reflect_mode = Some(ReflectMode::Value);
-                    let new_traits = ReflectTraits::from_meta_list(meta_list, provenance.trait_)?;
+                    let new_traits = ReflectTraits::parse_meta_list(meta_list, provenance.trait_)?;
                     traits.merge(new_traits)?;
                 }
                 Meta::Path(path) if path.is_ident(REFLECT_VALUE_ATTRIBUTE_NAME) => {
