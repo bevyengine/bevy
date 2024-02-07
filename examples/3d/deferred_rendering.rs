@@ -105,16 +105,13 @@ fn setup(
 
     // Plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(50.0)),
+        mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
         material: forward_mat_h.clone(),
         ..default()
     });
 
-    let cube_h = meshes.add(shape::Cube { size: 0.1 });
-    let sphere_h = meshes.add(shape::UVSphere {
-        radius: 0.125,
-        ..default()
-    });
+    let cube_h = meshes.add(Cuboid::new(0.1, 0.1, 0.1));
+    let sphere_h = meshes.add(Sphere::new(0.125).mesh().uv(32, 18));
 
     // Cubes
     commands.spawn(PbrBundle {
@@ -198,7 +195,7 @@ fn setup(
     // sky
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(shape::Box::default()),
+            mesh: meshes.add(Cuboid::new(2.0, 1.0, 1.0)),
             material: materials.add(StandardMaterial {
                 base_color: Color::hex("888888").unwrap(),
                 unlit: true,
@@ -259,7 +256,7 @@ fn setup_parallax(
     let normal_handle = asset_server.load("textures/parallax_example/cube_normal.png");
     normal.0 = Some(normal_handle);
 
-    let mut cube: Mesh = shape::Cube { size: 0.15 }.into();
+    let mut cube = Mesh::from(Cuboid::new(0.15, 0.15, 0.15));
 
     // NOTE: for normal maps and depth maps to work, the mesh
     // needs tangents generated.

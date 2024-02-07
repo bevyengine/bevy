@@ -68,24 +68,10 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
-    let icosphere_mesh = meshes.add(
-        Mesh::try_from(shape::Icosphere {
-            radius: 0.9,
-            subdivisions: 7,
-        })
-        .unwrap(),
-    );
-
-    let cube_mesh = meshes.add(shape::Cube { size: 0.7 });
-
-    let plane_mesh = meshes.add(shape::Plane::from_size(2.0));
-
-    let cylinder_mesh = meshes.add(shape::Cylinder {
-        radius: 0.5,
-        height: 2.0,
-        resolution: 50,
-        segments: 1,
-    });
+    let icosphere_mesh = meshes.add(Sphere::new(0.9).mesh().ico(7).unwrap());
+    let cube_mesh = meshes.add(Cuboid::new(0.7, 0.7, 0.7));
+    let plane_mesh = meshes.add(Plane3d::default().mesh().size(2.0, 2.0));
+    let cylinder_mesh = meshes.add(Cylinder::new(0.5, 2.0).mesh().resolution(50));
 
     // Cube #1
     commands.spawn((
