@@ -559,12 +559,13 @@ pub fn advance_animations(
         };
 
         // Advance transition animations.
-        for transition in &mut player.transitions {
-            // Decrease weight. But don't expire the transition yet if the time
-            // ran out; we still need to update the bones.
-            transition.current_weight = (transition.current_weight
-                - transition.weight_decline_per_sec * time.delta_seconds())
-            .max(0.0);
+        player.transitions.retain_mut(|transition| {
+            // Decrease weight. Expire the transition if necessary.
+            transition.current_weight = transition.current_weight
+                - transition.weight_decline_per_sec * time.delta_seconds();
+            if transition.current_weight <= 0.0 {
+                return false;
+            }
 
             if let Some(animation_clip) = animation_clips.get(&transition.animation.animation_clip)
             {
@@ -572,7 +573,9 @@ pub fn advance_animations(
                     .animation
                     .update(time.delta_seconds(), animation_clip.duration);
             };
-        }
+
+            true
+        });
     }
 }
 
@@ -621,18 +624,6 @@ pub fn animate_targets(
                     .apply(&clips, transition.current_weight, &mut target_context);
             }
         });
-}
-
-/// Removes animation transitions that have expired.
-///
-/// This needs to be done after applying the animations so that transitions
-/// don't miss applying their last frame on the frame they expire.
-pub fn expire_animation_transitions(mut players: Query<&mut AnimationPlayer>) {
-    for mut player in players.iter_mut() {
-        player
-            .transitions
-            .retain_mut(|transition| transition.current_weight > 0.0);
-    }
 }
 
 /// Update `weights` based on weights in `keyframe` with a linear interpolation
@@ -689,11 +680,7 @@ impl Plugin for AnimationPlugin {
             .register_type::<AnimationTarget>()
             .add_systems(
                 PostUpdate,
-                (
-                    advance_animations,
-                    animate_targets,
-                    expire_animation_transitions,
-                )
+                (advance_animations, animate_targets)
                     .chain()
                     .before(TransformSystem::TransformPropagate),
             );
