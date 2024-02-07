@@ -1412,7 +1412,7 @@ impl World {
     /// ```
     #[inline]
     pub fn get_resources_mut<B: ResourceBundle>(&mut self) -> Option<B::WriteAccess<'_>> {
-        // SAFETY: We have a mutable access to the world + we checked that there are no access conflicts within the bundle
+        // SAFETY: We have a mutable access to the world + `UnsafeWorldCell::get_resources_mut` checks for access conflicts
         unsafe { self.as_unsafe_world_cell().get_resources_mut::<B>() }
     }
 
