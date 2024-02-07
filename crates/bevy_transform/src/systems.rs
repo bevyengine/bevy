@@ -78,7 +78,7 @@ pub fn propagate_transforms(
                 &transform_query,
                 &parent_query,
                 root,
-            )
+            );
         };
     });
     // Optimistically work on each changed entity in parallel. The following algorithm finds minimal
@@ -89,7 +89,7 @@ pub fn propagate_transforms(
             return;
         };
         // Abort if the ancestors of this entity also have changed transforms or are orphaned.
-        let mut current = entity.clone();
+        let mut current = entity;
         loop {
             let Ok((_, current_parent)) = parent_query.get(current) else {
                 if orphaned_entities.binary_search(&current).is_ok() {
@@ -121,7 +121,9 @@ pub fn propagate_transforms(
         //      changed or orphaned and this includes all possible cases when the root propagation calls `transform_query`.
         //   2. To look up the parent transform just above, which cannot conflict because it is queried on an ancestor which `transform_query`
         //      will never visit.
-        unsafe { propagate_recursive(parent_transform, &transform_query, &parent_query, entity) };
+        unsafe {
+            propagate_recursive(parent_transform, &transform_query, &parent_query, entity);
+        };
     });
 }
 
