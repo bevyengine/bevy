@@ -388,7 +388,7 @@ pub struct AnimationPlayer {
 // The components that we might need to read or write during animation of each
 // animation target.
 struct AnimationTargetContext<'a> {
-    id: Entity,
+    entity: Entity,
     target: &'a AnimationTarget,
     name: Option<&'a Name>,
     transform: Option<Mut<'a, Transform>>,
@@ -611,7 +611,7 @@ pub fn animate_targets(
         .par_iter_mut()
         .for_each(|(id, target, name, (transform, morph_weights))| {
             let mut target_context = AnimationTargetContext {
-                id,
+                entity: id,
                 target,
                 name,
                 transform,
@@ -620,8 +620,8 @@ pub fn animate_targets(
 
             let Ok(player) = players.get(target.player) else {
                 error!(
-                    "Couldn't find the animation player {:?} for {:?} ({:?})",
-                    target.player, target_context.id, target_context.name,
+                    "Couldn't find the animation player {:?} for the target entity {:?} ({:?})",
+                    target.player, target_context.entity, target_context.name,
                 );
                 return;
             };
@@ -706,8 +706,8 @@ impl PlayingAnimation {
     ) {
         let Some(clip) = clips.get(&self.animation_clip) else {
             warn!(
-                "Couldn't find the animation clip for {:?} ({:?})",
-                target_context.id, target_context.name,
+                "Couldn't find the animation clip for the target entity {:?} ({:?})",
+                target_context.entity, target_context.name,
             );
             return;
         };
@@ -716,15 +716,6 @@ impl PlayingAnimation {
             return;
         };
 
-        self.apply_curves(curves, weight, target_context);
-    }
-
-    fn apply_curves(
-        &self,
-        curves: &[VariableCurve],
-        weight: f32,
-        target_context: &mut AnimationTargetContext,
-    ) {
         for curve in curves {
             // Some curves have only one keyframe used to set a transform
             if curve.keyframe_timestamps.len() == 1 {
@@ -782,7 +773,7 @@ impl PlayingAnimation {
                 let Some(ref mut morphs) = target_context.morph_weights else {
                     error!(
                         "Tried to animate morphs on {:?} ({:?}), but no `MorphWeights` was found",
-                        target_context.id, target_context.name,
+                        target_context.entity, target_context.name,
                     );
                     return;
                 };
