@@ -18,7 +18,8 @@ use bevy_time::TimeSender;
 use bevy_utils::Instant;
 use std::sync::Arc;
 use wgpu::{
-    Adapter, AdapterInfo, CommandBuffer, CommandEncoder, Instance, Queue, RequestAdapterOptions,
+    Adapter, AdapterInfo, Backends, CommandBuffer, CommandEncoder, Instance, Queue,
+    RequestAdapterOptions,
 };
 
 /// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
@@ -128,6 +129,9 @@ const GPU_NOT_FOUND_ERROR_MESSAGE: &str = if cfg!(target_os = "linux") {
     "Unable to find a GPU! Make sure you have installed required drivers!"
 };
 
+const REQUESTED_GPU_NOT_FOUND_ERROR_MESSAGE: &str =
+    "WGPU_ADAPTER_NAME set but no matching adapter found!";
+
 /// Initializes the renderer by retrieving and preparing the GPU instance, device and queue
 /// for the specified backend.
 pub async fn initialize_renderer(
@@ -135,10 +139,28 @@ pub async fn initialize_renderer(
     options: &WgpuSettings,
     request_adapter_options: &RequestAdapterOptions<'_, '_>,
 ) -> (RenderDevice, RenderQueue, RenderAdapterInfo, RenderAdapter) {
-    let adapter = instance
-        .request_adapter(request_adapter_options)
-        .await
-        .expect(GPU_NOT_FOUND_ERROR_MESSAGE);
+    let adapter = {
+        if let Ok(desired_adapter_name) = std::env::var("WGPU_ADAPTER_NAME")
+            .as_deref()
+            .map(str::to_lowercase)
+        {
+            let adapters = instance.enumerate_adapters(Backends::all());
+            let mut chosen_adapter = None;
+            for adapter in adapters {
+                let info = adapter.get_info();
+                if info.name.to_lowercase().contains(&desired_adapter_name) {
+                    chosen_adapter = Some(adapter);
+                    break;
+                }
+            }
+            chosen_adapter.expect(REQUESTED_GPU_NOT_FOUND_ERROR_MESSAGE)
+        } else {
+            instance
+                .request_adapter(request_adapter_options)
+                .await
+                .expect(GPU_NOT_FOUND_ERROR_MESSAGE)
+        }
+    };
 
     let adapter_info = adapter.get_info();
     info!("{:?}", adapter_info);
