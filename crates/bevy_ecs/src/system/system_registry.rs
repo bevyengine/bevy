@@ -78,7 +78,7 @@ impl<I, O> From<SystemId<I, O>> for Entity {
     /// It's trivial to convert [`SystemId`] into an [`Entity`] since a system
     /// is really an entity with associated handler function.
     ///
-    /// For example, this is useful if you want to [`bevy_core::Name`] a system.
+    /// For example, this is useful if you want to assign a name label to a system.
     fn from(SystemId(entity, _): SystemId<I, O>) -> Self {
         entity
     }
