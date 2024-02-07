@@ -83,7 +83,7 @@ impl From<CircleMeshBuilder> for Mesh {
 /// A builder used for creating a [`Mesh`] with a [`CircularSector`] shape.
 #[derive(Clone, Copy, Debug)]
 pub struct CircularSectorMeshBuilder {
-    /// The [`sector`] shape.
+    /// The sector shape.
     pub sector: CircularSector,
     /// The number of vertices used for the arc portion of the sector mesh.
     /// The default is `32`.
@@ -184,7 +184,7 @@ impl From<CircularSectorMeshBuilder> for Mesh {
 /// A builder used for creating a [`Mesh`] with a [`CircularSegment`] shape.
 #[derive(Clone, Copy, Debug)]
 pub struct CircularSegmentMeshBuilder {
-    /// The [`segment`] shape.
+    /// The segment shape.
     pub segment: CircularSegment,
     /// The number of vertices used for the arc portion of the segment mesh.
     /// The default is `32`.
