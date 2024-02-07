@@ -13,6 +13,7 @@ use crate::{
     entity::{Entities, Entity, EntityLocation},
     prelude::Component,
     removal_detection::RemovedComponentEvents,
+    resource_bundle::ResourceBundle,
     storage::{Column, ComponentSparseSet, Storages},
     system::{Res, Resource},
 };
@@ -589,6 +590,60 @@ impl<'w> UnsafeWorldCell<'w> {
             .non_send_resources
             .get(component_id)?
             .get_with_ticks()
+    }
+
+    /// Gets mutable access to multiple resources at once.
+    ///
+    /// Return `None` if one of the resources couldn't be fetched from the [`World`].
+    ///
+    /// # Panics
+    /// This method will panic if there are access conflicts within provided resource bundle.
+    /// For example, for any resources R, T, F:
+    /// `
+    /// world.get_resources_mut::<(R, R, T)>(); // This will panic!  There cannot be two mutable references to the same resource!
+    /// world.get_resources_mut::<(R, T, F)>(); // This is ok!
+    /// `
+    /// See [`World::get_resources`] for examples.
+    ///
+    /// # Safety
+    /// It is the caller's responsibility to make sure that
+    /// - This [`UnsafeWorldCell`] has permission to access all of the resources.
+    /// - There are no other references to any of the resources.
+    #[inline]
+    pub unsafe fn get_resources_mut<B: ResourceBundle>(self) -> Option<B::WriteAccess<'w>> {
+        assert!(!B::contains_access_conflicts(), "Found access conflicts in resource bundle. 
+            Make sure that if there is a mutable reference to some type R, it is the only reference to R in the bundle.");
+        // SAFETY: The safety of this function as described in the "# Safety" section.
+        unsafe { B::fetch_write_access(self) }
+    }
+
+    /// Gets read-only access to the resources in the bundle.
+    ///
+    /// Return `None` if one of the resources couldn't be fetched from the [`World`].
+    /// See [`World::get_resources`] for examples.
+    /// # Safety
+    /// It is the caller's responsibility to make sure that
+    /// - This [`UnsafeWorldCell`] has permission to access all of the resources.
+    /// - There are no other mutable references to any of the resources.
+    #[inline]
+    pub unsafe fn get_resources<B: ResourceBundle>(self) -> Option<B::ReadOnlyAccess<'w>> {
+        // SAFETY: The safety of this function as described in the "# Safety" section.
+        unsafe { B::fetch_read_only(self) }
+    }
+
+    /// Gets access to a bundle of resources at once, without checking for access conflicts within the bundle.
+    /// Similar to [`World::get_resources_mut`] but this will not check for access conflicts.
+    ///
+    /// # Safety
+    /// The caller must ensure that there are no access conflicts within the [`ResourceBundle`]. For example: (for any resources R, T, F)
+    /// (R, R)      -    *Not Allowed!*  Two mutable references can't exist at the same time!
+    /// (R, T, F)  -     *Allowed!*  No access conflicts
+    #[inline]
+    pub unsafe fn get_resources_mut_unchecked<B: ResourceBundle>(
+        self,
+    ) -> Option<B::WriteAccess<'w>> {
+        // SAFETY: The safety of this function as described in the "# Safety" section.
+        unsafe { B::fetch_write_access(self) }
     }
 }
 

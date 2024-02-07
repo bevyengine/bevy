@@ -1,28 +1,33 @@
 //! This module contains the logic for bundling up resources together.
-use bevy_utils::{all_tuples, TypeIdMap};
+use bevy_utils::{all_tuples, TypeIdSet};
 use std::any::TypeId;
 
 use crate::{
-    prelude::{Mut, World},
-    system::Resource,
+    prelude::Mut,
+    system::{Res, Resource},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
 /// Bundle of resources. With this trait we can fetch multiple resources at once from a world.
 pub trait ResourceBundle {
-    /// The resource bundle as it will be returned once fetched.
-    type Bundle<'a>;
-    /// The read-only version of this resource bundle.
-    type ReadOnlyBundle<'a>;
-    /// Get this resource bundle from the world.
+    /// Write access to the resources of this resource bundle. This type should provide write access, like `&mut R` or `ResMut<R>`
+    type WriteAccess<'a>;
+    /// Read-only access to the resources of this resource bundle. This type should provide read-only access, like `&R` or `Res<R>`
+    type ReadOnlyAccess<'a>;
+    /// Get write access to the resources in the bundle.
+    ///
     /// # Safety
-    /// The caller must ensure that each resource in this bundle ([`Self::Bundle`]) is safe to access.
-    /// For example, if `&R` is in the bundle, there should not be any valid mutable references to R.
-    unsafe fn get_resource_bundle(world: UnsafeWorldCell<'_>) -> Option<Self::Bundle<'_>>;
-    /// Get the read-only version of this bundle from the world.
-    fn get_read_only_resource_bundle(world: &World) -> Option<Self::ReadOnlyBundle<'_>>;
-    /// Return `true` if there are access conflicts within the bundle. For example, two mutable references to the same resource.
-    /// If the bundled types aren't capable of tracking conflicts, this defaults to `false`.
+    /// The caller must ensure that each resource in this bundle is safe to access mutably.
+    /// For example, if `R` is in the bundle, there should not be any other valid references to R.
+    unsafe fn fetch_write_access(world: UnsafeWorldCell<'_>) -> Option<Self::WriteAccess<'_>>;
+    /// Get read-only access to the resources in this bundle.
+    ///
+    /// # Safety
+    /// The caller must it is valid to get read-only access to each of the resources in this bundle.
+    /// For example, if `R` is in the bundle, there should not be any valid *mutable* references to R.
+    unsafe fn fetch_read_only(world: UnsafeWorldCell<'_>) -> Option<Self::ReadOnlyAccess<'_>>;
+    /// Return `true` if there are access conflicts within the bundle. In other words, this returns `true`
+    /// if and only a resource appears twice in the bundle.
     fn contains_access_conflicts() -> bool {
         false
     }
@@ -39,28 +44,16 @@ trait AccessConflictTracker {
     }
 }
 
-#[derive(Copy, Clone)]
-enum Access {
-    Shared,
-    Exclusive,
-}
-
-impl Access {
-    fn is_conflicting(&self, other: Self) -> bool {
-        !matches!((self, other), (Self::Shared, Self::Shared))
-    }
-}
-
 struct BundleAccessTable {
-    table: TypeIdMap<Access>,
+    table: TypeIdSet,
     conflicted: bool,
 }
 
 impl BundleAccessTable {
     /// Create a new empty access table.
-    fn new() -> Self {
+    fn new_empty_unconflicted() -> Self {
         Self {
-            table: TypeIdMap::default(),
+            table: TypeIdSet::default(),
             conflicted: false,
         }
     }
@@ -69,10 +62,8 @@ impl BundleAccessTable {
     /// the internal conflict flag will be set to `true`.
     /// # NOTE
     /// Even if the insertion solved an existing conflict, this will not be reflected in the internal conflict flag.
-    fn insert_checked(&mut self, id: TypeId, val: Access) {
-        if let Some(prev_val) = self.table.insert(id, val) {
-            self.conflicted |= prev_val.is_conflicting(val);
-        }
+    fn insert_checked(&mut self, id: TypeId) {
+        self.conflicted |= !self.table.insert(id);
     }
 
     /// Returns the internal access conflict flag.
@@ -83,37 +74,39 @@ impl BundleAccessTable {
     }
 }
 
-impl<R: Resource> ResourceBundle for &R {
-    type Bundle<'a> = &'a R;
-    type ReadOnlyBundle<'a> = &'a R;
-    unsafe fn get_resource_bundle(world: UnsafeWorldCell<'_>) -> Option<Self::Bundle<'_>> {
-        world.get_resource::<R>()
-    }
-    fn get_read_only_resource_bundle(world: &'_ World) -> Option<Self::ReadOnlyBundle<'_>> {
-        world.get_resource::<R>()
-    }
-}
-
-impl<R: Resource> ResourceBundle for &mut R {
-    type Bundle<'a> = Mut<'a, R>;
-    type ReadOnlyBundle<'a> = &'a R;
-    unsafe fn get_resource_bundle(world: UnsafeWorldCell<'_>) -> Option<Self::Bundle<'_>> {
+impl<R: Resource> ResourceBundle for R {
+    type WriteAccess<'a> = Mut<'a, R>;
+    type ReadOnlyAccess<'a> = &'a R;
+    unsafe fn fetch_write_access(world: UnsafeWorldCell<'_>) -> Option<Self::WriteAccess<'_>> {
         world.get_resource_mut::<R>()
     }
-    fn get_read_only_resource_bundle(world: &World) -> Option<Self::ReadOnlyBundle<'_>> {
+    unsafe fn fetch_read_only(world: UnsafeWorldCell<'_>) -> Option<Self::ReadOnlyAccess<'_>> {
         world.get_resource::<R>()
     }
 }
 
-impl<R: Resource> AccessConflictTracker for &mut R {
-    fn merge_with(other: &mut BundleAccessTable) {
-        other.insert_checked(TypeId::of::<R>(), Access::Exclusive);
+// Allow the user to get `Res` access to a resource as well.
+// But getting `ResMut` isn't supported attow.
+impl<R: Resource> ResourceBundle for Res<'_, R> {
+    type WriteAccess<'a> = Mut<'a, R>;
+    type ReadOnlyAccess<'a> = Res<'a, R>;
+    unsafe fn fetch_write_access(world: UnsafeWorldCell<'_>) -> Option<Self::WriteAccess<'_>> {
+        world.get_resource_mut::<R>()
+    }
+    unsafe fn fetch_read_only(world: UnsafeWorldCell<'_>) -> Option<Self::ReadOnlyAccess<'_>> {
+        world.get_resource_ref::<R>()
     }
 }
 
-impl<R: Resource> AccessConflictTracker for &R {
+impl<R: Resource> AccessConflictTracker for Res<'_, R> {
     fn merge_with(other: &mut BundleAccessTable) {
-        other.insert_checked(TypeId::of::<R>(), Access::Shared);
+        other.insert_checked(TypeId::of::<R>());
+    }
+}
+
+impl<R: Resource> AccessConflictTracker for R {
+    fn merge_with(other: &mut BundleAccessTable) {
+        other.insert_checked(TypeId::of::<R>());
     }
 }
 
@@ -121,7 +114,7 @@ macro_rules! impl_conflict_tracker {
     ($($tracker:ident),*) => {
         impl <$($tracker: AccessConflictTracker),*> AccessConflictTracker for ($($tracker,)*) {
             fn contains_conflicting_access() -> bool {
-                let mut tmp_table = BundleAccessTable::new();
+                let mut tmp_table = BundleAccessTable::new_empty_unconflicted();
                 Self::merge_with(&mut tmp_table);
                 tmp_table.is_conflicted()
             }
@@ -136,13 +129,13 @@ macro_rules! impl_conflict_tracker {
 macro_rules! impl_resource_bundle {
     ($($bundle:ident),*) => {
         impl<$($bundle: ResourceBundle + AccessConflictTracker),*> ResourceBundle for ($($bundle,)*) {
-            type Bundle<'a> = ($($bundle::Bundle<'a>,)*);
-            type ReadOnlyBundle<'a> = ($($bundle::ReadOnlyBundle<'a>,)*);
-            unsafe fn get_resource_bundle(world: UnsafeWorldCell<'_>) -> Option<Self::Bundle<'_>> {
-                Some(($($bundle::get_resource_bundle(world)?,)*))
+            type WriteAccess<'a> = ($($bundle::WriteAccess<'a>,)*);
+            type ReadOnlyAccess<'a> = ($($bundle::ReadOnlyAccess<'a>,)*);
+            unsafe fn fetch_write_access(world: UnsafeWorldCell<'_>) -> Option<Self::WriteAccess<'_>> {
+                Some(($($bundle::fetch_write_access(world)?,)*))
             }
-            fn get_read_only_resource_bundle(world: &World) -> Option<Self::ReadOnlyBundle<'_>> {
-                Some(($($bundle::get_read_only_resource_bundle(world)?,)*))
+            unsafe fn fetch_read_only(world: UnsafeWorldCell<'_>) -> Option<Self::ReadOnlyAccess<'_>> {
+                Some(($($bundle::fetch_read_only(world)?,)*))
             }
             fn contains_access_conflicts() -> bool {
                 <Self as AccessConflictTracker>::contains_conflicting_access()

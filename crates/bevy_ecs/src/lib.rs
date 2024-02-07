@@ -1421,8 +1421,8 @@ mod tests {
         world.insert_resource(BigNum(1_000_000));
 
         let (small_num, mut normal_num, big_num) = world
-            .resources_mut::<(&SmallNum, &mut Num, &BigNum)>()
-            .expect("Couldn't get bundle");
+            .get_resources_mut::<(SmallNum, Num, BigNum)>()
+            .expect("Couldn't get one of the resources in the bundle.");
 
         assert_eq!(small_num.0, 1);
         assert_eq!(big_num.0, 1_000_000);
@@ -1442,8 +1442,8 @@ mod tests {
         world.insert_resource(SmallNum(1));
         world.insert_resource(Num(1_000));
 
-        let (_small, _num, mut _num_mut) = world
-            .resources_mut::<(&SmallNum, &Num, &mut Num)>() // This is an access conflict!
+        let (_small, _num, _num_mut) = world
+            .get_resources_mut::<(SmallNum, Num, Num)>() // This is an access conflict!
             .unwrap();
     }
 

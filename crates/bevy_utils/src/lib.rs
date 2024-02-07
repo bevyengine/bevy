@@ -348,6 +348,10 @@ pub type EntityHashSet<T> = hashbrown::HashSet<T, EntityHash>;
 /// Iteration order only depends on the order of insertions and deletions.
 pub type TypeIdMap<V> = hashbrown::HashMap<TypeId, V, NoOpTypeIdHash>;
 
+/// A specialized hashset type with Key of [`TypeId`]
+/// Iteration order only depends on the order of insertions and deletions.
+pub type TypeIdSet = hashbrown::HashSet<TypeId, NoOpTypeIdHash>;
+
 /// [`BuildHasher`] for [`TypeId`]s.
 #[derive(Default)]
 pub struct NoOpTypeIdHash;

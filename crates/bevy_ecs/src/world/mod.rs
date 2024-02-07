@@ -1378,39 +1378,89 @@ impl World {
         unsafe { self.as_unsafe_world_cell().get_resource_mut() }
     }
 
-    /// Gets full access (the access is not necessarily exclusive, because shared and mutable
-    /// references could be bundled together) to a bundle of resources at once.
+    /// Gets mutable access to multiple resources at once.
     ///
     /// Return `None` if one of the resources couldn't be fetched from the [`World`].
     ///
     /// # Panics
     /// This method will panic if there are access conflicts within provided resource bundle.
     /// For example, for any resources R, T, F:
+    /// `
+    /// world.get_resources_mut::<(R, R, T)>(); // This will panic!  There cannot be two mutable references to the same resource!
+    /// world.get_resources_mut::<(R, T, F)>(); // This is ok!
+    /// `
     ///
-    /// (&R, &mut R)      -    *Panics!*  Both mutable and immutable references can't exist at the same time!
-    /// (&R, &T, &mut F)  -    No access conflicts
+    /// # Examples
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(Resource)]
+    /// struct Num(isize);
+    ///
+    /// #[derive(Resource)]
+    /// struct BigNum(i128);
+    ///
+    /// let mut world = World::new();
+    /// world.insert_resource(Num(100));
+    /// world.insert_resource(BigNum(100_000));
+    ///
+    /// let (mut num, mut big_num) = world.get_resources_mut::<(Num, BigNum)>().unwrap();
+    /// num.0 *= 2;
+    /// big_num.0 *= 2;
+    ///
+    /// assert_eq!(world.resource::<Num>().0, 200);
+    /// assert_eq!(world.resource::<BigNum>().0, 200_000);
+    /// ```
     #[inline]
-    pub fn resources_mut<B: ResourceBundle>(&mut self) -> Option<B::Bundle<'_>> {
+    pub fn get_resources_mut<B: ResourceBundle>(&mut self) -> Option<B::WriteAccess<'_>> {
         assert!(!B::contains_access_conflicts(), "Found access conflicts in resource bundle. 
             Make sure that if there is a mutable reference to some type R, it is the only reference to R in the bundle.");
         // SAFETY: We have a mutable access to the world + we checked that there are no access conflicts within the bundle
-        unsafe { B::get_resource_bundle(self.as_unsafe_world_cell()) }
+        unsafe { self.as_unsafe_world_cell().get_resources_mut::<B>() }
     }
 
-    /// Gets the read-only version of the resource bundle. Similar to transmuting a query with a mutable reference to the read-only version.
+    /// Gets read-only access to the resources in the bundle.
+    ///
+    /// Return `None` if one of the resources couldn't be fetched from the [`World`].
+    ///
+    /// # Examples
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(Resource)]
+    /// struct Num(isize);
+    ///
+    /// #[derive(Resource)]
+    /// struct BigNum(i128);
+    ///
+    /// let mut world = World::new();
+    /// world.insert_resource(Num(100));
+    /// world.insert_resource(BigNum(100_000));
+    ///
+    /// let (Num(num), BigNum(big_num)) = world.get_resources::<(Num, BigNum)>().unwrap();
+    ///
+    /// assert_eq!(*num, 100);
+    /// assert_eq!(*big_num, 100_000);
+    /// ```
     #[inline]
-    pub fn resources<B: ResourceBundle>(&self) -> Option<B::ReadOnlyBundle<'_>> {
-        B::get_read_only_resource_bundle(self)
+    pub fn get_resources<B: ResourceBundle>(&self) -> Option<B::ReadOnlyAccess<'_>> {
+        // SAFETY: We have a shared reference to this `World`, so there aren't any other valid mutable references to the `World`'s resources.
+        unsafe { self.as_unsafe_world_cell_readonly().get_resources::<B>() }
     }
 
     /// Gets access to a bundle of resources at once, without checking for access conflicts within the bundle.
+    /// Similar to [`World::get_resources_mut`] but this will not check for access conflicts.
+    ///
     /// # Safety
     /// The caller must ensure that there are no access conflicts within the [`ResourceBundle`]. For example: (for any resources R, T, F)
-    /// (&R, &mut R)      -    *Not Allowed!*  Both mutable and immutable references can't exist at the same time!
-    /// (&R, &T, &mut F)  -    *Allowed!*  No access conflicts
+    /// (R, R)      -    *Not Allowed!*  Two mutable references can't exist at the same time!
+    /// (R, T, F)  -     *Allowed!*  No access conflicts
     #[inline]
-    pub unsafe fn resources_unchecked<B: ResourceBundle>(&mut self) -> Option<B::Bundle<'_>> {
-        B::get_resource_bundle(self.as_unsafe_world_cell())
+    pub unsafe fn get_resources_mut_unchecked<B: ResourceBundle>(
+        &mut self,
+    ) -> Option<B::WriteAccess<'_>> {
+        self.as_unsafe_world_cell()
+            .get_resources_mut_unchecked::<B>()
     }
 
     /// Gets a mutable reference to the resource of type `T` if it exists,
