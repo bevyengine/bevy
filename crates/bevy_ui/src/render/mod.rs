@@ -62,7 +62,6 @@ pub const UI_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(130128470471
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum RenderUiSystem {
     ExtractNode,
-    ExtractAtlasNode,
 }
 
 pub fn build_ui_render(app: &mut App) {
@@ -86,10 +85,6 @@ pub fn build_ui_render(app: &mut App) {
                 extract_default_ui_camera_view::<Camera2d>,
                 extract_default_ui_camera_view::<Camera3d>,
                 extract_uinodes.in_set(RenderUiSystem::ExtractNode),
-                extract_uinode_borders.after(RenderUiSystem::ExtractAtlasNode),
-                #[cfg(feature = "bevy_text")]
-                extract_text_uinodes.after(RenderUiSystem::ExtractAtlasNode),
-                extract_uinode_outlines.after(RenderUiSystem::ExtractAtlasNode),
             ),
         )
         .add_systems(
