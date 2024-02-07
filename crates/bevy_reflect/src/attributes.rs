@@ -242,6 +242,56 @@ mod tests {
     }
 
     #[test]
+    fn should_derive_custom_attributes_on_enum_variants() {
+        #[derive(Reflect)]
+        enum Color {
+            #[reflect(@(display = "toggle"))]
+            Transparent,
+            #[reflect(@(display = "slider"))]
+            Grayscale(f32),
+            #[reflect(@(display = "picker"))]
+            Rgb { r: u8, g: u8, b: u8 },
+        }
+
+        let TypeInfo::Enum(info) = Color::type_info() else {
+            panic!("expected enum info");
+        };
+
+        let VariantInfo::Unit(transparent_variant) = info.variant("Transparent").unwrap() else {
+            panic!("expected unit variant");
+        };
+
+        let display = transparent_variant
+            .custom_attributes()
+            .get("display")
+            .unwrap()
+            .value::<&str>();
+        assert_eq!(Some(&"toggle"), display);
+
+        let VariantInfo::Tuple(grayscale_variant) = info.variant("Grayscale").unwrap() else {
+            panic!("expected tuple variant");
+        };
+
+        let display = grayscale_variant
+            .custom_attributes()
+            .get("display")
+            .unwrap()
+            .value::<&str>();
+        assert_eq!(Some(&"slider"), display);
+
+        let VariantInfo::Struct(rgb_variant) = info.variant("Rgb").unwrap() else {
+            panic!("expected struct variant");
+        };
+
+        let display = rgb_variant
+            .custom_attributes()
+            .get("display")
+            .unwrap()
+            .value::<&str>();
+        assert_eq!(Some(&"picker"), display);
+    }
+
+    #[test]
     fn should_derive_custom_attributes_on_enum_variant_fields() {
         #[derive(Reflect)]
         enum Color {
