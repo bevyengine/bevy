@@ -395,8 +395,8 @@ pub struct AnimationPlayer {
     transitions: Vec<AnimationTransition>,
 }
 
-// The components that we might need to read or write during animation of each
-// animation target.
+/// The components that we might need to read or write during animation of each
+/// animation target.
 struct AnimationTargetContext<'a> {
     entity: Entity,
     target: &'a AnimationTarget,
