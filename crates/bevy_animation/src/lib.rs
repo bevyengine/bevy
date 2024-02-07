@@ -33,7 +33,7 @@ pub mod prelude {
     };
 }
 
-/// The [UUID namespace] of animation targets (bones).
+/// The [UUID namespace] of animation targets (e.g. bones).
 ///
 /// [UUID namespace]: https://en.wikipedia.org/wiki/Universally_unique_identifier#Versions_3_and_5_(namespace_name-based)
 pub static ANIMATION_TARGET_NAMESPACE: Uuid = Uuid::from_u128(0x3179f519d9274ff2b5966fd077023911);
@@ -166,7 +166,7 @@ pub type AnimationCurves = HashMap<AnimationTargetId, Vec<VariableCurve>, NoOpHa
 /// A unique [UUID] for an animation target (bone).
 ///
 /// The [`AnimationClip`] asset and the [`AnimationTarget`] component both use
-/// this to refer to targets (bones) to be animated.
+/// this to refer to targets (e.g. bones in a skinned mesh) to be animated.
 ///
 /// When importing an armature or an animation clip, asset loaders typically use
 /// the full path name from the armature to the bone to generate these IDs. So,
@@ -233,12 +233,15 @@ impl AnimationClip {
         &self.curves
     }
 
-    /// Gets the curves for a bone.
+    /// Gets the curves for a single animation target.
     ///
-    /// Returns `None` if this clip doesn't animate this bone.
+    /// Returns `None` if this clip doesn't animate the target.
     #[inline]
-    pub fn get_curves(&self, bone_id: AnimationTargetId) -> Option<&'_ Vec<VariableCurve>> {
-        self.curves.get(&bone_id)
+    pub fn curves_for_target(
+        &self,
+        target_id: AnimationTargetId,
+    ) -> Option<&'_ Vec<VariableCurve>> {
+        self.curves.get(&target_id)
     }
 
     /// Duration of the clip, represented in seconds.
@@ -586,8 +589,8 @@ pub fn advance_animations(
     }
 }
 
-/// A system that modifies animation targets (bones) according to the
-/// currently-playing animation.
+/// A system that modifies animation targets (e.g. bones in a skinned mesh)
+/// according to the currently-playing animation.
 pub fn animate_targets(
     clips: Res<Assets<AnimationClip>>,
     players: Query<&AnimationPlayer, Without<AnimationTarget>>,
@@ -599,11 +602,11 @@ pub fn animate_targets(
     )>,
 ) {
     // We use two queries here: one read-only query for animation players and
-    // one read-write query for animation targets (bones). The `AnimationPlayer`
-    // query is read-only shared memory accessible from all animation targets,
-    // which are evaluated in parallel.
+    // one read-write query for animation targets (e.g. bones). The
+    // `AnimationPlayer` query is read-only shared memory accessible from all
+    // animation targets, which are evaluated in parallel.
 
-    // Iterate over all animation targets (bones) in parallel.
+    // Iterate over all animation targets in parallel.
     targets
         .par_iter_mut()
         .for_each(|(id, target, name, (transform, morph_weights))| {
@@ -709,7 +712,7 @@ impl PlayingAnimation {
             return;
         };
 
-        let Some(curves) = clip.get_curves(target_context.target.id) else {
+        let Some(curves) = clip.curves_for_target(target_context.target.id) else {
             return;
         };
 
