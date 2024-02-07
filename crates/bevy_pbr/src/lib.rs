@@ -1,3 +1,6 @@
+// FIXME(3492): remove once docs are ready
+#![allow(missing_docs)]
+
 pub mod wireframe;
 
 mod alpha;
@@ -250,7 +253,11 @@ impl Plugin for PbrPlugin {
             .register_type::<PointLight>()
             .register_type::<PointLightShadowMap>()
             .register_type::<SpotLight>()
+            .register_type::<FogSettings>()
+            .register_type::<FogFalloff>()
             .register_type::<ShadowFilteringMethod>()
+            .register_type::<ParallaxMappingMethod>()
+            .register_type::<OpaqueRendererMethod>()
             .init_resource::<AmbientLight>()
             .init_resource::<GlobalVisiblePointLights>()
             .init_resource::<DirectionalLightShadowMap>()
