@@ -9,8 +9,8 @@ use bevy_ecs::{
 };
 use bevy_reflect::{
     utility::{reflect_hasher, NonGenericTypeInfoCell},
-    FromReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath, Typed,
-    ValueInfo,
+    FromReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath,
+    Typed, ValueInfo,
 };
 use bevy_utils::{thiserror::Error, HashMap, HashSet};
 use serde::{Deserialize, Serialize};
@@ -121,6 +121,9 @@ impl Reflect for RenderAssetUsages {
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
         *self = value.take()?;
         Ok(())
+    }
+    fn reflect_kind(&self) -> bevy_reflect::ReflectKind {
+        ReflectKind::Value
     }
     fn reflect_ref(&self) -> bevy_reflect::ReflectRef {
         ReflectRef::Value(self)
