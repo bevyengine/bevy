@@ -26,12 +26,26 @@ pub struct RenderAppChannels {
 }
 
 impl RenderAppChannels {
-    fn send_blocking(&mut self, render_app: SubApp) {
+    /// Create a `RenderAppChannels` from a [`async_channel::Receiver`] and [`async_channel::Sender`]
+    pub fn new(
+        app_to_render_sender: Sender<SubApp>,
+        render_to_app_receiver: Receiver<SubApp>,
+    ) -> Self {
+        Self {
+            app_to_render_sender,
+            render_to_app_receiver,
+            render_app_in_render_thread: false,
+        }
+    }
+
+    /// Send the `render_app` to the rendering thread.
+    pub fn send_blocking(&mut self, render_app: SubApp) {
         self.app_to_render_sender.send_blocking(render_app).unwrap();
         self.render_app_in_render_thread = true;
     }
 
-    async fn recv(&mut self) -> SubApp {
+    /// Receiver the `render_app` from the rendering thread.
+    pub async fn recv(&mut self) -> SubApp {
         let render_app = self.render_to_app_receiver.recv().await.unwrap();
         self.render_app_in_render_thread = false;
         render_app
@@ -43,7 +57,8 @@ impl Drop for RenderAppChannels {
         if self.render_app_in_render_thread {
             // Any non-send data in the render world was initialized on the main thread.
             // So on dropping the main world and ending the app, we block and wait for
-            // the render world to return to drop it.
+            // the render world to return to drop it. Which allows the non-send data
+            // drop methods to run on the correct thread.
             self.render_to_app_receiver.recv_blocking().ok();
         }
     }
@@ -120,11 +135,10 @@ impl Plugin for PipelinedRenderingPlugin {
 
         render_to_app_sender.send_blocking(render_app).unwrap();
 
-        app.insert_resource(RenderAppChannels {
+        app.insert_resource(RenderAppChannels::new(
             app_to_render_sender,
             render_to_app_receiver,
-            render_app_in_render_thread: false,
-        });
+        ));
 
         std::thread::spawn(move || {
             #[cfg(feature = "trace")]
