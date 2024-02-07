@@ -1,7 +1,7 @@
 use crate::components::{GlobalTransform, Transform};
 use bevy_ecs::{
     change_detection::Ref,
-    prelude::{Changed, DetectChanges, Entity, Query, With, Without},
+    prelude::{Changed, DetectChanges, Entity, Query, Without},
     query::{Added, Or},
     removal_detection::RemovedComponents,
     system::{Local, ParamSet},
@@ -47,50 +47,82 @@ pub fn sync_simple_transforms(
 ///
 /// Third party plugins should ensure that this is used in concert with [`sync_simple_transforms`].
 pub fn propagate_transforms(
-    mut root_query: Query<
-        (Entity, &Children, Ref<Transform>, &mut GlobalTransform),
-        Without<Parent>,
-    >,
+    root_query: Query<(Entity, Ref<Transform>), Without<Parent>>,
+    changed: Query<Entity, Or<(Changed<Parent>, Changed<Transform>)>>,
     mut orphaned: RemovedComponents<Parent>,
-    transform_query: Query<(Ref<Transform>, &mut GlobalTransform, Option<&Children>), With<Parent>>,
+    transform_query: Query<(Ref<Transform>, &mut GlobalTransform, Option<&Children>)>,
     parent_query: Query<(Entity, Ref<Parent>)>,
     mut orphaned_entities: Local<Vec<Entity>>,
 ) {
     orphaned_entities.clear();
     orphaned_entities.extend(orphaned.read());
     orphaned_entities.sort_unstable();
-    root_query.par_iter_mut().for_each(
-        |(entity, children, transform, mut global_transform)| {
-            let changed = transform.is_changed() || global_transform.is_added() || orphaned_entities.binary_search(&entity).is_ok();
-            if changed {
-                *global_transform = GlobalTransform::from(*transform);
-            }
-
-            for (child, actual_parent) in parent_query.iter_many(children) {
-                assert_eq!(
-                    actual_parent.get(), entity,
-                    "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
-                );
-                // SAFETY:
-                // - `child` must have consistent parentage, or the above assertion would panic.
-                // Since `child` is parented to a root entity, the entire hierarchy leading to it is consistent.
-                // - We may operate as if all descendants are consistent, since `propagate_recursive` will panic before 
-                //   continuing to propagate if it encounters an entity with inconsistent parentage.
-                // - Since each root entity is unique and the hierarchy is consistent and forest-like,
-                //   other root entities' `propagate_recursive` calls will not conflict with this one.
-                // - Since this is the only place where `transform_query` gets used, there will be no conflicting fetches elsewhere.
-                unsafe {
-                    propagate_recursive(
-                        &global_transform,
-                        &transform_query,
-                        &parent_query,
-                        child,
-                        changed || actual_parent.is_changed(),
-                    );
+    // Optimistically work on each root in parallel. The following algorithm propagates transforms down
+    // all hierarchies with changed or orphaned roots. if the root node itself is unchanged, this will not
+    // recurse into it's descendants.
+    root_query.par_iter().for_each(|(root, transform)| {
+        // Abort if this root node has not been meaningfully changed.
+        if !transform.is_changed() && orphaned_entities.binary_search(&root).is_err() {
+            return;
+        }
+        // SAFETY:
+        // - `root`'s ancestors are vacuously consistent (it has none).
+        // - We may operate as if all descendants are consistent, since `propagate_recursive` will panic before
+        //   continuing to propagate if it encounters an entity with inconsistent parentage.
+        // - Since each root entity is unique and the hierarchy is consistent and forest-like,
+        //   other root entities' `propagate_recursive` calls will not conflict with this one.
+        // - `transform_query` has not yet been used, so there can be no conflicting fetches elsewhere.
+        unsafe {
+            propagate_recursive(
+                &GlobalTransform::IDENTITY,
+                &transform_query,
+                &parent_query,
+                root,
+            )
+        };
+    });
+    // Optimistically work on each changed entity in parallel. The following algorithm finds minimal
+    // disjoint sub-trees in hierarchies without changed or orphaned roots, and updates them in parallel.
+    changed.par_iter().for_each(|entity| {
+        // Abort if this is a root node. This case is handled separately.
+        let Ok((_, parent)) = parent_query.get(entity) else {
+            return;
+        };
+        // Abort if the ancestors of this entity also have changed transforms or are orphaned.
+        let mut current = entity.clone();
+        loop {
+            let Ok((_, current_parent)) = parent_query.get(current) else {
+                if orphaned_entities.binary_search(&current).is_ok() {
+                    return;
                 }
+                break;
+            };
+            current = current_parent.get();
+            if changed.contains(current) {
+                return;
             }
-        },
-    );
+        }
+        // Determine the global transform of the parent.
+        let mut parent_transform = &GlobalTransform::IDENTITY;
+        if let Ok((_, global_transform, _)) = transform_query.get(parent.get()) {
+            parent_transform = global_transform;
+        }
+        // SAFETY:
+        // Define any changed entity that is not a descendant of another changed entity to be an 'entry point'.
+        // - Since the hierarchy has forest structure, two distinct entry points cannot have shared decedents.
+        // - We may operate as if all descendants of an entry point are consistent, since `propagate_recursive` will panic before
+        //   continuing to propagate if it encounters an entity with inconsistent parentage.
+        // - We may operate as if all ancestors of an entry point are consistent, because they are not not changed, and therefore
+        //   neither passed to `propagate_recursive` nor fetched by it (so inconsistencies do not matter).
+        // - Since each entry point is unique, the hierarchy consistent, and decedents disjoint,
+        //   no two calls of `propagate_recursive` starting from different entry points can conflict with each other.
+        // - `transform_query` is used in only two other places:
+        //   1. In the root propagation above, which cannot conflict because we abort before calling `transform_query` if ancestors are
+        //      changed or orphaned and this includes all possible cases when the root propagation calls `transform_query`.
+        //   2. To look up the parent transform just above, which cannot conflict because it is queried on an ancestor which `transform_query`
+        //      will never visit.
+        unsafe { propagate_recursive(parent_transform, &transform_query, &parent_query, entity) };
+    });
 }
 
 /// Recursively propagates the transforms for `entity` and all of its descendants.
@@ -103,59 +135,49 @@ pub fn propagate_transforms(
 /// # Safety
 ///
 /// - While this function is running, `transform_query` must not have any fetches for `entity`,
-/// nor any of its descendants.
+///   nor any of its descendants.
 /// - The caller must ensure that the hierarchy leading to `entity`
-/// is well-formed and must remain as a tree or a forest. Each entity must have at most one parent.
+///   is well-formed and must remain as a tree or a forest. Each entity must have at most one parent.
 unsafe fn propagate_recursive(
-    parent: &GlobalTransform,
-    transform_query: &Query<
-        (Ref<Transform>, &mut GlobalTransform, Option<&Children>),
-        With<Parent>,
-    >,
+    parent_transform: &GlobalTransform,
+    transform_query: &Query<(Ref<Transform>, &mut GlobalTransform, Option<&Children>)>,
     parent_query: &Query<(Entity, Ref<Parent>)>,
     entity: Entity,
-    mut changed: bool,
 ) {
-    let (global_matrix, children) = {
-        let Ok((transform, mut global_transform, children)) =
-            // SAFETY: This call cannot create aliased mutable references.
-            //   - The top level iteration parallelizes on the roots of the hierarchy.
-            //   - The caller ensures that each child has one and only one unique parent throughout the entire
-            //     hierarchy.
-            //
-            // For example, consider the following malformed hierarchy:
-            //
-            //     A
-            //   /   \
-            //  B     C
-            //   \   /
-            //     D
-            //
-            // D has two parents, B and C. If the propagation passes through C, but the Parent component on D points to B,
-            // the above check will panic as the origin parent does match the recorded parent.
-            //
-            // Also consider the following case, where A and B are roots:
-            //
-            //  A       B
-            //   \     /
-            //    C   D
-            //     \ /
-            //      E
-            //
-            // Even if these A and B start two separate tasks running in parallel, one of them will panic before attempting
-            // to mutably access E.
-            (unsafe { transform_query.get_unchecked(entity) }) else {
-                return;
-            };
-
-        changed |= transform.is_changed() || global_transform.is_added();
-        if changed {
-            *global_transform = parent.mul_transform(*transform);
-        }
-        (*global_transform, children)
+    // SAFETY: This call cannot create aliased mutable references.
+    //   - The top level iteration parallelizes on the roots of disjoint subtrees (possibly true roots).
+    //   - The caller ensures that each child has one and only one unique parent throughout the entire
+    //     hierarchy.
+    //
+    // For example, consider the following malformed hierarchy:
+    //
+    //     A
+    //   /   \
+    //  B     C
+    //   \   /
+    //     D
+    //
+    // D has two parents, B and C. If the propagation passes through C, but the Parent component on D points to B,
+    // the above check will panic as the origin parent does match the recorded parent.
+    //
+    // Also consider the following case, where A and B are roots:
+    //
+    //  A       B
+    //   \     /
+    //    C   D
+    //     \ /
+    //      E
+    //
+    // Even if these A and B start two separate tasks running in parallel, one of them will panic before attempting
+    // to mutably access E.
+    let entity_transforms = unsafe { transform_query.get_unchecked(entity) };
+    let Ok((transform, mut global_transform, children)) = entity_transforms else {
+        return;
     };
-
-    let Some(children) = children else { return };
+    *global_transform = parent_transform.mul_transform(*transform);
+    let Some(children) = children else {
+        return;
+    };
     for (child, actual_parent) in parent_query.iter_many(children) {
         assert_eq!(
             actual_parent.get(), entity,
@@ -167,13 +189,7 @@ unsafe fn propagate_recursive(
         // The above assertion ensures that each child has one and only one unique parent throughout the
         // entire hierarchy.
         unsafe {
-            propagate_recursive(
-                &global_matrix,
-                transform_query,
-                parent_query,
-                child,
-                changed || actual_parent.is_changed(),
-            );
+            propagate_recursive(&global_transform, transform_query, parent_query, child);
         }
     }
 }
