@@ -760,9 +760,12 @@ impl<'a> EnumVariant<'a> {
             }
         };
 
+        let custom_attributes = self.attrs.custom_attributes.to_tokens(bevy_reflect_path);
+
         #[allow(unused_mut)] // Needs mutability for the feature gate
         let mut info = quote! {
             #bevy_reflect_path::#info_struct::new(#args)
+                .with_custom_attributes(#custom_attributes)
         };
 
         #[cfg(feature = "documentation")]
