@@ -190,6 +190,23 @@ pub struct AnimationTargetId(pub Uuid);
 ///
 /// These are frequently referred to as *bones* or *joints*, because they often
 /// refer to individually-animatable parts of an armature.
+///
+/// Asset loaders for armatures are responsible for adding these as necessary.
+/// Typically, they're generated from hashed versions of the entire name path
+/// from the root of the armature to the bone. See the [`AnimationTargetId`]
+/// documentation for more details.
+///
+/// By convention, asset loaders add [`AnimationTarget`] components to the
+/// descendants of an [`AnimationPlayer`], but Bevy doesn't require this in any
+/// way. So, for example, it's entirely possible for an [`AnimationPlayer`] to
+/// animate a target that it isn't an ancestor of. If you add a new bone to or
+/// delete a bone from an armature at runtime, you may want to update the
+/// [`AnimationTarget`] component as appropriate, as Bevy won't do this
+/// automatically.
+///
+/// Note that each entity can only be animated by one animation player at a
+/// time. However, you can change [`AnimationTarget`]'s `player` property at
+/// runtime to change which player is responsible for animating the entity.
 #[derive(Clone, Component, Reflect)]
 #[reflect(Component, MapEntities)]
 pub struct AnimationTarget {
@@ -199,7 +216,7 @@ pub struct AnimationTarget {
     pub id: AnimationTargetId,
 
     /// The entity containing the [`AnimationPlayer`].
-    pub root: Entity,
+    pub player: Entity,
 }
 
 impl AnimationClip {
@@ -588,10 +605,10 @@ pub fn animate_targets(
                 morph_weights,
             };
 
-            let Ok(player) = players.get(target.root) else {
+            let Ok(player) = players.get(target.player) else {
                 error!(
                     "Couldn't find the animation player {:?} for {:?} ({:?})",
-                    target.root, target_context.id, target_context.name,
+                    target.player, target_context.id, target_context.name,
                 );
                 return;
             };
@@ -989,7 +1006,7 @@ impl AnimationTargetId {
 
 impl MapEntities for AnimationTarget {
     fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
-        self.root = entity_mapper.map_entity(self.root);
+        self.player = entity_mapper.map_entity(self.player);
     }
 }
 

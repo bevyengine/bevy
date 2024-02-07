@@ -963,7 +963,7 @@ fn load_node(
 
             node.insert(AnimationTarget {
                 id: AnimationTargetId::from_names(animation_context.path.iter()),
-                root: animation_context.root,
+                player: animation_context.root,
             });
         }
     };

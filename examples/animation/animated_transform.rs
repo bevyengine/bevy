@@ -139,7 +139,7 @@ fn setup(
             orbit_controller,
             AnimationTarget {
                 id: orbit_controller_animation_target_id,
-                root: planet_entity,
+                player: planet_entity,
             },
         ))
         .with_children(|p| {
@@ -155,7 +155,7 @@ fn setup(
                 satellite,
                 AnimationTarget {
                     id: satellite_animation_target_id,
-                    root: planet_entity,
+                    player: planet_entity,
                 },
             ));
         });
