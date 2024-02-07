@@ -395,41 +395,30 @@ impl<'w> RenderContext<'w> {
     pub fn finish(mut self) -> Vec<CommandBuffer> {
         self.flush_encoder();
 
-        if self.command_buffer_queue.is_empty() {
-            self.command_buffer_queue
-                .into_iter()
-                .map(|queued_command_buffer| match queued_command_buffer {
-                    QueuedCommandBuffer::Ready(command_buffer) => command_buffer,
-                    QueuedCommandBuffer::Task(_) => unreachable!(),
-                })
-                .collect()
-        } else {
-            let mut command_buffers = Vec::with_capacity(self.command_buffer_queue.len());
-            let mut task_based_command_buffers = ComputeTaskPool::get().scope(|task_pool| {
-                for (i, queued_command_buffer) in self.command_buffer_queue.into_iter().enumerate()
-                {
-                    match queued_command_buffer {
-                        QueuedCommandBuffer::Ready(command_buffer) => {
-                            command_buffers.push((i, command_buffer));
-                        }
-                        QueuedCommandBuffer::Task(command_buffer_generation_task) => {
-                            let render_device = self.render_device.clone();
-                            if self.force_serial {
-                                command_buffers
-                                    .push((i, command_buffer_generation_task(render_device)));
-                            } else {
-                                task_pool.spawn(async move {
-                                    (i, command_buffer_generation_task(render_device))
-                                });
-                            }
+        let mut command_buffers = Vec::with_capacity(self.command_buffer_queue.len());
+        let mut task_based_command_buffers = ComputeTaskPool::get().scope(|task_pool| {
+            for (i, queued_command_buffer) in self.command_buffer_queue.into_iter().enumerate() {
+                match queued_command_buffer {
+                    QueuedCommandBuffer::Ready(command_buffer) => {
+                        command_buffers.push((i, command_buffer));
+                    }
+                    QueuedCommandBuffer::Task(command_buffer_generation_task) => {
+                        let render_device = self.render_device.clone();
+                        if self.force_serial {
+                            command_buffers
+                                .push((i, command_buffer_generation_task(render_device)));
+                        } else {
+                            task_pool.spawn(async move {
+                                (i, command_buffer_generation_task(render_device))
+                            });
                         }
                     }
                 }
-            });
-            command_buffers.append(&mut task_based_command_buffers);
-            command_buffers.sort_unstable_by_key(|(i, _)| *i);
-            command_buffers.into_iter().map(|(_, cb)| cb).collect()
-        }
+            }
+        });
+        command_buffers.append(&mut task_based_command_buffers);
+        command_buffers.sort_unstable_by_key(|(i, _)| *i);
+        command_buffers.into_iter().map(|(_, cb)| cb).collect()
     }
 
     fn flush_encoder(&mut self) {
