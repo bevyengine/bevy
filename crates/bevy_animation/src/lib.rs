@@ -186,6 +186,13 @@ pub type AnimationCurves = HashMap<AnimationTargetId, Vec<VariableCurve>, NoOpHa
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Reflect, Debug)]
 pub struct AnimationTargetId(pub Uuid);
 
+impl Hash for AnimationTargetId {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        let (hi, lo) = self.0.as_u64_pair();
+        state.write_u64(hi ^ lo);
+    }
+}
+
 /// An entity that can be animated by an [`AnimationPlayer`].
 ///
 /// These are frequently referred to as *bones* or *joints*, because they often
@@ -991,16 +998,15 @@ impl AnimationTargetId {
     }
 }
 
-impl MapEntities for AnimationTarget {
-    fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
-        self.player = entity_mapper.map_entity(self.player);
+impl From<&Name> for AnimationTargetId {
+    fn from(name: &Name) -> Self {
+        AnimationTargetId::from_name(name)
     }
 }
 
-impl Hash for AnimationTargetId {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        let (hi, lo) = self.0.as_u64_pair();
-        state.write_u64(hi ^ lo);
+impl MapEntities for AnimationTarget {
+    fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
+        self.player = entity_mapper.map_entity(self.player);
     }
 }
 
