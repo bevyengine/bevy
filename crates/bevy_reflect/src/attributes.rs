@@ -124,7 +124,7 @@ mod tests {
     #[test]
     fn should_derive_custom_attributes_on_struct_container() {
         #[derive(Reflect)]
-        #[reflect(@(::bevy_editor::hint = "My awesome custom attribute!"))]
+        #[reflect(@::bevy_editor::hint = "My awesome custom attribute!")]
         struct Slider {
             value: f32,
         }
@@ -147,8 +147,8 @@ mod tests {
     fn should_derive_custom_attributes_on_struct_fields() {
         #[derive(Reflect)]
         struct Slider {
-            #[reflect(@(min = 0.0, max = 1.0))]
-            #[reflect(@(bevy_editor::hint = "Range: 0.0 to 1.0"))]
+            #[reflect(@min = 0.0, @max = 1.0)]
+            #[reflect(@bevy_editor::hint = "Range: 0.0 to 1.0")]
             value: f32,
         }
 
@@ -173,7 +173,7 @@ mod tests {
     #[test]
     fn should_derive_custom_attributes_on_tuple_container() {
         #[derive(Reflect)]
-        #[reflect(@(::bevy_editor::hint = "My awesome custom attribute!"))]
+        #[reflect(@::bevy_editor::hint = "My awesome custom attribute!")]
         struct Slider(f32);
 
         let TypeInfo::TupleStruct(info) = Slider::type_info() else {
@@ -194,8 +194,8 @@ mod tests {
     fn should_derive_custom_attributes_on_tuple_struct_fields() {
         #[derive(Reflect)]
         struct Slider(
-            #[reflect(@(min = 0.0, max = 1.0))]
-            #[reflect(@(bevy_editor::hint = "Range: 0.0 to 1.0"))]
+            #[reflect(@min = 0.0, @max = 1.0)]
+            #[reflect(@bevy_editor::hint = "Range: 0.0 to 1.0")]
             f32,
         );
 
@@ -220,7 +220,7 @@ mod tests {
     #[test]
     fn should_derive_custom_attributes_on_enum_container() {
         #[derive(Reflect)]
-        #[reflect(@(::bevy_editor::hint = "My awesome custom attribute!"))]
+        #[reflect(@::bevy_editor::hint = "My awesome custom attribute!")]
         enum Color {
             Transparent,
             Grayscale(f32),
@@ -252,11 +252,11 @@ mod tests {
 
         #[derive(Reflect)]
         enum Color {
-            #[reflect(@(display = Display::Toggle))]
+            #[reflect(@display = Display::Toggle)]
             Transparent,
-            #[reflect(@(display = Display::Slider))]
+            #[reflect(@display = Display::Slider)]
             Grayscale(f32),
-            #[reflect(@(display = Display::Picker))]
+            #[reflect(@display = Display::Picker)]
             Rgb { r: u8, g: u8, b: u8 },
         }
 
@@ -303,13 +303,13 @@ mod tests {
         #[derive(Reflect)]
         enum Color {
             Transparent,
-            Grayscale(#[reflect(@(min = 0.0, max = 1.0))] f32),
+            Grayscale(#[reflect(@min = 0.0, @max = 1.0)] f32),
             Rgb {
-                #[reflect(@(min = 0u8, max = 255u8))]
+                #[reflect(@min = 0u8, @max = 255u8)]
                 r: u8,
-                #[reflect(@(min = 0u8, max = 255u8))]
+                #[reflect(@min = 0u8, @max = 255u8)]
                 g: u8,
-                #[reflect(@(min = 0u8, max = 255u8))]
+                #[reflect(@min = 0u8, @max = 255u8)]
                 b: u8,
             },
         }
