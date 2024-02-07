@@ -14,7 +14,6 @@ use bevy_core::Name;
 use bevy_ecs::entity::MapEntities;
 use bevy_ecs::prelude::*;
 use bevy_ecs::reflect::ReflectMapEntities;
-use bevy_ecs::system::SystemState;
 use bevy_log::{error, warn};
 use bevy_math::{FloatExt, Quat, Vec3};
 use bevy_reflect::Reflect;
@@ -359,6 +358,16 @@ pub struct AnimationPlayer {
     transitions: Vec<AnimationTransition>,
 }
 
+// The components that we might need to read or write during animation of each
+// animation target.
+struct AnimationTargetContext<'a> {
+    id: Entity,
+    target: &'a AnimationTarget,
+    name: Option<&'a Name>,
+    transform: Option<Mut<'a, Transform>>,
+    morph_weights: Option<Mut<'a, MorphWeights>>,
+}
+
 impl AnimationPlayer {
     /// Start playing an animation, resetting state of the player.
     /// This will use a linear blending between the previous and the new animation to make a smooth transition.
@@ -552,12 +561,14 @@ pub fn advance_animations(
 
 /// A system that modifies animation targets (bones) according to the
 /// currently-playing animation.
-///
 pub fn animate_targets(
-    world: &mut World,
-    system_state: &mut SystemState<(
-        Query<&AnimationPlayer, Without<AnimationTarget>>,
-        Query<EntityMut, With<AnimationTarget>>,
+    clips: Res<Assets<AnimationClip>>,
+    players: Query<&AnimationPlayer, Without<AnimationTarget>>,
+    mut targets: Query<(
+        Entity,
+        &AnimationTarget,
+        Option<&Name>,
+        AnyOf<(&mut Transform, &mut MorphWeights)>,
     )>,
 ) {
     // We use two queries here: one read-only query for animation players and
@@ -565,33 +576,34 @@ pub fn animate_targets(
     // query is read-only shared memory accessible from all animation targets,
     // which are evaluated in parallel.
 
-    // This elaborate setup using `resource_scope` is a workaround for the fact
-    // that `EntityMut` queries lock out resources. This is a known bug in Bevy.
-    world.resource_scope(|world, clips: Mut<Assets<AnimationClip>>| {
-        let (players, mut targets) = system_state.get_mut(world);
+    // Iterate over all animation targets (bones) in parallel.
+    targets
+        .par_iter_mut()
+        .for_each(|(id, target, name, (transform, morph_weights))| {
+            let mut target_context = AnimationTargetContext {
+                id,
+                target,
+                name,
+                transform,
+                morph_weights,
+            };
 
-        // Iterate over all animation targets (bones) in parallel.
-        targets.par_iter_mut().for_each(|mut target_entity| {
-            let target = target_entity.get::<AnimationTarget>().unwrap();
             let Ok(player) = players.get(target.root) else {
                 error!(
                     "Couldn't find the animation player {:?} for {:?} ({:?})",
-                    target.root,
-                    target_entity.id(),
-                    target_entity.get::<Name>()
+                    target.root, target_context.id, target_context.name,
                 );
                 return;
             };
 
-            player.animation.apply(&clips, 1.0, &mut target_entity);
+            player.animation.apply(&clips, 1.0, &mut target_context);
 
             for transition in &player.transitions {
                 transition
                     .animation
-                    .apply(&clips, transition.current_weight, &mut target_entity);
+                    .apply(&clips, transition.current_weight, &mut target_context);
             }
         });
-    });
 }
 
 /// Removes animation transitions that have expired.
@@ -672,30 +684,37 @@ impl Plugin for AnimationPlugin {
 }
 
 impl PlayingAnimation {
-    fn apply(&self, clips: &Assets<AnimationClip>, weight: f32, target_entity: &mut EntityMut) {
-        let target = target_entity.get::<AnimationTarget>().unwrap();
-
+    fn apply(
+        &self,
+        clips: &Assets<AnimationClip>,
+        weight: f32,
+        target_context: &mut AnimationTargetContext,
+    ) {
         let Some(clip) = clips.get(&self.animation_clip) else {
             warn!(
                 "Couldn't find the animation clip for {:?} ({:?})",
-                target_entity.id(),
-                target_entity.get::<Name>()
+                target_context.id, target_context.name,
             );
             return;
         };
 
-        let Some(curves) = clip.get_curves(target.id) else {
+        let Some(curves) = clip.get_curves(target_context.target.id) else {
             return;
         };
 
-        self.apply_curves(curves, weight, target_entity);
+        self.apply_curves(curves, weight, target_context);
     }
 
-    fn apply_curves(&self, curves: &[VariableCurve], weight: f32, target: &mut EntityMut) {
+    fn apply_curves(
+        &self,
+        curves: &[VariableCurve],
+        weight: f32,
+        target_context: &mut AnimationTargetContext,
+    ) {
         for curve in curves {
             // Some curves have only one keyframe used to set a transform
             if curve.keyframe_timestamps.len() == 1 {
-                self.apply_single_keyframe(curve, weight, target);
+                self.apply_single_keyframe(curve, weight, target_context);
                 return;
             }
 
@@ -715,37 +734,41 @@ impl PlayingAnimation {
                 weight,
                 lerp,
                 timestamp_end - timestamp_start,
-                target,
+                target_context,
             );
         }
     }
 
-    fn apply_single_keyframe(&self, curve: &VariableCurve, weight: f32, target: &mut EntityMut) {
+    fn apply_single_keyframe(
+        &self,
+        curve: &VariableCurve,
+        weight: f32,
+        target_context: &mut AnimationTargetContext,
+    ) {
         match &curve.keyframes {
             Keyframes::Rotation(keyframes) => {
-                if let Some(mut transform) = target.get_mut::<Transform>() {
+                if let Some(ref mut transform) = target_context.transform {
                     transform.rotation = transform.rotation.slerp(keyframes[0], weight);
                 }
             }
 
             Keyframes::Translation(keyframes) => {
-                if let Some(mut transform) = target.get_mut::<Transform>() {
+                if let Some(ref mut transform) = target_context.transform {
                     transform.translation = transform.translation.lerp(keyframes[0], weight);
                 }
             }
 
             Keyframes::Scale(keyframes) => {
-                if let Some(mut transform) = target.get_mut::<Transform>() {
+                if let Some(ref mut transform) = target_context.transform {
                     transform.scale = transform.scale.lerp(keyframes[0], weight);
                 }
             }
 
             Keyframes::Weights(keyframes) => {
-                let Some(mut morphs) = target.get_mut::<MorphWeights>() else {
+                let Some(ref mut morphs) = target_context.morph_weights else {
                     error!(
                         "Tried to animate morphs on {:?} ({:?}), but no `MorphWeights` was found",
-                        target.id(),
-                        target.get::<Name>()
+                        target_context.id, target_context.name,
                     );
                     return;
                 };
@@ -767,17 +790,17 @@ impl PlayingAnimation {
         weight: f32,
         lerp: f32,
         duration: f32,
-        target: &mut EntityMut,
+        target_context: &mut AnimationTargetContext,
     ) {
         match (&curve.interpolation, &curve.keyframes) {
             (Interpolation::Step, Keyframes::Rotation(keyframes)) => {
-                if let Some(mut transform) = target.get_mut::<Transform>() {
+                if let Some(ref mut transform) = target_context.transform {
                     transform.rotation = transform.rotation.slerp(keyframes[step_start], weight);
                 }
             }
 
             (Interpolation::Linear, Keyframes::Rotation(keyframes)) => {
-                let Some(mut transform) = target.get_mut::<Transform>() else {
+                let Some(ref mut transform) = target_context.transform else {
                     return;
                 };
 
@@ -793,7 +816,7 @@ impl PlayingAnimation {
             }
 
             (Interpolation::CubicSpline, Keyframes::Rotation(keyframes)) => {
-                let Some(mut transform) = target.get_mut::<Transform>() else {
+                let Some(ref mut transform) = target_context.transform else {
                     return;
                 };
 
@@ -813,14 +836,14 @@ impl PlayingAnimation {
             }
 
             (Interpolation::Step, Keyframes::Translation(keyframes)) => {
-                if let Some(mut transform) = target.get_mut::<Transform>() {
+                if let Some(ref mut transform) = target_context.transform {
                     transform.translation =
                         transform.translation.lerp(keyframes[step_start], weight);
                 }
             }
 
             (Interpolation::Linear, Keyframes::Translation(keyframes)) => {
-                let Some(mut transform) = target.get_mut::<Transform>() else {
+                let Some(ref mut transform) = target_context.transform else {
                     return;
                 };
 
@@ -831,7 +854,7 @@ impl PlayingAnimation {
             }
 
             (Interpolation::CubicSpline, Keyframes::Translation(keyframes)) => {
-                let Some(mut transform) = target.get_mut::<Transform>() else {
+                let Some(ref mut transform) = target_context.transform else {
                     return;
                 };
 
@@ -851,13 +874,13 @@ impl PlayingAnimation {
             }
 
             (Interpolation::Step, Keyframes::Scale(keyframes)) => {
-                if let Some(mut transform) = target.get_mut::<Transform>() {
+                if let Some(ref mut transform) = target_context.transform {
                     transform.scale = transform.scale.lerp(keyframes[step_start], weight);
                 }
             }
 
             (Interpolation::Linear, Keyframes::Scale(keyframes)) => {
-                let Some(mut transform) = target.get_mut::<Transform>() else {
+                let Some(ref mut transform) = target_context.transform else {
                     return;
                 };
 
@@ -868,7 +891,7 @@ impl PlayingAnimation {
             }
 
             (Interpolation::CubicSpline, Keyframes::Scale(keyframes)) => {
-                let Some(mut transform) = target.get_mut::<Transform>() else {
+                let Some(ref mut transform) = target_context.transform else {
                     return;
                 };
 
@@ -888,7 +911,7 @@ impl PlayingAnimation {
             }
 
             (Interpolation::Step, Keyframes::Weights(keyframes)) => {
-                let Some(mut morphs) = target.get_mut::<MorphWeights>() else {
+                let Some(ref mut morphs) = target_context.morph_weights else {
                     return;
                 };
 
@@ -898,7 +921,7 @@ impl PlayingAnimation {
             }
 
             (Interpolation::Linear, Keyframes::Weights(keyframes)) => {
-                let Some(mut morphs) = target.get_mut::<MorphWeights>() else {
+                let Some(ref mut morphs) = target_context.morph_weights else {
                     return;
                 };
 
@@ -913,7 +936,7 @@ impl PlayingAnimation {
             }
 
             (Interpolation::CubicSpline, Keyframes::Weights(keyframes)) => {
-                let Some(mut morphs) = target.get_mut::<MorphWeights>() else {
+                let Some(ref mut morphs) = target_context.morph_weights else {
                     return;
                 };
 
