@@ -10,20 +10,9 @@ use bevy_reflect::{
 use serde::{Deserialize, Serialize};
 
 /// Adds [`Camera`](crate::camera::Camera) driver systems for a given projection type.
-pub struct CameraProjectionPlugin<T: CameraProjection>(PhantomData<T>);
-
-impl<T: CameraProjection> Default for CameraProjectionPlugin<T> {
-    fn default() -> Self {
-        Self(Default::default())
-    }
-}
-
-/// Label for [`camera_system<T>`], shared across all `T`.
-///
-/// [`camera_system<T>`]: crate::camera::camera_system
-#[derive(SystemSet, Clone, Eq, PartialEq, Hash, Debug)]
-pub struct CameraUpdateSystem;
-
+pub struct CameraProjectionPlugin<T: CameraProjection + Component + GetTypeRegistration>(
+    PhantomData<T>,
+);
 impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraProjectionPlugin<T> {
     fn build(&self, app: &mut App) {
         app.register_type::<T>()
@@ -47,6 +36,17 @@ impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraPro
             );
     }
 }
+impl<T: CameraProjection + Component + GetTypeRegistration> Default for CameraProjectionPlugin<T> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
+/// Label for [`camera_system<T>`], shared across all `T`.
+///
+/// [`camera_system<T>`]: crate::camera::camera_system
+#[derive(SystemSet, Clone, Eq, PartialEq, Hash, Debug)]
+pub struct CameraUpdateSystem;
 
 /// Trait to control the projection matrix of a camera.
 ///
