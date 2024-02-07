@@ -714,10 +714,7 @@ impl PlayingAnimation {
         target_context: &mut AnimationTargetContext,
     ) {
         let Some(clip) = clips.get(&self.animation_clip) else {
-            warn!(
-                "Couldn't find the animation clip for the target entity {:?} ({:?})",
-                target_context.entity, target_context.name,
-            );
+            // The clip probably hasn't loaded yet. Bail.
             return;
         };
 
