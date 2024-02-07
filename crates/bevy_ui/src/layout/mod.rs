@@ -1,7 +1,10 @@
 mod convert;
 pub mod debug;
 
-use crate::{CalculatedOpacity, ContentSize, DefaultUiCamera, Node, Opacity, Outline, Style, TargetCamera, UiScale};
+use crate::{
+    CalculatedOpacity, ContentSize, DefaultUiCamera, Node, Opacity, Outline, Style, TargetCamera,
+    UiScale,
+};
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     entity::Entity,

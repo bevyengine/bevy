@@ -2410,11 +2410,11 @@ path = "examples/ui/grid.rs"
 doc-scrape-examples = true
 
 [[example]]
-name = "opacity"
-path = "examples/ui/opacity.rs"
+name = "ui_opacity"
+path = "examples/ui/ui_opacity.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.opacity]
+[package.metadata.example.ui_opacity]
 name = "Opacity"
 description = "Demonstrates how opacity with a hierarchy works"
 category = "UI (User Interface)"

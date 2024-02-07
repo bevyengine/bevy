@@ -189,8 +189,17 @@ pub fn extract_uinode_borders(
 ) {
     let image = AssetId::<Image>::default();
 
-    for (node, global_transform, style, border_color, opacity, parent, view_visibility, clip, camera) in
-        &uinode_query
+    for (
+        node,
+        global_transform,
+        style,
+        border_color,
+        opacity,
+        parent,
+        view_visibility,
+        clip,
+        camera,
+    ) in &uinode_query
     {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
@@ -303,7 +312,9 @@ pub fn extract_uinode_outlines(
     >,
 ) {
     let image = AssetId::<Image>::default();
-    for (node, global_transform, outline, opacity, view_visibility, maybe_clip, camera) in &uinode_query {
+    for (node, global_transform, outline, opacity, view_visibility, maybe_clip, camera) in
+        &uinode_query
+    {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
             continue;
