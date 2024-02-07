@@ -74,7 +74,7 @@ pub(crate) struct FieldAttributes {
     pub ignore: ReflectIgnoreBehavior,
     /// Sets the default behavior of this field.
     pub default: DefaultBehavior,
-    /// Custom attributes created via `#[reflect(@(...))]`.
+    /// Custom attributes created via `#[reflect(@...)]`.
     pub custom_attributes: CustomAttributes,
 }
 

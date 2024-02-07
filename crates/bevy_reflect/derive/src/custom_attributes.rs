@@ -2,9 +2,9 @@ use crate::utility::SpannedString;
 use proc_macro2::TokenStream;
 use quote::quote;
 use std::collections::HashMap;
-use syn::parse::{Parse, ParseStream};
+use syn::parse::ParseStream;
 use syn::spanned::Spanned;
-use syn::{parenthesized, Expr, LitStr, Path, Token};
+use syn::{Expr, LitStr, Path, Token};
 
 #[derive(Default, Clone)]
 pub(crate) struct CustomAttributes {
@@ -41,54 +41,34 @@ impl CustomAttributes {
     /// Parse `@` (custom attribute) attribute.
     ///
     /// Examples:
-    /// - `#[reflect(@(foo = "bar"))]`
-    /// - `#[reflect(@(min = 0.0, max = 1.0))]`
+    /// - `#[reflect(@foo = "bar"))]`
+    /// - `#[reflect(@min = 0.0, @max = 1.0)]`
     pub fn parse_custom_attribute(&mut self, input: ParseStream) -> syn::Result<()> {
         input.parse::<Token![@]>()?;
 
-        let content;
-        parenthesized!(content in input);
+        let path = Path::parse_mod_style(input)?;
+        input.parse::<Token![=]>()?;
+        let value = input.parse::<Expr>()?;
 
-        let custom_attrs = content.parse_terminated(CustomAttribute::parse, Token![,])?;
+        let mut name = path
+            .segments
+            .iter()
+            .map(|segment| segment.ident.to_string())
+            .collect::<Vec<_>>()
+            .join("::");
 
-        for custom_attr in custom_attrs {
-            let mut name = custom_attr
-                .name
-                .segments
-                .iter()
-                .map(|segment| segment.ident.to_string())
-                .collect::<Vec<_>>()
-                .join("::");
-
-            if custom_attr.name.leading_colon.is_some() {
-                name.insert_str(0, "::");
-            }
-
-            self.insert(
-                // Note that the call to `.span()` will only return the span of the first token.
-                // This isn't ideal, but should be fine— especially for single-ident names.
-                // See: https://docs.rs/syn/2.0.48/syn/spanned/index.html#limitations
-                LitStr::new(&name, custom_attr.name.span()),
-                custom_attr.value,
-            )?;
+        if path.leading_colon.is_some() {
+            name.insert_str(0, "::");
         }
 
+        self.insert(
+            // Note that the call to `.span()` will only return the span of the first token.
+            // This isn't ideal, but should be fine— especially for single-ident names.
+            // See: https://docs.rs/syn/2.0.48/syn/spanned/index.html#limitations
+            LitStr::new(&name, path.span()),
+            value,
+        )?;
+
         Ok(())
-    }
-}
-
-pub(crate) struct CustomAttribute {
-    name: Path,
-    _eq: Token![=],
-    value: Expr,
-}
-
-impl Parse for CustomAttribute {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        Ok(Self {
-            name: Path::parse_mod_style(input)?,
-            _eq: input.parse()?,
-            value: input.parse()?,
-        })
     }
 }
