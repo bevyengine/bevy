@@ -411,6 +411,11 @@ fn upload_light_probes(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
 ) {
+    // If there are no views, bail.
+    if views.is_empty() {
+        return;
+    }
+
     // Initialize the uniform buffer writer.
     let mut writer = light_probes_buffer
         .get_writer(views.iter().len(), &render_device, &render_queue)
