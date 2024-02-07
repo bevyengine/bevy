@@ -160,22 +160,24 @@ pub struct AnimationClip {
     duration: f32,
 }
 
-/// A mapping from [`AnimationTargetId`] (bone) to the animation curves.
+/// A mapping from [`AnimationTargetId`] (e.g. bone in a skinned mesh) to the
+/// animation curves.
 pub type AnimationCurves = HashMap<AnimationTargetId, Vec<VariableCurve>, NoOpHash>;
 
-/// A unique [UUID] for an animation target (bone).
+/// A unique [UUID] for an animation target (e.g. bone in a skinned mesh).
 ///
 /// The [`AnimationClip`] asset and the [`AnimationTarget`] component both use
 /// this to refer to targets (e.g. bones in a skinned mesh) to be animated.
 ///
 /// When importing an armature or an animation clip, asset loaders typically use
-/// the full path name from the armature to the bone to generate these IDs. So,
-/// for example, any imported armature with a bone at the root named `Hips` will
+/// the full path name from the armature to the bone to generate these UUIDs.
+/// The ID is unique to the full path name and based only on the names. So, for
+/// example, any imported armature with a bone at the root named `Hips` will
 /// assign the same [`AnimationTargetId`] to its root bone. Likewise, any
 /// imported animation clip that animates a root bone named `Hips` will
-/// reference the same [`AnimationTargetId`]. What this means is that any
-/// animation is playable on any armature as long as the bone names match,
-/// which allows for easy animation retargeting.
+/// reference the same [`AnimationTargetId`]. Any animation is playable on any
+/// armature as long as the bone names match, which allows for easy animation
+/// retargeting.
 ///
 /// Note that asset loaders generally use the *full* path name to generate the
 /// [`AnimationTargetId`]. Thus a bone named `Chest` directly connected to a
@@ -214,6 +216,10 @@ impl Hash for AnimationTargetId {
 /// Note that each entity can only be animated by one animation player at a
 /// time. However, you can change [`AnimationTarget`]'s `player` property at
 /// runtime to change which player is responsible for animating the entity.
+///
+/// An [`AnimationPlayer`] and [`AnimationTarget`] can't simultaneously be on
+/// the same entity. Animation players always target entities other than
+/// themselves.
 #[derive(Clone, Component, Reflect)]
 #[reflect(Component, MapEntities)]
 pub struct AnimationTarget {
@@ -369,6 +375,10 @@ struct AnimationTransition {
 }
 
 /// Animation controls
+///
+/// Note that an [`AnimationPlayer`] and [`AnimationTarget`] can't
+/// simultaneously be on the same entity. Animation players always target
+/// entities other than themselves.
 #[derive(Component, Default, Reflect)]
 #[reflect(Component)]
 pub struct AnimationPlayer {
@@ -977,7 +987,7 @@ impl AnimationTargetId {
     /// Creates a new [`AnimationTargetId`] by hashing a list of names.
     ///
     /// Typically, this will be the path from the animation root to the
-    /// animation target (bone) that is to be animated.
+    /// animation target (e.g. bone) that is to be animated.
     pub fn from_names<'a>(names: impl Iterator<Item = &'a Name>) -> Self {
         let mut sha1 = Sha1::new();
         sha1.update(ANIMATION_TARGET_NAMESPACE.as_bytes());
