@@ -41,6 +41,9 @@ impl RenderAppChannels {
 impl Drop for RenderAppChannels {
     fn drop(&mut self) {
         if self.render_app_in_render_thread {
+            // Any non-send data in the render world was initialized on the main thread.
+            // So on dropping the main world and ending the app, we block and wait for
+            // the render world to return to drop it.
             self.render_to_app_receiver.recv_blocking().ok();
         }
     }
