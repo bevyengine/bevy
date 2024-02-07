@@ -581,8 +581,7 @@ pub fn advance_animations(
         // Advance transition animations.
         player.transitions.retain_mut(|transition| {
             // Decrease weight. Expire the transition if necessary.
-            transition.current_weight = transition.current_weight
-                - transition.weight_decline_per_sec * time.delta_seconds();
+            transition.current_weight -= transition.weight_decline_per_sec * time.delta_seconds();
             if transition.current_weight <= 0.0 {
                 return false;
             }
