@@ -342,4 +342,23 @@ mod tests {
         assert_eq!(Some(&0), min);
         assert_eq!(Some(&255), max);
     }
+
+    #[test]
+    fn should_treat_path_as_bool_when_no_value_is_given() {
+        #[derive(Reflect)]
+        struct Foo {
+            #[reflect(@bar)]
+            value: i32,
+        }
+
+        let TypeInfo::Struct(info) = Foo::type_info() else {
+            panic!("expected struct info");
+        };
+
+        let field_attributes = info.field("value").unwrap().custom_attributes();
+
+        let bar = field_attributes.get("bar").unwrap().value::<bool>();
+
+        assert_eq!(Some(&true), bar);
+    }
 }
