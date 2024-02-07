@@ -282,7 +282,7 @@ Example | Description
 
 Example | Description
 --- | ---
-[Math Primitives](../examples/math/primitives.rs) | Shows off all math primitives as both Meshes and Gizmos
+[Rendering Primitives](../examples/math/render_primitives.rs) | Shows off rendering for all math primitives as both Meshes and Gizmos
 
 ## Reflection
 
