@@ -71,9 +71,11 @@ impl Measured2d for Circle {
 ///
 /// An arc has no area.
 /// If you want to include the portion of a circle's area swept out by the arc,
-/// use [CircularSector].
+/// use [`CircularSector`].
+/// If you want to include only the space inside the convex hull of the arc,
+/// use [`CircularSegment`].
 ///
-/// The arc is drawn starting from [Vec2::X], going counterclockwise.
+/// The arc is drawn starting from [`Vec2::X`], going counterclockwise.
 /// To orient the arc differently, apply a rotation.
 /// The arc is drawn with the center of its circle at the origin (0, 0),
 /// meaning that the center may not be inside its convex hull.
@@ -88,7 +90,7 @@ pub struct Arc {
 impl Primitive2d for Arc {}
 
 impl Default for Arc {
-    // Returns the default [`Arc`] with radius `0.5` and angle `1.0`.
+    /// Returns the default [`Arc`] with radius `0.5` and angle `1.0`.
     fn default() -> Self {
         Self {
             radius: 0.5,
@@ -173,8 +175,9 @@ impl Arc {
     /// the length of the line between the midpoints of the arc and its chord.
     /// Equivalently, the height of the triangle whose base is the chord and whose apex is the midpoint of the arc.
     ///
-    /// If the arc is minor, i.e. less than half the circle, the this will be the difference of the [radius](Self::radius) and the [apothem](Self::apothem).
-    /// If it is [major](Self::major), it will be their sum.
+    /// If the arc is minor, i.e. less than half the circle, the this will be the difference of the [`radius`](Self::radius)
+    /// and the [`apothem`](Self::apothem_len).
+    /// If the arc is [major](Self::is_major), it will be their sum.
     #[inline(always)]
     pub fn sagitta_len(&self) -> f32 {
         if self.is_major() {
@@ -193,7 +196,7 @@ impl Arc {
 
 /// A primitive representing a circular sector: a pie slice of a circle.
 ///
-/// The sector is drawn starting from [Vec2::X], going counterclockwise.
+/// The sector is drawn starting from [`Vec2::X`], going counterclockwise.
 /// To orient the sector differently, apply a rotation.
 /// The sector is drawn with the center of its circle at the origin (0, 0).
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -206,7 +209,7 @@ pub struct CircularSector {
 impl Primitive2d for CircularSector {}
 
 impl Default for CircularSector {
-    // Returns the default [`CircularSector`] with radius `0.5` and angle `1.0`.
+    /// Returns the default [`CircularSector`] with radius `0.5` and angle `1.0`.
     fn default() -> Self {
         Arc::default().into()
     }
@@ -219,7 +222,7 @@ impl From<Arc> for CircularSector {
 }
 
 impl CircularSector {
-    /// Create a new [CircularSector] from a `radius`, and an `angle`
+    /// Create a new [`CircularSector`] from a `radius`, and an `angle`
     #[inline(always)]
     pub fn new(radius: f32, angle: f32) -> Self {
         Arc::new(radius, angle).into()
@@ -235,10 +238,10 @@ impl CircularSector {
 /// A primitive representing a circular segment:
 /// the area enclosed by the arc of a circle and its chord (the line between its endpoints).
 ///
-/// The segment is drawn starting from [Vec2::X], going counterclockwise.
+/// The segment is drawn starting from [`Vec2::X`], going counterclockwise.
 /// To orient the segment differently, apply a rotation.
 /// The segment is drawn with the center of its circle at the origin (0, 0).
-/// When positioning the segment, the [apothem_len](Self::apothem) and [sagitta_len](Sagitta) functions
+/// When positioning the segment, the [`apothem_len`](Arc::apothem_len) and [`sagitta_len`](Arc::sagitta_len) functions
 /// may be particularly useful.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -250,7 +253,7 @@ pub struct CircularSegment {
 impl Primitive2d for CircularSegment {}
 
 impl Default for CircularSegment {
-    // Returns the default [CircularSegment] with radius `0.5` and angle `1.0`.
+    /// Returns the default [`CircularSegment`] with radius `0.5` and angle `1.0`.
     fn default() -> Self {
         Arc::default().into()
     }
@@ -263,7 +266,7 @@ impl From<Arc> for CircularSegment {
 }
 
 impl CircularSegment {
-    /// Create a new [CircularSegment] from a `radius`, and an `angle`
+    /// Create a new [`CircularSegment`] from a `radius`, and an `angle`
     #[inline(always)]
     pub fn new(radius: f32, angle: f32) -> Self {
         Arc::new(radius, angle).into()
