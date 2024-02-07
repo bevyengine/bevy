@@ -78,9 +78,9 @@ impl Node for MsaaWritebackNode {
         if let Ok((target, blit_pipeline_id)) = self.cameras.get_manual(world, view_entity) {
             let blit_pipeline = world.resource::<BlitPipeline>();
             let pipeline_cache = world.resource::<PipelineCache>();
-            let pipeline = pipeline_cache
-                .get_render_pipeline(blit_pipeline_id.0)
-                .unwrap();
+            let Some(pipeline) = pipeline_cache.get_render_pipeline(blit_pipeline_id.0) else {
+                return Ok(());
+            };
 
             // The current "main texture" needs to be bound as an input resource, and we need the "other"
             // unused target to be the "resolve target" for the MSAA write. Therefore this is the same
