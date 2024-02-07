@@ -41,8 +41,11 @@ impl ComputedTextureSlices {
         camera_entity: Entity,
     ) -> impl ExactSizeIterator<Item = ExtractedUiNode> + 'a {
         self.slices.iter().map(move |slice| {
-            let transform =
-                transform.mul_transform(Transform::from_translation(slice.offset.extend(0.0)));
+            let transform = transform.mul_transform(Transform::from_xyz(
+                slice.offset.x,
+                slice.offset.y * -1.0,
+                0.0,
+            ));
             let scale = slice.draw_size / slice.texture_rect.size();
             let mut rect = slice.texture_rect;
             rect.min *= scale;
@@ -56,7 +59,7 @@ impl ComputedTextureSlices {
                 // TODO: support flip
                 flip_x: false,
                 // TODO: support flip
-                flip_y: true,
+                flip_y: false,
                 image: image.texture.id(),
                 atlas_size,
                 clip: clip.map(|clip| clip.clip),
