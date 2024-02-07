@@ -611,8 +611,10 @@ impl<'w> UnsafeWorldCell<'w> {
     /// - There are no other references to any of the resources.
     #[inline]
     pub unsafe fn get_resources_mut<B: ResourceBundle>(self) -> Option<B::WriteAccess<'w>> {
-        assert!(!B::contains_access_conflicts(), "Found access conflicts in resource bundle. 
-            Make sure that if there is a mutable reference to some type R, it is the only reference to R in the bundle.");
+        assert!(
+            !B::contains_access_conflicts(),
+            "Make sure that each resource appears at most once in the bundle."
+        );
         // SAFETY: The safety of this function as described in the "# Safety" section.
         unsafe { B::fetch_write_access(self) }
     }

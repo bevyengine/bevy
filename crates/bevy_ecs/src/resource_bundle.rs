@@ -44,6 +44,7 @@ trait AccessConflictTracker {
     }
 }
 
+/// Type to keep track which resources the [`ResourceBundle`] accesses.
 struct BundleAccessTable {
     table: TypeIdSet,
     conflicted: bool,
@@ -58,10 +59,7 @@ impl BundleAccessTable {
         }
     }
 
-    /// Insert a key-value pair to the table. If the insert causes an access conflict,
-    /// the internal conflict flag will be set to `true`.
-    /// # NOTE
-    /// Even if the insertion solved an existing conflict, this will not be reflected in the internal conflict flag.
+    /// Insert a key-value pair to the table. If the insert causes an access conflict, the internal conflict flag will be set to `true`.
     fn insert_checked(&mut self, id: TypeId) {
         self.conflicted |= !self.table.insert(id);
     }

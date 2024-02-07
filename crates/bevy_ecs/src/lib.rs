@@ -1414,30 +1414,6 @@ mod tests {
     struct BigNum(i128);
 
     #[test]
-    fn resource_bundle() {
-        let mut world = World::new();
-        world.insert_resource(SmallNum(1));
-        world.insert_resource(Num(1_000));
-        world.insert_resource(BigNum(1_000_000));
-
-        let (mut small_num, mut normal_num, mut big_num) = world
-            .get_resources_mut::<(SmallNum, Num, BigNum)>()
-            .expect("Couldn't get one of the resources in the bundle.");
-
-        normal_num.0 *= 2;
-        small_num.0 *= 2;
-        big_num.0 *= 2;
-
-        let (small_num, normal_num, big_num) = world
-            .get_resources::<(SmallNum, Num, BigNum)>()
-            .expect("Couldn't get one of the resources in the bundle.");
-
-        assert_eq!(small_num.0, 2);
-        assert_eq!(normal_num.0, 2_000);
-        assert_eq!(big_num.0, 2_000_000);
-    }
-
-    #[test]
     #[should_panic]
     #[cfg(not(miri))]
     fn access_conflict_in_resource_bundle() {

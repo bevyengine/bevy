@@ -1378,13 +1378,12 @@ impl World {
         unsafe { self.as_unsafe_world_cell().get_resource_mut() }
     }
 
-    /// Gets mutable access to multiple resources at once.
+    /// Gets mutable access to one or more resources at once.
     ///
-    /// Return `None` if one of the resources couldn't be fetched from the [`World`].
+    /// Return `None` if not all of the resources exist.
     ///
     /// # Panics
-    /// This method will panic if there are access conflicts within provided resource bundle.
-    /// For example, for any resources R, T, F:
+    /// Panics if multiple instances of the same resource are requested. For example:
     /// `
     /// world.get_resources_mut::<(R, R, T)>(); // This will panic!  There cannot be two mutable references to the same resource!
     /// world.get_resources_mut::<(R, T, F)>(); // This is ok!
@@ -1392,8 +1391,8 @@ impl World {
     ///
     /// # Examples
     /// ```
-    /// use bevy_ecs::prelude::*;
-    ///
+    /// # use bevy_ecs::prelude::*;
+    /// #
     /// #[derive(Resource)]
     /// struct Num(isize);
     ///
@@ -1413,20 +1412,18 @@ impl World {
     /// ```
     #[inline]
     pub fn get_resources_mut<B: ResourceBundle>(&mut self) -> Option<B::WriteAccess<'_>> {
-        assert!(!B::contains_access_conflicts(), "Found access conflicts in resource bundle. 
-            Make sure that if there is a mutable reference to some type R, it is the only reference to R in the bundle.");
         // SAFETY: We have a mutable access to the world + we checked that there are no access conflicts within the bundle
         unsafe { self.as_unsafe_world_cell().get_resources_mut::<B>() }
     }
 
-    /// Gets read-only access to the resources in the bundle.
+    /// Gets read-only access to one or more resources at once.
     ///
-    /// Return `None` if one of the resources couldn't be fetched from the [`World`].
+    /// Return `None` if not all of the resources exist.
     ///
     /// # Examples
     /// ```
-    /// use bevy_ecs::prelude::*;
-    ///
+    /// # use bevy_ecs::prelude::*;
+    /// #
     /// #[derive(Resource)]
     /// struct Num(isize);
     ///
