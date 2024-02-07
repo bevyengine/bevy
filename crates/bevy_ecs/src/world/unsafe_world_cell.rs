@@ -592,7 +592,7 @@ impl<'w> UnsafeWorldCell<'w> {
             .get_with_ticks()
     }
 
-    /// Gets mutable access to multiple resources at once.
+    /// Gets mutable access to one or more resources at once.
     ///
     /// Return `None` if one of the resources couldn't be fetched from the [`World`].
     ///
@@ -619,7 +619,7 @@ impl<'w> UnsafeWorldCell<'w> {
         unsafe { B::fetch_write_access(self) }
     }
 
-    /// Gets read-only access to the resources in the bundle.
+    /// Gets read-only access to one or more resources at once.
     ///
     /// Return `None` if one of the resources couldn't be fetched from the [`World`].
     /// See [`World::get_resources`] for examples.
@@ -633,7 +633,23 @@ impl<'w> UnsafeWorldCell<'w> {
         unsafe { B::fetch_read_only(self) }
     }
 
-    /// Gets access to a bundle of resources at once, without checking for access conflicts within the bundle.
+    /// Gets read-only change-detection-enabled access to one or more resources at once.
+    ///
+    /// Return `None` if one of the resources couldn't be fetched from the [`World`].
+    /// See [`World::get_resources`] for examples.
+    /// # Safety
+    /// It is the caller's responsibility to make sure that
+    /// - This [`UnsafeWorldCell`] has permission to access all of the resources.
+    /// - There are no other mutable references to any of the resources.
+    #[inline]
+    pub unsafe fn get_resources_ref<B: ResourceBundle>(
+        self,
+    ) -> Option<B::ReadOnlySmartRefAccess<'w>> {
+        // SAFETY: The safety of this function as described in the "# Safety" section.
+        unsafe { B::fetch_read_only_ref(self) }
+    }
+
+    /// Gets mutable access to one or more resources at once, without checking for access conflicts within the bundle.
     /// Similar to [`World::get_resources_mut`] but this will not check for access conflicts.
     ///
     /// # Safety

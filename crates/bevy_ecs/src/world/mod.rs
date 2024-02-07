@@ -1445,6 +1445,39 @@ impl World {
         unsafe { self.as_unsafe_world_cell_readonly().get_resources::<B>() }
     }
 
+    /// Gets read-only change-detection-enabled access to one or more resources at once.
+    ///
+    /// Return `None` if not all of the resources exist.
+    ///
+    /// # Examples
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// #[derive(Resource)]
+    /// struct Num(isize);
+    ///
+    /// #[derive(Resource)]
+    /// struct BigNum(i128);
+    ///
+    /// let mut world = World::new();
+    /// world.insert_resource(Num(100));
+    /// world.insert_resource(BigNum(100_000));
+    ///
+    /// let (num, big_num) = world.get_resources_ref::<(Num, BigNum)>().unwrap();
+    ///
+    /// assert_eq!(num.0, 100);
+    /// assert_eq!(big_num.0, 100_000);
+    /// assert_eq!(num.is_added(), big_num.is_added());
+    /// ```
+    #[inline]
+    pub fn get_resources_ref<B: ResourceBundle>(&self) -> Option<B::ReadOnlySmartRefAccess<'_>> {
+        // SAFETY: We have a shared reference to this `World`, so there aren't any other valid mutable references to the `World`'s resources.
+        unsafe {
+            self.as_unsafe_world_cell_readonly()
+                .get_resources_ref::<B>()
+        }
+    }
+
     /// Gets access to a bundle of resources at once, without checking for access conflicts within the bundle.
     /// Similar to [`World::get_resources_mut`] but this will not check for access conflicts.
     ///
