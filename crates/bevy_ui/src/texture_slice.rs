@@ -40,9 +40,16 @@ impl ComputedTextureSlices {
         clip: Option<&'a CalculatedClip>,
         camera_entity: Entity,
     ) -> impl ExactSizeIterator<Item = ExtractedUiNode> + 'a {
-        let x = if image.flip_x { -1.0 } else { 1.0 };
-        let y = if image.flip_y { 1.0 } else { -1.0 };
-        let flip = Vec2::new(x, y);
+        let mut flip = Vec2::new(1.0, -1.0);
+        let [mut flip_x, mut flip_y] = [false; 2];
+        if image.flip_x {
+            flip.x *= -1.0;
+            flip_x = true;
+        }
+        if image.flip_y {
+            flip.y *= -1.0;
+            flip_y = true;
+        }
         self.slices.iter().map(move |slice| {
             let offset = (slice.offset * flip).extend(0.0);
             let transform = transform.mul_transform(Transform::from_translation(offset));
@@ -56,8 +63,8 @@ impl ComputedTextureSlices {
                 color: background_color.0,
                 transform: transform.compute_matrix(),
                 rect,
-                flip_x: false,
-                flip_y: false,
+                flip_x,
+                flip_y,
                 image: image.texture.id(),
                 atlas_size,
                 clip: clip.map(|clip| clip.clip),
