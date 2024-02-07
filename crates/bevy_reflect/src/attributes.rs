@@ -243,13 +243,20 @@ mod tests {
 
     #[test]
     fn should_derive_custom_attributes_on_enum_variants() {
+        #[derive(Reflect, Debug, PartialEq)]
+        enum Display {
+            Toggle,
+            Slider,
+            Picker,
+        }
+
         #[derive(Reflect)]
         enum Color {
-            #[reflect(@(display = "toggle"))]
+            #[reflect(@(display = Display::Toggle))]
             Transparent,
-            #[reflect(@(display = "slider"))]
+            #[reflect(@(display = Display::Slider))]
             Grayscale(f32),
-            #[reflect(@(display = "picker"))]
+            #[reflect(@(display = Display::Picker))]
             Rgb { r: u8, g: u8, b: u8 },
         }
 
@@ -265,8 +272,8 @@ mod tests {
             .custom_attributes()
             .get("display")
             .unwrap()
-            .value::<&str>();
-        assert_eq!(Some(&"toggle"), display);
+            .value::<Display>();
+        assert_eq!(Some(&Display::Toggle), display);
 
         let VariantInfo::Tuple(grayscale_variant) = info.variant("Grayscale").unwrap() else {
             panic!("expected tuple variant");
@@ -276,8 +283,8 @@ mod tests {
             .custom_attributes()
             .get("display")
             .unwrap()
-            .value::<&str>();
-        assert_eq!(Some(&"slider"), display);
+            .value::<Display>();
+        assert_eq!(Some(&Display::Slider), display);
 
         let VariantInfo::Struct(rgb_variant) = info.variant("Rgb").unwrap() else {
             panic!("expected struct variant");
@@ -287,8 +294,8 @@ mod tests {
             .custom_attributes()
             .get("display")
             .unwrap()
-            .value::<&str>();
-        assert_eq!(Some(&"picker"), display);
+            .value::<Display>();
+        assert_eq!(Some(&Display::Picker), display);
     }
 
     #[test]
