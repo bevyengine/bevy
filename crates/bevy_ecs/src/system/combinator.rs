@@ -4,7 +4,7 @@ use bevy_ptr::UnsafeCellDeref;
 
 use crate::{
     archetype::ArchetypeComponentId,
-    component::{ComponentId, Tick},
+    component::{DataId, Tick},
     prelude::World,
     query::Access,
     schedule::InternedSystemSet,
@@ -109,7 +109,7 @@ pub struct CombinatorSystem<Func, A, B> {
     a: A,
     b: B,
     name: Cow<'static, str>,
-    component_access: Access<ComponentId>,
+    component_access: Access<DataId>,
     archetype_component_access: Access<ArchetypeComponentId>,
 }
 
@@ -146,7 +146,7 @@ where
         std::any::TypeId::of::<Self>()
     }
 
-    fn component_access(&self) -> &Access<ComponentId> {
+    fn component_access(&self) -> &Access<DataId> {
         &self.component_access
     }
 

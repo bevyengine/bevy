@@ -160,7 +160,7 @@ pub(crate) fn world_query_impl(
                 }
             }
 
-            fn update_component_access(state: &Self::State, _access: &mut #path::query::FilteredAccess<#path::component::ComponentId>) {
+            fn update_component_access(state: &Self::State, _access: &mut #path::query::FilteredAccess<#path::component::DataId>) {
                 #( <#field_types>::update_component_access(&state.#named_field_idents, _access); )*
             }
 
@@ -176,7 +176,7 @@ pub(crate) fn world_query_impl(
                 })
             }
 
-            fn matches_component_set(state: &Self::State, _set_contains_id: &impl Fn(#path::component::ComponentId) -> bool) -> bool {
+            fn matches_component_set(state: &Self::State, _set_contains_id: &impl Fn(#path::component::DataId) -> bool) -> bool {
                 true #(&& <#field_types>::matches_component_set(&state.#named_field_idents, _set_contains_id))*
             }
         }

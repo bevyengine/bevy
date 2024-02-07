@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::{component::ComponentId, prelude::*};
+use crate::{component::DataId, prelude::*};
 
 use super::{FilteredAccess, QueryData, QueryFilter};
 
@@ -33,7 +33,7 @@ use super::{FilteredAccess, QueryData, QueryFilter};
 /// let (entity, b) = query.single(&world);
 ///```
 pub struct QueryBuilder<'w, D: QueryData = (), F: QueryFilter = ()> {
-    access: FilteredAccess<ComponentId>,
+    access: FilteredAccess<DataId>,
     world: &'w mut World,
     or: bool,
     first: bool,
@@ -79,7 +79,7 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
     }
 
     /// Adds access to self's underlying [`FilteredAccess`] respecting [`Self::or`] and [`Self::and`]
-    pub fn extend_access(&mut self, mut access: FilteredAccess<ComponentId>) {
+    pub fn extend_access(&mut self, mut access: FilteredAccess<DataId>) {
         if self.or {
             if self.first {
                 access.required.clear();
@@ -117,8 +117,8 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
         self
     }
 
-    /// Adds [`With<T>`] to the [`FilteredAccess`] of self from a runtime [`ComponentId`].
-    pub fn with_id(&mut self, id: ComponentId) -> &mut Self {
+    /// Adds [`With<T>`] to the [`FilteredAccess`] of self from a runtime [`DataId`].
+    pub fn with_id(&mut self, id: DataId) -> &mut Self {
         let mut access = FilteredAccess::default();
         access.and_with(id);
         self.extend_access(access);
@@ -131,8 +131,8 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
         self
     }
 
-    /// Adds [`Without<T>`] to the [`FilteredAccess`] of self from a runtime [`ComponentId`].
-    pub fn without_id(&mut self, id: ComponentId) -> &mut Self {
+    /// Adds [`Without<T>`] to the [`FilteredAccess`] of self from a runtime [`DataId`].
+    pub fn without_id(&mut self, id: DataId) -> &mut Self {
         let mut access = FilteredAccess::default();
         access.and_without(id);
         self.extend_access(access);
@@ -140,14 +140,14 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
     }
 
     /// Adds `&T` to the [`FilteredAccess`] of self.
-    pub fn ref_id(&mut self, id: ComponentId) -> &mut Self {
+    pub fn ref_id(&mut self, id: DataId) -> &mut Self {
         self.with_id(id);
         self.access.add_read(id);
         self
     }
 
     /// Adds `&mut T` to the [`FilteredAccess`] of self.
-    pub fn mut_id(&mut self, id: ComponentId) -> &mut Self {
+    pub fn mut_id(&mut self, id: DataId) -> &mut Self {
         self.with_id(id);
         self.access.add_write(id);
         self
@@ -205,7 +205,7 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
     }
 
     /// Returns a reference to the the [`FilteredAccess`] that will be provided to the built [`Query`].
-    pub fn access(&self) -> &FilteredAccess<ComponentId> {
+    pub fn access(&self) -> &FilteredAccess<DataId> {
         &self.access
     }
 

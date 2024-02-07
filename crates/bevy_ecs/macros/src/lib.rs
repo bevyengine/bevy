@@ -120,14 +120,14 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
 
     TokenStream::from(quote! {
         // SAFETY:
-        // - ComponentId is returned in field-definition-order. [from_components] and [get_components] use field-definition-order
+        // - DataId is returned in field-definition-order. [from_components] and [get_components] use field-definition-order
         // - `Bundle::get_components` is exactly once for each member. Rely's on the Component -> Bundle implementation to properly pass
         //   the correct `StorageType` into the callback.
         unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name #ty_generics #where_clause {
             fn component_ids(
-                components: &mut #ecs_path::component::Components,
+                components: &mut #ecs_path::component::WorldData,
                 storages: &mut #ecs_path::storage::Storages,
-                ids: &mut impl FnMut(#ecs_path::component::ComponentId)
+                ids: &mut impl FnMut(#ecs_path::component::DataId)
             ){
                 #(#field_component_ids)*
             }
@@ -204,7 +204,7 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
             where #(#param: ReadOnlySystemParam,)*
             { }
 
-            // SAFETY: Relevant parameter ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any ParamState conflicts
+            // SAFETY: Relevant parameter DataId and ArchetypeComponentId access is applied to SystemMeta. If any ParamState conflicts
             // with any prior access, a panic will occur.
             unsafe impl<'_w, '_s, #(#param: SystemParam,)*> SystemParam for ParamSet<'_w, '_s, (#(#param,)*)>
             {

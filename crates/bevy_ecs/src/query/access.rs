@@ -19,7 +19,7 @@ use std::marker::PhantomData;
 /// the set. With `FormattedBitSet`, we convert the present set entries into
 /// what they stand for, it is much clearer what is going on:
 /// ```text
-/// read_and_writes: [ ComponentId(5), ComponentId(7) ]
+/// read_and_writes: [ DataId(5), DataId(7) ]
 /// ```
 struct FormattedBitSet<'a, T: SparseSetIndex> {
     bit_set: &'a FixedBitSet,

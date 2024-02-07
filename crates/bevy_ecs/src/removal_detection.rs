@@ -2,7 +2,7 @@
 
 use crate::{
     self as bevy_ecs,
-    component::{Component, ComponentId, ComponentIdFor, Tick},
+    component::{Component, ComponentIdFor, DataId, Tick},
     entity::Entity,
     event::{Event, EventId, EventIterator, EventIteratorWithId, Events, ManualEventReader},
     prelude::Local,
@@ -66,7 +66,7 @@ impl<T: Component> DerefMut for RemovedComponentReader<T> {
 /// Stores the [`RemovedComponents`] event buffers for all types of component in a given [`World`].
 #[derive(Default, Debug)]
 pub struct RemovedComponentEvents {
-    event_sets: SparseSet<ComponentId, Events<RemovedComponentEntity>>,
+    event_sets: SparseSet<DataId, Events<RemovedComponentEntity>>,
 }
 
 impl RemovedComponentEvents {
@@ -84,15 +84,12 @@ impl RemovedComponentEvents {
     }
 
     /// Gets the event storage for a given component.
-    pub fn get(
-        &self,
-        component_id: impl Into<ComponentId>,
-    ) -> Option<&Events<RemovedComponentEntity>> {
+    pub fn get(&self, component_id: impl Into<DataId>) -> Option<&Events<RemovedComponentEntity>> {
         self.event_sets.get(component_id.into())
     }
 
     /// Sends a removal event for the specified component.
-    pub fn send(&mut self, component_id: impl Into<ComponentId>, entity: Entity) {
+    pub fn send(&mut self, component_id: impl Into<DataId>, entity: Entity) {
         self.event_sets
             .get_or_insert_with(component_id.into(), Default::default)
             .send(RemovedComponentEntity(entity));

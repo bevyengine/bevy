@@ -18,7 +18,7 @@ use fixedbitset::FixedBitSet;
 
 use crate::{
     self as bevy_ecs,
-    component::{ComponentId, Components, Tick},
+    component::{DataId, Tick, WorldData},
     prelude::Component,
     schedule::*,
     system::{BoxedSystem, IntoSystem, Resource, System},
@@ -31,8 +31,8 @@ pub use stepping::Stepping;
 #[derive(Default, Resource)]
 pub struct Schedules {
     inner: HashMap<InternedScheduleLabel, Schedule>,
-    /// List of [`ComponentId`]s to ignore when reporting system order ambiguity conflicts
-    pub ignored_scheduling_ambiguities: BTreeSet<ComponentId>,
+    /// List of [`DataId`]s to ignore when reporting system order ambiguity conflicts
+    pub ignored_scheduling_ambiguities: BTreeSet<DataId>,
 }
 
 impl Schedules {
@@ -126,19 +126,19 @@ impl Schedules {
     /// Ignore system order ambiguities caused by conflicts on [`Resource`]s of type `T`.
     pub fn allow_ambiguous_resource<T: Resource>(&mut self, world: &mut World) {
         self.ignored_scheduling_ambiguities
-            .insert(world.components.init_resource::<T>());
+            .insert(world.world_data.init_resource::<T>());
     }
 
-    /// Iterate through the [`ComponentId`]'s that will be ignored.
-    pub fn iter_ignored_ambiguities(&self) -> impl Iterator<Item = &ComponentId> + '_ {
+    /// Iterate through the [`DataId`]'s that will be ignored.
+    pub fn iter_ignored_ambiguities(&self) -> impl Iterator<Item = &DataId> + '_ {
         self.ignored_scheduling_ambiguities.iter()
     }
 
     /// Prints the names of the components and resources with [`info`]
     ///
-    /// May panic or retrieve incorrect names if [`Components`] is not from the same
+    /// May panic or retrieve incorrect names if [`WorldData`] is not from the same
     /// world
-    pub fn print_ignored_ambiguities(&self, components: &Components) {
+    pub fn print_ignored_ambiguities(&self, components: &WorldData) {
         let mut message =
             "System order ambiguities caused by conflicts on the following types are ignored:\n"
                 .to_string();
@@ -543,7 +543,7 @@ pub struct ScheduleGraph {
     dependency: Dag,
     ambiguous_with: UnGraphMap<NodeId, ()>,
     ambiguous_with_all: HashSet<NodeId>,
-    conflicting_systems: Vec<(NodeId, NodeId, Vec<ComponentId>)>,
+    conflicting_systems: Vec<(NodeId, NodeId, Vec<DataId>)>,
     anonymous_sets: usize,
     changed: bool,
     settings: ScheduleBuildSettings,
@@ -654,9 +654,9 @@ impl ScheduleGraph {
 
     /// Returns the list of systems that conflict with each other, i.e. have ambiguities in their access.
     ///
-    /// If the `Vec<ComponentId>` is empty, the systems conflict on [`World`] access.
+    /// If the `Vec<DataId>` is empty, the systems conflict on [`World`] access.
     /// Must be called after [`ScheduleGraph::build_schedule`] to be non-empty.
-    pub fn conflicting_systems(&self) -> &[(NodeId, NodeId, Vec<ComponentId>)] {
+    pub fn conflicting_systems(&self) -> &[(NodeId, NodeId, Vec<DataId>)] {
         &self.conflicting_systems
     }
 
@@ -1036,9 +1036,9 @@ impl ScheduleGraph {
     /// - checks for system access conflicts and reports ambiguities
     pub fn build_schedule(
         &mut self,
-        components: &Components,
+        components: &WorldData,
         schedule_label: InternedScheduleLabel,
-        ignored_ambiguities: &BTreeSet<ComponentId>,
+        ignored_ambiguities: &BTreeSet<DataId>,
     ) -> Result<SystemSchedule, ScheduleBuildError> {
         // check hierarchy for cycles
         self.hierarchy.topsort =
@@ -1307,8 +1307,8 @@ impl ScheduleGraph {
         &self,
         flat_results_disconnected: &Vec<(NodeId, NodeId)>,
         ambiguous_with_flattened: &GraphMap<NodeId, (), Undirected>,
-        ignored_ambiguities: &BTreeSet<ComponentId>,
-    ) -> Vec<(NodeId, NodeId, Vec<ComponentId>)> {
+        ignored_ambiguities: &BTreeSet<DataId>,
+    ) -> Vec<(NodeId, NodeId, Vec<DataId>)> {
         let mut conflicting_systems = Vec::new();
         for &(a, b) in flat_results_disconnected {
             if ambiguous_with_flattened.contains_edge(a, b)
@@ -1445,8 +1445,8 @@ impl ScheduleGraph {
     fn update_schedule(
         &mut self,
         schedule: &mut SystemSchedule,
-        components: &Components,
-        ignored_ambiguities: &BTreeSet<ComponentId>,
+        components: &WorldData,
+        ignored_ambiguities: &BTreeSet<DataId>,
         schedule_label: InternedScheduleLabel,
     ) -> Result<(), ScheduleBuildError> {
         if !self.uninit.is_empty() {
@@ -1794,8 +1794,8 @@ impl ScheduleGraph {
     /// if [`ScheduleBuildSettings::ambiguity_detection`] is [`LogLevel::Ignore`], this check is skipped
     fn optionally_check_conflicts(
         &self,
-        conflicts: &[(NodeId, NodeId, Vec<ComponentId>)],
-        components: &Components,
+        conflicts: &[(NodeId, NodeId, Vec<DataId>)],
+        components: &WorldData,
         schedule_label: InternedScheduleLabel,
     ) -> Result<(), ScheduleBuildError> {
         if self.settings.ambiguity_detection == LogLevel::Ignore || conflicts.is_empty() {
@@ -1815,8 +1815,8 @@ impl ScheduleGraph {
 
     fn get_conflicts_error_message(
         &self,
-        ambiguities: &[(NodeId, NodeId, Vec<ComponentId>)],
-        components: &Components,
+        ambiguities: &[(NodeId, NodeId, Vec<DataId>)],
+        components: &WorldData,
     ) -> String {
         let n_ambiguities = ambiguities.len();
 
@@ -1843,8 +1843,8 @@ impl ScheduleGraph {
     /// convert conflicts to human readable format
     pub fn conflicts_to_string<'a>(
         &'a self,
-        ambiguities: &'a [(NodeId, NodeId, Vec<ComponentId>)],
-        components: &'a Components,
+        ambiguities: &'a [(NodeId, NodeId, Vec<DataId>)],
+        components: &'a WorldData,
     ) -> impl Iterator<Item = (String, String, Vec<&str>)> + 'a {
         ambiguities
             .iter()

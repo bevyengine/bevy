@@ -1,7 +1,7 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
     change_detection::Mut,
-    component::{ComponentId, Tick},
+    component::{DataId, Tick},
     entity::Entity,
     prelude::{Component, FromWorld},
     query::{
@@ -32,7 +32,7 @@ pub struct QueryState<D: QueryData, F: QueryFilter = ()> {
     pub(crate) matched_tables: FixedBitSet,
     pub(crate) matched_archetypes: FixedBitSet,
     pub(crate) archetype_component_access: Access<ArchetypeComponentId>,
-    pub(crate) component_access: FilteredAccess<ComponentId>,
+    pub(crate) component_access: FilteredAccess<DataId>,
     // NOTE: we maintain both a TableId bitset and a vec because iterating the vec is faster
     pub(crate) matched_table_ids: Vec<TableId>,
     // NOTE: we maintain both a ArchetypeId bitset and a vec because iterating the vec is faster
@@ -274,7 +274,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     }
 
     /// Update the current [`QueryState`] with information from the provided [`Archetype`]
-    /// (if applicable, i.e. if the archetype has any intersecting [`ComponentId`] with the current [`QueryState`]).
+    /// (if applicable, i.e. if the archetype has any intersecting [`DataId`] with the current [`QueryState`]).
     pub fn new_archetype(&mut self, archetype: &Archetype) {
         if D::matches_component_set(&self.fetch_state, &|id| archetype.contains(id))
             && F::matches_component_set(&self.filter_state, &|id| archetype.contains(id))
@@ -298,15 +298,15 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     }
 
     /// Returns `true` if this query matches a set of components. Otherwise, returns `false`.
-    pub fn matches_component_set(&self, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
+    pub fn matches_component_set(&self, set_contains_id: &impl Fn(DataId) -> bool) -> bool {
         self.component_access.filter_sets.iter().any(|set| {
             set.with
                 .ones()
-                .all(|index| set_contains_id(ComponentId::get_sparse_set_index(index)))
+                .all(|index| set_contains_id(DataId::get_sparse_set_index(index)))
                 && set
                     .without
                     .ones()
-                    .all(|index| !set_contains_id(ComponentId::get_sparse_set_index(index)))
+                    .all(|index| !set_contains_id(DataId::get_sparse_set_index(index)))
         })
     }
 

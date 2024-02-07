@@ -19,7 +19,7 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::component::{ComponentId, ComponentTicks, Tick};
+use bevy_ecs::component::{ComponentTicks, DataId, Tick};
 use bevy_ecs::prelude::*;
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use bevy_utils::{Duration, HashSet, Instant, Uuid};
@@ -49,7 +49,7 @@ impl Plugin for TypeRegistrationPlugin {
 
 fn register_ecs_types(app: &mut App) {
     app.register_type::<Entity>()
-        .register_type::<ComponentId>()
+        .register_type::<DataId>()
         .register_type::<Tick>()
         .register_type::<ComponentTicks>();
 }

@@ -21,7 +21,7 @@
 
 use crate::{
     bundle::BundleId,
-    component::{ComponentId, StorageType},
+    component::{DataId, StorageType},
     entity::{Entity, EntityLocation},
     storage::{ImmutableSparseSet, SparseArray, SparseSet, SparseSetIndex, TableId, TableRow},
 };
@@ -309,15 +309,15 @@ pub struct Archetype {
     table_id: TableId,
     edges: Edges,
     entities: Vec<ArchetypeEntity>,
-    components: ImmutableSparseSet<ComponentId, ArchetypeComponentInfo>,
+    components: ImmutableSparseSet<DataId, ArchetypeComponentInfo>,
 }
 
 impl Archetype {
     pub(crate) fn new(
         id: ArchetypeId,
         table_id: TableId,
-        table_components: impl Iterator<Item = (ComponentId, ArchetypeComponentId)>,
-        sparse_set_components: impl Iterator<Item = (ComponentId, ArchetypeComponentId)>,
+        table_components: impl Iterator<Item = (DataId, ArchetypeComponentId)>,
+        sparse_set_components: impl Iterator<Item = (DataId, ArchetypeComponentId)>,
     ) -> Self {
         let (min_table, _) = table_components.size_hint();
         let (min_sparse, _) = sparse_set_components.size_hint();
@@ -376,7 +376,7 @@ impl Archetype {
     ///
     /// [`Table`]: crate::storage::Table
     #[inline]
-    pub fn table_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
+    pub fn table_components(&self) -> impl Iterator<Item = DataId> + '_ {
         self.components
             .iter()
             .filter(|(_, component)| component.storage_type == StorageType::Table)
@@ -389,7 +389,7 @@ impl Archetype {
     ///
     /// [`ComponentSparseSet`]: crate::storage::ComponentSparseSet
     #[inline]
-    pub fn sparse_set_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
+    pub fn sparse_set_components(&self) -> impl Iterator<Item = DataId> + '_ {
         self.components
             .iter()
             .filter(|(_, component)| component.storage_type == StorageType::SparseSet)
@@ -400,7 +400,7 @@ impl Archetype {
     ///
     /// All of the IDs are unique.
     #[inline]
-    pub fn components(&self) -> impl Iterator<Item = ComponentId> + '_ {
+    pub fn components(&self) -> impl Iterator<Item = DataId> + '_ {
         self.components.indices()
     }
 
@@ -505,7 +505,7 @@ impl Archetype {
 
     /// Checks if the archetype contains a specific component. This runs in `O(1)` time.
     #[inline]
-    pub fn contains(&self, component_id: ComponentId) -> bool {
+    pub fn contains(&self, component_id: DataId) -> bool {
         self.components.contains(component_id)
     }
 
@@ -513,7 +513,7 @@ impl Archetype {
     /// Returns `None` if the component is not part of the archetype.
     /// This runs in `O(1)` time.
     #[inline]
-    pub fn get_storage_type(&self, component_id: ComponentId) -> Option<StorageType> {
+    pub fn get_storage_type(&self, component_id: DataId) -> Option<StorageType> {
         self.components
             .get(component_id)
             .map(|info| info.storage_type)
@@ -523,10 +523,7 @@ impl Archetype {
     /// Returns `None` if the component is not part of the archetype.
     /// This runs in `O(1)` time.
     #[inline]
-    pub fn get_archetype_component_id(
-        &self,
-        component_id: ComponentId,
-    ) -> Option<ArchetypeComponentId> {
+    pub fn get_archetype_component_id(&self, component_id: DataId) -> Option<ArchetypeComponentId> {
         self.components
             .get(component_id)
             .map(|info| info.archetype_component_id)
@@ -555,8 +552,8 @@ impl ArchetypeGeneration {
 
 #[derive(Hash, PartialEq, Eq)]
 struct ArchetypeComponents {
-    table_components: Box<[ComponentId]>,
-    sparse_set_components: Box<[ComponentId]>,
+    table_components: Box<[DataId]>,
+    sparse_set_components: Box<[DataId]>,
 }
 
 /// An opaque unique joint ID for a [`Component`] in an [`Archetype`] within a [`World`].
@@ -566,10 +563,10 @@ struct ArchetypeComponents {
 /// schedulers to opportunistically run multiple systems in parallel that would otherwise
 /// conflict. For example, `Query<&mut A, With<B>>` and `Query<&mut A, Without<B>>` can run in
 /// parallel as the matched `ArchetypeComponentId` sets for both queries are disjoint, even
-/// though `&mut A` on both queries point to the same [`ComponentId`].
+/// though `&mut A` on both queries point to the same [`DataId`].
 ///
 /// In SQL terms, these IDs are composite keys on a [many-to-many relationship] between archetypes
-/// and components. Each component type will have only one [`ComponentId`], but may have many
+/// and components. Each component type will have only one [`DataId`], but may have many
 /// [`ArchetypeComponentId`]s, one for every archetype the component is present in. Likewise, each
 /// archetype will have only one [`ArchetypeId`] but may have many [`ArchetypeComponentId`]s, one
 /// for each component that belongs to the archetype.
@@ -714,8 +711,8 @@ impl Archetypes {
     pub(crate) fn get_id_or_insert(
         &mut self,
         table_id: TableId,
-        table_components: Vec<ComponentId>,
-        sparse_set_components: Vec<ComponentId>,
+        table_components: Vec<DataId>,
+        sparse_set_components: Vec<DataId>,
     ) -> ArchetypeId {
         let archetype_identity = ArchetypeComponents {
             sparse_set_components: sparse_set_components.clone().into_boxed_slice(),

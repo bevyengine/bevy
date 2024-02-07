@@ -1,5 +1,5 @@
 use crate::{
-    component::{ComponentId, ComponentInfo, ComponentTicks, Tick, TickCells},
+    component::{ComponentTicks, DataId, DataInfo, Tick, TickCells},
     entity::Entity,
     storage::{Column, TableRow},
 };
@@ -130,7 +130,7 @@ pub struct ComponentSparseSet {
 impl ComponentSparseSet {
     /// Creates a new [`ComponentSparseSet`] with a given component type layout and
     /// initial `capacity`.
-    pub(crate) fn new(component_info: &ComponentInfo, capacity: usize) -> Self {
+    pub(crate) fn new(component_info: &DataInfo, capacity: usize) -> Self {
         Self {
             dense: Column::with_capacity(component_info, capacity),
             entities: Vec::with_capacity(capacity),
@@ -549,12 +549,12 @@ macro_rules! impl_sparse_set_index {
 
 impl_sparse_set_index!(u8, u16, u32, u64, usize);
 
-/// A collection of [`ComponentSparseSet`] storages, indexed by [`ComponentId`]
+/// A collection of [`ComponentSparseSet`] storages, indexed by [`DataId`]
 ///
 /// Can be accessed via [`Storages`](crate::storage::Storages)
 #[derive(Default)]
 pub struct SparseSets {
-    sets: SparseSet<ComponentId, ComponentSparseSet>,
+    sets: SparseSet<DataId, ComponentSparseSet>,
 }
 
 impl SparseSets {
@@ -570,24 +570,21 @@ impl SparseSets {
         self.sets.is_empty()
     }
 
-    /// An Iterator visiting all ([`ComponentId`], [`ComponentSparseSet`]) pairs.
+    /// An Iterator visiting all ([`DataId`], [`ComponentSparseSet`]) pairs.
     /// NOTE: Order is not guaranteed.
-    pub fn iter(&self) -> impl Iterator<Item = (ComponentId, &ComponentSparseSet)> {
+    pub fn iter(&self) -> impl Iterator<Item = (DataId, &ComponentSparseSet)> {
         self.sets.iter().map(|(id, data)| (*id, data))
     }
 
-    /// Gets a reference to the [`ComponentSparseSet`] of a [`ComponentId`].
+    /// Gets a reference to the [`ComponentSparseSet`] of a [`DataId`].
     #[inline]
-    pub fn get(&self, component_id: ComponentId) -> Option<&ComponentSparseSet> {
+    pub fn get(&self, component_id: DataId) -> Option<&ComponentSparseSet> {
         self.sets.get(component_id)
     }
 
     /// Gets a mutable reference of [`ComponentSparseSet`] of a [`ComponentInfo`].
     /// Create a new [`ComponentSparseSet`] if not exists.
-    pub(crate) fn get_or_insert(
-        &mut self,
-        component_info: &ComponentInfo,
-    ) -> &mut ComponentSparseSet {
+    pub(crate) fn get_or_insert(&mut self, component_info: &DataInfo) -> &mut ComponentSparseSet {
         if !self.sets.contains(component_info.id()) {
             self.sets.insert(
                 component_info.id(),
@@ -598,8 +595,8 @@ impl SparseSets {
         self.sets.get_mut(component_info.id()).unwrap()
     }
 
-    /// Gets a mutable reference to the [`ComponentSparseSet`] of a [`ComponentId`].
-    pub(crate) fn get_mut(&mut self, component_id: ComponentId) -> Option<&mut ComponentSparseSet> {
+    /// Gets a mutable reference to the [`ComponentSparseSet`] of a [`DataId`].
+    pub(crate) fn get_mut(&mut self, component_id: DataId) -> Option<&mut ComponentSparseSet> {
         self.sets.get_mut(component_id)
     }
 
@@ -622,7 +619,7 @@ mod tests {
     use super::SparseSets;
     use crate::{
         self as bevy_ecs,
-        component::{Component, ComponentDescriptor, ComponentId, ComponentInfo},
+        component::{Component, DataDescriptor, DataId, DataInfo},
         entity::Entity,
         storage::SparseSet,
     };
@@ -706,13 +703,13 @@ mod tests {
         collected_sets.sort();
         assert_eq!(
             collected_sets,
-            vec![(ComponentId::new(1), 0), (ComponentId::new(2), 0),]
+            vec![(DataId::new(1), 0), (DataId::new(2), 0),]
         );
 
         fn init_component<T: Component>(sets: &mut SparseSets, id: usize) {
-            let descriptor = ComponentDescriptor::new::<T>();
-            let id = ComponentId::new(id);
-            let info = ComponentInfo::new(id, descriptor);
+            let descriptor = DataDescriptor::new::<T>();
+            let id = DataId::new(id);
+            let info = DataInfo::new(id, descriptor);
             sets.get_or_insert(&info);
         }
     }

@@ -3,7 +3,7 @@ use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
     change_detection::{Ticks, TicksMut},
-    component::{ComponentId, ComponentTicks, Components, Tick},
+    component::{ComponentTicks, DataId, Tick, WorldData},
     entity::Entities,
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, QueryState,
@@ -186,7 +186,7 @@ unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> Re
 {
 }
 
-// SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
+// SAFETY: Relevant query DataId and ArchetypeComponentId access is applied to SystemMeta. If
 // this Query conflicts with any prior access, a panic will occur.
 unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Query<'_, '_, D, F> {
     type State = QueryState<D, F>;
@@ -236,8 +236,8 @@ fn assert_component_access_compatibility(
     system_name: &str,
     query_type: &'static str,
     filter_type: &'static str,
-    system_access: &FilteredAccessSet<ComponentId>,
-    current: &FilteredAccess<ComponentId>,
+    system_access: &FilteredAccessSet<DataId>,
+    current: &FilteredAccess<DataId>,
     world: &World,
 ) {
     let conflicts = system_access.get_conflicts_single(current);
@@ -246,7 +246,7 @@ fn assert_component_access_compatibility(
     }
     let conflicting_components = conflicts
         .into_iter()
-        .map(|component_id| world.components.get_info(component_id).unwrap().name())
+        .map(|component_id| world.world_data.get_info(component_id).unwrap().name())
         .collect::<Vec<&str>>();
     let accesses = conflicting_components.join(", ");
     panic!("error[B0001]: Query<{query_type}, {filter_type}> in system {system_name} accesses component(s) {accesses} in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`.");
@@ -435,10 +435,10 @@ pub trait Resource: Send + Sync + 'static {}
 // SAFETY: Res only reads a single World resource
 unsafe impl<'a, T: Resource> ReadOnlySystemParam for Res<'a, T> {}
 
-// SAFETY: Res ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this Res
+// SAFETY: Res DataId and ArchetypeComponentId access is applied to SystemMeta. If this Res
 // conflicts with any prior access, a panic will occur.
 unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
-    type State = ComponentId;
+    type State = DataId;
     type Item<'w, 's> = Res<'w, T>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
@@ -497,7 +497,7 @@ unsafe impl<'a, T: Resource> ReadOnlySystemParam for Option<Res<'a, T>> {}
 
 // SAFETY: this impl defers to `Res`, which initializes and validates the correct world access.
 unsafe impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
-    type State = ComponentId;
+    type State = DataId;
     type Item<'w, 's> = Option<Res<'w, T>>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
@@ -525,10 +525,10 @@ unsafe impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
     }
 }
 
-// SAFETY: Res ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this Res
+// SAFETY: Res DataId and ArchetypeComponentId access is applied to SystemMeta. If this Res
 // conflicts with any prior access, a panic will occur.
 unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
-    type State = ComponentId;
+    type State = DataId;
     type Item<'w, 's> = ResMut<'w, T>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
@@ -587,7 +587,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
 
 // SAFETY: this impl defers to `ResMut`, which initializes and validates the correct world access.
 unsafe impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
-    type State = ComponentId;
+    type State = DataId;
     type Item<'w, 's> = Option<ResMut<'w, T>>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
@@ -1018,10 +1018,10 @@ impl<'a, T> From<NonSendMut<'a, T>> for NonSend<'a, T> {
     }
 }
 
-// SAFETY: NonSendComponentId and ArchetypeComponentId access is applied to SystemMeta. If this
+// SAFETY: NonSend DataId and ArchetypeComponentId access is applied to SystemMeta. If this
 // NonSend conflicts with any prior access, a panic will occur.
 unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
-    type State = ComponentId;
+    type State = DataId;
     type Item<'w, 's> = NonSend<'w, T>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
@@ -1080,7 +1080,7 @@ unsafe impl<T: 'static> ReadOnlySystemParam for Option<NonSend<'_, T>> {}
 
 // SAFETY: this impl defers to `NonSend`, which initializes and validates the correct world access.
 unsafe impl<T: 'static> SystemParam for Option<NonSend<'_, T>> {
-    type State = ComponentId;
+    type State = DataId;
     type Item<'w, 's> = Option<NonSend<'w, T>>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
@@ -1105,10 +1105,10 @@ unsafe impl<T: 'static> SystemParam for Option<NonSend<'_, T>> {
     }
 }
 
-// SAFETY: NonSendMut ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this
+// SAFETY: NonSendMut DataId and ArchetypeComponentId access is applied to SystemMeta. If this
 // NonSendMut conflicts with any prior access, a panic will occur.
 unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
-    type State = ComponentId;
+    type State = DataId;
     type Item<'w, 's> = NonSendMut<'w, T>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
@@ -1164,7 +1164,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
 
 // SAFETY: this impl defers to `NonSendMut`, which initializes and validates the correct world access.
 unsafe impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
-    type State = ComponentId;
+    type State = DataId;
     type Item<'w, 's> = Option<NonSendMut<'w, T>>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
@@ -1209,12 +1209,12 @@ unsafe impl<'a> SystemParam for &'a Archetypes {
 }
 
 // SAFETY: Only reads World components
-unsafe impl<'a> ReadOnlySystemParam for &'a Components {}
+unsafe impl<'a> ReadOnlySystemParam for &'a WorldData {}
 
 // SAFETY: no component value access
-unsafe impl<'a> SystemParam for &'a Components {
+unsafe impl<'a> SystemParam for &'a WorldData {
     type State = ();
-    type Item<'w, 's> = &'w Components;
+    type Item<'w, 's> = &'w WorldData;
 
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 

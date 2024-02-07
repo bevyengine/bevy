@@ -6,7 +6,7 @@ use std::{alloc::Layout, io::Write, ptr::NonNull};
 use bevy::prelude::*;
 use bevy::{
     ecs::{
-        component::{ComponentDescriptor, ComponentId, ComponentInfo, StorageType},
+        component::{DataDescriptor, DataId, DataInfo, StorageType},
         query::{QueryBuilder, QueryData},
         world::FilteredEntityMut,
     },
@@ -45,8 +45,8 @@ query, q  Query for entities
 fn main() {
     let mut world = World::new();
     let mut lines = std::io::stdin().lines();
-    let mut component_names = HashMap::<String, ComponentId>::new();
-    let mut component_info = HashMap::<ComponentId, ComponentInfo>::new();
+    let mut component_names = HashMap::<String, DataId>::new();
+    let mut component_info = HashMap::<DataId, DataInfo>::new();
 
     println!("{}", PROMPT);
     loop {
@@ -84,7 +84,7 @@ fn main() {
                     // Register our new component to the world with a layout specified by it's size
                     // SAFETY: [u64] is Send + Sync
                     let id = world.init_component_with_descriptor(unsafe {
-                        ComponentDescriptor::new_with_layout(
+                        DataDescriptor::new_with_layout(
                             name.to_string(),
                             StorageType::Table,
                             Layout::array::<u64>(size).unwrap(),
@@ -206,7 +206,7 @@ fn to_owning_ptrs(components: &mut [Vec<u64>]) -> Vec<OwningPtr<Aligned>> {
 fn parse_term<Q: QueryData>(
     str: &str,
     builder: &mut QueryBuilder<Q>,
-    components: &HashMap<String, ComponentId>,
+    components: &HashMap<String, DataId>,
 ) {
     let mut matched = false;
     let str = str.trim();
@@ -250,7 +250,7 @@ fn parse_term<Q: QueryData>(
 fn parse_query<Q: QueryData>(
     str: &str,
     builder: &mut QueryBuilder<Q>,
-    components: &HashMap<String, ComponentId>,
+    components: &HashMap<String, DataId>,
 ) {
     let str = str.split(',');
     str.for_each(|term| {

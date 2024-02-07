@@ -10,7 +10,7 @@ use crate::{
         Archetype, ArchetypeId, Archetypes, BundleComponentStatus, ComponentStatus,
         SpawnBundleStatus,
     },
-    component::{Component, ComponentId, ComponentStorage, Components, StorageType, Tick},
+    component::{Component, ComponentStorage, DataId, StorageType, Tick, WorldData},
     entity::{Entities, Entity, EntityLocation},
     query::DebugCheckedUnwrap,
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
@@ -134,17 +134,17 @@ use std::any::TypeId;
 ///
 /// [`Query`]: crate::system::Query
 // Some safety points:
-// - [`Bundle::component_ids`] must return the [`ComponentId`] for each component type in the
+// - [`Bundle::component_ids`] must return the [`DataId`] for each component type in the
 // bundle, in the _exact_ order that [`DynamicBundle::get_components`] is called.
-// - [`Bundle::from_components`] must call `func` exactly once for each [`ComponentId`] returned by
+// - [`Bundle::from_components`] must call `func` exactly once for each [`DataId`] returned by
 //   [`Bundle::component_ids`].
 pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
     /// Gets this [`Bundle`]'s component ids, in the order of this bundle's [`Component`]s
     #[doc(hidden)]
     fn component_ids(
-        components: &mut Components,
+        components: &mut WorldData,
         storages: &mut Storages,
-        ids: &mut impl FnMut(ComponentId),
+        ids: &mut impl FnMut(DataId),
     );
 
     /// Calls `func`, which should return data for each component in the bundle, in the order of
@@ -179,9 +179,9 @@ pub trait DynamicBundle {
 // - `Bundle::from_components` calls `func` exactly once for C, which is the exact value returned by `Bundle::component_ids`.
 unsafe impl<C: Component> Bundle for C {
     fn component_ids(
-        components: &mut Components,
+        components: &mut WorldData,
         storages: &mut Storages,
-        ids: &mut impl FnMut(ComponentId),
+        ids: &mut impl FnMut(DataId),
     ) {
         ids(components.init_component::<C>(storages));
     }
@@ -209,12 +209,12 @@ macro_rules! tuple_impl {
         // SAFETY:
         // - `Bundle::component_ids` calls `ids` for each component type in the
         // bundle, in the exact order that `DynamicBundle::get_components` is called.
-        // - `Bundle::from_components` calls `func` exactly once for each `ComponentId` returned by `Bundle::component_ids`.
+        // - `Bundle::from_components` calls `func` exactly once for each `DataId` returned by `Bundle::component_ids`.
         // - `Bundle::get_components` is called exactly once for each member. Relies on the above implementation to pass the correct
         //   `StorageType` into the callback.
         unsafe impl<$($name: Bundle),*> Bundle for ($($name,)*) {
             #[allow(unused_variables)]
-            fn component_ids(components: &mut Components, storages: &mut Storages, ids: &mut impl FnMut(ComponentId)){
+            fn component_ids(components: &mut WorldData, storages: &mut Storages, ids: &mut impl FnMut(DataId)){
                 $(<$name as Bundle>::component_ids(components, storages, ids);)*
             }
 
@@ -282,7 +282,7 @@ pub struct BundleInfo {
     // SAFETY: Every ID in this list must be valid within the World that owns the BundleInfo,
     // must have its storage initialized (i.e. columns created in tables, sparse set created),
     // and must be in the same order as the source bundle type writes its components in.
-    component_ids: Vec<ComponentId>,
+    component_ids: Vec<DataId>,
 }
 
 impl BundleInfo {
@@ -295,8 +295,8 @@ impl BundleInfo {
     // and must be in the same order as the source bundle type writes its components in.
     unsafe fn new(
         bundle_type_name: &'static str,
-        components: &Components,
-        component_ids: Vec<ComponentId>,
+        components: &WorldData,
+        component_ids: Vec<DataId>,
         id: BundleId,
     ) -> BundleInfo {
         let mut deduped = component_ids.clone();
@@ -338,9 +338,9 @@ impl BundleInfo {
         self.id
     }
 
-    /// Returns the [ID](ComponentId) of each component stored in this bundle.
+    /// Returns the [`ID`](DataId) of each component stored in this bundle.
     #[inline]
-    pub fn components(&self) -> &[ComponentId] {
+    pub fn components(&self) -> &[DataId] {
         &self.component_ids
     }
 
@@ -348,7 +348,7 @@ impl BundleInfo {
         &'b self,
         entities: &'a mut Entities,
         archetypes: &'a mut Archetypes,
-        components: &Components,
+        components: &WorldData,
         storages: &'a mut Storages,
         archetype_id: ArchetypeId,
         change_tick: Tick,
@@ -408,7 +408,7 @@ impl BundleInfo {
         &'b self,
         entities: &'a mut Entities,
         archetypes: &'a mut Archetypes,
-        components: &Components,
+        components: &WorldData,
         storages: &'a mut Storages,
         change_tick: Tick,
     ) -> BundleSpawner<'a, 'b> {
@@ -494,7 +494,7 @@ impl BundleInfo {
         &self,
         archetypes: &mut Archetypes,
         storages: &mut Storages,
-        components: &Components,
+        components: &WorldData,
         archetype_id: ArchetypeId,
     ) -> ArchetypeId {
         if let Some(add_bundle_id) = archetypes[archetype_id].edges().get_add_bundle(self.id) {
@@ -799,9 +799,9 @@ pub struct Bundles {
     /// Cache static [`BundleId`]
     bundle_ids: TypeIdMap<BundleId>,
     /// Cache dynamic [`BundleId`] with multiple components
-    dynamic_bundle_ids: HashMap<Vec<ComponentId>, (BundleId, Vec<StorageType>)>,
+    dynamic_bundle_ids: HashMap<Vec<DataId>, (BundleId, Vec<StorageType>)>,
     /// Cache optimized dynamic [`BundleId`] with single component
-    dynamic_component_bundle_ids: HashMap<ComponentId, (BundleId, StorageType)>,
+    dynamic_component_bundle_ids: HashMap<DataId, (BundleId, StorageType)>,
 }
 
 impl Bundles {
@@ -823,7 +823,7 @@ impl Bundles {
     /// Initializes a new [`BundleInfo`] for a statically known type.
     pub(crate) fn init_info<'a, T: Bundle>(
         &'a mut self,
-        components: &mut Components,
+        components: &mut WorldData,
         storages: &mut Storages,
     ) -> &'a BundleInfo {
         let bundle_infos = &mut self.bundle_infos;
@@ -848,12 +848,12 @@ impl Bundles {
     ///
     /// # Panics
     ///
-    /// Panics if any of the provided [`ComponentId`]s do not exist in the
-    /// provided [`Components`].
+    /// Panics if any of the provided [`DataId`]s do not exist in the
+    /// provided [`WorldData`].
     pub(crate) fn init_dynamic_info(
         &mut self,
-        components: &Components,
-        component_ids: &[ComponentId],
+        components: &WorldData,
+        component_ids: &[DataId],
     ) -> (&BundleInfo, &Vec<StorageType>) {
         let bundle_infos = &mut self.bundle_infos;
 
@@ -879,11 +879,11 @@ impl Bundles {
     ///
     /// # Panics
     ///
-    /// Panics if the provided [`ComponentId`] does not exist in the provided [`Components`].
+    /// Panics if the provided [`DataId`] does not exist in the provided [`WorldData`].
     pub(crate) fn init_component_info(
         &mut self,
-        components: &Components,
-        component_id: ComponentId,
+        components: &WorldData,
+        component_id: DataId,
     ) -> (&BundleInfo, StorageType) {
         let bundle_infos = &mut self.bundle_infos;
         let (bundle_id, storage_types) = self
@@ -903,12 +903,12 @@ impl Bundles {
     }
 }
 
-/// Asserts that all components are part of [`Components`]
+/// Asserts that all components are part of [`WorldData`]
 /// and initializes a [`BundleInfo`].
 fn initialize_dynamic_bundle(
     bundle_infos: &mut Vec<BundleInfo>,
-    components: &Components,
-    component_ids: Vec<ComponentId>,
+    components: &WorldData,
+    component_ids: Vec<DataId>,
 ) -> (BundleId, Vec<StorageType>) {
     // Assert component existence
     let storage_types = component_ids.iter().map(|&id| {

@@ -1,5 +1,5 @@
 use crate::{
-    component::{ComponentId, ComponentInfo, ComponentTicks, Components, Tick, TickCells},
+    component::{ComponentTicks, DataId, DataInfo, Tick, TickCells, WorldData},
     entity::Entity,
     query::DebugCheckedUnwrap,
     storage::{blob_vec::BlobVec, ImmutableSparseSet, SparseSet},
@@ -157,7 +157,7 @@ pub struct Column {
 impl Column {
     /// Constructs a new [`Column`], configured with a component's layout and an initial `capacity`.
     #[inline]
-    pub(crate) fn with_capacity(component_info: &ComponentInfo, capacity: usize) -> Self {
+    pub(crate) fn with_capacity(component_info: &DataInfo, capacity: usize) -> Self {
         Column {
             // SAFETY: component_info.drop() is valid for the types that will be inserted.
             data: unsafe { BlobVec::new(component_info.layout(), component_info.drop(), capacity) },
@@ -513,7 +513,7 @@ impl Column {
 /// [`add_column`]: Self::add_column
 /// [`build`]: Self::build
 pub(crate) struct TableBuilder {
-    columns: SparseSet<ComponentId, Column>,
+    columns: SparseSet<DataId, Column>,
     capacity: usize,
 }
 
@@ -528,7 +528,7 @@ impl TableBuilder {
     }
 
     #[must_use]
-    pub fn add_column(mut self, component_info: &ComponentInfo) -> Self {
+    pub fn add_column(mut self, component_info: &DataInfo) -> Self {
         self.columns.insert(
             component_info.id(),
             Column::with_capacity(component_info, self.capacity),
@@ -548,17 +548,17 @@ impl TableBuilder {
 /// A column-oriented [structure-of-arrays] based storage for [`Component`]s of entities
 /// in a [`World`].
 ///
-/// Conceptually, a `Table` can be thought of as an `HashMap<ComponentId, Column>`, where
+/// Conceptually, a `Table` can be thought of as an `HashMap<DataId, Column>`, where
 /// each [`Column`] is a type-erased `Vec<T: Component>`. Each row corresponds to a single entity
 /// (i.e. index 3 in Column A and index 3 in Column B point to different components on the same
 /// entity). Fetching components from a table involves fetching the associated column for a
-/// component type (via its [`ComponentId`]), then fetching the entity's row within that column.
+/// component type (via its [`DataId`]), then fetching the entity's row within that column.
 ///
 /// [structure-of-arrays]: https://en.wikipedia.org/wiki/AoS_and_SoA#Structure_of_arrays
 /// [`Component`]: crate::component::Component
 /// [`World`]: crate::world::World
 pub struct Table {
-    columns: ImmutableSparseSet<ComponentId, Column>,
+    columns: ImmutableSparseSet<DataId, Column>,
     entities: Vec<Entity>,
 }
 
@@ -689,7 +689,7 @@ impl Table {
     ///
     /// [`Component`]: crate::component::Component
     #[inline]
-    pub fn get_column(&self, component_id: ComponentId) -> Option<&Column> {
+    pub fn get_column(&self, component_id: DataId) -> Option<&Column> {
         self.columns.get(component_id)
     }
 
@@ -700,7 +700,7 @@ impl Table {
     ///
     /// [`Component`]: crate::component::Component
     #[inline]
-    pub(crate) fn get_column_mut(&mut self, component_id: ComponentId) -> Option<&mut Column> {
+    pub(crate) fn get_column_mut(&mut self, component_id: DataId) -> Option<&mut Column> {
         self.columns.get_mut(component_id)
     }
 
@@ -710,7 +710,7 @@ impl Table {
     ///
     /// [`Component`]: crate::component::Component
     #[inline]
-    pub fn has_column(&self, component_id: ComponentId) -> bool {
+    pub fn has_column(&self, component_id: DataId) -> bool {
         self.columns.contains(component_id)
     }
 
@@ -796,7 +796,7 @@ impl Table {
 /// Can be accessed via [`Storages`](crate::storage::Storages)
 pub struct Tables {
     tables: Vec<Table>,
-    table_ids: HashMap<Vec<ComponentId>, TableId>,
+    table_ids: HashMap<Vec<DataId>, TableId>,
 }
 
 impl Default for Tables {
@@ -858,8 +858,8 @@ impl Tables {
     /// `component_ids` must contain components that exist in `components`
     pub(crate) unsafe fn get_id_or_insert(
         &mut self,
-        component_ids: &[ComponentId],
-        components: &Components,
+        component_ids: &[DataId],
+        components: &WorldData,
     ) -> TableId {
         let tables = &mut self.tables;
         let (_key, value) = self
@@ -923,7 +923,7 @@ mod tests {
     use crate::ptr::OwningPtr;
     use crate::storage::Storages;
     use crate::{
-        component::{Components, Tick},
+        component::{Tick, WorldData},
         entity::Entity,
         storage::{TableBuilder, TableRow},
     };
@@ -932,7 +932,7 @@ mod tests {
 
     #[test]
     fn table() {
-        let mut components = Components::default();
+        let mut components = WorldData::default();
         let mut storages = Storages::default();
         let component_id = components.init_component::<W<TableRow>>(&mut storages);
         let columns = &[component_id];

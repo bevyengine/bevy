@@ -2,7 +2,7 @@ use crate::{
     archetype::{Archetype, ArchetypeId, Archetypes},
     bundle::{Bundle, BundleInfo, BundleInserter, DynamicBundle},
     change_detection::MutUntyped,
-    component::{Component, ComponentId, ComponentTicks, Components, StorageType},
+    component::{Component, ComponentTicks, DataId, StorageType, WorldData},
     entity::{Entities, Entity, EntityLocation},
     query::{Access, DebugCheckedUnwrap},
     removal_detection::RemovedComponentEvents,
@@ -83,10 +83,10 @@ impl<'w> EntityRef<'w> {
     /// ## Notes
     ///
     /// - If you know the concrete type of the component, you should prefer [`Self::contains`].
-    /// - If you know the component's [`TypeId`] but not its [`ComponentId`], consider using
+    /// - If you know the component's [`TypeId`] but not its [`DataId`], consider using
     /// [`Self::contains_type_id`].
     #[inline]
-    pub fn contains_id(&self, component_id: ComponentId) -> bool {
+    pub fn contains_id(&self, component_id: DataId) -> bool {
         self.0.contains_id(component_id)
     }
 
@@ -96,7 +96,7 @@ impl<'w> EntityRef<'w> {
     /// ## Notes
     ///
     /// - If you know the concrete type of the component, you should prefer [`Self::contains`].
-    /// - If you have a [`ComponentId`] instead of a [`TypeId`], consider using [`Self::contains_id`].
+    /// - If you have a [`DataId`] instead of a [`TypeId`], consider using [`Self::contains_id`].
     #[inline]
     pub fn contains_type_id(&self, type_id: TypeId) -> bool {
         self.0.contains_type_id(type_id)
@@ -128,19 +128,19 @@ impl<'w> EntityRef<'w> {
         unsafe { self.0.get_change_ticks::<T>() }
     }
 
-    /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
+    /// Retrieves the change ticks for the given [`DataId`]. This can be useful for implementing change
     /// detection in custom runtimes.
     ///
     /// **You should prefer to use the typed API [`EntityRef::get_change_ticks`] where possible and only
     /// use this in cases where the actual component types are not known at
     /// compile time.**
     #[inline]
-    pub fn get_change_ticks_by_id(&self, component_id: ComponentId) -> Option<ComponentTicks> {
+    pub fn get_change_ticks_by_id(&self, component_id: DataId) -> Option<ComponentTicks> {
         // SAFETY: We have read-only access to all components of this entity.
         unsafe { self.0.get_change_ticks_by_id(component_id) }
     }
 
-    /// Gets the component of the given [`ComponentId`] from the entity.
+    /// Gets the component of the given [`DataId`] from the entity.
     ///
     /// **You should prefer to use the typed API where possible and only
     /// use this in cases where the actual component types are not known at
@@ -149,7 +149,7 @@ impl<'w> EntityRef<'w> {
     /// Unlike [`EntityRef::get`], this returns a raw pointer to the component,
     /// which is only valid while the `'w` borrow of the lifetime is active.
     #[inline]
-    pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'w>> {
+    pub fn get_by_id(&self, component_id: DataId) -> Option<Ptr<'w>> {
         // SAFETY: We have read-only access to all components of this entity.
         unsafe { self.0.get_by_id(component_id) }
     }
@@ -270,10 +270,10 @@ impl<'w> EntityMut<'w> {
     /// ## Notes
     ///
     /// - If you know the concrete type of the component, you should prefer [`Self::contains`].
-    /// - If you know the component's [`TypeId`] but not its [`ComponentId`], consider using
+    /// - If you know the component's [`TypeId`] but not its [`DataId`], consider using
     /// [`Self::contains_type_id`].
     #[inline]
-    pub fn contains_id(&self, component_id: ComponentId) -> bool {
+    pub fn contains_id(&self, component_id: DataId) -> bool {
         self.0.contains_id(component_id)
     }
 
@@ -283,7 +283,7 @@ impl<'w> EntityMut<'w> {
     /// ## Notes
     ///
     /// - If you know the concrete type of the component, you should prefer [`Self::contains`].
-    /// - If you have a [`ComponentId`] instead of a [`TypeId`], consider using [`Self::contains_id`].
+    /// - If you have a [`DataId`] instead of a [`TypeId`], consider using [`Self::contains_id`].
     #[inline]
     pub fn contains_type_id(&self, type_id: TypeId) -> bool {
         self.0.contains_type_id(type_id)
@@ -320,18 +320,18 @@ impl<'w> EntityMut<'w> {
         self.as_readonly().get_change_ticks::<T>()
     }
 
-    /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
+    /// Retrieves the change ticks for the given [`DataId`]. This can be useful for implementing change
     /// detection in custom runtimes.
     ///
     /// **You should prefer to use the typed API [`EntityWorldMut::get_change_ticks`] where possible and only
     /// use this in cases where the actual component types are not known at
     /// compile time.**
     #[inline]
-    pub fn get_change_ticks_by_id(&self, component_id: ComponentId) -> Option<ComponentTicks> {
+    pub fn get_change_ticks_by_id(&self, component_id: DataId) -> Option<ComponentTicks> {
         self.as_readonly().get_change_ticks_by_id(component_id)
     }
 
-    /// Gets the component of the given [`ComponentId`] from the entity.
+    /// Gets the component of the given [`DataId`] from the entity.
     ///
     /// **You should prefer to use the typed API [`EntityWorldMut::get`] where possible and only
     /// use this in cases where the actual component types are not known at
@@ -340,11 +340,11 @@ impl<'w> EntityMut<'w> {
     /// Unlike [`EntityMut::get`], this returns a raw pointer to the component,
     /// which is only valid while the [`EntityMut`] is alive.
     #[inline]
-    pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
+    pub fn get_by_id(&self, component_id: DataId) -> Option<Ptr<'_>> {
         self.as_readonly().get_by_id(component_id)
     }
 
-    /// Gets a [`MutUntyped`] of the component of the given [`ComponentId`] from the entity.
+    /// Gets a [`MutUntyped`] of the component of the given [`DataId`] from the entity.
     ///
     /// **You should prefer to use the typed API [`EntityMut::get_mut`] where possible and only
     /// use this in cases where the actual component types are not known at
@@ -353,7 +353,7 @@ impl<'w> EntityMut<'w> {
     /// Unlike [`EntityMut::get_mut`], this returns a raw pointer to the component,
     /// which is only valid while the [`EntityMut`] is alive.
     #[inline]
-    pub fn get_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
+    pub fn get_mut_by_id(&mut self, component_id: DataId) -> Option<MutUntyped<'_>> {
         // SAFETY:
         // - `&mut self` ensures that no references exist to this entity's components.
         // - `as_unsafe_world_cell` gives mutable permission for all components on this entity
@@ -473,10 +473,10 @@ impl<'w> EntityWorldMut<'w> {
     /// ## Notes
     ///
     /// - If you know the concrete type of the component, you should prefer [`Self::contains`].
-    /// - If you know the component's [`TypeId`] but not its [`ComponentId`], consider using
+    /// - If you know the component's [`TypeId`] but not its [`DataId`], consider using
     /// [`Self::contains_type_id`].
     #[inline]
-    pub fn contains_id(&self, component_id: ComponentId) -> bool {
+    pub fn contains_id(&self, component_id: DataId) -> bool {
         self.as_unsafe_entity_cell_readonly()
             .contains_id(component_id)
     }
@@ -487,7 +487,7 @@ impl<'w> EntityWorldMut<'w> {
     /// ## Notes
     ///
     /// - If you know the concrete type of the component, you should prefer [`Self::contains`].
-    /// - If you have a [`ComponentId`] instead of a [`TypeId`], consider using [`Self::contains_id`].
+    /// - If you have a [`DataId`] instead of a [`TypeId`], consider using [`Self::contains_id`].
     #[inline]
     pub fn contains_type_id(&self, type_id: TypeId) -> bool {
         self.as_unsafe_entity_cell_readonly()
@@ -525,18 +525,18 @@ impl<'w> EntityWorldMut<'w> {
         EntityRef::from(self).get_change_ticks::<T>()
     }
 
-    /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
+    /// Retrieves the change ticks for the given [`DataId`]. This can be useful for implementing change
     /// detection in custom runtimes.
     ///
     /// **You should prefer to use the typed API [`EntityWorldMut::get_change_ticks`] where possible and only
     /// use this in cases where the actual component types are not known at
     /// compile time.**
     #[inline]
-    pub fn get_change_ticks_by_id(&self, component_id: ComponentId) -> Option<ComponentTicks> {
+    pub fn get_change_ticks_by_id(&self, component_id: DataId) -> Option<ComponentTicks> {
         EntityRef::from(self).get_change_ticks_by_id(component_id)
     }
 
-    /// Gets the component of the given [`ComponentId`] from the entity.
+    /// Gets the component of the given [`DataId`] from the entity.
     ///
     /// **You should prefer to use the typed API [`EntityWorldMut::get`] where possible and only
     /// use this in cases where the actual component types are not known at
@@ -545,11 +545,11 @@ impl<'w> EntityWorldMut<'w> {
     /// Unlike [`EntityWorldMut::get`], this returns a raw pointer to the component,
     /// which is only valid while the [`EntityWorldMut`] is alive.
     #[inline]
-    pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
+    pub fn get_by_id(&self, component_id: DataId) -> Option<Ptr<'_>> {
         EntityRef::from(self).get_by_id(component_id)
     }
 
-    /// Gets a [`MutUntyped`] of the component of the given [`ComponentId`] from the entity.
+    /// Gets a [`MutUntyped`] of the component of the given [`DataId`] from the entity.
     ///
     /// **You should prefer to use the typed API [`EntityWorldMut::get_mut`] where possible and only
     /// use this in cases where the actual component types are not known at
@@ -558,7 +558,7 @@ impl<'w> EntityWorldMut<'w> {
     /// Unlike [`EntityWorldMut::get_mut`], this returns a raw pointer to the component,
     /// which is only valid while the [`EntityWorldMut`] is alive.
     #[inline]
-    pub fn get_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
+    pub fn get_mut_by_id(&mut self, component_id: DataId) -> Option<MutUntyped<'_>> {
         // SAFETY:
         // - `&mut self` ensures that no references exist to this entity's components.
         // - `as_unsafe_world_cell` gives mutable permission for all components on this entity
@@ -573,11 +573,11 @@ impl<'w> EntityWorldMut<'w> {
         let bundle_info = self
             .world
             .bundles
-            .init_info::<T>(&mut self.world.components, &mut self.world.storages);
+            .init_info::<T>(&mut self.world.world_data, &mut self.world.storages);
         let mut bundle_inserter = bundle_info.get_bundle_inserter(
             &mut self.world.entities,
             &mut self.world.archetypes,
-            &self.world.components,
+            &self.world.world_data,
             &mut self.world.storages,
             self.location.archetype_id,
             change_tick,
@@ -598,23 +598,23 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// # Safety
     ///
-    /// - [`ComponentId`] must be from the same world as [`EntityWorldMut`]
-    /// - [`OwningPtr`] must be a valid reference to the type represented by [`ComponentId`]
+    /// - [`DataId`] must be from the same world as [`EntityWorldMut`]
+    /// - [`OwningPtr`] must be a valid reference to the type represented by [`DataId`]
     pub unsafe fn insert_by_id(
         &mut self,
-        component_id: ComponentId,
+        component_id: DataId,
         component: OwningPtr<'_>,
     ) -> &mut Self {
         let change_tick = self.world.change_tick();
 
         let bundles = &mut self.world.bundles;
-        let components = &mut self.world.components;
+        let components = &mut self.world.world_data;
 
         let (bundle_info, storage_type) = bundles.init_component_info(components, component_id);
         let bundle_inserter = bundle_info.get_bundle_inserter(
             &mut self.world.entities,
             &mut self.world.archetypes,
-            &self.world.components,
+            &self.world.world_data,
             &mut self.world.storages,
             self.location.archetype_id,
             change_tick,
@@ -638,26 +638,26 @@ impl<'w> EntityWorldMut<'w> {
     /// You should prefer to use the typed API [`EntityWorldMut::insert`] where possible.
     /// If your [`Bundle`] only has one component, use the cached API [`EntityWorldMut::insert_by_id`].
     ///
-    /// If possible, pass a sorted slice of `ComponentId` to maximize caching potential.
+    /// If possible, pass a sorted slice of `DataId` to maximize caching potential.
     ///
     /// # Safety
-    /// - Each [`ComponentId`] must be from the same world as [`EntityWorldMut`]
-    /// - Each [`OwningPtr`] must be a valid reference to the type represented by [`ComponentId`]
+    /// - Each [`DataId`] must be from the same world as [`EntityWorldMut`]
+    /// - Each [`OwningPtr`] must be a valid reference to the type represented by [`DataId`]
     pub unsafe fn insert_by_ids<'a, I: Iterator<Item = OwningPtr<'a>>>(
         &mut self,
-        component_ids: &[ComponentId],
+        component_ids: &[DataId],
         iter_components: I,
     ) -> &mut Self {
         let change_tick = self.world.change_tick();
 
         let bundles = &mut self.world.bundles;
-        let components = &mut self.world.components;
+        let components = &mut self.world.world_data;
 
         let (bundle_info, storage_types) = bundles.init_dynamic_info(components, component_ids);
         let bundle_inserter = bundle_info.get_bundle_inserter(
             &mut self.world.entities,
             &mut self.world.archetypes,
-            &self.world.components,
+            &self.world.world_data,
             &mut self.world.storages,
             self.location.archetype_id,
             change_tick,
@@ -683,7 +683,7 @@ impl<'w> EntityWorldMut<'w> {
     pub fn take<T: Bundle>(&mut self) -> Option<T> {
         let archetypes = &mut self.world.archetypes;
         let storages = &mut self.world.storages;
-        let components = &mut self.world.components;
+        let components = &mut self.world.world_data;
         let entities = &mut self.world.entities;
         let removed_components = &mut self.world.removed_components;
 
@@ -838,7 +838,7 @@ impl<'w> EntityWorldMut<'w> {
         bundle_info: &BundleInfo,
         archetypes: &mut Archetypes,
         storages: &mut Storages,
-        components: &Components,
+        components: &WorldData,
         entities: &mut Entities,
         removed_components: &mut RemovedComponentEvents,
     ) {
@@ -896,7 +896,7 @@ impl<'w> EntityWorldMut<'w> {
     pub fn remove<T: Bundle>(&mut self) -> &mut Self {
         let archetypes = &mut self.world.archetypes;
         let storages = &mut self.world.storages;
-        let components = &mut self.world.components;
+        let components = &mut self.world.world_data;
         let entities = &mut self.world.entities;
         let removed_components = &mut self.world.removed_components;
 
@@ -928,7 +928,7 @@ impl<'w> EntityWorldMut<'w> {
     pub fn retain<T: Bundle>(&mut self) -> &mut Self {
         let archetypes = &mut self.world.archetypes;
         let storages = &mut self.world.storages;
-        let components = &mut self.world.components;
+        let components = &mut self.world.world_data;
         let entities = &mut self.world.entities;
         let removed_components = &mut self.world.removed_components;
 
@@ -1500,7 +1500,7 @@ impl<'w, 'a, T: Component> VacantEntry<'w, 'a, T> {
 #[derive(Clone)]
 pub struct FilteredEntityRef<'w> {
     entity: UnsafeEntityCell<'w>,
-    access: Access<ComponentId>,
+    access: Access<DataId>,
 }
 
 impl<'w> FilteredEntityRef<'w> {
@@ -1509,7 +1509,7 @@ impl<'w> FilteredEntityRef<'w> {
     /// - If `access` takes read access to a component no mutable reference to that
     /// component can exist at the same time as the returned [`FilteredEntityMut`]
     /// - If `access` takes any access for a component `entity` must have that component.
-    pub(crate) unsafe fn new(entity: UnsafeEntityCell<'w>, access: Access<ComponentId>) -> Self {
+    pub(crate) unsafe fn new(entity: UnsafeEntityCell<'w>, access: Access<DataId>) -> Self {
         Self { entity, access }
     }
 
@@ -1534,13 +1534,13 @@ impl<'w> FilteredEntityRef<'w> {
 
     /// Returns an iterator over the component ids that are accessed by self.
     #[inline]
-    pub fn components(&self) -> impl Iterator<Item = ComponentId> + '_ {
+    pub fn components(&self) -> impl Iterator<Item = DataId> + '_ {
         self.access.reads_and_writes()
     }
 
     /// Returns a reference to the underlying [`Access`].
     #[inline]
-    pub fn access(&self) -> &Access<ComponentId> {
+    pub fn access(&self) -> &Access<DataId> {
         &self.access
     }
 
@@ -1562,10 +1562,10 @@ impl<'w> FilteredEntityRef<'w> {
     /// ## Notes
     ///
     /// - If you know the concrete type of the component, you should prefer [`Self::contains`].
-    /// - If you know the component's [`TypeId`] but not its [`ComponentId`], consider using
+    /// - If you know the component's [`TypeId`] but not its [`DataId`], consider using
     /// [`Self::contains_type_id`].
     #[inline]
-    pub fn contains_id(&self, component_id: ComponentId) -> bool {
+    pub fn contains_id(&self, component_id: DataId) -> bool {
         self.entity.contains_id(component_id)
     }
 
@@ -1575,7 +1575,7 @@ impl<'w> FilteredEntityRef<'w> {
     /// ## Notes
     ///
     /// - If you know the concrete type of the component, you should prefer [`Self::contains`].
-    /// - If you have a [`ComponentId`] instead of a [`TypeId`], consider using [`Self::contains_id`].
+    /// - If you have a [`DataId`] instead of a [`TypeId`], consider using [`Self::contains_id`].
     #[inline]
     pub fn contains_type_id(&self, type_id: TypeId) -> bool {
         self.entity.contains_type_id(type_id)
@@ -1622,14 +1622,14 @@ impl<'w> FilteredEntityRef<'w> {
             .then(|| unsafe { self.entity.get_change_ticks::<T>().debug_checked_unwrap() })
     }
 
-    /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
+    /// Retrieves the change ticks for the given [`DataId`]. This can be useful for implementing change
     /// detection in custom runtimes.
     ///
     /// **You should prefer to use the typed API [`Self::get_change_ticks`] where possible and only
     /// use this in cases where the actual component types are not known at
     /// compile time.**
     #[inline]
-    pub fn get_change_ticks_by_id(&self, component_id: ComponentId) -> Option<ComponentTicks> {
+    pub fn get_change_ticks_by_id(&self, component_id: DataId) -> Option<ComponentTicks> {
         // SAFETY: We have read access so we must have the component
         self.access.has_read(component_id).then(|| unsafe {
             self.entity
@@ -1638,7 +1638,7 @@ impl<'w> FilteredEntityRef<'w> {
         })
     }
 
-    /// Gets the component of the given [`ComponentId`] from the entity.
+    /// Gets the component of the given [`DataId`] from the entity.
     ///
     /// **You should prefer to use the typed API [`Self::get`] where possible and only
     /// use this in cases where the actual component types are not known at
@@ -1647,7 +1647,7 @@ impl<'w> FilteredEntityRef<'w> {
     /// Unlike [`FilteredEntityRef::get`], this returns a raw pointer to the component,
     /// which is only valid while the [`FilteredEntityRef`] is alive.
     #[inline]
-    pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'w>> {
+    pub fn get_by_id(&self, component_id: DataId) -> Option<Ptr<'w>> {
         self.access
             .has_read(component_id)
             // SAFETY: We have read access so we must have the component
@@ -1674,7 +1674,7 @@ impl<'a> From<&'a FilteredEntityMut<'_>> for FilteredEntityRef<'a> {
 /// Provides mutable access to a single entity and some of its components defined by the contained [`Access`].
 pub struct FilteredEntityMut<'w> {
     entity: UnsafeEntityCell<'w>,
-    access: Access<ComponentId>,
+    access: Access<DataId>,
 }
 
 impl<'w> FilteredEntityMut<'w> {
@@ -1685,7 +1685,7 @@ impl<'w> FilteredEntityMut<'w> {
     /// - If `access` takes write access to a component, no reference to that component
     /// may exist at the same time as the returned [`FilteredEntityMut`]
     /// - If `access` takes any access for a component `entity` must have that component.
-    pub(crate) unsafe fn new(entity: UnsafeEntityCell<'w>, access: Access<ComponentId>) -> Self {
+    pub(crate) unsafe fn new(entity: UnsafeEntityCell<'w>, access: Access<DataId>) -> Self {
         Self { entity, access }
     }
 
@@ -1722,13 +1722,13 @@ impl<'w> FilteredEntityMut<'w> {
 
     /// Returns an iterator over the component ids that are accessed by self.
     #[inline]
-    pub fn components(&self) -> impl Iterator<Item = ComponentId> + '_ {
+    pub fn components(&self) -> impl Iterator<Item = DataId> + '_ {
         self.access.reads_and_writes()
     }
 
     /// Returns a reference to the underlying [`Access`].
     #[inline]
-    pub fn access(&self) -> &Access<ComponentId> {
+    pub fn access(&self) -> &Access<DataId> {
         &self.access
     }
 
@@ -1750,10 +1750,10 @@ impl<'w> FilteredEntityMut<'w> {
     /// ## Notes
     ///
     /// - If you know the concrete type of the component, you should prefer [`Self::contains`].
-    /// - If you know the component's [`TypeId`] but not its [`ComponentId`], consider using
+    /// - If you know the component's [`TypeId`] but not its [`DataId`], consider using
     /// [`Self::contains_type_id`].
     #[inline]
-    pub fn contains_id(&self, component_id: ComponentId) -> bool {
+    pub fn contains_id(&self, component_id: DataId) -> bool {
         self.entity.contains_id(component_id)
     }
 
@@ -1763,7 +1763,7 @@ impl<'w> FilteredEntityMut<'w> {
     /// ## Notes
     ///
     /// - If you know the concrete type of the component, you should prefer [`Self::contains`].
-    /// - If you have a [`ComponentId`] instead of a [`TypeId`], consider using [`Self::contains_id`].
+    /// - If you have a [`DataId`] instead of a [`TypeId`], consider using [`Self::contains_id`].
     #[inline]
     pub fn contains_type_id(&self, type_id: TypeId) -> bool {
         self.entity.contains_type_id(type_id)
@@ -1805,18 +1805,18 @@ impl<'w> FilteredEntityMut<'w> {
         self.as_readonly().get_change_ticks::<T>()
     }
 
-    /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
+    /// Retrieves the change ticks for the given [`DataId`]. This can be useful for implementing change
     /// detection in custom runtimes.
     ///
     /// **You should prefer to use the typed API [`Self::get_change_ticks`] where possible and only
     /// use this in cases where the actual component types are not known at
     /// compile time.**
     #[inline]
-    pub fn get_change_ticks_by_id(&self, component_id: ComponentId) -> Option<ComponentTicks> {
+    pub fn get_change_ticks_by_id(&self, component_id: DataId) -> Option<ComponentTicks> {
         self.as_readonly().get_change_ticks_by_id(component_id)
     }
 
-    /// Gets the component of the given [`ComponentId`] from the entity.
+    /// Gets the component of the given [`DataId`] from the entity.
     ///
     /// **You should prefer to use the typed API [`Self::get`] where possible and only
     /// use this in cases where the actual component types are not known at
@@ -1825,11 +1825,11 @@ impl<'w> FilteredEntityMut<'w> {
     /// Unlike [`FilteredEntityMut::get`], this returns a raw pointer to the component,
     /// which is only valid while the [`FilteredEntityMut`] is alive.
     #[inline]
-    pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
+    pub fn get_by_id(&self, component_id: DataId) -> Option<Ptr<'_>> {
         self.as_readonly().get_by_id(component_id)
     }
 
-    /// Gets a [`MutUntyped`] of the component of the given [`ComponentId`] from the entity.
+    /// Gets a [`MutUntyped`] of the component of the given [`DataId`] from the entity.
     ///
     /// **You should prefer to use the typed API [`Self::get_mut`] where possible and only
     /// use this in cases where the actual component types are not known at
@@ -1838,7 +1838,7 @@ impl<'w> FilteredEntityMut<'w> {
     /// Unlike [`FilteredEntityMut::get_mut`], this returns a raw pointer to the component,
     /// which is only valid while the [`FilteredEntityMut`] is alive.
     #[inline]
-    pub fn get_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
+    pub fn get_mut_by_id(&mut self, component_id: DataId) -> Option<MutUntyped<'_>> {
         // SAFETY: We have write access so we must have the component
         self.access.has_write(component_id).then(|| unsafe {
             self.entity
@@ -1898,7 +1898,7 @@ unsafe fn insert_dynamic_bundle<
 unsafe fn remove_bundle_from_archetype(
     archetypes: &mut Archetypes,
     storages: &mut Storages,
-    components: &Components,
+    components: &WorldData,
     archetype_id: ArchetypeId,
     bundle_info: &BundleInfo,
     intersection: bool,
@@ -2015,9 +2015,9 @@ fn sorted_remove<T: Eq + Ord + Copy>(source: &mut Vec<T>, remove: &[T]) {
 #[inline]
 pub(crate) unsafe fn take_component<'a>(
     storages: &'a mut Storages,
-    components: &Components,
+    components: &WorldData,
     removed_components: &mut RemovedComponentEvents,
-    component_id: ComponentId,
+    component_id: DataId,
     entity: Entity,
     location: EntityLocation,
 ) -> OwningPtr<'a> {
@@ -2050,7 +2050,7 @@ mod tests {
     use bevy_ptr::OwningPtr;
     use std::panic::AssertUnwindSafe;
 
-    use crate::{self as bevy_ecs, component::ComponentId, prelude::*, system::assert_is_system};
+    use crate::{self as bevy_ecs, component::DataId, prelude::*, system::assert_is_system};
 
     #[test]
     fn sorted_remove() {
@@ -2126,7 +2126,7 @@ mod tests {
 
     #[test]
     fn entity_ref_get_by_id_invalid_component_id() {
-        let invalid_component_id = ComponentId::new(usize::MAX);
+        let invalid_component_id = DataId::new(usize::MAX);
 
         let mut world = World::new();
         let entity = world.spawn_empty().id();
@@ -2136,7 +2136,7 @@ mod tests {
 
     #[test]
     fn entity_mut_get_by_id_invalid_component_id() {
-        let invalid_component_id = ComponentId::new(usize::MAX);
+        let invalid_component_id = DataId::new(usize::MAX);
 
         let mut world = World::new();
         let mut entity = world.spawn_empty();

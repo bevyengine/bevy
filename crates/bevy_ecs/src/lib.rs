@@ -61,7 +61,7 @@ mod tests {
     use crate::{
         bundle::Bundle,
         change_detection::Ref,
-        component::{Component, ComponentId},
+        component::{Component, DataId},
         entity::Entity,
         query::{Added, Changed, FilteredAccess, QueryFilter, With, Without},
         system::Resource,
@@ -147,7 +147,7 @@ mod tests {
         }
         let mut ids = Vec::new();
         <FooBundle as Bundle>::component_ids(
-            &mut world.components,
+            &mut world.world_data,
             &mut world.storages,
             &mut |id| {
                 ids.push(id);
@@ -201,7 +201,7 @@ mod tests {
 
         let mut ids = Vec::new();
         <NestedBundle as Bundle>::component_ids(
-            &mut world.components,
+            &mut world.world_data,
             &mut world.storages,
             &mut |id| {
                 ids.push(id);
@@ -257,7 +257,7 @@ mod tests {
 
         let mut ids = Vec::new();
         <BundleWithIgnored as Bundle>::component_ids(
-            &mut world.components,
+            &mut world.world_data,
             &mut world.storages,
             &mut |id| {
                 ids.push(id);
@@ -1372,14 +1372,14 @@ mod tests {
         let mut world = World::new();
         let query = world.query_filtered::<&mut A, Changed<B>>();
 
-        let mut expected = FilteredAccess::<ComponentId>::default();
-        let a_id = world.components.get_id(TypeId::of::<A>()).unwrap();
-        let b_id = world.components.get_id(TypeId::of::<B>()).unwrap();
+        let mut expected = FilteredAccess::<DataId>::default();
+        let a_id = world.world_data.get_id(TypeId::of::<A>()).unwrap();
+        let b_id = world.world_data.get_id(TypeId::of::<B>()).unwrap();
         expected.add_write(a_id);
         expected.add_read(b_id);
         assert!(
             query.component_access.eq(&expected),
-            "ComponentId access from query fetch and query filter should be combined"
+            "DataId access from query fetch and query filter should be combined"
         );
     }
 

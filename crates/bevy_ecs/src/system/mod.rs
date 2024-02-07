@@ -96,7 +96,7 @@
 //! - [`SystemChangeTick`]
 //! - [`Archetypes`](crate::archetype::Archetypes) (Provides Archetype metadata)
 //! - [`Bundles`](crate::bundle::Bundles) (Provides Bundles metadata)
-//! - [`Components`](crate::component::Components) (Provides Components metadata)
+//! - [`WorldData`](crate::component::WorldData) (Provides Components & Resources metadata)
 //! - [`Entities`](crate::entity::Entities) (Provides Entities metadata)
 //! - All tuples between 1 to 16 elements where each element implements [`SystemParam`]
 //! - [`()` (unit primitive type)](https://doc.rust-lang.org/stable/std/primitive.unit.html)
@@ -335,7 +335,7 @@ mod tests {
         archetype::{ArchetypeComponentId, Archetypes},
         bundle::Bundles,
         change_detection::DetectChanges,
-        component::{Component, Components, Tick},
+        component::{Component, Tick, WorldData},
         entity::{Entities, Entity},
         prelude::AnyOf,
         query::{Added, Changed, Or, With, Without},
@@ -1019,7 +1019,7 @@ mod tests {
         world.spawn((W(42), W(true)));
         fn sys(
             archetypes: &Archetypes,
-            components: &Components,
+            components: &WorldData,
             entities: &Entities,
             bundles: &Bundles,
             query: Query<Entity, With<W<i32>>>,
@@ -1039,7 +1039,7 @@ mod tests {
                 for component_id in &bundle_components {
                     assert!(
                         components.get_info(*component_id).is_some(),
-                        "every bundle component exists in Components"
+                        "every bundle component exists in WorldData"
                     );
                 }
                 assert_eq!(

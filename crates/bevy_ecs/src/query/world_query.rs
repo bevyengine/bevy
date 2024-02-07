@@ -1,6 +1,6 @@
 use crate::{
     archetype::Archetype,
-    component::{ComponentId, Tick},
+    component::{DataId, Tick},
     entity::Entity,
     query::FilteredAccess,
     storage::{Table, TableRow},
@@ -103,7 +103,7 @@ pub unsafe trait WorldQuery {
     /// or [`FilteredEntityMut`](crate::world::FilteredEntityMut).
     ///
     /// Called when constructing a [`QueryLens`](crate::system::QueryLens) or calling [`QueryState::from_builder`](super::QueryState::from_builder)
-    fn set_access(_state: &mut Self::State, _access: &FilteredAccess<ComponentId>) {}
+    fn set_access(_state: &mut Self::State, _access: &FilteredAccess<DataId>) {}
 
     /// Fetch [`Self::Item`](`WorldQuery::Item`) for either the given `entity` in the current [`Table`],
     /// or for the given `entity` in the current [`Archetype`]. This must always be called after
@@ -123,7 +123,7 @@ pub unsafe trait WorldQuery {
     /// Adds any component accesses used by this [`WorldQuery`] to `access`.
     // This does not have a default body of `{}` because 99% of cases need to add accesses
     // and forgetting to do so would be unsound.
-    fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>);
+    fn update_component_access(state: &Self::State, access: &mut FilteredAccess<DataId>);
 
     /// Creates and initializes a [`State`](WorldQuery::State) for this [`WorldQuery`] type.
     fn init_state(world: &mut World) -> Self::State;
@@ -134,7 +134,7 @@ pub unsafe trait WorldQuery {
     /// Returns `true` if this query matches a set of components. Otherwise, returns `false`.
     fn matches_component_set(
         state: &Self::State,
-        set_contains_id: &impl Fn(ComponentId) -> bool,
+        set_contains_id: &impl Fn(DataId) -> bool,
     ) -> bool;
 }
 
@@ -199,7 +199,7 @@ macro_rules! impl_tuple_world_query {
                 ($($name::fetch($name, _entity, _table_row),)*)
             }
 
-            fn update_component_access(state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {
+            fn update_component_access(state: &Self::State, _access: &mut FilteredAccess<DataId>) {
                 let ($($name,)*) = state;
                 $($name::update_component_access($name, _access);)*
             }
@@ -212,7 +212,7 @@ macro_rules! impl_tuple_world_query {
                 Some(($($name::get_state(_world)?,)*))
             }
 
-            fn matches_component_set(state: &Self::State, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
+            fn matches_component_set(state: &Self::State, _set_contains_id: &impl Fn(DataId) -> bool) -> bool {
                 let ($($name,)*) = state;
                 true $(&& $name::matches_component_set($name, _set_contains_id))*
             }

@@ -1,6 +1,6 @@
 use crate::{
     archetype::ArchetypeComponentId,
-    component::{ComponentId, Tick},
+    component::{DataId, Tick},
     query::Access,
     schedule::{InternedSystemSet, SystemSet},
     system::{
@@ -71,7 +71,7 @@ where
     }
 
     #[inline]
-    fn component_access(&self) -> &Access<ComponentId> {
+    fn component_access(&self) -> &Access<DataId> {
         self.system_meta.component_access_set.combined_access()
     }
 

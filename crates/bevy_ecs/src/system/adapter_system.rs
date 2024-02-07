@@ -85,7 +85,7 @@ where
         std::any::TypeId::of::<Self>()
     }
 
-    fn component_access(&self) -> &crate::query::Access<crate::component::ComponentId> {
+    fn component_access(&self) -> &crate::query::Access<crate::component::DataId> {
         self.system.component_access()
     }
 

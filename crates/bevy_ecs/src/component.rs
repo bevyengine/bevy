@@ -205,15 +205,15 @@ pub enum StorageType {
 
 /// Stores metadata for a type of component or resource stored in a specific [`World`].
 #[derive(Debug, Clone)]
-pub struct ComponentInfo {
-    id: ComponentId,
-    descriptor: ComponentDescriptor,
+pub struct DataInfo {
+    id: DataId,
+    descriptor: DataDescriptor,
 }
 
-impl ComponentInfo {
+impl DataInfo {
     /// Returns a value uniquely identifying the current component.
     #[inline]
-    pub fn id(&self) -> ComponentId {
+    pub fn id(&self) -> DataId {
         self.id
     }
 
@@ -262,8 +262,8 @@ impl ComponentInfo {
     }
 
     /// Create a new [`ComponentInfo`].
-    pub(crate) fn new(id: ComponentId, descriptor: ComponentDescriptor) -> Self {
-        ComponentInfo { id, descriptor }
+    pub(crate) fn new(id: DataId, descriptor: DataDescriptor) -> Self {
+        DataInfo { id, descriptor }
     }
 }
 
@@ -273,37 +273,37 @@ impl ComponentInfo {
 /// Each time a new `Component` type is registered within a `World` using
 /// [`World::init_component`](World::init_component) or
 /// [`World::init_component_with_descriptor`](World::init_component_with_descriptor),
-/// a corresponding `ComponentId` is created to track it.
+/// a corresponding `DataId` is created to track it.
 ///
-/// While the distinction between `ComponentId` and [`TypeId`] may seem superficial, breaking them
+/// While the distinction between `DataId` and [`TypeId`] may seem superficial, breaking them
 /// into two separate but related concepts allows components to exist outside of Rust's type system.
-/// Each Rust type registered as a `Component` will have a corresponding `ComponentId`, but additional
-/// `ComponentId`s may exist in a `World` to track components which cannot be
+/// Each Rust type registered as a `Component` will have a corresponding `DataId`, but additional
+/// `DataId`s may exist in a `World` to track components which cannot be
 /// represented as Rust types for scripting or other advanced use-cases.
 ///
-/// A `ComponentId` is tightly coupled to its parent `World`. Attempting to use a `ComponentId` from
+/// A `DataId` is tightly coupled to its parent `World`. Attempting to use a `DataId` from
 /// one `World` to access the metadata of a `Component` in a different `World` is undefined behavior
 /// and must not be attempted.
 ///
-/// Given a type `T` which implements [`Component`], the `ComponentId` for `T` can be retrieved
-/// from a `World` using [`World::component_id()`] or via [`Components::component_id()`]. Access
-/// to the `ComponentId` for a [`Resource`] is available via [`Components::resource_id()`].
+/// Given a type `T` which implements [`Component`], the `DataId` for `T` can be retrieved
+/// from a `World` using [`World::component_id()`] or via [`WorldData::component_id()`]. Access
+/// to the `DataId` for a [`Resource`] is available via [`WorldData::resource_id()`].
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
     reflect(Debug, Hash, PartialEq)
 )]
-pub struct ComponentId(usize);
+pub struct DataId(usize);
 
-impl ComponentId {
-    /// Creates a new [`ComponentId`].
+impl DataId {
+    /// Creates a new [`DataId`].
     ///
     /// The `index` is a unique value associated with each type of component in a given world.
     /// Usually, this value is taken from a counter incremented for each type of component registered with the world.
     #[inline]
-    pub const fn new(index: usize) -> ComponentId {
-        ComponentId(index)
+    pub const fn new(index: usize) -> DataId {
+        DataId(index)
     }
 
     /// Returns the index of the current component.
@@ -313,7 +313,7 @@ impl ComponentId {
     }
 }
 
-impl SparseSetIndex for ComponentId {
+impl SparseSetIndex for DataId {
     #[inline]
     fn sparse_set_index(&self) -> usize {
         self.index()
@@ -327,7 +327,7 @@ impl SparseSetIndex for ComponentId {
 
 /// A value describing a component or resource, which may or may not correspond to a Rust type.
 #[derive(Clone)]
-pub struct ComponentDescriptor {
+pub struct DataDescriptor {
     name: Cow<'static, str>,
     // SAFETY: This must remain private. It must match the statically known StorageType of the
     // associated rust component type if one exists.
@@ -344,7 +344,7 @@ pub struct ComponentDescriptor {
 }
 
 // We need to ignore the `drop` field in our `Debug` impl
-impl std::fmt::Debug for ComponentDescriptor {
+impl std::fmt::Debug for DataDescriptor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ComponentDescriptor")
             .field("name", &self.name)
@@ -356,7 +356,7 @@ impl std::fmt::Debug for ComponentDescriptor {
     }
 }
 
-impl ComponentDescriptor {
+impl DataDescriptor {
     // SAFETY: The pointer points to a valid value of type `T` and it is safe to drop this value.
     unsafe fn drop_ptr<T>(x: OwningPtr<'_>) {
         x.drop_as::<T>();
@@ -444,32 +444,32 @@ impl ComponentDescriptor {
 
 /// Stores metadata associated with each kind of [`Component`] in a given [`World`].
 #[derive(Debug, Default)]
-pub struct Components {
-    components: Vec<ComponentInfo>,
-    indices: TypeIdMap<ComponentId>,
-    resource_indices: TypeIdMap<ComponentId>,
+pub struct WorldData {
+    data_info: Vec<DataInfo>,
+    indices: TypeIdMap<DataId>,
+    resource_indices: TypeIdMap<DataId>,
 }
 
-impl Components {
+impl WorldData {
     /// Initializes a component of type `T` with this instance.
     /// If a component of this type has already been initialized, this will return
     /// the ID of the pre-existing component.
     ///
     /// # See also
     ///
-    /// * [`Components::component_id()`]
-    /// * [`Components::init_component_with_descriptor()`]
+    /// * [`WorldData::component_id()`]
+    /// * [`WorldData::init_component_with_descriptor()`]
     #[inline]
-    pub fn init_component<T: Component>(&mut self, storages: &mut Storages) -> ComponentId {
+    pub fn init_component<T: Component>(&mut self, storages: &mut Storages) -> DataId {
         let type_id = TypeId::of::<T>();
 
-        let Components {
+        let WorldData {
             indices,
-            components,
+            data_info: components,
             ..
         } = self;
         *indices.entry(type_id).or_insert_with(|| {
-            Components::init_component_inner(components, storages, ComponentDescriptor::new::<T>())
+            WorldData::init_component_inner(components, storages, DataDescriptor::new::<T>())
         })
     }
 
@@ -477,88 +477,88 @@ impl Components {
     ///
     /// ## Note
     ///
-    /// If this method is called multiple times with identical descriptors, a distinct `ComponentId`
+    /// If this method is called multiple times with identical descriptors, a distinct `DataId`
     /// will be created for each one.
     ///
     /// # See also
     ///
-    /// * [`Components::component_id()`]
-    /// * [`Components::init_component()`]
+    /// * [`WorldData::component_id()`]
+    /// * [`WorldData::init_component()`]
     pub fn init_component_with_descriptor(
         &mut self,
         storages: &mut Storages,
-        descriptor: ComponentDescriptor,
-    ) -> ComponentId {
-        Components::init_component_inner(&mut self.components, storages, descriptor)
+        descriptor: DataDescriptor,
+    ) -> DataId {
+        WorldData::init_component_inner(&mut self.data_info, storages, descriptor)
     }
 
     #[inline]
     fn init_component_inner(
-        components: &mut Vec<ComponentInfo>,
+        data_info: &mut Vec<DataInfo>,
         storages: &mut Storages,
-        descriptor: ComponentDescriptor,
-    ) -> ComponentId {
-        let component_id = ComponentId(components.len());
-        let info = ComponentInfo::new(component_id, descriptor);
+        descriptor: DataDescriptor,
+    ) -> DataId {
+        let data_id = DataId(data_info.len());
+        let info = DataInfo::new(data_id, descriptor);
         if info.descriptor.storage_type == StorageType::SparseSet {
             storages.sparse_sets.get_or_insert(&info);
         }
-        components.push(info);
-        component_id
+        data_info.push(info);
+        data_id
     }
 
     /// Returns the number of components registered with this instance.
     #[inline]
     pub fn len(&self) -> usize {
-        self.components.len()
+        self.data_info.len()
     }
 
     /// Returns `true` if there are no components registered with this instance. Otherwise, this returns `false`.
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.components.len() == 0
+        self.data_info.len() == 0
     }
 
     /// Gets the metadata associated with the given component.
     ///
     /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
     #[inline]
-    pub fn get_info(&self, id: ComponentId) -> Option<&ComponentInfo> {
-        self.components.get(id.0)
+    pub fn get_info(&self, id: DataId) -> Option<&DataInfo> {
+        self.data_info.get(id.0)
     }
 
     /// Returns the name associated with the given component.
     ///
     /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
     #[inline]
-    pub fn get_name(&self, id: ComponentId) -> Option<&str> {
+    pub fn get_name(&self, id: DataId) -> Option<&str> {
         self.get_info(id).map(|descriptor| descriptor.name())
     }
 
     /// Gets the metadata associated with the given component.
     /// # Safety
     ///
-    /// `id` must be a valid [`ComponentId`]
+    /// `id` must be a valid [`DataId`]
     #[inline]
-    pub unsafe fn get_info_unchecked(&self, id: ComponentId) -> &ComponentInfo {
-        debug_assert!(id.index() < self.components.len());
-        self.components.get_unchecked(id.0)
+    pub unsafe fn get_info_unchecked(&self, id: DataId) -> &DataInfo {
+        debug_assert!(id.index() < self.data_info.len());
+        self.data_info.get_unchecked(id.0)
     }
 
-    /// Type-erased equivalent of [`Components::component_id()`].
+    /// Type-erased equivalent of [`WorldData::component_id()`].
     #[inline]
-    pub fn get_id(&self, type_id: TypeId) -> Option<ComponentId> {
+    pub fn get_id(&self, type_id: TypeId) -> Option<DataId> {
         self.indices.get(&type_id).copied()
     }
 
-    /// Returns the [`ComponentId`] of the given [`Component`] type `T`.
+    /// Returns the [`DataId`] of the given [`Component`] type `T`.
     ///
-    /// The returned `ComponentId` is specific to the `Components` instance
-    /// it was retrieved from and should not be used with another `Components`
+    /// The returned `DataId` is specific to the `WorldData` instance
+    /// it was retrieved from and should not be used with another `WorldData`
     /// instance.
     ///
     /// Returns [`None`] if the `Component` type has not
-    /// yet been initialized using [`Components::init_component()`].
+    /// yet been initialized using [`WorldData::init_component()`].
     ///
     /// ```
     /// use bevy_ecs::prelude::*;
@@ -575,28 +575,28 @@ impl Components {
     ///
     /// # See also
     ///
-    /// * [`Components::get_id()`]
-    /// * [`Components::resource_id()`]
+    /// * [`WorldData::get_id()`]
+    /// * [`WorldData::resource_id()`]
     /// * [`World::component_id()`]
     #[inline]
-    pub fn component_id<T: Component>(&self) -> Option<ComponentId> {
+    pub fn component_id<T: Component>(&self) -> Option<DataId> {
         self.get_id(TypeId::of::<T>())
     }
 
-    /// Type-erased equivalent of [`Components::resource_id()`].
+    /// Type-erased equivalent of [`WorldData::resource_id()`].
     #[inline]
-    pub fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
+    pub fn get_resource_id(&self, type_id: TypeId) -> Option<DataId> {
         self.resource_indices.get(&type_id).copied()
     }
 
-    /// Returns the [`ComponentId`] of the given [`Resource`] type `T`.
+    /// Returns the [`DataId`] of the given [`Resource`] type `T`.
     ///
-    /// The returned `ComponentId` is specific to the `Components` instance
-    /// it was retrieved from and should not be used with another `Components`
+    /// The returned `DataId` is specific to the `WorldData` instance
+    /// it was retrieved from and should not be used with another `WorldData`
     /// instance.
     ///
     /// Returns [`None`] if the `Resource` type has not
-    /// yet been initialized using [`Components::init_resource()`].
+    /// yet been initialized using [`WorldData::init_resource()`].
     ///
     /// ```
     /// use bevy_ecs::prelude::*;
@@ -613,10 +613,10 @@ impl Components {
     ///
     /// # See also
     ///
-    /// * [`Components::component_id()`]
-    /// * [`Components::get_resource_id()`]
+    /// * [`WorldData::component_id()`]
+    /// * [`WorldData::get_resource_id()`]
     #[inline]
-    pub fn resource_id<T: Resource>(&self) -> Option<ComponentId> {
+    pub fn resource_id<T: Resource>(&self) -> Option<DataId> {
         self.get_resource_id(TypeId::of::<T>())
     }
 
@@ -626,13 +626,13 @@ impl Components {
     ///
     /// # See also
     ///
-    /// * [`Components::resource_id()`]
+    /// * [`WorldData::resource_id()`]
     #[inline]
-    pub fn init_resource<T: Resource>(&mut self) -> ComponentId {
+    pub fn init_resource<T: Resource>(&mut self) -> DataId {
         // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
             self.get_or_insert_resource_with(TypeId::of::<T>(), || {
-                ComponentDescriptor::new_resource::<T>()
+                DataDescriptor::new_resource::<T>()
             })
         }
     }
@@ -641,11 +641,11 @@ impl Components {
     /// If a resource of this type has already been initialized, this will return
     /// the ID of the pre-existing resource.
     #[inline]
-    pub fn init_non_send<T: Any>(&mut self) -> ComponentId {
+    pub fn init_non_send<T: Any>(&mut self) -> DataId {
         // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
             self.get_or_insert_resource_with(TypeId::of::<T>(), || {
-                ComponentDescriptor::new_non_send::<T>(StorageType::default())
+                DataDescriptor::new_non_send::<T>(StorageType::default())
             })
         }
     }
@@ -657,20 +657,20 @@ impl Components {
     unsafe fn get_or_insert_resource_with(
         &mut self,
         type_id: TypeId,
-        func: impl FnOnce() -> ComponentDescriptor,
-    ) -> ComponentId {
-        let components = &mut self.components;
+        func: impl FnOnce() -> DataDescriptor,
+    ) -> DataId {
+        let components = &mut self.data_info;
         *self.resource_indices.entry(type_id).or_insert_with(|| {
             let descriptor = func();
-            let component_id = ComponentId(components.len());
-            components.push(ComponentInfo::new(component_id, descriptor));
+            let component_id = DataId(components.len());
+            components.push(DataInfo::new(component_id, descriptor));
             component_id
         })
     }
 
     /// Gets an iterator over all components registered with this instance.
-    pub fn iter(&self) -> impl Iterator<Item = &ComponentInfo> + '_ {
-        self.components.iter()
+    pub fn iter(&self) -> impl Iterator<Item = &DataInfo> + '_ {
+        self.data_info.iter()
     }
 }
 
@@ -829,53 +829,53 @@ impl ComponentTicks {
     }
 }
 
-/// A [`SystemParam`] that provides access to the [`ComponentId`] for a specific type.
+/// A [`SystemParam`] that provides access to the [`DataId`] for a specific type.
 ///
 /// # Example
 /// ```
-/// # use bevy_ecs::{system::Local, component::{Component, ComponentId, ComponentIdFor}};
+/// # use bevy_ecs::{system::Local, component::{Component, DataId, ComponentIdFor}};
 /// #[derive(Component)]
 /// struct Player;
 /// fn my_system(component_id: ComponentIdFor<Player>) {
-///     let component_id: ComponentId = component_id.get();
+///     let component_id: DataId = component_id.get();
 ///     // ...
 /// }
 /// ```
 #[derive(SystemParam)]
-pub struct ComponentIdFor<'s, T: Component>(Local<'s, InitComponentId<T>>);
+pub struct ComponentIdFor<'s, T: Component>(Local<'s, InitDataId<T>>);
 
 impl<T: Component> ComponentIdFor<'_, T> {
-    /// Gets the [`ComponentId`] for the type `T`.
+    /// Gets the [`DataId`] for the type `T`.
     #[inline]
-    pub fn get(&self) -> ComponentId {
+    pub fn get(&self) -> DataId {
         **self
     }
 }
 
 impl<T: Component> std::ops::Deref for ComponentIdFor<'_, T> {
-    type Target = ComponentId;
+    type Target = DataId;
     fn deref(&self) -> &Self::Target {
-        &self.0.component_id
+        &self.0.data_id
     }
 }
 
-impl<T: Component> From<ComponentIdFor<'_, T>> for ComponentId {
+impl<T: Component> From<ComponentIdFor<'_, T>> for DataId {
     #[inline]
-    fn from(to_component_id: ComponentIdFor<T>) -> ComponentId {
+    fn from(to_component_id: ComponentIdFor<T>) -> DataId {
         *to_component_id
     }
 }
 
-/// Initializes the [`ComponentId`] for a specific type when used with [`FromWorld`].
-struct InitComponentId<T: Component> {
-    component_id: ComponentId,
+/// Initializes the [`DataId`] for a specific type when used with [`FromWorld`].
+struct InitDataId<T: Component> {
+    data_id: DataId,
     marker: PhantomData<T>,
 }
 
-impl<T: Component> FromWorld for InitComponentId<T> {
+impl<T: Component> FromWorld for InitDataId<T> {
     fn from_world(world: &mut World) -> Self {
         Self {
-            component_id: world.init_component::<T>(),
+            data_id: world.init_component::<T>(),
             marker: PhantomData,
         }
     }
