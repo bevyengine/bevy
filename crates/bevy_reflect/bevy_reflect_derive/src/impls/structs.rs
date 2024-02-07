@@ -45,34 +45,11 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
             }
         });
 
-    let field_infos = reflect_struct
-        .active_fields()
-        .map(|field| field.to_info_tokens(bevy_reflect_path));
-
-    #[cfg(feature = "documentation")]
-    let info_generator = {
-        let doc = reflect_struct.meta().doc();
-        quote! {
-            #bevy_reflect_path::StructInfo::new::<Self>(&fields).with_docs(#doc)
-        }
-    };
-
-    #[cfg(not(feature = "documentation"))]
-    let info_generator = {
-        quote! {
-            #bevy_reflect_path::StructInfo::new::<Self>(&fields)
-        }
-    };
-
     let where_clause_options = reflect_struct.where_clause_options();
     let typed_impl = impl_typed(
         reflect_struct.meta(),
         &where_clause_options,
-        quote! {
-            let fields = [#(#field_infos),*];
-            let info = #info_generator;
-            #bevy_reflect_path::TypeInfo::Struct(info)
-        },
+        reflect_struct.to_info_tokens(false),
     );
 
     let type_path_impl = impl_type_path(reflect_struct.meta());

@@ -122,6 +122,28 @@ mod tests {
     }
 
     #[test]
+    fn should_derive_custom_attributes_on_struct_container() {
+        #[derive(Reflect)]
+        #[reflect(@(::bevy_editor::hint = "My awesome custom attribute!"))]
+        struct Slider {
+            value: f32,
+        }
+
+        let TypeInfo::Struct(info) = Slider::type_info() else {
+            panic!("expected struct info");
+        };
+
+        let attributes = info.custom_attributes();
+
+        let hint = attributes
+            .get("::bevy_editor::hint")
+            .unwrap()
+            .value::<&str>();
+
+        assert_eq!(Some(&"My awesome custom attribute!"), hint);
+    }
+
+    #[test]
     fn should_derive_custom_attributes_on_struct_fields() {
         #[derive(Reflect)]
         struct Slider {
@@ -149,6 +171,26 @@ mod tests {
     }
 
     #[test]
+    fn should_derive_custom_attributes_on_tuple_container() {
+        #[derive(Reflect)]
+        #[reflect(@(::bevy_editor::hint = "My awesome custom attribute!"))]
+        struct Slider(f32);
+
+        let TypeInfo::TupleStruct(info) = Slider::type_info() else {
+            panic!("expected tuple struct info");
+        };
+
+        let attributes = info.custom_attributes();
+
+        let hint = attributes
+            .get("::bevy_editor::hint")
+            .unwrap()
+            .value::<&str>();
+
+        assert_eq!(Some(&"My awesome custom attribute!"), hint);
+    }
+
+    #[test]
     fn should_derive_custom_attributes_on_tuple_struct_fields() {
         #[derive(Reflect)]
         struct Slider(
@@ -173,6 +215,30 @@ mod tests {
         assert_eq!(Some(&0.0), min);
         assert_eq!(Some(&1.0), max);
         assert_eq!(Some(&"Range: 0.0 to 1.0"), hint);
+    }
+
+    #[test]
+    fn should_derive_custom_attributes_on_enum_container() {
+        #[derive(Reflect)]
+        #[reflect(@(::bevy_editor::hint = "My awesome custom attribute!"))]
+        enum Color {
+            Transparent,
+            Grayscale(f32),
+            Rgb { r: u8, g: u8, b: u8 },
+        }
+
+        let TypeInfo::Enum(info) = Color::type_info() else {
+            panic!("expected enum info");
+        };
+
+        let attributes = info.custom_attributes();
+
+        let hint = attributes
+            .get("::bevy_editor::hint")
+            .unwrap()
+            .value::<&str>();
+
+        assert_eq!(Some(&"My awesome custom attribute!"), hint);
     }
 
     #[test]

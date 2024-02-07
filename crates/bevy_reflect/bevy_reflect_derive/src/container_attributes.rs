@@ -523,6 +523,10 @@ impl ReflectTraits {
         }
     }
 
+    pub fn custom_attributes(&self) -> &CustomAttributes {
+        &self.custom_attributes
+    }
+
     pub fn custom_where(&self) -> Option<&WhereClause> {
         self.custom_where.as_ref()
     }
@@ -540,6 +544,7 @@ impl ReflectTraits {
         self.partial_eq.merge(other.partial_eq)?;
         self.from_reflect_attrs.merge(other.from_reflect_attrs)?;
         self.type_path_attrs.merge(other.type_path_attrs)?;
+        self.custom_attributes.merge(other.custom_attributes)?;
 
         self.merge_custom_where(other.custom_where);
 
