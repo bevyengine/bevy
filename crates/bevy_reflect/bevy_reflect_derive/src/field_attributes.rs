@@ -4,14 +4,21 @@
 //! as opposed to an entire struct or enum. An example of such an attribute is
 //! the derive helper attribute for `Reflect`, which looks like: `#[reflect(ignore)]`.
 
+use crate::utility::terminated_parser;
 use crate::REFLECT_ATTRIBUTE_NAME;
-use syn::meta::ParseNestedMeta;
-use syn::{Attribute, LitStr, Token};
+use syn::parse::ParseStream;
+use syn::{Attribute, LitStr, Meta, Token};
 
-pub(crate) static IGNORE_SERIALIZATION_ATTR: &str = "skip_serializing";
-pub(crate) static IGNORE_ALL_ATTR: &str = "ignore";
+pub(crate) const IGNORE_SERIALIZATION_ATTR: &str = "skip_serializing";
+pub(crate) const IGNORE_ALL_ATTR: &str = "ignore";
 
-pub(crate) static DEFAULT_ATTR: &str = "default";
+pub(crate) const DEFAULT_ATTR: &str = "default";
+
+mod kw {
+    syn::custom_keyword!(ignore);
+    syn::custom_keyword!(skip_serializing);
+    syn::custom_keyword!(default);
+}
 
 /// Stores data about if the field should be visible via the Reflect and serialization interfaces
 ///
@@ -71,13 +78,21 @@ pub(crate) enum DefaultBehavior {
 /// Parse all field attributes marked "reflect" (such as `#[reflect(ignore)]`).
 pub(crate) fn parse_field_attrs(attrs: &[Attribute]) -> Result<ReflectFieldAttr, syn::Error> {
     let mut args = ReflectFieldAttr::default();
+
     let mut errors: Option<syn::Error> = None;
 
     let attrs = attrs
         .iter()
         .filter(|a| a.path().is_ident(REFLECT_ATTRIBUTE_NAME));
     for attr in attrs {
-        let result = attr.parse_nested_meta(|meta| parse_meta(&mut args, meta));
+        let Meta::List(meta) = &attr.meta else {
+            panic!("unexpected attribute");
+        };
+
+        let result = meta.parse_args_with(terminated_parser(Token![,], |stream| {
+            parse_field_attribute(&mut args, stream)
+        }));
+
         if let Err(err) = result {
             if let Some(ref mut error) = errors {
                 error.combine(err);
@@ -94,53 +109,74 @@ pub(crate) fn parse_field_attrs(attrs: &[Attribute]) -> Result<ReflectFieldAttr,
     }
 }
 
-fn parse_meta(args: &mut ReflectFieldAttr, meta: ParseNestedMeta) -> Result<(), syn::Error> {
-    if meta.path.is_ident(DEFAULT_ATTR) {
-        // Allow:
-        // - `#[reflect(default)]`
-        // - `#[reflect(default = "path::to::func")]`
-        if !matches!(args.default, DefaultBehavior::Required) {
-            return Err(meta.error(format!("only one of [{:?}] is allowed", [DEFAULT_ATTR])));
-        }
-
-        if meta.input.peek(Token![=]) {
-            let lit = meta.value()?.parse::<LitStr>()?;
-            args.default = DefaultBehavior::Func(lit.parse()?);
-        } else {
-            args.default = DefaultBehavior::Default;
-        }
-
-        Ok(())
-    } else if meta.path.is_ident(IGNORE_ALL_ATTR) {
-        // Allow:
-        // - `#[reflect(ignore)]`
-        if args.ignore != ReflectIgnoreBehavior::None {
-            return Err(meta.error(format!(
-                "only one of [{:?}] is allowed",
-                [IGNORE_ALL_ATTR, IGNORE_SERIALIZATION_ATTR]
-            )));
-        }
-
-        args.ignore = ReflectIgnoreBehavior::IgnoreAlways;
-
-        Ok(())
-    } else if meta.path.is_ident(IGNORE_SERIALIZATION_ATTR) {
-        // Allow:
-        // - `#[reflect(skip_serializing)]`
-        if args.ignore != ReflectIgnoreBehavior::None {
-            return Err(meta.error(format!(
-                "only one of [{:?}] is allowed",
-                [IGNORE_ALL_ATTR, IGNORE_SERIALIZATION_ATTR]
-            )));
-        }
-
-        args.ignore = ReflectIgnoreBehavior::IgnoreSerialization;
-
-        Ok(())
+/// Parses a single field attribute and modifies the given `ReflectFieldAttr` accordingly.
+fn parse_field_attribute(attrs: &mut ReflectFieldAttr, input: ParseStream) -> syn::Result<()> {
+    let lookahead = input.lookahead1();
+    if lookahead.peek(kw::ignore) {
+        parse_ignore(attrs, input)
+    } else if lookahead.peek(kw::skip_serializing) {
+        parse_skip_serializing(attrs, input)
+    } else if lookahead.peek(kw::default) {
+        parse_default(attrs, input)
     } else {
-        Err(meta.error(format!(
-            "unknown attribute, expected {:?}",
-            [DEFAULT_ATTR, IGNORE_ALL_ATTR, IGNORE_SERIALIZATION_ATTR]
-        )))
+        Err(lookahead.error())
     }
+}
+
+/// Parse `ignore` attribute.
+///
+/// Examples:
+/// - `#[reflect(ignore)]`
+fn parse_ignore(attrs: &mut ReflectFieldAttr, input: ParseStream) -> syn::Result<()> {
+    if attrs.ignore != ReflectIgnoreBehavior::None {
+        return Err(input.error(format!(
+            "only one of {:?} is allowed",
+            [IGNORE_ALL_ATTR, IGNORE_SERIALIZATION_ATTR]
+        )));
+    }
+
+    input.parse::<kw::ignore>()?;
+    attrs.ignore = ReflectIgnoreBehavior::IgnoreAlways;
+    Ok(())
+}
+
+/// Parse `skip_serializing` attribute.
+///
+/// Examples:
+/// - `#[reflect(skip_serializing)]`
+fn parse_skip_serializing(attrs: &mut ReflectFieldAttr, input: ParseStream) -> syn::Result<()> {
+    if attrs.ignore != ReflectIgnoreBehavior::None {
+        return Err(input.error(format!(
+            "only one of {:?} is allowed",
+            [IGNORE_ALL_ATTR, IGNORE_SERIALIZATION_ATTR]
+        )));
+    }
+
+    input.parse::<kw::skip_serializing>()?;
+    attrs.ignore = ReflectIgnoreBehavior::IgnoreSerialization;
+    Ok(())
+}
+
+/// Parse `default` attribute.
+///
+/// Examples:
+/// - `#[reflect(default)]`
+/// - `#[reflect(default = "path::to::func")]`
+fn parse_default(attrs: &mut ReflectFieldAttr, input: ParseStream) -> syn::Result<()> {
+    if !matches!(attrs.default, DefaultBehavior::Required) {
+        return Err(input.error(format!("only one of {:?} is allowed", [DEFAULT_ATTR])));
+    }
+
+    input.parse::<kw::default>()?;
+
+    if input.peek(Token![=]) {
+        input.parse::<Token![=]>()?;
+
+        let lit = input.parse::<LitStr>()?;
+        attrs.default = DefaultBehavior::Func(lit.parse()?);
+    } else {
+        attrs.default = DefaultBehavior::Default;
+    }
+
+    Ok(())
 }
