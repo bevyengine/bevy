@@ -230,14 +230,14 @@ fn create_cube_mesh() -> Mesh {
     // should appear counter-clockwise from the front of the triangle, in this case from outside the cube).
     // Read more about how to correctly build a mesh manually in the Bevy documentation of a Mesh,
     // further examples and the implementation of the built-in shapes.
-    .with_indices(Some(Indices::U32(vec![
+    .with_inserted_indices(Indices::U32(vec![
         0,3,1 , 1,3,2, // triangles making up the top (+y) facing side.
         4,5,7 , 5,6,7, // bottom (-y)
         8,11,9 , 9,11,10, // right (+x)
         12,13,15 , 13,14,15, // left (-x)
         16,19,17 , 17,19,18, // back (+z)
         20,21,23 , 21,22,23, // forward (-z)
-    ])))
+    ]))
 }
 
 // Function that changes the UV mapping of the mesh, to apply the other texture.
