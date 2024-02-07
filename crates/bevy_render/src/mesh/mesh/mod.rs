@@ -71,12 +71,12 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 ///         )
 ///         // After defining all the vertices and their attributes, build each triangle using the
 ///         // indices of the vertices that make it up in a counter-clockwise order.
-///         .with_indices(Some(Indices::U32(vec![
+///         .with_inserted_indices(Indices::U32(vec![
 ///             // First triangle
 ///             0, 3, 1,
 ///             // Second triangle
 ///             1, 3, 2
-///         ])))
+///         ]))
 /// }
 /// ```
 ///
@@ -216,7 +216,7 @@ impl Mesh {
         self.primitive_topology
     }
 
-    /// Sets the data for a vertex attribute (position, normal etc.). The name will
+    /// Sets the data for a vertex attribute (position, normal, etc.). The name will
     /// often be one of the associated constants such as [`Mesh::ATTRIBUTE_POSITION`].
     ///
     /// # Panics
@@ -240,7 +240,7 @@ impl Mesh {
             .insert(attribute.id, MeshAttributeData { attribute, values });
     }
 
-    /// Consumes the mesh and returns a mesh with data set for a vertex attribute (position, normal etc.).
+    /// Consumes the mesh and returns a mesh with data set for a vertex attribute (position, normal, etc.).
     /// The name will often be one of the associated constants such as [`Mesh::ATTRIBUTE_POSITION`].
     ///
     /// (Alternatively, you can use [`Mesh::insert_attribute`] to mutate an existing mesh in-place)
@@ -322,19 +322,19 @@ impl Mesh {
     /// vertex attributes and are therefore only useful for the [`PrimitiveTopology`] variants
     /// that use triangles.
     #[inline]
-    pub fn set_indices(&mut self, indices: Option<Indices>) {
-        self.indices = indices;
+    pub fn insert_indices(&mut self, indices: Indices) {
+        self.indices = Some(indices);
     }
 
     /// Consumes the mesh and returns a mesh with the given vertex indices. They describe how triangles
     /// are constructed out of the vertex attributes and are therefore only useful for the
     /// [`PrimitiveTopology`] variants that use triangles.
     ///
-    /// (Alternatively, you can use [`Mesh::set_indices`] to mutate an existing mesh in-place)
+    /// (Alternatively, you can use [`Mesh::insert_indices`] to mutate an existing mesh in-place)
     #[must_use]
     #[inline]
-    pub fn with_indices(mut self, indices: Option<Indices>) -> Self {
-        self.set_indices(indices);
+    pub fn with_inserted_indices(mut self, indices: Indices) -> Self {
+        self.insert_indices(indices);
         self
     }
 
@@ -354,6 +354,15 @@ impl Mesh {
     #[inline]
     pub fn remove_indices(&mut self) -> Option<Indices> {
         std::mem::take(&mut self.indices)
+    }
+
+    /// Consumes the mesh and returns a mesh without the vertex `indices` of the mesh.
+    ///
+    /// (Alternatively, you can use [`Mesh::remove_indices`] to mutate an existing mesh in-place)
+    #[must_use]
+    pub fn with_removed_indices(mut self) -> Self {
+        self.remove_indices();
+        self
     }
 
     /// Computes and returns the index data of the mesh as bytes.
