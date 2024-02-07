@@ -1403,7 +1403,10 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
         *fetch
     }
 
-    fn update_component_access(&component_id: &Self::State, access: &mut FilteredAccess<ComponentId>) {
+    fn update_component_access(
+        &component_id: &Self::State,
+        access: &mut FilteredAccess<ComponentId>,
+    ) {
         access.access_mut().add_archetypal(component_id);
     }
 

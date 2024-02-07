@@ -123,6 +123,10 @@ impl<T: SparseSetIndex> Access<T> {
     ///
     /// This is for elements whose values are not accessed (and thus will never cause conflicts),
     /// but whose presence in an archetype may affect query results.
+    ///
+    /// Currently, this is only used for [`Has<T>`].
+    ///
+    /// [`Has<T>`]: crate::query::Has
     pub fn add_archetypal(&mut self, index: T) {
         self.archetypal.grow(index.sparse_set_index() + 1);
         self.archetypal.insert(index.sparse_set_index());
@@ -152,6 +156,10 @@ impl<T: SparseSetIndex> Access<T> {
     ///
     /// This is an element whose value is not accessed (and thus will never cause conflicts),
     /// but whose presence in an archetype may affect query results.
+    ///
+    /// Currently, this is only used for [`Has<T>`].
+    ///
+    /// [`Has<T>`]: crate::query::Has
     pub fn has_archetypal(&self, index: T) -> bool {
         self.archetypal.contains(index.sparse_set_index())
     }
@@ -297,6 +305,10 @@ impl<T: SparseSetIndex> Access<T> {
     ///
     /// These are elements whose values are not accessed (and thus will never cause conflicts),
     /// but whose presence in an archetype may affect query results.
+    ///
+    /// Currently, this is only used for [`Has<T>`].
+    ///
+    /// [`Has<T>`]: crate::query::Has
     pub fn archetypal(&self) -> impl Iterator<Item = T> + '_ {
         self.archetypal.ones().map(T::get_sparse_set_index)
     }
