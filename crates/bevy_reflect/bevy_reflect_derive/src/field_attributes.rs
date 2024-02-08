@@ -79,34 +79,29 @@ pub(crate) enum DefaultBehavior {
 pub(crate) fn parse_field_attrs(attrs: &[Attribute]) -> Result<ReflectFieldAttr, syn::Error> {
     let mut args = ReflectFieldAttr::default();
 
-    let mut errors: Option<syn::Error> = None;
-
-    let attrs = attrs
+    attrs
         .iter()
-        .filter(|a| a.path().is_ident(REFLECT_ATTRIBUTE_NAME));
-    for attr in attrs {
-        let Meta::List(meta) = &attr.meta else {
-            panic!("unexpected attribute");
-        };
-
-        let result = meta.parse_args_with(terminated_parser(Token![,], |stream| {
-            parse_field_attribute(&mut args, stream)
-        }));
-
-        if let Err(err) = result {
-            if let Some(ref mut error) = errors {
-                error.combine(err);
-            } else {
-                errors = Some(err);
+        .filter_map(|attr| {
+            if !attr.path().is_ident(REFLECT_ATTRIBUTE_NAME) {
+                // Not a reflect attribute -> skip
+                return None;
             }
-        }
-    }
 
-    if let Some(error) = errors {
-        Err(error)
-    } else {
-        Ok(args)
-    }
+            let Meta::List(meta) = &attr.meta else {
+                return Some(syn::Error::new_spanned(attr, "expected meta list"));
+            };
+
+            // Parse all attributes inside the list, collecting any errors
+            meta.parse_args_with(terminated_parser(Token![,], |stream| {
+                parse_field_attribute(&mut args, stream)
+            }))
+            .err()
+        })
+        .reduce(|mut acc, err| {
+            acc.combine(err);
+            acc
+        })
+        .map_or(Ok(args), Err)
 }
 
 /// Parses a single field attribute and modifies the given `ReflectFieldAttr` accordingly.
