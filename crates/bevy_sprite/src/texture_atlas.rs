@@ -1,6 +1,6 @@
 use bevy_asset::{Asset, AssetId, Assets, Handle};
 use bevy_ecs::component::Component;
-use bevy_math::{Rect, UVec2};
+use bevy_math::{URect, UVec2};
 use bevy_reflect::Reflect;
 use bevy_render::texture::Image;
 use bevy_utils::HashMap;
@@ -21,7 +21,7 @@ pub struct TextureAtlasLayout {
     // TODO: add support to Uniforms derive to write dimensions and sprites to the same buffer
     pub size: UVec2,
     /// The specific areas of the atlas where each texture can be found
-    pub textures: Vec<Rect>,
+    pub textures: Vec<URect>,
     /// Maps from a specific image handle to the index in `textures` where they can be found.
     ///
     /// This field is set by [`TextureAtlasBuilder`].
@@ -94,12 +94,11 @@ impl TextureAtlasLayout {
                 }
 
                 let cell = UVec2::new(x, y);
-
                 let rect_min = (tile_size + current_padding) * cell + offset;
 
-                sprites.push(Rect {
-                    min: rect_min.as_vec2(),
-                    max: (rect_min + tile_size).as_vec2(),
+                sprites.push(URect {
+                    min: rect_min,
+                    max: rect_min + tile_size,
                 });
             }
         }
@@ -121,7 +120,7 @@ impl TextureAtlasLayout {
     /// * `rect` - The section of the texture to be added
     ///
     /// [`TextureAtlas`]: crate::TextureAtlas
-    pub fn add_texture(&mut self, rect: Rect) -> usize {
+    pub fn add_texture(&mut self, rect: URect) -> usize {
         self.textures.push(rect);
         self.textures.len() - 1
     }
@@ -149,8 +148,8 @@ impl TextureAtlasLayout {
 }
 
 impl TextureAtlas {
-    /// Retrieves the current texture [`Rect`] of the sprite sheet according to the section `index`
-    pub fn texture_rect(&self, texture_atlases: &Assets<TextureAtlasLayout>) -> Option<Rect> {
+    /// Retrieves the current texture [`URect`] of the sprite sheet according to the section `index`
+    pub fn texture_rect(&self, texture_atlases: &Assets<TextureAtlasLayout>) -> Option<URect> {
         let atlas = texture_atlases.get(&self.layout)?;
         atlas.textures.get(self.index).copied()
     }

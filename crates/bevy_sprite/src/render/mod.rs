@@ -366,10 +366,10 @@ pub fn extract_sprites(
             let rect = match (atlas_rect, sprite.rect) {
                 (None, None) => None,
                 (None, Some(sprite_rect)) => Some(sprite_rect),
-                (Some(atlas_rect), None) => Some(atlas_rect),
+                (Some(atlas_rect), None) => Some(atlas_rect.as_rect()),
                 (Some(atlas_rect), Some(mut sprite_rect)) => {
-                    sprite_rect.min += atlas_rect.min;
-                    sprite_rect.max += atlas_rect.min;
+                    sprite_rect.min += atlas_rect.min.as_vec2();
+                    sprite_rect.max += atlas_rect.min.as_vec2();
 
                     Some(sprite_rect)
                 }
