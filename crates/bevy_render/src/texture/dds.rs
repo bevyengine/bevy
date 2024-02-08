@@ -7,8 +7,7 @@ use wgpu::{
 use super::{CompressedImageFormats, Image, TextureError};
 
 pub fn dds_buffer_to_image(
-    #[cfg(debug_assertions)]
-    name: String,
+    #[cfg(debug_assertions)] name: String,
     buffer: &[u8],
     supported_compressed_formats: CompressedImageFormats,
     is_srgb: bool,
@@ -50,9 +49,12 @@ pub fn dds_buffer_to_image(
     let mip_map_level = match dds.get_num_mipmap_levels() {
         0 => {
             #[cfg(debug_assertions)]
-            warn_once!("Mipmap levels for texture {} are 0, bumping them to 1", name);
+            warn_once!(
+                "Mipmap levels for texture {} are 0, bumping them to 1",
+                name
+            );
             1
-        },
+        }
         t => t,
     };
     image.texture_descriptor.mip_level_count = mip_map_level;
