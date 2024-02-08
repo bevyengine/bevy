@@ -102,6 +102,8 @@ impl AssetLoader for ImageLoader {
                 ImageFormatSetting::Format(format) => ImageType::Format(format),
             };
             Ok(Image::from_buffer(
+                #[cfg(debug_assertions)]
+                load_context.path().display().to_string(),
                 &bytes,
                 image_type,
                 self.supported_compressed_formats,
