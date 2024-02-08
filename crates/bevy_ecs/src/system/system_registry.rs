@@ -75,6 +75,8 @@ impl<I, O> std::fmt::Debug for SystemId<I, O> {
 }
 
 impl<I, O> From<SystemId<I, O>> for Entity {
+    /// Transforms a [`SystemId`] into the [`Entity`] that holds the one-shot system's state.
+    ///
     /// It's trivial to convert [`SystemId`] into an [`Entity`] since a system
     /// is really an entity with associated handler function.
     ///
