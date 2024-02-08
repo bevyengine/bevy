@@ -5,7 +5,7 @@ use bevy_ecs::{
     prelude::{Commands, EventReader, IntoSystemConfigs, ResMut, Resource},
     schedule::SystemConfigs,
     system::{StaticSystemParam, SystemParam, SystemParamItem, SystemState},
-    world::{FromWorld, Mut},
+    world::FromWorld,
 };
 use bevy_reflect::{
     utility::{reflect_hasher, NonGenericTypeInfoCell},
