@@ -29,7 +29,7 @@ fn setup(
         },
     ));
 
-    let cube = meshes.add(shape::Cube { size: 0.5 });
+    let cube = meshes.add(Cuboid::new(0.5, 0.5, 0.5));
     for x in -1..2 {
         for z in -1..2 {
             commands.spawn(PbrBundle {
