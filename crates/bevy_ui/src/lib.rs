@@ -21,6 +21,7 @@ mod geometry;
 mod layout;
 mod render;
 mod stack;
+mod texture_slice;
 mod ui_node;
 
 pub use focus::*;
@@ -39,6 +40,9 @@ pub mod prelude {
         geometry::*, node_bundles::*, ui_material::*, ui_node::*, widget::Button, widget::Label,
         Interaction, UiMaterialPlugin, UiScale,
     };
+    // `bevy_sprite` re-exports for texture slicing
+    #[doc(hidden)]
+    pub use bevy_sprite::{BorderRect, ImageScaleMode, SliceScaleMode, TextureSlicer};
 }
 
 use bevy_app::prelude::*;
@@ -162,10 +166,17 @@ impl Plugin for UiPlugin {
                 // They run independently since `widget::image_node_system` will only ever observe
                 // its own UiImage, and `widget::text_system` & `bevy_text::update_text2d_layout`
                 // will never modify a pre-existing `Image` asset.
-                widget::update_image_content_size_system
-                    .before(UiSystem::Layout)
-                    .in_set(AmbiguousWithTextSystem)
-                    .in_set(AmbiguousWithUpdateText2DLayout),
+                (
+                    widget::update_image_content_size_system
+                        .before(UiSystem::Layout)
+                        .in_set(AmbiguousWithTextSystem)
+                        .in_set(AmbiguousWithUpdateText2DLayout),
+                    (
+                        texture_slice::compute_slices_on_asset_event,
+                        texture_slice::compute_slices_on_image_change,
+                    ),
+                )
+                    .chain(),
             ),
         );
 
