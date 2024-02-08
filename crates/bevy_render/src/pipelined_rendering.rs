@@ -2,10 +2,7 @@ use async_channel::{Receiver, Sender};
 
 use bevy_app::{App, AppLabel, Main, Plugin, SubApp};
 use bevy_ecs::{
-    schedule::MainThreadExecutor,
-    system::Resource,
-    world::World,
-    change_detection::ResMut,
+    change_detection::ResMut, schedule::MainThreadExecutor, system::Resource, world::World,
 };
 use bevy_tasks::ComputeTaskPool;
 

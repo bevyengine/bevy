@@ -1,9 +1,9 @@
 use crate::{App, Plugin};
 use bevy_ecs::{
+    change_detection::ResMut,
     schedule::{ExecutorKind, InternedScheduleLabel, Schedule, ScheduleLabel},
     system::{Local, Resource},
     world::World,
-    change_detection::ResMut
 };
 
 /// The schedule that contains the app logic that is evaluated each tick of [`App::update()`].

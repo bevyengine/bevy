@@ -1,12 +1,12 @@
 use crate::{DynamicScene, Scene};
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_ecs::{
+    change_detection::ResMut,
     entity::Entity,
     event::{Event, Events, ManualEventReader},
     reflect::AppTypeRegistry,
     system::{Command, Resource},
     world::World,
-    change_detection::ResMut,
 };
 use bevy_hierarchy::{Parent, PushChild};
 use bevy_utils::{tracing::error, EntityHashMap, HashMap, HashSet};
