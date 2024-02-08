@@ -16,6 +16,15 @@ use syn::parse::ParseStream;
 use syn::spanned::Spanned;
 use syn::{parenthesized, token, Expr, LitBool, MetaList, MetaNameValue, Path, Token, WhereClause};
 
+mod kw {
+    syn::custom_keyword!(from_reflect);
+    syn::custom_keyword!(type_path);
+    syn::custom_keyword!(Debug);
+    syn::custom_keyword!(PartialEq);
+    syn::custom_keyword!(Hash);
+    syn::custom_keyword!(no_field_bounds);
+}
+
 // The "special" trait idents that are used internally for reflection.
 // Received via attributes like `#[reflect(PartialEq, Hash, ...)]`
 const DEBUG_ATTR: &str = "Debug";
@@ -215,15 +224,6 @@ pub(crate) struct ReflectTraits {
     custom_where: Option<WhereClause>,
     no_field_bounds: bool,
     idents: Vec<Ident>,
-}
-
-mod kw {
-    syn::custom_keyword!(from_reflect);
-    syn::custom_keyword!(type_path);
-    syn::custom_keyword!(Debug);
-    syn::custom_keyword!(PartialEq);
-    syn::custom_keyword!(Hash);
-    syn::custom_keyword!(no_field_bounds);
 }
 
 impl ReflectTraits {

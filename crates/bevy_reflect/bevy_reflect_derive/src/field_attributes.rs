@@ -9,16 +9,16 @@ use crate::REFLECT_ATTRIBUTE_NAME;
 use syn::parse::ParseStream;
 use syn::{Attribute, LitStr, Meta, Token};
 
-pub(crate) const IGNORE_SERIALIZATION_ATTR: &str = "skip_serializing";
-pub(crate) const IGNORE_ALL_ATTR: &str = "ignore";
-
-pub(crate) const DEFAULT_ATTR: &str = "default";
-
 mod kw {
     syn::custom_keyword!(ignore);
     syn::custom_keyword!(skip_serializing);
     syn::custom_keyword!(default);
 }
+
+pub(crate) const IGNORE_SERIALIZATION_ATTR: &str = "skip_serializing";
+pub(crate) const IGNORE_ALL_ATTR: &str = "ignore";
+
+pub(crate) const DEFAULT_ATTR: &str = "default";
 
 /// Stores data about if the field should be visible via the Reflect and serialization interfaces
 ///
