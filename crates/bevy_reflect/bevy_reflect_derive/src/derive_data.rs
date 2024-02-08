@@ -1,7 +1,7 @@
 use core::fmt;
 
 use crate::container_attributes::{FromReflectAttrs, ReflectTraits, TypePathAttrs};
-use crate::field_attributes::{parse_field_attrs, ReflectFieldAttr};
+use crate::field_attributes::ReflectFieldAttr;
 use crate::type_path::parse_path_no_leading_colon;
 use crate::utility::{StringExpr, WhereClauseOptions};
 use quote::{quote, ToTokens};
@@ -361,7 +361,7 @@ impl<'a> ReflectDerive<'a> {
             .enumerate()
             .map(
                 |(declaration_index, field)| -> Result<StructField, syn::Error> {
-                    let attrs = parse_field_attrs(&field.attrs)?;
+                    let attrs = ReflectFieldAttr::parse_attributes(&field.attrs)?;
 
                     let reflection_index = if attrs.ignore.is_ignored() {
                         None
@@ -404,7 +404,7 @@ impl<'a> ReflectDerive<'a> {
                 };
                 Ok(EnumVariant {
                     fields,
-                    attrs: parse_field_attrs(&variant.attrs)?,
+                    attrs: ReflectFieldAttr::parse_attributes(&variant.attrs)?,
                     data: variant,
                     index,
                     #[cfg(feature = "documentation")]
