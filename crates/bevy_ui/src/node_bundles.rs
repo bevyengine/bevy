@@ -13,7 +13,7 @@ use bevy_render::{
     prelude::Color,
     view::{InheritedVisibility, ViewVisibility, Visibility},
 };
-use bevy_sprite::{ImageScaleMode, TextureAtlas};
+use bevy_sprite::TextureAtlas;
 #[cfg(feature = "bevy_text")]
 use bevy_text::{BreakLineOn, JustifyText, Text, TextLayoutInfo, TextSection, TextStyle};
 use bevy_transform::prelude::{GlobalTransform, Transform};
