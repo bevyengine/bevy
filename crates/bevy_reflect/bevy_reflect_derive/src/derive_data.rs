@@ -1,6 +1,6 @@
 use core::fmt;
 
-use crate::container_attributes::{FromReflectAttrs, ReflectTraits, TypePathAttrs};
+use crate::container_attributes::{ContainerAttributes, FromReflectAttrs, TypePathAttrs};
 use crate::field_attributes::FieldAttributes;
 use crate::type_path::parse_path_no_leading_colon;
 use crate::utility::{StringExpr, WhereClauseOptions};
@@ -42,7 +42,7 @@ pub(crate) enum ReflectDerive<'a> {
 /// ```
 pub(crate) struct ReflectMeta<'a> {
     /// The registered traits for this type.
-    traits: ReflectTraits,
+    attrs: ContainerAttributes,
     /// The path to this type.
     type_path: ReflectTypePath<'a>,
     /// A cached instance of the path to the `bevy_reflect` crate.
@@ -183,7 +183,7 @@ impl<'a> ReflectDerive<'a> {
         input: &'a DeriveInput,
         provenance: ReflectProvenance,
     ) -> Result<Self, syn::Error> {
-        let mut traits = ReflectTraits::default();
+        let mut traits = ContainerAttributes::default();
         // Should indicate whether `#[reflect_value]` was used.
         let mut reflect_mode = None;
         // Should indicate whether `#[type_path = "..."]` was used.
@@ -205,7 +205,8 @@ impl<'a> ReflectDerive<'a> {
                     }
 
                     reflect_mode = Some(ReflectMode::Normal);
-                    let new_traits = ReflectTraits::parse_meta_list(meta_list, provenance.trait_)?;
+                    let new_traits =
+                        ContainerAttributes::parse_meta_list(meta_list, provenance.trait_)?;
                     traits.merge(new_traits)?;
                 }
                 Meta::List(meta_list) if meta_list.path.is_ident(REFLECT_VALUE_ATTRIBUTE_NAME) => {
@@ -217,7 +218,8 @@ impl<'a> ReflectDerive<'a> {
                     }
 
                     reflect_mode = Some(ReflectMode::Value);
-                    let new_traits = ReflectTraits::parse_meta_list(meta_list, provenance.trait_)?;
+                    let new_traits =
+                        ContainerAttributes::parse_meta_list(meta_list, provenance.trait_)?;
                     traits.merge(new_traits)?;
                 }
                 Meta::Path(path) if path.is_ident(REFLECT_VALUE_ATTRIBUTE_NAME) => {
@@ -421,9 +423,9 @@ impl<'a> ReflectDerive<'a> {
 }
 
 impl<'a> ReflectMeta<'a> {
-    pub fn new(type_path: ReflectTypePath<'a>, traits: ReflectTraits) -> Self {
+    pub fn new(type_path: ReflectTypePath<'a>, attrs: ContainerAttributes) -> Self {
         Self {
-            traits,
+            attrs,
             type_path,
             bevy_reflect_path: utility::get_bevy_reflect_path(),
             #[cfg(feature = "documentation")]
@@ -438,19 +440,19 @@ impl<'a> ReflectMeta<'a> {
     }
 
     /// The registered reflect traits on this struct.
-    pub fn traits(&self) -> &ReflectTraits {
-        &self.traits
+    pub fn attrs(&self) -> &ContainerAttributes {
+        &self.attrs
     }
 
     /// The `FromReflect` attributes on this type.
     #[allow(clippy::wrong_self_convention)]
     pub fn from_reflect(&self) -> &FromReflectAttrs {
-        self.traits.from_reflect_attrs()
+        self.attrs.from_reflect_attrs()
     }
 
     /// The `TypePath` attributes on this type.
     pub fn type_path_attrs(&self) -> &TypePathAttrs {
-        self.traits.type_path_attrs()
+        self.attrs.type_path_attrs()
     }
 
     /// The path to this type.

@@ -184,7 +184,7 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
             predicates.extend(field_predicates);
         }
 
-        if let Some(custom_where) = self.meta.traits().custom_where() {
+        if let Some(custom_where) = self.meta.attrs().custom_where() {
             predicates.push(custom_where.predicates.to_token_stream());
         }
 
@@ -209,7 +209,7 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
 
     /// Returns an iterator over the where clause predicates for the active fields.
     fn active_field_predicates(&self) -> Option<impl Iterator<Item = TokenStream> + '_> {
-        if self.meta.traits().no_field_bounds() {
+        if self.meta.attrs().no_field_bounds() {
             None
         } else {
             let bevy_reflect_path = self.meta.bevy_reflect_path();

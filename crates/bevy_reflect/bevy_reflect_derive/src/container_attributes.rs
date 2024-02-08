@@ -215,7 +215,7 @@ impl TypePathAttrs {
 /// > __Note:__ Registering a custom function only works for special traits.
 ///
 #[derive(Default, Clone)]
-pub(crate) struct ReflectTraits {
+pub(crate) struct ContainerAttributes {
     debug: TraitImpl,
     hash: TraitImpl,
     partial_eq: TraitImpl,
@@ -226,7 +226,7 @@ pub(crate) struct ReflectTraits {
     idents: Vec<Ident>,
 }
 
-impl ReflectTraits {
+impl ContainerAttributes {
     /// Parse a comma-separated list of container attributes.
     ///
     /// # Example
@@ -241,7 +241,7 @@ impl ReflectTraits {
         Ok(this)
     }
 
-    /// Parse the contents of a `#[reflect(...)]` attribute into a [`ReflectTraits`] instance.
+    /// Parse the contents of a `#[reflect(...)]` attribute into a [`ContainerAttributes`] instance.
     ///
     /// # Example
     /// - `#[reflect(Hash, Debug(custom_debug), MyTrait)]`
@@ -531,10 +531,10 @@ impl ReflectTraits {
         self.no_field_bounds
     }
 
-    /// Merges the trait implementations of this [`ReflectTraits`] with another one.
+    /// Merges the trait implementations of this [`ContainerAttributes`] with another one.
     ///
-    /// An error is returned if the two [`ReflectTraits`] have conflicting implementations.
-    pub fn merge(&mut self, other: ReflectTraits) -> Result<(), syn::Error> {
+    /// An error is returned if the two [`ContainerAttributes`] have conflicting implementations.
+    pub fn merge(&mut self, other: ContainerAttributes) -> Result<(), syn::Error> {
         // Destructuring is used to help ensure that all fields are merged
         let Self {
             debug,
