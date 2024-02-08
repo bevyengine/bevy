@@ -1,8 +1,14 @@
+#![allow(deprecated)]
+
 use crate::render_asset::RenderAssetUsages;
 
 use super::{Indices, Mesh};
 use bevy_math::*;
 
+#[deprecated(
+    since = "0.13.0",
+    note = "please use the `Cuboid` primitive for meshing or `Aabb2d` for a bounding volume"
+)]
 #[derive(Debug, Copy, Clone)]
 pub struct Cube {
     pub size: f32,
@@ -27,6 +33,10 @@ impl From<Cube> for Mesh {
 }
 
 /// An axis-aligned box defined by its minimum and maximum point.
+#[deprecated(
+    since = "0.13.0",
+    note = "please use the `Cuboid` primitive for meshing or `Aabb3d` for a bounding volume"
+)]
 #[derive(Debug, Copy, Clone)]
 pub struct Box {
     pub min_x: f32,
@@ -134,6 +144,10 @@ impl From<Box> for Mesh {
 }
 
 /// A rectangle on the `XY` plane centered at the origin.
+#[deprecated(
+    since = "0.13.0",
+    note = "please use the `Quad` primitive in `bevy_math` instead"
+)]
 #[derive(Debug, Copy, Clone)]
 pub struct Quad {
     /// Full width and height of the rectangle.
@@ -189,6 +203,10 @@ impl From<Quad> for Mesh {
 }
 
 /// A square on the `XZ` plane centered at the origin.
+#[deprecated(
+    since = "0.13.0",
+    note = "please use the `Plane3d` primitive in `bevy_math` instead"
+)]
 #[derive(Debug, Copy, Clone)]
 pub struct Plane {
     /// The total side length of the square.
@@ -279,7 +297,7 @@ mod regular_polygon;
 mod torus;
 mod uvsphere;
 
-pub use capsule::{Capsule, CapsuleUvProfile};
+pub use capsule::Capsule;
 pub use cylinder::Cylinder;
 pub use icosphere::Icosphere;
 pub use regular_polygon::{Circle, RegularPolygon};
