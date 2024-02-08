@@ -711,7 +711,7 @@ where
 change_detection_impl!(Ref<'w, T>, T,);
 impl_debug!(Ref<'w, T>,);
 
-/// Unique mutable borrow of an entity's component
+/// Unique mutable borrow of an entity's component or of a resource.
 pub struct Mut<'w, T: ?Sized> {
     pub(crate) value: &'w mut T,
     pub(crate) ticks: TicksMut<'w>,
