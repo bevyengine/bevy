@@ -14,7 +14,6 @@ use crate::{
     view::{ExtractedWindows, ViewTarget},
 };
 use bevy_ecs::{prelude::*, system::SystemState};
-use bevy_tasks::ComputeTaskPool;
 use bevy_time::TimeSender;
 use bevy_utils::Instant;
 use std::sync::Arc;
