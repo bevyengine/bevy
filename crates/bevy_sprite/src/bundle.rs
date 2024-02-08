@@ -13,7 +13,7 @@ use bevy_transform::components::{GlobalTransform, Transform};
 ///
 /// You may add the following components to enable additional behaviours
 /// - [`ImageScaleMode`](crate::ImageScaleMode) to enable either slicing or tiling of the texture
-/// - [`TextureAtlas`](crate::TextureAtlas) to draw specific sections of a sprite sheet, (See [`SpriteSheetBundle`])
+/// - [`TextureAtlas`] to draw specific sections of a sprite sheet, (See [`SpriteSheetBundle`])
 #[derive(Bundle, Clone, Default)]
 pub struct SpriteBundle {
     /// Specifies the rendering properties of the sprite, such as color tint and flip.
