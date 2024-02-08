@@ -17,7 +17,6 @@ use bevy::core_pipeline::Skybox;
 use bevy::math::{uvec3, vec3};
 use bevy::pbr::irradiance_volume::IrradianceVolume;
 use bevy::pbr::{ExtendedMaterial, MaterialExtension, NotShadowCaster};
-use bevy::prelude::shape::{Cube, UVSphere};
 use bevy::prelude::*;
 use bevy::render::render_resource::{AsBindGroup, ShaderRef, ShaderType};
 use bevy::window::PrimaryWindow;
@@ -527,8 +526,8 @@ impl FromWorld for ExampleAssets {
         let skybox = asset_server.load::<Image>("environment_maps/pisa_specular_rgb9e5_zstd.ktx2");
 
         let mut mesh_assets = world.resource_mut::<Assets<Mesh>>();
-        let main_sphere = mesh_assets.add(UVSphere::default());
-        let voxel_cube = mesh_assets.add(Cube::default());
+        let main_sphere = mesh_assets.add(Sphere::default().mesh().uv(32, 18));
+        let voxel_cube = mesh_assets.add(Cuboid::default());
 
         let mut standard_material_assets = world.resource_mut::<Assets<StandardMaterial>>();
         let main_material = standard_material_assets.add(Color::SILVER);

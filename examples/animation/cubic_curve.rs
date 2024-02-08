@@ -38,7 +38,7 @@ fn setup(
     // Spawning a cube to experiment on
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(shape::Cube::default()),
+            mesh: meshes.add(Cuboid::default()),
             material: materials.add(Color::ORANGE),
             transform: Transform::from_translation(points[0][0]),
             ..default()
@@ -60,7 +60,7 @@ fn setup(
 
     // ground plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(50.)),
+        mesh: meshes.add(Plane3d::default().mesh().size(50., 50.)),
         material: materials.add(Color::SILVER),
         ..default()
     });
