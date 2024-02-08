@@ -68,17 +68,17 @@ pub(crate) enum DefaultBehavior {
 
 /// A container for attributes defined on a reflected type's field.
 #[derive(Default, Clone)]
-pub(crate) struct ReflectFieldAttr {
+pub(crate) struct FieldAttributes {
     /// Determines how this field should be ignored if at all.
     pub ignore: ReflectIgnoreBehavior,
     /// Sets the default behavior of this field.
     pub default: DefaultBehavior,
 }
 
-impl ReflectFieldAttr {
+impl FieldAttributes {
     /// Parse all field attributes marked "reflect" (such as `#[reflect(ignore)]`).
     pub fn parse_attributes(attrs: &[Attribute]) -> syn::Result<Self> {
-        let mut args = ReflectFieldAttr::default();
+        let mut args = FieldAttributes::default();
 
         attrs
             .iter()

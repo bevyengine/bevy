@@ -1,7 +1,7 @@
 use core::fmt;
 
 use crate::container_attributes::{FromReflectAttrs, ReflectTraits, TypePathAttrs};
-use crate::field_attributes::ReflectFieldAttr;
+use crate::field_attributes::FieldAttributes;
 use crate::type_path::parse_path_no_leading_colon;
 use crate::utility::{StringExpr, WhereClauseOptions};
 use quote::{quote, ToTokens};
@@ -95,7 +95,7 @@ pub(crate) struct StructField<'a> {
     /// The raw field.
     pub data: &'a Field,
     /// The reflection-based attributes on the field.
-    pub attrs: ReflectFieldAttr,
+    pub attrs: FieldAttributes,
     /// The index of this field within the struct.
     pub declaration_index: usize,
     /// The index of this field as seen by the reflection API.
@@ -118,7 +118,7 @@ pub(crate) struct EnumVariant<'a> {
     pub fields: EnumVariantFields<'a>,
     /// The reflection-based attributes on the variant.
     #[allow(dead_code)]
-    pub attrs: ReflectFieldAttr,
+    pub attrs: FieldAttributes,
     /// The index of this variant within the enum.
     #[allow(dead_code)]
     pub index: usize,
@@ -361,7 +361,7 @@ impl<'a> ReflectDerive<'a> {
             .enumerate()
             .map(
                 |(declaration_index, field)| -> Result<StructField, syn::Error> {
-                    let attrs = ReflectFieldAttr::parse_attributes(&field.attrs)?;
+                    let attrs = FieldAttributes::parse_attributes(&field.attrs)?;
 
                     let reflection_index = if attrs.ignore.is_ignored() {
                         None
@@ -404,7 +404,7 @@ impl<'a> ReflectDerive<'a> {
                 };
                 Ok(EnumVariant {
                     fields,
-                    attrs: ReflectFieldAttr::parse_attributes(&variant.attrs)?,
+                    attrs: FieldAttributes::parse_attributes(&variant.attrs)?,
                     data: variant,
                     index,
                     #[cfg(feature = "documentation")]
