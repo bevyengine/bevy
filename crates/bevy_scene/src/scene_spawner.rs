@@ -215,7 +215,7 @@ impl SceneSpawner {
         id: AssetId<DynamicScene>,
         entity_map: &mut EntityHashMap<Entity, Entity>,
     ) -> Result<(), SceneSpawnError> {
-        world.resource_scope(|world, scenes: Mut<Assets<DynamicScene>>| {
+        world.resource_scope(|world, scenes: ResMut<Assets<DynamicScene>>| {
             let scene = scenes
                 .get(id)
                 .ok_or(SceneSpawnError::NonExistentScene { id })?;
@@ -238,7 +238,7 @@ impl SceneSpawner {
         id: AssetId<Scene>,
         instance_id: InstanceId,
     ) -> Result<InstanceId, SceneSpawnError> {
-        world.resource_scope(|world, scenes: Mut<Assets<Scene>>| {
+        world.resource_scope(|world, scenes: ResMut<Assets<Scene>>| {
             let scene = scenes
                 .get(id)
                 .ok_or(SceneSpawnError::NonExistentRealScene { id })?;
@@ -387,7 +387,7 @@ impl SceneSpawner {
 
 /// System that handles scheduled scene instance spawning and despawning through a [`SceneSpawner`].
 pub fn scene_spawner_system(world: &mut World) {
-    world.resource_scope(|world, mut scene_spawner: Mut<SceneSpawner>| {
+    world.resource_scope(|world, mut scene_spawner: ResMut<SceneSpawner>| {
         // remove any loading instances where parent is deleted
         let mut dead_instances = HashSet::default();
         scene_spawner

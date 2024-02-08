@@ -761,6 +761,15 @@ impl<'w, T: ?Sized> From<Mut<'w, T>> for Ref<'w, T> {
     }
 }
 
+impl<'w, R: ?Sized + Resource> From<Mut<'w, R>> for ResMut<'w, R> {
+    fn from(mut_ref: Mut<'w, R>) -> Self {
+        Self {
+            value: mut_ref.value,
+            ticks: mut_ref.ticks,
+        }
+    }
+}
+
 impl<'w, 'a, T> IntoIterator for &'a Mut<'w, T>
 where
     &'a T: IntoIterator,

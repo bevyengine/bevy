@@ -28,7 +28,7 @@ use crate::{
     removal_detection::RemovedComponentEvents,
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
-    system::{Res, Resource},
+    system::{Res, ResMut, Resource},
     world::error::TryRunScheduleError,
 };
 use bevy_ptr::{OwningPtr, Ptr};
@@ -1337,7 +1337,7 @@ impl World {
     /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
     #[inline]
     #[track_caller]
-    pub fn resource_mut<R: Resource>(&mut self) -> Mut<'_, R> {
+    pub fn resource_mut<R: Resource>(&mut self) -> ResMut<'_, R> {
         match self.get_resource_mut() {
             Some(x) => x,
             None => panic!(
@@ -1370,7 +1370,7 @@ impl World {
 
     /// Gets a mutable reference to the resource of the given type if it exists
     #[inline]
-    pub fn get_resource_mut<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
+    pub fn get_resource_mut<R: Resource>(&mut self) -> Option<ResMut<'_, R>> {
         // SAFETY:
         // - `as_unsafe_world_cell` gives permission to access everything mutably
         // - `&mut self` ensures nothing in world is borrowed
@@ -1383,7 +1383,7 @@ impl World {
     pub fn get_resource_or_insert_with<R: Resource>(
         &mut self,
         func: impl FnOnce() -> R,
-    ) -> Mut<'_, R> {
+    ) -> ResMut<'_, R> {
         let change_tick = self.change_tick();
         let last_change_tick = self.last_change_tick();
 
@@ -1404,7 +1404,7 @@ impl World {
                 .debug_checked_unwrap()
         };
         // SAFETY: The underlying type of the resource is `R`.
-        unsafe { data.with_type::<R>() }
+        unsafe { data.with_type::<R>().into() }
     }
 
     /// Gets an immutable reference to the non-send resource of the given type, if it exists.
@@ -1637,13 +1637,16 @@ impl World {
     /// world.insert_resource(A(1));
     /// let entity = world.spawn(B(1)).id();
     ///
-    /// world.resource_scope(|world, mut a: Mut<A>| {
+    /// world.resource_scope(|world, mut a: ResMut<A>| {
     ///     let b = world.get_mut::<B>(entity).unwrap();
     ///     a.0 += b.0;
     /// });
     /// assert_eq!(world.get_resource::<A>().unwrap().0, 2);
     /// ```
-    pub fn resource_scope<R: Resource, U>(&mut self, f: impl FnOnce(&mut World, Mut<R>) -> U) -> U {
+    pub fn resource_scope<R: Resource, U>(
+        &mut self,
+        f: impl FnOnce(&mut World, ResMut<R>) -> U,
+    ) -> U {
         let last_change_tick = self.last_change_tick();
         let change_tick = self.change_tick();
 
@@ -1660,7 +1663,7 @@ impl World {
         // Read the value onto the stack to avoid potential mut aliasing.
         // SAFETY: `ptr` was obtained from the TypeId of `R`.
         let mut value = unsafe { ptr.read::<R>() };
-        let value_mut = Mut {
+        let value_mut = ResMut {
             value: &mut value,
             ticks: TicksMut {
                 added: &mut ticks.added,

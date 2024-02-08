@@ -14,7 +14,7 @@ use crate::{
     prelude::Component,
     removal_detection::RemovedComponentEvents,
     storage::{Column, ComponentSparseSet, Storages},
-    system::{Res, Resource},
+    system::{Res, ResMut, Resource},
 };
 use bevy_ptr::Ptr;
 use std::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData};
@@ -436,7 +436,7 @@ impl<'w> UnsafeWorldCell<'w> {
     /// - the [`UnsafeWorldCell`] has permission to access the resource mutably
     /// - no other references to the resource exist at the same time
     #[inline]
-    pub unsafe fn get_resource_mut<R: Resource>(self) -> Option<Mut<'w, R>> {
+    pub unsafe fn get_resource_mut<R: Resource>(self) -> Option<ResMut<'w, R>> {
         let component_id = self.components().get_resource_id(TypeId::of::<R>())?;
         // SAFETY:
         // - caller ensures `self` has permission to access the resource mutably
@@ -444,7 +444,7 @@ impl<'w> UnsafeWorldCell<'w> {
         unsafe {
             self.get_resource_mut_by_id(component_id)
                 // `component_id` was gotten from `TypeId::of::<R>()`
-                .map(|ptr| ptr.with_type::<R>())
+                .map(|ptr| ptr.with_type::<R>().into())
         }
     }
 

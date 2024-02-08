@@ -1116,7 +1116,7 @@ impl AssetServer {
 
 /// A system that manages internal [`AssetServer`] events, such as finalizing asset loads.
 pub fn handle_internal_asset_events(world: &mut World) {
-    world.resource_scope(|world, server: Mut<AssetServer>| {
+    world.resource_scope(|world, server: ResMut<AssetServer>| {
         let mut infos = server.data.infos.write();
         let mut untyped_failures = vec![];
         for event in server.data.asset_event_receiver.try_iter() {
