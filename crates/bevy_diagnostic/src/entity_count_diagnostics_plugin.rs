@@ -1,20 +1,33 @@
 use bevy_app::prelude::*;
 use bevy_ecs::entity::Entities;
 
-use crate::{Diagnostic, DiagnosticPath, Diagnostics, RegisterDiagnostic};
+use crate::{
+    Diagnostic, DiagnosticPath, Diagnostics, RegisterDiagnostic, DEFAULT_MAX_HISTORY_LENGTH,
+};
 
 /// Adds "entity count" diagnostic to an App.
 ///
 /// # See also
 ///
 /// [`LogDiagnosticsPlugin`](crate::LogDiagnosticsPlugin) to output diagnostics to the console.
-#[derive(Default)]
-pub struct EntityCountDiagnosticsPlugin;
+pub struct EntityCountDiagnosticsPlugin {
+    pub max_history_length: usize,
+}
+
+impl Default for EntityCountDiagnosticsPlugin {
+    fn default() -> Self {
+        Self {
+            max_history_length: DEFAULT_MAX_HISTORY_LENGTH,
+        }
+    }
+}
 
 impl Plugin for EntityCountDiagnosticsPlugin {
     fn build(&self, app: &mut App) {
-        app.register_diagnostic(Diagnostic::new(Self::ENTITY_COUNT))
-            .add_systems(Update, Self::diagnostic_system);
+        app.register_diagnostic(
+            Diagnostic::new(Self::ENTITY_COUNT).with_max_history_length(self.max_history_length),
+        )
+        .add_systems(Update, Self::diagnostic_system);
     }
 }
 

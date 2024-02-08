@@ -1,4 +1,6 @@
-use crate::{Diagnostic, DiagnosticPath, Diagnostics, RegisterDiagnostic};
+use crate::{
+    Diagnostic, DiagnosticPath, Diagnostics, RegisterDiagnostic, DEFAULT_MAX_HISTORY_LENGTH,
+};
 use bevy_app::prelude::*;
 use bevy_core::FrameCount;
 use bevy_ecs::prelude::*;
@@ -9,15 +11,34 @@ use bevy_time::{Real, Time};
 /// # See also
 ///
 /// [`LogDiagnosticsPlugin`](crate::LogDiagnosticsPlugin) to output diagnostics to the console.
-#[derive(Default)]
-pub struct FrameTimeDiagnosticsPlugin;
+pub struct FrameTimeDiagnosticsPlugin {
+    pub max_history_length: usize,
+}
+
+impl Default for FrameTimeDiagnosticsPlugin {
+    fn default() -> Self {
+        Self {
+            max_history_length: DEFAULT_MAX_HISTORY_LENGTH,
+        }
+    }
+}
 
 impl Plugin for FrameTimeDiagnosticsPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
-        app.register_diagnostic(Diagnostic::new(Self::FRAME_TIME).with_suffix("ms"))
-            .register_diagnostic(Diagnostic::new(Self::FPS))
-            .register_diagnostic(Diagnostic::new(Self::FRAME_COUNT).with_smoothing_factor(0.0))
-            .add_systems(Update, Self::diagnostic_system);
+    fn build(&self, app: &mut App) {
+        app.register_diagnostic(
+            Diagnostic::new(Self::FRAME_TIME)
+                .with_max_history_length(self.max_history_length)
+                .with_suffix("ms"),
+        )
+        .register_diagnostic(
+            Diagnostic::new(Self::FPS).with_max_history_length(self.max_history_length),
+        )
+        .register_diagnostic(
+            Diagnostic::new(Self::FRAME_COUNT)
+                .with_max_history_length(1)
+                .with_smoothing_factor(0.0),
+        )
+        .add_systems(Update, Self::diagnostic_system);
     }
 }
 

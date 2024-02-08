@@ -1,5 +1,7 @@
-use crate::DiagnosticPath;
+use crate::{DiagnosticPath, DEFAULT_MAX_HISTORY_LENGTH};
 use bevy_app::prelude::*;
+
+use self::internal::setup_diagnostics;
 
 /// Adds a System Information Diagnostic, specifically `cpu_usage` (in %) and `mem_usage` (in %)
 ///
@@ -14,12 +16,22 @@ use bevy_app::prelude::*;
 /// # See also
 ///
 /// [`LogDiagnosticsPlugin`](crate::LogDiagnosticsPlugin) to output diagnostics to the console.
-#[derive(Default)]
-pub struct SystemInformationDiagnosticsPlugin;
+pub struct SystemInformationDiagnosticsPlugin {
+    pub max_history_length: usize,
+}
+
+impl Default for SystemInformationDiagnosticsPlugin {
+    fn default() -> Self {
+        Self {
+            max_history_length: DEFAULT_MAX_HISTORY_LENGTH,
+        }
+    }
+}
+
 impl Plugin for SystemInformationDiagnosticsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, internal::setup_system)
-            .add_systems(Update, internal::diagnostic_system);
+        setup_diagnostics(app, self.max_history_length);
+        app.add_systems(Update, internal::diagnostic_system);
     }
 }
 
@@ -39,21 +51,28 @@ impl SystemInformationDiagnosticsPlugin {
     not(feature = "dynamic_linking")
 ))]
 pub mod internal {
-    use bevy_ecs::{prelude::ResMut, system::Local};
+    use bevy_app::App;
+    use bevy_ecs::system::Local;
     use bevy_log::info;
     use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};
 
-    use crate::{Diagnostic, Diagnostics, DiagnosticsStore};
+    use crate::{Diagnostics, RegisterDiagnostic};
 
     use super::SystemInformationDiagnosticsPlugin;
 
     const BYTES_TO_GIB: f64 = 1.0 / 1024.0 / 1024.0 / 1024.0;
 
-    pub(crate) fn setup_system(mut diagnostics: ResMut<DiagnosticsStore>) {
-        diagnostics
-            .add(Diagnostic::new(SystemInformationDiagnosticsPlugin::CPU_USAGE).with_suffix("%"));
-        diagnostics
-            .add(Diagnostic::new(SystemInformationDiagnosticsPlugin::MEM_USAGE).with_suffix("%"));
+    pub(crate) fn setup_diagnostics(app: &mut App, max_history_length: usize) {
+        app.register_diagnostic(
+            crate::Diagnostic::new(super::SystemInformationDiagnosticsPlugin::CPU_USAGE)
+                .with_max_history_length(max_history_length)
+                .with_suffix("%"),
+        )
+        .register_diagnostic(
+            crate::Diagnostic::new(super::SystemInformationDiagnosticsPlugin::MEM_USAGE)
+                .with_max_history_length(max_history_length)
+                .with_suffix("%"),
+        );
     }
 
     pub(crate) fn diagnostic_system(
@@ -129,7 +148,7 @@ pub mod internal {
     not(feature = "dynamic_linking")
 )))]
 pub mod internal {
-    pub(crate) fn setup_system() {
+    pub(crate) fn setup_diagnostics(_app: &mut bevy_app::App, _max_history_length: usize) {
         bevy_log::warn!("This platform and/or configuration is not supported!");
     }
 

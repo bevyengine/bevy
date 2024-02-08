@@ -23,7 +23,7 @@ fn main() {
             }),
             ..default()
         }),
-        FrameTimeDiagnosticsPlugin,
+        FrameTimeDiagnosticsPlugin::default(),
     ))
     .insert_resource(WinitSettings {
         focused_mode: UpdateMode::Continuous,

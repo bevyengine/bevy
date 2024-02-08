@@ -17,7 +17,7 @@ fn main() {
         })
         .add_plugins((
             DefaultPlugins,
-            FrameTimeDiagnosticsPlugin,
+            FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin::default(),
         ))
         .add_systems(Startup, setup)
