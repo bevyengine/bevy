@@ -1,3 +1,5 @@
+#[cfg(debug_assertions)]
+use bevy_utils::warn_once;
 use ddsfile::{Caps2, D3DFormat, Dds, DxgiFormat};
 use std::io::Cursor;
 use wgpu::{
