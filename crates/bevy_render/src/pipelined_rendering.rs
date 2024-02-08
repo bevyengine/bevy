@@ -44,7 +44,7 @@ impl RenderAppChannels {
         self.render_app_in_render_thread = true;
     }
 
-    /// Receiver the `render_app` from the rendering thread.
+    /// Receive the `render_app` from the rendering thread.
     pub async fn recv(&mut self) -> SubApp {
         let render_app = self.render_to_app_receiver.recv().await.unwrap();
         self.render_app_in_render_thread = false;
