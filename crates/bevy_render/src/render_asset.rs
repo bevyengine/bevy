@@ -306,7 +306,7 @@ impl<A: RenderAsset> FromWorld for CachedExtractRenderAssetSystemState<A> {
 /// into the "render world".
 fn extract_render_asset<A: RenderAsset>(mut commands: Commands, mut main_world: ResMut<MainWorld>) {
     main_world.resource_scope(
-        |world, mut cached_state: Mut<CachedExtractRenderAssetSystemState<A>>| {
+        |world, mut cached_state: ResMut<CachedExtractRenderAssetSystemState<A>>| {
             let (mut events, mut assets) = cached_state.state.get_mut(world);
 
             let mut changed_assets = HashSet::default();

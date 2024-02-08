@@ -4,7 +4,8 @@ use bevy_app::{App, AppLabel, Main, Plugin, SubApp};
 use bevy_ecs::{
     schedule::MainThreadExecutor,
     system::Resource,
-    world::{Mut, World},
+    world::World,
+    change_detection::ResMut,
 };
 use bevy_tasks::ComputeTaskPool;
 
