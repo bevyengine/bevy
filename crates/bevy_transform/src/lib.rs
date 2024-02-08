@@ -116,19 +116,6 @@ impl Plugin for TransformPlugin {
                         .ambiguous_with(PropagateTransformsSet),
                     propagate_transforms.in_set(PropagateTransformsSet),
                 ),
-            )
-            .configure_sets(
-                PostUpdate,
-                PropagateTransformsSet.in_set(TransformSystem::TransformPropagate),
-            )
-            .add_systems(
-                PostUpdate,
-                (
-                    sync_simple_transforms
-                        .in_set(TransformSystem::TransformPropagate)
-                        .ambiguous_with(PropagateTransformsSet),
-                    propagate_transforms.in_set(PropagateTransformsSet),
-                ),
             );
     }
 }
