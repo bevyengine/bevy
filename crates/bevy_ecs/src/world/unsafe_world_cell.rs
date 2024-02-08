@@ -46,7 +46,7 @@ use std::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData};
 ///
 /// ```
 /// use bevy_ecs::world::World;
-/// use bevy_ecs::change_detection::Mut;
+/// use bevy_ecs::change_detection::ResMut;
 /// use bevy_ecs::system::Resource;
 /// use bevy_ecs::world::unsafe_world_cell::UnsafeWorldCell;
 ///
