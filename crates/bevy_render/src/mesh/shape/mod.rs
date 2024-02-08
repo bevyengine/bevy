@@ -35,7 +35,7 @@ impl From<Cube> for Mesh {
 /// An axis-aligned box defined by its minimum and maximum point.
 #[deprecated(
     since = "0.13.0",
-    note = "please use the `Cuboid` primitive for meshing or `Aabb2d` for a bounding volume"
+    note = "please use the `Cuboid` primitive for meshing or `Aabb3d` for a bounding volume"
 )]
 #[derive(Debug, Copy, Clone)]
 pub struct Box {
