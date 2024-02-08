@@ -90,16 +90,18 @@ fn spawn_sprites(
     for (label, text_style, size, scale_mode) in cases {
         position.x += 0.5 * size.x;
         commands
-            .spawn(SpriteBundle {
-                transform: Transform::from_translation(position),
-                texture: texture_handle.clone(),
-                sprite: Sprite {
-                    custom_size: Some(size),
+            .spawn((
+                SpriteBundle {
+                    transform: Transform::from_translation(position),
+                    texture: texture_handle.clone(),
+                    sprite: Sprite {
+                        custom_size: Some(size),
+                        ..default()
+                    },
                     ..default()
                 },
                 scale_mode,
-                ..default()
-            })
+            ))
             .with_children(|builder| {
                 builder.spawn(Text2dBundle {
                     text: Text::from_section(label, text_style).with_justify(JustifyText::Center),

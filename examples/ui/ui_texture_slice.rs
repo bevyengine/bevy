@@ -58,21 +58,23 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_children(|parent| {
             for [w, h] in [[150.0, 150.0], [300.0, 150.0], [150.0, 300.0]] {
                 parent
-                    .spawn(ButtonBundle {
-                        style: Style {
-                            width: Val::Px(w),
-                            height: Val::Px(h),
-                            // horizontally center child text
-                            justify_content: JustifyContent::Center,
-                            // vertically center child text
-                            align_items: AlignItems::Center,
-                            margin: UiRect::all(Val::Px(20.0)),
+                    .spawn((
+                        ButtonBundle {
+                            style: Style {
+                                width: Val::Px(w),
+                                height: Val::Px(h),
+                                // horizontally center child text
+                                justify_content: JustifyContent::Center,
+                                // vertically center child text
+                                align_items: AlignItems::Center,
+                                margin: UiRect::all(Val::Px(20.0)),
+                                ..default()
+                            },
+                            image: image.clone().into(),
                             ..default()
                         },
-                        image: image.clone().into(),
-                        scale_mode: ImageScaleMode::Sliced(slicer.clone()),
-                        ..default()
-                    })
+                        ImageScaleMode::Sliced(slicer.clone()),
+                    ))
                     .with_children(|parent| {
                         parent.spawn(TextBundle::from_section(
                             "Button",
