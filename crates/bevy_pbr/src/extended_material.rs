@@ -68,9 +68,11 @@ pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
     }
 
     /// Specifies the shadow batch key (see [`Material::shadow_material_key`]). By default, extended materials
-    /// use the base material key.
-    fn shadow_material_key(&self, base_key: Option<u64>) -> Option<u64> {
-        base_key
+    /// do not batch for shadows. 
+    /// If the extension doesn't modify vertices or apply discards based on extended material properties, you 
+    /// may be able to improve shadow performance by returning the base material key.
+    fn shadow_material_key(&self, _base_key: Option<u64>) -> Option<u64> {
+        None
     }
 
     /// Customizes the default [`RenderPipelineDescriptor`] for a specific entity using the entity's
