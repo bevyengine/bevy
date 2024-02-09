@@ -134,7 +134,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///
     /// # Builder methods
     /// The number of segments of the arc (i.e. the level of detail) can be adjusted with the
-    /// `.segements(...)` method.
+    /// `.segments(...)` method.
     ///
     /// # Example
     /// ```
@@ -190,7 +190,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///
     /// # Builder methods
     /// The number of segments of the arc (i.e. the level of detail) can be adjusted with the
-    /// `.segements(...)` method.
+    /// `.segments(...)` method.
     ///
     /// # Examples
     /// ```
@@ -236,7 +236,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///
     /// # Builder methods
     /// The number of segments of the arc (i.e. the level of detail) can be adjusted with the
-    /// `.segements(...)` method.
+    /// `.segments(...)` method.
     ///
     /// # Examples
     /// ```

@@ -1,4 +1,3 @@
-#![warn(missing_docs)]
 //! Parent-child relationships for Bevy entities.
 //!
 //! You should use the tools in this crate

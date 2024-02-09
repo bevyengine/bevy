@@ -29,11 +29,13 @@ use bevy_render::render_resource::binding_types::texture_cube;
     feature = "webgpu"
 ))]
 use bevy_render::render_resource::binding_types::{texture_2d_array, texture_cube_array};
+use environment_map::EnvironmentMapLight;
 
 use crate::{
-    environment_map::{self, RenderViewBindGroupEntries, RenderViewEnvironmentMaps},
+    environment_map::{self, RenderViewEnvironmentMapBindGroupEntries},
+    irradiance_volume::{self, IrradianceVolume, RenderViewIrradianceVolumeBindGroupEntries},
     prepass, FogMeta, GlobalLightMeta, GpuFog, GpuLights, GpuPointLights, LightMeta,
-    LightProbesBuffer, LightProbesUniform, MeshPipeline, MeshPipelineKey,
+    LightProbesBuffer, LightProbesUniform, MeshPipeline, MeshPipelineKey, RenderViewLightProbes,
     ScreenSpaceAmbientOcclusionTextures, ShadowSamplers, ViewClusterBindings, ViewShadowBindings,
 };
 
@@ -266,11 +268,18 @@ fn layout_entries(
         (15, environment_map_entries[2]),
     ));
 
+    // Irradiance volumes
+    let irradiance_volume_entries = irradiance_volume::get_bind_group_layout_entries(render_device);
+    entries = entries.extend_with_indices((
+        (16, irradiance_volume_entries[0]),
+        (17, irradiance_volume_entries[1]),
+    ));
+
     // Tonemapping
     let tonemapping_lut_entries = get_lut_bind_group_layout_entries();
     entries = entries.extend_with_indices((
-        (16, tonemapping_lut_entries[0]),
-        (17, tonemapping_lut_entries[1]),
+        (18, tonemapping_lut_entries[0]),
+        (19, tonemapping_lut_entries[1]),
     ));
 
     // Prepass
@@ -280,7 +289,7 @@ fn layout_entries(
     {
         for (entry, binding) in prepass::get_bind_group_layout_entries(layout_key)
             .iter()
-            .zip([18, 19, 20, 21])
+            .zip([20, 21, 22, 23])
         {
             if let Some(entry) = entry {
                 entries = entries.extend_with_indices(((binding as u32, *entry),));
@@ -291,10 +300,10 @@ fn layout_entries(
     // View Transmission Texture
     entries = entries.extend_with_indices((
         (
-            22,
+            24,
             texture_2d(TextureSampleType::Float { filterable: true }),
         ),
-        (23, sampler(SamplerBindingType::Filtering)),
+        (25, sampler(SamplerBindingType::Filtering)),
     ));
 
     entries.to_vec()
@@ -348,7 +357,8 @@ pub fn prepare_mesh_view_bind_groups(
         Option<&ViewPrepassTextures>,
         Option<&ViewTransmissionTexture>,
         &Tonemapping,
-        Option<&RenderViewEnvironmentMaps>,
+        Option<&RenderViewLightProbes<EnvironmentMapLight>>,
+        Option<&RenderViewLightProbes<IrradianceVolume>>,
     )>,
     (images, mut fallback_images, fallback_image, fallback_image_zero): (
         Res<RenderAssets<Image>>,
@@ -385,6 +395,7 @@ pub fn prepare_mesh_view_bind_groups(
             transmission_texture,
             tonemapping,
             render_view_environment_maps,
+            render_view_irradiance_volumes,
         ) in &views
         {
             let fallback_ssao = fallback_images
@@ -416,15 +427,15 @@ pub fn prepare_mesh_view_bind_groups(
                 (12, ssao_view),
             ));
 
-            let bind_group_entries = RenderViewBindGroupEntries::get(
+            let environment_map_bind_group_entries = RenderViewEnvironmentMapBindGroupEntries::get(
                 render_view_environment_maps,
                 &images,
                 &fallback_image,
                 &render_device,
             );
 
-            match bind_group_entries {
-                RenderViewBindGroupEntries::Single {
+            match environment_map_bind_group_entries {
+                RenderViewEnvironmentMapBindGroupEntries::Single {
                     diffuse_texture_view,
                     specular_texture_view,
                     sampler,
@@ -435,7 +446,7 @@ pub fn prepare_mesh_view_bind_groups(
                         (15, sampler),
                     ));
                 }
-                RenderViewBindGroupEntries::Multiple {
+                RenderViewEnvironmentMapBindGroupEntries::Multiple {
                     ref diffuse_texture_views,
                     ref specular_texture_views,
                     sampler,
@@ -448,8 +459,32 @@ pub fn prepare_mesh_view_bind_groups(
                 }
             }
 
+            let irradiance_volume_bind_group_entries =
+                RenderViewIrradianceVolumeBindGroupEntries::get(
+                    render_view_irradiance_volumes,
+                    &images,
+                    &fallback_image,
+                    &render_device,
+                );
+
+            match irradiance_volume_bind_group_entries {
+                RenderViewIrradianceVolumeBindGroupEntries::Single {
+                    texture_view,
+                    sampler,
+                } => {
+                    entries = entries.extend_with_indices(((16, texture_view), (17, sampler)));
+                }
+                RenderViewIrradianceVolumeBindGroupEntries::Multiple {
+                    ref texture_views,
+                    sampler,
+                } => {
+                    entries = entries
+                        .extend_with_indices(((16, texture_views.as_slice()), (17, sampler)));
+                }
+            }
+
             let lut_bindings = get_lut_bindings(&images, &tonemapping_luts, tonemapping);
-            entries = entries.extend_with_indices(((16, lut_bindings.0), (17, lut_bindings.1)));
+            entries = entries.extend_with_indices(((18, lut_bindings.0), (19, lut_bindings.1)));
 
             // When using WebGL, we can't have a depth texture with multisampling
             let prepass_bindings;
@@ -459,7 +494,7 @@ pub fn prepare_mesh_view_bind_groups(
                 for (binding, index) in prepass_bindings
                     .iter()
                     .map(Option::as_ref)
-                    .zip([18, 19, 20, 21])
+                    .zip([20, 21, 22, 23])
                     .flat_map(|(b, i)| b.map(|b| (b, i)))
                 {
                     entries = entries.extend_with_indices(((index, binding),));
@@ -475,7 +510,7 @@ pub fn prepare_mesh_view_bind_groups(
                 .unwrap_or(&fallback_image_zero.sampler);
 
             entries =
-                entries.extend_with_indices(((22, transmission_view), (23, transmission_sampler)));
+                entries.extend_with_indices(((24, transmission_view), (25, transmission_sampler)));
 
             commands.entity(entity).insert(MeshViewBindGroup {
                 value: render_device.create_bind_group("mesh_view_bind_group", layout, &entries),

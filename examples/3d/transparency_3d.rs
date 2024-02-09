@@ -20,20 +20,14 @@ fn setup(
 ) {
     // Opaque plane, uses `alpha_mode: Opaque` by default
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(6.0)),
+        mesh: meshes.add(Plane3d::default().mesh().size(6.0, 6.0)),
         material: materials.add(Color::rgb(0.3, 0.5, 0.3)),
         ..default()
     });
 
     // Transparent sphere, uses `alpha_mode: Mask(f32)`
     commands.spawn(PbrBundle {
-        mesh: meshes.add(
-            Mesh::try_from(shape::Icosphere {
-                radius: 0.5,
-                subdivisions: 3,
-            })
-            .unwrap(),
-        ),
+        mesh: meshes.add(Sphere::new(0.5).mesh().ico(3).unwrap()),
         material: materials.add(StandardMaterial {
             // Alpha channel of the color controls transparency.
             // We set it to 0.0 here, because it will be changed over time in the
@@ -51,13 +45,7 @@ fn setup(
 
     // Transparent unlit sphere, uses `alpha_mode: Mask(f32)`
     commands.spawn(PbrBundle {
-        mesh: meshes.add(
-            Mesh::try_from(shape::Icosphere {
-                radius: 0.5,
-                subdivisions: 3,
-            })
-            .unwrap(),
-        ),
+        mesh: meshes.add(Sphere::new(0.5).mesh().ico(3).unwrap()),
         material: materials.add(StandardMaterial {
             base_color: Color::rgba(0.2, 0.7, 0.1, 0.0),
             alpha_mode: AlphaMode::Mask(0.5),
@@ -70,7 +58,7 @@ fn setup(
 
     // Transparent cube, uses `alpha_mode: Blend`
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Cube { size: 1.0 }),
+        mesh: meshes.add(Cuboid::default()),
         // Notice how there is no need to set the `alpha_mode` explicitly here.
         // When converting a color to a material using `into()`, the alpha mode is
         // automatically set to `Blend` if the alpha channel is anything lower than 1.0.
@@ -80,13 +68,7 @@ fn setup(
     });
     // Opaque sphere
     commands.spawn(PbrBundle {
-        mesh: meshes.add(
-            Mesh::try_from(shape::Icosphere {
-                radius: 0.5,
-                subdivisions: 3,
-            })
-            .unwrap(),
-        ),
+        mesh: meshes.add(Sphere::new(0.5).mesh().ico(3).unwrap()),
         material: materials.add(Color::rgb(0.7, 0.2, 0.1)),
         transform: Transform::from_xyz(0.0, 0.5, -1.5),
         ..default()

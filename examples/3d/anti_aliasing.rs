@@ -13,7 +13,7 @@ use bevy::{
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
     render::{
-        render_asset::RenderAssetPersistencePolicy,
+        render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
         texture::{ImageSampler, ImageSamplerDescriptor},
     },
@@ -260,7 +260,7 @@ fn setup(
 ) {
     // Plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(50.0)),
+        mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
         material: materials.add(Color::rgb(0.1, 0.2, 0.1)),
         ..default()
     });
@@ -273,7 +273,7 @@ fn setup(
     // Cubes
     for i in 0..5 {
         commands.spawn(PbrBundle {
-            mesh: meshes.add(shape::Cube { size: 0.25 }),
+            mesh: meshes.add(Cuboid::new(0.25, 0.25, 0.25)),
             material: cube_material.clone(),
             transform: Transform::from_xyz(i as f32 * 0.25 - 1.0, 0.125, -i as f32 * 0.5),
             ..default()
@@ -381,7 +381,7 @@ fn uv_debug_texture() -> Image {
         TextureDimension::D2,
         &texture_data,
         TextureFormat::Rgba8UnormSrgb,
-        RenderAssetPersistencePolicy::Unload,
+        RenderAssetUsages::RENDER_WORLD,
     );
     img.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor::default());
     img

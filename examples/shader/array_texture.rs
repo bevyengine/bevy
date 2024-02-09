@@ -1,3 +1,6 @@
+//! This example illustrates how to create a texture for use with a `texture_2d_array<f32>` shader
+//! uniform variable.
+
 use bevy::{
     asset::LoadState,
     prelude::*,
@@ -5,8 +8,6 @@ use bevy::{
     render::render_resource::{AsBindGroup, ShaderRef},
 };
 
-/// This example illustrates how to create a texture for use with a `texture_2d_array<f32>` shader
-/// uniform variable.
 fn main() {
     App::new()
         .add_plugins((
@@ -66,7 +67,7 @@ fn create_array_texture(
     image.reinterpret_stacked_2d_as_array(array_layers);
 
     // Spawn some cubes using the array texture
-    let mesh_handle = meshes.add(shape::Cube { size: 1.0 });
+    let mesh_handle = meshes.add(Cuboid::default());
     let material_handle = materials.add(ArrayTextureMaterial {
         array_texture: loading_texture.handle.clone(),
     });

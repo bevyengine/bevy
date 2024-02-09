@@ -16,6 +16,8 @@ use bevy_render::{
     Extract,
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
+#[cfg(feature = "trace")]
+use bevy_utils::tracing::info_span;
 use bevy_utils::{
     nonmax::NonMaxU32,
     tracing::{error, warn},
@@ -267,9 +269,14 @@ pub struct ExtractedClusterConfig {
     dimensions: UVec3,
 }
 
+enum ExtractedClustersPointLightsElement {
+    ClusterHeader(u32, u32),
+    LightEntity(Entity),
+}
+
 #[derive(Component)]
 pub struct ExtractedClustersPointLights {
-    data: Vec<VisiblePointLights>,
+    data: Vec<ExtractedClustersPointLightsElement>,
 }
 
 pub fn extract_clusters(
@@ -281,10 +288,20 @@ pub fn extract_clusters(
             continue;
         }
 
+        let num_entities: usize = clusters.lights.iter().map(|l| l.entities.len()).sum();
+        let mut data = Vec::with_capacity(clusters.lights.len() + num_entities);
+        for cluster_lights in &clusters.lights {
+            data.push(ExtractedClustersPointLightsElement::ClusterHeader(
+                cluster_lights.point_light_count as u32,
+                cluster_lights.spot_light_count as u32,
+            ));
+            for l in &cluster_lights.entities {
+                data.push(ExtractedClustersPointLightsElement::LightEntity(*l));
+            }
+        }
+
         commands.get_or_spawn(entity).insert((
-            ExtractedClustersPointLights {
-                data: clusters.lights.clone(),
-            },
+            ExtractedClustersPointLights { data },
             ExtractedClusterConfig {
                 near: clusters.near,
                 far: clusters.far,
@@ -1524,57 +1541,41 @@ pub fn prepare_clusters(
     render_queue: Res<RenderQueue>,
     mesh_pipeline: Res<MeshPipeline>,
     global_light_meta: Res<GlobalLightMeta>,
-    views: Query<
-        (
-            Entity,
-            &ExtractedClusterConfig,
-            &ExtractedClustersPointLights,
-        ),
-        With<RenderPhase<Transparent3d>>,
-    >,
+    views: Query<(Entity, &ExtractedClustersPointLights), With<RenderPhase<Transparent3d>>>,
 ) {
     let render_device = render_device.into_inner();
     let supports_storage_buffers = matches!(
         mesh_pipeline.clustered_forward_buffer_binding_type,
         BufferBindingType::Storage { .. }
     );
-    for (entity, cluster_config, extracted_clusters) in &views {
+    for (entity, extracted_clusters) in &views {
         let mut view_clusters_bindings =
             ViewClusterBindings::new(mesh_pipeline.clustered_forward_buffer_binding_type);
         view_clusters_bindings.clear();
 
-        let mut indices_full = false;
-
-        let mut cluster_index = 0;
-        for _y in 0..cluster_config.dimensions.y {
-            for _x in 0..cluster_config.dimensions.x {
-                for _z in 0..cluster_config.dimensions.z {
+        for record in &extracted_clusters.data {
+            match record {
+                ExtractedClustersPointLightsElement::ClusterHeader(
+                    point_light_count,
+                    spot_light_count,
+                ) => {
                     let offset = view_clusters_bindings.n_indices();
-                    let cluster_lights = &extracted_clusters.data[cluster_index];
                     view_clusters_bindings.push_offset_and_counts(
                         offset,
-                        cluster_lights.point_light_count,
-                        cluster_lights.spot_light_count,
+                        *point_light_count as usize,
+                        *spot_light_count as usize,
                     );
-
-                    if !indices_full {
-                        for entity in cluster_lights.iter() {
-                            if let Some(light_index) = global_light_meta.entity_to_index.get(entity)
-                            {
-                                if view_clusters_bindings.n_indices()
-                                    >= ViewClusterBindings::MAX_INDICES
-                                    && !supports_storage_buffers
-                                {
-                                    warn!("Cluster light index lists is full! The PointLights in the view are affecting too many clusters.");
-                                    indices_full = true;
-                                    break;
-                                }
-                                view_clusters_bindings.push_index(*light_index);
-                            }
+                }
+                ExtractedClustersPointLightsElement::LightEntity(entity) => {
+                    if let Some(light_index) = global_light_meta.entity_to_index.get(entity) {
+                        if view_clusters_bindings.n_indices() >= ViewClusterBindings::MAX_INDICES
+                            && !supports_storage_buffers
+                        {
+                            warn!("Cluster light index lists is full! The PointLights in the view are affecting too many clusters.");
+                            break;
                         }
+                        view_clusters_bindings.push_index(*light_index);
                     }
-
-                    cluster_index += 1;
                 }
             }
         }
@@ -1781,11 +1782,11 @@ impl Node for ShadowPassNode {
         self.view_light_query.update_archetypes(world);
     }
 
-    fn run(
+    fn run<'w>(
         &self,
         graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        world: &World,
+        render_context: &mut RenderContext<'w>,
+        world: &'w World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
         if let Ok(view_lights) = self.main_view_query.get_manual(world, view_entity) {
@@ -1795,22 +1796,32 @@ impl Node for ShadowPassNode {
                     .get_manual(world, view_light_entity)
                     .unwrap();
 
-                if shadow_phase.items.is_empty() {
-                    continue;
-                }
+                let depth_stencil_attachment =
+                    Some(view_light.depth_attachment.get_attachment(StoreOp::Store));
 
-                let mut render_pass =
-                    render_context.begin_tracked_render_pass(RenderPassDescriptor {
+                render_context.add_command_buffer_generation_task(move |render_device| {
+                    #[cfg(feature = "trace")]
+                    let _shadow_pass_span = info_span!("shadow_pass").entered();
+
+                    let mut command_encoder =
+                        render_device.create_command_encoder(&CommandEncoderDescriptor {
+                            label: Some("shadow_pass_command_encoder"),
+                        });
+
+                    let render_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
                         label: Some(&view_light.pass_name),
                         color_attachments: &[],
-                        depth_stencil_attachment: Some(
-                            view_light.depth_attachment.get_attachment(StoreOp::Store),
-                        ),
+                        depth_stencil_attachment,
                         timestamp_writes: None,
                         occlusion_query_set: None,
                     });
+                    let mut render_pass = TrackedRenderPass::new(&render_device, render_pass);
 
-                shadow_phase.render(&mut render_pass, world, view_light_entity);
+                    shadow_phase.render(&mut render_pass, world, view_light_entity);
+
+                    drop(render_pass);
+                    command_encoder.finish()
+                });
             }
         }
 

@@ -18,6 +18,7 @@ bmp = ["image/bmp"]
 webp = ["image/webp"]
 dds = ["ddsfile"]
 pnm = ["image/pnm"]
+multi-threaded = ["bevy_tasks/multi-threaded"]
 bevy_ci_testing = ["bevy_app/bevy_ci_testing"]
 
 shader_format_glsl = ["naga/glsl-in", "naga/wgsl-out", "naga_oil/glsl"]
@@ -72,7 +73,7 @@ wgpu = { version = "0.19.1", default-features = false, features = [
   "fragile-send-sync-non-atomic-wasm",
 ] }
 naga = { version = "0.19", features = ["wgsl-in"] }
-naga_oil = { version = "0.12", default-features = false, features = [
+naga_oil = { version = "0.13", default-features = false, features = [
   "test_shader",
 ] }
 serde = { version = "1", features = ["derive"] }

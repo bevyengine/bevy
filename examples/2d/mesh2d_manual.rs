@@ -10,7 +10,7 @@ use bevy::{
     prelude::*,
     render::{
         mesh::{Indices, MeshVertexAttribute},
-        render_asset::RenderAssetPersistencePolicy,
+        render_asset::RenderAssetUsages,
         render_asset::RenderAssets,
         render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
         render_resource::{
@@ -48,12 +48,12 @@ fn star(
     // We will specify here what kind of topology is used to define the mesh,
     // that is, how triangles are built from the vertices. We will use a
     // triangle list, meaning that each vertex of the triangle has to be
-    // specified. We set `cpu_persistent_access` to unload, meaning this mesh
+    // specified. We set `RenderAssetUsages::RENDER_WORLD`, meaning this mesh
     // will not be accessible in future frames from the `meshes` resource, in
     // order to save on memory once it has been uploaded to the GPU.
     let mut star = Mesh::new(
         PrimitiveTopology::TriangleList,
-        RenderAssetPersistencePolicy::Unload,
+        RenderAssetUsages::RENDER_WORLD,
     );
 
     // Vertices need to have a position attribute. We will use the following
@@ -100,7 +100,7 @@ fn star(
     for i in 2..=10 {
         indices.extend_from_slice(&[0, i, i - 1]);
     }
-    star.set_indices(Some(Indices::U32(indices)));
+    star.insert_indices(Indices::U32(indices));
 
     // We can now spawn the entities for the star and the camera
     commands.spawn((

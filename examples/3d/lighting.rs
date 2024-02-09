@@ -38,7 +38,7 @@ fn setup(
 ) {
     // ground plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(10.0)),
+        mesh: meshes.add(Plane3d::default().mesh().size(10.0, 10.0)),
         material: materials.add(StandardMaterial {
             base_color: Color::WHITE,
             perceptual_roughness: 1.0,
@@ -51,7 +51,7 @@ fn setup(
     let mut transform = Transform::from_xyz(2.5, 2.5, 0.0);
     transform.rotate_z(PI / 2.);
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Box::new(5.0, 0.15, 5.0)),
+        mesh: meshes.add(Cuboid::new(5.0, 0.15, 5.0)),
         transform,
         material: materials.add(StandardMaterial {
             base_color: Color::INDIGO,
@@ -64,7 +64,7 @@ fn setup(
     let mut transform = Transform::from_xyz(0.0, 2.5, -2.5);
     transform.rotate_x(PI / 2.);
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Box::new(5.0, 0.15, 5.0)),
+        mesh: meshes.add(Cuboid::new(5.0, 0.15, 5.0)),
         transform,
         material: materials.add(StandardMaterial {
             base_color: Color::INDIGO,
@@ -79,7 +79,7 @@ fn setup(
     transform.rotate_y(PI / 8.);
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(shape::Quad::new(Vec2::new(2.0, 0.5))),
+            mesh: meshes.add(Rectangle::new(2.0, 0.5)),
             transform,
             material: materials.add(StandardMaterial {
                 base_color_texture: Some(asset_server.load("branding/bevy_logo_light.png")),
@@ -96,7 +96,7 @@ fn setup(
     // cube
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(shape::Cube { size: 1.0 }),
+            mesh: meshes.add(Cuboid::default()),
             material: materials.add(StandardMaterial {
                 base_color: Color::PINK,
                 ..default()
@@ -109,10 +109,7 @@ fn setup(
     // sphere
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(shape::UVSphere {
-                radius: 0.5,
-                ..default()
-            }),
+            mesh: meshes.add(Sphere::new(0.5).mesh().uv(32, 18)),
             material: materials.add(StandardMaterial {
                 base_color: Color::LIME_GREEN,
                 ..default()
@@ -144,10 +141,7 @@ fn setup(
         })
         .with_children(|builder| {
             builder.spawn(PbrBundle {
-                mesh: meshes.add(shape::UVSphere {
-                    radius: 0.1,
-                    ..default()
-                }),
+                mesh: meshes.add(Sphere::new(0.1).mesh().uv(32, 18)),
                 material: materials.add(StandardMaterial {
                     base_color: Color::RED,
                     emissive: Color::rgba_linear(7.13, 0.0, 0.0, 0.0),
@@ -175,11 +169,7 @@ fn setup(
         .with_children(|builder| {
             builder.spawn(PbrBundle {
                 transform: Transform::from_rotation(Quat::from_rotation_x(PI / 2.0)),
-                mesh: meshes.add(shape::Capsule {
-                    depth: 0.125,
-                    radius: 0.1,
-                    ..default()
-                }),
+                mesh: meshes.add(Capsule3d::new(0.1, 0.125)),
                 material: materials.add(StandardMaterial {
                     base_color: Color::GREEN,
                     emissive: Color::rgba_linear(0.0, 7.13, 0.0, 0.0),
@@ -204,10 +194,7 @@ fn setup(
         })
         .with_children(|builder| {
             builder.spawn(PbrBundle {
-                mesh: meshes.add(shape::UVSphere {
-                    radius: 0.1,
-                    ..default()
-                }),
+                mesh: meshes.add(Sphere::new(0.1).mesh().uv(32, 18)),
                 material: materials.add(StandardMaterial {
                     base_color: Color::BLUE,
                     emissive: Color::rgba_linear(0.0, 0.0, 7.13, 0.0),

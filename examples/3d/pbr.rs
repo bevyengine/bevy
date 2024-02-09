@@ -17,13 +17,7 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
-    let sphere_mesh = meshes.add(
-        Mesh::try_from(shape::Icosphere {
-            radius: 0.45,
-            ..default()
-        })
-        .unwrap(),
-    );
+    let sphere_mesh = meshes.add(Sphere::new(0.45));
     // add entities to the world
     for y in -2..=2 {
         for x in -5..=5 {

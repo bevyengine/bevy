@@ -80,7 +80,7 @@ fn setup_terrain_scene(
     // Sky
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(shape::Box::default()),
+            mesh: meshes.add(Cuboid::new(2.0, 1.0, 1.0)),
             material: materials.add(StandardMaterial {
                 base_color: Color::hex("888888").unwrap(),
                 unlit: true,

@@ -1,4 +1,5 @@
-//! Showcases sprite 9 slice scaling
+//! Showcases sprite 9 slice scaling and tiling features, enabling usage of
+//! sprites in multiple resolutions while keeping it in proportion
 use bevy::prelude::*;
 
 fn main() {

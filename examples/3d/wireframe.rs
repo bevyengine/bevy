@@ -54,7 +54,7 @@ fn setup(
 ) {
     // plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(5.0)),
+        mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
         material: materials.add(Color::BLUE),
         ..default()
     });
@@ -62,7 +62,7 @@ fn setup(
     // Red cube: Never renders a wireframe
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(shape::Cube { size: 1.0 }),
+            mesh: meshes.add(Cuboid::default()),
             material: materials.add(Color::RED),
             transform: Transform::from_xyz(-1.0, 0.5, -1.0),
             ..default()
@@ -71,7 +71,7 @@ fn setup(
     ));
     // Orange cube: Follows global wireframe setting
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Cube { size: 1.0 }),
+        mesh: meshes.add(Cuboid::default()),
         material: materials.add(Color::ORANGE),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..default()
@@ -79,7 +79,7 @@ fn setup(
     // Green cube: Always renders a wireframe
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(shape::Cube { size: 1.0 }),
+            mesh: meshes.add(Cuboid::default()),
             material: materials.add(Color::GREEN),
             transform: Transform::from_xyz(1.0, 0.5, 1.0),
             ..default()

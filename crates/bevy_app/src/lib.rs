@@ -1,7 +1,5 @@
 //! This crate is about everything concerning the highest-level, application layer of a Bevy app.
 
-#![warn(missing_docs)]
-
 mod app;
 mod main_schedule;
 mod plugin;

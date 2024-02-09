@@ -150,7 +150,7 @@ pub(crate) mod test_setup {
     ) {
         commands.spawn((
             PbrBundle {
-                mesh: meshes.add(shape::Cube { size: 0.5 }),
+                mesh: meshes.add(Cuboid::new(0.5, 0.5, 0.5)),
                 material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
                 ..default()
             },
