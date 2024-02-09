@@ -137,7 +137,7 @@ pub trait List: FixedLenList {
     /// Upcast this [`List`] as a [`FixedLenList`].
     fn as_fixed_len_list(&self) -> &dyn FixedLenList;
 
-    /// Upcast this [`List`] as a [`FixedLenList`].
+    /// Upcast this [`List`] as a mutable [`FixedLenList`].
     fn as_fixed_len_list_mut(&mut self) -> &mut dyn FixedLenList;
 }
 
