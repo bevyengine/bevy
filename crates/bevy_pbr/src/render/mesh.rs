@@ -257,7 +257,7 @@ pub struct RenderMeshInstance {
     pub transforms: MeshTransforms,
     pub mesh_asset_id: AssetId<Mesh>,
     pub material_bind_group_id: MaterialBindGroupId,
-    pub prepass_material_bind_group_id: MaterialBindGroupId,
+    pub shadow_material_bind_group_id: MaterialBindGroupId,
     pub shadow_caster: bool,
     pub automatic_batching: bool,
 }
@@ -329,7 +329,7 @@ pub fn extract_meshes(
                     transforms,
                     shadow_caster: !not_shadow_caster,
                     material_bind_group_id: MaterialBindGroupId::default(),
-                    prepass_material_bind_group_id: MaterialBindGroupId::default(),
+                    shadow_material_bind_group_id: MaterialBindGroupId::default(),
                     automatic_batching: !no_automatic_batching,
                 },
             ));
@@ -527,7 +527,7 @@ impl GetBatchData for ShadowMeshPipeline {
                 maybe_lightmap.map(|lightmap| lightmap.uv_rect),
             ),
             mesh_instance.automatic_batching.then_some((
-                mesh_instance.prepass_material_bind_group_id,
+                mesh_instance.shadow_material_bind_group_id,
                 mesh_instance.mesh_asset_id,
                 maybe_lightmap.map(|lightmap| lightmap.image),
             )),
