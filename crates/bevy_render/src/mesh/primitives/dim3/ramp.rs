@@ -6,7 +6,6 @@ use crate::{
     render_asset::RenderAssetUsages,
 };
 
-
 impl Meshable for Ramp {
     type Output = Mesh;
 

@@ -588,6 +588,15 @@ pub struct Cone {
 }
 impl Primitive3d for Cone {}
 
+impl Default for Cone {
+    fn default() -> Self {
+        Self {
+            radius: 0.5,
+            height: 1.0,
+        }
+    }
+}
+
 impl Cone {
     /// Get the base of the cone as a [`Circle`]
     #[inline(always)]
@@ -777,13 +786,14 @@ impl Default for Ramp {
     fn default() -> Self {
         Self {
             half_size: Vec3::splat(0.5),
-        }        
+        }
     }
 }
 
 impl Ramp {
     /// Create a new Ramp from the dimensions of the base and the angle of the wedge at the apex.
     /// The slope is the angle (incline) of the ramp in radians
+    /// For sensible results, the slope of the ramp should not exceed `PI / 2.0` or 90°.
     pub fn new(half_width: f32, half_depth: f32, slope: f32) -> Ramp {
         let half_height = half_depth * slope.tan();
         Self {
@@ -800,7 +810,8 @@ impl Ramp {
     /// Get the surface area of the ramp
     pub fn area(&self) -> f32 {
         let half = self.half_size;
-        let half_volume = half.x * (half.y + half.z + (half.y * half.y + half.z * half.z).sqrt()) + half.y * half.z;
+        let half_volume = half.x * (half.y + half.z + (half.y * half.y + half.z * half.z).sqrt())
+            + half.y * half.z;
         half_volume * 4.0
     }
 
@@ -979,9 +990,13 @@ mod tests {
     #[test]
     fn ramp_math() {
         let ramp = Ramp {
-            half_size: Vec3::splat(0.75)
+            half_size: Vec3::splat(0.75),
         };
-        assert_eq!(ramp.slope(), std::f32::consts::FRAC_PI_4, "incorrect computed slope");
+        assert_eq!(
+            ramp.slope(),
+            std::f32::consts::FRAC_PI_4,
+            "incorrect computed slope"
+        );
         assert_eq!(ramp.area(), 9.9319805, "incorrect ramp area");
         assert_eq!(ramp.volume(), 1.6875, "incorrect ramp volume");
 
