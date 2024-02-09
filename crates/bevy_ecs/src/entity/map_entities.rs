@@ -182,7 +182,7 @@ impl<'m> SceneEntityMapper<'m> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        entity::{Entity, EntityMapper, SceneEntityMapper},
+        entity::{Entity, EntityHashMap, EntityMapper, SceneEntityMapper},
         world::World,
     };
 
