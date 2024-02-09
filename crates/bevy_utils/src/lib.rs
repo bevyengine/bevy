@@ -320,6 +320,45 @@ impl<F: FnOnce()> Drop for OnDrop<F> {
     }
 }
 
+/// A specialized hashmap type with Key of [`TypeId`]
+/// Iteration order only depends on the order of insertions and deletions.
+pub type TypeIdMap<V> = hashbrown::HashMap<TypeId, V, NoOpTypeIdHash>;
+
+/// [`BuildHasher`] for [`TypeId`]s.
+#[derive(Default)]
+pub struct NoOpTypeIdHash;
+
+impl BuildHasher for NoOpTypeIdHash {
+    type Hasher = NoOpTypeIdHasher;
+
+    fn build_hasher(&self) -> Self::Hasher {
+        NoOpTypeIdHasher(0)
+    }
+}
+#[doc(hidden)]
+#[derive(Default)]
+pub struct NoOpTypeIdHasher(pub u64);
+
+// TypeId already contains a high-quality hash, so skip re-hashing that hash.
+impl std::hash::Hasher for NoOpTypeIdHasher {
+    fn finish(&self) -> u64 {
+        self.0
+    }
+
+    fn write(&mut self, bytes: &[u8]) {
+        // This will never be called: TypeId always just calls write_u64 once!
+        // This is a known trick and unlikely to change, but isn't officially guaranteed.
+        // Don't break applications (slower fallback, just check in test):
+        self.0 = bytes.iter().fold(self.0, |hash, b| {
+            hash.rotate_left(8).wrapping_add(*b as u64)
+        });
+    }
+
+    fn write_u64(&mut self, i: u64) {
+        self.0 = i;
+    }
+}
+
 /// Calls the [`tracing::info!`] macro on a value.
 pub fn info<T: Debug>(data: T) {
     tracing::info!("{:?}", data);
