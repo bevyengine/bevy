@@ -528,7 +528,6 @@ mod tests {
     use bevy_math::vec2;
     use bevy_math::Vec2;
     use bevy_render::camera::ManualTextureViews;
-    use bevy_render::camera::OrthographicProjection;
     use bevy_render::texture::Image;
     use bevy_utils::prelude::default;
     use bevy_utils::HashMap;
@@ -575,7 +574,7 @@ mod tests {
         ui_schedule.add_systems(
             (
                 // UI is driven by calculated camera target info, so we need to run the camera system first
-                bevy_render::camera::camera_system::<OrthographicProjection>,
+                bevy_render::camera::camera_system,
                 update_target_camera_system,
                 apply_deferred,
                 ui_layout_system,

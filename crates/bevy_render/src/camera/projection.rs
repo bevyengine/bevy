@@ -1,54 +1,11 @@
-use std::marker::PhantomData;
 use std::ops::{Div, DivAssign, Mul, MulAssign};
 
 use crate::primitives::Frustum;
-use bevy_app::{App, Plugin, PostStartup, PostUpdate};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_math::{AspectRatio, Mat4, Rect, Vec2, Vec3A};
-use bevy_reflect::{
-    std_traits::ReflectDefault, GetTypeRegistration, Reflect, ReflectDeserialize, ReflectSerialize,
-};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_transform::components::GlobalTransform;
 use serde::{Deserialize, Serialize};
-
-/// Adds [`Camera`](crate::camera::Camera) driver systems for a given projection type.
-pub struct CameraProjectionPlugin<T: CameraProjection>(PhantomData<T>);
-
-impl<T: CameraProjection> Default for CameraProjectionPlugin<T> {
-    fn default() -> Self {
-        Self(Default::default())
-    }
-}
-
-/// Label for [`camera_system<T>`], shared across all `T`.
-///
-/// [`camera_system<T>`]: crate::camera::camera_system
-#[derive(SystemSet, Clone, Eq, PartialEq, Hash, Debug)]
-pub struct CameraUpdateSystem;
-
-impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraProjectionPlugin<T> {
-    fn build(&self, app: &mut App) {
-        app.register_type::<T>()
-            .add_systems(
-                PostStartup,
-                crate::camera::camera_system::<T>
-                    .in_set(CameraUpdateSystem)
-                    // We assume that each camera will only have one projection,
-                    // so we can ignore ambiguities with all other monomorphizations.
-                    // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
-                    .ambiguous_with(CameraUpdateSystem),
-            )
-            .add_systems(
-                PostUpdate,
-                crate::camera::camera_system::<T>
-                    .in_set(CameraUpdateSystem)
-                    // We assume that each camera will only have one projection,
-                    // so we can ignore ambiguities with all other monomorphizations.
-                    // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
-                    .ambiguous_with(CameraUpdateSystem),
-            );
-    }
-}
 
 /// Trait to control the projection matrix of a camera.
 ///

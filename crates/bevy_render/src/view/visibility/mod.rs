@@ -213,9 +213,9 @@ impl Plugin for VisibilityPlugin {
             PostUpdate,
             (
                 calculate_bounds.in_set(CalculateBounds),
-                update_frusta::<Projection>
+                update_frusta
                     .in_set(UpdateProjectionFrusta)
-                    .after(camera_system::<Projection>)
+                    .after(camera_system)
                     .after(TransformSystem::TransformPropagate),
                 (visibility_propagate_system, reset_view_visibility).in_set(VisibilityPropagate),
                 check_visibility
@@ -254,10 +254,10 @@ pub fn calculate_bounds(
 /// This system is used in system sets [`VisibilitySystems::UpdateProjectionFrusta`],
 /// [`VisibilitySystems::UpdatePerspectiveFrusta`], and
 /// [`VisibilitySystems::UpdateOrthographicFrusta`].
-pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
+pub fn update_frusta(
     mut views: Query<
-        (&GlobalTransform, &T, &mut Frustum),
-        Or<(Changed<GlobalTransform>, Changed<T>)>,
+        (&GlobalTransform, &Projection, &mut Frustum),
+        Or<(Changed<GlobalTransform>, Changed<Projection>)>,
     >,
 ) {
     for (transform, projection, mut frustum) in &mut views {

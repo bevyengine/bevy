@@ -15,10 +15,15 @@ use crate::{
     extract_component::ExtractComponentPlugin, extract_resource::ExtractResourcePlugin,
     render_graph::RenderGraph, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_app::{App, Plugin};
-use bevy_ecs::schedule::IntoSystemConfigs;
+use bevy_app::{App, Plugin, PostStartup, PostUpdate};
+use bevy_ecs::schedule::{IntoSystemConfigs, SystemSet};
 
-#[derive(Default)]
+/// Label for [`camera_system`].
+///
+/// [`camera_system`]: crate::camera::camera_system
+#[derive(SystemSet, Clone, Eq, PartialEq, Hash, Debug, Default)]
+pub struct CameraUpdateSystem;
+
 pub struct CameraPlugin;
 
 impl Plugin for CameraPlugin {
@@ -30,10 +35,12 @@ impl Plugin for CameraPlugin {
             .register_type::<RenderTarget>()
             .register_type::<ClearColor>()
             .register_type::<ClearColorConfig>()
+            .register_type::<Projection>()
             .init_resource::<ManualTextureViews>()
             .init_resource::<ClearColor>()
+            .add_systems(PostStartup, camera_system.in_set(CameraUpdateSystem))
+            .add_systems(PostUpdate, camera_system.in_set(CameraUpdateSystem))
             .add_plugins((
-                CameraProjectionPlugin::<Projection>::default(),
                 ExtractResourcePlugin::<ManualTextureViews>::default(),
                 ExtractResourcePlugin::<ClearColor>::default(),
                 ExtractComponentPlugin::<CameraMainTextureUsages>::default(),
