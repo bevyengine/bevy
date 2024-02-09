@@ -332,15 +332,14 @@ fn draw_primitives(
                 .minor_segments((segments / 4).max(1));
         }
         PrimitiveState::Ramp => {
-            gizmos
-                .primitive_3d(
-                    Ramp {
-                        half_size: Vec3::new(1.0, 0.5, 2.0),
-                    },
-                    center,
-                    rotation,
-                    Color::default(),
-                );
+            gizmos.primitive_3d(
+                Ramp {
+                    half_size: Vec3::new(1.0, 0.5, 2.0),
+                },
+                center,
+                rotation,
+                Color::default(),
+            );
         }
     }
 }
