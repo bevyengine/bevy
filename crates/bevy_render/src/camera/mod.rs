@@ -34,8 +34,6 @@ impl Plugin for CameraPlugin {
             .init_resource::<ClearColor>()
             .add_plugins((
                 CameraProjectionPlugin::<Projection>::default(),
-                CameraProjectionPlugin::<OrthographicProjection>::default(),
-                CameraProjectionPlugin::<PerspectiveProjection>::default(),
                 ExtractResourcePlugin::<ManualTextureViews>::default(),
                 ExtractResourcePlugin::<ClearColor>::default(),
                 ExtractComponentPlugin::<CameraMainTextureUsages>::default(),

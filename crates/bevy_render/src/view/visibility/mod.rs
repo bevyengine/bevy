@@ -14,10 +14,7 @@ use thread_local::ThreadLocal;
 
 use crate::deterministic::DeterministicRenderingConfig;
 use crate::{
-    camera::{
-        camera_system, Camera, CameraProjection, OrthographicProjection, PerspectiveProjection,
-        Projection,
-    },
+    camera::{camera_system, Camera, CameraProjection, Projection},
     mesh::Mesh,
     primitives::{Aabb, Frustum, Sphere},
 };
@@ -216,23 +213,6 @@ impl Plugin for VisibilityPlugin {
             PostUpdate,
             (
                 calculate_bounds.in_set(CalculateBounds),
-                update_frusta::<OrthographicProjection>
-                    .in_set(UpdateOrthographicFrusta)
-                    .after(camera_system::<OrthographicProjection>)
-                    .after(TransformSystem::TransformPropagate)
-                    // We assume that no camera will have more than one projection component,
-                    // so these systems will run independently of one another.
-                    // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
-                    .ambiguous_with(update_frusta::<PerspectiveProjection>)
-                    .ambiguous_with(update_frusta::<Projection>),
-                update_frusta::<PerspectiveProjection>
-                    .in_set(UpdatePerspectiveFrusta)
-                    .after(camera_system::<PerspectiveProjection>)
-                    .after(TransformSystem::TransformPropagate)
-                    // We assume that no camera will have more than one projection component,
-                    // so these systems will run independently of one another.
-                    // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
-                    .ambiguous_with(update_frusta::<Projection>),
                 update_frusta::<Projection>
                     .in_set(UpdateProjectionFrusta)
                     .after(camera_system::<Projection>)

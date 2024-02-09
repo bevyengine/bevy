@@ -136,8 +136,8 @@ impl Default for Projection {
 }
 
 /// A 3D camera projection in which distant objects appear smaller than close objects.
-#[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component, Default)]
+#[derive(Debug, Clone, Reflect)]
+#[reflect(Default)]
 pub struct PerspectiveProjection {
     /// The vertical field of view (FOV) in radians.
     ///
@@ -320,8 +320,8 @@ impl DivAssign<f32> for ScalingMode {
 ///     ..OrthographicProjection::default()
 /// });
 /// ```
-#[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component, Default)]
+#[derive(Debug, Clone, Reflect)]
+#[reflect(Default)]
 pub struct OrthographicProjection {
     /// The distance of the near clipping plane in world units.
     ///
