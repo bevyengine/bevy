@@ -5,7 +5,7 @@ use std::f32::consts::TAU;
 
 use bevy_math::primitives::{
     BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Direction3d, Line3d,
-    Plane3d, Polyline3d, Primitive3d, Segment3d, Sphere, Torus,
+    Plane3d, Polyline3d, Primitive3d, Ramp, Segment3d, Sphere, Torus,
 };
 use bevy_math::{Quat, Vec3};
 use bevy_render::color::Color;
@@ -915,5 +915,53 @@ impl<T: GizmoConfigGroup> Drop for Torus3dBuilder<'_, '_, '_, T> {
                     .short_arc_3d_between(center, from, to, *color)
                     .segments(*minor_segments);
             });
+    }
+}
+
+// ramp
+
+impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Ramp> for Gizmos<'w, 's, T> {
+    type Output<'a> = () where Self: 'a;
+
+    fn primitive_3d(
+        &mut self,
+        primitive: Ramp,
+        position: Vec3,
+        rotation: Quat,
+        color: Color,
+    ) -> Self::Output<'_> {
+        if !self.enabled {
+            return;
+        }
+
+        let [half_extend_x, half_extend_y, half_extend_z] = primitive.half_size.to_array();
+
+        // transform the points from the reference unit cube-like ramp to the ramp coords
+        let [a, b, c, d, e, f] = [
+            [-1.0, -1.0, -1.0],
+            [-1.0, -1.0, 1.0],
+            [1.0, -1.0, -1.0],
+            [1.0, -1.0, 1.0],
+            [1.0, 1.0, -1.0],
+            [-1.0, 1.0, -1.0],
+        ]
+        .map(|[sx, sy, sz]| Vec3::new(sx * half_extend_x, sy * half_extend_y, sz * half_extend_z))
+        .map(rotate_then_translate_3d(rotation, position));
+
+        let lines = vec![
+            (a, b),
+            (b, d),
+            (d, c),
+            (c, a),
+            (b, f),
+            (d, e),
+            (e, f),
+            (a, f),
+            (c, e),
+        ];
+
+        lines.into_iter().for_each(|(start, end)| {
+            self.line(start, end, color);
+        });
     }
 }
