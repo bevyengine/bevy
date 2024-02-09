@@ -2182,6 +2182,17 @@ description = "Text Pipeline benchmark"
 category = "Stress Tests"
 wasm = false
 
+[[example]]
+name = "xr_cubes_bench"
+path = "examples/stress_tests/xr_cubes_bench.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.xr_cubes_bench]
+name = "XR Cubes"
+description = "XR Cubes benchmark"
+category = "Stress Tests"
+wasm = true
+
 # Tools
 [[example]]
 name = "scene_viewer"
