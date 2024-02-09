@@ -45,10 +45,11 @@ enum PrimitiveState {
     Cone,
     ConicalFrustum,
     Torus,
+    Ramp,
 }
 
 impl PrimitiveState {
-    const ALL: [Self; 11] = [
+    const ALL: [Self; 12] = [
         Self::Sphere,
         Self::Plane,
         Self::Line,
@@ -59,6 +60,7 @@ impl PrimitiveState {
         Self::Cone,
         Self::ConicalFrustum,
         Self::Torus,
+        Self::Ramp,
         Self::Nothing,
     ];
     fn next(self) -> Self {
@@ -328,6 +330,17 @@ fn draw_primitives(
                 )
                 .major_segments(segments)
                 .minor_segments((segments / 4).max(1));
+        }
+        PrimitiveState::Ramp => {
+            gizmos
+                .primitive_3d(
+                    Ramp {
+                        half_size: Vec3::new(1.0, 0.5, 2.0),
+                    },
+                    center,
+                    rotation,
+                    Color::default(),
+                );
         }
     }
 }
