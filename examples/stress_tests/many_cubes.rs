@@ -185,7 +185,7 @@ fn setup(
         }
     }
 
-    commands.spawn(DirectionalLightBundle { ..default() });
+    commands.spawn(DirectionalLightBundle::default());
 }
 
 fn init_textures(args: &Args, images: &mut Assets<Image>) -> Vec<Handle<Image>> {

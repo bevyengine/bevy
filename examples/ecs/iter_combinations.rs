@@ -7,7 +7,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .insert_resource(AmbientLight {
-            brightness: 0.03,
+            brightness: 1.0,
             ..default()
         })
         .insert_resource(ClearColor(Color::BLACK))
@@ -126,7 +126,7 @@ fn generate_bodies(
             p.spawn(PointLightBundle {
                 point_light: PointLight {
                     color: Color::WHITE,
-                    intensity: 100_000.0,
+                    intensity: 500_000.0,
                     range: 100.0,
                     radius: star_radius,
                     ..default()

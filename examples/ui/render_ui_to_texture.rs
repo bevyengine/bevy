@@ -59,14 +59,7 @@ fn setup(
     let image_handle = images.add(image);
 
     // Light
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            intensity: 500_000.0,
-            ..default()
-        },
-        transform: Transform::from_translation(Vec3::new(0.0, 0.0, 10.0)),
-        ..default()
-    });
+    commands.spawn(DirectionalLightBundle::default());
 
     let texture_camera = commands
         .spawn(Camera2dBundle {
