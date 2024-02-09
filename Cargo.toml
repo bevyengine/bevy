@@ -936,6 +936,17 @@ category = "3D Rendering"
 wasm = false
 
 [[example]]
+name = "irradiance_volumes"
+path = "examples/3d/irradiance_volumes.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.irradiance_volumes]
+name = "Irradiance Volumes"
+description = "Demonstrates irradiance volumes"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "lightmaps"
 path = "examples/3d/lightmaps.rs"
 doc-scrape-examples = true
@@ -2490,6 +2501,17 @@ doc-scrape-examples = true
 [package.metadata.example.ui_texture_atlas]
 name = "UI Texture Atlas"
 description = "Illustrates how to use TextureAtlases in UI"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "ui_texture_slice"
+path = "examples/ui/ui_texture_slice.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ui_texture_slice]
+name = "UI Texture Slice"
+description = "Illustrates how to use 9 Slicing in UI"
 category = "UI (User Interface)"
 wasm = true
 

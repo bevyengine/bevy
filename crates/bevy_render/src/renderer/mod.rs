@@ -13,7 +13,7 @@ use crate::{
     settings::{WgpuSettings, WgpuSettingsPriority},
     view::{ExtractedWindows, ViewTarget},
 };
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, system::SystemState};
 use bevy_time::TimeSender;
 use bevy_utils::Instant;
 use std::sync::Arc;
@@ -22,7 +22,7 @@ use wgpu::{
 };
 
 /// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
-pub fn render_system(world: &mut World) {
+pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, With<ViewTarget>>>) {
     world.resource_scope(|world, mut graph: Mut<RenderGraph>| {
         graph.update(world);
     });
@@ -59,10 +59,7 @@ pub fn render_system(world: &mut World) {
 
         // Remove ViewTarget components to ensure swap chain TextureViews are dropped.
         // If all TextureViews aren't dropped before present, acquiring the next swap chain texture will fail.
-        let view_entities = world
-            .query_filtered::<Entity, With<ViewTarget>>()
-            .iter(world)
-            .collect::<Vec<_>>();
+        let view_entities = state.get(world).iter().collect::<Vec<_>>();
         for view_entity in view_entities {
             world.entity_mut(view_entity).remove::<ViewTarget>();
         }

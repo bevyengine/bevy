@@ -2,8 +2,8 @@ use crate::io::AssetSourceId;
 use bevy_reflect::{
     std_traits::ReflectDefault, utility::NonGenericTypeInfoCell, FromReflect, FromType,
     GetTypeRegistration, Reflect, ReflectDeserialize, ReflectFromPtr, ReflectFromReflect,
-    ReflectMut, ReflectOwned, ReflectRef, ReflectSerialize, TypeInfo, TypePath, TypeRegistration,
-    Typed, ValueInfo,
+    ReflectKind, ReflectMut, ReflectOwned, ReflectRef, ReflectSerialize, TypeInfo, TypePath,
+    TypeRegistration, Typed, ValueInfo,
 };
 use bevy_utils::CowArc;
 use serde::{de::Visitor, Deserialize, Serialize};
@@ -680,6 +680,9 @@ impl Reflect for AssetPath<'static> {
     ) -> Result<(), Box<dyn bevy_reflect::Reflect>> {
         *self = <dyn bevy_reflect::Reflect>::take(value)?;
         Ok(())
+    }
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::Value
     }
     fn reflect_ref(&self) -> ReflectRef {
         ReflectRef::Value(self)

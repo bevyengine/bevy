@@ -42,13 +42,7 @@ fn setup(
         perceptual_roughness: 1.0,
         ..default()
     });
-    let sphere_handle = meshes.add(
-        Mesh::try_from(shape::Icosphere {
-            radius: sphere_radius,
-            ..default()
-        })
-        .unwrap(),
-    );
+    let sphere_handle = meshes.add(Sphere::new(sphere_radius));
 
     let light_transform = Transform::from_xyz(5.0, 5.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y);
     commands
@@ -113,8 +107,9 @@ fn setup(
     }
 
     // ground plane
+    let plane_size = 2.0 * spawn_plane_depth;
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(2.0 * spawn_plane_depth)),
+        mesh: meshes.add(Plane3d::default().mesh().size(plane_size, plane_size)),
         material: white_handle,
         ..default()
     });
