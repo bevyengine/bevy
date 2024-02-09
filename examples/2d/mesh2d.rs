@@ -18,7 +18,7 @@ fn setup(
 ) {
     commands.spawn(Camera2dBundle::default());
     commands.spawn(MaterialMesh2dBundle {
-        mesh: meshes.add(shape::Quad::default()).into(),
+        mesh: meshes.add(Rectangle::default()).into(),
         transform: Transform::default().with_scale(Vec3::splat(128.)),
         material: materials.add(Color::PURPLE),
         ..default()
