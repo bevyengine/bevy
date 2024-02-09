@@ -46,7 +46,7 @@ impl Plugin for WireframePlugin {
                     global_color_changed.run_if(resource_changed::<WireframeConfig>),
                     wireframe_color_changed,
                     apply_wireframe_material,
-                    apply_global_wireframe_material.run_if(resource_changed::<WireframeConfig>),
+                    apply_global_wireframe_material,
                 ),
             );
     }
