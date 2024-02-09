@@ -765,6 +765,51 @@ impl Torus {
     }
 }
 
+/// A ramp primitive shape.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Ramp {
+    /// Half of the width, height and depth of the ramp
+    pub half_size: Vec3,
+}
+impl Primitive3d for Ramp {}
+
+impl Default for Ramp {
+    fn default() -> Self {
+        Self {
+            half_size: Vec3::splat(0.5),
+        }        
+    }
+}
+
+impl Ramp {
+    /// Create a new Ramp from the dimensions of the base and the angle of the wedge at the apex.
+    /// The slope is the angle (incline) of the ramp in radians
+    pub fn new(half_width: f32, half_depth: f32, slope: f32) -> Ramp {
+        let half_height = half_depth * slope.tan();
+        Self {
+            half_size: Vec3::new(half_width, half_height, half_depth),
+        }
+    }
+
+    /// Get the slope of the wedge
+    /// The slope is the angle (incline) of the ramp in radians
+    pub fn slope(&self) -> f32 {
+        self.half_size.y.atan2(self.half_size.z)
+    }
+
+    /// Get the surface area of the ramp
+    pub fn area(&self) -> f32 {
+        let half = self.half_size;
+        let half_volume = half.x * (half.y + half.z + (half.y * half.y + half.z * half.z).sqrt()) + half.y * half.z;
+        half_volume * 4.0
+    }
+
+    /// Get the volume of the ramp
+    pub fn volume(&self) -> f32 {
+        self.half_size.x * self.half_size.y * self.half_size.z * 4.0
+    }
+}
+
 #[cfg(test)]
 mod tests {
     // Reference values were computed by hand and/or with external tools
@@ -929,5 +974,17 @@ mod tests {
         );
         assert_relative_eq!(torus.area(), 33.16187);
         assert_relative_eq!(torus.volume(), 4.97428, epsilon = 0.00001);
+    }
+
+    #[test]
+    fn ramp_math() {
+        let ramp = Ramp {
+            half_size: Vec3::splat(0.75)
+        };
+        assert_eq!(ramp.slope(), std::f32::consts::FRAC_PI_4, "incorrect computed slope");
+        assert_eq!(ramp.area(), 9.9319805, "incorrect ramp area");
+        assert_eq!(ramp.volume(), 1.6875, "incorrect ramp volume");
+
+        assert_relative_eq!(Ramp::new(0.5, 0.5, FRAC_PI_3).half_size.y, 0.8660254);
     }
 }
