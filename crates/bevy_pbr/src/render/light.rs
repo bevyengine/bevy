@@ -1686,7 +1686,7 @@ pub fn queue_shadows<M: Material>(
                     }
                 };
 
-                mesh_instance.prepass_material_bind_group_id = material.shadow_bind_group_id;
+                mesh_instance.shadow_material_bind_group_id = material.shadow_bind_group_id;
 
                 shadow_phase.add(Shadow {
                     draw_function: draw_shadow_mesh,
@@ -1734,7 +1734,7 @@ impl PhaseItem for Shadow {
         // Grouping all draw commands using the same pipeline together performs
         // better than rebinding everything at a high rate, and grouping by mesh
         // allows batching to reduce draw calls.
-        items.sort_by_key(Self::sort_key);
+        items.sort_unstable_by_key(Self::sort_key);
     }
 
     #[inline]
