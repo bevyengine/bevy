@@ -6,6 +6,7 @@ use crate::{
     meta::{AssetAction, AssetMeta, AssetMetaDyn, ProcessDependencyInfo, ProcessedInfo, Settings},
     processor::AssetProcessor,
     saver::{AssetSaver, SavedAsset},
+    transformer::{AssetTransformer, TransformedAsset},
     AssetLoadError, AssetLoader, AssetPath, DeserializeMetaError, ErasedLoadedAsset,
     MissingAssetLoaderForExtensionError, MissingAssetLoaderForTypeNameError,
 };
@@ -17,7 +18,7 @@ use thiserror::Error;
 /// Asset "processor" logic that reads input asset bytes (stored on [`ProcessContext`]), processes the value in some way,
 /// and then writes the final processed bytes with [`Writer`]. The resulting bytes must be loadable with the given [`Process::OutputLoader`].
 ///
-/// This is a "low level", maximally flexible interface. Most use cases are better served by the [`LoadAndSave`] implementation
+/// This is a "low level", maximally flexible interface. Most use cases are better served by the [`LoadTransformAndSave`] implementation
 /// of [`Process`].
 pub trait Process: Send + Sync + Sized + 'static {
     /// The configuration / settings used to process the asset. This will be stored in the [`AssetMeta`] and is user-configurable per-asset.
@@ -34,13 +35,62 @@ pub trait Process: Send + Sync + Sized + 'static {
     ) -> BoxedFuture<'a, Result<<Self::OutputLoader as AssetLoader>::Settings, ProcessError>>;
 }
 
+/// A flexible [`Process`] implementation that loads the source [`Asset`] using the `L` [`AssetLoader`], then transforms
+/// the `L` asset into an `S` [`AssetSaver`] asset using the `T` [`AssetTransformer`], and lastly saves the asset using the `S` [`AssetSaver`].
+///
+/// When creating custom processors, it is generally recommended to use the [`LoadTransformAndSave`] [`Process`] implementation,
+/// as it encourages you to separate your code into an [`AssetLoader`] capable of loading assets without processing enabled,
+/// an [`AssetTransformer`] capable of converting from an `L` asset to an `S` asset, and
+/// an [`AssetSaver`] that allows you save any `S` asset. However you can
+/// also implement [`Process`] directly if [`LoadTransformAndSave`] feels limiting or unnecessary.
+///
+/// This uses [`LoadTransformAndSaveSettings`] to configure the processor.
+///
+/// [`Asset`]: crate::Asset
+pub struct LoadTransformAndSave<
+    L: AssetLoader,
+    T: AssetTransformer<AssetInput = L::Asset>,
+    S: AssetSaver<Asset = T::AssetOutput>,
+> {
+    transformer: T,
+    saver: S,
+    marker: PhantomData<fn() -> L>,
+}
+
+/// Settings for the [`LoadTransformAndSave`] [`Process::Settings`] implementation.
+///
+/// `LoaderSettings` corresponds to [`AssetLoader::Settings`], `TransformerSettings` corresponds to [`AssetTransformer::Settings`],
+/// and `SaverSettings` corresponds to [`AssetSaver::Settings`].
+#[derive(Serialize, Deserialize, Default)]
+pub struct LoadTransformAndSaveSettings<LoaderSettings, TransformerSettings, SaverSettings> {
+    /// The [`AssetLoader::Settings`] for [`LoadTransformAndSave`].
+    pub loader_settings: LoaderSettings,
+    /// The [`AssetTransformer::Settings`] for [`LoadTransformAndSave`].
+    pub transformer_settings: TransformerSettings,
+    /// The [`AssetSaver::Settings`] for [`LoadTransformAndSave`].
+    pub saver_settings: SaverSettings,
+}
+
+impl<
+        L: AssetLoader,
+        T: AssetTransformer<AssetInput = L::Asset>,
+        S: AssetSaver<Asset = T::AssetOutput>,
+    > LoadTransformAndSave<L, T, S>
+{
+    pub fn new(transformer: T, saver: S) -> Self {
+        LoadTransformAndSave {
+            transformer,
+            saver,
+            marker: PhantomData,
+        }
+    }
+}
+
 /// A flexible [`Process`] implementation that loads the source [`Asset`] using the `L` [`AssetLoader`], then
 /// saves that `L` asset using the `S` [`AssetSaver`].
 ///
-/// When creating custom processors, it is generally recommended to use the [`LoadAndSave`] [`Process`] implementation,
-/// as it encourages you to write both an [`AssetLoader`] capable of loading assets without processing enabled _and_
-/// an [`AssetSaver`] that allows you to efficiently process that asset type when that is desirable by users. However you can
-/// also implement [`Process`] directly if [`LoadAndSave`] feels limiting or unnecessary.
+/// This is a specialized use case of [`LoadTransformAndSave`] and is useful where there is no asset manipulation
+/// such as when compressing assets.
 ///
 /// This uses [`LoadAndSaveSettings`] to configure the processor.
 ///
@@ -108,8 +158,57 @@ pub enum ProcessError {
     WrongMetaType,
     #[error("Encountered an error while saving the asset: {0}")]
     AssetSaveError(#[from] Box<dyn std::error::Error + Send + Sync + 'static>),
+    #[error("Encountered an error while transforming the asset: {0}")]
+    AssetTransformError(Box<dyn std::error::Error + Send + Sync + 'static>),
     #[error("Assets without extensions are not supported.")]
     ExtensionRequired,
+}
+
+impl<
+        Loader: AssetLoader,
+        T: AssetTransformer<AssetInput = Loader::Asset>,
+        Saver: AssetSaver<Asset = T::AssetOutput>,
+    > Process for LoadTransformAndSave<Loader, T, Saver>
+{
+    type Settings = LoadTransformAndSaveSettings<Loader::Settings, T::Settings, Saver::Settings>;
+    type OutputLoader = Saver::OutputLoader;
+
+    fn process<'a>(
+        &'a self,
+        context: &'a mut ProcessContext,
+        meta: AssetMeta<(), Self>,
+        writer: &'a mut Writer,
+    ) -> BoxedFuture<'a, Result<<Self::OutputLoader as AssetLoader>::Settings, ProcessError>> {
+        Box::pin(async move {
+            let AssetAction::Process { settings, .. } = meta.asset else {
+                return Err(ProcessError::WrongMetaType);
+            };
+            let loader_meta = AssetMeta::<Loader, ()>::new(AssetAction::Load {
+                loader: std::any::type_name::<Loader>().to_string(),
+                settings: settings.loader_settings,
+            });
+            let pre_transformed_asset = TransformedAsset::<Loader::Asset>::from_loaded(
+                context.load_source_asset(loader_meta).await?,
+            )
+            .unwrap();
+
+            let post_transformed_asset = self
+                .transformer
+                .transform(pre_transformed_asset, &settings.transformer_settings)
+                .await
+                .map_err(|err| ProcessError::AssetTransformError(err.into()))?;
+
+            let saved_asset =
+                SavedAsset::<T::AssetOutput>::from_transformed(&post_transformed_asset);
+
+            let output_settings = self
+                .saver
+                .save(writer, saved_asset, &settings.saver_settings)
+                .await
+                .map_err(|error| ProcessError::AssetSaveError(error.into()))?;
+            Ok(output_settings)
+        })
+    }
 }
 
 impl<Loader: AssetLoader, Saver: AssetSaver<Asset = Loader::Asset>> Process

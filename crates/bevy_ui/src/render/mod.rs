@@ -2,6 +2,8 @@ mod pipeline;
 mod render_pass;
 mod ui_material_pipeline;
 
+use bevy_core_pipeline::core_2d::graph::{Labels2d, SubGraph2d};
+use bevy_core_pipeline::core_3d::graph::{Labels3d, SubGraph3d};
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_hierarchy::Parent;
 use bevy_render::{
@@ -13,10 +15,11 @@ pub use pipeline::*;
 pub use render_pass::*;
 pub use ui_material_pipeline::*;
 
+use crate::graph::{LabelsUi, SubGraphUi};
 use crate::{
-    BackgroundColor, BorderColor, CalculatedClip, ContentSize, Node, Style, UiImage, UiScale, Val,
+    texture_slice::ComputedTextureSlices, BackgroundColor, BorderColor, CalculatedClip,
+    ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiImage, UiScale, Val,
 };
-use crate::{DefaultUiCamera, Outline, TargetCamera};
 
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
@@ -35,7 +38,6 @@ use bevy_render::{
     view::{ExtractedView, ViewUniforms},
     Extract, RenderApp, RenderSet,
 };
-#[cfg(feature = "bevy_text")]
 use bevy_sprite::TextureAtlasLayout;
 #[cfg(feature = "bevy_text")]
 use bevy_text::{PositionedGlyph, Text, TextLayoutInfo};
@@ -44,14 +46,15 @@ use bevy_utils::{FloatOrd, HashMap};
 use bytemuck::{Pod, Zeroable};
 use std::ops::Range;
 
-pub mod node {
-    pub const UI_PASS_DRIVER: &str = "ui_pass_driver";
-}
+pub mod graph {
+    use bevy_render::render_graph::{RenderLabel, RenderSubGraph};
 
-pub mod draw_ui_graph {
-    pub const NAME: &str = "draw_ui";
-    pub mod node {
-        pub const UI_PASS: &str = "ui_pass";
+    #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderSubGraph)]
+    pub struct SubGraphUi;
+
+    #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
+    pub enum LabelsUi {
+        UiPass,
     }
 }
 
@@ -60,7 +63,6 @@ pub const UI_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(130128470471
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum RenderUiSystem {
     ExtractNode,
-    ExtractAtlasNode,
 }
 
 pub fn build_ui_render(app: &mut App) {
@@ -84,10 +86,10 @@ pub fn build_ui_render(app: &mut App) {
                 extract_default_ui_camera_view::<Camera2d>,
                 extract_default_ui_camera_view::<Camera3d>,
                 extract_uinodes.in_set(RenderUiSystem::ExtractNode),
-                extract_uinode_borders.after(RenderUiSystem::ExtractAtlasNode),
+                extract_uinode_borders,
                 #[cfg(feature = "bevy_text")]
-                extract_text_uinodes.after(RenderUiSystem::ExtractAtlasNode),
-                extract_uinode_outlines.after(RenderUiSystem::ExtractAtlasNode),
+                extract_text_uinodes,
+                extract_uinode_outlines,
             ),
         )
         .add_systems(
@@ -104,51 +106,27 @@ pub fn build_ui_render(app: &mut App) {
     let ui_graph_3d = get_ui_graph(render_app);
     let mut graph = render_app.world.resource_mut::<RenderGraph>();
 
-    if let Some(graph_2d) = graph.get_sub_graph_mut(bevy_core_pipeline::core_2d::graph::NAME) {
-        graph_2d.add_sub_graph(draw_ui_graph::NAME, ui_graph_2d);
-        graph_2d.add_node(
-            draw_ui_graph::node::UI_PASS,
-            RunGraphOnViewNode::new(draw_ui_graph::NAME),
-        );
-        graph_2d.add_node_edge(
-            bevy_core_pipeline::core_2d::graph::node::MAIN_PASS,
-            draw_ui_graph::node::UI_PASS,
-        );
-        graph_2d.add_node_edge(
-            bevy_core_pipeline::core_2d::graph::node::END_MAIN_PASS_POST_PROCESSING,
-            draw_ui_graph::node::UI_PASS,
-        );
-        graph_2d.add_node_edge(
-            draw_ui_graph::node::UI_PASS,
-            bevy_core_pipeline::core_2d::graph::node::UPSCALING,
-        );
+    if let Some(graph_2d) = graph.get_sub_graph_mut(SubGraph2d) {
+        graph_2d.add_sub_graph(SubGraphUi, ui_graph_2d);
+        graph_2d.add_node(LabelsUi::UiPass, RunGraphOnViewNode::new(SubGraphUi));
+        graph_2d.add_node_edge(Labels2d::MainPass, LabelsUi::UiPass);
+        graph_2d.add_node_edge(Labels2d::EndMainPassPostProcessing, LabelsUi::UiPass);
+        graph_2d.add_node_edge(LabelsUi::UiPass, Labels2d::Upscaling);
     }
 
-    if let Some(graph_3d) = graph.get_sub_graph_mut(bevy_core_pipeline::core_3d::graph::NAME) {
-        graph_3d.add_sub_graph(draw_ui_graph::NAME, ui_graph_3d);
-        graph_3d.add_node(
-            draw_ui_graph::node::UI_PASS,
-            RunGraphOnViewNode::new(draw_ui_graph::NAME),
-        );
-        graph_3d.add_node_edge(
-            bevy_core_pipeline::core_3d::graph::node::END_MAIN_PASS,
-            draw_ui_graph::node::UI_PASS,
-        );
-        graph_3d.add_node_edge(
-            bevy_core_pipeline::core_3d::graph::node::END_MAIN_PASS_POST_PROCESSING,
-            draw_ui_graph::node::UI_PASS,
-        );
-        graph_3d.add_node_edge(
-            draw_ui_graph::node::UI_PASS,
-            bevy_core_pipeline::core_3d::graph::node::UPSCALING,
-        );
+    if let Some(graph_3d) = graph.get_sub_graph_mut(SubGraph3d) {
+        graph_3d.add_sub_graph(SubGraphUi, ui_graph_3d);
+        graph_3d.add_node(LabelsUi::UiPass, RunGraphOnViewNode::new(SubGraphUi));
+        graph_3d.add_node_edge(Labels3d::EndMainPass, LabelsUi::UiPass);
+        graph_3d.add_node_edge(Labels3d::EndMainPassPostProcessing, LabelsUi::UiPass);
+        graph_3d.add_node_edge(LabelsUi::UiPass, Labels3d::Upscaling);
     }
 }
 
 fn get_ui_graph(render_app: &mut App) -> RenderGraph {
     let ui_pass_node = UiPassNode::new(&mut render_app.world);
     let mut ui_graph = RenderGraph::default();
-    ui_graph.add_node(draw_ui_graph::node::UI_PASS, ui_pass_node);
+    ui_graph.add_node(LabelsUi::UiPass, ui_pass_node);
     ui_graph
 }
 
@@ -399,8 +377,8 @@ pub fn extract_uinode_outlines(
 }
 
 pub fn extract_uinodes(
+    mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    images: Extract<Res<Assets<Image>>>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     default_ui_camera: Extract<DefaultUiCamera>,
     uinode_query: Extract<
@@ -414,11 +392,22 @@ pub fn extract_uinodes(
             Option<&CalculatedClip>,
             Option<&TextureAtlas>,
             Option<&TargetCamera>,
+            Option<&ComputedTextureSlices>,
         )>,
     >,
 ) {
-    for (entity, uinode, transform, color, maybe_image, view_visibility, clip, atlas, camera) in
-        uinode_query.iter()
+    for (
+        entity,
+        uinode,
+        transform,
+        color,
+        maybe_image,
+        view_visibility,
+        clip,
+        atlas,
+        camera,
+        slices,
+    ) in uinode_query.iter()
     {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
@@ -429,11 +418,16 @@ pub fn extract_uinodes(
             continue;
         }
 
+        if let Some((image, slices)) = maybe_image.zip(slices) {
+            extracted_uinodes.uinodes.extend(
+                slices
+                    .extract_ui_nodes(transform, uinode, color, image, clip, camera_entity)
+                    .map(|e| (commands.spawn_empty().id(), e)),
+            );
+            continue;
+        }
+
         let (image, flip_x, flip_y) = if let Some(image) = maybe_image {
-            // Skip loading images
-            if !images.contains(&image.texture) {
-                continue;
-            }
             (image.texture.id(), image.flip_x, image.flip_y)
         } else {
             (AssetId::default(), false, false)

@@ -67,7 +67,7 @@ impl<T: GizmoConfigGroup> Drop for ArrowBuilder<'_, '_, '_, T> {
 }
 
 impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
-    /// Draw an arrow in 3D, from `start` to `end`. Has four tips for convienent viewing from any direction.
+    /// Draw an arrow in 3D, from `start` to `end`. Has four tips for convenient viewing from any direction.
     ///
     /// This should be called for each frame the arrow needs to be rendered.
     ///

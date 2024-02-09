@@ -35,7 +35,7 @@ fn main() {
 
 fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     commands.spawn((
-        meshes.add(shape::Cube { size: 0.5 }),
+        meshes.add(Cuboid::new(0.5, 0.5, 0.5)),
         SpatialBundle::INHERITED_IDENTITY,
         InstanceMaterialData(
             (1..=10)
@@ -77,7 +77,7 @@ impl ExtractComponent for InstanceMaterialData {
     }
 }
 
-pub struct CustomMaterialPlugin;
+struct CustomMaterialPlugin;
 
 impl Plugin for CustomMaterialPlugin {
     fn build(&self, app: &mut App) {
@@ -151,7 +151,7 @@ fn queue_custom(
 }
 
 #[derive(Component)]
-pub struct InstanceBuffer {
+struct InstanceBuffer {
     buffer: Buffer,
     length: usize,
 }
@@ -175,7 +175,7 @@ fn prepare_instance_buffers(
 }
 
 #[derive(Resource)]
-pub struct CustomPipeline {
+struct CustomPipeline {
     shader: Handle<Shader>,
     mesh_pipeline: MeshPipeline,
 }
@@ -233,7 +233,7 @@ type DrawCustom = (
     DrawMeshInstanced,
 );
 
-pub struct DrawMeshInstanced;
+struct DrawMeshInstanced;
 
 impl<P: PhaseItem> RenderCommand<P> for DrawMeshInstanced {
     type Param = (SRes<RenderAssets<Mesh>>, SRes<RenderMeshInstances>);

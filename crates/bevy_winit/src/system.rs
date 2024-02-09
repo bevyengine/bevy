@@ -1,29 +1,26 @@
-use bevy_a11y::AccessibilityRequested;
-use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
     entity::Entity,
     event::EventWriter,
-    prelude::{Changed, Component, Resource},
+    prelude::{Changed, Component},
+    query::QueryFilter,
     removal_detection::RemovedComponents,
-    system::{Commands, NonSendMut, Query, ResMut},
-    world::Mut,
+    system::{NonSendMut, Query, SystemParamItem},
 };
 use bevy_utils::tracing::{error, info, warn};
-use bevy_window::{RawHandleWrapper, Window, WindowClosed, WindowCreated};
-use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
+use bevy_window::{RawHandleWrapper, Window, WindowClosed, WindowCreated, WindowResized};
 
+use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use winit::{
     dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize},
     event_loop::EventLoopWindowTarget,
 };
 
 use crate::{
-    accessibility::{AccessKitAdapters, WinitActionHandlers},
     converters::{
         self, convert_enabled_buttons, convert_window_level, convert_window_theme,
         convert_winit_theme,
     },
-    get_best_videomode, get_fitting_videomode, WindowAndInputEventWriters, WinitWindows,
+    get_best_videomode, get_fitting_videomode, CreateWindowParams, WinitWindows,
 };
 
 /// Creates new windows on the [`winit`] backend for each entity with a newly-added
@@ -32,17 +29,19 @@ use crate::{
 /// If any of these entities are missing required components, those will be added with their
 /// default values.
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn create_windows<'a>(
+pub(crate) fn create_windows<F: QueryFilter + 'static>(
     event_loop: &EventLoopWindowTarget<()>,
-    mut commands: Commands,
-    created_windows: impl Iterator<Item = (Entity, Mut<'a, Window>)>,
-    mut event_writer: EventWriter<WindowCreated>,
-    mut winit_windows: NonSendMut<WinitWindows>,
-    mut adapters: NonSendMut<AccessKitAdapters>,
-    mut handlers: ResMut<WinitActionHandlers>,
-    accessibility_requested: ResMut<AccessibilityRequested>,
+    (
+        mut commands,
+        mut created_windows,
+        mut window_created_events,
+        mut winit_windows,
+        mut adapters,
+        mut handlers,
+        accessibility_requested,
+    ): SystemParamItem<CreateWindowParams<F>>,
 ) {
-    for (entity, mut window) in created_windows {
+    for (entity, mut window) in &mut created_windows {
         if winit_windows.get_window(entity).is_some() {
             continue;
         }
@@ -72,20 +71,16 @@ pub(crate) fn create_windows<'a>(
         commands
             .entity(entity)
             .insert(RawHandleWrapper {
-                window_handle: winit_window.raw_window_handle(),
-                display_handle: winit_window.raw_display_handle(),
+                window_handle: winit_window.window_handle().unwrap().as_raw(),
+                display_handle: winit_window.display_handle().unwrap().as_raw(),
             })
             .insert(CachedWindow {
                 window: window.clone(),
             });
 
-        event_writer.send(WindowCreated { window: entity });
+        window_created_events.send(WindowCreated { window: entity });
     }
 }
-
-/// Cache for closing windows so we can get better debug information.
-#[derive(Debug, Clone, Resource)]
-pub struct WindowTitleCache(EntityHashMap<String>);
 
 pub(crate) fn despawn_windows(
     mut closed: RemovedComponents<Window>,
@@ -121,7 +116,7 @@ pub struct CachedWindow {
 pub(crate) fn changed_windows(
     mut changed_windows: Query<(Entity, &mut Window, &mut CachedWindow), Changed<Window>>,
     winit_windows: NonSendMut<WinitWindows>,
-    mut event_writers: WindowAndInputEventWriters<'_>,
+    mut window_resized: EventWriter<WindowResized>,
 ) {
     for (entity, mut window, mut cache) in &mut changed_windows {
         if let Some(winit_window) = winit_windows.get_window(entity) {
@@ -159,7 +154,7 @@ pub(crate) fn changed_windows(
                     window.resolution.physical_height(),
                 );
                 if let Some(size_now) = winit_window.request_inner_size(physical_size) {
-                    crate::react_to_resize(&mut window, size_now, &mut event_writers, entity);
+                    crate::react_to_resize(&mut window, size_now, &mut window_resized, entity);
                 }
             }
 

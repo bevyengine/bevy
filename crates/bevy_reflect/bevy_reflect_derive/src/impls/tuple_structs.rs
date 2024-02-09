@@ -1,5 +1,4 @@
 use crate::impls::{impl_type_path, impl_typed};
-use crate::utility::extend_where_clause;
 use crate::ReflectStruct;
 use bevy_macro_utils::fq_std::{FQAny, FQBox, FQDefault, FQOption, FQResult};
 use quote::{quote, ToTokens};
@@ -90,7 +89,7 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
         .generics()
         .split_for_impl();
 
-    let where_reflect_clause = extend_where_clause(where_clause, &where_clause_options);
+    let where_reflect_clause = where_clause_options.extend_where_clause(where_clause);
 
     quote! {
         #get_type_registration_impl
@@ -186,6 +185,10 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
                 } else {
                     panic!("Attempted to apply non-TupleStruct type to TupleStruct type.");
                 }
+            }
+
+            fn reflect_kind(&self) -> #bevy_reflect_path::ReflectKind {
+                #bevy_reflect_path::ReflectKind::TupleStruct
             }
 
             fn reflect_ref(&self) -> #bevy_reflect_path::ReflectRef {

@@ -325,7 +325,7 @@ where
         // The main limitation right now is that bind group order is hardcoded in shaders.
         bind_group_layouts.push(self.material_layout.clone());
 
-        #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+        #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         shader_defs.push("WEBGL2".into());
 
         shader_defs.push("VERTEX_OUTPUT_INSTANCE_INDEX".into());
@@ -518,7 +518,11 @@ where
         };
 
         let mut push_constant_ranges = Vec::with_capacity(1);
-        if cfg!(all(feature = "webgl", target_arch = "wasm32")) {
+        if cfg!(all(
+            feature = "webgl",
+            target_arch = "wasm32",
+            not(feature = "webgpu")
+        )) {
             push_constant_ranges.push(PushConstantRange {
                 stages: ShaderStages::VERTEX,
                 range: 0..4,
@@ -831,9 +835,6 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 }
             };
 
-            let distance = rangefinder
-                .distance_translation(&mesh_instance.transforms.transform.translation)
-                + material.properties.depth_bias;
             match alpha_mode {
                 AlphaMode::Opaque => {
                     if deferred {
@@ -844,7 +845,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                                 entity: *visible_entity,
                                 draw_function: opaque_draw_deferred,
                                 pipeline_id,
-                                distance,
+                                asset_id: mesh_instance.mesh_asset_id,
                                 batch_range: 0..1,
                                 dynamic_offset: None,
                             });
@@ -853,13 +854,16 @@ pub fn queue_prepass_material_meshes<M: Material>(
                             entity: *visible_entity,
                             draw_function: opaque_draw_prepass,
                             pipeline_id,
-                            distance,
+                            asset_id: mesh_instance.mesh_asset_id,
                             batch_range: 0..1,
                             dynamic_offset: None,
                         });
                     }
                 }
                 AlphaMode::Mask(_) => {
+                    let distance = rangefinder
+                        .distance_translation(&mesh_instance.transforms.transform.translation)
+                        + material.properties.depth_bias;
                     if deferred {
                         alpha_mask_deferred_phase
                             .as_mut()

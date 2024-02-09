@@ -13,14 +13,16 @@ use bevy_render::{
     prelude::Color,
     view::{InheritedVisibility, ViewVisibility, Visibility},
 };
-use bevy_sprite::TextureAtlas;
+use bevy_sprite::{ImageScaleMode, TextureAtlas};
 #[cfg(feature = "bevy_text")]
 use bevy_text::{BreakLineOn, JustifyText, Text, TextLayoutInfo, TextSection, TextStyle};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
-/// The basic UI node
+/// The basic UI node.
 ///
-/// Useful as a container for a variety of child nodes.
+/// Contains the [`Node`] component and other components required to make a container.
+///
+/// See [`node_bundles`](crate::node_bundles) for more specialized bundles like [`TextBundle`].
 #[derive(Bundle, Clone, Debug)]
 pub struct NodeBundle {
     /// Describes the logical size of the node
@@ -93,6 +95,8 @@ pub struct ImageBundle {
     ///
     /// This component is set automatically
     pub image_size: UiImageSize,
+    /// Controls how the image is altered when scaled.
+    pub scale_mode: ImageScaleMode,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The transform of the node
@@ -305,6 +309,8 @@ pub struct ButtonBundle {
     pub border_color: BorderColor,
     /// The image of the node
     pub image: UiImage,
+    /// Controls how the image is altered when scaled.
+    pub scale_mode: ImageScaleMode,
     /// The transform of the node
     ///
     /// This component is automatically managed by the UI layout system.
@@ -341,6 +347,7 @@ impl Default for ButtonBundle {
             inherited_visibility: Default::default(),
             view_visibility: Default::default(),
             z_index: Default::default(),
+            scale_mode: ImageScaleMode::default(),
         }
     }
 }

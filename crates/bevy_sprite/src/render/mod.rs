@@ -362,7 +362,19 @@ pub fn extract_sprites(
                     .map(|e| (commands.spawn_empty().id(), e)),
             );
         } else {
-            let rect = sheet.and_then(|s| s.texture_rect(&texture_atlases));
+            let atlas_rect = sheet.and_then(|s| s.texture_rect(&texture_atlases));
+            let rect = match (atlas_rect, sprite.rect) {
+                (None, None) => None,
+                (None, Some(sprite_rect)) => Some(sprite_rect),
+                (Some(atlas_rect), None) => Some(atlas_rect),
+                (Some(atlas_rect), Some(mut sprite_rect)) => {
+                    sprite_rect.min += atlas_rect.min;
+                    sprite_rect.max += atlas_rect.min;
+
+                    Some(sprite_rect)
+                }
+            };
+
             // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
             extracted_sprites.sprites.insert(
                 entity,

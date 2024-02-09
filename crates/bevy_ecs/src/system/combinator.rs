@@ -142,10 +142,6 @@ where
         self.name.clone()
     }
 
-    fn type_id(&self) -> std::any::TypeId {
-        std::any::TypeId::of::<Self>()
-    }
-
     fn component_access(&self) -> &Access<ComponentId> {
         &self.component_access
     }

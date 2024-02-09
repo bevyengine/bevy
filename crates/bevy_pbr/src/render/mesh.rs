@@ -39,13 +39,7 @@ use std::cell::Cell;
 use thread_local::ThreadLocal;
 
 #[cfg(debug_assertions)]
-use bevy_utils::tracing::warn;
-
-#[cfg(debug_assertions)]
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
-};
+use bevy_utils::warn_once;
 
 use crate::render::{
     morph::{
@@ -55,8 +49,6 @@ use crate::render::{
     MeshLayouts,
 };
 use crate::*;
-
-use self::environment_map::binding_arrays_are_usable;
 
 use super::skin::SkinIndices;
 
@@ -373,9 +365,6 @@ pub struct MeshPipeline {
     ///
     /// This affects whether reflection probes can be used.
     pub binding_arrays_are_usable: bool,
-
-    #[cfg(debug_assertions)]
-    pub did_warn_about_too_many_textures: Arc<AtomicBool>,
 }
 
 impl FromWorld for MeshPipeline {
@@ -433,8 +422,6 @@ impl FromWorld for MeshPipeline {
             mesh_layouts: MeshLayouts::new(&render_device),
             per_object_buffer_batch_size: GpuArrayBuffer::<MeshUniform>::batch_size(&render_device),
             binding_arrays_are_usable: binding_arrays_are_usable(&render_device),
-            #[cfg(debug_assertions)]
-            did_warn_about_too_many_textures: Arc::new(AtomicBool::new(false)),
         }
     }
 }
@@ -461,14 +448,9 @@ impl MeshPipeline {
         let layout = &self.view_layouts[index];
 
         #[cfg(debug_assertions)]
-        if layout.texture_count > MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES
-            && !self.did_warn_about_too_many_textures.load(Ordering::SeqCst)
-        {
-            self.did_warn_about_too_many_textures
-                .store(true, Ordering::SeqCst);
-
+        if layout.texture_count > MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES {
             // Issue our own warning here because Naga's error message is a bit cryptic in this situation
-            warn!("Too many textures in mesh pipeline view layout, this might cause us to hit `wgpu::Limits::max_sampled_textures_per_shader_stage` in some environments.");
+            warn_once!("Too many textures in mesh pipeline view layout, this might cause us to hit `wgpu::Limits::max_sampled_textures_per_shader_stage` in some environments.");
         }
 
         &layout.bind_group_layout
@@ -527,6 +509,7 @@ bitflags::bitflags! {
         const MORPH_TARGETS                     = 1 << 12;
         const READS_VIEW_TRANSMISSION_TEXTURE   = 1 << 13;
         const LIGHTMAPPED                       = 1 << 14;
+        const IRRADIANCE_VOLUME                 = 1 << 15;
         const BLEND_RESERVED_BITS               = Self::BLEND_MASK_BITS << Self::BLEND_SHIFT_BITS; // ← Bitmask reserving bits for the blend state
         const BLEND_OPAQUE                      = 0 << Self::BLEND_SHIFT_BITS;                   // ← Values are just sequential within the mask, and can range from 0 to 3
         const BLEND_PREMULTIPLIED_ALPHA         = 1 << Self::BLEND_SHIFT_BITS;                   //
@@ -807,7 +790,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("VIEW_PROJECTION_ORTHOGRAPHIC".into());
         }
 
-        #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+        #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         shader_defs.push("WEBGL2".into());
 
         if key.contains(MeshPipelineKey::TONEMAP_IN_SHADER) {
@@ -845,6 +828,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         if key.contains(MeshPipelineKey::ENVIRONMENT_MAP) {
             shader_defs.push("ENVIRONMENT_MAP".into());
+        }
+
+        if key.contains(MeshPipelineKey::IRRADIANCE_VOLUME) {
+            shader_defs.push("IRRADIANCE_VOLUME".into());
         }
 
         if key.contains(MeshPipelineKey::LIGHTMAPPED) {
@@ -900,7 +887,11 @@ impl SpecializedMeshPipeline for MeshPipeline {
         }
 
         let mut push_constant_ranges = Vec::with_capacity(1);
-        if cfg!(all(feature = "webgl", target_arch = "wasm32")) {
+        if cfg!(all(
+            feature = "webgl",
+            target_arch = "wasm32",
+            not(feature = "webgpu")
+        )) {
             push_constant_ranges.push(PushConstantRange {
                 stages: ShaderStages::VERTEX,
                 range: 0..4,
@@ -1181,7 +1172,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
         pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
 
         let batch_range = item.batch_range();
-        #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+        #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         pass.set_push_constants(
             ShaderStages::VERTEX,
             0,

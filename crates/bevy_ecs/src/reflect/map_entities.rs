@@ -1,6 +1,6 @@
 use crate::{
     component::Component,
-    entity::{Entity, EntityHashMap, EntityMapper, MapEntities},
+    entity::{Entity, EntityHashMap, SceneEntityMapper, MapEntities},
     world::World,
 };
 use bevy_reflect::FromType;
@@ -9,11 +9,11 @@ use bevy_reflect::FromType;
 /// Since a given `Entity` ID is only valid for the world it came from, when performing deserialization
 /// any stored IDs need to be re-allocated in the destination world.
 ///
-/// See [`MapEntities`] for more information.
+/// See [`SceneEntityMapper`] and [`MapEntities`] for more information.
 #[derive(Clone)]
 pub struct ReflectMapEntities {
-    map_all_entities: fn(&mut World, &mut EntityMapper),
-    map_entities: fn(&mut World, &mut EntityMapper, &[Entity]),
+    map_all_entities: fn(&mut World, &mut SceneEntityMapper),
+    map_entities: fn(&mut World, &mut SceneEntityMapper, &[Entity]),
 }
 
 impl ReflectMapEntities {
@@ -26,8 +26,12 @@ impl ReflectMapEntities {
     /// An example of this: A scene can be loaded with `Parent` components, but then a `Parent` component can be added
     /// to these entities after they have been loaded. If you reload the scene using [`map_all_entities`](Self::map_all_entities), those `Parent`
     /// components with already valid entity references could be updated to point at something else entirely.
-    pub fn map_all_entities(&self, world: &mut World, entity_map: &mut EntityHashMap<Entity>) {
-        EntityMapper::world_scope(entity_map, world, self.map_all_entities);
+    pub fn map_all_entities(
+        &self,
+        world: &mut World,
+        entity_map: &mut EntityHashMap<Entity>,
+    ) {
+        SceneEntityMapper::world_scope(entity_map, world, self.map_all_entities);
     }
 
     /// A general method for applying [`MapEntities`] behavior to elements in an [`EntityHashMap<Entity>`]. Unlike
@@ -42,7 +46,7 @@ impl ReflectMapEntities {
         entity_map: &mut EntityHashMap<Entity>,
         entities: &[Entity],
     ) {
-        EntityMapper::world_scope(entity_map, world, |world, mapper| {
+        SceneEntityMapper::world_scope(entity_map, world, |world, mapper| {
             (self.map_entities)(world, mapper, entities);
         });
     }
