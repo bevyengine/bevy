@@ -272,7 +272,7 @@ impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P> for SetMatUiV
     fn render<'w>(
         _item: &P,
         view_uniform: &'w ViewUniformOffset,
-        _entity: (),
+        _entity: Option<()>,
         ui_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -296,11 +296,15 @@ impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P>
     fn render<'w>(
         _item: &P,
         _view: (),
-        material_handle: ROQueryItem<'_, Self::ItemQuery>,
+        material_handle: Option<ROQueryItem<'_, Self::ItemQuery>>,
         materials: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let Some(material) = materials.into_inner().get(&material_handle.material) else {
+        let Some(material) = materials.into_inner().get(
+            &material_handle
+                .expect("UI elements must exist in the render world")
+                .material,
+        ) else {
             return RenderCommandResult::Failure;
         };
         pass.set_bind_group(I, &material.bind_group, &[]);
@@ -318,12 +322,18 @@ impl<P: PhaseItem, M: UiMaterial> RenderCommand<P> for DrawUiMaterialNode<M> {
     fn render<'w>(
         _item: &P,
         _view: (),
-        batch: &'w UiMaterialBatch<M>,
+        batch: Option<&'w UiMaterialBatch<M>>,
         ui_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         pass.set_vertex_buffer(0, ui_meta.into_inner().vertices.buffer().unwrap().slice(..));
-        pass.draw(batch.range.clone(), 0..1);
+        pass.draw(
+            batch
+                .expect("UI elements must exist in the render world")
+                .range
+                .clone(),
+            0..1,
+        );
         RenderCommandResult::Success
     }
 }

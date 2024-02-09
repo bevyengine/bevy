@@ -752,7 +752,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteViewBindGroup<I
     fn render<'w>(
         _item: &P,
         view_uniform: &'_ ViewUniformOffset,
-        _entity: (),
+        _entity: Option<()>,
         sprite_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -773,7 +773,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGrou
     fn render<'w>(
         _item: &P,
         _view: (),
-        batch: &'_ SpriteBatch,
+        batch: Option<&'_ SpriteBatch>,
         image_bind_groups: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -783,7 +783,11 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGrou
             I,
             image_bind_groups
                 .values
-                .get(&batch.image_handle_id)
+                .get(
+                    &batch
+                        .expect("Sprite entities must exist in the render world")
+                        .image_handle_id,
+                )
                 .unwrap(),
             &[],
         );
@@ -800,7 +804,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawSpriteBatch {
     fn render<'w>(
         _item: &P,
         _view: (),
-        batch: &'_ SpriteBatch,
+        batch: Option<&'_ SpriteBatch>,
         sprite_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -818,7 +822,14 @@ impl<P: PhaseItem> RenderCommand<P> for DrawSpriteBatch {
                 .unwrap()
                 .slice(..),
         );
-        pass.draw_indexed(0..6, 0, batch.range.clone());
+        pass.draw_indexed(
+            0..6,
+            0,
+            batch
+                .expect("Sprite entities must exist in the render world")
+                .range
+                .clone(),
+        );
         RenderCommandResult::Success
     }
 }
