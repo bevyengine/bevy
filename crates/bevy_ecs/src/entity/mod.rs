@@ -839,7 +839,9 @@ impl Entities {
         *free_cursor = 0;
         self.meta.reserve(count);
         // the EntityMeta struct only contains integers, and it is valid to have all bytes set to u8::MAX
-        self.meta.as_mut_ptr().write_bytes(u8::MAX, count);
+        self.meta
+            .as_mut_ptr()
+            .write_bytes(u8::MAX, count * mem::size_of::<EntityMeta>());
         self.meta.set_len(count);
 
         self.len = count as u32;
