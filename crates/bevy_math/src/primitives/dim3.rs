@@ -1002,7 +1002,7 @@ mod tests {
             std::f32::consts::FRAC_PI_4,
             "incorrect computed slope"
         );
-        assert_eq!(ramp.area(), 9.9319805, "incorrect ramp area");
+        assert_eq!(ramp.area(), 9.93198, "incorrect ramp area");
         assert_eq!(ramp.volume(), 1.6875, "incorrect ramp volume");
 
         assert_relative_eq!(Ramp::new(0.5, 0.5, FRAC_PI_3).half_size.y, 0.8660254);

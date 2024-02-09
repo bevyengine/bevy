@@ -593,6 +593,6 @@ mod tests {
 
         let bounding_sphere = ramp.bounding_sphere(translation, Quat::IDENTITY);
         assert_eq!(bounding_sphere.center, translation);
-        assert_eq!(bounding_sphere.radius(), 2.808914381);
+        assert_eq!(bounding_sphere.radius(), 2.8089144);
     }
 }
