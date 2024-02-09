@@ -1,6 +1,7 @@
 use crate::{
-    environment_map::RenderViewEnvironmentMaps, graph::LabelsPbr, MeshPipeline, MeshViewBindGroup,
-    ScreenSpaceAmbientOcclusionSettings, ViewLightProbesUniformOffset,
+    graph::LabelsPbr, irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight,
+    MeshPipeline, MeshViewBindGroup, RenderViewLightProbes, ScreenSpaceAmbientOcclusionSettings,
+    ViewLightProbesUniformOffset,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
@@ -284,6 +285,10 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
             shader_defs.push("ENVIRONMENT_MAP".into());
         }
 
+        if key.contains(MeshPipelineKey::IRRADIANCE_VOLUME) {
+            shader_defs.push("IRRADIANCE_VOLUME".into());
+        }
+
         if key.contains(MeshPipelineKey::NORMAL_PREPASS) {
             shader_defs.push("NORMAL_PREPASS".into());
         }
@@ -407,7 +412,8 @@ pub fn prepare_deferred_lighting_pipelines(
                 Has<DepthPrepass>,
                 Has<MotionVectorPrepass>,
             ),
-            Has<RenderViewEnvironmentMaps>,
+            Has<RenderViewLightProbes<EnvironmentMapLight>>,
+            Has<RenderViewLightProbes<IrradianceVolume>>,
         ),
         With<DeferredPrepass>,
     >,
@@ -421,6 +427,7 @@ pub fn prepare_deferred_lighting_pipelines(
         ssao,
         (normal_prepass, depth_prepass, motion_vector_prepass),
         has_environment_maps,
+        has_irradiance_volumes,
     ) in &views
     {
         let mut view_key = MeshPipelineKey::from_hdr(view.hdr);
@@ -472,6 +479,10 @@ pub fn prepare_deferred_lighting_pipelines(
         // adding the [`RenderViewEnvironmentMaps`] component.
         if has_environment_maps {
             view_key |= MeshPipelineKey::ENVIRONMENT_MAP;
+        }
+
+        if has_irradiance_volumes {
+            view_key |= MeshPipelineKey::IRRADIANCE_VOLUME;
         }
 
         match shadow_filter_method.unwrap_or(&ShadowFilteringMethod::default()) {
