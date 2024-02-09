@@ -776,6 +776,7 @@ impl Torus {
 
 /// A ramp primitive shape.
 #[derive(Copy, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Ramp {
     /// Half of the width, height and depth of the ramp
     pub half_size: Vec3,
@@ -793,7 +794,8 @@ impl Default for Ramp {
 impl Ramp {
     /// Create a new Ramp from the dimensions of the base and the angle of the wedge at the apex.
     /// The slope is the angle (incline) of the ramp in radians
-    /// For sensible results, the slope of the ramp should not exceed `PI / 2.0` or 90°.
+    /// For sensible results, the slope of the ramp should be in (0.0, PI / 2.0)
+    #[inline(always)]
     pub fn new(half_width: f32, half_depth: f32, slope: f32) -> Ramp {
         let half_height = half_depth * slope.tan();
         Self {
@@ -803,11 +805,13 @@ impl Ramp {
 
     /// Get the slope of the wedge
     /// The slope is the angle (incline) of the ramp in radians
+    #[inline(always)]
     pub fn slope(&self) -> f32 {
         self.half_size.y.atan2(self.half_size.z)
     }
 
     /// Get the surface area of the ramp
+    #[inline(always)]
     pub fn area(&self) -> f32 {
         let half = self.half_size;
         let half_volume = half.x * (half.y + half.z + (half.y * half.y + half.z * half.z).sqrt())
@@ -816,6 +820,7 @@ impl Ramp {
     }
 
     /// Get the volume of the ramp
+    #[inline(always)]
     pub fn volume(&self) -> f32 {
         self.half_size.x * self.half_size.y * self.half_size.z * 4.0
     }
