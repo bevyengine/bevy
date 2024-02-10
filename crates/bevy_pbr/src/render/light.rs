@@ -16,6 +16,8 @@ use bevy_render::{
     Extract,
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
+#[cfg(feature = "trace")]
+use bevy_utils::tracing::info_span;
 use bevy_utils::{
     nonmax::NonMaxU32,
     tracing::{error, warn},
@@ -1780,11 +1782,11 @@ impl Node for ShadowPassNode {
         self.view_light_query.update_archetypes(world);
     }
 
-    fn run(
+    fn run<'w>(
         &self,
         graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        world: &World,
+        render_context: &mut RenderContext<'w>,
+        world: &'w World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
         if let Ok(view_lights) = self.main_view_query.get_manual(world, view_entity) {
@@ -1794,22 +1796,32 @@ impl Node for ShadowPassNode {
                     .get_manual(world, view_light_entity)
                     .unwrap();
 
-                if shadow_phase.items.is_empty() {
-                    continue;
-                }
+                let depth_stencil_attachment =
+                    Some(view_light.depth_attachment.get_attachment(StoreOp::Store));
 
-                let mut render_pass =
-                    render_context.begin_tracked_render_pass(RenderPassDescriptor {
+                render_context.add_command_buffer_generation_task(move |render_device| {
+                    #[cfg(feature = "trace")]
+                    let _shadow_pass_span = info_span!("shadow_pass").entered();
+
+                    let mut command_encoder =
+                        render_device.create_command_encoder(&CommandEncoderDescriptor {
+                            label: Some("shadow_pass_command_encoder"),
+                        });
+
+                    let render_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
                         label: Some(&view_light.pass_name),
                         color_attachments: &[],
-                        depth_stencil_attachment: Some(
-                            view_light.depth_attachment.get_attachment(StoreOp::Store),
-                        ),
+                        depth_stencil_attachment,
                         timestamp_writes: None,
                         occlusion_query_set: None,
                     });
+                    let mut render_pass = TrackedRenderPass::new(&render_device, render_pass);
 
-                shadow_phase.render(&mut render_pass, world, view_light_entity);
+                    shadow_phase.render(&mut render_pass, world, view_light_entity);
+
+                    drop(render_pass);
+                    command_encoder.finish()
+                });
             }
         }
 

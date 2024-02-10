@@ -122,7 +122,7 @@ fn setup(
     let planet_entity = commands
         .spawn((
             PbrBundle {
-                mesh: meshes.add(Mesh::try_from(shape::Icosphere::default()).unwrap()),
+                mesh: meshes.add(Sphere::default()),
                 material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
                 ..default()
             },
@@ -147,16 +147,12 @@ fn setup(
             p.spawn((
                 PbrBundle {
                     transform: Transform::from_xyz(1.5, 0.0, 0.0),
-                    mesh: meshes.add(shape::Cube { size: 0.5 }),
+                    mesh: meshes.add(Cuboid::new(0.5, 0.5, 0.5)),
                     material: materials.add(Color::rgb(0.3, 0.9, 0.3)),
                     ..default()
                 },
                 // Add the Name component
                 satellite,
-                AnimationTarget {
-                    id: satellite_animation_target_id,
-                    player: planet_entity,
-                },
             ));
         });
     });
