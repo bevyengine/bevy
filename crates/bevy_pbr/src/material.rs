@@ -31,8 +31,9 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{tracing::error, HashMap, HashSet};
-use std::hash::Hash;
 use std::marker::PhantomData;
+use std::sync::atomic::{AtomicU32, Ordering};
+use std::{hash::Hash, num::NonZeroU32};
 
 use self::{irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight};
 
@@ -236,9 +237,7 @@ where
                             .after(prepare_materials::<M>),
                         queue_material_meshes::<M>
                             .in_set(RenderSet::QueueMeshes)
-                            .after(prepare_materials::<M>)
-                            // queue_material_meshes only writes to `material_bind_group_id`, which `queue_shadows` doesn't read
-                            .ambiguous_with(render::queue_shadows::<M>),
+                            .after(prepare_materials::<M>),
                     ),
                 );
         }
@@ -466,7 +465,7 @@ pub fn queue_material_meshes<M: Material>(
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderMaterials<M>>,
-    mut render_mesh_instances: ResMut<RenderMeshInstances>,
+    render_mesh_instances: Res<RenderMeshInstances>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
     render_lightmaps: Res<RenderLightmaps>,
     mut views: Query<(
@@ -592,7 +591,7 @@ pub fn queue_material_meshes<M: Material>(
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;
             };
-            let Some(mesh_instance) = render_mesh_instances.get_mut(visible_entity) else {
+            let Some(mesh_instance) = render_mesh_instances.get(visible_entity) else {
                 continue;
             };
             let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
@@ -646,7 +645,9 @@ pub fn queue_material_meshes<M: Material>(
                 }
             };
 
-            mesh_instance.material_bind_group_id = material.get_bind_group_id();
+            mesh_instance
+                .material_bind_group_id
+                .set(material.get_bind_group_id());
 
             match material.properties.alpha_mode {
                 AlphaMode::Opaque => {
@@ -794,6 +795,24 @@ pub struct PreparedMaterial<T: Material> {
 
 #[derive(Component, Clone, Copy, Default, PartialEq, Eq, Deref, DerefMut)]
 pub struct MaterialBindGroupId(Option<BindGroupId>);
+
+#[derive(Default)]
+pub struct AtomicMaterialBindGroupId(AtomicU32);
+
+impl AtomicMaterialBindGroupId {
+    pub fn set(&self, id: MaterialBindGroupId) {
+        let id = if let Some(id) = id.0 {
+            core::num::NonZeroU32::from(id).get()
+        } else {
+            0
+        };
+        self.0.store(id, Ordering::Relaxed);
+    }
+
+    pub fn get(&self) -> MaterialBindGroupId {
+        MaterialBindGroupId(NonZeroU32::new(self.0.load(Ordering::Relaxed)).map(BindGroupId::from))
+    }
+}
 
 impl<T: Material> PreparedMaterial<T> {
     pub fn get_bind_group_id(&self) -> MaterialBindGroupId {

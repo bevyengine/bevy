@@ -1,4 +1,4 @@
-//! Lightmaps, baked lighting textures that can be applied at runtime to provide
+//! Lightmaps, bailed lighting textures that can be applied at runtime to provide
 //! diffuse global illumination.
 //!
 //! Bevy doesn't currently have any way to actually bake lightmaps, but they can
