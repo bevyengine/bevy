@@ -796,7 +796,7 @@ pub struct PreparedMaterial<T: Material> {
 #[derive(Component, Clone, Copy, Default, PartialEq, Eq, Deref, DerefMut)]
 pub struct MaterialBindGroupId(Option<BindGroupId>);
 
-/// An atomic version of [`MaterialBindGroup`] that can be read from and written to
+/// An atomic version of [`MaterialBindGroupId`] that can be read from and written to
 /// safely from multiple threads.
 #[derive(Default)]
 pub struct AtomicMaterialBindGroupId(AtomicU32);
