@@ -796,19 +796,29 @@ pub struct PreparedMaterial<T: Material> {
 #[derive(Component, Clone, Copy, Default, PartialEq, Eq, Deref, DerefMut)]
 pub struct MaterialBindGroupId(Option<BindGroupId>);
 
+/// An atomic version of [`MaterialBindGroup`] that can be read from and written to
+/// safely from multiple threads.
 #[derive(Default)]
 pub struct AtomicMaterialBindGroupId(AtomicU32);
 
 impl AtomicMaterialBindGroupId {
+    /// Stores a value atomically. Uses [`Ordering::Relaxed`] so there is zero guarentee of ordering
+    /// relative to other operations.
+    /// 
+    /// See also:  [`AtomicU32::store`].
     pub fn set(&self, id: MaterialBindGroupId) {
         let id = if let Some(id) = id.0 {
-            core::num::NonZeroU32::from(id).get()
+            NonZeroU32::from(id).get()
         } else {
             0
         };
         self.0.store(id, Ordering::Relaxed);
     }
 
+    /// Loads a value atomically. Uses [`Ordering::Relaxed`] so there is zero guarentee of ordering
+    /// relative to other operations.
+    /// 
+    /// See also:  [`AtomicU32::load`].
     pub fn get(&self) -> MaterialBindGroupId {
         MaterialBindGroupId(NonZeroU32::new(self.0.load(Ordering::Relaxed)).map(BindGroupId::from))
     }
