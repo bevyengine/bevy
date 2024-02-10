@@ -6,8 +6,10 @@ use std::{
 use bevy_tasks::{ComputeTaskPool, Scope, TaskPool, ThreadExecutor};
 use bevy_utils::default;
 use bevy_utils::syncunsafecell::SyncUnsafeCell;
-#[cfg(feature = "trace")]
-use bevy_utils::tracing::{info_span, Instrument, Span};
+#[cfg(feature = "system_task_spans")]
+use bevy_utils::tracing::Span;
+#[cfg(any(feature = "system_spans", feature = "system_task_spans"))]
+use bevy_utils::tracing::{info_span, Instrument};
 use std::panic::AssertUnwindSafe;
 
 use async_channel::{Receiver, Sender};
@@ -63,7 +65,7 @@ struct SystemTaskMetadata {
     /// Is `true` if the system is exclusive.
     is_exclusive: bool,
     /// Cached tracing span for system task
-    #[cfg(feature = "trace")]
+    #[cfg(feature = "system_task_spans")]
     system_task_span: Span,
 }
 
@@ -152,7 +154,7 @@ impl SystemExecutor for MultiThreadedExecutor {
                 dependents: schedule.system_dependents[index].clone(),
                 is_send: schedule.systems[index].is_send(),
                 is_exclusive: schedule.systems[index].is_exclusive(),
-                #[cfg(feature = "trace")]
+                #[cfg(feature = "system_task_spans")]
                 system_task_span: info_span!(
                     "system_task",
                     name = &*schedule.systems[index].name()
@@ -254,9 +256,9 @@ impl SystemExecutor for MultiThreadedExecutor {
                     }
                 };
 
-                #[cfg(feature = "trace")]
+                #[cfg(feature = "system_spans")]
                 let executor_span = info_span!("multithreaded executor");
-                #[cfg(feature = "trace")]
+                #[cfg(feature = "system_spans")]
                 let executor = executor.instrument(executor_span);
                 scope.spawn(executor);
             },
@@ -551,7 +553,7 @@ impl MultiThreadedExecutor {
             }
         };
 
-        #[cfg(feature = "trace")]
+        #[cfg(feature = "system_task_spans")]
         let task = task.instrument(
             self.system_task_metadata[system_index]
                 .system_task_span
@@ -604,7 +606,7 @@ impl MultiThreadedExecutor {
                 }
             };
 
-            #[cfg(feature = "trace")]
+            #[cfg(feature = "system_task_spans")]
             let task = task.instrument(
                 self.system_task_metadata[system_index]
                     .system_task_span
@@ -634,7 +636,7 @@ impl MultiThreadedExecutor {
                 }
             };
 
-            #[cfg(feature = "trace")]
+            #[cfg(feature = "system_task_spans")]
             let task = task.instrument(
                 self.system_task_metadata[system_index]
                     .system_task_span

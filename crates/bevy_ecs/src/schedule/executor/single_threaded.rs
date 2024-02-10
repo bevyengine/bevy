@@ -1,4 +1,4 @@
-#[cfg(feature = "trace")]
+#[cfg(feature = "system_spans")]
 use bevy_utils::tracing::info_span;
 use fixedbitset::FixedBitSet;
 use std::panic::AssertUnwindSafe;
@@ -53,9 +53,9 @@ impl SystemExecutor for SingleThreadedExecutor {
         }
 
         for system_index in 0..schedule.systems.len() {
-            #[cfg(feature = "trace")]
+            #[cfg(feature = "system_spans")]
             let name = schedule.systems[system_index].name();
-            #[cfg(feature = "trace")]
+            #[cfg(feature = "system_spans")]
             let should_run_span = info_span!("check_conditions", name = &*name).entered();
 
             let mut should_run = !self.completed_systems.contains(system_index);
@@ -83,7 +83,7 @@ impl SystemExecutor for SingleThreadedExecutor {
 
             should_run &= system_conditions_met;
 
-            #[cfg(feature = "trace")]
+            #[cfg(feature = "system_spans")]
             should_run_span.exit();
 
             // system has either been skipped or will run

@@ -19,6 +19,11 @@ trace = [
   "bevy_hierarchy/trace",
   "bevy_winit?/trace",
 ]
+app_spans = ["bevy_app/trace"]
+schedule_spans = ["bevy_ecs/schedule_spans"]
+system_task_spans = ["bevy_ecs/system_task_spans"]
+system_spans = ["bevy_ecs/system_spans"]
+par_iter_spans = ["bevy_ecs/par_iter_spans"]
 trace_chrome = ["bevy_log/tracing-chrome"]
 trace_tracy = ["bevy_render?/tracing-tracy", "bevy_log/tracing-tracy"]
 trace_tracy_memory = ["bevy_log/trace_tracy_memory"]

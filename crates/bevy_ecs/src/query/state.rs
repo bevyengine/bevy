@@ -11,7 +11,7 @@ use crate::{
     storage::{SparseSetIndex, TableId},
     world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
 };
-#[cfg(feature = "trace")]
+#[cfg(feature = "par_iter_spans")]
 use bevy_utils::tracing::Span;
 use fixedbitset::FixedBitSet;
 use std::{any::TypeId, borrow::Borrow, fmt, mem::MaybeUninit};
@@ -39,7 +39,7 @@ pub struct QueryState<D: QueryData, F: QueryFilter = ()> {
     pub(crate) matched_archetype_ids: Vec<ArchetypeId>,
     pub(crate) fetch_state: D::State,
     pub(crate) filter_state: F::State,
-    #[cfg(feature = "trace")]
+    #[cfg(feature = "par_iter_spans")]
     par_iter_span: Span,
 }
 
@@ -147,7 +147,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             matched_tables: Default::default(),
             matched_archetypes: Default::default(),
             archetype_component_access: Default::default(),
-            #[cfg(feature = "trace")]
+            #[cfg(feature = "par_iter_spans")]
             par_iter_span: bevy_utils::tracing::info_span!(
                 "par_for_each",
                 query = std::any::type_name::<D>(),
@@ -175,7 +175,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             matched_tables: Default::default(),
             matched_archetypes: Default::default(),
             archetype_component_access: Default::default(),
-            #[cfg(feature = "trace")]
+            #[cfg(feature = "par_iter_spans")]
             par_iter_span: bevy_utils::tracing::info_span!(
                 "par_for_each",
                 data = std::any::type_name::<D>(),
@@ -388,7 +388,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             matched_tables: self.matched_tables.clone(),
             matched_archetypes: self.matched_archetypes.clone(),
             archetype_component_access: self.archetype_component_access.clone(),
-            #[cfg(feature = "trace")]
+            #[cfg(feature = "par_iter_spans")]
             par_iter_span: bevy_utils::tracing::info_span!(
                 "par_for_each",
                 query = std::any::type_name::<NewD>(),
@@ -1309,7 +1309,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                         let mut func = func.clone();
                         let len = batch_size.min(table.entity_count() - offset);
                         scope.spawn(async move {
-                            #[cfg(feature = "trace")]
+                            #[cfg(feature = "par_iter_spans")]
                             let _span = self.par_iter_span.enter();
                             let table = &world
                                 .storages()
@@ -1336,7 +1336,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                         let mut func = func.clone();
                         let len = batch_size.min(archetype.len() - offset);
                         scope.spawn(async move {
-                            #[cfg(feature = "trace")]
+                            #[cfg(feature = "par_iter_spans")]
                             let _span = self.par_iter_span.enter();
                             let archetype =
                                 world.archetypes().get(*archetype_id).debug_checked_unwrap();

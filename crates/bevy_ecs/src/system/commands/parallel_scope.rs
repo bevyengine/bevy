@@ -51,7 +51,7 @@ pub struct ParallelCommands<'w, 's> {
 impl SystemBuffer for ParallelCommandQueue {
     #[inline]
     fn apply(&mut self, _system_meta: &SystemMeta, world: &mut World) {
-        #[cfg(feature = "trace")]
+        #[cfg(feature = "system_spans")]
         let _system_span = _system_meta.commands_span.enter();
         for cq in &mut self.thread_local_storage {
             cq.get_mut().apply(world);
