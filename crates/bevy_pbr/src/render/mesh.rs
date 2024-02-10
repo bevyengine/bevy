@@ -256,12 +256,7 @@ pub struct RenderMeshInstance {
 #[derive(Default, Resource, Deref, DerefMut)]
 pub struct RenderMeshInstances(EntityHashMap<Entity, RenderMeshInstance>);
 
-#[derive(Component)]
-pub struct Mesh3d;
-
 pub fn extract_meshes(
-    mut commands: Commands,
-    mut previous_len: Local<usize>,
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
     mut thread_local_queues: Local<ThreadLocal<Cell<Vec<(Entity, RenderMeshInstance)>>>>,
     meshes_query: Extract<
@@ -328,15 +323,9 @@ pub fn extract_meshes(
     );
 
     render_mesh_instances.clear();
-    let mut entities = Vec::with_capacity(*previous_len);
     for queue in thread_local_queues.iter_mut() {
-        // FIXME: Remove this - it is just a workaround to enable rendering to work as
-        // render commands require an entity to exist at the moment.
-        entities.extend(queue.get_mut().iter().map(|(e, _)| (*e, Mesh3d)));
         render_mesh_instances.extend(queue.get_mut().drain(..));
     }
-    *previous_len = entities.len();
-    commands.insert_or_spawn_batch(entities);
 }
 
 #[derive(Resource, Clone)]
@@ -1050,7 +1039,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
             'w,
             Self::ViewQuery,
         >,
-        _entity: (),
+        _entity: Option<()>,
         _: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -1085,7 +1074,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
     fn render<'w>(
         item: &P,
         _view: (),
-        _item_query: (),
+        _item_query: Option<()>,
         (bind_groups, mesh_instances, skin_indices, morph_indices, lightmaps): SystemParamItem<
             'w,
             '_,
@@ -1154,7 +1143,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
     fn render<'w>(
         item: &P,
         _view: (),
-        _item_query: (),
+        _item_query: Option<()>,
         (meshes, mesh_instances): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {

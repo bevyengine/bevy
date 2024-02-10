@@ -337,7 +337,7 @@ impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P>
     fn render<'w>(
         item: &P,
         _view: (),
-        _item_query: (),
+        _item_query: Option<()>,
         (materials, material_instances): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
