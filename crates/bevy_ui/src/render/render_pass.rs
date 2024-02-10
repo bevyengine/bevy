@@ -188,18 +188,11 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiTextureBindGroup<I>
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let image_bind_groups = image_bind_groups.into_inner();
-        pass.set_bind_group(
-            I,
-            image_bind_groups
-                .values
-                .get(
-                    &batch
-                        .expect("UI entities must exist in the render world")
-                        .image,
-                )
-                .unwrap(),
-            &[],
-        );
+        let Some(batch) = batch else {
+            return RenderCommandResult::Failure;
+        };
+
+        pass.set_bind_group(I, image_bind_groups.values.get(&batch.image).unwrap(), &[]);
         RenderCommandResult::Success
     }
 }
@@ -217,14 +210,12 @@ impl<P: PhaseItem> RenderCommand<P> for DrawUiNode {
         ui_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
+        let Some(batch) = batch else {
+            return RenderCommandResult::Failure;
+        };
+
         pass.set_vertex_buffer(0, ui_meta.into_inner().vertices.buffer().unwrap().slice(..));
-        pass.draw(
-            batch
-                .expect("UI entities must exist in the render world")
-                .range
-                .clone(),
-            0..1,
-        );
+        pass.draw(batch.range.clone(), 0..1);
         RenderCommandResult::Success
     }
 }

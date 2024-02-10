@@ -778,16 +778,15 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGrou
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let image_bind_groups = image_bind_groups.into_inner();
+        let Some(batch) = batch else {
+            return RenderCommandResult::Failure;
+        };
 
         pass.set_bind_group(
             I,
             image_bind_groups
                 .values
-                .get(
-                    &batch
-                        .expect("Sprite entities must exist in the render world")
-                        .image_handle_id,
-                )
+                .get(&batch.image_handle_id)
                 .unwrap(),
             &[],
         );
@@ -809,6 +808,10 @@ impl<P: PhaseItem> RenderCommand<P> for DrawSpriteBatch {
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let sprite_meta = sprite_meta.into_inner();
+        let Some(batch) = batch else {
+            return RenderCommandResult::Failure;
+        };
+
         pass.set_index_buffer(
             sprite_meta.sprite_index_buffer.buffer().unwrap().slice(..),
             0,
@@ -822,14 +825,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawSpriteBatch {
                 .unwrap()
                 .slice(..),
         );
-        pass.draw_indexed(
-            0..6,
-            0,
-            batch
-                .expect("Sprite entities must exist in the render world")
-                .range
-                .clone(),
-        );
+        pass.draw_indexed(0..6, 0, batch.range.clone());
         RenderCommandResult::Success
     }
 }

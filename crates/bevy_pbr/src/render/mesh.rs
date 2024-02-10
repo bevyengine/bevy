@@ -256,9 +256,6 @@ pub struct RenderMeshInstance {
 #[derive(Default, Resource, Deref, DerefMut)]
 pub struct RenderMeshInstances(EntityHashMap<Entity, RenderMeshInstance>);
 
-#[derive(Component)]
-pub struct Mesh3d;
-
 pub fn extract_meshes(
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
     mut thread_local_queues: Local<ThreadLocal<Cell<Vec<(Entity, RenderMeshInstance)>>>>,

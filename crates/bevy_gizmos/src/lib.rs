@@ -387,12 +387,13 @@ impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetLineGizmoBindGroup<I>
         bind_group: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
+        let Some(uniform_index) = uniform_index else {
+            return RenderCommandResult::Failure;
+        };
         pass.set_bind_group(
             I,
             &bind_group.into_inner().bindgroup,
-            &[uniform_index
-                .expect("Gizmos must exist in the render world")
-                .index()],
+            &[uniform_index.index()],
         );
         RenderCommandResult::Success
     }
@@ -412,10 +413,10 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
         line_gizmos: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let Some(line_gizmo) = line_gizmos
-            .into_inner()
-            .get(handle.expect("Gizmos must exist in the render world"))
-        else {
+        let Some(handle) = handle else {
+            return RenderCommandResult::Failure;
+        };
+        let Some(line_gizmo) = line_gizmos.into_inner().get(handle) else {
             return RenderCommandResult::Failure;
         };
 

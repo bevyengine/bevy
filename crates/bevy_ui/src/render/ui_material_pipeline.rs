@@ -300,11 +300,10 @@ impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P>
         materials: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let Some(material) = materials.into_inner().get(
-            &material_handle
-                .expect("UI elements must exist in the render world")
-                .material,
-        ) else {
+        let Some(material_handle) = material_handle else {
+            return RenderCommandResult::Failure;
+        };
+        let Some(material) = materials.into_inner().get(&material_handle.material) else {
             return RenderCommandResult::Failure;
         };
         pass.set_bind_group(I, &material.bind_group, &[]);
@@ -326,14 +325,12 @@ impl<P: PhaseItem, M: UiMaterial> RenderCommand<P> for DrawUiMaterialNode<M> {
         ui_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
+        let Some(batch) = batch else {
+            return RenderCommandResult::Failure;
+        };
+
         pass.set_vertex_buffer(0, ui_meta.into_inner().vertices.buffer().unwrap().slice(..));
-        pass.draw(
-            batch
-                .expect("UI elements must exist in the render world")
-                .range
-                .clone(),
-            0..1,
-        );
+        pass.draw(batch.range.clone(), 0..1);
         RenderCommandResult::Success
     }
 }
