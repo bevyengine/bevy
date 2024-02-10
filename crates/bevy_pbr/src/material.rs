@@ -804,7 +804,7 @@ pub struct AtomicMaterialBindGroupId(AtomicU32);
 impl AtomicMaterialBindGroupId {
     /// Stores a value atomically. Uses [`Ordering::Relaxed`] so there is zero guarentee of ordering
     /// relative to other operations.
-    /// 
+    ///
     /// See also:  [`AtomicU32::store`].
     pub fn set(&self, id: MaterialBindGroupId) {
         let id = if let Some(id) = id.0 {
@@ -817,7 +817,7 @@ impl AtomicMaterialBindGroupId {
 
     /// Loads a value atomically. Uses [`Ordering::Relaxed`] so there is zero guarentee of ordering
     /// relative to other operations.
-    /// 
+    ///
     /// See also:  [`AtomicU32::load`].
     pub fn get(&self) -> MaterialBindGroupId {
         MaterialBindGroupId(NonZeroU32::new(self.0.load(Ordering::Relaxed)).map(BindGroupId::from))
