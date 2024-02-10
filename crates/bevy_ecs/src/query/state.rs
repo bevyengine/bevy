@@ -95,6 +95,26 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ) -> &QueryState<NewD, NewF> {
         &*(self as *const QueryState<D, F> as *const QueryState<NewD, NewF>)
     }
+
+    /// Returns the archetype components accessed by this query.
+    pub fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
+        &self.archetype_component_access
+    }
+
+    /// Returns the components accessed by this query.
+    pub fn component_access(&self) -> &FilteredAccess<ComponentId> {
+        &self.component_access
+    }
+
+    /// Returns the tables matched by this query.
+    pub fn matched_tables(&self) -> &[TableId] {
+        &self.matched_table_ids
+    }
+
+    /// Returns the archetypes matched by this query.
+    pub fn matched_archetypes(&self) -> &[ArchetypeId] {
+        &self.matched_archetype_ids
+    }
 }
 
 impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
