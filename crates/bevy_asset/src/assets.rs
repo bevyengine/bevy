@@ -541,7 +541,7 @@ impl<A: Asset> Assets<A> {
     /// flush.
     ///
     /// [`asset_events`]: Self::asset_events
-    pub fn asset_events_condition(assets: Res<Self>) -> bool {
+    pub(crate) fn asset_events_condition(assets: Res<Self>) -> bool {
         !assets.queued_events.is_empty()
     }
 }
