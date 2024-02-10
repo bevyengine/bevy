@@ -36,8 +36,9 @@ fn setup(
     // Creating the animation
     let mut animation = AnimationClip::default();
     // A curve can modify a single part of a transform, here the translation
+    let planet_animation_target_id = AnimationTargetId::from_name(&planet);
     animation.add_curve_to_target(
-        AnimationTargetId::from_name(&planet),
+        planet_animation_target_id,
         VariableCurve {
             keyframe_timestamps: vec![0.0, 1.0, 2.0, 3.0, 4.0],
             keyframes: Keyframes::Translation(vec![
@@ -131,29 +132,35 @@ fn setup(
             player,
         ))
         .id();
-    commands.entity(planet_entity).with_children(|p| {
-        // This entity is just used for animation, but doesn't display anything
-        p.spawn((
-            SpatialBundle::INHERITED_IDENTITY,
-            // Add the Name component
-            orbit_controller,
-            AnimationTarget {
-                id: orbit_controller_animation_target_id,
-                player: planet_entity,
-            },
-        ))
+    commands
+        .entity(planet_entity)
+        .insert(AnimationTarget {
+            id: planet_animation_target_id,
+            player: planet_entity,
+        })
         .with_children(|p| {
-            // The satellite, placed at a distance of the planet
+            // This entity is just used for animation, but doesn't display anything
             p.spawn((
-                PbrBundle {
-                    transform: Transform::from_xyz(1.5, 0.0, 0.0),
-                    mesh: meshes.add(Cuboid::new(0.5, 0.5, 0.5)),
-                    material: materials.add(Color::rgb(0.3, 0.9, 0.3)),
-                    ..default()
-                },
+                SpatialBundle::INHERITED_IDENTITY,
                 // Add the Name component
-                satellite,
-            ));
+                orbit_controller,
+                AnimationTarget {
+                    id: orbit_controller_animation_target_id,
+                    player: planet_entity,
+                },
+            ))
+            .with_children(|p| {
+                // The satellite, placed at a distance of the planet
+                p.spawn((
+                    PbrBundle {
+                        transform: Transform::from_xyz(1.5, 0.0, 0.0),
+                        mesh: meshes.add(Cuboid::new(0.5, 0.5, 0.5)),
+                        material: materials.add(Color::rgb(0.3, 0.9, 0.3)),
+                        ..default()
+                    },
+                    // Add the Name component
+                    satellite,
+                ));
+            });
         });
-    });
 }

@@ -206,20 +206,16 @@ impl Hash for AnimationTargetId {
 /// documentation for more details.
 ///
 /// By convention, asset loaders add [`AnimationTarget`] components to the
-/// descendants of an [`AnimationPlayer`], but Bevy doesn't require this in any
-/// way. So, for example, it's entirely possible for an [`AnimationPlayer`] to
-/// animate a target that it isn't an ancestor of. If you add a new bone to or
-/// delete a bone from an armature at runtime, you may want to update the
-/// [`AnimationTarget`] component as appropriate, as Bevy won't do this
-/// automatically.
+/// descendants of an [`AnimationPlayer`], as well as to the [`AnimationPlayer`]
+/// entity itself, but Bevy doesn't require this in any way. So, for example,
+/// it's entirely possible for an [`AnimationPlayer`] to animate a target that
+/// it isn't an ancestor of. If you add a new bone to or delete a bone from an
+/// armature at runtime, you may want to update the [`AnimationTarget`]
+/// component as appropriate, as Bevy won't do this automatically.
 ///
 /// Note that each entity can only be animated by one animation player at a
 /// time. However, you can change [`AnimationTarget`]'s `player` property at
 /// runtime to change which player is responsible for animating the entity.
-///
-/// An [`AnimationPlayer`] and [`AnimationTarget`] can't simultaneously be on
-/// the same entity. Animation players always target entities other than
-/// themselves.
 #[derive(Clone, Component, Reflect)]
 #[reflect(Component, MapEntities)]
 pub struct AnimationTarget {
@@ -375,10 +371,6 @@ struct AnimationTransition {
 }
 
 /// Animation controls
-///
-/// Note that an [`AnimationPlayer`] and [`AnimationTarget`] can't
-/// simultaneously be on the same entity. Animation players always target
-/// entities other than themselves.
 #[derive(Component, Default, Reflect)]
 #[reflect(Component)]
 pub struct AnimationPlayer {
@@ -602,7 +594,7 @@ pub fn advance_animations(
 /// according to the currently-playing animation.
 pub fn animate_targets(
     clips: Res<Assets<AnimationClip>>,
-    players: Query<&AnimationPlayer, Without<AnimationTarget>>,
+    players: Query<&AnimationPlayer>,
     mut targets: Query<(
         Entity,
         &AnimationTarget,

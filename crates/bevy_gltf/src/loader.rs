@@ -948,25 +948,23 @@ fn load_node(
     node.insert(name.clone());
 
     #[cfg(feature = "bevy_animation")]
-    match animation_context {
-        None => {
-            if animation_roots.contains(&gltf_node.index()) {
-                // This is an animation root. Make a new animation context.
-                animation_context = Some(AnimationContext {
-                    root: node.id(),
-                    path: smallvec![name],
-                });
-            }
-        }
-        Some(ref mut animation_context) => {
-            animation_context.path.push(name);
+    if animation_context.is_none() && animation_roots.contains(&gltf_node.index()) {
+        // This is an animation root. Make a new animation context.
+        animation_context = Some(AnimationContext {
+            root: node.id(),
+            path: smallvec![],
+        });
+    }
 
-            node.insert(AnimationTarget {
-                id: AnimationTargetId::from_names(animation_context.path.iter()),
-                player: animation_context.root,
-            });
-        }
-    };
+    #[cfg(feature = "bevy_animation")]
+    if let Some(ref mut animation_context) = animation_context {
+        animation_context.path.push(name);
+
+        node.insert(AnimationTarget {
+            id: AnimationTargetId::from_names(animation_context.path.iter()),
+            player: animation_context.root,
+        });
+    }
 
     if let Some(extras) = gltf_node.extras() {
         node.insert(GltfExtras {
