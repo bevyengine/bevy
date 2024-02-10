@@ -241,9 +241,7 @@ pub fn calculate_bounds(
 
 /// Updates [`Frustum`].
 ///
-/// This system is used in system sets [`VisibilitySystems::UpdateProjectionFrusta`],
-/// [`VisibilitySystems::UpdatePerspectiveFrusta`], and
-/// [`VisibilitySystems::UpdateOrthographicFrusta`].
+/// This system is used in [`CameraProjectionPlugin`](crate::camera::CameraProjectionPlugin).
 pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
     mut views: Query<
         (&GlobalTransform, &T, &mut Frustum),
