@@ -91,6 +91,26 @@ use std::{
 /// [`Table`]: crate::storage::Table
 /// [`SparseSet`]: crate::storage::SparseSet
 ///
+/// # Composing components
+///
+/// Components can be composed using the `compose` function.
+///
+/// ```
+/// # use bevy_ecs::component::Component;
+/// #
+/// #[derive(Component)]
+/// #[component(compose = "ComponentA::compose")]
+/// struct ComponentA(usize);
+///
+/// impl ComponentA {
+///     fn compose(&mut self, incoming: Self) {
+///         self.0 |= incoming.0;
+///     }
+/// }
+/// # let mut component = ComponentA(1);
+/// # component.compose(ComponentA(2));
+/// # assert_eq!(component.0, 3);
+/// ```
 /// # Implementing the trait for foreign types
 ///
 /// As a consequence of the [orphan rule], it is not possible to separate into two different crates the implementation of `Component` from the definition of a type.
@@ -148,10 +168,17 @@ use std::{
 ///
 /// [`SyncCell`]: bevy_utils::synccell::SyncCell
 /// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
-pub trait Component: Send + Sync + 'static {
+pub trait Component: Send + Sync + Sized + 'static {
     /// A marker type indicating the storage type used for this component.
     /// This must be either [`TableStorage`] or [`SparseStorage`].
     type Storage: ComponentStorage;
+
+    /// Compose an existing component with an incoming one.
+    /// The default implementation is replacing the current
+    /// component with the incoming one.
+    fn compose(&mut self, incoming: Self) {
+        *self = incoming;
+    }
 }
 
 /// Marker type for components stored in a [`Table`](crate::storage::Table).

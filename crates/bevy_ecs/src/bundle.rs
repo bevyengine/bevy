@@ -10,13 +10,15 @@ use crate::{
         Archetype, ArchetypeId, Archetypes, BundleComponentStatus, ComponentStatus,
         SpawnBundleStatus,
     },
-    component::{Component, ComponentId, ComponentStorage, Components, StorageType, Tick},
+    component::{
+        Component, ComponentId, ComponentStorage, Components, StorageType, TableStorage, Tick,
+    },
     entity::{Entities, Entity, EntityLocation},
+    prelude::EntityWorldMut,
     query::DebugCheckedUnwrap,
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
 };
 use bevy_ptr::OwningPtr;
-use bevy_utils::all_tuples;
 use std::any::TypeId;
 
 /// The `Bundle` trait enables insertion and removal of [`Component`]s from an entity.
@@ -138,7 +140,32 @@ use std::any::TypeId;
 // bundle, in the _exact_ order that [`DynamicBundle::get_components`] is called.
 // - [`Bundle::from_components`] must call `func` exactly once for each [`ComponentId`] returned by
 //   [`Bundle::component_ids`].
-pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
+pub unsafe trait Bundle: DynamicBundle + Sized + Send + Sync + 'static {
+    /// The first component in this bundle
+    type Head: Component;
+
+    /// Split the first component from the bundle
+    fn split_head(self) -> (Self::Head, impl Bundle);
+
+    /// Join another bundle
+    fn join_tail(self, tail: impl Bundle) -> impl Bundle {
+        (self, tail)
+    }
+
+    /// Apply duplicate items in a bundle to an [`EntityWorldMut`] and remove them.
+    fn spawn_compose(self, entity: &mut EntityWorldMut, parent: impl Bundle) {
+        let (head, tail) = self.split_head();
+        match entity.get_mut::<Self::Head>() {
+            Some(mut original) => {
+                original.compose(head);
+                tail.spawn_compose(entity, parent);
+            }
+            None => {
+                tail.spawn_compose(entity, parent.join_tail(head));
+            }
+        }
+    }
+
     /// Gets this [`Bundle`]'s component ids, in the order of this bundle's [`Component`]s
     #[doc(hidden)]
     fn component_ids(
@@ -173,11 +200,58 @@ pub trait DynamicBundle {
     fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>));
 }
 
+/// A dummy component `Head` of a 0 sized bundle like `()`.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct DummyComponent;
+
+impl Component for DummyComponent {
+    type Storage = TableStorage;
+}
+
+/// SAFETY:
+/// Safe since this implementation explicitly does nothing.
+unsafe impl Bundle for () {
+    type Head = DummyComponent;
+
+    fn spawn_compose(self, entity: &mut EntityWorldMut, parent: impl Bundle) {
+        // This ends recursion by inserting the remaining bundle.
+        entity.insert(parent);
+    }
+
+    fn split_head(self) -> (Self::Head, impl Bundle) {
+        (DummyComponent, ())
+    }
+
+    fn join_tail(self, tail: impl Bundle) -> impl Bundle {
+        tail
+    }
+
+    fn component_ids(_: &mut Components, _: &mut Storages, _: &mut impl FnMut(ComponentId)) {}
+
+    unsafe fn from_components<T, F>(_: &mut T, _: &mut F) -> Self
+    where
+        // Ensure that the `OwningPtr` is used correctly
+        F: for<'a> FnMut(&'a mut T) -> OwningPtr<'a>,
+        Self: Sized,
+    {
+    }
+}
+
+impl DynamicBundle for () {
+    fn get_components(self, _: &mut impl FnMut(StorageType, OwningPtr<'_>)) {}
+}
+
 // SAFETY:
 // - `Bundle::component_ids` calls `ids` for C's component id (and nothing else)
 // - `Bundle::get_components` is called exactly once for C and passes the component's storage type based on it's associated constant.
 // - `Bundle::from_components` calls `func` exactly once for C, which is the exact value returned by `Bundle::component_ids`.
 unsafe impl<C: Component> Bundle for C {
+    type Head = Self;
+
+    fn split_head(self) -> (Self::Head, impl Bundle) {
+        (self, ())
+    }
+
     fn component_ids(
         components: &mut Components,
         storages: &mut Storages,
@@ -205,17 +279,28 @@ impl<C: Component> DynamicBundle for C {
 }
 
 macro_rules! tuple_impl {
-    ($($name: ident),*) => {
+    () => {};
+    ($first: ident $(, $rest: ident)*) => {
         // SAFETY:
         // - `Bundle::component_ids` calls `ids` for each component type in the
         // bundle, in the exact order that `DynamicBundle::get_components` is called.
         // - `Bundle::from_components` calls `func` exactly once for each `ComponentId` returned by `Bundle::component_ids`.
         // - `Bundle::get_components` is called exactly once for each member. Relies on the above implementation to pass the correct
         //   `StorageType` into the callback.
-        unsafe impl<$($name: Bundle),*> Bundle for ($($name,)*) {
+        unsafe impl<$first: Bundle, $($rest: Bundle),*> Bundle for ($first, $($rest,)*) {
+
+            type Head = $first::Head;
+            #[allow(nonstandard_style)]
+            fn split_head(self) -> (Self::Head, impl Bundle) {
+                let ($first, $($rest),*) = self;
+                let (head, rest) = $first.split_head();
+                (head, rest.join_tail(($($rest,)*)))
+            }
+
             #[allow(unused_variables)]
             fn component_ids(components: &mut Components, storages: &mut Storages, ids: &mut impl FnMut(ComponentId)){
-                $(<$name as Bundle>::component_ids(components, storages, ids);)*
+                <$first as Bundle>::component_ids(components, storages, ids);
+                $(<$rest as Bundle>::component_ids(components, storages, ids);)*
             }
 
             #[allow(unused_variables, unused_mut)]
@@ -226,25 +311,39 @@ macro_rules! tuple_impl {
             {
                 // Rust guarantees that tuple calls are evaluated 'left to right'.
                 // https://doc.rust-lang.org/reference/expressions.html#evaluation-order-of-operands
-                ($(<$name as Bundle>::from_components(ctx, func),)*)
+                (<$first as Bundle>::from_components(ctx, func),$(<$rest as Bundle>::from_components(ctx, func),)*)
             }
         }
 
-        impl<$($name: Bundle),*> DynamicBundle for ($($name,)*) {
+        impl<$first: Bundle, $($rest: Bundle),*> DynamicBundle for ($first, $($rest,)*) {
             #[allow(unused_variables, unused_mut)]
             #[inline(always)]
             fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) {
                 #[allow(non_snake_case)]
-                let ($(mut $name,)*) = self;
+                let (mut $first, $(mut $rest,)*) = self;
+                $first.get_components(&mut *func);
                 $(
-                    $name.get_components(&mut *func);
+                    $rest.get_components(&mut *func);
                 )*
             }
         }
     }
 }
 
-all_tuples!(tuple_impl, 0, 15, B);
+macro_rules! tuple_impl_pretty {
+    ({}{}) => {};
+
+    ({$($head: ident),*} {$tail: ident}) => {
+        tuple_impl_pretty!({} {$($head),*});
+        tuple_impl!($($head,)* $tail);
+    };
+
+    ({$($head: ident),*} {$mid: ident $(, $tail: ident)*}) => {
+        tuple_impl_pretty!({$($head,)* $mid} {$($tail),*});
+    };
+}
+
+tuple_impl_pretty!({} {B0, B1, B2, B3, B4, B5, B6, B7, B8, B9, B10, B11, B12, B13, B14});
 
 /// For a specific [`World`], this stores a unique value identifying a type of a registered [`Bundle`].
 ///

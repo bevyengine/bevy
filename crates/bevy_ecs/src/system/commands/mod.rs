@@ -787,6 +787,48 @@ impl EntityCommands<'_> {
         self.add(insert(bundle))
     }
 
+    /// Composes a [`Bundle`] to the entity.
+    ///
+    /// This may modify the previous value of the corresponding component types.
+    ///
+    /// # Panics
+    ///
+    /// The command will panic when applied if the associated entity does not exist.
+    ///
+    /// To avoid a panic in this case, use the command [`Self::try_compose`] instead.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Resource)]
+    /// # struct PlayerEntity { entity: Entity }
+    /// #[component(compose = "Flags::compose")]
+    /// #[derive(Component)]
+    /// struct Flags(u32);
+    ///
+    /// impl Flags {
+    ///     pub const IS_ACTIVE: Self = Self(1);
+    ///     pub const DEAD: Self = Self(2);
+    ///     fn compose(&mut self, incoming: Self) {
+    ///         self.0 |= incoming.0;
+    ///     }
+    /// }
+    ///
+    /// fn add_flags_system(mut commands: Commands, player: Res<PlayerEntity>) {
+    ///   commands.entity(player.entity)
+    ///    // You can use compose to insert components:
+    ///     .compose(Flags::IS_ACTIVE)
+    ///     
+    ///    // You can also use compose to compose to existing components:
+    ///     .compose(Flags::DEAD);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(add_flags_system);
+    /// ```
+    pub fn compose(&mut self, bundle: impl Bundle) -> &mut Self {
+        self.add(compose(bundle))
+    }
+
     /// Tries to add a [`Bundle`] of components to the entity.
     ///
     /// This will overwrite any previous value(s) of the same component type.
@@ -837,6 +879,54 @@ impl EntityCommands<'_> {
     /// ```
     pub fn try_insert(&mut self, bundle: impl Bundle) -> &mut Self {
         self.add(try_insert(bundle))
+    }
+
+    /// Tries to compose a [`Bundle`] to the entity.
+    ///
+    /// This may modify the previous value of the corresponding component types.
+    ///
+    /// # Note
+    ///
+    /// Unlike [`Self::compose`], this will not panic if the associated entity does not exist.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Resource)]
+    /// # struct PlayerEntity { entity: Entity }
+    /// #[component(compose = "Flags::compose")]
+    /// #[derive(Component)]
+    /// struct Flags(u32);
+    ///
+    /// impl Flags {
+    ///     pub const IS_ACTIVE: Self = Self(1);
+    ///     pub const DEAD: Self = Self(2);
+    ///     fn compose(&mut self, incoming: Self) {
+    ///         self.0 |= incoming.0;
+    ///     }
+    /// }
+    ///
+    /// fn add_flags_system(mut commands: Commands, player: Res<PlayerEntity>) {
+    ///   commands.entity(player.entity)
+    ///    // You can use try_compose to compose components:
+    ///     .try_compose(Flags::IS_ACTIVE)
+    ///     
+    ///    // You can also use try_compose to compose to existing components:
+    ///     .try_compose(Flags::DEAD);
+    ///    
+    ///    // Suppose this occurs in a parallel adjacent system or process
+    ///    commands.entity(player.entity)
+    ///      .despawn();
+    ///
+    ///    commands.entity(player.entity)
+    ///    // This will not panic nor will it add the component
+    ///      .try_insert(Flags::IS_ACTIVE);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(add_flags_system);
+    /// ```
+    pub fn try_compose(&mut self, bundle: impl Bundle) -> &mut Self {
+        self.add(try_compose(bundle))
     }
 
     /// Removes a [`Bundle`] of components from the entity.
@@ -1086,6 +1176,26 @@ fn try_insert(bundle: impl Bundle) -> impl EntityCommand {
     }
 }
 
+/// An [`EntityCommand`] that adds or composes a component to an entity.
+fn compose<T: Bundle>(bundle: T) -> impl EntityCommand {
+    move |entity: Entity, world: &mut World| {
+        if let Some(mut entity) = world.get_entity_mut(entity) {
+            bundle.spawn_compose(&mut entity, ());
+        } else {
+            panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World.", std::any::type_name::<T>(), entity);
+        }
+    }
+}
+
+/// An [`EntityCommand`] that attempts to add or compose a component to an entity.
+fn try_compose<T: Bundle>(bundle: T) -> impl EntityCommand {
+    move |entity: Entity, world: &mut World| {
+        if let Some(mut entity) = world.get_entity_mut(entity) {
+            bundle.spawn_compose(&mut entity, ());
+        }
+    }
+}
+
 /// A [`Command`] that removes components from an entity.
 /// For a [`Bundle`] type `T`, this will remove any components in the bundle.
 /// Any components in the bundle that aren't found on the entity will be ignored.
@@ -1145,6 +1255,26 @@ mod tests {
         atomic::{AtomicUsize, Ordering},
         Arc,
     };
+
+    #[derive(Component)]
+    #[component(storage = "SparseSet", compose = "ComposeCk::compose")]
+    struct ComposeCk(usize);
+
+    impl ComposeCk {
+        fn compose(&mut self, incoming: Self) {
+            self.0 |= incoming.0;
+        }
+    }
+
+    #[derive(Component)]
+    #[component(compose = "ComposeCkVec::compose")]
+    struct ComposeCkVec(Vec<char>);
+
+    impl ComposeCkVec {
+        fn compose(&mut self, incoming: Self) {
+            self.0.extend(incoming.0);
+        }
+    }
 
     #[derive(Component)]
     #[component(storage = "SparseSet")]
@@ -1267,6 +1397,77 @@ mod tests {
             .map(|v| v.0)
             .collect::<Vec<_>>();
         assert_eq!(results_after_u64, vec![]);
+    }
+
+    #[test]
+    fn compose_components() {
+        let mut world = World::default();
+
+        let mut command_queue = CommandQueue::default();
+
+        let entity = Commands::new(&mut command_queue, &world)
+            .spawn(ComposeCk(1))
+            .id();
+        command_queue.apply(&mut world);
+
+        assert_eq!(world.entity(entity).get::<ComposeCk>().unwrap().0, 1);
+
+        Commands::new(&mut command_queue, &world)
+            .entity(entity)
+            .compose(ComposeCk(2));
+        command_queue.apply(&mut world);
+
+        assert_eq!(world.entity(entity).get::<ComposeCk>().unwrap().0, 3);
+
+        Commands::new(&mut command_queue, &world)
+            .entity(entity)
+            .try_compose(ComposeCk(4))
+            .try_compose(ComposeCk(8))
+            .try_compose(ComposeCk(16));
+        command_queue.apply(&mut world);
+
+        assert_eq!(world.entity(entity).get::<ComposeCk>().unwrap().0, 31);
+
+        Commands::new(&mut command_queue, &world)
+            .entity(entity)
+            .try_compose(ComposeCk(1));
+        command_queue.apply(&mut world);
+
+        assert_eq!(world.entity(entity).get::<ComposeCk>().unwrap().0, 31);
+
+        Commands::new(&mut command_queue, &world)
+            .entity(entity)
+            .try_compose((ComposeCk(32), ComposeCkVec(vec!['a', 'b', 'c'])));
+        command_queue.apply(&mut world);
+
+        assert_eq!(world.entity(entity).get::<ComposeCk>().unwrap().0, 63);
+        assert_eq!(
+            world.entity(entity).get::<ComposeCkVec>().unwrap().0,
+            vec!['a', 'b', 'c']
+        );
+
+        Commands::new(&mut command_queue, &world)
+            .entity(entity)
+            .try_compose((ComposeCk(64), ComposeCkVec(vec!['r', 'u', 's', 't'])));
+        command_queue.apply(&mut world);
+
+        assert_eq!(world.entity(entity).get::<ComposeCk>().unwrap().0, 127);
+        assert_eq!(
+            world.entity(entity).get::<ComposeCkVec>().unwrap().0,
+            vec!['a', 'b', 'c', 'r', 'u', 's', 't']
+        );
+
+        Commands::new(&mut command_queue, &world)
+            .entity(entity)
+            .try_compose(ComposeCk(999));
+        let mut command_queue2 = CommandQueue::default();
+        Commands::new(&mut command_queue, &world)
+            .entity(entity)
+            .despawn();
+        command_queue2.apply(&mut world);
+        command_queue.apply(&mut world);
+
+        assert!(world.get_entity(entity).is_none());
     }
 
     #[test]
