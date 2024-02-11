@@ -42,6 +42,8 @@ map_flatten = "warn"
 
 ptr_as_ptr = "warn"
 ptr_cast_constness = "warn"
+#TODO(rust 1.77): enable `ref_as_ptr`
+# ref_as_ptr = "warn"
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "warn"
