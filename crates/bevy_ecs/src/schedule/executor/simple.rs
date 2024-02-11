@@ -93,8 +93,6 @@ impl SystemExecutor for SimpleExecutor {
                 eprintln!("Encountered a panic in system `{}`!", &*system.name());
                 std::panic::resume_unwind(payload);
             }
-
-            system.apply_deferred(world);
         }
 
         self.evaluated_sets.clear();

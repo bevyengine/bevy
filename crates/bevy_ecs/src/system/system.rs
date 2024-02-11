@@ -66,14 +66,20 @@ pub trait System: Send + Sync + 'static {
     ///
     /// For [read-only](ReadOnlySystem) systems, see [`run_readonly`], which can be called using `&World`.
     ///
+    /// Unlike [`System::run_unsafe`], this will apply deferred parameters *immediately*.
+    ///
     /// [`run_readonly`]: ReadOnlySystem::run_readonly
     fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
-        let world = world.as_unsafe_world_cell();
-        self.update_archetype_component_access(world);
-        // SAFETY:
-        // - We have exclusive access to the entire world.
-        // - `update_archetype_component_access` has been called.
-        unsafe { self.run_unsafe(input, world) }
+        let ret = {
+            let world = world.as_unsafe_world_cell();
+            self.update_archetype_component_access(world);
+            // SAFETY:
+            // - We have exclusive access to the entire world.
+            // - `update_archetype_component_access` has been called.
+            unsafe { self.run_unsafe(input, world) }
+        };
+        self.apply_deferred(world);
+        ret
     }
 
     /// Applies any [`Deferred`](crate::system::Deferred) system parameters (or other system buffers) of this system to the world.

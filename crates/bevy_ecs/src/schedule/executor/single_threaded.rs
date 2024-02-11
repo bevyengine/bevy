@@ -98,7 +98,12 @@ impl SystemExecutor for SingleThreadedExecutor {
                 self.apply_deferred(schedule, world);
             } else {
                 let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
-                    system.run((), world);
+                    // Use run_unsafe to avoid immediately applying deferred buffers
+                    let world = world.as_unsafe_world_cell();
+                    system.update_archetype_component_access(world);
+                    // SAFETY: We have exclusive, single-threaded access to the world and
+                    // update_archetype_component_access is being called immediately before this.
+                    unsafe { system.run_unsafe((), world) }
                 }));
                 if let Err(payload) = res {
                     eprintln!("Encountered a panic in system `{}`!", &*system.name());
