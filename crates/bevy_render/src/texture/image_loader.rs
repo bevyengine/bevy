@@ -4,6 +4,7 @@ use thiserror::Error;
 
 use crate::{
     render_asset::RenderAssetUsages,
+    render_resource::{TextureDescriptor, TextureDimension, TextureFormat, TextureUsages},
     renderer::RenderDevice,
     texture::{Image, ImageFormat, ImageType, TextureError},
 };
@@ -59,6 +60,20 @@ pub struct ImageLoaderSettings {
     pub is_srgb: bool,
     pub sampler: ImageSampler,
     pub asset_usage: RenderAssetUsages,
+    #[serde(skip)]
+    pub texture_dimension: Option<TextureDimension>,
+    #[serde(skip)]
+    pub texture_format: Option<TextureFormat>,
+    #[serde(skip)]
+    pub texture_usage: Option<TextureUsages>,
+}
+
+impl ImageLoaderSettings {
+    pub fn apply_to(&self, descriptor: &mut TextureDescriptor) {
+        descriptor.dimension = self.texture_dimension.unwrap_or(descriptor.dimension);
+        descriptor.format = self.texture_format.unwrap_or(descriptor.format);
+        descriptor.usage = self.texture_usage.unwrap_or(descriptor.usage);
+    }
 }
 
 impl Default for ImageLoaderSettings {
@@ -68,6 +83,9 @@ impl Default for ImageLoaderSettings {
             is_srgb: true,
             sampler: ImageSampler::Default,
             asset_usage: RenderAssetUsages::default(),
+            texture_dimension: None,
+            texture_format: None,
+            texture_usage: None,
         }
     }
 }
@@ -101,7 +119,8 @@ impl AssetLoader for ImageLoader {
                 ImageFormatSetting::FromExtension => ImageType::Extension(ext),
                 ImageFormatSetting::Format(format) => ImageType::Format(format),
             };
-            Ok(Image::from_buffer(
+
+            let mut image = Image::from_buffer(
                 &bytes,
                 image_type,
                 self.supported_compressed_formats,
@@ -112,7 +131,11 @@ impl AssetLoader for ImageLoader {
             .map_err(|err| FileTextureError {
                 error: err,
                 path: format!("{}", load_context.path().display()),
-            })?)
+            })?;
+
+            settings.apply_to(&mut image.texture_descriptor);
+
+            Ok(image)
         })
     }
 
