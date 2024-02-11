@@ -389,9 +389,9 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
         _table_row: TableRow,
     ) -> Self::Item<'w> {
         // SAFETY: `fetch` must be called with an entity that exists in the world
-        let cell = world.get_entity(entity).debug_checked_unwrap();
+        let cell = unsafe { world.get_entity(entity).debug_checked_unwrap() };
         // SAFETY: Read-only access to every component has been registered.
-        EntityRef::new(cell)
+        unsafe { EntityRef::new(cell) }
     }
 
     fn update_component_access(_state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
@@ -465,9 +465,9 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
         _table_row: TableRow,
     ) -> Self::Item<'w> {
         // SAFETY: `fetch` must be called with an entity that exists in the world
-        let cell = world.get_entity(entity).debug_checked_unwrap();
+        let cell = unsafe { world.get_entity(entity).debug_checked_unwrap() };
         // SAFETY: mutable access to every component has been registered.
-        EntityMut::new(cell)
+        unsafe { EntityMut::new(cell) }
     }
 
     fn update_component_access(_state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
@@ -560,9 +560,9 @@ unsafe impl<'a> WorldQuery for FilteredEntityRef<'a> {
         _table_row: TableRow,
     ) -> Self::Item<'w> {
         // SAFETY: `fetch` must be called with an entity that exists in the world
-        let cell = world.get_entity(entity).debug_checked_unwrap();
+        let cell = unsafe { world.get_entity(entity).debug_checked_unwrap() };
         // SAFETY: mutable access to every component has been registered.
-        FilteredEntityRef::new(cell, access.clone())
+        unsafe { FilteredEntityRef::new(cell, access.clone()) }
     }
 
     fn update_component_access(
@@ -672,9 +672,9 @@ unsafe impl<'a> WorldQuery for FilteredEntityMut<'a> {
         _table_row: TableRow,
     ) -> Self::Item<'w> {
         // SAFETY: `fetch` must be called with an entity that exists in the world
-        let cell = world.get_entity(entity).debug_checked_unwrap();
+        let cell = unsafe { world.get_entity(entity).debug_checked_unwrap() };
         // SAFETY: mutable access to every component has been registered.
-        FilteredEntityMut::new(cell, access.clone())
+        unsafe { FilteredEntityMut::new(cell, access.clone()) }
     }
 
     fn update_component_access(
@@ -748,15 +748,17 @@ unsafe impl<T: Component> WorldQuery for &T {
         ReadFetch {
             table_components: None,
             sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| {
-                world
-                    // SAFETY: The underlying type associated with `component_id` is `T`,
-                    // which we are allowed to access since we registered it in `update_archetype_component_access`.
-                    // Note that we do not actually access any components in this function, we just get a shared
-                    // reference to the sparse set, which is used to access the components in `Self::fetch`.
-                    .storages()
-                    .sparse_sets
-                    .get(component_id)
-                    .debug_checked_unwrap()
+                // SAFETY: The underlying type associated with `component_id` is `T`,
+                // which we are allowed to access since we registered it in `update_archetype_component_access`.
+                // Note that we do not actually access any components in this function, we just get a shared
+                // reference to the sparse set, which is used to access the components in `Self::fetch`.
+                unsafe {
+                    world
+                        .storages()
+                        .sparse_sets
+                        .get(component_id)
+                        .debug_checked_unwrap()
+                }
             }),
         }
     }
@@ -898,12 +900,14 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         RefFetch {
             table_data: None,
             sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| {
-                world
-                    // SAFETY: See &T::init_fetch.
-                    .storages()
-                    .sparse_sets
-                    .get(component_id)
-                    .debug_checked_unwrap()
+                // SAFETY: See &T::init_fetch.
+                unsafe {
+                    world
+                        .storages()
+                        .sparse_sets
+                        .get(component_id)
+                        .debug_checked_unwrap()
+                }
             }),
             last_run,
             this_run,
@@ -1059,12 +1063,14 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         WriteFetch {
             table_data: None,
             sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| {
-                world
-                    // SAFETY: See &T::init_fetch.
-                    .storages()
-                    .sparse_sets
-                    .get(component_id)
-                    .debug_checked_unwrap()
+                // SAFETY: See &T::init_fetch.
+                unsafe {
+                    world
+                        .storages()
+                        .sparse_sets
+                        .get(component_id)
+                        .debug_checked_unwrap()
+                }
             }),
             last_run,
             this_run,

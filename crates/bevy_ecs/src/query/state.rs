@@ -777,16 +777,16 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         let mut values = [(); N].map(|_| MaybeUninit::uninit());
 
         for (value, entity) in std::iter::zip(&mut values, entities) {
-            // SAFETY: fetch is read-only
-            // and world must be validated
-            let item = self
-                .as_readonly()
-                .get_unchecked_manual(world, entity, last_run, this_run)?;
+            // SAFETY: fetch is read-only and world must be validated
+            let item = unsafe {
+                self.as_readonly()
+                    .get_unchecked_manual(world, entity, last_run, this_run)?
+            };
             *value = MaybeUninit::new(item);
         }
 
         // SAFETY: Each value has been fully initialized.
-        Ok(values.map(|x| x.assume_init()))
+        Ok(values.map(|x| unsafe { x.assume_init() }))
     }
 
     /// Gets the query results for the given [`World`] and array of [`Entity`], where the last change and
@@ -1297,7 +1297,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         bevy_tasks::ComputeTaskPool::get().scope(|scope| {
             if D::IS_DENSE && F::IS_DENSE {
                 // SAFETY: We only access table data that has been registered in `self.archetype_component_access`.
-                let tables = &world.storages().tables;
+                let tables = unsafe { &world.storages().tables };
                 for table_id in &self.matched_table_ids {
                     let table = &tables[*table_id];
                     if table.is_empty() {

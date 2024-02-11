@@ -34,7 +34,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         QueryIter {
             query_state,
             // SAFETY: We only access table data that has been registered in `query_state`.
-            tables: &world.storages().tables,
+            tables: unsafe { &world.storages().tables },
             archetypes: world.archetypes(),
             cursor: QueryIterationCursor::init(world, query_state, last_run, this_run),
         }
@@ -121,11 +121,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         let entities = table.entities();
         for row in rows {
             // SAFETY: Caller assures `row` in range of the current archetype.
-            let entity = entities.get_unchecked(row);
+            let entity = unsafe { entities.get_unchecked(row) };
             let row = TableRow::from_usize(row);
             // SAFETY: set_table was called prior.
             // Caller assures `row` in range of the current archetype.
-            if !F::filter_fetch(&mut self.cursor.filter, *entity, row) {
+            if unsafe { !F::filter_fetch(&mut self.cursor.filter, *entity, row) } {
                 continue;
             }
 
@@ -173,24 +173,28 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         let entities = archetype.entities();
         for index in indices {
             // SAFETY: Caller assures `index` in range of the current archetype.
-            let archetype_entity = entities.get_unchecked(index);
+            let archetype_entity = unsafe { entities.get_unchecked(index) };
             // SAFETY: set_archetype was called prior.
             // Caller assures `index` in range of the current archetype.
-            if !F::filter_fetch(
-                &mut self.cursor.filter,
-                archetype_entity.id(),
-                archetype_entity.table_row(),
-            ) {
+            if unsafe {
+                !F::filter_fetch(
+                    &mut self.cursor.filter,
+                    archetype_entity.id(),
+                    archetype_entity.table_row(),
+                )
+            } {
                 continue;
             }
 
             // SAFETY: set_archetype was called prior, `index` is an archetype index in range of the current archetype
             // Caller assures `index` in range of the current archetype.
-            let item = D::fetch(
-                &mut self.cursor.fetch,
-                archetype_entity.id(),
-                archetype_entity.table_row(),
-            );
+            let item = unsafe {
+                D::fetch(
+                    &mut self.cursor.fetch,
+                    archetype_entity.id(),
+                    archetype_entity.table_row(),
+                )
+            };
 
             accum = func(accum, item);
         }
@@ -339,28 +343,32 @@ where
 
             // SAFETY: `archetype` is from the world that `fetch/filter` were created for,
             // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
-            D::set_archetype(
-                &mut self.fetch,
-                &self.query_state.fetch_state,
-                archetype,
-                table,
-            );
+            unsafe {
+                D::set_archetype(
+                    &mut self.fetch,
+                    &self.query_state.fetch_state,
+                    archetype,
+                    table,
+                );
+            }
             // SAFETY: `table` is from the world that `fetch/filter` were created for,
             // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
-            F::set_archetype(
-                &mut self.filter,
-                &self.query_state.filter_state,
-                archetype,
-                table,
-            );
+            unsafe {
+                F::set_archetype(
+                    &mut self.filter,
+                    &self.query_state.filter_state,
+                    archetype,
+                    table,
+                );
+            }
 
             // SAFETY: set_archetype was called prior.
             // `location.archetype_row` is an archetype index row in range of the current archetype, because if it was not, the match above would have `continue`d
-            if F::filter_fetch(&mut self.filter, entity, location.table_row) {
+            if unsafe { F::filter_fetch(&mut self.filter, entity, location.table_row) } {
                 // SAFETY:
                 // - set_archetype was called prior, `location.archetype_row` is an archetype index in range of the current archetype
                 // - fetch is only called once for each entity.
-                return Some(D::fetch(&mut self.fetch, entity, location.table_row));
+                return Some(unsafe { D::fetch(&mut self.fetch, entity, location.table_row) });
             }
         }
         None
@@ -510,7 +518,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, const K: usize> QueryCombinationIter<
         QueryCombinationIter {
             query_state,
             // SAFETY: We only access table data that has been registered in `query_state`.
-            tables: &world.storages().tables,
+            tables: unsafe { &world.storages().tables },
             archetypes: world.archetypes(),
             cursors: array.assume_init(),
         }
@@ -764,8 +772,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                     let table = tables.get(*table_id).debug_checked_unwrap();
                     // SAFETY: `table` is from the world that `fetch/filter` were created for,
                     // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
-                    D::set_table(&mut self.fetch, &query_state.fetch_state, table);
-                    F::set_table(&mut self.filter, &query_state.filter_state, table);
+                    unsafe {
+                        D::set_table(&mut self.fetch, &query_state.fetch_state, table);
+                        F::set_table(&mut self.filter, &query_state.filter_state, table);
+                    }
                     self.table_entities = table.entities();
                     self.current_len = table.entity_count();
                     self.current_row = 0;
@@ -774,7 +784,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
 
                 // SAFETY: set_table was called prior.
                 // `current_row` is a table row in range of the current table, because if it was not, then the if above would have been executed.
-                let entity = self.table_entities.get_unchecked(self.current_row);
+                let entity = unsafe { self.table_entities.get_unchecked(self.current_row) };
                 let row = TableRow::from_usize(self.current_row);
                 if !F::filter_fetch(&mut self.filter, *entity, row) {
                     self.current_row += 1;
@@ -786,7 +796,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 // - `current_row` must be a table row in range of the current table,
                 //   because if it was not, then the if above would have been executed.
                 // - fetch is only called once for each `entity`.
-                let item = D::fetch(&mut self.fetch, *entity, row);
+                let item = unsafe { D::fetch(&mut self.fetch, *entity, row) };
 
                 self.current_row += 1;
                 return Some(item);
@@ -799,13 +809,20 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                     let table = tables.get(archetype.table_id()).debug_checked_unwrap();
                     // SAFETY: `archetype` and `tables` are from the world that `fetch/filter` were created for,
                     // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
-                    D::set_archetype(&mut self.fetch, &query_state.fetch_state, archetype, table);
-                    F::set_archetype(
-                        &mut self.filter,
-                        &query_state.filter_state,
-                        archetype,
-                        table,
-                    );
+                    unsafe {
+                        D::set_archetype(
+                            &mut self.fetch,
+                            &query_state.fetch_state,
+                            archetype,
+                            table,
+                        );
+                        F::set_archetype(
+                            &mut self.filter,
+                            &query_state.filter_state,
+                            archetype,
+                            table,
+                        );
+                    }
                     self.archetype_entities = archetype.entities();
                     self.current_len = archetype.len();
                     self.current_row = 0;
@@ -814,7 +831,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
 
                 // SAFETY: set_archetype was called prior.
                 // `current_row` is an archetype index row in range of the current archetype, because if it was not, then the if above would have been executed.
-                let archetype_entity = self.archetype_entities.get_unchecked(self.current_row);
+                let archetype_entity =
+                    unsafe { self.archetype_entities.get_unchecked(self.current_row) };
                 if !F::filter_fetch(
                     &mut self.filter,
                     archetype_entity.id(),
@@ -829,11 +847,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 // - `current_row` must be an archetype index row in range of the current archetype,
                 //   because if it was not, then the if above would have been executed.
                 // - fetch is only called once for each `archetype_entity`.
-                let item = D::fetch(
-                    &mut self.fetch,
-                    archetype_entity.id(),
-                    archetype_entity.table_row(),
-                );
+                let item = unsafe {
+                    D::fetch(
+                        &mut self.fetch,
+                        archetype_entity.id(),
+                        archetype_entity.table_row(),
+                    )
+                };
                 self.current_row += 1;
                 return Some(item);
             }

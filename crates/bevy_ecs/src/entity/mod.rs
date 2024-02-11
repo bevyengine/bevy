@@ -731,7 +731,8 @@ impl Entities {
     #[inline]
     pub(crate) unsafe fn set(&mut self, index: u32, location: EntityLocation) {
         // SAFETY: Caller guarantees that `index` a valid entity index
-        self.meta.get_unchecked_mut(index as usize).location = location;
+        let meta = unsafe { self.meta.get_unchecked_mut(index as usize) };
+        meta.location = location;
     }
 
     /// Increments the `generation` of a freed [`Entity`]. The next entity ID allocated with this

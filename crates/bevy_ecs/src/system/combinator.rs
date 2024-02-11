@@ -171,8 +171,9 @@ where
             // in parallel, so their world accesses will not conflict with each other.
             // Additionally, `update_archetype_component_access` has been called,
             // which forwards to the implementations for `self.a` and `self.b`.
-            |input| self.a.run_unsafe(input, world),
-            |input| self.b.run_unsafe(input, world),
+            |input| unsafe { self.a.run_unsafe(input, world) },
+            // SAFETY: See the comment above.
+            |input| unsafe { self.b.run_unsafe(input, world) },
         )
     }
 

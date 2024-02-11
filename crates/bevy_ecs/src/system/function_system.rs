@@ -490,12 +490,14 @@ where
         //   if the world does not match.
         // - All world accesses used by `F::Param` have been registered, so the caller
         //   will ensure that there are no data access conflicts.
-        let params = F::Param::get_param(
-            self.param_state.as_mut().expect(Self::PARAM_MESSAGE),
-            &self.system_meta,
-            world,
-            change_tick,
-        );
+        let params = unsafe {
+            F::Param::get_param(
+                self.param_state.as_mut().expect(Self::PARAM_MESSAGE),
+                &self.system_meta,
+                world,
+                change_tick,
+            )
+        };
         let out = self.func.run(input, params);
         self.system_meta.last_run = change_tick;
         out

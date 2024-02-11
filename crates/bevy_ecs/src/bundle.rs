@@ -192,8 +192,9 @@ unsafe impl<C: Component> Bundle for C {
         F: for<'a> FnMut(&'a mut T) -> OwningPtr<'a>,
         Self: Sized,
     {
+        let ptr = func(ctx);
         // Safety: The id given in `component_ids` is for `Self`
-        func(ctx).read()
+        unsafe { ptr.read() }
     }
 }
 
@@ -466,7 +467,7 @@ impl BundleInfo {
                         // the target table contains the component.
                         unsafe { table.get_column_mut(component_id).debug_checked_unwrap() };
                     // SAFETY: bundle_component is a valid index for this bundle
-                    match bundle_component_status.get_status(bundle_component) {
+                    match unsafe { bundle_component_status.get_status(bundle_component) } {
                         ComponentStatus::Added => {
                             column.initialize(table_row, component_ptr, change_tick);
                         }
@@ -702,9 +703,11 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
                         new_archetype
                     } else {
                         // SAFETY: the only two borrowed archetypes are above and we just did collision checks
-                        &mut *self
-                            .archetypes_ptr
-                            .add(swapped_location.archetype_id.index())
+                        unsafe {
+                            &mut *self
+                                .archetypes_ptr
+                                .add(swapped_location.archetype_id.index())
+                        }
                     };
 
                     self.entities.set(
@@ -787,7 +790,9 @@ impl<'a, 'b> BundleSpawner<'a, 'b> {
     pub unsafe fn spawn<T: Bundle>(&mut self, bundle: T) -> Entity {
         let entity = self.entities.alloc();
         // SAFETY: entity is allocated (but non-existent), `T` matches this BundleInfo's type
-        self.spawn_non_existent(entity, bundle);
+        unsafe {
+            self.spawn_non_existent(entity, bundle);
+        }
         entity
     }
 }
