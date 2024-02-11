@@ -31,6 +31,26 @@ impl<'w> Deref for DeferredWorld<'w> {
     }
 }
 
+impl<'w> UnsafeWorldCell<'w> {
+    /// Turn self into a [`DeferredWorld`]
+    ///
+    /// # Safety
+    /// Caller must ensure there are no outstanding mutable references to world and no
+    /// outstanding references to the world's command queue, resource or component data
+    #[inline]
+    pub unsafe fn into_deferred(self) -> DeferredWorld<'w> {
+        DeferredWorld { world: self }
+    }
+}
+
+impl<'w> From<&'w mut World> for DeferredWorld<'w> {
+    fn from(world: &'w mut World) -> DeferredWorld<'w> {
+        DeferredWorld {
+            world: world.as_unsafe_world_cell(),
+        }
+    }
+}
+
 impl<'w> DeferredWorld<'w> {
     /// Creates a [`Commands`] instance that pushes to the world's command queue
     #[inline]
@@ -293,26 +313,6 @@ impl<'w> DeferredWorld<'w> {
             if let Some(hook) = hooks.on_remove {
                 hook(DeferredWorld { world: self.world }, entity, component_id);
             }
-        }
-    }
-}
-
-impl<'w> UnsafeWorldCell<'w> {
-    /// Turn self into a [`DeferredWorld`]
-    ///
-    /// # Safety
-    /// Caller must ensure there are no outstanding mutable references to world and no
-    /// outstanding references to the world's command queue, resource or component data
-    #[inline]
-    pub unsafe fn into_deferred(self) -> DeferredWorld<'w> {
-        DeferredWorld { world: self }
-    }
-}
-
-impl<'w> From<&'w mut World> for DeferredWorld<'w> {
-    fn from(world: &'w mut World) -> DeferredWorld<'w> {
-        DeferredWorld {
-            world: world.as_unsafe_world_cell(),
         }
     }
 }

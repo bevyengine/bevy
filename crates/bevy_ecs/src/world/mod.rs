@@ -1854,6 +1854,7 @@ impl World {
     #[inline]
     pub fn flush_commands(&mut self) {
         if !self.command_queue.is_empty() {
+            // `CommandQueue` application always applies commands from the world queue first so this will apply all stored commands
             CommandQueue::default().apply(self);
         }
     }

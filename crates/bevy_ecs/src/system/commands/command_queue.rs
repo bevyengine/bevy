@@ -137,13 +137,14 @@ impl CommandQueue {
 
         // Reset the buffer, so it can be reused after this function ends.
         // In the loop below, ownership of each command will be transferred into user code.
-        let bytes = std::mem::take(&mut self.bytes);
+        // SAFETY: `set_len(0)` is always valid.
+        unsafe { self.bytes.set_len(0) };
 
         // Create a stack for the command queue's we will be applying as commands may queue additional commands.
         // This is preferred over recursion to avoid stack overflows.
         let mut resolving_commands = vec![(cursor, end)];
-        // Take ownership of buffers so they are not free'd uintil they are iterated.
-        let mut buffers = vec![bytes];
+        // Take ownership of any additional buffers so they are not free'd uintil they are iterated.
+        let mut buffers = Vec::new();
 
         // Add any commands in the world's internal queue to the top of the stack.
         if let Some(world) = &mut world {
@@ -192,7 +193,7 @@ impl CommandQueue {
                         }
                         let mut bytes = std::mem::take(&mut world.command_queue.bytes);
 
-                        // Set our variables to start applying the new queue
+                        // Start applying the new queue
                         let bytes_range = bytes.as_mut_ptr_range();
                         cursor = bytes_range.start;
                         end = bytes_range.end;
@@ -202,13 +203,12 @@ impl CommandQueue {
                     }
                 }
             }
-        }
-
-        // Reset the buffer, so it can be reused after this function ends.
-        if let Some(bytes) = buffers.first_mut() {
-            self.bytes = std::mem::take(bytes);
-            // SAFETY: `set_len(0)` is always valid.
-            unsafe { self.bytes.set_len(0) }
+            // Re-use last buffer to avoid re-allocation
+            if let (Some(world), Some(buffer)) = (&mut world, buffers.pop()) {
+                world.command_queue.bytes = buffer;
+                // SAFETY: `set_len(0)` is always valid.
+                unsafe { world.command_queue.bytes.set_len(0) };
+            }
         }
     }
 
