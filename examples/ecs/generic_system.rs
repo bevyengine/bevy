@@ -10,6 +10,7 @@
 //! or <https://doc.rust-lang.org/rust-by-example/generics.html>
 
 use bevy::prelude::*;
+use system_param_in_associated_type::*;
 use system_with_generic_system_param::*;
 
 #[derive(Debug, Default, Clone, Copy, Eq, PartialEq, Hash, States)]
@@ -43,6 +44,7 @@ fn main() {
                 transition_to_in_game_system.run_if(in_state(AppState::MainMenu)),
                 system_with_generic::<ResMut<ResourceA>>,
                 system_with_generic::<ResMut<ResourceB>>,
+                system::<ItemA>,
             ),
         )
         // Cleanup systems.
@@ -64,6 +66,10 @@ fn setup_system(mut commands: Commands) {
         TextToPrint("I will always print".to_string()),
         LevelUnload,
     ));
+
+    commands.insert_resource(ResourceA(1));
+    commands.insert_resource(ResourceB(2));
+    commands.insert_resource(ResourceC { data: 3 });
 }
 
 fn print_text_system(time: Res<Time>, mut query: Query<(&mut PrinterTick, &TextToPrint)>) {
@@ -91,6 +97,7 @@ fn cleanup_system<T: Component>(mut commands: Commands, query: Query<Entity, Wit
     }
 }
 
+// For a more advanced usage you may want to be generic over a trait instead.
 mod system_with_generic_system_param {
     use super::*;
     use bevy::ecs::system::{SystemParam, SystemParamItem};
@@ -101,7 +108,6 @@ mod system_with_generic_system_param {
 
     #[derive(Resource)]
     pub struct ResourceA(pub usize);
-
     impl MyTrait for ResMut<'_, ResourceA> {
         fn calculate_something(&mut self) {
             // dbg!(self.0);
@@ -126,12 +132,15 @@ mod system_with_generic_system_param {
     }
 }
 
+// TODO: change this to be assets?
 mod system_param_in_associated_type {
     use super::*;
     use bevy::ecs::system::{lifetimeless::SRes, StaticSystemParam, SystemParam, SystemParamItem};
 
     #[derive(Resource)]
-    struct ResourceA;
+    pub struct ResourceC {
+        pub data: u32,
+    }
 
     pub trait MyTrait {
         type Param: SystemParam + 'static;
@@ -139,14 +148,21 @@ mod system_param_in_associated_type {
         fn do_something(&self, param: &mut SystemParamItem<Self::Param>) -> u32;
     }
 
-    struct ItemA;
+    #[derive(Resource)]
+    pub struct ItemA;
     impl MyTrait for ItemA {
-        type Param = SRes<ResourceA>;
+        // specifies that data needed by do_something
+        type Param = SRes<ResourceC>;
 
         fn do_something(&self, param: &mut SystemParamItem<Self::Param>) -> u32 {
-            todo!()
+            param.data
         }
     }
 
-    fn system<S: MyTrait>(param: StaticSystemParam<<S as MyTrait>::Param>) {}
+    pub fn system<S: MyTrait + Resource>(
+        mut param: StaticSystemParam<<S as MyTrait>::Param>,
+        asset: ResMut<S>,
+    ) {
+        asset.do_something(&mut param);
+    }
 }
