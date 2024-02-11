@@ -29,9 +29,11 @@ pub mod node;
 
 use std::{cmp::Reverse, ops::Range};
 
+use bevy_asset::AssetId;
 use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
 use bevy_render::{
+    mesh::Mesh,
     render_phase::{CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItem},
     render_resource::{CachedRenderPipelineId, Extent3d, TextureFormat, TextureView},
     texture::ColorAttachment,
@@ -109,8 +111,8 @@ impl ViewPrepassTextures {
 ///
 /// Used to render all 3D meshes with materials that have no transparency.
 pub struct Opaque3dPrepass {
-    pub distance: f32,
     pub entity: Entity,
+    pub asset_id: AssetId<Mesh>,
     pub pipeline_id: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
     pub batch_range: Range<u32>,
@@ -118,8 +120,7 @@ pub struct Opaque3dPrepass {
 }
 
 impl PhaseItem for Opaque3dPrepass {
-    // NOTE: Values increase towards the camera. Front-to-back ordering for opaque means we need a descending sort.
-    type SortKey = Reverse<FloatOrd>;
+    type SortKey = (usize, AssetId<Mesh>);
 
     #[inline]
     fn entity(&self) -> Entity {
@@ -128,7 +129,8 @@ impl PhaseItem for Opaque3dPrepass {
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
-        Reverse(FloatOrd(self.distance))
+        // Sort by pipeline, then by mesh to massively decrease drawcall counts in real scenes.
+        (self.pipeline_id.id(), self.asset_id)
     }
 
     #[inline]
@@ -138,8 +140,7 @@ impl PhaseItem for Opaque3dPrepass {
 
     #[inline]
     fn sort(items: &mut [Self]) {
-        // Key negated to match reversed SortKey ordering
-        radsort::sort_by_key(items, |item| -item.distance);
+        items.sort_unstable_by_key(Self::sort_key);
     }
 
     #[inline]

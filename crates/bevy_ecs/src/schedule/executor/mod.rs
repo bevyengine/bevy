@@ -104,7 +104,7 @@ pub fn apply_deferred(world: &mut World) {}
 
 /// Returns `true` if the [`System`](crate::system::System) is an instance of [`apply_deferred`].
 pub(super) fn is_apply_deferred(system: &BoxedSystem) -> bool {
-    use std::any::Any;
+    use crate::system::IntoSystem;
     // deref to use `System::type_id` instead of `Any::type_id`
-    system.as_ref().type_id() == apply_deferred.type_id()
+    system.as_ref().type_id() == apply_deferred.system_type_id()
 }

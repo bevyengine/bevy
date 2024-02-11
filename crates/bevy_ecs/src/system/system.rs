@@ -31,7 +31,10 @@ pub trait System: Send + Sync + 'static {
     /// Returns the system's name.
     fn name(&self) -> Cow<'static, str>;
     /// Returns the [`TypeId`] of the underlying system type.
-    fn type_id(&self) -> TypeId;
+    #[inline]
+    fn type_id(&self) -> TypeId {
+        TypeId::of::<Self>()
+    }
     /// Returns the system's component [`Access`].
     fn component_access(&self) -> &Access<ComponentId>;
     /// Returns the system's archetype component [`Access`].

@@ -76,6 +76,11 @@ impl Default for NodeBundle {
 }
 
 /// A UI node that is an image
+///
+/// # Extra behaviours
+///
+/// You may add the following components to enable additional behaviours
+/// - [`ImageScaleMode`](bevy_sprite::ImageScaleMode) to enable either slicing or tiling of the texture
 #[derive(Bundle, Debug, Default)]
 pub struct ImageBundle {
     /// Describes the logical size of the node
@@ -286,6 +291,11 @@ where
 }
 
 /// A UI node that is a button
+///
+/// # Extra behaviours
+///
+/// You may add the following components to enable additional behaviours
+/// - [`ImageScaleMode`](bevy_sprite::ImageScaleMode) to enable either slicing or tiling of the texture
 #[derive(Bundle, Clone, Debug)]
 pub struct ButtonBundle {
     /// Describes the logical size of the node

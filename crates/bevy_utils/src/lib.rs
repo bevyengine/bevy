@@ -87,30 +87,44 @@ impl BuildHasher for FixedState {
 /// speed keyed hashing algorithm intended for use in in-memory hashmaps.
 ///
 /// aHash is designed for performance and is NOT cryptographically secure.
+///
+/// Within the same execution of the program iteration order of different
+/// `HashMap`s only depends on the order of insertions and deletions,
+/// but it will not be stable between multiple executions of the program.
 pub type HashMap<K, V> = hashbrown::HashMap<K, V, BuildHasherDefault<AHasher>>;
 
 /// A stable hash map implementing aHash, a high speed keyed hashing algorithm
 /// intended for use in in-memory hashmaps.
 ///
-/// Unlike [`HashMap`] this has an iteration order that only depends on the order
-/// of insertions and deletions and not a random source.
+/// Unlike [`HashMap`] the iteration order stability extends between executions
+/// using the same Bevy version on the same device.
 ///
 /// aHash is designed for performance and is NOT cryptographically secure.
+#[deprecated(
+    note = "Will be required to use the hash library of your choice. Alias for: hashbrown::HashMap<K, V, FixedState>"
+)]
 pub type StableHashMap<K, V> = hashbrown::HashMap<K, V, FixedState>;
 
 /// A [`HashSet`][hashbrown::HashSet] implementing aHash, a high
 /// speed keyed hashing algorithm intended for use in in-memory hashmaps.
 ///
 /// aHash is designed for performance and is NOT cryptographically secure.
+///
+/// Within the same execution of the program iteration order of different
+/// `HashSet`s only depends on the order of insertions and deletions,
+/// but it will not be stable between multiple executions of the program.
 pub type HashSet<K> = hashbrown::HashSet<K, BuildHasherDefault<AHasher>>;
 
 /// A stable hash set implementing aHash, a high speed keyed hashing algorithm
 /// intended for use in in-memory hashmaps.
 ///
-/// Unlike [`HashSet`] this has an iteration order that only depends on the order
-/// of insertions and deletions and not a random source.
+/// Unlike [`HashMap`] the iteration order stability extends between executions
+/// using the same Bevy version on the same device.
 ///
 /// aHash is designed for performance and is NOT cryptographically secure.
+#[deprecated(
+    note = "Will be required to use the hash library of your choice. Alias for: hashbrown::HashSet<K, FixedState>"
+)]
 pub type StableHashSet<K> = hashbrown::HashSet<K, FixedState>;
 
 /// A pre-hashed value of a specific type. Pre-hashing enables memoization of hashes that are expensive to compute.
@@ -224,6 +238,7 @@ impl Hasher for PassHasher {
 }
 
 /// A [`HashMap`] pre-configured to use [`Hashed`] keys and [`PassHash`] passthrough hashing.
+/// Iteration order only depends on the order of insertions and deletions.
 pub type PreHashMap<K, V> = hashbrown::HashMap<Hashed<K>, V, PassHash>;
 
 /// Extension methods intended to add functionality to [`PreHashMap`].
@@ -322,17 +337,30 @@ impl Hasher for EntityHasher {
 }
 
 /// A [`HashMap`] pre-configured to use [`EntityHash`] hashing.
+/// Iteration order only depends on the order of insertions and deletions.
 pub type EntityHashMap<K, V> = hashbrown::HashMap<K, V, EntityHash>;
 
 /// A [`HashSet`] pre-configured to use [`EntityHash`] hashing.
+/// Iteration order only depends on the order of insertions and deletions.
 pub type EntityHashSet<T> = hashbrown::HashSet<T, EntityHash>;
 
 /// A specialized hashmap type with Key of [`TypeId`]
-pub type TypeIdMap<V> =
-    hashbrown::HashMap<TypeId, V, std::hash::BuildHasherDefault<NoOpTypeIdHasher>>;
+/// Iteration order only depends on the order of insertions and deletions.
+pub type TypeIdMap<V> = hashbrown::HashMap<TypeId, V, NoOpTypeIdHash>;
+
+/// [`BuildHasher`] for [`TypeId`]s.
+#[derive(Default)]
+pub struct NoOpTypeIdHash;
+
+impl BuildHasher for NoOpTypeIdHash {
+    type Hasher = NoOpTypeIdHasher;
+
+    fn build_hasher(&self) -> Self::Hasher {
+        NoOpTypeIdHasher(0)
+    }
+}
 
 #[doc(hidden)]
-#[derive(Default)]
 pub struct NoOpTypeIdHasher(u64);
 
 // TypeId already contains a high-quality hash, so skip re-hashing that hash.
@@ -468,5 +496,19 @@ mod tests {
         }
 
         std::hash::Hash::hash(&TypeId::of::<()>(), &mut Hasher);
+    }
+
+    #[test]
+    fn stable_hash_within_same_program_execution() {
+        let mut map_1 = HashMap::new();
+        let mut map_2 = HashMap::new();
+        for i in 1..10 {
+            map_1.insert(i, i);
+            map_2.insert(i, i);
+        }
+        assert_eq!(
+            map_1.iter().collect::<Vec<_>>(),
+            map_2.iter().collect::<Vec<_>>()
+        );
     }
 }

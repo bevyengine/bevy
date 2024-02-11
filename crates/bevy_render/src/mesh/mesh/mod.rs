@@ -71,12 +71,12 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 ///         )
 ///         // After defining all the vertices and their attributes, build each triangle using the
 ///         // indices of the vertices that make it up in a counter-clockwise order.
-///         .with_indices(Some(Indices::U32(vec![
+///         .with_inserted_indices(Indices::U32(vec![
 ///             // First triangle
 ///             0, 3, 1,
 ///             // Second triangle
 ///             1, 3, 2
-///         ])))
+///         ]))
 /// }
 /// ```
 ///
@@ -129,11 +129,15 @@ pub struct Mesh {
 impl Mesh {
     /// Where the vertex is located in space. Use in conjunction with [`Mesh::insert_attribute`]
     /// or [`Mesh::with_inserted_attribute`].
+    ///
+    /// The format of this attribute is [`VertexFormat::Float32x3`].
     pub const ATTRIBUTE_POSITION: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_Position", 0, VertexFormat::Float32x3);
 
     /// The direction the vertex normal is facing in.
     /// Use in conjunction with [`Mesh::insert_attribute`] or [`Mesh::with_inserted_attribute`].
+    ///
+    /// The format of this attribute is [`VertexFormat::Float32x3`].
     pub const ATTRIBUTE_NORMAL: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_Normal", 1, VertexFormat::Float32x3);
 
@@ -149,6 +153,8 @@ impl Mesh {
     ///
     /// For different mapping outside of `0..=1` range,
     /// see [`ImageAddressMode`](crate::texture::ImageAddressMode).
+    ///
+    /// The format of this attribute is [`VertexFormat::Float32x2`].
     pub const ATTRIBUTE_UV_0: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_Uv", 2, VertexFormat::Float32x2);
 
@@ -157,27 +163,37 @@ impl Mesh {
     ///
     /// Typically, these are used for lightmaps, textures that provide
     /// precomputed illumination.
+    ///
+    /// The format of this attribute is [`VertexFormat::Float32x2`].
     pub const ATTRIBUTE_UV_1: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_Uv_1", 3, VertexFormat::Float32x2);
 
     /// The direction of the vertex tangent. Used for normal mapping.
     /// Usually generated with [`generate_tangents`](Mesh::generate_tangents) or
     /// [`with_generated_tangents`](Mesh::with_generated_tangents).
+    ///
+    /// The format of this attribute is [`VertexFormat::Float32x4`].
     pub const ATTRIBUTE_TANGENT: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_Tangent", 4, VertexFormat::Float32x4);
 
     /// Per vertex coloring. Use in conjunction with [`Mesh::insert_attribute`]
     /// or [`Mesh::with_inserted_attribute`].
+    ///
+    /// The format of this attribute is [`VertexFormat::Float32x4`].
     pub const ATTRIBUTE_COLOR: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_Color", 5, VertexFormat::Float32x4);
 
     /// Per vertex joint transform matrix weight. Use in conjunction with [`Mesh::insert_attribute`]
     /// or [`Mesh::with_inserted_attribute`].
+    ///
+    /// The format of this attribute is [`VertexFormat::Float32x4`].
     pub const ATTRIBUTE_JOINT_WEIGHT: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_JointWeight", 6, VertexFormat::Float32x4);
 
     /// Per vertex joint transform matrix index. Use in conjunction with [`Mesh::insert_attribute`]
     /// or [`Mesh::with_inserted_attribute`].
+    ///
+    /// The format of this attribute is [`VertexFormat::Uint16x4`].
     pub const ATTRIBUTE_JOINT_INDEX: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_JointIndex", 7, VertexFormat::Uint16x4);
 
@@ -200,7 +216,7 @@ impl Mesh {
         self.primitive_topology
     }
 
-    /// Sets the data for a vertex attribute (position, normal etc.). The name will
+    /// Sets the data for a vertex attribute (position, normal, etc.). The name will
     /// often be one of the associated constants such as [`Mesh::ATTRIBUTE_POSITION`].
     ///
     /// # Panics
@@ -224,7 +240,7 @@ impl Mesh {
             .insert(attribute.id, MeshAttributeData { attribute, values });
     }
 
-    /// Consumes the mesh and returns a mesh with data set for a vertex attribute (position, normal etc.).
+    /// Consumes the mesh and returns a mesh with data set for a vertex attribute (position, normal, etc.).
     /// The name will often be one of the associated constants such as [`Mesh::ATTRIBUTE_POSITION`].
     ///
     /// (Alternatively, you can use [`Mesh::insert_attribute`] to mutate an existing mesh in-place)
@@ -306,19 +322,19 @@ impl Mesh {
     /// vertex attributes and are therefore only useful for the [`PrimitiveTopology`] variants
     /// that use triangles.
     #[inline]
-    pub fn set_indices(&mut self, indices: Option<Indices>) {
-        self.indices = indices;
+    pub fn insert_indices(&mut self, indices: Indices) {
+        self.indices = Some(indices);
     }
 
     /// Consumes the mesh and returns a mesh with the given vertex indices. They describe how triangles
     /// are constructed out of the vertex attributes and are therefore only useful for the
     /// [`PrimitiveTopology`] variants that use triangles.
     ///
-    /// (Alternatively, you can use [`Mesh::set_indices`] to mutate an existing mesh in-place)
+    /// (Alternatively, you can use [`Mesh::insert_indices`] to mutate an existing mesh in-place)
     #[must_use]
     #[inline]
-    pub fn with_indices(mut self, indices: Option<Indices>) -> Self {
-        self.set_indices(indices);
+    pub fn with_inserted_indices(mut self, indices: Indices) -> Self {
+        self.insert_indices(indices);
         self
     }
 
@@ -332,6 +348,21 @@ impl Mesh {
     #[inline]
     pub fn indices_mut(&mut self) -> Option<&mut Indices> {
         self.indices.as_mut()
+    }
+
+    /// Removes the vertex `indices` from the mesh and returns them.
+    #[inline]
+    pub fn remove_indices(&mut self) -> Option<Indices> {
+        std::mem::take(&mut self.indices)
+    }
+
+    /// Consumes the mesh and returns a mesh without the vertex `indices` of the mesh.
+    ///
+    /// (Alternatively, you can use [`Mesh::remove_indices`] to mutate an existing mesh in-place)
+    #[must_use]
+    pub fn with_removed_indices(mut self) -> Self {
+        self.remove_indices();
+        self
     }
 
     /// Computes and returns the index data of the mesh as bytes.
