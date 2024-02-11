@@ -1,4 +1,5 @@
 use crate::components::{GlobalTransform, Transform};
+use bevy_core::Cached;
 use bevy_ecs::{
     change_detection::Ref,
     prelude::{Changed, DetectChanges, Entity, Query, With, Without},
@@ -8,7 +9,9 @@ use bevy_ecs::{
 };
 use bevy_hierarchy::{Children, Parent};
 
-/// Update [`GlobalTransform`] component of entities that aren't in the hierarchy
+/// Update [`GlobalTransform`] component of entities that aren't in the hierarchy.
+///
+/// Ignores entities marked as [`Cached`].
 ///
 /// Third party plugins should ensure that this is used in concert with [`propagate_transforms`].
 pub fn sync_simple_transforms(
@@ -19,9 +22,13 @@ pub fn sync_simple_transforms(
                 Or<(Changed<Transform>, Added<GlobalTransform>)>,
                 Without<Parent>,
                 Without<Children>,
+                Without<Cached>,
             ),
         >,
-        Query<(Ref<Transform>, &mut GlobalTransform), (Without<Parent>, Without<Children>)>,
+        Query<
+            (Ref<Transform>, &mut GlobalTransform),
+            (Without<Parent>, Without<Children>, Without<Cached>),
+        >,
     )>,
     mut orphaned: RemovedComponents<Parent>,
 ) {
@@ -45,14 +52,20 @@ pub fn sync_simple_transforms(
 /// Update [`GlobalTransform`] component of entities based on entity hierarchy and
 /// [`Transform`] component.
 ///
+/// This function will not propagate transforms to entities marked as [`Cached`], but it will visit them
+/// in parallel to propagate the transforms of their children.
+///
 /// Third party plugins should ensure that this is used in concert with [`sync_simple_transforms`].
 pub fn propagate_transforms(
     mut root_query: Query<
         (Entity, &Children, Ref<Transform>, &mut GlobalTransform),
-        Without<Parent>,
+        Or<(Without<Parent>, With<Cached>)>,
     >,
     mut orphaned: RemovedComponents<Parent>,
-    transform_query: Query<(Ref<Transform>, &mut GlobalTransform, Option<&Children>), With<Parent>>,
+    transform_query: Query<
+        (Ref<Transform>, &mut GlobalTransform, Option<&Children>),
+        (With<Parent>, Without<Cached>),
+    >,
     parent_query: Query<(Entity, Ref<Parent>)>,
     mut orphaned_entities: Local<Vec<Entity>>,
 ) {
@@ -110,7 +123,7 @@ unsafe fn propagate_recursive(
     parent: &GlobalTransform,
     transform_query: &Query<
         (Ref<Transform>, &mut GlobalTransform, Option<&Children>),
-        With<Parent>,
+        (With<Parent>, Without<Cached>),
     >,
     parent_query: &Query<(Entity, Ref<Parent>)>,
     entity: Entity,
@@ -145,7 +158,7 @@ unsafe fn propagate_recursive(
             // Even if these A and B start two separate tasks running in parallel, one of them will panic before attempting
             // to mutably access E.
             (unsafe { transform_query.get_unchecked(entity) }) else {
-                return;
+                return; // This happens when `entity` is marked as `Cached`.
             };
 
         changed |= transform.is_changed() || global_transform.is_added();

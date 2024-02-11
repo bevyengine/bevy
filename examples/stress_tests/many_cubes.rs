@@ -131,12 +131,15 @@ fn setup(
                 let spherical_polar_theta_phi =
                     fibonacci_spiral_on_sphere(golden_ratio, i, N_POINTS);
                 let unit_sphere_p = spherical_polar_to_cartesian(spherical_polar_theta_phi);
-                commands.spawn(PbrBundle {
-                    mesh: mesh.clone(),
-                    material: materials.choose(&mut material_rng).unwrap().clone(),
-                    transform: Transform::from_translation((radius * unit_sphere_p).as_vec3()),
-                    ..default()
-                });
+                commands.spawn((
+                    PbrBundle {
+                        mesh: mesh.clone(),
+                        material: materials.choose(&mut material_rng).unwrap().clone(),
+                        transform: Transform::from_translation((radius * unit_sphere_p).as_vec3()),
+                        ..default()
+                    },
+                    Static,
+                ));
             }
 
             // camera
@@ -152,34 +155,46 @@ fn setup(
                         continue;
                     }
                     // cube
-                    commands.spawn(PbrBundle {
-                        mesh: mesh.clone(),
-                        material: materials.choose(&mut material_rng).unwrap().clone(),
-                        transform: Transform::from_xyz((x as f32) * 2.5, (y as f32) * 2.5, 0.0),
-                        ..default()
-                    });
-                    commands.spawn(PbrBundle {
-                        mesh: mesh.clone(),
-                        material: materials.choose(&mut material_rng).unwrap().clone(),
-                        transform: Transform::from_xyz(
-                            (x as f32) * 2.5,
-                            HEIGHT as f32 * 2.5,
-                            (y as f32) * 2.5,
-                        ),
-                        ..default()
-                    });
-                    commands.spawn(PbrBundle {
-                        mesh: mesh.clone(),
-                        material: materials.choose(&mut material_rng).unwrap().clone(),
-                        transform: Transform::from_xyz((x as f32) * 2.5, 0.0, (y as f32) * 2.5),
-                        ..default()
-                    });
-                    commands.spawn(PbrBundle {
-                        mesh: mesh.clone(),
-                        material: materials.choose(&mut material_rng).unwrap().clone(),
-                        transform: Transform::from_xyz(0.0, (x as f32) * 2.5, (y as f32) * 2.5),
-                        ..default()
-                    });
+                    commands.spawn((
+                        PbrBundle {
+                            mesh: mesh.clone(),
+                            material: materials.choose(&mut material_rng).unwrap().clone(),
+                            transform: Transform::from_xyz((x as f32) * 2.5, (y as f32) * 2.5, 0.0),
+                            ..default()
+                        },
+                        Static,
+                    ));
+                    commands.spawn((
+                        PbrBundle {
+                            mesh: mesh.clone(),
+                            material: materials.choose(&mut material_rng).unwrap().clone(),
+                            transform: Transform::from_xyz(
+                                (x as f32) * 2.5,
+                                HEIGHT as f32 * 2.5,
+                                (y as f32) * 2.5,
+                            ),
+                            ..default()
+                        },
+                        Static,
+                    ));
+                    commands.spawn((
+                        PbrBundle {
+                            mesh: mesh.clone(),
+                            material: materials.choose(&mut material_rng).unwrap().clone(),
+                            transform: Transform::from_xyz((x as f32) * 2.5, 0.0, (y as f32) * 2.5),
+                            ..default()
+                        },
+                        Static,
+                    ));
+                    commands.spawn((
+                        PbrBundle {
+                            mesh: mesh.clone(),
+                            material: materials.choose(&mut material_rng).unwrap().clone(),
+                            transform: Transform::from_xyz(0.0, (x as f32) * 2.5, (y as f32) * 2.5),
+                            ..default()
+                        },
+                        Static,
+                    ));
                 }
             }
             // camera
@@ -190,7 +205,7 @@ fn setup(
         }
     }
 
-    commands.spawn(DirectionalLightBundle { ..default() });
+    commands.spawn((DirectionalLightBundle { ..default() }, Static));
 }
 
 fn init_textures(args: &Args, images: &mut Assets<Image>) -> Vec<Handle<Image>> {

@@ -45,6 +45,7 @@ impl PluginGroup for DefaultPlugins {
             .add(bevy_core::TaskPoolPlugin::default())
             .add(bevy_core::TypeRegistrationPlugin)
             .add(bevy_core::FrameCountPlugin)
+            .add(bevy_core::StaticPlugin)
             .add(bevy_time::TimePlugin)
             .add(bevy_transform::TransformPlugin)
             .add(bevy_hierarchy::HierarchyPlugin)

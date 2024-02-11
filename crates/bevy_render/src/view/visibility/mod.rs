@@ -1,9 +1,10 @@
 mod render_layers;
 
+use bevy_core::{Cached, Static};
 use bevy_derive::Deref;
 pub use render_layers::*;
 
-use bevy_app::{Plugin, PostUpdate};
+use bevy_app::{First, Plugin, PostUpdate};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::{Children, Parent};
@@ -212,7 +213,7 @@ impl Plugin for VisibilityPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         use VisibilitySystems::*;
 
-        app.add_systems(
+        app.add_systems(First, cache_viewed).add_systems(
             PostUpdate,
             (
                 calculate_bounds.in_set(CalculateBounds),
@@ -451,6 +452,18 @@ pub fn check_visibility(
             // We can use the faster unstable sort here because
             // the values (`Entity`) are guaranteed to be unique.
             visible_entities.entities.sort_unstable();
+        }
+    }
+}
+
+/// Sets [`Static`] entities that were visible in the previous frame to [`Cached`].
+fn cache_viewed(
+    visibilities: Query<(Entity, &ViewVisibility), (With<Static>, Without<Cached>)>,
+    mut commands: Commands,
+) {
+    for (entity, vis) in visibilities.iter() {
+        if vis.get() {
+            commands.entity(entity).insert(Cached);
         }
     }
 }
