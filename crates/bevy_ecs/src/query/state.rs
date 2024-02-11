@@ -14,7 +14,7 @@ use crate::{
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::Span;
 use fixedbitset::FixedBitSet;
-use std::{any::TypeId, borrow::Borrow, fmt, mem::MaybeUninit};
+use std::{any::TypeId, borrow::Borrow, fmt, mem::MaybeUninit, ptr};
 
 use super::{
     NopWorldQuery, QueryBuilder, QueryData, QueryEntityError, QueryFilter, QueryManyIter,
@@ -93,7 +93,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     >(
         &self,
     ) -> &QueryState<NewD, NewF> {
-        &*(self as *const QueryState<D, F> as *const QueryState<NewD, NewF>)
+        &*ptr::from_ref(self).cast::<QueryState<NewD, NewF>>()
     }
 
     /// Returns the archetype components accessed by this query.
