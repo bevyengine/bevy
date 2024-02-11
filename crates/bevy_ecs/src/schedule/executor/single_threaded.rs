@@ -97,7 +97,7 @@ impl SystemExecutor for SingleThreadedExecutor {
             if is_apply_deferred(system) {
                 self.apply_deferred(schedule, world);
                 continue;
-            } 
+            }
 
             let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
                 if system.is_exclusive() {
