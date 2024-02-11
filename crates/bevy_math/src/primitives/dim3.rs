@@ -647,6 +647,17 @@ pub struct ConicalFrustum {
 }
 impl Primitive3d for ConicalFrustum {}
 
+impl Default for ConicalFrustum {
+    /// Returns the default [`ConicalFrustum`] with a top radius of `0.25`, bottom radius of `0.5`, and a height of `0.5`.
+    fn default() -> Self {
+        Self {
+            radius_top: 0.25,
+            radius_bottom: 0.5,
+            height: 0.5,
+        }
+    }
+}
+
 /// The type of torus determined by the minor and major radii
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TorusKind {

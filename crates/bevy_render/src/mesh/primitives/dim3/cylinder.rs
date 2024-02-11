@@ -144,8 +144,6 @@ impl CylinderMeshBuilder {
             }
         };
 
-        // top
-
         build_cap(true);
         build_cap(false);
 
