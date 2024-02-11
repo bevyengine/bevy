@@ -12,7 +12,7 @@ keywords = ["bevy"]
 detailed_trace = []
 
 [dependencies]
-ahash = "0.8.3"
+ahash = "0.8.7"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 web-time = { version = "0.2" }
 uuid = { version = "1.1", features = ["v4", "serde"] }

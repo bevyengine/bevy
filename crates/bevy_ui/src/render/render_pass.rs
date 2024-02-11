@@ -161,7 +161,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiViewBindGroup<I> {
     fn render<'w>(
         _item: &P,
         view_uniform: &'w ViewUniformOffset,
-        _entity: (),
+        _entity: Option<()>,
         ui_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -183,11 +183,15 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiTextureBindGroup<I>
     fn render<'w>(
         _item: &P,
         _view: (),
-        batch: &'w UiBatch,
+        batch: Option<&'w UiBatch>,
         image_bind_groups: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let image_bind_groups = image_bind_groups.into_inner();
+        let Some(batch) = batch else {
+            return RenderCommandResult::Failure;
+        };
+
         pass.set_bind_group(I, image_bind_groups.values.get(&batch.image).unwrap(), &[]);
         RenderCommandResult::Success
     }
@@ -202,10 +206,14 @@ impl<P: PhaseItem> RenderCommand<P> for DrawUiNode {
     fn render<'w>(
         _item: &P,
         _view: (),
-        batch: &'w UiBatch,
+        batch: Option<&'w UiBatch>,
         ui_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
+        let Some(batch) = batch else {
+            return RenderCommandResult::Failure;
+        };
+
         pass.set_vertex_buffer(0, ui_meta.into_inner().vertices.buffer().unwrap().slice(..));
         pass.draw(batch.range.clone(), 0..1);
         RenderCommandResult::Success
