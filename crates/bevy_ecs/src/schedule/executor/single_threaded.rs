@@ -96,7 +96,7 @@ impl SystemExecutor for SingleThreadedExecutor {
             let system = &mut schedule.systems[system_index];
             if is_apply_deferred(system) {
                 self.apply_deferred(schedule, world);
-                return;
+                continue;
             } 
 
             let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
