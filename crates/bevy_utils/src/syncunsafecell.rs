@@ -72,7 +72,7 @@ impl<T: ?Sized> SyncUnsafeCell<T> {
         // We can just cast the pointer from `SyncUnsafeCell<T>` to `T` because
         // of #[repr(transparent)] on both SyncUnsafeCell and UnsafeCell.
         // See UnsafeCell::raw_get.
-        this as *const T as *mut T
+        (this as *const T).cast_mut()
     }
 
     #[inline]

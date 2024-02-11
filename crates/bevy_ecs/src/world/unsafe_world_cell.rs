@@ -85,7 +85,7 @@ impl<'w> UnsafeWorldCell<'w> {
     /// Creates a [`UnsafeWorldCell`] that can be used to access everything immutably
     #[inline]
     pub(crate) fn new_readonly(world: &'w World) -> Self {
-        UnsafeWorldCell(world as *const World as *mut World, PhantomData)
+        UnsafeWorldCell((world as *const World).cast_mut(), PhantomData)
     }
 
     /// Creates [`UnsafeWorldCell`] that can be used to access everything mutably

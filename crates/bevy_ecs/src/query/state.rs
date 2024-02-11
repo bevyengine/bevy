@@ -93,7 +93,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     >(
         &self,
     ) -> &QueryState<NewD, NewF> {
-        &*(self as *const QueryState<D, F> as *const QueryState<NewD, NewF>)
+        &*(self as *const QueryState<D, F>).cast::<QueryState<NewD, NewF>>()
     }
 
     /// Returns the archetype components accessed by this query.
