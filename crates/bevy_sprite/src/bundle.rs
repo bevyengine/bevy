@@ -1,4 +1,4 @@
-use crate::{texture_atlas::TextureAtlas, ImageScaleMode, Sprite};
+use crate::{Sprite, TextureAtlas};
 use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
@@ -8,12 +8,16 @@ use bevy_render::{
 use bevy_transform::components::{GlobalTransform, Transform};
 
 /// A [`Bundle`] of components for drawing a single sprite from an image.
+///
+/// # Extra behaviours
+///
+/// You may add the following components to enable additional behaviours
+/// - [`ImageScaleMode`](crate::ImageScaleMode) to enable either slicing or tiling of the texture
+/// - [`TextureAtlas`] to draw specific sections of a sprite sheet, (See [`SpriteSheetBundle`])
 #[derive(Bundle, Clone, Default)]
 pub struct SpriteBundle {
     /// Specifies the rendering properties of the sprite, such as color tint and flip.
     pub sprite: Sprite,
-    /// Controls how the image is altered when scaled.
-    pub scale_mode: ImageScaleMode,
     /// The local transform of the sprite, relative to its parent.
     pub transform: Transform,
     /// The absolute transform of the sprite. This should generally not be written to directly.
@@ -41,8 +45,6 @@ pub struct SpriteBundle {
 pub struct SpriteSheetBundle {
     /// Specifies the rendering properties of the sprite, such as color tint and flip.
     pub sprite: Sprite,
-    /// Controls how the image is altered when scaled.
-    pub scale_mode: ImageScaleMode,
     /// The local transform of the sprite, relative to its parent.
     pub transform: Transform,
     /// The absolute transform of the sprite. This should generally not be written to directly.

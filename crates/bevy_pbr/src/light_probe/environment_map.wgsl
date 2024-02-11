@@ -30,10 +30,7 @@ fn compute_radiances(
     var radiances: EnvironmentMapRadiances;
 
     // Search for a reflection probe that contains the fragment.
-    var query_result = query_light_probe(
-        light_probes.reflection_probes,
-        light_probes.reflection_probe_count,
-        world_position);
+    var query_result = query_light_probe(world_position, /*is_irradiance_volume=*/ false);
 
     // If we didn't find a reflection probe, use the view environment map if applicable.
     if (query_result.texture_index < 0) {
