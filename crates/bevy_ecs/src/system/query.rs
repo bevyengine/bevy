@@ -1585,6 +1585,45 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// are dropped, non-archetypal filters like `Added` and `Changed` will no be respected.
     /// To maintain or change filter terms see `Self::join_filtered`.
     ///
+    /// ## Example
+    ///
+    /// ```rust
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::system::QueryLens;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct Transform;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct Player;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct Enemy;
+    /// #
+    /// # let mut world = World::default();
+    /// # world.spawn((Transform, Player));
+    /// # world.spawn((Transform, Enemy));
+    ///
+    /// fn system(
+    ///     mut transforms: Query<&Transform>,
+    ///     mut players: Query<&Player>,
+    ///     mut enemies: Query<&Enemy>
+    /// ) {
+    ///     let mut players_transforms: QueryLens<(&Transform, &Player)> = transforms.join(&mut players);
+    ///     for (transform, player) in &players_transforms.query() {
+    ///         // do something with a and b
+    ///     }
+    ///
+    ///     let mut enemies_transforms: QueryLens<(&Transform, &Enemy)> = transforms.join(&mut enemies);
+    ///     for (transform, enemy) in &enemies_transforms.query() {
+    ///         // do something with a and b
+    ///     }
+    /// }
+    ///
+    /// # let mut schedule = Schedule::default();
+    /// # schedule.add_systems(system);
+    /// # schedule.run(&mut world);
+    /// ```
     /// ## Panics
     ///
     /// This will panic if `NewD` is not a subset of the union of the original fetch `Q` and `OtherD`.
