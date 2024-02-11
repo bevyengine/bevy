@@ -289,9 +289,7 @@ impl RunSystemOnce for &mut World {
     ) -> Out {
         let mut system: T::System = IntoSystem::into_system(system);
         system.initialize(self);
-        let out = system.run(input, self);
-        system.apply_deferred(self);
-        out
+        system.run(input, self)
     }
 }
 

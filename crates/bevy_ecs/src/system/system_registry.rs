@@ -284,7 +284,6 @@ impl World {
             initialized = true;
         }
         let result = system.run(input, self);
-        system.apply_deferred(self);
 
         // return ownership of system trait object (if entity still exists)
         if let Some(mut entity) = self.get_entity_mut(id.0) {
