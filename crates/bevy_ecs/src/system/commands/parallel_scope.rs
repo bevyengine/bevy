@@ -62,11 +62,9 @@ impl<'w, 's> ParallelCommands<'w, 's> {
     ///
     /// For an example, see the type-level documentation for [`ParallelCommands`].
     pub fn command_scope<R>(&self, f: impl FnOnce(Commands) -> R) -> R {
-        self.state
-            .thread_queues
-            .scope(|queue| {
-                 let commands = Commands::new_from_entities(queue, self.entities);
-                 f(commands)
-             })
+        self.state.thread_queues.scope(|queue| {
+            let commands = Commands::new_from_entities(queue, self.entities);
+            f(commands)
+        })
     }
 }

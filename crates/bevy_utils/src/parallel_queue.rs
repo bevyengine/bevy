@@ -45,9 +45,7 @@ where
     where
         B: FromIterator<T>,
     {
-        self.locals
-            .iter_mut()
-            .flat_map(|item| item.take())
+        self.locals.iter_mut().flat_map(|item| item.take())
     }
 }
 

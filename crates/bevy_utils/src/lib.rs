@@ -20,9 +20,9 @@ pub mod uuid;
 mod cow_arc;
 mod default;
 mod float_ord;
-mod parallel_queue;
 pub mod intern;
 mod once;
+mod parallel_queue;
 
 pub use crate::uuid::Uuid;
 pub use ahash::{AHasher, RandomState};
