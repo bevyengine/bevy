@@ -5,9 +5,10 @@ use std::time::Duration;
 
 use bevy::{
     prelude::*,
-    tasks::{block_on, futures_lite::future, IoTaskPool, Task},
+    tasks::IoTaskPool,
     time::common_conditions::on_timer,
 };
+use crossbeam_channel::{bounded, Receiver};
 
 fn main() {
     App::new()
@@ -23,15 +24,21 @@ fn main() {
 
 /// Task for ehttp response result
 #[derive(Component)]
-pub struct RequestTask(pub Task<Result<ehttp::Response, ehttp::Error>>);
+pub struct RequestTask(pub Receiver<Result<ehttp::Response, ehttp::Error>>);
 
 /// Tick timer and send request each time the timer has just finished
 fn send_request(mut commands: Commands, mut text_query: Query<&mut Text>) {
     let url = "https://api.ipify.org?format=json";
     let req = ehttp::Request::get(url);
-    let task_pool = IoTaskPool::get();
-    let task = task_pool.spawn(async { ehttp::fetch_async(req).await });
-    commands.spawn(RequestTask(task));
+    let (sender, receiver) = bounded(1);
+    let _ = IoTaskPool::get()
+        .spawn(async move {
+            let result = ehttp::fetch_async(req).await;
+            sender.send(result).ok();
+        })
+        .detach();
+    commands.spawn(RequestTask(receiver));
+
     let Ok(mut text) = text_query.get_single_mut() else {
         return;
     };
@@ -66,8 +73,8 @@ fn update_text(
         return;
     };
 
-    for (entity, mut task) in request_tasks.iter_mut() {
-        if let Some(result) = block_on(future::poll_once(&mut task.0)) {
+    for (entity, task) in request_tasks.iter_mut() {
+        if let Ok(result) = task.0.try_recv() {
             match result {
                 Ok(response) => {
                     text.sections[0].value =

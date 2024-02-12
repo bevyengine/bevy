@@ -1278,7 +1278,6 @@ doc-scrape-examples = true
 name = "Async Web Request"
 description = "How to use `IoTaskPool` to perform web request using `ehttp` library"
 category = "Async Tasks"
-wasm = false
 
 [[example]]
 name = "external_source_external_thread"
