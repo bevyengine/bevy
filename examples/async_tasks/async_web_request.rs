@@ -27,7 +27,7 @@ fn send_request(mut commands: Commands, mut text_query: Query<&mut Text>) {
     let url = "https://api.ipify.org?format=json";
     let req = ehttp::Request::get(url);
     let (sender, receiver) = bounded(1);
-    let _ = IoTaskPool::get()
+    IoTaskPool::get()
         .spawn(async move {
             let result = ehttp::fetch_async(req).await;
             sender.send(result).ok();
