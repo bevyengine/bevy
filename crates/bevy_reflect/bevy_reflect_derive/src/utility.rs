@@ -7,6 +7,8 @@ use bevy_macro_utils::{
 };
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, ToTokens};
+use std::hash::{Hash, Hasher};
+use syn::parse::{Parse, ParseStream, Peek};
 use syn::punctuated::Punctuated;
 use syn::{spanned::Spanned, LitStr, Member, Path, Token, Type, WhereClause};
 
@@ -403,5 +405,74 @@ impl FromIterator<StringExpr> for StringExpr {
             }
             None => Default::default(),
         }
+    }
+}
+
+/// Returns a [`Parser`] which parses a stream of `T` separated by `P` (with optional trailing `P`).
+///
+/// This is functionally the same as [`Punctuated::parse_terminated`],
+/// but accepts a closure rather than a function pointer.
+pub(crate) fn terminated_parser<T, P, F: FnMut(ParseStream) -> syn::Result<T>>(
+    terminator: P,
+    mut parser: F,
+) -> impl FnOnce(ParseStream) -> syn::Result<Punctuated<T, P::Token>>
+where
+    P: Peek,
+    P::Token: Parse,
+{
+    let _ = terminator;
+    move |stream: ParseStream| {
+        let mut punctuated = Punctuated::new();
+
+        loop {
+            if stream.is_empty() {
+                break;
+            }
+            let value = parser(stream)?;
+            punctuated.push_value(value);
+            if stream.is_empty() {
+                break;
+            }
+            let punct = stream.parse()?;
+            punctuated.push_punct(punct);
+        }
+
+        Ok(punctuated)
+    }
+}
+
+#[derive(Clone)]
+pub(crate) struct SpannedString {
+    pub value: String,
+    pub span: Span,
+}
+
+impl ToTokens for SpannedString {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let lit = LitStr::new(&self.value, self.span);
+        lit.to_tokens(tokens);
+    }
+}
+
+impl From<LitStr> for SpannedString {
+    fn from(value: LitStr) -> Self {
+        Self {
+            value: value.value(),
+            span: value.span(),
+        }
+    }
+}
+
+impl Eq for SpannedString {}
+
+impl PartialEq for SpannedString {
+    fn eq(&self, other: &Self) -> bool {
+        self.value == other.value
+    }
+}
+
+impl Hash for SpannedString {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.value.hash(state);
     }
 }

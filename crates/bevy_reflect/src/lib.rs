@@ -499,6 +499,7 @@ mod impls {
     mod uuid;
 }
 
+pub mod attributes;
 mod enums;
 pub mod serde;
 pub mod std_traits;
