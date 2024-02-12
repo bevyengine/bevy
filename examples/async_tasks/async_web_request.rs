@@ -3,11 +3,7 @@
 
 use std::time::Duration;
 
-use bevy::{
-    prelude::*,
-    tasks::IoTaskPool,
-    time::common_conditions::on_timer,
-};
+use bevy::{prelude::*, tasks::IoTaskPool, time::common_conditions::on_timer};
 use crossbeam_channel::{bounded, Receiver};
 
 fn main() {
