@@ -38,7 +38,7 @@ impl<T, I> Parallel<I>
 where
     I: IntoIterator<Item = T> + Default + Send + 'static,
 {
-    /// Collect all enqueued items from all threads and them into one
+    /// Drains all enqueued items from all threads and returns an iterator over them.
     ///
     /// The ordering is not guarenteed.
     pub fn drain<B>(&mut self) -> impl Iterator<Item = T> + '_
@@ -47,7 +47,7 @@ where
     {
         self.locals
             .iter_mut()
-            .flat_map(|item| item.take().into_iter())
+            .flat_map(|item| item.take())
     }
 }
 
