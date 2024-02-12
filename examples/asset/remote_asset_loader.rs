@@ -1,7 +1,8 @@
 //! Implements a remote asset loader.
-//! An [`AssetReader`] is what the asset server uses to read the raw bytes of assets.
-//! This example also showcase how to use [`AssetWriter`], thus will won't work on
-//! wasm or Android, since those platforms doesn't have [`AssetWriter`].
+//! An [AssetReader] is what the asset server uses to read the raw bytes of assets.
+//! This example also showcases how to use [AssetWriter].
+//! Note that it won't work on wasm or Android because these platforms lack a default
+//! [`AssetWriter`] implementation for now, but it's possible to implement your own.
 
 use bevy::{
     asset::io::{
@@ -10,7 +11,7 @@ use bevy::{
     prelude::*,
     utils::BoxedFuture,
 };
-use bevy_internal::asset::io::AssetWriterError;
+use bevy_internal::{asset::io::AssetWriterError, log::LogPlugin};
 use futures_lite::AsyncRead;
 use std::{path::Path, sync::Arc};
 
@@ -75,6 +76,8 @@ impl RemoteAssetLoader {
             return Err(AssetReaderError::Io(Arc::new(error)));
         }
 
+        info!("Successfully downloaded asset {path:?} from CDN. Loading it now.");
+
         // Try to read again the asset, since its saved on disk now.
         self.reader.read(path).await
     }
@@ -92,7 +95,7 @@ impl AssetReader for RemoteAssetLoader {
                 Ok(reader) => Ok(reader),
                 Err(error) => match error {
                     AssetReaderError::NotFound(_) => {
-                        debug!("Asset {path:?} not found on local disk. Downloading from CDN.");
+                        info!("Asset {path:?} not found on local disk. Downloading from CDN.");
                         self.read_remote(path).await
                     }
                     _ => Err(error),
@@ -140,9 +143,15 @@ impl Plugin for RemoteAssetLoaderPlugin {
 
 fn main() {
     let mut app = App::new();
-    app.add_plugins((RemoteAssetLoaderPlugin, DefaultPlugins))
-        .add_systems(Startup, setup)
-        .run();
+    app.add_plugins((
+        RemoteAssetLoaderPlugin,
+        DefaultPlugins.set(LogPlugin {
+            filter: "remote_asset_loader=info".to_string(),
+            ..Default::default()
+        }),
+    ))
+    .add_systems(Startup, setup)
+    .run();
 
     // Just a cleanup to remove the downloaded font, so the example will be able to download
     // next time.
