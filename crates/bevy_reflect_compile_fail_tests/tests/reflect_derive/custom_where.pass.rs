@@ -1,4 +1,4 @@
-use bevy_reflect::{Reflect, FromType};
+use bevy_reflect::{FromType, Reflect};
 use std::marker::PhantomData;
 
 #[derive(Clone)]
@@ -11,8 +11,7 @@ impl<T> FromType<T> for ReflectMyTrait {
 }
 
 #[derive(Reflect)]
-#[reflect(MyTrait)]
-#[reflect(where)]
+#[reflect(MyTrait, where T: std::fmt::Debug)]
 pub struct Foo<T> {
     value: String,
     #[reflect(ignore)]
@@ -20,9 +19,17 @@ pub struct Foo<T> {
 }
 
 #[derive(Reflect)]
-#[reflect(where)]
-#[reflect(MyTrait)]
+#[reflect(where, MyTrait)]
 pub struct Bar<T> {
+    value: String,
+    #[reflect(ignore)]
+    _marker: PhantomData<T>,
+}
+
+#[derive(Reflect)]
+#[reflect(MyTrait)]
+#[reflect(where T: std::fmt::Debug)]
+pub struct Baz<T> {
     value: String,
     #[reflect(ignore)]
     _marker: PhantomData<T>,
