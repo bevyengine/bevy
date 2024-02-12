@@ -27,7 +27,7 @@ fn setup(
     mut materials: ResMut<Assets<FallbackTestMaterial>>,
 ) {
     commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+        mesh: meshes.add(Cuboid::default()),
         material: materials.add(FallbackTestMaterial {
             image_1d: None,
             image_2d: None,
@@ -36,11 +36,11 @@ fn setup(
             image_cube_array: None,
             image_3d: None,
         }),
-        ..Default::default()
+        ..default()
     });
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::new(1.5, 0.0, 0.0), Vec3::Y),
-        ..Default::default()
+        ..default()
     });
 }
 

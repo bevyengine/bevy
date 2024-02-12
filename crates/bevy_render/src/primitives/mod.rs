@@ -1,9 +1,8 @@
 use std::borrow::Borrow;
 
-use bevy_ecs::{component::Component, prelude::Entity, reflect::ReflectComponent};
+use bevy_ecs::{component::Component, entity::EntityHashMap, reflect::ReflectComponent};
 use bevy_math::{Affine3A, Mat3A, Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles};
 use bevy_reflect::Reflect;
-use bevy_utils::HashMap;
 
 /// An axis-aligned bounding box, defined by:
 /// - a center,
@@ -303,7 +302,7 @@ impl Frustum {
     }
 }
 
-#[derive(Component, Debug, Default, Reflect)]
+#[derive(Component, Clone, Debug, Default, Reflect)]
 #[reflect(Component)]
 pub struct CubemapFrusta {
     #[reflect(ignore)]
@@ -323,7 +322,7 @@ impl CubemapFrusta {
 #[reflect(Component)]
 pub struct CascadesFrusta {
     #[reflect(ignore)]
-    pub frusta: HashMap<Entity, Vec<Frustum>>,
+    pub frusta: EntityHashMap<Vec<Frustum>>,
 }
 
 #[cfg(test)]

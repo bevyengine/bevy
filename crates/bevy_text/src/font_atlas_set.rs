@@ -6,7 +6,7 @@ use bevy_ecs::prelude::*;
 use bevy_math::Vec2;
 use bevy_reflect::Reflect;
 use bevy_render::texture::Image;
-use bevy_sprite::TextureAtlas;
+use bevy_sprite::TextureAtlasLayout;
 use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
 
@@ -43,7 +43,8 @@ pub struct FontAtlasSet {
 
 #[derive(Debug, Clone, Reflect)]
 pub struct GlyphAtlasInfo {
-    pub texture_atlas: Handle<TextureAtlas>,
+    pub texture_atlas: Handle<TextureAtlasLayout>,
+    pub texture: Handle<Image>,
     pub glyph_index: usize,
 }
 
@@ -72,7 +73,7 @@ impl FontAtlasSet {
 
     pub fn add_glyph_to_atlas(
         &mut self,
-        texture_atlases: &mut Assets<TextureAtlas>,
+        texture_atlases: &mut Assets<TextureAtlasLayout>,
         textures: &mut Assets<Image>,
         outlined_glyph: OutlinedGlyph,
     ) -> Result<GlyphAtlasInfo, TextError> {
@@ -107,7 +108,7 @@ impl FontAtlasSet {
                 .texture_descriptor
                 .size
                 .height
-                .max(glyph_texture.texture_descriptor.size.width);
+                .max(glyph_texture.width());
             // Pick the higher of 512 or the smallest power of 2 greater than glyph_max_size
             let containing = (1u32 << (32 - glyph_max_size.leading_zeros())).max(512) as f32;
             font_atlases.push(FontAtlas::new(
@@ -145,10 +146,17 @@ impl FontAtlasSet {
                     .find_map(|atlas| {
                         atlas
                             .get_glyph_index(glyph_id, position.into())
-                            .map(|glyph_index| (glyph_index, atlas.texture_atlas.clone_weak()))
+                            .map(|glyph_index| {
+                                (
+                                    glyph_index,
+                                    atlas.texture_atlas.clone_weak(),
+                                    atlas.texture.clone_weak(),
+                                )
+                            })
                     })
-                    .map(|(glyph_index, texture_atlas)| GlyphAtlasInfo {
+                    .map(|(glyph_index, texture_atlas, texture)| GlyphAtlasInfo {
                         texture_atlas,
+                        texture,
                         glyph_index,
                     })
             })

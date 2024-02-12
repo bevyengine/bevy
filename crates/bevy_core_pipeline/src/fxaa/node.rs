@@ -6,14 +6,12 @@ use bevy_ecs::query::QueryItem;
 use bevy_render::{
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
-        BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, FilterMode, Operations,
-        PipelineCache, RenderPassColorAttachment, RenderPassDescriptor, SamplerDescriptor,
-        TextureViewId,
+        BindGroup, BindGroupEntries, Operations, PipelineCache, RenderPassColorAttachment,
+        RenderPassDescriptor, TextureViewId,
     },
     renderer::RenderContext,
     view::ViewTarget,
 };
-use bevy_utils::default;
 
 #[derive(Default)]
 pub struct FxaaNode {
@@ -41,9 +39,9 @@ impl ViewNode for FxaaNode {
             return Ok(());
         };
 
-        let pipeline = pipeline_cache
-            .get_render_pipeline(pipeline.pipeline_id)
-            .unwrap();
+        let Some(pipeline) = pipeline_cache.get_render_pipeline(pipeline.pipeline_id) else {
+            return Ok(());
+        };
 
         let post_process = target.post_process_write();
         let source = post_process.source;
@@ -52,32 +50,11 @@ impl ViewNode for FxaaNode {
         let bind_group = match &mut *cached_bind_group {
             Some((id, bind_group)) if source.id() == *id => bind_group,
             cached_bind_group => {
-                let sampler = render_context
-                    .render_device()
-                    .create_sampler(&SamplerDescriptor {
-                        mipmap_filter: FilterMode::Linear,
-                        mag_filter: FilterMode::Linear,
-                        min_filter: FilterMode::Linear,
-                        ..default()
-                    });
-
-                let bind_group =
-                    render_context
-                        .render_device()
-                        .create_bind_group(&BindGroupDescriptor {
-                            label: None,
-                            layout: &fxaa_pipeline.texture_bind_group,
-                            entries: &[
-                                BindGroupEntry {
-                                    binding: 0,
-                                    resource: BindingResource::TextureView(source),
-                                },
-                                BindGroupEntry {
-                                    binding: 1,
-                                    resource: BindingResource::Sampler(&sampler),
-                                },
-                            ],
-                        });
+                let bind_group = render_context.render_device().create_bind_group(
+                    None,
+                    &fxaa_pipeline.texture_bind_group,
+                    &BindGroupEntries::sequential((source, &fxaa_pipeline.sampler)),
+                );
 
                 let (_, bind_group) = cached_bind_group.insert((source.id(), bind_group));
                 bind_group
@@ -92,6 +69,8 @@ impl ViewNode for FxaaNode {
                 ops: Operations::default(),
             })],
             depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
         };
 
         let mut render_pass = render_context

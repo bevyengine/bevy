@@ -1,5 +1,3 @@
-#![allow(clippy::type_complexity)]
-#![warn(missing_docs)]
 //! This module is separated into its own crate to enable simple dynamic linking for Bevy, and should not be used directly
 
 /// `use bevy::prelude::*;` to import common components, bundles, and plugins.
@@ -139,9 +137,9 @@ pub mod pbr {
 #[cfg(feature = "bevy_render")]
 pub mod render {
     //! Cameras, meshes, textures, shaders, and pipelines.
-    //! Use [`RenderDevice::features`](crate::render::renderer::RenderDevice::features),
-    //! [`RenderDevice::limits`](crate::render::renderer::RenderDevice::limits), and the
-    //! [`RenderAdapterInfo`](crate::render::renderer::RenderAdapterInfo) resource to
+    //! Use [`RenderDevice::features`](renderer::RenderDevice::features),
+    //! [`RenderDevice::limits`](renderer::RenderDevice::limits), and the
+    //! [`RenderAdapterInfo`](renderer::RenderAdapterInfo) resource to
     //! get runtime information about the actual adapter, backend, features, and limits.
     pub use bevy_render::*;
 }

@@ -1,11 +1,11 @@
-#![allow(clippy::type_complexity)]
-#![warn(missing_docs)]
 //! `bevy_window` provides a platform-agnostic interface for windowing in Bevy.
 //!
 //! This crate contains types for window management and events,
 //! used by windowing implementors such as `bevy_winit`.
 //! The [`WindowPlugin`] sets up some global window-related parameters and
 //! is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html).
+
+use bevy_a11y::Focus;
 
 mod cursor;
 mod event;
@@ -92,16 +92,23 @@ impl Plugin for WindowPlugin {
             .add_event::<ReceivedCharacter>()
             .add_event::<Ime>()
             .add_event::<WindowFocused>()
+            .add_event::<WindowOccluded>()
             .add_event::<WindowScaleFactorChanged>()
             .add_event::<WindowBackendScaleFactorChanged>()
             .add_event::<FileDragAndDrop>()
             .add_event::<WindowMoved>()
-            .add_event::<WindowThemeChanged>();
+            .add_event::<WindowThemeChanged>()
+            .add_event::<ApplicationLifetime>();
 
         if let Some(primary_window) = &self.primary_window {
-            app.world
+            let initial_focus = app
+                .world
                 .spawn(primary_window.clone())
-                .insert(PrimaryWindow);
+                .insert(PrimaryWindow)
+                .id();
+            if let Some(mut focus) = app.world.get_resource_mut::<Focus>() {
+                **focus = Some(initial_focus);
+            }
         }
 
         match self.exit_condition {
@@ -130,11 +137,13 @@ impl Plugin for WindowPlugin {
             .register_type::<CursorLeft>()
             .register_type::<ReceivedCharacter>()
             .register_type::<WindowFocused>()
+            .register_type::<WindowOccluded>()
             .register_type::<WindowScaleFactorChanged>()
             .register_type::<WindowBackendScaleFactorChanged>()
             .register_type::<FileDragAndDrop>()
             .register_type::<WindowMoved>()
-            .register_type::<WindowThemeChanged>();
+            .register_type::<WindowThemeChanged>()
+            .register_type::<ApplicationLifetime>();
 
         // Register window descriptor and related types
         app.register_type::<Window>()

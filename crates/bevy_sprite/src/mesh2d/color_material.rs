@@ -77,7 +77,7 @@ impl From<Handle<Image>> for ColorMaterial {
 bitflags::bitflags! {
     #[repr(transparent)]
     pub struct ColorMaterialFlags: u32 {
-        const TEXTURE           = (1 << 0);
+        const TEXTURE           = 1 << 0;
         const NONE              = 0;
         const UNINITIALIZED     = 0xFFFF;
     }

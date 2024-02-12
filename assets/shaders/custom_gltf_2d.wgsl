@@ -1,6 +1,7 @@
-#import bevy_sprite::mesh2d_view_bindings   globals
-#import bevy_sprite::mesh2d_bindings        mesh
-#import bevy_sprite::mesh2d_functions       get_model_matrix, mesh2d_position_local_to_clip
+#import bevy_sprite::{
+    mesh2d_view_bindings::globals,
+    mesh2d_functions::{get_model_matrix, mesh2d_position_local_to_clip},
+}
 
 struct Vertex {
     @builtin(instance_index) instance_index: u32,

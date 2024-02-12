@@ -1,9 +1,12 @@
+//! Test rendering of many gizmos.
+
 use std::f32::consts::TAU;
 
 use bevy::{
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
-    window::PresentMode,
+    window::{PresentMode, WindowResolution},
+    winit::{UpdateMode, WinitSettings},
 };
 
 const SYSTEM_COUNT: u32 = 10;
@@ -15,12 +18,17 @@ fn main() {
             primary_window: Some(Window {
                 title: "Many Debug Lines".to_string(),
                 present_mode: PresentMode::AutoNoVsync,
+                resolution: WindowResolution::new(1920.0, 1080.0).with_scale_factor_override(1.0),
                 ..default()
             }),
             ..default()
         }),
         FrameTimeDiagnosticsPlugin,
     ))
+    .insert_resource(WinitSettings {
+        focused_mode: UpdateMode::Continuous,
+        unfocused_mode: UpdateMode::Continuous,
+    })
     .insert_resource(Config {
         line_count: 50_000,
         fancy: false,
@@ -41,11 +49,11 @@ struct Config {
     fancy: bool,
 }
 
-fn input(mut config: ResMut<Config>, input: Res<Input<KeyCode>>) {
-    if input.just_pressed(KeyCode::Up) {
+fn input(mut config: ResMut<Config>, input: Res<ButtonInput<KeyCode>>) {
+    if input.just_pressed(KeyCode::ArrowUp) {
         config.line_count += 10_000;
     }
-    if input.just_pressed(KeyCode::Down) {
+    if input.just_pressed(KeyCode::ArrowDown) {
         config.line_count = config.line_count.saturating_sub(10_000);
     }
     if input.just_pressed(KeyCode::Space) {
@@ -92,7 +100,7 @@ fn ui_system(mut query: Query<&mut Text>, config: Res<Config>, diag: Res<Diagnos
     let mut text = query.single_mut();
 
     let Some(fps) = diag
-        .get(FrameTimeDiagnosticsPlugin::FPS)
+        .get(&FrameTimeDiagnosticsPlugin::FPS)
         .and_then(|fps| fps.smoothed())
     else {
         return;

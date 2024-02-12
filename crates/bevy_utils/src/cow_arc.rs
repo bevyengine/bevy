@@ -1,4 +1,5 @@
 use std::{
+    borrow::Borrow,
     fmt::{Debug, Display},
     hash::Hash,
     ops::Deref,
@@ -37,12 +38,26 @@ impl<'a, T: ?Sized> Deref for CowArc<'a, T> {
     }
 }
 
+impl<'a, T: ?Sized> Borrow<T> for CowArc<'a, T> {
+    #[inline]
+    fn borrow(&self) -> &T {
+        self
+    }
+}
+
+impl<'a, T: ?Sized> AsRef<T> for CowArc<'a, T> {
+    #[inline]
+    fn as_ref(&self) -> &T {
+        self
+    }
+}
+
 impl<'a, T: ?Sized> CowArc<'a, T>
 where
     &'a T: Into<Arc<T>>,
 {
     /// Converts this into an "owned" value. If internally a value is borrowed, it will be cloned into an "owned [`Arc`]".
-    /// If it is already an "owned [`Arc`]", it will remain unchanged.
+    /// If it is already a [`CowArc::Owned`] or a [`CowArc::Static`], it will remain unchanged.
     #[inline]
     pub fn into_owned(self) -> CowArc<'static, T> {
         match self {
@@ -50,6 +65,14 @@ where
             CowArc::Static(value) => CowArc::Static(value),
             CowArc::Owned(value) => CowArc::Owned(value),
         }
+    }
+
+    /// Clones into an owned [`CowArc<'static>`]. If internally a value is borrowed, it will be cloned into an "owned [`Arc`]".
+    /// If it is already a [`CowArc::Owned`] or [`CowArc::Static`], the value will be cloned.
+    /// This is equivalent to `.clone().into_owned()`.
+    #[inline]
+    pub fn clone_owned(&self) -> CowArc<'static, T> {
+        self.clone().into_owned()
     }
 }
 

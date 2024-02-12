@@ -1,7 +1,7 @@
 use crate::ReflectComponent;
-use bevy_ecs::{prelude::*, query::QueryItem};
+use bevy_ecs::prelude::*;
 use bevy_math::Vec3;
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{color::Color, extract_component::ExtractComponent, prelude::Camera};
 
 /// Configures the “classic” computer graphics [distance fog](https://en.wikipedia.org/wiki/Distance_fog) effect,
@@ -47,8 +47,9 @@ use bevy_render::{color::Color, extract_component::ExtractComponent, prelude::Ca
 ///
 /// Once enabled for a specific camera, the fog effect can also be disabled for individual
 /// [`StandardMaterial`](crate::StandardMaterial) instances via the `fog_enabled` flag.
-#[derive(Debug, Clone, Component, Reflect)]
-#[reflect(Component)]
+#[derive(Debug, Clone, Component, Reflect, ExtractComponent)]
+#[extract_component_filter(With<Camera>)]
+#[reflect(Component, Default)]
 pub struct FogSettings {
     /// The color of the fog effect.
     ///
@@ -472,15 +473,5 @@ impl Default for FogSettings {
             directional_light_color: Color::NONE,
             directional_light_exponent: 8.0,
         }
-    }
-}
-
-impl ExtractComponent for FogSettings {
-    type Query = &'static Self;
-    type Filter = With<Camera>;
-    type Out = Self;
-
-    fn extract_component(item: QueryItem<Self::Query>) -> Option<Self::Out> {
-        Some(item.clone())
     }
 }

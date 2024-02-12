@@ -1,6 +1,6 @@
 //! The gamepad input functionality.
 
-use crate::{Axis, ButtonState, Input};
+use crate::{Axis, ButtonInput, ButtonState};
 use bevy_ecs::event::{Event, EventReader, EventWriter};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
@@ -165,9 +165,9 @@ impl Gamepads {
 ///
 /// This is used to determine which button has changed its value when receiving a
 /// [`GamepadButtonChangedEvent`]. It is also used in the [`GamepadButton`]
-/// which in turn is used to create the [`Input<GamepadButton>`] or
+/// which in turn is used to create the [`ButtonInput<GamepadButton>`] or
 /// [`Axis<GamepadButton>`] `bevy` resources.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect, PartialOrd, Ord)]
 #[reflect(Debug, Hash, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -226,7 +226,7 @@ pub enum GamepadButtonType {
 ///
 /// ## Usage
 ///
-/// It is used as the generic `T` value of an [`Input`] and [`Axis`] to create `bevy` resources. These
+/// It is used as the generic `T` value of an [`ButtonInput`] and [`Axis`] to create `bevy` resources. These
 /// resources store the data of the buttons of a gamepad and can be accessed inside of a system.
 ///
 /// ## Updating
@@ -516,14 +516,14 @@ impl ButtonSettings {
     /// Returns `true` if the button is pressed.
     ///
     /// A button is considered pressed if the `value` passed is greater than or equal to the press threshold.
-    fn is_pressed(&self, value: f32) -> bool {
+    pub fn is_pressed(&self, value: f32) -> bool {
         value >= self.press_threshold
     }
 
     /// Returns `true` if the button is released.
     ///
     /// A button is considered released if the `value` passed is lower than or equal to the release threshold.
-    fn is_released(&self, value: f32) -> bool {
+    pub fn is_released(&self, value: f32) -> bool {
         value <= self.release_threshold
     }
 
@@ -631,10 +631,10 @@ pub struct AxisSettings {
 impl Default for AxisSettings {
     fn default() -> Self {
         AxisSettings {
-            livezone_upperbound: 0.95,
+            livezone_upperbound: 1.0,
             deadzone_upperbound: 0.05,
             deadzone_lowerbound: -0.05,
-            livezone_lowerbound: -0.95,
+            livezone_lowerbound: -1.0,
             threshold: 0.01,
         }
     }
@@ -1011,7 +1011,7 @@ impl ButtonAxisSettings {
 /// Handles [`GamepadConnectionEvent`]s and updates gamepad resources.
 ///
 /// Updates the [`Gamepads`] resource and resets and/or initializes
-/// the [`Axis<GamepadButton>`] and [`Input<GamepadButton>`] resources.
+/// the [`Axis<GamepadButton>`] and [`ButtonInput<GamepadButton>`] resources.
 ///
 /// ## Note
 ///
@@ -1021,7 +1021,7 @@ pub fn gamepad_connection_system(
     mut connection_events: EventReader<GamepadConnectionEvent>,
     mut axis: ResMut<Axis<GamepadAxis>>,
     mut button_axis: ResMut<Axis<GamepadButton>>,
-    mut button_input: ResMut<Input<GamepadButton>>,
+    mut button_input: ResMut<ButtonInput<GamepadButton>>,
 ) {
     for connection_event in connection_events.read() {
         let gamepad = connection_event.gamepad;
@@ -1163,7 +1163,7 @@ impl GamepadButtonChangedEvent {
     }
 }
 
-/// Uses [`GamepadAxisChangedEvent`]s to update the relevant [`Input`] and [`Axis`] values.
+/// Uses [`GamepadAxisChangedEvent`]s to update the relevant [`ButtonInput`] and [`Axis`] values.
 pub fn gamepad_axis_event_system(
     mut gamepad_axis: ResMut<Axis<GamepadAxis>>,
     mut axis_events: EventReader<GamepadAxisChangedEvent>,
@@ -1174,10 +1174,10 @@ pub fn gamepad_axis_event_system(
     }
 }
 
-/// Uses [`GamepadButtonChangedEvent`]s to update the relevant [`Input`] and [`Axis`] values.
+/// Uses [`GamepadButtonChangedEvent`]s to update the relevant [`ButtonInput`] and [`Axis`] values.
 pub fn gamepad_button_event_system(
     mut button_changed_events: EventReader<GamepadButtonChangedEvent>,
-    mut button_input: ResMut<Input<GamepadButton>>,
+    mut button_input: ResMut<ButtonInput<GamepadButton>>,
     mut button_input_events: EventWriter<GamepadButtonInput>,
     settings: Res<GamepadSettings>,
 ) {
@@ -1255,7 +1255,7 @@ pub fn gamepad_event_system(
     mut connection_events: EventWriter<GamepadConnectionEvent>,
     mut button_events: EventWriter<GamepadButtonChangedEvent>,
     mut axis_events: EventWriter<GamepadAxisChangedEvent>,
-    mut button_input: ResMut<Input<GamepadButton>>,
+    mut button_input: ResMut<ButtonInput<GamepadButton>>,
 ) {
     button_input.bypass_change_detection().clear();
     for gamepad_event in gamepad_events.read() {
@@ -1263,8 +1263,12 @@ pub fn gamepad_event_system(
             GamepadEvent::Connection(connection_event) => {
                 connection_events.send(connection_event.clone());
             }
-            GamepadEvent::Button(button_event) => button_events.send(button_event.clone()),
-            GamepadEvent::Axis(axis_event) => axis_events.send(axis_event.clone()),
+            GamepadEvent::Button(button_event) => {
+                button_events.send(button_event.clone());
+            }
+            GamepadEvent::Axis(axis_event) => {
+                axis_events.send(axis_event.clone());
+            }
         }
     }
 }
@@ -1529,7 +1533,7 @@ mod tests {
         ];
 
         for (new_value, expected) in cases {
-            let settings = AxisSettings::default();
+            let settings = AxisSettings::new(-0.95, -0.05, 0.05, 0.95, 0.01).unwrap();
             test_axis_settings_filter(settings, new_value, None, expected);
         }
     }
@@ -1556,7 +1560,7 @@ mod tests {
         ];
 
         for (new_value, old_value, expected) in cases {
-            let settings = AxisSettings::default();
+            let settings = AxisSettings::new(-0.95, -0.05, 0.05, 0.95, 0.01).unwrap();
             test_axis_settings_filter(settings, new_value, old_value, expected);
         }
     }

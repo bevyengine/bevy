@@ -1,11 +1,11 @@
 use crate::{DynamicScene, InstanceInfo, SceneSpawnError};
 use bevy_asset::Asset;
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
     reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities, ReflectResource},
     world::World,
 };
 use bevy_reflect::TypePath;
-use bevy_utils::HashMap;
 
 /// To spawn a scene, you can use either:
 /// * [`SceneSpawner::spawn`](crate::SceneSpawner::spawn)
@@ -15,10 +15,12 @@ use bevy_utils::HashMap;
 /// [`GlobalTransform`](bevy_transform::components::GlobalTransform) components)
 #[derive(Asset, TypePath, Debug)]
 pub struct Scene {
+    /// The world of the scene, containing its entities and resources.
     pub world: World,
 }
 
 impl Scene {
+    /// Creates a new scene with the given world.
     pub fn new(world: World) -> Self {
         Self { world }
     }
@@ -29,7 +31,7 @@ impl Scene {
         type_registry: &AppTypeRegistry,
     ) -> Result<Scene, SceneSpawnError> {
         let mut world = World::new();
-        let mut entity_map = HashMap::default();
+        let mut entity_map = EntityHashMap::default();
         dynamic_scene.write_to_world_with(&mut world, &mut entity_map, type_registry)?;
 
         Ok(Self { world })
@@ -55,13 +57,17 @@ impl Scene {
         type_registry: &AppTypeRegistry,
     ) -> Result<InstanceInfo, SceneSpawnError> {
         let mut instance_info = InstanceInfo {
-            entity_map: HashMap::default(),
+            entity_map: EntityHashMap::default(),
         };
 
         let type_registry = type_registry.read();
 
         // Resources archetype
-        for (component_id, _) in self.world.storages().resources.iter() {
+        for (component_id, resource_data) in self.world.storages().resources.iter() {
+            if !resource_data.is_present() {
+                continue;
+            }
+
             let component_info = self
                 .world
                 .components()
@@ -76,11 +82,11 @@ impl Scene {
                 type_registry
                     .get(type_id)
                     .ok_or_else(|| SceneSpawnError::UnregisteredType {
-                        type_name: component_info.name().to_string(),
+                        std_type_name: component_info.name().to_string(),
                     })?;
             let reflect_resource = registration.data::<ReflectResource>().ok_or_else(|| {
                 SceneSpawnError::UnregisteredResource {
-                    type_name: component_info.name().to_string(),
+                    type_path: registration.type_info().type_path().to_string(),
                 }
             })?;
             reflect_resource.copy(&self.world, world);
@@ -90,7 +96,7 @@ impl Scene {
             for scene_entity in archetype.entities() {
                 let entity = *instance_info
                     .entity_map
-                    .entry(scene_entity.entity())
+                    .entry(scene_entity.id())
                     .or_insert_with(|| world.spawn_empty().id());
                 for component_id in archetype.components() {
                     let component_info = self
@@ -102,16 +108,22 @@ impl Scene {
                     let reflect_component = type_registry
                         .get(component_info.type_id().unwrap())
                         .ok_or_else(|| SceneSpawnError::UnregisteredType {
-                            type_name: component_info.name().to_string(),
+                            std_type_name: component_info.name().to_string(),
                         })
                         .and_then(|registration| {
                             registration.data::<ReflectComponent>().ok_or_else(|| {
                                 SceneSpawnError::UnregisteredComponent {
-                                    type_name: component_info.name().to_string(),
+                                    type_path: registration.type_info().type_path().to_string(),
                                 }
                             })
                         })?;
-                    reflect_component.copy(&self.world, world, scene_entity.entity(), entity);
+                    reflect_component.copy(
+                        &self.world,
+                        world,
+                        scene_entity.id(),
+                        entity,
+                        &type_registry,
+                    );
                 }
             }
         }

@@ -8,6 +8,7 @@ mod graph_utils;
 mod schedule;
 mod set;
 mod state;
+mod stepping;
 
 pub use self::condition::*;
 pub use self::config::*;
@@ -104,7 +105,7 @@ mod tests {
 
             let mut world = World::default();
             let mut schedule = Schedule::default();
-            let thread_count = ComputeTaskPool::init(TaskPool::default).thread_num();
+            let thread_count = ComputeTaskPool::get_or_init(TaskPool::default).thread_num();
 
             let barrier = Arc::new(Barrier::new(thread_count));
 
@@ -239,7 +240,7 @@ mod tests {
                 partially_ordered == [8, 9, 10] || partially_ordered == [10, 8, 9],
                 "partially_ordered must be [8, 9, 10] or [10, 8, 9]"
             );
-            assert!(order.len() == 11, "must have exactly 11 order entries");
+            assert_eq!(order.len(), 11, "must have exactly 11 order entries");
         }
     }
 
@@ -718,6 +719,9 @@ mod tests {
     }
 
     mod system_ambiguity {
+        use std::collections::BTreeSet;
+
+        use super::*;
         // Required to make the derive macro behave
         use crate as bevy_ecs;
         use crate::event::Events;
@@ -981,14 +985,12 @@ mod tests {
             assert_eq!(schedule.graph().conflicting_systems().len(), 0);
         }
 
+        #[derive(ScheduleLabel, Hash, PartialEq, Eq, Debug, Clone)]
+        struct TestSchedule;
+
         // Tests that the correct ambiguities were reported in the correct order.
         #[test]
         fn correct_ambiguities() {
-            use super::*;
-
-            #[derive(ScheduleLabel, Hash, PartialEq, Eq, Debug, Clone)]
-            struct TestSchedule;
-
             fn system_a(_res: ResMut<R>) {}
             fn system_b(_res: ResMut<R>) {}
             fn system_c(_res: ResMut<R>) {}
@@ -1008,9 +1010,11 @@ mod tests {
             ));
 
             schedule.graph_mut().initialize(&mut world);
-            let _ = schedule
-                .graph_mut()
-                .build_schedule(world.components(), &TestSchedule.dyn_clone());
+            let _ = schedule.graph_mut().build_schedule(
+                world.components(),
+                TestSchedule.intern(),
+                &BTreeSet::new(),
+            );
 
             let ambiguities: Vec<_> = schedule
                 .graph()
@@ -1050,19 +1054,16 @@ mod tests {
         // Related issue https://github.com/bevyengine/bevy/issues/9641
         #[test]
         fn anonymous_set_name() {
-            use super::*;
-
-            #[derive(ScheduleLabel, Hash, PartialEq, Eq, Debug, Clone)]
-            struct TestSchedule;
-
             let mut schedule = Schedule::new(TestSchedule);
             schedule.add_systems((resmut_system, resmut_system).run_if(|| true));
 
             let mut world = World::new();
             schedule.graph_mut().initialize(&mut world);
-            let _ = schedule
-                .graph_mut()
-                .build_schedule(world.components(), &TestSchedule.dyn_clone());
+            let _ = schedule.graph_mut().build_schedule(
+                world.components(),
+                TestSchedule.intern(),
+                &BTreeSet::new(),
+            );
 
             let ambiguities: Vec<_> = schedule
                 .graph()
@@ -1077,6 +1078,81 @@ mod tests {
                     vec!["bevy_ecs::schedule::tests::system_ambiguity::R"],
                 )
             );
+        }
+
+        #[test]
+        fn ignore_component_resource_ambiguities() {
+            let mut world = World::new();
+            world.insert_resource(R);
+            world.allow_ambiguous_resource::<R>();
+            let mut schedule = Schedule::new(TestSchedule);
+
+            //check resource
+            schedule.add_systems((resmut_system, res_system));
+            schedule.initialize(&mut world).unwrap();
+            assert!(schedule.graph().conflicting_systems().is_empty());
+
+            // check components
+            world.allow_ambiguous_component::<A>();
+            schedule.add_systems((write_component_system, read_component_system));
+            schedule.initialize(&mut world).unwrap();
+            assert!(schedule.graph().conflicting_systems().is_empty());
+        }
+    }
+
+    #[cfg(feature = "bevy_debug_stepping")]
+    mod stepping {
+        use super::*;
+        use bevy_ecs::system::SystemState;
+
+        #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+        pub struct TestSchedule;
+
+        macro_rules! assert_executor_supports_stepping {
+            ($executor:expr) => {
+                // create a test schedule
+                let mut schedule = Schedule::new(TestSchedule);
+                schedule
+                    .set_executor_kind($executor)
+                    .add_systems(|| panic!("Executor ignored Stepping"));
+
+                // Add our schedule to stepping & and enable stepping; this should
+                // prevent any systems in the schedule from running
+                let mut stepping = Stepping::default();
+                stepping.add_schedule(TestSchedule).enable();
+
+                // create a world, and add the stepping resource
+                let mut world = World::default();
+                world.insert_resource(stepping);
+
+                // start a new frame by running ihe begin_frame() system
+                let mut system_state: SystemState<Option<ResMut<Stepping>>> =
+                    SystemState::new(&mut world);
+                let res = system_state.get_mut(&mut world);
+                Stepping::begin_frame(res);
+
+                // now run the schedule; this will panic if the executor doesn't
+                // handle stepping
+                schedule.run(&mut world);
+            };
+        }
+
+        /// verify the [`SimpleExecutor`] supports stepping
+        #[test]
+        fn simple_executor() {
+            assert_executor_supports_stepping!(ExecutorKind::Simple);
+        }
+
+        /// verify the [`SingleThreadedExecutor`] supports stepping
+        #[test]
+        fn single_threaded_executor() {
+            assert_executor_supports_stepping!(ExecutorKind::SingleThreaded);
+        }
+
+        /// verify the [`MultiThreadedExecutor`] supports stepping
+        #[test]
+        fn multi_threaded_executor() {
+            assert_executor_supports_stepping!(ExecutorKind::MultiThreaded);
         }
     }
 }

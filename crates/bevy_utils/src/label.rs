@@ -41,8 +41,6 @@ pub trait DynHash: DynEq {
     fn as_dyn_eq(&self) -> &dyn DynEq;
 
     /// Feeds this value into the given [`Hasher`].
-    ///
-    /// [`Hasher`]: std::hash::Hasher
     fn dyn_hash(&self, state: &mut dyn Hasher);
 }
 
@@ -65,36 +63,95 @@ where
 /// # Example
 ///
 /// ```
-/// # use bevy_utils::define_boxed_label;
-/// define_boxed_label!(MyNewLabelTrait);
+/// # use bevy_utils::define_label;
+/// define_label!(
+///     /// Documentation of label trait
+///     MyNewLabelTrait,
+///     MY_NEW_LABEL_TRAIT_INTERNER
+/// );
+///
+/// define_label!(
+///     /// Documentation of another label trait
+///     MyNewExtendedLabelTrait,
+///     MY_NEW_EXTENDED_LABEL_TRAIT_INTERNER,
+///     extra_methods: {
+///         // Extra methods for the trait can be defined here
+///         fn additional_method(&self) -> i32;
+///     },
+///     extra_methods_impl: {
+///         // Implementation of the extra methods for Interned<dyn MyNewExtendedLabelTrait>
+///         fn additional_method(&self) -> i32 {
+///             0
+///         }
+///     }
+/// );
 /// ```
 #[macro_export]
-macro_rules! define_boxed_label {
-    ($label_trait_name:ident) => {
-        /// A strongly-typed label.
+macro_rules! define_label {
+    (
+        $(#[$label_attr:meta])*
+        $label_trait_name:ident,
+        $interner_name:ident
+    ) => {
+        $crate::define_label!(
+            $(#[$label_attr])*
+            $label_trait_name,
+            $interner_name,
+            extra_methods: {},
+            extra_methods_impl: {}
+        );
+    };
+    (
+        $(#[$label_attr:meta])*
+        $label_trait_name:ident,
+        $interner_name:ident,
+        extra_methods: { $($trait_extra_methods:tt)* },
+        extra_methods_impl: { $($interned_extra_methods_impl:tt)* }
+    ) => {
+
+        $(#[$label_attr])*
         pub trait $label_trait_name: 'static + Send + Sync + ::std::fmt::Debug {
-            /// Return's the [`TypeId`] of this label, or the ID of the
-            /// wrapped label type for `Box<dyn
-            #[doc = stringify!($label_trait_name)]
-            /// >`
-            ///
-            /// [TypeId]: std::any::TypeId
-            fn inner_type_id(&self) -> ::std::any::TypeId {
-                std::any::TypeId::of::<Self>()
-            }
+
+            $($trait_extra_methods)*
 
             /// Clones this `
             #[doc = stringify!($label_trait_name)]
-            /// `
-            fn dyn_clone(&self) -> Box<dyn $label_trait_name>;
+            ///`.
+            fn dyn_clone(&self) -> ::std::boxed::Box<dyn $label_trait_name>;
 
             /// Casts this value to a form where it can be compared with other type-erased values.
-            fn as_dyn_eq(&self) -> &dyn ::bevy_utils::label::DynEq;
+            fn as_dyn_eq(&self) -> &dyn $crate::label::DynEq;
 
             /// Feeds this value into the given [`Hasher`].
-            ///
-            /// [`Hasher`]: std::hash::Hasher
             fn dyn_hash(&self, state: &mut dyn ::std::hash::Hasher);
+
+            /// Returns an [`Interned`](bevy_utils::intern::Interned) value corresponding to `self`.
+            fn intern(&self) -> $crate::intern::Interned<dyn $label_trait_name>
+            where Self: Sized {
+                $interner_name.intern(self)
+            }
+        }
+
+        impl $label_trait_name for $crate::intern::Interned<dyn $label_trait_name> {
+
+            $($interned_extra_methods_impl)*
+
+            fn dyn_clone(&self) -> ::std::boxed::Box<dyn $label_trait_name> {
+                (**self).dyn_clone()
+            }
+
+            /// Casts this value to a form where it can be compared with other type-erased values.
+            fn as_dyn_eq(&self) -> &dyn $crate::label::DynEq {
+                (**self).as_dyn_eq()
+            }
+
+            fn dyn_hash(&self, state: &mut dyn ::std::hash::Hasher) {
+                (**self).dyn_hash(state);
+            }
+
+            fn intern(&self) -> Self {
+                *self
+            }
         }
 
         impl PartialEq for dyn $label_trait_name {
@@ -111,108 +168,27 @@ macro_rules! define_boxed_label {
             }
         }
 
-        impl ::std::convert::AsRef<dyn $label_trait_name> for dyn $label_trait_name {
-            #[inline]
-            fn as_ref(&self) -> &Self {
-                self
+        impl $crate::intern::Internable for dyn $label_trait_name {
+            fn leak(&self) -> &'static Self {
+                Box::leak(self.dyn_clone())
+            }
+
+            fn ref_eq(&self, other: &Self) -> bool {
+                if self.as_dyn_eq().type_id() == other.as_dyn_eq().type_id() {
+                    (self as *const Self as *const ()) == (other as *const Self as *const ())
+                } else {
+                    false
+                }
+            }
+
+            fn ref_hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
+                use ::std::hash::Hash;
+                self.as_dyn_eq().type_id().hash(state);
+                (self as *const Self as *const ()).hash(state);
             }
         }
 
-        impl Clone for Box<dyn $label_trait_name> {
-            fn clone(&self) -> Self {
-                self.dyn_clone()
-            }
-        }
-
-        impl $label_trait_name for Box<dyn $label_trait_name> {
-            fn inner_type_id(&self) -> ::std::any::TypeId {
-                (**self).inner_type_id()
-            }
-
-            fn dyn_clone(&self) -> Box<dyn $label_trait_name> {
-                // Be explicit that we want to use the inner value
-                // to avoid infinite recursion.
-                (**self).dyn_clone()
-            }
-
-            fn as_dyn_eq(&self) -> &dyn ::bevy_utils::label::DynEq {
-                (**self).as_dyn_eq()
-            }
-
-            fn dyn_hash(&self, state: &mut dyn ::std::hash::Hasher) {
-                (**self).dyn_hash(state);
-            }
-        }
-    };
-}
-
-/// Macro to define a new label trait
-///
-/// # Example
-///
-/// ```
-/// # use bevy_utils::define_label;
-/// define_label!(
-///     /// A class of labels.
-///     MyNewLabelTrait,
-///     /// Identifies a value that implements `MyNewLabelTrait`.
-///     MyNewLabelId,
-/// );
-/// ```
-#[macro_export]
-macro_rules! define_label {
-    (
-        $(#[$label_attr:meta])*
-        $label_name:ident,
-
-        $(#[$id_attr:meta])*
-        $id_name:ident $(,)?
-    ) => {
-        $(#[$id_attr])*
-        #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-        pub struct $id_name(::core::any::TypeId, &'static str);
-
-        impl ::core::fmt::Debug for $id_name {
-            fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-                write!(f, "{}", self.1)
-            }
-        }
-
-        $(#[$label_attr])*
-        pub trait $label_name: Send + Sync + 'static {
-            /// Converts this type into an opaque, strongly-typed label.
-            fn as_label(&self) -> $id_name {
-                let id = self.type_id();
-                let label = self.as_str();
-                $id_name(id, label)
-            }
-            /// Returns the [`TypeId`] used to differentiate labels.
-            fn type_id(&self) -> ::core::any::TypeId {
-                ::core::any::TypeId::of::<Self>()
-            }
-            /// Returns the representation of this label as a string literal.
-            ///
-            /// In cases where you absolutely need a label to be determined at runtime,
-            /// you can use [`Box::leak`] to get a `'static` reference.
-            fn as_str(&self) -> &'static str;
-        }
-
-        impl $label_name for $id_name {
-            fn as_label(&self) -> Self {
-                *self
-            }
-            fn type_id(&self) -> ::core::any::TypeId {
-                self.0
-            }
-            fn as_str(&self) -> &'static str {
-                self.1
-            }
-        }
-
-        impl $label_name for &'static str {
-            fn as_str(&self) -> Self {
-                self
-            }
-        }
+        static $interner_name: $crate::intern::Interner<dyn $label_trait_name> =
+            $crate::intern::Interner::new();
     };
 }
