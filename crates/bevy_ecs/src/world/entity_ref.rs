@@ -2005,6 +2005,7 @@ impl<'a> From<EntityMut<'a>> for FilteredEntityMut<'a> {
         unsafe {
             let mut access = Access::default();
             access.read_all();
+            access.write_all();
             FilteredEntityMut::new(entity.0, access)
         }
     }
