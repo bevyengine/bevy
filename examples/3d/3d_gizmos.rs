@@ -333,8 +333,9 @@ fn draw_primitives(
         }
         PrimitiveState::Ramp => {
             gizmos.primitive_3d(
-                Ramp {
+                Prism {
                     half_size: Vec3::new(1.0, 0.5, 2.0),
+                    apex_displacement: 0.5,
                 },
                 center,
                 rotation,

@@ -1,4 +1,4 @@
-use bevy_math::{primitives::Ramp, Vec3};
+use bevy_math::{primitives::Prism, Vec3};
 use wgpu::PrimitiveTopology;
 
 use crate::{
@@ -6,40 +6,47 @@ use crate::{
     render_asset::RenderAssetUsages,
 };
 
-impl Meshable for Ramp {
+impl Meshable for Prism {
     type Output = Mesh;
 
     fn mesh(&self) -> Self::Output {
         let min = -self.half_size;
         let max = self.half_size;
 
-        let slope_normal = Vec3::new(0.0, max.z, max.y).normalize_or_zero().to_array();
+        let front_normal = Vec3::new(0.0, max.z * (self.apex_displacement + 1.0), max.y * 2.0)
+            .normalize_or_zero()
+            .to_array();
+        let back_normal = Vec3::new(0.0, max.z * (self.apex_displacement - 1.0), max.y * 2.0)
+            .normalize_or_zero()
+            .to_array();
+
+        let apex_z = self.apex_displacement * max.z;
 
         // Suppose Y-up right hand, and camera look from +Z to -Z
         let vertices = &[
             // Back
-            ([min.x, max.y, min.z], [0.0, 0.0, -1.0], [1.0, 0.0]),
-            ([max.x, max.y, min.z], [0.0, 0.0, -1.0], [0.0, 0.0]),
-            ([max.x, min.y, min.z], [0.0, 0.0, -1.0], [0.0, 1.0]),
-            ([min.x, min.y, min.z], [0.0, 0.0, -1.0], [1.0, 1.0]),
+            ([min.x, max.y, apex_z], back_normal, [1.0, 0.0]),
+            ([max.x, max.y, apex_z], back_normal, [0.0, 0.0]),
+            ([max.x, min.y, min.z], back_normal, [0.0, 1.0]),
+            ([min.x, min.y, min.z], back_normal, [1.0, 1.0]),
             // Right
             ([max.x, min.y, min.z], [1.0, 0.0, 0.0], [0.0, 0.0]),
-            ([max.x, max.y, min.z], [1.0, 0.0, 0.0], [1.0, 1.0]),
+            ([max.x, max.y, apex_z], [1.0, 0.0, 0.0], [1.0, 1.0]),
             ([max.x, min.y, max.z], [1.0, 0.0, 0.0], [0.0, 1.0]),
             // Left
             ([min.x, min.y, max.z], [-1.0, 0.0, 0.0], [1.0, 0.0]),
-            ([min.x, max.y, min.z], [-1.0, 0.0, 0.0], [0.0, 0.0]),
+            ([min.x, max.y, apex_z], [-1.0, 0.0, 0.0], [0.0, 0.0]),
             ([min.x, min.y, min.z], [-1.0, 0.0, 0.0], [1.0, 1.0]),
             // Bottom
             ([max.x, min.y, max.z], [0.0, -1.0, 0.0], [0.0, 0.0]),
             ([min.x, min.y, max.z], [0.0, -1.0, 0.0], [1.0, 0.0]),
             ([min.x, min.y, min.z], [0.0, -1.0, 0.0], [1.0, 1.0]),
             ([max.x, min.y, min.z], [0.0, -1.0, 0.0], [0.0, 1.0]),
-            // Slope
-            ([min.x, max.y, min.z], slope_normal, [0.0, 0.0]),
-            ([max.x, max.y, min.z], slope_normal, [0.0, 1.0]),
-            ([max.x, min.y, max.z], slope_normal, [1.0, 0.0]),
-            ([min.x, min.y, max.z], slope_normal, [1.0, 1.0]),
+            // Front
+            ([min.x, max.y, apex_z], front_normal, [0.0, 0.0]),
+            ([max.x, max.y, apex_z], front_normal, [0.0, 1.0]),
+            ([max.x, min.y, max.z], front_normal, [1.0, 0.0]),
+            ([min.x, min.y, max.z], front_normal, [1.0, 1.0]),
         ];
 
         let positions: Vec<_> = vertices.iter().map(|(p, _, _)| *p).collect();
@@ -65,8 +72,8 @@ impl Meshable for Ramp {
     }
 }
 
-impl From<Ramp> for Mesh {
-    fn from(ramp: Ramp) -> Self {
-        ramp.mesh()
+impl From<Prism> for Mesh {
+    fn from(prism: Prism) -> Self {
+        prism.mesh()
     }
 }

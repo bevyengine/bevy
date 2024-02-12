@@ -6,7 +6,7 @@ use crate::{
     bounding::{Bounded2d, BoundingCircle, BoundingVolume},
     primitives::{
         BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Direction3d, Line3d,
-        Plane3d, Polyline3d, Ramp, Segment3d, Sphere, Torus, Triangle2d,
+        Plane3d, Polyline3d, Prism, Segment3d, Sphere, Torus, Triangle2d,
     },
 };
 
@@ -304,36 +304,41 @@ impl Bounded3d for Torus {
     }
 }
 
-impl Bounded3d for Ramp {
+impl Bounded3d for Prism {
     fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
         let line = Segment3d {
             direction: Direction3d::new_unchecked(Vec3::X),
             half_length: self.half_size.x,
         };
-        let front_aabb = line.aabb_3d(
-            translation + rotation * (Vec3::Z * self.half_size.z + Vec3::NEG_Y * self.half_size.y),
+        let apex_aabb = line.aabb_3d(
+            translation
+                + Vec3::new(
+                    0.0,
+                    self.half_size.y,
+                    self.half_size.z * self.apex_displacement,
+                ),
             rotation,
         );
-        let top_aabb = line.aabb_3d(
-            translation
-                + rotation * (Vec3::NEG_Z * self.half_size.z + Vec3::NEG_Y * self.half_size.y),
+        let front_aabb = line.aabb_3d(
+            translation + (Vec3::NEG_Z * self.half_size.z + Vec3::NEG_Y * self.half_size.y),
             rotation,
         );
         let back_aabb = line.aabb_3d(
-            translation + rotation * (Vec3::NEG_Z * self.half_size.z + Vec3::Y * self.half_size.y),
+            translation + rotation * (Vec3::Z * self.half_size.z + Vec3::NEG_Y * self.half_size.y),
             rotation,
         );
 
-        front_aabb.merge(&top_aabb).merge(&back_aabb)
+        apex_aabb.merge(&front_aabb).merge(&back_aabb)
     }
 
-    fn bounding_sphere(&self, translation: Vec3, _rotation: Quat) -> BoundingSphere {
-        BoundingSphere {
-            center: translation,
-            sphere: Sphere {
-                radius: self.half_size.length(),
-            },
-        }
+    fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere {
+        let furthest = self.half_size * Vec3::new(1.0, 1.0, self.apex_displacement.abs());
+        let local_center = Vec3::new(0.0, 0.0, self.half_size.z * self.apex_displacement * 0.5);
+
+        let radius = (furthest - local_center).length();
+        let center = translation + rotation * local_center;
+
+        BoundingSphere::new(center, radius)
     }
 }
 
@@ -345,7 +350,7 @@ mod tests {
         bounding::Bounded3d,
         primitives::{
             Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Direction3d, Line3d, Plane3d,
-            Polyline3d, Ramp, Segment3d, Sphere, Torus,
+            Polyline3d, Prism, Segment3d, Sphere, Torus,
         },
     };
 
@@ -581,17 +586,18 @@ mod tests {
     }
 
     #[test]
-    fn ramp() {
-        let ramp = Ramp {
+    fn prism() {
+        let prism = Prism {
             half_size: Vec3::new(1.0, 0.8, 2.5),
+            apex_displacement: 1.0,
         };
         let translation = Vec3::new(3.5, -1.25, 2.0);
 
-        let aabb = ramp.aabb_3d(translation, Quat::IDENTITY);
+        let aabb = prism.aabb_3d(translation, Quat::IDENTITY);
         assert_eq!(aabb.min, Vec3::new(2.5, -2.05, -0.5));
         assert_eq!(aabb.max, Vec3::new(4.5, -0.45, 4.5));
 
-        let bounding_sphere = ramp.bounding_sphere(translation, Quat::IDENTITY);
+        let bounding_sphere = prism.bounding_sphere(translation, Quat::IDENTITY);
         assert_eq!(bounding_sphere.center, translation);
         assert_eq!(bounding_sphere.radius(), 2.8089144);
     }

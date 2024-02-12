@@ -2,7 +2,7 @@ mod capsule;
 mod cuboid;
 mod cylinder;
 mod plane;
-mod ramp;
+mod prism;
 mod sphere;
 mod torus;
 

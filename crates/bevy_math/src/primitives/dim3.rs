@@ -765,52 +765,37 @@ impl Torus {
     }
 }
 
-/// A ramp primitive shape.
+/// A triangular prism primitive, often representing a ramp.
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-pub struct Ramp {
-    /// Half of the width, height and depth of the ramp
+pub struct Prism {
+    /// Half of the width, height and depth of the prism
     pub half_size: Vec3,
+    /// Displacement of the apex edge along the Z-axis. -1.0 positions the apex straight above the bottom-front edge.
+    pub apex_displacement: f32,
 }
-impl Primitive3d for Ramp {}
+impl Primitive3d for Prism {}
 
-impl Default for Ramp {
+impl Default for Prism {
     fn default() -> Self {
         Self {
             half_size: Vec3::splat(0.5),
+            apex_displacement: 0.0,
         }
     }
 }
 
-impl Ramp {
-    /// Create a new Ramp from the dimensions of the base and the angle of the wedge at the apex.
-    /// The slope is the angle (incline) of the ramp in radians
-    /// For sensible results, the slope of the ramp should be in (0.0, PI / 2.0)
-    #[inline(always)]
-    pub fn new(half_width: f32, half_depth: f32, slope: f32) -> Ramp {
-        let half_height = half_depth * slope.tan();
-        Self {
-            half_size: Vec3::new(half_width, half_height, half_depth),
-        }
-    }
-
-    /// Get the slope of the wedge
-    /// The slope is the angle (incline) of the ramp in radians
-    #[inline(always)]
-    pub fn slope(&self) -> f32 {
-        self.half_size.y.atan2(self.half_size.z)
-    }
-
-    /// Get the surface area of the ramp
+impl Prism {
+    /// Get the surface area of the prism
     #[inline(always)]
     pub fn area(&self) -> f32 {
-        let half = self.half_size;
-        let half_volume = half.x * (half.y + half.z + (half.y * half.y + half.z * half.z).sqrt())
-            + half.y * half.z;
-        half_volume * 4.0
+        let [x, y, z] = self.half_size.to_array();
+        let edge1 = (z * (self.apex_displacement + 1.0)).hypot(2.0 * y);
+        let edge2 = (z * (self.apex_displacement - 1.0)).hypot(2.0 * y);
+        4.0 * z * y + 2.0 * x * (edge1 + edge2 + 2.0 * z)
     }
 
-    /// Get the volume of the ramp
+    /// Get the volume of the prism
     #[inline(always)]
     pub fn volume(&self) -> f32 {
         self.half_size.x * self.half_size.y * self.half_size.z * 4.0
@@ -984,18 +969,12 @@ mod tests {
     }
 
     #[test]
-    fn ramp_math() {
-        let ramp = Ramp {
+    fn prism_math() {
+        let prism = Prism {
             half_size: Vec3::splat(0.75),
+            apex_displacement: 1.0,
         };
-        assert_eq!(
-            ramp.slope(),
-            std::f32::consts::FRAC_PI_4,
-            "incorrect computed slope"
-        );
-        assert_eq!(ramp.area(), 9.93198, "incorrect ramp area");
-        assert_eq!(ramp.volume(), 1.6875, "incorrect ramp volume");
-
-        assert_relative_eq!(Ramp::new(0.5, 0.5, FRAC_PI_3).half_size.y, 0.8660254);
+        assert_eq!(prism.volume(), 1.6875, "incorrect prism volume");
+        assert_eq!(prism.area(), 9.93198, "incorrect prism area");
     }
 }
