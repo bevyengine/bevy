@@ -1,12 +1,14 @@
 use std::hash::{BuildHasher, Hasher};
 
+#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use bevy_utils::hashbrown;
 
 use super::Entity;
 
 /// A [`BuildHasher`] that results in a [`EntityHasher`].
-#[derive(Default, Clone, Reflect)]
+#[derive(Default, Clone)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct EntityHash;
 
 impl BuildHasher for EntityHash {
@@ -85,11 +87,13 @@ pub type EntityHashSet = hashbrown::HashSet<Entity, EntityHash>;
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(feature = "bevy_reflect")]
     use bevy_reflect::Reflect;
     use static_assertions::assert_impl_all;
 
     // Check that the HashMaps are Clone if the key/values are Clone
     assert_impl_all!(EntityHashMap::<usize>: Clone);
     // EntityHashMap should implement Reflect
+    #[cfg(feature = "bevy_reflect")]
     assert_impl_all!(EntityHashMap::<i32>: Reflect);
 }

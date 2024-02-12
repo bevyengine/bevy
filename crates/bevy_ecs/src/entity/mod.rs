@@ -36,6 +36,7 @@
 //! [`EntityWorldMut::insert`]: crate::world::EntityWorldMut::insert
 //! [`EntityWorldMut::remove`]: crate::world::EntityWorldMut::remove
 mod map_entities;
+#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 pub use map_entities::*;
 
@@ -126,8 +127,12 @@ type IdCursor = isize;
 /// [`EntityCommands`]: crate::system::EntityCommands
 /// [`Query::get`]: crate::system::Query::get
 /// [`World`]: crate::world::World
-#[derive(Clone, Copy, Reflect)]
-#[reflect_value(Hash, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    reflect_value(Hash, PartialEq, Serialize, Deserialize)
+)]
 // Alignment repr necessary to allow LLVM to better output
 // optimised codegen for `to_bits`, `PartialEq` and `Ord`.
 #[repr(C, align(8))]
