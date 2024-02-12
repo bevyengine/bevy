@@ -15,6 +15,12 @@
     utils::E,
 }
 
+#ifdef PREPASS_PIPELINE
+#import bevy_pbr::prepass_io::FragmentOutput
+#else
+#import bevy_pbr::forward_io::FragmentOutput
+#endif
+
 #ifdef ENVIRONMENT_MAP
 #import bevy_pbr::environment_map
 #endif
@@ -575,4 +581,22 @@ fn main_pass_post_lighting_processing(
     output_color = premultiply_alpha(pbr_input.material.flags, output_color);
 #endif
     return output_color;
+}
+
+fn apply_lighting_and_postprocessing(pbr_input: pbr_types::PbrInput) -> FragmentOutput {
+    var out: FragmentOutput;
+
+#ifdef PREPASS_PIPELINE
+    // in deferred mode we can't modify anything after that, as lighting is run in a separate fullscreen shader.
+    out = deferred_output(in, pbr_input);
+#else
+    // apply lighting
+    out.color = apply_pbr_lighting(pbr_input);
+
+    // apply in-shader post processing (fog, alpha-premultiply, and also tonemapping, debanding if the camera is non-hdr)
+    // note this does not include fullscreen postprocessing effects like bloom.
+    out.color = main_pass_post_lighting_processing(pbr_input, out.color);
+#endif  // PREPASS_PIPELINE
+
+    return out;
 }

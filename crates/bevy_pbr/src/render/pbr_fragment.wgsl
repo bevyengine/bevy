@@ -56,8 +56,7 @@ fn pbr_input_from_vertex_output(
     return pbr_input;
 }
 
-// Prepare a full PbrInput by sampling all textures to resolve
-// the material members
+// Prepares a `PbrInput` by sampling portions of `StandardMaterial`.
 fn pbr_input_from_standard_material(
     in: VertexOutput,
     is_front: bool,
@@ -66,7 +65,11 @@ fn pbr_input_from_standard_material(
 
     var pbr_input: pbr_types::PbrInput = pbr_input_from_vertex_output(in, is_front, double_sided);
     pbr_input.material.flags = pbr_bindings::material.flags;
+
+#ifndef PBR_EXCLUDE_STANDARD_MATERIAL_BASE_COLOR
     pbr_input.material.base_color *= pbr_bindings::material.base_color;
+#endif  // PBR_EXCLUDE_STANDARD_MATERIAL_BASE_COLOR
+
     pbr_input.material.deferred_lighting_pass_id = pbr_bindings::material.deferred_lighting_pass_id;
 
     // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
@@ -75,6 +78,7 @@ fn pbr_input_from_standard_material(
 #ifdef VERTEX_UVS
     var uv = in.uv;
 
+#ifndef PBR_EXCLUDE_DEPTH_MAP
 #ifdef VERTEX_TANGENTS
     if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_DEPTH_MAP_BIT) != 0u) {
         let V = pbr_input.V;
@@ -94,11 +98,16 @@ fn pbr_input_from_standard_material(
             -Vt,
         );
     }
-#endif // VERTEX_TANGENTS
+#endif  // VERTEX_TANGENTS
+#endif  // PBR_EXCLUDE_DEPTH_MAP
 
-    if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u) {
+#ifndef PBR_EXCLUDE_STANDARD_MATERIAL_BASE_COLOR
+    if ((pbr_bindings::material.flags &
+            pbr_types::STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u) {
         pbr_input.material.base_color *= textureSampleBias(pbr_bindings::base_color_texture, pbr_bindings::base_color_sampler, uv, view.mip_bias);
     }
+#endif  // PBR_EXCLUDE_STANDARD_MATERIAL_BASE_COLOR
+
 #endif // VERTEX_UVS
 
     pbr_input.material.flags = pbr_bindings::material.flags;
@@ -113,15 +122,18 @@ fn pbr_input_from_standard_material(
 
         // emissive
         // TODO use .a for exposure compensation in HDR
+#ifndef PBR_EXCLUDE_STANDARD_MATERIAL_EMISSIVE
         var emissive: vec4<f32> = pbr_bindings::material.emissive;
 #ifdef VERTEX_UVS
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_EMISSIVE_TEXTURE_BIT) != 0u) {
             emissive = vec4<f32>(emissive.rgb * textureSampleBias(pbr_bindings::emissive_texture, pbr_bindings::emissive_sampler, uv, view.mip_bias).rgb, 1.0);
         }
-#endif
+#endif  // VERTEX_UVS
         pbr_input.material.emissive = emissive;
+#endif  // PBR_EXCLUDE_STANDARD_MATERIAL_EMISSIVE
 
         // metallic and perceptual roughness
+#ifndef PBR_EXCLUDE_STANDARD_MATERIAL_METALLIC_ROUGHNESS
         var metallic: f32 = pbr_bindings::material.metallic;
         var perceptual_roughness: f32 = pbr_bindings::material.perceptual_roughness;
         let roughness = lighting::perceptualRoughnessToRoughness(perceptual_roughness);
@@ -132,30 +144,36 @@ fn pbr_input_from_standard_material(
             metallic *= metallic_roughness.b;
             perceptual_roughness *= metallic_roughness.g;
         }
-#endif
+#endif  // VERTEX_UVS
         pbr_input.material.metallic = metallic;
         pbr_input.material.perceptual_roughness = perceptual_roughness;
+#endif  // PBR_EXCLUDE_STANDARD_MATERIAL_METALLIC_ROUGHNESS
 
+#ifndef PBR_EXCLUDE_STANDARD_MATERIAL_TRANSMISSION_SPECULAR
         var specular_transmission: f32 = pbr_bindings::material.specular_transmission;
 #ifdef PBR_TRANSMISSION_TEXTURES_SUPPORTED
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_SPECULAR_TRANSMISSION_TEXTURE_BIT) != 0u) {
             specular_transmission *= textureSample(pbr_bindings::specular_transmission_texture, pbr_bindings::specular_transmission_sampler, uv).r;
         }
-#endif
+#endif  // PBR_TRANSMISSION_TEXTURES_SUPPORTED
         pbr_input.material.specular_transmission = specular_transmission;
+#endif  // PBR_EXCLUDE_STANDARD_MATERIAL_TRANSMISSION_SPECULAR
 
+#ifndef PBR_EXCLUDE_STANDARD_MATERIAL_TRANSMISSION_THICKNESS
         var thickness: f32 = pbr_bindings::material.thickness;
 #ifdef PBR_TRANSMISSION_TEXTURES_SUPPORTED
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_THICKNESS_TEXTURE_BIT) != 0u) {
             thickness *= textureSample(pbr_bindings::thickness_texture, pbr_bindings::thickness_sampler, uv).g;
         }
-#endif
+#endif  // PBR_TRANSMISSION_TEXTURES_SUPPORTED
         // scale thickness, accounting for non-uniform scaling (e.g. a “squished” mesh)
         thickness *= length(
             (transpose(mesh[in.instance_index].model) * vec4(pbr_input.N, 0.0)).xyz
         );
         pbr_input.material.thickness = thickness;
+#endif  // PBR_EXCLUDE_STANDARD_MATERIAL_TRANSMISSION_THICKNESS
 
+#ifndef PBR_EXCLUDE_STANDARD_MATERIAL_TRANSMISSION_DIFFUSE
         var diffuse_transmission = pbr_bindings::material.diffuse_transmission;
 #ifdef PBR_TRANSMISSION_TEXTURES_SUPPORTED
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_DIFFUSE_TRANSMISSION_TEXTURE_BIT) != 0u) {
@@ -163,14 +181,17 @@ fn pbr_input_from_standard_material(
         }
 #endif
         pbr_input.material.diffuse_transmission = diffuse_transmission;
+#endif  // PBR_EXCLUDE_STANDARD_MATERIAL_TRANSMISSION_DIFFUSE
 
+#ifndef PBR_EXCLUDE_STANDARD_MATERIAL_OCCLUSION
         var diffuse_occlusion: vec3<f32> = vec3(1.0);
         var specular_occlusion: f32 = 1.0;
 #ifdef VERTEX_UVS
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_OCCLUSION_TEXTURE_BIT) != 0u) {
             diffuse_occlusion = vec3(textureSampleBias(pbr_bindings::occlusion_texture, pbr_bindings::occlusion_sampler, uv, view.mip_bias).r);
         }
-#endif
+#endif  // PBR_EXCLUDE_STANDARD_MATERIAL_OCCLUSION
+
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
         let ssao = textureLoad(screen_space_ambient_occlusion_texture, vec2<i32>(in.position.xy), 0i).r;
         let ssao_multibounce = gtao_multibounce(ssao, pbr_input.material.base_color.rgb);
@@ -181,8 +202,10 @@ fn pbr_input_from_standard_material(
 #endif
         pbr_input.diffuse_occlusion = diffuse_occlusion;
         pbr_input.specular_occlusion = specular_occlusion;
+#endif  // PBR_EXCLUDE_STANDARD_MATERIAL_OCCLUSION
 
         // N (normal vector)
+#ifndef PBR_EXCLUDE_STANDARD_MATERIAL_NORMAL_MAP
 #ifndef LOAD_PREPASS_NORMALS
         pbr_input.N = pbr_functions::apply_normal_mapping(
             pbr_bindings::material.flags,
@@ -199,14 +222,17 @@ fn pbr_input_from_standard_material(
 #endif
             view.mip_bias,
         );
-#endif
+#endif  // LOAD_PREPASS_NORMALS
+#endif  // PBR_EXCLUDE_STANDARD_MATERIAL_NORMAL_MAP
 
+#ifndef PBR_EXCLUDE_STANDARD_MATERIAL_LIGHTMAP
 #ifdef LIGHTMAP
         pbr_input.lightmap_light = lightmap(
             in.uv_b,
             pbr_bindings::material.lightmap_exposure,
             in.instance_index);
-#endif
+#endif  // LIGHTMAP
+#endif  // PBR_EXCLUDE_STANDARD_MATERIAL_LIGHTMAP
     }
 
     return pbr_input;

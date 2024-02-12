@@ -577,6 +577,27 @@ bitflags::bitflags! {
         const NONE                       = 0;
         const UNINITIALIZED              = 0xFFFF;
     }
+
+    /// Parts of the standard material that can be excluded.
+    ///
+    /// This is useful when populating custom extended materials, to allow the
+    /// use of some of the built-in texture sampling logic while overriding
+    /// other parts.
+    ///
+    /// Each flag corresponds to a shader `#define` with the flag name prefixed
+    /// with `PBR_EXCLUDE_STANDARD_MATERIAL_`.
+    pub struct StandardMaterialExclusions: u32 {
+        const BASE_COLOR                = 1 << 0;
+        const EMISSIVE                  = 1 << 1;
+        const METALLIC_ROUGHNESS        = 1 << 2;
+        const TRANSMISSION_SPECULAR     = 1 << 3;
+        const TRANSMISSION_THICKNESS    = 1 << 4;
+        const TRANSMISSION_DIFFUSE      = 1 << 5;
+        const OCCLUSION                 = 1 << 6;
+        const NORMAL_MAP                = 1 << 7;
+        const DEPTH_MAP                 = 1 << 8;
+        const LIGHTMAP                  = 1 << 9;
+    }
 }
 
 impl StandardMaterialFlags {
@@ -842,5 +863,25 @@ impl Material for StandardMaterial {
             depth_stencil.bias.constant = key.bind_group_data.depth_bias;
         }
         Ok(())
+    }
+}
+
+/// Adds shader definitions to exclude parts of the standard material that
+/// aren't needed.
+///
+/// This is intended to help the common [`crate::ExtendedMaterial`] workflow in
+/// which portions of [`StandardMaterial`] are overridden.
+pub fn exclude_standard_material_features(
+    descriptor: &mut RenderPipelineDescriptor,
+    exclusions: StandardMaterialExclusions,
+) {
+    let Some(ref mut fragment_state) = descriptor.fragment else {
+        return;
+    };
+
+    for (bit_name, _) in exclusions.iter_names() {
+        fragment_state
+            .shader_defs
+            .push(format!("PBR_EXCLUDE_STANDARD_MATERIAL_{}", bit_name).into())
     }
 }
