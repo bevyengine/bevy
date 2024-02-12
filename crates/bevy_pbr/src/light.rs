@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::prelude::*;
 use bevy_math::{
     AspectRatio, Mat4, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles,
@@ -16,7 +17,7 @@ use bevy_render::{
     view::{InheritedVisibility, RenderLayers, ViewVisibility, VisibleEntities},
 };
 use bevy_transform::components::{GlobalTransform, Transform};
-use bevy_utils::{tracing::warn, EntityHashMap};
+use bevy_utils::tracing::warn;
 
 use crate::*;
 
@@ -390,7 +391,7 @@ impl From<CascadeShadowConfigBuilder> for CascadeShadowConfig {
 #[reflect(Component)]
 pub struct Cascades {
     /// Map from a view to the configuration of each of its [`Cascade`]s.
-    pub(crate) cascades: EntityHashMap<Entity, Vec<Cascade>>,
+    pub(crate) cascades: EntityHashMap<Vec<Cascade>>,
 }
 
 #[derive(Clone, Debug, Default, Reflect)]

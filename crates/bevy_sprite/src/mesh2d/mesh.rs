@@ -3,6 +3,7 @@ use bevy_asset::{load_internal_asset, AssetId, Handle};
 
 use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
     prelude::*,
     query::ROQueryItem,
@@ -30,7 +31,6 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::EntityHashMap;
 
 use crate::Material2dBindGroupId;
 
@@ -192,7 +192,7 @@ pub struct RenderMesh2dInstance {
 }
 
 #[derive(Default, Resource, Deref, DerefMut)]
-pub struct RenderMesh2dInstances(EntityHashMap<Entity, RenderMesh2dInstance>);
+pub struct RenderMesh2dInstances(EntityHashMap<RenderMesh2dInstance>);
 
 #[derive(Component)]
 pub struct Mesh2d;

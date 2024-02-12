@@ -10,6 +10,7 @@ use bevy_core_pipeline::{
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
 };
 use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
     prelude::*,
     query::ROQueryItem,
@@ -33,7 +34,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{tracing::error, EntityHashMap, Entry, HashMap, Hashed};
+use bevy_utils::{tracing::error, Entry, HashMap, Hashed};
 use std::cell::Cell;
 use thread_local::ThreadLocal;
 
@@ -254,7 +255,7 @@ pub struct RenderMeshInstance {
 }
 
 #[derive(Default, Resource, Deref, DerefMut)]
-pub struct RenderMeshInstances(EntityHashMap<Entity, RenderMeshInstance>);
+pub struct RenderMeshInstances(EntityHashMap<RenderMeshInstance>);
 
 pub fn extract_meshes(
     mut render_mesh_instances: ResMut<RenderMeshInstances>,

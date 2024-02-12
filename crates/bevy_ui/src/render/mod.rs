@@ -23,6 +23,7 @@ use crate::{
 
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, Rect, URect, UVec4, Vec2, Vec3, Vec4Swizzles};
 use bevy_render::{
@@ -41,7 +42,7 @@ use bevy_sprite::TextureAtlasLayout;
 #[cfg(feature = "bevy_text")]
 use bevy_text::{PositionedGlyph, Text, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{EntityHashMap, FloatOrd, HashMap};
+use bevy_utils::{FloatOrd, HashMap};
 use bytemuck::{Pod, Zeroable};
 use std::ops::Range;
 
@@ -147,7 +148,7 @@ pub struct ExtractedUiNode {
 
 #[derive(Resource, Default)]
 pub struct ExtractedUiNodes {
-    pub uinodes: EntityHashMap<Entity, ExtractedUiNode>,
+    pub uinodes: EntityHashMap<ExtractedUiNode>,
 }
 
 pub(crate) fn resolve_border_thickness(value: Val, parent_width: f32, viewport_size: Vec2) -> f32 {

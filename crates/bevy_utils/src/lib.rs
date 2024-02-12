@@ -265,124 +265,6 @@ impl<K: Hash + Eq + PartialEq + Clone, V> PreHashMapExt<K, V> for PreHashMap<K, 
     }
 }
 
-/// A [`BuildHasher`] that results in a [`EntityHasher`].
-#[derive(Default, Clone)]
-pub struct EntityHash;
-
-impl BuildHasher for EntityHash {
-    type Hasher = EntityHasher;
-
-    fn build_hasher(&self) -> Self::Hasher {
-        EntityHasher::default()
-    }
-}
-
-/// A very fast hash that is only designed to work on generational indices
-/// like `Entity`. It will panic if attempting to hash a type containing
-/// non-u64 fields.
-///
-/// This is heavily optimized for typical cases, where you have mostly live
-/// entities, and works particularly well for contiguous indices.
-///
-/// If you have an unusual case -- say all your indices are multiples of 256
-/// or most of the entities are dead generations -- then you might want also to
-/// try [`AHasher`] for a slower hash computation but fewer lookup conflicts.
-#[derive(Debug, Default)]
-pub struct EntityHasher {
-    hash: u64,
-}
-
-impl Hasher for EntityHasher {
-    #[inline]
-    fn finish(&self) -> u64 {
-        self.hash
-    }
-
-    fn write(&mut self, _bytes: &[u8]) {
-        panic!("can only hash u64 using EntityHasher");
-    }
-
-    #[inline]
-    fn write_u64(&mut self, bits: u64) {
-        // SwissTable (and thus `hashbrown`) cares about two things from the hash:
-        // - H1: low bits (masked by `2ⁿ-1`) to pick the slot in which to store the item
-        // - H2: high 7 bits are used to SIMD optimize hash collision probing
-        // For more see <https://abseil.io/about/design/swisstables#metadata-layout>
-
-        // This hash function assumes that the entity ids are still well-distributed,
-        // so for H1 leaves the entity id alone in the low bits so that id locality
-        // will also give memory locality for things spawned together.
-        // For H2, take advantage of the fact that while multiplication doesn't
-        // spread entropy to the low bits, it's incredibly good at spreading it
-        // upward, which is exactly where we need it the most.
-
-        // While this does include the generation in the output, it doesn't do so
-        // *usefully*.  H1 won't care until you have over 3 billion entities in
-        // the table, and H2 won't care until something hits generation 33 million.
-        // Thus the comment suggesting that this is best for live entities,
-        // where there won't be generation conflicts where it would matter.
-
-        // The high 32 bits of this are ⅟φ for Fibonacci hashing.  That works
-        // particularly well for hashing for the same reason as described in
-        // <https://extremelearning.com.au/unreasonable-effectiveness-of-quasirandom-sequences/>
-        // It loses no information because it has a modular inverse.
-        // (Specifically, `0x144c_bc89_u32 * 0x9e37_79b9_u32 == 1`.)
-        //
-        // The low 32 bits make that part of the just product a pass-through.
-        const UPPER_PHI: u64 = 0x9e37_79b9_0000_0001;
-
-        // This is `(MAGIC * index + generation) << 32 + index`, in a single instruction.
-        self.hash = bits.wrapping_mul(UPPER_PHI);
-    }
-}
-
-/// A [`HashMap`] pre-configured to use [`EntityHash`] hashing.
-/// Iteration order only depends on the order of insertions and deletions.
-pub type EntityHashMap<K, V> = hashbrown::HashMap<K, V, EntityHash>;
-
-/// A [`HashSet`] pre-configured to use [`EntityHash`] hashing.
-/// Iteration order only depends on the order of insertions and deletions.
-pub type EntityHashSet<T> = hashbrown::HashSet<T, EntityHash>;
-
-/// A specialized hashmap type with Key of [`TypeId`]
-/// Iteration order only depends on the order of insertions and deletions.
-pub type TypeIdMap<V> = hashbrown::HashMap<TypeId, V, NoOpTypeIdHash>;
-
-/// [`BuildHasher`] for [`TypeId`]s.
-#[derive(Default)]
-pub struct NoOpTypeIdHash;
-
-impl BuildHasher for NoOpTypeIdHash {
-    type Hasher = NoOpTypeIdHasher;
-
-    fn build_hasher(&self) -> Self::Hasher {
-        NoOpTypeIdHasher(0)
-    }
-}
-
-#[doc(hidden)]
-pub struct NoOpTypeIdHasher(u64);
-
-// TypeId already contains a high-quality hash, so skip re-hashing that hash.
-impl std::hash::Hasher for NoOpTypeIdHasher {
-    fn finish(&self) -> u64 {
-        self.0
-    }
-
-    fn write(&mut self, bytes: &[u8]) {
-        // This will never be called: TypeId always just calls write_u64 once!
-        // This is a known trick and unlikely to change, but isn't officially guaranteed.
-        // Don't break applications (slower fallback, just check in test):
-        self.0 = bytes.iter().fold(self.0, |hash, b| {
-            hash.rotate_left(8).wrapping_add(*b as u64)
-        });
-    }
-
-    fn write_u64(&mut self, i: u64) {
-        self.0 = i;
-    }
-}
-
 /// A type which calls a function when dropped.
 /// This can be used to ensure that cleanup code is run even in case of a panic.
 ///
@@ -438,6 +320,45 @@ impl<F: FnOnce()> Drop for OnDrop<F> {
     }
 }
 
+/// A specialized hashmap type with Key of [`TypeId`]
+/// Iteration order only depends on the order of insertions and deletions.
+pub type TypeIdMap<V> = hashbrown::HashMap<TypeId, V, NoOpTypeIdHash>;
+
+/// [`BuildHasher`] for [`TypeId`]s.
+#[derive(Default)]
+pub struct NoOpTypeIdHash;
+
+impl BuildHasher for NoOpTypeIdHash {
+    type Hasher = NoOpTypeIdHasher;
+
+    fn build_hasher(&self) -> Self::Hasher {
+        NoOpTypeIdHasher(0)
+    }
+}
+#[doc(hidden)]
+#[derive(Default)]
+pub struct NoOpTypeIdHasher(pub u64);
+
+// TypeId already contains a high-quality hash, so skip re-hashing that hash.
+impl std::hash::Hasher for NoOpTypeIdHasher {
+    fn finish(&self) -> u64 {
+        self.0
+    }
+
+    fn write(&mut self, bytes: &[u8]) {
+        // This will never be called: TypeId always just calls write_u64 once!
+        // This is a known trick and unlikely to change, but isn't officially guaranteed.
+        // Don't break applications (slower fallback, just check in test):
+        self.0 = bytes.iter().fold(self.0, |hash, b| {
+            hash.rotate_left(8).wrapping_add(*b as u64)
+        });
+    }
+
+    fn write_u64(&mut self, i: u64) {
+        self.0 = i;
+    }
+}
+
 /// Calls the [`tracing::info!`] macro on a value.
 pub fn info<T: Debug>(data: T) {
     tracing::info!("{:?}", data);
@@ -478,7 +399,6 @@ mod tests {
     use static_assertions::assert_impl_all;
 
     // Check that the HashMaps are Clone if the key/values are Clone
-    assert_impl_all!(EntityHashMap::<u64, usize>: Clone);
     assert_impl_all!(PreHashMap::<u64, usize>: Clone);
 
     #[test]
