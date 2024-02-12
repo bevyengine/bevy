@@ -85,11 +85,10 @@ impl ConeMeshBuilder {
             indices.extend_from_slice(&[0, j + 1, j]);
         }
 
-        indices.extend(&[0, positions.len() as u32 - 1, positions.len() as u32 - 2]);
+        let index_offset = positions.len() as u32;
+        indices.extend(&[0, index_offset - 1, index_offset - 2]);
 
         // Base
-        let index_offset = positions.len() as u32;
-
         for i in 0..self.resolution {
             let theta = i as f32 * step_theta;
             let (sin, cos) = theta.sin_cos();
