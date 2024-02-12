@@ -3,6 +3,7 @@
 use crate as bevy_ecs;
 use crate::system::{Local, Res, ResMut, Resource, SystemParam};
 pub use bevy_ecs_macros::Event;
+use bevy_ecs_macros::SystemSet;
 use bevy_utils::detailed_trace;
 use std::ops::{Deref, DerefMut};
 use std::{
@@ -13,6 +14,7 @@ use std::{
     marker::PhantomData,
     slice::Iter,
 };
+
 /// A type that can be stored in an [`Events<E>`] resource
 /// You can conveniently access events using the [`EventReader`] and [`EventWriter`] system parameter.
 ///
@@ -33,6 +35,7 @@ pub struct EventId<E: Event> {
 }
 
 impl<E: Event> Copy for EventId<E> {}
+
 impl<E: Event> Clone for EventId<E> {
     fn clone(&self) -> Self {
         *self
@@ -556,7 +559,46 @@ impl<'w, E: Event> EventWriter<'w, E> {
 }
 
 /// Stores the state for an [`EventReader`].
+///
 /// Access to the [`Events<E>`] resource is required to read any incoming events.
+///
+/// In almost all cases, you should just use an [`EventReader`],
+/// which will automatically manage the state for you.
+///
+/// However, this type can be useful if you need to manually track events,
+/// such as when you're attempting to send and receive events of the same type in the same system.
+///
+/// # Example
+///
+/// ```
+/// use bevy_ecs::prelude::*;
+/// use bevy_ecs::event::{Event, Events, ManualEventReader};
+///
+/// #[derive(Event, Clone, Debug)]
+/// struct MyEvent;
+///
+/// /// A system that both sends and receives events using a [`Local`] [`ManualEventReader`].
+/// fn send_and_receive_manual_event_reader(
+///     // The `Local` `SystemParam` stores state inside the system itself, rather than in the world.
+///     // `ManualEventReader<T>` is the internal state of `EventReader<T>`, which tracks which events have been seen.
+///     mut local_event_reader: Local<ManualEventReader<MyEvent>>,
+///     // We can access the `Events` resource mutably, allowing us to both read and write its contents.
+///     mut events: ResMut<Events<MyEvent>>,
+/// ) {
+///     // We must collect the events to resend, because we can't mutate events while we're iterating over the events.
+///     let mut events_to_resend = Vec::new();
+///
+///     for event in local_event_reader.read(&events) {
+///          events_to_resend.push(event.clone());
+///     }
+///
+///     for event in events_to_resend {
+///         events.send(MyEvent);
+///     }
+/// }
+///
+/// # bevy_ecs::system::assert_is_system(send_and_receive_manual_event_reader);
+/// ```
 #[derive(Debug)]
 pub struct ManualEventReader<E: Event> {
     last_event_count: usize,
@@ -751,22 +793,33 @@ impl<'a, E: Event> ExactSizeIterator for EventIteratorWithId<'a, E> {
 #[derive(Resource, Default)]
 pub struct EventUpdateSignal(bool);
 
-/// A system that queues a call to [`Events::update`].
-pub fn event_queue_update_system(signal: Option<ResMut<EventUpdateSignal>>) {
+#[doc(hidden)]
+#[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct EventUpdates;
+
+/// Signals the [`event_update_system`] to run after `FixedUpdate` systems.
+pub fn signal_event_update_system(signal: Option<ResMut<EventUpdateSignal>>) {
     if let Some(mut s) = signal {
         s.0 = true;
     }
 }
 
+/// Resets the `EventUpdateSignal`
+pub fn reset_event_update_signal_system(signal: Option<ResMut<EventUpdateSignal>>) {
+    if let Some(mut s) = signal {
+        s.0 = false;
+    }
+}
+
 /// A system that calls [`Events::update`].
 pub fn event_update_system<T: Event>(
-    signal: Option<ResMut<EventUpdateSignal>>,
+    update_signal: Option<Res<EventUpdateSignal>>,
     mut events: ResMut<Events<T>>,
 ) {
-    if let Some(mut s) = signal {
+    if let Some(signal) = update_signal {
         // If we haven't got a signal to update the events, but we *could* get such a signal
         // return early and update the events later.
-        if !std::mem::replace(&mut s.0, false) {
+        if !signal.0 {
             return;
         }
     }

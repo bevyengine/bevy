@@ -1,5 +1,6 @@
 use super::GlobalTransform;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
+use bevy_math::primitives::Direction3d;
 use bevy_math::{Affine3A, Mat3, Mat4, Quat, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_reflect::Reflect;
@@ -185,55 +186,58 @@ impl Transform {
 
     /// Get the unit vector in the local `X` direction.
     #[inline]
-    pub fn local_x(&self) -> Vec3 {
-        self.rotation * Vec3::X
+    pub fn local_x(&self) -> Direction3d {
+        // Direction3d::new(x) panics if x is of invalid length, but quat * unit vector is length 1
+        Direction3d::new(self.rotation * Vec3::X).unwrap()
     }
 
     /// Equivalent to [`-local_x()`][Transform::local_x()]
     #[inline]
-    pub fn left(&self) -> Vec3 {
+    pub fn left(&self) -> Direction3d {
         -self.local_x()
     }
 
     /// Equivalent to [`local_x()`][Transform::local_x()]
     #[inline]
-    pub fn right(&self) -> Vec3 {
+    pub fn right(&self) -> Direction3d {
         self.local_x()
     }
 
     /// Get the unit vector in the local `Y` direction.
     #[inline]
-    pub fn local_y(&self) -> Vec3 {
-        self.rotation * Vec3::Y
+    pub fn local_y(&self) -> Direction3d {
+        // Direction3d::new(x) panics if x is of invalid length, but quat * unit vector is length 1
+        Direction3d::new(self.rotation * Vec3::Y).unwrap()
     }
 
     /// Equivalent to [`local_y()`][Transform::local_y]
     #[inline]
-    pub fn up(&self) -> Vec3 {
+    pub fn up(&self) -> Direction3d {
         self.local_y()
     }
 
     /// Equivalent to [`-local_y()`][Transform::local_y]
     #[inline]
-    pub fn down(&self) -> Vec3 {
+    pub fn down(&self) -> Direction3d {
         -self.local_y()
     }
 
     /// Get the unit vector in the local `Z` direction.
     #[inline]
-    pub fn local_z(&self) -> Vec3 {
-        self.rotation * Vec3::Z
+    pub fn local_z(&self) -> Direction3d {
+        // Direction3d::new(x) panics if x is of invalid length, but quat * unit vector is length 1
+        Direction3d::new(self.rotation * Vec3::Z).unwrap()
     }
 
     /// Equivalent to [`-local_z()`][Transform::local_z]
     #[inline]
-    pub fn forward(&self) -> Vec3 {
+    pub fn forward(&self) -> Direction3d {
         -self.local_z()
     }
 
     /// Equivalent to [`local_z()`][Transform::local_z]
     #[inline]
-    pub fn back(&self) -> Vec3 {
+    pub fn back(&self) -> Direction3d {
         self.local_z()
     }
 

@@ -6,7 +6,7 @@ use bevy::{
     reflect::TypePath,
     render::{
         mesh::{MeshVertexBufferLayout, PrimitiveTopology},
-        render_asset::RenderAssetPersistencePolicy,
+        render_asset::RenderAssetUsages,
         render_resource::{
             AsBindGroup, PolygonMode, RenderPipelineDescriptor, ShaderRef,
             SpecializedMeshPipelineError,
@@ -87,8 +87,8 @@ impl Material for LineMaterial {
 
 /// A list of lines with a start and end position
 #[derive(Debug, Clone)]
-pub struct LineList {
-    pub lines: Vec<(Vec3, Vec3)>,
+struct LineList {
+    lines: Vec<(Vec3, Vec3)>,
 }
 
 impl From<LineList> for Mesh {
@@ -99,7 +99,7 @@ impl From<LineList> for Mesh {
             // This tells wgpu that the positions are list of lines
             // where every pair is a start and end point
             PrimitiveTopology::LineList,
-            RenderAssetPersistencePolicy::Unload,
+            RenderAssetUsages::RENDER_WORLD,
         )
         // Add the vertices positions as an attribute
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vertices)
@@ -108,8 +108,8 @@ impl From<LineList> for Mesh {
 
 /// A list of points that will have a line drawn between each consecutive points
 #[derive(Debug, Clone)]
-pub struct LineStrip {
-    pub points: Vec<Vec3>,
+struct LineStrip {
+    points: Vec<Vec3>,
 }
 
 impl From<LineStrip> for Mesh {
@@ -118,7 +118,7 @@ impl From<LineStrip> for Mesh {
             // This tells wgpu that the positions are a list of points
             // where a line will be drawn between each consecutive point
             PrimitiveTopology::LineStrip,
-            RenderAssetPersistencePolicy::Unload,
+            RenderAssetUsages::RENDER_WORLD,
         )
         // Add the point positions as an attribute
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, line.points)

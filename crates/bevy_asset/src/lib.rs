@@ -1,7 +1,11 @@
+// FIXME(3492): remove once docs are ready
+#![allow(missing_docs)]
+
 pub mod io;
 pub mod meta;
 pub mod processor;
 pub mod saver;
+pub mod transformer;
 
 pub mod prelude {
     #[doc(hidden)]
@@ -218,7 +222,8 @@ impl Plugin for AssetPlugin {
                 UpdateAssets,
                 TrackAssets.after(handle_internal_asset_events),
             )
-            .add_systems(UpdateAssets, handle_internal_asset_events);
+            .add_systems(UpdateAssets, handle_internal_asset_events)
+            .register_type::<AssetPath>();
 
         let mut order = app.world.resource_mut::<MainScheduleOrder>();
         order.insert_after(First, UpdateAssets);
@@ -381,7 +386,10 @@ impl AssetApp for App {
             .add_event::<AssetLoadFailedEvent<A>>()
             .register_type::<Handle<A>>()
             .register_type::<AssetId<A>>()
-            .add_systems(AssetEvents, Assets::<A>::asset_events)
+            .add_systems(
+                AssetEvents,
+                Assets::<A>::asset_events.run_if(Assets::<A>::asset_events_condition),
+            )
             .add_systems(UpdateAssets, Assets::<A>::track_assets.in_set(TrackAssets))
     }
 

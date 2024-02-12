@@ -5,6 +5,7 @@ use bevy_core_pipeline::{
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::SRes, SystemParamItem},
@@ -29,7 +30,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
-use bevy_utils::{EntityHashMap, FloatOrd, HashMap, HashSet};
+use bevy_utils::{FloatOrd, HashMap, HashSet};
 use std::hash::Hash;
 use std::marker::PhantomData;
 
@@ -180,7 +181,7 @@ where
 }
 
 #[derive(Resource, Deref, DerefMut)]
-pub struct RenderMaterial2dInstances<M: Material2d>(EntityHashMap<Entity, AssetId<M>>);
+pub struct RenderMaterial2dInstances<M: Material2d>(EntityHashMap<AssetId<M>>);
 
 impl<M: Material2d> Default for RenderMaterial2dInstances<M> {
     fn default() -> Self {
@@ -330,14 +331,14 @@ impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P>
         SRes<RenderMaterials2d<M>>,
         SRes<RenderMaterial2dInstances<M>>,
     );
-    type ViewData = ();
-    type ItemData = ();
+    type ViewQuery = ();
+    type ItemQuery = ();
 
     #[inline]
     fn render<'w>(
         item: &P,
         _view: (),
-        _item_query: (),
+        _item_query: Option<()>,
         (materials, material_instances): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {

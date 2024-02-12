@@ -111,7 +111,7 @@ struct ClusterOffsetsAndCounts {
 };
 #endif
 
-struct ReflectionProbe {
+struct LightProbe {
     // This is stored as the transpose in order to save space in this structure.
     // It'll be transposed in the `environment_map_light` function.
     inverse_transpose_transform: mat3x4<f32>,
@@ -121,8 +121,10 @@ struct ReflectionProbe {
 
 struct LightProbes {
     // This must match `MAX_VIEW_REFLECTION_PROBES` on the Rust side.
-    reflection_probes: array<ReflectionProbe, 8u>,
+    reflection_probes: array<LightProbe, 8u>,
+    irradiance_volumes: array<LightProbe, 8u>,
     reflection_probe_count: i32,
+    irradiance_volume_count: i32,
     // The index of the view environment map cubemap binding, or -1 if there's
     // no such cubemap.
     view_cubemap_index: i32,

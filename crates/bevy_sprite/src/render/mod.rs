@@ -9,6 +9,7 @@ use bevy_core_pipeline::{
     core_2d::Transparent2d,
     tonemapping::{DebandDither, Tonemapping},
 };
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem, SystemState},
@@ -36,7 +37,7 @@ use bevy_render::{
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{EntityHashMap, FloatOrd, HashMap};
+use bevy_utils::{FloatOrd, HashMap};
 use bytemuck::{Pod, Zeroable};
 use fixedbitset::FixedBitSet;
 
@@ -312,7 +313,7 @@ pub struct ExtractedSprite {
 
 #[derive(Resource, Default)]
 pub struct ExtractedSprites {
-    pub sprites: EntityHashMap<Entity, ExtractedSprite>,
+    pub sprites: EntityHashMap<ExtractedSprite>,
 }
 
 #[derive(Resource, Default)]
@@ -361,7 +362,19 @@ pub fn extract_sprites(
                     .map(|e| (commands.spawn_empty().id(), e)),
             );
         } else {
-            let rect = sheet.and_then(|s| s.texture_rect(&texture_atlases));
+            let atlas_rect = sheet.and_then(|s| s.texture_rect(&texture_atlases));
+            let rect = match (atlas_rect, sprite.rect) {
+                (None, None) => None,
+                (None, Some(sprite_rect)) => Some(sprite_rect),
+                (Some(atlas_rect), None) => Some(atlas_rect),
+                (Some(atlas_rect), Some(mut sprite_rect)) => {
+                    sprite_rect.min += atlas_rect.min;
+                    sprite_rect.max += atlas_rect.min;
+
+                    Some(sprite_rect)
+                }
+            };
+
             // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
             extracted_sprites.sprites.insert(
                 entity,
@@ -734,13 +747,13 @@ pub type DrawSprite = (
 pub struct SetSpriteViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteViewBindGroup<I> {
     type Param = SRes<SpriteMeta>;
-    type ViewData = Read<ViewUniformOffset>;
-    type ItemData = ();
+    type ViewQuery = Read<ViewUniformOffset>;
+    type ItemQuery = ();
 
     fn render<'w>(
         _item: &P,
         view_uniform: &'_ ViewUniformOffset,
-        _entity: (),
+        _entity: Option<()>,
         sprite_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -755,17 +768,20 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteViewBindGroup<I
 pub struct SetSpriteTextureBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGroup<I> {
     type Param = SRes<ImageBindGroups>;
-    type ViewData = ();
-    type ItemData = Read<SpriteBatch>;
+    type ViewQuery = ();
+    type ItemQuery = Read<SpriteBatch>;
 
     fn render<'w>(
         _item: &P,
         _view: (),
-        batch: &'_ SpriteBatch,
+        batch: Option<&'_ SpriteBatch>,
         image_bind_groups: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let image_bind_groups = image_bind_groups.into_inner();
+        let Some(batch) = batch else {
+            return RenderCommandResult::Failure;
+        };
 
         pass.set_bind_group(
             I,
@@ -782,17 +798,21 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGrou
 pub struct DrawSpriteBatch;
 impl<P: PhaseItem> RenderCommand<P> for DrawSpriteBatch {
     type Param = SRes<SpriteMeta>;
-    type ViewData = ();
-    type ItemData = Read<SpriteBatch>;
+    type ViewQuery = ();
+    type ItemQuery = Read<SpriteBatch>;
 
     fn render<'w>(
         _item: &P,
         _view: (),
-        batch: &'_ SpriteBatch,
+        batch: Option<&'_ SpriteBatch>,
         sprite_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let sprite_meta = sprite_meta.into_inner();
+        let Some(batch) = batch else {
+            return RenderCommandResult::Failure;
+        };
+
         pass.set_index_buffer(
             sprite_meta.sprite_index_buffer.buffer().unwrap().slice(..),
             0,

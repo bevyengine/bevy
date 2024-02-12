@@ -1,9 +1,12 @@
+//! Test rendering of many gizmos.
+
 use std::f32::consts::TAU;
 
 use bevy::{
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
     window::{PresentMode, WindowResolution},
+    winit::{UpdateMode, WinitSettings},
 };
 
 const SYSTEM_COUNT: u32 = 10;
@@ -22,6 +25,10 @@ fn main() {
         }),
         FrameTimeDiagnosticsPlugin,
     ))
+    .insert_resource(WinitSettings {
+        focused_mode: UpdateMode::Continuous,
+        unfocused_mode: UpdateMode::Continuous,
+    })
     .insert_resource(Config {
         line_count: 50_000,
         fancy: false,

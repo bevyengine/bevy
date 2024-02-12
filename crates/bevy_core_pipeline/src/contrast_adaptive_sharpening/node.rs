@@ -63,7 +63,9 @@ impl Node for CASNode {
             return Ok(());
         };
 
-        let pipeline = pipeline_cache.get_render_pipeline(pipeline.0).unwrap();
+        let Some(pipeline) = pipeline_cache.get_render_pipeline(pipeline.0) else {
+            return Ok(());
+        };
 
         let view_target = target.post_process_write();
         let source = view_target.source;

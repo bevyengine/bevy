@@ -48,30 +48,26 @@ fn setup(
         ..default()
     });
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Cube { size: 1.0 }),
+        mesh: meshes.add(Cuboid::default()),
         material: material.clone(),
         transform: Transform::from_xyz(0.0, 0.0, 1.0),
         ..default()
     });
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Cube { size: 1.0 }),
+        mesh: meshes.add(Cuboid::default()),
         material: material.clone(),
         transform: Transform::from_xyz(0.0, -1.0, 0.0),
         ..default()
     });
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Cube { size: 1.0 }),
+        mesh: meshes.add(Cuboid::default()),
         material,
         transform: Transform::from_xyz(1.0, 0.0, 0.0),
         ..default()
     });
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(shape::UVSphere {
-                radius: 0.4,
-                sectors: 72,
-                stacks: 36,
-            }),
+            mesh: meshes.add(Sphere::new(0.4).mesh().uv(72, 36)),
             material: materials.add(StandardMaterial {
                 base_color: Color::rgb(0.4, 0.4, 0.4),
                 perceptual_roughness: 1.0,

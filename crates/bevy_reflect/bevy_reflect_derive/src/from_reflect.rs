@@ -2,7 +2,7 @@ use crate::container_attributes::REFLECT_DEFAULT;
 use crate::derive_data::ReflectEnum;
 use crate::enum_utility::{get_variant_constructors, EnumVariantConstructors};
 use crate::field_attributes::DefaultBehavior;
-use crate::utility::{extend_where_clause, ident_or_index, WhereClauseOptions};
+use crate::utility::{ident_or_index, WhereClauseOptions};
 use crate::{ReflectMeta, ReflectStruct};
 use bevy_macro_utils::fq_std::{FQAny, FQClone, FQDefault, FQOption};
 use proc_macro2::Span;
@@ -23,8 +23,7 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> proc_macro2::TokenStream {
     let type_path = meta.type_path();
     let bevy_reflect_path = meta.bevy_reflect_path();
     let (impl_generics, ty_generics, where_clause) = type_path.generics().split_for_impl();
-    let where_from_reflect_clause =
-        extend_where_clause(where_clause, &WhereClauseOptions::new_value(meta));
+    let where_from_reflect_clause = WhereClauseOptions::new(meta).extend_where_clause(where_clause);
     quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #type_path #ty_generics #where_from_reflect_clause  {
             fn from_reflect(reflect: &dyn #bevy_reflect_path::Reflect) -> #FQOption<Self> {
@@ -50,22 +49,9 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
     let (impl_generics, ty_generics, where_clause) = enum_path.generics().split_for_impl();
 
     // Add FromReflect bound for each active field
-    let where_from_reflect_clause = extend_where_clause(
-        where_clause,
-        &WhereClauseOptions::new_with_bounds(
-            reflect_enum.meta(),
-            reflect_enum.active_fields(),
-            reflect_enum.ignored_fields(),
-            |field| match &field.attrs.default {
-                DefaultBehavior::Default => Some(quote!(#FQDefault)),
-                _ => None,
-            },
-            |field| match &field.attrs.default {
-                DefaultBehavior::Func(_) => None,
-                _ => Some(quote!(#FQDefault)),
-            },
-        ),
-    );
+    let where_from_reflect_clause = reflect_enum
+        .where_clause_options()
+        .extend_where_clause(where_clause);
 
     quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #enum_path #ty_generics #where_from_reflect_clause  {
@@ -112,7 +98,7 @@ fn impl_struct_internal(
     let MemberValuePair(active_members, active_values) =
         get_active_fields(reflect_struct, &ref_struct, &ref_struct_type, is_tuple);
 
-    let is_defaultable = reflect_struct.meta().traits().contains(REFLECT_DEFAULT);
+    let is_defaultable = reflect_struct.meta().attrs().contains(REFLECT_DEFAULT);
     let constructor = if is_defaultable {
         quote!(
             let mut __this: Self = #FQDefault::default();
@@ -144,28 +130,9 @@ fn impl_struct_internal(
         .split_for_impl();
 
     // Add FromReflect bound for each active field
-    let where_from_reflect_clause = extend_where_clause(
-        where_clause,
-        &WhereClauseOptions::new_with_bounds(
-            reflect_struct.meta(),
-            reflect_struct.active_fields(),
-            reflect_struct.ignored_fields(),
-            |field| match &field.attrs.default {
-                DefaultBehavior::Default => Some(quote!(#FQDefault)),
-                _ => None,
-            },
-            |field| {
-                if is_defaultable {
-                    None
-                } else {
-                    match &field.attrs.default {
-                        DefaultBehavior::Func(_) => None,
-                        _ => Some(quote!(#FQDefault)),
-                    }
-                }
-            },
-        ),
-    );
+    let where_from_reflect_clause = reflect_struct
+        .where_clause_options()
+        .extend_where_clause(where_clause);
 
     quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #struct_path #ty_generics #where_from_reflect_clause {

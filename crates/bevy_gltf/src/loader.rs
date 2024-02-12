@@ -4,6 +4,7 @@ use bevy_asset::{
 };
 use bevy_core::Name;
 use bevy_core_pipeline::prelude::Camera3dBundle;
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{entity::Entity, world::World};
 use bevy_hierarchy::{BuildWorldChildren, WorldChildBuilder};
 use bevy_log::{error, warn};
@@ -22,7 +23,7 @@ use bevy_render::{
     },
     prelude::SpatialBundle,
     primitives::Aabb,
-    render_asset::RenderAssetPersistencePolicy,
+    render_asset::RenderAssetUsages,
     render_resource::{Face, PrimitiveTopology},
     texture::{
         CompressedImageFormats, Image, ImageAddressMode, ImageFilterMode, ImageLoaderSettings,
@@ -33,7 +34,7 @@ use bevy_scene::Scene;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::IoTaskPool;
 use bevy_transform::components::Transform;
-use bevy_utils::{EntityHashMap, HashMap, HashSet};
+use bevy_utils::{HashMap, HashSet};
 use gltf::{
     accessor::Iter,
     mesh::{util::ReadIndices, Mode},
@@ -393,7 +394,7 @@ async fn load_gltf<'a, 'b, 'c>(
             let primitive_label = primitive_label(&gltf_mesh, &primitive);
             let primitive_topology = get_primitive_topology(primitive.mode())?;
 
-            let mut mesh = Mesh::new(primitive_topology, RenderAssetPersistencePolicy::Keep);
+            let mut mesh = Mesh::new(primitive_topology, RenderAssetUsages::default());
 
             // Read vertex attributes
             for (semantic, accessor) in primitive.attributes() {
@@ -423,11 +424,11 @@ async fn load_gltf<'a, 'b, 'c>(
             // Read vertex indices
             let reader = primitive.reader(|buffer| Some(buffer_data[buffer.index()].as_slice()));
             if let Some(indices) = reader.read_indices() {
-                mesh.set_indices(Some(match indices {
+                mesh.insert_indices(match indices {
                     ReadIndices::U8(is) => Indices::U16(is.map(|x| x as u16).collect()),
                     ReadIndices::U16(is) => Indices::U16(is.collect()),
                     ReadIndices::U32(is) => Indices::U32(is.collect()),
-                }));
+                });
             };
 
             {
@@ -437,7 +438,7 @@ async fn load_gltf<'a, 'b, 'c>(
                     let morph_target_image = MorphTargetImage::new(
                         morph_target_reader.map(PrimitiveMorphAttributesIter),
                         mesh.count_vertices(),
-                        RenderAssetPersistencePolicy::Keep,
+                        RenderAssetUsages::default(),
                     )?;
                     let handle =
                         load_context.add_labeled_asset(morph_targets_label, morph_target_image.0);
@@ -733,18 +734,24 @@ async fn load_image<'a, 'b>(
 ) -> Result<ImageOrPath, GltfError> {
     let is_srgb = !linear_textures.contains(&gltf_texture.index());
     let sampler_descriptor = texture_sampler(&gltf_texture);
+    #[cfg(all(debug_assertions, feature = "dds"))]
+    let name = gltf_texture
+        .name()
+        .map_or("Unknown GLTF Texture".to_string(), |s| s.to_string());
     match gltf_texture.source().source() {
         gltf::image::Source::View { view, mime_type } => {
             let start = view.offset();
             let end = view.offset() + view.length();
             let buffer = &buffer_data[view.buffer().index()][start..end];
             let image = Image::from_buffer(
+                #[cfg(all(debug_assertions, feature = "dds"))]
+                name,
                 buffer,
                 ImageType::MimeType(mime_type),
                 supported_compressed_formats,
                 is_srgb,
                 ImageSampler::Descriptor(sampler_descriptor),
-                RenderAssetPersistencePolicy::Keep,
+                RenderAssetUsages::default(),
             )?;
             Ok(ImageOrPath::Image {
                 image,
@@ -761,12 +768,14 @@ async fn load_image<'a, 'b>(
                 let image_type = ImageType::MimeType(data_uri.mime_type);
                 Ok(ImageOrPath::Image {
                     image: Image::from_buffer(
+                        #[cfg(all(debug_assertions, feature = "dds"))]
+                        name,
                         &bytes,
                         mime_type.map(ImageType::MimeType).unwrap_or(image_type),
                         supported_compressed_formats,
                         is_srgb,
                         ImageSampler::Descriptor(sampler_descriptor),
-                        RenderAssetPersistencePolicy::Keep,
+                        RenderAssetUsages::default(),
                     )?,
                     label: texture_label(&gltf_texture),
                 })
@@ -922,7 +931,7 @@ fn load_node(
     load_context: &mut LoadContext,
     settings: &GltfLoaderSettings,
     node_index_to_entity_map: &mut HashMap<usize, Entity>,
-    entity_to_skin_index_map: &mut EntityHashMap<Entity, usize>,
+    entity_to_skin_index_map: &mut EntityHashMap<usize>,
     active_camera_found: &mut bool,
     parent_transform: &Transform,
 ) -> Result<(), GltfError> {
