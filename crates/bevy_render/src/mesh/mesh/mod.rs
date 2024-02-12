@@ -666,6 +666,8 @@ impl Mesh {
                     i1.extend(i2.iter().map(|i| *i as u32 + index_offset as u32));
                 }
             }
+        }
+    }
 
     /// Transforms the vertex positions, normals, and tangents of the mesh by the given [`Transform`].
     pub fn transformed_by(mut self, transform: Transform) -> Self {
