@@ -3,8 +3,8 @@ use crate::{self as bevy_reflect, ReflectFromPtr, ReflectFromReflect, ReflectOwn
 use crate::{
     impl_type_path, map_apply, map_partial_eq, Array, ArrayInfo, ArrayIter, DynamicEnum,
     DynamicMap, Enum, EnumInfo, FromReflect, FromType, GetTypeRegistration, List, ListInfo,
-    ListIter, Map, MapInfo, MapIter, Reflect, ReflectDeserialize, ReflectMut, ReflectRef,
-    ReflectSerialize, TupleVariantInfo, TypeInfo, TypePath, TypeRegistration, Typed,
+    ListIter, Map, MapInfo, MapIter, Reflect, ReflectDeserialize, ReflectKind, ReflectMut,
+    ReflectRef, ReflectSerialize, TupleVariantInfo, TypeInfo, TypePath, TypeRegistration, Typed,
     UnitVariantInfo, UnnamedField, ValueInfo, VariantFieldIter, VariantInfo, VariantType,
 };
 
@@ -317,6 +317,10 @@ macro_rules! impl_reflect_for_veclike {
                 Ok(())
             }
 
+            fn reflect_kind(&self) -> ReflectKind {
+                ReflectKind::List
+            }
+
             fn reflect_ref(&self) -> ReflectRef {
                 ReflectRef::List(self)
             }
@@ -535,6 +539,10 @@ macro_rules! impl_reflect_for_hashmap {
                 Ok(())
             }
 
+            fn reflect_kind(&self) -> ReflectKind {
+                ReflectKind::Map
+            }
+
             fn reflect_ref(&self) -> ReflectRef {
                 ReflectRef::Map(self)
             }
@@ -685,6 +693,11 @@ impl<T: Reflect + TypePath, const N: usize> Reflect for [T; N] {
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
         *self = value.take()?;
         Ok(())
+    }
+
+    #[inline]
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::Array
     }
 
     #[inline]
@@ -935,6 +948,10 @@ impl<T: FromReflect + TypePath> Reflect for Option<T> {
         Ok(())
     }
 
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::Enum
+    }
+
     fn reflect_ref(&self) -> ReflectRef {
         ReflectRef::Enum(self)
     }
@@ -1078,6 +1095,10 @@ impl Reflect for Cow<'static, str> {
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
         *self = value.take()?;
         Ok(())
+    }
+
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::Value
     }
 
     fn reflect_ref(&self) -> ReflectRef {
@@ -1255,6 +1276,10 @@ impl<T: FromReflect + Clone + TypePath> Reflect for Cow<'static, [T]> {
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
         *self = value.take()?;
         Ok(())
+    }
+
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::List
     }
 
     fn reflect_ref(&self) -> ReflectRef {
@@ -1454,6 +1479,10 @@ impl Reflect for &'static Path {
         Ok(())
     }
 
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::Value
+    }
+
     fn reflect_ref(&self) -> ReflectRef {
         ReflectRef::Value(self)
     }
@@ -1549,6 +1578,10 @@ impl Reflect for Cow<'static, Path> {
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
         *self = value.take()?;
         Ok(())
+    }
+
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::Value
     }
 
     fn reflect_ref(&self) -> ReflectRef {

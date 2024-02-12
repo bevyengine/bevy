@@ -34,7 +34,7 @@ jpeg = ["bevy_render/jpeg"]
 bmp = ["bevy_render/bmp"]
 webp = ["bevy_render/webp"]
 basis-universal = ["bevy_render/basis-universal"]
-dds = ["bevy_render/dds"]
+dds = ["bevy_render/dds", "bevy_core_pipeline/dds", "bevy_gltf/dds"]
 pnm = ["bevy_render/pnm"]
 ktx2 = ["bevy_render/ktx2"]
 # For ktx2 supercompression
@@ -75,9 +75,9 @@ serialize = [
   "bevy_ui?/serialize",
 ]
 multi-threaded = [
-  "bevy_asset/multi-threaded",
+  "bevy_asset?/multi-threaded",
   "bevy_ecs/multi-threaded",
-  "bevy_render/multi-threaded",
+  "bevy_render?/multi-threaded",
   "bevy_tasks/multi-threaded",
 ]
 async-io = ["bevy_tasks/async-io"]

@@ -2,7 +2,6 @@
 
 use bevy::{
     core_pipeline::tonemapping::Tonemapping,
-    math::vec2,
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
     reflect::TypePath,
@@ -109,7 +108,7 @@ fn setup_basic_scene(
     // plane
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(shape::Plane::from_size(50.0)),
+            mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
             material: materials.add(Color::rgb(0.1, 0.2, 0.1)),
             ..default()
         },
@@ -122,7 +121,7 @@ fn setup_basic_scene(
         ..default()
     });
 
-    let cube_mesh = meshes.add(shape::Cube { size: 0.25 });
+    let cube_mesh = meshes.add(Cuboid::new(0.25, 0.25, 0.25));
     for i in 0..5 {
         commands.spawn((
             PbrBundle {
@@ -136,10 +135,7 @@ fn setup_basic_scene(
     }
 
     // spheres
-    let sphere_mesh = meshes.add(shape::UVSphere {
-        radius: 0.125,
-        ..default()
-    });
+    let sphere_mesh = meshes.add(Sphere::new(0.125).mesh().uv(32, 18));
     for i in 0..6 {
         let j = i % 3;
         let s_val = if i < 3 { 0.0 } else { 0.2 };
@@ -228,10 +224,7 @@ fn setup_color_gradient_scene(
 
     commands.spawn((
         MaterialMeshBundle {
-            mesh: meshes.add(shape::Quad {
-                size: vec2(1.0, 1.0) * 0.7,
-                flip: false,
-            }),
+            mesh: meshes.add(Rectangle::new(0.7, 0.7)),
             material: materials.add(ColorGradientMaterial {}),
             transform,
             visibility: Visibility::Hidden,
@@ -253,10 +246,7 @@ fn setup_image_viewer_scene(
     // exr/hdr viewer (exr requires enabling bevy feature)
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(shape::Quad {
-                size: vec2(1.0, 1.0),
-                flip: false,
-            }),
+            mesh: meshes.add(Rectangle::default()),
             material: materials.add(StandardMaterial {
                 base_color_texture: None,
                 unlit: true,
@@ -353,7 +343,7 @@ fn resize_image(
 
             let size = image_changed.size_f32().normalize_or_zero() * 1.4;
             // Resize Mesh
-            let quad = Mesh::from(shape::Quad::new(size));
+            let quad = Mesh::from(Rectangle::from_size(size));
             meshes.insert(mesh_h, quad);
         }
     }

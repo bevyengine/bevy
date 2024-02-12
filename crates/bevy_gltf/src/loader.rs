@@ -423,11 +423,11 @@ async fn load_gltf<'a, 'b, 'c>(
             // Read vertex indices
             let reader = primitive.reader(|buffer| Some(buffer_data[buffer.index()].as_slice()));
             if let Some(indices) = reader.read_indices() {
-                mesh.set_indices(Some(match indices {
+                mesh.insert_indices(match indices {
                     ReadIndices::U8(is) => Indices::U16(is.map(|x| x as u16).collect()),
                     ReadIndices::U16(is) => Indices::U16(is.collect()),
                     ReadIndices::U32(is) => Indices::U32(is.collect()),
-                }));
+                });
             };
 
             {
@@ -733,12 +733,18 @@ async fn load_image<'a, 'b>(
 ) -> Result<ImageOrPath, GltfError> {
     let is_srgb = !linear_textures.contains(&gltf_texture.index());
     let sampler_descriptor = texture_sampler(&gltf_texture);
+    #[cfg(all(debug_assertions, feature = "dds"))]
+    let name = gltf_texture
+        .name()
+        .map_or("Unknown GLTF Texture".to_string(), |s| s.to_string());
     match gltf_texture.source().source() {
         gltf::image::Source::View { view, mime_type } => {
             let start = view.offset();
             let end = view.offset() + view.length();
             let buffer = &buffer_data[view.buffer().index()][start..end];
             let image = Image::from_buffer(
+                #[cfg(all(debug_assertions, feature = "dds"))]
+                name,
                 buffer,
                 ImageType::MimeType(mime_type),
                 supported_compressed_formats,
@@ -761,6 +767,8 @@ async fn load_image<'a, 'b>(
                 let image_type = ImageType::MimeType(data_uri.mime_type);
                 Ok(ImageOrPath::Image {
                     image: Image::from_buffer(
+                        #[cfg(all(debug_assertions, feature = "dds"))]
+                        name,
                         &bytes,
                         mime_type.map(ImageType::MimeType).unwrap_or(image_type),
                         supported_compressed_formats,

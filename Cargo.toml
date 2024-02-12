@@ -11,7 +11,7 @@ license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.74.0"
+rust-version = "1.76.0"
 
 [workspace]
 exclude = [
@@ -39,6 +39,11 @@ redundant_else = "warn"
 match_same_arms = "warn"
 semicolon_if_nothing_returned = "warn"
 map_flatten = "warn"
+
+ptr_as_ptr = "warn"
+ptr_cast_constness = "warn"
+#TODO(rust 1.77): enable `ref_as_ptr`
+# ref_as_ptr = "warn"
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "warn"
@@ -932,6 +937,17 @@ doc-scrape-examples = true
 [package.metadata.example.wireframe]
 name = "Wireframe"
 description = "Showcases wireframe rendering"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
+name = "irradiance_volumes"
+path = "examples/3d/irradiance_volumes.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.irradiance_volumes]
+name = "Irradiance Volumes"
+description = "Demonstrates irradiance volumes"
 category = "3D Rendering"
 wasm = false
 
@@ -2468,6 +2484,17 @@ doc-scrape-examples = true
 [package.metadata.example.ui_texture_atlas]
 name = "UI Texture Atlas"
 description = "Illustrates how to use TextureAtlases in UI"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "ui_texture_slice"
+path = "examples/ui/ui_texture_slice.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ui_texture_slice]
+name = "UI Texture Slice"
+description = "Illustrates how to use 9 Slicing in UI"
 category = "UI (User Interface)"
 wasm = true
 

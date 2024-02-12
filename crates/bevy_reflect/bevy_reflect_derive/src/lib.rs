@@ -614,9 +614,10 @@ pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
 /// impl_type_path!(::foreign_crate::foo::bar::Baz);
 /// ```
 ///
-/// On a generic type:
+/// On a generic type (this can also accept trait bounds):
 /// ```ignore (bevy_reflect is not accessible from this crate)
 /// impl_type_path!(::foreign_crate::Foo<T>);
+/// impl_type_path!(::foreign_crate::Goo<T: ?Sized>);
 /// ```
 ///
 /// On a primitive (note this will not compile for a non-primitive type):
