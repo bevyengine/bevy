@@ -189,6 +189,58 @@ impl<'a> From<&'a EntityMut<'_>> for EntityRef<'a> {
     }
 }
 
+impl<'a> TryFrom<FilteredEntityRef<'a>> for EntityRef<'a> {
+    type Error = ();
+
+    fn try_from(value: FilteredEntityRef<'a>) -> Result<Self, Self::Error> {
+        if value.access.has_read_all() {
+            // SAFETY: check above guarantees read-only access to all components of the entity.
+            Ok(unsafe { EntityRef::new(value.entity) })
+        } else {
+            Err(())
+        }
+    }
+}
+
+impl<'a> TryFrom<&'a FilteredEntityRef<'_>> for EntityRef<'a> {
+    type Error = ();
+
+    fn try_from(value: &'a FilteredEntityRef<'_>) -> Result<Self, Self::Error> {
+        if value.access.has_read_all() {
+            // SAFETY: check above guarantees read-only access to all components of the entity.
+            Ok(unsafe { EntityRef::new(value.entity) })
+        } else {
+            Err(())
+        }
+    }
+}
+
+impl<'a> TryFrom<FilteredEntityMut<'a>> for EntityRef<'a> {
+    type Error = ();
+
+    fn try_from(value: FilteredEntityMut<'a>) -> Result<Self, Self::Error> {
+        if value.access.has_read_all() {
+            // SAFETY: check above guarantees read-only access to all components of the entity.
+            Ok(unsafe { EntityRef::new(value.entity) })
+        } else {
+            Err(())
+        }
+    }
+}
+
+impl<'a> TryFrom<&'a FilteredEntityMut<'_>> for EntityRef<'a> {
+    type Error = ();
+
+    fn try_from(value: &'a FilteredEntityMut<'_>) -> Result<Self, Self::Error> {
+        if value.access.has_read_all() {
+            // SAFETY: check above guarantees read-only access to all components of the entity.
+            Ok(unsafe { EntityRef::new(value.entity) })
+        } else {
+            Err(())
+        }
+    }
+}
+
 /// Provides mutable access to a single entity and all of its components.
 ///
 /// Contrast with [`EntityWorldMut`], which allows adding and removing components,
@@ -372,6 +424,32 @@ impl<'a> From<&'a mut EntityWorldMut<'_>> for EntityMut<'a> {
     fn from(value: &'a mut EntityWorldMut<'_>) -> Self {
         // SAFETY: `EntityWorldMut` guarantees exclusive access to the entire world.
         unsafe { EntityMut::new(value.as_unsafe_entity_cell()) }
+    }
+}
+
+impl<'a> TryFrom<FilteredEntityMut<'a>> for EntityMut<'a> {
+    type Error = ();
+
+    fn try_from(value: FilteredEntityMut<'a>) -> Result<Self, Self::Error> {
+        if value.access.has_read_all() && value.access.has_write_all() {
+            // SAFETY: check above guarantees exclusive access to all components of the entity.
+            Ok(unsafe { EntityMut::new(value.entity) })
+        } else {
+            Err(())
+        }
+    }
+}
+
+impl<'a> TryFrom<&'a FilteredEntityMut<'_>> for EntityMut<'a> {
+    type Error = ();
+
+    fn try_from(value: &'a FilteredEntityMut<'_>) -> Result<Self, Self::Error> {
+        if value.access.has_read_all() && value.access.has_write_all() {
+            // SAFETY: check above guarantees exclusive access to all components of the entity.
+            Ok(unsafe { EntityMut::new(value.entity) })
+        } else {
+            Err(())
+        }
     }
 }
 
