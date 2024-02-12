@@ -598,7 +598,7 @@ mod tests {
         assert_eq!(aabb.max, Vec3::new(4.5, -0.45, 4.5));
 
         let bounding_sphere = prism.bounding_sphere(translation, Quat::IDENTITY);
-        assert_eq!(bounding_sphere.center, translation);
-        assert_eq!(bounding_sphere.radius(), 2.8089144);
+        assert_eq!(bounding_sphere.center, Vec3::new(3.5, -1.25, 3.25));
+        assert_eq!(bounding_sphere.radius(), 1.789553);
     }
 }
