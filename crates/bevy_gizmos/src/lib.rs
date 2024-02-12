@@ -383,10 +383,13 @@ impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetLineGizmoBindGroup<I>
     fn render<'w>(
         _item: &P,
         _view: ROQueryItem<'w, Self::ViewQuery>,
-        uniform_index: ROQueryItem<'w, Self::ItemQuery>,
+        uniform_index: Option<ROQueryItem<'w, Self::ItemQuery>>,
         bind_group: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
+        let Some(uniform_index) = uniform_index else {
+            return RenderCommandResult::Failure;
+        };
         pass.set_bind_group(
             I,
             &bind_group.into_inner().bindgroup,
@@ -406,10 +409,13 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
     fn render<'w>(
         _item: &P,
         _view: ROQueryItem<'w, Self::ViewQuery>,
-        handle: ROQueryItem<'w, Self::ItemQuery>,
+        handle: Option<ROQueryItem<'w, Self::ItemQuery>>,
         line_gizmos: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
+        let Some(handle) = handle else {
+            return RenderCommandResult::Failure;
+        };
         let Some(line_gizmo) = line_gizmos.into_inner().get(handle) else {
             return RenderCommandResult::Failure;
         };
