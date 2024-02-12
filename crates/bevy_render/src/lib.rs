@@ -1,3 +1,6 @@
+// FIXME(3492): remove once docs are ready
+#![allow(missing_docs)]
+
 #[cfg(target_pointer_width = "16")]
 compile_error!("bevy_render cannot compile for a 16-bit platform.");
 
@@ -34,7 +37,7 @@ pub mod prelude {
             Projection,
         },
         color::Color,
-        mesh::{morph::MorphWeights, shape, Mesh},
+        mesh::{morph::MorphWeights, primitives::Meshable, shape, Mesh},
         render_resource::Shader,
         spatial_bundle::SpatialBundle,
         texture::{Image, ImagePlugin},
@@ -43,6 +46,8 @@ pub mod prelude {
     };
 }
 
+use bevy_ecs::schedule::ScheduleBuildSettings;
+use bevy_utils::prelude::default;
 pub use extract_param::Extract;
 
 use bevy_hierarchy::ValidParentCheckPlugin;
@@ -187,10 +192,11 @@ impl DerefMut for MainWorld {
     }
 }
 
-pub mod main_graph {
-    pub mod node {
-        pub const CAMERA_DRIVER: &str = "camera_driver";
-    }
+pub mod graph {
+    use crate::render_graph::RenderLabel;
+
+    #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
+    pub struct CameraDriverLabel;
 }
 
 #[derive(Resource)]
@@ -259,11 +265,12 @@ impl Plugin for RenderPlugin {
                             flags: settings.instance_flags,
                             gles_minor_version: settings.gles3_minor_version,
                         });
+
                         // SAFETY: Plugins should be set up on the main thread.
                         let surface = primary_window.map(|wrapper| unsafe {
                             let handle = wrapper.get_handle();
                             instance
-                                .create_surface(&handle)
+                                .create_surface(handle)
                                 .expect("Failed to create wgpu surface")
                         });
 
@@ -332,16 +339,6 @@ impl Plugin for RenderPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            INSTANCE_INDEX_SHADER_HANDLE,
-            "instance_index.wgsl",
-            Shader::from_wgsl_with_defs,
-            vec![
-                #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
-                "BASE_INSTANCE_WORKAROUND".into()
-            ]
-        );
         load_internal_asset!(app, MATHS_SHADER_HANDLE, "maths.wgsl", Shader::from_wgsl);
         if let Some(future_renderer_resources) =
             app.world.remove_resource::<FutureRendererResources>()
@@ -396,6 +393,12 @@ unsafe fn initialize_render_app(app: &mut App) {
     render_app.main_schedule_label = Render.intern();
 
     let mut extract_schedule = Schedule::new(ExtractSchedule);
+    // We skip applying any commands during the ExtractSchedule
+    // so commands can be applied on the render thread.
+    extract_schedule.set_build_settings(ScheduleBuildSettings {
+        auto_insert_apply_deferred: false,
+        ..default()
+    });
     extract_schedule.set_apply_final_deferred(false);
 
     render_app

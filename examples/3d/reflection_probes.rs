@@ -122,13 +122,7 @@ fn spawn_sphere(
     materials: &mut Assets<StandardMaterial>,
 ) {
     // Create a sphere mesh.
-    let sphere_mesh = meshes.add(
-        Mesh::try_from(shape::Icosphere {
-            radius: 1.0,
-            subdivisions: 7,
-        })
-        .unwrap(),
-    );
+    let sphere_mesh = meshes.add(Sphere::new(1.0).mesh().ico(7).unwrap());
 
     // Create a sphere.
     commands.spawn(PbrBundle {

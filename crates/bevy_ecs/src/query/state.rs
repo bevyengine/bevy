@@ -14,11 +14,11 @@ use crate::{
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::Span;
 use fixedbitset::FixedBitSet;
-use std::{any::TypeId, borrow::Borrow, fmt, mem::MaybeUninit};
+use std::{any::TypeId, borrow::Borrow, fmt, mem::MaybeUninit, ptr};
 
 use super::{
-    NopWorldQuery, QueryBuilder, QueryComponentError, QueryData, QueryEntityError, QueryFilter,
-    QueryManyIter, QuerySingleError, ROQueryItem,
+    NopWorldQuery, QueryBuilder, QueryData, QueryEntityError, QueryFilter, QueryManyIter,
+    QuerySingleError, ROQueryItem,
 };
 
 /// Provides scoped access to a [`World`] state according to a given [`QueryData`] and [`QueryFilter`].
@@ -93,7 +93,27 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     >(
         &self,
     ) -> &QueryState<NewD, NewF> {
-        &*(self as *const QueryState<D, F> as *const QueryState<NewD, NewF>)
+        &*ptr::from_ref(self).cast::<QueryState<NewD, NewF>>()
+    }
+
+    /// Returns the archetype components accessed by this query.
+    pub fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
+        &self.archetype_component_access
+    }
+
+    /// Returns the components accessed by this query.
+    pub fn component_access(&self) -> &FilteredAccess<ComponentId> {
+        &self.component_access
+    }
+
+    /// Returns the tables matched by this query.
+    pub fn matched_tables(&self) -> &[TableId] {
+        &self.matched_table_ids
+    }
+
+    /// Returns the archetypes matched by this query.
+    pub fn matched_archetypes(&self) -> &[ArchetypeId] {
+        &self.matched_archetype_ids
     }
 }
 
@@ -629,32 +649,37 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Returns a shared reference to the component `T` of the given [`Entity`].
     ///
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
+    #[deprecated(
+        since = "0.13.0",
+        note = "Please use `get` and select for the exact component based on the structure of the exact query as required."
+    )]
+    #[allow(deprecated)]
     #[inline]
     pub(crate) fn get_component<'w, T: Component>(
         &self,
         world: UnsafeWorldCell<'w>,
         entity: Entity,
-    ) -> Result<&'w T, QueryComponentError> {
+    ) -> Result<&'w T, super::QueryComponentError> {
         let entity_ref = world
             .get_entity(entity)
-            .ok_or(QueryComponentError::NoSuchEntity)?;
+            .ok_or(super::QueryComponentError::NoSuchEntity)?;
         let component_id = world
             .components()
             .get_id(TypeId::of::<T>())
-            .ok_or(QueryComponentError::MissingComponent)?;
+            .ok_or(super::QueryComponentError::MissingComponent)?;
         let archetype_component = entity_ref
             .archetype()
             .get_archetype_component_id(component_id)
-            .ok_or(QueryComponentError::MissingComponent)?;
+            .ok_or(super::QueryComponentError::MissingComponent)?;
         if self
             .archetype_component_access
             .has_read(archetype_component)
         {
             // SAFETY: `world` must have access to the component `T` for this entity,
             // since it was registered in `self`'s archetype component access set.
-            unsafe { entity_ref.get::<T>() }.ok_or(QueryComponentError::MissingComponent)
+            unsafe { entity_ref.get::<T>() }.ok_or(super::QueryComponentError::MissingComponent)
         } else {
-            Err(QueryComponentError::MissingReadAccess)
+            Err(super::QueryComponentError::MissingReadAccess)
         }
     }
 
@@ -663,6 +688,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// # Panics
     ///
     /// If given a nonexisting entity or mismatched component, this will panic.
+    #[deprecated(
+        since = "0.13.0",
+        note = "Please use `get` and select for the exact component based on the structure of the exact query as required."
+    )]
+    #[allow(deprecated)]
     #[inline]
     pub(crate) fn component<'w, T: Component>(
         &self,
@@ -688,6 +718,13 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// This function makes it possible to violate Rust's aliasing guarantees.
     /// You must make sure this call does not result in multiple mutable references to the same component.
+    ///
+    /// [`QueryComponentError`]: super::QueryComponentError
+    #[deprecated(
+        since = "0.13.0",
+        note = "Please use QueryState::get_unchecked_manual and select for the exact component based on the structure of the exact query as required."
+    )]
+    #[allow(deprecated)]
     #[inline]
     pub unsafe fn get_component_unchecked_mut<'w, T: Component>(
         &self,
@@ -695,18 +732,18 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         entity: Entity,
         last_run: Tick,
         this_run: Tick,
-    ) -> Result<Mut<'w, T>, QueryComponentError> {
+    ) -> Result<Mut<'w, T>, super::QueryComponentError> {
         let entity_ref = world
             .get_entity(entity)
-            .ok_or(QueryComponentError::NoSuchEntity)?;
+            .ok_or(super::QueryComponentError::NoSuchEntity)?;
         let component_id = world
             .components()
             .get_id(TypeId::of::<T>())
-            .ok_or(QueryComponentError::MissingComponent)?;
+            .ok_or(super::QueryComponentError::MissingComponent)?;
         let archetype_component = entity_ref
             .archetype()
             .get_archetype_component_id(component_id)
-            .ok_or(QueryComponentError::MissingComponent)?;
+            .ok_or(super::QueryComponentError::MissingComponent)?;
         if self
             .archetype_component_access
             .has_write(archetype_component)
@@ -715,9 +752,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             // mutable reference to this entity's component `T`.
             let result = unsafe { entity_ref.get_mut_using_ticks::<T>(last_run, this_run) };
 
-            result.ok_or(QueryComponentError::MissingComponent)
+            result.ok_or(super::QueryComponentError::MissingComponent)
         } else {
-            Err(QueryComponentError::MissingWriteAccess)
+            Err(super::QueryComponentError::MissingWriteAccess)
         }
     }
 
@@ -1150,6 +1187,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// This can only be called for read-only queries, see [`par_iter_mut`] for write-queries.
     ///
+    /// Note that you must use the `for_each` method to iterate over the
+    /// results, see [`par_iter_mut`] for an example.
+    ///
     /// [`par_iter_mut`]: Self::par_iter_mut
     #[inline]
     pub fn par_iter<'w, 's>(
@@ -1170,7 +1210,46 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// This can only be called for mutable queries, see [`par_iter`] for read-only-queries.
     ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    /// use bevy_ecs::query::QueryEntityError;
+    ///
+    /// #[derive(Component, PartialEq, Debug)]
+    /// struct A(usize);
+    ///
+    /// # bevy_tasks::ComputeTaskPool::get_or_init(|| bevy_tasks::TaskPool::new());
+    ///
+    /// let mut world = World::new();
+    ///
+    /// # let entities: Vec<Entity> = (0..3).map(|i| world.spawn(A(i)).id()).collect();
+    /// # let entities: [Entity; 3] = entities.try_into().unwrap();
+    ///
+    /// let mut query_state = world.query::<&mut A>();
+    ///
+    /// query_state.par_iter_mut(&mut world).for_each(|mut a| {
+    ///     a.0 += 5;
+    /// });
+    ///
+    /// # let component_values = query_state.get_many(&world, entities).unwrap();
+    ///
+    /// # assert_eq!(component_values, [&A(5), &A(6), &A(7)]);
+    ///
+    /// # let wrong_entity = Entity::from_raw(57);
+    /// # let invalid_entity = world.spawn_empty().id();
+    ///
+    /// # assert_eq!(query_state.get_many_mut(&mut world, [wrong_entity]).unwrap_err(), QueryEntityError::NoSuchEntity(wrong_entity));
+    /// # assert_eq!(query_state.get_many_mut(&mut world, [invalid_entity]).unwrap_err(), QueryEntityError::QueryDoesNotMatch(invalid_entity));
+    /// # assert_eq!(query_state.get_many_mut(&mut world, [entities[0], entities[0]]).unwrap_err(), QueryEntityError::AliasedMutability(entities[0]));
+    /// ```
+    ///
+    /// # Panics
+    /// The [`ComputeTaskPool`] is not initialized. If using this from a query that is being
+    /// initialized and run from the ECS scheduler, this should never panic.
+    ///
     /// [`par_iter`]: Self::par_iter
+    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
     pub fn par_iter_mut<'w, 's>(&'s mut self, world: &'w mut World) -> QueryParIter<'w, 's, D, F> {
         self.update_archetypes(world);

@@ -353,10 +353,10 @@ impl SceneSpawner {
                             child: entity,
                         }
                         .apply(world);
-
-                        world.send_event(SceneInstanceReady { parent });
                     }
                 }
+
+                world.send_event(SceneInstanceReady { parent });
             } else {
                 self.scenes_with_parent.push((instance_id, parent));
             }
@@ -437,15 +437,21 @@ pub fn scene_spawner_system(world: &mut World) {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use bevy_app::App;
+    use bevy_asset::{AssetPlugin, AssetServer};
     use bevy_ecs::component::Component;
     use bevy_ecs::entity::Entity;
+    use bevy_ecs::event::EventReader;
     use bevy_ecs::prelude::ReflectComponent;
     use bevy_ecs::query::With;
-    use bevy_ecs::{reflect::AppTypeRegistry, world::World};
-
-    use crate::DynamicSceneBuilder;
+    use bevy_ecs::reflect::AppTypeRegistry;
+    use bevy_ecs::system::{Commands, Res, ResMut, RunSystemOnce};
+    use bevy_ecs::world::World;
     use bevy_reflect::Reflect;
+
+    use crate::{DynamicScene, DynamicSceneBuilder, SceneInstanceReady, ScenePlugin, SceneSpawner};
+
+    use super::*;
 
     #[derive(Reflect, Component, Debug, PartialEq, Eq, Clone, Copy, Default)]
     #[reflect(Component)]
@@ -496,5 +502,52 @@ mod tests {
             .get_many(&world, [entity, new_entity])
             .unwrap();
         assert_eq!(old_a, new_a);
+    }
+
+    #[derive(Component, Reflect, Default)]
+    #[reflect(Component)]
+    struct ComponentA;
+
+    #[test]
+    fn event() {
+        let mut app = App::new();
+        app.add_plugins((AssetPlugin::default(), ScenePlugin));
+
+        app.register_type::<ComponentA>();
+        app.world.spawn(ComponentA);
+        app.world.spawn(ComponentA);
+
+        // Build scene.
+        let scene =
+            app.world
+                .run_system_once(|world: &World, asset_server: Res<'_, AssetServer>| {
+                    asset_server.add(DynamicScene::from_world(world))
+                });
+
+        // Spawn scene.
+        let scene_entity = app.world.run_system_once(
+            move |mut commands: Commands<'_, '_>, mut scene_spawner: ResMut<'_, SceneSpawner>| {
+                let scene_entity = commands.spawn_empty().id();
+                scene_spawner.spawn_dynamic_as_child(scene.clone(), scene_entity);
+                scene_entity
+            },
+        );
+
+        // Check for event arrival.
+        app.update();
+        app.world.run_system_once(
+            move |mut ev_scene: EventReader<'_, '_, SceneInstanceReady>| {
+                let mut events = ev_scene.read();
+
+                assert_eq!(
+                    events.next().expect("found no `SceneInstanceReady` event"),
+                    &SceneInstanceReady {
+                        parent: scene_entity
+                    },
+                    "`SceneInstanceReady` contains the wrong parent entity"
+                );
+                assert!(events.next().is_none(), "found more than one event");
+            },
+        );
     }
 }

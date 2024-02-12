@@ -361,7 +361,19 @@ pub fn extract_sprites(
                     .map(|e| (commands.spawn_empty().id(), e)),
             );
         } else {
-            let rect = sheet.and_then(|s| s.texture_rect(&texture_atlases));
+            let atlas_rect = sheet.and_then(|s| s.texture_rect(&texture_atlases));
+            let rect = match (atlas_rect, sprite.rect) {
+                (None, None) => None,
+                (None, Some(sprite_rect)) => Some(sprite_rect),
+                (Some(atlas_rect), None) => Some(atlas_rect),
+                (Some(atlas_rect), Some(mut sprite_rect)) => {
+                    sprite_rect.min += atlas_rect.min;
+                    sprite_rect.max += atlas_rect.min;
+
+                    Some(sprite_rect)
+                }
+            };
+
             // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
             extracted_sprites.sprites.insert(
                 entity,
@@ -740,7 +752,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteViewBindGroup<I
     fn render<'w>(
         _item: &P,
         view_uniform: &'_ ViewUniformOffset,
-        _entity: (),
+        _entity: Option<()>,
         sprite_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -761,11 +773,14 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGrou
     fn render<'w>(
         _item: &P,
         _view: (),
-        batch: &'_ SpriteBatch,
+        batch: Option<&'_ SpriteBatch>,
         image_bind_groups: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let image_bind_groups = image_bind_groups.into_inner();
+        let Some(batch) = batch else {
+            return RenderCommandResult::Failure;
+        };
 
         pass.set_bind_group(
             I,
@@ -788,11 +803,15 @@ impl<P: PhaseItem> RenderCommand<P> for DrawSpriteBatch {
     fn render<'w>(
         _item: &P,
         _view: (),
-        batch: &'_ SpriteBatch,
+        batch: Option<&'_ SpriteBatch>,
         sprite_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let sprite_meta = sprite_meta.into_inner();
+        let Some(batch) = batch else {
+            return RenderCommandResult::Failure;
+        };
+
         pass.set_index_buffer(
             sprite_meta.sprite_index_buffer.buffer().unwrap().slice(..),
             0,

@@ -12,7 +12,9 @@ readme = "README.md"
 [features]
 default = []
 # When enabled, provides Bevy-related reflection implementations
-bevy = ["glam", "smallvec", "bevy_math", "smol_str"]
+bevy = ["smallvec", "bevy_math", "smol_str"]
+glam = ["dep:glam"]
+bevy_math = ["glam", "dep:bevy_math"]
 smallvec = []
 # When enabled, allows documentation comments to be accessed via reflection
 documentation = ["bevy_reflect_derive/documentation"]
@@ -27,7 +29,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.12.0" }
 bevy_ptr = { path = "../bevy_ptr", version = "0.12.0" }
 
 # other
-erased-serde = "0.3"
+erased-serde = "0.4"
 downcast-rs = "1.2"
 thiserror = "1.0"
 serde = "1"
