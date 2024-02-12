@@ -1,17 +1,18 @@
 //! Implements a remote asset loader.
-//! An [AssetReader] is what the asset server uses to read the raw bytes of assets.
-//! This example also showcases how to use [AssetWriter].
+//! An [`AssetReader`] is what the asset server uses to read the raw bytes of assets.
+//! This example also showcases how to use [`AssetWriter`].
 //! Note that it won't work on wasm or Android because these platforms lack a default
 //! [`AssetWriter`] implementation for now, but it's possible to implement your own.
 
 use bevy::{
     asset::io::{
-        AssetReader, AssetReaderError, AssetSource, AssetSourceId, AssetWriter, PathStream, Reader,
+        AssetReader, AssetReaderError, AssetSource, AssetSourceId, AssetWriter, AssetWriterError,
+        PathStream, Reader,
     },
+    log::LogPlugin,
     prelude::*,
     utils::BoxedFuture,
 };
-use bevy_internal::{asset::io::AssetWriterError, log::LogPlugin};
 use futures_lite::AsyncRead;
 use std::{path::Path, sync::Arc};
 
