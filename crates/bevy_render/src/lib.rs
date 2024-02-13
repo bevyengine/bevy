@@ -85,6 +85,9 @@ use std::{
 #[derive(Default)]
 pub struct RenderPlugin {
     pub render_creation: RenderCreation,
+    /// If `true`, disables asynchronous pipeline compilation.
+    /// This has no effect on MacOS, wasm, or without the `multi_threaded` feature.
+    pub sync_pipelines: bool,
 }
 
 /// The labels of the default App rendering sets.
@@ -355,7 +358,7 @@ impl Plugin for RenderPlugin {
 
             render_app
                 .insert_resource(instance)
-                .insert_resource(PipelineCache::new(device.clone()))
+                .insert_resource(PipelineCache::new(device.clone(), self.sync_pipelines))
                 .insert_resource(device)
                 .insert_resource(queue)
                 .insert_resource(render_adapter)
