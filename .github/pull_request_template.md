@@ -26,6 +26,18 @@
   - If you want, you could even include a before/after comparison!
 - If the Changelog or Migration Guide adequately cover the changes, you can delete this section
 
+While a showcase should aim to be brief and digestible, you can use a toggleable section to save space on longer showcases:
+
+<details>
+  <summary>Click to view showcase</summary>
+
+
+```rust
+println!("My super cool code.");
+```
+
+</details>
+
 ## Changelog
 
 > This section is optional. If this was a trivial fix, or has no externally-visible impact, you can delete this section.
