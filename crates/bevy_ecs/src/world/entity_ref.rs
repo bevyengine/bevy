@@ -440,7 +440,7 @@ impl<'a> TryFrom<FilteredEntityMut<'a>> for EntityMut<'a> {
     }
 }
 
-impl<'a> TryFrom<&'a FilteredEntityMut<'_>> for EntityMut<'a> {
+impl<'a> TryFrom<&'a mut FilteredEntityMut<'_>> for EntityMut<'a> {
     type Error = ();
 
     fn try_from(value: &'a FilteredEntityMut<'_>) -> Result<Self, Self::Error> {
