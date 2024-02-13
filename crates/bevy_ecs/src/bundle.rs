@@ -290,7 +290,7 @@ impl BundleInfo {
     ///
     /// # Safety
     ///
-    /// Every ID in `component_ids` must be valid within the World that owns the BundleInfo,
+    /// Every ID in `component_ids` must be valid within the World that owns the `BundleInfo`,
     /// must have its storage initialized (i.e. columns created in tables, sparse set created),
     /// and must be in the same order as the source bundle type writes its components in.
     unsafe fn new(
