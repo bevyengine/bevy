@@ -161,17 +161,33 @@ fn main() {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
+
+    commands.spawn(TextBundle::from_section(
+        "This font was loaded\nfrom a CDN",
+        TextStyle {
+            // If this font exists on local disk, it will be used, else it will be downloaded
+            // from our CDN and then loaded.
+            font: asset_server.load("fonts/ProtestRevolution-Regular.ttf"),
+            font_size: 50.0,
+            ..default()
+        },
+    ));
+
     commands.spawn(
-        // Create a TextBundle that has a Text with a single section.
         TextBundle::from_section(
-            "hello\nbevy!",
+            "This font was lodaded\nfrom local disk",
             TextStyle {
-                // If this font exists on local disk, it will be used, else it will be downloaded
-                // from our CDN and then loaded.
-                font: asset_server.load("fonts/ProtestRevolution-Regular.ttf"),
+                // This font already exists, so nothing will be downloaded.
+                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 50.0,
                 ..default()
             },
-        ),
+        )
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(5.0),
+            right: Val::Px(5.0),
+            ..default()
+        }),
     );
 }
