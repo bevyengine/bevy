@@ -1,5 +1,6 @@
 use thiserror::Error;
 
+use crate::{ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiScale};
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     entity::Entity,
@@ -17,8 +18,6 @@ use bevy_utils::tracing::warn;
 use bevy_utils::{HashMap, HashSet};
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 use ui_surface::UiSurface;
-
-use crate::{ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiScale};
 
 mod convert;
 pub mod debug;
@@ -60,7 +59,7 @@ pub enum LayoutError {
     #[error("Invalid hierarchy")]
     InvalidHierarchy,
     #[error("Taffy error: {0}")]
-    TaffyError(#[from] taffy::error::TaffyError),
+    TaffyError(#[from] taffy::TaffyError),
 }
 
 #[derive(SystemParam)]
@@ -176,11 +175,11 @@ pub fn ui_layout_system(
 
     // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
     for entity in removed_components.removed_content_sizes.read() {
-        ui_surface.try_remove_measure(entity);
+        ui_surface.try_remove_node_context(entity);
     }
     for (entity, mut content_size) in &mut measure_query {
-        if let Some(measure_func) = content_size.measure_func.take() {
-            ui_surface.try_update_measure(entity, measure_func);
+        if let Some(measure) = content_size.measure.take() {
+            ui_surface.update_node_context(entity, measure);
         }
     }
 

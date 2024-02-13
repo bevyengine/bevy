@@ -3,8 +3,8 @@ use taffy::style_helpers;
 use crate::{
     AlignContent, AlignItems, AlignSelf, Display, FlexDirection, FlexWrap, GridAutoFlow,
     GridPlacement, GridTrack, GridTrackRepetition, JustifyContent, JustifyItems, JustifySelf,
-    MaxTrackSizingFunction, MinTrackSizingFunction, PositionType, RepeatedGridTrack, Style, UiRect,
-    Val,
+    MaxTrackSizingFunction, MinTrackSizingFunction, OverflowAxis, PositionType, RepeatedGridTrack,
+    Style, UiRect, Val,
 };
 
 use super::LayoutContext;
@@ -18,31 +18,31 @@ impl Val {
             Val::Auto => taffy::style::LengthPercentageAuto::Auto,
             Val::Percent(value) => taffy::style::LengthPercentageAuto::Percent(value / 100.),
             Val::Px(value) => {
-                taffy::style::LengthPercentageAuto::Points(context.scale_factor * value)
+                taffy::style::LengthPercentageAuto::Length(context.scale_factor * value)
             }
             Val::VMin(value) => {
-                taffy::style::LengthPercentageAuto::Points(context.min_size * value / 100.)
+                taffy::style::LengthPercentageAuto::Length(context.min_size * value / 100.)
             }
             Val::VMax(value) => {
-                taffy::style::LengthPercentageAuto::Points(context.max_size * value / 100.)
+                taffy::style::LengthPercentageAuto::Length(context.max_size * value / 100.)
             }
             Val::Vw(value) => {
-                taffy::style::LengthPercentageAuto::Points(context.physical_size.x * value / 100.)
+                taffy::style::LengthPercentageAuto::Length(context.physical_size.x * value / 100.)
             }
             Val::Vh(value) => {
-                taffy::style::LengthPercentageAuto::Points(context.physical_size.y * value / 100.)
+                taffy::style::LengthPercentageAuto::Length(context.physical_size.y * value / 100.)
             }
         }
     }
 
     fn into_length_percentage(self, context: &LayoutContext) -> taffy::style::LengthPercentage {
         match self.into_length_percentage_auto(context) {
-            taffy::style::LengthPercentageAuto::Auto => taffy::style::LengthPercentage::Points(0.0),
+            taffy::style::LengthPercentageAuto::Auto => taffy::style::LengthPercentage::Length(0.0),
             taffy::style::LengthPercentageAuto::Percent(value) => {
                 taffy::style::LengthPercentage::Percent(value)
             }
-            taffy::style::LengthPercentageAuto::Points(value) => {
-                taffy::style::LengthPercentage::Points(value)
+            taffy::style::LengthPercentageAuto::Length(value) => {
+                taffy::style::LengthPercentage::Length(value)
             }
         }
     }
@@ -66,6 +66,11 @@ impl UiRect {
 pub fn from_style(context: &LayoutContext, style: &Style) -> taffy::style::Style {
     taffy::style::Style {
         display: style.display.into(),
+        overflow: taffy::Point {
+            x: style.overflow.x.into(),
+            y: style.overflow.y.into(),
+        },
+        scrollbar_width: 0.0,
         position: style.position_type.into(),
         flex_direction: style.flex_direction.into(),
         flex_wrap: style.flex_wrap.into(),
@@ -75,7 +80,7 @@ pub fn from_style(context: &LayoutContext, style: &Style) -> taffy::style::Style
         justify_self: style.justify_self.into(),
         align_content: style.align_content.into(),
         justify_content: style.justify_content.into(),
-        inset: taffy::prelude::Rect {
+        inset: taffy::Rect {
             left: style.left.into_length_percentage_auto(context),
             right: style.right.into_length_percentage_auto(context),
             top: style.top.into_length_percentage_auto(context),
@@ -93,20 +98,20 @@ pub fn from_style(context: &LayoutContext, style: &Style) -> taffy::style::Style
         flex_grow: style.flex_grow,
         flex_shrink: style.flex_shrink,
         flex_basis: style.flex_basis.into_dimension(context),
-        size: taffy::prelude::Size {
+        size: taffy::Size {
             width: style.width.into_dimension(context),
             height: style.height.into_dimension(context),
         },
-        min_size: taffy::prelude::Size {
+        min_size: taffy::Size {
             width: style.min_width.into_dimension(context),
             height: style.min_height.into_dimension(context),
         },
-        max_size: taffy::prelude::Size {
+        max_size: taffy::Size {
             width: style.max_width.into_dimension(context),
             height: style.max_height.into_dimension(context),
         },
         aspect_ratio: style.aspect_ratio,
-        gap: taffy::prelude::Size {
+        gap: taffy::Size {
             width: style.column_gap.into_length_percentage(context),
             height: style.row_gap.into_length_percentage(context),
         },
@@ -232,6 +237,16 @@ impl From<Display> for taffy::style::Display {
             Display::Flex => taffy::style::Display::Flex,
             Display::Grid => taffy::style::Display::Grid,
             Display::None => taffy::style::Display::None,
+        }
+    }
+}
+
+impl From<OverflowAxis> for taffy::style::Overflow {
+    fn from(value: OverflowAxis) -> Self {
+        match value {
+            OverflowAxis::Visible => taffy::style::Overflow::Visible,
+            OverflowAxis::Clip => taffy::style::Overflow::Clip,
+            // TODO: Add OverflowAxis::Hidden to Bevy
         }
     }
 }
@@ -502,7 +517,7 @@ mod tests {
         );
         assert_eq!(
             taffy_style.inset.top,
-            taffy::style::LengthPercentageAuto::Points(12.)
+            taffy::style::LengthPercentageAuto::Length(12.)
         );
         assert_eq!(
             taffy_style.inset.bottom,
@@ -537,7 +552,7 @@ mod tests {
         );
         assert_eq!(
             taffy_style.margin.right,
-            taffy::style::LengthPercentageAuto::Points(10.)
+            taffy::style::LengthPercentageAuto::Length(10.)
         );
         assert_eq!(
             taffy_style.margin.top,
@@ -553,7 +568,7 @@ mod tests {
         );
         assert_eq!(
             taffy_style.padding.right,
-            taffy::style::LengthPercentage::Points(21.)
+            taffy::style::LengthPercentage::Length(21.)
         );
         assert_eq!(
             taffy_style.padding.top,
@@ -565,7 +580,7 @@ mod tests {
         );
         assert_eq!(
             taffy_style.border.left,
-            taffy::style::LengthPercentage::Points(14.)
+            taffy::style::LengthPercentage::Length(14.)
         );
         assert_eq!(
             taffy_style.border.right,
@@ -603,7 +618,7 @@ mod tests {
         assert_eq!(
             taffy_style.grid_auto_rows,
             vec![
-                sh::fit_content(taffy::style::LengthPercentage::Points(10.0)),
+                sh::fit_content(taffy::style::LengthPercentage::Length(10.0)),
                 sh::fit_content(taffy::style::LengthPercentage::Percent(0.25)),
                 sh::minmax(sh::points(0.0), sh::fr(2.0)),
             ]
@@ -627,17 +642,17 @@ mod tests {
         use taffy::style::LengthPercentage;
         let context = LayoutContext::new(2.0, bevy_math::Vec2::new(800., 600.));
         let cases = [
-            (Val::Auto, LengthPercentage::Points(0.)),
+            (Val::Auto, LengthPercentage::Length(0.)),
             (Val::Percent(1.), LengthPercentage::Percent(0.01)),
-            (Val::Px(1.), LengthPercentage::Points(2.)),
-            (Val::Vw(1.), LengthPercentage::Points(8.)),
-            (Val::Vh(1.), LengthPercentage::Points(6.)),
-            (Val::VMin(2.), LengthPercentage::Points(12.)),
-            (Val::VMax(2.), LengthPercentage::Points(16.)),
+            (Val::Px(1.), LengthPercentage::Length(2.)),
+            (Val::Vw(1.), LengthPercentage::Length(8.)),
+            (Val::Vh(1.), LengthPercentage::Length(6.)),
+            (Val::VMin(2.), LengthPercentage::Length(12.)),
+            (Val::VMax(2.), LengthPercentage::Length(16.)),
         ];
         for (val, length) in cases {
             assert!(match (val.into_length_percentage(&context), length) {
-                (LengthPercentage::Points(a), LengthPercentage::Points(b))
+                (LengthPercentage::Length(a), LengthPercentage::Length(b))
                 | (LengthPercentage::Percent(a), LengthPercentage::Percent(b)) =>
                     (a - b).abs() < 0.0001,
                 _ => false,
