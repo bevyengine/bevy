@@ -182,7 +182,7 @@ mod tests {
     }
 
     #[test]
-    fn test_regular_polygon() {
+    fn cone_mesh() {
         let mut mesh = Cone {
             radius: 0.5,
             height: 1.0,
