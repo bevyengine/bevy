@@ -48,8 +48,10 @@ impl ConeMeshBuilder {
     pub fn build(&self) -> Mesh {
         let half_height = self.cone.height / 2.0;
 
+        // `resolution` vertices for the base, `resolution` vertices for the bottom of the lateral surface,
+        // and one vertex for the tip.
         let num_vertices = self.resolution as usize * 2 + 1;
-        let num_indices = self.resolution as usize * 3;
+        let num_indices = self.resolution as usize * 6 - 6;
 
         let mut positions = Vec::with_capacity(num_vertices);
         let mut normals = Vec::with_capacity(num_vertices);
@@ -72,7 +74,7 @@ impl ConeMeshBuilder {
 
         // Lateral surface, i.e. the side of the cone
         let step_theta = std::f32::consts::TAU / self.resolution as f32;
-        for segment in 0..=self.resolution {
+        for segment in 0..self.resolution {
             let theta = segment as f32 * step_theta;
             let (sin, cos) = theta.sin_cos();
 
@@ -81,9 +83,14 @@ impl ConeMeshBuilder {
             uvs.push([0.5 + cos * 0.5, 0.5 + sin * 0.5]);
         }
 
-        for j in 0..self.resolution {
+        // Add indices for the lateral surface. Each triangle is formed by the tip
+        // and two vertices at the base.
+        for j in 1..self.resolution {
             indices.extend_from_slice(&[0, j + 1, j]);
         }
+
+        // Close the surface with a triangle between the tip, first base vertex, and last base vertex.
+        indices.extend_from_slice(&[0, 1, self.resolution]);
 
         let index_offset = positions.len() as u32;
         indices.extend(&[0, index_offset - 1, index_offset - 2]);
