@@ -39,12 +39,12 @@ fn setup(
         }
     }
 
-    let sector = CircularSector::new(50.0, 5.0);
-    let segment = CircularSegment::new(50.0, 2.5);
+    let sector = CircularSector::from_radians(50.0, 5.0);
+    let segment = CircularSegment::from_degrees(50.0, 135.0);
     let shapes = [
         Mesh2dHandle(meshes.add(Circle { radius: 50.0 })),
         Mesh2dHandle(meshes.add(CircularSector::new(50.0, 5.0))),
-        Mesh2dHandle(meshes.add(CircularSegment::new(50.0, 2.5))),
+        Mesh2dHandle(meshes.add(CircularSegment::new(50.0, 135.0))),
         Mesh2dHandle(meshes.add(Ellipse::new(25.0, 50.0))),
         Mesh2dHandle(meshes.add(Annulus::new(25.0, 50.0))),
         Mesh2dHandle(meshes.add(Capsule2d::new(25.0, 50.0))),
