@@ -2011,8 +2011,8 @@ impl<'a> From<EntityMut<'a>> for FilteredEntityMut<'a> {
     }
 }
 
-impl<'a> From<&'a EntityMut<'_>> for FilteredEntityMut<'a> {
-    fn from(entity: &'a EntityMut<'_>) -> Self {
+impl<'a> From<&'a mut EntityMut<'_>> for FilteredEntityMut<'a> {
+    fn from(entity: &'a mut EntityMut<'_>) -> Self {
         // SAFETY:
         // - `EntityMut` guarantees exclusive access to all components in the new `FilteredEntityMut`.
         unsafe {
