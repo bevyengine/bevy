@@ -1,4 +1,4 @@
-use bevy_math::primitives::Cone;
+use bevy_math::{primitives::Cone, Vec3};
 use wgpu::PrimitiveTopology;
 
 use crate::{
@@ -70,16 +70,34 @@ impl ConeMeshBuilder {
         // as that would make the entire triangle invalid and make the cone appear as black.
         normals.push([0.0, 0.0, 0.0]);
 
+        // The UVs of the cone are in polar coordinates, so it's like projecting a circle texture from above.
+        // The center of the texture is at the center of the lateral surface, at the tip of the cone.
         uvs.push([0.5, 0.5]);
 
-        // Lateral surface, i.e. the side of the cone
+        /* Now we build the lateral surface, the side of the cone. */
+
+        // The vertex normals will be perpendicular to the surface.
+        //
+        // Here we get the slope (how "steep" the cone is) and use it for computing
+        // the multiplicative inverse of the length of a vector in the direction of the normal.
+        // This allows us to normalize the vertex normals efficiently.
+        let slope = self.cone.radius / self.cone.height;
+        // Equivalent to Vec2::new(1.0, slope).length().recip()
+        let normalization_factor = (1.0 + slope * slope).sqrt().recip();
+
+        // How much the angle changes at each step
         let step_theta = std::f32::consts::TAU / self.resolution as f32;
+
+        // Add vertices for the bottom of the lateral surface.
         for segment in 0..self.resolution {
             let theta = segment as f32 * step_theta;
             let (sin, cos) = theta.sin_cos();
 
+            // The vertex normal perpendicular to the side
+            let normal = Vec3::new(cos, slope, sin) * normalization_factor;
+
             positions.push([self.cone.radius * cos, -half_height, self.cone.radius * sin]);
-            normals.push([cos, 0., sin]);
+            normals.push(normal.to_array());
             uvs.push([0.5 + cos * 0.5, 0.5 + sin * 0.5]);
         }
 
@@ -92,10 +110,11 @@ impl ConeMeshBuilder {
         // Close the surface with a triangle between the tip, first base vertex, and last base vertex.
         indices.extend_from_slice(&[0, 1, self.resolution]);
 
-        let index_offset = positions.len() as u32;
-        indices.extend(&[0, index_offset - 1, index_offset - 2]);
+        /* Now we build the actual base of the cone. */
 
-        // Base
+        let index_offset = positions.len() as u32;
+
+        // Add base vertices.
         for i in 0..self.resolution {
             let theta = i as f32 * step_theta;
             let (sin, cos) = theta.sin_cos();
@@ -105,6 +124,7 @@ impl ConeMeshBuilder {
             uvs.push([0.5 * (cos + 1.0), 1.0 - 0.5 * (sin + 1.0)]);
         }
 
+        // Add base indices.
         for i in 1..(self.resolution - 1) {
             indices.extend_from_slice(&[index_offset, index_offset + i, index_offset + i + 1]);
         }
