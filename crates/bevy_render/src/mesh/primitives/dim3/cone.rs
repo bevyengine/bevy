@@ -78,12 +78,12 @@ impl ConeMeshBuilder {
 
         // The vertex normals will be perpendicular to the surface.
         //
-        // Here we get the slope (how "steep" the cone is) and use it for computing
-        // the multiplicative inverse of the length of a vector in the direction of the normal.
-        // This allows us to normalize the vertex normals efficiently.
-        let slope = self.cone.radius / self.cone.height;
+        // Here we get the slope of a normal and use it for computing
+        // the multiplicative inverse of the length of a vector in the direction
+        // of the normal. This allows us to normalize vertex normals efficiently.
+        let normal_slope = self.cone.radius / self.cone.height;
         // Equivalent to Vec2::new(1.0, slope).length().recip()
-        let normalization_factor = (1.0 + slope * slope).sqrt().recip();
+        let normalization_factor = (1.0 + normal_slope * normal_slope).sqrt().recip();
 
         // How much the angle changes at each step
         let step_theta = std::f32::consts::TAU / self.resolution as f32;
@@ -94,7 +94,7 @@ impl ConeMeshBuilder {
             let (sin, cos) = theta.sin_cos();
 
             // The vertex normal perpendicular to the side
-            let normal = Vec3::new(cos, slope, sin) * normalization_factor;
+            let normal = Vec3::new(cos, normal_slope, sin) * normalization_factor;
 
             positions.push([self.cone.radius * cos, -half_height, self.cone.radius * sin]);
             normals.push(normal.to_array());
@@ -160,5 +160,86 @@ impl From<Cone> for Mesh {
 impl From<ConeMeshBuilder> for Mesh {
     fn from(cone: ConeMeshBuilder) -> Self {
         cone.build()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bevy_math::{primitives::Cone, Vec2};
+
+    use crate::mesh::{Mesh, Meshable, VertexAttributeValues};
+
+    /// Rounds floats to handle floating point error in tests.
+    fn round_floats<const N: usize>(points: &mut [[f32; N]]) {
+        for point in points.iter_mut() {
+            for coord in point.iter_mut() {
+                let round = (*coord * 100.0).round() / 100.0;
+                if (*coord - round).abs() < 0.00001 {
+                    *coord = round;
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_regular_polygon() {
+        let mut mesh = Cone {
+            radius: 0.5,
+            height: 1.0,
+        }
+        .mesh()
+        .resolution(4)
+        .build();
+
+        let Some(VertexAttributeValues::Float32x3(mut positions)) =
+            mesh.remove_attribute(Mesh::ATTRIBUTE_POSITION)
+        else {
+            panic!("Expected positions f32x3");
+        };
+        let Some(VertexAttributeValues::Float32x3(mut normals)) =
+            mesh.remove_attribute(Mesh::ATTRIBUTE_NORMAL)
+        else {
+            panic!("Expected normals f32x3");
+        };
+
+        round_floats(&mut positions);
+        round_floats(&mut normals);
+
+        assert_eq!(
+            [
+                // Tip
+                [0.0, 0.5, 0.0],
+                // Lateral surface
+                [0.5, -0.5, 0.0],
+                [0.0, -0.5, 0.5],
+                [-0.5, -0.5, 0.0],
+                [0.0, -0.5, -0.5],
+                // Base
+                [0.5, -0.5, 0.0],
+                [0.0, -0.5, 0.5],
+                [-0.5, -0.5, 0.0],
+                [0.0, -0.5, -0.5],
+            ],
+            &positions[..]
+        );
+
+        let [x, y] = Vec2::new(0.5, -1.0).perp().normalize().to_array();
+        assert_eq!(
+            &[
+                // Tip
+                [0.0, 0.0, 0.0],
+                // Lateral surface
+                [x, y, 0.0],
+                [0.0, y, x],
+                [-x, y, 0.0],
+                [0.0, y, -x],
+                // Base
+                [0.0, -1.0, 0.0],
+                [0.0, -1.0, 0.0],
+                [0.0, -1.0, 0.0],
+                [0.0, -1.0, 0.0],
+            ],
+            &normals[..]
+        );
     }
 }
