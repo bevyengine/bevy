@@ -17,13 +17,14 @@ fn main() {
         .init_state::<CameraActive>();
 
     // cameras
-    app.add_systems(Startup, setup_cameras).add_systems(
-        Update,
-        (
-            update_active_cameras.run_if(state_changed::<CameraActive>),
-            switch_cameras.run_if(input_just_pressed(KeyCode::KeyC)),
-        ),
-    );
+    app.add_systems(Startup, (setup_cameras, setup_lights, setup_ambient_light))
+        .add_systems(
+            Update,
+            (
+                update_active_cameras.run_if(state_changed::<CameraActive>),
+                switch_cameras.run_if(input_just_pressed(KeyCode::KeyC)),
+            ),
+        );
 
     // text
 
@@ -35,18 +36,21 @@ fn main() {
     );
 
     // primitives
-    app.add_systems(Startup, spawn_primitive_2d).add_systems(
-        Update,
-        (
-            switch_to_next_primitive.run_if(input_just_pressed(KeyCode::ArrowUp)),
-            switch_to_previous_primitive.run_if(input_just_pressed(KeyCode::ArrowDown)),
-            draw_gizmos_2d.run_if(in_mode(CameraActive::Dim2)),
-            draw_gizmos_3d.run_if(in_mode(CameraActive::Dim3)),
-            update_primitive_meshes
-                .run_if(state_changed::<PrimitiveSelected>.or_else(state_changed::<CameraActive>)),
-            rotate_primitive_meshes,
-        ),
-    );
+    app.add_systems(Startup, (spawn_primitive_2d, spawn_primitive_3d))
+        .add_systems(
+            Update,
+            (
+                switch_to_next_primitive.run_if(input_just_pressed(KeyCode::ArrowUp)),
+                switch_to_previous_primitive.run_if(input_just_pressed(KeyCode::ArrowDown)),
+                draw_gizmos_2d.run_if(in_mode(CameraActive::Dim2)),
+                draw_gizmos_3d.run_if(in_mode(CameraActive::Dim3)),
+                update_primitive_meshes.run_if(
+                    state_changed::<PrimitiveSelected>.or_else(state_changed::<CameraActive>),
+                ),
+                rotate_primitive_2d_meshes,
+                rotate_primitive_3d_meshes,
+            ),
+        );
 
     app.run();
 }
@@ -265,6 +269,22 @@ fn setup_cameras(mut commands: Commands) {
     });
 }
 
+fn setup_ambient_light(mut ambient_light: ResMut<AmbientLight>) {
+    ambient_light.brightness = 50.0;
+}
+
+fn setup_lights(mut commands: Commands) {
+    commands.spawn(PointLightBundle {
+        point_light: PointLight {
+            intensity: 5000.0,
+            ..default()
+        },
+        transform: Transform::from_translation(Vec3::new(-LEFT_RIGHT_OFFSET_3D, 2.0, 0.0))
+            .looking_at(Vec3::new(-LEFT_RIGHT_OFFSET_3D, 0.0, 0.0), Vec3::Y),
+        ..default()
+    });
+}
+
 /// Marker component for header text
 #[derive(Debug, Clone, Component, Default, Reflect)]
 pub struct HeaderText;
@@ -424,6 +444,14 @@ pub struct PrimitiveData {
     primitive_state: PrimitiveSelected,
 }
 
+/// Marker for meshes of 2D primitives
+#[derive(Debug, Clone, Component, Default)]
+pub struct MeshDim2;
+
+/// Marker for meshes of 3D primitives
+#[derive(Debug, Clone, Component, Default)]
+pub struct MeshDim3;
+
 fn spawn_primitive_2d(
     mut commands: Commands,
     mut materials: ResMut<Assets<ColorMaterial>>,
@@ -454,12 +482,59 @@ fn spawn_primitive_2d(
     .for_each(|(maybe_mesh, state)| {
         if let Some(mesh) = maybe_mesh {
             commands.spawn((
+                MeshDim2,
                 PrimitiveData {
                     camera_mode,
                     primitive_state: state,
                 },
                 MaterialMesh2dBundle {
                     mesh: meshes.add(mesh).into(),
+                    material: material.clone(),
+                    transform: Transform::from_translation(POSITION),
+                    ..Default::default()
+                },
+            ));
+        }
+    });
+}
+
+fn spawn_primitive_3d(
+    mut commands: Commands,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+) {
+    const POSITION: Vec3 = Vec3::new(-LEFT_RIGHT_OFFSET_3D, 0.0, 0.0);
+    let material: Handle<StandardMaterial> = materials.add(Color::WHITE);
+    let camera_mode = CameraActive::Dim3;
+    [
+        Some(CUBOID.mesh()),
+        Some(SPHERE.mesh().build()),
+        None, // ellipse
+        None, // triangle
+        Some(PLANE_3D.mesh().build()),
+        None, // line
+        None, // segment
+        None, // polyline
+        None, // polygon
+        None, // regular polygon
+        Some(CAPSULE_3D.mesh().build()),
+        Some(CYLINDER.mesh().build()),
+        None, // cone
+        None, // conical frustrum
+        Some(TORUS.mesh().build()),
+    ]
+    .into_iter()
+    .zip(PrimitiveSelected::ALL)
+    .for_each(|(maybe_mesh, state)| {
+        if let Some(mesh) = maybe_mesh {
+            commands.spawn((
+                MeshDim3,
+                PrimitiveData {
+                    camera_mode,
+                    primitive_state: state,
+                },
+                PbrBundle {
+                    mesh: meshes.add(mesh),
                     material: material.clone(),
                     transform: Transform::from_translation(POSITION),
                     ..Default::default()
@@ -485,16 +560,44 @@ fn update_primitive_meshes(
     });
 }
 
-fn rotate_primitive_meshes(
-    mut primitives: Query<(&mut Transform, &ViewVisibility), With<PrimitiveData>>,
+fn rotate_primitive_2d_meshes(
+    mut primitives_2d: Query<
+        (&mut Transform, &ViewVisibility),
+        (With<PrimitiveData>, With<MeshDim2>),
+    >,
     time: Res<Time>,
 ) {
-    let rotation = Quat::from_mat3(&Mat3::from_angle(time.elapsed_seconds()));
-    primitives
+    let rotation_2d = Quat::from_mat3(&Mat3::from_angle(time.elapsed_seconds()));
+    primitives_2d
         .iter_mut()
         .filter(|(_, vis)| vis.get())
         .for_each(|(mut transform, _)| {
-            transform.rotation = rotation;
+            transform.rotation = rotation_2d;
+        });
+}
+
+fn rotate_primitive_3d_meshes(
+    mut primitives_3d: Query<
+        (&mut Transform, &ViewVisibility),
+        (With<PrimitiveData>, With<MeshDim3>),
+    >,
+    time: Res<Time>,
+) {
+    let rotation_3d = Quat::from_rotation_arc(
+        Vec3::Z,
+        Vec3::new(
+            time.elapsed_seconds().sin(),
+            time.elapsed_seconds().cos(),
+            time.elapsed_seconds().sin() * 0.5,
+        )
+        .try_normalize()
+        .unwrap_or(Vec3::Z),
+    );
+    primitives_3d
+        .iter_mut()
+        .filter(|(_, vis)| vis.get())
+        .for_each(|(mut transform, _)| {
+            transform.rotation = rotation_3d;
         });
 }
 
