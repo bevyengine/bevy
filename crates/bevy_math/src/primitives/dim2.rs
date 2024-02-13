@@ -186,10 +186,9 @@ const HALF_PI: f32 = PI / 2.0;
 /// If you want to include only the space inside the convex hull of the arc,
 /// use [`CircularSegment`].
 ///
-/// The arc is drawn starting from [`Vec2::X`], going counterclockwise.
-/// To orient the arc differently, apply a rotation.
-/// The arc is drawn with the center of its circle at the origin (0, 0),
-/// meaning that the center may not be inside its convex hull.
+/// The arc is drawn starting from [`Vec2::Y`], extending by `half_angle` radians on
+/// either side. The center of the circle is the origin [`Vec2::ZERO`]. Note that this
+/// means that the origin may not be within the `Arc2d`'s convex hull.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[doc(alias("CircularArc", "CircleArc"))]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -259,28 +258,28 @@ impl Arc2d {
         self.angle() * self.radius
     }
 
-    /// Get the start point of the arc
+    /// Get the right-hand end point of the arc
     #[inline(always)]
-    pub fn start(&self) -> Vec2 {
-        Vec2::new(self.radius, 0.0)
+    pub fn right_endpoint(&self) -> Vec2 {
+        self.radius * Vec2::from_angle(HALF_PI - self.half_angle)
     }
 
-    /// Get the end point of the arc
+    /// Get the left-hand end point of the arc
     #[inline(always)]
-    pub fn end(&self) -> Vec2 {
-        self.radius * Vec2::from_angle(self.angle())
+    pub fn left_endpoint(&self) -> Vec2 {
+        self.radius * Vec2::from_angle(HALF_PI + self.half_angle)
     }
 
     /// Get the endpoints of the arc
     #[inline(always)]
     pub fn endpoints(&self) -> [Vec2; 2] {
-        [self.start(), self.end()]
+        [self.left_endpoint(), self.right_endpoint()]
     }
 
     /// Get the midpoint of the arc
     #[inline]
     pub fn midpoint(&self) -> Vec2 {
-        self.radius * Vec2::from_angle(self.half_angle)
+        self.radius * Vec2::Y
     }
 
     /// Get half the length of the chord subtended by the arc
@@ -298,7 +297,7 @@ impl Arc2d {
     /// Get the midpoint of the chord subtended by the arc
     #[inline(always)]
     pub fn chord_midpoint(&self) -> Vec2 {
-        self.apothem() * Vec2::from_angle(self.half_angle)
+        self.apothem() * Vec2::Y
     }
 
     /// Get the length of the apothem of this arc, that is,
@@ -347,7 +346,7 @@ impl Arc2d {
 
 /// A primitive representing a circular sector: a pie slice of a circle.
 ///
-/// The sector is drawn starting from [`Vec2::X`], going counterclockwise.
+/// The segment is drawn starting from [`Vec2::Y`], extending equally on either side.
 /// To orient the sector differently, apply a rotation.
 /// The sector is drawn with the center of its circle at the origin [`Vec2::ZERO`].
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -409,7 +408,7 @@ impl CircularSector {
 /// A primitive representing a circular segment:
 /// the area enclosed by the arc of a circle and its chord (the line between its endpoints).
 ///
-/// The segment is drawn starting from [`Vec2::X`], going counterclockwise.
+/// The segment is drawn starting from [`Vec2::Y`], extending equally on either side.
 /// To orient the segment differently, apply a rotation.
 /// The segment is drawn with the center of its circle at the origin [`Vec2::ZERO`].
 /// When positioning a segment, the [`apothem`](Arc2d::apothem) function may be particularly useful,

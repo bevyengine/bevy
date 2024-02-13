@@ -39,23 +39,21 @@ fn setup(
         }
     }
 
-    let sector = CircularSector::new(50.0, 5.0);
-    let segment = CircularSegment::new(50.0, 2.5);
+    let sector = CircularSector::from_radians(50.0, 5.0);
+    let segment = CircularSegment::from_degrees(50.0, 135.0);
     let shapes = [
         Shape::from(meshes.add(Circle { radius: 50.0 })),
         Shape::new(
             meshes.add(sector),
-            // A sector is drawn counterclockwise from the right.
-            // To make it face left, rotate by negative half its angle.
-            // To make it face right, rotate by an additional PI radians.
-            Transform::from_rotation(Quat::from_rotation_z(-sector.arc.angle() / 2.0 + PI)),
+            // A sector is drawn symmetrically from the top.
+            // To make it face right, we must rotate it to the left by 90 degrees.
+            Transform::from_rotation(Quat::from_rotation_z(PI / 2.0)),
         ),
         Shape::new(
             meshes.add(segment),
-            // A segment is drawn counterclockwise from the right.
-            // To make it symmetrical about the X axis, rotate by negative half its angle.
-            // To make it symmetrical about the Y axis, rotate by an additional PI/2 radians.
-            Transform::from_rotation(Quat::from_rotation_z(-segment.arc.half_angle + PI / 2.0)),
+            // The segment is drawn with the center as the center of the circle.
+            // By subtracting the apothem, we move the segment down so that it touches the line x = 0.
+            Transform::from_translation(Vec3::new(0.0, -segment.arc.apothem(), 0.0)),
         ),
         Shape::from(meshes.add(Ellipse::new(25.0, 50.0))),
         Shape::from(meshes.add(Capsule2d::new(25.0, 50.0))),

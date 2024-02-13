@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use crate::{
     mesh::{Indices, Mesh},
     render_asset::RenderAssetUsages,
@@ -81,6 +83,9 @@ impl From<CircleMeshBuilder> for Mesh {
 }
 
 /// A builder used for creating a [`Mesh`] with a [`CircularSector`] shape.
+///
+/// The resulting mesh will have a UV-map such that the center of the circle is
+/// at the centure of the texture.
 #[derive(Clone, Copy, Debug)]
 pub struct CircularSectorMeshBuilder {
     /// The sector shape.
@@ -129,10 +134,12 @@ impl CircularSectorMeshBuilder {
         positions.push([0.0; 3]);
         uvs.push([0.5; 2]);
 
-        let last = (self.resolution - 1) as f32;
+        let first_angle = PI / 2.0 - self.sector.arc.half_angle;
+        let last_angle = PI / 2.0 + self.sector.arc.half_angle;
+        let last_i = (self.resolution - 1) as f32;
         for i in 0..self.resolution {
             // Compute vertex position at angle theta
-            let angle = Vec2::from_angle(f32::lerp(0.0, self.sector.arc.angle(), i as f32 / last));
+            let angle = Vec2::from_angle(f32::lerp(first_angle, last_angle, i as f32 / last_i));
 
             positions.push([
                 angle.x * self.sector.arc.radius,
@@ -170,6 +177,9 @@ impl Meshable for CircularSector {
 }
 
 impl From<CircularSector> for Mesh {
+    /// Converts this sector into a [`Mesh`] using a default [`CircularSectorMeshBuilder`].
+    ///
+    /// See the documentation of [`CircularSectorMeshBuilder`] for more details.
     fn from(sector: CircularSector) -> Self {
         sector.mesh().build()
     }
@@ -182,6 +192,9 @@ impl From<CircularSectorMeshBuilder> for Mesh {
 }
 
 /// A builder used for creating a [`Mesh`] with a [`CircularSegment`] shape.
+///
+/// The resulting mesh will have a UV-map such that the center of the circle is
+/// at the centure of the texture.
 #[derive(Clone, Copy, Debug)]
 pub struct CircularSegmentMeshBuilder {
     /// The segment shape.
@@ -231,10 +244,12 @@ impl CircularSegmentMeshBuilder {
         positions.push([chord_midpoint.x, chord_midpoint.y, 0.0]);
         uvs.push([0.5 + chord_midpoint.x * 0.5, 0.5 + chord_midpoint.y * 0.5]);
 
-        let last = (self.resolution - 1) as f32;
+        let first_angle = PI / 2.0 - self.segment.arc.half_angle;
+        let last_angle = PI / 2.0 + self.segment.arc.half_angle;
+        let last_i = (self.resolution - 1) as f32;
         for i in 0..self.resolution {
             // Compute vertex position at angle theta
-            let angle = Vec2::from_angle(f32::lerp(0.0, self.segment.arc.angle(), i as f32 / last));
+            let angle = Vec2::from_angle(f32::lerp(first_angle, last_angle, i as f32 / last_i));
 
             positions.push([
                 angle.x * self.segment.arc.radius,
@@ -272,6 +287,9 @@ impl Meshable for CircularSegment {
 }
 
 impl From<CircularSegment> for Mesh {
+    /// Converts this sector into a [`Mesh`] using a default [`CircularSegmentMeshBuilder`].
+    ///
+    /// See the documentation of [`CircularSegmentMeshBuilder`] for more details.
     fn from(segment: CircularSegment) -> Self {
         segment.mesh().build()
     }
