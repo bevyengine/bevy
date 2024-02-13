@@ -55,6 +55,7 @@ impl TargetUpdate for Target<Display> {
             Display::Flex => Display::None,
             Display::None => Display::Flex,
             Display::Grid => unreachable!(),
+            Display::Block => unreachable!(),
         };
         format!("{}::{:?} ", Self::NAME, style.display)
     }
