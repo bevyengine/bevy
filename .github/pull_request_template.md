@@ -31,7 +31,6 @@ While a showcase should aim to be brief and digestible, you can use a toggleable
 <details>
   <summary>Click to view showcase</summary>
 
-
 ```rust
 println!("My super cool code.");
 ```
