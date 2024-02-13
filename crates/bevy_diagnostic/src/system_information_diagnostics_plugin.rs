@@ -99,14 +99,20 @@ pub mod internal {
     }
 
     pub(crate) fn log_system_info() {
-        let mut sys = sysinfo::System::new();
-        sys.refresh_cpu();
-        sys.refresh_memory();
+        let sys = System::new_with_specifics(
+            RefreshKind::new()
+                .with_cpu(CpuRefreshKind::new())
+                .with_memory(MemoryRefreshKind::new().with_ram()),
+        );
 
         let info = SystemInfo {
             os: System::long_os_version().unwrap_or_else(|| String::from("not available")),
             kernel: System::kernel_version().unwrap_or_else(|| String::from("not available")),
-            cpu: sys.global_cpu_info().brand().trim().to_string(),
+            cpu: sys
+                .cpus()
+                .first()
+                .map(|cpu| cpu.brand().trim().to_string())
+                .unwrap_or_else(|| String::from("not available")),
             core_count: sys
                 .physical_core_count()
                 .map(|x| x.to_string())
