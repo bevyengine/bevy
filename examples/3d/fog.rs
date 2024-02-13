@@ -17,6 +17,7 @@
 use bevy::{
     pbr::{NotShadowCaster, NotShadowReceiver},
     prelude::*,
+    render::camera::ExposureSettings,
 };
 
 fn main() {
@@ -42,6 +43,9 @@ fn setup_camera_fog(mut commands: Commands) {
             },
             ..default()
         },
+        // This is a dark scene,
+        // increasing the exposure makes it easier to see
+        ExposureSettings { ev100: 4.0 },
     ));
 }
 
@@ -115,7 +119,7 @@ fn setup_pyramid_scene(
     commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(0.0, 1.0, 0.0),
         point_light: PointLight {
-            intensity: 10_000.,
+            intensity: 4_000.,
             shadows_enabled: true,
             ..default()
         },
