@@ -9,6 +9,7 @@ mod render;
 mod sprite;
 mod texture_atlas;
 mod texture_atlas_builder;
+mod texture_atlas_loader;
 mod texture_slice;
 
 pub mod prelude {
@@ -29,6 +30,7 @@ pub use render::*;
 pub use sprite::*;
 pub use texture_atlas::*;
 pub use texture_atlas_builder::*;
+pub use texture_atlas_loader::*;
 pub use texture_slice::*;
 
 use bevy_app::prelude::*;
