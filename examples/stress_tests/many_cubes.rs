@@ -42,6 +42,10 @@ struct Args {
     /// the number of different textures from which to randomly select the material base color. 0 means no textures.
     #[argh(option, default = "0")]
     material_texture_count: usize,
+
+    /// enable cascaded shadow map
+    #[argh(switch)]
+    shadows: bool,
 }
 
 #[derive(Default, Clone)]
@@ -190,7 +194,13 @@ fn setup(
         }
     }
 
-    commands.spawn(DirectionalLightBundle { ..default() });
+    commands.spawn(DirectionalLightBundle {
+        directional_light: DirectionalLight {
+            shadows_enabled: args.shadows,
+            ..default()
+        },
+        ..default()
+    });
 }
 
 fn init_textures(args: &Args, images: &mut Assets<Image>) -> Vec<Handle<Image>> {

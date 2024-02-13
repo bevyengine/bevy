@@ -1,3 +1,4 @@
+use bevy_asset::AssetId;
 use bevy_core_pipeline::core_3d::{Transparent3d, CORE_3D_DEPTH_FORMAT};
 use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::prelude::*;
@@ -1591,7 +1592,7 @@ pub fn queue_shadows<M: Material>(
     shadow_draw_functions: Res<DrawFunctions<Shadow>>,
     prepass_pipeline: Res<PrepassPipeline<M>>,
     render_meshes: Res<RenderAssets<Mesh>>,
-    render_mesh_instances: Res<RenderMeshInstances>,
+    mut render_mesh_instances: ResMut<RenderMeshInstances>,
     render_materials: Res<RenderMaterials<M>>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
@@ -1636,7 +1637,7 @@ pub fn queue_shadows<M: Material>(
             // NOTE: Lights with shadow mapping disabled will have no visible entities
             // so no meshes will be queued
             for entity in visible_entities.iter().copied() {
-                let Some(mesh_instance) = render_mesh_instances.get(&entity) else {
+                let Some(mesh_instance) = render_mesh_instances.get_mut(&entity) else {
                     continue;
                 };
                 if !mesh_instance.shadow_caster {
@@ -1686,11 +1687,13 @@ pub fn queue_shadows<M: Material>(
                     }
                 };
 
+                mesh_instance.shadow_material_bind_group_id = material.shadow_bind_group_id;
+
                 shadow_phase.add(Shadow {
                     draw_function: draw_shadow_mesh,
                     pipeline: pipeline_id,
                     entity,
-                    distance: 0.0, // TODO: sort front-to-back
+                    asset_id: mesh_instance.mesh_asset_id,
                     batch_range: 0..1,
                     dynamic_offset: None,
                 });
@@ -1700,7 +1703,7 @@ pub fn queue_shadows<M: Material>(
 }
 
 pub struct Shadow {
-    pub distance: f32,
+    pub asset_id: AssetId<Mesh>,
     pub entity: Entity,
     pub pipeline: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
@@ -1709,7 +1712,7 @@ pub struct Shadow {
 }
 
 impl PhaseItem for Shadow {
-    type SortKey = usize;
+    type SortKey = (usize, AssetId<Mesh>);
 
     #[inline]
     fn entity(&self) -> Entity {
@@ -1718,7 +1721,7 @@ impl PhaseItem for Shadow {
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
-        self.pipeline.id()
+        (self.pipeline.id(), self.asset_id)
     }
 
     #[inline]
@@ -1728,10 +1731,11 @@ impl PhaseItem for Shadow {
 
     #[inline]
     fn sort(items: &mut [Self]) {
-        // The shadow phase is sorted by pipeline id for performance reasons.
+        // The shadow phase is sorted by pipeline id and mesh id for performance reasons.
         // Grouping all draw commands using the same pipeline together performs
-        // better than rebinding everything at a high rate.
-        radsort::sort_by_key(items, |item| item.sort_key());
+        // better than rebinding everything at a high rate, and grouping by mesh
+        // allows batching to reduce draw calls.
+        items.sort_unstable_by_key(Self::sort_key);
     }
 
     #[inline]

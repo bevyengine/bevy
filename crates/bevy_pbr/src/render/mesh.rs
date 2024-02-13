@@ -138,7 +138,7 @@ impl Plugin for MeshRenderPlugin {
                             batch_and_prepare_render_phase::<Transmissive3d, MeshPipeline>,
                             batch_and_prepare_render_phase::<Transparent3d, MeshPipeline>,
                             batch_and_prepare_render_phase::<AlphaMask3d, MeshPipeline>,
-                            batch_and_prepare_render_phase::<Shadow, MeshPipeline>,
+                            batch_and_prepare_render_phase::<Shadow, ShadowMeshPipeline>,
                             batch_and_prepare_render_phase::<Opaque3dDeferred, MeshPipeline>,
                             batch_and_prepare_render_phase::<AlphaMask3dDeferred, MeshPipeline>,
                         )
@@ -250,6 +250,7 @@ pub struct RenderMeshInstance {
     pub transforms: MeshTransforms,
     pub mesh_asset_id: AssetId<Mesh>,
     pub material_bind_group_id: MaterialBindGroupId,
+    pub shadow_material_bind_group_id: MaterialBindGroupId,
     pub shadow_caster: bool,
     pub automatic_batching: bool,
 }
@@ -316,6 +317,7 @@ pub fn extract_meshes(
                     transforms,
                     shadow_caster: !not_shadow_caster,
                     material_bind_group_id: MaterialBindGroupId::default(),
+                    shadow_material_bind_group_id: MaterialBindGroupId::default(),
                     automatic_batching: !no_automatic_batching,
                 },
             ));
@@ -468,6 +470,36 @@ impl GetBatchData for MeshPipeline {
             ),
             mesh_instance.automatic_batching.then_some((
                 mesh_instance.material_bind_group_id,
+                mesh_instance.mesh_asset_id,
+                maybe_lightmap.map(|lightmap| lightmap.image),
+            )),
+        ))
+    }
+}
+
+pub struct ShadowMeshPipeline;
+impl GetBatchData for ShadowMeshPipeline {
+    type Param = (SRes<RenderMeshInstances>, SRes<RenderLightmaps>);
+    // The material bind group ID, the mesh ID, and the lightmap ID,
+    // respectively.
+    type CompareData = (MaterialBindGroupId, AssetId<Mesh>, Option<AssetId<Image>>);
+
+    type BufferData = MeshUniform;
+
+    fn get_batch_data(
+        (mesh_instances, lightmaps): &SystemParamItem<Self::Param>,
+        entity: Entity,
+    ) -> Option<(Self::BufferData, Option<Self::CompareData>)> {
+        let mesh_instance = mesh_instances.get(&entity)?;
+        let maybe_lightmap = lightmaps.render_lightmaps.get(&entity);
+
+        Some((
+            MeshUniform::new(
+                &mesh_instance.transforms,
+                maybe_lightmap.map(|lightmap| lightmap.uv_rect),
+            ),
+            mesh_instance.automatic_batching.then_some((
+                mesh_instance.shadow_material_bind_group_id,
                 mesh_instance.mesh_asset_id,
                 maybe_lightmap.map(|lightmap| lightmap.image),
             )),
