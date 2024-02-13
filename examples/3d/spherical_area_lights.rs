@@ -1,6 +1,6 @@
 //! Demonstrates how lighting is affected by different radius of point lights.
 
-use bevy::{prelude::*, render::camera::ExposureSettings};
+use bevy::prelude::*;
 
 fn main() {
     App::new()
@@ -16,13 +16,10 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // camera
-    commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(0.2, 1.5, 2.5).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
-        },
-        ExposureSettings::INDOOR,
-    ));
+    commands.spawn((Camera3dBundle {
+        transform: Transform::from_xyz(0.2, 1.5, 2.5).looking_at(Vec3::ZERO, Vec3::Y),
+        ..default()
+    },));
 
     // plane
     commands.spawn(PbrBundle {

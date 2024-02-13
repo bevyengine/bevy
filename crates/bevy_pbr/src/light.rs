@@ -58,17 +58,17 @@ pub mod light_consts {
         pub const CIVIL_TWILIGHT: f32 = 3.4;
         /// The amount of light (lux) in family living room lights.
         pub const LIVING_ROOM: f32 = 50.;
-        /// The amount of light (lux) in a office building hallway/toilet lighting.
+        /// The amount of light (lux) in an office building's hallway/toilet lighting.
         pub const HALLWAY: f32 = 80.;
         /// The amount of light (lux) in very dark overcast day
         pub const DARK_OVERCAST_DAY: f32 = 100.;
-        /// The amount of light (lux) in a office.
+        /// The amount of light (lux) in an office.
         pub const OFFICE: f32 = 320.;
         /// The amount of light (lux) during sunrise or sunset on a clear day.
         pub const CLEAR_SUNRISE: f32 = 400.;
         /// The amount of light (lux) on a overcast day; typical TV studio lighting
         pub const OVERCAST_DAY: f32 = 1000.;
-        /// The amount of light (lux) in full daylight. (not direct sun)
+        /// The amount of light (lux) in full daylight (not direct sun).
         pub const FULL_DAYLIGHT: f32 = 10_000.;
         /// The amount of light (lux) in direct sunlight.
         pub const DIRECT_SUNLIGHT: f32 = 50_000.;

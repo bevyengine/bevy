@@ -17,7 +17,6 @@
 use bevy::{
     pbr::{NotShadowCaster, NotShadowReceiver},
     prelude::*,
-    render::camera::ExposureSettings,
 };
 
 fn main() {
@@ -43,7 +42,6 @@ fn setup_camera_fog(mut commands: Commands) {
             },
             ..default()
         },
-        ExposureSettings::INDOOR,
     ));
 }
 
