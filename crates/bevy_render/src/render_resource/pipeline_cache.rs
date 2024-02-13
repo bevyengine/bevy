@@ -931,20 +931,34 @@ impl PipelineCache {
     }
 }
 
+#[cfg(all(
+    not(target_arch = "wasm32"),
+    not(target_os = "macos"),
+    feature = "multi-threaded"
+))]
 fn create_pipeline_task(
     task: impl Future<Output = Result<Pipeline, PipelineCacheError>> + Send + 'static,
     sync: bool,
 ) -> CachedPipelineState {
-    let supports_async = cfg!(all(
-        not(target_arch = "wasm32"),
-        not(target_os = "macos"),
-        feature = "multi-threaded"
-    ));
-
-    if supports_async && !sync {
+    if !sync {
         return CachedPipelineState::Creating(bevy_tasks::AsyncComputeTaskPool::get().spawn(task));
     }
 
+    match futures_lite::future::block_on(task) {
+        Ok(pipeline) => CachedPipelineState::Ok(pipeline),
+        Err(err) => CachedPipelineState::Err(err),
+    }
+}
+
+#[cfg(any(
+    target_arch = "wasm32",
+    target_os = "macos",
+    not(feature = "multi-threaded")
+))]
+fn create_pipeline_task(
+    task: impl Future<Output = Result<Pipeline, PipelineCacheError>> + Send + 'static,
+    _sync: bool,
+) -> CachedPipelineState {
     match futures_lite::future::block_on(task) {
         Ok(pipeline) => CachedPipelineState::Ok(pipeline),
         Err(err) => CachedPipelineState::Err(err),
