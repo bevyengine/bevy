@@ -146,7 +146,7 @@ impl From<Box> for Mesh {
 /// A rectangle on the `XY` plane centered at the origin.
 #[deprecated(
     since = "0.13.0",
-    note = "please use the `Quad` primitive in `bevy_math` instead"
+    note = "please use the `Rectangle` primitive in `bevy_math` instead"
 )]
 #[derive(Debug, Copy, Clone)]
 pub struct Quad {

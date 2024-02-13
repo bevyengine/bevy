@@ -1,12 +1,10 @@
 use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryItem;
-use bevy_render::render_graph::ViewNode;
-use bevy_render::render_resource::StoreOp;
 use bevy_render::{
     camera::ExtractedCamera,
-    render_graph::{NodeRunError, RenderGraphContext},
-    render_phase::RenderPhase,
-    render_resource::RenderPassDescriptor,
+    render_graph::{NodeRunError, RenderGraphContext, ViewNode},
+    render_phase::{RenderPhase, TrackedRenderPass},
+    render_resource::{CommandEncoderDescriptor, RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
     view::ViewDepthTexture,
 };
@@ -31,10 +29,10 @@ impl ViewNode for PrepassNode {
         Option<&'static DeferredPrepass>,
     );
 
-    fn run(
+    fn run<'w>(
         &self,
         graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
+        render_context: &mut RenderContext<'w>,
         (
             camera,
             opaque_prepass_phase,
@@ -42,11 +40,9 @@ impl ViewNode for PrepassNode {
             view_depth_texture,
             view_prepass_textures,
             deferred_prepass,
-        ): QueryItem<Self::ViewQuery>,
-        world: &World,
+        ): QueryItem<'w, Self::ViewQuery>,
+        world: &'w World,
     ) -> Result<(), NodeRunError> {
-        let view_entity = graph.view_entity();
-
         let mut color_attachments = vec![
             view_prepass_textures
                 .normal
@@ -56,55 +52,72 @@ impl ViewNode for PrepassNode {
                 .motion_vectors
                 .as_ref()
                 .map(|motion_vectors_texture| motion_vectors_texture.get_attachment()),
-            // Use None in place of Deferred attachments
+            // Use None in place of deferred attachments
             None,
             None,
         ];
 
+        // If all color attachments are none: clear the color attachment list so that no fragment shader is required
         if color_attachments.iter().all(Option::is_none) {
-            // all attachments are none: clear the attachment list so that no fragment shader is required
             color_attachments.clear();
         }
 
-        {
-            // Set up the pass descriptor with the depth attachment and optional color attachments
-            let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
+        let depth_stencil_attachment = Some(view_depth_texture.get_attachment(StoreOp::Store));
+
+        let view_entity = graph.view_entity();
+        render_context.add_command_buffer_generation_task(move |render_device| {
+            #[cfg(feature = "trace")]
+            let _prepass_span = info_span!("prepass").entered();
+
+            // Command encoder setup
+            let mut command_encoder =
+                render_device.create_command_encoder(&CommandEncoderDescriptor {
+                    label: Some("prepass_command_encoder"),
+                });
+
+            // Render pass setup
+            let render_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
                 label: Some("prepass"),
                 color_attachments: &color_attachments,
-                depth_stencil_attachment: Some(view_depth_texture.get_attachment(StoreOp::Store)),
+                depth_stencil_attachment,
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
+            let mut render_pass = TrackedRenderPass::new(&render_device, render_pass);
             if let Some(viewport) = camera.viewport.as_ref() {
                 render_pass.set_camera_viewport(viewport);
             }
 
-            // Always run opaque pass to ensure screen is cleared
-            {
-                // Run the prepass, sorted front-to-back
+            // Opaque draws
+            if !opaque_prepass_phase.items.is_empty() {
                 #[cfg(feature = "trace")]
                 let _opaque_prepass_span = info_span!("opaque_prepass").entered();
                 opaque_prepass_phase.render(&mut render_pass, world, view_entity);
             }
 
+            // Alpha masked draws
             if !alpha_mask_prepass_phase.items.is_empty() {
-                // Run the prepass, sorted front-to-back
                 #[cfg(feature = "trace")]
                 let _alpha_mask_prepass_span = info_span!("alpha_mask_prepass").entered();
                 alpha_mask_prepass_phase.render(&mut render_pass, world, view_entity);
             }
-        }
-        if deferred_prepass.is_none() {
-            // Copy if deferred isn't going to
-            if let Some(prepass_depth_texture) = &view_prepass_textures.depth {
-                // Copy depth buffer to texture
-                render_context.command_encoder().copy_texture_to_texture(
-                    view_depth_texture.texture.as_image_copy(),
-                    prepass_depth_texture.texture.texture.as_image_copy(),
-                    view_prepass_textures.size,
-                );
+
+            drop(render_pass);
+
+            // Copy prepass depth to the main depth texture if deferred isn't going to
+            if deferred_prepass.is_none() {
+                if let Some(prepass_depth_texture) = &view_prepass_textures.depth {
+                    command_encoder.copy_texture_to_texture(
+                        view_depth_texture.texture.as_image_copy(),
+                        prepass_depth_texture.texture.texture.as_image_copy(),
+                        view_prepass_textures.size,
+                    );
+                }
             }
-        }
+
+            command_encoder.finish()
+        });
+
         Ok(())
     }
 }
