@@ -65,6 +65,7 @@ fn spawn_tasks(mut commands: Commands) {
                     while start_time.elapsed() < duration {
                         // Spinning for 'duration', simulating doing hard
                         // compute work generating translation coords!
+                        std::hint::spin_loop();
                     }
 
                     // Such hard work, all done!
