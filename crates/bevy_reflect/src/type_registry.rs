@@ -234,6 +234,13 @@ impl TypeRegistry {
             .and_then(|id| self.registrations.get_mut(id))
     }
 
+    /// Returns `true` if the given [short type path] is ambiguous.
+    ///
+    /// [short type path]: TypePath::short_type_path
+    pub fn is_ambiguous(&self, short_type_path: &str) -> bool {
+        self.ambiguous_names.contains(short_type_path)
+    }
+
     /// Returns a reference to the [`TypeData`] of type `T` associated with the given [`TypeId`].
     ///
     /// The returned value may be used to downcast [`Reflect`] trait objects to
