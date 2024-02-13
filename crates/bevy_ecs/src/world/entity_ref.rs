@@ -443,7 +443,7 @@ impl<'a> TryFrom<FilteredEntityMut<'a>> for EntityMut<'a> {
 impl<'a> TryFrom<&'a mut FilteredEntityMut<'_>> for EntityMut<'a> {
     type Error = ();
 
-    fn try_from(value: &'a FilteredEntityMut<'_>) -> Result<Self, Self::Error> {
+    fn try_from(value: &'a mut FilteredEntityMut<'_>) -> Result<Self, Self::Error> {
         if value.access.has_read_all() && value.access.has_write_all() {
             // SAFETY: check above guarantees exclusive access to all components of the entity.
             Ok(unsafe { EntityMut::new(value.entity) })
