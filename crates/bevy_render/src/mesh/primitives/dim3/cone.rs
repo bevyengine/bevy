@@ -205,6 +205,7 @@ mod tests {
         round_floats(&mut positions);
         round_floats(&mut normals);
 
+        // Vertex positions
         assert_eq!(
             [
                 // Tip
@@ -223,6 +224,7 @@ mod tests {
             &positions[..]
         );
 
+        // Vertex normals
         let [x, y] = Vec2::new(0.5, -1.0).perp().normalize().to_array();
         assert_eq!(
             &[
