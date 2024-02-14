@@ -113,7 +113,10 @@ impl Default for PointLight {
     fn default() -> Self {
         PointLight {
             color: Color::rgb(1.0, 1.0, 1.0),
-            intensity: 2000.0, // Roughly a 20-watt LED bulb
+            // 1,000,000 lumens is a very large "cinema light" capable of registering brightly at Bevy's
+            // default "very overcast day" exposure level. For "indoor lighting" with a lower exposure,
+            // this would be way too bright.
+            intensity: 1_000_000.0,
             range: 20.0,
             radius: 0.0,
             shadows_enabled: false,
