@@ -47,7 +47,7 @@ fn setup(
                 -X_EXTENT / 2. + i as f32 / (num_shapes - 1) as f32 * X_EXTENT,
                 0.0,
                 0.0,
-            )),
+            ),
             ..default()
         });
     }
