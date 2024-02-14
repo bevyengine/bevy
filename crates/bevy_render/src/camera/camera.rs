@@ -105,10 +105,23 @@ impl Exposure {
     pub const INDOOR: Self = Self {
         ev100: Self::EV100_INDOOR,
     };
+    /// This value was calibrated to match Blender's implicit/default exposure as closely as possible.
+    /// It also happens to be a reasonable default.
+    ///
+    /// See <https://github.com/bevyengine/bevy/issues/11577> for details.
+    pub const BLENDER: Self = Self {
+        ev100: Self::EV100_BLENDER,
+    };
 
     pub const EV100_SUNLIGHT: f32 = 15.0;
     pub const EV100_OVERCAST: f32 = 12.0;
     pub const EV100_INDOOR: f32 = 7.0;
+
+    /// This value was calibrated to match Blender's implicit/default exposure as closely as possible.
+    /// It also happens to be a reasonable default.
+    ///
+    /// See <https://github.com/bevyengine/bevy/issues/11577> for details.
+    pub const EV100_BLENDER: f32 = 9.7;
 
     pub fn from_physical_camera(physical_camera_parameters: PhysicalCameraParameters) -> Self {
         Self {
@@ -126,12 +139,12 @@ impl Exposure {
 
 impl Default for Exposure {
     fn default() -> Self {
-        Self::INDOOR
+        Self::BLENDER
     }
 }
 
 /// Parameters based on physical camera characteristics for calculating
-/// EV100 values for use with [`ExposureSettings`].
+/// EV100 values for use with [`Exposure`].
 #[derive(Clone, Copy)]
 pub struct PhysicalCameraParameters {
     /// <https://en.wikipedia.org/wiki/F-number>
@@ -815,7 +828,7 @@ pub fn extract_cameras(
         visible_entities,
         frustum,
         color_grading,
-        exposure_settings,
+        exposure,
         temporal_jitter,
         render_layers,
         projection,
@@ -858,7 +871,7 @@ pub fn extract_cameras(
                     clear_color: camera.clear_color.clone(),
                     // this will be set in sort_cameras
                     sorted_camera_index_for_target: 0,
-                    exposure: exposure_settings
+                    exposure: exposure
                         .map(|e| e.exposure())
                         .unwrap_or_else(|| Exposure::default().exposure()),
                 },
