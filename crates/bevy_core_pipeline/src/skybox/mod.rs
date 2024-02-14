@@ -84,10 +84,8 @@ impl ExtractComponent for Skybox {
     type QueryFilter = ();
     type Out = (Self, SkyboxUniforms);
 
-    fn extract_component(
-        (skybox, exposure_settings): QueryItem<'_, Self::QueryData>,
-    ) -> Option<Self::Out> {
-        let exposure = exposure_settings
+    fn extract_component((skybox, exposure): QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
+        let exposure = exposure
             .map(|e| e.exposure())
             .unwrap_or_else(|| Exposure::default().exposure());
 

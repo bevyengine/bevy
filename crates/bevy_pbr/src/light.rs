@@ -70,9 +70,9 @@ pub mod light_consts {
         /// The amount of light (lux) on a overcast day; typical TV studio lighting
         pub const OVERCAST_DAY: f32 = 1000.;
         /// The amount of light (lux) in full daylight (not direct sun).
-        pub const FULL_DAYLIGHT: f32 = 10_000.;
+        pub const FULL_DAYLIGHT: f32 = 20_000.;
         /// The amount of light (lux) in direct sunlight.
-        pub const DIRECT_SUNLIGHT: f32 = 50_000.;
+        pub const DIRECT_SUNLIGHT: f32 = 100_000.;
     }
 }
 
@@ -265,7 +265,7 @@ impl Default for DirectionalLight {
     fn default() -> Self {
         DirectionalLight {
             color: Color::rgb(1.0, 1.0, 1.0),
-            illuminance: light_consts::lux::OVERCAST_DAY,
+            illuminance: light_consts::lux::FULL_DAYLIGHT,
             shadows_enabled: false,
             shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
             shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
