@@ -493,9 +493,7 @@ fn entity_from_path(
     let mut parts = path.parts.iter().enumerate();
 
     // check the first name is the root node which we already have
-    let Some((_, root_name)) = parts.next() else {
-        return None;
-    };
+    let (_, root_name) = parts.next()?;
     if names.get(current_entity) != Ok(root_name) {
         return None;
     }
