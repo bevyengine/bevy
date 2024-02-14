@@ -42,6 +42,7 @@ fn setup(
             mesh: shape,
             material: materials.add(color),
             transform: Transform::from_translation(Vec3::new(
+                // Distribute shapes from -X_EXTENT to +X_EXTENT.
                 -X_EXTENT / 2. + i as f32 / (num_shapes - 1) as f32 * X_EXTENT,
                 0.0,
                 0.0,
