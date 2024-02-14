@@ -243,7 +243,7 @@ impl TypeRegistry {
     /// #     struct MyType;
     /// # }
     /// # mod bar {
-    /// #    struct MyType;
+    /// #     struct MyType;
     /// # }
     /// let mut type_registry = TypeRegistry::default();
     /// type_registry.register::<foo::MyType>();
