@@ -254,6 +254,12 @@ pub struct RenderMeshInstance {
     pub automatic_batching: bool,
 }
 
+impl RenderMeshInstance {
+    pub fn should_batch(&self) -> bool {
+        self.automatic_batching && self.material_bind_group_id.is_some()
+    }
+}
+
 #[derive(Default, Resource, Deref, DerefMut)]
 pub struct RenderMeshInstances(EntityHashMap<RenderMeshInstance>);
 
@@ -466,7 +472,7 @@ impl GetBatchData for MeshPipeline {
                 &mesh_instance.transforms,
                 maybe_lightmap.map(|lightmap| lightmap.uv_rect),
             ),
-            mesh_instance.automatic_batching.then_some((
+            mesh_instance.should_batch().then_some((
                 mesh_instance.material_bind_group_id,
                 mesh_instance.mesh_asset_id,
                 maybe_lightmap.map(|lightmap| lightmap.image),
