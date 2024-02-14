@@ -4,6 +4,7 @@ use crate::{
     change_detection::MutUntyped,
     component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
+    query::{Access, DebugCheckedUnwrap},
     removal_detection::RemovedComponentEvents,
     storage::Storages,
     world::{Mut, World},
@@ -11,6 +12,7 @@ use crate::{
 use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::tracing::debug;
 use std::{any::TypeId, marker::PhantomData};
+use thiserror::Error;
 
 use super::{unsafe_world_cell::UnsafeEntityCell, Ref};
 
@@ -188,9 +190,61 @@ impl<'a> From<&'a EntityMut<'_>> for EntityRef<'a> {
     }
 }
 
+impl<'a> TryFrom<FilteredEntityRef<'a>> for EntityRef<'a> {
+    type Error = TryFromFilteredError;
+
+    fn try_from(value: FilteredEntityRef<'a>) -> Result<Self, Self::Error> {
+        if !value.access.has_read_all() {
+            Err(TryFromFilteredError::MissingReadAllAccess)
+        } else {
+            // SAFETY: check above guarantees read-only access to all components of the entity.
+            Ok(unsafe { EntityRef::new(value.entity) })
+        }
+    }
+}
+
+impl<'a> TryFrom<&'a FilteredEntityRef<'_>> for EntityRef<'a> {
+    type Error = TryFromFilteredError;
+
+    fn try_from(value: &'a FilteredEntityRef<'_>) -> Result<Self, Self::Error> {
+        if !value.access.has_read_all() {
+            Err(TryFromFilteredError::MissingReadAllAccess)
+        } else {
+            // SAFETY: check above guarantees read-only access to all components of the entity.
+            Ok(unsafe { EntityRef::new(value.entity) })
+        }
+    }
+}
+
+impl<'a> TryFrom<FilteredEntityMut<'a>> for EntityRef<'a> {
+    type Error = TryFromFilteredError;
+
+    fn try_from(value: FilteredEntityMut<'a>) -> Result<Self, Self::Error> {
+        if !value.access.has_read_all() {
+            Err(TryFromFilteredError::MissingReadAllAccess)
+        } else {
+            // SAFETY: check above guarantees read-only access to all components of the entity.
+            Ok(unsafe { EntityRef::new(value.entity) })
+        }
+    }
+}
+
+impl<'a> TryFrom<&'a FilteredEntityMut<'_>> for EntityRef<'a> {
+    type Error = TryFromFilteredError;
+
+    fn try_from(value: &'a FilteredEntityMut<'_>) -> Result<Self, Self::Error> {
+        if !value.access.has_read_all() {
+            Err(TryFromFilteredError::MissingReadAllAccess)
+        } else {
+            // SAFETY: check above guarantees read-only access to all components of the entity.
+            Ok(unsafe { EntityRef::new(value.entity) })
+        }
+    }
+}
+
 /// Provides mutable access to a single entity and all of its components.
 ///
-/// Contrast with [`EntityWorldMut`], with allows adding and removing components,
+/// Contrast with [`EntityWorldMut`], which allows adding and removing components,
 /// despawning the entity, and provides mutable access to the entire world.
 /// Because of this, `EntityWorldMut` cannot coexist with any other world accesses.
 ///
@@ -371,6 +425,36 @@ impl<'a> From<&'a mut EntityWorldMut<'_>> for EntityMut<'a> {
     fn from(value: &'a mut EntityWorldMut<'_>) -> Self {
         // SAFETY: `EntityWorldMut` guarantees exclusive access to the entire world.
         unsafe { EntityMut::new(value.as_unsafe_entity_cell()) }
+    }
+}
+
+impl<'a> TryFrom<FilteredEntityMut<'a>> for EntityMut<'a> {
+    type Error = TryFromFilteredError;
+
+    fn try_from(value: FilteredEntityMut<'a>) -> Result<Self, Self::Error> {
+        if !value.access.has_read_all() {
+            Err(TryFromFilteredError::MissingReadAllAccess)
+        } else if !value.access.has_write_all() {
+            Err(TryFromFilteredError::MissingWriteAllAccess)
+        } else {
+            // SAFETY: check above guarantees exclusive access to all components of the entity.
+            Ok(unsafe { EntityMut::new(value.entity) })
+        }
+    }
+}
+
+impl<'a> TryFrom<&'a mut FilteredEntityMut<'_>> for EntityMut<'a> {
+    type Error = TryFromFilteredError;
+
+    fn try_from(value: &'a mut FilteredEntityMut<'_>) -> Result<Self, Self::Error> {
+        if !value.access.has_read_all() {
+            Err(TryFromFilteredError::MissingReadAllAccess)
+        } else if !value.access.has_write_all() {
+            Err(TryFromFilteredError::MissingWriteAllAccess)
+        } else {
+            // SAFETY: check above guarantees exclusive access to all components of the entity.
+            Ok(unsafe { EntityMut::new(value.entity) })
+        }
     }
 }
 
@@ -1493,6 +1577,491 @@ impl<'w, 'a, T: Component> VacantEntry<'w, 'a, T> {
             _marker: PhantomData,
         }
     }
+}
+
+/// Provides read-only access to a single entity and some of its components defined by the contained [`Access`].
+#[derive(Clone)]
+pub struct FilteredEntityRef<'w> {
+    entity: UnsafeEntityCell<'w>,
+    access: Access<ComponentId>,
+}
+
+impl<'w> FilteredEntityRef<'w> {
+    /// # Safety
+    /// - No `&mut World` can exist from the underlying `UnsafeWorldCell`
+    /// - If `access` takes read access to a component no mutable reference to that
+    /// component can exist at the same time as the returned [`FilteredEntityMut`]
+    /// - If `access` takes any access for a component `entity` must have that component.
+    pub(crate) unsafe fn new(entity: UnsafeEntityCell<'w>, access: Access<ComponentId>) -> Self {
+        Self { entity, access }
+    }
+
+    /// Returns the [ID](Entity) of the current entity.
+    #[inline]
+    #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
+    pub fn id(&self) -> Entity {
+        self.entity.id()
+    }
+
+    /// Gets metadata indicating the location where the current entity is stored.
+    #[inline]
+    pub fn location(&self) -> EntityLocation {
+        self.entity.location()
+    }
+
+    /// Returns the archetype that the current entity belongs to.
+    #[inline]
+    pub fn archetype(&self) -> &Archetype {
+        self.entity.archetype()
+    }
+
+    /// Returns an iterator over the component ids that are accessed by self.
+    #[inline]
+    pub fn components(&self) -> impl Iterator<Item = ComponentId> + '_ {
+        self.access.reads_and_writes()
+    }
+
+    /// Returns a reference to the underlying [`Access`].
+    #[inline]
+    pub fn access(&self) -> &Access<ComponentId> {
+        &self.access
+    }
+
+    /// Returns `true` if the current entity has a component of type `T`.
+    /// Otherwise, this returns `false`.
+    ///
+    /// ## Notes
+    ///
+    /// If you do not know the concrete type of a component, consider using
+    /// [`Self::contains_id`] or [`Self::contains_type_id`].
+    #[inline]
+    pub fn contains<T: Component>(&self) -> bool {
+        self.contains_type_id(TypeId::of::<T>())
+    }
+
+    /// Returns `true` if the current entity has a component identified by `component_id`.
+    /// Otherwise, this returns false.
+    ///
+    /// ## Notes
+    ///
+    /// - If you know the concrete type of the component, you should prefer [`Self::contains`].
+    /// - If you know the component's [`TypeId`] but not its [`ComponentId`], consider using
+    /// [`Self::contains_type_id`].
+    #[inline]
+    pub fn contains_id(&self, component_id: ComponentId) -> bool {
+        self.entity.contains_id(component_id)
+    }
+
+    /// Returns `true` if the current entity has a component with the type identified by `type_id`.
+    /// Otherwise, this returns false.
+    ///
+    /// ## Notes
+    ///
+    /// - If you know the concrete type of the component, you should prefer [`Self::contains`].
+    /// - If you have a [`ComponentId`] instead of a [`TypeId`], consider using [`Self::contains_id`].
+    #[inline]
+    pub fn contains_type_id(&self, type_id: TypeId) -> bool {
+        self.entity.contains_type_id(type_id)
+    }
+
+    /// Gets access to the component of type `T` for the current entity.
+    /// Returns `None` if the entity does not have a component of type `T`.
+    #[inline]
+    pub fn get<T: Component>(&self) -> Option<&'w T> {
+        let Some(id) = self.entity.world().components().get_id(TypeId::of::<T>()) else {
+            return None;
+        };
+        self.access
+            .has_read(id)
+            // SAFETY: We have read access so we must have the component
+            .then(|| unsafe { self.entity.get().debug_checked_unwrap() })
+    }
+
+    /// Gets access to the component of type `T` for the current entity,
+    /// including change detection information as a [`Ref`].
+    ///
+    /// Returns `None` if the entity does not have a component of type `T`.
+    #[inline]
+    pub fn get_ref<T: Component>(&self) -> Option<Ref<'w, T>> {
+        let Some(id) = self.entity.world().components().get_id(TypeId::of::<T>()) else {
+            return None;
+        };
+        self.access
+            .has_read(id)
+            // SAFETY: We have read access so we must have the component
+            .then(|| unsafe { self.entity.get_ref().debug_checked_unwrap() })
+    }
+
+    /// Retrieves the change ticks for the given component. This can be useful for implementing change
+    /// detection in custom runtimes.
+    #[inline]
+    pub fn get_change_ticks<T: Component>(&self) -> Option<ComponentTicks> {
+        let Some(id) = self.entity.world().components().get_id(TypeId::of::<T>()) else {
+            return None;
+        };
+        self.access
+            .has_read(id)
+            // SAFETY: We have read access so we must have the component
+            .then(|| unsafe { self.entity.get_change_ticks::<T>().debug_checked_unwrap() })
+    }
+
+    /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
+    /// detection in custom runtimes.
+    ///
+    /// **You should prefer to use the typed API [`Self::get_change_ticks`] where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    #[inline]
+    pub fn get_change_ticks_by_id(&self, component_id: ComponentId) -> Option<ComponentTicks> {
+        // SAFETY: We have read access so we must have the component
+        self.access.has_read(component_id).then(|| unsafe {
+            self.entity
+                .get_change_ticks_by_id(component_id)
+                .debug_checked_unwrap()
+        })
+    }
+
+    /// Gets the component of the given [`ComponentId`] from the entity.
+    ///
+    /// **You should prefer to use the typed API [`Self::get`] where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    ///
+    /// Unlike [`FilteredEntityRef::get`], this returns a raw pointer to the component,
+    /// which is only valid while the [`FilteredEntityRef`] is alive.
+    #[inline]
+    pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'w>> {
+        self.access
+            .has_read(component_id)
+            // SAFETY: We have read access so we must have the component
+            .then(|| unsafe { self.entity.get_by_id(component_id).debug_checked_unwrap() })
+    }
+}
+
+impl<'w> From<FilteredEntityMut<'w>> for FilteredEntityRef<'w> {
+    fn from(entity_mut: FilteredEntityMut<'w>) -> Self {
+        // SAFETY:
+        // - `FilteredEntityMut` guarantees exclusive access to all components in the new `FilteredEntityRef`.
+        unsafe { FilteredEntityRef::new(entity_mut.entity, entity_mut.access) }
+    }
+}
+
+impl<'a> From<&'a FilteredEntityMut<'_>> for FilteredEntityRef<'a> {
+    fn from(entity_mut: &'a FilteredEntityMut<'_>) -> Self {
+        // SAFETY:
+        // - `FilteredEntityMut` guarantees exclusive access to all components in the new `FilteredEntityRef`.
+        unsafe { FilteredEntityRef::new(entity_mut.entity, entity_mut.access.clone()) }
+    }
+}
+
+impl<'a> From<EntityRef<'a>> for FilteredEntityRef<'a> {
+    fn from(entity: EntityRef<'a>) -> Self {
+        // SAFETY:
+        // - `EntityRef` guarantees exclusive access to all components in the new `FilteredEntityRef`.
+        unsafe {
+            let mut access = Access::default();
+            access.read_all();
+            FilteredEntityRef::new(entity.0, access)
+        }
+    }
+}
+
+impl<'a> From<&'a EntityRef<'_>> for FilteredEntityRef<'a> {
+    fn from(entity: &'a EntityRef<'_>) -> Self {
+        // SAFETY:
+        // - `EntityRef` guarantees exclusive access to all components in the new `FilteredEntityRef`.
+        unsafe {
+            let mut access = Access::default();
+            access.read_all();
+            FilteredEntityRef::new(entity.0, access)
+        }
+    }
+}
+
+impl<'a> From<EntityMut<'a>> for FilteredEntityRef<'a> {
+    fn from(entity: EntityMut<'a>) -> Self {
+        // SAFETY:
+        // - `EntityMut` guarantees exclusive access to all components in the new `FilteredEntityRef`.
+        unsafe {
+            let mut access = Access::default();
+            access.read_all();
+            FilteredEntityRef::new(entity.0, access)
+        }
+    }
+}
+
+impl<'a> From<&'a EntityMut<'_>> for FilteredEntityRef<'a> {
+    fn from(entity: &'a EntityMut<'_>) -> Self {
+        // SAFETY:
+        // - `EntityMut` guarantees exclusive access to all components in the new `FilteredEntityRef`.
+        unsafe {
+            let mut access = Access::default();
+            access.read_all();
+            FilteredEntityRef::new(entity.0, access)
+        }
+    }
+}
+
+impl<'a> From<EntityWorldMut<'a>> for FilteredEntityRef<'a> {
+    fn from(entity: EntityWorldMut<'a>) -> Self {
+        // SAFETY:
+        // - `EntityWorldMut` guarantees exclusive access to the entire world.
+        unsafe {
+            let mut access = Access::default();
+            access.read_all();
+            FilteredEntityRef::new(entity.into_unsafe_entity_cell(), access)
+        }
+    }
+}
+
+impl<'a> From<&'a EntityWorldMut<'_>> for FilteredEntityRef<'a> {
+    fn from(entity: &'a EntityWorldMut<'_>) -> Self {
+        // SAFETY:
+        // - `EntityWorldMut` guarantees exclusive access to the entire world.
+        unsafe {
+            let mut access = Access::default();
+            access.read_all();
+            FilteredEntityRef::new(entity.as_unsafe_entity_cell_readonly(), access)
+        }
+    }
+}
+
+/// Provides mutable access to a single entity and some of its components defined by the contained [`Access`].
+pub struct FilteredEntityMut<'w> {
+    entity: UnsafeEntityCell<'w>,
+    access: Access<ComponentId>,
+}
+
+impl<'w> FilteredEntityMut<'w> {
+    /// # Safety
+    /// - No `&mut World` can exist from the underlying `UnsafeWorldCell`
+    /// - If `access` takes read access to a component no mutable reference to that
+    /// component can exist at the same time as the returned [`FilteredEntityMut`]
+    /// - If `access` takes write access to a component, no reference to that component
+    /// may exist at the same time as the returned [`FilteredEntityMut`]
+    /// - If `access` takes any access for a component `entity` must have that component.
+    pub(crate) unsafe fn new(entity: UnsafeEntityCell<'w>, access: Access<ComponentId>) -> Self {
+        Self { entity, access }
+    }
+
+    /// Returns a new instance with a shorter lifetime.
+    /// This is useful if you have `&mut FilteredEntityMut`, but you need `FilteredEntityMut`.
+    pub fn reborrow(&mut self) -> FilteredEntityMut<'_> {
+        // SAFETY: We have exclusive access to the entire entity and its components.
+        unsafe { Self::new(self.entity, self.access.clone()) }
+    }
+
+    /// Gets read-only access to all of the entity's components.
+    pub fn as_readonly(&self) -> FilteredEntityRef<'_> {
+        FilteredEntityRef::from(self)
+    }
+
+    /// Returns the [ID](Entity) of the current entity.
+    #[inline]
+    #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
+    pub fn id(&self) -> Entity {
+        self.entity.id()
+    }
+
+    /// Gets metadata indicating the location where the current entity is stored.
+    #[inline]
+    pub fn location(&self) -> EntityLocation {
+        self.entity.location()
+    }
+
+    /// Returns the archetype that the current entity belongs to.
+    #[inline]
+    pub fn archetype(&self) -> &Archetype {
+        self.entity.archetype()
+    }
+
+    /// Returns an iterator over the component ids that are accessed by self.
+    #[inline]
+    pub fn components(&self) -> impl Iterator<Item = ComponentId> + '_ {
+        self.access.reads_and_writes()
+    }
+
+    /// Returns a reference to the underlying [`Access`].
+    #[inline]
+    pub fn access(&self) -> &Access<ComponentId> {
+        &self.access
+    }
+
+    /// Returns `true` if the current entity has a component of type `T`.
+    /// Otherwise, this returns `false`.
+    ///
+    /// ## Notes
+    ///
+    /// If you do not know the concrete type of a component, consider using
+    /// [`Self::contains_id`] or [`Self::contains_type_id`].
+    #[inline]
+    pub fn contains<T: Component>(&self) -> bool {
+        self.contains_type_id(TypeId::of::<T>())
+    }
+
+    /// Returns `true` if the current entity has a component identified by `component_id`.
+    /// Otherwise, this returns false.
+    ///
+    /// ## Notes
+    ///
+    /// - If you know the concrete type of the component, you should prefer [`Self::contains`].
+    /// - If you know the component's [`TypeId`] but not its [`ComponentId`], consider using
+    /// [`Self::contains_type_id`].
+    #[inline]
+    pub fn contains_id(&self, component_id: ComponentId) -> bool {
+        self.entity.contains_id(component_id)
+    }
+
+    /// Returns `true` if the current entity has a component with the type identified by `type_id`.
+    /// Otherwise, this returns false.
+    ///
+    /// ## Notes
+    ///
+    /// - If you know the concrete type of the component, you should prefer [`Self::contains`].
+    /// - If you have a [`ComponentId`] instead of a [`TypeId`], consider using [`Self::contains_id`].
+    #[inline]
+    pub fn contains_type_id(&self, type_id: TypeId) -> bool {
+        self.entity.contains_type_id(type_id)
+    }
+
+    /// Gets access to the component of type `T` for the current entity.
+    /// Returns `None` if the entity does not have a component of type `T`.
+    #[inline]
+    pub fn get<T: Component>(&self) -> Option<&'_ T> {
+        self.as_readonly().get()
+    }
+
+    /// Gets access to the component of type `T` for the current entity,
+    /// including change detection information as a [`Ref`].
+    ///
+    /// Returns `None` if the entity does not have a component of type `T`.
+    #[inline]
+    pub fn get_ref<T: Component>(&self) -> Option<Ref<'_, T>> {
+        self.as_readonly().get_ref()
+    }
+
+    /// Gets mutable access to the component of type `T` for the current entity.
+    /// Returns `None` if the entity does not have a component of type `T`.
+    #[inline]
+    pub fn get_mut<T: Component>(&mut self) -> Option<Mut<'_, T>> {
+        let Some(id) = self.entity.world().components().get_id(TypeId::of::<T>()) else {
+            return None;
+        };
+        self.access
+            .has_write(id)
+            // SAFETY: We have write access so we must have the component
+            .then(|| unsafe { self.entity.get_mut().debug_checked_unwrap() })
+    }
+
+    /// Retrieves the change ticks for the given component. This can be useful for implementing change
+    /// detection in custom runtimes.
+    #[inline]
+    pub fn get_change_ticks<T: Component>(&self) -> Option<ComponentTicks> {
+        self.as_readonly().get_change_ticks::<T>()
+    }
+
+    /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
+    /// detection in custom runtimes.
+    ///
+    /// **You should prefer to use the typed API [`Self::get_change_ticks`] where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    #[inline]
+    pub fn get_change_ticks_by_id(&self, component_id: ComponentId) -> Option<ComponentTicks> {
+        self.as_readonly().get_change_ticks_by_id(component_id)
+    }
+
+    /// Gets the component of the given [`ComponentId`] from the entity.
+    ///
+    /// **You should prefer to use the typed API [`Self::get`] where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    ///
+    /// Unlike [`FilteredEntityMut::get`], this returns a raw pointer to the component,
+    /// which is only valid while the [`FilteredEntityMut`] is alive.
+    #[inline]
+    pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
+        self.as_readonly().get_by_id(component_id)
+    }
+
+    /// Gets a [`MutUntyped`] of the component of the given [`ComponentId`] from the entity.
+    ///
+    /// **You should prefer to use the typed API [`Self::get_mut`] where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    ///
+    /// Unlike [`FilteredEntityMut::get_mut`], this returns a raw pointer to the component,
+    /// which is only valid while the [`FilteredEntityMut`] is alive.
+    #[inline]
+    pub fn get_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
+        // SAFETY: We have write access so we must have the component
+        self.access.has_write(component_id).then(|| unsafe {
+            self.entity
+                .get_mut_by_id(component_id)
+                .debug_checked_unwrap()
+        })
+    }
+}
+
+impl<'a> From<EntityMut<'a>> for FilteredEntityMut<'a> {
+    fn from(entity: EntityMut<'a>) -> Self {
+        // SAFETY:
+        // - `EntityMut` guarantees exclusive access to all components in the new `FilteredEntityMut`.
+        unsafe {
+            let mut access = Access::default();
+            access.read_all();
+            access.write_all();
+            FilteredEntityMut::new(entity.0, access)
+        }
+    }
+}
+
+impl<'a> From<&'a mut EntityMut<'_>> for FilteredEntityMut<'a> {
+    fn from(entity: &'a mut EntityMut<'_>) -> Self {
+        // SAFETY:
+        // - `EntityMut` guarantees exclusive access to all components in the new `FilteredEntityMut`.
+        unsafe {
+            let mut access = Access::default();
+            access.read_all();
+            access.write_all();
+            FilteredEntityMut::new(entity.0, access)
+        }
+    }
+}
+
+impl<'a> From<EntityWorldMut<'a>> for FilteredEntityMut<'a> {
+    fn from(entity: EntityWorldMut<'a>) -> Self {
+        // SAFETY:
+        // - `EntityWorldMut` guarantees exclusive access to the entire world.
+        unsafe {
+            let mut access = Access::default();
+            access.read_all();
+            access.write_all();
+            FilteredEntityMut::new(entity.into_unsafe_entity_cell(), access)
+        }
+    }
+}
+
+impl<'a> From<&'a mut EntityWorldMut<'_>> for FilteredEntityMut<'a> {
+    fn from(entity: &'a mut EntityWorldMut<'_>) -> Self {
+        // SAFETY:
+        // - `EntityWorldMut` guarantees exclusive access to the entire world.
+        unsafe {
+            let mut access = Access::default();
+            access.read_all();
+            access.write_all();
+            FilteredEntityMut::new(entity.as_unsafe_entity_cell(), access)
+        }
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum TryFromFilteredError {
+    #[error("Conversion failed, filtered entity ref does not have read access to all components")]
+    MissingReadAllAccess,
+
+    #[error("Conversion failed, filtered entity ref does not have write access to all components")]
+    MissingWriteAllAccess,
 }
 
 /// Inserts a dynamic [`Bundle`] into the entity.

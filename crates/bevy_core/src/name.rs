@@ -10,6 +10,9 @@ use std::{
     ops::Deref,
 };
 
+#[cfg(feature = "serialize")]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+
 /// Component used to identify an entity. Stores a hash for faster comparisons.
 ///
 /// The hash is eagerly re-computed upon each update to the name.
@@ -19,8 +22,9 @@ use std::{
 /// used instead as the default unique identifier.
 #[derive(Reflect, Component, Clone)]
 #[reflect(Component, Default, Debug)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub struct Name {
-    hash: u64, // TODO: Shouldn't be serialized
+    hash: u64, // Won't be serialized (see: `bevy_core::serde` module)
     name: Cow<'static, str>,
 }
 
@@ -88,7 +92,7 @@ impl std::fmt::Debug for Name {
 
 /// Convenient query for giving a human friendly name to an entity.
 ///
-/// ```rust
+/// ```
 /// # use bevy_core::prelude::*;
 /// # use bevy_ecs::prelude::*;
 /// # #[derive(Component)] pub struct Score(f32);

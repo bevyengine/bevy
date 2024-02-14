@@ -98,6 +98,7 @@ where
             )
             .init_resource::<PrepassViewBindGroup>()
             .init_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>()
+            .allow_ambiguous_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>()
             .init_resource::<PreviousViewProjectionUniforms>();
     }
 
@@ -168,7 +169,9 @@ where
                 Render,
                 queue_prepass_material_meshes::<M>
                     .in_set(RenderSet::QueueMeshes)
-                    .after(prepare_materials::<M>),
+                    .after(prepare_materials::<M>)
+                    // queue_material_meshes only writes to `material_bind_group_id`, which `queue_prepass_material_meshes` doesn't read
+                    .ambiguous_with(queue_material_meshes::<StandardMaterial>),
             );
     }
 }
@@ -322,7 +325,7 @@ where
         // The main limitation right now is that bind group order is hardcoded in shaders.
         bind_group_layouts.push(self.material_layout.clone());
 
-        #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+        #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         shader_defs.push("WEBGL2".into());
 
         shader_defs.push("VERTEX_OUTPUT_INSTANCE_INDEX".into());
@@ -366,6 +369,11 @@ where
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_0.at_shader_location(1));
         }
 
+        if layout.contains(Mesh::ATTRIBUTE_UV_1) {
+            shader_defs.push("VERTEX_UVS_B".into());
+            vertex_attributes.push(Mesh::ATTRIBUTE_UV_1.at_shader_location(2));
+        }
+
         if key.mesh_key.contains(MeshPipelineKey::NORMAL_PREPASS) {
             shader_defs.push("NORMAL_PREPASS".into());
         }
@@ -374,11 +382,11 @@ where
             .mesh_key
             .intersects(MeshPipelineKey::NORMAL_PREPASS | MeshPipelineKey::DEFERRED_PREPASS)
         {
-            vertex_attributes.push(Mesh::ATTRIBUTE_NORMAL.at_shader_location(2));
+            vertex_attributes.push(Mesh::ATTRIBUTE_NORMAL.at_shader_location(3));
             shader_defs.push("NORMAL_PREPASS_OR_DEFERRED_PREPASS".into());
             if layout.contains(Mesh::ATTRIBUTE_TANGENT) {
                 shader_defs.push("VERTEX_TANGENTS".into());
-                vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(3));
+                vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(4));
             }
         }
 
@@ -395,7 +403,7 @@ where
 
         if layout.contains(Mesh::ATTRIBUTE_COLOR) {
             shader_defs.push("VERTEX_COLORS".into());
-            vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(6));
+            vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(7));
         }
 
         if key
@@ -416,7 +424,7 @@ where
         let bind_group = setup_morph_and_skinning_defs(
             &self.mesh_layouts,
             layout,
-            4,
+            5,
             &key.mesh_key,
             &mut shader_defs,
             &mut vertex_attributes,
@@ -510,7 +518,11 @@ where
         };
 
         let mut push_constant_ranges = Vec::with_capacity(1);
-        if cfg!(all(feature = "webgl", target_arch = "wasm32")) {
+        if cfg!(all(
+            feature = "webgl",
+            target_arch = "wasm32",
+            not(feature = "webgpu")
+        )) {
             push_constant_ranges.push(PushConstantRange {
                 stages: ShaderStages::VERTEX,
                 range: 0..4,
@@ -631,8 +643,8 @@ pub fn prepare_previous_view_projection_uniforms(
 
 #[derive(Default, Resource)]
 pub struct PrepassViewBindGroup {
-    motion_vectors: Option<BindGroup>,
-    no_motion_vectors: Option<BindGroup>,
+    pub motion_vectors: Option<BindGroup>,
+    pub no_motion_vectors: Option<BindGroup>,
 }
 
 pub fn prepare_prepass_view_bind_group<M: Material>(
@@ -681,6 +693,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
     render_mesh_instances: Res<RenderMeshInstances>,
     render_materials: Res<RenderMaterials<M>>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
+    render_lightmaps: Res<RenderLightmaps>,
     mut views: Query<
         (
             &ExtractedView,
@@ -793,6 +806,18 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 mesh_key |= MeshPipelineKey::DEFERRED_PREPASS;
             }
 
+            // Even though we don't use the lightmap in the prepass, the
+            // `SetMeshBindGroup` render command will bind the data for it. So
+            // we need to include the appropriate flag in the mesh pipeline key
+            // to ensure that the necessary bind group layout entries are
+            // present.
+            if render_lightmaps
+                .render_lightmaps
+                .contains_key(visible_entity)
+            {
+                mesh_key |= MeshPipelineKey::LIGHTMAPPED;
+            }
+
             let pipeline_id = pipelines.specialize(
                 &pipeline_cache,
                 &prepass_pipeline,
@@ -810,9 +835,6 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 }
             };
 
-            let distance = rangefinder
-                .distance_translation(&mesh_instance.transforms.transform.translation)
-                + material.properties.depth_bias;
             match alpha_mode {
                 AlphaMode::Opaque => {
                     if deferred {
@@ -823,7 +845,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                                 entity: *visible_entity,
                                 draw_function: opaque_draw_deferred,
                                 pipeline_id,
-                                distance,
+                                asset_id: mesh_instance.mesh_asset_id,
                                 batch_range: 0..1,
                                 dynamic_offset: None,
                             });
@@ -832,13 +854,16 @@ pub fn queue_prepass_material_meshes<M: Material>(
                             entity: *visible_entity,
                             draw_function: opaque_draw_prepass,
                             pipeline_id,
-                            distance,
+                            asset_id: mesh_instance.mesh_asset_id,
                             batch_range: 0..1,
                             dynamic_offset: None,
                         });
                     }
                 }
                 AlphaMode::Mask(_) => {
+                    let distance = rangefinder
+                        .distance_translation(&mesh_instance.transforms.transform.translation)
+                        + material.properties.depth_bias;
                     if deferred {
                         alpha_mask_deferred_phase
                             .as_mut()
@@ -874,11 +899,11 @@ pub fn queue_prepass_material_meshes<M: Material>(
 pub struct SetPrepassViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetPrepassViewBindGroup<I> {
     type Param = SRes<PrepassViewBindGroup>;
-    type ViewData = (
+    type ViewQuery = (
         Read<ViewUniformOffset>,
         Option<Read<PreviousViewProjectionUniformOffset>>,
     );
-    type ItemData = ();
+    type ItemQuery = ();
 
     #[inline]
     fn render<'w>(
@@ -887,7 +912,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetPrepassViewBindGroup<
             &'_ ViewUniformOffset,
             Option<&'_ PreviousViewProjectionUniformOffset>,
         ),
-        _entity: (),
+        _entity: Option<()>,
         prepass_view_bind_group: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {

@@ -2,9 +2,9 @@ use crate::{
     component::{Component, Tick},
     entity::Entity,
     query::{
-        BatchingStrategy, QueryCombinationIter, QueryComponentError, QueryData, QueryEntityError,
-        QueryFilter, QueryIter, QueryManyIter, QueryParIter, QuerySingleError, QueryState,
-        ROQueryItem, ReadOnlyQueryData,
+        BatchingStrategy, QueryCombinationIter, QueryData, QueryEntityError, QueryFilter,
+        QueryIter, QueryManyIter, QueryParIter, QuerySingleError, QueryState, ROQueryItem,
+        ReadOnlyQueryData,
     },
     world::{unsafe_world_cell::UnsafeWorldCell, Mut},
 };
@@ -797,6 +797,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// This can only be called for read-only queries, see [`par_iter_mut`] for write-queries.
     ///
+    /// Note that you must use the `for_each` method to iterate over the
+    /// results, see [`par_iter_mut`] for an example.
+    ///
     /// [`par_iter_mut`]: Self::par_iter_mut
     /// [`World`]: crate::world::World
     #[inline]
@@ -813,6 +816,24 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// Returns a parallel iterator over the query results for the given [`World`].
     ///
     /// This can only be called for mutable queries, see [`par_iter`] for read-only-queries.
+    ///
+    /// # Example
+    ///
+    /// Here, the `gravity_system` updates the `Velocity` component of every entity that contains it:
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct Velocity { x: f32, y: f32, z: f32 }
+    /// fn gravity_system(mut query: Query<&mut Velocity>) {
+    ///     const DELTA: f32 = 1.0 / 60.0;
+    ///     query.par_iter_mut().for_each(|mut velocity| {
+    ///         velocity.y -= 9.8 * DELTA;
+    ///     });
+    /// }
+    /// # bevy_ecs::system::assert_is_system(gravity_system);
+    /// ```
     ///
     /// [`par_iter`]: Self::par_iter
     /// [`World`]: crate::world::World
@@ -903,7 +924,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// This method panics if there is a query mismatch or a non-existing entity.
     ///
     /// # Examples
-    /// ```rust, no_run
+    /// ``` no_run
     /// use bevy_ecs::prelude::*;
     ///
     /// #[derive(Component)]
@@ -1011,7 +1032,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// # Examples
     ///
-    /// ```rust, no_run
+    /// ``` no_run
     /// use bevy_ecs::prelude::*;
     ///
     /// #[derive(Component)]
@@ -1111,8 +1132,16 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`component`](Self::component) a panicking version of this function.
     /// - [`get_component_mut`](Self::get_component_mut) to get a mutable reference of a component.
+    #[deprecated(
+        since = "0.13.0",
+        note = "Please use `get` and select for the exact component based on the structure of the exact query as required."
+    )]
+    #[allow(deprecated)]
     #[inline]
-    pub fn get_component<T: Component>(&self, entity: Entity) -> Result<&T, QueryComponentError> {
+    pub fn get_component<T: Component>(
+        &self,
+        entity: Entity,
+    ) -> Result<&T, crate::query::QueryComponentError> {
         self.state.get_component(self.world, entity)
     }
 
@@ -1144,11 +1173,18 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`component_mut`](Self::component_mut) a panicking version of this function.
     /// - [`get_component`](Self::get_component) to get a shared reference of a component.
+    ///
+    /// [`QueryComponentError`]: crate::query::QueryComponentError
+    #[deprecated(
+        since = "0.13.0",
+        note = "Please use `get_mut` and select for the exact component based on the structure of the exact query as required."
+    )]
+    #[allow(deprecated)]
     #[inline]
     pub fn get_component_mut<T: Component>(
         &mut self,
         entity: Entity,
-    ) -> Result<Mut<'_, T>, QueryComponentError> {
+    ) -> Result<Mut<'_, T>, crate::query::QueryComponentError> {
         // SAFETY: unique access to query (preventing aliased access)
         unsafe { self.get_component_unchecked_mut(entity) }
     }
@@ -1163,6 +1199,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`get_component`](Self::get_component) a non-panicking version of this function.
     /// - [`component_mut`](Self::component_mut) to get a mutable reference of a component.
+    #[deprecated(
+        since = "0.13.0",
+        note = "Please use `get` and select for the exact component based on the structure of the exact query as required."
+    )]
+    #[allow(deprecated)]
     #[inline]
     #[track_caller]
     pub fn component<T: Component>(&self, entity: Entity) -> &T {
@@ -1179,6 +1220,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`get_component_mut`](Self::get_component_mut) a non-panicking version of this function.
     /// - [`component`](Self::component) to get a shared reference of a component.
+    #[deprecated(
+        since = "0.13.0",
+        note = "Please use `get_mut` and select for the exact component based on the structure of the exact query as required."
+    )]
+    #[allow(deprecated)]
     #[inline]
     #[track_caller]
     pub fn component_mut<T: Component>(&mut self, entity: Entity) -> Mut<'_, T> {
@@ -1205,15 +1251,22 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # See also
     ///
     /// - [`get_component_mut`](Self::get_component_mut) for the safe version.
+    ///
+    /// [`QueryComponentError`]: crate::query::QueryComponentError
+    #[deprecated(
+        since = "0.13.0",
+        note = "Please use `get_unchecked` and select for the exact component based on the structure of the exact query as required."
+    )]
+    #[allow(deprecated)]
     #[inline]
     pub unsafe fn get_component_unchecked_mut<T: Component>(
         &self,
         entity: Entity,
-    ) -> Result<Mut<'_, T>, QueryComponentError> {
+    ) -> Result<Mut<'_, T>, crate::query::QueryComponentError> {
         // This check is required to ensure soundness in the case of `to_readonly().get_component_mut()`
         // See the comments on the `force_read_only_component_access` field for more info.
         if self.force_read_only_component_access {
-            return Err(QueryComponentError::MissingWriteAccess);
+            return Err(crate::query::QueryComponentError::MissingWriteAccess);
         }
 
         // SAFETY: The above check ensures we are not a readonly query.
@@ -1431,6 +1484,96 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
                 .is_ok()
         }
     }
+
+    /// Returns a [`QueryLens`] that can be used to get a query with a more general fetch.
+    ///
+    /// For example, this can transform a `Query<(&A, &mut B)>` to a `Query<&B>`.
+    /// This can be useful for passing the query to another function. Note that since
+    /// filter terms are dropped, non-archetypal filters like [`Added`](crate::query::Added) and
+    /// [`Changed`](crate::query::Changed) will not be respected. To maintain or change filter
+    /// terms see [`Self::transmute_lens_filtered`]
+    ///
+    /// ## Panics
+    ///
+    /// This will panic if `NewD` is not a subset of the original fetch `Q`
+    ///
+    /// ## Example
+    ///
+    /// ```rust
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::system::QueryLens;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct A(usize);
+    /// #
+    /// # #[derive(Component)]
+    /// # struct B(usize);
+    /// #
+    /// # let mut world = World::new();
+    /// #
+    /// # world.spawn((A(10), B(5)));
+    /// #
+    /// fn reusable_function(lens: &mut QueryLens<&A>) {
+    ///     assert_eq!(lens.query().single().0, 10);
+    /// }
+    ///
+    /// // We can use the function in a system that takes the exact query.
+    /// fn system_1(mut query: Query<&A>) {
+    ///     reusable_function(&mut query.as_query_lens());
+    /// }
+    ///
+    /// // We can also use it with a query that does not match exactly
+    /// // by transmuting it.
+    /// fn system_2(mut query: Query<(&mut A, &B)>) {
+    ///     let mut lens = query.transmute_lens::<&A>();
+    ///     reusable_function(&mut lens);
+    /// }
+    ///
+    /// # let mut schedule = Schedule::default();
+    /// # schedule.add_systems((system_1, system_2));
+    /// # schedule.run(&mut world);
+    /// ```
+    ///
+    /// ## Allowed Transmutes
+    ///
+    /// Besides removing parameters from the query, you can also
+    /// make limited changes to the types of paramters.
+    ///
+    /// * Can always add/remove `Entity`
+    /// * `Ref<T>` <-> `&T`
+    /// * `&mut T` -> `&T`
+    /// * `&mut T` -> `Ref<T>`
+    /// * [`EntityMut`](crate::world::EntityMut) -> [`EntityRef`](crate::world::EntityRef)
+    ///    
+    pub fn transmute_lens<NewD: QueryData>(&mut self) -> QueryLens<'_, NewD> {
+        self.transmute_lens_filtered::<NewD, ()>()
+    }
+
+    /// Equivalent to [`Self::transmute_lens`] but also includes a [`QueryFilter`] type.
+    ///
+    /// Note that the lens will iterate the same tables and archetypes as the original query. This means that
+    /// additional archetypal query terms like [`With`](crate::query::With) and [`Without`](crate::query::Without)
+    /// will not necessarily be respected and non-archetypal terms like [`Added`](crate::query::Added) and
+    /// [`Changed`](crate::query::Changed) will only be respected if they are in the type signature.
+    pub fn transmute_lens_filtered<NewD: QueryData, NewF: QueryFilter>(
+        &mut self,
+    ) -> QueryLens<'_, NewD, NewF> {
+        // SAFETY: There are no other active borrows of data from world
+        let world = unsafe { self.world.world() };
+        let state = self.state.transmute_filtered::<NewD, NewF>(world);
+        QueryLens {
+            world: self.world,
+            state,
+            last_run: self.last_run,
+            this_run: self.this_run,
+            force_read_only_component_access: self.force_read_only_component_access,
+        }
+    }
+
+    /// Gets a [`QueryLens`] with the same accesses as the existing query
+    pub fn as_query_lens(&mut self) -> QueryLens<'_, D> {
+        self.transmute_lens()
+    }
 }
 
 impl<'w, 's, D: QueryData, F: QueryFilter> IntoIterator for &'w Query<'_, 's, D, F> {
@@ -1530,5 +1673,45 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter> Query<'w, 's, D, F> {
                 .as_readonly()
                 .iter_unchecked_manual(self.world, self.last_run, self.this_run)
         }
+    }
+}
+
+/// Type returned from [`Query::transmute_lens`] containing the new [`QueryState`].
+///
+/// Call [`query`](QueryLens::query) or [`into`](Into::into) to construct the resulting [`Query`]
+pub struct QueryLens<'w, Q: QueryData, F: QueryFilter = ()> {
+    world: UnsafeWorldCell<'w>,
+    state: QueryState<Q, F>,
+    last_run: Tick,
+    this_run: Tick,
+    force_read_only_component_access: bool,
+}
+
+impl<'w, Q: QueryData, F: QueryFilter> QueryLens<'w, Q, F> {
+    /// Create a [`Query`] from the underlying [`QueryState`].
+    pub fn query(&mut self) -> Query<'w, '_, Q, F> {
+        Query {
+            world: self.world,
+            state: &self.state,
+            last_run: self.last_run,
+            this_run: self.this_run,
+            force_read_only_component_access: self.force_read_only_component_access,
+        }
+    }
+}
+
+impl<'w, 's, Q: QueryData, F: QueryFilter> From<&'s mut QueryLens<'w, Q, F>>
+    for Query<'w, 's, Q, F>
+{
+    fn from(value: &'s mut QueryLens<'w, Q, F>) -> Query<'w, 's, Q, F> {
+        value.query()
+    }
+}
+
+impl<'w, 'q, Q: QueryData, F: QueryFilter> From<&'q mut Query<'w, '_, Q, F>>
+    for QueryLens<'q, Q, F>
+{
+    fn from(value: &'q mut Query<'w, '_, Q, F>) -> QueryLens<'q, Q, F> {
+        value.transmute_lens_filtered()
     }
 }

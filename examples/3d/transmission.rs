@@ -68,33 +68,16 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
-    let icosphere_mesh = meshes.add(
-        Mesh::try_from(shape::Icosphere {
-            radius: 0.9,
-            subdivisions: 7,
-        })
-        .unwrap(),
-    );
-
-    let cube_mesh = meshes.add(Mesh::from(shape::Cube { size: 0.7 }));
-
-    let plane_mesh = meshes.add(shape::Plane::from_size(2.0).into());
-
-    let cylinder_mesh = meshes.add(
-        Mesh::try_from(shape::Cylinder {
-            radius: 0.5,
-            height: 2.0,
-            resolution: 50,
-            segments: 1,
-        })
-        .unwrap(),
-    );
+    let icosphere_mesh = meshes.add(Sphere::new(0.9).mesh().ico(7).unwrap());
+    let cube_mesh = meshes.add(Cuboid::new(0.7, 0.7, 0.7));
+    let plane_mesh = meshes.add(Plane3d::default().mesh().size(2.0, 2.0));
+    let cylinder_mesh = meshes.add(Cylinder::new(0.5, 2.0).mesh().resolution(50));
 
     // Cube #1
     commands.spawn((
         PbrBundle {
             mesh: cube_mesh.clone(),
-            material: materials.add(StandardMaterial { ..default() }),
+            material: materials.add(StandardMaterial::default()),
             transform: Transform::from_xyz(0.25, 0.5, -2.0).with_rotation(Quat::from_euler(
                 EulerRot::XYZ,
                 1.4,
@@ -114,7 +97,7 @@ fn setup(
     commands.spawn((
         PbrBundle {
             mesh: cube_mesh,
-            material: materials.add(StandardMaterial { ..default() }),
+            material: materials.add(StandardMaterial::default()),
             transform: Transform::from_xyz(-0.75, 0.7, -2.0).with_rotation(Quat::from_euler(
                 EulerRot::XYZ,
                 0.4,
@@ -156,7 +139,7 @@ fn setup(
         PbrBundle {
             mesh: icosphere_mesh.clone(),
             material: materials.add(StandardMaterial {
-                emissive: Color::ANTIQUE_WHITE * 20.0 + Color::ORANGE_RED * 4.0,
+                emissive: Color::ANTIQUE_WHITE * 80.0 + Color::ORANGE_RED * 16.0,
                 diffuse_transmission: 1.0,
                 ..default()
             }),
@@ -328,7 +311,7 @@ fn setup(
             transform: Transform::from_xyz(-1.0, 1.7, 0.0),
             point_light: PointLight {
                 color: Color::ANTIQUE_WHITE * 0.8 + Color::ORANGE_RED * 0.2,
-                intensity: 1600.0,
+                intensity: 60_000.0,
                 radius: 0.2,
                 range: 5.0,
                 shadows_enabled: true,
@@ -348,7 +331,6 @@ fn setup(
             },
             transform: Transform::from_xyz(1.0, 1.8, 7.0).looking_at(Vec3::ZERO, Vec3::Y),
             color_grading: ColorGrading {
-                exposure: -2.0,
                 post_saturation: 1.2,
                 ..default()
             },
@@ -358,6 +340,7 @@ fn setup(
         #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
         TemporalAntiAliasBundle::default(),
         EnvironmentMapLight {
+            intensity: 25.0,
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
         },
@@ -651,7 +634,7 @@ fn flicker_system(
     let c = (s * 7.0).cos() * 0.0125 + (s * 2.0).cos() * 0.025;
     let (mut light, mut light_transform) = light.single_mut();
     let mut flame_transform = flame.single_mut();
-    light.intensity = 1600.0 + 3000.0 * (a + b + c);
+    light.intensity = 60_000.0 + 3000.0 * (a + b + c);
     flame_transform.translation = Vec3::new(-1.0, 1.23, 0.0);
     flame_transform.look_at(Vec3::new(-1.0 - c, 1.7 - b, 0.0 - a), Vec3::X);
     flame_transform.rotate(Quat::from_euler(EulerRot::XYZ, 0.0, 0.0, PI / 2.0));

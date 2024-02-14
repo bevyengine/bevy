@@ -1,6 +1,6 @@
 use crate::{
-    AudioSourceBundle, Decodable, GlobalVolume, PlaybackMode, PlaybackSettings, SpatialAudioSink,
-    SpatialListener, SpatialScale, Volume,
+    AudioSourceBundle, Decodable, DefaultSpatialScale, GlobalVolume, PlaybackMode,
+    PlaybackSettings, SpatialAudioSink, SpatialListener,
 };
 use bevy_asset::{Asset, Assets, Handle};
 use bevy_ecs::{prelude::*, system::SystemParam};
@@ -56,10 +56,9 @@ pub struct PlaybackRemoveMarker;
 #[derive(SystemParam)]
 pub(crate) struct EarPositions<'w, 's> {
     pub(crate) query: Query<'w, 's, (Entity, &'static GlobalTransform, &'static SpatialListener)>,
-    pub(crate) scale: Res<'w, SpatialScale>,
 }
 impl<'w, 's> EarPositions<'w, 's> {
-    /// Gets a set of transformed and scaled ear positions.
+    /// Gets a set of transformed ear positions.
     ///
     /// If there are no listeners, use the default values. If a user has added multiple
     /// listeners for whatever reason, we will return the first value.
@@ -70,16 +69,13 @@ impl<'w, 's> EarPositions<'w, 's> {
             .next()
             .map(|(_, transform, settings)| {
                 (
-                    transform.transform_point(settings.left_ear_offset) * self.scale.0,
-                    transform.transform_point(settings.right_ear_offset) * self.scale.0,
+                    transform.transform_point(settings.left_ear_offset),
+                    transform.transform_point(settings.right_ear_offset),
                 )
             })
             .unwrap_or_else(|| {
                 let settings = SpatialListener::default();
-                (
-                    settings.left_ear_offset * self.scale.0,
-                    settings.right_ear_offset * self.scale.0,
-                )
+                (settings.left_ear_offset, settings.right_ear_offset)
             });
 
         (left_ear, right_ear)
@@ -112,6 +108,7 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
         (Without<AudioSink>, Without<SpatialAudioSink>),
     >,
     ear_positions: EarPositions,
+    default_spatial_scale: Res<DefaultSpatialScale>,
     mut commands: Commands,
 ) where
     f32: rodio::cpal::FromSample<Source::DecoderItem>,
@@ -138,8 +135,10 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
                 );
             }
 
+            let scale = settings.spatial_scale.unwrap_or(default_spatial_scale.0).0;
+
             let emitter_translation = if let Some(emitter_transform) = maybe_emitter_transform {
-                (emitter_transform.translation() * ear_positions.scale.0).into()
+                (emitter_transform.translation() * scale).into()
             } else {
                 warn!("Spatial AudioBundle with no GlobalTransform component. Using zero.");
                 Vec3::ZERO.into()
@@ -148,8 +147,8 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
             let sink = match SpatialSink::try_new(
                 stream_handle,
                 emitter_translation,
-                left_ear.into(),
-                right_ear.into(),
+                (left_ear * scale).into(),
+                (right_ear * scale).into(),
             ) {
                 Ok(sink) => sink,
                 Err(err) => {
@@ -159,10 +158,7 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
             };
 
             sink.set_speed(settings.speed);
-            match settings.volume {
-                Volume::Relative(vol) => sink.set_volume(vol.0 * global_volume.volume.0),
-                Volume::Absolute(vol) => sink.set_volume(vol.0),
-            }
+            sink.set_volume(settings.volume.0 * global_volume.volume.0);
 
             if settings.paused {
                 sink.pause();
@@ -202,10 +198,7 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
             };
 
             sink.set_speed(settings.speed);
-            match settings.volume {
-                Volume::Relative(vol) => sink.set_volume(vol.0 * global_volume.volume.0),
-                Volume::Absolute(vol) => sink.set_volume(vol.0),
-            }
+            sink.set_volume(settings.volume.0 * global_volume.volume.0);
 
             if settings.paused {
                 sink.pause();
@@ -291,34 +284,46 @@ pub(crate) fn audio_output_available(audio_output: Res<AudioOutput>) -> bool {
 
 /// Updates spatial audio sinks when emitter positions change.
 pub(crate) fn update_emitter_positions(
-    mut emitters: Query<(&mut GlobalTransform, &SpatialAudioSink), Changed<GlobalTransform>>,
-    spatial_scale: Res<SpatialScale>,
+    mut emitters: Query<
+        (&GlobalTransform, &SpatialAudioSink, &PlaybackSettings),
+        Or<(Changed<GlobalTransform>, Changed<PlaybackSettings>)>,
+    >,
+    default_spatial_scale: Res<DefaultSpatialScale>,
 ) {
-    for (transform, sink) in emitters.iter_mut() {
-        let translation = transform.translation() * spatial_scale.0;
+    for (transform, sink, settings) in emitters.iter_mut() {
+        let scale = settings.spatial_scale.unwrap_or(default_spatial_scale.0).0;
+
+        let translation = transform.translation() * scale;
         sink.set_emitter_position(translation);
     }
 }
 
 /// Updates spatial audio sink ear positions when spatial listeners change.
 pub(crate) fn update_listener_positions(
-    mut emitters: Query<&SpatialAudioSink>,
+    mut emitters: Query<(&SpatialAudioSink, &PlaybackSettings)>,
     changed_listener: Query<
         (),
         (
-            Or<(Changed<SpatialListener>, Changed<GlobalTransform>)>,
+            Or<(
+                Changed<SpatialListener>,
+                Changed<GlobalTransform>,
+                Changed<PlaybackSettings>,
+            )>,
             With<SpatialListener>,
         ),
     >,
     ear_positions: EarPositions,
+    default_spatial_scale: Res<DefaultSpatialScale>,
 ) {
-    if !ear_positions.scale.is_changed() && changed_listener.is_empty() {
+    if !default_spatial_scale.is_changed() && changed_listener.is_empty() {
         return;
     }
 
     let (left_ear, right_ear) = ear_positions.get();
 
-    for sink in emitters.iter_mut() {
-        sink.set_ears_position(left_ear, right_ear);
+    for (sink, settings) in emitters.iter_mut() {
+        let scale = settings.spatial_scale.unwrap_or(default_spatial_scale.0).0;
+
+        sink.set_ears_position(left_ear * scale, right_ear * scale);
     }
 }

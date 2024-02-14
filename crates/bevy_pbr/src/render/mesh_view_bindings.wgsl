@@ -33,44 +33,58 @@
 
 @group(0) @binding(9) var<uniform> globals: Globals;
 @group(0) @binding(10) var<uniform> fog: types::Fog;
+@group(0) @binding(11) var<uniform> light_probes: types::LightProbes;
 
-@group(0) @binding(11) var screen_space_ambient_occlusion_texture: texture_2d<f32>;
+@group(0) @binding(12) var screen_space_ambient_occlusion_texture: texture_2d<f32>;
 
-@group(0) @binding(12) var environment_map_diffuse: texture_cube<f32>;
-@group(0) @binding(13) var environment_map_specular: texture_cube<f32>;
-@group(0) @binding(14) var environment_map_sampler: sampler;
+#ifdef MULTIPLE_LIGHT_PROBES_IN_ARRAY
+@group(0) @binding(13) var diffuse_environment_maps: binding_array<texture_cube<f32>, 8u>;
+@group(0) @binding(14) var specular_environment_maps: binding_array<texture_cube<f32>, 8u>;
+#else
+@group(0) @binding(13) var diffuse_environment_map: texture_cube<f32>;
+@group(0) @binding(14) var specular_environment_map: texture_cube<f32>;
+#endif
+@group(0) @binding(15) var environment_map_sampler: sampler;
 
-@group(0) @binding(15) var dt_lut_texture: texture_3d<f32>;
-@group(0) @binding(16) var dt_lut_sampler: sampler;
+#ifdef MULTIPLE_LIGHT_PROBES_IN_ARRAY
+@group(0) @binding(16) var irradiance_volumes: binding_array<texture_3d<f32>, 8u>;
+#else
+@group(0) @binding(16) var irradiance_volume: texture_3d<f32>;
+#endif
+@group(0) @binding(17) var irradiance_volume_sampler: sampler;
+
+// NB: If you change these, make sure to update `tonemapping_shared.wgsl` too.
+@group(0) @binding(18) var dt_lut_texture: texture_3d<f32>;
+@group(0) @binding(19) var dt_lut_sampler: sampler;
 
 #ifdef MULTISAMPLED
 #ifdef DEPTH_PREPASS
-@group(0) @binding(17) var depth_prepass_texture: texture_depth_multisampled_2d;
+@group(0) @binding(20) var depth_prepass_texture: texture_depth_multisampled_2d;
 #endif // DEPTH_PREPASS
 #ifdef NORMAL_PREPASS
-@group(0) @binding(18) var normal_prepass_texture: texture_multisampled_2d<f32>;
+@group(0) @binding(21) var normal_prepass_texture: texture_multisampled_2d<f32>;
 #endif // NORMAL_PREPASS
 #ifdef MOTION_VECTOR_PREPASS
-@group(0) @binding(19) var motion_vector_prepass_texture: texture_multisampled_2d<f32>;
+@group(0) @binding(22) var motion_vector_prepass_texture: texture_multisampled_2d<f32>;
 #endif // MOTION_VECTOR_PREPASS
 
 #else // MULTISAMPLED
 
 #ifdef DEPTH_PREPASS
-@group(0) @binding(17) var depth_prepass_texture: texture_depth_2d;
+@group(0) @binding(20) var depth_prepass_texture: texture_depth_2d;
 #endif // DEPTH_PREPASS
 #ifdef NORMAL_PREPASS
-@group(0) @binding(18) var normal_prepass_texture: texture_2d<f32>;
+@group(0) @binding(21) var normal_prepass_texture: texture_2d<f32>;
 #endif // NORMAL_PREPASS
 #ifdef MOTION_VECTOR_PREPASS
-@group(0) @binding(19) var motion_vector_prepass_texture: texture_2d<f32>;
+@group(0) @binding(22) var motion_vector_prepass_texture: texture_2d<f32>;
 #endif // MOTION_VECTOR_PREPASS
 
 #endif // MULTISAMPLED
 
 #ifdef DEFERRED_PREPASS
-@group(0) @binding(20) var deferred_prepass_texture: texture_2d<u32>;
+@group(0) @binding(23) var deferred_prepass_texture: texture_2d<u32>;
 #endif // DEFERRED_PREPASS
 
-@group(0) @binding(21) var view_transmission_texture: texture_2d<f32>;
-@group(0) @binding(22) var view_transmission_sampler: sampler;
+@group(0) @binding(24) var view_transmission_texture: texture_2d<f32>;
+@group(0) @binding(25) var view_transmission_sampler: sampler;

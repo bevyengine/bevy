@@ -1,5 +1,6 @@
 use crate::{
     mesh::Mesh,
+    render_asset::RenderAssetUsages,
     render_resource::{Extent3d, TextureDimension, TextureFormat},
     texture::Image,
 };
@@ -67,6 +68,7 @@ impl MorphTargetImage {
     pub fn new(
         targets: impl ExactSizeIterator<Item = impl Iterator<Item = MorphAttributes>>,
         vertex_count: usize,
+        asset_usage: RenderAssetUsages,
     ) -> Result<Self, MorphBuildError> {
         let max = MAX_TEXTURE_WIDTH;
         let target_count = targets.len();
@@ -101,7 +103,13 @@ impl MorphTargetImage {
             height,
             depth_or_array_layers: target_count as u32,
         };
-        let image = Image::new(extents, TextureDimension::D3, data, TextureFormat::R32Float);
+        let image = Image::new(
+            extents,
+            TextureDimension::D3,
+            data,
+            TextureFormat::R32Float,
+            asset_usage,
+        );
         Ok(MorphTargetImage(image))
     }
 }
@@ -114,7 +122,7 @@ impl MorphTargetImage {
 /// This exists because Bevy's [`Mesh`] corresponds to a _single_ surface / material, whereas morph targets
 /// as defined in the GLTF spec exist on "multi-primitive meshes" (where each primitive is its own surface with its own material).
 /// Therefore in Bevy [`MorphWeights`] an a parent entity are the "canonical weights" from a GLTF perspective, which then
-/// synchronized to child [`Handle<Mesh>`] / [`MeshMorphWeights`] (which correspond to "primitives" / "surfaces" from a GLTF perspective).   
+/// synchronized to child [`Handle<Mesh>`] / [`MeshMorphWeights`] (which correspond to "primitives" / "surfaces" from a GLTF perspective).
 ///
 /// Add this to the parent of one or more [`Entities`](`Entity`) with a [`Handle<Mesh>`] with a [`MeshMorphWeights`].
 ///

@@ -21,12 +21,10 @@ const BUTTONS_Y: f32 = 80.;
 const STICKS_X: f32 = 150.;
 const STICKS_Y: f32 = -135.;
 
-const NORMAL_BUTTON_COLOR: Color = Color::rgb(0.2, 0.2, 0.2);
+const NORMAL_BUTTON_COLOR: Color = Color::rgb(0.3, 0.3, 0.3);
 const ACTIVE_BUTTON_COLOR: Color = Color::PURPLE;
 const LIVE_COLOR: Color = Color::rgb(0.4, 0.4, 0.4);
-const DEAD_COLOR: Color = Color::rgb(0.3, 0.3, 0.3);
-const EXTENT_COLOR: Color = Color::rgb(0.3, 0.3, 0.3);
-const TEXT_COLOR: Color = Color::WHITE;
+const DEAD_COLOR: Color = Color::rgb(0.13, 0.13, 0.13);
 
 #[derive(Component, Deref)]
 struct ReactTo(GamepadButtonType);
@@ -56,8 +54,8 @@ impl FromWorld for ButtonMaterials {
     fn from_world(world: &mut World) -> Self {
         let mut materials = world.resource_mut::<Assets<ColorMaterial>>();
         Self {
-            normal: materials.add(ColorMaterial::from(NORMAL_BUTTON_COLOR)),
-            active: materials.add(ColorMaterial::from(ACTIVE_BUTTON_COLOR)),
+            normal: materials.add(NORMAL_BUTTON_COLOR),
+            active: materials.add(ACTIVE_BUTTON_COLOR),
         }
     }
 }
@@ -72,12 +70,10 @@ impl FromWorld for ButtonMeshes {
     fn from_world(world: &mut World) -> Self {
         let mut meshes = world.resource_mut::<Assets<Mesh>>();
         Self {
-            circle: meshes.add(shape::Circle::new(BUTTON_RADIUS).into()).into(),
-            triangle: meshes
-                .add(shape::RegularPolygon::new(BUTTON_RADIUS, 3).into())
-                .into(),
-            start_pause: meshes.add(shape::Quad::new(START_SIZE).into()).into(),
-            trigger: meshes.add(shape::Quad::new(TRIGGER_SIZE).into()).into(),
+            circle: meshes.add(Circle::new(BUTTON_RADIUS)).into(),
+            triangle: meshes.add(RegularPolygon::new(BUTTON_RADIUS, 3)).into(),
+            start_pause: meshes.add(Rectangle::from_size(START_SIZE)).into(),
+            trigger: meshes.add(Rectangle::from_size(TRIGGER_SIZE)).into(),
         }
     }
 }
@@ -290,7 +286,7 @@ fn setup_sticks(
                 parent.spawn(SpriteBundle {
                     sprite: Sprite {
                         custom_size: Some(Vec2::splat(STICK_BOUNDS_SIZE * 2.)),
-                        color: EXTENT_COLOR,
+                        color: DEAD_COLOR,
                         ..default()
                     },
                     ..default()
@@ -318,7 +314,6 @@ fn setup_sticks(
                 // text
                 let style = TextStyle {
                     font_size: 16.,
-                    color: TEXT_COLOR,
                     ..default()
                 };
                 parent.spawn((
@@ -349,7 +344,7 @@ fn setup_sticks(
                         mesh: meshes.circle.clone(),
                         material: materials.normal.clone(),
                         transform: Transform::from_xyz(0., 0., 5.)
-                            .with_scale(Vec2::splat(0.2).extend(1.)),
+                            .with_scale(Vec2::splat(0.15).extend(1.)),
                         ..default()
                     },
                     MoveWithAxes {
@@ -400,7 +395,6 @@ fn setup_triggers(
                             format!("{:.3}", 0.),
                             TextStyle {
                                 font_size: 16.,
-                                color: TEXT_COLOR,
                                 ..default()
                             },
                         ),
@@ -424,22 +418,30 @@ fn setup_triggers(
 }
 
 fn setup_connected(mut commands: Commands) {
-    let style = TextStyle {
-        color: TEXT_COLOR,
-        font_size: 30.,
+    let text_style = TextStyle {
+        font_size: 20.,
         ..default()
     };
     commands.spawn((
-        TextBundle::from_sections([
-            TextSection {
-                value: "Connected Gamepads:\n".to_string(),
-                style: style.clone(),
+        TextBundle {
+            text: Text::from_sections([
+                TextSection {
+                    value: "Connected Gamepads:\n".to_string(),
+                    style: text_style.clone(),
+                },
+                TextSection {
+                    value: "None".to_string(),
+                    style: text_style,
+                },
+            ]),
+            style: Style {
+                position_type: PositionType::Absolute,
+                top: Val::Px(12.),
+                left: Val::Px(12.),
+                ..default()
             },
-            TextSection {
-                value: "None".to_string(),
-                style,
-            },
-        ]),
+            ..default()
+        },
         ConnectedGamepadsText,
     ));
 }

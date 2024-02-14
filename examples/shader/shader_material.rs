@@ -22,7 +22,7 @@ fn setup(
 ) {
     // cube
     commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+        mesh: meshes.add(Cuboid::default()),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         material: materials.add(CustomMaterial {
             color: Color::BLUE,
@@ -41,7 +41,7 @@ fn setup(
 
 // This struct defines the data that will be passed to your shader
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
-pub struct CustomMaterial {
+struct CustomMaterial {
     #[uniform(0)]
     color: Color,
     #[texture(1)]

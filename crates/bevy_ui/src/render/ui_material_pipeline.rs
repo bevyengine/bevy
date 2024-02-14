@@ -120,6 +120,7 @@ impl<M: UiMaterial> Default for UiMaterialMeta<M> {
 pub struct UiMaterialVertex {
     pub position: [f32; 3],
     pub uv: [f32; 2],
+    pub size: [f32; 2],
     pub border_widths: [f32; 4],
 }
 
@@ -155,6 +156,8 @@ where
                 // position
                 VertexFormat::Float32x3,
                 // uv
+                VertexFormat::Float32x2,
+                // size
                 VertexFormat::Float32x2,
                 // border_widths
                 VertexFormat::Float32x4,
@@ -263,13 +266,13 @@ pub type DrawUiMaterial<M> = (
 pub struct SetMatUiViewBindGroup<M: UiMaterial, const I: usize>(PhantomData<M>);
 impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P> for SetMatUiViewBindGroup<M, I> {
     type Param = SRes<UiMaterialMeta<M>>;
-    type ViewData = Read<ViewUniformOffset>;
-    type ItemData = ();
+    type ViewQuery = Read<ViewUniformOffset>;
+    type ItemQuery = ();
 
     fn render<'w>(
         _item: &P,
         view_uniform: &'w ViewUniformOffset,
-        _entity: (),
+        _entity: Option<()>,
         ui_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -287,16 +290,19 @@ impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P>
     for SetUiMaterialBindGroup<M, I>
 {
     type Param = SRes<RenderUiMaterials<M>>;
-    type ViewData = ();
-    type ItemData = Read<UiMaterialBatch<M>>;
+    type ViewQuery = ();
+    type ItemQuery = Read<UiMaterialBatch<M>>;
 
     fn render<'w>(
         _item: &P,
         _view: (),
-        material_handle: ROQueryItem<'_, Self::ItemData>,
+        material_handle: Option<ROQueryItem<'_, Self::ItemQuery>>,
         materials: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
+        let Some(material_handle) = material_handle else {
+            return RenderCommandResult::Failure;
+        };
         let Some(material) = materials.into_inner().get(&material_handle.material) else {
             return RenderCommandResult::Failure;
         };
@@ -308,17 +314,21 @@ impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P>
 pub struct DrawUiMaterialNode<M>(PhantomData<M>);
 impl<P: PhaseItem, M: UiMaterial> RenderCommand<P> for DrawUiMaterialNode<M> {
     type Param = SRes<UiMaterialMeta<M>>;
-    type ViewData = ();
-    type ItemData = Read<UiMaterialBatch<M>>;
+    type ViewQuery = ();
+    type ItemQuery = Read<UiMaterialBatch<M>>;
 
     #[inline]
     fn render<'w>(
         _item: &P,
         _view: (),
-        batch: &'w UiMaterialBatch<M>,
+        batch: Option<&'w UiMaterialBatch<M>>,
         ui_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
+        let Some(batch) = batch else {
+            return RenderCommandResult::Failure;
+        };
+
         pass.set_vertex_buffer(0, ui_meta.into_inner().vertices.buffer().unwrap().slice(..));
         pass.draw(batch.range.clone(), 0..1);
         RenderCommandResult::Success
@@ -558,6 +568,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                         ui_meta.vertices.push(UiMaterialVertex {
                             position: positions_clipped[i].into(),
                             uv: uvs[i].into(),
+                            size: extracted_uinode.rect.size().into(),
                             border_widths: extracted_uinode.border,
                         });
                     }
@@ -615,6 +626,7 @@ pub fn extract_ui_materials<M: UiMaterial>(
     let mut changed_assets = HashSet::default();
     let mut removed = Vec::new();
     for event in events.read() {
+        #[allow(clippy::match_same_arms)]
         match event {
             AssetEvent::Added { id } | AssetEvent::Modified { id } => {
                 changed_assets.insert(*id);
@@ -623,8 +635,9 @@ pub fn extract_ui_materials<M: UiMaterial>(
                 changed_assets.remove(id);
                 removed.push(*id);
             }
+            AssetEvent::Unused { .. } => {}
             AssetEvent::LoadedWithDependencies { .. } => {
-                // not implemented
+                // TODO: handle this
             }
         }
     }

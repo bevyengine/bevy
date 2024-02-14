@@ -83,9 +83,9 @@ fn setup_mesh(
 ) {
     commands.spawn((
         MaterialMesh2dBundle {
-            mesh: meshes.add(Mesh::from(shape::Capsule::default())).into(),
+            mesh: meshes.add(Capsule2d::default()).into(),
             transform: Transform::from_xyz(40., 0., 2.).with_scale(Vec3::splat(32.)),
-            material: materials.add(ColorMaterial::from(Color::BLACK)),
+            material: materials.add(Color::BLACK),
             ..default()
         },
         Rotate,

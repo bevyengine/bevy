@@ -462,6 +462,9 @@ pub struct StandardMaterial {
     /// Default is `16.0`.
     pub max_parallax_layer_count: f32,
 
+    /// The exposure (brightness) level of the lightmap, if present.
+    pub lightmap_exposure: f32,
+
     /// Render method used for opaque materials. (Where `alpha_mode` is [`AlphaMode::Opaque`] or [`AlphaMode::Mask`])
     pub opaque_render_method: OpaqueRendererMethod,
 
@@ -513,6 +516,7 @@ impl Default for StandardMaterial {
             depth_map: None,
             parallax_depth_scale: 0.1,
             max_parallax_layer_count: 16.0,
+            lightmap_exposure: 1.0,
             parallax_mapping_method: ParallaxMappingMethod::Occlusion,
             opaque_render_method: OpaqueRendererMethod::Auto,
             deferred_lighting_pass_id: DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID,
@@ -621,6 +625,8 @@ pub struct StandardMaterialUniform {
     /// If your `parallax_depth_scale` is >0.1 and you are seeing jaggy edges,
     /// increase this value. However, this incurs a performance cost.
     pub max_parallax_layer_count: f32,
+    /// The exposure (brightness) level of the lightmap, if present.
+    pub lightmap_exposure: f32,
     /// Using [`ParallaxMappingMethod::Relief`], how many additional
     /// steps to use at most to find the depth value.
     pub max_relief_mapping_search_steps: u32,
@@ -720,6 +726,7 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             alpha_cutoff,
             parallax_depth_scale: self.parallax_depth_scale,
             max_parallax_layer_count: self.max_parallax_layer_count,
+            lightmap_exposure: self.lightmap_exposure,
             max_relief_mapping_search_steps: self.parallax_mapping_method.max_steps(),
             deferred_lighting_pass_id: self.deferred_lighting_pass_id as u32,
         }
@@ -733,6 +740,8 @@ pub struct StandardMaterialKey {
     cull_mode: Option<Face>,
     depth_bias: i32,
     relief_mapping: bool,
+    diffuse_transmission: bool,
+    specular_transmission: bool,
 }
 
 impl From<&StandardMaterial> for StandardMaterialKey {
@@ -745,6 +754,8 @@ impl From<&StandardMaterial> for StandardMaterialKey {
                 material.parallax_mapping_method,
                 ParallaxMappingMethod::Relief { .. }
             ),
+            diffuse_transmission: material.diffuse_transmission > 0.0,
+            specular_transmission: material.specular_transmission > 0.0,
         }
     }
 }
@@ -804,10 +815,23 @@ impl Material for StandardMaterial {
             let shader_defs = &mut fragment.shader_defs;
 
             if key.bind_group_data.normal_map {
-                shader_defs.push("STANDARDMATERIAL_NORMAL_MAP".into());
+                shader_defs.push("STANDARD_MATERIAL_NORMAL_MAP".into());
             }
             if key.bind_group_data.relief_mapping {
                 shader_defs.push("RELIEF_MAPPING".into());
+            }
+
+            if key.bind_group_data.diffuse_transmission {
+                shader_defs.push("STANDARD_MATERIAL_DIFFUSE_TRANSMISSION".into());
+            }
+
+            if key.bind_group_data.specular_transmission {
+                shader_defs.push("STANDARD_MATERIAL_SPECULAR_TRANSMISSION".into());
+            }
+
+            if key.bind_group_data.diffuse_transmission || key.bind_group_data.specular_transmission
+            {
+                shader_defs.push("STANDARD_MATERIAL_SPECULAR_OR_DIFFUSE_TRANSMISSION".into());
             }
         }
         descriptor.primitive.cull_mode = key.bind_group_data.cull_mode;

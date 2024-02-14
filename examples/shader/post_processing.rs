@@ -6,7 +6,10 @@
 //! This is a fairly low level example and assumes some familiarity with rendering concepts and wgpu.
 
 use bevy::{
-    core_pipeline::{core_3d, fullscreen_vertex_shader::fullscreen_shader_vertex_state},
+    core_pipeline::{
+        core_3d::graph::{Labels3d, SubGraph3d},
+        fullscreen_vertex_shader::fullscreen_shader_vertex_state,
+    },
     ecs::query::QueryItem,
     prelude::*,
     render::{
@@ -14,7 +17,7 @@ use bevy::{
             ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
         },
         render_graph::{
-            NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner,
+            NodeRunError, RenderGraphApp, RenderGraphContext, RenderLabel, ViewNode, ViewNodeRunner,
         },
         render_resource::{
             binding_types::{sampler, texture_2d, uniform_buffer},
@@ -74,20 +77,20 @@ impl Plugin for PostProcessPlugin {
             // The [`ViewNodeRunner`] is a special [`Node`] that will automatically run the node for each view
             // matching the [`ViewQuery`]
             .add_render_graph_node::<ViewNodeRunner<PostProcessNode>>(
-                // Specify the name of the graph, in this case we want the graph for 3d
-                core_3d::graph::NAME,
-                // It also needs the name of the node
-                PostProcessNode::NAME,
+                // Specify the label of the graph, in this case we want the graph for 3d
+                SubGraph3d,
+                // It also needs the label of the node
+                PostProcessLabel,
             )
             .add_render_graph_edges(
-                core_3d::graph::NAME,
+                SubGraph3d,
                 // Specify the node ordering.
                 // This will automatically create all required node edges to enforce the given ordering.
-                &[
-                    core_3d::graph::node::TONEMAPPING,
-                    PostProcessNode::NAME,
-                    core_3d::graph::node::END_MAIN_PASS_POST_PROCESSING,
-                ],
+                (
+                    Labels3d::Tonemapping,
+                    PostProcessLabel,
+                    Labels3d::EndMainPassPostProcessing,
+                ),
             );
     }
 
@@ -103,12 +106,12 @@ impl Plugin for PostProcessPlugin {
     }
 }
 
+#[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
+struct PostProcessLabel;
+
 // The post process node used for the render graph
 #[derive(Default)]
 struct PostProcessNode;
-impl PostProcessNode {
-    pub const NAME: &'static str = "post_process";
-}
 
 // The ViewNode trait is required by the ViewNodeRunner
 impl ViewNode for PostProcessNode {
@@ -116,7 +119,7 @@ impl ViewNode for PostProcessNode {
     // but it's not a normal system so we need to define it manually.
     //
     // This query will only run on the view entity
-    type ViewData = (
+    type ViewQuery = (
         &'static ViewTarget,
         // This makes sure the node only runs on cameras with the PostProcessSettings component
         &'static PostProcessSettings,
@@ -133,7 +136,7 @@ impl ViewNode for PostProcessNode {
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (view_target, _post_process_settings): QueryItem<Self::ViewData>,
+        (view_target, _post_process_settings): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         // Get the pipeline resource that contains the global data we need
@@ -305,7 +308,7 @@ fn setup(
         Camera3dBundle {
             transform: Transform::from_translation(Vec3::new(0.0, 0.0, 5.0))
                 .looking_at(Vec3::default(), Vec3::Y),
-            camera_3d: Camera3d {
+            camera: Camera {
                 clear_color: Color::WHITE.into(),
                 ..default()
             },
@@ -322,8 +325,8 @@ fn setup(
     // cube
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-            material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+            mesh: meshes.add(Cuboid::default()),
+            material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
             transform: Transform::from_xyz(0.0, 0.5, 0.0),
             ..default()
         },
@@ -331,6 +334,10 @@ fn setup(
     ));
     // light
     commands.spawn(PointLightBundle {
+        point_light: PointLight {
+            intensity: 150_000.0,
+            ..default()
+        },
         transform: Transform::from_translation(Vec3::new(0.0, 0.0, 10.0)),
         ..default()
     });

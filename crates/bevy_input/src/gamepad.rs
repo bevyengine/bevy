@@ -167,7 +167,7 @@ impl Gamepads {
 /// [`GamepadButtonChangedEvent`]. It is also used in the [`GamepadButton`]
 /// which in turn is used to create the [`ButtonInput<GamepadButton>`] or
 /// [`Axis<GamepadButton>`] `bevy` resources.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect, PartialOrd, Ord)]
 #[reflect(Debug, Hash, PartialEq)]
 #[cfg_attr(
     feature = "serialize",

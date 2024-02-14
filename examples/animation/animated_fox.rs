@@ -10,7 +10,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .insert_resource(AmbientLight {
             color: Color::WHITE,
-            brightness: 1.0,
+            brightness: 150.0,
         })
         .add_systems(Startup, setup)
         .add_systems(
@@ -45,8 +45,8 @@ fn setup(
 
     // Plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(500000.0).into()),
-        material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+        mesh: meshes.add(Plane3d::default().mesh().size(500000.0, 500000.0)),
+        material: materials.add(Color::rgb(0.3, 0.5, 0.3)),
         ..default()
     });
 
@@ -54,6 +54,7 @@ fn setup(
     commands.spawn(DirectionalLightBundle {
         transform: Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
         directional_light: DirectionalLight {
+            illuminance: 2000.0,
             shadows_enabled: true,
             ..default()
         },

@@ -39,15 +39,15 @@ fn setup_scene(
     ));
 
     let material_emissive1 = materials.add(StandardMaterial {
-        emissive: Color::rgb_linear(13.99, 5.32, 2.0), // 4. Put something bright in a dark environment to see the effect
+        emissive: Color::rgb_linear(2300.0, 900.0, 300.0), // 4. Put something bright in a dark environment to see the effect
         ..default()
     });
     let material_emissive2 = materials.add(StandardMaterial {
-        emissive: Color::rgb_linear(2.0, 13.99, 5.32),
+        emissive: Color::rgb_linear(300.0, 2300.0, 900.0),
         ..default()
     });
     let material_emissive3 = materials.add(StandardMaterial {
-        emissive: Color::rgb_linear(5.32, 2.0, 13.99),
+        emissive: Color::rgb_linear(900.0, 300.0, 2300.0),
         ..default()
     });
     let material_non_emissive = materials.add(StandardMaterial {
@@ -55,14 +55,7 @@ fn setup_scene(
         ..default()
     });
 
-    let mesh = meshes.add(
-        shape::Icosphere {
-            radius: 0.5,
-            subdivisions: 5,
-        }
-        .try_into()
-        .unwrap(),
-    );
+    let mesh = meshes.add(Sphere::new(0.5).mesh().ico(5).unwrap());
 
     for x in -5..5 {
         for z in -5..5 {

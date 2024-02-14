@@ -24,13 +24,7 @@ fn setup(
 ) {
     // sphere
     commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(
-            Mesh::try_from(shape::Icosphere {
-                radius: 1.0,
-                subdivisions: 5,
-            })
-            .unwrap(),
-        ),
+        mesh: meshes.add(Sphere::new(1.0)),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         material: materials.add(ExtendedMaterial {
             base: StandardMaterial {
@@ -50,7 +44,16 @@ fn setup(
     });
 
     // light
-    commands.spawn((PointLightBundle::default(), Rotate));
+    commands.spawn((
+        PointLightBundle {
+            point_light: PointLight {
+                intensity: 150_000.0,
+                ..default()
+            },
+            ..default()
+        },
+        Rotate,
+    ));
 
     // camera
     commands.spawn(Camera3dBundle {

@@ -1,7 +1,6 @@
 use crate::{
     compute_text_bounds, error::TextError, glyph_brush::GlyphBrush, scale_value, BreakLineOn, Font,
-    FontAtlasSets, FontAtlasWarning, JustifyText, PositionedGlyph, Text, TextSection, TextSettings,
-    YAxisOrientation,
+    FontAtlasSets, JustifyText, PositionedGlyph, Text, TextSection, TextSettings, YAxisOrientation,
 };
 use ab_glyph::PxScale;
 use bevy_asset::{AssetId, Assets, Handle};
@@ -12,7 +11,7 @@ use bevy_math::Vec2;
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_render::texture::Image;
-use bevy_sprite::TextureAtlas;
+use bevy_sprite::TextureAtlasLayout;
 use bevy_utils::HashMap;
 use glyph_brush_layout::{FontId, GlyphPositioner, SectionGeometry, SectionText, ToSectionText};
 
@@ -51,10 +50,9 @@ impl TextPipeline {
         linebreak_behavior: BreakLineOn,
         bounds: Vec2,
         font_atlas_sets: &mut FontAtlasSets,
-        texture_atlases: &mut Assets<TextureAtlas>,
+        texture_atlases: &mut Assets<TextureAtlasLayout>,
         textures: &mut Assets<Image>,
         text_settings: &TextSettings,
-        font_atlas_warning: &mut FontAtlasWarning,
         y_axis_orientation: YAxisOrientation,
     ) -> Result<TextLayoutInfo, TextError> {
         let mut scaled_fonts = Vec::with_capacity(sections.len());
@@ -97,7 +95,6 @@ impl TextPipeline {
             texture_atlases,
             textures,
             text_settings,
-            font_atlas_warning,
             y_axis_orientation,
         )?;
 

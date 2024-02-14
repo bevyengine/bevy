@@ -40,8 +40,8 @@ fn setup(
     let entity_spawn = Vec3::ZERO;
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-            material: materials.add(Color::WHITE.into()),
+            mesh: meshes.add(Cuboid::default()),
+            material: materials.add(Color::WHITE),
             transform: Transform::from_translation(entity_spawn),
             ..default()
         },
@@ -56,6 +56,10 @@ fn setup(
 
     // Add a light source for better 3d visibility.
     commands.spawn(PointLightBundle {
+        point_light: PointLight {
+            intensity: 150_000.0,
+            ..default()
+        },
         transform: Transform::from_translation(Vec3::ONE * 3.0),
         ..default()
     });

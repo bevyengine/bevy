@@ -5,6 +5,7 @@ use bevy_core_pipeline::{
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::SRes, SystemParamItem},
@@ -29,7 +30,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
-use bevy_utils::{EntityHashMap, FloatOrd, HashMap, HashSet};
+use bevy_utils::{FloatOrd, HashMap, HashSet};
 use std::hash::Hash;
 use std::marker::PhantomData;
 
@@ -180,7 +181,7 @@ where
 }
 
 #[derive(Resource, Deref, DerefMut)]
-pub struct RenderMaterial2dInstances<M: Material2d>(EntityHashMap<Entity, AssetId<M>>);
+pub struct RenderMaterial2dInstances<M: Material2d>(EntityHashMap<AssetId<M>>);
 
 impl<M: Material2d> Default for RenderMaterial2dInstances<M> {
     fn default() -> Self {
@@ -330,14 +331,14 @@ impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P>
         SRes<RenderMaterials2d<M>>,
         SRes<RenderMaterial2dInstances<M>>,
     );
-    type ViewData = ();
-    type ItemData = ();
+    type ViewQuery = ();
+    type ItemQuery = ();
 
     #[inline]
     fn render<'w>(
         item: &P,
         _view: (),
-        _item_query: (),
+        _item_query: Option<()>,
         (materials, material_instances): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -354,7 +355,7 @@ impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P>
     }
 }
 
-const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> Mesh2dPipelineKey {
+pub const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> Mesh2dPipelineKey {
     match tonemapping {
         Tonemapping::None => Mesh2dPipelineKey::TONEMAP_METHOD_NONE,
         Tonemapping::Reinhard => Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD,
@@ -515,6 +516,7 @@ pub fn extract_materials_2d<M: Material2d>(
     let mut changed_assets = HashSet::default();
     let mut removed = Vec::new();
     for event in events.read() {
+        #[allow(clippy::match_same_arms)]
         match event {
             AssetEvent::Added { id } | AssetEvent::Modified { id } => {
                 changed_assets.insert(*id);
@@ -523,7 +525,7 @@ pub fn extract_materials_2d<M: Material2d>(
                 changed_assets.remove(id);
                 removed.push(*id);
             }
-
+            AssetEvent::Unused { .. } => {}
             AssetEvent::LoadedWithDependencies { .. } => {
                 // TODO: handle this
             }

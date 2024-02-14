@@ -62,6 +62,7 @@ fn setup(
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            intensity: 150.0,
         },
         DepthPrepass,
         MotionVectorPrepass,
@@ -71,6 +72,7 @@ fn setup(
 
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
+            illuminance: 4000.0,
             shadows_enabled: true,
             ..default()
         },
@@ -103,16 +105,13 @@ fn setup(
 
     // Plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(50.0).into()),
+        mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
         material: forward_mat_h.clone(),
         ..default()
     });
 
-    let cube_h = meshes.add(Mesh::from(shape::Cube { size: 0.1 }));
-    let sphere_h = meshes.add(Mesh::from(shape::UVSphere {
-        radius: 0.125,
-        ..default()
-    }));
+    let cube_h = meshes.add(Cuboid::new(0.1, 0.1, 0.1));
+    let sphere_h = meshes.add(Sphere::new(0.125).mesh().uv(32, 18));
 
     // Cubes
     commands.spawn(PbrBundle {
@@ -145,7 +144,7 @@ fn setup(
     // Light
     commands.spawn(PointLightBundle {
         point_light: PointLight {
-            intensity: 1.0,
+            intensity: 150.0,
             radius: 0.125,
             shadows_enabled: true,
             color: sphere_color,
@@ -196,7 +195,7 @@ fn setup(
     // sky
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Box::default())),
+            mesh: meshes.add(Cuboid::new(2.0, 1.0, 1.0)),
             material: materials.add(StandardMaterial {
                 base_color: Color::hex("888888").unwrap(),
                 unlit: true,
@@ -257,7 +256,7 @@ fn setup_parallax(
     let normal_handle = asset_server.load("textures/parallax_example/cube_normal.png");
     normal.0 = Some(normal_handle);
 
-    let mut cube: Mesh = shape::Cube { size: 0.15 }.into();
+    let mut cube = Mesh::from(Cuboid::new(0.15, 0.15, 0.15));
 
     // NOTE: for normal maps and depth maps to work, the mesh
     // needs tangents generated.

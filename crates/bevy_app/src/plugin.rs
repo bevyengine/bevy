@@ -21,12 +21,46 @@ use std::any::Any;
 /// * once the app started, it will wait for all registered [`Plugin::ready`] to return `true`
 /// * it will then call all registered [`Plugin::finish`]
 /// * and call all registered [`Plugin::cleanup`]
+///
+/// ## Defining a plugin.
+///
+/// Most plugins are simply functions that add configuration to an [`App`].
+///
+/// ```
+/// # use bevy_app::{App, Update};
+/// App::new().add_plugins(my_plugin).run();
+///
+/// // This function implements `Plugin`, along with every other `fn(&mut App)`.
+/// pub fn my_plugin(app: &mut App) {
+///     app.add_systems(Update, hello_world);
+/// }
+/// # fn hello_world() {}
+/// ```
+///
+/// For more advanced use cases, the `Plugin` trait can be implemented manually for a type.
+///
+/// ```
+/// # use bevy_app::*;
+/// pub struct AccessibilityPlugin {
+///     pub flicker_damping: bool,
+///     // ...
+/// }
+///
+/// impl Plugin for AccessibilityPlugin {
+///     fn build(&self, app: &mut App) {
+///         if self.flicker_damping {
+///             app.add_systems(PostUpdate, damp_flickering);
+///         }
+///     }
+/// }
+/// # fn damp_flickering() {}
+/// ````
 pub trait Plugin: Downcast + Any + Send + Sync {
     /// Configures the [`App`] to which this plugin is added.
     fn build(&self, app: &mut App);
 
-    /// Has the plugin finished it's setup? This can be useful for plugins that needs something
-    /// asynchronous to happen before they can finish their setup, like renderer initialization.
+    /// Has the plugin finished its setup? This can be useful for plugins that need something
+    /// asynchronous to happen before they can finish their setup, like the initialization of a renderer.
     /// Once the plugin is ready, [`finish`](Plugin::finish) should be called.
     fn ready(&self, _app: &App) -> bool {
         true
@@ -59,6 +93,12 @@ pub trait Plugin: Downcast + Any + Send + Sync {
 }
 
 impl_downcast!(Plugin);
+
+impl<T: Fn(&mut App) + Send + Sync + 'static> Plugin for T {
+    fn build(&self, app: &mut App) {
+        self(app);
+    }
+}
 
 /// A type representing an unsafe function that returns a mutable pointer to a [`Plugin`].
 /// It is used for dynamically loading plugins.

@@ -146,7 +146,7 @@ pub trait DetectChangesMut: DetectChanges {
     /// }
     /// # let mut world = World::new();
     /// # world.insert_resource(Score(1));
-    /// # let mut score_changed = IntoSystem::into_system(resource_changed::<Score>());
+    /// # let mut score_changed = IntoSystem::into_system(resource_changed::<Score>);
     /// # score_changed.initialize(&mut world);
     /// # score_changed.run((), &mut world);
     /// #
@@ -210,7 +210,7 @@ pub trait DetectChangesMut: DetectChanges {
     /// # let mut world = World::new();
     /// # world.insert_resource(Events::<ScoreChanged>::default());
     /// # world.insert_resource(Score(1));
-    /// # let mut score_changed = IntoSystem::into_system(resource_changed::<Score>());
+    /// # let mut score_changed = IntoSystem::into_system(resource_changed::<Score>);
     /// # score_changed.initialize(&mut world);
     /// # score_changed.run((), &mut world);
     /// #
@@ -358,7 +358,7 @@ macro_rules! impl_methods {
             /// You should never modify the argument passed to the closure -- if you want to modify the data
             /// without flagging a change, consider using [`DetectChangesMut::bypass_change_detection`] to make your intent explicit.
             ///
-            /// ```rust
+            /// ```
             /// # use bevy_ecs::prelude::*;
             /// # #[derive(PartialEq)] pub struct Vec2;
             /// # impl Vec2 { pub const ZERO: Self = Self; }
@@ -711,7 +711,7 @@ where
 change_detection_impl!(Ref<'w, T>, T,);
 impl_debug!(Ref<'w, T>,);
 
-/// Unique mutable borrow of an entity's component
+/// Unique mutable borrow of an entity's component or of a resource.
 pub struct Mut<'w, T: ?Sized> {
     pub(crate) value: &'w mut T,
     pub(crate) ticks: TicksMut<'w>,

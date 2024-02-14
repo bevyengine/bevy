@@ -10,10 +10,10 @@ use bevy_ecs::{
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::texture::Image;
-use bevy_sprite::TextureAtlas;
+use bevy_sprite::TextureAtlasLayout;
 use bevy_text::{
-    scale_value, BreakLineOn, Font, FontAtlasSets, FontAtlasWarning, Text, TextError,
-    TextLayoutInfo, TextMeasureInfo, TextPipeline, TextSettings, YAxisOrientation,
+    scale_value, BreakLineOn, Font, FontAtlasSets, Text, TextError, TextLayoutInfo,
+    TextMeasureInfo, TextPipeline, TextSettings, YAxisOrientation,
 };
 use bevy_window::{PrimaryWindow, Window};
 use taffy::style::AvailableSpace;
@@ -153,9 +153,8 @@ pub fn measure_text_system(
 fn queue_text(
     fonts: &Assets<Font>,
     text_pipeline: &mut TextPipeline,
-    font_atlas_warning: &mut FontAtlasWarning,
     font_atlas_sets: &mut FontAtlasSets,
-    texture_atlases: &mut Assets<TextureAtlas>,
+    texture_atlases: &mut Assets<TextureAtlasLayout>,
     textures: &mut Assets<Image>,
     text_settings: &TextSettings,
     scale_factor: f32,
@@ -189,7 +188,6 @@ fn queue_text(
             texture_atlases,
             textures,
             text_settings,
-            font_atlas_warning,
             YAxisOrientation::TopToBottom,
         ) {
             Err(TextError::NoSuchFont) => {
@@ -216,7 +214,7 @@ fn queue_text(
 /// ## World Resources
 ///
 /// [`ResMut<Assets<Image>>`](Assets<Image>) -- This system only adds new [`Image`] assets.
-/// It does not modify or observe existing ones.
+/// It does not modify or observe existing ones. The exception is when adding new glyphs to a [`bevy_text::FontAtlas`].
 #[allow(clippy::too_many_arguments)]
 pub fn text_system(
     mut textures: ResMut<Assets<Image>>,
@@ -224,9 +222,8 @@ pub fn text_system(
     fonts: Res<Assets<Font>>,
     windows: Query<&Window, With<PrimaryWindow>>,
     text_settings: Res<TextSettings>,
-    mut font_atlas_warning: ResMut<FontAtlasWarning>,
     ui_scale: Res<UiScale>,
-    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
+    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_sets: ResMut<FontAtlasSets>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(Ref<Node>, &Text, &mut TextLayoutInfo, &mut TextFlags)>,
@@ -246,7 +243,6 @@ pub fn text_system(
                 queue_text(
                     &fonts,
                     &mut text_pipeline,
-                    &mut font_atlas_warning,
                     &mut font_atlas_sets,
                     &mut texture_atlases,
                     &mut textures,
@@ -268,7 +264,6 @@ pub fn text_system(
             queue_text(
                 &fonts,
                 &mut text_pipeline,
-                &mut font_atlas_warning,
                 &mut font_atlas_sets,
                 &mut texture_atlases,
                 &mut textures,

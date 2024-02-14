@@ -6,10 +6,12 @@ use crate::{
     storage::{SparseSetIndex, Storages},
     system::{Local, Resource, SystemParam},
     world::{FromWorld, World},
-    TypeIdMap,
 };
 pub use bevy_ecs_macros::Component;
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::Reflect;
+use bevy_utils::TypeIdMap;
 use std::cell::UnsafeCell;
 use std::{
     alloc::Layout,
@@ -265,12 +267,12 @@ impl ComponentInfo {
     }
 }
 
-/// A value which uniquely identifies the type of a [`Component`] within a
+/// A value which uniquely identifies the type of a [`Component`] of [`Resource`] within a
 /// [`World`].
 ///
 /// Each time a new `Component` type is registered within a `World` using
-/// [`World::init_component`](World::init_component) or
-/// [`World::init_component_with_descriptor`](World::init_component_with_descriptor),
+/// e.g. [`World::init_component`] or [`World::init_component_with_descriptor`]
+/// or a Resource with e.g. [`World::init_resource`],
 /// a corresponding `ComponentId` is created to track it.
 ///
 /// While the distinction between `ComponentId` and [`TypeId`] may seem superficial, breaking them
@@ -287,6 +289,11 @@ impl ComponentInfo {
 /// from a `World` using [`World::component_id()`] or via [`Components::component_id()`]. Access
 /// to the `ComponentId` for a [`Resource`] is available via [`Components::resource_id()`].
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Hash, PartialEq)
+)]
 pub struct ComponentId(usize);
 
 impl ComponentId {
@@ -553,7 +560,7 @@ impl Components {
     /// Returns [`None`] if the `Component` type has not
     /// yet been initialized using [`Components::init_component()`].
     ///
-    /// ```rust
+    /// ```
     /// use bevy_ecs::prelude::*;
     ///
     /// let mut world = World::new();
@@ -591,7 +598,7 @@ impl Components {
     /// Returns [`None`] if the `Resource` type has not
     /// yet been initialized using [`Components::init_resource()`].
     ///
-    /// ```rust
+    /// ```
     /// use bevy_ecs::prelude::*;
     ///
     /// let mut world = World::new();
@@ -670,6 +677,7 @@ impl Components {
 /// A value that tracks when a system ran relative to other systems.
 /// This is used to power change detection.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
 pub struct Tick {
     tick: u32,
 }
@@ -761,33 +769,34 @@ impl<'a> TickCells<'a> {
     }
 }
 
-/// Records when a component was added and when it was last mutably dereferenced (or added).
+/// Records when a component or resource was added and when it was last mutably dereferenced (or added).
 #[derive(Copy, Clone, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct ComponentTicks {
     pub(crate) added: Tick,
     pub(crate) changed: Tick,
 }
 
 impl ComponentTicks {
-    /// Returns `true` if the component was added after the system last ran.
+    /// Returns `true` if the component or resource was added after the system last ran.
     #[inline]
     pub fn is_added(&self, last_run: Tick, this_run: Tick) -> bool {
         self.added.is_newer_than(last_run, this_run)
     }
 
-    /// Returns `true` if the component was added or mutably dereferenced after the system last ran.
+    /// Returns `true` if the component or resource was added or mutably dereferenced after the system last ran.
     #[inline]
     pub fn is_changed(&self, last_run: Tick, this_run: Tick) -> bool {
         self.changed.is_newer_than(last_run, this_run)
     }
 
-    /// Returns the tick recording the time this component was most recently changed.
+    /// Returns the tick recording the time this component or resource was most recently changed.
     #[inline]
     pub fn last_changed_tick(&self) -> Tick {
         self.changed
     }
 
-    /// Returns the tick recording the time this component was added.
+    /// Returns the tick recording the time this component or resource was added.
     #[inline]
     pub fn added_tick(&self) -> Tick {
         self.added
@@ -807,7 +816,7 @@ impl ComponentTicks {
     /// However, components and resources that make use of interior mutability might require manual updates.
     ///
     /// # Example
-    /// ```rust,no_run
+    /// ```no_run
     /// # use bevy_ecs::{world::World, component::ComponentTicks};
     /// let world: World = unimplemented!();
     /// let component_ticks: ComponentTicks = unimplemented!();
@@ -820,10 +829,10 @@ impl ComponentTicks {
     }
 }
 
-/// A [`SystemParam`] that provides access to the [`ComponentId`] for a specific type.
+/// A [`SystemParam`] that provides access to the [`ComponentId`] for a specific component type.
 ///
 /// # Example
-/// ```rust
+/// ```
 /// # use bevy_ecs::{system::Local, component::{Component, ComponentId, ComponentIdFor}};
 /// #[derive(Component)]
 /// struct Player;

@@ -1,6 +1,7 @@
-use std::mem::MaybeUninit;
+use std::{fmt::Debug, mem::MaybeUninit};
 
 use bevy_ptr::{OwningPtr, Unaligned};
+use bevy_utils::tracing::warn;
 
 use super::Command;
 use crate::world::World;
@@ -13,7 +14,7 @@ struct CommandMeta {
     ///
     /// Returns the size of `T` in bytes.
     consume_command_and_get_size:
-        unsafe fn(value: OwningPtr<Unaligned>, world: &mut Option<&mut World>) -> usize,
+        unsafe fn(value: OwningPtr<Unaligned>, world: Option<&mut World>) -> usize,
 }
 
 /// Densely and efficiently stores a queue of heterogenous types implementing [`Command`].
@@ -31,6 +32,19 @@ pub struct CommandQueue {
     // to store the command itself. To interpret these bytes, a pointer must
     // be passed to the corresponding `CommandMeta.apply_command_and_get_size` fn pointer.
     bytes: Vec<MaybeUninit<u8>>,
+}
+
+// CommandQueue needs to implement Debug manually, rather than deriving it, because the derived impl just prints
+// [core::mem::maybe_uninit::MaybeUninit<u8>, core::mem::maybe_uninit::MaybeUninit<u8>, ..] for every byte in the vec,
+// which gets extremely verbose very quickly, while also providing no useful information.
+// It is not possible to soundly print the values of the contained bytes, as some of them may be padding or uninitialized (#4863)
+// So instead, the manual impl just prints the length of vec.
+impl Debug for CommandQueue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CommandQueue")
+            .field("len_bytes", &self.bytes.len())
+            .finish_non_exhaustive()
+    }
 }
 
 // SAFETY: All commands [`Command`] implement [`Send`]
@@ -143,7 +157,7 @@ impl CommandQueue {
             // SAFETY: The data underneath the cursor must correspond to the type erased in metadata,
             // since they were stored next to each other by `.push()`.
             // For ZSTs, the type doesn't matter as long as the pointer is non-null.
-            let size = unsafe { (meta.consume_command_and_get_size)(cmd, &mut world) };
+            let size = unsafe { (meta.consume_command_and_get_size)(cmd, world.as_deref_mut()) };
             // Advance the cursor past the command. For ZSTs, the cursor will not move.
             // At this point, it will either point to the next `CommandMeta`,
             // or the cursor will be out of bounds and the loop will end.
@@ -161,6 +175,9 @@ impl CommandQueue {
 
 impl Drop for CommandQueue {
     fn drop(&mut self) {
+        if !self.bytes.is_empty() {
+            warn!("CommandQueue has un-applied commands being dropped.");
+        }
         self.apply_or_drop_queued(None);
     }
 }

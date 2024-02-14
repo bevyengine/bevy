@@ -35,7 +35,7 @@ fn main() {
 
 fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     commands.spawn((
-        meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
+        meshes.add(Cuboid::new(0.5, 0.5, 0.5)),
         SpatialBundle::INHERITED_IDENTITY,
         InstanceMaterialData(
             (1..=10)
@@ -68,16 +68,16 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
 struct InstanceMaterialData(Vec<InstanceData>);
 
 impl ExtractComponent for InstanceMaterialData {
-    type Data = &'static InstanceMaterialData;
-    type Filter = ();
+    type QueryData = &'static InstanceMaterialData;
+    type QueryFilter = ();
     type Out = Self;
 
-    fn extract_component(item: QueryItem<'_, Self::Data>) -> Option<Self> {
+    fn extract_component(item: QueryItem<'_, Self::QueryData>) -> Option<Self> {
         Some(InstanceMaterialData(item.0.clone()))
     }
 }
 
-pub struct CustomMaterialPlugin;
+struct CustomMaterialPlugin;
 
 impl Plugin for CustomMaterialPlugin {
     fn build(&self, app: &mut App) {
@@ -151,7 +151,7 @@ fn queue_custom(
 }
 
 #[derive(Component)]
-pub struct InstanceBuffer {
+struct InstanceBuffer {
     buffer: Buffer,
     length: usize,
 }
@@ -175,7 +175,7 @@ fn prepare_instance_buffers(
 }
 
 #[derive(Resource)]
-pub struct CustomPipeline {
+struct CustomPipeline {
     shader: Handle<Shader>,
     mesh_pipeline: MeshPipeline,
 }
@@ -233,18 +233,18 @@ type DrawCustom = (
     DrawMeshInstanced,
 );
 
-pub struct DrawMeshInstanced;
+struct DrawMeshInstanced;
 
 impl<P: PhaseItem> RenderCommand<P> for DrawMeshInstanced {
     type Param = (SRes<RenderAssets<Mesh>>, SRes<RenderMeshInstances>);
-    type ViewData = ();
-    type ItemData = Read<InstanceBuffer>;
+    type ViewQuery = ();
+    type ItemQuery = Read<InstanceBuffer>;
 
     #[inline]
     fn render<'w>(
         item: &P,
         _view: (),
-        instance_buffer: &'w InstanceBuffer,
+        instance_buffer: Option<&'w InstanceBuffer>,
         (meshes, render_mesh_instances): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -252,6 +252,9 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMeshInstanced {
             return RenderCommandResult::Failure;
         };
         let Some(gpu_mesh) = meshes.into_inner().get(mesh_instance.mesh_asset_id) else {
+            return RenderCommandResult::Failure;
+        };
+        let Some(instance_buffer) = instance_buffer else {
             return RenderCommandResult::Failure;
         };
 

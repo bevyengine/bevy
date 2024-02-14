@@ -6,6 +6,8 @@ mod dim2;
 pub use dim2::*;
 mod dim3;
 pub use dim3::*;
+#[cfg(feature = "serialize")]
+mod serde;
 
 /// A marker trait for 2D primitives
 pub trait Primitive2d {}
@@ -22,6 +24,21 @@ pub enum InvalidDirectionError {
     Infinite,
     /// The length of the direction vector is `NaN`.
     NaN,
+}
+
+impl InvalidDirectionError {
+    /// Creates an [`InvalidDirectionError`] from the length of an invalid direction vector.
+    pub fn from_length(length: f32) -> Self {
+        if length.is_nan() {
+            InvalidDirectionError::NaN
+        } else if !length.is_finite() {
+            // If the direction is non-finite but also not NaN, it must be infinite
+            InvalidDirectionError::Infinite
+        } else {
+            // If the direction is invalid but neither NaN nor infinite, it must be zero
+            InvalidDirectionError::Zero
+        }
+    }
 }
 
 impl std::fmt::Display for InvalidDirectionError {

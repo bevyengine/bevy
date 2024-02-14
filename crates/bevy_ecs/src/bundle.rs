@@ -3,7 +3,7 @@
 //! This module contains the [`Bundle`] trait and some other helper types.
 
 pub use bevy_ecs_macros::Bundle;
-use bevy_utils::{HashMap, HashSet};
+use bevy_utils::{HashMap, HashSet, TypeIdMap};
 
 use crate::{
     archetype::{
@@ -14,7 +14,6 @@ use crate::{
     entity::{Entities, Entity, EntityLocation},
     query::DebugCheckedUnwrap,
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
-    TypeIdMap,
 };
 use bevy_ptr::OwningPtr;
 use bevy_utils::all_tuples;
@@ -291,9 +290,9 @@ impl BundleInfo {
     ///
     /// # Safety
     ///
-    // Every ID in `component_ids` must be valid within the World that owns the BundleInfo,
-    // must have its storage initialized (i.e. columns created in tables, sparse set created),
-    // and must be in the same order as the source bundle type writes its components in.
+    /// Every ID in `component_ids` must be valid within the World that owns the `BundleInfo`,
+    /// must have its storage initialized (i.e. columns created in tables, sparse set created),
+    /// and must be in the same order as the source bundle type writes its components in.
     unsafe fn new(
         bundle_type_name: &'static str,
         components: &Components,

@@ -12,6 +12,7 @@ use bevy_transform::{components::GlobalTransform, TransformSystem};
 use std::cell::Cell;
 use thread_local::ThreadLocal;
 
+use crate::deterministic::DeterministicRenderingConfig;
 use crate::{
     camera::{
         camera_system, Camera, CameraProjection, OrthographicProjection, PerspectiveProjection,
@@ -280,14 +281,7 @@ pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
     >,
 ) {
     for (transform, projection, mut frustum) in &mut views {
-        let view_projection =
-            projection.get_projection_matrix() * transform.compute_matrix().inverse();
-        *frustum = Frustum::from_view_projection_custom_far(
-            &view_projection,
-            &transform.translation(),
-            &transform.back(),
-            projection.far(),
-        );
+        *frustum = projection.compute_frustum(transform);
     }
 }
 
@@ -392,6 +386,7 @@ pub fn check_visibility(
         &GlobalTransform,
         Has<NoFrustumCulling>,
     )>,
+    deterministic_rendering_config: Res<DeterministicRenderingConfig>,
 ) {
     for (mut visible_entities, frustum, maybe_view_mask, camera) in &mut view_query {
         if !camera.is_active {
@@ -451,6 +446,11 @@ pub fn check_visibility(
 
         for cell in &mut thread_queues {
             visible_entities.entities.append(cell.get_mut());
+        }
+        if deterministic_rendering_config.stable_sort_z_fighting {
+            // We can use the faster unstable sort here because
+            // the values (`Entity`) are guaranteed to be unique.
+            visible_entities.entities.sort_unstable();
         }
     }
 }
