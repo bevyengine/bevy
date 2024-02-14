@@ -2644,6 +2644,17 @@ description = "Demonstrates creating and using custom Ui materials"
 category = "UI (User Interface)"
 wasm = true
 
+[[example]]
+name = "render_primitives"
+path = "examples/math/render_primitives.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.render_primitives]
+name = "Rendering Primitives"
+description = "Shows off rendering for all math primitives as both Meshes and Gizmos"
+category = "Math"
+wasm = true
+
 [profile.wasm-release]
 inherits = "release"
 opt-level = "z"
