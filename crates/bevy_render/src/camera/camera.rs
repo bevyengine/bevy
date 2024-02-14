@@ -90,12 +90,12 @@ pub struct ComputedCameraValues {
 ///
 /// <https://en.wikipedia.org/wiki/Exposure_(photography)>
 #[derive(Component)]
-pub struct ExposureSettings {
+pub struct Exposure {
     /// <https://en.wikipedia.org/wiki/Exposure_value#Tabulated_exposure_values>
     pub ev100: f32,
 }
 
-impl ExposureSettings {
+impl Exposure {
     pub const SUNLIGHT: Self = Self {
         ev100: Self::EV100_SUNLIGHT,
     };
@@ -124,7 +124,7 @@ impl ExposureSettings {
     }
 }
 
-impl Default for ExposureSettings {
+impl Default for Exposure {
     fn default() -> Self {
         Self::INDOOR
     }
@@ -798,7 +798,7 @@ pub fn extract_cameras(
             &VisibleEntities,
             &Frustum,
             Option<&ColorGrading>,
-            Option<&ExposureSettings>,
+            Option<&Exposure>,
             Option<&TemporalJitter>,
             Option<&RenderLayers>,
             Option<&Projection>,
@@ -860,7 +860,7 @@ pub fn extract_cameras(
                     sorted_camera_index_for_target: 0,
                     exposure: exposure_settings
                         .map(|e| e.exposure())
-                        .unwrap_or_else(|| ExposureSettings::default().exposure()),
+                        .unwrap_or_else(|| Exposure::default().exposure()),
                 },
                 ExtractedView {
                     projection: camera.projection_matrix(),

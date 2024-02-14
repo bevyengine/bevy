@@ -7,7 +7,7 @@ pub use window::*;
 
 use crate::{
     camera::{
-        CameraMainTextureUsages, ClearColor, ClearColorConfig, ExposureSettings, ExtractedCamera,
+        CameraMainTextureUsages, ClearColor, ClearColorConfig, Exposure, ExtractedCamera,
         ManualTextureViews, MipBias, TemporalJitter,
     },
     extract_resource::{ExtractResource, ExtractResourcePlugin},
@@ -434,7 +434,7 @@ pub fn prepare_view_uniforms(
                 world_position: extracted_view.transform.translation(),
                 exposure: extracted_camera
                     .map(|c| c.exposure)
-                    .unwrap_or_else(|| ExposureSettings::default().exposure()),
+                    .unwrap_or_else(|| Exposure::default().exposure()),
                 viewport,
                 frustum,
                 color_grading: extracted_view.color_grading,
