@@ -36,7 +36,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             // SAFETY: We only access table data that has been registered in `query_state`.
             tables: unsafe { &world.storages().tables },
             archetypes: world.archetypes(),
-            cursor: QueryIterationCursor::init(world, query_state, last_run, this_run),
+            // SAFETY: The invariants are uphold by the caller.
+            cursor: unsafe { QueryIterationCursor::init(world, query_state, last_run, this_run) },
         }
     }
 

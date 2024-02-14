@@ -225,9 +225,9 @@ macro_rules! tuple_impl {
             where
                 F: FnMut(&mut T) -> OwningPtr<'_>
             {
-                // Rust guarantees that tuple calls are evaluated 'left to right'.
+                // SAFETY: Rust guarantees that tuple calls are evaluated 'left to right'.
                 // https://doc.rust-lang.org/reference/expressions.html#evaluation-order-of-operands
-                ($(<$name as Bundle>::from_components(ctx, func),)*)
+                ($(unsafe { <$name as Bundle>::from_components(ctx, func) },)*)
             }
         }
 

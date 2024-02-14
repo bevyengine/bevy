@@ -164,7 +164,8 @@ macro_rules! impl_tuple_world_query {
             #[allow(clippy::unused_unit)]
             unsafe fn init_fetch<'w>(_world: UnsafeWorldCell<'w>, state: &Self::State, _last_run: Tick, _this_run: Tick) -> Self::Fetch<'w> {
                 let ($($name,)*) = state;
-                ($($name::init_fetch(_world, $name, _last_run, _this_run),)*)
+                // SAFETY: The invariants are uphold by the caller.
+                ($(unsafe { $name::init_fetch(_world, $name, _last_run, _this_run) },)*)
             }
 
             const IS_DENSE: bool = true $(&& $name::IS_DENSE)*;
@@ -178,14 +179,16 @@ macro_rules! impl_tuple_world_query {
             ) {
                 let ($($name,)*) = _fetch;
                 let ($($state,)*) = _state;
-                $($name::set_archetype($name, $state, _archetype, _table);)*
+                // SAFETY: The invariants are uphold by the caller.
+                $(unsafe { $name::set_archetype($name, $state, _archetype, _table); })*
             }
 
             #[inline]
             unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, _table: &'w Table) {
                 let ($($name,)*) = _fetch;
                 let ($($state,)*) = _state;
-                $($name::set_table($name, $state, _table);)*
+                // SAFETY: The invariants are uphold by the caller.
+                $(unsafe { $name::set_table($name, $state, _table); })*
             }
 
             #[inline(always)]
@@ -196,7 +199,8 @@ macro_rules! impl_tuple_world_query {
                 _table_row: TableRow
             ) -> Self::Item<'w> {
                 let ($($name,)*) = _fetch;
-                ($($name::fetch($name, _entity, _table_row),)*)
+                // SAFETY: The invariants are uphold by the caller.
+                ($(unsafe { $name::fetch($name, _entity, _table_row) },)*)
             }
 
             fn update_component_access(state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {
