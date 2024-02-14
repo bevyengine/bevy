@@ -30,6 +30,7 @@ pub use thread_executor::{ThreadExecutor, ThreadExecutorTicker};
 pub use async_io::block_on;
 #[cfg(not(feature = "async-io"))]
 pub use futures_lite::future::block_on;
+pub use futures_lite::future::poll_once;
 
 mod iter;
 pub use iter::ParallelIterator;

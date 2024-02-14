@@ -355,6 +355,8 @@ fn setup_tonemapping_lut_image(bytes: &[u8], image_type: ImageType) -> Image {
         ..default()
     });
     Image::from_buffer(
+        #[cfg(all(debug_assertions, feature = "dds"))]
+        "Tonemapping LUT sampler".to_string(),
         bytes,
         image_type,
         CompressedImageFormats::NONE,

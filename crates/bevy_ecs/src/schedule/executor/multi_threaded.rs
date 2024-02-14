@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use bevy_tasks::{ComputeTaskPool, Scope, TaskPool, ThreadExecutor};
+use bevy_tasks::{block_on, poll_once, ComputeTaskPool, Scope, TaskPool, ThreadExecutor};
 use bevy_utils::default;
 use bevy_utils::syncunsafecell::SyncUnsafeCell;
 #[cfg(feature = "trace")]
@@ -227,7 +227,8 @@ impl SystemExecutor for MultiThreadedExecutor {
             |scope| {
                 // the executor itself is a `Send` future so that it can run
                 // alongside systems that claim the local thread
-                let executor = async {
+                #[allow(unused_mut)]
+                let mut executor = Box::pin(async {
                     let world_cell = world.as_unsafe_world_cell();
                     while self.num_completed_systems < self.num_systems {
                         // SAFETY:
@@ -252,13 +253,19 @@ impl SystemExecutor for MultiThreadedExecutor {
                             self.rebuild_active_access();
                         }
                     }
-                };
+                });
 
                 #[cfg(feature = "trace")]
                 let executor_span = info_span!("multithreaded executor");
                 #[cfg(feature = "trace")]
-                let executor = executor.instrument(executor_span);
-                scope.spawn(executor);
+                let mut executor = executor.instrument(executor_span);
+
+                // Immediately poll the task once to avoid the overhead of the executor
+                // and thread wake-up. Only spawn the task if the executor does not immediately
+                // terminate.
+                if block_on(poll_once(&mut executor)).is_none() {
+                    scope.spawn(executor);
+                }
             },
         );
 

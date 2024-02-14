@@ -10,6 +10,7 @@ use bevy_core_pipeline::{
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
 };
 use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
     prelude::*,
     query::ROQueryItem,
@@ -33,7 +34,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{tracing::error, EntityHashMap, Entry, HashMap, Hashed};
+use bevy_utils::{tracing::error, Entry, HashMap, Hashed};
 use std::cell::Cell;
 use thread_local::ThreadLocal;
 
@@ -253,8 +254,14 @@ pub struct RenderMeshInstance {
     pub automatic_batching: bool,
 }
 
+impl RenderMeshInstance {
+    pub fn should_batch(&self) -> bool {
+        self.automatic_batching && self.material_bind_group_id.is_some()
+    }
+}
+
 #[derive(Default, Resource, Deref, DerefMut)]
-pub struct RenderMeshInstances(EntityHashMap<Entity, RenderMeshInstance>);
+pub struct RenderMeshInstances(EntityHashMap<RenderMeshInstance>);
 
 pub fn extract_meshes(
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
@@ -465,7 +472,7 @@ impl GetBatchData for MeshPipeline {
                 &mesh_instance.transforms,
                 maybe_lightmap.map(|lightmap| lightmap.uv_rect),
             ),
-            mesh_instance.automatic_batching.then_some((
+            mesh_instance.should_batch().then_some((
                 mesh_instance.material_bind_group_id,
                 mesh_instance.mesh_asset_id,
                 maybe_lightmap.map(|lightmap| lightmap.image),
