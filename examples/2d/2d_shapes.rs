@@ -36,6 +36,7 @@ fn setup(
     let num_shapes = shapes.len();
 
     for (i, shape) in shapes.into_iter().enumerate() {
+        // Distribute colors evenly across the rainbow.
         let color = Color::hsl(360. * i as f32 / num_shapes as f32, 0.95, 0.7);
 
         commands.spawn(MaterialMesh2dBundle {
