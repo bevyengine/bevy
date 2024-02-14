@@ -57,10 +57,9 @@ fn setup(
     });
 
     // Light up the scene.
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            intensity: 100_000.0,
-            range: 100.0,
+    commands.spawn(DirectionalLightBundle {
+        directional_light: DirectionalLight {
+            illuminance: light_consts::lux::OVERCAST_DAY,
             ..default()
         },
         transform: camera_and_light_transform,

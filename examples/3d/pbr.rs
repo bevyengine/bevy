@@ -1,6 +1,6 @@
 //! This example shows how to configure Physically Based Rendering (PBR) parameters.
 
-use bevy::{asset::LoadState, prelude::*};
+use bevy::{asset::LoadState, prelude::*, render::camera::ExposureSettings};
 
 fn main() {
     App::new()
@@ -48,17 +48,6 @@ fn setup(
             ..default()
         }),
         transform: Transform::from_xyz(-5.0, -2.5, 0.0),
-        ..default()
-    });
-
-    // light
-    commands.spawn(PointLightBundle {
-        transform: Transform::from_xyz(50.0, 50.0, 50.0),
-        point_light: PointLight {
-            intensity: 100_000_000.,
-            range: 100.,
-            ..default()
-        },
         ..default()
     });
 
@@ -132,8 +121,9 @@ fn setup(
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
-            intensity: 150.0,
+            intensity: 7000.0,
         },
+        ExposureSettings::OVERCAST,
     ));
 }
 

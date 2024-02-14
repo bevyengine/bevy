@@ -61,7 +61,7 @@ fn setup_terrain_scene(
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
             color: Color::rgb(0.98, 0.95, 0.82),
-            illuminance: 3000.0,
+            illuminance: light_consts::lux::OVERCAST_DAY,
             shadows_enabled: true,
             ..default()
         },
