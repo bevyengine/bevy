@@ -2057,10 +2057,10 @@ impl<'a> From<&'a mut EntityWorldMut<'_>> for FilteredEntityMut<'a> {
 
 #[derive(Error, Debug)]
 pub enum TryFromFilteredError {
-    #[error("Conversion failed, filtered entity ref must have read access to all components")]
+    #[error("Conversion failed, filtered entity ref does not have read access to all components")]
     MissingReadAllAccess,
 
-    #[error("Conversion failed, filtered entity ref must have write access to all components")]
+    #[error("Conversion failed, filtered entity ref does not have write access to all components")]
     MissingWriteAllAccess,
 }
 
