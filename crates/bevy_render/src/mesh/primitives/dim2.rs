@@ -82,11 +82,28 @@ impl From<CircleMeshBuilder> for Mesh {
     }
 }
 
+/// Specifies how to generate UV-mappings for [`CircularSector`] and [`CircularSegment`] shapes.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum CircularShapeUvMode {
+    /// Treats the shape as a mask over a circle of equal size and radius,
+    /// with the center of the circle at the center of the texture.
+    Mask {
+        /// Angle by which to rotate the shape when generating the UV map.
+        angle: f32,
+    },
+}
+
+impl Default for CircularShapeUvMode {
+    fn default() -> Self {
+        CircularShapeUvMode::Mask { angle: 0.0 }
+    }
+}
+
 /// A builder used for creating a [`Mesh`] with a [`CircularSector`] shape.
 ///
 /// The resulting mesh will have a UV-map such that the center of the circle is
 /// at the centure of the texture.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct CircularSectorMeshBuilder {
     /// The sector shape.
     pub sector: CircularSector,
@@ -94,6 +111,8 @@ pub struct CircularSectorMeshBuilder {
     /// The default is `32`.
     #[doc(alias = "vertices")]
     pub resolution: usize,
+    /// The UV mapping mode
+    pub uv_mode: CircularShapeUvMode,
 }
 
 impl Default for CircularSectorMeshBuilder {
@@ -101,17 +120,18 @@ impl Default for CircularSectorMeshBuilder {
         Self {
             sector: CircularSector::default(),
             resolution: 32,
+            uv_mode: CircularShapeUvMode::default(),
         }
     }
 }
 
 impl CircularSectorMeshBuilder {
-    /// Creates a new [`CircularSectorMeshBuilder`] from a given radius, angle, and vertex count.
+    /// Creates a new [`CircularSectorMeshBuilder`] from a given sector
     #[inline]
-    pub fn new(radius: f32, angle: f32, resolution: usize) -> Self {
+    pub fn new(sector: CircularSector) -> Self {
         Self {
-            sector: CircularSector::new(radius, angle),
-            resolution,
+            sector,
+            ..Self::default()
         }
     }
 
@@ -123,6 +143,13 @@ impl CircularSectorMeshBuilder {
         self
     }
 
+    /// Sets the uv mode used for the sector mesh
+    #[inline]
+    pub const fn uv_mode(mut self, uv_mode: CircularShapeUvMode) -> Self {
+        self.uv_mode = uv_mode;
+        self
+    }
+
     /// Builds a [`Mesh`] based on the configuration in `self`.
     pub fn build(&self) -> Mesh {
         let mut indices = Vec::with_capacity((self.resolution - 1) * 3);
@@ -130,23 +157,27 @@ impl CircularSectorMeshBuilder {
         let normals = vec![[0.0, 0.0, 1.0]; self.resolution + 1];
         let mut uvs = Vec::with_capacity(self.resolution + 1);
 
+        let CircularShapeUvMode::Mask { angle: uv_angle } = self.uv_mode;
+
         // Push the center of the circle.
         positions.push([0.0; 3]);
         uvs.push([0.5; 2]);
 
-        let first_angle = PI / 2.0 - self.sector.arc.half_angle;
-        let last_angle = PI / 2.0 + self.sector.arc.half_angle;
+        let first_angle = PI / 2.0 - self.sector.half_angle();
+        let last_angle = PI / 2.0 + self.sector.half_angle();
         let last_i = (self.resolution - 1) as f32;
         for i in 0..self.resolution {
-            // Compute vertex position at angle theta
-            let angle = Vec2::from_angle(f32::lerp(first_angle, last_angle, i as f32 / last_i));
+            let angle = f32::lerp(first_angle, last_angle, i as f32 / last_i);
 
-            positions.push([
-                angle.x * self.sector.arc.radius,
-                angle.y * self.sector.arc.radius,
-                0.0,
-            ]);
-            uvs.push([0.5 * (angle.x + 1.0), 1.0 - 0.5 * (angle.y + 1.0)]);
+            // Compute the vertex
+            let vertex = self.sector.radius() * Vec2::from_angle(angle);
+            // Compute the UV coordinate by taking the modified angle's unit vector, negating the Y axis, and rescaling and centering it at (0.5, 0.5).
+            // We accomplish the Y axis flip by negating the angle.
+            let uv =
+                Vec2::from_angle(-(angle + uv_angle)).mul_add(Vec2::splat(0.5), Vec2::splat(0.5));
+
+            positions.push([vertex.x, vertex.y, 0.0]);
+            uvs.push([uv.x, uv.y]);
         }
 
         for i in 1..(self.resolution as u32) {
@@ -203,6 +234,8 @@ pub struct CircularSegmentMeshBuilder {
     /// The default is `32`.
     #[doc(alias = "vertices")]
     pub resolution: usize,
+    /// The UV mapping mode
+    pub uv_mode: CircularShapeUvMode,
 }
 
 impl Default for CircularSegmentMeshBuilder {
@@ -210,17 +243,18 @@ impl Default for CircularSegmentMeshBuilder {
         Self {
             segment: CircularSegment::default(),
             resolution: 32,
+            uv_mode: CircularShapeUvMode::default(),
         }
     }
 }
 
 impl CircularSegmentMeshBuilder {
-    /// Creates a new [`CircularSegmentMeshBuilder`] from a given radius, angle, and vertex count.
+    /// Creates a new [`CircularSegmentMeshBuilder`] from a given segment
     #[inline]
-    pub fn new(radius: f32, angle: f32, resolution: usize) -> Self {
+    pub fn new(segment: CircularSegment) -> Self {
         Self {
-            segment: CircularSegment::new(radius, angle),
-            resolution,
+            segment,
+            ..Self::default()
         }
     }
 
@@ -232,6 +266,13 @@ impl CircularSegmentMeshBuilder {
         self
     }
 
+    /// Sets the uv mode used for the segment mesh
+    #[inline]
+    pub const fn uv_mode(mut self, uv_mode: CircularShapeUvMode) -> Self {
+        self.uv_mode = uv_mode;
+        self
+    }
+
     /// Builds a [`Mesh`] based on the configuration in `self`.
     pub fn build(&self) -> Mesh {
         let mut indices = Vec::with_capacity((self.resolution - 1) * 3);
@@ -239,28 +280,40 @@ impl CircularSegmentMeshBuilder {
         let normals = vec![[0.0, 0.0, 1.0]; self.resolution + 1];
         let mut uvs = Vec::with_capacity(self.resolution + 1);
 
-        // Push the center of the chord.
-        let chord_midpoint = self.segment.arc.chord_midpoint();
-        positions.push([chord_midpoint.x, chord_midpoint.y, 0.0]);
-        uvs.push([0.5 + chord_midpoint.x * 0.5, 0.5 + chord_midpoint.y * 0.5]);
+        let CircularShapeUvMode::Mask { angle: uv_angle } = self.uv_mode;
 
-        let first_angle = PI / 2.0 - self.segment.arc.half_angle;
-        let last_angle = PI / 2.0 + self.segment.arc.half_angle;
+        // Push the center of the chord.
+        let midpoint_vertex = self.segment.chord_midpoint();
+        positions.push([midpoint_vertex.x, midpoint_vertex.y, 0.0]);
+        // Compute the UV coordinate of the midpoint vertex.
+        // This is similar to the computation inside the loop for the arc vertices,
+        // but the vertex angle is PI/2, and we must scale by the ratio of the apothem to the radius
+        // to correctly position the vertex.
+        let midpoint_uv = Vec2::from_angle(-uv_angle - PI / 2.0).mul_add(
+            Vec2::splat(0.5 * (midpoint_vertex.y / self.segment.radius())),
+            Vec2::splat(0.5),
+        );
+        uvs.push([midpoint_uv.x, midpoint_uv.y]);
+
+        let first_angle = PI / 2.0 - self.segment.half_angle();
+        let last_angle = PI / 2.0 + self.segment.half_angle();
         let last_i = (self.resolution - 1) as f32;
         for i in 0..self.resolution {
-            // Compute vertex position at angle theta
-            let angle = Vec2::from_angle(f32::lerp(first_angle, last_angle, i as f32 / last_i));
+            let angle = f32::lerp(first_angle, last_angle, i as f32 / last_i);
 
-            positions.push([
-                angle.x * self.segment.arc.radius,
-                angle.y * self.segment.arc.radius,
-                0.0,
-            ]);
-            uvs.push([0.5 * (angle.x + 1.0), 1.0 - 0.5 * (angle.y + 1.0)]);
+            // Compute the vertex
+            let vertex = self.segment.radius() * Vec2::from_angle(angle);
+            // Compute the UV coordinate by taking the modified angle's unit vector, negating the Y axis, and rescaling and centering it at (0.5, 0.5).
+            // We accomplish the Y axis flip by negating the angle.
+            let uv =
+                Vec2::from_angle(-(angle + uv_angle)).mul_add(Vec2::splat(0.5), Vec2::splat(0.5));
+
+            positions.push([vertex.x, vertex.y, 0.0]);
+            uvs.push([uv.x, uv.y]);
         }
 
         for i in 1..(self.resolution as u32) {
-            // Index 0 is the center.
+            // Index 0 is the midpoint of the chord.
             indices.extend_from_slice(&[0, i, i + 1]);
         }
 

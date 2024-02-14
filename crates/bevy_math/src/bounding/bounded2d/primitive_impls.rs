@@ -66,9 +66,9 @@ impl Bounded2d for CircularSector {
             Vec2::ZERO,
             self.arc.left_endpoint(),
             self.arc.right_endpoint(),
-            self.arc.radius * Vec2::Y,
-            self.arc.radius * Vec2::X,
-            self.arc.radius * -Vec2::X,
+            self.radius() * Vec2::Y,
+            self.radius() * Vec2::X,
+            self.radius() * -Vec2::X,
         ];
         let bounds = if self.arc.is_major() {
             &all_bounds[1..6]
@@ -87,14 +87,14 @@ impl Bounded2d for CircularSector {
         } else if self.arc.chord_length() < self.arc.radius {
             // If the chord length is smaller than the radius, then the radius is the widest distance between two points,
             // so the bounding circle is centered on the midpoint of the radius.
-            let half_radius = self.arc.radius / 2.0;
+            let half_radius = self.radius() / 2.0;
             let center = half_radius * Vec2::Y;
             BoundingCircle::new(center + translation, half_radius)
         } else {
             // Otherwise, the widest distance between two points is the chord,
             // so a circle of that diameter around the midpoint will contain the entire arc.
-            let center = self.arc.chord_midpoint().rotate(Vec2::from_angle(rotation));
-            BoundingCircle::new(center + translation, self.arc.half_chord_length())
+            let center = self.chord_midpoint().rotate(Vec2::from_angle(rotation));
+            BoundingCircle::new(center + translation, self.half_chord_length())
         }
     }
 }

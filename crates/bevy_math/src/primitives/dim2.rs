@@ -258,6 +258,14 @@ impl Arc2d {
         self.angle() * self.radius
     }
 
+    /// Get the center of the circle defining the arc
+    ///
+    /// Always returns `Vec2::ZERO`
+    #[inline(always)]
+    pub fn circle_center(&self) -> Vec2 {
+        Vec2::ZERO
+    }
+
     /// Get the right-hand end point of the arc
     #[inline(always)]
     pub fn right_endpoint(&self) -> Vec2 {
@@ -297,7 +305,11 @@ impl Arc2d {
     /// Get the midpoint of the chord subtended by the arc
     #[inline(always)]
     pub fn chord_midpoint(&self) -> Vec2 {
-        self.apothem() * Vec2::Y
+        if self.is_minor() {
+            self.apothem() * Vec2::Y
+        } else {
+            self.apothem() * Vec2::NEG_Y
+        }
     }
 
     /// Get the length of the apothem of this arc, that is,
@@ -311,7 +323,7 @@ impl Arc2d {
         f32::sqrt(self.radius.powi(2) - self.half_chord_length().powi(2))
     }
 
-    /// Get the legnth of the sagitta of this arc, that is,
+    /// Get the length of the sagitta of this arc, that is,
     /// the length of the line between the midpoints of the arc and its chord.
     /// Equivalently, the height of the triangle whose base is the chord and whose apex is the midpoint of the arc.
     ///
@@ -352,14 +364,14 @@ impl Arc2d {
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct CircularSector {
-    /// The arc from which this sector is contructed.
+    /// The arc subtending the sector
     #[cfg_attr(feature = "serialize", serde(flatten))]
     pub arc: Arc2d,
 }
 impl Primitive2d for CircularSector {}
 
 impl Default for CircularSector {
-    /// Returns the default [`CircularSector`] with radius `0.5` and covering a quarter circle.
+    /// Returns the default [`CircularSector`] with radius `0.5` and covering a quarter circle
     fn default() -> Self {
         Self::from(Arc2d::default())
     }
@@ -398,6 +410,73 @@ impl CircularSector {
         Self::from(Arc2d::from_fraction(radius, fraction))
     }
 
+    /// Get half the angle of the sector
+    #[inline(always)]
+    pub fn half_angle(&self) -> f32 {
+        self.arc.half_angle
+    }
+
+    /// Get the angle of the sector
+    #[inline(always)]
+    pub fn angle(&self) -> f32 {
+        self.arc.angle()
+    }
+
+    /// Get the radius of the sector
+    #[inline(always)]
+    pub fn radius(&self) -> f32 {
+        self.arc.radius
+    }
+
+    /// Get the length of the arc subtending the sector
+    #[inline(always)]
+    pub fn arc_length(&self) -> f32 {
+        self.arc.length()
+    }
+
+    /// Get the center of the circle defining the sector, corresponding to the apex of the sector
+    ///
+    /// Always returns `Vec2::ZERO`
+    #[inline(always)]
+    #[doc(alias = "apex")]
+    pub fn circle_center(&self) -> Vec2 {
+        Vec2::ZERO
+    }
+
+    /// Get half the length of the chord subtended by the sector
+    #[inline(always)]
+    pub fn half_chord_length(&self) -> f32 {
+        self.arc.half_chord_length()
+    }
+
+    /// Get the length of the chord subtended by the sector
+    #[inline(always)]
+    pub fn chord_length(&self) -> f32 {
+        self.arc.chord_length()
+    }
+
+    /// Get the midpoint of the chord subtended by the sector
+    #[inline(always)]
+    pub fn chord_midpoint(&self) -> Vec2 {
+        self.arc.chord_midpoint()
+    }
+
+    /// Get the length of the apothem of this sector
+    ///
+    /// See [`Arc2d::apothem`]
+    #[inline(always)]
+    pub fn apothem(&self) -> f32 {
+        self.arc.apothem()
+    }
+
+    /// Get the length of the sagitta of this sector
+    ///
+    /// See [`Arc2d::sagitta`]
+    #[inline(always)]
+    pub fn sagitta(&self) -> f32 {
+        self.arc.sagitta()
+    }
+
     /// Returns the area of this sector
     #[inline(always)]
     pub fn area(&self) -> f32 {
@@ -411,12 +490,11 @@ impl CircularSector {
 /// The segment is drawn starting from [`Vec2::Y`], extending equally on either side.
 /// To orient the segment differently, apply a rotation.
 /// The segment is drawn with the center of its circle at the origin [`Vec2::ZERO`].
-/// When positioning a segment, the [`apothem`](Arc2d::apothem) function may be particularly useful,
-/// as it computes the distance between the segment and the origin.
+/// When positioning a segment, the [`apothem`](CircularSegment::apothem) function may be particularly useful.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct CircularSegment {
-    /// The arc from which this segment is contructed.
+    /// The arc subtending the segment
     #[cfg_attr(feature = "serialize", serde(flatten))]
     pub arc: Arc2d,
 }
@@ -460,6 +538,78 @@ impl CircularSegment {
     #[inline(always)]
     pub fn from_fraction(radius: f32, fraction: f32) -> Self {
         Self::from(Arc2d::from_fraction(radius, fraction))
+    }
+
+    /// Get the half-angle of the segment
+    #[inline(always)]
+    pub fn half_angle(&self) -> f32 {
+        self.arc.half_angle
+    }
+
+    /// Get the angle of the segment
+    #[inline(always)]
+    pub fn angle(&self) -> f32 {
+        self.arc.angle()
+    }
+
+    /// Get the radius of the segment
+    #[inline(always)]
+    pub fn radius(&self) -> f32 {
+        self.arc.radius
+    }
+
+    /// Get the length of the arc subtending the segment
+    #[inline(always)]
+    pub fn arc_length(&self) -> f32 {
+        self.arc.length()
+    }
+
+    /// Get the center of the circle defining the segment
+    ///
+    /// Always returns `Vec2::ZERO`
+    #[inline(always)]
+    pub fn circle_center(&self) -> Vec2 {
+        Vec2::ZERO
+    }
+
+    /// Get half the length of the chord of the segment, which is the segment's base
+    #[inline(always)]
+    #[doc(alias = "half_base_length")]
+    pub fn half_chord_length(&self) -> f32 {
+        self.arc.half_chord_length()
+    }
+
+    /// Get the length of the chord of the segment, which is the segment's base
+    #[inline(always)]
+    #[doc(alias = "base_length")]
+    #[doc(alias = "base")]
+    pub fn chord_length(&self) -> f32 {
+        self.arc.chord_length()
+    }
+
+    /// Get the midpoint of the chord of the segment, which is the segment's base
+    #[inline(always)]
+    #[doc(alias = "base_midpoint")]
+    pub fn chord_midpoint(&self) -> Vec2 {
+        self.arc.chord_midpoint()
+    }
+
+    /// Get the length of the apothem of this segment,
+    /// which is the distance between the segment and the [center of its circle](Self::circle_center)
+    ///
+    /// See [`Arc2d::apothem`]
+    #[inline(always)]
+    pub fn apothem(&self) -> f32 {
+        self.arc.apothem()
+    }
+
+    /// Get the length of the sagitta of this segment, also known as its height
+    ///
+    /// See [`Arc2d::sagitta`]
+    #[inline(always)]
+    #[doc(alias = "height")]
+    pub fn sagitta(&self) -> f32 {
+        self.arc.sagitta()
     }
 
     /// Returns the area of this segment
