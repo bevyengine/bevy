@@ -5,13 +5,14 @@ use crate::{
 };
 use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::{load_internal_asset, AssetId, Handle};
+use bevy_core::{Cached, Invalidated};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
 };
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
+    entity::EntityHashMap,
     prelude::*,
     query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem, SystemState},
@@ -267,17 +268,20 @@ pub fn extract_meshes(
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
     mut thread_local_queues: Local<ThreadLocal<Cell<Vec<(Entity, RenderMeshInstance)>>>>,
     meshes_query: Extract<
-        Query<(
-            Entity,
-            &ViewVisibility,
-            &GlobalTransform,
-            Option<&PreviousGlobalTransform>,
-            &Handle<Mesh>,
-            Has<NotShadowReceiver>,
-            Has<TransmittedShadowReceiver>,
-            Has<NotShadowCaster>,
-            Has<NoAutomaticBatching>,
-        )>,
+        Query<
+            (
+                Entity,
+                &ViewVisibility,
+                &GlobalTransform,
+                Option<&PreviousGlobalTransform>,
+                &Handle<Mesh>,
+                Has<NotShadowReceiver>,
+                Has<TransmittedShadowReceiver>,
+                Has<NotShadowCaster>,
+                Has<NoAutomaticBatching>,
+            ),
+            Without<Cached>,
+        >,
     >,
 ) {
     meshes_query.par_iter().for_each(
@@ -313,6 +317,7 @@ pub fn extract_meshes(
                 previous_transform: (&previous_transform).into(),
                 flags: flags.bits(),
             };
+
             let tls = thread_local_queues.get_or_default();
             let mut queue = tls.take();
             queue.push((
@@ -329,7 +334,6 @@ pub fn extract_meshes(
         },
     );
 
-    render_mesh_instances.clear();
     for queue in thread_local_queues.iter_mut() {
         render_mesh_instances.extend(queue.get_mut().drain(..));
     }

@@ -17,6 +17,7 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
+use bevy_core::remove_cached_dynamics;
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::ValidParentCheckPlugin;
 use bevy_math::{Affine3A, Mat4, Vec3};
@@ -119,7 +120,9 @@ impl Plugin for TransformPlugin {
             )
             .configure_sets(
                 PostUpdate,
-                PropagateTransformsSet.in_set(TransformSystem::TransformPropagate),
+                PropagateTransformsSet
+                    .in_set(TransformSystem::TransformPropagate)
+                    .after(remove_cached_dynamics),
             )
             .add_systems(
                 PostUpdate,

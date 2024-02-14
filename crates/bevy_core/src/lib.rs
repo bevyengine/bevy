@@ -14,7 +14,8 @@ pub mod prelude {
     //! The Bevy Core Prelude.
     #[doc(hidden)]
     pub use crate::{
-        DebugName, FrameCountPlugin, Name, TaskPoolOptions, TaskPoolPlugin, TypeRegistrationPlugin,
+        Cached, DebugName, FrameCountPlugin, Name, Static, TaskPoolOptions, TaskPoolPlugin,
+        TypeRegistrationPlugin,
     };
 }
 
@@ -26,7 +27,7 @@ use bevy_utils::{Duration, HashSet, Instant, Uuid};
 use std::borrow::Cow;
 use std::ffi::OsString;
 use std::marker::PhantomData;
-use std::ops::Range;
+use std::ops::{Deref, Range};
 use std::path::{Path, PathBuf};
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -137,6 +138,91 @@ pub struct NonSendMarker(PhantomData<*mut ()>);
 #[cfg(not(target_arch = "wasm32"))]
 fn tick_global_task_pools(_main_thread_marker: Option<NonSend<NonSendMarker>>) {
     tick_global_task_pools_on_main_thread();
+}
+
+/// Static is a special marker component. Bevy assumes that entities with a Static component do not change
+/// during play.
+///
+/// * They do not move. When [`Transform`] changes, [`GlobalTransform`] is not propagated.
+/// * They do not change apperence. Data is cached for render and not updated.
+///
+/// The [`Cached`] component is added to static entities after they are rendered for the first time (when using
+/// the [`StaticPlugin`]).
+///
+/// # Examples
+///
+/// These sorts of entities should be marked with a Static component.
+///
+/// * Terrain.
+/// * Background titles (in a 2d game).
+/// * Large props that never move, like buildings.
+/// * Everything with properties that don't change during play.
+///
+/// These sorts of entities should not be marked with a Static component.
+///
+/// * Dynamic physics bodies.
+/// * Animated characters.
+/// * Things that change color, texture, or material.
+/// * Anything with properties you expect to change during play.
+///
+#[derive(Component, Default, Debug, Clone, Copy)]
+#[component(storage = "Table")]
+pub struct Static;
+
+/// Cached is a special marker component closely related to [`Static`].
+///
+/// Systems in the [`PostUpdate`] schedule that query for cached entities should run after [`refresh_cached`]
+/// to avoid a possible one frame lag when [`Static`] is removed.
+#[derive(Component, Default, Debug, Clone, Copy)]
+#[component(storage = "Table")]
+pub struct Cached;
+
+/// The vector of entities that have had [`Cached`] removed since the last frame was drawn.
+#[derive(Debug, Default, Resource, Clone)]
+pub struct Invalidated {
+    entities: Vec<Entity>,
+}
+
+impl Deref for Invalidated {
+    type Target = [Entity];
+
+    fn deref(&self) -> &Self::Target {
+        &self.entities
+    }
+}
+
+/// Removes [`Cached`] from entities that are no longer [`Static`]. This is run in the [`PostUpdate`] schedule, so it
+/// executes between the `Update` schedule and start of render-world extraction.
+pub fn remove_cached_dynamics(
+    cached: Query<Entity, (With<Cached>, Without<Static>)>,
+    mut commands: Commands,
+) {
+    // FIXME: This should eventually become an unsafe exclusive system operating directly on architypes.
+    for entity in cached.iter() {
+        commands.entity(entity).remove::<Cached>();
+    }
+}
+
+/// Writes a vec of entities to be droped from caches in the render world. This is necessary because
+/// extraction systems can't mutate the main world, and so cannot read component removal events.
+pub fn write_cache_invalidation(
+    mut removed: RemovedComponents<Cached>,
+    mut invalidated: ResMut<Invalidated>,
+) {
+    invalidated.entities.clear();
+    invalidated.entities.extend(removed.read());
+}
+
+/// Adds static entities and caching to Apps. See [`Static`] and [`Cached`] for details.
+#[derive(Default)]
+pub struct StaticPlugin;
+
+impl Plugin for StaticPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<Invalidated>()
+            .add_systems(PostUpdate, remove_cached_dynamics)
+            .add_systems(Last, write_cache_invalidation);
+    }
 }
 
 /// Maintains a count of frames rendered since the start of the application.
