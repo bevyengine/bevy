@@ -234,7 +234,22 @@ impl TypeRegistry {
             .and_then(|id| self.registrations.get_mut(id))
     }
 
-    /// Returns `true` if the given [short type path] is ambiguous.
+    /// Returns `true` if the given [short type path] is ambiguous, that is, it matches multiple registered types.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_reflect::{TypeRegistry};
+    /// # mod foo {
+    /// #     struct MyType;
+    /// # }
+    /// # mod bar {
+    /// #    struct MyType;
+    /// # }
+    /// let mut type_registry = TypeRegistry::default();
+    /// type_registry.register::<foo::MyType>();
+    /// type_registry.register::<bar::MyType>();
+    /// assert_eq!(type_registry.is_ambiguous("MyType"), true);
+    /// ```
     ///
     /// [short type path]: TypePath::short_type_path
     pub fn is_ambiguous(&self, short_type_path: &str) -> bool {
