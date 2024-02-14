@@ -1,7 +1,9 @@
 //! Shows how to render simple primitive shapes with a single color.
 
-use bevy::{prelude::*, sprite::MaterialMesh2dBundle};
-use bevy_internal::sprite::Mesh2dHandle;
+use bevy::{
+    prelude::*,
+    sprite::{MaterialMesh2dBundle, Mesh2dHandle},
+};
 
 fn main() {
     App::new()
