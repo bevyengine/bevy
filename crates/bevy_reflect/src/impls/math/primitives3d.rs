@@ -104,3 +104,12 @@ impl_reflect!(
         major_radius: f32,
     }
 );
+
+impl_reflect!(
+    #[reflect(Debug, PartialEq, Serialize, Deserialize)]
+    #[type_path = "bevy_math::primitives"]
+    struct Prism {
+        half_size: Vec3,
+        apex_displacement: f32,
+    }
+);

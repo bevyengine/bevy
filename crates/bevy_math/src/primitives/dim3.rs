@@ -765,6 +765,43 @@ impl Torus {
     }
 }
 
+/// A triangular prism primitive, often representing a ramp.
+#[derive(Copy, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+pub struct Prism {
+    /// Half of the width, height and depth of the prism
+    pub half_size: Vec3,
+    /// Displacement of the apex edge along the Z-axis. -1.0 positions the apex straight above the bottom-front edge.
+    pub apex_displacement: f32,
+}
+impl Primitive3d for Prism {}
+
+impl Default for Prism {
+    fn default() -> Self {
+        Self {
+            half_size: Vec3::splat(0.5),
+            apex_displacement: 0.0,
+        }
+    }
+}
+
+impl Prism {
+    /// Get the surface area of the prism
+    #[inline(always)]
+    pub fn area(&self) -> f32 {
+        let [x, y, z] = self.half_size.to_array();
+        let edge1 = (z * (self.apex_displacement + 1.0)).hypot(2.0 * y);
+        let edge2 = (z * (self.apex_displacement - 1.0)).hypot(2.0 * y);
+        4.0 * z * y + 2.0 * x * (edge1 + edge2 + 2.0 * z)
+    }
+
+    /// Get the volume of the prism
+    #[inline(always)]
+    pub fn volume(&self) -> f32 {
+        self.half_size.x * self.half_size.y * self.half_size.z * 4.0
+    }
+}
+
 #[cfg(test)]
 mod tests {
     // Reference values were computed by hand and/or with external tools
@@ -929,5 +966,15 @@ mod tests {
         );
         assert_relative_eq!(torus.area(), 33.16187);
         assert_relative_eq!(torus.volume(), 4.97428, epsilon = 0.00001);
+    }
+
+    #[test]
+    fn prism_math() {
+        let prism = Prism {
+            half_size: Vec3::splat(0.75),
+            apex_displacement: 1.0,
+        };
+        assert_eq!(prism.volume(), 1.6875, "incorrect prism volume");
+        assert_eq!(prism.area(), 9.93198, "incorrect prism area");
     }
 }
