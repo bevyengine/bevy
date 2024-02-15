@@ -309,6 +309,15 @@ impl ContainerAttributes {
     /// - `#[reflect(Debug(custom_debug_fn))]`
     fn parse_debug(&mut self, input: ParseStream) -> syn::Result<()> {
         self.use_of_deprecated_debug = Some(input.span());
+
+        // Consume tokens, but ignore them.
+        input.parse::<kw::Debug>()?;
+        if input.peek(token::Paren) {
+            let content;
+            parenthesized!(content in input);
+            content.parse::<Path>()?;
+        }
+
         Ok(())
     }
 

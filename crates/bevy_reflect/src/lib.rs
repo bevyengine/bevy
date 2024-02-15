@@ -2145,6 +2145,16 @@ bevy_reflect::tests::Test {
         assert_impl_all!(Enum: Reflect);
     }
 
+    #[allow(deprecated)]
+    #[test]
+    fn ensure_debug_deprecated() {
+        #[derive(Debug, Reflect)]
+        #[reflect(Debug)]
+        struct Foo;
+
+        assert_impl_all!(Foo: Reflect);
+    }
+
     #[cfg(feature = "glam")]
     mod glam {
         use super::*;
