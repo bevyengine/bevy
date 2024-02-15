@@ -8,7 +8,7 @@ use rand::{rngs::StdRng, Rng, SeedableRng};
 fn main() {
     App::new()
         .insert_resource(AmbientLight {
-            brightness: 4.0,
+            brightness: 20.0,
             ..default()
         })
         .add_plugins(DefaultPlugins)

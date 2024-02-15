@@ -44,7 +44,6 @@ fn setup(asset_server: Res<AssetServer>, mut commands: Commands) {
         ..default()
     });
     commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight::default(),
         transform: Transform::from_rotation(Quat::from_rotation_z(PI / 2.0)),
         ..default()
     });
