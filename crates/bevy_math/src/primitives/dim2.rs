@@ -201,11 +201,11 @@ pub struct Arc2d {
 impl Primitive2d for Arc2d {}
 
 impl Default for Arc2d {
-    /// Returns the default [`Arc2d`] with radius `0.5`, covering a quarter of a circle.
+    /// Returns the default [`Arc2d`] with radius `0.5`, covering one third of a circle.
     fn default() -> Self {
         Self {
             radius: 0.5,
-            half_angle: PI / 4.0,
+            half_angle: 2.0 * PI / 3.0,
         }
     }
 }
