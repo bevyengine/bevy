@@ -477,7 +477,8 @@ impl Default for CameraOutputMode {
 }
 
 /// Configures the [`RenderGraph`](crate::render_graph::RenderGraph) name assigned to be run for a given [`Camera`] entity.
-#[derive(Component, Deref, DerefMut)]
+#[derive(Component, Deref, DerefMut, Reflect, Clone)]
+#[reflect_value(Component)]
 pub struct CameraRenderGraph(InternedRenderSubGraph);
 
 impl CameraRenderGraph {
@@ -752,7 +753,8 @@ pub fn camera_system<T: CameraProjection + Component>(
 }
 
 /// This component lets you control the [`TextureUsages`] field of the main texture generated for the camera
-#[derive(Component, ExtractComponent, Clone, Copy)]
+#[derive(Component, ExtractComponent, Clone, Copy, Reflect)]
+#[reflect_value(Component)]
 pub struct CameraMainTextureUsages(pub TextureUsages);
 impl Default for CameraMainTextureUsages {
     fn default() -> Self {
