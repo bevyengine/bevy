@@ -22,19 +22,16 @@ fn setup(
         ..default()
     });
     // cube
-    commands.spawn(
-        (
+    commands.spawn((
         PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        ..default()
-    },
-    // set to render layer 1 to make invisible to main camera, which watches render layer 0 by default.
-    RenderLayers::layer(1)
-    )
-
-);
+            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+            material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+            transform: Transform::from_xyz(0.0, 0.5, 0.0),
+            ..default()
+        },
+        // set to render layer 1 to make invisible to main camera, which watches render layer 0 by default.
+        RenderLayers::layer(1),
+    ));
     // light
     commands.spawn(PointLightBundle {
         point_light: PointLight {
@@ -52,9 +49,8 @@ fn setup(
     });
 
     // camera
-    commands.spawn(
-        (
-            Camera3dBundle {
+    commands.spawn((
+        Camera3dBundle {
             transform: Transform::from_xyz(10.0, 10., -5.0).looking_at(Vec3::ZERO, Vec3::Y),
             camera_3d: Camera3d {
                 clear_color: ClearColorConfig::None,
@@ -66,9 +62,8 @@ fn setup(
                 ..default()
             },
             ..default()
-            },
-            // set to render layer 1 to make camera see models on render layer 1
-            RenderLayers::layer(1)
-        )
-    );
+        },
+        // set to render layer 1 to make camera see models on render layer 1
+        RenderLayers::layer(1),
+    ));
 }
