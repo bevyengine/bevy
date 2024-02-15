@@ -238,12 +238,14 @@ impl TypeRegistry {
     ///
     /// # Example
     /// ```
-    /// # use bevy_reflect::{TypeRegistry, Reflect};
+    /// # use bevy_reflect::TypeRegistry;
     /// # mod foo {
+    /// #     use bevy_reflect::Reflect;
     /// #     #[derive(Reflect)]
     /// #     struct MyType;
     /// # }
     /// # mod bar {
+    /// #     use bevy_reflect::Reflect;
     /// #     #[derive(Reflect)]
     /// #     struct MyType;
     /// # }
