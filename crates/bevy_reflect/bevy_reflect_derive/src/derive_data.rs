@@ -160,6 +160,9 @@ pub(crate) enum ReflectTraitToImpl {
 }
 
 /// What sort of type we generate an impl for.
+///
+/// Note that we currrently don't distinguish between unit structs
+/// and structs [with named fields](ReflectTypeKind::Struct).
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub(crate) enum ReflectTypeKind {
     Struct,
