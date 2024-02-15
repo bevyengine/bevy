@@ -15,6 +15,7 @@ approx = { version = "0.5", optional = true }
 
 [dev-dependencies]
 approx = "0.5"
+glam = { features = ["approx"] }
 
 [features]
 serialize = ["dep:serde", "glam/serde"]

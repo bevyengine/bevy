@@ -607,7 +607,224 @@ impl CircularSegment {
     /// Returns the area of this segment
     #[inline(always)]
     pub fn area(&self) -> f32 {
-        self.arc.radius.powi(2) * (self.arc.half_angle - self.arc.angle().sin())
+        0.5 * self.arc.radius.powi(2) * (self.arc.angle() - self.arc.angle().sin())
+    }
+}
+
+#[cfg(test)]
+mod arc_tests {
+    use approx::assert_abs_diff_eq;
+
+    use super::*;
+
+    struct ArcTestCase {
+        radius: f32,
+        half_angle: f32,
+        angle: f32,
+        length: f32,
+        circle_center: Vec2,
+        right_endpoint: Vec2,
+        left_endpoint: Vec2,
+        endpoints: [Vec2; 2],
+        midpoint: Vec2,
+        half_chord_length: f32,
+        chord_length: f32,
+        chord_midpoint: Vec2,
+        apothem: f32,
+        sagitta: f32,
+        is_minor: bool,
+        is_major: bool,
+        sector_area: f32,
+        segment_area: f32,
+    }
+
+    impl ArcTestCase {
+        fn check_arc(&self, arc: Arc2d) {
+            assert_abs_diff_eq!(self.radius, arc.radius);
+            assert_abs_diff_eq!(self.half_angle, arc.half_angle);
+            assert_abs_diff_eq!(self.angle, arc.angle());
+            assert_abs_diff_eq!(self.length, arc.length());
+            assert_abs_diff_eq!(self.circle_center, arc.circle_center());
+            assert_abs_diff_eq!(self.right_endpoint, arc.right_endpoint());
+            assert_abs_diff_eq!(self.left_endpoint, arc.left_endpoint());
+            assert_abs_diff_eq!(self.endpoints[0], arc.endpoints()[0]);
+            assert_abs_diff_eq!(self.endpoints[1], arc.endpoints()[1]);
+            assert_abs_diff_eq!(self.midpoint, arc.midpoint());
+            assert_abs_diff_eq!(self.half_chord_length, arc.half_chord_length());
+            assert_abs_diff_eq!(self.chord_length, arc.chord_length(), epsilon = 0.00001);
+            assert_abs_diff_eq!(self.chord_midpoint, arc.chord_midpoint());
+            assert_abs_diff_eq!(self.apothem, arc.apothem());
+            assert_abs_diff_eq!(self.sagitta, arc.sagitta());
+            assert_eq!(self.is_minor, arc.is_minor());
+            assert_eq!(self.is_major, arc.is_major());
+        }
+
+        fn check_sector(&self, sector: CircularSector) {
+            assert_abs_diff_eq!(self.radius, sector.radius());
+            assert_abs_diff_eq!(self.half_angle, sector.half_angle());
+            assert_abs_diff_eq!(self.angle, sector.angle());
+            assert_abs_diff_eq!(self.circle_center, sector.circle_center());
+            assert_abs_diff_eq!(self.half_chord_length, sector.half_chord_length());
+            assert_abs_diff_eq!(self.chord_length, sector.chord_length(), epsilon = 0.00001);
+            assert_abs_diff_eq!(self.chord_midpoint, sector.chord_midpoint());
+            assert_abs_diff_eq!(self.apothem, sector.apothem());
+            assert_abs_diff_eq!(self.sagitta, sector.sagitta());
+            assert_abs_diff_eq!(self.sector_area, sector.area());
+        }
+
+        fn check_segment(&self, segment: CircularSegment) {
+            assert_abs_diff_eq!(self.radius, segment.radius());
+            assert_abs_diff_eq!(self.half_angle, segment.half_angle());
+            assert_abs_diff_eq!(self.angle, segment.angle());
+            assert_abs_diff_eq!(self.circle_center, segment.circle_center());
+            assert_abs_diff_eq!(self.half_chord_length, segment.half_chord_length());
+            assert_abs_diff_eq!(self.chord_length, segment.chord_length(), epsilon = 0.00001);
+            assert_abs_diff_eq!(self.chord_midpoint, segment.chord_midpoint());
+            assert_abs_diff_eq!(self.apothem, segment.apothem());
+            assert_abs_diff_eq!(self.sagitta, segment.sagitta());
+            assert_abs_diff_eq!(self.segment_area, segment.area());
+        }
+    }
+
+    #[test]
+    fn zero_angle() {
+        let tests = ArcTestCase {
+            radius: 1.0,
+            half_angle: 0.0,
+            angle: 0.0,
+            length: 0.0,
+            circle_center: Vec2::ZERO,
+            left_endpoint: Vec2::Y,
+            right_endpoint: Vec2::Y,
+            endpoints: [Vec2::Y, Vec2::Y],
+            midpoint: Vec2::Y,
+            half_chord_length: 0.0,
+            chord_length: 0.0,
+            chord_midpoint: Vec2::Y,
+            apothem: 1.0,
+            sagitta: 0.0,
+            is_minor: true,
+            is_major: false,
+            sector_area: 0.0,
+            segment_area: 0.0,
+        };
+
+        tests.check_arc(Arc2d::new(1.0, 0.0));
+        tests.check_sector(CircularSector::new(1.0, 0.0));
+        tests.check_segment(CircularSegment::new(1.0, 0.0));
+    }
+
+    #[test]
+    fn zero_radius() {
+        let tests = ArcTestCase {
+            radius: 0.0,
+            half_angle: HALF_PI / 2.0,
+            angle: HALF_PI,
+            length: 0.0,
+            circle_center: Vec2::ZERO,
+            left_endpoint: Vec2::ZERO,
+            right_endpoint: Vec2::ZERO,
+            endpoints: [Vec2::ZERO, Vec2::ZERO],
+            midpoint: Vec2::ZERO,
+            half_chord_length: 0.0,
+            chord_length: 0.0,
+            chord_midpoint: Vec2::ZERO,
+            apothem: 0.0,
+            sagitta: 0.0,
+            is_minor: true,
+            is_major: false,
+            sector_area: 0.0,
+            segment_area: 0.0,
+        };
+
+        tests.check_arc(Arc2d::new(0.0, HALF_PI / 2.0));
+        tests.check_sector(CircularSector::new(0.0, HALF_PI / 2.0));
+        tests.check_segment(CircularSegment::new(0.0, HALF_PI / 2.0));
+    }
+
+    #[test]
+    fn quarter_circle() {
+        let sqrt_half: f32 = f32::sqrt(0.5);
+        let tests = ArcTestCase {
+            radius: 1.0,
+            half_angle: HALF_PI / 2.0,
+            angle: HALF_PI,
+            length: HALF_PI,
+            circle_center: Vec2::ZERO,
+            left_endpoint: Vec2::new(-sqrt_half, sqrt_half),
+            right_endpoint: Vec2::splat(sqrt_half),
+            endpoints: [Vec2::new(-sqrt_half, sqrt_half), Vec2::splat(sqrt_half)],
+            midpoint: Vec2::Y,
+            half_chord_length: sqrt_half,
+            chord_length: f32::sqrt(2.0),
+            chord_midpoint: Vec2::new(0.0, sqrt_half),
+            apothem: sqrt_half,
+            sagitta: 1.0 - sqrt_half,
+            is_minor: true,
+            is_major: false,
+            sector_area: PI / 4.0,
+            segment_area: PI / 4.0 - 0.5,
+        };
+
+        tests.check_arc(Arc2d::from_fraction(1.0, 0.25));
+        tests.check_sector(CircularSector::from_fraction(1.0, 0.25));
+        tests.check_segment(CircularSegment::from_fraction(1.0, 0.25));
+    }
+
+    #[test]
+    fn half_circle() {
+        let tests = ArcTestCase {
+            radius: 1.0,
+            half_angle: HALF_PI,
+            angle: PI,
+            length: PI,
+            circle_center: Vec2::ZERO,
+            left_endpoint: Vec2::NEG_X,
+            right_endpoint: Vec2::X,
+            endpoints: [Vec2::NEG_X, Vec2::X],
+            midpoint: Vec2::Y,
+            half_chord_length: 1.0,
+            chord_length: 2.0,
+            chord_midpoint: Vec2::ZERO,
+            apothem: 0.0,
+            sagitta: 1.0,
+            is_minor: true,
+            is_major: true,
+            sector_area: HALF_PI,
+            segment_area: HALF_PI,
+        };
+
+        tests.check_arc(Arc2d::from_radians(1.0, PI));
+        tests.check_sector(CircularSector::from_radians(1.0, PI));
+        tests.check_segment(CircularSegment::from_radians(1.0, PI));
+    }
+
+    #[test]
+    fn full_circle() {
+        let tests = ArcTestCase {
+            radius: 1.0,
+            half_angle: PI,
+            angle: 2.0 * PI,
+            length: 2.0 * PI,
+            circle_center: Vec2::ZERO,
+            left_endpoint: Vec2::NEG_Y,
+            right_endpoint: Vec2::NEG_Y,
+            endpoints: [Vec2::NEG_Y, Vec2::NEG_Y],
+            midpoint: Vec2::Y,
+            half_chord_length: 0.0,
+            chord_length: 0.0,
+            chord_midpoint: Vec2::NEG_Y,
+            apothem: -1.0,
+            sagitta: 2.0,
+            is_minor: false,
+            is_major: true,
+            sector_area: PI,
+            segment_area: PI,
+        };
+
+        tests.check_arc(Arc2d::from_degrees(1.0, 360.0));
+        tests.check_sector(CircularSector::from_degrees(1.0, 360.0));
+        tests.check_segment(CircularSegment::from_degrees(1.0, 360.0));
     }
 }
 
