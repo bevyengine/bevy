@@ -36,13 +36,13 @@ impl Bounded2d for Arc {
             self.radius * -Vec2::X,
             self.radius * -Vec2::Y,
         ];
-        if self.angle.is_sign_negative() {
+        if self.half_angle.is_sign_negative() {
             // If we have a negative angle, we are going the opposite direction, so negate the Y-axis points.
             circle_bounds[2] = -circle_bounds[2];
             circle_bounds[4] = -circle_bounds[4];
         }
         // The number of quarter turns tells us how many extra points to include, between 0 and 3.
-        let quarter_turns = f32::floor(self.angle.abs() / (PI / 2.0)).min(3.0) as usize;
+        let quarter_turns = f32::floor(self.angle().abs() / (PI / 2.0)).min(3.0) as usize;
         Aabb2d::from_point_cloud(
             translation,
             rotation,
@@ -59,10 +59,8 @@ impl Bounded2d for Arc {
         } else {
             // Otherwise, the widest distance between two points is the chord,
             // so a circle of that diameter around the midpoint will contain the entire arc.
-            let angle = self.angle + rotation;
-            let center =
-                Vec2::new(self.chord_midpoint_radius(), 0.0).rotate(Vec2::from_angle(angle));
-            BoundingCircle::new(center, self.half_chord_length())
+            let center = self.chord_midpoint().rotate(Vec2::from_angle(rotation));
+            BoundingCircle::new(center + translation, self.half_chord_len())
         }
     }
 }
@@ -75,19 +73,19 @@ impl Bounded2d for CircularSector {
         // See comments above for discussion.
         let mut circle_bounds = [
             Vec2::ZERO,
-            self.arc().end(),
-            self.radius * Vec2::X,
-            self.radius * Vec2::Y,
-            self.radius * -Vec2::X,
-            self.radius * -Vec2::Y,
+            self.arc.end(),
+            self.arc.radius * Vec2::X,
+            self.arc.radius * Vec2::Y,
+            self.arc.radius * -Vec2::X,
+            self.arc.radius * -Vec2::Y,
         ];
-        if self.angle.is_sign_negative() {
+        if self.arc.angle().is_sign_negative() {
             // If we have a negative angle, we are going the opposite direction, so negate the Y-axis points.
             circle_bounds[3] = -circle_bounds[3];
             circle_bounds[5] = -circle_bounds[5];
         }
         // The number of quarter turns tells us how many extra points to include, between 0 and 3.
-        let quarter_turns = f32::floor(self.angle.abs() / (PI / 2.0)).min(3.0) as usize;
+        let quarter_turns = f32::floor(self.arc.angle().abs() / (PI / 2.0)).min(3.0) as usize;
         Aabb2d::from_point_cloud(
             translation,
             rotation,
@@ -97,22 +95,22 @@ impl Bounded2d for CircularSector {
 
     fn bounding_circle(&self, translation: Vec2, rotation: f32) -> BoundingCircle {
         // There are three possibilities for the bounding circle.
-        if self.arc().is_major() {
+        if self.arc.is_major() {
             // If the arc is major, then the widest distance between two points is a diameter of the arc's circle;
             // therefore, that circle is the bounding radius.
-            BoundingCircle::new(translation, self.radius)
-        } else if self.arc().chord_length() < self.radius {
+            BoundingCircle::new(translation, self.arc.radius)
+        } else if self.arc.chord_len() < self.arc.radius {
             // If the chord length is smaller than the radius, then the radius is the widest distance between two points,
             // so the radius is the diameter of the bounding circle.
-            let angle = Vec2::from_angle(self.angle / 2.0 + rotation);
-            let center = angle * self.radius / 2.0;
-            BoundingCircle::new(center, self.radius / 2.0)
+            let half_radius = self.arc.radius / 2.0;
+            let angle = Vec2::from_angle(self.arc.half_angle + rotation);
+            let center = half_radius * angle;
+            BoundingCircle::new(center + translation, half_radius)
         } else {
             // Otherwise, the widest distance between two points is the chord,
             // so a circle of that diameter around the midpoint will contain the entire arc.
-            let angle = Vec2::from_angle(self.angle / 2.0 + rotation);
-            let center = angle * self.arc().chord_midpoint_radius();
-            BoundingCircle::new(center, self.arc().half_chord_length())
+            let center = self.arc.chord_midpoint().rotate(Vec2::from_angle(rotation));
+            BoundingCircle::new(center + translation, self.arc.half_chord_len())
         }
     }
 }

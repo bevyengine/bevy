@@ -191,8 +191,8 @@ impl Circle {
 pub struct Arc {
     /// The radius of the circle
     pub radius: f32,
-    /// The angle swept out by the arc.
-    pub angle: f32,
+    /// Half the angle swept out by the arc.
+    pub half_angle: f32,
 }
 impl Primitive2d for Arc {}
 
@@ -201,7 +201,7 @@ impl Default for Arc {
     fn default() -> Self {
         Self {
             radius: 0.5,
-            angle: 1.0,
+            half_angle: 0.5,
         }
     }
 }
@@ -209,14 +209,23 @@ impl Default for Arc {
 impl Arc {
     /// Create a new [`Arc`] from a `radius`, and an `angle`
     #[inline(always)]
-    pub const fn new(radius: f32, angle: f32) -> Self {
-        Self { radius, angle }
+    pub fn new(radius: f32, angle: f32) -> Self {
+        Self {
+            radius,
+            half_angle: angle / 2.0,
+        }
+    }
+
+    /// Get the angle of the arc
+    #[inline(always)]
+    pub fn angle(&self) -> f32 {
+        self.half_angle * 2.0
     }
 
     /// Get the length of the arc
     #[inline(always)]
     pub fn length(&self) -> f32 {
-        self.angle * self.radius
+        self.angle() * self.radius
     }
 
     /// Get the start point of the arc
@@ -228,7 +237,7 @@ impl Arc {
     /// Get the end point of the arc
     #[inline(always)]
     pub fn end(&self) -> Vec2 {
-        self.radius * Vec2::from_angle(self.angle)
+        self.radius * Vec2::from_angle(self.angle())
     }
 
     /// Get the endpoints of the arc
@@ -237,34 +246,57 @@ impl Arc {
         [self.start(), self.end()]
     }
 
+    /// Get the midpoint of the arc
+    #[inline]
+    pub fn midpoint(&self) -> Vec2 {
+        self.radius * Vec2::from_angle(self.half_angle)
+    }
+
     /// Get half the length of the chord subtended by the arc
     #[inline(always)]
-    pub fn half_chord_length(&self) -> f32 {
-        self.radius * f32::sin(self.angle / 2.0)
+    pub fn half_chord_len(&self) -> f32 {
+        self.radius * f32::sin(self.half_angle)
     }
 
     /// Get the length of the chord subtended by the arc
     #[inline(always)]
-    pub fn chord_length(&self) -> f32 {
-        2.0 * self.half_chord_length()
-    }
-
-    /// Get the distance from the center of the circle to the midpoint of the chord.
-    #[inline(always)]
-    pub fn chord_midpoint_radius(&self) -> f32 {
-        f32::sqrt(self.radius.powi(2) - self.half_chord_length().powi(2))
+    pub fn chord_len(&self) -> f32 {
+        2.0 * self.half_chord_len()
     }
 
     /// Get the midpoint of the chord
     #[inline(always)]
     pub fn chord_midpoint(&self) -> Vec2 {
-        Vec2::new(self.chord_midpoint_radius(), 0.0).rotate(Vec2::from_angle(self.angle))
+        self.apothem_len() * Vec2::from_angle(self.half_angle)
+    }
+
+    /// Get the length of the apothem of this arc, that is,
+    /// the distance from the center of the circle to the midpoint of the chord.
+    /// Equivalently, the height of the triangle whose base is the chord and whose apex is the center of the circle.
+    #[inline(always)]
+    pub fn apothem_len(&self) -> f32 {
+        f32::sqrt(self.radius.powi(2) - self.half_chord_len().powi(2))
+    }
+
+    /// Get the legnth of the sagitta of this arc, that is,
+    /// the length of the line between the midpoints of the arc and its chord.
+    /// Equivalently, the height of the triangle whose base is the chord and whose apex is the midpoint of the arc.
+    ///
+    /// If the arc is minor, i.e. less than half the circle, the this will be the difference of the [radius](Self::radius) and the [apothem](Self::apothem).
+    /// If it is [major](Self::major), it will be their sum.
+    #[inline(always)]
+    pub fn sagitta_len(&self) -> f32 {
+        if self.is_major() {
+            self.radius + self.apothem_len()
+        } else {
+            self.radius - self.apothem_len()
+        }
     }
 
     /// Produces true if the arc is at least half a circle.
     #[inline(always)]
     pub fn is_major(&self) -> bool {
-        self.angle >= PI
+        self.angle() >= PI
     }
 }
 
@@ -276,40 +308,80 @@ impl Arc {
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct CircularSector {
-    /// The radius of the circle
-    pub radius: f32,
-    /// The angle swept out by the sector.
-    pub angle: f32,
+    /// The arc from which this sector is contructed.
+    #[cfg_attr(feature = "seriealize", serde(flatten))]
+    pub arc: Arc,
 }
 impl Primitive2d for CircularSector {}
 
 impl Default for CircularSector {
     // Returns the default [`CircularSector`] with radius `0.5` and angle `1.0`.
     fn default() -> Self {
-        Self {
-            radius: 0.5,
-            angle: 1.0,
-        }
+        Arc::default().into()
+    }
+}
+
+impl From<Arc> for CircularSector {
+    fn from(arc: Arc) -> Self {
+        Self { arc }
     }
 }
 
 impl CircularSector {
-    /// Create a new [`CircularSector`] from a `radius`, and an `angle`
+    /// Create a new [CircularSector] from a `radius`, and an `angle`
     #[inline(always)]
-    pub const fn new(radius: f32, angle: f32) -> Self {
-        Self { radius, angle }
-    }
-
-    /// Produces the arc of this sector
-    #[inline(always)]
-    pub fn arc(&self) -> Arc {
-        Arc::new(self.radius, self.angle)
+    pub fn new(radius: f32, angle: f32) -> Self {
+        Arc::new(radius, angle).into()
     }
 
     /// Returns the area of this sector
     #[inline(always)]
     pub fn area(&self) -> f32 {
-        self.radius.powi(2) * self.angle / 2.0
+        self.arc.radius.powi(2) * self.arc.half_angle
+    }
+}
+
+/// A primitive representing a circular segment:
+/// the area enclosed by the arc of a circle and its chord (the line between its endpoints).
+///
+/// The segment is drawn starting from [Vec2::X], going counterclockwise.
+/// To orient the segment differently, apply a rotation.
+/// The segment is drawn with the center of its circle at the origin (0, 0).
+/// When positioning the segment, the [apothem_len](Self::apothem) and [sagitta_len](Sagitta) functions
+/// may be particularly useful.
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+pub struct CircularSegment {
+    /// The arc from which this segment is contructed.
+    #[cfg_attr(feature = "seriealize", serde(flatten))]
+    pub arc: Arc,
+}
+impl Primitive2d for CircularSegment {}
+
+impl Default for CircularSegment {
+    // Returns the default [CircularSegment] with radius `0.5` and angle `1.0`.
+    fn default() -> Self {
+        Arc::default().into()
+    }
+}
+
+impl From<Arc> for CircularSegment {
+    fn from(arc: Arc) -> Self {
+        Self { arc }
+    }
+}
+
+impl CircularSegment {
+    /// Create a new [CircularSegment] from a `radius`, and an `angle`
+    #[inline(always)]
+    pub fn new(radius: f32, angle: f32) -> Self {
+        Arc::new(radius, angle).into()
+    }
+
+    /// Returns the area of this segment
+    #[inline(always)]
+    pub fn area(&self) -> f32 {
+        self.arc.radius.powi(2) * (self.arc.half_angle - self.arc.angle().sin())
     }
 }
 
