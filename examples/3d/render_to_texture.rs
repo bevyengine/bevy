@@ -89,17 +89,7 @@ fn setup(
     // NOTE: we add the light to all layers so it affects both the rendered-to-texture cube, and the cube on which we display the texture
     // Setting the layer to RenderLayers::layer(0) would cause the main view to be lit, but the rendered-to-texture cube to be unlit.
     // Setting the layer to RenderLayers::layer(1) would cause the rendered-to-texture cube to be lit, but the main view to be unlit.
-    commands.spawn((
-        PointLightBundle {
-            transform: Transform::from_translation(Vec3::new(0.0, 0.0, 10.0)),
-            point_light: PointLight {
-                intensity: 150_000.0,
-                ..default()
-            },
-            ..default()
-        },
-        RenderLayers::all(),
-    ));
+    commands.spawn((DirectionalLightBundle::default(), RenderLayers::all()));
 
     commands.spawn((
         Camera3dBundle {

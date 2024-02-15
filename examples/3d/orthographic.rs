@@ -59,10 +59,10 @@ fn setup(
         ..default()
     });
     // light
-    commands.spawn(PointLightBundle {
-        transform: Transform::from_xyz(3.0, 8.0, 5.0),
-        point_light: PointLight {
-            intensity: 150_000.0,
+    commands.spawn(DirectionalLightBundle {
+        transform: Transform::from_xyz(3.0, 8.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        directional_light: DirectionalLight {
+            illuminance: light_consts::lux::OVERCAST_DAY,
             ..default()
         },
         ..default()

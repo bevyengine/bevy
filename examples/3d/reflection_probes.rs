@@ -8,6 +8,7 @@
 
 use bevy::core_pipeline::Skybox;
 use bevy::prelude::*;
+use bevy::render::camera::ExposureSettings;
 
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
@@ -105,14 +106,17 @@ fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
 
 // Spawns the camera.
 fn spawn_camera(commands: &mut Commands) {
-    commands.spawn(Camera3dBundle {
-        camera: Camera {
-            hdr: true,
+    commands.spawn((
+        Camera3dBundle {
+            camera: Camera {
+                hdr: true,
+                ..default()
+            },
+            transform: Transform::from_xyz(-6.483, 0.325, 4.381).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         },
-        transform: Transform::from_xyz(-6.483, 0.325, 4.381).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+        ExposureSettings::OVERCAST,
+    ));
 }
 
 // Creates the sphere mesh and spawns it.
@@ -150,7 +154,7 @@ fn spawn_reflection_probe(commands: &mut Commands, cubemaps: &Cubemaps) {
         environment_map: EnvironmentMapLight {
             diffuse_map: cubemaps.diffuse.clone(),
             specular_map: cubemaps.specular_reflection_probe.clone(),
-            intensity: 150.0,
+            intensity: 5000.0,
         },
     });
 }
@@ -186,7 +190,7 @@ fn add_environment_map_to_camera(
             .insert(create_camera_environment_map_light(&cubemaps))
             .insert(Skybox {
                 image: cubemaps.skybox.clone(),
-                brightness: 150.0,
+                brightness: 5000.0,
             });
     }
 }
@@ -305,7 +309,7 @@ fn create_camera_environment_map_light(cubemaps: &Cubemaps) -> EnvironmentMapLig
     EnvironmentMapLight {
         diffuse_map: cubemaps.diffuse.clone(),
         specular_map: cubemaps.specular_environment_map.clone(),
-        intensity: 150.0,
+        intensity: 5000.0,
     }
 }
 

@@ -4,7 +4,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    pbr::CascadeShadowConfigBuilder,
+    pbr::{light_consts, CascadeShadowConfigBuilder},
     prelude::*,
     render::camera::{ExposureSettings, PhysicalCameraParameters},
 };
@@ -14,8 +14,8 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .insert_resource(Parameters(PhysicalCameraParameters {
             aperture_f_stops: 1.0,
-            shutter_speed_s: 1.0 / 15.0,
-            sensitivity_iso: 400.0,
+            shutter_speed_s: 1.0 / 100.0,
+            sensitivity_iso: 100.0,
         }))
         .add_systems(Startup, setup)
         .add_systems(Update, (update_exposure, movement, animate_light_direction))
@@ -207,7 +207,7 @@ fn setup(
     // directional 'sun' light
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            illuminance: 100.0,
+            illuminance: light_consts::lux::OVERCAST_DAY,
             shadows_enabled: true,
             ..default()
         },

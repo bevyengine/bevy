@@ -1668,9 +1668,7 @@ impl<'w> FilteredEntityRef<'w> {
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
     pub fn get<T: Component>(&self) -> Option<&'w T> {
-        let Some(id) = self.entity.world().components().get_id(TypeId::of::<T>()) else {
-            return None;
-        };
+        let id = self.entity.world().components().get_id(TypeId::of::<T>())?;
         self.access
             .has_read(id)
             // SAFETY: We have read access so we must have the component
@@ -1683,9 +1681,7 @@ impl<'w> FilteredEntityRef<'w> {
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
     pub fn get_ref<T: Component>(&self) -> Option<Ref<'w, T>> {
-        let Some(id) = self.entity.world().components().get_id(TypeId::of::<T>()) else {
-            return None;
-        };
+        let id = self.entity.world().components().get_id(TypeId::of::<T>())?;
         self.access
             .has_read(id)
             // SAFETY: We have read access so we must have the component
@@ -1696,9 +1692,7 @@ impl<'w> FilteredEntityRef<'w> {
     /// detection in custom runtimes.
     #[inline]
     pub fn get_change_ticks<T: Component>(&self) -> Option<ComponentTicks> {
-        let Some(id) = self.entity.world().components().get_id(TypeId::of::<T>()) else {
-            return None;
-        };
+        let id = self.entity.world().components().get_id(TypeId::of::<T>())?;
         self.access
             .has_read(id)
             // SAFETY: We have read access so we must have the component
@@ -1944,9 +1938,7 @@ impl<'w> FilteredEntityMut<'w> {
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
     pub fn get_mut<T: Component>(&mut self) -> Option<Mut<'_, T>> {
-        let Some(id) = self.entity.world().components().get_id(TypeId::of::<T>()) else {
-            return None;
-        };
+        let id = self.entity.world().components().get_id(TypeId::of::<T>())?;
         self.access
             .has_write(id)
             // SAFETY: We have write access so we must have the component

@@ -94,9 +94,9 @@ fn setup(
 
     // light
     commands.spawn(PointLightBundle {
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
+        transform: Transform::from_xyz(0.0, 2.0, 0.0),
         point_light: PointLight {
-            intensity: 150_000.0,
+            intensity: 2000.0,
             ..default()
         },
         ..default()
