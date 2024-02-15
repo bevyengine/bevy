@@ -39,8 +39,6 @@ fn setup(
         }
     }
 
-    let sector = CircularSector::from_radians(50.0, 5.0);
-    let segment = CircularSegment::from_degrees(50.0, 135.0);
     let shapes = [
         Mesh2dHandle(meshes.add(Circle { radius: 50.0 })),
         Mesh2dHandle(meshes.add(CircularSector::new(50.0, 5.0))),
