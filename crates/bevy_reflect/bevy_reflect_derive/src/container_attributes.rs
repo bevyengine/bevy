@@ -304,10 +304,10 @@ impl ContainerAttributes {
             self.parse_partial_eq(input)
         } else if lookahead.peek(kw::Hash) {
             self.parse_hash(input)
-        } else if lookahead.peek(Ident::peek_any) {
-            self.parse_ident(input)
         } else if lookahead.peek(kw::container_default) {
             self.parse_container_default(input, provenance)
+        } else if lookahead.peek(Ident::peek_any) {
+            self.parse_ident(input)
         } else {
             Err(lookahead.error())
         }
@@ -468,8 +468,8 @@ impl ContainerAttributes {
     /// Parse `container_default` attribute.
     ///
     /// Examples:
-    /// - `#[reflect(container_default)]`
-    /// - `#[reflect(container_default = my_func)]`
+    /// - `#[reflect(container_default = Default::default)]`
+    /// - `#[reflect(container_default = my_default_func)]`
     fn parse_container_default(
         &mut self,
         input: ParseStream,
@@ -492,11 +492,17 @@ impl ContainerAttributes {
             ));
         }
 
-        input.parse::<kw::container_default>()?;
-        input.parse::<Token![=]>()?;
+        let pair = input.parse::<MetaNameValue>()?;
 
-        let path = input.parse()?;
-        self.from_reflect_attrs.insert_container_default(path)
+        if let Expr::Path(path) = pair.value {
+            self.from_reflect_attrs.insert_container_default(path)?;
+            Ok(())
+        } else {
+            Err(syn::Error::new(
+                pair.value.span(),
+                "expected a path to a function",
+            ))
+        }
     }
 
     /// The list of reflected traits by their reflected ident (i.e. `ReflectDefault` for `Default`).
