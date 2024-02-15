@@ -5,7 +5,7 @@ use std::f32::consts::PI;
 use glam::{Mat2, Vec2};
 
 use crate::primitives::{
-    Arc, BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, CircularSector, Direction2d, Ellipse,
+    Arc2d, BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, CircularSector, Direction2d, Ellipse,
     Line2d, Plane2d, Polygon, Polyline2d, Rectangle, RegularPolygon, Segment2d, Triangle2d,
 };
 
@@ -21,7 +21,7 @@ impl Bounded2d for Circle {
     }
 }
 
-impl Bounded2d for Arc {
+impl Bounded2d for Arc2d {
     fn aabb_2d(&self, translation: Vec2, rotation: f32) -> Aabb2d {
         // For a sufficiently wide arc, the bounding points in a given direction will be the outer
         // limits of a circle centered at the origin.
@@ -60,14 +60,14 @@ impl Bounded2d for Arc {
             // Otherwise, the widest distance between two points is the chord,
             // so a circle of that diameter around the midpoint will contain the entire arc.
             let center = self.chord_midpoint().rotate(Vec2::from_angle(rotation));
-            BoundingCircle::new(center + translation, self.half_chord_len())
+            BoundingCircle::new(center + translation, self.half_chord_length())
         }
     }
 }
 
 impl Bounded2d for CircularSector {
     fn aabb_2d(&self, translation: Vec2, rotation: f32) -> Aabb2d {
-        // This is identical to the implementation for Arc, above, with the additional possibility of the
+        // This is identical to the implementation for Arc2d, above, with the additional possibility of the
         // origin point, the center of the arc, acting as a bounding point.
         //
         // See comments above for discussion.
@@ -99,7 +99,7 @@ impl Bounded2d for CircularSector {
             // If the arc is major, then the widest distance between two points is a diameter of the arc's circle;
             // therefore, that circle is the bounding radius.
             BoundingCircle::new(translation, self.arc.radius)
-        } else if self.arc.chord_len() < self.arc.radius {
+        } else if self.arc.chord_length() < self.arc.radius {
             // If the chord length is smaller than the radius, then the radius is the widest distance between two points,
             // so the radius is the diameter of the bounding circle.
             let half_radius = self.arc.radius / 2.0;
@@ -110,7 +110,7 @@ impl Bounded2d for CircularSector {
             // Otherwise, the widest distance between two points is the chord,
             // so a circle of that diameter around the midpoint will contain the entire arc.
             let center = self.arc.chord_midpoint().rotate(Vec2::from_angle(rotation));
-            BoundingCircle::new(center + translation, self.arc.half_chord_len())
+            BoundingCircle::new(center + translation, self.arc.half_chord_length())
         }
     }
 }

@@ -176,7 +176,9 @@ impl Circle {
     }
 }
 
-/// A primitive representing an arc: a segment of a circle.
+const HALF_PI: f32 = PI / 2.0;
+
+/// A primitive representing an arc between two points on a circle.
 ///
 /// An arc has no area.
 /// If you want to include the portion of a circle's area swept out by the arc,
@@ -189,32 +191,59 @@ impl Circle {
 /// The arc is drawn with the center of its circle at the origin (0, 0),
 /// meaning that the center may not be inside its convex hull.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[doc(alias("CircularArc", "CircleArc"))]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-pub struct Arc {
+pub struct Arc2d {
     /// The radius of the circle
     pub radius: f32,
-    /// Half the angle swept out by the arc.
+    /// Half the angle subtended by the arc.
     pub half_angle: f32,
 }
-impl Primitive2d for Arc {}
+impl Primitive2d for Arc2d {}
 
-impl Default for Arc {
-    /// Returns the default [`Arc`] with radius `0.5` and angle `1.0`.
+impl Default for Arc2d {
+    /// Returns the default [`Arc2d`] with radius `0.5`, covering a quarter of a circle.
     fn default() -> Self {
         Self {
             radius: 0.5,
-            half_angle: 0.5,
+            half_angle: PI / 4.0,
         }
     }
 }
 
-impl Arc {
-    /// Create a new [`Arc`] from a `radius`, and an `angle`
+impl Arc2d {
+    /// Create a new [`Arc2d`] from a `radius`, and a `half_angle`
     #[inline(always)]
-    pub fn new(radius: f32, angle: f32) -> Self {
+    pub fn new(radius: f32, half_angle: f32) -> Self {
+        Self { radius, half_angle }
+    }
+
+    /// Create a new [`Arc2d`] from a `radius` and an `angle` in radians.
+    #[inline(always)]
+    pub fn from_radians(radius: f32, angle: f32) -> Self {
         Self {
             radius,
             half_angle: angle / 2.0,
+        }
+    }
+
+    /// Create a new [`Arc2d`] from a `radius` and an angle in `degrees`.
+    #[inline(always)]
+    pub fn from_degrees(radius: f32, degrees: f32) -> Self {
+        Self {
+            radius,
+            half_angle: degrees.to_radians() / 2.0,
+        }
+    }
+
+    /// Create a new [`Arc2d`] from a `radius` and a `fraction` of a circle.
+    ///
+    /// A `fraction` of 1.0 would be a whole circle; 0.5 would be a semicircle.
+    #[inline(always)]
+    pub fn from_fraction(radius: f32, fraction: f32) -> Self {
+        Self {
+            radius,
+            half_angle: fraction * PI,
         }
     }
 
@@ -256,50 +285,63 @@ impl Arc {
 
     /// Get half the length of the chord subtended by the arc
     #[inline(always)]
-    pub fn half_chord_len(&self) -> f32 {
+    pub fn half_chord_length(&self) -> f32 {
         self.radius * f32::sin(self.half_angle)
     }
 
     /// Get the length of the chord subtended by the arc
     #[inline(always)]
-    pub fn chord_len(&self) -> f32 {
-        2.0 * self.half_chord_len()
+    pub fn chord_length(&self) -> f32 {
+        2.0 * self.half_chord_length()
     }
 
-    /// Get the midpoint of the chord
+    /// Get the midpoint of the chord subtended by the arc
     #[inline(always)]
     pub fn chord_midpoint(&self) -> Vec2 {
-        self.apothem_len() * Vec2::from_angle(self.half_angle)
+        self.apothem() * Vec2::from_angle(self.half_angle)
     }
 
     /// Get the length of the apothem of this arc, that is,
     /// the distance from the center of the circle to the midpoint of the chord.
     /// Equivalently, the height of the triangle whose base is the chord and whose apex is the center of the circle.
     #[inline(always)]
-    pub fn apothem_len(&self) -> f32 {
-        f32::sqrt(self.radius.powi(2) - self.half_chord_len().powi(2))
+    // Naming note: Various sources are inconsistent as to whether the apothem is the segment between the center and the
+    // midpoint of a chord, or the length of that segment. Given this confusion, we've opted for the definition
+    // used by Wolfram MathWorld, which is the distance rather than the segment.
+    pub fn apothem(&self) -> f32 {
+        f32::sqrt(self.radius.powi(2) - self.half_chord_length().powi(2))
     }
 
     /// Get the legnth of the sagitta of this arc, that is,
     /// the length of the line between the midpoints of the arc and its chord.
     /// Equivalently, the height of the triangle whose base is the chord and whose apex is the midpoint of the arc.
     ///
-    /// If the arc is minor, i.e. less than half the circle, the this will be the difference of the [`radius`](Self::radius)
-    /// and the [`apothem`](Self::apothem_len).
+    /// If the arc is [minor](Self::is_minor), i.e. less than or equal to a semicircle,
+    /// this will be the difference of the [`radius`](Self::radius) and the [`apothem`](Self::apothem).
     /// If the arc is [major](Self::is_major), it will be their sum.
     #[inline(always)]
-    pub fn sagitta_len(&self) -> f32 {
+    pub fn sagitta(&self) -> f32 {
         if self.is_major() {
-            self.radius + self.apothem_len()
+            self.radius + self.apothem()
         } else {
-            self.radius - self.apothem_len()
+            self.radius - self.apothem()
         }
     }
 
+    /// Produces true if the arc is at most half a circle.
+    ///
+    /// **Note:** This is not the negation of [`is_major`](Self::is_major): an exact semicircle is both major and minor.
+    #[inline(always)]
+    pub fn is_minor(&self) -> bool {
+        self.half_angle <= HALF_PI
+    }
+
     /// Produces true if the arc is at least half a circle.
+    ///
+    /// **Note:** This is not the negation of [`is_minor`](Self::is_minor): an exact semicircle is both major and minor.
     #[inline(always)]
     pub fn is_major(&self) -> bool {
-        self.angle() >= PI
+        self.half_angle >= HALF_PI
     }
 }
 
@@ -307,25 +349,25 @@ impl Arc {
 ///
 /// The sector is drawn starting from [`Vec2::X`], going counterclockwise.
 /// To orient the sector differently, apply a rotation.
-/// The sector is drawn with the center of its circle at the origin (0, 0).
+/// The sector is drawn with the center of its circle at the origin [`Vec2::ZERO`].
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct CircularSector {
     /// The arc from which this sector is contructed.
-    #[cfg_attr(feature = "seriealize", serde(flatten))]
-    pub arc: Arc,
+    #[cfg_attr(feature = "serialize", serde(flatten))]
+    pub arc: Arc2d,
 }
 impl Primitive2d for CircularSector {}
 
 impl Default for CircularSector {
-    /// Returns the default [`CircularSector`] with radius `0.5` and angle `1.0`.
+    /// Returns the default [`CircularSector`] with radius `0.5` and covering a quarter circle.
     fn default() -> Self {
-        Arc::default().into()
+        Self::from(Arc2d::default())
     }
 }
 
-impl From<Arc> for CircularSector {
-    fn from(arc: Arc) -> Self {
+impl From<Arc2d> for CircularSector {
+    fn from(arc: Arc2d) -> Self {
         Self { arc }
     }
 }
@@ -334,7 +376,27 @@ impl CircularSector {
     /// Create a new [`CircularSector`] from a `radius`, and an `angle`
     #[inline(always)]
     pub fn new(radius: f32, angle: f32) -> Self {
-        Arc::new(radius, angle).into()
+        Self::from(Arc2d::new(radius, angle))
+    }
+
+    /// Create a new [`CircularSector`] from a `radius` and an `angle` in radians.
+    #[inline(always)]
+    pub fn from_radians(radius: f32, angle: f32) -> Self {
+        Self::from(Arc2d::from_radians(radius, angle))
+    }
+
+    /// Create a new [`CircularSector`] from a `radius` and an angle in `degrees`.
+    #[inline(always)]
+    pub fn from_degrees(radius: f32, degrees: f32) -> Self {
+        Self::from(Arc2d::from_degrees(radius, degrees))
+    }
+
+    /// Create a new [`CircularSector`] from a `radius` and a `fraction` of a circle.
+    ///
+    /// A `fraction` of 1.0 would be a whole circle; 0.5 would be a semicircle.
+    #[inline(always)]
+    pub fn from_fraction(radius: f32, fraction: f32) -> Self {
+        Self::from(Arc2d::from_fraction(radius, fraction))
     }
 
     /// Returns the area of this sector
@@ -349,27 +411,27 @@ impl CircularSector {
 ///
 /// The segment is drawn starting from [`Vec2::X`], going counterclockwise.
 /// To orient the segment differently, apply a rotation.
-/// The segment is drawn with the center of its circle at the origin (0, 0).
-/// When positioning the segment, the [`apothem_len`](Arc::apothem_len) and [`sagitta_len`](Arc::sagitta_len) functions
-/// may be particularly useful.
+/// The segment is drawn with the center of its circle at the origin [`Vec2::ZERO`].
+/// When positioning a segment, the [`apothem`](Arc2d::apothem) function may be particularly useful,
+/// as it computes the distance between the segment and the origin.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct CircularSegment {
     /// The arc from which this segment is contructed.
-    #[cfg_attr(feature = "seriealize", serde(flatten))]
-    pub arc: Arc,
+    #[cfg_attr(feature = "serialize", serde(flatten))]
+    pub arc: Arc2d,
 }
 impl Primitive2d for CircularSegment {}
 
 impl Default for CircularSegment {
-    /// Returns the default [`CircularSegment`] with radius `0.5` and angle `1.0`.
+    /// Returns the default [`CircularSegment`] with radius `0.5` and covering a quarter circle.
     fn default() -> Self {
-        Arc::default().into()
+        Self::from(Arc2d::default())
     }
 }
 
-impl From<Arc> for CircularSegment {
-    fn from(arc: Arc) -> Self {
+impl From<Arc2d> for CircularSegment {
+    fn from(arc: Arc2d) -> Self {
         Self { arc }
     }
 }
@@ -378,7 +440,27 @@ impl CircularSegment {
     /// Create a new [`CircularSegment`] from a `radius`, and an `angle`
     #[inline(always)]
     pub fn new(radius: f32, angle: f32) -> Self {
-        Arc::new(radius, angle).into()
+        Self::from(Arc2d::new(radius, angle))
+    }
+
+    /// Create a new [`CircularSegment`] from a `radius` and an `angle` in radians.
+    #[inline(always)]
+    pub fn from_radians(radius: f32, angle: f32) -> Self {
+        Self::from(Arc2d::from_radians(radius, angle))
+    }
+
+    /// Create a new [`CircularSegment`] from a `radius` and an angle in `degrees`.
+    #[inline(always)]
+    pub fn from_degrees(radius: f32, degrees: f32) -> Self {
+        Self::from(Arc2d::from_degrees(radius, degrees))
+    }
+
+    /// Create a new [`CircularSegment`] from a `radius` and a `fraction` of a circle.
+    ///
+    /// A `fraction` of 1.0 would be a whole circle; 0.5 would be a semicircle.
+    #[inline(always)]
+    pub fn from_fraction(radius: f32, fraction: f32) -> Self {
+        Self::from(Arc2d::from_fraction(radius, fraction))
     }
 
     /// Returns the area of this segment
