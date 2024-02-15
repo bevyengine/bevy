@@ -1,4 +1,5 @@
 use bevy_core_pipeline::core_3d::{Transparent3d, CORE_3D_DEPTH_FORMAT};
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, UVec3, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_render::{
@@ -16,10 +17,11 @@ use bevy_render::{
     Extract,
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
+#[cfg(feature = "trace")]
+use bevy_utils::tracing::info_span;
 use bevy_utils::{
     nonmax::NonMaxU32,
     tracing::{error, warn},
-    EntityHashMap,
 };
 use std::{hash::Hash, num::NonZeroU64, ops::Range};
 
@@ -48,8 +50,8 @@ pub struct ExtractedDirectionalLight {
     shadow_depth_bias: f32,
     shadow_normal_bias: f32,
     cascade_shadow_config: CascadeShadowConfig,
-    cascades: EntityHashMap<Entity, Vec<Cascade>>,
-    frusta: EntityHashMap<Entity, Vec<Frustum>>,
+    cascades: EntityHashMap<Vec<Cascade>>,
+    frusta: EntityHashMap<Vec<Frustum>>,
     render_layers: RenderLayers,
 }
 
@@ -584,7 +586,7 @@ pub const CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT: u32 = 3;
 #[derive(Resource)]
 pub struct GlobalLightMeta {
     pub gpu_point_lights: GpuPointLights,
-    pub entity_to_index: EntityHashMap<Entity, usize>,
+    pub entity_to_index: EntityHashMap<usize>,
 }
 
 impl FromWorld for GlobalLightMeta {
@@ -1589,7 +1591,7 @@ pub fn queue_shadows<M: Material>(
     shadow_draw_functions: Res<DrawFunctions<Shadow>>,
     prepass_pipeline: Res<PrepassPipeline<M>>,
     render_meshes: Res<RenderAssets<Mesh>>,
-    render_mesh_instances: Res<RenderMeshInstances>,
+    mut render_mesh_instances: ResMut<RenderMeshInstances>,
     render_materials: Res<RenderMaterials<M>>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
@@ -1634,7 +1636,7 @@ pub fn queue_shadows<M: Material>(
             // NOTE: Lights with shadow mapping disabled will have no visible entities
             // so no meshes will be queued
             for entity in visible_entities.iter().copied() {
-                let Some(mesh_instance) = render_mesh_instances.get(&entity) else {
+                let Some(mesh_instance) = render_mesh_instances.get_mut(&entity) else {
                     continue;
                 };
                 if !mesh_instance.shadow_caster {
@@ -1683,6 +1685,8 @@ pub fn queue_shadows<M: Material>(
                         continue;
                     }
                 };
+
+                mesh_instance.material_bind_group_id = material.get_bind_group_id();
 
                 shadow_phase.add(Shadow {
                     draw_function: draw_shadow_mesh,
@@ -1780,11 +1784,11 @@ impl Node for ShadowPassNode {
         self.view_light_query.update_archetypes(world);
     }
 
-    fn run(
+    fn run<'w>(
         &self,
         graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        world: &World,
+        render_context: &mut RenderContext<'w>,
+        world: &'w World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
         if let Ok(view_lights) = self.main_view_query.get_manual(world, view_entity) {
@@ -1794,22 +1798,32 @@ impl Node for ShadowPassNode {
                     .get_manual(world, view_light_entity)
                     .unwrap();
 
-                if shadow_phase.items.is_empty() {
-                    continue;
-                }
+                let depth_stencil_attachment =
+                    Some(view_light.depth_attachment.get_attachment(StoreOp::Store));
 
-                let mut render_pass =
-                    render_context.begin_tracked_render_pass(RenderPassDescriptor {
+                render_context.add_command_buffer_generation_task(move |render_device| {
+                    #[cfg(feature = "trace")]
+                    let _shadow_pass_span = info_span!("shadow_pass").entered();
+
+                    let mut command_encoder =
+                        render_device.create_command_encoder(&CommandEncoderDescriptor {
+                            label: Some("shadow_pass_command_encoder"),
+                        });
+
+                    let render_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
                         label: Some(&view_light.pass_name),
                         color_attachments: &[],
-                        depth_stencil_attachment: Some(
-                            view_light.depth_attachment.get_attachment(StoreOp::Store),
-                        ),
+                        depth_stencil_attachment,
                         timestamp_writes: None,
                         occlusion_query_set: None,
                     });
+                    let mut render_pass = TrackedRenderPass::new(&render_device, render_pass);
 
-                shadow_phase.render(&mut render_pass, world, view_light_entity);
+                    shadow_phase.render(&mut render_pass, world, view_light_entity);
+
+                    drop(render_pass);
+                    command_encoder.finish()
+                });
             }
         }
 

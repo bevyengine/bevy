@@ -1,9 +1,11 @@
-/// General UI benchmark that stress tests layouting, text, interaction and rendering
+//! General UI benchmark that stress tests layouting, text, interaction and rendering
+
 use argh::FromArgs;
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     window::{PresentMode, WindowPlugin, WindowResolution},
+    winit::{UpdateMode, WinitSettings},
 };
 
 const FONT_SIZE: f32 = 7.0;
@@ -62,6 +64,10 @@ fn main() {
         FrameTimeDiagnosticsPlugin,
         LogDiagnosticsPlugin::default(),
     ))
+    .insert_resource(WinitSettings {
+        focused_mode: UpdateMode::Continuous,
+        unfocused_mode: UpdateMode::Continuous,
+    })
     .add_systems(Update, button_system);
 
     if args.grid {

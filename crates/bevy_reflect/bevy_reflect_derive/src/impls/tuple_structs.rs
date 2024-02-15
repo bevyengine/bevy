@@ -24,15 +24,15 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
 
     let hash_fn = reflect_struct
         .meta()
-        .traits()
+        .attrs()
         .get_hash_impl(bevy_reflect_path);
     let debug_fn = reflect_struct
         .meta()
-        .traits()
+        .attrs()
         .get_debug_impl(bevy_reflect_path);
     let partial_eq_fn = reflect_struct
         .meta()
-        .traits()
+        .attrs()
         .get_partial_eq_impl(bevy_reflect_path)
         .unwrap_or_else(|| {
             quote! {
@@ -188,6 +188,10 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
                 } else {
                     panic!("Attempted to apply non-TupleStruct type to TupleStruct type.");
                 }
+            }
+
+            fn reflect_kind(&self) -> #bevy_reflect_path::ReflectKind {
+                #bevy_reflect_path::ReflectKind::TupleStruct
             }
 
             fn reflect_ref(&self) -> #bevy_reflect_path::ReflectRef {

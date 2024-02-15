@@ -1,6 +1,7 @@
 //! Animation for the game engine Bevy
 
-#![warn(missing_docs)]
+mod animatable;
+mod util;
 
 use std::ops::{Add, Deref, Mul};
 use std::time::Duration;
@@ -21,8 +22,8 @@ use bevy_utils::{tracing::warn, HashMap};
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        AnimationClip, AnimationPlayer, AnimationPlugin, EntityPath, Interpolation, Keyframes,
-        VariableCurve,
+        animatable::*, AnimationClip, AnimationPlayer, AnimationPlugin, EntityPath, Interpolation,
+        Keyframes, VariableCurve,
     };
 }
 
@@ -492,9 +493,7 @@ fn entity_from_path(
     let mut parts = path.parts.iter().enumerate();
 
     // check the first name is the root node which we already have
-    let Some((_, root_name)) = parts.next() else {
-        return None;
-    };
+    let (_, root_name) = parts.next()?;
     if names.get(current_entity) != Ok(root_name) {
         return None;
     }

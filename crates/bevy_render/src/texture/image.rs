@@ -643,6 +643,7 @@ impl Image {
     /// Load a bytes buffer in a [`Image`], according to type `image_type`, using the `image`
     /// crate
     pub fn from_buffer(
+        #[cfg(all(debug_assertions, feature = "dds"))] name: String,
         buffer: &[u8],
         image_type: ImageType,
         #[allow(unused_variables)] supported_compressed_formats: CompressedImageFormats,
@@ -664,7 +665,13 @@ impl Image {
                 basis_buffer_to_image(buffer, supported_compressed_formats, is_srgb)?
             }
             #[cfg(feature = "dds")]
-            ImageFormat::Dds => dds_buffer_to_image(buffer, supported_compressed_formats, is_srgb)?,
+            ImageFormat::Dds => dds_buffer_to_image(
+                #[cfg(debug_assertions)]
+                name,
+                buffer,
+                supported_compressed_formats,
+                is_srgb,
+            )?,
             #[cfg(feature = "ktx2")]
             ImageFormat::Ktx2 => {
                 ktx2_buffer_to_image(buffer, supported_compressed_formats, is_srgb)?

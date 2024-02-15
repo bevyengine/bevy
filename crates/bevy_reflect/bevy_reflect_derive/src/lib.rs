@@ -30,7 +30,7 @@ mod type_path;
 mod utility;
 
 use crate::derive_data::{ReflectDerive, ReflectMeta, ReflectStruct};
-use container_attributes::ReflectTraits;
+use container_attributes::ContainerAttributes;
 use derive_data::{ReflectImplSource, ReflectProvenance, ReflectTraitToImpl, ReflectTypePath};
 use proc_macro::TokenStream;
 use quote::quote;
@@ -590,9 +590,10 @@ pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
 /// impl_type_path!(::foreign_crate::foo::bar::Baz);
 /// ```
 ///
-/// On a generic type:
+/// On a generic type (this can also accept trait bounds):
 /// ```ignore (bevy_reflect is not accessible from this crate)
 /// impl_type_path!(::foreign_crate::Foo<T>);
+/// impl_type_path!(::foreign_crate::Goo<T: ?Sized>);
 /// ```
 ///
 /// On a primitive (note this will not compile for a non-primitive type):
@@ -632,7 +633,7 @@ pub fn impl_type_path(input: TokenStream) -> TokenStream {
         NamedTypePathDef::Primitive(ref ident) => ReflectTypePath::Primitive(ident),
     };
 
-    let meta = ReflectMeta::new(type_path, ReflectTraits::default());
+    let meta = ReflectMeta::new(type_path, ContainerAttributes::default());
 
     impls::impl_type_path(&meta).finish(&meta)
 }
@@ -643,7 +644,7 @@ trait FinishExt {
 
 impl FinishExt for proc_macro2::TokenStream {
     fn finish(self, meta: &ReflectMeta) -> proc_macro::TokenStream {
-        let deprecation = meta.traits().use_of_deprecated_debug.map(|span| {
+        let deprecation = meta.attrs().use_of_deprecated_debug.map(|span| {
             // NB: even though we could restrict this using provenance,
             // we shouldn't since the following *is* currently accepted:
             // ```

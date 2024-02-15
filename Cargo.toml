@@ -11,7 +11,7 @@ license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.74.0"
+rust-version = "1.76.0"
 
 [workspace]
 exclude = [
@@ -40,8 +40,14 @@ match_same_arms = "warn"
 semicolon_if_nothing_returned = "warn"
 map_flatten = "warn"
 
+ptr_as_ptr = "warn"
+ptr_cast_constness = "warn"
+#TODO(rust 1.77): enable `ref_as_ptr`
+# ref_as_ptr = "warn"
+
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "warn"
+missing_docs = "warn"
 
 [lints]
 workspace = true
@@ -71,6 +77,7 @@ default = [
   "tonemapping_luts",
   "default_font",
   "webgl2",
+  "bevy_debug_stepping",
 ]
 
 # Force dynamic linking, which improves iterative compile times
@@ -294,6 +301,9 @@ file_watcher = ["bevy_internal/file_watcher"]
 
 # Enables watching in memory asset providers for Bevy Asset hot-reloading
 embedded_watcher = ["bevy_internal/embedded_watcher"]
+
+# Enable stepping-based debugging of Bevy systems
+bevy_debug_stepping = ["bevy_internal/bevy_debug_stepping"]
 
 [dependencies]
 bevy_dylib = { path = "crates/bevy_dylib", version = "0.12.0", default-features = false, optional = true }
@@ -521,6 +531,17 @@ path = "examples/2d/pixel_grid_snap.rs"
 [package.metadata.example.pixel_grid_snap]
 name = "Pixel Grid Snapping"
 description = "Shows how to create graphics that snap to the pixel grid by rendering to a texture in 2D"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
+name = "bounding_2d"
+path = "examples/2d/bounding_2d.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.bounding_2d]
+name = "2D Bounding Volume Intersections"
+description = "Showcases bounding volumes and intersection tests"
 category = "2D Rendering"
 wasm = true
 
@@ -920,6 +941,17 @@ category = "3D Rendering"
 wasm = false
 
 [[example]]
+name = "irradiance_volumes"
+path = "examples/3d/irradiance_volumes.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.irradiance_volumes]
+name = "Irradiance Volumes"
+description = "Demonstrates irradiance volumes"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "lightmaps"
 path = "examples/3d/lightmaps.rs"
 doc-scrape-examples = true
@@ -1190,6 +1222,17 @@ doc-scrape-examples = true
 [package.metadata.example.custom_asset_reader]
 name = "Custom Asset IO"
 description = "Implements a custom AssetReader"
+category = "Assets"
+wasm = true
+
+[[example]]
+name = "embedded_asset"
+path = "examples/asset/embedded_asset.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.embedded_asset]
+name = "Embedded Asset"
+description = "Embed an asset in the application binary and load it"
 category = "Assets"
 wasm = true
 
@@ -1552,6 +1595,17 @@ doc-scrape-examples = true
 [package.metadata.example.system_param]
 name = "System Parameter"
 description = "Illustrates creating custom system parameters with `SystemParam`"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "system_stepping"
+path = "examples/ecs/system_stepping.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.system_stepping]
+name = "System Stepping"
+description = "Demonstrate stepping through systems in order of execution"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -2434,6 +2488,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "ui_texture_slice"
+path = "examples/ui/ui_texture_slice.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ui_texture_slice]
+name = "UI Texture Slice"
+description = "Illustrates how to use 9 Slicing in UI"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "viewport_debug"
 path = "examples/ui/viewport_debug.rs"
 doc-scrape-examples = true
@@ -2577,6 +2642,17 @@ doc-scrape-examples = true
 name = "UI Material"
 description = "Demonstrates creating and using custom Ui materials"
 category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "render_primitives"
+path = "examples/math/render_primitives.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.render_primitives]
+name = "Rendering Primitives"
+description = "Shows off rendering for all math primitives as both Meshes and Gizmos"
+category = "Math"
 wasm = true
 
 [profile.wasm-release]

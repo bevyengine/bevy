@@ -20,6 +20,7 @@ use bevy::{
         render_resource::{Extent3d, TextureDimension, TextureFormat},
     },
     window::{PresentMode, WindowPlugin, WindowResolution},
+    winit::{UpdateMode, WinitSettings},
 };
 use rand::{rngs::StdRng, seq::SliceRandom, Rng, SeedableRng};
 
@@ -86,6 +87,10 @@ fn main() {
             FrameTimeDiagnosticsPlugin,
             LogDiagnosticsPlugin::default(),
         ))
+        .insert_resource(WinitSettings {
+            focused_mode: UpdateMode::Continuous,
+            unfocused_mode: UpdateMode::Continuous,
+        })
         .insert_resource(args)
         .add_systems(Startup, setup)
         .add_systems(Update, (move_camera, print_mesh_count))
@@ -108,7 +113,7 @@ fn setup(
     let images = images.into_inner();
     let material_assets = material_assets.into_inner();
 
-    let mesh = meshes.add(shape::Cube { size: 1.0 });
+    let mesh = meshes.add(Cuboid::default());
 
     let material_textures = init_textures(args, images);
     let materials = init_materials(args, &material_textures, material_assets);
@@ -185,7 +190,7 @@ fn setup(
         }
     }
 
-    commands.spawn(DirectionalLightBundle { ..default() });
+    commands.spawn(DirectionalLightBundle::default());
 }
 
 fn init_textures(args: &Args, images: &mut Assets<Image>) -> Vec<Handle<Image>> {

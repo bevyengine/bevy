@@ -23,7 +23,7 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, UVec4, Vec3, Vec4, Vec4Swizzles};
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use std::sync::{
@@ -129,7 +129,7 @@ impl ExtractedView {
 
 /// Configures basic color grading parameters to adjust the image appearance. Grading is applied just before/after tonemapping for a given [`Camera`](crate::camera::Camera) entity.
 #[derive(Component, Reflect, Debug, Copy, Clone, ShaderType)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct ColorGrading {
     /// Exposure value (EV) offset, measured in stops.
     pub exposure: f32,

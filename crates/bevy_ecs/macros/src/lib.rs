@@ -1,3 +1,6 @@
+// FIXME(3492): remove once docs are ready
+#![allow(missing_docs)]
+
 extern crate proc_macro;
 
 mod component;
@@ -475,7 +478,7 @@ pub fn derive_schedule_label(input: TokenStream) -> TokenStream {
         .segments
         .push(format_ident!("ScheduleLabel").into());
     dyn_eq_path.segments.push(format_ident!("DynEq").into());
-    derive_label(input, "ScheduleName", &trait_path, &dyn_eq_path)
+    derive_label(input, "ScheduleLabel", &trait_path, &dyn_eq_path)
 }
 
 /// Derive macro generating an impl of the trait `SystemSet`.

@@ -213,6 +213,7 @@ pub enum PluginsState {
 
 // Dummy plugin used to temporary hold the place in the plugin registry
 struct PlaceholderPlugin;
+
 impl Plugin for PlaceholderPlugin {
     fn build(&self, _app: &mut App) {}
 }
@@ -505,6 +506,7 @@ impl App {
             self.init_resource::<Events<T>>().add_systems(
                 First,
                 bevy_ecs::event::event_update_system::<T>
+                    .in_set(bevy_ecs::event::EventUpdates)
                     .run_if(bevy_ecs::event::event_update_condition::<T>),
             );
         }

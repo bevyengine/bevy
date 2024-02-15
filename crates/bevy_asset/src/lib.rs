@@ -1,3 +1,6 @@
+// FIXME(3492): remove once docs are ready
+#![allow(missing_docs)]
+
 pub mod io;
 pub mod meta;
 pub mod processor;
@@ -383,7 +386,10 @@ impl AssetApp for App {
             .add_event::<AssetLoadFailedEvent<A>>()
             .register_type::<Handle<A>>()
             .register_type::<AssetId<A>>()
-            .add_systems(AssetEvents, Assets::<A>::asset_events)
+            .add_systems(
+                AssetEvents,
+                Assets::<A>::asset_events.run_if(Assets::<A>::asset_events_condition),
+            )
             .add_systems(UpdateAssets, Assets::<A>::track_assets.in_set(TrackAssets))
     }
 
