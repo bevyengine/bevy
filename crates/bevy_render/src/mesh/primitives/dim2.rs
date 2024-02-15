@@ -86,7 +86,7 @@ impl From<CircleMeshBuilder> for Mesh {
 
 /// Specifies how to generate UV-mappings for [`CircularSector`] and [`CircularSegment`] shapes.
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub enum CircularShapeUvMode {
+pub enum CircularMeshUvMode {
     /// Treats the shape as a mask over a circle of equal size and radius,
     /// with the center of the circle at the center of the texture.
     Mask {
@@ -95,9 +95,9 @@ pub enum CircularShapeUvMode {
     },
 }
 
-impl Default for CircularShapeUvMode {
+impl Default for CircularMeshUvMode {
     fn default() -> Self {
-        CircularShapeUvMode::Mask { angle: 0.0 }
+        CircularMeshUvMode::Mask { angle: 0.0 }
     }
 }
 
@@ -114,7 +114,7 @@ pub struct CircularSectorMeshBuilder {
     #[doc(alias = "vertices")]
     pub resolution: usize,
     /// The UV mapping mode
-    pub uv_mode: CircularShapeUvMode,
+    pub uv_mode: CircularMeshUvMode,
 }
 
 impl Default for CircularSectorMeshBuilder {
@@ -122,7 +122,7 @@ impl Default for CircularSectorMeshBuilder {
         Self {
             sector: CircularSector::default(),
             resolution: 32,
-            uv_mode: CircularShapeUvMode::default(),
+            uv_mode: CircularMeshUvMode::default(),
         }
     }
 }
@@ -147,7 +147,7 @@ impl CircularSectorMeshBuilder {
 
     /// Sets the uv mode used for the sector mesh
     #[inline]
-    pub const fn uv_mode(mut self, uv_mode: CircularShapeUvMode) -> Self {
+    pub const fn uv_mode(mut self, uv_mode: CircularMeshUvMode) -> Self {
         self.uv_mode = uv_mode;
         self
     }
@@ -159,7 +159,7 @@ impl CircularSectorMeshBuilder {
         let normals = vec![[0.0, 0.0, 1.0]; self.resolution + 1];
         let mut uvs = Vec::with_capacity(self.resolution + 1);
 
-        let CircularShapeUvMode::Mask { angle: uv_angle } = self.uv_mode;
+        let CircularMeshUvMode::Mask { angle: uv_angle } = self.uv_mode;
 
         // Push the center of the circle.
         positions.push([0.0; 3]);
@@ -237,7 +237,7 @@ pub struct CircularSegmentMeshBuilder {
     #[doc(alias = "vertices")]
     pub resolution: usize,
     /// The UV mapping mode
-    pub uv_mode: CircularShapeUvMode,
+    pub uv_mode: CircularMeshUvMode,
 }
 
 impl Default for CircularSegmentMeshBuilder {
@@ -245,7 +245,7 @@ impl Default for CircularSegmentMeshBuilder {
         Self {
             segment: CircularSegment::default(),
             resolution: 32,
-            uv_mode: CircularShapeUvMode::default(),
+            uv_mode: CircularMeshUvMode::default(),
         }
     }
 }
@@ -270,7 +270,7 @@ impl CircularSegmentMeshBuilder {
 
     /// Sets the uv mode used for the segment mesh
     #[inline]
-    pub const fn uv_mode(mut self, uv_mode: CircularShapeUvMode) -> Self {
+    pub const fn uv_mode(mut self, uv_mode: CircularMeshUvMode) -> Self {
         self.uv_mode = uv_mode;
         self
     }
@@ -282,7 +282,7 @@ impl CircularSegmentMeshBuilder {
         let normals = vec![[0.0, 0.0, 1.0]; self.resolution + 1];
         let mut uvs = Vec::with_capacity(self.resolution + 1);
 
-        let CircularShapeUvMode::Mask { angle: uv_angle } = self.uv_mode;
+        let CircularMeshUvMode::Mask { angle: uv_angle } = self.uv_mode;
 
         // Push the center of the chord.
         let midpoint_vertex = self.segment.chord_midpoint();
