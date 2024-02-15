@@ -290,7 +290,7 @@ impl CircularSegmentMeshBuilder {
         // but the vertex angle is PI/2, and we must scale by the ratio of the apothem to the radius
         // to correctly position the vertex.
         let midpoint_uv = Vec2::from_angle(-uv_angle - PI / 2.0).mul_add(
-            Vec2::splat(0.5 * (midpoint_vertex.y / self.segment.radius())),
+            Vec2::splat(0.5 * (self.segment.apothem() / self.segment.radius())),
             Vec2::splat(0.5),
         );
         uvs.push([midpoint_uv.x, midpoint_uv.y]);

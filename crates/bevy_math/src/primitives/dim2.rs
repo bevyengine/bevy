@@ -305,38 +305,30 @@ impl Arc2d {
     /// Get the midpoint of the chord subtended by the arc
     #[inline(always)]
     pub fn chord_midpoint(&self) -> Vec2 {
-        if self.is_minor() {
-            self.apothem() * Vec2::Y
-        } else {
-            self.apothem() * Vec2::NEG_Y
-        }
+        self.apothem() * Vec2::Y
     }
 
     /// Get the length of the apothem of this arc, that is,
-    /// the distance from the center of the circle to the midpoint of the chord.
-    /// Equivalently, the height of the triangle whose base is the chord and whose apex is the center of the circle.
+    /// the distance from the center of the circle to the midpoint of the chord, in the direction of the midpoint of the arc.
+    /// Equivalently, the [`radius`](Self::radius) minus the [`sagitta`](Self::sagitta).
+    ///
+    /// Note that for a [`major`](Self::is_major) arc, the apothem will be negative.
     #[inline(always)]
     // Naming note: Various sources are inconsistent as to whether the apothem is the segment between the center and the
     // midpoint of a chord, or the length of that segment. Given this confusion, we've opted for the definition
     // used by Wolfram MathWorld, which is the distance rather than the segment.
     pub fn apothem(&self) -> f32 {
-        f32::sqrt(self.radius.powi(2) - self.half_chord_length().powi(2))
+        let sign = if self.is_minor() { 1.0 } else { -1.0 };
+        sign * f32::sqrt(self.radius.powi(2) - self.half_chord_length().powi(2))
     }
 
     /// Get the length of the sagitta of this arc, that is,
     /// the length of the line between the midpoints of the arc and its chord.
     /// Equivalently, the height of the triangle whose base is the chord and whose apex is the midpoint of the arc.
     ///
-    /// If the arc is [minor](Self::is_minor), i.e. less than or equal to a semicircle,
-    /// this will be the difference of the [`radius`](Self::radius) and the [`apothem`](Self::apothem).
-    /// If the arc is [major](Self::is_major), it will be their sum.
-    #[inline(always)]
+    /// The sagitta is also the sum of the [`radius`](Self::radius) and the [`apothem`](Self::apothem).
     pub fn sagitta(&self) -> f32 {
-        if self.is_major() {
-            self.radius + self.apothem()
-        } else {
-            self.radius - self.apothem()
-        }
+        self.radius - self.apothem()
     }
 
     /// Produces true if the arc is at most half a circle.
@@ -490,7 +482,7 @@ impl CircularSector {
 /// The segment is drawn starting from [`Vec2::Y`], extending equally on either side.
 /// To orient the segment differently, apply a rotation.
 /// The segment is drawn with the center of its circle at the origin [`Vec2::ZERO`].
-/// When positioning a segment, the [`apothem`](CircularSegment::apothem) function may be particularly useful.
+/// When positioning a segment, the [`apothem`](Self::apothem) function may be particularly useful.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct CircularSegment {
@@ -595,7 +587,7 @@ impl CircularSegment {
     }
 
     /// Get the length of the apothem of this segment,
-    /// which is the distance between the segment and the [center of its circle](Self::circle_center)
+    /// which is the signed distance between the segment and the [center of its circle](Self::circle_center)
     ///
     /// See [`Arc2d::apothem`]
     #[inline(always)]
