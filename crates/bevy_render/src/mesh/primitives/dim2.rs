@@ -5,8 +5,11 @@ use crate::{
 
 use super::Meshable;
 use bevy_math::{
-    primitives::{Capsule2d, Circle, Ellipse, Rectangle, RegularPolygon, Triangle2d, WindingOrder},
-    Vec2,
+    primitives::{
+        Capsule2d, Circle, CircularSector, Ellipse, Rectangle, RegularPolygon, Triangle2d,
+        WindingOrder,
+    },
+    FloatExt, Vec2,
 };
 use wgpu::PrimitiveTopology;
 
@@ -74,6 +77,107 @@ impl From<Circle> for Mesh {
 impl From<CircleMeshBuilder> for Mesh {
     fn from(circle: CircleMeshBuilder) -> Self {
         circle.build()
+    }
+}
+
+/// A builder used for creating a [`Mesh`] with a [`CircularSector`] shape.
+#[derive(Clone, Copy, Debug)]
+pub struct CircularSectorMeshBuilder {
+    /// The [`sector`] shape.
+    pub sector: CircularSector,
+    /// The number of vertices used for the arc portion of the sector mesh.
+    /// The default is `32`.
+    #[doc(alias = "vertices")]
+    pub resolution: usize,
+}
+
+impl Default for CircularSectorMeshBuilder {
+    fn default() -> Self {
+        Self {
+            sector: CircularSector::default(),
+            resolution: 32,
+        }
+    }
+}
+
+impl CircularSectorMeshBuilder {
+    /// Creates a new [`CircularSectorMeshBuilder`] from a given radius, angle, and vertex count.
+    #[inline]
+    pub const fn new(radius: f32, angle: f32, resolution: usize) -> Self {
+        Self {
+            sector: CircularSector { radius, angle },
+            resolution,
+        }
+    }
+
+    /// Sets the number of vertices used for the sector mesh.
+    #[inline]
+    #[doc(alias = "vertices")]
+    pub const fn resolution(mut self, resolution: usize) -> Self {
+        self.resolution = resolution;
+        self
+    }
+
+    /// Builds a [`Mesh`] based on the configuration in `self`.
+    pub fn build(&self) -> Mesh {
+        let mut indices = Vec::with_capacity((self.resolution - 1) * 3);
+        let mut positions = Vec::with_capacity(self.resolution + 1);
+        let normals = vec![[0.0, 0.0, 1.0]; self.resolution + 1];
+        let mut uvs = Vec::with_capacity(self.resolution + 1);
+
+        // Push the center of the circle.
+        positions.push([0.0; 3]);
+        uvs.push([0.5; 2]);
+
+        let last = (self.resolution - 1) as f32;
+        for i in 0..self.resolution {
+            // Compute vertex position at angle theta
+            let angle = Vec2::from_angle(f32::lerp(0.0, self.sector.angle, i as f32 / last));
+
+            positions.push([
+                angle.x * self.sector.radius,
+                angle.y * self.sector.radius,
+                0.0,
+            ]);
+            uvs.push([0.5 * (angle.x + 1.0), 1.0 - 0.5 * (angle.y + 1.0)]);
+        }
+
+        for i in 1..(self.resolution as u32) {
+            // Index 0 is the center.
+            indices.extend_from_slice(&[0, i, i + 1]);
+        }
+
+        Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        )
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+        .with_inserted_indices(Indices::U32(indices))
+    }
+}
+
+impl Meshable for CircularSector {
+    type Output = CircularSectorMeshBuilder;
+
+    fn mesh(&self) -> Self::Output {
+        CircularSectorMeshBuilder {
+            sector: *self,
+            ..Default::default()
+        }
+    }
+}
+
+impl From<CircularSector> for Mesh {
+    fn from(sector: CircularSector) -> Self {
+        sector.mesh().build()
+    }
+}
+
+impl From<CircularSectorMeshBuilder> for Mesh {
+    fn from(sector: CircularSectorMeshBuilder) -> Self {
+        sector.build()
     }
 }
 

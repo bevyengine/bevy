@@ -176,6 +176,143 @@ impl Circle {
     }
 }
 
+/// A primitive representing an arc: a segment of a circle.
+///
+/// An arc has no area.
+/// If you want to include the portion of a circle's area swept out by the arc,
+/// use [CircularSector].
+///
+/// The arc is drawn starting from [Vec2::X], going counterclockwise.
+/// To orient the arc differently, apply a rotation.
+/// The arc is drawn with the center of its circle at the origin (0, 0),
+/// meaning that the center may not be inside its convex hull.
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+pub struct Arc {
+    /// The radius of the circle
+    pub radius: f32,
+    /// The angle swept out by the arc.
+    pub angle: f32,
+}
+impl Primitive2d for Arc {}
+
+impl Default for Arc {
+    // Returns the default [`Arc`] with radius `0.5` and angle `1.0`.
+    fn default() -> Self {
+        Self {
+            radius: 0.5,
+            angle: 1.0,
+        }
+    }
+}
+
+impl Arc {
+    /// Create a new [`Arc`] from a `radius`, and an `angle`
+    #[inline(always)]
+    pub const fn new(radius: f32, angle: f32) -> Self {
+        Self { radius, angle }
+    }
+
+    /// Get the length of the arc
+    #[inline(always)]
+    pub fn length(&self) -> f32 {
+        self.angle * self.radius
+    }
+
+    /// Get the start point of the arc
+    #[inline(always)]
+    pub fn start(&self) -> Vec2 {
+        Vec2::new(self.radius, 0.0)
+    }
+
+    /// Get the end point of the arc
+    #[inline(always)]
+    pub fn end(&self) -> Vec2 {
+        self.radius * Vec2::from_angle(self.angle)
+    }
+
+    /// Get the endpoints of the arc
+    #[inline(always)]
+    pub fn endpoints(&self) -> [Vec2; 2] {
+        [self.start(), self.end()]
+    }
+
+    /// Get half the length of the chord subtended by the arc
+    #[inline(always)]
+    pub fn half_chord_length(&self) -> f32 {
+        self.radius * f32::sin(self.angle / 2.0)
+    }
+
+    /// Get the length of the chord subtended by the arc
+    #[inline(always)]
+    pub fn chord_length(&self) -> f32 {
+        2.0 * self.half_chord_length()
+    }
+
+    /// Get the distance from the center of the circle to the midpoint of the chord.
+    #[inline(always)]
+    pub fn chord_midpoint_radius(&self) -> f32 {
+        f32::sqrt(self.radius.powi(2) - self.half_chord_length().powi(2))
+    }
+
+    /// Get the midpoint of the chord
+    #[inline(always)]
+    pub fn chord_midpoint(&self) -> Vec2 {
+        Vec2::new(self.chord_midpoint_radius(), 0.0).rotate(Vec2::from_angle(self.angle))
+    }
+
+    /// Produces true if the arc is at least half a circle.
+    #[inline(always)]
+    pub fn is_major(&self) -> bool {
+        self.angle >= PI
+    }
+}
+
+/// A primitive representing a circular sector: a pie slice of a circle.
+///
+/// The sector is drawn starting from [Vec2::X], going counterclockwise.
+/// To orient the sector differently, apply a rotation.
+/// The sector is drawn with the center of its circle at the origin (0, 0).
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+pub struct CircularSector {
+    /// The radius of the circle
+    pub radius: f32,
+    /// The angle swept out by the sector.
+    pub angle: f32,
+}
+impl Primitive2d for CircularSector {}
+
+impl Default for CircularSector {
+    // Returns the default [`CircularSector`] with radius `0.5` and angle `1.0`.
+    fn default() -> Self {
+        Self {
+            radius: 0.5,
+            angle: 1.0,
+        }
+    }
+}
+
+impl CircularSector {
+    /// Create a new [`CircularSector`] from a `radius`, and an `angle`
+    #[inline(always)]
+    pub const fn new(radius: f32, angle: f32) -> Self {
+        Self { radius, angle }
+    }
+
+    /// Produces the arc of this sector
+    #[inline(always)]
+    pub fn arc(&self) -> Arc {
+        Arc::new(self.radius, self.angle)
+    }
+
+    /// Returns the area of this sector
+    #[inline(always)]
+    pub fn area(&self) -> f32 {
+        self.radius.powi(2) * self.angle / 2.0
+    }
+}
+
 /// An ellipse primitive
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]

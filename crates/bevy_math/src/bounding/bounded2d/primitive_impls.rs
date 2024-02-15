@@ -1,10 +1,12 @@
 //! Contains [`Bounded2d`] implementations for [geometric primitives](crate::primitives).
 
+use std::f32::consts::PI;
+
 use glam::{Mat2, Vec2};
 
 use crate::primitives::{
-    BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, Direction2d, Ellipse, Line2d, Plane2d,
-    Polygon, Polyline2d, Rectangle, RegularPolygon, Segment2d, Triangle2d,
+    Arc, BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, CircularSector, Direction2d, Ellipse,
+    Line2d, Plane2d, Polygon, Polyline2d, Rectangle, RegularPolygon, Segment2d, Triangle2d,
 };
 
 use super::{Aabb2d, Bounded2d, BoundingCircle};
@@ -16,6 +18,102 @@ impl Bounded2d for Circle {
 
     fn bounding_circle(&self, translation: Vec2, _rotation: f32) -> BoundingCircle {
         BoundingCircle::new(translation, self.radius)
+    }
+}
+
+impl Bounded2d for Arc {
+    fn aabb_2d(&self, translation: Vec2, rotation: f32) -> Aabb2d {
+        // For a sufficiently wide arc, the bounding points in a given direction will be the outer
+        // limits of a circle centered at the origin.
+        // For smaller arcs, the two endpoints of the arc could also be bounding points,
+        // but the start point is always axis-aligned so it's included as one of the circular limits.
+        // This gives five possible bounding points, so we will lay them out in an array and then
+        // select the appropriate slice to compute the bounding box of.
+        let mut circle_bounds = [
+            self.end(),
+            self.radius * Vec2::X,
+            self.radius * Vec2::Y,
+            self.radius * -Vec2::X,
+            self.radius * -Vec2::Y,
+        ];
+        if self.angle.is_sign_negative() {
+            // If we have a negative angle, we are going the opposite direction, so negate the Y-axis points.
+            circle_bounds[2] = -circle_bounds[2];
+            circle_bounds[4] = -circle_bounds[4];
+        }
+        // The number of quarter turns tells us how many extra points to include, between 0 and 3.
+        let quarter_turns = f32::floor(self.angle.abs() / (PI / 2.0)).min(3.0) as usize;
+        Aabb2d::from_point_cloud(
+            translation,
+            rotation,
+            &circle_bounds[0..(2 + quarter_turns)],
+        )
+    }
+
+    fn bounding_circle(&self, translation: Vec2, rotation: f32) -> BoundingCircle {
+        // There are two possibilities for the bounding circle.
+        if self.is_major() {
+            // If the arc is major, then the widest distance between two points is a diameter of the arc's circle;
+            // therefore, that circle is the bounding radius.
+            BoundingCircle::new(translation, self.radius)
+        } else {
+            // Otherwise, the widest distance between two points is the chord,
+            // so a circle of that diameter around the midpoint will contain the entire arc.
+            let angle = self.angle + rotation;
+            let center =
+                Vec2::new(self.chord_midpoint_radius(), 0.0).rotate(Vec2::from_angle(angle));
+            BoundingCircle::new(center, self.half_chord_length())
+        }
+    }
+}
+
+impl Bounded2d for CircularSector {
+    fn aabb_2d(&self, translation: Vec2, rotation: f32) -> Aabb2d {
+        // This is identical to the implementation for Arc, above, with the additional possibility of the
+        // origin point, the center of the arc, acting as a bounding point.
+        //
+        // See comments above for discussion.
+        let mut circle_bounds = [
+            Vec2::ZERO,
+            self.arc().end(),
+            self.radius * Vec2::X,
+            self.radius * Vec2::Y,
+            self.radius * -Vec2::X,
+            self.radius * -Vec2::Y,
+        ];
+        if self.angle.is_sign_negative() {
+            // If we have a negative angle, we are going the opposite direction, so negate the Y-axis points.
+            circle_bounds[3] = -circle_bounds[3];
+            circle_bounds[5] = -circle_bounds[5];
+        }
+        // The number of quarter turns tells us how many extra points to include, between 0 and 3.
+        let quarter_turns = f32::floor(self.angle.abs() / (PI / 2.0)).min(3.0) as usize;
+        Aabb2d::from_point_cloud(
+            translation,
+            rotation,
+            &circle_bounds[0..(3 + quarter_turns)],
+        )
+    }
+
+    fn bounding_circle(&self, translation: Vec2, rotation: f32) -> BoundingCircle {
+        // There are three possibilities for the bounding circle.
+        if self.arc().is_major() {
+            // If the arc is major, then the widest distance between two points is a diameter of the arc's circle;
+            // therefore, that circle is the bounding radius.
+            BoundingCircle::new(translation, self.radius)
+        } else if self.arc().chord_length() < self.radius {
+            // If the chord length is smaller than the radius, then the radius is the widest distance between two points,
+            // so the radius is the diameter of the bounding circle.
+            let angle = Vec2::from_angle(self.angle / 2.0 + rotation);
+            let center = angle * self.radius / 2.0;
+            BoundingCircle::new(center, self.radius / 2.0)
+        } else {
+            // Otherwise, the widest distance between two points is the chord,
+            // so a circle of that diameter around the midpoint will contain the entire arc.
+            let angle = Vec2::from_angle(self.angle / 2.0 + rotation);
+            let center = angle * self.arc().chord_midpoint_radius();
+            BoundingCircle::new(center, self.arc().half_chord_length())
+        }
     }
 }
 
