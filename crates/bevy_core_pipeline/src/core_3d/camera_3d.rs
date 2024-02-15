@@ -1,4 +1,7 @@
-use crate::tonemapping::{DebandDither, Tonemapping};
+use crate::{
+    core_3d::graph::Core3d,
+    tonemapping::{DebandDither, Tonemapping},
+};
 use bevy_ecs::prelude::*;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render::{
@@ -10,8 +13,6 @@ use bevy_render::{
 };
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use serde::{Deserialize, Serialize};
-
-use super::graph::SubGraph3d;
 
 /// Configuration for the "main 3d render graph".
 #[derive(Component, Reflect, Clone, ExtractComponent)]
@@ -152,7 +153,7 @@ pub struct Camera3dBundle {
 impl Default for Camera3dBundle {
     fn default() -> Self {
         Self {
-            camera_render_graph: CameraRenderGraph::new(SubGraph3d),
+            camera_render_graph: CameraRenderGraph::new(Core3d),
             camera: Default::default(),
             projection: Default::default(),
             visible_entities: Default::default(),
