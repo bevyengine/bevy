@@ -6,7 +6,7 @@ use std::f32::consts::PI;
 use bevy::{
     pbr::{light_consts, CascadeShadowConfigBuilder},
     prelude::*,
-    render::camera::{ExposureSettings, PhysicalCameraParameters},
+    render::camera::{Exposure, PhysicalCameraParameters},
 };
 
 fn main() {
@@ -268,19 +268,17 @@ fn setup(
     );
 
     // camera
-    commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
-        },
-        ExposureSettings::from_physical_camera(**parameters),
-    ));
+    commands.spawn(Camera3dBundle {
+        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        exposure: Exposure::from_physical_camera(**parameters),
+        ..default()
+    });
 }
 
 fn update_exposure(
     key_input: Res<ButtonInput<KeyCode>>,
     mut parameters: ResMut<Parameters>,
-    mut query: Query<&mut ExposureSettings>,
+    mut exposure: Query<&mut Exposure>,
     mut text: Query<&mut Text>,
 ) {
     // TODO: Clamp values to a reasonable range
@@ -311,7 +309,7 @@ fn update_exposure(
     );
     text.sections[2].value = format!("Sensitivity: ISO {:.0}\n", parameters.sensitivity_iso);
 
-    *query.single_mut() = ExposureSettings::from_physical_camera(**parameters);
+    *exposure.single_mut() = Exposure::from_physical_camera(**parameters);
 }
 
 fn animate_light_direction(

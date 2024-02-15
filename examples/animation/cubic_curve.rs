@@ -47,12 +47,14 @@ fn setup(
     ));
 
     // Some light to see something
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
+    commands.spawn(PointLightBundle {
+        point_light: PointLight {
             shadows_enabled: true,
+            intensity: 10_000_000.,
+            range: 100.0,
             ..default()
         },
-        transform: Transform::from_xyz(8., 16., 8.).looking_at(Vec3::ZERO, Vec3::Y),
+        transform: Transform::from_xyz(8., 16., 8.),
         ..default()
     });
 

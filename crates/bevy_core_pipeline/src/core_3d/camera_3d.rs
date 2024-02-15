@@ -2,7 +2,7 @@ use crate::tonemapping::{DebandDither, Tonemapping};
 use bevy_ecs::prelude::*;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render::{
-    camera::{Camera, CameraMainTextureUsages, CameraRenderGraph, Projection},
+    camera::{Camera, CameraMainTextureUsages, CameraRenderGraph, Exposure, Projection},
     extract_component::ExtractComponent,
     primitives::Frustum,
     render_resource::{LoadOp, TextureUsages},
@@ -145,6 +145,7 @@ pub struct Camera3dBundle {
     pub tonemapping: Tonemapping,
     pub dither: DebandDither,
     pub color_grading: ColorGrading,
+    pub exposure: Exposure,
     pub main_texture_usages: CameraMainTextureUsages,
 }
 
@@ -161,9 +162,10 @@ impl Default for Camera3dBundle {
             global_transform: Default::default(),
             camera_3d: Default::default(),
             tonemapping: Default::default(),
-            dither: DebandDither::Enabled,
-            color_grading: ColorGrading::default(),
+            color_grading: Default::default(),
+            exposure: Default::default(),
             main_texture_usages: Default::default(),
+            dither: DebandDither::Enabled,
         }
     }
 }

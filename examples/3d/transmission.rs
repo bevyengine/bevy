@@ -27,7 +27,7 @@ use bevy::{
     },
     pbr::{NotShadowCaster, PointLightShadowMap, TransmittedShadowReceiver},
     prelude::*,
-    render::camera::{ExposureSettings, TemporalJitter},
+    render::camera::{Exposure, TemporalJitter},
     render::view::ColorGrading,
 };
 
@@ -334,6 +334,7 @@ fn setup(
                 ..default()
             },
             tonemapping: Tonemapping::TonyMcMapface,
+            exposure: Exposure { ev100: 6.0 },
             ..default()
         },
         #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
@@ -344,7 +345,6 @@ fn setup(
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
         },
         BloomSettings::default(),
-        ExposureSettings { ev100: 6.0 },
     ));
 
     // Controls Text
