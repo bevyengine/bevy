@@ -41,15 +41,12 @@ fn setup(
 
     let shapes = [
         Shape::from(meshes.add(Circle { radius: 50.0 })),
-        {
-            let sector = CircularSector::from_radians(50.0, 5.0);
-            Shape::new(
-                meshes.add(sector),
-                // A sector is drawn symmetrically from the top.
-                // To make it face right, we must rotate it to the left by 90 degrees.
-                Transform::from_rotation(Quat::from_rotation_z(PI / 2.0)),
-            )
-        },
+        Shape::new(
+            meshes.add(CircularSector::from_radians(50.0, 5.0)),
+            // A sector is drawn symmetrically from the top.
+            // To make it face right, we must rotate it to the left by 90 degrees.
+            Transform::from_rotation(Quat::from_rotation_z(PI / 2.0)),
+        ),
         {
             let segment = CircularSegment::from_degrees(50.0, 135.0);
             Shape::new(

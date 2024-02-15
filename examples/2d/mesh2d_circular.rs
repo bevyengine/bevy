@@ -4,7 +4,7 @@ use std::f32::consts::PI;
 
 use bevy::{prelude::*, sprite::MaterialMesh2dBundle};
 use bevy_internal::render::mesh::{
-    CircularSectorMeshBuilder, CircularSegmentMeshBuilder, CircularShapeUvMode,
+    CircularMeshUvMode, CircularSectorMeshBuilder, CircularSegmentMeshBuilder,
 };
 
 fn main() {
@@ -46,7 +46,7 @@ fn setup(
         // We must rotate it both in the Transform and in the mesh's UV mappings.
         let sector_angle = -sector.half_angle();
         let sector_mesh =
-            CircularSectorMeshBuilder::new(sector).uv_mode(CircularShapeUvMode::Mask {
+            CircularSectorMeshBuilder::new(sector).uv_mode(CircularMeshUvMode::Mask {
                 angle: sector_angle,
             });
         commands.spawn(MaterialMesh2dBundle {
@@ -70,7 +70,7 @@ fn setup(
         // so it is the negative of what you might otherwise expect.
         let segment_angle = -PI / 2.0;
         let segment_mesh =
-            CircularSegmentMeshBuilder::new(segment).uv_mode(CircularShapeUvMode::Mask {
+            CircularSegmentMeshBuilder::new(segment).uv_mode(CircularMeshUvMode::Mask {
                 angle: -segment_angle,
             });
         commands.spawn(MaterialMesh2dBundle {
