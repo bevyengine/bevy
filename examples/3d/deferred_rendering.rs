@@ -58,7 +58,7 @@ fn setup(
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
-            intensity: 250.0,
+            intensity: 2000.0,
         },
         DepthPrepass,
         MotionVectorPrepass,
@@ -68,7 +68,7 @@ fn setup(
 
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            illuminance: light_consts::lux::OVERCAST_DAY,
+            illuminance: 15_000.,
             shadows_enabled: true,
             ..default()
         },
@@ -140,7 +140,7 @@ fn setup(
     // Light
     commands.spawn(PointLightBundle {
         point_light: PointLight {
-            intensity: 150.0,
+            intensity: 800.0,
             radius: 0.125,
             shadows_enabled: true,
             color: sphere_color,

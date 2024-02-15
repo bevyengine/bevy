@@ -69,6 +69,8 @@ pub mod light_consts {
         pub const CLEAR_SUNRISE: f32 = 400.;
         /// The amount of light (lux) on a overcast day; typical TV studio lighting
         pub const OVERCAST_DAY: f32 = 1000.;
+        /// The amount of light (lux) from ambient daylight (not direct sunlight).
+        pub const AMBIENT_DAYLIGHT: f32 = 10_000.;
         /// The amount of light (lux) in full daylight (not direct sun).
         pub const FULL_DAYLIGHT: f32 = 20_000.;
         /// The amount of light (lux) in direct sunlight.
@@ -184,7 +186,10 @@ impl Default for SpotLight {
         // a quarter arc attenuating from the center
         Self {
             color: Color::rgb(1.0, 1.0, 1.0),
-            intensity: 2000.0, // Roughly a 20-watt LED bulb
+            // 1,000,000 lumens is a very large "cinema light" capable of registering brightly at Bevy's
+            // default "very overcast day" exposure level. For "indoor lighting" with a lower exposure,
+            // this would be way too bright.
+            intensity: 1_000_000.0,
             range: 20.0,
             radius: 0.0,
             shadows_enabled: false,
@@ -265,7 +270,7 @@ impl Default for DirectionalLight {
     fn default() -> Self {
         DirectionalLight {
             color: Color::rgb(1.0, 1.0, 1.0),
-            illuminance: light_consts::lux::FULL_DAYLIGHT,
+            illuminance: light_consts::lux::AMBIENT_DAYLIGHT,
             shadows_enabled: false,
             shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
             shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
