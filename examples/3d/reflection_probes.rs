@@ -8,7 +8,6 @@
 
 use bevy::core_pipeline::Skybox;
 use bevy::prelude::*;
-use bevy::render::camera::Exposure;
 
 use std::fmt::{Display, Formatter, Result as FmtResult};
 

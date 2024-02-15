@@ -2,7 +2,7 @@
 
 use bevy::{
     core_pipeline::tonemapping::Tonemapping,
-    pbr::{light_consts, CascadeShadowConfigBuilder},
+    pbr::CascadeShadowConfigBuilder,
     prelude::*,
     reflect::TypePath,
     render::{
