@@ -27,7 +27,7 @@ use bevy::{
     },
     pbr::{NotShadowCaster, PointLightShadowMap, TransmittedShadowReceiver},
     prelude::*,
-    render::camera::TemporalJitter,
+    render::camera::{ExposureSettings, TemporalJitter},
     render::view::ColorGrading,
 };
 
@@ -35,7 +35,6 @@ use bevy::{
 use bevy::core_pipeline::experimental::taa::{
     TemporalAntiAliasBundle, TemporalAntiAliasPlugin, TemporalAntiAliasSettings,
 };
-
 use rand::random;
 
 fn main() {
@@ -68,24 +67,10 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
-    let icosphere_mesh = meshes.add(
-        Mesh::try_from(shape::Icosphere {
-            radius: 0.9,
-            subdivisions: 7,
-        })
-        .unwrap(),
-    );
-
-    let cube_mesh = meshes.add(shape::Cube { size: 0.7 });
-
-    let plane_mesh = meshes.add(shape::Plane::from_size(2.0));
-
-    let cylinder_mesh = meshes.add(shape::Cylinder {
-        radius: 0.5,
-        height: 2.0,
-        resolution: 50,
-        segments: 1,
-    });
+    let icosphere_mesh = meshes.add(Sphere::new(0.9).mesh().ico(7).unwrap());
+    let cube_mesh = meshes.add(Cuboid::new(0.7, 0.7, 0.7));
+    let plane_mesh = meshes.add(Plane3d::default().mesh().size(2.0, 2.0));
+    let cylinder_mesh = meshes.add(Cylinder::new(0.5, 2.0).mesh().resolution(50));
 
     // Cube #1
     commands.spawn((
@@ -325,7 +310,7 @@ fn setup(
             transform: Transform::from_xyz(-1.0, 1.7, 0.0),
             point_light: PointLight {
                 color: Color::ANTIQUE_WHITE * 0.8 + Color::ORANGE_RED * 0.2,
-                intensity: 60_000.0,
+                intensity: 4_000.0,
                 radius: 0.2,
                 range: 5.0,
                 shadows_enabled: true,
@@ -359,6 +344,7 @@ fn setup(
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
         },
         BloomSettings::default(),
+        ExposureSettings { ev100: 6.0 },
     ));
 
     // Controls Text
@@ -648,7 +634,7 @@ fn flicker_system(
     let c = (s * 7.0).cos() * 0.0125 + (s * 2.0).cos() * 0.025;
     let (mut light, mut light_transform) = light.single_mut();
     let mut flame_transform = flame.single_mut();
-    light.intensity = 60_000.0 + 3000.0 * (a + b + c);
+    light.intensity = 4_000.0 + 3000.0 * (a + b + c);
     flame_transform.translation = Vec3::new(-1.0, 1.23, 0.0);
     flame_transform.look_at(Vec3::new(-1.0 - c, 1.7 - b, 0.0 - a), Vec3::X);
     flame_transform.rotate(Quat::from_euler(EulerRot::XYZ, 0.0, 0.0, PI / 2.0));

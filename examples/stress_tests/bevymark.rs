@@ -15,6 +15,7 @@ use bevy::{
     sprite::{MaterialMesh2dBundle, Mesh2dHandle},
     utils::Duration,
     window::{PresentMode, WindowResolution},
+    winit::{UpdateMode, WinitSettings},
 };
 use rand::{rngs::StdRng, seq::SliceRandom, Rng, SeedableRng};
 
@@ -115,6 +116,10 @@ fn main() {
             FrameTimeDiagnosticsPlugin,
             LogDiagnosticsPlugin::default(),
         ))
+        .insert_resource(WinitSettings {
+            focused_mode: UpdateMode::Continuous,
+            unfocused_mode: UpdateMode::Continuous,
+        })
         .insert_resource(args)
         .insert_resource(BevyCounter {
             count: 0,
@@ -213,7 +218,7 @@ fn setup(
         textures,
         materials,
         quad: meshes
-            .add(shape::Quad::new(Vec2::splat(BIRD_TEXTURE_SIZE as f32)))
+            .add(Rectangle::from_size(Vec2::splat(BIRD_TEXTURE_SIZE as f32)))
             .into(),
         color_rng: StdRng::seed_from_u64(42),
         material_rng: StdRng::seed_from_u64(42),

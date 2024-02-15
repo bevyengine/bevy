@@ -27,12 +27,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ..default()
     });
     // light
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            intensity: 150_000.0,
-            ..default()
-        },
-        transform: Transform::from_xyz(4.0, 5.0, 4.0),
+    commands.spawn(DirectionalLightBundle {
+        directional_light: DirectionalLight::default(),
+        transform: Transform::from_xyz(4.0, 5.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
     // camera

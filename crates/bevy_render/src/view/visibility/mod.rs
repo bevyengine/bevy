@@ -50,7 +50,8 @@ pub enum Visibility {
 impl PartialEq<Visibility> for &Visibility {
     #[inline]
     fn eq(&self, other: &Visibility) -> bool {
-        **self == *other
+        // Use the base Visibility == Visibility implementation.
+        <Visibility as PartialEq<Visibility>>::eq(*self, other)
     }
 }
 
@@ -58,7 +59,8 @@ impl PartialEq<Visibility> for &Visibility {
 impl PartialEq<&Visibility> for Visibility {
     #[inline]
     fn eq(&self, other: &&Visibility) -> bool {
-        *self == **other
+        // Use the base Visibility == Visibility implementation.
+        <Visibility as PartialEq<Visibility>>::eq(self, *other)
     }
 }
 
@@ -281,14 +283,7 @@ pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
     >,
 ) {
     for (transform, projection, mut frustum) in &mut views {
-        let view_projection =
-            projection.get_projection_matrix() * transform.compute_matrix().inverse();
-        *frustum = Frustum::from_view_projection_custom_far(
-            &view_projection,
-            &transform.translation(),
-            &transform.back(),
-            projection.far(),
-        );
+        *frustum = projection.compute_frustum(transform);
     }
 }
 

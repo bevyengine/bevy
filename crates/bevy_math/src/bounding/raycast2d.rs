@@ -2,8 +2,8 @@ use super::{Aabb2d, BoundingCircle, IntersectsVolume};
 use crate::{primitives::Direction2d, Ray2d, Vec2};
 
 /// A raycast intersection test for 2D bounding volumes
-#[derive(Debug)]
-pub struct RayTest2d {
+#[derive(Clone, Debug)]
+pub struct RayCast2d {
     /// The ray for the test
     pub ray: Ray2d,
     /// The maximum distance for the ray
@@ -12,13 +12,13 @@ pub struct RayTest2d {
     direction_recip: Vec2,
 }
 
-impl RayTest2d {
-    /// Construct a [`RayTest2d`] from an origin, [`Direction2d`] and max distance.
+impl RayCast2d {
+    /// Construct a [`RayCast2d`] from an origin, [`Direction2d`], and max distance.
     pub fn new(origin: Vec2, direction: Direction2d, max: f32) -> Self {
         Self::from_ray(Ray2d { origin, direction }, max)
     }
 
-    /// Construct a [`RayTest2d`] from a [`Ray2d`] and max distance.
+    /// Construct a [`RayCast2d`] from a [`Ray2d`] and max distance.
     pub fn from_ray(ray: Ray2d, max: f32) -> Self {
         Self {
             ray,
@@ -86,15 +86,89 @@ impl RayTest2d {
     }
 }
 
-impl IntersectsVolume<Aabb2d> for RayTest2d {
+impl IntersectsVolume<Aabb2d> for RayCast2d {
     fn intersects(&self, volume: &Aabb2d) -> bool {
         self.aabb_intersection_at(volume).is_some()
     }
 }
 
-impl IntersectsVolume<BoundingCircle> for RayTest2d {
+impl IntersectsVolume<BoundingCircle> for RayCast2d {
     fn intersects(&self, volume: &BoundingCircle) -> bool {
         self.circle_intersection_at(volume).is_some()
+    }
+}
+
+/// An intersection test that casts an [`Aabb2d`] along a ray.
+#[derive(Clone, Debug)]
+pub struct AabbCast2d {
+    /// The ray along which to cast the bounding volume
+    pub ray: RayCast2d,
+    /// The aabb that is being cast
+    pub aabb: Aabb2d,
+}
+
+impl AabbCast2d {
+    /// Construct an [`AabbCast2d`] from an [`Aabb2d`], origin, [`Direction2d`], and max distance.
+    pub fn new(aabb: Aabb2d, origin: Vec2, direction: Direction2d, max: f32) -> Self {
+        Self::from_ray(aabb, Ray2d { origin, direction }, max)
+    }
+
+    /// Construct an [`AabbCast2d`] from an [`Aabb2d`], [`Ray2d`], and max distance.
+    pub fn from_ray(aabb: Aabb2d, ray: Ray2d, max: f32) -> Self {
+        Self {
+            ray: RayCast2d::from_ray(ray, max),
+            aabb,
+        }
+    }
+
+    /// Get the distance at which the [`Aabb2d`]s collide, if at all.
+    pub fn aabb_collision_at(&self, mut aabb: Aabb2d) -> Option<f32> {
+        aabb.min -= self.aabb.max;
+        aabb.max -= self.aabb.min;
+        self.ray.aabb_intersection_at(&aabb)
+    }
+}
+
+impl IntersectsVolume<Aabb2d> for AabbCast2d {
+    fn intersects(&self, volume: &Aabb2d) -> bool {
+        self.aabb_collision_at(*volume).is_some()
+    }
+}
+
+/// An intersection test that casts a [`BoundingCircle`] along a ray.
+#[derive(Clone, Debug)]
+pub struct BoundingCircleCast {
+    /// The ray along which to cast the bounding volume
+    pub ray: RayCast2d,
+    /// The circle that is being cast
+    pub circle: BoundingCircle,
+}
+
+impl BoundingCircleCast {
+    /// Construct a [`BoundingCircleCast`] from a [`BoundingCircle`], origin, [`Direction2d`], and max distance.
+    pub fn new(circle: BoundingCircle, origin: Vec2, direction: Direction2d, max: f32) -> Self {
+        Self::from_ray(circle, Ray2d { origin, direction }, max)
+    }
+
+    /// Construct a [`BoundingCircleCast`] from a [`BoundingCircle`], [`Ray2d`], and max distance.
+    pub fn from_ray(circle: BoundingCircle, ray: Ray2d, max: f32) -> Self {
+        Self {
+            ray: RayCast2d::from_ray(ray, max),
+            circle,
+        }
+    }
+
+    /// Get the distance at which the [`BoundingCircle`]s collide, if at all.
+    pub fn circle_collision_at(&self, mut circle: BoundingCircle) -> Option<f32> {
+        circle.center -= self.circle.center;
+        circle.circle.radius += self.circle.radius();
+        self.ray.circle_intersection_at(&circle)
+    }
+}
+
+impl IntersectsVolume<BoundingCircle> for BoundingCircleCast {
+    fn intersects(&self, volume: &BoundingCircle) -> bool {
+        self.circle_collision_at(*volume).is_some()
     }
 }
 
@@ -109,37 +183,37 @@ mod tests {
         for (test, volume, expected_distance) in &[
             (
                 // Hit the center of a centered bounding circle
-                RayTest2d::new(Vec2::Y * -5., Direction2d::Y, 90.),
+                RayCast2d::new(Vec2::Y * -5., Direction2d::Y, 90.),
                 BoundingCircle::new(Vec2::ZERO, 1.),
                 4.,
             ),
             (
                 // Hit the center of a centered bounding circle, but from the other side
-                RayTest2d::new(Vec2::Y * 5., -Direction2d::Y, 90.),
+                RayCast2d::new(Vec2::Y * 5., -Direction2d::Y, 90.),
                 BoundingCircle::new(Vec2::ZERO, 1.),
                 4.,
             ),
             (
                 // Hit the center of an offset circle
-                RayTest2d::new(Vec2::ZERO, Direction2d::Y, 90.),
+                RayCast2d::new(Vec2::ZERO, Direction2d::Y, 90.),
                 BoundingCircle::new(Vec2::Y * 3., 2.),
                 1.,
             ),
             (
                 // Just barely hit the circle before the max distance
-                RayTest2d::new(Vec2::X, Direction2d::Y, 1.),
+                RayCast2d::new(Vec2::X, Direction2d::Y, 1.),
                 BoundingCircle::new(Vec2::ONE, 0.01),
                 0.99,
             ),
             (
                 // Hit a circle off-center
-                RayTest2d::new(Vec2::X, Direction2d::Y, 90.),
+                RayCast2d::new(Vec2::X, Direction2d::Y, 90.),
                 BoundingCircle::new(Vec2::Y * 5., 2.),
                 3.268,
             ),
             (
                 // Barely hit a circle on the side
-                RayTest2d::new(Vec2::X * 0.99999, Direction2d::Y, 90.),
+                RayCast2d::new(Vec2::X * 0.99999, Direction2d::Y, 90.),
                 BoundingCircle::new(Vec2::Y * 5., 1.),
                 4.996,
             ),
@@ -157,7 +231,7 @@ mod tests {
                 actual_distance
             );
 
-            let inverted_ray = RayTest2d::new(test.ray.origin, -test.ray.direction, test.max);
+            let inverted_ray = RayCast2d::new(test.ray.origin, -test.ray.direction, test.max);
             assert!(!inverted_ray.intersects(volume), "{}", case);
         }
     }
@@ -167,17 +241,17 @@ mod tests {
         for (test, volume) in &[
             (
                 // The ray doesn't go in the right direction
-                RayTest2d::new(Vec2::ZERO, Direction2d::X, 90.),
+                RayCast2d::new(Vec2::ZERO, Direction2d::X, 90.),
                 BoundingCircle::new(Vec2::Y * 2., 1.),
             ),
             (
                 // Ray's alignment isn't enough to hit the circle
-                RayTest2d::new(Vec2::ZERO, Direction2d::from_xy(1., 1.).unwrap(), 90.),
+                RayCast2d::new(Vec2::ZERO, Direction2d::from_xy(1., 1.).unwrap(), 90.),
                 BoundingCircle::new(Vec2::Y * 2., 1.),
             ),
             (
                 // The ray's maximum distance isn't high enough
-                RayTest2d::new(Vec2::ZERO, Direction2d::Y, 0.5),
+                RayCast2d::new(Vec2::ZERO, Direction2d::Y, 0.5),
                 BoundingCircle::new(Vec2::Y * 2., 1.),
             ),
         ] {
@@ -201,7 +275,7 @@ mod tests {
                 -Direction2d::Y,
             ] {
                 for max in &[0., 1., 900.] {
-                    let test = RayTest2d::new(*origin, *direction, *max);
+                    let test = RayCast2d::new(*origin, *direction, *max);
 
                     let case = format!(
                         "Case:\n  origin: {:?}\n  Direction: {:?}\n  Max: {}",
@@ -221,37 +295,37 @@ mod tests {
         for (test, volume, expected_distance) in &[
             (
                 // Hit the center of a centered aabb
-                RayTest2d::new(Vec2::Y * -5., Direction2d::Y, 90.),
+                RayCast2d::new(Vec2::Y * -5., Direction2d::Y, 90.),
                 Aabb2d::new(Vec2::ZERO, Vec2::ONE),
                 4.,
             ),
             (
                 // Hit the center of a centered aabb, but from the other side
-                RayTest2d::new(Vec2::Y * 5., -Direction2d::Y, 90.),
+                RayCast2d::new(Vec2::Y * 5., -Direction2d::Y, 90.),
                 Aabb2d::new(Vec2::ZERO, Vec2::ONE),
                 4.,
             ),
             (
                 // Hit the center of an offset aabb
-                RayTest2d::new(Vec2::ZERO, Direction2d::Y, 90.),
+                RayCast2d::new(Vec2::ZERO, Direction2d::Y, 90.),
                 Aabb2d::new(Vec2::Y * 3., Vec2::splat(2.)),
                 1.,
             ),
             (
                 // Just barely hit the aabb before the max distance
-                RayTest2d::new(Vec2::X, Direction2d::Y, 1.),
+                RayCast2d::new(Vec2::X, Direction2d::Y, 1.),
                 Aabb2d::new(Vec2::ONE, Vec2::splat(0.01)),
                 0.99,
             ),
             (
                 // Hit an aabb off-center
-                RayTest2d::new(Vec2::X, Direction2d::Y, 90.),
+                RayCast2d::new(Vec2::X, Direction2d::Y, 90.),
                 Aabb2d::new(Vec2::Y * 5., Vec2::splat(2.)),
                 3.,
             ),
             (
                 // Barely hit an aabb on corner
-                RayTest2d::new(Vec2::X * -0.001, Direction2d::from_xy(1., 1.).unwrap(), 90.),
+                RayCast2d::new(Vec2::X * -0.001, Direction2d::from_xy(1., 1.).unwrap(), 90.),
                 Aabb2d::new(Vec2::Y * 2., Vec2::ONE),
                 1.414,
             ),
@@ -269,7 +343,7 @@ mod tests {
                 actual_distance
             );
 
-            let inverted_ray = RayTest2d::new(test.ray.origin, -test.ray.direction, test.max);
+            let inverted_ray = RayCast2d::new(test.ray.origin, -test.ray.direction, test.max);
             assert!(!inverted_ray.intersects(volume), "{}", case);
         }
     }
@@ -279,17 +353,17 @@ mod tests {
         for (test, volume) in &[
             (
                 // The ray doesn't go in the right direction
-                RayTest2d::new(Vec2::ZERO, Direction2d::X, 90.),
+                RayCast2d::new(Vec2::ZERO, Direction2d::X, 90.),
                 Aabb2d::new(Vec2::Y * 2., Vec2::ONE),
             ),
             (
                 // Ray's alignment isn't enough to hit the aabb
-                RayTest2d::new(Vec2::ZERO, Direction2d::from_xy(1., 0.99).unwrap(), 90.),
+                RayCast2d::new(Vec2::ZERO, Direction2d::from_xy(1., 0.99).unwrap(), 90.),
                 Aabb2d::new(Vec2::Y * 2., Vec2::ONE),
             ),
             (
                 // The ray's maximum distance isn't high enough
-                RayTest2d::new(Vec2::ZERO, Direction2d::Y, 0.5),
+                RayCast2d::new(Vec2::ZERO, Direction2d::Y, 0.5),
                 Aabb2d::new(Vec2::Y * 2., Vec2::ONE),
             ),
         ] {
@@ -313,7 +387,7 @@ mod tests {
                 -Direction2d::Y,
             ] {
                 for max in &[0., 1., 900.] {
-                    let test = RayTest2d::new(*origin, *direction, *max);
+                    let test = RayCast2d::new(*origin, *direction, *max);
 
                     let case = format!(
                         "Case:\n  origin: {:?}\n  Direction: {:?}\n  Max: {}",
@@ -325,6 +399,140 @@ mod tests {
                     assert_eq!(actual_distance, Some(0.), "{}", case,);
                 }
             }
+        }
+    }
+
+    #[test]
+    fn test_aabb_cast_hits() {
+        for (test, volume, expected_distance) in &[
+            (
+                // Hit the center of the aabb, that a ray would've also hit
+                AabbCast2d::new(
+                    Aabb2d::new(Vec2::ZERO, Vec2::ONE),
+                    Vec2::ZERO,
+                    Direction2d::Y,
+                    90.,
+                ),
+                Aabb2d::new(Vec2::Y * 5., Vec2::ONE),
+                3.,
+            ),
+            (
+                // Hit the center of the aabb, but from the other side
+                AabbCast2d::new(
+                    Aabb2d::new(Vec2::ZERO, Vec2::ONE),
+                    Vec2::Y * 10.,
+                    -Direction2d::Y,
+                    90.,
+                ),
+                Aabb2d::new(Vec2::Y * 5., Vec2::ONE),
+                3.,
+            ),
+            (
+                // Hit the edge of the aabb, that a ray would've missed
+                AabbCast2d::new(
+                    Aabb2d::new(Vec2::ZERO, Vec2::ONE),
+                    Vec2::X * 1.5,
+                    Direction2d::Y,
+                    90.,
+                ),
+                Aabb2d::new(Vec2::Y * 5., Vec2::ONE),
+                3.,
+            ),
+            (
+                // Hit the edge of the aabb, by casting an off-center AABB
+                AabbCast2d::new(
+                    Aabb2d::new(Vec2::X * -2., Vec2::ONE),
+                    Vec2::X * 3.,
+                    Direction2d::Y,
+                    90.,
+                ),
+                Aabb2d::new(Vec2::Y * 5., Vec2::ONE),
+                3.,
+            ),
+        ] {
+            let case = format!(
+                "Case:\n  Test: {:?}\n  Volume: {:?}\n  Expected distance: {:?}",
+                test, volume, expected_distance
+            );
+            assert!(test.intersects(volume), "{}", case);
+            let actual_distance = test.aabb_collision_at(*volume).unwrap();
+            assert!(
+                (actual_distance - expected_distance).abs() < EPSILON,
+                "{}\n  Actual distance: {}",
+                case,
+                actual_distance
+            );
+
+            let inverted_ray =
+                RayCast2d::new(test.ray.ray.origin, -test.ray.ray.direction, test.ray.max);
+            assert!(!inverted_ray.intersects(volume), "{}", case);
+        }
+    }
+
+    #[test]
+    fn test_circle_cast_hits() {
+        for (test, volume, expected_distance) in &[
+            (
+                // Hit the center of the bounding circle, that a ray would've also hit
+                BoundingCircleCast::new(
+                    BoundingCircle::new(Vec2::ZERO, 1.),
+                    Vec2::ZERO,
+                    Direction2d::Y,
+                    90.,
+                ),
+                BoundingCircle::new(Vec2::Y * 5., 1.),
+                3.,
+            ),
+            (
+                // Hit the center of the bounding circle, but from the other side
+                BoundingCircleCast::new(
+                    BoundingCircle::new(Vec2::ZERO, 1.),
+                    Vec2::Y * 10.,
+                    -Direction2d::Y,
+                    90.,
+                ),
+                BoundingCircle::new(Vec2::Y * 5., 1.),
+                3.,
+            ),
+            (
+                // Hit the bounding circle off-center, that a ray would've missed
+                BoundingCircleCast::new(
+                    BoundingCircle::new(Vec2::ZERO, 1.),
+                    Vec2::X * 1.5,
+                    Direction2d::Y,
+                    90.,
+                ),
+                BoundingCircle::new(Vec2::Y * 5., 1.),
+                3.677,
+            ),
+            (
+                // Hit the bounding circle off-center, by casting a circle that is off-center
+                BoundingCircleCast::new(
+                    BoundingCircle::new(Vec2::X * -1.5, 1.),
+                    Vec2::X * 3.,
+                    Direction2d::Y,
+                    90.,
+                ),
+                BoundingCircle::new(Vec2::Y * 5., 1.),
+                3.677,
+            ),
+        ] {
+            let case = format!(
+                "Case:\n  Test: {:?}\n  Volume: {:?}\n  Expected distance: {:?}",
+                test, volume, expected_distance
+            );
+            assert!(test.intersects(volume), "{}", case);
+            let actual_distance = test.circle_collision_at(*volume).unwrap();
+            assert!(
+                (actual_distance - expected_distance).abs() < EPSILON,
+                "{}\n  Actual distance: {}",
+                case,
+                actual_distance
+            );
+
+            let inverted_ray =
+                RayCast2d::new(test.ray.ray.origin, -test.ray.ray.direction, test.ray.max);
+            assert!(!inverted_ray.intersects(volume), "{}", case);
         }
     }
 }

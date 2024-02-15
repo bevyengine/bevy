@@ -1,115 +1,25 @@
+//! Representation for individual element accesses within a path.
+
 use std::{borrow::Cow, fmt};
 
-use super::{AccessError, ReflectPathError};
-use crate::{Reflect, ReflectMut, ReflectRef, VariantType};
-use thiserror::Error;
+use super::error::AccessErrorKind;
+use crate::{AccessError, Reflect, ReflectKind, ReflectMut, ReflectRef, VariantType};
 
-type InnerResult<T> = Result<Option<T>, Error<'static>>;
-
-#[derive(Debug, PartialEq, Eq, Error)]
-pub(super) enum Error<'a> {
-    #[error(
-        "the current {ty} doesn't have the {} {}",
-        access.kind(),
-        access.display_value(),
-    )]
-    Access { ty: TypeShape, access: Access<'a> },
-
-    #[error("invalid type shape: expected {expected} but found a reflect {actual}")]
-    Type {
-        expected: TypeShape,
-        actual: TypeShape,
-    },
-
-    #[error("invalid enum access: expected {expected} variant but found {actual} variant")]
-    Enum {
-        expected: TypeShape,
-        actual: TypeShape,
-    },
-}
-
-impl<'a> Error<'a> {
-    fn with_offset(self, offset: usize) -> ReflectPathError<'a> {
-        let error = AccessError(self);
-        ReflectPathError::InvalidAccess { offset, error }
-    }
-
-    fn access(ty: TypeShape, access: Access<'a>) -> Self {
-        Self::Access { ty, access }
-    }
-}
-impl Error<'static> {
-    fn bad_enum_variant(expected: TypeShape, actual: impl Into<TypeShape>) -> Self {
-        let actual = actual.into();
-        Error::Enum { expected, actual }
-    }
-    fn bad_type(expected: TypeShape, actual: impl Into<TypeShape>) -> Self {
-        let actual = actual.into();
-        Error::Type { expected, actual }
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub(super) enum TypeShape {
-    Struct,
-    TupleStruct,
-    Tuple,
-    List,
-    Array,
-    Map,
-    Enum,
-    Value,
-    Unit,
-}
-
-impl fmt::Display for TypeShape {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let name = match self {
-            TypeShape::Struct => "struct",
-            TypeShape::TupleStruct => "tuple struct",
-            TypeShape::Tuple => "tuple",
-            TypeShape::List => "list",
-            TypeShape::Array => "array",
-            TypeShape::Map => "map",
-            TypeShape::Enum => "enum",
-            TypeShape::Value => "value",
-            TypeShape::Unit => "unit",
-        };
-        write!(f, "{name}")
-    }
-}
-impl<'a> From<ReflectRef<'a>> for TypeShape {
-    fn from(value: ReflectRef<'a>) -> Self {
-        match value {
-            ReflectRef::Struct(_) => TypeShape::Struct,
-            ReflectRef::TupleStruct(_) => TypeShape::TupleStruct,
-            ReflectRef::Tuple(_) => TypeShape::Tuple,
-            ReflectRef::List(_) => TypeShape::List,
-            ReflectRef::Array(_) => TypeShape::Array,
-            ReflectRef::Map(_) => TypeShape::Map,
-            ReflectRef::Enum(_) => TypeShape::Enum,
-            ReflectRef::Value(_) => TypeShape::Value,
-        }
-    }
-}
-impl From<VariantType> for TypeShape {
-    fn from(value: VariantType) -> Self {
-        match value {
-            VariantType::Struct => TypeShape::Struct,
-            VariantType::Tuple => TypeShape::Tuple,
-            VariantType::Unit => TypeShape::Unit,
-        }
-    }
-}
+type InnerResult<T> = Result<T, AccessErrorKind>;
 
 /// A singular element access within a path.
+/// Multiple accesses can be combined into a [`ParsedPath`](super::ParsedPath).
 ///
-/// Can be applied to a `dyn Reflect` to get a reference to the targeted element.
+/// Can be applied to a [`dyn Reflect`](Reflect) to get a reference to the targeted element.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub(super) enum Access<'a> {
+pub enum Access<'a> {
+    /// A name-based field access on a struct.
     Field(Cow<'a, str>),
+    /// A index-based field access on a struct.
     FieldIndex(usize),
+    /// An index-based access on a tuple.
     TupleIndex(usize),
+    /// An index-based access on a list.
     ListIndex(usize),
 }
 
@@ -125,101 +35,146 @@ impl fmt::Display for Access<'_> {
 }
 
 impl<'a> Access<'a> {
-    pub(super) fn into_owned(self) -> Access<'static> {
+    /// Converts this into an "owned" value.
+    ///
+    /// If the [`Access`] is of variant [`Field`](Access::Field),
+    /// the field's [`Cow<str>`] will be converted to it's owned
+    /// counterpart, which doesn't require a reference.
+    pub fn into_owned(self) -> Access<'static> {
         match self {
-            Self::Field(value) => Access::Field(value.to_string().into()),
+            Self::Field(value) => Access::Field(Cow::Owned(value.into_owned())),
             Self::FieldIndex(value) => Access::FieldIndex(value),
             Self::TupleIndex(value) => Access::TupleIndex(value),
             Self::ListIndex(value) => Access::ListIndex(value),
         }
     }
 
-    fn display_value(&self) -> &dyn fmt::Display {
-        match self {
-            Self::Field(value) => value,
-            Self::FieldIndex(value) | Self::TupleIndex(value) | Self::ListIndex(value) => value,
-        }
-    }
-    fn kind(&self) -> &'static str {
-        match self {
-            Self::Field(_) => "field",
-            Self::FieldIndex(_) => "field index",
-            Self::TupleIndex(_) | Self::ListIndex(_) => "index",
-        }
-    }
-
     pub(super) fn element<'r>(
         &self,
         base: &'r dyn Reflect,
-        offset: usize,
-    ) -> Result<&'r dyn Reflect, ReflectPathError<'a>> {
-        let ty = base.reflect_ref().into();
+        offset: Option<usize>,
+    ) -> Result<&'r dyn Reflect, AccessError<'a>> {
         self.element_inner(base)
-            .and_then(|maybe| maybe.ok_or(Error::access(ty, self.clone())))
-            .map_err(|err| err.with_offset(offset))
+            .and_then(|opt| opt.ok_or(AccessErrorKind::MissingField(base.reflect_kind())))
+            .map_err(|err| err.with_access(self.clone(), offset))
     }
 
-    fn element_inner<'r>(&self, base: &'r dyn Reflect) -> InnerResult<&'r dyn Reflect> {
+    fn element_inner<'r>(&self, base: &'r dyn Reflect) -> InnerResult<Option<&'r dyn Reflect>> {
         use ReflectRef::*;
+
+        let invalid_variant =
+            |expected, actual| AccessErrorKind::IncompatibleEnumVariantTypes { expected, actual };
+
         match (self, base.reflect_ref()) {
             (Self::Field(field), Struct(struct_ref)) => Ok(struct_ref.field(field.as_ref())),
             (Self::Field(field), Enum(enum_ref)) => match enum_ref.variant_type() {
                 VariantType::Struct => Ok(enum_ref.field(field.as_ref())),
-                actual => Err(Error::bad_enum_variant(TypeShape::Struct, actual)),
+                actual => Err(invalid_variant(VariantType::Struct, actual)),
             },
             (&Self::FieldIndex(index), Struct(struct_ref)) => Ok(struct_ref.field_at(index)),
             (&Self::FieldIndex(index), Enum(enum_ref)) => match enum_ref.variant_type() {
                 VariantType::Struct => Ok(enum_ref.field_at(index)),
-                actual => Err(Error::bad_enum_variant(TypeShape::Struct, actual)),
+                actual => Err(invalid_variant(VariantType::Struct, actual)),
             },
+            (Self::Field(_) | Self::FieldIndex(_), actual) => {
+                Err(AccessErrorKind::IncompatibleTypes {
+                    expected: ReflectKind::Struct,
+                    actual: actual.into(),
+                })
+            }
+
             (&Self::TupleIndex(index), TupleStruct(tuple)) => Ok(tuple.field(index)),
             (&Self::TupleIndex(index), Tuple(tuple)) => Ok(tuple.field(index)),
             (&Self::TupleIndex(index), Enum(enum_ref)) => match enum_ref.variant_type() {
                 VariantType::Tuple => Ok(enum_ref.field_at(index)),
-                actual => Err(Error::bad_enum_variant(TypeShape::Tuple, actual)),
+                actual => Err(invalid_variant(VariantType::Tuple, actual)),
             },
+            (Self::TupleIndex(_), actual) => Err(AccessErrorKind::IncompatibleTypes {
+                expected: ReflectKind::Tuple,
+                actual: actual.into(),
+            }),
+
             (&Self::ListIndex(index), List(list)) => Ok(list.get(index)),
             (&Self::ListIndex(index), Array(list)) => Ok(list.get(index)),
-            (&Self::ListIndex(_), actual) => Err(Error::bad_type(TypeShape::List, actual)),
-            (_, actual) => Err(Error::bad_type(TypeShape::Struct, actual)),
+            (Self::ListIndex(_), actual) => Err(AccessErrorKind::IncompatibleTypes {
+                expected: ReflectKind::List,
+                actual: actual.into(),
+            }),
         }
     }
 
     pub(super) fn element_mut<'r>(
         &self,
         base: &'r mut dyn Reflect,
-        offset: usize,
-    ) -> Result<&'r mut dyn Reflect, ReflectPathError<'a>> {
-        let ty = base.reflect_ref().into();
+        offset: Option<usize>,
+    ) -> Result<&'r mut dyn Reflect, AccessError<'a>> {
+        let kind = base.reflect_kind();
+
         self.element_inner_mut(base)
-            .and_then(|maybe| maybe.ok_or(Error::access(ty, self.clone())))
-            .map_err(|err| err.with_offset(offset))
+            .and_then(|maybe| maybe.ok_or(AccessErrorKind::MissingField(kind)))
+            .map_err(|err| err.with_access(self.clone(), offset))
     }
 
-    fn element_inner_mut<'r>(&self, base: &'r mut dyn Reflect) -> InnerResult<&'r mut dyn Reflect> {
+    fn element_inner_mut<'r>(
+        &self,
+        base: &'r mut dyn Reflect,
+    ) -> InnerResult<Option<&'r mut dyn Reflect>> {
         use ReflectMut::*;
-        let base_shape: TypeShape = base.reflect_ref().into();
+
+        let invalid_variant =
+            |expected, actual| AccessErrorKind::IncompatibleEnumVariantTypes { expected, actual };
+
         match (self, base.reflect_mut()) {
             (Self::Field(field), Struct(struct_mut)) => Ok(struct_mut.field_mut(field.as_ref())),
             (Self::Field(field), Enum(enum_mut)) => match enum_mut.variant_type() {
                 VariantType::Struct => Ok(enum_mut.field_mut(field.as_ref())),
-                actual => Err(Error::bad_enum_variant(TypeShape::Struct, actual)),
+                actual => Err(invalid_variant(VariantType::Struct, actual)),
             },
             (&Self::FieldIndex(index), Struct(struct_mut)) => Ok(struct_mut.field_at_mut(index)),
             (&Self::FieldIndex(index), Enum(enum_mut)) => match enum_mut.variant_type() {
                 VariantType::Struct => Ok(enum_mut.field_at_mut(index)),
-                actual => Err(Error::bad_enum_variant(TypeShape::Struct, actual)),
+                actual => Err(invalid_variant(VariantType::Struct, actual)),
             },
+            (Self::Field(_) | Self::FieldIndex(_), actual) => {
+                Err(AccessErrorKind::IncompatibleTypes {
+                    expected: ReflectKind::Struct,
+                    actual: actual.into(),
+                })
+            }
+
             (&Self::TupleIndex(index), TupleStruct(tuple)) => Ok(tuple.field_mut(index)),
             (&Self::TupleIndex(index), Tuple(tuple)) => Ok(tuple.field_mut(index)),
             (&Self::TupleIndex(index), Enum(enum_mut)) => match enum_mut.variant_type() {
                 VariantType::Tuple => Ok(enum_mut.field_at_mut(index)),
-                actual => Err(Error::bad_enum_variant(TypeShape::Tuple, actual)),
+                actual => Err(invalid_variant(VariantType::Tuple, actual)),
             },
+            (Self::TupleIndex(_), actual) => Err(AccessErrorKind::IncompatibleTypes {
+                expected: ReflectKind::Tuple,
+                actual: actual.into(),
+            }),
+
             (&Self::ListIndex(index), List(list)) => Ok(list.get_mut(index)),
             (&Self::ListIndex(index), Array(list)) => Ok(list.get_mut(index)),
-            (&Self::ListIndex(_), _) => Err(Error::bad_type(TypeShape::List, base_shape)),
-            (_, _) => Err(Error::bad_type(TypeShape::Struct, base_shape)),
+            (Self::ListIndex(_), actual) => Err(AccessErrorKind::IncompatibleTypes {
+                expected: ReflectKind::List,
+                actual: actual.into(),
+            }),
+        }
+    }
+
+    /// Returns a reference to this [`Access`]'s inner value as a [`&dyn Display`](fmt::Display).
+    pub fn display_value(&self) -> &dyn fmt::Display {
+        match self {
+            Self::Field(value) => value,
+            Self::FieldIndex(value) | Self::TupleIndex(value) | Self::ListIndex(value) => value,
+        }
+    }
+
+    pub(super) fn kind(&self) -> &'static str {
+        match self {
+            Self::Field(_) => "field",
+            Self::FieldIndex(_) => "field index",
+            Self::TupleIndex(_) | Self::ListIndex(_) => "index",
         }
     }
 }

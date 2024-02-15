@@ -1,7 +1,7 @@
 use core::fmt;
 
-use crate::container_attributes::{FromReflectAttrs, ReflectTraits, TypePathAttrs};
-use crate::field_attributes::{parse_field_attrs, ReflectFieldAttr};
+use crate::container_attributes::{ContainerAttributes, FromReflectAttrs, TypePathAttrs};
+use crate::field_attributes::FieldAttributes;
 use crate::type_path::parse_path_no_leading_colon;
 use crate::utility::{StringExpr, WhereClauseOptions};
 use quote::{quote, ToTokens};
@@ -42,7 +42,7 @@ pub(crate) enum ReflectDerive<'a> {
 /// ```
 pub(crate) struct ReflectMeta<'a> {
     /// The registered traits for this type.
-    traits: ReflectTraits,
+    attrs: ContainerAttributes,
     /// The path to this type.
     type_path: ReflectTypePath<'a>,
     /// A cached instance of the path to the `bevy_reflect` crate.
@@ -97,7 +97,7 @@ pub(crate) struct StructField<'a> {
     /// The raw field.
     pub data: &'a Field,
     /// The reflection-based attributes on the field.
-    pub attrs: ReflectFieldAttr,
+    pub attrs: FieldAttributes,
     /// The index of this field within the struct.
     pub declaration_index: usize,
     /// The index of this field as seen by the reflection API.
@@ -120,7 +120,7 @@ pub(crate) struct EnumVariant<'a> {
     pub fields: EnumVariantFields<'a>,
     /// The reflection-based attributes on the variant.
     #[allow(dead_code)]
-    pub attrs: ReflectFieldAttr,
+    pub attrs: FieldAttributes,
     /// The index of this variant within the enum.
     #[allow(dead_code)]
     pub index: usize,
@@ -217,7 +217,7 @@ impl<'a> ReflectDerive<'a> {
             }
         };
 
-        let mut traits = ReflectTraits::default();
+        let mut traits = ContainerAttributes::default();
         // Should indicate whether `#[reflect_value]` was used.
         let mut reflect_mode = None;
         // Should indicate whether `#[type_path = "..."]` was used.
@@ -239,7 +239,7 @@ impl<'a> ReflectDerive<'a> {
                     }
 
                     reflect_mode = Some(ReflectMode::Normal);
-                    let new_traits = ReflectTraits::from_meta_list(meta_list, provenance)?;
+                    let new_traits = ContainerAttributes::parse_meta_list(meta_list, provenance)?;
                     traits.merge(new_traits)?;
                 }
                 Meta::List(meta_list) if meta_list.path.is_ident(REFLECT_VALUE_ATTRIBUTE_NAME) => {
@@ -251,7 +251,7 @@ impl<'a> ReflectDerive<'a> {
                     }
 
                     reflect_mode = Some(ReflectMode::Value);
-                    let new_traits = ReflectTraits::from_meta_list(meta_list, provenance)?;
+                    let new_traits = ContainerAttributes::parse_meta_list(meta_list, provenance)?;
                     traits.merge(new_traits)?;
                 }
                 Meta::Path(path) if path.is_ident(REFLECT_VALUE_ATTRIBUTE_NAME) => {
@@ -331,7 +331,7 @@ impl<'a> ReflectDerive<'a> {
         let meta = ReflectMeta::new(type_path, traits, provenance);
 
         if meta.provenance().source == ReflectImplSource::ImplRemoteType
-            && meta.traits.type_path_attrs().should_auto_derive()
+            && meta.attrs().type_path_attrs().should_auto_derive()
             && !meta.type_path().has_custom_path()
         {
             return Err(syn::Error::new(
@@ -402,7 +402,7 @@ impl<'a> ReflectDerive<'a> {
             .enumerate()
             .map(
                 |(declaration_index, field)| -> Result<StructField, syn::Error> {
-                    let attrs = parse_field_attrs(&field.attrs)?;
+                    let attrs = FieldAttributes::parse_attributes(&field.attrs)?;
 
                     let reflection_index = if attrs.ignore.is_ignored() {
                         None
@@ -445,7 +445,7 @@ impl<'a> ReflectDerive<'a> {
                 };
                 Ok(EnumVariant {
                     fields,
-                    attrs: parse_field_attrs(&variant.attrs)?,
+                    attrs: FieldAttributes::parse_attributes(&variant.attrs)?,
                     data: variant,
                     index,
                     #[cfg(feature = "documentation")]
@@ -464,11 +464,11 @@ impl<'a> ReflectDerive<'a> {
 impl<'a> ReflectMeta<'a> {
     pub fn new(
         type_path: ReflectTypePath<'a>,
-        traits: ReflectTraits,
+        attrs: ContainerAttributes,
         provenance: ReflectProvenance,
     ) -> Self {
         Self {
-            traits,
+            attrs,
             type_path,
             bevy_reflect_path: utility::get_bevy_reflect_path(),
             provenance,
@@ -484,19 +484,19 @@ impl<'a> ReflectMeta<'a> {
     }
 
     /// The registered reflect traits on this struct.
-    pub fn traits(&self) -> &ReflectTraits {
-        &self.traits
+    pub fn attrs(&self) -> &ContainerAttributes {
+        &self.attrs
     }
 
     /// The `FromReflect` attributes on this type.
     #[allow(clippy::wrong_self_convention)]
     pub fn from_reflect(&self) -> &FromReflectAttrs {
-        self.traits.from_reflect_attrs()
+        self.attrs.from_reflect_attrs()
     }
 
     /// The `TypePath` attributes on this type.
     pub fn type_path_attrs(&self) -> &TypePathAttrs {
-        self.traits.type_path_attrs()
+        self.attrs.type_path_attrs()
     }
 
     /// The path to this type.

@@ -202,7 +202,7 @@ impl<P: CachedRenderPipelinePhaseItem> RenderCommand<P> for SetItemPipeline {
     fn render<'w>(
         item: &P,
         _view: (),
-        _entity: (),
+        _entity: Option<()>,
         pipeline_cache: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {

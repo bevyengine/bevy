@@ -21,10 +21,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ..default()
     });
 
-    commands.spawn(Camera3dBundle {
+    commands.spawn((Camera3dBundle {
         transform: Transform::from_xyz(-278.0, 273.0, 800.0),
         ..default()
-    });
+    },));
 }
 
 fn add_lightmaps_to_meshes(

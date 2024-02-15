@@ -17,26 +17,26 @@ fn setup(
 ) {
     // circular base
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Circle::new(4.0)),
+        mesh: meshes.add(Circle::new(4.0)),
         material: materials.add(Color::WHITE),
         transform: Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
         ..default()
     });
     // cube
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Cube { size: 1.0 }),
+        mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
         material: materials.add(Color::rgb_u8(124, 144, 255)),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..default()
     });
     // light
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            intensity: 250_000.0,
+    commands.spawn(DirectionalLightBundle {
+        directional_light: DirectionalLight {
+            illuminance: light_consts::lux::OVERCAST_DAY,
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
+        transform: Transform::from_xyz(4.0, 8.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
     // camera

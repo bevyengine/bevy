@@ -101,14 +101,14 @@ fn impl_struct_internal(
 
     // We allow special-casing construction for `impl_reflect!` because we can't always use a literal
     // constructor since (especially for `glam`) some fields may be accessed through `DerefMut`.
-    let constructor = if let Some(cons) = &reflect_struct
+    let constructor = if let Some(default) = &reflect_struct
         .meta()
-        .traits()
+        .attrs()
         .from_reflect_attrs()
         .container_default
     {
         quote! {
-            let mut __this: Self = (#cons)();
+            let mut __this: Self = (#default)();
             #(
                 if let #fqoption::Some(__field) = #active_values() {
                     __this.#active_members = __field;

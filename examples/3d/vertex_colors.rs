@@ -17,13 +17,13 @@ fn setup(
 ) {
     // plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(5.0)),
+        mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
         material: materials.add(Color::rgb(0.3, 0.5, 0.3)),
         ..default()
     });
     // cube
     // Assign vertex colors based on vertex positions
-    let mut colorful_cube = Mesh::from(shape::Cube { size: 1.0 });
+    let mut colorful_cube = Mesh::from(Cuboid::default());
     if let Some(VertexAttributeValues::Float32x3(positions)) =
         colorful_cube.attribute(Mesh::ATTRIBUTE_POSITION)
     {
@@ -42,17 +42,19 @@ fn setup(
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..default()
     });
-    // light
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            intensity: 500_000.0,
+
+    // Light
+    commands.spawn(DirectionalLightBundle {
+        directional_light: DirectionalLight {
+            illuminance: light_consts::lux::OVERCAST_DAY,
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
+        transform: Transform::from_xyz(4.0, 5.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
-    // camera
+
+    // Camera
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()

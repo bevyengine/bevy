@@ -23,7 +23,7 @@ impl DoThing for MyType {
 }
 
 #[reflect_trait]
-pub trait DoThing {
+trait DoThing {
     fn do_thing(&self) -> String;
 }
 

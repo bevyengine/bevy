@@ -35,7 +35,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
 
     let hash_fn = reflect_enum
         .meta()
-        .traits()
+        .attrs()
         .get_hash_impl(bevy_reflect_path)
         .unwrap_or_else(|| {
             quote! {
@@ -44,10 +44,10 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
                 }
             }
         });
-    let debug_fn = reflect_enum.meta().traits().get_debug_impl();
+    let debug_fn = reflect_enum.meta().attrs().get_debug_impl();
     let partial_eq_fn = reflect_enum
         .meta()
-        .traits()
+        .attrs()
         .get_partial_eq_impl(bevy_reflect_path)
         .unwrap_or_else(|| {
             quote! {
@@ -262,6 +262,10 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
                 } else {
                     panic!("`{}` is not an enum", #bevy_reflect_path::DynamicTypePath::reflect_type_path(#ref_value));
                 }
+            }
+
+            fn reflect_kind(&self) -> #bevy_reflect_path::ReflectKind {
+                #bevy_reflect_path::ReflectKind::Enum
             }
 
             fn reflect_ref(&self) -> #bevy_reflect_path::ReflectRef {

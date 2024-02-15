@@ -1,6 +1,7 @@
 use std::{iter, mem};
 
 use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::prelude::*;
 use bevy_render::{
     batching::NoAutomaticBatching,
@@ -10,7 +11,6 @@ use bevy_render::{
     view::ViewVisibility,
     Extract,
 };
-use bevy_utils::EntityHashMap;
 use bytemuck::Pod;
 
 #[derive(Component)]
@@ -19,7 +19,7 @@ pub struct MorphIndex {
 }
 
 #[derive(Default, Resource, Deref, DerefMut)]
-pub struct MorphIndices(EntityHashMap<Entity, MorphIndex>);
+pub struct MorphIndices(EntityHashMap<MorphIndex>);
 
 #[derive(Resource)]
 pub struct MorphUniform {
