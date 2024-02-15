@@ -63,8 +63,8 @@ impl AssetLoaders {
 
             let duplicate_asset_registration = !list.is_empty();
             if !duplicate_extensions.is_empty() && duplicate_asset_registration {
-                warn!("Duplicate AssetLoader registered for for Asset type `{loader_asset_type_name}` with extensions `{duplicate_extensions:?}`. \
-                Loader must be specified in .meta file in order to load assets of this type with these extensions.");
+                warn!("Duplicate AssetLoader registered for Asset type `{loader_asset_type_name}` with extensions `{duplicate_extensions:?}`. \
+                Loader must be specified in a .meta file in order to load assets of this type with these extensions.");
             }
 
             list.push(loader_index);
@@ -122,8 +122,8 @@ impl AssetLoaders {
 
         let duplicate_asset_registration = !list.is_empty();
         if !duplicate_extensions.is_empty() && duplicate_asset_registration {
-            warn!("Duplicate AssetLoader preregistered for for Asset type `{loader_asset_type_name}` with extensions `{duplicate_extensions:?}`. \
-            Loader must be specified in .meta file in order to load assets of this type with these extensions.");
+            warn!("Duplicate AssetLoader preregistered for Asset type `{loader_asset_type_name}` with extensions `{duplicate_extensions:?}`. \
+            Loader must be specified in a .meta file in order to load assets of this type with these extensions.");
         }
 
         list.push(loader_index);
