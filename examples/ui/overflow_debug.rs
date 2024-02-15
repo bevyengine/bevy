@@ -74,7 +74,10 @@ impl UpdateTransform for Rotate {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Camera
+
     commands.spawn(Camera2dBundle::default());
+
+    // Instructions
 
     let text_style = TextStyle {
         font_size: 20.,
@@ -97,6 +100,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         }),
         Instructions,
     ));
+
+    // Overflow Debug
 
     commands
         .spawn(NodeBundle {
