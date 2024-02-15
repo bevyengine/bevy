@@ -645,7 +645,7 @@ impl Default for AmbientLight {
     fn default() -> Self {
         Self {
             color: Color::WHITE,
-            brightness: 20.0,
+            brightness: 80.0,
         }
     }
 }
