@@ -1,50 +1,40 @@
-use std::borrow::Borrow;
-
-use bevy_asset::{ron, AssetLoader, AsyncReadExt, Handle};
+use bevy_asset::{ron, AssetLoader, AsyncReadExt};
 use bevy_math::{Rect, UVec2, Vec2};
-use bevy_render::texture::{self, Image};
+use bevy_render::texture::Image;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{TextureAtlasBuilder, TextureAtlasLayout};
 
+#[derive(Default)]
 pub struct TextureAtlasLoader;
 
 #[derive(Debug, Error)]
 pub enum TextureAtlasError {
-    /// Failed to load a file.
     #[error("failed to load file: {0}")]
     Io(#[from] std::io::Error),
-    // Failed to decode
     #[error("failed to decode utf8 bytes: {0}")]
     Utf8Decode(#[from] std::string::FromUtf8Error),
-
     #[error("a RON error occurred during loading")]
     RonSpannedError(#[from] ron::error::SpannedError),
-
     #[error("failed to parse asset path")]
     ParseAssetPathError(#[from] bevy_asset::ParseAssetPathError),
-
     #[error("failed to build texture atlas")]
     TextureAtlasBuilderError(#[from] crate::TextureAtlasBuilderError),
-
     #[error("failed to load texture {0}")]
     LoadTextureError(#[from] bevy_asset::LoadDirectError),
-
     #[error("the path {0} points to an asset that is not an image")]
     NotATextureError(String),
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 struct TextureAtlasSer {
-    texture: String,
     size: Vec2,
     textures: Vec<Rect>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 struct TextureAtlasGridSer {
-    texture: String,
     tile_size: Vec2,
     columns: usize,
     rows: usize,
@@ -71,16 +61,12 @@ impl AssetLoader for TextureAtlasLoader {
         load_context: &'a mut bevy_asset::LoadContext,
     ) -> bevy_utils::BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
         if let Some(ext) = load_context.asset_path().get_full_extension() {
-            if ext == "atlas.grid.ron" {
+            if ext == GRID_EXTENSION {
                 return Box::pin(async move {
                     let mut bytes = Vec::new();
                     reader.read_to_end(&mut bytes).await?;
                     let atlas_ser: TextureAtlasGridSer =
                         ron::de::from_str(&String::from_utf8(bytes)?)?;
-                    let texture_path = load_context
-                        .asset_path()
-                        .resolve_embed(&atlas_ser.texture)?;
-                    let texture: Handle<Image> = load_context.load(&texture_path);
                     let result = TextureAtlasLayout::from_grid(
                         atlas_ser.tile_size,
                         atlas_ser.columns,
@@ -90,7 +76,8 @@ impl AssetLoader for TextureAtlasLoader {
                     );
                     Ok(result)
                 });
-            } else if ext == "atlas.multi-image.ron" {
+            }
+            if ext == COMPOSED_EXTENSION {
                 return Box::pin(async move {
                     let mut bytes = Vec::new();
                     reader.read_to_end(&mut bytes).await?;
@@ -106,23 +93,25 @@ impl AssetLoader for TextureAtlasLoader {
                     }
 
                     let mut textures = vec![];
-                    for texture_path in atlas_ser.textures {
+                    for texture_path in atlas_ser.textures.iter() {
                         let texture: Image = load_context
-                            .load_direct(&texture_path)
+                            .load_direct(texture_path)
                             .await
                             .map(|asset| asset.take())?
-                            .ok_or_else(|| TextureAtlasError::NotATextureError(texture_path))?;
+                            .ok_or_else(|| {
+                                TextureAtlasError::NotATextureError(texture_path.clone())
+                            })?;
 
                         textures.push(texture);
                     }
 
-                    for t in textures.iter() {
-                        builder.add_texture(None, t);
+                    for (t, path) in textures.iter().zip(atlas_ser.textures.iter()) {
+                        let handle = load_context.load(path);
+                        builder.add_texture(Some(handle.into()), t);
                     }
 
                     let (atlas, img) = builder.finish()?;
-                    load_context
-                        .add_labeled_asset("TextureAtlasLayout - Computed image".into(), img);
+                    load_context.add_labeled_asset("computed_texture".into(), img);
 
                     Ok(atlas)
                 });
@@ -133,19 +122,20 @@ impl AssetLoader for TextureAtlasLoader {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;
             let atlas_ser: TextureAtlasSer = ron::de::from_str(&String::from_utf8(bytes)?)?;
-            let texture_path = load_context
-                .asset_path()
-                .resolve_embed(&atlas_ser.texture)?;
-            let texture: Handle<Image> = load_context.load(&texture_path);
-            let mut result = TextureAtlasLayout::new_empty(atlas_ser.size);
-            for texture in atlas_ser.textures.iter() {
-                result.add_texture(*texture);
+
+            let mut layout = TextureAtlasLayout::new_empty(atlas_ser.size);
+            for texture in atlas_ser.textures {
+                layout.add_texture(texture);
             }
-            Ok(result)
+            Ok(layout)
         })
     }
 
     fn extensions(&self) -> &[&str] {
-        &["atlas.ron", "atlas.grid.ron", "atlas.multi-image.ron"]
+        &[COMMON_EXTENSION, GRID_EXTENSION, COMPOSED_EXTENSION]
     }
 }
+
+const COMMON_EXTENSION: &str = "atlas.ron";
+const GRID_EXTENSION: &str = "atlas.grid.ron";
+const COMPOSED_EXTENSION: &str = "atlas.composed.ron";

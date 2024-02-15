@@ -69,6 +69,7 @@ impl Plugin for SpritePlugin {
             Shader::from_wgsl
         );
         app.init_asset::<TextureAtlasLayout>()
+            .init_asset_loader::<TextureAtlasLoader>()
             .register_asset_reflect::<TextureAtlasLayout>()
             .register_type::<Sprite>()
             .register_type::<ImageScaleMode>()
