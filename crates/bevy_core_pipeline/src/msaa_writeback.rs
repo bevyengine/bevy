@@ -1,7 +1,7 @@
 use crate::{
     blit::{BlitPipeline, BlitPipelineKey},
-    core_2d::graph::{Labels2d, SubGraph2d},
-    core_3d::graph::{Labels3d, SubGraph3d},
+    core_2d::graph::{Core2d, Node2d},
+    core_3d::graph::{Core3d, Node3d},
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
@@ -32,17 +32,13 @@ impl Plugin for MsaaWritebackPlugin {
         );
         {
             render_app
-                .add_render_graph_node::<MsaaWritebackNode>(SubGraph2d, Labels2d::MsaaWriteback)
-                .add_render_graph_edge(SubGraph2d, Labels2d::MsaaWriteback, Labels2d::MainPass);
+                .add_render_graph_node::<MsaaWritebackNode>(Core2d, Node2d::MsaaWriteback)
+                .add_render_graph_edge(Core2d, Node2d::MsaaWriteback, Node2d::MainPass);
         }
         {
             render_app
-                .add_render_graph_node::<MsaaWritebackNode>(SubGraph3d, Labels3d::MsaaWriteback)
-                .add_render_graph_edge(
-                    SubGraph3d,
-                    Labels3d::MsaaWriteback,
-                    Labels3d::StartMainPass,
-                );
+                .add_render_graph_node::<MsaaWritebackNode>(Core3d, Node3d::MsaaWriteback)
+                .add_render_graph_edge(Core3d, Node3d::MsaaWriteback, Node3d::StartMainPass);
         }
     }
 }
