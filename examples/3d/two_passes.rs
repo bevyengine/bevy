@@ -65,7 +65,6 @@ fn setup(
                 order: 1,
                 ..default()
             },
-            
             ..default()
             },
             // set to render layer 1 to make camera see models on render layer 1
