@@ -482,7 +482,7 @@ pub struct PipelineCache {
     new_pipelines: Mutex<Vec<CachedPipeline>>,
     /// If `true`, disables asynchronous pipeline compilation.
     /// This has no effect on MacOS, wasm, or without the `multi_threaded` feature.
-    sync_pipelines: bool,
+    synchronous_pipeline_compilation: bool,
 }
 
 impl PipelineCache {
@@ -491,7 +491,7 @@ impl PipelineCache {
     }
 
     /// Create a new pipeline cache associated with the given render device.
-    pub fn new(device: RenderDevice, sync_pipelines: bool) -> Self {
+    pub fn new(device: RenderDevice, synchronous_pipeline_compilation: bool) -> Self {
         Self {
             shader_cache: Arc::new(Mutex::new(ShaderCache::new(&device))),
             device,
@@ -499,7 +499,7 @@ impl PipelineCache {
             waiting_pipelines: default(),
             new_pipelines: default(),
             pipelines: default(),
-            sync_pipelines,
+            synchronous_pipeline_compilation,
         }
     }
 
@@ -770,7 +770,7 @@ impl PipelineCache {
                     device.create_render_pipeline(&descriptor),
                 ))
             },
-            self.sync_pipelines,
+            self.synchronous_pipeline_compilation,
         )
     }
 
@@ -821,7 +821,7 @@ impl PipelineCache {
                     device.create_compute_pipeline(&descriptor),
                 ))
             },
-            self.sync_pipelines,
+            self.synchronous_pipeline_compilation,
         )
     }
 
