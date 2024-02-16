@@ -833,7 +833,7 @@ fn load_material(
         let metallic_roughness_texture = pbr.metallic_roughness_texture().map(|info| {
             // TODO: handle info.tex_coord() (the *set* index for the right texcoords)
             if info.texture_transform().map(texture_transform_mat3) != Some(uv_transform) {
-                warn!("Only one texture transform is supported");
+                warn!("Only the texture transform on the base color texture is supported, ignoring the texture transform on the metallic/roughness texture");
             }
             texture_handle(load_context, &info.texture())
         });
@@ -849,7 +849,7 @@ fn load_material(
             // TODO: handle occlusion_texture.tex_coord() (the *set* index for the right texcoords)
             // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
             if info.texture_transform().map(texture_transform_mat3) != Some(uv_transform) {
-                warn!("Only one texture transform is supported");
+                warn!("Only the texture transform on the base color texture is supported, ignoring the texture transform on the emissive texture");
             }
             texture_handle(load_context, &info.texture())
         });
