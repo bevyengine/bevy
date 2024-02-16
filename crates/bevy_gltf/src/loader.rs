@@ -812,16 +812,16 @@ fn load_material(
 
         // TODO: handle missing label handle errors here?
         let color = pbr.base_color_factor();
-        let (base_color_texture, uv_transform) = pbr
+        let base_color_texture = pbr.base_color_texture().map(|info| {
+            // TODO: handle info.tex_coord() (the *set* index for the right texcoords)
+            texture_handle(load_context, &info.texture())
+        });
+
+        let uv_transform = pbr
             .base_color_texture()
-            .map(|info| {
-                // TODO: handle info.tex_coord() (the *set* index for the right texcoords)
-                let texture = texture_handle(load_context, &info.texture());
-                let uv_transform = info.texture_transform().map(texture_transform_mat3);
-                (texture, uv_transform)
-            })
-            .unzip();
-        let uv_transform = uv_transform.flatten().unwrap_or_default();
+            .map(|info| info.texture_transform().map(texture_transform_mat3))
+            .flatten()
+            .unwrap_or_default();
 
         let normal_map_texture: Option<Handle<Image>> =
             material.normal_texture().map(|normal_texture| {
