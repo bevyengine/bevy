@@ -70,7 +70,6 @@ impl<T: GizmoConfigGroup> Drop for ArrowBuilder<'_, '_, '_, T> {
             // then actually draw the tips
             self.gizmos.line(self.end, v, self.color);
         }
-        // If this arrow is double ended, we draw the other head at the start point
         if self.double_ended {
             let pointing_start = (self.start - self.end).normalize();
             let rotation_start = Quat::from_rotation_arc(Vec3::X, pointing_start);
