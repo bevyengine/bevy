@@ -57,6 +57,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                 texture,
                 // You need to create the actual TextureAtlas using the previously loaded TextureAtlasLayout
                 atlas: TextureAtlas {
+                    // Note, that we are reusing the same TextureAtlasLayout for all characters here
                     layout: character_layout.clone(),
                     index: 1,
                 },
