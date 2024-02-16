@@ -8,7 +8,7 @@ use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{entity::Entity, world::World};
 use bevy_hierarchy::{BuildWorldChildren, WorldChildBuilder};
 use bevy_log::{error, warn};
-use bevy_math::{Mat4, Vec3};
+use bevy_math::{Mat3, Mat4, Vec3};
 use bevy_pbr::{
     AlphaMode, DirectionalLight, DirectionalLightBundle, PbrBundle, PointLight, PointLightBundle,
     SpotLight, SpotLightBundle, StandardMaterial, MAX_JOINTS,
@@ -38,7 +38,7 @@ use bevy_utils::{HashMap, HashSet};
 use gltf::{
     accessor::Iter,
     mesh::{util::ReadIndices, Mode},
-    texture::{MagFilter, MinFilter, WrappingMode},
+    texture::{MagFilter, MinFilter, TextureTransform, WrappingMode},
     Material, Node, Primitive, Semantic,
 };
 use serde::{Deserialize, Serialize};
@@ -791,6 +791,15 @@ async fn load_image<'a, 'b>(
     }
 }
 
+/// Converts [`TextureTransform`] to [`Mat3`].
+fn texture_transform_mat3(texture_transform: TextureTransform) -> Mat3 {
+    Mat3::from_scale_angle_translation(
+        texture_transform.scale().into(),
+        -texture_transform.rotation(),
+        texture_transform.offset().into(),
+    )
+}
+
 /// Loads a glTF material as a bevy [`StandardMaterial`] and returns it.
 fn load_material(
     material: &Material,
@@ -803,10 +812,16 @@ fn load_material(
 
         // TODO: handle missing label handle errors here?
         let color = pbr.base_color_factor();
-        let base_color_texture = pbr.base_color_texture().map(|info| {
-            // TODO: handle info.tex_coord() (the *set* index for the right texcoords)
-            texture_handle(load_context, &info.texture())
-        });
+        let (base_color_texture, uv_transform) = pbr
+            .base_color_texture()
+            .map(|info| {
+                // TODO: handle info.tex_coord() (the *set* index for the right texcoords)
+                let texture = texture_handle(load_context, &info.texture());
+                let uv_transform = info.texture_transform().map(texture_transform_mat3);
+                (texture, uv_transform)
+            })
+            .unzip();
+        let uv_transform = uv_transform.flatten().unwrap_or_default();
 
         let normal_map_texture: Option<Handle<Image>> =
             material.normal_texture().map(|normal_texture| {
@@ -817,6 +832,9 @@ fn load_material(
 
         let metallic_roughness_texture = pbr.metallic_roughness_texture().map(|info| {
             // TODO: handle info.tex_coord() (the *set* index for the right texcoords)
+            if info.texture_transform().map(texture_transform_mat3) != Some(uv_transform) {
+                warn!("Only one texture transform is supported");
+            }
             texture_handle(load_context, &info.texture())
         });
 
@@ -830,6 +848,9 @@ fn load_material(
         let emissive_texture = material.emissive_texture().map(|info| {
             // TODO: handle occlusion_texture.tex_coord() (the *set* index for the right texcoords)
             // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
+            if info.texture_transform().map(texture_transform_mat3) != Some(uv_transform) {
+                warn!("Only one texture transform is supported");
+            }
             texture_handle(load_context, &info.texture())
         });
 
@@ -917,6 +938,7 @@ fn load_material(
             ),
             unlit: material.unlit(),
             alpha_mode: alpha_mode(material),
+            uv_transform,
             ..Default::default()
         }
     })

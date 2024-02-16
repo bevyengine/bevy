@@ -1,5 +1,5 @@
 use bevy_asset::{Asset, Handle};
-use bevy_math::Vec4;
+use bevy_math::{Mat3, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     color::Color, mesh::MeshVertexBufferLayout, render_asset::RenderAssets, render_resource::*,
@@ -472,6 +472,9 @@ pub struct StandardMaterial {
     /// Default is [`DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID`] for default
     /// PBR deferred lighting pass. Ignored in the case of forward materials.
     pub deferred_lighting_pass_id: u8,
+
+    /// Texture UV transform.
+    pub uv_transform: Mat3,
 }
 
 impl Default for StandardMaterial {
@@ -520,6 +523,7 @@ impl Default for StandardMaterial {
             parallax_mapping_method: ParallaxMappingMethod::Occlusion,
             opaque_render_method: OpaqueRendererMethod::Auto,
             deferred_lighting_pass_id: DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID,
+            uv_transform: Mat3::IDENTITY,
         }
     }
 }
@@ -632,6 +636,8 @@ pub struct StandardMaterialUniform {
     pub max_relief_mapping_search_steps: u32,
     /// ID for specifying which deferred lighting pass should be used for rendering this material, if any.
     pub deferred_lighting_pass_id: u32,
+    /// Texture UV transform.
+    pub uv_transform: Mat3,
 }
 
 impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
@@ -729,6 +735,7 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             lightmap_exposure: self.lightmap_exposure,
             max_relief_mapping_search_steps: self.parallax_mapping_method.max_steps(),
             deferred_lighting_pass_id: self.deferred_lighting_pass_id as u32,
+            uv_transform: self.uv_transform,
         }
     }
 }
