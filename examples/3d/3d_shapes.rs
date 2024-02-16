@@ -64,14 +64,13 @@ fn setup(
         ));
     }
 
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            intensity: 1500000.0,
-            range: 100.,
+    commands.spawn(DirectionalLightBundle {
+        directional_light: DirectionalLight {
+            illuminance: light_consts::lux::OVERCAST_DAY,
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(8.0, 16.0, 8.0),
+        transform: Transform::from_xyz(8.0, 16.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
 

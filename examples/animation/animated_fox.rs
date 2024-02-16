@@ -8,10 +8,6 @@ use bevy::{animation::RepeatAnimation, pbr::CascadeShadowConfigBuilder, prelude:
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(AmbientLight {
-            color: Color::WHITE,
-            brightness: 150.0,
-        })
         .add_systems(Startup, setup)
         .add_systems(
             Update,
@@ -54,7 +50,6 @@ fn setup(
     commands.spawn(DirectionalLightBundle {
         transform: Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
         directional_light: DirectionalLight {
-            illuminance: 2000.0,
             shadows_enabled: true,
             ..default()
         },
