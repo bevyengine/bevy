@@ -1,4 +1,4 @@
-//! This example illustrates various ways of loading a TextureAtlasLayout
+//! This example illustrates various ways of loading a `TextureAtlasLayout`
 
 use bevy::prelude::*;
 #[derive(Component)]
