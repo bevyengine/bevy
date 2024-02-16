@@ -45,6 +45,7 @@ fn arc_bounding_points(arc: Arc2d, rotation: f32) -> SmallVec<[Vec2; 7]> {
         // If inverted = true, then right_angle > left_angle, so we are looking for an angle that is not between them.
         // There's a chance that this condition fails due to rounding error, if the endpoint angle is juuuust shy of the axis.
         // But in that case, the endpoint itself is within rounding error of the axis and will define the bounds just fine.
+        #[allow(clippy::nonminimal_bool)]
         if !inverted && angle >= right_angle && angle <= left_angle
             || inverted && (angle >= right_angle || angle <= left_angle)
         {
@@ -521,17 +522,16 @@ mod tests {
 
         for test in tests {
             println!("subtest case: {}", test.name);
-            let arc = test.arc;
-            let segment: CircularSegment = arc.clone().into();
+            let segment: CircularSegment = test.arc.into();
 
-            let arc_aabb = arc.aabb_2d(test.translation, test.rotation);
+            let arc_aabb = test.arc.aabb_2d(test.translation, test.rotation);
             assert_abs_diff_eq!(test.aabb_min, arc_aabb.min);
             assert_abs_diff_eq!(test.aabb_max, arc_aabb.max);
             let segment_aabb = segment.aabb_2d(test.translation, test.rotation);
             assert_abs_diff_eq!(test.aabb_min, segment_aabb.min);
             assert_abs_diff_eq!(test.aabb_max, segment_aabb.max);
 
-            let arc_bounding_circle = arc.bounding_circle(test.translation, test.rotation);
+            let arc_bounding_circle = test.arc.bounding_circle(test.translation, test.rotation);
             assert_abs_diff_eq!(test.bounding_circle_center, arc_bounding_circle.center);
             assert_abs_diff_eq!(test.bounding_circle_radius, arc_bounding_circle.radius());
             let segment_bounding_circle = segment.bounding_circle(test.translation, test.rotation);

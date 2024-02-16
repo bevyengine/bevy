@@ -4,11 +4,11 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    math::bounding::{Bounded2d, BoundingVolume},
     prelude::*,
     render::mesh::{CircularMeshUvMode, CircularSectorMeshBuilder, CircularSegmentMeshBuilder},
     sprite::MaterialMesh2dBundle,
 };
-use bevy_internal::math::bounding::{Bounded2d, BoundingVolume};
 
 fn main() {
     App::new()
@@ -59,7 +59,7 @@ fn setup(
         // We must rotate it both in the Transform and in the mesh's UV mappings.
         let sector_angle = -sector.half_angle();
         let sector_mesh =
-            CircularSectorMeshBuilder::new(sector.clone()).uv_mode(CircularMeshUvMode::Mask {
+            CircularSectorMeshBuilder::new(sector).uv_mode(CircularMeshUvMode::Mask {
                 angle: sector_angle,
             });
         commands.spawn((
@@ -86,7 +86,7 @@ fn setup(
         // so it is the negative of what you might otherwise expect.
         let segment_angle = -PI / 2.0;
         let segment_mesh =
-            CircularSegmentMeshBuilder::new(segment.clone()).uv_mode(CircularMeshUvMode::Mask {
+            CircularSegmentMeshBuilder::new(segment).uv_mode(CircularMeshUvMode::Mask {
                 angle: -segment_angle,
             });
         commands.spawn((
