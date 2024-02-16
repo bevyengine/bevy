@@ -45,8 +45,9 @@ impl Plugin for WireframePlugin {
                 (
                     global_color_changed.run_if(resource_changed::<WireframeConfig>),
                     wireframe_color_changed,
-                    apply_wireframe_material,
-                    apply_global_wireframe_material.run_if(resource_changed::<WireframeConfig>),
+                    // Run `apply_global_wireframe_material` after `apply_wireframe_material` so that the global
+                    // wireframe setting is applied to a mesh on the same frame its wireframe marker component is removed.
+                    (apply_wireframe_material, apply_global_wireframe_material).chain(),
                 ),
             );
     }
@@ -137,7 +138,8 @@ fn wireframe_color_changed(
     }
 }
 
-/// Applies or remove the wireframe material to any mesh with a [`Wireframe`] component.
+/// Applies or remove the wireframe material to any mesh with a [`Wireframe`] component, and removes it
+/// for any mesh with a [`NoWireframe`] component.
 fn apply_wireframe_material(
     mut commands: Commands,
     mut materials: ResMut<Assets<WireframeMaterial>>,
@@ -145,10 +147,11 @@ fn apply_wireframe_material(
         (Entity, Option<&WireframeColor>),
         (With<Wireframe>, Without<Handle<WireframeMaterial>>),
     >,
+    no_wireframes: Query<Entity, (With<NoWireframe>, With<Handle<WireframeMaterial>>)>,
     mut removed_wireframes: RemovedComponents<Wireframe>,
     global_material: Res<GlobalWireframeMaterial>,
 ) {
-    for e in removed_wireframes.read() {
+    for e in removed_wireframes.read().chain(no_wireframes.iter()) {
         if let Some(mut commands) = commands.get_entity(e) {
             commands.remove::<Handle<WireframeMaterial>>();
         }
@@ -171,7 +174,7 @@ fn apply_wireframe_material(
 
 type WireframeFilter = (With<Handle<Mesh>>, Without<Wireframe>, Without<NoWireframe>);
 
-/// Applies or removes a wireframe material on any mesh without a [`Wireframe`] component.
+/// Applies or removes a wireframe material on any mesh without a [`Wireframe`] or [`NoWireframe`] component.
 fn apply_global_wireframe_material(
     mut commands: Commands,
     config: Res<WireframeConfig>,

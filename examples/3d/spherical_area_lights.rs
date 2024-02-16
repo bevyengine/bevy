@@ -4,6 +4,10 @@ use bevy::prelude::*;
 
 fn main() {
     App::new()
+        .insert_resource(AmbientLight {
+            brightness: 60.0,
+            ..default()
+        })
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .run();
@@ -36,7 +40,7 @@ fn setup(
     let radius_range = 0.0..0.4;
     let pos_len = position_range.end - position_range.start;
     let radius_len = radius_range.end - radius_range.start;
-    let mesh = meshes.add(Sphere::new(0.5).mesh().uv(120, 64));
+    let mesh = meshes.add(Sphere::new(1.0).mesh().uv(120, 64));
 
     for i in 0..COUNT {
         let percent = i as f32 / COUNT as f32;
@@ -58,7 +62,6 @@ fn setup(
             .with_children(|children| {
                 children.spawn(PointLightBundle {
                     point_light: PointLight {
-                        intensity: 100_000.0,
                         radius,
                         color: Color::rgb(0.2, 0.2, 1.0),
                         ..default()

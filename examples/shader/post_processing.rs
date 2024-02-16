@@ -7,7 +7,7 @@
 
 use bevy::{
     core_pipeline::{
-        core_3d::graph::{Labels3d, SubGraph3d},
+        core_3d::graph::{Core3d, Node3d},
         fullscreen_vertex_shader::fullscreen_shader_vertex_state,
     },
     ecs::query::QueryItem,
@@ -78,18 +78,18 @@ impl Plugin for PostProcessPlugin {
             // matching the [`ViewQuery`]
             .add_render_graph_node::<ViewNodeRunner<PostProcessNode>>(
                 // Specify the label of the graph, in this case we want the graph for 3d
-                SubGraph3d,
+                Core3d,
                 // It also needs the label of the node
                 PostProcessLabel,
             )
             .add_render_graph_edges(
-                SubGraph3d,
+                Core3d,
                 // Specify the node ordering.
                 // This will automatically create all required node edges to enforce the given ordering.
                 (
-                    Labels3d::Tonemapping,
+                    Node3d::Tonemapping,
                     PostProcessLabel,
-                    Labels3d::EndMainPassPostProcessing,
+                    Node3d::EndMainPassPostProcessing,
                 ),
             );
     }
@@ -333,12 +333,11 @@ fn setup(
         Rotates,
     ));
     // light
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            intensity: 150_000.0,
+    commands.spawn(DirectionalLightBundle {
+        directional_light: DirectionalLight {
+            illuminance: 1_000.,
             ..default()
         },
-        transform: Transform::from_translation(Vec3::new(0.0, 0.0, 10.0)),
         ..default()
     });
 }

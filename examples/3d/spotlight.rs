@@ -2,24 +2,16 @@
 
 use std::f32::consts::*;
 
-use bevy::{
-    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
-    pbr::NotShadowCaster,
-    prelude::*,
-};
+use bevy::{pbr::NotShadowCaster, prelude::*};
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
 fn main() {
     App::new()
         .insert_resource(AmbientLight {
-            brightness: 4.0,
+            brightness: 20.0,
             ..default()
         })
-        .add_plugins((
-            DefaultPlugins,
-            FrameTimeDiagnosticsPlugin,
-            LogDiagnosticsPlugin::default(),
-        ))
+        .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, (light_sway, movement))
         .run();
@@ -82,7 +74,7 @@ fn setup(
                     transform: Transform::from_xyz(1.0 + x, 2.0, z)
                         .looking_at(Vec3::new(1.0 + x, 0.0, z), Vec3::X),
                     spot_light: SpotLight {
-                        intensity: 100_000.0, // lumens
+                        intensity: 4000.0, // lumens
                         color: Color::WHITE,
                         shadows_enabled: true,
                         inner_angle: PI / 4.0 * 0.85,
@@ -111,14 +103,14 @@ fn setup(
     }
 
     // camera
-    commands.spawn((Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         camera: Camera {
             hdr: true,
             ..default()
         },
         transform: Transform::from_xyz(-4.0, 5.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
-    },));
+    });
 }
 
 fn light_sway(time: Res<Time>, mut query: Query<(&mut Transform, &mut SpotLight)>) {

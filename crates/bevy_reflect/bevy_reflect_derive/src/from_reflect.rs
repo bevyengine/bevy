@@ -98,7 +98,7 @@ fn impl_struct_internal(
     let MemberValuePair(active_members, active_values) =
         get_active_fields(reflect_struct, &ref_struct, &ref_struct_type, is_tuple);
 
-    let is_defaultable = reflect_struct.meta().traits().contains(REFLECT_DEFAULT);
+    let is_defaultable = reflect_struct.meta().attrs().contains(REFLECT_DEFAULT);
     let constructor = if is_defaultable {
         quote!(
             let mut __this: Self = #FQDefault::default();
