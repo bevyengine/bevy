@@ -1596,6 +1596,7 @@ pub fn queue_shadows<M: Material>(
     render_material_instances: Res<RenderMaterialInstances<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
+    render_lightmaps: Res<RenderLightmaps>,
     view_lights: Query<(Entity, &ViewLightEntities)>,
     mut view_light_shadow_phases: Query<(&LightEntity, &mut RenderPhase<Shadow>)>,
     point_light_entities: Query<&CubemapVisibleEntities, With<ExtractedPointLight>>,
@@ -1661,6 +1662,16 @@ pub fn queue_shadows<M: Material>(
                 if is_directional_light {
                     mesh_key |= MeshPipelineKey::DEPTH_CLAMP_ORTHO;
                 }
+
+                // Even though we don't use the lightmap in the shadow map, the
+                // `SetMeshBindGroup` render command will bind the data for it. So
+                // we need to include the appropriate flag in the mesh pipeline key
+                // to ensure that the necessary bind group layout entries are
+                // present.
+                if render_lightmaps.render_lightmaps.contains_key(&entity) {
+                    mesh_key |= MeshPipelineKey::LIGHTMAPPED;
+                }
+
                 mesh_key |= match material.properties.alpha_mode {
                     AlphaMode::Mask(_)
                     | AlphaMode::Blend
