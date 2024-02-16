@@ -655,7 +655,7 @@ impl FinishExt for proc_macro2::TokenStream {
             Some(utility::DeprecationWarning {
                 span,
                 name: "ReflectDebug",
-                note: "`#[reflect(Debug)]` syntax is deprecated, the functionality is now builtin\nremove this registraition",
+                note: "`#[reflect(Debug)]` syntax is deprecated, the functionality is now builtin\nremove this registration",
                 since: "0.13.0",
             })
         });
