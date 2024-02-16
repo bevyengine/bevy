@@ -7,6 +7,10 @@ use bevy::{animation::RepeatAnimation, pbr::CascadeShadowConfigBuilder, prelude:
 
 fn main() {
     App::new()
+        .insert_resource(AmbientLight {
+            color: Color::WHITE,
+            brightness: 2000.,
+        })
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(

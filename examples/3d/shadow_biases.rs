@@ -3,10 +3,7 @@
 #[path = "../helpers/camera_controller.rs"]
 mod camera_controller;
 
-use bevy::{
-    pbr::{light_consts, ShadowFilteringMethod},
-    prelude::*,
-};
+use bevy::{pbr::ShadowFilteringMethod, prelude::*};
 use camera_controller::{CameraController, CameraControllerPlugin};
 
 fn main() {
@@ -71,7 +68,6 @@ fn setup(
             });
             builder.spawn(DirectionalLightBundle {
                 directional_light: DirectionalLight {
-                    illuminance: light_consts::lux::OVERCAST_DAY,
                     shadow_depth_bias: 0.0,
                     shadow_normal_bias: 0.0,
                     shadows_enabled: true,

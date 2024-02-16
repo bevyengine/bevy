@@ -5,8 +5,8 @@ mod upsampling_pipeline;
 pub use settings::{BloomCompositeMode, BloomPrefilterSettings, BloomSettings};
 
 use crate::{
-    core_2d::graph::{Labels2d, SubGraph2d},
-    core_3d::graph::{Labels3d, SubGraph3d},
+    core_2d::graph::{Core2d, Node2d},
+    core_3d::graph::{Core3d, Node3d},
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
@@ -72,20 +72,16 @@ impl Plugin for BloomPlugin {
                 ),
             )
             // Add bloom to the 3d render graph
-            .add_render_graph_node::<ViewNodeRunner<BloomNode>>(SubGraph3d, Labels3d::Bloom)
+            .add_render_graph_node::<ViewNodeRunner<BloomNode>>(Core3d, Node3d::Bloom)
             .add_render_graph_edges(
-                SubGraph3d,
-                (
-                    Labels3d::EndMainPass,
-                    Labels3d::Bloom,
-                    Labels3d::Tonemapping,
-                ),
+                Core3d,
+                (Node3d::EndMainPass, Node3d::Bloom, Node3d::Tonemapping),
             )
             // Add bloom to the 2d render graph
-            .add_render_graph_node::<ViewNodeRunner<BloomNode>>(SubGraph2d, Labels2d::Bloom)
+            .add_render_graph_node::<ViewNodeRunner<BloomNode>>(Core2d, Node2d::Bloom)
             .add_render_graph_edges(
-                SubGraph2d,
-                (Labels2d::MainPass, Labels2d::Bloom, Labels2d::Tonemapping),
+                Core2d,
+                (Node2d::MainPass, Node2d::Bloom, Node2d::Tonemapping),
             );
     }
 

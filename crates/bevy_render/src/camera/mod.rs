@@ -30,6 +30,8 @@ impl Plugin for CameraPlugin {
             .register_type::<RenderTarget>()
             .register_type::<ClearColor>()
             .register_type::<ClearColorConfig>()
+            .register_type::<CameraRenderGraph>()
+            .register_type::<CameraMainTextureUsages>()
             .init_resource::<ManualTextureViews>()
             .init_resource::<ClearColor>()
             .add_plugins((
