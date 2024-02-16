@@ -89,7 +89,8 @@ pub struct ComputedCameraValues {
 /// How much energy a `Camera3d` absorbs from incoming light.
 ///
 /// <https://en.wikipedia.org/wiki/Exposure_(photography)>
-#[derive(Component)]
+#[derive(Component, Clone, Copy, Reflect)]
+#[reflect_value(Component)]
 pub struct Exposure {
     /// <https://en.wikipedia.org/wiki/Exposure_value#Tabulated_exposure_values>
     pub ev100: f32,
