@@ -197,6 +197,7 @@ Example | Description
 [Custom Asset IO](../examples/asset/custom_asset_reader.rs) | Implements a custom AssetReader
 [Embedded Asset](../examples/asset/embedded_asset.rs) | Embed an asset in the application binary and load it
 [Hot Reloading of Assets](../examples/asset/hot_asset_reloading.rs) | Demonstrates automatic reloading of assets when modified on disk
+[Loading a TextureAtlasLayout](../examples/asset/texture_atlas_loading.rs) | Demonstrates various methods of loading TextureAtlasLayouts
 
 ## Async Tasks
 
