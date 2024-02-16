@@ -819,8 +819,7 @@ fn load_material(
 
         let uv_transform = pbr
             .base_color_texture()
-            .map(|info| info.texture_transform().map(texture_transform_mat3))
-            .flatten()
+            .and_then(|info| info.texture_transform().map(texture_transform_mat3))
             .unwrap_or_default();
 
         let normal_map_texture: Option<Handle<Image>> =
