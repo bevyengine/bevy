@@ -6,6 +6,9 @@ description = "Benchmarks for Bevy engine"
 publish = false
 license = "MIT OR Apache-2.0"
 
+[lints]
+workspace = true
+
 [dev-dependencies]
 glam = "0.25"
 rand = "0.8"
