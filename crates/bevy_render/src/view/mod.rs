@@ -493,8 +493,9 @@ pub fn prepare_view_targets(
                 };
 
                 let clear_color = match camera.clear_color {
-                    ClearColorConfig::Custom(color) => color,
-                    _ => clear_color_global.0,
+                    ClearColorConfig::Custom(color) => Some(color),
+                    ClearColorConfig::None => None,
+                    _ => Some(clear_color_global.0),
                 };
 
                 let (a, b, sampled) = textures
