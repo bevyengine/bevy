@@ -194,7 +194,7 @@ fn draw_example_collection(
 
     // You can create more complex arrows using the arrow builder.
     let mut arrow_builder =
-        gizmos.arrow(Vec3::ZERO, Vec3::from_array([-1.5, 1.5, 1.5]), Color::GREEN);
+        gizmos.arrow(Vec3::from_array([2., 0., 2.]), Vec3::from_array([2., 2., 2.]), Color::ORANGE_RED);
     arrow_builder.with_double_end();
     arrow_builder.with_tip_length(0.5);
 }
