@@ -26,7 +26,9 @@ rand = "0.8"
 rand_chacha = "0.3"
 # Enable the approx feature when testing.
 bevy_math = { path = ".", version = "0.14.0-dev", features = ["approx"] }
-glam = { features = ["approx"] }
+glam = { version = "0.25", features = ["approx"] }
+smallvec = { version = "1.11" }
+
 
 [features]
 default = ["rand"]

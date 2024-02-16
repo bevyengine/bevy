@@ -2,9 +2,10 @@
 
 use std::f32::consts::PI;
 
-use bevy::{prelude::*, sprite::MaterialMesh2dBundle};
-use bevy_internal::render::mesh::{
-    CircularMeshUvMode, CircularSectorMeshBuilder, CircularSegmentMeshBuilder,
+use bevy::{
+    prelude::*,
+    render::mesh::{CircularMeshUvMode, CircularSectorMeshBuilder, CircularSegmentMeshBuilder},
+    sprite::MaterialMesh2dBundle,
 };
 
 fn main() {
