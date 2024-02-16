@@ -1,6 +1,5 @@
 use bevy_asset::{ron, AssetLoader, AsyncReadExt};
 use bevy_math::{Rect, UVec2, Vec2};
-use bevy_render::texture::Image;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -94,10 +93,10 @@ impl AssetLoader for TextureAtlasLoader {
 
                     let mut textures = vec![];
                     for texture_path in atlas_ser.textures.iter() {
-                        let texture: Image = load_context
+                        let texture = load_context
                             .load_direct(texture_path)
-                            .await
-                            .map(|asset| asset.take())?
+                            .await?
+                            .take()
                             .ok_or_else(|| {
                                 TextureAtlasError::NotATextureError(texture_path.clone())
                             })?;
@@ -111,7 +110,7 @@ impl AssetLoader for TextureAtlasLoader {
                     }
 
                     let (atlas, img) = builder.finish()?;
-                    load_context.add_labeled_asset("computed_texture".into(), img);
+                    load_context.add_labeled_asset("composed_texture".into(), img);
 
                     Ok(atlas)
                 });
