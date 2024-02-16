@@ -394,53 +394,64 @@ impl ExecutorState {
 
         // can't borrow since loop mutably borrows `self`
         let mut ready_systems = std::mem::take(&mut self.ready_systems_copy);
-        ready_systems.clear();
-        ready_systems.union_with(&self.ready_systems);
 
-        for system_index in ready_systems.ones() {
-            assert!(!self.running_systems.contains(system_index));
-            // SAFETY: Caller assured that these systems are not running.
-            // Therefore, no other reference to this system exists and there is no aliasing.
-            let system = unsafe { &mut *context.systems[system_index].get() };
+        // Skipping systems may cause their dependents to become ready immediately.
+        // If that happens, we need to run again immediately or we may fail to spawn those dependents.
+        let mut check_for_new_ready_systems = true;
+        while check_for_new_ready_systems {
+            check_for_new_ready_systems = false;
 
-            if !self.can_run(system_index, system, context.conditions, context.world_cell) {
-                // NOTE: exclusive systems with ambiguities are susceptible to
-                // being significantly displaced here (compared to single-threaded order)
-                // if systems after them in topological order can run
-                // if that becomes an issue, `break;` if exclusive system
-                continue;
-            }
+            ready_systems.clear();
+            ready_systems.union_with(&self.ready_systems);
 
-            self.ready_systems.set(system_index, false);
+            for system_index in ready_systems.ones() {
+                assert!(!self.running_systems.contains(system_index));
+                // SAFETY: Caller assured that these systems are not running.
+                // Therefore, no other reference to this system exists and there is no aliasing.
+                let system = unsafe { &mut *context.systems[system_index].get() };
 
-            // SAFETY: `can_run` returned true, which means that:
-            // - It must have called `update_archetype_component_access` for each run condition.
-            // - There can be no systems running whose accesses would conflict with any conditions.
-            if unsafe {
-                !self.should_run(system_index, system, context.conditions, context.world_cell)
-            } {
-                self.skip_system_and_signal_dependents(system_index);
-                continue;
-            }
-
-            self.running_systems.insert(system_index);
-            self.num_running_systems += 1;
-
-            if self.system_task_metadata[system_index].is_exclusive {
-                // SAFETY: `can_run` returned true for this system,
-                // which means no systems are currently borrowed.
-                unsafe {
-                    self.spawn_exclusive_system_task(context, system_index);
+                if !self.can_run(system_index, system, context.conditions, context.world_cell) {
+                    // NOTE: exclusive systems with ambiguities are susceptible to
+                    // being significantly displaced here (compared to single-threaded order)
+                    // if systems after them in topological order can run
+                    // if that becomes an issue, `break;` if exclusive system
+                    continue;
                 }
-                break;
-            }
 
-            // SAFETY:
-            // - No other reference to this system exists.
-            // - `can_run` has been called, which calls `update_archetype_component_access` with this system.
-            // - `can_run` returned true, so no systems with conflicting world access are running.
-            unsafe {
-                self.spawn_system_task(context, system_index);
+                self.ready_systems.set(system_index, false);
+
+                // SAFETY: `can_run` returned true, which means that:
+                // - It must have called `update_archetype_component_access` for each run condition.
+                // - There can be no systems running whose accesses would conflict with any conditions.
+                if unsafe {
+                    !self.should_run(system_index, system, context.conditions, context.world_cell)
+                } {
+                    self.skip_system_and_signal_dependents(system_index);
+                    // signal_dependents may have set more systems to ready.
+                    check_for_new_ready_systems = true;
+                    continue;
+                }
+
+                self.running_systems.insert(system_index);
+                self.num_running_systems += 1;
+
+                if self.system_task_metadata[system_index].is_exclusive {
+                    // SAFETY: `can_run` returned true for this system,
+                    // which means no systems are currently borrowed.
+                    unsafe {
+                        self.spawn_exclusive_system_task(context, system_index);
+                    }
+                    check_for_new_ready_systems = false;
+                    break;
+                }
+
+                // SAFETY:
+                // - No other reference to this system exists.
+                // - `can_run` has been called, which calls `update_archetype_component_access` with this system.
+                // - `can_run` returned true, so no systems with conflicting world access are running.
+                unsafe {
+                    self.spawn_system_task(context, system_index);
+                }
             }
         }
 
@@ -778,5 +789,38 @@ impl MainThreadExecutor {
     /// Creates a new executor that can be used to run systems on the main thread.
     pub fn new() -> Self {
         MainThreadExecutor(TaskPool::get_thread_executor())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        self as bevy_ecs,
+        prelude::Resource,
+        schedule::{ExecutorKind, IntoSystemConfigs, Schedule},
+        system::Commands,
+        world::World,
+    };
+
+    #[derive(Resource)]
+    struct R;
+
+    #[test]
+    fn skipped_systems_notify_dependents() {
+        let mut world = World::new();
+        let mut schedule = Schedule::default();
+        schedule.set_executor_kind(ExecutorKind::MultiThreaded);
+        schedule.add_systems(
+            (
+                (|| {}).run_if(|| false),
+                // This system depends on a sytem that is always skipped.
+                |mut commands: Commands| {
+                    commands.insert_resource(R);
+                },
+            )
+                .chain(),
+        );
+        schedule.run(&mut world);
+        assert!(world.get_resource::<R>().is_some());
     }
 }
