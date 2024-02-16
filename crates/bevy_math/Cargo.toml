@@ -12,10 +12,11 @@ keywords = ["bevy"]
 glam = { version = "0.25", features = ["bytemuck"] }
 serde = { version = "1", features = ["derive"], optional = true }
 approx = { version = "0.5", optional = true }
+smallvec = { version = "1.11" }
 
 [dev-dependencies]
 approx = "0.5"
-glam = { features = ["approx"] }
+glam = { version = "0.25", features = ["approx"] }
 
 [features]
 serialize = ["dep:serde", "glam/serde"]
