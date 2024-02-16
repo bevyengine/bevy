@@ -190,8 +190,7 @@ const HALF_PI: f32 = PI / 2.0;
 /// either side. The center of the circle is the origin [`Vec2::ZERO`]. Note that this
 /// means that the origin may not be within the `Arc2d`'s convex hull.
 ///
-/// **Warning:** Arcs with negative angle, or with angle greater than an entire circle,
-/// are not officially supported.
+/// **Warning:** Arcs with negative angle or radius, or with angle greater than an entire circle, are not officially supported.
 /// We recommend normalizing arcs to have an angle in [0, 2π].
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[doc(alias("CircularArc", "CircleArc"))]
@@ -358,8 +357,7 @@ impl Arc2d {
 /// To orient the sector differently, apply a rotation.
 /// The sector is drawn with the center of its circle at the origin [`Vec2::ZERO`].
 ///
-/// **Warning:** Circular sectors with negative angle, or with angle greater than an entire circle,
-/// are not officially supported.
+/// **Warning:** Circular sectors with negative angle or radius, or with angle greater than an entire circle, are not officially supported.
 /// We recommend normalizing circular sectors to have an angle in [0, 2π].
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -492,8 +490,7 @@ impl CircularSector {
 /// The segment is drawn with the center of its circle at the origin [`Vec2::ZERO`].
 /// When positioning a segment, the [`apothem`](Self::apothem) function may be particularly useful.
 ///
-/// **Warning:** Circular segments with negative angle, or with angle greater than an entire circle,
-/// are not officially supported.
+/// **Warning:** Circular segments with negative angle or radius, or with angle greater than an entire circle, are not officially supported.
 /// We recommend normalizing circular segments to have an angle in [0, 2π].
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
