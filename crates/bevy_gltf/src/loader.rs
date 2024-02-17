@@ -8,7 +8,7 @@ use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{entity::Entity, world::World};
 use bevy_hierarchy::{BuildWorldChildren, WorldChildBuilder};
 use bevy_log::{error, warn};
-use bevy_math::{Mat3, Mat4, Vec3};
+use bevy_math::{Affine2, Mat4, Vec3};
 use bevy_pbr::{
     AlphaMode, DirectionalLight, DirectionalLightBundle, PbrBundle, PointLight, PointLightBundle,
     SpotLight, SpotLightBundle, StandardMaterial, MAX_JOINTS,
@@ -35,6 +35,7 @@ use bevy_scene::Scene;
 use bevy_tasks::IoTaskPool;
 use bevy_transform::components::Transform;
 use bevy_utils::{HashMap, HashSet};
+use gltf::texture::Info;
 use gltf::{
     accessor::Iter,
     mesh::{util::ReadIndices, Mode},
@@ -791,15 +792,6 @@ async fn load_image<'a, 'b>(
     }
 }
 
-/// Converts [`TextureTransform`] to [`Mat3`].
-fn texture_transform_mat3(texture_transform: TextureTransform) -> Mat3 {
-    Mat3::from_scale_angle_translation(
-        texture_transform.scale().into(),
-        -texture_transform.rotation(),
-        texture_transform.offset().into(),
-    )
-}
-
 /// Loads a glTF material as a bevy [`StandardMaterial`] and returns it.
 fn load_material(
     material: &Material,
@@ -819,7 +811,10 @@ fn load_material(
 
         let uv_transform = pbr
             .base_color_texture()
-            .and_then(|info| info.texture_transform().map(texture_transform_mat3))
+            .and_then(|info| {
+                info.texture_transform()
+                    .map(convert_texture_transform_to_affine2)
+            })
             .unwrap_or_default();
 
         let normal_map_texture: Option<Handle<Image>> =
@@ -831,9 +826,12 @@ fn load_material(
 
         let metallic_roughness_texture = pbr.metallic_roughness_texture().map(|info| {
             // TODO: handle info.tex_coord() (the *set* index for the right texcoords)
-            if info.texture_transform().map(texture_transform_mat3) != Some(uv_transform) {
-                warn!("Only the texture transform on the base color texture is supported, ignoring the texture transform on the metallic/roughness texture");
-            }
+            warn_on_differing_texture_transforms(
+                material,
+                &info,
+                uv_transform,
+                "metallic/roughness",
+            );
             texture_handle(load_context, &info.texture())
         });
 
@@ -847,9 +845,7 @@ fn load_material(
         let emissive_texture = material.emissive_texture().map(|info| {
             // TODO: handle occlusion_texture.tex_coord() (the *set* index for the right texcoords)
             // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
-            if info.texture_transform().map(texture_transform_mat3) != Some(uv_transform) {
-                warn!("Only the texture transform on the base color texture is supported, ignoring the texture transform on the emissive texture");
-            }
+            warn_on_differing_texture_transforms(material, &info, uv_transform, "emissive");
             texture_handle(load_context, &info.texture())
         });
 
@@ -941,6 +937,40 @@ fn load_material(
             ..Default::default()
         }
     })
+}
+
+fn convert_texture_transform_to_affine2(texture_transform: TextureTransform) -> Affine2 {
+    Affine2::from_scale_angle_translation(
+        texture_transform.scale().into(),
+        -texture_transform.rotation(),
+        texture_transform.offset().into(),
+    )
+}
+
+fn warn_on_differing_texture_transforms(
+    material: &Material,
+    info: &Info,
+    texture_transform: Affine2,
+    texture_kind: &str,
+) {
+    let has_same_texture_transform = info
+        .texture_transform()
+        .map(convert_texture_transform_to_affine2)
+        == Some(texture_transform);
+    if !has_same_texture_transform {
+        let material_name = material
+            .name()
+            .map(|n| format!("the material \"{n}\""))
+            .unwrap_or_else(|| "an unnamed material".to_string());
+        let texture_name = info
+            .texture()
+            .name()
+            .map(|n| format!("its {texture_kind} texture \"{n}\""))
+            .unwrap_or_else(|| format!("its unnamed {texture_kind} texture"));
+        warn!(
+            "Only texture transforms on base color textures are supported, but {material_name} has a texture transform on {texture_name}, which will be ignored.",
+        );
+    }
 }
 
 /// Loads a glTF node.
