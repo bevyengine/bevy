@@ -473,7 +473,7 @@ pub struct StandardMaterial {
     /// PBR deferred lighting pass. Ignored in the case of forward materials.
     pub deferred_lighting_pass_id: u8,
 
-    /// The transform applied to the UVs of the material before sampling. Default is identity.
+    /// The transform applied to the UVs corresponding to ATTRIBUTE_UV_0 on the mesh before sampling. Default is identity.
     pub uv_transform: Affine2,
 }
 
@@ -636,7 +636,7 @@ pub struct StandardMaterialUniform {
     pub max_relief_mapping_search_steps: u32,
     /// ID for specifying which deferred lighting pass should be used for rendering this material, if any.
     pub deferred_lighting_pass_id: u32,
-    /// The transform applied to the UVs of the material before sampling. Default is identity.
+    /// The transform applied to the UVs corresponding to ATTRIBUTE_UV_0 on the mesh before sampling. Default is identity.
     pub uv_transform: Mat3,
 }
 
