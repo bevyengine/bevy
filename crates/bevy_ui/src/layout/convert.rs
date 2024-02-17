@@ -252,6 +252,7 @@ impl From<PositionType> for taffy::style::Position {
         match value {
             PositionType::Relative => taffy::style::Position::Relative,
             PositionType::Absolute => taffy::style::Position::Absolute,
+            PositionType::Fixed => taffy::style::Position::Absolute,
         }
     }
 }

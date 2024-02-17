@@ -1,7 +1,7 @@
 mod convert;
 pub mod debug;
 
-use crate::{ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiScale};
+use crate::{ContentSize, DefaultUiCamera, Node, Outline, PositionType, Style, TargetCamera, UiScale};
 use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
@@ -336,7 +336,10 @@ pub fn ui_layout_system(
         }
     }
 
+    let mut fixed_nodes: HashSet<Entity> = HashSet::new();
+
     // Resize all nodes
+    // Create our set of fixed nodes
     for (entity, style, target_camera) in style_query.iter() {
         if let Some(camera) =
             camera_with_default(target_camera).and_then(|c| camera_layout_info.get(&c))
@@ -352,6 +355,10 @@ pub fn ui_layout_system(
                 );
                 ui_surface.upsert_node(entity, &style, &layout_context);
             }
+        }
+
+        if style.position_type == PositionType::Fixed {
+            fixed_nodes.insert(entity);
         }
     }
     scale_factor_events.clear();
@@ -396,7 +403,9 @@ pub fn ui_layout_system(
                 &just_children_query,
                 inverse_target_scale_factor,
                 Vec2::ZERO,
+                None,
                 Vec2::ZERO,
+                &fixed_nodes
             );
         }
     }
@@ -408,14 +417,25 @@ pub fn ui_layout_system(
         children_query: &Query<&Children>,
         inverse_target_scale_factor: f32,
         parent_size: Vec2,
+        parent_location: Option<Vec2>,
         mut absolute_location: Vec2,
+        fixed_nodes: &HashSet<Entity>,
     ) {
         if let Ok((mut node, mut transform)) = node_transform_query.get_mut(entity) {
+
             let layout = ui_surface.get_layout(entity).unwrap();
             let layout_size =
                 inverse_target_scale_factor * Vec2::new(layout.size.width, layout.size.height);
-            let layout_location =
+            
+            let mut layout_location =
                 inverse_target_scale_factor * Vec2::new(layout.location.x, layout.location.y);
+            
+            // A fixed node ignores it's parent's location
+            if fixed_nodes.contains(&entity) {
+                if let Some(parent_location) = parent_location {
+                    layout_location -= parent_location;
+                }
+            }
 
             absolute_location += layout_location;
 
@@ -442,7 +462,9 @@ pub fn ui_layout_system(
                         children_query,
                         inverse_target_scale_factor,
                         rounded_size,
+                        Some(rounded_location),
                         absolute_location,
+                        fixed_nodes,
                     );
                 }
             }
