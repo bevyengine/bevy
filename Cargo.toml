@@ -428,7 +428,7 @@ wasm = true
 
 [[example]]
 name = "2d_gizmos"
-path = "examples/2d/2d_gizmos.rs"
+path = "examples/gizmos/2d_gizmos.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.2d_gizmos]
@@ -613,7 +613,7 @@ wasm = false
 
 [[example]]
 name = "3d_gizmos"
-path = "examples/3d/3d_gizmos.rs"
+path = "examples/gizmos/3d_gizmos.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.3d_gizmos]
