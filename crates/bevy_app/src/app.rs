@@ -140,9 +140,13 @@ pub struct SubApp {
     /// The [`SubApp`]'s instance of [`App`]
     pub app: App,
 
-    /// A function that allows access to both the main [`App`] [`World`] and the [`SubApp`]. This is
+    /// A function that allows access to both the main [`App`] [`World`] and the [`SubApp`] before the sub app updates. This is
     /// useful for moving data between the sub app and the main app.
     extract: Box<dyn Fn(&mut World, &mut App) + Send>,
+
+    /// A function that allows access to both the main [`App`] [`World`] and the [`SubApp`] after the sub app updates. This is
+    /// useful for moving data between the sub app and the main app.
+    insert: Box<dyn Fn(&mut World, &mut App) + Send>,
 }
 
 impl SubApp {
@@ -156,7 +160,19 @@ impl SubApp {
         Self {
             app,
             extract: Box::new(extract),
+            insert: Box::new(|_, _| ()),
         }
+    }
+
+    /// Adds a function to be called after [`update`](App::update).
+    ///
+    /// The provided function `insert` is normally called by the [`update`](App::update) method.
+    /// Before insert is called, the [`Schedule`] of the sub app is run. The [`World`]
+    /// parameter represents the main app world, while the [`App`] parameter is just a mutable
+    /// reference to the `SubApp` itself.
+    pub fn with_insert(mut self, insert: impl Fn(&mut World, &mut App) + Send + 'static) -> Self {
+        self.insert = Box::new(insert);
+        self
     }
 
     /// Runs the [`SubApp`]'s default schedule.
@@ -168,6 +184,11 @@ impl SubApp {
     /// Extracts data from main world to this sub-app.
     pub fn extract(&mut self, main_world: &mut World) {
         (self.extract)(main_world, &mut self.app);
+    }
+
+    /// Inserts data from this sub-app to the main world.
+    pub fn insert(&mut self, main_world: &mut World) {
+        (self.insert)(main_world, &mut self.app);
     }
 }
 
@@ -267,6 +288,7 @@ impl App {
             let _sub_app_span = info_span!("sub app", name = ?_label).entered();
             sub_app.extract(&mut self.world);
             sub_app.run();
+            sub_app.insert(&mut self.world);
         }
 
         self.world.clear_trackers();
