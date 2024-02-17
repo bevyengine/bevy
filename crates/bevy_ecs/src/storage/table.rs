@@ -6,7 +6,7 @@ use crate::{
 };
 use bevy_ptr::{OwningPtr, Ptr, PtrMut, UnsafeCellDeref};
 use bevy_utils::HashMap;
-use std::alloc::Layout;
+use std::{alloc::Layout, sync::atomic::AtomicU32};
 use std::{
     cell::UnsafeCell,
     ops::{Index, IndexMut},
@@ -152,6 +152,7 @@ pub struct Column {
     data: BlobVec,
     added_ticks: Vec<UnsafeCell<Tick>>,
     changed_ticks: Vec<UnsafeCell<Tick>>,
+    last_mutable_access_tick: AtomicU32,
 }
 
 impl Column {
@@ -163,6 +164,7 @@ impl Column {
             data: unsafe { BlobVec::new(component_info.layout(), component_info.drop(), capacity) },
             added_ticks: Vec::with_capacity(capacity),
             changed_ticks: Vec::with_capacity(capacity),
+            last_mutable_access_tick: AtomicU32::new(0),
         }
     }
 
@@ -181,6 +183,7 @@ impl Column {
     #[inline]
     pub(crate) unsafe fn initialize(&mut self, row: TableRow, data: OwningPtr<'_>, tick: Tick) {
         debug_assert!(row.as_usize() < self.len());
+        self.update_last_mutable_access_tick(tick);
         self.data.initialize_unchecked(row.as_usize(), data);
         *self.added_ticks.get_unchecked_mut(row.as_usize()).get_mut() = tick;
         *self
@@ -197,6 +200,7 @@ impl Column {
     #[inline]
     pub(crate) unsafe fn replace(&mut self, row: TableRow, data: OwningPtr<'_>, change_tick: Tick) {
         debug_assert!(row.as_usize() < self.len());
+        self.update_last_mutable_access_tick(change_tick);
         self.data.replace_unchecked(row.as_usize(), data);
         *self
             .changed_ticks
@@ -288,6 +292,7 @@ impl Column {
     /// # Safety
     /// `ptr` must point to valid data of this column's component type
     pub(crate) unsafe fn push(&mut self, ptr: OwningPtr<'_>, ticks: ComponentTicks) {
+        self.update_last_mutable_access_tick(ticks.changed);
         self.data.push(ptr);
         self.added_ticks.push(UnsafeCell::new(ticks.added));
         self.changed_ticks.push(UnsafeCell::new(ticks.changed));
@@ -501,6 +506,18 @@ impl Column {
             component_ticks.get_mut().check_tick(change_tick);
         }
     }
+    pub fn read_last_mutable_access_tick(&self) -> Tick {
+        Tick::new(
+            self.last_mutable_access_tick
+                .load(std::sync::atomic::Ordering::Relaxed),
+        )
+    }
+    pub fn update_last_mutable_access_tick(&self, tick: Tick) {
+        // self.last_mutable_access_tick
+        //     .store(tick.get(), std::sync::atomic::Ordering::Relaxed);
+        self.last_mutable_access_tick
+            .fetch_max(tick.get(), std::sync::atomic::Ordering::AcqRel);
+    }
 }
 
 /// A builder type for constructing [`Table`]s.
@@ -541,6 +558,7 @@ impl TableBuilder {
         Table {
             columns: self.columns.into_immutable(),
             entities: Vec::with_capacity(self.capacity),
+            last_mutable_access_tick: AtomicU32::new(0),
         }
     }
 }
@@ -560,6 +578,7 @@ impl TableBuilder {
 pub struct Table {
     columns: ImmutableSparseSet<ComponentId, Column>,
     entities: Vec<Entity>,
+    last_mutable_access_tick: AtomicU32,
 }
 
 impl Table {
@@ -788,6 +807,28 @@ impl Table {
         for column in self.columns.values_mut() {
             column.clear();
         }
+    }
+
+    pub fn read_last_mutable_access_tick(&self) -> Tick {
+        Tick::new(
+            self.last_mutable_access_tick
+                .load(std::sync::atomic::Ordering::Relaxed),
+        )
+    }
+
+    pub(crate) fn update_last_mutable_access_tick(&self, tick: Tick) {
+        self.last_mutable_access_tick
+            .fetch_max(tick.get(), std::sync::atomic::Ordering::AcqRel);
+    }
+
+    pub(crate) fn update_table_and_component_access_tick(
+        &self,
+        component_id: ComponentId,
+        tick: Tick,
+    ) {
+        self.update_last_mutable_access_tick(tick);
+        self.get_column(component_id)
+            .map(|c| c.update_last_mutable_access_tick(tick));
     }
 }
 
