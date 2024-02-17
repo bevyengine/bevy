@@ -8,6 +8,8 @@
     light_probes,
 };
 
+#ifdef IRRADIANCE_VOLUMES_ARE_USABLE
+
 // See:
 // https://advances.realtimerendering.com/s2006/Mitchell-ShadingInValvesSourceEngine.pdf
 // Slide 28, "Ambient Cube Basis"
@@ -50,3 +52,5 @@ fn irradiance_volume_light(world_position: vec3<f32>, N: vec3<f32>) -> vec3<f32>
     let NN = N * N;
     return (rgb_x * NN.x + rgb_y * NN.y + rgb_z * NN.z) * query_result.intensity;
 }
+
+#endif  // IRRADIANCE_VOLUMES_ARE_USABLE
