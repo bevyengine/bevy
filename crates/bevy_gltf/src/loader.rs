@@ -967,8 +967,13 @@ fn warn_on_differing_texture_transforms(
             .name()
             .map(|n| format!("its {texture_kind} texture \"{n}\""))
             .unwrap_or_else(|| format!("its unnamed {texture_kind} texture"));
+        let material_index = material
+            .index()
+            .map(|i| format!("index {i}"))
+            .unwrap_or_else(|| "default".to_string());
         warn!(
-            "Only texture transforms on base color textures are supported, but {material_name} has a texture transform on {texture_name}, which will be ignored.",
+            "Only texture transforms on base color textures are supported, but {material_name} ({material_index}) \
+            has a texture transform on {texture_name} (index {}), which will be ignored.", info.texture().index()
         );
     }
 }
