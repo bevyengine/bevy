@@ -95,7 +95,7 @@ impl Plugin for SubAppPlugin {
         // We can pass either a closure or a function which takes mutable
         // references main app's world and our sub app's app
         // Note we also setup a post-sync function
-        let sub_app = SubApp::new(our_sub_app, pre_sync).with_insert(post_sync);
+        let sub_app = SubApp::new(our_sub_app, pre_sync).with_finish(post_sync);
         // Finally we can insert our SubApp into the main app
         app.insert_sub_app(SubAppLabel, sub_app);
     }
