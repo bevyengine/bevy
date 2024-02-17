@@ -38,7 +38,6 @@ undocumented_unsafe_blocks = "warn"
 redundant_else = "warn"
 match_same_arms = "warn"
 semicolon_if_nothing_returned = "warn"
-map_flatten = "warn"
 
 ptr_as_ptr = "warn"
 ptr_cast_constness = "warn"
