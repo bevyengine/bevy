@@ -953,11 +953,11 @@ fn warn_on_differing_texture_transforms(
     texture_transform: Affine2,
     texture_kind: &str,
 ) {
-    let has_same_texture_transform = info
+    let has_differing_texture_transform = info
         .texture_transform()
         .map(convert_texture_transform_to_affine2)
-        == Some(texture_transform);
-    if !has_same_texture_transform {
+        .is_some_and(|t| t != texture_transform);
+    if has_differing_texture_transform {
         let material_name = material
             .name()
             .map(|n| format!("the material \"{n}\""))
