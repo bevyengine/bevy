@@ -1,7 +1,9 @@
 mod convert;
 pub mod debug;
 
-use crate::{ContentSize, DefaultUiCamera, Node, Outline, PositionType, Style, TargetCamera, UiScale};
+use crate::{
+    ContentSize, DefaultUiCamera, Node, Outline, PositionType, Style, TargetCamera, UiScale,
+};
 use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
@@ -405,7 +407,7 @@ pub fn ui_layout_system(
                 Vec2::ZERO,
                 None,
                 Vec2::ZERO,
-                &fixed_nodes
+                &fixed_nodes,
             );
         }
     }
@@ -422,14 +424,12 @@ pub fn ui_layout_system(
         fixed_nodes: &HashSet<Entity>,
     ) {
         if let Ok((mut node, mut transform)) = node_transform_query.get_mut(entity) {
-
             let layout = ui_surface.get_layout(entity).unwrap();
             let layout_size =
                 inverse_target_scale_factor * Vec2::new(layout.size.width, layout.size.height);
-            
             let mut layout_location =
                 inverse_target_scale_factor * Vec2::new(layout.location.x, layout.location.y);
-            
+
             // A fixed node ignores it's parent's location
             if fixed_nodes.contains(&entity) {
                 if let Some(parent_location) = parent_location {

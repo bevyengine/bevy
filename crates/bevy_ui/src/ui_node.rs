@@ -164,7 +164,7 @@ pub struct Style {
     ///  - [`PositionType::Relative`]: Layout this node in-flow with other nodes using the usual (flexbox/grid) layout algorithm.
     ///  - [`PositionType::Absolute`]: Layout this node on top and independently of other nodes.
     ///  - [`PositionType::Fixed`]: Layout this node on top and independently of all nodes (including it's parent).
-    /// 
+    ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/position>
     pub position_type: PositionType,
 
