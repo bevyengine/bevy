@@ -73,9 +73,6 @@ wgpu = { version = "0.19.1", default-features = false, features = [
   "fragile-send-sync-non-atomic-wasm",
 ] }
 naga = { version = "0.19", features = ["wgsl-in"] }
-naga_oil = { version = "0.13", default-features = false, features = [
-  "test_shader",
-] }
 serde = { version = "1", features = ["derive"] }
 bitflags = "2.3"
 bytemuck = { version = "1.5", features = ["derive"] }
@@ -98,9 +95,19 @@ profiling = { version = "1", features = [
 ], optional = true }
 async-channel = "2.1.0"
 
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# Omit the `glsl` feature in non-WebAssembly by default.
+naga_oil = { version = "0.13", default-features = false, features = [
+  "test_shader",
+] }
+
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+naga_oil = "0.13"
 js-sys = "0.3"
-web-sys = { version = "0.3", features = [
+# web-sys doesn't follow semver for the WebGPU APIs as they are unstable
+# Make sure that WebGPU builds work when changing this!
+web-sys = { version = "=0.3.67", features = [
   'Blob',
   'Document',
   'Element',

@@ -34,7 +34,7 @@ jpeg = ["bevy_render/jpeg"]
 bmp = ["bevy_render/bmp"]
 webp = ["bevy_render/webp"]
 basis-universal = ["bevy_render/basis-universal"]
-dds = ["bevy_render/dds"]
+dds = ["bevy_render/dds", "bevy_core_pipeline/dds", "bevy_gltf/dds"]
 pnm = ["bevy_render/pnm"]
 ktx2 = ["bevy_render/ktx2"]
 # For ktx2 supercompression
@@ -58,10 +58,7 @@ symphonia-vorbis = ["bevy_audio/symphonia-vorbis"]
 symphonia-wav = ["bevy_audio/symphonia-wav"]
 
 # Shader formats
-shader_format_glsl = [
-  "bevy_render/shader_format_glsl",
-  "bevy_pbr?/shader_format_glsl",
-]
+shader_format_glsl = ["bevy_render/shader_format_glsl"]
 shader_format_spirv = ["bevy_render/shader_format_spirv"]
 
 serialize = [

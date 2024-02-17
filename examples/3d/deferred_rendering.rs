@@ -18,10 +18,6 @@ fn main() {
     App::new()
         .insert_resource(Msaa::Off)
         .insert_resource(DefaultOpaqueRendererMethod::deferred())
-        .insert_resource(AmbientLight {
-            color: Color::WHITE,
-            brightness: 1.0 / 5.0f32,
-        })
         .insert_resource(DirectionalLightShadowMap { size: 4096 })
         .add_plugins(DefaultPlugins)
         .insert_resource(Normal(None))
@@ -62,7 +58,7 @@ fn setup(
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
-            intensity: 150.0,
+            intensity: 2000.0,
         },
         DepthPrepass,
         MotionVectorPrepass,
@@ -72,7 +68,7 @@ fn setup(
 
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            illuminance: 4000.0,
+            illuminance: 15_000.,
             shadows_enabled: true,
             ..default()
         },
@@ -144,7 +140,7 @@ fn setup(
     // Light
     commands.spawn(PointLightBundle {
         point_light: PointLight {
-            intensity: 150.0,
+            intensity: 800.0,
             radius: 0.125,
             shadows_enabled: true,
             color: sphere_color,

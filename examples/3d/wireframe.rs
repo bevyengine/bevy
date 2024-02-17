@@ -27,6 +27,7 @@ fn main() {
                     features: WgpuFeatures::POLYGON_MODE_LINE,
                     ..default()
                 }),
+                ..default()
             }),
             // You need to add this plugin to enable wireframe rendering
             WireframePlugin,
@@ -94,11 +95,7 @@ fn setup(
 
     // light
     commands.spawn(PointLightBundle {
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        point_light: PointLight {
-            intensity: 150_000.0,
-            ..default()
-        },
+        transform: Transform::from_xyz(2.0, 4.0, 2.0),
         ..default()
     });
 

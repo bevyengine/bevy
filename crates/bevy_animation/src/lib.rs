@@ -493,9 +493,7 @@ fn entity_from_path(
     let mut parts = path.parts.iter().enumerate();
 
     // check the first name is the root node which we already have
-    let Some((_, root_name)) = parts.next() else {
-        return None;
-    };
+    let (_, root_name) = parts.next()?;
     if names.get(current_entity) != Ok(root_name) {
         return None;
     }
@@ -958,6 +956,10 @@ impl Plugin for AnimationPlugin {
         app.init_asset::<AnimationClip>()
             .register_asset_reflect::<AnimationClip>()
             .register_type::<AnimationPlayer>()
+            .register_type::<VariableCurve>()
+            .register_type::<Vec<VariableCurve>>()
+            .register_type::<Interpolation>()
+            .register_type::<Keyframes>()
             .add_systems(
                 PostUpdate,
                 animation_player.before(TransformSystem::TransformPropagate),
