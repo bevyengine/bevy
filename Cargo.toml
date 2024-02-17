@@ -1,6 +1,6 @@
 [package]
 name = "bevy"
-version = "0.12.0"
+version = "0.13.0"
 edition = "2021"
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
@@ -38,7 +38,6 @@ undocumented_unsafe_blocks = "warn"
 redundant_else = "warn"
 match_same_arms = "warn"
 semicolon_if_nothing_returned = "warn"
-map_flatten = "warn"
 
 ptr_as_ptr = "warn"
 ptr_cast_constness = "warn"
@@ -306,8 +305,8 @@ embedded_watcher = ["bevy_internal/embedded_watcher"]
 bevy_debug_stepping = ["bevy_internal/bevy_debug_stepping"]
 
 [dependencies]
-bevy_dylib = { path = "crates/bevy_dylib", version = "0.12.0", default-features = false, optional = true }
-bevy_internal = { path = "crates/bevy_internal", version = "0.12.0", default-features = false }
+bevy_dylib = { path = "crates/bevy_dylib", version = "0.13.0", default-features = false, optional = true }
+bevy_internal = { path = "crates/bevy_internal", version = "0.13.0", default-features = false }
 
 [dev-dependencies]
 rand = "0.8.0"
