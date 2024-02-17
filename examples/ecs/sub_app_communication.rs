@@ -1,9 +1,9 @@
 //! Demonstrates how to add and communicate with a [`SubApp`](bevy_internal::app::SubApp)
 
-use bevy::prelude::*;
-use bevy_internal::{
+use bevy::{
     app::{AppExit, AppLabel, SubApp},
     ecs::event::ManualEventReader,
+    prelude::*,
 };
 
 /// Events meant to be sent TO the sub app
