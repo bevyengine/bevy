@@ -341,7 +341,8 @@ impl Schedule {
             Some(mut stepping) => stepping.skipped_systems(self),
         };
 
-        self.executor.run(&mut self.executable, skip_systems, world);
+        self.executor
+            .run(&mut self.executable, &skip_systems, world);
     }
 
     /// Initializes any newly-added systems and conditions, rebuilds the executable schedule,
