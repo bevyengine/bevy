@@ -9,6 +9,7 @@ use std::{
 
 use async_task::FallibleTask;
 use concurrent_queue::ConcurrentQueue;
+use event_listener::Event;
 use futures_lite::FutureExt;
 
 use crate::{
@@ -115,7 +116,7 @@ pub struct TaskPool {
 
     /// Inner state of the pool
     threads: Vec<JoinHandle<()>>,
-    shutdown_tx: async_channel::Sender<()>,
+    shutdown: Arc<event_listener::Event>,
 }
 
 impl TaskPool {
@@ -135,8 +136,7 @@ impl TaskPool {
     }
 
     fn new_internal(builder: TaskPoolBuilder) -> Self {
-        let (shutdown_tx, shutdown_rx) = async_channel::unbounded::<()>();
-
+        let shutdown = Arc::new(Event::new());
         let executor = Arc::new(async_executor::Executor::new());
 
         let num_threads = builder
@@ -146,7 +146,6 @@ impl TaskPool {
         let threads = (0..num_threads)
             .map(|i| {
                 let ex = Arc::clone(&executor);
-                let shutdown_rx = shutdown_rx.clone();
 
                 let thread_name = if let Some(thread_name) = builder.thread_name.as_deref() {
                     format!("{thread_name} ({i})")
@@ -161,6 +160,7 @@ impl TaskPool {
 
                 let on_thread_spawn = builder.on_thread_spawn.clone();
                 let on_thread_destroy = builder.on_thread_destroy.clone();
+                let shutdown = shutdown.clone();
 
                 thread_builder
                     .spawn(move || {
@@ -177,11 +177,9 @@ impl TaskPool {
                                             local_executor.tick().await;
                                         }
                                     };
-                                    block_on(ex.run(tick_forever.or(shutdown_rx.recv())))
+                                    block_on(ex.run(tick_forever.or(shutdown.listen())));
                                 });
-                                if let Ok(value) = res {
-                                    // Use unwrap_err because we expect a Closed error
-                                    value.unwrap_err();
+                                if let Ok(()) = res {
                                     break;
                                 }
                             }
@@ -194,7 +192,7 @@ impl TaskPool {
         Self {
             executor,
             threads,
-            shutdown_tx,
+            shutdown,
         }
     }
 
@@ -584,7 +582,7 @@ impl Default for TaskPool {
 
 impl Drop for TaskPool {
     fn drop(&mut self) {
-        self.shutdown_tx.close();
+        self.shutdown.notify(usize::MAX);
 
         let panicking = thread::panicking();
         for join_handle in self.threads.drain(..) {
