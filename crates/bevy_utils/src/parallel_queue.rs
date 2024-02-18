@@ -39,7 +39,7 @@ where
     I: IntoIterator<Item = T> + Default + Send + 'static,
 {
     /// Drains all enqueued items from all threads and returns an iterator over them.
-    /// 
+    ///
     /// Unlike [`Vec::drain`], this will piecemeal remove chunks of the data stored.
     /// If iteration is terminated part way, the rest of the enqueued items in the same
     /// chunk will be dropped, and the rest of the undrained elements will remain.
