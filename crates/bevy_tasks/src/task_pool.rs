@@ -582,7 +582,7 @@ impl Default for TaskPool {
 
 impl Drop for TaskPool {
     fn drop(&mut self) {
-        self.shutdown.notify(usize::MAX);
+        self.shutdown.notify(self.threads.len());
 
         let panicking = thread::panicking();
         for join_handle in self.threads.drain(..) {
