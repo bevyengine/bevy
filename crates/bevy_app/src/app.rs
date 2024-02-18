@@ -60,6 +60,7 @@ pub(crate) enum AppError {
 ///    println!("hello world");
 /// }
 /// ```
+#[must_use]
 pub struct App {
     /// The main ECS [`World`] of the [`App`].
     /// This stores and provides access to all the main data of the application.
