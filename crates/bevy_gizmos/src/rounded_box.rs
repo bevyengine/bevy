@@ -69,10 +69,15 @@ impl<T: GizmoConfigGroup> Drop for RoundedRectBuilder<'_, '_, '_, T> {
         let config = &self.config;
 
         // Calculate inner and outer half size and ensure that the ede_radius is <= any half_length
-        let outer_half_size = self.size.abs() / 2.0;
-        let inner_half_size = (outer_half_size - Vec2::splat(config.corner_radius)).max(Vec2::ZERO);
+        let mut outer_half_size = self.size.abs() / 2.0;
+        let inner_half_size =
+            (outer_half_size - Vec2::splat(config.corner_radius.abs())).max(Vec2::ZERO);
         let corner_radius = (outer_half_size - inner_half_size).min_element();
-        let inner_half_size = outer_half_size - Vec2::splat(corner_radius);
+        let mut inner_half_size = outer_half_size - Vec2::splat(corner_radius);
+
+        if config.corner_radius < 0. {
+            std::mem::swap(&mut outer_half_size, &mut inner_half_size);
+        }
 
         // Handle cases where the rectangle collapses into simpler shapes
         if outer_half_size.x * outer_half_size.y == 0. {
@@ -115,12 +120,22 @@ impl<T: GizmoConfigGroup> Drop for RoundedRectBuilder<'_, '_, '_, T> {
                 .segments(config.arc_segments);
         }
 
-        let edges = [
-            (vertices[2], vertices[3]),
-            (vertices[5], vertices[6]),
-            (vertices[8], vertices[9]),
-            (vertices[11], vertices[0]),
-        ];
+        let edges = if config.corner_radius > 0. {
+            [
+                (vertices[2], vertices[3]),
+                (vertices[5], vertices[6]),
+                (vertices[8], vertices[9]),
+                (vertices[11], vertices[0]),
+            ]
+        } else {
+            [
+                (vertices[0], vertices[5]),
+                (vertices[3], vertices[8]),
+                (vertices[6], vertices[11]),
+                (vertices[9], vertices[2]),
+            ]
+        };
+
         for (start, end) in edges {
             self.gizmos.line(start, end, config.color);
         }
@@ -136,9 +151,11 @@ impl<T: GizmoConfigGroup> Drop for RoundedCuboidBuilder<'_, '_, '_, T> {
 
         // Calculate inner and outer half size and ensure that the ede_radius is <= any half_length
         let outer_half_size = self.size.abs() / 2.0;
-        let inner_half_size = (outer_half_size - Vec3::splat(config.corner_radius)).max(Vec3::ZERO);
-        let edge_radius = (outer_half_size - inner_half_size).min_element();
+        let inner_half_size =
+            (outer_half_size - Vec3::splat(config.corner_radius.abs())).max(Vec3::ZERO);
+        let mut edge_radius = (outer_half_size - inner_half_size).min_element();
         let inner_half_size = outer_half_size - Vec3::splat(edge_radius);
+        edge_radius *= config.corner_radius.signum();
 
         // Handle cases where the rounded cuboid collapses into simpler shapes
         if edge_radius == 0. {
