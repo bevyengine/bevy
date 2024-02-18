@@ -52,7 +52,7 @@ fn draw_example_collection(
     gizmos.rect_2d(
         Vec2::ZERO,
         time.elapsed_seconds() / 3.,
-        Vec2::splat(300.),
+        Vec2::splat(400.),
         Color::BLACK,
     );
 
@@ -72,6 +72,15 @@ fn draw_example_collection(
     // Arcs default amount of segments is linearly interpolated between
     // 1 and 32, using the arc length as scalar.
     my_gizmos.arc_2d(Vec2::ZERO, sin / 10., PI / 2., 350., Color::ORANGE_RED);
+
+    my_gizmos
+        .rounded_rect_2d(
+            Vec2::ZERO,
+            time.elapsed_seconds() / -3.,
+            Vec2::splat(300.),
+            Color::BLACK,
+        )
+        .corner_radius((time.elapsed_seconds() / 3.).cos() * 100.);
 
     gizmos.arrow_2d(
         Vec2::ZERO,
