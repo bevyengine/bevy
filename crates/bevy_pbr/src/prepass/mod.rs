@@ -846,9 +846,6 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 }
             };
 
-            let distance = rangefinder
-                .distance_translation(&mesh_instance.transforms.transform.translation)
-                + material.properties.depth_bias;
             match alpha_mode {
                 AlphaMode::Opaque => {
                     if deferred {
@@ -859,7 +856,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                                 entity: *visible_entity,
                                 draw_function: opaque_draw_deferred,
                                 pipeline_id,
-                                distance,
+                                asset_id: mesh_instance.mesh_asset_id,
                                 batch_range: 0..1,
                                 dynamic_offset: None,
                             });
@@ -868,13 +865,16 @@ pub fn queue_prepass_material_meshes<M: Material>(
                             entity: *visible_entity,
                             draw_function: opaque_draw_prepass,
                             pipeline_id,
-                            distance,
+                            asset_id: mesh_instance.mesh_asset_id,
                             batch_range: 0..1,
                             dynamic_offset: None,
                         });
                     }
                 }
                 AlphaMode::Mask(_) => {
+                    let distance = rangefinder
+                        .distance_translation(&mesh_instance.transforms.transform.translation)
+                        + material.properties.depth_bias;
                     if deferred {
                         alpha_mask_deferred_phase
                             .as_mut()
@@ -923,7 +923,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetPrepassViewBindGroup<
             &'_ ViewUniformOffset,
             Option<&'_ PreviousViewProjectionUniformOffset>,
         ),
-        _entity: (),
+        _entity: Option<()>,
         prepass_view_bind_group: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {

@@ -4,6 +4,7 @@ use crate::{
     prelude::Image,
     primitives::Frustum,
     render_asset::RenderAssets,
+    render_graph::{InternedRenderSubGraph, RenderSubGraph},
     render_resource::TextureView,
     view::{ColorGrading, ExtractedView, ExtractedWindows, RenderLayers, VisibleEntities},
     Extract,
@@ -31,7 +32,7 @@ use bevy_window::{
     NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,
     WindowScaleFactorChanged,
 };
-use std::{borrow::Cow, ops::Range};
+use std::ops::Range;
 use wgpu::{BlendState, LoadOp, TextureFormat, TextureUsages};
 
 use super::{ClearColorConfig, Projection};
@@ -88,16 +89,40 @@ pub struct ComputedCameraValues {
 /// How much energy a `Camera3d` absorbs from incoming light.
 ///
 /// <https://en.wikipedia.org/wiki/Exposure_(photography)>
-#[derive(Component)]
-pub struct ExposureSettings {
+#[derive(Component, Clone, Copy, Reflect)]
+#[reflect_value(Component)]
+pub struct Exposure {
     /// <https://en.wikipedia.org/wiki/Exposure_value#Tabulated_exposure_values>
     pub ev100: f32,
 }
 
-impl ExposureSettings {
+impl Exposure {
+    pub const SUNLIGHT: Self = Self {
+        ev100: Self::EV100_SUNLIGHT,
+    };
+    pub const OVERCAST: Self = Self {
+        ev100: Self::EV100_OVERCAST,
+    };
+    pub const INDOOR: Self = Self {
+        ev100: Self::EV100_INDOOR,
+    };
+    /// This value was calibrated to match Blender's implicit/default exposure as closely as possible.
+    /// It also happens to be a reasonable default.
+    ///
+    /// See <https://github.com/bevyengine/bevy/issues/11577> for details.
+    pub const BLENDER: Self = Self {
+        ev100: Self::EV100_BLENDER,
+    };
+
     pub const EV100_SUNLIGHT: f32 = 15.0;
     pub const EV100_OVERCAST: f32 = 12.0;
     pub const EV100_INDOOR: f32 = 7.0;
+
+    /// This value was calibrated to match Blender's implicit/default exposure as closely as possible.
+    /// It also happens to be a reasonable default.
+    ///
+    /// See <https://github.com/bevyengine/bevy/issues/11577> for details.
+    pub const EV100_BLENDER: f32 = 9.7;
 
     pub fn from_physical_camera(physical_camera_parameters: PhysicalCameraParameters) -> Self {
         Self {
@@ -113,16 +138,14 @@ impl ExposureSettings {
     }
 }
 
-impl Default for ExposureSettings {
+impl Default for Exposure {
     fn default() -> Self {
-        Self {
-            ev100: Self::EV100_INDOOR,
-        }
+        Self::BLENDER
     }
 }
 
 /// Parameters based on physical camera characteristics for calculating
-/// EV100 values for use with [`ExposureSettings`].
+/// EV100 values for use with [`Exposure`].
 #[derive(Clone, Copy)]
 pub struct PhysicalCameraParameters {
     /// <https://en.wikipedia.org/wiki/F-number>
@@ -476,21 +499,21 @@ impl Default for CameraOutputMode {
 }
 
 /// Configures the [`RenderGraph`](crate::render_graph::RenderGraph) name assigned to be run for a given [`Camera`] entity.
-#[derive(Component, Deref, DerefMut, Reflect, Default)]
-#[reflect(Component)]
-pub struct CameraRenderGraph(Cow<'static, str>);
+#[derive(Component, Deref, DerefMut, Reflect, Clone)]
+#[reflect_value(Component)]
+pub struct CameraRenderGraph(InternedRenderSubGraph);
 
 impl CameraRenderGraph {
     /// Creates a new [`CameraRenderGraph`] from any string-like type.
     #[inline]
-    pub fn new<T: Into<Cow<'static, str>>>(name: T) -> Self {
-        Self(name.into())
+    pub fn new<T: RenderSubGraph>(name: T) -> Self {
+        Self(name.intern())
     }
 
     /// Sets the graph name.
     #[inline]
-    pub fn set<T: Into<Cow<'static, str>>>(&mut self, name: T) {
-        self.0 = name.into();
+    pub fn set<T: RenderSubGraph>(&mut self, name: T) {
+        self.0 = name.intern();
     }
 }
 
@@ -752,7 +775,8 @@ pub fn camera_system<T: CameraProjection + Component>(
 }
 
 /// This component lets you control the [`TextureUsages`] field of the main texture generated for the camera
-#[derive(Component, ExtractComponent, Clone, Copy)]
+#[derive(Component, ExtractComponent, Clone, Copy, Reflect)]
+#[reflect_value(Component)]
 pub struct CameraMainTextureUsages(pub TextureUsages);
 impl Default for CameraMainTextureUsages {
     fn default() -> Self {
@@ -770,7 +794,7 @@ pub struct ExtractedCamera {
     pub physical_viewport_size: Option<UVec2>,
     pub physical_target_size: Option<UVec2>,
     pub viewport: Option<Viewport>,
-    pub render_graph: Cow<'static, str>,
+    pub render_graph: InternedRenderSubGraph,
     pub order: isize,
     pub output_mode: CameraOutputMode,
     pub msaa_writeback: bool,
@@ -790,7 +814,7 @@ pub fn extract_cameras(
             &VisibleEntities,
             &Frustum,
             Option<&ColorGrading>,
-            Option<&ExposureSettings>,
+            Option<&Exposure>,
             Option<&TemporalJitter>,
             Option<&RenderLayers>,
             Option<&Projection>,
@@ -807,7 +831,7 @@ pub fn extract_cameras(
         visible_entities,
         frustum,
         color_grading,
-        exposure_settings,
+        exposure,
         temporal_jitter,
         render_layers,
         projection,
@@ -843,16 +867,16 @@ pub fn extract_cameras(
                     viewport: camera.viewport.clone(),
                     physical_viewport_size: Some(viewport_size),
                     physical_target_size: Some(target_size),
-                    render_graph: camera_render_graph.0.clone(),
+                    render_graph: camera_render_graph.0,
                     order: camera.order,
                     output_mode: camera.output_mode,
                     msaa_writeback: camera.msaa_writeback,
                     clear_color: camera.clear_color.clone(),
                     // this will be set in sort_cameras
                     sorted_camera_index_for_target: 0,
-                    exposure: exposure_settings
+                    exposure: exposure
                         .map(|e| e.exposure())
-                        .unwrap_or_else(|| ExposureSettings::default().exposure()),
+                        .unwrap_or_else(|| Exposure::default().exposure()),
                 },
                 ExtractedView {
                     projection: camera.projection_matrix(),

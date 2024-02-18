@@ -1,5 +1,3 @@
-#![warn(missing_docs)]
-
 //! This crate adds an immediate mode drawing api to Bevy for visual debugging.
 //!
 //! # Example
@@ -32,6 +30,7 @@ pub mod arrows;
 pub mod circles;
 pub mod config;
 pub mod gizmos;
+pub mod primitives;
 
 #[cfg(feature = "bevy_sprite")]
 mod pipeline_2d;
@@ -45,6 +44,7 @@ pub mod prelude {
         aabb::{AabbGizmoConfigGroup, ShowAabbGizmo},
         config::{DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore},
         gizmos::Gizmos,
+        primitives::{dim2::GizmoPrimitive2d, dim3::GizmoPrimitive3d},
         AppGizmoBuilder,
     };
 }
@@ -66,8 +66,7 @@ use bevy_reflect::TypePath;
 use bevy_render::{
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     render_asset::{
-        PrepareAssetError, RenderAsset, RenderAssetPersistencePolicy, RenderAssetPlugin,
-        RenderAssets,
+        PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssetUsages, RenderAssets,
     },
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::{
@@ -78,7 +77,7 @@ use bevy_render::{
     renderer::RenderDevice,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_utils::{tracing::warn, HashMap};
+use bevy_utils::TypeIdMap;
 use config::{
     DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore, GizmoMeshConfig,
 };
@@ -184,16 +183,16 @@ impl AppGizmoBuilder for App {
         group: T,
         config: GizmoConfig,
     ) -> &mut Self {
+        self.world
+            .get_resource_or_insert_with::<GizmoConfigStore>(Default::default)
+            .insert(config, group);
+
         if self.world.contains_resource::<GizmoStorage<T>>() {
             return self;
         }
 
         self.init_resource::<GizmoStorage<T>>()
             .add_systems(Last, update_gizmo_meshes::<T>);
-
-        self.world
-            .get_resource_or_insert_with::<GizmoConfigStore>(Default::default)
-            .insert(config, group);
 
         let Ok(render_app) = self.get_sub_app_mut(RenderApp) else {
             return self;
@@ -207,8 +206,8 @@ impl AppGizmoBuilder for App {
 
 #[derive(Resource, Default)]
 struct LineGizmoHandles {
-    list: HashMap<TypeId, Handle<LineGizmo>>,
-    strip: HashMap<TypeId, Handle<LineGizmo>>,
+    list: TypeIdMap<Handle<LineGizmo>>,
+    strip: TypeIdMap<Handle<LineGizmo>>,
 }
 
 fn update_gizmo_meshes<T: GizmoConfigGroup>(
@@ -316,8 +315,8 @@ impl RenderAsset for LineGizmo {
     type PreparedAsset = GpuLineGizmo;
     type Param = SRes<RenderDevice>;
 
-    fn persistence_policy(&self) -> RenderAssetPersistencePolicy {
-        RenderAssetPersistencePolicy::Keep
+    fn asset_usage(&self) -> RenderAssetUsages {
+        RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD
     }
 
     fn prepare_asset(
@@ -384,10 +383,13 @@ impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetLineGizmoBindGroup<I>
     fn render<'w>(
         _item: &P,
         _view: ROQueryItem<'w, Self::ViewQuery>,
-        uniform_index: ROQueryItem<'w, Self::ItemQuery>,
+        uniform_index: Option<ROQueryItem<'w, Self::ItemQuery>>,
         bind_group: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
+        let Some(uniform_index) = uniform_index else {
+            return RenderCommandResult::Failure;
+        };
         pass.set_bind_group(
             I,
             &bind_group.into_inner().bindgroup,
@@ -407,10 +409,13 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
     fn render<'w>(
         _item: &P,
         _view: ROQueryItem<'w, Self::ViewQuery>,
-        handle: ROQueryItem<'w, Self::ItemQuery>,
+        handle: Option<ROQueryItem<'w, Self::ItemQuery>>,
         line_gizmos: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
+        let Some(handle) = handle else {
+            return RenderCommandResult::Failure;
+        };
         let Some(line_gizmo) = line_gizmos.into_inner().get(handle) else {
             return RenderCommandResult::Failure;
         };

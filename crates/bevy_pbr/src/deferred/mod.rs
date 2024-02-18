@@ -1,11 +1,12 @@
 use crate::{
-    environment_map::RenderViewEnvironmentMaps, MeshPipeline, MeshViewBindGroup,
-    ScreenSpaceAmbientOcclusionSettings, ViewLightProbesUniformOffset,
+    graph::NodePbr, irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight,
+    MeshPipeline, MeshViewBindGroup, RenderViewLightProbes, ScreenSpaceAmbientOcclusionSettings,
+    ViewLightProbesUniformOffset,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_core_pipeline::{
-    core_3d,
+    core_3d::graph::{Core3d, Node3d},
     deferred::{
         copy_lighting_id::DeferredLightingIdDepthTexture, DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT,
     },
@@ -115,16 +116,16 @@ impl Plugin for DeferredPbrLightingPlugin {
                 (prepare_deferred_lighting_pipelines.in_set(RenderSet::Prepare),),
             )
             .add_render_graph_node::<ViewNodeRunner<DeferredOpaquePass3dPbrLightingNode>>(
-                core_3d::graph::NAME,
-                DEFERRED_LIGHTING_PASS,
+                Core3d,
+                NodePbr::DeferredLightingPass,
             )
             .add_render_graph_edges(
-                core_3d::graph::NAME,
-                &[
-                    core_3d::graph::node::START_MAIN_PASS,
-                    DEFERRED_LIGHTING_PASS,
-                    core_3d::graph::node::MAIN_OPAQUE_PASS,
-                ],
+                Core3d,
+                (
+                    Node3d::StartMainPass,
+                    NodePbr::DeferredLightingPass,
+                    Node3d::MainOpaquePass,
+                ),
             );
     }
 
@@ -137,7 +138,6 @@ impl Plugin for DeferredPbrLightingPlugin {
     }
 }
 
-pub const DEFERRED_LIGHTING_PASS: &str = "deferred_opaque_pbr_lighting_pass_3d";
 #[derive(Default)]
 pub struct DeferredOpaquePass3dPbrLightingNode;
 
@@ -285,6 +285,10 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
             shader_defs.push("ENVIRONMENT_MAP".into());
         }
 
+        if key.contains(MeshPipelineKey::IRRADIANCE_VOLUME) {
+            shader_defs.push("IRRADIANCE_VOLUME".into());
+        }
+
         if key.contains(MeshPipelineKey::NORMAL_PREPASS) {
             shader_defs.push("NORMAL_PREPASS".into());
         }
@@ -408,7 +412,8 @@ pub fn prepare_deferred_lighting_pipelines(
                 Has<DepthPrepass>,
                 Has<MotionVectorPrepass>,
             ),
-            Has<RenderViewEnvironmentMaps>,
+            Has<RenderViewLightProbes<EnvironmentMapLight>>,
+            Has<RenderViewLightProbes<IrradianceVolume>>,
         ),
         With<DeferredPrepass>,
     >,
@@ -422,6 +427,7 @@ pub fn prepare_deferred_lighting_pipelines(
         ssao,
         (normal_prepass, depth_prepass, motion_vector_prepass),
         has_environment_maps,
+        has_irradiance_volumes,
     ) in &views
     {
         let mut view_key = MeshPipelineKey::from_hdr(view.hdr);
@@ -473,6 +479,10 @@ pub fn prepare_deferred_lighting_pipelines(
         // adding the [`RenderViewEnvironmentMaps`] component.
         if has_environment_maps {
             view_key |= MeshPipelineKey::ENVIRONMENT_MAP;
+        }
+
+        if has_irradiance_volumes {
+            view_key |= MeshPipelineKey::IRRADIANCE_VOLUME;
         }
 
         match shadow_filter_method.unwrap_or(&ShadowFilteringMethod::default()) {

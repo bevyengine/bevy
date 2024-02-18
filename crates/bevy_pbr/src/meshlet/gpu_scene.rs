@@ -7,7 +7,7 @@ use bevy_asset::{AssetEvent, AssetId, AssetServer, Assets, Handle, UntypedAssetI
 use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_ecs::{
     component::Component,
-    entity::Entity,
+    entity::{Entity, EntityHashMap},
     event::EventReader,
     query::{AnyOf, Has},
     system::{Commands, Query, Res, ResMut, Resource, SystemState},
@@ -21,7 +21,7 @@ use bevy_render::{
     MainWorld,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{default, EntityHashMap, HashMap, HashSet};
+use bevy_utils::{default, HashMap, HashSet};
 use encase::internal::WriteInto;
 use std::{
     iter,
@@ -613,13 +613,13 @@ pub struct MeshletGpuScene {
     /// Per-instance transforms, model matrices, and render flags
     instance_uniforms: StorageBuffer<Vec<MeshUniform>>,
     /// Per-view per-instance visibility bit. Used for RenderLayer and NotShadowCaster support.
-    view_instance_visibility: EntityHashMap<Entity, StorageBuffer<Vec<u32>>>,
+    view_instance_visibility: EntityHashMap<StorageBuffer<Vec<u32>>>,
     instance_material_ids: StorageBuffer<Vec<u32>>,
     thread_instance_ids: StorageBuffer<Vec<u32>>,
     thread_meshlet_ids: StorageBuffer<Vec<u32>>,
     previous_thread_ids: StorageBuffer<Vec<u32>>,
     previous_thread_id_starts: HashMap<(Entity, AssetId<MeshletMesh>), (u32, bool)>,
-    previous_occlusion_buffers: EntityHashMap<Entity, (Buffer, Buffer)>,
+    previous_occlusion_buffers: EntityHashMap<(Buffer, Buffer)>,
     visibility_buffer_draw_index_buffer: Option<Buffer>,
 
     culling_bind_group_layout: BindGroupLayout,

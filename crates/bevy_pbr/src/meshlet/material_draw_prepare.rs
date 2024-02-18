@@ -1,5 +1,5 @@
 use super::{MeshletGpuScene, MESHLET_MESH_MATERIAL_SHADER_HANDLE};
-use crate::{environment_map::RenderViewEnvironmentMaps, *};
+use crate::{environment_map::EnvironmentMapLight, irradiance_volume::IrradianceVolume, *};
 use bevy_asset::AssetServer;
 use bevy_core_pipeline::{
     core_3d::Camera3d,
@@ -45,7 +45,8 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
             ),
             Has<TemporalJitter>,
             Option<&Projection>,
-            Has<RenderViewEnvironmentMaps>,
+            Has<RenderViewLightProbes<EnvironmentMapLight>>,
+            Has<RenderViewLightProbes<IrradianceVolume>>,
         ),
         With<Camera3d>,
     >,
@@ -65,6 +66,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
         temporal_jitter,
         projection,
         has_environment_maps,
+        has_irradiance_volumes,
     ) in &mut views
     {
         let mut view_key =
@@ -89,6 +91,10 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
 
         if has_environment_maps {
             view_key |= MeshPipelineKey::ENVIRONMENT_MAP;
+        }
+
+        if has_irradiance_volumes {
+            view_key |= MeshPipelineKey::IRRADIANCE_VOLUME;
         }
 
         if let Some(projection) = projection {

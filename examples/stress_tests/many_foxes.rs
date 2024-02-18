@@ -10,6 +10,7 @@ use bevy::{
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
     window::{PresentMode, WindowPlugin, WindowResolution},
+    winit::{UpdateMode, WinitSettings},
 };
 
 #[derive(FromArgs, Resource)]
@@ -54,15 +55,15 @@ fn main() {
             FrameTimeDiagnosticsPlugin,
             LogDiagnosticsPlugin::default(),
         ))
+        .insert_resource(WinitSettings {
+            focused_mode: UpdateMode::Continuous,
+            unfocused_mode: UpdateMode::Continuous,
+        })
         .insert_resource(Foxes {
             count: args.count,
             speed: 2.0,
             moving: true,
             sync: args.sync,
-        })
-        .insert_resource(AmbientLight {
-            color: Color::WHITE,
-            brightness: 100.0,
         })
         .add_systems(Startup, setup)
         .add_systems(
@@ -189,7 +190,7 @@ fn setup(
 
     // Plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(5000.0)),
+        mesh: meshes.add(Plane3d::default().mesh().size(5000.0, 5000.0)),
         material: materials.add(Color::rgb(0.3, 0.5, 0.3)),
         ..default()
     });
@@ -198,7 +199,6 @@ fn setup(
     commands.spawn(DirectionalLightBundle {
         transform: Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
         directional_light: DirectionalLight {
-            illuminance: 3000.0,
             shadows_enabled: true,
             ..default()
         },

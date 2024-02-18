@@ -1,7 +1,6 @@
 use crate::{
     compute_text_bounds, error::TextError, glyph_brush::GlyphBrush, scale_value, BreakLineOn, Font,
-    FontAtlasSets, FontAtlasWarning, JustifyText, PositionedGlyph, Text, TextSection, TextSettings,
-    YAxisOrientation,
+    FontAtlasSets, JustifyText, PositionedGlyph, Text, TextSection, TextSettings, YAxisOrientation,
 };
 use ab_glyph::PxScale;
 use bevy_asset::{AssetId, Assets, Handle};
@@ -54,7 +53,6 @@ impl TextPipeline {
         texture_atlases: &mut Assets<TextureAtlasLayout>,
         textures: &mut Assets<Image>,
         text_settings: &TextSettings,
-        font_atlas_warning: &mut FontAtlasWarning,
         y_axis_orientation: YAxisOrientation,
     ) -> Result<TextLayoutInfo, TextError> {
         let mut scaled_fonts = Vec::with_capacity(sections.len());
@@ -97,7 +95,6 @@ impl TextPipeline {
             texture_atlases,
             textures,
             text_settings,
-            font_atlas_warning,
             y_axis_orientation,
         )?;
 

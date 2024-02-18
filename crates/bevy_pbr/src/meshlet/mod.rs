@@ -11,6 +11,18 @@ mod persistent_buffer_impls;
 mod pipelines;
 mod visibility_buffer_raster_node;
 
+pub mod graph {
+    use bevy_render::render_graph::RenderLabel;
+
+    #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
+    pub enum NodeMeshlet {
+        VisibilityBufferRasterPass,
+        Prepass,
+        DeferredPrepass,
+        MainOpaquePass,
+    }
+}
+
 pub(crate) use self::{
     gpu_scene::{queue_material_meshlet_meshes, MeshletGpuScene},
     material_draw_prepare::{
@@ -28,10 +40,8 @@ use self::{
         extract_meshlet_meshes, perform_pending_meshlet_mesh_writes,
         prepare_meshlet_per_frame_resources, prepare_meshlet_view_bind_groups,
     },
+    graph::NodeMeshlet,
     material_draw_nodes::{
-        draw_3d_graph::node::{
-            MESHLET_DEFERRED_PREPASS, MESHLET_MAIN_OPAQUE_PASS_3D, MESHLET_PREPASS,
-        },
         MeshletDeferredGBufferPrepassNode, MeshletMainOpaquePass3dNode, MeshletPrepassNode,
     },
     material_draw_prepare::{
@@ -43,16 +53,16 @@ use self::{
         MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE, MESHLET_VISIBILITY_BUFFER_RASTER_SHADER_HANDLE,
         MESHLET_WRITE_INDEX_BUFFER_SHADER_HANDLE,
     },
-    visibility_buffer_raster_node::{
-        draw_3d_graph::node::MESHLET_VISIBILITY_BUFFER_RASTER_PASS,
-        MeshletVisibilityBufferRasterPassNode,
-    },
+    visibility_buffer_raster_node::MeshletVisibilityBufferRasterPassNode,
 };
-use crate::{draw_3d_graph::node::SHADOW_PASS, Material};
+use crate::{graph::NodePbr, Material};
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, AssetApp, Handle};
 use bevy_core_pipeline::{
-    core_3d::{graph::node::*, Camera3d, CORE_3D},
+    core_3d::{
+        graph::{Core3d, Node3d},
+        Camera3d,
+    },
     prepass::{DeferredPrepass, MotionVectorPrepass, NormalPrepass},
 };
 use bevy_ecs::{
@@ -162,34 +172,37 @@ impl Plugin for MeshletPlugin {
 
         render_app
             .add_render_graph_node::<MeshletVisibilityBufferRasterPassNode>(
-                CORE_3D,
-                MESHLET_VISIBILITY_BUFFER_RASTER_PASS,
+                Core3d,
+                NodeMeshlet::VisibilityBufferRasterPass,
             )
-            .add_render_graph_node::<ViewNodeRunner<MeshletPrepassNode>>(CORE_3D, MESHLET_PREPASS)
+            .add_render_graph_node::<ViewNodeRunner<MeshletPrepassNode>>(
+                Core3d,
+                NodeMeshlet::Prepass,
+            )
             .add_render_graph_node::<ViewNodeRunner<MeshletDeferredGBufferPrepassNode>>(
-                CORE_3D,
-                MESHLET_DEFERRED_PREPASS,
+                Core3d,
+                NodeMeshlet::DeferredPrepass,
             )
             .add_render_graph_node::<ViewNodeRunner<MeshletMainOpaquePass3dNode>>(
-                CORE_3D,
-                MESHLET_MAIN_OPAQUE_PASS_3D,
+                Core3d,
+                NodeMeshlet::MainOpaquePass,
             )
             .add_render_graph_edges(
-                CORE_3D,
-                &[
-                    MESHLET_VISIBILITY_BUFFER_RASTER_PASS,
-                    SHADOW_PASS,
-                    MESHLET_PREPASS,
-                    MESHLET_DEFERRED_PREPASS,
-                    PREPASS,
-                    DEFERRED_PREPASS,
-                    COPY_DEFERRED_LIGHTING_ID,
-                    END_PREPASSES,
-                    START_MAIN_PASS,
-                    MESHLET_MAIN_OPAQUE_PASS_3D,
-                    MAIN_OPAQUE_PASS,
-                    END_MAIN_PASS,
-                ],
+                Core3d,
+                (
+                    NodeMeshlet::VisibilityBufferRasterPass,
+                    NodePbr::ShadowPass,
+                    NodeMeshlet::Prepass,
+                    NodeMeshlet::DeferredPrepass,
+                    Node3d::Prepass,
+                    Node3d::DeferredPrepass,
+                    Node3d::CopyDeferredLightingId,
+                    Node3d::EndPrepasses,
+                    Node3d::StartMainPass,
+                    NodeMeshlet::MainOpaquePass,
+                    Node3d::MainOpaquePass,
+                    Node3d::EndMainPass,
+                ),
             )
             .init_resource::<MeshletGpuScene>()
             .init_resource::<MeshletPipelines>()

@@ -1,5 +1,3 @@
-#![warn(missing_docs)]
-
 //! This crate provides core functionality for Bevy Engine.
 
 mod name;
@@ -21,6 +19,7 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
+use bevy_ecs::component::{ComponentId, ComponentTicks, Tick};
 use bevy_ecs::prelude::*;
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use bevy_utils::{Duration, HashSet, Instant, Uuid};
@@ -40,11 +39,19 @@ pub struct TypeRegistrationPlugin;
 
 impl Plugin for TypeRegistrationPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<Entity>().register_type::<Name>();
+        app.register_type::<Name>();
 
+        register_ecs_types(app);
         register_rust_types(app);
         register_math_types(app);
     }
+}
+
+fn register_ecs_types(app: &mut App) {
+    app.register_type::<Entity>()
+        .register_type::<ComponentId>()
+        .register_type::<Tick>()
+        .register_type::<ComponentTicks>();
 }
 
 fn register_rust_types(app: &mut App) {
@@ -57,7 +64,9 @@ fn register_rust_types(app: &mut App) {
         .register_type::<HashSet<String>>()
         .register_type::<Option<String>>()
         .register_type::<Option<bool>>()
+        .register_type::<Option<f32>>()
         .register_type::<Option<f64>>()
+        .register_type::<Vec<f32>>()
         .register_type::<Cow<'static, str>>()
         .register_type::<Cow<'static, Path>>()
         .register_type::<Duration>()
@@ -98,7 +107,9 @@ fn register_math_types(app: &mut App) {
         .register_type::<bevy_math::Mat4>()
         .register_type::<bevy_math::DQuat>()
         .register_type::<bevy_math::Quat>()
-        .register_type::<bevy_math::Rect>();
+        .register_type::<bevy_math::Rect>()
+        .register_type::<Vec<bevy_math::Quat>>()
+        .register_type::<Vec<bevy_math::Vec3>>();
 }
 
 /// Setup of default task pools: [`AsyncComputeTaskPool`](bevy_tasks::AsyncComputeTaskPool),

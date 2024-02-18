@@ -1,7 +1,7 @@
 #define_import_path bevy_pbr::pbr_deferred_functions
 
 #import bevy_pbr::{
-    pbr_types::{PbrInput, standard_material_new, STANDARD_MATERIAL_FLAGS_UNLIT_BIT},
+    pbr_types::{PbrInput, pbr_input_new, STANDARD_MATERIAL_FLAGS_UNLIT_BIT},
     pbr_deferred_types as deferred_types,
     pbr_functions,
     rgb9e5,
@@ -64,8 +64,7 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
 
 // Creates a PbrInput from the deferred gbuffer.
 fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) -> PbrInput {
-    var pbr: PbrInput;
-    pbr.material = standard_material_new();
+    var pbr = pbr_input_new();
 
     let flags = deferred_types::unpack_flags(gbuffer.a);
     let deferred_flags = deferred_types::mesh_material_flags_from_deferred_flags(flags);

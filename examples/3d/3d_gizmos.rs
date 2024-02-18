@@ -2,7 +2,6 @@
 
 use std::f32::consts::PI;
 
-use bevy::math::primitives::Direction3d;
 use bevy::prelude::*;
 
 fn main() {
@@ -10,7 +9,8 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .init_gizmo_group::<MyRoundGizmos>()
         .add_systems(Startup, setup)
-        .add_systems(Update, (system, rotate_camera, update_config))
+        .add_systems(Update, rotate_camera)
+        .add_systems(Update, (draw_example_collection, update_config))
         .run();
 }
 
@@ -29,13 +29,13 @@ fn setup(
     });
     // plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(5.0)),
+        mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
         material: materials.add(Color::rgb(0.3, 0.5, 0.3)),
         ..default()
     });
     // cube
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Cube { size: 1.0 }),
+        mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
         material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..default()
@@ -43,7 +43,6 @@ fn setup(
     // light
     commands.spawn(PointLightBundle {
         point_light: PointLight {
-            intensity: 250000.0,
             shadows_enabled: true,
             ..default()
         },
@@ -59,7 +58,9 @@ fn setup(
             Hold 'Left' or 'Right' to change the line width of straight gizmos\n\
             Hold 'Up' or 'Down' to change the line width of round gizmos\n\
             Press '1' or '2' to toggle the visibility of straight gizmos or round gizmos\n\
-            Press 'A' to show all AABB boxes",
+            Press 'A' to show all AABB boxes\n\
+            Press 'K' or 'J' to cycle through primitives rendered with gizmos\n\
+            Press 'H' or 'L' to decrease/increase the amount of segments in the primitives",
             TextStyle {
                 font_size: 20.,
                 ..default()
@@ -74,7 +75,17 @@ fn setup(
     );
 }
 
-fn system(mut gizmos: Gizmos, mut my_gizmos: Gizmos<MyRoundGizmos>, time: Res<Time>) {
+fn rotate_camera(mut query: Query<&mut Transform, With<Camera>>, time: Res<Time>) {
+    let mut transform = query.single_mut();
+
+    transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(time.delta_seconds() / 2.));
+}
+
+fn draw_example_collection(
+    mut gizmos: Gizmos,
+    mut my_gizmos: Gizmos<MyRoundGizmos>,
+    time: Res<Time>,
+) {
     gizmos.cuboid(
         Transform::from_translation(Vec3::Y * 0.5).with_scale(Vec3::splat(1.25)),
         Color::BLACK,
@@ -117,12 +128,6 @@ fn system(mut gizmos: Gizmos, mut my_gizmos: Gizmos<MyRoundGizmos>, time: Res<Ti
         .circle_segments(64);
 
     gizmos.arrow(Vec3::ZERO, Vec3::ONE * 1.5, Color::YELLOW);
-}
-
-fn rotate_camera(mut query: Query<&mut Transform, With<Camera>>, time: Res<Time>) {
-    let mut transform = query.single_mut();
-
-    transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(time.delta_seconds() / 2.));
 }
 
 fn update_config(

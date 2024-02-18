@@ -16,13 +16,6 @@ use bevy_render::{
     view::{ViewDepthTexture, ViewUniformOffset},
 };
 
-pub mod draw_3d_graph {
-    pub mod node {
-        pub const MESHLET_VISIBILITY_BUFFER_RASTER_PASS: &str =
-            "meshlet_visibility_buffer_raster_pass";
-    }
-}
-
 pub struct MeshletVisibilityBufferRasterPassNode {
     main_view_query: QueryState<(
         &'static ExtractedCamera,
@@ -96,7 +89,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
 
         render_context
             .command_encoder()
-            .push_debug_group(draw_3d_graph::node::MESHLET_VISIBILITY_BUFFER_RASTER_PASS);
+            .push_debug_group("meshlet_visibility_buffer_raster_pass");
         if meshlet_view_resources.occlusion_buffer_needs_clearing {
             render_context.command_encoder().clear_buffer(
                 &meshlet_view_resources.occlusion_buffer,
@@ -194,8 +187,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             };
 
             render_context.command_encoder().push_debug_group(&format!(
-                "{}: {}",
-                draw_3d_graph::node::MESHLET_VISIBILITY_BUFFER_RASTER_PASS,
+                "meshlet_visibility_buffer_raster_pass: {}",
                 shadow_view.pass_name
             ));
             if meshlet_view_resources.occlusion_buffer_needs_clearing {

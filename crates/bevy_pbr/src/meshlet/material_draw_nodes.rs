@@ -23,14 +23,6 @@ use bevy_render::{
     view::{ViewTarget, ViewUniformOffset},
 };
 
-pub mod draw_3d_graph {
-    pub mod node {
-        pub const MESHLET_PREPASS: &str = "meshlet_prepass";
-        pub const MESHLET_DEFERRED_PREPASS: &str = "meshlet_deferred_prepass";
-        pub const MESHLET_MAIN_OPAQUE_PASS_3D: &str = "meshlet_main_opaque_pass_3d";
-    }
-}
-
 #[derive(Default)]
 pub struct MeshletMainOpaquePass3dNode;
 impl ViewNode for MeshletMainOpaquePass3dNode {
@@ -85,7 +77,7 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
         };
 
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some(draw_3d_graph::node::MESHLET_MAIN_OPAQUE_PASS_3D),
+            label: Some("meshlet_main_opaque_pass_3d"),
             color_attachments: &[Some(target.get_color_attachment())],
             depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                 view: &meshlet_material_depth.default_view,
@@ -197,7 +189,7 @@ impl ViewNode for MeshletPrepassNode {
         ];
 
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some(draw_3d_graph::node::MESHLET_PREPASS),
+            label: Some("meshlet_prepass"),
             color_attachments: &color_attachments,
             depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                 view: &meshlet_material_depth.default_view,
@@ -323,7 +315,7 @@ impl ViewNode for MeshletDeferredGBufferPrepassNode {
         ];
 
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some(draw_3d_graph::node::MESHLET_DEFERRED_PREPASS),
+            label: Some("meshlet_deferred_prepass"),
             color_attachments: &color_attachments,
             depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                 view: &meshlet_material_depth.default_view,

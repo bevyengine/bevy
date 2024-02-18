@@ -1,6 +1,6 @@
 //! This example demonstrates Bevy's immediate mode drawing API intended for visual debugging.
 
-use std::f32::consts::PI;
+use std::f32::consts::{PI, TAU};
 
 use bevy::prelude::*;
 
@@ -9,7 +9,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .init_gizmo_group::<MyRoundGizmos>()
         .add_systems(Startup, setup)
-        .add_systems(Update, (system, update_config))
+        .add_systems(Update, (draw_example_collection, update_config))
         .run();
 }
 
@@ -32,7 +32,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 }
 
-fn system(mut gizmos: Gizmos, mut my_gizmos: Gizmos<MyRoundGizmos>, time: Res<Time>) {
+fn draw_example_collection(
+    mut gizmos: Gizmos,
+    mut my_gizmos: Gizmos<MyRoundGizmos>,
+    time: Res<Time>,
+) {
     let sin = time.elapsed_seconds().sin() * 50.;
     gizmos.line_2d(Vec2::Y * -sin, Vec2::splat(-80.), Color::RED);
     gizmos.ray_2d(Vec2::Y * sin, Vec2::splat(80.), Color::GREEN);
@@ -54,6 +58,12 @@ fn system(mut gizmos: Gizmos, mut my_gizmos: Gizmos<MyRoundGizmos>, time: Res<Ti
 
     // The circles have 32 line-segments by default.
     my_gizmos.circle_2d(Vec2::ZERO, 120., Color::BLACK);
+    my_gizmos.ellipse_2d(
+        Vec2::ZERO,
+        time.elapsed_seconds() % TAU,
+        Vec2::new(100., 200.),
+        Color::YELLOW_GREEN,
+    );
     // You may want to increase this for larger circles.
     my_gizmos
         .circle_2d(Vec2::ZERO, 300., Color::NAVY)

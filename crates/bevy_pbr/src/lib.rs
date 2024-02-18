@@ -1,3 +1,6 @@
+// FIXME(3492): remove once docs are ready
+#![allow(missing_docs)]
+
 mod meshlet;
 pub mod wireframe;
 
@@ -48,7 +51,7 @@ pub mod prelude {
             SpotLightBundle,
         },
         fog::{FogFalloff, FogSettings},
-        light::{AmbientLight, DirectionalLight, PointLight, SpotLight},
+        light::{light_consts, AmbientLight, DirectionalLight, PointLight, SpotLight},
         light_probe::{
             environment_map::{EnvironmentMapLight, ReflectionProbeBundle},
             LightProbe,
@@ -60,15 +63,25 @@ pub mod prelude {
     };
 }
 
-pub mod draw_3d_graph {
-    pub mod node {
+pub mod graph {
+    use bevy_render::render_graph::RenderLabel;
+
+    #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
+    pub enum NodePbr {
         /// Label for the shadow pass node.
-        pub const SHADOW_PASS: &str = "shadow_pass";
+        ShadowPass,
+        /// Label for the screen space ambient occlusion render node.
+        ScreenSpaceAmbientOcclusion,
+        DeferredLightingPass,
     }
 }
 
+use crate::{
+    deferred::DeferredPbrLightingPlugin, graph::NodePbr, meshlet::MeshletDummyShaderPlugin,
+};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
+use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::{CameraUpdateSystem, Projection},
@@ -84,8 +97,6 @@ use bevy_render::{
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::TransformSystem;
-
-use crate::{deferred::DeferredPbrLightingPlugin, meshlet::MeshletDummyShaderPlugin};
 
 pub const PBR_TYPES_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1708015359337029744);
 pub const PBR_BINDINGS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(5635987986427308186);
@@ -253,7 +264,11 @@ impl Plugin for PbrPlugin {
             .register_type::<PointLight>()
             .register_type::<PointLightShadowMap>()
             .register_type::<SpotLight>()
+            .register_type::<FogSettings>()
+            .register_type::<FogFalloff>()
             .register_type::<ShadowFilteringMethod>()
+            .register_type::<ParallaxMappingMethod>()
+            .register_type::<OpaqueRendererMethod>()
             .init_resource::<AmbientLight>()
             .init_resource::<GlobalVisiblePointLights>()
             .init_resource::<DirectionalLightShadowMap>()
@@ -364,14 +379,9 @@ impl Plugin for PbrPlugin {
 
         let shadow_pass_node = ShadowPassNode::new(&mut render_app.world);
         let mut graph = render_app.world.resource_mut::<RenderGraph>();
-        let draw_3d_graph = graph
-            .get_sub_graph_mut(bevy_core_pipeline::core_3d::graph::NAME)
-            .unwrap();
-        draw_3d_graph.add_node(draw_3d_graph::node::SHADOW_PASS, shadow_pass_node);
-        draw_3d_graph.add_node_edge(
-            draw_3d_graph::node::SHADOW_PASS,
-            bevy_core_pipeline::core_3d::graph::node::START_MAIN_PASS,
-        );
+        let draw_3d_graph = graph.get_sub_graph_mut(Core3d).unwrap();
+        draw_3d_graph.add_node(NodePbr::ShadowPass, shadow_pass_node);
+        draw_3d_graph.add_node_edge(NodePbr::ShadowPass, Node3d::StartMainPass);
 
         render_app.ignore_ambiguity(
             bevy_render::Render,

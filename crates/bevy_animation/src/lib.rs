@@ -1,8 +1,9 @@
 //! Animation for the game engine Bevy
 
-#![warn(missing_docs)]
+mod animatable;
+mod util;
 
-use std::ops::Deref;
+use std::ops::{Add, Deref, Mul};
 use std::time::Duration;
 
 use bevy_app::{App, Plugin, PostUpdate};
@@ -21,8 +22,8 @@ use bevy_utils::{tracing::warn, HashMap};
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        AnimationClip, AnimationPlayer, AnimationPlugin, EntityPath, Interpolation, Keyframes,
-        VariableCurve,
+        animatable::*, AnimationClip, AnimationPlayer, AnimationPlugin, EntityPath, Interpolation,
+        Keyframes, VariableCurve,
     };
 }
 
@@ -492,9 +493,7 @@ fn entity_from_path(
     let mut parts = path.parts.iter().enumerate();
 
     // check the first name is the root node which we already have
-    let Some((_, root_name)) = parts.next() else {
-        return None;
-    };
+    let (_, root_name) = parts.next()?;
     if names.get(current_entity) != Ok(root_name) {
         return None;
     }
@@ -672,16 +671,22 @@ fn get_keyframe(target_count: usize, keyframes: &[f32], key_index: usize) -> &[f
     &keyframes[start..end]
 }
 
-// Helper macro for cubic spline interpolation
-// it needs to work on `f32`, `Vec3` and `Quat`
-// TODO: replace by a function if the proper trait bounds can be figured out
-macro_rules! cubic_spline_interpolation {
-    ($value_start: expr, $tangent_out_start: expr, $tangent_in_end: expr, $value_end: expr, $lerp: expr, $step_duration: expr,) => {
-        $value_start * (2.0 * $lerp.powi(3) - 3.0 * $lerp.powi(2) + 1.0)
-            + $tangent_out_start * ($step_duration) * ($lerp.powi(3) - 2.0 * $lerp.powi(2) + $lerp)
-            + $value_end * (-2.0 * $lerp.powi(3) + 3.0 * $lerp.powi(2))
-            + $tangent_in_end * ($step_duration) * ($lerp.powi(3) - $lerp.powi(2))
-    };
+/// Helper function for cubic spline interpolation.
+fn cubic_spline_interpolation<T>(
+    value_start: T,
+    tangent_out_start: T,
+    tangent_in_end: T,
+    value_end: T,
+    lerp: f32,
+    step_duration: f32,
+) -> T
+where
+    T: Mul<f32, Output = T> + Add<Output = T>,
+{
+    value_start * (2.0 * lerp.powi(3) - 3.0 * lerp.powi(2) + 1.0)
+        + tangent_out_start * (step_duration) * (lerp.powi(3) - 2.0 * lerp.powi(2) + lerp)
+        + value_end * (-2.0 * lerp.powi(3) + 3.0 * lerp.powi(2))
+        + tangent_in_end * step_duration * (lerp.powi(3) - lerp.powi(2))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -828,7 +833,7 @@ fn apply_keyframe(
             let tangent_out_start = keyframes[step_start * 3 + 2];
             let tangent_in_end = keyframes[(step_start + 1) * 3];
             let value_end = keyframes[(step_start + 1) * 3 + 1];
-            let result = cubic_spline_interpolation!(
+            let result = cubic_spline_interpolation(
                 value_start,
                 tangent_out_start,
                 tangent_in_end,
@@ -852,7 +857,7 @@ fn apply_keyframe(
             let tangent_out_start = keyframes[step_start * 3 + 2];
             let tangent_in_end = keyframes[(step_start + 1) * 3];
             let value_end = keyframes[(step_start + 1) * 3 + 1];
-            let result = cubic_spline_interpolation!(
+            let result = cubic_spline_interpolation(
                 value_start,
                 tangent_out_start,
                 tangent_in_end,
@@ -876,7 +881,7 @@ fn apply_keyframe(
             let tangent_out_start = keyframes[step_start * 3 + 2];
             let tangent_in_end = keyframes[(step_start + 1) * 3];
             let value_end = keyframes[(step_start + 1) * 3 + 1];
-            let result = cubic_spline_interpolation!(
+            let result = cubic_spline_interpolation(
                 value_start,
                 tangent_out_start,
                 tangent_in_end,
@@ -918,8 +923,8 @@ fn apply_keyframe(
                     .zip(tangents_in_end)
                     .zip(morph_end)
                     .map(
-                        |(((value_start, tangent_out_start), tangent_in_end), value_end)| {
-                            cubic_spline_interpolation!(
+                        |(((&value_start, &tangent_out_start), &tangent_in_end), &value_end)| {
+                            cubic_spline_interpolation(
                                 value_start,
                                 tangent_out_start,
                                 tangent_in_end,
@@ -951,6 +956,10 @@ impl Plugin for AnimationPlugin {
         app.init_asset::<AnimationClip>()
             .register_asset_reflect::<AnimationClip>()
             .register_type::<AnimationPlayer>()
+            .register_type::<VariableCurve>()
+            .register_type::<Vec<VariableCurve>>()
+            .register_type::<Interpolation>()
+            .register_type::<Keyframes>()
             .add_systems(
                 PostUpdate,
                 animation_player.before(TransformSystem::TransformPropagate),

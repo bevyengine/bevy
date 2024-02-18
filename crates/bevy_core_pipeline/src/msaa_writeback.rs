@@ -1,7 +1,7 @@
 use crate::{
     blit::{BlitPipeline, BlitPipelineKey},
-    core_2d::{self, CORE_2D},
-    core_3d::{self, CORE_3D},
+    core_2d::graph::{Core2d, Node2d},
+    core_3d::graph::{Core3d, Node3d},
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
@@ -31,16 +31,14 @@ impl Plugin for MsaaWritebackPlugin {
             prepare_msaa_writeback_pipelines.in_set(RenderSet::Prepare),
         );
         {
-            use core_2d::graph::node::*;
             render_app
-                .add_render_graph_node::<MsaaWritebackNode>(CORE_2D, MSAA_WRITEBACK)
-                .add_render_graph_edge(CORE_2D, MSAA_WRITEBACK, MAIN_PASS);
+                .add_render_graph_node::<MsaaWritebackNode>(Core2d, Node2d::MsaaWriteback)
+                .add_render_graph_edge(Core2d, Node2d::MsaaWriteback, Node2d::MainPass);
         }
         {
-            use core_3d::graph::node::*;
             render_app
-                .add_render_graph_node::<MsaaWritebackNode>(CORE_3D, MSAA_WRITEBACK)
-                .add_render_graph_edge(CORE_3D, MSAA_WRITEBACK, START_MAIN_PASS);
+                .add_render_graph_node::<MsaaWritebackNode>(Core3d, Node3d::MsaaWriteback)
+                .add_render_graph_edge(Core3d, Node3d::MsaaWriteback, Node3d::StartMainPass);
         }
     }
 }
@@ -76,9 +74,9 @@ impl Node for MsaaWritebackNode {
         if let Ok((target, blit_pipeline_id)) = self.cameras.get_manual(world, view_entity) {
             let blit_pipeline = world.resource::<BlitPipeline>();
             let pipeline_cache = world.resource::<PipelineCache>();
-            let pipeline = pipeline_cache
-                .get_render_pipeline(blit_pipeline_id.0)
-                .unwrap();
+            let Some(pipeline) = pipeline_cache.get_render_pipeline(blit_pipeline_id.0) else {
+                return Ok(());
+            };
 
             // The current "main texture" needs to be bound as an input resource, and we need the "other"
             // unused target to be the "resolve target" for the MSAA write. Therefore this is the same
