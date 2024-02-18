@@ -13,7 +13,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-dds = []
+dds = ["bevy_render/dds"]
 trace = []
 webgl = []
 webgpu = []
