@@ -18,7 +18,7 @@ fn hsv2rgb(hue: f32, saturation: f32, value: f32) -> vec3<f32> {
     return value * mix(vec3<f32>(1.0), rgb, vec3<f32>(saturation));
 }
 
-// Generates a random u32 in range [0, u32::MAX).
+// Generates a random u32 in range [0, u32::MAX].
 //
 // `state` is a mutable reference to a u32 used as the seed.
 //
@@ -88,11 +88,11 @@ fn interleaved_gradient_noise(pixel_coordinates: vec2<f32>, frame: u32) -> f32 {
 // TODO: Use an array here instead of a bunch of constants, once arrays work properly under DX12.
 // NOTE: The names have a final underscore to avoid the following error:
 // `Composable module identifiers must not require substitution according to naga writeback rules`
-const SPIRAL_OFFSET_0_ = vec2<f32>(-0.7071,  0.7071);
+const SPIRAL_OFFSET_0_ = vec2<f32>(-0.7071, 0.7071);
 const SPIRAL_OFFSET_1_ = vec2<f32>(-0.0000, -0.8750);
-const SPIRAL_OFFSET_2_ = vec2<f32>( 0.5303,  0.5303);
+const SPIRAL_OFFSET_2_ = vec2<f32>(0.5303, 0.5303);
 const SPIRAL_OFFSET_3_ = vec2<f32>(-0.6250, -0.0000);
-const SPIRAL_OFFSET_4_ = vec2<f32>( 0.3536, -0.3536);
-const SPIRAL_OFFSET_5_ = vec2<f32>(-0.0000,  0.3750);
+const SPIRAL_OFFSET_4_ = vec2<f32>(0.3536, -0.3536);
+const SPIRAL_OFFSET_5_ = vec2<f32>(-0.0000, 0.3750);
 const SPIRAL_OFFSET_6_ = vec2<f32>(-0.1768, -0.1768);
-const SPIRAL_OFFSET_7_ = vec2<f32>( 0.1250,  0.0000);
+const SPIRAL_OFFSET_7_ = vec2<f32>(0.1250, 0.0000);
