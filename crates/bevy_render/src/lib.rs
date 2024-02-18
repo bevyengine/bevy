@@ -302,14 +302,10 @@ impl Plugin for RenderPlugin {
                             RenderInstance(Arc::new(instance)),
                         ));
                     };
-                    // In wasm, spawn a task and detach it for execution
-                    #[cfg(target_arch = "wasm32")]
+
                     bevy_tasks::IoTaskPool::get()
                         .spawn_local(async_renderer)
                         .detach();
-                    // Otherwise, just block for it to complete
-                    #[cfg(not(target_arch = "wasm32"))]
-                    futures_lite::future::block_on(async_renderer);
 
                     // SAFETY: Plugins should be set up on the main thread.
                     unsafe { initialize_render_app(app) };
