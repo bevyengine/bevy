@@ -167,7 +167,7 @@ impl SubApp {
     /// Adds a function to be called after [`update`](App::update).
     ///
     /// The provided function `finish` is normally called by the [`update`](App::update) method.
-    /// Before finish is called, the [`Schedule`] of the sub app is run. The [`World`]
+    /// Finish is called after the [`Schedule`] of the sub app has run. The [`World`]
     /// parameter represents the main app world, while the [`App`] parameter is just a mutable
     /// reference to the `SubApp` itself.
     pub fn with_finish(mut self, insert: impl Fn(&mut World, &mut App) + Send + 'static) -> Self {
@@ -186,7 +186,7 @@ impl SubApp {
         (self.extract)(main_world, &mut self.app);
     }
 
-    /// Finishes data from this sub-app to the main world.
+    /// Finishes the sub-app's update by invoking the [`Self::with_finish`] callback.
     pub fn finish(&mut self, main_world: &mut World) {
         (self.finish)(main_world, &mut self.app);
     }

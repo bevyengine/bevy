@@ -1571,7 +1571,7 @@ doc-scrape-examples = true
 
 [package.metadata.example.sub_app_communication]
 name = "SubApp Communication"
-description = "Demonstrates one way to communicate between the main app and one of it's sub apps"
+description = "Demonstrates using events to send data in and out of a SubApp"
 category = "ECS (Entity Component System)"
 wasm = false
 

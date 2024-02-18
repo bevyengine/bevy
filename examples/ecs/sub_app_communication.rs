@@ -1,4 +1,4 @@
-//! Demonstrates how to add and communicate with a [`SubApp`](bevy_internal::app::SubApp)
+//! Demonstrates using events to send data in and out of a [`SubApp`](bevy_internal::app::SubApp)
 
 use bevy::{
     app::{AppExit, AppLabel, SubApp},
