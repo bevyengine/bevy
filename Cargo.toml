@@ -76,6 +76,7 @@ default = [
   "tonemapping_luts",
   "default_font",
   "webgl2",
+  "bevy_debug_stepping",
 ]
 
 # Force dynamic linking, which improves iterative compile times

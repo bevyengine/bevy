@@ -41,8 +41,8 @@ impl SystemExecutor for SingleThreadedExecutor {
     fn run(
         &mut self,
         schedule: &mut SystemSchedule,
-        _skip_systems: Option<&FixedBitSet>,
         world: &mut World,
+        _skip_systems: Option<&FixedBitSet>,
     ) {
         // If stepping is enabled, make sure we skip those systems that should
         // not be run.

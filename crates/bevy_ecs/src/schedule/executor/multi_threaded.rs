@@ -166,8 +166,8 @@ impl SystemExecutor for MultiThreadedExecutor {
     fn run(
         &mut self,
         schedule: &mut SystemSchedule,
-        _skip_systems: Option<&FixedBitSet>,
         world: &mut World,
+        _skip_systems: Option<&FixedBitSet>,
     ) {
         // reset counts
         self.num_systems = schedule.systems.len();
@@ -201,15 +201,6 @@ impl SystemExecutor for MultiThreadedExecutor {
                 self.signal_dependents(system_index);
                 self.ready_systems.set(system_index, false);
             }
-
-            // // Finally, we need to clear all skipped systems from the ready
-            // // list.
-            // //
-            // // We invert the skipped system mask to get the list of systems
-            // // that should be run.  Then we bitwise AND it with the ready list,
-            // // resulting in a list of ready systems that aren't skipped.
-            // skipped_systems.toggle_range(..);
-            // self.ready_systems &= skipped_systems;
         }
 
         let thread_executor = world
