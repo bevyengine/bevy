@@ -5,6 +5,7 @@ use bevy_math::{Affine3A, Mat3, Mat4, Quat, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_reflect::Reflect;
 use std::ops::Mul;
+use bevy_ecs::entity::{EntityMapper, MapEntities};
 
 /// Describe the position of an entity. If the entity has a parent, the position is relative
 /// to its parent position.
@@ -446,5 +447,11 @@ impl Mul<Vec3> for Transform {
 
     fn mul(self, value: Vec3) -> Self::Output {
         self.transform_point(value)
+    }
+}
+
+// No need to map any entities for Transform
+impl MapEntities for Transform {
+    fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
     }
 }
