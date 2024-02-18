@@ -146,6 +146,7 @@ impl TaskPool {
         let threads = (0..num_threads)
             .map(|i| {
                 let ex = Arc::clone(&executor);
+                let shutdown = shutdown.clone();
 
                 let thread_name = if let Some(thread_name) = builder.thread_name.as_deref() {
                     format!("{thread_name} ({i})")
@@ -160,7 +161,6 @@ impl TaskPool {
 
                 let on_thread_spawn = builder.on_thread_spawn.clone();
                 let on_thread_destroy = builder.on_thread_destroy.clone();
-                let shutdown = shutdown.clone();
 
                 thread_builder
                     .spawn(move || {
@@ -179,7 +179,7 @@ impl TaskPool {
                                     };
                                     block_on(ex.run(tick_forever.or(shutdown.listen())));
                                 });
-                                if let Ok(()) = res {
+                                if res.is_ok() {
                                     break;
                                 }
                             }
