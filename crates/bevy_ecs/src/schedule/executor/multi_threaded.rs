@@ -166,7 +166,7 @@ impl SystemExecutor for MultiThreadedExecutor {
     fn run(
         &mut self,
         schedule: &mut SystemSchedule,
-        _skip_systems: &Option<FixedBitSet>,
+        _skip_systems: Option<&FixedBitSet>,
         world: &mut World,
     ) {
         // reset counts

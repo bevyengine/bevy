@@ -333,16 +333,18 @@ impl Schedule {
             .unwrap_or_else(|e| panic!("Error when initializing schedule {:?}: {e}", self.label));
 
         #[cfg(not(feature = "bevy_debug_stepping"))]
-        let skip_systems = None;
+        self.executor.run(&mut self.executable, None, world);
 
         #[cfg(feature = "bevy_debug_stepping")]
-        let skip_systems = match world.get_resource_mut::<Stepping>() {
-            None => None,
-            Some(mut stepping) => stepping.skipped_systems(self),
-        };
+        {
+            let skip_systems = match world.get_resource_mut::<Stepping>() {
+                None => None,
+                Some(mut stepping) => stepping.skipped_systems(self),
+            };
 
-        self.executor
-            .run(&mut self.executable, &skip_systems, world);
+            self.executor
+                .run(&mut self.executable, skip_systems.as_ref(), world);
+        }
     }
 
     /// Initializes any newly-added systems and conditions, rebuilds the executable schedule,
