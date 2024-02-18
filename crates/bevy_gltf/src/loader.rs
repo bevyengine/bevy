@@ -134,6 +134,10 @@ pub struct GltfLoaderSettings {
     pub load_lights: bool,
     /// If true, the loader will include the root of the gltf root node.
     pub include_source: bool,
+    /// If true, the loader will label nested assets by name if available.
+    /// If no name exists for an asset, the asset will be labeled with asset
+    /// type and index (example: GltfMesh0).
+    pub label_by_name: bool,
 }
 
 impl Default for GltfLoaderSettings {
@@ -143,6 +147,7 @@ impl Default for GltfLoaderSettings {
             load_cameras: true,
             load_lights: true,
             include_source: false,
+            label_by_name: false,
         }
     }
 }
@@ -277,8 +282,12 @@ async fn load_gltf<'a, 'b, 'c>(
                     );
                 }
             }
-            let handle = load_context
-                .add_labeled_asset(format!("Animation{}", animation.index()), animation_clip);
+
+            let label = match (settings.label_by_name, animation.name()) {
+                (true, Some(name)) => format!("Animation/{name}"),
+                _ => format!("Animation{}", animation.index()),
+            };
+            let handle = load_context.add_labeled_asset(label, animation_clip);
             if let Some(name) = animation.name() {
                 named_animations.insert(name.to_string(), handle.clone());
             }
@@ -329,6 +338,7 @@ async fn load_gltf<'a, 'b, 'c>(
                 &linear_textures,
                 parent_path,
                 loader.supported_compressed_formats,
+                settings.label_by_name,
             )
             .await?;
             process_loaded_texture(load_context, &mut _texture_handles, image);
@@ -348,6 +358,7 @@ async fn load_gltf<'a, 'b, 'c>(
                             linear_textures,
                             parent_path,
                             loader.supported_compressed_formats,
+                            settings.label_by_name,
                         )
                         .await
                     });
@@ -368,7 +379,7 @@ async fn load_gltf<'a, 'b, 'c>(
     let mut named_materials = HashMap::default();
     // NOTE: materials must be loaded after textures because image load() calls will happen before load_with_settings, preventing is_srgb from being set properly
     for material in gltf.materials() {
-        let handle = load_material(&material, load_context, false);
+        let handle = load_material(&material, load_context, false, settings.label_by_name);
         if let Some(name) = material.name() {
             named_materials.insert(name.to_string(), handle.clone());
         }
@@ -391,7 +402,7 @@ async fn load_gltf<'a, 'b, 'c>(
     for gltf_mesh in gltf.meshes() {
         let mut primitives = vec![];
         for primitive in gltf_mesh.primitives() {
-            let primitive_label = primitive_label(&gltf_mesh, &primitive);
+            let primitive_label = primitive_label(&gltf_mesh, &primitive, settings.label_by_name);
             let primitive_topology = get_primitive_topology(primitive.mode())?;
 
             let mut mesh = Mesh::new(primitive_topology, RenderAssetUsages::default());
@@ -434,7 +445,8 @@ async fn load_gltf<'a, 'b, 'c>(
             {
                 let morph_target_reader = reader.read_morph_targets();
                 if morph_target_reader.len() != 0 {
-                    let morph_targets_label = morph_targets_label(&gltf_mesh, &primitive);
+                    let morph_targets_label =
+                        morph_targets_label(&gltf_mesh, &primitive, settings.label_by_name);
                     let morph_target_image = MorphTargetImage::new(
                         morph_target_reader.map(PrimitiveMorphAttributesIter),
                         mesh.count_vertices(),
@@ -502,7 +514,7 @@ async fn load_gltf<'a, 'b, 'c>(
         }
 
         let handle = load_context.add_labeled_asset(
-            mesh_label(&gltf_mesh),
+            mesh_label(&gltf_mesh, settings.label_by_name),
             super::GltfMesh {
                 primitives,
                 extras: get_gltf_extras(gltf_mesh.extras()),
@@ -517,7 +529,7 @@ async fn load_gltf<'a, 'b, 'c>(
     let mut nodes_intermediate = vec![];
     let mut named_nodes_intermediate = HashMap::default();
     for node in gltf.nodes() {
-        let node_label = node_label(&node);
+        let node_label = node_label(&node, settings.label_by_name);
         nodes_intermediate.push((
             node_label,
             GltfNode {
@@ -561,7 +573,7 @@ async fn load_gltf<'a, 'b, 'c>(
                 .collect();
 
             load_context.add_labeled_asset(
-                skin_label(&gltf_skin),
+                skin_label(&gltf_skin, settings.label_by_name),
                 SkinnedMeshInverseBindposes::from(inverse_bindposes),
             )
         })
@@ -639,7 +651,8 @@ async fn load_gltf<'a, 'b, 'c>(
             });
         }
         let loaded_scene = scene_load_context.finish(Scene::new(world), None);
-        let scene_handle = load_context.add_loaded_labeled_asset(scene_label(&scene), loaded_scene);
+        let scene_handle = load_context
+            .add_loaded_labeled_asset(scene_label(&scene, settings.label_by_name), loaded_scene);
 
         if let Some(name) = scene.name() {
             named_scenes.insert(name.to_string(), scene_handle.clone());
@@ -731,6 +744,7 @@ async fn load_image<'a, 'b>(
     linear_textures: &HashSet<usize>,
     parent_path: &'b Path,
     supported_compressed_formats: CompressedImageFormats,
+    use_name: bool,
 ) -> Result<ImageOrPath, GltfError> {
     let is_srgb = !linear_textures.contains(&gltf_texture.index());
     let sampler_descriptor = texture_sampler(&gltf_texture);
@@ -755,7 +769,7 @@ async fn load_image<'a, 'b>(
             )?;
             Ok(ImageOrPath::Image {
                 image,
-                label: texture_label(&gltf_texture),
+                label: texture_label(&gltf_texture, use_name),
             })
         }
         gltf::image::Source::Uri { uri, mime_type } => {
@@ -777,7 +791,7 @@ async fn load_image<'a, 'b>(
                         ImageSampler::Descriptor(sampler_descriptor),
                         RenderAssetUsages::default(),
                     )?,
-                    label: texture_label(&gltf_texture),
+                    label: texture_label(&gltf_texture, use_name),
                 })
             } else {
                 let image_path = parent_path.join(uri);
@@ -796,8 +810,9 @@ fn load_material(
     material: &Material,
     load_context: &mut LoadContext,
     is_scale_inverted: bool,
+    use_name: bool,
 ) -> Handle<StandardMaterial> {
-    let material_label = material_label(material, is_scale_inverted);
+    let material_label = material_label(material, is_scale_inverted, use_name);
     load_context.labeled_asset_scope(material_label, |load_context| {
         let pbr = material.pbr_metallic_roughness();
 
@@ -805,32 +820,32 @@ fn load_material(
         let color = pbr.base_color_factor();
         let base_color_texture = pbr.base_color_texture().map(|info| {
             // TODO: handle info.tex_coord() (the *set* index for the right texcoords)
-            texture_handle(load_context, &info.texture())
+            texture_handle(load_context, &info.texture(), use_name)
         });
 
         let normal_map_texture: Option<Handle<Image>> =
             material.normal_texture().map(|normal_texture| {
                 // TODO: handle normal_texture.scale
                 // TODO: handle normal_texture.tex_coord() (the *set* index for the right texcoords)
-                texture_handle(load_context, &normal_texture.texture())
+                texture_handle(load_context, &normal_texture.texture(), use_name)
             });
 
         let metallic_roughness_texture = pbr.metallic_roughness_texture().map(|info| {
             // TODO: handle info.tex_coord() (the *set* index for the right texcoords)
-            texture_handle(load_context, &info.texture())
+            texture_handle(load_context, &info.texture(), use_name)
         });
 
         let occlusion_texture = material.occlusion_texture().map(|occlusion_texture| {
             // TODO: handle occlusion_texture.tex_coord() (the *set* index for the right texcoords)
             // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
-            texture_handle(load_context, &occlusion_texture.texture())
+            texture_handle(load_context, &occlusion_texture.texture(), use_name)
         });
 
         let emissive = material.emissive_factor();
         let emissive_texture = material.emissive_texture().map(|info| {
             // TODO: handle occlusion_texture.tex_coord() (the *set* index for the right texcoords)
             // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
-            texture_handle(load_context, &info.texture())
+            texture_handle(load_context, &info.texture(), use_name)
         });
 
         #[cfg(feature = "pbr_transmission_textures")]
@@ -840,7 +855,7 @@ fn load_material(
                     .transmission_texture()
                     .map(|transmission_texture| {
                         // TODO: handle transmission_texture.tex_coord() (the *set* index for the right texcoords)
-                        texture_handle(load_context, &transmission_texture.texture())
+                        texture_handle(load_context, &transmission_texture.texture(), use_name)
                     });
 
                 (transmission.transmission_factor(), transmission_texture)
@@ -858,7 +873,7 @@ fn load_material(
                 let thickness_texture: Option<Handle<Image>> =
                     volume.thickness_texture().map(|thickness_texture| {
                         // TODO: handle thickness_texture.tex_coord() (the *set* index for the right texcoords)
-                        texture_handle(load_context, &thickness_texture.texture())
+                        texture_handle(load_context, &thickness_texture.texture(), use_name)
                     });
 
                 (
@@ -1011,7 +1026,8 @@ fn load_node(
                 // append primitives
                 for primitive in mesh.primitives() {
                     let material = primitive.material();
-                    let material_label = material_label(&material, is_scale_inverted);
+                    let material_label =
+                        material_label(&material, is_scale_inverted, settings.label_by_name);
 
                     // This will make sure we load the default material now since it would not have been
                     // added when iterating over all the gltf materials (since the default material is
@@ -1020,10 +1036,16 @@ fn load_node(
                     if !root_load_context.has_labeled_asset(&material_label)
                         && !load_context.has_labeled_asset(&material_label)
                     {
-                        load_material(&material, load_context, is_scale_inverted);
+                        load_material(
+                            &material,
+                            load_context,
+                            is_scale_inverted,
+                            settings.label_by_name,
+                        );
                     }
 
-                    let primitive_label = primitive_label(&mesh, &primitive);
+                    let primitive_label =
+                        primitive_label(&mesh, &primitive, settings.label_by_name);
                     let bounds = primitive.bounding_box();
 
                     let mut mesh_entity = parent.spawn(PbrBundle {
@@ -1170,7 +1192,10 @@ fn load_node(
 
     if settings.load_meshes {
         if let (Some(mesh), Some(weights)) = (gltf_node.mesh(), morph_weights) {
-            let primitive_label = mesh.primitives().next().map(|p| primitive_label(&mesh, &p));
+            let primitive_label = mesh
+                .primitives()
+                .next()
+                .map(|p| primitive_label(&mesh, &p, settings.label_by_name));
             let first_mesh = primitive_label.map(|label| load_context.get_label_handle(label));
             node.insert(MorphWeights::new(weights, first_mesh)?);
         }
@@ -1184,13 +1209,19 @@ fn load_node(
 }
 
 /// Returns the label for the `mesh`.
-fn mesh_label(mesh: &gltf::Mesh) -> String {
-    format!("Mesh{}", mesh.index())
+fn mesh_label(mesh: &gltf::Mesh, use_name: bool) -> String {
+    match (use_name, mesh.name()) {
+        (true, Some(name)) => format!("Mesh/{}", name),
+        _ => format!("Mesh{}", mesh.index()),
+    }
 }
 
 /// Returns the label for the `mesh` and `primitive`.
-fn primitive_label(mesh: &gltf::Mesh, primitive: &Primitive) -> String {
-    format!("Mesh{}/Primitive{}", mesh.index(), primitive.index())
+fn primitive_label(mesh: &gltf::Mesh, primitive: &Primitive, use_name: bool) -> String {
+    match (use_name, mesh.name()) {
+        (true, Some(name)) => format!("Mesh/{}/Primitive{}", name, primitive.index()),
+        _ => format!("Mesh{}/Primitive{}", mesh.index(), primitive.index()),
+    }
 }
 
 fn primitive_name(mesh: &gltf::Mesh, primitive: &Primitive) -> String {
@@ -1203,35 +1234,44 @@ fn primitive_name(mesh: &gltf::Mesh, primitive: &Primitive) -> String {
 }
 
 /// Returns the label for the morph target of `primitive`.
-fn morph_targets_label(mesh: &gltf::Mesh, primitive: &Primitive) -> String {
+fn morph_targets_label(mesh: &gltf::Mesh, primitive: &Primitive, use_name: bool) -> String {
     format!(
-        "Mesh{}/Primitive{}/MorphTargets",
-        mesh.index(),
-        primitive.index()
+        "{}/MorphTargets",
+        primitive_label(mesh, primitive, use_name)
     )
 }
 
 /// Returns the label for the `material`.
-fn material_label(material: &Material, is_scale_inverted: bool) -> String {
-    if let Some(index) = material.index() {
-        format!(
-            "Material{index}{}",
-            if is_scale_inverted { " (inverted)" } else { "" }
-        )
+fn material_label(material: &Material, is_scale_inverted: bool, use_name: bool) -> String {
+    let label = match (use_name, material.name(), material.index()) {
+        (true, Some(name), _) => format!("Material/{name}"),
+        (_, _, Some(index)) => format!("Material{index}"),
+        // MaterialDefault does not get `(inverted)` label, so return it here
+        (_, _, None) => return "MaterialDefault".to_string(),
+    };
+    if is_scale_inverted {
+        format!("{label} (inverted)")
     } else {
-        "MaterialDefault".to_string()
+        label
     }
 }
 
 /// Returns the label for the `texture`.
-fn texture_label(texture: &gltf::Texture) -> String {
-    format!("Texture{}", texture.index())
+fn texture_label(texture: &gltf::Texture, use_name: bool) -> String {
+    match (use_name, texture.name()) {
+        (true, Some(name)) => format!("Texture/{}", name),
+        _ => format!("Texture{}", texture.index()),
+    }
 }
 
-fn texture_handle(load_context: &mut LoadContext, texture: &gltf::Texture) -> Handle<Image> {
+fn texture_handle(
+    load_context: &mut LoadContext,
+    texture: &gltf::Texture,
+    use_name: bool,
+) -> Handle<Image> {
     match texture.source().source() {
         gltf::image::Source::View { .. } => {
-            let label = texture_label(texture);
+            let label = texture_label(texture, use_name);
             load_context.get_label_handle(&label)
         }
         gltf::image::Source::Uri { uri, .. } => {
@@ -1240,7 +1280,7 @@ fn texture_handle(load_context: &mut LoadContext, texture: &gltf::Texture) -> Ha
                 .unwrap();
             let uri = uri.as_ref();
             if let Ok(_data_uri) = DataUri::parse(uri) {
-                let label = texture_label(texture);
+                let label = texture_label(texture, use_name);
                 load_context.get_label_handle(&label)
             } else {
                 let parent = load_context.path().parent().unwrap();
@@ -1252,17 +1292,26 @@ fn texture_handle(load_context: &mut LoadContext, texture: &gltf::Texture) -> Ha
 }
 
 /// Returns the label for the `node`.
-fn node_label(node: &Node) -> String {
-    format!("Node{}", node.index())
+fn node_label(node: &Node, use_name: bool) -> String {
+    match (use_name, node.name()) {
+        (true, Some(name)) => format!("Node/{}", name),
+        _ => format!("Node{}", node.index()),
+    }
 }
 
 /// Returns the label for the `scene`.
-fn scene_label(scene: &gltf::Scene) -> String {
-    format!("Scene{}", scene.index())
+fn scene_label(scene: &gltf::Scene, use_name: bool) -> String {
+    match (use_name, scene.name()) {
+        (true, Some(name)) => format!("Scene/{}", name),
+        _ => format!("Scene{}", scene.index()),
+    }
 }
 
-fn skin_label(skin: &gltf::Skin) -> String {
-    format!("Skin{}", skin.index())
+fn skin_label(skin: &gltf::Skin, use_name: bool) -> String {
+    match (use_name, skin.name()) {
+        (true, Some(name)) => format!("Skin/{}", name),
+        _ => format!("Skin{}", skin.index()),
+    }
 }
 
 /// Extracts the texture sampler data from the glTF texture.
