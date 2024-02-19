@@ -31,8 +31,8 @@ struct SyncUnsafeSchedule<'a> {
 }
 
 struct Conditions<'a> {
-    system_conditions: &'a SyncUnsafeCell<[Vec<BoxedCondition>]>,
-    set_conditions: &'a SyncUnsafeCell<[Vec<BoxedCondition>]>,
+    system_conditions: &'a mut [Vec<BoxedCondition>],
+    set_conditions: &'a mut [Vec<BoxedCondition>],
     sets_with_conditions_of_systems: &'a [FixedBitSet],
     systems_in_sets_with_conditions: &'a [FixedBitSet],
 }
@@ -42,10 +42,8 @@ impl SyncUnsafeSchedule<'_> {
         SyncUnsafeSchedule {
             systems: SyncUnsafeCell::from_mut(schedule.systems.as_mut_slice()).as_slice_of_cells(),
             conditions: Conditions {
-                system_conditions: SyncUnsafeCell::from_mut(
-                    schedule.system_conditions.as_mut_slice(),
-                ),
-                set_conditions: SyncUnsafeCell::from_mut(schedule.set_conditions.as_mut_slice()),
+                system_conditions: &mut schedule.system_conditions,
+                set_conditions: &mut schedule.set_conditions,
                 sets_with_conditions_of_systems: &schedule.sets_with_conditions_of_systems,
                 systems_in_sets_with_conditions: &schedule.systems_in_sets_with_conditions,
             },
@@ -135,7 +133,7 @@ pub struct Context<'scope, 'env: 'scope> {
     executor: &'env MultiThreadedExecutor,
     scope: &'scope Scope<'scope, 'env, ()>,
     systems: &'env [SyncUnsafeCell<BoxedSystem>],
-    conditions: &'env Conditions<'env>,
+    conditions: &'env Mutex<Conditions<'env>>,
     world_cell: UnsafeWorldCell<'env>,
 }
 
@@ -235,6 +233,7 @@ impl SystemExecutor for MultiThreadedExecutor {
             systems,
             conditions,
         } = SyncUnsafeSchedule::new(schedule);
+        let conditions = Mutex::new(conditions);
 
         ComputeTaskPool::get_or_init(TaskPool::default).scope_with_executor(
             false,
@@ -398,6 +397,11 @@ impl ExecutorState {
             return;
         }
 
+        let mut conditions = context
+            .conditions
+            .try_lock()
+            .expect("Conditions should only be locked while owning the executor state");
+
         // can't borrow since loop mutably borrows `self`
         let mut ready_systems = std::mem::take(&mut self.ready_systems_copy);
 
@@ -416,7 +420,7 @@ impl ExecutorState {
                 // Therefore, no other reference to this system exists and there is no aliasing.
                 let system = unsafe { &mut *context.systems[system_index].get() };
 
-                if !self.can_run(system_index, system, context.conditions, context.world_cell) {
+                if !self.can_run(system_index, system, &mut conditions, context.world_cell) {
                     // NOTE: exclusive systems with ambiguities are susceptible to
                     // being significantly displaced here (compared to single-threaded order)
                     // if systems after them in topological order can run
@@ -430,7 +434,7 @@ impl ExecutorState {
                 // - It must have called `update_archetype_component_access` for each run condition.
                 // - There can be no systems running whose accesses would conflict with any conditions.
                 if unsafe {
-                    !self.should_run(system_index, system, context.conditions, context.world_cell)
+                    !self.should_run(system_index, system, &mut conditions, context.world_cell)
                 } {
                     self.skip_system_and_signal_dependents(system_index);
                     // signal_dependents may have set more systems to ready.
@@ -469,7 +473,7 @@ impl ExecutorState {
         &mut self,
         system_index: usize,
         system: &mut BoxedSystem,
-        conditions: &Conditions,
+        conditions: &mut Conditions,
         world: UnsafeWorldCell,
     ) -> bool {
         let system_meta = &self.system_task_metadata[system_index];
@@ -485,9 +489,7 @@ impl ExecutorState {
         for set_idx in conditions.sets_with_conditions_of_systems[system_index]
             .difference(&self.evaluated_sets)
         {
-            // SAFETY: We have exclusive access to ExecutorState, so no other thread is touching these conditions
-            let set_conditions = unsafe { &mut *conditions.set_conditions.get() };
-            for condition in &mut set_conditions[set_idx] {
+            for condition in &mut conditions.set_conditions[set_idx] {
                 condition.update_archetype_component_access(world);
                 if !condition
                     .archetype_component_access()
@@ -498,9 +500,7 @@ impl ExecutorState {
             }
         }
 
-        // SAFETY: We have exclusive access to ExecutorState, so no other thread is touching these conditions
-        let system_conditions = unsafe { &mut *conditions.system_conditions.get() };
-        for condition in &mut system_conditions[system_index] {
+        for condition in &mut conditions.system_conditions[system_index] {
             condition.update_archetype_component_access(world);
             if !condition
                 .archetype_component_access()
@@ -539,7 +539,7 @@ impl ExecutorState {
         &mut self,
         system_index: usize,
         _system: &BoxedSystem,
-        conditions: &Conditions,
+        conditions: &mut Conditions,
         world: UnsafeWorldCell,
     ) -> bool {
         let mut should_run = !self.skipped_systems.contains(system_index);
@@ -548,15 +548,14 @@ impl ExecutorState {
                 continue;
             }
 
-            // SAFETY: We have exclusive access to ExecutorState, so no other thread is touching these conditions
-            let set_conditions = unsafe { &mut *conditions.set_conditions.get() };
             // Evaluate the system set's conditions.
             // SAFETY:
             // - The caller ensures that `world` has permission to read any data
             //   required by the conditions.
             // - `update_archetype_component_access` has been called for each run condition.
-            let set_conditions_met =
-                unsafe { evaluate_and_fold_conditions(&mut set_conditions[set_idx], world) };
+            let set_conditions_met = unsafe {
+                evaluate_and_fold_conditions(&mut conditions.set_conditions[set_idx], world)
+            };
 
             if !set_conditions_met {
                 self.skipped_systems
@@ -567,15 +566,14 @@ impl ExecutorState {
             self.evaluated_sets.insert(set_idx);
         }
 
-        // SAFETY: We have exclusive access to ExecutorState, so no other thread is touching these conditions
-        let system_conditions = unsafe { &mut *conditions.system_conditions.get() };
         // Evaluate the system's conditions.
         // SAFETY:
         // - The caller ensures that `world` has permission to read any data
         //   required by the conditions.
         // - `update_archetype_component_access` has been called for each run condition.
-        let system_conditions_met =
-            unsafe { evaluate_and_fold_conditions(&mut system_conditions[system_index], world) };
+        let system_conditions_met = unsafe {
+            evaluate_and_fold_conditions(&mut conditions.system_conditions[system_index], world)
+        };
 
         if !system_conditions_met {
             self.skipped_systems.insert(system_index);
