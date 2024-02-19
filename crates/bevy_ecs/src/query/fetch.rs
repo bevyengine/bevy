@@ -1584,7 +1584,7 @@ macro_rules! impl_anytuple_fetch {
             ) -> Self::Item<'w> {
                 let ($($name,)*) = _fetch;
                 ($(
-                    // SAFETY: The invariants are uphold by the caller.
+                    // SAFETY: The invariants are required to be upheld by the caller.
                     $name.1.then(|| unsafe { $name::fetch(&mut $name.0, _entity, _table_row) }),
                 )*)
             }
