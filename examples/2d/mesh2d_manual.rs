@@ -345,9 +345,9 @@ pub fn queue_colored_mesh2d(
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
     render_mesh_instances: Res<RenderMesh2dInstances>,
-    mut views: Query<(
+    views: Query<(
         &VisibleEntities,
-        &mut RenderPhase<Transparent2d>,
+        &RenderPhase<Transparent2d>,
         &ExtractedView,
     )>,
 ) {

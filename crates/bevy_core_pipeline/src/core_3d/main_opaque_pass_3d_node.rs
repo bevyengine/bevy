@@ -75,14 +75,14 @@ impl ViewNode for MainOpaquePass3dNode {
             }
 
             // Opaque draws
-            if !opaque_phase.items.is_empty() {
+            if !opaque_phase.is_empty() {
                 #[cfg(feature = "trace")]
                 let _opaque_main_pass_3d_span = info_span!("opaque_main_pass_3d").entered();
                 opaque_phase.render(&mut render_pass, world, view_entity);
             }
 
             // Alpha draws
-            if !alpha_mask_phase.items.is_empty() {
+            if !alpha_mask_phase.is_empty() {
                 #[cfg(feature = "trace")]
                 let _alpha_mask_main_pass_3d_span = info_span!("alpha_mask_main_pass_3d").entered();
                 alpha_mask_phase.render(&mut render_pass, world, view_entity);

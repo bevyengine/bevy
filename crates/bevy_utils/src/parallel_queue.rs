@@ -64,9 +64,17 @@ impl<T: Send> Parallel<Vec<T>> {
             .iter_mut()
             .map(|queue| queue.get_mut().len())
             .sum();
-        out.reserve(size);
+        if !out.is_empty() {
+            out.reserve(size);
+        }
         for queue in self.locals.iter_mut() {
-            out.append(queue.get_mut());
+            // Avoid copying if there's nothing in the output.
+            if out.is_empty() {
+                *out = queue.take();
+                out.reserve(size - out.len());
+            } else {
+                out.append(queue.get_mut());
+            }
         }
     }
 }

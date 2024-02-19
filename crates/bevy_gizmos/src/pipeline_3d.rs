@@ -161,9 +161,9 @@ fn queue_line_gizmos_3d(
     msaa: Res<Msaa>,
     line_gizmos: Query<(Entity, &Handle<LineGizmo>, &GizmoMeshConfig)>,
     line_gizmo_assets: Res<RenderAssets<LineGizmo>>,
-    mut views: Query<(
+    views: Query<(
         &ExtractedView,
-        &mut RenderPhase<Transparent3d>,
+        &RenderPhase<Transparent3d>,
         Option<&RenderLayers>,
         (
             Has<NormalPrepass>,
@@ -177,10 +177,10 @@ fn queue_line_gizmos_3d(
 
     for (
         view,
-        mut transparent_phase,
+        transparent_phase,
         render_layers,
         (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
-    ) in &mut views
+    ) in &views
     {
         let render_layers = render_layers.copied().unwrap_or_default();
 

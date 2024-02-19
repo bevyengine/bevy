@@ -100,7 +100,7 @@ pub fn batch_and_prepare_render_phase<I: CachedRenderPipelinePhaseItem, F: GetBa
     };
 
     for mut phase in &mut views {
-        let items = phase.items.iter_mut().map(|item| {
+        let items = phase.iter_mut().map(|item| {
             let batch_data = process_item(item);
             (item.batch_range_mut(), batch_data)
         });

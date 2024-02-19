@@ -146,15 +146,15 @@ fn queue_line_gizmos_2d(
     msaa: Res<Msaa>,
     line_gizmos: Query<(Entity, &Handle<LineGizmo>, &GizmoMeshConfig)>,
     line_gizmo_assets: Res<RenderAssets<LineGizmo>>,
-    mut views: Query<(
+    views: Query<(
         &ExtractedView,
-        &mut RenderPhase<Transparent2d>,
+        &RenderPhase<Transparent2d>,
         Option<&RenderLayers>,
     )>,
 ) {
     let draw_function = draw_functions.read().get_id::<DrawLineGizmo2d>().unwrap();
 
-    for (view, mut transparent_phase, render_layers) in &mut views {
+    for (view, transparent_phase, render_layers) in &views {
         let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
             | Mesh2dPipelineKey::from_hdr(view.hdr);
 

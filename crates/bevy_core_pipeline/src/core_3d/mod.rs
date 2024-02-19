@@ -617,7 +617,7 @@ pub fn prepare_core_3d_transmission_textures(
         }
 
         // Don't prepare a transmission texture if there are no transmissive items to render
-        if transmissive_3d_phase.items.is_empty() {
+        if transmissive_3d_phase.is_empty() {
             continue;
         }
 

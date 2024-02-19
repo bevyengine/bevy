@@ -687,14 +687,13 @@ pub fn queue_uinodes(
     extracted_uinodes: Res<ExtractedUiNodes>,
     ui_pipeline: Res<UiPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
-    mut views: Query<(&ExtractedView, &mut RenderPhase<TransparentUi>)>,
+    views: Query<(&ExtractedView, &RenderPhase<TransparentUi>)>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawUi>();
     for (entity, extracted_uinode) in extracted_uinodes.uinodes.iter() {
-        let Ok((view, mut transparent_phase)) = views.get_mut(extracted_uinode.camera_entity)
-        else {
+        let Ok((view, transparent_phase)) = views.get(extracted_uinode.camera_entity) else {
             continue;
         };
 
@@ -767,8 +766,8 @@ pub fn prepare_uinodes(
             let mut batch_item_index = 0;
             let mut batch_image_handle = AssetId::invalid();
 
-            for item_index in 0..ui_phase.items.len() {
-                let item = &mut ui_phase.items[item_index];
+            for item_index in 0..ui_phase.len() {
+                let item = &mut ui_phase[item_index];
                 if let Some(extracted_uinode) = extracted_uinodes.uinodes.get(&item.entity) {
                     let mut existing_batch = batches.last_mut();
 
@@ -949,7 +948,7 @@ pub fn prepare_uinodes(
                     }
                     index += QUAD_INDICES.len() as u32;
                     existing_batch.unwrap().1.range.end = index;
-                    ui_phase.items[batch_item_index].batch_range_mut().end += 1;
+                    ui_phase[batch_item_index].batch_range_mut().end += 1;
                 } else {
                     batch_image_handle = AssetId::invalid();
                 }

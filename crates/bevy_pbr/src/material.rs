@@ -469,7 +469,7 @@ pub fn queue_material_meshes<M: Material>(
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
     render_lightmaps: Res<RenderLightmaps>,
-    mut views: Query<(
+    views: Query<(
         &ExtractedView,
         &VisibleEntities,
         Option<&Tonemapping>,
@@ -485,10 +485,10 @@ pub fn queue_material_meshes<M: Material>(
         Option<&Camera3d>,
         Has<TemporalJitter>,
         Option<&Projection>,
-        &mut RenderPhase<Opaque3d>,
-        &mut RenderPhase<AlphaMask3d>,
-        &mut RenderPhase<Transmissive3d>,
-        &mut RenderPhase<Transparent3d>,
+        &RenderPhase<Opaque3d>,
+        &RenderPhase<AlphaMask3d>,
+        &RenderPhase<Transmissive3d>,
+        &RenderPhase<Transparent3d>,
         (
             Has<RenderViewLightProbes<EnvironmentMapLight>>,
             Has<RenderViewLightProbes<IrradianceVolume>>,
@@ -508,12 +508,12 @@ pub fn queue_material_meshes<M: Material>(
         camera_3d,
         temporal_jitter,
         projection,
-        mut opaque_phase,
-        mut alpha_mask_phase,
-        mut transmissive_phase,
-        mut transparent_phase,
+        opaque_phase,
+        alpha_mask_phase,
+        transmissive_phase,
+        transparent_phase,
         (has_environment_maps, has_irradiance_volumes),
-    ) in &mut views
+    ) in &views
     {
         let draw_opaque_pbr = opaque_draw_functions.read().id::<DrawMaterial<M>>();
         let draw_alpha_mask_pbr = alpha_mask_draw_functions.read().id::<DrawMaterial<M>>();

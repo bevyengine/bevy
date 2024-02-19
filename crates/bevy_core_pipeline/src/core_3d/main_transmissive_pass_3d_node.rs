@@ -53,7 +53,7 @@ impl ViewNode for MainTransmissivePass3dNode {
         #[cfg(feature = "trace")]
         let _main_transmissive_pass_3d_span = info_span!("main_transmissive_pass_3d").entered();
 
-        if !transmissive_phase.items.is_empty() {
+        if !transmissive_phase.is_empty() {
             let screen_space_specular_transmission_steps =
                 camera_3d.screen_space_specular_transmission_steps;
             if screen_space_specular_transmission_steps > 0 {
@@ -67,7 +67,7 @@ impl ViewNode for MainTransmissivePass3dNode {
                 // might want to use a more sophisticated heuristic (e.g. based on view bounds, or with an exponential
                 // falloff so that nearby objects have more levels of transparency available to them)
                 for range in split_range(
-                    0..transmissive_phase.items.len(),
+                    0..transmissive_phase.len(),
                     screen_space_specular_transmission_steps,
                 ) {
                     // Copy the main texture to the transmission texture, allowing to use the color output of the

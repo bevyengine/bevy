@@ -29,7 +29,7 @@ mod draw;
 mod draw_state;
 mod rangefinder;
 
-use bevy_utils::nonmax::NonMaxU32;
+use bevy_utils::{nonmax::NonMaxU32, Parallel};
 pub use draw::*;
 pub use draw_state::*;
 pub use rangefinder::*;
@@ -39,7 +39,10 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::SRes, SystemParamItem},
 };
-use std::{ops::Range, slice::SliceIndex};
+use std::{
+    ops::{Index, IndexMut, Range},
+    slice::SliceIndex,
+};
 
 /// A collection of all rendering instructions, that will be executed by the GPU, for a
 /// single render phase for a single view.
@@ -53,20 +56,44 @@ use std::{ops::Range, slice::SliceIndex};
 /// The render pass might be reused for multiple phases to reduce GPU overhead.
 #[derive(Component)]
 pub struct RenderPhase<I: PhaseItem> {
-    pub items: Vec<I>,
+    items: Vec<I>,
+    queue: Parallel<Vec<I>>,
 }
 
 impl<I: PhaseItem> Default for RenderPhase<I> {
     fn default() -> Self {
-        Self { items: Vec::new() }
+        Self {
+            items: Vec::new(),
+            queue: Parallel::default(),
+        }
     }
 }
 
 impl<I: PhaseItem> RenderPhase<I> {
     /// Adds a [`PhaseItem`] to this render phase.
+    ///
+    /// This can be safely called from multiple threads at the same time from a read-only
+    /// reference.
+    ///
+    /// Note that any items added to the phase will not be visible via [`iter`], [`iter_entities`],
+    /// etc until [`collect`].
     #[inline]
-    pub fn add(&mut self, item: I) {
-        self.items.push(item);
+    pub fn add(&self, item: I) {
+        self.queue.scope(|local| local.push(item));
+    }
+
+    /// Preallocates enough space for `additional` elements to be added to the local queue.
+    ///
+    /// Identical to calling [`Vec::reserve`] before pushing a large number of items onto one.
+    #[inline]
+    pub fn local_reserve(&self, additional: usize) {
+        self.queue.scope(|local| local.reserve(additional));
+    }
+
+    /// Collects all items queued via [`add`], and makes them visible via [`iter`], [`iter_entties`],
+    /// [`sort`], etc.
+    pub fn collect(&mut self) {
+        self.queue.drain_into(&mut self.items);
     }
 
     /// Sorts all of its [`PhaseItem`]s.
@@ -76,8 +103,29 @@ impl<I: PhaseItem> RenderPhase<I> {
 
     /// An [`Iterator`] through the associated [`Entity`] for each [`PhaseItem`] in order.
     #[inline]
+    pub fn iter(&'_ self) -> impl Iterator<Item = &'_ I> + '_ {
+        self.items.iter()
+    }
+
+    #[inline]
+    pub fn iter_mut(&'_ mut self) -> impl Iterator<Item = &'_ mut I> + '_ {
+        self.items.iter_mut()
+    }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.items.is_empty()
+    }
+
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.items.len()
+    }
+
+    /// An [`Iterator`] through the associated [`Entity`] for each [`PhaseItem`] in order.
+    #[inline]
     pub fn iter_entities(&'_ self) -> impl Iterator<Item = Entity> + '_ {
-        self.items.iter().map(|item| item.entity())
+        self.iter().map(|item| item.entity())
     }
 
     /// Renders all of its [`PhaseItem`]s using their corresponding draw functions.
@@ -119,6 +167,21 @@ impl<I: PhaseItem> RenderPhase<I> {
                 index += batch_range.len();
             }
         }
+    }
+}
+
+impl<I: PhaseItem> Index<usize> for RenderPhase<I> {
+    type Output = I;
+    #[inline]
+    fn index(&self, index: usize) -> &'_ I {
+        &self.items[index]
+    }
+}
+
+impl<I: PhaseItem> IndexMut<usize> for RenderPhase<I> {
+    #[inline]
+    fn index_mut(&mut self, index: usize) -> &mut I {
+        &mut self.items[index]
     }
 }
 
@@ -221,6 +284,7 @@ impl<P: CachedRenderPipelinePhaseItem> RenderCommand<P> for SetItemPipeline {
 /// This system sorts the [`PhaseItem`]s of all [`RenderPhase`]s of this type.
 pub fn sort_phase_system<I: PhaseItem>(mut render_phases: Query<&mut RenderPhase<I>>) {
     for mut phase in &mut render_phases {
+        phase.collect();
         phase.sort();
     }
 }

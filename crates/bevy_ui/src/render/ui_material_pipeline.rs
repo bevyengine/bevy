@@ -468,8 +468,8 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
             let mut batch_item_index = 0;
             let mut batch_shader_handle = AssetId::invalid();
 
-            for item_index in 0..ui_phase.items.len() {
-                let item = &mut ui_phase.items[item_index];
+            for item_index in 0..ui_phase.len() {
+                let item = &ui_phase[item_index];
                 if let Some(extracted_uinode) = extracted_uinodes.uinodes.get(item.entity) {
                     let mut existing_batch = batches
                         .last_mut()
@@ -575,7 +575,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
 
                     index += QUAD_INDICES.len() as u32;
                     existing_batch.unwrap().1.range.end = index;
-                    ui_phase.items[batch_item_index].batch_range_mut().end += 1;
+                    ui_phase[batch_item_index].batch_range_mut().end += 1;
                 } else {
                     batch_shader_handle = AssetId::invalid();
                 }
@@ -740,7 +740,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
     mut pipelines: ResMut<SpecializedRenderPipelines<UiMaterialPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
     render_materials: Res<RenderUiMaterials<M>>,
-    mut views: Query<(&ExtractedView, &mut RenderPhase<TransparentUi>)>,
+    views: Query<(&ExtractedView, &RenderPhase<TransparentUi>)>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
@@ -750,7 +750,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
         let Some(material) = render_materials.get(&extracted_uinode.material) else {
             continue;
         };
-        for (view, mut transparent_phase) in &mut views {
+        for (view, transparent_phase) in &views {
             let pipeline = pipelines.specialize(
                 &pipeline_cache,
                 &ui_material_pipeline,
@@ -759,9 +759,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
                     bind_group_data: material.key.clone(),
                 },
             );
-            transparent_phase
-                .items
-                .reserve(extracted_uinodes.uinodes.len());
+            transparent_phase.local_reserve(extracted_uinodes.uinodes.len());
             transparent_phase.add(TransparentUi {
                 draw_function,
                 pipeline,
