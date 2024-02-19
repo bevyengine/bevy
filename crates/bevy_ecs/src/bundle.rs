@@ -467,7 +467,8 @@ impl BundleInfo {
                         // the target table contains the component.
                         unsafe { table.get_column_mut(component_id).debug_checked_unwrap() };
                     // SAFETY: bundle_component is a valid index for this bundle
-                    match unsafe { bundle_component_status.get_status(bundle_component) } {
+                    let status = unsafe { bundle_component_status.get_status(bundle_component) };
+                    match status {
                         ComponentStatus::Added => {
                             column.initialize(table_row, component_ptr, change_tick);
                         }

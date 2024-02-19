@@ -124,9 +124,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             // SAFETY: Caller assures `row` in range of the current archetype.
             let entity = unsafe { entities.get_unchecked(row) };
             let row = TableRow::from_usize(row);
+
             // SAFETY: set_table was called prior.
             // Caller assures `row` in range of the current archetype.
-            if unsafe { !F::filter_fetch(&mut self.cursor.filter, *entity, row) } {
+            let fetched = unsafe { !F::filter_fetch(&mut self.cursor.filter, *entity, row) };
+            if fetched {
                 continue;
             }
 
@@ -175,15 +177,17 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         for index in indices {
             // SAFETY: Caller assures `index` in range of the current archetype.
             let archetype_entity = unsafe { entities.get_unchecked(index) };
+
             // SAFETY: set_archetype was called prior.
             // Caller assures `index` in range of the current archetype.
-            if unsafe {
+            let fetched = unsafe {
                 !F::filter_fetch(
                     &mut self.cursor.filter,
                     archetype_entity.id(),
                     archetype_entity.table_row(),
                 )
-            } {
+            };
+            if fetched {
                 continue;
             }
 
