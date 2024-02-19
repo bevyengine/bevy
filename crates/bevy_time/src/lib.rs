@@ -39,7 +39,7 @@ pub struct TimePlugin;
 /// this.
 pub struct TimeSystem;
 
-/// Allow consumers to easily configure `run_fixed_main_schedule` by exposing a SystemSet.
+/// Allow consumers to easily configure `run_fixed_main_schedule` by exposing a `SystemSet`.
 #[derive(Debug, PartialEq, Eq, Clone, Hash, SystemSet)]
 pub struct RunFixedMainSchedule;
 
