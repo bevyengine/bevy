@@ -20,7 +20,7 @@ pub fn heavy_compute(c: &mut Criterion) {
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
     group.bench_function("base", |b| {
-        ComputeTaskPool::init(TaskPool::default);
+        ComputeTaskPool::get_or_init(TaskPool::default);
 
         let mut world = World::default();
 
@@ -34,7 +34,7 @@ pub fn heavy_compute(c: &mut Criterion) {
         }));
 
         fn sys(mut query: Query<(&mut Position, &mut Transform)>) {
-            query.par_iter_mut().for_each_mut(|(mut pos, mut mat)| {
+            query.par_iter_mut().for_each(|(mut pos, mut mat)| {
                 for _ in 0..100 {
                     mat.0 = mat.0.inverse();
                 }
@@ -45,7 +45,7 @@ pub fn heavy_compute(c: &mut Criterion) {
 
         let mut system = IntoSystem::into_system(sys);
         system.initialize(&mut world);
-        system.update_archetype_component_access(&world);
+        system.update_archetype_component_access(world.as_unsafe_world_cell());
 
         b.iter(move || system.run((), &mut world));
     });

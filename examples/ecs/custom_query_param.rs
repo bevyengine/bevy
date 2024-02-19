@@ -1,4 +1,4 @@
-//! This example illustrates the usage of the `WorldQuery` derive macro, which allows
+//! This example illustrates the usage of the [`WorldQuery`] derive macro, which allows
 //! defining custom query and filter types.
 //!
 //! While regular tuple queries work great in most of simple scenarios, using custom queries
@@ -12,16 +12,25 @@
 //!
 //! For more details on the `WorldQuery` derive macro, see the trait documentation.
 
-use bevy::{ecs::query::WorldQuery, prelude::*};
+use bevy::{
+    ecs::query::{QueryData, QueryFilter},
+    prelude::*,
+};
 use std::fmt::Debug;
 
 fn main() {
     App::new()
-        .add_startup_system(spawn)
-        .add_system(print_components_read_only)
-        .add_system(print_components_iter_mut.after(print_components_read_only))
-        .add_system(print_components_iter.after(print_components_iter_mut))
-        .add_system(print_components_tuple.after(print_components_iter))
+        .add_systems(Startup, spawn)
+        .add_systems(
+            Update,
+            (
+                print_components_read_only,
+                print_components_iter_mut,
+                print_components_iter,
+                print_components_tuple,
+            )
+                .chain(),
+        )
         .run();
 }
 
@@ -36,8 +45,8 @@ struct ComponentD;
 #[derive(Component, Debug)]
 struct ComponentZ;
 
-#[derive(WorldQuery)]
-#[world_query(derive(Debug))]
+#[derive(QueryData)]
+#[query_data(derive(Debug))]
 struct ReadOnlyCustomQuery<T: Component + Debug, P: Component + Debug> {
     entity: Entity,
     a: &'static ComponentA,
@@ -50,7 +59,10 @@ struct ReadOnlyCustomQuery<T: Component + Debug, P: Component + Debug> {
 }
 
 fn print_components_read_only(
-    query: Query<ReadOnlyCustomQuery<ComponentC, ComponentD>, QueryFilter<ComponentC, ComponentD>>,
+    query: Query<
+        ReadOnlyCustomQuery<ComponentC, ComponentD>,
+        CustomQueryFilter<ComponentC, ComponentD>,
+    >,
 ) {
     println!("Print components (read_only):");
     for e in &query {
@@ -70,8 +82,8 @@ fn print_components_read_only(
 // suffix.
 // Note: if you want to use derive macros with read-only query variants, you need to pass them with
 // using the `derive` attribute.
-#[derive(WorldQuery)]
-#[world_query(mutable, derive(Debug))]
+#[derive(QueryData)]
+#[query_data(mutable, derive(Debug))]
 struct CustomQuery<T: Component + Debug, P: Component + Debug> {
     entity: Entity,
     a: &'static mut ComponentA,
@@ -84,27 +96,27 @@ struct CustomQuery<T: Component + Debug, P: Component + Debug> {
 }
 
 // This is a valid query as well, which would iterate over every entity.
-#[derive(WorldQuery)]
-#[world_query(derive(Debug))]
+#[derive(QueryData)]
+#[query_data(derive(Debug))]
 struct EmptyQuery {
     empty: (),
 }
 
-#[derive(WorldQuery)]
-#[world_query(derive(Debug))]
+#[derive(QueryData)]
+#[query_data(derive(Debug))]
 struct NestedQuery {
     c: &'static ComponentC,
     d: Option<&'static ComponentD>,
 }
 
-#[derive(WorldQuery)]
-#[world_query(derive(Debug))]
+#[derive(QueryData)]
+#[query_data(derive(Debug))]
 struct GenericQuery<T: Component, P: Component> {
     generic: (&'static T, &'static P),
 }
 
-#[derive(WorldQuery)]
-struct QueryFilter<T: Component, P: Component> {
+#[derive(QueryFilter)]
+struct CustomQueryFilter<T: Component, P: Component> {
     _c: With<ComponentC>,
     _d: With<ComponentD>,
     _or: Or<(Added<ComponentC>, Changed<ComponentD>, Without<ComponentZ>)>,
@@ -116,7 +128,10 @@ fn spawn(mut commands: Commands) {
 }
 
 fn print_components_iter_mut(
-    mut query: Query<CustomQuery<ComponentC, ComponentD>, QueryFilter<ComponentC, ComponentD>>,
+    mut query: Query<
+        CustomQuery<ComponentC, ComponentD>,
+        CustomQueryFilter<ComponentC, ComponentD>,
+    >,
 ) {
     println!("Print components (iter_mut):");
     for e in &mut query {
@@ -134,7 +149,7 @@ fn print_components_iter_mut(
 }
 
 fn print_components_iter(
-    query: Query<CustomQuery<ComponentC, ComponentD>, QueryFilter<ComponentC, ComponentD>>,
+    query: Query<CustomQuery<ComponentC, ComponentD>, CustomQueryFilter<ComponentC, ComponentD>>,
 ) {
     println!("Print components (iter):");
     for e in &query {

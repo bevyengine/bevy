@@ -5,8 +5,8 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
         .register_type::<MyType>()
+        .add_systems(Startup, setup)
         .run();
 }
 
@@ -23,7 +23,7 @@ impl DoThing for MyType {
 }
 
 #[reflect_trait]
-pub trait DoThing {
+trait DoThing {
     fn do_thing(&self) -> String;
 }
 

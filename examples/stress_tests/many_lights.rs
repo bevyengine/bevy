@@ -8,28 +8,35 @@ use bevy::{
     math::{DVec2, DVec3},
     pbr::{ExtractedPointLight, GlobalLightMeta},
     prelude::*,
-    render::{camera::ScalingMode, RenderApp, RenderSet},
-    window::{PresentMode, WindowPlugin},
+    render::{camera::ScalingMode, Render, RenderApp, RenderSet},
+    window::{PresentMode, WindowPlugin, WindowResolution},
+    winit::{UpdateMode, WinitSettings},
 };
 use rand::{thread_rng, Rng};
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                resolution: (1024.0, 768.0).into(),
-                title: "many_lights".into(),
-                present_mode: PresentMode::AutoNoVsync,
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    resolution: WindowResolution::new(1920.0, 1080.0)
+                        .with_scale_factor_override(1.0),
+                    title: "many_lights".into(),
+                    present_mode: PresentMode::AutoNoVsync,
+                    ..default()
+                }),
                 ..default()
             }),
-            ..default()
-        }))
-        .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .add_plugin(LogDiagnosticsPlugin::default())
-        .add_startup_system(setup)
-        .add_system(move_camera)
-        .add_system(print_light_count)
-        .add_plugin(LogVisibleLights)
+            FrameTimeDiagnosticsPlugin,
+            LogDiagnosticsPlugin::default(),
+            LogVisibleLights,
+        ))
+        .insert_resource(WinitSettings {
+            focused_mode: UpdateMode::Continuous,
+            unfocused_mode: UpdateMode::Continuous,
+        })
+        .add_systems(Startup, setup)
+        .add_systems(Update, (move_camera, print_light_count))
         .run();
 }
 
@@ -41,24 +48,18 @@ fn setup(
     warn!(include_str!("warning_string.txt"));
 
     const LIGHT_RADIUS: f32 = 0.3;
-    const LIGHT_INTENSITY: f32 = 5.0;
+    const LIGHT_INTENSITY: f32 = 1000.0;
     const RADIUS: f32 = 50.0;
     const N_LIGHTS: usize = 100_000;
 
     commands.spawn(PbrBundle {
-        mesh: meshes.add(
-            Mesh::try_from(shape::Icosphere {
-                radius: RADIUS,
-                subdivisions: 9,
-            })
-            .unwrap(),
-        ),
-        material: materials.add(StandardMaterial::from(Color::WHITE)),
+        mesh: meshes.add(Sphere::new(RADIUS).mesh().ico(9).unwrap()),
+        material: materials.add(Color::WHITE),
         transform: Transform::from_scale(Vec3::NEG_ONE),
         ..default()
     });
 
-    let mesh = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
+    let mesh = meshes.add(Cuboid::default());
     let material = materials.add(StandardMaterial {
         base_color: Color::PINK,
         ..default()
@@ -143,7 +144,7 @@ fn print_light_count(time: Res<Time>, mut timer: Local<PrintingTimer>, lights: Q
     timer.0.tick(time.delta());
 
     if timer.0.just_finished() {
-        info!("Lights: {}", lights.iter().len(),);
+        info!("Lights: {}", lights.iter().len());
     }
 }
 
@@ -151,12 +152,11 @@ struct LogVisibleLights;
 
 impl Plugin for LogVisibleLights {
     fn build(&self, app: &mut App) {
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
         };
 
-        render_app.add_system(print_visible_light_count.in_set(RenderSet::Prepare));
+        render_app.add_systems(Render, print_visible_light_count.in_set(RenderSet::Prepare));
     }
 }
 

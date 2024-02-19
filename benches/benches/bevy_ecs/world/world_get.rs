@@ -230,7 +230,7 @@ pub fn world_query_for_each(criterion: &mut Criterion) {
 
             bencher.iter(|| {
                 let mut count = 0;
-                query.for_each(&world, |comp| {
+                query.iter(&world).for_each(|comp| {
                     black_box(comp);
                     count += 1;
                     black_box(count);
@@ -244,7 +244,7 @@ pub fn world_query_for_each(criterion: &mut Criterion) {
 
             bencher.iter(|| {
                 let mut count = 0;
-                query.for_each(&world, |comp| {
+                query.iter(&world).for_each(|comp| {
                     black_box(comp);
                     count += 1;
                     black_box(count);
@@ -271,9 +271,10 @@ pub fn query_get_component_simple(criterion: &mut Criterion) {
         let entity = world.spawn(A(0.0)).id();
         let mut query = world.query::<&mut A>();
 
+        let world_cell = world.as_unsafe_world_cell();
         bencher.iter(|| {
             for _x in 0..100000 {
-                let mut a = unsafe { query.get_unchecked(&world, entity).unwrap() };
+                let mut a = unsafe { query.get_unchecked(world_cell, entity).unwrap() };
                 a.0 += 1.0;
             }
         });
@@ -291,7 +292,7 @@ pub fn query_get_component_simple(criterion: &mut Criterion) {
 
         let mut system = IntoSystem::into_system(query_system);
         system.initialize(&mut world);
-        system.update_archetype_component_access(&world);
+        system.update_archetype_component_access(world.as_unsafe_world_cell());
 
         bencher.iter(|| system.run(entity, &mut world));
     });
@@ -382,7 +383,7 @@ pub fn query_get(criterion: &mut Criterion) {
         group.bench_function(format!("{}_entities_sparse", entity_count), |bencher| {
             let mut world = World::default();
             let mut entities: Vec<_> = world
-                .spawn_batch((0..entity_count).map(|_| (Sparse::default(),)))
+                .spawn_batch((0..entity_count).map(|_| Sparse::default()))
                 .collect();
             entities.shuffle(&mut deterministic_rand());
             let mut query = SystemState::<Query<&Sparse>>::new(&mut world);

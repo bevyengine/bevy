@@ -9,17 +9,16 @@ fn main() {
         .add_event::<MyEvent>()
         .add_event::<PlaySound>()
         .init_resource::<EventTriggerState>()
-        .add_system(event_trigger)
-        .add_system(event_listener)
-        .add_system(sound_player)
+        .add_systems(Update, (event_trigger, event_listener, sound_player))
         .run();
 }
 
+#[derive(Event)]
 struct MyEvent {
     pub message: String,
 }
 
-#[derive(Default)]
+#[derive(Event, Default)]
 struct PlaySound;
 
 #[derive(Resource)]
@@ -52,13 +51,13 @@ fn event_trigger(
 
 // prints events as they come in
 fn event_listener(mut events: EventReader<MyEvent>) {
-    for my_event in events.iter() {
+    for my_event in events.read() {
         info!("{}", my_event.message);
     }
 }
 
 fn sound_player(mut play_sound_events: EventReader<PlaySound>) {
-    for _ in play_sound_events.iter() {
+    for _ in play_sound_events.read() {
         info!("Playing a sound");
     }
 }

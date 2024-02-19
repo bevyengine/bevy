@@ -1,7 +1,9 @@
 use crate::MainWorld;
 use bevy_ecs::{
+    component::Tick,
     prelude::*,
     system::{ReadOnlySystemParam, SystemMeta, SystemParam, SystemParamItem, SystemState},
+    world::unsafe_world_cell::UnsafeWorldCell,
 };
 use std::ops::{Deref, DerefMut};
 
@@ -17,7 +19,7 @@ use std::ops::{Deref, DerefMut};
 /// ## Context
 ///
 /// [`ExtractSchedule`] is used to extract (move) data from the simulation world ([`MainWorld`]) to the
-/// render world. The render world drives rendering each frame (generally to a [Window]).
+/// render world. The render world drives rendering each frame (generally to a `Window`).
 /// This design is used to allow performing calculations related to rendering a prior frame at the same
 /// time as the next frame is simulated, which increases throughput (FPS).
 ///
@@ -25,7 +27,7 @@ use std::ops::{Deref, DerefMut};
 ///
 /// ## Examples
 ///
-/// ```rust
+/// ```
 /// use bevy_ecs::prelude::*;
 /// use bevy_render::Extract;
 /// # #[derive(Component)]
@@ -75,18 +77,20 @@ where
     unsafe fn get_param<'w, 's>(
         state: &'s mut Self::State,
         system_meta: &SystemMeta,
-        world: &'w World,
-        change_tick: u32,
+        world: UnsafeWorldCell<'w>,
+        change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         // SAFETY:
         // - The caller ensures that `world` is the same one that `init_state` was called with.
         // - The caller ensures that no other `SystemParam`s will conflict with the accesses we have registered.
-        let main_world = Res::<MainWorld>::get_param(
-            &mut state.main_world_state,
-            system_meta,
-            world,
-            change_tick,
-        );
+        let main_world = unsafe {
+            Res::<MainWorld>::get_param(
+                &mut state.main_world_state,
+                system_meta,
+                world,
+                change_tick,
+            )
+        };
         let item = state.state.get(main_world.into_inner());
         Extract { item }
     }

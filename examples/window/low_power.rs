@@ -20,9 +20,8 @@ fn main() {
         .insert_resource(WinitSettings {
             focused_mode: bevy::winit::UpdateMode::Continuous,
             unfocused_mode: bevy::winit::UpdateMode::ReactiveLowPower {
-                max_wait: Duration::from_millis(10),
+                wait: Duration::from_millis(10),
             },
-            ..default()
         })
         .insert_resource(ExampleMode::Game)
         .add_plugins(DefaultPlugins.set(WindowPlugin {
@@ -33,11 +32,16 @@ fn main() {
             }),
             ..default()
         }))
-        .add_startup_system(test_setup::setup)
-        .add_system(test_setup::cycle_modes)
-        .add_system(test_setup::rotate_cube)
-        .add_system(test_setup::update_text)
-        .add_system(update_winit)
+        .add_systems(Startup, test_setup::setup)
+        .add_systems(
+            Update,
+            (
+                test_setup::cycle_modes,
+                test_setup::rotate_cube,
+                test_setup::update_text,
+                update_winit,
+            ),
+        )
         .run();
 }
 
@@ -93,7 +97,7 @@ pub(crate) mod test_setup {
     /// Switch between update modes when the mouse is clicked.
     pub(crate) fn cycle_modes(
         mut mode: ResMut<ExampleMode>,
-        mouse_button_input: Res<Input<KeyCode>>,
+        mouse_button_input: Res<ButtonInput<KeyCode>>,
     ) {
         if mouse_button_input.just_pressed(KeyCode::Space) {
             *mode = match *mode {
@@ -143,23 +147,18 @@ pub(crate) mod test_setup {
         mut meshes: ResMut<Assets<Mesh>>,
         mut materials: ResMut<Assets<StandardMaterial>>,
         mut event: EventWriter<RequestRedraw>,
-        asset_server: Res<AssetServer>,
     ) {
         commands.spawn((
             PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
-                material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+                mesh: meshes.add(Cuboid::new(0.5, 0.5, 0.5)),
+                material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
                 ..default()
             },
             Rotator,
         ));
-        commands.spawn(PointLightBundle {
-            point_light: PointLight {
-                intensity: 1500.0,
-                shadows_enabled: true,
-                ..default()
-            },
-            transform: Transform::from_xyz(4.0, 8.0, 4.0),
+
+        commands.spawn(DirectionalLightBundle {
+            transform: Transform::from_xyz(1.0, 1.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         });
         commands.spawn(Camera3dBundle {
@@ -172,38 +171,34 @@ pub(crate) mod test_setup {
                 TextSection::new(
                     "Press spacebar to cycle modes\n",
                     TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 50.0,
-                        color: Color::WHITE,
+                        ..default()
                     },
                 ),
                 TextSection::from_style(TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     font_size: 50.0,
                     color: Color::GREEN,
+                    ..default()
                 }),
                 TextSection::new(
                     "\nFrame: ",
                     TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 50.0,
                         color: Color::YELLOW,
+                        ..default()
                     },
                 ),
                 TextSection::from_style(TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     font_size: 50.0,
                     color: Color::YELLOW,
+                    ..default()
                 }),
             ])
             .with_style(Style {
                 align_self: AlignSelf::FlexStart,
                 position_type: PositionType::Absolute,
-                position: UiRect {
-                    top: Val::Px(5.0),
-                    left: Val::Px(5.0),
-                    ..default()
-                },
+                top: Val::Px(5.0),
+                left: Val::Px(5.0),
                 ..default()
             }),
             ModeText,

@@ -1,11 +1,10 @@
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 use fixedbitset::FixedBitSet;
+use std::panic::AssertUnwindSafe;
 
 use crate::{
-    schedule::{
-        is_apply_system_buffers, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule,
-    },
+    schedule::{is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
     world::World,
 };
 
@@ -21,17 +20,13 @@ pub struct SingleThreadedExecutor {
     completed_systems: FixedBitSet,
     /// Systems that have run but have not had their buffers applied.
     unapplied_systems: FixedBitSet,
-    /// Setting when true applies system buffers after all systems have run
-    apply_final_buffers: bool,
+    /// Setting when true applies deferred system buffers after all systems have run
+    apply_final_deferred: bool,
 }
 
 impl SystemExecutor for SingleThreadedExecutor {
     fn kind(&self) -> ExecutorKind {
         ExecutorKind::SingleThreaded
-    }
-
-    fn set_apply_final_buffers(&mut self, apply_final_buffers: bool) {
-        self.apply_final_buffers = apply_final_buffers;
     }
 
     fn init(&mut self, schedule: &SystemSchedule) {
@@ -43,7 +38,20 @@ impl SystemExecutor for SingleThreadedExecutor {
         self.unapplied_systems = FixedBitSet::with_capacity(sys_count);
     }
 
-    fn run(&mut self, schedule: &mut SystemSchedule, world: &mut World) {
+    fn run(
+        &mut self,
+        schedule: &mut SystemSchedule,
+        _skip_systems: Option<FixedBitSet>,
+        world: &mut World,
+    ) {
+        // If stepping is enabled, make sure we skip those systems that should
+        // not be run.
+        #[cfg(feature = "bevy_debug_stepping")]
+        if let Some(skipped_systems) = _skip_systems {
+            // mark skipped systems as completed
+            self.completed_systems |= &skipped_systems;
+        }
+
         for system_index in 0..schedule.systems.len() {
             #[cfg(feature = "trace")]
             let name = schedule.systems[system_index].name();
@@ -86,44 +94,49 @@ impl SystemExecutor for SingleThreadedExecutor {
             }
 
             let system = &mut schedule.systems[system_index];
-            if is_apply_system_buffers(system) {
-                #[cfg(feature = "trace")]
-                let system_span = info_span!("system", name = &*name).entered();
-                self.apply_system_buffers(schedule, world);
-                #[cfg(feature = "trace")]
-                system_span.exit();
+            if is_apply_deferred(system) {
+                self.apply_deferred(schedule, world);
             } else {
-                #[cfg(feature = "trace")]
-                let system_span = info_span!("system", name = &*name).entered();
-                system.run((), world);
-                #[cfg(feature = "trace")]
-                system_span.exit();
+                let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
+                    system.run((), world);
+                }));
+                if let Err(payload) = res {
+                    eprintln!("Encountered a panic in system `{}`!", &*system.name());
+                    std::panic::resume_unwind(payload);
+                }
                 self.unapplied_systems.insert(system_index);
             }
         }
 
-        if self.apply_final_buffers {
-            self.apply_system_buffers(schedule, world);
+        if self.apply_final_deferred {
+            self.apply_deferred(schedule, world);
         }
         self.evaluated_sets.clear();
         self.completed_systems.clear();
     }
+
+    fn set_apply_final_deferred(&mut self, apply_final_deferred: bool) {
+        self.apply_final_deferred = apply_final_deferred;
+    }
 }
 
 impl SingleThreadedExecutor {
+    /// Creates a new single-threaded executor for use in a [`Schedule`].
+    ///
+    /// [`Schedule`]: crate::schedule::Schedule
     pub const fn new() -> Self {
         Self {
             evaluated_sets: FixedBitSet::new(),
             completed_systems: FixedBitSet::new(),
             unapplied_systems: FixedBitSet::new(),
-            apply_final_buffers: true,
+            apply_final_deferred: true,
         }
     }
 
-    fn apply_system_buffers(&mut self, schedule: &mut SystemSchedule, world: &mut World) {
+    fn apply_deferred(&mut self, schedule: &mut SystemSchedule, world: &mut World) {
         for system_index in self.unapplied_systems.ones() {
             let system = &mut schedule.systems[system_index];
-            system.apply_buffers(world);
+            system.apply_deferred(world);
         }
 
         self.unapplied_systems.clear();
@@ -135,10 +148,6 @@ fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &mut W
     #[allow(clippy::unnecessary_fold)]
     conditions
         .iter_mut()
-        .map(|condition| {
-            #[cfg(feature = "trace")]
-            let _condition_span = info_span!("condition", name = &*condition.name()).entered();
-            condition.run((), world)
-        })
+        .map(|condition| condition.run((), world))
         .fold(true, |acc, res| acc && res)
 }

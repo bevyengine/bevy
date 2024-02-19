@@ -5,15 +5,25 @@
 //! the derive helper attribute for `Reflect`, which looks like:
 //! `#[reflect(PartialEq, Default, ...)]` and `#[reflect_value(PartialEq, Default, ...)]`.
 
-use crate::fq_std::{FQAny, FQOption};
+use crate::derive_data::ReflectTraitToImpl;
 use crate::utility;
+use crate::utility::terminated_parser;
+use bevy_macro_utils::fq_std::{FQAny, FQOption};
 use proc_macro2::{Ident, Span};
 use quote::quote_spanned;
-use syn::parse::{Parse, ParseStream};
-use syn::punctuated::Punctuated;
+use syn::ext::IdentExt;
+use syn::parse::ParseStream;
 use syn::spanned::Spanned;
-use syn::token::Comma;
-use syn::{Meta, NestedMeta, Path};
+use syn::{parenthesized, token, Expr, LitBool, MetaList, MetaNameValue, Path, Token, WhereClause};
+
+mod kw {
+    syn::custom_keyword!(from_reflect);
+    syn::custom_keyword!(type_path);
+    syn::custom_keyword!(Debug);
+    syn::custom_keyword!(PartialEq);
+    syn::custom_keyword!(Hash);
+    syn::custom_keyword!(no_field_bounds);
+}
 
 // The "special" trait idents that are used internally for reflection.
 // Received via attributes like `#[reflect(PartialEq, Hash, ...)]`
@@ -24,6 +34,12 @@ const HASH_ATTR: &str = "Hash";
 // The traits listed below are not considered "special" (i.e. they use the `ReflectMyTrait` syntax)
 // but useful to know exist nonetheless
 pub(crate) const REFLECT_DEFAULT: &str = "ReflectDefault";
+
+// Attributes for `FromReflect` implementation
+const FROM_REFLECT_ATTR: &str = "from_reflect";
+
+// Attributes for `TypePath` implementation
+const TYPE_PATH_ATTR: &str = "type_path";
 
 // The error message to show when a trait/type is specified multiple times
 const CONFLICTING_TYPE_DATA_MESSAGE: &str = "conflicting type data registration";
@@ -45,16 +61,95 @@ pub(crate) enum TraitImpl {
 impl TraitImpl {
     /// Merges this [`TraitImpl`] with another.
     ///
-    /// Returns whichever value is not [`TraitImpl::NotImplemented`].
-    /// If both values are [`TraitImpl::NotImplemented`], then that is returned.
-    /// Otherwise, an error is returned if neither value is [`TraitImpl::NotImplemented`].
-    pub fn merge(self, other: TraitImpl) -> Result<TraitImpl, syn::Error> {
-        match (self, other) {
-            (TraitImpl::NotImplemented, value) | (value, TraitImpl::NotImplemented) => Ok(value),
+    /// Update `self` with whichever value is not [`TraitImpl::NotImplemented`].
+    /// If `other` is [`TraitImpl::NotImplemented`], then `self` is not modified.
+    /// An error is returned if neither value is [`TraitImpl::NotImplemented`].
+    pub fn merge(&mut self, other: TraitImpl) -> Result<(), syn::Error> {
+        match (&self, other) {
+            (TraitImpl::NotImplemented, value) => {
+                *self = value;
+                Ok(())
+            }
+            (_, TraitImpl::NotImplemented) => Ok(()),
             (_, TraitImpl::Implemented(span) | TraitImpl::Custom(_, span)) => {
                 Err(syn::Error::new(span, CONFLICTING_TYPE_DATA_MESSAGE))
             }
         }
+    }
+}
+
+/// A collection of attributes used for deriving `FromReflect`.
+#[derive(Clone, Default)]
+pub(crate) struct FromReflectAttrs {
+    auto_derive: Option<LitBool>,
+}
+
+impl FromReflectAttrs {
+    /// Returns true if `FromReflect` should be automatically derived as part of the `Reflect` derive.
+    pub fn should_auto_derive(&self) -> bool {
+        self.auto_derive
+            .as_ref()
+            .map(|lit| lit.value())
+            .unwrap_or(true)
+    }
+
+    /// Merges this [`FromReflectAttrs`] with another.
+    pub fn merge(&mut self, other: FromReflectAttrs) -> Result<(), syn::Error> {
+        if let Some(new) = other.auto_derive {
+            if let Some(existing) = &self.auto_derive {
+                if existing.value() != new.value() {
+                    return Err(syn::Error::new(
+                        new.span(),
+                        format!("`{FROM_REFLECT_ATTR}` already set to {}", existing.value()),
+                    ));
+                }
+            } else {
+                self.auto_derive = Some(new);
+            }
+        }
+
+        Ok(())
+    }
+}
+
+/// A collection of attributes used for deriving `TypePath` via the `Reflect` derive.
+///
+/// Note that this differs from the attributes used by the `TypePath` derive itself,
+/// which look like `[type_path = "my_crate::foo"]`.
+/// The attributes used by reflection take the form `#[reflect(type_path = false)]`.
+///
+/// These attributes should only be used for `TypePath` configuration specific to
+/// deriving `Reflect`.
+#[derive(Clone, Default)]
+pub(crate) struct TypePathAttrs {
+    auto_derive: Option<LitBool>,
+}
+
+impl TypePathAttrs {
+    /// Returns true if `TypePath` should be automatically derived as part of the `Reflect` derive.
+    pub fn should_auto_derive(&self) -> bool {
+        self.auto_derive
+            .as_ref()
+            .map(|lit| lit.value())
+            .unwrap_or(true)
+    }
+
+    /// Merges this [`TypePathAttrs`] with another.
+    pub fn merge(&mut self, other: TypePathAttrs) -> Result<(), syn::Error> {
+        if let Some(new) = other.auto_derive {
+            if let Some(existing) = &self.auto_derive {
+                if existing.value() != new.value() {
+                    return Err(syn::Error::new(
+                        new.span(),
+                        format!("`{TYPE_PATH_ATTR}` already set to {}", existing.value()),
+                    ));
+                }
+            } else {
+                self.auto_derive = Some(new);
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -83,9 +178,9 @@ impl TraitImpl {
 ///
 /// Registering the `Default` implementation:
 ///
-/// ```ignore
+/// ```ignore (bevy_reflect is not accessible from this crate)
 /// // Import ReflectDefault so it's accessible by the derive macro
-/// use bevy_reflect::prelude::ReflectDefault.
+/// use bevy_reflect::prelude::ReflectDefault;
 ///
 /// #[derive(Reflect, Default)]
 /// #[reflect(Default)]
@@ -94,7 +189,7 @@ impl TraitImpl {
 ///
 /// Registering the `Hash` implementation:
 ///
-/// ```ignore
+/// ```ignore (bevy_reflect is not accessible from this crate)
 /// // `Hash` is a "special trait" and does not need (nor have) a ReflectHash struct
 ///
 /// #[derive(Reflect, Hash)]
@@ -104,7 +199,7 @@ impl TraitImpl {
 ///
 /// Registering the `Hash` implementation using a custom function:
 ///
-/// ```ignore
+/// ```ignore (bevy_reflect is not accessible from this crate)
 /// // This function acts as our `Hash` implementation and
 /// // corresponds to the `Reflect::reflect_hash` method.
 /// fn get_hash(foo: &Foo) -> Option<u64> {
@@ -120,90 +215,219 @@ impl TraitImpl {
 /// > __Note:__ Registering a custom function only works for special traits.
 ///
 #[derive(Default, Clone)]
-pub(crate) struct ReflectTraits {
+pub(crate) struct ContainerAttributes {
     debug: TraitImpl,
     hash: TraitImpl,
     partial_eq: TraitImpl,
+    from_reflect_attrs: FromReflectAttrs,
+    type_path_attrs: TypePathAttrs,
+    custom_where: Option<WhereClause>,
+    no_field_bounds: bool,
     idents: Vec<Ident>,
 }
 
-impl ReflectTraits {
-    /// Create a new [`ReflectTraits`] instance from a set of nested metas.
-    pub fn from_nested_metas(
-        nested_metas: &Punctuated<NestedMeta, Comma>,
-    ) -> Result<Self, syn::Error> {
-        let mut traits = ReflectTraits::default();
-        for nested_meta in nested_metas.iter() {
-            match nested_meta {
-                // Handles `#[reflect( Hash, Default, ... )]`
-                NestedMeta::Meta(Meta::Path(path)) => {
-                    // Get the first ident in the path (hopefully the path only contains one and not `std::hash::Hash`)
-                    let Some(segment) = path.segments.iter().next() else {
-                        continue;
-                    };
-                    let ident = &segment.ident;
-                    let ident_name = ident.to_string();
+impl ContainerAttributes {
+    /// Parse a comma-separated list of container attributes.
+    ///
+    /// # Example
+    /// - `Hash, Debug(custom_debug), MyTrait`
+    pub fn parse_terminated(input: ParseStream, trait_: ReflectTraitToImpl) -> syn::Result<Self> {
+        let mut this = Self::default();
 
-                    // Track the span where the trait is implemented for future errors
-                    let span = ident.span();
+        terminated_parser(Token![,], |stream| {
+            this.parse_container_attribute(stream, trait_)
+        })(input)?;
 
-                    match ident_name.as_str() {
-                        DEBUG_ATTR => {
-                            traits.debug = traits.debug.merge(TraitImpl::Implemented(span))?;
-                        }
-                        PARTIAL_EQ_ATTR => {
-                            traits.partial_eq =
-                                traits.partial_eq.merge(TraitImpl::Implemented(span))?;
-                        }
-                        HASH_ATTR => {
-                            traits.hash = traits.hash.merge(TraitImpl::Implemented(span))?;
-                        }
-                        // We only track reflected idents for traits not considered special
-                        _ => {
-                            // Create the reflect ident
-                            // We set the span to the old ident so any compile errors point to that ident instead
-                            let mut reflect_ident = utility::get_reflect_ident(&ident_name);
-                            reflect_ident.set_span(span);
+        Ok(this)
+    }
 
-                            add_unique_ident(&mut traits.idents, reflect_ident)?;
-                        }
-                    }
-                }
-                // Handles `#[reflect( Hash(custom_hash_fn) )]`
-                NestedMeta::Meta(Meta::List(list)) => {
-                    // Get the first ident in the path (hopefully the path only contains one and not `std::hash::Hash`)
-                    let Some(segment) = list.path.segments.iter().next() else {
-                        continue;
-                    };
+    /// Parse the contents of a `#[reflect(...)]` attribute into a [`ContainerAttributes`] instance.
+    ///
+    /// # Example
+    /// - `#[reflect(Hash, Debug(custom_debug), MyTrait)]`
+    /// - `#[reflect(no_field_bounds)]`
+    pub fn parse_meta_list(meta: &MetaList, trait_: ReflectTraitToImpl) -> syn::Result<Self> {
+        meta.parse_args_with(|stream: ParseStream| Self::parse_terminated(stream, trait_))
+    }
 
-                    let ident = segment.ident.to_string();
+    /// Parse a single container attribute.
+    fn parse_container_attribute(
+        &mut self,
+        input: ParseStream,
+        trait_: ReflectTraitToImpl,
+    ) -> syn::Result<()> {
+        let lookahead = input.lookahead1();
+        if lookahead.peek(Token![where]) {
+            self.parse_custom_where(input)
+        } else if lookahead.peek(kw::from_reflect) {
+            self.parse_from_reflect(input, trait_)
+        } else if lookahead.peek(kw::type_path) {
+            self.parse_type_path(input, trait_)
+        } else if lookahead.peek(kw::no_field_bounds) {
+            self.parse_no_field_bounds(input)
+        } else if lookahead.peek(kw::Debug) {
+            self.parse_debug(input)
+        } else if lookahead.peek(kw::PartialEq) {
+            self.parse_partial_eq(input)
+        } else if lookahead.peek(kw::Hash) {
+            self.parse_hash(input)
+        } else if lookahead.peek(Ident::peek_any) {
+            self.parse_ident(input)
+        } else {
+            Err(lookahead.error())
+        }
+    }
 
-                    // Track the span where the trait is implemented for future errors
-                    let span = ident.span();
+    /// Parse an ident (for registration).
+    ///
+    /// Examples:
+    /// - `#[reflect(MyTrait)]` (registers `ReflectMyTrait`)
+    fn parse_ident(&mut self, input: ParseStream) -> syn::Result<()> {
+        let ident = input.parse::<Ident>()?;
 
-                    let list_meta = list.nested.iter().next();
-                    if let Some(NestedMeta::Meta(Meta::Path(path))) = list_meta {
-                        // This should be the path of the custom function
-                        let trait_func_ident = TraitImpl::Custom(path.clone(), span);
-                        match ident.as_str() {
-                            DEBUG_ATTR => {
-                                traits.debug = traits.debug.merge(trait_func_ident)?;
-                            }
-                            PARTIAL_EQ_ATTR => {
-                                traits.partial_eq = traits.partial_eq.merge(trait_func_ident)?;
-                            }
-                            HASH_ATTR => {
-                                traits.hash = traits.hash.merge(trait_func_ident)?;
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-                _ => {}
-            }
+        if input.peek(token::Paren) {
+            return Err(syn::Error::new(ident.span(), format!(
+                "only [{DEBUG_ATTR:?}, {PARTIAL_EQ_ATTR:?}, {HASH_ATTR:?}] may specify custom functions",
+            )));
         }
 
-        Ok(traits)
+        let ident_name = ident.to_string();
+
+        // Create the reflect ident
+        let mut reflect_ident = utility::get_reflect_ident(&ident_name);
+        // We set the span to the old ident so any compile errors point to that ident instead
+        reflect_ident.set_span(ident.span());
+
+        add_unique_ident(&mut self.idents, reflect_ident)?;
+
+        Ok(())
+    }
+
+    /// Parse special `Debug` registration.
+    ///
+    /// Examples:
+    /// - `#[reflect(Debug)]`
+    /// - `#[reflect(Debug(custom_debug_fn))]`
+    fn parse_debug(&mut self, input: ParseStream) -> syn::Result<()> {
+        let ident = input.parse::<kw::Debug>()?;
+
+        if input.peek(token::Paren) {
+            let content;
+            parenthesized!(content in input);
+            let path = content.parse::<Path>()?;
+            self.debug.merge(TraitImpl::Custom(path, ident.span))?;
+        } else {
+            self.debug = TraitImpl::Implemented(ident.span);
+        }
+
+        Ok(())
+    }
+
+    /// Parse special `PartialEq` registration.
+    ///
+    /// Examples:
+    /// - `#[reflect(PartialEq)]`
+    /// - `#[reflect(PartialEq(custom_partial_eq_fn))]`
+    fn parse_partial_eq(&mut self, input: ParseStream) -> syn::Result<()> {
+        let ident = input.parse::<kw::PartialEq>()?;
+
+        if input.peek(token::Paren) {
+            let content;
+            parenthesized!(content in input);
+            let path = content.parse::<Path>()?;
+            self.partial_eq.merge(TraitImpl::Custom(path, ident.span))?;
+        } else {
+            self.partial_eq = TraitImpl::Implemented(ident.span);
+        }
+
+        Ok(())
+    }
+
+    /// Parse special `Hash` registration.
+    ///
+    /// Examples:
+    /// - `#[reflect(Hash)]`
+    /// - `#[reflect(Hash(custom_hash_fn))]`
+    fn parse_hash(&mut self, input: ParseStream) -> syn::Result<()> {
+        let ident = input.parse::<kw::Hash>()?;
+
+        if input.peek(token::Paren) {
+            let content;
+            parenthesized!(content in input);
+            let path = content.parse::<Path>()?;
+            self.hash.merge(TraitImpl::Custom(path, ident.span))?;
+        } else {
+            self.hash = TraitImpl::Implemented(ident.span);
+        }
+
+        Ok(())
+    }
+
+    /// Parse `no_field_bounds` attribute.
+    ///
+    /// Examples:
+    /// - `#[reflect(no_field_bounds)]`
+    fn parse_no_field_bounds(&mut self, input: ParseStream) -> syn::Result<()> {
+        input.parse::<kw::no_field_bounds>()?;
+        self.no_field_bounds = true;
+        Ok(())
+    }
+
+    /// Parse `where` attribute.
+    ///
+    /// Examples:
+    /// - `#[reflect(where T: Debug)]`
+    fn parse_custom_where(&mut self, input: ParseStream) -> syn::Result<()> {
+        self.custom_where = Some(input.parse()?);
+        Ok(())
+    }
+
+    /// Parse `from_reflect` attribute.
+    ///
+    /// Examples:
+    /// - `#[reflect(from_reflect = false)]`
+    fn parse_from_reflect(
+        &mut self,
+        input: ParseStream,
+        trait_: ReflectTraitToImpl,
+    ) -> syn::Result<()> {
+        let pair = input.parse::<MetaNameValue>()?;
+        let value = extract_bool(&pair.value, |lit| {
+            // Override `lit` if this is a `FromReflect` derive.
+            // This typically means a user is opting out of the default implementation
+            // from the `Reflect` derive and using the `FromReflect` derive directly instead.
+            (trait_ == ReflectTraitToImpl::FromReflect)
+                .then(|| LitBool::new(true, Span::call_site()))
+                .unwrap_or_else(|| lit.clone())
+        })?;
+
+        self.from_reflect_attrs.auto_derive = Some(value);
+
+        Ok(())
+    }
+
+    /// Parse `type_path` attribute.
+    ///
+    /// Examples:
+    /// - `#[reflect(type_path = false)]`
+    fn parse_type_path(
+        &mut self,
+        input: ParseStream,
+        trait_: ReflectTraitToImpl,
+    ) -> syn::Result<()> {
+        let pair = input.parse::<MetaNameValue>()?;
+        let value = extract_bool(&pair.value, |lit| {
+            // Override `lit` if this is a `FromReflect` derive.
+            // This typically means a user is opting out of the default implementation
+            // from the `Reflect` derive and using the `FromReflect` derive directly instead.
+            (trait_ == ReflectTraitToImpl::TypePath)
+                .then(|| LitBool::new(true, Span::call_site()))
+                .unwrap_or_else(|| lit.clone())
+        })?;
+
+        self.type_path_attrs.auto_derive = Some(value);
+
+        Ok(())
     }
 
     /// Returns true if the given reflected trait name (i.e. `ReflectDefault` for `Default`)
@@ -215,6 +439,17 @@ impl ReflectTraits {
     /// The list of reflected traits by their reflected ident (i.e. `ReflectDefault` for `Default`).
     pub fn idents(&self) -> &[Ident] {
         &self.idents
+    }
+
+    /// The `FromReflect` configuration found within `#[reflect(...)]` attributes on this type.
+    #[allow(clippy::wrong_self_convention)]
+    pub fn from_reflect_attrs(&self) -> &FromReflectAttrs {
+        &self.from_reflect_attrs
+    }
+
+    /// The `TypePath` configuration found within `#[reflect(...)]` attributes on this type.
+    pub fn type_path_attrs(&self) -> &TypePathAttrs {
+        &self.type_path_attrs
     }
 
     /// Returns the implementation of `Reflect::reflect_hash` as a `TokenStream`.
@@ -286,29 +521,58 @@ impl ReflectTraits {
         }
     }
 
-    /// Merges the trait implementations of this [`ReflectTraits`] with another one.
-    ///
-    /// An error is returned if the two [`ReflectTraits`] have conflicting implementations.
-    pub fn merge(self, other: ReflectTraits) -> Result<Self, syn::Error> {
-        Ok(ReflectTraits {
-            debug: self.debug.merge(other.debug)?,
-            hash: self.hash.merge(other.hash)?,
-            partial_eq: self.partial_eq.merge(other.partial_eq)?,
-            idents: {
-                let mut idents = self.idents;
-                for ident in other.idents {
-                    add_unique_ident(&mut idents, ident)?;
-                }
-                idents
-            },
-        })
+    /// The custom where configuration found within `#[reflect(...)]` attributes on this type.
+    pub fn custom_where(&self) -> Option<&WhereClause> {
+        self.custom_where.as_ref()
     }
-}
 
-impl Parse for ReflectTraits {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        let result = Punctuated::<NestedMeta, Comma>::parse_terminated(input)?;
-        ReflectTraits::from_nested_metas(&result)
+    /// Returns true if the `no_field_bounds` attribute was found on this type.
+    pub fn no_field_bounds(&self) -> bool {
+        self.no_field_bounds
+    }
+
+    /// Merges the trait implementations of this [`ContainerAttributes`] with another one.
+    ///
+    /// An error is returned if the two [`ContainerAttributes`] have conflicting implementations.
+    pub fn merge(&mut self, other: ContainerAttributes) -> Result<(), syn::Error> {
+        // Destructuring is used to help ensure that all fields are merged
+        let Self {
+            debug,
+            hash,
+            partial_eq,
+            from_reflect_attrs,
+            type_path_attrs,
+            custom_where,
+            no_field_bounds,
+            idents,
+        } = self;
+
+        debug.merge(other.debug)?;
+        hash.merge(other.hash)?;
+        partial_eq.merge(other.partial_eq)?;
+        from_reflect_attrs.merge(other.from_reflect_attrs)?;
+        type_path_attrs.merge(other.type_path_attrs)?;
+
+        Self::merge_custom_where(custom_where, other.custom_where);
+
+        *no_field_bounds |= other.no_field_bounds;
+
+        for ident in other.idents {
+            add_unique_ident(idents, ident)?;
+        }
+        Ok(())
+    }
+
+    fn merge_custom_where(this: &mut Option<WhereClause>, other: Option<WhereClause>) {
+        match (this, other) {
+            (Some(this), Some(other)) => {
+                this.predicates.extend(other.predicates);
+            }
+            (this @ None, Some(other)) => {
+                *this = Some(other);
+            }
+            _ => {}
+        }
     }
 }
 
@@ -323,4 +587,21 @@ fn add_unique_ident(idents: &mut Vec<Ident>, ident: Ident) -> Result<(), syn::Er
 
     idents.push(ident);
     Ok(())
+}
+
+/// Extract a boolean value from an expression.
+///
+/// The mapper exists so that the caller can conditionally choose to use the given
+/// value or supply their own.
+fn extract_bool(
+    value: &Expr,
+    mut mapper: impl FnMut(&LitBool) -> LitBool,
+) -> Result<LitBool, syn::Error> {
+    match value {
+        Expr::Lit(syn::ExprLit {
+            lit: syn::Lit::Bool(lit),
+            ..
+        }) => Ok(mapper(lit)),
+        _ => Err(syn::Error::new(value.span(), "Expected a boolean value")),
+    }
 }

@@ -6,7 +6,7 @@ use bevy::winit::WinitPlugin;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.build().disable::<WinitPlugin>())
-        .add_system(setup_system)
+        .add_systems(Update, setup_system)
         .run();
 }
 

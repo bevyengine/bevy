@@ -1,138 +1,147 @@
-#import bevy_core_pipeline::fullscreen_vertex_shader
+// Bloom works by creating an intermediate texture with a bunch of mip levels, each half the size of the previous.
+// You then downsample each mip (starting with the original texture) to the lower resolution mip under it, going in order.
+// You then upsample each mip (starting from the smallest mip) and blend with the higher resolution mip above it (ending on the original texture).
+//
+// References:
+// * [COD] - Next Generation Post Processing in Call of Duty - http://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare
+// * [PBB] - Physically Based Bloom - https://learnopengl.com/Guest-Articles/2022/Phys.-Based-Bloom
 
 struct BloomUniforms {
-    threshold: f32,
-    knee: f32,
-    scale: f32,
-    intensity: f32,
+    threshold_precomputations: vec4<f32>,
     viewport: vec4<f32>,
+    aspect: f32,
 };
 
-@group(0) @binding(0)
-var original: texture_2d<f32>;
-@group(0) @binding(1)
-var original_sampler: sampler;
-@group(0) @binding(2)
-var<uniform> uniforms: BloomUniforms;
-@group(0) @binding(3)
-var up: texture_2d<f32>;
+@group(0) @binding(0) var input_texture: texture_2d<f32>;
+@group(0) @binding(1) var s: sampler;
 
-fn quadratic_threshold(color: vec4<f32>, threshold: f32, curve: vec3<f32>) -> vec4<f32> {
-    let br = max(max(color.r, color.g), color.b);
+@group(0) @binding(2) var<uniform> uniforms: BloomUniforms;
 
-    var rq: f32 = clamp(br - curve.x, 0.0, curve.y);
-    rq = curve.z * rq * rq;
+#ifdef FIRST_DOWNSAMPLE
+// https://catlikecoding.com/unity/tutorials/advanced-rendering/bloom/#3.4
+fn soft_threshold(color: vec3<f32>) -> vec3<f32> {
+    let brightness = max(color.r, max(color.g, color.b));
+    var softness = brightness - uniforms.threshold_precomputations.y;
+    softness = clamp(softness, 0.0, uniforms.threshold_precomputations.z);
+    softness = softness * softness * uniforms.threshold_precomputations.w;
+    var contribution = max(brightness - uniforms.threshold_precomputations.x, softness);
+    contribution /= max(brightness, 0.00001); // Prevent division by 0
+    return color * contribution;
+}
+#endif
 
-    return color * max(rq, br - threshold) / max(br, 0.0001);
+// luminance coefficients from Rec. 709.
+// https://en.wikipedia.org/wiki/Rec._709
+fn tonemapping_luminance(v: vec3<f32>) -> f32 {
+    return dot(v, vec3<f32>(0.2126, 0.7152, 0.0722));
 }
 
-// Samples original around the supplied uv using a filter.
-//
-// o   o   o
-//   o   o
-// o   o   o
-//   o   o
-// o   o   o
-//
-// This is used because it has a number of advantages that
-// outweigh the cost of 13 samples that basically boil down
-// to it looking better.
-//
-// These advantages are outlined in a youtube video by the Cherno:
-//   https://www.youtube.com/watch?v=tI70-HIc5ro
-fn sample_13_tap(uv: vec2<f32>, scale: vec2<f32>) -> vec4<f32> {
-    let a = textureSample(original, original_sampler, uv + vec2<f32>(-1.0, -1.0) * scale);
-    let b = textureSample(original, original_sampler, uv + vec2<f32>(0.0, -1.0) * scale);
-    let c = textureSample(original, original_sampler, uv + vec2<f32>(1.0, -1.0) * scale);
-    let d = textureSample(original, original_sampler, uv + vec2<f32>(-0.5, -0.5) * scale);
-    let e = textureSample(original, original_sampler, uv + vec2<f32>(0.5, -0.5) * scale);
-    let f = textureSample(original, original_sampler, uv + vec2<f32>(-1.0, 0.0) * scale);
-    let g = textureSample(original, original_sampler, uv + vec2<f32>(0.0, 0.0) * scale);
-    let h = textureSample(original, original_sampler, uv + vec2<f32>(1.0, 0.0) * scale);
-    let i = textureSample(original, original_sampler, uv + vec2<f32>(-0.5, 0.5) * scale);
-    let j = textureSample(original, original_sampler, uv + vec2<f32>(0.5, 0.5) * scale);
-    let k = textureSample(original, original_sampler, uv + vec2<f32>(-1.0, 1.0) * scale);
-    let l = textureSample(original, original_sampler, uv + vec2<f32>(0.0, 1.0) * scale);
-    let m = textureSample(original, original_sampler, uv + vec2<f32>(1.0, 1.0) * scale);
-
-    let div = (1.0 / 4.0) * vec2<f32>(0.5, 0.125);
-
-    var o: vec4<f32> = (d + e + i + j) * div.x;
-    o = o + (a + b + g + f) * div.y;
-    o = o + (b + c + h + g) * div.y;
-    o = o + (f + g + l + k) * div.y;
-    o = o + (g + h + m + l) * div.y;
-
-    return o;
+fn rgb_to_srgb_simple(color: vec3<f32>) -> vec3<f32> {
+    return pow(color, vec3<f32>(1.0 / 2.2));
 }
 
-// Samples original using a 3x3 tent filter.
-//
-// NOTE: Use a 2x2 filter for better perf, but 3x3 looks better.
-fn sample_original_3x3_tent(uv: vec2<f32>, scale: vec2<f32>) -> vec4<f32> {
-    let d = vec4<f32>(1.0, 1.0, -1.0, 0.0);
-
-    var s: vec4<f32> = textureSample(original, original_sampler, uv - d.xy * scale);
-    s = s + textureSample(original, original_sampler, uv - d.wy * scale) * 2.0;
-    s = s + textureSample(original, original_sampler, uv - d.zy * scale);
-
-    s = s + textureSample(original, original_sampler, uv + d.zw * scale) * 2.0;
-    s = s + textureSample(original, original_sampler, uv) * 4.0;
-    s = s + textureSample(original, original_sampler, uv + d.xw * scale) * 2.0;
-
-    s = s + textureSample(original, original_sampler, uv + d.zy * scale);
-    s = s + textureSample(original, original_sampler, uv + d.wy * scale) * 2.0;
-    s = s + textureSample(original, original_sampler, uv + d.xy * scale);
-
-    return s / 16.0;
+// http://graphicrants.blogspot.com/2013/12/tone-mapping.html
+fn karis_average(color: vec3<f32>) -> f32 {
+    // Luminance calculated by gamma-correcting linear RGB to non-linear sRGB using pow(color, 1.0 / 2.2)
+    // and then calculating luminance based on Rec. 709 color primaries.
+    let luma = tonemapping_luminance(rgb_to_srgb_simple(color)) / 4.0;
+    return 1.0 / (1.0 + luma);
 }
 
+// [COD] slide 153
+fn sample_input_13_tap(uv: vec2<f32>) -> vec3<f32> {
+    let a = textureSample(input_texture, s, uv, vec2<i32>(-2, 2)).rgb;
+    let b = textureSample(input_texture, s, uv, vec2<i32>(0, 2)).rgb;
+    let c = textureSample(input_texture, s, uv, vec2<i32>(2, 2)).rgb;
+    let d = textureSample(input_texture, s, uv, vec2<i32>(-2, 0)).rgb;
+    let e = textureSample(input_texture, s, uv).rgb;
+    let f = textureSample(input_texture, s, uv, vec2<i32>(2, 0)).rgb;
+    let g = textureSample(input_texture, s, uv, vec2<i32>(-2, -2)).rgb;
+    let h = textureSample(input_texture, s, uv, vec2<i32>(0, -2)).rgb;
+    let i = textureSample(input_texture, s, uv, vec2<i32>(2, -2)).rgb;
+    let j = textureSample(input_texture, s, uv, vec2<i32>(-1, 1)).rgb;
+    let k = textureSample(input_texture, s, uv, vec2<i32>(1, 1)).rgb;
+    let l = textureSample(input_texture, s, uv, vec2<i32>(-1, -1)).rgb;
+    let m = textureSample(input_texture, s, uv, vec2<i32>(1, -1)).rgb;
+
+#ifdef FIRST_DOWNSAMPLE
+    // [COD] slide 168
+    //
+    // The first downsample pass reads from the rendered frame which may exhibit
+    // 'fireflies' (individual very bright pixels) that should not cause the bloom effect.
+    //
+    // The first downsample uses a firefly-reduction method proposed by Brian Karis
+    // which takes a weighted-average of the samples to limit their luma range to [0, 1].
+    // This implementation matches the LearnOpenGL article [PBB].
+    var group0 = (a + b + d + e) * (0.125f / 4.0f);
+    var group1 = (b + c + e + f) * (0.125f / 4.0f);
+    var group2 = (d + e + g + h) * (0.125f / 4.0f);
+    var group3 = (e + f + h + i) * (0.125f / 4.0f);
+    var group4 = (j + k + l + m) * (0.5f / 4.0f);
+    group0 *= karis_average(group0);
+    group1 *= karis_average(group1);
+    group2 *= karis_average(group2);
+    group3 *= karis_average(group3);
+    group4 *= karis_average(group4);
+    return group0 + group1 + group2 + group3 + group4;
+#else
+    var sample = (a + c + g + i) * 0.03125;
+    sample += (b + d + f + h) * 0.0625;
+    sample += (e + j + k + l + m) * 0.125;
+    return sample;
+#endif
+}
+
+// [COD] slide 162
+fn sample_input_3x3_tent(uv: vec2<f32>) -> vec3<f32> {
+    // Radius. Empirically chosen by and tweaked from the LearnOpenGL article.
+    let x = 0.004 / uniforms.aspect;
+    let y = 0.004;
+
+    let a = textureSample(input_texture, s, vec2<f32>(uv.x - x, uv.y + y)).rgb;
+    let b = textureSample(input_texture, s, vec2<f32>(uv.x, uv.y + y)).rgb;
+    let c = textureSample(input_texture, s, vec2<f32>(uv.x + x, uv.y + y)).rgb;
+
+    let d = textureSample(input_texture, s, vec2<f32>(uv.x - x, uv.y)).rgb;
+    let e = textureSample(input_texture, s, vec2<f32>(uv.x, uv.y)).rgb;
+    let f = textureSample(input_texture, s, vec2<f32>(uv.x + x, uv.y)).rgb;
+
+    let g = textureSample(input_texture, s, vec2<f32>(uv.x - x, uv.y - y)).rgb;
+    let h = textureSample(input_texture, s, vec2<f32>(uv.x, uv.y - y)).rgb;
+    let i = textureSample(input_texture, s, vec2<f32>(uv.x + x, uv.y - y)).rgb;
+
+    var sample = e * 0.25;
+    sample += (b + d + f + h) * 0.125;
+    sample += (a + c + g + i) * 0.0625;
+
+    return sample;
+}
+
+#ifdef FIRST_DOWNSAMPLE
 @fragment
-fn downsample_prefilter(@location(0) output_uv: vec2<f32>) -> @location(0) vec4<f32> {
+fn downsample_first(@location(0) output_uv: vec2<f32>) -> @location(0) vec4<f32> {
     let sample_uv = uniforms.viewport.xy + output_uv * uniforms.viewport.zw;
-    let texel_size = 1.0 / vec2<f32>(textureDimensions(original));
+    var sample = sample_input_13_tap(sample_uv);
+    // Lower bound of 0.0001 is to avoid propagating multiplying by 0.0 through the
+    // downscaling and upscaling which would result in black boxes.
+    // The upper bound is to prevent NaNs.
+    // with f32::MAX (E+38) Chrome fails with ":value 340282346999999984391321947108527833088.0 cannot be represented as 'f32'"
+    sample = clamp(sample, vec3<f32>(0.0001), vec3<f32>(3.40282347E+37));
 
-    let scale = texel_size;
+#ifdef USE_THRESHOLD
+    sample = soft_threshold(sample);
+#endif
 
-    let curve = vec3<f32>(
-        uniforms.threshold - uniforms.knee,
-        uniforms.knee * 2.0,
-        0.25 / uniforms.knee,
-    );
-
-    var o: vec4<f32> = sample_13_tap(sample_uv, scale);
-
-    o = quadratic_threshold(o, uniforms.threshold, curve);
-    o = max(o, vec4<f32>(0.00001));
-
-    return o;
+    return vec4<f32>(sample, 1.0);
 }
+#endif
 
 @fragment
 fn downsample(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
-    let texel_size = 1.0 / vec2<f32>(textureDimensions(original));
-
-    let scale = texel_size;
-
-    return sample_13_tap(uv, scale);
+    return vec4<f32>(sample_input_13_tap(uv), 1.0);
 }
 
 @fragment
 fn upsample(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
-    let texel_size = 1.0 / vec2<f32>(textureDimensions(original));
-
-    let upsample = sample_original_3x3_tent(uv, texel_size * uniforms.scale);
-    var color: vec4<f32> = textureSample(up, original_sampler, uv);
-    color = vec4<f32>(color.rgb + upsample.rgb, upsample.a);
-
-    return color;
-}
-
-@fragment
-fn upsample_final(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
-    let texel_size = 1.0 / vec2<f32>(textureDimensions(original));
-
-    let upsample = sample_original_3x3_tent(uv, texel_size * uniforms.scale);
-
-    return vec4<f32>(upsample.rgb * uniforms.intensity, upsample.a);
+    return vec4<f32>(sample_input_3x3_tent(uv), 1.0);
 }

@@ -1,5 +1,6 @@
 use super::GlobalTransform;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
+use bevy_math::primitives::Direction3d;
 use bevy_math::{Affine3A, Mat3, Mat4, Quat, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_reflect::Reflect;
@@ -23,7 +24,7 @@ use std::ops::Mul;
 /// [`GlobalTransform`] is updated from [`Transform`] by systems in the system set
 /// [`TransformPropagate`](crate::TransformSystem::TransformPropagate).
 ///
-/// This system runs during [`CoreSet::PostUpdate`](crate::CoreSet::PostUpdate). If you
+/// This system runs during [`PostUpdate`](bevy_app::PostUpdate). If you
 /// update the [`Transform`] of an entity during this set or after, you will notice a 1 frame lag
 /// before the [`GlobalTransform`] is updated.
 ///
@@ -34,8 +35,7 @@ use std::ops::Mul;
 ///
 /// [`global_vs_local_translation`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/global_vs_local_translation.rs
 /// [`transform`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
-/// [`Transform`]: super::Transform
-#[derive(Component, Debug, PartialEq, Clone, Copy, Reflect, FromReflect)]
+#[derive(Component, Debug, PartialEq, Clone, Copy, Reflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Component, Default, PartialEq)]
 pub struct Transform {
@@ -120,6 +120,11 @@ impl Transform {
 
     /// Returns this [`Transform`] with a new rotation so that [`Transform::forward`]
     /// points towards the `target` position and [`Transform::up`] points towards `up`.
+    ///
+    /// In some cases it's not possible to construct a rotation. Another axis will be picked in those cases:
+    /// * if `target` is the same as the transform translation, `Vec3::Z` is used instead
+    /// * if `up` is zero, `Vec3::Y` is used instead
+    /// * if the resulting forward direction is parallel with `up`, an orthogonal vector is used as the "right" direction
     #[inline]
     #[must_use]
     pub fn looking_at(mut self, target: Vec3, up: Vec3) -> Self {
@@ -129,6 +134,11 @@ impl Transform {
 
     /// Returns this [`Transform`] with a new rotation so that [`Transform::forward`]
     /// points in the given `direction` and [`Transform::up`] points towards `up`.
+    ///
+    /// In some cases it's not possible to construct a rotation. Another axis will be picked in those cases:
+    /// * if `direction` is zero, `Vec3::Z` is used instead
+    /// * if `up` is zero, `Vec3::Y` is used instead
+    /// * if `direction` is parallel with `up`, an orthogonal vector is used as the "right" direction
     #[inline]
     #[must_use]
     pub fn looking_to(mut self, direction: Vec3, up: Vec3) -> Self {
@@ -176,55 +186,58 @@ impl Transform {
 
     /// Get the unit vector in the local `X` direction.
     #[inline]
-    pub fn local_x(&self) -> Vec3 {
-        self.rotation * Vec3::X
+    pub fn local_x(&self) -> Direction3d {
+        // Direction3d::new(x) panics if x is of invalid length, but quat * unit vector is length 1
+        Direction3d::new(self.rotation * Vec3::X).unwrap()
     }
 
     /// Equivalent to [`-local_x()`][Transform::local_x()]
     #[inline]
-    pub fn left(&self) -> Vec3 {
+    pub fn left(&self) -> Direction3d {
         -self.local_x()
     }
 
     /// Equivalent to [`local_x()`][Transform::local_x()]
     #[inline]
-    pub fn right(&self) -> Vec3 {
+    pub fn right(&self) -> Direction3d {
         self.local_x()
     }
 
     /// Get the unit vector in the local `Y` direction.
     #[inline]
-    pub fn local_y(&self) -> Vec3 {
-        self.rotation * Vec3::Y
+    pub fn local_y(&self) -> Direction3d {
+        // Direction3d::new(x) panics if x is of invalid length, but quat * unit vector is length 1
+        Direction3d::new(self.rotation * Vec3::Y).unwrap()
     }
 
     /// Equivalent to [`local_y()`][Transform::local_y]
     #[inline]
-    pub fn up(&self) -> Vec3 {
+    pub fn up(&self) -> Direction3d {
         self.local_y()
     }
 
     /// Equivalent to [`-local_y()`][Transform::local_y]
     #[inline]
-    pub fn down(&self) -> Vec3 {
+    pub fn down(&self) -> Direction3d {
         -self.local_y()
     }
 
     /// Get the unit vector in the local `Z` direction.
     #[inline]
-    pub fn local_z(&self) -> Vec3 {
-        self.rotation * Vec3::Z
+    pub fn local_z(&self) -> Direction3d {
+        // Direction3d::new(x) panics if x is of invalid length, but quat * unit vector is length 1
+        Direction3d::new(self.rotation * Vec3::Z).unwrap()
     }
 
     /// Equivalent to [`-local_z()`][Transform::local_z]
     #[inline]
-    pub fn forward(&self) -> Vec3 {
+    pub fn forward(&self) -> Direction3d {
         -self.local_z()
     }
 
     /// Equivalent to [`local_z()`][Transform::local_z]
     #[inline]
-    pub fn back(&self) -> Vec3 {
+    pub fn back(&self) -> Direction3d {
         self.local_z()
     }
 
@@ -325,6 +338,11 @@ impl Transform {
 
     /// Rotates this [`Transform`] so that [`Transform::forward`] points towards the `target` position,
     /// and [`Transform::up`] points towards `up`.
+    ///
+    /// In some cases it's not possible to construct a rotation. Another axis will be picked in those cases:
+    /// * if `target` is the same as the transform translation, `Vec3::Z` is used instead
+    /// * if `up` is zero, `Vec3::Y` is used instead
+    /// * if the resulting forward direction is parallel with `up`, an orthogonal vector is used as the "right" direction
     #[inline]
     pub fn look_at(&mut self, target: Vec3, up: Vec3) {
         self.look_to(target - self.translation, up);
@@ -332,12 +350,21 @@ impl Transform {
 
     /// Rotates this [`Transform`] so that [`Transform::forward`] points in the given `direction`
     /// and [`Transform::up`] points towards `up`.
+    ///
+    /// In some cases it's not possible to construct a rotation. Another axis will be picked in those cases:
+    /// * if `direction` is zero, `Vec3::NEG_Z` is used instead
+    /// * if `up` is zero, `Vec3::Y` is used instead
+    /// * if `direction` is parallel with `up`, an orthogonal vector is used as the "right" direction
     #[inline]
     pub fn look_to(&mut self, direction: Vec3, up: Vec3) {
-        let forward = -direction.normalize();
-        let right = up.cross(forward).normalize();
-        let up = forward.cross(right);
-        self.rotation = Quat::from_mat3(&Mat3::from_cols(right, up, forward));
+        let back = -direction.try_normalize().unwrap_or(Vec3::NEG_Z);
+        let up = up.try_normalize().unwrap_or(Vec3::Y);
+        let right = up
+            .cross(back)
+            .try_normalize()
+            .unwrap_or_else(|| up.any_orthonormal_vector());
+        let up = back.cross(right);
+        self.rotation = Quat::from_mat3(&Mat3::from_cols(right, up, back));
     }
 
     /// Multiplies `self` with `transform` component by component, returning the
@@ -372,6 +399,15 @@ impl Transform {
         point += self.translation;
         point
     }
+
+    /// Returns `true` if, and only if, translation, rotation and scale all are
+    /// finite. If any of them contains a `NaN`, positive or negative infinity,
+    /// this will return `false`.
+    #[inline]
+    #[must_use]
+    pub fn is_finite(&self) -> bool {
+        self.translation.is_finite() && self.rotation.is_finite() && self.scale.is_finite()
+    }
 }
 
 impl Default for Transform {
@@ -393,6 +429,15 @@ impl Mul<Transform> for Transform {
 
     fn mul(self, transform: Transform) -> Self::Output {
         self.mul_transform(transform)
+    }
+}
+
+impl Mul<GlobalTransform> for Transform {
+    type Output = GlobalTransform;
+
+    #[inline]
+    fn mul(self, global_transform: GlobalTransform) -> Self::Output {
+        GlobalTransform::from(self) * global_transform
     }
 }
 

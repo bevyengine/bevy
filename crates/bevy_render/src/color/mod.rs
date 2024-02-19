@@ -3,12 +3,12 @@ mod colorspace;
 pub use colorspace::*;
 
 use bevy_math::{Vec3, Vec4};
-use bevy_reflect::{FromReflect, Reflect, ReflectDeserialize, ReflectSerialize};
+use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
-use std::ops::{Add, AddAssign, Mul, MulAssign};
+use std::ops::{Add, Mul, MulAssign};
 use thiserror::Error;
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect, FromReflect)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum Color {
     /// sRGBA color
@@ -253,6 +253,43 @@ impl Color {
         }
     }
 
+    /// New `Color` with LCH representation in sRGB colorspace.
+    ///
+    /// # Arguments
+    ///
+    /// * `lightness` - Lightness channel. [0.0, 1.5]
+    /// * `chroma` - Chroma channel. [0.0, 1.5]
+    /// * `hue` - Hue channel. [0.0, 360.0]
+    ///
+    /// See also [`Color::lcha`].
+    pub const fn lch(lightness: f32, chroma: f32, hue: f32) -> Color {
+        Color::Lcha {
+            lightness,
+            chroma,
+            hue,
+            alpha: 1.0,
+        }
+    }
+
+    /// New `Color` with LCH representation in sRGB colorspace.
+    ///
+    /// # Arguments
+    ///
+    /// * `lightness` - Lightness channel. [0.0, 1.5]
+    /// * `chroma` - Chroma channel. [0.0, 1.5]
+    /// * `hue` - Hue channel. [0.0, 360.0]
+    /// * `alpha` - Alpha channel. [0.0, 1.0]
+    ///
+    /// See also [`Color::lch`].
+    pub const fn lcha(lightness: f32, chroma: f32, hue: f32, alpha: f32) -> Color {
+        Color::Lcha {
+            lightness,
+            chroma,
+            hue,
+            alpha,
+        }
+    }
+
     /// New `Color` from sRGB colorspace.
     ///
     /// # Examples
@@ -331,7 +368,7 @@ impl Color {
         )
     }
 
-    /// Get red in sRGB colorspace.
+    /// Converts a Color to variant [`Color::Rgba`] and return red in sRGB colorspace
     pub fn r(&self) -> f32 {
         match self.as_rgba() {
             Color::Rgba { red, .. } => red,
@@ -339,7 +376,7 @@ impl Color {
         }
     }
 
-    /// Get green in sRGB colorspace.
+    /// Converts a Color to variant [`Color::Rgba`] and return green in sRGB colorspace
     pub fn g(&self) -> f32 {
         match self.as_rgba() {
             Color::Rgba { green, .. } => green,
@@ -347,7 +384,7 @@ impl Color {
         }
     }
 
-    /// Get blue in sRGB colorspace.
+    /// Converts a Color to variant [`Color::Rgba`] and return blue in sRGB colorspace
     pub fn b(&self) -> f32 {
         match self.as_rgba() {
             Color::Rgba { blue, .. } => blue,
@@ -355,7 +392,7 @@ impl Color {
         }
     }
 
-    /// Set red in sRGB colorspace.
+    /// Converts a Color to variant [`Color::Rgba`] and set red
     pub fn set_r(&mut self, r: f32) -> &mut Self {
         *self = self.as_rgba();
         match self {
@@ -365,14 +402,14 @@ impl Color {
         self
     }
 
-    /// Returns this color with red set to a new value in sRGB colorspace.
+    /// Converts a Color to variant [`Color::Rgba`] and return this color with red set to a new value
     #[must_use]
     pub fn with_r(mut self, r: f32) -> Self {
         self.set_r(r);
         self
     }
 
-    /// Set green in sRGB colorspace.
+    /// Converts a Color to variant [`Color::Rgba`] and set green
     pub fn set_g(&mut self, g: f32) -> &mut Self {
         *self = self.as_rgba();
         match self {
@@ -382,14 +419,14 @@ impl Color {
         self
     }
 
-    /// Returns this color with green set to a new value in sRGB colorspace.
+    /// Converts a Color to variant [`Color::Rgba`] and return this color with green set to a new value
     #[must_use]
     pub fn with_g(mut self, g: f32) -> Self {
         self.set_g(g);
         self
     }
 
-    /// Set blue in sRGB colorspace.
+    /// Converts a Color to variant [`Color::Rgba`] and set blue
     pub fn set_b(&mut self, b: f32) -> &mut Self {
         *self = self.as_rgba();
         match self {
@@ -399,10 +436,85 @@ impl Color {
         self
     }
 
-    /// Returns this color with blue set to a new value in sRGB colorspace.
+    /// Converts a Color to variant [`Color::Rgba`] and return this color with blue set to a new value
     #[must_use]
     pub fn with_b(mut self, b: f32) -> Self {
         self.set_b(b);
+        self
+    }
+
+    /// Converts a Color to variant [`Color::Hsla`] and return hue
+    pub fn h(&self) -> f32 {
+        match self.as_hsla() {
+            Color::Hsla { hue, .. } => hue,
+            _ => unreachable!(),
+        }
+    }
+
+    /// Converts a Color to variant [`Color::Hsla`] and return saturation
+    pub fn s(&self) -> f32 {
+        match self.as_hsla() {
+            Color::Hsla { saturation, .. } => saturation,
+            _ => unreachable!(),
+        }
+    }
+
+    /// Converts a Color to variant [`Color::Hsla`] and return lightness
+    pub fn l(&self) -> f32 {
+        match self.as_hsla() {
+            Color::Hsla { lightness, .. } => lightness,
+            _ => unreachable!(),
+        }
+    }
+
+    /// Converts a Color to variant [`Color::Hsla`] and set hue
+    pub fn set_h(&mut self, h: f32) -> &mut Self {
+        *self = self.as_hsla();
+        match self {
+            Color::Hsla { hue, .. } => *hue = h,
+            _ => unreachable!(),
+        }
+        self
+    }
+
+    /// Converts a Color to variant [`Color::Hsla`] and return this color with hue set to a new value
+    #[must_use]
+    pub fn with_h(mut self, h: f32) -> Self {
+        self.set_h(h);
+        self
+    }
+
+    /// Converts a Color to variant [`Color::Hsla`] and set saturation
+    pub fn set_s(&mut self, s: f32) -> &mut Self {
+        *self = self.as_hsla();
+        match self {
+            Color::Hsla { saturation, .. } => *saturation = s,
+            _ => unreachable!(),
+        }
+        self
+    }
+
+    /// Converts a Color to variant [`Color::Hsla`] and return this color with saturation set to a new value
+    #[must_use]
+    pub fn with_s(mut self, s: f32) -> Self {
+        self.set_s(s);
+        self
+    }
+
+    /// Converts a Color to variant [`Color::Hsla`] and set lightness
+    pub fn set_l(&mut self, l: f32) -> &mut Self {
+        *self = self.as_hsla();
+        match self {
+            Color::Hsla { lightness, .. } => *lightness = l,
+            _ => unreachable!(),
+        }
+        self
+    }
+
+    /// Converts a Color to variant [`Color::Hsla`] and return this color with lightness set to a new value
+    #[must_use]
+    pub fn with_l(mut self, l: f32) -> Self {
+        self.set_l(l);
         self
     }
 
@@ -435,6 +547,25 @@ impl Color {
     pub fn with_a(mut self, a: f32) -> Self {
         self.set_a(a);
         self
+    }
+
+    /// Determine if the color is fully transparent, i.e. if the alpha is 0.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_render::color::Color;
+    /// // Fully transparent colors
+    /// assert!(Color::NONE.is_fully_transparent());
+    /// assert!(Color::rgba(1.0, 0.5, 0.5, 0.0).is_fully_transparent());
+    ///
+    /// // (Partially) opaque colors
+    /// assert!(!Color::BLACK.is_fully_transparent());
+    /// assert!(!Color::rgba(1.0, 0.5, 0.5, 0.2).is_fully_transparent());
+    /// ```
+    #[inline(always)]
+    pub fn is_fully_transparent(&self) -> bool {
+        self.a() == 0.0
     }
 
     /// Converts a `Color` to variant `Color::Rgba`
@@ -525,7 +656,7 @@ impl Color {
                 let [red, green, blue] =
                     LchRepresentation::lch_to_nonlinear_srgb(*lightness, *chroma, *hue);
 
-                Color::Rgba {
+                Color::RgbaLinear {
                     red: red.nonlinear_to_linear_srgb(),
                     green: green.nonlinear_to_linear_srgb(),
                     blue: blue.nonlinear_to_linear_srgb(),
@@ -589,6 +720,72 @@ impl Color {
                 }
             }
         }
+    }
+
+    /// Converts a `Color` to variant `Color::Lcha`
+    pub fn as_lcha(self: &Color) -> Color {
+        match self {
+            Color::Rgba {
+                red,
+                green,
+                blue,
+                alpha,
+            } => {
+                let (lightness, chroma, hue) =
+                    LchRepresentation::nonlinear_srgb_to_lch([*red, *green, *blue]);
+                Color::Lcha {
+                    lightness,
+                    chroma,
+                    hue,
+                    alpha: *alpha,
+                }
+            }
+            Color::RgbaLinear {
+                red,
+                green,
+                blue,
+                alpha,
+            } => {
+                let (lightness, chroma, hue) = LchRepresentation::nonlinear_srgb_to_lch([
+                    red.linear_to_nonlinear_srgb(),
+                    green.linear_to_nonlinear_srgb(),
+                    blue.linear_to_nonlinear_srgb(),
+                ]);
+                Color::Lcha {
+                    lightness,
+                    chroma,
+                    hue,
+                    alpha: *alpha,
+                }
+            }
+            Color::Hsla {
+                hue,
+                saturation,
+                lightness,
+                alpha,
+            } => {
+                let rgb = HslRepresentation::hsl_to_nonlinear_srgb(*hue, *saturation, *lightness);
+                let (lightness, chroma, hue) = LchRepresentation::nonlinear_srgb_to_lch(rgb);
+                Color::Lcha {
+                    lightness,
+                    chroma,
+                    hue,
+                    alpha: *alpha,
+                }
+            }
+            Color::Lcha { .. } => *self,
+        }
+    }
+
+    /// Converts a `Color` to a `[u8; 4]` from sRGB colorspace
+    pub fn as_rgba_u8(&self) -> [u8; 4] {
+        let [r, g, b, a] = self.as_rgba_f32();
+        [
+            (r * u8::MAX as f32) as u8,
+            (g * u8::MAX as f32) as u8,
+            (b * u8::MAX as f32) as u8,
+            (a * u8::MAX as f32) as u8,
+        ]
     }
 
     /// Converts a `Color` to a `[f32; 4]` from sRGB colorspace
@@ -737,7 +934,7 @@ impl Color {
     }
 
     /// Converts a `Color` to a `[f32; 4]` from LCH colorspace
-    pub fn as_lch_f32(self: Color) -> [f32; 4] {
+    pub fn as_lcha_f32(self: Color) -> [f32; 4] {
         match self {
             Color::Rgba {
                 red,
@@ -905,66 +1102,181 @@ impl Color {
             }
         }
     }
-}
 
-impl Default for Color {
-    fn default() -> Self {
-        Color::WHITE
+    /// New `Color` from `[f32; 4]` (or a type that can be converted into them) with RGB representation in sRGB colorspace.
+    #[inline]
+    pub fn rgba_from_array(arr: impl Into<[f32; 4]>) -> Self {
+        let [r, g, b, a]: [f32; 4] = arr.into();
+        Color::rgba(r, g, b, a)
     }
-}
 
-impl AddAssign<Color> for Color {
-    fn add_assign(&mut self, rhs: Color) {
-        match self {
+    /// New `Color` from `[f32; 3]` (or a type that can be converted into them) with RGB representation in sRGB colorspace.
+    #[inline]
+    pub fn rgb_from_array(arr: impl Into<[f32; 3]>) -> Self {
+        let [r, g, b]: [f32; 3] = arr.into();
+        Color::rgb(r, g, b)
+    }
+
+    /// New `Color` from `[f32; 4]` (or a type that can be converted into them) with RGB representation in linear RGB colorspace.
+    #[inline]
+    pub fn rgba_linear_from_array(arr: impl Into<[f32; 4]>) -> Self {
+        let [r, g, b, a]: [f32; 4] = arr.into();
+        Color::rgba_linear(r, g, b, a)
+    }
+
+    /// New `Color` from `[f32; 3]` (or a type that can be converted into them) with RGB representation in linear RGB colorspace.
+    #[inline]
+    pub fn rgb_linear_from_array(arr: impl Into<[f32; 3]>) -> Self {
+        let [r, g, b]: [f32; 3] = arr.into();
+        Color::rgb_linear(r, g, b)
+    }
+
+    /// New `Color` from `[f32; 4]` (or a type that can be converted into them) with HSL representation in sRGB colorspace.
+    #[inline]
+    pub fn hsla_from_array(arr: impl Into<[f32; 4]>) -> Self {
+        let [h, s, l, a]: [f32; 4] = arr.into();
+        Color::hsla(h, s, l, a)
+    }
+
+    /// New `Color` from `[f32; 3]` (or a type that can be converted into them) with HSL representation in sRGB colorspace.
+    #[inline]
+    pub fn hsl_from_array(arr: impl Into<[f32; 3]>) -> Self {
+        let [h, s, l]: [f32; 3] = arr.into();
+        Color::hsl(h, s, l)
+    }
+
+    /// New `Color` from `[f32; 4]` (or a type that can be converted into them) with LCH representation in sRGB colorspace.
+    #[inline]
+    pub fn lcha_from_array(arr: impl Into<[f32; 4]>) -> Self {
+        let [l, c, h, a]: [f32; 4] = arr.into();
+        Color::lcha(l, c, h, a)
+    }
+
+    /// New `Color` from `[f32; 3]` (or a type that can be converted into them) with LCH representation in sRGB colorspace.
+    #[inline]
+    pub fn lch_from_array(arr: impl Into<[f32; 3]>) -> Self {
+        let [l, c, h]: [f32; 3] = arr.into();
+        Color::lch(l, c, h)
+    }
+
+    /// Convert `Color` to RGBA and return as `Vec4`.
+    #[inline]
+    pub fn rgba_to_vec4(&self) -> Vec4 {
+        let color = self.as_rgba();
+        match color {
             Color::Rgba {
                 red,
                 green,
                 blue,
                 alpha,
-            } => {
-                let rhs = rhs.as_rgba_f32();
-                *red += rhs[0];
-                *green += rhs[1];
-                *blue += rhs[2];
-                *alpha += rhs[3];
-            }
+            } => Vec4::new(red, green, blue, alpha),
+            _ => unreachable!(),
+        }
+    }
+
+    /// Convert `Color` to RGBA and return as `Vec3`.
+    #[inline]
+    pub fn rgb_to_vec3(&self) -> Vec3 {
+        let color = self.as_rgba();
+        match color {
+            Color::Rgba {
+                red, green, blue, ..
+            } => Vec3::new(red, green, blue),
+            _ => unreachable!(),
+        }
+    }
+
+    /// Convert `Color` to linear RGBA and return as `Vec4`.
+    #[inline]
+    pub fn rgba_linear_to_vec4(&self) -> Vec4 {
+        let color = self.as_rgba_linear();
+        match color {
             Color::RgbaLinear {
                 red,
                 green,
                 blue,
                 alpha,
-            } => {
-                let rhs = rhs.as_linear_rgba_f32();
-                *red += rhs[0];
-                *green += rhs[1];
-                *blue += rhs[2];
-                *alpha += rhs[3];
-            }
+            } => Vec4::new(red, green, blue, alpha),
+            _ => unreachable!(),
+        }
+    }
+
+    /// Convert `Color` to linear RGBA and return as `Vec3`.
+    #[inline]
+    pub fn rgb_linear_to_vec3(&self) -> Vec3 {
+        let color = self.as_rgba_linear();
+        match color {
+            Color::RgbaLinear {
+                red, green, blue, ..
+            } => Vec3::new(red, green, blue),
+            _ => unreachable!(),
+        }
+    }
+
+    /// Convert `Color` to HSLA and return as `Vec4`.
+    #[inline]
+    pub fn hsla_to_vec4(&self) -> Vec4 {
+        let color = self.as_hsla();
+        match color {
             Color::Hsla {
                 hue,
                 saturation,
                 lightness,
                 alpha,
-            } => {
-                let rhs = rhs.as_hsla_f32();
-                *hue += rhs[0];
-                *saturation += rhs[1];
-                *lightness += rhs[2];
-                *alpha += rhs[3];
-            }
+            } => Vec4::new(hue, saturation, lightness, alpha),
+            _ => unreachable!(),
+        }
+    }
+
+    /// Convert `Color` to HSLA and return as `Vec3`.
+    #[inline]
+    pub fn hsl_to_vec3(&self) -> Vec3 {
+        let color = self.as_hsla();
+        match color {
+            Color::Hsla {
+                hue,
+                saturation,
+                lightness,
+                ..
+            } => Vec3::new(hue, saturation, lightness),
+            _ => unreachable!(),
+        }
+    }
+
+    /// Convert `Color` to LCHA and return as `Vec4`.
+    #[inline]
+    pub fn lcha_to_vec4(&self) -> Vec4 {
+        let color = self.as_lcha();
+        match color {
             Color::Lcha {
                 lightness,
                 chroma,
                 hue,
                 alpha,
-            } => {
-                let rhs = rhs.as_lch_f32();
-                *lightness += rhs[0];
-                *chroma += rhs[1];
-                *hue += rhs[2];
-                *alpha += rhs[3];
-            }
+            } => Vec4::new(lightness, chroma, hue, alpha),
+            _ => unreachable!(),
         }
+    }
+
+    /// Convert `Color` to LCHA and return as `Vec3`.
+    #[inline]
+    pub fn lch_to_vec3(&self) -> Vec3 {
+        let color = self.as_lcha();
+        match color {
+            Color::Lcha {
+                lightness,
+                chroma,
+                hue,
+                ..
+            } => Vec3::new(lightness, chroma, hue),
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl Default for Color {
+    fn default() -> Self {
+        Color::WHITE
     }
 }
 
@@ -1021,8 +1333,7 @@ impl Add<Color> for Color {
                 hue,
                 alpha,
             } => {
-                let rhs = rhs.as_lch_f32();
-
+                let rhs = rhs.as_lcha_f32();
                 Color::Lcha {
                     lightness: lightness + rhs[0],
                     chroma: chroma + rhs[1],
@@ -1031,53 +1342,6 @@ impl Add<Color> for Color {
                 }
             }
         }
-    }
-}
-
-impl AddAssign<Vec4> for Color {
-    fn add_assign(&mut self, rhs: Vec4) {
-        let rhs: Color = rhs.into();
-        *self += rhs;
-    }
-}
-
-impl Add<Vec4> for Color {
-    type Output = Color;
-
-    fn add(self, rhs: Vec4) -> Self::Output {
-        let rhs: Color = rhs.into();
-        self + rhs
-    }
-}
-
-impl From<Color> for [f32; 4] {
-    fn from(color: Color) -> Self {
-        color.as_rgba_f32()
-    }
-}
-
-impl From<[f32; 4]> for Color {
-    fn from([r, g, b, a]: [f32; 4]) -> Self {
-        Color::rgba(r, g, b, a)
-    }
-}
-
-impl From<[f32; 3]> for Color {
-    fn from([r, g, b]: [f32; 3]) -> Self {
-        Color::rgb(r, g, b)
-    }
-}
-
-impl From<Color> for Vec4 {
-    fn from(color: Color) -> Self {
-        let color: [f32; 4] = color.into();
-        Vec4::new(color[0], color[1], color[2], color[3])
-    }
-}
-
-impl From<Vec4> for Color {
-    fn from(vec4: Vec4) -> Self {
-        Color::rgba(vec4.x, vec4.y, vec4.z, vec4.w)
     }
 }
 
@@ -1617,6 +1881,7 @@ impl encase::private::ReadFrom for Color {
         }
     }
 }
+
 impl encase::private::CreateFrom for Color {
     fn create_from<B>(reader: &mut encase::private::Reader<B>) -> Self
     where
@@ -1711,15 +1976,15 @@ mod tests {
     #[test]
     fn conversions_vec4() {
         let starting_vec4 = Vec4::new(0.4, 0.5, 0.6, 1.0);
-        let starting_color = Color::from(starting_vec4);
+        let starting_color = Color::rgba_from_array(starting_vec4);
 
-        assert_eq!(starting_vec4, Vec4::from(starting_color),);
+        assert_eq!(starting_vec4, starting_color.rgba_to_vec4());
 
         let transformation = Vec4::new(0.5, 0.5, 0.5, 1.0);
 
         assert_eq!(
             starting_color * transformation,
-            Color::from(starting_vec4 * transformation),
+            Color::rgba_from_array(starting_vec4 * transformation)
         );
     }
 
@@ -1736,7 +2001,7 @@ mod tests {
         let mut mutated_color = starting_color;
         mutated_color *= transformation;
 
-        assert_eq!(starting_color * transformation, mutated_color,);
+        assert_eq!(starting_color * transformation, mutated_color);
     }
 
     #[test]
@@ -1752,7 +2017,7 @@ mod tests {
         let mut mutated_color = starting_color;
         mutated_color *= transformation;
 
-        assert_eq!(starting_color * transformation, mutated_color,);
+        assert_eq!(starting_color * transformation, mutated_color);
     }
 
     #[test]
@@ -1768,7 +2033,7 @@ mod tests {
         let mut mutated_color = starting_color;
         mutated_color *= transformation;
 
-        assert_eq!(starting_color * transformation, mutated_color,);
+        assert_eq!(starting_color * transformation, mutated_color);
     }
 
     #[test]
@@ -1784,7 +2049,7 @@ mod tests {
         let mut mutated_color = starting_color;
         mutated_color *= transformation;
 
-        assert_eq!(starting_color * transformation, mutated_color,);
+        assert_eq!(starting_color * transformation, mutated_color);
     }
 
     #[test]
@@ -1800,6 +2065,25 @@ mod tests {
         let mut mutated_color = starting_color;
         mutated_color *= transformation;
 
-        assert_eq!(starting_color * transformation, mutated_color,);
+        assert_eq!(starting_color * transformation, mutated_color);
+    }
+
+    // regression test for https://github.com/bevyengine/bevy/pull/8040
+    #[test]
+    fn convert_to_rgba_linear() {
+        let rgba = Color::rgba(0., 0., 0., 0.);
+        let rgba_l = Color::rgba_linear(0., 0., 0., 0.);
+        let hsla = Color::hsla(0., 0., 0., 0.);
+        let lcha = Color::lcha(0., 0., 0., 0.);
+        assert_eq!(rgba_l, rgba_l.as_rgba_linear());
+        let Color::RgbaLinear { .. } = rgba.as_rgba_linear() else {
+            panic!("from Rgba")
+        };
+        let Color::RgbaLinear { .. } = hsla.as_rgba_linear() else {
+            panic!("from Hsla")
+        };
+        let Color::RgbaLinear { .. } = lcha.as_rgba_linear() else {
+            panic!("from Lcha")
+        };
     }
 }

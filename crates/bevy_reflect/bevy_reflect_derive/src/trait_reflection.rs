@@ -1,5 +1,7 @@
-use crate::fq_std::{FQBox, FQClone, FQOption, FQResult};
-use bevy_macro_utils::BevyManifest;
+use bevy_macro_utils::{
+    fq_std::{FQBox, FQClone, FQOption, FQResult},
+    BevyManifest,
+};
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse::Parse, parse_macro_input, Attribute, ItemTrait, Token};

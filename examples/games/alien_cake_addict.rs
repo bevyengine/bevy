@@ -17,16 +17,17 @@ struct BonusSpawnTimer(Timer);
 
 fn main() {
     App::new()
+        .add_plugins(DefaultPlugins)
         .init_resource::<Game>()
         .insert_resource(BonusSpawnTimer(Timer::from_seconds(
             5.0,
             TimerMode::Repeating,
         )))
-        .add_plugins(DefaultPlugins)
-        .add_state::<GameState>()
-        .add_startup_system(setup_cameras)
-        .add_system_to_schedule(OnEnter(GameState::Playing), setup)
+        .init_state::<GameState>()
+        .add_systems(Startup, setup_cameras)
+        .add_systems(OnEnter(GameState::Playing), setup)
         .add_systems(
+            Update,
             (
                 move_player,
                 focus_camera,
@@ -34,13 +35,18 @@ fn main() {
                 scoreboard_system,
                 spawn_bonus,
             )
-                .in_set(OnUpdate(GameState::Playing)),
+                .run_if(in_state(GameState::Playing)),
         )
-        .add_system_to_schedule(OnExit(GameState::Playing), teardown)
-        .add_system_to_schedule(OnEnter(GameState::GameOver), display_score)
-        .add_system(gameover_keyboard.in_set(OnUpdate(GameState::GameOver)))
-        .add_system_to_schedule(OnExit(GameState::GameOver), teardown)
-        .add_system(bevy::window::close_on_esc)
+        .add_systems(OnExit(GameState::Playing), teardown)
+        .add_systems(OnEnter(GameState::GameOver), display_score)
+        .add_systems(
+            Update,
+            (
+                gameover_keyboard.run_if(in_state(GameState::GameOver)),
+                bevy::window::close_on_esc,
+            ),
+        )
+        .add_systems(OnExit(GameState::GameOver), teardown)
         .run();
 }
 
@@ -109,7 +115,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
     commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(4.0, 10.0, 4.0),
         point_light: PointLight {
-            intensity: 3000.0,
+            intensity: 2_000_000.0,
             shadows_enabled: true,
             range: 30.0,
             ..default()
@@ -162,25 +168,22 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
         TextBundle::from_section(
             "Score:",
             TextStyle {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 40.0,
                 color: Color::rgb(0.5, 0.5, 1.0),
+                ..default()
             },
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
-                top: Val::Px(5.0),
-                left: Val::Px(5.0),
-                ..default()
-            },
+            top: Val::Px(5.0),
+            left: Val::Px(5.0),
             ..default()
         }),
     );
 }
 
-// remove all entities that are not a camera
-fn teardown(mut commands: Commands, entities: Query<Entity, Without<Camera>>) {
+// remove all entities that are not a camera or window
+fn teardown(mut commands: Commands, entities: Query<Entity, (Without<Camera>, Without<Window>)>) {
     for entity in &entities {
         commands.entity(entity).despawn();
     }
@@ -189,7 +192,7 @@ fn teardown(mut commands: Commands, entities: Query<Entity, Without<Camera>>) {
 // control the game character
 fn move_player(
     mut commands: Commands,
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     mut game: ResMut<Game>,
     mut transforms: Query<&mut Transform>,
     time: Res<Time>,
@@ -198,28 +201,28 @@ fn move_player(
         let mut moved = false;
         let mut rotation = 0.0;
 
-        if keyboard_input.pressed(KeyCode::Up) {
+        if keyboard_input.pressed(KeyCode::ArrowUp) {
             if game.player.i < BOARD_SIZE_I - 1 {
                 game.player.i += 1;
             }
             rotation = -PI / 2.;
             moved = true;
         }
-        if keyboard_input.pressed(KeyCode::Down) {
+        if keyboard_input.pressed(KeyCode::ArrowDown) {
             if game.player.i > 0 {
                 game.player.i -= 1;
             }
             rotation = PI / 2.;
             moved = true;
         }
-        if keyboard_input.pressed(KeyCode::Right) {
+        if keyboard_input.pressed(KeyCode::ArrowRight) {
             if game.player.j < BOARD_SIZE_J - 1 {
                 game.player.j += 1;
             }
             rotation = PI;
             moved = true;
         }
-        if keyboard_input.pressed(KeyCode::Left) {
+        if keyboard_input.pressed(KeyCode::ArrowLeft) {
             if game.player.j > 0 {
                 game.player.j -= 1;
             }
@@ -341,7 +344,7 @@ fn spawn_bonus(
                 children.spawn(PointLightBundle {
                     point_light: PointLight {
                         color: Color::rgb(1.0, 1.0, 0.0),
-                        intensity: 1000.0,
+                        intensity: 500_000.0,
                         range: 10.0,
                         ..default()
                     },
@@ -373,7 +376,7 @@ fn scoreboard_system(game: Res<Game>, mut query: Query<&mut Text>) {
 // restart the game when pressing spacebar
 fn gameover_keyboard(
     mut next_state: ResMut<NextState<GameState>>,
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Space) {
         next_state.set(GameState::Playing);
@@ -381,11 +384,11 @@ fn gameover_keyboard(
 }
 
 // display the number of cake eaten before losing
-fn display_score(mut commands: Commands, asset_server: Res<AssetServer>, game: Res<Game>) {
+fn display_score(mut commands: Commands, game: Res<Game>) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                width: Val::Percent(100.),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 ..default()
@@ -396,9 +399,9 @@ fn display_score(mut commands: Commands, asset_server: Res<AssetServer>, game: R
             parent.spawn(TextBundle::from_section(
                 format!("Cake eaten: {}", game.cake_eaten),
                 TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     font_size: 80.0,
                     color: Color::rgb(0.5, 0.5, 1.0),
+                    ..default()
                 },
             ));
         });

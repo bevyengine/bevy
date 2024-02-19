@@ -1,5 +1,6 @@
 //! This example illustrates how have a mouse's clicks/wheel/movement etc fall through the spawned transparent window to a window below.
 //! If you build this, and hit 'P' it should toggle on/off the mouse's passthrough.
+//! Note: this example will not work on following platforms: iOS / Android / Web / X11. Window fall through is not supported there.
 
 use bevy::prelude::*;
 
@@ -16,8 +17,8 @@ fn main() {
             }),
             ..default()
         }))
-        .add_startup_system(setup)
-        .add_system(toggle_mouse_passthrough) // This allows us to hit 'P' to toggle on/off the mouse's passthrough
+        .add_systems(Startup, setup)
+        .add_systems(Update, toggle_mouse_passthrough) // This allows us to hit 'P' to toggle on/off the mouse's passthrough
         .run();
 }
 
@@ -33,24 +34,24 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextStyle {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 100.0, // Nice and big so you can see it!
-                color: Color::WHITE,
+                ..default()
             },
         )
         // Set the style of the TextBundle itself.
         .with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
-                bottom: Val::Px(5.),
-                right: Val::Px(10.),
-                ..default()
-            },
+            bottom: Val::Px(5.),
+            right: Val::Px(10.),
             ..default()
         }),
     ));
 }
 // A simple system to handle some keyboard input and toggle on/off the hittest.
-fn toggle_mouse_passthrough(keyboard_input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
-    if keyboard_input.just_pressed(KeyCode::P) {
+fn toggle_mouse_passthrough(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut windows: Query<&mut Window>,
+) {
+    if keyboard_input.just_pressed(KeyCode::KeyP) {
         let mut window = windows.single_mut();
         window.cursor.hit_test = !window.cursor.hit_test;
     }

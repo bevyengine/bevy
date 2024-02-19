@@ -10,7 +10,6 @@ use crate::{
 use bevy_utils::{default, detailed_trace};
 use std::ops::Range;
 use wgpu::{IndexFormat, RenderPass};
-use wgpu_hal::{MAX_BIND_GROUPS, MAX_VERTEX_BUFFERS};
 
 /// Tracks the state of a [`TrackedRenderPass`].
 ///
@@ -114,12 +113,17 @@ impl<'a> TrackedRenderPass<'a> {
         let max_vertex_buffers = limits.max_vertex_buffers as usize;
         Self {
             state: DrawState {
-                bind_groups: vec![(None, Vec::new()); max_bind_groups.min(MAX_BIND_GROUPS)],
-                vertex_buffers: vec![None; max_vertex_buffers.min(MAX_VERTEX_BUFFERS)],
+                bind_groups: vec![(None, Vec::new()); max_bind_groups],
+                vertex_buffers: vec![None; max_vertex_buffers],
                 ..default()
             },
             pass,
         }
+    }
+
+    /// Returns the wgpu [`RenderPass`].
+    pub fn wgpu_pass(&mut self) -> &mut RenderPass<'a> {
+        &mut self.pass
     }
 
     /// Sets the active [`RenderPipeline`].
@@ -265,7 +269,7 @@ impl<'a> TrackedRenderPass<'a> {
     ///
     /// The structure expected in `indirect_buffer` is the following:
     ///
-    /// ```rust
+    /// ```
     /// #[repr(C)]
     /// struct DrawIndirect {
     ///     vertex_count: u32, // The number of vertices to draw.
@@ -288,7 +292,7 @@ impl<'a> TrackedRenderPass<'a> {
     ///
     /// The structure expected in `indirect_buffer` is the following:
     ///
-    /// ```rust
+    /// ```
     /// #[repr(C)]
     /// struct DrawIndexedIndirect {
     ///     vertex_count: u32, // The number of vertices to draw.
@@ -316,7 +320,7 @@ impl<'a> TrackedRenderPass<'a> {
     ///
     /// `indirect_buffer` should contain `count` tightly packed elements of the following structure:
     ///
-    /// ```rust
+    /// ```
     /// #[repr(C)]
     /// struct DrawIndirect {
     ///     vertex_count: u32, // The number of vertices to draw.
@@ -354,7 +358,7 @@ impl<'a> TrackedRenderPass<'a> {
     ///
     /// `indirect_buffer` should contain `count` tightly packed elements of the following structure:
     ///
-    /// ```rust
+    /// ```
     /// #[repr(C)]
     /// struct DrawIndirect {
     ///     vertex_count: u32, // The number of vertices to draw.
@@ -397,7 +401,7 @@ impl<'a> TrackedRenderPass<'a> {
     ///
     /// `indirect_buffer` should contain `count` tightly packed elements of the following structure:
     ///
-    /// ```rust
+    /// ```
     /// #[repr(C)]
     /// struct DrawIndexedIndirect {
     ///     vertex_count: u32, // The number of vertices to draw.
@@ -437,7 +441,7 @@ impl<'a> TrackedRenderPass<'a> {
     ///
     /// `indirect_buffer` should contain `count` tightly packed elements of the following structure:
     ///
-    /// ```rust
+    /// ```
     /// #[repr(C)]
     /// struct DrawIndexedIndirect {
     ///     vertex_count: u32, // The number of vertices to draw.

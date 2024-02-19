@@ -1,4 +1,6 @@
-use crate::{app::AppExit, App};
+//! Utilities for testing in CI environments.
+
+use crate::{app::AppExit, App, Update};
 use serde::Deserialize;
 
 use bevy_ecs::prelude::Resource;
@@ -13,6 +15,11 @@ use bevy_utils::tracing::info;
 pub struct CiTestingConfig {
     /// The number of frames after which Bevy should exit.
     pub exit_after: Option<u32>,
+    /// The time in seconds to update for each frame.
+    pub frame_time: Option<f32>,
+    /// Frames at which to capture a screenshot.
+    #[serde(default)]
+    pub screenshot_frames: Vec<u32>,
 }
 
 fn ci_testing_exit_after(
@@ -47,7 +54,7 @@ pub(crate) fn setup_app(app: &mut App) -> &mut App {
     };
 
     app.insert_resource(config)
-        .add_system(ci_testing_exit_after);
+        .add_systems(Update, ci_testing_exit_after);
 
     app
 }
