@@ -14,7 +14,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .insert_resource(Parameters(PhysicalCameraParameters {
             aperture_f_stops: 1.0,
-            shutter_speed_s: 1.0 / 100.0,
+            shutter_speed_s: 1.0 / 125.0,
             sensitivity_iso: 100.0,
         }))
         .add_systems(Startup, setup)
