@@ -739,7 +739,6 @@ mod tests {
         }
     }
 
-    #[allow(deprecated)]
     #[test]
     fn mut_to_immut_query_methods_have_immut_item() {
         #[derive(Component)]

@@ -401,7 +401,6 @@ mod tests {
         schedule.run(world);
     }
 
-    #[allow(deprecated)]
     #[test]
     fn query_system_gets() {
         fn query_system(
@@ -1561,7 +1560,6 @@ mod tests {
         });
     }
 
-    #[allow(deprecated)]
     #[test]
     fn readonly_query_get_mut_component_fails() {
         use crate::query::QueryComponentError;
