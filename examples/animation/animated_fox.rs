@@ -21,20 +21,38 @@ fn main() {
 }
 
 #[derive(Resource)]
-struct Animations(Vec<Handle<AnimationClip>>);
+struct Animations {
+    animations: Vec<AnimationNodeIndex>,
+    #[allow(dead_code)]
+    graph: Handle<AnimationGraph>,
+}
 
 fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut graphs: ResMut<Assets<AnimationGraph>>,
 ) {
+    // Build the animation graph
+    let mut graph = AnimationGraph::new();
+    let animations = [
+        "models/animated/Fox.glb#Animation2",
+        "models/animated/Fox.glb#Animation1",
+        "models/animated/Fox.glb#Animation0",
+    ]
+    .iter()
+    .map(|&animation_path| graph.add_clip(asset_server.load(animation_path), 1.0, graph.root))
+    .collect::<Vec<_>>();
+
+    println!("{:#?}", graph);
+
     // Insert a resource with the current scene information
-    commands.insert_resource(Animations(vec![
-        asset_server.load("models/animated/Fox.glb#Animation2"),
-        asset_server.load("models/animated/Fox.glb#Animation1"),
-        asset_server.load("models/animated/Fox.glb#Animation0"),
-    ]));
+    let graph = graphs.add(graph);
+    commands.insert_resource(Animations {
+        animations,
+        graph: graph.clone(),
+    });
 
     // Camera
     commands.spawn(Camera3dBundle {
@@ -83,11 +101,13 @@ fn setup(
 
 // Once the scene is loaded, start the animation
 fn setup_scene_once_loaded(
+    mut commands: Commands,
     animations: Res<Animations>,
-    mut players: Query<&mut AnimationPlayer, Added<AnimationPlayer>>,
+    mut players: Query<(Entity, &mut AnimationPlayer), Added<AnimationPlayer>>,
 ) {
-    for mut player in &mut players {
-        player.play(animations.0[0].clone_weak()).repeat();
+    for (entity, mut player) in &mut players {
+        commands.entity(entity).insert(animations.graph.clone());
+        player.play(animations.animations[0]).repeat();
     }
 }
 
@@ -98,61 +118,77 @@ fn keyboard_animation_control(
     mut current_animation: Local<usize>,
 ) {
     for mut player in &mut animation_players {
+        let Some(&playing_animation_index) = player.playing_animations().next() else {
+            continue;
+        };
+
         if keyboard_input.just_pressed(KeyCode::Space) {
-            if player.is_paused() {
-                player.resume();
+            let playing_animation = player.animation_mut(playing_animation_index).unwrap();
+            if playing_animation.is_paused() {
+                playing_animation.resume();
             } else {
-                player.pause();
+                playing_animation.pause();
             }
         }
 
         if keyboard_input.just_pressed(KeyCode::ArrowUp) {
-            let speed = player.speed();
-            player.set_speed(speed * 1.2);
+            let playing_animation = player.animation_mut(playing_animation_index).unwrap();
+            let speed = playing_animation.speed();
+            playing_animation.set_speed(speed * 1.2);
         }
 
         if keyboard_input.just_pressed(KeyCode::ArrowDown) {
-            let speed = player.speed();
-            player.set_speed(speed * 0.8);
+            let playing_animation = player.animation_mut(playing_animation_index).unwrap();
+            let speed = playing_animation.speed();
+            playing_animation.set_speed(speed * 0.8);
         }
 
         if keyboard_input.just_pressed(KeyCode::ArrowLeft) {
-            let elapsed = player.seek_time();
-            player.seek_to(elapsed - 0.1);
+            let playing_animation = player.animation_mut(playing_animation_index).unwrap();
+            let elapsed = playing_animation.seek_time();
+            playing_animation.seek_to(elapsed - 0.1);
         }
 
         if keyboard_input.just_pressed(KeyCode::ArrowRight) {
-            let elapsed = player.seek_time();
-            player.seek_to(elapsed + 0.1);
+            let playing_animation = player.animation_mut(playing_animation_index).unwrap();
+            let elapsed = playing_animation.seek_time();
+            playing_animation.seek_to(elapsed + 0.1);
         }
 
         if keyboard_input.just_pressed(KeyCode::Enter) {
-            *current_animation = (*current_animation + 1) % animations.0.len();
+            *current_animation = (*current_animation + 1) % animations.animations.len();
+
+            // TODO: Transitions
+            player.stop();
             player
-                .play_with_transition(
-                    animations.0[*current_animation].clone_weak(),
-                    Duration::from_millis(250),
-                )
+                .play(animations.animations[*current_animation])
                 .repeat();
         }
 
         if keyboard_input.just_pressed(KeyCode::Digit1) {
-            player.set_repeat(RepeatAnimation::Count(1));
-            player.replay();
+            let playing_animation = player.animation_mut(playing_animation_index).unwrap();
+            playing_animation
+                .set_repeat(RepeatAnimation::Count(1))
+                .replay();
         }
 
         if keyboard_input.just_pressed(KeyCode::Digit3) {
-            player.set_repeat(RepeatAnimation::Count(3));
-            player.replay();
+            let playing_animation = player.animation_mut(playing_animation_index).unwrap();
+            playing_animation
+                .set_repeat(RepeatAnimation::Count(3))
+                .replay();
         }
 
         if keyboard_input.just_pressed(KeyCode::Digit5) {
-            player.set_repeat(RepeatAnimation::Count(5));
-            player.replay();
+            let playing_animation = player.animation_mut(playing_animation_index).unwrap();
+            playing_animation
+                .set_repeat(RepeatAnimation::Count(5))
+                .replay();
         }
 
         if keyboard_input.just_pressed(KeyCode::KeyL) {
-            player.set_repeat(RepeatAnimation::Forever);
+            let playing_animation = player.animation_mut(playing_animation_index).unwrap();
+            playing_animation.set_repeat(RepeatAnimation::Forever);
         }
     }
 }

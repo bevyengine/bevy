@@ -1,12 +1,13 @@
 //! Animation for the game engine Bevy
 
 mod animatable;
+mod graph;
+mod transition;
 mod util;
 
 use std::hash::{Hash, Hasher};
 use std::iter;
 use std::ops::{Add, Mul};
-use std::time::Duration;
 
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::{Asset, AssetApp, Assets, Handle};
@@ -22,16 +23,20 @@ use bevy_time::Time;
 use bevy_transform::{prelude::Transform, TransformSystem};
 use bevy_utils::hashbrown::HashMap;
 use bevy_utils::{NoOpHash, Uuid};
+use graph::{AnimationGraph, AnimationNodeIndex};
+use petgraph::Direction;
 use sha1_smol::Sha1;
 
 #[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        animatable::*, AnimationClip, AnimationPlayer, AnimationPlugin, Interpolation, Keyframes,
-        VariableCurve,
+        animatable::*, graph::*, transition::*, AnimationClip, AnimationPlayer, AnimationPlugin,
+        Interpolation, Keyframes, VariableCurve,
     };
 }
+
+use crate::transition::{advance_transitions, expire_completed_transitions};
 
 /// The [UUID namespace] of animation targets (e.g. bones).
 ///
@@ -280,7 +285,8 @@ pub enum RepeatAnimation {
 }
 
 #[derive(Debug, Reflect)]
-struct PlayingAnimation {
+pub struct PlayingAnimation {
+    weight: f32,
     repeat: RepeatAnimation,
     speed: f32,
     /// Total time the animation has been played.
@@ -291,21 +297,22 @@ struct PlayingAnimation {
     ///
     /// Note: This will always be in the range [0.0, animation clip duration]
     seek_time: f32,
-    animation_clip: Handle<AnimationClip>,
     /// Number of times the animation has completed.
     /// If the animation is playing in reverse, this increments when the animation passes the start.
     completions: u32,
+    paused: bool,
 }
 
 impl Default for PlayingAnimation {
     fn default() -> Self {
         Self {
+            weight: 1.0,
             repeat: RepeatAnimation::default(),
             speed: 1.0,
             elapsed: 0.0,
             seek_time: 0.0,
-            animation_clip: Default::default(),
             completions: 0,
+            paused: false,
         }
     }
 }
@@ -353,38 +360,29 @@ impl PlayingAnimation {
     }
 
     /// Reset back to the initial state as if no time has elapsed.
-    fn replay(&mut self) {
+    pub fn replay(&mut self) {
         self.completions = 0;
         self.elapsed = 0.0;
         self.seek_time = 0.0;
     }
 }
 
-/// An animation that is being faded out as part of a transition
-struct AnimationTransition {
-    /// The current weight. Starts at 1.0 and goes to 0.0 during the fade-out.
-    current_weight: f32,
-    /// How much to decrease `current_weight` per second
-    weight_decline_per_sec: f32,
-    /// The animation that is being faded out
-    animation: PlayingAnimation,
-}
-
 /// Animation controls
 #[derive(Component, Default, Reflect)]
 #[reflect(Component)]
 pub struct AnimationPlayer {
-    paused: bool,
+    playing_animations: HashMap<AnimationNodeIndex, PlayingAnimation>,
+    blend_weights: HashMap<AnimationNodeIndex, f32>,
 
-    animation: PlayingAnimation,
+    schedule: Vec<ScheduledAnimationClip>,
+}
 
-    // List of previous animations we're currently transitioning away from.
-    // Usually this is empty, when transitioning between animations, there is
-    // one entry. When another animation transition happens while a transition
-    // is still ongoing, then there can be more than one entry.
-    // Once a transition is finished, it will be automatically removed from the list
-    #[reflect(ignore)]
-    transitions: Vec<AnimationTransition>,
+#[derive(Clone, Debug, Reflect)]
+pub struct ScheduledAnimationClip {
+    clip: Handle<AnimationClip>,
+    seek_time: f32,
+    // The final resolved weight.
+    weight: f32,
 }
 
 /// The components that we might need to read or write during animation of each
@@ -398,156 +396,121 @@ struct AnimationTargetContext<'a> {
 }
 
 impl AnimationPlayer {
-    /// Start playing an animation, resetting state of the player.
-    /// This will use a linear blending between the previous and the new animation to make a smooth transition.
-    pub fn start(&mut self, handle: Handle<AnimationClip>) -> &mut Self {
-        self.animation = PlayingAnimation {
-            animation_clip: handle,
-            ..Default::default()
-        };
-
-        // We want a hard transition.
-        // In case any previous transitions are still playing, stop them
-        self.transitions.clear();
-
-        self
-    }
-
-    /// Start playing an animation, resetting state of the player.
-    /// This will use a linear blending between the previous and the new animation to make a smooth transition.
-    pub fn start_with_transition(
-        &mut self,
-        handle: Handle<AnimationClip>,
-        transition_duration: Duration,
-    ) -> &mut Self {
-        let mut animation = PlayingAnimation {
-            animation_clip: handle,
-            ..Default::default()
-        };
-        std::mem::swap(&mut animation, &mut self.animation);
-
-        // Add the current transition. If other transitions are still ongoing,
-        // this will keep those transitions running and cause a transition between
-        // the output of that previous transition to the new animation.
-        self.transitions.push(AnimationTransition {
-            current_weight: 1.0,
-            weight_decline_per_sec: 1.0 / transition_duration.as_secs_f32(),
-            animation,
-        });
-
-        self
+    /// Start playing an animation, restarting it if necessary.
+    pub fn start(&mut self, animation: AnimationNodeIndex) -> &mut PlayingAnimation {
+        self.playing_animations
+            .entry(animation)
+            .insert(PlayingAnimation::default())
+            .into_mut()
     }
 
     /// Start playing an animation, resetting state of the player, unless the requested animation is already playing.
-    pub fn play(&mut self, handle: Handle<AnimationClip>) -> &mut Self {
-        if !self.is_playing_clip(&handle) || self.is_paused() {
-            self.start(handle);
-        }
+    pub fn play(&mut self, animation: AnimationNodeIndex) -> &mut PlayingAnimation {
+        self.playing_animations.entry(animation).or_default()
+    }
+
+    // Stops all currently-playing animations.
+    pub fn stop(&mut self) -> &mut Self {
+        self.playing_animations.clear();
         self
     }
 
-    /// Start playing an animation, resetting state of the player, unless the requested animation is already playing.
-    /// This will use a linear blending between the previous and the new animation to make a smooth transition
-    pub fn play_with_transition(
-        &mut self,
-        handle: Handle<AnimationClip>,
-        transition_duration: Duration,
-    ) -> &mut Self {
-        if !self.is_playing_clip(&handle) || self.is_paused() {
-            self.start_with_transition(handle, transition_duration);
-        }
-        self
+    pub fn playing_animations(&self) -> impl Iterator<Item = &AnimationNodeIndex> {
+        self.playing_animations.keys()
     }
 
-    /// Handle to the animation clip being played.
-    pub fn animation_clip(&self) -> &Handle<AnimationClip> {
-        &self.animation.animation_clip
+    /// Check if the given animation node is being played.
+    pub fn is_playing_animation(&self, animation: AnimationNodeIndex) -> bool {
+        self.playing_animations.contains_key(&animation)
     }
 
-    /// Check if the given animation clip is being played.
-    pub fn is_playing_clip(&self, handle: &Handle<AnimationClip>) -> bool {
-        self.animation_clip() == handle
-    }
-
-    /// Check if the playing animation has finished, according to the repetition behavior.
+    /// Check if all playing animations have finished, according to the repetition behavior.
     pub fn is_finished(&self) -> bool {
-        self.animation.is_finished()
+        self.playing_animations
+            .values()
+            .all(|playing_animation| playing_animation.is_finished())
     }
 
-    /// Sets repeat to [`RepeatAnimation::Forever`].
-    ///
-    /// See also [`Self::set_repeat`].
-    pub fn repeat(&mut self) -> &mut Self {
-        self.animation.repeat = RepeatAnimation::Forever;
-        self
+    pub fn animation(&self, animation: AnimationNodeIndex) -> Option<&PlayingAnimation> {
+        self.playing_animations.get(&animation)
     }
 
-    /// Set the repetition behaviour of the animation.
-    pub fn set_repeat(&mut self, repeat: RepeatAnimation) -> &mut Self {
-        self.animation.repeat = repeat;
-        self
+    pub fn animation_mut(
+        &mut self,
+        animation: AnimationNodeIndex,
+    ) -> Option<&mut PlayingAnimation> {
+        self.playing_animations.get_mut(&animation)
     }
+}
 
-    /// Repetition behavior of the animation.
-    pub fn repeat_mode(&self) -> RepeatAnimation {
-        self.animation.repeat
-    }
-
-    /// Number of times the animation has completed.
-    pub fn completions(&self) -> u32 {
-        self.animation.completions
-    }
-
-    /// Check if the animation is playing in reverse.
-    pub fn is_playback_reversed(&self) -> bool {
-        self.animation.speed < 0.0
-    }
-
+impl PlayingAnimation {
     /// Pause the animation
-    pub fn pause(&mut self) {
+    pub fn pause(&mut self) -> &mut Self {
         self.paused = true;
+        self
     }
 
     /// Unpause the animation
-    pub fn resume(&mut self) {
+    pub fn resume(&mut self) -> &mut Self {
         self.paused = false;
+        self
     }
 
-    /// Is the animation paused
+    #[inline]
     pub fn is_paused(&self) -> bool {
         self.paused
     }
 
-    /// Speed of the animation playback
+    pub fn set_repeat(&mut self, repeat: RepeatAnimation) -> &mut Self {
+        self.repeat = repeat;
+        self
+    }
+
+    pub fn repeat(&mut self) -> &mut Self {
+        self.set_repeat(RepeatAnimation::Forever)
+    }
+
+    pub fn repeat_mode(&self) -> RepeatAnimation {
+        self.repeat
+    }
+
+    /// Returns the number of times this animation has completed.
+    pub fn completions(&self) -> u32 {
+        self.completions
+    }
+
+    /// Returns true if the animation is playing in reverse.
+    pub fn is_playback_reversed(&self) -> bool {
+        self.speed < 0.0
+    }
+
+    /// Returns the speed of the animation playback.
     pub fn speed(&self) -> f32 {
-        self.animation.speed
+        self.speed
     }
 
-    /// Set the speed of the animation playback
+    /// Sets the speed of the animation playback.
     pub fn set_speed(&mut self, speed: f32) -> &mut Self {
-        self.animation.speed = speed;
+        self.speed = speed;
         self
     }
 
-    /// Time elapsed playing the animation
+    /// Returns the amount of time the animation has been playing.
     pub fn elapsed(&self) -> f32 {
-        self.animation.elapsed
+        self.elapsed
     }
 
-    /// Seek time inside of the animation. Always within the range [0.0, clip duration].
+    /// Returns the seek time of the animation.
+    ///
+    /// This is nonnegative and no more than the clip duration.
     pub fn seek_time(&self) -> f32 {
-        self.animation.seek_time
+        self.seek_time
     }
 
-    /// Seek to a specific time in the animation.
+    /// Seeks to a specific time in the animation.
     pub fn seek_to(&mut self, seek_time: f32) -> &mut Self {
-        self.animation.seek_time = seek_time;
+        self.seek_time = seek_time;
         self
-    }
-
-    /// Reset the animation to its initial state, as if no time has elapsed.
-    pub fn replay(&mut self) {
-        self.animation.replay();
     }
 }
 
@@ -555,38 +518,69 @@ impl AnimationPlayer {
 pub fn advance_animations(
     time: Res<Time>,
     animation_clips: Res<Assets<AnimationClip>>,
-    mut players: Query<&mut AnimationPlayer>,
+    animation_graphs: Res<Assets<AnimationGraph>>,
+    mut players: Query<(&mut AnimationPlayer, &Handle<AnimationGraph>)>,
 ) {
-    for mut player in players.iter_mut() {
-        let paused = player.paused;
-        if paused {
+    let delta_seconds = time.delta_seconds();
+    for (mut player, graph_handle) in players.iter_mut() {
+        let Some(animation_graph) = animation_graphs.get(graph_handle) else {
             continue;
-        }
-
-        // Advance the main animation.
-        if let Some(animation_clip) = animation_clips.get(&player.animation.animation_clip) {
-            player
-                .animation
-                .update(time.delta_seconds(), animation_clip.duration);
         };
 
-        // Advance transition animations.
-        player.transitions.retain_mut(|transition| {
-            // Decrease weight. Expire the transition if necessary.
-            transition.current_weight -= transition.weight_decline_per_sec * time.delta_seconds();
-            if transition.current_weight <= 0.0 {
-                return false;
+        let AnimationPlayer {
+            ref mut playing_animations,
+            ref blend_weights,
+            ref mut schedule,
+            ..
+        } = *player;
+
+        // Tick animations, and schedule them.
+
+        schedule.clear();
+
+        let mut dfs = animation_graph.dfs();
+        let mut weights = HashMap::new();
+
+        while let Some(node_index) = dfs.next(&animation_graph.graph) {
+            let node = &animation_graph[node_index];
+
+            let mut weight = node.weight;
+            for parent in animation_graph
+                .graph
+                .neighbors_directed(node_index, Direction::Incoming)
+            {
+                if let Some(parent_weight) = weights.get(&parent) {
+                    weight *= parent_weight;
+                }
             }
 
-            if let Some(animation_clip) = animation_clips.get(&transition.animation.animation_clip)
-            {
-                transition
-                    .animation
-                    .update(time.delta_seconds(), animation_clip.duration);
-            };
+            if let Some(playing_animation) = playing_animations.get_mut(&node_index) {
+                // Tick the animation if necessary.
+                if !playing_animation.paused {
+                    if let Some(ref clip_handle) = node.clip {
+                        if let Some(clip) = animation_clips.get(clip_handle) {
+                            playing_animation.update(delta_seconds, clip.duration);
+                        }
+                    }
+                }
 
-            true
-        });
+                weight *= playing_animation.weight;
+            } else if let Some(&blend_weight) = blend_weights.get(&node_index) {
+                weight *= blend_weight;
+            }
+
+            weights.insert(node_index, weight);
+
+            if let (Some(clip), Some(playing_animation)) =
+                (&node.clip, playing_animations.get(&node_index))
+            {
+                schedule.push(ScheduledAnimationClip {
+                    clip: clip.clone(),
+                    seek_time: playing_animation.seek_time,
+                    weight,
+                });
+            }
+        }
     }
 }
 
@@ -627,12 +621,8 @@ pub fn animate_targets(
                 return;
             };
 
-            player.animation.apply(&clips, 1.0, &mut target_context);
-
-            for transition in &player.transitions {
-                transition
-                    .animation
-                    .apply(&clips, transition.current_weight, &mut target_context);
+            for scheduled_clip in &player.schedule {
+                scheduled_clip.apply(&clips, &mut target_context);
             }
         });
 }
@@ -686,7 +676,9 @@ pub struct AnimationPlugin;
 impl Plugin for AnimationPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<AnimationClip>()
+            .init_asset::<AnimationGraph>()
             .register_asset_reflect::<AnimationClip>()
+            .register_asset_reflect::<AnimationGraph>()
             .register_type::<AnimationPlayer>()
             .register_type::<VariableCurve>()
             .register_type::<Vec<VariableCurve>>()
@@ -695,283 +687,15 @@ impl Plugin for AnimationPlugin {
             .register_type::<AnimationTarget>()
             .add_systems(
                 PostUpdate,
-                (advance_animations, animate_targets)
+                (
+                    advance_transitions,
+                    advance_animations,
+                    animate_targets,
+                    expire_completed_transitions,
+                )
                     .chain()
                     .before(TransformSystem::TransformPropagate),
             );
-    }
-}
-
-impl PlayingAnimation {
-    fn apply(
-        &self,
-        clips: &Assets<AnimationClip>,
-        weight: f32,
-        target_context: &mut AnimationTargetContext,
-    ) {
-        let Some(clip) = clips.get(&self.animation_clip) else {
-            // The clip probably hasn't loaded yet. Bail.
-            return;
-        };
-
-        let Some(curves) = clip.curves_for_target(target_context.target.id) else {
-            return;
-        };
-
-        for curve in curves {
-            // Some curves have only one keyframe used to set a transform
-            if curve.keyframe_timestamps.len() == 1 {
-                self.apply_single_keyframe(curve, weight, target_context);
-                return;
-            }
-
-            // Find the current keyframe
-            let Some(step_start) = curve.find_current_keyframe(self.seek_time) else {
-                return;
-            };
-
-            let timestamp_start = curve.keyframe_timestamps[step_start];
-            let timestamp_end = curve.keyframe_timestamps[step_start + 1];
-            // Compute how far we are through the keyframe, normalized to [0, 1]
-            let lerp = f32::inverse_lerp(timestamp_start, timestamp_end, self.seek_time);
-
-            self.apply_tweened_keyframe(
-                curve,
-                step_start,
-                weight,
-                lerp,
-                timestamp_end - timestamp_start,
-                target_context,
-            );
-        }
-    }
-
-    fn apply_single_keyframe(
-        &self,
-        curve: &VariableCurve,
-        weight: f32,
-        target_context: &mut AnimationTargetContext,
-    ) {
-        match &curve.keyframes {
-            Keyframes::Rotation(keyframes) => {
-                if let Some(ref mut transform) = target_context.transform {
-                    transform.rotation = transform.rotation.slerp(keyframes[0], weight);
-                }
-            }
-
-            Keyframes::Translation(keyframes) => {
-                if let Some(ref mut transform) = target_context.transform {
-                    transform.translation = transform.translation.lerp(keyframes[0], weight);
-                }
-            }
-
-            Keyframes::Scale(keyframes) => {
-                if let Some(ref mut transform) = target_context.transform {
-                    transform.scale = transform.scale.lerp(keyframes[0], weight);
-                }
-            }
-
-            Keyframes::Weights(keyframes) => {
-                let Some(ref mut morphs) = target_context.morph_weights else {
-                    error!(
-                        "Tried to animate morphs on {:?} ({:?}), but no `MorphWeights` was found",
-                        target_context.entity, target_context.name,
-                    );
-                    return;
-                };
-
-                let target_count = morphs.weights().len();
-                lerp_morph_weights(
-                    morphs.weights_mut(),
-                    get_keyframe(target_count, keyframes, 0).iter().copied(),
-                    weight,
-                );
-            }
-        }
-    }
-
-    fn apply_tweened_keyframe(
-        &self,
-        curve: &VariableCurve,
-        step_start: usize,
-        weight: f32,
-        lerp: f32,
-        duration: f32,
-        target_context: &mut AnimationTargetContext,
-    ) {
-        match (&curve.interpolation, &curve.keyframes) {
-            (Interpolation::Step, Keyframes::Rotation(keyframes)) => {
-                if let Some(ref mut transform) = target_context.transform {
-                    transform.rotation = transform.rotation.slerp(keyframes[step_start], weight);
-                }
-            }
-
-            (Interpolation::Linear, Keyframes::Rotation(keyframes)) => {
-                let Some(ref mut transform) = target_context.transform else {
-                    return;
-                };
-
-                let rot_start = keyframes[step_start];
-                let mut rot_end = keyframes[step_start + 1];
-                // Choose the smallest angle for the rotation
-                if rot_end.dot(rot_start) < 0.0 {
-                    rot_end = -rot_end;
-                }
-                // Rotations are using a spherical linear interpolation
-                let rot = rot_start.normalize().slerp(rot_end.normalize(), lerp);
-                transform.rotation = transform.rotation.slerp(rot, weight);
-            }
-
-            (Interpolation::CubicSpline, Keyframes::Rotation(keyframes)) => {
-                let Some(ref mut transform) = target_context.transform else {
-                    return;
-                };
-
-                let value_start = keyframes[step_start * 3 + 1];
-                let tangent_out_start = keyframes[step_start * 3 + 2];
-                let tangent_in_end = keyframes[(step_start + 1) * 3];
-                let value_end = keyframes[(step_start + 1) * 3 + 1];
-                let result = cubic_spline_interpolation(
-                    value_start,
-                    tangent_out_start,
-                    tangent_in_end,
-                    value_end,
-                    lerp,
-                    duration,
-                );
-                transform.rotation = transform.rotation.slerp(result.normalize(), weight);
-            }
-
-            (Interpolation::Step, Keyframes::Translation(keyframes)) => {
-                if let Some(ref mut transform) = target_context.transform {
-                    transform.translation =
-                        transform.translation.lerp(keyframes[step_start], weight);
-                }
-            }
-
-            (Interpolation::Linear, Keyframes::Translation(keyframes)) => {
-                let Some(ref mut transform) = target_context.transform else {
-                    return;
-                };
-
-                let translation_start = keyframes[step_start];
-                let translation_end = keyframes[step_start + 1];
-                let result = translation_start.lerp(translation_end, lerp);
-                transform.translation = transform.translation.lerp(result, weight);
-            }
-
-            (Interpolation::CubicSpline, Keyframes::Translation(keyframes)) => {
-                let Some(ref mut transform) = target_context.transform else {
-                    return;
-                };
-
-                let value_start = keyframes[step_start * 3 + 1];
-                let tangent_out_start = keyframes[step_start * 3 + 2];
-                let tangent_in_end = keyframes[(step_start + 1) * 3];
-                let value_end = keyframes[(step_start + 1) * 3 + 1];
-                let result = cubic_spline_interpolation(
-                    value_start,
-                    tangent_out_start,
-                    tangent_in_end,
-                    value_end,
-                    lerp,
-                    duration,
-                );
-                transform.translation = transform.translation.lerp(result, weight);
-            }
-
-            (Interpolation::Step, Keyframes::Scale(keyframes)) => {
-                if let Some(ref mut transform) = target_context.transform {
-                    transform.scale = transform.scale.lerp(keyframes[step_start], weight);
-                }
-            }
-
-            (Interpolation::Linear, Keyframes::Scale(keyframes)) => {
-                let Some(ref mut transform) = target_context.transform else {
-                    return;
-                };
-
-                let scale_start = keyframes[step_start];
-                let scale_end = keyframes[step_start + 1];
-                let result = scale_start.lerp(scale_end, lerp);
-                transform.scale = transform.scale.lerp(result, weight);
-            }
-
-            (Interpolation::CubicSpline, Keyframes::Scale(keyframes)) => {
-                let Some(ref mut transform) = target_context.transform else {
-                    return;
-                };
-
-                let value_start = keyframes[step_start * 3 + 1];
-                let tangent_out_start = keyframes[step_start * 3 + 2];
-                let tangent_in_end = keyframes[(step_start + 1) * 3];
-                let value_end = keyframes[(step_start + 1) * 3 + 1];
-                let result = cubic_spline_interpolation(
-                    value_start,
-                    tangent_out_start,
-                    tangent_in_end,
-                    value_end,
-                    lerp,
-                    duration,
-                );
-                transform.scale = transform.scale.lerp(result, weight);
-            }
-
-            (Interpolation::Step, Keyframes::Weights(keyframes)) => {
-                let Some(ref mut morphs) = target_context.morph_weights else {
-                    return;
-                };
-
-                let target_count = morphs.weights().len();
-                let morph_start = get_keyframe(target_count, keyframes, step_start);
-                lerp_morph_weights(morphs.weights_mut(), morph_start.iter().copied(), weight);
-            }
-
-            (Interpolation::Linear, Keyframes::Weights(keyframes)) => {
-                let Some(ref mut morphs) = target_context.morph_weights else {
-                    return;
-                };
-
-                let target_count = morphs.weights().len();
-                let morph_start = get_keyframe(target_count, keyframes, step_start);
-                let morph_end = get_keyframe(target_count, keyframes, step_start + 1);
-                let result = morph_start
-                    .iter()
-                    .zip(morph_end)
-                    .map(|(a, b)| a.lerp(*b, lerp));
-                lerp_morph_weights(morphs.weights_mut(), result, weight);
-            }
-
-            (Interpolation::CubicSpline, Keyframes::Weights(keyframes)) => {
-                let Some(ref mut morphs) = target_context.morph_weights else {
-                    return;
-                };
-
-                let target_count = morphs.weights().len();
-                let morph_start = get_keyframe(target_count, keyframes, step_start * 3 + 1);
-                let tangents_out_start = get_keyframe(target_count, keyframes, step_start * 3 + 2);
-                let tangents_in_end = get_keyframe(target_count, keyframes, (step_start + 1) * 3);
-                let morph_end = get_keyframe(target_count, keyframes, (step_start + 1) * 3 + 1);
-                let result = morph_start
-                    .iter()
-                    .zip(tangents_out_start)
-                    .zip(tangents_in_end)
-                    .zip(morph_end)
-                    .map(
-                        |(((&value_start, &tangent_out_start), &tangent_in_end), &value_end)| {
-                            cubic_spline_interpolation(
-                                value_start,
-                                tangent_out_start,
-                                tangent_in_end,
-                                value_end,
-                                lerp,
-                                duration,
-                            )
-                        },
-                    );
-                lerp_morph_weights(morphs.weights_mut(), result, weight);
-            }
-        }
     }
 }
 
@@ -1003,6 +727,277 @@ impl From<&Name> for AnimationTargetId {
 impl MapEntities for AnimationTarget {
     fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
         self.player = entity_mapper.map_entity(self.player);
+    }
+}
+
+impl ScheduledAnimationClip {
+    fn apply(&self, clips: &Assets<AnimationClip>, target_context: &mut AnimationTargetContext) {
+        let Some(clip) = clips.get(&self.clip) else {
+            // The clip probably hasn't loaded yet. Bail.
+            return;
+        };
+
+        let Some(curves) = clip.curves_for_target(target_context.target.id) else {
+            return;
+        };
+
+        for curve in curves {
+            // Some curves have only one keyframe used to set a transform
+            if curve.keyframe_timestamps.len() == 1 {
+                self.apply_single_keyframe(curve, target_context);
+                return;
+            }
+
+            // Find the current keyframe
+            let Some(step_start) = curve.find_current_keyframe(self.seek_time) else {
+                return;
+            };
+
+            let timestamp_start = curve.keyframe_timestamps[step_start];
+            let timestamp_end = curve.keyframe_timestamps[step_start + 1];
+            // Compute how far we are through the keyframe, normalized to [0, 1]
+            let lerp = f32::inverse_lerp(timestamp_start, timestamp_end, self.seek_time);
+
+            self.apply_tweened_keyframe(
+                curve,
+                step_start,
+                lerp,
+                timestamp_end - timestamp_start,
+                target_context,
+            );
+        }
+    }
+
+    fn apply_single_keyframe(
+        &self,
+        curve: &VariableCurve,
+        target_context: &mut AnimationTargetContext,
+    ) {
+        match &curve.keyframes {
+            Keyframes::Rotation(keyframes) => {
+                if let Some(ref mut transform) = target_context.transform {
+                    transform.rotation = transform.rotation.slerp(keyframes[0], self.weight);
+                }
+            }
+
+            Keyframes::Translation(keyframes) => {
+                if let Some(ref mut transform) = target_context.transform {
+                    transform.translation = transform.translation.lerp(keyframes[0], self.weight);
+                }
+            }
+
+            Keyframes::Scale(keyframes) => {
+                if let Some(ref mut transform) = target_context.transform {
+                    transform.scale = transform.scale.lerp(keyframes[0], self.weight);
+                }
+            }
+
+            Keyframes::Weights(keyframes) => {
+                let Some(ref mut morphs) = target_context.morph_weights else {
+                    error!(
+                        "Tried to animate morphs on {:?} ({:?}), but no `MorphWeights` was found",
+                        target_context.entity, target_context.name,
+                    );
+                    return;
+                };
+
+                let target_count = morphs.weights().len();
+                lerp_morph_weights(
+                    morphs.weights_mut(),
+                    get_keyframe(target_count, keyframes, 0).iter().copied(),
+                    self.weight,
+                );
+            }
+        }
+    }
+
+    fn apply_tweened_keyframe(
+        &self,
+        curve: &VariableCurve,
+        step_start: usize,
+        lerp: f32,
+        duration: f32,
+        target_context: &mut AnimationTargetContext,
+    ) {
+        match (&curve.interpolation, &curve.keyframes) {
+            (Interpolation::Step, Keyframes::Rotation(keyframes)) => {
+                if let Some(ref mut transform) = target_context.transform {
+                    transform.rotation =
+                        transform.rotation.slerp(keyframes[step_start], self.weight);
+                }
+            }
+
+            (Interpolation::Linear, Keyframes::Rotation(keyframes)) => {
+                let Some(ref mut transform) = target_context.transform else {
+                    return;
+                };
+
+                let rot_start = keyframes[step_start];
+                let mut rot_end = keyframes[step_start + 1];
+                // Choose the smallest angle for the rotation
+                if rot_end.dot(rot_start) < 0.0 {
+                    rot_end = -rot_end;
+                }
+                // Rotations are using a spherical linear interpolation
+                let rot = rot_start.normalize().slerp(rot_end.normalize(), lerp);
+                transform.rotation = transform.rotation.slerp(rot, self.weight);
+            }
+
+            (Interpolation::CubicSpline, Keyframes::Rotation(keyframes)) => {
+                let Some(ref mut transform) = target_context.transform else {
+                    return;
+                };
+
+                let value_start = keyframes[step_start * 3 + 1];
+                let tangent_out_start = keyframes[step_start * 3 + 2];
+                let tangent_in_end = keyframes[(step_start + 1) * 3];
+                let value_end = keyframes[(step_start + 1) * 3 + 1];
+                let result = cubic_spline_interpolation(
+                    value_start,
+                    tangent_out_start,
+                    tangent_in_end,
+                    value_end,
+                    lerp,
+                    duration,
+                );
+                transform.rotation = transform.rotation.slerp(result.normalize(), self.weight);
+            }
+
+            (Interpolation::Step, Keyframes::Translation(keyframes)) => {
+                if let Some(ref mut transform) = target_context.transform {
+                    transform.translation = transform
+                        .translation
+                        .lerp(keyframes[step_start], self.weight);
+                }
+            }
+
+            (Interpolation::Linear, Keyframes::Translation(keyframes)) => {
+                let Some(ref mut transform) = target_context.transform else {
+                    return;
+                };
+
+                let translation_start = keyframes[step_start];
+                let translation_end = keyframes[step_start + 1];
+                let result = translation_start.lerp(translation_end, lerp);
+                transform.translation = transform.translation.lerp(result, self.weight);
+            }
+
+            (Interpolation::CubicSpline, Keyframes::Translation(keyframes)) => {
+                let Some(ref mut transform) = target_context.transform else {
+                    return;
+                };
+
+                let value_start = keyframes[step_start * 3 + 1];
+                let tangent_out_start = keyframes[step_start * 3 + 2];
+                let tangent_in_end = keyframes[(step_start + 1) * 3];
+                let value_end = keyframes[(step_start + 1) * 3 + 1];
+                let result = cubic_spline_interpolation(
+                    value_start,
+                    tangent_out_start,
+                    tangent_in_end,
+                    value_end,
+                    lerp,
+                    duration,
+                );
+                transform.translation = transform.translation.lerp(result, self.weight);
+            }
+
+            (Interpolation::Step, Keyframes::Scale(keyframes)) => {
+                if let Some(ref mut transform) = target_context.transform {
+                    transform.scale = transform.scale.lerp(keyframes[step_start], self.weight);
+                }
+            }
+
+            (Interpolation::Linear, Keyframes::Scale(keyframes)) => {
+                let Some(ref mut transform) = target_context.transform else {
+                    return;
+                };
+
+                let scale_start = keyframes[step_start];
+                let scale_end = keyframes[step_start + 1];
+                let result = scale_start.lerp(scale_end, lerp);
+                transform.scale = transform.scale.lerp(result, self.weight);
+            }
+
+            (Interpolation::CubicSpline, Keyframes::Scale(keyframes)) => {
+                let Some(ref mut transform) = target_context.transform else {
+                    return;
+                };
+
+                let value_start = keyframes[step_start * 3 + 1];
+                let tangent_out_start = keyframes[step_start * 3 + 2];
+                let tangent_in_end = keyframes[(step_start + 1) * 3];
+                let value_end = keyframes[(step_start + 1) * 3 + 1];
+                let result = cubic_spline_interpolation(
+                    value_start,
+                    tangent_out_start,
+                    tangent_in_end,
+                    value_end,
+                    lerp,
+                    duration,
+                );
+                transform.scale = transform.scale.lerp(result, self.weight);
+            }
+
+            (Interpolation::Step, Keyframes::Weights(keyframes)) => {
+                let Some(ref mut morphs) = target_context.morph_weights else {
+                    return;
+                };
+
+                let target_count = morphs.weights().len();
+                let morph_start = get_keyframe(target_count, keyframes, step_start);
+                lerp_morph_weights(
+                    morphs.weights_mut(),
+                    morph_start.iter().copied(),
+                    self.weight,
+                );
+            }
+
+            (Interpolation::Linear, Keyframes::Weights(keyframes)) => {
+                let Some(ref mut morphs) = target_context.morph_weights else {
+                    return;
+                };
+
+                let target_count = morphs.weights().len();
+                let morph_start = get_keyframe(target_count, keyframes, step_start);
+                let morph_end = get_keyframe(target_count, keyframes, step_start + 1);
+                let result = morph_start
+                    .iter()
+                    .zip(morph_end)
+                    .map(|(a, b)| a.lerp(*b, lerp));
+                lerp_morph_weights(morphs.weights_mut(), result, self.weight);
+            }
+
+            (Interpolation::CubicSpline, Keyframes::Weights(keyframes)) => {
+                let Some(ref mut morphs) = target_context.morph_weights else {
+                    return;
+                };
+
+                let target_count = morphs.weights().len();
+                let morph_start = get_keyframe(target_count, keyframes, step_start * 3 + 1);
+                let tangents_out_start = get_keyframe(target_count, keyframes, step_start * 3 + 2);
+                let tangents_in_end = get_keyframe(target_count, keyframes, (step_start + 1) * 3);
+                let morph_end = get_keyframe(target_count, keyframes, (step_start + 1) * 3 + 1);
+                let result = morph_start
+                    .iter()
+                    .zip(tangents_out_start)
+                    .zip(tangents_in_end)
+                    .zip(morph_end)
+                    .map(
+                        |(((&value_start, &tangent_out_start), &tangent_in_end), &value_end)| {
+                            cubic_spline_interpolation(
+                                value_start,
+                                tangent_out_start,
+                                tangent_in_end,
+                                value_end,
+                                lerp,
+                                duration,
+                            )
+                        },
+                    );
+                lerp_morph_weights(morphs.weights_mut(), result, self.weight);
+            }
+        }
     }
 }
 
