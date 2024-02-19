@@ -6,6 +6,9 @@ description = "Run examples"
 publish = false
 license = "MIT OR Apache-2.0"
 
+[lints]
+workspace = true
+
 [dependencies]
 xshell = "0.2"
 clap = { version = "4.0", features = ["derive"] }
