@@ -1,14 +1,13 @@
 //! The gamepad input functionality.
 
 use crate::{Axis, ButtonInput, ButtonState};
-use bevy_ecs::event::{Event, EventReader, EventWriter};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
+    event::{Event, EventReader, EventWriter},
     system::{Res, ResMut, Resource},
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_utils::Duration;
-use bevy_utils::{tracing::info, HashMap};
+use bevy_utils::{tracing::info, Duration, HashMap, Uuid};
 use thiserror::Error;
 
 /// Errors that occur when setting axis settings for gamepad input.
@@ -108,12 +107,28 @@ impl Gamepad {
     reflect(Serialize, Deserialize)
 )]
 pub struct GamepadInfo {
-    /// The name of the gamepad.
+    /// The display name of the gamepad.
     ///
-    /// This name is generally defined by the OS.
+    /// This name is generally defined by the OS. For example on Windows the
+    /// name may be "HID-compliant game controller". The name is not unique,
+    /// typically two gamepads of the same model will have the same name.
+    /// For a unique identifier stable across runs, see [`uuid`] instead.
     ///
-    /// For example on Windows the name may be "HID-compliant game controller".
+    /// [`uuid`]: GamepadInfo::uuid
     pub name: String,
+
+    /// The unique identifier of the gamepad.
+    ///
+    /// This UUID is computed by `gilrs` and is guaranteed to be unique for each
+    /// device, even if they're the same make and model. The ID is also stable
+    /// across runs, so can be used to identify a gamepad in serialized data for
+    /// example.
+    ///
+    /// # Warning
+    ///
+    /// The value is extracted from `gilrs`. At the moment, this is not
+    /// implemented on all platforms. See <https://gitlab.com/gilrs-project/gilrs/-/issues/153>.
+    pub uuid: Uuid,
 }
 
 /// A collection of connected [`Gamepad`]s.
@@ -146,6 +161,16 @@ impl Gamepads {
     /// The name of the gamepad if this one is connected.
     pub fn name(&self, gamepad: Gamepad) -> Option<&str> {
         self.gamepads.get(&gamepad).map(|g| g.name.as_str())
+    }
+
+    /// The UUID of the gamepad if this one is connected.
+    ///
+    /// # Warning
+    ///
+    /// The value is extracted from `gilrs`. At the moment, this is not
+    /// implemented on all platforms. See <https://gitlab.com/gilrs-project/gilrs/-/issues/153>.
+    pub fn uuid(&self, gamepad: Gamepad) -> Option<Uuid> {
+        self.gamepads.get(&gamepad).map(|g| g.uuid)
     }
 
     /// Registers the `gamepad`, marking it as connected.
