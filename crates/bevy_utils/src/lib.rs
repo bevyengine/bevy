@@ -22,6 +22,7 @@ mod default;
 mod float_ord;
 pub mod intern;
 mod once;
+mod parallel_queue;
 
 pub use crate::uuid::Uuid;
 pub use ahash::{AHasher, RandomState};
@@ -30,6 +31,7 @@ pub use cow_arc::*;
 pub use default::default;
 pub use float_ord::*;
 pub use hashbrown;
+pub use parallel_queue::*;
 pub use petgraph;
 pub use smallvec;
 pub use thiserror;
