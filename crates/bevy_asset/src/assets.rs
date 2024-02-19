@@ -536,6 +536,14 @@ impl<A: Asset> Assets<A> {
     pub fn asset_events(mut assets: ResMut<Self>, mut events: EventWriter<AssetEvent<A>>) {
         events.send_batch(assets.queued_events.drain(..));
     }
+
+    /// A run condition for [`asset_events`]. The system will not run if there are no events to
+    /// flush.
+    ///
+    /// [`asset_events`]: Self::asset_events
+    pub(crate) fn asset_events_condition(assets: Res<Self>) -> bool {
+        !assets.queued_events.is_empty()
+    }
 }
 
 /// A mutable iterator over [`Assets`].

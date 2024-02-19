@@ -671,9 +671,7 @@ impl App {
     where
         T: Plugin,
     {
-        self.plugin_registry
-            .iter()
-            .any(|p| p.downcast_ref::<T>().is_some())
+        self.plugin_registry.iter().any(|p| p.is::<T>())
     }
 
     /// Returns a vector of references to any plugins of type `T` that have been added.

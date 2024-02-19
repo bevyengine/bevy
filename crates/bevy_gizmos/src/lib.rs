@@ -183,16 +183,16 @@ impl AppGizmoBuilder for App {
         group: T,
         config: GizmoConfig,
     ) -> &mut Self {
+        self.world
+            .get_resource_or_insert_with::<GizmoConfigStore>(Default::default)
+            .insert(config, group);
+
         if self.world.contains_resource::<GizmoStorage<T>>() {
             return self;
         }
 
         self.init_resource::<GizmoStorage<T>>()
             .add_systems(Last, update_gizmo_meshes::<T>);
-
-        self.world
-            .get_resource_or_insert_with::<GizmoConfigStore>(Default::default)
-            .insert(config, group);
 
         let Ok(render_app) = self.get_sub_app_mut(RenderApp) else {
             return self;
@@ -383,10 +383,13 @@ impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetLineGizmoBindGroup<I>
     fn render<'w>(
         _item: &P,
         _view: ROQueryItem<'w, Self::ViewQuery>,
-        uniform_index: ROQueryItem<'w, Self::ItemQuery>,
+        uniform_index: Option<ROQueryItem<'w, Self::ItemQuery>>,
         bind_group: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
+        let Some(uniform_index) = uniform_index else {
+            return RenderCommandResult::Failure;
+        };
         pass.set_bind_group(
             I,
             &bind_group.into_inner().bindgroup,
@@ -406,10 +409,13 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
     fn render<'w>(
         _item: &P,
         _view: ROQueryItem<'w, Self::ViewQuery>,
-        handle: ROQueryItem<'w, Self::ItemQuery>,
+        handle: Option<ROQueryItem<'w, Self::ItemQuery>>,
         line_gizmos: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
+        let Some(handle) = handle else {
+            return RenderCommandResult::Failure;
+        };
         let Some(line_gizmo) = line_gizmos.into_inner().get(handle) else {
             return RenderCommandResult::Failure;
         };

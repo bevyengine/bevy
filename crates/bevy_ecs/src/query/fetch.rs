@@ -1403,8 +1403,11 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
         *fetch
     }
 
-    fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {
-        // Do nothing as presence of `Has<T>` never affects whether two queries are disjoint
+    fn update_component_access(
+        &component_id: &Self::State,
+        access: &mut FilteredAccess<ComponentId>,
+    ) {
+        access.access_mut().add_archetypal(component_id);
     }
 
     fn init_state(world: &mut World) -> ComponentId {

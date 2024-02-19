@@ -33,7 +33,10 @@ use environment_map::EnvironmentMapLight;
 
 use crate::{
     environment_map::{self, RenderViewEnvironmentMapBindGroupEntries},
-    irradiance_volume::{self, IrradianceVolume, RenderViewIrradianceVolumeBindGroupEntries},
+    irradiance_volume::{
+        self, IrradianceVolume, RenderViewIrradianceVolumeBindGroupEntries,
+        IRRADIANCE_VOLUMES_ARE_USABLE,
+    },
     prepass, FogMeta, GlobalLightMeta, GpuFog, GpuLights, GpuPointLights, LightMeta,
     LightProbesBuffer, LightProbesUniform, MeshPipeline, MeshPipelineKey, RenderViewLightProbes,
     ScreenSpaceAmbientOcclusionTextures, ShadowSamplers, ViewClusterBindings, ViewShadowBindings,
@@ -269,11 +272,14 @@ fn layout_entries(
     ));
 
     // Irradiance volumes
-    let irradiance_volume_entries = irradiance_volume::get_bind_group_layout_entries(render_device);
-    entries = entries.extend_with_indices((
-        (16, irradiance_volume_entries[0]),
-        (17, irradiance_volume_entries[1]),
-    ));
+    if IRRADIANCE_VOLUMES_ARE_USABLE {
+        let irradiance_volume_entries =
+            irradiance_volume::get_bind_group_layout_entries(render_device);
+        entries = entries.extend_with_indices((
+            (16, irradiance_volume_entries[0]),
+            (17, irradiance_volume_entries[1]),
+        ));
+    }
 
     // Tonemapping
     let tonemapping_lut_entries = get_lut_bind_group_layout_entries();
@@ -459,28 +465,32 @@ pub fn prepare_mesh_view_bind_groups(
                 }
             }
 
-            let irradiance_volume_bind_group_entries =
-                RenderViewIrradianceVolumeBindGroupEntries::get(
+            let irradiance_volume_bind_group_entries = if IRRADIANCE_VOLUMES_ARE_USABLE {
+                Some(RenderViewIrradianceVolumeBindGroupEntries::get(
                     render_view_irradiance_volumes,
                     &images,
                     &fallback_image,
                     &render_device,
-                );
+                ))
+            } else {
+                None
+            };
 
             match irradiance_volume_bind_group_entries {
-                RenderViewIrradianceVolumeBindGroupEntries::Single {
+                Some(RenderViewIrradianceVolumeBindGroupEntries::Single {
                     texture_view,
                     sampler,
-                } => {
+                }) => {
                     entries = entries.extend_with_indices(((16, texture_view), (17, sampler)));
                 }
-                RenderViewIrradianceVolumeBindGroupEntries::Multiple {
+                Some(RenderViewIrradianceVolumeBindGroupEntries::Multiple {
                     ref texture_views,
                     sampler,
-                } => {
+                }) => {
                     entries = entries
                         .extend_with_indices(((16, texture_views.as_slice()), (17, sampler)));
                 }
+                None => {}
             }
 
             let lut_bindings = get_lut_bindings(&images, &tonemapping_luts, tonemapping);
