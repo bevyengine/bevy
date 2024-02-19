@@ -24,10 +24,12 @@ use crate::{
 
 use crate as bevy_ecs;
 
-/// A funky borrow split of [`SystemSchedule`] required by the [`MultiThreadedExecutor`].
-struct SyncUnsafeSchedule<'a> {
-    systems: &'a [SyncUnsafeCell<BoxedSystem>],
-    conditions: Conditions<'a>,
+/// Borrowed data used by the [`MultiThreadedExecutor`].
+struct Environment<'env, 'sys> {
+    executor: &'env MultiThreadedExecutor,
+    systems: &'sys [SyncUnsafeCell<BoxedSystem>],
+    conditions: Mutex<Conditions<'sys>>,
+    world_cell: UnsafeWorldCell<'env>,
 }
 
 struct Conditions<'a> {
@@ -37,16 +39,22 @@ struct Conditions<'a> {
     systems_in_sets_with_conditions: &'a [FixedBitSet],
 }
 
-impl SyncUnsafeSchedule<'_> {
-    fn new(schedule: &mut SystemSchedule) -> SyncUnsafeSchedule<'_> {
-        SyncUnsafeSchedule {
+impl<'env, 'sys> Environment<'env, 'sys> {
+    fn new(
+        executor: &'env MultiThreadedExecutor,
+        schedule: &'sys mut SystemSchedule,
+        world: &'env mut World,
+    ) -> Self {
+        Environment {
+            executor,
             systems: SyncUnsafeCell::from_mut(schedule.systems.as_mut_slice()).as_slice_of_cells(),
-            conditions: Conditions {
+            conditions: Mutex::new(Conditions {
                 system_conditions: &mut schedule.system_conditions,
                 set_conditions: &mut schedule.set_conditions,
                 sets_with_conditions_of_systems: &schedule.sets_with_conditions_of_systems,
                 systems_in_sets_with_conditions: &schedule.systems_in_sets_with_conditions,
-            },
+            }),
+            world_cell: world.as_unsafe_world_cell(),
         }
     }
 }
@@ -129,12 +137,9 @@ pub struct ExecutorState {
 // These all need to outlive 'scope in order to be sent to new tasks,
 // and keeping them all in a struct means we can use lifetime elision.
 #[derive(Copy, Clone)]
-pub struct Context<'scope, 'env: 'scope> {
-    executor: &'env MultiThreadedExecutor,
+pub struct Context<'scope, 'env: 'scope, 'sys> {
+    environment: &'env Environment<'env, 'sys>,
     scope: &'scope Scope<'scope, 'env, ()>,
-    systems: &'env [SyncUnsafeCell<BoxedSystem>],
-    conditions: &'env Mutex<Conditions<'env>>,
-    world_cell: UnsafeWorldCell<'env>,
 }
 
 impl Default for MultiThreadedExecutor {
@@ -229,29 +234,22 @@ impl SystemExecutor for MultiThreadedExecutor {
             .map(|e| e.0.clone());
         let thread_executor = thread_executor.as_deref();
 
-        let SyncUnsafeSchedule {
-            systems,
-            conditions,
-        } = SyncUnsafeSchedule::new(schedule);
-        let conditions = Mutex::new(conditions);
+        let environment = &Environment::new(self, schedule, world);
 
         ComputeTaskPool::get_or_init(TaskPool::default).scope_with_executor(
             false,
             thread_executor,
             |scope| {
-                let context = Context {
-                    executor: self,
-                    scope,
-                    systems,
-                    conditions: &conditions,
-                    world_cell: world.as_unsafe_world_cell(),
-                };
+                let context = Context { environment, scope };
 
                 // The first tick won't need to process finished systems, but we still need to run the loop in
                 // tick_executor() in case a system completes while the first tick still holds the mutex.
                 context.tick_executor();
             },
         );
+
+        // End the borrows of self and world in environment by copying out the reference to systems.
+        let systems = environment.systems;
 
         let state = self.state.get_mut().unwrap();
         if state.apply_final_deferred {
@@ -285,7 +283,7 @@ impl SystemExecutor for MultiThreadedExecutor {
     }
 }
 
-impl<'scope, 'env: 'scope> Context<'scope, 'env> {
+impl<'scope, 'env: 'scope, 'sys> Context<'scope, 'env, 'sys> {
     fn system_completed(
         &self,
         system_index: usize,
@@ -293,7 +291,8 @@ impl<'scope, 'env: 'scope> Context<'scope, 'env> {
         system: &BoxedSystem,
     ) {
         // tell the executor that the system finished
-        self.executor
+        self.environment
+            .executor
             .system_completion
             .push(SystemResult {
                 system_index,
@@ -304,7 +303,7 @@ impl<'scope, 'env: 'scope> Context<'scope, 'env> {
             eprintln!("Encountered a panic in system `{}`!", &*system.name());
             // set the payload to propagate the error
             {
-                let mut panic_payload = self.executor.panic_payload.lock().unwrap();
+                let mut panic_payload = self.environment.executor.panic_payload.lock().unwrap();
                 *panic_payload = Some(payload);
             }
         }
@@ -318,13 +317,13 @@ impl<'scope, 'env: 'scope> Context<'scope, 'env> {
         // after the lock is released, which is after try_lock() failed, which is after the push()
         // on this thread, so the is_empty() check will see the new events and loop.
         loop {
-            let Ok(mut guard) = self.executor.state.try_lock() else {
+            let Ok(mut guard) = self.environment.executor.state.try_lock() else {
                 return;
             };
             guard.tick(self);
             // Make sure we drop the guard before checking system_completion.is_empty(), or we could lose events.
             drop(guard);
-            if self.executor.system_completion.is_empty() {
+            if self.environment.executor.system_completion.is_empty() {
                 return;
             }
         }
@@ -369,11 +368,11 @@ impl ExecutorState {
         }
     }
 
-    fn tick(&mut self, context: &Context<'_, '_>) {
+    fn tick(&mut self, context: &Context<'_, '_, '_>) {
         #[cfg(feature = "trace")]
-        let _span = context.executor.executor_span.enter();
+        let _span = context.environment.executor.executor_span.enter();
 
-        for result in context.executor.system_completion.try_iter() {
+        for result in context.environment.executor.system_completion.try_iter() {
             self.finish_system_and_handle_dependents(result);
         }
 
@@ -392,12 +391,13 @@ impl ExecutorState {
     ///   have been mutably borrowed (such as the systems currently running).
     /// - `world_cell` must have permission to access all world data (not counting
     ///   any world data that is claimed by systems currently running on this executor).
-    unsafe fn spawn_system_tasks(&mut self, context: &Context<'_, '_>) {
+    unsafe fn spawn_system_tasks(&mut self, context: &Context<'_, '_, '_>) {
         if self.exclusive_running {
             return;
         }
 
         let mut conditions = context
+            .environment
             .conditions
             .try_lock()
             .expect("Conditions should only be locked while owning the executor state");
@@ -418,9 +418,14 @@ impl ExecutorState {
                 assert!(!self.running_systems.contains(system_index));
                 // SAFETY: Caller assured that these systems are not running.
                 // Therefore, no other reference to this system exists and there is no aliasing.
-                let system = unsafe { &mut *context.systems[system_index].get() };
+                let system = unsafe { &mut *context.environment.systems[system_index].get() };
 
-                if !self.can_run(system_index, system, &mut conditions, context.world_cell) {
+                if !self.can_run(
+                    system_index,
+                    system,
+                    &mut conditions,
+                    context.environment.world_cell,
+                ) {
                     // NOTE: exclusive systems with ambiguities are susceptible to
                     // being significantly displaced here (compared to single-threaded order)
                     // if systems after them in topological order can run
@@ -434,7 +439,12 @@ impl ExecutorState {
                 // - It must have called `update_archetype_component_access` for each run condition.
                 // - There can be no systems running whose accesses would conflict with any conditions.
                 if unsafe {
-                    !self.should_run(system_index, system, &mut conditions, context.world_cell)
+                    !self.should_run(
+                        system_index,
+                        system,
+                        &mut conditions,
+                        context.environment.world_cell,
+                    )
                 } {
                     self.skip_system_and_signal_dependents(system_index);
                     // signal_dependents may have set more systems to ready.
@@ -590,9 +600,9 @@ impl ExecutorState {
     ///   used by the specified system.
     /// - `update_archetype_component_access` must have been called with `world`
     ///   on the system associated with `system_index`.
-    unsafe fn spawn_system_task(&mut self, context: &Context<'_, '_>, system_index: usize) {
+    unsafe fn spawn_system_task(&mut self, context: &Context<'_, '_, '_>, system_index: usize) {
         // SAFETY: this system is not running, no other reference exists
-        let system = unsafe { &mut *context.systems[system_index].get() };
+        let system = unsafe { &mut *context.environment.systems[system_index].get() };
         // Move the full context object into the new future.
         let context = *context;
 
@@ -608,7 +618,7 @@ impl ExecutorState {
                 // - The caller ensures that we have permission to
                 // access the world data used by the system.
                 // - `update_archetype_component_access` has been called.
-                unsafe { system.run_unsafe((), context.world_cell) };
+                unsafe { system.run_unsafe((), context.environment.world_cell) };
             }));
             context.system_completed(system_index, res, system);
         };
@@ -628,14 +638,14 @@ impl ExecutorState {
     /// Caller must ensure no systems are currently borrowed.
     unsafe fn spawn_exclusive_system_task(
         &mut self,
-        context: &Context<'_, '_>,
+        context: &Context<'_, '_, '_>,
         system_index: usize,
     ) {
         // SAFETY: `can_run` returned true for this system, which means
         // that no other systems currently have access to the world.
-        let world = unsafe { context.world_cell.world_mut() };
+        let world = unsafe { context.environment.world_cell.world_mut() };
         // SAFETY: this system is not running, no other reference exists
-        let system = unsafe { &mut *context.systems[system_index].get() };
+        let system = unsafe { &mut *context.environment.systems[system_index].get() };
         // Move the full context object into the new future.
         let context = *context;
         #[cfg(feature = "trace")]
@@ -651,7 +661,7 @@ impl ExecutorState {
                 let res = {
                     #[cfg(feature = "trace")]
                     let _span = system_span.enter();
-                    apply_deferred(&unapplied_systems, context.systems, world)
+                    apply_deferred(&unapplied_systems, context.environment.systems, world)
                 };
                 context.system_completed(system_index, res, system);
             };
