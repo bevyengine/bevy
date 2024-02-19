@@ -83,6 +83,9 @@ pub struct MultiThreadedExecutor {
     system_completion: ConcurrentQueue<SystemResult>,
     /// When set, tells the executor that a thread has panicked.
     panic_payload: Mutex<Option<Box<dyn Any + Send>>>,
+    /// Cached tracing span
+    #[cfg(feature = "trace")]
+    executor_span: Span,
 }
 
 /// The state of the executor while running.
@@ -310,8 +313,6 @@ impl<'scope, 'env: 'scope> Context<'scope, 'env> {
     }
 
     fn tick_executor(&self) {
-        #[cfg(feature = "trace")]
-        let _span = info_span!("multithreaded executor").entered();
         // Ensure that the executor handles any events pushed to the system_completion queue by this thread.
         // If this thread acquires the lock, the exector runs after the push() and they are processed.
         // If this thread does not acquire the lock, then the is_empty() check on the other thread runs
@@ -340,6 +341,8 @@ impl MultiThreadedExecutor {
             state: Mutex::new(ExecutorState::new()),
             system_completion: ConcurrentQueue::unbounded(),
             panic_payload: Mutex::new(None),
+            #[cfg(feature = "trace")]
+            executor_span: info_span!("multithreaded executor"),
         }
     }
 }
@@ -368,6 +371,9 @@ impl ExecutorState {
     }
 
     fn tick(&mut self, context: &Context<'_, '_>) {
+        #[cfg(feature = "trace")]
+        let _span = context.executor.executor_span.enter();
+
         for result in context.executor.system_completion.try_iter() {
             self.finish_system_and_handle_dependents(result);
         }
