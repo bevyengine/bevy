@@ -381,14 +381,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn to_readonly(&self) -> Query<'_, 's, D::ReadOnly, F> {
         let new_state = self.state.as_readonly();
         // SAFETY: This is memory safe because it turns the query immutable.
-        unsafe {
-            Query::new(
-                self.world,
-                new_state,
-                self.last_run,
-                self.this_run,
-            )
-        }
+        unsafe { Query::new(self.world, new_state, self.last_run, self.this_run) }
     }
 
     /// Returns an [`Iterator`] over the read-only query items.
