@@ -286,12 +286,12 @@ use std::borrow::Borrow;
 /// |Change detection filtering ([`Added`], [`Changed`])|O(a + n)|
 ///
 /// # `Iterator::for_each`
-/// 
-/// `for_each` methods are seen to be generally faster than directly iterating through `iter` on worlds with high archetype 
-/// fragmentation, and may enable additional optimizations like [autovectorization]. It is strongly advised to only use 
-/// [`Iterator::for_each`] if it tangibly improves performance.  *Always* be sure profile or benchmark both before and 
+///
+/// `for_each` methods are seen to be generally faster than directly iterating through `iter` on worlds with high archetype
+/// fragmentation, and may enable additional optimizations like [autovectorization]. It is strongly advised to only use
+/// [`Iterator::for_each`] if it tangibly improves performance.  *Always* be sure profile or benchmark both before and
 /// after the change!
-/// 
+///
 /// ```rust
 /// # use bevy_ecs::prelude::*;
 /// # #[derive(Component)]
