@@ -44,7 +44,7 @@ where
     /// If iteration is terminated part way, the rest of the enqueued items in the same
     /// chunk will be dropped, and the rest of the undrained elements will remain.
     ///
-    /// The ordering is not guarenteed.
+    /// The ordering is not guaranteed.
     pub fn drain<B>(&mut self) -> impl Iterator<Item = T> + '_
     where
         B: FromIterator<T>,
