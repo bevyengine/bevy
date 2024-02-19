@@ -13,7 +13,7 @@ pub enum DynamicPluginLoadError {
     Plugin(#[source] libloading::Error),
 }
 
-/// Dynamically links a plugin at the given path. The plugin must export a function with the
+/// Dynamically loads a plugin at the given path. The plugin must export a function with the
 /// [`CreatePlugin`] signature named `_bevy_create_plugin`.
 ///
 /// # Safety
