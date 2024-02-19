@@ -1,9 +1,10 @@
 use crate::serde::SerializationData;
 use crate::{
     ArrayInfo, DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
-    DynamicTupleStruct, DynamicVariant, EnumInfo, ListInfo, Map, MapInfo, NamedField, Reflect,
-    ReflectDeserialize, StructInfo, StructVariantInfo, TupleInfo, TupleStructInfo,
-    TupleVariantInfo, TypeInfo, TypeRegistration, TypeRegistry, UnnamedField, VariantInfo,
+    DynamicTupleStruct, DynamicVariant, EnumInfo, ListInfo, Map, MapInfo, NamedField,
+    PartialReflect, Reflect, ReflectDeserialize, StructInfo, StructVariantInfo, TupleInfo,
+    TupleStructInfo, TupleVariantInfo, TypeInfo, TypeRegistration, TypeRegistry, UnnamedField,
+    VariantInfo,
 };
 use erased_serde::Deserializer;
 use serde::de::{
@@ -325,7 +326,7 @@ impl<'a> UntypedReflectDeserializer<'a> {
 }
 
 impl<'a, 'de> DeserializeSeed<'de> for UntypedReflectDeserializer<'a> {
-    type Value = Box<dyn Reflect>;
+    type Value = Box<dyn PartialReflect>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
@@ -390,7 +391,7 @@ struct UntypedReflectDeserializerVisitor<'a> {
 }
 
 impl<'a, 'de> Visitor<'de> for UntypedReflectDeserializerVisitor<'a> {
-    type Value = Box<dyn Reflect>;
+    type Value = Box<dyn PartialReflect>;
 
     fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
         formatter.write_str("map containing `type` and `value` entries for the reflected value")
@@ -447,7 +448,7 @@ impl<'a> TypedReflectDeserializer<'a> {
 }
 
 impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
-    type Value = Box<dyn Reflect>;
+    type Value = Box<dyn PartialReflect>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
@@ -458,7 +459,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
         // Handle both Value case and types that have a custom `ReflectDeserialize`
         if let Some(deserialize_reflect) = self.registration.data::<ReflectDeserialize>() {
             let value = deserialize_reflect.deserialize(deserializer)?;
-            return Ok(value);
+            return Ok(value.into_partial_reflect());
         }
 
         match self.registration.type_info() {
@@ -995,7 +996,10 @@ where
             let Some(field) = info.field_at(*skipped_index) else {
                 continue;
             };
-            dynamic_struct.insert_boxed(field.name(), skipped_field.generate_default());
+            dynamic_struct.insert_boxed(
+                field.name(),
+                skipped_field.generate_default().into_partial_reflect(),
+            );
         }
     }
 
@@ -1025,7 +1029,7 @@ where
 
     for index in 0..len {
         if let Some(value) = serialization_data.and_then(|data| data.generate_default(index)) {
-            tuple.insert_boxed(value);
+            tuple.insert_boxed(value.into_partial_reflect());
             continue;
         }
 
@@ -1070,7 +1074,7 @@ where
             .unwrap_or_default()
         {
             if let Some(value) = serialization_data.unwrap().generate_default(index) {
-                dynamic_struct.insert_boxed(name, value);
+                dynamic_struct.insert_boxed(name, value.into_partial_reflect());
             }
             continue;
         }
@@ -1109,8 +1113,8 @@ mod tests {
 
     use bevy_utils::HashMap;
 
-    use crate as bevy_reflect;
     use crate::serde::{TypedReflectDeserializer, UntypedReflectDeserializer};
+    use crate::{self as bevy_reflect, PartialReflect};
     use crate::{DynamicEnum, FromReflect, Reflect, ReflectDeserialize, TypeRegistry};
 
     #[derive(Reflect, Debug, PartialEq)]
@@ -1319,7 +1323,7 @@ mod tests {
             .deserialize(&mut ron_deserializer)
             .unwrap();
         let output = dynamic_output
-            .take::<f32>()
+            .try_take::<f32>()
             .expect("underlying type should be f32");
         assert_eq!(1.23, output);
     }
@@ -1346,7 +1350,9 @@ mod tests {
             .deserialize(&mut ron_deserializer)
             .unwrap();
 
-        let output = <Foo as FromReflect>::from_reflect(dynamic_output.as_ref()).unwrap();
+        let output =
+            <Foo as FromReflect>::from_reflect(dynamic_output.as_ref().as_partial_reflect())
+                .unwrap();
         assert_eq!(expected, output);
     }
 

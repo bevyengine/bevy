@@ -484,9 +484,9 @@ impl ContainerAttributes {
     ) -> Option<proc_macro2::TokenStream> {
         match &self.partial_eq {
             &TraitImpl::Implemented(span) => Some(quote_spanned! {span=>
-                fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> #FQOption<bool> {
-                    let value = <dyn #bevy_reflect_path::Reflect>::as_any(value);
-                    if let #FQOption::Some(value) = <dyn #FQAny>::downcast_ref::<Self>(value) {
+                fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<bool> {
+                    let value = <dyn #bevy_reflect_path::PartialReflect>::try_downcast_ref::<Self>(value);
+                    if let #FQOption::Some(value) = value {
                         #FQOption::Some(::core::cmp::PartialEq::eq(self, value))
                     } else {
                         #FQOption::Some(false)
@@ -494,7 +494,7 @@ impl ContainerAttributes {
                 }
             }),
             &TraitImpl::Custom(ref impl_fn, span) => Some(quote_spanned! {span=>
-                fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> #FQOption<bool> {
+                fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<bool> {
                     #FQOption::Some(#impl_fn(self, value))
                 }
             }),

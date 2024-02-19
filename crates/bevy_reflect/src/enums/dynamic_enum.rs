@@ -2,10 +2,10 @@ use bevy_reflect_derive::impl_type_path;
 
 use crate::{
     self as bevy_reflect, enum_debug, enum_hash, enum_partial_eq, DynamicStruct, DynamicTuple,
-    Enum, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Struct, Tuple, TypeInfo,
-    VariantFieldIter, VariantType,
+    Enum, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Struct,
+    Tuple, TypeInfo, VariantFieldIter, VariantType,
 };
-use std::any::Any;
+
 use std::fmt::Formatter;
 
 /// A dynamic representation of an enum variant.
@@ -201,7 +201,7 @@ impl DynamicEnum {
 }
 
 impl Enum for DynamicEnum {
-    fn field(&self, name: &str) -> Option<&dyn Reflect> {
+    fn field(&self, name: &str) -> Option<&dyn PartialReflect> {
         if let DynamicVariant::Struct(data) = &self.variant {
             data.field(name)
         } else {
@@ -209,7 +209,7 @@ impl Enum for DynamicEnum {
         }
     }
 
-    fn field_at(&self, index: usize) -> Option<&dyn Reflect> {
+    fn field_at(&self, index: usize) -> Option<&dyn PartialReflect> {
         if let DynamicVariant::Tuple(data) = &self.variant {
             data.field(index)
         } else {
@@ -217,7 +217,7 @@ impl Enum for DynamicEnum {
         }
     }
 
-    fn field_mut(&mut self, name: &str) -> Option<&mut dyn Reflect> {
+    fn field_mut(&mut self, name: &str) -> Option<&mut dyn PartialReflect> {
         if let DynamicVariant::Struct(data) = &mut self.variant {
             data.field_mut(name)
         } else {
@@ -225,7 +225,7 @@ impl Enum for DynamicEnum {
         }
     }
 
-    fn field_at_mut(&mut self, index: usize) -> Option<&mut dyn Reflect> {
+    fn field_at_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect> {
         if let DynamicVariant::Tuple(data) = &mut self.variant {
             data.field_mut(index)
         } else {
@@ -287,44 +287,41 @@ impl Enum for DynamicEnum {
     }
 }
 
-impl Reflect for DynamicEnum {
+impl PartialReflect for DynamicEnum {
     #[inline]
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         self.represented_type
     }
 
     #[inline]
-    fn into_any(self: Box<Self>) -> Box<dyn Any> {
+    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
         self
     }
 
     #[inline]
-    fn as_any(&self) -> &dyn Any {
+    fn as_partial_reflect(&self) -> &dyn PartialReflect {
         self
     }
 
     #[inline]
-    fn as_any_mut(&mut self) -> &mut dyn Any {
+    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
         self
     }
 
-    #[inline]
-    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
-        self
+    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
+        Err(self)
+    }
+
+    fn try_as_reflect(&self) -> Option<&dyn Reflect> {
+        None
+    }
+
+    fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
+        None
     }
 
     #[inline]
-    fn as_reflect(&self) -> &dyn Reflect {
-        self
-    }
-
-    #[inline]
-    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
-        self
-    }
-
-    #[inline]
-    fn apply(&mut self, value: &dyn Reflect) {
+    fn apply(&mut self, value: &dyn PartialReflect) {
         if let ReflectRef::Enum(value) = value.reflect_ref() {
             if Enum::variant_name(self) == value.variant_name() {
                 // Same variant -> just update fields
@@ -374,12 +371,6 @@ impl Reflect for DynamicEnum {
     }
 
     #[inline]
-    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
-        *self = value.take()?;
-        Ok(())
-    }
-
-    #[inline]
     fn reflect_kind(&self) -> ReflectKind {
         ReflectKind::Enum
     }
@@ -400,7 +391,7 @@ impl Reflect for DynamicEnum {
     }
 
     #[inline]
-    fn clone_value(&self) -> Box<dyn Reflect> {
+    fn clone_value(&self) -> Box<dyn PartialReflect> {
         Box::new(self.clone_dynamic())
     }
 
@@ -410,7 +401,7 @@ impl Reflect for DynamicEnum {
     }
 
     #[inline]
-    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+    fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
         enum_partial_eq(self, value)
     }
 

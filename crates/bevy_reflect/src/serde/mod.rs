@@ -8,7 +8,7 @@ pub use type_data::*;
 
 #[cfg(test)]
 mod tests {
-    use crate::{self as bevy_reflect, DynamicTupleStruct, Struct};
+    use crate::{self as bevy_reflect, DynamicTupleStruct, PartialReflect, Struct};
     use crate::{
         serde::{ReflectSerializer, UntypedReflectDeserializer},
         type_registry::TypeRegistry,
@@ -53,8 +53,7 @@ mod tests {
 
         let mut deserializer = ron::de::Deserializer::from_str(&serialized).unwrap();
         let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
-        let value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
-        let deserialized = value.take::<DynamicStruct>().unwrap();
+        let deserialized = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
         let mut expected = DynamicStruct::default();
         expected.insert("a", 3);
@@ -64,7 +63,9 @@ mod tests {
         expected.insert("e", 7);
 
         assert!(
-            expected.reflect_partial_eq(&deserialized).unwrap(),
+            expected
+                .reflect_partial_eq(deserialized.as_partial_reflect())
+                .unwrap(),
             "Deserialization failed: expected {expected:?} found {deserialized:?}"
         );
 
@@ -75,7 +76,8 @@ mod tests {
             d: -1,
             e: 7,
         };
-        let received = <TestStruct as FromReflect>::from_reflect(&deserialized).unwrap();
+        let received =
+            <TestStruct as FromReflect>::from_reflect(deserialized.as_partial_reflect()).unwrap();
 
         assert_eq!(
             expected, received,
@@ -112,8 +114,7 @@ mod tests {
 
         let mut deserializer = ron::de::Deserializer::from_str(&serialized).unwrap();
         let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
-        let value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
-        let deserialized = value.take::<DynamicTupleStruct>().unwrap();
+        let deserialized = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
         let mut expected = DynamicTupleStruct::default();
         expected.insert(3);
@@ -123,12 +124,15 @@ mod tests {
         expected.insert(7);
 
         assert!(
-            expected.reflect_partial_eq(&deserialized).unwrap(),
+            expected
+                .reflect_partial_eq(deserialized.as_partial_reflect())
+                .unwrap(),
             "Deserialization failed: expected {expected:?} found {deserialized:?}"
         );
 
         let expected = TestStruct(3, 0, 0, -1, 7);
-        let received = <TestStruct as FromReflect>::from_reflect(&deserialized).unwrap();
+        let received =
+            <TestStruct as FromReflect>::from_reflect(deserialized.as_partial_reflect()).unwrap();
 
         assert_eq!(
             expected, received,
@@ -173,12 +177,10 @@ mod tests {
         let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
 
         let expected = value.clone_value();
-        let result = reflect_deserializer
-            .deserialize(&mut deserializer)
-            .unwrap()
-            .take::<DynamicStruct>()
-            .unwrap();
+        let result = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
-        assert!(expected.reflect_partial_eq(&result).unwrap());
+        assert!(expected
+            .reflect_partial_eq(result.as_partial_reflect())
+            .unwrap());
     }
 }

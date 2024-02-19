@@ -637,7 +637,11 @@ mod test {
             let dyn_reflect = unsafe { reflect_from_ptr.as_reflect(Ptr::from(&value)) };
             match dyn_reflect.reflect_ref() {
                 bevy_reflect::ReflectRef::Struct(strukt) => {
-                    let a = strukt.field("a").unwrap().downcast_ref::<f32>().unwrap();
+                    let a = strukt
+                        .field("a")
+                        .unwrap()
+                        .try_downcast_ref::<f32>()
+                        .unwrap();
                     assert_eq!(*a, 2.0);
                 }
                 _ => panic!("invalid reflection"),

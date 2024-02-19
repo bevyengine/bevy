@@ -633,10 +633,19 @@ mod tests {
 
         let mut map = DynamicMap::default();
         map.insert(key_a, 10u32);
-        assert_eq!(10, *map.get(&key_b).unwrap().downcast_ref::<u32>().unwrap());
+        assert_eq!(
+            10,
+            *map.get(&key_b).unwrap().try_downcast_ref::<u32>().unwrap()
+        );
         assert!(map.get(&key_c).is_none());
-        *map.get_mut(&key_b).unwrap().downcast_mut::<u32>().unwrap() = 20;
-        assert_eq!(20, *map.get(&key_b).unwrap().downcast_ref::<u32>().unwrap());
+        *map.get_mut(&key_b)
+            .unwrap()
+            .try_downcast_mut::<u32>()
+            .unwrap() = 20;
+        assert_eq!(
+            20,
+            *map.get(&key_b).unwrap().try_downcast_ref::<u32>().unwrap()
+        );
     }
 
     #[test]
@@ -652,16 +661,22 @@ mod tests {
         let mut patch = DynamicTupleStruct::default();
         patch.insert(3u32);
         patch.insert(4u64);
-        assert_eq!(3, *patch.field(0).unwrap().downcast_ref::<u32>().unwrap());
-        assert_eq!(4, *patch.field(1).unwrap().downcast_ref::<u64>().unwrap());
+        assert_eq!(
+            3,
+            *patch.field(0).unwrap().try_downcast_ref::<u32>().unwrap()
+        );
+        assert_eq!(
+            4,
+            *patch.field(1).unwrap().try_downcast_ref::<u64>().unwrap()
+        );
 
         foo.apply(&patch);
         assert_eq!(3, foo.0);
         assert_eq!(4, foo.1);
 
         let mut iter = patch.iter_fields();
-        assert_eq!(3, *iter.next().unwrap().downcast_ref::<u32>().unwrap());
-        assert_eq!(4, *iter.next().unwrap().downcast_ref::<u64>().unwrap());
+        assert_eq!(3, *iter.next().unwrap().try_downcast_ref::<u32>().unwrap());
+        assert_eq!(4, *iter.next().unwrap().try_downcast_ref::<u64>().unwrap());
     }
 
     #[test]
@@ -691,7 +706,7 @@ mod tests {
 
         let values: Vec<u32> = foo
             .iter_fields()
-            .map(|value| *value.downcast_ref::<u32>().unwrap())
+            .map(|value| *value.try_downcast_ref::<u32>().unwrap())
             .collect();
         assert_eq!(values, vec![1]);
     }
@@ -723,11 +738,11 @@ mod tests {
         // Assert
         let expected = MyStruct { foo: 123 };
         assert!(expected
-            .reflect_partial_eq(reflected.as_ref())
+            .reflect_partial_eq(reflected.as_partial_reflect())
             .unwrap_or_default());
         let not_expected = MyStruct { foo: 321 };
         assert!(!not_expected
-            .reflect_partial_eq(reflected.as_ref())
+            .reflect_partial_eq(reflected.as_partial_reflect())
             .unwrap_or_default());
     }
 
@@ -1056,9 +1071,9 @@ mod tests {
         let mut deserializer = Deserializer::from_str(&serialized).unwrap();
         let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
         let value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
-        let dynamic_struct = value.take::<DynamicStruct>().unwrap();
+        let roundtrip_foo = Foo::from_reflect(value.as_ref()).unwrap();
 
-        assert!(foo.reflect_partial_eq(&dynamic_struct).unwrap());
+        assert!(foo.reflect_partial_eq(&roundtrip_foo).unwrap());
     }
 
     #[test]
@@ -1825,7 +1840,7 @@ bevy_reflect::tests::Test {
         }
 
         let foo = Foo(123);
-        let foo: &dyn Reflect = &foo;
+        let foo: &dyn PartialReflect = &foo;
 
         assert!(foo.reflect_hash().is_some());
         assert_eq!(Some(true), foo.reflect_partial_eq(foo));
@@ -1846,7 +1861,7 @@ bevy_reflect::tests::Test {
         }
 
         let foo = Foo(123);
-        let foo: &dyn Reflect = &foo;
+        let foo: &dyn PartialReflect = &foo;
 
         assert!(foo.reflect_hash().is_some());
         assert_eq!(Some(true), foo.reflect_partial_eq(foo));
@@ -2062,7 +2077,7 @@ bevy_reflect::tests::Test {
         }
         let mut map = HashMap::new();
         map.insert(9, 10);
-        let mut test_struct = TestStruct {
+        let mut test_struct: DynamicStruct = TestStruct {
             tuple: (0, 1),
             list: vec![2, 3, 4],
             array: [5, 6, 7],
@@ -2071,8 +2086,7 @@ bevy_reflect::tests::Test {
             map,
             value: 12,
         }
-        .clone_value();
-        let test_struct = test_struct.downcast_mut::<DynamicStruct>().unwrap();
+        .clone_dynamic();
 
         // test unknown DynamicStruct
         let mut test_unknown_struct = DynamicStruct::default();
@@ -2271,13 +2285,16 @@ bevy_reflect::tests::Test {
             let mut v = vec3(1.0, 2.0, 3.0);
 
             assert_eq!(
-                *v.reflect_path("x").unwrap().downcast_ref::<f32>().unwrap(),
+                *v.reflect_path("x")
+                    .unwrap()
+                    .try_downcast_ref::<f32>()
+                    .unwrap(),
                 1.0
             );
 
             *v.reflect_path_mut("y")
                 .unwrap()
-                .downcast_mut::<f32>()
+                .try_downcast_mut::<f32>()
                 .unwrap() = 6.0;
 
             assert_eq!(v.y, 6.0);
