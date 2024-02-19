@@ -29,6 +29,7 @@ impl Clips {
 /// Automatically assign [`AnimationClip`]s to [`AnimationPlayer`] and play
 /// them, if the clips refer to descendants of the animation player (which is
 /// the common case).
+#[allow(clippy::too_many_arguments)]
 fn assign_clips(
     mut players: Query<&mut AnimationPlayer>,
     targets: Query<(Entity, &AnimationTarget)>,
@@ -87,7 +88,7 @@ fn assign_clips(
                         None => {
                             // If we haven't found a player yet, record the one
                             // we found.
-                            ancestor_player = Some(entity)
+                            ancestor_player = Some(entity);
                         }
                         Some(ancestor) => {
                             // If we have found a player, then make sure it's
