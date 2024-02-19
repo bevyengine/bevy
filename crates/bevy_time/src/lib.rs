@@ -39,6 +39,10 @@ pub struct TimePlugin;
 /// this.
 pub struct TimeSystem;
 
+/// Allow consumers to easily configure `run_fixed_main_schedule` by exposing a SystemSet.
+#[derive(Debug, PartialEq, Eq, Clone, Hash, SystemSet)]
+pub struct RunFixedMainSchedule;
+
 impl Plugin for TimePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Time>()
@@ -56,7 +60,7 @@ impl Plugin for TimePlugin {
                 First,
                 (time_system, virtual_time_system.after(time_system)).in_set(TimeSystem),
             )
-            .add_systems(RunFixedMainLoop, run_fixed_main_schedule);
+            .add_systems(RunFixedMainLoop, run_fixed_main_schedule.in_set(RunFixedMainSchedule);
 
         // ensure the events are not dropped until `FixedMain` systems can observe them
         app.init_resource::<EventUpdateSignal>()
