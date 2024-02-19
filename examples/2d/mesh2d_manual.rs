@@ -355,7 +355,7 @@ pub fn queue_colored_mesh2d(
         return;
     }
     // Iterate each view (a camera is a view)
-    for (visible_entities, mut transparent_phase, view) in &mut views {
+    for (visible_entities, transparent_phase, view) in &views {
         let draw_colored_mesh2d = transparent_draw_functions.read().id::<DrawColoredMesh2d>();
 
         let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
