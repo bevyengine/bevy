@@ -28,7 +28,8 @@ fn setup(
         ..default()
     });
 
-    // The animation API uses the `Name` component to target entities
+    // Let's use the `Name` component to target entities. We can use anything we
+    // like, but names are convenient.
     let planet = Name::new("planet");
     let orbit_controller = Name::new("orbit_controller");
     let satellite = Name::new("satellite");
@@ -127,7 +128,7 @@ fn setup(
                 material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
                 ..default()
             },
-            // Add the Name component, and the animation player
+            // Add the animation player
             planet,
             player,
         ))
@@ -142,7 +143,6 @@ fn setup(
             // This entity is just used for animation, but doesn't display anything
             p.spawn((
                 SpatialBundle::INHERITED_IDENTITY,
-                // Add the Name component
                 orbit_controller,
                 AnimationTarget {
                     id: orbit_controller_animation_target_id,
@@ -158,7 +158,10 @@ fn setup(
                         material: materials.add(Color::rgb(0.3, 0.9, 0.3)),
                         ..default()
                     },
-                    // Add the Name component
+                    AnimationTarget {
+                        id: satellite_animation_target_id,
+                        player: planet_entity,
+                    },
                     satellite,
                 ));
             });
