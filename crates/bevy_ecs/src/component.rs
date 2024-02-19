@@ -361,7 +361,7 @@ impl ComponentDescriptor {
     ///
     /// `x` must points to a valid value of type `T`.
     unsafe fn drop_ptr<T>(x: OwningPtr<'_>) {
-        // SAFETY: Contract uphold by the caller.
+        // SAFETY: Contract is required to be upheld by the caller.
         unsafe {
             x.drop_as::<T>();
         }
