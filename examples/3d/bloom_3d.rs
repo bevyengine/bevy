@@ -35,7 +35,11 @@ fn setup_scene(
             transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         },
-        BloomSettings::default(), // 3. Enable bloom for the camera
+        // 3. Enable bloom for the camera
+        BloomSettings {
+            composite_mode: BloomCompositeMode::Additive,
+            ..default()
+        },
     ));
 
     let material_emissive1 = materials.add(StandardMaterial {
