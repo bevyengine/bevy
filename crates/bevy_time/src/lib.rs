@@ -61,7 +61,7 @@ impl Plugin for TimePlugin {
                 (time_system, virtual_time_system.after(time_system)).in_set(TimeSystem),
             )
             .add_systems(
-                RunFixedMainLoop, 
+                RunFixedMainLoop,
                 run_fixed_main_schedule.in_set(RunFixedMainSchedule),
             );
 
