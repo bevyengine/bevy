@@ -1569,7 +1569,7 @@ macro_rules! impl_anytuple_fetch {
                 $(
                     $name.1 = $name::matches_component_set($state, &|id| _table.has_column(id));
                     if $name.1 {
-                         // SAFETY: The invariants are uphold by the caller.
+                         // SAFETY: The invariants are required to be upheld by the caller.
                         unsafe { $name::set_table(&mut $name.0, $state, _table); }
                     }
                 )*
