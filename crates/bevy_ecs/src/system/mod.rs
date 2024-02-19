@@ -1561,21 +1561,6 @@ mod tests {
     }
 
     #[test]
-    fn readonly_query_get_mut_component_fails() {
-        use crate::query::QueryComponentError;
-
-        let mut world = World::new();
-        let entity = world.spawn(W(42u32)).id();
-        run_system(&mut world, move |q: Query<&mut W<u32>>| {
-            let mut rq = q.to_readonly();
-            assert_eq!(
-                QueryComponentError::MissingWriteAccess,
-                rq.get_component_mut::<W<u32>>(entity).unwrap_err(),
-            );
-        });
-    }
-
-    #[test]
     #[should_panic = "Encountered a mismatched World."]
     fn query_validates_world_id() {
         let mut world1 = World::new();

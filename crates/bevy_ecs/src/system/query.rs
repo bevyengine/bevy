@@ -331,12 +331,6 @@ pub struct Query<'world, 'state, D: QueryData, F: QueryFilter = ()> {
     state: &'state QueryState<D, F>,
     last_run: Tick,
     this_run: Tick,
-    // SAFETY: This is used to ensure that `get_component_mut::<C>` properly fails when a Query writes C
-    // and gets converted to a read-only query using `to_readonly`. Without checking this, `get_component_mut` relies on
-    // QueryState's archetype_component_access, which will continue allowing write access to C after being cast to
-    // the read-only variant. This whole situation is confusing and error prone. Ideally this is a temporary hack
-    // until we sort out a cleaner alternative.
-    force_read_only_component_access: bool,
 }
 
 impl<D: QueryData, F: QueryFilter> std::fmt::Debug for Query<'_, '_, D, F> {
@@ -368,12 +362,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         state: &'s QueryState<D, F>,
         last_run: Tick,
         this_run: Tick,
-        force_read_only_component_access: bool,
     ) -> Self {
         state.validate_world(world.id());
 
         Self {
-            force_read_only_component_access,
             world,
             state,
             last_run,
@@ -395,9 +387,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
                 new_state,
                 self.last_run,
                 self.this_run,
-                // SAFETY: this must be set to true or `get_component_mut` will be unsound. See the comments
-                // on this field for more details
-                true,
             )
         }
     }
@@ -1306,7 +1295,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
             state,
             last_run: self.last_run,
             this_run: self.this_run,
-            force_read_only_component_access: self.force_read_only_component_access,
         }
     }
 
@@ -1424,7 +1412,6 @@ pub struct QueryLens<'w, Q: QueryData, F: QueryFilter = ()> {
     state: QueryState<Q, F>,
     last_run: Tick,
     this_run: Tick,
-    force_read_only_component_access: bool,
 }
 
 impl<'w, Q: QueryData, F: QueryFilter> QueryLens<'w, Q, F> {
@@ -1435,7 +1422,6 @@ impl<'w, Q: QueryData, F: QueryFilter> QueryLens<'w, Q, F> {
             state: &self.state,
             last_run: self.last_run,
             this_run: self.this_run,
-            force_read_only_component_access: self.force_read_only_component_access,
         }
     }
 }
