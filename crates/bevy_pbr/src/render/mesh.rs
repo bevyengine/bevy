@@ -50,6 +50,8 @@ use crate::render::{
 };
 use crate::*;
 
+use self::irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE;
+
 use super::skin::SkinIndices;
 
 #[derive(Default)]
@@ -218,7 +220,7 @@ pub struct MeshUniform {
 }
 
 impl MeshUniform {
-    fn new(mesh_transforms: &MeshTransforms, maybe_lightmap_uv_rect: Option<Rect>) -> Self {
+    pub fn new(mesh_transforms: &MeshTransforms, maybe_lightmap_uv_rect: Option<Rect>) -> Self {
         let (inverse_transpose_model_a, inverse_transpose_model_b) =
             mesh_transforms.transform.inverse_transpose_3x3();
         Self {
@@ -825,7 +827,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("ENVIRONMENT_MAP".into());
         }
 
-        if key.contains(MeshPipelineKey::IRRADIANCE_VOLUME) {
+        if key.contains(MeshPipelineKey::IRRADIANCE_VOLUME) && IRRADIANCE_VOLUMES_ARE_USABLE {
             shader_defs.push("IRRADIANCE_VOLUME".into());
         }
 
@@ -863,6 +865,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         if self.binding_arrays_are_usable {
             shader_defs.push("MULTIPLE_LIGHT_PROBES_IN_ARRAY".into());
+        }
+
+        if IRRADIANCE_VOLUMES_ARE_USABLE {
+            shader_defs.push("IRRADIANCE_VOLUMES_ARE_USABLE".into());
         }
 
         let format = if key.contains(MeshPipelineKey::HDR) {

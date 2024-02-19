@@ -57,7 +57,6 @@ pub unsafe trait WorldQuery {
     ///
     /// # Safety
     ///
-    /// - `world` must have permission to access any of the components specified in `Self::update_archetype_component_access`.
     /// - `state` must have been initialized (via [`WorldQuery::init_state`]) using the same `world` passed
     ///   in to this function.
     unsafe fn init_fetch<'w>(
@@ -128,7 +127,8 @@ pub unsafe trait WorldQuery {
     /// Creates and initializes a [`State`](WorldQuery::State) for this [`WorldQuery`] type.
     fn init_state(world: &mut World) -> Self::State;
 
-    /// Attempts to initializes a [`State`](WorldQuery::State) for this [`WorldQuery`] type.
+    /// Attempts to initialize a [`State`](WorldQuery::State) for this [`WorldQuery`] type using read-only
+    /// access to the [`World`].
     fn get_state(world: &World) -> Option<Self::State>;
 
     /// Returns `true` if this query matches a set of components. Otherwise, returns `false`.
@@ -145,7 +145,7 @@ macro_rules! impl_tuple_world_query {
         #[allow(clippy::unused_unit)]
         /// SAFETY:
         /// `fetch` accesses are the conjunction of the subqueries' accesses
-        /// This is sound because `update_component_access` and `update_archetype_component_access` adds accesses according to the implementations of all the subqueries.
+        /// This is sound because `update_component_access` adds accesses according to the implementations of all the subqueries.
         /// `update_component_access` adds all `With` and `Without` filters from the subqueries.
         /// This is sound because `matches_component_set` always returns `false` if any the subqueries' implementations return `false`.
         unsafe impl<$($name: WorldQuery),*> WorldQuery for ($($name,)*) {
