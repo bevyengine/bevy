@@ -22,12 +22,12 @@ use bevy::render::render_resource::{AsBindGroup, ShaderRef, ShaderType};
 use bevy::window::PrimaryWindow;
 
 // Rotation speed in radians per frame.
-const ROTATION_SPEED: f32 = 0.005;
+const ROTATION_SPEED: f32 = 0.2;
 
 const FOX_SCALE: f32 = 0.05;
 const SPHERE_SCALE: f32 = 2.0;
 
-const IRRADIANCE_VOLUME_INTENSITY: f32 = 150.0;
+const IRRADIANCE_VOLUME_INTENSITY: f32 = 1800.0;
 
 const AMBIENT_LIGHT_BRIGHTNESS: f32 = 0.06;
 
@@ -371,6 +371,7 @@ impl AppStatus {
 // Rotates the camera a bit every frame.
 fn rotate_camera(
     mut camera_query: Query<&mut Transform, With<Camera3d>>,
+    time: Res<Time>,
     app_status: Res<AppStatus>,
 ) {
     if !app_status.rotating {
@@ -378,7 +379,7 @@ fn rotate_camera(
     }
 
     for mut transform in camera_query.iter_mut() {
-        transform.translation = Vec2::from_angle(ROTATION_SPEED)
+        transform.translation = Vec2::from_angle(ROTATION_SPEED * time.delta_seconds())
             .rotate(transform.translation.xz())
             .extend(transform.translation.y)
             .xzy();

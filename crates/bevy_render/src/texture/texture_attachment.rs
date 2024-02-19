@@ -13,7 +13,7 @@ use wgpu::{
 pub struct ColorAttachment {
     pub texture: CachedTexture,
     pub resolve_target: Option<CachedTexture>,
-    clear_color: Color,
+    clear_color: Option<Color>,
     is_first_call: Arc<AtomicBool>,
 }
 
@@ -21,7 +21,7 @@ impl ColorAttachment {
     pub fn new(
         texture: CachedTexture,
         resolve_target: Option<CachedTexture>,
-        clear_color: Color,
+        clear_color: Option<Color>,
     ) -> Self {
         Self {
             texture,
@@ -43,10 +43,9 @@ impl ColorAttachment {
                 view: &resolve_target.default_view,
                 resolve_target: Some(&self.texture.default_view),
                 ops: Operations {
-                    load: if first_call {
-                        LoadOp::Clear(self.clear_color.into())
-                    } else {
-                        LoadOp::Load
+                    load: match (self.clear_color, first_call) {
+                        (Some(clear_color), true) => LoadOp::Clear(clear_color.into()),
+                        (None, _) | (Some(_), false) => LoadOp::Load,
                     },
                     store: StoreOp::Store,
                 },
@@ -67,10 +66,9 @@ impl ColorAttachment {
             view: &self.texture.default_view,
             resolve_target: None,
             ops: Operations {
-                load: if first_call {
-                    LoadOp::Clear(self.clear_color.into())
-                } else {
-                    LoadOp::Load
+                load: match (self.clear_color, first_call) {
+                    (Some(clear_color), true) => LoadOp::Clear(clear_color.into()),
+                    (None, _) | (Some(_), false) => LoadOp::Load,
                 },
                 store: StoreOp::Store,
             },

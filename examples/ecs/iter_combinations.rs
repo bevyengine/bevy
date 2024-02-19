@@ -1,15 +1,11 @@
 //! Shows how to iterate over combinations of query results.
 
-use bevy::{pbr::AmbientLight, prelude::*};
+use bevy::prelude::*;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(AmbientLight {
-            brightness: 0.03,
-            ..default()
-        })
         .insert_resource(ClearColor(Color::BLACK))
         .add_systems(Startup, generate_bodies)
         .add_systems(FixedUpdate, (interact_bodies, integrate))
@@ -114,7 +110,6 @@ fn generate_bodies(
             p.spawn(PointLightBundle {
                 point_light: PointLight {
                     color: Color::WHITE,
-                    intensity: 100_000.0,
                     range: 100.0,
                     radius: star_radius,
                     ..default()

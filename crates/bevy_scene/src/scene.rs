@@ -1,11 +1,11 @@
 use crate::{DynamicScene, InstanceInfo, SceneSpawnError};
 use bevy_asset::Asset;
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
     reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities, ReflectResource},
     world::World,
 };
 use bevy_reflect::TypePath;
-use bevy_utils::EntityHashMap;
 
 /// To spawn a scene, you can use either:
 /// * [`SceneSpawner::spawn`](crate::SceneSpawner::spawn)

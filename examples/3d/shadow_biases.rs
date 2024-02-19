@@ -68,7 +68,6 @@ fn setup(
             });
             builder.spawn(DirectionalLightBundle {
                 directional_light: DirectionalLight {
-                    illuminance: 1500.0,
                     shadow_depth_bias: 0.0,
                     shadow_normal_bias: 0.0,
                     shadows_enabled: true,

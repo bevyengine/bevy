@@ -50,7 +50,8 @@ pub enum Visibility {
 impl PartialEq<Visibility> for &Visibility {
     #[inline]
     fn eq(&self, other: &Visibility) -> bool {
-        **self == *other
+        // Use the base Visibility == Visibility implementation.
+        <Visibility as PartialEq<Visibility>>::eq(*self, other)
     }
 }
 
@@ -58,7 +59,8 @@ impl PartialEq<Visibility> for &Visibility {
 impl PartialEq<&Visibility> for Visibility {
     #[inline]
     fn eq(&self, other: &&Visibility) -> bool {
-        *self == **other
+        // Use the base Visibility == Visibility implementation.
+        <Visibility as PartialEq<Visibility>>::eq(self, *other)
     }
 }
 

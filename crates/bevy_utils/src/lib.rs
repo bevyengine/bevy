@@ -479,7 +479,6 @@ mod tests {
     use static_assertions::assert_impl_all;
 
     // Check that the HashMaps are Clone if the key/values are Clone
-    assert_impl_all!(EntityHashMap::<u64, usize>: Clone);
     assert_impl_all!(PreHashMap::<u64, usize>: Clone);
 
     #[test]

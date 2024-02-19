@@ -1870,6 +1870,117 @@ impl World {
         self.last_change_tick
     }
 
+    /// Sets [`World::last_change_tick()`] to the specified value during a scope.
+    /// When the scope terminates, it will return to its old value.
+    ///
+    /// This is useful if you need a region of code to be able to react to earlier changes made in the same system.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// // This function runs an update loop repeatedly, allowing each iteration of the loop
+    /// // to react to changes made in the previous loop iteration.
+    /// fn update_loop(
+    ///     world: &mut World,
+    ///     mut update_fn: impl FnMut(&mut World) -> std::ops::ControlFlow<()>,
+    /// ) {
+    ///     let mut last_change_tick = world.last_change_tick();
+    ///
+    ///     // Repeatedly run the update function until it requests a break.
+    ///     loop {
+    ///         let control_flow = world.last_change_tick_scope(last_change_tick, |world| {
+    ///             // Increment the change tick so we can detect changes from the previous update.
+    ///             last_change_tick = world.change_tick();
+    ///             world.increment_change_tick();
+    ///
+    ///             // Update once.
+    ///             update_fn(world)
+    ///         });
+    ///
+    ///         // End the loop when the closure returns `ControlFlow::Break`.
+    ///         if control_flow.is_break() {
+    ///             break;
+    ///         }
+    ///     }
+    /// }
+    /// #
+    /// # #[derive(Resource)] struct Count(u32);
+    /// # let mut world = World::new();
+    /// # world.insert_resource(Count(0));
+    /// # let saved_last_tick = world.last_change_tick();
+    /// # let mut num_updates = 0;
+    /// # update_loop(&mut world, |world| {
+    /// #     let mut c = world.resource_mut::<Count>();
+    /// #     match c.0 {
+    /// #         0 => {
+    /// #             assert_eq!(num_updates, 0);
+    /// #             assert!(c.is_added());
+    /// #             c.0 = 1;
+    /// #         }
+    /// #         1 => {
+    /// #             assert_eq!(num_updates, 1);
+    /// #             assert!(!c.is_added());
+    /// #             assert!(c.is_changed());
+    /// #             c.0 = 2;
+    /// #         }
+    /// #         2 if c.is_changed() => {
+    /// #             assert_eq!(num_updates, 2);
+    /// #             assert!(!c.is_added());
+    /// #         }
+    /// #         2 => {
+    /// #             assert_eq!(num_updates, 3);
+    /// #             assert!(!c.is_changed());
+    /// #             world.remove_resource::<Count>();
+    /// #             world.insert_resource(Count(3));
+    /// #         }
+    /// #         3 if c.is_changed() => {
+    /// #             assert_eq!(num_updates, 4);
+    /// #             assert!(c.is_added());
+    /// #         }
+    /// #         3 => {
+    /// #             assert_eq!(num_updates, 5);
+    /// #             assert!(!c.is_added());
+    /// #             c.0 = 4;
+    /// #             return std::ops::ControlFlow::Break(());
+    /// #         }
+    /// #         _ => unreachable!(),
+    /// #     }
+    /// #     num_updates += 1;
+    /// #     std::ops::ControlFlow::Continue(())
+    /// # });
+    /// # assert_eq!(num_updates, 5);
+    /// # assert_eq!(world.resource::<Count>().0, 4);
+    /// # assert_eq!(world.last_change_tick(), saved_last_tick);
+    /// ```
+    pub fn last_change_tick_scope<T>(
+        &mut self,
+        last_change_tick: Tick,
+        f: impl FnOnce(&mut World) -> T,
+    ) -> T {
+        struct LastTickGuard<'a> {
+            world: &'a mut World,
+            last_tick: Tick,
+        }
+
+        // By setting the change tick in the drop impl, we ensure that
+        // the change tick gets reset even if a panic occurs during the scope.
+        impl std::ops::Drop for LastTickGuard<'_> {
+            fn drop(&mut self) {
+                self.world.last_change_tick = self.last_tick;
+            }
+        }
+
+        let guard = LastTickGuard {
+            last_tick: self.last_change_tick,
+            world: self,
+        };
+
+        guard.world.last_change_tick = last_change_tick;
+
+        f(guard.world)
+    }
+
     /// Iterates all component change ticks and clamps any older than [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE).
     /// This prevents overflow and thus prevents false positives.
     ///

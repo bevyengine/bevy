@@ -7,7 +7,7 @@ pub use window::*;
 
 use crate::{
     camera::{
-        CameraMainTextureUsages, ClearColor, ClearColorConfig, ExposureSettings, ExtractedCamera,
+        CameraMainTextureUsages, ClearColor, ClearColorConfig, Exposure, ExtractedCamera,
         ManualTextureViews, MipBias, TemporalJitter,
     },
     extract_resource::{ExtractResource, ExtractResourcePlugin},
@@ -434,7 +434,7 @@ pub fn prepare_view_uniforms(
                 world_position: extracted_view.transform.translation(),
                 exposure: extracted_camera
                     .map(|c| c.exposure)
-                    .unwrap_or_else(|| ExposureSettings::default().exposure()),
+                    .unwrap_or_else(|| Exposure::default().exposure()),
                 viewport,
                 frustum,
                 color_grading: extracted_view.color_grading,
@@ -493,8 +493,9 @@ pub fn prepare_view_targets(
                 };
 
                 let clear_color = match camera.clear_color {
-                    ClearColorConfig::Custom(color) => color,
-                    _ => clear_color_global.0,
+                    ClearColorConfig::Custom(color) => Some(color),
+                    ClearColorConfig::None => None,
+                    _ => Some(clear_color_global.0),
                 };
 
                 let (a, b, sampled) = textures

@@ -2,8 +2,8 @@ mod pipeline;
 mod render_pass;
 mod ui_material_pipeline;
 
-use bevy_core_pipeline::core_2d::graph::{Labels2d, SubGraph2d};
-use bevy_core_pipeline::core_3d::graph::{Labels3d, SubGraph3d};
+use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
+use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_hierarchy::Parent;
 use bevy_render::{
@@ -15,7 +15,7 @@ pub use pipeline::*;
 pub use render_pass::*;
 pub use ui_material_pipeline::*;
 
-use crate::graph::{LabelsUi, SubGraphUi};
+use crate::graph::{NodeUi, SubGraphUi};
 use crate::{
     texture_slice::ComputedTextureSlices, BackgroundColor, BorderColor, CalculatedClip,
     ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiImage, UiScale, Val,
@@ -23,6 +23,7 @@ use crate::{
 
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, Rect, URect, UVec4, Vec2, Vec3, Vec4Swizzles};
 use bevy_render::{
@@ -41,7 +42,7 @@ use bevy_sprite::TextureAtlasLayout;
 #[cfg(feature = "bevy_text")]
 use bevy_text::{PositionedGlyph, Text, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{EntityHashMap, FloatOrd, HashMap};
+use bevy_utils::{FloatOrd, HashMap};
 use bytemuck::{Pod, Zeroable};
 use std::ops::Range;
 
@@ -52,7 +53,7 @@ pub mod graph {
     pub struct SubGraphUi;
 
     #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
-    pub enum LabelsUi {
+    pub enum NodeUi {
         UiPass,
     }
 }
@@ -105,27 +106,27 @@ pub fn build_ui_render(app: &mut App) {
     let ui_graph_3d = get_ui_graph(render_app);
     let mut graph = render_app.world.resource_mut::<RenderGraph>();
 
-    if let Some(graph_2d) = graph.get_sub_graph_mut(SubGraph2d) {
+    if let Some(graph_2d) = graph.get_sub_graph_mut(Core2d) {
         graph_2d.add_sub_graph(SubGraphUi, ui_graph_2d);
-        graph_2d.add_node(LabelsUi::UiPass, RunGraphOnViewNode::new(SubGraphUi));
-        graph_2d.add_node_edge(Labels2d::MainPass, LabelsUi::UiPass);
-        graph_2d.add_node_edge(Labels2d::EndMainPassPostProcessing, LabelsUi::UiPass);
-        graph_2d.add_node_edge(LabelsUi::UiPass, Labels2d::Upscaling);
+        graph_2d.add_node(NodeUi::UiPass, RunGraphOnViewNode::new(SubGraphUi));
+        graph_2d.add_node_edge(Node2d::MainPass, NodeUi::UiPass);
+        graph_2d.add_node_edge(Node2d::EndMainPassPostProcessing, NodeUi::UiPass);
+        graph_2d.add_node_edge(NodeUi::UiPass, Node2d::Upscaling);
     }
 
-    if let Some(graph_3d) = graph.get_sub_graph_mut(SubGraph3d) {
+    if let Some(graph_3d) = graph.get_sub_graph_mut(Core3d) {
         graph_3d.add_sub_graph(SubGraphUi, ui_graph_3d);
-        graph_3d.add_node(LabelsUi::UiPass, RunGraphOnViewNode::new(SubGraphUi));
-        graph_3d.add_node_edge(Labels3d::EndMainPass, LabelsUi::UiPass);
-        graph_3d.add_node_edge(Labels3d::EndMainPassPostProcessing, LabelsUi::UiPass);
-        graph_3d.add_node_edge(LabelsUi::UiPass, Labels3d::Upscaling);
+        graph_3d.add_node(NodeUi::UiPass, RunGraphOnViewNode::new(SubGraphUi));
+        graph_3d.add_node_edge(Node3d::EndMainPass, NodeUi::UiPass);
+        graph_3d.add_node_edge(Node3d::EndMainPassPostProcessing, NodeUi::UiPass);
+        graph_3d.add_node_edge(NodeUi::UiPass, Node3d::Upscaling);
     }
 }
 
 fn get_ui_graph(render_app: &mut App) -> RenderGraph {
     let ui_pass_node = UiPassNode::new(&mut render_app.world);
     let mut ui_graph = RenderGraph::default();
-    ui_graph.add_node(LabelsUi::UiPass, ui_pass_node);
+    ui_graph.add_node(NodeUi::UiPass, ui_pass_node);
     ui_graph
 }
 
@@ -147,7 +148,7 @@ pub struct ExtractedUiNode {
 
 #[derive(Resource, Default)]
 pub struct ExtractedUiNodes {
-    pub uinodes: EntityHashMap<Entity, ExtractedUiNode>,
+    pub uinodes: EntityHashMap<ExtractedUiNode>,
 }
 
 pub(crate) fn resolve_border_thickness(value: Val, parent_width: f32, viewport_size: Vec2) -> f32 {

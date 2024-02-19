@@ -9,9 +9,9 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> proc_macro2::TokenStream {
     let bevy_reflect_path = meta.bevy_reflect_path();
     let type_path = meta.type_path();
 
-    let hash_fn = meta.traits().get_hash_impl(bevy_reflect_path);
-    let partial_eq_fn = meta.traits().get_partial_eq_impl(bevy_reflect_path);
-    let debug_fn = meta.traits().get_debug_impl();
+    let hash_fn = meta.attrs().get_hash_impl(bevy_reflect_path);
+    let partial_eq_fn = meta.attrs().get_partial_eq_impl(bevy_reflect_path);
+    let debug_fn = meta.attrs().get_debug_impl();
 
     #[cfg(feature = "documentation")]
     let with_docs = {
