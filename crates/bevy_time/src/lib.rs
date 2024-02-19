@@ -60,7 +60,7 @@ impl Plugin for TimePlugin {
                 First,
                 (time_system, virtual_time_system.after(time_system)).in_set(TimeSystem),
             )
-            .add_systems(RunFixedMainLoop, run_fixed_main_schedule.in_set(RunFixedMainSchedule);
+            .add_systems(RunFixedMainLoop, run_fixed_main_schedule.in_set(RunFixedMainSchedule));
 
         // ensure the events are not dropped until `FixedMain` systems can observe them
         app.init_resource::<EventUpdateSignal>()
