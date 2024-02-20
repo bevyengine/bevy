@@ -108,6 +108,7 @@ impl SystemExecutor for SingleThreadedExecutor {
 
     fn set_apply_final_deferred(&mut self, _: bool) {
         // do nothing. single threaded executor does not do a final sync
+        // as commands are always immediately applied
     }
 }
 
