@@ -5,10 +5,10 @@ use std::f32::consts::PI;
 use super::helpers::*;
 
 use bevy_math::primitives::{
-    BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, Direction2d, Ellipse, Line2d, Plane2d,
-    Polygon, Polyline2d, Primitive2d, Rectangle, RegularPolygon, Segment2d, Triangle2d,
+    BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, Ellipse, Line2d, Plane2d, Polygon,
+    Polyline2d, Primitive2d, Rectangle, RegularPolygon, Segment2d, Triangle2d,
 };
-use bevy_math::{Mat2, Vec2};
+use bevy_math::{Dir2, Mat2, Vec2};
 use bevy_render::color::Color;
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
@@ -38,12 +38,12 @@ pub trait GizmoPrimitive2d<P: Primitive2d> {
 
 // direction 2d
 
-impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Direction2d> for Gizmos<'w, 's, T> {
+impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Dir2> for Gizmos<'w, 's, T> {
     type Output<'a> = () where Self : 'a;
 
     fn primitive_2d(
         &mut self,
-        primitive: Direction2d,
+        primitive: Dir2,
         position: Vec2,
         angle: f32,
         color: Color,
@@ -163,7 +163,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Capsule2d> for Gizmos<'w, 's,
 pub struct Line2dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     gizmos: &'a mut Gizmos<'w, 's, T>,
 
-    direction: Direction2d, // Direction of the line
+    direction: Dir2, // Direction of the line
 
     position: Vec2, // position of the center of the line
     rotation: Mat2, // rotation of the line
@@ -262,7 +262,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Plane2d> for Gizmos<'w, 's, T
         .draw_arrow(true);
 
         // draw the plane line
-        let direction = Direction2d::new_unchecked(-normal.perp());
+        let direction = Dir2::new_unchecked(-normal.perp());
         self.primitive_2d(Line2d { direction }, position, angle, color)
             .draw_arrow(false);
 
@@ -282,8 +282,8 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Plane2d> for Gizmos<'w, 's, T
 pub struct Segment2dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     gizmos: &'a mut Gizmos<'w, 's, T>,
 
-    direction: Direction2d, // Direction of the line segment
-    half_length: f32,       // Half-length of the line segment
+    direction: Dir2,  // Direction of the line segment
+    half_length: f32, // Half-length of the line segment
 
     position: Vec2, // position of the center of the line segment
     rotation: Mat2, // rotation of the line segment

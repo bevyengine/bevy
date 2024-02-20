@@ -1,14 +1,7 @@
 use crate as bevy_reflect;
 use crate::{ReflectDeserialize, ReflectSerialize};
-use bevy_math::{primitives::*, Vec3};
-use bevy_reflect_derive::{impl_reflect, impl_reflect_value};
-
-impl_reflect_value!(::bevy_math::primitives::Direction3d(
-    Debug,
-    PartialEq,
-    Serialize,
-    Deserialize
-));
+use bevy_math::{primitives::*, Dir3, Vec3};
+use bevy_reflect_derive::impl_reflect;
 
 impl_reflect!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize)]
@@ -22,7 +15,7 @@ impl_reflect!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize)]
     #[type_path = "bevy_math::primitives"]
     struct Plane3d {
-        normal: Direction3d,
+        normal: Dir3,
     }
 );
 
@@ -30,7 +23,7 @@ impl_reflect!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize)]
     #[type_path = "bevy_math::primitives"]
     struct Line3d {
-        direction: Direction3d,
+        direction: Dir3,
     }
 );
 
@@ -38,7 +31,7 @@ impl_reflect!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize)]
     #[type_path = "bevy_math::primitives"]
     struct Segment3d {
-        direction: Direction3d,
+        direction: Dir3,
         half_length: f32,
     }
 );

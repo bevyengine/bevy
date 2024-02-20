@@ -8,7 +8,7 @@ use bevy_ecs::{
     system::{Deferred, ReadOnlySystemParam, Res, Resource, SystemBuffer, SystemMeta, SystemParam},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
-use bevy_math::{primitives::Direction3d, Mat2, Quat, Vec2, Vec3};
+use bevy_math::{Dir3, Mat2, Quat, Vec2, Vec3};
 use bevy_render::color::Color;
 use bevy_transform::TransformPoint;
 
@@ -622,7 +622,7 @@ impl<T: GizmoConfigGroup> Drop for SphereBuilder<'_, '_, '_, T> {
             self.gizmos
                 .circle(
                     self.position,
-                    Direction3d::new_unchecked(self.rotation * axis),
+                    Dir3::new_unchecked(self.rotation * axis),
                     self.radius,
                     self.color,
                 )
