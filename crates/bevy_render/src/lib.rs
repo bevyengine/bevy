@@ -37,7 +37,7 @@ pub mod prelude {
             Projection,
         },
         color::Color,
-        mesh::{morph::MorphWeights, primitives::Meshable, shape, Mesh},
+        mesh::{morph::MorphWeights, primitives::Meshable, Mesh},
         render_resource::Shader,
         spatial_bundle::SpatialBundle,
         texture::{Image, ImagePlugin},
