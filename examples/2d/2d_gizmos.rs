@@ -45,11 +45,11 @@ fn draw_example_collection(
         .grid_2d(
             Vec2::ZERO,
             0.0,
-            UVec2::new(16, 10),
+            UVec2::new(16, 12),
             Vec2::new(60., 60.),
             Color::DARK_GRAY,
         )
-        .outer_edges(false);
+        .outer_edges(true);
 
     // Triangle
     gizmos.linestrip_gradient_2d([
