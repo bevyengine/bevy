@@ -44,7 +44,7 @@ pub enum ExecutorKind {
     /// Like [`SingleThreaded`](ExecutorKind::SingleThreaded) but calls [`apply_deferred`](crate::system::System::apply_deferred)
     /// immediately after running each system.
     #[deprecated(
-        since = "0.14",
+        since = "0.14.0",
         note = "The simple executor  now is identical to the SingleThreaded executor. Use the single-threaded executor instead."
     )]
     Simple,

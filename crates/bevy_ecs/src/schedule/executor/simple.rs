@@ -13,7 +13,7 @@ use crate::{
 /// [`apply_deferred`](crate::system::System::apply_deferred) immediately after running each system.
 #[derive(Default)]
 #[deprecated(
-    since = "0.14",
+    since = "0.14.0",
     note = "The SimpleExecutor now is identical to the SingleThreaded executor. Use the single-threaded executor instead."
 )]
 pub struct SimpleExecutor {
