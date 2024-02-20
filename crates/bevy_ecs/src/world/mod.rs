@@ -2184,6 +2184,53 @@ impl World {
                 .get_mut_by_id(component_id)
         }
     }
+
+    /// Iterates over all resources in the world
+    pub fn iter_resources(&self) -> impl Iterator<Item = (&ComponentInfo, Ptr<'_>)> {
+        self.storages.resources.iter().map(|(component_id, data)| {
+            let component_info = self.components.get_info(component_id).unwrap_or_else(|| {
+                panic!("ComponentInfo should exist for all resources in the world, but it does not for {:?}", component_id);
+            });
+            let ptr = data.get_data().unwrap_or_else(|| {
+                panic!(
+                    "When iterating all resources, resource of type {} was supposed to exist, but did not.",
+                    component_info.name()
+                )
+            });
+            (component_info, ptr)
+        })
+    }
+
+    /// Mutably iterates over all resources in the world
+    pub fn iter_resources_mut(&mut self) -> impl Iterator<Item = (&ComponentInfo, MutUntyped<'_>)> {
+        self.storages.resources.iter().map(|(component_id, data)| {
+            let component_info = self.components.get_info(component_id).unwrap_or_else(|| {
+                panic!("ComponentInfo should exist for all resources in the world, but it does not for {:?}", component_id);
+            });
+
+            let (ptr, ticks) = data.get_with_ticks().unwrap_or_else(|| {
+                panic!(
+                    "When iterating all resources, resource of type {} was supposed to exist, but did not.",
+                    component_info.name()
+                )
+            });
+
+            // SAFETY:
+            // - ???
+            let ticks = unsafe {
+                TicksMut::from_tick_cells(ticks, self.last_change_tick(), self.read_change_tick())
+            };
+
+            let mut_untyped = MutUntyped {
+                // SAFETY:
+                // - ???
+                value: unsafe { ptr.assert_unique() },
+                ticks,
+            };
+
+            (component_info, mut_untyped)
+        })
+    }
 }
 
 // Schedule-related methods
