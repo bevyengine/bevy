@@ -1,0 +1,21 @@
+[package]
+name = "bevy_color"
+version = "0.13.0"
+edition = "2021"
+description = "Types for representing and manipulating color values"
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT OR Apache-2.0"
+keywords = ["bevy", "color"]
+
+[dependencies]
+# bevy = "0.12.1"
+bevy_math = { path = "../bevy_math", version = "0.13.0" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.13.0", features = [
+  "bevy",
+] }
+bevy_render = { path = "../bevy_render", version = "0.13.0" }
+serde = "1.0.193"
+
+[lints]
+workspace = true
