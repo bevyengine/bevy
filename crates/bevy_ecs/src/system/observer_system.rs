@@ -18,7 +18,8 @@ pub trait ObserverSystem<E: 'static, B: Bundle>:
 
 /// Implemented for [`SystemParam`] that can be used in [`Observer`] systems.
 /// # Safety
-/// Implementing types must ensure their implementation of [`SystemParam::get_param`] does not use `world` except as a [`DeferredWorld`]
+/// Implementing types must ensure their implementation of [`SystemParam::get_param`] does not use `world` except as a [`DeferredWorld`]]
+/// `apply_deferred` may also not be called, this trait can be merged with `SystemParam` if we promote these restrictions to that type
 pub unsafe trait ObserverSystemParam: SystemParam {}
 
 /// # Safety: `Query` can make no structural changes
