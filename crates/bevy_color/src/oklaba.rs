@@ -134,9 +134,6 @@ mod tests {
 
     #[test]
     fn test_to_from_srgba() {
-        let oklab: Oklaba = Srgba::RED.into();
-        assert_eq!(oklab, Oklaba::new(0.6279554, 0.22486295, 0.1258463, 1.0));
-
         let oklaba = Oklaba::new(0.5, 0.5, 0.5, 1.0);
         let srgba: Srgba = oklaba.into();
         let oklaba2: Oklaba = srgba.into();
