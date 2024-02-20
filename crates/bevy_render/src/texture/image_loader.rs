@@ -49,6 +49,7 @@ pub(crate) const IMG_FILE_EXTENSIONS: &[&str] = &[
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub enum ImageFormatSetting {
     #[default]
+    FromContent,
     FromExtension,
     Format(ImageFormat),
 }
@@ -98,6 +99,20 @@ impl AssetLoader for ImageLoader {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;
             let image_type = match settings.format {
+                ImageFormatSetting::FromContent => {
+                    let image_crate_format =
+                        image::guess_format(&bytes).map_err(|err| FileTextureError {
+                            error: TextureError::ImageError(err),
+                            path: format!("{}", load_context.path().display()),
+                        })?;
+
+                    let format = ImageFormat::from_image_crate_format(image_crate_format)
+                        .ok_or_else(|| FileTextureError {
+                            error: TextureError::InvalidImageContentType(image_crate_format),
+                            path: format!("{}", load_context.path().display()),
+                        })?;
+                    ImageType::Format(format)
+                }
                 ImageFormatSetting::FromExtension => ImageType::Extension(ext),
                 ImageFormatSetting::Format(format) => ImageType::Format(format),
             };

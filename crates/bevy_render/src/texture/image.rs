@@ -99,6 +99,26 @@ impl ImageFormat {
             ImageFormat::Basis | ImageFormat::Ktx2 => return None,
         })
     }
+
+    pub fn from_image_crate_format(format: image::ImageFormat) -> Option<Self> {
+        Some(match format {
+            image::ImageFormat::Avif => ImageFormat::Avif,
+            image::ImageFormat::Bmp => ImageFormat::Bmp,
+            image::ImageFormat::Dds => ImageFormat::Dds,
+            image::ImageFormat::Farbfeld => ImageFormat::Farbfeld,
+            image::ImageFormat::Gif => ImageFormat::Gif,
+            image::ImageFormat::OpenExr => ImageFormat::OpenExr,
+            image::ImageFormat::Hdr => ImageFormat::Hdr,
+            image::ImageFormat::Ico => ImageFormat::Ico,
+            image::ImageFormat::Jpeg => ImageFormat::Jpeg,
+            image::ImageFormat::Png => ImageFormat::Png,
+            image::ImageFormat::Pnm => ImageFormat::Pnm,
+            image::ImageFormat::Tga => ImageFormat::Tga,
+            image::ImageFormat::Tiff => ImageFormat::Tiff,
+            image::ImageFormat::WebP => ImageFormat::WebP,
+            _ => return None,
+        })
+    }
 }
 
 #[derive(Asset, Reflect, Debug, Clone)]
@@ -734,6 +754,8 @@ pub enum TextureError {
     InvalidImageMimeType(String),
     #[error("invalid image extension: {0}")]
     InvalidImageExtension(String),
+    #[error("invalid image content type: {0:?}")]
+    InvalidImageContentType(image::ImageFormat),
     #[error("failed to load an image: {0}")]
     ImageError(#[from] image::ImageError),
     #[error("unsupported texture format: {0}")]
