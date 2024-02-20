@@ -14,7 +14,7 @@ struct CommandMeta {
     ///
     /// Returns the size of `T` in bytes.
     consume_command_and_get_size:
-        unsafe fn(value: OwningPtr<Unaligned>, world: &mut Option<&mut World>) -> usize,
+        unsafe fn(value: OwningPtr<Unaligned>, world: Option<&mut World>) -> usize,
 }
 
 /// Densely and efficiently stores a queue of heterogenous types implementing [`Command`].
@@ -137,13 +137,14 @@ impl CommandQueue {
 
         // Reset the buffer, so it can be reused after this function ends.
         // In the loop below, ownership of each command will be transferred into user code.
-        let bytes = std::mem::take(&mut self.bytes);
+        // SAFETY: `set_len(0)` is always valid.
+        unsafe { self.bytes.set_len(0) };
 
         // Create a stack for the command queue's we will be applying as commands may queue additional commands.
         // This is preferred over recursion to avoid stack overflows.
         let mut resolving_commands = vec![(cursor, end)];
-        // Take ownership of buffers so they are not free'd uintil they are iterated.
-        let mut buffers = vec![bytes];
+        // Take ownership of any additional buffers so they are not free'd uintil they are iterated.
+        let mut buffers = Vec::new();
 
         // Add any commands in the world's internal queue to the top of the stack.
         if let Some(world) = &mut world {
@@ -175,7 +176,8 @@ impl CommandQueue {
                 // SAFETY: The data underneath the cursor must correspond to the type erased in metadata,
                 // since they were stored next to each other by `.push()`.
                 // For ZSTs, the type doesn't matter as long as the pointer is non-null.
-                let size = unsafe { (meta.consume_command_and_get_size)(cmd, &mut world) };
+                let size =
+                    unsafe { (meta.consume_command_and_get_size)(cmd, world.as_deref_mut()) };
                 // Advance the cursor past the command. For ZSTs, the cursor will not move.
                 // At this point, it will either point to the next `CommandMeta`,
                 // or the cursor will be out of bounds and the loop will end.
@@ -192,7 +194,7 @@ impl CommandQueue {
                         }
                         let mut bytes = std::mem::take(&mut world.command_queue.bytes);
 
-                        // Set our variables to start applying the new queue
+                        // Start applying the new queue
                         let bytes_range = bytes.as_mut_ptr_range();
                         cursor = bytes_range.start;
                         end = bytes_range.end;
@@ -202,13 +204,12 @@ impl CommandQueue {
                     }
                 }
             }
-        }
-
-        // Reset the buffer, so it can be reused after this function ends.
-        if let Some(bytes) = buffers.first_mut() {
-            self.bytes = std::mem::take(bytes);
-            // SAFETY: `set_len(0)` is always valid.
-            unsafe { self.bytes.set_len(0) }
+            // Re-use last buffer to avoid re-allocation
+            if let (Some(world), Some(buffer)) = (&mut world, buffers.pop()) {
+                world.command_queue.bytes = buffer;
+                // SAFETY: `set_len(0)` is always valid.
+                unsafe { world.command_queue.bytes.set_len(0) };
+            }
         }
     }
 

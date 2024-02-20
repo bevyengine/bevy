@@ -35,7 +35,7 @@ fn main() {
 
 fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     commands.spawn((
-        meshes.add(shape::Cube { size: 0.5 }),
+        meshes.add(Cuboid::new(0.5, 0.5, 0.5)),
         SpatialBundle::INHERITED_IDENTITY,
         InstanceMaterialData(
             (1..=10)
@@ -244,7 +244,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMeshInstanced {
     fn render<'w>(
         item: &P,
         _view: (),
-        instance_buffer: &'w InstanceBuffer,
+        instance_buffer: Option<&'w InstanceBuffer>,
         (meshes, render_mesh_instances): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -252,6 +252,9 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMeshInstanced {
             return RenderCommandResult::Failure;
         };
         let Some(gpu_mesh) = meshes.into_inner().get(mesh_instance.mesh_asset_id) else {
+            return RenderCommandResult::Failure;
+        };
+        let Some(instance_buffer) = instance_buffer else {
             return RenderCommandResult::Failure;
         };
 

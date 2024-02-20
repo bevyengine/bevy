@@ -1,5 +1,4 @@
-use bevy_ecs::entity::Entity;
-use bevy_utils::EntityHashSet;
+use bevy_ecs::entity::{Entity, EntityHashSet};
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
@@ -28,7 +27,7 @@ fn make_entity(rng: &mut impl Rng, size: usize) -> Entity {
     e
 }
 
-fn entity_set_build_and_lookup(c: &mut Criterion) {
+pub fn entity_set_build_and_lookup(c: &mut Criterion) {
     let mut group = c.benchmark_group("entity_hash");
     for size in SIZES {
         // Get some random-but-consistent entities to use for all the benches below.

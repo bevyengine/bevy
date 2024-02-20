@@ -56,7 +56,7 @@ fn setup(
     // plane
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(shape::Plane::from_size(20.)),
+            mesh: meshes.add(Plane3d::default().mesh().size(20., 20.)),
             material: materials.add(Color::rgb(0.3, 0.5, 0.3)),
             ..default()
         },
@@ -66,10 +66,6 @@ fn setup(
     // light
     commands.spawn(DirectionalLightBundle {
         transform: Transform::from_translation(Vec3::ONE).looking_at(Vec3::ZERO, Vec3::Y),
-        directional_light: DirectionalLight {
-            illuminance: 2000.0,
-            ..default()
-        },
         ..default()
     });
 

@@ -31,7 +31,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<CustomMaterial>>,
 ) {
-    let mesh = Mesh::from(shape::Cube { size: 1.0 })
+    let mesh = Mesh::from(Cuboid::default())
         // Sets the custom attribute
         .with_inserted_attribute(
             ATTRIBUTE_BLEND_COLOR,

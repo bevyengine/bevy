@@ -32,6 +32,26 @@ impl<'w> Deref for DeferredWorld<'w> {
     }
 }
 
+impl<'w> UnsafeWorldCell<'w> {
+    /// Turn self into a [`DeferredWorld`]
+    ///
+    /// # Safety
+    /// Caller must ensure there are no outstanding mutable references to world and no
+    /// outstanding references to the world's command queue, resource or component data
+    #[inline]
+    pub unsafe fn into_deferred(self) -> DeferredWorld<'w> {
+        DeferredWorld { world: self }
+    }
+}
+
+impl<'w> From<&'w mut World> for DeferredWorld<'w> {
+    fn from(world: &'w mut World) -> DeferredWorld<'w> {
+        DeferredWorld {
+            world: world.as_unsafe_world_cell(),
+        }
+    }
+}
+
 impl<'w> DeferredWorld<'w> {
     /// Reborrow self as a new instance of [`DeferredWorld`]
     #[inline]
@@ -108,7 +128,6 @@ impl<'w> DeferredWorld<'w> {
                 state,
                 self.world.last_change_tick(),
                 self.world.change_tick(),
-                false,
             )
         }
     }
@@ -363,25 +382,6 @@ impl<'w> DeferredWorld<'w> {
     #[inline]
     pub(crate) fn as_unsafe_world_cell(&mut self) -> UnsafeWorldCell {
         self.world
-    }
-}
-
-impl<'w> UnsafeWorldCell<'w> {
-    /// Turn self into a [`DeferredWorld`]
-    ///
-    /// # Safety
-    /// Caller must ensure there are no outstanding references to the world's command queue, resource or component data
-    #[inline]
-    pub unsafe fn into_deferred(self) -> DeferredWorld<'w> {
-        DeferredWorld { world: self }
-    }
-}
-
-impl<'w> From<&'w mut World> for DeferredWorld<'w> {
-    fn from(world: &'w mut World) -> DeferredWorld<'w> {
-        DeferredWorld {
-            world: world.as_unsafe_world_cell(),
-        }
     }
 }
 
