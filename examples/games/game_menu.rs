@@ -71,12 +71,12 @@ fn outer_node(
 
 // This node is always a direct child of the `outer` node, and arranges contents in a column, from top to bottom
 fn inner_node<T: Into<BackgroundColor>>(
-    mut commands: &mut Commands,
+    commands: &mut Commands,
     marker: impl Component,
     color: T,
     spawn_children: impl FnOnce(&mut ChildBuilder),
 ) {
-    outer_node(&mut commands, marker, {
+    outer_node(commands, marker, {
         |parent| {
             parent
                 .spawn(NodeBundle {
