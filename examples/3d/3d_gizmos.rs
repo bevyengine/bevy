@@ -86,6 +86,14 @@ fn draw_example_collection(
     mut my_gizmos: Gizmos<MyRoundGizmos>,
     time: Res<Time>,
 ) {
+    gizmos.grid(
+        Vec3::ZERO,
+        Quat::from_rotation_x(PI / 2.),
+        UVec2::splat(20),
+        Vec2::new(2., 2.),
+        Color::DARK_GRAY,
+    );
+
     gizmos.cuboid(
         Transform::from_translation(Vec3::Y * 0.5).with_scale(Vec3::splat(1.25)),
         Color::BLACK,

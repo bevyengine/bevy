@@ -41,6 +41,16 @@ fn draw_example_collection(
     gizmos.line_2d(Vec2::Y * -sin, Vec2::splat(-80.), Color::RED);
     gizmos.ray_2d(Vec2::Y * sin, Vec2::splat(80.), Color::GREEN);
 
+    gizmos
+        .grid_2d(
+            Vec2::ZERO,
+            0.0,
+            UVec2::new(16, 10),
+            Vec2::new(60., 60.),
+            Color::DARK_GRAY,
+        )
+        .outer_edges(false);
+
     // Triangle
     gizmos.linestrip_gradient_2d([
         (Vec2::Y * 300., Color::BLUE),
