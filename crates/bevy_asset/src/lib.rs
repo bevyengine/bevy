@@ -217,10 +217,7 @@ impl Plugin for AssetPlugin {
             .init_asset::<LoadedUntypedAsset>()
             .init_asset::<()>()
             .add_event::<UntypedAssetLoadFailedEvent>()
-            .configure_sets(
-                PreUpdate,
-                TrackAssets.after(handle_internal_asset_events),
-            )
+            .configure_sets(PreUpdate, TrackAssets.after(handle_internal_asset_events))
             .add_systems(PreUpdate, handle_internal_asset_events)
             .register_type::<AssetPath>();
     }
@@ -384,7 +381,7 @@ impl AssetApp for App {
             .add_systems(
                 First,
                 Assets::<A>::asset_events
-                    .before(bevy_ecs::event::event_update_system::<AssetEvent::<A>>)
+                    .before(bevy_ecs::event::event_update_system::<AssetEvent<A>>)
                     .run_if(Assets::<A>::asset_events_condition),
             )
             .add_systems(PreUpdate, Assets::<A>::track_assets.in_set(TrackAssets))
