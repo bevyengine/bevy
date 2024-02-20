@@ -30,6 +30,7 @@ pub mod arrows;
 pub mod circles;
 pub mod config;
 pub mod gizmos;
+pub mod grid;
 pub mod primitives;
 
 #[cfg(feature = "bevy_sprite")]
