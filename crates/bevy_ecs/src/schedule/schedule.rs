@@ -150,6 +150,7 @@ impl Schedules {
     }
 }
 
+#[allow(deprecated)]
 fn make_executor(kind: ExecutorKind) -> Box<dyn SystemExecutor> {
     match kind {
         ExecutorKind::Simple => Box::new(SimpleExecutor::new()),
