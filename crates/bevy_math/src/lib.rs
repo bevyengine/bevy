@@ -27,7 +27,7 @@ pub mod prelude {
             CubicBSpline, CubicBezier, CubicCardinalSpline, CubicGenerator, CubicHermite,
             CubicSegment,
         },
-        direction::{Dir2, Dir3, Dir3A},
+        direction::{Direction2d, Direction3d, Direction3dA},
         primitives::*,
         BVec2, BVec3, BVec4, EulerRot, FloatExt, IRect, IVec2, IVec3, IVec4, Mat2, Mat3, Mat4,
         Quat, Ray2d, Ray3d, Rect, URect, UVec2, UVec3, UVec4, Vec2, Vec2Swizzles, Vec3,

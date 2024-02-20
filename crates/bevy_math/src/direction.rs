@@ -41,10 +41,10 @@ impl std::fmt::Display for InvalidDirectionError {
 /// A normalized vector pointing in a direction in 2D space
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-pub struct Dir2(Vec2);
-impl Primitive2d for Dir2 {}
+pub struct Direction2d(Vec2);
+impl Primitive2d for Direction2d {}
 
-impl Dir2 {
+impl Direction2d {
     /// A unit vector pointing along the positive X axis.
     pub const X: Self = Self(Vec2::X);
     /// A unit vector pointing along the positive Y axis.
@@ -62,7 +62,7 @@ impl Dir2 {
         Self::new_and_length(value).map(|(dir, _)| dir)
     }
 
-    /// Create a [`Dir2`] from a [`Vec2`] that is already normalized.
+    /// Create a [`Direction2d`] from a [`Vec2`] that is already normalized.
     ///
     /// # Warning
     ///
@@ -95,7 +95,7 @@ impl Dir2 {
     }
 }
 
-impl TryFrom<Vec2> for Dir2 {
+impl TryFrom<Vec2> for Direction2d {
     type Error = InvalidDirectionError;
 
     fn try_from(value: Vec2) -> Result<Self, Self::Error> {
@@ -103,14 +103,14 @@ impl TryFrom<Vec2> for Dir2 {
     }
 }
 
-impl std::ops::Deref for Dir2 {
+impl std::ops::Deref for Direction2d {
     type Target = Vec2;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl std::ops::Neg for Dir2 {
+impl std::ops::Neg for Direction2d {
     type Output = Self;
     fn neg(self) -> Self::Output {
         Self(-self.0)
@@ -118,7 +118,7 @@ impl std::ops::Neg for Dir2 {
 }
 
 #[cfg(feature = "approx")]
-impl approx::AbsDiffEq for Dir2 {
+impl approx::AbsDiffEq for Direction2d {
     type Epsilon = f32;
     fn default_epsilon() -> f32 {
         f32::EPSILON
@@ -129,7 +129,7 @@ impl approx::AbsDiffEq for Dir2 {
 }
 
 #[cfg(feature = "approx")]
-impl approx::RelativeEq for Dir2 {
+impl approx::RelativeEq for Direction2d {
     fn default_max_relative() -> f32 {
         f32::EPSILON
     }
@@ -140,7 +140,7 @@ impl approx::RelativeEq for Dir2 {
 }
 
 #[cfg(feature = "approx")]
-impl approx::UlpsEq for Dir2 {
+impl approx::UlpsEq for Direction2d {
     fn default_max_ulps() -> u32 {
         4
     }
@@ -152,10 +152,10 @@ impl approx::UlpsEq for Dir2 {
 /// A normalized vector pointing in a direction in 3D space
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-pub struct Dir3(Vec3);
-impl Primitive3d for Dir3 {}
+pub struct Direction3d(Vec3);
+impl Primitive3d for Direction3d {}
 
-impl Dir3 {
+impl Direction3d {
     /// A unit vector pointing along the positive X axis.
     pub const X: Self = Self(Vec3::X);
     /// A unit vector pointing along the positive Y axis.
@@ -177,7 +177,7 @@ impl Dir3 {
         Self::new_and_length(value).map(|(dir, _)| dir)
     }
 
-    /// Create a [`Dir3`] from a [`Vec3`] that is already normalized.
+    /// Create a [`Direction3d`] from a [`Vec3`] that is already normalized.
     ///
     /// # Warning
     ///
@@ -210,7 +210,7 @@ impl Dir3 {
     }
 }
 
-impl TryFrom<Vec3> for Dir3 {
+impl TryFrom<Vec3> for Direction3d {
     type Error = InvalidDirectionError;
 
     fn try_from(value: Vec3) -> Result<Self, Self::Error> {
@@ -218,50 +218,50 @@ impl TryFrom<Vec3> for Dir3 {
     }
 }
 
-impl From<Dir3> for Vec3 {
-    fn from(value: Dir3) -> Self {
+impl From<Direction3d> for Vec3 {
+    fn from(value: Direction3d) -> Self {
         value.0
     }
 }
 
-impl std::ops::Deref for Dir3 {
+impl std::ops::Deref for Direction3d {
     type Target = Vec3;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl std::ops::Neg for Dir3 {
+impl std::ops::Neg for Direction3d {
     type Output = Self;
     fn neg(self) -> Self::Output {
         Self(-self.0)
     }
 }
 
-impl std::ops::Mul<f32> for Dir3 {
+impl std::ops::Mul<f32> for Direction3d {
     type Output = Vec3;
     fn mul(self, rhs: f32) -> Self::Output {
         self.0 * rhs
     }
 }
 
-impl std::ops::Mul<Dir3> for Quat {
-    type Output = Dir3;
+impl std::ops::Mul<Direction3d> for Quat {
+    type Output = Direction3d;
 
-    /// Rotates the [`Dir3`] using a [`Quat`].
-    fn mul(self, direction: Dir3) -> Self::Output {
+    /// Rotates the [`Direction3d`] using a [`Quat`].
+    fn mul(self, direction: Direction3d) -> Self::Output {
         let rotated = self * *direction;
 
         // Make sure the result is normalized.
         // This can fail for non-unit quaternions.
         debug_assert!(rotated.is_normalized());
 
-        Dir3::new_unchecked(rotated)
+        Direction3d::new_unchecked(rotated)
     }
 }
 
 #[cfg(feature = "approx")]
-impl approx::AbsDiffEq for Dir3 {
+impl approx::AbsDiffEq for Direction3d {
     type Epsilon = f32;
     fn default_epsilon() -> f32 {
         f32::EPSILON
@@ -272,7 +272,7 @@ impl approx::AbsDiffEq for Dir3 {
 }
 
 #[cfg(feature = "approx")]
-impl approx::RelativeEq for Dir3 {
+impl approx::RelativeEq for Direction3d {
     fn default_max_relative() -> f32 {
         f32::EPSILON
     }
@@ -283,7 +283,7 @@ impl approx::RelativeEq for Dir3 {
 }
 
 #[cfg(feature = "approx")]
-impl approx::UlpsEq for Dir3 {
+impl approx::UlpsEq for Direction3d {
     fn default_max_ulps() -> u32 {
         4
     }
@@ -297,10 +297,10 @@ impl approx::UlpsEq for Dir3 {
 /// This type stores a 16 byte aligned [`Vec3A`].
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-pub struct Dir3A(Vec3A);
-impl Primitive3d for Dir3A {}
+pub struct Direction3dA(Vec3A);
+impl Primitive3d for Direction3dA {}
 
-impl Dir3A {
+impl Direction3dA {
     /// A unit vector pointing along the positive X axis.
     pub const X: Self = Self(Vec3A::X);
     /// A unit vector pointing along the positive Y axis.
@@ -322,7 +322,7 @@ impl Dir3A {
         Self::new_and_length(value).map(|(dir, _)| dir)
     }
 
-    /// Create a [`Dir3A`] from a [`Vec3A`] that is already normalized.
+    /// Create a [`Direction3dA`] from a [`Vec3A`] that is already normalized.
     ///
     /// # Warning
     ///
@@ -355,7 +355,7 @@ impl Dir3A {
     }
 }
 
-impl TryFrom<Vec3A> for Dir3A {
+impl TryFrom<Vec3A> for Direction3dA {
     type Error = InvalidDirectionError;
 
     fn try_from(value: Vec3A) -> Result<Self, Self::Error> {
@@ -363,50 +363,50 @@ impl TryFrom<Vec3A> for Dir3A {
     }
 }
 
-impl From<Dir3A> for Vec3A {
-    fn from(value: Dir3A) -> Self {
+impl From<Direction3dA> for Vec3A {
+    fn from(value: Direction3dA) -> Self {
         value.0
     }
 }
 
-impl std::ops::Deref for Dir3A {
+impl std::ops::Deref for Direction3dA {
     type Target = Vec3A;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl std::ops::Neg for Dir3A {
+impl std::ops::Neg for Direction3dA {
     type Output = Self;
     fn neg(self) -> Self::Output {
         Self(-self.0)
     }
 }
 
-impl std::ops::Mul<f32> for Dir3A {
+impl std::ops::Mul<f32> for Direction3dA {
     type Output = Vec3A;
     fn mul(self, rhs: f32) -> Self::Output {
         self.0 * rhs
     }
 }
 
-impl std::ops::Mul<Dir3A> for Quat {
-    type Output = Dir3A;
+impl std::ops::Mul<Direction3dA> for Quat {
+    type Output = Direction3dA;
 
-    /// Rotates the [`Dir3A`] using a [`Quat`].
-    fn mul(self, direction: Dir3A) -> Self::Output {
+    /// Rotates the [`Direction3dA`] using a [`Quat`].
+    fn mul(self, direction: Direction3dA) -> Self::Output {
         let rotated = self * *direction;
 
         // Make sure the result is normalized.
         // This can fail for non-unit quaternions.
         debug_assert!(rotated.is_normalized());
 
-        Dir3A::new_unchecked(rotated)
+        Direction3dA::new_unchecked(rotated)
     }
 }
 
 #[cfg(feature = "approx")]
-impl approx::AbsDiffEq for Dir3A {
+impl approx::AbsDiffEq for Direction3dA {
     type Epsilon = f32;
     fn default_epsilon() -> f32 {
         f32::EPSILON
@@ -417,7 +417,7 @@ impl approx::AbsDiffEq for Dir3A {
 }
 
 #[cfg(feature = "approx")]
-impl approx::RelativeEq for Dir3A {
+impl approx::RelativeEq for Direction3dA {
     fn default_max_relative() -> f32 {
         f32::EPSILON
     }
@@ -428,7 +428,7 @@ impl approx::RelativeEq for Dir3A {
 }
 
 #[cfg(feature = "approx")]
-impl approx::UlpsEq for Dir3A {
+impl approx::UlpsEq for Direction3dA {
     fn default_max_ulps() -> u32 {
         4
     }
@@ -444,78 +444,87 @@ mod tests {
 
     #[test]
     fn dir2_creation() {
-        assert_eq!(Dir2::new(Vec2::X * 12.5), Ok(Dir2::X));
+        assert_eq!(Direction2d::new(Vec2::X * 12.5), Ok(Direction2d::X));
         assert_eq!(
-            Dir2::new(Vec2::new(0.0, 0.0)),
+            Direction2d::new(Vec2::new(0.0, 0.0)),
             Err(InvalidDirectionError::Zero)
         );
         assert_eq!(
-            Dir2::new(Vec2::new(f32::INFINITY, 0.0)),
+            Direction2d::new(Vec2::new(f32::INFINITY, 0.0)),
             Err(InvalidDirectionError::Infinite)
         );
         assert_eq!(
-            Dir2::new(Vec2::new(f32::NEG_INFINITY, 0.0)),
+            Direction2d::new(Vec2::new(f32::NEG_INFINITY, 0.0)),
             Err(InvalidDirectionError::Infinite)
         );
         assert_eq!(
-            Dir2::new(Vec2::new(f32::NAN, 0.0)),
+            Direction2d::new(Vec2::new(f32::NAN, 0.0)),
             Err(InvalidDirectionError::NaN)
         );
-        assert_eq!(Dir2::new_and_length(Vec2::X * 6.5), Ok((Dir2::X, 6.5)));
+        assert_eq!(
+            Direction2d::new_and_length(Vec2::X * 6.5),
+            Ok((Direction2d::X, 6.5))
+        );
     }
 
     #[test]
     fn dir3_creation() {
-        assert_eq!(Dir3::new(Vec3::X * 12.5), Ok(Dir3::X));
+        assert_eq!(Direction3d::new(Vec3::X * 12.5), Ok(Direction3d::X));
         assert_eq!(
-            Dir3::new(Vec3::new(0.0, 0.0, 0.0)),
+            Direction3d::new(Vec3::new(0.0, 0.0, 0.0)),
             Err(InvalidDirectionError::Zero)
         );
         assert_eq!(
-            Dir3::new(Vec3::new(f32::INFINITY, 0.0, 0.0)),
+            Direction3d::new(Vec3::new(f32::INFINITY, 0.0, 0.0)),
             Err(InvalidDirectionError::Infinite)
         );
         assert_eq!(
-            Dir3::new(Vec3::new(f32::NEG_INFINITY, 0.0, 0.0)),
+            Direction3d::new(Vec3::new(f32::NEG_INFINITY, 0.0, 0.0)),
             Err(InvalidDirectionError::Infinite)
         );
         assert_eq!(
-            Dir3::new(Vec3::new(f32::NAN, 0.0, 0.0)),
+            Direction3d::new(Vec3::new(f32::NAN, 0.0, 0.0)),
             Err(InvalidDirectionError::NaN)
         );
-        assert_eq!(Dir3::new_and_length(Vec3::X * 6.5), Ok((Dir3::X, 6.5)));
+        assert_eq!(
+            Direction3d::new_and_length(Vec3::X * 6.5),
+            Ok((Direction3d::X, 6.5))
+        );
 
         // Test rotation
         assert!(
-            (Quat::from_rotation_z(std::f32::consts::FRAC_PI_2) * Dir3::X)
+            (Quat::from_rotation_z(std::f32::consts::FRAC_PI_2) * Direction3d::X)
                 .abs_diff_eq(Vec3::Y, 10e-6)
         );
     }
 
     #[test]
     fn dir3a_creation() {
-        assert_eq!(Dir3A::new(Vec3A::X * 12.5), Ok(Dir3A::X));
+        assert_eq!(Direction3dA::new(Vec3A::X * 12.5), Ok(Direction3dA::X));
         assert_eq!(
-            Dir3A::new(Vec3A::new(0.0, 0.0, 0.0)),
+            Direction3dA::new(Vec3A::new(0.0, 0.0, 0.0)),
             Err(InvalidDirectionError::Zero)
         );
         assert_eq!(
-            Dir3A::new(Vec3A::new(f32::INFINITY, 0.0, 0.0)),
+            Direction3dA::new(Vec3A::new(f32::INFINITY, 0.0, 0.0)),
             Err(InvalidDirectionError::Infinite)
         );
         assert_eq!(
-            Dir3A::new(Vec3A::new(f32::NEG_INFINITY, 0.0, 0.0)),
+            Direction3dA::new(Vec3A::new(f32::NEG_INFINITY, 0.0, 0.0)),
             Err(InvalidDirectionError::Infinite)
         );
         assert_eq!(
-            Dir3A::new(Vec3A::new(f32::NAN, 0.0, 0.0)),
+            Direction3dA::new(Vec3A::new(f32::NAN, 0.0, 0.0)),
             Err(InvalidDirectionError::NaN)
         );
-        assert_eq!(Dir3A::new_and_length(Vec3A::X * 6.5), Ok((Dir3A::X, 6.5)));
+        assert_eq!(
+            Direction3dA::new_and_length(Vec3A::X * 6.5),
+            Ok((Direction3dA::X, 6.5))
+        );
 
         // Test rotation
         assert!(
-            (Quat::from_rotation_z(std::f32::consts::FRAC_PI_2) * Dir3A::X)
+            (Quat::from_rotation_z(std::f32::consts::FRAC_PI_2) * Direction3dA::X)
                 .abs_diff_eq(Vec3A::Y, 10e-6)
         );
     }

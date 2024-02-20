@@ -1,14 +1,7 @@
 use std::f32::consts::PI;
 
 use super::{Primitive2d, WindingOrder};
-use crate::{Dir2, Vec2};
-
-/// A normalized vector pointing in a direction in 2D space
-#[deprecated(
-    since = "0.14.0",
-    note = "`Direction2d` has been renamed. Please use `Dir2` instead."
-)]
-pub type Direction2d = Dir2;
+use crate::{Direction2d, Vec2};
 
 /// A circle primitive
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -138,14 +131,16 @@ impl Ellipse {
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Plane2d {
     /// The normal of the plane. The plane will be placed perpendicular to this direction
-    pub normal: Dir2,
+    pub normal: Direction2d,
 }
 impl Primitive2d for Plane2d {}
 
 impl Default for Plane2d {
     /// Returns the default [`Plane2d`] with a normal pointing in the `+Y` direction.
     fn default() -> Self {
-        Self { normal: Dir2::Y }
+        Self {
+            normal: Direction2d::Y,
+        }
     }
 }
 
@@ -158,7 +153,7 @@ impl Plane2d {
     #[inline(always)]
     pub fn new(normal: Vec2) -> Self {
         Self {
-            normal: Dir2::new(normal).expect("normal must be nonzero and finite"),
+            normal: Direction2d::new(normal).expect("normal must be nonzero and finite"),
         }
     }
 }
@@ -171,7 +166,7 @@ impl Plane2d {
 pub struct Line2d {
     /// The direction of the line. The line extends infinitely in both the given direction
     /// and its opposite direction
-    pub direction: Dir2,
+    pub direction: Direction2d,
 }
 impl Primitive2d for Line2d {}
 
@@ -181,7 +176,7 @@ impl Primitive2d for Line2d {}
 #[doc(alias = "LineSegment2d")]
 pub struct Segment2d {
     /// The direction of the line segment
-    pub direction: Dir2,
+    pub direction: Direction2d,
     /// Half the length of the line segment. The segment extends by this amount in both
     /// the given direction and its opposite direction
     pub half_length: f32,
@@ -191,7 +186,7 @@ impl Primitive2d for Segment2d {}
 impl Segment2d {
     /// Create a new `Segment2d` from a direction and full length of the segment
     #[inline(always)]
-    pub fn new(direction: Dir2, length: f32) -> Self {
+    pub fn new(direction: Direction2d, length: f32) -> Self {
         Self {
             direction,
             half_length: length / 2.0,
@@ -210,7 +205,7 @@ impl Segment2d {
 
         (
             // We are dividing by the length here, so the vector is normalized.
-            Self::new(Dir2::new_unchecked(diff / length), length),
+            Self::new(Direction2d::new_unchecked(diff / length), length),
             (point1 + point2) / 2.,
         )
     }

@@ -1,6 +1,6 @@
 use crate::{
     primitives::{Plane2d, Plane3d},
-    Dir2, Dir3, Vec2, Vec3,
+    Direction2d, Direction3d, Vec2, Vec3,
 };
 
 /// An infinite half-line starting at `origin` and going in `direction` in 2D space.
@@ -10,7 +10,7 @@ pub struct Ray2d {
     /// The origin of the ray.
     pub origin: Vec2,
     /// The direction of the ray.
-    pub direction: Dir2,
+    pub direction: Direction2d,
 }
 
 impl Ray2d {
@@ -23,7 +23,8 @@ impl Ray2d {
     pub fn new(origin: Vec2, direction: Vec2) -> Self {
         Self {
             origin,
-            direction: Dir2::new(direction).expect("ray direction must be nonzero and finite"),
+            direction: Direction2d::new(direction)
+                .expect("ray direction must be nonzero and finite"),
         }
     }
 
@@ -54,7 +55,7 @@ pub struct Ray3d {
     /// The origin of the ray.
     pub origin: Vec3,
     /// The direction of the ray.
-    pub direction: Dir3,
+    pub direction: Direction3d,
 }
 
 impl Ray3d {
@@ -67,7 +68,8 @@ impl Ray3d {
     pub fn new(origin: Vec3, direction: Vec3) -> Self {
         Self {
             origin,
-            direction: Dir3::new(direction).expect("ray direction must be nonzero and finite"),
+            direction: Direction3d::new(direction)
+                .expect("ray direction must be nonzero and finite"),
         }
     }
 
