@@ -52,6 +52,9 @@ pub trait System: Send + Sync + 'static {
     /// can be called in parallel with other systems and may break Rust's aliasing rules
     /// if used incorrectly, making it unsafe to call.
     ///
+    /// Unlike [`System::run`], this will not apply deferred parameters, which must be independently
+    /// applied by calling [`System::apply_deferred`] at later point in time.
+    ///
     /// # Safety
     ///
     /// - The caller must ensure that `world` has permission to access any world data
@@ -70,14 +73,12 @@ pub trait System: Send + Sync + 'static {
     ///
     /// [`run_readonly`]: ReadOnlySystem::run_readonly
     fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
-        let ret = {
-            let world = world.as_unsafe_world_cell();
-            self.update_archetype_component_access(world);
-            // SAFETY:
-            // - We have exclusive access to the entire world.
-            // - `update_archetype_component_access` has been called.
-            unsafe { self.run_unsafe(input, world) }
-        };
+        let world_cell = world.as_unsafe_world_cell();
+        self.update_archetype_component_access(world_cell);
+        // SAFETY:
+        // - We have exclusive access to the entire world.
+        // - `update_archetype_component_access` has been called.
+        let ret = unsafe { self.run_unsafe(input, world_cell) };
         self.apply_deferred(world);
         ret
     }

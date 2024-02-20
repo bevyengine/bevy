@@ -43,7 +43,10 @@ pub enum ExecutorKind {
     SingleThreaded,
     /// Like [`SingleThreaded`](ExecutorKind::SingleThreaded) but calls [`apply_deferred`](crate::system::System::apply_deferred)
     /// immediately after running each system.
-    #[deprecated(since = "0.14", note = "The simple executor  now is identical to the SingleThreaded executor. Use the single-threaded executor instead.")]
+    #[deprecated(
+        since = "0.14",
+        note = "The simple executor  now is identical to the SingleThreaded executor. Use the single-threaded executor instead."
+    )]
     Simple,
     /// Runs the schedule using a thread pool. Non-conflicting systems can run in parallel.
     #[cfg_attr(all(not(target_arch = "wasm32"), feature = "multi-threaded"), default)]

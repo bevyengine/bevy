@@ -5,14 +5,17 @@ use bevy_utils::tracing::info_span;
 use fixedbitset::FixedBitSet;
 
 use crate::{
-    schedule::{ExecutorKind, SystemExecutor, SystemSchedule, SingleThreadedExecutor},
+    schedule::{ExecutorKind, SingleThreadedExecutor, SystemExecutor, SystemSchedule},
     world::World,
 };
 
 /// A variant of [`SingleThreadedExecutor`](crate::schedule::SingleThreadedExecutor) that calls
 /// [`apply_deferred`](crate::system::System::apply_deferred) immediately after running each system.
 #[derive(Default)]
-#[deprecated(since = "0.14", note = "The SimpleExecutor now is identical to the SingleThreaded executor. Use the single-threaded executor instead.")]
+#[deprecated(
+    since = "0.14",
+    note = "The SimpleExecutor now is identical to the SingleThreaded executor. Use the single-threaded executor instead."
+)]
 pub struct SimpleExecutor {
     executor: SingleThreadedExecutor,
 }
