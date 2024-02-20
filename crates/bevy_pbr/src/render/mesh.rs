@@ -1,7 +1,8 @@
 use crate::{
-    MaterialBindGroupId, NotShadowCaster, NotShadowReceiver, PreviousGlobalTransform, Shadow,
-    ViewFogUniformOffset, ViewLightProbesUniformOffset, ViewLightsUniformOffset,
-    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
+    AtomicMaterialBindGroupId, MaterialBindGroupId, NotShadowCaster, NotShadowReceiver,
+    PreviousGlobalTransform, Shadow, ViewFogUniformOffset, ViewLightProbesUniformOffset,
+    ViewLightsUniformOffset, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT,
+    MAX_DIRECTIONAL_LIGHTS,
 };
 use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::{load_internal_asset, AssetId, Handle};
@@ -10,6 +11,7 @@ use bevy_core_pipeline::{
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
 };
 use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
     prelude::*,
     query::ROQueryItem,
@@ -33,7 +35,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{tracing::error, EntityHashMap, Entry, HashMap, Hashed};
+use bevy_utils::{tracing::error, Entry, HashMap, Hashed};
 use std::cell::Cell;
 use thread_local::ThreadLocal;
 
@@ -48,6 +50,8 @@ use crate::render::{
     MeshLayouts,
 };
 use crate::*;
+
+use self::irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE;
 
 use super::skin::SkinIndices;
 
@@ -217,7 +221,7 @@ pub struct MeshUniform {
 }
 
 impl MeshUniform {
-    fn new(mesh_transforms: &MeshTransforms, maybe_lightmap_uv_rect: Option<Rect>) -> Self {
+    pub fn new(mesh_transforms: &MeshTransforms, maybe_lightmap_uv_rect: Option<Rect>) -> Self {
         let (inverse_transpose_model_a, inverse_transpose_model_b) =
             mesh_transforms.transform.inverse_transpose_3x3();
         Self {
@@ -248,20 +252,21 @@ bitflags::bitflags! {
 pub struct RenderMeshInstance {
     pub transforms: MeshTransforms,
     pub mesh_asset_id: AssetId<Mesh>,
-    pub material_bind_group_id: MaterialBindGroupId,
+    pub material_bind_group_id: AtomicMaterialBindGroupId,
     pub shadow_caster: bool,
     pub automatic_batching: bool,
 }
 
-#[derive(Default, Resource, Deref, DerefMut)]
-pub struct RenderMeshInstances(EntityHashMap<Entity, RenderMeshInstance>);
+impl RenderMeshInstance {
+    pub fn should_batch(&self) -> bool {
+        self.automatic_batching && self.material_bind_group_id.get().is_some()
+    }
+}
 
-#[derive(Component)]
-pub struct Mesh3d;
+#[derive(Default, Resource, Deref, DerefMut)]
+pub struct RenderMeshInstances(EntityHashMap<RenderMeshInstance>);
 
 pub fn extract_meshes(
-    mut commands: Commands,
-    mut previous_len: Local<usize>,
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
     mut thread_local_queues: Local<ThreadLocal<Cell<Vec<(Entity, RenderMeshInstance)>>>>,
     meshes_query: Extract<
@@ -319,7 +324,7 @@ pub fn extract_meshes(
                     mesh_asset_id: handle.id(),
                     transforms,
                     shadow_caster: !not_shadow_caster,
-                    material_bind_group_id: MaterialBindGroupId::default(),
+                    material_bind_group_id: AtomicMaterialBindGroupId::default(),
                     automatic_batching: !no_automatic_batching,
                 },
             ));
@@ -328,15 +333,9 @@ pub fn extract_meshes(
     );
 
     render_mesh_instances.clear();
-    let mut entities = Vec::with_capacity(*previous_len);
     for queue in thread_local_queues.iter_mut() {
-        // FIXME: Remove this - it is just a workaround to enable rendering to work as
-        // render commands require an entity to exist at the moment.
-        entities.extend(queue.get_mut().iter().map(|(e, _)| (*e, Mesh3d)));
         render_mesh_instances.extend(queue.get_mut().drain(..));
     }
-    *previous_len = entities.len();
-    commands.insert_or_spawn_batch(entities);
 }
 
 #[derive(Resource, Clone)]
@@ -476,8 +475,8 @@ impl GetBatchData for MeshPipeline {
                 &mesh_instance.transforms,
                 maybe_lightmap.map(|lightmap| lightmap.uv_rect),
             ),
-            mesh_instance.automatic_batching.then_some((
-                mesh_instance.material_bind_group_id,
+            mesh_instance.should_batch().then_some((
+                mesh_instance.material_bind_group_id.get(),
                 mesh_instance.mesh_asset_id,
                 maybe_lightmap.map(|lightmap| lightmap.image),
             )),
@@ -829,7 +828,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("ENVIRONMENT_MAP".into());
         }
 
-        if key.contains(MeshPipelineKey::IRRADIANCE_VOLUME) {
+        if key.contains(MeshPipelineKey::IRRADIANCE_VOLUME) && IRRADIANCE_VOLUMES_ARE_USABLE {
             shader_defs.push("IRRADIANCE_VOLUME".into());
         }
 
@@ -867,6 +866,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         if self.binding_arrays_are_usable {
             shader_defs.push("MULTIPLE_LIGHT_PROBES_IN_ARRAY".into());
+        }
+
+        if IRRADIANCE_VOLUMES_ARE_USABLE {
+            shader_defs.push("IRRADIANCE_VOLUMES_ARE_USABLE".into());
         }
 
         let format = if key.contains(MeshPipelineKey::HDR) {
@@ -1050,7 +1053,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
             'w,
             Self::ViewQuery,
         >,
-        _entity: (),
+        _entity: Option<()>,
         _: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -1085,7 +1088,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
     fn render<'w>(
         item: &P,
         _view: (),
-        _item_query: (),
+        _item_query: Option<()>,
         (bind_groups, mesh_instances, skin_indices, morph_indices, lightmaps): SystemParamItem<
             'w,
             '_,
@@ -1154,7 +1157,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
     fn render<'w>(
         item: &P,
         _view: (),
-        _item_query: (),
+        _item_query: Option<()>,
         (meshes, mesh_instances): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {

@@ -32,10 +32,10 @@ impl SystemExecutor for SimpleExecutor {
     fn run(
         &mut self,
         schedule: &mut SystemSchedule,
-        _skip_systems: Option<FixedBitSet>,
         world: &mut World,
+        _skip_systems: Option<&FixedBitSet>,
     ) {
-        self.executor.run(schedule, _skip_systems, world);
+        self.executor.run(schedule, world, _skip_systems);
     }
 
     fn set_apply_final_deferred(&mut self, apply: bool) {

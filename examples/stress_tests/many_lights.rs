@@ -48,7 +48,7 @@ fn setup(
     warn!(include_str!("warning_string.txt"));
 
     const LIGHT_RADIUS: f32 = 0.3;
-    const LIGHT_INTENSITY: f32 = 5.0;
+    const LIGHT_INTENSITY: f32 = 1000.0;
     const RADIUS: f32 = 50.0;
     const N_LIGHTS: usize = 100_000;
 
