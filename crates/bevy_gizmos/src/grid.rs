@@ -130,7 +130,8 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///     gizmos.grid(
     ///         Vec3::ZERO,
     ///         Quat::IDENTITY,
-    ///         Uvec2::new(10, 10),
+    ///         UVec2::new(10, 10),
+    ///         Vec2::splat(2.),
     ///         Color::GREEN
     ///         )
     ///         .skew_x(0.25)
