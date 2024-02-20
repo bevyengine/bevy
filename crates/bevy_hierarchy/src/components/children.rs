@@ -8,6 +8,8 @@ use bevy_ecs::{
 };
 use bevy_utils::smallvec::SmallVec;
 use core::slice;
+#[cfg(feature = "serialize")]
+use serde::{Deserialize, Serialize};
 use std::ops::Deref;
 
 /// Contains references to the child entities of this entity.
@@ -23,9 +25,10 @@ use std::ops::Deref;
 /// [`Query`]: bevy_ecs::system::Query
 /// [`Parent`]: crate::components::parent::Parent
 /// [`BuildChildren::with_children`]: crate::child_builder::BuildChildren::with_children
-#[derive(Component, Debug)]
+#[derive(Component, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "reflect", derive(bevy_reflect::Reflect))]
-#[cfg_attr(feature = "reflect", reflect(Component, MapEntities))]
+#[cfg_attr(feature = "reflect", reflect(Component, PartialEq, MapEntities))]
 pub struct Children(pub(crate) SmallVec<[Entity; 8]>);
 
 impl MapEntities for Children {

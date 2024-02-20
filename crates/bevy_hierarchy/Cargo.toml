@@ -13,6 +13,7 @@ default = ["bevy_app"]
 trace = []
 bevy_app = ["reflect", "dep:bevy_app", "bevy_core", "bevy_log"]
 reflect = ["bevy_ecs/bevy_reflect", "bevy_reflect"]
+serialize = ["dep:serde"]
 
 [dependencies]
 # bevy
@@ -24,6 +25,7 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.13.0", features = [
   "bevy",
 ], optional = true }
 bevy_utils = { path = "../bevy_utils", version = "0.13.0" }
+serde = { version = "1", features = ["derive"], optional = true }
 
 [lints]
 workspace = true

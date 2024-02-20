@@ -5,6 +5,8 @@ use bevy_ecs::{
     entity::{Entity, EntityMapper, MapEntities},
     world::{FromWorld, World},
 };
+#[cfg(feature = "serialize")]
+use serde::{Deserialize, Serialize};
 use std::ops::Deref;
 
 /// Holds a reference to the parent entity of this entity.
@@ -20,7 +22,8 @@ use std::ops::Deref;
 /// [`Query`]: bevy_ecs::system::Query
 /// [`Children`]: super::children::Children
 /// [`BuildChildren::with_children`]: crate::child_builder::BuildChildren::with_children
-#[derive(Component, Debug, Eq, PartialEq)]
+#[derive(Component, Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "reflect", derive(bevy_reflect::Reflect))]
 #[cfg_attr(feature = "reflect", reflect(Component, MapEntities, PartialEq))]
 pub struct Parent(pub(crate) Entity);

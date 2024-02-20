@@ -63,6 +63,7 @@ shader_format_spirv = ["bevy_render/shader_format_spirv"]
 
 serialize = [
   "bevy_core/serialize",
+  "bevy_hierarchy/serialize",
   "bevy_input/serialize",
   "bevy_time/serialize",
   "bevy_window/serialize",
