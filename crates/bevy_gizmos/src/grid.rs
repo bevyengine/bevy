@@ -67,7 +67,7 @@ impl<T: GizmoConfigGroup> Drop for GridBuilder<'_, '_, '_, T> {
             (self.cell_count + UVec2::ONE, grid_start, grid_start)
         } else {
             (
-                self.cell_count - UVec2::ONE,
+                self.cell_count.saturating_sub(UVec2::ONE),
                 grid_start + dx,
                 grid_start + dy,
             )
