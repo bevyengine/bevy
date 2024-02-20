@@ -1,7 +1,7 @@
 //! Light probes for baked global illumination.
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, AssetId, Handle};
+use bevy_asset::AssetId;
 use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -16,9 +16,10 @@ use bevy_math::{Affine3A, Mat4, Vec3A, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_instances::ExtractInstancesPlugin,
+    load_and_forget_shader,
     primitives::{Aabb, Frustum},
     render_asset::RenderAssets,
-    render_resource::{DynamicUniformBuffer, Sampler, Shader, ShaderType, TextureView},
+    render_resource::{DynamicUniformBuffer, Sampler, ShaderType, TextureView},
     renderer::{RenderDevice, RenderQueue},
     settings::WgpuFeatures,
     texture::{FallbackImage, Image},
@@ -31,16 +32,9 @@ use bevy_utils::{tracing::error, FloatOrd, HashMap};
 use std::hash::Hash;
 use std::ops::Deref;
 
-use crate::{
-    irradiance_volume::IRRADIANCE_VOLUME_SHADER_HANDLE,
-    light_probe::environment_map::{
-        EnvironmentMapIds, EnvironmentMapLight, ENVIRONMENT_MAP_SHADER_HANDLE,
-    },
-};
+use crate::light_probe::environment_map::{EnvironmentMapIds, EnvironmentMapLight};
 
 use self::irradiance_volume::IrradianceVolume;
-
-pub const LIGHT_PROBE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(8954249792581071582);
 
 pub mod environment_map;
 pub mod irradiance_volume;
@@ -298,24 +292,9 @@ impl LightProbe {
 
 impl Plugin for LightProbePlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            LIGHT_PROBE_SHADER_HANDLE,
-            "light_probe.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            ENVIRONMENT_MAP_SHADER_HANDLE,
-            "environment_map.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            IRRADIANCE_VOLUME_SHADER_HANDLE,
-            "irradiance_volume.wgsl",
-            Shader::from_wgsl
-        );
+        load_and_forget_shader!(app, "light_probe.wgsl");
+        load_and_forget_shader!(app, "environment_map.wgsl");
+        load_and_forget_shader!(app, "irradiance_volume.wgsl");
 
         app.register_type::<LightProbe>()
             .register_type::<EnvironmentMapLight>()

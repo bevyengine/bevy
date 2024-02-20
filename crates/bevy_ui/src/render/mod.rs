@@ -20,7 +20,7 @@ use crate::{
 };
 
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
+use bevy_asset::{embedded_asset, AssetEvent, AssetId, Assets};
 use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, Rect, URect, UVec4, Vec2, Vec3, Vec4Swizzles};
@@ -55,8 +55,6 @@ pub mod graph {
     }
 }
 
-pub const UI_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(13012847047162779583);
-
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum RenderUiSystem {
     ExtractBackgrounds,
@@ -66,7 +64,7 @@ pub enum RenderUiSystem {
 }
 
 pub fn build_ui_render(app: &mut App) {
-    load_internal_asset!(app, UI_SHADER_HANDLE, "ui.wgsl", Shader::from_wgsl);
+    embedded_asset!(app, "ui.wgsl");
 
     let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
         return;

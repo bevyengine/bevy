@@ -1,5 +1,5 @@
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
 use bevy_ecs::{
     prelude::{Component, Entity},
     query::{QueryItem, With},
@@ -25,13 +25,11 @@ use bevy_render::{
 
 use crate::core_3d::CORE_3D_DEPTH_FORMAT;
 
-const SKYBOX_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(55594763423201);
-
 pub struct SkyboxPlugin;
 
 impl Plugin for SkyboxPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(app, SKYBOX_SHADER_HANDLE, "skybox.wgsl", Shader::from_wgsl);
+        embedded_asset!(app, "skybox.wgsl");
 
         app.add_plugins((
             ExtractComponentPlugin::<Skybox>::default(),
@@ -60,7 +58,22 @@ impl Plugin for SkyboxPlugin {
 
         let render_device = render_app.world.resource::<RenderDevice>().clone();
 
-        render_app.insert_resource(SkyboxPipeline::new(&render_device));
+        render_app.insert_resource(SkyboxPipeline {
+            bind_group_layout: render_device.create_bind_group_layout(
+                "skybox_bind_group_layout",
+                &BindGroupLayoutEntries::sequential(
+                    ShaderStages::FRAGMENT,
+                    (
+                        texture_cube(TextureSampleType::Float { filterable: true }),
+                        sampler(SamplerBindingType::Filtering),
+                        uniform_buffer::<ViewUniform>(true)
+                            .visibility(ShaderStages::VERTEX_FRAGMENT),
+                        uniform_buffer::<SkyboxUniforms>(true),
+                    ),
+                ),
+            ),
+            skybox_shader: load_embedded_asset!(render_app, "skybox.wgsl"),
+        });
     }
 }
 
@@ -119,26 +132,7 @@ pub struct SkyboxUniforms {
 #[derive(Resource)]
 struct SkyboxPipeline {
     bind_group_layout: BindGroupLayout,
-}
-
-impl SkyboxPipeline {
-    fn new(render_device: &RenderDevice) -> Self {
-        Self {
-            bind_group_layout: render_device.create_bind_group_layout(
-                "skybox_bind_group_layout",
-                &BindGroupLayoutEntries::sequential(
-                    ShaderStages::FRAGMENT,
-                    (
-                        texture_cube(TextureSampleType::Float { filterable: true }),
-                        sampler(SamplerBindingType::Filtering),
-                        uniform_buffer::<ViewUniform>(true)
-                            .visibility(ShaderStages::VERTEX_FRAGMENT),
-                        uniform_buffer::<SkyboxUniforms>(true),
-                    ),
-                ),
-            ),
-        }
-    }
+    skybox_shader: Handle<Shader>,
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
@@ -157,7 +151,7 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
             layout: vec![self.bind_group_layout.clone()],
             push_constant_ranges: Vec::new(),
             vertex: VertexState {
-                shader: SKYBOX_SHADER_HANDLE,
+                shader: self.skybox_shader.clone_weak(),
                 shader_defs: Vec::new(),
                 entry_point: "skybox_vertex".into(),
                 buffers: Vec::new(),
@@ -185,7 +179,7 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
                 alpha_to_coverage_enabled: false,
             },
             fragment: Some(FragmentState {
-                shader: SKYBOX_SHADER_HANDLE,
+                shader: self.skybox_shader.clone_weak(),
                 shader_defs: Vec::new(),
                 entry_point: "skybox_fragment".into(),
                 targets: vec![Some(ColorTargetState {

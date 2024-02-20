@@ -1,7 +1,7 @@
 use std::{borrow::Cow, path::Path, sync::PoisonError};
 
 use bevy_app::Plugin;
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
 use bevy_tasks::AsyncComputeTaskPool;
 use bevy_utils::tracing::{error, info, info_span};
@@ -122,18 +122,11 @@ impl ScreenshotManager {
 
 pub struct ScreenshotPlugin;
 
-const SCREENSHOT_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(11918575842344596158);
-
 impl Plugin for ScreenshotPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<ScreenshotManager>();
 
-        load_internal_asset!(
-            app,
-            SCREENSHOT_SHADER_HANDLE,
-            "screenshot.wgsl",
-            Shader::from_wgsl
-        );
+        embedded_asset!(app, "screenshot.wgsl");
     }
 
     fn finish(&self, app: &mut bevy_app::App) {
@@ -195,21 +188,23 @@ pub(crate) fn layout_data(width: u32, height: u32, format: TextureFormat) -> Ima
 #[derive(Resource)]
 pub struct ScreenshotToScreenPipeline {
     pub bind_group_layout: BindGroupLayout,
+    pub screenshot_shader: Handle<Shader>,
 }
 
 impl FromWorld for ScreenshotToScreenPipeline {
     fn from_world(render_world: &mut World) -> Self {
         let device = render_world.resource::<RenderDevice>();
 
-        let bind_group_layout = device.create_bind_group_layout(
-            "screenshot-to-screen-bgl",
-            &BindGroupLayoutEntries::single(
-                wgpu::ShaderStages::FRAGMENT,
-                texture_2d(wgpu::TextureSampleType::Float { filterable: false }),
+        Self {
+            bind_group_layout: device.create_bind_group_layout(
+                "screenshot-to-screen-bgl",
+                &BindGroupLayoutEntries::single(
+                    wgpu::ShaderStages::FRAGMENT,
+                    texture_2d(wgpu::TextureSampleType::Float { filterable: false }),
+                ),
             ),
-        );
-
-        Self { bind_group_layout }
+            screenshot_shader: load_embedded_asset!(render_world, "screenshot.wgsl"),
+        }
     }
 }
 
@@ -224,7 +219,7 @@ impl SpecializedRenderPipeline for ScreenshotToScreenPipeline {
                 buffers: vec![],
                 shader_defs: vec![],
                 entry_point: Cow::Borrowed("vs_main"),
-                shader: SCREENSHOT_SHADER_HANDLE,
+                shader: self.screenshot_shader.clone_weak(),
             },
             primitive: wgpu::PrimitiveState {
                 cull_mode: Some(wgpu::Face::Back),
@@ -233,7 +228,7 @@ impl SpecializedRenderPipeline for ScreenshotToScreenPipeline {
             depth_stencil: None,
             multisample: Default::default(),
             fragment: Some(FragmentState {
-                shader: SCREENSHOT_SHADER_HANDLE,
+                shader: self.screenshot_shader.clone_weak(),
                 entry_point: Cow::Borrowed("fs_main"),
                 shader_defs: vec![],
                 targets: vec![Some(wgpu::ColorTargetState {

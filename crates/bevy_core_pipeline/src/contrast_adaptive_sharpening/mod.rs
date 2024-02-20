@@ -4,7 +4,7 @@ use crate::{
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
 };
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_reflect::Reflect;
 use bevy_render::{
@@ -95,20 +95,12 @@ impl ExtractComponent for ContrastAdaptiveSharpeningSettings {
     }
 }
 
-const CONTRAST_ADAPTIVE_SHARPENING_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(6925381244141981602);
-
 /// Adds Support for Contrast Adaptive Sharpening (CAS).
 pub struct CASPlugin;
 
 impl Plugin for CASPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            CONTRAST_ADAPTIVE_SHARPENING_SHADER_HANDLE,
-            "robust_contrast_adaptive_sharpening.wgsl",
-            Shader::from_wgsl
-        );
+        embedded_asset!(app, "robust_contrast_adaptive_sharpening.wgsl");
 
         app.register_type::<ContrastAdaptiveSharpeningSettings>();
         app.add_plugins((
@@ -171,6 +163,7 @@ impl Plugin for CASPlugin {
 pub struct CASPipeline {
     texture_bind_group: BindGroupLayout,
     sampler: Sampler,
+    cas_shader: Handle<Shader>,
 }
 
 impl FromWorld for CASPipeline {
@@ -194,6 +187,10 @@ impl FromWorld for CASPipeline {
         CASPipeline {
             texture_bind_group,
             sampler,
+            cas_shader: load_embedded_asset!(
+                render_world,
+                "robust_contrast_adaptive_sharpening.wgsl"
+            ),
         }
     }
 }
@@ -217,7 +214,7 @@ impl SpecializedRenderPipeline for CASPipeline {
             layout: vec![self.texture_bind_group.clone()],
             vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
-                shader: CONTRAST_ADAPTIVE_SHARPENING_SHADER_HANDLE,
+                shader: self.cas_shader.clone_weak(),
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {

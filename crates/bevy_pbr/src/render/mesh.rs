@@ -1,4 +1,11 @@
-use bevy_asset::{load_internal_asset, AssetId};
+use crate::{
+    AtomicMaterialBindGroupId, MaterialBindGroupId, NotShadowCaster, NotShadowReceiver,
+    PreviousGlobalTransform, Shadow, ViewFogUniformOffset, ViewLightProbesUniformOffset,
+    ViewLightsUniformOffset, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT,
+    MAX_DIRECTIONAL_LIGHTS,
+};
+use bevy_app::{Plugin, PostUpdate};
+use bevy_asset::{embedded_asset, load_embedded_asset, AssetId, Handle};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
@@ -16,6 +23,7 @@ use bevy_render::{
         batch_and_prepare_render_phase, write_batched_instance_buffer, GetBatchData,
         NoAutomaticBatching,
     },
+    load_and_forget_shader,
     mesh::*,
     render_asset::RenderAssets,
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
@@ -46,16 +54,6 @@ use super::skin::SkinIndices;
 #[derive(Default)]
 pub struct MeshRenderPlugin;
 
-pub const FORWARD_IO_HANDLE: Handle<Shader> = Handle::weak_from_u128(2645551199423808407);
-pub const MESH_VIEW_TYPES_HANDLE: Handle<Shader> = Handle::weak_from_u128(8140454348013264787);
-pub const MESH_VIEW_BINDINGS_HANDLE: Handle<Shader> = Handle::weak_from_u128(9076678235888822571);
-pub const MESH_TYPES_HANDLE: Handle<Shader> = Handle::weak_from_u128(2506024101911992377);
-pub const MESH_BINDINGS_HANDLE: Handle<Shader> = Handle::weak_from_u128(16831548636314682308);
-pub const MESH_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(6300874327833745635);
-pub const MESH_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(3252377289100772450);
-pub const SKINNING_HANDLE: Handle<Shader> = Handle::weak_from_u128(13215291596265391738);
-pub const MORPH_HANDLE: Handle<Shader> = Handle::weak_from_u128(970982813587607345);
-
 /// How many textures are allowed in the view bind group layout (`@group(0)`) before
 /// broader compatibility with WebGL and WebGPU is at risk, due to the minimum guaranteed
 /// values for `MAX_TEXTURE_IMAGE_UNITS` (in WebGL) and `maxSampledTexturesPerShaderStage` (in WebGPU),
@@ -69,40 +67,25 @@ pub const MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES: usize = 10;
 
 impl Plugin for MeshRenderPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(app, FORWARD_IO_HANDLE, "forward_io.wgsl", Shader::from_wgsl);
-        load_internal_asset!(
-            app,
-            MESH_VIEW_TYPES_HANDLE,
-            "mesh_view_types.wgsl",
-            Shader::from_wgsl_with_defs,
-            vec![
+        load_and_forget_shader!(app, "forward_io.wgsl");
+        load_and_forget_shader!(app, "mesh_view_bindings.wgsl");
+        load_and_forget_shader!(app, "mesh_types.wgsl");
+        load_and_forget_shader!(app, "mesh_functions.wgsl");
+        embedded_asset!(app, "mesh.wgsl");
+        load_and_forget_shader!(app, "skinning.wgsl");
+        load_and_forget_shader!(app, "morph.wgsl");
+        load_and_forget_shader!(app, "mesh_view_types.wgsl", |s: &mut ShaderSettings| {
+            s.shader_defs = vec![
                 ShaderDefVal::UInt(
                     "MAX_DIRECTIONAL_LIGHTS".into(),
-                    MAX_DIRECTIONAL_LIGHTS as u32
+                    MAX_DIRECTIONAL_LIGHTS as u32,
                 ),
                 ShaderDefVal::UInt(
                     "MAX_CASCADES_PER_LIGHT".into(),
                     MAX_CASCADES_PER_LIGHT as u32,
-                )
-            ]
-        );
-        load_internal_asset!(
-            app,
-            MESH_VIEW_BINDINGS_HANDLE,
-            "mesh_view_bindings.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(app, MESH_TYPES_HANDLE, "mesh_types.wgsl", Shader::from_wgsl);
-        load_internal_asset!(
-            app,
-            MESH_FUNCTIONS_HANDLE,
-            "mesh_functions.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(app, MESH_SHADER_HANDLE, "mesh.wgsl", Shader::from_wgsl);
-        load_internal_asset!(app, SKINNING_HANDLE, "skinning.wgsl", Shader::from_wgsl);
-        load_internal_asset!(app, MORPH_HANDLE, "morph.wgsl", Shader::from_wgsl);
-
+                ),
+            ];
+        });
         app.add_systems(
             PostUpdate,
             (no_automatic_skin_batching, no_automatic_morph_batching),
@@ -167,13 +150,9 @@ impl Plugin for MeshRenderPlugin {
 
         // Load the mesh_bindings shader module here as it depends on runtime information about
         // whether storage buffers are supported, or the maximum uniform buffer binding size.
-        load_internal_asset!(
-            app,
-            MESH_BINDINGS_HANDLE,
-            "mesh_bindings.wgsl",
-            Shader::from_wgsl_with_defs,
-            mesh_bindings_shader_defs
-        );
+        load_and_forget_shader!(app, "mesh_bindings.wgsl", move |s: &mut ShaderSettings| {
+            s.shader_defs = mesh_bindings_shader_defs.clone();
+        });
     }
 }
 
@@ -350,6 +329,7 @@ pub struct MeshPipeline {
     ///
     /// This affects whether reflection probes can be used.
     pub binding_arrays_are_usable: bool,
+    pub mesh_shader: Handle<Shader>,
 }
 
 impl FromWorld for MeshPipeline {
@@ -407,6 +387,7 @@ impl FromWorld for MeshPipeline {
             mesh_layouts: MeshLayouts::new(&render_device),
             per_object_buffer_batch_size: GpuArrayBuffer::<MeshUniform>::batch_size(&render_device),
             binding_arrays_are_usable: binding_arrays_are_usable(&render_device),
+            mesh_shader: load_embedded_asset!(world, "mesh.wgsl"),
         }
     }
 }
@@ -890,13 +871,13 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         Ok(RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: MESH_SHADER_HANDLE,
+                shader: self.mesh_shader.clone_weak(),
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![vertex_buffer_layout],
             },
             fragment: Some(FragmentState {
-                shader: MESH_SHADER_HANDLE,
+                shader: self.mesh_shader.clone_weak(),
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {

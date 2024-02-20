@@ -5,7 +5,7 @@ use crate::{
     prepass::{DepthPrepass, MotionVectorPrepass, ViewPrepassTextures},
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
 use bevy_core::FrameCount;
 use bevy_ecs::{
     prelude::{Bundle, Component, Entity},
@@ -35,8 +35,6 @@ use bevy_render::{
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
 
-const TAA_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(656865235226276);
-
 /// Plugin for temporal anti-aliasing. Disables multisample anti-aliasing (MSAA).
 ///
 /// See [`TemporalAntiAliasSettings`] for more details.
@@ -44,7 +42,7 @@ pub struct TemporalAntiAliasPlugin;
 
 impl Plugin for TemporalAntiAliasPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(app, TAA_SHADER_HANDLE, "taa.wgsl", Shader::from_wgsl);
+        embedded_asset!(app, "taa.wgsl");
 
         app.insert_resource(Msaa::Off)
             .register_type::<TemporalAntiAliasSettings>();
@@ -239,6 +237,7 @@ struct TaaPipeline {
     taa_bind_group_layout: BindGroupLayout,
     nearest_sampler: Sampler,
     linear_sampler: Sampler,
+    taa_shader: Handle<Shader>,
 }
 
 impl FromWorld for TaaPipeline {
@@ -283,6 +282,7 @@ impl FromWorld for TaaPipeline {
             taa_bind_group_layout,
             nearest_sampler,
             linear_sampler,
+            taa_shader: load_embedded_asset!(world, "taa.wgsl"),
         }
     }
 }
@@ -315,7 +315,7 @@ impl SpecializedRenderPipeline for TaaPipeline {
             layout: vec![self.taa_bind_group_layout.clone()],
             vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
-                shader: TAA_SHADER_HANDLE,
+                shader: self.taa_shader.clone_weak(),
                 shader_defs,
                 entry_point: "taa".into(),
                 targets: vec![

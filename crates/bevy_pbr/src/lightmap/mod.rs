@@ -29,7 +29,7 @@
 //! [`bevy-baked-gi`]: https://github.com/pcwalton/bevy-baked-gi
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, AssetId, Handle};
+use bevy_asset::{AssetId, Handle};
 use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
     component::Component,
@@ -40,17 +40,14 @@ use bevy_ecs::{
 };
 use bevy_math::{uvec2, vec4, Rect, UVec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::load_and_forget_shader;
 use bevy_render::{
-    mesh::Mesh, render_asset::RenderAssets, render_resource::Shader, texture::Image,
-    view::ViewVisibility, Extract, ExtractSchedule, RenderApp,
+    mesh::Mesh, render_asset::RenderAssets, texture::Image, view::ViewVisibility, Extract,
+    ExtractSchedule, RenderApp,
 };
 use bevy_utils::HashSet;
 
 use crate::RenderMeshInstances;
-
-/// The ID of the lightmap shader.
-pub const LIGHTMAP_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(285484768317531991932943596447919767152);
 
 /// A plugin that provides an implementation of lightmaps.
 pub struct LightmapPlugin;
@@ -117,12 +114,7 @@ pub struct RenderLightmaps {
 
 impl Plugin for LightmapPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            LIGHTMAP_SHADER_HANDLE,
-            "lightmap.wgsl",
-            Shader::from_wgsl
-        );
+        load_and_forget_shader!(app, "lightmap.wgsl");
     }
 
     fn finish(&self, app: &mut App) {

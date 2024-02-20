@@ -46,6 +46,11 @@ pub mod prelude {
     };
 }
 
+#[doc(hidden)]
+pub mod _macro {
+    pub use bevy_asset;
+}
+
 use bevy_ecs::schedule::ScheduleBuildSettings;
 use bevy_utils::prelude::default;
 pub use extract_param::Extract;
@@ -66,13 +71,32 @@ use crate::{
     view::{ViewPlugin, WindowRenderPlugin},
 };
 use bevy_app::{App, AppLabel, Plugin, SubApp};
-use bevy_asset::{load_internal_asset, AssetApp, AssetServer, Handle};
+use bevy_asset::{AssetApp, AssetServer};
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel, system::SystemState};
 use bevy_utils::tracing::debug;
 use std::{
     ops::{Deref, DerefMut},
     sync::{Arc, Mutex},
 };
+
+// TODO: this should be replaced by proper asset handling in the shader loader.
+/// Inline shader as an `embedded_asset` and load it permanently.
+///
+/// This works around a limitation of the shader loader not properly loading
+/// dependencies of shaders.
+#[macro_export]
+macro_rules! load_and_forget_shader {
+    ($asset_server_provider: expr, $path: literal $(, $settings: expr)?) => {
+        $crate::_macro::bevy_asset::embedded_asset!($asset_server_provider, $path);
+        let handle: $crate::_macro::bevy_asset::prelude::Handle<$crate::prelude::Shader> =
+            $crate::_macro::bevy_asset::load_embedded_asset!(
+                $asset_server_provider,
+                $path
+                $(,$settings)?
+            );
+        std::mem::forget(handle);
+    }
+}
 
 /// Contains the default Bevy rendering backend based on wgpu.
 ///
@@ -221,10 +245,6 @@ struct FutureRendererResources(
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
 pub struct RenderApp;
 
-pub const INSTANCE_INDEX_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(10313207077636615845);
-pub const MATHS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(10665356303104593376);
-
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderSet`] and creates the rendering sub-app.
     fn build(&self, app: &mut App) {
@@ -354,7 +374,7 @@ impl Plugin for RenderPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        load_internal_asset!(app, MATHS_SHADER_HANDLE, "maths.wgsl", Shader::from_wgsl);
+        load_and_forget_shader!(app, "maths.wgsl");
         if let Some(future_renderer_resources) =
             app.world.remove_resource::<FutureRendererResources>()
         {

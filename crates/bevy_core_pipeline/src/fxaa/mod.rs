@@ -4,7 +4,7 @@ use crate::{
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
 };
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
 use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
@@ -60,7 +60,7 @@ pub struct Fxaa {
     /// Use higher sensitivity for a slower, smoother, result.
     /// [`Ultra`](`Sensitivity::Ultra`) and [`Extreme`](`Sensitivity::Extreme`)
     /// settings can result in significant smearing and loss of detail.
-
+    ///
     /// The minimum amount of local contrast required to apply algorithm.
     pub edge_threshold: Sensitivity,
 
@@ -78,13 +78,11 @@ impl Default for Fxaa {
     }
 }
 
-const FXAA_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(4182761465141723543);
-
 /// Adds support for Fast Approximate Anti-Aliasing (FXAA)
 pub struct FxaaPlugin;
 impl Plugin for FxaaPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(app, FXAA_SHADER_HANDLE, "fxaa.wgsl", Shader::from_wgsl);
+        embedded_asset!(app, "fxaa.wgsl");
 
         app.register_type::<Fxaa>().register_type::<Sensitivity>();
         app.add_plugins(ExtractComponentPlugin::<Fxaa>::default());
@@ -127,6 +125,7 @@ impl Plugin for FxaaPlugin {
 pub struct FxaaPipeline {
     texture_bind_group: BindGroupLayout,
     sampler: Sampler,
+    fxaa_shader: Handle<Shader>,
 }
 
 impl FromWorld for FxaaPipeline {
@@ -153,6 +152,7 @@ impl FromWorld for FxaaPipeline {
         FxaaPipeline {
             texture_bind_group,
             sampler,
+            fxaa_shader: load_embedded_asset!(render_world, "fxaa.wgsl"),
         }
     }
 }
@@ -178,7 +178,7 @@ impl SpecializedRenderPipeline for FxaaPipeline {
             layout: vec![self.texture_bind_group.clone()],
             vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
-                shader: FXAA_SHADER_HANDLE,
+                shader: self.fxaa_shader.clone_weak(),
                 shader_defs: vec![
                     format!("EDGE_THRESH_{}", key.edge_threshold.get_str()).into(),
                     format!("EDGE_THRESH_MIN_{}", key.edge_threshold_min.get_str()).into(),

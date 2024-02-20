@@ -17,7 +17,8 @@ mod prepass;
 mod render;
 mod ssao;
 
-use bevy_color::{Color, LinearRgba};
+use std::path::PathBuf;
+
 pub use bundle::*;
 pub use extended_material::*;
 pub use fog::*;
@@ -66,7 +67,8 @@ pub mod graph {
 
 use crate::{deferred::DeferredPbrLightingPlugin, graph::NodePbr};
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
+use bevy_asset::{AssetApp, AssetPath, Assets, Handle};
+use bevy_color::{Color, LinearRgba};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_ecs::prelude::*;
 use bevy_render::{
@@ -74,38 +76,20 @@ use bevy_render::{
     camera::{CameraUpdateSystem, Projection},
     extract_component::ExtractComponentPlugin,
     extract_resource::ExtractResourcePlugin,
+    load_and_forget_shader,
     render_asset::prepare_assets,
     render_graph::RenderGraph,
     render_phase::sort_phase_system,
-    render_resource::Shader,
+    render_resource::ShaderRef,
     texture::Image,
     view::VisibilitySystems,
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::TransformSystem;
 
-pub const PBR_TYPES_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1708015359337029744);
-pub const PBR_BINDINGS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(5635987986427308186);
-pub const UTILS_HANDLE: Handle<Shader> = Handle::weak_from_u128(1900548483293416725);
-pub const CLUSTERED_FORWARD_HANDLE: Handle<Shader> = Handle::weak_from_u128(166852093121196815);
-pub const PBR_LIGHTING_HANDLE: Handle<Shader> = Handle::weak_from_u128(14170772752254856967);
-pub const PBR_TRANSMISSION_HANDLE: Handle<Shader> = Handle::weak_from_u128(77319684653223658032);
-pub const SHADOWS_HANDLE: Handle<Shader> = Handle::weak_from_u128(11350275143789590502);
-pub const SHADOW_SAMPLING_HANDLE: Handle<Shader> = Handle::weak_from_u128(3145627513789590502);
-pub const PBR_FRAGMENT_HANDLE: Handle<Shader> = Handle::weak_from_u128(2295049283805286543);
-pub const PBR_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(4805239651767701046);
-pub const PBR_PREPASS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(9407115064344201137);
-pub const PBR_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(16550102964439850292);
-pub const PBR_AMBIENT_HANDLE: Handle<Shader> = Handle::weak_from_u128(2441520459096337034);
-pub const PARALLAX_MAPPING_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(17035894873630133905);
-pub const VIEW_TRANSFORMATIONS_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(2098345702398750291);
-pub const PBR_PREPASS_FUNCTIONS_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(73204817249182637);
-pub const PBR_DEFERRED_TYPES_HANDLE: Handle<Shader> = Handle::weak_from_u128(3221241127431430599);
-pub const PBR_DEFERRED_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(72019026415438599);
-pub const RGB9E5_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(2659010996143919192);
+fn shader_ref(path: PathBuf) -> ShaderRef {
+    ShaderRef::Path(AssetPath::from_path_buf(path).with_source("embedded"))
+}
 
 /// Sets up the entire PBR infrastructure of bevy.
 pub struct PbrPlugin {
@@ -127,110 +111,25 @@ impl Default for PbrPlugin {
 
 impl Plugin for PbrPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            PBR_TYPES_SHADER_HANDLE,
-            "render/pbr_types.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            PBR_BINDINGS_SHADER_HANDLE,
-            "render/pbr_bindings.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(app, UTILS_HANDLE, "render/utils.wgsl", Shader::from_wgsl);
-        load_internal_asset!(
-            app,
-            CLUSTERED_FORWARD_HANDLE,
-            "render/clustered_forward.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            PBR_LIGHTING_HANDLE,
-            "render/pbr_lighting.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            PBR_TRANSMISSION_HANDLE,
-            "render/pbr_transmission.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            SHADOWS_HANDLE,
-            "render/shadows.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            PBR_DEFERRED_TYPES_HANDLE,
-            "deferred/pbr_deferred_types.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            PBR_DEFERRED_FUNCTIONS_HANDLE,
-            "deferred/pbr_deferred_functions.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            SHADOW_SAMPLING_HANDLE,
-            "render/shadow_sampling.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            PBR_FUNCTIONS_HANDLE,
-            "render/pbr_functions.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            RGB9E5_FUNCTIONS_HANDLE,
-            "render/rgb9e5.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            PBR_AMBIENT_HANDLE,
-            "render/pbr_ambient.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            PBR_FRAGMENT_HANDLE,
-            "render/pbr_fragment.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(app, PBR_SHADER_HANDLE, "render/pbr.wgsl", Shader::from_wgsl);
-        load_internal_asset!(
-            app,
-            PBR_PREPASS_FUNCTIONS_SHADER_HANDLE,
-            "render/pbr_prepass_functions.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            PBR_PREPASS_SHADER_HANDLE,
-            "render/pbr_prepass.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            PARALLAX_MAPPING_SHADER_HANDLE,
-            "render/parallax_mapping.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            VIEW_TRANSFORMATIONS_SHADER_HANDLE,
-            "render/view_transformations.wgsl",
-            Shader::from_wgsl
-        );
+        load_and_forget_shader!(app, "render/pbr_types.wgsl");
+        load_and_forget_shader!(app, "render/pbr_bindings.wgsl");
+        load_and_forget_shader!(app, "render/utils.wgsl");
+        load_and_forget_shader!(app, "render/clustered_forward.wgsl");
+        load_and_forget_shader!(app, "render/pbr_lighting.wgsl");
+        load_and_forget_shader!(app, "render/pbr_transmission.wgsl");
+        load_and_forget_shader!(app, "render/shadows.wgsl");
+        load_and_forget_shader!(app, "deferred/pbr_deferred_types.wgsl");
+        load_and_forget_shader!(app, "deferred/pbr_deferred_functions.wgsl");
+        load_and_forget_shader!(app, "render/shadow_sampling.wgsl");
+        load_and_forget_shader!(app, "render/pbr_functions.wgsl");
+        load_and_forget_shader!(app, "render/rgb9e5.wgsl");
+        load_and_forget_shader!(app, "render/pbr_ambient.wgsl");
+        load_and_forget_shader!(app, "render/pbr_fragment.wgsl");
+        load_and_forget_shader!(app, "render/pbr.wgsl");
+        load_and_forget_shader!(app, "render/pbr_prepass_functions.wgsl");
+        load_and_forget_shader!(app, "render/pbr_prepass.wgsl");
+        load_and_forget_shader!(app, "render/parallax_mapping.wgsl");
+        load_and_forget_shader!(app, "render/view_transformations.wgsl");
 
         app.register_asset_reflect::<StandardMaterial>()
             .register_type::<AmbientLight>()

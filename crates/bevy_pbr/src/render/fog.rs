@@ -1,11 +1,11 @@
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, Handle};
 use bevy_color::LinearRgba;
 use bevy_ecs::prelude::*;
 use bevy_math::{Vec3, Vec4};
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
-    render_resource::{DynamicUniformBuffer, Shader, ShaderType},
+    load_and_forget_shader,
+    render_resource::{DynamicUniformBuffer, ShaderType},
     renderer::{RenderDevice, RenderQueue},
     view::ExtractedView,
     Render, RenderApp, RenderSet,
@@ -122,15 +122,12 @@ pub struct ViewFogUniformOffset {
     pub offset: u32,
 }
 
-/// Handle for the fog WGSL Shader internal asset
-pub const FOG_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(4913569193382610166);
-
 /// A plugin that consolidates fog extraction, preparation and related resources/assets
 pub struct FogPlugin;
 
 impl Plugin for FogPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(app, FOG_SHADER_HANDLE, "fog.wgsl", Shader::from_wgsl);
+        load_and_forget_shader!(app, "fog.wgsl");
 
         app.register_type::<FogSettings>();
         app.add_plugins(ExtractComponentPlugin::<FogSettings>::default());

@@ -55,7 +55,7 @@ pub mod prelude {
 
 use aabb::AabbGizmoPlugin;
 use bevy_app::{App, Last, Plugin};
-use bevy_asset::{load_internal_asset, Asset, AssetApp, Assets, Handle};
+use bevy_asset::{embedded_asset, Asset, AssetApp, Assets, Handle};
 use bevy_color::LinearRgba;
 use bevy_core::cast_slice;
 use bevy_ecs::{
@@ -76,7 +76,7 @@ use bevy_render::{
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::{
         binding_types::uniform_buffer, BindGroup, BindGroupEntries, BindGroupLayout,
-        BindGroupLayoutEntries, Buffer, BufferInitDescriptor, BufferUsages, Shader, ShaderStages,
+        BindGroupLayoutEntries, Buffer, BufferInitDescriptor, BufferUsages, ShaderStages,
         ShaderType, VertexAttribute, VertexBufferLayout, VertexFormat, VertexStepMode,
     },
     renderer::RenderDevice,
@@ -90,8 +90,6 @@ use gizmos::GizmoStorage;
 use light::LightGizmoPlugin;
 use std::{any::TypeId, mem};
 
-const LINE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(7414812689238026784);
-
 /// A [`Plugin`] that provides an immediate mode drawing api for visual debugging.
 pub struct GizmoPlugin;
 
@@ -103,7 +101,7 @@ impl Plugin for GizmoPlugin {
             "bevy_gizmos requires either bevy_pbr or bevy_sprite. Please enable one."
         );
 
-        load_internal_asset!(app, LINE_SHADER_HANDLE, "lines.wgsl", Shader::from_wgsl);
+        embedded_asset!(app, "lines.wgsl");
 
         app.register_type::<GizmoConfig>()
             .register_type::<GizmoConfigStore>()

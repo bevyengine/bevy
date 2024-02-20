@@ -771,7 +771,7 @@ impl From<&StandardMaterial> for StandardMaterialKey {
 
 impl Material for StandardMaterial {
     fn fragment_shader() -> ShaderRef {
-        PBR_SHADER_HANDLE.into()
+        crate::shader_ref(bevy_asset::embedded_path!("render/pbr.wgsl"))
     }
 
     #[inline]
@@ -807,11 +807,11 @@ impl Material for StandardMaterial {
     }
 
     fn prepass_fragment_shader() -> ShaderRef {
-        PBR_PREPASS_SHADER_HANDLE.into()
+        crate::shader_ref(bevy_asset::embedded_path!("render/pbr_prepass.wgsl"))
     }
 
     fn deferred_fragment_shader() -> ShaderRef {
-        PBR_SHADER_HANDLE.into()
+        crate::shader_ref(bevy_asset::embedded_path!("render/pbr.wgsl"))
     }
 
     fn specialize(

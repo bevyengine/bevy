@@ -1,3 +1,4 @@
+use bevy_asset::{load_embedded_asset, Handle};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     render_resource::{
@@ -13,6 +14,7 @@ use bevy_render::{
 pub struct UiPipeline {
     pub view_layout: BindGroupLayout,
     pub image_layout: BindGroupLayout,
+    pub ui_shader: Handle<Shader>,
 }
 
 impl FromWorld for UiPipeline {
@@ -41,6 +43,7 @@ impl FromWorld for UiPipeline {
         UiPipeline {
             view_layout,
             image_layout,
+            ui_shader: load_embedded_asset!(world, "ui.wgsl"),
         }
     }
 }
@@ -71,13 +74,13 @@ impl SpecializedRenderPipeline for UiPipeline {
 
         RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: super::UI_SHADER_HANDLE,
+                shader: self.ui_shader.clone_weak(),
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![vertex_layout],
             },
             fragment: Some(FragmentState {
-                shader: super::UI_SHADER_HANDLE,
+                shader: self.ui_shader.clone_weak(),
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
