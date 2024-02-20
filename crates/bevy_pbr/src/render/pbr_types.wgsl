@@ -1,29 +1,29 @@
 #define_import_path bevy_pbr::pbr_types
 
-// Alignments and sizes taken from <https://www.w3.org/TR/WGSL/#alignment-and-size>.
 // Since this is a hot path, try to keep the alignment and size of the struct members in mind.
+// You can find the alignment and sizes at <https://www.w3.org/TR/WGSL/#alignment-and-size>.
 struct StandardMaterial {
-    base_color: vec4<f32>, // alignment 16, size 16
-    emissive: vec4<f32>, // alignment 16, size 16
-    attenuation_color: vec4<f32>, // alignment 16, size 16
-    uv_transform: mat3x2<f32>, // alignment 8, size 24
-    perceptual_roughness: f32, // alignment 4, size 4
-    metallic: f32, // alignment 4, size 4
-    reflectance: f32, // alignment 4, size 4
-    diffuse_transmission: f32, // alignment 4, size 4
-    specular_transmission: f32, // alignment 4, size 4
-    thickness: f32, // alignment 4, size 4
-    ior: f32, // alignment 4, size 4
-    attenuation_distance: f32, // alignment 4, size 4
+    base_color: vec4<f32>,
+    emissive: vec4<f32>,
+    attenuation_color: vec4<f32>,
+    uv_transform: mat3x2<f32>,
+    perceptual_roughness: f32,
+    metallic: f32,
+    reflectance: f32,
+    diffuse_transmission: f32,
+    specular_transmission: f32,
+    thickness: f32,
+    ior: f32,
+    attenuation_distance: f32,
     // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
-    flags: u32, // alignment 4, size 4
-    alpha_cutoff: f32, // alignment 4, size 4
-    parallax_depth_scale: f32, // alignment 4, size 4
-    max_parallax_layer_count: f32, // alignment 4, size 4
-    lightmap_exposure: f32, // alignment 4, size 4
-    max_relief_mapping_search_steps: u32, // alignment 4, size 4
+    flags: u32,
+    alpha_cutoff: f32,
+    parallax_depth_scale: f32,
+    max_parallax_layer_count: f32,
+    lightmap_exposure: f32,
+    max_relief_mapping_search_steps: u32,
     /// ID for specifying which deferred lighting pass should be used for rendering this material, if any.
-    deferred_lighting_pass_id: u32, // alignment 4, size 4
+    deferred_lighting_pass_id: u32,
 };
 
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
