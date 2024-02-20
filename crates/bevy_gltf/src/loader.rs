@@ -11,10 +11,11 @@ use bevy_hierarchy::{BuildWorldChildren, WorldChildBuilder};
 use bevy_log::{error, info_span, warn};
 use bevy_math::{Mat4, Vec3};
 use bevy_pbr::{
-    AlphaMode, DirectionalLight, DirectionalLightBundle, PbrBundle, PointLight, PointLightBundle,
+    DirectionalLight, DirectionalLightBundle, PbrBundle, PointLight, PointLightBundle,
     SpotLight, SpotLightBundle, StandardMaterial, MAX_JOINTS,
 };
 use bevy_render::{
+    alpha::AlphaMode,
     camera::{Camera, OrthographicProjection, PerspectiveProjection, Projection, ScalingMode},
     color::Color,
     mesh::{
