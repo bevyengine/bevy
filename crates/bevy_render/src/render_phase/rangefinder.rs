@@ -39,8 +39,8 @@ mod tests {
 
     #[test]
     fn distance() {
-        let view_matrix = Mat4::from_translation(Vec3::new(0.0, 0.0, -1.0));
-        let rangefinder = ViewRangefinder3d::from_view_matrix(&view_matrix);
+        let view_proj_matrix = Mat4::from_translation(Vec3::new(0.0, 0.0, -1.0));
+        let rangefinder = ViewRangefinder3d::from_view_proj_matrix(&view_proj_matrix);
         assert_eq!(rangefinder.distance(&Mat4::IDENTITY), 1.0);
         assert_eq!(
             rangefinder.distance(&Mat4::from_translation(Vec3::new(0.0, 0.0, 1.0))),
