@@ -6,10 +6,7 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(AmbientLight {
-            color: Color::WHITE,
-            brightness: 0.0,
-        })
+        .insert_resource(AmbientLight::NONE)
         .add_systems(Startup, setup)
         .add_systems(Update, add_lightmaps_to_meshes)
         .run();

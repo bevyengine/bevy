@@ -63,6 +63,6 @@ path = "benches/bevy_math/bezier.rs"
 harness = false
 
 [[bench]]
-name = "utils"
-path = "benches/bevy_utils/entity_hash.rs"
+name = "entity_hash"
+path = "benches/bevy_ecs/world/entity_hash.rs"
 harness = false

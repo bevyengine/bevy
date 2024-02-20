@@ -1,4 +1,5 @@
 use bevy_core_pipeline::core_3d::{Transparent3d, CORE_3D_DEPTH_FORMAT};
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, UVec3, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_render::{
@@ -21,7 +22,6 @@ use bevy_utils::tracing::info_span;
 use bevy_utils::{
     nonmax::NonMaxU32,
     tracing::{error, warn},
-    EntityHashMap,
 };
 use std::{hash::Hash, num::NonZeroU64, ops::Range};
 
@@ -50,8 +50,8 @@ pub struct ExtractedDirectionalLight {
     shadow_depth_bias: f32,
     shadow_normal_bias: f32,
     cascade_shadow_config: CascadeShadowConfig,
-    cascades: EntityHashMap<Entity, Vec<Cascade>>,
-    frusta: EntityHashMap<Entity, Vec<Frustum>>,
+    cascades: EntityHashMap<Vec<Cascade>>,
+    frusta: EntityHashMap<Vec<Frustum>>,
     render_layers: RenderLayers,
 }
 
@@ -586,7 +586,7 @@ pub const CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT: u32 = 3;
 #[derive(Resource)]
 pub struct GlobalLightMeta {
     pub gpu_point_lights: GpuPointLights,
-    pub entity_to_index: EntityHashMap<Entity, usize>,
+    pub entity_to_index: EntityHashMap<usize>,
 }
 
 impl FromWorld for GlobalLightMeta {
@@ -1591,11 +1591,12 @@ pub fn queue_shadows<M: Material>(
     shadow_draw_functions: Res<DrawFunctions<Shadow>>,
     prepass_pipeline: Res<PrepassPipeline<M>>,
     render_meshes: Res<RenderAssets<Mesh>>,
-    render_mesh_instances: Res<RenderMeshInstances>,
+    mut render_mesh_instances: ResMut<RenderMeshInstances>,
     render_materials: Res<RenderMaterials<M>>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
+    render_lightmaps: Res<RenderLightmaps>,
     view_lights: Query<(Entity, &ViewLightEntities)>,
     mut view_light_shadow_phases: Query<(&LightEntity, &mut RenderPhase<Shadow>)>,
     point_light_entities: Query<&CubemapVisibleEntities, With<ExtractedPointLight>>,
@@ -1636,7 +1637,7 @@ pub fn queue_shadows<M: Material>(
             // NOTE: Lights with shadow mapping disabled will have no visible entities
             // so no meshes will be queued
             for entity in visible_entities.iter().copied() {
-                let Some(mesh_instance) = render_mesh_instances.get(&entity) else {
+                let Some(mesh_instance) = render_mesh_instances.get_mut(&entity) else {
                     continue;
                 };
                 if !mesh_instance.shadow_caster {
@@ -1661,6 +1662,16 @@ pub fn queue_shadows<M: Material>(
                 if is_directional_light {
                     mesh_key |= MeshPipelineKey::DEPTH_CLAMP_ORTHO;
                 }
+
+                // Even though we don't use the lightmap in the shadow map, the
+                // `SetMeshBindGroup` render command will bind the data for it. So
+                // we need to include the appropriate flag in the mesh pipeline key
+                // to ensure that the necessary bind group layout entries are
+                // present.
+                if render_lightmaps.render_lightmaps.contains_key(&entity) {
+                    mesh_key |= MeshPipelineKey::LIGHTMAPPED;
+                }
+
                 mesh_key |= match material.properties.alpha_mode {
                     AlphaMode::Mask(_)
                     | AlphaMode::Blend
@@ -1685,6 +1696,8 @@ pub fn queue_shadows<M: Material>(
                         continue;
                     }
                 };
+
+                mesh_instance.material_bind_group_id = material.get_bind_group_id();
 
                 shadow_phase.add(Shadow {
                     draw_function: draw_shadow_mesh,

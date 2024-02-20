@@ -107,7 +107,9 @@ fn register_math_types(app: &mut App) {
         .register_type::<bevy_math::Mat4>()
         .register_type::<bevy_math::DQuat>()
         .register_type::<bevy_math::Quat>()
-        .register_type::<bevy_math::Rect>();
+        .register_type::<bevy_math::Rect>()
+        .register_type::<Vec<bevy_math::Quat>>()
+        .register_type::<Vec<bevy_math::Vec3>>();
 }
 
 /// Setup of default task pools: [`AsyncComputeTaskPool`](bevy_tasks::AsyncComputeTaskPool),

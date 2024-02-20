@@ -22,6 +22,7 @@ mod default;
 mod float_ord;
 pub mod intern;
 mod once;
+mod parallel_queue;
 
 pub use crate::uuid::Uuid;
 pub use ahash::{AHasher, RandomState};
@@ -30,6 +31,7 @@ pub use cow_arc::*;
 pub use default::default;
 pub use float_ord::*;
 pub use hashbrown;
+pub use parallel_queue::*;
 pub use petgraph;
 pub use smallvec;
 pub use thiserror;
@@ -346,38 +348,39 @@ pub type EntityHashSet<T> = hashbrown::HashSet<T, EntityHash>;
 
 /// A specialized hashmap type with Key of [`TypeId`]
 /// Iteration order only depends on the order of insertions and deletions.
-pub type TypeIdMap<V> = hashbrown::HashMap<TypeId, V, NoOpTypeIdHash>;
+pub type TypeIdMap<V> = hashbrown::HashMap<TypeId, V, NoOpHash>;
 
-/// [`BuildHasher`] for [`TypeId`]s.
-#[derive(Default)]
-pub struct NoOpTypeIdHash;
+/// [`BuildHasher`] for types that already contain a high-quality hash.
+#[derive(Clone, Default)]
+pub struct NoOpHash;
 
-impl BuildHasher for NoOpTypeIdHash {
-    type Hasher = NoOpTypeIdHasher;
+impl BuildHasher for NoOpHash {
+    type Hasher = NoOpHasher;
 
     fn build_hasher(&self) -> Self::Hasher {
-        NoOpTypeIdHasher(0)
+        NoOpHasher(0)
     }
 }
 
 #[doc(hidden)]
-pub struct NoOpTypeIdHasher(u64);
+pub struct NoOpHasher(u64);
 
-// TypeId already contains a high-quality hash, so skip re-hashing that hash.
-impl std::hash::Hasher for NoOpTypeIdHasher {
+// This is for types that already contain a high-quality hash and want to skip
+// re-hashing that hash.
+impl std::hash::Hasher for NoOpHasher {
     fn finish(&self) -> u64 {
         self.0
     }
 
     fn write(&mut self, bytes: &[u8]) {
-        // This will never be called: TypeId always just calls write_u64 once!
-        // This is a known trick and unlikely to change, but isn't officially guaranteed.
+        // This should never be called by consumers. Prefer to call `write_u64` instead.
         // Don't break applications (slower fallback, just check in test):
         self.0 = bytes.iter().fold(self.0, |hash, b| {
             hash.rotate_left(8).wrapping_add(*b as u64)
         });
     }
 
+    #[inline]
     fn write_u64(&mut self, i: u64) {
         self.0 = i;
     }
@@ -478,7 +481,6 @@ mod tests {
     use static_assertions::assert_impl_all;
 
     // Check that the HashMaps are Clone if the key/values are Clone
-    assert_impl_all!(EntityHashMap::<u64, usize>: Clone);
     assert_impl_all!(PreHashMap::<u64, usize>: Clone);
 
     #[test]

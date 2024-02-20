@@ -117,7 +117,6 @@ impl<'w> DeferredWorld<'w> {
                 state,
                 world_cell.last_change_tick(),
                 world_cell.change_tick(),
-                false,
             )
         }
     }

@@ -80,7 +80,6 @@ impl_reflect_value!(isize(
 impl_reflect_value!(f32(Debug, PartialEq, Serialize, Deserialize, Default));
 impl_reflect_value!(f64(Debug, PartialEq, Serialize, Deserialize, Default));
 impl_type_path!(str);
-impl_type_path!(::bevy_utils::EntityHash);
 impl_reflect_value!(::alloc::string::String(
     Debug,
     Hash,
@@ -618,6 +617,7 @@ impl_type_path!(::std::collections::HashMap<K, V, S>);
 
 impl_reflect_for_hashmap!(bevy_utils::hashbrown::HashMap<K, V, S>);
 impl_type_path!(::bevy_utils::hashbrown::hash_map::DefaultHashBuilder);
+impl_type_path!(::bevy_utils::NoOpHash);
 impl_type_path!(::bevy_utils::hashbrown::HashMap<K, V, S>);
 
 impl<T: Reflect + TypePath, const N: usize> Array for [T; N] {
@@ -1655,14 +1655,11 @@ mod tests {
         Enum, FromReflect, Reflect, ReflectSerialize, TypeInfo, TypeRegistry, Typed, VariantInfo,
         VariantType,
     };
+    use bevy_utils::HashMap;
     use bevy_utils::{Duration, Instant};
-    use bevy_utils::{EntityHashMap, HashMap};
     use static_assertions::assert_impl_all;
     use std::f32::consts::{PI, TAU};
     use std::path::Path;
-
-    // EntityHashMap should implement Reflect
-    assert_impl_all!(EntityHashMap<i32, i32>: Reflect);
 
     #[test]
     fn can_serialize_duration() {

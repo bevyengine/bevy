@@ -422,6 +422,15 @@ impl Cuboid {
         }
     }
 
+    /// Create a `Cuboid` from a single length.
+    /// The resulting `Cuboid` will be the same size in every direction.
+    #[inline(always)]
+    pub fn from_length(length: f32) -> Self {
+        Self {
+            half_size: Vec3::splat(length / 2.0),
+        }
+    }
+
     /// Get the size of the cuboid
     #[inline(always)]
     pub fn size(&self) -> Vec3 {

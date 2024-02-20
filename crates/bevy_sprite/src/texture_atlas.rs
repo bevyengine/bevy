@@ -8,7 +8,7 @@ use bevy_utils::HashMap;
 /// Stores a map used to lookup the position of a texture in a [`TextureAtlas`].
 /// This can be used to either use and look up a specific section of a texture, or animate frame-by-frame as a sprite sheet.
 ///
-/// Optionaly it can store a mapping from sub texture handles to the related area index (see
+/// Optionally it can store a mapping from sub texture handles to the related area index (see
 /// [`TextureAtlasBuilder`]).
 ///
 /// [Example usage animating sprite.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/sprite_sheet.rs)
@@ -35,7 +35,7 @@ pub struct TextureAtlasLayout {
 /// It stores a handle to [`TextureAtlasLayout`] and the index of the current section of the atlas.
 /// The texture atlas contains various *sections* of a given texture, allowing users to have a single
 /// image file for either sprite animation or global mapping.
-/// You can change the texture [`index`](Self::index) of the atlas to animate the sprite or dsplay only a *section* of the texture
+/// You can change the texture [`index`](Self::index) of the atlas to animate the sprite or display only a *section* of the texture
 /// for efficient rendering of related game objects.
 ///
 /// Check the following examples for usage:
@@ -43,7 +43,7 @@ pub struct TextureAtlasLayout {
 /// - [`texture atlas example`](https://github.com/bevyengine/bevy/blob/latest/examples/2d/texture_atlas.rs)
 #[derive(Component, Default, Debug, Clone, Reflect)]
 pub struct TextureAtlas {
-    /// Texture atlas handle
+    /// Texture atlas layout handle
     pub layout: Handle<TextureAtlasLayout>,
     /// Texture atlas section index
     pub index: usize,
