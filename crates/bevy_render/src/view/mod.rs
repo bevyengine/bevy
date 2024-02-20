@@ -123,7 +123,12 @@ pub struct ExtractedView {
 impl ExtractedView {
     /// Creates a 3D rangefinder for a view
     pub fn rangefinder3d(&self) -> ViewRangefinder3d {
-        ViewRangefinder3d::from_view_matrix(&self.transform.compute_matrix())
+        if let Some(vp) = &self.view_projection {
+            ViewRangefinder3d::from_view_proj_matrix(vp)
+        } else {
+            let vp = self.projection * self.transform.compute_matrix().inverse();
+            ViewRangefinder3d::from_view_proj_matrix(&vp)
+        }
     }
 }
 
