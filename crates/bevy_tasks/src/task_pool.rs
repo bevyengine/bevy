@@ -4,12 +4,12 @@ use std::{
     mem,
     panic::AssertUnwindSafe,
     sync::Arc,
-    thread::{self, JoinHandle},
 };
 
 use async_task::FallibleTask;
 use concurrent_queue::ConcurrentQueue;
 use futures_lite::FutureExt;
+use rayon_core::{ThreadPoolBuilder, ThreadPool};
 
 use crate::{
     block_on,
@@ -31,17 +31,8 @@ impl Drop for CallOnDrop {
 #[derive(Default)]
 #[must_use]
 pub struct TaskPoolBuilder {
-    /// If set, we'll set up the thread pool to use at most `num_threads` threads.
-    /// Otherwise use the logical core count of the system
-    num_threads: Option<usize>,
-    /// If set, we'll use the given stack size rather than the system default
-    stack_size: Option<usize>,
-    /// Allows customizing the name of the threads - helpful for debugging. If set, threads will
-    /// be named <thread_name> (<thread_index>), i.e. "MyThreadPool (2)"
-    thread_name: Option<String>,
-
+    thread_pool_builder: ThreadPoolBuilder,
     on_thread_spawn: Option<Arc<dyn Fn() + Send + Sync + 'static>>,
-    on_thread_destroy: Option<Arc<dyn Fn() + Send + Sync + 'static>>,
 }
 
 impl TaskPoolBuilder {
@@ -53,20 +44,20 @@ impl TaskPoolBuilder {
     /// Override the number of threads created for the pool. If unset, we default to the number
     /// of logical cores of the system
     pub fn num_threads(mut self, num_threads: usize) -> Self {
-        self.num_threads = Some(num_threads);
+        self.thread_pool_builder = self.thread_pool_builder.num_threads(num_threads);
         self
     }
 
     /// Override the stack size of the threads created for the pool
     pub fn stack_size(mut self, stack_size: usize) -> Self {
-        self.stack_size = Some(stack_size);
+        self.thread_pool_builder = self.thread_pool_builder.stack_size(stack_size);
         self
     }
 
     /// Override the name of the threads created for the pool. If set, threads will
     /// be named `<thread_name> (<thread_index>)`, i.e. `MyThreadPool (2)`
     pub fn thread_name(mut self, thread_name: String) -> Self {
-        self.thread_name = Some(thread_name);
+        self.thread_pool_builder = self.thread_pool_builder.thread_name(move |idx| format!("{thread_name} ({idx})"));
         self
     }
 
@@ -84,7 +75,7 @@ impl TaskPoolBuilder {
     /// This is called on the thread itself and has access to all thread-local storage.
     /// This will block thread termination until the callback completes.
     pub fn on_thread_destroy(mut self, f: impl Fn() + Send + Sync + 'static) -> Self {
-        self.on_thread_destroy = Some(Arc::new(f));
+        self.thread_pool_builder = self.thread_pool_builder.exit_handler(move |_| f());
         self
     }
 
@@ -113,8 +104,8 @@ pub struct TaskPool {
     /// the `Vec<Task<T>>` contained within `TaskPoolInner`
     executor: Arc<async_executor::Executor<'static>>,
 
-    /// Inner state of the pool
-    threads: Vec<JoinHandle<()>>,
+    thread_pool: ThreadPool,
+
     shutdown_tx: async_channel::Sender<()>,
 }
 
@@ -139,68 +130,52 @@ impl TaskPool {
 
         let executor = Arc::new(async_executor::Executor::new());
 
-        let num_threads = builder
-            .num_threads
-            .unwrap_or_else(crate::available_parallelism);
+        let thread_pool = builder.thread_pool_builder.build()
+                    .expect("Failed to spawn thread pool.");
 
-        let threads = (0..num_threads)
-            .map(|i| {
-                let ex = Arc::clone(&executor);
+        let ex = Arc::clone(&executor);
+        let shutdown_rx = shutdown_rx.clone();
+        let on_thread_spawn = builder.on_thread_spawn.clone();
+
+        thread_pool
+            .spawn_broadcast(move |ctx| {
+                let ex = Arc::clone(&ex);
                 let shutdown_rx = shutdown_rx.clone();
+                let on_thread_spawn = on_thread_spawn.clone();
 
-                let thread_name = if let Some(thread_name) = builder.thread_name.as_deref() {
-                    format!("{thread_name} ({i})")
-                } else {
-                    format!("TaskPool ({i})")
-                };
-                let mut thread_builder = thread::Builder::new().name(thread_name);
-
-                if let Some(stack_size) = builder.stack_size {
-                    thread_builder = thread_builder.stack_size(stack_size);
-                }
-
-                let on_thread_spawn = builder.on_thread_spawn.clone();
-                let on_thread_destroy = builder.on_thread_destroy.clone();
-
-                thread_builder
-                    .spawn(move || {
-                        TaskPool::LOCAL_EXECUTOR.with(|local_executor| {
-                            if let Some(on_thread_spawn) = on_thread_spawn {
-                                on_thread_spawn();
-                                drop(on_thread_spawn);
-                            }
-                            let _destructor = CallOnDrop(on_thread_destroy);
-                            loop {
-                                let res = std::panic::catch_unwind(|| {
-                                    let tick_forever = async move {
-                                        loop {
-                                            local_executor.tick().await;
-                                        }
-                                    };
-                                    block_on(ex.run(tick_forever.or(shutdown_rx.recv())))
-                                });
-                                if let Ok(value) = res {
-                                    // Use unwrap_err because we expect a Closed error
-                                    value.unwrap_err();
-                                    break;
+                TaskPool::LOCAL_EXECUTOR.with(move |local_executor| {
+                    if let Some(on_thread_spawn) = on_thread_spawn {
+                        on_thread_spawn();
+                        drop(on_thread_spawn);
+                    }
+                    loop {
+                        let res = std::panic::catch_unwind(|| {
+                            let tick_forever = async move {
+                                loop {
+                                    local_executor.tick().await;
                                 }
-                            }
+                            };
+                            block_on(ex.run(tick_forever.or(shutdown_rx.recv())))
                         });
-                    })
-                    .expect("Failed to spawn thread.")
-            })
-            .collect();
+                        if let Ok(value) = res {
+                            // Use unwrap_err because we expect a Closed error
+                            value.unwrap_err();
+                            break;
+                        }
+                    }
+                });
+            });
 
         Self {
             executor,
-            threads,
+            thread_pool,
             shutdown_tx,
         }
     }
 
     /// Return the number of threads owned by the task pool
     pub fn thread_num(&self) -> usize {
-        self.threads.len()
+        self.thread_pool.current_num_threads()
     }
 
     /// Allows spawning non-`'static` futures on the thread pool. The function takes a callback,
@@ -402,7 +377,7 @@ impl TaskPool {
                     results
                 };
 
-                let tick_task_pool_executor = tick_task_pool_executor || self.threads.is_empty();
+                let tick_task_pool_executor = tick_task_pool_executor || self.thread_pool.current_num_threads() == 0;
 
                 // we get this from a thread local so we should always be on the scope executors thread.
                 // note: it is possible `scope_executor` and `external_executor` is the same executor,
@@ -585,14 +560,6 @@ impl Default for TaskPool {
 impl Drop for TaskPool {
     fn drop(&mut self) {
         self.shutdown_tx.close();
-
-        let panicking = thread::panicking();
-        for join_handle in self.threads.drain(..) {
-            let res = join_handle.join();
-            if !panicking {
-                res.expect("Task thread panicked while executing.");
-            }
-        }
     }
 }
 

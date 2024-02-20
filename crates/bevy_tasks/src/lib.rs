@@ -1,5 +1,9 @@
 #![doc = include_str!("../README.md")]
 
+use std::task::{Context, Poll};
+use std::future::Future;
+use rayon_core::Yield;
+
 mod slice;
 pub use slice::{ParallelSlice, ParallelSliceMut};
 
@@ -28,8 +32,6 @@ pub use thread_executor::{ThreadExecutor, ThreadExecutorTicker};
 
 #[cfg(feature = "async-io")]
 pub use async_io::block_on;
-#[cfg(not(feature = "async-io"))]
-pub use futures_lite::future::block_on;
 pub use futures_lite::future::poll_once;
 
 mod iter;
@@ -60,4 +62,75 @@ pub fn available_parallelism() -> usize {
     std::thread::available_parallelism()
         .map(NonZeroUsize::get)
         .unwrap_or(1)
+}
+
+/// Blocks the current thread on a future.
+///
+/// # Examples
+///
+/// ```
+/// use futures_lite::future;
+///
+/// let val = future::block_on(async {
+///     1 + 2
+/// });
+///
+/// assert_eq!(val, 3);
+/// ```
+#[cfg(not(feature = "async-io"))]
+pub fn block_on<T>(future: impl Future<Output = T>) -> T {
+    use core::cell::RefCell;
+    use core::task::Waker;
+
+    use parking::Parker;
+
+    // Pin the future on the stack.
+    futures_lite::pin!(future);
+
+    // Creates a parker and an associated waker that unparks it.
+    fn parker_and_waker() -> (Parker, Waker) {
+        let parker = Parker::new();
+        let unparker = parker.unparker();
+        let waker = Waker::from(unparker);
+        (parker, waker)
+    }
+
+    thread_local! {
+        // Cached parker and waker for efficiency.
+        static CACHE: RefCell<(Parker, Waker)> = RefCell::new(parker_and_waker());
+    }
+
+    CACHE.with(|cache| {
+        // Try grabbing the cached parker and waker.
+        let tmp_cached;
+        let tmp_fresh;
+        let (parker, waker) = match cache.try_borrow_mut() {
+            Ok(cache) => {
+                // Use the cached parker and waker.
+                tmp_cached = cache;
+                &*tmp_cached
+            }
+            Err(_) => {
+                // Looks like this is a recursive `block_on()` call.
+                // Create a fresh parker and waker.
+                tmp_fresh = parker_and_waker();
+                &tmp_fresh
+            }
+        };
+
+        let cx = &mut Context::from_waker(waker);
+        // Keep polling until the future is ready.
+        loop {
+            match future.as_mut().poll(cx) {
+                Poll::Ready(output) => return output,
+                Poll::Pending => {
+                    match rayon_core::yield_now() {
+                        Some(Yield::Executed) => continue,
+                        Some(Yield::Idle) |
+                        None => parker.park(),
+                    }
+                }
+            }
+        }
+    })
 }
