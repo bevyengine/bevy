@@ -91,7 +91,8 @@ fn draw_example_collection(
         Quat::from_rotation_x(PI / 2.),
         UVec2::splat(20),
         Vec2::new(2., 2.),
-        Color::DARK_GRAY,
+        // Light gray
+        Color::rgb(0.65, 0.65, 0.65),
     );
 
     gizmos.cuboid(

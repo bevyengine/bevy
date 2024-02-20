@@ -47,7 +47,8 @@ fn draw_example_collection(
             0.0,
             UVec2::new(16, 12),
             Vec2::new(60., 60.),
-            Color::DARK_GRAY,
+            // Light gray
+            Color::rgb(0.65, 0.65, 0.65),
         )
         .outer_edges(true);
 
