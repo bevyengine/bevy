@@ -43,12 +43,7 @@ impl Hsla {
     /// * `saturation` - Saturation channel. [0.0, 1.0]
     /// * `lightness` - Lightness channel. [0.0, 1.0]
     pub const fn hsl(hue: f32, saturation: f32, lightness: f32) -> Self {
-        Self {
-            hue,
-            saturation,
-            lightness,
-            alpha: 1.0,
-        }
+        Self::new(hue, saturation, lightness, 1.0)
     }
 }
 
@@ -98,7 +93,7 @@ impl Luminance for Hsla {
 
     fn darker(&self, amount: f32) -> Self {
         Self {
-            lightness: (self.lightness - amount).max(0.),
+            lightness: (self.lightness - amount).clamp(0., 1.),
             ..*self
         }
     }

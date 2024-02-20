@@ -29,7 +29,7 @@ impl Oklaba {
         Self { l, a, b, alpha }
     }
 
-    /// Construct a new [`Oklaba`] color from (l, c, h) components, with the default alpha (1.0).
+    /// Construct a new [`Oklaba`] color from (l, a, b) components, with the default alpha (1.0).
     ///
     /// # Arguments
     ///

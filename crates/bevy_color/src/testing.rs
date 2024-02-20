@@ -1,4 +1,4 @@
-#[allow(unused_macros)]
+#[cfg(test)]
 macro_rules! assert_approx_eq {
     ($x:expr, $y:expr, $d:expr) => {
         if ($x - $y).abs() >= $d {
@@ -11,5 +11,5 @@ macro_rules! assert_approx_eq {
     };
 }
 
-#[allow(unused_imports)]
+#[cfg(test)]
 pub(crate) use assert_approx_eq;

@@ -9,7 +9,6 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy", "color"]
 
 [dependencies]
-# bevy = "0.12.1"
 bevy_math = { path = "../bevy_math", version = "0.13.0" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.13.0", features = [
   "bevy",

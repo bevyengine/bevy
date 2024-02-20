@@ -6,7 +6,7 @@
 //! - [`LinearRgba`] (linear RGBA, without gamma correction)
 //! - [`Hsla`] (hue, saturation, lightness, alpha)
 //! - [`Lcha`] (lightness, chroma, hue, alpha)
-//! - [`Oklaba`] (hue, chroma, lightness, alpha)
+//! - [`Oklaba`] (lightness, a-axis, b-axis, alpha)
 //!
 //! Each of these color spaces is represented as a distinct Rust type. Colors can be converted
 //! from one color space to another using the [`From`] trait.
@@ -24,6 +24,17 @@
 //! is important to convert standard colors to linear before sending them to the GPU. Most Bevy
 //! APIs will handle this conversion automatically, but if you are writing a custom shader, you
 //! will need to do this conversion yourself.
+//!
+//! HSL and LCH are "cylindrical" color spaces, which means they represent colors as a combination
+//! of hue, saturation, and lightness (or chroma). These color spaces are useful for working
+//! with colors in an artistic way - for example, when creating gradients or color palettes.
+//! A gradient in HSL space from red to violet will produce a rainbow. The LCH color space is
+//! more perceptually accurate than HSL, but is less intuitive to work with.
+//!
+//! Oklab is a perceptually uniform color space that is designed to be used for tasks such
+//! as image processing. It is not as widely used as the other color spaces, but it is useful
+//! for tasks such as color correction and image analysis, where it is important to be able
+//! to do things like change color saturation without causing hue shifts.
 //!
 //! # Other Utilities
 //!

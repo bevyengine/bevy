@@ -21,7 +21,7 @@ pub struct LinearRgba {
 }
 
 impl LinearRgba {
-    /// Construct a new `LinearRgba` color from components.
+    /// Construct a new [`LinearRgba`] color from components.
     pub const fn new(red: f32, green: f32, blue: f32, alpha: f32) -> Self {
         Self {
             red,
@@ -189,7 +189,7 @@ impl From<Oklaba> for LinearRgba {
     fn from(value: Oklaba) -> Self {
         let Oklaba { l, a, b, alpha } = value;
 
-        // From https://github.com/Ogeon/palette
+        // From https://github.com/Ogeon/palette/blob/e75eab2fb21af579353f51f6229a510d0d50a311/palette/src/oklab.rs#L312-L332
         let l_ = l + 0.3963377774 * a + 0.2158037573 * b;
         let m_ = l - 0.1055613458 * a - 0.0638541728 * b;
         let s_ = l - 0.0894841775 * a - 1.2914855480 * b;
