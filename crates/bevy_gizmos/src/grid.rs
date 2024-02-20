@@ -182,7 +182,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_math::prelude::*;
     /// fn system(mut gizmos: Gizmos) {
     ///     gizmos.grid_2d(
-    ///         Vec32::ZERO,
+    ///         Vec2::ZERO,
     ///         0.0,
     ///         Uvec2::new(10, 10),
     ///         Color::GREEN
