@@ -25,7 +25,11 @@ fn fragment(
     var pbr_input = pbr_input_from_standard_material(in, is_front);
 
     // alpha discard
-    pbr_input.material.base_color = alpha_discard(pbr_input.material, pbr_input.material.base_color);
+    pbr_input.material.base_color = alpha_discard(
+        pbr_input.material.flags,
+        pbr_input.material.alpha_cutoff,
+        pbr_input.material.base_color
+    );
 
 #ifdef PREPASS_PIPELINE
     // write the gbuffer, lighting pass id, and optionally normal and motion_vector textures
