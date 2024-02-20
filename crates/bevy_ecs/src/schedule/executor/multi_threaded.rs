@@ -137,7 +137,7 @@ pub struct ExecutorState {
 // These all need to outlive 'scope in order to be sent to new tasks,
 // and keeping them all in a struct means we can use lifetime elision.
 #[derive(Copy, Clone)]
-pub struct Context<'scope, 'env: 'scope, 'sys> {
+struct Context<'scope, 'env: 'scope, 'sys> {
     environment: &'env Environment<'env, 'sys>,
     scope: &'scope Scope<'scope, 'env, ()>,
 }
