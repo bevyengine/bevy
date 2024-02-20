@@ -2,7 +2,7 @@
 
 struct Mesh {
     // Affine 4x3 matrices transposed to 3x4
-    // Use bevy_render::maths::affine_to_square to unpack
+    // Use bevy_render::maths::affine3_to_square to unpack
     model: mat3x4<f32>,
     previous_model: mat3x4<f32>,
     lightmap_uv_rect: vec2<u32>,
