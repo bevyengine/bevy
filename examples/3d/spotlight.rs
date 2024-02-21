@@ -27,11 +27,14 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // ground plane
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(100.0, 100.0)),
-        material: materials.add(Color::WHITE),
-        ..default()
-    });
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Plane3d::default().mesh().size(100.0, 100.0)),
+            material: materials.add(Color::WHITE),
+            ..default()
+        },
+        Movable,
+    ));
 
     // cubes
     let mut rng = StdRng::seed_from_u64(19878367467713);
@@ -139,27 +142,31 @@ fn movement(
     time: Res<Time>,
     mut query: Query<&mut Transform, With<Movable>>,
 ) {
-    for mut transform in &mut query {
-        let mut direction = Vec3::ZERO;
-        if input.pressed(KeyCode::ArrowUp) {
-            direction.z -= 1.0;
-        }
-        if input.pressed(KeyCode::ArrowDown) {
-            direction.z += 1.0;
-        }
-        if input.pressed(KeyCode::ArrowLeft) {
-            direction.x -= 1.0;
-        }
-        if input.pressed(KeyCode::ArrowRight) {
-            direction.x += 1.0;
-        }
-        if input.pressed(KeyCode::PageUp) {
-            direction.y += 1.0;
-        }
-        if input.pressed(KeyCode::PageDown) {
-            direction.y -= 1.0;
-        }
+    // Calculate translation to move the cubes and ground plane
+    let mut translation = Vec3::ZERO;
 
-        transform.translation += time.delta_seconds() * 2.0 * direction;
+    if input.pressed(KeyCode::ArrowUp) {
+        translation.z += 1.0;
+    } else if input.pressed(KeyCode::ArrowDown) {
+        translation.z -= 1.0;
+    }
+
+    if input.pressed(KeyCode::ArrowLeft) {
+        translation.x += 1.0;
+    } else if input.pressed(KeyCode::ArrowRight) {
+        translation.x -= 1.0;
+    }
+
+    if input.pressed(KeyCode::ShiftLeft) {
+        translation.y += 1.0;
+    } else if input.pressed(KeyCode::Space) {
+        translation.y -= 1.0;
+    }
+
+    translation *= 2.0 * time.delta_seconds();
+
+    // Apply translation
+    for mut transform in &mut query {
+        transform.translation += translation;
     }
 }
