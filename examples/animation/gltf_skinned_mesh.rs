@@ -9,7 +9,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .insert_resource(AmbientLight {
-            brightness: 150.0,
+            brightness: 750.0,
             ..default()
         })
         .add_systems(Startup, setup)
