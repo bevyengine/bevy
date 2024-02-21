@@ -54,6 +54,7 @@ workspace = true
 [features]
 default = [
   "animation",
+  "bevy_a11y",
   "bevy_asset",
   "bevy_audio",
   "bevy_gilrs",
@@ -64,7 +65,7 @@ default = [
   "bevy_gltf",
   "bevy_render",
   "bevy_sprite",
-  "bevy_a11y",
+  "bevy_transform",
   "bevy_input",
   "bevy_window",
   "bevy_text",
