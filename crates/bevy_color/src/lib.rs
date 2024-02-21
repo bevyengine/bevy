@@ -41,7 +41,7 @@
 //! The crate also provides a number of color operations, such as blending, color difference,
 //! and color range operations.
 //!
-//! In addition, there is a [`ColorRepresentation`] enum that can represent any of the color
+//! In addition, there is a [`Color`] enum that can represent any of the color
 //! types in this crate. This is useful when you need to store a color in a data structure
 //! that can't be generic over the color type.
 //!
@@ -57,10 +57,10 @@
 //! println!("Hsla: {:?}", hsla);
 //! ```
 
+mod color;
 pub mod color_difference;
 mod color_ops;
 mod color_range;
-mod color_representation;
 mod hsla;
 mod lcha;
 mod linear_rgba;
@@ -71,9 +71,9 @@ mod test_colors;
 #[cfg(test)]
 mod testing;
 
+pub use color::*;
 pub use color_ops::*;
 pub use color_range::*;
-pub use color_representation::*;
 pub use hsla::*;
 pub use lcha::*;
 pub use linear_rgba::*;

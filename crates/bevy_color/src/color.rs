@@ -5,7 +5,7 @@ use crate::{Hsla, Lcha, LinearRgba, Oklaba, Srgba};
 /// This is useful when you need to store a color in a data structure that can't be generic over
 /// the color type.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum ColorRepresentation {
+pub enum Color {
     /// A color in the sRGB color space with alpha.
     Srgba(Srgba),
     /// A color in the linear sRGB color space with alpha.
@@ -18,44 +18,44 @@ pub enum ColorRepresentation {
     Oklaba(Oklaba),
 }
 
-impl ColorRepresentation {
+impl Color {
     /// Return the color as a linear RGBA color.
     pub fn linear(&self) -> LinearRgba {
         match self {
-            ColorRepresentation::Srgba(srgba) => (*srgba).into(),
-            ColorRepresentation::LinearRgba(linear) => *linear,
-            ColorRepresentation::Hsla(hsla) => (*hsla).into(),
-            ColorRepresentation::Lcha(lcha) => (*lcha).into(),
-            ColorRepresentation::Oklaba(oklab) => (*oklab).into(),
+            Color::Srgba(srgba) => (*srgba).into(),
+            Color::LinearRgba(linear) => *linear,
+            Color::Hsla(hsla) => (*hsla).into(),
+            Color::Lcha(lcha) => (*lcha).into(),
+            Color::Oklaba(oklab) => (*oklab).into(),
         }
     }
 }
 
-impl Default for ColorRepresentation {
+impl Default for Color {
     fn default() -> Self {
         Self::Srgba(Srgba::WHITE)
     }
 }
 
-impl From<Srgba> for ColorRepresentation {
+impl From<Srgba> for Color {
     fn from(value: Srgba) -> Self {
         Self::Srgba(value)
     }
 }
 
-impl From<LinearRgba> for ColorRepresentation {
+impl From<LinearRgba> for Color {
     fn from(value: LinearRgba) -> Self {
         Self::LinearRgba(value)
     }
 }
 
-impl From<Hsla> for ColorRepresentation {
+impl From<Hsla> for Color {
     fn from(value: Hsla) -> Self {
         Self::Hsla(value)
     }
 }
 
-impl From<Oklaba> for ColorRepresentation {
+impl From<Oklaba> for Color {
     fn from(value: Oklaba) -> Self {
         Self::Oklaba(value)
     }
