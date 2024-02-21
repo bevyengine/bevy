@@ -5,7 +5,7 @@ use bevy_ecs::{
     reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities},
     world::World,
 };
-use bevy_reflect::{Reflect, TypePath, TypeRegistryArc};
+use bevy_reflect::{PartialReflect, TypePath, TypeRegistryArc};
 use bevy_utils::TypeIdMap;
 
 #[cfg(feature = "serialize")]
@@ -28,7 +28,7 @@ use serde::Serialize;
 #[derive(Asset, TypePath, Default)]
 pub struct DynamicScene {
     /// Resources stored in the dynamic scene.
-    pub resources: Vec<Box<dyn Reflect>>,
+    pub resources: Vec<Box<dyn PartialReflect>>,
     /// Entities contained in the dynamic scene.
     pub entities: Vec<DynamicEntity>,
 }
@@ -40,8 +40,8 @@ pub struct DynamicEntity {
     /// Components that reference this entity must consistently use this identifier.
     pub entity: Entity,
     /// A vector of boxed components that belong to the given entity and
-    /// implement the [`Reflect`] trait.
-    pub components: Vec<Box<dyn Reflect>>,
+    /// implement the [`PartialReflect`] trait.
+    pub components: Vec<Box<dyn PartialReflect>>,
 }
 
 impl DynamicScene {
@@ -90,7 +90,7 @@ impl DynamicScene {
 
             // If the world already contains an instance of the given resource
             // just apply the (possibly) new value, otherwise insert the resource
-            reflect_resource.apply_or_insert(world, &**resource);
+            reflect_resource.apply_or_insert(world, resource.as_partial_reflect());
         }
 
         // For each component types that reference other entities, we keep track
@@ -139,7 +139,11 @@ impl DynamicScene {
                 // If the entity already has the given component attached,
                 // just apply the (possibly) new value, otherwise add the
                 // component to the entity.
-                reflect_component.apply_or_insert(entity_mut, &**component, &type_registry);
+                reflect_component.apply_or_insert(
+                    entity_mut,
+                    component.as_partial_reflect(),
+                    &type_registry,
+                );
             }
         }
 

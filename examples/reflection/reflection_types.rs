@@ -7,6 +7,7 @@ use bevy::{
     reflect::{DynamicList, ReflectRef},
     utils::HashMap,
 };
+use bevy_internal::reflect::PartialReflect;
 use serde::{Deserialize, Serialize};
 
 fn main() {
