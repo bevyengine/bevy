@@ -65,10 +65,6 @@ fn main() {
             moving: true,
             sync: args.sync,
         })
-        .insert_resource(AmbientLight {
-            color: Color::WHITE,
-            brightness: 100.0,
-        })
         .add_systems(Startup, setup)
         .add_systems(
             Update,
@@ -203,7 +199,6 @@ fn setup(
     commands.spawn(DirectionalLightBundle {
         transform: Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
         directional_light: DirectionalLight {
-            illuminance: 3000.0,
             shadows_enabled: true,
             ..default()
         },

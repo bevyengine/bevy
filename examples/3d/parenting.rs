@@ -57,10 +57,6 @@ fn setup(
     // light
     commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(4.0, 5.0, -4.0),
-        point_light: PointLight {
-            intensity: 150_000.0,
-            ..default()
-        },
         ..default()
     });
     // camera

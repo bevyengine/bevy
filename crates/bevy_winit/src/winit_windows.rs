@@ -5,7 +5,8 @@ use bevy_a11y::{
 };
 use bevy_ecs::entity::Entity;
 
-use bevy_utils::{tracing::warn, EntityHashMap, HashMap};
+use bevy_ecs::entity::EntityHashMap;
+use bevy_utils::{tracing::warn, HashMap};
 use bevy_window::{CursorGrabMode, Window, WindowMode, WindowPosition, WindowResolution};
 
 use winit::{
@@ -25,7 +26,7 @@ pub struct WinitWindows {
     /// Stores [`winit`] windows by window identifier.
     pub windows: HashMap<winit::window::WindowId, winit::window::Window>,
     /// Maps entities to `winit` window identifiers.
-    pub entity_to_winit: EntityHashMap<Entity, winit::window::WindowId>,
+    pub entity_to_winit: EntityHashMap<winit::window::WindowId>,
     /// Maps `winit` window identifiers to entities.
     pub winit_to_entity: HashMap<winit::window::WindowId, Entity>,
     // Many `winit` window functions (e.g. `set_window_icon`) can only be called on the main thread.
@@ -55,18 +56,25 @@ impl WinitWindows {
             WindowMode::BorderlessFullscreen => winit_window_builder.with_fullscreen(Some(
                 winit::window::Fullscreen::Borderless(event_loop.primary_monitor()),
             )),
-            WindowMode::Fullscreen => {
-                winit_window_builder.with_fullscreen(Some(winit::window::Fullscreen::Exclusive(
-                    get_best_videomode(&event_loop.primary_monitor().unwrap()),
-                )))
+            mode @ (WindowMode::Fullscreen | WindowMode::SizedFullscreen) => {
+                if let Some(primary_monitor) = event_loop.primary_monitor() {
+                    let videomode = match mode {
+                        WindowMode::Fullscreen => get_best_videomode(&primary_monitor),
+                        WindowMode::SizedFullscreen => get_fitting_videomode(
+                            &primary_monitor,
+                            window.width() as u32,
+                            window.height() as u32,
+                        ),
+                        _ => unreachable!(),
+                    };
+
+                    winit_window_builder
+                        .with_fullscreen(Some(winit::window::Fullscreen::Exclusive(videomode)))
+                } else {
+                    warn!("Could not determine primary monitor, ignoring exclusive fullscreen request for window {:?}", window.title);
+                    winit_window_builder
+                }
             }
-            WindowMode::SizedFullscreen => winit_window_builder.with_fullscreen(Some(
-                winit::window::Fullscreen::Exclusive(get_fitting_videomode(
-                    &event_loop.primary_monitor().unwrap(),
-                    window.width() as u32,
-                    window.height() as u32,
-                )),
-            )),
             WindowMode::Windowed => {
                 if let Some(position) = winit_window_position(
                     &window.position,

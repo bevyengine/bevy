@@ -116,7 +116,12 @@ fn setup_scene_after_load(
         let mut projection = PerspectiveProjection::default();
         projection.far = projection.far.max(size * 10.0);
 
-        let camera_controller = CameraController::default();
+        let walk_speed = size * 3.0;
+        let camera_controller = CameraController {
+            walk_speed,
+            run_speed: 3.0 * walk_speed,
+            ..default()
+        };
 
         // Display the controls of the scene viewer
         info!("{}", camera_controller);
@@ -149,11 +154,7 @@ fn setup_scene_after_load(
         if !scene_handle.has_light {
             info!("Spawning a directional light");
             commands.spawn(DirectionalLightBundle {
-                directional_light: DirectionalLight {
-                    illuminance: 3000.0,
-                    shadows_enabled: false,
-                    ..default()
-                },
+                transform: Transform::from_xyz(1.0, 1.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
                 ..default()
             });
 

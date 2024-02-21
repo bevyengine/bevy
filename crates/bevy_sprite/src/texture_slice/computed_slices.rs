@@ -8,7 +8,7 @@ use bevy_render::texture::Image;
 use bevy_transform::prelude::*;
 use bevy_utils::HashSet;
 
-/// Component storing texture slices for sprite entities with a tiled or sliced  [`ImageScaleMode`]
+/// Component storing texture slices for sprite entities with a [`ImageScaleMode`]
 ///
 /// This component is automatically inserted and updated
 #[derive(Debug, Clone, Component)]
@@ -62,9 +62,7 @@ impl ComputedTextureSlices {
 /// Generates sprite slices for a `sprite` given a `scale_mode`. The slices
 /// will be computed according to the `image_handle` dimensions or the sprite rect.
 ///
-/// Returns `None` if either:
-/// - The scale mode is [`ImageScaleMode::Stretched`]
-/// - The image asset is not loaded
+/// Returns `None` if the image asset is not loaded
 #[must_use]
 fn compute_sprite_slices(
     sprite: &Sprite,
@@ -72,9 +70,6 @@ fn compute_sprite_slices(
     image_handle: &Handle<Image>,
     images: &Assets<Image>,
 ) -> Option<ComputedTextureSlices> {
-    if let ImageScaleMode::Stretched = scale_mode {
-        return None;
-    }
     let image_size = images.get(image_handle).map(|i| {
         Vec2::new(
             i.texture_descriptor.size.width as f32,
@@ -82,7 +77,6 @@ fn compute_sprite_slices(
         )
     })?;
     let slices = match scale_mode {
-        ImageScaleMode::Stretched => unreachable!(),
         ImageScaleMode::Sliced(slicer) => slicer.compute_slices(
             sprite.rect.unwrap_or(Rect {
                 min: Vec2::ZERO,
@@ -110,7 +104,7 @@ fn compute_sprite_slices(
 }
 
 /// System reacting to added or modified [`Image`] handles, and recompute sprite slices
-/// on matching sprite entities
+/// on matching sprite entities with a [`ImageScaleMode`] component
 pub(crate) fn compute_slices_on_asset_event(
     mut commands: Commands,
     mut events: EventReader<AssetEvent<Image>>,
@@ -140,6 +134,7 @@ pub(crate) fn compute_slices_on_asset_event(
 }
 
 /// System reacting to changes on relevant sprite bundle components to compute the sprite slices
+/// on matching sprite entities with a [`ImageScaleMode`] component
 pub(crate) fn compute_slices_on_sprite_change(
     mut commands: Commands,
     images: Res<Assets<Image>>,
