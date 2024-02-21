@@ -2997,11 +2997,13 @@ mod tests {
 
         let (info, ptr) = iter.next().unwrap();
         assert_eq!(info.name(), std::any::type_name::<TestResource>());
+        // SAFETY: We know that the resource is of type `TestResource`
         assert_eq!(unsafe { ptr.deref::<TestResource>().0 }, 42);
 
         let (info, ptr) = iter.next().unwrap();
         assert_eq!(info.name(), std::any::type_name::<TestResource2>());
         assert_eq!(
+            // SAFETY: We know that the resource is of type `TestResource2`
             unsafe { &ptr.deref::<TestResource2>().0 },
             &"Hello, world!".to_string()
         );
@@ -3020,13 +3022,17 @@ mod tests {
 
         let (info, mut mut_untyped) = iter.next().unwrap();
         assert_eq!(info.name(), std::any::type_name::<TestResource>());
-        unsafe { mut_untyped.as_mut().deref_mut::<TestResource>().0 = 43 };
+        // SAFETY: We know that the resource is of type `TestResource`
+        unsafe {
+            mut_untyped.as_mut().deref_mut::<TestResource>().0 = 43;
+        }
 
         let (info, mut mut_untyped) = iter.next().unwrap();
         assert_eq!(info.name(), std::any::type_name::<TestResource2>());
+        // SAFETY: We know that the resource is of type `TestResource2`
         unsafe {
-            mut_untyped.as_mut().deref_mut::<TestResource2>().0 = "Hello, world?".to_string()
-        };
+            mut_untyped.as_mut().deref_mut::<TestResource2>().0 = "Hello, world?".to_string();
+        }
 
         assert!(iter.next().is_none());
 
