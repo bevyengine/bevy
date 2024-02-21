@@ -122,18 +122,26 @@ fn setup(
         ..default()
     });
 
-    commands.spawn(TextBundle::from_section(
-        "\
+    commands.spawn(
+        TextBundle::from_section(
+            "\
 Controls
 --------
 Horizontal Movement: WASD
 Vertical Movement: Space and Shift
 Rotate Camera: Left and Right Arrows",
-        TextStyle {
-            font_size: 24.0,
+            TextStyle {
+                font_size: 20.0,
+                ..default()
+            },
+        )
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
-        },
-    ));
+        }),
+    );
 }
 
 fn light_sway(time: Res<Time>, mut query: Query<(&mut Transform, &mut SpotLight)>) {
