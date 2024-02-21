@@ -93,7 +93,7 @@ encase = { version = "0.7", features = ["glam"] }
 profiling = { version = "1", features = [
   "profile-with-tracing",
 ], optional = true }
-async-channel = "2.1.0"
+async-channel = "2.2.0"
 
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

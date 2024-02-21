@@ -6,6 +6,7 @@ compile_error!("bevy_render cannot compile for a 16-bit platform.");
 
 extern crate core;
 
+pub mod alpha;
 pub mod batching;
 pub mod camera;
 pub mod color;
@@ -32,6 +33,7 @@ pub mod view;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
+        alpha::AlphaMode,
         camera::{
             Camera, ClearColor, ClearColorConfig, OrthographicProjection, PerspectiveProjection,
             Projection,
@@ -327,7 +329,8 @@ impl Plugin for RenderPlugin {
             MorphPlugin,
         ));
 
-        app.register_type::<color::Color>()
+        app.register_type::<alpha::AlphaMode>()
+            .register_type::<color::Color>()
             .register_type::<primitives::Aabb>()
             .register_type::<primitives::CascadesFrusta>()
             .register_type::<primitives::CubemapFrusta>()
