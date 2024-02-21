@@ -10,7 +10,7 @@ pub enum DynamicPluginLoadError {
     /// An error occurred when loading a dynamic library.
     #[error("cannot load library for dynamic plugin: {0}")]
     Library(#[source] libloading::Error),
-    /// An error when loading a library without a valid Bevy plugin.
+    /// An error occurred when loading a library without a valid Bevy plugin.
     #[error("dynamic library does not contain a valid Bevy dynamic plugin")]
     Plugin(#[source] libloading::Error),
 }
