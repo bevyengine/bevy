@@ -121,6 +121,18 @@ fn setup(
         transform: Transform::from_xyz(-4.0, 5.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
+
+    commands.spawn(TextBundle::from_section(
+        "\
+Controls
+--------
+Horizontal Movement: Arrow Keys
+Vertical Movement: Space and Shift",
+        TextStyle {
+            font_size: 24.0,
+            ..default()
+        }
+    ));
 }
 
 fn light_sway(time: Res<Time>, mut query: Query<(&mut Transform, &mut SpotLight)>) {
