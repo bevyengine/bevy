@@ -1,10 +1,13 @@
 [package]
 name = "example-showcase"
-version = "0.13.0"
+version = "0.14.0-dev"
 edition = "2021"
 description = "Run examples"
 publish = false
 license = "MIT OR Apache-2.0"
+
+[lints]
+workspace = true
 
 [dependencies]
 xshell = "0.2"

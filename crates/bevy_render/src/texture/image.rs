@@ -47,13 +47,23 @@ pub enum ImageFormat {
 impl ImageFormat {
     pub fn from_mime_type(mime_type: &str) -> Option<Self> {
         Some(match mime_type.to_ascii_lowercase().as_str() {
+            "image/avif" => ImageFormat::Avif,
             "image/bmp" | "image/x-bmp" => ImageFormat::Bmp,
             "image/vnd-ms.dds" => ImageFormat::Dds,
+            "image/vnd.radiance" => ImageFormat::Hdr,
+            "image/gif" => ImageFormat::Gif,
+            "image/x-icon" => ImageFormat::Ico,
             "image/jpeg" => ImageFormat::Jpeg,
             "image/ktx2" => ImageFormat::Ktx2,
             "image/png" => ImageFormat::Png,
             "image/x-exr" => ImageFormat::OpenExr,
+            "image/x-portable-bitmap"
+            | "image/x-portable-graymap"
+            | "image/x-portable-pixmap"
+            | "image/x-portable-anymap" => ImageFormat::Pnm,
             "image/x-targa" | "image/x-tga" => ImageFormat::Tga,
+            "image/tiff" => ImageFormat::Tiff,
+            "image/webp" => ImageFormat::WebP,
             _ => return None,
         })
     }
