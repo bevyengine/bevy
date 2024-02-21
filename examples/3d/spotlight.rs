@@ -13,7 +13,7 @@ fn main() {
         })
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, (light_sway, movement))
+        .add_systems(Update, (light_sway, movement, rotation))
         .run();
 }
 
@@ -126,12 +126,13 @@ fn setup(
         "\
 Controls
 --------
-Horizontal Movement: Arrow Keys
-Vertical Movement: Space and Shift",
+Horizontal Movement: WASD
+Vertical Movement: Space and Shift
+Rotate Camera: Left and Right Arrows",
         TextStyle {
             font_size: 24.0,
             ..default()
-        }
+        },
     ));
 }
 
@@ -157,18 +158,21 @@ fn movement(
     // Calculate translation to move the cubes and ground plane
     let mut translation = Vec3::ZERO;
 
-    if input.pressed(KeyCode::ArrowUp) {
+    // Horizontal forward and backward movement
+    if input.pressed(KeyCode::KeyW) {
         translation.z += 1.0;
-    } else if input.pressed(KeyCode::ArrowDown) {
+    } else if input.pressed(KeyCode::KeyS) {
         translation.z -= 1.0;
     }
 
-    if input.pressed(KeyCode::ArrowLeft) {
+    // Horizontal left and right movement
+    if input.pressed(KeyCode::KeyA) {
         translation.x += 1.0;
-    } else if input.pressed(KeyCode::ArrowRight) {
+    } else if input.pressed(KeyCode::KeyD) {
         translation.x -= 1.0;
     }
 
+    // Vertical movement
     if input.pressed(KeyCode::ShiftLeft) {
         translation.y += 1.0;
     } else if input.pressed(KeyCode::Space) {
@@ -180,5 +184,20 @@ fn movement(
     // Apply translation
     for mut transform in &mut query {
         transform.translation += translation;
+    }
+}
+
+fn rotation(
+    mut query: Query<&mut Transform, With<Camera>>,
+    input: Res<ButtonInput<KeyCode>>,
+    time: Res<Time>,
+) {
+    let mut transform = query.single_mut();
+    let delta = time.delta_seconds();
+
+    if input.pressed(KeyCode::ArrowLeft) {
+        transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(delta));
+    } else if input.pressed(KeyCode::ArrowRight) {
+        transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(-delta));
     }
 }
