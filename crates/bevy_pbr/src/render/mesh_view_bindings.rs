@@ -250,7 +250,10 @@ fn layout_entries(
                 ),
             ),
             // Globals
-            (9, uniform_buffer::<GlobalsUniform>(false)),
+            (
+                9,
+                uniform_buffer::<GlobalsUniform>(false).visibility(ShaderStages::VERTEX_FRAGMENT),
+            ),
             // Fog
             (10, uniform_buffer::<GpuFog>(true)),
             // Light probes
