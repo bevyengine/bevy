@@ -143,7 +143,7 @@ where
     }
 
     fn default_system_sets(&self) -> Vec<InternedSystemSet> {
-        let set = crate::schedule::SystemTypeSet::<F>::new();
+        let set = crate::schedule::SystemTypeSet::<Self>::new();
         vec![set.intern()]
     }
 
