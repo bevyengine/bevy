@@ -295,6 +295,7 @@ impl approx::UlpsEq for Direction3d {
 /// A normalized SIMD vector pointing in a direction in 3D space.
 ///
 /// This type stores a 16 byte aligned [`Vec3A`].
+/// This may or may not be faster than [`Direction3d`]: make sure to benchmark!
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Direction3dA(Vec3A);
