@@ -70,6 +70,11 @@ impl Alpha for Oklaba {
     fn with_alpha(&self, alpha: f32) -> Self {
         Self { alpha, ..*self }
     }
+
+    #[inline]
+    fn alpha(&self) -> f32 {
+        self.alpha
+    }
 }
 
 impl Luminance for Oklaba {

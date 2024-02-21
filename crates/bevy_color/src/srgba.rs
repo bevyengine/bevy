@@ -274,6 +274,11 @@ impl Alpha for Srgba {
     fn with_alpha(&self, alpha: f32) -> Self {
         Self { alpha, ..*self }
     }
+
+    #[inline]
+    fn alpha(&self) -> f32 {
+        self.alpha
+    }
 }
 
 impl EuclideanDistance for Srgba {
