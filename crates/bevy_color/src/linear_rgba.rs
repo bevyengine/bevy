@@ -6,7 +6,7 @@ use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render::color::{Color, SrgbColorSpace};
 use serde::{Deserialize, Serialize};
 
-/// Linear standard RGB color with alpha.
+/// Linear RGB color with alpha.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub struct LinearRgba {
@@ -62,6 +62,7 @@ impl LinearRgba {
 }
 
 impl Default for LinearRgba {
+    /// Construct a new [`LinearRgba`] color with the default values (white with full alpha).
     fn default() -> Self {
         Self {
             red: 1.,
@@ -73,6 +74,7 @@ impl Default for LinearRgba {
 }
 
 impl Luminance for LinearRgba {
+    /// Luminance calculated using the [CIE XYZ formula](https://en.wikipedia.org/wiki/Relative_luminance).
     #[inline]
     fn luminance(&self) -> f32 {
         self.red * 0.2126 + self.green * 0.7152 + self.blue * 0.0722
@@ -80,12 +82,12 @@ impl Luminance for LinearRgba {
 
     #[inline]
     fn with_luminance(&self, luminance: f32) -> Self {
-        let current_luminance = self.red * 0.2126 + self.green * 0.7152 + self.blue * 0.0722;
+        let current_luminance = self.luminance();
         let adjustment = luminance / current_luminance;
         Self {
             red: (self.red * adjustment).clamp(0., 1.),
-            green: self.green * adjustment.clamp(0., 1.),
-            blue: self.blue * adjustment.clamp(0., 1.),
+            green: (self.green * adjustment).clamp(0., 1.),
+            blue: (self.blue * adjustment).clamp(0., 1.),
             alpha: self.alpha,
         }
     }
