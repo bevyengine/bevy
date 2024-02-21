@@ -512,36 +512,19 @@ fn handle_mouse_clicks(
 
 impl FromWorld for ExampleAssets {
     fn from_world(world: &mut World) -> Self {
-        // Load all the assets.
-        let asset_server = world.resource::<AssetServer>();
-        let fox = asset_server.load("models/animated/Fox.glb#Scene0");
-        let main_scene =
-            asset_server.load("models/IrradianceVolumeExample/IrradianceVolumeExample.glb#Scene0");
-        let irradiance_volume = asset_server.load::<Image>("irradiance_volumes/Example.vxgi.ktx2");
-        let fox_animation =
-            asset_server.load::<AnimationClip>("models/animated/Fox.glb#Animation1");
-
-        // Just use a specular map for the skybox since it's not too blurry.
-        // In reality you wouldn't do this--you'd use a real skybox texture--but
-        // reusing the textures like this saves space in the Bevy repository.
-        let skybox = asset_server.load::<Image>("environment_maps/pisa_specular_rgb9e5_zstd.ktx2");
-
-        let mut mesh_assets = world.resource_mut::<Assets<Mesh>>();
-        let main_sphere = mesh_assets.add(Sphere::default().mesh().uv(32, 18));
-        let voxel_cube = mesh_assets.add(Cuboid::default());
-
-        let mut standard_material_assets = world.resource_mut::<Assets<StandardMaterial>>();
-        let main_material = standard_material_assets.add(LegacyColor::SILVER);
-
         ExampleAssets {
-            main_sphere,
-            fox,
-            main_sphere_material: main_material,
-            main_scene,
-            irradiance_volume,
-            fox_animation,
-            voxel_cube,
-            skybox,
+            main_sphere: world.add_asset(Sphere::default().mesh().uv(32, 18)),
+            fox: world.load_asset("models/animated/Fox.glb#Scene0"),
+            main_sphere_material: world.add_asset(LegacyColor::SILVER),
+            main_scene: world
+                .load_asset("models/IrradianceVolumeExample/IrradianceVolumeExample.glb#Scene0"),
+            irradiance_volume: world.load_asset("irradiance_volumes/Example.vxgi.ktx2"),
+            fox_animation: world.load_asset("models/animated/Fox.glb#Animation1"),
+            voxel_cube: world.add_asset(Cuboid::default()),
+            // Just use a specular map for the skybox since it's not too blurry.
+            // In reality you wouldn't do this--you'd use a real skybox texture--but
+            // reusing the textures like this saves space in the Bevy repository.
+            skybox: world.load_asset("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
         }
     }
 }

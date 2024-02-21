@@ -248,9 +248,7 @@ impl FromWorld for PostProcessPipeline {
         let sampler = render_device.create_sampler(&SamplerDescriptor::default());
 
         // Get the shader handle
-        let shader = world
-            .resource::<AssetServer>()
-            .load("shaders/post_processing.wgsl");
+        let shader = world.load_asset("shaders/post_processing.wgsl");
 
         let pipeline_id = world
             .resource_mut::<PipelineCache>()
