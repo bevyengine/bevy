@@ -45,6 +45,9 @@ pub enum ImageFormat {
 }
 
 impl ImageFormat {
+    /// Returns the image format for the given mime type.
+    ///
+    /// Unsupported formats will become [`None`].
     pub fn from_mime_type(mime_type: &str) -> Option<Self> {
         Some(match mime_type.to_ascii_lowercase().as_str() {
             "image/bmp" | "image/x-bmp" => ImageFormat::Bmp,
@@ -58,6 +61,9 @@ impl ImageFormat {
         })
     }
 
+    /// Returns the image format for the given extension.
+    ///
+    /// Unsupported formats will become [`None`].
     pub fn from_extension(extension: &str) -> Option<Self> {
         Some(match extension.to_ascii_lowercase().as_str() {
             "avif" => ImageFormat::Avif,
@@ -80,6 +86,9 @@ impl ImageFormat {
         })
     }
 
+    /// Attempts to convert to [`image::ImageFormat`].
+    ///
+    /// Unsupported formats will become [`None`].
     pub fn as_image_crate_format(&self) -> Option<image::ImageFormat> {
         Some(match self {
             ImageFormat::Avif => image::ImageFormat::Avif,

@@ -46,11 +46,17 @@ pub(crate) const IMG_FILE_EXTENSIONS: &[&str] = &[
     "ppm",
 ];
 
+/// The method for determining the [`ImageFormat`] of the loaded image.
+///
+/// By default we attempt to determine the format automatically from the header block of the binary data.
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub enum ImageFormatSetting {
+    /// Determine the image format by inspecting the header block of the image binary data.
     #[default]
     FromContent,
+    /// Determine the image format from the filename extension.
     FromExtension,
+    /// Specify an explicit format for the image.
     Format(ImageFormat),
 }
 
