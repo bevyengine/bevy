@@ -2355,14 +2355,16 @@ impl World {
             });
 
             // SAFETY:
-            // - ???
+            // - We have exclusive access to the world, so no other code can be aliasing the `TickCells`
+            // - We only hold one `TicksMut` at a time, and we let go of it before getting the next one
             let ticks = unsafe {
                 TicksMut::from_tick_cells(ticks, self.last_change_tick(), self.read_change_tick())
             };
 
             let mut_untyped = MutUntyped {
                 // SAFETY:
-                // - ???
+                // - We have exclusive access to the world, so no other code can be aliasing the `Ptr`
+                // - We iterate one resource at a time, and we let go of each `PtrMut` before getting the next one
                 value: unsafe { ptr.assert_unique() },
                 ticks,
             };
