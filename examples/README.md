@@ -48,6 +48,7 @@ git checkout v0.4.0
   - [Diagnostics](#diagnostics)
   - [ECS (Entity Component System)](#ecs-entity-component-system)
   - [Games](#games)
+  - [Gizmos](#gizmos)
   - [Input](#input)
   - [Math](#math)
   - [Reflection](#reflection)
@@ -259,6 +260,13 @@ Example | Description
 [Breakout](../examples/games/breakout.rs) | An implementation of the classic game "Breakout"
 [Contributors](../examples/games/contributors.rs) | Displays each contributor as a bouncy bevy-ball!
 [Game Menu](../examples/games/game_menu.rs) | A simple game menu
+
+## Gizmos
+
+Example | Description
+--- | ---
+[2D Gizmos](../examples/gizmos/2d_gizmos.rs) | A scene showcasing 2D gizmos
+[3D Gizmos](../examples/gizmos/3d_gizmos.rs) | A scene showcasing 3D gizmos
 
 ## Input
 
