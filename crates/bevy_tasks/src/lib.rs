@@ -1,8 +1,8 @@
 #![doc = include_str!("../README.md")]
 
-use std::task::{Context, Poll};
-use std::future::Future;
 use rayon_core::Yield;
+use std::future::Future;
+use std::task::{Context, Poll};
 
 mod slice;
 pub use slice::{ParallelSlice, ParallelSliceMut};
@@ -123,13 +123,10 @@ pub fn block_on<T>(future: impl Future<Output = T>) -> T {
         loop {
             match future.as_mut().poll(cx) {
                 Poll::Ready(output) => return output,
-                Poll::Pending => {
-                    match rayon_core::yield_now() {
-                        Some(Yield::Executed) => continue,
-                        Some(Yield::Idle) |
-                        None => parker.park(),
-                    }
-                }
+                Poll::Pending => match rayon_core::yield_now() {
+                    Some(Yield::Executed) => continue,
+                    Some(Yield::Idle) | None => parker.park(),
+                },
             }
         }
     })

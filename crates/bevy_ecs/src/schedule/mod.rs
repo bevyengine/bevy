@@ -1139,6 +1139,7 @@ mod tests {
 
         /// verify the [`SimpleExecutor`] supports stepping
         #[test]
+        #[allow(deprecated)]
         fn simple_executor() {
             assert_executor_supports_stepping!(ExecutorKind::Simple);
         }
