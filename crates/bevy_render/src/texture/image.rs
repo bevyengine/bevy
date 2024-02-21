@@ -100,6 +100,9 @@ impl ImageFormat {
         })
     }
 
+    /// Attempts to convert from [`image::ImageFormat`].
+    ///
+    /// Unsupported formats will become [`None`].
     pub fn from_image_crate_format(format: image::ImageFormat) -> Option<Self> {
         Some(match format {
             image::ImageFormat::Avif => ImageFormat::Avif,
