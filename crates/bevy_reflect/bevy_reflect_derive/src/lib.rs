@@ -59,47 +59,46 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
         Err(err) => return err.into_compile_error().into(),
     };
 
-    let (reflect_impls, from_reflect_impl) = match derive_data {
+    let (reflect_impls, from_reflect_impl) = match &derive_data {
         ReflectDerive::Struct(struct_data) | ReflectDerive::UnitStruct(struct_data) => (
-            impls::impl_struct(&struct_data),
+            impls::impl_struct(struct_data),
             if struct_data.meta().from_reflect().should_auto_derive() {
-                Some(from_reflect::impl_struct(&struct_data))
+                Some(from_reflect::impl_struct(struct_data))
             } else {
                 None
             },
         ),
         ReflectDerive::TupleStruct(struct_data) => (
-            impls::impl_tuple_struct(&struct_data),
+            impls::impl_tuple_struct(struct_data),
             if struct_data.meta().from_reflect().should_auto_derive() {
-                Some(from_reflect::impl_tuple_struct(&struct_data))
+                Some(from_reflect::impl_tuple_struct(struct_data))
             } else {
                 None
             },
         ),
         ReflectDerive::Enum(enum_data) => (
-            impls::impl_enum(&enum_data),
+            impls::impl_enum(enum_data),
             if enum_data.meta().from_reflect().should_auto_derive() {
-                Some(from_reflect::impl_enum(&enum_data))
+                Some(from_reflect::impl_enum(enum_data))
             } else {
                 None
             },
         ),
         ReflectDerive::Value(meta) => (
-            impls::impl_value(&meta),
+            impls::impl_value(meta),
             if meta.from_reflect().should_auto_derive() {
-                Some(from_reflect::impl_value(&meta))
+                Some(from_reflect::impl_value(meta))
             } else {
                 None
             },
         ),
     };
 
-    TokenStream::from(quote! {
-        const _: () = {
-            #reflect_impls
-            #from_reflect_impl
-        };
-    })
+    quote! {
+        #reflect_impls
+        #from_reflect_impl
+    }
+    .finish(derive_data.meta())
 }
 
 /// The main derive macro used by `bevy_reflect` for deriving its `Reflect` trait.
@@ -141,11 +140,6 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
 ///
 /// There are a few "special" identifiers that work a bit differently:
 ///
-/// * `#[reflect(Debug)]` will force the implementation of `Reflect::reflect_debug` to rely on
-///   the type's [`Debug`] implementation.
-///   A custom implementation may be provided using `#[reflect(Debug(my_debug_func))]` where
-///   `my_debug_func` is the path to a function matching the signature:
-///   `(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result`.
 /// * `#[reflect(PartialEq)]` will force the implementation of `Reflect::reflect_partial_eq` to rely on
 ///   the type's [`PartialEq`] implementation.
 ///   A custom implementation may be provided using `#[reflect(PartialEq(my_partial_eq_func))]` where
@@ -342,20 +336,15 @@ pub fn derive_from_reflect(input: TokenStream) -> TokenStream {
         Err(err) => return err.into_compile_error().into(),
     };
 
-    let from_reflect_impl = match derive_data {
+    match &derive_data {
         ReflectDerive::Struct(struct_data) | ReflectDerive::UnitStruct(struct_data) => {
-            from_reflect::impl_struct(&struct_data)
+            from_reflect::impl_struct(struct_data)
         }
-        ReflectDerive::TupleStruct(struct_data) => from_reflect::impl_tuple_struct(&struct_data),
-        ReflectDerive::Enum(meta) => from_reflect::impl_enum(&meta),
-        ReflectDerive::Value(meta) => from_reflect::impl_value(&meta),
-    };
-
-    TokenStream::from(quote! {
-        const _: () = {
-            #from_reflect_impl
-        };
-    })
+        ReflectDerive::TupleStruct(struct_data) => from_reflect::impl_tuple_struct(struct_data),
+        ReflectDerive::Enum(meta) => from_reflect::impl_enum(meta),
+        ReflectDerive::Value(meta) => from_reflect::impl_value(meta),
+    }
+    .finish(derive_data.meta())
 }
 
 /// Derives the `TypePath` trait, providing a stable alternative to [`std::any::type_name`].
@@ -387,13 +376,7 @@ pub fn derive_type_path(input: TokenStream) -> TokenStream {
         Err(err) => return err.into_compile_error().into(),
     };
 
-    let type_path_impl = impls::impl_type_path(derive_data.meta());
-
-    TokenStream::from(quote! {
-        const _: () = {
-            #type_path_impl
-        };
-    })
+    impls::impl_type_path(derive_data.meta()).finish(derive_data.meta())
 }
 
 /// A macro that automatically generates type data for traits, which their implementors can then register.
@@ -504,12 +487,11 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
     let reflect_impls = impls::impl_value(&meta);
     let from_reflect_impl = from_reflect::impl_value(&meta);
 
-    TokenStream::from(quote! {
-        const _: () = {
-            #reflect_impls
-            #from_reflect_impl
-        };
-    })
+    quote! {
+        #reflect_impls
+        #from_reflect_impl
+    }
+    .finish(&meta)
 }
 
 /// A replacement for `#[derive(Reflect)]` to be used with foreign types which
@@ -589,14 +571,8 @@ pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
         }
     };
 
-    let from_reflect_impl =
-        from_reflect::impl_value(&ReflectMeta::new(type_path, def.traits.unwrap_or_default()));
-
-    TokenStream::from(quote! {
-        const _: () = {
-            #from_reflect_impl
-        };
-    })
+    let meta = ReflectMeta::new(type_path, def.traits.unwrap_or_default());
+    from_reflect::impl_value(&meta).finish(&meta)
 }
 
 /// A replacement for [deriving `TypePath`] for use on foreign types.
@@ -659,11 +635,38 @@ pub fn impl_type_path(input: TokenStream) -> TokenStream {
 
     let meta = ReflectMeta::new(type_path, ContainerAttributes::default());
 
-    let type_path_impl = impls::impl_type_path(&meta);
+    impls::impl_type_path(&meta).finish(&meta)
+}
 
-    TokenStream::from(quote! {
-        const _: () = {
-            #type_path_impl
+trait FinishExt {
+    fn finish(self, meta: &ReflectMeta) -> proc_macro::TokenStream;
+}
+
+impl FinishExt for proc_macro2::TokenStream {
+    fn finish(self, meta: &ReflectMeta) -> proc_macro::TokenStream {
+        let deprecation = meta.attrs().use_of_deprecated_debug.map(|span| {
+            // NB: even though we could restrict this using provenance,
+            // we shouldn't since the following *is* currently accepted:
+            // ```
+            // #[derive(TypePath)]
+            // #[reflect(Debug)]
+            // struct X;
+            // ```
+            Some(utility::DeprecationWarning {
+                span,
+                name: "ReflectDebug",
+                note: "`#[reflect(Debug)]` syntax is deprecated, the functionality is now builtin\nremove this registration",
+                since: "0.13.0",
+            })
+        });
+
+        let scoped = quote! {
+            const _: () = {
+                #deprecation
+                #self
+            };
         };
-    })
+
+        scoped.into()
+    }
 }

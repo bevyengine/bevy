@@ -535,9 +535,8 @@ pub use erased_serde;
 extern crate alloc;
 
 #[doc(hidden)]
-pub mod __macro_exports {
-    pub use bevy_utils::uuid::generate_composite_uuid;
-}
+#[path = "macro_exports.rs"]
+pub mod __macro_exports;
 
 #[cfg(test)]
 #[allow(clippy::disallowed_types, clippy::approx_constant)]
@@ -1748,7 +1747,6 @@ mod tests {
         struct SomeTupleStruct(String);
 
         #[derive(Reflect)]
-        #[reflect(Debug)]
         struct CustomDebug;
         impl Debug for CustomDebug {
             fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -1814,7 +1812,7 @@ bevy_reflect::tests::Test {
     #[test]
     fn multiple_reflect_lists() {
         #[derive(Hash, PartialEq, Reflect)]
-        #[reflect(Debug, Hash)]
+        #[reflect(Hash)]
         #[reflect(PartialEq)]
         struct Foo(i32);
 
@@ -1835,7 +1833,7 @@ bevy_reflect::tests::Test {
     #[test]
     fn multiple_reflect_value_lists() {
         #[derive(Clone, Hash, PartialEq, Reflect)]
-        #[reflect_value(Debug, Hash)]
+        #[reflect_value(Hash)]
         #[reflect_value(PartialEq)]
         struct Foo(i32);
 
@@ -1854,21 +1852,34 @@ bevy_reflect::tests::Test {
     }
 
     #[test]
-    fn custom_debug_function() {
+    fn debug_specialization() {
+        use std::fmt;
+
         #[derive(Reflect)]
-        #[reflect(Debug(custom_debug))]
-        struct Foo {
-            a: u32,
+        struct Debuggable;
+
+        impl fmt::Debug for Debuggable {
+            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+                write!(f, "Caterpillar!")
+            }
         }
 
-        fn custom_debug(_x: &Foo, f: &mut Formatter<'_>) -> std::fmt::Result {
-            write!(f, "123")
+        #[derive(Reflect)]
+        struct NotDebuggable;
+
+        struct Printer<T>(T);
+
+        impl<T: Reflect> fmt::Display for Printer<T> {
+            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+                self.0.debug(f)
+            }
         }
 
-        let foo = Foo { a: 1 };
-        let foo: &dyn Reflect = &foo;
-
-        assert_eq!("123", format!("{:?}", foo));
+        assert_eq!(Printer(Debuggable).to_string(), "Caterpillar!");
+        assert_eq!(
+            Printer(NotDebuggable).to_string(),
+            "bevy_reflect::tests::NotDebuggable",
+        );
     }
 
     #[test]
@@ -2132,6 +2143,16 @@ bevy_reflect::tests::Test {
         assert_impl_all!(Struct: Reflect);
         assert_impl_all!(TupleStruct: Reflect);
         assert_impl_all!(Enum: Reflect);
+    }
+
+    #[allow(deprecated)]
+    #[test]
+    fn ensure_debug_deprecated() {
+        #[derive(Debug, Reflect)]
+        #[reflect(Debug)]
+        struct Foo;
+
+        assert_impl_all!(Foo: Reflect);
     }
 
     #[cfg(feature = "glam")]

@@ -10,7 +10,7 @@ use crate::utility;
 use crate::utility::terminated_parser;
 use bevy_macro_utils::fq_std::{FQAny, FQOption};
 use proc_macro2::{Ident, Span};
-use quote::quote_spanned;
+use quote::{quote, quote_spanned};
 use syn::ext::IdentExt;
 use syn::parse::ParseStream;
 use syn::spanned::Spanned;
@@ -27,7 +27,7 @@ mod kw {
 
 // The "special" trait idents that are used internally for reflection.
 // Received via attributes like `#[reflect(PartialEq, Hash, ...)]`
-const DEBUG_ATTR: &str = "Debug";
+const DEPRECATED_DEBUG_ATTR: &str = "Debug";
 const PARTIAL_EQ_ATTR: &str = "PartialEq";
 const HASH_ATTR: &str = "Hash";
 
@@ -216,7 +216,8 @@ impl TypePathAttrs {
 ///
 #[derive(Default, Clone)]
 pub(crate) struct ContainerAttributes {
-    debug: TraitImpl,
+    // FIXME(#11625): Remove after sufficient time has passed.
+    pub use_of_deprecated_debug: Option<Span>,
     hash: TraitImpl,
     partial_eq: TraitImpl,
     from_reflect_attrs: FromReflectAttrs,
@@ -287,14 +288,12 @@ impl ContainerAttributes {
 
         if input.peek(token::Paren) {
             return Err(syn::Error::new(ident.span(), format!(
-                "only [{DEBUG_ATTR:?}, {PARTIAL_EQ_ATTR:?}, {HASH_ATTR:?}] may specify custom functions",
+                "only [{DEPRECATED_DEBUG_ATTR:?}, {PARTIAL_EQ_ATTR:?}, {HASH_ATTR:?}] may specify custom functions",
             )));
         }
 
-        let ident_name = ident.to_string();
-
         // Create the reflect ident
-        let mut reflect_ident = utility::get_reflect_ident(&ident_name);
+        let mut reflect_ident = utility::get_reflect_ident(&ident);
         // We set the span to the old ident so any compile errors point to that ident instead
         reflect_ident.set_span(ident.span());
 
@@ -303,21 +302,20 @@ impl ContainerAttributes {
         Ok(())
     }
 
-    /// Parse special `Debug` registration.
+    /// Parse deprecated `Debug` registration, just to report the error.
     ///
     /// Examples:
     /// - `#[reflect(Debug)]`
     /// - `#[reflect(Debug(custom_debug_fn))]`
     fn parse_debug(&mut self, input: ParseStream) -> syn::Result<()> {
-        let ident = input.parse::<kw::Debug>()?;
+        self.use_of_deprecated_debug = Some(input.span());
 
+        // Consume tokens, but ignore them.
+        input.parse::<kw::Debug>()?;
         if input.peek(token::Paren) {
             let content;
             parenthesized!(content in input);
-            let path = content.parse::<Path>()?;
-            self.debug.merge(TraitImpl::Custom(path, ident.span))?;
-        } else {
-            self.debug = TraitImpl::Implemented(ident.span);
+            content.parse::<Path>()?;
         }
 
         Ok(())
@@ -433,7 +431,9 @@ impl ContainerAttributes {
     /// Returns true if the given reflected trait name (i.e. `ReflectDefault` for `Default`)
     /// is registered for this type.
     pub fn contains(&self, name: &str) -> bool {
-        self.idents.iter().any(|ident| ident == name)
+        self.idents
+            .iter()
+            .any(|ident| ident.to_string().as_str() == name)
     }
 
     /// The list of reflected traits by their reflected ident (i.e. `ReflectDefault` for `Default`).
@@ -505,19 +505,13 @@ impl ContainerAttributes {
     /// Returns the implementation of `Reflect::debug` as a `TokenStream`.
     ///
     /// If `Debug` was not registered, returns `None`.
-    pub fn get_debug_impl(&self) -> Option<proc_macro2::TokenStream> {
-        match &self.debug {
-            &TraitImpl::Implemented(span) => Some(quote_spanned! {span=>
-                fn debug(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-                    ::core::fmt::Debug::fmt(self, f)
-                }
-            }),
-            &TraitImpl::Custom(ref impl_fn, span) => Some(quote_spanned! {span=>
-                fn debug(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-                    #impl_fn(self, f)
-                }
-            }),
-            TraitImpl::NotImplemented => None,
+    pub fn get_debug_impl(&self, bevy_reflect_path: &Path) -> proc_macro2::TokenStream {
+        quote! {
+            fn debug(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+                use #bevy_reflect_path::__macro_exports::DebugSpecialization as _;
+                let printer = #bevy_reflect_path::__macro_exports::SpecializeDebug(self);
+                (&printer).debug_specialization_fmt(f)
+            }
         }
     }
 
@@ -537,7 +531,7 @@ impl ContainerAttributes {
     pub fn merge(&mut self, other: ContainerAttributes) -> Result<(), syn::Error> {
         // Destructuring is used to help ensure that all fields are merged
         let Self {
-            debug,
+            use_of_deprecated_debug,
             hash,
             partial_eq,
             from_reflect_attrs,
@@ -547,7 +541,6 @@ impl ContainerAttributes {
             idents,
         } = self;
 
-        debug.merge(other.debug)?;
         hash.merge(other.hash)?;
         partial_eq.merge(other.partial_eq)?;
         from_reflect_attrs.merge(other.from_reflect_attrs)?;
@@ -556,6 +549,10 @@ impl ContainerAttributes {
         Self::merge_custom_where(custom_where, other.custom_where);
 
         *no_field_bounds |= other.no_field_bounds;
+
+        if use_of_deprecated_debug.is_none() {
+            *use_of_deprecated_debug = other.use_of_deprecated_debug;
+        }
 
         for ident in other.idents {
             add_unique_ident(idents, ident)?;

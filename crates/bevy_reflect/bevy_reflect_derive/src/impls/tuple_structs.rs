@@ -26,7 +26,10 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
         .meta()
         .attrs()
         .get_hash_impl(bevy_reflect_path);
-    let debug_fn = reflect_struct.meta().attrs().get_debug_impl();
+    let debug_fn = reflect_struct
+        .meta()
+        .attrs()
+        .get_debug_impl(bevy_reflect_path);
     let partial_eq_fn = reflect_struct
         .meta()
         .attrs()

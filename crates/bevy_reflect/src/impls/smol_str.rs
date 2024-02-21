@@ -2,7 +2,7 @@ use crate::std_traits::ReflectDefault;
 use crate::{self as bevy_reflect};
 use bevy_reflect_derive::impl_reflect_value;
 
-impl_reflect_value!(::smol_str::SmolStr(Debug, Hash, PartialEq, Default));
+impl_reflect_value!(::smol_str::SmolStr(Hash, PartialEq, Default));
 
 #[cfg(test)]
 mod tests {

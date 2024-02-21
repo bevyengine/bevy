@@ -17,7 +17,7 @@ use crate::*;
 #[derive(Asset, AsBindGroup, Reflect, Debug, Clone)]
 #[bind_group_data(StandardMaterialKey)]
 #[uniform(0, StandardMaterialUniform)]
-#[reflect(Default, Debug)]
+#[reflect(Default)]
 pub struct StandardMaterial {
     /// The color of the surface of the material before lighting.
     ///

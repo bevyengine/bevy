@@ -5,7 +5,7 @@ use bevy_math::{IRect, IVec2, Rect, URect, UVec2, Vec2};
 use bevy_reflect_derive::impl_reflect;
 
 impl_reflect!(
-    #[reflect(Debug, PartialEq, Hash, Serialize, Deserialize, Default)]
+    #[reflect(PartialEq, Hash, Serialize, Deserialize, Default)]
     #[type_path = "bevy_math"]
     struct IRect {
         min: IVec2,
@@ -14,7 +14,7 @@ impl_reflect!(
 );
 
 impl_reflect!(
-    #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
+    #[reflect(PartialEq, Serialize, Deserialize, Default)]
     #[type_path = "bevy_math"]
     struct Rect {
         min: Vec2,
@@ -23,7 +23,7 @@ impl_reflect!(
 );
 
 impl_reflect!(
-    #[reflect(Debug, PartialEq, Hash, Serialize, Deserialize, Default)]
+    #[reflect(PartialEq, Hash, Serialize, Deserialize, Default)]
     #[type_path = "bevy_math"]
     struct URect {
         min: UVec2,

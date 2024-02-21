@@ -88,7 +88,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// The event is consumed inside of the [`keyboard_input_system`]
 /// to update the [`Input<KeyCode>`](ButtonInput<KeyCode>) resource.
 #[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -177,7 +177,7 @@ pub enum NativeKeyCode {
 ///
 /// The resource is updated inside of the [`keyboard_input_system`].
 #[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy, Reflect)]
-#[reflect(Debug, Hash, PartialEq)]
+#[reflect(Hash, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -665,7 +665,7 @@ pub enum KeyCode {
 /// key identifier to a meaningful [`Key`] variant. This lets you use [`Key`], and let the user
 /// define keybinds which work in the presence of identifiers we haven't mapped for you yet.
 #[derive(Debug, Clone, Ord, PartialOrd, PartialEq, Eq, Hash, Reflect)]
-#[reflect(Debug, Hash, PartialEq)]
+#[reflect(Hash, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -694,7 +694,7 @@ pub enum NativeKey {
 /// Its values map 1 to 1 to winit's Key.
 #[non_exhaustive]
 #[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Reflect)]
-#[reflect(Debug, Hash, PartialEq)]
+#[reflect(Hash, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),

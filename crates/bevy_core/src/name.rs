@@ -21,7 +21,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// as multiple entities can have the same name.  [`Entity`] should be
 /// used instead as the default unique identifier.
 #[derive(Reflect, Component, Clone)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default)]
 #[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub struct Name {
     hash: u64, // Won't be serialized (see: `bevy_core::serde` module)

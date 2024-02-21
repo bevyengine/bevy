@@ -150,7 +150,7 @@ impl Plugin for InputPlugin {
 
 /// The current "press" state of an element
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Reflect)]
-#[reflect(Debug, Hash, PartialEq)]
+#[reflect(Hash, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),

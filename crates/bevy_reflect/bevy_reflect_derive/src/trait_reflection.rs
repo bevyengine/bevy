@@ -33,7 +33,7 @@ pub(crate) fn reflect_trait(_args: &TokenStream, input: TokenStream) -> TokenStr
     let item_trait = &trait_info.item_trait;
     let trait_ident = &item_trait.ident;
     let trait_vis = &item_trait.vis;
-    let reflect_trait_ident = crate::utility::get_reflect_ident(&item_trait.ident.to_string());
+    let reflect_trait_ident = crate::utility::get_reflect_ident(&item_trait.ident);
     let bevy_reflect_path = BevyManifest::default().get_path("bevy_reflect");
 
     let struct_doc = format!(

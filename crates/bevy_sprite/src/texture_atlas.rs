@@ -16,7 +16,6 @@ use bevy_utils::HashMap;
 ///
 /// [`TextureAtlasBuilder`]: crate::TextureAtlasBuilder
 #[derive(Asset, Reflect, Debug, Clone)]
-#[reflect(Debug)]
 pub struct TextureAtlasLayout {
     // TODO: add support to Uniforms derive to write dimensions and sprites to the same buffer
     pub size: Vec2,

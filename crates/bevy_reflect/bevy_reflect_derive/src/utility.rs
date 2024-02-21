@@ -30,9 +30,9 @@ pub(crate) fn get_bevy_reflect_path() -> Path {
 /// let reflected: Ident = get_reflect_ident("Hash");
 /// assert_eq!("ReflectHash", reflected.to_string());
 /// ```
-pub(crate) fn get_reflect_ident(name: &str) -> Ident {
+pub(crate) fn get_reflect_ident(name: &Ident) -> Ident {
     let reflected = format!("Reflect{name}");
-    Ident::new(&reflected, Span::call_site())
+    Ident::new(&reflected, name.span())
 }
 
 /// Helper struct used to process an iterator of `Result<Vec<T>, syn::Error>`,
@@ -438,5 +438,34 @@ where
         }
 
         Ok(punctuated)
+    }
+}
+
+/// A compile-time deprecation warning.
+///
+/// The reason we create a struct and use it *inside* our macros
+/// is that Rust's macro hygiene means that otherwise the warning
+/// will be suppressed.
+pub(crate) struct DeprecationWarning<'a> {
+    pub span: Span,
+    pub name: &'a str,
+    pub note: &'a str,
+    pub since: &'a str,
+}
+
+impl ToTokens for DeprecationWarning<'_> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let ident = Ident::new(self.name, self.span);
+        let note = LitStr::new(self.note, Span::call_site());
+        let since = LitStr::new(self.since, Span::call_site());
+        let out = quote! {
+            #[deprecated(
+                note = #note,
+                since = #since,
+            )]
+            pub struct #ident;
+            let _ = #ident;
+        };
+        tokens.extend(out);
     }
 }

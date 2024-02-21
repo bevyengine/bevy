@@ -44,7 +44,10 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
                 }
             }
         });
-    let debug_fn = reflect_enum.meta().attrs().get_debug_impl();
+    let debug_fn = reflect_enum
+        .meta()
+        .attrs()
+        .get_debug_impl(bevy_reflect_path);
     let partial_eq_fn = reflect_enum
         .meta()
         .attrs()
