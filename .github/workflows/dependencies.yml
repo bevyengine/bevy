@@ -3,12 +3,12 @@ name: Dependencies
 on:
   pull_request:
     paths:
-      - '**/Cargo.toml'
-      - 'deny.toml'
+      - "**/Cargo.toml"
+      - "deny.toml"
   push:
     paths:
-      - '**/Cargo.toml'
-      - 'deny.toml'
+      - "**/Cargo.toml"
+      - "deny.toml"
     branches:
       - main
 
@@ -34,7 +34,7 @@ jobs:
       - name: Install cargo-deny
         run: cargo install cargo-deny
       - name: Check for banned and duplicated dependencies
-        run: cargo deny check bans
+        run: cargo deny check cargo deny --format json check 2>&1 | jq -r -n '[inputs][] | select(.fields.severity != null) | "\(.fields.severity) \(.fields.message)"' | grep --color '^error\|$'
 
   check-licenses:
     runs-on: ubuntu-latest
