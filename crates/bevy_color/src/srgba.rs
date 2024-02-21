@@ -21,46 +21,27 @@ pub struct Srgba {
 }
 
 impl Srgba {
-    /// <div style="background-color:rgb(94%, 97%, 100%); width: 10px; padding: 10px; border: 1px solid;"></div>
-    pub const ALICE_BLUE: Srgba = Srgba::new(0.94, 0.97, 1.0, 1.0);
-    /// <div style="background-color:rgb(98%, 92%, 84%); width: 10px; padding: 10px; border: 1px solid;"></div>
-    pub const ANTIQUE_WHITE: Srgba = Srgba::new(0.98, 0.92, 0.84, 1.0);
-    /// <div style="background-color:rgb(49%, 100%, 83%); width: 10px; padding: 10px; border: 1px solid;"></div>
-    pub const AQUAMARINE: Srgba = Srgba::new(0.49, 1.0, 0.83, 1.0);
-    /// <div style="background-color:rgb(94%, 100%, 100%); width: 10px; padding: 10px; border: 1px solid;"></div>
-    pub const AZURE: Srgba = Srgba::new(0.94, 1.0, 1.0, 1.0);
-    /// <div style="background-color:rgb(96%, 96%, 86%); width: 10px; padding: 10px; border: 1px solid;"></div>
-    pub const BEIGE: Srgba = Srgba::new(0.96, 0.96, 0.86, 1.0);
-    /// <div style="background-color:rgb(100%, 89%, 77%); width: 10px; padding: 10px; border: 1px solid;"></div>
-    pub const BISQUE: Srgba = Srgba::new(1.0, 0.89, 0.77, 1.0);
+    // The standard VGA colors, with alpha set to 1.0.
+    // https://en.wikipedia.org/wiki/Web_colors#Basic_colors
+
     /// <div style="background-color:rgb(0%, 0%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div>
     pub const BLACK: Srgba = Srgba::new(0.0, 0.0, 0.0, 1.0);
     /// <div style="background-color:rgb(0%, 0%, 100%); width: 10px; padding: 10px; border: 1px solid;"></div>
     pub const BLUE: Srgba = Srgba::new(0.0, 0.0, 1.0, 1.0);
-    /// <div style="background-color:rgb(86%, 8%, 24%); width: 10px; padding: 10px; border: 1px solid;"></div>
-    pub const CRIMSON: Srgba = Srgba::new(0.86, 0.08, 0.24, 1.0);
     /// <div style="background-color:rgb(0%, 100%, 100%); width: 10px; padding: 10px; border: 1px solid;"></div>
     pub const CYAN: Srgba = Srgba::new(0.0, 1.0, 1.0, 1.0);
     /// <div style="background-color:rgb(25%, 25%, 25%); width: 10px; padding: 10px; border: 1px solid;"></div>
     pub const DARK_GRAY: Srgba = Srgba::new(0.25, 0.25, 0.25, 1.0);
     /// <div style="background-color:rgb(0%, 50%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div>
-    pub const DARK_GREEN: Srgba = Srgba::new(0.0, 0.5, 0.0, 1.0);
+    pub const GREEN: Srgba = Srgba::new(0.0, 0.5, 0.0, 1.0);
     /// <div style="background-color:rgb(100%, 0%, 100%); width: 10px; padding: 10px; border: 1px solid;"></div>
     pub const FUCHSIA: Srgba = Srgba::new(1.0, 0.0, 1.0, 1.0);
-    /// <div style="background-color:rgb(100%, 84%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div>
-    pub const GOLD: Srgba = Srgba::new(1.0, 0.84, 0.0, 1.0);
     /// <div style="background-color:rgb(50%, 50%, 50%); width: 10px; padding: 10px; border: 1px solid;"></div>
     pub const GRAY: Srgba = Srgba::new(0.5, 0.5, 0.5, 1.0);
     /// <div style="background-color:rgb(0%, 100%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div>
-    pub const GREEN: Srgba = Srgba::new(0.0, 1.0, 0.0, 1.0);
-    /// <div style="background-color:rgb(28%, 0%, 51%); width: 10px; padding: 10px; border: 1px solid;"></div>
-    pub const INDIGO: Srgba = Srgba::new(0.29, 0.0, 0.51, 1.0);
-    /// <div style="background-color:rgb(20%, 80%, 20%); width: 10px; padding: 10px; border: 1px solid;"></div>
-    pub const LIME_GREEN: Srgba = Srgba::new(0.2, 0.8, 0.2, 1.0);
+    pub const LIME: Srgba = Srgba::new(0.0, 1.0, 0.0, 1.0);
     /// <div style="background-color:rgb(50%, 0%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div>
     pub const MAROON: Srgba = Srgba::new(0.5, 0.0, 0.0, 1.0);
-    /// <div style="background-color:rgb(10%, 10%, 44%); width: 10px; padding: 10px; border: 1px solid;"></div>
-    pub const MIDNIGHT_BLUE: Srgba = Srgba::new(0.1, 0.1, 0.44, 1.0);
     /// <div style="background-color:rgb(0%, 0%, 50%); width: 10px; padding: 10px; border: 1px solid;"></div>
     pub const NAVY: Srgba = Srgba::new(0.0, 0.0, 0.5, 1.0);
     /// <div style="background-color:rgba(0%, 0%, 0%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div>
@@ -68,36 +49,18 @@ impl Srgba {
     pub const NONE: Srgba = Srgba::new(0.0, 0.0, 0.0, 0.0);
     /// <div style="background-color:rgb(50%, 50%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div>
     pub const OLIVE: Srgba = Srgba::new(0.5, 0.5, 0.0, 1.0);
-    /// <div style="background-color:rgb(100%, 65%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div>
-    pub const ORANGE: Srgba = Srgba::new(1.0, 0.65, 0.0, 1.0);
-    /// <div style="background-color:rgb(100%, 27%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div>
-    pub const ORANGE_RED: Srgba = Srgba::new(1.0, 0.27, 0.0, 1.0);
-    /// <div style="background-color:rgb(100%, 8%, 57%); width: 10px; padding: 10px; border: 1px solid;"></div>
-    pub const PINK: Srgba = Srgba::new(1.0, 0.08, 0.58, 1.0);
     /// <div style="background-color:rgb(50%, 0%, 50%); width: 10px; padding: 10px; border: 1px solid;"></div>
     pub const PURPLE: Srgba = Srgba::new(0.5, 0.0, 0.5, 1.0);
     /// <div style="background-color:rgb(100%, 0%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div>
     pub const RED: Srgba = Srgba::new(1.0, 0.0, 0.0, 1.0);
-    /// <div style="background-color:rgb(98%, 50%, 45%); width: 10px; padding: 10px; border: 1px solid;"></div>
-    pub const SALMON: Srgba = Srgba::new(0.98, 0.5, 0.45, 1.0);
-    /// <div style="background-color:rgb(18%, 55%, 34%); width: 10px; padding: 10px; border: 1px solid;"></div>
-    pub const SEA_GREEN: Srgba = Srgba::new(0.18, 0.55, 0.34, 1.0);
     /// <div style="background-color:rgb(75%, 75%, 75%); width: 10px; padding: 10px; border: 1px solid;"></div>
     pub const SILVER: Srgba = Srgba::new(0.75, 0.75, 0.75, 1.0);
     /// <div style="background-color:rgb(0%, 50%, 50%); width: 10px; padding: 10px; border: 1px solid;"></div>
     pub const TEAL: Srgba = Srgba::new(0.0, 0.5, 0.5, 1.0);
-    /// <div style="background-color:rgb(100%, 39%, 28%); width: 10px; padding: 10px; border: 1px solid;"></div>
-    pub const TOMATO: Srgba = Srgba::new(1.0, 0.39, 0.28, 1.0);
-    /// <div style="background-color:rgb(25%, 88%, 82%); width: 10px; padding: 10px; border: 1px solid;"></div>
-    pub const TURQUOISE: Srgba = Srgba::new(0.25, 0.88, 0.82, 1.0);
-    /// <div style="background-color:rgb(93%, 51%, 93%); width: 10px; padding: 10px; border: 1px solid;"></div>
-    pub const VIOLET: Srgba = Srgba::new(0.93, 0.51, 0.93, 1.0);
     /// <div style="background-color:rgb(100%, 100%, 100%); width: 10px; padding: 10px; border: 1px solid;"></div>
     pub const WHITE: Srgba = Srgba::new(1.0, 1.0, 1.0, 1.0);
     /// <div style="background-color:rgb(100%, 100%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div>
     pub const YELLOW: Srgba = Srgba::new(1.0, 1.0, 0.0, 1.0);
-    /// <div style="background-color:rgb(60%, 80%, 20%); width: 10px; padding: 10px; border: 1px solid;"></div>
-    pub const YELLOW_GREEN: Srgba = Srgba::new(0.6, 0.8, 0.2, 1.0);
 
     /// Construct a new [`Srgba`] color from components.
     ///
