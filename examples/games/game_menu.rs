@@ -1,6 +1,31 @@
 //! This example will display a simple menu using Bevy UI where you can start a new game,
 //! change some settings or quit. There is no actual game, it will just display the current
 //! settings for 5 seconds before going back to the menu.
+//!
+//! STATE DIAGRAM
+//!
+//! ```
+//!       Start
+//!         v
+//! GameState::Splash
+//!         |
+//!   |---------------------------------------------------------------------|
+//!   |     |                       GameState::Menu                         |
+//!   |     |         v------back-------<                                   |
+//!   |     v         v                 |                                   |
+//!   |  MenuState::Main >-settings-> MenuState::Settings <--------------<  |
+//!   |   v    ^                        |       |                        |  |
+//!   |   |    |                      sound  display                     |  |
+//!   |  play  |                        v       v                        |  |
+//!   |   |    |   MenuState::SettingsSound   MenuState::SettingsDisplay |  |
+//!   |   |    |                     |              |                    |  |
+//!   |   |    |                     >-------------->--------------------^  |
+//!   |---+----+------------------------------------------------------------|
+//!       |    |
+//!       |  timer
+//!       v    ^
+//!    GameState::Game
+//! ```
 
 use bevy::prelude::*;
 
