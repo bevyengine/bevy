@@ -24,7 +24,7 @@ use wgpu::{Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor};
 pub const TEXTURE_ASSET_INDEX: u64 = 0;
 pub const SAMPLER_ASSET_INDEX: u64 = 1;
 
-#[derive(Debug, Serialize, Deserialize, Copy, Clone)]
+#[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq, Eq)]
 pub enum ImageFormat {
     Avif,
     Basis,
