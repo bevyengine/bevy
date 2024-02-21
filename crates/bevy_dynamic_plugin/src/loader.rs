@@ -7,7 +7,7 @@ use bevy_app::{App, CreatePlugin, Plugin};
 /// Errors that can occur when loading a dynamic plugin
 #[derive(Debug, Error)]
 pub enum DynamicPluginLoadError {
-    /// An error when loading a dynamic library.
+    /// An error occurred when loading a dynamic library.
     #[error("cannot load library for dynamic plugin: {0}")]
     Library(#[source] libloading::Error),
     /// An error when loading a library without a valid Bevy plugin.
