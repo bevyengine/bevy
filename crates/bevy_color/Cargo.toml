@@ -9,11 +9,11 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy", "color"]
 
 [dependencies]
-bevy_math = { path = "../bevy_math", version = "0.13.0" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.13.0", features = [
+bevy_math = { path = "../bevy_math", version = "0.14.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev", features = [
   "bevy",
 ] }
-bevy_render = { path = "../bevy_render", version = "0.13.0" }
+bevy_render = { path = "../bevy_render", version = "0.14.0-dev" }
 serde = "1.0.193"
 
 [lints]
