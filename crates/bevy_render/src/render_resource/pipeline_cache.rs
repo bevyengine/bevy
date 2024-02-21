@@ -941,7 +941,9 @@ fn create_pipeline_task(
     sync: bool,
 ) -> CachedPipelineState {
     if !sync {
-        return CachedPipelineState::Creating(bevy_tasks::AsyncComputeTaskPool::get().spawn(task));
+        return CachedPipelineState::Creating(
+            bevy_tasks::AsyncComputeTaskPool::get().spawn_async(task),
+        );
     }
 
     match futures_lite::future::block_on(task) {

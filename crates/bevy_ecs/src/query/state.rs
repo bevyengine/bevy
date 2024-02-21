@@ -1131,7 +1131,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ) {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
-        bevy_tasks::ComputeTaskPool::get().scope(|scope| {
+        let _: Vec<()> = bevy_tasks::ComputeTaskPool::get().scope(|scope| {
             if D::IS_DENSE && F::IS_DENSE {
                 // SAFETY: We only access table data that has been registered in `self.archetype_component_access`.
                 let tables = &world.storages().tables;
@@ -1145,7 +1145,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                     while offset < table.entity_count() {
                         let mut func = func.clone();
                         let len = batch_size.min(table.entity_count() - offset);
-                        scope.spawn(async move {
+                        scope.spawn(move || {
                             #[cfg(feature = "trace")]
                             let _span = self.par_iter_span.enter();
                             let table = &world
@@ -1172,7 +1172,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                     while offset < archetype.len() {
                         let mut func = func.clone();
                         let len = batch_size.min(archetype.len() - offset);
-                        scope.spawn(async move {
+                        scope.spawn(move || {
                             #[cfg(feature = "trace")]
                             let _span = self.par_iter_span.enter();
                             let archetype =

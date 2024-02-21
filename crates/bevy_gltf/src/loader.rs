@@ -353,7 +353,7 @@ async fn load_gltf<'a, 'b, 'c>(
                     let parent_path = load_context.path().parent().unwrap();
                     let linear_textures = &linear_textures;
                     let buffer_data = &buffer_data;
-                    scope.spawn(async move {
+                    scope.spawn_async(async move {
                         load_image(
                             gltf_texture,
                             buffer_data,

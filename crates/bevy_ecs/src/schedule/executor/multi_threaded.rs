@@ -256,7 +256,7 @@ impl SystemExecutor for MultiThreadedExecutor {
                 // and thread wake-up. Only spawn the task if the executor does not immediately
                 // terminate.
                 if block_on(poll_once(&mut executor)).is_none() {
-                    scope.spawn(executor);
+                    scope.spawn_async(executor);
                 }
             },
         );
@@ -525,7 +525,7 @@ impl MultiThreadedExecutor {
         let system = unsafe { &mut *systems[system_index].get() };
         let sender = self.sender.clone();
         let panic_payload = self.panic_payload.clone();
-        let task = async move {
+        let mut task = move || {
             let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
                 // SAFETY:
                 // - The caller ensures that we have permission to
@@ -550,13 +550,6 @@ impl MultiThreadedExecutor {
             }
         };
 
-        #[cfg(feature = "trace")]
-        let task = task.instrument(
-            self.system_task_metadata[system_index]
-                .system_task_span
-                .clone(),
-        );
-
         let system_meta = &self.system_task_metadata[system_index];
         self.active_access
             .extend(&system_meta.archetype_component_access);
@@ -564,6 +557,14 @@ impl MultiThreadedExecutor {
         if system_meta.is_send {
             scope.spawn(task);
         } else {
+            let task = async move { task() };
+            #[cfg(feature = "trace")]
+            let task = task.instrument(
+                self.system_task_metadata[system_index]
+                    .system_task_span
+                    .clone(),
+            );
+
             self.local_thread_running = true;
             scope.spawn_on_external(task);
         }

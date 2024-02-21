@@ -79,7 +79,7 @@ impl AssetLoaders {
                 MaybeAssetLoader::Ready(_) => unreachable!(),
                 MaybeAssetLoader::Pending { sender, .. } => {
                     IoTaskPool::get()
-                        .spawn(async move {
+                        .spawn_async(async move {
                             let _ = sender.broadcast(loader).await;
                         })
                         .detach();
