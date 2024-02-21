@@ -7,7 +7,7 @@
 //! code. Additionally, Rust does not have a stable ABI and may produce
 //! incompatible libraries across Rust versions, or even subsequent compilations. This will not work
 //! well in scenarios such as modding, but can work if the dynamic plugins and the main app are
-//! built at the same time, such as with DLCs.
+//! built at the same time, such as with Downloadable Content (DLC) packs.
 //!
 //! You may be interested in these safer alternatives:
 //!
