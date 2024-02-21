@@ -109,13 +109,13 @@ impl AssetLoader for ImageLoader {
                     let image_crate_format =
                         image::guess_format(&bytes).map_err(|err| FileTextureError {
                             error: TextureError::ImageError(err),
-                            path: format!("{}", load_context.path().display()),
+                            path: load_context.path().display().to_string(),
                         })?;
 
                     let format = ImageFormat::from_image_crate_format(image_crate_format)
                         .ok_or_else(|| FileTextureError {
                             error: TextureError::InvalidImageContentType(image_crate_format),
-                            path: format!("{}", load_context.path().display()),
+                            path: load_context.path().display().to_string(),
                         })?;
                     ImageType::Format(format)
                 }
@@ -134,7 +134,7 @@ impl AssetLoader for ImageLoader {
             )
             .map_err(|err| FileTextureError {
                 error: err,
-                path: format!("{}", load_context.path().display()),
+                path: load_context.path().display().to_string(),
             })?)
         })
     }
