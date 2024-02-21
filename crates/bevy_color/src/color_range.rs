@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-use crate::{LinearRgba, Mix};
+use crate::Mix;
 
 /// Represents a range of colors that can be linearly interpolated, defined by a start and
 /// end point which must be in the same color space. It works for any color type that
@@ -16,27 +16,6 @@ pub trait ColorRange<T: Mix> {
 impl<T: Mix> ColorRange<T> for Range<T> {
     fn at(&self, factor: f32) -> T {
         self.start.mix(&self.end, factor)
-    }
-}
-
-/// A type-erased color range that can be used to interpolate between colors in various
-/// color spaces. Note that both the start and end points must be in the same color space.
-/// This is useful for defining an animated color transition, such that the color space can
-/// be chosen when the range is created, but the interpolation can be done without knowing
-/// the color space.
-pub trait AnyColorRange {
-    /// Get the color value at the given interpolation factor, converted to linear RGBA.
-    fn at_linear(&self, factor: f32) -> LinearRgba;
-}
-
-/// Generic implementation for any type that implements [`Mix`] and can be converted into
-/// [`LinearRgba`].
-impl<T: Mix> AnyColorRange for Range<T>
-where
-    T: Into<LinearRgba>,
-{
-    fn at_linear(&self, factor: f32) -> LinearRgba {
-        self.at(factor).into()
     }
 }
 

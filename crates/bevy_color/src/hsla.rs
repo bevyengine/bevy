@@ -49,7 +49,7 @@ impl Hsla {
 
 impl Default for Hsla {
     fn default() -> Self {
-        Self::new(0., 0., 0., 1.)
+        Self::new(0., 0., 1., 1.)
     }
 }
 
