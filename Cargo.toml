@@ -2632,7 +2632,7 @@ description = "Shows off rendering for all math primitives as both Meshes and Gi
 category = "Math"
 wasm = true
 
-#Gizmos
+# Gizmos
 [[example]]
 name = "2d_gizmos"
 path = "examples/gizmos/2d_gizmos.rs"
