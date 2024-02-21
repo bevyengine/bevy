@@ -7,7 +7,7 @@
 use std::any::TypeId;
 
 use crate::{prelude::Bundle, world::EntityWorldMut};
-use bevy_reflect::{FromReflect, FromType, Reflect, ReflectRef, TypeRegistry};
+use bevy_reflect::{FromReflect, FromType, PartialReflect, Reflect, ReflectRef, TypeRegistry};
 
 use super::ReflectComponent;
 
@@ -24,11 +24,11 @@ pub struct ReflectBundle(ReflectBundleFns);
 #[derive(Clone)]
 pub struct ReflectBundleFns {
     /// Function pointer implementing [`ReflectBundle::insert()`].
-    pub insert: fn(&mut EntityWorldMut, &dyn Reflect),
+    pub insert: fn(&mut EntityWorldMut, &dyn PartialReflect),
     /// Function pointer implementing [`ReflectBundle::apply()`].
-    pub apply: fn(&mut EntityWorldMut, &dyn Reflect, &TypeRegistry),
+    pub apply: fn(&mut EntityWorldMut, &dyn PartialReflect, &TypeRegistry),
     /// Function pointer implementing [`ReflectBundle::apply_or_insert()`].
-    pub apply_or_insert: fn(&mut EntityWorldMut, &dyn Reflect, &TypeRegistry),
+    pub apply_or_insert: fn(&mut EntityWorldMut, &dyn PartialReflect, &TypeRegistry),
     /// Function pointer implementing [`ReflectBundle::remove()`].
     pub remove: fn(&mut EntityWorldMut),
 }
@@ -46,7 +46,7 @@ impl ReflectBundleFns {
 
 impl ReflectBundle {
     /// Insert a reflected [`Bundle`] into the entity like [`insert()`](EntityWorldMut::insert).
-    pub fn insert(&self, entity: &mut EntityWorldMut, bundle: &dyn Reflect) {
+    pub fn insert(&self, entity: &mut EntityWorldMut, bundle: &dyn PartialReflect) {
         (self.0.insert)(entity, bundle);
     }
 
@@ -58,7 +58,7 @@ impl ReflectBundle {
     pub fn apply(
         &self,
         entity: &mut EntityWorldMut,
-        bundle: &dyn Reflect,
+        bundle: &dyn PartialReflect,
         registry: &TypeRegistry,
     ) {
         (self.0.apply)(entity, bundle, registry);
@@ -68,7 +68,7 @@ impl ReflectBundle {
     pub fn apply_or_insert(
         &self,
         entity: &mut EntityWorldMut,
-        bundle: &dyn Reflect,
+        bundle: &dyn PartialReflect,
         registry: &TypeRegistry,
     ) {
         (self.0.apply_or_insert)(entity, bundle, registry);
@@ -170,17 +170,20 @@ impl<B: Bundle + Reflect + FromReflect> FromType<B> for ReflectBundle {
     }
 }
 
-fn insert_field(entity: &mut EntityWorldMut, field: &dyn Reflect, registry: &TypeRegistry) {
-    if let Some(reflect_component) = registry.get_type_data::<ReflectComponent>(field.type_id()) {
-        reflect_component.apply(entity, field);
-    } else if let Some(reflect_bundle) = registry.get_type_data::<ReflectBundle>(field.type_id()) {
-        reflect_bundle.apply(entity, field, registry);
+fn insert_field(entity: &mut EntityWorldMut, field: &dyn PartialReflect, registry: &TypeRegistry) {
+    let Some(type_id) = field.try_as_reflect().map(|field| field.type_id()) else {
+        panic!(
+            "`{}` did not implement `Reflect`",
+            field.reflect_type_path()
+        );
+    };
+
+    if let Some(reflect_component) = registry.get_type_data::<ReflectComponent>(type_id) {
+        reflect_component.apply(entity, field.as_partial_reflect());
+    } else if let Some(reflect_bundle) = registry.get_type_data::<ReflectBundle>(type_id) {
+        reflect_bundle.apply(entity, field.as_partial_reflect(), registry);
     } else {
-        let is_component = entity
-            .world()
-            .components()
-            .get_id(field.type_id())
-            .is_some();
+        let is_component = entity.world().components().get_id(type_id).is_some();
 
         if is_component {
             panic!(
@@ -198,19 +201,22 @@ fn insert_field(entity: &mut EntityWorldMut, field: &dyn Reflect, registry: &Typ
 
 fn apply_or_insert_field(
     entity: &mut EntityWorldMut,
-    field: &dyn Reflect,
+    field: &dyn PartialReflect,
     registry: &TypeRegistry,
 ) {
-    if let Some(reflect_component) = registry.get_type_data::<ReflectComponent>(field.type_id()) {
+    let Some(type_id) = field.try_as_reflect().map(|field| field.type_id()) else {
+        panic!(
+            "`{}` did not implement `Reflect`",
+            field.reflect_type_path()
+        );
+    };
+
+    if let Some(reflect_component) = registry.get_type_data::<ReflectComponent>(type_id) {
         reflect_component.apply_or_insert(entity, field, registry);
-    } else if let Some(reflect_bundle) = registry.get_type_data::<ReflectBundle>(field.type_id()) {
+    } else if let Some(reflect_bundle) = registry.get_type_data::<ReflectBundle>(type_id) {
         reflect_bundle.apply_or_insert(entity, field, registry);
     } else {
-        let is_component = entity
-            .world()
-            .components()
-            .get_id(field.type_id())
-            .is_some();
+        let is_component = entity.world().components().get_id(type_id).is_some();
 
         if is_component {
             panic!(

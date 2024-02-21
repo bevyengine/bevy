@@ -66,7 +66,7 @@ use crate::{
     entity::Entity,
     world::{unsafe_world_cell::UnsafeEntityCell, EntityRef, EntityWorldMut, World},
 };
-use bevy_reflect::{FromReflect, FromType, Reflect, TypeRegistry};
+use bevy_reflect::{FromReflect, FromType, PartialReflect, Reflect, TypeRegistry};
 
 /// A struct used to operate on reflected [`Component`] trait of a type.
 ///
@@ -98,11 +98,11 @@ pub struct ReflectComponent(ReflectComponentFns);
 #[derive(Clone)]
 pub struct ReflectComponentFns {
     /// Function pointer implementing [`ReflectComponent::insert()`].
-    pub insert: fn(&mut EntityWorldMut, &dyn Reflect, &TypeRegistry),
+    pub insert: fn(&mut EntityWorldMut, &dyn PartialReflect, &TypeRegistry),
     /// Function pointer implementing [`ReflectComponent::apply()`].
-    pub apply: fn(&mut EntityWorldMut, &dyn Reflect),
+    pub apply: fn(&mut EntityWorldMut, &dyn PartialReflect),
     /// Function pointer implementing [`ReflectComponent::apply_or_insert()`].
-    pub apply_or_insert: fn(&mut EntityWorldMut, &dyn Reflect, &TypeRegistry),
+    pub apply_or_insert: fn(&mut EntityWorldMut, &dyn PartialReflect, &TypeRegistry),
     /// Function pointer implementing [`ReflectComponent::remove()`].
     pub remove: fn(&mut EntityWorldMut),
     /// Function pointer implementing [`ReflectComponent::contains()`].
@@ -136,7 +136,7 @@ impl ReflectComponent {
     pub fn insert(
         &self,
         entity: &mut EntityWorldMut,
-        component: &dyn Reflect,
+        component: &dyn PartialReflect,
         registry: &TypeRegistry,
     ) {
         (self.0.insert)(entity, component, registry);
@@ -147,7 +147,7 @@ impl ReflectComponent {
     /// # Panics
     ///
     /// Panics if there is no [`Component`] of the given type.
-    pub fn apply(&self, entity: &mut EntityWorldMut, component: &dyn Reflect) {
+    pub fn apply(&self, entity: &mut EntityWorldMut, component: &dyn PartialReflect) {
         (self.0.apply)(entity, component);
     }
 
@@ -155,7 +155,7 @@ impl ReflectComponent {
     pub fn apply_or_insert(
         &self,
         entity: &mut EntityWorldMut,
-        component: &dyn Reflect,
+        component: &dyn PartialReflect,
         registry: &TypeRegistry,
     ) {
         (self.0.apply_or_insert)(entity, component, registry);
@@ -260,7 +260,11 @@ impl<C: Component + Reflect + FromReflect> FromType<C> for ReflectComponent {
         ReflectComponent(ReflectComponentFns {
             insert: |entity, reflected_component, registry| {
                 let component = entity.world_scope(|world| {
-                    from_reflect_or_world::<C>(reflected_component, world, registry)
+                    from_reflect_or_world::<C>(
+                        reflected_component.as_partial_reflect(),
+                        world,
+                        registry,
+                    )
                 });
                 entity.insert(component);
             },
@@ -270,7 +274,7 @@ impl<C: Component + Reflect + FromReflect> FromType<C> for ReflectComponent {
             },
             apply_or_insert: |entity, reflected_component, registry| {
                 if let Some(mut component) = entity.get_mut::<C>() {
-                    component.apply(reflected_component);
+                    component.apply(reflected_component.as_partial_reflect());
                 } else {
                     let component = entity.world_scope(|world| {
                         from_reflect_or_world::<C>(reflected_component, world, registry)
@@ -320,7 +324,7 @@ impl<C: Component + Reflect + FromReflect> FromType<C> for ReflectComponent {
 ///
 /// Panics if both approaches fail.
 fn from_reflect_or_world<T: FromReflect>(
-    reflected: &dyn Reflect,
+    reflected: &dyn PartialReflect,
     world: &mut World,
     registry: &TypeRegistry,
 ) -> T {

@@ -13,6 +13,8 @@ pub trait ReflectCommandExt {
     ///
     /// This will overwrite any previous component of the same type.
     ///
+    /// Note that `insert_reflect` accepts a `Box<dyn Reflect>`, rather than a
+    ///
     /// # Panics
     ///
     /// - If the entity doesn't exist.
@@ -202,7 +204,7 @@ fn insert_reflect(
     let Some(reflect_component) = type_registration.data::<ReflectComponent>() else {
         panic!("Could not get ReflectComponent data (for component type {type_path}) because it doesn't exist in this TypeRegistration.");
     };
-    reflect_component.insert(&mut entity, &*component, type_registry);
+    reflect_component.insert(&mut entity, component.as_partial_reflect(), type_registry);
 }
 
 /// A [`Command`] that adds the boxed reflect component to an entity using the data in

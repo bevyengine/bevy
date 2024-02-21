@@ -1,7 +1,7 @@
 use std::any::{Any, TypeId};
 
 use bevy_ecs::world::{unsafe_world_cell::UnsafeWorldCell, World};
-use bevy_reflect::{FromReflect, FromType, Reflect};
+use bevy_reflect::{FromReflect, FromType, PartialReflect, Reflect};
 
 use crate::{Asset, Assets, Handle, UntypedAssetId, UntypedHandle};
 
@@ -22,8 +22,8 @@ pub struct ReflectAsset {
     // - may only be called with an [`UnsafeWorldCell`] which can be used to access the corresponding `Assets<T>` resource mutably
     // - may only be used to access **at most one** access at once
     get_unchecked_mut: unsafe fn(UnsafeWorldCell<'_>, UntypedHandle) -> Option<&mut dyn Reflect>,
-    add: fn(&mut World, &dyn Reflect) -> UntypedHandle,
-    insert: fn(&mut World, UntypedHandle, &dyn Reflect),
+    add: fn(&mut World, &dyn PartialReflect) -> UntypedHandle,
+    insert: fn(&mut World, UntypedHandle, &dyn PartialReflect),
     len: fn(&World) -> usize,
     ids: for<'w> fn(&'w World) -> Box<dyn Iterator<Item = UntypedAssetId> + 'w>,
     remove: fn(&mut World, UntypedHandle) -> Option<Box<dyn Reflect>>,
@@ -92,11 +92,11 @@ impl ReflectAsset {
     }
 
     /// Equivalent of [`Assets::add`]
-    pub fn add(&self, world: &mut World, value: &dyn Reflect) -> UntypedHandle {
+    pub fn add(&self, world: &mut World, value: &dyn PartialReflect) -> UntypedHandle {
         (self.add)(world, value)
     }
     /// Equivalent of [`Assets::insert`]
-    pub fn insert(&self, world: &mut World, handle: UntypedHandle, value: &dyn Reflect) {
+    pub fn insert(&self, world: &mut World, handle: UntypedHandle, value: &dyn PartialReflect) {
         (self.insert)(world, handle, value);
     }
 
