@@ -22,6 +22,7 @@ impl<S: Subscriber> Layer<S> for CustomLayer {
     }
 }
 
+// For an example that uses App, see log_layers_advanced.
 fn update_subscriber(_: &mut App, subscriber: BoxedSubscriber) -> BoxedSubscriber {
     Box::new(subscriber.with(CustomLayer))
 }
@@ -30,6 +31,14 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(bevy::log::LogPlugin {
             update_subscriber: Some(update_subscriber),
+            // You can chain multiple subscriber updates like this:
+            //
+            // update_subscriber: Some(|app, subscriber| {
+            //     let subscriber = update_subscriber_a(app, subscriber);
+            //     let subscriber = update_subscriber_b(app, subscriber);
+            //
+            //     update_subscriber_c(app, subscriber)
+            // }),
             ..default()
         }))
         .add_systems(Update, log_system)
