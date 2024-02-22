@@ -111,7 +111,6 @@ fn log_system() {
     trace!("very noisy");
 }
 
-
 #[derive(Component)]
 struct LogViewerRoot;
 
