@@ -37,7 +37,8 @@ fn transfer_log_events(reciever: NonSend<LogEvents>, mut log_events: EventWriter
     log_events.send_batch(reciever.try_iter());
 }
 
-/// A [`Layer`] that captures log events and saves them to [`LogEvents`].
+/// This is the [`Layer`] that we will use to record log events and then send them to Bevy's 
+/// ECS via it's [`mpsc::Sender`].
 struct AdvancedLayer {
     sender: mpsc::Sender<LogEvent>,
 }
@@ -96,7 +97,7 @@ fn main() {
 }
 
 fn log_system() {
-    // here is how you write new logs at each "log level" (in "most import" to
+    // here is how you write new logs at each "log level" (in "most important" to
     // "least important" order)
     error!("something failed");
     warn!("something bad happened that isn't a failure, but thats worth calling out");
@@ -105,7 +106,8 @@ fn log_system() {
     trace!("very noisy");
 }
 
-// This is how we can read our LogEvents, just printing it out for this example.
+// This is how we can read our LogEvents.
+// In this example, we're just printing it out, but you could parse or display the events.
 fn print_logs(mut events: EventReader<LogEvent>) {
     for event in events.read() {
         dbg!(&event.message);

@@ -47,7 +47,7 @@ fn main() {
 }
 
 fn log_system() {
-    // here is how you write new logs at each "log level" (in "most import" to
+    // here is how you write new logs at each "log level" (in "most important" to
     // "least important" order)
     error!("something failed");
     warn!("something bad happened that isn't a failure, but thats worth calling out");
