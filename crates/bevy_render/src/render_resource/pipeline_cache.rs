@@ -22,7 +22,8 @@ use thiserror::Error;
 #[cfg(feature = "shader_format_spirv")]
 use wgpu::util::make_spirv;
 use wgpu::{
-    DownlevelFlags, Features, PipelineLayoutDescriptor, PushConstantRange, ShaderModuleDescriptor, VertexBufferLayout as RawVertexBufferLayout
+    DownlevelFlags, Features, PipelineLayoutDescriptor, PushConstantRange, ShaderModuleDescriptor,
+    VertexBufferLayout as RawVertexBufferLayout,
 };
 
 use crate::render_resource::resource_macros::*;
@@ -196,7 +197,11 @@ impl ShaderCache {
             }
         }
 
-        if render_adapter.get_downlevel_capabilities().flags.contains(DownlevelFlags::CUBE_ARRAY_TEXTURES) {
+        if render_adapter
+            .get_downlevel_capabilities()
+            .flags
+            .contains(DownlevelFlags::CUBE_ARRAY_TEXTURES)
+        {
             capabilities |= Capabilities::CUBE_ARRAY_TEXTURES;
         }
 
@@ -496,7 +501,11 @@ impl PipelineCache {
     }
 
     /// Create a new pipeline cache associated with the given render device.
-    pub fn new(device: RenderDevice, render_adapter: RenderAdapter, synchronous_pipeline_compilation: bool) -> Self {
+    pub fn new(
+        device: RenderDevice,
+        render_adapter: RenderAdapter,
+        synchronous_pipeline_compilation: bool,
+    ) -> Self {
         Self {
             shader_cache: Arc::new(Mutex::new(ShaderCache::new(&device, &render_adapter))),
             device,

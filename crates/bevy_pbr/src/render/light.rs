@@ -1221,11 +1221,7 @@ pub fn prepare_lights(
                     dimension: Some(TextureViewDimension::CubeArray),
                     #[cfg(any(
                         ios_simulator,
-                        all(
-                            feature = "webgl",
-                            target_arch = "wasm32",
-                            not(feature = "webgpu")
-                        )
+                        all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu"))
                     ))]
                     dimension: Some(TextureViewDimension::Cube),
                     aspect: TextureAspect::DepthOnly,

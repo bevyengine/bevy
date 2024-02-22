@@ -202,11 +202,7 @@ fn layout_entries(
                 texture_cube_array(TextureSampleType::Depth),
                 #[cfg(any(
                     ios_simulator,
-                    all(
-                        feature = "webgl",
-                        target_arch = "wasm32",
-                        not(feature = "webgpu")
-                    )
+                    all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu"))
                 ))]
                 texture_cube(TextureSampleType::Depth),
             ),
