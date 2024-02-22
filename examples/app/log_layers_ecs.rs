@@ -9,6 +9,7 @@
 //! From there we will use [`transfer_log_events`] to transfer log events from [`LogEvents`] to an ECS event called [`LogEvent`].
 //!
 //! Finally, after all that we can access the [`LogEvent`] event from our systems and use it.
+//! In this example we build a simple log viewer.
 
 use std::sync::mpsc;
 
@@ -32,12 +33,15 @@ struct LogEvent {
 struct CapturedLogEvents(mpsc::Receiver<LogEvent>);
 
 /// Transfers information from the [`LogEvents`] resource to [`Events<LogEvent>`](LogEvent).
-fn transfer_log_events(reciever: NonSend<CapturedLogEvents>, mut log_events: EventWriter<LogEvent>) {
+fn transfer_log_events(
+    reciever: NonSend<CapturedLogEvents>,
+    mut log_events: EventWriter<LogEvent>,
+) {
     // Make sure to use `try_iter()` and not `iter()` to prevent blocking.
     log_events.send_batch(reciever.try_iter());
 }
 
-/// This is the [`Layer`] that we will use to capture log events and then send them to Bevy's 
+/// This is the [`Layer`] that we will use to capture log events and then send them to Bevy's
 /// ECS via it's [`mpsc::Sender`].
 struct CaptureLayer {
     sender: mpsc::Sender<LogEvent>,
@@ -92,7 +96,8 @@ fn main() {
             update_subscriber: Some(update_subscriber),
             ..default()
         }))
-        .add_systems(Update, (log_system, print_logs))
+        .add_systems(Startup, (log_system, setup))
+        .add_systems(Update, print_logs)
         .run();
 }
 
@@ -106,10 +111,42 @@ fn log_system() {
     trace!("very noisy");
 }
 
+
+#[derive(Component)]
+struct LogViewerRoot;
+
+fn setup(mut commands: Commands) {
+    commands.spawn(Camera2dBundle::default());
+
+    commands.spawn((
+        NodeBundle {
+            style: Style {
+                width: Val::Vw(100.0),
+                height: Val::Vh(100.0),
+                flex_direction: FlexDirection::Column,
+                ..default()
+            },
+            ..default()
+        },
+        LogViewerRoot,
+    ));
+}
+
 // This is how we can read our LogEvents.
-// In this example, we're just printing it out, but you could parse or display the events.
-fn print_logs(mut events: EventReader<LogEvent>) {
-    for event in events.read() {
-        dbg!(&event.message);
-    }
+// In this example we are reading the LogEvents and inserting them as text into our log viewer.
+fn print_logs(
+    mut events: EventReader<LogEvent>,
+    mut commands: Commands,
+    log_viewer_root: Query<Entity, With<LogViewerRoot>>,
+) {
+    let root_entity = log_viewer_root.single();
+
+    commands.entity(root_entity).with_children(|child| {
+        for event in events.read() {
+            child.spawn(TextBundle::from_section(
+                &event.message,
+                TextStyle::default(),
+            ));
+        }
+    });
 }
