@@ -22,7 +22,7 @@ impl<S: Subscriber> Layer<S> for CustomLayer {
     }
 }
 
-// For an example that uses App, see log_layers_advanced.
+// For an example that uses App, see log_layers_ecs.
 fn update_subscriber(_: &mut App, subscriber: BoxedSubscriber) -> BoxedSubscriber {
     Box::new(subscriber.with(CustomLayer))
 }
