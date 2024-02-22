@@ -60,3 +60,69 @@ impl From<Oklaba> for Color {
         Self::Oklaba(value)
     }
 }
+
+impl From<Lcha> for Color {
+    fn from(value: Lcha) -> Self {
+        Self::Lcha(value)
+    }
+}
+
+impl From<Color> for Srgba {
+    fn from(value: Color) -> Self {
+        match value {
+            Color::Srgba(srgba) => srgba,
+            Color::LinearRgba(linear) => linear.into(),
+            Color::Hsla(hsla) => hsla.into(),
+            Color::Lcha(lcha) => lcha.into(),
+            Color::Oklaba(oklab) => oklab.into(),
+        }
+    }
+}
+
+impl From<Color> for LinearRgba {
+    fn from(value: Color) -> Self {
+        match value {
+            Color::Srgba(srgba) => srgba.into(),
+            Color::LinearRgba(linear) => linear,
+            Color::Hsla(hsla) => hsla.into(),
+            Color::Lcha(lcha) => lcha.into(),
+            Color::Oklaba(oklab) => oklab.into(),
+        }
+    }
+}
+
+impl From<Color> for Hsla {
+    fn from(value: Color) -> Self {
+        match value {
+            Color::Srgba(srgba) => srgba.into(),
+            Color::LinearRgba(linear) => linear.into(),
+            Color::Hsla(hsla) => hsla,
+            Color::Lcha(lcha) => lcha.into(),
+            Color::Oklaba(oklab) => oklab.into(),
+        }
+    }
+}
+
+impl From<Color> for Lcha {
+    fn from(value: Color) -> Self {
+        match value {
+            Color::Srgba(srgba) => srgba.into(),
+            Color::LinearRgba(linear) => linear.into(),
+            Color::Hsla(hsla) => hsla.into(),
+            Color::Lcha(lcha) => lcha,
+            Color::Oklaba(oklab) => oklab.into(),
+        }
+    }
+}
+
+impl From<Color> for Oklaba {
+    fn from(value: Color) -> Self {
+        match value {
+            Color::Srgba(srgba) => srgba.into(),
+            Color::LinearRgba(linear) => linear.into(),
+            Color::Hsla(hsla) => hsla.into(),
+            Color::Lcha(lcha) => lcha.into(),
+            Color::Oklaba(oklab) => oklab,
+        }
+    }
+}
