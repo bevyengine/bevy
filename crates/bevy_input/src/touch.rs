@@ -459,7 +459,7 @@ mod test {
         touches.just_released.insert(4, touch_event);
         touches.just_canceled.insert(4, touch_event);
 
-        update(&mut touches);
+        clear_all(&mut touches);
 
         // Verify that all the `just_x` maps are cleared
         assert!(touches.just_pressed.is_empty());
@@ -485,7 +485,7 @@ mod test {
             id: 4,
         };
 
-        update(&mut touches);
+        clear_all(&mut touches);
         touches.process_touch_event(&touch_event);
 
         assert!(touches.pressed.get(&touch_event.id).is_some());
@@ -501,7 +501,7 @@ mod test {
             id: touch_event.id,
         };
 
-        update(&mut touches);
+        clear_all(&mut touches);
         touches.process_touch_event(&moved_touch_event);
 
         assert_eq!(
@@ -523,7 +523,7 @@ mod test {
             id: touch_event.id,
         };
 
-        update(&mut touches);
+        clear_all(&mut touches);
         touches.process_touch_event(&cancel_touch_event);
 
         assert!(touches.just_canceled.get(&touch_event.id).is_some());
@@ -539,7 +539,7 @@ mod test {
             id: touch_event.id,
         };
 
-        update(&mut touches);
+        clear_all(&mut touches);
         touches.process_touch_event(&touch_event);
         touches.process_touch_event(&moved_touch_event);
         touches.process_touch_event(&end_touch_event);
@@ -795,7 +795,7 @@ mod test {
         assert!(!touches.just_released(touch_released_event.id));
     }
 
-    fn update(touch_state: &mut Touches) {
+    fn clear_all(touch_state: &mut Touches) {
         touch_state.just_pressed.clear();
         touch_state.just_released.clear();
         touch_state.just_canceled.clear();
