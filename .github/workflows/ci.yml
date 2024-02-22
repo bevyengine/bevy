@@ -163,16 +163,14 @@ jobs:
           VALIDATE_MARKDOWN: true
           DEFAULT_BRANCH: main
 
-  toml:
+  toml-fmt:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
       - name: Install taplo
-        run: | 
-          curl -fsSL https://github.com/tamasfe/taplo/releases/latest/download/taplo-full-linux-x86_64.gz \
-          | gzip -d - \
-          | install -m 755 /dev/stdin /usr/local/bin/taplo
+        run: cargo install taplo-cli --locked
       - name: Run Taplo
         id: taplo
         run: taplo fmt --check --diff
@@ -180,7 +178,10 @@ jobs:
         if: failure()
         run: |
           echo 'To fix toml fmt, please run `taplo fmt`'
-          echo 'Or if you use VSCode, use the Even Better Toml extension'
+          echo 'To check for a diff, run `taplo fmt --check --diff'
+          echo 'You can find taplo here: https://taplo.tamasfe.dev/'
+          echo 'Or if you use VSCode, use the `Even Better Toml` extension with 2 spaces'
+          echo 'You can find the extension here: https://marketplace.visualstudio.com/items?itemName=tamasfe.even-better-toml'
 
 
   run-examples-on-windows-dx12:
