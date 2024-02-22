@@ -18,7 +18,7 @@ pub trait AssetTransformer: Send + Sync + 'static {
     /// The type of [error](`std::error::Error`) which could be encountered by this transformer.
     type Error: Into<Box<dyn std::error::Error + Send + Sync + 'static>>;
 
-    /// Transformers the given [`TransformedAsset`] to [`AssetTransformer::AssetOutput`].
+    /// Transforms the given [`TransformedAsset`] to [`AssetTransformer::AssetOutput`].
     /// The [`TransformedAsset`]'s `labeled_assets` can be altered to add new Labeled Sub-Assets
     /// The passed in `settings` can influence how the `asset` is transformed
     fn transform<'a>(
