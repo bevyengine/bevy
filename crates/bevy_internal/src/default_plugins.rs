@@ -51,9 +51,9 @@ impl PluginGroup for DefaultPlugins {
 
         #[cfg(feature = "bevy_a11y")]
         {
-            group = group.add(bevy_a11y::AccessibilityPlugin);            
+            group = group.add(bevy_a11y::AccessibilityPlugin);
         }
-        
+
         #[cfg(feature = "bevy_asset")]
         {
             group = group.add(bevy_asset::AssetPlugin::default());
@@ -61,12 +61,12 @@ impl PluginGroup for DefaultPlugins {
 
         #[cfg(feature = "bevy_input")]
         {
-            group = group.add(bevy_input::InputPlugin);            
+            group = group.add(bevy_input::InputPlugin);
         }
 
         #[cfg(feature = "bevy_transform")]
         {
-            group = group.add(bevy_transform::TransformPlugin);            
+            group = group.add(bevy_transform::TransformPlugin);
         }
 
         #[cfg(feature = "bevy_scene")]
@@ -147,7 +147,7 @@ impl PluginGroup for DefaultPlugins {
 
         #[cfg(feature = "bevy_window")]
         {
-            group = group.add(bevy_window::WindowPlugin::default());            
+            group = group.add(bevy_window::WindowPlugin::default());
         }
 
         group = group.add(IgnoreAmbiguitiesPlugin);
