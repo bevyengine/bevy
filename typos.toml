@@ -1,7 +1,7 @@
 [files]
 extend-exclude = [
   "*.pbxproj", # metadata file
-  "CHANGELOG.md" # To keep consistency between the comimit history/PRs.
+  "CHANGELOG.md" # To keep consistency between the commit history/PRs.
 ]
 
 # Corrections take the form of a key/value pair. The key is the incorrect word
