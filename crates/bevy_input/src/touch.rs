@@ -400,32 +400,14 @@ impl Touches {
             }
         };
     }
-
-    /// Clears the `just_pressed`, `just_released`, and `just_canceled` collections.
-    ///
-    /// This is not clearing the `pressed` collection, because it could incorrectly mark
-    /// a touch input as not pressed even though it is pressed. This could happen if the
-    /// touch input is not moving for a single frame and would therefore be marked as
-    /// not pressed, because this function is called on every single frame no matter
-    /// if there was an event or not.
-    ///
-    /// See also: [`Touches::should_update()`].
-    fn update(&mut self) {
-        self.just_pressed.clear();
-        self.just_released.clear();
-        self.just_canceled.clear();
-    }
-
-    /// Returns `true` any of `just_pressed`, `just_released` and `just_canceled` collections are
-    /// populated, indicating that the [`Touches::update()`] method should be called.
-    fn should_update(&self) -> bool {
-        !self.just_pressed.is_empty()
-            || !self.just_released.is_empty()
-            || !self.just_canceled.is_empty()
-    }
 }
 
 /// Updates the [`Touches`] resource with the latest [`TouchInput`] events.
+///
+/// This is not clearing the `pressed` collection, because it could incorrectly mark a touch input
+/// as not pressed even though it is pressed. This could happen if the touch input is not moving
+/// for a single frame and would therefore be marked as not pressed, because this function is
+/// called on every single frame no matter if there was an event or not.
 ///
 /// ## Differences
 ///
@@ -435,8 +417,14 @@ pub fn touch_screen_input_system(
     mut touch_state: ResMut<Touches>,
     mut touch_input_events: EventReader<TouchInput>,
 ) {
-    if touch_state.should_update() {
-        touch_state.update();
+    if !touch_state.just_pressed.is_empty() {
+        touch_state.just_pressed.clear();
+    }
+    if !touch_state.just_released.is_empty() {
+        touch_state.just_released.clear();
+    }
+    if !touch_state.just_canceled.is_empty() {
+        touch_state.just_canceled.clear();
     }
 
     for event in touch_input_events.read() {
@@ -470,9 +458,7 @@ mod test {
         touches.just_released.insert(4, touch_event);
         touches.just_canceled.insert(4, touch_event);
 
-        assert!(touches.should_update());
         touches.update();
-        assert!(!touches.should_update());
 
         // Verify that all the `just_x` maps are cleared
         assert!(touches.just_pressed.is_empty());
