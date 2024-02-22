@@ -20,29 +20,29 @@ use bevy::{
     utils::tracing::Subscriber,
 };
 
-/// A basic message. This is what we will be sending from the [`AdvancedLayer`] to [`LogEvents`] non-send resource.
+/// A basic message. This is what we will be sending from the [`CaptureLayer`] to [`CapturedLogEvents`] non-send resource.
 #[derive(Debug, Event)]
 struct LogEvent {
     message: String,
 }
 
-/// This struct temporarily stores [`LogEvent`]s before they are
+/// This non-send resource temporarily stores [`LogEvent`]s before they are
 /// written to [`Events<LogEvent>`] by [`transfer_log_events`].
 #[derive(Deref, DerefMut)]
-struct LogEvents(mpsc::Receiver<LogEvent>);
+struct CapturedLogEvents(mpsc::Receiver<LogEvent>);
 
 /// Transfers information from the [`LogEvents`] resource to [`Events<LogEvent>`](LogEvent).
-fn transfer_log_events(reciever: NonSend<LogEvents>, mut log_events: EventWriter<LogEvent>) {
+fn transfer_log_events(reciever: NonSend<CapturedLogEvents>, mut log_events: EventWriter<LogEvent>) {
     // Make sure to use `try_iter()` and not `iter()` to prevent blocking.
     log_events.send_batch(reciever.try_iter());
 }
 
-/// This is the [`Layer`] that we will use to record log events and then send them to Bevy's 
+/// This is the [`Layer`] that we will use to capture log events and then send them to Bevy's 
 /// ECS via it's [`mpsc::Sender`].
-struct AdvancedLayer {
+struct CaptureLayer {
     sender: mpsc::Sender<LogEvent>,
 }
-impl<S: Subscriber> Layer<S> for AdvancedLayer {
+impl<S: Subscriber> Layer<S> for CaptureLayer {
     fn on_event(
         &self,
         event: &tracing::Event<'_>,
@@ -52,7 +52,7 @@ impl<S: Subscriber> Layer<S> for AdvancedLayer {
         // Visit and holds a reference to our string. Then we use the `record` method and
         // the struct to modify the reference to hold the message string.
         let mut message = None;
-        event.record(&mut AdvancedLayerVisitor(&mut message));
+        event.record(&mut CaptureLayerVisitor(&mut message));
         if let Some(message) = message {
             // You can obtain metadata like this, but we wont use it for this example.
             let _metadata = event.metadata();
@@ -63,9 +63,9 @@ impl<S: Subscriber> Layer<S> for AdvancedLayer {
     }
 }
 
-/// A [`Visit`](tracing::field::Visit)or that records log messages that are transfered to [`AdvancedLayer`].
-struct AdvancedLayerVisitor<'a>(&'a mut Option<String>);
-impl tracing::field::Visit for AdvancedLayerVisitor<'_> {
+/// A [`Visit`](tracing::field::Visit)or that records log messages that are transfered to [`CaptureLayer`].
+struct CaptureLayerVisitor<'a>(&'a mut Option<String>);
+impl tracing::field::Visit for CaptureLayerVisitor<'_> {
     fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
         // This if statement filters out unneeded events sometimes show up
         if field.name() == "message" {
@@ -76,8 +76,8 @@ impl tracing::field::Visit for AdvancedLayerVisitor<'_> {
 fn update_subscriber(app: &mut App, subscriber: BoxedSubscriber) -> BoxedSubscriber {
     let (sender, reciever) = mpsc::channel();
 
-    let layer = AdvancedLayer { sender };
-    let resource = LogEvents(reciever);
+    let layer = CaptureLayer { sender };
+    let resource = CapturedLogEvents(reciever);
 
     app.insert_non_send_resource(resource);
     app.add_event::<LogEvent>();
