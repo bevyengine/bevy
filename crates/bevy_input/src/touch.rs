@@ -400,22 +400,14 @@ impl Touches {
             }
         };
     }
-
-    /// Clears the `just_pressed`, `just_released`, and `just_canceled` collections.
-    ///
-    /// This is not clearing the `pressed` collection, because it could incorrectly mark
-    /// a touch input as not pressed even though it is pressed. This could happen if the
-    /// touch input is not moving for a single frame and would therefore be marked as
-    /// not pressed, because this function is called on every single frame no matter
-    /// if there was an event or not.
-    fn update(&mut self) {
-        self.just_pressed.clear();
-        self.just_released.clear();
-        self.just_canceled.clear();
-    }
 }
 
 /// Updates the [`Touches`] resource with the latest [`TouchInput`] events.
+///
+/// This is not clearing the `pressed` collection, because it could incorrectly mark a touch input
+/// as not pressed even though it is pressed. This could happen if the touch input is not moving
+/// for a single frame and would therefore be marked as not pressed, because this function is
+/// called on every single frame no matter if there was an event or not.
 ///
 /// ## Differences
 ///
@@ -425,7 +417,15 @@ pub fn touch_screen_input_system(
     mut touch_state: ResMut<Touches>,
     mut touch_input_events: EventReader<TouchInput>,
 ) {
-    touch_state.update();
+    if !touch_state.just_pressed.is_empty() {
+        touch_state.just_pressed.clear();
+    }
+    if !touch_state.just_released.is_empty() {
+        touch_state.just_released.clear();
+    }
+    if !touch_state.just_canceled.is_empty() {
+        touch_state.just_canceled.clear();
+    }
 
     for event in touch_input_events.read() {
         touch_state.process_touch_event(event);
@@ -434,6 +434,7 @@ pub fn touch_screen_input_system(
 
 #[cfg(test)]
 mod test {
+    use super::Touches;
 
     #[test]
     fn touch_update() {
@@ -458,7 +459,7 @@ mod test {
         touches.just_released.insert(4, touch_event);
         touches.just_canceled.insert(4, touch_event);
 
-        touches.update();
+        clear_all(&mut touches);
 
         // Verify that all the `just_x` maps are cleared
         assert!(touches.just_pressed.is_empty());
@@ -484,7 +485,7 @@ mod test {
             id: 4,
         };
 
-        touches.update();
+        clear_all(&mut touches);
         touches.process_touch_event(&touch_event);
 
         assert!(touches.pressed.get(&touch_event.id).is_some());
@@ -500,7 +501,7 @@ mod test {
             id: touch_event.id,
         };
 
-        touches.update();
+        clear_all(&mut touches);
         touches.process_touch_event(&moved_touch_event);
 
         assert_eq!(
@@ -522,7 +523,7 @@ mod test {
             id: touch_event.id,
         };
 
-        touches.update();
+        clear_all(&mut touches);
         touches.process_touch_event(&cancel_touch_event);
 
         assert!(touches.just_canceled.get(&touch_event.id).is_some());
@@ -538,7 +539,7 @@ mod test {
             id: touch_event.id,
         };
 
-        touches.update();
+        clear_all(&mut touches);
         touches.process_touch_event(&touch_event);
         touches.process_touch_event(&moved_touch_event);
         touches.process_touch_event(&end_touch_event);
@@ -792,5 +793,11 @@ mod test {
         assert!(!touches.just_pressed(touch_press_event.id));
         assert!(!touches.just_canceled(touch_canceled_event.id));
         assert!(!touches.just_released(touch_released_event.id));
+    }
+
+    fn clear_all(touch_state: &mut Touches) {
+        touch_state.just_pressed.clear();
+        touch_state.just_released.clear();
+        touch_state.just_canceled.clear();
     }
 }
