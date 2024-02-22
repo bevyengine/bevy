@@ -22,7 +22,4 @@ ser = "ser" # ron::ser - Serializer
 # Things that aren't typos
 toi = "toi" # Time of intersention
 LOD = "LOD" # Level of detail
-ND = "ND"   # NDK - Native  Development Kit
-Ot = "Ot"   # vOt - Vector Offset Tangent
-FO = "FO"   # iFO - Index of First Original Face
 Sur = "Sur" # macOS Big Sur - South
