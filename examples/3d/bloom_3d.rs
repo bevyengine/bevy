@@ -63,6 +63,8 @@ fn setup_scene(
 
     for x in -5..5 {
         for z in -5..5 {
+            // This generates a pseudo-random integer between `[0, 6)`, but deterministically so
+            // the same spheres are always the same colors.
             let mut hasher = DefaultHasher::new();
             (x, z).hash(&mut hasher);
             let rand = (hasher.finish() - 2) % 6;
