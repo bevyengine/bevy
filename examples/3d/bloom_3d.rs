@@ -61,37 +61,31 @@ fn setup_scene(
 
     let mesh = meshes.add(Sphere::new(0.5).mesh().ico(5).unwrap());
 
-    // Spawn 100 bouncing spheres, where each may randomly be emissive.
-    commands.spawn_batch(
-        // Equivalent to a nested for-loop of (-5..5) x (-5..5).
-        (-5..5)
-            .flat_map(|x| (-5..5).map(move |z| (x, z)))
-            .map(move |(x, z)| {
-                // Calculate a random number within the range `[0, 6)`.
-                let mut hasher = DefaultHasher::new();
-                (x, z).hash(&mut hasher);
-                let rand = (hasher.finish() - 2) % 6;
+    for x in -5..5 {
+        for z in -5..5 {
+            let mut hasher = DefaultHasher::new();
+            (x, z).hash(&mut hasher);
+            let rand = (hasher.finish() - 2) % 6;
 
-                // 50% chance that the material is emissive or not.
-                let material = match rand {
-                    0 => material_emissive1.clone(),
-                    1 => material_emissive2.clone(),
-                    2 => material_emissive3.clone(),
-                    3..=5 => material_non_emissive.clone(),
-                    _ => unreachable!(),
-                };
+            let material = match rand {
+                0 => material_emissive1.clone(),
+                1 => material_emissive2.clone(),
+                2 => material_emissive3.clone(),
+                3..=5 => material_non_emissive.clone(),
+                _ => unreachable!(),
+            };
 
-                (
-                    PbrBundle {
-                        mesh: mesh.clone(),
-                        material,
-                        transform: Transform::from_xyz(x as f32 * 2.0, 0.0, z as f32 * 2.0),
-                        ..default()
-                    },
-                    Bouncing,
-                )
-            }),
-    );
+            commands.spawn((
+                PbrBundle {
+                    mesh: mesh.clone(),
+                    material,
+                    transform: Transform::from_xyz(x as f32 * 2.0, 0.0, z as f32 * 2.0),
+                    ..default()
+                },
+                Bouncing,
+            ));
+        }
+    }
 
     // example instructions
     commands.spawn(
