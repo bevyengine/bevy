@@ -41,7 +41,7 @@ impl SystemExecutor for SimpleExecutor {
         #[cfg(feature = "bevy_debug_stepping")]
         if let Some(skipped_systems) = _skip_systems {
             // mark skipped systems as completed
-            self.completed_systems |= &skipped_systems;
+            self.completed_systems |= skipped_systems;
         }
 
         for system_index in 0..schedule.systems.len() {
