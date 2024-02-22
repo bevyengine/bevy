@@ -1,4 +1,4 @@
-use crate::{vertex_attributes::convert_attribute, Gltf, GltfExtras, GltfNode, GltfExtensions};
+use crate::{vertex_attributes::convert_attribute, Gltf, GltfExtensions, GltfExtras, GltfNode};
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::{AnimationTarget, AnimationTargetId};
 use bevy_asset::{
@@ -595,7 +595,9 @@ async fn load_gltf<'a, 'b, 'c>(
         let mut scene_load_context = load_context.begin_labeled_asset();
 
         if let Some(extensions) = gltf.extensions() {
-            world.spawn(GltfExtensions{ value: serde_json::Value::from(extensions.clone()).to_string() });
+            world.spawn(GltfExtensions {
+                value: serde_json::Value::from(extensions.clone()).to_string(),
+            });
         }
 
         world
@@ -1057,7 +1059,9 @@ fn load_node(
     }
 
     if let Some(extensions) = gltf_node.extensions() {
-        node.insert(GltfExtensions{ value: serde_json::Value::from(extensions.clone()).to_string() });
+        node.insert(GltfExtensions {
+            value: serde_json::Value::from(extensions.clone()).to_string(),
+        });
     }
 
     // create camera node
