@@ -401,6 +401,15 @@ impl Touches {
         };
     }
 
+    /// Returns `true` if all of `pressed`, `just_pressed`, `just_released` and `just_canceled`
+    /// collections are empty.
+    fn is_empty(&self) -> bool {
+        self.pressed.is_empty()
+            && self.just_pressed.is_empty()
+            && self.just_released.is_empty()
+            && self.just_canceled.is_empty()
+    }
+
     /// Clears the `just_pressed`, `just_released`, and `just_canceled` collections.
     ///
     /// This is not clearing the `pressed` collection, because it could incorrectly mark
@@ -425,7 +434,9 @@ pub fn touch_screen_input_system(
     mut touch_state: ResMut<Touches>,
     mut touch_input_events: EventReader<TouchInput>,
 ) {
-    touch_state.update();
+    if !touch_state.is_empty() {
+        touch_state.update();
+    }
 
     for event in touch_input_events.read() {
         touch_state.process_touch_event(event);
@@ -458,7 +469,9 @@ mod test {
         touches.just_released.insert(4, touch_event);
         touches.just_canceled.insert(4, touch_event);
 
+        assert!(!touches.is_empty());
         touches.update();
+        assert!(touches.is_empty());
 
         // Verify that all the `just_x` maps are cleared
         assert!(touches.just_pressed.is_empty());
