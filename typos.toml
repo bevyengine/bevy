@@ -8,6 +8,13 @@ extend-exclude = [
 # word is treated as always correct. If the value is an empty string, the word
 # is treated as always incorrect.
 
+[default]
+extend-ignore-identifiers-re = [
+  "NDK", # NDK - Native  Development Kit
+  "Ot",  # Ot - Offset Tangent
+  "iFO", # iFO - Index of First Original Face
+]
+
 [default.extend-identifiers]
 ser = "ser" # ron::ser - Serializer
 
