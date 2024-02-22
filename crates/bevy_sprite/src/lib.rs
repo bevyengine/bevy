@@ -189,7 +189,7 @@ mod test {
         // Add system
         app.add_systems(Update, calculate_bounds_2d);
 
-        // Add entites
+        // Add entities
         let entity = app.world.spawn((Sprite::default(), image_handle)).id();
 
         // Verify that the entity does not have an AABB
@@ -227,7 +227,7 @@ mod test {
         // Add system
         app.add_systems(Update, calculate_bounds_2d);
 
-        // Add entites
+        // Add entities
         let entity = app
             .world
             .spawn((

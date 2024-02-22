@@ -19,7 +19,7 @@ pub mod graph {
         Tonemapping,
         Fxaa,
         Upscaling,
-        ConstrastAdaptiveSharpening,
+        ContrastAdaptiveSharpening,
         EndMainPassPostProcessing,
     }
 }

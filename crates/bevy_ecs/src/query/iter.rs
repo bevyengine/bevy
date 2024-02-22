@@ -59,7 +59,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         Func: FnMut(D::Item<'w>),
     {
         // SAFETY: Caller assures that D::IS_DENSE and F::IS_DENSE are true, that table matches D and F
-        // and all indicies in rows are in range.
+        // and all indices in rows are in range.
         unsafe {
             self.fold_over_table_range((), &mut |_, item| func(item), table, rows);
         }

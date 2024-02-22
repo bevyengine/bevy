@@ -802,7 +802,7 @@ pub struct MaterialBindGroupId(Option<BindGroupId>);
 pub struct AtomicMaterialBindGroupId(AtomicU32);
 
 impl AtomicMaterialBindGroupId {
-    /// Stores a value atomically. Uses [`Ordering::Relaxed`] so there is zero guarentee of ordering
+    /// Stores a value atomically. Uses [`Ordering::Relaxed`] so there is zero guarantee of ordering
     /// relative to other operations.
     ///
     /// See also:  [`AtomicU32::store`].
@@ -815,7 +815,7 @@ impl AtomicMaterialBindGroupId {
         self.0.store(id, Ordering::Relaxed);
     }
 
-    /// Loads a value atomically. Uses [`Ordering::Relaxed`] so there is zero guarentee of ordering
+    /// Loads a value atomically. Uses [`Ordering::Relaxed`] so there is zero guarantee of ordering
     /// relative to other operations.
     ///
     /// See also:  [`AtomicU32::load`].
