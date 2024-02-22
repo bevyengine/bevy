@@ -3,7 +3,7 @@ use crate::{
 };
 use bevy_math::Vec4;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use bevy_render::color::{Color, SrgbColorSpace};
+use bevy_render::color::SrgbColorSpace;
 use serde::{Deserialize, Serialize};
 
 /// Linear RGB color with alpha.
@@ -154,9 +154,9 @@ impl From<Srgba> for LinearRgba {
     }
 }
 
-impl From<LinearRgba> for Color {
+impl From<LinearRgba> for bevy_render::color::Color {
     fn from(value: LinearRgba) -> Self {
-        Color::RgbaLinear {
+        bevy_render::color::Color::RgbaLinear {
             red: value.red,
             green: value.green,
             blue: value.blue,
@@ -165,10 +165,10 @@ impl From<LinearRgba> for Color {
     }
 }
 
-impl From<Color> for LinearRgba {
-    fn from(value: Color) -> Self {
+impl From<bevy_render::color::Color> for LinearRgba {
+    fn from(value: bevy_render::color::Color) -> Self {
         match value.as_rgba_linear() {
-            Color::RgbaLinear {
+            bevy_render::color::Color::RgbaLinear {
                 red,
                 green,
                 blue,

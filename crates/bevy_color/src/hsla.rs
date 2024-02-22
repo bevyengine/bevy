@@ -1,6 +1,6 @@
 use crate::{Alpha, LinearRgba, Luminance, Mix, Srgba};
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use bevy_render::color::{Color, HslRepresentation};
+use bevy_render::color::HslRepresentation;
 use serde::{Deserialize, Serialize};
 
 /// Color in Hue-Saturation-Lightness color space with alpha
@@ -125,9 +125,9 @@ impl From<LinearRgba> for Hsla {
     }
 }
 
-impl From<Hsla> for Color {
+impl From<Hsla> for bevy_render::color::Color {
     fn from(value: Hsla) -> Self {
-        Color::Hsla {
+        bevy_render::color::Color::Hsla {
             hue: value.hue,
             saturation: value.saturation,
             lightness: value.lightness,
@@ -136,10 +136,10 @@ impl From<Hsla> for Color {
     }
 }
 
-impl From<Color> for Hsla {
-    fn from(value: Color) -> Self {
+impl From<bevy_render::color::Color> for Hsla {
+    fn from(value: bevy_render::color::Color) -> Self {
         match value.as_hsla() {
-            Color::Hsla {
+            bevy_render::color::Color::Hsla {
                 hue,
                 saturation,
                 lightness,

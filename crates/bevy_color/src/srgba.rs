@@ -3,7 +3,7 @@ use crate::oklaba::Oklaba;
 use crate::{Alpha, Hsla, LinearRgba, Luminance, Mix};
 use bevy_math::Vec4;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use bevy_render::color::{Color, HexColorError, HslRepresentation, SrgbColorSpace};
+use bevy_render::color::{HexColorError, HslRepresentation, SrgbColorSpace};
 use serde::{Deserialize, Serialize};
 
 /// Non-linear standard RGB with alpha.
@@ -280,9 +280,9 @@ impl From<Oklaba> for Srgba {
     }
 }
 
-impl From<Srgba> for Color {
+impl From<Srgba> for bevy_render::color::Color {
     fn from(value: Srgba) -> Self {
-        Color::Rgba {
+        bevy_render::color::Color::Rgba {
             red: value.red,
             green: value.green,
             blue: value.blue,
@@ -291,10 +291,10 @@ impl From<Srgba> for Color {
     }
 }
 
-impl From<Color> for Srgba {
-    fn from(value: Color) -> Self {
+impl From<bevy_render::color::Color> for Srgba {
+    fn from(value: bevy_render::color::Color) -> Self {
         match value.as_rgba() {
-            Color::Rgba {
+            bevy_render::color::Color::Rgba {
                 red,
                 green,
                 blue,

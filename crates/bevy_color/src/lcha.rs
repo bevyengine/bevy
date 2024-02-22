@@ -1,6 +1,6 @@
 use crate::{Alpha, LinearRgba, Luminance, Mix, Srgba};
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use bevy_render::color::{Color, LchRepresentation};
+use bevy_render::color::LchRepresentation;
 use serde::{Deserialize, Serialize};
 
 /// Color in LCH color space, with alpha
@@ -140,9 +140,9 @@ impl From<Lcha> for LinearRgba {
     }
 }
 
-impl From<Lcha> for Color {
+impl From<Lcha> for bevy_render::color::Color {
     fn from(value: Lcha) -> Self {
-        Color::Lcha {
+        bevy_render::color::Color::Lcha {
             hue: value.hue,
             chroma: value.chroma,
             lightness: value.lightness,
@@ -151,10 +151,10 @@ impl From<Lcha> for Color {
     }
 }
 
-impl From<Color> for Lcha {
-    fn from(value: Color) -> Self {
+impl From<bevy_render::color::Color> for Lcha {
+    fn from(value: bevy_render::color::Color) -> Self {
         match value.as_lcha() {
-            Color::Lcha {
+            bevy_render::color::Color::Lcha {
                 hue,
                 chroma,
                 lightness,
