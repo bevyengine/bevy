@@ -191,6 +191,10 @@ impl AppGizmoBuilder for App {
             return self;
         }
 
+        let mut handles = self.world.get_resource_mut::<LineGizmoHandles>().unwrap();
+        handles.list.insert(TypeId::of::<T>(), None);
+        handles.strip.insert(TypeId::of::<T>(), None);
+
         self.init_resource::<GizmoStorage<T>>()
             .add_systems(Last, update_gizmo_meshes::<T>);
 
