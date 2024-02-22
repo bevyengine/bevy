@@ -594,15 +594,14 @@ async fn load_gltf<'a, 'b, 'c>(
         let mut entity_to_skin_index_map = EntityHashMap::default();
         let mut scene_load_context = load_context.begin_labeled_asset();
 
-        if let Some(extensions) = gltf.extensions() {
-            world.spawn(GltfExtensions {
-                value: serde_json::Value::from(extensions.clone()).to_string(),
-            });
-        }
-
         world
             .spawn(SpatialBundle::INHERITED_IDENTITY)
             .with_children(|parent| {
+                if let Some(extensions) = gltf.extensions() {
+                    parent.spawn(GltfExtensions {
+                        value: serde_json::Value::from(extensions.clone()).to_string(),
+                    });
+                }
                 for node in scene.nodes() {
                     let result = load_node(
                         &node,
