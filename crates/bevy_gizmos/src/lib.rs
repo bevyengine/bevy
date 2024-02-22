@@ -258,7 +258,7 @@ fn extract_gizmo_data(
     config: Extract<Res<GizmoConfigStore>>,
 ) {
     for (group_type_id, handle) in handles.list.iter().chain(handles.strip.iter()) {
-        let Some((config, _)) = config.get_config_dyn(&group_type_id) else {
+        let Some((config, _)) = config.get_config_dyn(group_type_id) else {
             continue;
         };
 
