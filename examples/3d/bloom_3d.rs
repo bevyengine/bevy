@@ -36,10 +36,7 @@ fn setup_scene(
             ..default()
         },
         // 3. Enable bloom for the camera
-        BloomSettings {
-            composite_mode: BloomCompositeMode::Additive,
-            ..default()
-        },
+        BloomSettings::NATURAL_ADDITIVE,
     ));
 
     let material_emissive1 = materials.add(StandardMaterial {
@@ -224,7 +221,7 @@ fn update_bloom_settings(
             *text = "Bloom: Off (Toggle: Space)".to_string();
 
             if keycode.just_pressed(KeyCode::Space) {
-                commands.entity(entity).insert(BloomSettings::default());
+                commands.entity(entity).insert(BloomSettings::NATURAL_ADDITIVE);
             }
         }
     }
