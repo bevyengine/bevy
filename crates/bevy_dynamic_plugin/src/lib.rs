@@ -12,11 +12,11 @@
 //! You may be interested in these safer alternatives:
 //!
 //! - [Bevy Assets - Scripting]: Scripting and modding libraries for Bevy
-//! - [`dextrous_developer`]: Hot reloading system
+//! - [Bevy Assets - Development tools]: Hot reloading and other development functionality
 //! - [`stabby`]: Stable Rust ABI
 //!
 //! [Bevy Assets - Scripting]: https://bevyengine.org/assets/#scripting
-//! [`dextrous_developer`]: https://github.com/lee-orr/dexterous_developer
+//! [Bevy Assets - Development tools]: https://bevyengine.org/assets/#development-tools
 //! [`stabby`]: https://github.com/ZettaScaleLabs/stabby
 
 mod loader;
