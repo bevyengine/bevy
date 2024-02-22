@@ -362,7 +362,7 @@ impl MultiThreadedExecutor {
             // SAFETY: `can_run` returned true, which means that:
             // - It must have called `update_archetype_component_access` for each run condition.
             // - There can be no systems running whose accesses would conflict with any conditions.
-            if !self.should_run(system_index, system, conditions, world_cell) {
+            if unsafe { !self.should_run(system_index, system, conditions, world_cell) } {
                 self.skip_system_and_signal_dependents(system_index);
                 continue;
             }
@@ -479,8 +479,9 @@ impl MultiThreadedExecutor {
             // - The caller ensures that `world` has permission to read any data
             //   required by the conditions.
             // - `update_archetype_component_access` has been called for each run condition.
-            let set_conditions_met =
-                evaluate_and_fold_conditions(&mut conditions.set_conditions[set_idx], world);
+            let set_conditions_met = unsafe {
+                evaluate_and_fold_conditions(&mut conditions.set_conditions[set_idx], world)
+            };
 
             if !set_conditions_met {
                 self.skipped_systems
@@ -496,8 +497,9 @@ impl MultiThreadedExecutor {
         // - The caller ensures that `world` has permission to read any data
         //   required by the conditions.
         // - `update_archetype_component_access` has been called for each run condition.
-        let system_conditions_met =
-            evaluate_and_fold_conditions(&mut conditions.system_conditions[system_index], world);
+        let system_conditions_met = unsafe {
+            evaluate_and_fold_conditions(&mut conditions.system_conditions[system_index], world)
+        };
 
         if !system_conditions_met {
             self.skipped_systems.insert(system_index);

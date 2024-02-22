@@ -194,7 +194,7 @@ impl ReflectComponent {
         entity: UnsafeEntityCell<'a>,
     ) -> Option<Mut<'a, dyn Reflect>> {
         // SAFETY: safety requirements deferred to caller
-        (self.0.reflect_unchecked_mut)(entity)
+        unsafe { (self.0.reflect_unchecked_mut)(entity) }
     }
 
     /// Gets the value of this [`Component`] type from entity from `source_world` and [applies](Self::apply()) it to the value of this [`Component`] type in entity in `destination_world`.
