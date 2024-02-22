@@ -123,7 +123,7 @@ impl BloomSettings {
     /// A variation of [`NATURAL`](Self::NATURAL) that uses the [`Additive`](BloomCompositeMode::Additive)
     /// composite mode.
     ///
-    /// This will make emmissive materials appear to glow a lot stronger compared to
+    /// This will make emissive materials appear to glow strongly compared to
     /// [`NATURAL`](Self::NATURAL).
     pub const NATURAL_ADDITIVE: Self = Self {
         composite_mode: BloomCompositeMode::Additive,
