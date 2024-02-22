@@ -8,8 +8,7 @@
 //! - [`Lcha`] (lightness, chroma, hue, alpha)
 //! - [`Oklaba`] (lightness, a-axis, b-axis, alpha)
 //!
-//! Each of these color spaces is represented as a distinct Rust type. Colors can be converted
-//! from one color space to another using the [`From`] trait.
+//! Each of these color spaces is represented as a distinct Rust type.
 //!
 //! # Color Space Usage
 //!
@@ -36,6 +35,14 @@
 //! for tasks such as color correction and image analysis, where it is important to be able
 //! to do things like change color saturation without causing hue shifts.
 //!
+//! See also the [https://en.wikipedia.org/wiki/Color_space](Wikipedia article on color spaces).
+//!
+//! # Conversions
+//!
+//! Each color space can be converted to and from the others using the [`From`] trait. Not all
+//! possible combinations of conversions are provided, but every color space has a converstion to
+//! and from [`Srgba`] and [`LinearRgba`].
+
 //! # Other Utilities
 //!
 //! The crate also provides a number of color operations, such as blending, color difference,
