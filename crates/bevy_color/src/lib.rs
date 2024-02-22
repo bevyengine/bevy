@@ -9,6 +9,7 @@
 //! - [`Oklaba`] (lightness, a-axis, b-axis, alpha)
 //!
 //! Each of these color spaces is represented as a distinct Rust type.
+//! Each of these color spaces is represented as a distinct Rust type.
 //!
 //! # Color Space Usage
 //!
@@ -42,7 +43,7 @@
 //! Each color space can be converted to and from the others using the [`From`] trait. Not all
 //! possible combinations of conversions are provided, but every color space has a converstion to
 //! and from [`Srgba`] and [`LinearRgba`].
-
+//!
 //! # Other Utilities
 //!
 //! The crate also provides a number of color operations, such as blending, color difference,
