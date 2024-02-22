@@ -360,6 +360,7 @@ impl Plugin for RenderPlugin {
                 .insert_resource(instance)
                 .insert_resource(PipelineCache::new(
                     device.clone(),
+                    render_adapter.clone(),
                     self.synchronous_pipeline_compilation,
                 ))
                 .insert_resource(device)

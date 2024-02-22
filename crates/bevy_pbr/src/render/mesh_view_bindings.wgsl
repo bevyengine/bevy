@@ -8,7 +8,7 @@
 
 @group(0) @binding(0) var<uniform> view: View;
 @group(0) @binding(1) var<uniform> lights: types::Lights;
-#ifdef NO_ARRAY_TEXTURES_SUPPORT
+#ifdef NO_CUBE_ARRAY_TEXTURES_SUPPORT
 @group(0) @binding(2) var point_shadow_textures: texture_depth_cube;
 #else
 @group(0) @binding(2) var point_shadow_textures: texture_depth_cube_array;

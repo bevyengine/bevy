@@ -1210,16 +1210,22 @@ pub fn prepare_lights(
                 .create_view(&TextureViewDescriptor {
                     label: Some("point_light_shadow_map_array_texture_view"),
                     format: None,
-                    #[cfg(any(
-                        not(feature = "webgl"),
-                        not(target_arch = "wasm32"),
-                        feature = "webgpu"
+                    #[cfg(all(
+                        not(ios_simulator),
+                        any(
+                            not(feature = "webgl"),
+                            not(target_arch = "wasm32"),
+                            feature = "webgpu"
+                        )
                     ))]
                     dimension: Some(TextureViewDimension::CubeArray),
-                    #[cfg(all(
-                        feature = "webgl",
-                        target_arch = "wasm32",
-                        not(feature = "webgpu")
+                    #[cfg(any(
+                        ios_simulator,
+                        all(
+                            feature = "webgl",
+                            target_arch = "wasm32",
+                            not(feature = "webgpu")
+                        )
                     ))]
                     dimension: Some(TextureViewDimension::Cube),
                     aspect: TextureAspect::DepthOnly,
