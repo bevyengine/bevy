@@ -49,11 +49,6 @@ impl PluginGroup for DefaultPlugins {
             .add(bevy_hierarchy::HierarchyPlugin)
             .add(bevy_diagnostic::DiagnosticsPlugin);
 
-        #[cfg(feature = "bevy_a11y")]
-        {
-            group = group.add(bevy_a11y::AccessibilityPlugin);
-        }
-
         #[cfg(feature = "bevy_asset")]
         {
             group = group.add(bevy_asset::AssetPlugin::default());
@@ -148,6 +143,11 @@ impl PluginGroup for DefaultPlugins {
         #[cfg(feature = "bevy_window")]
         {
             group = group.add(bevy_window::WindowPlugin::default());
+        }
+
+        #[cfg(feature = "bevy_a11y")]
+        {
+            group = group.add(bevy_a11y::AccessibilityPlugin);
         }
 
         group = group.add(IgnoreAmbiguitiesPlugin);
