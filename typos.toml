@@ -1,7 +1,7 @@
 [files]
 extend-exclude = [
-  "*.pbxproj", # metadata file
-  "CHANGELOG.md" # To keep consistency between the commit history/PRs.
+  "*.pbxproj",    # metadata file
+  "CHANGELOG.md", # To keep consistency between the commit history/PRs.
 ]
 
 # Corrections take the form of a key/value pair. The key is the incorrect word
@@ -10,19 +10,19 @@ extend-exclude = [
 # is treated as always incorrect.
 
 # Match Whole Word - Case Sensitive
-[default.extend-identifiers] 
+[default.extend-identifiers]
 ser = "ser" # ron::ser - Serializer
 toi = "toi" # Time of intersention
 Sur = "Sur" # macOS Big Sur - South
 
- # Match Inside a Word - Case Insensitive
+# Match Inside a Word - Case Insensitive
 [default.extend-words]
 LOD = "LOD" # Level of detail
 Ot = "Ot"   # Ot - Offset Tangent
 
 [default]
 extend-ignore-identifiers-re = [
-  "iFO", # iFO - Index of First Original Face
-  "NDK", # NDK - Native  Development Kit
-  "inventario" # Inventory in Portugees
+  "iFO",        # iFO - Index of First Original Face
+  "NDK",        # NDK - Native  Development Kit
+  "inventario", # Inventory in Portugees
 ]
