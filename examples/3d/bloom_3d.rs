@@ -221,7 +221,9 @@ fn update_bloom_settings(
             *text = "Bloom: Off (Toggle: Space)".to_string();
 
             if keycode.just_pressed(KeyCode::Space) {
-                commands.entity(entity).insert(BloomSettings::NATURAL_ADDITIVE);
+                commands
+                    .entity(entity)
+                    .insert(BloomSettings::NATURAL_ADDITIVE);
             }
         }
     }
