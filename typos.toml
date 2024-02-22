@@ -1,0 +1,21 @@
+[files]
+extend-exclude = [
+  "*.pbxproj", # metadata file
+]
+
+# Corrections take the form of a key/value pair. The key is the incorrect word
+# and the value is the correct word. If the key and value are the same, the
+# word is treated as always correct. If the value is an empty string, the word
+# is treated as always incorrect.
+
+[default.extend-identifiers]
+ser = "ser" # ron::ser - Serializer
+
+[default.extend-words]
+# Things that aren't typos
+toi = "toi" # Time of intersention
+LOD = "LOD" # Level of detail
+ND = "ND"   # NDK - Native  Development Kit
+Ot = "Ot"   # vOt - Vector Offset Tangent
+FO = "FO"   # iFO - Index of First Original Face
+Sur = "Sur" # macOS Big Sur - South
