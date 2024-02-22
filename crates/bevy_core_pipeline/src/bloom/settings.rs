@@ -106,6 +106,8 @@ pub struct BloomSettings {
 
 impl BloomSettings {
     /// The default bloom preset.
+    ///
+    /// This uses the [`EnergyConserving`](BloomCompositeMode::EnergyConserving) composite mode.
     pub const NATURAL: Self = Self {
         intensity: 0.15,
         low_frequency_boost: 0.7,
@@ -116,6 +118,16 @@ impl BloomSettings {
             threshold_softness: 0.0,
         },
         composite_mode: BloomCompositeMode::EnergyConserving,
+    };
+
+    /// A variation of [`NATURAL`](Self::NATURAL) that uses the [`Additive`](BloomCompositeMode::Additive)
+    /// composite mode.
+    ///
+    /// This will make emmissive materials appear to glow a lot stronger compared to
+    /// [`NATURAL`](Self::NATURAL).
+    pub const NATURAL_ADDITIVE: Self = Self {
+        composite_mode: BloomCompositeMode::Additive,
+        ..Self::NATURAL
     };
 
     /// A preset that's similar to how older games did bloom.
