@@ -61,7 +61,7 @@ impl PluginGroup for DefaultPlugins {
 
         #[cfg(feature = "bevy_input")]
         {
-            group = group.add(bevy_input::Input);            
+            group = group.add(bevy_input::InputPlugin);            
         }
 
         #[cfg(feature = "bevy_transform")]
