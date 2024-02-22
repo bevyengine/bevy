@@ -1,7 +1,7 @@
 //! This example illustrates how to transfer log events from the [`Layer`] to Bevy's ECS.
 //!
 //! The way we will do this is via a [`mpsc`] channel. [`mpsc`] channels allow 2 unrelated
-//! systems to communicate (In this case, [`Layer`]s and Bevy's ECS).
+//! parts of the program to communicate (in this case, [`Layer`]s and Bevy's ECS).
 //!
 //! Inside the [`update_subscriber`] function we will create a [`mpsc::Sender`] and a [`mpsc::Receiver`] from a
 //! [`mpsc::channel`]. The [`Sender`](mpsc::Sender) will go into the [`AdvancedLayer`] and the [`Receiver`](mpsc::Receiver) will
@@ -28,12 +28,13 @@ struct LogEvent {
 
 /// This struct temporarily stores [`LogEvent`]s before they are
 /// written to [`Events<LogEvent>`] by [`transfer_log_events`].
+#[derive(Deref, DerefMut)]
 struct LogEvents(mpsc::Receiver<LogEvent>);
 
 /// Transfers information from the [`LogEvents`] resource to [`Events<LogEvent>`](LogEvent).
 fn transfer_log_events(reciever: NonSend<LogEvents>, mut log_events: EventWriter<LogEvent>) {
     // Make sure to use `try_iter()` and not `iter()` to prevent blocking.
-    log_events.send_batch(reciever.0.try_iter());
+    log_events.send_batch(reciever.try_iter());
 }
 
 /// A [`Layer`] that captures log events and saves them to [`LogEvents`].

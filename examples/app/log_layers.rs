@@ -22,6 +22,7 @@ impl<S: Subscriber> Layer<S> for CustomLayer {
     }
 }
 
+// We don't need App for this example, as we are just printing log information.
 // For an example that uses App, see log_layers_ecs.
 fn update_subscriber(_: &mut App, subscriber: BoxedSubscriber) -> BoxedSubscriber {
     Box::new(subscriber.with(CustomLayer))
