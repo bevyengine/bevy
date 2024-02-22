@@ -85,12 +85,13 @@ impl ImageFormat {
             _ => return None,
         })
     }
+}
 
-    /// Attempts to convert to [`image::ImageFormat`].
-    ///
-    /// Unsupported formats will become [`None`].
-    pub fn as_image_crate_format(&self) -> Option<image::ImageFormat> {
-        Some(match self {
+impl TryFrom<ImageFormat> for image::ImageFormat {
+    type Error = ();
+
+    fn try_from(value: ImageFormat) -> Result<Self, Self::Error> {
+        Ok(match value {
             ImageFormat::Avif => image::ImageFormat::Avif,
             ImageFormat::Bmp => image::ImageFormat::Bmp,
             ImageFormat::Dds => image::ImageFormat::Dds,
@@ -105,15 +106,16 @@ impl ImageFormat {
             ImageFormat::Tga => image::ImageFormat::Tga,
             ImageFormat::Tiff => image::ImageFormat::Tiff,
             ImageFormat::WebP => image::ImageFormat::WebP,
-            ImageFormat::Basis | ImageFormat::Ktx2 => return None,
+            ImageFormat::Basis | ImageFormat::Ktx2 => return Err(()),
         })
     }
+}
 
-    /// Attempts to convert from [`image::ImageFormat`].
-    ///
-    /// Unsupported formats will become [`None`].
-    pub fn from_image_crate_format(format: image::ImageFormat) -> Option<Self> {
-        Some(match format {
+impl TryFrom<image::ImageFormat> for ImageFormat {
+    type Error = ();
+
+    fn try_from(value: image::ImageFormat) -> Result<Self, Self::Error> {
+        Ok(match value {
             image::ImageFormat::Avif => ImageFormat::Avif,
             image::ImageFormat::Bmp => ImageFormat::Bmp,
             image::ImageFormat::Dds => ImageFormat::Dds,
@@ -128,7 +130,7 @@ impl ImageFormat {
             image::ImageFormat::Tga => ImageFormat::Tga,
             image::ImageFormat::Tiff => ImageFormat::Tiff,
             image::ImageFormat::WebP => ImageFormat::WebP,
-            _ => return None,
+            _ => return Err(()),
         })
     }
 }
@@ -710,8 +712,8 @@ impl Image {
             }
             _ => {
                 let image_crate_format = format
-                    .as_image_crate_format()
-                    .ok_or_else(|| TextureError::UnsupportedTextureFormat(format!("{format:?}")))?;
+                    .try_into()
+                    .map_err(|_| TextureError::UnsupportedTextureFormat(format!("{format:?}")))?;
                 let mut reader = image::io::Reader::new(std::io::Cursor::new(buffer));
                 reader.set_format(image_crate_format);
                 reader.no_limits();

@@ -115,8 +115,9 @@ impl AssetLoader for ImageLoader {
                             path: load_context.path().display().to_string(),
                         })?;
 
-                    let format = ImageFormat::from_image_crate_format(image_crate_format)
-                        .ok_or_else(|| FileTextureError {
+                    let format = image_crate_format
+                        .try_into()
+                        .map_err(|_| FileTextureError {
                             error: TextureError::InvalidImageContentType(image_crate_format),
                             path: load_context.path().display().to_string(),
                         })?;
