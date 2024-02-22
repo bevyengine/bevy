@@ -36,7 +36,7 @@
 //! for tasks such as color correction and image analysis, where it is important to be able
 //! to do things like change color saturation without causing hue shifts.
 //!
-//! See also the [https://en.wikipedia.org/wiki/Color_space](Wikipedia article on color spaces).
+//! See also the [Wikipedia article on color spaces](https://en.wikipedia.org/wiki/Color_space).
 //!
 //! # Conversions
 //!

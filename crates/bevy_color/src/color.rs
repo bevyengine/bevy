@@ -97,8 +97,8 @@ impl From<Color> for Hsla {
             Color::Srgba(srgba) => srgba.into(),
             Color::LinearRgba(linear) => linear.into(),
             Color::Hsla(hsla) => hsla,
-            Color::Lcha(lcha) => lcha.into(),
-            Color::Oklaba(oklab) => oklab.into(),
+            Color::Lcha(lcha) => LinearRgba::from(lcha).into(),
+            Color::Oklaba(oklab) => LinearRgba::from(oklab).into(),
         }
     }
 }
@@ -108,9 +108,9 @@ impl From<Color> for Lcha {
         match value {
             Color::Srgba(srgba) => srgba.into(),
             Color::LinearRgba(linear) => linear.into(),
-            Color::Hsla(hsla) => hsla.into(),
+            Color::Hsla(hsla) => LinearRgba::from(hsla).into(),
             Color::Lcha(lcha) => lcha,
-            Color::Oklaba(oklab) => oklab.into(),
+            Color::Oklaba(oklab) => LinearRgba::from(oklab).into(),
         }
     }
 }
@@ -120,8 +120,8 @@ impl From<Color> for Oklaba {
         match value {
             Color::Srgba(srgba) => srgba.into(),
             Color::LinearRgba(linear) => linear.into(),
-            Color::Hsla(hsla) => hsla.into(),
-            Color::Lcha(lcha) => lcha.into(),
+            Color::Hsla(hsla) => LinearRgba::from(hsla).into(),
+            Color::Lcha(lcha) => LinearRgba::from(lcha).into(),
             Color::Oklaba(oklab) => oklab,
         }
     }
