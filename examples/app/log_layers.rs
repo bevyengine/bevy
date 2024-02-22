@@ -22,7 +22,7 @@ impl<S: Subscriber> Layer<S> for CustomLayer {
     }
 }
 
-fn update_subscriber(subscriber: BoxedSubscriber) -> BoxedSubscriber {
+fn update_subscriber(_: &mut App, subscriber: BoxedSubscriber) -> BoxedSubscriber {
     Box::new(subscriber.with(CustomLayer))
 }
 

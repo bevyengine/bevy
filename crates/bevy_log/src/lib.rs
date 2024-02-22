@@ -106,9 +106,12 @@ pub struct LogPlugin {
     /// This can be further filtered using the `filter` setting.
     pub level: Level,
 
-    /// Optionally apply extra transformations to the tracing subscriber.
-    /// For example add [`Layers`](tracing_subscriber::layer::Layer)
-    pub update_subscriber: Option<fn(BoxedSubscriber) -> BoxedSubscriber>,
+    /// Optionally apply extra transformations to the tracing subscriber,
+    /// such as adding [`Layer`](tracing_subscriber::layer::Layer)s.
+    ///
+    /// Access to [`App`] is also provided to allow for communication between the [`Subscriber`]
+    /// and the [`App`].
+    pub update_subscriber: Option<fn(&mut App, BoxedSubscriber) -> BoxedSubscriber>,
 }
 
 /// Alias for a boxed [`Subscriber`].
@@ -193,7 +196,7 @@ impl Plugin for LogPlugin {
             let subscriber = subscriber.with(tracy_layer);
 
             if let Some(update_subscriber) = self.update_subscriber {
-                finished_subscriber = update_subscriber(Box::new(subscriber));
+                finished_subscriber = update_subscriber(app, Box::new(subscriber));
             } else {
                 finished_subscriber = Box::new(subscriber);
             }
