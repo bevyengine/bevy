@@ -10,7 +10,7 @@ use bevy_sprite::{ImageScaleMode, TextureSlice};
 use bevy_transform::prelude::*;
 use bevy_utils::HashSet;
 
-use crate::{widget::UiImageSize, BackgroundColor, CalculatedClip, ExtractedUiNode, Node, UiImage};
+use crate::{BackgroundColor, CalculatedClip, ExtractedUiNode, Node, UiImage};
 
 /// Component storing texture slices for image nodes entities with a tiled or sliced  [`ImageScaleMode`]
 ///
