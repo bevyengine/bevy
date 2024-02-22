@@ -50,6 +50,7 @@ impl Plugin for GltfPlugin {
         app.register_type::<GltfExtras>()
             .register_type::<GltfExtensions>()
             .init_asset::<Gltf>()
+            .register_type::<WeakGltf>()
             .init_asset::<GltfNode>()
             .init_asset::<GltfPrimitive>()
             .init_asset::<GltfMesh>()
@@ -100,6 +101,32 @@ pub struct Gltf {
     pub source: Option<gltf::Gltf>,
 }
 
+/// A gltf without the scenes inside it.
+#[derive(Component, Reflect, Debug, Clone)]
+#[reflect(Component)]
+pub struct WeakGltf {
+    /// All meshes loaded from the glTF file.
+    pub meshes: Vec<Handle<GltfMesh>>,
+    /// Named meshes loaded from the glTF file.
+    pub named_meshes: HashMap<String, Handle<GltfMesh>>,
+    /// All materials loaded from the glTF file.
+    pub materials: Vec<Handle<StandardMaterial>>,
+    /// Named materials loaded from the glTF file.
+    pub named_materials: HashMap<String, Handle<StandardMaterial>>,
+    /// All nodes loaded from the glTF file.
+    pub nodes: Vec<Handle<GltfNode>>,
+    /// Named nodes loaded from the glTF file.
+    pub named_nodes: HashMap<String, Handle<GltfNode>>,
+    /// All animations loaded from the glTF file.
+    #[cfg(feature = "bevy_animation")]
+    pub animations: Vec<Handle<AnimationClip>>,
+    /// Named animations loaded from the glTF file.
+    #[cfg(feature = "bevy_animation")]
+    pub named_animations: HashMap<String, Handle<AnimationClip>>,
+    /// The gltf root of the gltf asset, see <https://docs.rs/gltf/latest/gltf/struct.Gltf.html>. Only has a value when `GltfLoaderSettings::include_source` is true.
+    #[reflect(ignore)]
+    pub source: Option<gltf::Gltf>,
+}
 /// A glTF node with all of its child nodes, its [`GltfMesh`],
 /// [`Transform`](bevy_transform::prelude::Transform) and an optional [`GltfExtras`].
 ///
