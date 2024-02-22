@@ -198,6 +198,11 @@ impl AppGizmoBuilder for App {
     }
 }
 
+/// Holds handles to the line gizmos for each gizmo configuration group
+// As `TypeIdMap` iteration order depends on the order of insertions and deletions, this uses
+// `Option<Handle>` to be able to reserve the slot when creating the gizmo configuration group.
+// That way iteration order is stable accross executions and depends on the order of configuration
+// group creation.
 #[derive(Resource, Default)]
 struct LineGizmoHandles {
     list: TypeIdMap<Option<Handle<LineGizmo>>>,
