@@ -8,18 +8,19 @@ extend-exclude = [
 # word is treated as always correct. If the value is an empty string, the word
 # is treated as always incorrect.
 
+# Match Whole Word - Case Sensitive
+[default.extend-identifiers] 
+ser = "ser" # ron::ser - Serializer
+toi = "toi" # Time of intersention
+Sur = "Sur" # macOS Big Sur - South
+
+ # Match Inside a Word - Case Insensitive
+[default.extend-words]
+LOD = "LOD" # Level of detail
+Ot = "Ot"   # Ot - Offset Tangent
+
 [default]
 extend-ignore-identifiers-re = [
-  "NDK", # NDK - Native  Development Kit
-  "Ot",  # Ot - Offset Tangent
   "iFO", # iFO - Index of First Original Face
+  "NDK", # NDK - Native  Development Kit
 ]
-
-[default.extend-identifiers]
-ser = "ser" # ron::ser - Serializer
-
-[default.extend-words]
-# Things that aren't typos
-toi = "toi" # Time of intersention
-LOD = "LOD" # Level of detail
-Sur = "Sur" # macOS Big Sur - South
