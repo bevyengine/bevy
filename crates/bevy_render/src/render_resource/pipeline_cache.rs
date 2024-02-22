@@ -881,7 +881,9 @@ impl PipelineCache {
             CachedPipelineState::Err(err) => match err {
                 // Retry
                 PipelineCacheError::ShaderNotLoaded(_)
-                | PipelineCacheError::ShaderImportNotYetAvailable => {}
+                | PipelineCacheError::ShaderImportNotYetAvailable => {
+                    cached_pipeline.state = CachedPipelineState::Queued;
+                }
 
                 // Shader could not be processed ... retrying won't help
                 PipelineCacheError::ProcessShaderError(err) => {
