@@ -248,7 +248,7 @@ pub struct StandardMaterial {
     /// | Flint Glass     | 1.69                 |
     /// | Ruby            | 1.71                 |
     /// | Glycerine       | 1.74                 |
-    /// | Saphire         | 1.77                 |
+    /// | Sapphire         | 1.77                 |
     /// | Cubic Zirconia  | 2.15                 |
     /// | Diamond         | 2.42                 |
     /// | Moissanite      | 2.65                 |

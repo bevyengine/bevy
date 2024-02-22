@@ -697,8 +697,8 @@ unsafe impl SystemParam for &'_ World {
 /// # use bevy_ecs::system::assert_is_system;
 /// struct Config(u32);
 /// #[derive(Resource)]
-/// struct Myu32Wrapper(u32);
-/// fn reset_to_system(value: Config) -> impl FnMut(ResMut<Myu32Wrapper>) {
+/// struct MyU32Wrapper(u32);
+/// fn reset_to_system(value: Config) -> impl FnMut(ResMut<MyU32Wrapper>) {
 ///     move |mut val| val.0 = value.0
 /// }
 ///

@@ -161,7 +161,7 @@ fn make_executor(kind: ExecutorKind) -> Box<dyn SystemExecutor> {
 /// Chain systems into dependencies
 #[derive(PartialEq)]
 pub enum Chain {
-    /// Run nodes in order. If there are deferred parameters in preceeding systems a
+    /// Run nodes in order. If there are deferred parameters in preceding systems a
     /// [`apply_deferred`] will be added on the edge.
     Yes,
     /// Run nodes in order. This will not add [`apply_deferred`] between nodes.

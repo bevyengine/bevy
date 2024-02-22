@@ -1290,7 +1290,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// ## Allowed Transmutes
     ///
     /// Besides removing parameters from the query, you can also
-    /// make limited changes to the types of paramters.
+    /// make limited changes to the types of parameters.
     ///
     /// * Can always add/remove `Entity`
     /// * `Ref<T>` <-> `&T`
