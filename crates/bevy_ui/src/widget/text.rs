@@ -13,7 +13,7 @@ use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlasLayout;
 use bevy_text::{
     scale_value, BreakLineOn, Font, FontAtlasSets, Text, TextError, TextLayoutInfo,
-    TextMeasureInfo, TextPipeline, TextSettings, YAxisOrientation,
+    TextMeasureInfo, TextPipeline, YAxisOrientation,
 };
 use bevy_window::{PrimaryWindow, Window};
 use taffy::style::AvailableSpace;
@@ -181,7 +181,6 @@ fn queue_text(
     font_atlas_sets: &mut FontAtlasSets,
     texture_atlases: &mut Assets<TextureAtlasLayout>,
     textures: &mut Assets<Image>,
-    text_settings: &TextSettings,
     scale_factor: f32,
     inverse_scale_factor: f32,
     text: &Text,
@@ -212,7 +211,6 @@ fn queue_text(
             font_atlas_sets,
             texture_atlases,
             textures,
-            text_settings,
             YAxisOrientation::TopToBottom,
         ) {
             Err(TextError::NoSuchFont) => {
@@ -250,7 +248,6 @@ pub fn text_system(
     mut last_scale_factor: Local<f32>,
     fonts: Res<Assets<Font>>,
     windows: Query<&Window, With<PrimaryWindow>>,
-    text_settings: Res<TextSettings>,
     ui_scale: Res<UiScale>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_sets: ResMut<FontAtlasSets>,
@@ -275,7 +272,6 @@ pub fn text_system(
                     &mut font_atlas_sets,
                     &mut texture_atlases,
                     &mut textures,
-                    &text_settings,
                     scale_factor,
                     inverse_scale_factor,
                     text,
@@ -296,7 +292,6 @@ pub fn text_system(
                 &mut font_atlas_sets,
                 &mut texture_atlases,
                 &mut textures,
-                &text_settings,
                 scale_factor,
                 inverse_scale_factor,
                 text,
