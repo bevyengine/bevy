@@ -32,6 +32,8 @@ pub struct Sprite {
 }
 
 /// Controls how the image is altered when scaled.
+///
+/// Note: This is not yet compatible with texture atlases
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component)]
 pub enum ImageScaleMode {
