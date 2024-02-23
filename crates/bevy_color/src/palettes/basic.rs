@@ -1,6 +1,7 @@
 //! Named colors from the CSS1 specification, also known as
 //! [basic colors](https://en.wikipedia.org/wiki/Web_colors#Basic_colors).
-//! This is the same set of colors as VGA.
+//! This is the same set of colors used in the
+//! [VGA graphcs standard](https://en.wikipedia.org/wiki/Video_Graphics_Array).
 
 use crate::Srgba;
 
