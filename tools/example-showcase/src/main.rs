@@ -505,7 +505,7 @@ description = \"{}\"
 technical_name = \"{}\"
 link = \"/examples{}/{}/{}\"
 image = \"../static/screenshots/{}/{}.png\"
-code_path = \"content/examples{}/{}\"
+code_path = \"{}\"
 github_code_path = \"{}\"
 header_message = \"Examples ({})\"
 +++",
@@ -525,13 +525,9 @@ header_message = \"Examples ({})\"
                             &to_show.technical_name.replace('_', "-"),
                             &to_show.category,
                             &to_show.technical_name,
-                            match api {
-                                WebApi::Webgpu => "-webgpu",
-                                WebApi::Webgl2 => "",
-                            },
                             code_path
                                 .components()
-                                .skip(1)
+                                .skip(2)
                                 .collect::<PathBuf>()
                                 .display(),
                             &to_show.path,
