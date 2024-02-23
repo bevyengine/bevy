@@ -3,7 +3,8 @@
 use bevy_asset::Handle;
 use bevy_math::{IVec2, Vec2};
 use bevy_reflect::Reflect;
-use bevy_sprite::{TextureAtlas, TextureAtlasLayout};
+use bevy_render::texture::Image;
+use bevy_sprite::TextureAtlasLayout;
 
 /// A glyph of a font, typically representing a single character, positioned in screen space.
 ///
@@ -52,6 +53,7 @@ impl PositionedGlyph {
 /// Used in [`PositionedGlyph`] and [`FontAtlasSet`](crate::FontAtlasSet).
 #[derive(Debug, Clone, Reflect)]
 pub struct GlyphAtlasInfo {
+    pub texture: Handle<Image>,
     /// A handle to the texture atlas this glyph was placed in.
     pub texture_atlas: Handle<TextureAtlasLayout>,
     /// Location and offset of a glyph.

@@ -79,7 +79,7 @@ impl Measure for TextMeasure {
 #[inline]
 fn create_text_measure(
     fonts: &Assets<Font>,
-    scale_factor: f32,
+    scale_factor: f64,
     text: Ref<Text>,
     text_pipeline: &mut TextPipeline,
     mut content_size: Mut<ContentSize>,
@@ -89,7 +89,7 @@ fn create_text_measure(
         fonts,
         &text.sections,
         scale_factor,
-        text.alignment,
+        text.justify,
         text.linebreak_behavior,
     ) {
         Ok(measure) => {
@@ -148,7 +148,7 @@ pub fn measure_text_system(
             if text.is_changed() || text_flags.needs_new_measure_func || content_size.is_added() {
                 create_text_measure(
                     &fonts,
-                    scale_factor,
+                    scale_factor.into(),
                     text,
                     &mut text_pipeline,
                     content_size,
@@ -163,7 +163,7 @@ pub fn measure_text_system(
         for (text, content_size, text_flags) in &mut text_query {
             create_text_measure(
                 &fonts,
-                scale_factor,
+                scale_factor.into(),
                 text,
                 &mut text_pipeline,
                 content_size,
@@ -205,7 +205,7 @@ fn queue_text(
         match text_pipeline.queue_text(
             fonts,
             &text.sections,
-            scale_factor,
+            scale_factor.into(),
             text.justify,
             text.linebreak_behavior,
             physical_node_size,

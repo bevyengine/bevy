@@ -164,13 +164,18 @@ impl FontAtlasSet {
                 font_atlases
                     .iter()
                     .find_map(|atlas| {
-                        atlas
-                            .get_glyph_index(cache_key)
-                            .map(|location| (location, atlas.texture_atlas.clone_weak()))
+                        atlas.get_glyph_index(cache_key).map(|location| {
+                            (
+                                location,
+                                atlas.texture_atlas.clone_weak(),
+                                atlas.texture.clone_weak(),
+                            )
+                        })
                     })
-                    .map(|(location, texture_atlas)| GlyphAtlasInfo {
+                    .map(|(location, texture_atlas, texture)| GlyphAtlasInfo {
                         texture_atlas,
                         location,
+                        texture,
                     })
             })
     }
