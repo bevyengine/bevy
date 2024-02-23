@@ -30,12 +30,12 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.ellipse(Vec3::ZERO, Quat::IDENTITY, Vec2::new(1., 2.), Color::GREEN);
+    ///     gizmos.ellipse(Vec3::ZERO, Quat::IDENTITY, Vec2::new(1., 2.), LegacyColor::GREEN);
     ///
     ///     // Ellipses have 32 line-segments by default.
     ///     // You may want to increase this for larger ellipses.
     ///     gizmos
-    ///         .ellipse(Vec3::ZERO, Quat::IDENTITY, Vec2::new(5., 1.), Color::RED)
+    ///         .ellipse(Vec3::ZERO, Quat::IDENTITY, Vec2::new(5., 1.), LegacyColor::RED)
     ///         .segments(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
@@ -68,12 +68,12 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.ellipse_2d(Vec2::ZERO, 180.0_f32.to_radians(), Vec2::new(2., 1.), Color::GREEN);
+    ///     gizmos.ellipse_2d(Vec2::ZERO, 180.0_f32.to_radians(), Vec2::new(2., 1.), LegacyColor::GREEN);
     ///
     ///     // Ellipses have 32 line-segments by default.
     ///     // You may want to increase this for larger ellipses.
     ///     gizmos
-    ///         .ellipse_2d(Vec2::ZERO, 180.0_f32.to_radians(), Vec2::new(5., 1.), Color::RED)
+    ///         .ellipse_2d(Vec2::ZERO, 180.0_f32.to_radians(), Vec2::new(5., 1.), LegacyColor::RED)
     ///         .segments(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);

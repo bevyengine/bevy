@@ -131,7 +131,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.line(Vec3::ZERO, Vec3::X, Color::GREEN);
+    ///     gizmos.line(Vec3::ZERO, Vec3::X, LegacyColor::GREEN);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```

@@ -26,7 +26,7 @@ impl<T: GizmoConfigGroup> ArrowBuilder<'_, '_, '_, T> {
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.arrow(Vec3::ZERO, Vec3::ONE, Color::GREEN)
+    ///     gizmos.arrow(Vec3::ZERO, Vec3::ONE, LegacyColor::GREEN)
     ///         .with_tip_length(3.);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
@@ -77,7 +77,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.arrow(Vec3::ZERO, Vec3::ONE, Color::GREEN);
+    ///     gizmos.arrow(Vec3::ZERO, Vec3::ONE, LegacyColor::GREEN);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -107,7 +107,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.arrow_2d(Vec2::ZERO, Vec2::X, Color::GREEN);
+    ///     gizmos.arrow_2d(Vec2::ZERO, Vec2::X, LegacyColor::GREEN);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
