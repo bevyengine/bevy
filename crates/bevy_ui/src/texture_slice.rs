@@ -6,7 +6,7 @@ use bevy_asset::{AssetEvent, Assets};
 use bevy_ecs::prelude::*;
 use bevy_math::{Rect, Vec2};
 use bevy_render::texture::Image;
-use bevy_sprite::{ImageScaleMode, TextureSlice};
+use bevy_sprite::{ImageScaleMode, TextureAtlas, TextureAtlasLayout, TextureSlice};
 use bevy_transform::prelude::*;
 use bevy_utils::HashSet;
 
@@ -75,15 +75,27 @@ impl ComputedTextureSlices {
 }
 
 /// Generates sprite slices for a `sprite` given a `scale_mode`. The slices
-/// will be computed according to the `image_handle` dimensions or the sprite rect.
+/// will be computed according to the `image_handle` dimensions.
 ///
 /// Returns `None` if the image asset is not loaded
+///
+/// # Arguments
+///
+/// * `draw_area` - The size of the drawing area the slices will have to fit into
+/// * `scale_mode` - The image scaling component
+/// * `image_handle` - The texture to slice or tile
+/// * `images` - The image assets, use to retrieve the image dimensions
+/// * `atlas` - Optional texture atlas, if set the slicing will happen on the matching sub section
+/// of the texture
+/// * `atlas_layouts` - The altas layout assets, used to retrieve the texture atlas section rect
 #[must_use]
 fn compute_texture_slices(
     draw_area: Vec2,
     scale_mode: &ImageScaleMode,
     image_handle: &UiImage,
     images: &Assets<Image>,
+    atlas: Option<&TextureAtlas>,
+    atlas_layouts: &Assets<TextureAtlasLayout>,
 ) -> Option<ComputedTextureSlices> {
     let image_size = images.get(&image_handle.texture).map(|i| {
         Vec2::new(
@@ -91,10 +103,12 @@ fn compute_texture_slices(
             i.texture_descriptor.size.height as f32,
         )
     })?;
-    let texture_rect = Rect {
-        min: Vec2::ZERO,
-        max: image_size,
-    };
+    let texture_rect = atlas
+        .and_then(|a| a.texture_rect(atlas_layouts))
+        .unwrap_or(Rect {
+            min: Vec2::ZERO,
+            max: image_size,
+        });
     let slices = match scale_mode {
         ImageScaleMode::Sliced(slicer) => slicer.compute_slices(texture_rect, Some(draw_area)),
         ImageScaleMode::Tiled {
@@ -119,7 +133,14 @@ pub(crate) fn compute_slices_on_asset_event(
     mut commands: Commands,
     mut events: EventReader<AssetEvent<Image>>,
     images: Res<Assets<Image>>,
-    ui_nodes: Query<(Entity, &ImageScaleMode, &Node, &UiImage)>,
+    atlas_layouts: Res<Assets<TextureAtlasLayout>>,
+    ui_nodes: Query<(
+        Entity,
+        &ImageScaleMode,
+        &Node,
+        &UiImage,
+        Option<&TextureAtlas>,
+    )>,
 ) {
     // We store the asset ids of added/modified image assets
     let added_handles: HashSet<_> = events
@@ -133,11 +154,18 @@ pub(crate) fn compute_slices_on_asset_event(
         return;
     }
     // We recompute the sprite slices for sprite entities with a matching asset handle id
-    for (entity, scale_mode, ui_node, image) in &ui_nodes {
+    for (entity, scale_mode, ui_node, image, atlas) in &ui_nodes {
         if !added_handles.contains(&image.texture.id()) {
             continue;
         }
-        if let Some(slices) = compute_texture_slices(ui_node.size(), scale_mode, image, &images) {
+        if let Some(slices) = compute_texture_slices(
+            ui_node.size(),
+            scale_mode,
+            image,
+            &images,
+            atlas,
+            &atlas_layouts,
+        ) {
             commands.entity(entity).insert(slices);
         }
     }
@@ -148,13 +176,32 @@ pub(crate) fn compute_slices_on_asset_event(
 pub(crate) fn compute_slices_on_image_change(
     mut commands: Commands,
     images: Res<Assets<Image>>,
+    atlas_layouts: Res<Assets<TextureAtlasLayout>>,
     changed_nodes: Query<
-        (Entity, &ImageScaleMode, &Node, &UiImage),
-        Or<(Changed<ImageScaleMode>, Changed<UiImage>, Changed<Node>)>,
+        (
+            Entity,
+            &ImageScaleMode,
+            &Node,
+            &UiImage,
+            Option<&TextureAtlas>,
+        ),
+        Or<(
+            Changed<ImageScaleMode>,
+            Changed<UiImage>,
+            Changed<Node>,
+            Changed<TextureAtlas>,
+        )>,
     >,
 ) {
-    for (entity, scale_mode, ui_node, image) in &changed_nodes {
-        if let Some(slices) = compute_texture_slices(ui_node.size(), scale_mode, image, &images) {
+    for (entity, scale_mode, ui_node, image, atlas) in &changed_nodes {
+        if let Some(slices) = compute_texture_slices(
+            ui_node.size(),
+            scale_mode,
+            image,
+            &images,
+            atlas,
+            &atlas_layouts,
+        ) {
             commands.entity(entity).insert(slices);
         }
     }
