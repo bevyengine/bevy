@@ -140,9 +140,9 @@ impl From<Lcha> for LinearRgba {
     }
 }
 
-impl From<Lcha> for bevy_render::color::Color {
+impl From<Lcha> for bevy_render::color::LegacyColor {
     fn from(value: Lcha) -> Self {
-        bevy_render::color::Color::Lcha {
+        bevy_render::color::LegacyColor::Lcha {
             hue: value.hue,
             chroma: value.chroma,
             lightness: value.lightness,
@@ -151,10 +151,10 @@ impl From<Lcha> for bevy_render::color::Color {
     }
 }
 
-impl From<bevy_render::color::Color> for Lcha {
-    fn from(value: bevy_render::color::Color) -> Self {
+impl From<bevy_render::color::LegacyColor> for Lcha {
+    fn from(value: bevy_render::color::LegacyColor) -> Self {
         match value.as_lcha() {
-            bevy_render::color::Color::Lcha {
+            bevy_render::color::LegacyColor::Lcha {
                 hue,
                 chroma,
                 lightness,

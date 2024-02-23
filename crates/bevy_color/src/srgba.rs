@@ -280,9 +280,9 @@ impl From<Oklaba> for Srgba {
     }
 }
 
-impl From<Srgba> for bevy_render::color::Color {
+impl From<Srgba> for bevy_render::color::LegacyColor {
     fn from(value: Srgba) -> Self {
-        bevy_render::color::Color::Rgba {
+        bevy_render::color::LegacyColor::Rgba {
             red: value.red,
             green: value.green,
             blue: value.blue,
@@ -291,10 +291,10 @@ impl From<Srgba> for bevy_render::color::Color {
     }
 }
 
-impl From<bevy_render::color::Color> for Srgba {
-    fn from(value: bevy_render::color::Color) -> Self {
+impl From<bevy_render::color::LegacyColor> for Srgba {
+    fn from(value: bevy_render::color::LegacyColor) -> Self {
         match value.as_rgba() {
-            bevy_render::color::Color::Rgba {
+            bevy_render::color::LegacyColor::Rgba {
                 red,
                 green,
                 blue,

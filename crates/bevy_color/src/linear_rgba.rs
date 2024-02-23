@@ -154,9 +154,9 @@ impl From<Srgba> for LinearRgba {
     }
 }
 
-impl From<LinearRgba> for bevy_render::color::Color {
+impl From<LinearRgba> for bevy_render::color::LegacyColor {
     fn from(value: LinearRgba) -> Self {
-        bevy_render::color::Color::RgbaLinear {
+        bevy_render::color::LegacyColor::RgbaLinear {
             red: value.red,
             green: value.green,
             blue: value.blue,
@@ -165,10 +165,10 @@ impl From<LinearRgba> for bevy_render::color::Color {
     }
 }
 
-impl From<bevy_render::color::Color> for LinearRgba {
-    fn from(value: bevy_render::color::Color) -> Self {
+impl From<bevy_render::color::LegacyColor> for LinearRgba {
+    fn from(value: bevy_render::color::LegacyColor) -> Self {
         match value.as_rgba_linear() {
-            bevy_render::color::Color::RgbaLinear {
+            bevy_render::color::LegacyColor::RgbaLinear {
                 red,
                 green,
                 blue,

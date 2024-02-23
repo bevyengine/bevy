@@ -125,9 +125,9 @@ impl From<LinearRgba> for Hsla {
     }
 }
 
-impl From<Hsla> for bevy_render::color::Color {
+impl From<Hsla> for bevy_render::color::LegacyColor {
     fn from(value: Hsla) -> Self {
-        bevy_render::color::Color::Hsla {
+        bevy_render::color::LegacyColor::Hsla {
             hue: value.hue,
             saturation: value.saturation,
             lightness: value.lightness,
@@ -136,10 +136,10 @@ impl From<Hsla> for bevy_render::color::Color {
     }
 }
 
-impl From<bevy_render::color::Color> for Hsla {
-    fn from(value: bevy_render::color::Color) -> Self {
+impl From<bevy_render::color::LegacyColor> for Hsla {
+    fn from(value: bevy_render::color::LegacyColor) -> Self {
         match value.as_hsla() {
-            bevy_render::color::Color::Hsla {
+            bevy_render::color::LegacyColor::Hsla {
                 hue,
                 saturation,
                 lightness,
