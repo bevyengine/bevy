@@ -1,3 +1,4 @@
+use crate::renderer::RenderAdapter;
 use crate::{render_resource::*, renderer::RenderDevice, Extract};
 use bevy_asset::{AssetEvent, AssetId, Assets};
 use bevy_ecs::system::{Res, ResMut};
@@ -21,7 +22,7 @@ use thiserror::Error;
 #[cfg(feature = "shader_format_spirv")]
 use wgpu::util::make_spirv;
 use wgpu::{
-    Features, PipelineLayoutDescriptor, PushConstantRange, ShaderModuleDescriptor,
+    DownlevelFlags, Features, PipelineLayoutDescriptor, PushConstantRange, ShaderModuleDescriptor,
     VertexBufferLayout as RawVertexBufferLayout,
 };
 
@@ -167,7 +168,7 @@ impl ShaderDefVal {
 }
 
 impl ShaderCache {
-    fn new(render_device: &RenderDevice) -> Self {
+    fn new(render_device: &RenderDevice, render_adapter: &RenderAdapter) -> Self {
         const CAPABILITIES: &[(Features, Capabilities)] = &[
             (Features::PUSH_CONSTANTS, Capabilities::PUSH_CONSTANT),
             (Features::SHADER_F64, Capabilities::FLOAT64),
@@ -196,9 +197,13 @@ impl ShaderCache {
             }
         }
 
-        // TODO: Check if this is supported, though I'm not sure if bevy works without this feature?
-        // We can't compile for native at least without it.
-        capabilities |= Capabilities::CUBE_ARRAY_TEXTURES;
+        if render_adapter
+            .get_downlevel_capabilities()
+            .flags
+            .contains(DownlevelFlags::CUBE_ARRAY_TEXTURES)
+        {
+            capabilities |= Capabilities::CUBE_ARRAY_TEXTURES;
+        }
 
         #[cfg(debug_assertions)]
         let composer = naga_oil::compose::Composer::default();
@@ -279,7 +284,12 @@ impl ShaderCache {
                 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
                 {
                     shader_defs.push("NO_ARRAY_TEXTURES_SUPPORT".into());
+                    shader_defs.push("NO_CUBE_ARRAY_TEXTURES_SUPPORT".into());
                     shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
+                }
+
+                if cfg!(ios_simulator) {
+                    shader_defs.push("NO_CUBE_ARRAY_TEXTURES_SUPPORT".into());
                 }
 
                 shader_defs.push(ShaderDefVal::UInt(
@@ -491,9 +501,13 @@ impl PipelineCache {
     }
 
     /// Create a new pipeline cache associated with the given render device.
-    pub fn new(device: RenderDevice, synchronous_pipeline_compilation: bool) -> Self {
+    pub fn new(
+        device: RenderDevice,
+        render_adapter: RenderAdapter,
+        synchronous_pipeline_compilation: bool,
+    ) -> Self {
         Self {
-            shader_cache: Arc::new(Mutex::new(ShaderCache::new(&device))),
+            shader_cache: Arc::new(Mutex::new(ShaderCache::new(&device, &render_adapter))),
             device,
             layout_cache: default(),
             waiting_pipelines: default(),
