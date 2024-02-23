@@ -379,8 +379,8 @@ impl ExecutorState {
         self.rebuild_active_access();
 
         // SAFETY:
-        // - self.ready_systems does not contain running systems.
-        // - `world_cell` has mutable access to the entire world.
+        // - `finish_system_and_handle_dependents` has updated the currently running systems.
+        // - `rebuild_active_access` locks access for all currently running systems.
         unsafe {
             self.spawn_system_tasks(context);
         }
