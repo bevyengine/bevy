@@ -1,5 +1,5 @@
 //! [Extended colors from the CSS4 specification](https://en.wikipedia.org/wiki/Web_colors#Extended_colors),
-//! Alsow known as X11 colors, which were standardized in HTML 4.0.
+//! Also known as X11 colors, which were standardized in HTML 4.0.
 
 use crate::Srgba;
 
