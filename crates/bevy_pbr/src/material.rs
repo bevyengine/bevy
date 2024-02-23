@@ -795,6 +795,7 @@ pub struct PreparedMaterial<T: Material> {
 
 #[derive(Component, Clone, Copy, Default, PartialEq, Eq, Deref, DerefMut)]
 pub struct MaterialBindGroupId(pub Option<BindGroupId>);
+
 impl MaterialBindGroupId {
     pub fn new(id: BindGroupId) -> Self {
         Self(Some(id))
