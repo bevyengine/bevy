@@ -30,7 +30,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let text_style = TextStyle {
         font: asset_server.load("fonts/FiraMono-Medium.ttf"),
         font_size: 16.,
-        color: Color::BLACK,
+        color: LegacyColor::BLACK,
     };
 
     commands
@@ -45,7 +45,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 align_items: AlignItems::Center,
                 ..default()
             },
-            background_color: Color::ANTIQUE_WHITE.into(),
+            background_color: LegacyColor::ANTIQUE_WHITE.into(),
             ..default()
         })
         .with_children(|parent| {
@@ -56,7 +56,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         height: Val::Px(40.0),
                         ..default()
                     },
-                    background_color: Color::RED.into(),
+                    background_color: LegacyColor::RED.into(),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -68,7 +68,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     height: Val::Percent(15.0),
                     ..default()
                 },
-                background_color: Color::BLUE.into(),
+                background_color: LegacyColor::BLUE.into(),
                 ..default()
             });
             parent.spawn(ImageBundle {

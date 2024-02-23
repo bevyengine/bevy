@@ -11,15 +11,15 @@ fn main() {
         .run();
 }
 
-const ACTIVE_BORDER_COLOR: Color = Color::ANTIQUE_WHITE;
-const INACTIVE_BORDER_COLOR: Color = Color::BLACK;
+const ACTIVE_BORDER_COLOR: LegacyColor = LegacyColor::ANTIQUE_WHITE;
+const INACTIVE_BORDER_COLOR: LegacyColor = LegacyColor::BLACK;
 
-const ACTIVE_INNER_COLOR: Color = Color::WHITE;
-const INACTIVE_INNER_COLOR: Color = Color::NAVY;
+const ACTIVE_INNER_COLOR: LegacyColor = LegacyColor::WHITE;
+const INACTIVE_INNER_COLOR: LegacyColor = LegacyColor::NAVY;
 
-const ACTIVE_TEXT_COLOR: Color = Color::BLACK;
-const HOVERED_TEXT_COLOR: Color = Color::WHITE;
-const UNHOVERED_TEXT_COLOR: Color = Color::GRAY;
+const ACTIVE_TEXT_COLOR: LegacyColor = LegacyColor::BLACK;
+const HOVERED_TEXT_COLOR: LegacyColor = LegacyColor::WHITE;
+const UNHOVERED_TEXT_COLOR: LegacyColor = LegacyColor::GRAY;
 
 #[derive(Component)]
 struct Bar;
@@ -45,7 +45,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let text_style = TextStyle {
         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
         font_size: 40.0,
-        color: Color::rgb(0.9, 0.9, 0.9),
+        color: LegacyColor::rgb(0.9, 0.9, 0.9),
     };
 
     commands
@@ -57,7 +57,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 align_items: AlignItems::Center,
                 ..Default::default()
             },
-            background_color: Color::BLACK.into(),
+            background_color: LegacyColor::BLACK.into(),
             ..Default::default()
         })
         .with_children(|parent| {
@@ -91,7 +91,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 margin: UiRect::top(Val::Px(50.)),
                                 ..Default::default()
                             },
-                            background_color: Color::YELLOW.into(),
+                            background_color: LegacyColor::YELLOW.into(),
                             ..Default::default()
                         })
                         .with_children(|parent| {
@@ -117,7 +117,7 @@ fn spawn_bar(parent: &mut ChildBuilder) {
                 padding: UiRect::all(Val::Px(10.)),
                 ..Default::default()
             },
-            background_color: Color::YELLOW.into(),
+            background_color: LegacyColor::YELLOW.into(),
             ..Default::default()
         })
         .with_children(|parent| {
@@ -130,7 +130,7 @@ fn spawn_bar(parent: &mut ChildBuilder) {
                         padding: UiRect::all(Val::Px(4.)),
                         ..Default::default()
                     },
-                    background_color: Color::BLACK.into(),
+                    background_color: LegacyColor::BLACK.into(),
                     ..Default::default()
                 })
                 .with_children(|parent| {
@@ -139,7 +139,7 @@ fn spawn_bar(parent: &mut ChildBuilder) {
                             style: Style {
                                 ..Default::default()
                             },
-                            background_color: Color::WHITE.into(),
+                            background_color: LegacyColor::WHITE.into(),
                             ..Default::default()
                         },
                         Bar,
@@ -164,7 +164,7 @@ fn spawn_button_row(parent: &mut ChildBuilder, constraint: Constraint, text_styl
                 align_items: AlignItems::Stretch,
                 ..Default::default()
             },
-            background_color: Color::BLACK.into(),
+            background_color: LegacyColor::BLACK.into(),
             ..Default::default()
         })
         .with_children(|parent| {
@@ -176,7 +176,7 @@ fn spawn_button_row(parent: &mut ChildBuilder, constraint: Constraint, text_styl
                         padding: UiRect::all(Val::Px(2.)),
                         ..Default::default()
                     },
-                    //background_color: Color::RED.into(),
+                    //background_color: LegacyColor::RED.into(),
                     ..Default::default()
                 })
                 .with_children(|parent| {
@@ -202,7 +202,7 @@ fn spawn_button_row(parent: &mut ChildBuilder, constraint: Constraint, text_styl
                     // spawn row buttons
                     parent
                         .spawn(NodeBundle {
-                            // background_color: Color::DARK_GREEN.into(),
+                            // background_color: LegacyColor::DARK_GREEN.into(),
                             ..Default::default()
                         })
                         .with_children(|parent| {

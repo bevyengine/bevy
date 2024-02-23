@@ -47,7 +47,7 @@ static SWITCH_TO_SPHERE_HELP_TEXT: &str = "Tab: Switch to a plain sphere mesh";
 
 static CLICK_TO_MOVE_HELP_TEXT: &str = "Left click: Move the object";
 
-static GIZMO_COLOR: Color = Color::YELLOW;
+static GIZMO_COLOR: LegacyColor = LegacyColor::YELLOW;
 
 static VOXEL_TRANSFORM: Mat4 = Mat4::from_cols_array_2d(&[
     [-42.317566, 0.0, 0.0, 0.0],
@@ -148,7 +148,7 @@ fn main() {
         .init_resource::<AppStatus>()
         .init_resource::<ExampleAssets>()
         .insert_resource(AmbientLight {
-            color: Color::WHITE,
+            color: LegacyColor::WHITE,
             brightness: 0.0,
         })
         .add_systems(Startup, setup)
@@ -362,7 +362,7 @@ impl AppStatus {
             TextStyle {
                 font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                 font_size: 24.0,
-                color: Color::ANTIQUE_WHITE,
+                color: LegacyColor::ANTIQUE_WHITE,
             },
         )
     }
@@ -531,7 +531,7 @@ impl FromWorld for ExampleAssets {
         let voxel_cube = mesh_assets.add(Cuboid::default());
 
         let mut standard_material_assets = world.resource_mut::<Assets<StandardMaterial>>();
-        let main_material = standard_material_assets.add(Color::SILVER);
+        let main_material = standard_material_assets.add(LegacyColor::SILVER);
 
         ExampleAssets {
             main_sphere,
@@ -580,7 +580,7 @@ fn create_cubes(
         let resolution = image.texture_descriptor.size;
 
         let voxel_cube_material = voxel_visualization_material_assets.add(ExtendedMaterial {
-            base: StandardMaterial::from(Color::RED),
+            base: StandardMaterial::from(LegacyColor::RED),
             extension: VoxelVisualizationExtension {
                 irradiance_volume_info: VoxelVisualizationIrradianceVolumeInfo {
                     transform: VOXEL_TRANSFORM.inverse(),

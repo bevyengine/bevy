@@ -34,7 +34,7 @@ use std::f32::consts::PI;
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, ColoredMesh2dPlugin))
+        .add_plugins((DefaultPlugins, LegacyColoredMesh2dPlugin))
         .add_systems(Startup, star)
         .run();
 }
@@ -80,10 +80,10 @@ fn star(
     // Set the position attribute
     star.insert_attribute(Mesh::ATTRIBUTE_POSITION, v_pos);
     // And a RGB color attribute as well
-    let mut v_color: Vec<u32> = vec![Color::BLACK.as_linear_rgba_u32()];
-    v_color.extend_from_slice(&[Color::YELLOW.as_linear_rgba_u32(); 10]);
+    let mut v_color: Vec<u32> = vec![LegacyColor::BLACK.as_linear_rgba_u32()];
+    v_color.extend_from_slice(&[LegacyColor::YELLOW.as_linear_rgba_u32(); 10]);
     star.insert_attribute(
-        MeshVertexAttribute::new("Vertex_Color", 1, VertexFormat::Uint32),
+        MeshVertexAttribute::new("Vertex_LegacyColor", 1, VertexFormat::Uint32),
         v_color,
     );
 
@@ -105,7 +105,7 @@ fn star(
     // We can now spawn the entities for the star and the camera
     commands.spawn((
         // We use a marker component to identify the custom colored meshes
-        ColoredMesh2d,
+        LegacyColoredMesh2d,
         // The `Handle<Mesh>` needs to be wrapped in a `Mesh2dHandle` to use 2d rendering instead of 3d
         Mesh2dHandle(meshes.add(star)),
         // This bundle's components are needed for something to be rendered
@@ -118,16 +118,16 @@ fn star(
 
 /// A marker component for colored 2d meshes
 #[derive(Component, Default)]
-pub struct ColoredMesh2d;
+pub struct LegacyColoredMesh2d;
 
 /// Custom pipeline for 2d meshes with vertex colors
 #[derive(Resource)]
-pub struct ColoredMesh2dPipeline {
+pub struct LegacyColoredMesh2dPipeline {
     /// this pipeline wraps the standard [`Mesh2dPipeline`]
     mesh2d_pipeline: Mesh2dPipeline,
 }
 
-impl FromWorld for ColoredMesh2dPipeline {
+impl FromWorld for LegacyColoredMesh2dPipeline {
     fn from_world(world: &mut World) -> Self {
         Self {
             mesh2d_pipeline: Mesh2dPipeline::from_world(world),
@@ -136,7 +136,7 @@ impl FromWorld for ColoredMesh2dPipeline {
 }
 
 // We implement `SpecializedPipeline` to customize the default rendering from `Mesh2dPipeline`
-impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
+impl SpecializedRenderPipeline for LegacyColoredMesh2dPipeline {
     type Key = Mesh2dPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
@@ -145,7 +145,7 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
         let formats = vec![
             // Position
             VertexFormat::Float32x3,
-            // Color
+            // LegacyColor
             VertexFormat::Uint32,
         ];
 
@@ -206,7 +206,7 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
 }
 
 // This specifies how to render a colored 2d mesh
-type DrawColoredMesh2d = (
+type DrawLegacyColoredMesh2d = (
     // Set the pipeline
     SetItemPipeline,
     // Set the view uniform as bind group 0
@@ -262,14 +262,14 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
 }
 ";
 
-/// Plugin that renders [`ColoredMesh2d`]s
-pub struct ColoredMesh2dPlugin;
+/// Plugin that renders [`LegacyColoredMesh2d`]s
+pub struct LegacyColoredMesh2dPlugin;
 
 /// Handle to the custom shader with a unique random ID
 pub const COLORED_MESH2D_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(13828845428412094821);
 
-impl Plugin for ColoredMesh2dPlugin {
+impl Plugin for LegacyColoredMesh2dPlugin {
     fn build(&self, app: &mut App) {
         // Load our custom shader
         let mut shaders = app.world.resource_mut::<Assets<Shader>>();
@@ -281,8 +281,8 @@ impl Plugin for ColoredMesh2dPlugin {
         // Register our custom draw function, and add our render systems
         app.get_sub_app_mut(RenderApp)
             .unwrap()
-            .add_render_command::<Transparent2d, DrawColoredMesh2d>()
-            .init_resource::<SpecializedRenderPipelines<ColoredMesh2dPipeline>>()
+            .add_render_command::<Transparent2d, DrawLegacyColoredMesh2d>()
+            .init_resource::<SpecializedRenderPipelines<LegacyColoredMesh2dPipeline>>()
             .add_systems(
                 ExtractSchedule,
                 extract_colored_mesh2d.after(extract_mesh2d),
@@ -294,18 +294,21 @@ impl Plugin for ColoredMesh2dPlugin {
         // Register our custom pipeline
         app.get_sub_app_mut(RenderApp)
             .unwrap()
-            .init_resource::<ColoredMesh2dPipeline>();
+            .init_resource::<LegacyColoredMesh2dPipeline>();
     }
 }
 
-/// Extract the [`ColoredMesh2d`] marker component into the render app
+/// Extract the [`LegacyColoredMesh2d`] marker component into the render app
 pub fn extract_colored_mesh2d(
     mut commands: Commands,
     mut previous_len: Local<usize>,
     // When extracting, you must use `Extract` to mark the `SystemParam`s
     // which should be taken from the main world.
     query: Extract<
-        Query<(Entity, &ViewVisibility, &GlobalTransform, &Mesh2dHandle), With<ColoredMesh2d>>,
+        Query<
+            (Entity, &ViewVisibility, &GlobalTransform, &Mesh2dHandle),
+            With<LegacyColoredMesh2d>,
+        >,
     >,
     mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
 ) {
@@ -320,7 +323,7 @@ pub fn extract_colored_mesh2d(
             flags: MeshFlags::empty().bits(),
         };
 
-        values.push((entity, ColoredMesh2d));
+        values.push((entity, LegacyColoredMesh2d));
         render_mesh_instances.insert(
             entity,
             RenderMesh2dInstance {
@@ -335,12 +338,12 @@ pub fn extract_colored_mesh2d(
     commands.insert_or_spawn_batch(values);
 }
 
-/// Queue the 2d meshes marked with [`ColoredMesh2d`] using our custom pipeline and draw function
+/// Queue the 2d meshes marked with [`LegacyColoredMesh2d`] using our custom pipeline and draw function
 #[allow(clippy::too_many_arguments)]
 pub fn queue_colored_mesh2d(
     transparent_draw_functions: Res<DrawFunctions<Transparent2d>>,
-    colored_mesh2d_pipeline: Res<ColoredMesh2dPipeline>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<ColoredMesh2dPipeline>>,
+    colored_mesh2d_pipeline: Res<LegacyColoredMesh2dPipeline>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<LegacyColoredMesh2dPipeline>>,
     pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
@@ -356,7 +359,9 @@ pub fn queue_colored_mesh2d(
     }
     // Iterate each view (a camera is a view)
     for (visible_entities, mut transparent_phase, view) in &mut views {
-        let draw_colored_mesh2d = transparent_draw_functions.read().id::<DrawColoredMesh2d>();
+        let draw_colored_mesh2d = transparent_draw_functions
+            .read()
+            .id::<DrawLegacyColoredMesh2d>();
 
         let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
             | Mesh2dPipelineKey::from_hdr(view.hdr);

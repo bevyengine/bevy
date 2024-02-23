@@ -340,7 +340,7 @@ fn setup_text(
     let style = TextStyle {
         font,
         font_size,
-        color: Color::WHITE,
+        color: LegacyColor::WHITE,
     };
     let instructions = "Press 'C' to switch between 2D and 3D mode\n\
         Press 'Up' or 'Down' to switch to the next/previous primitive";
@@ -412,7 +412,7 @@ fn in_mode(active: CameraActive) -> impl Fn(Res<State<CameraActive>>) -> bool {
 fn draw_gizmos_2d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time: Res<Time>) {
     const POSITION: Vec2 = Vec2::new(-LEFT_RIGHT_OFFSET_2D, 0.0);
     let angle = time.elapsed_seconds();
-    let color = Color::WHITE;
+    let color = LegacyColor::WHITE;
 
     match state.get() {
         PrimitiveSelected::RectangleAndCuboid => {
@@ -458,7 +458,7 @@ fn spawn_primitive_2d(
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     const POSITION: Vec3 = Vec3::new(LEFT_RIGHT_OFFSET_2D, 0.0, 0.0);
-    let material: Handle<ColorMaterial> = materials.add(Color::WHITE);
+    let material: Handle<ColorMaterial> = materials.add(LegacyColor::WHITE);
     let camera_mode = CameraActive::Dim2;
     [
         Some(RECTANGLE.mesh()),
@@ -504,7 +504,7 @@ fn spawn_primitive_3d(
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     const POSITION: Vec3 = Vec3::new(-LEFT_RIGHT_OFFSET_3D, 0.0, 0.0);
-    let material: Handle<StandardMaterial> = materials.add(Color::WHITE);
+    let material: Handle<StandardMaterial> = materials.add(LegacyColor::WHITE);
     let camera_mode = CameraActive::Dim3;
     [
         Some(CUBOID.mesh()),
@@ -613,7 +613,7 @@ fn draw_gizmos_3d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time
         .try_normalize()
         .unwrap_or(Vec3::Z),
     );
-    let color = Color::WHITE;
+    let color = LegacyColor::WHITE;
     let segments = 10;
 
     match state.get() {
