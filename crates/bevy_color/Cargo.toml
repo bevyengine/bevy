@@ -14,7 +14,7 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev", features = [
   "bevy",
 ] }
 bevy_render = { path = "../bevy_render", version = "0.14.0-dev" }
-serde = "1.0.193"
+serde = "1.0"
 
 [lints]
 workspace = true

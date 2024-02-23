@@ -9,7 +9,6 @@
 //! - [`Oklaba`] (lightness, a-axis, b-axis, alpha)
 //!
 //! Each of these color spaces is represented as a distinct Rust type.
-//! Each of these color spaces is represented as a distinct Rust type.
 //!
 //! # Color Space Usage
 //!
@@ -20,10 +19,10 @@
 //! humans in as few bits as possible, but it is not suitable for lighting calculations.
 //!
 //! Most image file formats and scene graph formats use standard RGBA, because graphic design
-//! tools are intended to be used by humans. However, GPU hardware operates on linear RGBA, so it
-//! is important to convert standard colors to linear before sending them to the GPU. Most Bevy
-//! APIs will handle this conversion automatically, but if you are writing a custom shader, you
-//! will need to do this conversion yourself.
+//! tools are intended to be used by humans. However, 3D lighting calculations operate in linear
+//! RGBA, so it is important to convert standard colors to linear before sending them to the GPU.
+//! Most Bevy APIs will handle this conversion automatically, but if you are writing a custom
+//! shader, you will need to do this conversion yourself.
 //!
 //! HSL and LCH are "cylindrical" color spaces, which means they represent colors as a combination
 //! of hue, saturation, and lightness (or chroma). These color spaces are useful for working
