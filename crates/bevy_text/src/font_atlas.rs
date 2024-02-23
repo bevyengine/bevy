@@ -14,11 +14,11 @@ use crate::{GlyphAtlasLocation, TextError};
 ///
 /// A [`FontAtlasSet`](crate::FontAtlasSet) contains one or more `FontAtlas`es.
 pub struct FontAtlas {
-    /// Used to update the [`TextureAtlas`].
+    /// Used to update the [`TextureAtlasLayout`].
     pub dynamic_texture_atlas_builder: DynamicTextureAtlasBuilder,
     /// A mapping between subpixel-binned glyphs and their [`GlyphAtlasLocation`].
     pub glyph_to_atlas_index: HashMap<cosmic_text::CacheKey, GlyphAtlasLocation>,
-    /// The handle to the [`TextureAtlas`] that holds the rasterized glyphs.
+    /// The handle to the [`TextureAtlasLayout`] that holds the rasterized glyphs.
     pub texture_atlas: Handle<TextureAtlasLayout>,
     /// the texture where this font atlas is located
     pub texture: Handle<Image>,
