@@ -538,9 +538,48 @@ pub use erased_serde;
 
 extern crate alloc;
 
+/// Exorts used by the reflection macros.
+///
+/// These are not meant to be used directly and are subject to breaking changes.
 #[doc(hidden)]
 pub mod __macro_exports {
-    pub use bevy_utils::uuid::generate_composite_uuid;
+    use crate::{
+        DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
+        DynamicTupleStruct, GetTypeRegistration, TypeRegistry,
+    };
+
+    /// A wrapper trait around [`GetTypeRegistration`].
+    ///
+    /// This trait is used by the derive macro to recursively register all type dependencies.
+    /// It's used instead of `GetTypeRegistration` directly to avoid making dynamic types also
+    /// implement `GetTypeRegistration` in order to be used as active fields.
+    ///
+    /// This trait has a blanket implementation for all types that implement `GetTypeRegistration`
+    /// and manual implementations for all dynamic types (which simply do nothing).
+    pub trait RegisterForReflection {
+        #[allow(unused_variables)]
+        fn __register(registry: &mut TypeRegistry) {}
+    }
+
+    impl<T: GetTypeRegistration> RegisterForReflection for T {
+        fn __register(registry: &mut TypeRegistry) {
+            registry.register::<T>();
+        }
+    }
+
+    impl RegisterForReflection for DynamicEnum {}
+
+    impl RegisterForReflection for DynamicTupleStruct {}
+
+    impl RegisterForReflection for DynamicStruct {}
+
+    impl RegisterForReflection for DynamicMap {}
+
+    impl RegisterForReflection for DynamicList {}
+
+    impl RegisterForReflection for DynamicArray {}
+
+    impl RegisterForReflection for DynamicTuple {}
 }
 
 #[cfg(test)]
@@ -1073,6 +1112,31 @@ mod tests {
             registry.contains(TypeId::of::<Bar>()),
             "registry should contain auto-registered `Bar` from `HashMap<i32, Foo>`"
         );
+    }
+
+    #[test]
+    fn should_allow_dynamic_fields() {
+        #[derive(Reflect)]
+        #[reflect(from_reflect = false)]
+        struct MyStruct(
+            DynamicEnum,
+            DynamicTupleStruct,
+            DynamicStruct,
+            DynamicMap,
+            DynamicList,
+            DynamicArray,
+            DynamicTuple,
+            i32,
+        );
+
+        assert_impl_all!(MyStruct: Reflect, GetTypeRegistration);
+
+        let mut registry = TypeRegistry::empty();
+        registry.register::<MyStruct>();
+
+        assert_eq!(2, registry.iter().count());
+        assert!(registry.contains(TypeId::of::<MyStruct>()));
+        assert!(registry.contains(TypeId::of::<i32>()));
     }
 
     #[test]
