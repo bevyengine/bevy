@@ -2,8 +2,8 @@ use bevy_asset::{Asset, Handle};
 use bevy_math::{Affine2, Vec2, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    color::Color, mesh::MeshVertexBufferLayout, render_asset::RenderAssets, render_resource::*,
-    texture::Image,
+    color::LegacyColor, mesh::MeshVertexBufferLayout, render_asset::RenderAssets,
+    render_resource::*, texture::Image,
 };
 
 use crate::deferred::DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID;
@@ -26,7 +26,7 @@ pub struct StandardMaterial {
     /// base color as `base_color * base_color_texture_value`
     ///
     /// Defaults to [`Color::WHITE`].
-    pub base_color: Color,
+    pub base_color: LegacyColor,
 
     /// The texture component of the material's color before lighting.
     /// The actual pre-lighting color is `base_color * this_texture`.
@@ -61,7 +61,7 @@ pub struct StandardMaterial {
     ///
     /// Note that **an emissive material won't light up surrounding areas like a light source**,
     /// it just adds a value to the color seen on screen.
-    pub emissive: Color,
+    pub emissive: LegacyColor,
 
     /// The emissive map, multiplies pixels with [`emissive`]
     /// to get the final "emitting" color of a surface.
@@ -282,7 +282,7 @@ pub struct StandardMaterial {
     /// - [`StandardMaterial::diffuse_transmission`] or [`StandardMaterial::specular_transmission`].
     #[doc(alias = "absorption_color")]
     #[doc(alias = "extinction_color")]
-    pub attenuation_color: Color,
+    pub attenuation_color: LegacyColor,
 
     /// Used to fake the lighting of bumps and dents on a material.
     ///
@@ -482,9 +482,9 @@ impl Default for StandardMaterial {
         StandardMaterial {
             // White because it gets multiplied with texture values if someone uses
             // a texture.
-            base_color: Color::rgb(1.0, 1.0, 1.0),
+            base_color: LegacyColor::rgb(1.0, 1.0, 1.0),
             base_color_texture: None,
-            emissive: Color::BLACK,
+            emissive: LegacyColor::BLACK,
             emissive_texture: None,
             // Matches Blender's default roughness.
             perceptual_roughness: 0.5,
@@ -505,7 +505,7 @@ impl Default for StandardMaterial {
             #[cfg(feature = "pbr_transmission_textures")]
             thickness_texture: None,
             ior: 1.5,
-            attenuation_color: Color::WHITE,
+            attenuation_color: LegacyColor::WHITE,
             attenuation_distance: f32::INFINITY,
             occlusion_texture: None,
             normal_map_texture: None,
@@ -528,8 +528,8 @@ impl Default for StandardMaterial {
     }
 }
 
-impl From<Color> for StandardMaterial {
-    fn from(color: Color) -> Self {
+impl From<LegacyColor> for StandardMaterial {
+    fn from(color: LegacyColor) -> Self {
         StandardMaterial {
             base_color: color,
             alpha_mode: if color.a() < 1.0 {
