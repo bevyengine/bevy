@@ -83,7 +83,7 @@ struct SystemResult {
 
 /// Runs the schedule using a thread pool. Non-conflicting systems can run in parallel.
 pub struct MultiThreadedExecutor {
-    /// The running state, protected by a mutex so that the .
+    /// The running state, protected by a mutex so that a reference to the executor can be shared across tasks.
     state: Mutex<ExecutorState>,
     /// Queue of system completion events.
     system_completion: ConcurrentQueue<SystemResult>,
