@@ -5,14 +5,14 @@
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 use bevy_math::{Quat, Vec2, Vec3};
-use bevy_render::color::Color;
+use bevy_render::color::LegacyColor;
 
 /// A builder returned by [`Gizmos::arrow`] and [`Gizmos::arrow_2d`]
 pub struct ArrowBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     gizmos: &'a mut Gizmos<'w, 's, T>,
     start: Vec3,
     end: Vec3,
-    color: Color,
+    color: LegacyColor,
     tip_length: f32,
 }
 
@@ -81,7 +81,12 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
-    pub fn arrow(&mut self, start: Vec3, end: Vec3, color: Color) -> ArrowBuilder<'_, 'w, 's, T> {
+    pub fn arrow(
+        &mut self,
+        start: Vec3,
+        end: Vec3,
+        color: LegacyColor,
+    ) -> ArrowBuilder<'_, 'w, 's, T> {
         let length = (end - start).length();
         ArrowBuilder {
             gizmos: self,
@@ -110,7 +115,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         &mut self,
         start: Vec2,
         end: Vec2,
-        color: Color,
+        color: LegacyColor,
     ) -> ArrowBuilder<'_, 'w, 's, T> {
         self.arrow(start.extend(0.), end.extend(0.), color)
     }
