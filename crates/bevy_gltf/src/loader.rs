@@ -1,4 +1,6 @@
-use crate::{vertex_attributes::convert_attribute, Gltf, GltfExtensions, GltfExtras, GltfNode, WeakGltf};
+use crate::{
+    vertex_attributes::convert_attribute, Gltf, GltfExtensions, GltfExtras, GltfNode, WeakGltf,
+};
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::{AnimationTarget, AnimationTargetId};
 use bevy_asset::{
