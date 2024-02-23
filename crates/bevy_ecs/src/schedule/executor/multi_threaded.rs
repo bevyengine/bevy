@@ -87,6 +87,8 @@ pub struct MultiThreadedExecutor {
     state: Mutex<ExecutorState>,
     /// Queue of system completion events.
     system_completion: ConcurrentQueue<SystemResult>,
+    /// Setting when true applies deferred system buffers after all systems have run
+    apply_final_deferred: bool,
     /// When set, tells the executor that a thread has panicked.
     panic_payload: Mutex<Option<Box<dyn Any + Send>>>,
     /// Cached tracing span
@@ -126,8 +128,6 @@ pub struct ExecutorState {
     completed_systems: FixedBitSet,
     /// Systems that have run but have not had their buffers applied.
     unapplied_systems: FixedBitSet,
-    /// Setting when true applies deferred system buffers after all systems have run
-    apply_final_deferred: bool,
     /// When set, stops the executor from running any more systems.
     stop_spawning: bool,
 }
@@ -252,7 +252,7 @@ impl SystemExecutor for MultiThreadedExecutor {
         let systems = environment.systems;
 
         let state = self.state.get_mut().unwrap();
-        if state.apply_final_deferred {
+        if self.apply_final_deferred {
             // Do one final apply buffers after all systems have completed
             // Commands should be applied while on the scope's thread, not the executor's thread
             let res = apply_deferred(&state.unapplied_systems, systems, world);
@@ -279,7 +279,7 @@ impl SystemExecutor for MultiThreadedExecutor {
     }
 
     fn set_apply_final_deferred(&mut self, value: bool) {
-        self.state.get_mut().unwrap().apply_final_deferred = value;
+        self.apply_final_deferred = value;
     }
 }
 
@@ -338,6 +338,7 @@ impl MultiThreadedExecutor {
         Self {
             state: Mutex::new(ExecutorState::new()),
             system_completion: ConcurrentQueue::unbounded(),
+            apply_final_deferred: true,
             panic_payload: Mutex::new(None),
             #[cfg(feature = "trace")]
             executor_span: info_span!("multithreaded executor"),
@@ -363,7 +364,6 @@ impl ExecutorState {
             skipped_systems: FixedBitSet::new(),
             completed_systems: FixedBitSet::new(),
             unapplied_systems: FixedBitSet::new(),
-            apply_final_deferred: true,
             stop_spawning: false,
         }
     }
