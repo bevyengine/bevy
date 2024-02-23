@@ -299,7 +299,7 @@ where
 ///
 /// You may add the following components to enable additional behaviours
 /// - [`ImageScaleMode`](bevy_sprite::ImageScaleMode) to enable either slicing or tiling of the texture
-/// - [`TextureAtlas`](bevy_sprite::TextureAtlas) to draw specific section of the texture
+/// - [`TextureAtlas`] to draw specific section of the texture
 #[derive(Bundle, Clone, Debug)]
 pub struct ButtonBundle {
     /// Describes the logical size of the node

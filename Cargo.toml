@@ -2469,6 +2469,11 @@ name = "ui_texture_slice"
 path = "examples/ui/ui_texture_slice.rs"
 doc-scrape-examples = true
 
+[[example]]
+name = "ui_texture_atlas_slice"
+path = "examples/ui/ui_texture_atlas_slice.rs"
+doc-scrape-examples = true
+
 [package.metadata.example.ui_texture_slice]
 name = "UI Texture Slice"
 description = "Illustrates how to use 9 Slicing in UI"

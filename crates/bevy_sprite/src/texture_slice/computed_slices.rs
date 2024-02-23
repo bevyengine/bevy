@@ -82,19 +82,24 @@ fn compute_sprite_slices(
     atlas: Option<&TextureAtlas>,
     atlas_layouts: &Assets<TextureAtlasLayout>,
 ) -> Option<ComputedTextureSlices> {
-    let image_size = images.get(image_handle).map(|i| {
-        Vec2::new(
-            i.texture_descriptor.size.width as f32,
-            i.texture_descriptor.size.height as f32,
-        )
-    })?;
-    let texture_rect = atlas
-        .and_then(|a| a.texture_rect(atlas_layouts))
-        .or(sprite.rect)
-        .unwrap_or(Rect {
-            min: Vec2::ZERO,
-            max: image_size,
-        });
+    let (image_size, texture_rect) = match atlas {
+        Some(a) => {
+            let layout = atlas_layouts.get(&a.layout)?;
+            (layout.size, *layout.textures.get(a.index)?)
+        }
+        None => {
+            let image = images.get(image_handle)?;
+            let size = Vec2::new(
+                image.texture_descriptor.size.width as f32,
+                image.texture_descriptor.size.height as f32,
+            );
+            let rect = sprite.rect.unwrap_or(Rect {
+                min: Vec2::ZERO,
+                max: size,
+            });
+            (size, rect)
+        }
+    };
     let slices = match scale_mode {
         ImageScaleMode::Sliced(slicer) => slicer.compute_slices(texture_rect, sprite.custom_size),
         ImageScaleMode::Tiled {

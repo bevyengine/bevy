@@ -1,4 +1,4 @@
-//! This example illustrates how to create buttons with their textures sliced
+//! This example illustrates how to create buttons with their texture atlases sliced
 //! and kept in proportion instead of being stretched by the button dimensions
 
 use bevy::{prelude::*, winit::WinitSettings};
@@ -14,14 +14,18 @@ fn main() {
 }
 
 fn button_system(
-    interaction_query: Query<(&Interaction, &Children), (Changed<Interaction>, With<Button>)>,
+    mut interaction_query: Query<
+        (&Interaction, &mut TextureAtlas, &Children),
+        (Changed<Interaction>, With<Button>),
+    >,
     mut text_query: Query<&mut Text>,
 ) {
-    for (interaction, children) in &interaction_query {
+    for (interaction, mut atlas, children) in &mut interaction_query {
         let mut text = text_query.get_mut(children[0]).unwrap();
         match *interaction {
             Interaction::Pressed => {
                 text.sections[0].value = "Press".to_string();
+                atlas.index = (atlas.index + 1) % 30;
             }
             Interaction::Hovered => {
                 text.sections[0].value = "Hover".to_string();
@@ -33,8 +37,14 @@ fn button_system(
     }
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let image = asset_server.load("textures/fantasy_ui_borders/panel-border-010.png");
+fn setup(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
+) {
+    let texture_handle = asset_server.load("textures/fantasy_ui_borders/border_sheet.png");
+    let atlas_layout = TextureAtlasLayout::from_grid(Vec2::new(50.0, 50.0), 6, 6, None, None);
+    let atlas_layout_handle = texture_atlases.add(atlas_layout);
 
     let slicer = TextureSlicer {
         border: BorderRect::square(22.0),
@@ -56,7 +66,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         })
         .with_children(|parent| {
-            for [w, h] in [[150.0, 150.0], [300.0, 150.0], [150.0, 300.0]] {
+            for (idx, [w, h]) in [
+                (0, [150.0, 150.0]),
+                (7, [300.0, 150.0]),
+                (13, [150.0, 300.0]),
+            ] {
                 parent
                     .spawn((
                         ButtonBundle {
@@ -70,10 +84,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 margin: UiRect::all(Val::Px(20.0)),
                                 ..default()
                             },
-                            image: image.clone().into(),
+                            image: texture_handle.clone().into(),
                             ..default()
                         },
                         ImageScaleMode::Sliced(slicer.clone()),
+                        TextureAtlas {
+                            index: idx,
+                            layout: atlas_layout_handle.clone(),
+                        },
                     ))
                     .with_children(|parent| {
                         parent.spawn(TextBundle::from_section(
@@ -81,7 +99,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             TextStyle {
                                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                 font_size: 40.0,
-                                color: LegacyColor::rgb(0.9, 0.9, 0.9),
+                                color: Color::rgb(0.9, 0.9, 0.9),
                             },
                         ));
                     });

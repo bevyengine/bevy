@@ -5,7 +5,7 @@
 use bevy_asset::{AssetEvent, Assets};
 use bevy_ecs::prelude::*;
 use bevy_math::{Rect, Vec2};
-use bevy_render::texture::Image;
+use bevy_render::{color::Color, texture::Image};
 use bevy_sprite::{ImageScaleMode, TextureAtlas, TextureAtlasLayout, TextureSlice};
 use bevy_transform::prelude::*;
 use bevy_utils::HashSet;
@@ -97,18 +97,24 @@ fn compute_texture_slices(
     atlas: Option<&TextureAtlas>,
     atlas_layouts: &Assets<TextureAtlasLayout>,
 ) -> Option<ComputedTextureSlices> {
-    let image_size = images.get(&image_handle.texture).map(|i| {
-        Vec2::new(
-            i.texture_descriptor.size.width as f32,
-            i.texture_descriptor.size.height as f32,
-        )
-    })?;
-    let texture_rect = atlas
-        .and_then(|a| a.texture_rect(atlas_layouts))
-        .unwrap_or(Rect {
-            min: Vec2::ZERO,
-            max: image_size,
-        });
+    let (image_size, texture_rect) = match atlas {
+        Some(a) => {
+            let layout = atlas_layouts.get(&a.layout)?;
+            (layout.size, *layout.textures.get(a.index)?)
+        }
+        None => {
+            let image = images.get(&image_handle.texture)?;
+            let size = Vec2::new(
+                image.texture_descriptor.size.width as f32,
+                image.texture_descriptor.size.height as f32,
+            );
+            let rect = Rect {
+                min: Vec2::ZERO,
+                max: size,
+            };
+            (size, rect)
+        }
+    };
     let slices = match scale_mode {
         ImageScaleMode::Sliced(slicer) => slicer.compute_slices(texture_rect, Some(draw_area)),
         ImageScaleMode::Tiled {

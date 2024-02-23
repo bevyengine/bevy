@@ -72,7 +72,7 @@ impl TextureSlicer {
             TextureSlice {
                 texture_rect: Rect {
                     min: vec2(base_rect.max.x - right, base_rect.min.y),
-                    max: vec2(base_rect.max.x, top),
+                    max: vec2(base_rect.max.x, base_rect.min.y + top),
                 },
                 draw_size: vec2(right, top) * min_coef,
                 offset: vec2(
