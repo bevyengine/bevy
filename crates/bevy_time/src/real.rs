@@ -30,8 +30,11 @@ use crate::time::Time;
 /// [`last_update()`](Time::last_update) are recorded and accessible.
 #[derive(Debug, Copy, Clone, Reflect)]
 pub struct Real {
+    #[reflect(skip_serializing, default = "Instant::now")]
     startup: Instant,
+    #[reflect(skip_serializing)]
     first_update: Option<Instant>,
+    #[reflect(skip_serializing)]
     last_update: Option<Instant>,
 }
 
