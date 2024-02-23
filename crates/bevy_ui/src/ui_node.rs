@@ -5,7 +5,7 @@ use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, RenderTarget},
-    color::Color,
+    color::LegacyColor,
     texture::Image,
 };
 use bevy_transform::prelude::GlobalTransform;
@@ -1597,10 +1597,10 @@ pub enum GridPlacementError {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub struct BackgroundColor(pub Color);
+pub struct BackgroundColor(pub LegacyColor);
 
 impl BackgroundColor {
-    pub const DEFAULT: Self = Self(Color::WHITE);
+    pub const DEFAULT: Self = Self(LegacyColor::WHITE);
 }
 
 impl Default for BackgroundColor {
@@ -1609,8 +1609,8 @@ impl Default for BackgroundColor {
     }
 }
 
-impl From<Color> for BackgroundColor {
-    fn from(color: Color) -> Self {
+impl From<LegacyColor> for BackgroundColor {
+    fn from(color: LegacyColor) -> Self {
         Self(color)
     }
 }
@@ -1623,16 +1623,16 @@ impl From<Color> for BackgroundColor {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub struct BorderColor(pub Color);
+pub struct BorderColor(pub LegacyColor);
 
-impl From<Color> for BorderColor {
-    fn from(color: Color) -> Self {
+impl From<LegacyColor> for BorderColor {
+    fn from(color: LegacyColor) -> Self {
         Self(color)
     }
 }
 
 impl BorderColor {
-    pub const DEFAULT: Self = BorderColor(Color::WHITE);
+    pub const DEFAULT: Self = BorderColor(LegacyColor::WHITE);
 }
 
 impl Default for BorderColor {
@@ -1709,14 +1709,14 @@ pub struct Outline {
     pub offset: Val,
     /// The color of the outline.
     ///
-    /// If you are frequently toggling outlines for a UI node on and off it is recommended to set `Color::None` to hide the outline.
+    /// If you are frequently toggling outlines for a UI node on and off it is recommended to set [`LegacyColor::None`] to hide the outline.
     /// This avoids the table moves that would occur from the repeated insertion and removal of the `Outline` component.
-    pub color: Color,
+    pub color: LegacyColor,
 }
 
 impl Outline {
     /// Create a new outline
-    pub const fn new(width: Val, offset: Val, color: Color) -> Self {
+    pub const fn new(width: Val, offset: Val, color: LegacyColor) -> Self {
         Self {
             width,
             offset,
