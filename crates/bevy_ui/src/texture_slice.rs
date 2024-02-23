@@ -5,7 +5,7 @@
 use bevy_asset::{AssetEvent, Assets};
 use bevy_ecs::prelude::*;
 use bevy_math::{Rect, Vec2};
-use bevy_render::{color::Color, texture::Image};
+use bevy_render::texture::Image;
 use bevy_sprite::{ImageScaleMode, TextureAtlas, TextureAtlasLayout, TextureSlice};
 use bevy_transform::prelude::*;
 use bevy_utils::HashSet;
