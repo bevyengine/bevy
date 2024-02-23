@@ -137,7 +137,7 @@ pub struct ExecutorState {
 // These all need to outlive 'scope in order to be sent to new tasks,
 // and keeping them all in a struct means we can use lifetime elision.
 #[derive(Copy, Clone)]
-struct Context<'scope, 'env: 'scope, 'sys> {
+struct Context<'scope, 'env, 'sys> {
     environment: &'env Environment<'env, 'sys>,
     scope: &'scope Scope<'scope, 'env, ()>,
 }
@@ -368,7 +368,7 @@ impl ExecutorState {
         }
     }
 
-    fn tick(&mut self, context: &Context<'_, '_, '_>) {
+    fn tick(&mut self, context: &Context) {
         #[cfg(feature = "trace")]
         let _span = context.environment.executor.executor_span.enter();
 
@@ -391,7 +391,7 @@ impl ExecutorState {
     ///   have been mutably borrowed (such as the systems currently running).
     /// - `world_cell` must have permission to access all world data (not counting
     ///   any world data that is claimed by systems currently running on this executor).
-    unsafe fn spawn_system_tasks(&mut self, context: &Context<'_, '_, '_>) {
+    unsafe fn spawn_system_tasks(&mut self, context: &Context) {
         if self.exclusive_running {
             return;
         }
@@ -600,7 +600,7 @@ impl ExecutorState {
     ///   used by the specified system.
     /// - `update_archetype_component_access` must have been called with `world`
     ///   on the system associated with `system_index`.
-    unsafe fn spawn_system_task(&mut self, context: &Context<'_, '_, '_>, system_index: usize) {
+    unsafe fn spawn_system_task(&mut self, context: &Context, system_index: usize) {
         // SAFETY: this system is not running, no other reference exists
         let system = unsafe { &mut *context.environment.systems[system_index].get() };
         // Move the full context object into the new future.
@@ -636,11 +636,7 @@ impl ExecutorState {
 
     /// # Safety
     /// Caller must ensure no systems are currently borrowed.
-    unsafe fn spawn_exclusive_system_task(
-        &mut self,
-        context: &Context<'_, '_, '_>,
-        system_index: usize,
-    ) {
+    unsafe fn spawn_exclusive_system_task(&mut self, context: &Context, system_index: usize) {
         // SAFETY: `can_run` returned true for this system, which means
         // that no other systems currently have access to the world.
         let world = unsafe { context.environment.world_cell.world_mut() };
