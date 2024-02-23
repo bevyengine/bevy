@@ -47,10 +47,14 @@ impl Plugin for TimePlugin {
             .init_resource::<Time<Fixed>>()
             .init_resource::<TimeUpdateStrategy>()
             .register_type::<Time>()
+            .register_type::<Real>()
+            .register_type::<Virtual>()
+            .register_type::<Fixed>()
             .register_type::<Time<Real>>()
             .register_type::<Time<Virtual>>()
             .register_type::<Time<Fixed>>()
             .register_type::<Timer>()
+            .register_type::<TimerMode>()
             .register_type::<Stopwatch>()
             .add_systems(
                 First,
