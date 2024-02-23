@@ -29,30 +29,30 @@ use crate::*;
 
 #[derive(Component)]
 pub struct ExtractedPointLight {
-    color: Color,
+    pub color: Color,
     /// luminous intensity in lumens per steradian
-    intensity: f32,
-    range: f32,
-    radius: f32,
-    transform: GlobalTransform,
-    shadows_enabled: bool,
-    shadow_depth_bias: f32,
-    shadow_normal_bias: f32,
-    spot_light_angles: Option<(f32, f32)>,
+    pub intensity: f32,
+    pub range: f32,
+    pub radius: f32,
+    pub transform: GlobalTransform,
+    pub shadows_enabled: bool,
+    pub shadow_depth_bias: f32,
+    pub shadow_normal_bias: f32,
+    pub spot_light_angles: Option<(f32, f32)>,
 }
 
 #[derive(Component, Debug)]
 pub struct ExtractedDirectionalLight {
-    color: Color,
-    illuminance: f32,
-    transform: GlobalTransform,
-    shadows_enabled: bool,
-    shadow_depth_bias: f32,
-    shadow_normal_bias: f32,
-    cascade_shadow_config: CascadeShadowConfig,
-    cascades: EntityHashMap<Vec<Cascade>>,
-    frusta: EntityHashMap<Vec<Frustum>>,
-    render_layers: RenderLayers,
+    pub color: Color,
+    pub illuminance: f32,
+    pub transform: GlobalTransform,
+    pub shadows_enabled: bool,
+    pub shadow_depth_bias: f32,
+    pub shadow_normal_bias: f32,
+    pub cascade_shadow_config: CascadeShadowConfig,
+    pub cascades: EntityHashMap<Vec<Cascade>>,
+    pub frusta: EntityHashMap<Vec<Frustum>>,
+    pub render_layers: RenderLayers,
 }
 
 #[derive(Copy, Clone, ShaderType, Default, Debug)]

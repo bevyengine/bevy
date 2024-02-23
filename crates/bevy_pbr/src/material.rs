@@ -794,7 +794,19 @@ pub struct PreparedMaterial<T: Material> {
 }
 
 #[derive(Component, Clone, Copy, Default, PartialEq, Eq, Deref, DerefMut)]
-pub struct MaterialBindGroupId(Option<BindGroupId>);
+pub struct MaterialBindGroupId(pub Option<BindGroupId>);
+
+impl MaterialBindGroupId {
+    pub fn new(id: BindGroupId) -> Self {
+        Self(Some(id))
+    }
+}
+
+impl From<BindGroup> for MaterialBindGroupId {
+    fn from(value: BindGroup) -> Self {
+        Self::new(value.id())
+    }
+}
 
 /// An atomic version of [`MaterialBindGroupId`] that can be read from and written to
 /// safely from multiple threads.
