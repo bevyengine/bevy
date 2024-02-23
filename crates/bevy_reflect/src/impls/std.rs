@@ -3,8 +3,8 @@ use crate::{self as bevy_reflect, ReflectFromPtr, ReflectFromReflect, ReflectOwn
 use crate::{
     impl_type_path, map_apply, map_partial_eq, Array, ArrayInfo, ArrayIter, DynamicEnum,
     DynamicMap, Enum, EnumInfo, FromReflect, FromType, GetTypeRegistration, List, ListInfo,
-    ListIter, Map, MapInfo, MapIter, Reflect, ReflectDeserialize, ReflectMut, ReflectRef,
-    ReflectSerialize, TupleVariantInfo, TypeInfo, TypePath, TypeRegistration, Typed,
+    ListIter, Map, MapInfo, MapIter, Reflect, ReflectDeserialize, ReflectKind, ReflectMut,
+    ReflectRef, ReflectSerialize, TupleVariantInfo, TypeInfo, TypePath, TypeRegistration, Typed,
     UnitVariantInfo, UnnamedField, ValueInfo, VariantFieldIter, VariantInfo, VariantType,
 };
 
@@ -80,7 +80,6 @@ impl_reflect_value!(isize(
 impl_reflect_value!(f32(Debug, PartialEq, Serialize, Deserialize, Default));
 impl_reflect_value!(f64(Debug, PartialEq, Serialize, Deserialize, Default));
 impl_type_path!(str);
-impl_type_path!(::bevy_utils::EntityHash);
 impl_reflect_value!(::alloc::string::String(
     Debug,
     Hash,
@@ -317,6 +316,10 @@ macro_rules! impl_reflect_for_veclike {
                 Ok(())
             }
 
+            fn reflect_kind(&self) -> ReflectKind {
+                ReflectKind::List
+            }
+
             fn reflect_ref(&self) -> ReflectRef {
                 ReflectRef::List(self)
             }
@@ -535,6 +538,10 @@ macro_rules! impl_reflect_for_hashmap {
                 Ok(())
             }
 
+            fn reflect_kind(&self) -> ReflectKind {
+                ReflectKind::Map
+            }
+
             fn reflect_ref(&self) -> ReflectRef {
                 ReflectRef::Map(self)
             }
@@ -610,6 +617,7 @@ impl_type_path!(::std::collections::HashMap<K, V, S>);
 
 impl_reflect_for_hashmap!(bevy_utils::hashbrown::HashMap<K, V, S>);
 impl_type_path!(::bevy_utils::hashbrown::hash_map::DefaultHashBuilder);
+impl_type_path!(::bevy_utils::NoOpHash);
 impl_type_path!(::bevy_utils::hashbrown::HashMap<K, V, S>);
 
 impl<T: Reflect + TypePath, const N: usize> Array for [T; N] {
@@ -685,6 +693,11 @@ impl<T: Reflect + TypePath, const N: usize> Reflect for [T; N] {
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
         *self = value.take()?;
         Ok(())
+    }
+
+    #[inline]
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::Array
     }
 
     #[inline]
@@ -935,6 +948,10 @@ impl<T: FromReflect + TypePath> Reflect for Option<T> {
         Ok(())
     }
 
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::Enum
+    }
+
     fn reflect_ref(&self) -> ReflectRef {
         ReflectRef::Enum(self)
     }
@@ -1080,6 +1097,10 @@ impl Reflect for Cow<'static, str> {
         Ok(())
     }
 
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::Value
+    }
+
     fn reflect_ref(&self) -> ReflectRef {
         ReflectRef::Value(self)
     }
@@ -1110,6 +1131,10 @@ impl Reflect for Cow<'static, str> {
         } else {
             Some(false)
         }
+    }
+
+    fn debug(&self, f: &mut fmt::Formatter<'_>) -> core::fmt::Result {
+        fmt::Debug::fmt(self, f)
     }
 }
 
@@ -1253,6 +1278,10 @@ impl<T: FromReflect + Clone + TypePath> Reflect for Cow<'static, [T]> {
         Ok(())
     }
 
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::List
+    }
+
     fn reflect_ref(&self) -> ReflectRef {
         ReflectRef::List(self)
     }
@@ -1305,6 +1334,108 @@ impl<T: FromReflect + Clone + TypePath> FromReflect for Cow<'static, [T]> {
     }
 }
 
+impl Reflect for &'static str {
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+        Some(<Self as Typed>::type_info())
+    }
+
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
+        self
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+        self
+    }
+
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self
+    }
+
+    fn apply(&mut self, value: &dyn Reflect) {
+        let value = value.as_any();
+        if let Some(&value) = value.downcast_ref::<Self>() {
+            *self = value;
+        } else {
+            panic!("Value is not a {}.", Self::type_path());
+        }
+    }
+
+    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+        *self = value.take()?;
+        Ok(())
+    }
+
+    fn reflect_ref(&self) -> ReflectRef {
+        ReflectRef::Value(self)
+    }
+
+    fn reflect_mut(&mut self) -> ReflectMut {
+        ReflectMut::Value(self)
+    }
+
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::Value(self)
+    }
+
+    fn clone_value(&self) -> Box<dyn Reflect> {
+        Box::new(*self)
+    }
+
+    fn reflect_hash(&self) -> Option<u64> {
+        let mut hasher = reflect_hasher();
+        Hash::hash(&std::any::Any::type_id(self), &mut hasher);
+        Hash::hash(self, &mut hasher);
+        Some(hasher.finish())
+    }
+
+    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+        let value = value.as_any();
+        if let Some(value) = value.downcast_ref::<Self>() {
+            Some(std::cmp::PartialEq::eq(self, value))
+        } else {
+            Some(false)
+        }
+    }
+
+    fn debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Debug::fmt(&self, f)
+    }
+}
+
+impl Typed for &'static str {
+    fn type_info() -> &'static TypeInfo {
+        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
+        CELL.get_or_set(|| TypeInfo::Value(ValueInfo::new::<Self>()))
+    }
+}
+
+impl GetTypeRegistration for &'static str {
+    fn get_type_registration() -> TypeRegistration {
+        let mut registration = TypeRegistration::of::<Self>();
+        registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
+        registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
+        registration
+    }
+}
+
+impl FromReflect for &'static str {
+    fn from_reflect(reflect: &dyn crate::Reflect) -> Option<Self> {
+        reflect.as_any().downcast_ref::<Self>().copied()
+    }
+}
+
 impl Reflect for &'static Path {
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         Some(<Self as Typed>::type_info())
@@ -1346,6 +1477,10 @@ impl Reflect for &'static Path {
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
         *self = value.take()?;
         Ok(())
+    }
+
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::Value
     }
 
     fn reflect_ref(&self) -> ReflectRef {
@@ -1445,6 +1580,10 @@ impl Reflect for Cow<'static, Path> {
         Ok(())
     }
 
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::Value
+    }
+
     fn reflect_ref(&self) -> ReflectRef {
         ReflectRef::Value(self)
     }
@@ -1516,14 +1655,11 @@ mod tests {
         Enum, FromReflect, Reflect, ReflectSerialize, TypeInfo, TypeRegistry, Typed, VariantInfo,
         VariantType,
     };
+    use bevy_utils::HashMap;
     use bevy_utils::{Duration, Instant};
-    use bevy_utils::{EntityHashMap, HashMap};
     use static_assertions::assert_impl_all;
     use std::f32::consts::{PI, TAU};
     use std::path::Path;
-
-    // EntityHashMap should implement Reflect
-    assert_impl_all!(EntityHashMap<i32, i32>: Reflect);
 
     #[test]
     fn can_serialize_duration() {
@@ -1734,5 +1870,12 @@ mod tests {
         let path = Path::new("hello_world.rs");
         let output = <&'static Path as FromReflect>::from_reflect(&path).unwrap();
         assert_eq!(path, output);
+    }
+
+    #[test]
+    fn static_str_should_from_reflect() {
+        let expected = "Hello, World!";
+        let output = <&'static str as FromReflect>::from_reflect(&expected).unwrap();
+        assert_eq!(expected, output);
     }
 }

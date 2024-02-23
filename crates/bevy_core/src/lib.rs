@@ -64,7 +64,9 @@ fn register_rust_types(app: &mut App) {
         .register_type::<HashSet<String>>()
         .register_type::<Option<String>>()
         .register_type::<Option<bool>>()
+        .register_type::<Option<f32>>()
         .register_type::<Option<f64>>()
+        .register_type::<Vec<f32>>()
         .register_type::<Cow<'static, str>>()
         .register_type::<Cow<'static, Path>>()
         .register_type::<Duration>()
@@ -105,7 +107,9 @@ fn register_math_types(app: &mut App) {
         .register_type::<bevy_math::Mat4>()
         .register_type::<bevy_math::DQuat>()
         .register_type::<bevy_math::Quat>()
-        .register_type::<bevy_math::Rect>();
+        .register_type::<bevy_math::Rect>()
+        .register_type::<Vec<bevy_math::Quat>>()
+        .register_type::<Vec<bevy_math::Vec3>>();
 }
 
 /// Setup of default task pools: [`AsyncComputeTaskPool`](bevy_tasks::AsyncComputeTaskPool),

@@ -1,41 +1,12 @@
 use crate::{
-    mesh::{Indices, Mesh},
+    mesh::{Indices, Mesh, Meshable},
     render_asset::RenderAssetUsages,
 };
-use bevy_math::{Vec2, Vec3};
+use bevy_math::{primitives::Capsule3d, Vec2, Vec3};
 use wgpu::PrimitiveTopology;
 
-/// A cylinder with hemispheres at the top and bottom
-#[derive(Debug, Copy, Clone)]
-pub struct Capsule {
-    /// Radius on the `XZ` plane.
-    pub radius: f32,
-    /// Number of sections in cylinder between hemispheres.
-    pub rings: usize,
-    /// Height of the middle cylinder on the `Y` axis, excluding the hemispheres.
-    pub depth: f32,
-    /// Number of latitudes, distributed by inclination. Must be even.
-    pub latitudes: usize,
-    /// Number of longitudes, or meridians, distributed by azimuth.
-    pub longitudes: usize,
-    /// Manner in which UV coordinates are distributed vertically.
-    pub uv_profile: CapsuleUvProfile,
-}
-impl Default for Capsule {
-    fn default() -> Self {
-        Capsule {
-            radius: 0.5,
-            rings: 0,
-            depth: 1.0,
-            latitudes: 16,
-            longitudes: 32,
-            uv_profile: CapsuleUvProfile::Aspect,
-        }
-    }
-}
-
-#[derive(Debug, Default, Clone, Copy)]
 /// Manner in which UV coordinates are distributed vertically.
+#[derive(Clone, Copy, Debug, Default)]
 pub enum CapsuleUvProfile {
     /// UV space is distributed by how much of the capsule consists of the hemispheres.
     #[default]
@@ -47,18 +18,93 @@ pub enum CapsuleUvProfile {
     Fixed,
 }
 
-impl From<Capsule> for Mesh {
-    #[allow(clippy::needless_range_loop)]
-    fn from(capsule: Capsule) -> Self {
-        // code adapted from https://behreajj.medium.com/making-a-capsule-mesh-via-script-in-five-3d-environments-c2214abf02db
+/// A builder used for creating a [`Mesh`] with a [`Capsule3d`] shape.
+#[derive(Clone, Copy, Debug)]
+pub struct Capsule3dMeshBuilder {
+    /// The [`Capsule3d`] shape.
+    pub capsule: Capsule3d,
+    /// The number of horizontal lines subdividing the cylindrical part of the capsule.
+    /// The default is `0`.
+    pub rings: usize,
+    /// The number of vertical lines subdividing the hemispheres of the capsule.
+    /// The default is `32`.
+    pub longitudes: usize,
+    /// The number of horizontal lines subdividing the hemispheres of the capsule.
+    /// The default is `16`.
+    pub latitudes: usize,
+    /// The manner in which UV coordinates are distributed vertically.
+    /// The default is [`CapsuleUvProfile::Aspect`].
+    pub uv_profile: CapsuleUvProfile,
+}
 
-        let Capsule {
-            radius,
-            rings,
-            depth,
-            latitudes,
+impl Default for Capsule3dMeshBuilder {
+    fn default() -> Self {
+        Self {
+            capsule: Capsule3d::default(),
+            rings: 0,
+            longitudes: 32,
+            latitudes: 16,
+            uv_profile: CapsuleUvProfile::default(),
+        }
+    }
+}
+
+impl Capsule3dMeshBuilder {
+    /// Creates a new [`Capsule3dMeshBuilder`] from a given radius, height, longitudes, and latitudes.
+    ///
+    /// Note that `height` is the distance between the centers of the hemispheres.
+    /// `radius` will be added to both ends to get the real height of the mesh.
+    #[inline]
+    pub fn new(radius: f32, height: f32, longitudes: usize, latitudes: usize) -> Self {
+        Self {
+            capsule: Capsule3d::new(radius, height),
             longitudes,
+            latitudes,
+            ..Default::default()
+        }
+    }
+
+    /// Sets the number of horizontal lines subdividing the cylindrical part of the capsule.
+    #[inline]
+    pub const fn rings(mut self, rings: usize) -> Self {
+        self.rings = rings;
+        self
+    }
+
+    /// Sets the number of vertical lines subdividing the hemispheres of the capsule.
+    #[inline]
+    pub const fn longitudes(mut self, longitudes: usize) -> Self {
+        self.longitudes = longitudes;
+        self
+    }
+
+    /// Sets the number of horizontal lines subdividing the hemispheres of the capsule.
+    #[inline]
+    pub const fn latitudes(mut self, latitudes: usize) -> Self {
+        self.latitudes = latitudes;
+        self
+    }
+
+    /// Sets the manner in which UV coordinates are distributed vertically.
+    #[inline]
+    pub const fn uv_profile(mut self, uv_profile: CapsuleUvProfile) -> Self {
+        self.uv_profile = uv_profile;
+        self
+    }
+
+    /// Builds a [`Mesh`] based on the configuration in `self`.
+    pub fn build(&self) -> Mesh {
+        // code adapted from https://behreajj.medium.com/making-a-capsule-mesh-via-script-in-five-3d-environments-c2214abf02db
+        let Capsule3dMeshBuilder {
+            capsule,
+            rings,
+            longitudes,
+            latitudes,
             uv_profile,
+        } = *self;
+        let Capsule3d {
+            radius,
+            half_length,
         } = capsule;
 
         let calc_middle = rings > 0;
@@ -67,8 +113,7 @@ impl From<Capsule> for Mesh {
         let half_latsn2 = half_lats - 2;
         let ringsp1 = rings + 1;
         let lonsp1 = longitudes + 1;
-        let half_depth = depth * 0.5;
-        let summit = half_depth + radius;
+        let summit = half_length + radius;
 
         // Vertex index offsets.
         let vert_offset_north_hemi = longitudes;
@@ -96,7 +141,7 @@ impl From<Capsule> for Mesh {
         let to_tex_vertical = 1.0 / half_lats as f32;
 
         let vt_aspect_ratio = match uv_profile {
-            CapsuleUvProfile::Aspect => radius / (depth + radius + radius),
+            CapsuleUvProfile::Aspect => radius / (2.0 * half_length + radius + radius),
             CapsuleUvProfile::Uniform => half_lats as f32 / (ringsp1 + latitudes) as f32,
             CapsuleUvProfile::Fixed => 1.0 / 3.0,
         };
@@ -131,9 +176,9 @@ impl From<Capsule> for Mesh {
         }
 
         // Equatorial vertices.
-        for j in 0..lonsp1 {
+        for (j, s_texture_cache_j) in s_texture_cache.iter_mut().enumerate().take(lonsp1) {
             let s_texture = 1.0 - j as f32 * to_tex_horizontal;
-            s_texture_cache[j] = s_texture;
+            *s_texture_cache_j = s_texture;
 
             // Wrap to first element upon reaching last.
             let j_mod = j % longitudes;
@@ -142,13 +187,13 @@ impl From<Capsule> for Mesh {
 
             // North equator.
             let idxn = vert_offset_north_equator + j;
-            vs[idxn] = Vec3::new(rtc.x, half_depth, -rtc.y);
+            vs[idxn] = Vec3::new(rtc.x, half_length, -rtc.y);
             vts[idxn] = Vec2::new(s_texture, vt_aspect_north);
             vns[idxn] = Vec3::new(tc.x, 0.0, -tc.y);
 
             // South equator.
             let idxs = vert_offset_south_equator + j;
-            vs[idxs] = Vec3::new(rtc.x, -half_depth, -rtc.y);
+            vs[idxs] = Vec3::new(rtc.x, -half_length, -rtc.y);
             vts[idxs] = Vec2::new(s_texture, vt_aspect_south);
             vns[idxs] = Vec3::new(tc.x, 0.0, -tc.y);
         }
@@ -169,11 +214,11 @@ impl From<Capsule> for Mesh {
 
             let rho_cos_phi_north = radius * cos_phi_north;
             let rho_sin_phi_north = radius * sin_phi_north;
-            let z_offset_north = half_depth - rho_sin_phi_north;
+            let z_offset_north = half_length - rho_sin_phi_north;
 
             let rho_cos_phi_south = radius * cos_phi_south;
             let rho_sin_phi_south = radius * sin_phi_south;
-            let z_offset_sout = -half_depth - rho_sin_phi_south;
+            let z_offset_sout = -half_length - rho_sin_phi_south;
 
             // For texture coordinates.
             let t_tex_fac = ip1f * to_tex_vertical;
@@ -185,10 +230,9 @@ impl From<Capsule> for Mesh {
             let vert_curr_lat_north = vert_offset_north_hemi + i_lonsp1;
             let vert_curr_lat_south = vert_offset_south_hemi + i_lonsp1;
 
-            for j in 0..lonsp1 {
+            for (j, s_texture) in s_texture_cache.iter().enumerate().take(lonsp1) {
                 let j_mod = j % longitudes;
 
-                let s_texture = s_texture_cache[j];
                 let tc = theta_cartesian[j_mod];
 
                 // North hemisphere.
@@ -198,7 +242,7 @@ impl From<Capsule> for Mesh {
                     z_offset_north,
                     -rho_cos_phi_north * tc.y,
                 );
-                vts[idxn] = Vec2::new(s_texture, t_tex_north);
+                vts[idxn] = Vec2::new(*s_texture, t_tex_north);
                 vns[idxn] = Vec3::new(cos_phi_north * tc.x, -sin_phi_north, -cos_phi_north * tc.y);
 
                 // South hemisphere.
@@ -208,7 +252,7 @@ impl From<Capsule> for Mesh {
                     z_offset_sout,
                     -rho_cos_phi_south * tc.y,
                 );
-                vts[idxs] = Vec2::new(s_texture, t_tex_south);
+                vts[idxs] = Vec2::new(*s_texture, t_tex_south);
                 vns[idxs] = Vec3::new(cos_phi_south * tc.x, -sin_phi_south, -cos_phi_south * tc.y);
             }
         }
@@ -224,16 +268,15 @@ impl From<Capsule> for Mesh {
                 let fac = h as f32 * to_fac;
                 let cmpl_fac = 1.0 - fac;
                 let t_texture = cmpl_fac * vt_aspect_north + fac * vt_aspect_south;
-                let z = half_depth - depth * fac;
+                let z = half_length - 2.0 * half_length * fac;
 
-                for j in 0..lonsp1 {
+                for (j, s_texture) in s_texture_cache.iter().enumerate().take(lonsp1) {
                     let j_mod = j % longitudes;
                     let tc = theta_cartesian[j_mod];
                     let rtc = rho_theta_cartesian[j_mod];
-                    let s_texture = s_texture_cache[j];
 
                     vs[idx_cyl_lat] = Vec3::new(rtc.x, z, -rtc.y);
-                    vts[idx_cyl_lat] = Vec2::new(s_texture, t_texture);
+                    vts[idx_cyl_lat] = Vec2::new(*s_texture, t_texture);
                     vns[idx_cyl_lat] = Vec3::new(tc.x, 0.0, -tc.y);
 
                     idx_cyl_lat += 1;
@@ -374,6 +417,29 @@ impl From<Capsule> for Mesh {
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vs)
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vns)
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, vts)
-        .with_indices(Some(Indices::U32(tris)))
+        .with_inserted_indices(Indices::U32(tris))
+    }
+}
+
+impl Meshable for Capsule3d {
+    type Output = Capsule3dMeshBuilder;
+
+    fn mesh(&self) -> Self::Output {
+        Capsule3dMeshBuilder {
+            capsule: *self,
+            ..Default::default()
+        }
+    }
+}
+
+impl From<Capsule3d> for Mesh {
+    fn from(capsule: Capsule3d) -> Self {
+        capsule.mesh().build()
+    }
+}
+
+impl From<Capsule3dMeshBuilder> for Mesh {
+    fn from(capsule: Capsule3dMeshBuilder) -> Self {
+        capsule.build()
     }
 }

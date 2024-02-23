@@ -671,9 +671,7 @@ impl App {
     where
         T: Plugin,
     {
-        self.plugin_registry
-            .iter()
-            .any(|p| p.downcast_ref::<T>().is_some())
+        self.plugin_registry.iter().any(|p| p.is::<T>())
     }
 
     /// Returns a vector of references to any plugins of type `T` that have been added.
@@ -1007,8 +1005,8 @@ impl App {
     /// (conflicting access but indeterminate order) with systems in `set`.
     ///
     /// When possible, do this directly in the `.add_systems(Update, a.ambiguous_with(b))` call.
-    /// However, sometimes two independant plugins `A` and `B` are reported as ambiguous, which you
-    /// can only supress as the consumer of both.
+    /// However, sometimes two independent plugins `A` and `B` are reported as ambiguous, which you
+    /// can only suppress as the consumer of both.
     #[track_caller]
     pub fn ignore_ambiguity<M1, M2, S1, S2>(
         &mut self,

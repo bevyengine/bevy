@@ -24,13 +24,7 @@ fn setup(
 ) {
     // sphere
     commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(
-            Mesh::try_from(shape::Icosphere {
-                radius: 1.0,
-                subdivisions: 5,
-            })
-            .unwrap(),
-        ),
+        mesh: meshes.add(Sphere::new(1.0)),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         material: materials.add(ExtendedMaterial {
             base: StandardMaterial {
@@ -51,11 +45,8 @@ fn setup(
 
     // light
     commands.spawn((
-        PointLightBundle {
-            point_light: PointLight {
-                intensity: 150_000.0,
-                ..default()
-            },
+        DirectionalLightBundle {
+            transform: Transform::from_xyz(1.0, 1.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         },
         Rotate,
@@ -72,12 +63,8 @@ fn setup(
 struct Rotate;
 
 fn rotate_things(mut q: Query<&mut Transform, With<Rotate>>, time: Res<Time>) {
-    for mut t in q.iter_mut() {
-        t.translation = Vec3::new(
-            time.elapsed_seconds().sin(),
-            0.5,
-            time.elapsed_seconds().cos(),
-        ) * 4.0;
+    for mut t in &mut q {
+        t.rotate_y(time.delta_seconds());
     }
 }
 

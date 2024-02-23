@@ -9,6 +9,7 @@ use bevy_core_pipeline::{
     core_2d::Transparent2d,
     tonemapping::{DebandDither, Tonemapping},
 };
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem, SystemState},
@@ -36,7 +37,7 @@ use bevy_render::{
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{EntityHashMap, FloatOrd, HashMap};
+use bevy_utils::{FloatOrd, HashMap};
 use bytemuck::{Pod, Zeroable};
 use fixedbitset::FixedBitSet;
 
@@ -312,7 +313,7 @@ pub struct ExtractedSprite {
 
 #[derive(Resource, Default)]
 pub struct ExtractedSprites {
-    pub sprites: EntityHashMap<Entity, ExtractedSprite>,
+    pub sprites: EntityHashMap<ExtractedSprite>,
 }
 
 #[derive(Resource, Default)]
@@ -752,7 +753,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteViewBindGroup<I
     fn render<'w>(
         _item: &P,
         view_uniform: &'_ ViewUniformOffset,
-        _entity: (),
+        _entity: Option<()>,
         sprite_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -773,11 +774,14 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGrou
     fn render<'w>(
         _item: &P,
         _view: (),
-        batch: &'_ SpriteBatch,
+        batch: Option<&'_ SpriteBatch>,
         image_bind_groups: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let image_bind_groups = image_bind_groups.into_inner();
+        let Some(batch) = batch else {
+            return RenderCommandResult::Failure;
+        };
 
         pass.set_bind_group(
             I,
@@ -800,11 +804,15 @@ impl<P: PhaseItem> RenderCommand<P> for DrawSpriteBatch {
     fn render<'w>(
         _item: &P,
         _view: (),
-        batch: &'_ SpriteBatch,
+        batch: Option<&'_ SpriteBatch>,
         sprite_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let sprite_meta = sprite_meta.into_inner();
+        let Some(batch) = batch else {
+            return RenderCommandResult::Failure;
+        };
+
         pass.set_index_buffer(
             sprite_meta.sprite_index_buffer.buffer().unwrap().slice(..),
             0,

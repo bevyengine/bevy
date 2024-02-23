@@ -100,7 +100,7 @@ fn star(
     for i in 2..=10 {
         indices.extend_from_slice(&[0, i, i - 1]);
     }
-    star.set_indices(Some(Indices::U32(indices)));
+    star.insert_indices(Indices::U32(indices));
 
     // We can now spawn the entities for the star and the camera
     commands.spawn((

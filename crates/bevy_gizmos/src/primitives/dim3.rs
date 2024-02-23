@@ -698,9 +698,9 @@ pub struct ConicalFrustum3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
 
     // Center of conical frustum, half-way between the top and the bottom
     position: Vec3,
-    // Rotation of the conical frustrum
+    // Rotation of the conical frustum
     //
-    // default orientation is: conical frustrum base shape normals are aligned with `Vec3::Y` axis
+    // default orientation is: conical frustum base shape normals are aligned with `Vec3::Y` axis
     rotation: Quat,
     // Color of the conical frustum
     color: Color,
@@ -760,7 +760,7 @@ impl<T: GizmoConfigGroup> Drop for ConicalFrustum3dBuilder<'_, '_, '_, T> {
         let half_height = *height * 0.5;
         let normal = *rotation * Vec3::Y;
 
-        // draw the two circles of the conical frustrum
+        // draw the two circles of the conical frustum
         [(*radius_top, half_height), (*radius_bottom, -half_height)]
             .into_iter()
             .for_each(|(radius, height)| {
@@ -774,7 +774,7 @@ impl<T: GizmoConfigGroup> Drop for ConicalFrustum3dBuilder<'_, '_, '_, T> {
                 );
             });
 
-        // connect the two circles of the conical frustrum
+        // connect the two circles of the conical frustum
         circle_coordinates(*radius_top, *segments)
             .map(move |p| Vec3::new(p.x, half_height, p.y))
             .zip(
@@ -802,7 +802,7 @@ pub struct Torus3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
 
     // Center of the torus
     position: Vec3,
-    // Rotation of the conical frustrum
+    // Rotation of the conical frustum
     //
     // default orientation is: major circle normal is aligned with `Vec3::Y` axis
     rotation: Quat,

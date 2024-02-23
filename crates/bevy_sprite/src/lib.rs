@@ -17,7 +17,7 @@ pub mod prelude {
         bundle::{SpriteBundle, SpriteSheetBundle},
         sprite::{ImageScaleMode, Sprite},
         texture_atlas::{TextureAtlas, TextureAtlasLayout},
-        texture_slice::{BorderRect, SliceScaleMode, TextureSlicer},
+        texture_slice::{BorderRect, SliceScaleMode, TextureSlice, TextureSlicer},
         ColorMaterial, ColorMesh2dBundle, TextureAtlasBuilder,
     };
 }
@@ -124,7 +124,6 @@ impl Plugin for SpritePlugin {
 /// System calculating and inserting an [`Aabb`] component to entities with either:
 /// - a `Mesh2dHandle` component,
 /// - a `Sprite` and `Handle<Image>` components,
-/// - a `TextureAtlasSprite` and `Handle<TextureAtlas>` components,
 /// and without a [`NoFrustumCulling`] component.
 ///
 /// Used in system set [`VisibilitySystems::CalculateBounds`].
@@ -137,7 +136,7 @@ pub fn calculate_bounds_2d(
     sprites_to_recalculate_aabb: Query<
         (Entity, &Sprite, &Handle<Image>, Option<&TextureAtlas>),
         (
-            Or<(Without<Aabb>, Changed<Sprite>)>,
+            Or<(Without<Aabb>, Changed<Sprite>, Changed<TextureAtlas>)>,
             Without<NoFrustumCulling>,
         ),
     >,
@@ -190,7 +189,7 @@ mod test {
         // Add system
         app.add_systems(Update, calculate_bounds_2d);
 
-        // Add entites
+        // Add entities
         let entity = app.world.spawn((Sprite::default(), image_handle)).id();
 
         // Verify that the entity does not have an AABB
@@ -228,7 +227,7 @@ mod test {
         // Add system
         app.add_systems(Update, calculate_bounds_2d);
 
-        // Add entites
+        // Add entities
         let entity = app
             .world
             .spawn((

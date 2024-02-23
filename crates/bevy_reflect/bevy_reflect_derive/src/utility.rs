@@ -7,6 +7,7 @@ use bevy_macro_utils::{
 };
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, ToTokens};
+use syn::parse::{Parse, ParseStream, Peek};
 use syn::punctuated::Punctuated;
 use syn::{spanned::Spanned, LitStr, Member, Path, Token, Type, WhereClause};
 
@@ -183,7 +184,7 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
             predicates.extend(field_predicates);
         }
 
-        if let Some(custom_where) = self.meta.traits().custom_where() {
+        if let Some(custom_where) = self.meta.attrs().custom_where() {
             predicates.push(custom_where.predicates.to_token_stream());
         }
 
@@ -208,7 +209,7 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
 
     /// Returns an iterator over the where clause predicates for the active fields.
     fn active_field_predicates(&self) -> Option<impl Iterator<Item = TokenStream> + '_> {
-        if self.meta.traits().no_field_bounds() {
+        if self.meta.attrs().no_field_bounds() {
             None
         } else {
             let bevy_reflect_path = self.meta.bevy_reflect_path();
@@ -403,5 +404,39 @@ impl FromIterator<StringExpr> for StringExpr {
             }
             None => Default::default(),
         }
+    }
+}
+
+/// Returns a [`syn::parse::Parser`] which parses a stream of zero or more occurrences of `T`
+/// separated by punctuation of type `P`, with optional trailing punctuation.
+///
+/// This is functionally the same as [`Punctuated::parse_terminated`],
+/// but accepts a closure rather than a function pointer.
+pub(crate) fn terminated_parser<T, P, F: FnMut(ParseStream) -> syn::Result<T>>(
+    terminator: P,
+    mut parser: F,
+) -> impl FnOnce(ParseStream) -> syn::Result<Punctuated<T, P::Token>>
+where
+    P: Peek,
+    P::Token: Parse,
+{
+    let _ = terminator;
+    move |stream: ParseStream| {
+        let mut punctuated = Punctuated::new();
+
+        loop {
+            if stream.is_empty() {
+                break;
+            }
+            let value = parser(stream)?;
+            punctuated.push_value(value);
+            if stream.is_empty() {
+                break;
+            }
+            let punct = stream.parse()?;
+            punctuated.push_punct(punct);
+        }
+
+        Ok(punctuated)
     }
 }
