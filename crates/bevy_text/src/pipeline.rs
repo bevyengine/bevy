@@ -122,7 +122,8 @@ impl TextPipeline {
         );
 
         // TODO: other shaping methods?
-        buffer.set_rich_text(font_system, spans, Shaping::Basic);
+        let default_attrs = Attrs::new();
+        buffer.set_rich_text(font_system, spans, default_attrs, Shaping::Advanced);
 
         if buffer.visible_lines() == 0 {
             // Presumably the font(s) are not available yet
