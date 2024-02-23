@@ -7,10 +7,12 @@ use bevy_ecs::{
     system::{StaticSystemParam, SystemParam, SystemParamItem, SystemState},
     world::{FromWorld, Mut},
 };
+use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::{
     utility::{reflect_hasher, NonGenericTypeInfoCell},
-    FromReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath,
-    Typed, ValueInfo,
+    FromReflect, FromType, GetTypeRegistration, Reflect, ReflectDeserialize, ReflectFromPtr,
+    ReflectFromReflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, ReflectSerialize,
+    TypeInfo, TypePath, TypeRegistration, Typed, ValueInfo,
 };
 use bevy_utils::{thiserror::Error, HashMap, HashSet};
 use serde::{Deserialize, Serialize};
@@ -152,6 +154,18 @@ impl Reflect for RenderAssetUsages {
         } else {
             Some(false)
         }
+    }
+}
+
+impl GetTypeRegistration for RenderAssetUsages {
+    fn get_type_registration() -> TypeRegistration {
+        let mut registration = TypeRegistration::of::<Self>();
+        registration.insert::<ReflectSerialize>(FromType::<Self>::from_type());
+        registration.insert::<ReflectDeserialize>(FromType::<Self>::from_type());
+        registration.insert::<ReflectDefault>(FromType::<Self>::from_type());
+        registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
+        registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
+        registration
     }
 }
 
