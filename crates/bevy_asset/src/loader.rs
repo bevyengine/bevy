@@ -1,13 +1,7 @@
-use crate::{
-    io::{AssetReaderError, MissingAssetSourceError, MissingProcessedAssetReaderError, Reader},
-    meta::{
-        loader_settings_meta_transform, AssetHash, AssetMeta, AssetMetaDyn, ProcessedInfoMinimal,
-        Settings,
-    },
-    path::AssetPath,
-    Asset, AssetLoadError, AssetServer, AssetServerMode, Assets, Handle, LoadedUntypedAsset,
-    UntypedAssetId, UntypedHandle,
-};
+use crate::{io::{AssetReaderError, MissingAssetSourceError, MissingProcessedAssetReaderError, Reader}, meta::{
+    loader_settings_meta_transform, AssetHash, AssetMeta, AssetMetaDyn, ProcessedInfoMinimal,
+    Settings,
+}, path::AssetPath, Asset, AssetLoadError, AssetServer, AssetServerMode, Assets, Handle, LoadedUntypedAsset, UntypedAssetId, UntypedHandle, AssetHooks};
 use bevy_ecs::world::World;
 use bevy_utils::{BoxedFuture, CowArc, HashMap, HashSet};
 use downcast_rs::{impl_downcast, Downcast};
@@ -234,6 +228,8 @@ impl ErasedLoadedAsset {
 pub trait AssetContainer: Downcast + Any + Send + Sync + 'static {
     fn insert(self: Box<Self>, id: UntypedAssetId, world: &mut World);
     fn asset_type_name(&self) -> &'static str;
+
+    fn load_hook(&mut self, asset_hooks: &mut AssetHooks);
 }
 
 impl_downcast!(AssetContainer);
@@ -245,6 +241,10 @@ impl<A: Asset> AssetContainer for A {
 
     fn asset_type_name(&self) -> &'static str {
         std::any::type_name::<A>()
+    }
+
+    fn load_hook(&mut self, asset_hooks: &mut AssetHooks) {
+        asset_hooks.trigger::<A>(self);
     }
 }
 

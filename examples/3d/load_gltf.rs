@@ -12,6 +12,9 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, animate_light_direction)
+        .register_asset_hook::<bevy_internal::gltf::Gltf>(|gltf: &mut bevy_internal::gltf::Gltf| {
+            info!("number of scenes in gltf: {}", gltf.scenes.len());
+        })
         .run();
 }
 

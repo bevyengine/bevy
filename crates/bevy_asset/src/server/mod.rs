@@ -20,7 +20,7 @@ use crate::{
 use bevy_ecs::prelude::*;
 use bevy_log::{error, info};
 use bevy_tasks::IoTaskPool;
-use bevy_utils::{CowArc, HashSet};
+use bevy_utils::{CowArc, hashbrown, HashSet};
 use crossbeam_channel::{Receiver, Sender};
 use futures_lite::StreamExt;
 use info::*;
@@ -58,6 +58,62 @@ pub(crate) struct AssetServerData {
     sources: AssetSources,
     mode: AssetServerMode,
     meta_check: AssetMetaCheck,
+    pub(crate) hooks: RwLock<AssetHooks>,
+}
+
+struct TypeMap(hashbrown::HashMap<TypeId, Box<dyn std::any::Any + Send + Sync>>);
+
+impl TypeMap {
+    pub fn set<T: std::any::Any + Send + Sync + 'static>(&mut self, t: T) {
+        self.0.insert(TypeId::of::<T>(), Box::new(t));
+    }
+    pub fn has<T: 'static + Send + Sync + std::any::Any>(&self) -> bool {
+        self.0.contains_key(&TypeId::of::<T>())
+    }
+
+    pub fn get_mut<T: 'static + Send + Sync + std::any::Any>(&mut self) -> Option<&mut T> {
+        self.0.get_mut(&TypeId::of::<T>()).map(|t| {
+            t.downcast_mut::<T>().unwrap()
+        })
+    }
+}
+
+// pub trait AssetHook<A: HookedAsset> = FnMut(&mut A) -> () + Send + 'static;
+
+type AssetHookVec<A> = Vec<Box<dyn FnMut(&mut A) -> () + Send + Sync + 'static>>;
+
+pub struct AssetHooks(TypeMap);
+
+impl Default for AssetHooks {
+    fn default() -> Self {
+        Self {
+            0: TypeMap(hashbrown::HashMap::new()),
+        }
+    }
+}
+
+impl AssetHooks {
+    fn add_asset_hook<A, F>(&mut self, f: F)
+    where
+    A: Asset,
+    F: FnMut(&mut A) -> () + Send + Sync + 'static,
+    {
+        if !self.0.has::<AssetHookVec<A>>() {
+            self.0.set::<AssetHookVec<A>>(Vec::new());
+        }
+
+        let hooks = self.0.get_mut::<AssetHookVec<A>>().unwrap();
+        hooks.push(Box::new(f));
+    }
+    pub(crate) fn trigger<A>(&mut self, asset: &mut A)
+    where
+    A: Asset
+    {
+        let Some(hooks) = self.0.get_mut::<AssetHookVec<A>>() else { return };
+        for hook in hooks {
+            hook(asset);
+        }
+    }
 }
 
 /// The "asset mode" the server is currently in.
@@ -118,6 +174,7 @@ impl AssetServer {
                 asset_event_receiver,
                 loaders,
                 infos: RwLock::new(infos),
+                hooks: RwLock::new(AssetHooks::default()),
             }),
         }
     }
@@ -138,6 +195,10 @@ impl AssetServer {
     /// Registers a new [`AssetLoader`]. [`AssetLoader`]s must be registered before they can be used.
     pub fn register_loader<L: AssetLoader>(&self, loader: L) {
         self.data.loaders.write().push(loader);
+    }
+
+    pub fn register_asset_hook<A: Asset>(&self, hook: impl FnMut(&mut A) -> () + Send + Sync + 'static) {
+        self.data.hooks.write().add_asset_hook(hook);
     }
 
     /// Registers a new [`Asset`] type. [`Asset`] types must be registered before assets of that type can be loaded.
@@ -589,7 +650,10 @@ impl AssetServer {
     }
 
     pub(crate) fn load_asset<A: Asset>(&self, asset: impl Into<LoadedAsset<A>>) -> Handle<A> {
-        let loaded_asset: LoadedAsset<A> = asset.into();
+        let mut loaded_asset: LoadedAsset<A> = asset.into();
+
+        self.data.hooks.write().trigger(&mut loaded_asset.value);
+
         let erased_loaded_asset: ErasedLoadedAsset = loaded_asset.into();
         self.load_asset_untyped(None, erased_loaded_asset)
             .typed_debug_checked()
@@ -601,7 +665,9 @@ impl AssetServer {
         path: Option<AssetPath<'static>>,
         asset: impl Into<ErasedLoadedAsset>,
     ) -> UntypedHandle {
-        let loaded_asset = asset.into();
+        let mut loaded_asset = asset.into();
+        loaded_asset.value.load_hook(&mut self.data.hooks.write());
+
         let handle = if let Some(path) = path {
             let (handle, _) = self.data.infos.write().get_or_create_path_handle_untyped(
                 path,
@@ -1023,13 +1089,19 @@ impl AssetServer {
         let asset_path = asset_path.clone_owned();
         let load_context =
             LoadContext::new(self, asset_path.clone(), load_dependencies, populate_hashes);
-        loader.load(reader, meta, load_context).await.map_err(|e| {
+        let mut asset = loader.load(reader, meta, load_context).await.map_err(|e| {
             AssetLoadError::AssetLoaderError {
                 path: asset_path.clone_owned(),
                 loader_name: loader.type_name(),
                 error: e.into(),
             }
-        })
+        });
+
+        if let Ok(asset) = asset.as_mut() {
+            asset.value.load_hook(&mut self.data.hooks.write());
+        }
+
+        asset
     }
 }
 
