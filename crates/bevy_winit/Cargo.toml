@@ -13,6 +13,8 @@ trace = []
 wayland = ["winit/wayland", "winit/wayland-csd-adwaita"]
 x11 = ["winit/x11"]
 accesskit_unix = ["accesskit_winit/accesskit_unix", "accesskit_winit/async-io"]
+android-native-activity = ["winit/android-native-activity"]
+android-game-activity = ["winit/android-game-activity"]
 
 [dependencies]
 # bevy
@@ -35,12 +37,6 @@ accesskit_winit = { version = "0.17", default-features = false, features = [
 ] }
 approx = { version = "0.5", default-features = false }
 raw-window-handle = "0.6"
-
-[target.'cfg(target_os = "android")'.dependencies]
-winit = { version = "0.29", default-features = false, features = [
-  "android-native-activity",
-  "rwh_06",
-] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2" }
