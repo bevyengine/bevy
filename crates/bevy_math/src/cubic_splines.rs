@@ -6,8 +6,8 @@ use std::{
     ops::{Add, Div, Mul, Sub},
 };
 
-use bevy_utils::{thiserror, thiserror::Error};
 use glam::Vec2;
+use thiserror::Error;
 
 /// A point in space of any dimension that supports the math ops needed for cubic spline
 /// interpolation.
