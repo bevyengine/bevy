@@ -77,13 +77,8 @@ impl TypeMap {
             .map(|t| t.downcast_mut::<T>().unwrap())
     }
 }
-
-// pub trait AssetHook<A: HookedAsset> = FnMut(&mut A) -> () + Send + 'static;
-
 type AssetHookVec<A> =
     Vec<Box<dyn FnMut(&mut A, &mut bevy_ecs::world::World) -> () + Send + Sync + 'static>>;
-
-// type AssetHookVec<A> = Vec<Box<dyn FnMut() -> () + Send + S>>
 
 pub struct AssetHooks(TypeMap);
 
