@@ -35,7 +35,7 @@ impl EmbeddedAssetRegistry {
         #[cfg(feature = "embedded_watcher")]
         self.root_paths
             .write()
-            .insert(full_path.into_boxed_path(), asset_path.to_owned());
+            .insert(full_path.into(), asset_path.to_owned());
         self.dir.insert_asset(asset_path, value);
     }
 
@@ -48,7 +48,7 @@ impl EmbeddedAssetRegistry {
         #[cfg(feature = "embedded_watcher")]
         self.root_paths
             .write()
-            .insert(Box::from(full_path), asset_path.to_owned());
+            .insert(full_path.into(), asset_path.to_owned());
         self.dir.insert_meta(asset_path, value);
     }
 

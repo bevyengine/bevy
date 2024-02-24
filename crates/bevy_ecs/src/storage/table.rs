@@ -872,10 +872,7 @@ impl Tables {
                     table = table.add_column(components.get_info_unchecked(*component_id));
                 }
                 tables.push(table.build());
-                (
-                    Box::from(component_ids),
-                    TableId::from_usize(tables.len() - 1),
-                )
+                (component_ids.into(), TableId::from_usize(tables.len() - 1))
             });
 
         *value

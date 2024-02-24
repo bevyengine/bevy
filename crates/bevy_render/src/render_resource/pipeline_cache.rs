@@ -277,7 +277,7 @@ impl ShaderCache {
         data.pipelines.insert(pipeline);
 
         // PERF: this shader_defs clone isn't great. use raw_entry_mut when it stabilizes
-        let module = match data.processed_shaders.entry(Box::from(shader_defs)) {
+        let module = match data.processed_shaders.entry(shader_defs.into()) {
             Entry::Occupied(entry) => entry.into_mut(),
             Entry::Vacant(entry) => {
                 let mut shader_defs = shader_defs.to_vec();

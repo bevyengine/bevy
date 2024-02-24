@@ -600,7 +600,7 @@ mod tests {
                     *existing += 1;
                     *existing
                 } else {
-                    attempt_counters.insert(Box::from(path), 1);
+                    attempt_counters.insert(path.into(), 1);
                     1
                 }
             };
