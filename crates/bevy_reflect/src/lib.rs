@@ -538,7 +538,7 @@ pub use erased_serde;
 
 extern crate alloc;
 
-/// Exorts used by the reflection macros.
+/// Exports used by the reflection macros.
 ///
 /// These are not meant to be used directly and are subject to breaking changes.
 #[doc(hidden)]
