@@ -7,6 +7,7 @@
 //! - [`Hsla`] (hue, saturation, lightness, alpha)
 //! - [`Lcha`] (lightness, chroma, hue, alpha)
 //! - [`Oklaba`] (lightness, a-axis, b-axis, alpha)
+//! - [`Xyza`] (x-axis, y-axis, z-axis, alpha)
 //!
 //! Each of these color spaces is represented as a distinct Rust type.
 //!
@@ -34,6 +35,10 @@
 //! as image processing. It is not as widely used as the other color spaces, but it is useful
 //! for tasks such as color correction and image analysis, where it is important to be able
 //! to do things like change color saturation without causing hue shifts.
+//!
+//! XYZ is a foundational space commonly used in the definition of other more modern color
+//! spaces. The space is more formally known as CIE 1931, where the `x` and `z` axes represent
+//! a form of chromaticity, while `y` defines an illuminance level.
 //!
 //! See also the [Wikipedia article on color spaces](https://en.wikipedia.org/wiki/Color_space).
 //!
