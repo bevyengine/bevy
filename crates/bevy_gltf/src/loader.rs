@@ -110,7 +110,7 @@ pub struct GltfLoader {
     /// Keys must be the attribute names as found in the glTF data, which must start with an underscore.
     /// See [this section of the glTF specification](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#meshes-overview)
     /// for additional details on custom attributes.
-    pub custom_vertex_attributes: HashMap<String, MeshVertexAttribute>,
+    pub custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
 }
 
 /// Specifies optional settings for processing gltfs at load time. By default, all recognized contents of
@@ -293,7 +293,7 @@ async fn load_gltf<'a, 'b, 'c>(
             let handle = load_context
                 .add_labeled_asset(format!("Animation{}", animation.index()), animation_clip);
             if let Some(name) = animation.name() {
-                named_animations.insert(name.to_string(), handle.clone());
+                named_animations.insert(Box::from(name), handle.clone());
             }
             animations.push(handle);
         }
@@ -383,7 +383,7 @@ async fn load_gltf<'a, 'b, 'c>(
     for material in gltf.materials() {
         let handle = load_material(&material, load_context, false);
         if let Some(name) = material.name() {
-            named_materials.insert(name.to_string(), handle.clone());
+            named_materials.insert(Box::from(name), handle.clone());
         }
         materials.push(handle);
     }
@@ -526,7 +526,7 @@ async fn load_gltf<'a, 'b, 'c>(
             },
         );
         if let Some(name) = gltf_mesh.name() {
-            named_meshes.insert(name.to_string(), handle.clone());
+            named_meshes.insert(Box::from(name), handle.clone());
         }
         meshes.push(handle);
     }
@@ -563,7 +563,7 @@ async fn load_gltf<'a, 'b, 'c>(
         .filter_map(|(name, index)| {
             nodes
                 .get(index)
-                .map(|handle| (name.to_string(), handle.clone()))
+                .map(|handle| (Box::from(name), handle.clone()))
         })
         .collect();
 
@@ -661,7 +661,7 @@ async fn load_gltf<'a, 'b, 'c>(
         let scene_handle = load_context.add_loaded_labeled_asset(scene_label(&scene), loaded_scene);
 
         if let Some(name) = scene.name() {
-            named_scenes.insert(name.to_string(), scene_handle.clone());
+            named_scenes.insert(Box::from(name), scene_handle.clone());
         }
         scenes.push(scene_handle);
     }

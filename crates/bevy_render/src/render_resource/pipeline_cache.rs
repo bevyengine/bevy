@@ -125,7 +125,7 @@ impl CachedPipelineState {
 #[derive(Default)]
 struct ShaderData {
     pipelines: HashSet<CachedPipelineId>,
-    processed_shaders: HashMap<Vec<ShaderDefVal>, ErasedShaderModule>,
+    processed_shaders: HashMap<Box<[ShaderDefVal]>, ErasedShaderModule>,
     resolved_imports: HashMap<ShaderImport, AssetId<Shader>>,
     dependents: HashSet<AssetId<Shader>>,
 }
@@ -277,7 +277,7 @@ impl ShaderCache {
         data.pipelines.insert(pipeline);
 
         // PERF: this shader_defs clone isn't great. use raw_entry_mut when it stabilizes
-        let module = match data.processed_shaders.entry(shader_defs.to_vec()) {
+        let module = match data.processed_shaders.entry(Box::from(shader_defs)) {
             Entry::Occupied(entry) => entry.into_mut(),
             Entry::Vacant(entry) => {
                 let mut shader_defs = shader_defs.to_vec();
