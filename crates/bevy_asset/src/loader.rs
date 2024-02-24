@@ -235,7 +235,7 @@ pub trait AssetContainer: Downcast + Any + Send + Sync + 'static {
     fn insert(self: Box<Self>, id: UntypedAssetId, world: &mut World);
     fn asset_type_name(&self) -> &'static str;
 
-    fn load_hook(&mut self, asset_hooks: &mut AssetHooks);
+    fn load_hook(&mut self, asset_hooks: &mut AssetHooks, world: &mut World);
 }
 
 impl_downcast!(AssetContainer);
@@ -249,8 +249,8 @@ impl<A: Asset> AssetContainer for A {
         std::any::type_name::<A>()
     }
 
-    fn load_hook(&mut self, asset_hooks: &mut AssetHooks) {
-        asset_hooks.trigger::<A>(self);
+    fn load_hook(&mut self, asset_hooks: &mut AssetHooks, world: &mut World) {
+        asset_hooks.trigger::<A>(self, world);
     }
 }
 

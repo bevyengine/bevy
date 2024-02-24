@@ -47,6 +47,7 @@ use crate::{
     processor::{AssetProcessor, Process},
 };
 use bevy_app::{App, First, MainScheduleOrder, Plugin, PostUpdate};
+use bevy_ecs::prelude::IntoSystem;
 use bevy_ecs::{
     reflect::AppTypeRegistry,
     schedule::{IntoSystemConfigs, IntoSystemSetConfigs, ScheduleLabel, SystemSet},
@@ -285,9 +286,9 @@ impl VisitAssetDependencies for Vec<UntypedHandle> {
 pub trait AssetApp {
     /// Registers the given `loader` in the [`App`]'s [`AssetServer`].
     fn register_asset_loader<L: AssetLoader>(&mut self, loader: L) -> &mut Self;
-    fn register_asset_hook<A: Asset>(
+    fn register_asset_hook<A: Asset, Out, Marker>(
         &mut self,
-        hook: impl FnMut(&mut A) -> () + Send + Sync + 'static,
+        hook: impl IntoSystem<&'static mut A, Out, Marker> + Sync + Send + 'static + Clone,
     ) -> &mut Self;
     /// Registers the given `processor` in the [`App`]'s [`AssetProcessor`].
     fn register_asset_processor<P: Process>(&mut self, processor: P) -> &mut Self;
@@ -330,9 +331,9 @@ impl AssetApp for App {
         self
     }
 
-    fn register_asset_hook<A: Asset>(
+    fn register_asset_hook<A: Asset, Out, Marker>(
         &mut self,
-        hook: impl FnMut(&mut A) -> () + Send + Sync + 'static,
+        hook: impl IntoSystem<&'static mut A, Out, Marker> + Sync + Send + 'static + Clone,
     ) -> &mut Self {
         self.world
             .resource::<AssetServer>()

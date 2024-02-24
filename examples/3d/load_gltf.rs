@@ -4,6 +4,8 @@ use bevy::{
     pbr::{CascadeShadowConfigBuilder, DirectionalLightShadowMap},
     prelude::*,
 };
+use bevy_internal::ecs::system::RunSystemOnce;
+use bevy_internal::gltf::GltfMesh;
 use std::f32::consts::*;
 
 fn main() {
@@ -12,9 +14,13 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, animate_light_direction)
-        .register_asset_hook::<bevy_internal::gltf::Gltf>(|gltf: &mut bevy_internal::gltf::Gltf| {
-            info!("number of scenes in gltf: {}", gltf.scenes.len());
-        })
+        .register_asset_hook::<bevy_internal::gltf::Gltf, _, _>(
+            |In(gltf): In<&mut bevy_internal::gltf::Gltf>, meshes: Res<Assets<GltfMesh>>| {
+                for (name, mesh) in gltf.named_meshes.iter() {
+                    println!("name: {}, mesh: {:#?}", name, meshes.get(mesh).unwrap())
+                }
+            },
+        )
         .run();
 }
 

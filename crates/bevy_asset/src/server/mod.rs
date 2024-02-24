@@ -80,7 +80,10 @@ impl TypeMap {
 
 // pub trait AssetHook<A: HookedAsset> = FnMut(&mut A) -> () + Send + 'static;
 
-type AssetHookVec<A> = Vec<Box<dyn FnMut(&mut A) -> () + Send + Sync + 'static>>;
+type AssetHookVec<A> =
+    Vec<Box<dyn FnMut(&mut A, &mut bevy_ecs::world::World) -> () + Send + Sync + 'static>>;
+
+// type AssetHookVec<A> = Vec<Box<dyn FnMut() -> () + Send + S>>
 
 pub struct AssetHooks(TypeMap);
 
@@ -93,19 +96,37 @@ impl Default for AssetHooks {
 }
 
 impl AssetHooks {
-    fn add_asset_hook<A, F>(&mut self, f: F)
+    fn add_asset_hook<A, Out, Marker, F>(&mut self, f: F)
     where
         A: Asset,
-        F: FnMut(&mut A) -> () + Send + Sync + 'static,
+        F: IntoSystem<&'static mut A, Out, Marker> + Sync + Send + 'static + Clone,
+        //F: FnMut(&mut A, &mut bevy_ecs::world::World) -> () + Send + Sync + 'static,
     {
         if !self.0.has::<AssetHookVec<A>>() {
             self.0.set::<AssetHookVec<A>>(Vec::new());
         }
 
         let hooks = self.0.get_mut::<AssetHookVec<A>>().unwrap();
-        hooks.push(Box::new(f));
+        hooks.push(Box::new(move |asset, world| {
+            // This uses unsafe code to get a raw pointer in order to fuffill a static
+            // Lifetime requirement. This is actually okay in this particular case.
+            // This is because we re-create the system everytime this is called
+            // Because of this, it means the `In` system param can never be
+            // Persisted past this closure.
+            // Combine this with the fact that the In system parameter does not
+            // Persist in the world struct, it means there is no place that
+            // The `&'static mut A` could be held past the call of this closure.
+            // Therefore, it's lifetime being 'static does not break the ailsiing rules
+            // Because there will never be two references to it.
+            let mut system: F::System = IntoSystem::into_system(f.clone());
+            system.initialize(world);
+            unsafe {
+                system.run((asset as *mut A).as_mut().unwrap(), world);
+            }
+            system.apply_deferred(world);
+        }));
     }
-    pub(crate) fn trigger<A>(&mut self, asset: &mut A)
+    pub(crate) fn trigger<A>(&mut self, asset: &mut A, world: &mut World)
     where
         A: Asset,
     {
@@ -113,7 +134,7 @@ impl AssetHooks {
             return;
         };
         for hook in hooks {
-            hook(asset);
+            hook(asset, world);
         }
     }
 }
@@ -199,9 +220,9 @@ impl AssetServer {
         self.data.loaders.write().push(loader);
     }
 
-    pub fn register_asset_hook<A: Asset>(
+    pub fn register_asset_hook<A: Asset, Out, Marker>(
         &self,
-        hook: impl FnMut(&mut A) -> () + Send + Sync + 'static,
+        hook: impl IntoSystem<&'static mut A, Out, Marker> + Sync + Send + 'static + Clone,
     ) {
         self.data.hooks.write().add_asset_hook(hook);
     }
@@ -657,7 +678,7 @@ impl AssetServer {
     pub(crate) fn load_asset<A: Asset>(&self, asset: impl Into<LoadedAsset<A>>) -> Handle<A> {
         let mut loaded_asset: LoadedAsset<A> = asset.into();
 
-        self.data.hooks.write().trigger(&mut loaded_asset.value);
+        //self.data.hooks.write().trigger(&mut loaded_asset.value);
 
         let erased_loaded_asset: ErasedLoadedAsset = loaded_asset.into();
         self.load_asset_untyped(None, erased_loaded_asset)
@@ -671,7 +692,7 @@ impl AssetServer {
         asset: impl Into<ErasedLoadedAsset>,
     ) -> UntypedHandle {
         let mut loaded_asset = asset.into();
-        loaded_asset.value.load_hook(&mut self.data.hooks.write());
+        //loaded_asset.value.load_hook(&mut self.data.hooks.write());
 
         let handle = if let Some(path) = path {
             let (handle, _) = self.data.infos.write().get_or_create_path_handle_untyped(
@@ -1102,10 +1123,6 @@ impl AssetServer {
             }
         });
 
-        if let Ok(asset) = asset.as_mut() {
-            asset.value.load_hook(&mut self.data.hooks.write());
-        }
-
         asset
     }
 }
@@ -1117,7 +1134,13 @@ pub fn handle_internal_asset_events(world: &mut World) {
         let mut untyped_failures = vec![];
         for event in server.data.asset_event_receiver.try_iter() {
             match event {
-                InternalAssetEvent::Loaded { id, loaded_asset } => {
+                InternalAssetEvent::Loaded {
+                    id,
+                    mut loaded_asset,
+                } => {
+                    loaded_asset
+                        .value
+                        .load_hook(&mut server.data.hooks.write(), world);
                     infos.process_asset_load(
                         id,
                         loaded_asset,
