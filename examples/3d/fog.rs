@@ -162,10 +162,7 @@ fn update_system(
     .looking_at(Vec3::ZERO, Vec3::Y);
 
     // Fog Information
-    text.sections[0].value = format!(
-        "Fog Falloff: {:?}\nFog Color: {:?}",
-        fog.falloff, fog.color
-    );
+    text.sections[0].value = format!("Fog Falloff: {:?}\nFog Color: {:?}", fog.falloff, fog.color);
 
     // Fog Falloff Mode Switching
     text.sections[0]
