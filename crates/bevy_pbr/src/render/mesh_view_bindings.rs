@@ -23,11 +23,6 @@ use bevy_render::{
 
 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
 use bevy_render::render_resource::binding_types::texture_cube;
-#[cfg(any(
-    not(feature = "webgl"),
-    not(target_arch = "wasm32"),
-    feature = "webgpu"
-))]
 use environment_map::EnvironmentMapLight;
 
 use crate::{
