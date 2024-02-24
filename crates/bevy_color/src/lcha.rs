@@ -52,6 +52,21 @@ impl Lcha {
             alpha: 1.0,
         }
     }
+
+    /// Return a copy of this color with the hue channel set to the given value.
+    pub const fn with_hue(self, hue: f32) -> Self {
+        Self { hue, ..self }
+    }
+
+    /// Return a copy of this color with the chroma channel set to the given value.
+    pub const fn with_chroma(self, chroma: f32) -> Self {
+        Self { chroma, ..self }
+    }
+
+    /// Return a copy of this color with the lightness channel set to the given value.
+    pub const fn with_lightness(self, lightness: f32) -> Self {
+        Self { lightness, ..self }
+    }
 }
 
 impl Default for Lcha {
