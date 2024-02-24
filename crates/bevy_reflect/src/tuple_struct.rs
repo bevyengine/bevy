@@ -19,7 +19,7 @@ use std::slice::Iter;
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{Reflect, TupleStruct};
+/// use bevy_reflect::{PartialReflect, Reflect, TupleStruct};
 ///
 /// #[derive(Reflect)]
 /// struct Foo(u32);
@@ -28,8 +28,8 @@ use std::slice::Iter;
 ///
 /// assert_eq!(foo.field_len(), 1);
 ///
-/// let field: &dyn Reflect = foo.field(0).unwrap();
-/// assert_eq!(field.downcast_ref::<u32>(), Some(&123));
+/// let field: &dyn PartialReflect = foo.field(0).unwrap();
+/// assert_eq!(field.try_downcast_ref::<u32>(), Some(&123));
 /// ```
 ///
 /// [tuple struct-like]: https://doc.rust-lang.org/book/ch05-01-defining-structs.html#using-tuple-structs-without-named-fields-to-create-different-types

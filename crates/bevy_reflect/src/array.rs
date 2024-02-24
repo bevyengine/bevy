@@ -28,13 +28,13 @@ use std::{
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{Reflect, Array};
+/// use bevy_reflect::{PartialReflect, Array};
 ///
 /// let foo: &dyn Array = &[123_u32, 456_u32, 789_u32];
 /// assert_eq!(foo.len(), 3);
 ///
-/// let field: &dyn Reflect = foo.get(0).unwrap();
-/// assert_eq!(field.downcast_ref::<u32>(), Some(&123));
+/// let field: &dyn PartialReflect = foo.get(0).unwrap();
+/// assert_eq!(field.try_downcast_ref::<u32>(), Some(&123));
 /// ```
 ///
 /// [array-like]: https://doc.rust-lang.org/book/ch03-02-data-types.html#the-array-type

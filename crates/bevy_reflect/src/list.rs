@@ -35,13 +35,13 @@ use crate::{
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{Reflect, List};
+/// use bevy_reflect::{PartialReflect, Reflect, List};
 ///
 /// let foo: &mut dyn List = &mut vec![123_u32, 456_u32, 789_u32];
 /// assert_eq!(foo.len(), 3);
 ///
-/// let last_field: Box<dyn Reflect> = foo.pop().unwrap();
-/// assert_eq!(last_field.downcast_ref::<u32>(), Some(&789));
+/// let last_field: Box<dyn PartialReflect> = foo.pop().unwrap();
+/// assert_eq!(last_field.try_downcast_ref::<u32>(), Some(&789));
 /// ```
 ///
 /// [list-like]: https://doc.rust-lang.org/book/ch08-01-vectors.html

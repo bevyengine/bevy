@@ -27,7 +27,7 @@ use crate::{
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{Reflect, Map};
+/// use bevy_reflect::{PartialReflect, Reflect, Map};
 /// use bevy_utils::HashMap;
 ///
 ///
@@ -35,8 +35,8 @@ use crate::{
 /// foo.insert_boxed(Box::new(123_u32), Box::new(true));
 /// assert_eq!(foo.len(), 1);
 ///
-/// let field: &dyn Reflect = foo.get(&123_u32).unwrap();
-/// assert_eq!(field.downcast_ref::<bool>(), Some(&true));
+/// let field: &dyn PartialReflect = foo.get(&123_u32).unwrap();
+/// assert_eq!(field.try_downcast_ref::<bool>(), Some(&true));
 /// ```
 ///
 /// [map-like]: https://doc.rust-lang.org/book/ch08-03-hash-maps.html

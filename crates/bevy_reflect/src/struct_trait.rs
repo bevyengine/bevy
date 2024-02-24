@@ -23,7 +23,7 @@ use std::{
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{Reflect, Struct};
+/// use bevy_reflect::{PartialReflect, Reflect, Struct};
 ///
 /// #[derive(Reflect)]
 /// struct Foo {
@@ -35,8 +35,8 @@ use std::{
 /// assert_eq!(foo.field_len(), 1);
 /// assert_eq!(foo.name_at(0), Some("bar"));
 ///
-/// let field: &dyn Reflect = foo.field("bar").unwrap();
-/// assert_eq!(field.downcast_ref::<u32>(), Some(&123));
+/// let field: &dyn PartialReflect = foo.field("bar").unwrap();
+/// assert_eq!(field.try_downcast_ref::<u32>(), Some(&123));
 /// ```
 ///
 /// [struct-like]: https://doc.rust-lang.org/book/ch05-01-defining-structs.html

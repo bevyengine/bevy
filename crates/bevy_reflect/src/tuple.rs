@@ -22,13 +22,13 @@ use std::slice::Iter;
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{Reflect, Tuple};
+/// use bevy_reflect::{PartialReflect, Tuple};
 ///
 /// let foo = (123_u32, true);
 /// assert_eq!(foo.field_len(), 2);
 ///
-/// let field: &dyn Reflect = foo.field(0).unwrap();
-/// assert_eq!(field.downcast_ref::<u32>(), Some(&123));
+/// let field: &dyn PartialReflect = foo.field(0).unwrap();
+/// assert_eq!(field.try_downcast_ref::<u32>(), Some(&123));
 /// ```
 ///
 /// [tuple-like]: https://doc.rust-lang.org/book/ch03-02-data-types.html#the-tuple-type
