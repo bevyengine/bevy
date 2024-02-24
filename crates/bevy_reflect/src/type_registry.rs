@@ -435,7 +435,7 @@ pub struct ReflectSerialize {
     get_serializable: for<'a> fn(value: &'a dyn Reflect) -> Serializable,
 }
 
-impl<T: TypePath + Reflect + FromReflect + erased_serde::Serialize> FromType<T>
+impl<T: TypePath + FromReflect + erased_serde::Serialize> FromType<T>
     for ReflectSerialize
 {
     fn from_type() -> Self {
