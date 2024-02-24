@@ -39,13 +39,28 @@ impl Xyza {
     /// * `x` - x-axis. [0.0, 1.0]
     /// * `y` - y-axis. [0.0, 1.0]
     /// * `z` - z-axis. [0.0, 1.0]
-    pub const fn rgb(x: f32, y: f32, z: f32) -> Self {
+    pub const fn xyz(x: f32, y: f32, z: f32) -> Self {
         Self {
             x,
             y,
             z,
             alpha: 1.0,
         }
+    }
+
+    /// Return a copy of this color with the 'x' channel set to the given value.
+    pub const fn with_x(self, x: f32) -> Self {
+        Self { x, ..self }
+    }
+
+    /// Return a copy of this color with the 'y' channel set to the given value.
+    pub const fn with_y(self, y: f32) -> Self {
+        Self { y, ..self }
+    }
+
+    /// Return a copy of this color with the 'z' channel set to the given value.
+    pub const fn with_z(self, z: f32) -> Self {
+        Self { z, ..self }
     }
 }
 

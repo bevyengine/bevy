@@ -67,6 +67,21 @@ impl Srgba {
         }
     }
 
+    /// Return a copy of this color with the red channel set to the given value.
+    pub const fn with_red(self, red: f32) -> Self {
+        Self { red, ..self }
+    }
+
+    /// Return a copy of this color with the green channel set to the given value.
+    pub const fn with_green(self, green: f32) -> Self {
+        Self { green, ..self }
+    }
+
+    /// Return a copy of this color with the blue channel set to the given value.
+    pub const fn with_blue(self, blue: f32) -> Self {
+        Self { blue, ..self }
+    }
+
     /// New `Srgba` from a CSS-style hexadecimal string.
     ///
     /// # Examples
