@@ -1,6 +1,6 @@
 use crate::{Alpha, Hsla, Lcha, LinearRgba, Oklaba, Srgba, StandardColor, Xyza};
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use bevy_render::color::Color as LegacyColor;
+use bevy_render::color::LegacyColor;
 use serde::{Deserialize, Serialize};
 
 /// An enumerated type that can represent any of the color types in this crate.

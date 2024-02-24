@@ -1,6 +1,6 @@
 use crate::{
     camera::Viewport,
-    prelude::Color,
+    prelude::LegacyColor,
     render_resource::{
         BindGroup, BindGroupId, Buffer, BufferId, BufferSlice, RenderPipeline, RenderPipelineId,
         ShaderStages,
@@ -598,7 +598,7 @@ impl<'a> TrackedRenderPass<'a> {
     /// Sets the blend color as used by some of the blending modes.
     ///
     /// Subsequent blending tests will test against this value.
-    pub fn set_blend_constant(&mut self, color: Color) {
+    pub fn set_blend_constant(&mut self, color: LegacyColor) {
         detailed_trace!("set blend constant: {:?}", color);
         self.pass.set_blend_constant(wgpu::Color::from(color));
     }

@@ -3,7 +3,7 @@ use crate::{
     StandardColor,
 };
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use bevy_render::color::Color as LegacyColor;
+use bevy_render::color::LegacyColor;
 use serde::{Deserialize, Serialize};
 
 /// Color in Oklaba color space, with alpha
