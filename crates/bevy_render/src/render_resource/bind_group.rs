@@ -109,7 +109,7 @@ impl Deref for BindGroup {
 /// * `uniform(BINDING_INDEX)`
 ///     * The field will be converted to a shader-compatible type using the [`ShaderType`] trait, written to a [`Buffer`], and bound as a uniform.
 ///     [`ShaderType`] is implemented for most math types already, such as [`f32`], [`Vec4`](bevy_math::Vec4), and
-///   [`Color`](crate::color::LegacyColor). It can also be derived for custom structs.
+///   [`LegacyColor`](crate::color::LegacyColor). It can also be derived for custom structs.
 ///
 /// * `texture(BINDING_INDEX, arguments)`
 ///     * This field's [`Handle<Image>`](bevy_asset::Handle) will be used to look up the matching [`Texture`](crate::render_resource::Texture)
