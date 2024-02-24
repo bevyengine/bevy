@@ -78,6 +78,7 @@ mod srgba;
 mod test_colors;
 #[cfg(test)]
 mod testing;
+mod xyza;
 
 pub use color::*;
 pub use color_ops::*;
@@ -87,6 +88,7 @@ pub use lcha::*;
 pub use linear_rgba::*;
 pub use oklaba::*;
 pub use srgba::*;
+pub use xyza::*;
 
 use bevy_render::color::Color as LegacyColor;
 
