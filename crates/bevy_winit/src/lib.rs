@@ -702,6 +702,7 @@ fn handle_winit_event(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn run_app_update_if_should(
     runner_state: &mut WinitAppRunnerState,
     app: &mut App,
