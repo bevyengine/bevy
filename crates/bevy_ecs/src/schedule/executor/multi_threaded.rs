@@ -166,8 +166,8 @@ impl SystemExecutor for MultiThreadedExecutor {
     fn run(
         &mut self,
         schedule: &mut SystemSchedule,
-        _skip_systems: Option<FixedBitSet>,
         world: &mut World,
+        _skip_systems: Option<&FixedBitSet>,
     ) {
         // reset counts
         self.num_systems = schedule.systems.len();
@@ -189,26 +189,18 @@ impl SystemExecutor for MultiThreadedExecutor {
         // If stepping is enabled, make sure we skip those systems that should
         // not be run.
         #[cfg(feature = "bevy_debug_stepping")]
-        if let Some(mut skipped_systems) = _skip_systems {
+        if let Some(skipped_systems) = _skip_systems {
             debug_assert_eq!(skipped_systems.len(), self.completed_systems.len());
             // mark skipped systems as completed
-            self.completed_systems |= &skipped_systems;
+            self.completed_systems |= skipped_systems;
             self.num_completed_systems = self.completed_systems.count_ones(..);
 
             // signal the dependencies for each of the skipped systems, as
             // though they had run
             for system_index in skipped_systems.ones() {
                 self.signal_dependents(system_index);
+                self.ready_systems.set(system_index, false);
             }
-
-            // Finally, we need to clear all skipped systems from the ready
-            // list.
-            //
-            // We invert the skipped system mask to get the list of systems
-            // that should be run.  Then we bitwise AND it with the ready list,
-            // resulting in a list of ready systems that aren't skipped.
-            skipped_systems.toggle_range(..);
-            self.ready_systems &= skipped_systems;
         }
 
         let thread_executor = world
@@ -370,7 +362,7 @@ impl MultiThreadedExecutor {
             // SAFETY: `can_run` returned true, which means that:
             // - It must have called `update_archetype_component_access` for each run condition.
             // - There can be no systems running whose accesses would conflict with any conditions.
-            if !self.should_run(system_index, system, conditions, world_cell) {
+            if unsafe { !self.should_run(system_index, system, conditions, world_cell) } {
                 self.skip_system_and_signal_dependents(system_index);
                 continue;
             }
@@ -487,8 +479,9 @@ impl MultiThreadedExecutor {
             // - The caller ensures that `world` has permission to read any data
             //   required by the conditions.
             // - `update_archetype_component_access` has been called for each run condition.
-            let set_conditions_met =
-                evaluate_and_fold_conditions(&mut conditions.set_conditions[set_idx], world);
+            let set_conditions_met = unsafe {
+                evaluate_and_fold_conditions(&mut conditions.set_conditions[set_idx], world)
+            };
 
             if !set_conditions_met {
                 self.skipped_systems
@@ -504,8 +497,9 @@ impl MultiThreadedExecutor {
         // - The caller ensures that `world` has permission to read any data
         //   required by the conditions.
         // - `update_archetype_component_access` has been called for each run condition.
-        let system_conditions_met =
-            evaluate_and_fold_conditions(&mut conditions.system_conditions[system_index], world);
+        let system_conditions_met = unsafe {
+            evaluate_and_fold_conditions(&mut conditions.system_conditions[system_index], world)
+        };
 
         if !system_conditions_met {
             self.skipped_systems.insert(system_index);

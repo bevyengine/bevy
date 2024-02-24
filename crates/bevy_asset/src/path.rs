@@ -87,7 +87,7 @@ pub enum ParseAssetPathError {
     /// Error that occurs when the [`AssetPath::label`] section of a path string contains the [`AssetPath::source`] delimiter `://`. E.g. `source://file.test#bad://label`.
     #[error("Asset label must not contain a `://` substring")]
     InvalidLabelSyntax,
-    /// Error that occurs when a path string has an [`AssetPath::source`] delimiter `://` with no characters preceeding it. E.g. `://file.test`.
+    /// Error that occurs when a path string has an [`AssetPath::source`] delimiter `://` with no characters preceding it. E.g. `://file.test`.
     #[error("Asset source must be at least one character. Either specify the source before the '://' or remove the `://`")]
     MissingSource,
     /// Error that occurs when a path string has an [`AssetPath::label`] delimiter `#` with no characters succeeding it. E.g. `file.test#`
@@ -143,9 +143,9 @@ impl<'a> AssetPath<'a> {
         let mut label_range = None;
 
         // Loop through the characters of the passed in &str to accomplish the following:
-        // 1. Seach for the first instance of the `://` substring. If the `://` substring is found,
+        // 1. Search for the first instance of the `://` substring. If the `://` substring is found,
         //  store the range of indices representing everything before the `://` substring as the `source_range`.
-        // 2. Seach for the last instance of the `#` character. If the `#` character is found,
+        // 2. Search for the last instance of the `#` character. If the `#` character is found,
         //  store the range of indices representing everything after the `#` character as the `label_range`
         // 3. Set the `path_range` to be everything in between the `source_range` and `label_range`,
         //  excluding the `://` substring and `#` character.
@@ -165,7 +165,7 @@ impl<'a> AssetPath<'a> {
                         2 => {
                             // If we haven't found our first `AssetPath::source` yet, check to make sure it is valid and then store it.
                             if source_range.is_none() {
-                                // If the `AssetPath::source` containes a `#` character, it is invalid.
+                                // If the `AssetPath::source` contains a `#` character, it is invalid.
                                 if label_range.is_some() {
                                     return Err(ParseAssetPathError::InvalidSourceSyntax);
                                 }
@@ -833,7 +833,7 @@ mod tests {
 
     #[test]
     fn test_resolve_implicit_relative() {
-        // A path with no inital directory separator should be considered relative.
+        // A path with no initial directory separator should be considered relative.
         let base = AssetPath::from("alice/bob#carol");
         assert_eq!(
             base.resolve("joe/next").unwrap(),

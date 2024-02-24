@@ -26,7 +26,7 @@ use thiserror::Error;
 #[reflect(Component, Default)]
 pub struct Node {
     /// The order of the node in the UI layout.
-    /// Nodes with a higher stack index are drawn on top of and recieve interactions before nodes with lower stack indices.
+    /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
     pub(crate) stack_index: u32,
     /// The size of the node as width and height in logical pixels
     ///
@@ -54,7 +54,7 @@ impl Node {
     }
 
     /// The order of the node in the UI layout.
-    /// Nodes with a higher stack index are drawn on top of and recieve interactions before nodes with lower stack indices.
+    /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
     pub const fn stack_index(&self) -> u32 {
         self.stack_index
     }
@@ -1835,10 +1835,10 @@ mod tests {
 }
 
 /// Indicates that this root [`Node`] entity should be rendered to a specific camera.
-/// UI then will be layed out respecting the camera's viewport and scale factor, and
+/// UI then will be laid out respecting the camera's viewport and scale factor, and
 /// rendered to this camera's [`bevy_render::camera::RenderTarget`].
 ///
-/// Setting this component on a non-root node will have no effect. It will be overriden
+/// Setting this component on a non-root node will have no effect. It will be overridden
 /// by the root node's component.
 ///
 /// Optional if there is only one camera in the world. Required otherwise.
