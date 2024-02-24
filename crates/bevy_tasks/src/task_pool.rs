@@ -557,7 +557,7 @@ impl TaskPool {
     /// through /// this function until the upper limit configured. This
     /// limit is very large by default, because `spawn_blocking` is often
     /// used for various kinds of IO operations that cannot be performed
-    /// asynchronously. When you run CPU-bound code using spawn_blocking,
+    /// asynchronously. When you run CPU-bound code using `spawn_blocking`,
     /// you should keep this large upper limit in mind; to run your
     /// CPU-bound computations on only a few threads. Spawning too many threads
     /// will cause the OS to [thrash], which may impact the performance
