@@ -89,20 +89,6 @@ pub use srgba::*;
 
 use bevy_render::color::Color as LegacyColor;
 
-/// Enforces that an implementing type can be transformed to and from a type `T`.
-pub(crate) trait InterchangeableWith<T>
-where
-    Self: From<T> + Into<T>,
-{
-}
-
-impl<C, T> InterchangeableWith<T> for C
-where
-    C: From<T>,
-    T: From<C>,
-{
-}
-
 /// Describes the traits that a color should implement for consistency.
 pub(crate) trait StandardColor
 where
