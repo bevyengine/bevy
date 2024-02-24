@@ -2,19 +2,18 @@
 
 use bevy_app::App;
 use bevy_ecs::prelude::*;
+use bevy_input::keyboard::KeyboardInput;
+use bevy_input::touch::TouchInput;
 use bevy_input::{
     mouse::{MouseButtonInput, MouseMotion, MouseWheel},
     touchpad::{TouchpadMagnify, TouchpadRotate},
 };
-use bevy_input::touch::TouchInput;
-use bevy_input::keyboard::KeyboardInput;
 use bevy_reflect::Reflect;
 use bevy_window::{
-    ApplicationLifetime, CursorEntered, CursorLeft, CursorMoved,
-    FileDragAndDrop, Ime, ReceivedCharacter, RequestRedraw,
-    WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowDestroyed,
-    WindowFocused, WindowMoved, WindowOccluded, WindowResized, WindowScaleFactorChanged,
-    WindowThemeChanged,
+    ApplicationLifetime, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime,
+    ReceivedCharacter, RequestRedraw, WindowBackendScaleFactorChanged, WindowCloseRequested,
+    WindowCreated, WindowDestroyed, WindowFocused, WindowMoved, WindowOccluded, WindowResized,
+    WindowScaleFactorChanged, WindowThemeChanged,
 };
 
 /// Wraps all `bevy_window` events in a common enum.
@@ -190,32 +189,84 @@ impl From<KeyboardInput> for WinitEvent {
 pub(crate) fn forward_winit_events(winit_events: &mut Vec<WinitEvent>, app: &mut App) {
     for winit_event in winit_events.iter() {
         match winit_event.clone() {
-            WinitEvent::ApplicationLifetime(e) => { app.world.send_event(e); },
-            WinitEvent::CursorEntered(e) => { app.world.send_event(e); },
-            WinitEvent::CursorLeft(e) => { app.world.send_event(e); },
-            WinitEvent::CursorMoved(e) => { app.world.send_event(e); },
-            WinitEvent::FileDragAndDrop(e) => { app.world.send_event(e); },
-            WinitEvent::Ime(e) => { app.world.send_event(e); },
-            WinitEvent::ReceivedCharacter(e) => { app.world.send_event(e); },
-            WinitEvent::RequestRedraw(e) => { app.world.send_event(e); },
-            WinitEvent::WindowBackendScaleFactorChanged(e) => { app.world.send_event(e); },
-            WinitEvent::WindowCloseRequested(e) => { app.world.send_event(e); },
-            WinitEvent::WindowCreated(e) => { app.world.send_event(e); },
-            WinitEvent::WindowDestroyed(e) => { app.world.send_event(e); },
-            WinitEvent::WindowFocused(e) => { app.world.send_event(e); },
-            WinitEvent::WindowMoved(e) => { app.world.send_event(e); },
-            WinitEvent::WindowOccluded(e) => { app.world.send_event(e); },
-            WinitEvent::WindowResized(e) => { app.world.send_event(e); },
-            WinitEvent::WindowScaleFactorChanged(e) => { app.world.send_event(e); },
-            WinitEvent::WindowThemeChanged(e) => { app.world.send_event(e); },
-            WinitEvent::MouseButtonInput(e) => { app.world.send_event(e); },
-            WinitEvent::MouseMotion(e) => { app.world.send_event(e); },
-            WinitEvent::MouseWheel(e) => { app.world.send_event(e); },
-            WinitEvent::TouchpadMagnify(e) => { app.world.send_event(e); },
-            WinitEvent::TouchpadRotate(e) => { app.world.send_event(e); },
-            WinitEvent::TouchInput(e) => { app.world.send_event(e); },
-            WinitEvent::KeyboardInput(e) => { app.world.send_event(e); },
+            WinitEvent::ApplicationLifetime(e) => {
+                app.world.send_event(e);
+            }
+            WinitEvent::CursorEntered(e) => {
+                app.world.send_event(e);
+            }
+            WinitEvent::CursorLeft(e) => {
+                app.world.send_event(e);
+            }
+            WinitEvent::CursorMoved(e) => {
+                app.world.send_event(e);
+            }
+            WinitEvent::FileDragAndDrop(e) => {
+                app.world.send_event(e);
+            }
+            WinitEvent::Ime(e) => {
+                app.world.send_event(e);
+            }
+            WinitEvent::ReceivedCharacter(e) => {
+                app.world.send_event(e);
+            }
+            WinitEvent::RequestRedraw(e) => {
+                app.world.send_event(e);
+            }
+            WinitEvent::WindowBackendScaleFactorChanged(e) => {
+                app.world.send_event(e);
+            }
+            WinitEvent::WindowCloseRequested(e) => {
+                app.world.send_event(e);
+            }
+            WinitEvent::WindowCreated(e) => {
+                app.world.send_event(e);
+            }
+            WinitEvent::WindowDestroyed(e) => {
+                app.world.send_event(e);
+            }
+            WinitEvent::WindowFocused(e) => {
+                app.world.send_event(e);
+            }
+            WinitEvent::WindowMoved(e) => {
+                app.world.send_event(e);
+            }
+            WinitEvent::WindowOccluded(e) => {
+                app.world.send_event(e);
+            }
+            WinitEvent::WindowResized(e) => {
+                app.world.send_event(e);
+            }
+            WinitEvent::WindowScaleFactorChanged(e) => {
+                app.world.send_event(e);
+            }
+            WinitEvent::WindowThemeChanged(e) => {
+                app.world.send_event(e);
+            }
+            WinitEvent::MouseButtonInput(e) => {
+                app.world.send_event(e);
+            }
+            WinitEvent::MouseMotion(e) => {
+                app.world.send_event(e);
+            }
+            WinitEvent::MouseWheel(e) => {
+                app.world.send_event(e);
+            }
+            WinitEvent::TouchpadMagnify(e) => {
+                app.world.send_event(e);
+            }
+            WinitEvent::TouchpadRotate(e) => {
+                app.world.send_event(e);
+            }
+            WinitEvent::TouchInput(e) => {
+                app.world.send_event(e);
+            }
+            WinitEvent::KeyboardInput(e) => {
+                app.world.send_event(e);
+            }
         }
     }
-    app.world.resource_mut::<Events::<WinitEvent>>().send_batch(winit_events.drain(..));
+    app.world
+        .resource_mut::<Events<WinitEvent>>()
+        .send_batch(winit_events.drain(..));
 }
