@@ -1,6 +1,6 @@
 use crate::color_difference::EuclideanDistance;
 use crate::oklaba::Oklaba;
-use crate::{Alpha, Hsla, LinearRgba, Luminance, Mix};
+use crate::{Alpha, Hsla, LinearRgba, Luminance, Mix, StandardColor};
 use bevy_math::Vec4;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render::color::{HexColorError, HslRepresentation, SrgbColorSpace};
@@ -19,6 +19,8 @@ pub struct Srgba {
     /// The alpha channel. [0.0, 1.0]
     pub alpha: f32,
 }
+
+impl StandardColor for Srgba {}
 
 impl Srgba {
     // The standard VGA colors, with alpha set to 1.0.
