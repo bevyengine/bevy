@@ -187,6 +187,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
+      - uses: actions/checkout@v4
       - name: Check for typos
         uses: crate-ci/typos@v1.18.2
       - name: Typos info
