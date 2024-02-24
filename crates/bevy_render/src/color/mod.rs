@@ -295,12 +295,12 @@ impl LegacyColor {
     /// # Examples
     ///
     /// ```
-    /// # use bevy_render::color::Color;
-    /// let color = Color::hex("FF00FF").unwrap(); // fuchsia
-    /// let color = Color::hex("FF00FF7F").unwrap(); // partially transparent fuchsia
+    /// # use bevy_render::color::LegacyColor;
+    /// let color = LegacyColor::hex("FF00FF").unwrap(); // fuchsia
+    /// let color = LegacyColor::hex("FF00FF7F").unwrap(); // partially transparent fuchsia
     ///
     /// // A standard hex color notation is also available
-    /// assert_eq!(Color::hex("#FFFFFF").unwrap(), Color::rgb(1.0, 1.0, 1.0));
+    /// assert_eq!(LegacyColor::hex("#FFFFFF").unwrap(), LegacyColor::rgb(1.0, 1.0, 1.0));
     /// ```
     ///
     pub fn hex<T: AsRef<str>>(hex: T) -> Result<LegacyColor, HexColorError> {
@@ -554,14 +554,14 @@ impl LegacyColor {
     /// # Examples
     ///
     /// ```
-    /// # use bevy_render::color::Color;
+    /// # use bevy_render::color::LegacyColor;
     /// // Fully transparent colors
-    /// assert!(Color::NONE.is_fully_transparent());
-    /// assert!(Color::rgba(1.0, 0.5, 0.5, 0.0).is_fully_transparent());
+    /// assert!(LegacyColor::NONE.is_fully_transparent());
+    /// assert!(LegacyColor::rgba(1.0, 0.5, 0.5, 0.0).is_fully_transparent());
     ///
     /// // (Partially) opaque colors
-    /// assert!(!Color::BLACK.is_fully_transparent());
-    /// assert!(!Color::rgba(1.0, 0.5, 0.5, 0.2).is_fully_transparent());
+    /// assert!(!LegacyColor::BLACK.is_fully_transparent());
+    /// assert!(!LegacyColor::rgba(1.0, 0.5, 0.5, 0.2).is_fully_transparent());
     /// ```
     #[inline(always)]
     pub fn is_fully_transparent(&self) -> bool {
