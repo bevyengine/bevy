@@ -4,11 +4,11 @@ use fixedbitset::FixedBitSet;
 use std::panic::AssertUnwindSafe;
 
 use crate::{
-    schedule::{BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
+    schedule::{
+        executor::is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule,
+    },
     world::World,
 };
-
-use super::is_apply_deferred;
 
 /// A variant of [`SingleThreadedExecutor`](crate::schedule::SingleThreadedExecutor) that calls
 /// [`apply_deferred`](crate::system::System::apply_deferred) immediately after running each system.
