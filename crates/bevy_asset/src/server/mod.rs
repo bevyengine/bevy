@@ -26,7 +26,9 @@ use futures_lite::StreamExt;
 use info::*;
 use loaders::*;
 use parking_lot::RwLock;
+use std::ops::{Deref, DerefMut};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::{any::TypeId, path::Path, sync::Arc};
 use thiserror::Error;
 
@@ -90,12 +92,44 @@ impl Default for AssetHooks {
     }
 }
 
+impl<A: Asset> AssetWrapper<A> {
+    fn new(asset: &mut A) -> Self {
+        Self {
+            ptr: asset as *mut A,
+            flag: Default::default(),
+        }
+    }
+}
+/// Safe wrapper around asset pointers to allow for passing into systems.
+pub struct AssetWrapper<A: Asset> {
+    ptr: *mut A,
+    flag: Arc<AtomicBool>,
+}
+
+impl<A: Asset> Deref for AssetWrapper<A> {
+    type Target = A;
+    fn deref(&self) -> &A {
+        unsafe { &*self.ptr }
+    }
+}
+
+impl<A: Asset> DerefMut for AssetWrapper<A> {
+    fn deref_mut(&mut self) -> &mut A {
+        unsafe { &mut *self.ptr }
+    }
+}
+
+impl<A: Asset> Drop for AssetWrapper<A> {
+    fn drop(&mut self) {
+        self.flag.store(true, Ordering::Release);
+    }
+}
+
 impl AssetHooks {
     fn add_asset_hook<A, Out, Marker, F>(&mut self, f: F)
     where
         A: Asset,
-        F: IntoSystem<&'static mut A, Out, Marker> + Sync + Send + 'static + Clone,
-        //F: FnMut(&mut A, &mut bevy_ecs::world::World) -> () + Send + Sync + 'static,
+        F: IntoSystem<AssetWrapper<A>, Out, Marker> + Sync + Send + 'static + Clone,
     {
         if !self.0.has::<AssetHookVec<A>>() {
             self.0.set::<AssetHookVec<A>>(Vec::new());
@@ -103,20 +137,13 @@ impl AssetHooks {
 
         let hooks = self.0.get_mut::<AssetHookVec<A>>().unwrap();
         hooks.push(Box::new(move |asset, world| {
-            // This uses unsafe code to get a raw pointer in order to fuffill a static
-            // Lifetime requirement. This is actually okay in this particular case.
-            // This is because we re-create the system everytime this is called
-            // Because of this, it means the `In` system param can never be
-            // Persisted past this closure.
-            // Combine this with the fact that the In system parameter does not
-            // Persist in the world struct, it means there is no place that
-            // The `&'static mut A` could be held past the call of this closure.
-            // Therefore, it's lifetime being 'static does not break the ailsiing rules
-            // Because there will never be two references to it.
             let mut system: F::System = IntoSystem::into_system(f.clone());
             system.initialize(world);
-            unsafe {
-                system.run((asset as *mut A).as_mut().unwrap(), world);
+            let asset_wrapper = AssetWrapper::new(asset);
+            let flag = asset_wrapper.flag.clone();
+            system.run(asset_wrapper, world);
+            if !flag.load(Ordering::Acquire) {
+                panic!("tried to hold asset pointer past lifetime");
             }
             system.apply_deferred(world);
         }));
@@ -217,7 +244,7 @@ impl AssetServer {
 
     pub fn register_asset_hook<A: Asset, Out, Marker>(
         &self,
-        hook: impl IntoSystem<&'static mut A, Out, Marker> + Sync + Send + 'static + Clone,
+        hook: impl IntoSystem<AssetWrapper<A>, Out, Marker> + Sync + Send + 'static + Clone,
     ) {
         self.data.hooks.write().add_asset_hook(hook);
     }
@@ -671,9 +698,7 @@ impl AssetServer {
     }
 
     pub(crate) fn load_asset<A: Asset>(&self, asset: impl Into<LoadedAsset<A>>) -> Handle<A> {
-        let mut loaded_asset: LoadedAsset<A> = asset.into();
-
-        //self.data.hooks.write().trigger(&mut loaded_asset.value);
+        let loaded_asset: LoadedAsset<A> = asset.into();
 
         let erased_loaded_asset: ErasedLoadedAsset = loaded_asset.into();
         self.load_asset_untyped(None, erased_loaded_asset)
@@ -686,9 +711,7 @@ impl AssetServer {
         path: Option<AssetPath<'static>>,
         asset: impl Into<ErasedLoadedAsset>,
     ) -> UntypedHandle {
-        let mut loaded_asset = asset.into();
-        //loaded_asset.value.load_hook(&mut self.data.hooks.write());
-
+        let loaded_asset = asset.into();
         let handle = if let Some(path) = path {
             let (handle, _) = self.data.infos.write().get_or_create_path_handle_untyped(
                 path,
@@ -1110,15 +1133,13 @@ impl AssetServer {
         let asset_path = asset_path.clone_owned();
         let load_context =
             LoadContext::new(self, asset_path.clone(), load_dependencies, populate_hashes);
-        let mut asset = loader.load(reader, meta, load_context).await.map_err(|e| {
+        loader.load(reader, meta, load_context).await.map_err(|e| {
             AssetLoadError::AssetLoaderError {
                 path: asset_path.clone_owned(),
                 loader_name: loader.type_name(),
                 error: e.into(),
             }
-        });
-
-        asset
+        })
     }
 }
 

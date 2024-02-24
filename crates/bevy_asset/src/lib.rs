@@ -288,7 +288,7 @@ pub trait AssetApp {
     fn register_asset_loader<L: AssetLoader>(&mut self, loader: L) -> &mut Self;
     fn register_asset_hook<A: Asset, Out, Marker>(
         &mut self,
-        hook: impl IntoSystem<&'static mut A, Out, Marker> + Sync + Send + 'static + Clone,
+        hook: impl IntoSystem<AssetWrapper<A>, Out, Marker> + Sync + Send + 'static + Clone,
     ) -> &mut Self;
     /// Registers the given `processor` in the [`App`]'s [`AssetProcessor`].
     fn register_asset_processor<P: Process>(&mut self, processor: P) -> &mut Self;
@@ -333,7 +333,7 @@ impl AssetApp for App {
 
     fn register_asset_hook<A: Asset, Out, Marker>(
         &mut self,
-        hook: impl IntoSystem<&'static mut A, Out, Marker> + Sync + Send + 'static + Clone,
+        hook: impl IntoSystem<AssetWrapper<A>, Out, Marker> + Sync + Send + 'static + Clone,
     ) -> &mut Self {
         self.world
             .resource::<AssetServer>()
