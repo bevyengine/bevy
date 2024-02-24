@@ -133,7 +133,7 @@ fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &mut W
 #[cfg(test)]
 #[test]
 fn skip_automatic_sync_points() {
-    // Schedules automatically insert appy_deferred systems, but these should
+    // Schedules automatically insert apply_deferred systems, but these should
     // not be executed as they only serve as markers and are not initialized
     use crate::prelude::*;
     let mut sched = Schedule::default();
