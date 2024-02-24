@@ -431,34 +431,13 @@ impl<'a> AssetPath<'a> {
                 _ => rpath,
             };
 
-            let mut result_path = PathBuf::new();
-            if !is_absolute && source.is_none() {
-                for elt in base_path.iter() {
-                    if elt == "." {
-                        // Skip
-                    } else if elt == ".." {
-                        if !result_path.pop() {
-                            // Preserve ".." if insufficient matches (per RFC 1808).
-                            result_path.push(elt);
-                        }
-                    } else {
-                        result_path.push(elt);
-                    }
-                }
-            }
-
-            for elt in rpath.iter() {
-                if elt == "." {
-                    // Skip
-                } else if elt == ".." {
-                    if !result_path.pop() {
-                        // Preserve ".." if insufficient matches (per RFC 1808).
-                        result_path.push(elt);
-                    }
-                } else {
-                    result_path.push(elt);
-                }
-            }
+            let mut result_path = if !is_absolute && source.is_none() {
+                base_path
+            } else {
+                PathBuf::new()
+            };
+            result_path.push(rpath);
+            result_path = result_path.normalized();
 
             Ok(AssetPath {
                 source: match source {
@@ -720,6 +699,30 @@ impl FromReflect for AssetPath<'static> {
         Some(Clone::clone(<dyn core::any::Any>::downcast_ref::<
             AssetPath<'static>,
         >(<dyn Reflect>::as_any(reflect))?))
+    }
+}
+
+pub(crate) trait NormalizedPath {
+    /// Normalizes the path by removing all occurrences of '.' and '..' dot-segments where possible as per RFC 1808
+    fn normalized(&self) -> PathBuf;
+}
+
+impl NormalizedPath for Path {
+    fn normalized(&self) -> PathBuf {
+        let mut result_path = PathBuf::new();
+        for elt in self.iter() {
+            if elt == "." {
+                // Skip
+            } else if elt == ".." {
+                if !result_path.pop() {
+                    // Preserve ".." if insufficient matches (per RFC 1808).
+                    result_path.push(elt);
+                }
+            } else {
+                result_path.push(elt);
+            }
+        }
+        result_path
     }
 }
 
