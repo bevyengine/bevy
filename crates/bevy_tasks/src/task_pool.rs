@@ -139,7 +139,7 @@ impl TaskPool {
 
     fn new_internal(builder: TaskPoolBuilder) -> Self {
         if let Some(thread_count) = builder.num_blocking_threads {
-            env::set_var("BLOCKING_MAX_THREADS ", thread_count.to_string().as_str());
+            env::set_var("BLOCKING_MAX_THREADS", thread_count.to_string().as_str());
         }
 
         let (shutdown_tx, shutdown_rx) = async_channel::unbounded::<()>();
@@ -554,7 +554,7 @@ impl TaskPool {
     /// closure on a thread dedicated to blocking operations.
     ///
     /// This call will spawn more blocking threads when they are requested
-    /// through /// this function until the upper limit configured. This
+    /// through until the upper limit configured. This
     /// limit is very large by default, because `spawn_blocking` is often
     /// used for various kinds of IO operations that cannot be performed
     /// asynchronously. When you run CPU-bound code using `spawn_blocking`,
