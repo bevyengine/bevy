@@ -20,6 +20,8 @@ use bevy_window::{
 ///
 /// Read these events with `EventReader<WinitEvent>` if you need to
 /// access window events in the order they were received from `winit`.
+/// Otherwise, the event types are individually readable with
+/// `EventReader<E>` (e.g. `EventReader<KeyboardInput>`).
 #[derive(Event, Debug, Clone, PartialEq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
@@ -185,9 +187,9 @@ impl From<KeyboardInput> for WinitEvent {
     }
 }
 
-/// Sends [`WinitEvent`] variants as separate events.
-pub(crate) fn forward_winit_events(winit_events: &mut Vec<WinitEvent>, app: &mut App) {
-    for winit_event in winit_events.iter() {
+/// Forwards buffered [`WinitEvent`] events to the app.
+pub(crate) fn forward_winit_events(buffered_events: &mut Vec<WinitEvent>, app: &mut App) {
+    for winit_event in buffered_events.iter() {
         match winit_event.clone() {
             WinitEvent::ApplicationLifetime(e) => {
                 app.world.send_event(e);
@@ -268,5 +270,5 @@ pub(crate) fn forward_winit_events(winit_events: &mut Vec<WinitEvent>, app: &mut
     }
     app.world
         .resource_mut::<Events<WinitEvent>>()
-        .send_batch(winit_events.drain(..));
+        .send_batch(buffered_events.drain(..));
 }
