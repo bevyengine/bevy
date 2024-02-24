@@ -23,6 +23,7 @@ pub struct AssetHandleProvider {
     pub(crate) type_id: TypeId,
 }
 
+#[derive(Debug)]
 pub(crate) struct DropEvent {
     pub(crate) id: InternalAssetId,
     pub(crate) asset_server_managed: bool,

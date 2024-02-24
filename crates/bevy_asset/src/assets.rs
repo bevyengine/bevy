@@ -276,6 +276,9 @@ pub struct Assets<A: Asset> {
     hash_map: HashMap<Uuid, A>,
     handle_provider: AssetHandleProvider,
     queued_events: Vec<AssetEvent<A>>,
+    /// Assets managed by the `Assets` struct with live strong `Handle`s
+    /// originating from `get_strong_handle`.
+    duplicate_handles: HashMap<AssetId<A>, u16>,
 }
 
 impl<A: Asset> Default for Assets<A> {
@@ -288,6 +291,7 @@ impl<A: Asset> Default for Assets<A> {
             handle_provider,
             hash_map: Default::default(),
             queued_events: Default::default(),
+            duplicate_handles: Default::default(),
         }
     }
 }
@@ -306,8 +310,7 @@ impl<A: Asset> Assets<A> {
 
     /// Inserts the given `asset`, identified by the given `id`. If an asset already exists for `id`, it will be replaced.
     pub fn insert(&mut self, id: impl Into<AssetId<A>>, asset: A) {
-        let id: AssetId<A> = id.into();
-        match id {
+        match id.into() {
             AssetId::Index { index, .. } => {
                 self.insert_with_index(index, asset).unwrap();
             }
@@ -332,9 +335,11 @@ impl<A: Asset> Assets<A> {
     }
 
     /// Returns `true` if the `id` exists in this collection. Otherwise it returns `false`.
-    // PERF: Optimize this or remove it
     pub fn contains(&self, id: impl Into<AssetId<A>>) -> bool {
-        self.get(id).is_some()
+        match id.into() {
+            AssetId::Index { index, .. } => self.dense_storage.get(index).is_some(),
+            AssetId::Uuid { uuid } => self.hash_map.contains_key(&uuid),
+        }
     }
 
     pub(crate) fn insert_with_uuid(&mut self, uuid: Uuid, asset: A) -> Option<A> {
@@ -375,18 +380,36 @@ impl<A: Asset> Assets<A> {
         )
     }
 
-    /// Retrieves a reference to the [`Asset`] with the given `id`, if its exists.
+    /// Upgrade an `AssetId` into a strong `Handle` that will prevent asset drop.
+    ///
+    /// Returns `None` if the provided `id` is not part of this `Assets` collection.
+    /// For example, it may have been dropped earlier.
+    #[inline]
+    pub fn get_strong_handle(&mut self, id: AssetId<A>) -> Option<Handle<A>> {
+        if !self.contains(id) {
+            return None;
+        }
+        *self.duplicate_handles.entry(id).or_insert(0) += 1;
+        let index = match id {
+            AssetId::Index { index, .. } => index.into(),
+            AssetId::Uuid { uuid } => uuid.into(),
+        };
+        Some(Handle::Strong(
+            self.handle_provider.get_handle(index, false, None, None),
+        ))
+    }
+
+    /// Retrieves a reference to the [`Asset`] with the given `id`, if it exists.
     /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
     #[inline]
     pub fn get(&self, id: impl Into<AssetId<A>>) -> Option<&A> {
-        let id: AssetId<A> = id.into();
-        match id {
+        match id.into() {
             AssetId::Index { index, .. } => self.dense_storage.get(index),
             AssetId::Uuid { uuid } => self.hash_map.get(&uuid),
         }
     }
 
-    /// Retrieves a mutable reference to the [`Asset`] with the given `id`, if its exists.
+    /// Retrieves a mutable reference to the [`Asset`] with the given `id`, if it exists.
     /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
     #[inline]
     pub fn get_mut(&mut self, id: impl Into<AssetId<A>>) -> Option<&mut A> {
@@ -401,7 +424,7 @@ impl<A: Asset> Assets<A> {
         result
     }
 
-    /// Removes (and returns) the [`Asset`] with the given `id`, if its exists.
+    /// Removes (and returns) the [`Asset`] with the given `id`, if it exists.
     /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
     pub fn remove(&mut self, id: impl Into<AssetId<A>>) -> Option<A> {
         let id: AssetId<A> = id.into();
@@ -412,28 +435,33 @@ impl<A: Asset> Assets<A> {
         result
     }
 
-    /// Removes (and returns) the [`Asset`] with the given `id`, if its exists. This skips emitting [`AssetEvent::Removed`].
+    /// Removes (and returns) the [`Asset`] with the given `id`, if it exists. This skips emitting [`AssetEvent::Removed`].
     /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
     pub fn remove_untracked(&mut self, id: impl Into<AssetId<A>>) -> Option<A> {
         let id: AssetId<A> = id.into();
+        self.duplicate_handles.remove(&id);
         match id {
             AssetId::Index { index, .. } => self.dense_storage.remove_still_alive(index),
             AssetId::Uuid { uuid } => self.hash_map.remove(&uuid),
         }
     }
 
-    /// Removes (and returns) the [`Asset`] with the given `id`, if its exists.
-    /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
-    pub(crate) fn remove_dropped(&mut self, id: impl Into<AssetId<A>>) -> Option<A> {
-        let id: AssetId<A> = id.into();
-        let result = match id {
-            AssetId::Index { index, .. } => self.dense_storage.remove_dropped(index),
-            AssetId::Uuid { uuid } => self.hash_map.remove(&uuid),
+    /// Removes the [`Asset`] with the given `id`.
+    pub(crate) fn remove_dropped(&mut self, id: AssetId<A>) {
+        match self.duplicate_handles.get_mut(&id) {
+            None | Some(0) => {}
+            Some(value) => {
+                *value -= 1;
+                return;
+            }
+        }
+        let existed = match id {
+            AssetId::Index { index, .. } => self.dense_storage.remove_dropped(index).is_some(),
+            AssetId::Uuid { uuid } => self.hash_map.remove(&uuid).is_some(),
         };
-        if result.is_some() {
+        if existed {
             self.queued_events.push(AssetEvent::Removed { id });
         }
-        result
     }
 
     /// Returns `true` if there are no assets in this collection.
@@ -505,20 +533,19 @@ impl<A: Asset> Assets<A> {
 
             assets.queued_events.push(AssetEvent::Unused { id });
 
+            let mut remove_asset = true;
+
             if drop_event.asset_server_managed {
                 let untyped_id = drop_event.id.untyped(TypeId::of::<A>());
                 if let Some(info) = infos.get(untyped_id) {
-                    if info.load_state == LoadState::Loading
-                        || info.load_state == LoadState::NotLoaded
-                    {
+                    if let LoadState::Loading | LoadState::NotLoaded = info.load_state {
                         not_ready.push(drop_event);
                         continue;
                     }
                 }
-                if infos.process_handle_drop(untyped_id) {
-                    assets.remove_dropped(id);
-                }
-            } else {
+                remove_asset = infos.process_handle_drop(untyped_id);
+            }
+            if remove_asset {
                 assets.remove_dropped(id);
             }
         }
