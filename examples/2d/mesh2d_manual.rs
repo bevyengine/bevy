@@ -145,7 +145,7 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
         let formats = vec![
             // Position
             VertexFormat::Float32x3,
-            // LegacyColor
+            // Color
             VertexFormat::Uint32,
         ];
 
