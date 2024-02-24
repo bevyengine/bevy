@@ -1,14 +1,12 @@
 //! Handle user specified rumble request events.
 use crate::Gilrs;
-#[cfg(not(target_arch = "wasm32"))]
-use bevy_ecs::prelude::ResMut;
-use bevy_ecs::prelude::{EventReader, Res};
+use bevy_ecs::prelude::{EventReader, Res, ResMut, Resource};
 #[cfg(target_arch = "wasm32")]
 use bevy_ecs::system::NonSendMut;
 use bevy_input::gamepad::{GamepadRumbleIntensity, GamepadRumbleRequest};
 use bevy_log::{debug, warn};
 use bevy_time::{Real, Time};
-use bevy_utils::{Duration, HashMap};
+use bevy_utils::{synccell::SyncCell, Duration, HashMap};
 use gilrs::{
     ff::{self, BaseEffect, BaseEffectType, Repeat, Replay},
     GamepadId,
@@ -25,7 +23,7 @@ struct RunningRumble {
     ///
     /// Dropping it will cause the effect to stop
     #[allow(dead_code)]
-    effect: ff::Effect,
+    effect: SyncCell<ff::Effect>,
 }
 
 #[derive(Error, Debug)]
@@ -37,7 +35,7 @@ enum RumbleError {
 }
 
 /// Contains the gilrs rumble effects that are currently running for each gamepad
-#[derive(Default)]
+#[derive(Default, Resource)]
 pub(crate) struct RunningRumbleEffects {
     /// If multiple rumbles are running at the same time, their resulting rumble
     /// will be the saturated sum of their strengths up until [`u16::MAX`]
@@ -115,7 +113,10 @@ fn handle_rumble_request(
 
             let gamepad_rumbles = running_rumbles.rumbles.entry(gamepad_id).or_default();
             let deadline = current_time + duration;
-            gamepad_rumbles.push(RunningRumble { deadline, effect });
+            gamepad_rumbles.push(RunningRumble {
+                deadline,
+                effect: SyncCell::new(effect),
+            });
         }
     }
 
@@ -126,7 +127,7 @@ pub(crate) fn play_gilrs_rumble(
     #[cfg(target_arch = "wasm32")] mut gilrs: NonSendMut<Gilrs>,
     #[cfg(not(target_arch = "wasm32"))] mut gilrs: ResMut<Gilrs>,
     mut requests: EventReader<GamepadRumbleRequest>,
-    mut running_rumbles: NonSendMut<RunningRumbleEffects>,
+    mut running_rumbles: ResMut<RunningRumbleEffects>,
 ) {
     let gilrs = gilrs.0.get();
     let current_time = time.elapsed();
