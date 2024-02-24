@@ -9,10 +9,10 @@
 use bevy::core_pipeline::Skybox;
 use bevy::prelude::*;
 
-use std::fmt::{Display, Formatter, Result as FmtResult};
-
-// Rotation speed in radians per frame.
-const ROTATION_SPEED: f32 = 0.005;
+use std::{
+    f32::consts::PI,
+    fmt::{Display, Formatter, Result as FmtResult},
+};
 
 static STOP_ROTATION_HELP_TEXT: &str = "Press Enter to stop rotation";
 static START_ROTATION_HELP_TEXT: &str = "Press Enter to start rotation";
@@ -311,6 +311,7 @@ fn create_camera_environment_map_light(cubemaps: &Cubemaps) -> EnvironmentMapLig
 
 // Rotates the camera a bit every frame.
 fn rotate_camera(
+    time: Res<Time>,
     mut camera_query: Query<&mut Transform, With<Camera3d>>,
     app_status: Res<AppStatus>,
 ) {
@@ -319,7 +320,7 @@ fn rotate_camera(
     }
 
     for mut transform in camera_query.iter_mut() {
-        transform.translation = Vec2::from_angle(ROTATION_SPEED)
+        transform.translation = Vec2::from_angle(time.delta_seconds() * PI / 5.0)
             .rotate(transform.translation.xz())
             .extend(transform.translation.y)
             .xzy();
