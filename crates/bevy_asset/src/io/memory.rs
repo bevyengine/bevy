@@ -46,11 +46,7 @@ impl Dir {
             dir = self.get_or_insert_dir(parent);
         }
         dir.0.write().assets.insert(
-            path.file_name()
-                .unwrap()
-                .to_string_lossy()
-                .into_owned()
-                .into_boxed_str(),
+            path.file_name().unwrap().to_string_lossy().into(),
             Data {
                 value: value.into(),
                 path: path.to_owned(),
@@ -64,11 +60,7 @@ impl Dir {
             dir = self.get_or_insert_dir(parent);
         }
         dir.0.write().metadata.insert(
-            path.file_name()
-                .unwrap()
-                .to_string_lossy()
-                .into_owned()
-                .into_boxed_str(),
+            path.file_name().unwrap().to_string_lossy().into(),
             Data {
                 value: value.into(),
                 path: path.to_owned(),
@@ -81,7 +73,7 @@ impl Dir {
         let mut full_path = PathBuf::new();
         for c in path.components() {
             full_path.push(c);
-            let name = c.as_os_str().to_string_lossy().to_string().into_boxed_str();
+            let name = c.as_os_str().to_string_lossy().into();
             dir = {
                 let dirs = &mut dir.0.write().dirs;
                 dirs.entry(name)
