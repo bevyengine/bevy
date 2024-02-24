@@ -1,5 +1,5 @@
 //! This example illustrates loading scenes from files.
-use bevy::{prelude::*, tasks::IoTaskPool, utils::Duration};
+use bevy::{prelude::*, tasks::ComputeTaskPool, utils::Duration};
 use std::{fs::File, io::Write};
 
 fn main() {
@@ -133,7 +133,7 @@ fn save_scene_system(world: &mut World) {
     // as they are blocking
     // This can't work in WASM as there is no filesystem access
     #[cfg(not(target_arch = "wasm32"))]
-    IoTaskPool::get()
+    ComputeTaskPool::get()
         .spawn(async move {
             // Write the scene RON data to file
             File::create(format!("assets/{NEW_SCENE_FILE_PATH}"))

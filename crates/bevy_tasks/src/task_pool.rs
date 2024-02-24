@@ -5,9 +5,11 @@ use std::{
     panic::AssertUnwindSafe,
     sync::Arc,
     thread::{self, JoinHandle},
+    env
 };
 
 use async_task::FallibleTask;
+use blocking::unblock;
 use concurrent_queue::ConcurrentQueue;
 use futures_lite::FutureExt;
 
@@ -34,6 +36,7 @@ pub struct TaskPoolBuilder {
     /// If set, we'll set up the thread pool to use at most `num_threads` threads.
     /// Otherwise use the logical core count of the system
     num_threads: Option<usize>,
+    num_blocking_threads: Option<usize>,
     /// If set, we'll use the given stack size rather than the system default
     stack_size: Option<usize>,
     /// Allows customizing the name of the threads - helpful for debugging. If set, threads will
@@ -50,7 +53,7 @@ impl TaskPoolBuilder {
         Self::default()
     }
 
-    /// Override the number of threads created for the pool. If unset, we default to the number
+    /// Override the number of threads created for the pool. If unset, it will default to the number
     /// of logical cores of the system
     pub fn num_threads(mut self, num_threads: usize) -> Self {
         self.num_threads = Some(num_threads);
@@ -135,6 +138,10 @@ impl TaskPool {
     }
 
     fn new_internal(builder: TaskPoolBuilder) -> Self {
+        if let Some(thread_count) = builder.num_blocking_threads {
+            env::set_var("BLOCKING_MAX_THREADS ", thread_count.to_string().as_str());
+        }
+
         let (shutdown_tx, shutdown_rx) = async_channel::unbounded::<()>();
 
         let executor = Arc::new(async_executor::Executor::new());
@@ -537,6 +544,34 @@ impl TaskPool {
         T: Send + 'static,
     {
         Task::new(self.executor.spawn(future))
+    }
+
+    /// Runs the provided closure on a thread where blocking is acceptable.
+    /// 
+    /// In general, issuing a blocking call or performing a lot of compute in a 
+    /// future without yielding is not okay, as it may prevent the task pool 
+    /// from driving other futures forward. This function runs the provided 
+    /// closure on a thread dedicated to blocking operations. 
+    /// 
+    /// This call will spawn more blocking threads when they are requested 
+    /// through /// this function until the upper limit configured. This 
+    /// limit is very large by default, because `spawn_blocking` is often 
+    /// used for various kinds of IO operations that cannot be performed 
+    /// asynchronously. When you run CPU-bound code using spawn_blocking, 
+    /// you should keep this large upper limit in mind; to run your 
+    /// CPU-bound computations on only a few threads. Spawning too many threads 
+    /// will cause the OS to [thrash], which may impact the performance 
+    /// of the non-blocking tasks scheduled onto the `TaskPool`.  
+    /// 
+    /// Closures spawned using `spawn_blocking` cannot be cancelled. When you shut down the executor, it will wait 
+    /// indefinitely for all blocking operations to finish. 
+    /// 
+    /// [thrash]: https://en.wikipedia.org/wiki/Thrashing_(computer_science)
+    pub fn spawn_blocking<T>(&self, f: impl FnOnce() ->  T + Send + 'static) -> Task<T>
+    where
+        T: Send + 'static,
+    {
+        Task::new(unblock(f))
     }
 
     /// Spawns a static future on the thread-local async executor for the

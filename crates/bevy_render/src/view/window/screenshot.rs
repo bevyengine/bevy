@@ -4,7 +4,7 @@ use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
 use bevy_log::{error, info, info_span};
-use bevy_tasks::AsyncComputeTaskPool;
+use bevy_tasks::ComputeTaskPool;
 use std::sync::Mutex;
 use thiserror::Error;
 use wgpu::{
@@ -42,7 +42,8 @@ pub struct ScreenshotAlreadyRequestedError;
 impl ScreenshotManager {
     /// Signals the renderer to take a screenshot of this frame.
     ///
-    /// The given callback will eventually be called on one of the [`AsyncComputeTaskPool`]s threads.
+    /// The given callback will eventually be called on one of the [`ComputeTaskPool`]'s 
+    /// blocking threads.
     pub fn take_screenshot(
         &mut self,
         window: Entity,
@@ -317,7 +318,7 @@ pub(crate) fn collect_screenshots(world: &mut World) {
             let pixel_size = texture_format.pixel_size();
             let ScreenshotPreparedState { buffer, .. } = window.screenshot_memory.take().unwrap();
 
-            let finish = async move {
+            ComputeTaskPool::get().spawn_blocking(move || {
                 let (tx, rx) = async_channel::bounded(1);
                 let buffer_slice = buffer.slice(..);
                 // The polling for this map call is done every frame when the command queue is submitted.
@@ -328,7 +329,7 @@ pub(crate) fn collect_screenshots(world: &mut World) {
                     }
                     tx.try_send(()).unwrap();
                 });
-                rx.recv().await.unwrap();
+                rx.recv_blocking().unwrap();
                 let data = buffer_slice.get_mapped_range();
                 // we immediately move the data to CPU memory to avoid holding the mapped view for long
                 let mut result = Vec::from(&*data);
@@ -365,9 +366,8 @@ pub(crate) fn collect_screenshots(world: &mut World) {
                     texture_format,
                     RenderAssetUsages::RENDER_WORLD,
                 ));
-            };
-
-            AsyncComputeTaskPool::get().spawn(finish).detach();
+            })
+            .detach();
         }
     }
 }
