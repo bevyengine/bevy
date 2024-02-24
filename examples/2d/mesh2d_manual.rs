@@ -83,7 +83,7 @@ fn star(
     let mut v_color: Vec<u32> = vec![LegacyColor::BLACK.as_linear_rgba_u32()];
     v_color.extend_from_slice(&[LegacyColor::YELLOW.as_linear_rgba_u32(); 10]);
     star.insert_attribute(
-        MeshVertexAttribute::new("Vertex_LegacyColor", 1, VertexFormat::Uint32),
+        MeshVertexAttribute::new("Vertex_Color", 1, VertexFormat::Uint32),
         v_color,
     );
 
