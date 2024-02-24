@@ -247,6 +247,10 @@ wayland = ["bevy_internal/wayland"]
 # X11 display server support
 x11 = ["bevy_internal/x11"]
 
+# Android activity support (need to manually pick one)
+android-native-activity = ["bevy_internal/android-native-activity"]
+android-game-activity = ["bevy_internal/android-game-activity"]
+
 # Enable rendering of font glyphs using subpixel accuracy
 subpixel_glyph_atlas = ["bevy_internal/subpixel_glyph_atlas"]
 
