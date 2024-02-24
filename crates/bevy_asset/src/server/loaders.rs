@@ -44,7 +44,7 @@ impl AssetLoaders {
             for extension in loader.extensions() {
                 let list = self
                     .extension_to_loaders
-                    .entry(Box::from(*extension))
+                    .entry((*extension).into())
                     .or_default();
 
                 if !list.is_empty() {
@@ -105,7 +105,7 @@ impl AssetLoaders {
         for extension in extensions {
             let list = self
                 .extension_to_loaders
-                .entry(Box::from(*extension))
+                .entry((*extension).into())
                 .or_default();
 
             if !list.is_empty() {

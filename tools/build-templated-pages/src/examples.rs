@@ -95,7 +95,7 @@ fn parse_categories() -> HashMap<Box<str>, String> {
         .iter()
         .map(|v| {
             (
-                Box::from(v.get("name").unwrap().as_str().unwrap()),
+                v.get("name").unwrap().as_str().unwrap().into(),
                 v.get("description").unwrap().as_str().unwrap().to_string(),
             )
         })

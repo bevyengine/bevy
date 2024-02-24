@@ -129,7 +129,7 @@ impl AssetInfos {
                 let mut without_label = path.to_owned();
                 if let Some(label) = without_label.take_label() {
                     let labels = living_labeled_assets.entry(without_label).or_default();
-                    labels.insert(Box::from(label.as_ref()));
+                    labels.insert(label.as_ref().into());
                 }
             }
         }

@@ -41,7 +41,7 @@ impl GltfPlugin {
         attribute: MeshVertexAttribute,
     ) -> Self {
         self.custom_vertex_attributes
-            .insert(Box::from(name), attribute);
+            .insert(name.into(), attribute);
         self
     }
 }

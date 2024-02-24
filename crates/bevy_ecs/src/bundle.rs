@@ -871,7 +871,7 @@ impl Bundles {
             .from_key(component_ids)
             .or_insert_with(|| {
                 (
-                    Box::from(component_ids),
+                    component_ids.into(),
                     initialize_dynamic_bundle(bundle_infos, components, Vec::from(component_ids)),
                 )
             });
