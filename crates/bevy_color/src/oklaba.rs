@@ -1,5 +1,9 @@
-use crate::{color_difference::EuclideanDistance, Alpha, LinearRgba, Luminance, Mix, Srgba};
+use crate::{
+    color_difference::EuclideanDistance, Alpha, Hsla, Lcha, LinearRgba, Luminance, Mix, Srgba,
+    StandardColor,
+};
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+use bevy_render::color::Color as LegacyColor;
 use serde::{Deserialize, Serialize};
 
 /// Color in Oklaba color space, with alpha
@@ -15,6 +19,8 @@ pub struct Oklaba {
     /// The alpha channel. [0.0, 1.0]
     pub alpha: f32,
 }
+
+impl StandardColor for Oklaba {}
 
 impl Oklaba {
     /// Construct a new [`Oklaba`] color from components.
@@ -129,6 +135,30 @@ impl From<LinearRgba> for Oklaba {
 impl From<Srgba> for Oklaba {
     fn from(value: Srgba) -> Self {
         Oklaba::from(LinearRgba::from(value))
+    }
+}
+
+impl From<Lcha> for Oklaba {
+    fn from(value: Lcha) -> Self {
+        LinearRgba::from(value).into()
+    }
+}
+
+impl From<Hsla> for Oklaba {
+    fn from(value: Hsla) -> Self {
+        LinearRgba::from(value).into()
+    }
+}
+
+impl From<LegacyColor> for Oklaba {
+    fn from(value: LegacyColor) -> Self {
+        LinearRgba::from(value).into()
+    }
+}
+
+impl From<Oklaba> for LegacyColor {
+    fn from(value: Oklaba) -> Self {
+        LinearRgba::from(value).into()
     }
 }
 

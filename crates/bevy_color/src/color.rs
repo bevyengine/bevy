@@ -1,10 +1,14 @@
-use crate::{Hsla, Lcha, LinearRgba, Oklaba, Srgba};
+use crate::{Alpha, Hsla, Lcha, LinearRgba, Oklaba, Srgba, StandardColor};
+use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+use bevy_render::color::Color as LegacyColor;
+use serde::{Deserialize, Serialize};
 
 /// An enumerated type that can represent any of the color types in this crate.
 ///
 /// This is useful when you need to store a color in a data structure that can't be generic over
 /// the color type.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
+#[reflect(PartialEq, Serialize, Deserialize)]
 pub enum Color {
     /// A color in the sRGB color space with alpha.
     Srgba(Srgba),
@@ -17,6 +21,8 @@ pub enum Color {
     /// A color in the Oklaba color space with alpha.
     Oklaba(Oklaba),
 }
+
+impl StandardColor for Color {}
 
 impl Color {
     /// Return the color as a linear RGBA color.
@@ -34,6 +40,32 @@ impl Color {
 impl Default for Color {
     fn default() -> Self {
         Self::Srgba(Srgba::WHITE)
+    }
+}
+
+impl Alpha for Color {
+    fn with_alpha(&self, alpha: f32) -> Self {
+        let mut new = *self;
+
+        match &mut new {
+            Color::Srgba(x) => *x = x.with_alpha(alpha),
+            Color::LinearRgba(x) => *x = x.with_alpha(alpha),
+            Color::Hsla(x) => *x = x.with_alpha(alpha),
+            Color::Lcha(x) => *x = x.with_alpha(alpha),
+            Color::Oklaba(x) => *x = x.with_alpha(alpha),
+        }
+
+        new
+    }
+
+    fn alpha(&self) -> f32 {
+        match self {
+            Color::Srgba(x) => x.alpha(),
+            Color::LinearRgba(x) => x.alpha(),
+            Color::Hsla(x) => x.alpha(),
+            Color::Lcha(x) => x.alpha(),
+            Color::Oklaba(x) => x.alpha(),
+        }
     }
 }
 
@@ -123,6 +155,29 @@ impl From<Color> for Oklaba {
             Color::Hsla(hsla) => Srgba::from(hsla).into(),
             Color::Lcha(lcha) => LinearRgba::from(lcha).into(),
             Color::Oklaba(oklab) => oklab,
+        }
+    }
+}
+
+impl From<LegacyColor> for Color {
+    fn from(value: LegacyColor) -> Self {
+        match value {
+            LegacyColor::Rgba { .. } => Srgba::from(value).into(),
+            LegacyColor::RgbaLinear { .. } => LinearRgba::from(value).into(),
+            LegacyColor::Hsla { .. } => Hsla::from(value).into(),
+            LegacyColor::Lcha { .. } => Lcha::from(value).into(),
+        }
+    }
+}
+
+impl From<Color> for LegacyColor {
+    fn from(value: Color) -> Self {
+        match value {
+            Color::Srgba(x) => x.into(),
+            Color::LinearRgba(x) => x.into(),
+            Color::Hsla(x) => x.into(),
+            Color::Lcha(x) => x.into(),
+            Color::Oklaba(x) => x.into(),
         }
     }
 }

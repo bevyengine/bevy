@@ -22,17 +22,18 @@ impl<T: Mix> ColorRange<T> for Range<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::palettes::basic;
     use crate::{LinearRgba, Srgba};
 
     #[test]
     fn test_color_range() {
-        let range = Srgba::RED..Srgba::BLUE;
-        assert_eq!(range.at(0.0), Srgba::RED);
+        let range = basic::RED..basic::BLUE;
+        assert_eq!(range.at(0.0), basic::RED);
         assert_eq!(range.at(0.5), Srgba::new(0.5, 0.0, 0.5, 1.0));
-        assert_eq!(range.at(1.0), Srgba::BLUE);
+        assert_eq!(range.at(1.0), basic::BLUE);
 
-        let lred: LinearRgba = Srgba::RED.into();
-        let lblue: LinearRgba = Srgba::BLUE.into();
+        let lred: LinearRgba = basic::RED.into();
+        let lblue: LinearRgba = basic::BLUE.into();
 
         let range = lred..lblue;
         assert_eq!(range.at(0.0), lred);
