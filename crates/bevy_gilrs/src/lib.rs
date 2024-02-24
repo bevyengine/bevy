@@ -39,7 +39,7 @@ impl Plugin for GilrsPlugin {
                 #[cfg(not(target_arch = "wasm32"))]
                 app.insert_resource(Gilrs(SyncCell::new(gilrs)));
 
-                app.init_non_send_resource::<RunningRumbleEffects>()
+                app.init_resource::<RunningRumbleEffects>()
                     .add_systems(PreStartup, gilrs_event_startup_system)
                     .add_systems(PreUpdate, gilrs_event_system.before(InputSystem))
                     .add_systems(PostUpdate, play_gilrs_rumble.in_set(RumbleSystem));
