@@ -42,11 +42,8 @@ pub fn gilrs_event_system(
     gamepad_axis: Res<Axis<GamepadAxis>>,
     gamepad_settings: Res<GamepadSettings>,
 ) {
-    let mut gilrs = gilrs.0.get();
-    while let Some(gilrs_event) = gilrs
-        .next_event()
-        .filter_ev(&axis_dpad_to_button, &mut gilrs)
-    {
+    let gilrs = gilrs.0.get();
+    while let Some(gilrs_event) = gilrs.next_event().filter_ev(&axis_dpad_to_button, gilrs) {
         gilrs.update(&gilrs_event);
 
         let gamepad = convert_gamepad_id(gilrs_event.id);
