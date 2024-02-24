@@ -72,6 +72,7 @@ mod hsla;
 mod lcha;
 mod linear_rgba;
 mod oklaba;
+pub mod palettes;
 mod srgba;
 #[cfg(test)]
 mod test_colors;
