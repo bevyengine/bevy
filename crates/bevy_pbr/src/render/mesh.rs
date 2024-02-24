@@ -324,7 +324,7 @@ pub fn extract_meshes(
                         material_bind_group_id: AtomicMaterialBindGroupId::default(),
                         automatic_batching: !no_automatic_batching,
                     },
-                ))
+                ));
             });
         },
     );
