@@ -163,7 +163,7 @@ fn update_system(
 
     // Fog Information
     text.sections[0].value = format!(
-        "Fog Falloff: {:?}\nFog LegacyColor: {:?}",
+        "Fog Falloff: {:?}\nFog Color: {:?}",
         fog.falloff, fog.color
     );
 
