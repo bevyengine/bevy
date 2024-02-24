@@ -8,7 +8,6 @@ use bevy_math::{
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, CameraProjection},
-    color::LegacyColor,
     extract_component::ExtractComponent,
     extract_resource::ExtractResource,
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, HalfSpace, Sphere},

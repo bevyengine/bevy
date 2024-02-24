@@ -28,7 +28,6 @@ use bevy_render::render_resource::binding_types::texture_cube;
     not(target_arch = "wasm32"),
     feature = "webgpu"
 ))]
-use bevy_render::render_resource::binding_types::{texture_2d_array, texture_cube_array};
 use environment_map::EnvironmentMapLight;
 
 use crate::{

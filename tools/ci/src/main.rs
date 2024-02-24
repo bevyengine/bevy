@@ -159,7 +159,8 @@ fn main() {
     }
 
     if what_to_run.contains(Check::CFG_CHECK) {
-        // Run cfg checks
+        // Check cfg and imports
+        std::env::set_var("RUSTFLAGS", "-D warnings");
         cmd!(sh, "cargo check -Zcheck-cfg --workspace")
             .run()
             .expect("Please fix failing cfg checks in output above.");

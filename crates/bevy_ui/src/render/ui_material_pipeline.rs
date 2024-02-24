@@ -1,16 +1,13 @@
 use std::{hash::Hash, marker::PhantomData, ops::Range};
 
-use bevy_app::{App, Plugin};
 use bevy_asset::*;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    prelude::{Component, Entity, EventReader},
-    query::{ROQueryItem, With},
-    schedule::IntoSystemConfigs,
+    prelude::Component,
+    query::ROQueryItem,
     storage::SparseSet,
     system::lifetimeless::{Read, SRes},
     system::*,
-    world::{FromWorld, World},
 };
 use bevy_math::{Mat4, Rect, Vec2, Vec4Swizzles};
 use bevy_render::{
@@ -22,7 +19,7 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, FallbackImage, Image},
     view::*,
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderSet,
 };
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::{FloatOrd, HashMap, HashSet};

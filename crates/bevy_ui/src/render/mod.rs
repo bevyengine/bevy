@@ -6,10 +6,7 @@ use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_hierarchy::Parent;
-use bevy_render::{
-    render_phase::PhaseItem, render_resource::BindGroupEntries, view::ViewVisibility,
-    ExtractSchedule, Render,
-};
+use bevy_render::{render_phase::PhaseItem, view::ViewVisibility, ExtractSchedule, Render};
 use bevy_sprite::{SpriteAssetEvents, TextureAtlas};
 pub use pipeline::*;
 pub use render_pass::*;

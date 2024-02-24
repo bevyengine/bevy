@@ -5,7 +5,6 @@ use bevy_ecs::{
     system::{Resource, SystemParam},
 };
 use bevy_utils::HashMap;
-use wgpu::{Extent3d, TextureFormat};
 
 use crate::{
     prelude::Image,
