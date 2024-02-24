@@ -79,6 +79,7 @@ impl TypeMap {
             .map(|t| t.downcast_mut::<T>().unwrap())
     }
 }
+#[allow(clippy::unused_unit)]
 type AssetHookVec<A> =
     Vec<Box<dyn FnMut(&mut A, &mut bevy_ecs::world::World) -> () + Send + Sync + 'static>>;
 
@@ -86,9 +87,7 @@ pub struct AssetHooks(TypeMap);
 
 impl Default for AssetHooks {
     fn default() -> Self {
-        Self {
-            0: TypeMap(hashbrown::HashMap::new()),
-        }
+        Self(TypeMap(hashbrown::HashMap::new()))
     }
 }
 
@@ -109,12 +108,16 @@ pub struct AssetWrapper<A: Asset> {
 impl<A: Asset> Deref for AssetWrapper<A> {
     type Target = A;
     fn deref(&self) -> &A {
+        // SAFETY: This is safe because we ensure that we flag right after the system that gets the asset
+        // that it has dropped the AssetWrapper. If it hasn't we panic.
         unsafe { &*self.ptr }
     }
 }
 
 impl<A: Asset> DerefMut for AssetWrapper<A> {
     fn deref_mut(&mut self) -> &mut A {
+        // SAFETY: This is safe because we ensure that we flag right after the system that gets the asset
+        // that it has dropped the AssetWrapper. If it hasn't we panic.
         unsafe { &mut *self.ptr }
     }
 }
