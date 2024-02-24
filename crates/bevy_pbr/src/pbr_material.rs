@@ -25,7 +25,7 @@ pub struct StandardMaterial {
     /// in between. If used together with a `base_color_texture`, this is factored into the final
     /// base color as `base_color * base_color_texture_value`
     ///
-    /// Defaults to [`Color::WHITE`].
+    /// Defaults to [`LegacyColor::WHITE`].
     pub base_color: LegacyColor,
 
     /// The texture component of the material's color before lighting.
@@ -33,7 +33,7 @@ pub struct StandardMaterial {
     ///
     /// See [`base_color`] for details.
     ///
-    /// You should set `base_color` to [`Color::WHITE`] (the default)
+    /// You should set `base_color` to [`LegacyColor::WHITE`] (the default)
     /// if you want the texture to show as-is.
     ///
     /// Setting `base_color` to something else than white will tint
@@ -67,7 +67,7 @@ pub struct StandardMaterial {
     /// to get the final "emitting" color of a surface.
     ///
     /// This color is multiplied by [`emissive`] to get the final emitted color.
-    /// Meaning that you should set [`emissive`] to [`Color::WHITE`]
+    /// Meaning that you should set [`emissive`] to [`LegacyColor::WHITE`]
     /// if you want to use the full range of color of the emissive texture.
     ///
     /// [`emissive`]: StandardMaterial::emissive
@@ -274,7 +274,7 @@ pub struct StandardMaterial {
 
     /// The resulting (non-absorbed) color after white light travels through the attenuation distance.
     ///
-    /// Defaults to [`Color::WHITE`], i.e. no change.
+    /// Defaults to [`LegacyColor::WHITE`], i.e. no change.
     ///
     /// **Note:** To have any effect, must be used in conjunction with:
     /// - [`StandardMaterial::attenuation_distance`];
