@@ -109,14 +109,13 @@ pub(crate) fn check(what_to_run: Command) {
         let categories = parse_categories();
         let examples_by_category: HashMap<Box<str>, Category> = examples
             .into_iter()
-            .fold(HashMap::<String, Vec<Example>>::new(), |mut v, ex| {
-                v.entry(ex.category.clone()).or_default().push(ex);
+            .fold(HashMap::<Box<str>, Vec<Example>>::new(), |mut v, ex| {
+                v.entry(ex.category.as_str().into()).or_default().push(ex);
                 v
             })
             .into_iter()
             .map(|(key, mut examples)| {
                 examples.sort();
-                let key = key.into_boxed_str();
                 let description = categories.get(&key).cloned();
                 (
                     key,
