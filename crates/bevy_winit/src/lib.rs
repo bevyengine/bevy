@@ -119,6 +119,7 @@ impl Plugin for WinitPlugin {
 
         app.init_non_send_resource::<WinitWindows>()
             .init_resource::<WinitSettings>()
+            .add_event::<WinitEvent>()
             .set_runner(winit_runner)
             .add_systems(
                 Last,
@@ -341,8 +342,6 @@ fn handle_winit_event(
         }
     }
 
-    winit_events.clear();
-
     match event {
         Event::AboutToWait => {
             let (config, windows) = focused_windows_state.get(&app.world);
@@ -395,6 +394,7 @@ fn handle_winit_event(
                         create_window,
                         app_exit_event_reader,
                         redraw_event_reader,
+                        winit_events,
                     );
                     if runner_state.active != ActiveState::Suspended {
                         event_loop.set_control_flow(ControlFlow::Poll);
@@ -619,6 +619,7 @@ fn handle_winit_event(
                         create_window,
                         app_exit_event_reader,
                         redraw_event_reader,
+                        winit_events,
                     );
                 }
                 _ => {}
@@ -699,8 +700,6 @@ fn handle_winit_event(
         }
         _ => (),
     }
-
-    forward_winit_events(winit_events, app);
 }
 
 fn run_app_update_if_should(
@@ -711,12 +710,16 @@ fn run_app_update_if_should(
     create_window: &mut SystemState<CreateWindowParams<Added<Window>>>,
     app_exit_event_reader: &mut ManualEventReader<AppExit>,
     redraw_event_reader: &mut ManualEventReader<RequestRedraw>,
+    winit_events: &mut Vec<WinitEvent>,
 ) {
     runner_state.reset_on_update();
 
     if !runner_state.active.should_run() {
         return;
     }
+
+    forward_winit_events(winit_events, app);
+
     if runner_state.active == ActiveState::WillSuspend {
         runner_state.active = ActiveState::Suspended;
         #[cfg(target_os = "android")]
