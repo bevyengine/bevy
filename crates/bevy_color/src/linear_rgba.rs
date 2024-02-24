@@ -1,5 +1,6 @@
 use crate::{
     color_difference::EuclideanDistance, oklaba::Oklaba, Alpha, Hsla, Luminance, Mix, Srgba,
+    StandardColor,
 };
 use bevy_math::Vec4;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
@@ -19,6 +20,8 @@ pub struct LinearRgba {
     /// The alpha channel. [0.0, 1.0]
     pub alpha: f32,
 }
+
+impl StandardColor for LinearRgba {}
 
 impl LinearRgba {
     /// Construct a new [`LinearRgba`] color from components.

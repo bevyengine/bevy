@@ -87,3 +87,25 @@ pub use lcha::*;
 pub use linear_rgba::*;
 pub use oklaba::*;
 pub use srgba::*;
+
+use bevy_render::color::Color as LegacyColor;
+
+/// Describes the traits that a color should implement for consistency.
+pub(crate) trait StandardColor
+where
+    Self: core::fmt::Debug,
+    Self: Clone + Copy,
+    Self: PartialEq,
+    Self: serde::Serialize + for<'a> serde::Deserialize<'a>,
+    Self: bevy_reflect::Reflect,
+    Self: Default,
+    Self: From<Color> + Into<Color>,
+    Self: From<LegacyColor> + Into<LegacyColor>,
+    Self: From<Srgba> + Into<Srgba>,
+    Self: From<LinearRgba> + Into<LinearRgba>,
+    Self: From<Hsla> + Into<Hsla>,
+    Self: From<Lcha> + Into<Lcha>,
+    Self: From<Oklaba> + Into<Oklaba>,
+    Self: Alpha,
+{
+}
