@@ -12,6 +12,8 @@ keywords = ["bevy"]
 webgl = []
 webgpu = []
 pbr_transmission_textures = []
+shader_format_glsl = ["bevy_render/shader_format_glsl"]
+trace = ["bevy_render/trace"]
 
 [dependencies]
 # bevy

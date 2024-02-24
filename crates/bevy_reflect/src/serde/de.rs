@@ -23,6 +23,7 @@ pub trait DeserializeValue {
 }
 
 trait StructLikeInfo {
+    #[allow(dead_code)]
     fn get_path(&self) -> &str;
     fn get_field(&self, name: &str) -> Option<&NamedField>;
     fn field_at(&self, index: usize) -> Option<&NamedField>;
@@ -31,7 +32,9 @@ trait StructLikeInfo {
 }
 
 trait TupleLikeInfo {
+    #[allow(dead_code)]
     fn get_path(&self) -> &str;
+    #[allow(dead_code)]
     fn get_field(&self, index: usize) -> Option<&UnnamedField>;
     fn get_field_len(&self) -> usize;
 }
