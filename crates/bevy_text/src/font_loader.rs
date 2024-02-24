@@ -12,9 +12,6 @@ pub enum FontLoaderError {
     /// An [IO](std::io) Error
     #[error(transparent)]
     Io(#[from] std::io::Error),
-    /// An [InvalidFont](ab_glyph::InvalidFont) Error
-    #[error(transparent)]
-    FontInvalid(#[from] ab_glyph::InvalidFont),
 }
 
 impl AssetLoader for FontLoader {
@@ -30,7 +27,9 @@ impl AssetLoader for FontLoader {
         Box::pin(async move {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;
-            Ok(Font::try_from_bytes(bytes)?)
+            let font = Font::from_bytes(bytes);
+            // load_context.set_default_asset(LoadedAsset::new(font));
+            Ok(font)
         })
     }
 

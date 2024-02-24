@@ -1,6 +1,6 @@
 use crate::{
     BreakLineOn, Font, FontAtlasSets, PositionedGlyph, Text, TextError, TextLayoutInfo,
-    TextPipeline, TextSettings, YAxisOrientation,
+    TextPipeline, YAxisOrientation,
 };
 use bevy_asset::Assets;
 use bevy_ecs::{
@@ -111,7 +111,7 @@ pub fn extract_text2d_sprite(
         }
 
         let text_anchor = -(anchor.as_vec() + 0.5);
-        let alignment_translation = text_layout_info.logical_size * text_anchor;
+        let alignment_translation = text_layout_info.size * text_anchor;
         let transform = *global_transform
             * GlobalTransform::from_translation(alignment_translation.extend(0.))
             * scaling;
@@ -136,7 +136,7 @@ pub fn extract_text2d_sprite(
                 ExtractedSprite {
                     transform: transform * GlobalTransform::from_translation(position.extend(0.)),
                     color,
-                    rect: Some(atlas.textures[atlas_info.glyph_index]),
+                    rect: Some(atlas.textures[atlas_info.location.glyph_index]),
                     custom_size: None,
                     image_handle_id: atlas_info.texture.id(),
                     flip_x: false,
@@ -162,7 +162,6 @@ pub fn update_text2d_layout(
     mut queue: Local<HashSet<Entity>>,
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
-    text_settings: Res<TextSettings>,
     windows: Query<&Window, With<PrimaryWindow>>,
     mut scale_factor_changed: EventReader<WindowScaleFactorChanged>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
@@ -194,14 +193,13 @@ pub fn update_text2d_layout(
             match text_pipeline.queue_text(
                 &fonts,
                 &text.sections,
-                scale_factor,
+                scale_factor.into(),
                 text.justify,
                 text.linebreak_behavior,
                 text_bounds,
                 &mut font_atlas_sets,
                 &mut texture_atlases,
                 &mut textures,
-                text_settings.as_ref(),
                 YAxisOrientation::BottomToTop,
             ) {
                 Err(TextError::NoSuchFont) => {
@@ -209,12 +207,16 @@ pub fn update_text2d_layout(
                     // queue for further processing
                     queue.insert(entity);
                 }
-                Err(e @ TextError::FailedToAddGlyph(_)) => {
+                Err(
+                    e @ (TextError::FailedToAddGlyph(_)
+                    | TextError::FailedToAcquireMutex
+                    | TextError::FailedToGetGlyphImage(_)),
+                ) => {
                     panic!("Fatal error when processing text: {e}.");
                 }
                 Ok(mut info) => {
-                    info.logical_size.x = scale_value(info.logical_size.x, inverse_scale_factor);
-                    info.logical_size.y = scale_value(info.logical_size.y, inverse_scale_factor);
+                    info.size.x = scale_value(info.size.x, inverse_scale_factor);
+                    info.size.y = scale_value(info.size.y, inverse_scale_factor);
                     *text_layout_info = info;
                 }
             }

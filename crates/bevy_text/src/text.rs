@@ -6,10 +6,19 @@ use bevy_utils::default;
 use serde::{Deserialize, Serialize};
 
 use crate::Font;
+// TODO: reexport cosmic_text and these types in the prelude
+pub use cosmic_text::{
+    self, FamilyOwned as FontFamily, Stretch as FontStretch, Style as FontStyle,
+    Weight as FontWeight,
+};
 
+/// A component that is the entry point for rendering text.
+///
+/// It contains all of the text value and styling information.
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct Text {
+    /// The text's sections
     pub sections: Vec<TextSection>,
     /// The text's internal alignment.
     /// Should not affect its position within a container.
@@ -43,7 +52,7 @@ impl Text {
     ///     // Accepts a String or any type that converts into a String, such as &str.
     ///     "hello world!",
     ///     TextStyle {
-    ///         font: font_handle.clone(),
+    ///         font: font_handle.clone().into(),
     ///         font_size: 60.0,
     ///         color: Color::WHITE,
     ///     },
@@ -52,7 +61,7 @@ impl Text {
     /// let hello_bevy = Text::from_section(
     ///     "hello world\nand bevy!",
     ///     TextStyle {
-    ///         font: font_handle,
+    ///         font: font_handle.into(),
     ///         font_size: 60.0,
     ///         color: Color::WHITE,
     ///     },
@@ -79,7 +88,7 @@ impl Text {
     ///     TextSection::new(
     ///         "Hello, ",
     ///         TextStyle {
-    ///             font: font_handle.clone(),
+    ///             font: font_handle.clone().into(),
     ///             font_size: 60.0,
     ///             color: Color::BLUE,
     ///         },
@@ -87,7 +96,7 @@ impl Text {
     ///     TextSection::new(
     ///         "World!",
     ///         TextStyle {
-    ///             font: font_handle,
+    ///             font: font_handle.into(),
     ///             font_size: 60.0,
     ///             color: Color::RED,
     ///         },
@@ -115,6 +124,7 @@ impl Text {
     }
 }
 
+/// Contains the value of the text in a section and how it should be styled.
 #[derive(Debug, Default, Clone, Reflect)]
 pub struct TextSection {
     pub value: String,
@@ -179,16 +189,6 @@ pub enum JustifyText {
     Right,
 }
 
-impl From<JustifyText> for glyph_brush_layout::HorizontalAlign {
-    fn from(val: JustifyText) -> Self {
-        match val {
-            JustifyText::Left => glyph_brush_layout::HorizontalAlign::Left,
-            JustifyText::Center => glyph_brush_layout::HorizontalAlign::Center,
-            JustifyText::Right => glyph_brush_layout::HorizontalAlign::Right,
-        }
-    }
-}
-
 #[derive(Clone, Debug, Reflect)]
 pub struct TextStyle {
     /// If this is not specified, then
@@ -211,6 +211,7 @@ impl Default for TextStyle {
     fn default() -> Self {
         Self {
             font: Default::default(),
+            // FontRef::Asset(DEFAULT_FONT_HANDLE.typed()),
             font_size: 12.0,
             color: Color::WHITE,
         }
@@ -232,17 +233,4 @@ pub enum BreakLineOn {
     /// No soft wrapping, where text is automatically broken up into separate lines when it overflows a boundary, will ever occur.
     /// Hard wrapping, where text contains an explicit linebreak such as the escape sequence `\n`, is still enabled.
     NoWrap,
-}
-
-impl From<BreakLineOn> for glyph_brush_layout::BuiltInLineBreaker {
-    fn from(val: BreakLineOn) -> Self {
-        match val {
-            // If `NoWrap` is set the choice of `BuiltInLineBreaker` doesn't matter as the text is given unbounded width and soft wrapping will never occur.
-            // But `NoWrap` does not disable hard breaks where a [`Text`] contains a newline character.
-            BreakLineOn::WordBoundary | BreakLineOn::NoWrap => {
-                glyph_brush_layout::BuiltInLineBreaker::UnicodeLineBreaker
-            }
-            BreakLineOn::AnyCharacter => glyph_brush_layout::BuiltInLineBreaker::AnyCharLineBreaker,
-        }
-    }
 }

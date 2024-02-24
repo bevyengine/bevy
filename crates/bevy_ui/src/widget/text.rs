@@ -13,7 +13,7 @@ use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlasLayout;
 use bevy_text::{
     scale_value, BreakLineOn, Font, FontAtlasSets, Text, TextError, TextLayoutInfo,
-    TextMeasureInfo, TextPipeline, TextSettings, YAxisOrientation,
+    TextMeasureInfo, TextPipeline, YAxisOrientation,
 };
 use bevy_window::{PrimaryWindow, Window};
 use taffy::style::AvailableSpace;
@@ -39,7 +39,6 @@ impl Default for TextFlags {
     }
 }
 
-#[derive(Clone)]
 pub struct TextMeasure {
     pub info: TextMeasureInfo,
 }
@@ -80,12 +79,19 @@ impl Measure for TextMeasure {
 #[inline]
 fn create_text_measure(
     fonts: &Assets<Font>,
-    scale_factor: f32,
+    scale_factor: f64,
     text: Ref<Text>,
+    text_pipeline: &mut TextPipeline,
     mut content_size: Mut<ContentSize>,
     mut text_flags: Mut<TextFlags>,
 ) {
-    match TextMeasureInfo::from_text(&text, fonts, scale_factor) {
+    match text_pipeline.create_text_measure(
+        fonts,
+        &text.sections,
+        scale_factor,
+        text.justify,
+        text.linebreak_behavior,
+    ) {
         Ok(measure) => {
             if text.linebreak_behavior == BreakLineOn::NoWrap {
                 content_size.set(FixedMeasure { size: measure.max });
@@ -101,7 +107,11 @@ fn create_text_measure(
             // Try again next frame
             text_flags.needs_new_measure_func = true;
         }
-        Err(e @ TextError::FailedToAddGlyph(_)) => {
+        Err(
+            e @ (TextError::FailedToAddGlyph(_)
+            | TextError::FailedToAcquireMutex
+            | TextError::FailedToGetGlyphImage(_)),
+        ) => {
             panic!("Fatal error when processing text: {e}.");
         }
     };
@@ -121,6 +131,7 @@ pub fn measure_text_system(
     fonts: Res<Assets<Font>>,
     windows: Query<&Window, With<PrimaryWindow>>,
     ui_scale: Res<UiScale>,
+    mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(Ref<Text>, &mut ContentSize, &mut TextFlags), With<Node>>,
 ) {
     let window_scale_factor = windows
@@ -135,7 +146,14 @@ pub fn measure_text_system(
         // scale factor unchanged, only create new measure funcs for modified text
         for (text, content_size, text_flags) in &mut text_query {
             if text.is_changed() || text_flags.needs_new_measure_func || content_size.is_added() {
-                create_text_measure(&fonts, scale_factor, text, content_size, text_flags);
+                create_text_measure(
+                    &fonts,
+                    scale_factor.into(),
+                    text,
+                    &mut text_pipeline,
+                    content_size,
+                    text_flags,
+                );
             }
         }
     } else {
@@ -143,7 +161,14 @@ pub fn measure_text_system(
         *last_scale_factor = scale_factor;
 
         for (text, content_size, text_flags) in &mut text_query {
-            create_text_measure(&fonts, scale_factor, text, content_size, text_flags);
+            create_text_measure(
+                &fonts,
+                scale_factor.into(),
+                text,
+                &mut text_pipeline,
+                content_size,
+                text_flags,
+            );
         }
     }
 }
@@ -156,7 +181,6 @@ fn queue_text(
     font_atlas_sets: &mut FontAtlasSets,
     texture_atlases: &mut Assets<TextureAtlasLayout>,
     textures: &mut Assets<Image>,
-    text_settings: &TextSettings,
     scale_factor: f32,
     inverse_scale_factor: f32,
     text: &Text,
@@ -180,26 +204,29 @@ fn queue_text(
         match text_pipeline.queue_text(
             fonts,
             &text.sections,
-            scale_factor,
+            scale_factor.into(),
             text.justify,
             text.linebreak_behavior,
             physical_node_size,
             font_atlas_sets,
             texture_atlases,
             textures,
-            text_settings,
             YAxisOrientation::TopToBottom,
         ) {
             Err(TextError::NoSuchFont) => {
                 // There was an error processing the text layout, try again next frame
                 text_flags.needs_recompute = true;
             }
-            Err(e @ TextError::FailedToAddGlyph(_)) => {
+            Err(
+                e @ (TextError::FailedToAddGlyph(_)
+                | TextError::FailedToAcquireMutex
+                | TextError::FailedToGetGlyphImage(_)),
+            ) => {
                 panic!("Fatal error when processing text: {e}.");
             }
             Ok(mut info) => {
-                info.logical_size.x = scale_value(info.logical_size.x, inverse_scale_factor);
-                info.logical_size.y = scale_value(info.logical_size.y, inverse_scale_factor);
+                info.size.x = scale_value(info.size.x, inverse_scale_factor);
+                info.size.y = scale_value(info.size.y, inverse_scale_factor);
                 *text_layout_info = info;
                 text_flags.needs_recompute = false;
             }
@@ -221,7 +248,6 @@ pub fn text_system(
     mut last_scale_factor: Local<f32>,
     fonts: Res<Assets<Font>>,
     windows: Query<&Window, With<PrimaryWindow>>,
-    text_settings: Res<TextSettings>,
     ui_scale: Res<UiScale>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_sets: ResMut<FontAtlasSets>,
@@ -246,7 +272,6 @@ pub fn text_system(
                     &mut font_atlas_sets,
                     &mut texture_atlases,
                     &mut textures,
-                    &text_settings,
                     scale_factor,
                     inverse_scale_factor,
                     text,
@@ -267,7 +292,6 @@ pub fn text_system(
                 &mut font_atlas_sets,
                 &mut texture_atlases,
                 &mut textures,
-                &text_settings,
                 scale_factor,
                 inverse_scale_factor,
                 text,

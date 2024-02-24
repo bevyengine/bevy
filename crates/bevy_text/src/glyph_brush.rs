@@ -167,26 +167,8 @@ pub struct PositionedGlyph {
     pub byte_index: usize,
 }
 
-#[cfg(feature = "subpixel_glyph_atlas")]
-struct GlyphPlacementAdjuster;
-
-#[cfg(feature = "subpixel_glyph_atlas")]
-impl GlyphPlacementAdjuster {
-    #[inline(always)]
-    pub fn new(_: &mut Glyph) -> Self {
-        Self
-    }
-
-    #[inline(always)]
-    pub fn position(&self, p: Vec2) -> Vec2 {
-        p
-    }
-}
-
-#[cfg(not(feature = "subpixel_glyph_atlas"))]
 struct GlyphPlacementAdjuster(f32);
 
-#[cfg(not(feature = "subpixel_glyph_atlas"))]
 impl GlyphPlacementAdjuster {
     #[inline(always)]
     pub fn new(glyph: &mut Glyph) -> Self {
