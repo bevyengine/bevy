@@ -14,10 +14,10 @@ fn main() {
 }
 
 fn button_system(
-    mut interaction_query: Query<(&Interaction, &Children), (Changed<Interaction>, With<Button>)>,
+    interaction_query: Query<(&Interaction, &Children), (Changed<Interaction>, With<Button>)>,
     mut text_query: Query<&mut Text>,
 ) {
-    for (interaction, children) in &mut interaction_query {
+    for (interaction, children) in &interaction_query {
         let mut text = text_query.get_mut(children[0]).unwrap();
         match *interaction {
             Interaction::Pressed => {
