@@ -98,6 +98,7 @@ pub use xyza::*;
 use bevy_render::color::LegacyColor;
 
 /// Describes the traits that a color should implement for consistency.
+#[allow(dead_code)]
 pub(crate) trait StandardColor
 where
     Self: core::fmt::Debug,
