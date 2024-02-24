@@ -44,6 +44,8 @@ The default feature set enables most of the expected features of a game engine, 
 |feature name|description|
 |-|-|
 |accesskit_unix|Enable AccessKit on Unix backends (currently only works with experimental screen readers and forks.)|
+|android-game-activity|Android game activity support (pick one between this and native activity)|
+|android-native-activity|Android native activity support (pick one between this and game activity)|
 |asset_processor|Enables the built-in asset processor for processed assets.|
 |async-io|Use async-io's implementation of block_on instead of futures-lite's implementation. This is preferred if your application uses async-io.|
 |basis-universal|Basis Universal compressed texture support|
