@@ -121,7 +121,7 @@ impl From<Srgba> for Hsla {
     }
 }
 
-impl From<Hsla> for bevy_render::color::Color {
+impl From<Hsla> for bevy_render::color::LegacyColor {
     fn from(value: Hsla) -> Self {
         bevy_render::color::LegacyColor::Hsla {
             hue: value.hue,
