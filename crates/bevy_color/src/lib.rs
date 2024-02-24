@@ -88,7 +88,7 @@ pub use linear_rgba::*;
 pub use oklaba::*;
 pub use srgba::*;
 
-use bevy_render::color::Color as LegacyColor;
+use bevy_render::color::LegacyColor;
 
 /// Describes the traits that a color should implement for consistency.
 pub(crate) trait StandardColor
