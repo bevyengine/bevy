@@ -1,4 +1,4 @@
-use crate::{Alpha, Hsla, Lcha, LinearRgba, Mix, Oklaba, Srgba, StandardColor};
+use crate::{Alpha, Hsla, Lcha, LinearRgba, Oklaba, Srgba, StandardColor};
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render::color::Color as LegacyColor;
 use serde::{Deserialize, Serialize};
@@ -66,23 +66,6 @@ impl Alpha for Color {
             Color::Lcha(x) => x.alpha(),
             Color::Oklaba(x) => x.alpha(),
         }
-    }
-}
-
-impl Mix for Color {
-    fn mix(&self, other: &Self, factor: f32) -> Self {
-        let other = *other;
-        let mut new = *self;
-
-        match &mut new {
-            Color::Srgba(x) => *x = x.mix(&other.into(), factor),
-            Color::LinearRgba(x) => *x = x.mix(&other.into(), factor),
-            Color::Hsla(x) => *x = x.mix(&other.into(), factor),
-            Color::Lcha(x) => *x = x.mix(&other.into(), factor),
-            Color::Oklaba(x) => *x = x.mix(&other.into(), factor),
-        }
-
-        new
     }
 }
 

@@ -119,7 +119,6 @@ where
     Self: From<Hsla> + Into<Hsla>,
     Self: From<Lcha> + Into<Lcha>,
     Self: From<Oklaba> + Into<Oklaba>,
-    Self: Mix,
     Self: Alpha,
 {
 }
