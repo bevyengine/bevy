@@ -1,6 +1,6 @@
 use crate::{Alpha, Hsla, Lcha, LinearRgba, Luminance, Mix, Oklaba, Srgba, StandardColor};
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use bevy_render::color::Color;
+use bevy_render::color::LegacyColor;
 use serde::{Deserialize, Serialize};
 
 /// [CIE 1931](https://en.wikipedia.org/wiki/CIE_1931_color_space) color space, also known as XYZ, with an alpha channel.
@@ -193,13 +193,13 @@ impl From<Xyza> for Oklaba {
     }
 }
 
-impl From<Color> for Xyza {
-    fn from(value: Color) -> Self {
+impl From<LegacyColor> for Xyza {
+    fn from(value: LegacyColor) -> Self {
         LinearRgba::from(value).into()
     }
 }
 
-impl From<Xyza> for Color {
+impl From<Xyza> for LegacyColor {
     fn from(value: Xyza) -> Self {
         LinearRgba::from(value).into()
     }
