@@ -700,6 +700,8 @@ fn handle_winit_event(
         }
         _ => (),
     }
+
+    forward_winit_events(winit_events, app);
 }
 
 #[allow(clippy::too_many_arguments)]
