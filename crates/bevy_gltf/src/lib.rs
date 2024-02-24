@@ -40,8 +40,7 @@ impl GltfPlugin {
         name: &str,
         attribute: MeshVertexAttribute,
     ) -> Self {
-        self.custom_vertex_attributes
-            .insert(name.into(), attribute);
+        self.custom_vertex_attributes.insert(name.into(), attribute);
         self
     }
 }
