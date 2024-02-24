@@ -365,6 +365,10 @@ mod tests {
         assert_eq!(Srgba::hex("#f2a"), Ok(Srgba::rgb_u8(255, 34, 170)));
         assert_eq!(Srgba::hex("#e23030"), Ok(Srgba::rgb_u8(226, 48, 48)));
         assert_eq!(Srgba::hex("#ff"), Err(HexColorError::Length));
+        assert_eq!(Srgba::hex("11223344"), Ok(Srgba::rgba_u8(17, 34, 51, 68)));
+        assert_eq!(Srgba::hex("1234"), Ok(Srgba::rgba_u8(17, 34, 51, 68)));
+        assert_eq!(Srgba::hex("12345678"), Ok(Srgba::rgba_u8(18, 52, 86, 120)));
+        assert_eq!(Srgba::hex("4321"), Ok(Srgba::rgba_u8(68, 51, 34, 17)));
 
         assert!(matches!(Srgba::hex("yyy"), Err(HexColorError::Parse(_))));
         assert!(matches!(Srgba::hex("##fff"), Err(HexColorError::Parse(_))));
