@@ -16,14 +16,14 @@ impl ComputeTaskPool {
         COMPUTE_TASK_POOL.get_or_init(|| Self(f()))
     }
 
-    /// Attempts to get the global [`ComputeTaskPool`] instance, 
+    /// Attempts to get the global [`ComputeTaskPool`] instance,
     /// or returns `None` if it is not initialized.
     pub fn try_get() -> Option<&'static Self> {
         COMPUTE_TASK_POOL.get()
     }
 
     /// Gets the global [`ComputeTaskPool`] instance."
-    /// 
+    ///
     /// # Panics
     /// Panics if the global instance has not been initialized yet.
     pub fn get() -> &'static Self {

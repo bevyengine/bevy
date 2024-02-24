@@ -42,7 +42,7 @@ pub struct ScreenshotAlreadyRequestedError;
 impl ScreenshotManager {
     /// Signals the renderer to take a screenshot of this frame.
     ///
-    /// The given callback will eventually be called on one of the [`ComputeTaskPool`]'s 
+    /// The given callback will eventually be called on one of the [`ComputeTaskPool`]'s
     /// blocking threads.
     pub fn take_screenshot(
         &mut self,
@@ -318,56 +318,58 @@ pub(crate) fn collect_screenshots(world: &mut World) {
             let pixel_size = texture_format.pixel_size();
             let ScreenshotPreparedState { buffer, .. } = window.screenshot_memory.take().unwrap();
 
-            ComputeTaskPool::get().spawn_blocking(move || {
-                let (tx, rx) = async_channel::bounded(1);
-                let buffer_slice = buffer.slice(..);
-                // The polling for this map call is done every frame when the command queue is submitted.
-                buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
-                    let err = result.err();
-                    if err.is_some() {
-                        panic!("{}", err.unwrap().to_string());
+            ComputeTaskPool::get()
+                .spawn_blocking(move || {
+                    let (tx, rx) = async_channel::bounded(1);
+                    let buffer_slice = buffer.slice(..);
+                    // The polling for this map call is done every frame when the command queue is submitted.
+                    buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
+                        let err = result.err();
+                        if err.is_some() {
+                            panic!("{}", err.unwrap().to_string());
+                        }
+                        tx.try_send(()).unwrap();
+                    });
+                    rx.recv_blocking().unwrap();
+                    let data = buffer_slice.get_mapped_range();
+                    // we immediately move the data to CPU memory to avoid holding the mapped view for long
+                    let mut result = Vec::from(&*data);
+                    drop(data);
+                    drop(buffer);
+
+                    if result.len() != ((width * height) as usize * pixel_size) {
+                        // Our buffer has been padded because we needed to align to a multiple of 256.
+                        // We remove this padding here
+                        let initial_row_bytes = width as usize * pixel_size;
+                        let buffered_row_bytes =
+                            align_byte_size(width * pixel_size as u32) as usize;
+
+                        let mut take_offset = buffered_row_bytes;
+                        let mut place_offset = initial_row_bytes;
+                        for _ in 1..height {
+                            result.copy_within(
+                                take_offset..take_offset + buffered_row_bytes,
+                                place_offset,
+                            );
+                            take_offset += buffered_row_bytes;
+                            place_offset += initial_row_bytes;
+                        }
+                        result.truncate(initial_row_bytes * height as usize);
                     }
-                    tx.try_send(()).unwrap();
-                });
-                rx.recv_blocking().unwrap();
-                let data = buffer_slice.get_mapped_range();
-                // we immediately move the data to CPU memory to avoid holding the mapped view for long
-                let mut result = Vec::from(&*data);
-                drop(data);
-                drop(buffer);
 
-                if result.len() != ((width * height) as usize * pixel_size) {
-                    // Our buffer has been padded because we needed to align to a multiple of 256.
-                    // We remove this padding here
-                    let initial_row_bytes = width as usize * pixel_size;
-                    let buffered_row_bytes = align_byte_size(width * pixel_size as u32) as usize;
-
-                    let mut take_offset = buffered_row_bytes;
-                    let mut place_offset = initial_row_bytes;
-                    for _ in 1..height {
-                        result.copy_within(
-                            take_offset..take_offset + buffered_row_bytes,
-                            place_offset,
-                        );
-                        take_offset += buffered_row_bytes;
-                        place_offset += initial_row_bytes;
-                    }
-                    result.truncate(initial_row_bytes * height as usize);
-                }
-
-                screenshot_func(Image::new(
-                    Extent3d {
-                        width,
-                        height,
-                        depth_or_array_layers: 1,
-                    },
-                    wgpu::TextureDimension::D2,
-                    result,
-                    texture_format,
-                    RenderAssetUsages::RENDER_WORLD,
-                ));
-            })
-            .detach();
+                    screenshot_func(Image::new(
+                        Extent3d {
+                            width,
+                            height,
+                            depth_or_array_layers: 1,
+                        },
+                        wgpu::TextureDimension::D2,
+                        result,
+                        texture_format,
+                        RenderAssetUsages::RENDER_WORLD,
+                    ));
+                })
+                .detach();
         }
     }
 }

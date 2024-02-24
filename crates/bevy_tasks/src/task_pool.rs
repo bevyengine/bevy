@@ -1,11 +1,11 @@
 use std::{
+    env,
     future::Future,
     marker::PhantomData,
     mem,
     panic::AssertUnwindSafe,
     sync::Arc,
     thread::{self, JoinHandle},
-    env
 };
 
 use async_task::FallibleTask;
@@ -547,27 +547,27 @@ impl TaskPool {
     }
 
     /// Runs the provided closure on a thread where blocking is acceptable.
-    /// 
-    /// In general, issuing a blocking call or performing a lot of compute in a 
-    /// future without yielding is not okay, as it may prevent the task pool 
-    /// from driving other futures forward. This function runs the provided 
-    /// closure on a thread dedicated to blocking operations. 
-    /// 
-    /// This call will spawn more blocking threads when they are requested 
-    /// through /// this function until the upper limit configured. This 
-    /// limit is very large by default, because `spawn_blocking` is often 
-    /// used for various kinds of IO operations that cannot be performed 
-    /// asynchronously. When you run CPU-bound code using spawn_blocking, 
-    /// you should keep this large upper limit in mind; to run your 
-    /// CPU-bound computations on only a few threads. Spawning too many threads 
-    /// will cause the OS to [thrash], which may impact the performance 
+    ///
+    /// In general, issuing a blocking call or performing a lot of compute in a
+    /// future without yielding is not okay, as it may prevent the task pool
+    /// from driving other futures forward. This function runs the provided
+    /// closure on a thread dedicated to blocking operations.
+    ///
+    /// This call will spawn more blocking threads when they are requested
+    /// through /// this function until the upper limit configured. This
+    /// limit is very large by default, because `spawn_blocking` is often
+    /// used for various kinds of IO operations that cannot be performed
+    /// asynchronously. When you run CPU-bound code using spawn_blocking,
+    /// you should keep this large upper limit in mind; to run your
+    /// CPU-bound computations on only a few threads. Spawning too many threads
+    /// will cause the OS to [thrash], which may impact the performance
     /// of the non-blocking tasks scheduled onto the `TaskPool`.  
-    /// 
-    /// Closures spawned using `spawn_blocking` cannot be cancelled. When you shut down the executor, it will wait 
-    /// indefinitely for all blocking operations to finish. 
-    /// 
+    ///
+    /// Closures spawned using `spawn_blocking` cannot be cancelled. When you shut down the executor, it will wait
+    /// indefinitely for all blocking operations to finish.
+    ///
     /// [thrash]: https://en.wikipedia.org/wiki/Thrashing_(computer_science)
-    pub fn spawn_blocking<T>(&self, f: impl FnOnce() ->  T + Send + 'static) -> Task<T>
+    pub fn spawn_blocking<T>(&self, f: impl FnOnce() -> T + Send + 'static) -> Task<T>
     where
         T: Send + 'static,
     {

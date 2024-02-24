@@ -696,7 +696,8 @@ impl PipelineCache {
         let device = self.device.clone();
         let shader_cache = self.shader_cache.clone();
         let layout_cache = self.layout_cache.clone();
-        create_pipeline_task(move || {
+        create_pipeline_task(
+            move || {
                 let mut shader_cache = shader_cache.lock().unwrap();
                 let mut layout_cache = layout_cache.lock().unwrap();
 
@@ -794,7 +795,8 @@ impl PipelineCache {
         let device = self.device.clone();
         let shader_cache = self.shader_cache.clone();
         let layout_cache = self.layout_cache.clone();
-        create_pipeline_task(move || {
+        create_pipeline_task(
+            move || {
                 let mut shader_cache = shader_cache.lock().unwrap();
                 let mut layout_cache = layout_cache.lock().unwrap();
 
@@ -954,7 +956,9 @@ fn create_pipeline_task(
     sync: bool,
 ) -> CachedPipelineState {
     if !sync {
-        return CachedPipelineState::Creating(bevy_tasks::ComputeTaskPool::get().spawn_blocking(task));
+        return CachedPipelineState::Creating(
+            bevy_tasks::ComputeTaskPool::get().spawn_blocking(task),
+        );
     }
 
     match task() {
