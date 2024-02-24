@@ -285,7 +285,10 @@ impl VisitAssetDependencies for Vec<UntypedHandle> {
 pub trait AssetApp {
     /// Registers the given `loader` in the [`App`]'s [`AssetServer`].
     fn register_asset_loader<L: AssetLoader>(&mut self, loader: L) -> &mut Self;
-    fn register_asset_hook<A: Asset>(&mut self, hook: impl FnMut(&mut A) -> () + Send + Sync + 'static) -> &mut Self;
+    fn register_asset_hook<A: Asset>(
+        &mut self,
+        hook: impl FnMut(&mut A) -> () + Send + Sync + 'static,
+    ) -> &mut Self;
     /// Registers the given `processor` in the [`App`]'s [`AssetProcessor`].
     fn register_asset_processor<P: Process>(&mut self, processor: P) -> &mut Self;
     /// Registers the given [`AssetSourceBuilder`] with the given `id`.
@@ -327,8 +330,13 @@ impl AssetApp for App {
         self
     }
 
-    fn register_asset_hook<A: Asset>(&mut self, hook: impl FnMut(&mut A) -> () + Send + Sync + 'static) -> &mut Self {
-        self.world.resource::<AssetServer>().register_asset_hook(hook);
+    fn register_asset_hook<A: Asset>(
+        &mut self,
+        hook: impl FnMut(&mut A) -> () + Send + Sync + 'static,
+    ) -> &mut Self {
+        self.world
+            .resource::<AssetServer>()
+            .register_asset_hook(hook);
         self
     }
 

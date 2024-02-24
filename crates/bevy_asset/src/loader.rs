@@ -1,7 +1,13 @@
-use crate::{io::{AssetReaderError, MissingAssetSourceError, MissingProcessedAssetReaderError, Reader}, meta::{
-    loader_settings_meta_transform, AssetHash, AssetMeta, AssetMetaDyn, ProcessedInfoMinimal,
-    Settings,
-}, path::AssetPath, Asset, AssetLoadError, AssetServer, AssetServerMode, Assets, Handle, LoadedUntypedAsset, UntypedAssetId, UntypedHandle, AssetHooks};
+use crate::{
+    io::{AssetReaderError, MissingAssetSourceError, MissingProcessedAssetReaderError, Reader},
+    meta::{
+        loader_settings_meta_transform, AssetHash, AssetMeta, AssetMetaDyn, ProcessedInfoMinimal,
+        Settings,
+    },
+    path::AssetPath,
+    Asset, AssetHooks, AssetLoadError, AssetServer, AssetServerMode, Assets, Handle,
+    LoadedUntypedAsset, UntypedAssetId, UntypedHandle,
+};
 use bevy_ecs::world::World;
 use bevy_utils::{BoxedFuture, CowArc, HashMap, HashSet};
 use downcast_rs::{impl_downcast, Downcast};

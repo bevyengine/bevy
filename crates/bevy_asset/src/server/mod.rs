@@ -20,7 +20,7 @@ use crate::{
 use bevy_ecs::prelude::*;
 use bevy_log::{error, info};
 use bevy_tasks::IoTaskPool;
-use bevy_utils::{CowArc, hashbrown, HashSet};
+use bevy_utils::{hashbrown, CowArc, HashSet};
 use crossbeam_channel::{Receiver, Sender};
 use futures_lite::StreamExt;
 use info::*;
@@ -72,9 +72,9 @@ impl TypeMap {
     }
 
     pub fn get_mut<T: 'static + Send + Sync + std::any::Any>(&mut self) -> Option<&mut T> {
-        self.0.get_mut(&TypeId::of::<T>()).map(|t| {
-            t.downcast_mut::<T>().unwrap()
-        })
+        self.0
+            .get_mut(&TypeId::of::<T>())
+            .map(|t| t.downcast_mut::<T>().unwrap())
     }
 }
 
@@ -95,8 +95,8 @@ impl Default for AssetHooks {
 impl AssetHooks {
     fn add_asset_hook<A, F>(&mut self, f: F)
     where
-    A: Asset,
-    F: FnMut(&mut A) -> () + Send + Sync + 'static,
+        A: Asset,
+        F: FnMut(&mut A) -> () + Send + Sync + 'static,
     {
         if !self.0.has::<AssetHookVec<A>>() {
             self.0.set::<AssetHookVec<A>>(Vec::new());
@@ -107,9 +107,11 @@ impl AssetHooks {
     }
     pub(crate) fn trigger<A>(&mut self, asset: &mut A)
     where
-    A: Asset
+        A: Asset,
     {
-        let Some(hooks) = self.0.get_mut::<AssetHookVec<A>>() else { return };
+        let Some(hooks) = self.0.get_mut::<AssetHookVec<A>>() else {
+            return;
+        };
         for hook in hooks {
             hook(asset);
         }
@@ -197,7 +199,10 @@ impl AssetServer {
         self.data.loaders.write().push(loader);
     }
 
-    pub fn register_asset_hook<A: Asset>(&self, hook: impl FnMut(&mut A) -> () + Send + Sync + 'static) {
+    pub fn register_asset_hook<A: Asset>(
+        &self,
+        hook: impl FnMut(&mut A) -> () + Send + Sync + 'static,
+    ) {
         self.data.hooks.write().add_asset_hook(hook);
     }
 
