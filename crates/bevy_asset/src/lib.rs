@@ -386,7 +386,10 @@ impl AssetApp for App {
             .add_event::<AssetLoadFailedEvent<A>>()
             .register_type::<Handle<A>>()
             .register_type::<AssetId<A>>()
-            .add_systems(AssetEvents, Assets::<A>::asset_events)
+            .add_systems(
+                AssetEvents,
+                Assets::<A>::asset_events.run_if(Assets::<A>::asset_events_condition),
+            )
             .add_systems(UpdateAssets, Assets::<A>::track_assets.in_set(TrackAssets))
     }
 

@@ -12,6 +12,7 @@ use crate::{
 use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::tracing::debug;
 use std::{any::TypeId, marker::PhantomData};
+use thiserror::Error;
 
 use super::{unsafe_world_cell::UnsafeEntityCell, Ref};
 
@@ -186,6 +187,58 @@ impl<'a> From<&'a EntityMut<'_>> for EntityRef<'a> {
         // - `EntityMut` guarantees exclusive access to all of the entity's components.
         // - `&value` ensures there are no mutable accesses.
         unsafe { EntityRef::new(value.0) }
+    }
+}
+
+impl<'a> TryFrom<FilteredEntityRef<'a>> for EntityRef<'a> {
+    type Error = TryFromFilteredError;
+
+    fn try_from(value: FilteredEntityRef<'a>) -> Result<Self, Self::Error> {
+        if !value.access.has_read_all() {
+            Err(TryFromFilteredError::MissingReadAllAccess)
+        } else {
+            // SAFETY: check above guarantees read-only access to all components of the entity.
+            Ok(unsafe { EntityRef::new(value.entity) })
+        }
+    }
+}
+
+impl<'a> TryFrom<&'a FilteredEntityRef<'_>> for EntityRef<'a> {
+    type Error = TryFromFilteredError;
+
+    fn try_from(value: &'a FilteredEntityRef<'_>) -> Result<Self, Self::Error> {
+        if !value.access.has_read_all() {
+            Err(TryFromFilteredError::MissingReadAllAccess)
+        } else {
+            // SAFETY: check above guarantees read-only access to all components of the entity.
+            Ok(unsafe { EntityRef::new(value.entity) })
+        }
+    }
+}
+
+impl<'a> TryFrom<FilteredEntityMut<'a>> for EntityRef<'a> {
+    type Error = TryFromFilteredError;
+
+    fn try_from(value: FilteredEntityMut<'a>) -> Result<Self, Self::Error> {
+        if !value.access.has_read_all() {
+            Err(TryFromFilteredError::MissingReadAllAccess)
+        } else {
+            // SAFETY: check above guarantees read-only access to all components of the entity.
+            Ok(unsafe { EntityRef::new(value.entity) })
+        }
+    }
+}
+
+impl<'a> TryFrom<&'a FilteredEntityMut<'_>> for EntityRef<'a> {
+    type Error = TryFromFilteredError;
+
+    fn try_from(value: &'a FilteredEntityMut<'_>) -> Result<Self, Self::Error> {
+        if !value.access.has_read_all() {
+            Err(TryFromFilteredError::MissingReadAllAccess)
+        } else {
+            // SAFETY: check above guarantees read-only access to all components of the entity.
+            Ok(unsafe { EntityRef::new(value.entity) })
+        }
     }
 }
 
@@ -372,6 +425,36 @@ impl<'a> From<&'a mut EntityWorldMut<'_>> for EntityMut<'a> {
     fn from(value: &'a mut EntityWorldMut<'_>) -> Self {
         // SAFETY: `EntityWorldMut` guarantees exclusive access to the entire world.
         unsafe { EntityMut::new(value.as_unsafe_entity_cell()) }
+    }
+}
+
+impl<'a> TryFrom<FilteredEntityMut<'a>> for EntityMut<'a> {
+    type Error = TryFromFilteredError;
+
+    fn try_from(value: FilteredEntityMut<'a>) -> Result<Self, Self::Error> {
+        if !value.access.has_read_all() {
+            Err(TryFromFilteredError::MissingReadAllAccess)
+        } else if !value.access.has_write_all() {
+            Err(TryFromFilteredError::MissingWriteAllAccess)
+        } else {
+            // SAFETY: check above guarantees exclusive access to all components of the entity.
+            Ok(unsafe { EntityMut::new(value.entity) })
+        }
+    }
+}
+
+impl<'a> TryFrom<&'a mut FilteredEntityMut<'_>> for EntityMut<'a> {
+    type Error = TryFromFilteredError;
+
+    fn try_from(value: &'a mut FilteredEntityMut<'_>) -> Result<Self, Self::Error> {
+        if !value.access.has_read_all() {
+            Err(TryFromFilteredError::MissingReadAllAccess)
+        } else if !value.access.has_write_all() {
+            Err(TryFromFilteredError::MissingWriteAllAccess)
+        } else {
+            // SAFETY: check above guarantees exclusive access to all components of the entity.
+            Ok(unsafe { EntityMut::new(value.entity) })
+        }
     }
 }
 
@@ -745,7 +828,9 @@ impl<'w> EntityWorldMut<'w> {
         Some(result)
     }
 
-    /// Safety: `new_archetype_id` must have the same or a subset of the components
+    /// # Safety
+    ///
+    /// `new_archetype_id` must have the same or a subset of the components
     /// in `old_archetype_id`. Probably more safety stuff too, audit a call to
     /// this fn as if the code here was written inline
     ///
@@ -791,15 +876,16 @@ impl<'w> EntityWorldMut<'w> {
                 .tables
                 .get_2_mut(old_table_id, new_archetype.table_id());
 
-            // SAFETY: old_table_row exists
             let move_result = if DROP {
-                old_table.move_to_and_drop_missing_unchecked(old_table_row, new_table)
+                // SAFETY: old_table_row exists
+                unsafe { old_table.move_to_and_drop_missing_unchecked(old_table_row, new_table) }
             } else {
-                old_table.move_to_and_forget_missing_unchecked(old_table_row, new_table)
+                // SAFETY: old_table_row exists
+                unsafe { old_table.move_to_and_forget_missing_unchecked(old_table_row, new_table) }
             };
 
             // SAFETY: move_result.new_row is a valid position in new_archetype's table
-            let new_location = new_archetype.allocate(entity, move_result.new_row);
+            let new_location = unsafe { new_archetype.allocate(entity, move_result.new_row) };
 
             // if an entity was moved into this entity's table row, update its table row
             if let Some(swapped_entity) = move_result.swapped_entity {
@@ -823,7 +909,9 @@ impl<'w> EntityWorldMut<'w> {
 
         *self_location = new_location;
         // SAFETY: The entity is valid and has been moved to the new location already.
-        entities.set(entity.index(), new_location);
+        unsafe {
+            entities.set(entity.index(), new_location);
+        }
     }
 
     /// Remove the components of `bundle_info` from `entity`, where `self_location` and `old_location`
@@ -844,14 +932,16 @@ impl<'w> EntityWorldMut<'w> {
     ) {
         // SAFETY: `archetype_id` exists because it is referenced in `old_location` which is valid
         // and components in `bundle_info` must exist due to this functions safety invariants.
-        let new_archetype_id = remove_bundle_from_archetype(
-            archetypes,
-            storages,
-            components,
-            old_location.archetype_id,
-            bundle_info,
-            true,
-        )
+        let new_archetype_id = unsafe {
+            remove_bundle_from_archetype(
+                archetypes,
+                storages,
+                components,
+                old_location.archetype_id,
+                bundle_info,
+                true,
+            )
+        }
         .expect("intersections should always return a result");
 
         if new_archetype_id == old_location.archetype_id {
@@ -877,16 +967,18 @@ impl<'w> EntityWorldMut<'w> {
 
         // SAFETY: `new_archetype_id` is a subset of the components in `old_location.archetype_id`
         // because it is created by removing a bundle from these components.
-        Self::move_entity_from_remove::<true>(
-            entity,
-            self_location,
-            old_location.archetype_id,
-            old_location,
-            entities,
-            archetypes,
-            storages,
-            new_archetype_id,
-        );
+        unsafe {
+            Self::move_entity_from_remove::<true>(
+                entity,
+                self_location,
+                old_location.archetype_id,
+                old_location,
+                entities,
+                archetypes,
+                storages,
+                new_archetype_id,
+            );
+        }
     }
 
     /// Removes any components in the [`Bundle`] from the entity.
@@ -1585,9 +1677,7 @@ impl<'w> FilteredEntityRef<'w> {
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
     pub fn get<T: Component>(&self) -> Option<&'w T> {
-        let Some(id) = self.entity.world().components().get_id(TypeId::of::<T>()) else {
-            return None;
-        };
+        let id = self.entity.world().components().get_id(TypeId::of::<T>())?;
         self.access
             .has_read(id)
             // SAFETY: We have read access so we must have the component
@@ -1600,9 +1690,7 @@ impl<'w> FilteredEntityRef<'w> {
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
     pub fn get_ref<T: Component>(&self) -> Option<Ref<'w, T>> {
-        let Some(id) = self.entity.world().components().get_id(TypeId::of::<T>()) else {
-            return None;
-        };
+        let id = self.entity.world().components().get_id(TypeId::of::<T>())?;
         self.access
             .has_read(id)
             // SAFETY: We have read access so we must have the component
@@ -1613,9 +1701,7 @@ impl<'w> FilteredEntityRef<'w> {
     /// detection in custom runtimes.
     #[inline]
     pub fn get_change_ticks<T: Component>(&self) -> Option<ComponentTicks> {
-        let Some(id) = self.entity.world().components().get_id(TypeId::of::<T>()) else {
-            return None;
-        };
+        let id = self.entity.world().components().get_id(TypeId::of::<T>())?;
         self.access
             .has_read(id)
             // SAFETY: We have read access so we must have the component
@@ -1668,6 +1754,78 @@ impl<'a> From<&'a FilteredEntityMut<'_>> for FilteredEntityRef<'a> {
         // SAFETY:
         // - `FilteredEntityMut` guarantees exclusive access to all components in the new `FilteredEntityRef`.
         unsafe { FilteredEntityRef::new(entity_mut.entity, entity_mut.access.clone()) }
+    }
+}
+
+impl<'a> From<EntityRef<'a>> for FilteredEntityRef<'a> {
+    fn from(entity: EntityRef<'a>) -> Self {
+        // SAFETY:
+        // - `EntityRef` guarantees exclusive access to all components in the new `FilteredEntityRef`.
+        unsafe {
+            let mut access = Access::default();
+            access.read_all();
+            FilteredEntityRef::new(entity.0, access)
+        }
+    }
+}
+
+impl<'a> From<&'a EntityRef<'_>> for FilteredEntityRef<'a> {
+    fn from(entity: &'a EntityRef<'_>) -> Self {
+        // SAFETY:
+        // - `EntityRef` guarantees exclusive access to all components in the new `FilteredEntityRef`.
+        unsafe {
+            let mut access = Access::default();
+            access.read_all();
+            FilteredEntityRef::new(entity.0, access)
+        }
+    }
+}
+
+impl<'a> From<EntityMut<'a>> for FilteredEntityRef<'a> {
+    fn from(entity: EntityMut<'a>) -> Self {
+        // SAFETY:
+        // - `EntityMut` guarantees exclusive access to all components in the new `FilteredEntityRef`.
+        unsafe {
+            let mut access = Access::default();
+            access.read_all();
+            FilteredEntityRef::new(entity.0, access)
+        }
+    }
+}
+
+impl<'a> From<&'a EntityMut<'_>> for FilteredEntityRef<'a> {
+    fn from(entity: &'a EntityMut<'_>) -> Self {
+        // SAFETY:
+        // - `EntityMut` guarantees exclusive access to all components in the new `FilteredEntityRef`.
+        unsafe {
+            let mut access = Access::default();
+            access.read_all();
+            FilteredEntityRef::new(entity.0, access)
+        }
+    }
+}
+
+impl<'a> From<EntityWorldMut<'a>> for FilteredEntityRef<'a> {
+    fn from(entity: EntityWorldMut<'a>) -> Self {
+        // SAFETY:
+        // - `EntityWorldMut` guarantees exclusive access to the entire world.
+        unsafe {
+            let mut access = Access::default();
+            access.read_all();
+            FilteredEntityRef::new(entity.into_unsafe_entity_cell(), access)
+        }
+    }
+}
+
+impl<'a> From<&'a EntityWorldMut<'_>> for FilteredEntityRef<'a> {
+    fn from(entity: &'a EntityWorldMut<'_>) -> Self {
+        // SAFETY:
+        // - `EntityWorldMut` guarantees exclusive access to the entire world.
+        unsafe {
+            let mut access = Access::default();
+            access.read_all();
+            FilteredEntityRef::new(entity.as_unsafe_entity_cell_readonly(), access)
+        }
     }
 }
 
@@ -1789,9 +1947,7 @@ impl<'w> FilteredEntityMut<'w> {
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
     pub fn get_mut<T: Component>(&mut self) -> Option<Mut<'_, T>> {
-        let Some(id) = self.entity.world().components().get_id(TypeId::of::<T>()) else {
-            return None;
-        };
+        let id = self.entity.world().components().get_id(TypeId::of::<T>())?;
         self.access
             .has_write(id)
             // SAFETY: We have write access so we must have the component
@@ -1846,6 +2002,67 @@ impl<'w> FilteredEntityMut<'w> {
                 .debug_checked_unwrap()
         })
     }
+}
+
+impl<'a> From<EntityMut<'a>> for FilteredEntityMut<'a> {
+    fn from(entity: EntityMut<'a>) -> Self {
+        // SAFETY:
+        // - `EntityMut` guarantees exclusive access to all components in the new `FilteredEntityMut`.
+        unsafe {
+            let mut access = Access::default();
+            access.read_all();
+            access.write_all();
+            FilteredEntityMut::new(entity.0, access)
+        }
+    }
+}
+
+impl<'a> From<&'a mut EntityMut<'_>> for FilteredEntityMut<'a> {
+    fn from(entity: &'a mut EntityMut<'_>) -> Self {
+        // SAFETY:
+        // - `EntityMut` guarantees exclusive access to all components in the new `FilteredEntityMut`.
+        unsafe {
+            let mut access = Access::default();
+            access.read_all();
+            access.write_all();
+            FilteredEntityMut::new(entity.0, access)
+        }
+    }
+}
+
+impl<'a> From<EntityWorldMut<'a>> for FilteredEntityMut<'a> {
+    fn from(entity: EntityWorldMut<'a>) -> Self {
+        // SAFETY:
+        // - `EntityWorldMut` guarantees exclusive access to the entire world.
+        unsafe {
+            let mut access = Access::default();
+            access.read_all();
+            access.write_all();
+            FilteredEntityMut::new(entity.into_unsafe_entity_cell(), access)
+        }
+    }
+}
+
+impl<'a> From<&'a mut EntityWorldMut<'_>> for FilteredEntityMut<'a> {
+    fn from(entity: &'a mut EntityWorldMut<'_>) -> Self {
+        // SAFETY:
+        // - `EntityWorldMut` guarantees exclusive access to the entire world.
+        unsafe {
+            let mut access = Access::default();
+            access.read_all();
+            access.write_all();
+            FilteredEntityMut::new(entity.as_unsafe_entity_cell(), access)
+        }
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum TryFromFilteredError {
+    #[error("Conversion failed, filtered entity ref does not have read access to all components")]
+    MissingReadAllAccess,
+
+    #[error("Conversion failed, filtered entity ref does not have write access to all components")]
+    MissingWriteAllAccess,
 }
 
 /// Inserts a dynamic [`Bundle`] into the entity.
@@ -1927,7 +2144,7 @@ unsafe fn remove_bundle_from_archetype(
             for component_id in bundle_info.components().iter().cloned() {
                 if current_archetype.contains(component_id) {
                     // SAFETY: bundle components were already initialized by bundles.get_info
-                    let component_info = components.get_info_unchecked(component_id);
+                    let component_info = unsafe { components.get_info_unchecked(component_id) };
                     match component_info.storage_type() {
                         StorageType::Table => removed_table_components.push(component_id),
                         StorageType::SparseSet => removed_sparse_set_components.push(component_id),
@@ -1959,9 +2176,11 @@ unsafe fn remove_bundle_from_archetype(
                 current_archetype.table_id()
             } else {
                 // SAFETY: all components in next_table_components exist
-                storages
-                    .tables
-                    .get_id_or_insert(&next_table_components, components)
+                unsafe {
+                    storages
+                        .tables
+                        .get_id_or_insert(&next_table_components, components)
+                }
             };
         }
 
@@ -2022,7 +2241,7 @@ pub(crate) unsafe fn take_component<'a>(
     location: EntityLocation,
 ) -> OwningPtr<'a> {
     // SAFETY: caller promises component_id to be valid
-    let component_info = components.get_info_unchecked(component_id);
+    let component_info = unsafe { components.get_info_unchecked(component_id) };
     removed_components.send(component_id, entity);
     match component_info.storage_type() {
         StorageType::Table => {
@@ -2032,9 +2251,11 @@ pub(crate) unsafe fn take_component<'a>(
             // - archetypes only store valid table_rows
             // - index is in bounds as promised by caller
             // - promote is safe because the caller promises to remove the table row without dropping it immediately afterwards
-            components
-                .get_data_unchecked_mut(location.table_row)
-                .promote()
+            unsafe {
+                components
+                    .get_data_unchecked_mut(location.table_row)
+                    .promote()
+            }
         }
         StorageType::SparseSet => storages
             .sparse_sets

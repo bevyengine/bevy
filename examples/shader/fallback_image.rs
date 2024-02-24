@@ -27,7 +27,7 @@ fn setup(
     mut materials: ResMut<Assets<FallbackTestMaterial>>,
 ) {
     commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(shape::Cube { size: 1.0 }),
+        mesh: meshes.add(Cuboid::default()),
         material: materials.add(FallbackTestMaterial {
             image_1d: None,
             image_2d: None,
