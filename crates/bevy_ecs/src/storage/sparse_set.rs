@@ -4,8 +4,8 @@ use crate::{
     storage::{Column, TableRow},
 };
 use bevy_ptr::{OwningPtr, Ptr};
-use std::{cell::UnsafeCell, hash::Hash, marker::PhantomData};
 use nonmax::NonMaxUsize;
+use std::{cell::UnsafeCell, hash::Hash, marker::PhantomData};
 
 type EntityIndex = u32;
 
@@ -458,7 +458,8 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
                 *self.dense.get_unchecked_mut(dense_index.get()) = value;
             }
         } else {
-            self.sparse.insert(index.clone(), NonMaxUsize::new(self.dense.len()).unwrap());
+            self.sparse
+                .insert(index.clone(), NonMaxUsize::new(self.dense.len()).unwrap());
             self.indices.push(index);
             self.dense.push(value);
         }
@@ -473,7 +474,8 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
         } else {
             let value = func();
             let dense_index = self.dense.len();
-            self.sparse.insert(index.clone(), NonMaxUsize::new(dense_index).unwrap());
+            self.sparse
+                .insert(index.clone(), NonMaxUsize::new(dense_index).unwrap());
             self.indices.push(index);
             self.dense.push(value);
             // SAFETY: dense index was just populated above
