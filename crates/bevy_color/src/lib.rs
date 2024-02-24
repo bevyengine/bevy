@@ -40,7 +40,7 @@
 //! # Conversions
 //!
 //! Each color space can be converted to and from the others using the [`From`] trait. Not all
-//! possible combinations of conversions are provided, but every color space has a converstion to
+//! possible combinations of conversions are provided, but every color space has a conversion to
 //! and from [`Srgba`] and [`LinearRgba`].
 //!
 //! # Other Utilities
@@ -72,6 +72,7 @@ mod hsla;
 mod lcha;
 mod linear_rgba;
 mod oklaba;
+pub mod palettes;
 mod srgba;
 #[cfg(test)]
 mod test_colors;
@@ -86,3 +87,25 @@ pub use lcha::*;
 pub use linear_rgba::*;
 pub use oklaba::*;
 pub use srgba::*;
+
+use bevy_render::color::Color as LegacyColor;
+
+/// Describes the traits that a color should implement for consistency.
+pub(crate) trait StandardColor
+where
+    Self: core::fmt::Debug,
+    Self: Clone + Copy,
+    Self: PartialEq,
+    Self: serde::Serialize + for<'a> serde::Deserialize<'a>,
+    Self: bevy_reflect::Reflect,
+    Self: Default,
+    Self: From<Color> + Into<Color>,
+    Self: From<LegacyColor> + Into<LegacyColor>,
+    Self: From<Srgba> + Into<Srgba>,
+    Self: From<LinearRgba> + Into<LinearRgba>,
+    Self: From<Hsla> + Into<Hsla>,
+    Self: From<Lcha> + Into<Lcha>,
+    Self: From<Oklaba> + Into<Oklaba>,
+    Self: Alpha,
+{
+}

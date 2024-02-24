@@ -1,6 +1,6 @@
 use crate::color_difference::EuclideanDistance;
 use crate::oklaba::Oklaba;
-use crate::{Alpha, Hsla, LinearRgba, Luminance, Mix};
+use crate::{Alpha, Hsla, LinearRgba, Luminance, Mix, StandardColor};
 use bevy_math::Vec4;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render::color::{HexColorError, HslRepresentation, SrgbColorSpace};
@@ -20,47 +20,19 @@ pub struct Srgba {
     pub alpha: f32,
 }
 
+impl StandardColor for Srgba {}
+
 impl Srgba {
     // The standard VGA colors, with alpha set to 1.0.
     // https://en.wikipedia.org/wiki/Web_colors#Basic_colors
 
     /// <div style="background-color:rgb(0%, 0%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div>
     pub const BLACK: Srgba = Srgba::new(0.0, 0.0, 0.0, 1.0);
-    /// <div style="background-color:rgb(0%, 0%, 100%); width: 10px; padding: 10px; border: 1px solid;"></div>
-    pub const BLUE: Srgba = Srgba::new(0.0, 0.0, 1.0, 1.0);
-    /// <div style="background-color:rgb(0%, 100%, 100%); width: 10px; padding: 10px; border: 1px solid;"></div>
-    pub const CYAN: Srgba = Srgba::new(0.0, 1.0, 1.0, 1.0);
-    /// <div style="background-color:rgb(25%, 25%, 25%); width: 10px; padding: 10px; border: 1px solid;"></div>
-    pub const DARK_GRAY: Srgba = Srgba::new(0.25, 0.25, 0.25, 1.0);
-    /// <div style="background-color:rgb(0%, 50%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div>
-    pub const GREEN: Srgba = Srgba::new(0.0, 0.5, 0.0, 1.0);
-    /// <div style="background-color:rgb(100%, 0%, 100%); width: 10px; padding: 10px; border: 1px solid;"></div>
-    pub const FUCHSIA: Srgba = Srgba::new(1.0, 0.0, 1.0, 1.0);
-    /// <div style="background-color:rgb(50%, 50%, 50%); width: 10px; padding: 10px; border: 1px solid;"></div>
-    pub const GRAY: Srgba = Srgba::new(0.5, 0.5, 0.5, 1.0);
-    /// <div style="background-color:rgb(0%, 100%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div>
-    pub const LIME: Srgba = Srgba::new(0.0, 1.0, 0.0, 1.0);
-    /// <div style="background-color:rgb(50%, 0%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div>
-    pub const MAROON: Srgba = Srgba::new(0.5, 0.0, 0.0, 1.0);
-    /// <div style="background-color:rgb(0%, 0%, 50%); width: 10px; padding: 10px; border: 1px solid;"></div>
-    pub const NAVY: Srgba = Srgba::new(0.0, 0.0, 0.5, 1.0);
     /// <div style="background-color:rgba(0%, 0%, 0%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div>
     #[doc(alias = "transparent")]
     pub const NONE: Srgba = Srgba::new(0.0, 0.0, 0.0, 0.0);
-    /// <div style="background-color:rgb(50%, 50%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div>
-    pub const OLIVE: Srgba = Srgba::new(0.5, 0.5, 0.0, 1.0);
-    /// <div style="background-color:rgb(50%, 0%, 50%); width: 10px; padding: 10px; border: 1px solid;"></div>
-    pub const PURPLE: Srgba = Srgba::new(0.5, 0.0, 0.5, 1.0);
-    /// <div style="background-color:rgb(100%, 0%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div>
-    pub const RED: Srgba = Srgba::new(1.0, 0.0, 0.0, 1.0);
-    /// <div style="background-color:rgb(75%, 75%, 75%); width: 10px; padding: 10px; border: 1px solid;"></div>
-    pub const SILVER: Srgba = Srgba::new(0.75, 0.75, 0.75, 1.0);
-    /// <div style="background-color:rgb(0%, 50%, 50%); width: 10px; padding: 10px; border: 1px solid;"></div>
-    pub const TEAL: Srgba = Srgba::new(0.0, 0.5, 0.5, 1.0);
     /// <div style="background-color:rgb(100%, 100%, 100%); width: 10px; padding: 10px; border: 1px solid;"></div>
     pub const WHITE: Srgba = Srgba::new(1.0, 1.0, 1.0, 1.0);
-    /// <div style="background-color:rgb(100%, 100%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div>
-    pub const YELLOW: Srgba = Srgba::new(1.0, 1.0, 0.0, 1.0);
 
     /// Construct a new [`Srgba`] color from components.
     ///

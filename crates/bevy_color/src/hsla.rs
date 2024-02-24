@@ -1,4 +1,4 @@
-use crate::{Alpha, LinearRgba, Luminance, Mix, Srgba};
+use crate::{Alpha, Lcha, LinearRgba, Luminance, Mix, Oklaba, Srgba, StandardColor};
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render::color::HslRepresentation;
 use serde::{Deserialize, Serialize};
@@ -16,6 +16,8 @@ pub struct Hsla {
     /// The alpha channel. [0.0, 1.0]
     pub alpha: f32,
 }
+
+impl StandardColor for Hsla {}
 
 impl Hsla {
     /// Construct a new [`Hsla`] color from components.
@@ -119,12 +121,6 @@ impl From<Srgba> for Hsla {
     }
 }
 
-impl From<LinearRgba> for Hsla {
-    fn from(value: LinearRgba) -> Self {
-        Hsla::from(Srgba::from(value))
-    }
-}
-
 impl From<Hsla> for bevy_render::color::Color {
     fn from(value: Hsla) -> Self {
         bevy_render::color::Color::Hsla {
@@ -147,6 +143,24 @@ impl From<bevy_render::color::Color> for Hsla {
             } => Hsla::new(hue, saturation, lightness, alpha),
             _ => unreachable!(),
         }
+    }
+}
+
+impl From<LinearRgba> for Hsla {
+    fn from(value: LinearRgba) -> Self {
+        Srgba::from(value).into()
+    }
+}
+
+impl From<Oklaba> for Hsla {
+    fn from(value: Oklaba) -> Self {
+        Srgba::from(value).into()
+    }
+}
+
+impl From<Lcha> for Hsla {
+    fn from(value: Lcha) -> Self {
+        Srgba::from(value).into()
     }
 }
 
