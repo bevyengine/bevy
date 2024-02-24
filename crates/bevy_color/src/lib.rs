@@ -40,7 +40,7 @@
 //! # Conversions
 //!
 //! Each color space can be converted to and from the others using the [`From`] trait. Not all
-//! possible combinations of conversions are provided, but every color space has a converstion to
+//! possible combinations of conversions are provided, but every color space has a conversion to
 //! and from [`Srgba`] and [`LinearRgba`].
 //!
 //! # Other Utilities
@@ -72,6 +72,7 @@ mod hsla;
 mod lcha;
 mod linear_rgba;
 mod oklaba;
+pub mod palettes;
 mod srgba;
 #[cfg(test)]
 mod test_colors;
