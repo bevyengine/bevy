@@ -103,7 +103,7 @@ impl Srgba {
             }
             // RRGGBB
             6 => {
-                let [r, g, b, _] = (u32::from_str_radix(hex, 16)? << 8).to_be_bytes();
+                let [_, r, g, b] = u32::from_str_radix(hex, 16)?.to_be_bytes();
                 Ok(Self::rgb_u8(r, g, b))
             }
             // RRGGBBAA
