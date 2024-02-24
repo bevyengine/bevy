@@ -701,6 +701,9 @@ fn handle_winit_event(
         _ => (),
     }
 
+    // We drain events after every received winit event in addition to on app update to ensure
+    // the work of pushing events into event queues is spread out over time in case the app becomes
+    // dormant for a long stretch.
     forward_winit_events(winit_events, app);
 }
 
