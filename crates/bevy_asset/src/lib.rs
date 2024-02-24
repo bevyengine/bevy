@@ -286,6 +286,9 @@ impl VisitAssetDependencies for Vec<UntypedHandle> {
 pub trait AssetApp {
     /// Registers the given `loader` in the [`App`]'s [`AssetServer`].
     fn register_asset_loader<L: AssetLoader>(&mut self, loader: L) -> &mut Self;
+    /// Registers a hook that gives a &mut Asset to the user, along with any arbitrary system
+    /// parameters. This runs before the asset is loaded into the world. You can register multiple
+    /// hooks.
     fn register_asset_hook<A: Asset, Out, Marker>(
         &mut self,
         hook: impl IntoSystem<AssetWrapper<A>, Out, Marker> + Sync + Send + 'static + Clone,

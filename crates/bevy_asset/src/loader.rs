@@ -235,6 +235,7 @@ pub trait AssetContainer: Downcast + Any + Send + Sync + 'static {
     fn insert(self: Box<Self>, id: UntypedAssetId, world: &mut World);
     fn asset_type_name(&self) -> &'static str;
 
+    /// Exists such that we can determine the type statically for the loading hook from an asset that has an erased type.
     fn load_hook(&mut self, asset_hooks: &mut AssetHooks, world: &mut World);
 }
 
