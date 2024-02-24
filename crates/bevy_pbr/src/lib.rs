@@ -28,7 +28,6 @@ mod prepass;
 mod render;
 mod ssao;
 
-pub use alpha::*;
 pub use bundle::*;
 pub use extended_material::*;
 pub use fog::*;
@@ -45,7 +44,6 @@ pub use ssao::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        alpha::AlphaMode,
         bundle::{
             DirectionalLightBundle, MaterialMeshBundle, PbrBundle, PointLightBundle,
             SpotLightBundle,
@@ -84,6 +82,7 @@ use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_ecs::prelude::*;
 use bevy_render::{
+    alpha::AlphaMode,
     camera::{CameraUpdateSystem, Projection},
     extract_component::ExtractComponentPlugin,
     extract_resource::ExtractResourcePlugin,
@@ -247,7 +246,6 @@ impl Plugin for PbrPlugin {
         );
 
         app.register_asset_reflect::<StandardMaterial>()
-            .register_type::<AlphaMode>()
             .register_type::<AmbientLight>()
             .register_type::<Cascade>()
             .register_type::<CascadeShadowConfig>()

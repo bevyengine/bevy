@@ -191,13 +191,19 @@ fn layout_entries(
             // Point Shadow Texture Cube Array
             (
                 2,
-                #[cfg(any(
-                    not(feature = "webgl"),
-                    not(target_arch = "wasm32"),
-                    feature = "webgpu"
+                #[cfg(all(
+                    not(ios_simulator),
+                    any(
+                        not(feature = "webgl"),
+                        not(target_arch = "wasm32"),
+                        feature = "webgpu"
+                    )
                 ))]
                 texture_cube_array(TextureSampleType::Depth),
-                #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+                #[cfg(any(
+                    ios_simulator,
+                    all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu"))
+                ))]
                 texture_cube(TextureSampleType::Depth),
             ),
             // Point Shadow Texture Array Sampler
@@ -250,7 +256,10 @@ fn layout_entries(
                 ),
             ),
             // Globals
-            (9, uniform_buffer::<GlobalsUniform>(false)),
+            (
+                9,
+                uniform_buffer::<GlobalsUniform>(false).visibility(ShaderStages::VERTEX_FRAGMENT),
+            ),
             // Fog
             (10, uniform_buffer::<GpuFog>(true)),
             // Light probes

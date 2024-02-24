@@ -1,4 +1,4 @@
-//! This example illustrates how to define custom `AssetLoader`s, `AssetTransfomers`, and `AssetSaver`s, how to configure them, and how to register asset processors.
+//! This example illustrates how to define custom `AssetLoader`s, `AssetTransformer`s, and `AssetSaver`s, how to configure them, and how to register asset processors.
 
 use bevy::{
     asset::{
