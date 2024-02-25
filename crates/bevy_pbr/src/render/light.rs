@@ -4,7 +4,7 @@ use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, UVec3, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_render::{
     camera::Camera,
-    color::Color,
+    color::LegacyColor,
     mesh::Mesh,
     primitives::{CascadesFrusta, CubemapFrusta, Frustum},
     render_asset::RenderAssets,
@@ -29,7 +29,7 @@ use crate::*;
 
 #[derive(Component)]
 pub struct ExtractedPointLight {
-    pub color: Color,
+    pub color: LegacyColor,
     /// luminous intensity in lumens per steradian
     pub intensity: f32,
     pub range: f32,
@@ -43,7 +43,7 @@ pub struct ExtractedPointLight {
 
 #[derive(Component, Debug)]
 pub struct ExtractedDirectionalLight {
-    pub color: Color,
+    pub color: LegacyColor,
     pub illuminance: f32,
     pub transform: GlobalTransform,
     pub shadows_enabled: bool,

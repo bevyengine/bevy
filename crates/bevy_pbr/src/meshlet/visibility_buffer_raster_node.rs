@@ -9,7 +9,7 @@ use bevy_ecs::{
 };
 use bevy_render::{
     camera::ExtractedCamera,
-    color::Color,
+    color::LegacyColor,
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_resource::*,
     renderer::RenderContext,
@@ -324,7 +324,7 @@ fn raster_pass(
         meshlet_view_resources.material_depth_color.as_ref(),
     ) {
         let load = if first_pass {
-            LoadOp::Clear(Color::BLACK.into())
+            LoadOp::Clear(LegacyColor::BLACK.into())
         } else {
             LoadOp::Load
         };
@@ -400,7 +400,7 @@ fn downsample_depth(
                 view: &meshlet_view_resources.depth_pyramid_mips[i],
                 resolve_target: None,
                 ops: Operations {
-                    load: LoadOp::Clear(Color::BLACK.into()),
+                    load: LoadOp::Clear(LegacyColor::BLACK.into()),
                     store: StoreOp::Store,
                 },
             })],

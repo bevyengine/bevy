@@ -7,7 +7,7 @@ use bevy::prelude::*;
 
 fn main() {
     App::new()
-        .insert_resource(ClearColor(Color::BLACK))
+        .insert_resource(ClearColor(LegacyColor::BLACK))
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .run();
@@ -33,7 +33,7 @@ fn setup(mut commands: Commands) {
         .with_children(|parent| {
             parent
                 .spawn(NodeBundle {
-                    background_color: Color::GRAY.into(),
+                    background_color: LegacyColor::GRAY.into(),
                     style: Style {
                         width: Val::Px(180.0),
                         height: Val::Px(100.0),
@@ -44,7 +44,7 @@ fn setup(mut commands: Commands) {
                 .with_children(|parent| {
                     // spawn a node with default z-index.
                     parent.spawn(NodeBundle {
-                        background_color: Color::RED.into(),
+                        background_color: LegacyColor::RED.into(),
                         style: Style {
                             position_type: PositionType::Absolute,
                             left: Val::Px(10.0),
@@ -60,7 +60,7 @@ fn setup(mut commands: Commands) {
                     // it will show above other nodes in the gray container.
                     parent.spawn(NodeBundle {
                         z_index: ZIndex::Local(2),
-                        background_color: Color::BLUE.into(),
+                        background_color: LegacyColor::BLUE.into(),
                         style: Style {
                             position_type: PositionType::Absolute,
                             left: Val::Px(45.0),
@@ -76,7 +76,7 @@ fn setup(mut commands: Commands) {
                     // it will show under other nodes in the gray container.
                     parent.spawn(NodeBundle {
                         z_index: ZIndex::Local(-1),
-                        background_color: Color::GREEN.into(),
+                        background_color: LegacyColor::GREEN.into(),
                         style: Style {
                             position_type: PositionType::Absolute,
                             left: Val::Px(70.0),
@@ -93,7 +93,7 @@ fn setup(mut commands: Commands) {
                     // by default, boxes all share the global z-index of 0 that the gray container is added to.
                     parent.spawn(NodeBundle {
                         z_index: ZIndex::Global(1),
-                        background_color: Color::PURPLE.into(),
+                        background_color: LegacyColor::PURPLE.into(),
                         style: Style {
                             position_type: PositionType::Absolute,
                             left: Val::Px(15.0),
@@ -110,7 +110,7 @@ fn setup(mut commands: Commands) {
                     // in this example.
                     parent.spawn(NodeBundle {
                         z_index: ZIndex::Global(-1),
-                        background_color: Color::YELLOW.into(),
+                        background_color: LegacyColor::YELLOW.into(),
                         style: Style {
                             position_type: PositionType::Absolute,
                             left: Val::Px(-15.0),

@@ -11,7 +11,7 @@
 #ifdef MESHLET_SECOND_CULLING_PASS
 #import bevy_pbr::meshlet_bindings::depth_pyramid
 #endif
-#import bevy_render::maths::affine_to_square
+#import bevy_render::maths::affine3_to_square
 
 /// Culls individual meshlets (1 per thread) in two passes (two pass occlusion culling), and outputs a bitmask of which meshlets survived.
 /// 1. The first pass is only frustum culling, on only the meshlets that were visible last frame.
@@ -29,7 +29,7 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
     let meshlet_id = meshlet_thread_meshlet_ids[thread_id.x];
     let bounding_sphere = meshlet_bounding_spheres[meshlet_id];
     let instance_uniform = meshlet_instance_uniforms[instance_id];
-    let model = affine_to_square(instance_uniform.model);
+    let model = affine3_to_square(instance_uniform.model);
     let model_scale = max(length(model[0]), max(length(model[1]), length(model[2])));
     let bounding_sphere_center = model * vec4(bounding_sphere.center, 1.0);
     let bounding_sphere_radius = model_scale * bounding_sphere.radius;

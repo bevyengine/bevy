@@ -16,7 +16,7 @@ use bevy_ecs::{
 };
 use bevy_math::{Affine3A, Quat, Rect, Vec2, Vec4};
 use bevy_render::{
-    color::Color,
+    color::LegacyColor,
     render_asset::RenderAssets,
     render_phase::{
         DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult, RenderPhase, SetItemPipeline,
@@ -295,7 +295,7 @@ impl SpecializedRenderPipeline for SpritePipeline {
 
 pub struct ExtractedSprite {
     pub transform: GlobalTransform,
-    pub color: Color,
+    pub color: LegacyColor,
     /// Select an area of the texture
     pub rect: Option<Rect>,
     /// Change the on-screen size of the sprite
@@ -406,7 +406,7 @@ struct SpriteInstance {
 
 impl SpriteInstance {
     #[inline]
-    fn from(transform: &Affine3A, color: &Color, uv_offset_scale: &Vec4) -> Self {
+    fn from(transform: &Affine3A, color: &LegacyColor, uv_offset_scale: &Vec4) -> Self {
         let transpose_model_3x3 = transform.matrix3.transpose();
         Self {
             i_model_transpose: [
@@ -524,7 +524,7 @@ pub fn queue_sprites(
             let sort_key = FloatOrd(extracted_sprite.transform.translation().z);
 
             // Add the item to the render phase
-            if extracted_sprite.color != Color::WHITE {
+            if extracted_sprite.color != LegacyColor::WHITE {
                 transparent_phase.add(Transparent2d {
                     draw_function: draw_sprite_function,
                     pipeline: colored_pipeline,

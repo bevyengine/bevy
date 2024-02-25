@@ -47,6 +47,21 @@ impl Hsla {
     pub const fn hsl(hue: f32, saturation: f32, lightness: f32) -> Self {
         Self::new(hue, saturation, lightness, 1.0)
     }
+
+    /// Return a copy of this color with the hue channel set to the given value.
+    pub const fn with_hue(self, hue: f32) -> Self {
+        Self { hue, ..self }
+    }
+
+    /// Return a copy of this color with the saturation channel set to the given value.
+    pub const fn with_saturation(self, saturation: f32) -> Self {
+        Self { saturation, ..self }
+    }
+
+    /// Return a copy of this color with the lightness channel set to the given value.
+    pub const fn with_lightness(self, lightness: f32) -> Self {
+        Self { lightness, ..self }
+    }
 }
 
 impl Default for Hsla {
@@ -121,9 +136,9 @@ impl From<Srgba> for Hsla {
     }
 }
 
-impl From<Hsla> for bevy_render::color::Color {
+impl From<Hsla> for bevy_render::color::LegacyColor {
     fn from(value: Hsla) -> Self {
-        bevy_render::color::Color::Hsla {
+        bevy_render::color::LegacyColor::Hsla {
             hue: value.hue,
             saturation: value.saturation,
             lightness: value.lightness,
@@ -132,10 +147,10 @@ impl From<Hsla> for bevy_render::color::Color {
     }
 }
 
-impl From<bevy_render::color::Color> for Hsla {
-    fn from(value: bevy_render::color::Color) -> Self {
+impl From<bevy_render::color::LegacyColor> for Hsla {
+    fn from(value: bevy_render::color::LegacyColor) -> Self {
         match value.as_hsla() {
-            bevy_render::color::Color::Hsla {
+            bevy_render::color::LegacyColor::Hsla {
                 hue,
                 saturation,
                 lightness,

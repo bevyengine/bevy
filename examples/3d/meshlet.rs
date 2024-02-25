@@ -84,11 +84,11 @@ fn setup(
             meshlet_mesh: meshlet_mesh_handle.clone(),
             material: standard_materials.add(StandardMaterial {
                 base_color: match x {
-                    -2 => Color::hex("#dc2626").unwrap(),
-                    -1 => Color::hex("#ea580c").unwrap(),
-                    0 => Color::hex("#facc15").unwrap(),
-                    1 => Color::hex("#16a34a").unwrap(),
-                    2 => Color::hex("#0284c7").unwrap(),
+                    -2 => LegacyColor::hex("#dc2626").unwrap(),
+                    -1 => LegacyColor::hex("#ea580c").unwrap(),
+                    0 => LegacyColor::hex("#facc15").unwrap(),
+                    1 => LegacyColor::hex("#16a34a").unwrap(),
+                    2 => LegacyColor::hex("#0284c7").unwrap(),
                     _ => unreachable!(),
                 },
                 perceptual_roughness: (x + 2) as f32 / 4.0,
@@ -115,7 +115,7 @@ fn setup(
     commands.spawn(PbrBundle {
         mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
         material: standard_materials.add(StandardMaterial {
-            base_color: Color::WHITE,
+            base_color: LegacyColor::WHITE,
             perceptual_roughness: 1.0,
             ..default()
         }),
@@ -146,7 +146,7 @@ fn draw_bounding_spheres(
                     circle.0,
                     Direction3d::new(camera_pos - circle.0).unwrap(),
                     circle.1,
-                    Color::BLACK,
+                    LegacyColor::BLACK,
                 );
             }
         }

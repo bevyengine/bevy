@@ -13,7 +13,7 @@
     },
     mesh_functions::mesh_position_local_to_world,
 }
-#import bevy_render::maths::affine_to_square
+#import bevy_render::maths::affine3_to_square
 
 /// Vertex/fragment shader for rasterizing meshlets into a visibility buffer.
 
@@ -47,7 +47,7 @@ fn vertex(@builtin(vertex_index) cull_output: u32) -> VertexOutput {
     let instance_id = meshlet_thread_instance_ids[thread_id];
     let instance_uniform = meshlet_instance_uniforms[instance_id];
 
-    let model = affine_to_square(instance_uniform.model);
+    let model = affine3_to_square(instance_uniform.model);
     let world_position = mesh_position_local_to_world(model, vec4(vertex.position, 1.0));
     var clip_position = view.view_proj * vec4(world_position.xyz, 1.0);
 #ifdef DEPTH_CLAMP_ORTHO

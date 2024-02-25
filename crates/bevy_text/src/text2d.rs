@@ -16,7 +16,7 @@ use bevy_ecs::{
 use bevy_math::Vec2;
 use bevy_reflect::Reflect;
 use bevy_render::{
-    prelude::Color,
+    prelude::LegacyColor,
     texture::Image,
     view::{InheritedVisibility, ViewVisibility, Visibility},
     Extract,
@@ -115,7 +115,7 @@ pub fn extract_text2d_sprite(
         let transform = *global_transform
             * GlobalTransform::from_translation(alignment_translation.extend(0.))
             * scaling;
-        let mut color = Color::WHITE;
+        let mut color = LegacyColor::WHITE;
         let mut current_section = usize::MAX;
         for PositionedGlyph {
             position,

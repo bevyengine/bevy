@@ -64,7 +64,7 @@ fn setup(
                 TextSection::new(
                     "space".to_string(),
                     TextStyle {
-                        color: Color::YELLOW,
+                        color: LegacyColor::YELLOW,
                         ..text_style.clone()
                     },
                 ),

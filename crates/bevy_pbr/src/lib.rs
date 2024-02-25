@@ -81,10 +81,11 @@ use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_ecs::prelude::*;
 use bevy_render::{
+    alpha::AlphaMode,
     camera::{CameraUpdateSystem, Projection},
     extract_component::ExtractComponentPlugin,
     extract_resource::ExtractResourcePlugin,
-    prelude::Color,
+    prelude::LegacyColor,
     render_asset::prepare_assets,
     render_graph::RenderGraph,
     render_phase::sort_phase_system,
@@ -348,7 +349,7 @@ impl Plugin for PbrPlugin {
         app.world.resource_mut::<Assets<StandardMaterial>>().insert(
             Handle::<StandardMaterial>::default(),
             StandardMaterial {
-                base_color: Color::rgb(1.0, 0.0, 0.5),
+                base_color: LegacyColor::rgb(1.0, 0.0, 0.5),
                 unlit: true,
                 ..Default::default()
             },
