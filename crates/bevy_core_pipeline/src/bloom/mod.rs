@@ -129,6 +129,10 @@ impl ViewNode for BloomNode {
         ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
+        if bloom_settings.intensity == 0.0 {
+            return Ok(());
+        }
+
         let downsampling_pipeline_res = world.resource::<BloomDownsamplingPipeline>();
         let pipeline_cache = world.resource::<PipelineCache>();
         let uniforms = world.resource::<ComponentUniforms<BloomUniforms>>();
