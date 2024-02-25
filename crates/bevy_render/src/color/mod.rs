@@ -301,32 +301,7 @@ impl LegacyColor {
     /// ```
     ///
     pub fn hex<T: AsRef<str>>(hex: T) -> Result<LegacyColor, HexColorError> {
-        let hex = hex.as_ref();
-        let hex = hex.strip_prefix('#').unwrap_or(hex);
-
-        match *hex.as_bytes() {
-            // RGB
-            [r, g, b] => {
-                let [r, g, b, ..] = decode_hex([r, r, g, g, b, b])?;
-                Ok(LegacyColor::rgb_u8(r, g, b))
-            }
-            // RGBA
-            [r, g, b, a] => {
-                let [r, g, b, a, ..] = decode_hex([r, r, g, g, b, b, a, a])?;
-                Ok(LegacyColor::rgba_u8(r, g, b, a))
-            }
-            // RRGGBB
-            [r1, r2, g1, g2, b1, b2] => {
-                let [r, g, b, ..] = decode_hex([r1, r2, g1, g2, b1, b2])?;
-                Ok(LegacyColor::rgb_u8(r, g, b))
-            }
-            // RRGGBBAA
-            [r1, r2, g1, g2, b1, b2, a1, a2] => {
-                let [r, g, b, a, ..] = decode_hex([r1, r2, g1, g2, b1, b2, a1, a2])?;
-                Ok(LegacyColor::rgba_u8(r, g, b, a))
-            }
-            _ => Err(HexColorError::Length),
-        }
+        Srgba::hex(hex).map(|color| color.into())
     }
 
     /// New `Color` from sRGB colorspace.
@@ -1628,6 +1603,8 @@ impl encase::ShaderSize for LegacyColor {}
 
 #[cfg(test)]
 mod tests {
+    use std::num::ParseIntError;
+
     use super::*;
 
     #[test]
@@ -1645,7 +1622,9 @@ mod tests {
             Ok(LegacyColor::rgb_u8(3, 169, 244))
         );
         assert_eq!(LegacyColor::hex("yy"), Err(HexColorError::Length));
-        assert_eq!(LegacyColor::hex("yyy"), Err(HexColorError::Char('y')));
+        let Err(HexColorError::Parse(ParseIntError { .. })) = LegacyColor::hex("yyy") else {
+            panic!("Expected Parse Int Error")
+        };
         assert_eq!(
             LegacyColor::hex("#f2a"),
             Ok(LegacyColor::rgb_u8(255, 34, 170))
@@ -1655,7 +1634,9 @@ mod tests {
             Ok(LegacyColor::rgb_u8(226, 48, 48))
         );
         assert_eq!(LegacyColor::hex("#ff"), Err(HexColorError::Length));
-        assert_eq!(LegacyColor::hex("##fff"), Err(HexColorError::Char('#')));
+        let Err(HexColorError::Parse(ParseIntError { .. })) = LegacyColor::hex("##fff") else {
+            panic!("Expected Parse Int Error")
+        };
     }
 
     #[test]

@@ -315,12 +315,16 @@ impl From<Srgba> for Vec4 {
     }
 }
 
+/// Error returned if a hex string could not be parsed as a color.
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum HexColorError {
+    /// Parsing error.
     #[error("Invalid hex string")]
     Parse(#[from] std::num::ParseIntError),
+    /// Invalid length.
     #[error("Unexpected length of hex string")]
     Length,
+    /// Invalid character.
     #[error("Invalid hex char")]
     Char(char),
 }

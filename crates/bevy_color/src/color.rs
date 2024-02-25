@@ -28,14 +28,7 @@ impl StandardColor for Color {}
 impl Color {
     /// Return the color as a linear RGBA color.
     pub fn linear(&self) -> LinearRgba {
-        match self {
-            Color::Srgba(srgba) => (*srgba).into(),
-            Color::LinearRgba(linear) => *linear,
-            Color::Hsla(hsla) => (*hsla).into(),
-            Color::Lcha(lcha) => (*lcha).into(),
-            Color::Oklaba(oklab) => (*oklab).into(),
-            Color::Xyza(xyza) => (*xyza).into(),
-        }
+        (*self).into()
     }
 }
 
@@ -141,9 +134,9 @@ impl From<Color> for Hsla {
             Color::Srgba(srgba) => srgba.into(),
             Color::LinearRgba(linear) => linear.into(),
             Color::Hsla(hsla) => hsla,
-            Color::Lcha(lcha) => LinearRgba::from(lcha).into(),
-            Color::Oklaba(oklab) => LinearRgba::from(oklab).into(),
-            Color::Xyza(xyza) => LinearRgba::from(xyza).into(),
+            Color::Lcha(lcha) => lcha.into(),
+            Color::Oklaba(oklab) => oklab.into(),
+            Color::Xyza(xyza) => xyza.into(),
         }
     }
 }
@@ -153,10 +146,10 @@ impl From<Color> for Lcha {
         match value {
             Color::Srgba(srgba) => srgba.into(),
             Color::LinearRgba(linear) => linear.into(),
-            Color::Hsla(hsla) => Srgba::from(hsla).into(),
+            Color::Hsla(hsla) => hsla.into(),
             Color::Lcha(lcha) => lcha,
-            Color::Oklaba(oklab) => LinearRgba::from(oklab).into(),
-            Color::Xyza(xyza) => LinearRgba::from(xyza).into(),
+            Color::Oklaba(oklab) => oklab.into(),
+            Color::Xyza(xyza) => xyza.into(),
         }
     }
 }
@@ -166,10 +159,10 @@ impl From<Color> for Oklaba {
         match value {
             Color::Srgba(srgba) => srgba.into(),
             Color::LinearRgba(linear) => linear.into(),
-            Color::Hsla(hsla) => Srgba::from(hsla).into(),
-            Color::Lcha(lcha) => LinearRgba::from(lcha).into(),
+            Color::Hsla(hsla) => hsla.into(),
+            Color::Lcha(lcha) => lcha.into(),
             Color::Oklaba(oklab) => oklab,
-            Color::Xyza(xyza) => LinearRgba::from(xyza).into(),
+            Color::Xyza(xyza) => xyza.into(),
         }
     }
 }
