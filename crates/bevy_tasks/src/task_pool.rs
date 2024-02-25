@@ -537,41 +537,21 @@ impl TaskPool {
     /// any case, the pool will execute the task even without polling by the
     /// end-user.
     ///
-    /// If the provided future is non-`Send`, [`TaskPool::spawn_local`] should
+    /// If the provided future is non-`Send`, [`spawn_local`] should
     /// be used instead.
+    /// 
+    /// If the provided future performs blocking IO or may have long lasting 
+    /// CPU-bound operations, use [`spawn_blocking`] or [`spawn_blocking_async`]
+    /// instead.
+    /// 
+    /// [`spawn_local`]: Self::spawn_local
+    /// [`spawn_blocking`]: Self::spawn_blocking
+    /// [`spawn_blocking`]: Self::spawn_blocking_async
     pub fn spawn<T>(&self, future: impl Future<Output = T> + Send + 'static) -> Task<T>
     where
         T: Send + 'static,
     {
         Task::new(self.executor.spawn(future))
-    }
-
-    /// Runs the provided closure on a thread where blocking is acceptable.
-    ///
-    /// In general, issuing a blocking call or performing a lot of compute in a
-    /// future without yielding is not okay, as it may prevent the task pool
-    /// from driving other futures forward. This function runs the provided
-    /// closure on a thread dedicated to blocking operations.
-    ///
-    /// This call will spawn more blocking threads when they are requested
-    /// through until the upper limit configured. This
-    /// limit is very large by default, because `spawn_blocking` is often
-    /// used for various kinds of IO operations that cannot be performed
-    /// asynchronously. When you run CPU-bound code using `spawn_blocking`,
-    /// you should keep this large upper limit in mind; to run your
-    /// CPU-bound computations on only a few threads. Spawning too many threads
-    /// will cause the OS to [thrash], which may impact the performance
-    /// of the non-blocking tasks scheduled onto the `TaskPool`.  
-    ///
-    /// Closures spawned using `spawn_blocking` cannot be cancelled. When you shut down the executor, it will wait
-    /// indefinitely for all blocking operations to finish.
-    ///
-    /// [thrash]: https://en.wikipedia.org/wiki/Thrashing_(computer_science)
-    pub fn spawn_blocking<T>(&self, f: impl FnOnce() -> T + Send + 'static) -> Task<T>
-    where
-        T: Send + 'static,
-    {
-        Task::new(unblock(f))
     }
 
     /// Spawns a static future on the thread-local async executor for the
@@ -590,6 +570,71 @@ impl TaskPool {
         T: 'static,
     {
         Task::new(TaskPool::LOCAL_EXECUTOR.with(|executor| executor.spawn(future)))
+    }
+
+    /// Runs the provided closure on a thread where blocking is acceptable.
+    ///
+    /// In general, issuing a blocking call or performing a lot of compute in a
+    /// future without yielding is not okay, as it may prevent the task pool
+    /// from driving other futures forward. This function runs the provided
+    /// closure on a thread dedicated to blocking operations.
+    ///
+    /// This call will spawn more blocking threads when they are requested
+    /// through this function until the upper limit configured. 
+    /// This limit is very large by default (500), because `spawn_blocking` is often
+    /// used for various kinds of IO operations that cannot be performed
+    /// asynchronously. When you run CPU-bound code using `spawn_blocking`,
+    /// you should keep this large upper limit in mind; to run your
+    /// CPU-bound computations on only a few threads. Spawning too many threads
+    /// will cause the OS to [thrash], which may impact the performance
+    /// of the non-blocking tasks scheduled onto the `TaskPool`.  
+    ///
+    /// Closures spawned using `spawn_blocking` cannot be cancelled. When you shut down the executor, it will wait
+    /// indefinitely for all blocking operations to finish.
+    ///
+    /// [thrash]: https://en.wikipedia.org/wiki/Thrashing_(computer_science)
+    pub fn spawn_blocking<T>(&self, f: impl FnOnce() -> T + Send + 'static) -> Task<T>
+    where
+        T: Send + 'static,
+    {
+        Task::new(unblock(f))
+    }
+    
+    /// Spawns a static future onto on a thread where blocking is acceptabl.e 
+    /// The returned [`Task`] is a future that can be polled for the result. 
+    /// It can also be canceled and "detached", allowing the task to continue 
+    /// running even if dropped. In any case, the pool will execute the task 
+    /// even without polling by the end-user.
+    ///
+    /// This function is equivalent to calling `task_pool.spawn_blocking(|| block_on(f))`.
+    /// 
+    /// If the future is expected to terminate quickly, or will not spend a 
+    /// signficant amount of time performing blocking CPU-bound or IO-bound
+    /// operations, [`spawn`] should be used instead. The ideal use case for
+    /// this function is for launching a future that may involve a combination
+    /// of async IO and blocking operations (i.e. loading large scenes).
+    /// 
+    /// This call will spawn more blocking threads when they are requested
+    /// through this function until the upper limit configured. 
+    /// This limit is very large by default (500), because `spawn_blocking` is often
+    /// used for various kinds of IO operations that cannot be performed
+    /// asynchronously. When you run CPU-bound code using `spawn_blocking`,
+    /// you should keep this large upper limit in mind; to run your
+    /// CPU-bound computations on only a few threads. Spawning too many threads
+    /// will cause the OS to [thrash], which may impact the performance
+    /// of the non-blocking tasks scheduled onto the `TaskPool`.  
+    ///
+    /// Closures spawned using `spawn_blocking` cannot be cancelled. When you 
+    /// shut down the executor, it will wait indefinitely for all blocking 
+    /// operations to finish.
+    /// 
+    /// [`spawn`]: Self::spawn
+    #[inline]
+    pub fn spawn_blocking_async<T>(&self, f: impl Future<Output=T> + Send + 'static) -> Task<T>
+    where
+        T: Send + 'static,
+    {
+        self.spawn_blocking(|| block_on(f))
     }
 
     /// Runs a function with the local executor. Typically used to tick
