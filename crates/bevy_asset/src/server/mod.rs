@@ -797,9 +797,9 @@ impl AssetServer {
             .map(|h| h.typed_debug_checked())
     }
 
-    /// Get an `Handle` from an `AssetId`.
+    /// Get a `Handle` from an `AssetId`.
     ///
-    /// This only returns `Some` if `id` is derived from an `Handle` that was
+    /// This only returns `Some` if `id` is derived from a `Handle` that was
     /// loaded through an `AssetServer`, otherwise it returns `None`.
     ///
     /// Consider using [`Assets::get_strong_handle`] in the case the `Handle`
