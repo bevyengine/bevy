@@ -164,7 +164,7 @@ impl AppGizmoBuilder for App {
             return self;
         }
 
-        let mut handles = self.world.get_resource_mut::<LineGizmoHandles>().unwrap();
+        let mut handles = self.world.get_resource_or_insert_with::<LineGizmoHandles>(Default::default);
         handles.list.insert(TypeId::of::<T>(), None);
         handles.strip.insert(TypeId::of::<T>(), None);
 
@@ -191,7 +191,7 @@ impl AppGizmoBuilder for App {
             return self;
         }
 
-        let mut handles = self.world.get_resource_mut::<LineGizmoHandles>().unwrap();
+        let mut handles = self.world.get_resource_or_insert_with::<LineGizmoHandles>(Default::default);
         handles.list.insert(TypeId::of::<T>(), None);
         handles.strip.insert(TypeId::of::<T>(), None);
 
