@@ -9,7 +9,7 @@ use bevy_math::primitives::{
     Polygon, Polyline2d, Primitive2d, Rectangle, RegularPolygon, Segment2d, Triangle2d,
 };
 use bevy_math::{Mat2, Vec2};
-use bevy_render::color::Color;
+use bevy_render::color::LegacyColor;
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 
@@ -32,7 +32,7 @@ pub trait GizmoPrimitive2d<P: Primitive2d> {
         primitive: P,
         position: Vec2,
         angle: f32,
-        color: Color,
+        color: LegacyColor,
     ) -> Self::Output<'_>;
 }
 
@@ -46,7 +46,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Direction2d> for Gizmos<'w, '
         primitive: Direction2d,
         position: Vec2,
         angle: f32,
-        color: Color,
+        color: LegacyColor,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
@@ -70,7 +70,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Circle> for Gizmos<'w, 's, T>
         primitive: Circle,
         position: Vec2,
         _angle: f32,
-        color: Color,
+        color: LegacyColor,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
@@ -90,7 +90,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Ellipse> for Gizmos<'w, 's, T
         primitive: Ellipse,
         position: Vec2,
         angle: f32,
-        color: Color,
+        color: LegacyColor,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
@@ -110,7 +110,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Capsule2d> for Gizmos<'w, 's,
         primitive: Capsule2d,
         position: Vec2,
         angle: f32,
-        color: Color,
+        color: LegacyColor,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
@@ -165,9 +165,9 @@ pub struct Line2dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
 
     direction: Direction2d, // Direction of the line
 
-    position: Vec2, // position of the center of the line
-    rotation: Mat2, // rotation of the line
-    color: Color,   // color of the line
+    position: Vec2,     // position of the center of the line
+    rotation: Mat2,     // rotation of the line
+    color: LegacyColor, // color of the line
 
     draw_arrow: bool, // decides whether to indicate the direction of the line with an arrow
 }
@@ -188,7 +188,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Line2d> for Gizmos<'w, 's, T>
         primitive: Line2d,
         position: Vec2,
         angle: f32,
-        color: Color,
+        color: LegacyColor,
     ) -> Self::Output<'_> {
         Line2dBuilder {
             gizmos: self,
@@ -239,7 +239,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Plane2d> for Gizmos<'w, 's, T
         primitive: Plane2d,
         position: Vec2,
         angle: f32,
-        color: Color,
+        color: LegacyColor,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
@@ -285,9 +285,9 @@ pub struct Segment2dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     direction: Direction2d, // Direction of the line segment
     half_length: f32,       // Half-length of the line segment
 
-    position: Vec2, // position of the center of the line segment
-    rotation: Mat2, // rotation of the line segment
-    color: Color,   // color of the line segment
+    position: Vec2,     // position of the center of the line segment
+    rotation: Mat2,     // rotation of the line segment
+    color: LegacyColor, // color of the line segment
 
     draw_arrow: bool, // decides whether to draw just a line or an arrow
 }
@@ -308,7 +308,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Segment2d> for Gizmos<'w, 's,
         primitive: Segment2d,
         position: Vec2,
         angle: f32,
-        color: Color,
+        color: LegacyColor,
     ) -> Self::Output<'_> {
         Segment2dBuilder {
             gizmos: self,
@@ -354,7 +354,7 @@ impl<'w, 's, const N: usize, T: GizmoConfigGroup> GizmoPrimitive2d<Polyline2d<N>
         primitive: Polyline2d<N>,
         position: Vec2,
         angle: f32,
-        color: Color,
+        color: LegacyColor,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
@@ -381,7 +381,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<BoxedPolyline2d> for Gizmos<'
         primitive: BoxedPolyline2d,
         position: Vec2,
         angle: f32,
-        color: Color,
+        color: LegacyColor,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
@@ -408,7 +408,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Triangle2d> for Gizmos<'w, 's
         primitive: Triangle2d,
         position: Vec2,
         angle: f32,
-        color: Color,
+        color: LegacyColor,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
@@ -429,7 +429,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Rectangle> for Gizmos<'w, 's,
         primitive: Rectangle,
         position: Vec2,
         angle: f32,
-        color: Color,
+        color: LegacyColor,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
@@ -459,7 +459,7 @@ impl<'w, 's, const N: usize, T: GizmoConfigGroup> GizmoPrimitive2d<Polygon<N>>
         primitive: Polygon<N>,
         position: Vec2,
         angle: f32,
-        color: Color,
+        color: LegacyColor,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
@@ -496,7 +496,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<BoxedPolygon> for Gizmos<'w, 
         primitive: BoxedPolygon,
         position: Vec2,
         angle: f32,
-        color: Color,
+        color: LegacyColor,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
@@ -531,7 +531,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<RegularPolygon> for Gizmos<'w
         primitive: RegularPolygon,
         position: Vec2,
         angle: f32,
-        color: Color,
+        color: LegacyColor,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;

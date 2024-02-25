@@ -6,7 +6,7 @@
 //! # use bevy_render::prelude::*;
 //! # use bevy_math::prelude::*;
 //! fn system(mut gizmos: Gizmos) {
-//!     gizmos.line(Vec3::ZERO, Vec3::X, Color::GREEN);
+//!     gizmos.line(Vec3::ZERO, Vec3::X, LegacyColor::GREEN);
 //! }
 //! # bevy_ecs::system::assert_is_system(system);
 //! ```
@@ -98,6 +98,7 @@ impl Plugin for GizmoPlugin {
         load_internal_asset!(app, LINE_SHADER_HANDLE, "lines.wgsl", Shader::from_wgsl);
 
         app.register_type::<GizmoConfig>()
+            .register_type::<GizmoConfigStore>()
             .add_plugins(UniformComponentPlugin::<LineGizmoUniform>::default())
             .init_asset::<LineGizmo>()
             .add_plugins(RenderAssetPlugin::<LineGizmo>::default())

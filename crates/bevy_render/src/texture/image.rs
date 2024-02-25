@@ -47,13 +47,23 @@ pub enum ImageFormat {
 impl ImageFormat {
     pub fn from_mime_type(mime_type: &str) -> Option<Self> {
         Some(match mime_type.to_ascii_lowercase().as_str() {
+            "image/avif" => ImageFormat::Avif,
             "image/bmp" | "image/x-bmp" => ImageFormat::Bmp,
             "image/vnd-ms.dds" => ImageFormat::Dds,
+            "image/vnd.radiance" => ImageFormat::Hdr,
+            "image/gif" => ImageFormat::Gif,
+            "image/x-icon" => ImageFormat::Ico,
             "image/jpeg" => ImageFormat::Jpeg,
             "image/ktx2" => ImageFormat::Ktx2,
             "image/png" => ImageFormat::Png,
             "image/x-exr" => ImageFormat::OpenExr,
+            "image/x-portable-bitmap"
+            | "image/x-portable-graymap"
+            | "image/x-portable-pixmap"
+            | "image/x-portable-anymap" => ImageFormat::Pnm,
             "image/x-targa" | "image/x-tga" => ImageFormat::Tga,
+            "image/tiff" => ImageFormat::Tiff,
+            "image/webp" => ImageFormat::WebP,
             _ => return None,
         })
     }
@@ -812,7 +822,7 @@ pub struct GpuImage {
     pub texture_view: TextureView,
     pub texture_format: TextureFormat,
     pub sampler: Sampler,
-    pub size: Vec2,
+    pub size: UVec2,
     pub mip_level_count: u32,
 }
 
@@ -841,15 +851,12 @@ impl RenderAsset for Image {
             &self.data,
         );
 
+        let size = self.size();
         let texture_view = texture.create_view(
             self.texture_view_descriptor
                 .or_else(|| Some(TextureViewDescriptor::default()))
                 .as_ref()
                 .unwrap(),
-        );
-        let size = Vec2::new(
-            self.texture_descriptor.size.width as f32,
-            self.texture_descriptor.size.height as f32,
         );
         let sampler = match self.sampler {
             ImageSampler::Default => (***default_sampler).clone(),
@@ -929,7 +936,6 @@ impl CompressedImageFormats {
 
 #[cfg(test)]
 mod test {
-
     use super::*;
     use crate::render_asset::RenderAssetUsages;
 
@@ -952,9 +958,11 @@ mod test {
             image.size_f32()
         );
     }
+
     #[test]
     fn image_default_size() {
         let image = Image::default();
+        assert_eq!(UVec2::ONE, image.size());
         assert_eq!(Vec2::ONE, image.size_f32());
     }
 }

@@ -4,7 +4,6 @@ use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, UVec3, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_render::{
     camera::Camera,
-    color::Color,
     mesh::Mesh,
     primitives::{CascadesFrusta, CubemapFrusta, Frustum},
     render_asset::RenderAssets,
@@ -29,30 +28,30 @@ use crate::*;
 
 #[derive(Component)]
 pub struct ExtractedPointLight {
-    color: Color,
+    pub color: LegacyColor,
     /// luminous intensity in lumens per steradian
-    intensity: f32,
-    range: f32,
-    radius: f32,
-    transform: GlobalTransform,
-    shadows_enabled: bool,
-    shadow_depth_bias: f32,
-    shadow_normal_bias: f32,
-    spot_light_angles: Option<(f32, f32)>,
+    pub intensity: f32,
+    pub range: f32,
+    pub radius: f32,
+    pub transform: GlobalTransform,
+    pub shadows_enabled: bool,
+    pub shadow_depth_bias: f32,
+    pub shadow_normal_bias: f32,
+    pub spot_light_angles: Option<(f32, f32)>,
 }
 
 #[derive(Component, Debug)]
 pub struct ExtractedDirectionalLight {
-    color: Color,
-    illuminance: f32,
-    transform: GlobalTransform,
-    shadows_enabled: bool,
-    shadow_depth_bias: f32,
-    shadow_normal_bias: f32,
-    cascade_shadow_config: CascadeShadowConfig,
-    cascades: EntityHashMap<Vec<Cascade>>,
-    frusta: EntityHashMap<Vec<Frustum>>,
-    render_layers: RenderLayers,
+    pub color: LegacyColor,
+    pub illuminance: f32,
+    pub transform: GlobalTransform,
+    pub shadows_enabled: bool,
+    pub shadow_depth_bias: f32,
+    pub shadow_normal_bias: f32,
+    pub cascade_shadow_config: CascadeShadowConfig,
+    pub cascades: EntityHashMap<Vec<Cascade>>,
+    pub frusta: EntityHashMap<Vec<Frustum>>,
+    pub render_layers: RenderLayers,
 }
 
 #[derive(Copy, Clone, ShaderType, Default, Debug)]
@@ -1210,16 +1209,20 @@ pub fn prepare_lights(
                 .create_view(&TextureViewDescriptor {
                     label: Some("point_light_shadow_map_array_texture_view"),
                     format: None,
-                    #[cfg(any(
-                        not(feature = "webgl"),
-                        not(target_arch = "wasm32"),
-                        feature = "webgpu"
+                    // NOTE: iOS Simulator is missing CubeArray support so we use Cube instead.
+                    // See https://github.com/bevyengine/bevy/pull/12052 - remove if support is added.
+                    #[cfg(all(
+                        not(feature = "ios_simulator"),
+                        any(
+                            not(feature = "webgl"),
+                            not(target_arch = "wasm32"),
+                            feature = "webgpu"
+                        )
                     ))]
                     dimension: Some(TextureViewDimension::CubeArray),
-                    #[cfg(all(
-                        feature = "webgl",
-                        target_arch = "wasm32",
-                        not(feature = "webgpu")
+                    #[cfg(any(
+                        feature = "ios_simulator",
+                        all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu"))
                     ))]
                     dimension: Some(TextureViewDimension::Cube),
                     aspect: TextureAspect::DepthOnly,
@@ -1591,7 +1594,7 @@ pub fn queue_shadows<M: Material>(
     shadow_draw_functions: Res<DrawFunctions<Shadow>>,
     prepass_pipeline: Res<PrepassPipeline<M>>,
     render_meshes: Res<RenderAssets<Mesh>>,
-    mut render_mesh_instances: ResMut<RenderMeshInstances>,
+    render_mesh_instances: Res<RenderMeshInstances>,
     render_materials: Res<RenderMaterials<M>>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
@@ -1637,7 +1640,7 @@ pub fn queue_shadows<M: Material>(
             // NOTE: Lights with shadow mapping disabled will have no visible entities
             // so no meshes will be queued
             for entity in visible_entities.iter().copied() {
-                let Some(mesh_instance) = render_mesh_instances.get_mut(&entity) else {
+                let Some(mesh_instance) = render_mesh_instances.get(&entity) else {
                     continue;
                 };
                 if !mesh_instance.shadow_caster {
@@ -1697,7 +1700,9 @@ pub fn queue_shadows<M: Material>(
                     }
                 };
 
-                mesh_instance.material_bind_group_id = material.get_bind_group_id();
+                mesh_instance
+                    .material_bind_group_id
+                    .set(material.get_bind_group_id());
 
                 shadow_phase.add(Shadow {
                     draw_function: draw_shadow_mesh,

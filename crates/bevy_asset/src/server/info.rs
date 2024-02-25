@@ -358,7 +358,7 @@ impl AssetInfos {
         }
     }
 
-    // Returns `true` if the asset should be removed from the collection
+    /// Returns `true` if the asset should be removed from the collection.
     pub(crate) fn process_handle_drop(&mut self, id: UntypedAssetId) -> bool {
         Self::process_handle_drop_internal(
             &mut self.infos,

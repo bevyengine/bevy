@@ -1917,7 +1917,7 @@ bevy_reflect::tests::Test {
     }
 
     #[test]
-    fn should_allow_custom_where_wtih_assoc_type() {
+    fn should_allow_custom_where_with_assoc_type() {
         trait Trait {
             type Assoc;
         }
