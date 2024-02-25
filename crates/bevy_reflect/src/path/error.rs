@@ -63,7 +63,7 @@ impl<'a> AccessError<'a> {
         &self.kind
     }
 
-    /// The returns the [`Access`] that this [`AccessError`] occured in.
+    /// The returns the [`Access`] that this [`AccessError`] occurred in.
     pub const fn access(&self) -> &Access {
         &self.access
     }

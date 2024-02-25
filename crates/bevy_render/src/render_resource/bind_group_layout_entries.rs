@@ -354,7 +354,7 @@ pub mod binding_types {
     };
     use encase::ShaderType;
     use std::num::NonZeroU64;
-    use wgpu::{BindingType, StorageTextureAccess, TextureFormat};
+    use wgpu::{StorageTextureAccess, TextureFormat};
 
     use super::*;
 

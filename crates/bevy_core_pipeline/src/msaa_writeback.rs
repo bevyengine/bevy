@@ -7,9 +7,8 @@ use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::ExtractedCamera,
-    color::Color,
+    color::LegacyColor,
     render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
-    render_resource::BindGroupEntries,
     renderer::RenderContext,
     view::{Msaa, ViewTarget},
     Render, RenderSet,
@@ -93,7 +92,7 @@ impl Node for MsaaWritebackNode {
                     view: target.sampled_main_texture_view().unwrap(),
                     resolve_target: Some(post_process.destination),
                     ops: Operations {
-                        load: LoadOp::Clear(Color::BLACK.into()),
+                        load: LoadOp::Clear(LegacyColor::BLACK.into()),
                         store: StoreOp::Store,
                     },
                 })],

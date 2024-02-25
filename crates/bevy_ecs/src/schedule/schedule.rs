@@ -1,7 +1,6 @@
 use std::{
     collections::BTreeSet,
     fmt::{Debug, Write},
-    result::Result,
 };
 
 #[cfg(feature = "trace")]
@@ -161,7 +160,7 @@ fn make_executor(kind: ExecutorKind) -> Box<dyn SystemExecutor> {
 /// Chain systems into dependencies
 #[derive(PartialEq)]
 pub enum Chain {
-    /// Run nodes in order. If there are deferred parameters in preceeding systems a
+    /// Run nodes in order. If there are deferred parameters in preceding systems a
     /// [`apply_deferred`] will be added on the edge.
     Yes,
     /// Run nodes in order. This will not add [`apply_deferred`] between nodes.
@@ -333,15 +332,18 @@ impl Schedule {
             .unwrap_or_else(|e| panic!("Error when initializing schedule {:?}: {e}", self.label));
 
         #[cfg(not(feature = "bevy_debug_stepping"))]
-        let skip_systems = None;
+        self.executor.run(&mut self.executable, world, None);
 
         #[cfg(feature = "bevy_debug_stepping")]
-        let skip_systems = match world.get_resource_mut::<Stepping>() {
-            None => None,
-            Some(mut stepping) => stepping.skipped_systems(self),
-        };
+        {
+            let skip_systems = match world.get_resource_mut::<Stepping>() {
+                None => None,
+                Some(mut stepping) => stepping.skipped_systems(self),
+            };
 
-        self.executor.run(&mut self.executable, skip_systems, world);
+            self.executor
+                .run(&mut self.executable, world, skip_systems.as_ref());
+        }
     }
 
     /// Initializes any newly-added systems and conditions, rebuilds the executable schedule,

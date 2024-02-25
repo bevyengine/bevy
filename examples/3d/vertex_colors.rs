@@ -18,7 +18,7 @@ fn setup(
     // plane
     commands.spawn(PbrBundle {
         mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
-        material: materials.add(Color::rgb(0.3, 0.5, 0.3)),
+        material: materials.add(LegacyColor::rgb(0.3, 0.5, 0.3)),
         ..default()
     });
     // cube
@@ -38,7 +38,7 @@ fn setup(
         // This is the default color, but note that vertex colors are
         // multiplied by the base color, so you'll likely want this to be
         // white if using vertex colors.
-        material: materials.add(Color::rgb(1., 1., 1.)),
+        material: materials.add(LegacyColor::rgb(1., 1., 1.)),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..default()
     });

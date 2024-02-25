@@ -1,6 +1,6 @@
 [package]
 name = "bevy_time"
-version = "0.13.0"
+version = "0.14.0-dev"
 edition = "2021"
 description = "Provides time functionality for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -15,14 +15,14 @@ bevy_ci_testing = ["bevy_app/bevy_ci_testing"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.13.0" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.13.0", features = [
+bevy_app = { path = "../bevy_app", version = "0.14.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev", features = [
   "bevy_reflect",
 ] }
-bevy_reflect = { path = "../bevy_reflect", version = "0.13.0", features = [
+bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev", features = [
   "bevy",
 ] }
-bevy_utils = { path = "../bevy_utils", version = "0.13.0" }
+bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
 
 # other
 crossbeam-channel = "0.5.0"
