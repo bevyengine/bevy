@@ -3,7 +3,6 @@ use crate::{
     StandardColor,
 };
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use bevy_render::color::LegacyColor;
 use serde::{Deserialize, Serialize};
 
 /// Color in Oklaba color space, with alpha
@@ -161,18 +160,6 @@ impl From<Lcha> for Oklaba {
 
 impl From<Hsla> for Oklaba {
     fn from(value: Hsla) -> Self {
-        LinearRgba::from(value).into()
-    }
-}
-
-impl From<LegacyColor> for Oklaba {
-    fn from(value: LegacyColor) -> Self {
-        LinearRgba::from(value).into()
-    }
-}
-
-impl From<Oklaba> for LegacyColor {
-    fn from(value: Oklaba) -> Self {
         LinearRgba::from(value).into()
     }
 }

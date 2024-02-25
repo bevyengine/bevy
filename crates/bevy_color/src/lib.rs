@@ -95,8 +95,6 @@ pub use oklaba::*;
 pub use srgba::*;
 pub use xyza::*;
 
-use bevy_render::color::LegacyColor;
-
 /// Describes the traits that a color should implement for consistency.
 #[allow(dead_code)] // This is an internal marker trait used to ensure that our color types impl the required traits
 pub(crate) trait StandardColor
@@ -108,7 +106,6 @@ where
     Self: bevy_reflect::Reflect,
     Self: Default,
     Self: From<Color> + Into<Color>,
-    Self: From<LegacyColor> + Into<LegacyColor>,
     Self: From<Srgba> + Into<Srgba>,
     Self: From<LinearRgba> + Into<LinearRgba>,
     Self: From<Hsla> + Into<Hsla>,
