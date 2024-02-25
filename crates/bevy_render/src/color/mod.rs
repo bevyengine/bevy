@@ -1906,6 +1906,8 @@ impl encase::ShaderSize for LegacyColor {}
 
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum HexColorError {
+    #[error("Invalid hex string")]
+    Parse(#[from] std::num::ParseIntError),
     #[error("Unexpected length of hex string")]
     Length,
     #[error("Invalid hex char")]
