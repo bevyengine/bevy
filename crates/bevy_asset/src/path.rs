@@ -437,7 +437,7 @@ impl<'a> AssetPath<'a> {
                 PathBuf::new()
             };
             result_path.push(rpath);
-            result_path = result_path.normalized();
+            result_path = normalize_path(result_path.as_path());
 
             Ok(AssetPath {
                 source: match source {
@@ -702,28 +702,23 @@ impl FromReflect for AssetPath<'static> {
     }
 }
 
-pub(crate) trait NormalizedPath {
-    /// Normalizes the path by removing all occurrences of '.' and '..' dot-segments where possible as per RFC 1808
-    fn normalized(&self) -> PathBuf;
-}
-
-impl NormalizedPath for Path {
-    fn normalized(&self) -> PathBuf {
-        let mut result_path = PathBuf::new();
-        for elt in self.iter() {
-            if elt == "." {
-                // Skip
-            } else if elt == ".." {
-                if !result_path.pop() {
-                    // Preserve ".." if insufficient matches (per RFC 1808).
-                    result_path.push(elt);
-                }
-            } else {
+/// Normalizes the path by collapsing all occurrences of '.' and '..' dot-segments where possible
+/// as per [RFC 1808](https://datatracker.ietf.org/doc/html/rfc1808)
+pub(crate) fn normalize_path(path: &Path) -> PathBuf {
+    let mut result_path = PathBuf::new();
+    for elt in path.iter() {
+        if elt == "." {
+            // Skip
+        } else if elt == ".." {
+            if !result_path.pop() {
+                // Preserve ".." if insufficient matches (per RFC 1808).
                 result_path.push(elt);
             }
+        } else {
+            result_path.push(elt);
         }
-        result_path
     }
+    result_path
 }
 
 #[cfg(test)]
