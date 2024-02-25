@@ -9,7 +9,7 @@ use bevy_internal::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins(SpriteMaterialPlugin::<GrayScale>::default())
+        .add_plugins(SpriteMaterialPlugin::<GrayScale>::enable_globals_buffer())
         .add_systems(Startup, setup)
         .run();
 }

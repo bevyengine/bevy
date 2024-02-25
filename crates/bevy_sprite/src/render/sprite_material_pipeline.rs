@@ -11,7 +11,7 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     event::EventReader,
-    query::ROQueryItem,
+    query::{ROQueryItem, With},
     schedule::IntoSystemConfigs,
     system::{
         lifetimeless::{Read, SRes},
@@ -19,9 +19,10 @@ use bevy_ecs::{
     },
     world::{FromWorld, World},
 };
-use bevy_math::{Affine3A, Quat, Rect, Vec2, Vec4};
+use bevy_math::{Affine3A, Quat, Vec2, Vec4};
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
+    globals::{GlobalsBuffer, GlobalsUniform},
     render_asset::RenderAssets,
     render_phase::{
         AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
@@ -50,12 +51,11 @@ use bevy_render::{
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{EntityHashMap, FloatOrd, HashMap, HashSet};
-use bytemuck::{Pod, Zeroable};
 use fixedbitset::FixedBitSet;
 
 use crate::{
     sprite_material::{SpriteMaterial, SpriteMaterialKey},
-    ExtractedSprite, ImageBindGroups, Sprite, SpriteAssetEvents, SpritePipelineKey, SpriteSystem,
+    ExtractedSprite, ImageBindGroups, Sprite, SpriteMaterialMarke, SpritePipelineKey, SpriteSystem,
     TextureAtlas, TextureAtlasSprite,
 };
 
@@ -69,11 +69,26 @@ const SPRITE_VERTEX_OUTPUT_SHADER_HANDLE: Handle<Shader> =
 
 /// Adds the necessary ECS resources and render logic to enable rendering entities using the given
 /// [`UiMaterial`] asset type (which includes [`UiMaterial`] types).
-pub struct SpriteMaterialPlugin<M: SpriteMaterial>(PhantomData<M>);
+pub struct SpriteMaterialPlugin<M: SpriteMaterial> {
+    enable_globals_buffer: bool,
+    marker: PhantomData<M>,
+}
+
+impl<M: SpriteMaterial> SpriteMaterialPlugin<M> {
+    pub fn enable_globals_buffer() -> Self {
+        Self {
+            enable_globals_buffer: true,
+            marker: Default::default(),
+        }
+    }
+}
 
 impl<M: SpriteMaterial> Default for SpriteMaterialPlugin<M> {
     fn default() -> Self {
-        Self(Default::default())
+        Self {
+            enable_globals_buffer: false,
+            marker: Default::default(),
+        }
     }
 }
 
@@ -98,6 +113,9 @@ where
             .add_plugins(ExtractComponentPlugin::<Handle<M>>::extract_visible());
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            if self.enable_globals_buffer {
+                render_app.init_resource::<EnableGlobalsBuffer<M>>();
+            }
             render_app
                 .add_render_command::<Transparent2d, DrawSprite<M>>()
                 .init_resource::<ExtractedSpriteMaterials<M>>()
@@ -131,6 +149,15 @@ where
 }
 
 #[derive(Resource)]
+pub struct EnableGlobalsBuffer<M: SpriteMaterial>(PhantomData<M>);
+
+impl<M: SpriteMaterial> Default for EnableGlobalsBuffer<M> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
+#[derive(Resource)]
 pub struct SpriteMaterialPipeline<M: SpriteMaterial> {
     pub view_layout: BindGroupLayout,
     pub texture_layout: BindGroupLayout,
@@ -143,6 +170,7 @@ pub struct SpriteMaterialPipeline<M: SpriteMaterial> {
 
 impl<M: SpriteMaterial> FromWorld for SpriteMaterialPipeline<M> {
     fn from_world(world: &mut World) -> Self {
+        let enable_globals_buffer = world.get_resource::<EnableGlobalsBuffer<M>>().is_some();
         let mut system_state: SystemState<(
             Res<AssetServer>,
             Res<RenderDevice>,
@@ -152,13 +180,26 @@ impl<M: SpriteMaterial> FromWorld for SpriteMaterialPipeline<M> {
         let (asset_server, render_device, default_sampler, render_queue) =
             system_state.get_mut(world);
 
-        let view_layout = render_device.create_bind_group_layout(
-            "sprite_view_layout",
-            &BindGroupLayoutEntries::single(
-                ShaderStages::VERTEX_FRAGMENT,
-                uniform_buffer::<ViewUniform>(true),
-            ),
-        );
+        let view_layout = if enable_globals_buffer {
+            render_device.create_bind_group_layout(
+                "sprite_view_layout",
+                &BindGroupLayoutEntries::sequential(
+                    ShaderStages::VERTEX_FRAGMENT,
+                    (
+                        uniform_buffer::<ViewUniform>(true),
+                        uniform_buffer::<GlobalsUniform>(false),
+                    ),
+                ),
+            )
+        } else {
+            render_device.create_bind_group_layout(
+                "sprite_view_layout",
+                &BindGroupLayoutEntries::single(
+                    ShaderStages::VERTEX_FRAGMENT,
+                    uniform_buffer::<ViewUniform>(true),
+                ),
+            )
+        };
 
         let texture_layout = render_device.create_bind_group_layout(
             "sprite_texture_layout",
@@ -391,24 +432,30 @@ pub fn extract_sprite_with_materials<M: SpriteMaterial>(
     mut extracted_sprite_with_materials: ResMut<ExtractedSpriteWithMaterials<M>>,
     texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
     sprite_with_material_query: Extract<
-        Query<(
-            Entity,
-            &ViewVisibility,
-            &Sprite,
-            &Handle<M>,
-            &GlobalTransform,
-            &Handle<Image>,
-        )>,
+        Query<
+            (
+                Entity,
+                &ViewVisibility,
+                &Sprite,
+                &Handle<M>,
+                &GlobalTransform,
+                &Handle<Image>,
+            ),
+            With<SpriteMaterialMarke>,
+        >,
     >,
     atlas_query: Extract<
-        Query<(
-            Entity,
-            &ViewVisibility,
-            &TextureAtlasSprite,
-            &Handle<M>,
-            &GlobalTransform,
-            &Handle<TextureAtlas>,
-        )>,
+        Query<
+            (
+                Entity,
+                &ViewVisibility,
+                &TextureAtlasSprite,
+                &Handle<M>,
+                &GlobalTransform,
+                &Handle<TextureAtlas>,
+            ),
+            With<SpriteMaterialMarke>,
+        >,
     >,
 ) {
     extracted_sprite_with_materials.sprites.clear();
@@ -614,32 +661,35 @@ pub fn prepare_sprites<M: SpriteMaterial>(
     gpu_images: Res<RenderAssets<Image>>,
     extracted_sprite_with_materials: Res<ExtractedSpriteWithMaterials<M>>,
     mut phases: Query<&mut RenderPhase<Transparent2d>>,
-    events: Res<SpriteAssetEvents>,
+    globals_buffer: Res<GlobalsBuffer>,
+    enable_globals_buffer: Option<Res<EnableGlobalsBuffer<M>>>,
     render_materials: Res<RenderMaterials<M>>,
 ) {
-    // If an image has changed, the GpuImage has (probably) changed
-    for event in &events.images {
-        match event {
-            AssetEvent::Added {..} |
-            // images don't have dependencies
-            AssetEvent::LoadedWithDependencies { .. } => {}
-            AssetEvent::Modified { id } | AssetEvent::Removed { id } => {
-                image_bind_groups.values.remove(id);
-            }
-        };
-    }
-
     if let Some(view_binding) = view_uniforms.uniforms.binding() {
+        let view_bind_group = if enable_globals_buffer.is_some() {
+            if let Some(globals_binding) = globals_buffer.buffer.binding() {
+                Some(render_device.create_bind_group(
+                    "sprite_view_bind_group",
+                    &sprite_material_pipeline.view_layout,
+                    &BindGroupEntries::sequential((view_binding, globals_binding)),
+                ))
+            } else {
+                return;
+            }
+        } else {
+            Some(render_device.create_bind_group(
+                "sprite_view_bind_group",
+                &sprite_material_pipeline.view_layout,
+                &BindGroupEntries::single(view_binding),
+            ))
+        };
+
         let mut batches: Vec<(Entity, SpriteBatch<M>)> = Vec::with_capacity(*previous_len);
 
         // Clear the sprite instances
         sprite_meta.sprite_instance_buffer.clear();
 
-        sprite_meta.view_bind_group = Some(render_device.create_bind_group(
-            "sprite_view_bind_group",
-            &sprite_material_pipeline.view_layout,
-            &BindGroupEntries::single(view_binding),
-        ));
+        sprite_meta.view_bind_group = view_bind_group;
 
         // Index buffer indices
         let mut index = 0;
