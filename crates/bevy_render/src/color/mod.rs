@@ -1626,44 +1626,6 @@ impl encase::private::CreateFrom for LegacyColor {
 
 impl encase::ShaderSize for LegacyColor {}
 
-/// Converts hex bytes to an array of RGB\[A\] components
-///
-/// # Example
-/// For RGB: *b"ffffff" -> [255, 255, 255, ..]
-/// For RGBA: *b"E2E2E2FF" -> [226, 226, 226, 255, ..]
-const fn decode_hex<const N: usize>(mut bytes: [u8; N]) -> Result<[u8; N], HexColorError> {
-    let mut i = 0;
-    while i < bytes.len() {
-        // Convert single hex digit to u8
-        let val = match hex_value(bytes[i]) {
-            Ok(val) => val,
-            Err(byte) => return Err(HexColorError::Char(byte as char)),
-        };
-        bytes[i] = val;
-        i += 1;
-    }
-    // Modify the original bytes to give an `N / 2` length result
-    i = 0;
-    while i < bytes.len() / 2 {
-        // Convert pairs of u8 to R/G/B/A
-        // e.g `ff` -> [102, 102] -> [15, 15] = 255
-        bytes[i] = bytes[i * 2] * 16 + bytes[i * 2 + 1];
-        i += 1;
-    }
-    Ok(bytes)
-}
-
-/// Parse a single hex digit (a-f/A-F/0-9) as a `u8`
-const fn hex_value(b: u8) -> Result<u8, u8> {
-    match b {
-        b'0'..=b'9' => Ok(b - b'0'),
-        b'A'..=b'F' => Ok(b - b'A' + 10),
-        b'a'..=b'f' => Ok(b - b'a' + 10),
-        // Wrong hex digit
-        _ => Err(b),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

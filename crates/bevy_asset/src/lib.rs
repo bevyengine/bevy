@@ -466,7 +466,7 @@ mod tests {
     };
     use thiserror::Error;
 
-    #[derive(Asset, TypePath, Debug)]
+    #[derive(Asset, TypePath, Debug, Default)]
     pub struct CoolText {
         pub text: String,
         pub embedded: String,
@@ -1114,6 +1114,48 @@ mod tests {
         });
     }
 
+    const SIMPLE_TEXT: &str = r#"
+(
+    text: "dep",
+    dependencies: [],
+    embedded_dependencies: [],
+    sub_texts: [],
+)"#;
+    #[test]
+    fn keep_gotten_strong_handles() {
+        let dir = Dir::default();
+        dir.insert_asset_text(Path::new("dep.cool.ron"), SIMPLE_TEXT);
+
+        let (mut app, _) = test_app(dir);
+        app.init_asset::<CoolText>()
+            .init_asset::<SubText>()
+            .init_resource::<StoredEvents>()
+            .register_asset_loader(CoolTextLoader)
+            .add_systems(Update, store_asset_events);
+
+        let id = {
+            let handle = {
+                let mut texts = app.world.resource_mut::<Assets<CoolText>>();
+                let handle = texts.add(CoolText::default());
+                texts.get_strong_handle(handle.id()).unwrap()
+            };
+
+            app.update();
+
+            {
+                let text = app.world.resource::<Assets<CoolText>>().get(&handle);
+                assert!(text.is_some());
+            }
+            handle.id()
+        };
+        // handle is dropped
+        app.update();
+        assert!(
+            app.world.resource::<Assets<CoolText>>().get(id).is_none(),
+            "asset has no handles, so it should have been dropped last update"
+        );
+    }
+
     #[test]
     fn manual_asset_management() {
         // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
@@ -1121,17 +1163,9 @@ mod tests {
         panic!("This test requires the \"multi-threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi-threaded");
 
         let dir = Dir::default();
-
         let dep_path = "dep.cool.ron";
-        let dep_ron = r#"
-(
-    text: "dep",
-    dependencies: [],
-    embedded_dependencies: [],
-    sub_texts: [],
-)"#;
 
-        dir.insert_asset_text(Path::new(dep_path), dep_ron);
+        dir.insert_asset_text(Path::new(dep_path), SIMPLE_TEXT);
 
         let (mut app, gate_opener) = test_app(dir);
         app.init_asset::<CoolText>()

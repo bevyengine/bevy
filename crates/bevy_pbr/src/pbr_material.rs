@@ -1,10 +1,7 @@
-use bevy_asset::{Asset, Handle};
+use bevy_asset::Asset;
 use bevy_math::{Affine2, Vec2, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{
-    color::LegacyColor, mesh::MeshVertexBufferLayout, render_asset::RenderAssets,
-    render_resource::*, texture::Image,
-};
+use bevy_render::{mesh::MeshVertexBufferLayout, render_asset::RenderAssets, render_resource::*};
 
 use crate::deferred::DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID;
 use crate::*;

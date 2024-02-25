@@ -96,6 +96,7 @@ pub use srgba::*;
 pub use xyza::*;
 
 /// Describes the traits that a color should implement for consistency.
+#[allow(dead_code)] // This is an internal marker trait used to ensure that our color types impl the required traits
 pub(crate) trait StandardColor
 where
     Self: core::fmt::Debug,

@@ -4,6 +4,7 @@ use crate::{Alpha, LinearRgba, Luminance, Mix, StandardColor};
 use bevy_math::Vec4;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 /// Non-linear standard RGB with alpha.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
@@ -97,25 +98,32 @@ impl Srgba {
         let hex = hex.as_ref();
         let hex = hex.strip_prefix('#').unwrap_or(hex);
 
-        match *hex.as_bytes() {
+        match hex.len() {
             // RGB
-            [r, g, b] => {
-                let [r, g, b, ..] = decode_hex([r, r, g, g, b, b])?;
-                Ok(Self::rgb_u8(r, g, b))
+            3 => {
+                let [l, b] = u16::from_str_radix(hex, 16)?.to_be_bytes();
+                let (r, g, b) = (l & 0x0F, (b & 0xF0) >> 4, b & 0x0F);
+                Ok(Self::rgb_u8(r << 4 | r, g << 4 | g, b << 4 | b))
             }
             // RGBA
-            [r, g, b, a] => {
-                let [r, g, b, a, ..] = decode_hex([r, r, g, g, b, b, a, a])?;
-                Ok(Self::rgba_u8(r, g, b, a))
+            4 => {
+                let [l, b] = u16::from_str_radix(hex, 16)?.to_be_bytes();
+                let (r, g, b, a) = ((l & 0xF0) >> 4, l & 0xF, (b & 0xF0) >> 4, b & 0x0F);
+                Ok(Self::rgba_u8(
+                    r << 4 | r,
+                    g << 4 | g,
+                    b << 4 | b,
+                    a << 4 | a,
+                ))
             }
             // RRGGBB
-            [r1, r2, g1, g2, b1, b2] => {
-                let [r, g, b, ..] = decode_hex([r1, r2, g1, g2, b1, b2])?;
+            6 => {
+                let [_, r, g, b] = u32::from_str_radix(hex, 16)?.to_be_bytes();
                 Ok(Self::rgb_u8(r, g, b))
             }
             // RRGGBBAA
-            [r1, r2, g1, g2, b1, b2, a1, a2] => {
-                let [r, g, b, a, ..] = decode_hex([r1, r2, g1, g2, b1, b2, a1, a2])?;
+            8 => {
+                let [r, g, b, a] = u32::from_str_radix(hex, 16)?.to_be_bytes();
                 Ok(Self::rgba_u8(r, g, b, a))
             }
             _ => Err(HexColorError::Length),
@@ -307,60 +315,14 @@ impl From<Srgba> for Vec4 {
     }
 }
 
-/// Converts hex bytes to an array of RGB\[A\] components
-///
-/// # Example
-/// For RGB: *b"ffffff" -> [255, 255, 255, ..]
-/// For RGBA: *b"E2E2E2FF" -> [226, 226, 226, 255, ..]
-const fn decode_hex<const N: usize>(mut bytes: [u8; N]) -> Result<[u8; N], HexColorError> {
-    let mut i = 0;
-    while i < bytes.len() {
-        // Convert single hex digit to u8
-        let val = match hex_value(bytes[i]) {
-            Ok(val) => val,
-            Err(byte) => return Err(HexColorError::Char(byte as char)),
-        };
-        bytes[i] = val;
-        i += 1;
-    }
-    // Modify the original bytes to give an `N / 2` length result
-    i = 0;
-    while i < bytes.len() / 2 {
-        // Convert pairs of u8 to R/G/B/A
-        // e.g `ff` -> [102, 102] -> [15, 15] = 255
-        bytes[i] = bytes[i * 2] * 16 + bytes[i * 2 + 1];
-        i += 1;
-    }
-    Ok(bytes)
-}
-
-/// Error returned when hex color decoding fails.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Error, PartialEq, Eq)]
 pub enum HexColorError {
-    /// Unexpected length of hex string
+    #[error("Invalid hex string")]
+    Parse(#[from] std::num::ParseIntError),
+    #[error("Unexpected length of hex string")]
     Length,
-    /// Invalid hex character
+    #[error("Invalid hex char")]
     Char(char),
-}
-
-impl core::fmt::Display for HexColorError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Length => write!(f, "Unexpected length of hex string"),
-            Self::Char(char) => write!(f, "Invalid hex char {}", char),
-        }
-    }
-}
-
-/// Parse a single hex digit (a-f/A-F/0-9) as a `u8`
-const fn hex_value(b: u8) -> Result<u8, u8> {
-    match b {
-        b'0'..=b'9' => Ok(b - b'0'),
-        b'A'..=b'F' => Ok(b - b'A' + 10),
-        b'a'..=b'f' => Ok(b - b'a' + 10),
-        // Wrong hex digit
-        _ => Err(b),
-    }
 }
 
 #[cfg(test)]
@@ -429,10 +391,15 @@ mod tests {
         assert_eq!(Srgba::hex("000000FF"), Ok(Srgba::BLACK));
         assert_eq!(Srgba::hex("03a9f4"), Ok(Srgba::rgb_u8(3, 169, 244)));
         assert_eq!(Srgba::hex("yy"), Err(HexColorError::Length));
-        assert_eq!(Srgba::hex("yyy"), Err(HexColorError::Char('y')));
         assert_eq!(Srgba::hex("#f2a"), Ok(Srgba::rgb_u8(255, 34, 170)));
         assert_eq!(Srgba::hex("#e23030"), Ok(Srgba::rgb_u8(226, 48, 48)));
         assert_eq!(Srgba::hex("#ff"), Err(HexColorError::Length));
-        assert_eq!(Srgba::hex("##fff"), Err(HexColorError::Char('#')));
+        assert_eq!(Srgba::hex("11223344"), Ok(Srgba::rgba_u8(17, 34, 51, 68)));
+        assert_eq!(Srgba::hex("1234"), Ok(Srgba::rgba_u8(17, 34, 51, 68)));
+        assert_eq!(Srgba::hex("12345678"), Ok(Srgba::rgba_u8(18, 52, 86, 120)));
+        assert_eq!(Srgba::hex("4321"), Ok(Srgba::rgba_u8(68, 51, 34, 17)));
+
+        assert!(matches!(Srgba::hex("yyy"), Err(HexColorError::Parse(_))));
+        assert!(matches!(Srgba::hex("##fff"), Err(HexColorError::Parse(_))));
     }
 }

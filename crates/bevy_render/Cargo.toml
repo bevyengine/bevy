@@ -34,6 +34,7 @@ wgpu_trace = ["wgpu/trace"]
 ci_limits = []
 webgl = ["wgpu/webgl"]
 webgpu = ["wgpu/webgpu"]
+ios_simulator = []
 
 [dependencies]
 # bevy
