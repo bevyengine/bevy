@@ -149,7 +149,7 @@ impl TaskPool {
     }
 
     fn new_internal(builder: TaskPoolBuilder) -> Self {
-        if let Some(thread_count) = builder.num_blocking_threads {
+        if let Some(thread_count) = builder.max_blocking_threads {
             env::set_var("BLOCKING_MAX_THREADS", thread_count.to_string().as_str());
         }
 
