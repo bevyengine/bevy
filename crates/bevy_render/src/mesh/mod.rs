@@ -1,10 +1,10 @@
 #[allow(clippy::module_inception)]
 mod mesh;
 pub mod morph;
-/// Generation for some primitive shape meshes.
-pub mod shape;
+pub mod primitives;
 
 pub use mesh::*;
+pub use primitives::*;
 
 use crate::{prelude::Image, render_asset::RenderAssetPlugin};
 use bevy_app::{App, Plugin};

@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use bevy_tasks::{ComputeTaskPool, Scope, TaskPool, ThreadExecutor};
+use bevy_tasks::{block_on, poll_once, ComputeTaskPool, Scope, TaskPool, ThreadExecutor};
 use bevy_utils::default;
 use bevy_utils::syncunsafecell::SyncUnsafeCell;
 #[cfg(feature = "trace")]
@@ -128,10 +128,6 @@ impl SystemExecutor for MultiThreadedExecutor {
         ExecutorKind::MultiThreaded
     }
 
-    fn set_apply_final_deferred(&mut self, value: bool) {
-        self.apply_final_deferred = value;
-    }
-
     fn init(&mut self, schedule: &SystemSchedule) {
         // pre-allocate space
         let sys_count = schedule.system_ids.len();
@@ -167,7 +163,12 @@ impl SystemExecutor for MultiThreadedExecutor {
         self.num_dependencies_remaining = Vec::with_capacity(sys_count);
     }
 
-    fn run(&mut self, schedule: &mut SystemSchedule, world: &mut World) {
+    fn run(
+        &mut self,
+        schedule: &mut SystemSchedule,
+        world: &mut World,
+        _skip_systems: Option<&FixedBitSet>,
+    ) {
         // reset counts
         self.num_systems = schedule.systems.len();
         if self.num_systems == 0 {
@@ -182,6 +183,23 @@ impl SystemExecutor for MultiThreadedExecutor {
         for (system_index, dependencies) in self.num_dependencies_remaining.iter_mut().enumerate() {
             if *dependencies == 0 {
                 self.ready_systems.insert(system_index);
+            }
+        }
+
+        // If stepping is enabled, make sure we skip those systems that should
+        // not be run.
+        #[cfg(feature = "bevy_debug_stepping")]
+        if let Some(skipped_systems) = _skip_systems {
+            debug_assert_eq!(skipped_systems.len(), self.completed_systems.len());
+            // mark skipped systems as completed
+            self.completed_systems |= skipped_systems;
+            self.num_completed_systems = self.completed_systems.count_ones(..);
+
+            // signal the dependencies for each of the skipped systems, as
+            // though they had run
+            for system_index in skipped_systems.ones() {
+                self.signal_dependents(system_index);
+                self.ready_systems.set(system_index, false);
             }
         }
 
@@ -201,7 +219,8 @@ impl SystemExecutor for MultiThreadedExecutor {
             |scope| {
                 // the executor itself is a `Send` future so that it can run
                 // alongside systems that claim the local thread
-                let executor = async {
+                #[allow(unused_mut)]
+                let mut executor = Box::pin(async {
                     let world_cell = world.as_unsafe_world_cell();
                     while self.num_completed_systems < self.num_systems {
                         // SAFETY:
@@ -226,13 +245,19 @@ impl SystemExecutor for MultiThreadedExecutor {
                             self.rebuild_active_access();
                         }
                     }
-                };
+                });
 
                 #[cfg(feature = "trace")]
                 let executor_span = info_span!("multithreaded executor");
                 #[cfg(feature = "trace")]
-                let executor = executor.instrument(executor_span);
-                scope.spawn(executor);
+                let mut executor = executor.instrument(executor_span);
+
+                // Immediately poll the task once to avoid the overhead of the executor
+                // and thread wake-up. Only spawn the task if the executor does not immediately
+                // terminate.
+                if block_on(poll_once(&mut executor)).is_none() {
+                    scope.spawn(executor);
+                }
             },
         );
 
@@ -260,6 +285,10 @@ impl SystemExecutor for MultiThreadedExecutor {
         self.evaluated_sets.clear();
         self.skipped_systems.clear();
         self.completed_systems.clear();
+    }
+
+    fn set_apply_final_deferred(&mut self, value: bool) {
+        self.apply_final_deferred = value;
     }
 }
 
@@ -333,7 +362,7 @@ impl MultiThreadedExecutor {
             // SAFETY: `can_run` returned true, which means that:
             // - It must have called `update_archetype_component_access` for each run condition.
             // - There can be no systems running whose accesses would conflict with any conditions.
-            if !self.should_run(system_index, system, conditions, world_cell) {
+            if unsafe { !self.should_run(system_index, system, conditions, world_cell) } {
                 self.skip_system_and_signal_dependents(system_index);
                 continue;
             }
@@ -450,8 +479,9 @@ impl MultiThreadedExecutor {
             // - The caller ensures that `world` has permission to read any data
             //   required by the conditions.
             // - `update_archetype_component_access` has been called for each run condition.
-            let set_conditions_met =
-                evaluate_and_fold_conditions(&mut conditions.set_conditions[set_idx], world);
+            let set_conditions_met = unsafe {
+                evaluate_and_fold_conditions(&mut conditions.set_conditions[set_idx], world)
+            };
 
             if !set_conditions_met {
                 self.skipped_systems
@@ -467,8 +497,9 @@ impl MultiThreadedExecutor {
         // - The caller ensures that `world` has permission to read any data
         //   required by the conditions.
         // - `update_archetype_component_access` has been called for each run condition.
-        let system_conditions_met =
-            evaluate_and_fold_conditions(&mut conditions.system_conditions[system_index], world);
+        let system_conditions_met = unsafe {
+            evaluate_and_fold_conditions(&mut conditions.system_conditions[system_index], world)
+        };
 
         if !system_conditions_met {
             self.skipped_systems.insert(system_index);
@@ -683,7 +714,7 @@ fn apply_deferred(
     unapplied_systems: &FixedBitSet,
     systems: &[SyncUnsafeCell<BoxedSystem>],
     world: &mut World,
-) -> Result<(), Box<dyn std::any::Any + Send>> {
+) -> Result<(), Box<dyn Any + Send>> {
     for system_index in unapplied_systems.ones() {
         // SAFETY: none of these systems are running, no other references exist
         let system = unsafe { &mut *systems[system_index].get() };

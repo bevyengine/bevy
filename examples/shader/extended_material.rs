@@ -1,6 +1,5 @@
 //! Demonstrates using a custom extension to the `StandardMaterial` to modify the results of the builtin pbr shader.
 
-use bevy::reflect::TypePath;
 use bevy::{
     pbr::{ExtendedMaterial, MaterialExtension, OpaqueRendererMethod},
     prelude::*,
@@ -25,17 +24,11 @@ fn setup(
 ) {
     // sphere
     commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(
-            Mesh::try_from(shape::Icosphere {
-                radius: 1.0,
-                subdivisions: 5,
-            })
-            .unwrap(),
-        ),
+        mesh: meshes.add(Sphere::new(1.0)),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         material: materials.add(ExtendedMaterial {
             base: StandardMaterial {
-                base_color: Color::RED,
+                base_color: LegacyColor::RED,
                 // can be used in forward or deferred mode.
                 opaque_render_method: OpaqueRendererMethod::Auto,
                 // in deferred mode, only the PbrInput can be modified (uvs, color and other material properties),
@@ -51,7 +44,13 @@ fn setup(
     });
 
     // light
-    commands.spawn((PointLightBundle::default(), Rotate));
+    commands.spawn((
+        DirectionalLightBundle {
+            transform: Transform::from_xyz(1.0, 1.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
+            ..default()
+        },
+        Rotate,
+    ));
 
     // camera
     commands.spawn(Camera3dBundle {
@@ -64,16 +63,12 @@ fn setup(
 struct Rotate;
 
 fn rotate_things(mut q: Query<&mut Transform, With<Rotate>>, time: Res<Time>) {
-    for mut t in q.iter_mut() {
-        t.translation = Vec3::new(
-            time.elapsed_seconds().sin(),
-            0.5,
-            time.elapsed_seconds().cos(),
-        ) * 4.0;
+    for mut t in &mut q {
+        t.rotate_y(time.delta_seconds());
     }
 }
 
-#[derive(Asset, AsBindGroup, TypePath, Debug, Clone)]
+#[derive(Asset, AsBindGroup, Reflect, Debug, Clone)]
 struct MyExtension {
     // We need to ensure that the bindings of the base material and the extension do not conflict,
     // so we start from binding slot 100, leaving slots 0-99 for the base material.

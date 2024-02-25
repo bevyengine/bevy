@@ -1,11 +1,11 @@
 //! Update a scene from a glTF file, either by spawning the scene as a child of another entity,
 //! or by accessing the entities of the scene.
 
-use bevy::prelude::*;
+use bevy::{pbr::DirectionalLightShadowMap, prelude::*};
 
 fn main() {
     App::new()
-        .insert_resource(bevy_internal::pbr::DirectionalLightShadowMap { size: 4096 })
+        .insert_resource(DirectionalLightShadowMap { size: 4096 })
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, move_scene_entities)
@@ -33,6 +33,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            intensity: 150.0,
         },
     ));
 

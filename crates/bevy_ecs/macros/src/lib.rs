@@ -1,11 +1,16 @@
+// FIXME(3492): remove once docs are ready
+#![allow(missing_docs)]
+
 extern crate proc_macro;
 
 mod component;
-mod fetch;
+mod query_data;
+mod query_filter;
 mod states;
+mod world_query;
 
-use crate::fetch::derive_world_query_impl;
-use bevy_macro_utils::{derive_label, ensure_no_collision, get_named_struct_fields, BevyManifest};
+use crate::{query_data::derive_query_data_impl, query_filter::derive_query_filter_impl};
+use bevy_macro_utils::{derive_label, ensure_no_collision, get_struct_fields, BevyManifest};
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{format_ident, quote};
@@ -27,8 +32,8 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let ecs_path = bevy_ecs_path();
 
-    let named_fields = match get_named_struct_fields(&ast.data) {
-        Ok(fields) => &fields.named,
+    let named_fields = match get_struct_fields(&ast.data) {
+        Ok(fields) => fields,
         Err(e) => return e.into_compile_error().into(),
     };
 
@@ -59,8 +64,9 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
 
     let field = named_fields
         .iter()
-        .map(|field| field.ident.as_ref().unwrap())
+        .map(|field| field.ident.as_ref())
         .collect::<Vec<_>>();
+
     let field_type = named_fields
         .iter()
         .map(|field| &field.ty)
@@ -69,20 +75,36 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let mut field_component_ids = Vec::new();
     let mut field_get_components = Vec::new();
     let mut field_from_components = Vec::new();
-    for ((field_type, field_kind), field) in
-        field_type.iter().zip(field_kind.iter()).zip(field.iter())
+    for (((i, field_type), field_kind), field) in field_type
+        .iter()
+        .enumerate()
+        .zip(field_kind.iter())
+        .zip(field.iter())
     {
         match field_kind {
             BundleFieldKind::Component => {
                 field_component_ids.push(quote! {
                 <#field_type as #ecs_path::bundle::Bundle>::component_ids(components, storages, &mut *ids);
                 });
-                field_get_components.push(quote! {
-                    self.#field.get_components(&mut *func);
-                });
-                field_from_components.push(quote! {
-                    #field: <#field_type as #ecs_path::bundle::Bundle>::from_components(ctx, &mut *func),
-                });
+                match field {
+                    Some(field) => {
+                        field_get_components.push(quote! {
+                            self.#field.get_components(&mut *func);
+                        });
+                        field_from_components.push(quote! {
+                            #field: <#field_type as #ecs_path::bundle::Bundle>::from_components(ctx, &mut *func),
+                        });
+                    }
+                    None => {
+                        let index = syn::Index::from(i);
+                        field_get_components.push(quote! {
+                            self.#index.get_components(&mut *func);
+                        });
+                        field_from_components.push(quote! {
+                            #index: <#field_type as #ecs_path::bundle::Bundle>::from_components(ctx, &mut *func),
+                        });
+                    }
+                }
             }
 
             BundleFieldKind::Ignore => {
@@ -115,7 +137,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             where
                 __F: FnMut(&mut __T) -> #ecs_path::ptr::OwningPtr<'_>
             {
-                Self {
+                Self{
                     #(#field_from_components)*
                 }
             }
@@ -189,6 +211,8 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                 type State = (#(#param::State,)*);
                 type Item<'w, 's> = ParamSet<'w, 's, (#(#param,)*)>;
 
+                // Note: We allow non snake case so the compiler don't complain about the creation of non_snake_case variables
+                #[allow(non_snake_case)]
                 fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
                     #(
                         // Pretend to add each param to the system alone, see if it conflicts
@@ -196,6 +220,7 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                         #meta.component_access_set.clear();
                         #meta.archetype_component_access.clear();
                         #param::init_state(world, &mut #meta);
+                        // The variable is being defined with non_snake_case here
                         let #param = #param::init_state(world, &mut system_meta.clone());
                     )*
                     // Make the ParamSet non-send if any of its parameters are non-send.
@@ -428,10 +453,16 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     })
 }
 
-/// Implement `WorldQuery` to use a struct as a parameter in a query
-#[proc_macro_derive(WorldQuery, attributes(world_query))]
-pub fn derive_world_query(input: TokenStream) -> TokenStream {
-    derive_world_query_impl(input)
+/// Implement `QueryData` to use a struct as a data parameter in a query
+#[proc_macro_derive(QueryData, attributes(query_data))]
+pub fn derive_query_data(input: TokenStream) -> TokenStream {
+    derive_query_data_impl(input)
+}
+
+/// Implement `QueryFilter` to use a struct as a filter parameter in a query
+#[proc_macro_derive(QueryFilter, attributes(query_filter))]
+pub fn derive_query_filter(input: TokenStream) -> TokenStream {
+    derive_query_filter_impl(input)
 }
 
 /// Derive macro generating an impl of the trait `ScheduleLabel`.
@@ -447,7 +478,7 @@ pub fn derive_schedule_label(input: TokenStream) -> TokenStream {
         .segments
         .push(format_ident!("ScheduleLabel").into());
     dyn_eq_path.segments.push(format_ident!("DynEq").into());
-    derive_label(input, "ScheduleName", &trait_path, &dyn_eq_path)
+    derive_label(input, "ScheduleLabel", &trait_path, &dyn_eq_path)
 }
 
 /// Derive macro generating an impl of the trait `SystemSet`.

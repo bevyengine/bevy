@@ -15,8 +15,12 @@ use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::{DVec2, DVec3},
     prelude::*,
-    render::render_resource::{Extent3d, TextureDimension, TextureFormat},
+    render::{
+        render_asset::RenderAssetUsages,
+        render_resource::{Extent3d, TextureDimension, TextureFormat},
+    },
     window::{PresentMode, WindowPlugin, WindowResolution},
+    winit::{UpdateMode, WinitSettings},
 };
 use rand::{rngs::StdRng, seq::SliceRandom, Rng, SeedableRng};
 
@@ -63,7 +67,11 @@ impl FromStr for Layout {
 }
 
 fn main() {
+    // `from_env` panics on the web
+    #[cfg(not(target_arch = "wasm32"))]
     let args: Args = argh::from_env();
+    #[cfg(target_arch = "wasm32")]
+    let args = Args::from_args(&[], &[]).unwrap();
 
     App::new()
         .add_plugins((
@@ -79,6 +87,10 @@ fn main() {
             FrameTimeDiagnosticsPlugin,
             LogDiagnosticsPlugin::default(),
         ))
+        .insert_resource(WinitSettings {
+            focused_mode: UpdateMode::Continuous,
+            unfocused_mode: UpdateMode::Continuous,
+        })
         .insert_resource(args)
         .add_systems(Startup, setup)
         .add_systems(Update, (move_camera, print_mesh_count))
@@ -101,7 +113,7 @@ fn setup(
     let images = images.into_inner();
     let material_assets = material_assets.into_inner();
 
-    let mesh = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
+    let mesh = meshes.add(Cuboid::default());
 
     let material_textures = init_textures(args, images);
     let materials = init_materials(args, &material_textures, material_assets);
@@ -178,7 +190,7 @@ fn setup(
         }
     }
 
-    commands.spawn(DirectionalLightBundle { ..default() });
+    commands.spawn(DirectionalLightBundle::default());
 }
 
 fn init_textures(args: &Args, images: &mut Assets<Image>) -> Vec<Handle<Image>> {
@@ -198,6 +210,7 @@ fn init_textures(args: &Args, images: &mut Assets<Image>) -> Vec<Handle<Image>> 
                 TextureDimension::D2,
                 pixel,
                 TextureFormat::Rgba8UnormSrgb,
+                RenderAssetUsages::RENDER_WORLD,
             ))
         })
         .collect()
@@ -220,8 +233,8 @@ fn init_materials(
 
     let mut materials = Vec::with_capacity(capacity);
     materials.push(assets.add(StandardMaterial {
-        base_color: Color::WHITE,
-        base_color_texture: textures.get(0).cloned(),
+        base_color: LegacyColor::WHITE,
+        base_color_texture: textures.first().cloned(),
         ..default()
     }));
 
@@ -230,7 +243,7 @@ fn init_materials(
     materials.extend(
         std::iter::repeat_with(|| {
             assets.add(StandardMaterial {
-                base_color: Color::rgb_u8(color_rng.gen(), color_rng.gen(), color_rng.gen()),
+                base_color: LegacyColor::rgb_u8(color_rng.gen(), color_rng.gen(), color_rng.gen()),
                 base_color_texture: textures.choose(&mut texture_rng).cloned(),
                 ..default()
             })

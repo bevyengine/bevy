@@ -1,21 +1,32 @@
 use crate::{UiRect, Val};
 use bevy_asset::Handle;
-use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
+use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
-use bevy_render::{color::Color, texture::Image};
+use bevy_render::{
+    camera::{Camera, RenderTarget},
+    color::LegacyColor,
+    texture::Image,
+};
 use bevy_transform::prelude::GlobalTransform;
-use serde::{Deserialize, Serialize};
-use smallvec::SmallVec;
+use bevy_utils::{smallvec::SmallVec, warn_once};
+use bevy_window::{PrimaryWindow, WindowRef};
 use std::num::{NonZeroI16, NonZeroU16};
 use thiserror::Error;
 
-/// Describes the size of a UI node
+/// Base component for a UI node, which also provides the computed size of the node.
+///
+/// # See also
+///
+/// - [`node_bundles`](crate::node_bundles) for the list of built-in bundles that set up UI node
+/// - [`RelativeCursorPosition`](crate::RelativeCursorPosition)
+///   to obtain the cursor position relative to this node
+/// - [`Interaction`](crate::Interaction) to obtain the interaction state of this node
 #[derive(Component, Debug, Copy, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct Node {
     /// The order of the node in the UI layout.
-    /// Nodes with a higher stack index are drawn on top of and recieve interactions before nodes with lower stack indices.
+    /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
     pub(crate) stack_index: u32,
     /// The size of the node as width and height in logical pixels
     ///
@@ -43,7 +54,7 @@ impl Node {
     }
 
     /// The order of the node in the UI layout.
-    /// Nodes with a higher stack index are drawn on top of and recieve interactions before nodes with lower stack indices.
+    /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
     pub const fn stack_index(&self) -> u32 {
         self.stack_index
     }
@@ -57,10 +68,10 @@ impl Node {
 
     /// Returns the size of the node in physical pixels based on the given scale factor and `UiScale`.
     #[inline]
-    pub fn physical_size(&self, scale_factor: f64, ui_scale: f64) -> Vec2 {
+    pub fn physical_size(&self, scale_factor: f32, ui_scale: f32) -> Vec2 {
         Vec2::new(
-            (self.calculated_size.x as f64 * scale_factor * ui_scale) as f32,
-            (self.calculated_size.y as f64 * scale_factor * ui_scale) as f32,
+            self.calculated_size.x * scale_factor * ui_scale,
+            self.calculated_size.y * scale_factor * ui_scale,
         )
     }
 
@@ -75,18 +86,18 @@ impl Node {
     pub fn physical_rect(
         &self,
         transform: &GlobalTransform,
-        scale_factor: f64,
-        ui_scale: f64,
+        scale_factor: f32,
+        ui_scale: f32,
     ) -> Rect {
         let rect = self.logical_rect(transform);
         Rect {
             min: Vec2::new(
-                (rect.min.x as f64 * scale_factor * ui_scale) as f32,
-                (rect.min.y as f64 * scale_factor * ui_scale) as f32,
+                rect.min.x * scale_factor * ui_scale,
+                rect.min.y * scale_factor * ui_scale,
             ),
             max: Vec2::new(
-                (rect.max.x as f64 * scale_factor * ui_scale) as f32,
-                (rect.max.y as f64 * scale_factor * ui_scale) as f32,
+                rect.max.x * scale_factor * ui_scale,
+                rect.max.y * scale_factor * ui_scale,
             ),
         }
     }
@@ -133,8 +144,13 @@ impl Default for Node {
 /// - [A Complete Guide To CSS Grid](https://css-tricks.com/snippets/css/complete-guide-grid/) by CSS Tricks. This is detailed guide with illustrations and comprehensive written explanation of the different CSS Grid properties and how they work.
 /// - [CSS Grid Garden](https://cssgridgarden.com/). An interactive tutorial/game that teaches the essential parts of CSS Grid in a fun engaging way.
 
-#[derive(Component, Clone, PartialEq, Debug, Deserialize, Serialize, Reflect)]
-#[reflect(Component, Default, PartialEq, Deserialize, Serialize)]
+#[derive(Component, Clone, PartialEq, Debug, Reflect)]
+#[reflect(Component, Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Style {
     /// Which layout algorithm to use when laying out this node's contents:
     ///   - [`Display::Flex`]: Use the Flexbox layout algorithm
@@ -464,8 +480,13 @@ impl Default for Style {
 /// - For CSS Grid containers, controls block (vertical) axis alignment of children of this grid container within their grid areas.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-items>
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum AlignItems {
     /// The items are packed in their default position as if no alignment was applied.
     Default,
@@ -502,8 +523,13 @@ impl Default for AlignItems {
 /// - For CSS Grid containers, sets default inline (horizontal) axis alignment of child items within their grid areas.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-items>
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum JustifyItems {
     /// The items are packed in their default position as if no alignment was applied.
     Default,
@@ -534,8 +560,13 @@ impl Default for JustifyItems {
 /// - For CSS Grid items, controls block (vertical) axis alignment of a grid item within its grid area.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-self>
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum AlignSelf {
     /// Use the parent node's [`AlignItems`] value to determine how this item should be aligned.
     Auto,
@@ -572,8 +603,13 @@ impl Default for AlignSelf {
 /// - For CSS Grid items, controls inline (horizontal) axis alignment of a grid item within its grid area.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-self>
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum JustifySelf {
     /// Use the parent node's [`JustifyItems`] value to determine how this item should be aligned.
     Auto,
@@ -604,8 +640,13 @@ impl Default for JustifySelf {
 /// - For CSS Grid containers, controls alignment of grid rows.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-content>
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum AlignContent {
     /// The items are packed in their default position as if no alignment was applied.
     Default,
@@ -646,8 +687,13 @@ impl Default for AlignContent {
 /// - For CSS Grid containers, controls alignment of grid columns.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-content>
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum JustifyContent {
     /// The items are packed in their default position as if no alignment was applied.
     Default,
@@ -686,8 +732,13 @@ impl Default for JustifyContent {
 /// Defines the text direction.
 ///
 /// For example, English is written LTR (left-to-right) while Arabic is written RTL (right-to-left).
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum Direction {
     /// Inherit from parent node.
     Inherit,
@@ -710,8 +761,13 @@ impl Default for Direction {
 /// Defines the layout model used by this node.
 ///
 /// Part of the [`Style`] component.
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum Display {
     /// Use Flexbox layout model to determine the position of this [`Node`].
     Flex,
@@ -735,8 +791,13 @@ impl Default for Display {
 }
 
 /// Defines how flexbox items are ordered within a flexbox
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum FlexDirection {
     /// Same way as text direction along the main axis.
     Row,
@@ -759,8 +820,13 @@ impl Default for FlexDirection {
 }
 
 /// Whether to show or hide overflowing items
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect, Serialize, Deserialize)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Overflow {
     /// Whether to show or clip overflowing items on the x axis
     pub x: OverflowAxis,
@@ -819,8 +885,13 @@ impl Default for Overflow {
 }
 
 /// Whether to show or hide overflowing items
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect, Serialize, Deserialize)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum OverflowAxis {
     /// Show overflowing items.
     Visible,
@@ -844,8 +915,13 @@ impl Default for OverflowAxis {
 }
 
 /// The strategy used to position this node
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum PositionType {
     /// Relative to all other nodes with the [`PositionType::Relative`] value.
     Relative,
@@ -864,8 +940,13 @@ impl Default for PositionType {
 }
 
 /// Defines if flexbox items appear on a single line or on multiple lines
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum FlexWrap {
     /// Single line, will overflow if needed.
     NoWrap,
@@ -893,8 +974,13 @@ impl Default for FlexWrap {
 /// Defaults to [`GridAutoFlow::Row`].
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/grid-auto-flow>
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum GridAutoFlow {
     /// Items are placed by filling each row in turn, adding new rows as necessary.
     Row,
@@ -916,8 +1002,13 @@ impl Default for GridAutoFlow {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect_value(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect_value(PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect_value(Serialize, Deserialize)
+)]
 pub enum MinTrackSizingFunction {
     /// Track minimum size should be a fixed pixel value
     Px(f32),
@@ -931,8 +1022,13 @@ pub enum MinTrackSizingFunction {
     Auto,
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect_value(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect_value(PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect_value(Serialize, Deserialize)
+)]
 pub enum MaxTrackSizingFunction {
     /// Track maximum size should be a fixed pixel value
     Px(f32),
@@ -957,8 +1053,13 @@ pub enum MaxTrackSizingFunction {
 
 /// A [`GridTrack`] is a Row or Column of a CSS Grid. This struct specifies what size the track should be.
 /// See below for the different "track sizing functions" you can specify.
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct GridTrack {
     pub(crate) min_sizing_function: MinTrackSizingFunction,
     pub(crate) max_sizing_function: MaxTrackSizingFunction,
@@ -1035,7 +1136,7 @@ impl GridTrack {
         .into()
     }
 
-    /// Create a fit-content() grid track with fixed pixel limit
+    /// Create a `fit-content()` grid track with fixed pixel limit.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/fit-content_function>
     pub fn fit_content_px<T: From<Self>>(limit: f32) -> T {
@@ -1046,7 +1147,7 @@ impl GridTrack {
         .into()
     }
 
-    /// Create a fit-content() grid track with percentage limit
+    /// Create a `fit-content()` grid track with percentage limit.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/fit-content_function>
     pub fn fit_content_percent<T: From<Self>>(limit: f32) -> T {
@@ -1057,7 +1158,7 @@ impl GridTrack {
         .into()
     }
 
-    /// Create a minmax() grid track
+    /// Create a `minmax()` grid track.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/minmax>
     pub fn minmax<T: From<Self>>(min: MinTrackSizingFunction, max: MaxTrackSizingFunction) -> T {
@@ -1075,8 +1176,13 @@ impl Default for GridTrack {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect(PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 /// How many times to repeat a repeated grid track
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/repeat>
@@ -1125,8 +1231,13 @@ impl From<usize> for GridTrackRepetition {
 /// You may only use one auto-repetition per track list. And if your track list contains an auto repetition
 /// then all tracks (in and outside of the repetition) must be fixed size (px or percent). Integer repetitions are just shorthand for writing out
 /// N tracks longhand and are not subject to the same limitations.
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Debug, Reflect)]
+#[reflect(PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct RepeatedGridTrack {
     pub(crate) repetition: GridTrackRepetition,
     pub(crate) tracks: SmallVec<[GridTrack; 1]>,
@@ -1198,7 +1309,7 @@ impl RepeatedGridTrack {
         .into()
     }
 
-    /// Create a repeating set of fit-content() grid tracks with fixed pixel limit
+    /// Create a repeating set of `fit-content()` grid tracks with fixed pixel limit
     pub fn fit_content_px<T: From<Self>>(repetition: u16, limit: f32) -> T {
         Self {
             repetition: GridTrackRepetition::Count(repetition),
@@ -1207,7 +1318,7 @@ impl RepeatedGridTrack {
         .into()
     }
 
-    /// Create a repeating set of fit-content() grid tracks with percentage limit
+    /// Create a repeating set of `fit-content()` grid tracks with percentage limit
     pub fn fit_content_percent<T: From<Self>>(repetition: u16, limit: f32) -> T {
         Self {
             repetition: GridTrackRepetition::Count(repetition),
@@ -1216,7 +1327,7 @@ impl RepeatedGridTrack {
         .into()
     }
 
-    /// Create a repeating set of minmax() grid track
+    /// Create a repeating set of `minmax()` grid track
     pub fn minmax<T: From<Self>>(
         repetition: impl Into<GridTrackRepetition>,
         min: MinTrackSizingFunction,
@@ -1275,8 +1386,13 @@ impl From<RepeatedGridTrack> for Vec<RepeatedGridTrack> {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 /// Represents the position of a grid item in a single axis.
 ///
 /// There are 3 fields which may be set:
@@ -1309,6 +1425,7 @@ pub struct GridPlacement {
 impl GridPlacement {
     pub const DEFAULT: Self = Self {
         start: None,
+        // SAFETY: This is trivially safe as 1 is non-zero.
         span: Some(unsafe { NonZeroU16::new_unchecked(1) }),
         end: None,
     };
@@ -1473,12 +1590,17 @@ pub enum GridPlacementError {
 ///
 /// This serves as the "fill" color.
 /// When combined with [`UiImage`], tints the provided texture.
-#[derive(Component, Copy, Clone, Debug, Deserialize, Serialize, Reflect)]
-#[reflect(Component, Default, Deserialize, Serialize)]
-pub struct BackgroundColor(pub Color);
+#[derive(Component, Copy, Clone, Debug, Reflect)]
+#[reflect(Component, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct BackgroundColor(pub LegacyColor);
 
 impl BackgroundColor {
-    pub const DEFAULT: Self = Self(Color::WHITE);
+    pub const DEFAULT: Self = Self(LegacyColor::WHITE);
 }
 
 impl Default for BackgroundColor {
@@ -1487,37 +1609,30 @@ impl Default for BackgroundColor {
     }
 }
 
-impl From<Color> for BackgroundColor {
-    fn from(color: Color) -> Self {
+impl From<LegacyColor> for BackgroundColor {
+    fn from(color: LegacyColor) -> Self {
         Self(color)
     }
 }
 
-/// The atlas sprite to be used in a UI Texture Atlas Node
-#[derive(Component, Clone, Debug, Reflect, Default)]
-#[reflect(Component, Default)]
-pub struct UiTextureAtlasImage {
-    /// Texture index in the TextureAtlas
-    pub index: usize,
-    /// Whether to flip the sprite in the X axis
-    pub flip_x: bool,
-    /// Whether to flip the sprite in the Y axis
-    pub flip_y: bool,
-}
-
 /// The border color of the UI node.
-#[derive(Component, Copy, Clone, Debug, Deserialize, Serialize, Reflect)]
-#[reflect(Component, Default, Deserialize, Serialize)]
-pub struct BorderColor(pub Color);
+#[derive(Component, Copy, Clone, Debug, Reflect)]
+#[reflect(Component, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct BorderColor(pub LegacyColor);
 
-impl From<Color> for BorderColor {
-    fn from(color: Color) -> Self {
+impl From<LegacyColor> for BorderColor {
+    fn from(color: LegacyColor) -> Self {
         Self(color)
     }
 }
 
 impl BorderColor {
-    pub const DEFAULT: Self = BorderColor(Color::WHITE);
+    pub const DEFAULT: Self = BorderColor(LegacyColor::WHITE);
 }
 
 impl Default for BorderColor {
@@ -1526,8 +1641,13 @@ impl Default for BorderColor {
     }
 }
 
-#[derive(Component, Copy, Clone, Default, Debug, Deserialize, Serialize, Reflect)]
-#[reflect(Component, Default, Deserialize, Serialize)]
+#[derive(Component, Copy, Clone, Default, Debug, Reflect)]
+#[reflect(Component, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 /// The [`Outline`] component adds an outline outside the edge of a UI node.
 /// Outlines do not take up space in the layout.
 ///
@@ -1535,7 +1655,7 @@ impl Default for BorderColor {
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ui::prelude::*;
-/// # use bevy_render::prelude::Color;
+/// # use bevy_render::prelude::LegacyColor;
 /// fn setup_ui(mut commands: Commands) {
 ///     commands.spawn((
 ///         NodeBundle {
@@ -1544,10 +1664,10 @@ impl Default for BorderColor {
 ///                 height: Val::Px(100.),
 ///                 ..Default::default()
 ///             },
-///             background_color: Color::BLUE.into(),
+///             background_color: LegacyColor::BLUE.into(),
 ///             ..Default::default()
 ///         },
-///         Outline::new(Val::Px(10.), Val::ZERO, Color::RED)
+///         Outline::new(Val::Px(10.), Val::ZERO, LegacyColor::RED)
 ///     ));
 /// }
 /// ```
@@ -1556,7 +1676,7 @@ impl Default for BorderColor {
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ui::prelude::*;
-/// # use bevy_render::prelude::Color;
+/// # use bevy_render::prelude::LegacyColor;
 /// fn outline_hovered_button_system(
 ///     mut commands: Commands,
 ///     mut node_query: Query<(Entity, &Interaction, Option<&mut Outline>), Changed<Interaction>>,
@@ -1564,9 +1684,9 @@ impl Default for BorderColor {
 ///     for (entity, interaction, mut maybe_outline) in node_query.iter_mut() {
 ///         let outline_color =
 ///             if matches!(*interaction, Interaction::Hovered) {
-///                 Color::WHITE
+///                 LegacyColor::WHITE
 ///             } else {
-///                 Color::NONE
+///                 LegacyColor::NONE
 ///             };
 ///         if let Some(mut outline) = maybe_outline {
 ///             outline.color = outline_color;
@@ -1577,7 +1697,7 @@ impl Default for BorderColor {
 /// }
 /// ```
 /// Inserting and removing an [`Outline`] component repeatedly will result in table moves, so it is generally preferable to
-/// set `Outline::color` to `Color::NONE` to hide an outline.
+/// set `Outline::color` to `LegacyColor::NONE` to hide an outline.
 pub struct Outline {
     /// The width of the outline.
     ///
@@ -1589,14 +1709,14 @@ pub struct Outline {
     pub offset: Val,
     /// The color of the outline.
     ///
-    /// If you are frequently toggling outlines for a UI node on and off it is recommended to set `Color::None` to hide the outline.
+    /// If you are frequently toggling outlines for a UI node on and off it is recommended to set `LegacyColor::NONE` to hide the outline.
     /// This avoids the table moves that would occur from the repeated insertion and removal of the `Outline` component.
-    pub color: Color,
+    pub color: LegacyColor,
 }
 
 impl Outline {
     /// Create a new outline
-    pub const fn new(width: Val, offset: Val, color: Color) -> Self {
+    pub const fn new(width: Val, offset: Val, color: LegacyColor) -> Self {
         Self {
             width,
             offset,
@@ -1648,7 +1768,7 @@ impl From<Handle<Image>> for UiImage {
 
 /// The calculated clip of the node
 #[derive(Component, Default, Copy, Clone, Debug, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct CalculatedClip {
     /// The rect of the clip
     pub clip: Rect,
@@ -1668,7 +1788,7 @@ pub struct CalculatedClip {
 ///
 /// Nodes without this component will be treated as if they had a value of `ZIndex::Local(0)`.
 #[derive(Component, Copy, Clone, Debug, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub enum ZIndex {
     /// Indicates the order in which this node should be rendered relative to its siblings.
     Local(i32),
@@ -1711,5 +1831,89 @@ mod tests {
         assert_eq!(GridPlacement::start_end(11, 21).get_span(), None);
         assert_eq!(GridPlacement::start_span(3, 5).get_end(), None);
         assert_eq!(GridPlacement::end_span(-4, 12).get_start(), None);
+    }
+}
+
+/// Indicates that this root [`Node`] entity should be rendered to a specific camera.
+/// UI then will be laid out respecting the camera's viewport and scale factor, and
+/// rendered to this camera's [`bevy_render::camera::RenderTarget`].
+///
+/// Setting this component on a non-root node will have no effect. It will be overridden
+/// by the root node's component.
+///
+/// Optional if there is only one camera in the world. Required otherwise.
+#[derive(Component, Clone, Debug, Reflect, Eq, PartialEq)]
+pub struct TargetCamera(pub Entity);
+
+impl TargetCamera {
+    pub fn entity(&self) -> Entity {
+        self.0
+    }
+}
+
+#[derive(Component)]
+/// Marker used to identify default cameras, they will have priority over the [`PrimaryWindow`] camera.
+///
+/// This is useful if the [`PrimaryWindow`] has two cameras, one of them used
+/// just for debug purposes and the user wants a way to choose the default [`Camera`]
+/// without having to add a [`TargetCamera`] to the root node.
+///
+/// Another use is when the user wants the Ui to be in another window by default,
+/// all that is needed is to place this component on the camera
+///
+/// ```
+/// # use bevy_ui::prelude::*;
+/// # use bevy_ecs::prelude::Commands;
+/// # use bevy_render::camera::{Camera, RenderTarget};
+/// # use bevy_core_pipeline::prelude::Camera2dBundle;
+/// # use bevy_window::{Window, WindowRef};
+///
+/// fn spawn_camera(mut commands: Commands) {
+///     let another_window = commands.spawn(Window {
+///         title: String::from("Another window"),
+///         ..Default::default()
+///     }).id();
+///     commands.spawn((
+///         Camera2dBundle {
+///             camera: Camera {
+///                 target: RenderTarget::Window(WindowRef::Entity(another_window)),
+///                 ..Default::default()
+///             },
+///             ..Default::default()
+///         },
+///         // We add the Marker here so all Ui will spawn in
+///         // another window if no TargetCamera is specified
+///         IsDefaultUiCamera
+///     ));
+/// }
+/// ```
+pub struct IsDefaultUiCamera;
+
+#[derive(SystemParam)]
+pub struct DefaultUiCamera<'w, 's> {
+    cameras: Query<'w, 's, (Entity, &'static Camera)>,
+    default_cameras: Query<'w, 's, Entity, (With<Camera>, With<IsDefaultUiCamera>)>,
+    primary_window: Query<'w, 's, Entity, With<PrimaryWindow>>,
+}
+
+impl<'w, 's> DefaultUiCamera<'w, 's> {
+    pub fn get(&self) -> Option<Entity> {
+        self.default_cameras.get_single().ok().or_else(|| {
+            // If there isn't a single camera and the query isn't empty, there is two or more cameras queried.
+            if !self.default_cameras.is_empty() {
+                warn_once!("Two or more Entities with IsDefaultUiCamera found when only one Camera with this marker is allowed.");
+            }
+            self.cameras
+                .iter()
+                .filter(|(_, c)| match c.target {
+                    RenderTarget::Window(WindowRef::Primary) => true,
+                    RenderTarget::Window(WindowRef::Entity(w)) => {
+                        self.primary_window.get(w).is_ok()
+                    }
+                    _ => false,
+                })
+                .max_by_key(|(e, c)| (c.order, *e))
+                .map(|(e, _)| e)
+        })
     }
 }

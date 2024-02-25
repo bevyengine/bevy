@@ -33,6 +33,7 @@ struct DirectionalLight {
     num_cascades: u32,
     cascades_overlap_proportion: f32,
     depth_texture_base_index: u32,
+    render_layers: u32,
 };
 
 const DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32 = 1u;
@@ -57,6 +58,7 @@ struct Lights {
     n_directional_lights: u32,
     spot_light_shadowmap_offset: i32,
     environment_map_smallest_specular_mip_level: u32,
+    environment_map_intensity: f32,
 };
 
 struct Fog {
@@ -108,3 +110,27 @@ struct ClusterOffsetsAndCounts {
     data: array<vec4<u32>, 1024u>,
 };
 #endif
+
+struct LightProbe {
+    // This is stored as the transpose in order to save space in this structure.
+    // It'll be transposed in the `environment_map_light` function.
+    inverse_transpose_transform: mat3x4<f32>,
+    cubemap_index: i32,
+    intensity: f32,
+};
+
+struct LightProbes {
+    // This must match `MAX_VIEW_REFLECTION_PROBES` on the Rust side.
+    reflection_probes: array<LightProbe, 8u>,
+    irradiance_volumes: array<LightProbe, 8u>,
+    reflection_probe_count: i32,
+    irradiance_volume_count: i32,
+    // The index of the view environment map cubemap binding, or -1 if there's
+    // no such cubemap.
+    view_cubemap_index: i32,
+    // The smallest valid mipmap level for the specular environment cubemap
+    // associated with the view.
+    smallest_specular_mip_level_for_view: u32,
+    // The intensity of the environment map associated with the view.
+    intensity_for_view: f32,
+};

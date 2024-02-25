@@ -1,6 +1,6 @@
 use crate::{
-    line_gizmo_vertex_buffer_layouts, DrawLineGizmo, GizmoConfig, LineGizmo,
-    LineGizmoUniformBindgroupLayout, SetLineGizmoBindGroup, LINE_SHADER_HANDLE,
+    config::GizmoMeshConfig, line_gizmo_vertex_buffer_layouts, DrawLineGizmo, GizmoRenderSystem,
+    LineGizmo, LineGizmoUniformBindgroupLayout, SetLineGizmoBindGroup, LINE_SHADER_HANDLE,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::Handle;
@@ -12,7 +12,7 @@ use bevy_core_pipeline::{
 use bevy_ecs::{
     prelude::Entity,
     query::Has,
-    schedule::IntoSystemConfigs,
+    schedule::{IntoSystemConfigs, IntoSystemSetConfigs},
     system::{Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
@@ -36,10 +36,14 @@ impl Plugin for LineGizmo3dPlugin {
         render_app
             .add_render_command::<Transparent3d, DrawLineGizmo3d>()
             .init_resource::<SpecializedRenderPipelines<LineGizmoPipeline>>()
+            .configure_sets(
+                Render,
+                GizmoRenderSystem::QueueLineGizmos3d.in_set(RenderSet::Queue),
+            )
             .add_systems(
                 Render,
                 queue_line_gizmos_3d
-                    .in_set(RenderSet::Queue)
+                    .in_set(GizmoRenderSystem::QueueLineGizmos3d)
                     .after(prepare_assets::<LineGizmo>),
             );
     }
@@ -155,8 +159,7 @@ fn queue_line_gizmos_3d(
     mut pipelines: ResMut<SpecializedRenderPipelines<LineGizmoPipeline>>,
     pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
-    config: Res<GizmoConfig>,
-    line_gizmos: Query<(Entity, &Handle<LineGizmo>)>,
+    line_gizmos: Query<(Entity, &Handle<LineGizmo>, &GizmoMeshConfig)>,
     line_gizmo_assets: Res<RenderAssets<LineGizmo>>,
     mut views: Query<(
         &ExtractedView,
@@ -180,9 +183,6 @@ fn queue_line_gizmos_3d(
     ) in &mut views
     {
         let render_layers = render_layers.copied().unwrap_or_default();
-        if !config.render_layers.intersects(&render_layers) {
-            continue;
-        }
 
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
             | MeshPipelineKey::from_hdr(view.hdr);
@@ -203,7 +203,11 @@ fn queue_line_gizmos_3d(
             view_key |= MeshPipelineKey::DEFERRED_PREPASS;
         }
 
-        for (entity, handle) in &line_gizmos {
+        for (entity, handle, config) in &line_gizmos {
+            if !config.render_layers.intersects(&render_layers) {
+                continue;
+            }
+
             let Some(line_gizmo) = line_gizmo_assets.get(handle) else {
                 continue;
             };

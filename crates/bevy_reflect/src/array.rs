@@ -1,11 +1,11 @@
 use crate::{
-    self as bevy_reflect, utility::reflect_hasher, Reflect, ReflectMut, ReflectOwned, ReflectRef,
-    TypeInfo, TypePath, TypePathTable,
+    self as bevy_reflect, utility::reflect_hasher, Reflect, ReflectKind, ReflectMut, ReflectOwned,
+    ReflectRef, TypeInfo, TypePath, TypePathTable,
 };
 use bevy_reflect_derive::impl_type_path;
 use std::{
     any::{Any, TypeId},
-    fmt::Debug,
+    fmt::{Debug, Formatter},
     hash::{Hash, Hasher},
 };
 
@@ -269,6 +269,11 @@ impl Reflect for DynamicArray {
     }
 
     #[inline]
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::Array
+    }
+
+    #[inline]
     fn reflect_ref(&self) -> ReflectRef {
         ReflectRef::Array(self)
     }
@@ -295,6 +300,12 @@ impl Reflect for DynamicArray {
 
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         array_partial_eq(self, value)
+    }
+
+    fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "DynamicArray(")?;
+        array_debug(self, f)?;
+        write!(f, ")")
     }
 
     #[inline]
@@ -380,7 +391,7 @@ impl<'a> ExactSizeIterator for ArrayIter<'a> {}
 #[inline]
 pub fn array_hash<A: Array>(array: &A) -> Option<u64> {
     let mut hasher = reflect_hasher();
-    std::any::Any::type_id(array).hash(&mut hasher);
+    Any::type_id(array).hash(&mut hasher);
     array.len().hash(&mut hasher);
     for value in array.iter() {
         hasher.write_u64(value.reflect_hash()?);

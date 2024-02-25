@@ -8,7 +8,7 @@ use bevy_ecs::prelude::*;
 use bevy_math::UVec2;
 use bevy_render::{
     camera::ExtractedCamera,
-    render_resource::*,
+    render_resource::{binding_types::texture_2d, *},
     renderer::RenderDevice,
     texture::{CachedTexture, TextureCache},
     view::ViewTarget,
@@ -18,7 +18,6 @@ use bevy_render::{
 use bevy_ecs::query::QueryItem;
 use bevy_render::{
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    render_resource::{Operations, PipelineCache, RenderPassDescriptor},
     renderer::RenderContext,
 };
 
@@ -94,7 +93,7 @@ impl ViewNode for CopyDeferredLightingIdNode {
         let bind_group = render_context.render_device().create_bind_group(
             "copy_deferred_lighting_id_bind_group",
             &copy_deferred_lighting_id_pipeline.layout,
-            &BindGroupEntries::single(&deferred_lighting_pass_id_texture.default_view),
+            &BindGroupEntries::single(&deferred_lighting_pass_id_texture.texture.default_view),
         );
 
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
@@ -104,10 +103,12 @@ impl ViewNode for CopyDeferredLightingIdNode {
                 view: &deferred_lighting_id_depth_texture.texture.default_view,
                 depth_ops: Some(Operations {
                     load: LoadOp::Clear(0.0),
-                    store: true,
+                    store: StoreOp::Store,
                 }),
                 stencil_ops: None,
             }),
+            timestamp_writes: None,
+            occlusion_query_set: None,
         });
 
         render_pass.set_render_pipeline(pipeline);
@@ -128,19 +129,13 @@ impl FromWorld for CopyDeferredLightingIdPipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
 
-        let layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            label: Some("copy_deferred_lighting_id_bind_group_layout"),
-            entries: &[BindGroupLayoutEntry {
-                binding: 0,
-                visibility: ShaderStages::FRAGMENT,
-                ty: BindingType::Texture {
-                    sample_type: TextureSampleType::Uint,
-                    view_dimension: TextureViewDimension::D2,
-                    multisampled: false,
-                },
-                count: None,
-            }],
-        });
+        let layout = render_device.create_bind_group_layout(
+            "copy_deferred_lighting_id_bind_group_layout",
+            &BindGroupLayoutEntries::single(
+                ShaderStages::FRAGMENT,
+                texture_2d(TextureSampleType::Uint),
+            ),
+        );
 
         let pipeline_id =
             world

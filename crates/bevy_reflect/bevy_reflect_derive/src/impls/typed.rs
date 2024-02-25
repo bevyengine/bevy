@@ -1,4 +1,4 @@
-use crate::utility::{extend_where_clause, StringExpr, WhereClauseOptions};
+use crate::utility::{StringExpr, WhereClauseOptions};
 use quote::{quote, ToTokens};
 
 use crate::{
@@ -48,11 +48,10 @@ pub(crate) enum TypedProperty {
     TypePath,
 }
 
-pub(crate) fn impl_type_path(
-    meta: &ReflectMeta,
-    where_clause_options: &WhereClauseOptions,
-) -> proc_macro2::TokenStream {
-    if !meta.traits().type_path_attrs().should_auto_derive() {
+pub(crate) fn impl_type_path(meta: &ReflectMeta) -> proc_macro2::TokenStream {
+    let where_clause_options = WhereClauseOptions::new(meta);
+
+    if !meta.attrs().type_path_attrs().should_auto_derive() {
         return proc_macro2::TokenStream::new();
     }
 
@@ -101,7 +100,7 @@ pub(crate) fn impl_type_path(
     let (impl_generics, ty_generics, where_clause) = type_path.generics().split_for_impl();
 
     // Add Typed bound for each active field
-    let where_reflect_clause = extend_where_clause(where_clause, where_clause_options);
+    let where_reflect_clause = where_clause_options.extend_where_clause(where_clause);
 
     quote! {
         #primitive_assert
@@ -142,7 +141,7 @@ pub(crate) fn impl_typed(
 
     let (impl_generics, ty_generics, where_clause) = type_path.generics().split_for_impl();
 
-    let where_reflect_clause = extend_where_clause(where_clause, where_clause_options);
+    let where_reflect_clause = where_clause_options.extend_where_clause(where_clause);
 
     quote! {
         impl #impl_generics #bevy_reflect_path::Typed for #type_path #ty_generics #where_reflect_clause {

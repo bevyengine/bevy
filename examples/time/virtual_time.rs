@@ -18,8 +18,8 @@ fn main() {
                 move_virtual_time_sprites,
                 move_real_time_sprites,
                 toggle_pause.run_if(input_just_pressed(KeyCode::Space)),
-                change_time_speed::<1>.run_if(input_just_pressed(KeyCode::Up)),
-                change_time_speed::<-1>.run_if(input_just_pressed(KeyCode::Down)),
+                change_time_speed::<1>.run_if(input_just_pressed(KeyCode::ArrowUp)),
+                change_time_speed::<-1>.run_if(input_just_pressed(KeyCode::ArrowDown)),
                 (update_virtual_time_info_text, update_real_time_info_text)
                     // update the texts on a timer to make them more readable
                     // `on_timer` run condition uses `Virtual` time meaning it's scaled
@@ -47,7 +47,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
 
     commands.spawn(Camera2dBundle::default());
 
-    let virtual_color = Color::GOLD;
+    let virtual_color = LegacyColor::GOLD;
     let sprite_scale = Vec2::splat(0.5).extend(1.);
     let texture_handle = asset_server.load("branding/icon.png");
 
@@ -114,11 +114,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
                     "CONTROLS\nUn/Pause: Space\nSpeed+: Up\nSpeed-: Down",
                     TextStyle {
                         font_size,
-                        color: Color::rgb(0.85, 0.85, 0.85),
+                        color: LegacyColor::rgb(0.85, 0.85, 0.85),
                         ..default()
                     },
                 )
-                .with_text_alignment(TextAlignment::Center),
+                .with_text_justify(JustifyText::Center),
             );
 
             // virtual time info
@@ -131,7 +131,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
                         ..default()
                     },
                 )
-                .with_text_alignment(TextAlignment::Right),
+                .with_text_justify(JustifyText::Right),
                 VirtualTime,
             ));
         });

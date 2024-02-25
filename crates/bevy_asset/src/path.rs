@@ -2,8 +2,8 @@ use crate::io::AssetSourceId;
 use bevy_reflect::{
     std_traits::ReflectDefault, utility::NonGenericTypeInfoCell, FromReflect, FromType,
     GetTypeRegistration, Reflect, ReflectDeserialize, ReflectFromPtr, ReflectFromReflect,
-    ReflectMut, ReflectOwned, ReflectRef, ReflectSerialize, TypeInfo, TypePath, TypeRegistration,
-    Typed, ValueInfo,
+    ReflectKind, ReflectMut, ReflectOwned, ReflectRef, ReflectSerialize, TypeInfo, TypePath,
+    TypeRegistration, Typed, ValueInfo,
 };
 use bevy_utils::CowArc;
 use serde::{de::Visitor, Deserialize, Serialize};
@@ -78,12 +78,19 @@ impl<'a> Display for AssetPath<'a> {
     }
 }
 
+/// An error that occurs when parsing a string type to create an [`AssetPath`] fails, such as during [`AssetPath::parse`] or [`AssetPath::from<'static str>`].
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum ParseAssetPathError {
-    #[error("Asset source must be followed by '://'")]
+    /// Error that occurs when the [`AssetPath::source`] section of a path string contains the [`AssetPath::label`] delimiter `#`. E.g. `bad#source://file.test`.
+    #[error("Asset source must not contain a `#` character")]
     InvalidSourceSyntax,
+    /// Error that occurs when the [`AssetPath::label`] section of a path string contains the [`AssetPath::source`] delimiter `://`. E.g. `source://file.test#bad://label`.
+    #[error("Asset label must not contain a `://` substring")]
+    InvalidLabelSyntax,
+    /// Error that occurs when a path string has an [`AssetPath::source`] delimiter `://` with no characters preceding it. E.g. `://file.test`.
     #[error("Asset source must be at least one character. Either specify the source before the '://' or remove the `://`")]
     MissingSource,
+    /// Error that occurs when a path string has an [`AssetPath::label`] delimiter `#` with no characters succeeding it. E.g. `file.test#`
     #[error("Asset label must be at least one character. Either specify the label after the '#' or remove the '#'")]
     MissingLabel,
 }
@@ -126,40 +133,70 @@ impl<'a> AssetPath<'a> {
         })
     }
 
+    // Attempts to Parse a &str into an `AssetPath`'s `AssetPath::source`, `AssetPath::path`, and `AssetPath::label` components.
     fn parse_internal(
         asset_path: &str,
     ) -> Result<(Option<&str>, &Path, Option<&str>), ParseAssetPathError> {
-        let mut chars = asset_path.char_indices();
+        let chars = asset_path.char_indices();
         let mut source_range = None;
         let mut path_range = 0..asset_path.len();
         let mut label_range = None;
-        while let Some((index, char)) = chars.next() {
+
+        // Loop through the characters of the passed in &str to accomplish the following:
+        // 1. Search for the first instance of the `://` substring. If the `://` substring is found,
+        //  store the range of indices representing everything before the `://` substring as the `source_range`.
+        // 2. Search for the last instance of the `#` character. If the `#` character is found,
+        //  store the range of indices representing everything after the `#` character as the `label_range`
+        // 3. Set the `path_range` to be everything in between the `source_range` and `label_range`,
+        //  excluding the `://` substring and `#` character.
+        // 4. Verify that there are no `#` characters in the `AssetPath::source` and no `://` substrings in the `AssetPath::label`
+        let mut source_delimiter_chars_matched = 0;
+        let mut last_found_source_index = 0;
+        for (index, char) in chars {
             match char {
                 ':' => {
-                    let (_, char) = chars
-                        .next()
-                        .ok_or(ParseAssetPathError::InvalidSourceSyntax)?;
-                    if char != '/' {
-                        return Err(ParseAssetPathError::InvalidSourceSyntax);
+                    source_delimiter_chars_matched = 1;
+                }
+                '/' => {
+                    match source_delimiter_chars_matched {
+                        1 => {
+                            source_delimiter_chars_matched = 2;
+                        }
+                        2 => {
+                            // If we haven't found our first `AssetPath::source` yet, check to make sure it is valid and then store it.
+                            if source_range.is_none() {
+                                // If the `AssetPath::source` contains a `#` character, it is invalid.
+                                if label_range.is_some() {
+                                    return Err(ParseAssetPathError::InvalidSourceSyntax);
+                                }
+                                source_range = Some(0..index - 2);
+                                path_range.start = index + 1;
+                            }
+                            last_found_source_index = index - 2;
+                            source_delimiter_chars_matched = 0;
+                        }
+                        _ => {}
                     }
-                    let (index, char) = chars
-                        .next()
-                        .ok_or(ParseAssetPathError::InvalidSourceSyntax)?;
-                    if char != '/' {
-                        return Err(ParseAssetPathError::InvalidSourceSyntax);
-                    }
-                    source_range = Some(0..index - 2);
-                    path_range.start = index + 1;
                 }
                 '#' => {
                     path_range.end = index;
                     label_range = Some(index + 1..asset_path.len());
-                    break;
+                    source_delimiter_chars_matched = 0;
                 }
-                _ => {}
+                _ => {
+                    source_delimiter_chars_matched = 0;
+                }
             }
         }
-
+        // If we found an `AssetPath::label`
+        if let Some(range) = label_range.clone() {
+            // If the `AssetPath::label` contained a `://` substring, it is invalid.
+            if range.start <= last_found_source_index {
+                return Err(ParseAssetPathError::InvalidLabelSyntax);
+            }
+        }
+        // Try to parse the range of indices that represents the `AssetPath::source` portion of the `AssetPath` to make sure it is not empty.
+        // This would be the case if the input &str was something like `://some/file.test`
         let source = match source_range {
             Some(source_range) => {
                 if source_range.is_empty() {
@@ -169,6 +206,8 @@ impl<'a> AssetPath<'a> {
             }
             None => None,
         };
+        // Try to parse the range of indices that represents the `AssetPath::label` portion of the `AssetPath` to make sure it is not empty.
+        // This would be the case if the input &str was something like `some/file.test#`.
         let label = match label_range {
             Some(label_range) => {
                 if label_range.is_empty() {
@@ -302,7 +341,7 @@ impl<'a> AssetPath<'a> {
     /// Resolves a relative asset path via concatenation. The result will be an `AssetPath` which
     /// is resolved relative to this "base" path.
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_asset::AssetPath;
     /// assert_eq!(AssetPath::parse("a/b").resolve("c"), Ok(AssetPath::parse("a/b/c")));
     /// assert_eq!(AssetPath::parse("a/b").resolve("./c"), Ok(AssetPath::parse("a/b/c")));
@@ -352,7 +391,7 @@ impl<'a> AssetPath<'a> {
     /// primary use case for this method is resolving relative paths embedded within asset files,
     /// which are relative to the asset in which they are contained.
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_asset::AssetPath;
     /// assert_eq!(AssetPath::parse("a/b").resolve_embed("c"), Ok(AssetPath::parse("a/c")));
     /// assert_eq!(AssetPath::parse("a/b").resolve_embed("./c"), Ok(AssetPath::parse("a/c")));
@@ -392,34 +431,13 @@ impl<'a> AssetPath<'a> {
                 _ => rpath,
             };
 
-            let mut result_path = PathBuf::new();
-            if !is_absolute && source.is_none() {
-                for elt in base_path.iter() {
-                    if elt == "." {
-                        // Skip
-                    } else if elt == ".." {
-                        if !result_path.pop() {
-                            // Preserve ".." if insufficient matches (per RFC 1808).
-                            result_path.push(elt);
-                        }
-                    } else {
-                        result_path.push(elt);
-                    }
-                }
-            }
-
-            for elt in rpath.iter() {
-                if elt == "." {
-                    // Skip
-                } else if elt == ".." {
-                    if !result_path.pop() {
-                        // Preserve ".." if insufficient matches (per RFC 1808).
-                        result_path.push(elt);
-                    }
-                } else {
-                    result_path.push(elt);
-                }
-            }
+            let mut result_path = if !is_absolute && source.is_none() {
+                base_path
+            } else {
+                PathBuf::new()
+            };
+            result_path.push(rpath);
+            result_path = normalize_path(result_path.as_path());
 
             Ok(AssetPath {
                 source: match source {
@@ -581,10 +599,10 @@ impl TypePath for AssetPath<'static> {
         Some("AssetPath<'static>")
     }
     fn crate_name() -> Option<&'static str> {
-        Option::None
+        None
     }
     fn module_path() -> Option<&'static str> {
-        Option::None
+        None
     }
 }
 impl Typed for AssetPath<'static> {
@@ -598,23 +616,19 @@ impl Typed for AssetPath<'static> {
 }
 impl Reflect for AssetPath<'static> {
     #[inline]
-    fn type_name(&self) -> &str {
-        ::core::any::type_name::<Self>()
-    }
-    #[inline]
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         Some(<Self as Typed>::type_info())
     }
     #[inline]
-    fn into_any(self: Box<Self>) -> Box<dyn ::core::any::Any> {
+    fn into_any(self: Box<Self>) -> Box<dyn core::any::Any> {
         self
     }
     #[inline]
-    fn as_any(&self) -> &dyn ::core::any::Any {
+    fn as_any(&self) -> &dyn core::any::Any {
         self
     }
     #[inline]
-    fn as_any_mut(&mut self) -> &mut dyn ::core::any::Any {
+    fn as_any_mut(&mut self) -> &mut dyn core::any::Any {
         self
     }
     #[inline]
@@ -628,10 +642,6 @@ impl Reflect for AssetPath<'static> {
     #[inline]
     fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
         self
-    }
-    #[inline]
-    fn clone_value(&self) -> Box<dyn Reflect> {
-        Box::new(self.clone())
     }
     #[inline]
     fn apply(&mut self, value: &dyn Reflect) {
@@ -650,6 +660,9 @@ impl Reflect for AssetPath<'static> {
         *self = <dyn bevy_reflect::Reflect>::take(value)?;
         Ok(())
     }
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::Value
+    }
     fn reflect_ref(&self) -> ReflectRef {
         ReflectRef::Value(self)
     }
@@ -659,6 +672,10 @@ impl Reflect for AssetPath<'static> {
     fn reflect_owned(self: Box<Self>) -> ReflectOwned {
         ReflectOwned::Value(self)
     }
+    #[inline]
+    fn clone_value(&self) -> Box<dyn Reflect> {
+        Box::new(self.clone())
+    }
     fn reflect_hash(&self) -> Option<u64> {
         let mut hasher = bevy_reflect::utility::reflect_hasher();
         Hash::hash(&::core::any::Any::type_id(self), &mut hasher);
@@ -667,22 +684,41 @@ impl Reflect for AssetPath<'static> {
     }
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         let value = <dyn Reflect>::as_any(value);
-        if let Some(value) = <dyn ::core::any::Any>::downcast_ref::<Self>(value) {
-            Some(::core::cmp::PartialEq::eq(self, value))
+        if let Some(value) = <dyn core::any::Any>::downcast_ref::<Self>(value) {
+            Some(PartialEq::eq(self, value))
         } else {
             Some(false)
         }
     }
-    fn debug(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    fn debug(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         ::core::fmt::Debug::fmt(self, f)
     }
 }
 impl FromReflect for AssetPath<'static> {
     fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
-        Some(Clone::clone(<dyn ::core::any::Any>::downcast_ref::<
+        Some(Clone::clone(<dyn core::any::Any>::downcast_ref::<
             AssetPath<'static>,
         >(<dyn Reflect>::as_any(reflect))?))
     }
+}
+
+/// Normalizes the path by collapsing all occurrences of '.' and '..' dot-segments where possible
+/// as per [RFC 1808](https://datatracker.ietf.org/doc/html/rfc1808)
+pub(crate) fn normalize_path(path: &Path) -> PathBuf {
+    let mut result_path = PathBuf::new();
+    for elt in path.iter() {
+        if elt == "." {
+            // Skip
+        } else if elt == ".." {
+            if !result_path.pop() {
+                // Preserve ".." if insufficient matches (per RFC 1808).
+                result_path.push(elt);
+            }
+        } else {
+            result_path.push(elt);
+        }
+    }
+    result_path
 }
 
 #[cfg(test)]
@@ -704,6 +740,33 @@ mod tests {
             Ok((Some("http"), Path::new("a/b.test"), Some("Foo")))
         );
 
+        let result = AssetPath::parse_internal("localhost:80/b.test");
+        assert_eq!(result, Ok((None, Path::new("localhost:80/b.test"), None)));
+
+        let result = AssetPath::parse_internal("http://localhost:80/b.test");
+        assert_eq!(
+            result,
+            Ok((Some("http"), Path::new("localhost:80/b.test"), None))
+        );
+
+        let result = AssetPath::parse_internal("http://localhost:80/b.test#Foo");
+        assert_eq!(
+            result,
+            Ok((Some("http"), Path::new("localhost:80/b.test"), Some("Foo")))
+        );
+
+        let result = AssetPath::parse_internal("#insource://a/b.test");
+        assert_eq!(result, Err(crate::ParseAssetPathError::InvalidSourceSyntax));
+
+        let result = AssetPath::parse_internal("source://a/b.test#://inlabel");
+        assert_eq!(result, Err(crate::ParseAssetPathError::InvalidLabelSyntax));
+
+        let result = AssetPath::parse_internal("#insource://a/b.test#://inlabel");
+        assert!(
+            result == Err(crate::ParseAssetPathError::InvalidSourceSyntax)
+                || result == Err(crate::ParseAssetPathError::InvalidLabelSyntax)
+        );
+
         let result = AssetPath::parse_internal("http://");
         assert_eq!(result, Ok((Some("http"), Path::new(""), None)));
 
@@ -712,9 +775,6 @@ mod tests {
 
         let result = AssetPath::parse_internal("a/b.test#");
         assert_eq!(result, Err(crate::ParseAssetPathError::MissingLabel));
-
-        let result = AssetPath::parse_internal("http:/");
-        assert_eq!(result, Err(crate::ParseAssetPathError::InvalidSourceSyntax));
     }
 
     #[test]
@@ -771,7 +831,7 @@ mod tests {
 
     #[test]
     fn test_resolve_implicit_relative() {
-        // A path with no inital directory separator should be considered relative.
+        // A path with no initial directory separator should be considered relative.
         let base = AssetPath::from("alice/bob#carol");
         assert_eq!(
             base.resolve("joe/next").unwrap(),

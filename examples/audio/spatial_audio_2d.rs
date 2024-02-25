@@ -13,7 +13,7 @@ const AUDIO_SCALE: f32 = 1. / 100.0;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(AudioPlugin {
-            spatial_scale: SpatialScale::new_2d(AUDIO_SCALE),
+            default_spatial_scale: SpatialScale::new_2d(AUDIO_SCALE),
             ..default()
         }))
         .add_systems(Startup, setup)
@@ -34,8 +34,8 @@ fn setup(
     // sound emitter
     commands.spawn((
         MaterialMesh2dBundle {
-            mesh: meshes.add(shape::Circle::new(15.0).into()).into(),
-            material: materials.add(ColorMaterial::from(Color::BLUE)),
+            mesh: meshes.add(Circle::new(15.0)).into(),
+            material: materials.add(LegacyColor::BLUE),
             transform: Transform::from_translation(Vec3::new(0.0, 50.0, 0.0)),
             ..default()
         },
@@ -53,7 +53,7 @@ fn setup(
             // left ear
             parent.spawn(SpriteBundle {
                 sprite: Sprite {
-                    color: Color::RED,
+                    color: LegacyColor::RED,
                     custom_size: Some(Vec2::splat(20.0)),
                     ..default()
                 },
@@ -64,7 +64,7 @@ fn setup(
             // right ear
             parent.spawn(SpriteBundle {
                 sprite: Sprite {
-                    color: Color::GREEN,
+                    color: LegacyColor::GREEN,
                     custom_size: Some(Vec2::splat(20.0)),
                     ..default()
                 },
@@ -102,7 +102,7 @@ struct Emitter {
 fn update_emitters(
     time: Res<Time>,
     mut emitters: Query<(&mut Transform, &mut Emitter), With<Emitter>>,
-    keyboard: Res<Input<KeyCode>>,
+    keyboard: Res<ButtonInput<KeyCode>>,
 ) {
     for (mut emitter_transform, mut emitter) in emitters.iter_mut() {
         if keyboard.just_pressed(KeyCode::Space) {
@@ -116,7 +116,7 @@ fn update_emitters(
 }
 
 fn update_listener(
-    keyboard: Res<Input<KeyCode>>,
+    keyboard: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
     mut listeners: Query<&mut Transform, With<SpatialListener>>,
 ) {
@@ -124,16 +124,16 @@ fn update_listener(
 
     let speed = 200.;
 
-    if keyboard.pressed(KeyCode::Right) {
+    if keyboard.pressed(KeyCode::ArrowRight) {
         transform.translation.x += speed * time.delta_seconds();
     }
-    if keyboard.pressed(KeyCode::Left) {
+    if keyboard.pressed(KeyCode::ArrowLeft) {
         transform.translation.x -= speed * time.delta_seconds();
     }
-    if keyboard.pressed(KeyCode::Up) {
+    if keyboard.pressed(KeyCode::ArrowUp) {
         transform.translation.y += speed * time.delta_seconds();
     }
-    if keyboard.pressed(KeyCode::Down) {
+    if keyboard.pressed(KeyCode::ArrowDown) {
         transform.translation.y -= speed * time.delta_seconds();
     }
 }

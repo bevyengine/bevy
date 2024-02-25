@@ -1,7 +1,5 @@
 //! Accessibility for Bevy
 
-#![warn(missing_docs)]
-#![allow(clippy::type_complexity)]
 #![forbid(unsafe_code)]
 
 use std::sync::{
@@ -106,6 +104,7 @@ impl Plugin for AccessibilityPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<AccessibilityRequested>()
             .init_resource::<ManageAccessibilityUpdates>()
-            .init_resource::<Focus>();
+            .init_resource::<Focus>()
+            .allow_ambiguous_component::<AccessibilityNode>();
     }
 }

@@ -1,10 +1,6 @@
 //! This example illustrates how to create a button that changes color and text based on its
 //! interaction state.
 
-// This lint usually gives bad advice in the context of Bevy -- hiding complex queries behind
-// type aliases tends to obfuscate code while offering no improvement in code cleanliness.
-#![allow(clippy::type_complexity)]
-
 use bevy::{prelude::*, winit::WinitSettings};
 
 fn main() {
@@ -17,9 +13,9 @@ fn main() {
         .run();
 }
 
-const NORMAL_BUTTON: Color = Color::rgb(0.15, 0.15, 0.15);
-const HOVERED_BUTTON: Color = Color::rgb(0.25, 0.25, 0.25);
-const PRESSED_BUTTON: Color = Color::rgb(0.35, 0.75, 0.35);
+const NORMAL_BUTTON: LegacyColor = LegacyColor::rgb(0.15, 0.15, 0.15);
+const HOVERED_BUTTON: LegacyColor = LegacyColor::rgb(0.25, 0.25, 0.25);
+const PRESSED_BUTTON: LegacyColor = LegacyColor::rgb(0.35, 0.75, 0.35);
 
 fn button_system(
     mut interaction_query: Query<
@@ -39,17 +35,17 @@ fn button_system(
             Interaction::Pressed => {
                 text.sections[0].value = "Press".to_string();
                 *color = PRESSED_BUTTON.into();
-                border_color.0 = Color::RED;
+                border_color.0 = LegacyColor::RED;
             }
             Interaction::Hovered => {
                 text.sections[0].value = "Hover".to_string();
                 *color = HOVERED_BUTTON.into();
-                border_color.0 = Color::WHITE;
+                border_color.0 = LegacyColor::WHITE;
             }
             Interaction::None => {
                 text.sections[0].value = "Button".to_string();
                 *color = NORMAL_BUTTON.into();
-                border_color.0 = Color::BLACK;
+                border_color.0 = LegacyColor::BLACK;
             }
         }
     }
@@ -82,7 +78,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    border_color: BorderColor(Color::BLACK),
+                    border_color: BorderColor(LegacyColor::BLACK),
                     background_color: NORMAL_BUTTON.into(),
                     ..default()
                 })
@@ -92,7 +88,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextStyle {
                             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                             font_size: 40.0,
-                            color: Color::rgb(0.9, 0.9, 0.9),
+                            color: LegacyColor::rgb(0.9, 0.9, 0.9),
                         },
                     ));
                 });

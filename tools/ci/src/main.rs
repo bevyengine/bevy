@@ -1,3 +1,5 @@
+//! CI script used for Bevy.
+
 use xshell::{cmd, Shell};
 
 use bitflags::bitflags;
@@ -14,17 +16,9 @@ bitflags! {
         const BENCH_CHECK = 0b01000000;
         const EXAMPLE_CHECK = 0b10000000;
         const COMPILE_CHECK = 0b100000000;
+        const CFG_CHECK = 0b1000000000;
     }
 }
-
-const CLIPPY_FLAGS: [&str; 6] = [
-    "-Wclippy::doc_markdown",
-    "-Wclippy::redundant_else",
-    "-Wclippy::match_same_arms",
-    "-Wclippy::semicolon_if_nothing_returned",
-    "-Wclippy::map_flatten",
-    "-Dwarnings",
-];
 
 fn main() {
     // When run locally, results may differ from actual CI runs triggered by
@@ -45,6 +39,7 @@ fn main() {
         ("compile-fail", Check::COMPILE_FAIL),
         ("bench-check", Check::BENCH_CHECK),
         ("example-check", Check::EXAMPLE_CHECK),
+        ("cfg-check", Check::CFG_CHECK),
         ("doc-check", Check::DOC_CHECK),
         ("doc-test", Check::DOC_TEST),
     ];
@@ -80,7 +75,7 @@ fn main() {
         // - Type complexity must be ignored because we use huge templates for queries
         cmd!(
             sh,
-            "cargo clippy --workspace --all-targets --all-features -- {CLIPPY_FLAGS...}"
+            "cargo clippy --workspace --all-targets --all-features -- -Dwarnings"
         )
         .run()
         .expect("Please fix clippy errors in output above.");
@@ -161,5 +156,13 @@ fn main() {
         cmd!(sh, "cargo check --workspace")
             .run()
             .expect("Please fix compiler errors in output above.");
+    }
+
+    if what_to_run.contains(Check::CFG_CHECK) {
+        // Check cfg and imports
+        std::env::set_var("RUSTFLAGS", "-D warnings");
+        cmd!(sh, "cargo check -Zcheck-cfg --workspace")
+            .run()
+            .expect("Please fix failing cfg checks in output above.");
     }
 }

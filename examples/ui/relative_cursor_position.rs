@@ -1,6 +1,8 @@
 //! Showcases the [`RelativeCursorPosition`] component, used to check the position of the cursor relative to a UI node.
 
-use bevy::{prelude::*, ui::RelativeCursorPosition, winit::WinitSettings};
+use bevy::{
+    prelude::*, render::camera::Viewport, ui::RelativeCursorPosition, winit::WinitSettings,
+};
 
 fn main() {
     App::new()
@@ -13,7 +15,18 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2dBundle {
+        camera: Camera {
+            // Cursor position will take the viewport offset into account
+            viewport: Some(Viewport {
+                physical_position: [200, 100].into(),
+                physical_size: [600, 600].into(),
+                ..default()
+            }),
+            ..default()
+        },
+        ..default()
+    });
 
     commands
         .spawn(NodeBundle {
@@ -36,7 +49,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         margin: UiRect::bottom(Val::Px(15.)),
                         ..default()
                     },
-                    background_color: Color::rgb(235., 35., 12.).into(),
+                    background_color: LegacyColor::rgb(235., 35., 12.).into(),
                     ..default()
                 })
                 .insert(RelativeCursorPosition::default());
@@ -47,7 +60,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     TextStyle {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 40.0,
-                        color: Color::rgb(0.9, 0.9, 0.9),
+                        color: LegacyColor::rgb(0.9, 0.9, 0.9),
                     },
                 ),
                 ..default()
@@ -75,8 +88,8 @@ fn relative_cursor_position_system(
         };
 
     output.sections[0].style.color = if relative_cursor_position.mouse_over() {
-        Color::rgb(0.1, 0.9, 0.1)
+        LegacyColor::rgb(0.1, 0.9, 0.1)
     } else {
-        Color::rgb(0.9, 0.1, 0.1)
+        LegacyColor::rgb(0.9, 0.1, 0.1)
     };
 }

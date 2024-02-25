@@ -1,3 +1,5 @@
+#[cfg(debug_assertions)]
+use bevy_utils::warn_once;
 use ddsfile::{Caps2, D3DFormat, Dds, DxgiFormat};
 use std::io::Cursor;
 use wgpu::{
@@ -7,6 +9,7 @@ use wgpu::{
 use super::{CompressedImageFormats, Image, TextureError};
 
 pub fn dds_buffer_to_image(
+    #[cfg(debug_assertions)] name: String,
     buffer: &[u8],
     supported_compressed_formats: CompressedImageFormats,
     is_srgb: bool,
@@ -45,7 +48,18 @@ pub fn dds_buffer_to_image(
         depth_or_array_layers,
     }
     .physical_size(texture_format);
-    image.texture_descriptor.mip_level_count = dds.get_num_mipmap_levels();
+    let mip_map_level = match dds.get_num_mipmap_levels() {
+        0 => {
+            #[cfg(debug_assertions)]
+            warn_once!(
+                "Mipmap levels for texture {} are 0, bumping them to 1",
+                name
+            );
+            1
+        }
+        t => t,
+    };
+    image.texture_descriptor.mip_level_count = mip_map_level;
     image.texture_descriptor.format = texture_format;
     image.texture_descriptor.dimension = if dds.get_depth() > 1 {
         TextureDimension::D3

@@ -23,7 +23,7 @@ fn setup(mut commands: Commands) {
                 align_content: AlignContent::FlexStart,
                 ..Default::default()
             },
-            background_color: BackgroundColor(Color::DARK_GRAY),
+            background_color: BackgroundColor(LegacyColor::DARK_GRAY),
             ..Default::default()
         })
         .id();
@@ -92,7 +92,7 @@ fn setup(mut commands: Commands) {
                     height: Val::Px(10.),
                     ..Default::default()
                 },
-                background_color: Color::YELLOW.into(),
+                background_color: LegacyColor::YELLOW.into(),
                 ..Default::default()
             })
             .id();
@@ -108,14 +108,14 @@ fn setup(mut commands: Commands) {
                         justify_content: JustifyContent::Center,
                         ..Default::default()
                     },
-                    background_color: Color::MAROON.into(),
-                    border_color: Color::RED.into(),
+                    background_color: LegacyColor::MAROON.into(),
+                    border_color: LegacyColor::RED.into(),
                     ..Default::default()
                 },
                 Outline {
                     width: Val::Px(6.),
                     offset: Val::Px(6.),
-                    color: Color::WHITE,
+                    color: LegacyColor::WHITE,
                 },
             ))
             .add_child(inner_spot)

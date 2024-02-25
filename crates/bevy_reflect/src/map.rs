@@ -6,8 +6,8 @@ use bevy_reflect_derive::impl_type_path;
 use bevy_utils::{Entry, HashMap};
 
 use crate::{
-    self as bevy_reflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath,
-    TypePathTable,
+    self as bevy_reflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
+    TypePath, TypePathTable,
 };
 
 /// A trait used to power [map-like] operations via [reflection].
@@ -41,7 +41,6 @@ use crate::{
 ///
 /// [map-like]: https://doc.rust-lang.org/book/ch08-03-hash-maps.html
 /// [reflection]: crate
-/// [`HashMap`]: bevy_utils::HashMap
 pub trait Map: Reflect {
     /// Returns a reference to the value associated with the given key.
     ///
@@ -249,8 +248,28 @@ impl Map for DynamicMap {
             .map(move |index| &mut *self.values.get_mut(index).unwrap().1)
     }
 
+    fn get_at(&self, index: usize) -> Option<(&dyn Reflect, &dyn Reflect)> {
+        self.values
+            .get(index)
+            .map(|(key, value)| (&**key, &**value))
+    }
+
+    fn get_at_mut(&mut self, index: usize) -> Option<(&dyn Reflect, &mut dyn Reflect)> {
+        self.values
+            .get_mut(index)
+            .map(|(key, value)| (&**key, &mut **value))
+    }
+
     fn len(&self) -> usize {
         self.values.len()
+    }
+
+    fn iter(&self) -> MapIter {
+        MapIter::new(self)
+    }
+
+    fn drain(self: Box<Self>) -> Vec<(Box<dyn Reflect>, Box<dyn Reflect>)> {
+        self.values
     }
 
     fn clone_dynamic(&self) -> DynamicMap {
@@ -263,22 +282,6 @@ impl Map for DynamicMap {
                 .collect(),
             indices: self.indices.clone(),
         }
-    }
-
-    fn iter(&self) -> MapIter {
-        MapIter::new(self)
-    }
-
-    fn get_at(&self, index: usize) -> Option<(&dyn Reflect, &dyn Reflect)> {
-        self.values
-            .get(index)
-            .map(|(key, value)| (&**key, &**value))
-    }
-
-    fn get_at_mut(&mut self, index: usize) -> Option<(&dyn Reflect, &mut dyn Reflect)> {
-        self.values
-            .get_mut(index)
-            .map(|(key, value)| (&**key, &mut **value))
     }
 
     fn insert_boxed(
@@ -306,10 +309,6 @@ impl Map for DynamicMap {
             .remove(&key.reflect_hash().expect(HASH_ERROR))?;
         let (_key, value) = self.values.remove(index);
         Some(value)
-    }
-
-    fn drain(self: Box<Self>) -> Vec<(Box<dyn Reflect>, Box<dyn Reflect>)> {
-        self.values
     }
 }
 
@@ -353,6 +352,10 @@ impl Reflect for DynamicMap {
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
         *self = value.take()?;
         Ok(())
+    }
+
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::Map
     }
 
     fn reflect_ref(&self) -> ReflectRef {
@@ -486,7 +489,7 @@ pub fn map_partial_eq<M: Map>(a: &M, b: &dyn Reflect) -> Option<bool> {
 /// // }
 /// ```
 #[inline]
-pub fn map_debug(dyn_map: &dyn Map, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+pub fn map_debug(dyn_map: &dyn Map, f: &mut Formatter<'_>) -> std::fmt::Result {
     let mut debug = f.debug_map();
     for (key, value) in dyn_map.iter() {
         debug.entry(&key as &dyn Debug, &value as &dyn Debug);

@@ -3,8 +3,8 @@ use crate::{self as bevy_reflect, ReflectFromPtr, ReflectFromReflect, ReflectOwn
 use crate::{
     impl_type_path, map_apply, map_partial_eq, Array, ArrayInfo, ArrayIter, DynamicEnum,
     DynamicMap, Enum, EnumInfo, FromReflect, FromType, GetTypeRegistration, List, ListInfo,
-    ListIter, Map, MapInfo, MapIter, Reflect, ReflectDeserialize, ReflectMut, ReflectRef,
-    ReflectSerialize, TupleVariantInfo, TypeInfo, TypePath, TypeRegistration, Typed,
+    ListIter, Map, MapInfo, MapIter, Reflect, ReflectDeserialize, ReflectKind, ReflectMut,
+    ReflectRef, ReflectSerialize, TupleVariantInfo, TypeInfo, TypePath, TypeRegistration, Typed,
     UnitVariantInfo, UnnamedField, ValueInfo, VariantFieldIter, VariantInfo, VariantType,
 };
 
@@ -200,6 +200,8 @@ impl_reflect_value!(::core::num::NonZeroI8(
     Serialize,
     Deserialize
 ));
+impl_reflect_value!(::core::num::Wrapping<T: Clone + Send + Sync>());
+impl_reflect_value!(::core::num::Saturating<T: Clone + Send + Sync>());
 impl_reflect_value!(::std::sync::Arc<T: Send + Sync>);
 
 // `Serialize` and `Deserialize` only for platforms supported by serde:
@@ -312,6 +314,10 @@ macro_rules! impl_reflect_for_veclike {
             fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
                 *self = value.take()?;
                 Ok(())
+            }
+
+            fn reflect_kind(&self) -> ReflectKind {
+                ReflectKind::List
             }
 
             fn reflect_ref(&self) -> ReflectRef {
@@ -532,6 +538,10 @@ macro_rules! impl_reflect_for_hashmap {
                 Ok(())
             }
 
+            fn reflect_kind(&self) -> ReflectKind {
+                ReflectKind::Map
+            }
+
             fn reflect_ref(&self) -> ReflectRef {
                 ReflectRef::Map(self)
             }
@@ -607,6 +617,7 @@ impl_type_path!(::std::collections::HashMap<K, V, S>);
 
 impl_reflect_for_hashmap!(bevy_utils::hashbrown::HashMap<K, V, S>);
 impl_type_path!(::bevy_utils::hashbrown::hash_map::DefaultHashBuilder);
+impl_type_path!(::bevy_utils::NoOpHash);
 impl_type_path!(::bevy_utils::hashbrown::HashMap<K, V, S>);
 
 impl<T: Reflect + TypePath, const N: usize> Array for [T; N] {
@@ -682,6 +693,11 @@ impl<T: Reflect + TypePath, const N: usize> Reflect for [T; N] {
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
         *self = value.take()?;
         Ok(())
+    }
+
+    #[inline]
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::Array
     }
 
     #[inline]
@@ -932,6 +948,10 @@ impl<T: FromReflect + TypePath> Reflect for Option<T> {
         Ok(())
     }
 
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::Enum
+    }
+
     fn reflect_ref(&self) -> ReflectRef {
         ReflectRef::Enum(self)
     }
@@ -1077,6 +1097,10 @@ impl Reflect for Cow<'static, str> {
         Ok(())
     }
 
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::Value
+    }
+
     fn reflect_ref(&self) -> ReflectRef {
         ReflectRef::Value(self)
     }
@@ -1107,6 +1131,10 @@ impl Reflect for Cow<'static, str> {
         } else {
             Some(false)
         }
+    }
+
+    fn debug(&self, f: &mut fmt::Formatter<'_>) -> core::fmt::Result {
+        fmt::Debug::fmt(self, f)
     }
 }
 
@@ -1162,23 +1190,6 @@ impl<T: FromReflect + Clone + TypePath> List for Cow<'static, [T]> {
         self.to_mut().get_mut(index).map(|x| x as &mut dyn Reflect)
     }
 
-    fn len(&self) -> usize {
-        self.as_ref().len()
-    }
-
-    fn iter(&self) -> crate::ListIter {
-        crate::ListIter::new(self)
-    }
-
-    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
-        // into_owned() is not unnecessary here because it avoids cloning whenever you have a Cow::Owned already
-        #[allow(clippy::unnecessary_to_owned)]
-        self.into_owned()
-            .into_iter()
-            .map(|value| value.clone_value())
-            .collect()
-    }
-
     fn insert(&mut self, index: usize, element: Box<dyn Reflect>) {
         let value = element.take::<T>().unwrap_or_else(|value| {
             T::from_reflect(&*value).unwrap_or_else(|| {
@@ -1210,9 +1221,30 @@ impl<T: FromReflect + Clone + TypePath> List for Cow<'static, [T]> {
             .pop()
             .map(|value| Box::new(value) as Box<dyn Reflect>)
     }
+
+    fn len(&self) -> usize {
+        self.as_ref().len()
+    }
+
+    fn iter(&self) -> ListIter {
+        ListIter::new(self)
+    }
+
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+        // into_owned() is not unnecessary here because it avoids cloning whenever you have a Cow::Owned already
+        #[allow(clippy::unnecessary_to_owned)]
+        self.into_owned()
+            .into_iter()
+            .map(|value| value.clone_value())
+            .collect()
+    }
 }
 
 impl<T: FromReflect + Clone + TypePath> Reflect for Cow<'static, [T]> {
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+        Some(<Self as Typed>::type_info())
+    }
+
     fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
     }
@@ -1246,6 +1278,10 @@ impl<T: FromReflect + Clone + TypePath> Reflect for Cow<'static, [T]> {
         Ok(())
     }
 
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::List
+    }
+
     fn reflect_ref(&self) -> ReflectRef {
         ReflectRef::List(self)
     }
@@ -1269,10 +1305,6 @@ impl<T: FromReflect + Clone + TypePath> Reflect for Cow<'static, [T]> {
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         crate::list_partial_eq(self, value)
     }
-
-    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
-        Some(<Self as Typed>::type_info())
-    }
 }
 
 impl<T: FromReflect + Clone + TypePath> Typed for Cow<'static, [T]> {
@@ -1295,10 +1327,112 @@ impl<T: FromReflect + Clone + TypePath> FromReflect for Cow<'static, [T]> {
             for field in ref_list.iter() {
                 temp_vec.push(T::from_reflect(field)?);
             }
-            temp_vec.try_into().ok()
+            Some(temp_vec.into())
         } else {
             None
         }
+    }
+}
+
+impl Reflect for &'static str {
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+        Some(<Self as Typed>::type_info())
+    }
+
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
+        self
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+        self
+    }
+
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self
+    }
+
+    fn apply(&mut self, value: &dyn Reflect) {
+        let value = value.as_any();
+        if let Some(&value) = value.downcast_ref::<Self>() {
+            *self = value;
+        } else {
+            panic!("Value is not a {}.", Self::type_path());
+        }
+    }
+
+    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+        *self = value.take()?;
+        Ok(())
+    }
+
+    fn reflect_ref(&self) -> ReflectRef {
+        ReflectRef::Value(self)
+    }
+
+    fn reflect_mut(&mut self) -> ReflectMut {
+        ReflectMut::Value(self)
+    }
+
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::Value(self)
+    }
+
+    fn clone_value(&self) -> Box<dyn Reflect> {
+        Box::new(*self)
+    }
+
+    fn reflect_hash(&self) -> Option<u64> {
+        let mut hasher = reflect_hasher();
+        Hash::hash(&std::any::Any::type_id(self), &mut hasher);
+        Hash::hash(self, &mut hasher);
+        Some(hasher.finish())
+    }
+
+    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+        let value = value.as_any();
+        if let Some(value) = value.downcast_ref::<Self>() {
+            Some(std::cmp::PartialEq::eq(self, value))
+        } else {
+            Some(false)
+        }
+    }
+
+    fn debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Debug::fmt(&self, f)
+    }
+}
+
+impl Typed for &'static str {
+    fn type_info() -> &'static TypeInfo {
+        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
+        CELL.get_or_set(|| TypeInfo::Value(ValueInfo::new::<Self>()))
+    }
+}
+
+impl GetTypeRegistration for &'static str {
+    fn get_type_registration() -> TypeRegistration {
+        let mut registration = TypeRegistration::of::<Self>();
+        registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
+        registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
+        registration
+    }
+}
+
+impl FromReflect for &'static str {
+    fn from_reflect(reflect: &dyn crate::Reflect) -> Option<Self> {
+        reflect.as_any().downcast_ref::<Self>().copied()
     }
 }
 
@@ -1343,6 +1477,10 @@ impl Reflect for &'static Path {
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
         *self = value.take()?;
         Ok(())
+    }
+
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::Value
     }
 
     fn reflect_ref(&self) -> ReflectRef {
@@ -1442,6 +1580,10 @@ impl Reflect for Cow<'static, Path> {
         Ok(())
     }
 
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::Value
+    }
+
     fn reflect_ref(&self) -> ReflectRef {
         ReflectRef::Value(self)
     }
@@ -1474,7 +1616,7 @@ impl Reflect for Cow<'static, Path> {
         }
     }
 
-    fn debug(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(&self, f)
     }
 }
@@ -1515,6 +1657,7 @@ mod tests {
     };
     use bevy_utils::HashMap;
     use bevy_utils::{Duration, Instant};
+    use static_assertions::assert_impl_all;
     use std::f32::consts::{PI, TAU};
     use std::path::Path;
 
@@ -1598,6 +1741,8 @@ mod tests {
 
     #[test]
     fn option_should_impl_enum() {
+        assert_impl_all!(Option<()>: Enum);
+
         let mut value = Some(123usize);
 
         assert!(value
@@ -1671,6 +1816,8 @@ mod tests {
 
     #[test]
     fn option_should_impl_typed() {
+        assert_impl_all!(Option<()>: Typed);
+
         type MyOption = Option<i32>;
         let info = MyOption::type_info();
         if let TypeInfo::Enum(info) = info {
@@ -1701,6 +1848,7 @@ mod tests {
             panic!("Expected `TypeInfo::Enum`");
         }
     }
+
     #[test]
     fn nonzero_usize_impl_reflect_from_reflect() {
         let a: &dyn Reflect = &std::num::NonZeroUsize::new(42).unwrap();
@@ -1722,5 +1870,12 @@ mod tests {
         let path = Path::new("hello_world.rs");
         let output = <&'static Path as FromReflect>::from_reflect(&path).unwrap();
         assert_eq!(path, output);
+    }
+
+    #[test]
+    fn static_str_should_from_reflect() {
+        let expected = "Hello, World!";
+        let output = <&'static str as FromReflect>::from_reflect(&expected).unwrap();
+        assert_eq!(expected, output);
     }
 }

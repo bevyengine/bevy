@@ -21,7 +21,7 @@ const ATTRIBUTE_BARYCENTRIC: MeshVertexAttribute =
 fn main() {
     App::new()
         .insert_resource(AmbientLight {
-            color: Color::WHITE,
+            color: LegacyColor::WHITE,
             brightness: 1.0 / 5.0f32,
         })
         .add_plugins((
@@ -61,10 +61,10 @@ fn setup(
 struct CustomMaterial {}
 
 impl Material2d for CustomMaterial {
-    fn fragment_shader() -> ShaderRef {
+    fn vertex_shader() -> ShaderRef {
         "shaders/custom_gltf_2d.wgsl".into()
     }
-    fn vertex_shader() -> ShaderRef {
+    fn fragment_shader() -> ShaderRef {
         "shaders/custom_gltf_2d.wgsl".into()
     }
 

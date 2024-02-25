@@ -10,6 +10,7 @@ use bevy::{
     prelude::*,
     render::{camera::ScalingMode, Render, RenderApp, RenderSet},
     window::{PresentMode, WindowPlugin, WindowResolution},
+    winit::{UpdateMode, WinitSettings},
 };
 use rand::{thread_rng, Rng};
 
@@ -30,6 +31,10 @@ fn main() {
             LogDiagnosticsPlugin::default(),
             LogVisibleLights,
         ))
+        .insert_resource(WinitSettings {
+            focused_mode: UpdateMode::Continuous,
+            unfocused_mode: UpdateMode::Continuous,
+        })
         .add_systems(Startup, setup)
         .add_systems(Update, (move_camera, print_light_count))
         .run();
@@ -43,26 +48,20 @@ fn setup(
     warn!(include_str!("warning_string.txt"));
 
     const LIGHT_RADIUS: f32 = 0.3;
-    const LIGHT_INTENSITY: f32 = 5.0;
+    const LIGHT_INTENSITY: f32 = 1000.0;
     const RADIUS: f32 = 50.0;
     const N_LIGHTS: usize = 100_000;
 
     commands.spawn(PbrBundle {
-        mesh: meshes.add(
-            Mesh::try_from(shape::Icosphere {
-                radius: RADIUS,
-                subdivisions: 9,
-            })
-            .unwrap(),
-        ),
-        material: materials.add(StandardMaterial::from(Color::WHITE)),
+        mesh: meshes.add(Sphere::new(RADIUS).mesh().ico(9).unwrap()),
+        material: materials.add(LegacyColor::WHITE),
         transform: Transform::from_scale(Vec3::NEG_ONE),
         ..default()
     });
 
-    let mesh = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
+    let mesh = meshes.add(Cuboid::default());
     let material = materials.add(StandardMaterial {
-        base_color: Color::PINK,
+        base_color: LegacyColor::PINK,
         ..default()
     });
 
@@ -78,7 +77,7 @@ fn setup(
             point_light: PointLight {
                 range: LIGHT_RADIUS,
                 intensity: LIGHT_INTENSITY,
-                color: Color::hsl(rng.gen_range(0.0..360.0), 1.0, 0.5),
+                color: LegacyColor::hsl(rng.gen_range(0.0..360.0), 1.0, 0.5),
                 ..default()
             },
             transform: Transform::from_translation((RADIUS as f64 * unit_sphere_p).as_vec3()),
@@ -153,9 +152,8 @@ struct LogVisibleLights;
 
 impl Plugin for LogVisibleLights {
     fn build(&self, app: &mut App) {
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
         };
 
         render_app.add_systems(Render, print_visible_light_count.in_set(RenderSet::Prepare));

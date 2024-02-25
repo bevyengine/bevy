@@ -14,10 +14,10 @@ use crate::{
     prelude::Component,
     removal_detection::RemovedComponentEvents,
     storage::{Column, ComponentSparseSet, Storages},
-    system::Resource,
+    system::{Res, Resource},
 };
 use bevy_ptr::Ptr;
-use std::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData};
+use std::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, ptr};
 
 /// Variant of the [`World`] where resource and component accesses take `&self`, and the responsibility to avoid
 /// aliasing violations are given to the caller instead of being checked at compile-time by rust's unique XOR shared rule.
@@ -56,7 +56,7 @@ use std::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData};
 /// struct OnlyComponentAccessWorld<'w>(UnsafeWorldCell<'w>);
 ///
 /// impl<'w> OnlyResourceAccessWorld<'w> {
-///     fn get_resource_mut<T: Resource>(&mut self) -> Option<Mut<'w, T>> {
+///     fn get_resource_mut<T: Resource>(&mut self) -> Option<Mut<'_, T>> {
 ///         // SAFETY: resource access is allowed through this UnsafeWorldCell
 ///         unsafe { self.0.get_resource_mut::<T>() }
 ///     }
@@ -85,13 +85,13 @@ impl<'w> UnsafeWorldCell<'w> {
     /// Creates a [`UnsafeWorldCell`] that can be used to access everything immutably
     #[inline]
     pub(crate) fn new_readonly(world: &'w World) -> Self {
-        UnsafeWorldCell(world as *const World as *mut World, PhantomData)
+        Self(ptr::from_ref(world).cast_mut(), PhantomData)
     }
 
     /// Creates [`UnsafeWorldCell`] that can be used to access everything mutably
     #[inline]
     pub(crate) fn new_mutable(world: &'w mut World) -> Self {
-        Self(world as *mut World, PhantomData)
+        Self(ptr::from_mut(world), PhantomData)
     }
 
     /// Gets a mutable reference to the [`World`] this [`UnsafeWorldCell`] belongs to.
@@ -144,7 +144,7 @@ impl<'w> UnsafeWorldCell<'w> {
         unsafe { &mut *self.0 }
     }
 
-    /// Gets a reference to the [`&World`](crate::world::World) this [`UnsafeWorldCell`] belongs to.
+    /// Gets a reference to the [`&World`](World) this [`UnsafeWorldCell`] belongs to.
     /// This can be used for arbitrary shared/readonly access.
     ///
     /// # Safety
@@ -340,6 +340,30 @@ impl<'w> UnsafeWorldCell<'w> {
                 // SAFETY: `component_id` was obtained from the type ID of `R`.
                 .map(|ptr| ptr.deref::<R>())
         }
+    }
+
+    /// Gets a reference including change detection to the resource of the given type if it exists.
+    ///
+    /// # Safety
+    /// It is the callers responsibility to ensure that
+    /// - the [`UnsafeWorldCell`] has permission to access the resource
+    /// - no mutable reference to the resource exists at the same time
+    #[inline]
+    pub unsafe fn get_resource_ref<R: Resource>(self) -> Option<Res<'w, R>> {
+        let component_id = self.components().get_resource_id(TypeId::of::<R>())?;
+
+        // SAFETY: caller ensures `self` has permission to access the resource
+        // caller also ensure that no mutable reference to the resource exists
+        let (ptr, ticks) = unsafe { self.get_resource_with_ticks(component_id)? };
+
+        // SAFETY: `component_id` was obtained from the type ID of `R`
+        let value = unsafe { ptr.deref::<R>() };
+
+        // SAFETY: caller ensures that no mutable reference to the resource exists
+        let ticks =
+            unsafe { Ticks::from_tick_cells(ticks, self.last_change_tick(), self.change_tick()) };
+
+        Some(Res { value, ticks })
     }
 
     /// Gets a pointer to the resource with the id [`ComponentId`] if it exists.
@@ -656,9 +680,8 @@ impl<'w> UnsafeEntityCell<'w> {
     /// - If you have a [`ComponentId`] instead of a [`TypeId`], consider using [`Self::contains_id`].
     #[inline]
     pub fn contains_type_id(self, type_id: TypeId) -> bool {
-        let id = match self.world.components().get_id(type_id) {
-            Some(id) => id,
-            None => return false,
+        let Some(id) = self.world.components().get_id(type_id) else {
+            return false;
         };
         self.contains_id(id)
     }

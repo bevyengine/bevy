@@ -2,8 +2,6 @@
 //! for loading glTF 2.0 (a standard 3D scene definition format) files in Bevy.
 //!
 //! The [glTF 2.0 specification](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html) defines the format of the glTF files.
-#![allow(clippy::type_complexity)]
-#![warn(missing_docs)]
 
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::AnimationClip;
@@ -98,6 +96,8 @@ pub struct Gltf {
     /// Named animations loaded from the glTF file.
     #[cfg(feature = "bevy_animation")]
     pub named_animations: HashMap<String, Handle<AnimationClip>>,
+    /// The gltf root of the gltf asset, see <https://docs.rs/gltf/latest/gltf/struct.Gltf.html>. Only has a value when `GltfLoaderSettings::include_source` is true.
+    pub source: Option<gltf::Gltf>,
 }
 
 /// A glTF node with all of its child nodes, its [`GltfMesh`],

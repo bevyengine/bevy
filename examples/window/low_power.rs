@@ -22,7 +22,6 @@ fn main() {
             unfocused_mode: bevy::winit::UpdateMode::ReactiveLowPower {
                 wait: Duration::from_millis(10),
             },
-            ..default()
         })
         .insert_resource(ExampleMode::Game)
         .add_plugins(DefaultPlugins.set(WindowPlugin {
@@ -98,7 +97,7 @@ pub(crate) mod test_setup {
     /// Switch between update modes when the mouse is clicked.
     pub(crate) fn cycle_modes(
         mut mode: ResMut<ExampleMode>,
-        mouse_button_input: Res<Input<KeyCode>>,
+        mouse_button_input: Res<ButtonInput<KeyCode>>,
     ) {
         if mouse_button_input.just_pressed(KeyCode::Space) {
             *mode = match *mode {
@@ -151,19 +150,15 @@ pub(crate) mod test_setup {
     ) {
         commands.spawn((
             PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
-                material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+                mesh: meshes.add(Cuboid::new(0.5, 0.5, 0.5)),
+                material: materials.add(LegacyColor::rgb(0.8, 0.7, 0.6)),
                 ..default()
             },
             Rotator,
         ));
-        commands.spawn(PointLightBundle {
-            point_light: PointLight {
-                intensity: 1500.0,
-                shadows_enabled: true,
-                ..default()
-            },
-            transform: Transform::from_xyz(4.0, 8.0, 4.0),
+
+        commands.spawn(DirectionalLightBundle {
+            transform: Transform::from_xyz(1.0, 1.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         });
         commands.spawn(Camera3dBundle {
@@ -182,20 +177,20 @@ pub(crate) mod test_setup {
                 ),
                 TextSection::from_style(TextStyle {
                     font_size: 50.0,
-                    color: Color::GREEN,
+                    color: LegacyColor::GREEN,
                     ..default()
                 }),
                 TextSection::new(
                     "\nFrame: ",
                     TextStyle {
                         font_size: 50.0,
-                        color: Color::YELLOW,
+                        color: LegacyColor::YELLOW,
                         ..default()
                     },
                 ),
                 TextSection::from_style(TextStyle {
                     font_size: 50.0,
-                    color: Color::YELLOW,
+                    color: LegacyColor::YELLOW,
                     ..default()
                 }),
             ])
