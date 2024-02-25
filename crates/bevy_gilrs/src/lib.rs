@@ -35,7 +35,7 @@ impl Plugin for GilrsPlugin {
         {
             Ok(gilrs) => {
                 #[cfg(target_arch = "wasm32")]
-                app.insert_non_send_resource(gilrs);
+                app.insert_resource(Gilrs(SyncCell::new(gilrs)));
                 #[cfg(not(target_arch = "wasm32"))]
                 app.insert_resource(Gilrs(SyncCell::new(gilrs)));
 
