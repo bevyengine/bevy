@@ -18,7 +18,6 @@ use bevy_render::{
 use bevy_ecs::query::QueryItem;
 use bevy_render::{
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    render_resource::{Operations, PipelineCache, RenderPassDescriptor},
     renderer::RenderContext,
 };
 

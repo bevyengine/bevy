@@ -30,7 +30,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 transform: Transform::from_xyz(250.0, 0.0, 0.0).with_scale(Vec3::splat(0.75)),
                 texture: texture.clone(),
                 sprite: Sprite {
-                    color: Color::BLUE,
+                    color: LegacyColor::BLUE,
                     ..default()
                 },
                 ..default()
@@ -46,7 +46,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             transform: Transform::from_xyz(0.0, 250.0, 0.0).with_scale(Vec3::splat(0.75)),
             texture,
             sprite: Sprite {
-                color: Color::GREEN,
+                color: LegacyColor::GREEN,
                 ..default()
             },
             ..default()

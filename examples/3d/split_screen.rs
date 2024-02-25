@@ -24,7 +24,7 @@ fn setup(
     // plane
     commands.spawn(PbrBundle {
         mesh: meshes.add(Plane3d::default().mesh().size(100.0, 100.0)),
-        material: materials.add(Color::rgb(0.3, 0.5, 0.3)),
+        material: materials.add(LegacyColor::rgb(0.3, 0.5, 0.3)),
         ..default()
     });
 
@@ -145,8 +145,8 @@ fn setup(
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    border_color: Color::WHITE.into(),
-                    background_color: Color::DARK_GRAY.into(),
+                    border_color: LegacyColor::WHITE.into(),
+                    background_color: LegacyColor::DARK_GRAY.into(),
                     ..default()
                 },
             ))

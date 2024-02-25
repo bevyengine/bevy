@@ -67,6 +67,21 @@ impl Srgba {
         }
     }
 
+    /// Return a copy of this color with the red channel set to the given value.
+    pub const fn with_red(self, red: f32) -> Self {
+        Self { red, ..self }
+    }
+
+    /// Return a copy of this color with the green channel set to the given value.
+    pub const fn with_green(self, green: f32) -> Self {
+        Self { green, ..self }
+    }
+
+    /// Return a copy of this color with the blue channel set to the given value.
+    pub const fn with_blue(self, blue: f32) -> Self {
+        Self { blue, ..self }
+    }
+
     /// New `Srgba` from a CSS-style hexadecimal string.
     ///
     /// # Examples
@@ -83,25 +98,32 @@ impl Srgba {
         let hex = hex.as_ref();
         let hex = hex.strip_prefix('#').unwrap_or(hex);
 
-        match *hex.as_bytes() {
+        match hex.len() {
             // RGB
-            [r, g, b] => {
-                let [r, g, b, ..] = decode_hex([r, r, g, g, b, b])?;
-                Ok(Self::rgb_u8(r, g, b))
+            3 => {
+                let [l, b] = u16::from_str_radix(hex, 16)?.to_be_bytes();
+                let (r, g, b) = (l & 0x0F, (b & 0xF0) >> 4, b & 0x0F);
+                Ok(Self::rgb_u8(r << 4 | r, g << 4 | g, b << 4 | b))
             }
             // RGBA
-            [r, g, b, a] => {
-                let [r, g, b, a, ..] = decode_hex([r, r, g, g, b, b, a, a])?;
-                Ok(Self::rgba_u8(r, g, b, a))
+            4 => {
+                let [l, b] = u16::from_str_radix(hex, 16)?.to_be_bytes();
+                let (r, g, b, a) = ((l & 0xF0) >> 4, l & 0xF, (b & 0xF0) >> 4, b & 0x0F);
+                Ok(Self::rgba_u8(
+                    r << 4 | r,
+                    g << 4 | g,
+                    b << 4 | b,
+                    a << 4 | a,
+                ))
             }
             // RRGGBB
-            [r1, r2, g1, g2, b1, b2] => {
-                let [r, g, b, ..] = decode_hex([r1, r2, g1, g2, b1, b2])?;
+            6 => {
+                let [_, r, g, b] = u32::from_str_radix(hex, 16)?.to_be_bytes();
                 Ok(Self::rgb_u8(r, g, b))
             }
             // RRGGBBAA
-            [r1, r2, g1, g2, b1, b2, a1, a2] => {
-                let [r, g, b, a, ..] = decode_hex([r1, r2, g1, g2, b1, b2, a1, a2])?;
+            8 => {
+                let [r, g, b, a] = u32::from_str_radix(hex, 16)?.to_be_bytes();
                 Ok(Self::rgba_u8(r, g, b, a))
             }
             _ => Err(HexColorError::Length),
@@ -252,9 +274,9 @@ impl From<Oklaba> for Srgba {
     }
 }
 
-impl From<Srgba> for bevy_render::color::Color {
+impl From<Srgba> for bevy_render::color::LegacyColor {
     fn from(value: Srgba) -> Self {
-        bevy_render::color::Color::Rgba {
+        bevy_render::color::LegacyColor::Rgba {
             red: value.red,
             green: value.green,
             blue: value.blue,
@@ -263,10 +285,10 @@ impl From<Srgba> for bevy_render::color::Color {
     }
 }
 
-impl From<bevy_render::color::Color> for Srgba {
-    fn from(value: bevy_render::color::Color) -> Self {
+impl From<bevy_render::color::LegacyColor> for Srgba {
+    fn from(value: bevy_render::color::LegacyColor) -> Self {
         match value.as_rgba() {
-            bevy_render::color::Color::Rgba {
+            bevy_render::color::LegacyColor::Rgba {
                 red,
                 green,
                 blue,
@@ -286,44 +308,6 @@ impl From<Srgba> for [f32; 4] {
 impl From<Srgba> for Vec4 {
     fn from(color: Srgba) -> Self {
         Vec4::new(color.red, color.green, color.blue, color.alpha)
-    }
-}
-
-/// Converts hex bytes to an array of RGB\[A\] components
-///
-/// # Example
-/// For RGB: *b"ffffff" -> [255, 255, 255, ..]
-/// For RGBA: *b"E2E2E2FF" -> [226, 226, 226, 255, ..]
-const fn decode_hex<const N: usize>(mut bytes: [u8; N]) -> Result<[u8; N], HexColorError> {
-    let mut i = 0;
-    while i < bytes.len() {
-        // Convert single hex digit to u8
-        let val = match hex_value(bytes[i]) {
-            Ok(val) => val,
-            Err(byte) => return Err(HexColorError::Char(byte as char)),
-        };
-        bytes[i] = val;
-        i += 1;
-    }
-    // Modify the original bytes to give an `N / 2` length result
-    i = 0;
-    while i < bytes.len() / 2 {
-        // Convert pairs of u8 to R/G/B/A
-        // e.g `ff` -> [102, 102] -> [15, 15] = 255
-        bytes[i] = bytes[i * 2] * 16 + bytes[i * 2 + 1];
-        i += 1;
-    }
-    Ok(bytes)
-}
-
-/// Parse a single hex digit (a-f/A-F/0-9) as a `u8`
-const fn hex_value(b: u8) -> Result<u8, u8> {
-    match b {
-        b'0'..=b'9' => Ok(b - b'0'),
-        b'A'..=b'F' => Ok(b - b'A' + 10),
-        b'a'..=b'f' => Ok(b - b'a' + 10),
-        // Wrong hex digit
-        _ => Err(b),
     }
 }
 
@@ -393,10 +377,15 @@ mod tests {
         assert_eq!(Srgba::hex("000000FF"), Ok(Srgba::BLACK));
         assert_eq!(Srgba::hex("03a9f4"), Ok(Srgba::rgb_u8(3, 169, 244)));
         assert_eq!(Srgba::hex("yy"), Err(HexColorError::Length));
-        assert_eq!(Srgba::hex("yyy"), Err(HexColorError::Char('y')));
         assert_eq!(Srgba::hex("#f2a"), Ok(Srgba::rgb_u8(255, 34, 170)));
         assert_eq!(Srgba::hex("#e23030"), Ok(Srgba::rgb_u8(226, 48, 48)));
         assert_eq!(Srgba::hex("#ff"), Err(HexColorError::Length));
-        assert_eq!(Srgba::hex("##fff"), Err(HexColorError::Char('#')));
+        assert_eq!(Srgba::hex("11223344"), Ok(Srgba::rgba_u8(17, 34, 51, 68)));
+        assert_eq!(Srgba::hex("1234"), Ok(Srgba::rgba_u8(17, 34, 51, 68)));
+        assert_eq!(Srgba::hex("12345678"), Ok(Srgba::rgba_u8(18, 52, 86, 120)));
+        assert_eq!(Srgba::hex("4321"), Ok(Srgba::rgba_u8(68, 51, 34, 17)));
+
+        assert!(matches!(Srgba::hex("yyy"), Err(HexColorError::Parse(_))));
+        assert!(matches!(Srgba::hex("##fff"), Err(HexColorError::Parse(_))));
     }
 }

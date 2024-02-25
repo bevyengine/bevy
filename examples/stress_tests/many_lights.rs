@@ -54,14 +54,14 @@ fn setup(
 
     commands.spawn(PbrBundle {
         mesh: meshes.add(Sphere::new(RADIUS).mesh().ico(9).unwrap()),
-        material: materials.add(Color::WHITE),
+        material: materials.add(LegacyColor::WHITE),
         transform: Transform::from_scale(Vec3::NEG_ONE),
         ..default()
     });
 
     let mesh = meshes.add(Cuboid::default());
     let material = materials.add(StandardMaterial {
-        base_color: Color::PINK,
+        base_color: LegacyColor::PINK,
         ..default()
     });
 
@@ -77,7 +77,7 @@ fn setup(
             point_light: PointLight {
                 range: LIGHT_RADIUS,
                 intensity: LIGHT_INTENSITY,
-                color: Color::hsl(rng.gen_range(0.0..360.0), 1.0, 0.5),
+                color: LegacyColor::hsl(rng.gen_range(0.0..360.0), 1.0, 0.5),
                 ..default()
             },
             transform: Transform::from_translation((RADIUS as f64 * unit_sphere_p).as_vec3()),

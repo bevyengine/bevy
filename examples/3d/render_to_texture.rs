@@ -64,7 +64,7 @@ fn setup(
 
     let cube_handle = meshes.add(Cuboid::new(4.0, 4.0, 4.0));
     let cube_material_handle = materials.add(StandardMaterial {
-        base_color: Color::rgb(0.8, 0.7, 0.6),
+        base_color: LegacyColor::rgb(0.8, 0.7, 0.6),
         reflectance: 0.02,
         unlit: false,
         ..default()
@@ -103,7 +103,7 @@ fn setup(
                 // render before the "main pass" camera
                 order: -1,
                 target: image_handle.clone().into(),
-                clear_color: Color::WHITE.into(),
+                clear_color: LegacyColor::WHITE.into(),
                 ..default()
             },
             transform: Transform::from_translation(Vec3::new(0.0, 0.0, 15.0))

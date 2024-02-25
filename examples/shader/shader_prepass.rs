@@ -62,7 +62,7 @@ fn setup(
     // plane
     commands.spawn(PbrBundle {
         mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
-        material: std_materials.add(Color::rgb(0.3, 0.5, 0.3)),
+        material: std_materials.add(LegacyColor::rgb(0.3, 0.5, 0.3)),
         ..default()
     });
 
@@ -87,7 +87,7 @@ fn setup(
         MaterialMeshBundle {
             mesh: meshes.add(Cuboid::default()),
             material: materials.add(CustomMaterial {
-                color: Color::WHITE,
+                color: LegacyColor::WHITE,
                 color_texture: Some(asset_server.load("branding/icon.png")),
                 alpha_mode: AlphaMode::Opaque,
             }),
@@ -114,7 +114,7 @@ fn setup(
     commands.spawn(MaterialMeshBundle {
         mesh: meshes.add(Cuboid::default()),
         material: materials.add(CustomMaterial {
-            color: Color::WHITE,
+            color: LegacyColor::WHITE,
             color_texture: Some(asset_server.load("branding/icon.png")),
             alpha_mode: AlphaMode::Blend,
         }),
@@ -158,7 +158,7 @@ fn setup(
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 struct CustomMaterial {
     #[uniform(0)]
-    color: Color,
+    color: LegacyColor,
     #[texture(1)]
     #[sampler(2)]
     color_texture: Option<Handle<Image>>,
@@ -241,7 +241,7 @@ fn toggle_prepass_view(
         let mut text = text.single_mut();
         text.sections[0].value = format!("Prepass Output: {label}\n");
         for section in &mut text.sections {
-            section.style.color = Color::WHITE;
+            section.style.color = LegacyColor::WHITE;
         }
 
         let handle = material_handle.single();
