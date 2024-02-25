@@ -227,6 +227,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[Command Error Handling](../examples/ecs/command_error_handling.rs) | Command error handling
 [Component Change Detection](../examples/ecs/component_change_detection.rs) | Change detection on components
 [Custom Query Parameters](../examples/ecs/custom_query_param.rs) | Groups commonly used compound queries and query filters into a single type
 [Custom Schedule](../examples/ecs/custom_schedule.rs) | Demonstrates how to add custom schedules

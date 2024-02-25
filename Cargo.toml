@@ -318,6 +318,8 @@ bytemuck = "1.7"
 futures-lite = "2.0.1"
 crossbeam-channel = "0.5.0"
 argh = "0.1.12"
+# Needed for command handler example
+tracing-subscriber = "0.3.18"
 
 [[example]]
 name = "hello_world"
@@ -1397,6 +1399,16 @@ doc-scrape-examples = true
 [package.metadata.example.custom_query_param]
 name = "Custom Query Parameters"
 description = "Groups commonly used compound queries and query filters into a single type"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "command_error_handling"
+path = "examples/ecs/command_error_handling.rs"
+
+[package.metadata.example.command_error_handling]
+name = "Command Error Handling"
+description = "Command error handling"
 category = "ECS (Entity Component System)"
 wasm = false
 

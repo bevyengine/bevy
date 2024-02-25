@@ -887,7 +887,6 @@ impl World {
             entity.despawn();
             true
         } else {
-            warn!("error[B0003]: Could not despawn entity {:?} because it doesn't exist in this World.", entity);
             false
         }
     }
