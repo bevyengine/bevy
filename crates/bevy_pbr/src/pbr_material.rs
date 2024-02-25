@@ -596,7 +596,7 @@ pub struct StandardMaterialUniform {
     pub emissive: Vec4,
     /// Color white light takes after travelling through the attenuation distance underneath the material surface
     pub attenuation_color: Vec4,
-    /// The transform applied to the UVs corresponding to ATTRIBUTE_UV_0 on the mesh before sampling. Default is [1, 0].
+    /// The transform applied to the UVs corresponding to ATTRIBUTE_UV_0 on the mesh before sampling. Default is identity.
     pub uv_transform: Mat3,
     /// Linear perceptual roughness, clamped to [0.089, 1.0] in the shader
     /// Defaults to minimum of 0.089
