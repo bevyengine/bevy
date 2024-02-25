@@ -1,11 +1,4 @@
-use crate::{
-    AtomicMaterialBindGroupId, MaterialBindGroupId, NotShadowCaster, NotShadowReceiver,
-    PreviousGlobalTransform, Shadow, ViewFogUniformOffset, ViewLightProbesUniformOffset,
-    ViewLightsUniformOffset, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT,
-    MAX_DIRECTIONAL_LIGHTS,
-};
-use bevy_app::{Plugin, PostUpdate};
-use bevy_asset::{load_internal_asset, AssetId, Handle};
+use bevy_asset::{load_internal_asset, AssetId};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
@@ -28,11 +21,9 @@ use bevy_render::{
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
-    texture::{
-        BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
-    },
+    texture::{BevyDefault, DefaultImageSampler, GpuImage, ImageSampler, TextureFormatPixelInfo},
     view::{ViewTarget, ViewUniformOffset, ViewVisibility},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract,
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{tracing::error, Entry, HashMap, Hashed};
@@ -46,8 +37,7 @@ use crate::render::{
     morph::{
         extract_morphs, no_automatic_morph_batching, prepare_morphs, MorphIndices, MorphUniform,
     },
-    skin::{extract_skins, no_automatic_skin_batching, prepare_skins, SkinUniform},
-    MeshLayouts,
+    skin::no_automatic_skin_batching,
 };
 use crate::*;
 

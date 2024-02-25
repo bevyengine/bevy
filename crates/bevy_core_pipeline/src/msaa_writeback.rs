@@ -9,7 +9,6 @@ use bevy_render::{
     camera::ExtractedCamera,
     color::LegacyColor,
     render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
-    render_resource::BindGroupEntries,
     renderer::RenderContext,
     view::{Msaa, ViewTarget},
     Render, RenderSet,

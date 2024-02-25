@@ -23,12 +23,6 @@ use bevy_render::{
 
 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
 use bevy_render::render_resource::binding_types::texture_cube;
-#[cfg(any(
-    not(feature = "webgl"),
-    not(target_arch = "wasm32"),
-    feature = "webgpu"
-))]
-use bevy_render::render_resource::binding_types::{texture_2d_array, texture_cube_array};
 use environment_map::EnvironmentMapLight;
 
 use crate::{
@@ -192,7 +186,7 @@ fn layout_entries(
             (
                 2,
                 #[cfg(all(
-                    not(ios_simulator),
+                    not(feature = "ios_simulator"),
                     any(
                         not(feature = "webgl"),
                         not(target_arch = "wasm32"),
@@ -201,7 +195,7 @@ fn layout_entries(
                 ))]
                 texture_cube_array(TextureSampleType::Depth),
                 #[cfg(any(
-                    ios_simulator,
+                    feature = "ios_simulator",
                     all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu"))
                 ))]
                 texture_cube(TextureSampleType::Depth),

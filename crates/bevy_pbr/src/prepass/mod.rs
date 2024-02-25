@@ -3,8 +3,7 @@ mod prepass_bindings;
 use bevy_render::render_resource::binding_types::uniform_buffer;
 pub use prepass_bindings::*;
 
-use bevy_app::{Plugin, PreUpdate};
-use bevy_asset::{load_internal_asset, AssetServer, Handle};
+use bevy_asset::{load_internal_asset, AssetServer};
 use bevy_core_pipeline::{core_3d::CORE_3D_DEPTH_FORMAT, prelude::Camera3d};
 use bevy_core_pipeline::{deferred::*, prepass::*};
 use bevy_ecs::{
@@ -25,7 +24,7 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     view::{ExtractedView, Msaa, ViewUniform, ViewUniformOffset, ViewUniforms, VisibleEntities},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract,
 };
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::tracing::error;

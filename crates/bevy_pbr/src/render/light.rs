@@ -4,7 +4,6 @@ use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, UVec3, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_render::{
     camera::Camera,
-    color::LegacyColor,
     mesh::Mesh,
     primitives::{CascadesFrusta, CubemapFrusta, Frustum},
     render_asset::RenderAssets,
@@ -1213,7 +1212,7 @@ pub fn prepare_lights(
                     // NOTE: iOS Simulator is missing CubeArray support so we use Cube instead.
                     // See https://github.com/bevyengine/bevy/pull/12052 - remove if support is added.
                     #[cfg(all(
-                        not(ios_simulator),
+                        not(feature = "ios_simulator"),
                         any(
                             not(feature = "webgl"),
                             not(target_arch = "wasm32"),
@@ -1222,7 +1221,7 @@ pub fn prepare_lights(
                     ))]
                     dimension: Some(TextureViewDimension::CubeArray),
                     #[cfg(any(
-                        ios_simulator,
+                        feature = "ios_simulator",
                         all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu"))
                     ))]
                     dimension: Some(TextureViewDimension::Cube),
