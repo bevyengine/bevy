@@ -5,9 +5,7 @@ use crate::{
 use bevy_ecs::event::EventWriter;
 #[cfg(target_arch = "wasm32")]
 use bevy_ecs::system::NonSendMut;
-use bevy_ecs::system::Res;
-#[cfg(not(target_arch = "wasm32"))]
-use bevy_ecs::system::ResMut;
+use bevy_ecs::system::{Res, ResMut};
 use bevy_input::gamepad::{
     GamepadAxisChangedEvent, GamepadButtonChangedEvent, GamepadConnection, GamepadConnectionEvent,
     GamepadSettings,
