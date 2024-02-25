@@ -32,6 +32,8 @@ use std::{
 };
 use thiserror::Error;
 
+use crate::{retry::AssetLoadRetrySettings, UntypedAssetLoadFailedEvent};
+
 /// Errors that occur while loading assets.
 #[derive(Error, Debug, Clone)]
 pub enum AssetReaderError {
@@ -96,6 +98,14 @@ pub trait AssetReader: Send + Sync + 'static {
             meta_reader.read_to_end(&mut meta_bytes).await?;
             Ok(meta_bytes)
         })
+    }
+
+    /// Returns default retry settings to use for a particular failed asset load attempt using this reader.
+    fn get_default_retry_settings(
+        &self,
+        _load_error: &UntypedAssetLoadFailedEvent,
+    ) -> AssetLoadRetrySettings {
+        AssetLoadRetrySettings::no_retries()
     }
 }
 

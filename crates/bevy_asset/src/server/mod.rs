@@ -757,6 +757,18 @@ impl AssetServer {
         self.data.infos.read().get(id.into()).map(|i| i.load_state)
     }
 
+    /// Retrieves the main [`LoadState`] of a given asset `path`.
+    ///
+    /// Note that this is "just" the root asset load state. To check if an asset _and_ its recursive
+    /// dependencies have loaded, see [`AssetServer::is_loaded_with_dependencies`].
+    pub fn get_load_state_for_path<'a>(&self, path: impl Into<AssetPath<'a>>) -> Option<LoadState> {
+        if let Some(id) = self.get_path_id(path.into()) {
+            self.get_load_state(id)
+        } else {
+            None
+        }
+    }
+
     /// Retrieves the [`RecursiveDependencyLoadState`] of a given asset `id`.
     pub fn get_recursive_dependency_load_state(
         &self,
@@ -772,6 +784,15 @@ impl AssetServer {
     /// Retrieves the main [`LoadState`] of a given asset `id`.
     pub fn load_state(&self, id: impl Into<UntypedAssetId>) -> LoadState {
         self.get_load_state(id).unwrap_or(LoadState::NotLoaded)
+    }
+
+    /// Retrieves the main [`LoadState`] of a given asset `path`.
+    pub fn load_state_for_path<'a>(&self, path: impl Into<AssetPath<'a>>) -> LoadState {
+        if let Some(id) = self.get_path_id(path.into()) {
+            self.load_state(id)
+        } else {
+            LoadState::NotLoaded
+        }
     }
 
     /// Retrieves the  [`RecursiveDependencyLoadState`] of a given asset `id`.
