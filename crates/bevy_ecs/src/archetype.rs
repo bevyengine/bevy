@@ -609,6 +609,8 @@ pub struct Archetypes {
     pub(crate) archetypes: Vec<Archetype>,
     archetype_component_count: usize,
     by_components: bevy_utils::HashMap<ArchetypeComponents, ArchetypeId>,
+    component_to_archetypes:
+        bevy_utils::HashMap<ComponentId, bevy_utils::HashMap<ArchetypeId, ArchetypeComponentInfo>>,
 }
 
 impl Archetypes {
@@ -616,6 +618,7 @@ impl Archetypes {
         let mut archetypes = Archetypes {
             archetypes: Vec::new(),
             by_components: Default::default(),
+            component_to_archetypes: Default::default(),
             archetype_component_count: 0,
         };
         archetypes.get_id_or_insert(TableId::empty(), Vec::new(), Vec::new());
@@ -724,6 +727,7 @@ impl Archetypes {
 
         let archetypes = &mut self.archetypes;
         let archetype_component_count = &mut self.archetype_component_count;
+        let component_to_archetypes = &mut self.component_to_archetypes;
         *self
             .by_components
             .entry(archetype_identity)
@@ -740,11 +744,32 @@ impl Archetypes {
                 archetypes.push(Archetype::new(
                     id,
                     table_id,
-                    table_components.into_iter().zip(table_archetype_components),
-                    sparse_set_components
+                    table_components.clone().into_iter().zip(table_archetype_components),
+                    sparse_set_components.clone()
                         .into_iter()
                         .zip(sparse_set_archetype_components),
                 ));
+
+                for component_id in &table_components {
+                    let map = component_to_archetypes
+                        .entry(*component_id)
+                        .or_insert(bevy_utils::HashMap::new());
+
+                    map.entry(id).or_insert(ArchetypeComponentInfo {
+                        storage_type: StorageType::Table,
+                        archetype_component_id: ArchetypeComponentId(0),
+                    });
+                }
+                for component_id in &sparse_set_components {
+                    let map = component_to_archetypes
+                        .entry(*component_id)
+                        .or_insert(bevy_utils::HashMap::new());
+
+                    map.entry(id).or_insert(ArchetypeComponentInfo {
+                        storage_type: StorageType::SparseSet,
+                        archetype_component_id: ArchetypeComponentId(0),
+                    });
+                }
                 id
             })
     }
