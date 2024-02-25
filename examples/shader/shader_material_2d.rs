@@ -32,7 +32,7 @@ fn setup(
         mesh: meshes.add(Rectangle::default()).into(),
         transform: Transform::default().with_scale(Vec3::splat(128.)),
         material: materials.add(CustomMaterial {
-            color: Color::BLUE,
+            color: LegacyColor::BLUE,
             color_texture: Some(asset_server.load("branding/icon.png")),
         }),
         ..default()
@@ -43,7 +43,7 @@ fn setup(
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 struct CustomMaterial {
     #[uniform(0)]
-    color: Color,
+    color: LegacyColor,
     #[texture(1)]
     #[sampler(2)]
     color_texture: Option<Handle<Image>>,

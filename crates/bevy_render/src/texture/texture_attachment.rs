@@ -1,5 +1,5 @@
 use super::CachedTexture;
-use crate::{prelude::Color, render_resource::TextureView};
+use crate::{prelude::LegacyColor, render_resource::TextureView};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
@@ -13,7 +13,7 @@ use wgpu::{
 pub struct ColorAttachment {
     pub texture: CachedTexture,
     pub resolve_target: Option<CachedTexture>,
-    clear_color: Option<Color>,
+    clear_color: Option<LegacyColor>,
     is_first_call: Arc<AtomicBool>,
 }
 
@@ -21,7 +21,7 @@ impl ColorAttachment {
     pub fn new(
         texture: CachedTexture,
         resolve_target: Option<CachedTexture>,
-        clear_color: Option<Color>,
+        clear_color: Option<LegacyColor>,
     ) -> Self {
         Self {
             texture,

@@ -120,7 +120,12 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
                 SpriteBundle {
                     sprite: Sprite {
                         custom_size: Some(Vec2::new(1.0, 1.0) * SPRITE_SIZE),
-                        color: Color::hsla(hue, SATURATION_DESELECTED, LIGHTNESS_DESELECTED, ALPHA),
+                        color: LegacyColor::hsla(
+                            hue,
+                            SATURATION_DESELECTED,
+                            LIGHTNESS_DESELECTED,
+                            ALPHA,
+                        ),
                         flip_x: flipped,
                         ..default()
                     },
@@ -211,7 +216,7 @@ fn select(
     transform: &mut Transform,
     text: &mut Text,
 ) {
-    sprite.color = Color::hsla(
+    sprite.color = LegacyColor::hsla(
         contributor.hue,
         SATURATION_SELECTED,
         LIGHTNESS_SELECTED,
@@ -227,7 +232,7 @@ fn select(
 /// Change the modulate color to the "deselected" color and push
 /// the object to the back.
 fn deselect(sprite: &mut Sprite, contributor: &Contributor, transform: &mut Transform) {
-    sprite.color = Color::hsla(
+    sprite.color = LegacyColor::hsla(
         contributor.hue,
         SATURATION_DESELECTED,
         LIGHTNESS_DESELECTED,
