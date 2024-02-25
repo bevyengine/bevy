@@ -136,7 +136,7 @@ pub fn extract_text2d_sprite(
                 ExtractedSprite {
                     transform: transform * GlobalTransform::from_translation(position.extend(0.)),
                     color,
-                    rect: Some(atlas.textures[atlas_info.glyph_index]),
+                    rect: Some(atlas.textures[atlas_info.glyph_index].as_rect()),
                     custom_size: None,
                     image_handle_id: atlas_info.texture.id(),
                     flip_x: false,
