@@ -189,6 +189,9 @@ impl From<KeyboardInput> for WinitEvent {
 
 /// Forwards buffered [`WinitEvent`] events to the app.
 pub(crate) fn forward_winit_events(buffered_events: &mut Vec<WinitEvent>, app: &mut App) {
+    if buffered_events.is_empty() {
+        return;
+    }
     for winit_event in buffered_events.iter() {
         match winit_event.clone() {
             WinitEvent::ApplicationLifetime(e) => {
