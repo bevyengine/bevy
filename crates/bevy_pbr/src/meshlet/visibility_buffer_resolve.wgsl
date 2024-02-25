@@ -17,7 +17,7 @@
     mesh_types::MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT,
     view_transformations::{position_world_to_clip, frag_coord_to_ndc},
 }
-#import bevy_render::maths::{affine_to_square, mat2x4_f32_to_mat3x3_unpack}
+#import bevy_render::maths::{affine3_to_square, mat2x4_f32_to_mat3x3_unpack}
 
 #ifdef PREPASS_FRAGMENT
 #ifdef MOTION_VECTOR_PREPASS
@@ -109,7 +109,7 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
 
     let instance_id = meshlet_thread_instance_ids[thread_id];
     let instance_uniform = meshlet_instance_uniforms[instance_id];
-    let model = affine_to_square(instance_uniform.model);
+    let model = affine3_to_square(instance_uniform.model);
 
     let world_position_1 = mesh_position_local_to_world(model, vec4(vertex_1.position, 1.0));
     let world_position_2 = mesh_position_local_to_world(model, vec4(vertex_2.position, 1.0));
@@ -149,7 +149,7 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
 
 #ifdef PREPASS_FRAGMENT
 #ifdef MOTION_VECTOR_PREPASS
-    let previous_model = affine_to_square(instance_uniform.previous_model);
+    let previous_model = affine3_to_square(instance_uniform.previous_model);
     let previous_world_position_1 = mesh_position_local_to_world(previous_model, vec4(vertex_1.position, 1.0));
     let previous_world_position_2 = mesh_position_local_to_world(previous_model, vec4(vertex_2.position, 1.0));
     let previous_world_position_3 = mesh_position_local_to_world(previous_model, vec4(vertex_3.position, 1.0));

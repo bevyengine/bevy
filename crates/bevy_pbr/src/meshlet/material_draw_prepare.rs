@@ -8,7 +8,7 @@ use bevy_core_pipeline::{
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_render::{
-    camera::{Projection, TemporalJitter},
+    camera::TemporalJitter,
     mesh::{InnerMeshVertexBufferLayout, Mesh, MeshVertexBufferLayout},
     render_resource::*,
     view::ExtractedView,
