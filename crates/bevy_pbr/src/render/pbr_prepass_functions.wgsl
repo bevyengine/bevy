@@ -7,7 +7,6 @@
     pbr_bindings,
     pbr_types,
 }
-#import bevy_render::maths::affine2_to_square
 
 // Cutoff used for the premultiplied alpha modes BLEND and ADD.
 const PREMULTIPLIED_ALPHA_CUTOFF = 0.05;

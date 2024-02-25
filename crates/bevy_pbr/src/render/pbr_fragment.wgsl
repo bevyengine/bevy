@@ -11,7 +11,6 @@
     parallax_mapping::parallaxed_uv,
     lightmap::lightmap,
 }
-#import bevy_render::maths::affine2_to_square
 
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
 #import bevy_pbr::mesh_view_bindings::screen_space_ambient_occlusion_texture
