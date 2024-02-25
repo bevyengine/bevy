@@ -1,9 +1,8 @@
 use crate::color_difference::EuclideanDistance;
 use crate::oklaba::Oklaba;
-use crate::{Alpha, Hsla, LinearRgba, Luminance, Mix, StandardColor};
+use crate::{Alpha, LinearRgba, Luminance, Mix, StandardColor};
 use bevy_math::Vec4;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use bevy_render::color::{HexColorError, HslRepresentation, SrgbColorSpace};
 use serde::{Deserialize, Serialize};
 
 /// Non-linear standard RGB with alpha.
@@ -170,6 +169,31 @@ impl Srgba {
             a as f32 / u8::MAX as f32,
         )
     }
+
+    /// Converts a non-linear sRGB value to a linear one via [gamma correction](https://en.wikipedia.org/wiki/Gamma_correction).
+    pub fn gamma_function(value: f32) -> f32 {
+        if value <= 0.0 {
+            return value;
+        }
+        if value <= 0.04045 {
+            value / 12.92 // linear falloff in dark values
+        } else {
+            ((value + 0.055) / 1.055).powf(2.4) // gamma curve in other area
+        }
+    }
+
+    /// Converts a linear sRGB value to a non-linear one via [gamma correction](https://en.wikipedia.org/wiki/Gamma_correction).
+    pub fn gamma_function_inverse(value: f32) -> f32 {
+        if value <= 0.0 {
+            return value;
+        }
+
+        if value <= 0.0031308 {
+            value * 12.92 // linear falloff in dark values
+        } else {
+            (1.055 * value.powf(1.0 / 2.4)) - 0.055 // gamma curve in other area
+        }
+    }
 }
 
 impl Default for Srgba {
@@ -189,7 +213,7 @@ impl Luminance for Srgba {
     fn with_luminance(&self, luminance: f32) -> Self {
         let linear: LinearRgba = (*self).into();
         linear
-            .with_luminance(luminance.nonlinear_to_linear_srgb())
+            .with_luminance(Srgba::gamma_function(luminance))
             .into()
     }
 
@@ -245,50 +269,29 @@ impl From<LinearRgba> for Srgba {
     #[inline]
     fn from(value: LinearRgba) -> Self {
         Self {
-            red: value.red.linear_to_nonlinear_srgb(),
-            green: value.green.linear_to_nonlinear_srgb(),
-            blue: value.blue.linear_to_nonlinear_srgb(),
+            red: Srgba::gamma_function_inverse(value.red),
+            green: Srgba::gamma_function_inverse(value.green),
+            blue: Srgba::gamma_function_inverse(value.blue),
             alpha: value.alpha,
         }
     }
 }
 
-impl From<Hsla> for Srgba {
-    fn from(value: Hsla) -> Self {
-        let [r, g, b] =
-            HslRepresentation::hsl_to_nonlinear_srgb(value.hue, value.saturation, value.lightness);
-        Self::new(r, g, b, value.alpha)
+impl From<Srgba> for LinearRgba {
+    #[inline]
+    fn from(value: Srgba) -> Self {
+        Self {
+            red: Srgba::gamma_function(value.red),
+            green: Srgba::gamma_function(value.green),
+            blue: Srgba::gamma_function(value.blue),
+            alpha: value.alpha,
+        }
     }
 }
 
 impl From<Oklaba> for Srgba {
     fn from(value: Oklaba) -> Self {
         Srgba::from(LinearRgba::from(value))
-    }
-}
-
-impl From<Srgba> for bevy_render::color::LegacyColor {
-    fn from(value: Srgba) -> Self {
-        bevy_render::color::LegacyColor::Rgba {
-            red: value.red,
-            green: value.green,
-            blue: value.blue,
-            alpha: value.alpha,
-        }
-    }
-}
-
-impl From<bevy_render::color::LegacyColor> for Srgba {
-    fn from(value: bevy_render::color::LegacyColor) -> Self {
-        match value.as_rgba() {
-            bevy_render::color::LegacyColor::Rgba {
-                red,
-                green,
-                blue,
-                alpha,
-            } => Srgba::new(red, green, blue, alpha),
-            _ => unreachable!(),
-        }
     }
 }
 
@@ -329,6 +332,24 @@ const fn decode_hex<const N: usize>(mut bytes: [u8; N]) -> Result<[u8; N], HexCo
         i += 1;
     }
     Ok(bytes)
+}
+
+/// Error returned when hex color decoding fails.
+#[derive(Debug, PartialEq, Eq)]
+pub enum HexColorError {
+    /// Unexpected length of hex string
+    Length,
+    /// Invalid hex character
+    Char(char),
+}
+
+impl core::fmt::Display for HexColorError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Length => write!(f, "Unexpected length of hex string"),
+            Self::Char(char) => write!(f, "Invalid hex char {}", char),
+        }
+    }
 }
 
 /// Parse a single hex digit (a-f/A-F/0-9) as a `u8`

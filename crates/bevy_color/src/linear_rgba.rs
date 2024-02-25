@@ -4,7 +4,6 @@ use crate::{
 };
 use bevy_math::Vec4;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use bevy_render::color::SrgbColorSpace;
 use serde::{Deserialize, Serialize};
 
 /// Linear RGB color with alpha.
@@ -157,43 +156,6 @@ impl EuclideanDistance for LinearRgba {
         let dg = self.green - other.green;
         let db = self.blue - other.blue;
         dr * dr + dg * dg + db * db
-    }
-}
-
-impl From<Srgba> for LinearRgba {
-    #[inline]
-    fn from(value: Srgba) -> Self {
-        Self {
-            red: value.red.nonlinear_to_linear_srgb(),
-            green: value.green.nonlinear_to_linear_srgb(),
-            blue: value.blue.nonlinear_to_linear_srgb(),
-            alpha: value.alpha,
-        }
-    }
-}
-
-impl From<LinearRgba> for bevy_render::color::LegacyColor {
-    fn from(value: LinearRgba) -> Self {
-        bevy_render::color::LegacyColor::RgbaLinear {
-            red: value.red,
-            green: value.green,
-            blue: value.blue,
-            alpha: value.alpha,
-        }
-    }
-}
-
-impl From<bevy_render::color::LegacyColor> for LinearRgba {
-    fn from(value: bevy_render::color::LegacyColor) -> Self {
-        match value.as_rgba_linear() {
-            bevy_render::color::LegacyColor::RgbaLinear {
-                red,
-                green,
-                blue,
-                alpha,
-            } => LinearRgba::new(red, green, blue, alpha),
-            _ => unreachable!(),
-        }
     }
 }
 

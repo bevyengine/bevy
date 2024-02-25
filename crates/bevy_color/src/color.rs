@@ -1,6 +1,5 @@
 use crate::{Alpha, Hsla, Lcha, LinearRgba, Oklaba, Srgba, StandardColor, Xyza};
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use bevy_render::color::LegacyColor;
 use serde::{Deserialize, Serialize};
 
 /// An enumerated type that can represent any of the color types in this crate.
@@ -184,30 +183,6 @@ impl From<Color> for Xyza {
             Color::Lcha(x) => x.into(),
             Color::Oklaba(x) => x.into(),
             Color::Xyza(xyza) => xyza,
-        }
-    }
-}
-
-impl From<LegacyColor> for Color {
-    fn from(value: LegacyColor) -> Self {
-        match value {
-            LegacyColor::Rgba { .. } => Srgba::from(value).into(),
-            LegacyColor::RgbaLinear { .. } => LinearRgba::from(value).into(),
-            LegacyColor::Hsla { .. } => Hsla::from(value).into(),
-            LegacyColor::Lcha { .. } => Lcha::from(value).into(),
-        }
-    }
-}
-
-impl From<Color> for LegacyColor {
-    fn from(value: Color) -> Self {
-        match value {
-            Color::Srgba(x) => x.into(),
-            Color::LinearRgba(x) => x.into(),
-            Color::Hsla(x) => x.into(),
-            Color::Lcha(x) => x.into(),
-            Color::Oklaba(x) => x.into(),
-            Color::Xyza(x) => x.into(),
         }
     }
 }

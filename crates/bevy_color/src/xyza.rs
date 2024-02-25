@@ -1,6 +1,5 @@
-use crate::{Alpha, Hsla, Lcha, LinearRgba, Luminance, Mix, Oklaba, Srgba, StandardColor};
+use crate::{Alpha, Hsla, LinearRgba, Luminance, Mix, Oklaba, Srgba, StandardColor};
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use bevy_render::color::LegacyColor;
 use serde::{Deserialize, Serialize};
 
 /// [CIE 1931](https://en.wikipedia.org/wiki/CIE_1931_color_space) color space, also known as XYZ, with an alpha channel.
@@ -62,6 +61,9 @@ impl Xyza {
     pub const fn with_z(self, z: f32) -> Self {
         Self { z, ..self }
     }
+
+    /// [D65 White Point](https://en.wikipedia.org/wiki/Illuminant_D65#Definition)
+    pub const D65_WHITE: Self = Self::xyz(0.95047, 1.0, 1.08883);
 }
 
 impl Default for Xyza {
@@ -184,18 +186,6 @@ impl From<Xyza> for Hsla {
     }
 }
 
-impl From<Lcha> for Xyza {
-    fn from(value: Lcha) -> Self {
-        LinearRgba::from(value).into()
-    }
-}
-
-impl From<Xyza> for Lcha {
-    fn from(value: Xyza) -> Self {
-        LinearRgba::from(value).into()
-    }
-}
-
 impl From<Oklaba> for Xyza {
     fn from(value: Oklaba) -> Self {
         LinearRgba::from(value).into()
@@ -203,18 +193,6 @@ impl From<Oklaba> for Xyza {
 }
 
 impl From<Xyza> for Oklaba {
-    fn from(value: Xyza) -> Self {
-        LinearRgba::from(value).into()
-    }
-}
-
-impl From<LegacyColor> for Xyza {
-    fn from(value: LegacyColor) -> Self {
-        LinearRgba::from(value).into()
-    }
-}
-
-impl From<Xyza> for LegacyColor {
     fn from(value: Xyza) -> Self {
         LinearRgba::from(value).into()
     }
