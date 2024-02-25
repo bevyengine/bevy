@@ -202,9 +202,9 @@ fn setup_ui(mut commands: Commands) {
         TextBundle::from_sections(vec![
             TextSection::new(String::new(), style.clone()),
             TextSection::new(String::new(), style.clone()),
-            TextSection::new("\n1/2 - Decrease/Increase shutter angle\n", style.clone()),
-            TextSection::new("3/4 - Decrease/Increase sample count\n", style.clone()),
-            TextSection::new("Spacebar - Change camera\n", style.clone()),
+            TextSection::new("1/2: -/+ shutter angle (blur amount)\n", style.clone()),
+            TextSection::new("3/4: -/+ sample count (blur quality)\n", style.clone()),
+            TextSection::new("Spacebar: cycle camera\n", style.clone()),
         ])
         .with_style(Style {
             position_type: PositionType::Absolute,
@@ -289,10 +289,10 @@ fn move_camera(
         }
         CameraMode::Follow => {
             transform.translation =
-                tracked.translation + Vec3::new(0.0, 0.2, 0.0) + tracked.back() * 0.8;
+                tracked.translation + Vec3::new(0.0, 0.15, 0.0) + tracked.back() * 0.6;
             transform.look_to(*tracked.forward(), Vec3::Y);
             if let Projection::Perspective(perspective) = &mut *projection {
-                perspective.fov = 1.1;
+                perspective.fov = 1.2;
             }
         }
     }
