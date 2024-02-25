@@ -10,7 +10,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, (setup_camera, setup_scene, setup_ui))
-        .add_systems(Update, (update_settings, move_cars, update_cam).chain())
+        .add_systems(Update, (update_settings, move_cars, move_camera).chain())
         .run();
 }
 
@@ -26,6 +26,12 @@ fn setup_camera(mut commands: Commands) {
 
 // Everything past this point is used to build the example, but is not required for usage.
 
+#[derive(Resource)]
+enum CameraMode {
+    Track,
+    Follow,
+}
+
 #[derive(Component)]
 struct Moves(f32);
 
@@ -36,11 +42,13 @@ struct CameraTracked;
 struct Rotates;
 
 fn setup_scene(
-    mut commands: Commands,
     asset_server: Res<AssetServer>,
+    mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
+    mut images: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    commands.insert_resource(CameraMode::Track);
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
             illuminance: 2_000.0,
@@ -67,9 +75,11 @@ fn setup_scene(
         material: materials.add(StandardMaterial {
             base_color: LegacyColor::rgb(0.3, 0.5, 0.25),
             perceptual_roughness: 1.0,
+            base_color_texture: Some(images.add(ground_texture())),
+
             ..default()
         }),
-        transform: Transform::from_xyz(0.0, -0.65, 0.0).with_scale(Vec3::splat(100.0)),
+        transform: Transform::from_xyz(0.0, -0.65, 0.0).with_scale(Vec3::splat(80.0)),
         ..default()
     });
     commands.spawn(SceneBundle {
@@ -79,8 +89,16 @@ fn setup_scene(
         ..default()
     });
 
-    // Cars
+    spawn_cars(&mut meshes, &asset_server, &mut materials, &mut commands);
+    spawn_trees(&mut meshes, &mut materials, &mut commands);
+}
 
+fn spawn_cars(
+    meshes: &mut Assets<Mesh>,
+    asset_server: &AssetServer,
+    materials: &mut Assets<StandardMaterial>,
+    commands: &mut Commands,
+) {
     let box_mesh = meshes.add(Cuboid::new(0.3, 0.15, 0.55));
     let cylinder = meshes.add(Cylinder::default());
     let logo = asset_server.load("branding/icon.png");
@@ -110,7 +128,7 @@ fn setup_scene(
                 transform: Transform::from_scale(Vec3::splat(0.5)),
                 ..default()
             },
-            Moves(i as f32),
+            Moves(i as f32 * 2.0),
         ));
         if i == 0 {
             entity.insert(CameraTracked);
@@ -129,7 +147,7 @@ fn setup_scene(
                         mesh: cylinder.clone(),
                         material: wheel_matl.clone(),
                         transform: Transform::from_xyz(0.14 * x, -0.045, 0.15 * z)
-                            .with_scale(Vec3::new(0.15, 0.05, 0.15))
+                            .with_scale(Vec3::new(0.15, 0.04, 0.15))
                             .with_rotation(Quat::from_rotation_z(std::f32::consts::FRAC_PI_2)),
                         ..default()
                     },
@@ -142,9 +160,13 @@ fn setup_scene(
             spawn_wheel(-1.0, -1.0);
         });
     }
+}
 
-    // Trees
-
+fn spawn_trees(
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+    commands: &mut Commands,
+) {
     let capsule = meshes.add(Capsule3d::default());
     let sphere = meshes.add(Sphere::default());
     let leaves = materials.add(LegacyColor::GREEN);
@@ -173,7 +195,7 @@ fn setup_scene(
 
 fn setup_ui(mut commands: Commands) {
     let style = TextStyle {
-        font_size: 20.0,
+        font_size: 24.0,
         ..default()
     };
     commands.spawn(
@@ -182,6 +204,7 @@ fn setup_ui(mut commands: Commands) {
             TextSection::new(String::new(), style.clone()),
             TextSection::new("\n1/2 - Decrease/Increase shutter angle\n", style.clone()),
             TextSection::new("3/4 - Decrease/Increase sample count\n", style.clone()),
+            TextSection::new("Spacebar - Change camera\n", style.clone()),
         ])
         .with_style(Style {
             position_type: PositionType::Absolute,
@@ -196,21 +219,27 @@ fn update_settings(
     mut settings: Query<&mut MotionBlur>,
     presses: Res<ButtonInput<KeyCode>>,
     mut text: Query<&mut Text>,
+    mut camera: ResMut<CameraMode>,
 ) {
     let mut settings = settings.single_mut();
     if presses.just_pressed(KeyCode::Digit1) {
-        settings.shutter_angle -= 0.1;
+        settings.shutter_angle -= 0.5;
     } else if presses.just_pressed(KeyCode::Digit2) {
-        settings.shutter_angle += 0.1;
+        settings.shutter_angle += 0.5;
     } else if presses.just_pressed(KeyCode::Digit3) {
         settings.samples = settings.samples.saturating_sub(1);
     } else if presses.just_pressed(KeyCode::Digit4) {
         settings.samples += 1;
+    } else if presses.just_pressed(KeyCode::Space) {
+        *camera = match *camera {
+            CameraMode::Track => CameraMode::Follow,
+            CameraMode::Follow => CameraMode::Track,
+        };
     }
     settings.shutter_angle = settings.shutter_angle.clamp(0.0, 1.0);
     settings.samples = settings.samples.clamp(0, 64);
     let mut text = text.single_mut();
-    text.sections[0].value = format!("Shutter angle: {:.5}\n", settings.shutter_angle);
+    text.sections[0].value = format!("Shutter angle: {:.1}\n", settings.shutter_angle);
     text.sections[1].value = format!("Samples: {:.5}\n", settings.samples);
 }
 
@@ -222,7 +251,9 @@ fn move_cars(
     for (mut transform, moves, children) in &mut movables {
         let time = time.elapsed_seconds() * 0.3;
         let t = time + 0.5 * moves.0;
-        let t = t + t.sin() * 0.5 + 0.5;
+        let dx = t.cos();
+        let dz = -(3.0 * t).sin();
+        let t = t + (dx * dx + dz * dz).sqrt() * 0.1;
         let prev = transform.translation;
         transform.translation.x = (1.0 * t).sin() * 10.0;
         transform.translation.z = (3.0 * t).cos() * 10.0;
@@ -241,16 +272,65 @@ fn move_cars(
     }
 }
 
-fn update_cam(
-    mut camera: Query<(&mut Transform, &mut Projection, &mut Camera)>,
-    tracked: Query<&Transform, (With<CameraTracked>, Without<Camera>)>,
+fn move_camera(
+    mut camera: Query<(&mut Transform, &mut Projection), Without<CameraTracked>>,
+    tracked: Query<&Transform, With<CameraTracked>>,
+    mode: Res<CameraMode>,
 ) {
     let tracked = tracked.single();
-    let (mut transform, mut projection, mut camera) = camera.single_mut();
-    transform.look_at(tracked.translation, Vec3::Y);
-    transform.translation.y = -0.3;
-    if let Projection::Perspective(perspective) = &mut *projection {
-        perspective.fov = 0.15;
+    let (mut transform, mut projection) = camera.single_mut();
+    match *mode {
+        CameraMode::Track => {
+            transform.look_at(tracked.translation, Vec3::Y);
+            transform.translation = Vec3::new(0.0, -0.3, 0.0);
+            if let Projection::Perspective(perspective) = &mut *projection {
+                perspective.fov = 0.15;
+            }
+        }
+        CameraMode::Follow => {
+            transform.translation =
+                tracked.translation + Vec3::new(0.0, 0.2, 0.0) + tracked.back() * 0.8;
+            transform.look_to(*tracked.forward(), Vec3::Y);
+            if let Projection::Perspective(perspective) = &mut *projection {
+                perspective.fov = 1.1;
+            }
+        }
     }
-    camera.hdr = true;
+}
+
+/// Creates a colorful test pattern
+fn ground_texture() -> Image {
+    use bevy_internal::render::texture::{ImageSampler, ImageSamplerDescriptor};
+
+    const TEXTURE_SIZE: usize = 8;
+
+    let mut palette: [u8; 32] = [
+        0, 180, 0, 255, 0, 255, 30, 255, 0, 255, 60, 255, 0, 255, 90, 255, 0, 180, 120, 255, 0,
+        255, 150, 255, 0, 255, 180, 255, 0, 255, 210, 255,
+    ];
+
+    let mut texture_data = [0; TEXTURE_SIZE * TEXTURE_SIZE * 4];
+    for y in 0..TEXTURE_SIZE {
+        let offset = TEXTURE_SIZE * y * 4;
+        texture_data[offset..(offset + TEXTURE_SIZE * 4)].copy_from_slice(&palette);
+        palette.rotate_right(4);
+    }
+
+    let mut img = Image::new_fill(
+        bevy::render::render_resource::Extent3d {
+            width: TEXTURE_SIZE as u32 * 10,
+            height: TEXTURE_SIZE as u32 * 10,
+            depth_or_array_layers: 1,
+        },
+        bevy::render::render_resource::TextureDimension::D2,
+        &texture_data,
+        bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb,
+        bevy::render::render_asset::RenderAssetUsages::RENDER_WORLD,
+    );
+    img.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
+        address_mode_u: bevy::render::texture::ImageAddressMode::Repeat,
+        address_mode_v: bevy::render::texture::ImageAddressMode::Repeat,
+        ..ImageSamplerDescriptor::nearest()
+    });
+    img
 }
