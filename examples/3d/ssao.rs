@@ -14,7 +14,7 @@ use std::f32::consts::PI;
 fn main() {
     App::new()
         .insert_resource(AmbientLight {
-            brightness: 750.0,
+            brightness: 1000.,
             ..default()
         })
         .add_plugins((DefaultPlugins, TemporalAntiAliasPlugin))
@@ -42,38 +42,34 @@ fn setup(
         .insert(TemporalAntiAliasBundle::default());
 
     let material = materials.add(StandardMaterial {
-        base_color: Color::rgb(0.5, 0.5, 0.5),
+        base_color: LegacyColor::rgb(0.5, 0.5, 0.5),
         perceptual_roughness: 1.0,
         reflectance: 0.0,
         ..default()
     });
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Cube { size: 1.0 }),
+        mesh: meshes.add(Cuboid::default()),
         material: material.clone(),
         transform: Transform::from_xyz(0.0, 0.0, 1.0),
         ..default()
     });
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Cube { size: 1.0 }),
+        mesh: meshes.add(Cuboid::default()),
         material: material.clone(),
         transform: Transform::from_xyz(0.0, -1.0, 0.0),
         ..default()
     });
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Cube { size: 1.0 }),
+        mesh: meshes.add(Cuboid::default()),
         material,
         transform: Transform::from_xyz(1.0, 0.0, 0.0),
         ..default()
     });
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(shape::UVSphere {
-                radius: 0.4,
-                sectors: 72,
-                stacks: 36,
-            }),
+            mesh: meshes.add(Sphere::new(0.4).mesh().uv(72, 36)),
             material: materials.add(StandardMaterial {
-                base_color: Color::rgb(0.4, 0.4, 0.4),
+                base_color: LegacyColor::rgb(0.4, 0.4, 0.4),
                 perceptual_roughness: 1.0,
                 reflectance: 0.0,
                 ..default()
@@ -85,7 +81,6 @@ fn setup(
 
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            illuminance: 3000.0,
             shadows_enabled: true,
             ..default()
         },

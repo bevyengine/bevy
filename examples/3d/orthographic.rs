@@ -29,42 +29,38 @@ fn setup(
 
     // plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(5.0)),
-        material: materials.add(Color::rgb(0.3, 0.5, 0.3)),
+        mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
+        material: materials.add(LegacyColor::rgb(0.3, 0.5, 0.3)),
         ..default()
     });
     // cubes
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Cube { size: 1.0 }),
-        material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
+        mesh: meshes.add(Cuboid::default()),
+        material: materials.add(LegacyColor::rgb(0.8, 0.7, 0.6)),
         transform: Transform::from_xyz(1.5, 0.5, 1.5),
         ..default()
     });
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Cube { size: 1.0 }),
-        material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
+        mesh: meshes.add(Cuboid::default()),
+        material: materials.add(LegacyColor::rgb(0.8, 0.7, 0.6)),
         transform: Transform::from_xyz(1.5, 0.5, -1.5),
         ..default()
     });
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Cube { size: 1.0 }),
-        material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
+        mesh: meshes.add(Cuboid::default()),
+        material: materials.add(LegacyColor::rgb(0.8, 0.7, 0.6)),
         transform: Transform::from_xyz(-1.5, 0.5, 1.5),
         ..default()
     });
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Cube { size: 1.0 }),
-        material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
+        mesh: meshes.add(Cuboid::default()),
+        material: materials.add(LegacyColor::rgb(0.8, 0.7, 0.6)),
         transform: Transform::from_xyz(-1.5, 0.5, -1.5),
         ..default()
     });
     // light
     commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(3.0, 8.0, 5.0),
-        point_light: PointLight {
-            intensity: 150_000.0,
-            ..default()
-        },
         ..default()
     });
 }

@@ -1,4 +1,3 @@
-#![warn(missing_docs)]
 //! This module is separated into its own crate to enable simple dynamic linking for Bevy, and should not be used directly
 
 /// `use bevy::prelude::*;` to import common components, bundles, and plugins.
@@ -179,7 +178,7 @@ pub mod gizmos {
     //! # use bevy_render::prelude::*;
     //! # use bevy_math::prelude::*;
     //! fn system(mut gizmos: Gizmos) {
-    //!     gizmos.line(Vec3::ZERO, Vec3::X, Color::GREEN);
+    //!     gizmos.line(Vec3::ZERO, Vec3::X, LegacyColor::GREEN);
     //! }
     //! # bevy_ecs::system::assert_is_system(system);
     //! ```

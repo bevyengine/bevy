@@ -30,7 +30,7 @@ mod type_path;
 mod utility;
 
 use crate::derive_data::{ReflectDerive, ReflectMeta, ReflectStruct};
-use container_attributes::ReflectTraits;
+use container_attributes::ContainerAttributes;
 use derive_data::{ReflectImplSource, ReflectProvenance, ReflectTraitToImpl, ReflectTypePath};
 use proc_macro::TokenStream;
 use quote::quote;
@@ -614,9 +614,10 @@ pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
 /// impl_type_path!(::foreign_crate::foo::bar::Baz);
 /// ```
 ///
-/// On a generic type:
+/// On a generic type (this can also accept trait bounds):
 /// ```ignore (bevy_reflect is not accessible from this crate)
 /// impl_type_path!(::foreign_crate::Foo<T>);
+/// impl_type_path!(::foreign_crate::Goo<T: ?Sized>);
 /// ```
 ///
 /// On a primitive (note this will not compile for a non-primitive type):
@@ -656,7 +657,7 @@ pub fn impl_type_path(input: TokenStream) -> TokenStream {
         NamedTypePathDef::Primitive(ref ident) => ReflectTypePath::Primitive(ident),
     };
 
-    let meta = ReflectMeta::new(type_path, ReflectTraits::default());
+    let meta = ReflectMeta::new(type_path, ContainerAttributes::default());
 
     let type_path_impl = impls::impl_type_path(&meta);
 

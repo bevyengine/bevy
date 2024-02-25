@@ -1,3 +1,5 @@
+//! Tool to run all examples or generate a showcase page for the Bevy website.
+
 use std::{
     collections::{hash_map::DefaultHasher, HashMap},
     fmt::Display,
@@ -224,6 +226,15 @@ fn main() {
                 cmd!(
                     sh,
                     "git apply --ignore-whitespace tools/example-showcase/extra-window-resized-events.patch"
+                )
+                .run()
+                .unwrap();
+
+                // Don't try to get an audio output stream in CI as there isn't one
+                // On macOS m1 runner in GitHub Actions, getting one timeouts after 15 minutes
+                cmd!(
+                    sh,
+                    "git apply --ignore-whitespace tools/example-showcase/disable-audio.patch"
                 )
                 .run()
                 .unwrap();

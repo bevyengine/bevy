@@ -61,8 +61,8 @@ fn setup(
 
     // plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(5.0)),
-        material: std_materials.add(Color::rgb(0.3, 0.5, 0.3)),
+        mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
+        material: std_materials.add(LegacyColor::rgb(0.3, 0.5, 0.3)),
         ..default()
     });
 
@@ -71,7 +71,7 @@ fn setup(
     // For a real application, this isn't ideal.
     commands.spawn((
         MaterialMeshBundle {
-            mesh: meshes.add(shape::Quad::new(Vec2::new(20.0, 20.0))),
+            mesh: meshes.add(Rectangle::new(20.0, 20.0)),
             material: depth_materials.add(PrepassOutputMaterial {
                 settings: ShowPrepassSettings::default(),
             }),
@@ -85,9 +85,9 @@ fn setup(
     // Opaque cube
     commands.spawn((
         MaterialMeshBundle {
-            mesh: meshes.add(shape::Cube { size: 1.0 }),
+            mesh: meshes.add(Cuboid::default()),
             material: materials.add(CustomMaterial {
-                color: Color::WHITE,
+                color: LegacyColor::WHITE,
                 color_texture: Some(asset_server.load("branding/icon.png")),
                 alpha_mode: AlphaMode::Opaque,
             }),
@@ -99,7 +99,7 @@ fn setup(
 
     // Cube with alpha mask
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Cube { size: 1.0 }),
+        mesh: meshes.add(Cuboid::default()),
         material: std_materials.add(StandardMaterial {
             alpha_mode: AlphaMode::Mask(1.0),
             base_color_texture: Some(asset_server.load("branding/icon.png")),
@@ -112,9 +112,9 @@ fn setup(
     // Cube with alpha blending.
     // Transparent materials are ignored by the prepass
     commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(shape::Cube { size: 1.0 }),
+        mesh: meshes.add(Cuboid::default()),
         material: materials.add(CustomMaterial {
-            color: Color::WHITE,
+            color: LegacyColor::WHITE,
             color_texture: Some(asset_server.load("branding/icon.png")),
             alpha_mode: AlphaMode::Blend,
         }),
@@ -125,7 +125,6 @@ fn setup(
     // light
     commands.spawn(PointLightBundle {
         point_light: PointLight {
-            intensity: 300_000.0,
             shadows_enabled: true,
             ..default()
         },
@@ -157,9 +156,9 @@ fn setup(
 
 // This is the struct that will be passed to your shader
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
-pub struct CustomMaterial {
+struct CustomMaterial {
     #[uniform(0)]
-    color: Color,
+    color: LegacyColor,
     #[texture(1)]
     #[sampler(2)]
     color_texture: Option<Handle<Image>>,
@@ -205,7 +204,7 @@ struct ShowPrepassSettings {
 
 // This shader simply loads the prepass texture and outputs it directly
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
-pub struct PrepassOutputMaterial {
+struct PrepassOutputMaterial {
     #[uniform(0)]
     settings: ShowPrepassSettings,
 }
@@ -242,7 +241,7 @@ fn toggle_prepass_view(
         let mut text = text.single_mut();
         text.sections[0].value = format!("Prepass Output: {label}\n");
         for section in &mut text.sections {
-            section.style.color = Color::WHITE;
+            section.style.color = LegacyColor::WHITE;
         }
 
         let handle = material_handle.single();

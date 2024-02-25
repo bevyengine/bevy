@@ -11,6 +11,7 @@ use bevy::{
     prelude::*,
     render::camera::Camera,
     window::{PresentMode, WindowResolution},
+    winit::{UpdateMode, WinitSettings},
 };
 
 use rand::Rng;
@@ -33,6 +34,10 @@ fn main() {
                 ..default()
             }),
         ))
+        .insert_resource(WinitSettings {
+            focused_mode: UpdateMode::Continuous,
+            unfocused_mode: UpdateMode::Continuous,
+        })
         .add_systems(Startup, setup)
         .add_systems(
             Update,
@@ -61,7 +66,7 @@ fn setup(
     let half_y = (map_size.y / 2.0) as i32;
 
     let texture_handle = assets.load("textures/rpg/chars/gabe/gabe-idle-run.png");
-    let texture_atlas = TextureAtlasLayout::from_grid(Vec2::new(24.0, 24.0), 7, 1, None, None);
+    let texture_atlas = TextureAtlasLayout::from_grid(UVec2::splat(24), 7, 1, None, None);
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
 
     // Spawns the camera

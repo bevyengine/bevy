@@ -31,13 +31,13 @@ fn setup_camera_fog(mut commands: Commands) {
             ..default()
         },
         FogSettings {
-            color: Color::rgba(0.35, 0.48, 0.66, 1.0),
-            directional_light_color: Color::rgba(1.0, 0.95, 0.85, 0.5),
+            color: LegacyColor::rgba(0.35, 0.48, 0.66, 1.0),
+            directional_light_color: LegacyColor::rgba(1.0, 0.95, 0.85, 0.5),
             directional_light_exponent: 30.0,
             falloff: FogFalloff::from_visibility_colors(
                 15.0, // distance in world units up to which objects retain visibility (>= 5% contrast)
-                Color::rgb(0.35, 0.5, 0.66), // atmospheric extinction color (after light is lost due to absorption by atmospheric particles)
-                Color::rgb(0.8, 0.844, 1.0), // atmospheric inscattering color (light gained due to scattering from the sun)
+                LegacyColor::rgb(0.35, 0.5, 0.66), // atmospheric extinction color (after light is lost due to absorption by atmospheric particles)
+                LegacyColor::rgb(0.8, 0.844, 1.0), // atmospheric inscattering color (light gained due to scattering from the sun)
             ),
         },
     ));
@@ -60,8 +60,7 @@ fn setup_terrain_scene(
     // Sun
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            color: Color::rgb(0.98, 0.95, 0.82),
-            illuminance: 3000.0,
+            color: LegacyColor::rgb(0.98, 0.95, 0.82),
             shadows_enabled: true,
             ..default()
         },
@@ -80,9 +79,9 @@ fn setup_terrain_scene(
     // Sky
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(shape::Box::default()),
+            mesh: meshes.add(Cuboid::new(2.0, 1.0, 1.0)),
             material: materials.add(StandardMaterial {
-                base_color: Color::hex("888888").unwrap(),
+                base_color: LegacyColor::hex("888888").unwrap(),
                 unlit: true,
                 cull_mode: None,
                 ..default()

@@ -1,4 +1,3 @@
-#![warn(missing_docs)]
 //! `bevy_winit` provides utilities to handle window creation and the eventloop through [`winit`]
 //!
 //! Most commonly, the [`WinitPlugin`] is used as part of
@@ -21,7 +20,7 @@ pub use winit_config::*;
 pub use winit_windows::*;
 
 use bevy_app::{App, AppExit, Last, Plugin, PluginsState};
-use bevy_ecs::event::{Events, ManualEventReader};
+use bevy_ecs::event::ManualEventReader;
 use bevy_ecs::prelude::*;
 use bevy_ecs::system::SystemState;
 use bevy_input::{
@@ -445,10 +444,20 @@ fn handle_winit_event(
                 }
                 WindowEvent::CursorMoved { position, .. } => {
                     let physical_position = DVec2::new(position.x, position.y);
+
+                    let last_position = win.physical_cursor_position();
+                    let delta = last_position.map(|last_pos| {
+                        (physical_position.as_vec2() - last_pos) / win.resolution.scale_factor()
+                    });
+
                     win.set_physical_cursor_position(Some(physical_position));
                     let position =
                         (physical_position / win.resolution.scale_factor() as f64).as_vec2();
-                    app.send_event(CursorMoved { window, position });
+                    app.send_event(CursorMoved {
+                        window,
+                        position,
+                        delta,
+                    });
                 }
                 WindowEvent::CursorEntered { .. } => {
                     app.send_event(CursorEntered { window });

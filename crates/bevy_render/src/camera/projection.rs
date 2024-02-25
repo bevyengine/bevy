@@ -1,12 +1,14 @@
 use std::marker::PhantomData;
 use std::ops::{Div, DivAssign, Mul, MulAssign};
 
+use crate::primitives::Frustum;
 use bevy_app::{App, Plugin, PostStartup, PostUpdate};
-use bevy_ecs::{prelude::*, reflect::ReflectComponent};
+use bevy_ecs::prelude::*;
 use bevy_math::{AspectRatio, Mat4, Rect, Vec2, Vec3A};
 use bevy_reflect::{
     std_traits::ReflectDefault, GetTypeRegistration, Reflect, ReflectDeserialize, ReflectSerialize,
 };
+use bevy_transform::components::GlobalTransform;
 use serde::{Deserialize, Serialize};
 
 /// Adds [`Camera`](crate::camera::Camera) driver systems for a given projection type.
@@ -60,6 +62,21 @@ pub trait CameraProjection {
     fn update(&mut self, width: f32, height: f32);
     fn far(&self) -> f32;
     fn get_frustum_corners(&self, z_near: f32, z_far: f32) -> [Vec3A; 8];
+
+    /// Compute camera frustum for camera with given projection and transform.
+    ///
+    /// This code is called by [`update_frusta`](crate::view::visibility::update_frusta) system
+    /// for each camera to update its frustum.
+    fn compute_frustum(&self, camera_transform: &GlobalTransform) -> Frustum {
+        let view_projection =
+            self.get_projection_matrix() * camera_transform.compute_matrix().inverse();
+        Frustum::from_view_projection_custom_far(
+            &view_projection,
+            &camera_transform.translation(),
+            &camera_transform.back(),
+            self.far(),
+        )
+    }
 }
 
 /// A configurable [`CameraProjection`] that can select its projection type at runtime.

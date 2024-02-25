@@ -59,14 +59,7 @@ fn setup(
     let image_handle = images.add(image);
 
     // Light
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            intensity: 500_000.0,
-            ..default()
-        },
-        transform: Transform::from_translation(Vec3::new(0.0, 0.0, 10.0)),
-        ..default()
-    });
+    commands.spawn(DirectionalLightBundle::default());
 
     let texture_camera = commands
         .spawn(Camera2dBundle {
@@ -92,7 +85,7 @@ fn setup(
                     align_items: AlignItems::Center,
                     ..default()
                 },
-                background_color: Color::GOLD.into(),
+                background_color: LegacyColor::GOLD.into(),
                 ..default()
             },
             TargetCamera(texture_camera),
@@ -102,14 +95,14 @@ fn setup(
                 "This is a cube",
                 TextStyle {
                     font_size: 40.0,
-                    color: Color::BLACK,
+                    color: LegacyColor::BLACK,
                     ..default()
                 },
             ));
         });
 
     let cube_size = 4.0;
-    let cube_handle = meshes.add(Mesh::from(shape::Box::new(cube_size, cube_size, cube_size)));
+    let cube_handle = meshes.add(Cuboid::new(cube_size, cube_size, cube_size));
 
     // This material has the texture that has been rendered.
     let material_handle = materials.add(StandardMaterial {
