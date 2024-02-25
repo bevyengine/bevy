@@ -5,8 +5,8 @@ mod upsampling_pipeline;
 pub use settings::{BloomCompositeMode, BloomPrefilterSettings, BloomSettings};
 
 use crate::{
-    core_2d::graph::{Labels2d, SubGraph2d},
-    core_3d::graph::{Labels3d, SubGraph3d},
+    core_2d::graph::{Core2d, Node2d},
+    core_3d::graph::{Core3d, Node3d},
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
@@ -17,7 +17,7 @@ use bevy_render::{
     extract_component::{
         ComponentUniforms, DynamicUniformIndex, ExtractComponentPlugin, UniformComponentPlugin,
     },
-    prelude::Color,
+    prelude::LegacyColor,
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::*,
     renderer::{RenderContext, RenderDevice},
@@ -72,20 +72,16 @@ impl Plugin for BloomPlugin {
                 ),
             )
             // Add bloom to the 3d render graph
-            .add_render_graph_node::<ViewNodeRunner<BloomNode>>(SubGraph3d, Labels3d::Bloom)
+            .add_render_graph_node::<ViewNodeRunner<BloomNode>>(Core3d, Node3d::Bloom)
             .add_render_graph_edges(
-                SubGraph3d,
-                (
-                    Labels3d::EndMainPass,
-                    Labels3d::Bloom,
-                    Labels3d::Tonemapping,
-                ),
+                Core3d,
+                (Node3d::EndMainPass, Node3d::Bloom, Node3d::Tonemapping),
             )
             // Add bloom to the 2d render graph
-            .add_render_graph_node::<ViewNodeRunner<BloomNode>>(SubGraph2d, Labels2d::Bloom)
+            .add_render_graph_node::<ViewNodeRunner<BloomNode>>(Core2d, Node2d::Bloom)
             .add_render_graph_edges(
-                SubGraph2d,
-                (Labels2d::MainPass, Labels2d::Bloom, Labels2d::Tonemapping),
+                Core2d,
+                (Node2d::MainPass, Node2d::Bloom, Node2d::Tonemapping),
             );
     }
 
@@ -244,7 +240,7 @@ impl ViewNode for BloomNode {
                 mip as f32,
                 (bloom_texture.mip_count - 1) as f32,
             );
-            upsampling_pass.set_blend_constant(Color::rgb_linear(blend, blend, blend));
+            upsampling_pass.set_blend_constant(LegacyColor::rgb_linear(blend, blend, blend));
             upsampling_pass.draw(0..3, 0..1);
         }
 
@@ -271,7 +267,7 @@ impl ViewNode for BloomNode {
             }
             let blend =
                 compute_blend_factor(bloom_settings, 0.0, (bloom_texture.mip_count - 1) as f32);
-            upsampling_final_pass.set_blend_constant(Color::rgb_linear(blend, blend, blend));
+            upsampling_final_pass.set_blend_constant(LegacyColor::rgb_linear(blend, blend, blend));
             upsampling_final_pass.draw(0..3, 0..1);
         }
 

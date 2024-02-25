@@ -14,7 +14,7 @@ struct CommandMeta {
     ///
     /// Returns the size of `T` in bytes.
     consume_command_and_get_size:
-        unsafe fn(value: OwningPtr<Unaligned>, world: &mut Option<&mut World>) -> usize,
+        unsafe fn(value: OwningPtr<Unaligned>, world: Option<&mut World>) -> usize,
 }
 
 /// Densely and efficiently stores a queue of heterogenous types implementing [`Command`].
@@ -157,7 +157,7 @@ impl CommandQueue {
             // SAFETY: The data underneath the cursor must correspond to the type erased in metadata,
             // since they were stored next to each other by `.push()`.
             // For ZSTs, the type doesn't matter as long as the pointer is non-null.
-            let size = unsafe { (meta.consume_command_and_get_size)(cmd, &mut world) };
+            let size = unsafe { (meta.consume_command_and_get_size)(cmd, world.as_deref_mut()) };
             // Advance the cursor past the command. For ZSTs, the cursor will not move.
             // At this point, it will either point to the next `CommandMeta`,
             // or the cursor will be out of bounds and the loop will end.

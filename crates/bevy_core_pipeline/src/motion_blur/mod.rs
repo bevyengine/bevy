@@ -4,7 +4,7 @@
 //! documentation.
 
 use crate::{
-    core_3d::graph::{Labels3d, SubGraph3d},
+    core_3d::graph::{Core3d, Node3d},
     prepass::{DepthPrepass, MotionVectorPrepass},
 };
 use bevy_app::{App, Plugin};
@@ -147,15 +147,15 @@ impl Plugin for MotionBlurPlugin {
 
         render_app
             .add_render_graph_node::<ViewNodeRunner<node::MotionBlurNode>>(
-                SubGraph3d,
-                Labels3d::MotionBlur,
+                Core3d,
+                Node3d::MotionBlur,
             )
             .add_render_graph_edges(
-                SubGraph3d,
+                Core3d,
                 (
-                    Labels3d::EndMainPass,
-                    Labels3d::MotionBlur,
-                    Labels3d::Bloom, // we want blurred areas to bloom and tonemap properly.
+                    Node3d::EndMainPass,
+                    Node3d::MotionBlur,
+                    Node3d::Bloom, // we want blurred areas to bloom and tonemap properly.
                 ),
             );
 

@@ -52,10 +52,10 @@ fn setup_scene(
     });
     // Sky
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::UVSphere::default()),
+        mesh: meshes.add(Sphere::default()),
         material: materials.add(StandardMaterial {
             unlit: true,
-            base_color: Color::rgb(0.3, 0.8, 1.0),
+            base_color: LegacyColor::rgb(0.3, 0.8, 1.0),
             ..default()
         }),
         transform: Transform::default().with_scale(Vec3::splat(-4000.0)),
@@ -63,9 +63,9 @@ fn setup_scene(
     });
     // Ground
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::default()),
+        mesh: meshes.add(Plane3d::default()),
         material: materials.add(StandardMaterial {
-            base_color: Color::rgb(0.3, 0.5, 0.25),
+            base_color: LegacyColor::rgb(0.3, 0.5, 0.25),
             perceptual_roughness: 1.0,
             ..default()
         }),
@@ -81,24 +81,24 @@ fn setup_scene(
 
     // Cars
 
-    let box_mesh = meshes.add(shape::Box::new(0.3, 0.15, 0.55));
-    let cylinder = meshes.add(shape::Cylinder::default());
+    let box_mesh = meshes.add(Cuboid::new(0.3, 0.15, 0.55));
+    let cylinder = meshes.add(Cylinder::default());
     let logo = asset_server.load("branding/icon.png");
     let wheel_matl = materials.add(StandardMaterial {
-        base_color: Color::WHITE,
+        base_color: LegacyColor::WHITE,
         base_color_texture: Some(logo.clone()),
         ..default()
     });
 
     let colors = [
-        materials.add(Color::RED),
-        materials.add(Color::YELLOW),
-        materials.add(Color::BLACK),
-        materials.add(Color::BLUE),
-        materials.add(Color::GREEN),
-        materials.add(Color::PURPLE),
-        materials.add(Color::BEIGE),
-        materials.add(Color::ORANGE),
+        materials.add(LegacyColor::RED),
+        materials.add(LegacyColor::YELLOW),
+        materials.add(LegacyColor::BLACK),
+        materials.add(LegacyColor::BLUE),
+        materials.add(LegacyColor::GREEN),
+        materials.add(LegacyColor::PURPLE),
+        materials.add(LegacyColor::BEIGE),
+        materials.add(LegacyColor::ORANGE),
     ];
 
     for i in 0..40 {
@@ -107,6 +107,7 @@ fn setup_scene(
             PbrBundle {
                 mesh: box_mesh.clone(),
                 material: color.clone(),
+                transform: Transform::from_scale(Vec3::splat(0.5)),
                 ..default()
             },
             Moves(i as f32),
@@ -144,10 +145,10 @@ fn setup_scene(
 
     // Trees
 
-    let capsule = meshes.add(shape::Capsule::default());
-    let sphere = meshes.add(shape::UVSphere::default());
-    let leaves = materials.add(Color::GREEN);
-    let trunk = materials.add(Color::rgb(0.4, 0.2, 0.2));
+    let capsule = meshes.add(Capsule3d::default());
+    let sphere = meshes.add(Sphere::default());
+    let leaves = materials.add(LegacyColor::GREEN);
+    let trunk = materials.add(LegacyColor::rgb(0.4, 0.2, 0.2));
     let n_trees = 50;
     for theta in 0..n_trees * 4 {
         let theta = theta as f32 * 1.3;
@@ -157,7 +158,7 @@ fn setup_scene(
         commands.spawn(PbrBundle {
             mesh: sphere.clone(),
             material: leaves.clone(),
-            transform: Transform::from_xyz(x + 3.0, 0.8, z + 3.0),
+            transform: Transform::from_xyz(x + 3.0, 0.8, z + 3.0).with_scale(Vec3::splat(1.6)),
             ..default()
         });
         commands.spawn(PbrBundle {
@@ -225,7 +226,7 @@ fn move_cars(
         let prev = transform.translation;
         transform.translation.x = (1.0 * t).sin() * 10.0;
         transform.translation.z = (3.0 * t).cos() * 10.0;
-        transform.translation.y = -0.53;
+        transform.translation.y = -0.59;
         let delta = transform.translation - prev;
         transform.look_to(delta, Vec3::Y);
         for child in children.iter() {
@@ -247,8 +248,9 @@ fn update_cam(
     let tracked = tracked.single();
     let (mut transform, mut projection, mut camera) = camera.single_mut();
     transform.look_at(tracked.translation, Vec3::Y);
+    transform.translation.y = -0.3;
     if let Projection::Perspective(perspective) = &mut *projection {
-        perspective.fov = 0.3;
+        perspective.fov = 0.15;
     }
     camera.hdr = true;
 }

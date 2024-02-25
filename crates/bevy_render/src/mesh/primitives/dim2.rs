@@ -166,7 +166,7 @@ impl EllipseMeshBuilder {
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
-        .with_indices(Some(Indices::U32(indices)))
+        .with_inserted_indices(Indices::U32(indices))
     }
 }
 
@@ -222,7 +222,7 @@ impl Meshable for Triangle2d {
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
         )
-        .with_indices(Some(indices))
+        .with_inserted_indices(indices)
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
@@ -254,7 +254,7 @@ impl Meshable for Rectangle {
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
         )
-        .with_indices(Some(indices))
+        .with_inserted_indices(indices)
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
@@ -379,7 +379,7 @@ impl Capsule2dMeshBuilder {
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
-        .with_indices(Some(Indices::U32(indices)))
+        .with_inserted_indices(Indices::U32(indices))
     }
 }
 
@@ -403,5 +403,64 @@ impl From<Capsule2d> for Mesh {
 impl From<Capsule2dMeshBuilder> for Mesh {
     fn from(capsule: Capsule2dMeshBuilder) -> Self {
         capsule.build()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bevy_math::primitives::RegularPolygon;
+
+    use crate::mesh::{Mesh, VertexAttributeValues};
+
+    /// Sin/cos and multiplication computations result in numbers like 0.4999999.
+    /// Round these to numbers we expect like 0.5.
+    fn fix_floats<const N: usize>(points: &mut [[f32; N]]) {
+        for point in points.iter_mut() {
+            for coord in point.iter_mut() {
+                let round = (*coord * 2.).round() / 2.;
+                if (*coord - round).abs() < 0.00001 {
+                    *coord = round;
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_regular_polygon() {
+        let mut mesh = Mesh::from(RegularPolygon::new(7.0, 4));
+
+        let Some(VertexAttributeValues::Float32x3(mut positions)) =
+            mesh.remove_attribute(Mesh::ATTRIBUTE_POSITION)
+        else {
+            panic!("Expected positions f32x3");
+        };
+        let Some(VertexAttributeValues::Float32x2(mut uvs)) =
+            mesh.remove_attribute(Mesh::ATTRIBUTE_UV_0)
+        else {
+            panic!("Expected uvs f32x2");
+        };
+        let Some(VertexAttributeValues::Float32x3(normals)) =
+            mesh.remove_attribute(Mesh::ATTRIBUTE_NORMAL)
+        else {
+            panic!("Expected normals f32x3");
+        };
+
+        fix_floats(&mut positions);
+        fix_floats(&mut uvs);
+
+        assert_eq!(
+            [
+                [0.0, 7.0, 0.0],
+                [-7.0, 0.0, 0.0],
+                [0.0, -7.0, 0.0],
+                [7.0, 0.0, 0.0],
+            ],
+            &positions[..]
+        );
+
+        // Note V coordinate increases in the opposite direction to the Y coordinate.
+        assert_eq!([[0.5, 0.0], [0.0, 0.5], [0.5, 1.0], [1.0, 0.5],], &uvs[..]);
+
+        assert_eq!(&[[0.0, 0.0, 1.0]; 4], &normals[..]);
     }
 }

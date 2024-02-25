@@ -2,24 +2,16 @@
 
 use std::f32::consts::*;
 
-use bevy::{
-    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
-    pbr::NotShadowCaster,
-    prelude::*,
-};
+use bevy::{pbr::NotShadowCaster, prelude::*};
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
 fn main() {
     App::new()
         .insert_resource(AmbientLight {
-            brightness: 4.0,
+            brightness: 20.0,
             ..default()
         })
-        .add_plugins((
-            DefaultPlugins,
-            FrameTimeDiagnosticsPlugin,
-            LogDiagnosticsPlugin::default(),
-        ))
+        .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, (light_sway, movement))
         .run();
@@ -36,15 +28,15 @@ fn setup(
 ) {
     // ground plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(100.0)),
-        material: materials.add(Color::WHITE),
+        mesh: meshes.add(Plane3d::default().mesh().size(100.0, 100.0)),
+        material: materials.add(LegacyColor::WHITE),
         ..default()
     });
 
     // cubes
     let mut rng = StdRng::seed_from_u64(19878367467713);
-    let cube_mesh = meshes.add(shape::Cube { size: 0.5 });
-    let blue = materials.add(Color::rgb_u8(124, 144, 255));
+    let cube_mesh = meshes.add(Cuboid::new(0.5, 0.5, 0.5));
+    let blue = materials.add(LegacyColor::rgb_u8(124, 144, 255));
     for _ in 0..40 {
         let x = rng.gen_range(-5.0..5.0);
         let y = rng.gen_range(0.0..3.0);
@@ -60,22 +52,16 @@ fn setup(
         ));
     }
 
-    let sphere_mesh = meshes.add(shape::UVSphere {
-        radius: 0.05,
-        ..default()
-    });
-    let sphere_mesh_direction = meshes.add(shape::UVSphere {
-        radius: 0.1,
-        ..default()
-    });
+    let sphere_mesh = meshes.add(Sphere::new(0.05).mesh().uv(32, 18));
+    let sphere_mesh_direction = meshes.add(Sphere::new(0.1).mesh().uv(32, 18));
     let red_emissive = materials.add(StandardMaterial {
-        base_color: Color::RED,
-        emissive: Color::rgba_linear(100.0, 0.0, 0.0, 0.0),
+        base_color: LegacyColor::RED,
+        emissive: LegacyColor::rgba_linear(100.0, 0.0, 0.0, 0.0),
         ..default()
     });
     let maroon_emissive = materials.add(StandardMaterial {
-        base_color: Color::MAROON,
-        emissive: Color::rgba_linear(50.0, 0.0, 0.0, 0.0),
+        base_color: LegacyColor::MAROON,
+        emissive: LegacyColor::rgba_linear(50.0, 0.0, 0.0, 0.0),
         ..default()
     });
     for x in 0..4 {
@@ -88,8 +74,8 @@ fn setup(
                     transform: Transform::from_xyz(1.0 + x, 2.0, z)
                         .looking_at(Vec3::new(1.0 + x, 0.0, z), Vec3::X),
                     spot_light: SpotLight {
-                        intensity: 100_000.0, // lumens
-                        color: Color::WHITE,
+                        intensity: 4000.0, // lumens
+                        color: LegacyColor::WHITE,
                         shadows_enabled: true,
                         inner_angle: PI / 4.0 * 0.85,
                         outer_angle: PI / 4.0,
@@ -117,14 +103,14 @@ fn setup(
     }
 
     // camera
-    commands.spawn((Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         camera: Camera {
             hdr: true,
             ..default()
         },
         transform: Transform::from_xyz(-4.0, 5.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
-    },));
+    });
 }
 
 fn light_sway(time: Res<Time>, mut query: Query<(&mut Transform, &mut SpotLight)>) {
