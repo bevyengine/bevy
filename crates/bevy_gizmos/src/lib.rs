@@ -98,6 +98,7 @@ impl Plugin for GizmoPlugin {
         load_internal_asset!(app, LINE_SHADER_HANDLE, "lines.wgsl", Shader::from_wgsl);
 
         app.register_type::<GizmoConfig>()
+            .register_type::<GizmoConfigStore>()
             .add_plugins(UniformComponentPlugin::<LineGizmoUniform>::default())
             .init_asset::<LineGizmo>()
             .add_plugins(RenderAssetPlugin::<LineGizmo>::default())
