@@ -41,7 +41,7 @@ fn main() {
     let mut app = App::new();
 
     app.add_plugins(DefaultPlugins)
-        .insert_resource(ClearColor(Color::BLACK))
+        .insert_resource(ClearColor(LegacyColor::BLACK))
         .insert_resource(PointLightShadowMap { size: 2048 })
         .insert_resource(AmbientLight {
             brightness: 0.0,
@@ -117,7 +117,7 @@ fn setup(
         PbrBundle {
             mesh: cylinder_mesh,
             material: materials.add(StandardMaterial {
-                base_color: Color::rgba(0.9, 0.2, 0.3, 1.0),
+                base_color: LegacyColor::rgba(0.9, 0.2, 0.3, 1.0),
                 diffuse_transmission: 0.7,
                 perceptual_roughness: 0.32,
                 thickness: 0.2,
@@ -138,7 +138,7 @@ fn setup(
         PbrBundle {
             mesh: icosphere_mesh.clone(),
             material: materials.add(StandardMaterial {
-                emissive: Color::ANTIQUE_WHITE * 80.0 + Color::ORANGE_RED * 16.0,
+                emissive: LegacyColor::ANTIQUE_WHITE * 80.0 + LegacyColor::ORANGE_RED * 16.0,
                 diffuse_transmission: 1.0,
                 ..default()
             }),
@@ -154,7 +154,7 @@ fn setup(
         PbrBundle {
             mesh: icosphere_mesh.clone(),
             material: materials.add(StandardMaterial {
-                base_color: Color::WHITE,
+                base_color: LegacyColor::WHITE,
                 specular_transmission: 0.9,
                 diffuse_transmission: 1.0,
                 thickness: 1.8,
@@ -177,7 +177,7 @@ fn setup(
         PbrBundle {
             mesh: icosphere_mesh.clone(),
             material: materials.add(StandardMaterial {
-                base_color: Color::RED,
+                base_color: LegacyColor::RED,
                 specular_transmission: 0.9,
                 diffuse_transmission: 1.0,
                 thickness: 1.8,
@@ -200,7 +200,7 @@ fn setup(
         PbrBundle {
             mesh: icosphere_mesh.clone(),
             material: materials.add(StandardMaterial {
-                base_color: Color::GREEN,
+                base_color: LegacyColor::GREEN,
                 specular_transmission: 0.9,
                 diffuse_transmission: 1.0,
                 thickness: 1.8,
@@ -223,7 +223,7 @@ fn setup(
         PbrBundle {
             mesh: icosphere_mesh,
             material: materials.add(StandardMaterial {
-                base_color: Color::BLUE,
+                base_color: LegacyColor::BLUE,
                 specular_transmission: 0.9,
                 diffuse_transmission: 1.0,
                 thickness: 1.8,
@@ -243,14 +243,14 @@ fn setup(
 
     // Chessboard Plane
     let black_material = materials.add(StandardMaterial {
-        base_color: Color::BLACK,
+        base_color: LegacyColor::BLACK,
         reflectance: 0.3,
         perceptual_roughness: 0.8,
         ..default()
     });
 
     let white_material = materials.add(StandardMaterial {
-        base_color: Color::WHITE,
+        base_color: LegacyColor::WHITE,
         reflectance: 0.3,
         perceptual_roughness: 0.8,
         ..default()
@@ -283,7 +283,7 @@ fn setup(
         PbrBundle {
             mesh: plane_mesh,
             material: materials.add(StandardMaterial {
-                base_color: Color::WHITE,
+                base_color: LegacyColor::WHITE,
                 diffuse_transmission: 0.6,
                 perceptual_roughness: 0.8,
                 reflectance: 1.0,
@@ -309,7 +309,7 @@ fn setup(
         PointLightBundle {
             transform: Transform::from_xyz(-1.0, 1.7, 0.0),
             point_light: PointLight {
-                color: Color::ANTIQUE_WHITE * 0.8 + Color::ORANGE_RED * 0.2,
+                color: LegacyColor::ANTIQUE_WHITE * 0.8 + LegacyColor::ORANGE_RED * 0.2,
                 intensity: 4_000.0,
                 radius: 0.2,
                 range: 5.0,
@@ -350,7 +350,7 @@ fn setup(
     // Controls Text
     let text_style = TextStyle {
         font_size: 18.0,
-        color: Color::WHITE,
+        color: LegacyColor::WHITE,
         ..Default::default()
     };
 

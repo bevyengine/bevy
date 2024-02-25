@@ -58,7 +58,7 @@ use self::{irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight};
 /// # use bevy_pbr::{Material, MaterialMeshBundle};
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_reflect::TypePath;
-/// # use bevy_render::{render_resource::{AsBindGroup, ShaderRef}, texture::Image, color::Color};
+/// # use bevy_render::{render_resource::{AsBindGroup, ShaderRef}, texture::Image, color::LegacyColor};
 /// # use bevy_asset::{Handle, AssetServer, Assets, Asset};
 ///
 /// #[derive(AsBindGroup, Debug, Clone, Asset, TypePath)]
@@ -66,7 +66,7 @@ use self::{irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight};
 ///     // Uniform bindings must implement `ShaderType`, which will be used to convert the value to
 ///     // its shader-compatible equivalent. Most core math types already implement `ShaderType`.
 ///     #[uniform(0)]
-///     color: Color,
+///     color: LegacyColor,
 ///     // Images can be bound as textures in shaders. If the Image's sampler is also needed, just
 ///     // add the sampler attribute with a different binding index.
 ///     #[texture(1)]
@@ -86,7 +86,7 @@ use self::{irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight};
 /// fn setup(mut commands: Commands, mut materials: ResMut<Assets<CustomMaterial>>, asset_server: Res<AssetServer>) {
 ///     commands.spawn(MaterialMeshBundle {
 ///         material: materials.add(CustomMaterial {
-///             color: Color::RED,
+///             color: LegacyColor::RED,
 ///             color_texture: asset_server.load("some_image.png"),
 ///         }),
 ///         ..Default::default()

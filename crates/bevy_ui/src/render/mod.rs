@@ -28,7 +28,7 @@ use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, Rect, URect, UVec4, Vec2, Vec3, Vec4Swizzles};
 use bevy_render::{
     camera::Camera,
-    color::Color,
+    color::LegacyColor,
     render_asset::RenderAssets,
     render_graph::{RenderGraph, RunGraphOnViewNode},
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions, RenderPhase},
@@ -133,7 +133,7 @@ fn get_ui_graph(render_app: &mut App) -> RenderGraph {
 pub struct ExtractedUiNode {
     pub stack_index: u32,
     pub transform: Mat4,
-    pub color: Color,
+    pub color: LegacyColor,
     pub rect: Rect,
     pub image: AssetId<Image>,
     pub atlas_size: Option<Vec2>,
@@ -601,7 +601,7 @@ pub fn extract_text_uinodes(
         let transform = Mat4::from(global_transform.affine())
             * Mat4::from_translation(logical_top_left_nearest_pixel.extend(0.));
 
-        let mut color = Color::WHITE;
+        let mut color = LegacyColor::WHITE;
         let mut current_section = usize::MAX;
         for PositionedGlyph {
             position,

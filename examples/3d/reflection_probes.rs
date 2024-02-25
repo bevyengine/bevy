@@ -128,7 +128,7 @@ fn spawn_sphere(
     commands.spawn(PbrBundle {
         mesh: sphere_mesh.clone(),
         material: materials.add(StandardMaterial {
-            base_color: Color::hex("#ffd891").unwrap(),
+            base_color: LegacyColor::hex("#ffd891").unwrap(),
             metallic: 1.0,
             perceptual_roughness: 0.0,
             ..StandardMaterial::default()
@@ -293,7 +293,7 @@ impl AppStatus {
             TextStyle {
                 font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                 font_size: 24.0,
-                color: Color::ANTIQUE_WHITE,
+                color: LegacyColor::ANTIQUE_WHITE,
             },
         )
     }

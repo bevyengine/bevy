@@ -3,7 +3,7 @@ use crate::{
     StandardColor,
 };
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use bevy_render::color::Color as LegacyColor;
+use bevy_render::color::LegacyColor;
 use serde::{Deserialize, Serialize};
 
 /// Color in Oklaba color space, with alpha
@@ -49,6 +49,21 @@ impl Oklaba {
             b,
             alpha: 1.0,
         }
+    }
+
+    /// Return a copy of this color with the 'l' channel set to the given value.
+    pub const fn with_l(self, l: f32) -> Self {
+        Self { l, ..self }
+    }
+
+    /// Return a copy of this color with the 'a' channel set to the given value.
+    pub const fn with_a(self, a: f32) -> Self {
+        Self { a, ..self }
+    }
+
+    /// Return a copy of this color with the 'b' channel set to the given value.
+    pub const fn with_b(self, b: f32) -> Self {
+        Self { b, ..self }
     }
 }
 

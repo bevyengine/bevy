@@ -49,7 +49,7 @@ use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
-    color::Color,
+    color::LegacyColor,
     extract_component::ExtractComponentPlugin,
     mesh::Mesh,
     prelude::Msaa,
@@ -836,18 +836,19 @@ pub fn prepare_prepass_textures(
         });
 
         commands.entity(entity).insert(ViewPrepassTextures {
-            depth: cached_depth_texture.map(|t| ColorAttachment::new(t, None, Some(Color::BLACK))),
+            depth: cached_depth_texture
+                .map(|t| ColorAttachment::new(t, None, Some(LegacyColor::BLACK))),
             normal: cached_normals_texture
-                .map(|t| ColorAttachment::new(t, None, Some(Color::BLACK))),
+                .map(|t| ColorAttachment::new(t, None, Some(LegacyColor::BLACK))),
             // Red and Green channels are X and Y components of the motion vectors
             // Blue channel doesn't matter, but set to 0.0 for possible faster clear
             // https://gpuopen.com/performance/#clears
             motion_vectors: cached_motion_vectors_texture
-                .map(|t| ColorAttachment::new(t, None, Some(Color::BLACK))),
+                .map(|t| ColorAttachment::new(t, None, Some(LegacyColor::BLACK))),
             deferred: cached_deferred_texture
-                .map(|t| ColorAttachment::new(t, None, Some(Color::BLACK))),
+                .map(|t| ColorAttachment::new(t, None, Some(LegacyColor::BLACK))),
             deferred_lighting_pass_id: cached_deferred_lighting_pass_id_texture
-                .map(|t| ColorAttachment::new(t, None, Some(Color::BLACK))),
+                .map(|t| ColorAttachment::new(t, None, Some(LegacyColor::BLACK))),
             size,
         });
     }
