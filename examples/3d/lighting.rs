@@ -14,7 +14,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .insert_resource(Parameters(PhysicalCameraParameters {
             aperture_f_stops: 1.0,
-            shutter_speed_s: 1.0 / 100.0,
+            shutter_speed_s: 1.0 / 125.0,
             sensitivity_iso: 100.0,
         }))
         .add_systems(Startup, setup)
@@ -132,7 +132,7 @@ fn setup(
             // transform: Transform::from_xyz(5.0, 8.0, 2.0),
             transform: Transform::from_xyz(1.0, 2.0, 0.0),
             point_light: PointLight {
-                intensity: 4000.0, // lumens - roughly a 300W non-halogen incandescent bulb
+                intensity: 100_000.0,
                 color: Color::RED,
                 shadows_enabled: true,
                 ..default()
@@ -157,7 +157,7 @@ fn setup(
             transform: Transform::from_xyz(-1.0, 2.0, 0.0)
                 .looking_at(Vec3::new(-1.0, 0.0, 0.0), Vec3::Z),
             spot_light: SpotLight {
-                intensity: 4000.0, // lumens - roughly a 300W non-halogen incandescent bulb
+                intensity: 100_000.0,
                 color: Color::GREEN,
                 shadows_enabled: true,
                 inner_angle: 0.6,
@@ -185,7 +185,7 @@ fn setup(
             // transform: Transform::from_xyz(5.0, 8.0, 2.0),
             transform: Transform::from_xyz(0.0, 4.0, 0.0),
             point_light: PointLight {
-                intensity: 4000.0, // lumens - roughly a 300W non-halogen incandescent bulb
+                intensity: 100_000.0,
                 color: Color::BLUE,
                 shadows_enabled: true,
                 ..default()
