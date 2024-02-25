@@ -36,7 +36,10 @@ pub struct TaskPoolBuilder {
     /// If set, we'll set up the thread pool to use at most `num_threads` threads.
     /// Otherwise use the logical core count of the system
     num_threads: Option<usize>,
-    num_blocking_threads: Option<usize>,
+    /// If set, this sets the maxinum number of threads used for blocking operations.
+    /// Otherwise, it will default to the value set by the `BLOCKING_MAX_THREADS` environment variable,
+    /// or 500 if not set.
+    max_blocking_threads: Option<usize>,
     /// If set, we'll use the given stack size rather than the system default
     stack_size: Option<usize>,
     /// Allows customizing the name of the threads - helpful for debugging. If set, threads will
@@ -57,6 +60,14 @@ impl TaskPoolBuilder {
     /// of logical cores of the system
     pub fn num_threads(mut self, num_threads: usize) -> Self {
         self.num_threads = Some(num_threads);
+        self
+    }
+
+    /// Override the maximum number of blocking threads created for the pool. If unset, it will
+    /// default to the value set by the `BLOCKING_MAX_THREADS` environment variable, or 500 if not
+    /// set.
+    pub fn max_blocking_threads(mut self, num_threads: usize) -> Self {
+        self.max_blocking_threads = Some(num_threads);
         self
     }
 
@@ -539,11 +550,11 @@ impl TaskPool {
     ///
     /// If the provided future is non-`Send`, [`spawn_local`] should
     /// be used instead.
-    /// 
-    /// If the provided future performs blocking IO or may have long lasting 
+    ///
+    /// If the provided future performs blocking IO or may have long lasting
     /// CPU-bound operations, use [`spawn_blocking`] or [`spawn_blocking_async`]
     /// instead.
-    /// 
+    ///
     /// [`spawn_local`]: Self::spawn_local
     /// [`spawn_blocking`]: Self::spawn_blocking
     /// [`spawn_blocking`]: Self::spawn_blocking_async
@@ -580,7 +591,7 @@ impl TaskPool {
     /// closure on a thread dedicated to blocking operations.
     ///
     /// This call will spawn more blocking threads when they are requested
-    /// through this function until the upper limit configured. 
+    /// through this function until the upper limit configured.
     /// This limit is very large by default (500), because `spawn_blocking` is often
     /// used for various kinds of IO operations that cannot be performed
     /// asynchronously. When you run CPU-bound code using `spawn_blocking`,
@@ -599,23 +610,23 @@ impl TaskPool {
     {
         Task::new(unblock(f))
     }
-    
-    /// Spawns a static future onto on a thread where blocking is acceptabl.e 
-    /// The returned [`Task`] is a future that can be polled for the result. 
-    /// It can also be canceled and "detached", allowing the task to continue 
-    /// running even if dropped. In any case, the pool will execute the task 
+
+    /// Spawns a static future onto on a thread where blocking is acceptabl.e
+    /// The returned [`Task`] is a future that can be polled for the result.
+    /// It can also be canceled and "detached", allowing the task to continue
+    /// running even if dropped. In any case, the pool will execute the task
     /// even without polling by the end-user.
     ///
     /// This function is equivalent to calling `task_pool.spawn_blocking(|| block_on(f))`.
-    /// 
-    /// If the future is expected to terminate quickly, or will not spend a 
+    ///
+    /// If the future is expected to terminate quickly, or will not spend a
     /// signficant amount of time performing blocking CPU-bound or IO-bound
     /// operations, [`spawn`] should be used instead. The ideal use case for
     /// this function is for launching a future that may involve a combination
     /// of async IO and blocking operations (i.e. loading large scenes).
-    /// 
+    ///
     /// This call will spawn more blocking threads when they are requested
-    /// through this function until the upper limit configured. 
+    /// through this function until the upper limit configured.
     /// This limit is very large by default (500), because `spawn_blocking` is often
     /// used for various kinds of IO operations that cannot be performed
     /// asynchronously. When you run CPU-bound code using `spawn_blocking`,
@@ -624,13 +635,13 @@ impl TaskPool {
     /// will cause the OS to [thrash], which may impact the performance
     /// of the non-blocking tasks scheduled onto the `TaskPool`.  
     ///
-    /// Closures spawned using `spawn_blocking` cannot be cancelled. When you 
-    /// shut down the executor, it will wait indefinitely for all blocking 
+    /// Closures spawned using `spawn_blocking` cannot be cancelled. When you
+    /// shut down the executor, it will wait indefinitely for all blocking
     /// operations to finish.
-    /// 
+    ///
     /// [`spawn`]: Self::spawn
     #[inline]
-    pub fn spawn_blocking_async<T>(&self, f: impl Future<Output=T> + Send + 'static) -> Task<T>
+    pub fn spawn_blocking_async<T>(&self, f: impl Future<Output = T> + Send + 'static) -> Task<T>
     where
         T: Send + 'static,
     {
