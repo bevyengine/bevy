@@ -26,9 +26,7 @@ use bevy_render::{
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{tracing::error, Entry, HashMap, Hashed};
-use std::cell::Cell;
-use thread_local::ThreadLocal;
+use bevy_utils::{tracing::error, Entry, HashMap, Hashed, Parallel};
 
 #[cfg(debug_assertions)]
 use bevy_utils::warn_once;
@@ -258,7 +256,7 @@ pub struct RenderMeshInstances(EntityHashMap<RenderMeshInstance>);
 
 pub fn extract_meshes(
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
-    mut thread_local_queues: Local<ThreadLocal<Cell<Vec<(Entity, RenderMeshInstance)>>>>,
+    mut thread_local_queues: Local<Parallel<Vec<(Entity, RenderMeshInstance)>>>,
     meshes_query: Extract<
         Query<(
             Entity,
@@ -306,25 +304,24 @@ pub fn extract_meshes(
                 previous_transform: (&previous_transform).into(),
                 flags: flags.bits(),
             };
-            let tls = thread_local_queues.get_or_default();
-            let mut queue = tls.take();
-            queue.push((
-                entity,
-                RenderMeshInstance {
-                    mesh_asset_id: handle.id(),
-                    transforms,
-                    shadow_caster: !not_shadow_caster,
-                    material_bind_group_id: AtomicMaterialBindGroupId::default(),
-                    automatic_batching: !no_automatic_batching,
-                },
-            ));
-            tls.set(queue);
+            thread_local_queues.scope(|queue| {
+                queue.push((
+                    entity,
+                    RenderMeshInstance {
+                        mesh_asset_id: handle.id(),
+                        transforms,
+                        shadow_caster: !not_shadow_caster,
+                        material_bind_group_id: AtomicMaterialBindGroupId::default(),
+                        automatic_batching: !no_automatic_batching,
+                    },
+                ));
+            });
         },
     );
 
     render_mesh_instances.clear();
     for queue in thread_local_queues.iter_mut() {
-        render_mesh_instances.extend(queue.get_mut().drain(..));
+        render_mesh_instances.extend(queue.drain(..));
     }
 }
 
