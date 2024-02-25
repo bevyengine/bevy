@@ -12,7 +12,7 @@ var<workgroup> draw_index_buffer_start_workgroup: u32;
 /// This pass writes out an index buffer for the draw_indirect() call to rasterize each visible meshlet.
 
 @compute
-@workgroup_size(64, 1, 1)
+@workgroup_size(64, 1, 1) // 64 threads per workgroup, 1 workgroup per instanced meshlet, 1 thread per triangle
 fn write_index_buffer(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(num_workgroups) num_workgroups: vec3<u32>, @builtin(local_invocation_index) triangle_id: u32) {
     // Calculate the scene meshlet ID for this workgroup
     let thread_id = dot(workgroup_id, vec3(num_workgroups.x * num_workgroups.x, num_workgroups.x, 1u));

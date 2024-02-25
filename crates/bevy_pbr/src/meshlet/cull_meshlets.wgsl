@@ -18,7 +18,7 @@
 /// 2. The second pass performs both frustum and occlusion culling (using the depth buffer generated from the first pass), on all meshlets.
 
 @compute
-@workgroup_size(128, 1, 1)
+@workgroup_size(128, 1, 1) // 128 threads per workgroup, 1 instanced meshlet per thread
 fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
     // Fetch the instanced meshlet data
     if thread_id.x >= arrayLength(&meshlet_thread_meshlet_ids) { return; }
