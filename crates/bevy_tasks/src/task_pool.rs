@@ -557,7 +557,7 @@ impl TaskPool {
     ///
     /// [`spawn_local`]: Self::spawn_local
     /// [`spawn_blocking`]: Self::spawn_blocking
-    /// [`spawn_blocking`]: Self::spawn_blocking_async
+    /// [`spawn_blocking_async`]: Self::spawn_blocking_async
     pub fn spawn<T>(&self, future: impl Future<Output = T> + Send + 'static) -> Task<T>
     where
         T: Send + 'static,
@@ -611,9 +611,9 @@ impl TaskPool {
         Task::new(unblock(f))
     }
 
-    /// Spawns a static future onto on a thread where blocking is acceptabl.e
+    /// Spawns a static future onto on a thread where blocking is acceptable.
     /// The returned [`Task`] is a future that can be polled for the result.
-    /// It can also be canceled and "detached", allowing the task to continue
+    /// It can also be "detached", allowing the task to continue
     /// running even if dropped. In any case, the pool will execute the task
     /// even without polling by the end-user.
     ///
