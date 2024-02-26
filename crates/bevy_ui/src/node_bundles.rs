@@ -128,7 +128,7 @@ impl Default for ImageBundle {
             node: Default::default(),
             style: Default::default(),
             calculated_size: Default::default(),
-            background_color: BackgroundColor(LegacyColor::NONE),
+            background_color: BackgroundColor(Color::NONE),
             image: Default::default(),
             image_size: Default::default(),
             focus_policy: Default::default(),
@@ -195,7 +195,7 @@ impl Default for AtlasImageBundle {
             node: Default::default(),
             style: Default::default(),
             calculated_size: Default::default(),
-            background_color: BackgroundColor(LegacyColor::NONE),
+            background_color: BackgroundColor(Color::NONE),
             image: Default::default(),
             texture_atlas: Default::default(),
             focus_policy: Default::default(),
@@ -360,6 +360,8 @@ pub struct ButtonBundle {
     pub background_color: BackgroundColor,
     /// The color of the Node's border
     pub border_color: BorderColor,
+    /// The image of the node
+    pub image: UiImage,
     /// The transform of the node
     ///
     /// This component is automatically managed by the UI layout system.
@@ -382,13 +384,14 @@ pub struct ButtonBundle {
 impl Default for ButtonBundle {
     fn default() -> Self {
         Self {
-            focus_policy: FocusPolicy::Block,
             node: Default::default(),
             button: Default::default(),
             style: Default::default(),
-            border_color: BorderColor(Color::NONE),
             interaction: Default::default(),
+            focus_policy: FocusPolicy::Block,
             background_color: Default::default(),
+            border_color: BorderColor(Color::NONE),
+            image: UiImage::default().with_color(Color::NONE),
             transform: Default::default(),
             global_transform: Default::default(),
             visibility: Default::default(),
