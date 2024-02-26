@@ -126,7 +126,7 @@ impl TypeRegistry {
             return;
         }
 
-        self.force_add_registration(T::get_type_registration());
+        self.overwrite_registration(T::get_type_registration());
         T::register_type_dependencies(self);
     }
 
@@ -135,7 +135,7 @@ impl TypeRegistry {
     /// If the registration for the type already exists, it will not be registered again.
     ///
     /// To forcibly register the type, overwriting any existing registration, use the
-    /// [`force_add_registration`](Self::force_add_registration) method instead.
+    /// [`overwrite_registration`](Self::overwrite_registration) method instead.
     ///
     /// Returns `true` if the registration was successfully added,
     /// or `false` if it already exists.
@@ -143,7 +143,7 @@ impl TypeRegistry {
         if self.contains(registration.type_id()) {
             false
         } else {
-            self.force_add_registration(registration);
+            self.overwrite_registration(registration);
             true
         }
     }
@@ -154,7 +154,7 @@ impl TypeRegistry {
     ///
     /// To avoid overwriting existing registrations, it's recommended to use the
     /// [`register`](Self::register) or [`add_registration`](Self::add_registration) methods instead.
-    pub fn force_add_registration(&mut self, registration: TypeRegistration) {
+    pub fn overwrite_registration(&mut self, registration: TypeRegistration) {
         let short_name = registration.type_info().type_path_table().short_path();
         if self.short_path_to_id.contains_key(short_name)
             || self.ambiguous_names.contains(short_name)
