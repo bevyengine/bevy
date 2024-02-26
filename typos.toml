@@ -8,6 +8,7 @@ extend-exclude = [
 # and the value is the correct word. If the key and value are the same, the
 # word is treated as always correct. If the value is an empty string, the word
 # is treated as always incorrect.
+# the toi of the mountain
 
 # Match Whole Word - Case Sensitive
 [default.extend-identifiers]
@@ -17,7 +18,7 @@ Sur = "Sur" # macOS Big Sur - South
 # Match Inside a Word - Case Insensitive
 [default.extend-words]
 LOD = "LOD" # Level of detail
-toi = "toi" # Time of impact
+TOI = "TOI" # Time of impact
 
 [default]
 extend-ignore-identifiers-re = [
