@@ -94,7 +94,7 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
     /// The default bounds added are as follows:
     /// - `Self` has the bounds `Any + Send + Sync`
     /// - Type parameters have the bound `TypePath` unless `#[reflect(type_path = false)]` is present
-    /// - Active fields have the bounds `TypePath` and either `Reflect` if `#[reflect(from_reflect = false)]` is present
+    /// - Active fields have the bounds `TypePath` and either `PartialReflect` if `#[reflect(from_reflect = false)]` is present
     ///   or `FromReflect` otherwise (or no bounds at all if `#[reflect(no_field_bounds)]` is present)
     ///
     /// When the derive is used with `#[reflect(where)]`, the bounds specified in the attribute are added as well.
@@ -225,14 +225,14 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
         }
     }
 
-    /// The `Reflect` or `FromReflect` bound to use based on `#[reflect(from_reflect = false)]`.
+    /// The `PartialReflect` or `FromReflect` bound to use based on `#[reflect(from_reflect = false)]`.
     fn reflect_bound(&self) -> TokenStream {
         let bevy_reflect_path = self.meta.bevy_reflect_path();
 
         if self.meta.from_reflect().should_auto_derive() {
             quote!(#bevy_reflect_path::FromReflect)
         } else {
-            quote!(#bevy_reflect_path::Reflect)
+            quote!(#bevy_reflect_path::PartialReflect)
         }
     }
 

@@ -387,7 +387,7 @@ mod tests {
 
         let entity = commands.spawn_empty().id();
 
-        let boxed_reflect_component_a = Box::new(ComponentA(916)) as Box<dyn Reflect>;
+        let boxed_reflect_component_a = Box::new(ComponentA(916)) as Box<dyn PartialReflect>;
 
         commands
             .entity(entity)

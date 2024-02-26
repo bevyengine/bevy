@@ -90,12 +90,12 @@ pub trait Typed: Reflect + TypePath {
 /// Generally, for any given type, this value can be retrieved one of three ways:
 ///
 /// 1. [`Typed::type_info`]
-/// 2. [`Reflect::get_represented_type_info`]
+/// 2. [`PartialReflect::get_represented_type_info`]
 /// 3. [`TypeRegistry::get_type_info`]
 ///
 /// Each return a static reference to [`TypeInfo`], but they all have their own use cases.
 /// For example, if you know the type at compile time, [`Typed::type_info`] is probably
-/// the simplest. If all you have is a `dyn Reflect`, you'll probably want [`Reflect::get_represented_type_info`].
+/// the simplest. If all you have is a `dyn PartialReflect`, you'll probably want [`PartialReflect::get_represented_type_info`].
 /// Lastly, if all you have is a [`TypeId`] or [type path], you will need to go through
 /// [`TypeRegistry::get_type_info`].
 ///
@@ -103,7 +103,6 @@ pub trait Typed: Reflect + TypePath {
 /// it can be more performant. This is because those other methods may require attaining a lock on
 /// the static [`TypeInfo`], while the registry simply checks a map.
 ///
-/// [`Reflect::get_represented_type_info`]: Reflect::get_represented_type_info
 /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
 /// [type path]: TypePath::type_path
 #[derive(Debug, Clone)]
