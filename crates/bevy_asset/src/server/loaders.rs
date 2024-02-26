@@ -3,7 +3,7 @@ use crate::{
     path::AssetPath,
 };
 use async_broadcast::RecvError;
-use bevy_log::{error, info, warn};
+use bevy_log::{error, warn};
 use bevy_tasks::IoTaskPool;
 use bevy_utils::{HashMap, TypeIdMap};
 use std::{any::TypeId, sync::Arc};
@@ -40,6 +40,7 @@ impl AssetLoaders {
             };
 
         if is_new {
+            let mut duplicate_extensions = Vec::new();
             for extension in loader.extensions() {
                 let list = self
                     .extension_to_loaders
@@ -47,7 +48,7 @@ impl AssetLoaders {
                     .or_default();
 
                 if !list.is_empty() {
-                    warn!("duplicate registration for extension `{extension}`.");
+                    duplicate_extensions.push(extension);
                 }
 
                 list.push(loader_index);
@@ -60,8 +61,10 @@ impl AssetLoaders {
                 .entry(loader_asset_type)
                 .or_default();
 
-            if !list.is_empty() {
-                info!("duplicate registration for type `{loader_asset_type_name}`.");
+            let duplicate_asset_registration = !list.is_empty();
+            if !duplicate_extensions.is_empty() && duplicate_asset_registration {
+                warn!("Duplicate AssetLoader registered for Asset type `{loader_asset_type_name}` with extensions `{duplicate_extensions:?}`. \
+                Loader must be specified in a .meta file in order to load assets of this type with these extensions.");
             }
 
             list.push(loader_index);
@@ -98,6 +101,7 @@ impl AssetLoaders {
 
         self.preregistered_loaders.insert(type_name, loader_index);
         self.type_name_to_loader.insert(type_name, loader_index);
+        let mut duplicate_extensions = Vec::new();
         for extension in extensions {
             let list = self
                 .extension_to_loaders
@@ -105,7 +109,7 @@ impl AssetLoaders {
                 .or_default();
 
             if !list.is_empty() {
-                warn!("duplicate preregistration for extension `{extension}`.");
+                duplicate_extensions.push(extension);
             }
 
             list.push(loader_index);
@@ -116,8 +120,10 @@ impl AssetLoaders {
             .entry(loader_asset_type)
             .or_default();
 
-        if !list.is_empty() {
-            info!("duplicate preregistration for type `{loader_asset_type_name}`.");
+        let duplicate_asset_registration = !list.is_empty();
+        if !duplicate_extensions.is_empty() && duplicate_asset_registration {
+            warn!("Duplicate AssetLoader preregistered for Asset type `{loader_asset_type_name}` with extensions `{duplicate_extensions:?}`. \
+            Loader must be specified in a .meta file in order to load assets of this type with these extensions.");
         }
 
         list.push(loader_index);

@@ -3,7 +3,6 @@
 
 pub mod wireframe;
 
-mod alpha;
 mod bundle;
 pub mod deferred;
 mod extended_material;
@@ -18,8 +17,6 @@ mod prepass;
 mod render;
 mod ssao;
 
-pub use alpha::*;
-use bevy_core_pipeline::core_3d::graph::{Labels3d, SubGraph3d};
 pub use bundle::*;
 pub use extended_material::*;
 pub use fog::*;
@@ -36,7 +33,6 @@ pub use ssao::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        alpha::AlphaMode,
         bundle::{
             DirectionalLightBundle, MaterialMeshBundle, PbrBundle, PointLightBundle,
             SpotLightBundle,
@@ -58,7 +54,7 @@ pub mod graph {
     use bevy_render::render_graph::RenderLabel;
 
     #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
-    pub enum LabelsPbr {
+    pub enum NodePbr {
         /// Label for the shadow pass node.
         ShadowPass,
         /// Label for the screen space ambient occlusion render node.
@@ -67,14 +63,17 @@ pub mod graph {
     }
 }
 
+use crate::{deferred::DeferredPbrLightingPlugin, graph::NodePbr};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
+use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_ecs::prelude::*;
 use bevy_render::{
+    alpha::AlphaMode,
     camera::{CameraUpdateSystem, Projection},
     extract_component::ExtractComponentPlugin,
     extract_resource::ExtractResourcePlugin,
-    prelude::Color,
+    prelude::LegacyColor,
     render_asset::prepare_assets,
     render_graph::RenderGraph,
     render_phase::sort_phase_system,
@@ -84,8 +83,6 @@ use bevy_render::{
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::TransformSystem;
-
-use crate::{deferred::DeferredPbrLightingPlugin, graph::LabelsPbr};
 
 pub const PBR_TYPES_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1708015359337029744);
 pub const PBR_BINDINGS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(5635987986427308186);
@@ -236,7 +233,6 @@ impl Plugin for PbrPlugin {
         );
 
         app.register_asset_reflect::<StandardMaterial>()
-            .register_type::<AlphaMode>()
             .register_type::<AmbientLight>()
             .register_type::<Cascade>()
             .register_type::<CascadeShadowConfig>()
@@ -340,7 +336,7 @@ impl Plugin for PbrPlugin {
         app.world.resource_mut::<Assets<StandardMaterial>>().insert(
             Handle::<StandardMaterial>::default(),
             StandardMaterial {
-                base_color: Color::rgb(1.0, 0.0, 0.5),
+                base_color: LegacyColor::rgb(1.0, 0.0, 0.5),
                 unlit: true,
                 ..Default::default()
             },
@@ -367,9 +363,9 @@ impl Plugin for PbrPlugin {
 
         let shadow_pass_node = ShadowPassNode::new(&mut render_app.world);
         let mut graph = render_app.world.resource_mut::<RenderGraph>();
-        let draw_3d_graph = graph.get_sub_graph_mut(SubGraph3d).unwrap();
-        draw_3d_graph.add_node(LabelsPbr::ShadowPass, shadow_pass_node);
-        draw_3d_graph.add_node_edge(LabelsPbr::ShadowPass, Labels3d::StartMainPass);
+        let draw_3d_graph = graph.get_sub_graph_mut(Core3d).unwrap();
+        draw_3d_graph.add_node(NodePbr::ShadowPass, shadow_pass_node);
+        draw_3d_graph.add_node_edge(NodePbr::ShadowPass, Node3d::StartMainPass);
 
         render_app.ignore_ambiguity(
             bevy_render::Render,

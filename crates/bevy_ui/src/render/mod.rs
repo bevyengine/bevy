@@ -2,20 +2,17 @@ mod pipeline;
 mod render_pass;
 mod ui_material_pipeline;
 
-use bevy_core_pipeline::core_2d::graph::{Labels2d, SubGraph2d};
-use bevy_core_pipeline::core_3d::graph::{Labels3d, SubGraph3d};
+use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
+use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_hierarchy::Parent;
-use bevy_render::{
-    render_phase::PhaseItem, render_resource::BindGroupEntries, view::ViewVisibility,
-    ExtractSchedule, Render,
-};
+use bevy_render::{render_phase::PhaseItem, view::ViewVisibility, ExtractSchedule, Render};
 use bevy_sprite::{SpriteAssetEvents, TextureAtlas};
 pub use pipeline::*;
 pub use render_pass::*;
 pub use ui_material_pipeline::*;
 
-use crate::graph::{LabelsUi, SubGraphUi};
+use crate::graph::{NodeUi, SubGraphUi};
 use crate::{
     texture_slice::ComputedTextureSlices, BackgroundColor, BorderColor, CalculatedClip,
     ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiImage, UiScale, Val,
@@ -28,7 +25,7 @@ use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, Rect, URect, UVec4, Vec2, Vec3, Vec4Swizzles};
 use bevy_render::{
     camera::Camera,
-    color::Color,
+    color::LegacyColor,
     render_asset::RenderAssets,
     render_graph::{RenderGraph, RunGraphOnViewNode},
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions, RenderPhase},
@@ -53,7 +50,7 @@ pub mod graph {
     pub struct SubGraphUi;
 
     #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
-    pub enum LabelsUi {
+    pub enum NodeUi {
         UiPass,
     }
 }
@@ -106,34 +103,34 @@ pub fn build_ui_render(app: &mut App) {
     let ui_graph_3d = get_ui_graph(render_app);
     let mut graph = render_app.world.resource_mut::<RenderGraph>();
 
-    if let Some(graph_2d) = graph.get_sub_graph_mut(SubGraph2d) {
+    if let Some(graph_2d) = graph.get_sub_graph_mut(Core2d) {
         graph_2d.add_sub_graph(SubGraphUi, ui_graph_2d);
-        graph_2d.add_node(LabelsUi::UiPass, RunGraphOnViewNode::new(SubGraphUi));
-        graph_2d.add_node_edge(Labels2d::MainPass, LabelsUi::UiPass);
-        graph_2d.add_node_edge(Labels2d::EndMainPassPostProcessing, LabelsUi::UiPass);
-        graph_2d.add_node_edge(LabelsUi::UiPass, Labels2d::Upscaling);
+        graph_2d.add_node(NodeUi::UiPass, RunGraphOnViewNode::new(SubGraphUi));
+        graph_2d.add_node_edge(Node2d::MainPass, NodeUi::UiPass);
+        graph_2d.add_node_edge(Node2d::EndMainPassPostProcessing, NodeUi::UiPass);
+        graph_2d.add_node_edge(NodeUi::UiPass, Node2d::Upscaling);
     }
 
-    if let Some(graph_3d) = graph.get_sub_graph_mut(SubGraph3d) {
+    if let Some(graph_3d) = graph.get_sub_graph_mut(Core3d) {
         graph_3d.add_sub_graph(SubGraphUi, ui_graph_3d);
-        graph_3d.add_node(LabelsUi::UiPass, RunGraphOnViewNode::new(SubGraphUi));
-        graph_3d.add_node_edge(Labels3d::EndMainPass, LabelsUi::UiPass);
-        graph_3d.add_node_edge(Labels3d::EndMainPassPostProcessing, LabelsUi::UiPass);
-        graph_3d.add_node_edge(LabelsUi::UiPass, Labels3d::Upscaling);
+        graph_3d.add_node(NodeUi::UiPass, RunGraphOnViewNode::new(SubGraphUi));
+        graph_3d.add_node_edge(Node3d::EndMainPass, NodeUi::UiPass);
+        graph_3d.add_node_edge(Node3d::EndMainPassPostProcessing, NodeUi::UiPass);
+        graph_3d.add_node_edge(NodeUi::UiPass, Node3d::Upscaling);
     }
 }
 
 fn get_ui_graph(render_app: &mut App) -> RenderGraph {
     let ui_pass_node = UiPassNode::new(&mut render_app.world);
     let mut ui_graph = RenderGraph::default();
-    ui_graph.add_node(LabelsUi::UiPass, ui_pass_node);
+    ui_graph.add_node(NodeUi::UiPass, ui_pass_node);
     ui_graph
 }
 
 pub struct ExtractedUiNode {
     pub stack_index: u32,
     pub transform: Mat4,
-    pub color: Color,
+    pub color: LegacyColor,
     pub rect: Rect,
     pub image: AssetId<Image>,
     pub atlas_size: Option<Vec2>,
@@ -439,8 +436,8 @@ pub fn extract_uinodes(
                     // Atlas not present in assets resource (should this warn the user?)
                     continue;
                 };
-                let mut atlas_rect = layout.textures[atlas.index];
-                let mut atlas_size = layout.size;
+                let mut atlas_rect = layout.textures[atlas.index].as_rect();
+                let mut atlas_size = layout.size.as_vec2();
                 let scale = uinode.size() / atlas_rect.size();
                 atlas_rect.min *= scale;
                 atlas_rect.max *= scale;
@@ -601,7 +598,7 @@ pub fn extract_text_uinodes(
         let transform = Mat4::from(global_transform.affine())
             * Mat4::from_translation(logical_top_left_nearest_pixel.extend(0.));
 
-        let mut color = Color::WHITE;
+        let mut color = LegacyColor::WHITE;
         let mut current_section = usize::MAX;
         for PositionedGlyph {
             position,
@@ -616,7 +613,7 @@ pub fn extract_text_uinodes(
             }
             let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
 
-            let mut rect = atlas.textures[atlas_info.glyph_index];
+            let mut rect = atlas.textures[atlas_info.glyph_index].as_rect();
             rect.min *= inverse_scale_factor;
             rect.max *= inverse_scale_factor;
             extracted_uinodes.uinodes.insert(
@@ -628,7 +625,7 @@ pub fn extract_text_uinodes(
                     color,
                     rect,
                     image: atlas_info.texture.id(),
-                    atlas_size: Some(atlas.size * inverse_scale_factor),
+                    atlas_size: Some(atlas.size.as_vec2() * inverse_scale_factor),
                     clip: clip.map(|clip| clip.clip),
                     flip_x: false,
                     flip_y: false,

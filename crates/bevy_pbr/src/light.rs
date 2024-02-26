@@ -8,7 +8,6 @@ use bevy_math::{
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, CameraProjection},
-    color::Color,
     extract_component::ExtractComponent,
     extract_resource::ExtractResource,
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, HalfSpace, Sphere},
@@ -69,10 +68,12 @@ pub mod light_consts {
         pub const CLEAR_SUNRISE: f32 = 400.;
         /// The amount of light (lux) on a overcast day; typical TV studio lighting
         pub const OVERCAST_DAY: f32 = 1000.;
+        /// The amount of light (lux) from ambient daylight (not direct sunlight).
+        pub const AMBIENT_DAYLIGHT: f32 = 10_000.;
         /// The amount of light (lux) in full daylight (not direct sun).
-        pub const FULL_DAYLIGHT: f32 = 10_000.;
+        pub const FULL_DAYLIGHT: f32 = 20_000.;
         /// The amount of light (lux) in direct sunlight.
-        pub const DIRECT_SUNLIGHT: f32 = 50_000.;
+        pub const DIRECT_SUNLIGHT: f32 = 100_000.;
     }
 }
 
@@ -96,7 +97,7 @@ pub mod light_consts {
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default)]
 pub struct PointLight {
-    pub color: Color,
+    pub color: LegacyColor,
     /// Luminous power in lumens, representing the amount of light emitted by this source in all directions.
     pub intensity: f32,
     pub range: f32,
@@ -112,8 +113,11 @@ pub struct PointLight {
 impl Default for PointLight {
     fn default() -> Self {
         PointLight {
-            color: Color::rgb(1.0, 1.0, 1.0),
-            intensity: 2000.0, // Roughly a 20-watt LED bulb
+            color: LegacyColor::rgb(1.0, 1.0, 1.0),
+            // 1,000,000 lumens is a very large "cinema light" capable of registering brightly at Bevy's
+            // default "very overcast day" exposure level. For "indoor lighting" with a lower exposure,
+            // this would be way too bright.
+            intensity: 1_000_000.0,
             range: 20.0,
             radius: 0.0,
             shadows_enabled: false,
@@ -147,7 +151,7 @@ impl Default for PointLightShadowMap {
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default)]
 pub struct SpotLight {
-    pub color: Color,
+    pub color: LegacyColor,
     /// Luminous power in lumens, representing the amount of light emitted by this source in all directions.
     pub intensity: f32,
     pub range: f32,
@@ -180,8 +184,11 @@ impl Default for SpotLight {
     fn default() -> Self {
         // a quarter arc attenuating from the center
         Self {
-            color: Color::rgb(1.0, 1.0, 1.0),
-            intensity: 2000.0, // Roughly a 20-watt LED bulb
+            color: LegacyColor::rgb(1.0, 1.0, 1.0),
+            // 1,000,000 lumens is a very large "cinema light" capable of registering brightly at Bevy's
+            // default "very overcast day" exposure level. For "indoor lighting" with a lower exposure,
+            // this would be way too bright.
+            intensity: 1_000_000.0,
             range: 20.0,
             radius: 0.0,
             shadows_enabled: false,
@@ -243,7 +250,7 @@ impl Default for SpotLight {
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct DirectionalLight {
-    pub color: Color,
+    pub color: LegacyColor,
     /// Illuminance in lux (lumens per square meter), representing the amount of
     /// light projected onto surfaces by this light source. Lux is used here
     /// instead of lumens because a directional light illuminates all surfaces
@@ -261,8 +268,8 @@ pub struct DirectionalLight {
 impl Default for DirectionalLight {
     fn default() -> Self {
         DirectionalLight {
-            color: Color::rgb(1.0, 1.0, 1.0),
-            illuminance: light_consts::lux::OVERCAST_DAY,
+            color: LegacyColor::rgb(1.0, 1.0, 1.0),
+            illuminance: light_consts::lux::AMBIENT_DAYLIGHT,
             shadows_enabled: false,
             shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
             shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
@@ -628,7 +635,7 @@ fn calculate_cascade(
 #[derive(Resource, Clone, Debug, ExtractResource, Reflect)]
 #[reflect(Resource)]
 pub struct AmbientLight {
-    pub color: Color,
+    pub color: LegacyColor,
     /// A direct scale factor multiplied with `color` before being passed to the shader.
     pub brightness: f32,
 }
@@ -636,14 +643,14 @@ pub struct AmbientLight {
 impl Default for AmbientLight {
     fn default() -> Self {
         Self {
-            color: Color::WHITE,
-            brightness: 20.0,
+            color: LegacyColor::WHITE,
+            brightness: 80.0,
         }
     }
 }
 impl AmbientLight {
     pub const NONE: AmbientLight = AmbientLight {
-        color: Color::WHITE,
+        color: LegacyColor::WHITE,
         brightness: 0.0,
     };
 }

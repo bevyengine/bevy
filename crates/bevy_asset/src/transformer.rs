@@ -18,7 +18,7 @@ pub trait AssetTransformer: Send + Sync + 'static {
     /// The type of [error](`std::error::Error`) which could be encountered by this transformer.
     type Error: Into<Box<dyn std::error::Error + Send + Sync + 'static>>;
 
-    /// Transformes the given [`TransformedAsset`] to [`AssetTransformer::AssetOutput`].
+    /// Transforms the given [`TransformedAsset`] to [`AssetTransformer::AssetOutput`].
     /// The [`TransformedAsset`]'s `labeled_assets` can be altered to add new Labeled Sub-Assets
     /// The passed in `settings` can influence how the `asset` is transformed
     fn transform<'a>(
@@ -58,7 +58,7 @@ impl<A: Asset> TransformedAsset<A> {
         }
         None
     }
-    /// Creates a new [`TransformedAsset`] from `asset`, transfering the `labeled_assets` from this [`TransformedAsset`] to the new one
+    /// Creates a new [`TransformedAsset`] from `asset`, transferring the `labeled_assets` from this [`TransformedAsset`] to the new one
     pub fn replace_asset<B: Asset>(self, asset: B) -> TransformedAsset<B> {
         TransformedAsset {
             value: asset,

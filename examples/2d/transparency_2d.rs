@@ -22,7 +22,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(SpriteBundle {
         sprite: Sprite {
             // Alpha channel of the color controls transparency.
-            color: Color::rgba(0.0, 0.0, 1.0, 0.7),
+            color: LegacyColor::rgba(0.0, 0.0, 1.0, 0.7),
             ..default()
         },
         texture: sprite_handle.clone(),
@@ -31,7 +31,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
     commands.spawn(SpriteBundle {
         sprite: Sprite {
-            color: Color::rgba(0.0, 1.0, 0.0, 0.3),
+            color: LegacyColor::rgba(0.0, 1.0, 0.0, 0.3),
             ..default()
         },
         texture: sprite_handle,

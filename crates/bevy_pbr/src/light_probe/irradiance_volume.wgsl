@@ -8,6 +8,8 @@
     light_probes,
 };
 
+#ifdef IRRADIANCE_VOLUMES_ARE_USABLE
+
 // See:
 // https://advances.realtimerendering.com/s2006/Mitchell-ShadingInValvesSourceEngine.pdf
 // Slide 28, "Ambient Cube Basis"
@@ -42,11 +44,13 @@ fn irradiance_volume_light(world_position: vec3<f32>, N: vec3<f32>) -> vec3<f32>
     let uvw_y = uvw + vec3(0.0f, neg_offset.y, 1.0f / 3.0f);
     let uvw_z = uvw + vec3(0.0f, neg_offset.z, 2.0f / 3.0f);
 
-    let rgb_x = textureSample(irradiance_volume_texture, irradiance_volume_sampler, uvw_x).rgb;
-    let rgb_y = textureSample(irradiance_volume_texture, irradiance_volume_sampler, uvw_y).rgb;
-    let rgb_z = textureSample(irradiance_volume_texture, irradiance_volume_sampler, uvw_z).rgb;
+    let rgb_x = textureSampleLevel(irradiance_volume_texture, irradiance_volume_sampler, uvw_x, 0.0).rgb;
+    let rgb_y = textureSampleLevel(irradiance_volume_texture, irradiance_volume_sampler, uvw_y, 0.0).rgb;
+    let rgb_z = textureSampleLevel(irradiance_volume_texture, irradiance_volume_sampler, uvw_z, 0.0).rgb;
 
     // Use Valve's formula to sample.
     let NN = N * N;
     return (rgb_x * NN.x + rgb_y * NN.y + rgb_z * NN.z) * query_result.intensity;
 }
+
+#endif  // IRRADIANCE_VOLUMES_ARE_USABLE

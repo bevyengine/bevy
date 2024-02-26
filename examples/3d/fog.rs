@@ -17,7 +17,6 @@
 use bevy::{
     pbr::{NotShadowCaster, NotShadowReceiver},
     prelude::*,
-    render::camera::ExposureSettings,
 };
 
 fn main() {
@@ -36,16 +35,13 @@ fn setup_camera_fog(mut commands: Commands) {
     commands.spawn((
         Camera3dBundle::default(),
         FogSettings {
-            color: Color::rgba(0.25, 0.25, 0.25, 1.0),
+            color: LegacyColor::rgba(0.25, 0.25, 0.25, 1.0),
             falloff: FogFalloff::Linear {
                 start: 5.0,
                 end: 20.0,
             },
             ..default()
         },
-        // This is a dark scene,
-        // increasing the exposure makes it easier to see
-        ExposureSettings { ev100: 4.0 },
     ));
 }
 
@@ -55,7 +51,7 @@ fn setup_pyramid_scene(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let stone = materials.add(StandardMaterial {
-        base_color: Color::hex("28221B").unwrap(),
+        base_color: LegacyColor::hex("28221B").unwrap(),
         perceptual_roughness: 1.0,
         ..default()
     });
@@ -75,7 +71,7 @@ fn setup_pyramid_scene(
         PbrBundle {
             mesh: meshes.add(Sphere::default()),
             material: materials.add(StandardMaterial {
-                base_color: Color::hex("126212CC").unwrap(),
+                base_color: LegacyColor::hex("126212CC").unwrap(),
                 reflectance: 1.0,
                 perceptual_roughness: 0.0,
                 metallic: 0.5,
@@ -106,7 +102,7 @@ fn setup_pyramid_scene(
     commands.spawn(PbrBundle {
         mesh: meshes.add(Cuboid::new(2.0, 1.0, 1.0)),
         material: materials.add(StandardMaterial {
-            base_color: Color::hex("888888").unwrap(),
+            base_color: LegacyColor::hex("888888").unwrap(),
             unlit: true,
             cull_mode: None,
             ..default()
@@ -119,7 +115,6 @@ fn setup_pyramid_scene(
     commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(0.0, 1.0, 0.0),
         point_light: PointLight {
-            intensity: 4_000.,
             shadows_enabled: true,
             ..default()
         },

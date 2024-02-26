@@ -7,7 +7,7 @@
 
 use bevy::{
     core_pipeline::{
-        core_3d::graph::{Labels3d, SubGraph3d},
+        core_3d::graph::{Core3d, Node3d},
         fullscreen_vertex_shader::fullscreen_shader_vertex_state,
     },
     ecs::query::QueryItem,
@@ -78,18 +78,18 @@ impl Plugin for PostProcessPlugin {
             // matching the [`ViewQuery`]
             .add_render_graph_node::<ViewNodeRunner<PostProcessNode>>(
                 // Specify the label of the graph, in this case we want the graph for 3d
-                SubGraph3d,
+                Core3d,
                 // It also needs the label of the node
                 PostProcessLabel,
             )
             .add_render_graph_edges(
-                SubGraph3d,
+                Core3d,
                 // Specify the node ordering.
                 // This will automatically create all required node edges to enforce the given ordering.
                 (
-                    Labels3d::Tonemapping,
+                    Node3d::Tonemapping,
                     PostProcessLabel,
-                    Labels3d::EndMainPassPostProcessing,
+                    Node3d::EndMainPassPostProcessing,
                 ),
             );
     }
@@ -309,7 +309,7 @@ fn setup(
             transform: Transform::from_translation(Vec3::new(0.0, 0.0, 5.0))
                 .looking_at(Vec3::default(), Vec3::Y),
             camera: Camera {
-                clear_color: Color::WHITE.into(),
+                clear_color: LegacyColor::WHITE.into(),
                 ..default()
             },
             ..default()
@@ -326,14 +326,20 @@ fn setup(
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Cuboid::default()),
-            material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
+            material: materials.add(LegacyColor::rgb(0.8, 0.7, 0.6)),
             transform: Transform::from_xyz(0.0, 0.5, 0.0),
             ..default()
         },
         Rotates,
     ));
     // light
-    commands.spawn(DirectionalLightBundle::default());
+    commands.spawn(DirectionalLightBundle {
+        directional_light: DirectionalLight {
+            illuminance: 1_000.,
+            ..default()
+        },
+        ..default()
+    });
 }
 
 #[derive(Component)]

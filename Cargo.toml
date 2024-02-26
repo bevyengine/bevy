@@ -1,6 +1,6 @@
 [package]
 name = "bevy"
-version = "0.12.0"
+version = "0.14.0-dev"
 edition = "2021"
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
@@ -38,7 +38,6 @@ undocumented_unsafe_blocks = "warn"
 redundant_else = "warn"
 match_same_arms = "warn"
 semicolon_if_nothing_returned = "warn"
-map_flatten = "warn"
 
 ptr_as_ptr = "warn"
 ptr_cast_constness = "warn"
@@ -306,8 +305,8 @@ embedded_watcher = ["bevy_internal/embedded_watcher"]
 bevy_debug_stepping = ["bevy_internal/bevy_debug_stepping"]
 
 [dependencies]
-bevy_dylib = { path = "crates/bevy_dylib", version = "0.12.0", default-features = false, optional = true }
-bevy_internal = { path = "crates/bevy_internal", version = "0.12.0", default-features = false }
+bevy_dylib = { path = "crates/bevy_dylib", version = "0.14.0-dev", default-features = false, optional = true }
+bevy_internal = { path = "crates/bevy_internal", version = "0.14.0-dev", default-features = false }
 
 [dev-dependencies]
 rand = "0.8.0"
@@ -424,17 +423,6 @@ doc-scrape-examples = true
 [package.metadata.example.custom_gltf_vertex_attribute]
 name = "Custom glTF vertex attribute 2D"
 description = "Renders a glTF mesh in 2D with a custom vertex attribute"
-category = "2D Rendering"
-wasm = true
-
-[[example]]
-name = "2d_gizmos"
-path = "examples/2d/2d_gizmos.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.2d_gizmos]
-name = "2D Gizmos"
-description = "A scene showcasing 2D gizmos"
 category = "2D Rendering"
 wasm = true
 
@@ -611,17 +599,6 @@ name = "Anti-aliasing"
 description = "Compares different anti-aliasing methods"
 category = "3D Rendering"
 wasm = false
-
-[[example]]
-name = "3d_gizmos"
-path = "examples/3d/3d_gizmos.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.3d_gizmos]
-name = "3D Gizmos"
-description = "A scene showcasing 3D gizmos"
-category = "3D Rendering"
-wasm = true
 
 [[example]]
 name = "atmospheric_fog"
@@ -2653,6 +2630,29 @@ doc-scrape-examples = true
 name = "Rendering Primitives"
 description = "Shows off rendering for all math primitives as both Meshes and Gizmos"
 category = "Math"
+wasm = true
+
+# Gizmos
+[[example]]
+name = "2d_gizmos"
+path = "examples/gizmos/2d_gizmos.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.2d_gizmos]
+name = "2D Gizmos"
+description = "A scene showcasing 2D gizmos"
+category = "Gizmos"
+wasm = true
+
+[[example]]
+name = "3d_gizmos"
+path = "examples/gizmos/3d_gizmos.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.3d_gizmos]
+name = "3D Gizmos"
+description = "A scene showcasing 3D gizmos"
+category = "Gizmos"
 wasm = true
 
 [profile.wasm-release]
