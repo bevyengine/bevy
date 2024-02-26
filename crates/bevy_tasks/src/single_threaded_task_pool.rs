@@ -168,11 +168,11 @@ impl TaskPool {
     }
 
     /// Spawns a static future on the JS event loop to be executed at a later point.
-    /// 
-    /// This is potentially dangerous in browsers when running long standing computations that 
+    ///
+    /// This is potentially dangerous in browsers when running long standing computations that
     /// may block, as the browser will panic if the process does not periodically yield back to
     /// the browser. Consider using [`spawn_blocking_async`] instead.
-    /// 
+    ///
     /// [`spawn_blocking_async`]: Self::spawn_blocking_async
     pub fn spawn_blocking<T>(&self, f: impl FnOnce() + 'static) -> FakeTask
     where
