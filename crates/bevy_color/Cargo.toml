@@ -16,7 +16,7 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev", features = [
 serde = "1.0"
 thiserror = "1.0"
 wgpu = { version = "0.19.1", default-features = false }
-encase = { version = "0.7", features = ["glam"] }
+encase = { version = "0.7", default-features = false }
 
 [lints]
 workspace = true
