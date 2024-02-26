@@ -31,7 +31,7 @@ pub struct AssetIndex {
 impl AssetIndex {
     /// Convert the [`AssetIndex`] into an opaque blob of bits to transport it in circumstances where carrying a strongly typed index isn't possible.
     ///
-    /// The result of this function should not be relied upon for anything expect putting it back into [`AssetIndex::from_bits`] to recover the index.
+    /// The result of this function should not be relied upon for anything except putting it back into [`AssetIndex::from_bits`] to recover the index.
     pub fn to_bits(self) -> u64 {
         let Self { generation, index } = self;
         ((generation as u64) << 32) | index as u64
