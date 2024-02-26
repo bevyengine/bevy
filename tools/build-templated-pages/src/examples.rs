@@ -110,7 +110,7 @@ pub(crate) fn check(what_to_run: Command) {
         let examples_by_category: HashMap<Box<str>, Category> = examples
             .into_iter()
             .fold(HashMap::<Box<str>, Vec<Example>>::new(), |mut v, ex| {
-                v.entry(ex.category.as_str().into()).or_default().push(ex);
+                v.entry_ref(ex.category.as_str()).or_default().push(ex);
                 v
             })
             .into_iter()
