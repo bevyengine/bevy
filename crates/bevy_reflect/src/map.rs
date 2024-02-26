@@ -1,6 +1,5 @@
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
-use std::hash::Hash;
 
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::{Entry, HashMap};
