@@ -29,7 +29,6 @@ impl TaskPoolOptions {
         TaskPoolOptions {
             min_total_threads: thread_count,
             max_total_threads: thread_count,
-            ..Default::default()
         }
     }
 
