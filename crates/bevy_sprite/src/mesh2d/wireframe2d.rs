@@ -214,6 +214,10 @@ impl Material2d for Wireframe2dMaterial {
         WIREFRAME_2D_SHADER_HANDLE.into()
     }
 
+    fn depth_bias(&self) -> f32 {
+        1.0
+    }
+
     fn specialize(
         descriptor: &mut RenderPipelineDescriptor,
         _layout: &MeshVertexBufferLayout,
@@ -221,9 +225,5 @@ impl Material2d for Wireframe2dMaterial {
     ) -> Result<(), SpecializedMeshPipelineError> {
         descriptor.primitive.polygon_mode = PolygonMode::Line;
         Ok(())
-    }
-
-    fn depth_bias(&self) -> f32 {
-        1.0
     }
 }
