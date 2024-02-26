@@ -137,14 +137,17 @@ impl TypeRegistry {
     /// To forcibly register the type, overwriting any existing registration, use the
     /// [`overwrite_registration`](Self::overwrite_registration) method instead.
     ///
-    /// Returns `true` if the registration was successfully added,
-    /// or `false` if it already exists.
-    pub fn add_registration(&mut self, registration: TypeRegistration) -> bool {
+    /// Returns `None` if the registration was successfully added,
+    /// or `Some(existing)` if it already exists.
+    pub fn add_registration(
+        &mut self,
+        registration: TypeRegistration,
+    ) -> Option<&TypeRegistration> {
         if self.contains(registration.type_id()) {
-            false
+            self.get(registration.type_id())
         } else {
             self.overwrite_registration(registration);
-            true
+            None
         }
     }
 
