@@ -1,5 +1,5 @@
 use crate::{
-    impl_bi_from_via, Alpha, Laba, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza,
+    Alpha, Laba, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza,
 };
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
@@ -176,10 +176,42 @@ impl From<Laba> for Lcha {
     }
 }
 
-impl_bi_from_via! {
-    impl From<Srgba> for Lcha via Laba {}
-    impl From<LinearRgba> for Lcha via Laba {}
-    impl From<Xyza> for Lcha via Laba {}
+// Derived Conversions
+
+impl From<Srgba> for Lcha {
+    fn from(value: Srgba) -> Self {
+        Laba::from(value).into()
+    }
+}
+
+impl From<Lcha> for Srgba {
+    fn from(value: Lcha) -> Self {
+        Laba::from(value).into()
+    }
+}
+
+impl From<LinearRgba> for Lcha {
+    fn from(value: LinearRgba) -> Self {
+        Laba::from(value).into()
+    }
+}
+
+impl From<Lcha> for LinearRgba {
+    fn from(value: Lcha) -> Self {
+        Laba::from(value).into()
+    }
+}
+
+impl From<Xyza> for Lcha {
+    fn from(value: Xyza) -> Self {
+        Laba::from(value).into()
+    }
+}
+
+impl From<Lcha> for Xyza {
+    fn from(value: Lcha) -> Self {
+        Laba::from(value).into()
+    }
 }
 
 #[cfg(test)]

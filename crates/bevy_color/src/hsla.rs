@@ -1,5 +1,5 @@
 use crate::{
-    impl_bi_from_via, Alpha, Hsva, Hwba, Lcha, LinearRgba, Luminance, Mix, Srgba, StandardColor,
+    Alpha, Hsva, Hwba, Lcha, LinearRgba, Luminance, Mix, Srgba, StandardColor,
     Xyza,
 };
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
@@ -173,12 +173,66 @@ impl From<Hsva> for Hsla {
     }
 }
 
-impl_bi_from_via! {
-    impl From<Hwba> for Hsla via Hsva {}
-    impl From<Srgba> for Hsla via Hsva {}
-    impl From<LinearRgba> for Hsla via Hsva {}
-    impl From<Lcha> for Hsla via Hsva {}
-    impl From<Xyza> for Hsla via Hsva {}
+// Derived Conversions
+
+impl From<Hwba> for Hsla {
+    fn from(value: Hwba) -> Self {
+        Hsva::from(value).into()
+    }
+}
+
+impl From<Hsla> for Hwba {
+    fn from(value: Hsla) -> Self {
+        Hsva::from(value).into()
+    }
+}
+
+impl From<Srgba> for Hsla {
+    fn from(value: Srgba) -> Self {
+        Hsva::from(value).into()
+    }
+}
+
+impl From<Hsla> for Srgba {
+    fn from(value: Hsla) -> Self {
+        Hsva::from(value).into()
+    }
+}
+
+impl From<LinearRgba> for Hsla {
+    fn from(value: LinearRgba) -> Self {
+        Hsva::from(value).into()
+    }
+}
+
+impl From<Hsla> for LinearRgba {
+    fn from(value: Hsla) -> Self {
+        Hsva::from(value).into()
+    }
+}
+
+impl From<Lcha> for Hsla {
+    fn from(value: Lcha) -> Self {
+        Hsva::from(value).into()
+    }
+}
+
+impl From<Hsla> for Lcha {
+    fn from(value: Hsla) -> Self {
+        Hsva::from(value).into()
+    }
+}
+
+impl From<Xyza> for Hsla {
+    fn from(value: Xyza) -> Self {
+        Hsva::from(value).into()
+    }
+}
+
+impl From<Hsla> for Xyza {
+    fn from(value: Hsla) -> Self {
+        Hsva::from(value).into()
+    }
 }
 
 #[cfg(test)]

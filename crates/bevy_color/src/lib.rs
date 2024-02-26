@@ -132,36 +132,3 @@ where
     Self: Alpha,
 {
 }
-
-/// Implement `From<T>` for `S` and `From<S>` for `T` via an intermediate type.
-macro_rules! impl_bi_from_via {
-    ($(impl From<$from:ident> for $to:ident via $via:ident {})*) => {
-        $(
-            impl From<$from> for $to {
-                fn from(value: $from) -> Self {
-                    $via::from(value).into()
-                }
-            }
-
-            impl From<$to> for $from {
-                fn from(value: $to) -> Self {
-                    $via::from(value).into()
-                }
-            }
-
-            impl<'a> From<&'a $from> for $to {
-                fn from(value: &'a $from) -> Self {
-                    $via::from(*value).into()
-                }
-            }
-
-            impl<'a> From<&'a $to> for $from {
-                fn from(value: &'a $to) -> Self {
-                    $via::from(*value).into()
-                }
-            }
-        )*
-    };
-}
-
-pub(crate) use impl_bi_from_via;

@@ -1,5 +1,5 @@
 use crate::{
-    color_difference::EuclideanDistance, impl_bi_from_via, Alpha, Hsla, Hsva, Hwba, Lcha,
+    color_difference::EuclideanDistance, Alpha, Hsla, Hsva, Hwba, Lcha,
     LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza,
 };
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
@@ -173,13 +173,78 @@ impl From<Oklaba> for LinearRgba {
     }
 }
 
-impl_bi_from_via! {
-    impl From<Hsla> for Oklaba via LinearRgba {}
-    impl From<Hsva> for Oklaba via LinearRgba {}
-    impl From<Hwba> for Oklaba via LinearRgba {}
-    impl From<Lcha> for Oklaba via LinearRgba {}
-    impl From<Srgba> for Oklaba via LinearRgba {}
-    impl From<Xyza> for Oklaba via LinearRgba {}
+// Derived Conversions
+
+impl From<Hsla> for Oklaba {
+    fn from(value: Hsla) -> Self {
+        LinearRgba::from(value).into()
+    }
+}
+
+impl From<Oklaba> for Hsla {
+    fn from(value: Oklaba) -> Self {
+        LinearRgba::from(value).into()
+    }
+}
+
+impl From<Hsva> for Oklaba {
+    fn from(value: Hsva) -> Self {
+        LinearRgba::from(value).into()
+    }
+}
+
+impl From<Oklaba> for Hsva {
+    fn from(value: Oklaba) -> Self {
+        LinearRgba::from(value).into()
+    }
+}
+
+impl From<Hwba> for Oklaba {
+    fn from(value: Hwba) -> Self {
+        LinearRgba::from(value).into()
+    }
+}
+
+impl From<Oklaba> for Hwba {
+    fn from(value: Oklaba) -> Self {
+        LinearRgba::from(value).into()
+    }
+}
+
+impl From<Lcha> for Oklaba {
+    fn from(value: Lcha) -> Self {
+        LinearRgba::from(value).into()
+    }
+}
+
+impl From<Oklaba> for Lcha {
+    fn from(value: Oklaba) -> Self {
+        LinearRgba::from(value).into()
+    }
+}
+
+impl From<Srgba> for Oklaba {
+    fn from(value: Srgba) -> Self {
+        LinearRgba::from(value).into()
+    }
+}
+
+impl From<Oklaba> for Srgba {
+    fn from(value: Oklaba) -> Self {
+        LinearRgba::from(value).into()
+    }
+}
+
+impl From<Xyza> for Oklaba {
+    fn from(value: Xyza) -> Self {
+        LinearRgba::from(value).into()
+    }
+}
+
+impl From<Oklaba> for Xyza {
+    fn from(value: Oklaba) -> Self {
+        LinearRgba::from(value).into()
+    }
 }
 
 #[cfg(test)]
