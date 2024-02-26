@@ -917,7 +917,10 @@ impl<'w> UnsafeWorldCell<'w> {
     ) -> Option<&'w Column> {
         // SAFETY: caller ensures returned data is not misused and we have not created any borrows
         // of component/resource data
-        unsafe { self.storages() }.tables[location.table_id].get_column(component_id)
+        unsafe { self.storages() }
+            .tables
+            .get(location.table_id)?
+            .get_column(component_id)
     }
 
     #[inline]

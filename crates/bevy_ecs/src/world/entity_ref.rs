@@ -1101,7 +1101,12 @@ impl<'w> EntityWorldMut<'w> {
             }
             // SAFETY: table rows stored in archetypes always exist
             moved_entity = unsafe {
-                world.storages.tables[archetype.table_id()].swap_remove_unchecked(table_row)
+                world
+                    .storages
+                    .tables
+                    .get_mut(archetype.table_id())
+                    .debug_checked_unwrap()
+                    .swap_remove_unchecked(table_row)
             };
         };
 
@@ -2245,7 +2250,10 @@ pub(crate) unsafe fn take_component<'a>(
     removed_components.send(component_id, entity);
     match component_info.storage_type() {
         StorageType::Table => {
-            let table = &mut storages.tables[location.table_id];
+            let table = storages
+                .tables
+                .get_mut(location.table_id)
+                .debug_checked_unwrap();
             let components = table.get_column_mut(component_id).unwrap();
             // SAFETY:
             // - archetypes only store valid table_rows

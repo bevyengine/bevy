@@ -770,7 +770,13 @@ impl World {
     unsafe fn spawn_at_empty_internal(&mut self, entity: Entity) -> EntityWorldMut {
         let archetype = self.archetypes.empty_mut();
         // PERF: consider avoiding allocating entities in the empty archetype unless needed
-        let table_row = self.storages.tables[archetype.table_id()].allocate(entity);
+        let table = unsafe {
+            self.storages
+                .tables
+                .get_mut(archetype.table_id())
+                .debug_checked_unwrap()
+        };
+        let table_row = table.allocate(entity);
         // SAFETY: no components are allocated by archetype.allocate() because the archetype is
         // empty
         let location = unsafe { archetype.allocate(entity, table_row) };
@@ -1826,7 +1832,7 @@ impl World {
     /// such as inserting a [`Component`].
     pub(crate) fn flush(&mut self) {
         let empty_archetype = self.archetypes.empty_mut();
-        let table = &mut self.storages.tables[empty_archetype.table_id()];
+        let table = self.storages.tables.empty_mut();
         // PERF: consider pre-allocating space for flushed entities
         // SAFETY: entity is set to a valid location
         unsafe {

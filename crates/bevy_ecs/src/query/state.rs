@@ -1136,7 +1136,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 // SAFETY: We only access table data that has been registered in `self.archetype_component_access`.
                 let tables = unsafe { &world.storages().tables };
                 for table_id in &self.matched_table_ids {
-                    let table = &tables[*table_id];
+                    let table = tables.get(*table_id).debug_checked_unwrap();
                     if table.is_empty() {
                         continue;
                     }

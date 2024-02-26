@@ -7,10 +7,7 @@ use crate::{
 use bevy_ptr::{OwningPtr, Ptr, PtrMut, UnsafeCellDeref};
 use bevy_utils::HashMap;
 use std::alloc::Layout;
-use std::{
-    cell::UnsafeCell,
-    ops::{Index, IndexMut},
-};
+use std::cell::UnsafeCell;
 
 /// An opaque unique ID for a [`Table`] within a [`World`].
 ///
@@ -835,6 +832,28 @@ impl Tables {
         self.tables.get(id.as_usize())
     }
 
+    /// Fetches a mutable reference to a  [`Table`] by its [`TableId`].
+    ///
+    /// Returns `None` if `id` is invalid.
+    #[inline]
+    pub(crate) fn get_mut(&mut self, id: TableId) -> Option<&mut Table> {
+        self.tables.get_mut(id.as_usize())
+    }
+
+    /// Fetches the a reference to the [`Table`] for empty entities.
+    #[inline]
+    pub fn empty(&self) -> &Table {
+        // SAFETY: The empty table is always valid.
+        unsafe { self.tables.get_unchecked(TableId::empty().as_usize()) }
+    }
+
+    /// Fetches a mutable reference to the [`Table`] for empty entities.
+    #[inline]
+    pub(crate) fn empty_mut(&mut self) -> &mut Table {
+        // SAFETY: The empty table is always valid.
+        unsafe { self.tables.get_unchecked_mut(TableId::empty().as_usize()) }
+    }
+
     /// Fetches mutable references to two different [`Table`]s.
     ///
     /// # Panics
@@ -897,22 +916,6 @@ impl Tables {
         for table in &mut self.tables {
             table.check_change_ticks(change_tick);
         }
-    }
-}
-
-impl Index<TableId> for Tables {
-    type Output = Table;
-
-    #[inline]
-    fn index(&self, index: TableId) -> &Self::Output {
-        &self.tables[index.as_usize()]
-    }
-}
-
-impl IndexMut<TableId> for Tables {
-    #[inline]
-    fn index_mut(&mut self, index: TableId) -> &mut Self::Output {
-        &mut self.tables[index.as_usize()]
     }
 }
 

@@ -152,6 +152,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
 
     #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
     fn get_batch_size(&self, thread_count: usize) -> usize {
+        use crate::query::DebugCheckedUnwrap;
+
         if self.batching_strategy.batch_size_limits.is_empty() {
             return self.batching_strategy.batch_size_limits.start;
         }
@@ -166,7 +168,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
             self.state
                 .matched_table_ids
                 .iter()
-                .map(|id| tables[*id].entity_count())
+                .map(|id| unsafe { tables.get(*id).debug_checked_unwrap() }.entity_count())
                 .max()
                 .unwrap_or(0)
         } else {

@@ -748,7 +748,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
     fn max_remaining(&self, tables: &'w Tables, archetypes: &'w Archetypes) -> usize {
         let remaining_matched: usize = if Self::IS_DENSE {
             let ids = self.table_id_iter.clone();
-            ids.map(|id| tables[*id].entity_count()).sum()
+            ids.map(|id| unsafe { tables.get(*id).debug_checked_unwrap().entity_count() })
+                .sum()
         } else {
             let ids = self.archetype_id_iter.clone();
             ids.map(|id| archetypes[*id].len()).sum()

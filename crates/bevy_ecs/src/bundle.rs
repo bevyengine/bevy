@@ -366,7 +366,7 @@ impl BundleInfo {
                 archetype,
                 entities,
                 sparse_sets: &mut storages.sparse_sets,
-                table: &mut storages.tables[table_id],
+                table: unsafe { storages.tables.get_mut(table_id).debug_checked_unwrap() },
                 archetypes_ptr,
                 change_tick,
                 result: InsertBundleResult::SameArchetype,
@@ -381,7 +381,7 @@ impl BundleInfo {
                     archetypes_ptr,
                     entities,
                     sparse_sets: &mut storages.sparse_sets,
-                    table: &mut storages.tables[table_id],
+                    table: unsafe { storages.tables.get_mut(table_id).debug_checked_unwrap() },
                     change_tick,
                     result: InsertBundleResult::NewArchetypeSameTable { new_archetype },
                 }
@@ -417,7 +417,13 @@ impl BundleInfo {
         let new_archetype_id =
             self.add_bundle_to_archetype(archetypes, storages, components, ArchetypeId::EMPTY);
         let archetype = &mut archetypes[new_archetype_id];
-        let table = &mut storages.tables[archetype.table_id()];
+        // SAFETY: The table associated with an archetype must be valid.
+        let table = unsafe {
+            storages
+                .tables
+                .get_mut(archetype.table_id())
+                .debug_checked_unwrap()
+        };
         BundleSpawner {
             archetype,
             bundle_info: self,
