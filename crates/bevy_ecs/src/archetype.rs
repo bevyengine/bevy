@@ -293,7 +293,7 @@ pub(crate) struct ArchetypeSwapRemoveResult {
 /// Internal metadata for a [`Component`] within a given [`Archetype`].
 ///
 /// [`Component`]: crate::component::Component
-struct ArchetypeComponentInfo {
+pub struct ArchetypeComponentInfo {
     storage_type: StorageType,
     archetype_component_id: ArchetypeComponentId,
 }
@@ -609,7 +609,7 @@ pub struct Archetypes {
     pub(crate) archetypes: Vec<Archetype>,
     archetype_component_count: usize,
     by_components: bevy_utils::HashMap<ArchetypeComponents, ArchetypeId>,
-    component_to_archetypes:
+    pub component_to_archetypes:
         bevy_utils::HashMap<ComponentId, bevy_utils::HashMap<ArchetypeId, ArchetypeComponentInfo>>,
 }
 
