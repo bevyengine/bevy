@@ -404,6 +404,12 @@ impl Archetype {
         self.components.indices()
     }
 
+    /// Returns the total number of components in the archetype
+    #[inline]
+    pub fn component_count(&self) -> usize {
+        self.components.len()
+    }
+
     /// Fetches a immutable reference to the archetype's [`Edges`], a cache of
     /// archetypal relationships.
     #[inline]
