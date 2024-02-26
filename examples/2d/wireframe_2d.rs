@@ -56,7 +56,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    // Red cube: Never renders a wireframe
+    // Triangle: Never renders a wireframe
     commands.spawn((
         MaterialMesh2dBundle {
             mesh: meshes
@@ -66,24 +66,24 @@ fn setup(
                     Vec2::new(50.0, -50.0),
                 ))
                 .into(),
-            material: materials.add(LegacyColor::RED),
+            material: materials.add(LegacyColor::BLACK),
             transform: Transform::from_xyz(-150.0, 0.0, 0.0),
             ..default()
         },
         NoWireframe2d,
     ));
-    // Orange cube: Follows global wireframe setting
+    // Rectangle: Follows global wireframe setting
     commands.spawn(MaterialMesh2dBundle {
         mesh: meshes.add(Rectangle::new(100.0, 100.0)).into(),
-        material: materials.add(LegacyColor::ORANGE),
+        material: materials.add(LegacyColor::BLACK),
         transform: Transform::from_xyz(0.0, 0.0, 0.0),
         ..default()
     });
-    // Green cube: Always renders a wireframe
+    // Circle: Always renders a wireframe
     commands.spawn((
         MaterialMesh2dBundle {
             mesh: meshes.add(Circle::new(50.0)).into(),
-            material: materials.add(LegacyColor::GREEN),
+            material: materials.add(LegacyColor::BLACK),
             transform: Transform::from_xyz(150.0, 0.0, 0.0),
             ..default()
         },
@@ -122,7 +122,7 @@ Controls
 ---------------
 Z - Toggle global
 X - Change global color
-C - Change color of the green circle wireframe
+C - Change color of the circle wireframe
 
 Wireframe2dConfig
 -------------
