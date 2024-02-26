@@ -1,4 +1,4 @@
-use crate::{Alpha, Hsla, LinearRgba, Luminance, Mix, Oklaba, Srgba, StandardColor};
+use crate::{Alpha, LinearRgba, Luminance, Mix, StandardColor};
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
 
@@ -159,42 +159,6 @@ impl From<Xyza> for LinearRgba {
         let b = x * 0.0556434 + y * -0.2040259 + z * 1.0572252;
 
         LinearRgba::new(r, g, b, alpha)
-    }
-}
-
-impl From<Srgba> for Xyza {
-    fn from(value: Srgba) -> Self {
-        LinearRgba::from(value).into()
-    }
-}
-
-impl From<Xyza> for Srgba {
-    fn from(value: Xyza) -> Self {
-        LinearRgba::from(value).into()
-    }
-}
-
-impl From<Hsla> for Xyza {
-    fn from(value: Hsla) -> Self {
-        LinearRgba::from(value).into()
-    }
-}
-
-impl From<Xyza> for Hsla {
-    fn from(value: Xyza) -> Self {
-        LinearRgba::from(value).into()
-    }
-}
-
-impl From<Oklaba> for Xyza {
-    fn from(value: Oklaba) -> Self {
-        LinearRgba::from(value).into()
-    }
-}
-
-impl From<Xyza> for Oklaba {
-    fn from(value: Xyza) -> Self {
-        LinearRgba::from(value).into()
     }
 }
 

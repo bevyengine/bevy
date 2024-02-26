@@ -1,7 +1,4 @@
-use crate::{
-    color_difference::EuclideanDistance, oklaba::Oklaba, Alpha, Hsla, Luminance, Mix, Srgba,
-    StandardColor,
-};
+use crate::{color_difference::EuclideanDistance, Alpha, Luminance, Mix, StandardColor};
 use bevy_math::Vec4;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bytemuck::{Pod, Zeroable};
@@ -216,40 +213,6 @@ impl From<LinearRgba> for Vec4 {
     }
 }
 
-#[allow(clippy::excessive_precision)]
-impl From<Oklaba> for LinearRgba {
-    fn from(value: Oklaba) -> Self {
-        let Oklaba { l, a, b, alpha } = value;
-
-        // From https://github.com/Ogeon/palette/blob/e75eab2fb21af579353f51f6229a510d0d50a311/palette/src/oklab.rs#L312-L332
-        let l_ = l + 0.3963377774 * a + 0.2158037573 * b;
-        let m_ = l - 0.1055613458 * a - 0.0638541728 * b;
-        let s_ = l - 0.0894841775 * a - 1.2914855480 * b;
-
-        let l = l_ * l_ * l_;
-        let m = m_ * m_ * m_;
-        let s = s_ * s_ * s_;
-
-        let red = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
-        let green = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
-        let blue = -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s;
-
-        Self {
-            red,
-            green,
-            blue,
-            alpha,
-        }
-    }
-}
-
-impl From<Hsla> for LinearRgba {
-    #[inline]
-    fn from(value: Hsla) -> Self {
-        LinearRgba::from(Srgba::from(value))
-    }
-}
-
 impl From<LinearRgba> for wgpu::Color {
     fn from(color: LinearRgba) -> Self {
         wgpu::Color {
@@ -257,6 +220,75 @@ impl From<LinearRgba> for wgpu::Color {
             g: color.green as f64,
             b: color.blue as f64,
             a: color.alpha as f64,
+        }
+    }
+}
+
+// [`LinearRgba`] is intended to be used with shaders
+// So it's the only color type that implements [`ShaderType`] to make it easier to use inside shaders
+impl encase::ShaderType for LinearRgba {
+    type ExtraMetadata = ();
+
+    const METADATA: encase::private::Metadata<Self::ExtraMetadata> = {
+        let size =
+            encase::private::SizeValue::from(<f32 as encase::private::ShaderSize>::SHADER_SIZE)
+                .mul(4);
+        let alignment = encase::private::AlignmentValue::from_next_power_of_two_size(size);
+
+        encase::private::Metadata {
+            alignment,
+            has_uniform_min_alignment: false,
+            min_size: size,
+            extra: (),
+        }
+    };
+
+    const UNIFORM_COMPAT_ASSERT: fn() = || {};
+}
+
+impl encase::private::WriteInto for LinearRgba {
+    fn write_into<B: encase::private::BufferMut>(&self, writer: &mut encase::private::Writer<B>) {
+        for el in &[self.red, self.green, self.blue, self.alpha] {
+            encase::private::WriteInto::write_into(el, writer);
+        }
+    }
+}
+
+impl encase::private::ReadFrom for LinearRgba {
+    fn read_from<B: encase::private::BufferRef>(
+        &mut self,
+        reader: &mut encase::private::Reader<B>,
+    ) {
+        let mut buffer = [0.0f32; 4];
+        for el in &mut buffer {
+            encase::private::ReadFrom::read_from(el, reader);
+        }
+
+        *self = LinearRgba {
+            red: buffer[0],
+            green: buffer[1],
+            blue: buffer[2],
+            alpha: buffer[3],
+        }
+    }
+}
+
+impl encase::private::CreateFrom for LinearRgba {
+    fn create_from<B>(reader: &mut encase::private::Reader<B>) -> Self
+    where
+        B: encase::private::BufferRef,
+    {
+        // These are intentionally not inlined in the constructor to make this
+        // resilient to internal Color refactors / implicit type changes.
+        let red: f32 = encase::private::CreateFrom::create_from(reader);
+        let green: f32 = encase::private::CreateFrom::create_from(reader);
+        let blue: f32 = encase::private::CreateFrom::create_from(reader);
+        let alpha: f32 = encase::private::CreateFrom::create_from(reader);
+        LinearRgba {
+            red,
+            green,
+            blue,
+            alpha,
         }
     }
 }
@@ -287,6 +319,8 @@ unsafe impl Zeroable for LinearRgba {
 /// SAFETY: [`LinearRgba`] is `repr(C)`
 /// SAFETY: [`LinearRgba`] does not permit interior mutability.
 unsafe impl Pod for LinearRgba {}
+
+impl encase::ShaderSize for LinearRgba {}
 
 #[cfg(test)]
 mod tests {
