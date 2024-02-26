@@ -1,4 +1,6 @@
-use bevy_color::{Color, HexColorError, Hsla, Hsva, Hwba, Laba, Lcha, LinearRgba, Oklaba, Srgba, Xyza};
+use bevy_color::{
+    Color, HexColorError, Hsla, Hsva, Hwba, Laba, Lcha, LinearRgba, Oklaba, Srgba, Xyza,
+};
 
 use bevy_math::{Vec3, Vec4};
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};

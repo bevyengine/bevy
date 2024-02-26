@@ -1,7 +1,4 @@
-use crate::{
-    color_difference::EuclideanDistance, Alpha, Luminance, Mix,
-    StandardColor,
-};
+use crate::{color_difference::EuclideanDistance, Alpha, Luminance, Mix, StandardColor};
 use bevy_math::Vec4;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};

@@ -1,4 +1,6 @@
-use crate::{impl_bi_from_via, Alpha, Laba, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza};
+use crate::{
+    impl_bi_from_via, Alpha, Laba, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza,
+};
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
 
@@ -147,7 +149,14 @@ impl From<Lcha> for Laba {
 }
 
 impl From<Laba> for Lcha {
-    fn from(Laba { lightness, a, b, alpha }: Laba) -> Self {
+    fn from(
+        Laba {
+            lightness,
+            a,
+            b,
+            alpha,
+        }: Laba,
+    ) -> Self {
         // Based on http://www.brucelindbloom.com/index.html?Eqn_Lab_to_LCH.html
         let c = (a.powf(2.0) + b.powf(2.0)).sqrt();
         let h = {

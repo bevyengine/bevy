@@ -130,4 +130,3 @@ mod macros {
 
     pub(crate) use define_color;
 }
-
