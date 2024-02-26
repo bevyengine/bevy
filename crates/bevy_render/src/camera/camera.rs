@@ -975,7 +975,8 @@ pub fn sort_cameras(
 /// Do not use with [`OrthographicProjection`].
 ///
 /// [`OrthographicProjection`]: crate::camera::OrthographicProjection
-#[derive(Component, Clone, Default)]
+#[derive(Component, Clone, Default, Reflect)]
+#[reflect(Default, Component)]
 pub struct TemporalJitter {
     /// Offset is in range [-0.5, 0.5].
     pub offset: Vec2,
@@ -1001,5 +1002,6 @@ impl TemporalJitter {
 /// Camera component specifying a mip bias to apply when sampling from material textures.
 ///
 /// Often used in conjunction with antialiasing post-process effects to reduce textures blurriness.
-#[derive(Component)]
+#[derive(Default, Component, Reflect)]
+#[reflect(Default, Component)]
 pub struct MipBias(pub f32);
