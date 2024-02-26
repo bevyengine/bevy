@@ -243,7 +243,7 @@ pub fn extract_uinode_images(
         if let Some(slices) = slices {
             extracted_uinodes.uinodes.extend(
                 slices
-                    .extract_ui_nodes(transform, uinode, image.color, image, clip, camera_entity)
+                    .extract_ui_nodes(transform, uinode, image, clip, camera_entity)
                     .map(|e| (commands.spawn_empty().id(), e)),
             );
             continue;
