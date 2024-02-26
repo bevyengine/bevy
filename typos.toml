@@ -18,11 +18,14 @@ Sur = "Sur" # macOS Big Sur - South
 [default.extend-words]
 LOD = "LOD" # Level of detail
 toi = "toi" # Time of impact
-Ot = "Ot"   # Ot - Offset Tangent
 
 [default]
 extend-ignore-identifiers-re = [
   "iFO",        # iFO - Index of First Original Face
   "NDK",        # NDK - Native  Development Kit
   "inventario", # Inventory in Portuguese
+  # Used in bevy_mikktspace
+  "vOt",
+  "vOt2",
+  "fLenOt",
 ]
