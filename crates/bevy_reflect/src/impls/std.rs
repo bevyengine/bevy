@@ -617,6 +617,7 @@ impl_type_path!(::std::collections::HashMap<K, V, S>);
 
 impl_reflect_for_hashmap!(bevy_utils::hashbrown::HashMap<K, V, S>);
 impl_type_path!(::bevy_utils::hashbrown::hash_map::DefaultHashBuilder);
+impl_type_path!(::bevy_utils::NoOpHash);
 impl_type_path!(::bevy_utils::hashbrown::HashMap<K, V, S>);
 
 impl<T: Reflect + TypePath, const N: usize> Array for [T; N] {

@@ -43,7 +43,7 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
                 .map(|(x, y)| InstanceData {
                     position: Vec3::new(x * 10.0 - 5.0, y * 10.0 - 5.0, 0.0),
                     scale: 1.0,
-                    color: Color::hsla(x * 360., y, 0.5, 1.0).as_rgba_f32(),
+                    color: LegacyColor::hsla(x * 360., y, 0.5, 1.0).as_rgba_f32(),
                 })
                 .collect(),
         ),

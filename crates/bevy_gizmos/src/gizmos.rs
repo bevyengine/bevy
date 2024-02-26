@@ -9,7 +9,7 @@ use bevy_ecs::{
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use bevy_math::{primitives::Direction3d, Mat2, Quat, Vec2, Vec3};
-use bevy_render::color::Color;
+use bevy_render::color::LegacyColor;
 use bevy_transform::TransformPoint;
 
 use crate::{
@@ -131,12 +131,12 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.line(Vec3::ZERO, Vec3::X, Color::GREEN);
+    ///     gizmos.line(Vec3::ZERO, Vec3::X, LegacyColor::GREEN);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn line(&mut self, start: Vec3, end: Vec3, color: Color) {
+    pub fn line(&mut self, start: Vec3, end: Vec3, color: LegacyColor) {
         if !self.enabled {
             return;
         }
@@ -154,12 +154,18 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.line_gradient(Vec3::ZERO, Vec3::X, Color::GREEN, Color::RED);
+    ///     gizmos.line_gradient(Vec3::ZERO, Vec3::X, LegacyColor::GREEN, LegacyColor::RED);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn line_gradient(&mut self, start: Vec3, end: Vec3, start_color: Color, end_color: Color) {
+    pub fn line_gradient(
+        &mut self,
+        start: Vec3,
+        end: Vec3,
+        start_color: LegacyColor,
+        end_color: LegacyColor,
+    ) {
         if !self.enabled {
             return;
         }
@@ -177,12 +183,12 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.ray(Vec3::Y, Vec3::X, Color::GREEN);
+    ///     gizmos.ray(Vec3::Y, Vec3::X, LegacyColor::GREEN);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn ray(&mut self, start: Vec3, vector: Vec3, color: Color) {
+    pub fn ray(&mut self, start: Vec3, vector: Vec3, color: LegacyColor) {
         if !self.enabled {
             return;
         }
@@ -199,7 +205,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.ray_gradient(Vec3::Y, Vec3::X, Color::GREEN, Color::RED);
+    ///     gizmos.ray_gradient(Vec3::Y, Vec3::X, LegacyColor::GREEN, LegacyColor::RED);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -208,8 +214,8 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         &mut self,
         start: Vec3,
         vector: Vec3,
-        start_color: Color,
-        end_color: Color,
+        start_color: LegacyColor,
+        end_color: LegacyColor,
     ) {
         if !self.enabled {
             return;
@@ -227,12 +233,12 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.linestrip([Vec3::ZERO, Vec3::X, Vec3::Y], Color::GREEN);
+    ///     gizmos.linestrip([Vec3::ZERO, Vec3::X, Vec3::Y], LegacyColor::GREEN);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn linestrip(&mut self, positions: impl IntoIterator<Item = Vec3>, color: Color) {
+    pub fn linestrip(&mut self, positions: impl IntoIterator<Item = Vec3>, color: LegacyColor) {
         if !self.enabled {
             return;
         }
@@ -255,15 +261,15 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_math::prelude::*;
     /// fn system(mut gizmos: Gizmos) {
     ///     gizmos.linestrip_gradient([
-    ///         (Vec3::ZERO, Color::GREEN),
-    ///         (Vec3::X, Color::RED),
-    ///         (Vec3::Y, Color::BLUE)
+    ///         (Vec3::ZERO, LegacyColor::GREEN),
+    ///         (Vec3::X, LegacyColor::RED),
+    ///         (Vec3::Y, LegacyColor::BLUE)
     ///     ]);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn linestrip_gradient(&mut self, points: impl IntoIterator<Item = (Vec3, Color)>) {
+    pub fn linestrip_gradient(&mut self, points: impl IntoIterator<Item = (Vec3, LegacyColor)>) {
         if !self.enabled {
             return;
         }
@@ -298,12 +304,12 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.sphere(Vec3::ZERO, Quat::IDENTITY, 1., Color::BLACK);
+    ///     gizmos.sphere(Vec3::ZERO, Quat::IDENTITY, 1., LegacyColor::BLACK);
     ///
     ///     // Each circle has 32 line-segments by default.
     ///     // You may want to increase this for larger spheres.
     ///     gizmos
-    ///         .sphere(Vec3::ZERO, Quat::IDENTITY, 5., Color::BLACK)
+    ///         .sphere(Vec3::ZERO, Quat::IDENTITY, 5., LegacyColor::BLACK)
     ///         .circle_segments(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
@@ -314,7 +320,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         position: Vec3,
         rotation: Quat,
         radius: f32,
-        color: Color,
+        color: LegacyColor,
     ) -> SphereBuilder<'_, 'w, 's, T> {
         SphereBuilder {
             gizmos: self,
@@ -336,12 +342,12 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.rect(Vec3::ZERO, Quat::IDENTITY, Vec2::ONE, Color::GREEN);
+    ///     gizmos.rect(Vec3::ZERO, Quat::IDENTITY, Vec2::ONE, LegacyColor::GREEN);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn rect(&mut self, position: Vec3, rotation: Quat, size: Vec2, color: Color) {
+    pub fn rect(&mut self, position: Vec3, rotation: Quat, size: Vec2, color: LegacyColor) {
         if !self.enabled {
             return;
         }
@@ -359,12 +365,12 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_render::prelude::*;
     /// # use bevy_transform::prelude::*;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.cuboid(Transform::IDENTITY, Color::GREEN);
+    ///     gizmos.cuboid(Transform::IDENTITY, LegacyColor::GREEN);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn cuboid(&mut self, transform: impl TransformPoint, color: Color) {
+    pub fn cuboid(&mut self, transform: impl TransformPoint, color: LegacyColor) {
         if !self.enabled {
             return;
         }
@@ -397,12 +403,12 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.line_2d(Vec2::ZERO, Vec2::X, Color::GREEN);
+    ///     gizmos.line_2d(Vec2::ZERO, Vec2::X, LegacyColor::GREEN);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn line_2d(&mut self, start: Vec2, end: Vec2, color: Color) {
+    pub fn line_2d(&mut self, start: Vec2, end: Vec2, color: LegacyColor) {
         if !self.enabled {
             return;
         }
@@ -419,7 +425,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.line_gradient_2d(Vec2::ZERO, Vec2::X, Color::GREEN, Color::RED);
+    ///     gizmos.line_gradient_2d(Vec2::ZERO, Vec2::X, LegacyColor::GREEN, LegacyColor::RED);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -428,8 +434,8 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         &mut self,
         start: Vec2,
         end: Vec2,
-        start_color: Color,
-        end_color: Color,
+        start_color: LegacyColor,
+        end_color: LegacyColor,
     ) {
         if !self.enabled {
             return;
@@ -447,12 +453,12 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.linestrip_2d([Vec2::ZERO, Vec2::X, Vec2::Y], Color::GREEN);
+    ///     gizmos.linestrip_2d([Vec2::ZERO, Vec2::X, Vec2::Y], LegacyColor::GREEN);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn linestrip_2d(&mut self, positions: impl IntoIterator<Item = Vec2>, color: Color) {
+    pub fn linestrip_2d(&mut self, positions: impl IntoIterator<Item = Vec2>, color: LegacyColor) {
         if !self.enabled {
             return;
         }
@@ -470,15 +476,18 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_math::prelude::*;
     /// fn system(mut gizmos: Gizmos) {
     ///     gizmos.linestrip_gradient_2d([
-    ///         (Vec2::ZERO, Color::GREEN),
-    ///         (Vec2::X, Color::RED),
-    ///         (Vec2::Y, Color::BLUE)
+    ///         (Vec2::ZERO, LegacyColor::GREEN),
+    ///         (Vec2::X, LegacyColor::RED),
+    ///         (Vec2::Y, LegacyColor::BLUE)
     ///     ]);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn linestrip_gradient_2d(&mut self, positions: impl IntoIterator<Item = (Vec2, Color)>) {
+    pub fn linestrip_gradient_2d(
+        &mut self,
+        positions: impl IntoIterator<Item = (Vec2, LegacyColor)>,
+    ) {
         if !self.enabled {
             return;
         }
@@ -499,12 +508,12 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.ray_2d(Vec2::Y, Vec2::X, Color::GREEN);
+    ///     gizmos.ray_2d(Vec2::Y, Vec2::X, LegacyColor::GREEN);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn ray_2d(&mut self, start: Vec2, vector: Vec2, color: Color) {
+    pub fn ray_2d(&mut self, start: Vec2, vector: Vec2, color: LegacyColor) {
         if !self.enabled {
             return;
         }
@@ -521,7 +530,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.line_gradient(Vec3::Y, Vec3::X, Color::GREEN, Color::RED);
+    ///     gizmos.line_gradient(Vec3::Y, Vec3::X, LegacyColor::GREEN, LegacyColor::RED);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -530,8 +539,8 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         &mut self,
         start: Vec2,
         vector: Vec2,
-        start_color: Color,
-        end_color: Color,
+        start_color: LegacyColor,
+        end_color: LegacyColor,
     ) {
         if !self.enabled {
             return;
@@ -549,12 +558,12 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.rect_2d(Vec2::ZERO, 0., Vec2::ONE, Color::GREEN);
+    ///     gizmos.rect_2d(Vec2::ZERO, 0., Vec2::ONE, LegacyColor::GREEN);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn rect_2d(&mut self, position: Vec2, rotation: f32, size: Vec2, color: Color) {
+    pub fn rect_2d(&mut self, position: Vec2, rotation: f32, size: Vec2, color: LegacyColor) {
         if !self.enabled {
             return;
         }
@@ -571,14 +580,14 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     }
 
     #[inline]
-    fn extend_list_colors(&mut self, colors: impl IntoIterator<Item = Color>) {
+    fn extend_list_colors(&mut self, colors: impl IntoIterator<Item = LegacyColor>) {
         self.buffer
             .list_colors
             .extend(colors.into_iter().map(|color| color.as_linear_rgba_f32()));
     }
 
     #[inline]
-    fn add_list_color(&mut self, color: Color, count: usize) {
+    fn add_list_color(&mut self, color: LegacyColor, count: usize) {
         self.buffer
             .list_colors
             .extend(iter::repeat(color.as_linear_rgba_f32()).take(count));
@@ -601,7 +610,7 @@ pub struct SphereBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     position: Vec3,
     rotation: Quat,
     radius: f32,
-    color: Color,
+    color: LegacyColor,
     circle_segments: usize,
 }
 
