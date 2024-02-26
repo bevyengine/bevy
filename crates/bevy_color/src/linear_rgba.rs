@@ -23,6 +23,30 @@ pub struct LinearRgba {
 impl StandardColor for LinearRgba {}
 
 impl LinearRgba {
+    /// A fully black color with full alpha.
+    pub const BLACK: Self = Self {
+        red: 0.0,
+        green: 0.0,
+        blue: 0.0,
+        alpha: 1.0,
+    };
+
+    /// A fully white color with full alpha.
+    pub const WHITE: Self = Self {
+        red: 1.0,
+        green: 1.0,
+        blue: 1.0,
+        alpha: 1.0,
+    };
+
+    /// A fully transparent color.
+    pub const NONE: Self = Self {
+        red: 0.0,
+        green: 0.0,
+        blue: 0.0,
+        alpha: 0.0,
+    };
+
     /// Construct a new [`LinearRgba`] color from components.
     pub const fn new(red: f32, green: f32, blue: f32, alpha: f32) -> Self {
         Self {
@@ -45,6 +69,18 @@ impl LinearRgba {
             red,
             green,
             blue,
+            alpha: 1.0,
+        }
+    }
+
+    /// Construct a new [`LinearRgba`] color with the same value for all channels and an alpha of 1.0.
+    ///
+    /// A value of 0.0 is black, and a value of 1.0 is white.
+    pub const fn gray(value: f32) -> Self {
+        Self {
+            red: value,
+            green: value,
+            blue: value,
             alpha: 1.0,
         }
     }
@@ -81,12 +117,7 @@ impl LinearRgba {
 impl Default for LinearRgba {
     /// Construct a new [`LinearRgba`] color with the default values (white with full alpha).
     fn default() -> Self {
-        Self {
-            red: 1.,
-            green: 1.,
-            blue: 1.,
-            alpha: 1.,
-        }
+        Self::WHITE
     }
 }
 
@@ -202,6 +233,17 @@ impl From<Hsla> for LinearRgba {
     #[inline]
     fn from(value: Hsla) -> Self {
         LinearRgba::from(Srgba::from(value))
+    }
+}
+
+impl From<LinearRgba> for wgpu::Color {
+    fn from(color: LinearRgba) -> Self {
+        wgpu::Color {
+            r: color.red as f64,
+            g: color.green as f64,
+            b: color.blue as f64,
+            a: color.alpha as f64,
+        }
     }
 }
 
