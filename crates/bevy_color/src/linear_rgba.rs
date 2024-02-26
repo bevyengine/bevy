@@ -4,6 +4,7 @@ use crate::{
 };
 use bevy_math::Vec4;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+use bytemuck::{Pod, Zeroable};
 use serde::{Deserialize, Serialize};
 
 /// Linear RGB color with alpha.
@@ -124,21 +125,6 @@ impl LinearRgba {
             let adjustment = (target_luminance - luminance) / (1. - luminance);
             self.mix_assign(Self::new(1.0, 1.0, 1.0, self.alpha), adjustment);
         }
-    }
-
-    /// Convert a linear RGBA color into an array of 4 floats.
-    ///
-    /// This is useful for passing the color to shaders.
-    /// The order of the components is `[red, green, blue, alpha]`.
-    ///
-    /// # Example
-    /// ```
-    /// # use bevy_color::LinearRgba;
-    /// let color = LinearRgba::new(0.9, 0.5, 0.7, 1.0);
-    /// assert_eq!(color.to_array(), [0.9, 0.5, 0.7, 1.0]);
-    /// ```
-    pub fn to_array(&self) -> [f32; 4] {
-        [self.red, self.green, self.blue, self.alpha]
     }
 }
 
@@ -274,6 +260,33 @@ impl From<LinearRgba> for wgpu::Color {
         }
     }
 }
+
+/// A [`Zeroable`] type is one whose bytes can be filled with zeroes while remaining valid.
+///
+/// SAFETY: [`LinearRgba`] is inhabited
+/// SAFETY: [`LinearRgba`]'s all-zero bit pattern is a valid value
+unsafe impl Zeroable for LinearRgba {
+    fn zeroed() -> Self {
+        LinearRgba {
+            red: 0.0,
+            green: 0.0,
+            blue: 0.0,
+            alpha: 0.0,
+        }
+    }
+}
+
+/// The [`Pod`] trait is [`bytemuck`]'s marker for types that can be safely transmuted from a byte array.
+///
+/// It is intended to only be implemented for types which are "Plain Old Data".
+///
+/// SAFETY: [`LinearRgba`] is inhabited.
+/// SAFETY: [`LinearRgba`] permits any bit value.
+/// SAFETY: [`LinearRgba`] does not have padding bytes.
+/// SAFETY: all of the fields of [`LinearRgba`] are [`Pod`], as f32 is [`Pod`].
+/// SAFETY: [`LinearRgba`] is `repr(C)`
+/// SAFETY: [`LinearRgba`] does not permit interior mutability.
+unsafe impl Pod for LinearRgba {}
 
 #[cfg(test)]
 mod tests {

@@ -342,23 +342,11 @@ impl RenderAsset for LineGizmo {
             contents: position_buffer_data,
         });
 
-        // We need to convert the colors to a byte array
-        // We're starting with a Vec<LinearRgba> and we need to end up with a Vec<u8>,
-        // ideally without re-allocating the memory.
-        let color_bytes = self
-            .colors
-            .iter()
-            .flat_map(|color| {
-                let [r, g, b, a] = color.to_array();
-                vec![r as u8, g as u8, b as u8, a as u8]
-            })
-            // PERF: this allocates
-            .collect::<Vec<u8>>();
-
+        let color_buffer_data = cast_slice(&self.colors);
         let color_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             usage: BufferUsages::VERTEX,
             label: Some("LineGizmo Color Buffer"),
-            contents: &color_bytes,
+            contents: color_buffer_data,
         });
 
         Ok(GpuLineGizmo {
