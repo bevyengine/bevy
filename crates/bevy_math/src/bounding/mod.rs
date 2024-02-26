@@ -43,6 +43,9 @@ pub trait BoundingVolume {
 
     /// Decrease the size of the bounding volume in each direction by the given amount
     fn shrink(&self, amount: Self::HalfSize) -> Self;
+
+    /// Scale the size of the bounding volume around the center by the given amount
+    fn scale(&self, scale: Self::HalfSize) -> Self;
 }
 
 /// A trait that generalizes intersection tests against a volume.

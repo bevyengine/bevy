@@ -143,6 +143,16 @@ impl BoundingVolume for Aabb3d {
         debug_assert!(b.min.x <= b.max.x && b.min.y <= b.max.y && b.min.z <= b.max.z);
         b
     }
+
+    #[inline(always)]
+    fn scale(&self, scale: Self::HalfSize) -> Self {
+        let b = Self {
+            min: self.center() - (self.half_size() * scale),
+            max: self.center() + (self.half_size() * scale),
+        };
+        debug_assert!(b.min.x <= b.max.x && b.min.y <= b.max.y);
+        b
+    }
 }
 
 impl IntersectsVolume<Self> for Aabb3d {
@@ -271,6 +281,20 @@ mod aabb3d_tests {
         assert!((shrunk.max - Vec3::new(1., 1., 1.)).length() < std::f32::EPSILON);
         assert!(a.contains(&shrunk));
         assert!(!shrunk.contains(&a));
+    }
+
+    #[test]
+    fn scale() {
+        let a = Aabb3d {
+            min: Vec3::new(-1., -1., -1.),
+            max: Vec3::new(1., 1., 1.),
+        };
+        let scaled = a.scale(Vec3::new(2., 2., 2.));
+        dbg!(scaled);
+        assert!((scaled.min - Vec3::new(-2., -2., -2.)).length() < std::f32::EPSILON);
+        assert!((scaled.max - Vec3::new(2., 2., 2.)).length() < std::f32::EPSILON);
+        assert!(!a.contains(&scaled));
+        assert!(scaled.contains(&a));
     }
 
     #[test]
@@ -451,6 +475,17 @@ impl BoundingVolume for BoundingSphere {
             },
         }
     }
+
+    #[inline(always)]
+    fn scale(&self, scale: Self::HalfSize) -> Self {
+        debug_assert!(scale >= 0.);
+        Self {
+            center: self.center,
+            sphere: Sphere {
+                radius: self.radius() * scale,
+            },
+        }
+    }
 }
 
 impl IntersectsVolume<Self> for BoundingSphere {
@@ -551,6 +586,15 @@ mod bounding_sphere_tests {
         assert!((shrunk.radius() - 4.5).abs() < std::f32::EPSILON);
         assert!(a.contains(&shrunk));
         assert!(!shrunk.contains(&a));
+    }
+
+    #[test]
+    fn scale() {
+        let a = BoundingSphere::new(Vec3::ONE, 5.);
+        let scaled = a.scale(2.);
+        assert!((scaled.radius() - 10.).abs() < std::f32::EPSILON);
+        assert!(!a.contains(&scaled));
+        assert!(scaled.contains(&a));
     }
 
     #[test]
