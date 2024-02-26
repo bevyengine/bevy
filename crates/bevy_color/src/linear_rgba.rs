@@ -23,6 +23,22 @@ pub struct LinearRgba {
 impl StandardColor for LinearRgba {}
 
 impl LinearRgba {
+    /// A fully black color with full alpha.
+    pub const BLACK: Self = Self {
+        red: 0.0,
+        green: 0.0,
+        blue: 0.0,
+        alpha: 1.0,
+    };
+
+    /// A fully white color with full alpha.
+    pub const WHITE: Self = Self {
+        red: 1.0,
+        green: 1.0,
+        blue: 1.0,
+        alpha: 1.0,
+    };
+
     /// Construct a new [`LinearRgba`] color from components.
     pub const fn new(red: f32, green: f32, blue: f32, alpha: f32) -> Self {
         Self {
@@ -81,12 +97,7 @@ impl LinearRgba {
 impl Default for LinearRgba {
     /// Construct a new [`LinearRgba`] color with the default values (white with full alpha).
     fn default() -> Self {
-        Self {
-            red: 1.,
-            green: 1.,
-            blue: 1.,
-            alpha: 1.,
-        }
+        Self::WHITE
     }
 }
 
