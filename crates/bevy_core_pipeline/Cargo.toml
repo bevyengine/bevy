@@ -1,6 +1,6 @@
 [package]
 name = "bevy_core_pipeline"
-version = "0.13.0"
+version = "0.14.0-dev"
 edition = "2021"
 authors = [
   "Bevy Contributors <bevyengine@gmail.com>",
@@ -13,7 +13,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-dds = []
+dds = ["bevy_render/dds"]
 trace = []
 webgl = []
 webgpu = []
@@ -21,17 +21,18 @@ tonemapping_luts = ["bevy_render/ktx2", "bevy_render/zstd"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.13.0" }
-bevy_asset = { path = "../bevy_asset", version = "0.13.0" }
-bevy_core = { path = "../bevy_core", version = "0.13.0" }
-bevy_derive = { path = "../bevy_derive", version = "0.13.0" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.13.0" }
-bevy_log = { path = "../bevy_log", version = "0.13.0" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.13.0" }
-bevy_render = { path = "../bevy_render", version = "0.13.0" }
-bevy_transform = { path = "../bevy_transform", version = "0.13.0" }
-bevy_math = { path = "../bevy_math", version = "0.13.0" }
-bevy_utils = { path = "../bevy_utils", version = "0.13.0" }
+bevy_app = { path = "../bevy_app", version = "0.14.0-dev" }
+bevy_asset = { path = "../bevy_asset", version = "0.14.0-dev" }
+bevy_core = { path = "../bevy_core", version = "0.14.0-dev" }
+bevy_color = { path = "../bevy_color", version = "0.14.0-dev" }
+bevy_derive = { path = "../bevy_derive", version = "0.14.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
+bevy_log = { path = "../bevy_log", version = "0.14.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev" }
+bevy_render = { path = "../bevy_render", version = "0.14.0-dev" }
+bevy_transform = { path = "../bevy_transform", version = "0.14.0-dev" }
+bevy_math = { path = "../bevy_math", version = "0.14.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
 
 serde = { version = "1", features = ["derive"] }
 bitflags = "2.3"

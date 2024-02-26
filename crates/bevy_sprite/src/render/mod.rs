@@ -16,7 +16,7 @@ use bevy_ecs::{
 };
 use bevy_math::{Affine3A, Quat, Rect, Vec2, Vec4};
 use bevy_render::{
-    color::Color,
+    color::LegacyColor,
     render_asset::RenderAssets,
     render_phase::{
         DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult, RenderPhase, SetItemPipeline,
@@ -24,7 +24,7 @@ use bevy_render::{
     },
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
-        BindGroupEntries, *,
+        *,
     },
     renderer::{RenderDevice, RenderQueue},
     texture::{
@@ -102,7 +102,7 @@ impl FromWorld for SpritePipeline {
                 texture_view,
                 texture_format: image.texture_descriptor.format,
                 sampler,
-                size: image.size_f32(),
+                size: image.size(),
                 mip_level_count: image.texture_descriptor.mip_level_count,
             }
         };
@@ -295,7 +295,7 @@ impl SpecializedRenderPipeline for SpritePipeline {
 
 pub struct ExtractedSprite {
     pub transform: GlobalTransform,
-    pub color: Color,
+    pub color: LegacyColor,
     /// Select an area of the texture
     pub rect: Option<Rect>,
     /// Change the on-screen size of the sprite
@@ -366,10 +366,10 @@ pub fn extract_sprites(
             let rect = match (atlas_rect, sprite.rect) {
                 (None, None) => None,
                 (None, Some(sprite_rect)) => Some(sprite_rect),
-                (Some(atlas_rect), None) => Some(atlas_rect),
+                (Some(atlas_rect), None) => Some(atlas_rect.as_rect()),
                 (Some(atlas_rect), Some(mut sprite_rect)) => {
-                    sprite_rect.min += atlas_rect.min;
-                    sprite_rect.max += atlas_rect.min;
+                    sprite_rect.min += atlas_rect.min.as_vec2();
+                    sprite_rect.max += atlas_rect.min.as_vec2();
 
                     Some(sprite_rect)
                 }
@@ -406,7 +406,7 @@ struct SpriteInstance {
 
 impl SpriteInstance {
     #[inline]
-    fn from(transform: &Affine3A, color: &Color, uv_offset_scale: &Vec4) -> Self {
+    fn from(transform: &Affine3A, color: &LegacyColor, uv_offset_scale: &Vec4) -> Self {
         let transpose_model_3x3 = transform.matrix3.transpose();
         Self {
             i_model_transpose: [
@@ -524,7 +524,7 @@ pub fn queue_sprites(
             let sort_key = FloatOrd(extracted_sprite.transform.translation().z);
 
             // Add the item to the render phase
-            if extracted_sprite.color != Color::WHITE {
+            if extracted_sprite.color != LegacyColor::WHITE {
                 transparent_phase.add(Transparent2d {
                     draw_function: draw_sprite_function,
                     pipeline: colored_pipeline,
@@ -618,7 +618,7 @@ pub fn prepare_sprites(
                         continue;
                     };
 
-                    batch_image_size = Vec2::new(gpu_image.size.x, gpu_image.size.y);
+                    batch_image_size = gpu_image.size.as_vec2();
                     batch_image_handle = extracted_sprite.image_handle_id;
                     image_bind_groups
                         .values

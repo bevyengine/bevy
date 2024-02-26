@@ -6,5 +6,8 @@ description = "Bevy's error codes"
 publish = false
 license = "MIT OR Apache-2.0"
 
+[lints]
+workspace = true
+
 [dependencies]
 bevy = { path = ".." }

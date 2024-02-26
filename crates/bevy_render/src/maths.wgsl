@@ -1,6 +1,14 @@
 #define_import_path bevy_render::maths
 
-fn affine_to_square(affine: mat3x4<f32>) -> mat4x4<f32> {
+fn affine2_to_square(affine: mat3x2<f32>) -> mat3x3<f32> {
+    return mat3x3<f32>(
+        vec3<f32>(affine[0].xy, 0.0),
+        vec3<f32>(affine[1].xy, 0.0),
+        vec3<f32>(affine[2].xy, 1.0),
+    );
+}
+
+fn affine3_to_square(affine: mat3x4<f32>) -> mat4x4<f32> {
     return transpose(mat4x4<f32>(
         affine[0],
         affine[1],

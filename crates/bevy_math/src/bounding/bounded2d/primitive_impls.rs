@@ -1,10 +1,11 @@
 //! Contains [`Bounded2d`] implementations for [geometric primitives](crate::primitives).
 
-use glam::{Mat2, Vec2};
-
-use crate::primitives::{
-    BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, Direction2d, Ellipse, Line2d, Plane2d,
-    Polygon, Polyline2d, Rectangle, RegularPolygon, Segment2d, Triangle2d,
+use crate::{
+    primitives::{
+        BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, Ellipse, Line2d, Plane2d, Polygon,
+        Polyline2d, Rectangle, RegularPolygon, Segment2d, Triangle2d,
+    },
+    Direction2d, Mat2, Vec2,
 };
 
 use super::{Aabb2d, Bounded2d, BoundingCircle};
@@ -262,9 +263,10 @@ mod tests {
     use crate::{
         bounding::Bounded2d,
         primitives::{
-            Capsule2d, Circle, Direction2d, Ellipse, Line2d, Plane2d, Polygon, Polyline2d,
-            Rectangle, RegularPolygon, Segment2d, Triangle2d,
+            Capsule2d, Circle, Ellipse, Line2d, Plane2d, Polygon, Polyline2d, Rectangle,
+            RegularPolygon, Segment2d, Triangle2d,
         },
+        Direction2d,
     };
 
     #[test]

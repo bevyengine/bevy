@@ -10,7 +10,7 @@ use bevy_sprite::{ImageScaleMode, TextureSlice};
 use bevy_transform::prelude::*;
 use bevy_utils::HashSet;
 
-use crate::{widget::UiImageSize, BackgroundColor, CalculatedClip, ExtractedUiNode, Node, UiImage};
+use crate::{BackgroundColor, CalculatedClip, ExtractedUiNode, Node, UiImage};
 
 /// Component storing texture slices for image nodes entities with a tiled or sliced  [`ImageScaleMode`]
 ///
@@ -119,13 +119,7 @@ pub(crate) fn compute_slices_on_asset_event(
     mut commands: Commands,
     mut events: EventReader<AssetEvent<Image>>,
     images: Res<Assets<Image>>,
-    ui_nodes: Query<(
-        Entity,
-        &ImageScaleMode,
-        &Node,
-        Option<&UiImageSize>,
-        &UiImage,
-    )>,
+    ui_nodes: Query<(Entity, &ImageScaleMode, &Node, &UiImage)>,
 ) {
     // We store the asset ids of added/modified image assets
     let added_handles: HashSet<_> = events
@@ -139,12 +133,11 @@ pub(crate) fn compute_slices_on_asset_event(
         return;
     }
     // We recompute the sprite slices for sprite entities with a matching asset handle id
-    for (entity, scale_mode, ui_node, size, image) in &ui_nodes {
+    for (entity, scale_mode, ui_node, image) in &ui_nodes {
         if !added_handles.contains(&image.texture.id()) {
             continue;
         }
-        let size = size.map(|s| s.size()).unwrap_or(ui_node.size());
-        if let Some(slices) = compute_texture_slices(size, scale_mode, image, &images) {
+        if let Some(slices) = compute_texture_slices(ui_node.size(), scale_mode, image, &images) {
             commands.entity(entity).insert(slices);
         }
     }
@@ -156,24 +149,12 @@ pub(crate) fn compute_slices_on_image_change(
     mut commands: Commands,
     images: Res<Assets<Image>>,
     changed_nodes: Query<
-        (
-            Entity,
-            &ImageScaleMode,
-            &Node,
-            Option<&UiImageSize>,
-            &UiImage,
-        ),
-        Or<(
-            Changed<ImageScaleMode>,
-            Changed<UiImage>,
-            Changed<UiImageSize>,
-            Changed<Node>,
-        )>,
+        (Entity, &ImageScaleMode, &Node, &UiImage),
+        Or<(Changed<ImageScaleMode>, Changed<UiImage>, Changed<Node>)>,
     >,
 ) {
-    for (entity, scale_mode, ui_node, size, image) in &changed_nodes {
-        let size = size.map(|s| s.size()).unwrap_or(ui_node.size());
-        if let Some(slices) = compute_texture_slices(size, scale_mode, image, &images) {
+    for (entity, scale_mode, ui_node, image) in &changed_nodes {
+        if let Some(slices) = compute_texture_slices(ui_node.size(), scale_mode, image, &images) {
             commands.entity(entity).insert(slices);
         }
     }
