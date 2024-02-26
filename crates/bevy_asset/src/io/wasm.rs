@@ -39,9 +39,8 @@ fn js_value_to_err<'a>(context: &'a str) -> impl FnOnce(JsValue) -> std::io::Err
 impl HttpWasmAssetReader {
     async fn fetch_bytes<'a>(&self, path: PathBuf) -> Result<Box<Reader<'a>>, AssetReaderError> {
         let global = js_sys::global();
-        let maybe_window =
-            Reflect::get(&global, &JsValue::from_str("Window"))
-                .map_err(js_value_to_err("reflect JavaScript global context"))?;
+        let maybe_window = Reflect::get(&global, &JsValue::from_str("Window"))
+            .map_err(js_value_to_err("reflect JavaScript global context"))?;
         let promise = if !maybe_window.is_undefined() {
             let window = global.dyn_into::<web_sys::Window>().unwrap();
             window.fetch_with_str(path.to_str().unwrap())
@@ -52,8 +51,10 @@ impl HttpWasmAssetReader {
                 let worker = global.dyn_into::<web_sys::WorkerGlobalScope>().unwrap();
                 worker.fetch_with_str(path.to_str().unwrap())
             } else {
-                let error = std::io::Error::new(std::io::ErrorKind::Other,
-                    "Unsupported JavaScript global context");
+                let error = std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    "Unsupported JavaScript global context",
+                );
                 return Err(AssetReaderError::Io(error.into()));
             }
         };
