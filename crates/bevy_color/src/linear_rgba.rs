@@ -210,6 +210,77 @@ impl From<LinearRgba> for wgpu::Color {
     }
 }
 
+// [`LinearRgba`] is intended to be used with shaders
+// So it's the only color type that implements [`ShaderType`] to make it easier to use inside shaders
+impl encase::ShaderType for LinearRgba {
+    type ExtraMetadata = ();
+
+    const METADATA: encase::private::Metadata<Self::ExtraMetadata> = {
+        let size =
+            encase::private::SizeValue::from(<f32 as encase::private::ShaderSize>::SHADER_SIZE)
+                .mul(4);
+        let alignment = encase::private::AlignmentValue::from_next_power_of_two_size(size);
+
+        encase::private::Metadata {
+            alignment,
+            has_uniform_min_alignment: false,
+            min_size: size,
+            extra: (),
+        }
+    };
+
+    const UNIFORM_COMPAT_ASSERT: fn() = || {};
+}
+
+impl encase::private::WriteInto for LinearRgba {
+    fn write_into<B: encase::private::BufferMut>(&self, writer: &mut encase::private::Writer<B>) {
+        for el in &[self.red, self.green, self.blue, self.alpha] {
+            encase::private::WriteInto::write_into(el, writer);
+        }
+    }
+}
+
+impl encase::private::ReadFrom for LinearRgba {
+    fn read_from<B: encase::private::BufferRef>(
+        &mut self,
+        reader: &mut encase::private::Reader<B>,
+    ) {
+        let mut buffer = [0.0f32; 4];
+        for el in &mut buffer {
+            encase::private::ReadFrom::read_from(el, reader);
+        }
+
+        *self = LinearRgba {
+            red: buffer[0],
+            green: buffer[1],
+            blue: buffer[2],
+            alpha: buffer[3],
+        }
+    }
+}
+
+impl encase::private::CreateFrom for LinearRgba {
+    fn create_from<B>(reader: &mut encase::private::Reader<B>) -> Self
+    where
+        B: encase::private::BufferRef,
+    {
+        // These are intentionally not inlined in the constructor to make this
+        // resilient to internal Color refactors / implicit type changes.
+        let red: f32 = encase::private::CreateFrom::create_from(reader);
+        let green: f32 = encase::private::CreateFrom::create_from(reader);
+        let blue: f32 = encase::private::CreateFrom::create_from(reader);
+        let alpha: f32 = encase::private::CreateFrom::create_from(reader);
+        LinearRgba {
+            red,
+            green,
+            blue,
+            alpha,
+        }
+    }
+}
+
+impl encase::ShaderSize for LinearRgba {}
+
 #[cfg(test)]
 mod tests {
     use super::*;
