@@ -1,6 +1,5 @@
 use crate::{Alpha, Lcha, LinearRgba, Luminance, Mix, Oklaba, Srgba, StandardColor};
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use bevy_render::color::HslRepresentation;
 use serde::{Deserialize, Serialize};
 
 /// Color in Hue-Saturation-Lightness color space with alpha
@@ -46,6 +45,21 @@ impl Hsla {
     /// * `lightness` - Lightness channel. [0.0, 1.0]
     pub const fn hsl(hue: f32, saturation: f32, lightness: f32) -> Self {
         Self::new(hue, saturation, lightness, 1.0)
+    }
+
+    /// Return a copy of this color with the hue channel set to the given value.
+    pub const fn with_hue(self, hue: f32) -> Self {
+        Self { hue, ..self }
+    }
+
+    /// Return a copy of this color with the saturation channel set to the given value.
+    pub const fn with_saturation(self, saturation: f32) -> Self {
+        Self { saturation, ..self }
+    }
+
+    /// Return a copy of this color with the lightness channel set to the given value.
+    pub const fn with_lightness(self, lightness: f32) -> Self {
+        Self { lightness, ..self }
     }
 }
 
@@ -114,35 +128,72 @@ impl Luminance for Hsla {
 }
 
 impl From<Srgba> for Hsla {
-    fn from(value: Srgba) -> Self {
-        let (h, s, l) =
-            HslRepresentation::nonlinear_srgb_to_hsl([value.red, value.green, value.blue]);
-        Self::new(h, s, l, value.alpha)
+    fn from(
+        Srgba {
+            red,
+            green,
+            blue,
+            alpha,
+        }: Srgba,
+    ) -> Self {
+        // https://en.wikipedia.org/wiki/HSL_and_HSV#From_RGB
+        let x_max = red.max(green.max(blue));
+        let x_min = red.min(green.min(blue));
+        let chroma = x_max - x_min;
+        let lightness = (x_max + x_min) / 2.0;
+        let hue = if chroma == 0.0 {
+            0.0
+        } else if red == x_max {
+            60.0 * (green - blue) / chroma
+        } else if green == x_max {
+            60.0 * (2.0 + (blue - red) / chroma)
+        } else {
+            60.0 * (4.0 + (red - green) / chroma)
+        };
+        let hue = if hue < 0.0 { 360.0 + hue } else { hue };
+        let saturation = if lightness <= 0.0 || lightness >= 1.0 {
+            0.0
+        } else {
+            (x_max - lightness) / lightness.min(1.0 - lightness)
+        };
+
+        Self::new(hue, saturation, lightness, alpha)
     }
 }
 
-impl From<Hsla> for bevy_render::color::Color {
-    fn from(value: Hsla) -> Self {
-        bevy_render::color::Color::Hsla {
-            hue: value.hue,
-            saturation: value.saturation,
-            lightness: value.lightness,
-            alpha: value.alpha,
-        }
-    }
-}
+impl From<Hsla> for Srgba {
+    fn from(
+        Hsla {
+            hue,
+            saturation,
+            lightness,
+            alpha,
+        }: Hsla,
+    ) -> Self {
+        // https://en.wikipedia.org/wiki/HSL_and_HSV#HSL_to_RGB
+        let chroma = (1.0 - (2.0 * lightness - 1.0).abs()) * saturation;
+        let hue_prime = hue / 60.0;
+        let largest_component = chroma * (1.0 - (hue_prime % 2.0 - 1.0).abs());
+        let (r_temp, g_temp, b_temp) = if hue_prime < 1.0 {
+            (chroma, largest_component, 0.0)
+        } else if hue_prime < 2.0 {
+            (largest_component, chroma, 0.0)
+        } else if hue_prime < 3.0 {
+            (0.0, chroma, largest_component)
+        } else if hue_prime < 4.0 {
+            (0.0, largest_component, chroma)
+        } else if hue_prime < 5.0 {
+            (largest_component, 0.0, chroma)
+        } else {
+            (chroma, 0.0, largest_component)
+        };
+        let lightness_match = lightness - chroma / 2.0;
 
-impl From<bevy_render::color::Color> for Hsla {
-    fn from(value: bevy_render::color::Color) -> Self {
-        match value.as_hsla() {
-            bevy_render::color::Color::Hsla {
-                hue,
-                saturation,
-                lightness,
-                alpha,
-            } => Hsla::new(hue, saturation, lightness, alpha),
-            _ => unreachable!(),
-        }
+        let red = r_temp + lightness_match;
+        let green = g_temp + lightness_match;
+        let blue = b_temp + lightness_match;
+
+        Self::new(red, green, blue, alpha)
     }
 }
 

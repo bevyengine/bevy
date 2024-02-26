@@ -1,6 +1,5 @@
-use crate::{Alpha, Hsla, Lcha, LinearRgba, Oklaba, Srgba, StandardColor};
+use crate::{Alpha, Hsla, Lcha, LinearRgba, Oklaba, Srgba, StandardColor, Xyza};
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use bevy_render::color::Color as LegacyColor;
 use serde::{Deserialize, Serialize};
 
 /// An enumerated type that can represent any of the color types in this crate.
@@ -20,6 +19,8 @@ pub enum Color {
     Lcha(Lcha),
     /// A color in the Oklaba color space with alpha.
     Oklaba(Oklaba),
+    /// A color in the XYZ color space with alpha.
+    Xyza(Xyza),
 }
 
 impl StandardColor for Color {}
@@ -27,13 +28,7 @@ impl StandardColor for Color {}
 impl Color {
     /// Return the color as a linear RGBA color.
     pub fn linear(&self) -> LinearRgba {
-        match self {
-            Color::Srgba(srgba) => (*srgba).into(),
-            Color::LinearRgba(linear) => *linear,
-            Color::Hsla(hsla) => (*hsla).into(),
-            Color::Lcha(lcha) => (*lcha).into(),
-            Color::Oklaba(oklab) => (*oklab).into(),
-        }
+        (*self).into()
     }
 }
 
@@ -53,6 +48,7 @@ impl Alpha for Color {
             Color::Hsla(x) => *x = x.with_alpha(alpha),
             Color::Lcha(x) => *x = x.with_alpha(alpha),
             Color::Oklaba(x) => *x = x.with_alpha(alpha),
+            Color::Xyza(x) => *x = x.with_alpha(alpha),
         }
 
         new
@@ -65,6 +61,7 @@ impl Alpha for Color {
             Color::Hsla(x) => x.alpha(),
             Color::Lcha(x) => x.alpha(),
             Color::Oklaba(x) => x.alpha(),
+            Color::Xyza(x) => x.alpha(),
         }
     }
 }
@@ -99,6 +96,12 @@ impl From<Lcha> for Color {
     }
 }
 
+impl From<Xyza> for Color {
+    fn from(value: Xyza) -> Self {
+        Self::Xyza(value)
+    }
+}
+
 impl From<Color> for Srgba {
     fn from(value: Color) -> Self {
         match value {
@@ -107,6 +110,7 @@ impl From<Color> for Srgba {
             Color::Hsla(hsla) => hsla.into(),
             Color::Lcha(lcha) => lcha.into(),
             Color::Oklaba(oklab) => oklab.into(),
+            Color::Xyza(xyza) => xyza.into(),
         }
     }
 }
@@ -119,6 +123,7 @@ impl From<Color> for LinearRgba {
             Color::Hsla(hsla) => hsla.into(),
             Color::Lcha(lcha) => lcha.into(),
             Color::Oklaba(oklab) => oklab.into(),
+            Color::Xyza(xyza) => xyza.into(),
         }
     }
 }
@@ -129,8 +134,9 @@ impl From<Color> for Hsla {
             Color::Srgba(srgba) => srgba.into(),
             Color::LinearRgba(linear) => linear.into(),
             Color::Hsla(hsla) => hsla,
-            Color::Lcha(lcha) => LinearRgba::from(lcha).into(),
-            Color::Oklaba(oklab) => LinearRgba::from(oklab).into(),
+            Color::Lcha(lcha) => lcha.into(),
+            Color::Oklaba(oklab) => oklab.into(),
+            Color::Xyza(xyza) => xyza.into(),
         }
     }
 }
@@ -140,9 +146,10 @@ impl From<Color> for Lcha {
         match value {
             Color::Srgba(srgba) => srgba.into(),
             Color::LinearRgba(linear) => linear.into(),
-            Color::Hsla(hsla) => Srgba::from(hsla).into(),
+            Color::Hsla(hsla) => hsla.into(),
             Color::Lcha(lcha) => lcha,
-            Color::Oklaba(oklab) => LinearRgba::from(oklab).into(),
+            Color::Oklaba(oklab) => oklab.into(),
+            Color::Xyza(xyza) => xyza.into(),
         }
     }
 }
@@ -152,25 +159,15 @@ impl From<Color> for Oklaba {
         match value {
             Color::Srgba(srgba) => srgba.into(),
             Color::LinearRgba(linear) => linear.into(),
-            Color::Hsla(hsla) => Srgba::from(hsla).into(),
-            Color::Lcha(lcha) => LinearRgba::from(lcha).into(),
+            Color::Hsla(hsla) => hsla.into(),
+            Color::Lcha(lcha) => lcha.into(),
             Color::Oklaba(oklab) => oklab,
+            Color::Xyza(xyza) => xyza.into(),
         }
     }
 }
 
-impl From<LegacyColor> for Color {
-    fn from(value: LegacyColor) -> Self {
-        match value {
-            LegacyColor::Rgba { .. } => Srgba::from(value).into(),
-            LegacyColor::RgbaLinear { .. } => LinearRgba::from(value).into(),
-            LegacyColor::Hsla { .. } => Hsla::from(value).into(),
-            LegacyColor::Lcha { .. } => Lcha::from(value).into(),
-        }
-    }
-}
-
-impl From<Color> for LegacyColor {
+impl From<Color> for Xyza {
     fn from(value: Color) -> Self {
         match value {
             Color::Srgba(x) => x.into(),
@@ -178,6 +175,7 @@ impl From<Color> for LegacyColor {
             Color::Hsla(x) => x.into(),
             Color::Lcha(x) => x.into(),
             Color::Oklaba(x) => x.into(),
+            Color::Xyza(xyza) => xyza,
         }
     }
 }

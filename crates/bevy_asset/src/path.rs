@@ -431,34 +431,13 @@ impl<'a> AssetPath<'a> {
                 _ => rpath,
             };
 
-            let mut result_path = PathBuf::new();
-            if !is_absolute && source.is_none() {
-                for elt in base_path.iter() {
-                    if elt == "." {
-                        // Skip
-                    } else if elt == ".." {
-                        if !result_path.pop() {
-                            // Preserve ".." if insufficient matches (per RFC 1808).
-                            result_path.push(elt);
-                        }
-                    } else {
-                        result_path.push(elt);
-                    }
-                }
-            }
-
-            for elt in rpath.iter() {
-                if elt == "." {
-                    // Skip
-                } else if elt == ".." {
-                    if !result_path.pop() {
-                        // Preserve ".." if insufficient matches (per RFC 1808).
-                        result_path.push(elt);
-                    }
-                } else {
-                    result_path.push(elt);
-                }
-            }
+            let mut result_path = if !is_absolute && source.is_none() {
+                base_path
+            } else {
+                PathBuf::new()
+            };
+            result_path.push(rpath);
+            result_path = normalize_path(result_path.as_path());
 
             Ok(AssetPath {
                 source: match source {
@@ -721,6 +700,25 @@ impl FromReflect for AssetPath<'static> {
             AssetPath<'static>,
         >(<dyn Reflect>::as_any(reflect))?))
     }
+}
+
+/// Normalizes the path by collapsing all occurrences of '.' and '..' dot-segments where possible
+/// as per [RFC 1808](https://datatracker.ietf.org/doc/html/rfc1808)
+pub(crate) fn normalize_path(path: &Path) -> PathBuf {
+    let mut result_path = PathBuf::new();
+    for elt in path.iter() {
+        if elt == "." {
+            // Skip
+        } else if elt == ".." {
+            if !result_path.pop() {
+                // Preserve ".." if insufficient matches (per RFC 1808).
+                result_path.push(elt);
+            }
+        } else {
+            result_path.push(elt);
+        }
+    }
+    result_path
 }
 
 #[cfg(test)]

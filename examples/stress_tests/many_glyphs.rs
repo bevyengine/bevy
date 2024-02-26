@@ -77,7 +77,7 @@ fn setup(mut commands: Commands) {
             });
         });
 
-    text.sections[0].style.color = Color::RED;
+    text.sections[0].style.color = LegacyColor::RED;
 
     commands.spawn(Text2dBundle {
         text,

@@ -7,7 +7,6 @@
     pbr_bindings,
     pbr_types,
 }
-#import bevy_render::maths::affine2_to_square
 
 // Cutoff used for the premultiplied alpha modes BLEND and ADD.
 const PREMULTIPLIED_ALPHA_CUTOFF = 0.05;
@@ -19,7 +18,7 @@ fn prepass_alpha_discard(in: VertexOutput) {
     var output_color: vec4<f32> = pbr_bindings::material.base_color;
 
 #ifdef VERTEX_UVS
-    let uv_transform = affine2_to_square(pbr_bindings::material.uv_transform);
+    let uv_transform = pbr_bindings::material.uv_transform;
     let uv = (uv_transform * vec3(in.uv, 1.0)).xy;
     if (pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u {
         output_color = output_color * textureSampleBias(pbr_bindings::base_color_texture, pbr_bindings::base_color_sampler, uv, view.mip_bias);

@@ -4,7 +4,6 @@ use crate::{
 };
 use bevy_math::Vec4;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use bevy_render::color::SrgbColorSpace;
 use serde::{Deserialize, Serialize};
 
 /// Linear RGB color with alpha.
@@ -48,6 +47,21 @@ impl LinearRgba {
             blue,
             alpha: 1.0,
         }
+    }
+
+    /// Return a copy of this color with the red channel set to the given value.
+    pub const fn with_red(self, red: f32) -> Self {
+        Self { red, ..self }
+    }
+
+    /// Return a copy of this color with the green channel set to the given value.
+    pub const fn with_green(self, green: f32) -> Self {
+        Self { green, ..self }
+    }
+
+    /// Return a copy of this color with the blue channel set to the given value.
+    pub const fn with_blue(self, blue: f32) -> Self {
+        Self { blue, ..self }
     }
 
     /// Make the color lighter or darker by some amount
@@ -142,43 +156,6 @@ impl EuclideanDistance for LinearRgba {
         let dg = self.green - other.green;
         let db = self.blue - other.blue;
         dr * dr + dg * dg + db * db
-    }
-}
-
-impl From<Srgba> for LinearRgba {
-    #[inline]
-    fn from(value: Srgba) -> Self {
-        Self {
-            red: value.red.nonlinear_to_linear_srgb(),
-            green: value.green.nonlinear_to_linear_srgb(),
-            blue: value.blue.nonlinear_to_linear_srgb(),
-            alpha: value.alpha,
-        }
-    }
-}
-
-impl From<LinearRgba> for bevy_render::color::Color {
-    fn from(value: LinearRgba) -> Self {
-        bevy_render::color::Color::RgbaLinear {
-            red: value.red,
-            green: value.green,
-            blue: value.blue,
-            alpha: value.alpha,
-        }
-    }
-}
-
-impl From<bevy_render::color::Color> for LinearRgba {
-    fn from(value: bevy_render::color::Color) -> Self {
-        match value.as_rgba_linear() {
-            bevy_render::color::Color::RgbaLinear {
-                red,
-                green,
-                blue,
-                alpha,
-            } => LinearRgba::new(red, green, blue, alpha),
-            _ => unreachable!(),
-        }
     }
 }
 

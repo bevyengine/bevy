@@ -23,7 +23,7 @@ const WORKGROUP_SIZE: u32 = 8;
 
 fn main() {
     App::new()
-        .insert_resource(ClearColor(Color::BLACK))
+        .insert_resource(ClearColor(LegacyColor::BLACK))
         .add_plugins((
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {

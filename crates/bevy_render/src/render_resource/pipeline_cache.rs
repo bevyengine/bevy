@@ -21,10 +21,7 @@ use std::{
 use thiserror::Error;
 #[cfg(feature = "shader_format_spirv")]
 use wgpu::util::make_spirv;
-use wgpu::{
-    DownlevelFlags, Features, PipelineLayoutDescriptor, PushConstantRange, ShaderModuleDescriptor,
-    VertexBufferLayout as RawVertexBufferLayout,
-};
+use wgpu::{DownlevelFlags, Features, VertexBufferLayout as RawVertexBufferLayout};
 
 use crate::render_resource::resource_macros::*;
 
@@ -288,7 +285,7 @@ impl ShaderCache {
                     shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
                 }
 
-                if cfg!(ios_simulator) {
+                if cfg!(feature = "ios_simulator") {
                     shader_defs.push("NO_CUBE_ARRAY_TEXTURES_SUPPORT".into());
                 }
 

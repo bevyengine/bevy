@@ -7,6 +7,7 @@
 //! - [`Hsla`] (hue, saturation, lightness, alpha)
 //! - [`Lcha`] (lightness, chroma, hue, alpha)
 //! - [`Oklaba`] (lightness, a-axis, b-axis, alpha)
+//! - [`Xyza`] (x-axis, y-axis, z-axis, alpha)
 //!
 //! Each of these color spaces is represented as a distinct Rust type.
 //!
@@ -34,6 +35,10 @@
 //! as image processing. It is not as widely used as the other color spaces, but it is useful
 //! for tasks such as color correction and image analysis, where it is important to be able
 //! to do things like change color saturation without causing hue shifts.
+//!
+//! XYZ is a foundational space commonly used in the definition of other more modern color
+//! spaces. The space is more formally known as CIE 1931, where the `x` and `z` axes represent
+//! a form of chromaticity, while `y` defines an illuminance level.
 //!
 //! See also the [Wikipedia article on color spaces](https://en.wikipedia.org/wiki/Color_space).
 //!
@@ -78,6 +83,7 @@ mod srgba;
 mod test_colors;
 #[cfg(test)]
 mod testing;
+mod xyza;
 
 pub use color::*;
 pub use color_ops::*;
@@ -87,10 +93,10 @@ pub use lcha::*;
 pub use linear_rgba::*;
 pub use oklaba::*;
 pub use srgba::*;
-
-use bevy_render::color::Color as LegacyColor;
+pub use xyza::*;
 
 /// Describes the traits that a color should implement for consistency.
+#[allow(dead_code)] // This is an internal marker trait used to ensure that our color types impl the required traits
 pub(crate) trait StandardColor
 where
     Self: core::fmt::Debug,
@@ -100,12 +106,12 @@ where
     Self: bevy_reflect::Reflect,
     Self: Default,
     Self: From<Color> + Into<Color>,
-    Self: From<LegacyColor> + Into<LegacyColor>,
     Self: From<Srgba> + Into<Srgba>,
     Self: From<LinearRgba> + Into<LinearRgba>,
     Self: From<Hsla> + Into<Hsla>,
     Self: From<Lcha> + Into<Lcha>,
     Self: From<Oklaba> + Into<Oklaba>,
+    Self: From<Xyza> + Into<Xyza>,
     Self: Alpha,
 {
 }
