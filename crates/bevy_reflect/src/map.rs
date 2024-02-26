@@ -107,11 +107,8 @@ pub struct MapInfo {
 
 impl MapInfo {
     /// Create a new [`MapInfo`].
-    pub fn new<
-        TMap: Map + TypePath,
-        TKey: Hash + Reflect + TypePath,
-        TValue: Reflect + TypePath,
-    >() -> Self {
+    pub fn new<TMap: Map + TypePath, TKey: Reflect + TypePath, TValue: Reflect + TypePath>() -> Self
+    {
         Self {
             type_path: TypePathTable::of::<TMap>(),
             type_id: TypeId::of::<TMap>(),
