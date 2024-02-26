@@ -62,7 +62,7 @@ impl<R: AssetReader> AssetReader for GatedReader<R> {
         let receiver = {
             let mut gates = self.gates.write();
             let gates = gates
-                .entry(path.into())
+                .entry_ref(path.as_ref())
                 .or_insert_with(crossbeam_channel::unbounded);
             gates.1.clone()
         };
