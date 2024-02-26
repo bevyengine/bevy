@@ -1,11 +1,13 @@
 //! Implementation of the Hue-Whiteness-Blackness (HWB) color model as described
-//! in [_HWB - A More Intuitive Hue-Based Color Model_](https://web.archive.org/web/20240226005220/http://alvyray.com/Papers/CG/HWB_JGTv208.pdf)
-//! by _Smith et al_.
+//! in [_HWB - A More Intuitive Hue-Based Color Model_] by _Smith et al_.
+//!
+//! [_HWB - A More Intuitive Hue-Based Color Model_]: https://web.archive.org/web/20240226005220/http://alvyray.com/Papers/CG/HWB_JGTv208.pdf
 use crate::{Alpha, Lcha, LinearRgba, Oklaba, Srgba, StandardColor, Xyza};
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
 
-/// Color in Hue-Whiteness-Blackness color space with alpha
+/// Color in Hue-Whiteness-Blackness (HWB) color space with alpha.
+/// Further information on this color model can be found on [Wikipedia](https://en.wikipedia.org/wiki/HWB_color_model).
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub struct Hwba {
@@ -93,6 +95,7 @@ impl From<Srgba> for Hwba {
             alpha,
         }: Srgba,
     ) -> Self {
+        // Based on "HWB - A More Intuitive Hue-Based Color Model" Appendix B
         let x_max = 0f32.max(red).max(green).max(blue);
         let x_min = 1f32.min(red).min(green).min(blue);
 
@@ -130,6 +133,7 @@ impl From<Hwba> for Srgba {
             alpha,
         }: Hwba,
     ) -> Self {
+        // Based on "HWB - A More Intuitive Hue-Based Color Model" Appendix B
         let w = whiteness;
         let v = 1. - blackness;
 

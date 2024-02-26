@@ -2,7 +2,8 @@ use crate::{Alpha, Hsva, Hwba, Lcha, LinearRgba, Luminance, Mix, Oklaba, Srgba, 
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
 
-/// Color in Hue-Saturation-Lightness color space with alpha
+/// Color in Hue-Saturation-Lightness (HSL) color space with alpha.
+/// Further information on this color model can be found on [Wikipedia](https://en.wikipedia.org/wiki/HSL_and_HSV).
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub struct Hsla {
@@ -136,6 +137,7 @@ impl From<Hsla> for Hsva {
             alpha,
         }: Hsla,
     ) -> Self {
+        // Based on https://en.wikipedia.org/wiki/HSL_and_HSV#HSL_to_HSV
         let value = lightness + saturation * lightness.min(1. - lightness);
         let saturation = if value == 0. {
             0.
@@ -156,6 +158,7 @@ impl From<Hsva> for Hsla {
             alpha,
         }: Hsva,
     ) -> Self {
+        // Based on https://en.wikipedia.org/wiki/HSL_and_HSV#HSV_to_HSL
         let lightness = value * (1. - saturation / 2.);
         let saturation = if lightness == 0. || lightness == 1. {
             0.
