@@ -65,6 +65,18 @@ impl LinearRgba {
         }
     }
 
+    /// Construct a new [`LinearRgba`] color with the same value for all channels and an alpha of 1.0.
+    ///
+    /// A value of 0.0 is black, and a value of 1.0 is white.
+    pub const fn grey(value: f32) -> Self {
+        Self {
+            red: value,
+            green: value,
+            blue: value,
+            alpha: 1.0,
+        }
+    }
+
     /// Return a copy of this color with the red channel set to the given value.
     pub const fn with_red(self, red: f32) -> Self {
         Self { red, ..self }
