@@ -1,6 +1,4 @@
-use crate::{
-    Alpha, Laba, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza,
-};
+use crate::{Alpha, Laba, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza};
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
 

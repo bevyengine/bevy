@@ -1,6 +1,6 @@
 use crate::{
-    color_difference::EuclideanDistance, Alpha, Hsla, Hsva, Hwba, Lcha,
-    LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza,
+    color_difference::EuclideanDistance, Alpha, Hsla, Hsva, Hwba, Lcha, LinearRgba, Luminance, Mix,
+    Srgba, StandardColor, Xyza,
 };
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
