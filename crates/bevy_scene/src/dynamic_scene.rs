@@ -90,7 +90,7 @@ impl DynamicScene {
 
             // If the world already contains an instance of the given resource
             // just apply the (possibly) new value, otherwise insert the resource
-            reflect_resource.apply_or_insert(world, &**resource);
+            reflect_resource.apply_or_insert(world, &**resource, &type_registry);
         }
 
         // For each component types that reference other entities, we keep track
