@@ -1,4 +1,4 @@
-use crate::{serde::Serializable, Reflect, TypeInfo, TypePath, Typed};
+use crate::{serde::Serializable, FromReflect, Reflect, TypeInfo, TypePath, Typed};
 use bevy_ptr::{Ptr, PtrMut};
 use bevy_utils::{HashMap, HashSet, TypeIdMap};
 use downcast_rs::{impl_downcast, Downcast};
@@ -435,14 +435,20 @@ pub struct ReflectSerialize {
     get_serializable: for<'a> fn(value: &'a dyn Reflect) -> Serializable,
 }
 
-impl<T: Reflect + erased_serde::Serialize> FromType<T> for ReflectSerialize {
+impl<T: TypePath + FromReflect + erased_serde::Serialize> FromType<T> for ReflectSerialize {
     fn from_type() -> Self {
         ReflectSerialize {
             get_serializable: |value| {
-                let value = value.downcast_ref::<T>().unwrap_or_else(|| {
-                    panic!("ReflectSerialize::get_serialize called with type `{}`, even though it was created for `{}`", value.reflect_type_path(), std::any::type_name::<T>())
-                });
-                Serializable::Borrowed(value)
+                value
+                    .downcast_ref::<T>()
+                    .map(|value| Serializable::Borrowed(value))
+                    .or_else(|| T::from_reflect(value).map(|value| Serializable::Owned(Box::new(value))))
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "FromReflect::from_reflect failed when called on type `{}` with this value: {value:?}",
+                            T::type_path(),
+                        );
+                    })
             },
         }
     }
