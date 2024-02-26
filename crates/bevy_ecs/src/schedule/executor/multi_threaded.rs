@@ -823,7 +823,7 @@ mod tests {
         schedule.add_systems(
             (
                 (|| {}).run_if(|| false),
-                // This system depends on a sytem that is always skipped.
+                // This system depends on a system that is always skipped.
                 |mut commands: Commands| {
                     commands.insert_resource(R);
                 },
