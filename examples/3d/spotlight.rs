@@ -5,6 +5,13 @@ use std::f32::consts::*;
 use bevy::{pbr::NotShadowCaster, prelude::*};
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
+const INSTRUCTIONS: &str = "\
+Controls
+--------
+Horizontal Movement: WASD
+Vertical Movement: Space and Shift
+Rotate Camera: Left and Right Arrows";
+
 fn main() {
     App::new()
         .insert_resource(AmbientLight {
@@ -73,7 +80,6 @@ fn setup(
         ..default()
     });
 
-    // TODO: Batch spawn
     for x in 0..4 {
         for z in 0..4 {
             let x = x as f32 - 2.0;
@@ -124,12 +130,7 @@ fn setup(
 
     commands.spawn(
         TextBundle::from_section(
-            "\
-Controls
---------
-Horizontal Movement: WASD
-Vertical Movement: Space and Shift
-Rotate Camera: Left and Right Arrows",
+            INSTRUCTIONS,
             TextStyle {
                 font_size: 20.0,
                 ..default()
