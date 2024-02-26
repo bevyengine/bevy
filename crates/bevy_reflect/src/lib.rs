@@ -486,6 +486,7 @@ mod impls {
     mod glam;
     #[cfg(feature = "bevy_math")]
     mod math {
+        mod direction;
         mod primitives2d;
         mod primitives3d;
         mod rect;

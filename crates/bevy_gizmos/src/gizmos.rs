@@ -8,7 +8,7 @@ use bevy_ecs::{
     system::{Deferred, ReadOnlySystemParam, Res, Resource, SystemBuffer, SystemMeta, SystemParam},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
-use bevy_math::{primitives::Direction3d, Mat2, Quat, Vec2, Vec3};
+use bevy_math::{Direction3d, Mat2, Quat, Vec2, Vec3};
 use bevy_render::color::LegacyColor;
 use bevy_transform::TransformPoint;
 
