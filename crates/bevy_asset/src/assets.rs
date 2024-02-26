@@ -28,6 +28,23 @@ pub struct AssetIndex {
     pub(crate) index: u32,
 }
 
+impl AssetIndex {
+    /// Convert the [`AssetIndex`] into an opaque blob of bits to transport it in circumstances where carrying a strongly typed index isn't possible.
+    ///
+    /// The result of this function should not be relied upon for anything expect putting it back into [`AssetIndex::from_bits`] to recover the index.
+    pub fn to_bits(self) -> u64 {
+        let Self { generation, index } = self;
+        ((generation as u64) << 32) | index as u64
+    }
+    /// Convert an opaque `u64` acquired from [`AssetIndex::to_bits`] back into an [`AssetIndex`]. This should not be used with any inputs other than those
+    /// derived from [`AssetIndex::to_bits`], as there are no guarantees for what will happen with such inputs.
+    pub fn from_bits(bits: u64) -> Self {
+        let index = ((bits << 32) >> 32) as u32;
+        let generation = (bits >> 32) as u32;
+        Self { generation, index }
+    }
+}
+
 /// Allocates generational [`AssetIndex`] values and facilitates their reuse.
 pub(crate) struct AssetIndexAllocator {
     /// A monotonically increasing index.
