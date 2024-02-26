@@ -1,5 +1,6 @@
-use std::{cmp::Ordering, collections::HashMap, fs::File};
+use std::{cmp::Ordering, fs::File};
 
+use hashbrown::HashMap;
 use serde::Serialize;
 use tera::{Context, Tera};
 use toml_edit::Document;
