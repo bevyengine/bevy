@@ -33,7 +33,7 @@ impl GateOpener {
     pub fn open<P: AsRef<Path>>(&self, path: P) {
         let mut gates = self.gates.write();
         let gates = gates
-            .entry(path.as_ref().into())
+            .entry_ref(path.as_ref())
             .or_insert_with(crossbeam_channel::unbounded);
         gates.0.send(()).unwrap();
     }
