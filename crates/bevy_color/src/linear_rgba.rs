@@ -216,6 +216,17 @@ impl From<Hsla> for LinearRgba {
     }
 }
 
+impl From<LinearRgba> for wgpu::Color {
+    fn from(color: LinearRgba) -> Self {
+        wgpu::Color {
+            r: color.red as f64,
+            g: color.green as f64,
+            b: color.blue as f64,
+            a: color.alpha as f64,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
