@@ -43,7 +43,7 @@ fn main() {
             global: true,
             // Controls the default color of all wireframes. Used as the default color for global wireframes.
             // Can be changed per mesh using the `Wireframe2dColor` component.
-            default_color: Color::WHITE,
+            default_color: LegacyColor::WHITE,
         })
         .add_systems(Startup, setup)
         .add_systems(Update, update_colors)
@@ -66,7 +66,7 @@ fn setup(
                     Vec2::new(50.0, -50.0),
                 ))
                 .into(),
-            material: materials.add(Color::RED),
+            material: materials.add(LegacyColor::RED),
             transform: Transform::from_xyz(-150.0, 0.0, 0.0),
             ..default()
         },
@@ -75,7 +75,7 @@ fn setup(
     // Orange cube: Follows global wireframe setting
     commands.spawn(MaterialMesh2dBundle {
         mesh: meshes.add(Rectangle::new(100.0, 100.0)).into(),
-        material: materials.add(Color::ORANGE),
+        material: materials.add(LegacyColor::ORANGE),
         transform: Transform::from_xyz(0.0, 0.0, 0.0),
         ..default()
     });
@@ -83,7 +83,7 @@ fn setup(
     commands.spawn((
         MaterialMesh2dBundle {
             mesh: meshes.add(Circle::new(50.0)).into(),
-            material: materials.add(Color::GREEN),
+            material: materials.add(LegacyColor::GREEN),
             transform: Transform::from_xyz(150.0, 0.0, 0.0),
             ..default()
         },
@@ -91,7 +91,7 @@ fn setup(
         // This lets you configure the wireframe color of this entity.
         // If not set, this will use the color in `WireframeConfig`
         Wireframe2dColor {
-            color: Color::GREEN,
+            color: LegacyColor::GREEN,
         },
     ));
 
@@ -139,20 +139,20 @@ Color: {:?}
 
     // Toggle the global wireframe color
     if keyboard_input.just_pressed(KeyCode::KeyX) {
-        config.default_color = if config.default_color == Color::WHITE {
-            Color::PINK
+        config.default_color = if config.default_color == LegacyColor::WHITE {
+            LegacyColor::PINK
         } else {
-            Color::WHITE
+            LegacyColor::WHITE
         };
     }
 
     // Toggle the color of a wireframe using WireframeColor and not the global color
     if keyboard_input.just_pressed(KeyCode::KeyC) {
         for mut color in &mut wireframe_colors {
-            color.color = if color.color == Color::GREEN {
-                Color::RED
+            color.color = if color.color == LegacyColor::GREEN {
+                LegacyColor::RED
             } else {
-                Color::GREEN
+                LegacyColor::GREEN
             };
         }
     }
