@@ -120,16 +120,6 @@ impl BloomSettings {
         composite_mode: BloomCompositeMode::EnergyConserving,
     };
 
-    /// A variation of [`NATURAL`](Self::NATURAL) that uses the [`Additive`](BloomCompositeMode::Additive)
-    /// composite mode.
-    ///
-    /// This will make emissive materials appear to glow strongly compared to
-    /// [`NATURAL`](Self::NATURAL).
-    pub const NATURAL_ADDITIVE: Self = Self {
-        composite_mode: BloomCompositeMode::Additive,
-        ..Self::NATURAL
-    };
-
     /// A preset that's similar to how older games did bloom.
     pub const OLD_SCHOOL: Self = Self {
         intensity: 0.05,

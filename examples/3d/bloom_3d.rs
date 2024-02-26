@@ -36,7 +36,7 @@ fn setup_scene(
             ..default()
         },
         // 3. Enable bloom for the camera
-        BloomSettings::NATURAL_ADDITIVE,
+        BloomSettings::NATURAL,
     ));
 
     let material_emissive1 = materials.add(StandardMaterial {
@@ -223,7 +223,7 @@ fn update_bloom_settings(
             if keycode.just_pressed(KeyCode::Space) {
                 commands
                     .entity(entity)
-                    .insert(BloomSettings::NATURAL_ADDITIVE);
+                    .insert(BloomSettings::NATURAL);
             }
         }
     }
