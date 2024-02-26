@@ -474,7 +474,7 @@ impl<'a> ReflectMeta<'a> {
             self,
             where_clause_options,
             None,
-            None::<std::iter::Empty<&Type>>,
+            Option::<std::iter::Empty<&Type>>::None,
         )
     }
 

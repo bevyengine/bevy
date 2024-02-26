@@ -2064,7 +2064,7 @@ bevy_reflect::tests::Test {
     fn should_allow_multiple_custom_where() {
         #[derive(Reflect)]
         #[reflect(where T: Default)]
-        #[reflect(where U: std::ops::Add < T >)]
+        #[reflect(where U: std::ops::Add<T>)]
         struct Foo<T, U>(T, U);
 
         #[derive(Reflect)]
