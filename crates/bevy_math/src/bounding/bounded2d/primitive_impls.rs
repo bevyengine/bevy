@@ -5,7 +5,7 @@ use crate::{
         BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, Ellipse, Line2d, Plane2d, Polygon,
         Polyline2d, Rectangle, RegularPolygon, Segment2d, Triangle2d,
     },
-    {Direction2d, Mat2, Vec2},
+    Direction2d, Mat2, Vec2,
 };
 
 use super::{Aabb2d, Bounded2d, BoundingCircle};
