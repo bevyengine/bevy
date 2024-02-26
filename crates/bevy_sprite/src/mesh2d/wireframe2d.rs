@@ -80,11 +80,11 @@ pub struct NoWireframe2d;
 #[reflect(Resource)]
 pub struct Wireframe2dConfig {
     /// Whether to show wireframes for all meshes.
-    /// Can be overridden for individual meshes by adding a [`Wireframe`] or [`NoWireframe`] component.
+    /// Can be overridden for individual meshes by adding a [`Wireframe2d`] or [`NoWireframe2d`] component.
     pub global: bool,
-    /// If [`Self::global`] is set, any [`Entity`] that does not have a [`Wireframe`] component attached to it will have
-    /// wireframes using this color. Otherwise, this will be the fallback color for any entity that has a [`Wireframe`],
-    /// but no [`WireframeColor`].
+    /// If [`Self::global`] is set, any [`Entity`] that does not have a [`Wireframe2d`] component attached to it will have
+    /// wireframes using this color. Otherwise, this will be the fallback color for any entity that has a [`Wireframe2d`],
+    /// but no [`Wireframe2dColor`].
     pub default_color: LegacyColor,
 }
 
@@ -174,7 +174,7 @@ type Wireframe2dFilter = (
     Without<NoWireframe2d>,
 );
 
-/// Applies or removes a wireframe material on any mesh without a [`Wireframe`] or [`NoWireframe`] component.
+/// Applies or removes a wireframe material on any mesh without a [`Wireframe2d`] or [`NoWireframe2d`] component.
 fn apply_global_wireframe_material(
     mut commands: Commands,
     config: Res<Wireframe2dConfig>,
