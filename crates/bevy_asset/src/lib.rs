@@ -382,7 +382,8 @@ impl AssetApp for App {
                 First,
                 Assets::<A>::asset_events
                     .before(bevy_ecs::event::event_update_system::<AssetEvent<A>>)
-                    .run_if(Assets::<A>::asset_events_condition),
+                    .run_if(Assets::<A>::asset_events_condition)
+                    .in_set(AssetEvents),
             )
             .add_systems(PreUpdate, Assets::<A>::track_assets.in_set(TrackAssets))
     }
@@ -416,11 +417,7 @@ impl AssetApp for App {
 #[derive(SystemSet, Hash, Debug, PartialEq, Eq, Clone)]
 pub struct TrackAssets;
 
-/// Schedule where [`Assets`] resources are updated.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub struct UpdateAssets;
-
-/// Schedule where events accumulated in [`Assets`] are applied to the [`AssetEvent`] [`Events`] resource.
+/// A system set where events accumulated in [`Assets`] are applied to the [`AssetEvent`] [`Events`] resource.
 ///
 /// [`Events`]: bevy_ecs::event::Events
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
