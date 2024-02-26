@@ -204,6 +204,8 @@ pub struct ViewTarget {
 pub struct PostProcessWrite<'a> {
     pub source: &'a TextureView,
     pub destination: &'a TextureView,
+    pub source_texture: &'a CachedTexture,
+    pub destination_texture: &'a CachedTexture,
 }
 
 impl ViewTarget {
@@ -329,12 +331,16 @@ impl ViewTarget {
             PostProcessWrite {
                 source: &self.main_textures.a.texture.default_view,
                 destination: &self.main_textures.b.texture.default_view,
+                source_texture: &self.main_textures.a.texture,
+                destination_texture: &self.main_textures.b.texture,
             }
         } else {
             self.main_textures.a.mark_as_cleared();
             PostProcessWrite {
                 source: &self.main_textures.b.texture.default_view,
                 destination: &self.main_textures.a.texture.default_view,
+                source_texture: &self.main_textures.b.texture,
+                destination_texture: &self.main_textures.a.texture,
             }
         }
     }
