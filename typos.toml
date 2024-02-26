@@ -12,12 +12,12 @@ extend-exclude = [
 # Match Whole Word - Case Sensitive
 [default.extend-identifiers]
 ser = "ser" # ron::ser - Serializer
-toi = "toi" # Time of impact
 Sur = "Sur" # macOS Big Sur - South
 
 # Match Inside a Word - Case Insensitive
 [default.extend-words]
 LOD = "LOD" # Level of detail
+toi = "toi" # Time of impact
 Ot = "Ot"   # Ot - Offset Tangent
 
 [default]
