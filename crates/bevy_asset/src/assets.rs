@@ -637,3 +637,18 @@ pub struct InvalidGenerationError {
     index: AssetIndex,
     current_generation: u32,
 }
+
+#[cfg(test)]
+mod test {
+    use crate::AssetIndex;
+
+    #[test]
+    fn asset_index_round_trip() {
+        let asset_index = AssetIndex {
+            generation: 42,
+            index: 1337,
+        };
+        let roundtripped = AssetIndex::from_bits(asset_index.to_bits());
+        assert_eq!(asset_index, roundtripped);
+    }
+}
