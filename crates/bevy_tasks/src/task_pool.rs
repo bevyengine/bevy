@@ -600,8 +600,14 @@ impl TaskPool {
     /// will cause the OS to [thrash], which may impact the performance
     /// of the non-blocking tasks scheduled onto the `TaskPool`.  
     ///
-    /// Closures spawned using `spawn_blocking` cannot be cancelled. When you shut down the executor, it will wait
-    /// indefinitely for all blocking operations to finish.
+    /// Closures spawned using `spawn_blocking` cannot be cancelled. When the
+    /// executor is shutdown, it will wait indefinitely for all blocking operations 
+    /// to finish.
+    /// 
+    /// ## Platform Specific Behavior
+    /// Long running blocking operations in browser environments will panic, so the app
+    /// must yield back to the browser periodically. If you're targetting web platforms, 
+    /// consider using [`spawn_blocking_async`].
     ///
     /// [thrash]: https://en.wikipedia.org/wiki/Thrashing_(computer_science)
     pub fn spawn_blocking<T>(&self, f: impl FnOnce() -> T + Send + 'static) -> Task<T>
@@ -638,8 +644,13 @@ impl TaskPool {
     /// Closures spawned using `spawn_blocking` cannot be cancelled. When you
     /// shut down the executor, it will wait indefinitely for all blocking
     /// operations to finish.
-    ///
+    /// 
+    /// ## Platform Specific Behavior
+    /// This function behaves identically to `apawn` on `wasm` targets, or if
+    /// the `multi-threaded` feature on the crate is not enabled.
+    /// 
     /// [`spawn`]: Self::spawn
+    /// [`spawn_blocking_async`]: Self::spawn_blocking_async
     #[inline]
     pub fn spawn_blocking_async<T>(&self, f: impl Future<Output = T> + Send + 'static) -> Task<T>
     where

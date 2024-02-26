@@ -319,7 +319,7 @@ pub(crate) fn collect_screenshots(world: &mut World) {
             let ScreenshotPreparedState { buffer, .. } = window.screenshot_memory.take().unwrap();
 
             ComputeTaskPool::get()
-                .spawn_blocking(move || {
+                .spawn_blocking_async(async move {
                     let (tx, rx) = async_channel::bounded(1);
                     let buffer_slice = buffer.slice(..);
                     // The polling for this map call is done every frame when the command queue is submitted.
@@ -330,7 +330,7 @@ pub(crate) fn collect_screenshots(world: &mut World) {
                         }
                         tx.try_send(()).unwrap();
                     });
-                    rx.recv_blocking().unwrap();
+                    rx.recv().await.unwrap();
                     let data = buffer_slice.get_mapped_range();
                     // we immediately move the data to CPU memory to avoid holding the mapped view for long
                     let mut result = Vec::from(&*data);

@@ -167,6 +167,28 @@ impl TaskPool {
         self.spawn(future)
     }
 
+    /// Spawns a static future on the JS event loop to be executed at a later point.
+    /// 
+    /// This is potentially dangerous in browsers when running long standing computations that 
+    /// may block, as the browser will panic if the process does not periodically yield back to
+    /// the browser. Consider using [`spawn_blocking_async`] instead.
+    /// 
+    /// [`spawn_blocking_async`]: Self::spawn_blocking_async
+    pub fn spawn_blocking<T>(&self, f: impl FnOnce() + 'static) -> FakeTask
+    where
+        T: 'static,
+    {
+        self.spawn(async { f() })
+    }
+
+    /// Spawns a static future on the JS event loop. This is exactly the same as [`TaskPool::spawn`].
+    pub fn spawn_blocking_async<T>(&self, future: impl Future<Output = T> + 'static) -> FakeTask
+    where
+        T: 'static,
+    {
+        self.spawn(future)
+    }
+
     /// Runs a function with the local executor. Typically used to tick
     /// the local executor on the main thread as it needs to share time with
     /// other things.
