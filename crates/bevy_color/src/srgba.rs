@@ -1,6 +1,5 @@
 use crate::color_difference::EuclideanDistance;
-use crate::oklaba::Oklaba;
-use crate::{Alpha, LinearRgba, Luminance, Mix, StandardColor};
+use crate::{impl_bi_from_via, Alpha, LinearRgba, Luminance, Mix, StandardColor, Xyza};
 use bevy_math::Vec4;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
@@ -297,10 +296,8 @@ impl From<Srgba> for LinearRgba {
     }
 }
 
-impl From<Oklaba> for Srgba {
-    fn from(value: Oklaba) -> Self {
-        Srgba::from(LinearRgba::from(value))
-    }
+impl_bi_from_via! {
+    impl From<Xyza> for Srgba via LinearRgba {}
 }
 
 impl From<Srgba> for [f32; 4] {

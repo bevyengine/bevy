@@ -7,6 +7,7 @@
 //! - [`Hsla`] (hue, saturation, lightness, alpha)
 //! - [`Hsva`] (hue, saturation, value, alpha)
 //! - [`Hwba`] (hue, whiteness, blackness, alpha)
+//! - [`Laba`] (lightness, a-axis, b-axis, alpha)
 //! - [`Lcha`] (lightness, chroma, hue, alpha)
 //! - [`Oklaba`] (lightness, a-axis, b-axis, alpha)
 //! - [`Xyza`] (x-axis, y-axis, z-axis, alpha)
@@ -83,6 +84,7 @@ mod color_range;
 mod hsla;
 mod hsva;
 mod hwba;
+mod laba;
 mod lcha;
 mod linear_rgba;
 mod oklaba;
@@ -100,6 +102,7 @@ pub use color_range::*;
 pub use hsla::*;
 pub use hsva::*;
 pub use hwba::*;
+pub use laba::*;
 pub use lcha::*;
 pub use linear_rgba::*;
 pub use oklaba::*;
@@ -122,9 +125,43 @@ where
     Self: From<Hsla> + Into<Hsla>,
     Self: From<Hsva> + Into<Hsva>,
     Self: From<Hwba> + Into<Hwba>,
+    Self: From<Laba> + Into<Laba>,
     Self: From<Lcha> + Into<Lcha>,
     Self: From<Oklaba> + Into<Oklaba>,
     Self: From<Xyza> + Into<Xyza>,
     Self: Alpha,
 {
 }
+
+/// Implement `From<T>` for `S` and `From<S>` for `T` via an intermediate type.
+macro_rules! impl_bi_from_via {
+    ($(impl From<$from:ident> for $to:ident via $via:ident {})*) => {
+        $(
+            impl From<$from> for $to {
+                fn from(value: $from) -> Self {
+                    $via::from(value).into()
+                }
+            }
+
+            impl From<$to> for $from {
+                fn from(value: $to) -> Self {
+                    $via::from(value).into()
+                }
+            }
+
+            impl<'a> From<&'a $from> for $to {
+                fn from(value: &'a $from) -> Self {
+                    $via::from(*value).into()
+                }
+            }
+
+            impl<'a> From<&'a $to> for $from {
+                fn from(value: &'a $to) -> Self {
+                    $via::from(*value).into()
+                }
+            }
+        )*
+    };
+}
+
+pub(crate) use impl_bi_from_via;
