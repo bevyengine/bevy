@@ -43,7 +43,7 @@ fn setup(
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
 ) {
     let texture_handle = asset_server.load("textures/fantasy_ui_borders/border_sheet.png");
-    let atlas_layout = TextureAtlasLayout::from_grid(Vec2::new(50.0, 50.0), 6, 6, None, None);
+    let atlas_layout = TextureAtlasLayout::from_grid(UVec2::new(50, 50), 6, 6, None, None);
     let atlas_layout_handle = texture_atlases.add(atlas_layout);
 
     let slicer = TextureSlicer {
@@ -99,7 +99,7 @@ fn setup(
                             TextStyle {
                                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                 font_size: 40.0,
-                                color: Color::rgb(0.9, 0.9, 0.9),
+                                color: LegacyColor::rgb(0.9, 0.9, 0.9),
                             },
                         ));
                     });
