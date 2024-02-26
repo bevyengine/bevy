@@ -4,11 +4,13 @@ use crate::{
 };
 use bevy_math::Vec4;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+use bytemuck::{Pod, Zeroable};
 use serde::{Deserialize, Serialize};
 
 /// Linear RGB color with alpha.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
+#[repr(C)]
 pub struct LinearRgba {
     /// The red channel. [0.0, 1.0]
     pub red: f32,
@@ -45,6 +47,18 @@ impl LinearRgba {
         green: 0.0,
         blue: 0.0,
         alpha: 0.0,
+    };
+
+    /// An invalid color.
+    ///
+    /// This type can be used to represent an invalid color value;
+    /// in some rendering applications the color will be ignored,
+    /// enabling performant hacks like hiding lines by setting their color to `INVALID`.
+    pub const NAN: Self = Self {
+        red: f32::NAN,
+        green: f32::NAN,
+        blue: f32::NAN,
+        alpha: f32::NAN,
     };
 
     /// Construct a new [`LinearRgba`] color from components.
@@ -246,6 +260,33 @@ impl From<LinearRgba> for wgpu::Color {
         }
     }
 }
+
+/// A Zeroable type is one which can be safely filled with zeroes, while still being valid.
+///
+/// SAFETY: LinearRgba is inhabited
+/// SAFETY: LinearRgba's all-zero bit pattern is a valid value
+unsafe impl Zeroable for LinearRgba {
+    fn zeroed() -> Self {
+        LinearRgba {
+            red: 0.0,
+            green: 0.0,
+            blue: 0.0,
+            alpha: 0.0,
+        }
+    }
+}
+
+/// The Pod trait is bytemuck's marker for types that can be safely transmuted from a byte array.
+///
+/// It is intended to only be implemented for types which are "Plain Old Data".
+///
+/// SAFETY: LinearRgba is inhabited.
+/// SAFETY: LinearRgba permits any bit value.
+/// SAFETY: LinearRgba does not have padding bytes.
+/// SAFETY: all of the fields of LinearRgba are Pod, as f32 is Pod.
+/// SAFETY: LinearRgba is repr(C)
+/// SAFETY: LinearRgba does not permit interior mutability.
+unsafe impl Pod for LinearRgba {}
 
 #[cfg(test)]
 mod tests {

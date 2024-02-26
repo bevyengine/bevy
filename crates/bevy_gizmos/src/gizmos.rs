@@ -3,6 +3,7 @@
 use std::{iter, marker::PhantomData};
 
 use crate::circles::DEFAULT_CIRCLE_SEGMENTS;
+use bevy_color::LinearRgba;
 use bevy_ecs::{
     component::Tick,
     system::{Deferred, ReadOnlySystemParam, Res, Resource, SystemBuffer, SystemMeta, SystemParam},
@@ -19,14 +20,13 @@ use crate::{
 };
 
 type PositionItem = [f32; 3];
-type ColorItem = [f32; 4];
 
 #[derive(Resource, Default)]
 pub(crate) struct GizmoStorage<T: GizmoConfigGroup> {
     pub list_positions: Vec<PositionItem>,
-    pub list_colors: Vec<ColorItem>,
+    pub list_colors: Vec<LinearRgba>,
     pub strip_positions: Vec<PositionItem>,
-    pub strip_colors: Vec<ColorItem>,
+    pub strip_colors: Vec<LinearRgba>,
     marker: PhantomData<T>,
 }
 
@@ -104,9 +104,9 @@ where
 #[derive(Default)]
 struct GizmoBuffer<T: GizmoConfigGroup> {
     list_positions: Vec<PositionItem>,
-    list_colors: Vec<ColorItem>,
+    list_colors: Vec<LinearRgba>,
     strip_positions: Vec<PositionItem>,
-    strip_colors: Vec<ColorItem>,
+    strip_colors: Vec<LinearRgba>,
     marker: PhantomData<T>,
 }
 
@@ -244,10 +244,8 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         }
         self.extend_strip_positions(positions);
         let len = self.buffer.strip_positions.len();
-        self.buffer
-            .strip_colors
-            .resize(len - 1, color.as_linear_rgba_f32());
-        self.buffer.strip_colors.push([f32::NAN; 4]);
+        self.buffer.strip_colors.resize(len - 1, color.into());
+        self.buffer.strip_colors.push(LinearRgba::NAN);
     }
 
     /// Draw a line in 3D made of straight segments between the points, with a color gradient.
@@ -287,11 +285,11 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
 
         for (position, color) in points {
             strip_positions.push(position.to_array());
-            strip_colors.push(color.as_linear_rgba_f32());
+            strip_colors.push(color.into());
         }
 
         strip_positions.push([f32::NAN; 3]);
-        strip_colors.push([f32::NAN; 4]);
+        strip_colors.push(LinearRgba::NAN);
     }
 
     /// Draw a wireframe sphere in 3D made out of 3 circles around the axes.
@@ -583,14 +581,14 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     fn extend_list_colors(&mut self, colors: impl IntoIterator<Item = LegacyColor>) {
         self.buffer
             .list_colors
-            .extend(colors.into_iter().map(|color| color.as_linear_rgba_f32()));
+            .extend(colors.into_iter().map(|color| LinearRgba::from(color)));
     }
 
     #[inline]
     fn add_list_color(&mut self, color: LegacyColor, count: usize) {
         self.buffer
             .list_colors
-            .extend(iter::repeat(color.as_linear_rgba_f32()).take(count));
+            .extend(iter::repeat(LinearRgba::from(color)).take(count));
     }
 
     #[inline]
