@@ -672,10 +672,10 @@ pub fn queue_material_meshes<M: Material>(
                     }
                 }
                 AlphaMode::Mask(_) => {
-                    let distance = rangefinder
-                        .distance_translation(&mesh_instance.transforms.transform.translation)
-                        + material.properties.depth_bias;
                     if material.properties.reads_view_transmission_texture {
+                        let distance = rangefinder
+                            .distance_translation(&mesh_instance.transforms.transform.translation)
+                            + material.properties.depth_bias;
                         transmissive_phase.add(Transmissive3d {
                             entity: *visible_entity,
                             draw_function: draw_transmissive_pbr,
@@ -689,7 +689,7 @@ pub fn queue_material_meshes<M: Material>(
                             entity: *visible_entity,
                             draw_function: draw_alpha_mask_pbr,
                             pipeline: pipeline_id,
-                            distance,
+                            asset_id: mesh_instance.mesh_asset_id,
                             batch_range: 0..1,
                             dynamic_offset: None,
                         });
