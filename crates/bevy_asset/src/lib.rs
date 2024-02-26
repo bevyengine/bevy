@@ -46,10 +46,10 @@ use crate::{
     io::{embedded::EmbeddedAssetRegistry, AssetSourceBuilder, AssetSourceBuilders, AssetSourceId},
     processor::{AssetProcessor, Process},
 };
-use bevy_app::{App, First, MainScheduleOrder, Plugin, PostUpdate};
+use bevy_app::{App, First, Plugin, PreUpdate};
 use bevy_ecs::{
     reflect::AppTypeRegistry,
-    schedule::{IntoSystemConfigs, IntoSystemSetConfigs, ScheduleLabel, SystemSet},
+    schedule::{IntoSystemConfigs, IntoSystemSetConfigs, SystemSet},
     system::Resource,
     world::FromWorld,
 };
@@ -146,7 +146,6 @@ impl AssetPlugin {
 
 impl Plugin for AssetPlugin {
     fn build(&self, app: &mut App) {
-        app.init_schedule(UpdateAssets).init_schedule(AssetEvents);
         let embedded = EmbeddedAssetRegistry::default();
         {
             let mut sources = app
@@ -218,16 +217,9 @@ impl Plugin for AssetPlugin {
             .init_asset::<LoadedUntypedAsset>()
             .init_asset::<()>()
             .add_event::<UntypedAssetLoadFailedEvent>()
-            .configure_sets(
-                UpdateAssets,
-                TrackAssets.after(handle_internal_asset_events),
-            )
-            .add_systems(UpdateAssets, handle_internal_asset_events)
+            .configure_sets(PreUpdate, TrackAssets.after(handle_internal_asset_events))
+            .add_systems(PreUpdate, handle_internal_asset_events)
             .register_type::<AssetPath>();
-
-        let mut order = app.world.resource_mut::<MainScheduleOrder>();
-        order.insert_after(First, UpdateAssets);
-        order.insert_after(PostUpdate, AssetEvents);
     }
 }
 
@@ -387,10 +379,13 @@ impl AssetApp for App {
             .register_type::<Handle<A>>()
             .register_type::<AssetId<A>>()
             .add_systems(
-                AssetEvents,
-                Assets::<A>::asset_events.run_if(Assets::<A>::asset_events_condition),
+                First,
+                Assets::<A>::asset_events
+                    .before(bevy_ecs::event::event_update_system::<AssetEvent<A>>)
+                    .run_if(Assets::<A>::asset_events_condition)
+                    .in_set(AssetEvents),
             )
-            .add_systems(UpdateAssets, Assets::<A>::track_assets.in_set(TrackAssets))
+            .add_systems(PreUpdate, Assets::<A>::track_assets.in_set(TrackAssets))
     }
 
     fn register_asset_reflect<A>(&mut self) -> &mut Self
@@ -422,14 +417,10 @@ impl AssetApp for App {
 #[derive(SystemSet, Hash, Debug, PartialEq, Eq, Clone)]
 pub struct TrackAssets;
 
-/// Schedule where [`Assets`] resources are updated.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, ScheduleLabel)]
-pub struct UpdateAssets;
-
-/// Schedule where events accumulated in [`Assets`] are applied to the [`AssetEvent`] [`Events`] resource.
+/// A system set where events accumulated in [`Assets`] are applied to the [`AssetEvent`] [`Events`] resource.
 ///
 /// [`Events`]: bevy_ecs::event::Events
-#[derive(Debug, Hash, PartialEq, Eq, Clone, ScheduleLabel)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub struct AssetEvents;
 
 #[cfg(test)]
@@ -460,10 +451,7 @@ mod tests {
     use bevy_utils::{BoxedFuture, Duration, HashMap};
     use futures_lite::AsyncReadExt;
     use serde::{Deserialize, Serialize};
-    use std::{
-        path::{Path, PathBuf},
-        sync::Arc,
-    };
+    use std::{path::Path, sync::Arc};
     use thiserror::Error;
 
     #[derive(Asset, TypePath, Debug, Default)]
@@ -554,7 +542,7 @@ mod tests {
     /// A dummy [`CoolText`] asset reader that only succeeds after `failure_count` times it's read from for each asset.
     #[derive(Default, Clone)]
     pub struct UnstableMemoryAssetReader {
-        pub attempt_counters: Arc<std::sync::Mutex<HashMap<PathBuf, usize>>>,
+        pub attempt_counters: Arc<std::sync::Mutex<HashMap<Box<Path>, usize>>>,
         pub load_delay: Duration,
         memory_reader: MemoryAssetReader,
         failure_count: usize,
@@ -598,13 +586,12 @@ mod tests {
             Result<Box<bevy_asset::io::Reader<'a>>, bevy_asset::io::AssetReaderError>,
         > {
             let attempt_number = {
-                let key = PathBuf::from(path);
                 let mut attempt_counters = self.attempt_counters.lock().unwrap();
-                if let Some(existing) = attempt_counters.get_mut(&key) {
+                if let Some(existing) = attempt_counters.get_mut(path) {
                     *existing += 1;
                     *existing
                 } else {
-                    attempt_counters.insert(key, 1);
+                    attempt_counters.insert(path.into(), 1);
                     1
                 }
             };
