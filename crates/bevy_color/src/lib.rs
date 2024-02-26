@@ -35,7 +35,7 @@
 //!
 //! HSV and HWB are very closely related to HSL in their derivation, having identical definitions for
 //! hue. Where HSL uses saturation and lightness, HSV uses a slightly modified definition of saturation,
-//! and an analog of lightness in the form of value. Contrastingly, HWB instead uses whiteness and blackness
+//! and an analog of lightness in the form of value. In contrast, HWB instead uses whiteness and blackness
 //! parameters, which can be used to lighten and darken a particular hue respectively.
 //!
 //! Oklab is a perceptually uniform color space that is designed to be used for tasks such
