@@ -3,13 +3,12 @@ use bevy::prelude::*;
 
 const ALIGN_ITEMS_COLOR: LegacyColor = LegacyColor::rgb(1., 0.066, 0.349);
 const JUSTIFY_CONTENT_COLOR: LegacyColor = LegacyColor::rgb(0.102, 0.522, 1.);
-const MARGIN: Val = Val::Px(5.);
+const MARGIN: Val = Val::Px(12.);
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
-                resolution: [870., 1066.].into(),
                 title: "Bevy Flex Layout Example".to_string(),
                 ..Default::default()
             }),
@@ -27,8 +26,11 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
             style: Style {
                 // fill the entire window
                 width: Val::Percent(100.),
+                height: Val::Percent(100.),
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
+                padding: UiRect::all(MARGIN),
+                row_gap: MARGIN,
                 ..Default::default()
             },
             background_color: BackgroundColor(LegacyColor::BLACK),
@@ -40,7 +42,6 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .spawn(NodeBundle {
                     style: Style {
                         flex_direction: FlexDirection::Row,
-                        margin: UiRect::top(MARGIN),
                         ..Default::default()
                     },
                     ..Default::default()
@@ -65,9 +66,10 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
             builder
                 .spawn(NodeBundle {
                     style: Style {
-                        width: Val::Px(850.),
-                        height: Val::Px(1020.),
+                        width: Val::Percent(100.),
+                        height: Val::Percent(100.),
                         flex_direction: FlexDirection::Column,
+                        row_gap: MARGIN,
                         ..Default::default()
                     },
                     ..Default::default()
@@ -89,17 +91,20 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                         AlignItems::FlexEnd,
                         AlignItems::Stretch,
                     ];
-                    for justify_content in justifications {
+                    for align_items in alignments {
                         builder
                             .spawn(NodeBundle {
                                 style: Style {
+                                    width: Val::Percent(100.),
+                                    height: Val::Percent(100.),
                                     flex_direction: FlexDirection::Row,
+                                    column_gap: MARGIN,
                                     ..Default::default()
                                 },
                                 ..Default::default()
                             })
                             .with_children(|builder| {
-                                for align_items in alignments {
+                                for justify_content in justifications {
                                     spawn_child_node(
                                         builder,
                                         font.clone(),
@@ -125,9 +130,8 @@ fn spawn_child_node(
                 flex_direction: FlexDirection::Column,
                 align_items,
                 justify_content,
-                width: Val::Px(160.),
-                height: Val::Px(160.),
-                margin: UiRect::all(MARGIN),
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
                 ..Default::default()
             },
             background_color: BackgroundColor(LegacyColor::DARK_GRAY),
