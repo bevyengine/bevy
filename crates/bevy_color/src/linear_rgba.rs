@@ -39,6 +39,14 @@ impl LinearRgba {
         alpha: 1.0,
     };
 
+    /// A fully transparent color.
+    pub const NONE: Self = Self {
+        red: 0.0,
+        green: 0.0,
+        blue: 0.0,
+        alpha: 0.0,
+    };
+
     /// Construct a new [`LinearRgba`] color from components.
     pub const fn new(red: f32, green: f32, blue: f32, alpha: f32) -> Self {
         Self {
