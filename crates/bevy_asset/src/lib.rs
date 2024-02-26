@@ -47,6 +47,7 @@ use crate::{
     processor::{AssetProcessor, Process},
 };
 use bevy_app::{App, First, MainScheduleOrder, Plugin, PostUpdate};
+use bevy_ecs::prelude::IntoSystem;
 use bevy_ecs::{
     reflect::AppTypeRegistry,
     schedule::{IntoSystemConfigs, IntoSystemSetConfigs, ScheduleLabel, SystemSet},
@@ -285,6 +286,13 @@ impl VisitAssetDependencies for Vec<UntypedHandle> {
 pub trait AssetApp {
     /// Registers the given `loader` in the [`App`]'s [`AssetServer`].
     fn register_asset_loader<L: AssetLoader>(&mut self, loader: L) -> &mut Self;
+    /// Registers a hook that gives a &mut Asset to the user, along with any arbitrary system
+    /// parameters. This runs before the asset is loaded into the world. You can register multiple
+    /// hooks.
+    fn register_asset_hook<A: Asset, Out, Marker>(
+        &mut self,
+        hook: impl IntoSystem<AssetWrapper<A>, Out, Marker> + Sync + Send + 'static + Clone,
+    ) -> &mut Self;
     /// Registers the given `processor` in the [`App`]'s [`AssetProcessor`].
     fn register_asset_processor<P: Process>(&mut self, processor: P) -> &mut Self;
     /// Registers the given [`AssetSourceBuilder`] with the given `id`.
@@ -323,6 +331,16 @@ pub trait AssetApp {
 impl AssetApp for App {
     fn register_asset_loader<L: AssetLoader>(&mut self, loader: L) -> &mut Self {
         self.world.resource::<AssetServer>().register_loader(loader);
+        self
+    }
+
+    fn register_asset_hook<A: Asset, Out, Marker>(
+        &mut self,
+        hook: impl IntoSystem<AssetWrapper<A>, Out, Marker> + Sync + Send + 'static + Clone,
+    ) -> &mut Self {
+        self.world
+            .resource::<AssetServer>()
+            .register_asset_hook(hook);
         self
     }
 

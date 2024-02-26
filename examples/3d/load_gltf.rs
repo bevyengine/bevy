@@ -1,6 +1,9 @@
 //! Loads and renders a glTF file as a scene.
 
 use bevy::{
+    asset::AssetWrapper,
+    gltf::Gltf,
+    gltf::GltfMesh,
     pbr::{CascadeShadowConfigBuilder, DirectionalLightShadowMap},
     prelude::*,
 };
@@ -12,6 +15,13 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, animate_light_direction)
+        .register_asset_hook::<Gltf, _, _>(
+            |In(gltf): In<AssetWrapper<Gltf>>, meshes: Res<Assets<GltfMesh>>| {
+                for (name, mesh) in gltf.named_meshes.iter() {
+                    println!("name: {}, mesh: {:#?}", name, meshes.get(mesh).unwrap());
+                }
+            },
+        )
         .run();
 }
 

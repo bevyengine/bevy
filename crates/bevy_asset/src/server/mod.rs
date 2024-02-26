@@ -20,13 +20,15 @@ use crate::{
 use bevy_ecs::prelude::*;
 use bevy_log::{error, info};
 use bevy_tasks::IoTaskPool;
-use bevy_utils::{CowArc, HashSet};
+use bevy_utils::{hashbrown, CowArc, HashSet};
 use crossbeam_channel::{Receiver, Sender};
 use futures_lite::StreamExt;
 use info::*;
 use loaders::*;
 use parking_lot::RwLock;
+use std::ops::{Deref, DerefMut};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::{any::TypeId, path::Path, sync::Arc};
 use thiserror::Error;
 
@@ -58,6 +60,108 @@ pub(crate) struct AssetServerData {
     sources: AssetSources,
     mode: AssetServerMode,
     meta_check: AssetMetaCheck,
+    pub(crate) hooks: RwLock<AssetHooks>,
+}
+
+struct TypeMap(hashbrown::HashMap<TypeId, Box<dyn std::any::Any + Send + Sync>>);
+
+impl TypeMap {
+    pub fn set<T: std::any::Any + Send + Sync + 'static>(&mut self, t: T) {
+        self.0.insert(TypeId::of::<T>(), Box::new(t));
+    }
+    pub fn has<T: 'static + Send + Sync + std::any::Any>(&self) -> bool {
+        self.0.contains_key(&TypeId::of::<T>())
+    }
+
+    pub fn get_mut<T: 'static + Send + Sync + std::any::Any>(&mut self) -> Option<&mut T> {
+        self.0
+            .get_mut(&TypeId::of::<T>())
+            .map(|t| t.downcast_mut::<T>().unwrap())
+    }
+}
+#[allow(clippy::unused_unit)]
+type AssetHookVec<A> =
+    Vec<Box<dyn FnMut(&mut A, &mut bevy_ecs::world::World) -> () + Send + Sync + 'static>>;
+
+pub struct AssetHooks(TypeMap);
+
+impl Default for AssetHooks {
+    fn default() -> Self {
+        Self(TypeMap(hashbrown::HashMap::new()))
+    }
+}
+
+impl<A: Asset> AssetWrapper<A> {
+    fn new(asset: &mut A) -> Self {
+        Self {
+            ptr: asset as *mut A,
+            flag: Default::default(),
+        }
+    }
+}
+/// Safe wrapper around asset pointers to allow for passing into systems.
+pub struct AssetWrapper<A: Asset> {
+    ptr: *mut A,
+    flag: Arc<AtomicBool>,
+}
+
+impl<A: Asset> Deref for AssetWrapper<A> {
+    type Target = A;
+    fn deref(&self) -> &A {
+        // SAFETY: This is safe because we ensure that we flag right after the system that gets the asset
+        // that it has dropped the AssetWrapper. If it hasn't we panic.
+        unsafe { &*self.ptr }
+    }
+}
+
+impl<A: Asset> DerefMut for AssetWrapper<A> {
+    fn deref_mut(&mut self) -> &mut A {
+        // SAFETY: This is safe because we ensure that we flag right after the system that gets the asset
+        // that it has dropped the AssetWrapper. If it hasn't we panic.
+        unsafe { &mut *self.ptr }
+    }
+}
+
+impl<A: Asset> Drop for AssetWrapper<A> {
+    fn drop(&mut self) {
+        self.flag.store(true, Ordering::Release);
+    }
+}
+
+impl AssetHooks {
+    fn add_asset_hook<A, Out, Marker, F>(&mut self, f: F)
+    where
+        A: Asset,
+        F: IntoSystem<AssetWrapper<A>, Out, Marker> + Sync + Send + 'static + Clone,
+    {
+        if !self.0.has::<AssetHookVec<A>>() {
+            self.0.set::<AssetHookVec<A>>(Vec::new());
+        }
+
+        let hooks = self.0.get_mut::<AssetHookVec<A>>().unwrap();
+        hooks.push(Box::new(move |asset, world| {
+            let mut system: F::System = IntoSystem::into_system(f.clone());
+            system.initialize(world);
+            let asset_wrapper = AssetWrapper::new(asset);
+            let flag = asset_wrapper.flag.clone();
+            system.run(asset_wrapper, world);
+            if !flag.load(Ordering::Acquire) {
+                panic!("tried to hold asset pointer past lifetime");
+            }
+            system.apply_deferred(world);
+        }));
+    }
+    pub(crate) fn trigger<A>(&mut self, asset: &mut A, world: &mut World)
+    where
+        A: Asset,
+    {
+        let Some(hooks) = self.0.get_mut::<AssetHookVec<A>>() else {
+            return;
+        };
+        for hook in hooks {
+            hook(asset, world);
+        }
+    }
 }
 
 /// The "asset mode" the server is currently in.
@@ -118,6 +222,7 @@ impl AssetServer {
                 asset_event_receiver,
                 loaders,
                 infos: RwLock::new(infos),
+                hooks: RwLock::new(AssetHooks::default()),
             }),
         }
     }
@@ -138,6 +243,13 @@ impl AssetServer {
     /// Registers a new [`AssetLoader`]. [`AssetLoader`]s must be registered before they can be used.
     pub fn register_loader<L: AssetLoader>(&self, loader: L) {
         self.data.loaders.write().push(loader);
+    }
+
+    pub fn register_asset_hook<A: Asset, Out, Marker>(
+        &self,
+        hook: impl IntoSystem<AssetWrapper<A>, Out, Marker> + Sync + Send + 'static + Clone,
+    ) {
+        self.data.hooks.write().add_asset_hook(hook);
     }
 
     /// Registers a new [`Asset`] type. [`Asset`] types must be registered before assets of that type can be loaded.
@@ -590,6 +702,7 @@ impl AssetServer {
 
     pub(crate) fn load_asset<A: Asset>(&self, asset: impl Into<LoadedAsset<A>>) -> Handle<A> {
         let loaded_asset: LoadedAsset<A> = asset.into();
+
         let erased_loaded_asset: ErasedLoadedAsset = loaded_asset.into();
         self.load_asset_untyped(None, erased_loaded_asset)
             .typed_debug_checked()
@@ -1049,7 +1162,13 @@ pub fn handle_internal_asset_events(world: &mut World) {
         let mut untyped_failures = vec![];
         for event in server.data.asset_event_receiver.try_iter() {
             match event {
-                InternalAssetEvent::Loaded { id, loaded_asset } => {
+                InternalAssetEvent::Loaded {
+                    id,
+                    mut loaded_asset,
+                } => {
+                    loaded_asset
+                        .value
+                        .load_hook(&mut server.data.hooks.write(), world);
                     infos.process_asset_load(
                         id,
                         loaded_asset,

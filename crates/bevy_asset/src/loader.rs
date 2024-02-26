@@ -5,8 +5,8 @@ use crate::{
         Settings,
     },
     path::AssetPath,
-    Asset, AssetLoadError, AssetServer, AssetServerMode, Assets, Handle, LoadedUntypedAsset,
-    UntypedAssetId, UntypedHandle,
+    Asset, AssetHooks, AssetLoadError, AssetServer, AssetServerMode, Assets, Handle,
+    LoadedUntypedAsset, UntypedAssetId, UntypedHandle,
 };
 use bevy_ecs::world::World;
 use bevy_utils::{BoxedFuture, CowArc, HashMap, HashSet};
@@ -234,6 +234,9 @@ impl ErasedLoadedAsset {
 pub trait AssetContainer: Downcast + Any + Send + Sync + 'static {
     fn insert(self: Box<Self>, id: UntypedAssetId, world: &mut World);
     fn asset_type_name(&self) -> &'static str;
+
+    /// Exists such that we can determine the type statically for the loading hook from an asset that has an erased type.
+    fn load_hook(&mut self, asset_hooks: &mut AssetHooks, world: &mut World);
 }
 
 impl_downcast!(AssetContainer);
@@ -245,6 +248,10 @@ impl<A: Asset> AssetContainer for A {
 
     fn asset_type_name(&self) -> &'static str {
         std::any::type_name::<A>()
+    }
+
+    fn load_hook(&mut self, asset_hooks: &mut AssetHooks, world: &mut World) {
+        asset_hooks.trigger::<A>(self, world);
     }
 }
 
