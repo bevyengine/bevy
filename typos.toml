@@ -22,11 +22,10 @@ TOI = "TOI" # Time of impact
 
 [default]
 extend-ignore-identifiers-re = [
-  "iFO",        # iFO - Index of First Original Face
   "NDK",        # NDK - Native  Development Kit
   "inventario", # Inventory in Portuguese
   # Used in bevy_mikktspace
+  "iFO",
   "vOt",
-  "vOt2",
   "fLenOt",
 ]
