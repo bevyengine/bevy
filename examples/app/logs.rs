@@ -70,7 +70,7 @@ fn log_once_system() {
     }
 
     // you can also use the 'once!' macro directly, in situations you want do do
-    // something expensive only once within the context of a continous system.
+    // something expensive only once within the context of a continuous system.
     once!({
         info!("doing expensive things");
         let mut a: u64 = 0;

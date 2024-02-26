@@ -228,7 +228,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         // SAFETY: We have registered all of the query's world accesses,
         // so the caller ensures that `world` has permission to access any
         // world data that the query needs.
-        Query::new(world, state, system_meta.last_run, change_tick)
+        unsafe { Query::new(world, state, system_meta.last_run, change_tick) }
     }
 }
 
@@ -654,7 +654,7 @@ unsafe impl SystemParam for &'_ World {
         _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         // SAFETY: Read-only access to the entire world was registered in `init_state`.
-        world.world()
+        unsafe { world.world() }
     }
 }
 
@@ -697,8 +697,8 @@ unsafe impl SystemParam for &'_ World {
 /// # use bevy_ecs::system::assert_is_system;
 /// struct Config(u32);
 /// #[derive(Resource)]
-/// struct Myu32Wrapper(u32);
-/// fn reset_to_system(value: Config) -> impl FnMut(ResMut<Myu32Wrapper>) {
+/// struct MyU32Wrapper(u32);
+/// fn reset_to_system(value: Config) -> impl FnMut(ResMut<MyU32Wrapper>) {
 ///     move |mut val| val.0 = value.0
 /// }
 ///
@@ -1500,7 +1500,7 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
         change_tick: Tick,
     ) -> Self::Item<'world, 'state> {
         // SAFETY: Defer to the safety of P::SystemParam
-        StaticSystemParam(P::get_param(state, system_meta, world, change_tick))
+        StaticSystemParam(unsafe { P::get_param(state, system_meta, world, change_tick) })
     }
 }
 

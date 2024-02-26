@@ -1,7 +1,7 @@
 use std::f32::consts::TAU;
 
 use bevy_math::{Mat2, Quat, Vec2, Vec3};
-use bevy_render::color::Color;
+use bevy_render::color::LegacyColor;
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 
@@ -58,7 +58,7 @@ pub(crate) fn draw_semi_sphere<T: GizmoConfigGroup>(
     rotation: Quat,
     center: Vec3,
     top: Vec3,
-    color: Color,
+    color: LegacyColor,
 ) {
     circle_coordinates(radius, segments)
         .map(|p| Vec3::new(p.x, 0.0, p.y))
@@ -81,7 +81,7 @@ pub(crate) fn draw_circle_3d<T: GizmoConfigGroup>(
     segments: usize,
     rotation: Quat,
     translation: Vec3,
-    color: Color,
+    color: LegacyColor,
 ) {
     let positions = (0..=segments)
         .map(|frac| frac as f32 / segments as f32)
@@ -100,7 +100,7 @@ pub(crate) fn draw_cylinder_vertical_lines<T: GizmoConfigGroup>(
     half_height: f32,
     rotation: Quat,
     center: Vec3,
-    color: Color,
+    color: LegacyColor,
 ) {
     circle_coordinates(radius, segments)
         .map(move |point_2d| {

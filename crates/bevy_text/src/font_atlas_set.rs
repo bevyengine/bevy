@@ -3,7 +3,7 @@ use ab_glyph::{GlyphId, OutlinedGlyph, Point};
 use bevy_asset::{AssetEvent, AssetId};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::prelude::*;
-use bevy_math::Vec2;
+use bevy_math::UVec2;
 use bevy_reflect::Reflect;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlasLayout;
@@ -84,13 +84,7 @@ impl FontAtlasSet {
         let font_atlases = self
             .font_atlases
             .entry(FloatOrd(font_size))
-            .or_insert_with(|| {
-                vec![FontAtlas::new(
-                    textures,
-                    texture_atlases,
-                    Vec2::splat(512.0),
-                )]
-            });
+            .or_insert_with(|| vec![FontAtlas::new(textures, texture_atlases, UVec2::splat(512))]);
 
         let glyph_texture = Font::get_outlined_glyph_texture(outlined_glyph);
         let add_char_to_font_atlas = |atlas: &mut FontAtlas| -> bool {
@@ -110,11 +104,11 @@ impl FontAtlasSet {
                 .height
                 .max(glyph_texture.width());
             // Pick the higher of 512 or the smallest power of 2 greater than glyph_max_size
-            let containing = (1u32 << (32 - glyph_max_size.leading_zeros())).max(512) as f32;
+            let containing = (1u32 << (32 - glyph_max_size.leading_zeros())).max(512);
             font_atlases.push(FontAtlas::new(
                 textures,
                 texture_atlases,
-                Vec2::new(containing, containing),
+                UVec2::splat(containing),
             ));
             if !font_atlases.last_mut().unwrap().add_glyph(
                 textures,

@@ -56,7 +56,7 @@ use crate::{
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use serde::{Deserialize, Serialize};
-use std::{convert::TryFrom, fmt, hash::Hash, mem, num::NonZeroU32, sync::atomic::Ordering};
+use std::{fmt, hash::Hash, mem, num::NonZeroU32, sync::atomic::Ordering};
 
 #[cfg(target_has_atomic = "64")]
 use std::sync::atomic::AtomicI64 as AtomicIdCursor;
@@ -741,7 +741,8 @@ impl Entities {
     #[inline]
     pub(crate) unsafe fn set(&mut self, index: u32, location: EntityLocation) {
         // SAFETY: Caller guarantees that `index` a valid entity index
-        self.meta.get_unchecked_mut(index as usize).location = location;
+        let meta = unsafe { self.meta.get_unchecked_mut(index as usize) };
+        meta.location = location;
     }
 
     /// Increments the `generation` of a freed [`Entity`]. The next entity ID allocated with this
@@ -848,9 +849,14 @@ impl Entities {
         let free_cursor = self.free_cursor.get_mut();
         *free_cursor = 0;
         self.meta.reserve(count);
-        // the EntityMeta struct only contains integers, and it is valid to have all bytes set to u8::MAX
-        self.meta.as_mut_ptr().write_bytes(u8::MAX, count);
-        self.meta.set_len(count);
+        // SAFETY: The EntityMeta struct only contains integers, and it is valid to have all bytes set to u8::MAX
+        unsafe {
+            self.meta.as_mut_ptr().write_bytes(u8::MAX, count);
+        }
+        // SAFETY: We have reserved `count` elements above and we have initialized values from index 0 to `count`.
+        unsafe {
+            self.meta.set_len(count);
+        }
 
         self.len = count as u32;
     }

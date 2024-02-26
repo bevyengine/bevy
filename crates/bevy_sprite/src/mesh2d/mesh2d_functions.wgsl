@@ -4,10 +4,10 @@
     mesh2d_view_bindings::view,
     mesh2d_bindings::mesh,
 }
-#import bevy_render::maths::{affine_to_square, mat2x4_f32_to_mat3x3_unpack}
+#import bevy_render::maths::{affine3_to_square, mat2x4_f32_to_mat3x3_unpack}
 
 fn get_model_matrix(instance_index: u32) -> mat4x4<f32> {
-    return affine_to_square(mesh[instance_index].model);
+    return affine3_to_square(mesh[instance_index].model);
 }
 
 fn mesh2d_position_local_to_world(model: mat4x4<f32>, vertex_position: vec4<f32>) -> vec4<f32> {
