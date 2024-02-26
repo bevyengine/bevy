@@ -222,4 +222,8 @@ impl Material2d for Wireframe2dMaterial {
         descriptor.primitive.polygon_mode = PolygonMode::Line;
         Ok(())
     }
+
+    fn depth_bias(&self) -> f32 {
+        1.0
+    }
 }
