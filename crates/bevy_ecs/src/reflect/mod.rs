@@ -1,10 +1,11 @@
 //! Types that enable reflection support.
 
+use std::any::TypeId;
 use std::ops::{Deref, DerefMut};
 
 use crate as bevy_ecs;
-use crate::system::Resource;
-use bevy_reflect::TypeRegistryArc;
+use crate::{system::Resource, world::World};
+use bevy_reflect::{FromReflect, Reflect, TypeRegistry, TypeRegistryArc};
 
 mod bundle;
 mod component;
@@ -39,4 +40,48 @@ impl DerefMut for AppTypeRegistry {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
+}
+
+/// Creates a `T` from a `&dyn Reflect`.
+///
+/// The first approach uses `T`'s implementation of `FromReflect`.
+/// If this fails, it falls back to default-initializing a new instance of `T` using its
+/// `ReflectFromWorld` data from the `world`'s `AppTypeRegistry` and `apply`ing the
+/// `&dyn Reflect` on it.
+///
+/// Panics if both approaches fail.
+fn from_reflect_or_world<T: FromReflect>(
+    reflected: &dyn Reflect,
+    world: &mut World,
+    registry: &TypeRegistry,
+) -> T {
+    if let Some(value) = T::from_reflect(reflected) {
+        return value;
+    }
+
+    // Clone the `ReflectFromWorld` because it's cheap and "frees"
+    // the borrow of `world` so that it can be passed to `from_world`.
+    let Some(reflect_from_world) = registry.get_type_data::<ReflectFromWorld>(TypeId::of::<T>())
+    else {
+        panic!(
+            "`FromReflect` failed and no `ReflectFromWorld` registration found for `{}`",
+            // FIXME: once we have unique reflect, use `TypePath`.
+            std::any::type_name::<T>(),
+        );
+    };
+
+    let Ok(mut value) = reflect_from_world
+        .from_world(world)
+        .into_any()
+        .downcast::<T>()
+    else {
+        panic!(
+            "the `ReflectFromWorld` registration for `{}` produced a value of a different type",
+            // FIXME: once we have unique reflect, use `TypePath`.
+            std::any::type_name::<T>(),
+        );
+    };
+
+    value.apply(reflected);
+    *value
 }
