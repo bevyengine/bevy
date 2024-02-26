@@ -122,7 +122,7 @@ Controls
 ---------------
 Z - Toggle global
 X - Change global color
-C - Change color of the green cube wireframe
+C - Change color of the green circle wireframe
 
 Wireframe2dConfig
 -------------
