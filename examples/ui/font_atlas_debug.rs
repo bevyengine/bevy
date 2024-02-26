@@ -6,7 +6,7 @@ use bevy::{prelude::*, text::FontAtlasSets};
 fn main() {
     App::new()
         .init_resource::<State>()
-        .insert_resource(ClearColor(Color::BLACK))
+        .insert_resource(ClearColor(LegacyColor::BLACK))
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, (text_update_system, atlas_render_system))
@@ -77,7 +77,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResM
     commands.spawn(Camera2dBundle::default());
     commands
         .spawn(NodeBundle {
-            background_color: Color::NONE.into(),
+            background_color: LegacyColor::NONE.into(),
             style: Style {
                 position_type: PositionType::Absolute,
                 bottom: Val::ZERO,
@@ -91,7 +91,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResM
                 TextStyle {
                     font: font_handle,
                     font_size: 60.0,
-                    color: Color::YELLOW,
+                    color: LegacyColor::YELLOW,
                 },
             ));
         });

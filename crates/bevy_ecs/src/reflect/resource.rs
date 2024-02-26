@@ -116,7 +116,7 @@ impl ReflectResource {
         world: UnsafeWorldCell<'w>,
     ) -> Option<Mut<'w, dyn Reflect>> {
         // SAFETY: caller promises to uphold uniqueness guarantees
-        (self.0.reflect_unchecked_mut)(world)
+        unsafe { (self.0.reflect_unchecked_mut)(world) }
     }
 
     /// Gets the value of this [`Resource`] type from `source_world` and [applies](Self::apply()) it to the value of this [`Resource`] type in `destination_world`.

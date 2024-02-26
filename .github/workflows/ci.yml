@@ -168,11 +168,9 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
       - name: Install taplo
-        run: | 
-          curl -fsSL https://github.com/tamasfe/taplo/releases/latest/download/taplo-full-linux-x86_64.gz \
-          | gzip -d - \
-          | install -m 755 /dev/stdin /usr/local/bin/taplo
+        run: cargo install taplo-cli --locked
       - name: Run Taplo
         id: taplo
         run: taplo fmt --check --diff
@@ -180,7 +178,26 @@ jobs:
         if: failure()
         run: |
           echo 'To fix toml fmt, please run `taplo fmt`'
-          echo 'Or if you use VSCode, use the Even Better Toml extension'
+          echo 'To check for a diff, run `taplo fmt --check --diff'
+          echo 'You can find taplo here: https://taplo.tamasfe.dev/'
+          echo 'Or if you use VSCode, use the `Even Better Toml` extension with 2 spaces'
+          echo 'You can find the extension here: https://marketplace.visualstudio.com/items?itemName=tamasfe.even-better-toml'
+
+  typos:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for typos
+        uses: crate-ci/typos@v1.18.2
+      - name: Typos info
+        if: failure()
+        run: |
+          echo 'To fix typos, please run `typos -w`'
+          echo 'To check for a diff, run `typos`'
+          echo 'You can find typos here: https://crates.io/crates/typos'
+          echo 'if you use VSCode, you can also install `Typos Spell Checker'
+          echo 'You can find the extension here: https://marketplace.visualstudio.com/items?itemName=tekumara.typos-vscode'
 
 
   run-examples-on-windows-dx12:
@@ -374,4 +391,26 @@ jobs:
               echo " Fix the issue by replacing 'bevy_internal' with 'bevy'"
               echo " Example: 'use bevy::sprite::MaterialMesh2dBundle;' instead of 'bevy_internal::sprite::MaterialMesh2dBundle;'"
               exit 1
-          fi                  
+          fi
+  check-cfg:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-check-doc-${{ hashFiles('**/Cargo.toml') }}
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
+      - name: Install alsa and udev
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
+      - name: Build and check cfg typos
+        # See tools/ci/src/main.rs for the commands this runs
+        run: cargo run -p ci -- cfg-check

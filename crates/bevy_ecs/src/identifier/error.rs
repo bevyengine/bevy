@@ -4,7 +4,7 @@
 use std::fmt;
 
 /// An  Error type for [`super::Identifier`], mostly for providing error
-/// handling for convertions of an ID to a type abstracting over the ID bits.
+/// handling for conversions of an ID to a type abstracting over the ID bits.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 #[non_exhaustive]
 pub enum IdentifierError {

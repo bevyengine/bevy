@@ -4,7 +4,7 @@
 
 use bevy::prelude::*;
 
-const TEXT_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
+const TEXT_COLOR: LegacyColor = LegacyColor::rgb(0.9, 0.9, 0.9);
 
 // Enum that will be used as a global state for the game
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
@@ -167,7 +167,7 @@ mod game {
                             align_items: AlignItems::Center,
                             ..default()
                         },
-                        background_color: Color::BLACK.into(),
+                        background_color: LegacyColor::BLACK.into(),
                         ..default()
                     })
                     .with_children(|parent| {
@@ -192,7 +192,7 @@ mod game {
                                     format!("quality: {:?}", *display_quality),
                                     TextStyle {
                                         font_size: 60.0,
-                                        color: Color::BLUE,
+                                        color: LegacyColor::BLUE,
                                         ..default()
                                     },
                                 ),
@@ -208,7 +208,7 @@ mod game {
                                     format!("volume: {:?}", *volume),
                                     TextStyle {
                                         font_size: 60.0,
-                                        color: Color::GREEN,
+                                        color: LegacyColor::GREEN,
                                         ..default()
                                     },
                                 ),
@@ -318,10 +318,10 @@ mod menu {
     #[derive(Component)]
     struct OnSoundSettingsMenuScreen;
 
-    const NORMAL_BUTTON: Color = Color::rgb(0.15, 0.15, 0.15);
-    const HOVERED_BUTTON: Color = Color::rgb(0.25, 0.25, 0.25);
-    const HOVERED_PRESSED_BUTTON: Color = Color::rgb(0.25, 0.65, 0.25);
-    const PRESSED_BUTTON: Color = Color::rgb(0.35, 0.75, 0.35);
+    const NORMAL_BUTTON: LegacyColor = LegacyColor::rgb(0.15, 0.15, 0.15);
+    const HOVERED_BUTTON: LegacyColor = LegacyColor::rgb(0.25, 0.25, 0.25);
+    const HOVERED_PRESSED_BUTTON: LegacyColor = LegacyColor::rgb(0.25, 0.65, 0.25);
+    const PRESSED_BUTTON: LegacyColor = LegacyColor::rgb(0.35, 0.75, 0.35);
 
     // Tag component used to mark which setting is currently selected
     #[derive(Component)]
@@ -425,7 +425,7 @@ mod menu {
                             align_items: AlignItems::Center,
                             ..default()
                         },
-                        background_color: Color::CRIMSON.into(),
+                        background_color: LegacyColor::CRIMSON.into(),
                         ..default()
                     })
                     .with_children(|parent| {
@@ -551,7 +551,7 @@ mod menu {
                             align_items: AlignItems::Center,
                             ..default()
                         },
-                        background_color: Color::CRIMSON.into(),
+                        background_color: LegacyColor::CRIMSON.into(),
                         ..default()
                     })
                     .with_children(|parent| {
@@ -617,7 +617,7 @@ mod menu {
                             align_items: AlignItems::Center,
                             ..default()
                         },
-                        background_color: Color::CRIMSON.into(),
+                        background_color: LegacyColor::CRIMSON.into(),
                         ..default()
                     })
                     .with_children(|parent| {
@@ -629,7 +629,7 @@ mod menu {
                                     align_items: AlignItems::Center,
                                     ..default()
                                 },
-                                background_color: Color::CRIMSON.into(),
+                                background_color: LegacyColor::CRIMSON.into(),
                                 ..default()
                             })
                             .with_children(|parent| {
@@ -721,7 +721,7 @@ mod menu {
                             align_items: AlignItems::Center,
                             ..default()
                         },
-                        background_color: Color::CRIMSON.into(),
+                        background_color: LegacyColor::CRIMSON.into(),
                         ..default()
                     })
                     .with_children(|parent| {
@@ -731,7 +731,7 @@ mod menu {
                                     align_items: AlignItems::Center,
                                     ..default()
                                 },
-                                background_color: Color::CRIMSON.into(),
+                                background_color: LegacyColor::CRIMSON.into(),
                                 ..default()
                             })
                             .with_children(|parent| {
