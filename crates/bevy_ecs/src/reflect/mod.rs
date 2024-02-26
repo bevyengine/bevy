@@ -21,7 +21,7 @@ pub use from_world::{ReflectFromWorld, ReflectFromWorldFns};
 pub use map_entities::ReflectMapEntities;
 pub use resource::{ReflectResource, ReflectResourceFns};
 
-/// A [`Resource`] storing [`TypeRegistry`](bevy_reflect::TypeRegistry) for
+/// A [`Resource`] storing [`TypeRegistry`] for
 /// type registrations relevant to a whole app.
 #[derive(Resource, Clone, Default)]
 pub struct AppTypeRegistry(pub TypeRegistryArc);
