@@ -512,6 +512,8 @@ pub fn prepare_view_targets(
                             view_formats: match main_texture_format {
                                 TextureFormat::Bgra8Unorm => &[TextureFormat::Bgra8UnormSrgb],
                                 TextureFormat::Rgba8Unorm => &[TextureFormat::Rgba8UnormSrgb],
+                                TextureFormat::Bgra8UnormSrgb => &[TextureFormat::Bgra8Unorm],
+                                TextureFormat::Rgba8UnormSrgb => &[TextureFormat::Rgba8Unorm],
                                 _ => &[],
                             },
                         };
