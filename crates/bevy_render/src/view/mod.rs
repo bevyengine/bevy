@@ -493,7 +493,7 @@ pub fn prepare_view_targets(
                 };
 
                 let clear_color = match camera.clear_color {
-                    ClearColorConfig::Custom(color) => Some(color.into()),
+                    ClearColorConfig::Custom(color) => Some(color),
                     ClearColorConfig::None => None,
                     _ => Some(clear_color_global.0),
                 };
