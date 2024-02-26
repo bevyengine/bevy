@@ -451,10 +451,7 @@ mod tests {
     use bevy_utils::{BoxedFuture, Duration, HashMap};
     use futures_lite::AsyncReadExt;
     use serde::{Deserialize, Serialize};
-    use std::{
-        path::{Path, PathBuf},
-        sync::Arc,
-    };
+    use std::{path::Path, sync::Arc};
     use thiserror::Error;
 
     #[derive(Asset, TypePath, Debug, Default)]
@@ -545,7 +542,7 @@ mod tests {
     /// A dummy [`CoolText`] asset reader that only succeeds after `failure_count` times it's read from for each asset.
     #[derive(Default, Clone)]
     pub struct UnstableMemoryAssetReader {
-        pub attempt_counters: Arc<std::sync::Mutex<HashMap<PathBuf, usize>>>,
+        pub attempt_counters: Arc<std::sync::Mutex<HashMap<Box<Path>, usize>>>,
         pub load_delay: Duration,
         memory_reader: MemoryAssetReader,
         failure_count: usize,
@@ -589,13 +586,12 @@ mod tests {
             Result<Box<bevy_asset::io::Reader<'a>>, bevy_asset::io::AssetReaderError>,
         > {
             let attempt_number = {
-                let key = PathBuf::from(path);
                 let mut attempt_counters = self.attempt_counters.lock().unwrap();
-                if let Some(existing) = attempt_counters.get_mut(&key) {
+                if let Some(existing) = attempt_counters.get_mut(path) {
                     *existing += 1;
                     *existing
                 } else {
-                    attempt_counters.insert(key, 1);
+                    attempt_counters.insert(path.into(), 1);
                     1
                 }
             };
