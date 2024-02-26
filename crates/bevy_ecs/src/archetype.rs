@@ -404,7 +404,7 @@ impl Archetype {
         self.components.indices()
     }
 
-    /// Gets the total amount of components in the archetype
+    /// Returns the total number of components in the archetype
     #[inline]
     pub fn component_count(&self) -> usize {
         self.components.len()
