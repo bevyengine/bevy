@@ -221,7 +221,6 @@ impl Material2d for Wireframe2dMaterial {
         _key: Material2dKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         descriptor.primitive.polygon_mode = PolygonMode::Line;
-        // descriptor.depth_stencil.as_mut().unwrap().bias.slope_scale = 1.0;
         Ok(())
     }
 }
