@@ -1,4 +1,4 @@
-use crate::{Alpha, Hwba, Lcha, LinearRgba, Oklaba, Srgba, StandardColor, Xyza};
+use crate::{Alpha, Hwba, Lcha, LinearRgba, Srgba, StandardColor, Xyza};
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
 
@@ -116,6 +116,8 @@ impl From<Hwba> for Hsva {
     }
 }
 
+// Derived Conversions
+
 impl From<Srgba> for Hsva {
     fn from(value: Srgba) -> Self {
         Hwba::from(value).into()
@@ -147,18 +149,6 @@ impl From<Lcha> for Hsva {
 }
 
 impl From<Hsva> for Lcha {
-    fn from(value: Hsva) -> Self {
-        Hwba::from(value).into()
-    }
-}
-
-impl From<Oklaba> for Hsva {
-    fn from(value: Oklaba) -> Self {
-        Hwba::from(value).into()
-    }
-}
-
-impl From<Hsva> for Oklaba {
     fn from(value: Hsva) -> Self {
         Hwba::from(value).into()
     }

@@ -2,7 +2,7 @@
 //! in [_HWB - A More Intuitive Hue-Based Color Model_] by _Smith et al_.
 //!
 //! [_HWB - A More Intuitive Hue-Based Color Model_]: https://web.archive.org/web/20240226005220/http://alvyray.com/Papers/CG/HWB_JGTv208.pdf
-use crate::{Alpha, Lcha, LinearRgba, Oklaba, Srgba, StandardColor, Xyza};
+use crate::{Alpha, Lcha, LinearRgba, Srgba, StandardColor, Xyza};
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
 
@@ -161,6 +161,8 @@ impl From<Hwba> for Srgba {
     }
 }
 
+// Derived Conversions
+
 impl From<LinearRgba> for Hwba {
     fn from(value: LinearRgba) -> Self {
         Srgba::from(value).into()
@@ -180,18 +182,6 @@ impl From<Lcha> for Hwba {
 }
 
 impl From<Hwba> for Lcha {
-    fn from(value: Hwba) -> Self {
-        Srgba::from(value).into()
-    }
-}
-
-impl From<Oklaba> for Hwba {
-    fn from(value: Oklaba) -> Self {
-        Srgba::from(value).into()
-    }
-}
-
-impl From<Hwba> for Oklaba {
     fn from(value: Hwba) -> Self {
         Srgba::from(value).into()
     }
