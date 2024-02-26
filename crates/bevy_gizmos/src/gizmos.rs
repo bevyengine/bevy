@@ -23,10 +23,10 @@ type PositionItem = [f32; 3];
 
 #[derive(Resource, Default)]
 pub(crate) struct GizmoStorage<T: GizmoConfigGroup> {
-    pub list_positions: Vec<PositionItem>,
-    pub list_colors: Vec<LinearRgba>,
-    pub strip_positions: Vec<PositionItem>,
-    pub strip_colors: Vec<LinearRgba>,
+    pub(crate) list_positions: Vec<PositionItem>,
+    pub(crate) list_colors: Vec<LinearRgba>,
+    pub(crate) strip_positions: Vec<PositionItem>,
+    pub(crate) strip_colors: Vec<LinearRgba>,
     marker: PhantomData<T>,
 }
 
