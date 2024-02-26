@@ -581,7 +581,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     fn extend_list_colors(&mut self, colors: impl IntoIterator<Item = LegacyColor>) {
         self.buffer
             .list_colors
-            .extend(colors.into_iter().map(|color| LinearRgba::from(color)));
+            .extend(colors.into_iter().map(LinearRgba::from));
     }
 
     #[inline]
