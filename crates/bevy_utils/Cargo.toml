@@ -14,7 +14,6 @@ detailed_trace = []
 [dependencies]
 ahash = "0.8.7"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
-web-time = { version = "0.2" }
 uuid = { version = "1.1", features = ["v4", "serde"] }
 hashbrown = { version = "0.14", features = ["serde"] }
 bevy_utils_proc_macros = { version = "0.14.0-dev", path = "macros" }
@@ -28,6 +27,7 @@ smallvec = { version = "1.11", features = ["serde", "union", "const_generics"] }
 static_assertions = "1.1.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+web-time = "0.2"
 getrandom = { version = "0.2.0", features = ["js"] }
 
 [lints]
