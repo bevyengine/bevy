@@ -2,7 +2,7 @@
 
 use std::f32::consts::{PI, TAU};
 
-use bevy::prelude::*;
+use bevy::{color::palettes::css::*, prelude::*};
 
 fn main() {
     App::new()
@@ -38,51 +38,45 @@ fn draw_example_collection(
     time: Res<Time>,
 ) {
     let sin = time.elapsed_seconds().sin() * 50.;
-    gizmos.line_2d(Vec2::Y * -sin, Vec2::splat(-80.), LegacyColor::RED);
-    gizmos.ray_2d(Vec2::Y * sin, Vec2::splat(80.), LegacyColor::GREEN);
+    gizmos.line_2d(Vec2::Y * -sin, Vec2::splat(-80.), RED.into());
+    gizmos.ray_2d(Vec2::Y * sin, Vec2::splat(80.), GREEN.into());
 
     // Triangle
     gizmos.linestrip_gradient_2d([
-        (Vec2::Y * 300., LegacyColor::BLUE),
-        (Vec2::new(-255., -155.), LegacyColor::RED),
-        (Vec2::new(255., -155.), LegacyColor::GREEN),
-        (Vec2::Y * 300., LegacyColor::BLUE),
+        (Vec2::Y * 300., BLUE.into()),
+        (Vec2::new(-255., -155.), RED.into()),
+        (Vec2::new(255., -155.), GREEN.into()),
+        (Vec2::Y * 300., BLUE.into()),
     ]);
 
     gizmos.rect_2d(
         Vec2::ZERO,
         time.elapsed_seconds() / 3.,
         Vec2::splat(300.),
-        LegacyColor::BLACK,
+        BLACK.into(),
     );
 
     // The circles have 32 line-segments by default.
-    my_gizmos.circle_2d(Vec2::ZERO, 120., LegacyColor::BLACK);
+    my_gizmos.circle_2d(Vec2::ZERO, 120., BLACK.into());
     my_gizmos.ellipse_2d(
         Vec2::ZERO,
         time.elapsed_seconds() % TAU,
         Vec2::new(100., 200.),
-        LegacyColor::YELLOW_GREEN,
+        YELLOW_GREEN.into(),
     );
     // You may want to increase this for larger circles.
     my_gizmos
-        .circle_2d(Vec2::ZERO, 300., LegacyColor::NAVY)
+        .circle_2d(Vec2::ZERO, 300., NAVY.into())
         .segments(64);
 
     // Arcs default amount of segments is linearly interpolated between
     // 1 and 32, using the arc length as scalar.
-    my_gizmos.arc_2d(
-        Vec2::ZERO,
-        sin / 10.,
-        PI / 2.,
-        350.,
-        LegacyColor::ORANGE_RED,
-    );
+    my_gizmos.arc_2d(Vec2::ZERO, sin / 10., PI / 2., 350., ORANGE_RED.into());
 
     gizmos.arrow_2d(
         Vec2::ZERO,
         Vec2::from_angle(sin / -10. + PI / 2.) * 50.,
-        LegacyColor::YELLOW,
+        YELLOW.into(),
     );
 }
 

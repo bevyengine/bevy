@@ -1,5 +1,6 @@
 //! This example demonstrates how to use the `Camera::viewport_to_world` method.
 
+use bevy::color::palettes::basic::WHITE;
 use bevy::math::Direction3d;
 use bevy::prelude::*;
 
@@ -41,7 +42,7 @@ fn draw_cursor(
         point + ground.up() * 0.01,
         Direction3d::new_unchecked(ground.up()), // Up vector is already normalized.
         0.2,
-        LegacyColor::WHITE,
+        WHITE.into(),
     );
 }
 

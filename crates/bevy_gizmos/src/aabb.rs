@@ -3,6 +3,7 @@
 use crate as bevy_gizmos;
 
 use bevy_app::{Plugin, PostUpdate};
+use bevy_color::{Color, Hsla};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -12,7 +13,7 @@ use bevy_ecs::{
     system::{Query, Res},
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{color::LegacyColor, primitives::Aabb};
+use bevy_render::primitives::Aabb;
 use bevy_transform::{
     components::{GlobalTransform, Transform},
     TransformSystem,
@@ -57,7 +58,7 @@ pub struct AabbGizmoConfigGroup {
     /// A random color is chosen per box if `None`.
     ///
     /// Defaults to `None`.
-    pub default_color: Option<LegacyColor>,
+    pub default_color: Option<Color>,
 }
 
 /// Add this [`Component`] to an entity to draw its [`Aabb`] component.
@@ -67,7 +68,7 @@ pub struct ShowAabbGizmo {
     /// The color of the box.
     ///
     /// The default color from the [`AabbGizmoConfigGroup`] config is used if `None`,
-    pub color: Option<LegacyColor>,
+    pub color: Option<Color>,
 }
 
 fn draw_aabbs(
@@ -96,7 +97,7 @@ fn draw_all_aabbs(
     }
 }
 
-fn color_from_entity(entity: Entity) -> LegacyColor {
+fn color_from_entity(entity: Entity) -> Color {
     let index = entity.index();
 
     // from https://extremelearning.com.au/unreasonable-effectiveness-of-quasirandom-sequences/
@@ -108,7 +109,7 @@ fn color_from_entity(entity: Entity) -> LegacyColor {
     const RATIO_360: f32 = 360.0 / u32::MAX as f32;
     let hue = index.wrapping_mul(FRAC_U32MAX_GOLDEN_RATIO) as f32 * RATIO_360;
 
-    LegacyColor::hsl(hue, 1., 0.5)
+    Hsla::hsl(hue, 1., 0.5).into()
 }
 
 fn aabb_transform(aabb: Aabb, transform: GlobalTransform) -> GlobalTransform {
