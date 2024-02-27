@@ -222,8 +222,9 @@ impl Color {
 }
 
 impl Default for Color {
+    /// A fully white [`Color::LinearRgba`] color with an alpha of 1.0.
     fn default() -> Self {
-        Self::Srgba(Srgba::WHITE)
+        Color::WHITE
     }
 }
 
