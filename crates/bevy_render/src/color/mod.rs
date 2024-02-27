@@ -1,4 +1,6 @@
-use bevy_color::{Color, HexColorError, Hsla, Lcha, LinearRgba, Oklaba, Srgba, Xyza};
+use bevy_color::{
+    Color, HexColorError, Hsla, Hsva, Hwba, Laba, Lcha, LinearRgba, Oklaba, Srgba, Xyza,
+};
 
 use bevy_math::{Vec3, Vec4};
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
@@ -922,6 +924,9 @@ impl From<Color> for LegacyColor {
             Color::Srgba(x) => x.into(),
             Color::LinearRgba(x) => x.into(),
             Color::Hsla(x) => x.into(),
+            Color::Hsva(x) => x.into(),
+            Color::Hwba(x) => x.into(),
+            Color::Laba(x) => x.into(),
             Color::Lcha(x) => x.into(),
             Color::Oklaba(x) => x.into(),
             Color::Xyza(x) => x.into(),
@@ -1006,6 +1011,36 @@ impl From<LegacyColor> for Hsla {
     }
 }
 
+impl From<LegacyColor> for Hsva {
+    fn from(value: LegacyColor) -> Self {
+        Hsla::from(value).into()
+    }
+}
+
+impl From<Hsva> for LegacyColor {
+    fn from(value: Hsva) -> Self {
+        Hsla::from(value).into()
+    }
+}
+
+impl From<LegacyColor> for Hwba {
+    fn from(value: LegacyColor) -> Self {
+        Hsla::from(value).into()
+    }
+}
+
+impl From<Hwba> for LegacyColor {
+    fn from(value: Hwba) -> Self {
+        Hsla::from(value).into()
+    }
+}
+
+impl From<Laba> for LegacyColor {
+    fn from(value: Laba) -> Self {
+        Lcha::from(value).into()
+    }
+}
+
 impl From<Lcha> for LegacyColor {
     fn from(
         Lcha {
@@ -1025,6 +1060,12 @@ impl From<Lcha> for LegacyColor {
 }
 
 impl From<LegacyColor> for Lcha {
+    fn from(value: LegacyColor) -> Self {
+        Color::from(value).into()
+    }
+}
+
+impl From<LegacyColor> for Laba {
     fn from(value: LegacyColor) -> Self {
         Color::from(value).into()
     }

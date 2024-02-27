@@ -830,7 +830,7 @@ pub struct Bundles {
     /// Cache static [`BundleId`]
     bundle_ids: TypeIdMap<BundleId>,
     /// Cache dynamic [`BundleId`] with multiple components
-    dynamic_bundle_ids: HashMap<Vec<ComponentId>, (BundleId, Vec<StorageType>)>,
+    dynamic_bundle_ids: HashMap<Box<[ComponentId]>, (BundleId, Vec<StorageType>)>,
     /// Cache optimized dynamic [`BundleId`] with single component
     dynamic_component_bundle_ids: HashMap<ComponentId, (BundleId, StorageType)>,
 }
@@ -895,7 +895,7 @@ impl Bundles {
             .from_key(component_ids)
             .or_insert_with(|| {
                 (
-                    Vec::from(component_ids),
+                    component_ids.into(),
                     initialize_dynamic_bundle(bundle_infos, components, Vec::from(component_ids)),
                 )
             });

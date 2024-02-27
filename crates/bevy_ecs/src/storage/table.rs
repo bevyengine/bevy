@@ -793,7 +793,7 @@ impl Table {
 /// Can be accessed via [`Storages`](crate::storage::Storages)
 pub struct Tables {
     tables: Vec<Table>,
-    table_ids: HashMap<Vec<ComponentId>, TableId>,
+    table_ids: HashMap<Box<[ComponentId]>, TableId>,
 }
 
 impl Default for Tables {
@@ -891,10 +891,7 @@ impl Tables {
                     table = table.add_column(components.get_info_unchecked(*component_id));
                 }
                 tables.push(table.build());
-                (
-                    component_ids.to_vec(),
-                    TableId::from_usize(tables.len() - 1),
-                )
+                (component_ids.into(), TableId::from_usize(tables.len() - 1))
             });
 
         *value

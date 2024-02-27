@@ -1,8 +1,13 @@
-use crate::{Alpha, Lcha, LinearRgba, Luminance, Mix, Oklaba, Srgba, StandardColor};
+use crate::{Alpha, Hsva, Hwba, Lcha, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza};
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
 
-/// Color in Hue-Saturation-Lightness color space with alpha
+/// Color in Hue-Saturation-Lightness (HSL) color space with alpha.
+/// Further information on this color model can be found on [Wikipedia](https://en.wikipedia.org/wiki/HSL_and_HSV).
+#[doc = include_str!("../docs/conversion.md")]
+/// <div>
+#[doc = include_str!("../docs/diagrams/model_graph.svg")]
+/// </div>
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub struct Hsla {
@@ -127,41 +132,7 @@ impl Luminance for Hsla {
     }
 }
 
-impl From<Srgba> for Hsla {
-    fn from(
-        Srgba {
-            red,
-            green,
-            blue,
-            alpha,
-        }: Srgba,
-    ) -> Self {
-        // https://en.wikipedia.org/wiki/HSL_and_HSV#From_RGB
-        let x_max = red.max(green.max(blue));
-        let x_min = red.min(green.min(blue));
-        let chroma = x_max - x_min;
-        let lightness = (x_max + x_min) / 2.0;
-        let hue = if chroma == 0.0 {
-            0.0
-        } else if red == x_max {
-            60.0 * (green - blue) / chroma
-        } else if green == x_max {
-            60.0 * (2.0 + (blue - red) / chroma)
-        } else {
-            60.0 * (4.0 + (red - green) / chroma)
-        };
-        let hue = if hue < 0.0 { 360.0 + hue } else { hue };
-        let saturation = if lightness <= 0.0 || lightness >= 1.0 {
-            0.0
-        } else {
-            (x_max - lightness) / lightness.min(1.0 - lightness)
-        };
-
-        Self::new(hue, saturation, lightness, alpha)
-    }
-}
-
-impl From<Hsla> for Srgba {
+impl From<Hsla> for Hsva {
     fn from(
         Hsla {
             hue,
@@ -170,48 +141,98 @@ impl From<Hsla> for Srgba {
             alpha,
         }: Hsla,
     ) -> Self {
-        // https://en.wikipedia.org/wiki/HSL_and_HSV#HSL_to_RGB
-        let chroma = (1.0 - (2.0 * lightness - 1.0).abs()) * saturation;
-        let hue_prime = hue / 60.0;
-        let largest_component = chroma * (1.0 - (hue_prime % 2.0 - 1.0).abs());
-        let (r_temp, g_temp, b_temp) = if hue_prime < 1.0 {
-            (chroma, largest_component, 0.0)
-        } else if hue_prime < 2.0 {
-            (largest_component, chroma, 0.0)
-        } else if hue_prime < 3.0 {
-            (0.0, chroma, largest_component)
-        } else if hue_prime < 4.0 {
-            (0.0, largest_component, chroma)
-        } else if hue_prime < 5.0 {
-            (largest_component, 0.0, chroma)
+        // Based on https://en.wikipedia.org/wiki/HSL_and_HSV#HSL_to_HSV
+        let value = lightness + saturation * lightness.min(1. - lightness);
+        let saturation = if value == 0. {
+            0.
         } else {
-            (chroma, 0.0, largest_component)
+            2. * (1. - (lightness / value))
         };
-        let lightness_match = lightness - chroma / 2.0;
 
-        let red = r_temp + lightness_match;
-        let green = g_temp + lightness_match;
-        let blue = b_temp + lightness_match;
+        Hsva::new(hue, saturation, value, alpha)
+    }
+}
 
-        Self::new(red, green, blue, alpha)
+impl From<Hsva> for Hsla {
+    fn from(
+        Hsva {
+            hue,
+            saturation,
+            value,
+            alpha,
+        }: Hsva,
+    ) -> Self {
+        // Based on https://en.wikipedia.org/wiki/HSL_and_HSV#HSV_to_HSL
+        let lightness = value * (1. - saturation / 2.);
+        let saturation = if lightness == 0. || lightness == 1. {
+            0.
+        } else {
+            (value - lightness) / lightness.min(1. - lightness)
+        };
+
+        Hsla::new(hue, saturation, lightness, alpha)
+    }
+}
+
+// Derived Conversions
+
+impl From<Hwba> for Hsla {
+    fn from(value: Hwba) -> Self {
+        Hsva::from(value).into()
+    }
+}
+
+impl From<Hsla> for Hwba {
+    fn from(value: Hsla) -> Self {
+        Hsva::from(value).into()
+    }
+}
+
+impl From<Srgba> for Hsla {
+    fn from(value: Srgba) -> Self {
+        Hsva::from(value).into()
+    }
+}
+
+impl From<Hsla> for Srgba {
+    fn from(value: Hsla) -> Self {
+        Hsva::from(value).into()
     }
 }
 
 impl From<LinearRgba> for Hsla {
     fn from(value: LinearRgba) -> Self {
-        Srgba::from(value).into()
+        Hsva::from(value).into()
     }
 }
 
-impl From<Oklaba> for Hsla {
-    fn from(value: Oklaba) -> Self {
-        Srgba::from(value).into()
+impl From<Hsla> for LinearRgba {
+    fn from(value: Hsla) -> Self {
+        Hsva::from(value).into()
     }
 }
 
 impl From<Lcha> for Hsla {
     fn from(value: Lcha) -> Self {
-        Srgba::from(value).into()
+        Hsva::from(value).into()
+    }
+}
+
+impl From<Hsla> for Lcha {
+    fn from(value: Hsla) -> Self {
+        Hsva::from(value).into()
+    }
+}
+
+impl From<Xyza> for Hsla {
+    fn from(value: Xyza) -> Self {
+        Hsva::from(value).into()
+    }
+}
+
+impl From<Hsla> for Xyza {
+    fn from(value: Hsla) -> Self {
+        Hsva::from(value).into()
     }
 }
 

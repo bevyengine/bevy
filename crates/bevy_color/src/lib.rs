@@ -5,6 +5,9 @@
 //! - [`Srgba`] (standard RGBA, with gamma correction)
 //! - [`LinearRgba`] (linear RGBA, without gamma correction)
 //! - [`Hsla`] (hue, saturation, lightness, alpha)
+//! - [`Hsva`] (hue, saturation, value, alpha)
+//! - [`Hwba`] (hue, whiteness, blackness, alpha)
+//! - [`Laba`] (lightness, a-axis, b-axis, alpha)
 //! - [`Lcha`] (lightness, chroma, hue, alpha)
 //! - [`Oklaba`] (lightness, a-axis, b-axis, alpha)
 //! - [`Xyza`] (x-axis, y-axis, z-axis, alpha)
@@ -31,6 +34,11 @@
 //! A gradient in HSL space from red to violet will produce a rainbow. The LCH color space is
 //! more perceptually accurate than HSL, but is less intuitive to work with.
 //!
+//! HSV and HWB are very closely related to HSL in their derivation, having identical definitions for
+//! hue. Where HSL uses saturation and lightness, HSV uses a slightly modified definition of saturation,
+//! and an analog of lightness in the form of value. In contrast, HWB instead uses whiteness and blackness
+//! parameters, which can be used to lighten and darken a particular hue respectively.
+//!
 //! Oklab is a perceptually uniform color space that is designed to be used for tasks such
 //! as image processing. It is not as widely used as the other color spaces, but it is useful
 //! for tasks such as color correction and image analysis, where it is important to be able
@@ -42,11 +50,10 @@
 //!
 //! See also the [Wikipedia article on color spaces](https://en.wikipedia.org/wiki/Color_space).
 //!
-//! # Conversions
-//!
-//! Each color space can be converted to and from the others using the [`From`] trait. Not all
-//! possible combinations of conversions are provided, but every color space has a conversion to
-//! and from [`Srgba`] and [`LinearRgba`].
+#![doc = include_str!("../docs/conversion.md")]
+//! <div>
+#![doc = include_str!("../docs/diagrams/model_graph.svg")]
+//! </div>
 //!
 //! # Other Utilities
 //!
@@ -74,6 +81,9 @@ pub mod color_difference;
 mod color_ops;
 mod color_range;
 mod hsla;
+mod hsva;
+mod hwba;
+mod laba;
 mod lcha;
 mod linear_rgba;
 mod oklaba;
@@ -85,10 +95,28 @@ mod test_colors;
 mod testing;
 mod xyza;
 
+/// Commonly used color types and traits.
+pub mod prelude {
+    pub use crate::color::*;
+    pub use crate::color_ops::*;
+    pub use crate::hsla::*;
+    pub use crate::hsva::*;
+    pub use crate::hwba::*;
+    pub use crate::laba::*;
+    pub use crate::lcha::*;
+    pub use crate::linear_rgba::*;
+    pub use crate::oklaba::*;
+    pub use crate::srgba::*;
+    pub use crate::xyza::*;
+}
+
 pub use color::*;
 pub use color_ops::*;
 pub use color_range::*;
 pub use hsla::*;
+pub use hsva::*;
+pub use hwba::*;
+pub use laba::*;
 pub use lcha::*;
 pub use linear_rgba::*;
 pub use oklaba::*;
@@ -109,6 +137,9 @@ where
     Self: From<Srgba> + Into<Srgba>,
     Self: From<LinearRgba> + Into<LinearRgba>,
     Self: From<Hsla> + Into<Hsla>,
+    Self: From<Hsva> + Into<Hsva>,
+    Self: From<Hwba> + Into<Hwba>,
+    Self: From<Laba> + Into<Laba>,
     Self: From<Lcha> + Into<Lcha>,
     Self: From<Oklaba> + Into<Oklaba>,
     Self: From<Xyza> + Into<Xyza>,
