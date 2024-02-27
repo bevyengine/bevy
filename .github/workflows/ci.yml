@@ -224,18 +224,18 @@ jobs:
               mv screenshot-*.png screenshots-$example_name/
             fi
           done
-          zip traces.zip trace*.json
-          zip -r screenshots.zip screenshots-*
+          mkdir traces && mv trace*.json traces/
+          mkdir screenshots && mv screenshots-* screenshots/
       - name: save traces
         uses: actions/upload-artifact@v4
         with:
           name: example-traces-macos
-          path: traces.zip
+          path: traces
       - name: save screenshots
         uses: actions/upload-artifact@v4
         with:
           name: screenshots-macos
-          path: screenshots.zip
+          path: screenshots
       - uses: actions/upload-artifact@v4
         if: ${{ failure() && github.event_name == 'pull_request' }}
         with:
