@@ -63,11 +63,20 @@ impl TaskPoolBuilder {
         self
     }
 
-    /// Override the maximum number of blocking threads created for the pool. If unset, it will
-    /// default to the value set by the `BLOCKING_MAX_THREADS` environment variable, or 500 if not
-    /// set.
-    pub fn max_blocking_threads(mut self, num_threads: usize) -> Self {
-        self.max_blocking_threads = Some(num_threads);
+    /// The task pool contains a dynamically scaling group of threads for handling blocking tasks.
+    /// The pool will spin up and down threads as needed, unlike the threads allocated by 
+    /// [`num_threads`] which are always available. By default, zero threads will be spawned at
+    /// initialization, and up to `num_blocking_threads` will be spun up. Upon reaching that limit,
+    /// calls to [`spawn_blocking`] and [`spawn_blocking_async`] will wait until one of the threads
+    /// becomes available.
+    /// 
+    /// By default, this will use the `BLOCKING_MAX_THREADS` environment variable to determine, 
+    /// the maximum, or 500 if that environment variable is not set.
+    /// 
+    /// [`spawn_blocking`]: TaskPool::spawn_blocking
+    /// [`spawn_blocking_async`]: TaskPool::spawn_blocking_async
+    pub fn max_blocking_threads(mut self, num_blocking_threads: usize) -> Self {
+        self.max_blocking_threads = Some(num_blocking_threads);
         self
     }
 
