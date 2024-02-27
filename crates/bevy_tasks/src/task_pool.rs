@@ -36,7 +36,7 @@ pub struct TaskPoolBuilder {
     /// If set, we'll set up the thread pool to use at most `num_threads` threads.
     /// Otherwise use the logical core count of the system
     num_threads: Option<usize>,
-    /// If set, this sets the maxinum number of threads used for blocking operations.
+    /// If set, this sets the maximum number of threads used for blocking operations.
     /// Otherwise, it will default to the value set by the `BLOCKING_MAX_THREADS` environment variable,
     /// or 500 if not set.
     max_blocking_threads: Option<usize>,
