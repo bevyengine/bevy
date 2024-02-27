@@ -176,43 +176,43 @@ impl ReflectResource {
     }
 }
 
-impl<C: Resource + Reflect + FromReflect> FromType<C> for ReflectResource {
+impl<R: Resource + Reflect + FromReflect> FromType<R> for ReflectResource {
     fn from_type() -> Self {
         ReflectResource(ReflectResourceFns {
             insert: |world, reflected_resource, registry| {
-                let resource = from_reflect_or_world::<C>(reflected_resource, world, registry);
+                let resource = from_reflect_or_world::<R>(reflected_resource, world, registry);
                 world.insert_resource(resource);
             },
             apply: |world, reflected_resource| {
-                let mut resource = world.resource_mut::<C>();
+                let mut resource = world.resource_mut::<R>();
                 resource.apply(reflected_resource);
             },
             apply_or_insert: |world, reflected_resource, registry| {
-                if let Some(mut resource) = world.get_resource_mut::<C>() {
+                if let Some(mut resource) = world.get_resource_mut::<R>() {
                     resource.apply(reflected_resource);
                 } else {
-                    let resource = from_reflect_or_world::<C>(reflected_resource, world, registry);
+                    let resource = from_reflect_or_world::<R>(reflected_resource, world, registry);
                     world.insert_resource(resource);
                 }
             },
             remove: |world| {
-                world.remove_resource::<C>();
+                world.remove_resource::<R>();
             },
-            reflect: |world| world.get_resource::<C>().map(|res| res as &dyn Reflect),
+            reflect: |world| world.get_resource::<R>().map(|res| res as &dyn Reflect),
             reflect_unchecked_mut: |world| {
                 // SAFETY: all usages of `reflect_unchecked_mut` guarantee that there is either a single mutable
                 // reference or multiple immutable ones alive at any given point
                 unsafe {
-                    world.get_resource_mut::<C>().map(|res| Mut {
+                    world.get_resource_mut::<R>().map(|res| Mut {
                         value: res.value as &mut dyn Reflect,
                         ticks: res.ticks,
                     })
                 }
             },
             copy: |source_world, destination_world, registry| {
-                let source_resource = source_world.resource::<C>();
+                let source_resource = source_world.resource::<R>();
                 let destination_resource =
-                    from_reflect_or_world::<C>(source_resource, destination_world, registry);
+                    from_reflect_or_world::<R>(source_resource, destination_world, registry);
                 destination_world.insert_resource(destination_resource);
             },
         })
