@@ -89,22 +89,22 @@ fn draw_example_collection(
 ) {
     gizmos.cuboid(
         Transform::from_translation(Vec3::Y * 0.5).with_scale(Vec3::splat(1.25)),
-        BLACK.into(),
+        BLACK,
     );
     gizmos.rect(
         Vec3::new(time.elapsed_seconds().cos() * 2.5, 1., 0.),
         Quat::from_rotation_y(PI / 2.),
         Vec2::splat(2.),
-        GREEN.into(),
+        GREEN,
     );
 
-    my_gizmos.sphere(Vec3::new(1., 0.5, 0.), Quat::IDENTITY, 0.5, RED.into());
+    my_gizmos.sphere(Vec3::new(1., 0.5, 0.), Quat::IDENTITY, 0.5, RED);
 
     for y in [0., 0.5, 1.] {
         gizmos.ray(
             Vec3::new(1., y, 0.),
             Vec3::new(-3., (time.elapsed_seconds() * 3.).sin(), 0.),
-            BLUE.into(),
+            BLUE,
         );
     }
 
@@ -114,21 +114,21 @@ fn draw_example_collection(
             0.2,
             Vec3::ONE,
             Quat::from_rotation_arc(Vec3::Y, Vec3::ONE.normalize()),
-            ORANGE.into(),
+            ORANGE,
         )
         .segments(10);
 
     // Circles have 32 line-segments by default.
-    my_gizmos.circle(Vec3::ZERO, Direction3d::Y, 3., BLACK.into());
+    my_gizmos.circle(Vec3::ZERO, Direction3d::Y, 3., BLACK);
     // You may want to increase this for larger circles or spheres.
     my_gizmos
-        .circle(Vec3::ZERO, Direction3d::Y, 3.1, NAVY.into())
+        .circle(Vec3::ZERO, Direction3d::Y, 3.1, NAVY)
         .segments(64);
     my_gizmos
-        .sphere(Vec3::ZERO, Quat::IDENTITY, 3.2, BLACK.into())
+        .sphere(Vec3::ZERO, Quat::IDENTITY, 3.2, BLACK)
         .circle_segments(64);
 
-    gizmos.arrow(Vec3::ZERO, Vec3::ONE * 1.5, YELLOW.into());
+    gizmos.arrow(Vec3::ZERO, Vec3::ONE * 1.5, YELLOW);
 }
 
 fn update_config(

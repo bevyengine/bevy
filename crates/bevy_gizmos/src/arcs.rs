@@ -47,7 +47,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         direction_angle: f32,
         arc_angle: f32,
         radius: f32,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Arc2dBuilder<'_, 'w, 's, T> {
         Arc2dBuilder {
             gizmos: self,
@@ -55,7 +55,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
             direction_angle,
             arc_angle,
             radius,
-            color,
+            color: color.into(),
             segments: None,
         }
     }
@@ -165,7 +165,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         radius: f32,
         position: Vec3,
         rotation: Quat,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Arc3dBuilder<'_, 'w, 's, T> {
         Arc3dBuilder {
             gizmos: self,
@@ -174,7 +174,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
             rotation,
             angle,
             radius,
-            color,
+            color: color.into(),
             segments: None,
         }
     }
@@ -221,7 +221,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         center: Vec3,
         from: Vec3,
         to: Vec3,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Arc3dBuilder<'_, 'w, 's, T> {
         self.arc_from_to(center, from, to, color, |x| x)
     }
@@ -267,7 +267,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         center: Vec3,
         from: Vec3,
         to: Vec3,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Arc3dBuilder<'_, 'w, 's, T> {
         self.arc_from_to(center, from, to, color, |angle| {
             if angle > 0.0 {
@@ -286,7 +286,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         center: Vec3,
         from: Vec3,
         to: Vec3,
-        color: Color,
+        color: impl Into<Color>,
         angle_fn: impl Fn(f32) -> f32,
     ) -> Arc3dBuilder<'_, 'w, 's, T> {
         // `from` and `to` can be the same here since in either case nothing gets rendered and the
@@ -308,7 +308,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
             rotation,
             angle,
             radius,
-            color,
+            color: color.into(),
             segments: None,
         }
     }

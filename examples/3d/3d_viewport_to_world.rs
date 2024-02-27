@@ -42,7 +42,7 @@ fn draw_cursor(
         point + ground.up() * 0.01,
         Direction3d::new_unchecked(ground.up()), // Up vector is already normalized.
         0.2,
-        WHITE.into(),
+        WHITE,
     );
 }
 

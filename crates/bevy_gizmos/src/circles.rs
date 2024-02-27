@@ -46,14 +46,14 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         position: Vec3,
         rotation: Quat,
         half_size: Vec2,
-        color: Color,
+        color: impl Into<Color>,
     ) -> EllipseBuilder<'_, 'w, 's, T> {
         EllipseBuilder {
             gizmos: self,
             position,
             rotation,
             half_size,
-            color,
+            color: color.into(),
             segments: DEFAULT_CIRCLE_SEGMENTS,
         }
     }
@@ -84,14 +84,14 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         position: Vec2,
         angle: f32,
         half_size: Vec2,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Ellipse2dBuilder<'_, 'w, 's, T> {
         Ellipse2dBuilder {
             gizmos: self,
             position,
             rotation: Mat2::from_angle(angle),
             half_size,
-            color,
+            color: color.into(),
             segments: DEFAULT_CIRCLE_SEGMENTS,
         }
     }
@@ -122,14 +122,14 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         position: Vec3,
         normal: Direction3d,
         radius: f32,
-        color: Color,
+        color: impl Into<Color>,
     ) -> EllipseBuilder<'_, 'w, 's, T> {
         EllipseBuilder {
             gizmos: self,
             position,
             rotation: Quat::from_rotation_arc(Vec3::Z, *normal),
             half_size: Vec2::splat(radius),
-            color,
+            color: color.into(),
             segments: DEFAULT_CIRCLE_SEGMENTS,
         }
     }
@@ -159,14 +159,14 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         &mut self,
         position: Vec2,
         radius: f32,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Ellipse2dBuilder<'_, 'w, 's, T> {
         Ellipse2dBuilder {
             gizmos: self,
             position,
             rotation: Mat2::IDENTITY,
             half_size: Vec2::splat(radius),
-            color,
+            color: color.into(),
             segments: DEFAULT_CIRCLE_SEGMENTS,
         }
     }

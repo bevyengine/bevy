@@ -32,7 +32,7 @@ pub trait GizmoPrimitive2d<P: Primitive2d> {
         primitive: P,
         position: Vec2,
         angle: f32,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_>;
 }
 
@@ -46,7 +46,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Direction2d> for Gizmos<'w, '
         primitive: Direction2d,
         position: Vec2,
         angle: f32,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
@@ -70,7 +70,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Circle> for Gizmos<'w, 's, T>
         primitive: Circle,
         position: Vec2,
         _angle: f32,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
@@ -90,7 +90,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Ellipse> for Gizmos<'w, 's, T
         primitive: Ellipse,
         position: Vec2,
         angle: f32,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
@@ -110,8 +110,10 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Capsule2d> for Gizmos<'w, 's,
         primitive: Capsule2d,
         position: Vec2,
         angle: f32,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_> {
+        let polymorphic_color: Color = color.into();
+
         if !self.enabled {
             return;
         }
@@ -136,8 +138,8 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Capsule2d> for Gizmos<'w, 's,
         .map(rotate_then_translate_2d(angle, position));
 
         // draw left and right side of capsule "rectangle"
-        self.line_2d(bottom_left, top_left, color);
-        self.line_2d(bottom_right, top_right, color);
+        self.line_2d(bottom_left, top_left, polymorphic_color);
+        self.line_2d(bottom_right, top_right, polymorphic_color);
 
         // if the capsule is rotated we have to start the arc at a different offset angle,
         // calculate that here
@@ -146,13 +148,19 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Capsule2d> for Gizmos<'w, 's,
         let start_angle_bottom = PI + angle_offset;
 
         // draw arcs
-        self.arc_2d(top_center, start_angle_top, PI, primitive.radius, color);
+        self.arc_2d(
+            top_center,
+            start_angle_top,
+            PI,
+            primitive.radius,
+            polymorphic_color,
+        );
         self.arc_2d(
             bottom_center,
             start_angle_bottom,
             PI,
             primitive.radius,
-            color,
+            polymorphic_color,
         );
     }
 }
@@ -188,14 +196,14 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Line2d> for Gizmos<'w, 's, T>
         primitive: Line2d,
         position: Vec2,
         angle: f32,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_> {
         Line2dBuilder {
             gizmos: self,
             direction: primitive.direction,
             position,
             rotation: Mat2::from_angle(angle),
-            color,
+            color: color.into(),
             draw_arrow: false,
         }
     }
@@ -239,8 +247,10 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Plane2d> for Gizmos<'w, 's, T
         primitive: Plane2d,
         position: Vec2,
         angle: f32,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_> {
+        let polymorphic_color: Color = color.into();
+
         if !self.enabled {
             return;
         }
@@ -257,13 +267,13 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Plane2d> for Gizmos<'w, 's, T
             // offset the normal so it starts on the plane line
             position + HALF_MIN_LINE_LEN * rotation * *normal,
             angle,
-            color,
+            polymorphic_color,
         )
         .draw_arrow(true);
 
         // draw the plane line
         let direction = Direction2d::new_unchecked(-normal.perp());
-        self.primitive_2d(Line2d { direction }, position, angle, color)
+        self.primitive_2d(Line2d { direction }, position, angle, polymorphic_color)
             .draw_arrow(false);
 
         // draw an arrow such that the normal is always left side of the plane with respect to the
@@ -271,7 +281,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Plane2d> for Gizmos<'w, 's, T
         self.arrow_2d(
             position,
             position + MIN_LINE_LEN * (rotation * *direction),
-            color,
+            polymorphic_color,
         );
     }
 }
@@ -308,7 +318,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Segment2d> for Gizmos<'w, 's,
         primitive: Segment2d,
         position: Vec2,
         angle: f32,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_> {
         Segment2dBuilder {
             gizmos: self,
@@ -317,7 +327,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Segment2d> for Gizmos<'w, 's,
 
             position,
             rotation: Mat2::from_angle(angle),
-            color,
+            color: color.into(),
 
             draw_arrow: Default::default(),
         }
@@ -354,7 +364,7 @@ impl<'w, 's, const N: usize, T: GizmoConfigGroup> GizmoPrimitive2d<Polyline2d<N>
         primitive: Polyline2d<N>,
         position: Vec2,
         angle: f32,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
@@ -381,7 +391,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<BoxedPolyline2d> for Gizmos<'
         primitive: BoxedPolyline2d,
         position: Vec2,
         angle: f32,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
@@ -408,7 +418,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Triangle2d> for Gizmos<'w, 's
         primitive: Triangle2d,
         position: Vec2,
         angle: f32,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
@@ -429,7 +439,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Rectangle> for Gizmos<'w, 's,
         primitive: Rectangle,
         position: Vec2,
         angle: f32,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
@@ -459,7 +469,7 @@ impl<'w, 's, const N: usize, T: GizmoConfigGroup> GizmoPrimitive2d<Polygon<N>>
         primitive: Polygon<N>,
         position: Vec2,
         angle: f32,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
@@ -496,7 +506,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<BoxedPolygon> for Gizmos<'w, 
         primitive: BoxedPolygon,
         position: Vec2,
         angle: f32,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
@@ -531,7 +541,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<RegularPolygon> for Gizmos<'w
         primitive: RegularPolygon,
         position: Vec2,
         angle: f32,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;

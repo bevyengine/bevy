@@ -38,45 +38,43 @@ fn draw_example_collection(
     time: Res<Time>,
 ) {
     let sin = time.elapsed_seconds().sin() * 50.;
-    gizmos.line_2d(Vec2::Y * -sin, Vec2::splat(-80.), RED.into());
-    gizmos.ray_2d(Vec2::Y * sin, Vec2::splat(80.), GREEN.into());
+    gizmos.line_2d(Vec2::Y * -sin, Vec2::splat(-80.), RED);
+    gizmos.ray_2d(Vec2::Y * sin, Vec2::splat(80.), GREEN);
 
     // Triangle
     gizmos.linestrip_gradient_2d([
-        (Vec2::Y * 300., BLUE.into()),
-        (Vec2::new(-255., -155.), RED.into()),
-        (Vec2::new(255., -155.), GREEN.into()),
-        (Vec2::Y * 300., BLUE.into()),
+        (Vec2::Y * 300., BLUE),
+        (Vec2::new(-255., -155.), RED),
+        (Vec2::new(255., -155.), GREEN),
+        (Vec2::Y * 300., BLUE),
     ]);
 
     gizmos.rect_2d(
         Vec2::ZERO,
         time.elapsed_seconds() / 3.,
         Vec2::splat(300.),
-        BLACK.into(),
+        BLACK,
     );
 
     // The circles have 32 line-segments by default.
-    my_gizmos.circle_2d(Vec2::ZERO, 120., BLACK.into());
+    my_gizmos.circle_2d(Vec2::ZERO, 120., BLACK);
     my_gizmos.ellipse_2d(
         Vec2::ZERO,
         time.elapsed_seconds() % TAU,
         Vec2::new(100., 200.),
-        YELLOW_GREEN.into(),
+        YELLOW_GREEN,
     );
     // You may want to increase this for larger circles.
-    my_gizmos
-        .circle_2d(Vec2::ZERO, 300., NAVY.into())
-        .segments(64);
+    my_gizmos.circle_2d(Vec2::ZERO, 300., NAVY).segments(64);
 
     // Arcs default amount of segments is linearly interpolated between
     // 1 and 32, using the arc length as scalar.
-    my_gizmos.arc_2d(Vec2::ZERO, sin / 10., PI / 2., 350., ORANGE_RED.into());
+    my_gizmos.arc_2d(Vec2::ZERO, sin / 10., PI / 2., 350., ORANGE_RED);
 
     gizmos.arrow_2d(
         Vec2::ZERO,
         Vec2::from_angle(sin / -10. + PI / 2.) * 50.,
-        YELLOW.into(),
+        YELLOW,
     );
 }
 
