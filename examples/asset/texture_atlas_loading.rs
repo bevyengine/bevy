@@ -27,7 +27,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     // The TextureAtlasLayout can then be used for multiple textures.
     // There are multiple formats available to load a TextureAtlasLayout,
     // for example here we load a *.atlas.grid.ron file, which specifies a grid wherein all textures are located.
-    // This is simliar to `TextureAtlasLayout::from_grid`
+    // This is similar to `TextureAtlasLayout::from_grid`
     let character_layout = assets.load("texture_atlas/character.atlas.grid.ron");
 
     // You can also specify all texture placements manually using a *.atlas.ron
