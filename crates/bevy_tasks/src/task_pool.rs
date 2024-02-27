@@ -64,15 +64,15 @@ impl TaskPoolBuilder {
     }
 
     /// The task pool contains a dynamically scaling group of threads for handling blocking tasks.
-    /// The pool will spin up and down threads as needed, unlike the threads allocated by 
+    /// The pool will spin up and down threads as needed, unlike the threads allocated by
     /// [`num_threads`] which are always available. By default, zero threads will be spawned at
     /// initialization, and up to `num_blocking_threads` will be spun up. Upon reaching that limit,
     /// calls to [`spawn_blocking`] and [`spawn_blocking_async`] will wait until one of the threads
     /// becomes available.
-    /// 
-    /// By default, this will use the `BLOCKING_MAX_THREADS` environment variable to determine, 
+    ///
+    /// By default, this will use the `BLOCKING_MAX_THREADS` environment variable to determine,
     /// the maximum, or 500 if that environment variable is not set.
-    /// 
+    ///
     /// [`spawn_blocking`]: TaskPool::spawn_blocking
     /// [`spawn_blocking_async`]: TaskPool::spawn_blocking_async
     pub fn max_blocking_threads(mut self, num_blocking_threads: usize) -> Self {
@@ -651,7 +651,7 @@ impl TaskPool {
     /// of the non-blocking tasks scheduled onto the `TaskPool`.  
     ///
     /// The returned task can be detached or cancelled; however, any long standing
-    /// blocking operations will continue until the future yields. 
+    /// blocking operations will continue until the future yields.
     ///
     /// ## Platform Specific Behavior
     /// This function behaves identically to `spawn` on `wasm` targets, or if
