@@ -36,7 +36,10 @@ pub use petgraph;
 pub use smallvec;
 pub use thiserror;
 pub use tracing;
+#[cfg(target = "wasm32")]
 pub use web_time::{Duration, Instant, SystemTime, SystemTimeError, TryFromFloatSecsError};
+#[cfg(not(target = "wasm32"))]
+pub use std::time::{Duration, Instant, SystemTime, SystemTimeError, TryFromFloatSecsError};
 
 #[allow(missing_docs)]
 pub mod nonmax {
