@@ -105,67 +105,66 @@ jobs:
               mv screenshot-*.png screenshots-$example_name/
             fi
           done
-          zip traces.zip trace*.json
-          zip -r screenshots.zip screenshots-*
+          mkdir traces && mv trace*.json traces/
+          mkdir screenshots && mv screenshots-* screenshots/
       - name: save traces
         uses: actions/upload-artifact@v4
         with:
           name: example-traces-linux
-          path: traces.zip
+          path: traces
       - name: save screenshots
         uses: actions/upload-artifact@v4
         with:
           name: screenshots-linux
-          path: screenshots.zip
+          path: screenshots
       - uses: actions/upload-artifact@v4
         if: ${{ failure() && github.event_name == 'pull_request' }}
         with:
           name: example-run-linux
           path: example-run/
 
-  run-examples-macos-metal:
+  run-examples-on-windows-dx12:
     if: ${{ github.event_name == 'merge_group' }}
-    runs-on: macos-14
+    runs-on: windows-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - name: Disable audio
-        # Disable audio through a patch. on github m1 runners, audio timeouts after 15 minutes
-        run: git apply --ignore-whitespace tools/example-showcase/disable-audio.patch
       - name: Build bevy
+        shell: bash
         # this uses the same command as when running the example to ensure build is reused
         run: |
-          TRACE_CHROME=trace-alien_cake_addict.json CI_TESTING_CONFIG=.github/example-run/alien_cake_addict.ron cargo build --example alien_cake_addict --features "bevy_ci_testing,trace,trace_chrome"
+          WGPU_BACKEND=dx12 TRACE_CHROME=trace-alien_cake_addict.json CI_TESTING_CONFIG=.github/example-run/alien_cake_addict.ron cargo build --example alien_cake_addict --features "bevy_ci_testing,trace,trace_chrome"
       - name: Run examples
+        shell: bash
         run: |
           for example in .github/example-run/*.ron; do
             example_name=`basename $example .ron`
             echo -n $example_name > last_example_run
             echo "running $example_name - "`date`
-            time TRACE_CHROME=trace-$example_name.json CI_TESTING_CONFIG=$example cargo run --example $example_name --features "bevy_ci_testing,trace,trace_chrome"
+            time WGPU_BACKEND=dx12 TRACE_CHROME=trace-$example_name.json CI_TESTING_CONFIG=$example cargo run --example $example_name --features "bevy_ci_testing,trace,trace_chrome"
             sleep 10
             if [ `find ./ -maxdepth 1 -name 'screenshot-*.png' -print -quit` ]; then
               mkdir screenshots-$example_name
               mv screenshot-*.png screenshots-$example_name/
             fi
           done
-          zip traces.zip trace*.json
-          zip -r screenshots.zip screenshots-*
+          mkdir traces && mv trace*.json traces/
+          mkdir screenshots && mv screenshots-* screenshots/
       - name: save traces
         uses: actions/upload-artifact@v4
         with:
-          name: example-traces-macos
-          path: traces.zip
+          name: example-traces-windows
+          path: traces
       - name: save screenshots
         uses: actions/upload-artifact@v4
         with:
-          name: screenshots-macos
-          path: screenshots.zip
+          name: screenshots-windows
+          path: screenshots
       - uses: actions/upload-artifact@v4
         if: ${{ failure() && github.event_name == 'pull_request' }}
         with:
-          name: example-run-macos
+          name: example-run-windows
           path: example-run/
 
   run-examples-on-wasm:

@@ -182,13 +182,10 @@ struct CustomPipeline {
 
 impl FromWorld for CustomPipeline {
     fn from_world(world: &mut World) -> Self {
-        let asset_server = world.resource::<AssetServer>();
-        let shader = asset_server.load("shaders/instancing.wgsl");
-
         let mesh_pipeline = world.resource::<MeshPipeline>();
 
         CustomPipeline {
-            shader,
+            shader: world.load_asset("shaders/instancing.wgsl"),
             mesh_pipeline: mesh_pipeline.clone(),
         }
     }

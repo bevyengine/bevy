@@ -1,12 +1,15 @@
 use crate::color_difference::EuclideanDistance;
-use crate::oklaba::Oklaba;
-use crate::{Alpha, LinearRgba, Luminance, Mix, StandardColor};
+use crate::{Alpha, LinearRgba, Luminance, Mix, StandardColor, Xyza};
 use bevy_math::Vec4;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// Non-linear standard RGB with alpha.
+#[doc = include_str!("../docs/conversion.md")]
+/// <div>
+#[doc = include_str!("../docs/diagrams/model_graph.svg")]
+/// </div>
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub struct Srgba {
@@ -297,12 +300,6 @@ impl From<Srgba> for LinearRgba {
     }
 }
 
-impl From<Oklaba> for Srgba {
-    fn from(value: Oklaba) -> Self {
-        Srgba::from(LinearRgba::from(value))
-    }
-}
-
 impl From<Srgba> for [f32; 4] {
     fn from(color: Srgba) -> Self {
         [color.red, color.green, color.blue, color.alpha]
@@ -312,6 +309,20 @@ impl From<Srgba> for [f32; 4] {
 impl From<Srgba> for Vec4 {
     fn from(color: Srgba) -> Self {
         Vec4::new(color.red, color.green, color.blue, color.alpha)
+    }
+}
+
+// Derived Conversions
+
+impl From<Xyza> for Srgba {
+    fn from(value: Xyza) -> Self {
+        LinearRgba::from(value).into()
+    }
+}
+
+impl From<Srgba> for Xyza {
+    fn from(value: Srgba) -> Self {
+        LinearRgba::from(value).into()
     }
 }
 

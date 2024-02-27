@@ -10,12 +10,13 @@ pub mod transformer;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        Asset, AssetApp, AssetEvent, AssetId, AssetMode, AssetPlugin, AssetServer, Assets, Handle,
-        UntypedHandle,
+        Asset, AssetApp, AssetEvent, AssetId, AssetMode, AssetPlugin, AssetServer, Assets,
+        DirectAssetAccessExt, Handle, UntypedHandle,
     };
 }
 
 mod assets;
+mod direct_access_ext;
 mod event;
 mod folder;
 mod handle;
@@ -27,6 +28,7 @@ mod server;
 
 pub use assets::*;
 pub use bevy_asset_macros::Asset;
+pub use direct_access_ext::DirectAssetAccessExt;
 pub use event::*;
 pub use folder::*;
 pub use futures_lite::{AsyncReadExt, AsyncWriteExt};
