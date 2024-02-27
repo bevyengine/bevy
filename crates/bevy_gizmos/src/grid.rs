@@ -5,7 +5,7 @@
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 use bevy_math::{Quat, UVec2, Vec2, Vec3};
-use bevy_render::color::Color;
+use bevy_render::color::LegacyColor;
 
 /// A builder returned by [`Gizmos::grid`] and [`Gizmos::grid_2d`]
 pub struct GridBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
@@ -16,7 +16,7 @@ pub struct GridBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     cell_count: UVec2,
     skew: Vec2,
     outer_edges: bool,
-    color: Color,
+    color: LegacyColor,
 }
 
 impl<T: GizmoConfigGroup> GridBuilder<'_, '_, '_, T> {
@@ -132,7 +132,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///         Quat::IDENTITY,
     ///         UVec2::new(10, 10),
     ///         Vec2::splat(2.),
-    ///         Color::GREEN
+    ///         LegacyColor::GREEN
     ///         )
     ///         .skew_x(0.25)
     ///         .outer_edges(true);
@@ -145,7 +145,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         rotation: Quat,
         cell_count: UVec2,
         spacing: Vec2,
-        color: Color,
+        color: LegacyColor,
     ) -> GridBuilder<'_, 'w, 's, T> {
         GridBuilder {
             gizmos: self,
@@ -187,7 +187,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///         0.0,
     ///         UVec2::new(10, 10),
     ///         Vec2::splat(1.),
-    ///         Color::GREEN
+    ///         LegacyColor::GREEN
     ///         )
     ///         .skew_x(0.25)
     ///         .outer_edges(true);
@@ -200,7 +200,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         rotation: f32,
         cell_count: UVec2,
         spacing: Vec2,
-        color: Color,
+        color: LegacyColor,
     ) -> GridBuilder<'_, 'w, 's, T> {
         GridBuilder {
             gizmos: self,
