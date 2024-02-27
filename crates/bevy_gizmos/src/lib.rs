@@ -52,6 +52,7 @@ pub mod prelude {
 use aabb::AabbGizmoPlugin;
 use bevy_app::{App, Last, Plugin};
 use bevy_asset::{load_internal_asset, Asset, AssetApp, Assets, Handle};
+use bevy_color::LinearRgba;
 use bevy_core::cast_slice;
 use bevy_ecs::{
     component::Component,
@@ -309,7 +310,7 @@ struct LineGizmoUniform {
 #[derive(Asset, Debug, Default, Clone, TypePath)]
 struct LineGizmo {
     positions: Vec<[f32; 3]>,
-    colors: Vec<[f32; 4]>,
+    colors: Vec<LinearRgba>,
     /// Whether this gizmo's topology is a line-strip or line-list
     strip: bool,
 }
