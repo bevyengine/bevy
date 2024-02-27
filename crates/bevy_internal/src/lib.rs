@@ -29,6 +29,11 @@ pub mod asset {
     pub use bevy_asset::*;
 }
 
+pub mod color {
+    //! Contains color plugins.
+    pub use bevy_color::*;
+}
+
 pub mod core {
     //! Contains core plugins.
     pub use bevy_core::*;

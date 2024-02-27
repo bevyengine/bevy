@@ -175,6 +175,7 @@ ios_simulator = ["bevy_pbr?/ios_simulator", "bevy_render?/ios_simulator"]
 # bevy
 bevy_a11y = { path = "../bevy_a11y", version = "0.14.0-dev" }
 bevy_app = { path = "../bevy_app", version = "0.14.0-dev" }
+bevy_color = { path = "../bevy_color", version = "0.14.0-dev" }
 bevy_core = { path = "../bevy_core", version = "0.14.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.14.0-dev" }
 bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.14.0-dev" }
