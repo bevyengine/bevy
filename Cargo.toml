@@ -56,6 +56,7 @@ default = [
   "animation",
   "bevy_asset",
   "bevy_audio",
+  "bevy_color",
   "bevy_gilrs",
   "bevy_scene",
   "bevy_winit",
@@ -90,6 +91,9 @@ bevy_asset = ["bevy_internal/bevy_asset"]
 
 # Provides audio functionality
 bevy_audio = ["bevy_internal/bevy_audio"]
+
+# Provides shared color types and operations
+bevy_color = ["bevy_internal/bevy_color"]
 
 # Provides cameras and other basic render pipeline features
 bevy_core_pipeline = [
