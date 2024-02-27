@@ -1,13 +1,12 @@
 //! Contains [`Bounded3d`] implementations for [geometric primitives](crate::primitives).
 
-use glam::{Mat3, Quat, Vec2, Vec3};
-
 use crate::{
     bounding::{Bounded2d, BoundingCircle},
     primitives::{
-        BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Direction3d, Line3d,
-        Plane3d, Polyline3d, Segment3d, Sphere, Torus, Triangle2d,
+        BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Line3d, Plane3d,
+        Polyline3d, Segment3d, Sphere, Torus, Triangle2d,
     },
+    Direction3d, Mat3, Quat, Vec2, Vec3,
 };
 
 use super::{Aabb3d, Bounded3d, BoundingSphere};
@@ -311,9 +310,10 @@ mod tests {
     use crate::{
         bounding::Bounded3d,
         primitives::{
-            Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Direction3d, Line3d, Plane3d,
-            Polyline3d, Segment3d, Sphere, Torus,
+            Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Line3d, Plane3d, Polyline3d,
+            Segment3d, Sphere, Torus,
         },
+        Direction3d,
     };
 
     #[test]

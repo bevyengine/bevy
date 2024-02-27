@@ -120,7 +120,7 @@ impl GlyphBrush {
 
                 let texture_atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
                 let glyph_rect = texture_atlas.textures[atlas_info.glyph_index];
-                let size = Vec2::new(glyph_rect.width(), glyph_rect.height());
+                let size = glyph_rect.size().as_vec2();
 
                 let x = bounds.min.x + size.x / 2.0 - text_bounds.min.x;
 

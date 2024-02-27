@@ -39,19 +39,19 @@ fn setup_scene(
     ));
 
     let material_emissive1 = materials.add(StandardMaterial {
-        emissive: Color::rgb_linear(2300.0, 900.0, 300.0), // 4. Put something bright in a dark environment to see the effect
+        emissive: LegacyColor::rgb_linear(2300.0, 900.0, 300.0), // 4. Put something bright in a dark environment to see the effect
         ..default()
     });
     let material_emissive2 = materials.add(StandardMaterial {
-        emissive: Color::rgb_linear(300.0, 2300.0, 900.0),
+        emissive: LegacyColor::rgb_linear(300.0, 2300.0, 900.0),
         ..default()
     });
     let material_emissive3 = materials.add(StandardMaterial {
-        emissive: Color::rgb_linear(900.0, 300.0, 2300.0),
+        emissive: LegacyColor::rgb_linear(900.0, 300.0, 2300.0),
         ..default()
     });
     let material_non_emissive = materials.add(StandardMaterial {
-        base_color: Color::GRAY,
+        base_color: LegacyColor::GRAY,
         ..default()
     });
 
@@ -89,7 +89,7 @@ fn setup_scene(
             "",
             TextStyle {
                 font_size: 20.0,
-                color: Color::BLACK,
+                color: LegacyColor::BLACK,
                 ..default()
             },
         )

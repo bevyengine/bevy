@@ -96,16 +96,26 @@ impl SystemExecutor for SingleThreadedExecutor {
             let system = &mut schedule.systems[system_index];
             if is_apply_deferred(system) {
                 self.apply_deferred(schedule, world);
-            } else {
-                let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
-                    system.run((), world);
-                }));
-                if let Err(payload) = res {
-                    eprintln!("Encountered a panic in system `{}`!", &*system.name());
-                    std::panic::resume_unwind(payload);
-                }
-                self.unapplied_systems.insert(system_index);
+                continue;
             }
+
+            let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
+                if system.is_exclusive() {
+                    system.run((), world);
+                } else {
+                    // Use run_unsafe to avoid immediately applying deferred buffers
+                    let world = world.as_unsafe_world_cell();
+                    system.update_archetype_component_access(world);
+                    // SAFETY: We have exclusive, single-threaded access to the world and
+                    // update_archetype_component_access is being called immediately before this.
+                    unsafe { system.run_unsafe((), world) };
+                }
+            }));
+            if let Err(payload) = res {
+                eprintln!("Encountered a panic in system `{}`!", &*system.name());
+                std::panic::resume_unwind(payload);
+            }
+            self.unapplied_systems.insert(system_index);
         }
 
         if self.apply_final_deferred {

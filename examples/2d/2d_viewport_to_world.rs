@@ -26,7 +26,7 @@ fn draw_cursor(
         return;
     };
 
-    gizmos.circle_2d(point, 10., Color::WHITE);
+    gizmos.circle_2d(point, 10., LegacyColor::WHITE);
 }
 
 fn setup(mut commands: Commands) {

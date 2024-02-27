@@ -6,17 +6,17 @@
 //! (red for viewport, yellow for pixel).
 use bevy::prelude::*;
 
-const PALETTE: [Color; 10] = [
-    Color::RED,
-    Color::YELLOW,
-    Color::WHITE,
-    Color::BEIGE,
-    Color::CYAN,
-    Color::CRIMSON,
-    Color::NAVY,
-    Color::AZURE,
-    Color::GREEN,
-    Color::BLACK,
+const PALETTE: [LegacyColor; 10] = [
+    LegacyColor::RED,
+    LegacyColor::YELLOW,
+    LegacyColor::WHITE,
+    LegacyColor::BEIGE,
+    LegacyColor::CYAN,
+    LegacyColor::CRIMSON,
+    LegacyColor::NAVY,
+    LegacyColor::AZURE,
+    LegacyColor::GREEN,
+    LegacyColor::BLACK,
 ];
 
 #[derive(Component, Default, PartialEq)]

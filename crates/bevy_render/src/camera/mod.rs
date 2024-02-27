@@ -33,6 +33,8 @@ impl Plugin for CameraPlugin {
             .register_type::<CameraRenderGraph>()
             .register_type::<CameraMainTextureUsages>()
             .register_type::<Exposure>()
+            .register_type::<TemporalJitter>()
+            .register_type::<MipBias>()
             .init_resource::<ManualTextureViews>()
             .init_resource::<ClearColor>()
             .add_plugins((

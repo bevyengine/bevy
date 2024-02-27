@@ -22,7 +22,7 @@ pub const EMBEDDED: &str = "embedded";
 pub struct EmbeddedAssetRegistry {
     dir: Dir,
     #[cfg(feature = "embedded_watcher")]
-    root_paths: std::sync::Arc<parking_lot::RwLock<bevy_utils::HashMap<PathBuf, PathBuf>>>,
+    root_paths: std::sync::Arc<parking_lot::RwLock<bevy_utils::HashMap<Box<Path>, PathBuf>>>,
 }
 
 impl EmbeddedAssetRegistry {
@@ -35,7 +35,7 @@ impl EmbeddedAssetRegistry {
         #[cfg(feature = "embedded_watcher")]
         self.root_paths
             .write()
-            .insert(full_path.to_owned(), asset_path.to_owned());
+            .insert(full_path.into(), asset_path.to_owned());
         self.dir.insert_asset(asset_path, value);
     }
 
@@ -48,7 +48,7 @@ impl EmbeddedAssetRegistry {
         #[cfg(feature = "embedded_watcher")]
         self.root_paths
             .write()
-            .insert(full_path.to_owned(), asset_path.to_owned());
+            .insert(full_path.into(), asset_path.to_owned());
         self.dir.insert_meta(asset_path, value);
     }
 

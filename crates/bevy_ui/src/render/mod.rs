@@ -6,10 +6,7 @@ use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_hierarchy::Parent;
-use bevy_render::{
-    render_phase::PhaseItem, render_resource::BindGroupEntries, view::ViewVisibility,
-    ExtractSchedule, Render,
-};
+use bevy_render::{render_phase::PhaseItem, view::ViewVisibility, ExtractSchedule, Render};
 use bevy_sprite::{SpriteAssetEvents, TextureAtlas};
 pub use pipeline::*;
 pub use render_pass::*;
@@ -28,7 +25,7 @@ use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, Rect, URect, UVec4, Vec2, Vec3, Vec4Swizzles};
 use bevy_render::{
     camera::Camera,
-    color::Color,
+    color::LegacyColor,
     render_asset::RenderAssets,
     render_graph::{RenderGraph, RunGraphOnViewNode},
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions, RenderPhase},
@@ -133,7 +130,7 @@ fn get_ui_graph(render_app: &mut App) -> RenderGraph {
 pub struct ExtractedUiNode {
     pub stack_index: u32,
     pub transform: Mat4,
-    pub color: Color,
+    pub color: LegacyColor,
     pub rect: Rect,
     pub image: AssetId<Image>,
     pub atlas_size: Option<Vec2>,
@@ -439,8 +436,8 @@ pub fn extract_uinodes(
                     // Atlas not present in assets resource (should this warn the user?)
                     continue;
                 };
-                let mut atlas_rect = layout.textures[atlas.index];
-                let mut atlas_size = layout.size;
+                let mut atlas_rect = layout.textures[atlas.index].as_rect();
+                let mut atlas_size = layout.size.as_vec2();
                 let scale = uinode.size() / atlas_rect.size();
                 atlas_rect.min *= scale;
                 atlas_rect.max *= scale;
@@ -601,7 +598,7 @@ pub fn extract_text_uinodes(
         let transform = Mat4::from(global_transform.affine())
             * Mat4::from_translation(logical_top_left_nearest_pixel.extend(0.));
 
-        let mut color = Color::WHITE;
+        let mut color = LegacyColor::WHITE;
         let mut current_section = usize::MAX;
         for PositionedGlyph {
             position,
@@ -616,7 +613,7 @@ pub fn extract_text_uinodes(
             }
             let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
 
-            let mut rect = atlas.textures[atlas_info.glyph_index];
+            let mut rect = atlas.textures[atlas_info.glyph_index].as_rect();
             rect.min *= inverse_scale_factor;
             rect.max *= inverse_scale_factor;
             extracted_uinodes.uinodes.insert(
@@ -628,7 +625,7 @@ pub fn extract_text_uinodes(
                     color,
                     rect,
                     image: atlas_info.texture.id(),
-                    atlas_size: Some(atlas.size * inverse_scale_factor),
+                    atlas_size: Some(atlas.size.as_vec2() * inverse_scale_factor),
                     clip: clip.map(|clip| clip.clip),
                     flip_x: false,
                     flip_y: false,

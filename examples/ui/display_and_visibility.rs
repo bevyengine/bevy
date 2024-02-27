@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy::winit::WinitSettings;
 
 const PALETTE: [&str; 4] = ["27496D", "466B7A", "669DB3", "ADCBE3"];
-const HIDDEN_COLOR: Color = Color::rgb(1.0, 0.7, 0.7);
+const HIDDEN_COLOR: LegacyColor = LegacyColor::rgb(1.0, 0.7, 0.7);
 
 fn main() {
     App::new()
@@ -71,7 +71,7 @@ impl TargetUpdate for Target<Visibility> {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let palette = PALETTE.map(|hex| Color::hex(hex).unwrap());
+    let palette = PALETTE.map(|hex| LegacyColor::hex(hex).unwrap());
 
     let text_style = TextStyle {
         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
@@ -89,7 +89,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             justify_content: JustifyContent::SpaceEvenly,
             ..Default::default()
         },
-        background_color: BackgroundColor(Color::BLACK),
+        background_color: BackgroundColor(LegacyColor::BLACK),
         ..Default::default()
     }).with_children(|parent| {
         parent.spawn(TextBundle {
@@ -164,7 +164,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     builder.spawn(TextBundle {
                         text: Text::from_section(
                             "-\n-\n-",
-                            TextStyle { color: Color::DARK_GRAY, ..text_style.clone() }
+                            TextStyle { color: LegacyColor::DARK_GRAY, ..text_style.clone() }
                             ).with_justify(JustifyText::Center),
                         ..Default::default()
                         });
@@ -176,7 +176,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 }
 
-fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Entity> {
+fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[LegacyColor; 4]) -> Vec<Entity> {
     let mut target_ids = vec![];
     builder
         .spawn(NodeBundle {
@@ -184,13 +184,13 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                 padding: UiRect::all(Val::Px(10.)),
                 ..Default::default()
             },
-            background_color: BackgroundColor(Color::WHITE),
+            background_color: BackgroundColor(LegacyColor::WHITE),
             ..Default::default()
         })
         .with_children(|parent| {
             parent
                 .spawn(NodeBundle {
-                    background_color: BackgroundColor(Color::BLACK),
+                    background_color: BackgroundColor(LegacyColor::BLACK),
                     ..Default::default()
                 })
                 .with_children(|parent| {
@@ -285,7 +285,7 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
 fn spawn_right_panel(
     parent: &mut ChildBuilder,
     text_style: TextStyle,
-    palette: &[Color; 4],
+    palette: &[LegacyColor; 4],
     mut target_ids: Vec<Entity>,
 ) {
     let spawn_buttons = |parent: &mut ChildBuilder, target_id| {
@@ -298,7 +298,7 @@ fn spawn_right_panel(
                 padding: UiRect::all(Val::Px(10.)),
                 ..Default::default()
             },
-            background_color: BackgroundColor(Color::WHITE),
+            background_color: BackgroundColor(LegacyColor::WHITE),
             ..Default::default()
         })
         .with_children(|parent| {
@@ -414,7 +414,7 @@ where
                     padding: UiRect::axes(Val::Px(5.), Val::Px(1.)),
                     ..Default::default()
                 },
-                background_color: BackgroundColor(Color::BLACK.with_a(0.5)),
+                background_color: BackgroundColor(LegacyColor::BLACK.with_a(0.5)),
                 ..Default::default()
             },
             Target::<T>::new(target),
@@ -447,9 +447,9 @@ fn buttons_handler<T>(
                     text.sections[0].style.color = if text.sections[0].value.contains("None")
                         || text.sections[0].value.contains("Hidden")
                     {
-                        Color::rgb(1.0, 0.7, 0.7)
+                        LegacyColor::rgb(1.0, 0.7, 0.7)
                     } else {
-                        Color::WHITE
+                        LegacyColor::WHITE
                     };
                 }
             }
@@ -464,16 +464,17 @@ fn text_hover(
     for (interaction, mut background_color, children) in button_query.iter_mut() {
         match interaction {
             Interaction::Hovered => {
-                *background_color = BackgroundColor(Color::BLACK.with_a(0.6));
+                *background_color = BackgroundColor(LegacyColor::BLACK.with_a(0.6));
                 for &child in children {
                     if let Ok(mut text) = text_query.get_mut(child) {
                         // Bypass change detection to avoid recomputation of the text when only changing the color
-                        text.bypass_change_detection().sections[0].style.color = Color::YELLOW;
+                        text.bypass_change_detection().sections[0].style.color =
+                            LegacyColor::YELLOW;
                     }
                 }
             }
             _ => {
-                *background_color = BackgroundColor(Color::BLACK.with_a(0.5));
+                *background_color = BackgroundColor(LegacyColor::BLACK.with_a(0.5));
                 for &child in children {
                     if let Ok(mut text) = text_query.get_mut(child) {
                         text.bypass_change_detection().sections[0].style.color =
@@ -482,7 +483,7 @@ fn text_hover(
                             {
                                 HIDDEN_COLOR
                             } else {
-                                Color::WHITE
+                                LegacyColor::WHITE
                             };
                     }
                 }

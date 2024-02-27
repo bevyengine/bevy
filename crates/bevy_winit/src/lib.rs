@@ -20,7 +20,7 @@ pub use winit_config::*;
 pub use winit_windows::*;
 
 use bevy_app::{App, AppExit, Last, Plugin, PluginsState};
-use bevy_ecs::event::{Events, ManualEventReader};
+use bevy_ecs::event::ManualEventReader;
 use bevy_ecs::prelude::*;
 use bevy_ecs::system::SystemState;
 use bevy_input::{

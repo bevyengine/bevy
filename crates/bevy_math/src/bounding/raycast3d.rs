@@ -1,5 +1,5 @@
 use super::{Aabb3d, BoundingSphere, IntersectsVolume};
-use crate::{primitives::Direction3d, Ray3d, Vec3};
+use crate::{Direction3d, Ray3d, Vec3};
 
 /// A raycast intersection test for 3D bounding volumes
 #[derive(Clone, Debug)]

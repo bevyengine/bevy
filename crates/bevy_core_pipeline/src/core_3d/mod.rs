@@ -38,9 +38,10 @@ pub mod graph {
 // PERF: vulkan docs recommend using 24 bit depth for better performance
 pub const CORE_3D_DEPTH_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
-use std::{cmp::Reverse, ops::Range};
+use std::ops::Range;
 
 use bevy_asset::AssetId;
+use bevy_color::LinearRgba;
 pub use camera_3d::*;
 pub use main_opaque_pass_3d_node::*;
 pub use main_transparent_pass_3d_node::*;
@@ -49,7 +50,6 @@ use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
-    color::Color,
     extract_component::ExtractComponentPlugin,
     mesh::Mesh,
     prelude::Msaa,
@@ -242,7 +242,7 @@ impl CachedRenderPipelinePhaseItem for Opaque3d {
 }
 
 pub struct AlphaMask3d {
-    pub distance: f32,
+    pub asset_id: AssetId<Mesh>,
     pub pipeline: CachedRenderPipelineId,
     pub entity: Entity,
     pub draw_function: DrawFunctionId,
@@ -251,8 +251,7 @@ pub struct AlphaMask3d {
 }
 
 impl PhaseItem for AlphaMask3d {
-    // NOTE: Values increase towards the camera. Front-to-back ordering for alpha mask means we need a descending sort.
-    type SortKey = Reverse<FloatOrd>;
+    type SortKey = (usize, AssetId<Mesh>);
 
     #[inline]
     fn entity(&self) -> Entity {
@@ -261,7 +260,8 @@ impl PhaseItem for AlphaMask3d {
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
-        Reverse(FloatOrd(self.distance))
+        // Sort by pipeline, then by mesh to massively decrease drawcall counts in real scenes.
+        (self.pipeline.id(), self.asset_id)
     }
 
     #[inline]
@@ -271,8 +271,7 @@ impl PhaseItem for AlphaMask3d {
 
     #[inline]
     fn sort(items: &mut [Self]) {
-        // Key negated to match reversed SortKey ordering
-        radsort::sort_by_key(items, |item| -item.distance);
+        items.sort_unstable_by_key(Self::sort_key);
     }
 
     #[inline]
@@ -836,18 +835,19 @@ pub fn prepare_prepass_textures(
         });
 
         commands.entity(entity).insert(ViewPrepassTextures {
-            depth: cached_depth_texture.map(|t| ColorAttachment::new(t, None, Some(Color::BLACK))),
+            depth: cached_depth_texture
+                .map(|t| ColorAttachment::new(t, None, Some(LinearRgba::BLACK))),
             normal: cached_normals_texture
-                .map(|t| ColorAttachment::new(t, None, Some(Color::BLACK))),
+                .map(|t| ColorAttachment::new(t, None, Some(LinearRgba::BLACK))),
             // Red and Green channels are X and Y components of the motion vectors
             // Blue channel doesn't matter, but set to 0.0 for possible faster clear
             // https://gpuopen.com/performance/#clears
             motion_vectors: cached_motion_vectors_texture
-                .map(|t| ColorAttachment::new(t, None, Some(Color::BLACK))),
+                .map(|t| ColorAttachment::new(t, None, Some(LinearRgba::BLACK))),
             deferred: cached_deferred_texture
-                .map(|t| ColorAttachment::new(t, None, Some(Color::BLACK))),
+                .map(|t| ColorAttachment::new(t, None, Some(LinearRgba::BLACK))),
             deferred_lighting_pass_id: cached_deferred_lighting_pass_id_texture
-                .map(|t| ColorAttachment::new(t, None, Some(Color::BLACK))),
+                .map(|t| ColorAttachment::new(t, None, Some(LinearRgba::BLACK))),
             size,
         });
     }

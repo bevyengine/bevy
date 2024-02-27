@@ -151,7 +151,7 @@ pub(crate) mod test_setup {
         commands.spawn((
             PbrBundle {
                 mesh: meshes.add(Cuboid::new(0.5, 0.5, 0.5)),
-                material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
+                material: materials.add(LegacyColor::rgb(0.8, 0.7, 0.6)),
                 ..default()
             },
             Rotator,
@@ -177,20 +177,20 @@ pub(crate) mod test_setup {
                 ),
                 TextSection::from_style(TextStyle {
                     font_size: 50.0,
-                    color: Color::GREEN,
+                    color: LegacyColor::GREEN,
                     ..default()
                 }),
                 TextSection::new(
                     "\nFrame: ",
                     TextStyle {
                         font_size: 50.0,
-                        color: Color::YELLOW,
+                        color: LegacyColor::YELLOW,
                         ..default()
                     },
                 ),
                 TextSection::from_style(TextStyle {
                     font_size: 50.0,
-                    color: Color::YELLOW,
+                    color: LegacyColor::YELLOW,
                     ..default()
                 }),
             ])

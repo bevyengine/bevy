@@ -2,10 +2,7 @@ use crate::io::{AssetReader, AssetReaderError, PathStream, Reader};
 use bevy_utils::{BoxedFuture, HashMap};
 use crossbeam_channel::{Receiver, Sender};
 use parking_lot::RwLock;
-use std::{
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::{path::Path, sync::Arc};
 
 /// A "gated" reader that will prevent asset reads from returning until
 /// a given path has been "opened" using [`GateOpener`].
@@ -13,7 +10,7 @@ use std::{
 /// This is built primarily for unit tests.
 pub struct GatedReader<R: AssetReader> {
     reader: R,
-    gates: Arc<RwLock<HashMap<PathBuf, (Sender<()>, Receiver<()>)>>>,
+    gates: Arc<RwLock<HashMap<Box<Path>, (Sender<()>, Receiver<()>)>>>,
 }
 
 impl<R: AssetReader + Clone> Clone for GatedReader<R> {
@@ -27,7 +24,7 @@ impl<R: AssetReader + Clone> Clone for GatedReader<R> {
 
 /// Opens path "gates" for a [`GatedReader`].
 pub struct GateOpener {
-    gates: Arc<RwLock<HashMap<PathBuf, (Sender<()>, Receiver<()>)>>>,
+    gates: Arc<RwLock<HashMap<Box<Path>, (Sender<()>, Receiver<()>)>>>,
 }
 
 impl GateOpener {
@@ -36,7 +33,7 @@ impl GateOpener {
     pub fn open<P: AsRef<Path>>(&self, path: P) {
         let mut gates = self.gates.write();
         let gates = gates
-            .entry(path.as_ref().to_path_buf())
+            .entry_ref(path.as_ref())
             .or_insert_with(crossbeam_channel::unbounded);
         gates.0.send(()).unwrap();
     }
@@ -65,7 +62,7 @@ impl<R: AssetReader> AssetReader for GatedReader<R> {
         let receiver = {
             let mut gates = self.gates.write();
             let gates = gates
-                .entry(path.to_path_buf())
+                .entry_ref(path.as_ref())
                 .or_insert_with(crossbeam_channel::unbounded);
             gates.1.clone()
         };

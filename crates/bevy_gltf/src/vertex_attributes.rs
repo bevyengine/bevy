@@ -255,7 +255,7 @@ pub(crate) fn convert_attribute(
     semantic: gltf::Semantic,
     accessor: gltf::Accessor,
     buffer_data: &Vec<Vec<u8>>,
-    custom_vertex_attributes: &HashMap<String, MeshVertexAttribute>,
+    custom_vertex_attributes: &HashMap<Box<str>, MeshVertexAttribute>,
 ) -> Result<(MeshVertexAttribute, Values), ConvertAttributeError> {
     if let Some((attribute, conversion)) = match &semantic {
         gltf::Semantic::Positions => Some((Mesh::ATTRIBUTE_POSITION, ConversionMode::Any)),
@@ -271,7 +271,7 @@ pub(crate) fn convert_attribute(
             Some((Mesh::ATTRIBUTE_JOINT_WEIGHT, ConversionMode::JointWeight))
         }
         gltf::Semantic::Extras(name) => custom_vertex_attributes
-            .get(name)
+            .get(name.as_str())
             .map(|attr| (attr.clone(), ConversionMode::Any)),
         _ => None,
     } {

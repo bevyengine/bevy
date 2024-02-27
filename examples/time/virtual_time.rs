@@ -47,7 +47,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
 
     commands.spawn(Camera2dBundle::default());
 
-    let virtual_color = Color::GOLD;
+    let virtual_color = LegacyColor::GOLD;
     let sprite_scale = Vec2::splat(0.5).extend(1.);
     let texture_handle = asset_server.load("branding/icon.png");
 
@@ -114,7 +114,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
                     "CONTROLS\nUn/Pause: Space\nSpeed+: Up\nSpeed-: Down",
                     TextStyle {
                         font_size,
-                        color: Color::rgb(0.85, 0.85, 0.85),
+                        color: LegacyColor::rgb(0.85, 0.85, 0.85),
                         ..default()
                     },
                 )

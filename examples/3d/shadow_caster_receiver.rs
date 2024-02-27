@@ -32,7 +32,7 @@ fn setup(
     let sphere_radius = 0.25;
 
     let white_handle = materials.add(StandardMaterial {
-        base_color: Color::WHITE,
+        base_color: LegacyColor::WHITE,
         perceptual_roughness: 1.0,
         ..default()
     });
@@ -41,7 +41,7 @@ fn setup(
     // sphere - initially a caster
     commands.spawn(PbrBundle {
         mesh: sphere_handle.clone(),
-        material: materials.add(Color::RED),
+        material: materials.add(LegacyColor::RED),
         transform: Transform::from_xyz(-1.0, spawn_height, 0.0),
         ..default()
     });
@@ -50,7 +50,7 @@ fn setup(
     commands.spawn((
         PbrBundle {
             mesh: sphere_handle,
-            material: materials.add(Color::BLUE),
+            material: materials.add(LegacyColor::BLUE),
             transform: Transform::from_xyz(1.0, spawn_height, 0.0),
             ..default()
         },
@@ -61,7 +61,7 @@ fn setup(
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Plane3d::default().mesh().size(20.0, 20.0)),
-            material: materials.add(Color::GREEN),
+            material: materials.add(LegacyColor::GREEN),
             transform: Transform::from_xyz(0.0, 1.0, -10.0),
             ..default()
         },
@@ -83,7 +83,7 @@ fn setup(
         point_light: PointLight {
             intensity: 0.0,
             range: spawn_plane_depth,
-            color: Color::WHITE,
+            color: LegacyColor::WHITE,
             shadows_enabled: true,
             ..default()
         },

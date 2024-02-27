@@ -1,5 +1,5 @@
 use super::{Aabb2d, BoundingCircle, IntersectsVolume};
-use crate::{primitives::Direction2d, Ray2d, Vec2};
+use crate::{Direction2d, Ray2d, Vec2};
 
 /// A raycast intersection test for 2D bounding volumes
 #[derive(Clone, Debug)]

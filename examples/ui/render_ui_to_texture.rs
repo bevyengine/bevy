@@ -85,7 +85,7 @@ fn setup(
                     align_items: AlignItems::Center,
                     ..default()
                 },
-                background_color: Color::GOLD.into(),
+                background_color: LegacyColor::GOLD.into(),
                 ..default()
             },
             TargetCamera(texture_camera),
@@ -95,7 +95,7 @@ fn setup(
                 "This is a cube",
                 TextStyle {
                     font_size: 40.0,
-                    color: Color::BLACK,
+                    color: LegacyColor::BLACK,
                     ..default()
                 },
             ));

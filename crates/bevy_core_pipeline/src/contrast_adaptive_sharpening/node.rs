@@ -2,7 +2,6 @@ use std::sync::Mutex;
 
 use crate::contrast_adaptive_sharpening::ViewCASPipeline;
 use bevy_ecs::prelude::*;
-use bevy_ecs::query::QueryState;
 use bevy_render::{
     extract_component::{ComponentUniforms, DynamicUniformIndex},
     render_graph::{Node, NodeRunError, RenderGraphContext},

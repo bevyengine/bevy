@@ -78,7 +78,7 @@ fn setup(
     // ground plane
     commands.spawn(PbrBundle {
         mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
-        material: materials.add(Color::SILVER),
+        material: materials.add(LegacyColor::SILVER),
         ..default()
     });
 

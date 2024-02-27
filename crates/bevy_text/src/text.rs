@@ -1,7 +1,7 @@
 use bevy_asset::Handle;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_reflect::prelude::*;
-use bevy_render::color::Color;
+use bevy_render::color::LegacyColor;
 use bevy_utils::default;
 use serde::{Deserialize, Serialize};
 
@@ -33,7 +33,7 @@ impl Text {
     ///
     /// ```
     /// # use bevy_asset::Handle;
-    /// # use bevy_render::color::Color;
+    /// # use bevy_render::color::LegacyColor;
     /// # use bevy_text::{Font, Text, TextStyle, JustifyText};
     /// #
     /// # let font_handle: Handle<Font> = Default::default();
@@ -45,7 +45,7 @@ impl Text {
     ///     TextStyle {
     ///         font: font_handle.clone(),
     ///         font_size: 60.0,
-    ///         color: Color::WHITE,
+    ///         color: LegacyColor::WHITE,
     ///     },
     /// );
     ///
@@ -54,7 +54,7 @@ impl Text {
     ///     TextStyle {
     ///         font: font_handle,
     ///         font_size: 60.0,
-    ///         color: Color::WHITE,
+    ///         color: LegacyColor::WHITE,
     ///     },
     /// ) // You can still add text justifaction.
     /// .with_justify(JustifyText::Center);
@@ -70,7 +70,7 @@ impl Text {
     ///
     /// ```
     /// # use bevy_asset::Handle;
-    /// # use bevy_render::color::Color;
+    /// # use bevy_render::color::LegacyColor;
     /// # use bevy_text::{Font, Text, TextStyle, TextSection};
     /// #
     /// # let font_handle: Handle<Font> = Default::default();
@@ -81,7 +81,7 @@ impl Text {
     ///         TextStyle {
     ///             font: font_handle.clone(),
     ///             font_size: 60.0,
-    ///             color: Color::BLUE,
+    ///             color: LegacyColor::BLUE,
     ///         },
     ///     ),
     ///     TextSection::new(
@@ -89,7 +89,7 @@ impl Text {
     ///         TextStyle {
     ///             font: font_handle,
     ///             font_size: 60.0,
-    ///             color: Color::RED,
+    ///             color: LegacyColor::RED,
     ///         },
     ///     ),
     /// ]);
@@ -204,7 +204,7 @@ pub struct TextStyle {
     /// A new font atlas is generated for every combination of font handle and scaled font size
     /// which can have a strong performance impact.
     pub font_size: f32,
-    pub color: Color,
+    pub color: LegacyColor,
 }
 
 impl Default for TextStyle {
@@ -212,7 +212,7 @@ impl Default for TextStyle {
         Self {
             font: Default::default(),
             font_size: 12.0,
-            color: Color::WHITE,
+            color: LegacyColor::WHITE,
         }
     }
 }

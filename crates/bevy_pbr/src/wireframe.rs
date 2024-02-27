@@ -4,11 +4,7 @@ use bevy_asset::{load_internal_asset, Asset, Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use bevy_render::{
-    color::Color,
-    extract_resource::ExtractResource,
-    mesh::{Mesh, MeshVertexBufferLayout},
-    prelude::*,
-    render_resource::*,
+    extract_resource::ExtractResource, mesh::MeshVertexBufferLayout, prelude::*, render_resource::*,
 };
 
 pub const WIREFRAME_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(192598014480025766);
@@ -69,7 +65,7 @@ pub struct Wireframe;
 #[derive(Component, Debug, Clone, Default, Reflect)]
 #[reflect(Component, Default)]
 pub struct WireframeColor {
-    pub color: Color,
+    pub color: LegacyColor,
 }
 
 /// Disables wireframe rendering for any entity it is attached to.
@@ -89,7 +85,7 @@ pub struct WireframeConfig {
     /// If [`Self::global`] is set, any [`Entity`] that does not have a [`Wireframe`] component attached to it will have
     /// wireframes using this color. Otherwise, this will be the fallback color for any entity that has a [`Wireframe`],
     /// but no [`WireframeColor`].
-    pub default_color: Color,
+    pub default_color: LegacyColor,
 }
 
 #[derive(Resource)]
@@ -200,7 +196,7 @@ fn apply_global_wireframe_material(
 #[derive(Default, AsBindGroup, TypePath, Debug, Clone, Asset)]
 pub struct WireframeMaterial {
     #[uniform(0)]
-    pub color: Color,
+    pub color: LegacyColor,
 }
 
 impl Material for WireframeMaterial {

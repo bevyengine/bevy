@@ -67,7 +67,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextSection::from_style(if cfg!(feature = "default_font") {
                 TextStyle {
                     font_size: 60.0,
-                    color: Color::GOLD,
+                    color: LegacyColor::GOLD,
                     // If no font is specified, the default font (a minimal subset of FiraMono) will be used.
                     ..default()
                 }
@@ -76,7 +76,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextStyle {
                     font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                     font_size: 60.0,
-                    color: Color::GOLD,
+                    color: LegacyColor::GOLD,
                 }
             }),
         ]),
@@ -120,7 +120,7 @@ fn text_color_system(time: Res<Time>, mut query: Query<&mut Text, With<ColorText
         let seconds = time.elapsed_seconds();
 
         // Update the color of the first and only section.
-        text.sections[0].style.color = Color::Rgba {
+        text.sections[0].style.color = LegacyColor::Rgba {
             red: (1.25 * seconds).sin() / 2.0 + 0.5,
             green: (0.75 * seconds).sin() / 2.0 + 0.5,
             blue: (0.50 * seconds).sin() / 2.0 + 0.5,

@@ -30,7 +30,7 @@ fn setup(
         mesh: meshes.add(Cuboid::default()),
         transform: Transform::from_xyz(-1.0, 0.5, 0.0),
         material: materials.add(CustomMaterial {
-            color: Color::BLUE,
+            color: LegacyColor::BLUE,
             is_red: false,
         }),
         ..default()
@@ -41,7 +41,7 @@ fn setup(
         mesh: meshes.add(Cuboid::default()),
         transform: Transform::from_xyz(1.0, 0.5, 0.0),
         material: materials.add(CustomMaterial {
-            color: Color::GREEN,
+            color: LegacyColor::GREEN,
             is_red: true,
         }),
         ..default()
@@ -78,7 +78,7 @@ impl Material for CustomMaterial {
 #[bind_group_data(CustomMaterialKey)]
 struct CustomMaterial {
     #[uniform(0)]
-    color: Color,
+    color: LegacyColor,
     is_red: bool,
 }
 

@@ -20,7 +20,7 @@ fn setup(
     commands.spawn(MaterialMesh2dBundle {
         mesh: meshes.add(Rectangle::default()).into(),
         transform: Transform::default().with_scale(Vec3::splat(128.)),
-        material: materials.add(Color::PURPLE),
+        material: materials.add(LegacyColor::PURPLE),
         ..default()
     });
 }
