@@ -50,11 +50,10 @@
 //!
 //! See also the [Wikipedia article on color spaces](https://en.wikipedia.org/wiki/Color_space).
 //!
-//! # Conversions
-//!
-//! Each color space can be converted to and from the others using the [`From`] trait. Not all
-//! possible combinations of conversions are provided, but every color space has a conversion to
-//! and from [`Srgba`] and [`LinearRgba`].
+#![doc = include_str!("../docs/conversion.md")]
+//! <div>
+#![doc = include_str!("../docs/diagrams/model_graph.svg")]
+//! </div>
 //!
 //! # Other Utilities
 //!

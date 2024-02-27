@@ -9,8 +9,9 @@ use serde::{Deserialize, Serialize};
 /// Color in Hue-Whiteness-Blackness (HWB) color space with alpha.
 /// Further information on this color model can be found on [Wikipedia](https://en.wikipedia.org/wiki/HWB_color_model).
 #[doc = include_str!("../docs/conversion.md")]
-#[cfg_attr(doc, aquamarine::aquamarine)]
-/// include_mmd!("docs/diagrams/model_graph.mmd")
+/// <div>
+#[doc = include_str!("../docs/diagrams/model_graph.svg")]
+/// </div>
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub struct Hwba {
