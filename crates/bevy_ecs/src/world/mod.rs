@@ -458,10 +458,10 @@ impl World {
     #[inline]
     pub fn get_entity(&self, entity: Entity) -> Option<EntityRef> {
         let location = self.entities.get(entity)?;
-        // SAFETY: if the Entity is invalid, the function returns early.
-        // Additionally, Entities::get(entity) returns the correct EntityLocation if the entity exists.
         let entity_cell =
-            UnsafeEntityCell::new(self.as_unsafe_world_cell_readonly(), entity, location);
+            // SAFETY: if the Entity is invalid, the function returns early.
+            // Additionally, Entities::get(entity) returns the correct EntityLocation if the entity exists.
+            unsafe { UnsafeEntityCell::new(self.as_unsafe_world_cell_readonly(), entity, location) };
         // SAFETY: The UnsafeEntityCell has read access to the entire world.
         let entity_ref = unsafe { EntityRef::new(entity_cell) };
         Some(entity_ref)
@@ -522,11 +522,13 @@ impl World {
                     };
 
                     // SAFETY: entity exists and location accurately specifies the archetype where the entity is stored.
-                    let cell = UnsafeEntityCell::new(
-                        self.as_unsafe_world_cell_readonly(),
-                        entity,
-                        location,
-                    );
+                    let cell = unsafe {
+                        UnsafeEntityCell::new(
+                            self.as_unsafe_world_cell_readonly(),
+                            entity,
+                            location,
+                        )
+                    };
                     // SAFETY: `&self` gives read access to the entire world.
                     unsafe { EntityRef::new(cell) }
                 })
@@ -551,7 +553,7 @@ impl World {
                     };
 
                     // SAFETY: entity exists and location accurately specifies the archetype where the entity is stored.
-                    let cell = UnsafeEntityCell::new(world_cell, entity, location);
+                    let cell = unsafe { UnsafeEntityCell::new(world_cell, entity, location) };
                     // SAFETY: We have exclusive access to the entire world. We only create one borrow for each entity,
                     // so none will conflict with one another.
                     unsafe { EntityMut::new(cell) }
@@ -1583,14 +1585,17 @@ impl World {
                             unsafe { inserter.insert(entity, location, bundle) };
                         }
                         _ => {
-                            let mut inserter = bundle_info.get_bundle_inserter(
-                                &mut self.entities,
-                                &mut self.archetypes,
-                                &self.components,
-                                &mut self.storages,
-                                location.archetype_id,
-                                change_tick,
-                            );
+                            // SAFETY: `location.archetype_id` is guarenteed to be valid.
+                            let mut inserter = unsafe {
+                                bundle_info.get_bundle_inserter(
+                                    &mut self.entities,
+                                    &mut self.archetypes,
+                                    &self.components,
+                                    &mut self.storages,
+                                    location.archetype_id,
+                                    change_tick,
+                                )
+                            };
                             // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
                             unsafe { inserter.insert(entity, location, bundle) };
                             spawn_or_insert =

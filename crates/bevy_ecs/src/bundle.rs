@@ -346,7 +346,7 @@ impl BundleInfo {
         &self.component_ids
     }
 
-    pub(crate) fn get_bundle_inserter<'a, 'b>(
+    pub(crate) unsafe fn get_bundle_inserter<'a, 'b>(
         &'b self,
         entities: &'a mut Entities,
         archetypes: &'a mut Archetypes,
@@ -356,10 +356,12 @@ impl BundleInfo {
         change_tick: Tick,
     ) -> BundleInserter<'a, 'b> {
         let new_archetype_id =
-            self.add_bundle_to_archetype(archetypes, storages, components, archetype_id);
+            // SAFETY: Caller guarentees that archetype_id is valid.
+            unsafe { self.add_bundle_to_archetype(archetypes, storages, components, archetype_id) };
         let archetypes_ptr = archetypes.archetypes.as_mut_ptr();
         if new_archetype_id == archetype_id {
-            let archetype = &mut archetypes[archetype_id];
+            // SAFETY: Caller guarentees that archetype_id is valid.
+            let archetype = unsafe { archetypes.get_mut(archetype_id).debug_checked_unwrap() };
             let table_id = archetype.table_id();
             BundleInserter {
                 bundle_info: self,
@@ -415,8 +417,11 @@ impl BundleInfo {
         change_tick: Tick,
     ) -> BundleSpawner<'a, 'b> {
         let new_archetype_id =
-            self.add_bundle_to_archetype(archetypes, storages, components, ArchetypeId::EMPTY);
-        let archetype = &mut archetypes[new_archetype_id];
+            // SAFETY: The empty archetype is always valid.
+            unsafe { self.add_bundle_to_archetype(archetypes, storages, components, ArchetypeId::EMPTY) };
+        // SAFETY: The fetched archetype ID was either freshly allocated was previously allocated
+        // and cached. Archetypes cannot be deleted, so new_archetype_id must be valid.
+        let archetype = unsafe { archetypes.get_mut(new_archetype_id).debug_checked_unwrap() };
         // SAFETY: The table associated with an archetype must be valid.
         let table = unsafe {
             storages
@@ -499,21 +504,29 @@ impl BundleInfo {
     /// Adds a bundle to the given archetype and returns the resulting archetype. This could be the
     /// same [`ArchetypeId`], in the event that adding the given bundle does not result in an
     /// [`Archetype`] change. Results are cached in the [`Archetype`] graph to avoid redundant work.
-    pub(crate) fn add_bundle_to_archetype(
+    ///
+    /// # Safety
+    /// `archetype_id` must be valid within `archetypes`.
+    pub(crate) unsafe fn add_bundle_to_archetype(
         &self,
         archetypes: &mut Archetypes,
         storages: &mut Storages,
         components: &Components,
         archetype_id: ArchetypeId,
     ) -> ArchetypeId {
-        if let Some(add_bundle_id) = archetypes[archetype_id].edges().get_add_bundle(self.id) {
-            return add_bundle_id;
+        {
+            // SAFETY:  Caller guarentees that archetype_id is valid.
+            let current_archetype = unsafe { archetypes.get(archetype_id).debug_checked_unwrap() };
+            if let Some(add_bundle_id) = current_archetype.edges().get_add_bundle(self.id) {
+                return add_bundle_id;
+            }
         }
         let mut new_table_components = Vec::new();
         let mut new_sparse_set_components = Vec::new();
         let mut bundle_status = Vec::with_capacity(self.component_ids.len());
 
-        let current_archetype = &mut archetypes[archetype_id];
+        // SAFETY:  Caller guarentees that archetype_id is valid.
+        let current_archetype = unsafe { archetypes.get_mut(archetype_id).debug_checked_unwrap() };
         for component_id in self.component_ids.iter().cloned() {
             if current_archetype.contains(component_id) {
                 bundle_status.push(ComponentStatus::Mutated);
@@ -539,7 +552,9 @@ impl BundleInfo {
             let sparse_set_components;
             // the archetype changes when we add this bundle. prepare the new archetype and storages
             {
-                let current_archetype = &archetypes[archetype_id];
+                // SAFETY:  Caller guarentees that archetype_id is valid.
+                let current_archetype =
+                    unsafe { archetypes.get(archetype_id).debug_checked_unwrap() };
                 table_components = if new_table_components.is_empty() {
                     // if there are no new table components, we can keep using this table
                     table_id = current_archetype.table_id();
@@ -570,12 +585,15 @@ impl BundleInfo {
             let new_archetype_id =
                 archetypes.get_id_or_insert(table_id, table_components, sparse_set_components);
             // add an edge from the old archetype to the new archetype
-            archetypes[archetype_id].edges_mut().insert_add_bundle(
-                self.id,
-                new_archetype_id,
-                bundle_status,
-            );
-            new_archetype_id
+            // SAFETY:  Caller guarentees that archetype_id is valid.
+            unsafe {
+                archetypes
+                    .get_mut(archetype_id)
+                    .debug_checked_unwrap()
+                    .edges_mut()
+                    .insert_add_bundle(self.id, new_archetype_id, bundle_status);
+                new_archetype_id
+            }
         }
     }
 }

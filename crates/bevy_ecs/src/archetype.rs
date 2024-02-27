@@ -27,7 +27,7 @@ use crate::{
 };
 use std::{
     hash::Hash,
-    ops::{Index, IndexMut, RangeFrom},
+    ops::{Index, RangeFrom},
 };
 
 /// An opaque location within a [`Archetype`].
@@ -688,6 +688,13 @@ impl Archetypes {
         self.archetypes.get(id.index())
     }
 
+    /// Fetches an immutable reference to an [`Archetype`] using its
+    /// ID. Returns `None` if no corresponding archetype exists.
+    #[inline]
+    pub(crate) fn get_mut(&mut self, id: ArchetypeId) -> Option<&mut Archetype> {
+        self.archetypes.get_mut(id.index())
+    }
+
     /// # Panics
     ///
     /// Panics if `a` and `b` are equal.
@@ -776,20 +783,5 @@ impl Index<RangeFrom<ArchetypeGeneration>> for Archetypes {
     #[inline]
     fn index(&self, index: RangeFrom<ArchetypeGeneration>) -> &Self::Output {
         &self.archetypes[index.start.0.index()..]
-    }
-}
-impl Index<ArchetypeId> for Archetypes {
-    type Output = Archetype;
-
-    #[inline]
-    fn index(&self, index: ArchetypeId) -> &Self::Output {
-        &self.archetypes[index.index()]
-    }
-}
-
-impl IndexMut<ArchetypeId> for Archetypes {
-    #[inline]
-    fn index_mut(&mut self, index: ArchetypeId) -> &mut Self::Output {
-        &mut self.archetypes[index.index()]
     }
 }

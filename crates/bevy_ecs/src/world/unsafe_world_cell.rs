@@ -322,7 +322,8 @@ impl<'w> UnsafeWorldCell<'w> {
     #[inline]
     pub fn get_entity(self, entity: Entity) -> Option<UnsafeEntityCell<'w>> {
         let location = self.entities().get(entity)?;
-        Some(UnsafeEntityCell::new(self, entity, location))
+        // SAFETY: `location` is valid as it was freshly fetched from Entities.
+        Some(unsafe { UnsafeEntityCell::new(self, entity, location) })
     }
 
     /// Gets a reference to the resource of the given type if it exists
@@ -609,8 +610,10 @@ pub struct UnsafeEntityCell<'w> {
 }
 
 impl<'w> UnsafeEntityCell<'w> {
+    /// # Safety
+    /// `location` must be valid for `entity`
     #[inline]
-    pub(crate) fn new(
+    pub(crate) unsafe fn new(
         world: UnsafeWorldCell<'w>,
         entity: Entity,
         location: EntityLocation,
@@ -638,7 +641,13 @@ impl<'w> UnsafeEntityCell<'w> {
     /// Returns the archetype that the current entity belongs to.
     #[inline]
     pub fn archetype(self) -> &'w Archetype {
-        &self.world.archetypes()[self.location.archetype_id]
+        // SAFETY: The archetype associated with the entity must be valid at all times.
+        unsafe {
+            self.world
+                .archetypes()
+                .get(self.location.archetype_id)
+                .debug_checked_unwrap()
+        }
     }
 
     /// Gets the world that the current entity belongs to.

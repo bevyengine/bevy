@@ -168,6 +168,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
             self.state
                 .matched_table_ids
                 .iter()
+                // SAFETY: The table was matched with the query, tables cannot be deleted,
+                // so table_id must be valid.
                 .map(|id| unsafe { tables.get(*id).debug_checked_unwrap() }.entity_count())
                 .max()
                 .unwrap_or(0)
@@ -176,7 +178,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
             self.state
                 .matched_archetype_ids
                 .iter()
-                .map(|id| archetypes[*id].len())
+                // SAFETY: The table was matched with the query, tables cannot be deleted,
+                // so table_id must be valid.
+                .map(|id| unsafe { archetypes.get(*id).debug_checked_unwrap().len() })
                 .max()
                 .unwrap_or(0)
         };

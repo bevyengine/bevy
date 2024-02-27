@@ -1136,7 +1136,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 // SAFETY: We only access table data that has been registered in `self.archetype_component_access`.
                 let tables = unsafe { &world.storages().tables };
                 for table_id in &self.matched_table_ids {
-                    let table = tables.get(*table_id).debug_checked_unwrap();
+                    // SAFETY: The table has been matched with the query and tables cannot be deleted,
+                    // and so table_id must be valid.
+                    let table = unsafe { tables.get(*table_id).debug_checked_unwrap() };
                     if table.is_empty() {
                         continue;
                     }
@@ -1164,7 +1166,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 let archetypes = world.archetypes();
                 for archetype_id in &self.matched_archetype_ids {
                     let mut offset = 0;
-                    let archetype = &archetypes[*archetype_id];
+                    // SAFETY: The table has been matched with the query and tables cannot be deleted,
+                    // and so archetype_id must be valid.
+                    let archetype = unsafe { archetypes.get(*archetype_id).debug_checked_unwrap() };
                     if archetype.is_empty() {
                         continue;
                     }
