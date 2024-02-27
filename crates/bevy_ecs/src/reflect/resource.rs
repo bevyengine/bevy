@@ -67,7 +67,7 @@ impl ReflectResourceFns {
     ///
     /// This is useful if you want to start with the default implementation before overriding some
     /// of the functions to create a custom implementation.
-    pub fn new<T: Resource + Reflect + FromReflect>() -> Self {
+    pub fn new<T: Resource + FromReflect>() -> Self {
         <ReflectResource as FromType<T>>::from_type().0
     }
 }
@@ -176,7 +176,7 @@ impl ReflectResource {
     }
 }
 
-impl<R: Resource + Reflect + FromReflect> FromType<R> for ReflectResource {
+impl<R: Resource + FromReflect> FromType<R> for ReflectResource {
     fn from_type() -> Self {
         ReflectResource(ReflectResourceFns {
             insert: |world, reflected_resource, registry| {
