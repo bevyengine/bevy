@@ -615,7 +615,7 @@ impl TaskPool {
     ///
     /// ## Platform Specific Behavior
     /// Long running blocking operations in browser environments will panic, so the app
-    /// must yield back to the browser periodically. If you're targetting web platforms,
+    /// must yield back to the browser periodically. If you're targeting web platforms,
     /// consider using [`spawn_blocking_async`].
     ///
     /// [thrash]: https://en.wikipedia.org/wiki/Thrashing_(computer_science)
@@ -635,7 +635,7 @@ impl TaskPool {
     /// This function is equivalent to calling `task_pool.spawn_blocking(|| block_on(f))`.
     ///
     /// If the future is expected to terminate quickly, or will not spend a
-    /// signficant amount of time performing blocking CPU-bound or IO-bound
+    /// significant amount of time performing blocking CPU-bound or IO-bound
     /// operations, [`spawn`] should be used instead. The ideal use case for
     /// this function is for launching a future that may involve a combination
     /// of async IO and blocking operations (i.e. loading large scenes).
