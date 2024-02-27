@@ -40,6 +40,176 @@ impl Color {
     pub fn linear(&self) -> LinearRgba {
         (*self).into()
     }
+
+    /// Creates a new [`Color`] object storing a [`Srgba`] color.
+    pub const fn srgba(red: f32, green: f32, blue: f32, alpha: f32) -> Self {
+        Self::Srgba(Srgba {
+            red,
+            green,
+            blue,
+            alpha,
+        })
+    }
+
+    /// Creates a new [`Color`] object storing a [`Srgba`] color with an alpha of 1.0.
+    pub const fn srgb(red: f32, green: f32, blue: f32) -> Self {
+        Self::Srgba(Srgba {
+            red,
+            green,
+            blue,
+            alpha: 1.0,
+        })
+    }
+
+    /// Createsa new [`Color`] object storing a [`LinearRgba`] color.
+    pub const fn linear_rgba(red: f32, green: f32, blue: f32, alpha: f32) -> Self {
+        Self::LinearRgba(LinearRgba {
+            red,
+            green,
+            blue,
+            alpha,
+        })
+    }
+
+    /// a new [`Color`] object storing a [`LinearRgba`] color with an alpha of 1.0.
+    pub const fn linear_rgb(red: f32, green: f32, blue: f32) -> Self {
+        Self::LinearRgba(LinearRgba {
+            red,
+            green,
+            blue,
+            alpha: 1.0,
+        })
+    }
+
+    /// Creates a new [`Color`] object storing a [`Hsla`] color.
+    pub const fn hsla(hue: f32, saturation: f32, lightness: f32, alpha: f32) -> Self {
+        Self::Hsla(Hsla {
+            hue,
+            saturation,
+            lightness,
+            alpha,
+        })
+    }
+
+    /// Creates a new [`Color`] object storing a [`Hsla`] color with an alpha of 1.0.
+    pub const fn hsl(hue: f32, saturation: f32, lightness: f32) -> Self {
+        Self::Hsla(Hsla {
+            hue,
+            saturation,
+            lightness,
+            alpha: 1.0,
+        })
+    }
+
+    /// Creates a new [`Color`] object storing a [`Hsva`] color.
+    pub const fn hsva(hue: f32, saturation: f32, value: f32, alpha: f32) -> Self {
+        Self::Hsva(Hsva {
+            hue,
+            saturation,
+            value,
+            alpha,
+        })
+    }
+
+    /// Creates a new [`Color`] object storing a [`Hsva`] color with an alpha of 1.0.
+    pub const fn hsv(hue: f32, saturation: f32, value: f32) -> Self {
+        Self::Hsva(Hsva {
+            hue,
+            saturation,
+            value,
+            alpha: 1.0,
+        })
+    }
+
+    /// Creates a new [`Color`] object storing a [`Hwba`] color.
+    pub const fn hwba(hue: f32, whiteness: f32, blackness: f32, alpha: f32) -> Self {
+        Self::Hwba(Hwba {
+            hue,
+            whiteness,
+            blackness,
+            alpha,
+        })
+    }
+
+    /// Creates a new [`Color`] object storing a [`Hwba`] color with an alpha of 1.0.
+    pub const fn hwb(hue: f32, whiteness: f32, blackness: f32) -> Self {
+        Self::Hwba(Hwba {
+            hue,
+            whiteness,
+            blackness,
+            alpha: 1.0,
+        })
+    }
+
+    /// Creates a new [`Color`] object storing a [`Laba`] color.
+    pub const fn laba(lightness: f32, a: f32, b: f32, alpha: f32) -> Self {
+        Self::Laba(Laba {
+            lightness,
+            a,
+            b,
+            alpha,
+        })
+    }
+
+    /// Creates a new [`Color`] object storing a [`Laba`] color with an alpha of 1.0.
+    pub const fn lab(lightness: f32, a: f32, b: f32) -> Self {
+        Self::Laba(Laba {
+            lightness,
+            a,
+            b,
+            alpha: 1.0,
+        })
+    }
+
+    /// Creates a new [`Color`] object storing a [`Lcha`] color.
+    pub const fn lcha(lightness: f32, chroma: f32, hue: f32, alpha: f32) -> Self {
+        Self::Lcha(Lcha {
+            lightness,
+            chroma,
+            hue,
+            alpha,
+        })
+    }
+
+    /// Creates a new [`Color`] object storing a [`Lcha`] color with an alpha of 1.0.
+    pub const fn lch(lightness: f32, chroma: f32, hue: f32) -> Self {
+        Self::Lcha(Lcha {
+            lightness,
+            chroma,
+            hue,
+            alpha: 1.0,
+        })
+    }
+
+    /// Creates a new [`Color`] object storing a [`Oklaba`] color.
+    pub const fn oklaba(l: f32, a: f32, b: f32, alpha: f32) -> Self {
+        Self::Oklaba(Oklaba { l, a, b, alpha })
+    }
+
+    /// Creates a new [`Color`] object storing a [`Oklaba`] color with an alpha of 1.0.
+    pub const fn oklab(l: f32, a: f32, b: f32) -> Self {
+        Self::Oklaba(Oklaba {
+            l,
+            a,
+            b,
+            alpha: 1.0,
+        })
+    }
+
+    /// Creates a new [`Color`] object storing a [`Xyza`] color.
+    pub const fn xyza(x: f32, y: f32, z: f32, alpha: f32) -> Self {
+        Self::Xyza(Xyza { x, y, z, alpha })
+    }
+
+    /// Creates a new [`Color`] object storing a [`Xyza`] color with an alpha of 1.0.
+    pub const fn xyz(x: f32, y: f32, z: f32) -> Self {
+        Self::Xyza(Xyza {
+            x,
+            y,
+            z,
+            alpha: 1.0,
+        })
+    }
 }
 
 impl Default for Color {
