@@ -4,6 +4,9 @@ use serde::{Deserialize, Serialize};
 
 /// Color in Hue-Saturation-Value (HSV) color space with alpha.
 /// Further information on this color model can be found on [Wikipedia](https://en.wikipedia.org/wiki/HSL_and_HSV).
+#[doc = include_str!("../docs/conversion.md")]
+#[cfg_attr(doc, aquamarine::aquamarine)]
+/// include_mmd!("docs/diagrams/model_graph.mmd")
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub struct Hsva {

@@ -6,6 +6,9 @@ use serde::{Deserialize, Serialize};
 ///
 /// This is useful when you need to store a color in a data structure that can't be generic over
 /// the color type.
+#[doc = include_str!("../docs/conversion.md")]
+#[cfg_attr(doc, aquamarine::aquamarine)]
+/// include_mmd!("docs/diagrams/model_graph.mmd")
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum Color {

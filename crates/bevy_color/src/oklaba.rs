@@ -6,6 +6,9 @@ use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
 
 /// Color in Oklaba color space, with alpha
+#[doc = include_str!("../docs/conversion.md")]
+#[cfg_attr(doc, aquamarine::aquamarine)]
+/// include_mmd!("docs/diagrams/model_graph.mmd")
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub struct Oklaba {

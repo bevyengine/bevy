@@ -6,6 +6,9 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// Non-linear standard RGB with alpha.
+#[doc = include_str!("../docs/conversion.md")]
+#[cfg_attr(doc, aquamarine::aquamarine)]
+/// include_mmd!("docs/diagrams/model_graph.mmd")
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub struct Srgba {

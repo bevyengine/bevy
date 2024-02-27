@@ -17,6 +17,7 @@ serde = "1.0"
 thiserror = "1.0"
 wgpu = { version = "0.19.1", default-features = false }
 encase = { version = "0.7", default-features = false }
+aquamarine = "0.5"
 
 [lints]
 workspace = true

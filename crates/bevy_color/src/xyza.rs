@@ -3,6 +3,9 @@ use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
 
 /// [CIE 1931](https://en.wikipedia.org/wiki/CIE_1931_color_space) color space, also known as XYZ, with an alpha channel.
+#[doc = include_str!("../docs/conversion.md")]
+#[cfg_attr(doc, aquamarine::aquamarine)]
+/// include_mmd!("docs/diagrams/model_graph.mmd")
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub struct Xyza {
