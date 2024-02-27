@@ -210,6 +210,15 @@ impl Color {
             alpha: 1.0,
         })
     }
+
+    /// A fully white [`Color::LinearRgba`] color with an alpha of 1.0.
+    pub const WHITE: Self = Self::linear_rgb(1.0, 1.0, 1.0);
+
+    /// A fully black [`Color::LinearRgba`] color with an alpha of 1.0.
+    pub const BLACK: Self = Self::linear_rgb(0., 0., 0.);
+
+    /// A fully transparent [`Color::LinearRgba`] color.
+    pub const TRANSPARENT: Self = Self::linear_rgba(0., 0., 0., 0.);
 }
 
 impl Default for Color {
