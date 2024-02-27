@@ -34,12 +34,12 @@ pub use hashbrown;
 pub use parallel_queue::*;
 pub use petgraph;
 pub use smallvec;
+#[cfg(not(target_arch = "wasm32"))]
+pub use std::time::{Duration, Instant, SystemTime, SystemTimeError, TryFromFloatSecsError};
 pub use thiserror;
 pub use tracing;
 #[cfg(target_arch = "wasm32")]
 pub use web_time::{Duration, Instant, SystemTime, SystemTimeError, TryFromFloatSecsError};
-#[cfg(not(target_arch = "wasm32"))]
-pub use std::time::{Duration, Instant, SystemTime, SystemTimeError, TryFromFloatSecsError};
 
 #[allow(missing_docs)]
 pub mod nonmax {
