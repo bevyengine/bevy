@@ -693,14 +693,14 @@ pub fn queue_prepass_material_meshes<M: Material>(
     render_materials: Res<RenderMaterials<M>>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
     render_lightmaps: Res<RenderLightmaps>,
-    mut views: Query<
+    views: Query<
         (
             &ExtractedView,
             &VisibleEntities,
-            Option<&mut RenderPhase<Opaque3dPrepass>>,
-            Option<&mut RenderPhase<AlphaMask3dPrepass>>,
-            Option<&mut RenderPhase<Opaque3dDeferred>>,
-            Option<&mut RenderPhase<AlphaMask3dDeferred>>,
+            Option<&RenderPhase<Opaque3dPrepass>>,
+            Option<&RenderPhase<AlphaMask3dPrepass>>,
+            Option<&RenderPhase<Opaque3dDeferred>>,
+            Option<&RenderPhase<AlphaMask3dDeferred>>,
             Option<&DepthPrepass>,
             Option<&NormalPrepass>,
             Option<&MotionVectorPrepass>,
@@ -735,15 +735,15 @@ pub fn queue_prepass_material_meshes<M: Material>(
     for (
         _view,
         visible_entities,
-        mut opaque_phase,
-        mut alpha_mask_phase,
-        mut opaque_deferred_phase,
-        mut alpha_mask_deferred_phase,
+        opaque_phase,
+        alpha_mask_phase,
+        opaque_deferred_phase,
+        alpha_mask_deferred_phase,
         depth_prepass,
         normal_prepass,
         motion_vector_prepass,
         deferred_prepass,
-    ) in &mut views
+    ) in &views
     {
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples());
         if depth_prepass.is_some() {
@@ -836,7 +836,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 AlphaMode::Opaque => {
                     if deferred {
                         opaque_deferred_phase
-                            .as_mut()
+                            .as_ref()
                             .unwrap()
                             .add(Opaque3dDeferred {
                                 entity: *visible_entity,
@@ -846,7 +846,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                                 batch_range: 0..1,
                                 dynamic_offset: None,
                             });
-                    } else if let Some(opaque_phase) = opaque_phase.as_mut() {
+                    } else if let Some(opaque_phase) = opaque_phase.as_ref() {
                         opaque_phase.add(Opaque3dPrepass {
                             entity: *visible_entity,
                             draw_function: opaque_draw_prepass,
@@ -860,7 +860,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 AlphaMode::Mask(_) => {
                     if deferred {
                         alpha_mask_deferred_phase
-                            .as_mut()
+                            .as_ref()
                             .unwrap()
                             .add(AlphaMask3dDeferred {
                                 entity: *visible_entity,
@@ -870,7 +870,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                                 batch_range: 0..1,
                                 dynamic_offset: None,
                             });
-                    } else if let Some(alpha_mask_phase) = alpha_mask_phase.as_mut() {
+                    } else if let Some(alpha_mask_phase) = alpha_mask_phase.as_ref() {
                         alpha_mask_phase.add(AlphaMask3dPrepass {
                             entity: *visible_entity,
                             draw_function: alpha_mask_draw_prepass,

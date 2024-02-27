@@ -56,7 +56,7 @@ impl Node for UiPassNode {
         else {
             return Ok(());
         };
-        if transparent_phase.items.is_empty() {
+        if transparent_phase.is_empty() {
             return Ok(());
         }
 

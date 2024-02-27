@@ -117,13 +117,13 @@ fn queue_custom(
     meshes: Res<RenderAssets<Mesh>>,
     render_mesh_instances: Res<RenderMeshInstances>,
     material_meshes: Query<Entity, With<InstanceMaterialData>>,
-    mut views: Query<(&ExtractedView, &mut RenderPhase<Transparent3d>)>,
+    views: Query<(&ExtractedView, &RenderPhase<Transparent3d>)>,
 ) {
     let draw_custom = transparent_3d_draw_functions.read().id::<DrawCustom>();
 
     let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples());
 
-    for (view, mut transparent_phase) in &mut views {
+    for (view, transparent_phase) in &views {
         let view_key = msaa_key | MeshPipelineKey::from_hdr(view.hdr);
         let rangefinder = view.rangefinder3d();
         for entity in &material_meshes {

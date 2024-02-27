@@ -457,8 +457,8 @@ pub fn queue_sprites(
     pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
     extracted_sprites: Res<ExtractedSprites>,
-    mut views: Query<(
-        &mut RenderPhase<Transparent2d>,
+    views: Query<(
+        &RenderPhase<Transparent2d>,
         &VisibleEntities,
         &ExtractedView,
         Option<&Tonemapping>,
@@ -469,7 +469,7 @@ pub fn queue_sprites(
 
     let draw_sprite_function = draw_functions.read().id::<DrawSprite>();
 
-    for (mut transparent_phase, visible_entities, view, tonemapping, dither) in &mut views {
+    for (transparent_phase, visible_entities, view, tonemapping, dither) in &views {
         let mut view_key = SpritePipelineKey::from_hdr(view.hdr) | msaa_key;
 
         if !view.hdr {
@@ -509,9 +509,7 @@ pub fn queue_sprites(
         view_entities.clear();
         view_entities.extend(visible_entities.entities.iter().map(|e| e.index() as usize));
 
-        transparent_phase
-            .items
-            .reserve(extracted_sprites.sprites.len());
+        transparent_phase.local_reserve(extracted_sprites.sprites.len());
 
         for (entity, extracted_sprite) in extracted_sprites.sprites.iter() {
             let index = extracted_sprite.original_entity.unwrap_or(*entity).index();
@@ -602,8 +600,8 @@ pub fn prepare_sprites(
             // Iterate through the phase items and detect when successive sprites that can be batched.
             // Spawn an entity with a `SpriteBatch` component for each possible batch.
             // Compatible items share the same entity.
-            for item_index in 0..transparent_phase.items.len() {
-                let item = &transparent_phase.items[item_index];
+            for item_index in 0..transparent_phase.len() {
+                let item = &transparent_phase[item_index];
                 let Some(extracted_sprite) = extracted_sprites.sprites.get(&item.entity) else {
                     // If there is a phase item that is not a sprite, then we must start a new
                     // batch to draw the other phase item(s) and to respect draw order. This can be
@@ -696,9 +694,7 @@ pub fn prepare_sprites(
                     ));
                 }
 
-                transparent_phase.items[batch_item_index]
-                    .batch_range_mut()
-                    .end += 1;
+                transparent_phase[batch_item_index].batch_range_mut().end += 1;
                 batches.last_mut().unwrap().1.range.end += 1;
                 index += 1;
             }

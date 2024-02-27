@@ -89,14 +89,14 @@ impl ViewNode for PrepassNode {
             }
 
             // Opaque draws
-            if !opaque_prepass_phase.items.is_empty() {
+            if !opaque_prepass_phase.is_empty() {
                 #[cfg(feature = "trace")]
                 let _opaque_prepass_span = info_span!("opaque_prepass").entered();
                 opaque_prepass_phase.render(&mut render_pass, world, view_entity);
             }
 
             // Alpha masked draws
-            if !alpha_mask_prepass_phase.items.is_empty() {
+            if !alpha_mask_prepass_phase.is_empty() {
                 #[cfg(feature = "trace")]
                 let _alpha_mask_prepass_span = info_span!("alpha_mask_prepass").entered();
                 alpha_mask_prepass_phase.render(&mut render_pass, world, view_entity);

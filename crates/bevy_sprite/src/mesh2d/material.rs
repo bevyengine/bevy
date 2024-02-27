@@ -381,12 +381,12 @@ pub fn queue_material2d_meshes<M: Material2d>(
     render_materials: Res<RenderMaterials2d<M>>,
     mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
     render_material_instances: Res<RenderMaterial2dInstances<M>>,
-    mut views: Query<(
+    views: Query<(
         &ExtractedView,
         &VisibleEntities,
         Option<&Tonemapping>,
         Option<&DebandDither>,
-        &mut RenderPhase<Transparent2d>,
+        &RenderPhase<Transparent2d>,
     )>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
@@ -395,7 +395,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
         return;
     }
 
-    for (view, visible_entities, tonemapping, dither, mut transparent_phase) in &mut views {
+    for (view, visible_entities, tonemapping, dither, transparent_phase) in &views {
         let draw_transparent_pbr = transparent_draw_functions.read().id::<DrawMaterial2d<M>>();
 
         let mut view_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())

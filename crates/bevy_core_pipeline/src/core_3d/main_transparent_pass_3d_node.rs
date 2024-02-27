@@ -31,7 +31,7 @@ impl ViewNode for MainTransparentPass3dNode {
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
 
-        if !transparent_phase.items.is_empty() {
+        if !transparent_phase.is_empty() {
             // Run the transparent pass, sorted back-to-front
             // NOTE: Scoped to drop the mutable borrow of render_context
             #[cfg(feature = "trace")]

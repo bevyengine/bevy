@@ -345,9 +345,9 @@ pub fn queue_colored_mesh2d(
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
     render_mesh_instances: Res<RenderMesh2dInstances>,
-    mut views: Query<(
+    views: Query<(
         &VisibleEntities,
-        &mut RenderPhase<Transparent2d>,
+        &RenderPhase<Transparent2d>,
         &ExtractedView,
     )>,
 ) {
@@ -355,7 +355,7 @@ pub fn queue_colored_mesh2d(
         return;
     }
     // Iterate each view (a camera is a view)
-    for (visible_entities, mut transparent_phase, view) in &mut views {
+    for (visible_entities, transparent_phase, view) in &views {
         let draw_colored_mesh2d = transparent_draw_functions.read().id::<DrawColoredMesh2d>();
 
         let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
