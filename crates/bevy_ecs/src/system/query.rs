@@ -1248,7 +1248,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// ## Panics
     ///
-    /// This will panic if `NewD` is not a subset of the original fetch `Q`
+    /// If this `Query`'s fetch is not a subset of `NewD`,
+    /// for example, it will panic if `Q` may contain entities not contained in `NewD`.
     ///
     /// ## Example
     ///
