@@ -126,7 +126,12 @@ bevy_render = ["bevy_internal/bevy_render", "bevy_color"]
 bevy_scene = ["bevy_internal/bevy_scene", "bevy_asset"]
 
 # Provides sprite functionality
-bevy_sprite = ["bevy_internal/bevy_sprite", "bevy_render", "bevy_core_pipeline"]
+bevy_sprite = [
+  "bevy_internal/bevy_sprite",
+  "bevy_render",
+  "bevy_core_pipeline",
+  "bevy_color",
+]
 
 # Provides text functionality
 bevy_text = ["bevy_internal/bevy_text", "bevy_asset", "bevy_sprite"]
