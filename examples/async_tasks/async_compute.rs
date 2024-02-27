@@ -2,12 +2,12 @@
 //! to spawn, poll, and complete tasks across systems and system ticks.
 
 use bevy::{
+    ecs::system::{CommandQueue, SystemState},
     prelude::*,
-    tasks::{block_on, AsyncComputeTaskPool, Task},
+    tasks::{block_on, futures_lite::future, AsyncComputeTaskPool, Task},
 };
-use futures_lite::future;
 use rand::Rng;
-use std::time::{Duration, Instant};
+use std::{thread, time::Duration};
 
 fn main() {
     App::new()
@@ -35,15 +35,15 @@ fn add_assets(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let box_mesh_handle = meshes.add(Mesh::from(shape::Cube { size: 0.25 }));
+    let box_mesh_handle = meshes.add(Cuboid::new(0.25, 0.25, 0.25));
     commands.insert_resource(BoxMeshHandle(box_mesh_handle));
 
-    let box_material_handle = materials.add(Color::rgb(1.0, 0.2, 0.3).into());
+    let box_material_handle = materials.add(LegacyColor::rgb(1.0, 0.2, 0.3));
     commands.insert_resource(BoxMaterialHandle(box_material_handle));
 }
 
 #[derive(Component)]
-struct ComputeTransform(Task<Transform>);
+struct ComputeTransform(Task<CommandQueue>);
 
 /// This system generates tasks simulating computationally intensive
 /// work that potentially spans multiple frames/ticks. A separate
@@ -57,21 +57,51 @@ fn spawn_tasks(mut commands: Commands) {
                 // Spawn new task on the AsyncComputeTaskPool; the task will be
                 // executed in the background, and the Task future returned by
                 // spawn() can be used to poll for the result
+                let entity = commands.spawn_empty().id();
                 let task = thread_pool.spawn(async move {
                     let mut rng = rand::thread_rng();
-                    let start_time = Instant::now();
+
                     let duration = Duration::from_secs_f32(rng.gen_range(0.05..0.2));
-                    while start_time.elapsed() < duration {
-                        // Spinning for 'duration', simulating doing hard
-                        // compute work generating translation coords!
-                    }
+
+                    // Pretend this is a time-intensive function. :)
+                    thread::sleep(duration);
 
                     // Such hard work, all done!
-                    Transform::from_xyz(x as f32, y as f32, z as f32)
+                    let transform = Transform::from_xyz(x as f32, y as f32, z as f32);
+                    let mut command_queue = CommandQueue::default();
+
+                    // we use a raw command queue to pass a FnOne(&mut World) back to be
+                    // applied in a deferred manner.
+                    command_queue.push(move |world: &mut World| {
+                        let (box_mesh_handle, box_material_handle) = {
+                            let mut system_state = SystemState::<(
+                                Res<BoxMeshHandle>,
+                                Res<BoxMaterialHandle>,
+                            )>::new(world);
+                            let (box_mesh_handle, box_material_handle) =
+                                system_state.get_mut(world);
+
+                            (box_mesh_handle.clone(), box_material_handle.clone())
+                        };
+
+                        world
+                            .entity_mut(entity)
+                            // Add our new PbrBundle of components to our tagged entity
+                            .insert(PbrBundle {
+                                mesh: box_mesh_handle,
+                                material: box_material_handle,
+                                transform,
+                                ..default()
+                            })
+                            // Task is complete, so remove task component from entity
+                            .remove::<ComputeTransform>();
+                    });
+
+                    command_queue
                 });
 
                 // Spawn new entity and add our new task as a component
-                commands.spawn(ComputeTransform(task));
+                commands.entity(entity).insert(ComputeTransform(task));
             }
         }
     }
@@ -81,24 +111,11 @@ fn spawn_tasks(mut commands: Commands) {
 /// tasks to see if they're complete. If the task is complete it takes the result, adds a
 /// new [`PbrBundle`] of components to the entity using the result from the task's work, and
 /// removes the task component from the entity.
-fn handle_tasks(
-    mut commands: Commands,
-    mut transform_tasks: Query<(Entity, &mut ComputeTransform)>,
-    box_mesh_handle: Res<BoxMeshHandle>,
-    box_material_handle: Res<BoxMaterialHandle>,
-) {
-    for (entity, mut task) in &mut transform_tasks {
-        if let Some(transform) = block_on(future::poll_once(&mut task.0)) {
-            // Add our new PbrBundle of components to our tagged entity
-            commands.entity(entity).insert(PbrBundle {
-                mesh: box_mesh_handle.clone(),
-                material: box_material_handle.clone(),
-                transform,
-                ..default()
-            });
-
-            // Task is complete, so remove task component from entity
-            commands.entity(entity).remove::<ComputeTransform>();
+fn handle_tasks(mut commands: Commands, mut transform_tasks: Query<&mut ComputeTransform>) {
+    for mut task in &mut transform_tasks {
+        if let Some(mut commands_queue) = block_on(future::poll_once(&mut task.0)) {
+            // append the returned command queue to have it execute later
+            commands.append(&mut commands_queue);
         }
     }
 }

@@ -3,9 +3,8 @@ pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     prelude::*,
     schedule::{
-        apply_state_transition, common_conditions::run_once as run_once_condition,
-        run_enter_schedule, InternedScheduleLabel, IntoSystemConfigs, IntoSystemSetConfigs,
-        ScheduleBuildSettings, ScheduleLabel,
+        common_conditions::run_once as run_once_condition, run_enter_schedule,
+        InternedScheduleLabel, ScheduleBuildSettings, ScheduleLabel,
     },
 };
 use bevy_utils::{intern::Interned, thiserror::Error, tracing::debug, HashMap, HashSet};
@@ -79,7 +78,7 @@ pub struct App {
     pub main_schedule_label: InternedScheduleLabel,
     sub_apps: HashMap<InternedAppLabel, SubApp>,
     plugin_registry: Vec<Box<dyn Plugin>>,
-    plugin_name_added: HashSet<String>,
+    plugin_name_added: HashSet<Box<str>>,
     /// A private counter to prevent incorrect calls to `App::run()` from `Plugin::build()`
     building_plugin_depth: usize,
     plugins_state: PluginsState,
@@ -88,9 +87,7 @@ pub struct App {
 impl Debug for App {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "App {{ sub_apps: ")?;
-        f.debug_map()
-            .entries(self.sub_apps.iter().map(|(k, v)| (k, v)))
-            .finish()?;
+        f.debug_map().entries(self.sub_apps.iter()).finish()?;
         write!(f, "}}")
     }
 }
@@ -101,7 +98,7 @@ impl Debug for App {
 ///
 /// # Example
 ///
-/// ```rust
+/// ```
 /// # use bevy_app::{App, AppLabel, SubApp, Main};
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::schedule::ScheduleLabel;
@@ -176,9 +173,7 @@ impl SubApp {
 impl Debug for SubApp {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "SubApp {{ app: ")?;
-        f.debug_map()
-            .entries(self.app.sub_apps.iter().map(|(k, v)| (k, v)))
-            .finish()?;
+        f.debug_map().entries(self.app.sub_apps.iter()).finish()?;
         write!(f, "}}")
     }
 }
@@ -190,6 +185,7 @@ impl Default for App {
         app.init_resource::<AppTypeRegistry>();
 
         app.add_plugins(MainSchedulePlugin);
+
         app.add_event::<AppExit>();
 
         #[cfg(feature = "bevy_ci_testing")]
@@ -216,6 +212,7 @@ pub enum PluginsState {
 
 // Dummy plugin used to temporary hold the place in the plugin registry
 struct PlaceholderPlugin;
+
 impl Plugin for PlaceholderPlugin {
     fn build(&self, _app: &mut App) {}
 }
@@ -281,7 +278,7 @@ impl App {
     ///
     /// # `run()` might not return
     ///
-    /// Calls to [`App::run()`] might never return.
+    /// Calls to [`App::run()`] will never return on iOS and Web.
     ///
     /// In simple and *headless* applications, one can expect that execution will
     /// proceed, normally, after calling [`run()`](App::run()) but this is not the case for
@@ -292,10 +289,7 @@ impl App {
     /// window is closed and that event loop terminates – behavior of processes that
     /// do not is often platform dependent or undocumented.
     ///
-    /// By default, *Bevy* uses the `winit` crate for window creation. See
-    /// [`WinitSettings::return_from_run`](https://docs.rs/bevy/latest/bevy/winit/struct.WinitSettings.html#structfield.return_from_run)
-    /// for further discussion of this topic and for a mechanism to require that [`App::run()`]
-    /// *does* return – albeit one that carries its own caveats and disclaimers.
+    /// By default, *Bevy* uses the `winit` crate for window creation.
     ///
     /// # Panics
     ///
@@ -310,7 +304,7 @@ impl App {
         }
 
         let runner = std::mem::replace(&mut app.runner, Box::new(run_once));
-        (runner)(app);
+        runner(app);
     }
 
     /// Check the state of all plugins already added to this app. This is usually called by the
@@ -354,6 +348,10 @@ impl App {
         self.plugins_state = PluginsState::Cleaned;
     }
 
+    /// Initializes a [`State`] with standard starting values.
+    ///
+    /// If the [`State`] already exists, nothing happens.
+    ///
     /// Adds [`State<S>`] and [`NextState<S>`] resources, [`OnEnter`] and [`OnExit`] schedules
     /// for each state variant (if they don't already exist), an instance of [`apply_state_transition::<S>`] in
     /// [`StateTransition`] so that transitions happen before [`Update`](crate::Update) and
@@ -366,9 +364,47 @@ impl App {
     ///
     /// Note that you can also apply state transitions at other points in the schedule
     /// by adding the [`apply_state_transition`] system manually.
-    pub fn add_state<S: States>(&mut self) -> &mut Self {
-        self.init_resource::<State<S>>()
+    pub fn init_state<S: States + FromWorld>(&mut self) -> &mut Self {
+        if !self.world.contains_resource::<State<S>>() {
+            self.init_resource::<State<S>>()
+                .init_resource::<NextState<S>>()
+                .add_event::<StateTransitionEvent<S>>()
+                .add_systems(
+                    StateTransition,
+                    (
+                        run_enter_schedule::<S>.run_if(run_once_condition()),
+                        apply_state_transition::<S>,
+                    )
+                        .chain(),
+                );
+        }
+
+        // The OnEnter, OnExit, and OnTransition schedules are lazily initialized
+        // (i.e. when the first system is added to them), and World::try_run_schedule is used to fail
+        // gracefully if they aren't present.
+
+        self
+    }
+
+    /// Inserts a specific [`State`] to the current [`App`] and
+    /// overrides any [`State`] previously added of the same type.
+    ///
+    /// Adds [`State<S>`] and [`NextState<S>`] resources, [`OnEnter`] and [`OnExit`] schedules
+    /// for each state variant (if they don't already exist), an instance of [`apply_state_transition::<S>`] in
+    /// [`StateTransition`] so that transitions happen before [`Update`](crate::Update) and
+    /// a instance of [`run_enter_schedule::<S>`] in [`StateTransition`] with a
+    /// [`run_once`](`run_once_condition`) condition to run the on enter schedule of the
+    /// initial state.
+    ///
+    /// If you would like to control how other systems run based on the current state,
+    /// you can emulate this behavior using the [`in_state`] [`Condition`].
+    ///
+    /// Note that you can also apply state transitions at other points in the schedule
+    /// by adding the [`apply_state_transition`] system manually.
+    pub fn insert_state<S: States>(&mut self, state: S) -> &mut Self {
+        self.insert_resource(State::new(state))
             .init_resource::<NextState<S>>()
+            .add_event::<StateTransitionEvent<S>>()
             .add_systems(
                 StateTransition,
                 (
@@ -421,18 +457,7 @@ impl App {
         self
     }
 
-    /// Configures a system set in the default schedule, adding the set if it does not exist.
-    #[deprecated(since = "0.12.0", note = "Please use `configure_sets` instead.")]
-    #[track_caller]
-    pub fn configure_set(
-        &mut self,
-        schedule: impl ScheduleLabel,
-        set: impl IntoSystemSetConfigs,
-    ) -> &mut Self {
-        self.configure_sets(schedule, set)
-    }
-
-    /// Configures a collection of system sets in the default schedule, adding any sets that do not exist.
+    /// Configures a collection of system sets in the provided schedule, adding any sets that do not exist.
     #[track_caller]
     pub fn configure_sets(
         &mut self,
@@ -480,6 +505,7 @@ impl App {
             self.init_resource::<Events<T>>().add_systems(
                 First,
                 bevy_ecs::event::event_update_system::<T>
+                    .in_set(bevy_ecs::event::EventUpdates)
                     .run_if(bevy_ecs::event::event_update_condition::<T>),
             );
         }
@@ -616,7 +642,7 @@ impl App {
         plugin: Box<dyn Plugin>,
     ) -> Result<&mut Self, AppError> {
         debug!("added plugin: {}", plugin.name());
-        if plugin.is_unique() && !self.plugin_name_added.insert(plugin.name().to_string()) {
+        if plugin.is_unique() && !self.plugin_name_added.insert(plugin.name().into()) {
             Err(AppError::DuplicatePlugin {
                 plugin_name: plugin.name().to_string(),
             })?;
@@ -644,9 +670,7 @@ impl App {
     where
         T: Plugin,
     {
-        self.plugin_registry
-            .iter()
-            .any(|p| p.downcast_ref::<T>().is_some())
+        self.plugin_registry.iter().any(|p| p.is::<T>())
     }
 
     /// Returns a vector of references to any plugins of type `T` that have been added.
@@ -655,7 +679,7 @@ impl App {
     /// This vector will be length zero if no plugins of that type have been added.
     /// If multiple copies of the same plugin are added to the [`App`], they will be listed in insertion order in this vector.
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_app::prelude::*;
     /// # #[derive(Default)]
     /// # struct ImagePlugin {
@@ -732,8 +756,8 @@ impl App {
 
     /// Registers the type `T` in the [`TypeRegistry`](bevy_reflect::TypeRegistry) resource,
     /// adding reflect data as specified in the [`Reflect`](bevy_reflect::Reflect) derive:
-    /// ```rust,ignore
-    /// #[derive(Reflect)]
+    /// ```ignore (No serde "derive" feature)
+    /// #[derive(Component, Serialize, Deserialize, Reflect)]
     /// #[reflect(Component, Serialize, Deserialize)] // will register ReflectComponent, ReflectSerialize, ReflectDeserialize
     /// ```
     ///
@@ -753,7 +777,7 @@ impl App {
     /// this method can be used to insert additional type data.
     ///
     /// # Example
-    /// ```rust
+    /// ```
     /// use bevy_app::App;
     /// use bevy_reflect::{ReflectSerialize, ReflectDeserialize};
     ///
@@ -828,10 +852,10 @@ impl App {
             .ok_or(label)
     }
 
-    /// Adds a new `schedule` to the [`App`] under the provided `label`.
+    /// Adds a new `schedule` to the [`App`].
     ///
     /// # Warning
-    /// This method will overwrite any existing schedule at that label.
+    /// This method will overwrite any existing schedule with the same label.
     /// To avoid this behavior, use the `init_schedule` method instead.
     pub fn add_schedule(&mut self, schedule: Schedule) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
@@ -899,7 +923,7 @@ impl App {
         self
     }
 
-    /// When doing [ambiguity checking](bevy_ecs::schedule::ScheduleBuildSettings) this
+    /// When doing [ambiguity checking](ScheduleBuildSettings) this
     /// ignores systems that are ambiguous on [`Component`] T.
     ///
     /// This settings only applies to the main world. To apply this to other worlds call the
@@ -907,7 +931,7 @@ impl App {
     ///
     /// ## Example
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_app::prelude::*;
     /// # use bevy_ecs::prelude::*;
     /// # use bevy_ecs::schedule::{LogLevel, ScheduleBuildSettings};
@@ -937,7 +961,7 @@ impl App {
         self
     }
 
-    /// When doing [ambiguity checking](bevy_ecs::schedule::ScheduleBuildSettings) this
+    /// When doing [ambiguity checking](ScheduleBuildSettings) this
     /// ignores systems that are ambiguous on [`Resource`] T.
     ///
     /// This settings only applies to the main world. To apply this to other worlds call the
@@ -945,7 +969,7 @@ impl App {
     ///
     /// ## Example
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_app::prelude::*;
     /// # use bevy_ecs::prelude::*;
     /// # use bevy_ecs::schedule::{LogLevel, ScheduleBuildSettings};
@@ -973,6 +997,38 @@ impl App {
     /// ```
     pub fn allow_ambiguous_resource<T: Resource>(&mut self) -> &mut Self {
         self.world.allow_ambiguous_resource::<T>();
+        self
+    }
+
+    /// Suppress warnings and errors that would result from systems in these sets having ambiguities
+    /// (conflicting access but indeterminate order) with systems in `set`.
+    ///
+    /// When possible, do this directly in the `.add_systems(Update, a.ambiguous_with(b))` call.
+    /// However, sometimes two independent plugins `A` and `B` are reported as ambiguous, which you
+    /// can only suppress as the consumer of both.
+    #[track_caller]
+    pub fn ignore_ambiguity<M1, M2, S1, S2>(
+        &mut self,
+        schedule: impl ScheduleLabel,
+        a: S1,
+        b: S2,
+    ) -> &mut Self
+    where
+        S1: IntoSystemSet<M1>,
+        S2: IntoSystemSet<M2>,
+    {
+        let schedule = schedule.intern();
+        let mut schedules = self.world.resource_mut::<Schedules>();
+
+        if let Some(schedule) = schedules.get_mut(schedule) {
+            let schedule: &mut Schedule = schedule;
+            schedule.ignore_ambiguity(a, b);
+        } else {
+            let mut new_schedule = Schedule::new(schedule);
+            new_schedule.ignore_ambiguity(a, b);
+            schedules.insert(new_schedule);
+        }
+
         self
     }
 }
@@ -1014,19 +1070,19 @@ mod tests {
 
     struct PluginA;
     impl Plugin for PluginA {
-        fn build(&self, _app: &mut crate::App) {}
+        fn build(&self, _app: &mut App) {}
     }
     struct PluginB;
     impl Plugin for PluginB {
-        fn build(&self, _app: &mut crate::App) {}
+        fn build(&self, _app: &mut App) {}
     }
     struct PluginC<T>(T);
     impl<T: Send + Sync + 'static> Plugin for PluginC<T> {
-        fn build(&self, _app: &mut crate::App) {}
+        fn build(&self, _app: &mut App) {}
     }
     struct PluginD;
     impl Plugin for PluginD {
-        fn build(&self, _app: &mut crate::App) {}
+        fn build(&self, _app: &mut App) {}
         fn is_unique(&self) -> bool {
             false
         }
@@ -1059,10 +1115,10 @@ mod tests {
         struct PluginRun;
         struct InnerPlugin;
         impl Plugin for InnerPlugin {
-            fn build(&self, _: &mut crate::App) {}
+            fn build(&self, _: &mut App) {}
         }
         impl Plugin for PluginRun {
-            fn build(&self, app: &mut crate::App) {
+            fn build(&self, app: &mut App) {
                 app.add_plugins(InnerPlugin).run();
             }
         }
@@ -1085,7 +1141,7 @@ mod tests {
     #[test]
     fn add_systems_should_create_schedule_if_it_does_not_exist() {
         let mut app = App::new();
-        app.add_state::<AppState>()
+        app.init_state::<AppState>()
             .add_systems(OnEnter(AppState::MainMenu), (foo, bar));
 
         app.world.run_schedule(OnEnter(AppState::MainMenu));
@@ -1096,7 +1152,7 @@ mod tests {
     fn add_systems_should_create_schedule_if_it_does_not_exist2() {
         let mut app = App::new();
         app.add_systems(OnEnter(AppState::MainMenu), (foo, bar))
-            .add_state::<AppState>();
+            .init_state::<AppState>();
 
         app.world.run_schedule(OnEnter(AppState::MainMenu));
         assert_eq!(app.world.entities().len(), 2);

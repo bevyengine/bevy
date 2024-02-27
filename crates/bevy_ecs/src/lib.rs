@@ -1,5 +1,5 @@
-#![warn(clippy::undocumented_unsafe_blocks)]
-#![warn(missing_docs)]
+// FIXME(11590): remove this once the lint is fixed
+#![allow(unsafe_op_in_unsafe_fn)]
 #![doc = include_str!("../README.md")]
 
 #[cfg(target_pointer_width = "16")]
@@ -11,6 +11,7 @@ pub mod change_detection;
 pub mod component;
 pub mod entity;
 pub mod event;
+pub mod identifier;
 pub mod query;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
@@ -20,32 +21,28 @@ pub mod storage;
 pub mod system;
 pub mod world;
 
-use std::any::TypeId;
-
 pub use bevy_ptr as ptr;
 
 /// Most commonly used re-exported types.
 pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "bevy_reflect")]
-    pub use crate::reflect::{AppTypeRegistry, ReflectComponent, ReflectResource};
-    #[allow(deprecated)]
-    pub use crate::system::adapter::{
-        self as system_adapter, dbg, error, ignore, info, unwrap, warn,
+    pub use crate::reflect::{
+        AppTypeRegistry, ReflectComponent, ReflectFromWorld, ReflectResource,
     };
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
         change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
         component::Component,
-        entity::Entity,
+        entity::{Entity, EntityMapper},
         event::{Event, EventReader, EventWriter, Events},
-        query::{Added, AnyOf, Changed, Has, Or, QueryState, With, Without},
+        query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         removal_detection::RemovedComponents,
         schedule::{
             apply_deferred, apply_state_transition, common_conditions::*, Condition,
             IntoSystemConfigs, IntoSystemSet, IntoSystemSetConfigs, NextState, OnEnter, OnExit,
-            OnTransition, Schedule, Schedules, State, States, SystemSet,
+            OnTransition, Schedule, Schedules, State, StateTransitionEvent, States, SystemSet,
         },
         system::{
             Commands, Deferred, In, IntoSystem, Local, NonSend, NonSendMut, ParallelCommands,
@@ -57,9 +54,6 @@ pub mod prelude {
 
 pub use bevy_utils::all_tuples;
 
-/// A specialized hashmap type with Key of [`TypeId`]
-type TypeIdMap<V> = rustc_hash::FxHashMap<TypeId, V>;
-
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
@@ -69,11 +63,12 @@ mod tests {
         change_detection::Ref,
         component::{Component, ComponentId},
         entity::Entity,
-        query::{Added, Changed, FilteredAccess, ReadOnlyWorldQuery, With, Without},
+        query::{Added, Changed, FilteredAccess, QueryFilter, With, Without},
         system::Resource,
         world::{EntityRef, Mut, World},
     };
     use bevy_tasks::{ComputeTaskPool, TaskPool};
+    use std::num::NonZeroU32;
     use std::{
         any::TypeId,
         marker::PhantomData,
@@ -348,7 +343,8 @@ mod tests {
         let mut results = Vec::new();
         world
             .query::<(Entity, &A, &TableStored)>()
-            .for_each(&world, |(e, &i, &s)| results.push((e, i, s)));
+            .iter(&world)
+            .for_each(|(e, &i, &s)| results.push((e, i, s)));
         assert_eq!(
             results,
             &[
@@ -393,7 +389,8 @@ mod tests {
         let mut results = Vec::new();
         world
             .query::<(Entity, &A)>()
-            .for_each(&world, |(e, &i)| results.push((e, i)));
+            .iter(&world)
+            .for_each(|(e, &i)| results.push((e, i)));
         assert_eq!(results, &[(e, A(123)), (f, A(456))]);
     }
 
@@ -484,7 +481,8 @@ mod tests {
         let mut results = Vec::new();
         world
             .query_filtered::<&A, With<B>>()
-            .for_each(&world, |i| results.push(*i));
+            .iter(&world)
+            .for_each(|i| results.push(*i));
         assert_eq!(results, vec![A(123)]);
     }
 
@@ -511,7 +509,8 @@ mod tests {
         let mut results = Vec::new();
         world
             .query_filtered::<&A, With<SparseStored>>()
-            .for_each(&world, |i| results.push(*i));
+            .iter(&world)
+            .for_each(|i| results.push(*i));
         assert_eq!(results, vec![A(123)]);
     }
 
@@ -908,7 +907,7 @@ mod tests {
             }
         }
 
-        fn get_filtered<F: ReadOnlyWorldQuery>(world: &mut World) -> Vec<Entity> {
+        fn get_filtered<F: QueryFilter>(world: &mut World) -> Vec<Entity> {
             world
                 .query_filtered::<Entity, F>()
                 .iter(world)
@@ -991,7 +990,7 @@ mod tests {
             }
         }
 
-        fn get_filtered<F: ReadOnlyWorldQuery>(world: &mut World) -> Vec<Entity> {
+        fn get_filtered<F: QueryFilter>(world: &mut World) -> Vec<Entity> {
             world
                 .query_filtered::<Entity, F>()
                 .iter(world)
@@ -1400,8 +1399,8 @@ mod tests {
         let mut world_a = World::new();
         let world_b = World::new();
         let mut query = world_a.query::<&A>();
-        query.for_each(&world_a, |_| {});
-        query.for_each(&world_b, |_| {});
+        query.iter(&world_a).for_each(|_| {});
+        query.iter(&world_b).for_each(|_| {});
     }
 
     #[test]
@@ -1560,7 +1559,7 @@ mod tests {
         let e4 = world_b.spawn(A(4)).id();
         assert_eq!(
             e4,
-            Entity::new(3, 0),
+            Entity::from_raw(3),
             "new entity is created immediately after world_a's max entity"
         );
         assert!(world_b.get::<A>(e1).is_none());
@@ -1591,7 +1590,8 @@ mod tests {
             "spawning into existing `world_b` entities works"
         );
 
-        let e4_mismatched_generation = Entity::new(3, 1);
+        let e4_mismatched_generation =
+            Entity::from_raw_and_generation(3, NonZeroU32::new(2).unwrap());
         assert!(
             world_b.get_or_spawn(e4_mismatched_generation).is_none(),
             "attempting to spawn on top of an entity with a mismatched entity generation fails"
@@ -1607,7 +1607,7 @@ mod tests {
             "failed mismatched spawn doesn't change existing entity"
         );
 
-        let high_non_existent_entity = Entity::new(6, 0);
+        let high_non_existent_entity = Entity::from_raw(6);
         world_b
             .get_or_spawn(high_non_existent_entity)
             .unwrap()
@@ -1618,7 +1618,7 @@ mod tests {
             "inserting into newly allocated high / non-continuous entity id works"
         );
 
-        let high_non_existent_but_reserved_entity = Entity::new(5, 0);
+        let high_non_existent_but_reserved_entity = Entity::from_raw(5);
         assert!(
             world_b.get_entity(high_non_existent_but_reserved_entity).is_none(),
             "entities between high-newly allocated entity and continuous block of existing entities don't exist"
@@ -1634,10 +1634,10 @@ mod tests {
         assert_eq!(
             reserved_entities,
             vec![
-                Entity::new(5, 0),
-                Entity::new(4, 0),
-                Entity::new(7, 0),
-                Entity::new(8, 0),
+                Entity::from_raw(5),
+                Entity::from_raw(4),
+                Entity::from_raw(7),
+                Entity::from_raw(8),
             ],
             "space between original entities and high entities is used for new entity ids"
         );
@@ -1686,7 +1686,7 @@ mod tests {
         let e0 = world.spawn(A(0)).id();
         let e1 = Entity::from_raw(1);
         let e2 = world.spawn_empty().id();
-        let invalid_e2 = Entity::new(e2.index(), 1);
+        let invalid_e2 = Entity::from_raw_and_generation(e2.index(), NonZeroU32::new(2).unwrap());
 
         let values = vec![(e0, (B(0), C)), (e1, (B(1), C)), (invalid_e2, (B(2), C))];
 
@@ -1723,5 +1723,23 @@ mod tests {
             Some(&C),
             "new entity was spawned and received C component"
         );
+    }
+
+    #[derive(Component)]
+    struct ComponentA(u32);
+
+    #[derive(Component)]
+    struct ComponentB(u32);
+
+    #[derive(Bundle)]
+    struct Simple(ComponentA);
+
+    #[derive(Bundle)]
+    struct Tuple(Simple, ComponentB);
+
+    #[derive(Bundle)]
+    struct Record {
+        field0: Simple,
+        field1: ComponentB,
     }
 }

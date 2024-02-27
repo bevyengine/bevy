@@ -14,6 +14,7 @@ mod image;
 mod image_loader;
 #[cfg(feature = "ktx2")]
 mod ktx2;
+mod texture_attachment;
 mod texture_cache;
 
 pub(crate) mod image_texture_conversion;
@@ -32,6 +33,7 @@ pub use hdr_texture_loader::*;
 pub use compressed_image_saver::*;
 pub use fallback_image::*;
 pub use image_loader::*;
+pub use texture_attachment::*;
 pub use texture_cache::*;
 
 use crate::{

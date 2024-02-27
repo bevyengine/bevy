@@ -69,7 +69,7 @@ impl ArchetypeRow {
 /// [`EMPTY`] which is guaranteed to be identical for all Worlds.
 ///
 /// [`World`]: crate::world::World
-/// [`EMPTY`]: crate::archetype::ArchetypeId::EMPTY
+/// [`EMPTY`]: ArchetypeId::EMPTY
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 // SAFETY: Must be repr(transparent) due to the safety requirements on EntityLocation
 #[repr(transparent)]
@@ -134,7 +134,7 @@ impl BundleComponentStatus for AddBundle {
     #[inline]
     unsafe fn get_status(&self, index: usize) -> ComponentStatus {
         // SAFETY: caller has ensured index is a valid bundle index for this bundle
-        *self.bundle_status.get_unchecked(index)
+        unsafe { *self.bundle_status.get_unchecked(index) }
     }
 }
 
@@ -272,7 +272,7 @@ pub struct ArchetypeEntity {
 impl ArchetypeEntity {
     /// The ID of the entity.
     #[inline]
-    pub const fn entity(&self) -> Entity {
+    pub const fn id(&self) -> Entity {
         self.entity
     }
 
@@ -402,6 +402,12 @@ impl Archetype {
     #[inline]
     pub fn components(&self) -> impl Iterator<Item = ComponentId> + '_ {
         self.components.indices()
+    }
+
+    /// Returns the total number of components in the archetype
+    #[inline]
+    pub fn component_count(&self) -> usize {
+        self.components.len()
     }
 
     /// Fetches a immutable reference to the archetype's [`Edges`], a cache of
@@ -588,13 +594,6 @@ struct ArchetypeComponents {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct ArchetypeComponentId(usize);
 
-impl ArchetypeComponentId {
-    #[inline]
-    pub(crate) const fn new(index: usize) -> Self {
-        Self(index)
-    }
-}
-
 impl SparseSetIndex for ArchetypeComponentId {
     #[inline]
     fn sparse_set_index(&self) -> usize {
@@ -614,7 +613,7 @@ impl SparseSetIndex for ArchetypeComponentId {
 /// [module level documentation]: crate::archetype
 pub struct Archetypes {
     pub(crate) archetypes: Vec<Archetype>,
-    pub(crate) archetype_component_count: usize,
+    archetype_component_count: usize,
     by_components: bevy_utils::HashMap<ArchetypeComponents, ArchetypeId>,
 }
 
@@ -664,6 +663,22 @@ impl Archetypes {
             self.archetypes
                 .get_unchecked_mut(ArchetypeId::EMPTY.index())
         }
+    }
+
+    /// Generate and store a new [`ArchetypeComponentId`].
+    ///
+    /// This simply increment the counter and return the new value.
+    ///
+    /// # Panics
+    ///
+    /// On archetype component id overflow.
+    pub(crate) fn new_archetype_component_id(&mut self) -> ArchetypeComponentId {
+        let id = ArchetypeComponentId(self.archetype_component_count);
+        self.archetype_component_count = self
+            .archetype_component_count
+            .checked_add(1)
+            .expect("archetype_component_count overflow");
+        id
     }
 
     /// Fetches an immutable reference to an [`Archetype`] using its

@@ -11,13 +11,14 @@ use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     window::{PresentMode, WindowPlugin, WindowResolution},
+    winit::{UpdateMode, WinitSettings},
 };
 
 use rand::Rng;
 
 const CAMERA_SPEED: f32 = 1000.0;
 
-const COLORS: [Color; 3] = [Color::BLUE, Color::WHITE, Color::RED];
+const COLORS: [LegacyColor; 3] = [LegacyColor::BLUE, LegacyColor::WHITE, LegacyColor::RED];
 
 #[derive(Resource)]
 struct ColorTint(bool);
@@ -41,6 +42,10 @@ fn main() {
                 ..default()
             }),
         ))
+        .insert_resource(WinitSettings {
+            focused_mode: UpdateMode::Continuous,
+            unfocused_mode: UpdateMode::Continuous,
+        })
         .add_systems(Startup, setup)
         .add_systems(
             Update,
@@ -87,7 +92,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>, color_tint: Res<Color
                     color: if color_tint.0 {
                         COLORS[rng.gen_range(0..3)]
                     } else {
-                        Color::WHITE
+                        LegacyColor::WHITE
                     },
                     ..default()
                 },

@@ -1,6 +1,6 @@
 [package]
 name = "bevy_asset"
-version = "0.12.0"
+version = "0.14.0-dev"
 edition = "2021"
 description = "Provides asset functionality for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -18,21 +18,21 @@ asset_processor = []
 watch = []
 
 [dependencies]
-bevy_app = { path = "../bevy_app", version = "0.12.0" }
-bevy_asset_macros = { path = "macros", version = "0.12.0" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.12.0" }
-bevy_log = { path = "../bevy_log", version = "0.12.0" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.12.0" }
-bevy_tasks = { path = "../bevy_tasks", version = "0.12.0" }
-bevy_utils = { path = "../bevy_utils", version = "0.12.0" }
+bevy_app = { path = "../bevy_app", version = "0.14.0-dev" }
+bevy_asset_macros = { path = "macros", version = "0.14.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
+bevy_log = { path = "../bevy_log", version = "0.14.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev" }
+bevy_tasks = { path = "../bevy_tasks", version = "0.14.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
 
 async-broadcast = "0.5"
-async-fs = "1.5"
-async-lock = "2.8"
+async-fs = "2.0"
+async-lock = "3.0"
 crossbeam-channel = "0.5"
 downcast-rs = "1.2"
 futures-io = "0.3"
-futures-lite = "1.12"
+futures-lite = "2.0.1"
 blake3 = "1.5"
 parking_lot = { version = "0.12", features = ["arc_lock", "send_guard"] }
 ron = "0.8"
@@ -40,7 +40,7 @@ serde = { version = "1", features = ["derive"] }
 thiserror = "1.0"
 
 [target.'cfg(target_os = "android")'.dependencies]
-bevy_winit = { path = "../bevy_winit", version = "0.12.0" }
+bevy_winit = { path = "../bevy_winit", version = "0.14.0-dev" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2" }
@@ -52,7 +52,7 @@ js-sys = "0.3"
 notify-debouncer-full = { version = "0.3.1", optional = true }
 
 [dev-dependencies]
-bevy_core = { path = "../bevy_core", version = "0.12.0" }
+bevy_core = { path = "../bevy_core", version = "0.14.0-dev" }
 
 [lints]
 workspace = true

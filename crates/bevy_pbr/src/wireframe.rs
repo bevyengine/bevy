@@ -2,13 +2,9 @@ use crate::{Material, MaterialPipeline, MaterialPipelineKey, MaterialPlugin};
 use bevy_app::{Plugin, Startup, Update};
 use bevy_asset::{load_internal_asset, Asset, Assets, Handle};
 use bevy_ecs::prelude::*;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath, TypeUuid};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use bevy_render::{
-    color::Color,
-    extract_resource::ExtractResource,
-    mesh::{Mesh, MeshVertexBufferLayout},
-    prelude::*,
-    render_resource::*,
+    extract_resource::ExtractResource, mesh::MeshVertexBufferLayout, prelude::*, render_resource::*,
 };
 
 pub const WIREFRAME_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(192598014480025766);
@@ -43,10 +39,11 @@ impl Plugin for WireframePlugin {
             .add_systems(
                 Update,
                 (
-                    global_color_changed.run_if(resource_changed::<WireframeConfig>()),
+                    global_color_changed.run_if(resource_changed::<WireframeConfig>),
                     wireframe_color_changed,
-                    apply_wireframe_material,
-                    apply_global_wireframe_material.run_if(resource_changed::<WireframeConfig>()),
+                    // Run `apply_global_wireframe_material` after `apply_wireframe_material` so that the global
+                    // wireframe setting is applied to a mesh on the same frame its wireframe marker component is removed.
+                    (apply_wireframe_material, apply_global_wireframe_material).chain(),
                 ),
             );
     }
@@ -68,7 +65,7 @@ pub struct Wireframe;
 #[derive(Component, Debug, Clone, Default, Reflect)]
 #[reflect(Component, Default)]
 pub struct WireframeColor {
-    pub color: Color,
+    pub color: LegacyColor,
 }
 
 /// Disables wireframe rendering for any entity it is attached to.
@@ -88,7 +85,7 @@ pub struct WireframeConfig {
     /// If [`Self::global`] is set, any [`Entity`] that does not have a [`Wireframe`] component attached to it will have
     /// wireframes using this color. Otherwise, this will be the fallback color for any entity that has a [`Wireframe`],
     /// but no [`WireframeColor`].
-    pub default_color: Color,
+    pub default_color: LegacyColor,
 }
 
 #[derive(Resource)]
@@ -137,7 +134,8 @@ fn wireframe_color_changed(
     }
 }
 
-/// Applies or remove the wireframe material to any mesh with a [`Wireframe`] component.
+/// Applies or remove the wireframe material to any mesh with a [`Wireframe`] component, and removes it
+/// for any mesh with a [`NoWireframe`] component.
 fn apply_wireframe_material(
     mut commands: Commands,
     mut materials: ResMut<Assets<WireframeMaterial>>,
@@ -145,10 +143,11 @@ fn apply_wireframe_material(
         (Entity, Option<&WireframeColor>),
         (With<Wireframe>, Without<Handle<WireframeMaterial>>),
     >,
+    no_wireframes: Query<Entity, (With<NoWireframe>, With<Handle<WireframeMaterial>>)>,
     mut removed_wireframes: RemovedComponents<Wireframe>,
     global_material: Res<GlobalWireframeMaterial>,
 ) {
-    for e in removed_wireframes.read() {
+    for e in removed_wireframes.read().chain(no_wireframes.iter()) {
         if let Some(mut commands) = commands.get_entity(e) {
             commands.remove::<Handle<WireframeMaterial>>();
         }
@@ -171,7 +170,7 @@ fn apply_wireframe_material(
 
 type WireframeFilter = (With<Handle<Mesh>>, Without<Wireframe>, Without<NoWireframe>);
 
-/// Applies or removes a wireframe material on any mesh without a [`Wireframe`] component.
+/// Applies or removes a wireframe material on any mesh without a [`Wireframe`] or [`NoWireframe`] component.
 fn apply_global_wireframe_material(
     mut commands: Commands,
     config: Res<WireframeConfig>,
@@ -194,11 +193,10 @@ fn apply_global_wireframe_material(
     }
 }
 
-#[derive(Default, AsBindGroup, TypeUuid, TypePath, Debug, Clone, Asset)]
-#[uuid = "9e694f70-9963-4418-8bc1-3474c66b13b8"]
+#[derive(Default, AsBindGroup, TypePath, Debug, Clone, Asset)]
 pub struct WireframeMaterial {
     #[uniform(0)]
-    pub color: Color,
+    pub color: LegacyColor,
 }
 
 impl Material for WireframeMaterial {

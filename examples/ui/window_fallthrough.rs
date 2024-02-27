@@ -6,7 +6,7 @@ use bevy::prelude::*;
 
 fn main() {
     App::new()
-        .insert_resource(ClearColor(Color::NONE)) // Use a transparent window, to make effects obvious.
+        .insert_resource(ClearColor(LegacyColor::NONE)) // Use a transparent window, to make effects obvious.
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 // Set the window's parameters, note we're setting the window to always be on top.
@@ -47,8 +47,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 }
 // A simple system to handle some keyboard input and toggle on/off the hittest.
-fn toggle_mouse_passthrough(keyboard_input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
-    if keyboard_input.just_pressed(KeyCode::P) {
+fn toggle_mouse_passthrough(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut windows: Query<&mut Window>,
+) {
+    if keyboard_input.just_pressed(KeyCode::KeyP) {
         let mut window = windows.single_mut();
         window.cursor.hit_test = !window.cursor.hit_test;
     }

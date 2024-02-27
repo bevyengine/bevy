@@ -22,11 +22,8 @@ fn setup(
     // sound emitter
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::UVSphere {
-                radius: 0.2,
-                ..default()
-            })),
-            material: materials.add(Color::BLUE.into()),
+            mesh: meshes.add(Sphere::new(0.2).mesh().uv(32, 18)),
+            material: materials.add(LegacyColor::BLUE),
             transform: Transform::from_xyz(0.0, 0.0, 0.0),
             ..default()
         },
@@ -43,29 +40,24 @@ fn setup(
         .with_children(|parent| {
             // left ear indicator
             parent.spawn(PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Cube { size: 0.2 })),
-                material: materials.add(Color::RED.into()),
+                mesh: meshes.add(Cuboid::new(0.2, 0.2, 0.2)),
+                material: materials.add(LegacyColor::RED),
                 transform: Transform::from_translation(listener.left_ear_offset),
                 ..default()
             });
 
             // right ear indicator
             parent.spawn(PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Cube { size: 0.2 })),
-                material: materials.add(Color::GREEN.into()),
+                mesh: meshes.add(Cuboid::new(0.2, 0.2, 0.2)),
+                material: materials.add(LegacyColor::GREEN),
                 transform: Transform::from_translation(listener.right_ear_offset),
                 ..default()
             });
         });
 
     // light
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            intensity: 1500.0,
-            shadows_enabled: true,
-            ..default()
-        },
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
+    commands.spawn(DirectionalLightBundle {
+        transform: Transform::from_xyz(4.0, 8.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
 
@@ -101,7 +93,7 @@ struct Emitter {
 fn update_positions(
     time: Res<Time>,
     mut emitters: Query<(&mut Transform, &mut Emitter), With<Emitter>>,
-    keyboard: Res<Input<KeyCode>>,
+    keyboard: Res<ButtonInput<KeyCode>>,
 ) {
     for (mut emitter_transform, mut emitter) in emitters.iter_mut() {
         if keyboard.just_pressed(KeyCode::Space) {
@@ -116,7 +108,7 @@ fn update_positions(
 }
 
 fn update_listener(
-    keyboard: Res<Input<KeyCode>>,
+    keyboard: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
     mut listeners: Query<&mut Transform, With<SpatialListener>>,
 ) {
@@ -124,16 +116,16 @@ fn update_listener(
 
     let speed = 2.;
 
-    if keyboard.pressed(KeyCode::Right) {
+    if keyboard.pressed(KeyCode::ArrowRight) {
         transform.translation.x += speed * time.delta_seconds();
     }
-    if keyboard.pressed(KeyCode::Left) {
+    if keyboard.pressed(KeyCode::ArrowLeft) {
         transform.translation.x -= speed * time.delta_seconds();
     }
-    if keyboard.pressed(KeyCode::Down) {
+    if keyboard.pressed(KeyCode::ArrowDown) {
         transform.translation.z += speed * time.delta_seconds();
     }
-    if keyboard.pressed(KeyCode::Up) {
+    if keyboard.pressed(KeyCode::ArrowUp) {
         transform.translation.z -= speed * time.delta_seconds();
     }
 }

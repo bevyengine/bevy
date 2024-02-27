@@ -6,7 +6,7 @@ use bevy::{prelude::*, text::FontAtlasSets};
 fn main() {
     App::new()
         .init_resource::<State>()
-        .insert_resource(ClearColor(Color::BLACK))
+        .insert_resource(ClearColor(LegacyColor::BLACK))
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, (text_update_system, atlas_render_system))
@@ -34,7 +34,6 @@ fn atlas_render_system(
     mut commands: Commands,
     mut state: ResMut<State>,
     font_atlas_sets: Res<FontAtlasSets>,
-    texture_atlases: Res<Assets<TextureAtlas>>,
 ) {
     if let Some(set) = font_atlas_sets.get(&state.handle) {
         if let Some((_size, font_atlas)) = set.iter().next() {
@@ -42,12 +41,10 @@ fn atlas_render_system(
             if state.atlas_count == font_atlas.len() as u32 {
                 return;
             }
-            let texture_atlas = texture_atlases
-                .get(&font_atlas[state.atlas_count as usize].texture_atlas)
-                .unwrap();
+            let font_atlas = &font_atlas[state.atlas_count as usize];
             state.atlas_count += 1;
             commands.spawn(ImageBundle {
-                image: texture_atlas.texture.clone().into(),
+                image: font_atlas.texture.clone().into(),
                 style: Style {
                     position_type: PositionType::Absolute,
                     top: Val::ZERO,
@@ -80,7 +77,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResM
     commands.spawn(Camera2dBundle::default());
     commands
         .spawn(NodeBundle {
-            background_color: Color::NONE.into(),
+            background_color: LegacyColor::NONE.into(),
             style: Style {
                 position_type: PositionType::Absolute,
                 bottom: Val::ZERO,
@@ -94,7 +91,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResM
                 TextStyle {
                     font: font_handle,
                     font_size: 60.0,
-                    color: Color::YELLOW,
+                    color: LegacyColor::YELLOW,
                 },
             ));
         });

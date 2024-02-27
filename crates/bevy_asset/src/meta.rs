@@ -128,11 +128,6 @@ pub trait AssetMetaDyn: Downcast + Send + Sync {
 }
 
 impl<L: AssetLoader, P: Process> AssetMetaDyn for AssetMeta<L, P> {
-    fn serialize(&self) -> Vec<u8> {
-        ron::ser::to_string_pretty(&self, PrettyConfig::default())
-            .expect("type is convertible to ron")
-            .into_bytes()
-    }
     fn loader_settings(&self) -> Option<&dyn Settings> {
         if let AssetAction::Load { settings, .. } = &self.asset {
             Some(settings)
@@ -146,6 +141,11 @@ impl<L: AssetLoader, P: Process> AssetMetaDyn for AssetMeta<L, P> {
         } else {
             None
         }
+    }
+    fn serialize(&self) -> Vec<u8> {
+        ron::ser::to_string_pretty(&self, PrettyConfig::default())
+            .expect("type is convertible to ron")
+            .into_bytes()
     }
     fn processed_info(&self) -> &Option<ProcessedInfo> {
         &self.processed_info

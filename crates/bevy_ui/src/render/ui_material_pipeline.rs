@@ -1,27 +1,25 @@
 use std::{hash::Hash, marker::PhantomData, ops::Range};
 
-use bevy_app::{App, Plugin};
 use bevy_asset::*;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    prelude::{Component, Entity, EventReader},
-    query::{ROQueryItem, With},
-    schedule::IntoSystemConfigs,
+    prelude::Component,
+    query::ROQueryItem,
     storage::SparseSet,
     system::lifetimeless::{Read, SRes},
     system::*,
-    world::{FromWorld, World},
 };
 use bevy_math::{Mat4, Rect, Vec2, Vec4Swizzles};
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
+    globals::{GlobalsBuffer, GlobalsUniform},
     render_asset::RenderAssets,
     render_phase::*,
-    render_resource::*,
+    render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, FallbackImage, Image},
     view::*,
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderSet,
 };
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::{FloatOrd, HashMap, HashSet};
@@ -48,7 +46,7 @@ impl<M: UiMaterial> Plugin for UiMaterialPlugin<M>
 where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    fn build(&self, app: &mut bevy_app::App) {
+    fn build(&self, app: &mut App) {
         load_internal_asset!(
             app,
             UI_VERTEX_OUTPUT_SHADER_HANDLE,
@@ -119,6 +117,7 @@ impl<M: UiMaterial> Default for UiMaterialMeta<M> {
 pub struct UiMaterialVertex {
     pub position: [f32; 3],
     pub uv: [f32; 2],
+    pub size: [f32; 2],
     pub border_widths: [f32; 4],
 }
 
@@ -154,6 +153,8 @@ where
                 // position
                 VertexFormat::Float32x3,
                 // uv
+                VertexFormat::Float32x2,
+                // size
                 VertexFormat::Float32x2,
                 // border_widths
                 VertexFormat::Float32x4,
@@ -223,19 +224,17 @@ impl<M: UiMaterial> FromWorld for UiMaterialPipeline<M> {
         let render_device = world.resource::<RenderDevice>();
         let ui_layout = M::bind_group_layout(render_device);
 
-        let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[BindGroupLayoutEntry {
-                binding: 0,
-                visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Uniform,
-                    has_dynamic_offset: true,
-                    min_binding_size: Some(ViewUniform::min_size()),
-                },
-                count: None,
-            }],
-            label: Some("ui_view_layout"),
-        });
+        let view_layout = render_device.create_bind_group_layout(
+            "ui_view_layout",
+            &BindGroupLayoutEntries::sequential(
+                ShaderStages::VERTEX_FRAGMENT,
+                (
+                    uniform_buffer::<ViewUniform>(true),
+                    uniform_buffer::<GlobalsUniform>(false),
+                ),
+            ),
+        );
+
         UiMaterialPipeline {
             ui_layout,
             view_layout,
@@ -264,13 +263,13 @@ pub type DrawUiMaterial<M> = (
 pub struct SetMatUiViewBindGroup<M: UiMaterial, const I: usize>(PhantomData<M>);
 impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P> for SetMatUiViewBindGroup<M, I> {
     type Param = SRes<UiMaterialMeta<M>>;
-    type ViewWorldQuery = Read<ViewUniformOffset>;
-    type ItemWorldQuery = ();
+    type ViewQuery = Read<ViewUniformOffset>;
+    type ItemQuery = ();
 
     fn render<'w>(
         _item: &P,
         view_uniform: &'w ViewUniformOffset,
-        _entity: (),
+        _entity: Option<()>,
         ui_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -288,16 +287,19 @@ impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P>
     for SetUiMaterialBindGroup<M, I>
 {
     type Param = SRes<RenderUiMaterials<M>>;
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = Read<UiMaterialBatch<M>>;
+    type ViewQuery = ();
+    type ItemQuery = Read<UiMaterialBatch<M>>;
 
     fn render<'w>(
         _item: &P,
         _view: (),
-        material_handle: ROQueryItem<'_, Self::ItemWorldQuery>,
+        material_handle: Option<ROQueryItem<'_, Self::ItemQuery>>,
         materials: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
+        let Some(material_handle) = material_handle else {
+            return RenderCommandResult::Failure;
+        };
         let Some(material) = materials.into_inner().get(&material_handle.material) else {
             return RenderCommandResult::Failure;
         };
@@ -309,17 +311,21 @@ impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P>
 pub struct DrawUiMaterialNode<M>(PhantomData<M>);
 impl<P: PhaseItem, M: UiMaterial> RenderCommand<P> for DrawUiMaterialNode<M> {
     type Param = SRes<UiMaterialMeta<M>>;
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = Read<UiMaterialBatch<M>>;
+    type ViewQuery = ();
+    type ItemQuery = Read<UiMaterialBatch<M>>;
 
     #[inline]
     fn render<'w>(
         _item: &P,
         _view: (),
-        batch: &'w UiMaterialBatch<M>,
+        batch: Option<&'w UiMaterialBatch<M>>,
         ui_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
+        let Some(batch) = batch else {
+            return RenderCommandResult::Failure;
+        };
+
         pass.set_vertex_buffer(0, ui_meta.into_inner().vertices.buffer().unwrap().slice(..));
         pass.draw(batch.range.clone(), 0..1);
         RenderCommandResult::Success
@@ -375,7 +381,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
         .unwrap_or(Vec2::ZERO)
         // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
         // so we have to divide by `UiScale` to get the size of the UI viewport.
-        / ui_scale.0 as f32;
+        / ui_scale.0;
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((entity, uinode, style, transform, handle, view_visibility, clip)) =
             uinode_query.get(*entity)
@@ -436,18 +442,22 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
     mut ui_meta: ResMut<UiMaterialMeta<M>>,
     mut extracted_uinodes: ResMut<ExtractedUiMaterialNodes<M>>,
     view_uniforms: Res<ViewUniforms>,
+    globals_buffer: Res<GlobalsBuffer>,
     ui_material_pipeline: Res<UiMaterialPipeline<M>>,
     mut phases: Query<&mut RenderPhase<TransparentUi>>,
     mut previous_len: Local<usize>,
 ) {
-    if let Some(view_binding) = view_uniforms.uniforms.binding() {
+    if let (Some(view_binding), Some(globals_binding)) = (
+        view_uniforms.uniforms.binding(),
+        globals_buffer.buffer.binding(),
+    ) {
         let mut batches: Vec<(Entity, UiMaterialBatch<M>)> = Vec::with_capacity(*previous_len);
 
         ui_meta.vertices.clear();
         ui_meta.view_bind_group = Some(render_device.create_bind_group(
             "ui_material_view_bind_group",
             &ui_material_pipeline.view_layout,
-            &BindGroupEntries::single(view_binding),
+            &BindGroupEntries::sequential((view_binding, globals_binding)),
         ));
         let mut index = 0;
 
@@ -555,6 +565,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                         ui_meta.vertices.push(UiMaterialVertex {
                             position: positions_clipped[i].into(),
                             uv: uvs[i].into(),
+                            size: extracted_uinode.rect.size().into(),
                             border_widths: extracted_uinode.border,
                         });
                     }
@@ -612,6 +623,7 @@ pub fn extract_ui_materials<M: UiMaterial>(
     let mut changed_assets = HashSet::default();
     let mut removed = Vec::new();
     for event in events.read() {
+        #[allow(clippy::match_same_arms)]
         match event {
             AssetEvent::Added { id } | AssetEvent::Modified { id } => {
                 changed_assets.insert(*id);
@@ -620,8 +632,9 @@ pub fn extract_ui_materials<M: UiMaterial>(
                 changed_assets.remove(id);
                 removed.push(*id);
             }
+            AssetEvent::Unused { .. } => {}
             AssetEvent::LoadedWithDependencies { .. } => {
-                // not implemented
+                // TODO: handle this
             }
         }
     }

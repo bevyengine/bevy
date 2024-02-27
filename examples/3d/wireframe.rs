@@ -27,6 +27,7 @@ fn main() {
                     features: WgpuFeatures::POLYGON_MODE_LINE,
                     ..default()
                 }),
+                ..default()
             }),
             // You need to add this plugin to enable wireframe rendering
             WireframePlugin,
@@ -39,7 +40,7 @@ fn main() {
             global: true,
             // Controls the default color of all wireframes. Used as the default color for global wireframes.
             // Can be changed per mesh using the `WireframeColor` component.
-            default_color: Color::WHITE,
+            default_color: LegacyColor::WHITE,
         })
         .add_systems(Startup, setup)
         .add_systems(Update, update_colors)
@@ -54,16 +55,16 @@ fn setup(
 ) {
     // plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane::from_size(5.0))),
-        material: materials.add(Color::BLUE.into()),
+        mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
+        material: materials.add(LegacyColor::BLUE),
         ..default()
     });
 
     // Red cube: Never renders a wireframe
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-            material: materials.add(Color::RED.into()),
+            mesh: meshes.add(Cuboid::default()),
+            material: materials.add(LegacyColor::RED),
             transform: Transform::from_xyz(-1.0, 0.5, -1.0),
             ..default()
         },
@@ -71,16 +72,16 @@ fn setup(
     ));
     // Orange cube: Follows global wireframe setting
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: materials.add(Color::ORANGE.into()),
+        mesh: meshes.add(Cuboid::default()),
+        material: materials.add(LegacyColor::ORANGE),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..default()
     });
     // Green cube: Always renders a wireframe
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-            material: materials.add(Color::GREEN.into()),
+            mesh: meshes.add(Cuboid::default()),
+            material: materials.add(LegacyColor::GREEN),
             transform: Transform::from_xyz(1.0, 0.5, 1.0),
             ..default()
         },
@@ -88,13 +89,13 @@ fn setup(
         // This lets you configure the wireframe color of this entity.
         // If not set, this will use the color in `WireframeConfig`
         WireframeColor {
-            color: Color::GREEN,
+            color: LegacyColor::GREEN,
         },
     ));
 
     // light
     commands.spawn(PointLightBundle {
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
+        transform: Transform::from_xyz(2.0, 4.0, 2.0),
         ..default()
     });
 
@@ -117,7 +118,7 @@ fn setup(
 
 /// This system let's you toggle various wireframe settings
 fn update_colors(
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     mut config: ResMut<WireframeConfig>,
     mut wireframe_colors: Query<&mut WireframeColor>,
     mut text: Query<&mut Text>,
@@ -139,26 +140,26 @@ Color: {:?}
     );
 
     // Toggle showing a wireframe on all meshes
-    if keyboard_input.just_pressed(KeyCode::Z) {
+    if keyboard_input.just_pressed(KeyCode::KeyZ) {
         config.global = !config.global;
     }
 
     // Toggle the global wireframe color
-    if keyboard_input.just_pressed(KeyCode::X) {
-        config.default_color = if config.default_color == Color::WHITE {
-            Color::PINK
+    if keyboard_input.just_pressed(KeyCode::KeyX) {
+        config.default_color = if config.default_color == LegacyColor::WHITE {
+            LegacyColor::PINK
         } else {
-            Color::WHITE
+            LegacyColor::WHITE
         };
     }
 
     // Toggle the color of a wireframe using WireframeColor and not the global color
-    if keyboard_input.just_pressed(KeyCode::C) {
+    if keyboard_input.just_pressed(KeyCode::KeyC) {
         for mut color in &mut wireframe_colors {
-            color.color = if color.color == Color::GREEN {
-                Color::RED
+            color.color = if color.color == LegacyColor::GREEN {
+                LegacyColor::RED
             } else {
-                Color::GREEN
+                LegacyColor::GREEN
             };
         }
     }

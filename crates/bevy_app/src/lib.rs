@@ -1,7 +1,5 @@
 //! This crate is about everything concerning the highest-level, application layer of a Bevy app.
 
-#![warn(missing_docs)]
-
 mod app;
 mod main_schedule;
 mod plugin;
@@ -24,8 +22,9 @@ pub mod prelude {
     pub use crate::{
         app::App,
         main_schedule::{
-            First, FixedUpdate, Last, Main, PostStartup, PostUpdate, PreStartup, PreUpdate,
-            SpawnScene, Startup, StateTransition, Update,
+            First, FixedFirst, FixedLast, FixedPostUpdate, FixedPreUpdate, FixedUpdate, Last, Main,
+            PostStartup, PostUpdate, PreStartup, PreUpdate, SpawnScene, Startup, StateTransition,
+            Update,
         },
         DynamicPlugin, Plugin, PluginGroup,
     };

@@ -8,6 +8,7 @@ fn main() {
         // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
         .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
+        .add_systems(Update, update_outlines)
         .run();
 }
 
@@ -31,7 +32,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 justify_content: JustifyContent::Center,
                 ..Default::default()
             },
-            background_color: Color::ANTIQUE_WHITE.into(),
+            background_color: LegacyColor::ANTIQUE_WHITE.into(),
             ..Default::default()
         })
         .with_children(|parent| {
@@ -60,7 +61,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     margin: UiRect::bottom(Val::Px(25.)),
                                     ..Default::default()
                                 },
-                                background_color: Color::DARK_GRAY.into(),
+                                background_color: LegacyColor::DARK_GRAY.into(),
                                 ..Default::default()
                             })
                             .with_children(|parent| {
@@ -82,22 +83,43 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     overflow,
                                     ..Default::default()
                                 },
-                                background_color: Color::GRAY.into(),
+                                background_color: LegacyColor::GRAY.into(),
                                 ..Default::default()
                             })
                             .with_children(|parent| {
-                                parent.spawn(ImageBundle {
-                                    image: UiImage::new(image.clone()),
-                                    style: Style {
-                                        min_width: Val::Px(100.),
-                                        min_height: Val::Px(100.),
+                                parent.spawn((
+                                    ImageBundle {
+                                        image: UiImage::new(image.clone()),
+                                        style: Style {
+                                            min_width: Val::Px(100.),
+                                            min_height: Val::Px(100.),
+                                            ..Default::default()
+                                        },
+                                        background_color: LegacyColor::WHITE.into(),
+
                                         ..Default::default()
                                     },
-                                    background_color: Color::WHITE.into(),
-                                    ..Default::default()
-                                });
+                                    Interaction::default(),
+                                    Outline {
+                                        width: Val::Px(2.),
+                                        offset: Val::Px(2.),
+                                        color: LegacyColor::NONE,
+                                    },
+                                ));
                             });
                     });
             }
         });
+}
+
+fn update_outlines(mut outlines_query: Query<(&mut Outline, Ref<Interaction>)>) {
+    for (mut outline, interaction) in outlines_query.iter_mut() {
+        if interaction.is_changed() {
+            outline.color = match *interaction {
+                Interaction::Pressed => LegacyColor::RED,
+                Interaction::Hovered => LegacyColor::WHITE,
+                Interaction::None => LegacyColor::NONE,
+            };
+        }
+    }
 }

@@ -8,7 +8,7 @@ use bevy_render::{
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
         BindGroup, BindGroupEntries, BufferId, LoadOp, Operations, PipelineCache,
-        RenderPassColorAttachment, RenderPassDescriptor, SamplerDescriptor, TextureViewId,
+        RenderPassColorAttachment, RenderPassDescriptor, StoreOp, TextureViewId,
     },
     renderer::RenderContext,
     texture::Image,
@@ -51,9 +51,8 @@ impl ViewNode for TonemappingNode {
             return Ok(());
         }
 
-        let pipeline = match pipeline_cache.get_render_pipeline(view_tonemapping_pipeline.0) {
-            Some(pipeline) => pipeline,
-            None => return Ok(()),
+        let Some(pipeline) = pipeline_cache.get_render_pipeline(view_tonemapping_pipeline.0) else {
+            return Ok(());
         };
 
         let post_process = target.post_process_write();
@@ -81,10 +80,6 @@ impl ViewNode for TonemappingNode {
                 bind_group
             }
             cached_bind_group => {
-                let sampler = render_context
-                    .render_device()
-                    .create_sampler(&SamplerDescriptor::default());
-
                 let tonemapping_luts = world.resource::<TonemappingLuts>();
 
                 let lut_bindings = get_lut_bindings(gpu_images, tonemapping_luts, tonemapping);
@@ -95,7 +90,7 @@ impl ViewNode for TonemappingNode {
                     &BindGroupEntries::sequential((
                         view_uniforms,
                         source,
-                        &sampler,
+                        &tonemapping_pipeline.sampler,
                         lut_bindings.0,
                         lut_bindings.1,
                     )),
@@ -114,10 +109,12 @@ impl ViewNode for TonemappingNode {
                 resolve_target: None,
                 ops: Operations {
                     load: LoadOp::Clear(Default::default()), // TODO shouldn't need to be cleared
-                    store: true,
+                    store: StoreOp::Store,
                 },
             })],
             depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
         };
 
         let mut render_pass = render_context

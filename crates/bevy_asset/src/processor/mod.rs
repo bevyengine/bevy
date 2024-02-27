@@ -13,7 +13,7 @@ use crate::{
         get_asset_hash, get_full_asset_hash, AssetAction, AssetActionMinimal, AssetHash, AssetMeta,
         AssetMetaDyn, AssetMetaMinimal, ProcessedInfo, ProcessedInfoMinimal,
     },
-    AssetLoadError, AssetPath, AssetServer, AssetServerMode, DeserializeMetaError,
+    AssetLoadError, AssetMetaCheck, AssetPath, AssetServer, AssetServerMode, DeserializeMetaError,
     MissingAssetLoaderForExtensionError,
 };
 use bevy_ecs::prelude::*;
@@ -56,7 +56,7 @@ pub struct AssetProcessorData {
     log: async_lock::RwLock<Option<ProcessorTransactionLog>>,
     processors: RwLock<HashMap<&'static str, Arc<dyn ErasedProcessor>>>,
     /// Default processors for file extensions
-    default_processors: RwLock<HashMap<String, &'static str>>,
+    default_processors: RwLock<HashMap<Box<str>, &'static str>>,
     state: async_lock::RwLock<ProcessorState>,
     sources: AssetSources,
     initialized_sender: async_broadcast::Sender<()>,
@@ -72,7 +72,12 @@ impl AssetProcessor {
         // The asset processor uses its own asset server with its own id space
         let mut sources = source.build_sources(false, false);
         sources.gate_on_processor(data.clone());
-        let server = AssetServer::new(sources, AssetServerMode::Processed, false);
+        let server = AssetServer::new_with_meta_check(
+            sources,
+            AssetServerMode::Processed,
+            AssetMetaCheck::Always,
+            false,
+        );
         Self { server, data }
     }
 
@@ -288,6 +293,13 @@ impl AssetProcessor {
                                     AssetPath::from_path(&path).with_source(source.id())
                                 );
                             }
+                            AssetReaderError::HttpError(status) => {
+                                error!(
+                                    "Path '{}' was removed, but the destination reader could not determine if it \
+                                    was a folder or a file due to receiving an unexpected HTTP Status {status}",
+                                    AssetPath::from_path(&path).with_source(source.id())
+                                );
+                            }
                         }
                     }
                 }
@@ -338,6 +350,13 @@ impl AssetProcessor {
             Err(err) => match err {
                 AssetReaderError::NotFound(_err) => {
                     // The processed folder does not exist. No need to update anything
+                }
+                AssetReaderError::HttpError(status) => {
+                    self.log_unrecoverable().await;
+                    error!(
+                        "Unrecoverable Error: Failed to read the processed assets at {path:?} in order to remove assets that no longer exist \
+                        in the source directory. Restart the asset processor to fully reprocess assets. HTTP Status Code {status}"
+                    );
                 }
                 AssetReaderError::Io(err) => {
                     self.log_unrecoverable().await;
@@ -416,7 +435,7 @@ impl AssetProcessor {
         scope: &'scope bevy_tasks::Scope<'scope, '_, ()>,
         source: &'scope AssetSource,
         path: PathBuf,
-    ) -> bevy_utils::BoxedFuture<'scope, Result<(), AssetReaderError>> {
+    ) -> BoxedFuture<'scope, Result<(), AssetReaderError>> {
         Box::pin(async move {
             if source.reader().is_directory(&path).await? {
                 let mut path_stream = source.reader().read_directory(&path).await?;
@@ -463,7 +482,7 @@ impl AssetProcessor {
     /// Set the default processor for the given `extension`. Make sure `P` is registered with [`AssetProcessor::register_processor`].
     pub fn set_default_processor<P: Process>(&self, extension: &str) {
         let mut default_processors = self.data.default_processors.write();
-        default_processors.insert(extension.to_string(), std::any::type_name::<P>());
+        default_processors.insert(extension.into(), std::any::type_name::<P>());
     }
 
     /// Returns the default processor for the given `extension`, if it exists.
@@ -747,7 +766,7 @@ impl AssetProcessor {
             .await
             .map_err(|e| ProcessError::AssetReaderError {
                 path: asset_path.clone(),
-                err: AssetReaderError::Io(e),
+                err: AssetReaderError::Io(e.into()),
             })?;
 
         // PERF: in theory these hashes could be streamed if we want to avoid allocating the whole asset.
@@ -873,11 +892,11 @@ impl AssetProcessor {
                                     state_is_valid = false;
                                 };
                                 let Ok(source) = self.get_source(path.source()) else {
-                                    (unrecoverable_err)(&"AssetSource does not exist");
+                                    unrecoverable_err(&"AssetSource does not exist");
                                     continue;
                                 };
                                 let Ok(processed_writer) = source.processed_writer() else {
-                                    (unrecoverable_err)(&"AssetSource does not have a processed AssetWriter registered");
+                                    unrecoverable_err(&"AssetSource does not have a processed AssetWriter registered");
                                     continue;
                                 };
 
@@ -886,7 +905,7 @@ impl AssetProcessor {
                                         AssetWriterError::Io(err) => {
                                             // any error but NotFound means we could be in a bad state
                                             if err.kind() != ErrorKind::NotFound {
-                                                (unrecoverable_err)(&err);
+                                                unrecoverable_err(&err);
                                             }
                                         }
                                     }
@@ -896,7 +915,7 @@ impl AssetProcessor {
                                         AssetWriterError::Io(err) => {
                                             // any error but NotFound means we could be in a bad state
                                             if err.kind() != ErrorKind::NotFound {
-                                                (unrecoverable_err)(&err);
+                                                unrecoverable_err(&err);
                                             }
                                         }
                                     }

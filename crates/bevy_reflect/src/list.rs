@@ -6,8 +6,8 @@ use bevy_reflect_derive::impl_type_path;
 
 use crate::utility::reflect_hasher;
 use crate::{
-    self as bevy_reflect, FromReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
-    TypePath, TypePathTable,
+    self as bevy_reflect, FromReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef,
+    TypeInfo, TypePath, TypePathTable,
 };
 
 /// A trait used to power [list-like] operations via [reflection].
@@ -46,7 +46,6 @@ use crate::{
 ///
 /// [list-like]: https://doc.rust-lang.org/book/ch08-01-vectors.html
 /// [reflection]: crate
-/// [`Vec`]: std::vec::Vec
 /// [type-erasing]: https://doc.rust-lang.org/book/ch17-02-trait-objects.html
 pub trait List: Reflect {
     /// Returns a reference to the element at `index`, or `None` if out of bounds.
@@ -320,6 +319,11 @@ impl Reflect for DynamicList {
     }
 
     #[inline]
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::List
+    }
+
+    #[inline]
     fn reflect_ref(&self) -> ReflectRef {
         ReflectRef::List(self)
     }
@@ -414,7 +418,7 @@ impl<'a> ExactSizeIterator for ListIter<'a> {}
 #[inline]
 pub fn list_hash<L: List>(list: &L) -> Option<u64> {
     let mut hasher = reflect_hasher();
-    std::any::Any::type_id(list).hash(&mut hasher);
+    Any::type_id(list).hash(&mut hasher);
     list.len().hash(&mut hasher);
     for value in list.iter() {
         hasher.write_u64(value.reflect_hash()?);
@@ -493,7 +497,7 @@ pub fn list_partial_eq<L: List>(a: &L, b: &dyn Reflect) -> Option<bool> {
 /// // ]
 /// ```
 #[inline]
-pub fn list_debug(dyn_list: &dyn List, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+pub fn list_debug(dyn_list: &dyn List, f: &mut Formatter<'_>) -> std::fmt::Result {
     let mut debug = f.debug_list();
     for item in dyn_list.iter() {
         debug.entry(&item as &dyn Debug);

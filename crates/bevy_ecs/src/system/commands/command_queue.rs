@@ -1,6 +1,7 @@
-use std::mem::MaybeUninit;
+use std::{fmt::Debug, mem::MaybeUninit};
 
 use bevy_ptr::{OwningPtr, Unaligned};
+use bevy_utils::tracing::warn;
 
 use super::Command;
 use crate::world::World;
@@ -9,8 +10,11 @@ struct CommandMeta {
     /// SAFETY: The `value` must point to a value of type `T: Command`,
     /// where `T` is some specific type that was used to produce this metadata.
     ///
+    /// `world` is optional to allow this one function pointer to perform double-duty as a drop.
+    ///
     /// Returns the size of `T` in bytes.
-    apply_command_and_get_size: unsafe fn(value: OwningPtr<Unaligned>, world: &mut World) -> usize,
+    consume_command_and_get_size:
+        unsafe fn(value: OwningPtr<Unaligned>, world: Option<&mut World>) -> usize,
 }
 
 /// Densely and efficiently stores a queue of heterogenous types implementing [`Command`].
@@ -28,6 +32,19 @@ pub struct CommandQueue {
     // to store the command itself. To interpret these bytes, a pointer must
     // be passed to the corresponding `CommandMeta.apply_command_and_get_size` fn pointer.
     bytes: Vec<MaybeUninit<u8>>,
+}
+
+// CommandQueue needs to implement Debug manually, rather than deriving it, because the derived impl just prints
+// [core::mem::maybe_uninit::MaybeUninit<u8>, core::mem::maybe_uninit::MaybeUninit<u8>, ..] for every byte in the vec,
+// which gets extremely verbose very quickly, while also providing no useful information.
+// It is not possible to soundly print the values of the contained bytes, as some of them may be padding or uninitialized (#4863)
+// So instead, the manual impl just prints the length of vec.
+impl Debug for CommandQueue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CommandQueue")
+            .field("len_bytes", &self.bytes.len())
+            .finish_non_exhaustive()
+    }
 }
 
 // SAFETY: All commands [`Command`] implement [`Send`]
@@ -53,11 +70,16 @@ impl CommandQueue {
         }
 
         let meta = CommandMeta {
-            apply_command_and_get_size: |command, world| {
-                // SAFETY: According to the invariants of `CommandMeta.apply_command_and_get_size`,
+            consume_command_and_get_size: |command, world| {
+                // SAFETY: According to the invariants of `CommandMeta.consume_command_and_get_size`,
                 // `command` must point to a value of type `C`.
                 let command: C = unsafe { command.read_unaligned() };
-                command.apply(world);
+                match world {
+                    // Apply command to the provided world...
+                    Some(world) => command.apply(world),
+                    // ...or discard it.
+                    None => drop(command),
+                }
                 std::mem::size_of::<C>()
             },
         };
@@ -97,6 +119,14 @@ impl CommandQueue {
         // flush the previously queued entities
         world.flush();
 
+        self.apply_or_drop_queued(Some(world));
+    }
+
+    /// If `world` is [`Some`], this will apply the queued [commands](`Command`).
+    /// If `world` is [`None`], this will drop the queued [commands](`Command`) (without applying them).
+    /// This clears the queue.
+    #[inline]
+    fn apply_or_drop_queued(&mut self, mut world: Option<&mut World>) {
         // The range of pointers of the filled portion of `self.bytes`.
         let bytes_range = self.bytes.as_mut_ptr_range();
 
@@ -127,7 +157,7 @@ impl CommandQueue {
             // SAFETY: The data underneath the cursor must correspond to the type erased in metadata,
             // since they were stored next to each other by `.push()`.
             // For ZSTs, the type doesn't matter as long as the pointer is non-null.
-            let size = unsafe { (meta.apply_command_and_get_size)(cmd, world) };
+            let size = unsafe { (meta.consume_command_and_get_size)(cmd, world.as_deref_mut()) };
             // Advance the cursor past the command. For ZSTs, the cursor will not move.
             // At this point, it will either point to the next `CommandMeta`,
             // or the cursor will be out of bounds and the loop will end.
@@ -135,6 +165,20 @@ impl CommandQueue {
             // or 1 byte past the end, so this addition will not overflow the pointer's allocation.
             cursor = unsafe { cursor.add(size) };
         }
+    }
+
+    /// Take all commands from `other` and append them to `self`, leaving `other` empty
+    pub fn append(&mut self, other: &mut CommandQueue) {
+        self.bytes.append(&mut other.bytes);
+    }
+}
+
+impl Drop for CommandQueue {
+    fn drop(&mut self) {
+        if !self.bytes.is_empty() {
+            warn!("CommandQueue has un-applied commands being dropped.");
+        }
+        self.apply_or_drop_queued(None);
     }
 }
 
@@ -183,6 +227,27 @@ mod test {
 
         let mut world = World::new();
         queue.apply(&mut world);
+
+        assert_eq!(drops_a.load(Ordering::Relaxed), 1);
+        assert_eq!(drops_b.load(Ordering::Relaxed), 1);
+    }
+
+    /// Asserts that inner [commands](`Command`) are dropped on early drop of [`CommandQueue`].
+    /// Originally identified as an issue in [#10676](https://github.com/bevyengine/bevy/issues/10676)
+    #[test]
+    fn test_command_queue_inner_drop_early() {
+        let mut queue = CommandQueue::default();
+
+        let (dropcheck_a, drops_a) = DropCheck::new();
+        let (dropcheck_b, drops_b) = DropCheck::new();
+
+        queue.push(dropcheck_a);
+        queue.push(dropcheck_b);
+
+        assert_eq!(drops_a.load(Ordering::Relaxed), 0);
+        assert_eq!(drops_b.load(Ordering::Relaxed), 0);
+
+        drop(queue);
 
         assert_eq!(drops_a.load(Ordering::Relaxed), 1);
         assert_eq!(drops_b.load(Ordering::Relaxed), 1);

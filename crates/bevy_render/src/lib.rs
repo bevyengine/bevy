@@ -1,11 +1,16 @@
+// FIXME(3492): remove once docs are ready
+#![allow(missing_docs)]
+
 #[cfg(target_pointer_width = "16")]
 compile_error!("bevy_render cannot compile for a 16-bit platform.");
 
 extern crate core;
 
+pub mod alpha;
 pub mod batching;
 pub mod camera;
 pub mod color;
+pub mod deterministic;
 pub mod extract_component;
 pub mod extract_instances;
 mod extract_param;
@@ -13,6 +18,7 @@ pub mod extract_resource;
 pub mod globals;
 pub mod gpu_component_array_buffer;
 pub mod mesh;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod pipelined_rendering;
 pub mod primitives;
 pub mod render_asset;
@@ -27,9 +33,13 @@ pub mod view;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        camera::{Camera, OrthographicProjection, PerspectiveProjection, Projection},
-        color::Color,
-        mesh::{morph::MorphWeights, shape, Mesh},
+        alpha::AlphaMode,
+        camera::{
+            Camera, ClearColor, ClearColorConfig, OrthographicProjection, PerspectiveProjection,
+            Projection,
+        },
+        color::LegacyColor,
+        mesh::{morph::MorphWeights, primitives::Meshable, Mesh},
         render_resource::Shader,
         spatial_bundle::SpatialBundle,
         texture::{Image, ImagePlugin},
@@ -38,6 +48,8 @@ pub mod prelude {
     };
 }
 
+use bevy_ecs::schedule::ScheduleBuildSettings;
+use bevy_utils::prelude::default;
 pub use extract_param::Extract;
 
 use bevy_hierarchy::ValidParentCheckPlugin;
@@ -45,6 +57,7 @@ use bevy_window::{PrimaryWindow, RawHandleWrapper};
 use globals::GlobalsPlugin;
 use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
 
+use crate::deterministic::DeterministicRenderingConfig;
 use crate::{
     camera::CameraPlugin,
     mesh::{morph::MorphPlugin, Mesh, MeshPlugin},
@@ -64,29 +77,33 @@ use std::{
 };
 
 /// Contains the default Bevy rendering backend based on wgpu.
+///
+/// Rendering is done in a [`SubApp`], which exchanges data with the main app
+/// between main schedule iterations.
+///
+/// Rendering can be executed between iterations of the main schedule,
+/// or it can be executed in parallel with main schedule when
+/// [`PipelinedRenderingPlugin`](pipelined_rendering::PipelinedRenderingPlugin) is enabled.
 #[derive(Default)]
 pub struct RenderPlugin {
     pub render_creation: RenderCreation,
+    /// If `true`, disables asynchronous pipeline compilation.
+    /// This has no effect on macOS, Wasm, or without the `multi-threaded` feature.
+    pub synchronous_pipeline_compilation: bool,
 }
 
 /// The labels of the default App rendering sets.
 ///
-/// The sets run in the order listed, with [`apply_deferred`] inserted between each set.
-///
-/// The `*Flush` sets are assigned to the copy of [`apply_deferred`]
 /// that runs immediately after the matching system set.
 /// These can be useful for ordering, but you almost never want to add your systems to these sets.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum RenderSet {
-    /// The copy of [`apply_deferred`] that runs at the beginning of this schedule.
     /// This is used for applying the commands from the [`ExtractSchedule`]
     ExtractCommands,
     /// Prepare assets that have been created/modified/removed this frame.
     PrepareAssets,
     /// Create any additional views such as those used for shadow mapping.
     ManageViews,
-    /// The copy of [`apply_deferred`] that runs immediately after [`ManageViews`](RenderSet::ManageViews).
-    ManageViewsFlush,
     /// Queue drawable entities as phase items in [`RenderPhase`](crate::render_phase::RenderPhase)s
     /// ready for sorting
     Queue,
@@ -96,25 +113,19 @@ pub enum RenderSet {
     /// Sort the [`RenderPhases`](render_phase::RenderPhase) here.
     PhaseSort,
     /// Prepare render resources from extracted data for the GPU based on their sorted order.
-    /// Create [`BindGroups`](crate::render_resource::BindGroup) that depend on those data.
+    /// Create [`BindGroups`](render_resource::BindGroup) that depend on those data.
     Prepare,
     /// A sub-set within [`Prepare`](RenderSet::Prepare) for initializing buffers, textures and uniforms for use in bind groups.
     PrepareResources,
-    /// The copy of [`apply_deferred`] that runs between [`PrepareResources`](RenderSet::PrepareResources) and ['PrepareBindGroups'](RenderSet::PrepareBindGroups).
+    /// Flush buffers after [`PrepareResources`](RenderSet::PrepareResources), but before ['PrepareBindGroups'](RenderSet::PrepareBindGroups).
     PrepareResourcesFlush,
     /// A sub-set within [`Prepare`](RenderSet::Prepare) for constructing bind groups, or other data that relies on render resources prepared in [`PrepareResources`](RenderSet::PrepareResources).
     PrepareBindGroups,
-    /// The copy of [`apply_deferred`] that runs immediately after [`Prepare`](RenderSet::Prepare).
-    PrepareFlush,
     /// Actual rendering happens here.
     /// In most cases, only the render backend should insert resources here.
     Render,
-    /// The copy of [`apply_deferred`] that runs immediately after [`Render`](RenderSet::Render).
-    RenderFlush,
     /// Cleanup render resources here.
     Cleanup,
-    /// The copy of [`apply_deferred`] that runs immediately after [`Cleanup`](RenderSet::Cleanup).
-    CleanupFlush,
 }
 
 /// The main render schedule.
@@ -124,45 +135,27 @@ pub struct Render;
 impl Render {
     /// Sets up the base structure of the rendering [`Schedule`].
     ///
-    /// The sets defined in this enum are configured to run in order,
-    /// and a copy of [`apply_deferred`] is inserted into each [`*Flush` set](RenderSet).
+    /// The sets defined in this enum are configured to run in order.
     pub fn base_schedule() -> Schedule {
         use RenderSet::*;
 
         let mut schedule = Schedule::new(Self);
 
-        // Create "stage-like" structure using buffer flushes + ordering
-        schedule.add_systems((
-            apply_deferred.in_set(ManageViewsFlush),
-            apply_deferred.in_set(PrepareResourcesFlush),
-            apply_deferred.in_set(RenderFlush),
-            apply_deferred.in_set(PrepareFlush),
-            apply_deferred.in_set(CleanupFlush),
-        ));
-
         schedule.configure_sets(
             (
                 ExtractCommands,
                 ManageViews,
-                ManageViewsFlush,
                 Queue,
                 PhaseSort,
                 Prepare,
-                PrepareFlush,
                 Render,
-                RenderFlush,
                 Cleanup,
-                CleanupFlush,
             )
                 .chain(),
         );
 
         schedule.configure_sets((ExtractCommands, PrepareAssets, Prepare).chain());
-        schedule.configure_sets(
-            QueueMeshes
-                .in_set(RenderSet::Queue)
-                .after(prepare_assets::<Mesh>),
-        );
+        schedule.configure_sets(QueueMeshes.in_set(Queue).after(prepare_assets::<Mesh>));
         schedule.configure_sets(
             (PrepareResources, PrepareResourcesFlush, PrepareBindGroups)
                 .chain()
@@ -179,7 +172,7 @@ impl Render {
 /// running the next frame while rendering the current frame.
 ///
 /// This schedule is run on the main world, but its buffers are not applied
-/// via [`Schedule::apply_deferred`](bevy_ecs::schedule::Schedule) until it is returned to the render world.
+/// until it is returned to the render world.
 #[derive(ScheduleLabel, PartialEq, Eq, Debug, Clone, Hash)]
 pub struct ExtractSchedule;
 
@@ -204,10 +197,11 @@ impl DerefMut for MainWorld {
     }
 }
 
-pub mod main_graph {
-    pub mod node {
-        pub const CAMERA_DRIVER: &str = "camera_driver";
-    }
+pub mod graph {
+    use crate::render_graph::RenderLabel;
+
+    #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
+    pub struct CameraDriverLabel;
 }
 
 #[derive(Resource)]
@@ -236,6 +230,8 @@ pub const MATHS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(106653563
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderSet`] and creates the rendering sub-app.
     fn build(&self, app: &mut App) {
+        app.init_resource::<DeterministicRenderingConfig>();
+
         app.init_asset::<Shader>()
             .init_asset_loader::<ShaderLoader>();
 
@@ -251,6 +247,7 @@ impl Plugin for RenderPlugin {
                 app.insert_resource(FutureRendererResources(
                     future_renderer_resources_wrapper.clone(),
                 ));
+                // SAFETY: Plugins should be set up on the main thread.
                 unsafe { initialize_render_app(app) };
             }
             RenderCreation::Automatic(render_creation) => {
@@ -270,12 +267,15 @@ impl Plugin for RenderPlugin {
                         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
                             backends,
                             dx12_shader_compiler: settings.dx12_shader_compiler.clone(),
+                            flags: settings.instance_flags,
+                            gles_minor_version: settings.gles3_minor_version,
                         });
+
+                        // SAFETY: Plugins should be set up on the main thread.
                         let surface = primary_window.map(|wrapper| unsafe {
-                            // SAFETY: Plugins should be set up on the main thread.
                             let handle = wrapper.get_handle();
                             instance
-                                .create_surface(&handle)
+                                .create_surface(handle)
                                 .expect("Failed to create wgpu surface")
                         });
 
@@ -313,6 +313,7 @@ impl Plugin for RenderPlugin {
                     #[cfg(not(target_arch = "wasm32"))]
                     futures_lite::future::block_on(async_renderer);
 
+                    // SAFETY: Plugins should be set up on the main thread.
                     unsafe { initialize_render_app(app) };
                 }
             }
@@ -328,7 +329,8 @@ impl Plugin for RenderPlugin {
             MorphPlugin,
         ));
 
-        app.register_type::<color::Color>()
+        app.register_type::<alpha::AlphaMode>()
+            .register_type::<color::LegacyColor>()
             .register_type::<primitives::Aabb>()
             .register_type::<primitives::CascadesFrusta>()
             .register_type::<primitives::CubemapFrusta>()
@@ -343,16 +345,6 @@ impl Plugin for RenderPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            INSTANCE_INDEX_SHADER_HANDLE,
-            "instance_index.wgsl",
-            Shader::from_wgsl_with_defs,
-            vec![
-                #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
-                "BASE_INSTANCE_WORKAROUND".into()
-            ]
-        );
         load_internal_asset!(app, MATHS_SHADER_HANDLE, "maths.wgsl", Shader::from_wgsl);
         if let Some(future_renderer_resources) =
             app.world.remove_resource::<FutureRendererResources>()
@@ -369,7 +361,11 @@ impl Plugin for RenderPlugin {
 
             render_app
                 .insert_resource(instance)
-                .insert_resource(PipelineCache::new(device.clone()))
+                .insert_resource(PipelineCache::new(
+                    device.clone(),
+                    render_adapter.clone(),
+                    self.synchronous_pipeline_compilation,
+                ))
                 .insert_resource(device)
                 .insert_resource(queue)
                 .insert_resource(render_adapter)
@@ -407,6 +403,12 @@ unsafe fn initialize_render_app(app: &mut App) {
     render_app.main_schedule_label = Render.intern();
 
     let mut extract_schedule = Schedule::new(ExtractSchedule);
+    // We skip applying any commands during the ExtractSchedule
+    // so commands can be applied on the render thread.
+    extract_schedule.set_build_settings(ScheduleBuildSettings {
+        auto_insert_apply_deferred: false,
+        ..default()
+    });
     extract_schedule.set_apply_final_deferred(false);
 
     render_app
@@ -453,7 +455,7 @@ unsafe fn initialize_render_app(app: &mut App) {
                 "An entity was spawned after the entity list was cleared last frame and before the extract schedule began. This is not supported",
             );
 
-            // This is safe given the clear_entities call in the past frame and the assert above
+            // SAFETY: This is safe given the clear_entities call in the past frame and the assert above
             unsafe {
                 render_app
                     .world

@@ -1,10 +1,12 @@
 //! A simplified implementation of the classic game "Breakout".
 
 use bevy::{
+    math::bounding::{Aabb2d, BoundingCircle, BoundingVolume, IntersectsVolume},
     prelude::*,
-    sprite::collide_aabb::{collide, Collision},
     sprite::MaterialMesh2dBundle,
 };
+
+mod stepping;
 
 // These constants are defined in `Transform` units.
 // Using the default 2D camera they correspond 1:1 with screen pixels.
@@ -16,7 +18,7 @@ const PADDLE_PADDING: f32 = 10.0;
 
 // We set the z-value of the ball to 1 so it renders on top in the case of overlapping sprites.
 const BALL_STARTING_POSITION: Vec3 = Vec3::new(0.0, -50.0, 1.0);
-const BALL_SIZE: Vec3 = Vec3::new(30.0, 30.0, 0.0);
+const BALL_DIAMETER: f32 = 30.;
 const BALL_SPEED: f32 = 400.0;
 const INITIAL_BALL_DIRECTION: Vec2 = Vec2::new(0.5, -0.5);
 
@@ -39,17 +41,23 @@ const GAP_BETWEEN_BRICKS_AND_SIDES: f32 = 20.0;
 const SCOREBOARD_FONT_SIZE: f32 = 40.0;
 const SCOREBOARD_TEXT_PADDING: Val = Val::Px(5.0);
 
-const BACKGROUND_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
-const PADDLE_COLOR: Color = Color::rgb(0.3, 0.3, 0.7);
-const BALL_COLOR: Color = Color::rgb(1.0, 0.5, 0.5);
-const BRICK_COLOR: Color = Color::rgb(0.5, 0.5, 1.0);
-const WALL_COLOR: Color = Color::rgb(0.8, 0.8, 0.8);
-const TEXT_COLOR: Color = Color::rgb(0.5, 0.5, 1.0);
-const SCORE_COLOR: Color = Color::rgb(1.0, 0.5, 0.5);
+const BACKGROUND_COLOR: LegacyColor = LegacyColor::rgb(0.9, 0.9, 0.9);
+const PADDLE_COLOR: LegacyColor = LegacyColor::rgb(0.3, 0.3, 0.7);
+const BALL_COLOR: LegacyColor = LegacyColor::rgb(1.0, 0.5, 0.5);
+const BRICK_COLOR: LegacyColor = LegacyColor::rgb(0.5, 0.5, 1.0);
+const WALL_COLOR: LegacyColor = LegacyColor::rgb(0.8, 0.8, 0.8);
+const TEXT_COLOR: LegacyColor = LegacyColor::rgb(0.5, 0.5, 1.0);
+const SCORE_COLOR: LegacyColor = LegacyColor::rgb(1.0, 0.5, 0.5);
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .add_plugins(
+            stepping::SteppingPlugin::default()
+                .add_schedule(Update)
+                .add_schedule(FixedUpdate)
+                .at(Val::Percent(35.0), Val::Percent(50.0)),
+        )
         .insert_resource(Scoreboard { score: 0 })
         .insert_resource(ClearColor(BACKGROUND_COLOR))
         .add_event::<CollisionEvent>()
@@ -170,6 +178,9 @@ struct Scoreboard {
     score: usize,
 }
 
+#[derive(Component)]
+struct ScoreboardUi;
+
 // Add the game's entities to our world
 fn setup(
     mut commands: Commands,
@@ -207,9 +218,10 @@ fn setup(
     // Ball
     commands.spawn((
         MaterialMesh2dBundle {
-            mesh: meshes.add(shape::Circle::default().into()).into(),
-            material: materials.add(ColorMaterial::from(BALL_COLOR)),
-            transform: Transform::from_translation(BALL_STARTING_POSITION).with_scale(BALL_SIZE),
+            mesh: meshes.add(Circle::default()).into(),
+            material: materials.add(BALL_COLOR),
+            transform: Transform::from_translation(BALL_STARTING_POSITION)
+                .with_scale(Vec2::splat(BALL_DIAMETER).extend(1.)),
             ..default()
         },
         Ball,
@@ -217,7 +229,8 @@ fn setup(
     ));
 
     // Scoreboard
-    commands.spawn(
+    commands.spawn((
+        ScoreboardUi,
         TextBundle::from_sections([
             TextSection::new(
                 "Score: ",
@@ -239,7 +252,7 @@ fn setup(
             left: SCOREBOARD_TEXT_PADDING,
             ..default()
         }),
-    );
+    ));
 
     // Walls
     commands.spawn(WallBundle::new(WallLocation::Left));
@@ -303,18 +316,18 @@ fn setup(
 }
 
 fn move_paddle(
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     mut query: Query<&mut Transform, With<Paddle>>,
     time: Res<Time>,
 ) {
     let mut paddle_transform = query.single_mut();
     let mut direction = 0.0;
 
-    if keyboard_input.pressed(KeyCode::Left) {
+    if keyboard_input.pressed(KeyCode::ArrowLeft) {
         direction -= 1.0;
     }
 
-    if keyboard_input.pressed(KeyCode::Right) {
+    if keyboard_input.pressed(KeyCode::ArrowRight) {
         direction += 1.0;
     }
 
@@ -337,7 +350,7 @@ fn apply_velocity(mut query: Query<(&mut Transform, &Velocity)>, time: Res<Time>
     }
 }
 
-fn update_scoreboard(scoreboard: Res<Scoreboard>, mut query: Query<&mut Text>) {
+fn update_scoreboard(scoreboard: Res<Scoreboard>, mut query: Query<&mut Text, With<ScoreboardUi>>) {
     let mut text = query.single_mut();
     text.sections[1].value = scoreboard.score.to_string();
 }
@@ -350,16 +363,17 @@ fn check_for_collisions(
     mut collision_events: EventWriter<CollisionEvent>,
 ) {
     let (mut ball_velocity, ball_transform) = ball_query.single_mut();
-    let ball_size = ball_transform.scale.truncate();
 
     // check collision with walls
     for (collider_entity, transform, maybe_brick) in &collider_query {
-        let collision = collide(
-            ball_transform.translation,
-            ball_size,
-            transform.translation,
-            transform.scale.truncate(),
+        let collision = collide_with_side(
+            BoundingCircle::new(ball_transform.translation.truncate(), BALL_DIAMETER / 2.),
+            Aabb2d::new(
+                transform.translation.truncate(),
+                transform.scale.truncate() / 2.,
+            ),
         );
+
         if let Some(collision) = collision {
             // Sends a collision event so that other systems can react to the collision
             collision_events.send_default();
@@ -381,7 +395,6 @@ fn check_for_collisions(
                 Collision::Right => reflect_x = ball_velocity.x < 0.0,
                 Collision::Top => reflect_y = ball_velocity.y < 0.0,
                 Collision::Bottom => reflect_y = ball_velocity.y > 0.0,
-                Collision::Inside => { /* do nothing */ }
             }
 
             // reflect velocity on the x-axis if we hit something on the x-axis
@@ -412,4 +425,36 @@ fn play_collision_sound(
             settings: PlaybackSettings::DESPAWN,
         });
     }
+}
+
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+enum Collision {
+    Left,
+    Right,
+    Top,
+    Bottom,
+}
+
+// Returns `Some` if `ball` collides with `wall`. The returned `Collision` is the
+// side of `wall` that `ball` hit.
+fn collide_with_side(ball: BoundingCircle, wall: Aabb2d) -> Option<Collision> {
+    if !ball.intersects(&wall) {
+        return None;
+    }
+
+    let closest = wall.closest_point(ball.center());
+    let offset = ball.center() - closest;
+    let side = if offset.x.abs() > offset.y.abs() {
+        if offset.x < 0. {
+            Collision::Left
+        } else {
+            Collision::Right
+        }
+    } else if offset.y > 0. {
+        Collision::Top
+    } else {
+        Collision::Bottom
+    };
+
+    Some(side)
 }

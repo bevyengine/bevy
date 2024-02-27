@@ -10,7 +10,7 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_state::<AppState>()
+        .init_state::<AppState>() // Alternatively we could use .insert_state(AppState::Menu)
         .add_systems(Startup, setup)
         // This system runs when we enter `AppState::Menu`, during the `StateTransition` schedule.
         // All systems from the exit schedule of the state we're leaving are run first,
@@ -25,6 +25,7 @@ fn main() {
             Update,
             (movement, change_color).run_if(in_state(AppState::InGame)),
         )
+        .add_systems(Update, log_transitions)
         .run();
 }
 
@@ -40,9 +41,9 @@ struct MenuData {
     button_entity: Entity,
 }
 
-const NORMAL_BUTTON: Color = Color::rgb(0.15, 0.15, 0.15);
-const HOVERED_BUTTON: Color = Color::rgb(0.25, 0.25, 0.25);
-const PRESSED_BUTTON: Color = Color::rgb(0.35, 0.75, 0.35);
+const NORMAL_BUTTON: LegacyColor = LegacyColor::rgb(0.15, 0.15, 0.15);
+const HOVERED_BUTTON: LegacyColor = LegacyColor::rgb(0.25, 0.25, 0.25);
+const PRESSED_BUTTON: LegacyColor = LegacyColor::rgb(0.35, 0.75, 0.35);
 
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
@@ -81,7 +82,7 @@ fn setup_menu(mut commands: Commands) {
                         "Play",
                         TextStyle {
                             font_size: 40.0,
-                            color: Color::rgb(0.9, 0.9, 0.9),
+                            color: LegacyColor::rgb(0.9, 0.9, 0.9),
                             ..default()
                         },
                     ));
@@ -128,21 +129,21 @@ fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
 const SPEED: f32 = 100.0;
 fn movement(
     time: Res<Time>,
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
     mut query: Query<&mut Transform, With<Sprite>>,
 ) {
     for mut transform in &mut query {
         let mut direction = Vec3::ZERO;
-        if input.pressed(KeyCode::Left) {
+        if input.pressed(KeyCode::ArrowLeft) {
             direction.x -= 1.0;
         }
-        if input.pressed(KeyCode::Right) {
+        if input.pressed(KeyCode::ArrowRight) {
             direction.x += 1.0;
         }
-        if input.pressed(KeyCode::Up) {
+        if input.pressed(KeyCode::ArrowUp) {
             direction.y += 1.0;
         }
-        if input.pressed(KeyCode::Down) {
+        if input.pressed(KeyCode::ArrowDown) {
             direction.y -= 1.0;
         }
 
@@ -157,5 +158,16 @@ fn change_color(time: Res<Time>, mut query: Query<&mut Sprite>) {
         sprite
             .color
             .set_b((time.elapsed_seconds() * 0.5).sin() + 2.0);
+    }
+}
+
+/// print when an `AppState` transition happens
+/// also serves as an example of how to use `StateTransitionEvent`
+fn log_transitions(mut transitions: EventReader<StateTransitionEvent<AppState>>) {
+    for transition in transitions.read() {
+        info!(
+            "transition: {:?} => {:?}",
+            transition.before, transition.after
+        );
     }
 }

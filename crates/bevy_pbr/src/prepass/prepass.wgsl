@@ -7,8 +7,6 @@
     mesh_view_bindings::{view, previous_view_proj},
 }
 
-#import bevy_render::instance_index::get_instance_index
-
 #ifdef DEFERRED_PREPASS
 #import bevy_pbr::rgb9e5
 #endif
@@ -62,6 +60,10 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     out.uv = vertex.uv;
 #endif // VERTEX_UVS
 
+#ifdef VERTEX_UVS_B
+    out.uv_b = vertex.uv_b;
+#endif // VERTEX_UVS_B
+
 #ifdef NORMAL_PREPASS_OR_DEFERRED_PREPASS
 #ifdef SKINNED
     out.world_normal = skinning::skin_normals(model, vertex.normal);
@@ -70,7 +72,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
         vertex.normal,
         // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
         // See https://github.com/gfx-rs/naga/issues/2416
-        get_instance_index(vertex_no_morph.instance_index)
+        vertex_no_morph.instance_index
     );
 #endif // SKINNED
 
@@ -80,7 +82,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
         vertex.tangent,
         // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
         // See https://github.com/gfx-rs/naga/issues/2416
-        get_instance_index(vertex_no_morph.instance_index)
+        vertex_no_morph.instance_index
     );
 #endif // VERTEX_TANGENTS
 #endif // NORMAL_PREPASS_OR_DEFERRED_PREPASS
@@ -89,9 +91,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     out.color = vertex.color;
 #endif
 
-#ifdef MOTION_VECTOR_PREPASS_OR_DEFERRED_PREPASS
     out.world_position = mesh_functions::mesh_position_local_to_world(model, vec4<f32>(vertex.position, 1.0));
-#endif // MOTION_VECTOR_PREPASS_OR_DEFERRED_PREPASS
 
 #ifdef MOTION_VECTOR_PREPASS
     // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
@@ -105,7 +105,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 #ifdef VERTEX_OUTPUT_INSTANCE_INDEX
     // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
     // See https://github.com/gfx-rs/naga/issues/2416
-    out.instance_index = get_instance_index(vertex_no_morph.instance_index);
+    out.instance_index = vertex_no_morph.instance_index;
 #endif
 
     return out;
@@ -141,7 +141,7 @@ fn fragment(in: VertexOutput) -> FragmentOutput {
 #ifdef DEFERRED_PREPASS
     // There isn't any material info available for this default prepass shader so we are just writing 
     // emissive magenta out to the deferred gbuffer to be rendered by the first deferred lighting pass layer.
-    // The is here so if the default prepass fragment is used for deferred magenta will be rendered, and also
+    // This is here so if the default prepass fragment is used for deferred magenta will be rendered, and also
     // as an example to show that a user could write to the deferred gbuffer if they were to start from this shader.
     out.deferred = vec4(0u, bevy_pbr::rgb9e5::vec3_to_rgb9e5_(vec3(1.0, 0.0, 1.0)), 0u, 0u);
     out.deferred_lighting_pass_id = 1u;

@@ -1,11 +1,13 @@
 use bevy_reflect_derive::impl_type_path;
+use bevy_utils::smallvec;
 use smallvec::SmallVec;
+
 use std::any::Any;
 
 use crate::utility::GenericTypeInfoCell;
 use crate::{
     self as bevy_reflect, FromReflect, FromType, GetTypeRegistration, List, ListInfo, ListIter,
-    Reflect, ReflectFromPtr, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath,
+    Reflect, ReflectFromPtr, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath,
     TypeRegistration, Typed,
 };
 
@@ -117,6 +119,10 @@ where
         Ok(())
     }
 
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::List
+    }
+
     fn reflect_ref(&self) -> ReflectRef {
         ReflectRef::List(self)
     }
@@ -148,7 +154,7 @@ where
     }
 }
 
-impl_type_path!(::smallvec::SmallVec<T: smallvec::Array>);
+impl_type_path!(::bevy_utils::smallvec::SmallVec<T: smallvec::Array>);
 
 impl<T: smallvec::Array + TypePath + Send + Sync> FromReflect for SmallVec<T>
 where

@@ -21,7 +21,6 @@
 //! ```
 
 #![forbid(unsafe_code)]
-#![warn(missing_docs)]
 
 mod audio;
 mod audio_output;
@@ -63,22 +62,32 @@ struct AudioPlaySet;
 /// Insert an [`AudioBundle`] onto your entities to play audio.
 #[derive(Default)]
 pub struct AudioPlugin {
-    /// The global volume for all audio entities with a [`Volume::Relative`] volume.
+    /// The global volume for all audio entities.
     pub global_volume: GlobalVolume,
     /// The scale factor applied to the positions of audio sources and listeners for
     /// spatial audio.
-    pub spatial_scale: SpatialScale,
+    pub default_spatial_scale: SpatialScale,
 }
 
 impl Plugin for AudioPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(self.global_volume)
-            .insert_resource(self.spatial_scale)
+        app.register_type::<Volume>()
+            .register_type::<GlobalVolume>()
+            .register_type::<SpatialListener>()
+            .register_type::<DefaultSpatialScale>()
+            .register_type::<PlaybackMode>()
+            .register_type::<PlaybackSettings>()
+            .insert_resource(self.global_volume)
+            .insert_resource(DefaultSpatialScale(self.default_spatial_scale))
             .configure_sets(
                 PostUpdate,
                 AudioPlaySet
                     .run_if(audio_output_available)
                     .after(TransformSystem::TransformPropagate), // For spatial audio transforms
+            )
+            .add_systems(
+                PostUpdate,
+                (update_emitter_positions, update_listener_positions).in_set(AudioPlaySet),
             )
             .init_resource::<AudioOutput>();
 
@@ -100,11 +109,8 @@ impl AddAudioSource for App {
     {
         self.init_asset::<T>().add_systems(
             PostUpdate,
-            play_queued_audio_system::<T>.in_set(AudioPlaySet),
+            (play_queued_audio_system::<T>, cleanup_finished_audio::<T>).in_set(AudioPlaySet),
         );
-        self.add_systems(PostUpdate, cleanup_finished_audio::<T>.in_set(AudioPlaySet));
-        self.add_systems(PostUpdate, update_emitter_positions.in_set(AudioPlaySet));
-        self.add_systems(PostUpdate, update_listener_positions.in_set(AudioPlaySet));
         self
     }
 }

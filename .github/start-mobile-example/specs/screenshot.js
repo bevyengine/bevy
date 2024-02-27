@@ -1,4 +1,3 @@
-var assert = require('assert');
 const percyScreenshot = require('@percy/appium-app');
 
 

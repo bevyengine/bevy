@@ -1,4 +1,4 @@
-import { test, expect, Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 
 test.beforeEach(async ({ page }) => {
   await page.goto('http://localhost:8000/');
@@ -7,19 +7,19 @@ test.beforeEach(async ({ page }) => {
 const MAX_TIMEOUT_FOR_TEST = 300_000;
 
 test.describe('WASM example', () => {
-  test('Wait for success', async ({ page }, test_info) => {
+  test('Wait for success', async ({ page }, testInfo) => {
     let start = new Date().getTime();
 
     let found = false;
     while (new Date().getTime() - start < MAX_TIMEOUT_FOR_TEST) {
-      let msg = await promise_with_timeout(100, on_console(page), "no log found");
+      let msg = await promiseWithTimeout(100, onConsole(page), "no log found");
       if (msg.includes("no log found")) {
         continue;
       }
       console.log(msg);
       if (msg.includes("Test successful")) {
         let prefix = process.env.SCREENSHOT_PREFIX === undefined ? "screenshot" : process.env.SCREENSHOT_PREFIX;
-        await page.screenshot({ path: `${prefix}-${test_info.project.name}.png`, fullPage: true });
+        await page.screenshot({ path: `${prefix}-${testInfo.project.name}.png`, fullPage: true });
         found = true;
         break;
       }
@@ -30,20 +30,20 @@ test.describe('WASM example', () => {
 
 });
 
-function on_console(page) {
+function onConsole(page) {
   return new Promise(resolve => {
     page.on('console', msg => resolve(msg.text()));
   });
 }
 
-async function promise_with_timeout(time_limit, task, failure_value) {
+async function promiseWithTimeout(timeLimit, task, failureValue) {
   let timeout;
-  const timeout_promise = new Promise((resolve, reject) => {
+  const timeoutPromise = new Promise((resolve, reject) => {
     timeout = setTimeout(() => {
-      resolve(failure_value);
-    }, time_limit);
+      resolve(failureValue);
+    }, timeLimit);
   });
-  const response = await Promise.race([task, timeout_promise]);
+  const response = await Promise.race([task, timeoutPromise]);
   if (timeout) {
     clearTimeout(timeout);
   }

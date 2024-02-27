@@ -1,5 +1,3 @@
-#![warn(missing_docs)]
-#![warn(clippy::undocumented_unsafe_blocks)]
 #![doc = include_str!("../README.md")]
 
 pub mod commands;
@@ -42,7 +40,7 @@ use systems::{propagate_transforms, sync_simple_transforms};
 /// [`GlobalTransform`] is the position of an entity relative to the reference frame.
 ///
 /// [`GlobalTransform`] is updated from [`Transform`] by systems in the system set
-/// [`TransformPropagate`](crate::TransformSystem::TransformPropagate).
+/// [`TransformPropagate`](TransformSystem::TransformPropagate).
 ///
 /// This system runs during [`PostUpdate`]. If you
 /// update the [`Transform`] of an entity in this schedule or after, you will notice a 1 frame lag

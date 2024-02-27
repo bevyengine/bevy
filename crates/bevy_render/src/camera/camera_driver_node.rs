@@ -6,7 +6,7 @@ use crate::{
 };
 use bevy_ecs::{prelude::QueryState, world::World};
 use bevy_utils::HashSet;
-use wgpu::{LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor};
+use wgpu::{LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, StoreOp};
 
 pub struct CameraDriverNode {
     cameras: QueryState<&'static ExtractedCamera>,
@@ -49,11 +49,7 @@ impl Node for CameraDriverNode {
                 }
             }
             if run_graph {
-                graph.run_sub_graph(
-                    camera.render_graph.clone(),
-                    vec![],
-                    Some(sorted_camera.entity),
-                )?;
+                graph.run_sub_graph(camera.render_graph, vec![], Some(sorted_camera.entity))?;
             }
         }
 
@@ -77,10 +73,12 @@ impl Node for CameraDriverNode {
                     resolve_target: None,
                     ops: Operations {
                         load: LoadOp::Clear(wgpu::Color::BLACK),
-                        store: true,
+                        store: StoreOp::Store,
                     },
                 })],
                 depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
             };
 
             render_context

@@ -21,7 +21,7 @@ pub struct RemovedSystem<I = (), O = ()> {
     system: BoxedSystem<I, O>,
 }
 
-impl RemovedSystem {
+impl<I, O> RemovedSystem<I, O> {
     /// Is the system initialized?
     /// A system is initialized the first time it's ran.
     pub fn initialized(&self) -> bool {
@@ -29,7 +29,7 @@ impl RemovedSystem {
     }
 
     /// The system removed from the storage.
-    pub fn system(self) -> BoxedSystem {
+    pub fn system(self) -> BoxedSystem<I, O> {
         self.system
     }
 }
@@ -74,6 +74,18 @@ impl<I, O> std::fmt::Debug for SystemId<I, O> {
     }
 }
 
+impl<I, O> From<SystemId<I, O>> for Entity {
+    /// Transforms a [`SystemId`] into the [`Entity`] that holds the one-shot system's state.
+    ///
+    /// It's trivial to convert [`SystemId`] into an [`Entity`] since a system
+    /// is really an entity with associated handler function.
+    ///
+    /// For example, this is useful if you want to assign a name label to a system.
+    fn from(SystemId(entity, _): SystemId<I, O>) -> Self {
+        entity
+    }
+}
+
 impl World {
     /// Registers a system and returns a [`SystemId`] so it can later be called by [`World::run_system`].
     ///
@@ -83,7 +95,7 @@ impl World {
     /// because the [`SystemId`] that is returned can be used anywhere in the [`World`] to run the associated system.
     /// This allows for running systems in a pushed-based fashion.
     /// Using a [`Schedule`](crate::schedule::Schedule) is still preferred for most cases
-    /// due to its better performance and abillity to run non-conflicting systems simultaneously.
+    /// due to its better performance and ability to run non-conflicting systems simultaneously.
     pub fn register_system<I: 'static, O: 'static, M, S: IntoSystem<I, O, M> + 'static>(
         &mut self,
         system: S,
@@ -145,13 +157,12 @@ impl World {
     /// # Limitations
     ///
     ///  - Stored systems cannot be recursive, they cannot call themselves through [`Commands::run_system`](crate::system::Commands).
-    ///  - Exclusive systems cannot be used.
     ///
     /// # Examples
     ///
     /// ## Running a system
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_ecs::prelude::*;
     /// #[derive(Resource, Default)]
     /// struct Counter(u8);
@@ -171,7 +182,7 @@ impl World {
     ///
     /// ## Change detection
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_ecs::prelude::*;
     /// #[derive(Resource, Default)]
     /// struct ChangeDetector;
@@ -195,7 +206,7 @@ impl World {
     ///
     /// ## Getting system output
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_ecs::prelude::*;
     ///
     /// #[derive(Resource)]
@@ -239,11 +250,10 @@ impl World {
     /// # Limitations
     ///
     ///  - Stored systems cannot be recursive, they cannot call themselves through [`Commands::run_system`](crate::system::Commands).
-    ///  - Exclusive systems cannot be used.
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_ecs::prelude::*;
     /// #[derive(Resource, Default)]
     /// struct Counter(u8);
@@ -286,7 +296,6 @@ impl World {
             initialized = true;
         }
         let result = system.run(input, self);
-        system.apply_deferred(self);
 
         // return ownership of system trait object (if entity still exists)
         if let Some(mut entity) = self.get_entity_mut(id.0) {
@@ -322,7 +331,7 @@ pub struct RunSystemWithInput<I: 'static> {
 /// Running slow systems can become a bottleneck.
 ///
 /// If the system needs an [`In<_>`](crate::system::In) input value to run, use the
-/// [`crate::system::RunSystemWithInput`] type instead.
+/// [`RunSystemWithInput`] type instead.
 ///
 /// There is no way to get the output of a system when run as a command, because the
 /// execution of the system happens later. To get the output of a system, use
@@ -503,6 +512,17 @@ mod tests {
         let output = world.run_system(id).expect("system runs successfully");
         assert_eq!(*world.resource::<Counter>(), Counter(3));
         assert_eq!(output, NonCopy(3));
+    }
+
+    #[test]
+    fn exclusive_system() {
+        let mut world = World::new();
+        let exclusive_system_id = world.register_system(|world: &mut World| {
+            world.spawn_empty();
+        });
+        let entity_count = world.entities.len();
+        let _ = world.run_system(exclusive_system_id);
+        assert_eq!(world.entities.len(), entity_count + 1);
     }
 
     #[test]

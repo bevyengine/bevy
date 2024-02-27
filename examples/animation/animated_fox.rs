@@ -7,11 +7,11 @@ use bevy::{animation::RepeatAnimation, pbr::CascadeShadowConfigBuilder, prelude:
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
         .insert_resource(AmbientLight {
-            color: Color::WHITE,
-            brightness: 1.0,
+            color: LegacyColor::WHITE,
+            brightness: 2000.,
         })
+        .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(
             Update,
@@ -45,8 +45,8 @@ fn setup(
 
     // Plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(500000.0).into()),
-        material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+        mesh: meshes.add(Plane3d::default().mesh().size(500000.0, 500000.0)),
+        material: materials.add(LegacyColor::rgb(0.3, 0.5, 0.3)),
         ..default()
     });
 
@@ -92,7 +92,7 @@ fn setup_scene_once_loaded(
 }
 
 fn keyboard_animation_control(
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     mut animation_players: Query<&mut AnimationPlayer>,
     animations: Res<Animations>,
     mut current_animation: Local<usize>,
@@ -106,27 +106,27 @@ fn keyboard_animation_control(
             }
         }
 
-        if keyboard_input.just_pressed(KeyCode::Up) {
+        if keyboard_input.just_pressed(KeyCode::ArrowUp) {
             let speed = player.speed();
             player.set_speed(speed * 1.2);
         }
 
-        if keyboard_input.just_pressed(KeyCode::Down) {
+        if keyboard_input.just_pressed(KeyCode::ArrowDown) {
             let speed = player.speed();
             player.set_speed(speed * 0.8);
         }
 
-        if keyboard_input.just_pressed(KeyCode::Left) {
+        if keyboard_input.just_pressed(KeyCode::ArrowLeft) {
             let elapsed = player.seek_time();
             player.seek_to(elapsed - 0.1);
         }
 
-        if keyboard_input.just_pressed(KeyCode::Right) {
+        if keyboard_input.just_pressed(KeyCode::ArrowRight) {
             let elapsed = player.seek_time();
             player.seek_to(elapsed + 0.1);
         }
 
-        if keyboard_input.just_pressed(KeyCode::Return) {
+        if keyboard_input.just_pressed(KeyCode::Enter) {
             *current_animation = (*current_animation + 1) % animations.0.len();
             player
                 .play_with_transition(
@@ -136,22 +136,22 @@ fn keyboard_animation_control(
                 .repeat();
         }
 
-        if keyboard_input.just_pressed(KeyCode::Key1) {
+        if keyboard_input.just_pressed(KeyCode::Digit1) {
             player.set_repeat(RepeatAnimation::Count(1));
             player.replay();
         }
 
-        if keyboard_input.just_pressed(KeyCode::Key3) {
+        if keyboard_input.just_pressed(KeyCode::Digit3) {
             player.set_repeat(RepeatAnimation::Count(3));
             player.replay();
         }
 
-        if keyboard_input.just_pressed(KeyCode::Key5) {
+        if keyboard_input.just_pressed(KeyCode::Digit5) {
             player.set_repeat(RepeatAnimation::Count(5));
             player.replay();
         }
 
-        if keyboard_input.just_pressed(KeyCode::L) {
+        if keyboard_input.just_pressed(KeyCode::KeyL) {
             player.set_repeat(RepeatAnimation::Forever);
         }
     }

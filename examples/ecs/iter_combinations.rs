@@ -1,16 +1,12 @@
 //! Shows how to iterate over combinations of query results.
 
-use bevy::{pbr::AmbientLight, prelude::*};
+use bevy::prelude::*;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(AmbientLight {
-            brightness: 0.03,
-            ..default()
-        })
-        .insert_resource(ClearColor(Color::BLACK))
+        .insert_resource(ClearColor(LegacyColor::BLACK))
         .add_systems(Startup, generate_bodies)
         .add_systems(FixedUpdate, (interact_bodies, integrate))
         .add_systems(Update, look_at_star)
@@ -43,13 +39,7 @@ fn generate_bodies(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let mesh = meshes.add(
-        Mesh::try_from(shape::Icosphere {
-            radius: 1.0,
-            subdivisions: 3,
-        })
-        .unwrap(),
-    );
+    let mesh = meshes.add(Sphere::new(1.0).mesh().ico(3).unwrap());
 
     let color_range = 0.5..1.0;
     let vel_range = -0.5..0.5;
@@ -76,14 +66,11 @@ fn generate_bodies(
                     ..default()
                 },
                 mesh: mesh.clone(),
-                material: materials.add(
-                    Color::rgb(
-                        rng.gen_range(color_range.clone()),
-                        rng.gen_range(color_range.clone()),
-                        rng.gen_range(color_range.clone()),
-                    )
-                    .into(),
-                ),
+                material: materials.add(LegacyColor::rgb(
+                    rng.gen_range(color_range.clone()),
+                    rng.gen_range(color_range.clone()),
+                    rng.gen_range(color_range.clone()),
+                )),
                 ..default()
             },
             mass: Mass(mass_value),
@@ -106,16 +93,10 @@ fn generate_bodies(
             BodyBundle {
                 pbr: PbrBundle {
                     transform: Transform::from_scale(Vec3::splat(star_radius)),
-                    mesh: meshes.add(
-                        Mesh::try_from(shape::Icosphere {
-                            radius: 1.0,
-                            subdivisions: 5,
-                        })
-                        .unwrap(),
-                    ),
+                    mesh: meshes.add(Sphere::new(1.0).mesh().ico(5).unwrap()),
                     material: materials.add(StandardMaterial {
-                        base_color: Color::ORANGE_RED,
-                        emissive: (Color::ORANGE_RED * 2.),
+                        base_color: LegacyColor::ORANGE_RED,
+                        emissive: (LegacyColor::ORANGE_RED * 18.),
                         ..default()
                     }),
                     ..default()
@@ -128,8 +109,7 @@ fn generate_bodies(
         .with_children(|p| {
             p.spawn(PointLightBundle {
                 point_light: PointLight {
-                    color: Color::WHITE,
-                    intensity: 400.0,
+                    color: LegacyColor::WHITE,
                     range: 100.0,
                     radius: star_radius,
                     ..default()

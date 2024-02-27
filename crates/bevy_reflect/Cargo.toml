@@ -1,6 +1,6 @@
 [package]
 name = "bevy_reflect"
-version = "0.12.0"
+version = "0.14.0-dev"
 edition = "2021"
 description = "Dynamically interact with rust types"
 homepage = "https://bevyengine.org"
@@ -12,36 +12,38 @@ readme = "README.md"
 [features]
 default = []
 # When enabled, provides Bevy-related reflection implementations
-bevy = ["glam", "smallvec", "bevy_math", "smol_str"]
+bevy = ["smallvec", "bevy_math", "smol_str"]
+glam = ["dep:glam"]
+bevy_math = ["glam", "dep:bevy_math"]
+smallvec = []
 # When enabled, allows documentation comments to be accessed via reflection
 documentation = ["bevy_reflect_derive/documentation"]
 
 [dependencies]
 # bevy
-bevy_math = { path = "../bevy_math", version = "0.12.0", features = [
+bevy_math = { path = "../bevy_math", version = "0.14.0-dev", features = [
   "serialize",
 ], optional = true }
-bevy_reflect_derive = { path = "bevy_reflect_derive", version = "0.12.0" }
-bevy_utils = { path = "../bevy_utils", version = "0.12.0" }
-bevy_ptr = { path = "../bevy_ptr", version = "0.12.0" }
+bevy_reflect_derive = { path = "bevy_reflect_derive", version = "0.14.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
+bevy_ptr = { path = "../bevy_ptr", version = "0.14.0-dev" }
 
 # other
-erased-serde = "0.3"
+erased-serde = "0.4"
 downcast-rs = "1.2"
 thiserror = "1.0"
 serde = "1"
-smallvec = { version = "1.6", features = [
-  "serde",
-  "union",
-  "const_generics",
-], optional = true }
-glam = { version = "0.24.1", features = ["serde"], optional = true }
+
+glam = { version = "0.25", features = ["serde"], optional = true }
 smol_str = { version = "0.2.0", optional = true }
 
 [dev-dependencies]
 ron = "0.8.0"
 rmp-serde = "1.1"
 bincode = "1.3"
+serde_json = "1.0"
+serde = { version = "1", features = ["derive"] }
+static_assertions = "1.1.0"
 
 [[example]]
 name = "reflect_docs"

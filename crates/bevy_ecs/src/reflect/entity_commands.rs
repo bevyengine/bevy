@@ -27,7 +27,7 @@ pub trait ReflectCommandExt {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```
     /// // Note that you need to register the component type in the AppTypeRegistry prior to using
     /// // reflection. You can use the helpers on the App with `app.register_type::<ComponentA>()`
     /// // or write to the TypeRegistry directly to register all your components
@@ -97,7 +97,7 @@ pub trait ReflectCommandExt {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```
     /// // Note that you need to register the component type in the AppTypeRegistry prior to using
     /// // reflection. You can use the helpers on the App with `app.register_type::<ComponentA>()`
     /// // or write to the TypeRegistry directly to register all your components
@@ -127,7 +127,7 @@ pub trait ReflectCommandExt {
     ///     // ComponentA or ComponentB. No matter which component is in the resource though,
     ///     // we can attempt to remove any component of that same type from an entity.
     ///     commands.entity(prefab.entity)
-    ///         .remove_reflect(prefab.component.type_name().to_owned());
+    ///         .remove_reflect(prefab.component.reflect_type_path().to_owned());
     /// }
     ///
     /// ```
@@ -140,7 +140,7 @@ pub trait ReflectCommandExt {
     ) -> &mut Self;
 }
 
-impl<'w, 's, 'a> ReflectCommandExt for EntityCommands<'w, 's, 'a> {
+impl ReflectCommandExt for EntityCommands<'_> {
     fn insert_reflect(&mut self, component: Box<dyn Reflect>) -> &mut Self {
         self.commands.add(InsertReflect {
             entity: self.entity,
@@ -189,17 +189,20 @@ fn insert_reflect(
     type_registry: &TypeRegistry,
     component: Box<dyn Reflect>,
 ) {
-    let type_info = component.reflect_type_path();
+    let type_info = component
+        .get_represented_type_info()
+        .expect("component should represent a type.");
+    let type_path = type_info.type_path();
     let Some(mut entity) = world.get_entity_mut(entity) else {
-        panic!("error[B0003]: Could not insert a reflected component (of type {}) for entity {entity:?} because it doesn't exist in this World.", component.reflect_type_path());
+        panic!("error[B0003]: Could not insert a reflected component (of type {type_path}) for entity {entity:?} because it doesn't exist in this World.");
     };
-    let Some(type_registration) = type_registry.get_with_type_path(type_info) else {
-        panic!("Could not get type registration (for component type {}) because it doesn't exist in the TypeRegistry.", component.reflect_type_path());
+    let Some(type_registration) = type_registry.get_with_type_path(type_path) else {
+        panic!("Could not get type registration (for component type {type_path}) because it doesn't exist in the TypeRegistry.");
     };
     let Some(reflect_component) = type_registration.data::<ReflectComponent>() else {
-        panic!("Could not get ReflectComponent data (for component type {}) because it doesn't exist in this TypeRegistration.", component.reflect_type_path());
+        panic!("Could not get ReflectComponent data (for component type {type_path}) because it doesn't exist in this TypeRegistration.");
     };
-    reflect_component.insert(&mut entity, &*component);
+    reflect_component.insert(&mut entity, &*component, type_registry);
 }
 
 /// A [`Command`] that adds the boxed reflect component to an entity using the data in
@@ -346,17 +349,22 @@ mod tests {
         let mut commands = system_state.get_mut(&mut world);
 
         let entity = commands.spawn_empty().id();
+        let entity2 = commands.spawn_empty().id();
 
         let boxed_reflect_component_a = Box::new(ComponentA(916)) as Box<dyn Reflect>;
+        let boxed_reflect_component_a_clone = boxed_reflect_component_a.clone_value();
 
         commands
             .entity(entity)
             .insert_reflect(boxed_reflect_component_a);
+        commands
+            .entity(entity2)
+            .insert_reflect(boxed_reflect_component_a_clone);
         system_state.apply(&mut world);
 
         assert_eq!(
             world.entity(entity).get::<ComponentA>(),
-            Some(&ComponentA(916))
+            world.entity(entity2).get::<ComponentA>()
         );
     }
 

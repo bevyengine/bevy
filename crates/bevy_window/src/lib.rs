@@ -1,4 +1,3 @@
-#![warn(missing_docs)]
 //! `bevy_window` provides a platform-agnostic interface for windowing in Bevy.
 //!
 //! This crate contains types for window management and events,
@@ -93,6 +92,7 @@ impl Plugin for WindowPlugin {
             .add_event::<ReceivedCharacter>()
             .add_event::<Ime>()
             .add_event::<WindowFocused>()
+            .add_event::<WindowOccluded>()
             .add_event::<WindowScaleFactorChanged>()
             .add_event::<WindowBackendScaleFactorChanged>()
             .add_event::<FileDragAndDrop>()
@@ -137,6 +137,7 @@ impl Plugin for WindowPlugin {
             .register_type::<CursorLeft>()
             .register_type::<ReceivedCharacter>()
             .register_type::<WindowFocused>()
+            .register_type::<WindowOccluded>()
             .register_type::<WindowScaleFactorChanged>()
             .register_type::<WindowBackendScaleFactorChanged>()
             .register_type::<FileDragAndDrop>()

@@ -5,13 +5,30 @@ on:
     branches:
       - 'main'
 
+  # Allows running the action manually.
+  workflow_dispatch:
+
 env:
   CARGO_TERM_COLOR: always
   RUSTDOCFLAGS: --html-in-header header.html
 
+# Sets the permissions to allow deploying to Github pages.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only allow one deployment to run at a time, however it will not cancel in-progress runs.
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -37,19 +54,18 @@ jobs:
       #   - A top level redirect to the bevy crate documentation
       #   - A CNAME file for redirecting the docs domain to the API reference
       #   - A robots.txt file to forbid any crawling of the site (to defer to the docs.rs site on search engines).
-      #   - A .nojekyll file to disable Jekyll GitHub Pages builds.
       - name: Finalize documentation
         run: |
           echo "<meta http-equiv=\"refresh\" content=\"0; url=bevy/index.html\">" > target/doc/index.html
           echo "dev-docs.bevyengine.org" > target/doc/CNAME
           echo "User-Agent: *\nDisallow: /" > target/doc/robots.txt
-          touch target/doc/.nojekyll
+          rm target/doc/.lock
 
-      - name: Deploy
-        if: github.repository == 'bevyengine/bevy'
-        uses: JamesIves/github-pages-deploy-action@v4
+      - name: Upload site artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          branch: gh-pages
-          folder: target/doc
-          single-commit: true
-          force: true
+          path: target/doc
+
+      - name: Deploy to Github Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

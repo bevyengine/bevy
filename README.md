@@ -13,7 +13,7 @@ Bevy is a refreshingly simple data-driven game engine built in Rust. It is free 
 
 ## WARNING
 
-Bevy is still in the early stages of development. Important features are missing. Documentation is sparse. A new version of Bevy containing breaking changes to the API is released [approximately once every 3 months](https://bevyengine.org/news/bevy-0-6/#the-train-release-schedule). We provide [migration guides](https://bevyengine.org/learn/book/migration-guides/), but we can't guarantee migrations will always be easy. Use only if you are willing to work in this environment.
+Bevy is still in the early stages of development. Important features are missing. Documentation is sparse. A new version of Bevy containing breaking changes to the API is released [approximately once every 3 months](https://bevyengine.org/news/bevy-0-6/#the-train-release-schedule). We provide [migration guides](https://bevyengine.org/learn/migration-guides/), but we can't guarantee migrations will always be easy. Use only if you are willing to work in this environment.
 
 **MSRV:** Bevy relies heavily on improvements in the Rust language and compiler.
 As a result, the Minimum Supported Rust Version (MSRV) is generally close to "the latest stable release" of Rust.
@@ -34,7 +34,7 @@ As a result, the Minimum Supported Rust Version (MSRV) is generally close to "th
 
 ## Docs
 
-* **[The Bevy Book](https://bevyengine.org/learn/book/introduction):** Bevy's official documentation. The best place to start learning Bevy.
+* **[Quick Start Guide](https://bevyengine.org/learn/quick-start/introduction):** Bevy's official Quick Start Guide. The best place to start learning Bevy.
 * **[Bevy Rust API Docs](https://docs.rs/bevy):** Bevy's Rust API docs, which are automatically generated from the doc comments in this repo.
 * **[Official Examples](https://github.com/bevyengine/bevy/tree/latest/examples):** Bevy's dedicated, runnable examples, which are great for digging into specific concepts.
 * **[Community-Made Learning Resources](https://bevyengine.org/assets/#learning)**: More tutorials, documentation, and examples made by the Bevy community.
@@ -58,9 +58,9 @@ For more complex architecture decisions and experimental mad science, please ope
 
 ## Getting Started
 
-We recommend checking out [The Bevy Book](https://bevyengine.org/learn/book/introduction) for a full tutorial.
+We recommend checking out the [Quick Start Guide](https://bevyengine.org/learn/quick-start/introduction) for a brief introduction.
 
-Follow the [Setup guide](https://bevyengine.org/learn/book/getting-started/setup/) to ensure your development environment is set up correctly.
+Follow the [Setup guide](https://bevyengine.org/learn/quick-start/getting-started/setup) to ensure your development environment is set up correctly.
 Once set up, you can quickly try out the [examples](https://github.com/bevyengine/bevy/tree/latest/examples) by cloning this repo and running the following commands:
 
 ```sh
@@ -84,15 +84,7 @@ fn main(){
 
 ### Fast Compiles
 
-Bevy can be built just fine using default configuration on stable Rust. However for really fast iterative compiles, you should enable the "fast compiles" setup by [following the instructions here](http://bevyengine.org/learn/book/getting-started/setup/).
-
-## Libraries Used
-
-Bevy is only possible because of the hard work put into these foundational technologies:
-
-* [wgpu](https://wgpu.rs/): modern / low-level / cross-platform graphics library based on the [WebGPU](https://gpuweb.github.io/gpuweb/) API.
-* [glam-rs](https://github.com/bitshifter/glam-rs): a simple and fast 3D math library for games and graphics
-* [winit](https://github.com/rust-windowing/winit): cross-platform window creation and management in Rust
+Bevy can be built just fine using default configuration on stable Rust. However for really fast iterative compiles, you should enable the "fast compiles" setup by [following the instructions here](https://bevyengine.org/learn/quick-start/getting-started/setup).
 
 ## [Bevy Cargo Features][cargo_features]
 
@@ -100,15 +92,11 @@ This [list][cargo_features] outlines the different cargo features supported by B
 
 [cargo_features]: docs/cargo_features.md
 
-## [Third Party Plugins][plugin_guidelines]
+## Thanks
 
-Plugins are very welcome to extend Bevy's features. [Guidelines][plugin_guidelines] are available to help integration and usage.
+Bevy is the result of the hard work of many people. A huge thanks to all Bevy contributors, the many open source projects that have come before us, the [Rust gamedev ecosystem](https://arewegameyet.rs/), and the many libraries we build on.
 
-[plugin_guidelines]: docs/plugins_guidelines.md
-
-## Thanks and Alternatives
-
-Additionally, we would like to thank the [Amethyst](https://github.com/amethyst/amethyst), [macroquad](https://github.com/not-fl3/macroquad), [coffee](https://github.com/hecrj/coffee), [ggez](https://github.com/ggez/ggez), [Fyrox](https://github.com/FyroxEngine/Fyrox), and [Piston](https://github.com/PistonDevelopers/piston) projects for providing solid examples of game engine development in Rust. If you are looking for a Rust game engine, it is worth considering all of your options. Each engine has different design goals, and some will likely resonate with you more than others.
+A huge thanks to Bevy's [generous sponsors](https://bevyengine.org). Bevy will always be free and open source, but it isn't free to make. Please consider [sponsoring our work](https://bevyengine.org/community/donate/) if you like what we're building.
 
 <!-- This next line need to stay exactly as is. It is required for BrowserStack sponsorship. -->
 This project is tested with BrowserStack.
