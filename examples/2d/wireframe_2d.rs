@@ -1,4 +1,4 @@
-//! Showcases wireframe rendering.
+//! Showcases wireframe rendering for 2d meshes.
 //!
 //! Wireframes currently do not work when using webgl or webgpu.
 //! Supported platforms:
@@ -9,6 +9,7 @@
 //! This is a native only feature.
 
 use bevy::{
+    color::palettes::basic::{GREEN, RED, WHITE},
     prelude::*,
     render::{
         render_resource::WgpuFeatures,
@@ -43,14 +44,14 @@ fn main() {
             global: true,
             // Controls the default color of all wireframes. Used as the default color for global wireframes.
             // Can be changed per mesh using the `Wireframe2dColor` component.
-            default_color: LegacyColor::WHITE,
+            default_color: WHITE,
         })
         .add_systems(Startup, setup)
         .add_systems(Update, update_colors)
         .run();
 }
 
-/// set up a simple 3D scene
+/// Set up a simple 3D scene
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -90,12 +91,10 @@ fn setup(
         Wireframe2d,
         // This lets you configure the wireframe color of this entity.
         // If not set, this will use the color in `WireframeConfig`
-        Wireframe2dColor {
-            color: LegacyColor::GREEN,
-        },
+        Wireframe2dColor { color: GREEN },
     ));
 
-    // camera
+    // Camera
     commands.spawn(Camera2dBundle::default());
 
     // Text used to show controls
@@ -109,7 +108,7 @@ fn setup(
     );
 }
 
-/// This system let's you toggle various wireframe settings
+/// This system lets you toggle various wireframe settings
 fn update_colors(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut config: ResMut<Wireframe2dConfig>,
@@ -139,21 +138,17 @@ Color: {:?}
 
     // Toggle the global wireframe color
     if keyboard_input.just_pressed(KeyCode::KeyX) {
-        config.default_color = if config.default_color == LegacyColor::WHITE {
-            LegacyColor::PINK
+        config.default_color = if config.default_color == WHITE {
+            RED
         } else {
-            LegacyColor::WHITE
+            WHITE
         };
     }
 
-    // Toggle the color of a wireframe using WireframeColor and not the global color
+    // Toggle the color of a wireframe using `Wireframe2dColor` and not the global color
     if keyboard_input.just_pressed(KeyCode::KeyC) {
         for mut color in &mut wireframe_colors {
-            color.color = if color.color == LegacyColor::GREEN {
-                LegacyColor::RED
-            } else {
-                LegacyColor::GREEN
-            };
+            color.color = if color.color == GREEN { RED } else { GREEN };
         }
     }
 }
