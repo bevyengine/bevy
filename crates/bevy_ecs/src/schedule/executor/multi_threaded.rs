@@ -788,9 +788,21 @@ unsafe fn evaluate_and_fold_conditions(
         .fold(true, |acc, res| acc && res)
 }
 
-/// New-typed [`TaskPool`] [`Resource`] that is used to run systems on a custom task pool.
+/// Newtyped [`TaskPool`] [`Resource`] that is used to run systems on a custom task pool.
+///
+/// By default all [`MultiThreadedExecutor`] will use the same [`ComputeTaskPool`] in order
+/// to run systems in parallel. Insert a [`MultiThreadedTaskPool`] resource into the [`World`]
+/// with a custom [`TaskPool`] to change this behavior.
 #[derive(Resource)]
-pub struct MultiThreadedTaskPool(pub Arc<TaskPool>);
+pub struct MultiThreadedTaskPool(Arc<TaskPool>);
+
+impl MultiThreadedTaskPool {
+    /// Creates a new [`MultiThreadedTaskPool`] with a [`TaskPool`] to be used by
+    /// [`MultiThreadedExecutor`].
+    pub fn new(task_pool: TaskPool) -> Self {
+        Self(Arc::new(task_pool))
+    }
+}
 
 /// New-typed [`ThreadExecutor`] [`Resource`] that is used to run systems on the main thread
 #[derive(Resource, Clone)]
