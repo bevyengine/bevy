@@ -6,7 +6,7 @@
 //! # use bevy_render::prelude::*;
 //! # use bevy_math::prelude::*;
 //! fn system(mut gizmos: Gizmos) {
-//!     gizmos.line(Vec3::ZERO, Vec3::X, Color::GREEN);
+//!     gizmos.line(Vec3::ZERO, Vec3::X, LegacyColor::GREEN);
 //! }
 //! # bevy_ecs::system::assert_is_system(system);
 //! ```
@@ -52,6 +52,7 @@ pub mod prelude {
 use aabb::AabbGizmoPlugin;
 use bevy_app::{App, Last, Plugin};
 use bevy_asset::{load_internal_asset, Asset, AssetApp, Assets, Handle};
+use bevy_color::LinearRgba;
 use bevy_core::cast_slice;
 use bevy_ecs::{
     component::Component,
@@ -98,6 +99,7 @@ impl Plugin for GizmoPlugin {
         load_internal_asset!(app, LINE_SHADER_HANDLE, "lines.wgsl", Shader::from_wgsl);
 
         app.register_type::<GizmoConfig>()
+            .register_type::<GizmoConfigStore>()
             .add_plugins(UniformComponentPlugin::<LineGizmoUniform>::default())
             .init_asset::<LineGizmo>()
             .add_plugins(RenderAssetPlugin::<LineGizmo>::default())
@@ -114,6 +116,8 @@ impl Plugin for GizmoPlugin {
             Render,
             prepare_line_gizmo_bind_group.in_set(RenderSet::PrepareBindGroups),
         );
+
+        render_app.add_systems(ExtractSchedule, extract_gizmo_data);
 
         #[cfg(feature = "bevy_sprite")]
         app.add_plugins(pipeline_2d::LineGizmo2dPlugin);
@@ -162,18 +166,18 @@ impl AppGizmoBuilder for App {
             return self;
         }
 
+        let mut handles = self
+            .world
+            .get_resource_or_insert_with::<LineGizmoHandles>(Default::default);
+        handles.list.insert(TypeId::of::<T>(), None);
+        handles.strip.insert(TypeId::of::<T>(), None);
+
         self.init_resource::<GizmoStorage<T>>()
             .add_systems(Last, update_gizmo_meshes::<T>);
 
         self.world
             .get_resource_or_insert_with::<GizmoConfigStore>(Default::default)
             .register::<T>();
-
-        let Ok(render_app) = self.get_sub_app_mut(RenderApp) else {
-            return self;
-        };
-
-        render_app.add_systems(ExtractSchedule, extract_gizmo_data::<T>);
 
         self
     }
@@ -191,23 +195,28 @@ impl AppGizmoBuilder for App {
             return self;
         }
 
+        let mut handles = self
+            .world
+            .get_resource_or_insert_with::<LineGizmoHandles>(Default::default);
+        handles.list.insert(TypeId::of::<T>(), None);
+        handles.strip.insert(TypeId::of::<T>(), None);
+
         self.init_resource::<GizmoStorage<T>>()
             .add_systems(Last, update_gizmo_meshes::<T>);
-
-        let Ok(render_app) = self.get_sub_app_mut(RenderApp) else {
-            return self;
-        };
-
-        render_app.add_systems(ExtractSchedule, extract_gizmo_data::<T>);
 
         self
     }
 }
 
+/// Holds handles to the line gizmos for each gizmo configuration group
+// As `TypeIdMap` iteration order depends on the order of insertions and deletions, this uses
+// `Option<Handle>` to be able to reserve the slot when creating the gizmo configuration group.
+// That way iteration order is stable across executions and depends on the order of configuration
+// group creation.
 #[derive(Resource, Default)]
 struct LineGizmoHandles {
-    list: TypeIdMap<Handle<LineGizmo>>,
-    strip: TypeIdMap<Handle<LineGizmo>>,
+    list: TypeIdMap<Option<Handle<LineGizmo>>>,
+    strip: TypeIdMap<Option<Handle<LineGizmo>>>,
 }
 
 fn update_gizmo_meshes<T: GizmoConfigGroup>(
@@ -216,63 +225,66 @@ fn update_gizmo_meshes<T: GizmoConfigGroup>(
     mut storage: ResMut<GizmoStorage<T>>,
 ) {
     if storage.list_positions.is_empty() {
-        handles.list.remove(&TypeId::of::<T>());
-    } else if let Some(handle) = handles.list.get(&TypeId::of::<T>()) {
-        let list = line_gizmos.get_mut(handle).unwrap();
+        handles.list.insert(TypeId::of::<T>(), None);
+    } else if let Some(handle) = handles.list.get_mut(&TypeId::of::<T>()) {
+        if let Some(handle) = handle {
+            let list = line_gizmos.get_mut(handle.id()).unwrap();
 
-        list.positions = mem::take(&mut storage.list_positions);
-        list.colors = mem::take(&mut storage.list_colors);
-    } else {
-        let mut list = LineGizmo {
-            strip: false,
-            ..Default::default()
-        };
+            list.positions = mem::take(&mut storage.list_positions);
+            list.colors = mem::take(&mut storage.list_colors);
+        } else {
+            let mut list = LineGizmo {
+                strip: false,
+                ..Default::default()
+            };
 
-        list.positions = mem::take(&mut storage.list_positions);
-        list.colors = mem::take(&mut storage.list_colors);
+            list.positions = mem::take(&mut storage.list_positions);
+            list.colors = mem::take(&mut storage.list_colors);
 
-        handles
-            .list
-            .insert(TypeId::of::<T>(), line_gizmos.add(list));
+            *handle = Some(line_gizmos.add(list));
+        }
     }
 
     if storage.strip_positions.is_empty() {
-        handles.strip.remove(&TypeId::of::<T>());
-    } else if let Some(handle) = handles.strip.get(&TypeId::of::<T>()) {
-        let strip = line_gizmos.get_mut(handle).unwrap();
+        handles.strip.insert(TypeId::of::<T>(), None);
+    } else if let Some(handle) = handles.strip.get_mut(&TypeId::of::<T>()) {
+        if let Some(handle) = handle {
+            let strip = line_gizmos.get_mut(handle.id()).unwrap();
 
-        strip.positions = mem::take(&mut storage.strip_positions);
-        strip.colors = mem::take(&mut storage.strip_colors);
-    } else {
-        let mut strip = LineGizmo {
-            strip: true,
-            ..Default::default()
-        };
+            strip.positions = mem::take(&mut storage.strip_positions);
+            strip.colors = mem::take(&mut storage.strip_colors);
+        } else {
+            let mut strip = LineGizmo {
+                strip: true,
+                ..Default::default()
+            };
 
-        strip.positions = mem::take(&mut storage.strip_positions);
-        strip.colors = mem::take(&mut storage.strip_colors);
+            strip.positions = mem::take(&mut storage.strip_positions);
+            strip.colors = mem::take(&mut storage.strip_colors);
 
-        handles
-            .strip
-            .insert(TypeId::of::<T>(), line_gizmos.add(strip));
+            *handle = Some(line_gizmos.add(strip));
+        }
     }
 }
 
-fn extract_gizmo_data<T: GizmoConfigGroup>(
+fn extract_gizmo_data(
     mut commands: Commands,
     handles: Extract<Res<LineGizmoHandles>>,
     config: Extract<Res<GizmoConfigStore>>,
 ) {
-    let (config, _) = config.config::<T>();
-
-    if !config.enabled {
-        return;
-    }
-
-    for map in [&handles.list, &handles.strip].into_iter() {
-        let Some(handle) = map.get(&TypeId::of::<T>()) else {
+    for (group_type_id, handle) in handles.list.iter().chain(handles.strip.iter()) {
+        let Some((config, _)) = config.get_config_dyn(group_type_id) else {
             continue;
         };
+
+        if !config.enabled {
+            continue;
+        }
+
+        let Some(handle) = handle else {
+            continue;
+        };
+
         commands.spawn((
             LineGizmoUniform {
                 line_width: config.line_width,
@@ -298,7 +310,7 @@ struct LineGizmoUniform {
 #[derive(Asset, Debug, Default, Clone, TypePath)]
 struct LineGizmo {
     positions: Vec<[f32; 3]>,
-    colors: Vec<[f32; 4]>,
+    colors: Vec<LinearRgba>,
     /// Whether this gizmo's topology is a line-strip or line-list
     strip: bool,
 }

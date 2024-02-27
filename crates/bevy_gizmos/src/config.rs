@@ -3,8 +3,8 @@
 use crate as bevy_gizmos;
 pub use bevy_gizmos_macros::GizmoConfigGroup;
 
-use bevy_ecs::{component::Component, system::Resource};
-use bevy_reflect::{Reflect, TypePath};
+use bevy_ecs::{component::Component, reflect::ReflectResource, system::Resource};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use bevy_render::view::RenderLayers;
 use bevy_utils::TypeIdMap;
 use core::panic;
@@ -27,9 +27,11 @@ pub struct DefaultGizmoConfigGroup;
 /// A [`Resource`] storing [`GizmoConfig`] and [`GizmoConfigGroup`] structs
 ///
 /// Use `app.init_gizmo_group::<T>()` to register a custom config group.
-#[derive(Resource, Default)]
+#[derive(Reflect, Resource, Default)]
+#[reflect(Resource, Default)]
 pub struct GizmoConfigStore {
     // INVARIANT: must map TypeId::of::<T>() to correct type T
+    #[reflect(ignore)]
     store: TypeIdMap<(GizmoConfig, Box<dyn Reflect>)>,
 }
 

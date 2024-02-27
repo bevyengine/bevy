@@ -8,7 +8,7 @@
 
 @group(0) @binding(0) var<uniform> view: View;
 @group(0) @binding(1) var<uniform> lights: types::Lights;
-#ifdef NO_ARRAY_TEXTURES_SUPPORT
+#ifdef NO_CUBE_ARRAY_TEXTURES_SUPPORT
 @group(0) @binding(2) var point_shadow_textures: texture_depth_cube;
 #else
 @group(0) @binding(2) var point_shadow_textures: texture_depth_cube_array;
@@ -46,12 +46,14 @@
 #endif
 @group(0) @binding(15) var environment_map_sampler: sampler;
 
+#ifdef IRRADIANCE_VOLUMES_ARE_USABLE
 #ifdef MULTIPLE_LIGHT_PROBES_IN_ARRAY
 @group(0) @binding(16) var irradiance_volumes: binding_array<texture_3d<f32>, 8u>;
 #else
 @group(0) @binding(16) var irradiance_volume: texture_3d<f32>;
 #endif
 @group(0) @binding(17) var irradiance_volume_sampler: sampler;
+#endif
 
 // NB: If you change these, make sure to update `tonemapping_shared.wgsl` too.
 @group(0) @binding(18) var dt_lut_texture: texture_3d<f32>;

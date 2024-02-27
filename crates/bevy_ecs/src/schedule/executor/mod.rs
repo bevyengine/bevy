@@ -21,8 +21,8 @@ pub(super) trait SystemExecutor: Send + Sync {
     fn run(
         &mut self,
         schedule: &mut SystemSchedule,
-        skip_systems: Option<FixedBitSet>,
         world: &mut World,
+        skip_systems: Option<&FixedBitSet>,
     );
     fn set_apply_final_deferred(&mut self, value: bool);
 }
