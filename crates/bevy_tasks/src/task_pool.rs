@@ -650,12 +650,11 @@ impl TaskPool {
     /// will cause the OS to [thrash], which may impact the performance
     /// of the non-blocking tasks scheduled onto the `TaskPool`.  
     ///
-    /// Closures spawned using `spawn_blocking` cannot be cancelled. When you
-    /// shut down the executor, it will wait indefinitely for all blocking
-    /// operations to finish.
+    /// The returned task can be detached or cancelled; however, any long standing
+    /// blocking operations will continue until the future yields. 
     ///
     /// ## Platform Specific Behavior
-    /// This function behaves identically to `apawn` on `wasm` targets, or if
+    /// This function behaves identically to `spawn` on `wasm` targets, or if
     /// the `multi-threaded` feature on the crate is not enabled.
     ///
     /// [`spawn`]: Self::spawn
