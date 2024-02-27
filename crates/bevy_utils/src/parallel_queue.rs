@@ -57,7 +57,7 @@ impl<T: Send> Parallel<Vec<T>> {
     /// Collect all enqueued items from all threads and appends them to the end of a
     /// single Vec.
     ///
-    /// The ordering is not guarenteed.
+    /// The ordering is not guaranteed.
     pub fn drain_into(&mut self, out: &mut Vec<T>) {
         let size = self
             .locals

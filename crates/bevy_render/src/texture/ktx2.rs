@@ -1,11 +1,11 @@
 #[cfg(any(feature = "flate2", feature = "ruzstd"))]
 use std::io::Read;
 
-use crate::color::SrgbColorSpace;
 #[cfg(feature = "basis-universal")]
 use basis_universal::{
     DecodeFlags, LowLevelUastcTranscoder, SliceParametersUastc, TranscoderBlockFormat,
 };
+use bevy_color::Srgba;
 use bevy_utils::default;
 #[cfg(any(feature = "flate2", feature = "ruzstd"))]
 use ktx2::SupercompressionScheme;
@@ -95,7 +95,7 @@ pub fn ktx2_buffer_to_image(
                             level_data
                                 .iter()
                                 .copied()
-                                .map(|v| v.nonlinear_to_linear_srgb())
+                                .map(|v| (Srgba::gamma_function(v as f32 / 255.) * 255.).floor() as u8)
                                 .collect::<Vec<u8>>(),
                         );
 
@@ -114,7 +114,7 @@ pub fn ktx2_buffer_to_image(
                             level_data
                                 .iter()
                                 .copied()
-                                .map(|v| v.nonlinear_to_linear_srgb())
+                                .map(|v| (Srgba::gamma_function(v as f32 / 255.) * 255.).floor() as u8)
                                 .collect::<Vec<u8>>(),
                         );
 
