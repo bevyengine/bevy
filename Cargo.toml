@@ -77,11 +77,15 @@ default = [
   "tonemapping_luts",
   "default_font",
   "webgl2",
+  "sysinfo_plugin",
   "bevy_debug_stepping",
 ]
 
 # Force dynamic linking, which improves iterative compile times
 dynamic_linking = ["dep:bevy_dylib", "bevy_internal/dynamic_linking"]
+
+# Enables sysinfo diagnostic plugin
+sysinfo_plugin = ["bevy_internal/sysinfo_plugin"]
 
 # Provides animation functionality
 bevy_animation = ["bevy_internal/bevy_animation", "bevy_color"]
