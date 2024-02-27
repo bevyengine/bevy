@@ -11,6 +11,8 @@ keywords = ["bevy"]
 [features]
 # Disables diagnostics that are unsupported when Bevy is dynamically linked
 dynamic_linking = []
+sysinfo_plugin = []
+default-features = ["sysinfo_plugin"]
 
 [dependencies]
 # bevy
@@ -26,13 +28,13 @@ const-fnv1a-hash = "1.1.0"
 # MacOS
 [target.'cfg(all(target_os="macos"))'.dependencies]
 # Some features of sysinfo are not supported by apple. This will disable those features on apple devices
-sysinfo = { version = "0.30.0", default-features = false, features = [
+sysinfo = { version = "0.30.0", optional = true, default-features = false, features = [
   "apple-app-store",
 ] }
 
 # Only include when not bevy_dynamic_plugin and on linux/windows/android
 [target.'cfg(any(target_os = "linux", target_os = "windows", target_os = "android"))'.dependencies]
-sysinfo = { version = "0.30.0", default-features = false }
+sysinfo = { version = "0.30.0", optional = true, default-features = false }
 
 [lints]
 workspace = true
