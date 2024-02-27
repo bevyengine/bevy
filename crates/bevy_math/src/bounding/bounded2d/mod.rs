@@ -149,7 +149,7 @@ impl BoundingVolume for Aabb2d {
     }
 
     #[inline(always)]
-    fn scale(&self, scale: Self::HalfSize) -> Self {
+    fn scale_around_center(&self, scale: Self::HalfSize) -> Self {
         let b = Self {
             min: self.center() - (self.half_size() * scale),
             max: self.center() + (self.half_size() * scale),
@@ -288,13 +288,12 @@ mod aabb2d_tests {
     }
 
     #[test]
-    fn scale() {
+    fn scale_around_center() {
         let a = Aabb2d {
             min: Vec2::new(-1., -1.),
             max: Vec2::new(1., 1.),
         };
-        let scaled = a.scale(Vec2::new(2., 2.));
-        dbg!(scaled);
+        let scaled = a.scale_around_center(Vec2::new(2., 2.));
         assert!((scaled.min - Vec2::new(-2., -2.)).length() < std::f32::EPSILON);
         assert!((scaled.max - Vec2::new(2., 2.)).length() < std::f32::EPSILON);
         assert!(!a.contains(&scaled));
@@ -475,7 +474,7 @@ impl BoundingVolume for BoundingCircle {
     }
 
     #[inline(always)]
-    fn scale(&self, scale: Self::HalfSize) -> Self {
+    fn scale_around_center(&self, scale: Self::HalfSize) -> Self {
         debug_assert!(scale >= 0.);
         Self::new(self.center, self.radius() * scale)
     }
@@ -582,9 +581,9 @@ mod bounding_circle_tests {
     }
 
     #[test]
-    fn scale() {
+    fn scale_around_center() {
         let a = BoundingCircle::new(Vec2::ONE, 5.);
-        let scaled = a.scale(2.);
+        let scaled = a.scale_around_center(2.);
         assert!((scaled.radius() - 10.).abs() < std::f32::EPSILON);
         assert!(!a.contains(&scaled));
         assert!(scaled.contains(&a));
