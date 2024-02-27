@@ -84,7 +84,7 @@ default = [
 dynamic_linking = ["dep:bevy_dylib", "bevy_internal/dynamic_linking"]
 
 # Provides animation functionality
-bevy_animation = ["bevy_internal/bevy_animation"]
+bevy_animation = ["bevy_internal/bevy_animation", "bevy_color"]
 
 # Provides asset functionality
 bevy_asset = ["bevy_internal/bevy_asset"]
@@ -120,7 +120,7 @@ bevy_pbr = [
 ]
 
 # Provides rendering functionality
-bevy_render = ["bevy_internal/bevy_render"]
+bevy_render = ["bevy_internal/bevy_render", "bevy_color"]
 
 # Provides scene functionality
 bevy_scene = ["bevy_internal/bevy_scene", "bevy_asset"]
@@ -137,13 +137,14 @@ bevy_ui = [
   "bevy_core_pipeline",
   "bevy_text",
   "bevy_sprite",
+  "bevy_color",
 ]
 
 # winit window and input backend
 bevy_winit = ["bevy_internal/bevy_winit"]
 
 # Adds support for rendering gizmos
-bevy_gizmos = ["bevy_internal/bevy_gizmos"]
+bevy_gizmos = ["bevy_internal/bevy_gizmos", "bevy_color"]
 
 # Tracing support, saving a file in Chrome Tracing format
 trace_chrome = ["trace", "bevy_internal/trace_chrome"]
