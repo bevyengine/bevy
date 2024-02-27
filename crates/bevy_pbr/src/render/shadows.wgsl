@@ -44,7 +44,7 @@ fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: v
     // a quad (2x2 fragments) being processed not being sampled, and this messing with
     // mip-mapping functionality. The shadow maps have no mipmaps so Level just samples
     // from LOD 0.
-#ifdef NO_ARRAY_TEXTURES_SUPPORT
+#ifdef NO_CUBE_ARRAY_TEXTURES_SUPPORT
     return textureSampleCompare(view_bindings::point_shadow_textures, view_bindings::point_shadow_textures_sampler, frag_ls * flip_z, depth);
 #else
     return textureSampleCompareLevel(view_bindings::point_shadow_textures, view_bindings::point_shadow_textures_sampler, frag_ls * flip_z, i32(light_id), depth);

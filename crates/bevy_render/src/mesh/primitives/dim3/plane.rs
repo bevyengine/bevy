@@ -1,7 +1,4 @@
-use bevy_math::{
-    primitives::{Direction3d, Plane3d},
-    Quat, Vec2, Vec3,
-};
+use bevy_math::{primitives::Plane3d, Direction3d, Quat, Vec2, Vec3};
 use wgpu::PrimitiveTopology;
 
 use crate::{
@@ -42,6 +39,16 @@ impl PlaneMeshBuilder {
     pub fn from_size(size: Vec2) -> Self {
         Self {
             half_size: size / 2.0,
+            ..Default::default()
+        }
+    }
+
+    /// Creates a new [`PlaneMeshBuilder`] from the given length, with the normal pointing upwards,
+    /// and the resulting [`PlaneMeshBuilder`] being a square.
+    #[inline]
+    pub fn from_length(length: f32) -> Self {
+        Self {
+            half_size: Vec2::splat(length) / 2.0,
             ..Default::default()
         }
     }

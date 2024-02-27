@@ -157,6 +157,11 @@ use super::LightProbeComponent;
 pub const IRRADIANCE_VOLUME_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(160299515939076705258408299184317675488);
 
+/// On WebGL and WebGPU, we must disable irradiance volumes, as otherwise we can
+/// overflow the number of texture bindings when deferred rendering is in use
+/// (see issue #11885).
+pub(crate) const IRRADIANCE_VOLUMES_ARE_USABLE: bool = cfg!(not(target_arch = "wasm32"));
+
 /// The component that defines an irradiance volume.
 ///
 /// See [`crate::irradiance_volume`] for detailed information.
