@@ -688,7 +688,7 @@ impl Archetypes {
         self.archetypes.get(id.index())
     }
 
-    /// Fetches an immutable reference to an [`Archetype`] using its
+    /// Fetches an mutable reference to an [`Archetype`] using its
     /// ID. Returns `None` if no corresponding archetype exists.
     #[inline]
     pub(crate) fn get_mut(&mut self, id: ArchetypeId) -> Option<&mut Archetype> {
