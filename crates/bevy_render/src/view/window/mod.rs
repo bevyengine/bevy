@@ -494,6 +494,16 @@ pub fn create_surfaces(
             });
 
         if window.size_changed || window.present_mode_changed {
+            data.configuration.width = window.physical_width;
+            data.configuration.height = window.physical_height;
+            data.configuration.present_mode = match window.present_mode {
+                PresentMode::Fifo => wgpu::PresentMode::Fifo,
+                PresentMode::FifoRelaxed => wgpu::PresentMode::FifoRelaxed,
+                PresentMode::Mailbox => wgpu::PresentMode::Mailbox,
+                PresentMode::Immediate => wgpu::PresentMode::Immediate,
+                PresentMode::AutoVsync => wgpu::PresentMode::AutoVsync,
+                PresentMode::AutoNoVsync => wgpu::PresentMode::AutoNoVsync,
+            };
             render_device.configure_surface(&data.surface, &data.configuration);
         }
     }
