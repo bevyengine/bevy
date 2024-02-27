@@ -70,11 +70,7 @@ fn from_reflect_or_world<T: FromReflect>(
         );
     };
 
-    let Ok(mut value) = reflect_from_world
-        .from_world(world)
-        .into_any()
-        .downcast::<T>()
-    else {
+    let Ok(mut value) = reflect_from_world.from_world(world).take::<T>() else {
         panic!(
             "the `ReflectFromWorld` registration for `{}` produced a value of a different type",
             // FIXME: once we have unique reflect, use `TypePath`.
@@ -83,5 +79,5 @@ fn from_reflect_or_world<T: FromReflect>(
     };
 
     value.apply(reflected);
-    *value
+    value
 }
