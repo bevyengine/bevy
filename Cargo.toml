@@ -77,6 +77,7 @@ default = [
   "default_font",
   "webgl2",
   "bevy_debug_stepping",
+  android-game-activity,
 ]
 
 # Force dynamic linking, which improves iterative compile times
