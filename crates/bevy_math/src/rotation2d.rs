@@ -105,9 +105,13 @@ impl Rotation2d {
 
     /// Creates a [`Rotation2d`] from the sine and cosine of an angle in radians.
     ///
-    /// The rotation is only valid if `sin.asin() == cos.acos()`.
+    /// The rotation is only valid if `sin * sin + cos * cos == 1.0`.
     #[inline]
-    pub const fn from_sin_cos(sin: f32, cos: f32) -> Self {
+    pub fn from_sin_cos(sin: f32, cos: f32) -> Self {
+        debug_assert!(
+            (sin.powi(2) + cos.powi(2) - 1.0).abs() < 10.0e-7,
+            "the given sine and cosine produce an invalid rotation"
+        );
         Self { sin, cos }
     }
 
