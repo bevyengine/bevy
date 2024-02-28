@@ -16,7 +16,7 @@ use bevy_render::{
 use bevy_utils::{HashMap, Hashed};
 use std::hash::Hash;
 
-/// A list of (Material ID, Pipeline, BindGroup) for a view for use in [`MeshletMainOpaquePass3dNode`].
+/// A list of `(Material ID, Pipeline, BindGroup)` for a view for use in [`MeshletMainOpaquePass3dNode`].
 #[derive(Component, Deref, DerefMut, Default)]
 pub struct MeshletViewMaterialsMainOpaquePass(pub Vec<(u32, CachedRenderPipelineId, BindGroup)>);
 
@@ -207,11 +207,11 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
     }
 }
 
-/// A list of (Material ID, Pipeline, BindGroup) for a view for use in [`MeshletPrepassNode`].
+/// A list of `(Material ID, Pipeline, BindGroup)` for a view for use in [`MeshletPrepassNode`].
 #[derive(Component, Deref, DerefMut, Default)]
 pub struct MeshletViewMaterialsPrepass(pub Vec<(u32, CachedRenderPipelineId, BindGroup)>);
 
-/// A list of (Material ID, Pipeline, BindGroup) for a view for use in [`MeshletDeferredGBufferPrepassNode`].
+/// A list of `(Material ID, Pipeline, BindGroup)` for a view for use in [`MeshletDeferredGBufferPrepassNode`].
 #[derive(Component, Deref, DerefMut, Default)]
 pub struct MeshletViewMaterialsDeferredGBufferPrepass(
     pub Vec<(u32, CachedRenderPipelineId, BindGroup)>,
