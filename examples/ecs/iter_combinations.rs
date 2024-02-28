@@ -6,7 +6,7 @@ use rand::{rngs::StdRng, Rng, SeedableRng};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(ClearColor(LegacyColor::BLACK))
+        .insert_resource(ClearColor(Color::BLACK))
         .add_systems(Startup, generate_bodies)
         .add_systems(FixedUpdate, (interact_bodies, integrate))
         .add_systems(Update, look_at_star)

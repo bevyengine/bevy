@@ -41,7 +41,7 @@ const GAP_BETWEEN_BRICKS_AND_SIDES: f32 = 20.0;
 const SCOREBOARD_FONT_SIZE: f32 = 40.0;
 const SCOREBOARD_TEXT_PADDING: Val = Val::Px(5.0);
 
-const BACKGROUND_COLOR: LegacyColor = LegacyColor::rgb(0.9, 0.9, 0.9);
+const BACKGROUND_COLOR: Color = Color::srgb(0.9, 0.9, 0.9);
 const PADDLE_COLOR: LegacyColor = LegacyColor::rgb(0.3, 0.3, 0.7);
 const BALL_COLOR: LegacyColor = LegacyColor::rgb(1.0, 0.5, 0.5);
 const BRICK_COLOR: LegacyColor = LegacyColor::rgb(0.5, 0.5, 1.0);

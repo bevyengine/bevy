@@ -103,7 +103,7 @@ fn setup(
                 // render before the "main pass" camera
                 order: -1,
                 target: image_handle.clone().into(),
-                clear_color: LegacyColor::WHITE.into(),
+                clear_color: Color::WHITE.into(),
                 ..default()
             },
             transform: Transform::from_translation(Vec3::new(0.0, 0.0, 15.0))
