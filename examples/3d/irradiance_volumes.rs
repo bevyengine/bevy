@@ -150,7 +150,7 @@ fn main() {
         .init_resource::<AppStatus>()
         .init_resource::<ExampleAssets>()
         .insert_resource(AmbientLight {
-            color: LegacyColor::WHITE,
+            color: Color::WHITE,
             brightness: 0.0,
         })
         .add_systems(Startup, setup)

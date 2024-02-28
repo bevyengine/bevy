@@ -343,7 +343,7 @@ fn spawn_bonus(
             .with_children(|children| {
                 children.spawn(PointLightBundle {
                     point_light: PointLight {
-                        color: LegacyColor::rgb(1.0, 1.0, 0.0),
+                        color: Color::srgb(1.0, 1.0, 0.0),
                         intensity: 500_000.0,
                         range: 10.0,
                         ..default()

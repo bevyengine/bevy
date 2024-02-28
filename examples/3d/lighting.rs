@@ -123,7 +123,7 @@ fn setup(
 
     // ambient light
     commands.insert_resource(AmbientLight {
-        color: LegacyColor::ORANGE_RED,
+        color: ORANGE_RED.into(),
         brightness: 0.02,
     });
 
@@ -134,7 +134,7 @@ fn setup(
             transform: Transform::from_xyz(1.0, 2.0, 0.0),
             point_light: PointLight {
                 intensity: 100_000.0,
-                color: LegacyColor::RED,
+                color: RED.into(),
                 shadows_enabled: true,
                 ..default()
             },
@@ -159,7 +159,7 @@ fn setup(
                 .looking_at(Vec3::new(-1.0, 0.0, 0.0), Vec3::Z),
             spot_light: SpotLight {
                 intensity: 100_000.0,
-                color: LegacyColor::GREEN,
+                color: GREEN.into(),
                 shadows_enabled: true,
                 inner_angle: 0.6,
                 outer_angle: 0.8,
@@ -187,7 +187,7 @@ fn setup(
             transform: Transform::from_xyz(0.0, 4.0, 0.0),
             point_light: PointLight {
                 intensity: 100_000.0,
-                color: LegacyColor::BLUE,
+                color: BLUE.into(),
                 shadows_enabled: true,
                 ..default()
             },

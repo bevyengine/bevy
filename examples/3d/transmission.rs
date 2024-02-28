@@ -318,7 +318,9 @@ fn setup(
         PointLightBundle {
             transform: Transform::from_xyz(-1.0, 1.7, 0.0),
             point_light: PointLight {
-                color: LegacyColor::ANTIQUE_WHITE * 0.8 + LegacyColor::ORANGE_RED * 0.2,
+                color: Color::from(
+                    LinearRgba::from(ANTIQUE_WHITE) * 0.8 + LinearRgba::from(ORANGE_RED) * 0.2,
+                ),
                 intensity: 4_000.0,
                 radius: 0.2,
                 range: 5.0,

@@ -8,7 +8,7 @@ use bevy::{animation::RepeatAnimation, pbr::CascadeShadowConfigBuilder, prelude:
 fn main() {
     App::new()
         .insert_resource(AmbientLight {
-            color: LegacyColor::WHITE,
+            color: Color::WHITE,
             brightness: 2000.,
         })
         .add_plugins(DefaultPlugins)

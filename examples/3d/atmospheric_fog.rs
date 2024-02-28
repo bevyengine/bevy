@@ -60,7 +60,7 @@ fn setup_terrain_scene(
     // Sun
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            color: LegacyColor::rgb(0.98, 0.95, 0.82),
+            color: Color::srgb(0.98, 0.95, 0.82),
             shadows_enabled: true,
             ..default()
         },

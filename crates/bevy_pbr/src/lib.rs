@@ -74,7 +74,6 @@ use bevy_render::{
     camera::{CameraUpdateSystem, Projection},
     extract_component::ExtractComponentPlugin,
     extract_resource::ExtractResourcePlugin,
-    prelude::LegacyColor,
     render_asset::prepare_assets,
     render_graph::RenderGraph,
     render_phase::sort_phase_system,
