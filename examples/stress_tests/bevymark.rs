@@ -29,7 +29,7 @@ const HALF_BIRD_SIZE: f32 = BIRD_TEXTURE_SIZE as f32 * BIRD_SCALE * 0.5;
 #[derive(Resource)]
 struct BevyCounter {
     pub count: usize,
-    pub color: LegacyColor,
+    pub color: Color,
 }
 
 #[derive(Component)]
@@ -123,7 +123,7 @@ fn main() {
         .insert_resource(args)
         .insert_resource(BevyCounter {
             count: 0,
-            color: LegacyColor::WHITE,
+            color: Color::WHITE,
         })
         .add_systems(Startup, setup)
         .add_systems(FixedUpdate, scheduled_spawner)
@@ -309,7 +309,7 @@ fn mouse_handler(
     let window = windows.single();
 
     if mouse_button_input.just_released(MouseButton::Left) {
-        counter.color = LegacyColor::rgb_linear(rng.gen(), rng.gen(), rng.gen());
+        counter.color = Color::linear_rgb(rng.gen(), rng.gen(), rng.gen());
     }
 
     if mouse_button_input.pressed(MouseButton::Left) {
@@ -395,7 +395,7 @@ fn spawn_birds(
                     );
 
                     let color = if args.vary_per_instance {
-                        LegacyColor::rgb_linear(
+                        Color::linear_rgb(
                             bird_resources.color_rng.gen(),
                             bird_resources.color_rng.gen(),
                             bird_resources.color_rng.gen(),
@@ -463,7 +463,7 @@ fn spawn_birds(
     }
 
     counter.count += spawn_count;
-    counter.color = LegacyColor::rgb_linear(
+    counter.color = Color::linear_rgb(
         bird_resources.color_rng.gen(),
         bird_resources.color_rng.gen(),
         bird_resources.color_rng.gen(),

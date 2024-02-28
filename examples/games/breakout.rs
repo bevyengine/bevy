@@ -42,10 +42,10 @@ const SCOREBOARD_FONT_SIZE: f32 = 40.0;
 const SCOREBOARD_TEXT_PADDING: Val = Val::Px(5.0);
 
 const BACKGROUND_COLOR: Color = Color::srgb(0.9, 0.9, 0.9);
-const PADDLE_COLOR: LegacyColor = LegacyColor::rgb(0.3, 0.3, 0.7);
+const PADDLE_COLOR: Color = Color::srgb(0.3, 0.3, 0.7);
 const BALL_COLOR: LegacyColor = LegacyColor::rgb(1.0, 0.5, 0.5);
-const BRICK_COLOR: LegacyColor = LegacyColor::rgb(0.5, 0.5, 1.0);
-const WALL_COLOR: LegacyColor = LegacyColor::rgb(0.8, 0.8, 0.8);
+const BRICK_COLOR: Color = Color::srgb(0.5, 0.5, 1.0);
+const WALL_COLOR: Color = Color::srgb(0.8, 0.8, 0.8);
 const TEXT_COLOR: LegacyColor = LegacyColor::rgb(0.5, 0.5, 1.0);
 const SCORE_COLOR: LegacyColor = LegacyColor::rgb(1.0, 0.5, 0.5);
 

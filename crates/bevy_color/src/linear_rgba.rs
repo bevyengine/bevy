@@ -127,6 +127,13 @@ impl LinearRgba {
             self.mix_assign(Self::new(1.0, 1.0, 1.0, self.alpha), adjustment);
         }
     }
+
+    /// Converts the color into a [f32; 4] array in RGBA order.
+    ///
+    /// This is useful for passing the color to a shader.
+    pub fn to_array(&self) -> [f32; 4] {
+        [self.red, self.green, self.blue, self.alpha]
+    }
 }
 
 impl Default for LinearRgba {
