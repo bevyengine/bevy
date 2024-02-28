@@ -1,15 +1,17 @@
-use crate::{
-    color_difference::EuclideanDistance, oklaba::Oklaba, Alpha, Hsla, Luminance, Mix, Srgba,
-    StandardColor,
-};
+use crate::{color_difference::EuclideanDistance, Alpha, Luminance, Mix, StandardColor};
 use bevy_math::Vec4;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use bevy_render::color::SrgbColorSpace;
+use bytemuck::{Pod, Zeroable};
 use serde::{Deserialize, Serialize};
 
 /// Linear RGB color with alpha.
+#[doc = include_str!("../docs/conversion.md")]
+/// <div>
+#[doc = include_str!("../docs/diagrams/model_graph.svg")]
+/// </div>
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
+#[repr(C)]
 pub struct LinearRgba {
     /// The red channel. [0.0, 1.0]
     pub red: f32,
@@ -24,6 +26,42 @@ pub struct LinearRgba {
 impl StandardColor for LinearRgba {}
 
 impl LinearRgba {
+    /// A fully black color with full alpha.
+    pub const BLACK: Self = Self {
+        red: 0.0,
+        green: 0.0,
+        blue: 0.0,
+        alpha: 1.0,
+    };
+
+    /// A fully white color with full alpha.
+    pub const WHITE: Self = Self {
+        red: 1.0,
+        green: 1.0,
+        blue: 1.0,
+        alpha: 1.0,
+    };
+
+    /// A fully transparent color.
+    pub const NONE: Self = Self {
+        red: 0.0,
+        green: 0.0,
+        blue: 0.0,
+        alpha: 0.0,
+    };
+
+    /// An invalid color.
+    ///
+    /// This type can be used to represent an invalid color value;
+    /// in some rendering applications the color will be ignored,
+    /// enabling performant hacks like hiding lines by setting their color to `INVALID`.
+    pub const NAN: Self = Self {
+        red: f32::NAN,
+        green: f32::NAN,
+        blue: f32::NAN,
+        alpha: f32::NAN,
+    };
+
     /// Construct a new [`LinearRgba`] color from components.
     pub const fn new(red: f32, green: f32, blue: f32, alpha: f32) -> Self {
         Self {
@@ -46,6 +84,18 @@ impl LinearRgba {
             red,
             green,
             blue,
+            alpha: 1.0,
+        }
+    }
+
+    /// Construct a new [`LinearRgba`] color with the same value for all channels and an alpha of 1.0.
+    ///
+    /// A value of 0.0 is black, and a value of 1.0 is white.
+    pub const fn gray(value: f32) -> Self {
+        Self {
+            red: value,
+            green: value,
+            blue: value,
             alpha: 1.0,
         }
     }
@@ -82,12 +132,7 @@ impl LinearRgba {
 impl Default for LinearRgba {
     /// Construct a new [`LinearRgba`] color with the default values (white with full alpha).
     fn default() -> Self {
-        Self {
-            red: 1.,
-            green: 1.,
-            blue: 1.,
-            alpha: 1.,
-        }
+        Self::WHITE
     }
 }
 
@@ -160,43 +205,6 @@ impl EuclideanDistance for LinearRgba {
     }
 }
 
-impl From<Srgba> for LinearRgba {
-    #[inline]
-    fn from(value: Srgba) -> Self {
-        Self {
-            red: value.red.nonlinear_to_linear_srgb(),
-            green: value.green.nonlinear_to_linear_srgb(),
-            blue: value.blue.nonlinear_to_linear_srgb(),
-            alpha: value.alpha,
-        }
-    }
-}
-
-impl From<LinearRgba> for bevy_render::color::LegacyColor {
-    fn from(value: LinearRgba) -> Self {
-        bevy_render::color::LegacyColor::RgbaLinear {
-            red: value.red,
-            green: value.green,
-            blue: value.blue,
-            alpha: value.alpha,
-        }
-    }
-}
-
-impl From<bevy_render::color::LegacyColor> for LinearRgba {
-    fn from(value: bevy_render::color::LegacyColor) -> Self {
-        match value.as_rgba_linear() {
-            bevy_render::color::LegacyColor::RgbaLinear {
-                red,
-                green,
-                blue,
-                alpha,
-            } => LinearRgba::new(red, green, blue, alpha),
-            _ => unreachable!(),
-        }
-    }
-}
-
 impl From<LinearRgba> for [f32; 4] {
     fn from(color: LinearRgba) -> Self {
         [color.red, color.green, color.blue, color.alpha]
@@ -209,25 +217,78 @@ impl From<LinearRgba> for Vec4 {
     }
 }
 
-#[allow(clippy::excessive_precision)]
-impl From<Oklaba> for LinearRgba {
-    fn from(value: Oklaba) -> Self {
-        let Oklaba { l, a, b, alpha } = value;
+impl From<LinearRgba> for wgpu::Color {
+    fn from(color: LinearRgba) -> Self {
+        wgpu::Color {
+            r: color.red as f64,
+            g: color.green as f64,
+            b: color.blue as f64,
+            a: color.alpha as f64,
+        }
+    }
+}
 
-        // From https://github.com/Ogeon/palette/blob/e75eab2fb21af579353f51f6229a510d0d50a311/palette/src/oklab.rs#L312-L332
-        let l_ = l + 0.3963377774 * a + 0.2158037573 * b;
-        let m_ = l - 0.1055613458 * a - 0.0638541728 * b;
-        let s_ = l - 0.0894841775 * a - 1.2914855480 * b;
+// [`LinearRgba`] is intended to be used with shaders
+// So it's the only color type that implements [`ShaderType`] to make it easier to use inside shaders
+impl encase::ShaderType for LinearRgba {
+    type ExtraMetadata = ();
 
-        let l = l_ * l_ * l_;
-        let m = m_ * m_ * m_;
-        let s = s_ * s_ * s_;
+    const METADATA: encase::private::Metadata<Self::ExtraMetadata> = {
+        let size =
+            encase::private::SizeValue::from(<f32 as encase::private::ShaderSize>::SHADER_SIZE)
+                .mul(4);
+        let alignment = encase::private::AlignmentValue::from_next_power_of_two_size(size);
 
-        let red = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
-        let green = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
-        let blue = -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s;
+        encase::private::Metadata {
+            alignment,
+            has_uniform_min_alignment: false,
+            min_size: size,
+            extra: (),
+        }
+    };
 
-        Self {
+    const UNIFORM_COMPAT_ASSERT: fn() = || {};
+}
+
+impl encase::private::WriteInto for LinearRgba {
+    fn write_into<B: encase::private::BufferMut>(&self, writer: &mut encase::private::Writer<B>) {
+        for el in &[self.red, self.green, self.blue, self.alpha] {
+            encase::private::WriteInto::write_into(el, writer);
+        }
+    }
+}
+
+impl encase::private::ReadFrom for LinearRgba {
+    fn read_from<B: encase::private::BufferRef>(
+        &mut self,
+        reader: &mut encase::private::Reader<B>,
+    ) {
+        let mut buffer = [0.0f32; 4];
+        for el in &mut buffer {
+            encase::private::ReadFrom::read_from(el, reader);
+        }
+
+        *self = LinearRgba {
+            red: buffer[0],
+            green: buffer[1],
+            blue: buffer[2],
+            alpha: buffer[3],
+        }
+    }
+}
+
+impl encase::private::CreateFrom for LinearRgba {
+    fn create_from<B>(reader: &mut encase::private::Reader<B>) -> Self
+    where
+        B: encase::private::BufferRef,
+    {
+        // These are intentionally not inlined in the constructor to make this
+        // resilient to internal Color refactors / implicit type changes.
+        let red: f32 = encase::private::CreateFrom::create_from(reader);
+        let green: f32 = encase::private::CreateFrom::create_from(reader);
+        let blue: f32 = encase::private::CreateFrom::create_from(reader);
+        let alpha: f32 = encase::private::CreateFrom::create_from(reader);
+        LinearRgba {
             red,
             green,
             blue,
@@ -236,12 +297,34 @@ impl From<Oklaba> for LinearRgba {
     }
 }
 
-impl From<Hsla> for LinearRgba {
-    #[inline]
-    fn from(value: Hsla) -> Self {
-        LinearRgba::from(Srgba::from(value))
+/// A [`Zeroable`] type is one whose bytes can be filled with zeroes while remaining valid.
+///
+/// SAFETY: [`LinearRgba`] is inhabited
+/// SAFETY: [`LinearRgba`]'s all-zero bit pattern is a valid value
+unsafe impl Zeroable for LinearRgba {
+    fn zeroed() -> Self {
+        LinearRgba {
+            red: 0.0,
+            green: 0.0,
+            blue: 0.0,
+            alpha: 0.0,
+        }
     }
 }
+
+/// The [`Pod`] trait is [`bytemuck`]'s marker for types that can be safely transmuted from a byte array.
+///
+/// It is intended to only be implemented for types which are "Plain Old Data".
+///
+/// SAFETY: [`LinearRgba`] is inhabited.
+/// SAFETY: [`LinearRgba`] permits any bit value.
+/// SAFETY: [`LinearRgba`] does not have padding bytes.
+/// SAFETY: all of the fields of [`LinearRgba`] are [`Pod`], as f32 is [`Pod`].
+/// SAFETY: [`LinearRgba`] is `repr(C)`
+/// SAFETY: [`LinearRgba`] does not permit interior mutability.
+unsafe impl Pod for LinearRgba {}
+
+impl encase::ShaderSize for LinearRgba {}
 
 #[cfg(test)]
 mod tests {

@@ -2,6 +2,7 @@ mod downsampling_pipeline;
 mod settings;
 mod upsampling_pipeline;
 
+use bevy_color::LinearRgba;
 pub use settings::{BloomCompositeMode, BloomPrefilterSettings, BloomSettings};
 
 use crate::{
@@ -17,7 +18,6 @@ use bevy_render::{
     extract_component::{
         ComponentUniforms, DynamicUniformIndex, ExtractComponentPlugin, UniformComponentPlugin,
     },
-    prelude::LegacyColor,
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::*,
     renderer::{RenderContext, RenderDevice},
@@ -129,6 +129,10 @@ impl ViewNode for BloomNode {
         ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
+        if bloom_settings.intensity == 0.0 {
+            return Ok(());
+        }
+
         let downsampling_pipeline_res = world.resource::<BloomDownsamplingPipeline>();
         let pipeline_cache = world.resource::<PipelineCache>();
         let uniforms = world.resource::<ComponentUniforms<BloomUniforms>>();
@@ -240,7 +244,7 @@ impl ViewNode for BloomNode {
                 mip as f32,
                 (bloom_texture.mip_count - 1) as f32,
             );
-            upsampling_pass.set_blend_constant(LegacyColor::rgb_linear(blend, blend, blend));
+            upsampling_pass.set_blend_constant(LinearRgba::gray(blend));
             upsampling_pass.draw(0..3, 0..1);
         }
 
@@ -267,7 +271,7 @@ impl ViewNode for BloomNode {
             }
             let blend =
                 compute_blend_factor(bloom_settings, 0.0, (bloom_texture.mip_count - 1) as f32);
-            upsampling_final_pass.set_blend_constant(LegacyColor::rgb_linear(blend, blend, blend));
+            upsampling_final_pass.set_blend_constant(LinearRgba::gray(blend));
             upsampling_final_pass.draw(0..3, 0..1);
         }
 

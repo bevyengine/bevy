@@ -66,6 +66,13 @@ bitflags::bitflags! {
     ///
     /// If you have an asset that doesn't actually need to end up in the render world, like an Image
     /// that will be decoded into another Image asset, use `MAIN_WORLD` only.
+    ///
+    /// ## Platform-specific
+    ///
+    /// On Wasm, it is not possible for now to free reserved memory. To control memory usage, load assets
+    /// in sequence and unload one before loading the next. See this
+    /// [discussion about memory management](https://github.com/WebAssembly/design/issues/1397) for more
+    /// details.
     #[repr(transparent)]
     #[derive(Serialize, TypePath, Deserialize, Hash, Clone, Copy, PartialEq, Eq, Debug)]
     pub struct RenderAssetUsages: u8 {

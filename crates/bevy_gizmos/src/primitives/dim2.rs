@@ -5,10 +5,10 @@ use std::f32::consts::PI;
 use super::helpers::*;
 
 use bevy_math::primitives::{
-    BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, Direction2d, Ellipse, Line2d, Plane2d,
-    Polygon, Polyline2d, Primitive2d, Rectangle, RegularPolygon, Segment2d, Triangle2d,
+    BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, Ellipse, Line2d, Plane2d, Polygon,
+    Polyline2d, Primitive2d, Rectangle, RegularPolygon, Segment2d, Triangle2d,
 };
-use bevy_math::{Mat2, Vec2};
+use bevy_math::{Direction2d, Mat2, Vec2};
 use bevy_render::color::LegacyColor;
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};

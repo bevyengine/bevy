@@ -89,7 +89,7 @@ impl Scene {
                     type_path: registration.type_info().type_path().to_string(),
                 }
             })?;
-            reflect_resource.copy(&self.world, world);
+            reflect_resource.copy(&self.world, world, &type_registry);
         }
 
         for archetype in self.world.archetypes().iter() {

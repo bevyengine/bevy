@@ -733,7 +733,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
         .get_id::<DrawPrepass<M>>()
         .unwrap();
     for (
-        view,
+        _view,
         visible_entities,
         mut opaque_phase,
         mut alpha_mask_phase,
@@ -755,8 +755,6 @@ pub fn queue_prepass_material_meshes<M: Material>(
         if motion_vector_prepass.is_some() {
             view_key |= MeshPipelineKey::MOTION_VECTOR_PREPASS;
         }
-
-        let rangefinder = view.rangefinder3d();
 
         for visible_entity in &visible_entities.entities {
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
@@ -860,9 +858,6 @@ pub fn queue_prepass_material_meshes<M: Material>(
                     }
                 }
                 AlphaMode::Mask(_) => {
-                    let distance = rangefinder
-                        .distance_translation(&mesh_instance.transforms.transform.translation)
-                        + material.properties.depth_bias;
                     if deferred {
                         alpha_mask_deferred_phase
                             .as_mut()
@@ -871,7 +866,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                                 entity: *visible_entity,
                                 draw_function: alpha_mask_draw_deferred,
                                 pipeline_id,
-                                distance,
+                                asset_id: mesh_instance.mesh_asset_id,
                                 batch_range: 0..1,
                                 dynamic_offset: None,
                             });
@@ -880,7 +875,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                             entity: *visible_entity,
                             draw_function: alpha_mask_draw_prepass,
                             pipeline_id,
-                            distance,
+                            asset_id: mesh_instance.mesh_asset_id,
                             batch_range: 0..1,
                             dynamic_offset: None,
                         });

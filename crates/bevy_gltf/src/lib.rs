@@ -26,7 +26,7 @@ use bevy_scene::Scene;
 /// Adds support for glTF file loading to the app.
 #[derive(Default)]
 pub struct GltfPlugin {
-    custom_vertex_attributes: HashMap<String, MeshVertexAttribute>,
+    custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
 }
 
 impl GltfPlugin {
@@ -40,8 +40,7 @@ impl GltfPlugin {
         name: &str,
         attribute: MeshVertexAttribute,
     ) -> Self {
-        self.custom_vertex_attributes
-            .insert(name.to_string(), attribute);
+        self.custom_vertex_attributes.insert(name.into(), attribute);
         self
     }
 }
@@ -75,19 +74,19 @@ pub struct Gltf {
     /// All scenes loaded from the glTF file.
     pub scenes: Vec<Handle<Scene>>,
     /// Named scenes loaded from the glTF file.
-    pub named_scenes: HashMap<String, Handle<Scene>>,
+    pub named_scenes: HashMap<Box<str>, Handle<Scene>>,
     /// All meshes loaded from the glTF file.
     pub meshes: Vec<Handle<GltfMesh>>,
     /// Named meshes loaded from the glTF file.
-    pub named_meshes: HashMap<String, Handle<GltfMesh>>,
+    pub named_meshes: HashMap<Box<str>, Handle<GltfMesh>>,
     /// All materials loaded from the glTF file.
     pub materials: Vec<Handle<StandardMaterial>>,
     /// Named materials loaded from the glTF file.
-    pub named_materials: HashMap<String, Handle<StandardMaterial>>,
+    pub named_materials: HashMap<Box<str>, Handle<StandardMaterial>>,
     /// All nodes loaded from the glTF file.
     pub nodes: Vec<Handle<GltfNode>>,
     /// Named nodes loaded from the glTF file.
-    pub named_nodes: HashMap<String, Handle<GltfNode>>,
+    pub named_nodes: HashMap<Box<str>, Handle<GltfNode>>,
     /// Default scene to be displayed.
     pub default_scene: Option<Handle<Scene>>,
     /// All animations loaded from the glTF file.
@@ -95,7 +94,7 @@ pub struct Gltf {
     pub animations: Vec<Handle<AnimationClip>>,
     /// Named animations loaded from the glTF file.
     #[cfg(feature = "bevy_animation")]
-    pub named_animations: HashMap<String, Handle<AnimationClip>>,
+    pub named_animations: HashMap<Box<str>, Handle<AnimationClip>>,
     /// The gltf root of the gltf asset, see <https://docs.rs/gltf/latest/gltf/struct.Gltf.html>. Only has a value when `GltfLoaderSettings::include_source` is true.
     pub source: Option<gltf::Gltf>,
 }
