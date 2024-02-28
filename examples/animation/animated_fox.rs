@@ -1,6 +1,6 @@
 //! Plays animations from a skinned glTF.
 
-use std::f32::consts::PI;
+use std::{f32::consts::PI, io};
 use std::time::Duration;
 
 use bevy::{animation::RepeatAnimation, pbr::CascadeShadowConfigBuilder, prelude::*};
@@ -8,7 +8,7 @@ use bevy::{animation::RepeatAnimation, pbr::CascadeShadowConfigBuilder, prelude:
 fn main() {
     App::new()
         .insert_resource(AmbientLight {
-            color: Color::WHITE,
+            color: LegacyColor::WHITE,
             brightness: 2000.,
         })
         .add_plugins(DefaultPlugins)
@@ -33,6 +33,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut graphs: ResMut<Assets<AnimationGraph>>,
+    type_registry: Res<AppTypeRegistry>,
 ) {
     // Build the animation graph
     let mut graph = AnimationGraph::new();
@@ -45,7 +46,8 @@ fn setup(
     .map(|&animation_path| graph.add_clip(asset_server.load(animation_path), 1.0, graph.root))
     .collect::<Vec<_>>();
 
-    println!("{:#?}", graph);
+    let type_registry = type_registry.0.read();
+    graph.save(&mut io::stdout()).unwrap();
 
     // Insert a resource with the current scene information
     let graph = graphs.add(graph);
@@ -64,7 +66,7 @@ fn setup(
     // Plane
     commands.spawn(PbrBundle {
         mesh: meshes.add(Plane3d::default().mesh().size(500000.0, 500000.0)),
-        material: materials.add(Color::rgb(0.3, 0.5, 0.3)),
+        material: materials.add(LegacyColor::rgb(0.3, 0.5, 0.3)),
         ..default()
     });
 

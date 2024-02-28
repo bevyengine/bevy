@@ -82,7 +82,7 @@ fn initialized(state: Res<State>) -> bool {
 }
 
 const FONT_SIZE: f32 = 20.0;
-const FONT_COLOR: Color = Color::rgb(0.2, 0.2, 0.2);
+const FONT_COLOR: LegacyColor = LegacyColor::rgb(0.2, 0.2, 0.2);
 const FONT_BOLD: &str = "fonts/FiraSans-Bold.ttf";
 const FONT_MEDIUM: &str = "fonts/FiraMono-Medium.ttf";
 
@@ -175,7 +175,7 @@ fn build_ui(
                 padding: UiRect::all(Val::Px(10.0)),
                 ..default()
             },
-            background_color: BackgroundColor(Color::rgba(1.0, 1.0, 1.0, 0.33)),
+            background_color: BackgroundColor(LegacyColor::rgba(1.0, 1.0, 1.0, 0.33)),
             visibility: Visibility::Hidden,
             ..default()
         },

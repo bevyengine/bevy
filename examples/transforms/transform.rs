@@ -47,7 +47,7 @@ fn setup(
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Sphere::new(3.0).mesh().ico(32).unwrap()),
-            material: materials.add(Color::YELLOW),
+            material: materials.add(LegacyColor::YELLOW),
             transform: Transform::from_translation(Vec3::ZERO),
             ..default()
         },
@@ -68,7 +68,7 @@ fn setup(
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Cuboid::default()),
-            material: materials.add(Color::WHITE),
+            material: materials.add(LegacyColor::WHITE),
             transform: cube_spawn,
             ..default()
         },

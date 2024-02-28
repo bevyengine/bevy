@@ -24,6 +24,7 @@ use bevy_transform::{prelude::Transform, TransformSystem};
 use bevy_utils::hashbrown::HashMap;
 use bevy_utils::{NoOpHash, Uuid};
 use graph::{AnimationGraph, AnimationNodeIndex};
+use petgraph::graph::NodeIndex;
 use petgraph::Direction;
 use sha1_smol::Sha1;
 
@@ -685,6 +686,7 @@ impl Plugin for AnimationPlugin {
             .register_type::<Interpolation>()
             .register_type::<Keyframes>()
             .register_type::<AnimationTarget>()
+            .register_type::<NodeIndex>()
             .add_systems(
                 PostUpdate,
                 (

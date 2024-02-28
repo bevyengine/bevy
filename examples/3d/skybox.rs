@@ -80,7 +80,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         CameraController::default(),
         Skybox {
             image: skybox_handle.clone(),
-            brightness: 150.0,
+            brightness: 1000.0,
         },
     ));
 
@@ -88,7 +88,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // NOTE: The ambient light is used to scale how bright the environment map is so with a bright
     // environment map, use an appropriate color and brightness to match
     commands.insert_resource(AmbientLight {
-        color: Color::rgb_u8(210, 220, 240),
+        color: LegacyColor::rgb_u8(210, 220, 240),
         brightness: 1.0,
     });
 

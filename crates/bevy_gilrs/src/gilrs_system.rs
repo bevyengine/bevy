@@ -1,6 +1,11 @@
-use crate::converter::{convert_axis, convert_button, convert_gamepad_id};
+use crate::{
+    converter::{convert_axis, convert_button, convert_gamepad_id},
+    Gilrs,
+};
 use bevy_ecs::event::EventWriter;
-use bevy_ecs::system::{NonSend, NonSendMut, Res, ResMut};
+#[cfg(target_arch = "wasm32")]
+use bevy_ecs::system::NonSendMut;
+use bevy_ecs::system::{Res, ResMut};
 use bevy_input::gamepad::{
     GamepadAxisChangedEvent, GamepadButtonChangedEvent, GamepadConnection, GamepadConnectionEvent,
     GamepadSettings,
@@ -8,13 +13,14 @@ use bevy_input::gamepad::{
 use bevy_input::gamepad::{GamepadEvent, GamepadInfo};
 use bevy_input::prelude::{GamepadAxis, GamepadButton};
 use bevy_input::Axis;
-use gilrs::{ev::filter::axis_dpad_to_button, EventType, Filter, Gilrs};
+use gilrs::{ev::filter::axis_dpad_to_button, EventType, Filter};
 
 pub fn gilrs_event_startup_system(
-    gilrs: NonSend<Gilrs>,
+    #[cfg(target_arch = "wasm32")] mut gilrs: NonSendMut<Gilrs>,
+    #[cfg(not(target_arch = "wasm32"))] mut gilrs: ResMut<Gilrs>,
     mut connection_events: EventWriter<GamepadConnectionEvent>,
 ) {
-    for (id, gamepad) in gilrs.gamepads() {
+    for (id, gamepad) in gilrs.0.get().gamepads() {
         let info = GamepadInfo {
             name: gamepad.name().into(),
         };
@@ -27,16 +33,15 @@ pub fn gilrs_event_startup_system(
 }
 
 pub fn gilrs_event_system(
-    mut gilrs: NonSendMut<Gilrs>,
+    #[cfg(target_arch = "wasm32")] mut gilrs: NonSendMut<Gilrs>,
+    #[cfg(not(target_arch = "wasm32"))] mut gilrs: ResMut<Gilrs>,
     mut events: EventWriter<GamepadEvent>,
     mut gamepad_buttons: ResMut<Axis<GamepadButton>>,
     gamepad_axis: Res<Axis<GamepadAxis>>,
     gamepad_settings: Res<GamepadSettings>,
 ) {
-    while let Some(gilrs_event) = gilrs
-        .next_event()
-        .filter_ev(&axis_dpad_to_button, &mut gilrs)
-    {
+    let gilrs = gilrs.0.get();
+    while let Some(gilrs_event) = gilrs.next_event().filter_ev(&axis_dpad_to_button, gilrs) {
         gilrs.update(&gilrs_event);
 
         let gamepad = convert_gamepad_id(gilrs_event.id);

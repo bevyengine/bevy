@@ -31,7 +31,7 @@ fn setup(
     };
 
     let texture_handle = asset_server.load("textures/rpg/chars/gabe/gabe-idle-run.png");
-    let texture_atlas = TextureAtlasLayout::from_grid(Vec2::new(24.0, 24.0), 7, 1, None, None);
+    let texture_atlas = TextureAtlasLayout::from_grid(UVec2::splat(24), 7, 1, None, None);
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
 
     // root node
@@ -64,7 +64,7 @@ fn setup(
                 TextSection::new(
                     "space".to_string(),
                     TextStyle {
-                        color: Color::YELLOW,
+                        color: LegacyColor::YELLOW,
                         ..text_style.clone()
                     },
                 ),

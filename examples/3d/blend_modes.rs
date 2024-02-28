@@ -36,7 +36,7 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
-    let base_color = Color::rgba(0.9, 0.2, 0.3, 1.0);
+    let base_color = LegacyColor::rgba(0.9, 0.2, 0.3, 1.0);
     let icosphere_mesh = meshes.add(Sphere::new(0.9).mesh().ico(7).unwrap());
 
     // Opaque
@@ -140,8 +140,8 @@ fn setup(
         .id();
 
     // Chessboard Plane
-    let black_material = materials.add(Color::BLACK);
-    let white_material = materials.add(Color::WHITE);
+    let black_material = materials.add(LegacyColor::BLACK);
+    let white_material = materials.add(LegacyColor::WHITE);
 
     let plane_mesh = meshes.add(Plane3d::default().mesh().size(2.0, 2.0));
 
@@ -188,7 +188,7 @@ fn setup(
     let label_text_style = TextStyle {
         font: asset_server.load("fonts/FiraMono-Medium.ttf"),
         font_size: 25.0,
-        color: Color::ORANGE,
+        color: LegacyColor::ORANGE,
     };
 
     commands.spawn(
