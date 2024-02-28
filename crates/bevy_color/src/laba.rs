@@ -5,6 +5,10 @@ use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
 
 /// Color in LAB color space, with alpha
+#[doc = include_str!("../docs/conversion.md")]
+/// <div>
+#[doc = include_str!("../docs/diagrams/model_graph.svg")]
+/// </div>
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub struct Laba {

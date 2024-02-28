@@ -6,6 +6,10 @@ use serde::{Deserialize, Serialize};
 ///
 /// This is useful when you need to store a color in a data structure that can't be generic over
 /// the color type.
+#[doc = include_str!("../docs/conversion.md")]
+/// <div>
+#[doc = include_str!("../docs/diagrams/model_graph.svg")]
+/// </div>
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum Color {

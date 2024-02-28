@@ -48,7 +48,7 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
         },
         TextureDimension::D2,
         &[0, 0, 0, 255],
-        TextureFormat::Rgba8Unorm,
+        TextureFormat::R32Float,
         RenderAssetUsages::RENDER_WORLD,
     );
     image.texture_descriptor.usage =
@@ -97,7 +97,7 @@ impl Plugin for GameOfLifeComputePlugin {
 
 #[derive(Resource, Clone, Deref, ExtractResource, AsBindGroup)]
 struct GameOfLifeImage {
-    #[storage_texture(0, image_format = Rgba8Unorm, access = ReadWrite)]
+    #[storage_texture(0, image_format = R32Float, access = ReadWrite)]
     texture: Handle<Image>,
 }
 

@@ -50,11 +50,10 @@
 //!
 //! See also the [Wikipedia article on color spaces](https://en.wikipedia.org/wiki/Color_space).
 //!
-//! # Conversions
-//!
-//! Each color space can be converted to and from the others using the [`From`] trait. Not all
-//! possible combinations of conversions are provided, but every color space has a conversion to
-//! and from [`Srgba`] and [`LinearRgba`].
+#![doc = include_str!("../docs/conversion.md")]
+//! <div>
+#![doc = include_str!("../docs/diagrams/model_graph.svg")]
+//! </div>
 //!
 //! # Other Utilities
 //!
@@ -95,6 +94,21 @@ mod test_colors;
 #[cfg(test)]
 mod testing;
 mod xyza;
+
+/// Commonly used color types and traits.
+pub mod prelude {
+    pub use crate::color::*;
+    pub use crate::color_ops::*;
+    pub use crate::hsla::*;
+    pub use crate::hsva::*;
+    pub use crate::hwba::*;
+    pub use crate::laba::*;
+    pub use crate::lcha::*;
+    pub use crate::linear_rgba::*;
+    pub use crate::oklaba::*;
+    pub use crate::srgba::*;
+    pub use crate::xyza::*;
+}
 
 pub use color::*;
 pub use color_ops::*;
