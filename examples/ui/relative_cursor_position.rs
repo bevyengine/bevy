@@ -49,7 +49,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         margin: UiRect::bottom(Val::Px(15.)),
                         ..default()
                     },
-                    background_color: LegacyColor::rgb(235., 35., 12.).into(),
+                    background_color: Color::srgb(235., 35., 12.).into(),
                     ..default()
                 })
                 .insert(RelativeCursorPosition::default());

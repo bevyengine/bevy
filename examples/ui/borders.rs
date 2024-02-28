@@ -1,6 +1,12 @@
 //! Example demonstrating bordered UI nodes
 
-use bevy::{color::palettes::css::DARK_GRAY, prelude::*};
+use bevy::{
+    color::palettes::{
+        basic::{MAROON, RED, YELLOW},
+        css::DARK_GRAY,
+    },
+    prelude::*,
+};
 
 fn main() {
     App::new()
@@ -92,7 +98,7 @@ fn setup(mut commands: Commands) {
                     height: Val::Px(10.),
                     ..Default::default()
                 },
-                background_color: LegacyColor::YELLOW.into(),
+                background_color: YELLOW.into(),
                 ..Default::default()
             })
             .id();
@@ -108,8 +114,8 @@ fn setup(mut commands: Commands) {
                         justify_content: JustifyContent::Center,
                         ..Default::default()
                     },
-                    background_color: LegacyColor::MAROON.into(),
-                    border_color: LegacyColor::RED.into(),
+                    background_color: MAROON.into(),
+                    border_color: RED.into(),
                     ..Default::default()
                 },
                 Outline {

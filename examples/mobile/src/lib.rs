@@ -1,6 +1,7 @@
 //! A 3d Scene with a button and playing sound.
 
 use bevy::{
+    color::palettes::basic::{BLUE, GRAY},
     input::touch::TouchPhase,
     prelude::*,
     window::{ApplicationLifetime, WindowMode},
@@ -139,13 +140,13 @@ fn button_handler(
     for (interaction, mut color) in &mut interaction_query {
         match *interaction {
             Interaction::Pressed => {
-                *color = LegacyColor::BLUE.into();
+                *color = BLUE.into();
             }
             Interaction::Hovered => {
-                *color = LegacyColor::GRAY.into();
+                *color = GRAY.into();
             }
             Interaction::None => {
-                *color = LegacyColor::WHITE.into();
+                *color = Color::WHITE.into();
             }
         }
     }

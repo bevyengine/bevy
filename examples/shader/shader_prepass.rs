@@ -87,7 +87,7 @@ fn setup(
         MaterialMeshBundle {
             mesh: meshes.add(Cuboid::default()),
             material: materials.add(CustomMaterial {
-                color: LegacyColor::WHITE,
+                color: LinearRgba::WHITE,
                 color_texture: Some(asset_server.load("branding/icon.png")),
                 alpha_mode: AlphaMode::Opaque,
             }),
@@ -114,7 +114,7 @@ fn setup(
     commands.spawn(MaterialMeshBundle {
         mesh: meshes.add(Cuboid::default()),
         material: materials.add(CustomMaterial {
-            color: LegacyColor::WHITE,
+            color: LinearRgba::WHITE,
             color_texture: Some(asset_server.load("branding/icon.png")),
             alpha_mode: AlphaMode::Blend,
         }),
@@ -158,7 +158,7 @@ fn setup(
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 struct CustomMaterial {
     #[uniform(0)]
-    color: LegacyColor,
+    color: LinearRgba,
     #[texture(1)]
     #[sampler(2)]
     color_texture: Option<Handle<Image>>,

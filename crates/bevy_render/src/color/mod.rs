@@ -530,7 +530,7 @@ impl LegacyColor {
     /// ```
     /// # use bevy_render::color::LegacyColor;
     /// // Fully transparent colors
-    /// assert!(LegacyColor::NONE.is_fully_transparent());
+    /// assert!(Color::TRANSPARENT.is_fully_transparent());
     /// assert!(LegacyColor::rgba(1.0, 0.5, 0.5, 0.0).is_fully_transparent());
     ///
     /// // (Partially) opaque colors

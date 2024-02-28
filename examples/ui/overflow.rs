@@ -1,6 +1,13 @@
 //! Simple example demonstrating overflow behavior.
 
-use bevy::{prelude::*, winit::WinitSettings};
+use bevy::{
+    color::palettes::{
+        basic::GRAY,
+        css::{ANTIQUE_WHITE, DARK_GRAY},
+    },
+    prelude::*,
+    winit::WinitSettings,
+};
 
 fn main() {
     App::new()
@@ -32,7 +39,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 justify_content: JustifyContent::Center,
                 ..Default::default()
             },
-            background_color: LegacyColor::ANTIQUE_WHITE.into(),
+            background_color: ANTIQUE_WHITE.into(),
             ..Default::default()
         })
         .with_children(|parent| {
@@ -61,7 +68,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     margin: UiRect::bottom(Val::Px(25.)),
                                     ..Default::default()
                                 },
-                                background_color: LegacyColor::DARK_GRAY.into(),
+                                background_color: DARK_GRAY.into(),
                                 ..Default::default()
                             })
                             .with_children(|parent| {
@@ -83,7 +90,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     overflow,
                                     ..Default::default()
                                 },
-                                background_color: LegacyColor::GRAY.into(),
+                                background_color: GRAY.into(),
                                 ..Default::default()
                             })
                             .with_children(|parent| {
@@ -95,7 +102,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                             min_height: Val::Px(100.),
                                             ..Default::default()
                                         },
-                                        background_color: LegacyColor::WHITE.into(),
+                                        background_color: Color::WHITE.into(),
 
                                         ..Default::default()
                                     },

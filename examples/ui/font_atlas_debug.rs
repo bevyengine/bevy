@@ -77,7 +77,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResM
     commands.spawn(Camera2dBundle::default());
     commands
         .spawn(NodeBundle {
-            background_color: LegacyColor::NONE.into(),
+            background_color: Color::TRANSPARENT.into(),
             style: Style {
                 position_type: PositionType::Absolute,
                 bottom: Val::ZERO,
