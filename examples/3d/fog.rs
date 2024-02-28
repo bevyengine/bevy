@@ -51,7 +51,7 @@ fn setup_pyramid_scene(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let stone = materials.add(StandardMaterial {
-        base_color: LegacyColor::hex("28221B").unwrap(),
+        base_color: Srgba::hex("28221B").unwrap().into(),
         perceptual_roughness: 1.0,
         ..default()
     });
@@ -71,7 +71,7 @@ fn setup_pyramid_scene(
         PbrBundle {
             mesh: meshes.add(Sphere::default()),
             material: materials.add(StandardMaterial {
-                base_color: LegacyColor::hex("126212CC").unwrap(),
+                base_color: Srgba::hex("126212CC").unwrap().into(),
                 reflectance: 1.0,
                 perceptual_roughness: 0.0,
                 metallic: 0.5,
@@ -102,7 +102,7 @@ fn setup_pyramid_scene(
     commands.spawn(PbrBundle {
         mesh: meshes.add(Cuboid::new(2.0, 1.0, 1.0)),
         material: materials.add(StandardMaterial {
-            base_color: LegacyColor::hex("888888").unwrap(),
+            base_color: Srgba::hex("888888").unwrap().into(),
             unlit: true,
             cull_mode: None,
             ..default()

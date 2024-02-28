@@ -3,6 +3,7 @@ use bevy_animation::{AnimationTarget, AnimationTargetId};
 use bevy_asset::{
     io::Reader, AssetLoadError, AssetLoader, AsyncReadExt, Handle, LoadContext, ReadAssetBytesError,
 };
+use bevy_color::{Color, LinearRgba};
 use bevy_core::Name;
 use bevy_core_pipeline::prelude::Camera3dBundle;
 use bevy_ecs::entity::EntityHashMap;
@@ -913,8 +914,13 @@ fn load_material(
 
         let ior = material.ior().unwrap_or(1.5);
 
+        // We need to operate in the Linear color space and be willing to exceed 1.0 in our channels
+        let base_emissive = LinearRgba::rgb(emissive[0], emissive[1], emissive[2]);
+        let scaled_emissive = base_emissive * material.emissive_strength().unwrap_or(1.0);
+        let emissive = Color::from(scaled_emissive);
+
         StandardMaterial {
-            base_color: LegacyColor::rgba_linear(color[0], color[1], color[2], color[3]),
+            base_color: Color::linear_rgba(color[0], color[1], color[2], color[3]),
             base_color_texture,
             perceptual_roughness: pbr.roughness_factor(),
             metallic: pbr.metallic_factor(),
@@ -929,8 +935,7 @@ fn load_material(
                 Some(Face::Back)
             },
             occlusion_texture,
-            emissive: LegacyColor::rgb_linear(emissive[0], emissive[1], emissive[2])
-                * material.emissive_strength().unwrap_or(1.0),
+            emissive,
             emissive_texture,
             specular_transmission,
             #[cfg(feature = "pbr_transmission_textures")]
@@ -940,7 +945,7 @@ fn load_material(
             thickness_texture,
             ior,
             attenuation_distance,
-            attenuation_color: LegacyColor::rgb_linear(
+            attenuation_color: Color::linear_rgb(
                 attenuation_color[0],
                 attenuation_color[1],
                 attenuation_color[2],

@@ -505,7 +505,7 @@ fn spawn_primitive_3d(
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     const POSITION: Vec3 = Vec3::new(-LEFT_RIGHT_OFFSET_3D, 0.0, 0.0);
-    let material: Handle<StandardMaterial> = materials.add(LegacyColor::WHITE);
+    let material: Handle<StandardMaterial> = materials.add(Color::WHITE);
     let camera_mode = CameraActive::Dim3;
     [
         Some(CUBOID.mesh()),

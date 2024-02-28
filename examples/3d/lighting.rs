@@ -4,6 +4,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    color::palettes::css::*,
     pbr::{light_consts, CascadeShadowConfigBuilder},
     prelude::*,
     render::camera::{Exposure, PhysicalCameraParameters},
@@ -40,7 +41,7 @@ fn setup(
     commands.spawn(PbrBundle {
         mesh: meshes.add(Plane3d::default().mesh().size(10.0, 10.0)),
         material: materials.add(StandardMaterial {
-            base_color: LegacyColor::WHITE,
+            base_color: Color::WHITE,
             perceptual_roughness: 1.0,
             ..default()
         }),
@@ -54,7 +55,7 @@ fn setup(
         mesh: meshes.add(Cuboid::new(5.0, 0.15, 5.0)),
         transform,
         material: materials.add(StandardMaterial {
-            base_color: LegacyColor::INDIGO,
+            base_color: Color::from(INDIGO),
             perceptual_roughness: 1.0,
             ..default()
         }),
@@ -67,7 +68,7 @@ fn setup(
         mesh: meshes.add(Cuboid::new(5.0, 0.15, 5.0)),
         transform,
         material: materials.add(StandardMaterial {
-            base_color: LegacyColor::INDIGO,
+            base_color: Color::from(INDIGO),
             perceptual_roughness: 1.0,
             ..default()
         }),
@@ -98,7 +99,7 @@ fn setup(
         PbrBundle {
             mesh: meshes.add(Cuboid::default()),
             material: materials.add(StandardMaterial {
-                base_color: LegacyColor::PINK,
+                base_color: PINK.into(),
                 ..default()
             }),
             transform: Transform::from_xyz(0.0, 0.5, 0.0),
@@ -111,7 +112,7 @@ fn setup(
         PbrBundle {
             mesh: meshes.add(Sphere::new(0.5).mesh().uv(32, 18)),
             material: materials.add(StandardMaterial {
-                base_color: LegacyColor::LIME_GREEN,
+                base_color: LIMEGREEN.into(),
                 ..default()
             }),
             transform: Transform::from_xyz(1.5, 1.0, 1.5),
@@ -143,8 +144,8 @@ fn setup(
             builder.spawn(PbrBundle {
                 mesh: meshes.add(Sphere::new(0.1).mesh().uv(32, 18)),
                 material: materials.add(StandardMaterial {
-                    base_color: LegacyColor::RED,
-                    emissive: LegacyColor::rgba_linear(7.13, 0.0, 0.0, 0.0),
+                    base_color: RED.into(),
+                    emissive: Color::linear_rgba(7.13, 0.0, 0.0, 0.0),
                     ..default()
                 }),
                 ..default()
@@ -171,8 +172,8 @@ fn setup(
                 transform: Transform::from_rotation(Quat::from_rotation_x(PI / 2.0)),
                 mesh: meshes.add(Capsule3d::new(0.1, 0.125)),
                 material: materials.add(StandardMaterial {
-                    base_color: LegacyColor::GREEN,
-                    emissive: LegacyColor::rgba_linear(0.0, 7.13, 0.0, 0.0),
+                    base_color: GREEN.into(),
+                    emissive: Color::linear_rgba(0.0, 7.13, 0.0, 0.0),
                     ..default()
                 }),
                 ..default()
@@ -196,8 +197,8 @@ fn setup(
             builder.spawn(PbrBundle {
                 mesh: meshes.add(Sphere::new(0.1).mesh().uv(32, 18)),
                 material: materials.add(StandardMaterial {
-                    base_color: LegacyColor::BLUE,
-                    emissive: LegacyColor::rgba_linear(0.0, 0.0, 7.13, 0.0),
+                    base_color: BLUE.into(),
+                    emissive: Color::linear_rgba(0.0, 0.0, 7.13, 0.0),
                     ..default()
                 }),
                 ..default()

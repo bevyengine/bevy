@@ -3,6 +3,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    color::palettes::basic::{BLUE, GREEN, RED},
     pbr::{light_consts, CascadeShadowConfigBuilder, NotShadowCaster, NotShadowReceiver},
     prelude::*,
 };
@@ -32,7 +33,7 @@ fn setup(
     let sphere_radius = 0.25;
 
     let white_handle = materials.add(StandardMaterial {
-        base_color: LegacyColor::WHITE,
+        base_color: Color::WHITE,
         perceptual_roughness: 1.0,
         ..default()
     });
@@ -41,7 +42,7 @@ fn setup(
     // sphere - initially a caster
     commands.spawn(PbrBundle {
         mesh: sphere_handle.clone(),
-        material: materials.add(LegacyColor::RED),
+        material: materials.add(Color::from(RED)),
         transform: Transform::from_xyz(-1.0, spawn_height, 0.0),
         ..default()
     });
@@ -50,7 +51,7 @@ fn setup(
     commands.spawn((
         PbrBundle {
             mesh: sphere_handle,
-            material: materials.add(LegacyColor::BLUE),
+            material: materials.add(Color::from(BLUE)),
             transform: Transform::from_xyz(1.0, spawn_height, 0.0),
             ..default()
         },
@@ -61,7 +62,7 @@ fn setup(
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Plane3d::default().mesh().size(20.0, 20.0)),
-            material: materials.add(LegacyColor::GREEN),
+            material: materials.add(Color::from(GREEN)),
             transform: Transform::from_xyz(0.0, 1.0, -10.0),
             ..default()
         },

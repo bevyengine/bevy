@@ -128,7 +128,7 @@ fn spawn_sphere(
     commands.spawn(PbrBundle {
         mesh: sphere_mesh.clone(),
         material: materials.add(StandardMaterial {
-            base_color: LegacyColor::hex("#ffd891").unwrap(),
+            base_color: Srgba::hex("#ffd891").unwrap().into(),
             metallic: 1.0,
             perceptual_roughness: 0.0,
             ..StandardMaterial::default()

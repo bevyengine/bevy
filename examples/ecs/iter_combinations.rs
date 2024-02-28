@@ -1,6 +1,6 @@
 //! Shows how to iterate over combinations of query results.
 
-use bevy::prelude::*;
+use bevy::{color::palettes::css::ORANGE_RED, prelude::*};
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
 fn main() {
@@ -66,7 +66,7 @@ fn generate_bodies(
                     ..default()
                 },
                 mesh: mesh.clone(),
-                material: materials.add(LegacyColor::rgb(
+                material: materials.add(Color::srgb(
                     rng.gen_range(color_range.clone()),
                     rng.gen_range(color_range.clone()),
                     rng.gen_range(color_range.clone()),
@@ -95,8 +95,8 @@ fn generate_bodies(
                     transform: Transform::from_scale(Vec3::splat(star_radius)),
                     mesh: meshes.add(Sphere::new(1.0).mesh().ico(5).unwrap()),
                     material: materials.add(StandardMaterial {
-                        base_color: LegacyColor::ORANGE_RED,
-                        emissive: (LegacyColor::ORANGE_RED * 18.),
+                        base_color: Color::from(ORANGE_RED),
+                        emissive: (LinearRgba::from(ORANGE_RED) * 18.).into(),
                         ..default()
                     }),
                     ..default()

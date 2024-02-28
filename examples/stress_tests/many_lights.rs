@@ -4,6 +4,7 @@
 use std::f64::consts::PI;
 
 use bevy::{
+    color::palettes::css::PINK,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::{DVec2, DVec3},
     pbr::{ExtractedPointLight, GlobalLightMeta},
@@ -54,14 +55,14 @@ fn setup(
 
     commands.spawn(PbrBundle {
         mesh: meshes.add(Sphere::new(RADIUS).mesh().ico(9).unwrap()),
-        material: materials.add(LegacyColor::WHITE),
+        material: materials.add(Color::WHITE),
         transform: Transform::from_scale(Vec3::NEG_ONE),
         ..default()
     });
 
     let mesh = meshes.add(Cuboid::default());
     let material = materials.add(StandardMaterial {
-        base_color: LegacyColor::PINK,
+        base_color: Color::from(PINK),
         ..default()
     });
 

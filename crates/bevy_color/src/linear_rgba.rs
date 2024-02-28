@@ -1,4 +1,4 @@
-use std::ops::{Div, Mul};
+use std::ops::{Add, AddAssign, Div, Mul, Sub, SubAssign};
 
 use crate::{color_difference::EuclideanDistance, Alpha, Luminance, Mix, StandardColor};
 use bevy_math::Vec4;
@@ -281,6 +281,48 @@ impl Div<f32> for LinearRgba {
             blue: self.blue / rhs,
             alpha: self.alpha,
         }
+    }
+}
+
+/// All color channels are added directly,
+/// but alpha is the average of the two alphas.
+impl Add<LinearRgba> for LinearRgba {
+    type Output = LinearRgba;
+
+    fn add(self, rhs: LinearRgba) -> LinearRgba {
+        LinearRgba {
+            red: self.red + rhs.red,
+            green: self.green + rhs.green,
+            blue: self.blue + rhs.blue,
+            alpha: (self.alpha + rhs.alpha) / 2.0,
+        }
+    }
+}
+
+impl AddAssign<LinearRgba> for LinearRgba {
+    fn add_assign(&mut self, rhs: LinearRgba) {
+        *self = *self + rhs;
+    }
+}
+
+/// All color channels are subtracted directly,
+/// but alpha is the average of the two alphas.
+impl Sub<LinearRgba> for LinearRgba {
+    type Output = LinearRgba;
+
+    fn sub(self, rhs: LinearRgba) -> LinearRgba {
+        LinearRgba {
+            red: self.red - rhs.red,
+            green: self.green - rhs.green,
+            blue: self.blue - rhs.blue,
+            alpha: (self.alpha + rhs.alpha) / 2.0,
+        }
+    }
+}
+
+impl SubAssign<LinearRgba> for LinearRgba {
+    fn sub_assign(&mut self, rhs: LinearRgba) {
+        *self = *self - rhs;
     }
 }
 

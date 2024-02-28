@@ -81,7 +81,7 @@ fn setup_terrain_scene(
         PbrBundle {
             mesh: meshes.add(Cuboid::new(2.0, 1.0, 1.0)),
             material: materials.add(StandardMaterial {
-                base_color: LegacyColor::hex("888888").unwrap(),
+                base_color: Srgba::hex("888888").unwrap().into(),
                 unlit: true,
                 cull_mode: None,
                 ..default()

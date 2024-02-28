@@ -1,7 +1,10 @@
 //! Demonstrates how to work with Cubic curves.
 
 use bevy::{
-    color::palettes::basic::WHITE,
+    color::palettes::{
+        basic::{SILVER, WHITE},
+        css::ORANGE,
+    },
     math::{cubic_splines::CubicCurve, vec3},
     prelude::*,
 };
@@ -40,7 +43,7 @@ fn setup(
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Cuboid::default()),
-            material: materials.add(LegacyColor::ORANGE),
+            material: materials.add(Color::from(ORANGE)),
             transform: Transform::from_translation(points[0][0]),
             ..default()
         },
@@ -62,7 +65,7 @@ fn setup(
     // ground plane
     commands.spawn(PbrBundle {
         mesh: meshes.add(Plane3d::default().mesh().size(50., 50.)),
-        material: materials.add(LegacyColor::SILVER),
+        material: materials.add(Color::from(SILVER)),
         ..default()
     });
 

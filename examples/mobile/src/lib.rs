@@ -65,20 +65,20 @@ fn setup_scene(
     // plane
     commands.spawn(PbrBundle {
         mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
-        material: materials.add(LegacyColor::rgb(0.1, 0.2, 0.1)),
+        material: materials.add(Color::srgb(0.1, 0.2, 0.1)),
         ..default()
     });
     // cube
     commands.spawn(PbrBundle {
         mesh: meshes.add(Cuboid::default()),
-        material: materials.add(LegacyColor::rgb(0.5, 0.4, 0.3)),
+        material: materials.add(Color::srgb(0.5, 0.4, 0.3)),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..default()
     });
     // sphere
     commands.spawn(PbrBundle {
         mesh: meshes.add(Sphere::new(0.5).mesh().ico(4).unwrap()),
-        material: materials.add(LegacyColor::rgb(0.1, 0.4, 0.8)),
+        material: materials.add(Color::srgb(0.1, 0.4, 0.8)),
         transform: Transform::from_xyz(1.5, 1.5, 1.5),
         ..default()
     });
