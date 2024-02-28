@@ -21,8 +21,8 @@ const BUTTONS_Y: f32 = 80.;
 const STICKS_X: f32 = 150.;
 const STICKS_Y: f32 = -135.;
 
-const NORMAL_BUTTON_COLOR: LegacyColor = LegacyColor::rgb(0.3, 0.3, 0.3);
-const ACTIVE_BUTTON_COLOR: LegacyColor = LegacyColor::rgb(0.5, 0., 0.5);
+const NORMAL_BUTTON_COLOR: Color = Color::srgb(0.3, 0.3, 0.3);
+const ACTIVE_BUTTON_COLOR: Color = Color::srgb(0.5, 0., 0.5);
 const LIVE_COLOR: Color = Color::srgb(0.4, 0.4, 0.4);
 const DEAD_COLOR: Color = Color::srgb(0.13, 0.13, 0.13);
 
