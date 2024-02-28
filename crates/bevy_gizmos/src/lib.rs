@@ -32,6 +32,7 @@ pub mod circles;
 pub mod config;
 pub mod gizmos;
 pub mod grid;
+pub mod light;
 pub mod primitives;
 
 #[cfg(feature = "bevy_sprite")]
@@ -87,6 +88,8 @@ use config::{
 use gizmos::GizmoStorage;
 use std::{any::TypeId, mem};
 
+use crate::light::LightGizmoPlugin;
+
 const LINE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(7414812689238026784);
 
 /// A [`Plugin`] that provides an immediate mode drawing api for visual debugging.
@@ -108,7 +111,8 @@ impl Plugin for GizmoPlugin {
             .init_resource::<LineGizmoHandles>()
             // We insert the Resource GizmoConfigStore into the world implicitly here if it does not exist.
             .init_gizmo_group::<DefaultGizmoConfigGroup>()
-            .add_plugins(AabbGizmoPlugin);
+            .add_plugins(AabbGizmoPlugin)
+            .add_plugins(LightGizmoPlugin);
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
