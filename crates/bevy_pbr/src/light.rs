@@ -113,7 +113,7 @@ pub struct PointLight {
 impl Default for PointLight {
     fn default() -> Self {
         PointLight {
-            color: Color::srgb(1.0, 1.0, 1.0),
+            color: Color::WHITE,
             // 1,000,000 lumens is a very large "cinema light" capable of registering brightly at Bevy's
             // default "very overcast day" exposure level. For "indoor lighting" with a lower exposure,
             // this would be way too bright.
@@ -184,7 +184,7 @@ impl Default for SpotLight {
     fn default() -> Self {
         // a quarter arc attenuating from the center
         Self {
-            color: Color::srgb(1.0, 1.0, 1.0),
+            color: Color::WHITE,
             // 1,000,000 lumens is a very large "cinema light" capable of registering brightly at Bevy's
             // default "very overcast day" exposure level. For "indoor lighting" with a lower exposure,
             // this would be way too bright.
