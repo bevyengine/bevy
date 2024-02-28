@@ -18,7 +18,11 @@ fn prepass_alpha_discard(in: VertexOutput) {
     var output_color: vec4<f32> = pbr_bindings::material.base_color;
 
 #ifdef VERTEX_UVS
-    let uv_transform = pbr_bindings::material.uv_transform;
+    let uv_transform = mat3x3<f32>(
+        vec3<f32>(pbr_bindings::material.uv_transform_xy_axys.xy, 0.0),
+        vec3<f32>(pbr_bindings::material.uv_transform_xy_axys.zw, 0.0),
+        vec3<f32>(pbr_bindings::material.uv_transform_translation.xy, 1.0),
+    );
     let uv = (uv_transform * vec3(in.uv, 1.0)).xy;
     if (pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u {
         output_color = output_color * textureSampleBias(pbr_bindings::base_color_texture, pbr_bindings::base_color_sampler, uv, view.mip_bias);
