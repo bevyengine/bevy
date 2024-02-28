@@ -56,18 +56,26 @@ fn setup(asset_server: Res<AssetServer>, mut commands: Commands) {
 /// Plays an [`AnimationClip`] from the loaded [`Gltf`] on the [`AnimationPlayer`] created by the spawned scene.
 fn setup_animations(
     mut has_setup: Local<bool>,
-    mut players: Query<(&Name, &mut AnimationPlayer)>,
+    mut commands: Commands,
+    mut players: Query<(Entity, &Name, &mut AnimationPlayer)>,
     morph_data: Res<MorphData>,
+    mut graphs: ResMut<Assets<AnimationGraph>>,
 ) {
     if *has_setup {
         return;
     }
-    for (name, mut player) in &mut players {
+    for (entity, name, mut player) in &mut players {
         // The name of the entity in the GLTF scene containing the AnimationPlayer for our morph targets is "Main"
         if name.as_str() != "Main" {
             continue;
         }
-        player.play(morph_data.the_wave.clone()).repeat();
+
+        let mut graph = AnimationGraph::new();
+        let animation = graph.add_clip(morph_data.the_wave.clone(), 1.0, graph.root);
+        let graph_handle = graphs.add(graph);
+        commands.entity(entity).insert(graph_handle);
+
+        player.play(animation).repeat();
         *has_setup = true;
     }
 }
