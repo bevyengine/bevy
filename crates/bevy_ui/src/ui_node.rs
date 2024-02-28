@@ -6,7 +6,6 @@ use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, RenderTarget},
-    color::LegacyColor,
     texture::Image,
 };
 use bevy_transform::prelude::GlobalTransform;
@@ -1656,7 +1655,7 @@ impl Default for BorderColor {
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ui::prelude::*;
-/// # use bevy_render::prelude::LegacyColor;
+/// # use bevy_render::prelude::Color;
 /// fn setup_ui(mut commands: Commands) {
 ///     commands.spawn((
 ///         NodeBundle {
@@ -1665,10 +1664,10 @@ impl Default for BorderColor {
 ///                 height: Val::Px(100.),
 ///                 ..Default::default()
 ///             },
-///             background_color: LegacyColor::BLUE.into(),
+///             background_color: Color::BLUE.into(),
 ///             ..Default::default()
 ///         },
-///         Outline::new(Val::Px(10.), Val::ZERO, LegacyColor::RED)
+///         Outline::new(Val::Px(10.), Val::ZERO, Color::RED)
 ///     ));
 /// }
 /// ```
@@ -1677,7 +1676,7 @@ impl Default for BorderColor {
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ui::prelude::*;
-/// # use bevy_render::prelude::LegacyColor;
+/// # use bevy_render::prelude::Color;
 /// fn outline_hovered_button_system(
 ///     mut commands: Commands,
 ///     mut node_query: Query<(Entity, &Interaction, Option<&mut Outline>), Changed<Interaction>>,
@@ -1685,9 +1684,9 @@ impl Default for BorderColor {
 ///     for (entity, interaction, mut maybe_outline) in node_query.iter_mut() {
 ///         let outline_color =
 ///             if matches!(*interaction, Interaction::Hovered) {
-///                 LegacyColor::WHITE
+///                 Color::WHITE
 ///             } else {
-///                 LegacyColor::NONE
+///                 Color::NONE
 ///             };
 ///         if let Some(mut outline) = maybe_outline {
 ///             outline.color = outline_color;
@@ -1698,7 +1697,7 @@ impl Default for BorderColor {
 /// }
 /// ```
 /// Inserting and removing an [`Outline`] component repeatedly will result in table moves, so it is generally preferable to
-/// set `Outline::color` to `LegacyColor::NONE` to hide an outline.
+/// set `Outline::color` to [`Color::TRANSPARENT`] to hide an outline.
 pub struct Outline {
     /// The width of the outline.
     ///
@@ -1710,14 +1709,14 @@ pub struct Outline {
     pub offset: Val,
     /// The color of the outline.
     ///
-    /// If you are frequently toggling outlines for a UI node on and off it is recommended to set `LegacyColor::NONE` to hide the outline.
+    /// If you are frequently toggling outlines for a UI node on and off it is recommended to set [`Color::TRANSPARENT`] to hide the outline.
     /// This avoids the table moves that would occur from the repeated insertion and removal of the `Outline` component.
-    pub color: LegacyColor,
+    pub color: Color,
 }
 
 impl Outline {
     /// Create a new outline
-    pub const fn new(width: Val, offset: Val, color: LegacyColor) -> Self {
+    pub const fn new(width: Val, offset: Val, color: Color) -> Self {
         Self {
             width,
             offset,

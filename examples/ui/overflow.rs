@@ -103,7 +103,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     Outline {
                                         width: Val::Px(2.),
                                         offset: Val::Px(2.),
-                                        color: LegacyColor::NONE,
+                                        color: Color::TRANSPARENT,
                                     },
                                 ));
                             });
@@ -116,9 +116,9 @@ fn update_outlines(mut outlines_query: Query<(&mut Outline, Ref<Interaction>)>) 
     for (mut outline, interaction) in outlines_query.iter_mut() {
         if interaction.is_changed() {
             outline.color = match *interaction {
-                Interaction::Pressed => LegacyColor::RED,
-                Interaction::Hovered => LegacyColor::WHITE,
-                Interaction::None => LegacyColor::NONE,
+                Interaction::Pressed => Color::srgb(1., 0., 0.),
+                Interaction::Hovered => Color::WHITE,
+                Interaction::None => Color::TRANSPARENT,
             };
         }
     }
