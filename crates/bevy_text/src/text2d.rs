@@ -10,7 +10,7 @@ use bevy_ecs::{
     entity::Entity,
     event::EventReader,
     prelude::With,
-    query::{Changed, Or, Without},
+    query::{Changed, Without},
     reflect::ReflectComponent,
     system::{Commands, Local, Query, Res, ResMut},
 };
@@ -235,15 +235,12 @@ pub fn scale_value(value: f32, factor: f32) -> f32 {
 /// Used in system set [`VisibilitySystems::CalculateBounds`](bevy_render::view::VisibilitySystems::CalculateBounds).
 pub fn calculate_bounds_text2d(
     mut commands: Commands,
-    text_to_update_aabb: Query<
-        (Entity, &TextLayoutInfo, &Anchor),
-        (
-            Or<(Without<Aabb>, Changed<TextLayoutInfo>)>,
-            Without<NoFrustumCulling>,
-        ),
+    mut text_to_update_aabb: Query<
+        (Entity, &TextLayoutInfo, &Anchor, Option<&mut Aabb>),
+        (Changed<TextLayoutInfo>, Without<NoFrustumCulling>),
     >,
 ) {
-    for (entity, layout_info, anchor) in &text_to_update_aabb {
+    for (entity, layout_info, anchor, aabb) in &mut text_to_update_aabb {
         // `Anchor::as_vec` gives us an offset relative to the text2d bounds, by negating it and scaling
         // by the logical size we compensate the transform offset in local space to get the center.
         let center = (-anchor.as_vec() * layout_info.logical_size)
@@ -251,10 +248,17 @@ pub fn calculate_bounds_text2d(
             .into();
         // Distance in local space from the center to the x and y limits of the text2d bounds.
         let half_extents = (layout_info.logical_size / 2.0).extend(0.0).into();
-        commands.entity(entity).try_insert(Aabb {
-            center,
-            half_extents,
-        });
+        if let Some(mut aabb) = aabb {
+            *aabb = Aabb {
+                center,
+                half_extents,
+            };
+        } else {
+            commands.entity(entity).try_insert(Aabb {
+                center,
+                half_extents,
+            });
+        }
     }
 }
 
