@@ -146,7 +146,7 @@ impl ComputedStates for Tutorial {
             Option<IsPaused>,
         ),
     ) -> Option<Self> {
-        // If the tutorial is inactive or non-existant, we don't need to worry about it.
+        // If the tutorial is inactive or non-existent, we don't need to worry about it.
         if !matches!(tutorial_state, Some(TutorialState::Active)) {
             return None;
         }
