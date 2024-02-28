@@ -70,6 +70,24 @@ impl Lcha {
     pub const fn with_lightness(self, lightness: f32) -> Self {
         Self { lightness, ..self }
     }
+
+    /// Generate a deterministic but randomly distributed color from a provided `index`.
+    /// This can be helpful for generating debug colors.
+    pub fn from_index(index: u32) -> Self {
+        // from https://extremelearning.com.au/unreasonable-effectiveness-of-quasirandom-sequences/
+        //
+        // See https://en.wikipedia.org/wiki/Low-discrepancy_sequence
+        // Map a sequence of integers (eg: 154, 155, 156, 157, 158) into the [0.0..1.0] range,
+        // so that the closer the numbers are, the larger the difference of their image.
+        const FRAC_U32MAX_GOLDEN_RATIO: u32 = 2654435769; // (u32::MAX / Φ) rounded up
+        const RATIO_360: f32 = 360.0 / u32::MAX as f32;
+        let seed = index.wrapping_mul(FRAC_U32MAX_GOLDEN_RATIO);
+
+        // TODO: Convert entire function to const when this operation is supported
+        let hue = seed as f32 * RATIO_360;
+
+        Self::lch(0.5, 1., hue)
+    }
 }
 
 impl Default for Lcha {
