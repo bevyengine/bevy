@@ -431,16 +431,75 @@ impl AnimationPlayer {
         self.playing_animations.iter()
     }
 
+    pub fn playing_animations_mut(
+        &mut self,
+    ) -> impl Iterator<Item = (&AnimationNodeIndex, &mut PlayingAnimation)> {
+        self.playing_animations.iter_mut()
+    }
+
     /// Check if the given animation node is being played.
     pub fn is_playing_animation(&self, animation: AnimationNodeIndex) -> bool {
         self.playing_animations.contains_key(&animation)
     }
 
     /// Check if all playing animations have finished, according to the repetition behavior.
-    pub fn is_finished(&self) -> bool {
+    pub fn all_finished(&self) -> bool {
         self.playing_animations
             .values()
             .all(|playing_animation| playing_animation.is_finished())
+    }
+
+    /// Check if all playing animations are paused.
+    #[doc(alias = "is_paused")]
+    pub fn all_paused(&self) -> bool {
+        self.playing_animations.values().all(|playing_animation| playing_animation.is_paused())
+    }
+
+    /// Resume all playing animations.
+    #[doc(alias = "pause")]
+    pub fn pause_all(&mut self) -> &mut Self {
+        for (_, playing_animation) in self.playing_animations_mut() {
+            playing_animation.pause();
+        }
+        self
+    }
+
+    /// Resume all playing animations.
+    #[doc(alias = "resume")]
+    pub fn resume_all(&mut self) -> &mut Self {
+        for (_, playing_animation) in self.playing_animations_mut() {
+            playing_animation.resume();
+        }
+        self
+    }
+
+    /// Rewinds all playing animations.
+    #[doc(alias = "rewind")]
+    pub fn rewind_all(&mut self) -> &mut Self {
+        for (_, playing_animation) in self.playing_animations_mut() {
+            playing_animation.rewind();
+        }
+        self
+    }
+
+    /// Multiplies the speed of all playing animations by the given factor.
+    #[doc(alias = "set_speed")]
+    pub fn adjust_speeds(&mut self, factor: f32) -> &mut Self {
+        for (_, playing_animation) in self.playing_animations_mut() {
+            let new_speed = playing_animation.speed() * factor;
+            playing_animation.set_speed(new_speed);
+        }
+        self
+    }
+
+    /// Seeks all playing animations forward or backward by the same amount.
+    #[doc(alias = "seek_to")]
+    pub fn seek_all_by(&mut self, amount: f32) -> &mut Self {
+        for (_, playing_animation) in self.playing_animations_mut() {
+            let new_time = playing_animation.seek_time();
+            playing_animation.seek_to(new_time);
+        }
+        self
     }
 
     pub fn animation(&self, animation: AnimationNodeIndex) -> Option<&PlayingAnimation> {
@@ -522,6 +581,12 @@ impl PlayingAnimation {
     /// Seeks to a specific time in the animation.
     pub fn seek_to(&mut self, seek_time: f32) -> &mut Self {
         self.seek_time = seek_time;
+        self
+    }
+
+    /// Seeks to the beginning of the animation.
+    pub fn rewind(&mut self) -> &mut Self {
+        self.seek_time = 0.0;
         self
     }
 }

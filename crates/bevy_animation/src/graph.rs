@@ -55,6 +55,16 @@ impl AnimationGraph {
         Self { graph, root }
     }
 
+    /// A convenience function for creating an [`AnimationGraph`] from a single
+    /// [`AnimationClip`].
+    ///
+    /// The clip will be a direct child of the root with weight 1.0.
+    pub fn from_clip(clip: Handle<AnimationClip>) -> (Self, AnimationNodeIndex) {
+        let mut graph = Self::new();
+        let node_index = graph.add_clip(clip, 1.0, graph.root);
+        (graph, node_index)
+    }
+
     pub fn add_clip(
         &mut self,
         clip: Handle<AnimationClip>,
@@ -67,6 +77,20 @@ impl AnimationGraph {
         });
         self.graph.add_edge(parent, node_index, ());
         node_index
+    }
+
+    pub fn add_clips<'a, I>(
+        &'a mut self,
+        clips: I,
+        weight: f32,
+        parent: AnimationNodeIndex,
+    ) -> impl Iterator<Item = AnimationNodeIndex> + 'a
+    where
+        I: IntoIterator<Item = Handle<AnimationClip>>, <I as std::iter::IntoIterator>::IntoIter: 'a
+    {
+        clips
+            .into_iter()
+            .map(move |clip| self.add_clip(clip, weight, parent))
     }
 
     pub fn add_blend(&mut self, weight: f32, parent: AnimationNodeIndex) -> AnimationNodeIndex {
