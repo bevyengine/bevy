@@ -70,6 +70,35 @@ impl Lcha {
     pub const fn with_lightness(self, lightness: f32) -> Self {
         Self { lightness, ..self }
     }
+
+    /// Generate a deterministic but [quasi-randomly distributed](https://en.wikipedia.org/wiki/Low-discrepancy_sequence)
+    /// color from a provided `index`.
+    ///
+    /// This can be helpful for generating debug colors.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_color::Lcha;
+    /// // Unique color for an entity
+    /// # let entity_index = 123;
+    /// // let entity_index = entity.index();
+    /// let color = Lcha::sequential_dispersed(entity_index);
+    ///
+    /// // Palette with 5 distinct hues
+    /// let palette = (0..5).map(Lcha::sequential_dispersed).collect::<Vec<_>>();
+    /// ```
+    pub fn sequential_dispersed(index: u32) -> Self {
+        const FRAC_U32MAX_GOLDEN_RATIO: u32 = 2654435769; // (u32::MAX / Φ) rounded up
+        const RATIO_360: f32 = 360.0 / u32::MAX as f32;
+
+        // from https://extremelearning.com.au/unreasonable-effectiveness-of-quasirandom-sequences/
+        //
+        // Map a sequence of integers (eg: 154, 155, 156, 157, 158) into the [0.0..1.0] range,
+        // so that the closer the numbers are, the larger the difference of their image.
+        let hue = index.wrapping_mul(FRAC_U32MAX_GOLDEN_RATIO) as f32 * RATIO_360;
+        Self::lch(0.75, 0.35, hue)
+    }
 }
 
 impl Default for Lcha {
