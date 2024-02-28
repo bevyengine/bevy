@@ -3,7 +3,7 @@
 use crate as bevy_gizmos;
 
 use bevy_app::{Plugin, PostUpdate};
-use bevy_color::{Color, Hsla};
+use bevy_color::Color;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
