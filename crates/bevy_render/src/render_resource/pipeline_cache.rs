@@ -4,10 +4,11 @@ use bevy_asset::{AssetEvent, AssetId, Assets};
 use bevy_ecs::system::{Res, ResMut};
 use bevy_ecs::{event::EventReader, system::Resource};
 use bevy_tasks::Task;
+use bevy_utils::hashbrown::hash_map::EntryRef;
 use bevy_utils::{
     default,
     tracing::{debug, error},
-    Entry, HashMap, HashSet,
+    HashMap, HashSet,
 };
 use naga::valid::Capabilities;
 use std::{
@@ -21,10 +22,7 @@ use std::{
 use thiserror::Error;
 #[cfg(feature = "shader_format_spirv")]
 use wgpu::util::make_spirv;
-use wgpu::{
-    DownlevelFlags, Features, PipelineLayoutDescriptor, PushConstantRange, ShaderModuleDescriptor,
-    VertexBufferLayout as RawVertexBufferLayout,
-};
+use wgpu::{DownlevelFlags, Features, VertexBufferLayout as RawVertexBufferLayout};
 
 use crate::render_resource::resource_macros::*;
 
@@ -125,7 +123,7 @@ impl CachedPipelineState {
 #[derive(Default)]
 struct ShaderData {
     pipelines: HashSet<CachedPipelineId>,
-    processed_shaders: HashMap<Vec<ShaderDefVal>, ErasedShaderModule>,
+    processed_shaders: HashMap<Box<[ShaderDefVal]>, ErasedShaderModule>,
     resolved_imports: HashMap<ShaderImport, AssetId<Shader>>,
     dependents: HashSet<AssetId<Shader>>,
 }
@@ -277,9 +275,9 @@ impl ShaderCache {
         data.pipelines.insert(pipeline);
 
         // PERF: this shader_defs clone isn't great. use raw_entry_mut when it stabilizes
-        let module = match data.processed_shaders.entry(shader_defs.to_vec()) {
-            Entry::Occupied(entry) => entry.into_mut(),
-            Entry::Vacant(entry) => {
+        let module = match data.processed_shaders.entry_ref(shader_defs) {
+            EntryRef::Occupied(entry) => entry.into_mut(),
+            EntryRef::Vacant(entry) => {
                 let mut shader_defs = shader_defs.to_vec();
                 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
                 {
@@ -288,7 +286,7 @@ impl ShaderCache {
                     shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
                 }
 
-                if cfg!(ios_simulator) {
+                if cfg!(feature = "ios_simulator") {
                     shader_defs.push("NO_CUBE_ARRAY_TEXTURES_SUPPORT".into());
                 }
 

@@ -74,6 +74,18 @@ impl<I, O> std::fmt::Debug for SystemId<I, O> {
     }
 }
 
+impl<I, O> From<SystemId<I, O>> for Entity {
+    /// Transforms a [`SystemId`] into the [`Entity`] that holds the one-shot system's state.
+    ///
+    /// It's trivial to convert [`SystemId`] into an [`Entity`] since a system
+    /// is really an entity with associated handler function.
+    ///
+    /// For example, this is useful if you want to assign a name label to a system.
+    fn from(SystemId(entity, _): SystemId<I, O>) -> Self {
+        entity
+    }
+}
+
 impl World {
     /// Registers a system and returns a [`SystemId`] so it can later be called by [`World::run_system`].
     ///
@@ -83,7 +95,7 @@ impl World {
     /// because the [`SystemId`] that is returned can be used anywhere in the [`World`] to run the associated system.
     /// This allows for running systems in a pushed-based fashion.
     /// Using a [`Schedule`](crate::schedule::Schedule) is still preferred for most cases
-    /// due to its better performance and abillity to run non-conflicting systems simultaneously.
+    /// due to its better performance and ability to run non-conflicting systems simultaneously.
     pub fn register_system<I: 'static, O: 'static, M, S: IntoSystem<I, O, M> + 'static>(
         &mut self,
         system: S,

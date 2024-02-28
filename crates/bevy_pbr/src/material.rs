@@ -5,8 +5,7 @@ use crate::{
     },
     *,
 };
-use bevy_app::{App, Plugin};
-use bevy_asset::{Asset, AssetApp, AssetEvent, AssetId, AssetServer, Assets, Handle};
+use bevy_asset::{Asset, AssetEvent, AssetId, AssetServer};
 use bevy_core_pipeline::{
     core_3d::{
         AlphaMask3d, Camera3d, Opaque3d, ScreenSpaceTransmissionQuality, Transmissive3d,
@@ -22,19 +21,17 @@ use bevy_ecs::{
 };
 use bevy_reflect::Reflect;
 use bevy_render::{
-    camera::Projection,
     camera::TemporalJitter,
     extract_instances::{ExtractInstancesPlugin, ExtractedInstances},
     extract_resource::ExtractResource,
     mesh::{Mesh, MeshVertexBufferLayout},
-    prelude::Image,
-    render_asset::{prepare_assets, RenderAssets},
+    render_asset::RenderAssets,
     render_phase::*,
     render_resource::*,
     renderer::RenderDevice,
     texture::FallbackImage,
     view::{ExtractedView, Msaa, VisibleEntities},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract,
 };
 use bevy_utils::{tracing::error, HashMap, HashSet};
 use std::marker::PhantomData;
@@ -709,10 +706,10 @@ pub fn queue_material_meshes<M: Material>(
                     }
                 }
                 AlphaMode::Mask(_) => {
-                    let distance = rangefinder
-                        .distance_translation(&mesh_instance.transforms.transform.translation)
-                        + material.properties.depth_bias;
                     if material.properties.reads_view_transmission_texture {
+                        let distance = rangefinder
+                            .distance_translation(&mesh_instance.transforms.transform.translation)
+                            + material.properties.depth_bias;
                         transmissive_phase.add(Transmissive3d {
                             entity: *visible_entity,
                             draw_function: draw_transmissive_pbr,
@@ -726,7 +723,7 @@ pub fn queue_material_meshes<M: Material>(
                             entity: *visible_entity,
                             draw_function: draw_alpha_mask_pbr,
                             pipeline: pipeline_id,
-                            distance,
+                            asset_id: mesh_instance.mesh_asset_id,
                             batch_range: 0..1,
                             dynamic_offset: None,
                         });

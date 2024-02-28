@@ -16,6 +16,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_animation|Provides animation functionality|
 |bevy_asset|Provides asset functionality|
 |bevy_audio|Provides audio functionality|
+|bevy_color|Provides shared color types and operations|
 |bevy_core_pipeline|Provides cameras and other basic render pipeline features|
 |bevy_debug_stepping|Enable stepping-based debugging of Bevy systems|
 |bevy_gilrs|Adds gamepad support|

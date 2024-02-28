@@ -27,6 +27,12 @@ pub mod core {
     pub use bevy_core::*;
 }
 
+#[cfg(feature = "bevy_color")]
+pub mod color {
+    //! Shared color types and operations.
+    pub use bevy_color::*;
+}
+
 pub mod diagnostic {
     //! Useful diagnostic plugins and types for bevy apps.
     pub use bevy_diagnostic::*;
