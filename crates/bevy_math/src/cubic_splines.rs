@@ -520,7 +520,7 @@ impl<P: Point> CubicNurbs<P> {
     }
 
     /// Generates a nonuniform B-spline charictartistic matrix from a sequence of six knots. Each six
-    /// knots describe the relationship between four successive controll points. For padding reasons,
+    /// knots describe the relationship between four successive control points. For padding reasons,
     /// this takes a vector of 8 knots, but only six are actually used.
     fn generate_matrix(knots: &[f32; 8]) -> [[f32; 4]; 4] {
         // A derivation for this matrix can be found in "General Matrix Representations for B-splines" by Kaihuai Qin.
@@ -565,8 +565,8 @@ impl<P: Point> RationalGenerator<P> for CubicNurbs<P> {
                 // and i+4) and it's characteristic matrix uses knots i+1 through i+6 (because
                 // those define the two knot spans on either side).
                 let span = knots[4] - knots[3];
-                let coefficent_knots = knots.try_into().expect("Knot windows are of length 6");
-                let matrix = Self::generate_matrix(coefficent_knots);
+                let coefficient_knots = knots.try_into().expect("Knot windows are of length 6");
+                let matrix = Self::generate_matrix(coefficient_knots);
                 RationalSegment::coefficients(
                     points.try_into().expect("Point windows are of length 4"),
                     weights.try_into().expect("Weight windows are of length 4"),
