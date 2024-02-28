@@ -34,12 +34,26 @@ pub fn derive_states(ast: DeriveInput) -> syn::Result<TokenStream> {
 const TRANSITION_TO: &str = "transition_to";
 
 fn impl_can_transit_to_for_enum(enum_name: &Ident, data: &DataEnum) -> syn::Result<TokenStream> {
+    let has_non_unit_variant = data
+        .variants
+        .iter()
+        .any(|variant| !matches!(variant.fields, syn::Fields::Unit));
+
     let match_branches = data
         .variants
         .iter()
         .map(|variant| {
             let variant_ident = &variant.ident;
             let transitions = extract_transition_attributes_for_variant(variant)?;
+
+            if has_non_unit_variant && transitions.is_some() {
+                return Err(syn::Error::new_spanned(
+                    variant,
+                    format!(
+                        "cannot use the `{TRANSITION_TO}` attribute in an enum with non-unit variants"
+                    ),
+                ));
+            }
 
             Ok(match transitions {
                 Some(TransitionTo { inverted, targets }) => {
