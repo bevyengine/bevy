@@ -5,7 +5,7 @@
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 use bevy_math::Mat2;
-use bevy_math::{primitives::Direction3d, Quat, Vec2, Vec3};
+use bevy_math::{Direction3d, Quat, Vec2, Vec3};
 use bevy_render::color::LegacyColor;
 use std::f32::consts::TAU;
 

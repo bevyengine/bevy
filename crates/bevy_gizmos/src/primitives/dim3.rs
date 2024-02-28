@@ -4,10 +4,10 @@ use super::helpers::*;
 use std::f32::consts::TAU;
 
 use bevy_math::primitives::{
-    BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Direction3d, Line3d,
-    Plane3d, Polyline3d, Primitive3d, Segment3d, Sphere, Torus,
+    BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Line3d, Plane3d,
+    Polyline3d, Primitive3d, Segment3d, Sphere, Torus,
 };
-use bevy_math::{Quat, Vec3};
+use bevy_math::{Direction3d, Quat, Vec3};
 use bevy_render::color::LegacyColor;
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};

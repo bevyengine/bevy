@@ -4,10 +4,10 @@ use crate::{
     core_3d::graph::{Core3d, Node3d},
 };
 use bevy_app::{App, Plugin};
+use bevy_color::LinearRgba;
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::ExtractedCamera,
-    color::LegacyColor,
     render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
     renderer::RenderContext,
     view::{Msaa, ViewTarget},
@@ -92,7 +92,7 @@ impl Node for MsaaWritebackNode {
                     view: target.sampled_main_texture_view().unwrap(),
                     resolve_target: Some(post_process.destination),
                     ops: Operations {
-                        load: LoadOp::Clear(LegacyColor::BLACK.into()),
+                        load: LoadOp::Clear(LinearRgba::BLACK.into()),
                         store: StoreOp::Store,
                     },
                 })],

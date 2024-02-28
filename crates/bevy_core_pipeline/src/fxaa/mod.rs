@@ -27,7 +27,7 @@ mod node;
 
 pub use node::FxaaNode;
 
-#[derive(Reflect, Eq, PartialEq, Hash, Clone, Copy)]
+#[derive(Debug, Reflect, Eq, PartialEq, Hash, Clone, Copy)]
 #[reflect(PartialEq, Hash)]
 pub enum Sensitivity {
     Low,
@@ -86,7 +86,7 @@ impl Plugin for FxaaPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, FXAA_SHADER_HANDLE, "fxaa.wgsl", Shader::from_wgsl);
 
-        app.register_type::<Fxaa>();
+        app.register_type::<Fxaa>().register_type::<Sensitivity>();
         app.add_plugins(ExtractComponentPlugin::<Fxaa>::default());
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {

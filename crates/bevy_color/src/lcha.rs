@@ -1,9 +1,12 @@
-use crate::{Alpha, Hsla, LinearRgba, Luminance, Mix, Oklaba, Srgba, StandardColor};
+use crate::{Alpha, Laba, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza};
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use bevy_render::color::LchRepresentation;
 use serde::{Deserialize, Serialize};
 
 /// Color in LCH color space, with alpha
+#[doc = include_str!("../docs/conversion.md")]
+/// <div>
+#[doc = include_str!("../docs/diagrams/model_graph.svg")]
+/// </div>
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub struct Lcha {
@@ -129,68 +132,87 @@ impl Luminance for Lcha {
     }
 }
 
+impl From<Lcha> for Laba {
+    fn from(
+        Lcha {
+            lightness,
+            chroma,
+            hue,
+            alpha,
+        }: Lcha,
+    ) -> Self {
+        // Based on http://www.brucelindbloom.com/index.html?Eqn_LCH_to_Lab.html
+        let l = lightness;
+        let a = chroma * hue.to_radians().cos();
+        let b = chroma * hue.to_radians().sin();
+
+        Laba::new(l, a, b, alpha)
+    }
+}
+
+impl From<Laba> for Lcha {
+    fn from(
+        Laba {
+            lightness,
+            a,
+            b,
+            alpha,
+        }: Laba,
+    ) -> Self {
+        // Based on http://www.brucelindbloom.com/index.html?Eqn_Lab_to_LCH.html
+        let c = (a.powf(2.0) + b.powf(2.0)).sqrt();
+        let h = {
+            let h = b.to_radians().atan2(a.to_radians()).to_degrees();
+
+            if h < 0.0 {
+                h + 360.0
+            } else {
+                h
+            }
+        };
+
+        let chroma = c.clamp(0.0, 1.5);
+        let hue = h;
+
+        Lcha::new(lightness, chroma, hue, alpha)
+    }
+}
+
+// Derived Conversions
+
 impl From<Srgba> for Lcha {
     fn from(value: Srgba) -> Self {
-        let (l, c, h) =
-            LchRepresentation::nonlinear_srgb_to_lch([value.red, value.green, value.blue]);
-        Lcha::new(l, c, h, value.alpha)
+        Laba::from(value).into()
     }
 }
 
 impl From<Lcha> for Srgba {
     fn from(value: Lcha) -> Self {
-        let [r, g, b] =
-            LchRepresentation::lch_to_nonlinear_srgb(value.lightness, value.chroma, value.hue);
-        Srgba::new(r, g, b, value.alpha)
+        Laba::from(value).into()
     }
 }
 
 impl From<LinearRgba> for Lcha {
     fn from(value: LinearRgba) -> Self {
-        Srgba::from(value).into()
+        Laba::from(value).into()
     }
 }
 
 impl From<Lcha> for LinearRgba {
     fn from(value: Lcha) -> Self {
-        LinearRgba::from(Srgba::from(value))
+        Laba::from(value).into()
     }
 }
 
-impl From<Lcha> for bevy_render::color::LegacyColor {
+impl From<Xyza> for Lcha {
+    fn from(value: Xyza) -> Self {
+        Laba::from(value).into()
+    }
+}
+
+impl From<Lcha> for Xyza {
     fn from(value: Lcha) -> Self {
-        bevy_render::color::LegacyColor::Lcha {
-            hue: value.hue,
-            chroma: value.chroma,
-            lightness: value.lightness,
-            alpha: value.alpha,
-        }
-    }
-}
-
-impl From<bevy_render::color::LegacyColor> for Lcha {
-    fn from(value: bevy_render::color::LegacyColor) -> Self {
-        match value.as_lcha() {
-            bevy_render::color::LegacyColor::Lcha {
-                hue,
-                chroma,
-                lightness,
-                alpha,
-            } => Lcha::new(hue, chroma, lightness, alpha),
-            _ => unreachable!(),
-        }
-    }
-}
-
-impl From<Oklaba> for Lcha {
-    fn from(value: Oklaba) -> Self {
-        Srgba::from(value).into()
-    }
-}
-
-impl From<Hsla> for Lcha {
-    fn from(value: Hsla) -> Self {
-        Srgba::from(value).into()
+        Laba::from(value).into()
     }
 }
 

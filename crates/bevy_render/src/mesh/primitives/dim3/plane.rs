@@ -1,7 +1,4 @@
-use bevy_math::{
-    primitives::{Direction3d, Plane3d},
-    Quat, Vec2, Vec3,
-};
+use bevy_math::{primitives::Plane3d, Direction3d, Quat, Vec2, Vec3};
 use wgpu::PrimitiveTopology;
 
 use crate::{

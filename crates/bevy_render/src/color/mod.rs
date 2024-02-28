@@ -1,12 +1,11 @@
-mod colorspace;
-
-pub use colorspace::*;
+use bevy_color::{
+    Color, HexColorError, Hsla, Hsva, Hwba, Laba, Lcha, LinearRgba, Oklaba, Oklcha, Srgba, Xyza,
+};
 
 use bevy_math::{Vec3, Vec4};
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
 use std::ops::{Add, Mul, MulAssign};
-use thiserror::Error;
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
@@ -304,32 +303,7 @@ impl LegacyColor {
     /// ```
     ///
     pub fn hex<T: AsRef<str>>(hex: T) -> Result<LegacyColor, HexColorError> {
-        let hex = hex.as_ref();
-        let hex = hex.strip_prefix('#').unwrap_or(hex);
-
-        match *hex.as_bytes() {
-            // RGB
-            [r, g, b] => {
-                let [r, g, b, ..] = decode_hex([r, r, g, g, b, b])?;
-                Ok(LegacyColor::rgb_u8(r, g, b))
-            }
-            // RGBA
-            [r, g, b, a] => {
-                let [r, g, b, a, ..] = decode_hex([r, r, g, g, b, b, a, a])?;
-                Ok(LegacyColor::rgba_u8(r, g, b, a))
-            }
-            // RRGGBB
-            [r1, r2, g1, g2, b1, b2] => {
-                let [r, g, b, ..] = decode_hex([r1, r2, g1, g2, b1, b2])?;
-                Ok(LegacyColor::rgb_u8(r, g, b))
-            }
-            // RRGGBBAA
-            [r1, r2, g1, g2, b1, b2, a1, a2] => {
-                let [r, g, b, a, ..] = decode_hex([r1, r2, g1, g2, b1, b2, a1, a2])?;
-                Ok(LegacyColor::rgba_u8(r, g, b, a))
-            }
-            _ => Err(HexColorError::Length),
-        }
+        Srgba::hex(hex).map(|color| color.into())
     }
 
     /// New `Color` from sRGB colorspace.
@@ -570,211 +544,22 @@ impl LegacyColor {
 
     /// Converts a `Color` to variant `LegacyColor::Rgba`
     pub fn as_rgba(self: &LegacyColor) -> LegacyColor {
-        match self {
-            LegacyColor::Rgba { .. } => *self,
-            LegacyColor::RgbaLinear {
-                red,
-                green,
-                blue,
-                alpha,
-            } => LegacyColor::Rgba {
-                red: red.linear_to_nonlinear_srgb(),
-                green: green.linear_to_nonlinear_srgb(),
-                blue: blue.linear_to_nonlinear_srgb(),
-                alpha: *alpha,
-            },
-            LegacyColor::Hsla {
-                hue,
-                saturation,
-                lightness,
-                alpha,
-            } => {
-                let [red, green, blue] =
-                    HslRepresentation::hsl_to_nonlinear_srgb(*hue, *saturation, *lightness);
-                LegacyColor::Rgba {
-                    red,
-                    green,
-                    blue,
-                    alpha: *alpha,
-                }
-            }
-            LegacyColor::Lcha {
-                lightness,
-                chroma,
-                hue,
-                alpha,
-            } => {
-                let [red, green, blue] =
-                    LchRepresentation::lch_to_nonlinear_srgb(*lightness, *chroma, *hue);
-
-                LegacyColor::Rgba {
-                    red,
-                    green,
-                    blue,
-                    alpha: *alpha,
-                }
-            }
-        }
+        Srgba::from(*self).into()
     }
 
     /// Converts a `Color` to variant `LegacyColor::RgbaLinear`
     pub fn as_rgba_linear(self: &LegacyColor) -> LegacyColor {
-        match self {
-            LegacyColor::Rgba {
-                red,
-                green,
-                blue,
-                alpha,
-            } => LegacyColor::RgbaLinear {
-                red: red.nonlinear_to_linear_srgb(),
-                green: green.nonlinear_to_linear_srgb(),
-                blue: blue.nonlinear_to_linear_srgb(),
-                alpha: *alpha,
-            },
-            LegacyColor::RgbaLinear { .. } => *self,
-            LegacyColor::Hsla {
-                hue,
-                saturation,
-                lightness,
-                alpha,
-            } => {
-                let [red, green, blue] =
-                    HslRepresentation::hsl_to_nonlinear_srgb(*hue, *saturation, *lightness);
-                LegacyColor::RgbaLinear {
-                    red: red.nonlinear_to_linear_srgb(),
-                    green: green.nonlinear_to_linear_srgb(),
-                    blue: blue.nonlinear_to_linear_srgb(),
-                    alpha: *alpha,
-                }
-            }
-            LegacyColor::Lcha {
-                lightness,
-                chroma,
-                hue,
-                alpha,
-            } => {
-                let [red, green, blue] =
-                    LchRepresentation::lch_to_nonlinear_srgb(*lightness, *chroma, *hue);
-
-                LegacyColor::RgbaLinear {
-                    red: red.nonlinear_to_linear_srgb(),
-                    green: green.nonlinear_to_linear_srgb(),
-                    blue: blue.nonlinear_to_linear_srgb(),
-                    alpha: *alpha,
-                }
-            }
-        }
+        LinearRgba::from(*self).into()
     }
 
     /// Converts a `Color` to variant `LegacyColor::Hsla`
     pub fn as_hsla(self: &LegacyColor) -> LegacyColor {
-        match self {
-            LegacyColor::Rgba {
-                red,
-                green,
-                blue,
-                alpha,
-            } => {
-                let (hue, saturation, lightness) =
-                    HslRepresentation::nonlinear_srgb_to_hsl([*red, *green, *blue]);
-                LegacyColor::Hsla {
-                    hue,
-                    saturation,
-                    lightness,
-                    alpha: *alpha,
-                }
-            }
-            LegacyColor::RgbaLinear {
-                red,
-                green,
-                blue,
-                alpha,
-            } => {
-                let (hue, saturation, lightness) = HslRepresentation::nonlinear_srgb_to_hsl([
-                    red.linear_to_nonlinear_srgb(),
-                    green.linear_to_nonlinear_srgb(),
-                    blue.linear_to_nonlinear_srgb(),
-                ]);
-                LegacyColor::Hsla {
-                    hue,
-                    saturation,
-                    lightness,
-                    alpha: *alpha,
-                }
-            }
-            LegacyColor::Hsla { .. } => *self,
-            LegacyColor::Lcha {
-                lightness,
-                chroma,
-                hue,
-                alpha,
-            } => {
-                let rgb = LchRepresentation::lch_to_nonlinear_srgb(*lightness, *chroma, *hue);
-                let (hue, saturation, lightness) = HslRepresentation::nonlinear_srgb_to_hsl(rgb);
-
-                LegacyColor::Hsla {
-                    hue,
-                    saturation,
-                    lightness,
-                    alpha: *alpha,
-                }
-            }
-        }
+        Hsla::from(*self).into()
     }
 
     /// Converts a `Color` to variant `LegacyColor::Lcha`
     pub fn as_lcha(self: &LegacyColor) -> LegacyColor {
-        match self {
-            LegacyColor::Rgba {
-                red,
-                green,
-                blue,
-                alpha,
-            } => {
-                let (lightness, chroma, hue) =
-                    LchRepresentation::nonlinear_srgb_to_lch([*red, *green, *blue]);
-                LegacyColor::Lcha {
-                    lightness,
-                    chroma,
-                    hue,
-                    alpha: *alpha,
-                }
-            }
-            LegacyColor::RgbaLinear {
-                red,
-                green,
-                blue,
-                alpha,
-            } => {
-                let (lightness, chroma, hue) = LchRepresentation::nonlinear_srgb_to_lch([
-                    red.linear_to_nonlinear_srgb(),
-                    green.linear_to_nonlinear_srgb(),
-                    blue.linear_to_nonlinear_srgb(),
-                ]);
-                LegacyColor::Lcha {
-                    lightness,
-                    chroma,
-                    hue,
-                    alpha: *alpha,
-                }
-            }
-            LegacyColor::Hsla {
-                hue,
-                saturation,
-                lightness,
-                alpha,
-            } => {
-                let rgb = HslRepresentation::hsl_to_nonlinear_srgb(*hue, *saturation, *lightness);
-                let (lightness, chroma, hue) = LchRepresentation::nonlinear_srgb_to_lch(rgb);
-                LegacyColor::Lcha {
-                    lightness,
-                    chroma,
-                    hue,
-                    alpha: *alpha,
-                }
-            }
-            LegacyColor::Lcha { .. } => *self,
-        }
+        Lcha::from(*self).into()
     }
 
     /// Converts a `Color` to a `[u8; 4]` from sRGB colorspace
@@ -790,193 +575,47 @@ impl LegacyColor {
 
     /// Converts a `Color` to a `[f32; 4]` from sRGB colorspace
     pub fn as_rgba_f32(self: LegacyColor) -> [f32; 4] {
-        match self {
-            LegacyColor::Rgba {
-                red,
-                green,
-                blue,
-                alpha,
-            } => [red, green, blue, alpha],
-            LegacyColor::RgbaLinear {
-                red,
-                green,
-                blue,
-                alpha,
-            } => [
-                red.linear_to_nonlinear_srgb(),
-                green.linear_to_nonlinear_srgb(),
-                blue.linear_to_nonlinear_srgb(),
-                alpha,
-            ],
-            LegacyColor::Hsla {
-                hue,
-                saturation,
-                lightness,
-                alpha,
-            } => {
-                let [red, green, blue] =
-                    HslRepresentation::hsl_to_nonlinear_srgb(hue, saturation, lightness);
-                [red, green, blue, alpha]
-            }
-            LegacyColor::Lcha {
-                lightness,
-                chroma,
-                hue,
-                alpha,
-            } => {
-                let [red, green, blue] =
-                    LchRepresentation::lch_to_nonlinear_srgb(lightness, chroma, hue);
-
-                [red, green, blue, alpha]
-            }
-        }
+        let Srgba {
+            red,
+            green,
+            blue,
+            alpha,
+        } = Srgba::from(self);
+        [red, green, blue, alpha]
     }
 
     /// Converts a `Color` to a `[f32; 4]` from linear RGB colorspace
     #[inline]
     pub fn as_linear_rgba_f32(self: LegacyColor) -> [f32; 4] {
-        match self {
-            LegacyColor::Rgba {
-                red,
-                green,
-                blue,
-                alpha,
-            } => [
-                red.nonlinear_to_linear_srgb(),
-                green.nonlinear_to_linear_srgb(),
-                blue.nonlinear_to_linear_srgb(),
-                alpha,
-            ],
-            LegacyColor::RgbaLinear {
-                red,
-                green,
-                blue,
-                alpha,
-            } => [red, green, blue, alpha],
-            LegacyColor::Hsla {
-                hue,
-                saturation,
-                lightness,
-                alpha,
-            } => {
-                let [red, green, blue] =
-                    HslRepresentation::hsl_to_nonlinear_srgb(hue, saturation, lightness);
-                [
-                    red.nonlinear_to_linear_srgb(),
-                    green.nonlinear_to_linear_srgb(),
-                    blue.nonlinear_to_linear_srgb(),
-                    alpha,
-                ]
-            }
-            LegacyColor::Lcha {
-                lightness,
-                chroma,
-                hue,
-                alpha,
-            } => {
-                let [red, green, blue] =
-                    LchRepresentation::lch_to_nonlinear_srgb(lightness, chroma, hue);
-
-                [
-                    red.nonlinear_to_linear_srgb(),
-                    green.nonlinear_to_linear_srgb(),
-                    blue.nonlinear_to_linear_srgb(),
-                    alpha,
-                ]
-            }
-        }
+        let LinearRgba {
+            red,
+            green,
+            blue,
+            alpha,
+        } = LinearRgba::from(self);
+        [red, green, blue, alpha]
     }
 
     /// Converts a `Color` to a `[f32; 4]` from HSL colorspace
     pub fn as_hsla_f32(self: LegacyColor) -> [f32; 4] {
-        match self {
-            LegacyColor::Rgba {
-                red,
-                green,
-                blue,
-                alpha,
-            } => {
-                let (hue, saturation, lightness) =
-                    HslRepresentation::nonlinear_srgb_to_hsl([red, green, blue]);
-                [hue, saturation, lightness, alpha]
-            }
-            LegacyColor::RgbaLinear {
-                red,
-                green,
-                blue,
-                alpha,
-            } => {
-                let (hue, saturation, lightness) = HslRepresentation::nonlinear_srgb_to_hsl([
-                    red.linear_to_nonlinear_srgb(),
-                    green.linear_to_nonlinear_srgb(),
-                    blue.linear_to_nonlinear_srgb(),
-                ]);
-                [hue, saturation, lightness, alpha]
-            }
-            LegacyColor::Hsla {
-                hue,
-                saturation,
-                lightness,
-                alpha,
-            } => [hue, saturation, lightness, alpha],
-            LegacyColor::Lcha {
-                lightness,
-                chroma,
-                hue,
-                alpha,
-            } => {
-                let rgb = LchRepresentation::lch_to_nonlinear_srgb(lightness, chroma, hue);
-                let (hue, saturation, lightness) = HslRepresentation::nonlinear_srgb_to_hsl(rgb);
-
-                [hue, saturation, lightness, alpha]
-            }
-        }
+        let Hsla {
+            hue,
+            saturation,
+            lightness,
+            alpha,
+        } = Hsla::from(self);
+        [hue, saturation, lightness, alpha]
     }
 
     /// Converts a `Color` to a `[f32; 4]` from LCH colorspace
     pub fn as_lcha_f32(self: LegacyColor) -> [f32; 4] {
-        match self {
-            LegacyColor::Rgba {
-                red,
-                green,
-                blue,
-                alpha,
-            } => {
-                let (lightness, chroma, hue) =
-                    LchRepresentation::nonlinear_srgb_to_lch([red, green, blue]);
-                [lightness, chroma, hue, alpha]
-            }
-            LegacyColor::RgbaLinear {
-                red,
-                green,
-                blue,
-                alpha,
-            } => {
-                let (lightness, chroma, hue) = LchRepresentation::nonlinear_srgb_to_lch([
-                    red.linear_to_nonlinear_srgb(),
-                    green.linear_to_nonlinear_srgb(),
-                    blue.linear_to_nonlinear_srgb(),
-                ]);
-                [lightness, chroma, hue, alpha]
-            }
-            LegacyColor::Hsla {
-                hue,
-                saturation,
-                lightness,
-                alpha,
-            } => {
-                let rgb = HslRepresentation::hsl_to_nonlinear_srgb(hue, saturation, lightness);
-                let (lightness, chroma, hue) = LchRepresentation::nonlinear_srgb_to_lch(rgb);
-
-                [lightness, chroma, hue, alpha]
-            }
-            LegacyColor::Lcha {
-                lightness,
-                chroma,
-                hue,
-                alpha,
-            } => [lightness, chroma, hue, alpha],
-        }
+        let Lcha {
+            lightness,
+            chroma,
+            hue,
+            alpha,
+        } = Lcha::from(self);
+        [lightness, chroma, hue, alpha]
     }
 
     /// Converts `Color` to a `u32` from sRGB colorspace.
@@ -984,61 +623,7 @@ impl LegacyColor {
     /// Maps the RGBA channels in RGBA order to a little-endian byte array (GPUs are little-endian).
     /// `A` will be the most significant byte and `R` the least significant.
     pub fn as_rgba_u32(self: LegacyColor) -> u32 {
-        match self {
-            LegacyColor::Rgba {
-                red,
-                green,
-                blue,
-                alpha,
-            } => u32::from_le_bytes([
-                (red * 255.0) as u8,
-                (green * 255.0) as u8,
-                (blue * 255.0) as u8,
-                (alpha * 255.0) as u8,
-            ]),
-            LegacyColor::RgbaLinear {
-                red,
-                green,
-                blue,
-                alpha,
-            } => u32::from_le_bytes([
-                (red.linear_to_nonlinear_srgb() * 255.0) as u8,
-                (green.linear_to_nonlinear_srgb() * 255.0) as u8,
-                (blue.linear_to_nonlinear_srgb() * 255.0) as u8,
-                (alpha * 255.0) as u8,
-            ]),
-            LegacyColor::Hsla {
-                hue,
-                saturation,
-                lightness,
-                alpha,
-            } => {
-                let [red, green, blue] =
-                    HslRepresentation::hsl_to_nonlinear_srgb(hue, saturation, lightness);
-                u32::from_le_bytes([
-                    (red * 255.0) as u8,
-                    (green * 255.0) as u8,
-                    (blue * 255.0) as u8,
-                    (alpha * 255.0) as u8,
-                ])
-            }
-            LegacyColor::Lcha {
-                lightness,
-                chroma,
-                hue,
-                alpha,
-            } => {
-                let [red, green, blue] =
-                    LchRepresentation::lch_to_nonlinear_srgb(lightness, chroma, hue);
-
-                u32::from_le_bytes([
-                    (red * 255.0) as u8,
-                    (green * 255.0) as u8,
-                    (blue * 255.0) as u8,
-                    (alpha * 255.0) as u8,
-                ])
-            }
-        }
+        u32::from_le_bytes(self.as_rgba_u8())
     }
 
     /// Converts Color to a u32 from linear RGB colorspace.
@@ -1046,61 +631,18 @@ impl LegacyColor {
     /// Maps the RGBA channels in RGBA order to a little-endian byte array (GPUs are little-endian).
     /// `A` will be the most significant byte and `R` the least significant.
     pub fn as_linear_rgba_u32(self: LegacyColor) -> u32 {
-        match self {
-            LegacyColor::Rgba {
-                red,
-                green,
-                blue,
-                alpha,
-            } => u32::from_le_bytes([
-                (red.nonlinear_to_linear_srgb() * 255.0) as u8,
-                (green.nonlinear_to_linear_srgb() * 255.0) as u8,
-                (blue.nonlinear_to_linear_srgb() * 255.0) as u8,
-                (alpha * 255.0) as u8,
-            ]),
-            LegacyColor::RgbaLinear {
-                red,
-                green,
-                blue,
-                alpha,
-            } => u32::from_le_bytes([
-                (red * 255.0) as u8,
-                (green * 255.0) as u8,
-                (blue * 255.0) as u8,
-                (alpha * 255.0) as u8,
-            ]),
-            LegacyColor::Hsla {
-                hue,
-                saturation,
-                lightness,
-                alpha,
-            } => {
-                let [red, green, blue] =
-                    HslRepresentation::hsl_to_nonlinear_srgb(hue, saturation, lightness);
-                u32::from_le_bytes([
-                    (red.nonlinear_to_linear_srgb() * 255.0) as u8,
-                    (green.nonlinear_to_linear_srgb() * 255.0) as u8,
-                    (blue.nonlinear_to_linear_srgb() * 255.0) as u8,
-                    (alpha * 255.0) as u8,
-                ])
-            }
-            LegacyColor::Lcha {
-                lightness,
-                chroma,
-                hue,
-                alpha,
-            } => {
-                let [red, green, blue] =
-                    LchRepresentation::lch_to_nonlinear_srgb(lightness, chroma, hue);
-
-                u32::from_le_bytes([
-                    (red.nonlinear_to_linear_srgb() * 255.0) as u8,
-                    (green.nonlinear_to_linear_srgb() * 255.0) as u8,
-                    (blue.nonlinear_to_linear_srgb() * 255.0) as u8,
-                    (alpha * 255.0) as u8,
-                ])
-            }
-        }
+        let LinearRgba {
+            red,
+            green,
+            blue,
+            alpha,
+        } = self.into();
+        u32::from_le_bytes([
+            (red * 255.0) as u8,
+            (green * 255.0) as u8,
+            (blue * 255.0) as u8,
+            (alpha * 255.0) as u8,
+        ])
     }
 
     /// New `Color` from `[f32; 4]` (or a type that can be converted into them) with RGB representation in sRGB colorspace.
@@ -1342,6 +884,215 @@ impl Add<LegacyColor> for LegacyColor {
                 }
             }
         }
+    }
+}
+
+impl From<LegacyColor> for Color {
+    fn from(value: LegacyColor) -> Self {
+        match value {
+            LegacyColor::Rgba {
+                red,
+                green,
+                blue,
+                alpha,
+            } => Srgba::new(red, green, blue, alpha).into(),
+            LegacyColor::RgbaLinear {
+                red,
+                green,
+                blue,
+                alpha,
+            } => LinearRgba::new(red, green, blue, alpha).into(),
+            LegacyColor::Hsla {
+                hue,
+                saturation,
+                lightness,
+                alpha,
+            } => Hsla::new(hue, saturation, lightness, alpha).into(),
+            LegacyColor::Lcha {
+                lightness,
+                chroma,
+                hue,
+                alpha,
+            } => Lcha::new(lightness, chroma, hue, alpha).into(),
+        }
+    }
+}
+
+impl From<Color> for LegacyColor {
+    fn from(value: Color) -> Self {
+        match value {
+            Color::Srgba(x) => x.into(),
+            Color::LinearRgba(x) => x.into(),
+            Color::Hsla(x) => x.into(),
+            Color::Hsva(x) => x.into(),
+            Color::Hwba(x) => x.into(),
+            Color::Laba(x) => x.into(),
+            Color::Lcha(x) => x.into(),
+            Color::Oklaba(x) => x.into(),
+            Color::Oklcha(x) => x.into(),
+            Color::Xyza(x) => x.into(),
+        }
+    }
+}
+
+impl From<LinearRgba> for LegacyColor {
+    fn from(
+        LinearRgba {
+            red,
+            green,
+            blue,
+            alpha,
+        }: LinearRgba,
+    ) -> Self {
+        LegacyColor::RgbaLinear {
+            red,
+            green,
+            blue,
+            alpha,
+        }
+    }
+}
+
+impl From<LegacyColor> for Xyza {
+    fn from(value: LegacyColor) -> Self {
+        LinearRgba::from(value).into()
+    }
+}
+
+impl From<Xyza> for LegacyColor {
+    fn from(value: Xyza) -> Self {
+        LinearRgba::from(value).into()
+    }
+}
+
+impl From<LegacyColor> for LinearRgba {
+    fn from(value: LegacyColor) -> Self {
+        Color::from(value).into()
+    }
+}
+
+impl From<Srgba> for LegacyColor {
+    fn from(
+        Srgba {
+            red,
+            green,
+            blue,
+            alpha,
+        }: Srgba,
+    ) -> Self {
+        LegacyColor::Rgba {
+            red,
+            green,
+            blue,
+            alpha,
+        }
+    }
+}
+
+impl From<LegacyColor> for Srgba {
+    fn from(value: LegacyColor) -> Self {
+        Color::from(value).into()
+    }
+}
+
+impl From<Hsla> for LegacyColor {
+    fn from(value: Hsla) -> Self {
+        LegacyColor::Hsla {
+            hue: value.hue,
+            saturation: value.saturation,
+            lightness: value.lightness,
+            alpha: value.alpha,
+        }
+    }
+}
+
+impl From<LegacyColor> for Hsla {
+    fn from(value: LegacyColor) -> Self {
+        Color::from(value).into()
+    }
+}
+
+impl From<LegacyColor> for Hsva {
+    fn from(value: LegacyColor) -> Self {
+        Hsla::from(value).into()
+    }
+}
+
+impl From<Hsva> for LegacyColor {
+    fn from(value: Hsva) -> Self {
+        Hsla::from(value).into()
+    }
+}
+
+impl From<LegacyColor> for Hwba {
+    fn from(value: LegacyColor) -> Self {
+        Hsla::from(value).into()
+    }
+}
+
+impl From<Hwba> for LegacyColor {
+    fn from(value: Hwba) -> Self {
+        Hsla::from(value).into()
+    }
+}
+
+impl From<Laba> for LegacyColor {
+    fn from(value: Laba) -> Self {
+        Lcha::from(value).into()
+    }
+}
+
+impl From<Lcha> for LegacyColor {
+    fn from(
+        Lcha {
+            lightness,
+            chroma,
+            hue,
+            alpha,
+        }: Lcha,
+    ) -> Self {
+        LegacyColor::Lcha {
+            hue,
+            chroma,
+            lightness,
+            alpha,
+        }
+    }
+}
+
+impl From<LegacyColor> for Lcha {
+    fn from(value: LegacyColor) -> Self {
+        Color::from(value).into()
+    }
+}
+
+impl From<LegacyColor> for Laba {
+    fn from(value: LegacyColor) -> Self {
+        Color::from(value).into()
+    }
+}
+
+impl From<LegacyColor> for Oklaba {
+    fn from(value: LegacyColor) -> Self {
+        LinearRgba::from(value).into()
+    }
+}
+
+impl From<Oklaba> for LegacyColor {
+    fn from(value: Oklaba) -> Self {
+        LinearRgba::from(value).into()
+    }
+}
+
+impl From<LegacyColor> for Oklcha {
+    fn from(value: LegacyColor) -> Self {
+        LinearRgba::from(value).into()
+    }
+}
+
+impl From<Oklcha> for LegacyColor {
+    fn from(value: Oklcha) -> Self {
+        LinearRgba::from(value).into()
     }
 }
 
@@ -1904,56 +1655,10 @@ impl encase::private::CreateFrom for LegacyColor {
 
 impl encase::ShaderSize for LegacyColor {}
 
-#[derive(Debug, Error, PartialEq, Eq)]
-pub enum HexColorError {
-    #[error("Invalid hex string")]
-    Parse(#[from] std::num::ParseIntError),
-    #[error("Unexpected length of hex string")]
-    Length,
-    #[error("Invalid hex char")]
-    Char(char),
-}
-
-/// Converts hex bytes to an array of RGB\[A\] components
-///
-/// # Example
-/// For RGB: *b"ffffff" -> [255, 255, 255, ..]
-/// For RGBA: *b"E2E2E2FF" -> [226, 226, 226, 255, ..]
-const fn decode_hex<const N: usize>(mut bytes: [u8; N]) -> Result<[u8; N], HexColorError> {
-    let mut i = 0;
-    while i < bytes.len() {
-        // Convert single hex digit to u8
-        let val = match hex_value(bytes[i]) {
-            Ok(val) => val,
-            Err(byte) => return Err(HexColorError::Char(byte as char)),
-        };
-        bytes[i] = val;
-        i += 1;
-    }
-    // Modify the original bytes to give an `N / 2` length result
-    i = 0;
-    while i < bytes.len() / 2 {
-        // Convert pairs of u8 to R/G/B/A
-        // e.g `ff` -> [102, 102] -> [15, 15] = 255
-        bytes[i] = bytes[i * 2] * 16 + bytes[i * 2 + 1];
-        i += 1;
-    }
-    Ok(bytes)
-}
-
-/// Parse a single hex digit (a-f/A-F/0-9) as a `u8`
-const fn hex_value(b: u8) -> Result<u8, u8> {
-    match b {
-        b'0'..=b'9' => Ok(b - b'0'),
-        b'A'..=b'F' => Ok(b - b'A' + 10),
-        b'a'..=b'f' => Ok(b - b'a' + 10),
-        // Wrong hex digit
-        _ => Err(b),
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use std::num::ParseIntError;
+
     use super::*;
 
     #[test]
@@ -1971,7 +1676,9 @@ mod tests {
             Ok(LegacyColor::rgb_u8(3, 169, 244))
         );
         assert_eq!(LegacyColor::hex("yy"), Err(HexColorError::Length));
-        assert_eq!(LegacyColor::hex("yyy"), Err(HexColorError::Char('y')));
+        let Err(HexColorError::Parse(ParseIntError { .. })) = LegacyColor::hex("yyy") else {
+            panic!("Expected Parse Int Error")
+        };
         assert_eq!(
             LegacyColor::hex("#f2a"),
             Ok(LegacyColor::rgb_u8(255, 34, 170))
@@ -1981,7 +1688,9 @@ mod tests {
             Ok(LegacyColor::rgb_u8(226, 48, 48))
         );
         assert_eq!(LegacyColor::hex("#ff"), Err(HexColorError::Length));
-        assert_eq!(LegacyColor::hex("##fff"), Err(HexColorError::Char('#')));
+        let Err(HexColorError::Parse(ParseIntError { .. })) = LegacyColor::hex("##fff") else {
+            panic!("Expected Parse Int Error")
+        };
     }
 
     #[test]

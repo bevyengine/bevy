@@ -1,9 +1,13 @@
-use crate::{Alpha, Lcha, LinearRgba, Luminance, Mix, Oklaba, Srgba, StandardColor};
+use crate::{Alpha, Hsva, Hwba, Lcha, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza};
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use bevy_render::color::HslRepresentation;
 use serde::{Deserialize, Serialize};
 
-/// Color in Hue-Saturation-Lightness color space with alpha
+/// Color in Hue-Saturation-Lightness (HSL) color space with alpha.
+/// Further information on this color model can be found on [Wikipedia](https://en.wikipedia.org/wiki/HSL_and_HSV).
+#[doc = include_str!("../docs/conversion.md")]
+/// <div>
+#[doc = include_str!("../docs/diagrams/model_graph.svg")]
+/// </div>
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub struct Hsla {
@@ -128,54 +132,107 @@ impl Luminance for Hsla {
     }
 }
 
+impl From<Hsla> for Hsva {
+    fn from(
+        Hsla {
+            hue,
+            saturation,
+            lightness,
+            alpha,
+        }: Hsla,
+    ) -> Self {
+        // Based on https://en.wikipedia.org/wiki/HSL_and_HSV#HSL_to_HSV
+        let value = lightness + saturation * lightness.min(1. - lightness);
+        let saturation = if value == 0. {
+            0.
+        } else {
+            2. * (1. - (lightness / value))
+        };
+
+        Hsva::new(hue, saturation, value, alpha)
+    }
+}
+
+impl From<Hsva> for Hsla {
+    fn from(
+        Hsva {
+            hue,
+            saturation,
+            value,
+            alpha,
+        }: Hsva,
+    ) -> Self {
+        // Based on https://en.wikipedia.org/wiki/HSL_and_HSV#HSV_to_HSL
+        let lightness = value * (1. - saturation / 2.);
+        let saturation = if lightness == 0. || lightness == 1. {
+            0.
+        } else {
+            (value - lightness) / lightness.min(1. - lightness)
+        };
+
+        Hsla::new(hue, saturation, lightness, alpha)
+    }
+}
+
+// Derived Conversions
+
+impl From<Hwba> for Hsla {
+    fn from(value: Hwba) -> Self {
+        Hsva::from(value).into()
+    }
+}
+
+impl From<Hsla> for Hwba {
+    fn from(value: Hsla) -> Self {
+        Hsva::from(value).into()
+    }
+}
+
 impl From<Srgba> for Hsla {
     fn from(value: Srgba) -> Self {
-        let (h, s, l) =
-            HslRepresentation::nonlinear_srgb_to_hsl([value.red, value.green, value.blue]);
-        Self::new(h, s, l, value.alpha)
+        Hsva::from(value).into()
     }
 }
 
-impl From<Hsla> for bevy_render::color::LegacyColor {
+impl From<Hsla> for Srgba {
     fn from(value: Hsla) -> Self {
-        bevy_render::color::LegacyColor::Hsla {
-            hue: value.hue,
-            saturation: value.saturation,
-            lightness: value.lightness,
-            alpha: value.alpha,
-        }
-    }
-}
-
-impl From<bevy_render::color::LegacyColor> for Hsla {
-    fn from(value: bevy_render::color::LegacyColor) -> Self {
-        match value.as_hsla() {
-            bevy_render::color::LegacyColor::Hsla {
-                hue,
-                saturation,
-                lightness,
-                alpha,
-            } => Hsla::new(hue, saturation, lightness, alpha),
-            _ => unreachable!(),
-        }
+        Hsva::from(value).into()
     }
 }
 
 impl From<LinearRgba> for Hsla {
     fn from(value: LinearRgba) -> Self {
-        Srgba::from(value).into()
+        Hsva::from(value).into()
     }
 }
 
-impl From<Oklaba> for Hsla {
-    fn from(value: Oklaba) -> Self {
-        Srgba::from(value).into()
+impl From<Hsla> for LinearRgba {
+    fn from(value: Hsla) -> Self {
+        Hsva::from(value).into()
     }
 }
 
 impl From<Lcha> for Hsla {
     fn from(value: Lcha) -> Self {
-        Srgba::from(value).into()
+        Hsva::from(value).into()
+    }
+}
+
+impl From<Hsla> for Lcha {
+    fn from(value: Hsla) -> Self {
+        Hsva::from(value).into()
+    }
+}
+
+impl From<Xyza> for Hsla {
+    fn from(value: Xyza) -> Self {
+        Hsva::from(value).into()
+    }
+}
+
+impl From<Hsla> for Xyza {
+    fn from(value: Hsla) -> Self {
+        Hsva::from(value).into()
     }
 }
 

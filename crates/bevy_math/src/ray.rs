@@ -1,6 +1,6 @@
 use crate::{
-    primitives::{Direction2d, Direction3d, Plane2d, Plane3d},
-    Vec2, Vec3,
+    primitives::{Plane2d, Plane3d},
+    Direction2d, Direction3d, Vec2, Vec3,
 };
 
 /// An infinite half-line starting at `origin` and going in `direction` in 2D space.
