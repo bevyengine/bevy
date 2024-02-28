@@ -42,7 +42,16 @@ pub use bevy_ecs_macros::States;
 /// }
 ///
 /// ```
-pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug {}
+pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug {
+    /// Returns whether the transition from this state to `target` is allowed.
+    ///
+    /// The default implementation returns always `true`.
+    #[inline]
+    fn can_transit_to(self, target: Self) -> bool {
+        let _ = target;
+        true
+    }
+}
 
 /// The label of a [`Schedule`](super::Schedule) that runs whenever [`State<S>`]
 /// enters this state.
@@ -236,5 +245,62 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
                 world.try_run_schedule(OnEnter(entered)).ok();
             }
         };
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::States;
+
+    use crate as bevy_ecs;
+
+    #[test]
+    fn state_transition_check() {
+        #[derive(States, Clone, PartialEq, Eq, Hash, Debug)]
+        enum MyState {
+            #[transition_to(not(A, C))]
+            A,
+            B,
+            #[transition_to(A, B)]
+            C,
+        }
+
+        use MyState::*;
+        assert!(!MyState::A.can_transit_to(A));
+        assert!(MyState::A.can_transit_to(B));
+        assert!(!MyState::A.can_transit_to(C));
+
+        assert!(MyState::B.can_transit_to(A));
+        assert!(MyState::B.can_transit_to(B));
+        assert!(MyState::B.can_transit_to(C));
+
+        assert!(MyState::C.can_transit_to(A));
+        assert!(MyState::C.can_transit_to(B));
+        assert!(!MyState::C.can_transit_to(C));
+    }
+
+    /// Check that the default implementation of [`States`] allow all transition.
+    #[test]
+    fn default_state_transition_is_allowed() {
+        #[derive(States, Clone, PartialEq, Eq, Hash, Debug)]
+        enum MyState {
+            A,
+            B,
+            C,
+        }
+
+        use MyState::*;
+        assert!(MyState::A.can_transit_to(A));
+        assert!(MyState::A.can_transit_to(B));
+        assert!(MyState::A.can_transit_to(C));
+
+        assert!(MyState::B.can_transit_to(A));
+        assert!(MyState::B.can_transit_to(B));
+        assert!(MyState::B.can_transit_to(C));
+
+        assert!(MyState::C.can_transit_to(A));
+        assert!(MyState::C.can_transit_to(B));
+        assert!(MyState::C.can_transit_to(C));
     }
 }

@@ -514,7 +514,10 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     component::derive_component(input)
 }
 
-#[proc_macro_derive(States)]
+#[proc_macro_derive(States, attributes(transition_to))]
 pub fn derive_states(input: TokenStream) -> TokenStream {
-    states::derive_states(input)
+    let ast = parse_macro_input!(input as DeriveInput);
+    states::derive_states(ast)
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
 }
