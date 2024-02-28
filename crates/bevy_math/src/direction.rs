@@ -41,6 +41,7 @@ impl std::fmt::Display for InvalidDirectionError {
 /// A normalized vector pointing in a direction in 2D space
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[doc(alias = "Direction2d")]
 pub struct Dir2(Vec2);
 impl Primitive2d for Dir2 {}
 
@@ -152,6 +153,7 @@ impl approx::UlpsEq for Dir2 {
 /// A normalized vector pointing in a direction in 3D space
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[doc(alias = "Direction3d")]
 pub struct Dir3(Vec3);
 impl Primitive3d for Dir3 {}
 
@@ -298,6 +300,7 @@ impl approx::UlpsEq for Dir3 {
 /// This may or may not be faster than [`Dir3`]: make sure to benchmark!
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[doc(alias = "Direction3dA")]
 pub struct Dir3A(Vec3A);
 impl Primitive3d for Dir3A {}
 
