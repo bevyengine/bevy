@@ -1,6 +1,4 @@
-use crate::{
-    vertex_attributes::convert_attribute, Gltf, GltfExtensions, GltfExtras, GltfNode, WeakGltf,
-};
+use crate::{vertex_attributes::convert_attribute, Gltf, GltfExtensions, GltfExtras, GltfNode};
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::{AnimationTarget, AnimationTargetId};
 use bevy_asset::{
@@ -196,6 +194,7 @@ async fn load_gltf<'a, 'b, 'c>(
         ))))?
         .to_string();
     let buffer_data = load_buffers(&gltf, load_context).await?;
+    let weak_gltf_handle: Handle<Gltf> = load_context.get_internal_handle();
 
     let mut linear_textures = HashSet::default();
 
@@ -564,7 +563,7 @@ async fn load_gltf<'a, 'b, 'c>(
         .into_iter()
         .map(|(label, node)| load_context.add_labeled_asset(label, node))
         .collect::<Vec<Handle<GltfNode>>>();
-    let named_nodes: HashMap<String, Handle<GltfNode>> = named_nodes_intermediate
+    let named_nodes = named_nodes_intermediate
         .into_iter()
         .filter_map(|(name, index)| nodes.get(index).map(|handle| (name.into(), handle.clone())))
         .collect();
@@ -590,24 +589,6 @@ async fn load_gltf<'a, 'b, 'c>(
     let mut named_scenes = HashMap::default();
     let mut active_camera_found = false;
 
-    let weak_gltf = WeakGltf {
-        meshes: meshes.clone(),
-        named_meshes: named_meshes.clone(),
-        materials: materials.clone(),
-        named_materials: named_materials.clone(),
-        nodes: nodes.clone(),
-        named_nodes: named_nodes.clone(),
-        #[cfg(feature = "bevy_animation")]
-        animations: animations.clone(),
-        #[cfg(feature = "bevy_animation")]
-        named_animations: named_animations.clone(),
-        source: if settings.include_source {
-            Some(gltf.clone())
-        } else {
-            None
-        },
-    };
-
     for scene in gltf.scenes() {
         let mut err = None;
         let mut world = World::default();
@@ -623,7 +604,7 @@ async fn load_gltf<'a, 'b, 'c>(
                         value: serde_json::Value::from(extensions.clone()).to_string(),
                     });
                 }
-                parent.spawn(weak_gltf.clone());
+                parent.spawn(weak_gltf_handle.clone_weak());
                 for node in scene.nodes() {
                     let result = load_node(
                         &node,
