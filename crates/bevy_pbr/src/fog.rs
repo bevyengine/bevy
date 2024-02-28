@@ -408,7 +408,7 @@ impl FogFalloff {
         use std::f32::consts::E;
 
         let [r_e, g_e, b_e, a_e] = LinearRgba::from(extinction_color).to_f32_array();
-        let [r_e, g_e, b_e, a_e] = LinearRgba::from(inscattering_color).to_f32_array();
+        let [r_i, g_i, b_i, a_i] = LinearRgba::from(inscattering_color).to_f32_array();
 
         FogFalloff::Atmospheric {
             extinction: Vec3::new(
