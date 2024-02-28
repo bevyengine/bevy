@@ -9,7 +9,6 @@ extern crate core;
 pub mod alpha;
 pub mod batching;
 pub mod camera;
-pub mod color;
 pub mod deterministic;
 pub mod extract_component;
 pub mod extract_instances;
@@ -38,7 +37,6 @@ pub mod prelude {
             Camera, ClearColor, ClearColorConfig, OrthographicProjection, PerspectiveProjection,
             Projection,
         },
-        color::LegacyColor,
         mesh::{morph::MorphWeights, primitives::Meshable, Mesh},
         render_resource::Shader,
         spatial_bundle::SpatialBundle,
