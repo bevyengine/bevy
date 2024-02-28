@@ -44,7 +44,7 @@ pub trait BoundingVolume {
     /// Decrease the size of the bounding volume in each direction by the given amount
     fn shrink(&self, amount: Self::HalfSize) -> Self;
 
-    /// Scale the size of the bounding volume around the center by the given amount
+    /// Scale the size of the bounding volume around its center by the given amount
     fn scale_around_center(&self, scale: Self::HalfSize) -> Self;
 }
 
