@@ -160,6 +160,19 @@ impl LinearRgba {
     pub fn to_f32_array(&self) -> [f32; 4] {
         [self.red, self.green, self.blue, self.alpha]
     }
+
+    /// Converts this color to a u32.
+    ///
+    /// Maps the RGBA channels in RGBA order to a little-endian byte array (GPUs are little-endian).
+    /// `A` will be the most significant byte and `R` the least significant.
+    pub fn as_u32(&self) -> u32 {
+        u32::from_le_bytes([
+            (self.red * 255.0) as u8,
+            (self.green * 255.0) as u8,
+            (self.blue * 255.0) as u8,
+            (self.alpha * 255.0) as u8,
+        ])
+    }
 }
 
 impl Default for LinearRgba {
