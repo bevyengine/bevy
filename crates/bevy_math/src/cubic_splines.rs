@@ -325,7 +325,7 @@ pub enum CubicNurbsError {
     #[error("Invalid knots: all knots are equal")]
     ConstantKnots,
     /// Provided a different number of weights and control points.
-    #[error("Incorect number of weights: expected {expected}, provided {provided}")]
+    #[error("Incorrect number of weights: expected {expected}, provided {provided}")]
     WeightsNumberMismatch {
         /// Expected number of weights
         expected: usize,
