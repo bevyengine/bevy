@@ -6,6 +6,7 @@
 //! viewport, you may want to look at `games/contributors.rs` or `ui/text.rs`.
 
 use bevy::{
+    color::palettes::css::*,
     prelude::*,
     sprite::Anchor,
     text::{BreakLineOn, Text2dBounds},
@@ -36,7 +37,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let text_style = TextStyle {
         font: font.clone(),
         font_size: 60.0,
-        color: LegacyColor::WHITE,
+        color: Color::WHITE,
     };
     let text_justification = JustifyText::Center;
     // 2d camera
@@ -72,7 +73,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let slightly_smaller_text_style = TextStyle {
         font,
         font_size: 42.0,
-        color: LegacyColor::WHITE,
+        color: Color::WHITE,
     };
     let box_size = Vec2::new(300.0, 200.0);
     let box_position = Vec2::new(0.0, -250.0);
@@ -139,10 +140,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
 
     for (text_anchor, color) in [
-        (Anchor::TopLeft, LegacyColor::RED),
-        (Anchor::TopRight, LegacyColor::GREEN),
-        (Anchor::BottomRight, LegacyColor::BLUE),
-        (Anchor::BottomLeft, LegacyColor::YELLOW),
+        (Anchor::TopLeft, Color::Srgba(RED)),
+        (Anchor::TopRight, Color::Srgba(GREEN)),
+        (Anchor::BottomRight, Color::Srgba(BLUE)),
+        (Anchor::BottomLeft, Color::Srgba(YELLOW)),
     ] {
         commands.spawn(Text2dBundle {
             text: Text {

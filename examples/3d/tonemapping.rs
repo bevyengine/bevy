@@ -266,7 +266,7 @@ fn setup_image_viewer_scene(
                 "Drag and drop an HDR or EXR file",
                 TextStyle {
                     font_size: 36.0,
-                    color: LegacyColor::BLACK,
+                    color: Color::BLACK,
                     ..default()
                 },
             )

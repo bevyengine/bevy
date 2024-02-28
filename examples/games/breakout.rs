@@ -46,8 +46,8 @@ const PADDLE_COLOR: Color = Color::srgb(0.3, 0.3, 0.7);
 const BALL_COLOR: LegacyColor = LegacyColor::rgb(1.0, 0.5, 0.5);
 const BRICK_COLOR: Color = Color::srgb(0.5, 0.5, 1.0);
 const WALL_COLOR: Color = Color::srgb(0.8, 0.8, 0.8);
-const TEXT_COLOR: LegacyColor = LegacyColor::rgb(0.5, 0.5, 1.0);
-const SCORE_COLOR: LegacyColor = LegacyColor::rgb(1.0, 0.5, 0.5);
+const TEXT_COLOR: Color = Color::srgb(0.5, 0.5, 1.0);
+const SCORE_COLOR: Color = Color::srgb(1.0, 0.5, 0.5);
 
 fn main() {
     App::new()

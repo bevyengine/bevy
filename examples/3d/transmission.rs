@@ -350,7 +350,7 @@ fn setup(
     // Controls Text
     let text_style = TextStyle {
         font_size: 18.0,
-        color: LegacyColor::WHITE,
+        color: Color::WHITE,
         ..Default::default()
     };
 

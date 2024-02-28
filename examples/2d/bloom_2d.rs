@@ -70,7 +70,7 @@ fn setup(
             "",
             TextStyle {
                 font_size: 18.0,
-                color: LegacyColor::WHITE,
+                color: Color::WHITE,
                 ..default()
             },
         )

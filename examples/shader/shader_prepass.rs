@@ -241,7 +241,7 @@ fn toggle_prepass_view(
         let mut text = text.single_mut();
         text.sections[0].value = format!("Prepass Output: {label}\n");
         for section in &mut text.sections {
-            section.style.color = LegacyColor::WHITE;
+            section.style.color = Color::WHITE;
         }
 
         let handle = material_handle.single();

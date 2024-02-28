@@ -3,6 +3,7 @@
 //! Continuously recomputes a large `Text` component with 100 sections.
 
 use bevy::{
+    color::palettes::basic::{BLUE, YELLOW},
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     text::{BreakLineOn, Text2dBounds},
@@ -46,7 +47,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                     style: TextStyle {
                         font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                         font_size: (4 + i % 10) as f32,
-                        color: LegacyColor::BLUE,
+                        color: BLUE.into(),
                     },
                 },
                 TextSection {
@@ -54,7 +55,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                     style: TextStyle {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: (4 + i % 11) as f32,
-                        color: LegacyColor::YELLOW,
+                        color: YELLOW.into(),
                     },
                 },
             ]

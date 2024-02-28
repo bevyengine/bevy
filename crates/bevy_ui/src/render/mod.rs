@@ -2,6 +2,7 @@ mod pipeline;
 mod render_pass;
 mod ui_material_pipeline;
 
+use bevy_color::LinearRgba;
 use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
@@ -25,7 +26,6 @@ use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, Rect, URect, UVec4, Vec2, Vec3, Vec4Swizzles};
 use bevy_render::{
     camera::Camera,
-    color::LegacyColor,
     render_asset::RenderAssets,
     render_graph::{RenderGraph, RunGraphOnViewNode},
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions, RenderPhase},
@@ -130,7 +130,7 @@ fn get_ui_graph(render_app: &mut App) -> RenderGraph {
 pub struct ExtractedUiNode {
     pub stack_index: u32,
     pub transform: Mat4,
-    pub color: LegacyColor,
+    pub color: LinearRgba,
     pub rect: Rect,
     pub image: AssetId<Image>,
     pub atlas_size: Option<Vec2>,
@@ -264,7 +264,7 @@ pub fn extract_uinode_borders(
                         stack_index: node.stack_index,
                         // This translates the uinode's transform to the center of the current border rectangle
                         transform: transform * Mat4::from_translation(edge.center().extend(0.)),
-                        color: border_color.0,
+                        color: border_color.0.into(),
                         rect: Rect {
                             max: edge.size(),
                             ..Default::default()
@@ -355,7 +355,7 @@ pub fn extract_uinode_outlines(
                         stack_index: node.stack_index,
                         // This translates the uinode's transform to the center of the current border rectangle
                         transform: transform * Mat4::from_translation(edge.center().extend(0.)),
-                        color: outline.color,
+                        color: outline.color.into(),
                         rect: Rect {
                             max: edge.size(),
                             ..Default::default()
@@ -458,7 +458,7 @@ pub fn extract_uinodes(
             ExtractedUiNode {
                 stack_index: uinode.stack_index,
                 transform: transform.compute_matrix(),
-                color: color.0,
+                color: color.0.into(),
                 rect,
                 clip: clip.map(|clip| clip.clip),
                 image,
@@ -598,7 +598,7 @@ pub fn extract_text_uinodes(
         let transform = Mat4::from(global_transform.affine())
             * Mat4::from_translation(logical_top_left_nearest_pixel.extend(0.));
 
-        let mut color = LegacyColor::WHITE;
+        let mut color = LinearRgba::WHITE;
         let mut current_section = usize::MAX;
         for PositionedGlyph {
             position,
@@ -608,7 +608,7 @@ pub fn extract_text_uinodes(
         } in &text_layout_info.glyphs
         {
             if *section_index != current_section {
-                color = text.sections[*section_index].style.color.as_rgba_linear();
+                color = LinearRgba::from(text.sections[*section_index].style.color);
                 current_section = *section_index;
             }
             let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
@@ -935,7 +935,7 @@ pub fn prepare_uinodes(
                         .map(|pos| pos / atlas_extent)
                     };
 
-                    let color = extracted_uinode.color.as_linear_rgba_f32();
+                    let color = LinearRgba::from(extracted_uinode.color).to_array();
                     for i in QUAD_INDICES {
                         ui_meta.vertices.push(UiVertex {
                             position: positions_clipped[i].into(),

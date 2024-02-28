@@ -92,7 +92,11 @@ fn update_winit(
 /// demonstrated features.
 pub(crate) mod test_setup {
     use crate::ExampleMode;
-    use bevy::{prelude::*, window::RequestRedraw};
+    use bevy::{
+        color::palettes::basic::{GREEN, YELLOW},
+        prelude::*,
+        window::RequestRedraw,
+    };
 
     /// Switch between update modes when the mouse is clicked.
     pub(crate) fn cycle_modes(
@@ -177,20 +181,20 @@ pub(crate) mod test_setup {
                 ),
                 TextSection::from_style(TextStyle {
                     font_size: 50.0,
-                    color: LegacyColor::GREEN,
+                    color: GREEN.into(),
                     ..default()
                 }),
                 TextSection::new(
                     "\nFrame: ",
                     TextStyle {
                         font_size: 50.0,
-                        color: LegacyColor::YELLOW,
+                        color: YELLOW.into(),
                         ..default()
                     },
                 ),
                 TextSection::from_style(TextStyle {
                     font_size: 50.0,
-                    color: LegacyColor::YELLOW,
+                    color: YELLOW.into(),
                     ..default()
                 }),
             ])

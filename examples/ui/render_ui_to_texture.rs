@@ -95,7 +95,7 @@ fn setup(
                 "This is a cube",
                 TextStyle {
                     font_size: 40.0,
-                    color: LegacyColor::BLACK,
+                    color: Color::BLACK,
                     ..default()
                 },
             ));

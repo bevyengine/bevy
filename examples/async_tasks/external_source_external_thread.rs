@@ -53,7 +53,7 @@ fn read_stream(receiver: Res<StreamReceiver>, mut events: EventWriter<StreamEven
 fn spawn_text(mut commands: Commands, mut reader: EventReader<StreamEvent>) {
     let text_style = TextStyle {
         font_size: 20.0,
-        color: LegacyColor::WHITE,
+        color: Color::WHITE,
         ..default()
     };
 

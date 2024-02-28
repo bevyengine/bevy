@@ -89,7 +89,7 @@ fn setup_scene(
             "",
             TextStyle {
                 font_size: 20.0,
-                color: LegacyColor::BLACK,
+                color: Color::BLACK,
                 ..default()
             },
         )

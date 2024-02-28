@@ -188,7 +188,7 @@ fn setup(
     let label_text_style = TextStyle {
         font: asset_server.load("fonts/FiraMono-Medium.ttf"),
         font_size: 25.0,
-        color: LegacyColor::ORANGE,
+        color: Color::WHITE,
     };
 
     commands.spawn(

@@ -121,7 +121,7 @@ fn setup_scene(
                     "Test Button",
                     TextStyle {
                         font_size: 30.0,
-                        color: LegacyColor::BLACK,
+                        color: Color::BLACK,
                         ..default()
                     },
                 )

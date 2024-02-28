@@ -224,7 +224,7 @@ fn spawn_nested_text_bundle(builder: &mut ChildBuilder, font: Handle<Font>, text
         TextStyle {
             font,
             font_size: 24.0,
-            color: LegacyColor::BLACK,
+            color: Color::BLACK,
         },
     ));
 }

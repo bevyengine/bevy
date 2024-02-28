@@ -4,7 +4,7 @@
 
 use bevy::prelude::*;
 
-const TEXT_COLOR: LegacyColor = LegacyColor::rgb(0.9, 0.9, 0.9);
+const TEXT_COLOR: Color = Color::srgb(0.9, 0.9, 0.9);
 
 // Enum that will be used as a global state for the game
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
@@ -115,7 +115,10 @@ mod splash {
 }
 
 mod game {
-    use bevy::prelude::*;
+    use bevy::{
+        color::palettes::basic::{BLUE, GREEN},
+        prelude::*,
+    };
 
     use super::{despawn_screen, DisplayQuality, GameState, Volume, TEXT_COLOR};
 
@@ -192,7 +195,7 @@ mod game {
                                     format!("quality: {:?}", *display_quality),
                                     TextStyle {
                                         font_size: 60.0,
-                                        color: LegacyColor::BLUE,
+                                        color: BLUE.into(),
                                         ..default()
                                     },
                                 ),
@@ -208,7 +211,7 @@ mod game {
                                     format!("volume: {:?}", *volume),
                                     TextStyle {
                                         font_size: 60.0,
-                                        color: LegacyColor::GREEN,
+                                        color: GREEN.into(),
                                         ..default()
                                     },
                                 ),

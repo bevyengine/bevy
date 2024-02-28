@@ -1,10 +1,12 @@
 //! Demonstrates how Display and Visibility work in the UI.
 
+use bevy::color::palettes::basic::YELLOW;
+use bevy::color::palettes::css::DARK_GRAY;
 use bevy::prelude::*;
 use bevy::winit::WinitSettings;
 
 const PALETTE: [&str; 4] = ["27496D", "466B7A", "669DB3", "ADCBE3"];
-const HIDDEN_COLOR: LegacyColor = LegacyColor::rgb(1.0, 0.7, 0.7);
+const HIDDEN_COLOR: Color = Color::srgb(1.0, 0.7, 0.7);
 
 fn main() {
     App::new()
@@ -164,7 +166,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     builder.spawn(TextBundle {
                         text: Text::from_section(
                             "-\n-\n-",
-                            TextStyle { color: LegacyColor::DARK_GRAY, ..text_style.clone() }
+                            TextStyle { color: DARK_GRAY.into(), ..text_style.clone() }
                             ).with_justify(JustifyText::Center),
                         ..Default::default()
                         });
@@ -447,9 +449,9 @@ fn buttons_handler<T>(
                     text.sections[0].style.color = if text.sections[0].value.contains("None")
                         || text.sections[0].value.contains("Hidden")
                     {
-                        LegacyColor::rgb(1.0, 0.7, 0.7)
+                        Color::srgb(1.0, 0.7, 0.7)
                     } else {
-                        LegacyColor::WHITE
+                        Color::WHITE
                     };
                 }
             }
@@ -468,8 +470,7 @@ fn text_hover(
                 for &child in children {
                     if let Ok(mut text) = text_query.get_mut(child) {
                         // Bypass change detection to avoid recomputation of the text when only changing the color
-                        text.bypass_change_detection().sections[0].style.color =
-                            LegacyColor::YELLOW;
+                        text.bypass_change_detection().sections[0].style.color = YELLOW.into();
                     }
                 }
             }
@@ -483,7 +484,7 @@ fn text_hover(
                             {
                                 HIDDEN_COLOR
                             } else {
-                                LegacyColor::WHITE
+                                Color::WHITE
                             };
                     }
                 }

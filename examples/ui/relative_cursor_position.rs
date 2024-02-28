@@ -60,7 +60,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     TextStyle {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 40.0,
-                        color: LegacyColor::rgb(0.9, 0.9, 0.9),
+                        color: Color::srgb(0.9, 0.9, 0.9),
                     },
                 ),
                 ..default()
@@ -88,8 +88,8 @@ fn relative_cursor_position_system(
         };
 
     output.sections[0].style.color = if relative_cursor_position.mouse_over() {
-        LegacyColor::rgb(0.1, 0.9, 0.1)
+        Color::srgb(0.1, 0.9, 0.1)
     } else {
-        LegacyColor::rgb(0.9, 0.1, 0.1)
+        Color::srgb(0.9, 0.1, 0.1)
     };
 }

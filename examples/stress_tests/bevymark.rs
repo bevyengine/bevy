@@ -6,6 +6,7 @@ use std::str::FromStr;
 
 use argh::FromArgs;
 use bevy::{
+    color::palettes::basic::*,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     render::{
@@ -226,12 +227,12 @@ fn setup(
         transform_rng: StdRng::seed_from_u64(42),
     };
 
-    let text_section = move |color, value: &str| {
+    let text_section = move |color: Srgba, value: &str| {
         TextSection::new(
             value,
             TextStyle {
                 font_size: 40.0,
-                color,
+                color: color.into(),
                 ..default()
             },
         )
@@ -252,14 +253,14 @@ fn setup(
         .with_children(|c| {
             c.spawn((
                 TextBundle::from_sections([
-                    text_section(LegacyColor::GREEN, "Bird Count: "),
-                    text_section(LegacyColor::CYAN, ""),
-                    text_section(LegacyColor::GREEN, "\nFPS (raw): "),
-                    text_section(LegacyColor::CYAN, ""),
-                    text_section(LegacyColor::GREEN, "\nFPS (SMA): "),
-                    text_section(LegacyColor::CYAN, ""),
-                    text_section(LegacyColor::GREEN, "\nFPS (EMA): "),
-                    text_section(LegacyColor::CYAN, ""),
+                    text_section(GREEN, "Bird Count: "),
+                    text_section(CYAN, ""),
+                    text_section(GREEN, "\nFPS (raw): "),
+                    text_section(CYAN, ""),
+                    text_section(GREEN, "\nFPS (SMA): "),
+                    text_section(CYAN, ""),
+                    text_section(GREEN, "\nFPS (EMA): "),
+                    text_section(CYAN, ""),
                 ]),
                 StatsText,
             ));

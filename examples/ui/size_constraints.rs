@@ -17,9 +17,9 @@ const INACTIVE_BORDER_COLOR: LegacyColor = LegacyColor::BLACK;
 const ACTIVE_INNER_COLOR: LegacyColor = LegacyColor::WHITE;
 const INACTIVE_INNER_COLOR: LegacyColor = LegacyColor::NAVY;
 
-const ACTIVE_TEXT_COLOR: LegacyColor = LegacyColor::BLACK;
-const HOVERED_TEXT_COLOR: LegacyColor = LegacyColor::WHITE;
-const UNHOVERED_TEXT_COLOR: LegacyColor = LegacyColor::GRAY;
+const ACTIVE_TEXT_COLOR: Color = Color::BLACK;
+const HOVERED_TEXT_COLOR: Color = Color::WHITE;
+const UNHOVERED_TEXT_COLOR: Color = Color::srgb(0.5, 0.5, 0.5);
 
 #[derive(Component)]
 struct Bar;
@@ -45,7 +45,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let text_style = TextStyle {
         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
         font_size: 40.0,
-        color: LegacyColor::rgb(0.9, 0.9, 0.9),
+        color: Color::srgb(0.9, 0.9, 0.9),
     };
 
     commands

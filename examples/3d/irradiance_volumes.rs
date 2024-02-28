@@ -363,7 +363,7 @@ impl AppStatus {
             TextStyle {
                 font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                 font_size: 24.0,
-                color: LegacyColor::ANTIQUE_WHITE,
+                color: Color::WHITE,
             },
         )
     }

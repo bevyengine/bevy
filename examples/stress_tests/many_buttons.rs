@@ -265,7 +265,7 @@ fn spawn_button(
                 format!("{column}, {row}"),
                 TextStyle {
                     font_size: FONT_SIZE,
-                    color: LegacyColor::rgb(0.2, 0.2, 0.2),
+                    color: Color::srgb(0.2, 0.2, 0.2),
                     ..default()
                 },
             ));
