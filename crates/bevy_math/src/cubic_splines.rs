@@ -340,20 +340,20 @@ pub enum CubicNurbsError {
     },
 }
 
-/// Non-uniform Rational B-Splines (NURBS) are powerful generalization of the [`CubicBSpline`] which can
+/// Non-uniform Rational B-Splines (NURBS) are a powerful generalization of the [`CubicBSpline`] which can
 /// represent a much more diverse class of curves (like perfect circles and ellipses).
 ///
 /// ### Non-uniformity
 /// The 'NU' part of NURBS stands for "Non-Uniform". This has to do with a parameter called 'knots'.
 /// The knots are a non-decreasing sequence of floating point numbers. The first and last three pairs of
-/// knots control the behavior of the curve as it approaches it's endpoints. The intermediate pairs
+/// knots control the behavior of the curve as it approaches its endpoints. The intermediate pairs
 /// each control the length of one segment of the curve. Multiple repeated knot values are called
-/// "knot multiplicity". Knot multiplicity in the intermediate knots causes a "zero-length" segments,
+/// "knot multiplicity". Knot multiplicity in the intermediate knots causes a "zero-length" segment,
 /// and can create sharp corners.
 ///
 /// ### Rationality
 /// The 'R' part of NURBS stands for "Rational". This has to do with NURBS allowing each control point to
-/// be assigned a weighting, which controls how much it effects the curve compared to the other points.
+/// be assigned a weighting, which controls how much it affects the curve compared to the other points.
 ///
 /// ### Interpolation
 /// The curve will not pass through the control points except where a knot has multiplicity four.
@@ -365,7 +365,7 @@ pub enum CubicNurbsError {
 /// When there is no knot multiplicity, the curve is C2 continuous, meaning it has no holes or jumps and the
 /// tangent vector changes smoothly along the entire curve length. Like the [`CubicBSpline`], the acceleration
 /// continuity makes it useful for camera paths. Knot multiplicity of 2 in intermediate knots reduces the
-/// continuity to C2, and Knot multiplicity of 3 reduces the continuity to C0. The curve is always at least
+/// continuity to C2, and knot multiplicity of 3 reduces the continuity to C0. The curve is always at least
 /// C0, meaning it has no jumps or holes.
 ///
 /// ### Usage
@@ -433,7 +433,7 @@ impl<P: Point> CubicNurbs<P> {
             });
         }
 
-        // Ensure the knots are non-descending (previous elements is less than or equal
+        // Ensure the knots are non-descending (previous element is less than or equal
         // to the next)
         if knots.windows(2).any(|win| win[0] > win[1]) {
             return Err(CubicNurbsError::DescendingKnots);
@@ -499,7 +499,7 @@ impl<P: Point> CubicNurbs<P> {
     /// The start and end knots have multiplicity 4, and intermediate knots have multiplicity 0 and
     /// difference of 1.
     ///
-    /// Will return `None` if there are less than 4 control points
+    /// Will return `None` if there are less than 4 control points.
     pub fn open_uniform_knots(control_points: usize) -> Option<Vec<f32>> {
         if control_points < 4 {
             return None;
@@ -519,7 +519,7 @@ impl<P: Point> CubicNurbs<P> {
         control_points_len + 4
     }
 
-    /// Generates a nonuniform B-spline charictartistic matrix from a sequence of six knots. Each six
+    /// Generates a non-uniform B-spline characteristic matrix from a sequence of six knots. Each six
     /// knots describe the relationship between four successive control points. For padding reasons,
     /// this takes a vector of 8 knots, but only six are actually used.
     fn generate_matrix(knots: &[f32; 8]) -> [[f32; 4]; 4] {
