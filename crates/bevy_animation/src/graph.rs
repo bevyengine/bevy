@@ -1,6 +1,5 @@
 //! The animation graph.
 
-use std::any::TypeId;
 use std::fs::File;
 use std::io::{self, BufWriter, Write};
 use std::ops::{Index, IndexMut};
@@ -8,14 +7,12 @@ use std::path::Path;
 
 use bevy_asset::io::Reader;
 use bevy_asset::{Asset, AssetId, AssetLoader, AsyncReadExt as _, Handle, LoadContext};
-use bevy_reflect::serde::{TypedReflectDeserializer, TypedReflectSerializer};
-use bevy_reflect::{Reflect, TypeRegistry, TypeRegistryArc};
+use bevy_reflect::Reflect;
 use bevy_utils::BoxedFuture;
 use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::visit::{Dfs, Visitable};
 use petgraph::Graph;
 use ron::de::SpannedError;
-use serde::de::DeserializeSeed;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use thiserror::Error;
 
@@ -92,7 +89,7 @@ impl AnimationGraph {
         self.graph.node_weight_mut(animation)
     }
 
-    pub fn dfs(
+    pub(crate) fn dfs(
         &self,
     ) -> Dfs<AnimationNodeIndex, <Graph<AnimationGraphNode, ()> as Visitable>::Map> {
         Dfs::new(&self.graph, self.root)

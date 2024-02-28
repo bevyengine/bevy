@@ -1,7 +1,7 @@
 //! Plays animations from a skinned glTF.
 
-use std::{f32::consts::PI, io};
 use std::time::Duration;
+use std::{f32::consts::PI, io};
 
 use bevy::{animation::RepeatAnimation, pbr::CascadeShadowConfigBuilder, prelude::*};
 
@@ -108,19 +108,22 @@ fn setup_scene_once_loaded(
     mut players: Query<(Entity, &mut AnimationPlayer), Added<AnimationPlayer>>,
 ) {
     for (entity, mut player) in &mut players {
-        commands.entity(entity).insert(animations.graph.clone());
+        commands
+            .entity(entity)
+            .insert(animations.graph.clone())
+            .insert(AnimationTransitions::new());
         player.play(animations.animations[0]).repeat();
     }
 }
 
 fn keyboard_animation_control(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut animation_players: Query<&mut AnimationPlayer>,
+    mut animation_players: Query<(&mut AnimationPlayer, &mut AnimationTransitions)>,
     animations: Res<Animations>,
     mut current_animation: Local<usize>,
 ) {
-    for mut player in &mut animation_players {
-        let Some(&playing_animation_index) = player.playing_animations().next() else {
+    for (mut player, mut transitions) in &mut animation_players {
+        let Some((&playing_animation_index, _)) = player.playing_animations().next() else {
             continue;
         };
 
@@ -160,10 +163,14 @@ fn keyboard_animation_control(
         if keyboard_input.just_pressed(KeyCode::Enter) {
             *current_animation = (*current_animation + 1) % animations.animations.len();
 
-            // TODO: Transitions
-            player.stop();
-            player
-                .play(animations.animations[*current_animation])
+            // TODO: Transition should be 250ms
+            //player.stop();
+            transitions
+                .play(
+                    &mut player,
+                    animations.animations[*current_animation],
+                    Duration::from_millis(1000),
+                )
                 .repeat();
         }
 

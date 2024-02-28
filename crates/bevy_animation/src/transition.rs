@@ -11,14 +11,15 @@ use bevy_ecs::{
 use bevy_reflect::Reflect;
 use bevy_time::Time;
 use bevy_utils::{Duration, HashMap};
+use petgraph::visit::NodeRef;
 
-use crate::{graph::AnimationNodeIndex, AnimationPlayer};
+use crate::{graph::AnimationNodeIndex, AnimationPlayer, PlayingAnimation};
 
-#[derive(Component, Deref, DerefMut, Reflect)]
-pub struct AnimationTransitions(pub HashMap<AnimationNodeIndex, AnimationTransition>);
+#[derive(Component, Default, Deref, DerefMut, Reflect)]
+pub struct AnimationTransitions(pub Vec<AnimationTransition>);
 
 /// An animation that is being faded out as part of a transition
-#[derive(Reflect)]
+#[derive(Debug, Reflect)]
 pub struct AnimationTransition {
     /// The current weight. Starts at 1.0 and goes to 0.0 during the fade-out.
     current_weight: f32,
@@ -29,23 +30,25 @@ pub struct AnimationTransition {
 }
 
 impl AnimationTransitions {
-    pub fn start_with_transition(
-        &mut self,
-        player: &mut AnimationPlayer,
+    pub fn new() -> AnimationTransitions {
+        AnimationTransitions::default()
+    }
+
+    pub fn play<'s, 'p>(
+        &'s mut self,
+        player: &'p mut AnimationPlayer,
         animation: AnimationNodeIndex,
         transition_duration: Duration,
-    ) -> &mut Self {
-        player.play(animation);
-
-        self.insert(
-            animation,
-            AnimationTransition {
-                current_weight: 1.0,
+    ) -> &'p mut PlayingAnimation {
+        for (&old_animation_index, old_animation) in player.playing_animations() {
+            self.push(AnimationTransition {
+                current_weight: old_animation.weight,
                 weight_decline_per_sec: 1.0 / transition_duration.as_secs_f32(),
-                animation,
-            },
-        );
-        self
+                animation: old_animation_index,
+            });
+        }
+
+        player.start(animation)
     }
 }
 
@@ -54,20 +57,30 @@ pub fn advance_transitions(
     mut query: Query<(&mut AnimationTransitions, &mut AnimationPlayer)>,
     time: Res<Time>,
 ) {
-    for (mut transitions, player) in query.iter_mut() {
-        for transition in transitions.values_mut() {
+    for (mut transitions, mut player) in query.iter_mut() {
+        for transition in &mut transitions.0 {
             // Decrease weight.
-            transition.current_weight =
-                (transition.weight_decline_per_sec * time.delta_seconds()).max(0.0);
+            transition.current_weight = (transition.current_weight
+                - transition.weight_decline_per_sec * time.delta_seconds())
+            .max(0.0);
+            if let Some(ref mut animation) = player.animation_mut(transition.animation) {
+                animation.weight = transition.current_weight;
+            }
         }
     }
 }
 
 // Expires completed transitions.
-pub fn expire_completed_transitions(mut query: Query<&mut AnimationTransitions>, time: Res<Time>) {
-    for mut transitions in query.iter_mut() {
-        transitions
-            .0
-            .retain(|_, transition| transition.current_weight <= 0.0);
+pub fn expire_completed_transitions(
+    mut query: Query<(&mut AnimationTransitions, &mut AnimationPlayer)>,
+) {
+    for (mut transitions, mut player) in query.iter_mut() {
+        transitions.0.retain(|transition| {
+            let expire = transition.current_weight <= 0.0;
+            if expire {
+                player.stop(transition.animation);
+            }
+            !expire
+        });
     }
 }

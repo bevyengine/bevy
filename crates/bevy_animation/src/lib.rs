@@ -5,6 +5,7 @@ mod graph;
 mod transition;
 mod util;
 
+use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
 use std::iter;
 use std::ops::{Add, Mul};
@@ -26,6 +27,7 @@ use bevy_utils::{NoOpHash, Uuid};
 use graph::{AnimationGraph, AnimationNodeIndex};
 use petgraph::graph::NodeIndex;
 use petgraph::Direction;
+use prelude::AnimationTransitions;
 use sha1_smol::Sha1;
 
 #[allow(missing_docs)]
@@ -405,19 +407,28 @@ impl AnimationPlayer {
             .into_mut()
     }
 
-    /// Start playing an animation, resetting state of the player, unless the requested animation is already playing.
+    /// Start playing an animation, unless the requested animation is already playing.
     pub fn play(&mut self, animation: AnimationNodeIndex) -> &mut PlayingAnimation {
-        self.playing_animations.entry(animation).or_default()
+        let playing_animation = self.playing_animations.entry(animation).or_default();
+        playing_animation.weight = 1.0;
+        playing_animation
+    }
+
+    pub fn stop(&mut self, animation: AnimationNodeIndex) -> &mut Self {
+        self.playing_animations.remove(&animation);
+        self
     }
 
     // Stops all currently-playing animations.
-    pub fn stop(&mut self) -> &mut Self {
+    pub fn stop_all(&mut self) -> &mut Self {
         self.playing_animations.clear();
         self
     }
 
-    pub fn playing_animations(&self) -> impl Iterator<Item = &AnimationNodeIndex> {
-        self.playing_animations.keys()
+    pub fn playing_animations(
+        &self,
+    ) -> impl Iterator<Item = (&AnimationNodeIndex, &PlayingAnimation)> {
+        self.playing_animations.iter()
     }
 
     /// Check if the given animation node is being played.
@@ -582,6 +593,18 @@ pub fn advance_animations(
                 });
             }
         }
+
+        // Sort animations by weight, so that the most heavily-weighted
+        // animations come first.
+        //
+        // FIXME: This seems dubious, but it matches Bevy 0.13 behavior. Figure
+        // out what we want to do here.
+        player.schedule.sort_by(|a, b| {
+            a.weight
+                .partial_cmp(&b.weight)
+                .unwrap_or(Ordering::Less)
+                .reverse()
+        });
     }
 }
 
@@ -606,6 +629,14 @@ pub fn animate_targets(
     targets
         .par_iter_mut()
         .for_each(|(id, target, name, (transform, morph_weights))| {
+            let Ok(player) = players.get(target.player) else {
+                error!(
+                    "Couldn't find the animation player {:?} for the target entity {:?} ({:?})",
+                    target.player, id, name,
+                );
+                return;
+            };
+
             let mut target_context = AnimationTargetContext {
                 entity: id,
                 target,
@@ -614,15 +645,7 @@ pub fn animate_targets(
                 morph_weights,
             };
 
-            let Ok(player) = players.get(target.player) else {
-                error!(
-                    "Couldn't find the animation player {:?} for the target entity {:?} ({:?})",
-                    target.player, target_context.entity, target_context.name,
-                );
-                return;
-            };
-
-            for scheduled_clip in &player.schedule {
+            for scheduled_clip in player.schedule.iter() {
                 scheduled_clip.apply(&clips, &mut target_context);
             }
         });
@@ -686,6 +709,7 @@ impl Plugin for AnimationPlugin {
             .register_type::<Interpolation>()
             .register_type::<Keyframes>()
             .register_type::<AnimationTarget>()
+            .register_type::<AnimationTransitions>()
             .register_type::<NodeIndex>()
             .add_systems(
                 PostUpdate,
