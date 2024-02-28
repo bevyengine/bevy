@@ -68,7 +68,7 @@ impl<T: GizmoConfigGroup> Drop for RoundedRectBuilder<'_, '_, '_, T> {
         }
         let config = &self.config;
 
-        // Calculate inner and outer half size and ensure that the ede_radius is <= any half_length
+        // Calculate inner and outer half size and ensure that the edge_radius is <= any half_length
         let mut outer_half_size = self.size.abs() / 2.0;
         let inner_half_size =
             (outer_half_size - Vec2::splat(config.corner_radius.abs())).max(Vec2::ZERO);
@@ -149,7 +149,7 @@ impl<T: GizmoConfigGroup> Drop for RoundedCuboidBuilder<'_, '_, '_, T> {
         }
         let config = &self.config;
 
-        // Calculate inner and outer half size and ensure that the ede_radius is <= any half_length
+        // Calculate inner and outer half size and ensure that the edge_radius is <= any half_length
         let outer_half_size = self.size.abs() / 2.0;
         let inner_half_size =
             (outer_half_size - Vec3::splat(config.corner_radius.abs())).max(Vec3::ZERO);
