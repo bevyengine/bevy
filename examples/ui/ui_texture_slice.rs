@@ -1,7 +1,11 @@
 //! This example illustrates how to create a button that has its image sliced
 //! and kept in proportion instead of being stretched by the button dimensions
 
-use bevy::{prelude::*, winit::WinitSettings};
+use bevy::{
+    color::palettes::css::{GOLD, ORANGE},
+    prelude::*,
+    winit::WinitSettings,
+};
 
 fn main() {
     App::new()
@@ -25,15 +29,15 @@ fn button_system(
         match *interaction {
             Interaction::Pressed => {
                 text.sections[0].value = "Press".to_string();
-                color.0 = LegacyColor::GOLD;
+                color.0 = GOLD.into();
             }
             Interaction::Hovered => {
                 text.sections[0].value = "Hover".to_string();
-                color.0 = LegacyColor::ORANGE;
+                color.0 = ORANGE.into();
             }
             Interaction::None => {
                 text.sections[0].value = "Button".to_string();
-                color.0 = LegacyColor::WHITE;
+                color.0 = Color::WHITE;
             }
         }
     }
@@ -78,7 +82,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             },
                             image: image.clone().into(),
                             // When combined with an image, this tints the image.
-                            background_color: LegacyColor::WHITE.into(),
+                            background_color: Color::WHITE.into(),
                             ..default()
                         },
                         ImageScaleMode::Sliced(slicer.clone()),

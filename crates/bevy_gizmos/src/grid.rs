@@ -4,8 +4,8 @@
 //! and assorted support items.
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
+use bevy_color::LinearRgba;
 use bevy_math::{Quat, UVec2, Vec2, Vec3};
-use bevy_render::color::LegacyColor;
 
 /// A builder returned by [`Gizmos::grid`] and [`Gizmos::grid_2d`]
 pub struct GridBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
@@ -16,7 +16,7 @@ pub struct GridBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     cell_count: UVec2,
     skew: Vec2,
     outer_edges: bool,
-    color: LegacyColor,
+    color: LinearRgba,
 }
 
 impl<T: GizmoConfigGroup> GridBuilder<'_, '_, '_, T> {
@@ -145,7 +145,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         rotation: Quat,
         cell_count: UVec2,
         spacing: Vec2,
-        color: LegacyColor,
+        color: impl Into<LinearRgba>,
     ) -> GridBuilder<'_, 'w, 's, T> {
         GridBuilder {
             gizmos: self,
@@ -155,7 +155,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
             cell_count,
             skew: Vec2::ZERO,
             outer_edges: false,
-            color,
+            color: color.into(),
         }
     }
 
@@ -200,7 +200,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         rotation: f32,
         cell_count: UVec2,
         spacing: Vec2,
-        color: LegacyColor,
+        color: impl Into<LinearRgba>,
     ) -> GridBuilder<'_, 'w, 's, T> {
         GridBuilder {
             gizmos: self,
@@ -210,7 +210,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
             cell_count,
             skew: Vec2::ZERO,
             outer_edges: false,
-            color,
+            color: color.into(),
         }
     }
 }

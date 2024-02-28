@@ -93,7 +93,7 @@ fn draw_example_collection(
         UVec2::splat(20),
         Vec2::new(2., 2.),
         // Light gray
-        LegacyColor::rgb(0.65, 0.65, 0.65),
+        LinearRgba::gray(0.65),
     );
 
     gizmos.cuboid(

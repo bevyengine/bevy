@@ -48,7 +48,7 @@ fn draw_example_collection(
             UVec2::new(16, 12),
             Vec2::new(60., 60.),
             // Light gray
-            LegacyColor::rgb(0.65, 0.65, 0.65),
+            LinearRgba::gray(0.65),
         )
         .outer_edges(true);
 
