@@ -20,35 +20,64 @@ use crate::AnimationClip;
 
 #[derive(Asset, Reflect, Debug, Serialize, Deserialize)]
 pub struct AnimationGraph {
+    /// The `petgraph` data structure that defines the animation graph.
     pub graph: AnimationDiGraph,
+    /// The index of the root node in the animation graph.
     pub root: NodeIndex,
 }
 
+/// A type alias for the `petgraph` data structure that defines the animation
+/// graph.
 pub type AnimationDiGraph = DiGraph<AnimationGraphNode, (), u32>;
 
+/// The index of either an animation or blend node in the animation graph.
+///
+/// These indices are the way that [`AnimationPlayer`]s identify particular
+/// animations.
 pub type AnimationNodeIndex = NodeIndex<u32>;
 
 #[derive(Clone, Reflect, Debug, Serialize, Deserialize)]
 pub struct AnimationGraphNode {
+    /// The animation clip associated with this node, if any.
+    ///
+    /// If the clip is present, this node is an *animation clip node*.
+    /// Otherwise, this node is a *blend node*.
     #[serde(serialize_with = "serialize_clip_handle")]
     #[serde(deserialize_with = "deserialize_clip_handle")]
     pub clip: Option<Handle<AnimationClip>>,
+
+    /// The weight of this node.
+    ///
+    /// Weights are propagated down to descendants. Thus if an animation clip
+    /// has weight 0.3 and its parent blend node has weight 0.6, the computed
+    /// weight of the animation clip is 0.18.
     pub weight: f32,
 }
 
+/// An [`AssetLoader`] that can load [`AnimationGraph`]s as assets.
+///
+/// The canonical extension for [`AnimationGraph`]s is `.animgraph.ron`. Plain
+/// `.animgraph` is supported as well.
 pub struct AnimationGraphAssetLoader;
 
+/// Various errors that can occur when serializing or deserializing animation
+/// graphs to and from RON, respectively.
 #[derive(Error, Debug)]
 pub enum AnimationGraphLoadError {
+    /// An I/O error occurred.
     #[error("I/O")]
     Io(#[from] io::Error),
+    /// An error occurred in RON serialization or deserialization.
     #[error("RON serialization")]
     Ron(#[from] ron::Error),
+    /// An error occurred in RON deserialization, and the location of the error
+    /// is supplied.
     #[error("RON serialization")]
     SpannedRon(#[from] SpannedError),
 }
 
 impl AnimationGraph {
+    /// Creates a new animation graph with a root node and no other nodes.
     pub fn new() -> Self {
         let mut graph = DiGraph::default();
         let root = graph.add_node(AnimationGraphNode::default());
@@ -58,13 +87,18 @@ impl AnimationGraph {
     /// A convenience function for creating an [`AnimationGraph`] from a single
     /// [`AnimationClip`].
     ///
-    /// The clip will be a direct child of the root with weight 1.0.
+    /// The clip will be a direct child of the root with weight 1.0. Both the
+    /// graph and the index of the added node are returned as a tuple.
     pub fn from_clip(clip: Handle<AnimationClip>) -> (Self, AnimationNodeIndex) {
         let mut graph = Self::new();
         let node_index = graph.add_clip(clip, 1.0, graph.root);
         (graph, node_index)
     }
 
+    /// Adds an [`AnimationClip`] to the animation graph with the given weight
+    /// and returns its index.
+    ///
+    /// The animation clip will be the child of the given parent.
     pub fn add_clip(
         &mut self,
         clip: Handle<AnimationClip>,
@@ -79,6 +113,13 @@ impl AnimationGraph {
         node_index
     }
 
+    /// A convenience method to add multiple [`AnimationClip`]s to the animation
+    /// graph.
+    ///
+    /// All of the animation clips will have the same weight and will be
+    /// parented to the same node.
+    ///
+    /// Returns the indices of the new nodes.
     pub fn add_clips<'a, I>(
         &'a mut self,
         clips: I,
@@ -93,6 +134,12 @@ impl AnimationGraph {
             .map(move |clip| self.add_clip(clip, weight, parent))
     }
 
+    /// Adds a blend node to the animation graph with the given weight and
+    /// returns its index.
+    ///
+    /// The blend node will be placed under the supplied `parent` node. During
+    /// animation evaluation, the descendants of this blend node will have their
+    /// weights multiplied by the weight of the blend.
     pub fn add_blend(&mut self, weight: f32, parent: AnimationNodeIndex) -> AnimationNodeIndex {
         let node_index = self
             .graph
@@ -101,24 +148,46 @@ impl AnimationGraph {
         node_index
     }
 
+    /// Adds an edge from the edge `from` to `to`, making `to` a child of
+    /// `from`.
+    ///
+    /// The behavior is unspecified if adding this produces a cycle in the
+    /// graph.
     pub fn add_edge(&mut self, from: NodeIndex, to: NodeIndex) {
         self.graph.add_edge(from, to, ());
     }
 
+    /// Removes an edge between `from` and `to` if it exists.
+    ///
+    /// Returns true if the edge was successfully removed or false if no such
+    /// edge existed.
+    pub fn remove_edge(&mut self, from: NodeIndex, to: NodeIndex) -> bool {
+        self.graph.find_edge(from, to).map(|edge| self.graph.remove_edge(edge)).is_some()
+    }
+
+    /// Returns the [`AnimationGraphNode`] associated with the given index.
+    ///
+    /// If no node with the given index exists, returns `None`.
     pub fn get(&self, animation: AnimationNodeIndex) -> Option<&AnimationGraphNode> {
         self.graph.node_weight(animation)
     }
 
+    /// Returns a mutable reference to the [`AnimationGraphNode`] associated
+    /// with the given index.
+    ///
+    /// If no node with the given index exists, returns `None`.
     pub fn get_mut(&mut self, animation: AnimationNodeIndex) -> Option<&mut AnimationGraphNode> {
         self.graph.node_weight_mut(animation)
     }
 
+    /// Performs a depth-first search on the animation graph.
     pub(crate) fn dfs(
         &self,
     ) -> Dfs<AnimationNodeIndex, <Graph<AnimationGraphNode, ()> as Visitable>::Map> {
         Dfs::new(&self.graph, self.root)
     }
 
+    /// Serializes the animation graph to the given [`Writer`] in RON format.
     pub fn save<W>(&self, writer: &mut W) -> Result<(), AnimationGraphLoadError>
     where
         W: Write,
@@ -127,6 +196,10 @@ impl AnimationGraph {
         Ok(self.serialize(&mut ron_serializer)?)
     }
 
+    /// A convenience method to serialize the animation graph to a file.
+    ///
+    /// This file can later be loaded with the [`AnimationGraphAssetLoader`] to
+    /// reconstruct the graph.
     pub fn save_to<P>(&self, path: &P) -> Result<(), AnimationGraphLoadError>
     where
         P: AsRef<Path>,
@@ -193,6 +266,11 @@ impl AssetLoader for AnimationGraphAssetLoader {
     }
 }
 
+// This is just a hack to allow `Handle<AnimationClip>` to be serialized. We
+// could use the `TypedReflectSerializer` for this, but that would require a
+// `TypeRegistry` handle, which Serde doesn't have. We opt to use Serde for
+// serialization and deserialization of animation graphs because implementing
+// reflection support for `petgraph` graphs would be burdensome.
 fn serialize_clip_handle<S>(
     clip: &Option<Handle<AnimationClip>>,
     serializer: S,
@@ -203,6 +281,11 @@ where
     clip.as_ref().map(|clip| clip.id()).serialize(serializer)
 }
 
+// This is just a hack to allow `Handle<AnimationClip>` to be deserialized. We
+// could use the `TypedReflectDeserializer` for this, but that would require a
+// `TypeRegistry` handle, which Serde doesn't have. We opt to use Serde for
+// serialization and deserialization of animation graphs because implementing
+// reflection support for `petgraph` graphs would be burdensome.
 fn deserialize_clip_handle<'de, D>(
     deserializer: D,
 ) -> Result<Option<Handle<AnimationClip>>, D::Error>

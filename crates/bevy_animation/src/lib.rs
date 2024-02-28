@@ -287,8 +287,12 @@ pub enum RepeatAnimation {
     Forever,
 }
 
+/// An animation that an [`AnimationPlayer`] is currently either playing or was
+/// playing, but is presently paused.
+///
+/// An stopped animation is considered no longer active.
 #[derive(Debug, Reflect)]
-pub struct PlayingAnimation {
+pub struct ActiveAnimation {
     weight: f32,
     repeat: RepeatAnimation,
     speed: f32,
@@ -306,7 +310,7 @@ pub struct PlayingAnimation {
     paused: bool,
 }
 
-impl Default for PlayingAnimation {
+impl Default for ActiveAnimation {
     fn default() -> Self {
         Self {
             weight: 1.0,
@@ -320,7 +324,7 @@ impl Default for PlayingAnimation {
     }
 }
 
-impl PlayingAnimation {
+impl ActiveAnimation {
     /// Check if the animation has finished, based on its repetition behavior and the number of times it has repeated.
     ///
     /// Note: An animation with `RepeatAnimation::Forever` will never finish.
@@ -374,14 +378,14 @@ impl PlayingAnimation {
 #[derive(Component, Default, Reflect)]
 #[reflect(Component)]
 pub struct AnimationPlayer {
-    playing_animations: HashMap<AnimationNodeIndex, PlayingAnimation>,
+    playing_animations: HashMap<AnimationNodeIndex, ActiveAnimation>,
     blend_weights: HashMap<AnimationNodeIndex, f32>,
 
     schedule: Vec<ScheduledAnimationClip>,
 }
 
 #[derive(Clone, Debug, Reflect)]
-pub struct ScheduledAnimationClip {
+struct ScheduledAnimationClip {
     clip: Handle<AnimationClip>,
     seek_time: f32,
     // The final resolved weight.
@@ -400,40 +404,46 @@ struct AnimationTargetContext<'a> {
 
 impl AnimationPlayer {
     /// Start playing an animation, restarting it if necessary.
-    pub fn start(&mut self, animation: AnimationNodeIndex) -> &mut PlayingAnimation {
+    pub fn start(&mut self, animation: AnimationNodeIndex) -> &mut ActiveAnimation {
         self.playing_animations
             .entry(animation)
-            .insert(PlayingAnimation::default())
+            .insert(ActiveAnimation::default())
             .into_mut()
     }
 
     /// Start playing an animation, unless the requested animation is already playing.
-    pub fn play(&mut self, animation: AnimationNodeIndex) -> &mut PlayingAnimation {
+    pub fn play(&mut self, animation: AnimationNodeIndex) -> &mut ActiveAnimation {
         let playing_animation = self.playing_animations.entry(animation).or_default();
         playing_animation.weight = 1.0;
         playing_animation
     }
 
+    /// Stops playing the given animation, removing it from the list of playing
+    /// animations.
     pub fn stop(&mut self, animation: AnimationNodeIndex) -> &mut Self {
         self.playing_animations.remove(&animation);
         self
     }
 
-    // Stops all currently-playing animations.
+    /// Stops all currently-playing animations.
     pub fn stop_all(&mut self) -> &mut Self {
         self.playing_animations.clear();
         self
     }
 
+    /// Iterates through all animations that this [`AnimationPlayer`] is
+    /// currently playing.
     pub fn playing_animations(
         &self,
-    ) -> impl Iterator<Item = (&AnimationNodeIndex, &PlayingAnimation)> {
+    ) -> impl Iterator<Item = (&AnimationNodeIndex, &ActiveAnimation)> {
         self.playing_animations.iter()
     }
 
+    /// Iterates through all animations that this [`AnimationPlayer`] is
+    /// currently playing, mutably.
     pub fn playing_animations_mut(
         &mut self,
-    ) -> impl Iterator<Item = (&AnimationNodeIndex, &mut PlayingAnimation)> {
+    ) -> impl Iterator<Item = (&AnimationNodeIndex, &mut ActiveAnimation)> {
         self.playing_animations.iter_mut()
     }
 
@@ -452,7 +462,9 @@ impl AnimationPlayer {
     /// Check if all playing animations are paused.
     #[doc(alias = "is_paused")]
     pub fn all_paused(&self) -> bool {
-        self.playing_animations.values().all(|playing_animation| playing_animation.is_paused())
+        self.playing_animations
+            .values()
+            .all(|playing_animation| playing_animation.is_paused())
     }
 
     /// Resume all playing animations.
@@ -464,7 +476,7 @@ impl AnimationPlayer {
         self
     }
 
-    /// Resume all playing animations.
+    /// Resume all active animations.
     #[doc(alias = "resume")]
     pub fn resume_all(&mut self) -> &mut Self {
         for (_, playing_animation) in self.playing_animations_mut() {
@@ -473,7 +485,7 @@ impl AnimationPlayer {
         self
     }
 
-    /// Rewinds all playing animations.
+    /// Rewinds all active animations.
     #[doc(alias = "rewind")]
     pub fn rewind_all(&mut self) -> &mut Self {
         for (_, playing_animation) in self.playing_animations_mut() {
@@ -482,7 +494,7 @@ impl AnimationPlayer {
         self
     }
 
-    /// Multiplies the speed of all playing animations by the given factor.
+    /// Multiplies the speed of all active animations by the given factor.
     #[doc(alias = "set_speed")]
     pub fn adjust_speeds(&mut self, factor: f32) -> &mut Self {
         for (_, playing_animation) in self.playing_animations_mut() {
@@ -492,55 +504,70 @@ impl AnimationPlayer {
         self
     }
 
-    /// Seeks all playing animations forward or backward by the same amount.
+    /// Seeks all active animations forward or backward by the same amount.
+    ///
+    /// To seek forward, pass a positive value; to seek negative, pass a
+    /// negative value. Values below 0.0 or beyond the end of the animation clip
+    /// are clamped appropriately.
     #[doc(alias = "seek_to")]
     pub fn seek_all_by(&mut self, amount: f32) -> &mut Self {
         for (_, playing_animation) in self.playing_animations_mut() {
             let new_time = playing_animation.seek_time();
-            playing_animation.seek_to(new_time);
+            playing_animation.seek_to(new_time + amount);
         }
         self
     }
 
-    pub fn animation(&self, animation: AnimationNodeIndex) -> Option<&PlayingAnimation> {
+    /// Returns the [`ActiveAnimation`] associated with the given animation
+    /// node if it's currently playing.
+    ///
+    /// If the animation isn't currently active, returns `None`.
+    pub fn animation(&self, animation: AnimationNodeIndex) -> Option<&ActiveAnimation> {
         self.playing_animations.get(&animation)
     }
 
-    pub fn animation_mut(
-        &mut self,
-        animation: AnimationNodeIndex,
-    ) -> Option<&mut PlayingAnimation> {
+    /// Returns a mutable reference to the [`ActiveAnimation`] associated with
+    /// the given animation node if it's currently active.
+    ///
+    /// If the animation isn't currently active, returns `None`.
+    pub fn animation_mut(&mut self, animation: AnimationNodeIndex) -> Option<&mut ActiveAnimation> {
         self.playing_animations.get_mut(&animation)
     }
 }
 
-impl PlayingAnimation {
-    /// Pause the animation
+impl ActiveAnimation {
+    /// Pause the animation.
     pub fn pause(&mut self) -> &mut Self {
         self.paused = true;
         self
     }
 
-    /// Unpause the animation
+    /// Unpause the animation.
     pub fn resume(&mut self) -> &mut Self {
         self.paused = false;
         self
     }
 
+    /// Returns true if this animation is currently paused.
+    ///
+    /// Note that paused animations are still [`ActiveAnimation`]s.
     #[inline]
     pub fn is_paused(&self) -> bool {
         self.paused
     }
 
+    /// Sets the repeat mode for this playing animation.
     pub fn set_repeat(&mut self, repeat: RepeatAnimation) -> &mut Self {
         self.repeat = repeat;
         self
     }
 
+    /// Marks this animation as repeating forever.
     pub fn repeat(&mut self) -> &mut Self {
         self.set_repeat(RepeatAnimation::Forever)
     }
 
+    /// Returns the repeat mode assigned to this active animation.
     pub fn repeat_mode(&self) -> RepeatAnimation {
         self.repeat
     }

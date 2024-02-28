@@ -12,8 +12,15 @@ use bevy_reflect::Reflect;
 use bevy_time::Time;
 use bevy_utils::Duration;
 
-use crate::{graph::AnimationNodeIndex, AnimationPlayer, PlayingAnimation};
+use crate::{graph::AnimationNodeIndex, ActiveAnimation, AnimationPlayer};
 
+/// Manages fade-out of animation blend factors, allowing for smooth transitions
+/// between animations.
+///
+/// To use this component, place it on the same entity as the
+/// [`AnimationPlayer`] and [`Handle<AnimationGraph>`]. It'll take
+/// responsibility for adjusting the weight on the [`ActiveAnimation`] in order
+/// to fade out animations smoothly.
 #[derive(Component, Default, Deref, DerefMut, Reflect)]
 pub struct AnimationTransitions(pub Vec<AnimationTransition>);
 
@@ -29,29 +36,37 @@ pub struct AnimationTransition {
 }
 
 impl AnimationTransitions {
+    /// Creates a new [`AnimationTransitions`] component, ready to be added to
+    /// an entity with an [`AnimationPlayer`].
     pub fn new() -> AnimationTransitions {
         AnimationTransitions::default()
     }
 
-    pub fn play<'s, 'p>(
-        &'s mut self,
+    /// Plays a new animation on the given [`AnimationPlayer`], fading out any
+    /// existing animations that were already playing over the
+    /// [`transition_duration`].
+    pub fn play<'p>(
+        &mut self,
         player: &'p mut AnimationPlayer,
         animation: AnimationNodeIndex,
         transition_duration: Duration,
-    ) -> &'p mut PlayingAnimation {
+    ) -> &'p mut ActiveAnimation {
         for (&old_animation_index, old_animation) in player.playing_animations() {
-            self.push(AnimationTransition {
-                current_weight: old_animation.weight,
-                weight_decline_per_sec: 1.0 / transition_duration.as_secs_f32(),
-                animation: old_animation_index,
-            });
+            if !old_animation.is_paused() {
+                self.push(AnimationTransition {
+                    current_weight: old_animation.weight,
+                    weight_decline_per_sec: 1.0 / transition_duration.as_secs_f32(),
+                    animation: old_animation_index,
+                });
+            }
         }
 
         player.start(animation)
     }
 }
 
-// Advances transitions.
+/// A system that alters the weight of currently-playing transitions based on
+/// the current time and decline amount.
 pub fn advance_transitions(
     mut query: Query<(&mut AnimationTransitions, &mut AnimationPlayer)>,
     time: Res<Time>,
@@ -69,7 +84,8 @@ pub fn advance_transitions(
     }
 }
 
-// Expires completed transitions.
+/// A system that removed transitions that have completed from the
+/// [`AnimationTransitions`] object.
 pub fn expire_completed_transitions(
     mut query: Query<(&mut AnimationTransitions, &mut AnimationPlayer)>,
 ) {
