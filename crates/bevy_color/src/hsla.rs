@@ -67,7 +67,9 @@ impl Hsla {
         Self { lightness, ..self }
     }
 
-    /// Generate a deterministic but randomly distributed color from a provided `index`.
+    /// Generate a deterministic but quasi-randomly distributed color from a provided `index`.
+    ///
+    /// These colors are designed to be distributed evenly but randomly through color space.
     /// This can be helpful for generating debug colors.
     pub fn from_index(index: u32) -> Self {
         // from https://extremelearning.com.au/unreasonable-effectiveness-of-quasirandom-sequences/
