@@ -70,10 +70,8 @@ fn setup_animations(
             continue;
         }
 
-        let mut graph = AnimationGraph::new();
-        let animation = graph.add_clip(morph_data.the_wave.clone(), 1.0, graph.root);
-        let graph_handle = graphs.add(graph);
-        commands.entity(entity).insert(graph_handle);
+        let (graph, animation) = AnimationGraph::from_clip(morph_data.the_wave.clone());
+        commands.entity(entity).insert(graphs.add(graph));
 
         player.play(animation).repeat();
         *has_setup = true;

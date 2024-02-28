@@ -127,9 +127,7 @@ fn setup(
     );
 
     // Create the animation graph
-    let mut graph = AnimationGraph::new();
-    let animation_index = graph.add_clip(animations.add(animation), 1.0, graph.root);
-    let graph = graphs.add(graph);
+    let (graph, animation_index) = AnimationGraph::from_clip(animations.add(animation));
 
     // Create the animation player, and set it to repeat
     let mut player = AnimationPlayer::default();
@@ -146,7 +144,7 @@ fn setup(
             },
             // Add the animation graph and player
             planet,
-            graph,
+            graphs.add(graph),
             player,
         ))
         .id();

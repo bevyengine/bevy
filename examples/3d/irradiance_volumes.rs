@@ -516,10 +516,8 @@ fn handle_mouse_clicks(
 impl FromWorld for ExampleAssets {
     fn from_world(world: &mut World) -> Self {
         let fox_animation = world.load_asset("models/animated/Fox.glb#Animation1");
-        let mut animation_graph = AnimationGraph::new();
-        let fox_animation_node =
-            animation_graph.add_clip(fox_animation.clone(), 1.0, animation_graph.root);
-        let fox_animation_graph = world.add_asset(animation_graph);
+        let (fox_animation_graph, fox_animation_node) =
+            AnimationGraph::from_clip(fox_animation.clone());
 
         ExampleAssets {
             main_sphere: world.add_asset(Sphere::default().mesh().uv(32, 18)),
@@ -528,7 +526,7 @@ impl FromWorld for ExampleAssets {
             main_scene: world
                 .load_asset("models/IrradianceVolumeExample/IrradianceVolumeExample.glb#Scene0"),
             irradiance_volume: world.load_asset("irradiance_volumes/Example.vxgi.ktx2"),
-            fox_animation_graph,
+            fox_animation_graph: world.add_asset(fox_animation_graph),
             fox_animation_node,
             voxel_cube: world.add_asset(Cuboid::default()),
             // Just use a specular map for the skybox since it's not too blurry.

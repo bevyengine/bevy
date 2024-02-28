@@ -33,20 +33,23 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut graphs: ResMut<Assets<AnimationGraph>>,
-    type_registry: Res<AppTypeRegistry>,
 ) {
     // Build the animation graph
     let mut graph = AnimationGraph::new();
-    let animations = [
-        "models/animated/Fox.glb#Animation2",
-        "models/animated/Fox.glb#Animation1",
-        "models/animated/Fox.glb#Animation0",
-    ]
-    .iter()
-    .map(|&animation_path| graph.add_clip(asset_server.load(animation_path), 1.0, graph.root))
-    .collect::<Vec<_>>();
+    let animations = graph
+        .add_clips(
+            [
+                "models/animated/Fox.glb#Animation2",
+                "models/animated/Fox.glb#Animation1",
+                "models/animated/Fox.glb#Animation0",
+            ]
+            .into_iter()
+            .map(|path| asset_server.load(path)),
+            1.0,
+            graph.root,
+        )
+        .collect();
 
-    let type_registry = type_registry.0.read();
     graph.save(&mut io::stdout()).unwrap();
 
     // Insert a resource with the current scene information
