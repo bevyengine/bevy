@@ -26,20 +26,10 @@ pub trait Point:
 {
 }
 
-impl<T> Point for T where
-    T: Mul<f32, Output = Self>
-        + Div<f32, Output = Self>
-        + Add<Self, Output = Self>
-        + Sub<Self, Output = Self>
-        + Add<f32, Output = Self>
-        + Sum
-        + Default
-        + Debug
-        + Clone
-        + PartialEq
-        + Copy
-{
-}
+impl Point for Vec3 {}
+impl Point for Vec3A {}
+impl Point for Vec2 {}
+impl Point for f32 {}
 
 /// A spline composed of a single cubic Bezier curve.
 ///
