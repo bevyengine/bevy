@@ -109,7 +109,7 @@ fn color_from_entity(entity: Entity) -> Color {
     const RATIO_360: f32 = 360.0 / u32::MAX as f32;
     let hue = index.wrapping_mul(FRAC_U32MAX_GOLDEN_RATIO) as f32 * RATIO_360;
 
-    Hsla::hsl(hue, 1., 0.5).into()
+    Color::hsl(hue, 1., 0.5)
 }
 
 fn aabb_transform(aabb: Aabb, transform: GlobalTransform) -> GlobalTransform {
