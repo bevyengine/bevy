@@ -58,7 +58,7 @@ pub fn extract_meshlet_meshes(
     for asset_event in asset_events.read() {
         if let AssetEvent::Unused { id } | AssetEvent::Modified { id } = asset_event {
             if let Some((
-                [vertex_data_slice, vertex_ids_slice, indices_slice, meshlets_slice, meshlet_bunding_spheres_slice],
+                [vertex_data_slice, vertex_ids_slice, indices_slice, meshlets_slice, meshlet_bounding_spheres_slice],
                 _,
             )) = gpu_scene.meshlet_mesh_slices.remove(id)
             {
@@ -68,7 +68,7 @@ pub fn extract_meshlet_meshes(
                 gpu_scene.meshlets.mark_slice_unused(meshlets_slice);
                 gpu_scene
                     .meshlet_bounding_spheres
-                    .mark_slice_unused(meshlet_bunding_spheres_slice);
+                    .mark_slice_unused(meshlet_bounding_spheres_slice);
             }
         }
     }
@@ -826,7 +826,7 @@ impl MeshletGpuScene {
                 Arc::clone(&meshlet_mesh.meshlets),
                 (vertex_ids_slice.start, indices_slice.start),
             );
-            let meshlet_bunding_spheres_slice = self
+            let meshlet_bounding_spheres_slice = self
                 .meshlet_bounding_spheres
                 .queue_write(Arc::clone(&meshlet_mesh.meshlet_bounding_spheres), ());
 
@@ -836,7 +836,7 @@ impl MeshletGpuScene {
                     vertex_ids_slice,
                     indices_slice,
                     meshlets_slice,
-                    meshlet_bunding_spheres_slice,
+                    meshlet_bounding_spheres_slice,
                 ],
                 meshlet_mesh.total_meshlet_indices,
             )
