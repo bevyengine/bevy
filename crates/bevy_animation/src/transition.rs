@@ -10,8 +10,7 @@ use bevy_ecs::{
 };
 use bevy_reflect::Reflect;
 use bevy_time::Time;
-use bevy_utils::{Duration, HashMap};
-use petgraph::visit::NodeRef;
+use bevy_utils::Duration;
 
 use crate::{graph::AnimationNodeIndex, AnimationPlayer, PlayingAnimation};
 
