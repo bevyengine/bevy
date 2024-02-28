@@ -9,7 +9,8 @@ use bevy_utils::intern::Interned;
 pub use bevy_utils::label::DynEq;
 
 use crate::system::{
-    ExclusiveSystemParamFunction, IsExclusiveFunctionSystem, IsFunctionSystem, SystemParamFunction,
+    ExclusiveFunctionSystem, ExclusiveSystemParamFunction, FunctionSystem,
+    IsExclusiveFunctionSystem, IsFunctionSystem, SystemParamFunction,
 };
 
 define_label!(
@@ -167,26 +168,28 @@ impl<S: SystemSet> IntoSystemSet<()> for S {
 // systems
 impl<Marker, F> IntoSystemSet<(IsFunctionSystem, Marker)> for F
 where
+    Marker: 'static,
     F: SystemParamFunction<Marker>,
 {
-    type Set = SystemTypeSet<Self>;
+    type Set = SystemTypeSet<FunctionSystem<Marker, F>>;
 
     #[inline]
     fn into_system_set(self) -> Self::Set {
-        SystemTypeSet::new()
+        SystemTypeSet::<FunctionSystem<Marker, F>>::new()
     }
 }
 
 // exclusive systems
 impl<Marker, F> IntoSystemSet<(IsExclusiveFunctionSystem, Marker)> for F
 where
+    Marker: 'static,
     F: ExclusiveSystemParamFunction<Marker>,
 {
-    type Set = SystemTypeSet<Self>;
+    type Set = SystemTypeSet<ExclusiveFunctionSystem<Marker, F>>;
 
     #[inline]
     fn into_system_set(self) -> Self::Set {
-        SystemTypeSet::new()
+        SystemTypeSet::<ExclusiveFunctionSystem<Marker, F>>::new()
     }
 }
 

@@ -9,7 +9,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .insert_resource(AmbientLight {
-            color: Color::WHITE,
+            color: LegacyColor::WHITE,
             brightness: 150.0,
         })
         .add_systems(Startup, setup)
@@ -25,6 +25,16 @@ fn setup(
     // Camera
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        ..default()
+    });
+
+    // Light
+    commands.spawn(PointLightBundle {
+        point_light: PointLight {
+            intensity: 500_000.0,
+            ..default()
+        },
+        transform: Transform::from_xyz(0.0, 2.5, 0.0),
         ..default()
     });
 
@@ -125,7 +135,7 @@ fn setup(
         .spawn((
             PbrBundle {
                 mesh: meshes.add(Sphere::default()),
-                material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
+                material: materials.add(LegacyColor::rgb(0.8, 0.7, 0.6)),
                 ..default()
             },
             // Add the animation player
@@ -155,7 +165,7 @@ fn setup(
                     PbrBundle {
                         transform: Transform::from_xyz(1.5, 0.0, 0.0),
                         mesh: meshes.add(Cuboid::new(0.5, 0.5, 0.5)),
-                        material: materials.add(Color::rgb(0.3, 0.9, 0.3)),
+                        material: materials.add(LegacyColor::rgb(0.3, 0.9, 0.3)),
                         ..default()
                     },
                     AnimationTarget {
