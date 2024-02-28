@@ -16,6 +16,7 @@ use crate::world::World;
 use bevy_reflect::std_traits::ReflectDefault;
 
 pub use bevy_ecs_macros::States;
+use bevy_utils::tracing::warn;
 
 /// Types that can define world-wide states in a finite-state machine.
 ///
@@ -223,22 +224,32 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
         next_state_resource.set_changed();
         match world.get_resource_mut::<State<S>>() {
             Some(mut state_resource) => {
-                if *state_resource != entered {
-                    let exited = mem::replace(&mut state_resource.0, entered.clone());
-                    world.send_event(StateTransitionEvent {
-                        before: exited.clone(),
-                        after: entered.clone(),
-                    });
-                    // Try to run the schedules if they exist.
-                    world.try_run_schedule(OnExit(exited.clone())).ok();
-                    world
-                        .try_run_schedule(OnTransition {
-                            from: exited,
-                            to: entered.clone(),
-                        })
-                        .ok();
-                    world.try_run_schedule(OnEnter(entered)).ok();
+                if !state_resource.can_transit_to(&entered) {
+                    warn!(
+                        "unallowed state transition from {:?} to {entered:?}",
+                        *state_resource
+                    );
+                    return;
                 }
+
+                if *state_resource == entered {
+                    return;
+                }
+
+                let exited = mem::replace(&mut state_resource.0, entered.clone());
+                world.send_event(StateTransitionEvent {
+                    before: exited.clone(),
+                    after: entered.clone(),
+                });
+                // Try to run the schedules if they exist.
+                world.try_run_schedule(OnExit(exited.clone())).ok();
+                world
+                    .try_run_schedule(OnTransition {
+                        from: exited,
+                        to: entered.clone(),
+                    })
+                    .ok();
+                world.try_run_schedule(OnEnter(entered)).ok();
             }
             None => {
                 world.insert_resource(State(entered.clone()));
