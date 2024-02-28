@@ -98,7 +98,7 @@ impl<S: States> Default for ComputeDependantStates<S> {
 }
 
 /// The label of a [`Schedule`] that runs the system
-/// deriving a given [`ComputedStates`] or the existance of
+/// deriving a given [`ComputedStates`] or the existence of
 /// a given [`SubStates`].
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ComputeComputedState<S: States>(PhantomData<S>);
@@ -266,7 +266,7 @@ pub struct StateTransition;
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ManualStateTransitions;
 
-/// This function actually applies a state change, and registeres the required
+/// This function actually applies a state change, and registers the required
 /// schedules for downstream computed states and transition schedules.
 ///
 /// The `new_state` is an option to allow for removal - `None` will trigger the
@@ -677,12 +677,12 @@ impl<S: States> StateSet for S {
 /// but unlike [`ComputedStates`] - while they exist they can be manually modified.
 ///
 /// The [`StateSet`] is passed into the `exist` method whenever one of them changes, and the
-/// result is used to handle it's existance. If the result is `Some(Self)`, and the state doesn't exist,
+/// result is used to handle it's existence. If the result is `Some(Self)`, and the state doesn't exist,
 /// the state is set to the provided value. If it is `None`, the state is removed. Otherwise - the computation
 /// is not used to impact the state's value at all.
 ///
 /// The default approach to creating [`SubStates`] is using the derive macro, and defining a single source state
-/// and value to determine it's existance. Note that this approach requires implementing [`Default`] as well.
+/// and value to determine it's existence. Note that this approach requires implementing [`Default`] as well.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -828,7 +828,7 @@ pub trait SubStates: States + FreelyMutableState {
     type SourceStates: StateSet;
 
     /// This function gets called whenever one of the [`SourceStates`](Self::SourceStates) changes.
-    /// The result is used to determine the existance of [`State<Self>`].
+    /// The result is used to determine the existence of [`State<Self>`].
     ///
     /// If the result is [`None`], the [`State<Self>`] resource will be removed from the world, otherwise
     /// if the [`State<Self>`] resource doesn't exist - it will be created with the [`Some`] value.

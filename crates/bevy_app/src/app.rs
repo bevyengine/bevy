@@ -448,7 +448,7 @@ impl App {
     ///
     /// This method is idempotent: it has no effect when called again using the same generic type.
     ///
-    /// For each source state the derived state depends on, it adds this state's existance check
+    /// For each source state the derived state depends on, it adds this state's existence check
     /// to it's [`ComputeDependantStates<Source>`](bevy_ecs::schedule::ComputeDependantStates<S>) schedule.
     pub fn add_sub_state<S: SubStates>(&mut self) -> &mut Self {
         if !self
