@@ -200,6 +200,26 @@ impl Color {
         })
     }
 
+    /// Creates a new [`Color`] object storing a [`Oklcha`] color.
+    pub const fn oklcha(lightness: f32, chroma: f32, hue: f32, alpha: f32) -> Self {
+        Self::Oklcha(Oklcha {
+            lightness,
+            chroma,
+            hue,
+            alpha,
+        })
+    }
+
+    /// Creates a new [`Color`] object storing a [`Oklcha`] color with an alpha of 1.0.
+    pub const fn oklch(lightness: f32, chroma: f32, hue: f32) -> Self {
+        Self::Oklcha(Oklcha {
+            lightness,
+            chroma,
+            hue,
+            alpha: 1.0,
+        })
+    }
+
     /// Creates a new [`Color`] object storing a [`Xyza`] color.
     pub const fn xyza(x: f32, y: f32, z: f32, alpha: f32) -> Self {
         Self::Xyza(Xyza { x, y, z, alpha })
