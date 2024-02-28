@@ -24,8 +24,9 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         cubic_splines::{
-            CubicBSpline, CubicBezier, CubicCardinalSpline, CubicGenerator, CubicHermite,
-            CubicSegment,
+            CubicBSpline, CubicBezier, CubicCardinalSpline, CubicCurve, CubicGenerator,
+            CubicHermite, CubicNurbs, CubicNurbsError, CubicSegment, RationalCurve,
+            RationalGenerator, RationalSegment,
         },
         direction::{Direction2d, Direction3d, Direction3dA},
         primitives::*,
