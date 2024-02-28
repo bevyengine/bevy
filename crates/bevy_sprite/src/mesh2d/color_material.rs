@@ -4,7 +4,7 @@ use bevy_asset::{load_internal_asset, Asset, AssetApp, Assets, Handle};
 use bevy_math::Vec4;
 use bevy_reflect::prelude::*;
 use bevy_render::{
-    color::Color, prelude::Shader, render_asset::RenderAssets, render_resource::*, texture::Image,
+    color::LegacyColor, render_asset::RenderAssets, render_resource::*, texture::Image,
 };
 
 pub const COLOR_MATERIAL_SHADER_HANDLE: Handle<Shader> =
@@ -28,7 +28,7 @@ impl Plugin for ColorMaterialPlugin {
         app.world.resource_mut::<Assets<ColorMaterial>>().insert(
             Handle::<ColorMaterial>::default(),
             ColorMaterial {
-                color: Color::rgb(1.0, 0.0, 1.0),
+                color: LegacyColor::rgb(1.0, 0.0, 1.0),
                 ..Default::default()
             },
         );
@@ -40,7 +40,7 @@ impl Plugin for ColorMaterialPlugin {
 #[reflect(Default, Debug)]
 #[uniform(0, ColorMaterialUniform)]
 pub struct ColorMaterial {
-    pub color: Color,
+    pub color: LegacyColor,
     #[texture(1)]
     #[sampler(2)]
     pub texture: Option<Handle<Image>>,
@@ -49,14 +49,14 @@ pub struct ColorMaterial {
 impl Default for ColorMaterial {
     fn default() -> Self {
         ColorMaterial {
-            color: Color::WHITE,
+            color: LegacyColor::WHITE,
             texture: None,
         }
     }
 }
 
-impl From<Color> for ColorMaterial {
-    fn from(color: Color) -> Self {
+impl From<LegacyColor> for ColorMaterial {
+    fn from(color: LegacyColor) -> Self {
         ColorMaterial {
             color,
             ..Default::default()

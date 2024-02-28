@@ -3,9 +3,8 @@ pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     prelude::*,
     schedule::{
-        apply_state_transition, common_conditions::run_once as run_once_condition,
-        run_enter_schedule, InternedScheduleLabel, IntoSystemConfigs, IntoSystemSetConfigs,
-        ScheduleBuildSettings, ScheduleLabel, StateTransitionEvent,
+        common_conditions::run_once as run_once_condition, run_enter_schedule,
+        InternedScheduleLabel, ScheduleBuildSettings, ScheduleLabel,
     },
 };
 use bevy_utils::{intern::Interned, thiserror::Error, tracing::debug, HashMap, HashSet};
@@ -79,7 +78,7 @@ pub struct App {
     pub main_schedule_label: InternedScheduleLabel,
     sub_apps: HashMap<InternedAppLabel, SubApp>,
     plugin_registry: Vec<Box<dyn Plugin>>,
-    plugin_name_added: HashSet<String>,
+    plugin_name_added: HashSet<Box<str>>,
     /// A private counter to prevent incorrect calls to `App::run()` from `Plugin::build()`
     building_plugin_depth: usize,
     plugins_state: PluginsState,
@@ -643,7 +642,7 @@ impl App {
         plugin: Box<dyn Plugin>,
     ) -> Result<&mut Self, AppError> {
         debug!("added plugin: {}", plugin.name());
-        if plugin.is_unique() && !self.plugin_name_added.insert(plugin.name().to_string()) {
+        if plugin.is_unique() && !self.plugin_name_added.insert(plugin.name().into()) {
             Err(AppError::DuplicatePlugin {
                 plugin_name: plugin.name().to_string(),
             })?;
@@ -1005,8 +1004,8 @@ impl App {
     /// (conflicting access but indeterminate order) with systems in `set`.
     ///
     /// When possible, do this directly in the `.add_systems(Update, a.ambiguous_with(b))` call.
-    /// However, sometimes two independant plugins `A` and `B` are reported as ambiguous, which you
-    /// can only supress as the consumer of both.
+    /// However, sometimes two independent plugins `A` and `B` are reported as ambiguous, which you
+    /// can only suppress as the consumer of both.
     #[track_caller]
     pub fn ignore_ambiguity<M1, M2, S1, S2>(
         &mut self,

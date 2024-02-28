@@ -1,7 +1,6 @@
 use super::GlobalTransform;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
-use bevy_math::primitives::Direction3d;
-use bevy_math::{Affine3A, Mat3, Mat4, Quat, Vec3};
+use bevy_math::{Affine3A, Direction3d, Mat3, Mat4, Quat, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_reflect::Reflect;
 use std::ops::Mul;

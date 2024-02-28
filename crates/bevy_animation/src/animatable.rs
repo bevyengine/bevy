@@ -142,8 +142,7 @@ impl Animatable for Transform {
 }
 
 impl Animatable for Quat {
-    /// Performs an nlerp, because it's cheaper and easier to combine with other animations,
-    /// reference: <http://number-none.com/product/Understanding%20Slerp,%20Then%20Not%20Using%20It/>
+    /// Performs a slerp to smoothly interpolate between quaternions.
     #[inline]
     fn interpolate(a: &Self, b: &Self, t: f32) -> Self {
         // We want to smoothly interpolate between the two quaternions by default,
