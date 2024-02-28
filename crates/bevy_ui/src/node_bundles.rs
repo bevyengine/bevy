@@ -58,8 +58,8 @@ impl Default for NodeBundle {
     fn default() -> Self {
         NodeBundle {
             // Transparent background
-            background_color: Color::TRANSPARENT.into(),
-            border_color: Color::TRANSPARENT.into(),
+            background_color: Color::NONE.into(),
+            border_color: Color::NONE.into(),
             node: Default::default(),
             style: Default::default(),
             focus_policy: Default::default(),
@@ -225,7 +225,7 @@ impl Default for TextBundle {
             view_visibility: Default::default(),
             z_index: Default::default(),
             // Transparent background
-            background_color: BackgroundColor(Color::TRANSPARENT),
+            background_color: BackgroundColor(Color::NONE),
         }
     }
 }
@@ -341,7 +341,7 @@ impl Default for ButtonBundle {
             node: Default::default(),
             button: Default::default(),
             style: Default::default(),
-            border_color: BorderColor(Color::TRANSPARENT),
+            border_color: BorderColor(Color::NONE),
             interaction: Default::default(),
             background_color: Default::default(),
             image: Default::default(),

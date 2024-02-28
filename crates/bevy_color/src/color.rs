@@ -314,8 +314,8 @@ impl Color {
     /// A fully black [`Color::LinearRgba`] color with an alpha of 1.0.
     pub const BLACK: Self = Self::linear_rgb(0., 0., 0.);
 
-    /// A fully transparent [`Color::LinearRgba`] color.
-    pub const TRANSPARENT: Self = Self::linear_rgba(0., 0., 0., 0.);
+    /// A fully transparent [`Color::LinearRgba`] color with 0 red, green and blue.
+    pub const NONE: Self = Self::linear_rgba(0., 0., 0., 0.);
 }
 
 impl Default for Color {

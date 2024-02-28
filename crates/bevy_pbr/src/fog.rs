@@ -470,7 +470,7 @@ impl Default for FogSettings {
                 start: 0.0,
                 end: 100.0,
             },
-            directional_light_color: Color::TRANSPARENT,
+            directional_light_color: Color::NONE,
             directional_light_exponent: 8.0,
         }
     }

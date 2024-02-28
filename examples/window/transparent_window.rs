@@ -26,7 +26,7 @@ fn main() {
             ..default()
         }))
         // ClearColor must have 0 alpha, otherwise some color will bleed through
-        .insert_resource(ClearColor(Color::TRANSPARENT))
+        .insert_resource(ClearColor(Color::NONE))
         .add_systems(Startup, setup)
         .run();
 }
