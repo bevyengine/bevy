@@ -21,6 +21,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut animations: ResMut<Assets<AnimationClip>>,
+    mut graphs: ResMut<Assets<AnimationGraph>>,
 ) {
     // Camera
     commands.spawn(Camera3dBundle {
@@ -125,9 +126,14 @@ fn setup(
         },
     );
 
+    // Create the animation graph
+    let mut graph = AnimationGraph::new();
+    let animation_index = graph.add_clip(animations.add(animation), 1.0, graph.root);
+    let graph = graphs.add(graph);
+
     // Create the animation player, and set it to repeat
     let mut player = AnimationPlayer::default();
-    player.play(animations.add(animation)).repeat();
+    player.play(animation_index).repeat();
 
     // Create the scene that will be animated
     // First entity is the planet
@@ -138,8 +144,9 @@ fn setup(
                 material: materials.add(LegacyColor::rgb(0.8, 0.7, 0.6)),
                 ..default()
             },
-            // Add the animation player
+            // Add the animation graph and player
             planet,
+            graph,
             player,
         ))
         .id();
