@@ -5,7 +5,7 @@ use std::{
     ops::{Add, Div, Mul, Sub},
 };
 
-use glam::{Vec2, Vec3, Vec3A, Vec4};
+use glam::{Quat, Vec2, Vec3, Vec3A, Vec4};
 use thiserror::Error;
 
 /// A point in space of any dimension that supports the math ops needed for cubic spline
@@ -22,6 +22,7 @@ pub trait Point:
 {
 }
 
+impl Point for Quat {}
 impl Point for Vec4 {}
 impl Point for Vec3 {}
 impl Point for Vec3A {}
