@@ -6,7 +6,7 @@ use std::{
     ops::{Add, Div, Mul, Sub},
 };
 
-use glam::Vec2;
+use glam::{Vec2, Vec3, Vec3A};
 use thiserror::Error;
 
 /// A point in space of any dimension that supports the math ops needed for cubic spline
