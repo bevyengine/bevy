@@ -98,10 +98,7 @@ fn draw_all_aabbs(
 }
 
 fn color_from_entity(entity: Entity) -> LegacyColor {
-    Oklcha::sequence_dispersed()
-        .nth(entity.index() as usize)
-        .unwrap()
-        .into()
+    Oklcha::sequential_dispersed(entity.index()).into()
 }
 
 fn aabb_transform(aabb: Aabb, transform: GlobalTransform) -> GlobalTransform {

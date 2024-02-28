@@ -73,17 +73,21 @@ impl Oklcha {
     /// Generate a deterministic but [quasi-randomly distributed](https://en.wikipedia.org/wiki/Low-discrepancy_sequence)
     /// color from a provided `index`.
     ///
-    /// These colors are designed to be distributed evenly but randomly through color space.
     /// This can be helpful for generating debug colors.
     ///
     /// # Examples
     ///
     /// ```rust
     /// # use bevy_color::Oklcha;
+    /// // Unique color for an entity
+    /// # let entity_index = 123;
+    /// // let entity_index = entity.index();
+    /// let color = Oklcha::sequential_dispersed(entity.index());
+    ///
     /// // Palette with 5 distinct hues
-    /// let palette = Oklcha::sequence_dispersed().take(5).collect::<Vec<_>>();
+    /// let palette = (0..5).map(Oklcha::sequential_dispersed).collect::<Vec<_>>();
     /// ```
-    pub fn sequence_dispersed() -> impl Iterator<Item = Self> {
+    pub fn sequential_dispersed(index: u32) -> Self {
         const FRAC_U32MAX_GOLDEN_RATIO: u32 = 2654435769; // (u32::MAX / Φ) rounded up
         const RATIO_360: f32 = 360.0 / u32::MAX as f32;
 
@@ -91,10 +95,8 @@ impl Oklcha {
         //
         // Map a sequence of integers (eg: 154, 155, 156, 157, 158) into the [0.0..1.0] range,
         // so that the closer the numbers are, the larger the difference of their image.
-        (0..=u32::MAX)
-            .map(|x| x.wrapping_mul(FRAC_U32MAX_GOLDEN_RATIO))
-            .map(|seed| seed as f32 * RATIO_360)
-            .map(|hue| Self::lch(0.75, 0.1, hue))
+        let hue = index.wrapping_mul(FRAC_U32MAX_GOLDEN_RATIO) as f32 * RATIO_360;
+        Self::lch(0.75, 0.1, hue)
     }
 }
 
