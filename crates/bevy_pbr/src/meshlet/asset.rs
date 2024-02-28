@@ -19,7 +19,7 @@ use std::sync::Arc;
 /// There are restrictions on the [`crate::Material`] functionality that can be used with this type of mesh.
 /// * Materials have no control over the vertex shader or vertex attributes, and can only have a custom fragment shader.
 /// * Materials must be opaque. Transparent, alpha masked, and transmissive materials are not supported.
-/// * Materials must use the [`crate::Material::meshlet_mesh_fragment_shader`] method (and similiar variants for prepass/deferred shaders)
+/// * Materials must use the [`crate::Material::meshlet_mesh_fragment_shader`] method (and similar variants for prepass/deferred shaders)
 ///   which requires certain shader patterns that differ from the regular material shaders.
 /// * Limited control over [`bevy_render::render_resource::RenderPipelineDescriptor`] attributes.
 ///
