@@ -1,5 +1,5 @@
 use bevy_color::{
-    Color, HexColorError, Hsla, Hsva, Hwba, Laba, Lcha, LinearRgba, Oklaba, Srgba, Xyza,
+    Color, HexColorError, Hsla, Hsva, Hwba, Laba, Lcha, LinearRgba, Oklaba, Oklcha, Srgba, Xyza,
 };
 
 use bevy_math::{Vec3, Vec4};
@@ -929,6 +929,7 @@ impl From<Color> for LegacyColor {
             Color::Laba(x) => x.into(),
             Color::Lcha(x) => x.into(),
             Color::Oklaba(x) => x.into(),
+            Color::Oklcha(x) => x.into(),
             Color::Xyza(x) => x.into(),
         }
     }
@@ -1079,6 +1080,18 @@ impl From<LegacyColor> for Oklaba {
 
 impl From<Oklaba> for LegacyColor {
     fn from(value: Oklaba) -> Self {
+        LinearRgba::from(value).into()
+    }
+}
+
+impl From<LegacyColor> for Oklcha {
+    fn from(value: LegacyColor) -> Self {
+        LinearRgba::from(value).into()
+    }
+}
+
+impl From<Oklcha> for LegacyColor {
+    fn from(value: Oklcha) -> Self {
         LinearRgba::from(value).into()
     }
 }
