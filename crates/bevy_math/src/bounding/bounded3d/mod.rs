@@ -286,12 +286,12 @@ mod aabb3d_tests {
     #[test]
     fn scale_around_center() {
         let a = Aabb3d {
-            min: Vec3::new(-1., -1., -1.),
-            max: Vec3::new(1., 1., 1.),
+            min: Vec3::NEG_ONE,
+            max: Vec3::ONE,
         };
-        let scaled = a.scale_around_center(Vec3::new(2., 2., 2.));
-        assert!((scaled.min - Vec3::new(-2., -2., -2.)).length() < std::f32::EPSILON);
-        assert!((scaled.max - Vec3::new(2., 2., 2.)).length() < std::f32::EPSILON);
+        let scaled = a.scale_around_center(Vec3::splat(2.));
+        assert!((scaled.min - Vec3::splat(-2.)).length() < std::f32::EPSILON);
+        assert!((scaled.max - Vec3::splat(2.)).length() < std::f32::EPSILON);
         assert!(!a.contains(&scaled));
         assert!(scaled.contains(&a));
     }
@@ -478,12 +478,7 @@ impl BoundingVolume for BoundingSphere {
     #[inline(always)]
     fn scale_around_center(&self, scale: Self::HalfSize) -> Self {
         debug_assert!(scale >= 0.);
-        Self {
-            center: self.center,
-            sphere: Sphere {
-                radius: self.radius() * scale,
-            },
-        }
+        Self::new(self.center, self.radius() * scale)
     }
 }
 

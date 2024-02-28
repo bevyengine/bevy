@@ -290,12 +290,12 @@ mod aabb2d_tests {
     #[test]
     fn scale_around_center() {
         let a = Aabb2d {
-            min: Vec2::new(-1., -1.),
-            max: Vec2::new(1., 1.),
+            min: Vec2::NEG_ONE,
+            max: Vec2::ONE,
         };
-        let scaled = a.scale_around_center(Vec2::new(2., 2.));
-        assert!((scaled.min - Vec2::new(-2., -2.)).length() < std::f32::EPSILON);
-        assert!((scaled.max - Vec2::new(2., 2.)).length() < std::f32::EPSILON);
+        let scaled = a.scale_around_center(Vec2::splat(2.));
+        assert!((scaled.min - Vec2::splat(-2.)).length() < std::f32::EPSILON);
+        assert!((scaled.max - Vec2::splat(2.)).length() < std::f32::EPSILON);
         assert!(!a.contains(&scaled));
         assert!(scaled.contains(&a));
     }
