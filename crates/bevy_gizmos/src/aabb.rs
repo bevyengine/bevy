@@ -3,7 +3,7 @@
 use crate as bevy_gizmos;
 
 use bevy_app::{Plugin, PostUpdate};
-use bevy_color::Hsla;
+use bevy_color::Oklcha;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -98,7 +98,10 @@ fn draw_all_aabbs(
 }
 
 fn color_from_entity(entity: Entity) -> LegacyColor {
-    Hsla::from_index(entity.index()).into()
+    Oklcha::sequence_dispersed()
+        .nth(entity.index() as usize)
+        .unwrap()
+        .into()
 }
 
 fn aabb_transform(aabb: Aabb, transform: GlobalTransform) -> GlobalTransform {

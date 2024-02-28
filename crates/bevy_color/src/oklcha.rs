@@ -69,6 +69,33 @@ impl Oklcha {
     pub const fn with_h(self, hue: f32) -> Self {
         Self { hue, ..self }
     }
+
+    /// Generate a deterministic but [quasi-randomly distributed](https://en.wikipedia.org/wiki/Low-discrepancy_sequence)
+    /// color from a provided `index`.
+    ///
+    /// These colors are designed to be distributed evenly but randomly through color space.
+    /// This can be helpful for generating debug colors.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_color::Oklcha;
+    /// // Palette with 5 distinct hues
+    /// let palette = Oklcha::sequence_dispersed().take(5).collect::<Vec<_>>();
+    /// ```
+    pub fn sequence_dispersed() -> impl Iterator<Item = Self> {
+        const FRAC_U32MAX_GOLDEN_RATIO: u32 = 2654435769; // (u32::MAX / Φ) rounded up
+        const RATIO_360: f32 = 360.0 / u32::MAX as f32;
+
+        // from https://extremelearning.com.au/unreasonable-effectiveness-of-quasirandom-sequences/
+        //
+        // Map a sequence of integers (eg: 154, 155, 156, 157, 158) into the [0.0..1.0] range,
+        // so that the closer the numbers are, the larger the difference of their image.
+        (0..=u32::MAX)
+            .map(|x| x.wrapping_mul(FRAC_U32MAX_GOLDEN_RATIO))
+            .map(|seed| seed as f32 * RATIO_360)
+            .map(|hue| Self::lch(0.75, 0.1, hue))
+    }
 }
 
 impl Default for Oklcha {
