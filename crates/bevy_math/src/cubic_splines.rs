@@ -2,7 +2,6 @@
 
 use std::{
     fmt::Debug,
-    iter::Sum,
     ops::{Add, Div, Mul, Sub},
 };
 
@@ -16,12 +15,9 @@ pub trait Point:
     + Div<f32, Output = Self>
     + Add<Self, Output = Self>
     + Sub<Self, Output = Self>
-    + Add<f32, Output = Self>
-    + Sum
     + Default
     + Debug
     + Clone
-    + PartialEq
     + Copy
 {
 }
