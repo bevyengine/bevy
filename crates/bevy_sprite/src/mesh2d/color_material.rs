@@ -97,7 +97,7 @@ impl AsBindGroupShaderType<ColorMaterialUniform> for ColorMaterial {
         }
 
         ColorMaterialUniform {
-            color: LinearRgba::from(self.color).to_array().into(),
+            color: LinearRgba::from(self.color).to_f32_array().into(),
             flags: flags.bits(),
         }
     }

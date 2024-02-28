@@ -157,7 +157,7 @@ impl LinearRgba {
     /// Converts the color into a [f32; 4] array in RGBA order.
     ///
     /// This is useful for passing the color to a shader.
-    pub fn to_array(&self) -> [f32; 4] {
+    pub fn to_f32_array(&self) -> [f32; 4] {
         [self.red, self.green, self.blue, self.alpha]
     }
 }

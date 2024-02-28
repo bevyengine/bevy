@@ -872,7 +872,7 @@ pub fn prepare_lights(
             // premultiply color by intensity
             // we don't use the alpha at all, so no reason to multiply only [0..3]
             color_inverse_square_range: (Vec4::from_slice(
-                &LinearRgba::from(light.color).to_array(),
+                &LinearRgba::from(light.color).to_f32_array(),
             ) * light.intensity)
                 .xyz()
                 .extend(1.0 / (light.range * light.range)),
@@ -909,7 +909,7 @@ pub fn prepare_lights(
             cascades: [GpuDirectionalCascade::default(); MAX_CASCADES_PER_LIGHT],
             // premultiply color by illuminance
             // we don't use the alpha at all, so no reason to multiply only [0..3]
-            color: Vec4::from_slice(&light.color.to_array()) * light.illuminance,
+            color: Vec4::from_slice(&light.color.to_f32_array()) * light.illuminance,
             // direction is negated to be ready for N.L
             dir_to_light: light.transform.back(),
             flags: flags.bits(),
@@ -983,7 +983,7 @@ pub fn prepare_lights(
         let n_clusters = clusters.dimensions.x * clusters.dimensions.y * clusters.dimensions.z;
         let mut gpu_lights = GpuLights {
             directional_lights: gpu_directional_lights,
-            ambient_color: Vec4::from_slice(&LinearRgba::from(ambient_light.color).to_array())
+            ambient_color: Vec4::from_slice(&LinearRgba::from(ambient_light.color).to_f32_array())
                 * ambient_light.brightness,
             cluster_factors: Vec4::new(
                 clusters.dimensions.x as f32 / extracted_view.viewport.z as f32,

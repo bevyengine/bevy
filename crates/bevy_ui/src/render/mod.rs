@@ -935,7 +935,7 @@ pub fn prepare_uinodes(
                         .map(|pos| pos / atlas_extent)
                     };
 
-                    let color = LinearRgba::from(extracted_uinode.color).to_array();
+                    let color = LinearRgba::from(extracted_uinode.color).to_f32_array();
                     for i in QUAD_INDICES {
                         ui_meta.vertices.push(UiVertex {
                             position: positions_clipped[i].into(),

@@ -414,7 +414,7 @@ impl SpriteInstance {
                 transpose_model_3x3.y_axis.extend(transform.translation.y),
                 transpose_model_3x3.z_axis.extend(transform.translation.z),
             ],
-            i_color: color.to_array(),
+            i_color: color.to_f32_array(),
             i_uv_offset_scale: uv_offset_scale.to_array(),
         }
     }
