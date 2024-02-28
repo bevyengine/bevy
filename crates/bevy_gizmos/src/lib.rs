@@ -5,8 +5,9 @@
 //! # use bevy_gizmos::prelude::*;
 //! # use bevy_render::prelude::*;
 //! # use bevy_math::prelude::*;
+//! # use bevy_color::palettes::basic::GREEN;
 //! fn system(mut gizmos: Gizmos) {
-//!     gizmos.line(Vec3::ZERO, Vec3::X, Color::GREEN);
+//!     gizmos.line(Vec3::ZERO, Vec3::X, GREEN);
 //! }
 //! # bevy_ecs::system::assert_is_system(system);
 //! ```

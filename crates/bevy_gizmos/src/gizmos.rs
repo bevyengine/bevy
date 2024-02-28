@@ -129,8 +129,9 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
+    /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.line(Vec3::ZERO, Vec3::X, Color::GREEN);
+    ///     gizmos.line(Vec3::ZERO, Vec3::X, GREEN);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -152,8 +153,9 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
+    /// # use bevy_color::palettes::basic::{RED, GREEN};
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.line_gradient(Vec3::ZERO, Vec3::X, Color::GREEN, Color::RED);
+    ///     gizmos.line_gradient(Vec3::ZERO, Vec3::X, GREEN, RED);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -181,8 +183,9 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
+    /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.ray(Vec3::Y, Vec3::X, Color::GREEN);
+    ///     gizmos.ray(Vec3::Y, Vec3::X, GREEN);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -203,8 +206,9 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
+    /// # use bevy_color::palettes::basic::{RED, GREEN};
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.ray_gradient(Vec3::Y, Vec3::X, Color::GREEN, Color::RED);
+    ///     gizmos.ray_gradient(Vec3::Y, Vec3::X, GREEN, RED);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -231,8 +235,9 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
+    /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.linestrip([Vec3::ZERO, Vec3::X, Vec3::Y], Color::GREEN);
+    ///     gizmos.linestrip([Vec3::ZERO, Vec3::X, Vec3::Y], GREEN);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -261,11 +266,12 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
+    /// # use bevy_color::palettes::basic::{BLUE, GREEN, RED};
     /// fn system(mut gizmos: Gizmos) {
     ///     gizmos.linestrip_gradient([
-    ///         (Vec3::ZERO, Color::GREEN),
-    ///         (Vec3::X, Color::RED),
-    ///         (Vec3::Y, Color::BLUE)
+    ///         (Vec3::ZERO, GREEN),
+    ///         (Vec3::X, RED),
+    ///         (Vec3::Y, BLUE)
     ///     ]);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
@@ -346,8 +352,9 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
+    /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.rect(Vec3::ZERO, Quat::IDENTITY, Vec2::ONE, Color::GREEN);
+    ///     gizmos.rect(Vec3::ZERO, Quat::IDENTITY, Vec2::ONE, GREEN);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -369,8 +376,9 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
     /// # use bevy_transform::prelude::*;
+    /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.cuboid(Transform::IDENTITY, Color::GREEN);
+    ///     gizmos.cuboid(Transform::IDENTITY, GREEN);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -409,8 +417,9 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
+    /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.line_2d(Vec2::ZERO, Vec2::X, Color::GREEN);
+    ///     gizmos.line_2d(Vec2::ZERO, Vec2::X, GREEN);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -431,8 +440,9 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
+    /// # use bevy_color::palettes::basic::{RED, GREEN};
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.line_gradient_2d(Vec2::ZERO, Vec2::X, Color::GREEN, Color::RED);
+    ///     gizmos.line_gradient_2d(Vec2::ZERO, Vec2::X, GREEN, RED);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -459,8 +469,9 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
+    /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.linestrip_2d([Vec2::ZERO, Vec2::X, Vec2::Y], Color::GREEN);
+    ///     gizmos.linestrip_2d([Vec2::ZERO, Vec2::X, Vec2::Y], GREEN);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -485,11 +496,12 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
+    /// # use bevy_color::palettes::basic::{RED, GREEN, BLUE};
     /// fn system(mut gizmos: Gizmos) {
     ///     gizmos.linestrip_gradient_2d([
-    ///         (Vec2::ZERO, Color::GREEN),
-    ///         (Vec2::X, Color::RED),
-    ///         (Vec2::Y, Color::BLUE)
+    ///         (Vec2::ZERO, GREEN),
+    ///         (Vec2::X, RED),
+    ///         (Vec2::Y, BLUE)
     ///     ]);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
@@ -518,8 +530,9 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
+    /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.ray_2d(Vec2::Y, Vec2::X, Color::GREEN);
+    ///     gizmos.ray_2d(Vec2::Y, Vec2::X, GREEN);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -540,8 +553,9 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
+    /// # use bevy_color::palettes::basic::{RED, GREEN};
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.line_gradient(Vec3::Y, Vec3::X, Color::GREEN, Color::RED);
+    ///     gizmos.line_gradient(Vec3::Y, Vec3::X, GREEN, RED);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -568,8 +582,9 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
+    /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.rect_2d(Vec2::ZERO, 0., Vec2::ONE, Color::GREEN);
+    ///     gizmos.rect_2d(Vec2::ZERO, 0., Vec2::ONE, GREEN);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```

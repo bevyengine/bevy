@@ -29,13 +29,14 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use std::f32::consts::PI;
+    /// # use bevy_color::palettes::basic::{GREEN, RED};
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.arc_2d(Vec2::ZERO, 0., PI / 4., 1., Color::GREEN);
+    ///     gizmos.arc_2d(Vec2::ZERO, 0., PI / 4., 1., GREEN);
     ///
     ///     // Arcs have 32 line-segments by default.
     ///     // You may want to increase this for larger arcs.
     ///     gizmos
-    ///         .arc_2d(Vec2::ZERO, 0., PI / 4., 5., Color::RED)
+    ///         .arc_2d(Vec2::ZERO, 0., PI / 4., 5., RED)
     ///         .segments(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
@@ -142,6 +143,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use std::f32::consts::PI;
+    /// # use bevy_color::palettes::basic::ORANGE;
     /// fn system(mut gizmos: Gizmos) {
     ///     // rotation rotates normal to point in the direction of `Vec3::NEG_ONE`
     ///     let rotation = Quat::from_rotation_arc(Vec3::Y, Vec3::NEG_ONE.normalize());
@@ -152,7 +154,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///          0.25,
     ///          Vec3::ONE,
     ///          rotation,
-    ///          Color::ORANGE
+    ///          ORANGE
     ///          )
     ///          .segments(100);
     /// }
@@ -197,12 +199,13 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
+    /// # use bevy_color::palettes::basic::ORANGE;
     /// fn system(mut gizmos: Gizmos) {
     ///     gizmos.short_arc_3d_between(
     ///        Vec3::ONE,
     ///        Vec3::ONE + Vec3::NEG_ONE,
     ///        Vec3::ZERO,
-    ///        Color::ORANGE
+    ///        ORANGE
     ///        )
     ///        .segments(100);
     /// }
@@ -243,12 +246,13 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
+    /// # use bevy_color::palettes::basic::ORANGE;
     /// fn system(mut gizmos: Gizmos) {
     ///     gizmos.long_arc_3d_between(
     ///        Vec3::ONE,
     ///        Vec3::ONE + Vec3::NEG_ONE,
     ///        Vec3::ZERO,
-    ///        Color::ORANGE
+    ///        ORANGE
     ///        )
     ///        .segments(100);
     /// }
