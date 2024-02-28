@@ -242,7 +242,7 @@ fn setup(mut commands: Commands, loader: Res<AssetServer>) {
             transform: Transform::from_xyz(-OFFSET_X, -OFFSET_Y, 0.),
             ..default()
         },
-        Shape::Line(Segment2d::new(Direction2d::from_xy(1., 0.3).unwrap(), 90.)),
+        Shape::Line(Segment2d::new(Dir2::from_xy(1., 0.3).unwrap(), 90.)),
         Spin,
         DesiredVolume::Circle,
         Intersects::default(),
@@ -305,7 +305,7 @@ fn get_and_draw_ray(gizmos: &mut Gizmos, time: &Time) -> RayCast2d {
 
     let aabb_ray = Ray2d {
         origin: ray * 250.,
-        direction: Direction2d::new_unchecked(-ray),
+        direction: Dir2::new_unchecked(-ray),
     };
     let ray_cast = RayCast2d::from_ray(aabb_ray, dist - 20.);
 
