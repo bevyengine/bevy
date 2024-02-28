@@ -47,7 +47,7 @@ pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug 
     ///
     /// The default implementation returns always `true`.
     #[inline]
-    fn can_transit_to(self, target: Self) -> bool {
+    fn can_transit_to(&self, target: &Self) -> bool {
         let _ = target;
         true
     }
@@ -267,17 +267,17 @@ mod tests {
         }
 
         use MyState::*;
-        assert!(!MyState::A.can_transit_to(A));
-        assert!(MyState::A.can_transit_to(B));
-        assert!(!MyState::A.can_transit_to(C));
+        assert!(!MyState::A.can_transit_to(&A));
+        assert!(MyState::A.can_transit_to(&B));
+        assert!(!MyState::A.can_transit_to(&C));
 
-        assert!(MyState::B.can_transit_to(A));
-        assert!(MyState::B.can_transit_to(B));
-        assert!(MyState::B.can_transit_to(C));
+        assert!(MyState::B.can_transit_to(&A));
+        assert!(MyState::B.can_transit_to(&B));
+        assert!(MyState::B.can_transit_to(&C));
 
-        assert!(MyState::C.can_transit_to(A));
-        assert!(MyState::C.can_transit_to(B));
-        assert!(!MyState::C.can_transit_to(C));
+        assert!(MyState::C.can_transit_to(&A));
+        assert!(MyState::C.can_transit_to(&B));
+        assert!(!MyState::C.can_transit_to(&C));
     }
 
     /// Check that the default implementation of [`States`] allow all transition.
@@ -291,16 +291,16 @@ mod tests {
         }
 
         use MyState::*;
-        assert!(MyState::A.can_transit_to(A));
-        assert!(MyState::A.can_transit_to(B));
-        assert!(MyState::A.can_transit_to(C));
+        assert!(MyState::A.can_transit_to(&A));
+        assert!(MyState::A.can_transit_to(&B));
+        assert!(MyState::A.can_transit_to(&C));
 
-        assert!(MyState::B.can_transit_to(A));
-        assert!(MyState::B.can_transit_to(B));
-        assert!(MyState::B.can_transit_to(C));
+        assert!(MyState::B.can_transit_to(&A));
+        assert!(MyState::B.can_transit_to(&B));
+        assert!(MyState::B.can_transit_to(&C));
 
-        assert!(MyState::C.can_transit_to(A));
-        assert!(MyState::C.can_transit_to(B));
-        assert!(MyState::C.can_transit_to(C));
+        assert!(MyState::C.can_transit_to(&A));
+        assert!(MyState::C.can_transit_to(&B));
+        assert!(MyState::C.can_transit_to(&C));
     }
 }

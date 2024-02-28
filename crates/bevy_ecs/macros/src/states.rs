@@ -24,7 +24,7 @@ pub fn derive_states(ast: DeriveInput) -> syn::Result<TokenStream> {
     Ok(quote! {
         impl #impl_generics #trait_path for #struct_name #ty_generics #where_clause {
             #[inline]
-            fn can_transit_to(self, target: Self) -> bool {
+            fn can_transit_to(&self, target: &Self) -> bool {
                 #can_transit_to_impl
             }
         }
