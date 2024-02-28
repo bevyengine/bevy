@@ -970,6 +970,17 @@ category = "Animation"
 wasm = true
 
 [[example]]
+name = "animation_graph"
+path = "examples/animation/animation_graph.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.animation_graph]
+name = "Animation Graph"
+description = "Blends multiple animations together with a graph"
+category = "Animation"
+wasm = true
+
+[[example]]
 name = "morph_targets"
 path = "examples/animation/morph_targets.rs"
 doc-scrape-examples = true

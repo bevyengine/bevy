@@ -96,9 +96,6 @@ struct ExampleAssets {
     // The glTF scene containing the animated fox.
     fox: Handle<Scene>,
 
-    // The animation that the fox will play.
-    fox_animation: Handle<AnimationClip>,
-
     // The graph containing the animation that the fox will play.
     fox_animation_graph: Handle<AnimationGraph>,
 
@@ -531,7 +528,6 @@ impl FromWorld for ExampleAssets {
             main_scene: world
                 .load_asset("models/IrradianceVolumeExample/IrradianceVolumeExample.glb#Scene0"),
             irradiance_volume: world.load_asset("irradiance_volumes/Example.vxgi.ktx2"),
-            fox_animation,
             fox_animation_graph,
             fox_animation_node,
             voxel_cube: world.add_asset(Cuboid::default()),
