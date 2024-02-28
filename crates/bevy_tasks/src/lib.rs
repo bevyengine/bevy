@@ -1,7 +1,6 @@
 #![doc = include_str!("../README.md")]
 
 mod slice;
-pub use slice::{ParallelSlice, ParallelSliceMut};
 
 mod task;
 pub use task::Task;
@@ -19,7 +18,7 @@ pub use single_threaded_task_pool::{FakeTask, Scope, TaskPool, TaskPoolBuilder, 
 mod usages;
 #[cfg(not(target_arch = "wasm32"))]
 pub use usages::tick_global_task_pools_on_main_thread;
-pub use usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool};
+pub use usages::{compute_task_pool_thread_num, AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool};
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
 mod thread_executor;
@@ -33,17 +32,15 @@ pub use futures_lite::future::block_on;
 pub use futures_lite::future::poll_once;
 
 mod iter;
-pub use iter::ParallelIterator;
-
+mod vec;
 pub use futures_lite;
+pub use iter::*;
 
 #[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         block_on,
-        iter::ParallelIterator,
-        slice::{ParallelSlice, ParallelSliceMut},
         usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool},
     };
 }
