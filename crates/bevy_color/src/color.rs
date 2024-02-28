@@ -61,6 +61,18 @@ impl Color {
         })
     }
 
+    /// Creates a new [`Color`] object storing a [`Srgba`] color from [`u8`] values.
+    ///
+    /// A value of 0 is interpreted as 0.0, and a value of 255 is interpreted as 1.0.
+    pub fn srgba_u8(red: u8, green: u8, blue: u8, alpha: u8) -> Self {
+        Self::Srgba(Srgba {
+            red: red as f32 / 255.0,
+            green: green as f32 / 255.0,
+            blue: blue as f32 / 255.0,
+            alpha: alpha as f32 / 255.0,
+        })
+    }
+
     /// Createsa new [`Color`] object storing a [`LinearRgba`] color.
     pub const fn linear_rgba(red: f32, green: f32, blue: f32, alpha: f32) -> Self {
         Self::LinearRgba(LinearRgba {
