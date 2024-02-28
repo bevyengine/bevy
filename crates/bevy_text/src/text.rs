@@ -33,7 +33,7 @@ impl Text {
     ///
     /// ```
     /// # use bevy_asset::Handle;
-    /// # use bevy_render::color::LegacyColor;
+    /// # use bevy_color::Color;
     /// # use bevy_text::{Font, Text, TextStyle, JustifyText};
     /// #
     /// # let font_handle: Handle<Font> = Default::default();
@@ -45,7 +45,7 @@ impl Text {
     ///     TextStyle {
     ///         font: font_handle.clone(),
     ///         font_size: 60.0,
-    ///         color: LegacyColor::WHITE,
+    ///         color: Color::WHITE,
     ///     },
     /// );
     ///
@@ -54,7 +54,7 @@ impl Text {
     ///     TextStyle {
     ///         font: font_handle,
     ///         font_size: 60.0,
-    ///         color: LegacyColor::WHITE,
+    ///         color: Color::WHITE,
     ///     },
     /// ) // You can still add text justifaction.
     /// .with_justify(JustifyText::Center);

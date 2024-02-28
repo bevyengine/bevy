@@ -11,7 +11,7 @@ use crate::*;
 /// Standard property values with pictures here
 /// <https://google.github.io/filament/Material%20Properties.pdf>.
 ///
-/// May be created directly from a [`LegacyColor`] or an [`Image`].
+/// May be created directly from a [`Color`] or an [`Image`].
 #[derive(Asset, AsBindGroup, Reflect, Debug, Clone)]
 #[bind_group_data(StandardMaterialKey)]
 #[uniform(0, StandardMaterialUniform)]
