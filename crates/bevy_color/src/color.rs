@@ -370,6 +370,7 @@ impl Alpha for Color {
             Color::Laba(x) => x.set_alpha(alpha),
             Color::Lcha(x) => x.set_alpha(alpha),
             Color::Oklaba(x) => x.set_alpha(alpha),
+            Color::Oklcha(x) => x.set_alpha(alpha),
             Color::Xyza(x) => x.set_alpha(alpha),
         }
     }
