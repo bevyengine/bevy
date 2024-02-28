@@ -48,7 +48,7 @@ fn setup(
     commands.spawn(PbrBundle {
         transform: Transform::from_xyz(0., -2., 0.),
         mesh: meshes.add(Plane3d::default().mesh().size(100.0, 100.0)),
-        material: materials.add(Color::rgb(0.5, 0.3, 0.3)),
+        material: materials.add(LegacyColor::rgb(0.5, 0.3, 0.3)),
         ..default()
     });
 
@@ -71,7 +71,7 @@ fn setup(
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
-            material: materials.add(Color::rgb(0.5, 0.5, 0.5)),
+            material: materials.add(LegacyColor::rgb(0.5, 0.5, 0.5)),
             ..default()
         },
         Cube {
@@ -117,21 +117,21 @@ fn draw_cube_axes(mut gizmos: Gizmos, query: Query<&Transform, With<Cube>>) {
 
     // Local X-axis arrow
     let x_ends = arrow_ends(cube_transform, Vec3::X, 1.5);
-    gizmos.arrow(x_ends.0, x_ends.1, Color::RED);
+    gizmos.arrow(x_ends.0, x_ends.1, LegacyColor::RED);
 
     // local Y-axis arrow
     let y_ends = arrow_ends(cube_transform, Vec3::Y, 1.5);
-    gizmos.arrow(y_ends.0, y_ends.1, Color::GREEN);
+    gizmos.arrow(y_ends.0, y_ends.1, LegacyColor::GREEN);
 
     // local Z-axis arrow
     let z_ends = arrow_ends(cube_transform, Vec3::Z, 1.5);
-    gizmos.arrow(z_ends.0, z_ends.1, Color::BLUE);
+    gizmos.arrow(z_ends.0, z_ends.1, LegacyColor::BLUE);
 }
 
 fn draw_random_axes(mut gizmos: Gizmos, query: Query<&RandomAxes>) {
     let RandomAxes(v1, v2) = query.single();
-    gizmos.arrow(Vec3::ZERO, 1.5 * *v1, Color::WHITE);
-    gizmos.arrow(Vec3::ZERO, 1.5 * *v2, Color::GRAY);
+    gizmos.arrow(Vec3::ZERO, 1.5 * *v1, LegacyColor::WHITE);
+    gizmos.arrow(Vec3::ZERO, 1.5 * *v2, LegacyColor::GRAY);
 }
 
 fn rotate_cube(mut cube: Query<(&mut Cube, &mut Transform)>) {
