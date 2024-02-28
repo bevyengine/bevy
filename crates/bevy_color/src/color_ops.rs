@@ -47,4 +47,7 @@ pub trait Alpha: Sized {
 
     /// Return a the alpha component of this color.
     fn alpha(&self) -> f32;
+
+    /// Sets the alpha component of this color.
+    fn set_alpha(&mut self, alpha: f32);
 }

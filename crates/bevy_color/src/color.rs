@@ -272,6 +272,20 @@ impl Alpha for Color {
             Color::Xyza(x) => x.alpha(),
         }
     }
+
+    fn set_alpha(&mut self, alpha: f32) {
+        match self {
+            Color::Srgba(x) => x.set_alpha(alpha),
+            Color::LinearRgba(x) => x.set_alpha(alpha),
+            Color::Hsla(x) => x.set_alpha(alpha),
+            Color::Hsva(x) => x.set_alpha(alpha),
+            Color::Hwba(x) => x.set_alpha(alpha),
+            Color::Laba(x) => x.set_alpha(alpha),
+            Color::Lcha(x) => x.set_alpha(alpha),
+            Color::Oklaba(x) => x.set_alpha(alpha),
+            Color::Xyza(x) => x.set_alpha(alpha),
+        }
+    }
 }
 
 impl From<Srgba> for Color {

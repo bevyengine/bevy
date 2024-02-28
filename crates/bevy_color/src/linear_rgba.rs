@@ -193,6 +193,11 @@ impl Alpha for LinearRgba {
     fn alpha(&self) -> f32 {
         self.alpha
     }
+
+    #[inline]
+    fn set_alpha(&mut self, alpha: f32) {
+        self.alpha = alpha;
+    }
 }
 
 impl EuclideanDistance for LinearRgba {
