@@ -6,8 +6,8 @@ pub trait ParallelSlice<T: Sync>: AsRef<[T]> {
     /// in parallel across the provided `task_pool`. One task is spawned in the task pool
     /// for every chunk.
     ///
-    /// The iteration function takes the chunk as its first argument, and the index of the
-    /// chunk in the original slice as the second argument.
+    /// The iteration function takes the index of the chunk in the original slice as the
+    /// first argument, and the chunk as the second argument.
     ///
     /// Returns a `Vec` of the mapped results in the same order as the input.
     ///
@@ -18,7 +18,7 @@ pub trait ParallelSlice<T: Sync>: AsRef<[T]> {
     /// # use bevy_tasks::TaskPool;
     /// let task_pool = TaskPool::new();
     /// let counts = (0..10000).collect::<Vec<u32>>();
-    /// let incremented = counts.par_chunk_map(&task_pool, 100, |chunk, _index| {
+    /// let incremented = counts.par_chunk_map(&task_pool, 100, |_index, chunk| {
     ///   let mut results = Vec::new();
     ///   for count in chunk {
     ///     results.push(*count + 2);
@@ -35,14 +35,14 @@ pub trait ParallelSlice<T: Sync>: AsRef<[T]> {
     /// - [`ParallelSlice::par_splat_map`] for mapping when a specific chunk size is unknown.
     fn par_chunk_map<F, R>(&self, task_pool: &TaskPool, chunk_size: usize, f: F) -> Vec<R>
     where
-        F: Fn(&[T], usize) -> R + Send + Sync,
+        F: Fn(usize, &[T]) -> R + Send + Sync,
         R: Send + 'static,
     {
         let slice = self.as_ref();
         let f = &f;
         task_pool.scope(|scope| {
             for (index, chunk) in slice.chunks(chunk_size).enumerate() {
-                scope.spawn(async move { f(chunk, index) });
+                scope.spawn(async move { f(index, chunk) });
             }
         })
     }
@@ -53,8 +53,8 @@ pub trait ParallelSlice<T: Sync>: AsRef<[T]> {
     /// If `max_tasks` is `None`, this function will attempt to use one chunk per thread in
     /// `task_pool`.
     ///
-    /// The iteration function takes the chunk as its first argument, and the index of the
-    /// chunk in the original slice as the second argument.
+    /// The iteration function takes the index of the chunk in the original slice as the
+    /// first argument, and the chunk as the second argument.
     ///
     /// Returns a `Vec` of the mapped results in the same order as the input.
     ///
@@ -65,7 +65,7 @@ pub trait ParallelSlice<T: Sync>: AsRef<[T]> {
     /// # use bevy_tasks::TaskPool;
     /// let task_pool = TaskPool::new();
     /// let counts = (0..10000).collect::<Vec<u32>>();
-    /// let incremented = counts.par_splat_map(&task_pool, None, |chunk, _index| {
+    /// let incremented = counts.par_splat_map(&task_pool, None, |_index, chunk| {
     ///   let mut results = Vec::new();
     ///   for count in chunk {
     ///     results.push(*count + 2);
@@ -82,7 +82,7 @@ pub trait ParallelSlice<T: Sync>: AsRef<[T]> {
     /// [`ParallelSlice::par_chunk_map`] for mapping when a specific chunk size is desirable.
     fn par_splat_map<F, R>(&self, task_pool: &TaskPool, max_tasks: Option<usize>, f: F) -> Vec<R>
     where
-        F: Fn(&[T], usize) -> R + Send + Sync,
+        F: Fn(usize, &[T]) -> R + Send + Sync,
         R: Send + 'static,
     {
         let slice = self.as_ref();
@@ -106,8 +106,8 @@ pub trait ParallelSliceMut<T: Send>: AsMut<[T]> {
     /// in parallel across the provided `task_pool`. One task is spawned in the task pool
     /// for every chunk.
     ///
-    /// The iteration function takes the chunk as its first argument, and the index of the
-    /// chunk in the original slice as the second argument.
+    /// The iteration function takes the index of the chunk in the original slice as the
+    /// first argument, and the chunk as the second argument.
     ///
     /// Returns a `Vec` of the mapped results in the same order as the input.
     ///
@@ -118,7 +118,7 @@ pub trait ParallelSliceMut<T: Send>: AsMut<[T]> {
     /// # use bevy_tasks::TaskPool;
     /// let task_pool = TaskPool::new();
     /// let mut counts = (0..10000).collect::<Vec<u32>>();
-    /// let incremented = counts.par_chunk_map_mut(&task_pool, 100, |chunk, _index| {
+    /// let incremented = counts.par_chunk_map_mut(&task_pool, 100, |_index, chunk| {
     ///   let mut results = Vec::new();
     ///   for count in chunk {
     ///     *count += 5;
@@ -138,14 +138,14 @@ pub trait ParallelSliceMut<T: Send>: AsMut<[T]> {
     /// [`ParallelSliceMut::par_splat_map_mut`] for mapping when a specific chunk size is unknown.
     fn par_chunk_map_mut<F, R>(&mut self, task_pool: &TaskPool, chunk_size: usize, f: F) -> Vec<R>
     where
-        F: Fn(&mut [T], usize) -> R + Send + Sync,
+        F: Fn(usize, &mut [T]) -> R + Send + Sync,
         R: Send + 'static,
     {
         let slice = self.as_mut();
         let f = &f;
         task_pool.scope(|scope| {
             for (index, chunk) in slice.chunks_mut(chunk_size).enumerate() {
-                scope.spawn(async move { f(chunk, index) });
+                scope.spawn(async move { f(index, chunk) });
             }
         })
     }
@@ -156,8 +156,8 @@ pub trait ParallelSliceMut<T: Send>: AsMut<[T]> {
     /// If `max_tasks` is `None`, this function will attempt to use one chunk per thread in
     /// `task_pool`.
     ///
-    /// The iteration function takes the chunk as its first argument, and the index of the
-    /// chunk in the original slice as the second argument.
+    /// The iteration function takes the index of the chunk in the original slice as the
+    /// first argument, and the chunk as the second argument.
     ///
     /// Returns a `Vec` of the mapped results in the same order as the input.
     ///
@@ -168,7 +168,7 @@ pub trait ParallelSliceMut<T: Send>: AsMut<[T]> {
     /// # use bevy_tasks::TaskPool;
     /// let task_pool = TaskPool::new();
     /// let mut counts = (0..10000).collect::<Vec<u32>>();
-    /// let incremented = counts.par_splat_map_mut(&task_pool, None, |chunk, _index| {
+    /// let incremented = counts.par_splat_map_mut(&task_pool, None, |_index, chunk| {
     ///   let mut results = Vec::new();
     ///   for count in chunk {
     ///     *count += 5;
@@ -193,7 +193,7 @@ pub trait ParallelSliceMut<T: Send>: AsMut<[T]> {
         f: F,
     ) -> Vec<R>
     where
-        F: Fn(&mut [T], usize) -> R + Send + Sync,
+        F: Fn(usize, &mut [T]) -> R + Send + Sync,
         R: Send + 'static,
     {
         let mut slice = self.as_mut();
@@ -219,7 +219,7 @@ mod tests {
     fn test_par_chunks_map() {
         let v = vec![42; 1000];
         let task_pool = TaskPool::new();
-        let outputs = v.par_splat_map(&task_pool, None, |numbers, _| -> i32 {
+        let outputs = v.par_splat_map(&task_pool, None, |_, numbers| -> i32 {
             numbers.iter().sum()
         });
 
@@ -236,7 +236,7 @@ mod tests {
         let mut v = vec![42; 1000];
         let task_pool = TaskPool::new();
 
-        let outputs = v.par_splat_map_mut(&task_pool, None, |numbers, _| -> i32 {
+        let outputs = v.par_splat_map_mut(&task_pool, None, |_, numbers| -> i32 {
             for number in numbers.iter_mut() {
                 *number *= 2;
             }
@@ -256,7 +256,7 @@ mod tests {
     fn test_par_chunks_map_index() {
         let v = vec![1; 1000];
         let task_pool = TaskPool::new();
-        let outputs = v.par_chunk_map(&task_pool, 100, |numbers, index| -> i32 {
+        let outputs = v.par_chunk_map(&task_pool, 100, |index, numbers| -> i32 {
             numbers.iter().sum::<i32>() * index as i32
         });
 
