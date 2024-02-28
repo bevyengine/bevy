@@ -39,6 +39,20 @@ impl std::fmt::Display for InvalidDirectionError {
 }
 
 /// A normalized vector pointing in a direction in 2D space
+#[deprecated(
+    since = "0.14.0",
+    note = "`Direction2d` has been renamed. Please use `Dir2` instead."
+)]
+pub type Direction2d = Dir2;
+
+/// A normalized vector pointing in a direction in 3D space
+#[deprecated(
+    since = "0.14.0",
+    note = "`Direction3d` has been renamed. Please use `Dir3` instead."
+)]
+pub type Direction3d = Dir3;
+
+/// A normalized vector pointing in a direction in 2D space
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[doc(alias = "Direction2d")]
