@@ -35,7 +35,7 @@ fn setup_camera_fog(mut commands: Commands) {
     commands.spawn((
         Camera3dBundle::default(),
         FogSettings {
-            color: LegacyColor::rgba(0.25, 0.25, 0.25, 1.0),
+            color: Color::srgba(0.25, 0.25, 0.25, 1.0),
             falloff: FogFalloff::Linear {
                 start: 5.0,
                 end: 20.0,
@@ -259,43 +259,41 @@ fn update_system(
         .value
         .push_str("\n\n- / = - Red\n[ / ] - Green\n; / ' - Blue\n. / ? - Alpha");
 
+    // We're performing various operations in the sRGB color space,
+    // so we convert the fog color to sRGB here, then modify it,
+    // and finally when we're done we can convert it back and set it.
+    let mut fog_color = Srgba::from(fog.color);
     if keycode.pressed(KeyCode::Minus) {
-        let r = (fog.color.r() - 0.1 * delta).max(0.0);
-        fog.color.set_r(r);
+        fog_color.red = (fog_color.red - 0.1 * delta).max(0.0);
     }
 
     if keycode.any_pressed([KeyCode::Equal, KeyCode::NumpadEqual]) {
-        let r = (fog.color.r() + 0.1 * delta).min(1.0);
-        fog.color.set_r(r);
+        fog_color.red = (fog_color.red + 0.1 * delta).min(1.0);
     }
 
     if keycode.pressed(KeyCode::BracketLeft) {
-        let g = (fog.color.g() - 0.1 * delta).max(0.0);
-        fog.color.set_g(g);
+        fog_color.green = (fog_color.green - 0.1 * delta).max(0.0);
     }
 
     if keycode.pressed(KeyCode::BracketRight) {
-        let g = (fog.color.g() + 0.1 * delta).min(1.0);
-        fog.color.set_g(g);
+        fog_color.green = (fog_color.green + 0.1 * delta).min(1.0);
     }
 
     if keycode.pressed(KeyCode::Semicolon) {
-        let b = (fog.color.b() - 0.1 * delta).max(0.0);
-        fog.color.set_b(b);
+        fog_color.blue = (fog_color.blue - 0.1 * delta).max(0.0);
     }
 
     if keycode.pressed(KeyCode::Quote) {
-        let b = (fog.color.b() + 0.1 * delta).min(1.0);
-        fog.color.set_b(b);
+        fog_color.blue = (fog_color.blue + 0.1 * delta).min(1.0);
     }
 
     if keycode.pressed(KeyCode::Period) {
-        let a = (fog.color.a() - 0.1 * delta).max(0.0);
-        fog.color.set_a(a);
+        fog_color.alpha = (fog_color.alpha - 0.1 * delta).max(0.0);
     }
 
     if keycode.pressed(KeyCode::Slash) {
-        let a = (fog.color.a() + 0.1 * delta).min(1.0);
-        fog.color.set_a(a);
+        fog_color.alpha = (fog_color.alpha + 0.1 * delta).min(1.0);
     }
+
+    fog.color = Color::from(fog_color);
 }

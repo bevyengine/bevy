@@ -1,7 +1,8 @@
+use bevy_color::{Color, LinearRgba};
 use bevy_ecs::prelude::*;
 use bevy_math::Vec3;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{color::LegacyColor, extract_component::ExtractComponent, prelude::Camera};
+use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
 
 /// Configures the “classic” computer graphics [distance fog](https://en.wikipedia.org/wiki/Distance_fog) effect,
 /// in which objects appear progressively more covered in atmospheric haze the further away they are from the camera.
@@ -33,7 +34,7 @@ use bevy_render::{color::LegacyColor, extract_component::ExtractComponent, prelu
 ///     },
 ///     // Add fog to the same entity
 ///     FogSettings {
-///         color: LegacyColor::WHITE,
+///         color: Color::WHITE,
 ///         falloff: FogFalloff::Exponential { density: 1e-3 },
 ///         ..Default::default()
 ///     },
@@ -54,14 +55,14 @@ pub struct FogSettings {
     ///
     /// **Tip:** The alpha channel of the color can be used to “modulate” the fog effect without
     /// changing the fog falloff mode or parameters.
-    pub color: LegacyColor,
+    pub color: Color,
 
     /// Color used to modulate the influence of directional light colors on the
     /// fog, where the view direction aligns with each directional light direction,
     /// producing a “glow” or light dispersion effect. (e.g. around the sun)
     ///
-    /// Use [`LegacyColor::NONE`] to disable the effect.
-    pub directional_light_color: LegacyColor,
+    /// Use [`Color::NONE`] to disable the effect.
+    pub directional_light_color: Color,
 
     /// The exponent applied to the directional light alignment calculation.
     /// A higher value means a more concentrated “glow”.
@@ -345,7 +346,7 @@ impl FogFalloff {
     /// [`FogFalloff::REVISED_KOSCHMIEDER_CONTRAST_THRESHOLD`].
     pub fn from_visibility_color(
         visibility: f32,
-        extinction_inscattering_color: LegacyColor,
+        extinction_inscattering_color: Color,
     ) -> FogFalloff {
         FogFalloff::from_visibility_contrast_colors(
             visibility,
@@ -361,12 +362,12 @@ impl FogFalloff {
     ///
     /// ## Tips
     /// - Alpha values of the provided colors can modulate the `extinction` and `inscattering` effects;
-    /// - Using an `extinction_color` of [`LegacyColor::WHITE`] or [`LegacyColor::NONE`] disables the extinction effect;
-    /// - Using an `inscattering_color` of [`LegacyColor::BLACK`] or [`LegacyColor::NONE`] disables the inscattering effect.
+    /// - Using an `extinction_color` of [`Color::WHITE`] or [`Color::NONE`] disables the extinction effect;
+    /// - Using an `inscattering_color` of [`Color::BLACK`] or [`Color::NONE`] disables the inscattering effect.
     pub fn from_visibility_colors(
         visibility: f32,
-        extinction_color: LegacyColor,
-        inscattering_color: LegacyColor,
+        extinction_color: Color,
+        inscattering_color: Color,
     ) -> FogFalloff {
         FogFalloff::from_visibility_contrast_colors(
             visibility,
@@ -381,7 +382,7 @@ impl FogFalloff {
     pub fn from_visibility_contrast_color(
         visibility: f32,
         contrast_threshold: f32,
-        extinction_inscattering_color: LegacyColor,
+        extinction_inscattering_color: Color,
     ) -> FogFalloff {
         FogFalloff::from_visibility_contrast_colors(
             visibility,
@@ -396,18 +397,28 @@ impl FogFalloff {
     ///
     /// ## Tips
     /// - Alpha values of the provided colors can modulate the `extinction` and `inscattering` effects;
-    /// - Using an `extinction_color` of [`LegacyColor::WHITE`] or [`LegacyColor::NONE`] disables the extinction effect;
-    /// - Using an `inscattering_color` of [`LegacyColor::BLACK`] or [`LegacyColor::NONE`] disables the inscattering effect.
+    /// - Using an `extinction_color` of [`Color::WHITE`] or [`Color::NONE`] disables the extinction effect;
+    /// - Using an `inscattering_color` of [`Color::BLACK`] or [`Color::NONE`] disables the inscattering effect.
     pub fn from_visibility_contrast_colors(
         visibility: f32,
         contrast_threshold: f32,
-        extinction_color: LegacyColor,
-        inscattering_color: LegacyColor,
+        extinction_color: Color,
+        inscattering_color: Color,
     ) -> FogFalloff {
         use std::f32::consts::E;
 
-        let [r_e, g_e, b_e, a_e] = extinction_color.as_linear_rgba_f32();
-        let [r_i, g_i, b_i, a_i] = inscattering_color.as_linear_rgba_f32();
+        let LinearRgba {
+            red: r_e,
+            green: g_e,
+            blue: b_e,
+            alpha: a_e,
+        } = LinearRgba::from(extinction_color);
+        let LinearRgba {
+            red: r_i,
+            green: g_i,
+            blue: b_i,
+            alpha: a_i,
+        } = LinearRgba::from(inscattering_color);
 
         FogFalloff::Atmospheric {
             extinction: Vec3::new(
@@ -464,12 +475,12 @@ impl FogFalloff {
 impl Default for FogSettings {
     fn default() -> Self {
         FogSettings {
-            color: LegacyColor::rgba(1.0, 1.0, 1.0, 1.0),
+            color: Color::WHITE,
             falloff: FogFalloff::Linear {
                 start: 0.0,
                 end: 100.0,
             },
-            directional_light_color: LegacyColor::NONE,
+            directional_light_color: Color::TRANSPARENT,
             directional_light_exponent: 8.0,
         }
     }
