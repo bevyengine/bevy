@@ -16,6 +16,7 @@ use bevy_render::{
     view::{ViewDepthTexture, ViewUniformOffset},
 };
 
+/// Rasterize meshlets into a depth buffer, and optional visibility buffer + material depth buffer for shading passes.
 pub struct MeshletVisibilityBufferRasterPassNode {
     main_view_query: QueryState<(
         &'static ExtractedCamera,

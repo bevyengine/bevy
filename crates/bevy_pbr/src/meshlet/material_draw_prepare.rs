@@ -16,9 +16,12 @@ use bevy_render::{
 use bevy_utils::{HashMap, Hashed};
 use std::hash::Hash;
 
+/// A list of (Material ID, Pipeline, BindGroup) for a view for use in [`MeshletMainOpaquePass3dNode`].
 #[derive(Component, Deref, DerefMut, Default)]
 pub struct MeshletViewMaterialsMainOpaquePass(pub Vec<(u32, CachedRenderPipelineId, BindGroup)>);
 
+/// Prepare [`Material`] pipelines for [`MeshletMesh`] entities for use in [`MeshletMainOpaquePass3dNode`],
+/// and register the material with [`MeshletGpuScene`].
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
     mut gpu_scene: ResMut<MeshletGpuScene>,
@@ -204,14 +207,18 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
     }
 }
 
+/// A list of (Material ID, Pipeline, BindGroup) for a view for use in [`MeshletPrepassNode`].
 #[derive(Component, Deref, DerefMut, Default)]
 pub struct MeshletViewMaterialsPrepass(pub Vec<(u32, CachedRenderPipelineId, BindGroup)>);
 
+/// A list of (Material ID, Pipeline, BindGroup) for a view for use in [`MeshletDeferredGBufferPrepassNode`].
 #[derive(Component, Deref, DerefMut, Default)]
 pub struct MeshletViewMaterialsDeferredGBufferPrepass(
     pub Vec<(u32, CachedRenderPipelineId, BindGroup)>,
 );
 
+/// Prepare [`Material`] pipelines for [`MeshletMesh`] entities for use in [`MeshletPrepassNode`],
+/// and [`MeshletDeferredGBufferPrepassNode`] and register the material with [`MeshletGpuScene`].
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
     mut gpu_scene: ResMut<MeshletGpuScene>,
@@ -357,6 +364,7 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
     }
 }
 
+// Meshlet materials don't use a traditional vertex buffer, but the material specialization requires one.
 fn fake_vertex_buffer_layout() -> Hashed<InnerMeshVertexBufferLayout> {
     MeshVertexBufferLayout::new(InnerMeshVertexBufferLayout::new(
         vec![

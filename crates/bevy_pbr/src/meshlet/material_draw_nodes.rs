@@ -23,6 +23,7 @@ use bevy_render::{
     view::{ViewTarget, ViewUniformOffset},
 };
 
+/// Fullscreen shading pass based on the visibility buffer generated from rasterizing meshlets.
 #[derive(Default)]
 pub struct MeshletMainOpaquePass3dNode;
 impl ViewNode for MeshletMainOpaquePass3dNode {
@@ -125,6 +126,7 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
     }
 }
 
+/// Fullscreen pass to generate prepass textures based on the visibility buffer generated from rasterizing meshlets.
 #[derive(Default)]
 pub struct MeshletPrepassNode;
 impl ViewNode for MeshletPrepassNode {
@@ -246,6 +248,7 @@ impl ViewNode for MeshletPrepassNode {
     }
 }
 
+/// Fullscreen pass to generate a gbuffer based on the visibility buffer generated from rasterizing meshlets.
 #[derive(Default)]
 pub struct MeshletDeferredGBufferPrepassNode;
 impl ViewNode for MeshletDeferredGBufferPrepassNode {

@@ -17,7 +17,7 @@ use std::sync::Arc;
 /// dynamically generated geometry.
 ///
 /// There are restrictions on the [`crate::Material`] functionality that can be used with this type of mesh.
-/// * Materials have no control over the vertex shader or vertex attributes, and can only have a custom fragment shader.
+/// * Materials have no control over the vertex shader or vertex attributes.
 /// * Materials must be opaque. Transparent, alpha masked, and transmissive materials are not supported.
 /// * Materials must use the [`crate::Material::meshlet_mesh_fragment_shader`] method (and similar variants for prepass/deferred shaders)
 ///   which requires certain shader patterns that differ from the regular material shaders.

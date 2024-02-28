@@ -8,7 +8,7 @@ use bevy_render::{
 use range_alloc::RangeAllocator;
 use std::{num::NonZeroU64, ops::Range};
 
-/// Wrapper for a GPU buffer holding a large amount of persistent data.
+/// Wrapper for a GPU buffer holding a large amount of data that persists across frames.
 pub struct PersistentGpuBuffer<T: PersistentGpuBufferable> {
     /// Debug label for the buffer.
     label: &'static str,
@@ -87,7 +87,7 @@ impl<T: PersistentGpuBufferable> PersistentGpuBuffer<T> {
         self.buffer.as_entire_binding()
     }
 
-    // Expand the buffer by creating a new buffer and copying old data over.
+    /// Expand the buffer by creating a new buffer and copying old data over.
     fn expand_buffer(&mut self, render_device: &RenderDevice, render_queue: &RenderQueue) {
         let size = self.allocation_planner.initial_range();
         let new_buffer = render_device.create_buffer(&BufferDescriptor {
