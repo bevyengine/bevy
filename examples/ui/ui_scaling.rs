@@ -1,5 +1,6 @@
 //! This example illustrates the [`UiScale`] resource from `bevy_ui`.
 
+use bevy::color::palettes::css::*;
 use bevy::{prelude::*, text::TextSettings, utils::Duration};
 
 const SCALE_TIME: u64 = 400;
@@ -45,7 +46,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 align_items: AlignItems::Center,
                 ..default()
             },
-            background_color: LegacyColor::ANTIQUE_WHITE.into(),
+            background_color: ANTIQUE_WHITE.into(),
             ..default()
         })
         .with_children(|parent| {
@@ -56,7 +57,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         height: Val::Px(40.0),
                         ..default()
                     },
-                    background_color: LegacyColor::RED.into(),
+                    background_color: RED.into(),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -68,7 +69,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     height: Val::Percent(15.0),
                     ..default()
                 },
-                background_color: LegacyColor::BLUE.into(),
+                background_color: BLUE.into(),
                 ..default()
             });
             parent.spawn(ImageBundle {

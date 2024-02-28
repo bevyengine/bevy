@@ -1,6 +1,6 @@
 //! Example demonstrating bordered UI nodes
 
-use bevy::prelude::*;
+use bevy::{color::palettes::css::DARK_GRAY, prelude::*};
 
 fn main() {
     App::new()
@@ -23,7 +23,7 @@ fn setup(mut commands: Commands) {
                 align_content: AlignContent::FlexStart,
                 ..Default::default()
             },
-            background_color: BackgroundColor(LegacyColor::DARK_GRAY),
+            background_color: DARK_GRAY.into(),
             ..Default::default()
         })
         .id();

@@ -3,7 +3,8 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    pbr::CascadeShadowConfigBuilder, prelude::*, render::camera::Viewport, window::WindowResized,
+    color::palettes::css::DARK_GRAY, pbr::CascadeShadowConfigBuilder, prelude::*,
+    render::camera::Viewport, window::WindowResized,
 };
 
 fn main() {
@@ -145,8 +146,8 @@ fn setup(
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    border_color: LegacyColor::WHITE.into(),
-                    background_color: LegacyColor::DARK_GRAY.into(),
+                    border_color: Color::WHITE.into(),
+                    background_color: DARK_GRAY.into(),
                     ..default()
                 },
             ))

@@ -73,7 +73,7 @@ impl TargetUpdate for Target<Visibility> {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let palette = PALETTE.map(|hex| LegacyColor::hex(hex).unwrap());
+    let palette: [Color; 4] = PALETTE.map(|hex| Srgba::hex(hex).unwrap().into());
 
     let text_style = TextStyle {
         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
@@ -91,7 +91,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             justify_content: JustifyContent::SpaceEvenly,
             ..Default::default()
         },
-        background_color: BackgroundColor(LegacyColor::BLACK),
+        background_color: BackgroundColor(Color::BLACK),
         ..Default::default()
     }).with_children(|parent| {
         parent.spawn(TextBundle {
@@ -178,7 +178,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 }
 
-fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[LegacyColor; 4]) -> Vec<Entity> {
+fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Entity> {
     let mut target_ids = vec![];
     builder
         .spawn(NodeBundle {
@@ -186,13 +186,13 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[LegacyColor; 4]) -> V
                 padding: UiRect::all(Val::Px(10.)),
                 ..Default::default()
             },
-            background_color: BackgroundColor(LegacyColor::WHITE),
+            background_color: BackgroundColor(Color::WHITE),
             ..Default::default()
         })
         .with_children(|parent| {
             parent
                 .spawn(NodeBundle {
-                    background_color: BackgroundColor(LegacyColor::BLACK),
+                    background_color: BackgroundColor(Color::BLACK),
                     ..Default::default()
                 })
                 .with_children(|parent| {
@@ -287,7 +287,7 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[LegacyColor; 4]) -> V
 fn spawn_right_panel(
     parent: &mut ChildBuilder,
     text_style: TextStyle,
-    palette: &[LegacyColor; 4],
+    palette: &[Color; 4],
     mut target_ids: Vec<Entity>,
 ) {
     let spawn_buttons = |parent: &mut ChildBuilder, target_id| {
@@ -300,7 +300,7 @@ fn spawn_right_panel(
                 padding: UiRect::all(Val::Px(10.)),
                 ..Default::default()
             },
-            background_color: BackgroundColor(LegacyColor::WHITE),
+            background_color: BackgroundColor(Color::WHITE),
             ..Default::default()
         })
         .with_children(|parent| {
@@ -416,7 +416,7 @@ where
                     padding: UiRect::axes(Val::Px(5.), Val::Px(1.)),
                     ..Default::default()
                 },
-                background_color: BackgroundColor(LegacyColor::BLACK.with_a(0.5)),
+                background_color: BackgroundColor(Color::BLACK.with_alpha(0.5)),
                 ..Default::default()
             },
             Target::<T>::new(target),
@@ -466,7 +466,7 @@ fn text_hover(
     for (interaction, mut background_color, children) in button_query.iter_mut() {
         match interaction {
             Interaction::Hovered => {
-                *background_color = BackgroundColor(LegacyColor::BLACK.with_a(0.6));
+                *background_color = BackgroundColor(Color::BLACK.with_alpha(0.6));
                 for &child in children {
                     if let Ok(mut text) = text_query.get_mut(child) {
                         // Bypass change detection to avoid recomputation of the text when only changing the color
@@ -475,7 +475,7 @@ fn text_hover(
                 }
             }
             _ => {
-                *background_color = BackgroundColor(LegacyColor::BLACK.with_a(0.5));
+                *background_color = BackgroundColor(Color::BLACK.with_alpha(0.5));
                 for &child in children {
                     if let Ok(mut text) = text_query.get_mut(child) {
                         text.bypass_change_detection().sections[0].style.color =

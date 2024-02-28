@@ -8,11 +8,9 @@ use crate::{
     UiMaterial, ZIndex,
 };
 use bevy_asset::Handle;
+use bevy_color::Color;
 use bevy_ecs::bundle::Bundle;
-use bevy_render::{
-    prelude::LegacyColor,
-    view::{InheritedVisibility, ViewVisibility, Visibility},
-};
+use bevy_render::view::{InheritedVisibility, ViewVisibility, Visibility};
 use bevy_sprite::TextureAtlas;
 #[cfg(feature = "bevy_text")]
 use bevy_text::{BreakLineOn, JustifyText, Text, TextLayoutInfo, TextSection, TextStyle};
@@ -60,8 +58,8 @@ impl Default for NodeBundle {
     fn default() -> Self {
         NodeBundle {
             // Transparent background
-            background_color: LegacyColor::NONE.into(),
-            border_color: LegacyColor::NONE.into(),
+            background_color: Color::TRANSPARENT.into(),
+            border_color: Color::TRANSPARENT.into(),
             node: Default::default(),
             style: Default::default(),
             focus_policy: Default::default(),
@@ -227,7 +225,7 @@ impl Default for TextBundle {
             view_visibility: Default::default(),
             z_index: Default::default(),
             // Transparent background
-            background_color: BackgroundColor(LegacyColor::NONE),
+            background_color: BackgroundColor(Color::TRANSPARENT),
         }
     }
 }
@@ -267,7 +265,7 @@ impl TextBundle {
     }
 
     /// Returns this [`TextBundle`] with a new [`BackgroundColor`].
-    pub const fn with_background_color(mut self, color: LegacyColor) -> Self {
+    pub const fn with_background_color(mut self, color: Color) -> Self {
         self.background_color = BackgroundColor(color);
         self
     }
@@ -343,7 +341,7 @@ impl Default for ButtonBundle {
             node: Default::default(),
             button: Default::default(),
             style: Default::default(),
-            border_color: BorderColor(LegacyColor::NONE),
+            border_color: BorderColor(Color::TRANSPARENT),
             interaction: Default::default(),
             background_color: Default::default(),
             image: Default::default(),

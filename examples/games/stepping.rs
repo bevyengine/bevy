@@ -175,7 +175,7 @@ fn build_ui(
                 padding: UiRect::all(Val::Px(10.0)),
                 ..default()
             },
-            background_color: BackgroundColor(LegacyColor::rgba(1.0, 1.0, 1.0, 0.33)),
+            background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.33)),
             visibility: Visibility::Hidden,
             ..default()
         },

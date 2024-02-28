@@ -1,6 +1,7 @@
 //! This example illustrates how to create a button that changes color and text based on its
 //! interaction state.
 
+use bevy::color::palettes::basic::*;
 use bevy::{prelude::*, winit::WinitSettings};
 
 fn main() {
@@ -35,17 +36,17 @@ fn button_system(
             Interaction::Pressed => {
                 text.sections[0].value = "Press".to_string();
                 *color = PRESSED_BUTTON.into();
-                border_color.0 = LegacyColor::RED;
+                border_color.0 = RED.into();
             }
             Interaction::Hovered => {
                 text.sections[0].value = "Hover".to_string();
                 *color = HOVERED_BUTTON.into();
-                border_color.0 = LegacyColor::WHITE;
+                border_color.0 = WHITE.into();
             }
             Interaction::None => {
                 text.sections[0].value = "Button".to_string();
                 *color = NORMAL_BUTTON.into();
-                border_color.0 = LegacyColor::BLACK;
+                border_color.0 = BLACK.into();
             }
         }
     }
@@ -78,7 +79,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    border_color: BorderColor(LegacyColor::BLACK),
+                    border_color: BorderColor(Color::BLACK),
                     background_color: NORMAL_BUTTON.into(),
                     ..default()
                 })

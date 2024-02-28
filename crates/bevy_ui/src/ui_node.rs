@@ -1,5 +1,6 @@
 use crate::{UiRect, Val};
 use bevy_asset::Handle;
+use bevy_color::Color;
 use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
@@ -1597,10 +1598,10 @@ pub enum GridPlacementError {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub struct BackgroundColor(pub LegacyColor);
+pub struct BackgroundColor(pub Color);
 
 impl BackgroundColor {
-    pub const DEFAULT: Self = Self(LegacyColor::WHITE);
+    pub const DEFAULT: Self = Self(Color::WHITE);
 }
 
 impl Default for BackgroundColor {
@@ -1609,9 +1610,9 @@ impl Default for BackgroundColor {
     }
 }
 
-impl From<LegacyColor> for BackgroundColor {
-    fn from(color: LegacyColor) -> Self {
-        Self(color)
+impl<T: Into<Color>> From<T> for BackgroundColor {
+    fn from(color: T) -> Self {
+        Self(color.into())
     }
 }
 
@@ -1623,16 +1624,16 @@ impl From<LegacyColor> for BackgroundColor {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub struct BorderColor(pub LegacyColor);
+pub struct BorderColor(pub Color);
 
-impl From<LegacyColor> for BorderColor {
-    fn from(color: LegacyColor) -> Self {
-        Self(color)
+impl<T: Into<Color>> From<T> for BorderColor {
+    fn from(color: T) -> Self {
+        Self(color.into())
     }
 }
 
 impl BorderColor {
-    pub const DEFAULT: Self = BorderColor(LegacyColor::WHITE);
+    pub const DEFAULT: Self = BorderColor(Color::WHITE);
 }
 
 impl Default for BorderColor {
