@@ -52,7 +52,7 @@ fn draw_example_collection(
     gizmos.rect_2d(
         Vec2::ZERO,
         time.elapsed_seconds() / 3.,
-        Vec2::splat(300.),
+        Vec2::splat(400.),
         LegacyColor::BLACK,
     );
 
@@ -78,6 +78,15 @@ fn draw_example_collection(
         350.,
         LegacyColor::ORANGE_RED,
     );
+
+    my_gizmos
+        .rounded_rect_2d(
+            Vec2::ZERO,
+            time.elapsed_seconds() / -3.,
+            Vec2::splat(300.),
+            LegacyColor::BLACK,
+        )
+        .corner_radius((time.elapsed_seconds() / 3.).cos() * 100.);
 
     gizmos.arrow_2d(
         Vec2::ZERO,

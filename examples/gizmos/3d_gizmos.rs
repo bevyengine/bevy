@@ -104,6 +104,16 @@ fn draw_example_collection(
         LegacyColor::RED,
     );
 
+    my_gizmos
+        .rounded_cuboid(
+            Vec3::new(-2.0, 0.75, -0.75),
+            Quat::IDENTITY,
+            Vec3::splat(0.9),
+            LegacyColor::TURQUOISE,
+        )
+        .edge_radius(0.1)
+        .arc_segments(4);
+
     for y in [0., 0.5, 1.] {
         gizmos.ray(
             Vec3::new(1., y, 0.),
