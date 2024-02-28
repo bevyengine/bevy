@@ -74,6 +74,15 @@ deny = [
   { name = "glam", deny-multiple-versions = true },
   { name = "raw-window-handle", deny-multiple-versions = true },
 ]
+# To avoid https://github.com/bevyengine/bevy/issues/11917
+# = raw-window-handle v0.5.2
+#       └── ndk v0.7.0
+#           ├── cpal v0.15.2`
+#           │   └── rodio v0.17.3
+#           │       └── bevy_audio v0.14.0-dev
+skip-tree = [
+  { crate = "cpal@0.15.2", reason = "Waiting for new releases: https://github.com/bevyengine/bevy/issues/11917#issuecomment-1953629729" },
+]
 
 [sources]
 unknown-registry = "deny"
