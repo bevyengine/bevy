@@ -4,6 +4,10 @@
 //! and assorted support items.
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
+use bevy_color::{
+    palettes::basic::{BLUE, GREEN, RED},
+    Color,
+};
 use bevy_math::{Quat, Vec2, Vec3};
 use bevy_transform::TransformPoint;
 
@@ -151,8 +155,8 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         let end_y = transform.transform_point(base_length * Vec3::Y);
         let end_z = transform.transform_point(base_length * Vec3::Z);
 
-        self.arrow(start, end_x, LegacyColor::RED);
-        self.arrow(start, end_y, LegacyColor::GREEN);
-        self.arrow(start, end_z, LegacyColor::BLUE);
+        self.arrow(start, end_x, RED);
+        self.arrow(start, end_y, GREEN);
+        self.arrow(start, end_z, BLUE);
     }
 }
