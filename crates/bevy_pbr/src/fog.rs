@@ -25,6 +25,7 @@ use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
 /// # use bevy_render::prelude::*;
 /// # use bevy_core_pipeline::prelude::*;
 /// # use bevy_pbr::prelude::*;
+/// # use bevy::color::Color;
 /// # fn system(mut commands: Commands) {
 /// commands.spawn((
 ///     // Setup your camera as usual

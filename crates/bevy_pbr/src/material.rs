@@ -50,7 +50,7 @@ use self::{irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight};
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_reflect::TypePath;
 /// # use bevy_render::{render_resource::{AsBindGroup, ShaderRef}, texture::Image};
-/// # use bevy_color::Color;
+/// # use bevy_color::LinearRgba;
 /// # use bevy_color::palettes::basic::RED;
 /// # use bevy_asset::{Handle, AssetServer, Assets, Asset};
 ///
@@ -59,7 +59,7 @@ use self::{irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight};
 ///     // Uniform bindings must implement `ShaderType`, which will be used to convert the value to
 ///     // its shader-compatible equivalent. Most core math types already implement `ShaderType`.
 ///     #[uniform(0)]
-///     color: Color,
+///     color: LinearRgba,
 ///     // Images can be bound as textures in shaders. If the Image's sampler is also needed, just
 ///     // add the sampler attribute with a different binding index.
 ///     #[texture(1)]
