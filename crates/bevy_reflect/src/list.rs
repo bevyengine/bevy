@@ -12,6 +12,61 @@ use crate::{
 
 /// A trait used to power [list-like] operations via [reflection].
 ///
+/// This corresponds to types, like [`Box<[T]>`](std::boxed::Box), which contain an ordered sequence
+/// of elements that implement [`Reflect`].
+///
+/// This trait provides any list manipulation that will not add or remove items from the list.
+/// A list type that allows adding or removing items must also implement [`List`].
+///
+/// This trait expects its elements to be ordered linearly from front to back.
+/// The _front_ element starts at index 0 with the _back_ element ending at the largest index.
+/// This contract above should be upheld by any manual implementors.
+///
+/// Due to the [type-erasing] nature of the reflection API as a whole,
+/// this trait does not make any guarantees that the implementor's elements
+/// are homogeneous (i.e. all the same type).
+///
+/// # Example
+///
+/// ```
+/// use bevy_reflect::{Reflect, FixedLenList};
+///
+/// let foo: &mut dyn FixedLenList = &mut vec![123_u32, 456_u32, 789_u32];
+/// assert_eq!(foo.len(), 3);
+/// ```
+///
+/// [list-like]: https://doc.rust-lang.org/book/ch08-01-vectors.html
+/// [reflection]: crate
+/// [type-erasing]: https://doc.rust-lang.org/book/ch17-02-trait-objects.html
+pub trait FixedLenList: Reflect {
+    /// Returns a reference to the element at `index`, or `None` if out of bounds.
+    fn get(&self, index: usize) -> Option<&dyn Reflect>;
+
+    /// Returns a mutable reference to the element at `index`, or `None` if out of bounds.
+    fn get_mut(&mut self, index: usize) -> Option<&mut dyn Reflect>;
+
+    /// Returns the number of elements in the list.
+    fn len(&self) -> usize;
+
+    /// Returns `true` if the collection contains no elements.
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Returns an iterator over the list.
+    fn iter(&self) -> ListIter;
+
+    /// Clones the list, producing a [`DynamicList`].
+    fn clone_dynamic(&self) -> DynamicList {
+        DynamicList {
+            represented_type: self.get_represented_type_info(),
+            values: self.iter().map(|value| value.clone_value()).collect(),
+        }
+    }
+}
+
+/// A trait used to power [list-like] operations via [reflection].
+///
 /// This corresponds to types, like [`Vec`], which contain an ordered sequence
 /// of elements that implement [`Reflect`].
 ///
@@ -47,13 +102,7 @@ use crate::{
 /// [list-like]: https://doc.rust-lang.org/book/ch08-01-vectors.html
 /// [reflection]: crate
 /// [type-erasing]: https://doc.rust-lang.org/book/ch17-02-trait-objects.html
-pub trait List: Reflect {
-    /// Returns a reference to the element at `index`, or `None` if out of bounds.
-    fn get(&self, index: usize) -> Option<&dyn Reflect>;
-
-    /// Returns a mutable reference to the element at `index`, or `None` if out of bounds.
-    fn get_mut(&mut self, index: usize) -> Option<&mut dyn Reflect>;
-
+pub trait List: FixedLenList {
     /// Inserts an element at position `index` within the list,
     /// shifting all elements after it towards the back of the list.
     ///
@@ -82,27 +131,14 @@ pub trait List: Reflect {
         }
     }
 
-    /// Returns the number of elements in the list.
-    fn len(&self) -> usize;
-
-    /// Returns `true` if the collection contains no elements.
-    fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-
-    /// Returns an iterator over the list.
-    fn iter(&self) -> ListIter;
-
     /// Drain the elements of this list to get a vector of owned values.
     fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>>;
 
-    /// Clones the list, producing a [`DynamicList`].
-    fn clone_dynamic(&self) -> DynamicList {
-        DynamicList {
-            represented_type: self.get_represented_type_info(),
-            values: self.iter().map(|value| value.clone_value()).collect(),
-        }
-    }
+    /// Upcast this [`List`] as a [`FixedLenList`].
+    fn as_fixed_len_list(&self) -> &dyn FixedLenList;
+
+    /// Upcast this [`List`] as a mutable [`FixedLenList`].
+    fn as_fixed_len_list_mut(&mut self) -> &mut dyn FixedLenList;
 }
 
 /// A container for compile-time list info.
@@ -118,7 +154,7 @@ pub struct ListInfo {
 
 impl ListInfo {
     /// Create a new [`ListInfo`].
-    pub fn new<TList: List + TypePath, TItem: FromReflect + TypePath>() -> Self {
+    pub fn new<TList: FixedLenList + TypePath, TItem: FromReflect + TypePath>() -> Self {
         Self {
             type_path: TypePathTable::of::<TList>(),
             type_id: TypeId::of::<TList>(),
@@ -223,7 +259,7 @@ impl DynamicList {
     }
 }
 
-impl List for DynamicList {
+impl FixedLenList for DynamicList {
     fn get(&self, index: usize) -> Option<&dyn Reflect> {
         self.values.get(index).map(|value| &**value)
     }
@@ -232,6 +268,27 @@ impl List for DynamicList {
         self.values.get_mut(index).map(|value| &mut **value)
     }
 
+    fn len(&self) -> usize {
+        self.values.len()
+    }
+
+    fn iter(&self) -> ListIter {
+        ListIter::new(self)
+    }
+
+    fn clone_dynamic(&self) -> DynamicList {
+        DynamicList {
+            represented_type: self.represented_type,
+            values: self
+                .values
+                .iter()
+                .map(|value| value.clone_value())
+                .collect(),
+        }
+    }
+}
+
+impl List for DynamicList {
     fn insert(&mut self, index: usize, element: Box<dyn Reflect>) {
         self.values.insert(index, element);
     }
@@ -248,27 +305,16 @@ impl List for DynamicList {
         self.values.pop()
     }
 
-    fn len(&self) -> usize {
-        self.values.len()
-    }
-
-    fn iter(&self) -> ListIter {
-        ListIter::new(self)
-    }
-
     fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
         self.values
     }
 
-    fn clone_dynamic(&self) -> DynamicList {
-        DynamicList {
-            represented_type: self.represented_type,
-            values: self
-                .values
-                .iter()
-                .map(|value| value.clone_value())
-                .collect(),
-        }
+    fn as_fixed_len_list(&self) -> &dyn FixedLenList {
+        self
+    }
+
+    fn as_fixed_len_list_mut(&mut self) -> &mut dyn FixedLenList {
+        self
     }
 }
 
@@ -381,16 +427,16 @@ impl IntoIterator for DynamicList {
     }
 }
 
-/// An iterator over an [`List`].
+/// An iterator over an [`FixedLenList`].
 pub struct ListIter<'a> {
-    list: &'a dyn List,
+    list: &'a dyn FixedLenList,
     index: usize,
 }
 
 impl<'a> ListIter<'a> {
     /// Creates a new [`ListIter`].
     #[inline]
-    pub const fn new(list: &'a dyn List) -> ListIter {
+    pub const fn new(list: &'a dyn FixedLenList) -> ListIter {
         ListIter { list, index: 0 }
     }
 }
@@ -416,7 +462,7 @@ impl<'a> ExactSizeIterator for ListIter<'a> {}
 
 /// Returns the `u64` hash of the given [list](List).
 #[inline]
-pub fn list_hash<L: List>(list: &L) -> Option<u64> {
+pub fn list_hash<L: FixedLenList>(list: &L) -> Option<u64> {
     let mut hasher = reflect_hasher();
     Any::type_id(list).hash(&mut hasher);
     list.len().hash(&mut hasher);
@@ -436,22 +482,47 @@ pub fn list_hash<L: List>(list: &L) -> Option<u64> {
 /// This function panics if `b` is not a list.
 #[inline]
 pub fn list_apply<L: List>(a: &mut L, b: &dyn Reflect) {
-    if let ReflectRef::List(list_value) = b.reflect_ref() {
-        for (i, value) in list_value.iter().enumerate() {
-            if i < a.len() {
-                if let Some(v) = a.get_mut(i) {
-                    v.apply(value);
-                }
-            } else {
-                a.push(value.clone_value());
+    let list_value = match b.reflect_ref() {
+        ReflectRef::FixedLenList(list) => list,
+        ReflectRef::List(list) => list.as_fixed_len_list(),
+        _ => panic!("Attempted to apply a non-list type to a list type."),
+    };
+
+    for (i, value) in list_value.iter().enumerate() {
+        if i < a.len() {
+            if let Some(v) = a.get_mut(i) {
+                v.apply(value);
             }
+        } else {
+            a.push(value.clone_value());
         }
-    } else {
-        panic!("Attempted to apply a non-list type to a list type.");
     }
 }
 
-/// Compares a [`List`] with a [`Reflect`] value.
+/// Applies the elements of `b` to the corresponding elements of `a`.
+///
+/// If the length of `b` is greater than that of `a`, the excess elements of `b`
+/// are ignored.
+///
+/// # Panics
+///
+/// This function panics if `b` is not a list.
+#[inline]
+pub fn fixed_len_list_apply<L: FixedLenList>(a: &mut L, b: &dyn Reflect) {
+    let list_value = match b.reflect_ref() {
+        ReflectRef::FixedLenList(list) => list,
+        ReflectRef::List(list) => list.as_fixed_len_list(),
+        _ => panic!("Attempted to apply a non-list type to a list type."),
+    };
+
+    for (i, value) in list_value.iter().enumerate().take(a.len()) {
+        if let Some(v) = a.get_mut(i) {
+            v.apply(value);
+        }
+    }
+}
+
+/// Compares a [`FixedLenList`] with a [`Reflect`] value.
 ///
 /// Returns true if and only if all of the following are true:
 /// - `b` is a list;
@@ -460,9 +531,11 @@ pub fn list_apply<L: List>(a: &mut L, b: &dyn Reflect) {
 ///
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
-pub fn list_partial_eq<L: List>(a: &L, b: &dyn Reflect) -> Option<bool> {
-    let ReflectRef::List(list) = b.reflect_ref() else {
-        return Some(false);
+pub fn list_partial_eq<L: FixedLenList>(a: &L, b: &dyn Reflect) -> Option<bool> {
+    let list = match b.reflect_ref() {
+        ReflectRef::FixedLenList(list) => list,
+        ReflectRef::List(list) => list.as_fixed_len_list(),
+        _ => return Some(false),
     };
 
     if a.len() != list.len() {
@@ -497,7 +570,7 @@ pub fn list_partial_eq<L: List>(a: &L, b: &dyn Reflect) -> Option<bool> {
 /// // ]
 /// ```
 #[inline]
-pub fn list_debug(dyn_list: &dyn List, f: &mut Formatter<'_>) -> std::fmt::Result {
+pub fn list_debug(dyn_list: &dyn FixedLenList, f: &mut Formatter<'_>) -> std::fmt::Result {
     let mut debug = f.debug_list();
     for item in dyn_list.iter() {
         debug.entry(&item as &dyn Debug);

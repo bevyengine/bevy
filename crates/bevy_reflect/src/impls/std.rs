@@ -1,5 +1,5 @@
 use crate::std_traits::ReflectDefault;
-use crate::{self as bevy_reflect, ReflectFromPtr, ReflectFromReflect, ReflectOwned};
+use crate::{self as bevy_reflect, FixedLenList, ReflectFromPtr, ReflectFromReflect, ReflectOwned};
 use crate::{
     impl_type_path, map_apply, map_partial_eq, Array, ArrayInfo, ArrayIter, DynamicEnum,
     DynamicMap, Enum, EnumInfo, FromReflect, FromType, GetTypeRegistration, List, ListInfo,
@@ -221,7 +221,7 @@ impl_reflect_value!(::std::ffi::OsString(Debug, Hash, PartialEq));
 
 macro_rules! impl_reflect_for_veclike {
     ($ty:path, $insert:expr, $remove:expr, $push:expr, $pop:expr, $sub:ty) => {
-        impl<T: FromReflect + TypePath> List for $ty {
+        impl<T: FromReflect + TypePath> FixedLenList for $ty {
             #[inline]
             fn get(&self, index: usize) -> Option<&dyn Reflect> {
                 <$sub>::get(self, index).map(|value| value as &dyn Reflect)
@@ -232,6 +232,18 @@ macro_rules! impl_reflect_for_veclike {
                 <$sub>::get_mut(self, index).map(|value| value as &mut dyn Reflect)
             }
 
+            #[inline]
+            fn len(&self) -> usize {
+                <$sub>::len(self)
+            }
+
+            #[inline]
+            fn iter(&self) -> ListIter {
+                ListIter::new(self)
+            }
+        }
+
+        impl<T: FromReflect + TypePath> List for $ty {
             fn insert(&mut self, index: usize, value: Box<dyn Reflect>) {
                 let value = value.take::<T>().unwrap_or_else(|value| {
                     T::from_reflect(&*value).unwrap_or_else(|| {
@@ -263,20 +275,18 @@ macro_rules! impl_reflect_for_veclike {
             }
 
             #[inline]
-            fn len(&self) -> usize {
-                <$sub>::len(self)
-            }
-
-            #[inline]
-            fn iter(&self) -> ListIter {
-                ListIter::new(self)
-            }
-
-            #[inline]
             fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
                 self.into_iter()
                     .map(|value| Box::new(value) as Box<dyn Reflect>)
                     .collect()
+            }
+
+            fn as_fixed_len_list(&self) -> &dyn FixedLenList {
+                self
+            }
+
+            fn as_fixed_len_list_mut(&mut self) -> &mut dyn FixedLenList {
+                self
             }
         }
 
@@ -366,15 +376,17 @@ macro_rules! impl_reflect_for_veclike {
 
         impl<T: FromReflect + TypePath> FromReflect for $ty {
             fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
-                if let ReflectRef::List(ref_list) = reflect.reflect_ref() {
-                    let mut new_list = Self::with_capacity(ref_list.len());
-                    for field in ref_list.iter() {
-                        $push(&mut new_list, T::from_reflect(field)?);
-                    }
-                    Some(new_list)
-                } else {
-                    None
+                let ref_list = match reflect.reflect_ref() {
+                    ReflectRef::FixedLenList(list) => list,
+                    ReflectRef::List(list) => list.as_fixed_len_list(),
+                    _ => return None,
+                };
+
+                let mut new_list = Self::with_capacity(ref_list.len());
+                for field in ref_list.iter() {
+                    $push(&mut new_list, T::from_reflect(field)?);
                 }
+                Some(new_list)
             }
         }
     };
@@ -1377,10 +1389,7 @@ impl FromReflect for Cow<'static, str> {
     }
 }
 
-impl<T: TypePath> TypePath for [T]
-where
-    [T]: ToOwned,
-{
+impl<T: TypePath> TypePath for [T] {
     fn type_path() -> &'static str {
         static CELL: GenericTypePathCell = GenericTypePathCell::new();
         CELL.get_or_insert::<Self, _>(|| format!("[{}]", <T>::type_path()))
@@ -1392,7 +1401,7 @@ where
     }
 }
 
-impl<T: FromReflect + Clone + TypePath> List for Cow<'static, [T]> {
+impl<T: FromReflect + Clone + TypePath> FixedLenList for Cow<'static, [T]> {
     fn get(&self, index: usize) -> Option<&dyn Reflect> {
         self.as_ref().get(index).map(|x| x as &dyn Reflect)
     }
@@ -1401,6 +1410,16 @@ impl<T: FromReflect + Clone + TypePath> List for Cow<'static, [T]> {
         self.to_mut().get_mut(index).map(|x| x as &mut dyn Reflect)
     }
 
+    fn len(&self) -> usize {
+        self.as_ref().len()
+    }
+
+    fn iter(&self) -> ListIter {
+        ListIter::new(self)
+    }
+}
+
+impl<T: FromReflect + Clone + TypePath> List for Cow<'static, [T]> {
     fn insert(&mut self, index: usize, element: Box<dyn Reflect>) {
         let value = element.take::<T>().unwrap_or_else(|value| {
             T::from_reflect(&*value).unwrap_or_else(|| {
@@ -1433,14 +1452,6 @@ impl<T: FromReflect + Clone + TypePath> List for Cow<'static, [T]> {
             .map(|value| Box::new(value) as Box<dyn Reflect>)
     }
 
-    fn len(&self) -> usize {
-        self.as_ref().len()
-    }
-
-    fn iter(&self) -> ListIter {
-        ListIter::new(self)
-    }
-
     fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
         // into_owned() is not unnecessary here because it avoids cloning whenever you have a Cow::Owned already
         #[allow(clippy::unnecessary_to_owned)]
@@ -1448,6 +1459,14 @@ impl<T: FromReflect + Clone + TypePath> List for Cow<'static, [T]> {
             .into_iter()
             .map(|value| value.clone_value())
             .collect()
+    }
+
+    fn as_fixed_len_list(&self) -> &dyn FixedLenList {
+        self
+    }
+
+    fn as_fixed_len_list_mut(&mut self) -> &mut dyn FixedLenList {
+        self
     }
 }
 
@@ -1506,7 +1525,7 @@ impl<T: FromReflect + Clone + TypePath> Reflect for Cow<'static, [T]> {
     }
 
     fn clone_value(&self) -> Box<dyn Reflect> {
-        Box::new(List::clone_dynamic(self))
+        Box::new(FixedLenList::clone_dynamic(self))
     }
 
     fn reflect_hash(&self) -> Option<u64> {
@@ -1533,15 +1552,129 @@ impl<T: FromReflect + Clone + TypePath> GetTypeRegistration for Cow<'static, [T]
 
 impl<T: FromReflect + Clone + TypePath> FromReflect for Cow<'static, [T]> {
     fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
-        if let ReflectRef::List(ref_list) = reflect.reflect_ref() {
-            let mut temp_vec = Vec::with_capacity(ref_list.len());
-            for field in ref_list.iter() {
-                temp_vec.push(T::from_reflect(field)?);
-            }
-            Some(temp_vec.into())
-        } else {
-            None
+        let ref_list = match reflect.reflect_ref() {
+            ReflectRef::FixedLenList(list) => list,
+            ReflectRef::List(list) => list.as_fixed_len_list(),
+            _ => return None,
+        };
+
+        let mut temp_vec = Vec::with_capacity(ref_list.len());
+        for field in ref_list.iter() {
+            temp_vec.push(T::from_reflect(field)?);
         }
+        Some(temp_vec.into())
+    }
+}
+
+impl_type_path!(::alloc::boxed::Box<T: ?Sized>);
+
+impl<T: FromReflect + TypePath> FixedLenList for Box<[T]> {
+    fn get(&self, index: usize) -> Option<&dyn Reflect> {
+        self.as_ref().get(index).map(|x| x as &dyn Reflect)
+    }
+
+    fn get_mut(&mut self, index: usize) -> Option<&mut dyn Reflect> {
+        self.as_mut().get_mut(index).map(|x| x as &mut dyn Reflect)
+    }
+
+    fn len(&self) -> usize {
+        self.as_ref().len()
+    }
+
+    fn iter(&self) -> ListIter {
+        ListIter::new(self)
+    }
+}
+
+impl<T: FromReflect + TypePath> Reflect for Box<[T]> {
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+        Some(<Self as Typed>::type_info())
+    }
+
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
+        self
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+        self
+    }
+
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self
+    }
+
+    fn apply(&mut self, value: &dyn Reflect) {
+        crate::fixed_len_list_apply(self, value);
+    }
+
+    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+        *self = value.take()?;
+        Ok(())
+    }
+
+    fn reflect_ref(&self) -> ReflectRef {
+        ReflectRef::FixedLenList(self)
+    }
+
+    fn reflect_mut(&mut self) -> ReflectMut {
+        ReflectMut::FixedLenList(self)
+    }
+
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::FixedLenList(self)
+    }
+
+    fn clone_value(&self) -> Box<dyn Reflect> {
+        Box::new(FixedLenList::clone_dynamic(self))
+    }
+
+    fn reflect_hash(&self) -> Option<u64> {
+        crate::list_hash(self)
+    }
+
+    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+        crate::list_partial_eq(self, value)
+    }
+}
+
+impl<T: FromReflect + TypePath> Typed for Box<[T]> {
+    fn type_info() -> &'static TypeInfo {
+        static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
+        CELL.get_or_insert::<Self, _>(|| TypeInfo::List(ListInfo::new::<Self, T>()))
+    }
+}
+
+impl<T: FromReflect + TypePath> GetTypeRegistration for Box<[T]> {
+    fn get_type_registration() -> TypeRegistration {
+        TypeRegistration::of::<Box<[T]>>()
+    }
+}
+
+impl<T: FromReflect + TypePath> FromReflect for Box<[T]> {
+    fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
+        let ref_list = match reflect.reflect_ref() {
+            ReflectRef::FixedLenList(list) => list,
+            ReflectRef::List(list) => list.as_fixed_len_list(),
+            _ => return None,
+        };
+
+        let mut temp_vec = Vec::with_capacity(ref_list.len());
+        for field in ref_list.iter() {
+            temp_vec.push(T::from_reflect(field)?);
+        }
+        Some(temp_vec.into())
     }
 }
 

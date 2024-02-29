@@ -6,12 +6,12 @@ use std::any::Any;
 
 use crate::utility::GenericTypeInfoCell;
 use crate::{
-    self as bevy_reflect, FromReflect, FromType, GetTypeRegistration, List, ListInfo, ListIter,
-    Reflect, ReflectFromPtr, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath,
-    TypeRegistration, Typed,
+    self as bevy_reflect, FixedLenList, FromReflect, FromType, GetTypeRegistration, List, ListInfo,
+    ListIter, Reflect, ReflectFromPtr, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
+    TypePath, TypeRegistration, Typed,
 };
 
-impl<T: smallvec::Array + TypePath + Send + Sync> List for SmallVec<T>
+impl<T: smallvec::Array + TypePath + Send + Sync> FixedLenList for SmallVec<T>
 where
     T::Item: FromReflect + TypePath,
 {
@@ -31,6 +31,19 @@ where
         }
     }
 
+    fn len(&self) -> usize {
+        <SmallVec<T>>::len(self)
+    }
+
+    fn iter(&self) -> ListIter {
+        ListIter::new(self)
+    }
+}
+
+impl<T: smallvec::Array + TypePath + Send + Sync> List for SmallVec<T>
+where
+    T::Item: FromReflect + TypePath,
+{
     fn insert(&mut self, index: usize, value: Box<dyn Reflect>) {
         let value = value.take::<T::Item>().unwrap_or_else(|value| {
             <T as smallvec::Array>::Item::from_reflect(&*value).unwrap_or_else(|| {
@@ -63,18 +76,18 @@ where
         self.pop().map(|value| Box::new(value) as Box<dyn Reflect>)
     }
 
-    fn len(&self) -> usize {
-        <SmallVec<T>>::len(self)
-    }
-
-    fn iter(&self) -> ListIter {
-        ListIter::new(self)
-    }
-
     fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
         self.into_iter()
             .map(|value| Box::new(value) as Box<dyn Reflect>)
             .collect()
+    }
+
+    fn as_fixed_len_list(&self) -> &dyn FixedLenList {
+        self
+    }
+
+    fn as_fixed_len_list_mut(&mut self) -> &mut dyn FixedLenList {
+        self
     }
 }
 
@@ -161,15 +174,17 @@ where
     T::Item: FromReflect + TypePath,
 {
     fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
-        if let ReflectRef::List(ref_list) = reflect.reflect_ref() {
-            let mut new_list = Self::with_capacity(ref_list.len());
-            for field in ref_list.iter() {
-                new_list.push(<T as smallvec::Array>::Item::from_reflect(field)?);
-            }
-            Some(new_list)
-        } else {
-            None
+        let ref_list = match reflect.reflect_ref() {
+            ReflectRef::FixedLenList(list) => list,
+            ReflectRef::List(list) => list.as_fixed_len_list(),
+            _ => return None,
+        };
+
+        let mut new_list = Self::with_capacity(ref_list.len());
+        for field in ref_list.iter() {
+            new_list.push(<T as smallvec::Array>::Item::from_reflect(field)?);
         }
+        Some(new_list)
     }
 }
 

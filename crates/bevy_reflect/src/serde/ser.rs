@@ -1,6 +1,6 @@
 use crate::{
-    Array, Enum, List, Map, Reflect, ReflectRef, ReflectSerialize, Struct, Tuple, TupleStruct,
-    TypeInfo, TypeRegistry, VariantInfo, VariantType,
+    Array, Enum, FixedLenList, Map, Reflect, ReflectRef, ReflectSerialize, Struct, Tuple,
+    TupleStruct, TypeInfo, TypeRegistry, VariantInfo, VariantType,
 };
 use serde::ser::{
     Error, SerializeStruct, SerializeStructVariant, SerializeTuple, SerializeTupleStruct,
@@ -137,8 +137,13 @@ impl<'a> Serialize for TypedReflectSerializer<'a> {
                 registry: self.registry,
             }
             .serialize(serializer),
-            ReflectRef::List(value) => ListSerializer {
+            ReflectRef::FixedLenList(value) => ListSerializer {
                 list: value,
+                registry: self.registry,
+            }
+            .serialize(serializer),
+            ReflectRef::List(value) => ListSerializer {
+                list: value.as_fixed_len_list(),
                 registry: self.registry,
             }
             .serialize(serializer),
@@ -433,7 +438,7 @@ impl<'a> Serialize for MapSerializer<'a> {
 }
 
 pub struct ListSerializer<'a> {
-    pub list: &'a dyn List,
+    pub list: &'a dyn FixedLenList,
     pub registry: &'a TypeRegistry,
 }
 
