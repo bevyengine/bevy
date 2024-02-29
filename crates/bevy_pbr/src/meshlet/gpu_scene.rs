@@ -201,7 +201,7 @@ pub fn prepare_meshlet_per_frame_resources(
     mut commands: Commands,
 ) {
     gpu_scene
-        .previous_thread_id_starts
+        .previous_cluster_id_starts
         .retain(|_, (_, active)| *active);
 
     if gpu_scene.scene_meshlet_count == 0 {
@@ -229,7 +229,7 @@ pub fn prepare_meshlet_per_frame_resources(
         &render_queue,
     );
     upload_storage_buffer(
-        &mut gpu_scene.previous_thread_ids,
+        &mut gpu_scene.previous_cluster_ids,
         &render_device,
         &render_queue,
     );
@@ -455,7 +455,7 @@ pub fn prepare_meshlet_view_bind_groups(
                 .binding()
                 .unwrap(),
             view_resources.occlusion_buffer.as_entire_binding(),
-            gpu_scene.previous_thread_ids.binding().unwrap(),
+            gpu_scene.previous_cluster_ids.binding().unwrap(),
             view_resources.previous_occlusion_buffer.as_entire_binding(),
             view_uniforms.clone(),
             &view_resources.depth_pyramid.default_view,
@@ -469,7 +469,7 @@ pub fn prepare_meshlet_view_bind_groups(
         let entries = BindGroupEntries::sequential((
             view_resources.occlusion_buffer.as_entire_binding(),
             gpu_scene.thread_meshlet_ids.binding().unwrap(),
-            gpu_scene.previous_thread_ids.binding().unwrap(),
+            gpu_scene.previous_cluster_ids.binding().unwrap(),
             view_resources.previous_occlusion_buffer.as_entire_binding(),
             gpu_scene.meshlets.binding(),
             view_resources
@@ -488,7 +488,7 @@ pub fn prepare_meshlet_view_bind_groups(
         let entries = BindGroupEntries::sequential((
             view_resources.occlusion_buffer.as_entire_binding(),
             gpu_scene.thread_meshlet_ids.binding().unwrap(),
-            gpu_scene.previous_thread_ids.binding().unwrap(),
+            gpu_scene.previous_cluster_ids.binding().unwrap(),
             view_resources.previous_occlusion_buffer.as_entire_binding(),
             gpu_scene.meshlets.binding(),
             view_resources
@@ -617,8 +617,8 @@ pub struct MeshletGpuScene {
     instance_material_ids: StorageBuffer<Vec<u32>>,
     thread_instance_ids: StorageBuffer<Vec<u32>>,
     thread_meshlet_ids: StorageBuffer<Vec<u32>>,
-    previous_thread_ids: StorageBuffer<Vec<u32>>,
-    previous_thread_id_starts: HashMap<(Entity, AssetId<MeshletMesh>), (u32, bool)>,
+    previous_cluster_ids: StorageBuffer<Vec<u32>>,
+    previous_cluster_id_starts: HashMap<(Entity, AssetId<MeshletMesh>), (u32, bool)>,
     previous_occlusion_buffers: EntityHashMap<(Buffer, Buffer)>,
     visibility_buffer_draw_index_buffer: Option<Buffer>,
 
@@ -673,12 +673,12 @@ impl FromWorld for MeshletGpuScene {
                 buffer.set_label(Some("meshlet_thread_meshlet_ids"));
                 buffer
             },
-            previous_thread_ids: {
+            previous_cluster_ids: {
                 let mut buffer = StorageBuffer::default();
-                buffer.set_label(Some("meshlet_previous_thread_ids"));
+                buffer.set_label(Some("meshlet_previous_cluster_ids"));
                 buffer
             },
-            previous_thread_id_starts: HashMap::new(),
+            previous_cluster_id_starts: HashMap::new(),
             previous_occlusion_buffers: EntityHashMap::default(),
             visibility_buffer_draw_index_buffer: None,
 
@@ -791,8 +791,8 @@ impl MeshletGpuScene {
         self.instance_material_ids.get_mut().clear();
         self.thread_instance_ids.get_mut().clear();
         self.thread_meshlet_ids.get_mut().clear();
-        self.previous_thread_ids.get_mut().clear();
-        self.previous_thread_id_starts
+        self.previous_cluster_ids.get_mut().clear();
+        self.previous_cluster_id_starts
             .values_mut()
             .for_each(|(_, active)| *active = false);
         // TODO: Remove unused entries for previous_occlusion_buffers
@@ -857,33 +857,33 @@ impl MeshletGpuScene {
         let meshlets_slice =
             (buffer_slices[4].start as u32 / 12)..(buffer_slices[4].end as u32 / 12);
 
-        let current_thread_id_start = self.scene_meshlet_count;
+        let current_cluster_id_start = self.scene_meshlet_count;
 
         self.scene_meshlet_count += meshlets_slice.end - meshlets_slice.start;
         self.scene_index_count += index_count;
 
-        // Calculate the previous thread IDs for each meshlet
-        let previous_thread_id_start = self
-            .previous_thread_id_starts
+        // Calculate the previous cluster IDs for each meshlet for this instance
+        let previous_cluster_id_start = self
+            .previous_cluster_id_starts
             .entry((instance, handle.id()))
             .or_insert((0, true));
-        let previous_thread_ids = if previous_thread_id_start.1 {
+        let previous_cluster_ids = if previous_cluster_id_start.1 {
             0..(meshlets_slice.len() as u32)
         } else {
-            let start = previous_thread_id_start.0;
+            let start = previous_cluster_id_start.0;
             start..(meshlets_slice.len() as u32 + start)
         };
 
-        // Append per-meshlet thread for this frame
+        // Append per-cluster data for this frame
         self.thread_instance_ids
             .get_mut()
             .extend(std::iter::repeat(instance_index).take(meshlets_slice.len()));
         self.thread_meshlet_ids.get_mut().extend(meshlets_slice);
-        self.previous_thread_ids
+        self.previous_cluster_ids
             .get_mut()
-            .extend(previous_thread_ids);
+            .extend(previous_cluster_ids);
 
-        *previous_thread_id_start = (current_thread_id_start, true);
+        *previous_cluster_id_start = (current_cluster_id_start, true);
     }
 
     /// Get the depth value for use with the material depth texture for a given [`Material`] asset.

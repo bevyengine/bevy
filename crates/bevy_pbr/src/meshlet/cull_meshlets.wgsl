@@ -13,20 +13,20 @@
 #endif
 #import bevy_render::maths::affine3_to_square
 
-/// Culls individual meshlets (1 per thread) in two passes (two pass occlusion culling), and outputs a bitmask of which meshlets survived.
-/// 1. The first pass is only frustum culling, on only the meshlets that were visible last frame.
-/// 2. The second pass performs both frustum and occlusion culling (using the depth buffer generated from the first pass), on all meshlets.
+/// Culls individual clusters (1 per thread) in two passes (two pass occlusion culling), and outputs a bitmask of which clusters survived.
+/// 1. The first pass is only frustum culling, on only the clusters that were visible last frame.
+/// 2. The second pass performs both frustum and occlusion culling (using the depth buffer generated from the first pass), on all clusters.
 
 @compute
 @workgroup_size(128, 1, 1) // 128 threads per workgroup, 1 instanced meshlet per thread
-fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
+fn cull_meshlets(@builtin(global_invocation_id) cluster_id: vec3<u32>) {
     // Fetch the instanced meshlet data
-    if thread_id.x >= arrayLength(&meshlet_thread_meshlet_ids) { return; }
-    let instance_id = meshlet_thread_instance_ids[thread_id.x];
+    if cluster_id.x >= arrayLength(&meshlet_thread_meshlet_ids) { return; }
+    let instance_id = meshlet_thread_instance_ids[cluster_id.x];
     if should_cull_instance(instance_id) {
         return;
     }
-    let meshlet_id = meshlet_thread_meshlet_ids[thread_id.x];
+    let meshlet_id = meshlet_thread_meshlet_ids[cluster_id.x];
     let bounding_sphere = meshlet_bounding_spheres[meshlet_id];
     let instance_uniform = meshlet_instance_uniforms[instance_id];
     let model = affine3_to_square(instance_uniform.model);
@@ -34,11 +34,11 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
     let bounding_sphere_center = model * vec4(bounding_sphere.center, 1.0);
     let bounding_sphere_radius = model_scale * bounding_sphere.radius;
 
-    // In the first pass, operate only on the meshlets visible last frame. In the second pass, operate on all meshlets.
+    // In the first pass, operate only on the clusters visible last frame. In the second pass, operate on all clusters.
 #ifdef MESHLET_SECOND_CULLING_PASS
     var meshlet_visible = true;
 #else
-    var meshlet_visible = get_meshlet_previous_occlusion(thread_id.x);
+    var meshlet_visible = get_meshlet_previous_occlusion(cluster_id.x);
     if !meshlet_visible { return; }
 #endif
 
@@ -81,9 +81,9 @@ fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
     }
 #endif
 
-    // Write the bitmask of whether or not the meshlet was culled
-    let occlusion_bit = u32(meshlet_visible) << (thread_id.x % 32u);
-    atomicOr(&meshlet_occlusion[thread_id.x / 32u], occlusion_bit);
+    // Write the bitmask of whether or not the cluster was culled
+    let occlusion_bit = u32(meshlet_visible) << (cluster_id.x % 32u);
+    atomicOr(&meshlet_occlusion[cluster_id.x / 32u], occlusion_bit);
 }
 
 // https://zeux.io/2023/01/12/approximate-projected-bounds

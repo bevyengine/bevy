@@ -46,14 +46,14 @@ struct DrawIndexedIndirectArgs {
 }
 
 #ifdef MESHLET_CULLING_PASS
-@group(0) @binding(0) var<storage, read> meshlet_thread_meshlet_ids: array<u32>; // Per instanced meshlet
+@group(0) @binding(0) var<storage, read> meshlet_thread_meshlet_ids: array<u32>; // Per cluster (instance of a meshlet)
 @group(0) @binding(1) var<storage, read> meshlet_bounding_spheres: array<MeshletBoundingSphere>; // Per asset meshlet
-@group(0) @binding(2) var<storage, read> meshlet_thread_instance_ids: array<u32>; // Per instanced meshlet
+@group(0) @binding(2) var<storage, read> meshlet_thread_instance_ids: array<u32>; // Per cluster (instance of a meshlet)
 @group(0) @binding(3) var<storage, read> meshlet_instance_uniforms: array<Mesh>; // Per entity instance
 @group(0) @binding(4) var<storage, read> meshlet_view_instance_visibility: array<u32>; // 1 bit per entity instance, packed as a bitmask
-@group(0) @binding(5) var<storage, read_write> meshlet_occlusion: array<atomic<u32>>; // 1 bit per instanced meshlet, packed as a bitmask
-@group(0) @binding(6) var<storage, read> meshlet_previous_thread_ids: array<u32>; // Per instanced meshlet
-@group(0) @binding(7) var<storage, read> meshlet_previous_occlusion: array<u32>; // 1 bit per instanced meshlet, packed as a bitmask
+@group(0) @binding(5) var<storage, read_write> meshlet_occlusion: array<atomic<u32>>; // 1 bit per cluster (instance of a meshlet), packed as a bitmask
+@group(0) @binding(6) var<storage, read> meshlet_previous_cluster_ids: array<u32>; // Per cluster (instance of a meshlet)
+@group(0) @binding(7) var<storage, read> meshlet_previous_occlusion: array<u32>; // 1 bit per cluster (instance of a meshlet), packed as a bitmask
 @group(0) @binding(8) var<uniform> view: View;
 @group(0) @binding(9) var depth_pyramid: texture_2d<f32>; // Generated from the first raster pass (unused in the first pass but still bound)
 
@@ -63,44 +63,44 @@ fn should_cull_instance(instance_id: u32) -> bool {
     return bool(extractBits(packed_visibility, bit_offset, 1u));
 }
 
-fn get_meshlet_previous_occlusion(thread_id: u32) -> bool {
-    let previous_thread_id = meshlet_previous_thread_ids[thread_id];
-    let packed_occlusion = meshlet_previous_occlusion[previous_thread_id / 32u];
-    let bit_offset = previous_thread_id % 32u;
+fn get_meshlet_previous_occlusion(cluster_id: u32) -> bool {
+    let previous_cluster_id = meshlet_previous_cluster_ids[cluster_id];
+    let packed_occlusion = meshlet_previous_occlusion[previous_cluster_id / 32u];
+    let bit_offset = previous_cluster_id % 32u;
     return bool(extractBits(packed_occlusion, bit_offset, 1u));
 }
 #endif
 
 #ifdef MESHLET_WRITE_INDEX_BUFFER_PASS
-@group(0) @binding(0) var<storage, read> meshlet_occlusion: array<u32>; // 1 bit per instanced meshlet, packed as a bitmask
-@group(0) @binding(1) var<storage, read> meshlet_thread_meshlet_ids: array<u32>; // Per instanced meshlet
-@group(0) @binding(2) var<storage, read> meshlet_previous_thread_ids: array<u32>; // Per instanced meshlet
-@group(0) @binding(3) var<storage, read> meshlet_previous_occlusion: array<u32>; // 1 bit per instanced meshlet, packed as a bitmask
+@group(0) @binding(0) var<storage, read> meshlet_occlusion: array<u32>; // 1 bit per cluster (instance of a meshlet), packed as a bitmask
+@group(0) @binding(1) var<storage, read> meshlet_thread_meshlet_ids: array<u32>; // Per cluster (instance of a meshlet)
+@group(0) @binding(2) var<storage, read> meshlet_previous_cluster_ids: array<u32>; // Per cluster (instance of a meshlet)
+@group(0) @binding(3) var<storage, read> meshlet_previous_occlusion: array<u32>; // 1 bit per cluster (instance of a meshlet), packed as a bitmask
 @group(0) @binding(4) var<storage, read> meshlets: array<Meshlet>; // Per asset meshlet
 @group(0) @binding(5) var<storage, read_write> draw_command_buffer: DrawIndexedIndirectArgs; // Single object shared between all workgroups/meshlets/triangles
 @group(0) @binding(6) var<storage, read_write> draw_index_buffer: array<u32>; // Single object shared between all workgroups/meshlets/triangles
 
-fn get_meshlet_occlusion(thread_id: u32) -> bool {
-    let packed_occlusion = meshlet_occlusion[thread_id / 32u];
-    let bit_offset = thread_id % 32u;
+fn get_meshlet_occlusion(cluster_id: u32) -> bool {
+    let packed_occlusion = meshlet_occlusion[cluster_id / 32u];
+    let bit_offset = cluster_id % 32u;
     return bool(extractBits(packed_occlusion, bit_offset, 1u));
 }
 
-fn get_meshlet_previous_occlusion(thread_id: u32) -> bool {
-    let previous_thread_id = meshlet_previous_thread_ids[thread_id];
-    let packed_occlusion = meshlet_previous_occlusion[previous_thread_id / 32u];
-    let bit_offset = previous_thread_id % 32u;
+fn get_meshlet_previous_occlusion(cluster_id: u32) -> bool {
+    let previous_cluster_id = meshlet_previous_cluster_ids[cluster_id];
+    let packed_occlusion = meshlet_previous_occlusion[previous_cluster_id / 32u];
+    let bit_offset = previous_cluster_id % 32u;
     return bool(extractBits(packed_occlusion, bit_offset, 1u));
 }
 #endif
 
 #ifdef MESHLET_VISIBILITY_BUFFER_RASTER_PASS
-@group(0) @binding(0) var<storage, read> meshlet_thread_meshlet_ids: array<u32>; // Per instanced meshlet
+@group(0) @binding(0) var<storage, read> meshlet_thread_meshlet_ids: array<u32>; // Per cluster (instance of a meshlet)
 @group(0) @binding(1) var<storage, read> meshlets: array<Meshlet>; // Per asset meshlet
 @group(0) @binding(2) var<storage, read> meshlet_indices: array<u32>; // Many per asset meshlet
 @group(0) @binding(3) var<storage, read> meshlet_vertex_ids: array<u32>; // Many per asset meshlet
 @group(0) @binding(4) var<storage, read> meshlet_vertex_data: array<PackedMeshletVertex>; // Many per asset meshlet
-@group(0) @binding(5) var<storage, read> meshlet_thread_instance_ids: array<u32>; // Per instanced meshlet
+@group(0) @binding(5) var<storage, read> meshlet_thread_instance_ids: array<u32>; // Per cluster (instance of a meshlet)
 @group(0) @binding(6) var<storage, read> meshlet_instance_uniforms: array<Mesh>; // Per entity instance
 @group(0) @binding(7) var<storage, read> meshlet_instance_material_ids: array<u32>; // Per entity instance
 @group(0) @binding(8) var<uniform> view: View;
@@ -114,12 +114,12 @@ fn get_meshlet_index(index_id: u32) -> u32 {
 
 #ifdef MESHLET_MESH_MATERIAL_PASS
 @group(1) @binding(0) var meshlet_visibility_buffer: texture_2d<u32>; // Generated from the meshlet raster passes
-@group(1) @binding(1) var<storage, read> meshlet_thread_meshlet_ids: array<u32>; // Per instanced meshlet
+@group(1) @binding(1) var<storage, read> meshlet_thread_meshlet_ids: array<u32>; // Per cluster (instance of a meshlet)
 @group(1) @binding(2) var<storage, read> meshlets: array<Meshlet>; // Per asset meshlet
 @group(1) @binding(3) var<storage, read> meshlet_indices: array<u32>; // Many per asset meshlet
 @group(1) @binding(4) var<storage, read> meshlet_vertex_ids: array<u32>; // Many per asset meshlet
 @group(1) @binding(5) var<storage, read> meshlet_vertex_data: array<PackedMeshletVertex>; // Many per asset meshlet
-@group(1) @binding(6) var<storage, read> meshlet_thread_instance_ids: array<u32>; // Per instanced meshlet
+@group(1) @binding(6) var<storage, read> meshlet_thread_instance_ids: array<u32>; // Per cluster (instance of a meshlet)
 @group(1) @binding(7) var<storage, read> meshlet_instance_uniforms: array<Mesh>; // Per entity instance
 
 fn get_meshlet_index(index_id: u32) -> u32 {
