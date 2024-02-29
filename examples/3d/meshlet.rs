@@ -1,4 +1,4 @@
-//! GPU-driven meshlet-based rendering.
+//! Meshlet rendering for dense high-poly scenes.
 
 #[path = "../helpers/camera_controller.rs"]
 mod camera_controller;
@@ -13,6 +13,8 @@ use bevy::{
 };
 use camera_controller::{CameraController, CameraControllerPlugin};
 use std::f32::consts::PI;
+
+// Note: This example showcases the meshlet API, but is not the type of scene that would benefit from using meshlets.
 
 fn main() {
     App::new()
