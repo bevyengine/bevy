@@ -139,6 +139,9 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// ```
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_ecs::prelude::*;
+    /// # use bevy_transform::components::Transform;
+    /// # #[derive(Component)]
+    /// # struct MyComponent;
     /// fn draw_axes(
     ///     mut gizmos: Gizmos,
     ///     query: Query<&Transform, With<MyComponent>>,
