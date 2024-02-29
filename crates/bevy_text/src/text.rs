@@ -71,6 +71,7 @@ impl Text {
     /// ```
     /// # use bevy_asset::Handle;
     /// # use bevy_color::Color;
+    /// # use bevy_color::palettes::basic::{RED, BLUE};
     /// # use bevy_text::{Font, Text, TextStyle, TextSection};
     /// #
     /// # let font_handle: Handle<Font> = Default::default();
@@ -81,7 +82,7 @@ impl Text {
     ///         TextStyle {
     ///             font: font_handle.clone(),
     ///             font_size: 60.0,
-    ///             color: Color::BLUE,
+    ///             color: BLUE.into(),
     ///         },
     ///     ),
     ///     TextSection::new(
@@ -89,7 +90,7 @@ impl Text {
     ///         TextStyle {
     ///             font: font_handle,
     ///             font_size: 60.0,
-    ///             color: Color::RED,
+    ///             color: RED.into(),
     ///         },
     ///     ),
     /// ]);
