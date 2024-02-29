@@ -89,17 +89,14 @@ impl UiSurface {
     /// Retrieves the Taffy node associated with the given UI node entity and updates its style.
     /// If no associated Taffy node exists a new Taffy node is inserted into the Taffy layout.
     pub fn upsert_node(&mut self, entity: Entity, style: &Style, context: &LayoutContext) {
-        let mut added = false;
-        let taffy = &mut self.taffy;
-        let taffy_node = self.entity_to_taffy.entry(entity).or_insert_with(|| {
-            added = true;
-            taffy.new_leaf(convert::from_style(context, style)).unwrap()
-        });
-
-        if !added {
-            self.taffy
-                .set_style(*taffy_node, convert::from_style(context, style))
-                .unwrap();
+        let style = convert::from_style(context, style);
+        match self.entity_to_taffy.entry(entity) {
+            bevy_utils::hashbrown::hash_map::Entry::Occupied(entry) => {
+                self.taffy.set_style(*entry.get(), style).unwrap();
+            }
+            bevy_utils::hashbrown::hash_map::Entry::Vacant(entry) => {
+                entry.insert(self.taffy.new_leaf(style).unwrap());
+            }
         }
     }
 
@@ -907,5 +904,65 @@ mod tests {
                 s += r;
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::layout::convert::from_style;
+    use crate::Style;
+    use crate::UiSurface;
+    use bevy_ecs::world::World;
+    use bevy_math::Vec2;
+
+    #[test]
+    fn test_upsert_node() {
+        let mut world = World::new();
+        let mut ui_surface = UiSurface::default();
+        let uinode_a = world.spawn_empty().id();
+        let uinode_b = world.spawn_empty().id();
+        let context = crate::LayoutContext::new(1.0, Vec2::new(800., 600.));
+        let style_a = Style::default();
+        let style_b = crate::Style {
+            flex_direction: crate::FlexDirection::Column,
+            ..Default::default()
+        };
+        let taffystyle_a = from_style(&context, &style_a);
+        let taffystyle_b = from_style(&context, &style_b);
+        ui_surface.upsert_node(uinode_a, &style_a, &context);
+        ui_surface.upsert_node(uinode_b, &style_b, &context);
+        let taffynode_a = *ui_surface.entity_to_taffy.get(&uinode_a).unwrap();
+        let taffynode_b = *ui_surface.entity_to_taffy.get(&uinode_b).unwrap();
+
+        // The should be exactly two nodes in the layout
+        assert_eq!(ui_surface.entity_to_taffy.len(), 2);
+
+        // The ids for the associated taffy nodes should be unique
+        assert_ne!(taffynode_a, taffynode_b);
+
+        // Check the UI nodes each have an associated taffy node with the correct style
+        assert_eq!(ui_surface.taffy.style(taffynode_a).unwrap(), &taffystyle_a);
+        assert_eq!(ui_surface.taffy.style(taffynode_b).unwrap(), &taffystyle_b);
+
+        // Swap the styles of the associated nodes
+        ui_surface.upsert_node(uinode_a, &style_b, &context);
+        ui_surface.upsert_node(uinode_b, &style_a, &context);
+
+        // The styles should be swapped
+        assert_eq!(ui_surface.taffy.style(taffynode_a).unwrap(), &taffystyle_b);
+        assert_eq!(ui_surface.taffy.style(taffynode_b).unwrap(), &taffystyle_a);
+
+        // But the ids of the associated nodes should be unchanged
+        assert_eq!(
+            *ui_surface.entity_to_taffy.get(&uinode_a).unwrap(),
+            taffynode_a
+        );
+        assert_eq!(
+            *ui_surface.entity_to_taffy.get(&uinode_b).unwrap(),
+            taffynode_b
+        );
+
+        // There should still be exactly two nodes in the layout
+        assert_eq!(ui_surface.entity_to_taffy.len(), 2);
     }
 }
