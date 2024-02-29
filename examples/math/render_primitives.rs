@@ -3,8 +3,7 @@
 #![allow(clippy::match_same_arms)]
 
 use bevy::{
-    color::palettes::basic::WHITE, input::common_conditions::input_just_pressed, prelude::*,
-    sprite::MaterialMesh2dBundle,
+    input::common_conditions::input_just_pressed, prelude::*, sprite::MaterialMesh2dBundle,
 };
 
 const LEFT_RIGHT_OFFSET_2D: f32 = 200.0;
@@ -405,7 +404,7 @@ fn in_mode(active: CameraActive) -> impl Fn(Res<State<CameraActive>>) -> bool {
 fn draw_gizmos_2d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time: Res<Time>) {
     const POSITION: Vec2 = Vec2::new(-LEFT_RIGHT_OFFSET_2D, 0.0);
     let angle = time.elapsed_seconds();
-    let color = WHITE;
+    let color = Color::WHITE;
 
     match state.get() {
         PrimitiveSelected::RectangleAndCuboid => {
@@ -606,7 +605,7 @@ fn draw_gizmos_3d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time
         .try_normalize()
         .unwrap_or(Vec3::Z),
     );
-    let color = WHITE.into();
+    let color = Color::WHITE;
     let segments = 10;
 
     match state.get() {

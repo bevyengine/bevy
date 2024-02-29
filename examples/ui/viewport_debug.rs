@@ -4,8 +4,7 @@
 //! and then switches between them once per second using the `Display` style property.
 //! If there are no problems both layouts should be identical, except for the color of the margin changing which is used to signal that the displayed uinode tree has changed
 //! (red for viewport, yellow for pixel).
-use bevy::color::palettes::css::*;
-use bevy::prelude::*;
+use bevy::{color::palettes::css::*, prelude::*};
 
 const PALETTE: [Srgba; 10] = [
     RED, YELLOW, WHITE, BEIGE, CYAN, CRIMSON, NAVY, AZURE, GREEN, BLACK,

@@ -1,7 +1,6 @@
 //! Demonstrates how the to use the size constraints to control the size of a UI node.
 
-use bevy::color::palettes::css::*;
-use bevy::prelude::*;
+use bevy::{color::palettes::css::*, prelude::*};
 
 fn main() {
     App::new()
