@@ -31,7 +31,7 @@ fn setup(
         mesh: meshes.add(Cuboid::default()),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         material: materials.add(CustomMaterial {
-            color: LegacyColor::BLUE,
+            color: LinearRgba::BLUE,
             color_texture: Some(asset_server.load("branding/icon.png")),
             alpha_mode: AlphaMode::Blend,
         }),
@@ -49,7 +49,7 @@ fn setup(
 #[derive(Asset, TypePath, AsBindGroup, Clone)]
 struct CustomMaterial {
     #[uniform(0)]
-    color: LegacyColor,
+    color: LinearRgba,
     #[texture(1)]
     #[sampler(2)]
     color_texture: Option<Handle<Image>>,

@@ -8,6 +8,7 @@
 //! in multiple batches, reducing performance but useful for testing.
 
 use bevy::{
+    color::palettes::css::*,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     window::{PresentMode, WindowPlugin, WindowResolution},
@@ -18,7 +19,7 @@ use rand::Rng;
 
 const CAMERA_SPEED: f32 = 1000.0;
 
-const COLORS: [LegacyColor; 3] = [LegacyColor::BLUE, LegacyColor::WHITE, LegacyColor::RED];
+const COLORS: [Color; 3] = [Color::Srgba(BLUE), Color::Srgba(WHITE), Color::Srgba(RED)];
 
 #[derive(Resource)]
 struct ColorTint(bool);
@@ -92,7 +93,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>, color_tint: Res<Color
                     color: if color_tint.0 {
                         COLORS[rng.gen_range(0..3)]
                     } else {
-                        LegacyColor::WHITE
+                        Color::WHITE
                     },
                     ..default()
                 },

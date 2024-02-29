@@ -1,6 +1,7 @@
 use crate::{Material, MaterialPipeline, MaterialPipelineKey, MaterialPlugin};
 use bevy_app::{Plugin, Startup, Update};
 use bevy_asset::{load_internal_asset, Asset, Assets, Handle};
+use bevy_color::{Color, LinearRgba};
 use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use bevy_render::{
@@ -65,7 +66,7 @@ pub struct Wireframe;
 #[derive(Component, Debug, Clone, Default, Reflect)]
 #[reflect(Component, Default)]
 pub struct WireframeColor {
-    pub color: LegacyColor,
+    pub color: Color,
 }
 
 /// Disables wireframe rendering for any entity it is attached to.
@@ -85,7 +86,7 @@ pub struct WireframeConfig {
     /// If [`Self::global`] is set, any [`Entity`] that does not have a [`Wireframe`] component attached to it will have
     /// wireframes using this color. Otherwise, this will be the fallback color for any entity that has a [`Wireframe`],
     /// but no [`WireframeColor`].
-    pub default_color: LegacyColor,
+    pub default_color: Color,
 }
 
 #[derive(Resource)]
@@ -102,7 +103,7 @@ fn setup_global_wireframe_material(
     // Create the handle used for the global material
     commands.insert_resource(GlobalWireframeMaterial {
         handle: materials.add(WireframeMaterial {
-            color: config.default_color,
+            color: config.default_color.into(),
         }),
     });
 }
@@ -114,7 +115,7 @@ fn global_color_changed(
     global_material: Res<GlobalWireframeMaterial>,
 ) {
     if let Some(global_material) = materials.get_mut(&global_material.handle) {
-        global_material.color = config.default_color;
+        global_material.color = config.default_color.into();
     }
 }
 
@@ -129,7 +130,7 @@ fn wireframe_color_changed(
 ) {
     for (mut handle, wireframe_color) in &mut colors_changed {
         *handle = materials.add(WireframeMaterial {
-            color: wireframe_color.color,
+            color: wireframe_color.color.into(),
         });
     }
 }
@@ -157,7 +158,7 @@ fn apply_wireframe_material(
     for (e, wireframe_color) in &wireframes {
         let material = if let Some(wireframe_color) = wireframe_color {
             materials.add(WireframeMaterial {
-                color: wireframe_color.color,
+                color: wireframe_color.color.into(),
             })
         } else {
             // If there's no color specified we can use the global material since it's already set to use the default_color
@@ -196,7 +197,7 @@ fn apply_global_wireframe_material(
 #[derive(Default, AsBindGroup, TypePath, Debug, Clone, Asset)]
 pub struct WireframeMaterial {
     #[uniform(0)]
-    pub color: LegacyColor,
+    pub color: LinearRgba,
 }
 
 impl Material for WireframeMaterial {

@@ -5,7 +5,6 @@
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 use bevy_math::{Quat, Vec2, Vec3};
-use bevy_render::color::LegacyColor;
 use bevy_transform::TransformPoint;
 
 /// A builder returned by [`Gizmos::arrow`] and [`Gizmos::arrow_2d`]
@@ -13,7 +12,7 @@ pub struct ArrowBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     gizmos: &'a mut Gizmos<'w, 's, T>,
     start: Vec3,
     end: Vec3,
-    color: LegacyColor,
+    color: Color,
     tip_length: f32,
 }
 
@@ -26,8 +25,9 @@ impl<T: GizmoConfigGroup> ArrowBuilder<'_, '_, '_, T> {
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
+    /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.arrow(Vec3::ZERO, Vec3::ONE, LegacyColor::GREEN)
+    ///     gizmos.arrow(Vec3::ZERO, Vec3::ONE, GREEN)
     ///         .with_tip_length(3.);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
@@ -78,8 +78,9 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
+    /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.arrow(Vec3::ZERO, Vec3::ONE, LegacyColor::GREEN);
+    ///     gizmos.arrow(Vec3::ZERO, Vec3::ONE, GREEN);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -87,14 +88,14 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         &mut self,
         start: Vec3,
         end: Vec3,
-        color: LegacyColor,
+        color: impl Into<Color>,
     ) -> ArrowBuilder<'_, 'w, 's, T> {
         let length = (end - start).length();
         ArrowBuilder {
             gizmos: self,
             start,
             end,
-            color,
+            color: color.into(),
             tip_length: length / 10.,
         }
     }
@@ -108,8 +109,9 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
+    /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.arrow_2d(Vec2::ZERO, Vec2::X, LegacyColor::GREEN);
+    ///     gizmos.arrow_2d(Vec2::ZERO, Vec2::X, GREEN);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -117,7 +119,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         &mut self,
         start: Vec2,
         end: Vec2,
-        color: LegacyColor,
+        color: impl Into<Color>,
     ) -> ArrowBuilder<'_, 'w, 's, T> {
         self.arrow(start.extend(0.), end.extend(0.), color)
     }
