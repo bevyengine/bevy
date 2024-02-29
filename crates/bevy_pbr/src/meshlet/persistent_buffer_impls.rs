@@ -1,11 +1,13 @@
 use super::{persistent_buffer::PersistentGpuBufferable, Meshlet, MeshletBoundingSphere};
-use std::sync::Arc;
+use std::{mem::size_of, sync::Arc};
 
-impl PersistentGpuBufferable for Arc<[u8]> {
+const MESHLET_VERTEX_SIZE_IN_BYTES: u32 = 48;
+
+unsafe impl PersistentGpuBufferable for Arc<[u8]> {
     type Metadata = ();
 
-    fn size_in_bytes(&self) -> u64 {
-        self.len() as u64
+    fn size_in_bytes(&self) -> usize {
+        self.len()
     }
 
     fn write_bytes_le(&self, _: Self::Metadata, buffer_slice: &mut [u8]) {
@@ -13,29 +15,30 @@ impl PersistentGpuBufferable for Arc<[u8]> {
     }
 }
 
-impl PersistentGpuBufferable for Arc<[u32]> {
+unsafe impl PersistentGpuBufferable for Arc<[u32]> {
     type Metadata = u64;
 
-    fn size_in_bytes(&self) -> u64 {
-        self.len() as u64 * 4
+    fn size_in_bytes(&self) -> usize {
+        self.len() * size_of::<u32>()
     }
 
     fn write_bytes_le(&self, offset: Self::Metadata, buffer_slice: &mut [u8]) {
-        let offset = offset as u32 / 48;
+        let offset = offset as u32 / MESHLET_VERTEX_SIZE_IN_BYTES;
 
         for (i, index) in self.iter().enumerate() {
-            let i = i * 4;
+            let size = size_of::<u32>();
+            let i = i * size;
             let bytes = (*index + offset).to_le_bytes();
-            buffer_slice[i..(i + 4)].clone_from_slice(&bytes);
+            buffer_slice[i..(i + size)].clone_from_slice(&bytes);
         }
     }
 }
 
-impl PersistentGpuBufferable for Arc<[Meshlet]> {
+unsafe impl PersistentGpuBufferable for Arc<[Meshlet]> {
     type Metadata = (u64, u64);
 
-    fn size_in_bytes(&self) -> u64 {
-        self.len() as u64 * 12
+    fn size_in_bytes(&self) -> usize {
+        self.len() * size_of::<Meshlet>()
     }
 
     fn write_bytes_le(
@@ -43,26 +46,27 @@ impl PersistentGpuBufferable for Arc<[Meshlet]> {
         (vertex_offset, index_offset): Self::Metadata,
         buffer_slice: &mut [u8],
     ) {
-        let vertex_offset = vertex_offset as u32 / 4;
+        let vertex_offset = (vertex_offset as usize / size_of::<u32>()) as u32;
         let index_offset = index_offset as u32;
 
         for (i, meshlet) in self.iter().enumerate() {
-            let i = i * 12;
-            let bytes = bytemuck::cast::<_, [u8; 12]>(Meshlet {
+            let size = size_of::<Meshlet>();
+            let i = i * size;
+            let bytes = bytemuck::cast::<_, [u8; size_of::<Meshlet>()]>(Meshlet {
                 start_vertex_id: meshlet.start_vertex_id + vertex_offset,
                 start_index_id: meshlet.start_index_id + index_offset,
                 triangle_count: meshlet.triangle_count,
             });
-            buffer_slice[i..(i + 12)].clone_from_slice(&bytes);
+            buffer_slice[i..(i + size)].clone_from_slice(&bytes);
         }
     }
 }
 
-impl PersistentGpuBufferable for Arc<[MeshletBoundingSphere]> {
+unsafe impl PersistentGpuBufferable for Arc<[MeshletBoundingSphere]> {
     type Metadata = ();
 
-    fn size_in_bytes(&self) -> u64 {
-        self.len() as u64 * 16
+    fn size_in_bytes(&self) -> usize {
+        self.len() * size_of::<MeshletBoundingSphere>()
     }
 
     fn write_bytes_le(&self, _: Self::Metadata, buffer_slice: &mut [u8]) {
