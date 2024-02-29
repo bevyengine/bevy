@@ -107,6 +107,7 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
         );
         render_pass.set_bind_group(1, meshlet_material_draw_bind_group, &[]);
 
+        // 1 fullscreen triangle draw per material
         for (material_id, material_pipeline_id, material_bind_group) in
             meshlet_view_materials.iter()
         {
@@ -229,6 +230,7 @@ impl ViewNode for MeshletPrepassNode {
 
         render_pass.set_bind_group(1, meshlet_material_draw_bind_group, &[]);
 
+        // 1 fullscreen triangle draw per material
         for (material_id, material_pipeline_id, material_bind_group) in
             meshlet_view_materials.iter()
         {
@@ -356,6 +358,7 @@ impl ViewNode for MeshletDeferredGBufferPrepassNode {
 
         render_pass.set_bind_group(1, meshlet_material_draw_bind_group, &[]);
 
+        // 1 fullscreen triangle draw per material
         for (material_id, material_pipeline_id, material_bind_group) in
             meshlet_view_materials.iter()
         {
