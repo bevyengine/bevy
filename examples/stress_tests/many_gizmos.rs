@@ -3,7 +3,6 @@
 use std::f32::consts::TAU;
 
 use bevy::{
-    color::palettes::basic::BLACK,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
     window::{PresentMode, WindowResolution},
@@ -65,7 +64,7 @@ fn input(mut config: ResMut<Config>, input: Res<ButtonInput<KeyCode>>) {
 fn system(config: Res<Config>, time: Res<Time>, mut draw: Gizmos) {
     if !config.fancy {
         for _ in 0..(config.line_count / SYSTEM_COUNT) {
-            draw.line(Vec3::NEG_Y, Vec3::Y, BLACK);
+            draw.line(Vec3::NEG_Y, Vec3::Y, Color::BLACK);
         }
     } else {
         for i in 0..(config.line_count / SYSTEM_COUNT) {

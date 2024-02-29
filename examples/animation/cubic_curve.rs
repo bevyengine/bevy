@@ -1,10 +1,7 @@
 //! Demonstrates how to work with Cubic curves.
 
 use bevy::{
-    color::palettes::{
-        basic::{SILVER, WHITE},
-        css::ORANGE,
-    },
+    color::palettes::css::{ORANGE, SILVER, WHITE},
     math::{cubic_splines::CubicCurve, vec3},
     prelude::*,
 };

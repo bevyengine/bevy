@@ -21,10 +21,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    color::palettes::{
-        basic::{BLUE, GREEN, RED},
-        css::{ANTIQUE_WHITE, ORANGE_RED},
-    },
+    color::palettes::css::*,
     core_pipeline::{
         bloom::BloomSettings, core_3d::ScreenSpaceTransmissionQuality, prepass::DepthPrepass,
         tonemapping::Tonemapping,
@@ -123,7 +120,7 @@ fn setup(
         PbrBundle {
             mesh: cylinder_mesh,
             material: materials.add(StandardMaterial {
-                base_color: Color::srgba(0.9, 0.2, 0.3, 1.0),
+                base_color: Color::srgb(0.9, 0.2, 0.3),
                 diffuse_transmission: 0.7,
                 perceptual_roughness: 0.32,
                 thickness: 0.2,
@@ -361,8 +358,7 @@ fn setup(
     // Controls Text
     let text_style = TextStyle {
         font_size: 18.0,
-        color: Color::WHITE,
-        ..Default::default()
+        ..default()
     };
 
     commands.spawn((

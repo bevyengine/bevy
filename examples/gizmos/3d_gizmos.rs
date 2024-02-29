@@ -2,8 +2,7 @@
 
 use std::f32::consts::PI;
 
-use bevy::color::palettes::css::*;
-use bevy::prelude::*;
+use bevy::{color::palettes::css::*, prelude::*};
 
 fn main() {
     App::new()

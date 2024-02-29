@@ -1,13 +1,6 @@
 //! Simple example demonstrating overflow behavior.
 
-use bevy::{
-    color::palettes::{
-        basic::GRAY,
-        css::{ANTIQUE_WHITE, DARK_GRAY},
-    },
-    prelude::*,
-    winit::WinitSettings,
-};
+use bevy::{color::palettes::css::*, prelude::*, winit::WinitSettings};
 
 fn main() {
     App::new()
@@ -123,8 +116,8 @@ fn update_outlines(mut outlines_query: Query<(&mut Outline, Ref<Interaction>)>) 
     for (mut outline, interaction) in outlines_query.iter_mut() {
         if interaction.is_changed() {
             outline.color = match *interaction {
-                Interaction::Pressed => Color::srgb(1., 0., 0.),
-                Interaction::Hovered => Color::WHITE,
+                Interaction::Pressed => RED.into(),
+                Interaction::Hovered => WHITE.into(),
                 Interaction::None => Color::NONE,
             };
         }
