@@ -49,6 +49,8 @@ use winit::{
     event_loop::{ControlFlow, EventLoop, EventLoopBuilder, EventLoopWindowTarget},
 };
 
+pub use winit::event_loop::EventLoopProxy;
+
 use crate::accessibility::{AccessKitAdapters, AccessKitPlugin, WinitActionHandlers};
 
 use crate::converters::convert_winit_theme;
@@ -689,6 +691,9 @@ fn handle_winit_event(
                 }
                 event_loop.set_control_flow(ControlFlow::Wait);
             }
+        }
+        Event::UserEvent(_) => {
+            runner_state.redraw_requested = true;
         }
         _ => (),
     }
