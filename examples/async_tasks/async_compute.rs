@@ -7,7 +7,7 @@ use bevy::{
     tasks::{block_on, futures_lite::future, AsyncComputeTaskPool, Task},
 };
 use rand::Rng;
-use std::time::{Duration, Instant};
+use std::{thread, time::Duration};
 
 fn main() {
     App::new()
@@ -35,10 +35,10 @@ fn add_assets(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let box_mesh_handle = meshes.add(shape::Cube { size: 0.25 });
+    let box_mesh_handle = meshes.add(Cuboid::new(0.25, 0.25, 0.25));
     commands.insert_resource(BoxMeshHandle(box_mesh_handle));
 
-    let box_material_handle = materials.add(Color::rgb(1.0, 0.2, 0.3));
+    let box_material_handle = materials.add(LegacyColor::rgb(1.0, 0.2, 0.3));
     commands.insert_resource(BoxMaterialHandle(box_material_handle));
 }
 
@@ -60,12 +60,11 @@ fn spawn_tasks(mut commands: Commands) {
                 let entity = commands.spawn_empty().id();
                 let task = thread_pool.spawn(async move {
                     let mut rng = rand::thread_rng();
-                    let start_time = Instant::now();
+
                     let duration = Duration::from_secs_f32(rng.gen_range(0.05..0.2));
-                    while start_time.elapsed() < duration {
-                        // Spinning for 'duration', simulating doing hard
-                        // compute work generating translation coords!
-                    }
+
+                    // Pretend this is a time-intensive function. :)
+                    thread::sleep(duration);
 
                     // Such hard work, all done!
                     let transform = Transform::from_xyz(x as f32, y as f32, z as f32);

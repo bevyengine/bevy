@@ -18,10 +18,6 @@ fn main() {
     App::new()
         .insert_resource(Msaa::Off)
         .insert_resource(DefaultOpaqueRendererMethod::deferred())
-        .insert_resource(AmbientLight {
-            color: Color::WHITE,
-            brightness: 1.0 / 5.0f32,
-        })
         .insert_resource(DirectionalLightShadowMap { size: 4096 })
         .add_plugins(DefaultPlugins)
         .insert_resource(Normal(None))
@@ -52,7 +48,7 @@ fn setup(
             ..default()
         },
         FogSettings {
-            color: Color::rgba_u8(43, 44, 47, 255),
+            color: LegacyColor::rgba_u8(43, 44, 47, 255),
             falloff: FogFalloff::Linear {
                 start: 1.0,
                 end: 8.0,
@@ -62,7 +58,7 @@ fn setup(
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
-            intensity: 150.0,
+            intensity: 2000.0,
         },
         DepthPrepass,
         MotionVectorPrepass,
@@ -72,7 +68,7 @@ fn setup(
 
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            illuminance: 4000.0,
+            illuminance: 15_000.,
             shadows_enabled: true,
             ..default()
         },
@@ -99,22 +95,19 @@ fn setup(
         ..default()
     });
 
-    let mut forward_mat: StandardMaterial = Color::rgb(0.1, 0.2, 0.1).into();
+    let mut forward_mat: StandardMaterial = LegacyColor::rgb(0.1, 0.2, 0.1).into();
     forward_mat.opaque_render_method = OpaqueRendererMethod::Forward;
     let forward_mat_h = materials.add(forward_mat);
 
     // Plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(50.0)),
+        mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
         material: forward_mat_h.clone(),
         ..default()
     });
 
-    let cube_h = meshes.add(shape::Cube { size: 0.1 });
-    let sphere_h = meshes.add(shape::UVSphere {
-        radius: 0.125,
-        ..default()
-    });
+    let cube_h = meshes.add(Cuboid::new(0.1, 0.1, 0.1));
+    let sphere_h = meshes.add(Sphere::new(0.125).mesh().uv(32, 18));
 
     // Cubes
     commands.spawn(PbrBundle {
@@ -130,7 +123,7 @@ fn setup(
         ..default()
     });
 
-    let sphere_color = Color::rgb(10.0, 4.0, 1.0);
+    let sphere_color = LegacyColor::rgb(10.0, 4.0, 1.0);
     let sphere_pos = Transform::from_xyz(0.4, 0.5, -0.8);
     // Emissive sphere
     let mut unlit_mat: StandardMaterial = sphere_color.into();
@@ -147,7 +140,7 @@ fn setup(
     // Light
     commands.spawn(PointLightBundle {
         point_light: PointLight {
-            intensity: 150.0,
+            intensity: 800.0,
             radius: 0.125,
             shadows_enabled: true,
             color: sphere_color,
@@ -163,21 +156,21 @@ fn setup(
         let s_val = if i < 3 { 0.0 } else { 0.2 };
         let material = if j == 0 {
             materials.add(StandardMaterial {
-                base_color: Color::rgb(s_val, s_val, 1.0),
+                base_color: LegacyColor::rgb(s_val, s_val, 1.0),
                 perceptual_roughness: 0.089,
                 metallic: 0.0,
                 ..default()
             })
         } else if j == 1 {
             materials.add(StandardMaterial {
-                base_color: Color::rgb(s_val, 1.0, s_val),
+                base_color: LegacyColor::rgb(s_val, 1.0, s_val),
                 perceptual_roughness: 0.089,
                 metallic: 0.0,
                 ..default()
             })
         } else {
             materials.add(StandardMaterial {
-                base_color: Color::rgb(1.0, s_val, s_val),
+                base_color: LegacyColor::rgb(1.0, s_val, s_val),
                 perceptual_roughness: 0.089,
                 metallic: 0.0,
                 ..default()
@@ -198,9 +191,9 @@ fn setup(
     // sky
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(shape::Box::default()),
+            mesh: meshes.add(Cuboid::new(2.0, 1.0, 1.0)),
             material: materials.add(StandardMaterial {
-                base_color: Color::hex("888888").unwrap(),
+                base_color: LegacyColor::hex("888888").unwrap(),
                 unlit: true,
                 cull_mode: None,
                 ..default()
@@ -259,7 +252,7 @@ fn setup_parallax(
     let normal_handle = asset_server.load("textures/parallax_example/cube_normal.png");
     normal.0 = Some(normal_handle);
 
-    let mut cube: Mesh = shape::Cube { size: 0.15 }.into();
+    let mut cube = Mesh::from(Cuboid::new(0.15, 0.15, 0.15));
 
     // NOTE: for normal maps and depth maps to work, the mesh
     // needs tangents generated.

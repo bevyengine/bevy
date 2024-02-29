@@ -21,6 +21,7 @@
 * Ground tile from [Kenney's Tower Defense Kit](https://www.kenney.nl/assets/tower-defense-kit) (CC0 1.0 Universal)
 * Game icons from [Kenney's Game Icons](https://www.kenney.nl/assets/game-icons) (CC0 1.0 Universal)
 * Space ships from [Kenny's Simple Space Kit](https://www.kenney.nl/assets/simple-space) (CC0 1.0 Universal)
+* UI borders from [Kenny's Fantasy UI Borders Kit](https://kenney.nl/assets/fantasy-ui-borders) (CC0 1.0 Universal)
 * glTF animated fox from [glTF Sample Models][fox]
   * Low poly fox [by PixelMannen] (CC0 1.0 Universal)
   * Rigging and animation [by @tomkranis on Sketchfab] ([CC-BY 4.0])

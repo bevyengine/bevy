@@ -260,8 +260,8 @@ fn setup(
 ) {
     // Plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(50.0)),
-        material: materials.add(Color::rgb(0.1, 0.2, 0.1)),
+        mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
+        material: materials.add(LegacyColor::rgb(0.1, 0.2, 0.1)),
         ..default()
     });
 
@@ -273,7 +273,7 @@ fn setup(
     // Cubes
     for i in 0..5 {
         commands.spawn(PbrBundle {
-            mesh: meshes.add(shape::Cube { size: 0.25 }),
+            mesh: meshes.add(Cuboid::new(0.25, 0.25, 0.25)),
             material: cube_material.clone(),
             transform: Transform::from_xyz(i as f32 * 0.25 - 1.0, 0.125, -i as f32 * 0.5),
             ..default()
@@ -289,7 +289,7 @@ fn setup(
     // Light
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            illuminance: 3000.0,
+            illuminance: light_consts::lux::FULL_DAYLIGHT,
             shadows_enabled: true,
             ..default()
         },
@@ -329,7 +329,7 @@ fn setup(
             intensity: 150.0,
         },
         FogSettings {
-            color: Color::rgba_u8(43, 44, 47, 255),
+            color: LegacyColor::rgba_u8(43, 44, 47, 255),
             falloff: FogFalloff::Linear {
                 start: 1.0,
                 end: 4.0,

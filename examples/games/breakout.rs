@@ -41,13 +41,13 @@ const GAP_BETWEEN_BRICKS_AND_SIDES: f32 = 20.0;
 const SCOREBOARD_FONT_SIZE: f32 = 40.0;
 const SCOREBOARD_TEXT_PADDING: Val = Val::Px(5.0);
 
-const BACKGROUND_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
-const PADDLE_COLOR: Color = Color::rgb(0.3, 0.3, 0.7);
-const BALL_COLOR: Color = Color::rgb(1.0, 0.5, 0.5);
-const BRICK_COLOR: Color = Color::rgb(0.5, 0.5, 1.0);
-const WALL_COLOR: Color = Color::rgb(0.8, 0.8, 0.8);
-const TEXT_COLOR: Color = Color::rgb(0.5, 0.5, 1.0);
-const SCORE_COLOR: Color = Color::rgb(1.0, 0.5, 0.5);
+const BACKGROUND_COLOR: LegacyColor = LegacyColor::rgb(0.9, 0.9, 0.9);
+const PADDLE_COLOR: LegacyColor = LegacyColor::rgb(0.3, 0.3, 0.7);
+const BALL_COLOR: LegacyColor = LegacyColor::rgb(1.0, 0.5, 0.5);
+const BRICK_COLOR: LegacyColor = LegacyColor::rgb(0.5, 0.5, 1.0);
+const WALL_COLOR: LegacyColor = LegacyColor::rgb(0.8, 0.8, 0.8);
+const TEXT_COLOR: LegacyColor = LegacyColor::rgb(0.5, 0.5, 1.0);
+const SCORE_COLOR: LegacyColor = LegacyColor::rgb(1.0, 0.5, 0.5);
 
 fn main() {
     App::new()
@@ -218,7 +218,7 @@ fn setup(
     // Ball
     commands.spawn((
         MaterialMesh2dBundle {
-            mesh: meshes.add(shape::Circle::default()).into(),
+            mesh: meshes.add(Circle::default()).into(),
             material: materials.add(BALL_COLOR),
             transform: Transform::from_translation(BALL_STARTING_POSITION)
                 .with_scale(Vec2::splat(BALL_DIAMETER).extend(1.)),

@@ -6,12 +6,12 @@ use crate::{
     storage::{SparseSetIndex, Storages},
     system::{Local, Resource, SystemParam},
     world::{FromWorld, World},
-    TypeIdMap,
 };
 pub use bevy_ecs_macros::Component;
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
+use bevy_utils::TypeIdMap;
 use std::cell::UnsafeCell;
 use std::{
     alloc::Layout,
@@ -267,12 +267,12 @@ impl ComponentInfo {
     }
 }
 
-/// A value which uniquely identifies the type of a [`Component`] within a
+/// A value which uniquely identifies the type of a [`Component`] of [`Resource`] within a
 /// [`World`].
 ///
 /// Each time a new `Component` type is registered within a `World` using
-/// [`World::init_component`](World::init_component) or
-/// [`World::init_component_with_descriptor`](World::init_component_with_descriptor),
+/// e.g. [`World::init_component`] or [`World::init_component_with_descriptor`]
+/// or a Resource with e.g. [`World::init_resource`],
 /// a corresponding `ComponentId` is created to track it.
 ///
 /// While the distinction between `ComponentId` and [`TypeId`] may seem superficial, breaking them
@@ -357,9 +357,14 @@ impl std::fmt::Debug for ComponentDescriptor {
 }
 
 impl ComponentDescriptor {
-    // SAFETY: The pointer points to a valid value of type `T` and it is safe to drop this value.
+    /// # SAFETY
+    ///
+    /// `x` must points to a valid value of type `T`.
     unsafe fn drop_ptr<T>(x: OwningPtr<'_>) {
-        x.drop_as::<T>();
+        // SAFETY: Contract is required to be upheld by the caller.
+        unsafe {
+            x.drop_as::<T>();
+        }
     }
 
     /// Create a new `ComponentDescriptor` for the type `T`.
@@ -542,7 +547,8 @@ impl Components {
     #[inline]
     pub unsafe fn get_info_unchecked(&self, id: ComponentId) -> &ComponentInfo {
         debug_assert!(id.index() < self.components.len());
-        self.components.get_unchecked(id.0)
+        // SAFETY: The caller ensures `id` is valid.
+        unsafe { self.components.get_unchecked(id.0) }
     }
 
     /// Type-erased equivalent of [`Components::component_id()`].
@@ -763,13 +769,15 @@ impl<'a> TickCells<'a> {
     #[inline]
     pub(crate) unsafe fn read(&self) -> ComponentTicks {
         ComponentTicks {
-            added: self.added.read(),
-            changed: self.changed.read(),
+            // SAFETY: The callers uphold the invariants for `read`.
+            added: unsafe { self.added.read() },
+            // SAFETY: The callers uphold the invariants for `read`.
+            changed: unsafe { self.changed.read() },
         }
     }
 }
 
-/// Records when a component was added and when it was last mutably dereferenced (or added).
+/// Records when a component or resource was added and when it was last mutably dereferenced (or added).
 #[derive(Copy, Clone, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct ComponentTicks {
@@ -778,25 +786,25 @@ pub struct ComponentTicks {
 }
 
 impl ComponentTicks {
-    /// Returns `true` if the component was added after the system last ran.
+    /// Returns `true` if the component or resource was added after the system last ran.
     #[inline]
     pub fn is_added(&self, last_run: Tick, this_run: Tick) -> bool {
         self.added.is_newer_than(last_run, this_run)
     }
 
-    /// Returns `true` if the component was added or mutably dereferenced after the system last ran.
+    /// Returns `true` if the component or resource was added or mutably dereferenced after the system last ran.
     #[inline]
     pub fn is_changed(&self, last_run: Tick, this_run: Tick) -> bool {
         self.changed.is_newer_than(last_run, this_run)
     }
 
-    /// Returns the tick recording the time this component was most recently changed.
+    /// Returns the tick recording the time this component or resource was most recently changed.
     #[inline]
     pub fn last_changed_tick(&self) -> Tick {
         self.changed
     }
 
-    /// Returns the tick recording the time this component was added.
+    /// Returns the tick recording the time this component or resource was added.
     #[inline]
     pub fn added_tick(&self) -> Tick {
         self.added
@@ -829,7 +837,7 @@ impl ComponentTicks {
     }
 }
 
-/// A [`SystemParam`] that provides access to the [`ComponentId`] for a specific type.
+/// A [`SystemParam`] that provides access to the [`ComponentId`] for a specific component type.
 ///
 /// # Example
 /// ```

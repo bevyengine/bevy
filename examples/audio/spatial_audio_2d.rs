@@ -34,8 +34,8 @@ fn setup(
     // sound emitter
     commands.spawn((
         MaterialMesh2dBundle {
-            mesh: meshes.add(shape::Circle::new(15.0)).into(),
-            material: materials.add(Color::BLUE),
+            mesh: meshes.add(Circle::new(15.0)).into(),
+            material: materials.add(LegacyColor::BLUE),
             transform: Transform::from_translation(Vec3::new(0.0, 50.0, 0.0)),
             ..default()
         },
@@ -53,7 +53,7 @@ fn setup(
             // left ear
             parent.spawn(SpriteBundle {
                 sprite: Sprite {
-                    color: Color::RED,
+                    color: LegacyColor::RED,
                     custom_size: Some(Vec2::splat(20.0)),
                     ..default()
                 },
@@ -64,7 +64,7 @@ fn setup(
             // right ear
             parent.spawn(SpriteBundle {
                 sprite: Sprite {
-                    color: Color::GREEN,
+                    color: LegacyColor::GREEN,
                     custom_size: Some(Vec2::splat(20.0)),
                     ..default()
                 },

@@ -10,6 +10,7 @@
     clustered_forward as clustering,
     shadows,
     ambient,
+    irradiance_volume,
     mesh_types::{MESH_FLAGS_SHADOW_RECEIVER_BIT, MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT},
     utils::E,
 }
@@ -306,8 +307,7 @@ fn apply_pbr_lighting(
 #endif
     }
 
-    // Ambient light (indirect)
-    var indirect_light = ambient::ambient_light(in.world_position, in.N, in.V, NdotV, diffuse_color, F0, perceptual_roughness, diffuse_occlusion);
+    var indirect_light = vec3(0.0f);
 
 #ifdef STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
     // NOTE: We use the diffuse transmissive color, the second Lambertian lobe's calculated
@@ -321,7 +321,36 @@ fn apply_pbr_lighting(
     transmitted_light += ambient::ambient_light(diffuse_transmissive_lobe_world_position, -in.N, -in.V, 1.0, diffuse_transmissive_color, vec3<f32>(0.0), 1.0, vec3<f32>(1.0));
 #endif
 
+    // Diffuse indirect lighting can come from a variety of sources. The
+    // priority goes like this:
+    //
+    // 1. Lightmap (highest)
+    // 2. Irradiance volume
+    // 3. Environment map (lowest)
+    //
+    // When we find a source of diffuse indirect lighting, we stop accumulating
+    // any more diffuse indirect light. This avoids double-counting if, for
+    // example, both lightmaps and irradiance volumes are present.
+
+#ifdef LIGHTMAP
+    if (all(indirect_light == vec3(0.0f))) {
+        indirect_light += in.lightmap_light * diffuse_color;
+    }
+#endif
+
+#ifdef IRRADIANCE_VOLUME {
+    // Irradiance volume light (indirect)
+    if (all(indirect_light == vec3(0.0f))) {
+        let irradiance_volume_light = irradiance_volume::irradiance_volume_light(
+            in.world_position.xyz, in.N);
+        indirect_light += irradiance_volume_light * diffuse_color * diffuse_occlusion;
+    }
+#endif
+
     // Environment map light (indirect)
+    //
+    // Note that up until this point, we have only accumulated diffuse light.
+    // This call is the first call that can accumulate specular light.
 #ifdef ENVIRONMENT_MAP
     let environment_light = environment_map::environment_map_light(
         perceptual_roughness,
@@ -332,8 +361,11 @@ fn apply_pbr_lighting(
         in.N,
         R,
         F0,
-        in.world_position.xyz);
-    indirect_light += (environment_light.diffuse * diffuse_occlusion) + (environment_light.specular * specular_occlusion);
+        in.world_position.xyz,
+        any(indirect_light != vec3(0.0f)));
+
+    indirect_light += environment_light.diffuse * diffuse_occlusion +
+        environment_light.specular * specular_occlusion;
 
     // we'll use the specular component of the transmitted environment
     // light in the call to `specular_transmissive_light()` below
@@ -367,7 +399,8 @@ fn apply_pbr_lighting(
         -in.N,
         T,
         vec3<f32>(1.0),
-        in.world_position.xyz);
+        in.world_position.xyz,
+        false);
 #ifdef STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
     transmitted_light += transmitted_environment_light.diffuse * diffuse_transmissive_color;
 #endif
@@ -381,9 +414,8 @@ fn apply_pbr_lighting(
     let specular_transmitted_environment_light = vec3<f32>(0.0);
 #endif
 
-#ifdef LIGHTMAP
-    indirect_light += in.lightmap_light * diffuse_color;
-#endif
+    // Ambient light (indirect)
+    indirect_light += ambient::ambient_light(in.world_position, in.N, in.V, NdotV, diffuse_color, F0, perceptual_roughness, diffuse_occlusion);
 
     let emissive_light = emissive.rgb * output_color.a;
 

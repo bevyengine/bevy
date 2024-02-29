@@ -1,5 +1,6 @@
 #define_import_path bevy_pbr::environment_map
 
+#import bevy_pbr::light_probe::query_light_probe
 #import bevy_pbr::mesh_view_bindings as bindings
 #import bevy_pbr::mesh_view_bindings::light_probes
 
@@ -24,71 +25,43 @@ fn compute_radiances(
     N: vec3<f32>,
     R: vec3<f32>,
     world_position: vec3<f32>,
+    found_diffuse_indirect: bool,
 ) -> EnvironmentMapRadiances {
     var radiances: EnvironmentMapRadiances;
 
     // Search for a reflection probe that contains the fragment.
-    //
-    // TODO: Interpolate between multiple reflection probes.
-    var cubemap_index: i32 = -1;
-    var intensity: f32 = 1.0;
-    for (var reflection_probe_index: i32 = 0;
-            reflection_probe_index < light_probes.reflection_probe_count;
-            reflection_probe_index += 1) {
-        let reflection_probe = light_probes.reflection_probes[reflection_probe_index];
-
-        // Unpack the inverse transform.
-        let inverse_transpose_transform = mat4x4<f32>(
-            reflection_probe.inverse_transpose_transform[0],
-            reflection_probe.inverse_transpose_transform[1],
-            reflection_probe.inverse_transpose_transform[2],
-            vec4<f32>(0.0, 0.0, 0.0, 1.0));
-        let inverse_transform = transpose(inverse_transpose_transform);
-
-        // Check to see if the transformed point is inside the unit cube
-        // centered at the origin.
-        let probe_space_pos = (inverse_transform * vec4<f32>(world_position, 1.0)).xyz;
-        if (all(abs(probe_space_pos) <= vec3(0.5))) {
-            cubemap_index = reflection_probe.cubemap_index;
-            intensity = reflection_probe.intensity;
-            // TODO: Workaround for ICE in DXC https://github.com/microsoft/DirectXShaderCompiler/issues/6183
-            // This works because it's the last thing that happens in the for loop, and will break as soon as it
-            // goes back to the top of the loop.
-            // We can't use `break` here because of the ICE.
-            // break;
-            reflection_probe_index = light_probes.reflection_probe_count;
-        }
-    }
+    var query_result = query_light_probe(world_position, /*is_irradiance_volume=*/ false);
 
     // If we didn't find a reflection probe, use the view environment map if applicable.
-    if (cubemap_index < 0) {
-        cubemap_index = light_probes.view_cubemap_index;
-        intensity = light_probes.intensity_for_view;
+    if (query_result.texture_index < 0) {
+        query_result.texture_index = light_probes.view_cubemap_index;
+        query_result.intensity = light_probes.intensity_for_view;
     }
 
     // If there's no cubemap, bail out.
-    if (cubemap_index < 0) {
+    if (query_result.texture_index < 0) {
         radiances.irradiance = vec3(0.0);
         radiances.radiance = vec3(0.0);
         return radiances;
     }
 
     // Split-sum approximation for image based lighting: https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf
-    let radiance_level = perceptual_roughness * f32(textureNumLevels(bindings::specular_environment_maps[cubemap_index]) - 1u);
+    let radiance_level = perceptual_roughness * f32(textureNumLevels(
+        bindings::specular_environment_maps[query_result.texture_index]) - 1u);
 
-#ifndef LIGHTMAP
-    radiances.irradiance = textureSampleLevel(
-        bindings::diffuse_environment_maps[cubemap_index],
-        bindings::environment_map_sampler,
-        vec3(N.xy, -N.z),
-        0.0).rgb * intensity;
-#endif  // LIGHTMAP
+    if (!found_diffuse_indirect) {
+        radiances.irradiance = textureSampleLevel(
+            bindings::diffuse_environment_maps[query_result.texture_index],
+            bindings::environment_map_sampler,
+            vec3(N.xy, -N.z),
+            0.0).rgb * query_result.intensity;
+    }
 
     radiances.radiance = textureSampleLevel(
-        bindings::specular_environment_maps[cubemap_index],
+        bindings::specular_environment_maps[query_result.texture_index],
         bindings::environment_map_sampler,
         vec3(R.xy, -R.z),
-        radiance_level).rgb * intensity;
+        radiance_level).rgb * query_result.intensity;
 
     return radiances;
 }
@@ -100,6 +73,7 @@ fn compute_radiances(
     N: vec3<f32>,
     R: vec3<f32>,
     world_position: vec3<f32>,
+    found_diffuse_indirect: bool,
 ) -> EnvironmentMapRadiances {
     var radiances: EnvironmentMapRadiances;
 
@@ -116,13 +90,13 @@ fn compute_radiances(
 
     let intensity = light_probes.intensity_for_view;
 
-#ifndef LIGHTMAP
-    radiances.irradiance = textureSampleLevel(
-        bindings::diffuse_environment_map,
-        bindings::environment_map_sampler,
-        vec3(N.xy, -N.z),
-        0.0).rgb * intensity;
-#endif  // LIGHTMAP
+    if (!found_diffuse_indirect) {
+        radiances.irradiance = textureSampleLevel(
+            bindings::diffuse_environment_map,
+            bindings::environment_map_sampler,
+            vec3(N.xy, -N.z),
+            0.0).rgb * intensity;
+    }
 
     radiances.radiance = textureSampleLevel(
         bindings::specular_environment_map,
@@ -145,8 +119,21 @@ fn environment_map_light(
     R: vec3<f32>,
     F0: vec3<f32>,
     world_position: vec3<f32>,
+    found_diffuse_indirect: bool,
 ) -> EnvironmentMapLight {
-    let radiances = compute_radiances(perceptual_roughness, N, R, world_position);
+    var out: EnvironmentMapLight;
+
+    let radiances = compute_radiances(
+        perceptual_roughness,
+        N,
+        R,
+        world_position,
+        found_diffuse_indirect);
+    if (all(radiances.irradiance == vec3(0.0)) && all(radiances.radiance == vec3(0.0))) {
+        out.diffuse = vec3(0.0);
+        out.specular = vec3(0.0);
+        return out;
+    }
 
     // No real world material has specular values under 0.02, so we use this range as a
     // "pre-baked specular occlusion" that extinguishes the fresnel term, for artistic control.
@@ -166,15 +153,12 @@ fn environment_map_light(
     let Edss = 1.0 - (FssEss + FmsEms);
     let kD = diffuse_color * Edss;
 
-    var out: EnvironmentMapLight;
 
-    // If there's a lightmap, ignore the diffuse component of the reflection
-    // probe, so we don't double-count light.
-#ifdef LIGHTMAP
-    out.diffuse = vec3(0.0);
-#else
-    out.diffuse = (FmsEms + kD) * radiances.irradiance;
-#endif
+    if (!found_diffuse_indirect) {
+        out.diffuse = (FmsEms + kD) * radiances.irradiance;
+    } else {
+        out.diffuse = vec3(0.0);
+    }
 
     out.specular = FssEss * radiances.radiance;
     return out;

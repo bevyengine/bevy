@@ -1,6 +1,6 @@
 [package]
 name = "bevy_pbr"
-version = "0.12.0"
+version = "0.14.0-dev"
 edition = "2021"
 description = "Adds PBR rendering to Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -11,24 +11,26 @@ keywords = ["bevy"]
 [features]
 webgl = []
 webgpu = []
-shader_format_glsl = ["naga_oil/glsl"]
 pbr_transmission_textures = []
+shader_format_glsl = ["bevy_render/shader_format_glsl"]
+trace = ["bevy_render/trace"]
+ios_simulator = ["bevy_render/ios_simulator"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.12.0" }
-bevy_asset = { path = "../bevy_asset", version = "0.12.0" }
-bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.12.0" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.12.0" }
-bevy_math = { path = "../bevy_math", version = "0.12.0" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.12.0", features = [
+bevy_app = { path = "../bevy_app", version = "0.14.0-dev" }
+bevy_asset = { path = "../bevy_asset", version = "0.14.0-dev" }
+bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.14.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
+bevy_math = { path = "../bevy_math", version = "0.14.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev", features = [
   "bevy",
 ] }
-bevy_render = { path = "../bevy_render", version = "0.12.0" }
-bevy_transform = { path = "../bevy_transform", version = "0.12.0" }
-bevy_utils = { path = "../bevy_utils", version = "0.12.0" }
-bevy_window = { path = "../bevy_window", version = "0.12.0" }
-bevy_derive = { path = "../bevy_derive", version = "0.12.0" }
+bevy_render = { path = "../bevy_render", version = "0.14.0-dev" }
+bevy_transform = { path = "../bevy_transform", version = "0.14.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
+bevy_window = { path = "../bevy_window", version = "0.14.0-dev" }
+bevy_derive = { path = "../bevy_derive", version = "0.14.0-dev" }
 
 # other
 bitflags = "2.3"
@@ -37,16 +39,6 @@ fixedbitset = "0.4"
 bytemuck = { version = "1", features = ["derive"] }
 radsort = "0.1"
 smallvec = "1.6"
-thread_local = "1.0"
-
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-naga_oil = "0.12"
-
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-# Omit the `glsl` feature in non-WebAssembly by default.
-naga_oil = { version = "0.12", default-features = false, features = [
-  "test_shader",
-] }
 
 [lints]
 workspace = true

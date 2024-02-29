@@ -9,8 +9,8 @@ use bevy_ecs::{
 };
 use bevy_reflect::{
     utility::{reflect_hasher, NonGenericTypeInfoCell},
-    FromReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath, Typed,
-    ValueInfo,
+    FromReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath,
+    Typed, ValueInfo,
 };
 use bevy_utils::{thiserror::Error, HashMap, HashSet};
 use serde::{Deserialize, Serialize};
@@ -66,6 +66,13 @@ bitflags::bitflags! {
     ///
     /// If you have an asset that doesn't actually need to end up in the render world, like an Image
     /// that will be decoded into another Image asset, use `MAIN_WORLD` only.
+    ///
+    /// ## Platform-specific
+    ///
+    /// On Wasm, it is not possible for now to free reserved memory. To control memory usage, load assets
+    /// in sequence and unload one before loading the next. See this
+    /// [discussion about memory management](https://github.com/WebAssembly/design/issues/1397) for more
+    /// details.
     #[repr(transparent)]
     #[derive(Serialize, TypePath, Deserialize, Hash, Clone, Copy, PartialEq, Eq, Debug)]
     pub struct RenderAssetUsages: u8 {
@@ -121,6 +128,9 @@ impl Reflect for RenderAssetUsages {
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
         *self = value.take()?;
         Ok(())
+    }
+    fn reflect_kind(&self) -> bevy_reflect::ReflectKind {
+        ReflectKind::Value
     }
     fn reflect_ref(&self) -> bevy_reflect::ReflectRef {
         ReflectRef::Value(self)

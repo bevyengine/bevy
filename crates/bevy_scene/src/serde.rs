@@ -499,13 +499,13 @@ mod tests {
     use crate::ron;
     use crate::serde::{SceneDeserializer, SceneSerializer};
     use crate::{DynamicScene, DynamicSceneBuilder};
+    use bevy_ecs::entity::EntityHashMap;
     use bevy_ecs::entity::{Entity, EntityMapper, MapEntities};
     use bevy_ecs::prelude::{Component, ReflectComponent, ReflectResource, Resource, World};
     use bevy_ecs::query::{With, Without};
     use bevy_ecs::reflect::{AppTypeRegistry, ReflectMapEntities};
     use bevy_ecs::world::FromWorld;
     use bevy_reflect::{Reflect, ReflectSerialize};
-    use bevy_utils::EntityHashMap;
     use bincode::Options;
     use serde::de::DeserializeSeed;
     use serde::Serialize;

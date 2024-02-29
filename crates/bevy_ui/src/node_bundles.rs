@@ -10,7 +10,7 @@ use crate::{
 use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
-    prelude::Color,
+    prelude::LegacyColor,
     view::{InheritedVisibility, ViewVisibility, Visibility},
 };
 use bevy_sprite::TextureAtlas;
@@ -60,8 +60,8 @@ impl Default for NodeBundle {
     fn default() -> Self {
         NodeBundle {
             // Transparent background
-            background_color: Color::NONE.into(),
-            border_color: Color::NONE.into(),
+            background_color: LegacyColor::NONE.into(),
+            border_color: LegacyColor::NONE.into(),
             node: Default::default(),
             style: Default::default(),
             focus_policy: Default::default(),
@@ -76,6 +76,11 @@ impl Default for NodeBundle {
 }
 
 /// A UI node that is an image
+///
+/// # Extra behaviours
+///
+/// You may add the following components to enable additional behaviours
+/// - [`ImageScaleMode`](bevy_sprite::ImageScaleMode) to enable either slicing or tiling of the texture
 #[derive(Bundle, Debug, Default)]
 pub struct ImageBundle {
     /// Describes the logical size of the node
@@ -222,7 +227,7 @@ impl Default for TextBundle {
             view_visibility: Default::default(),
             z_index: Default::default(),
             // Transparent background
-            background_color: BackgroundColor(Color::NONE),
+            background_color: BackgroundColor(LegacyColor::NONE),
         }
     }
 }
@@ -262,7 +267,7 @@ impl TextBundle {
     }
 
     /// Returns this [`TextBundle`] with a new [`BackgroundColor`].
-    pub const fn with_background_color(mut self, color: Color) -> Self {
+    pub const fn with_background_color(mut self, color: LegacyColor) -> Self {
         self.background_color = BackgroundColor(color);
         self
     }
@@ -286,6 +291,11 @@ where
 }
 
 /// A UI node that is a button
+///
+/// # Extra behaviours
+///
+/// You may add the following components to enable additional behaviours
+/// - [`ImageScaleMode`](bevy_sprite::ImageScaleMode) to enable either slicing or tiling of the texture
 #[derive(Bundle, Clone, Debug)]
 pub struct ButtonBundle {
     /// Describes the logical size of the node
@@ -333,7 +343,7 @@ impl Default for ButtonBundle {
             node: Default::default(),
             button: Default::default(),
             style: Default::default(),
-            border_color: BorderColor(Color::NONE),
+            border_color: BorderColor(LegacyColor::NONE),
             interaction: Default::default(),
             background_color: Default::default(),
             image: Default::default(),

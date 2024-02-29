@@ -4,11 +4,12 @@ use std::collections::HashMap;
 
 use crate::{
     schedule::{InternedScheduleLabel, NodeId, Schedule, ScheduleLabel},
-    system::{IntoSystem, ResMut, Resource, System},
+    system::{IntoSystem, ResMut, Resource},
 };
 use bevy_utils::{
     thiserror::Error,
     tracing::{error, info, warn},
+    TypeIdMap,
 };
 
 #[cfg(test)]
@@ -251,10 +252,7 @@ impl Stepping {
         schedule: impl ScheduleLabel,
         system: impl IntoSystem<(), (), Marker>,
     ) -> &mut Self {
-        // PERF: ideally we don't actually need to construct the system to retrieve the TypeId.
-        // Unfortunately currently IntoSystem::into_system(system).type_id() != TypeId::of::<I::System>()
-        // If these are aligned, we can use TypeId::of::<I::System>() here
-        let type_id = IntoSystem::into_system(system).type_id();
+        let type_id = system.system_type_id();
         self.updates.push(Update::SetBehavior(
             schedule.intern(),
             SystemIdentifier::Type(type_id),
@@ -280,7 +278,7 @@ impl Stepping {
         schedule: impl ScheduleLabel,
         system: impl IntoSystem<(), (), Marker>,
     ) -> &mut Self {
-        let type_id = IntoSystem::into_system(system).type_id();
+        let type_id = system.system_type_id();
         self.updates.push(Update::SetBehavior(
             schedule.intern(),
             SystemIdentifier::Type(type_id),
@@ -306,7 +304,7 @@ impl Stepping {
         schedule: impl ScheduleLabel,
         system: impl IntoSystem<(), (), Marker>,
     ) -> &mut Self {
-        let type_id = IntoSystem::into_system(system).type_id();
+        let type_id = system.system_type_id();
         self.updates.push(Update::SetBehavior(
             schedule.intern(),
             SystemIdentifier::Type(type_id),
@@ -353,7 +351,7 @@ impl Stepping {
         schedule: impl ScheduleLabel,
         system: impl IntoSystem<(), (), Marker>,
     ) -> &mut Self {
-        let type_id = IntoSystem::into_system(system).type_id();
+        let type_id = system.system_type_id();
         self.updates.push(Update::ClearBehavior(
             schedule.intern(),
             SystemIdentifier::Type(type_id),
@@ -617,7 +615,7 @@ struct ScheduleState {
 
     /// changes to system behavior that should be applied the next time
     /// [`ScheduleState::skipped_systems()`] is called
-    behavior_updates: HashMap<TypeId, Option<SystemBehavior>>,
+    behavior_updates: TypeIdMap<Option<SystemBehavior>>,
 
     /// This field contains the first steppable system in the schedule.
     first: Option<usize>,

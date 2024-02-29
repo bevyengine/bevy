@@ -1,3 +1,6 @@
+// FIXME(3492): remove once docs are ready
+#![allow(missing_docs)]
+
 mod error;
 mod font;
 mod font_atlas;
@@ -43,8 +46,7 @@ pub struct TextPlugin;
 #[derive(Resource)]
 pub struct TextSettings {
     /// Soft maximum number of font atlases supported in a [`FontAtlasSet`]. When this is exceeded,
-    /// a warning will be emitted a single time. The [`FontAtlasWarning`] resource ensures that
-    /// this only happens once.
+    /// a warning will be emitted a single time.
     pub soft_max_font_atlases: NonZeroUsize,
     /// Allows font size to be set dynamically exceeding the amount set in `soft_max_font_atlases`.
     /// Note each font size has to be generated which can have a strong performance impact.
@@ -58,13 +60,6 @@ impl Default for TextSettings {
             allow_dynamic_font_size: false,
         }
     }
-}
-
-/// This resource tracks whether or not a warning has been emitted due to the number
-/// of font atlases exceeding the [`TextSettings::soft_max_font_atlases`] setting.
-#[derive(Resource, Default)]
-pub struct FontAtlasWarning {
-    warned: bool,
 }
 
 /// Text is rendered for two different view projections, a [`Text2dBundle`] is rendered with a
@@ -87,7 +82,6 @@ impl Plugin for TextPlugin {
             .register_type::<BreakLineOn>()
             .init_asset_loader::<FontLoader>()
             .init_resource::<TextSettings>()
-            .init_resource::<FontAtlasWarning>()
             .init_resource::<FontAtlasSets>()
             .insert_resource(TextPipeline::default())
             .add_systems(

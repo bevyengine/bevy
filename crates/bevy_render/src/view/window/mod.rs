@@ -7,8 +7,8 @@ use crate::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
-use bevy_ecs::prelude::*;
-use bevy_utils::{default, tracing::debug, EntityHashMap, HashSet};
+use bevy_ecs::{entity::EntityHashMap, prelude::*};
+use bevy_utils::{default, tracing::debug, HashSet};
 use bevy_window::{
     CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosed,
 };
@@ -28,10 +28,6 @@ use screenshot::{
 
 use super::Msaa;
 
-/// Token to ensure a system runs on the main thread.
-#[derive(Resource, Default)]
-pub struct NonSendMarker;
-
 pub struct WindowRenderPlugin;
 
 impl Plugin for WindowRenderPlugin {
@@ -43,6 +39,12 @@ impl Plugin for WindowRenderPlugin {
                 .init_resource::<ExtractedWindows>()
                 .init_resource::<WindowSurfaces>()
                 .add_systems(ExtractSchedule, extract_windows)
+                .add_systems(
+                    Render,
+                    create_surfaces
+                        .run_if(need_new_surfaces)
+                        .before(prepare_windows),
+                )
                 .add_systems(Render, prepare_windows.in_set(RenderSet::ManageViews));
         }
     }
@@ -90,11 +92,11 @@ impl ExtractedWindow {
 #[derive(Default, Resource)]
 pub struct ExtractedWindows {
     pub primary: Option<Entity>,
-    pub windows: EntityHashMap<Entity, ExtractedWindow>,
+    pub windows: EntityHashMap<ExtractedWindow>,
 }
 
 impl Deref for ExtractedWindows {
-    type Target = EntityHashMap<Entity, ExtractedWindow>;
+    type Target = EntityHashMap<ExtractedWindow>;
 
     fn deref(&self) -> &Self::Target {
         &self.windows
@@ -201,7 +203,7 @@ struct SurfaceData {
 
 #[derive(Resource, Default)]
 pub struct WindowSurfaces {
-    surfaces: EntityHashMap<Entity, SurfaceData>,
+    surfaces: EntityHashMap<SurfaceData>,
     /// List of windows that we have already called the initial `configure_surface` for
     configured_windows: HashSet<Entity>,
 }
@@ -213,7 +215,7 @@ impl WindowSurfaces {
     }
 }
 
-/// Creates and (re)configures window surfaces, and obtains a swapchain texture for rendering.
+/// (re)configures window surfaces, and obtains a swapchain texture for rendering.
 ///
 /// NOTE: `get_current_texture` in `prepare_windows` can take a long time if the GPU workload is
 /// the performance bottleneck. This can be seen in profiles as multiple prepare-set systems all
@@ -236,55 +238,21 @@ impl WindowSurfaces {
 ///   later.
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_windows(
-    // By accessing a NonSend resource, we tell the scheduler to put this system on the main thread,
-    // which is necessary for some OS's
-    #[cfg(any(target_os = "macos", target_os = "ios"))] _marker: Option<NonSend<NonSendMarker>>,
     mut windows: ResMut<ExtractedWindows>,
     mut window_surfaces: ResMut<WindowSurfaces>,
     render_device: Res<RenderDevice>,
-    render_instance: Res<RenderInstance>,
     render_adapter: Res<RenderAdapter>,
     screenshot_pipeline: Res<ScreenshotToScreenPipeline>,
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>,
     mut msaa: ResMut<Msaa>,
+    #[cfg(target_os = "linux")] render_instance: Res<RenderInstance>,
 ) {
     for window in windows.windows.values_mut() {
         let window_surfaces = window_surfaces.deref_mut();
-        let surface_data = window_surfaces
-            .surfaces
-            .entry(window.entity)
-            .or_insert_with(|| {
-                let surface_target = SurfaceTargetUnsafe::RawHandle {
-                    raw_display_handle: window.handle.display_handle,
-                    raw_window_handle: window.handle.window_handle,
-                };
-                // SAFETY: The window handles in ExtractedWindows will always be valid objects to create surfaces on
-                let surface = unsafe {
-                    // NOTE: On some OSes this MUST be called from the main thread.
-                    // As of wgpu 0.15, only fallible if the given window is a HTML canvas and obtaining a WebGPU or WebGL2 context fails.
-                    render_instance
-                        .create_surface_unsafe(surface_target)
-                        .expect("Failed to create wgpu surface")
-                };
-                let caps = surface.get_capabilities(&render_adapter);
-                let formats = caps.formats;
-                // For future HDR output support, we'll need to request a format that supports HDR,
-                // but as of wgpu 0.15 that is not yet supported.
-                // Prefer sRGB formats for surfaces, but fall back to first available format if no sRGB formats are available.
-                let mut format = *formats.first().expect("No supported formats for surface");
-                for available_format in formats {
-                    // Rgba8UnormSrgb and Bgra8UnormSrgb and the only sRGB formats wgpu exposes that we can use for surfaces.
-                    if available_format == TextureFormat::Rgba8UnormSrgb
-                        || available_format == TextureFormat::Bgra8UnormSrgb
-                    {
-                        format = available_format;
-                        break;
-                    }
-                }
-
-                SurfaceData { surface, format }
-            });
+        let Some(surface_data) = window_surfaces.surfaces.get(&window.entity) else {
+            continue;
+        };
 
         let surface_configuration = wgpu::SurfaceConfiguration {
             format: surface_data.format,
@@ -449,5 +417,67 @@ pub fn prepare_windows(
                 pipeline_id,
             });
         }
+    }
+}
+
+pub fn need_new_surfaces(
+    windows: Res<ExtractedWindows>,
+    window_surfaces: Res<WindowSurfaces>,
+) -> bool {
+    for window in windows.windows.values() {
+        if !window_surfaces.configured_windows.contains(&window.entity) {
+            return true;
+        }
+    }
+    false
+}
+
+/// Creates window surfaces.
+pub fn create_surfaces(
+    // By accessing a NonSend resource, we tell the scheduler to put this system on the main thread,
+    // which is necessary for some OS's
+    #[cfg(any(target_os = "macos", target_os = "ios"))] _marker: Option<
+        NonSend<bevy_core::NonSendMarker>,
+    >,
+    windows: Res<ExtractedWindows>,
+    mut window_surfaces: ResMut<WindowSurfaces>,
+    render_instance: Res<RenderInstance>,
+    render_adapter: Res<RenderAdapter>,
+) {
+    for window in windows.windows.values() {
+        window_surfaces
+            .surfaces
+            .entry(window.entity)
+            .or_insert_with(|| {
+                let surface_target = SurfaceTargetUnsafe::RawHandle {
+                    raw_display_handle: window.handle.display_handle,
+                    raw_window_handle: window.handle.window_handle,
+                };
+                // SAFETY: The window handles in ExtractedWindows will always be valid objects to create surfaces on
+                let surface = unsafe {
+                    // NOTE: On some OSes this MUST be called from the main thread.
+                    // As of wgpu 0.15, only fallible if the given window is a HTML canvas and obtaining a WebGPU or WebGL2 context fails.
+                    render_instance
+                        .create_surface_unsafe(surface_target)
+                        .expect("Failed to create wgpu surface")
+                };
+                let caps = surface.get_capabilities(&render_adapter);
+                let formats = caps.formats;
+                // For future HDR output support, we'll need to request a format that supports HDR,
+                // but as of wgpu 0.15 that is not yet supported.
+                // Prefer sRGB formats for surfaces, but fall back to first available format if no sRGB formats are available.
+                let mut format = *formats.first().expect("No supported formats for surface");
+                for available_format in formats {
+                    // Rgba8UnormSrgb and Bgra8UnormSrgb and the only sRGB formats wgpu exposes that we can use for surfaces.
+                    if available_format == TextureFormat::Rgba8UnormSrgb
+                        || available_format == TextureFormat::Bgra8UnormSrgb
+                    {
+                        format = available_format;
+                        break;
+                    }
+                }
+
+                SurfaceData { surface, format }
+            });
     }
 }

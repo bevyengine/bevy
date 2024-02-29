@@ -3,7 +3,7 @@
 //! This module contains the [`Bundle`] trait and some other helper types.
 
 pub use bevy_ecs_macros::Bundle;
-use bevy_utils::{HashMap, HashSet};
+use bevy_utils::{HashMap, HashSet, TypeIdMap};
 
 use crate::{
     archetype::{
@@ -14,7 +14,6 @@ use crate::{
     entity::{Entities, Entity, EntityLocation},
     query::DebugCheckedUnwrap,
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
-    TypeIdMap,
 };
 use bevy_ptr::OwningPtr;
 use bevy_utils::all_tuples;
@@ -193,8 +192,9 @@ unsafe impl<C: Component> Bundle for C {
         F: for<'a> FnMut(&'a mut T) -> OwningPtr<'a>,
         Self: Sized,
     {
+        let ptr = func(ctx);
         // Safety: The id given in `component_ids` is for `Self`
-        func(ctx).read()
+        unsafe { ptr.read() }
     }
 }
 
@@ -225,9 +225,10 @@ macro_rules! tuple_impl {
             where
                 F: FnMut(&mut T) -> OwningPtr<'_>
             {
-                // Rust guarantees that tuple calls are evaluated 'left to right'.
+                #[allow(unused_unsafe)]
+                // SAFETY: Rust guarantees that tuple calls are evaluated 'left to right'.
                 // https://doc.rust-lang.org/reference/expressions.html#evaluation-order-of-operands
-                ($(<$name as Bundle>::from_components(ctx, func),)*)
+                unsafe { ($(<$name as Bundle>::from_components(ctx, func),)*) }
             }
         }
 
@@ -291,9 +292,9 @@ impl BundleInfo {
     ///
     /// # Safety
     ///
-    // Every ID in `component_ids` must be valid within the World that owns the BundleInfo,
-    // must have its storage initialized (i.e. columns created in tables, sparse set created),
-    // and must be in the same order as the source bundle type writes its components in.
+    /// Every ID in `component_ids` must be valid within the World that owns the `BundleInfo`,
+    /// must have its storage initialized (i.e. columns created in tables, sparse set created),
+    /// and must be in the same order as the source bundle type writes its components in.
     unsafe fn new(
         bundle_type_name: &'static str,
         components: &Components,
@@ -467,7 +468,8 @@ impl BundleInfo {
                         // the target table contains the component.
                         unsafe { table.get_column_mut(component_id).debug_checked_unwrap() };
                     // SAFETY: bundle_component is a valid index for this bundle
-                    match bundle_component_status.get_status(bundle_component) {
+                    let status = unsafe { bundle_component_status.get_status(bundle_component) };
+                    match status {
                         ComponentStatus::Added => {
                             column.initialize(table_row, component_ptr, change_tick);
                         }
@@ -703,9 +705,11 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
                         new_archetype
                     } else {
                         // SAFETY: the only two borrowed archetypes are above and we just did collision checks
-                        &mut *self
-                            .archetypes_ptr
-                            .add(swapped_location.archetype_id.index())
+                        unsafe {
+                            &mut *self
+                                .archetypes_ptr
+                                .add(swapped_location.archetype_id.index())
+                        }
                     };
 
                     self.entities.set(
@@ -788,7 +792,9 @@ impl<'a, 'b> BundleSpawner<'a, 'b> {
     pub unsafe fn spawn<T: Bundle>(&mut self, bundle: T) -> Entity {
         let entity = self.entities.alloc();
         // SAFETY: entity is allocated (but non-existent), `T` matches this BundleInfo's type
-        self.spawn_non_existent(entity, bundle);
+        unsafe {
+            self.spawn_non_existent(entity, bundle);
+        }
         entity
     }
 }
@@ -800,7 +806,7 @@ pub struct Bundles {
     /// Cache static [`BundleId`]
     bundle_ids: TypeIdMap<BundleId>,
     /// Cache dynamic [`BundleId`] with multiple components
-    dynamic_bundle_ids: HashMap<Vec<ComponentId>, (BundleId, Vec<StorageType>)>,
+    dynamic_bundle_ids: HashMap<Box<[ComponentId]>, (BundleId, Vec<StorageType>)>,
     /// Cache optimized dynamic [`BundleId`] with single component
     dynamic_component_bundle_ids: HashMap<ComponentId, (BundleId, StorageType)>,
 }
@@ -865,7 +871,7 @@ impl Bundles {
             .from_key(component_ids)
             .or_insert_with(|| {
                 (
-                    Vec::from(component_ids),
+                    component_ids.into(),
                     initialize_dynamic_bundle(bundle_infos, components, Vec::from(component_ids)),
                 )
             });

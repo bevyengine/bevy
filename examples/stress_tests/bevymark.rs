@@ -29,7 +29,7 @@ const HALF_BIRD_SIZE: f32 = BIRD_TEXTURE_SIZE as f32 * BIRD_SCALE * 0.5;
 #[derive(Resource)]
 struct BevyCounter {
     pub count: usize,
-    pub color: Color,
+    pub color: LegacyColor,
 }
 
 #[derive(Component)]
@@ -123,7 +123,7 @@ fn main() {
         .insert_resource(args)
         .insert_resource(BevyCounter {
             count: 0,
-            color: Color::WHITE,
+            color: LegacyColor::WHITE,
         })
         .add_systems(Startup, setup)
         .add_systems(FixedUpdate, scheduled_spawner)
@@ -218,7 +218,7 @@ fn setup(
         textures,
         materials,
         quad: meshes
-            .add(shape::Quad::new(Vec2::splat(BIRD_TEXTURE_SIZE as f32)))
+            .add(Rectangle::from_size(Vec2::splat(BIRD_TEXTURE_SIZE as f32)))
             .into(),
         color_rng: StdRng::seed_from_u64(42),
         material_rng: StdRng::seed_from_u64(42),
@@ -246,20 +246,20 @@ fn setup(
                 ..default()
             },
             z_index: ZIndex::Global(i32::MAX),
-            background_color: Color::BLACK.with_a(0.75).into(),
+            background_color: LegacyColor::BLACK.with_a(0.75).into(),
             ..default()
         })
         .with_children(|c| {
             c.spawn((
                 TextBundle::from_sections([
-                    text_section(Color::GREEN, "Bird Count: "),
-                    text_section(Color::CYAN, ""),
-                    text_section(Color::GREEN, "\nFPS (raw): "),
-                    text_section(Color::CYAN, ""),
-                    text_section(Color::GREEN, "\nFPS (SMA): "),
-                    text_section(Color::CYAN, ""),
-                    text_section(Color::GREEN, "\nFPS (EMA): "),
-                    text_section(Color::CYAN, ""),
+                    text_section(LegacyColor::GREEN, "Bird Count: "),
+                    text_section(LegacyColor::CYAN, ""),
+                    text_section(LegacyColor::GREEN, "\nFPS (raw): "),
+                    text_section(LegacyColor::CYAN, ""),
+                    text_section(LegacyColor::GREEN, "\nFPS (SMA): "),
+                    text_section(LegacyColor::CYAN, ""),
+                    text_section(LegacyColor::GREEN, "\nFPS (EMA): "),
+                    text_section(LegacyColor::CYAN, ""),
                 ]),
                 StatsText,
             ));
@@ -309,7 +309,7 @@ fn mouse_handler(
     let window = windows.single();
 
     if mouse_button_input.just_released(MouseButton::Left) {
-        counter.color = Color::rgb_linear(rng.gen(), rng.gen(), rng.gen());
+        counter.color = LegacyColor::rgb_linear(rng.gen(), rng.gen(), rng.gen());
     }
 
     if mouse_button_input.pressed(MouseButton::Left) {
@@ -395,7 +395,7 @@ fn spawn_birds(
                     );
 
                     let color = if args.vary_per_instance {
-                        Color::rgb_linear(
+                        LegacyColor::rgb_linear(
                             bird_resources.color_rng.gen(),
                             bird_resources.color_rng.gen(),
                             bird_resources.color_rng.gen(),
@@ -463,7 +463,7 @@ fn spawn_birds(
     }
 
     counter.count += spawn_count;
-    counter.color = Color::rgb_linear(
+    counter.color = LegacyColor::rgb_linear(
         bird_resources.color_rng.gen(),
         bird_resources.color_rng.gen(),
         bird_resources.color_rng.gen(),
@@ -571,7 +571,7 @@ fn init_materials(
 
     let mut materials = Vec::with_capacity(capacity);
     materials.push(assets.add(ColorMaterial {
-        color: Color::WHITE,
+        color: LegacyColor::WHITE,
         texture: textures.first().cloned(),
     }));
 
@@ -580,7 +580,7 @@ fn init_materials(
     materials.extend(
         std::iter::repeat_with(|| {
             assets.add(ColorMaterial {
-                color: Color::rgb_u8(color_rng.gen(), color_rng.gen(), color_rng.gen()),
+                color: LegacyColor::rgb_u8(color_rng.gen(), color_rng.gen(), color_rng.gen()),
                 texture: textures.choose(&mut texture_rng).cloned(),
             })
         })

@@ -2,7 +2,6 @@
 
 use bevy::{
     core_pipeline::tonemapping::Tonemapping,
-    math::vec2,
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
     reflect::TypePath,
@@ -67,7 +66,7 @@ fn setup(
             ..default()
         },
         FogSettings {
-            color: Color::rgba_u8(43, 44, 47, 255),
+            color: LegacyColor::rgba_u8(43, 44, 47, 255),
             falloff: FogFalloff::Linear {
                 start: 1.0,
                 end: 8.0,
@@ -77,7 +76,7 @@ fn setup(
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
-            intensity: 150.0,
+            intensity: 2000.0,
         },
     ));
 
@@ -109,8 +108,8 @@ fn setup_basic_scene(
     // plane
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(shape::Plane::from_size(50.0)),
-            material: materials.add(Color::rgb(0.1, 0.2, 0.1)),
+            mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
+            material: materials.add(LegacyColor::rgb(0.1, 0.2, 0.1)),
             ..default()
         },
         SceneNumber(1),
@@ -122,7 +121,7 @@ fn setup_basic_scene(
         ..default()
     });
 
-    let cube_mesh = meshes.add(shape::Cube { size: 0.25 });
+    let cube_mesh = meshes.add(Cuboid::new(0.25, 0.25, 0.25));
     for i in 0..5 {
         commands.spawn((
             PbrBundle {
@@ -136,30 +135,27 @@ fn setup_basic_scene(
     }
 
     // spheres
-    let sphere_mesh = meshes.add(shape::UVSphere {
-        radius: 0.125,
-        ..default()
-    });
+    let sphere_mesh = meshes.add(Sphere::new(0.125).mesh().uv(32, 18));
     for i in 0..6 {
         let j = i % 3;
         let s_val = if i < 3 { 0.0 } else { 0.2 };
         let material = if j == 0 {
             materials.add(StandardMaterial {
-                base_color: Color::rgb(s_val, s_val, 1.0),
+                base_color: LegacyColor::rgb(s_val, s_val, 1.0),
                 perceptual_roughness: 0.089,
                 metallic: 0.0,
                 ..default()
             })
         } else if j == 1 {
             materials.add(StandardMaterial {
-                base_color: Color::rgb(s_val, 1.0, s_val),
+                base_color: LegacyColor::rgb(s_val, 1.0, s_val),
                 perceptual_roughness: 0.089,
                 metallic: 0.0,
                 ..default()
             })
         } else {
             materials.add(StandardMaterial {
-                base_color: Color::rgb(1.0, s_val, s_val),
+                base_color: LegacyColor::rgb(1.0, s_val, s_val),
                 perceptual_roughness: 0.089,
                 metallic: 0.0,
                 ..default()
@@ -195,8 +191,8 @@ fn setup_basic_scene(
     commands.spawn((
         DirectionalLightBundle {
             directional_light: DirectionalLight {
+                illuminance: 15_000.,
                 shadows_enabled: true,
-                illuminance: 3000.0,
                 ..default()
             },
             transform: Transform::from_rotation(Quat::from_euler(
@@ -228,10 +224,7 @@ fn setup_color_gradient_scene(
 
     commands.spawn((
         MaterialMeshBundle {
-            mesh: meshes.add(shape::Quad {
-                size: vec2(1.0, 1.0) * 0.7,
-                flip: false,
-            }),
+            mesh: meshes.add(Rectangle::new(0.7, 0.7)),
             material: materials.add(ColorGradientMaterial {}),
             transform,
             visibility: Visibility::Hidden,
@@ -253,10 +246,7 @@ fn setup_image_viewer_scene(
     // exr/hdr viewer (exr requires enabling bevy feature)
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(shape::Quad {
-                size: vec2(1.0, 1.0),
-                flip: false,
-            }),
+            mesh: meshes.add(Rectangle::default()),
             material: materials.add(StandardMaterial {
                 base_color_texture: None,
                 unlit: true,
@@ -276,7 +266,7 @@ fn setup_image_viewer_scene(
                 "Drag and drop an HDR or EXR file",
                 TextStyle {
                     font_size: 36.0,
-                    color: Color::BLACK,
+                    color: LegacyColor::BLACK,
                     ..default()
                 },
             )
@@ -353,7 +343,7 @@ fn resize_image(
 
             let size = image_changed.size_f32().normalize_or_zero() * 1.4;
             // Resize Mesh
-            let quad = Mesh::from(shape::Quad::new(size));
+            let quad = Mesh::from(Rectangle::from_size(size));
             meshes.insert(mesh_h, quad);
         }
     }
@@ -704,7 +694,7 @@ impl Material for ColorGradientMaterial {
 }
 
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
-pub struct ColorGradientMaterial {}
+struct ColorGradientMaterial {}
 
 #[derive(Resource)]
 struct CameraTransform(Transform);

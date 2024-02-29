@@ -1,8 +1,12 @@
 #define_import_path bevy_pbr::pbr_types
 
+// Since this is a hot path, try to keep the alignment and size of the struct members in mind.
+// You can find the alignment and sizes at <https://www.w3.org/TR/WGSL/#alignment-and-size>.
 struct StandardMaterial {
     base_color: vec4<f32>,
     emissive: vec4<f32>,
+    attenuation_color: vec4<f32>,
+    uv_transform: mat3x3<f32>,
     perceptual_roughness: f32,
     metallic: f32,
     reflectance: f32,
@@ -11,7 +15,6 @@ struct StandardMaterial {
     thickness: f32,
     ior: f32,
     attenuation_distance: f32,
-    attenuation_color: vec4<f32>,
     // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
     flags: u32,
     alpha_cutoff: f32,
@@ -74,6 +77,8 @@ fn standard_material_new() -> StandardMaterial {
     material.max_parallax_layer_count = 16.0;
     material.max_relief_mapping_search_steps = 5u;
     material.deferred_lighting_pass_id = 1u;
+    // scale 1, translation 0, rotation 0
+    material.uv_transform = mat3x3<f32>(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0);
 
     return material;
 }

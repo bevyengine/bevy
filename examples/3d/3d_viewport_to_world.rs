@@ -1,6 +1,6 @@
 //! This example demonstrates how to use the `Camera::viewport_to_world` method.
 
-use bevy::math::primitives::Direction3d;
+use bevy::math::Dir3;
 use bevy::prelude::*;
 
 fn main() {
@@ -39,9 +39,9 @@ fn draw_cursor(
     // Draw a circle just above the ground plane at that position.
     gizmos.circle(
         point + ground.up() * 0.01,
-        Direction3d::new_unchecked(ground.up()), // Up vector is already normalized.
+        Dir3::new_unchecked(ground.up()), // Up vector is already normalized.
         0.2,
-        Color::WHITE,
+        LegacyColor::WHITE,
     );
 }
 
@@ -56,8 +56,8 @@ fn setup(
     // plane
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(shape::Plane::from_size(20.)),
-            material: materials.add(Color::rgb(0.3, 0.5, 0.3)),
+            mesh: meshes.add(Plane3d::default().mesh().size(20., 20.)),
+            material: materials.add(LegacyColor::rgb(0.3, 0.5, 0.3)),
             ..default()
         },
         Ground,
@@ -66,10 +66,6 @@ fn setup(
     // light
     commands.spawn(DirectionalLightBundle {
         transform: Transform::from_translation(Vec3::ONE).looking_at(Vec3::ZERO, Vec3::Y),
-        directional_light: DirectionalLight {
-            illuminance: 2000.0,
-            ..default()
-        },
         ..default()
     });
 

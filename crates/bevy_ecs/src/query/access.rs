@@ -59,6 +59,8 @@ pub struct Access<T: SparseSetIndex> {
     /// Is `true` if this has mutable access to all elements in the collection.
     /// If this is true, then `reads_all` must also be true.
     writes_all: bool,
+    // Elements that are not accessed, but whose presence in an archetype affect query results.
+    archetypal: FixedBitSet,
     marker: PhantomData<T>,
 }
 
@@ -90,6 +92,7 @@ impl<T: SparseSetIndex> Access<T> {
             writes_all: false,
             reads_and_writes: FixedBitSet::new(),
             writes: FixedBitSet::new(),
+            archetypal: FixedBitSet::new(),
             marker: PhantomData,
         }
     }
@@ -116,6 +119,19 @@ impl<T: SparseSetIndex> Access<T> {
         self.writes.insert(index.sparse_set_index());
     }
 
+    /// Adds an archetypal (indirect) access to the element given by `index`.
+    ///
+    /// This is for elements whose values are not accessed (and thus will never cause conflicts),
+    /// but whose presence in an archetype may affect query results.
+    ///
+    /// Currently, this is only used for [`Has<T>`].
+    ///
+    /// [`Has<T>`]: crate::query::Has
+    pub fn add_archetypal(&mut self, index: T) {
+        self.archetypal.grow(index.sparse_set_index() + 1);
+        self.archetypal.insert(index.sparse_set_index());
+    }
+
     /// Returns `true` if this can access the element given by `index`.
     pub fn has_read(&self, index: T) -> bool {
         self.reads_all || self.reads_and_writes.contains(index.sparse_set_index())
@@ -134,6 +150,18 @@ impl<T: SparseSetIndex> Access<T> {
     /// Returns `true` if this accesses anything mutably.
     pub fn has_any_write(&self) -> bool {
         self.writes_all || !self.writes.is_clear()
+    }
+
+    /// Returns true if this has an archetypal (indirect) access to the element given by `index`.
+    ///
+    /// This is an element whose value is not accessed (and thus will never cause conflicts),
+    /// but whose presence in an archetype may affect query results.
+    ///
+    /// Currently, this is only used for [`Has<T>`].
+    ///
+    /// [`Has<T>`]: crate::query::Has
+    pub fn has_archetypal(&self, index: T) -> bool {
+        self.archetypal.contains(index.sparse_set_index())
     }
 
     /// Sets this as having access to all indexed elements (i.e. `&World`).
@@ -271,6 +299,18 @@ impl<T: SparseSetIndex> Access<T> {
     /// Returns the indices of the elements this has exclusive access to.
     pub fn writes(&self) -> impl Iterator<Item = T> + '_ {
         self.writes.ones().map(T::get_sparse_set_index)
+    }
+
+    /// Returns the indices of the elements that this has an archetypal access to.
+    ///
+    /// These are elements whose values are not accessed (and thus will never cause conflicts),
+    /// but whose presence in an archetype may affect query results.
+    ///
+    /// Currently, this is only used for [`Has<T>`].
+    ///
+    /// [`Has<T>`]: crate::query::Has
+    pub fn archetypal(&self) -> impl Iterator<Item = T> + '_ {
+        self.archetypal.ones().map(T::get_sparse_set_index)
     }
 }
 
@@ -468,6 +508,20 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     /// at least all the values in `self`.
     pub fn is_subset(&self, other: &FilteredAccess<T>) -> bool {
         self.required.is_subset(&other.required) && self.access().is_subset(other.access())
+    }
+
+    /// Returns the indices of the elements that this access filters for.
+    pub fn with_filters(&self) -> impl Iterator<Item = T> + '_ {
+        self.filter_sets
+            .iter()
+            .flat_map(|f| f.with.ones().map(T::get_sparse_set_index))
+    }
+
+    /// Returns the indices of the elements that this access filters out.
+    pub fn without_filters(&self) -> impl Iterator<Item = T> + '_ {
+        self.filter_sets
+            .iter()
+            .flat_map(|f| f.without.ones().map(T::get_sparse_set_index))
     }
 }
 

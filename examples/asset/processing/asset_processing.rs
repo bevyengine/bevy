@@ -1,4 +1,4 @@
-//! This example illustrates how to define custom `AssetLoader`s, `AssetTransfomers`, and `AssetSaver`s, how to configure them, and how to register asset processors.
+//! This example illustrates how to define custom `AssetLoader`s, `AssetTransformer`s, and `AssetSaver`s, how to configure them, and how to register asset processors.
 
 use bevy::{
     asset::{
@@ -107,14 +107,14 @@ impl AssetLoader for TextLoader {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct CoolTextRon {
+struct CoolTextRon {
     text: String,
     dependencies: Vec<String>,
     embedded_dependencies: Vec<String>,
 }
 
 #[derive(Asset, TypePath, Debug)]
-pub struct CoolText {
+struct CoolText {
     text: String,
     #[allow(unused)]
     dependencies: Vec<Handle<Text>>,
@@ -174,7 +174,7 @@ impl AssetLoader for CoolTextLoader {
 struct CoolTextTransformer;
 
 #[derive(Default, Serialize, Deserialize)]
-pub struct CoolTextTransformerSettings {
+struct CoolTextTransformerSettings {
     appended: String,
 }
 

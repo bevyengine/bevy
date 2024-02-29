@@ -113,7 +113,7 @@ fn setup(
     let images = images.into_inner();
     let material_assets = material_assets.into_inner();
 
-    let mesh = meshes.add(shape::Cube { size: 1.0 });
+    let mesh = meshes.add(Cuboid::default());
 
     let material_textures = init_textures(args, images);
     let materials = init_materials(args, &material_textures, material_assets);
@@ -190,7 +190,7 @@ fn setup(
         }
     }
 
-    commands.spawn(DirectionalLightBundle { ..default() });
+    commands.spawn(DirectionalLightBundle::default());
 }
 
 fn init_textures(args: &Args, images: &mut Assets<Image>) -> Vec<Handle<Image>> {
@@ -233,7 +233,7 @@ fn init_materials(
 
     let mut materials = Vec::with_capacity(capacity);
     materials.push(assets.add(StandardMaterial {
-        base_color: Color::WHITE,
+        base_color: LegacyColor::WHITE,
         base_color_texture: textures.first().cloned(),
         ..default()
     }));
@@ -243,7 +243,7 @@ fn init_materials(
     materials.extend(
         std::iter::repeat_with(|| {
             assets.add(StandardMaterial {
-                base_color: Color::rgb_u8(color_rng.gen(), color_rng.gen(), color_rng.gen()),
+                base_color: LegacyColor::rgb_u8(color_rng.gen(), color_rng.gen(), color_rng.gen()),
                 base_color_texture: textures.choose(&mut texture_rng).cloned(),
                 ..default()
             })

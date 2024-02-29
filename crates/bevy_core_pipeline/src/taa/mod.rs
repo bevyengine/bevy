@@ -1,5 +1,5 @@
 use crate::{
-    core_3d::graph::{Labels3d, SubGraph3d},
+    core_3d::graph::{Core3d, Node3d},
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
     prelude::Camera3d,
     prepass::{DepthPrepass, MotionVectorPrepass, ViewPrepassTextures},
@@ -64,17 +64,14 @@ impl Plugin for TemporalAntiAliasPlugin {
                     prepare_taa_history_textures.in_set(RenderSet::PrepareResources),
                 ),
             )
-            .add_render_graph_node::<ViewNodeRunner<TemporalAntiAliasNode>>(
-                SubGraph3d,
-                Labels3d::Taa,
-            )
+            .add_render_graph_node::<ViewNodeRunner<TemporalAntiAliasNode>>(Core3d, Node3d::Taa)
             .add_render_graph_edges(
-                SubGraph3d,
+                Core3d,
                 (
-                    Labels3d::EndMainPass,
-                    Labels3d::Taa,
-                    Labels3d::Bloom,
-                    Labels3d::Tonemapping,
+                    Node3d::EndMainPass,
+                    Node3d::Taa,
+                    Node3d::Bloom,
+                    Node3d::Tonemapping,
                 ),
             );
     }

@@ -1,3 +1,5 @@
+//! A 3d Scene with a button and playing sound.
+
 use bevy::{
     input::touch::TouchPhase,
     prelude::*,
@@ -62,27 +64,21 @@ fn setup_scene(
 ) {
     // plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(5.0)),
-        material: materials.add(Color::rgb(0.1, 0.2, 0.1)),
+        mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
+        material: materials.add(LegacyColor::rgb(0.1, 0.2, 0.1)),
         ..default()
     });
     // cube
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Cube { size: 1.0 }),
-        material: materials.add(Color::rgb(0.5, 0.4, 0.3)),
+        mesh: meshes.add(Cuboid::default()),
+        material: materials.add(LegacyColor::rgb(0.5, 0.4, 0.3)),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..default()
     });
     // sphere
     commands.spawn(PbrBundle {
-        mesh: meshes.add(
-            Mesh::try_from(shape::Icosphere {
-                subdivisions: 4,
-                radius: 0.5,
-            })
-            .unwrap(),
-        ),
-        material: materials.add(Color::rgb(0.1, 0.4, 0.8)),
+        mesh: meshes.add(Sphere::new(0.5).mesh().ico(4).unwrap()),
+        material: materials.add(LegacyColor::rgb(0.1, 0.4, 0.8)),
         transform: Transform::from_xyz(1.5, 1.5, 1.5),
         ..default()
     });
@@ -125,7 +121,7 @@ fn setup_scene(
                     "Test Button",
                     TextStyle {
                         font_size: 30.0,
-                        color: Color::BLACK,
+                        color: LegacyColor::BLACK,
                         ..default()
                     },
                 )
@@ -143,13 +139,13 @@ fn button_handler(
     for (interaction, mut color) in &mut interaction_query {
         match *interaction {
             Interaction::Pressed => {
-                *color = Color::BLUE.into();
+                *color = LegacyColor::BLUE.into();
             }
             Interaction::Hovered => {
-                *color = Color::GRAY.into();
+                *color = LegacyColor::GRAY.into();
             }
             Interaction::None => {
-                *color = Color::WHITE.into();
+                *color = LegacyColor::WHITE.into();
             }
         }
     }

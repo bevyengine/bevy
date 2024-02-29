@@ -36,7 +36,7 @@ fn setup(
         }),
         transform: Transform::from_xyz(-1.5, 0.0, 0.0),
         material: materials.add(LineMaterial {
-            color: Color::GREEN,
+            color: LegacyColor::GREEN,
         }),
         ..default()
     });
@@ -51,7 +51,9 @@ fn setup(
             ],
         }),
         transform: Transform::from_xyz(0.5, 0.0, 0.0),
-        material: materials.add(LineMaterial { color: Color::BLUE }),
+        material: materials.add(LineMaterial {
+            color: LegacyColor::BLUE,
+        }),
         ..default()
     });
 
@@ -65,7 +67,7 @@ fn setup(
 #[derive(Asset, TypePath, Default, AsBindGroup, Debug, Clone)]
 struct LineMaterial {
     #[uniform(0)]
-    color: Color,
+    color: LegacyColor,
 }
 
 impl Material for LineMaterial {
@@ -87,8 +89,8 @@ impl Material for LineMaterial {
 
 /// A list of lines with a start and end position
 #[derive(Debug, Clone)]
-pub struct LineList {
-    pub lines: Vec<(Vec3, Vec3)>,
+struct LineList {
+    lines: Vec<(Vec3, Vec3)>,
 }
 
 impl From<LineList> for Mesh {
@@ -108,8 +110,8 @@ impl From<LineList> for Mesh {
 
 /// A list of points that will have a line drawn between each consecutive points
 #[derive(Debug, Clone)]
-pub struct LineStrip {
-    pub points: Vec<Vec3>,
+struct LineStrip {
+    points: Vec<Vec3>,
 }
 
 impl From<LineStrip> for Mesh {

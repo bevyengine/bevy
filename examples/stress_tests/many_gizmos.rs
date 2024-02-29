@@ -1,3 +1,5 @@
+//! Test rendering of many gizmos.
+
 use std::f32::consts::TAU;
 
 use bevy::{
@@ -62,15 +64,15 @@ fn input(mut config: ResMut<Config>, input: Res<ButtonInput<KeyCode>>) {
 fn system(config: Res<Config>, time: Res<Time>, mut draw: Gizmos) {
     if !config.fancy {
         for _ in 0..(config.line_count / SYSTEM_COUNT) {
-            draw.line(Vec3::NEG_Y, Vec3::Y, Color::BLACK);
+            draw.line(Vec3::NEG_Y, Vec3::Y, LegacyColor::BLACK);
         }
     } else {
         for i in 0..(config.line_count / SYSTEM_COUNT) {
             let angle = i as f32 / (config.line_count / SYSTEM_COUNT) as f32 * TAU;
 
             let vector = Vec2::from(angle.sin_cos()).extend(time.elapsed_seconds().sin());
-            let start_color = Color::rgb(vector.x, vector.z, 0.5);
-            let end_color = Color::rgb(-vector.z, -vector.y, 0.5);
+            let start_color = LegacyColor::rgb(vector.x, vector.z, 0.5);
+            let end_color = LegacyColor::rgb(-vector.z, -vector.y, 0.5);
 
             draw.line_gradient(vector, -vector, start_color, end_color);
         }

@@ -1,4 +1,4 @@
-use crate::container_attributes::ReflectTraits;
+use crate::container_attributes::ContainerAttributes;
 use crate::derive_data::ReflectTraitToImpl;
 use crate::type_path::CustomPathDef;
 use syn::parse::ParseStream;
@@ -29,7 +29,7 @@ pub(crate) struct ReflectValueDef {
     pub attrs: Vec<Attribute>,
     pub type_path: Path,
     pub generics: Generics,
-    pub traits: Option<ReflectTraits>,
+    pub traits: Option<ContainerAttributes>,
     pub custom_path: Option<CustomPathDef>,
 }
 
@@ -55,7 +55,7 @@ impl ReflectValueDef {
         if input.peek(Paren) {
             let content;
             parenthesized!(content in input);
-            traits = Some(ReflectTraits::parse(&content, trait_)?);
+            traits = Some(ContainerAttributes::parse_terminated(&content, trait_)?);
         }
         Ok(ReflectValueDef {
             attrs,
