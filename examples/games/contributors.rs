@@ -1,6 +1,7 @@
 //! This example displays each contributor to the bevy source code as a bouncing bevy-ball.
 
 use bevy::{
+    math::bounding::Aabb2d,
     prelude::*,
     utils::{thiserror, HashMap},
 };
@@ -17,19 +18,11 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .init_resource::<SelectionTimer>()
         .add_systems(Startup, (setup_contributor_selection, setup))
-        .add_systems(
-            Update,
-            (
-                velocity_system,
-                move_system,
-                collision_system,
-                select_system,
-            ),
-        )
+        .add_systems(Update, (gravity, movement, collisions, selection))
         .run();
 }
 
-// Store contributors in a collection that preserves the uniqueness
+// Store contributors with their commit count in a collection that preserves the uniqueness
 type Contributors = HashMap<String, usize>;
 
 #[derive(Resource)]
@@ -78,7 +71,8 @@ const CONTRIBUTORS_LIST: &[&str] = &["Carter Anderson", "And Many More"];
 
 fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Load contributors from the git history log or use default values from
-    // the constant array. Contributors must be unique, so they are stored in a HashSet
+    // the constant array. Contributors are stored in a HashMap with their
+    // commit count.
     let contribs = contributors().unwrap_or_else(|_| {
         CONTRIBUTORS_LIST
             .iter()
@@ -95,22 +89,21 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
 
     let mut rng = rand::thread_rng();
 
-    for (name, num) in contribs {
-        let pos = (rng.gen_range(-400.0..400.0), rng.gen_range(0.0..400.0));
+    for (name, num_commits) in contribs {
+        let transform =
+            Transform::from_xyz(rng.gen_range(-400.0..400.0), rng.gen_range(0.0..400.0), 0.0);
         let dir = rng.gen_range(-1.0..1.0);
         let velocity = Vec3::new(dir * 500.0, 0.0, 0.0);
-        let hue = str_to_hue(&name);
+        let hue = name_to_hue(&name);
 
-        // some sprites should be flipped
-        let flipped = rng.gen_bool(0.5);
-
-        let transform = Transform::from_xyz(pos.0, pos.1, 0.0);
+        // Some sprites should be flipped for variety
+        let flipped = rng.gen();
 
         let entity = commands
             .spawn((
                 Contributor {
                     name,
-                    num_commits: num,
+                    num_commits,
                     hue,
                 },
                 Velocity {
@@ -119,7 +112,7 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
                 },
                 SpriteBundle {
                     sprite: Sprite {
-                        custom_size: Some(Vec2::new(1.0, 1.0) * SPRITE_SIZE),
+                        custom_size: Some(Vec2::splat(SPRITE_SIZE)),
                         color: DESELECTED.with_hue(hue).into(),
                         flip_x: flipped,
                         ..default()
@@ -167,7 +160,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 /// Finds the next contributor to display and selects the entity
-fn select_system(
+fn selection(
     mut timer: ResMut<SelectionTimer>,
     mut contributor_selection: ResMut<ContributorSelection>,
     mut text_query: Query<&mut Text, With<ContributorDisplay>>,
@@ -178,10 +171,14 @@ fn select_system(
         return;
     }
 
+    // Deselect the previous contributor
+
     let entity = contributor_selection.order[contributor_selection.idx];
     if let Ok((contributor, mut sprite, mut transform)) = query.get_mut(entity) {
         deselect(&mut sprite, contributor, &mut transform);
     }
+
+    // Select the next contributor
 
     if (contributor_selection.idx + 1) < contributor_selection.order.len() {
         contributor_selection.idx += 1;
@@ -218,7 +215,7 @@ fn select(
     text.sections[0].style.color = sprite.color;
 }
 
-/// Change the modulate color to the "deselected" color and push
+/// Change the tint color to the "deselected" color and push
 /// the object to the back.
 fn deselect(sprite: &mut Sprite, contributor: &Contributor, transform: &mut Transform) {
     sprite.color = DESELECTED.with_hue(contributor.hue).into();
@@ -226,8 +223,8 @@ fn deselect(sprite: &mut Sprite, contributor: &Contributor, transform: &mut Tran
     transform.translation.z = 0.0;
 }
 
-/// Applies gravity to all entities with velocity
-fn velocity_system(time: Res<Time>, mut velocity_query: Query<&mut Velocity>) {
+/// Applies gravity to all entities with a velocity.
+fn gravity(time: Res<Time>, mut velocity_query: Query<&mut Velocity>) {
     let delta = time.delta_seconds();
 
     for mut velocity in &mut velocity_query {
@@ -235,56 +232,53 @@ fn velocity_system(time: Res<Time>, mut velocity_query: Query<&mut Velocity>) {
     }
 }
 
-/// Checks for collisions of contributor-birds.
+/// Checks for collisions of contributor-birbs.
 ///
 /// On collision with left-or-right wall it resets the horizontal
 /// velocity. On collision with the ground it applies an upwards
 /// force.
-fn collision_system(
+fn collisions(
     windows: Query<&Window>,
     mut query: Query<(&mut Velocity, &mut Transform), With<Contributor>>,
 ) {
     let window = windows.single();
+    let window_size = Vec2::new(window.width(), window.height());
 
-    let ceiling = window.height() / 2.;
-    let ground = -window.height() / 2.;
-
-    let wall_left = -window.width() / 2.;
-    let wall_right = window.width() / 2.;
+    let collision_area = Aabb2d::new(Vec2::ZERO, (window_size - SPRITE_SIZE) / 2.);
 
     // The maximum height the birbs should try to reach is one birb below the top of the window.
-    let max_bounce_height = (window.height() - SPRITE_SIZE * 2.0).max(0.0);
+    let max_bounce_height = (window_size.y - SPRITE_SIZE * 2.0).max(0.0);
+    let min_bounce_height = max_bounce_height * 0.4;
 
     let mut rng = rand::thread_rng();
 
     for (mut velocity, mut transform) in &mut query {
-        let left = transform.translation.x - SPRITE_SIZE / 2.0;
-        let right = transform.translation.x + SPRITE_SIZE / 2.0;
-        let top = transform.translation.y + SPRITE_SIZE / 2.0;
-        let bottom = transform.translation.y - SPRITE_SIZE / 2.0;
-
-        // clamp the translation to not go out of the bounds
-        if bottom < ground {
-            transform.translation.y = ground + SPRITE_SIZE / 2.0;
+        // Clamp the translation to not go out of the bounds
+        if transform.translation.y < collision_area.min.y {
+            transform.translation.y = collision_area.min.y;
 
             // How high this birb will bounce.
-            let bounce_height = rng.gen_range((max_bounce_height * 0.4)..=max_bounce_height);
+            let bounce_height = rng.gen_range(min_bounce_height..=max_bounce_height);
 
             // Apply the velocity that would bounce the birb up to bounce_height.
             velocity.translation.y = (bounce_height * GRAVITY * 2.).sqrt();
         }
-        if top > ceiling {
-            transform.translation.y = ceiling - SPRITE_SIZE / 2.0;
+
+        // Birbs might hit the ceiling if the window is resized.
+        // If they do, bounce them.
+        if transform.translation.y > collision_area.max.y {
+            transform.translation.y = collision_area.max.y;
             velocity.translation.y *= -1.0;
         }
-        // on side walls flip the horizontal velocity
-        if left < wall_left {
-            transform.translation.x = wall_left + SPRITE_SIZE / 2.0;
+
+        // On side walls flip the horizontal velocity
+        if transform.translation.x < collision_area.min.x {
+            transform.translation.x = collision_area.min.x;
             velocity.translation.x *= -1.0;
             velocity.rotation *= -1.0;
         }
-        if right > wall_right {
-            transform.translation.x = wall_right - SPRITE_SIZE / 2.0;
+        if transform.translation.x > collision_area.max.x {
+            transform.translation.x = collision_area.max.x;
             velocity.translation.x *= -1.0;
             velocity.rotation *= -1.0;
         }
@@ -292,7 +286,7 @@ fn collision_system(
 }
 
 /// Apply velocity to positions and rotations.
-fn move_system(time: Res<Time>, mut query: Query<(&Velocity, &mut Transform)>) {
+fn movement(time: Res<Time>, mut query: Query<(&Velocity, &mut Transform)>) {
     let delta = time.delta_seconds();
 
     for (velocity, mut transform) in &mut query {
@@ -311,9 +305,8 @@ enum LoadContributorsError {
     Stdout,
 }
 
-/// Get the names of all contributors from the git log.
+/// Get the names and commit counts of all contributors from the git log.
 ///
-/// The names are deduplicated.
 /// This function only works if `git` is installed and
 /// the program is run through `cargo`.
 fn contributors() -> Result<Contributors, LoadContributorsError> {
@@ -327,10 +320,12 @@ fn contributors() -> Result<Contributors, LoadContributorsError> {
 
     let stdout = cmd.stdout.take().ok_or(LoadContributorsError::Stdout)?;
 
+    // Take the list of commit author names and collect them into a HashMap,
+    // keeping a count of how many commits they authored.
     let contributors = BufReader::new(stdout).lines().map_while(Result::ok).fold(
         HashMap::new(),
         |mut acc, word| {
-            *acc.entry(word.to_string()).or_insert(0) += 1;
+            *acc.entry(word).or_insert(0) += 1;
             acc
         },
     );
@@ -338,7 +333,8 @@ fn contributors() -> Result<Contributors, LoadContributorsError> {
     Ok(contributors)
 }
 
-fn str_to_hue(s: &str) -> f32 {
+/// Give each unique contributor name a particular hue that is stable between runs.
+fn name_to_hue(s: &str) -> f32 {
     let mut hasher = DefaultHasher::new();
     s.hash(&mut hasher);
     hasher.finish() as f32 / u64::MAX as f32 * 360.
