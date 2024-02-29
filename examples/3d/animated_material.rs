@@ -49,12 +49,11 @@ fn animate_materials(
 ) {
     for (i, material_handle) in material_handles.iter().enumerate() {
         if let Some(material) = materials.get_mut(material_handle) {
-            let color = Color::hsl(
+            material.base_color = Color::hsl(
                 ((i as f32 * 2.345 + time.elapsed_seconds_wrapped()) * 100.0) % 360.0,
                 1.0,
                 0.5,
             );
-            material.base_color = color.into();
         }
     }
 }

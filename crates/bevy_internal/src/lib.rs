@@ -183,7 +183,7 @@ pub mod gizmos {
     //! # use bevy_gizmos::prelude::*;
     //! # use bevy_render::prelude::*;
     //! # use bevy_math::prelude::*;
-    //! # use bevy::color::palettes::basic::GREEN;
+    //! # use bevy_color::palettes::basic::GREEN;
     //! fn system(mut gizmos: Gizmos) {
     //!     gizmos.line(Vec3::ZERO, Vec3::X, GREEN);
     //! }
