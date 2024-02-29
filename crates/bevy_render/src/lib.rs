@@ -38,7 +38,7 @@ pub mod prelude {
             Camera, ClearColor, ClearColorConfig, OrthographicProjection, PerspectiveProjection,
             Projection,
         },
-        color::Color,
+        color::LegacyColor,
         mesh::{morph::MorphWeights, primitives::Meshable, Mesh},
         render_resource::Shader,
         spatial_bundle::SpatialBundle,
@@ -330,7 +330,7 @@ impl Plugin for RenderPlugin {
         ));
 
         app.register_type::<alpha::AlphaMode>()
-            .register_type::<color::Color>()
+            .register_type::<color::LegacyColor>()
             .register_type::<primitives::Aabb>()
             .register_type::<primitives::CascadesFrusta>()
             .register_type::<primitives::CubemapFrusta>()
@@ -363,6 +363,7 @@ impl Plugin for RenderPlugin {
                 .insert_resource(instance)
                 .insert_resource(PipelineCache::new(
                     device.clone(),
+                    render_adapter.clone(),
                     self.synchronous_pipeline_compilation,
                 ))
                 .insert_resource(device)

@@ -100,6 +100,8 @@ impl_reflect_value!(
     ::core::result::Result < T: Clone + Reflect + TypePath,
     E: Clone + Reflect + TypePath > ()
 );
+impl_reflect_value!(::std::collections::BTreeSet<T: Ord + Eq + Clone + Send + Sync>());
+impl_reflect_value!(::std::collections::HashSet<T: Hash + Eq + Clone + Send + Sync, S: TypePath + Clone + Send + Sync>());
 impl_reflect_value!(::bevy_utils::HashSet<T: Hash + Eq + Clone + Send + Sync>());
 impl_reflect_value!(::core::ops::Range<T: Clone + Send + Sync>());
 impl_reflect_value!(::core::ops::RangeInclusive<T: Clone + Send + Sync>());
@@ -619,6 +621,215 @@ impl_reflect_for_hashmap!(bevy_utils::hashbrown::HashMap<K, V, S>);
 impl_type_path!(::bevy_utils::hashbrown::hash_map::DefaultHashBuilder);
 impl_type_path!(::bevy_utils::NoOpHash);
 impl_type_path!(::bevy_utils::hashbrown::HashMap<K, V, S>);
+
+impl<K, V> Map for ::std::collections::BTreeMap<K, V>
+where
+    K: FromReflect + TypePath + Eq + Ord,
+    V: FromReflect + TypePath,
+{
+    fn get(&self, key: &dyn Reflect) -> Option<&dyn Reflect> {
+        key.downcast_ref::<K>()
+            .and_then(|key| Self::get(self, key))
+            .map(|value| value as &dyn Reflect)
+    }
+
+    fn get_mut(&mut self, key: &dyn Reflect) -> Option<&mut dyn Reflect> {
+        key.downcast_ref::<K>()
+            .and_then(move |key| Self::get_mut(self, key))
+            .map(|value| value as &mut dyn Reflect)
+    }
+
+    fn get_at(&self, index: usize) -> Option<(&dyn Reflect, &dyn Reflect)> {
+        self.iter()
+            .nth(index)
+            .map(|(key, value)| (key as &dyn Reflect, value as &dyn Reflect))
+    }
+
+    fn get_at_mut(&mut self, index: usize) -> Option<(&dyn Reflect, &mut dyn Reflect)> {
+        self.iter_mut()
+            .nth(index)
+            .map(|(key, value)| (key as &dyn Reflect, value as &mut dyn Reflect))
+    }
+
+    fn len(&self) -> usize {
+        Self::len(self)
+    }
+
+    fn iter(&self) -> MapIter {
+        MapIter::new(self)
+    }
+
+    fn drain(self: Box<Self>) -> Vec<(Box<dyn Reflect>, Box<dyn Reflect>)> {
+        self.into_iter()
+            .map(|(key, value)| {
+                (
+                    Box::new(key) as Box<dyn Reflect>,
+                    Box::new(value) as Box<dyn Reflect>,
+                )
+            })
+            .collect()
+    }
+
+    fn clone_dynamic(&self) -> DynamicMap {
+        let mut dynamic_map = DynamicMap::default();
+        dynamic_map.set_represented_type(self.get_represented_type_info());
+        for (k, v) in self {
+            let key = K::from_reflect(k).unwrap_or_else(|| {
+                panic!(
+                    "Attempted to clone invalid key of type {}.",
+                    k.reflect_type_path()
+                )
+            });
+            dynamic_map.insert_boxed(Box::new(key), v.clone_value());
+        }
+        dynamic_map
+    }
+
+    fn insert_boxed(
+        &mut self,
+        key: Box<dyn Reflect>,
+        value: Box<dyn Reflect>,
+    ) -> Option<Box<dyn Reflect>> {
+        let key = K::take_from_reflect(key).unwrap_or_else(|key| {
+            panic!(
+                "Attempted to insert invalid key of type {}.",
+                key.reflect_type_path()
+            )
+        });
+        let value = V::take_from_reflect(value).unwrap_or_else(|value| {
+            panic!(
+                "Attempted to insert invalid value of type {}.",
+                value.reflect_type_path()
+            )
+        });
+        self.insert(key, value)
+            .map(|old_value| Box::new(old_value) as Box<dyn Reflect>)
+    }
+
+    fn remove(&mut self, key: &dyn Reflect) -> Option<Box<dyn Reflect>> {
+        let mut from_reflect = None;
+        key.downcast_ref::<K>()
+            .or_else(|| {
+                from_reflect = K::from_reflect(key);
+                from_reflect.as_ref()
+            })
+            .and_then(|key| self.remove(key))
+            .map(|value| Box::new(value) as Box<dyn Reflect>)
+    }
+}
+
+impl<K, V> Reflect for ::std::collections::BTreeMap<K, V>
+where
+    K: FromReflect + TypePath + Eq + Ord,
+    V: FromReflect + TypePath,
+{
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+        Some(<Self as Typed>::type_info())
+    }
+
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
+        self
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    #[inline]
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+        self
+    }
+
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self
+    }
+
+    fn apply(&mut self, value: &dyn Reflect) {
+        map_apply(self, value);
+    }
+
+    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+        *self = value.take()?;
+        Ok(())
+    }
+
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::Map
+    }
+
+    fn reflect_ref(&self) -> ReflectRef {
+        ReflectRef::Map(self)
+    }
+
+    fn reflect_mut(&mut self) -> ReflectMut {
+        ReflectMut::Map(self)
+    }
+
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::Map(self)
+    }
+
+    fn clone_value(&self) -> Box<dyn Reflect> {
+        Box::new(self.clone_dynamic())
+    }
+
+    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+        map_partial_eq(self, value)
+    }
+}
+
+impl<K, V> Typed for ::std::collections::BTreeMap<K, V>
+where
+    K: FromReflect + TypePath + Eq + Ord,
+    V: FromReflect + TypePath,
+{
+    fn type_info() -> &'static TypeInfo {
+        static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
+        CELL.get_or_insert::<Self, _>(|| TypeInfo::Map(MapInfo::new::<Self, K, V>()))
+    }
+}
+
+impl<K, V> GetTypeRegistration for ::std::collections::BTreeMap<K, V>
+where
+    K: FromReflect + TypePath + Eq + Ord,
+    V: FromReflect + TypePath,
+{
+    fn get_type_registration() -> TypeRegistration {
+        let mut registration = TypeRegistration::of::<Self>();
+        registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
+        registration
+    }
+}
+
+impl<K, V> FromReflect for ::std::collections::BTreeMap<K, V>
+where
+    K: FromReflect + TypePath + Eq + Ord,
+    V: FromReflect + TypePath,
+{
+    fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
+        if let ReflectRef::Map(ref_map) = reflect.reflect_ref() {
+            let mut new_map = Self::new();
+            for (key, value) in ref_map.iter() {
+                let new_key = K::from_reflect(key)?;
+                let new_value = V::from_reflect(value)?;
+                new_map.insert(new_key, new_value);
+            }
+            Some(new_map)
+        } else {
+            None
+        }
+    }
+}
+
+impl_type_path!(::std::collections::BTreeMap<K, V>);
 
 impl<T: Reflect + TypePath, const N: usize> Array for [T; N] {
     #[inline]
@@ -1658,6 +1869,7 @@ mod tests {
     use bevy_utils::HashMap;
     use bevy_utils::{Duration, Instant};
     use static_assertions::assert_impl_all;
+    use std::collections::BTreeMap;
     use std::f32::consts::{PI, TAU};
     use std::path::Path;
 
@@ -1723,6 +1935,21 @@ mod tests {
         a.insert(0usize, 1.23_f64);
         let b = a.clone();
         let mut c = HashMap::new();
+        c.insert(0usize, 3.21_f64);
+
+        let a: &dyn Reflect = &a;
+        let b: &dyn Reflect = &b;
+        let c: &dyn Reflect = &c;
+        assert!(a.reflect_partial_eq(b).unwrap_or_default());
+        assert!(!a.reflect_partial_eq(c).unwrap_or_default());
+    }
+
+    #[test]
+    fn should_partial_eq_btree_map() {
+        let mut a = BTreeMap::new();
+        a.insert(0usize, 1.23_f64);
+        let b = a.clone();
+        let mut c = BTreeMap::new();
         c.insert(0usize, 3.21_f64);
 
         let a: &dyn Reflect = &a;

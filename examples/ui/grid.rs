@@ -43,7 +43,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ],
                 ..default()
             },
-            background_color: BackgroundColor(Color::WHITE),
+            background_color: BackgroundColor(LegacyColor::WHITE),
             ..default()
         })
         .with_children(|builder| {
@@ -87,7 +87,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                         column_gap: Val::Px(12.0),
                         ..default()
                     },
-                    background_color: BackgroundColor(Color::DARK_GRAY),
+                    background_color: BackgroundColor(LegacyColor::DARK_GRAY),
                     ..default()
                 })
                 .with_children(|builder| {
@@ -96,25 +96,25 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                     // grid cell. The order in which this is performed can be controlled using the grid_auto_flow
                     // style property.
 
-                    item_rect(builder, Color::ORANGE);
-                    item_rect(builder, Color::BISQUE);
-                    item_rect(builder, Color::BLUE);
-                    item_rect(builder, Color::CRIMSON);
+                    item_rect(builder, LegacyColor::ORANGE);
+                    item_rect(builder, LegacyColor::BISQUE);
+                    item_rect(builder, LegacyColor::BLUE);
+                    item_rect(builder, LegacyColor::CRIMSON);
 
-                    item_rect(builder, Color::CYAN);
-                    item_rect(builder, Color::ORANGE_RED);
-                    item_rect(builder, Color::DARK_GREEN);
-                    item_rect(builder, Color::FUCHSIA);
+                    item_rect(builder, LegacyColor::CYAN);
+                    item_rect(builder, LegacyColor::ORANGE_RED);
+                    item_rect(builder, LegacyColor::DARK_GREEN);
+                    item_rect(builder, LegacyColor::FUCHSIA);
 
-                    item_rect(builder, Color::TEAL);
-                    item_rect(builder, Color::ALICE_BLUE);
-                    item_rect(builder, Color::CRIMSON);
-                    item_rect(builder, Color::ANTIQUE_WHITE);
+                    item_rect(builder, LegacyColor::TEAL);
+                    item_rect(builder, LegacyColor::ALICE_BLUE);
+                    item_rect(builder, LegacyColor::CRIMSON);
+                    item_rect(builder, LegacyColor::ANTIQUE_WHITE);
 
-                    item_rect(builder, Color::YELLOW);
-                    item_rect(builder, Color::PINK);
-                    item_rect(builder, Color::YELLOW_GREEN);
-                    item_rect(builder, Color::SALMON);
+                    item_rect(builder, LegacyColor::YELLOW);
+                    item_rect(builder, LegacyColor::PINK);
+                    item_rect(builder, LegacyColor::YELLOW_GREEN);
+                    item_rect(builder, LegacyColor::SALMON);
                 });
 
             // Right side bar (auto placed in row 2, column 2)
@@ -135,7 +135,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                         row_gap: Val::Px(10.),
                         ..default()
                     },
-                    background_color: BackgroundColor(Color::BLACK),
+                    background_color: BackgroundColor(LegacyColor::BLACK),
                     ..default()
                 })
                 .with_children(|builder| {
@@ -165,7 +165,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                     grid_column: GridPlacement::span(2),
                     ..default()
                 },
-                background_color: BackgroundColor(Color::WHITE),
+                background_color: BackgroundColor(LegacyColor::WHITE),
                 ..default()
             });
 
@@ -185,7 +185,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                     max_width: Val::Px(600.),
                     ..default()
                 },
-                background_color: BackgroundColor(Color::Rgba {
+                background_color: BackgroundColor(LegacyColor::Rgba {
                     red: 255.0,
                     green: 255.0,
                     blue: 255.0,
@@ -199,7 +199,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
 /// Create a coloured rectangle node. The node has size as it is assumed that it will be
 /// spawned as a child of a Grid container with `AlignItems::Stretch` and `JustifyItems::Stretch`
 /// which will allow it to take it's size from the size of the grid area it occupies.
-fn item_rect(builder: &mut ChildBuilder, color: Color) {
+fn item_rect(builder: &mut ChildBuilder, color: LegacyColor) {
     builder
         .spawn(NodeBundle {
             style: Style {
@@ -207,7 +207,7 @@ fn item_rect(builder: &mut ChildBuilder, color: Color) {
                 padding: UiRect::all(Val::Px(3.0)),
                 ..default()
             },
-            background_color: BackgroundColor(Color::BLACK),
+            background_color: BackgroundColor(LegacyColor::BLACK),
             ..default()
         })
         .with_children(|builder| {
@@ -224,7 +224,7 @@ fn spawn_nested_text_bundle(builder: &mut ChildBuilder, font: Handle<Font>, text
         TextStyle {
             font,
             font_size: 24.0,
-            color: Color::BLACK,
+            color: LegacyColor::BLACK,
         },
     ));
 }
