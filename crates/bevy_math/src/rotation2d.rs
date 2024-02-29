@@ -264,8 +264,17 @@ impl Rotation2d {
     /// Performs a linear interpolation between `self` and `rhs` based on
     /// the value `s`.
     ///
-    /// When `s` is `0.0`, the result will be equal to `self`.  When `s`
-    /// is `1.0`, the result will be equal to `rhs`.
+    /// This corresponds to computing an angle for a point at position `s` on a line drawn
+    /// between the endpoints of the arc formed by `self` and `rhs` on a unit circle.
+    ///
+    /// When `s == 0.0`, the result will be equal to `self`.  When `s == 1.0`, the result will be equal to `rhs`.
+    ///
+    /// Note that if the angles are opposite like 0 and π, the line will pass through the origin,
+    /// and the resulting angle will always be either `self` or `rhs` depending on `s`.
+    /// If `s` happens to be `0.5` in this case, a valid rotation cannot be computed, and `self`
+    /// will be returned as a fallback.
+    ///
+    /// If you would like the angular velocity to be constant, consider using [`slerp`](Self::slerp) instead.
     ///
     /// # Example
     ///
@@ -273,11 +282,13 @@ impl Rotation2d {
     /// # use bevy_math::Rotation2d;
     /// #
     /// let rot1 = Rotation2d::IDENTITY;
-    /// let rot2 = Rotation2d::radians(std::f32::consts::FRAC_PI_2);
+    /// let rot2 = Rotation2d::degrees(135.0);
     ///
-    /// let result = rot1.lerp(rot2, 0.5);
+    /// let result1 = rot1.lerp(rot2, 1.0 / 3.0);
+    /// assert_eq!(result1.as_degrees(), 28.675055);
     ///
-    /// assert_eq!(result.as_radians(), std::f32::consts::FRAC_PI_4);
+    /// let result2 = rot1.lerp(rot2, 0.5);
+    /// assert_eq!(result2.as_degrees(), 67.5);
     /// ```
     #[inline]
     pub fn lerp(self, end: Self, s: f32) -> Self {
@@ -285,26 +296,37 @@ impl Rotation2d {
             sin: self.sin.lerp(end.sin, s),
             cos: self.cos.lerp(end.cos, s),
         }
-        .normalize()
+        .try_normalize()
+        // Fall back to the start rotation.
+        // This can happen when `self` and `end` are opposite angles and `s == 0.5`,
+        // because the resulting rotation would be zero, which cannot be normalized.
+        .unwrap_or(self)
     }
 
     /// Performs a spherical linear interpolation between `self` and `end`
     /// based on the value `s`.
     ///
-    /// When `s` is `0.0`, the result will be equal to `self`.  When `s`
-    /// is `1.0`, the result will be equal to `end`.
+    /// This corresponds to interpolating between the two angles at a constant angular velocity.
+    ///
+    /// When `s == 0.0`, the result will be equal to `self`.  When `s == 1.0`, the result will be equal to `rhs`.
+    ///
+    /// If you would like the rotation to have a kind of ease-in-out effect instead, consider
+    /// using [`lerp`](Self::lerp), which interpolates the angle based on a line drawn between
+    /// the endpoints of the arc formed by `self` and `rhs` on a unit circle.
     ///
     /// # Example
     ///
     /// ```
     /// # use bevy_math::Rotation2d;
     /// #
-    /// let rot1 = Rotation2d::radians(std::f32::consts::FRAC_PI_4);
-    /// let rot2 = Rotation2d::radians(-std::f32::consts::PI);
+    /// let rot1 = Rotation2d::IDENTITY;
+    /// let rot2 = Rotation2d::degrees(135.0);
     ///
-    /// let result = rot1.slerp(rot2, 1.0 / 3.0);
+    /// let result1 = rot1.slerp(rot2, 1.0 / 3.0);
+    /// assert_eq!(result1.as_degrees(), 45.0);
     ///
-    /// assert_eq!(result.as_radians(), std::f32::consts::FRAC_PI_2);
+    /// let result2 = rot1.slerp(rot2, 0.5);
+    /// assert_eq!(result2.as_degrees(), 67.5);
     /// ```
     #[inline]
     pub fn slerp(self, end: Self, s: f32) -> Self {
@@ -519,17 +541,40 @@ mod tests {
 
     #[test]
     fn lerp() {
-        let rotation1 = Rotation2d::IDENTITY;
-        let rotation2 = Rotation2d::radians(std::f32::consts::FRAC_PI_2);
-        let result = rotation1.lerp(rotation2, 0.5);
-        assert_eq!(result.as_radians(), std::f32::consts::FRAC_PI_4);
+        let rot1 = Rotation2d::IDENTITY;
+        let rot2 = Rotation2d::degrees(135.0);
+
+        assert_eq!(rot1.lerp(rot2, 1.0 / 3.0).as_degrees(), 28.675055);
+        assert!(rot1.lerp(rot2, 0.0).is_near_identity());
+        assert_eq!(rot1.lerp(rot2, 0.5).as_degrees(), 67.5);
+        assert_eq!(rot1.lerp(rot2, 1.0).as_degrees(), 135.0);
+
+        let rot1 = Rotation2d::IDENTITY;
+        let rot2 = Rotation2d::from_sin_cos(0.0, -1.0);
+
+        assert!(rot1.lerp(rot2, 1.0 / 3.0).is_near_identity());
+        assert!(rot1.lerp(rot2, 0.0).is_near_identity());
+        // At 0.5, there is no valid rotation, so the fallback is the original angle.
+        assert_eq!(rot1.lerp(rot2, 0.5).as_degrees(), 0.0);
+        assert_eq!(rot1.lerp(rot2, 1.0).as_degrees().abs(), 180.0);
     }
 
     #[test]
     fn slerp() {
-        let rotation1 = Rotation2d::radians(std::f32::consts::FRAC_PI_4);
-        let rotation2 = Rotation2d::radians(-std::f32::consts::PI);
-        let result = rotation1.slerp(rotation2, 1.0 / 3.0);
-        assert_eq!(result.as_radians(), std::f32::consts::FRAC_PI_2);
+        let rot1 = Rotation2d::IDENTITY;
+        let rot2 = Rotation2d::degrees(135.0);
+
+        assert_eq!(rot1.slerp(rot2, 1.0 / 3.0).as_degrees(), 45.0);
+        assert!(rot1.slerp(rot2, 0.0).is_near_identity());
+        assert_eq!(rot1.slerp(rot2, 0.5).as_degrees(), 67.5);
+        assert_eq!(rot1.slerp(rot2, 1.0).as_degrees(), 135.0);
+
+        let rot1 = Rotation2d::IDENTITY;
+        let rot2 = Rotation2d::from_sin_cos(0.0, -1.0);
+
+        assert!((rot1.slerp(rot2, 1.0 / 3.0).as_degrees() - 60.0).abs() < 10e-6);
+        assert!(rot1.slerp(rot2, 0.0).is_near_identity());
+        assert_eq!(rot1.slerp(rot2, 0.5).as_degrees(), 90.0);
+        assert_eq!(rot1.slerp(rot2, 1.0).as_degrees().abs(), 180.0);
     }
 }
