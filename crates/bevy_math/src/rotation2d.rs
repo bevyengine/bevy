@@ -106,13 +106,18 @@ impl Rotation2d {
     /// Creates a [`Rotation2d`] from the sine and cosine of an angle in radians.
     ///
     /// The rotation is only valid if `sin * sin + cos * cos == 1.0`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `sin * sin + cos * cos != 1.0` when the `glam_assert` feature is enabled.
     #[inline]
     pub fn from_sin_cos(sin: f32, cos: f32) -> Self {
+        let rotation = Self { sin, cos };
         debug_assert!(
-            (sin.powi(2) + cos.powi(2) - 1.0).abs() < 10.0e-7,
+            rotation.is_normalized(),
             "the given sine and cosine produce an invalid rotation"
         );
-        Self { sin, cos }
+        rotation
     }
 
     /// Returns the rotation in radians in the `(-pi, pi]` range.
@@ -140,6 +145,75 @@ impl Rotation2d {
         (self.sin, self.cos)
     }
 
+    /// Computes the length or norm of the complex number used to represent the rotation.
+    ///
+    /// The length is typically expected to be `1.0`. Unexpectedly denormalized rotations
+    /// can be a result of incorrect construction or floating point error caused by
+    /// successive operations.
+    #[inline]
+    #[doc(alias = "norm")]
+    pub fn length(self) -> f32 {
+        Vec2::new(self.sin, self.cos).length()
+    }
+
+    /// Computes the squared length or norm of the complex number used to represent the rotation.
+    ///
+    /// This is generally faster than [`Rotation2d::length()`], as it avoids a square
+    /// root operation.
+    ///
+    /// The length is typically expected to be `1.0`. Unexpectedly denormalized rotations
+    /// can be a result of incorrect construction or floating point error caused by
+    /// successive operations.
+    #[inline]
+    #[doc(alias = "norm2")]
+    pub fn length_squared(self) -> f32 {
+        Vec2::new(self.sin, self.cos).length_squared()
+    }
+
+    /// Computes `1.0 / self.length()`.
+    ///
+    /// For valid results, `self` must _not_ have a length of zero.
+    #[inline]
+    pub fn length_recip(self) -> f32 {
+        Vec2::new(self.sin, self.cos).length_recip()
+    }
+
+    /// Returns `self` with a length of `1.0` if possible, and `None` otherwise.
+    ///
+    /// `None` will be returned if the sine and cosine of `self` are both zero (or very close to zero),
+    /// or if either of them is NaN or infinite.
+    ///
+    /// Note that [`Rotation2d`] should typically already be normalized by design.
+    /// Manual normalization is only needed when successive operations result in
+    /// accumulated floating point error, or if the rotation was constructed
+    /// with invalid values.
+    #[inline]
+    pub fn try_normalize(self) -> Option<Self> {
+        let recip = self.length_recip();
+        if recip.is_finite() && recip > 0.0 {
+            Some(Self::from_sin_cos(self.sin * recip, self.cos * recip))
+        } else {
+            None
+        }
+    }
+
+    /// Returns `self` with a length of `1.0`.
+    ///
+    /// Note that [`Rotation2d`] should typically already be normalized by design.
+    /// Manual normalization is only needed when successive operations result in
+    /// accumulated floating point error, or if the rotation was constructed
+    /// with invalid values.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `self` has a length of zero, NaN, or infinity when the `glam_assert`
+    /// feature is enabled.
+    #[inline]
+    pub fn normalize(self) -> Self {
+        let length = self.length();
+        Self::from_sin_cos(self.sin / length, self.cos / length)
+    }
+
     /// Returns `true` if the rotation is neither infinite nor NaN.
     #[inline]
     pub fn is_finite(self) -> bool {
@@ -150,6 +224,15 @@ impl Rotation2d {
     #[inline]
     pub fn is_nan(self) -> bool {
         self.sin.is_nan() || self.cos.is_nan()
+    }
+
+    /// Returns whether `self` has a length of `1.0` or not.
+    ///
+    /// Uses a precision threshold of `1e-6`.
+    #[inline]
+    pub fn is_normalized(self) -> bool {
+        let length = self.sin.hypot(self.cos);
+        length - 1.0 <= 1e-6
     }
 
     /// Returns `true` if the rotation is near [`Rotation2d::IDENTITY`].
@@ -200,7 +283,11 @@ impl Rotation2d {
     /// ```
     #[inline]
     pub fn lerp(self, end: Self, s: f32) -> Self {
-        Self::from_sin_cos(self.sin.lerp(end.sin, s), self.cos.lerp(end.cos, s))
+        Self {
+            sin: self.sin.lerp(end.sin, s),
+            cos: self.cos.lerp(end.cos, s),
+        }
+        .normalize()
     }
 
     /// Performs a spherical linear interpolation between `self` and `end`
@@ -364,6 +451,63 @@ mod tests {
             rotation2.angle_between(rotation1),
             std::f32::consts::FRAC_PI_4
         );
+    }
+
+    #[test]
+    fn length() {
+        let rotation = Rotation2d {
+            sin: 10.0,
+            cos: 5.0,
+        };
+
+        assert_eq!(rotation.length_squared(), 125.0);
+        assert_eq!(rotation.length(), 11.18034);
+        assert!((rotation.normalize().length() - 1.0).abs() < 10e-7);
+    }
+
+    #[test]
+    fn normalize() {
+        let rotation = Rotation2d {
+            sin: 10.0,
+            cos: 5.0,
+        };
+        let normalized_rotation = rotation.normalize();
+
+        assert_eq!(normalized_rotation.sin, 0.8944272);
+        assert_eq!(normalized_rotation.cos, 0.4472136);
+
+        assert!(!rotation.is_normalized());
+        assert!(normalized_rotation.is_normalized());
+    }
+
+    #[test]
+    fn try_normalize() {
+        // Valid
+        assert!(Rotation2d {
+            sin: 10.0,
+            cos: 5.0,
+        }
+        .try_normalize()
+        .is_some());
+
+        // NaN
+        assert!(Rotation2d {
+            sin: f32::NAN,
+            cos: 5.0,
+        }
+        .try_normalize()
+        .is_none());
+
+        // Zero
+        assert!(Rotation2d { sin: 0.0, cos: 0.0 }.try_normalize().is_none());
+
+        // Non-finite
+        assert!(Rotation2d {
+            sin: f32::INFINITY,
+            cos: 5.0,
+        }
+        .try_normalize()
+        .is_none());
     }
 
     #[test]
