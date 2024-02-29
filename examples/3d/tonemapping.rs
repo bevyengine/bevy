@@ -66,7 +66,7 @@ fn setup(
             ..default()
         },
         FogSettings {
-            color: LegacyColor::rgba_u8(43, 44, 47, 255),
+            color: Color::srgb_u8(43, 44, 47),
             falloff: FogFalloff::Linear {
                 start: 1.0,
                 end: 8.0,
@@ -109,7 +109,7 @@ fn setup_basic_scene(
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
-            material: materials.add(LegacyColor::rgb(0.1, 0.2, 0.1)),
+            material: materials.add(Color::srgb(0.1, 0.2, 0.1)),
             ..default()
         },
         SceneNumber(1),
@@ -141,21 +141,21 @@ fn setup_basic_scene(
         let s_val = if i < 3 { 0.0 } else { 0.2 };
         let material = if j == 0 {
             materials.add(StandardMaterial {
-                base_color: LegacyColor::rgb(s_val, s_val, 1.0),
+                base_color: Color::srgb(s_val, s_val, 1.0),
                 perceptual_roughness: 0.089,
                 metallic: 0.0,
                 ..default()
             })
         } else if j == 1 {
             materials.add(StandardMaterial {
-                base_color: LegacyColor::rgb(s_val, 1.0, s_val),
+                base_color: Color::srgb(s_val, 1.0, s_val),
                 perceptual_roughness: 0.089,
                 metallic: 0.0,
                 ..default()
             })
         } else {
             materials.add(StandardMaterial {
-                base_color: LegacyColor::rgb(1.0, s_val, s_val),
+                base_color: Color::srgb(1.0, s_val, s_val),
                 perceptual_roughness: 0.089,
                 metallic: 0.0,
                 ..default()
@@ -266,7 +266,7 @@ fn setup_image_viewer_scene(
                 "Drag and drop an HDR or EXR file",
                 TextStyle {
                     font_size: 36.0,
-                    color: LegacyColor::BLACK,
+                    color: Color::BLACK,
                     ..default()
                 },
             )
