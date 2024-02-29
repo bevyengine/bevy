@@ -9,5 +9,6 @@ license = "MIT OR Apache-2.0"
 publish = false
 
 [dev-dependencies]
+bevy_async = { path = "../bevy_async" }
 bevy_ecs = { path = "../bevy_ecs" }
 trybuild = "1.0.71"
