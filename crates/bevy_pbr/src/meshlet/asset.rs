@@ -23,7 +23,7 @@ use std::sync::Arc;
 ///   which requires certain shader patterns that differ from the regular material shaders.
 /// * Limited control over [`bevy_render::render_resource::RenderPipelineDescriptor`] attributes.
 ///
-/// See also [`super::MaterialMeshletMeshBundle`].
+/// See also [`super::MaterialMeshletMeshBundle`] and [`super::MeshletPlugin`].
 #[derive(Asset, TypePath, Serialize, Deserialize, Clone)]
 pub struct MeshletMesh {
     /// The total amount of indices in the overall mesh (sum of meshlet triangle_counts * 3).
