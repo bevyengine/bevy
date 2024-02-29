@@ -1729,7 +1729,7 @@ impl Outline {
 #[reflect(Component, Default)]
 pub struct UiImage {
     /// The tint color used to draw the image
-    pub color: LegacyColor,
+    pub color: Color,
     /// Handle to the texture
     pub texture: Handle<Image>,
     /// Whether the image should be flipped along its x-axis
@@ -1748,7 +1748,7 @@ impl UiImage {
 
     /// Set the color tint
     #[must_use]
-    pub const fn with_color(mut self, color: LegacyColor) -> Self {
+    pub const fn with_color(mut self, color: Color) -> Self {
         self.color = color;
         self
     }

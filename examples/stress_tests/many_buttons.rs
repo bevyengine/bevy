@@ -104,7 +104,7 @@ fn button_system(
 ) {
     for (interaction, mut image, &IdleColor(idle_color)) in interaction_query.iter_mut() {
         image.color = match interaction {
-            Interaction::Hovered => ORANGE_RED,
+            Interaction::Hovered => ORANGE_RED.into(),
             _ => idle_color,
         };
     }
