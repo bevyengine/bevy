@@ -97,18 +97,15 @@ fn main() {
 }
 
 #[derive(Component)]
-struct IdleColor(BackgroundColor);
+struct IdleColor(Color);
 
 fn button_system(
-    mut interaction_query: Query<
-        (&Interaction, &mut BackgroundColor, &IdleColor),
-        Changed<Interaction>,
-    >,
+    mut interaction_query: Query<(&Interaction, &mut UiImage, &IdleColor), Changed<Interaction>>,
 ) {
-    for (interaction, mut button_color, IdleColor(idle_color)) in interaction_query.iter_mut() {
-        *button_color = match interaction {
-            Interaction::Hovered => ORANGE_RED.into(),
-            _ => *idle_color,
+    for (interaction, mut image, &IdleColor(idle_color)) in interaction_query.iter_mut() {
+        image.color = match interaction {
+            Interaction::Hovered => ORANGE_RED,
+            _ => idle_color,
         };
     }
 }
@@ -148,7 +145,7 @@ fn setup_flex(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
                     .spawn(NodeBundle::default())
                     .with_children(|commands| {
                         for row in 0..args.buttons {
-                            let color = as_rainbow(row % column.max(1)).into();
+                            let color = as_rainbow(row % column.max(1));
                             let border_color = Color::WHITE.with_alpha(0.5).into();
                             spawn_button(
                                 commands,
@@ -202,7 +199,7 @@ fn setup_grid(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
         .with_children(|commands| {
             for column in 0..args.buttons {
                 for row in 0..args.buttons {
-                    let color = as_rainbow(row % column.max(1)).into();
+                    let color = as_rainbow(row % column.max(1));
                     let border_color = Color::WHITE.with_alpha(0.5).into();
                     spawn_button(
                         commands,
@@ -226,7 +223,7 @@ fn setup_grid(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
 #[allow(clippy::too_many_arguments)]
 fn spawn_button(
     commands: &mut ChildBuilder,
-    background_color: BackgroundColor,
+    background_color: Color,
     buttons: f32,
     column: usize,
     row: usize,
@@ -249,7 +246,7 @@ fn spawn_button(
                 border,
                 ..default()
             },
-            background_color,
+            image: UiImage::default().with_color(background_color),
             border_color,
             ..default()
         },

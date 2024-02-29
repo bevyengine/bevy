@@ -417,7 +417,7 @@ where
                     padding: UiRect::axes(Val::Px(5.), Val::Px(1.)),
                     ..Default::default()
                 },
-                background_color: BackgroundColor(Color::BLACK.with_alpha(0.5)),
+                image: UiImage::default().with_color(Color::BLACK.with_a(0.5)),
                 ..Default::default()
             },
             Target::<T>::new(target),
@@ -461,13 +461,13 @@ fn buttons_handler<T>(
 }
 
 fn text_hover(
-    mut button_query: Query<(&Interaction, &mut BackgroundColor, &Children), Changed<Interaction>>,
+    mut button_query: Query<(&Interaction, &mut UiImage, &Children), Changed<Interaction>>,
     mut text_query: Query<&mut Text>,
 ) {
-    for (interaction, mut background_color, children) in button_query.iter_mut() {
+    for (interaction, mut image, children) in button_query.iter_mut() {
         match interaction {
             Interaction::Hovered => {
-                *background_color = BackgroundColor(Color::BLACK.with_alpha(0.6));
+                image.color = Color::BLACK.with_a(0.6);
                 for &child in children {
                     if let Ok(mut text) = text_query.get_mut(child) {
                         // Bypass change detection to avoid recomputation of the text when only changing the color
@@ -476,7 +476,7 @@ fn text_hover(
                 }
             }
             _ => {
-                *background_color = BackgroundColor(Color::BLACK.with_alpha(0.5));
+                image.color = Color::BLACK.with_a(0.5);
                 for &child in children {
                     if let Ok(mut text) = text_query.get_mut(child) {
                         text.bypass_change_detection().sections[0].style.color =

@@ -95,8 +95,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                             min_height: Val::Px(100.),
                                             ..Default::default()
                                         },
-                                        background_color: Color::WHITE.into(),
-
                                         ..Default::default()
                                     },
                                     Interaction::default(),

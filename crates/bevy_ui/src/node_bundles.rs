@@ -84,7 +84,7 @@ impl Default for NodeBundle {
 /// - [`TextureAtlas`] to draw specific sections of the texture
 ///
 /// Note that `ImageScaleMode` is currently not compatible with `TextureAtlas`.
-#[derive(Bundle, Debug)]
+#[derive(Bundle, Debug, Default)]
 pub struct ImageBundle {
     /// Describes the logical size of the node
     pub node: Node,
@@ -93,8 +93,6 @@ pub struct ImageBundle {
     pub style: Style,
     /// The calculated size based on the given image
     pub calculated_size: ContentSize,
-    /// The background color, which serves as a "fill" for this node
-    pub background_color: BackgroundColor,
     /// The image of the node
     pub image: UiImage,
     /// The size of the image in pixels
@@ -122,26 +120,6 @@ pub struct ImageBundle {
     pub z_index: ZIndex,
 }
 
-impl Default for ImageBundle {
-    fn default() -> Self {
-        Self {
-            node: Default::default(),
-            style: Default::default(),
-            calculated_size: Default::default(),
-            background_color: BackgroundColor(Color::NONE),
-            image: Default::default(),
-            image_size: Default::default(),
-            focus_policy: Default::default(),
-            transform: Default::default(),
-            global_transform: Default::default(),
-            visibility: Default::default(),
-            inherited_visibility: Default::default(),
-            view_visibility: Default::default(),
-            z_index: Default::default(),
-        }
-    }
-}
-
 /// A UI node that is a texture atlas sprite
 ///
 /// This bundle is identical to [`ImageBundle`] with an additional [`TextureAtlas`] component.
@@ -149,7 +127,7 @@ impl Default for ImageBundle {
     since = "0.14.0",
     note = "Use `TextureAtlas` alongside `ImageBundle` instead"
 )]
-#[derive(Bundle, Debug)]
+#[derive(Bundle, Debug, Default)]
 pub struct AtlasImageBundle {
     /// Describes the logical size of the node
     pub node: Node,
@@ -158,8 +136,6 @@ pub struct AtlasImageBundle {
     pub style: Style,
     /// The calculated size based on the given image
     pub calculated_size: ContentSize,
-    /// The background color, which serves as a "fill" for this node
-    pub background_color: BackgroundColor,
     /// The image of the node
     pub image: UiImage,
     /// A handle to the texture atlas to use for this Ui Node
@@ -187,27 +163,6 @@ pub struct AtlasImageBundle {
     pub view_visibility: ViewVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
-}
-
-impl Default for AtlasImageBundle {
-    fn default() -> Self {
-        Self {
-            node: Default::default(),
-            style: Default::default(),
-            calculated_size: Default::default(),
-            background_color: BackgroundColor(Color::NONE),
-            image: Default::default(),
-            texture_atlas: Default::default(),
-            focus_policy: Default::default(),
-            image_size: Default::default(),
-            transform: Default::default(),
-            global_transform: Default::default(),
-            visibility: Default::default(),
-            inherited_visibility: Default::default(),
-            view_visibility: Default::default(),
-            z_index: Default::default(),
-        }
-    }
 }
 
 #[cfg(feature = "bevy_text")]
@@ -356,8 +311,6 @@ pub struct ButtonBundle {
     pub interaction: Interaction,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
-    /// The background color, which serves as a "fill" for this node
-    pub background_color: BackgroundColor,
     /// The color of the Node's border
     pub border_color: BorderColor,
     /// The image of the node
@@ -389,9 +342,8 @@ impl Default for ButtonBundle {
             style: Default::default(),
             interaction: Default::default(),
             focus_policy: FocusPolicy::Block,
-            background_color: Default::default(),
             border_color: BorderColor(Color::NONE),
-            image: UiImage::default().with_color(Color::NONE),
+            image: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
             visibility: Default::default(),
