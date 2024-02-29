@@ -86,10 +86,10 @@ const MESHLET_VISIBILITY_BUFFER_RESOLVE_SHADER_HANDLE: Handle<Shader> =
 const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(3325134235233421);
 
-/// Provides a plugin for rendering high-poly 3d meshes using an efficient GPU-driven method. See also [`MeshletMesh`].
+/// Provides a plugin for rendering large amounts of high-poly 3d meshes using an efficient GPU-driven method. See also [`MeshletMesh`].
 ///
-/// Rendering high-poly meshes with thousands or millions of triangles is extremely expensive in Bevy's standard renderer.
-/// Once pre-processed into a [`MeshletMesh`], this plugin can render these kinds of meshes very efficiently.
+/// Rendering dense scenes made of high-poly meshes with thousands or millions of triangles is extremely expensive in Bevy's standard renderer.
+/// Once meshes are pre-processed into a [`MeshletMesh`], this plugin can render these kinds of scenes very efficiently.
 ///
 /// In comparison to Bevy's standard renderer:
 /// * Minimal rendering work is done on the CPU. All rendering is GPU-driven.
