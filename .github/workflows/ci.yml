@@ -146,6 +146,30 @@ jobs:
         run: cargo check --target wasm32-unknown-unknown
         env:
           RUSTFLAGS: --cfg=web_sys_unstable_apis
+  
+  build-wasm-atomics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ubuntu-assets-cargo-build-wasm-stable-${{ hashFiles('**/Cargo.toml') }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          target: wasm32-unknown-unknown
+      - name: Check wasm
+        run: cargo check --target wasm32-unknown-unknown -Z build-std=std,panic_abort
+        env:
+          RUSTFLAGS: "--cfg=web_sys_unstable_apis -C target-feature=+atomics,+bulk-memory,+mutable-globals"
+
 
   markdownlint:
     runs-on: ubuntu-latest
