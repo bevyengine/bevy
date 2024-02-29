@@ -79,13 +79,8 @@ impl Color {
 
     #[deprecated = "Use `Color::srgb_from_array` instead"]
     /// Reads an array of floats to creates a new [`Color`] object storing a [`Srgba`] color with an alpha of 1.0.
-    pub fn rgb_from_array(array: [f32; 3]) -> Self {
-        Self::Srgba(Srgba {
-            red: array[0],
-            green: array[1],
-            blue: array[2],
-            alpha: 1.0,
-        })
+    pub fn rgb_from_array([r, g, b]: [f32; 3]) -> Self {
+        Self::Srgba(Srgba::rgb(r, g, b))
     }
 
     /// Reads an array of floats to creates a new [`Color`] object storing a [`Srgba`] color with an alpha of 1.0.
