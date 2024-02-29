@@ -6,6 +6,7 @@
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 use bevy_math::{Quat, Vec2, Vec3};
 use bevy_render::color::LegacyColor;
+use bevy_transform::TransformPoint;
 
 /// A builder returned by [`Gizmos::arrow`] and [`Gizmos::arrow_2d`]
 pub struct ArrowBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
@@ -32,8 +33,9 @@ impl<T: GizmoConfigGroup> ArrowBuilder<'_, '_, '_, T> {
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[doc(alias = "arrow_head_length")]
-    pub fn with_tip_length(&mut self, length: f32) {
+    pub fn with_tip_length(mut self, length: f32) -> Self {
         self.tip_length = length;
+        self
     }
 }
 
@@ -118,5 +120,37 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         color: LegacyColor,
     ) -> ArrowBuilder<'_, 'w, 's, T> {
         self.arrow(start.extend(0.), end.extend(0.), color)
+    }
+}
+
+impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
+    /// Draw a set of axes local to the given transform (`transform`), with length scaled by a factor
+    /// of `base_length`.
+    ///
+    /// This should be called for each frame the axes need to be rendered.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// fn draw_axes(
+    ///     mut gizmos: Gizmos,
+    ///     query: Query<&Transform, With<MyComponent>>,
+    /// ) {
+    ///     for &transform in &query {
+    ///         gizmos.axes(transform, 1.);
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(draw_axes);
+    /// ```
+    pub fn axes(&mut self, transform: impl TransformPoint, base_length: f32) {
+        let start = transform.transform_point(Vec3::ZERO);
+        let end_x = transform.transform_point(base_length * Vec3::X);
+        let end_y = transform.transform_point(base_length * Vec3::Y);
+        let end_z = transform.transform_point(base_length * Vec3::Z);
+
+        self.arrow(start, end_x, LegacyColor::RED);
+        self.arrow(start, end_y, LegacyColor::GREEN);
+        self.arrow(start, end_z, LegacyColor::BLUE);
     }
 }
