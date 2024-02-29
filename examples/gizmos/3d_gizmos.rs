@@ -128,10 +128,10 @@ fn draw_example_collection(
         .segments(10);
 
     // Circles have 32 line-segments by default.
-    my_gizmos.circle(Vec3::ZERO, Direction3d::Y, 3., BLACK);
+    my_gizmos.circle(Vec3::ZERO, Dir3::Y, 3., BLACK);
     // You may want to increase this for larger circles or spheres.
     my_gizmos
-        .circle(Vec3::ZERO, Direction3d::Y, 3.1, NAVY)
+        .circle(Vec3::ZERO, Dir3::Y, 3.1, NAVY)
         .segments(64);
     my_gizmos
         .sphere(Vec3::ZERO, Quat::IDENTITY, 3.2, BLACK)

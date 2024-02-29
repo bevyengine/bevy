@@ -6,7 +6,7 @@
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 use bevy_color::Color;
 use bevy_math::Mat2;
-use bevy_math::{Direction3d, Quat, Vec2, Vec3};
+use bevy_math::{Dir3, Quat, Vec2, Vec3};
 use std::f32::consts::TAU;
 
 pub(crate) const DEFAULT_CIRCLE_SEGMENTS: usize = 32;
@@ -123,7 +123,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     pub fn circle(
         &mut self,
         position: Vec3,
-        normal: Direction3d,
+        normal: Dir3,
         radius: f32,
         color: impl Into<Color>,
     ) -> EllipseBuilder<'_, 'w, 's, T> {
