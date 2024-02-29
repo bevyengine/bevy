@@ -1,3 +1,5 @@
+#![allow(clippy::undocumented_unsafe_blocks)]
+
 use super::{persistent_buffer::PersistentGpuBufferable, Meshlet, MeshletBoundingSphere};
 use std::{mem::size_of, sync::Arc};
 
