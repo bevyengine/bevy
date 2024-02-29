@@ -1,5 +1,5 @@
 use bevy_asset::Asset;
-use bevy_color::{Alpha, Color};
+use bevy_color::Alpha;
 use bevy_math::{Affine2, Mat3, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{mesh::MeshVertexBufferLayout, render_asset::RenderAssets, render_resource::*};
