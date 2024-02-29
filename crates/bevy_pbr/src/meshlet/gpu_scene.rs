@@ -51,10 +51,13 @@ pub fn extract_meshlet_meshes(
         ResMut<Assets<MeshletMesh>>,
         EventReader<AssetEvent<MeshletMesh>>,
     )> = SystemState::new(&mut main_world);
-    let (query, asset_server, mut assets, mut asset_events) = system_state.get_mut(&mut main_world);
+    let (instances_query, asset_server, mut assets, mut asset_events) =
+        system_state.get_mut(&mut main_world);
 
+    // Reset all temporary data for MeshletGpuScene
     gpu_scene.reset();
 
+    // Free GPU buffer space for any modified or dropped MeshletMesh assets
     for asset_event in asset_events.read() {
         if let AssetEvent::Unused { id } | AssetEvent::Modified { id } = asset_event {
             if let Some((
@@ -84,14 +87,16 @@ pub fn extract_meshlet_meshes(
             not_shadow_receiver,
             not_shadow_caster,
         ),
-    ) in query.iter().enumerate()
+    ) in instances_query.iter().enumerate()
     {
+        // Skip instances with an unloaded MeshletMesh asset
         if asset_server.is_managed(handle.id())
             && !asset_server.is_loaded_with_dependencies(handle.id())
         {
             continue;
         }
 
+        // Upload the instance's MeshletMesh asset data, if not done already, along with other per-frame per-instance data.
         gpu_scene.queue_meshlet_mesh_upload(
             instance,
             render_layers.cloned().unwrap_or(default()),
@@ -101,6 +106,7 @@ pub fn extract_meshlet_meshes(
             instance_index as u32,
         );
 
+        // Build a MeshUniform for each instance
         let transform = transform.affine();
         let previous_transform = previous_transform.map(|t| t.0).unwrap_or(transform);
         let mut flags = if not_shadow_receiver {
