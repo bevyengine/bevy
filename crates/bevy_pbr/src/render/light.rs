@@ -871,9 +871,8 @@ pub fn prepare_lights(
             light_custom_data,
             // premultiply color by intensity
             // we don't use the alpha at all, so no reason to multiply only [0..3]
-            color_inverse_square_range: (Vec4::from_slice(
-                &LinearRgba::from(light.color).to_f32_array(),
-            ) * light.intensity)
+            color_inverse_square_range: (Vec4::from_slice(&light.color.to_f32_array())
+                * light.intensity)
                 .xyz()
                 .extend(1.0 / (light.range * light.range)),
             position_radius: light.transform.translation().extend(light.radius),
