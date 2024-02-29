@@ -62,7 +62,7 @@ fn setup(
 
     let mesh = meshes.add(Cuboid::default());
     let material = materials.add(StandardMaterial {
-        base_color: Color::from(PINK),
+        base_color: PINK.into(),
         ..default()
     });
 

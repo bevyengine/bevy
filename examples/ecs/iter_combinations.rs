@@ -95,7 +95,7 @@ fn generate_bodies(
                     transform: Transform::from_scale(Vec3::splat(star_radius)),
                     mesh: meshes.add(Sphere::new(1.0).mesh().ico(5).unwrap()),
                     material: materials.add(StandardMaterial {
-                        base_color: Color::from(ORANGE_RED),
+                        base_color: ORANGE_RED.into(),
                         emissive: (LinearRgba::from(ORANGE_RED) * 18.).into(),
                         ..default()
                     }),

@@ -74,12 +74,12 @@ fn setup(
     let sphere_mesh = meshes.add(Sphere::new(0.05).mesh().uv(32, 18));
     let sphere_mesh_direction = meshes.add(Sphere::new(0.1).mesh().uv(32, 18));
     let red_emissive = materials.add(StandardMaterial {
-        base_color: Color::from(RED),
+        base_color: RED.into(),
         emissive: Color::linear_rgba(100.0, 0.0, 0.0, 0.0),
         ..default()
     });
     let maroon_emissive = materials.add(StandardMaterial {
-        base_color: Color::from(MAROON),
+        base_color: MAROON.into(),
         emissive: Color::linear_rgba(50.0, 0.0, 0.0, 0.0),
         ..default()
     });
