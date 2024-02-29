@@ -109,12 +109,12 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::{RED, GREEN};
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.circle(Vec3::ZERO, Direction3d::Z, 1., GREEN);
+    ///     gizmos.circle(Vec3::ZERO, Dir3::Z, 1., GREEN);
     ///
     ///     // Circles have 32 line-segments by default.
     ///     // You may want to increase this for larger circles.
     ///     gizmos
-    ///         .circle(Vec3::ZERO, Direction3d::Z, 5., RED)
+    ///         .circle(Vec3::ZERO, Dir3::Z, 5., RED)
     ///         .segments(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);

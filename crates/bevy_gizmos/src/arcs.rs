@@ -143,7 +143,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use std::f32::consts::PI;
-    /// # use bevy_color::palettes::basic::ORANGE;
+    /// # use bevy_color::palettes::css::ORANGE;
     /// fn system(mut gizmos: Gizmos) {
     ///     // rotation rotates normal to point in the direction of `Vec3::NEG_ONE`
     ///     let rotation = Quat::from_rotation_arc(Vec3::Y, Vec3::NEG_ONE.normalize());
@@ -199,7 +199,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
-    /// # use bevy_color::palettes::basic::ORANGE;
+    /// # use bevy_color::palettes::css::ORANGE;
     /// fn system(mut gizmos: Gizmos) {
     ///     gizmos.short_arc_3d_between(
     ///        Vec3::ONE,
@@ -246,7 +246,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
-    /// # use bevy_color::palettes::basic::ORANGE;
+    /// # use bevy_color::palettes::css::ORANGE;
     /// fn system(mut gizmos: Gizmos) {
     ///     gizmos.long_arc_3d_between(
     ///        Vec3::ONE,
