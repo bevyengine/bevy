@@ -139,12 +139,19 @@ fn setup(
     // Candle Flame
     let scaled_white = LinearRgba::from(ANTIQUE_WHITE) * 80.;
     let scaled_orange = LinearRgba::from(ORANGE_RED) * 16.;
+    let emissive = LinearRgba {
+        red: scaled_white.red + scaled_orange.red,
+        green: scaled_white.green + scaled_orange.green,
+        blue: scaled_white.blue + scaled_orange.blue,
+        alpha: 1.0,
+    }
+    .into();
 
     commands.spawn((
         PbrBundle {
             mesh: icosphere_mesh.clone(),
             material: materials.add(StandardMaterial {
-                emissive: Color::from(scaled_white + scaled_orange),
+                emissive,
                 diffuse_transmission: 1.0,
                 ..default()
             }),
