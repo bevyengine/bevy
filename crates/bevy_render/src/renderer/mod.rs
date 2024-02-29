@@ -405,7 +405,7 @@ impl<'w> RenderContext<'w> {
                             command_buffers
                                 .push((i, command_buffer_generation_task(render_device)));
                         } else {
-                            task_pool.spawn(async move {
+                            task_pool.spawn_async(async move {
                                 (i, command_buffer_generation_task(render_device))
                             });
                         }

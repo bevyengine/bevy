@@ -610,7 +610,7 @@ impl ExecutorState {
 
         #[cfg(feature = "trace")]
         let system_span = system_meta.system_task_span.clone();
-        let task = async move {
+        let mut task = move || {
             let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
                 #[cfg(feature = "trace")]
                 let _span = system_span.enter();
@@ -629,6 +629,14 @@ impl ExecutorState {
         if system_meta.is_send {
             context.scope.spawn(task);
         } else {
+            let task = async move { task() };
+            #[cfg(feature = "trace")]
+            let task = task.instrument(
+                self.system_task_metadata[system_index]
+                    .system_task_span
+                    .clone(),
+            );
+
             self.local_thread_running = true;
             context.scope.spawn_on_external(task);
         }

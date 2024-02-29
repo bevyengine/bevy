@@ -166,7 +166,7 @@ impl AssetProcessor {
         let start_time = std::time::Instant::now();
         debug!("Processing Assets");
         IoTaskPool::get().scope(|scope| {
-            scope.spawn(async move {
+            scope.spawn_async(async move {
                 self.initialize().await.unwrap();
                 for source in self.sources().iter_processed() {
                     self.process_assets_internal(scope, source, PathBuf::from(""))
@@ -316,7 +316,7 @@ impl AssetProcessor {
         error!("AddFolder event cannot be handled in single threaded mode (or WASM) yet.");
         #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
         IoTaskPool::get().scope(|scope| {
-            scope.spawn(async move {
+            scope.spawn_async(async move {
                 self.process_assets_internal(scope, source, path)
                     .await
                     .unwrap();
@@ -445,7 +445,7 @@ impl AssetProcessor {
             } else {
                 // Files without extensions are skipped
                 let processor = self.clone();
-                scope.spawn(async move {
+                scope.spawn_async(async move {
                     processor.process_asset(source, path).await;
                 });
             }
@@ -461,7 +461,7 @@ impl AssetProcessor {
                 for path in check_reprocess_queue.drain(..) {
                     let processor = self.clone();
                     let source = self.get_source(path.source()).unwrap();
-                    scope.spawn(async move {
+                    scope.spawn_async(async move {
                         processor.process_asset(source, path.into()).await;
                     });
                 }

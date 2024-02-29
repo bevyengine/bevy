@@ -149,7 +149,7 @@ impl Plugin for PipelinedRenderingPlugin {
                 // run a scope here to allow main world to use this thread while it's waiting for the render app
                 let sent_app = compute_task_pool
                     .scope(|s| {
-                        s.spawn(async { app_to_render_receiver.recv().await });
+                        s.spawn_async(async { app_to_render_receiver.recv().await });
                     })
                     .pop();
                 let Some(Ok(mut render_app)) = sent_app else {
@@ -182,7 +182,7 @@ fn update_rendering(app_world: &mut World, _sub_app: &mut App) {
             // while we wait for the render world to be received.
             let mut render_app = ComputeTaskPool::get()
                 .scope_with_executor(true, Some(&*main_thread_executor.0), |s| {
-                    s.spawn(async { render_channels.recv().await });
+                    s.spawn_async(async { render_channels.recv().await });
                 })
                 .pop()
                 .unwrap();

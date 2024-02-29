@@ -367,7 +367,7 @@ pub(crate) fn collect_screenshots(world: &mut World) {
                 ));
             };
 
-            AsyncComputeTaskPool::get().spawn(finish).detach();
+            AsyncComputeTaskPool::get().spawn_async(finish).detach();
         }
     }
 }
