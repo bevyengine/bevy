@@ -12,6 +12,7 @@ use bevy::{
     window::{PresentMode, WindowPlugin, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
+use bevy_test_utils::BenchmarkPlugin;
 
 #[derive(FromArgs, Resource)]
 /// `many_foxes` stress test
@@ -52,6 +53,7 @@ fn main() {
                 }),
                 ..default()
             }),
+            BenchmarkPlugin,
             FrameTimeDiagnosticsPlugin,
             LogDiagnosticsPlugin::default(),
         ))

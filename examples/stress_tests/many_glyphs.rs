@@ -12,6 +12,7 @@ use bevy::{
     window::{PresentMode, WindowPlugin, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
+use bevy_test_utils::BenchmarkPlugin;
 
 fn main() {
     let mut app = App::new();
@@ -24,6 +25,7 @@ fn main() {
             }),
             ..default()
         }),
+        BenchmarkPlugin,
         FrameTimeDiagnosticsPlugin,
         LogDiagnosticsPlugin::default(),
     ))

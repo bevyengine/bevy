@@ -7,6 +7,7 @@ use bevy::{
     window::{PresentMode, WindowPlugin, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
+use bevy_test_utils::BenchmarkPlugin;
 
 const FONT_SIZE: f32 = 7.0;
 
@@ -61,6 +62,7 @@ fn main() {
             }),
             ..default()
         }),
+        BenchmarkPlugin,
         FrameTimeDiagnosticsPlugin,
         LogDiagnosticsPlugin::default(),
     ))

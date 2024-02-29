@@ -8,6 +8,7 @@ use bevy::{
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
+use bevy_test_utils::BenchmarkPlugin;
 
 const SYSTEM_COUNT: u32 = 10;
 
@@ -23,6 +24,7 @@ fn main() {
             }),
             ..default()
         }),
+        BenchmarkPlugin,
         FrameTimeDiagnosticsPlugin,
     ))
     .insert_resource(WinitSettings {

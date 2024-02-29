@@ -12,6 +12,7 @@ use bevy::{
     window::{PresentMode, WindowPlugin, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
+use bevy_test_utils::BenchmarkPlugin;
 use rand::{thread_rng, Rng};
 
 fn main() {
@@ -27,6 +28,7 @@ fn main() {
                 }),
                 ..default()
             }),
+            BenchmarkPlugin,
             FrameTimeDiagnosticsPlugin,
             LogDiagnosticsPlugin::default(),
             LogVisibleLights,

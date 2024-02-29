@@ -22,6 +22,7 @@ use bevy::{
     window::{PresentMode, WindowPlugin, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
+use bevy_test_utils::BenchmarkPlugin;
 use rand::{rngs::StdRng, seq::SliceRandom, Rng, SeedableRng};
 
 #[derive(FromArgs, Resource)]
@@ -84,6 +85,7 @@ fn main() {
                 }),
                 ..default()
             }),
+            BenchmarkPlugin,
             FrameTimeDiagnosticsPlugin,
             LogDiagnosticsPlugin::default(),
         ))
