@@ -29,9 +29,9 @@ pub enum Color {
     Laba(Laba),
     /// A color in the LCH color space with alpha.
     Lcha(Lcha),
-    /// A color in the Oklaba color space with alpha.
+    /// A color in the Oklab color space with alpha.
     Oklaba(Oklaba),
-    /// A color in the Oklcha color space with alpha.
+    /// A color in the Oklch color space with alpha.
     Oklcha(Oklcha),
     /// A color in the XYZ color space with alpha.
     Xyza(Xyza),
