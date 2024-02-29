@@ -11,14 +11,16 @@ use bevy_ecs::{
     entity::Entity,
     event::EventReader,
     prelude::With,
+    query::{Changed, Without},
     reflect::ReflectComponent,
     system::{Commands, Local, Query, Res, ResMut},
 };
 use bevy_math::Vec2;
 use bevy_reflect::Reflect;
 use bevy_render::{
+    primitives::Aabb,
     texture::Image,
-    view::{InheritedVisibility, ViewVisibility, Visibility},
+    view::{InheritedVisibility, NoFrustumCulling, ViewVisibility, Visibility},
     Extract,
 };
 use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, TextureAtlasLayout};
@@ -225,4 +227,153 @@ pub fn update_text2d_layout(
 /// Scales `value` by `factor`.
 pub fn scale_value(value: f32, factor: f32) -> f32 {
     value * factor
+}
+
+/// System calculating and inserting an [`Aabb`] component to entities with some
+/// [`TextLayoutInfo`] and [`Anchor`] components, and without a [`NoFrustumCulling`] component.
+///
+/// Used in system set [`VisibilitySystems::CalculateBounds`](bevy_render::view::VisibilitySystems::CalculateBounds).
+pub fn calculate_bounds_text2d(
+    mut commands: Commands,
+    mut text_to_update_aabb: Query<
+        (Entity, &TextLayoutInfo, &Anchor, Option<&mut Aabb>),
+        (Changed<TextLayoutInfo>, Without<NoFrustumCulling>),
+    >,
+) {
+    for (entity, layout_info, anchor, aabb) in &mut text_to_update_aabb {
+        // `Anchor::as_vec` gives us an offset relative to the text2d bounds, by negating it and scaling
+        // by the logical size we compensate the transform offset in local space to get the center.
+        let center = (-anchor.as_vec() * layout_info.logical_size)
+            .extend(0.0)
+            .into();
+        // Distance in local space from the center to the x and y limits of the text2d bounds.
+        let half_extents = (layout_info.logical_size / 2.0).extend(0.0).into();
+        if let Some(mut aabb) = aabb {
+            *aabb = Aabb {
+                center,
+                half_extents,
+            };
+        } else {
+            commands.entity(entity).try_insert(Aabb {
+                center,
+                half_extents,
+            });
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use bevy_app::{App, Update};
+    use bevy_asset::{load_internal_binary_asset, Handle};
+    use bevy_ecs::{event::Events, schedule::IntoSystemConfigs};
+    use bevy_utils::default;
+
+    use super::*;
+
+    const FIRST_TEXT: &str = "Sample text.";
+    const SECOND_TEXT: &str = "Another, longer sample text.";
+
+    fn setup() -> (App, Entity) {
+        let mut app = App::new();
+        app.init_resource::<Assets<Font>>()
+            .init_resource::<Assets<Image>>()
+            .init_resource::<Assets<TextureAtlasLayout>>()
+            .init_resource::<TextSettings>()
+            .init_resource::<FontAtlasSets>()
+            .init_resource::<Events<WindowScaleFactorChanged>>()
+            .insert_resource(TextPipeline::default())
+            .add_systems(
+                Update,
+                (
+                    update_text2d_layout,
+                    calculate_bounds_text2d.after(update_text2d_layout),
+                ),
+            );
+
+        // A font is needed to ensure the text is laid out with an actual size.
+        load_internal_binary_asset!(
+            app,
+            Handle::default(),
+            "FiraMono-subset.ttf",
+            |bytes: &[u8], _path: String| { Font::try_from_bytes(bytes.to_vec()).unwrap() }
+        );
+
+        let entity = app
+            .world
+            .spawn((Text2dBundle {
+                text: Text::from_section(FIRST_TEXT, default()),
+                ..default()
+            },))
+            .id();
+
+        (app, entity)
+    }
+
+    #[test]
+    fn calculate_bounds_text2d_create_aabb() {
+        let (mut app, entity) = setup();
+
+        assert!(!app
+            .world
+            .get_entity(entity)
+            .expect("Could not find entity")
+            .contains::<Aabb>());
+
+        // Creates the AABB after text layouting.
+        app.update();
+
+        let aabb = app
+            .world
+            .get_entity(entity)
+            .expect("Could not find entity")
+            .get::<Aabb>()
+            .expect("Text should have an AABB");
+
+        // Text2D AABB does not have a depth.
+        assert_eq!(aabb.center.z, 0.0);
+        assert_eq!(aabb.half_extents.z, 0.0);
+
+        // AABB has an actual size.
+        assert!(aabb.half_extents.x > 0.0 && aabb.half_extents.y > 0.0);
+    }
+
+    #[test]
+    fn calculate_bounds_text2d_update_aabb() {
+        let (mut app, entity) = setup();
+
+        // Creates the initial AABB after text layouting.
+        app.update();
+
+        let first_aabb = *app
+            .world
+            .get_entity(entity)
+            .expect("Could not find entity")
+            .get::<Aabb>()
+            .expect("Could not find initial AABB");
+
+        let mut entity_ref = app
+            .world
+            .get_entity_mut(entity)
+            .expect("Could not find entity");
+        *entity_ref
+            .get_mut::<Text>()
+            .expect("Missing Text on entity") = Text::from_section(SECOND_TEXT, default());
+
+        // Recomputes the AABB.
+        app.update();
+
+        let second_aabb = *app
+            .world
+            .get_entity(entity)
+            .expect("Could not find entity")
+            .get::<Aabb>()
+            .expect("Could not find second AABB");
+
+        // Check that the height is the same, but the width is greater.
+        approx::assert_abs_diff_eq!(first_aabb.half_extents.y, second_aabb.half_extents.y);
+        assert!(FIRST_TEXT.len() < SECOND_TEXT.len());
+        assert!(first_aabb.half_extents.x < second_aabb.half_extents.x);
+    }
 }
