@@ -2,14 +2,23 @@ use crate::entity::Entity;
 use crate::system::{BoxedSystem, Command, IntoSystem};
 use crate::world::World;
 use crate::{self as bevy_ecs};
-use bevy_ecs_macros::Component;
+use bevy_ecs_macros::{Component, Resource};
+use bevy_utils::tracing::info;
 use thiserror::Error;
+
+use super::System;
 
 /// A small wrapper for [`BoxedSystem`] that also keeps track whether or not the system has been initialized.
 #[derive(Component)]
 struct RegisteredSystem<I, O> {
     initialized: bool,
     system: BoxedSystem<I, O>,
+}
+
+/// A wrapper for [`BoxedSystem`] used by [`World::run_system_singleton`]. The system will be taken while running.
+struct UnregisteredSystem {
+    initialized: bool,
+    system: Option<BoxedSystem>,
 }
 
 /// A system that has been removed from the registry.
@@ -306,6 +315,156 @@ impl World {
         }
         Ok(result)
     }
+
+    /// Run a system one-shot by itself.
+    /// It calls like [`RunSystemOnce::run_system_once`](crate::system::RunSystemOnce::run_system_once),
+    /// but behaves like [`World::run_system`].
+    /// System will be registered on first run, then its state is kept for after calls.
+    ///
+    /// # Limitations
+    ///
+    /// - Stored systems cannot be chained.
+    /// - Stored systems cannot be recursive.
+    /// - Exclusive systems cannot be used.
+    /// - Closures with different captures cannot be distinguished, they share a same [`TypeId`](std::any::TypeId).
+    ///
+    /// # Examples
+    ///
+    /// In most cases, use this method like using [`World::run_system`] with a unique id for each system.
+    ///
+    /// Persistent state:
+    ///
+    /// ```rust
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(Resource, Default)]
+    /// struct Counter(u8);
+    ///
+    /// fn increment(mut counter: Local<Counter>) {
+    ///     counter.0 += 1;
+    ///     println!("{}", counter.0);
+    /// }
+    ///
+    /// let mut world = World::default();
+    /// world.run_system_singleton(increment); // -> 1
+    /// world.run_system_singleton(increment); // -> 2
+    ///
+    /// // Each closure has its own state
+    /// for _ in 0..5 { // -> 1, 1, 2, 2, 3, 3, 4, 4, 5, 5
+    ///     world.run_system_singleton(|mut counter: Local<Counter>| {
+    ///         counter.0 += 1;
+    ///         println!("{}", counter.0);
+    ///     });
+    ///     world.run_system_singleton(|mut counter: Local<Counter>| {
+    ///         counter.0 += 1;
+    ///         println!("{}", counter.0);
+    ///     });
+    /// }
+    ///
+    /// // Store it if you want to share state between calls
+    /// let increment_closure = |mut counter: Local<Counter>| {
+    ///     counter.0 += 1;
+    /// };
+    /// ```
+    ///
+    /// Change detection:
+    ///
+    /// ```rust
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(Resource, Default)]
+    /// struct ChangeDetector;
+    ///
+    /// let mut world = World::default();
+    /// world.init_resource::<ChangeDetector>();
+    ///
+    /// let detector = |change_detector: ResMut<ChangeDetector>| {
+    ///     if change_detector.is_changed() {
+    ///         println!("Something happened!");
+    ///     } else {
+    ///         println!("Nothing happened.");
+    ///     }
+    /// };
+    ///
+    /// // Resources are changed when they are first added
+    /// let _ = world.run_system_singleton(detector); // -> Something happened!
+    /// let _ = world.run_system_singleton(detector); // -> Nothing happened.
+    /// world.resource_mut::<ChangeDetector>().set_changed();
+    /// let _ = world.run_system_singleton(detector); // -> Something happened!
+    /// ```
+    ///
+    /// # Attention
+    ///
+    /// Please note that closure is identified by its **occurrence** no matter what it captures,
+    /// This code will call the first cached one rather than actual passed one.
+    ///
+    /// ```rust
+    /// use bevy_ecs::prelude::World;
+    /// let mut world = World::new();
+    ///
+    /// // Captures will not make a closure differed
+    /// let make_system = |n| move || println!("{n}");
+    /// let _ = world.run_system_singleton(make_system(0)); // -> 0
+    /// let _ = world.run_system_singleton(make_system(1)); // -> 0
+    ///
+    /// // Register them and `run_system` instead
+    /// let sys0 = world.register_system(make_system(0));
+    /// let sys1 = world.register_system(make_system(1));
+    /// let _ = world.run_system(sys0); // -> 0
+    /// let _ = world.run_system(sys1); // -> 1
+    /// ```
+    pub fn run_system_singleton<M, T: IntoSystem<(), (), M>>(
+        &mut self,
+        system: T,
+    ) -> Result<(), UnregisteredSystemError> {
+        // create the hashmap if it doesn't exist
+        let mut system_map = self.get_resource_or_insert_with(SystemMap::default);
+
+        let system = IntoSystem::<(), (), M>::into_system(system);
+
+        // check captures of closure
+        if std::mem::size_of::<T>() != 0 {
+            info!(target: "run_system_singleton", "Closure with capture(s) runs, be sure that you're not relying on differently captured versions of one closure.");
+        }
+        // use the system type id as the key
+        let system_type_id = system.type_id();
+        // take system out
+        let UnregisteredSystem {
+            mut initialized,
+            system,
+        } = system_map
+            .map
+            .entry(system_type_id)
+            .or_insert_with(|| UnregisteredSystem {
+                initialized: false,
+                system: Some(Box::new(system)),
+            });
+        // check if runs recursively
+        let Some(mut system) = system.take() else {
+            return Err(UnregisteredSystemError::Recursive);
+        };
+
+        // run the system
+        if !initialized {
+            system.initialize(self);
+            initialized = true;
+        }
+        system.run((), self);
+        system.apply_deferred(self);
+
+        // put system back if resource still exists
+        if let Some(mut system_map) = self.get_resource_mut::<SystemMap>() {
+            system_map.map.insert(
+                system_type_id,
+                UnregisteredSystem {
+                    initialized,
+                    system: Some(system),
+                },
+            );
+        };
+
+        Ok(())
+    }
 }
 
 /// The [`Command`] type for [`World::run_system`] or [`World::run_system_with_input`].
@@ -388,6 +547,41 @@ impl<I, O> std::fmt::Debug for RegisteredSystemError<I, O> {
     }
 }
 
+/// The [`Command`] type for [`World::run_system_singleton`].
+///
+/// This command runs systems in an exclusive and single threaded way.
+/// Running slow systems can become a bottleneck.
+#[derive(Debug, Clone)]
+pub struct RunSystemSingleton<T: System<In = (), Out = ()>> {
+    system: T,
+}
+impl<T: System<In = (), Out = ()>> RunSystemSingleton<T> {
+    /// Creates a new [`Command`] struct, which can be added to [`Commands`](crate::system::Commands)
+    pub fn new(system: T) -> Self {
+        Self { system }
+    }
+}
+impl<T: System<In = (), Out = ()>> Command for RunSystemSingleton<T> {
+    #[inline]
+    fn apply(self, world: &mut World) {
+        let _ = world.run_system_singleton(self.system);
+    }
+}
+
+/// An internal [`Resource`] that stores all systems called by [`World::run_system_singleton`].
+#[derive(Resource, Default)]
+struct SystemMap {
+    map: bevy_utils::HashMap<std::any::TypeId, UnregisteredSystem>,
+}
+
+/// An operation with [`World::run_system_singleton`] systems failed.
+#[derive(Debug, Error)]
+pub enum UnregisteredSystemError {
+    /// A system tried to run itself recursively.
+    #[error("RunSystemSingleton: System tried to run itself recursively")]
+    Recursive,
+}
+
 mod tests {
     use crate as bevy_ecs;
     use crate::prelude::*;
@@ -424,6 +618,35 @@ mod tests {
         world.resource_mut::<ChangeDetector>().set_changed();
         world.run_system(id).expect("system runs successfully");
         assert_eq!(*world.resource::<Counter>(), Counter(2));
+
+        // Test for `run_system_singleton`
+        let _ = world.run_system_singleton(count_up_iff_changed);
+        assert_eq!(*world.resource::<Counter>(), Counter(3));
+        // Nothing changed
+        let _ = world.run_system_singleton(count_up_iff_changed);
+        assert_eq!(*world.resource::<Counter>(), Counter(3));
+        // Making a change
+        world.resource_mut::<ChangeDetector>().set_changed();
+        let _ = world.run_system_singleton(count_up_iff_changed);
+        assert_eq!(*world.resource::<Counter>(), Counter(4));
+
+        // Test for `run_system_singleton` with closure
+        let run_count_up_changed_closure =
+            |mut counter: ResMut<Counter>, change_detector: ResMut<ChangeDetector>| {
+                if change_detector.is_changed() {
+                    counter.0 += 1;
+                }
+            };
+
+        let _ = world.run_system_singleton(run_count_up_changed_closure);
+        assert_eq!(*world.resource::<Counter>(), Counter(5));
+        // Nothing changed
+        let _ = world.run_system_singleton(run_count_up_changed_closure);
+        assert_eq!(*world.resource::<Counter>(), Counter(5));
+        // Making a change
+        world.resource_mut::<ChangeDetector>().set_changed();
+        let _ = world.run_system_singleton(run_count_up_changed_closure);
+        assert_eq!(*world.resource::<Counter>(), Counter(6));
     }
 
     #[test]
@@ -446,6 +669,28 @@ mod tests {
         assert_eq!(*world.resource::<Counter>(), Counter(4));
         world.run_system(id).expect("system runs successfully");
         assert_eq!(*world.resource::<Counter>(), Counter(8));
+
+        // Test for `run_system_singleton`
+        let _ = world.run_system_singleton(doubling);
+        assert_eq!(*world.resource::<Counter>(), Counter(8));
+        let _ = world.run_system_singleton(doubling);
+        assert_eq!(*world.resource::<Counter>(), Counter(16));
+        let _ = world.run_system_singleton(doubling);
+        assert_eq!(*world.resource::<Counter>(), Counter(32));
+
+        // Test for `run_system_singleton` with closure
+        // This is needed for closure's `TypeId` is related to its occurrence
+        let doubling_closure = |last_counter: Local<Counter>, mut counter: ResMut<Counter>| {
+            counter.0 += last_counter.0 .0;
+            last_counter.0 .0 = counter.0;
+        };
+
+        let _ = world.run_system_singleton(doubling_closure);
+        assert_eq!(*world.resource::<Counter>(), Counter(32));
+        let _ = world.run_system_singleton(doubling_closure);
+        assert_eq!(*world.resource::<Counter>(), Counter(64));
+        let _ = world.run_system_singleton(doubling_closure);
+        assert_eq!(*world.resource::<Counter>(), Counter(128));
     }
 
     #[test]

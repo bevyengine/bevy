@@ -14,7 +14,7 @@ pub use command_queue::CommandQueue;
 pub use parallel_scope::*;
 use std::marker::PhantomData;
 
-use super::{Deferred, Resource, SystemBuffer, SystemMeta};
+use super::{Deferred, IntoSystem, Resource, RunSystemSingleton, SystemBuffer, SystemMeta};
 
 /// A [`World`] mutation.
 ///
@@ -572,6 +572,22 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn run_system_with_input<I: 'static + Send>(&mut self, id: SystemId<I>, input: I) {
         self.queue
             .push(RunSystemWithInput::new_with_input(id, input));
+    }
+
+    /// Runs the system by referring it. This method will register the system newly called with,
+    /// whether you have registered or not. Different calls with same system will share same state.
+    ///
+    /// Specially note when running closures with capture, the captured value won't update after first call.
+    /// Examples see [`World::run_system_singleton`]. Register them each, use [`World::run_system`] instead.
+    ///
+    /// Systems are ran in an exclusive and single threaded way.
+    /// Running slow systems can become a bottleneck.
+    ///
+    /// Calls [`World::run_system_singleton`].
+    pub fn run_system_singleton<M>(&mut self, system: impl IntoSystem<(), (), M>) {
+        self.queue.push(RunSystemSingleton::new(
+            IntoSystem::<(), (), M>::into_system(system),
+        ));
     }
 
     /// Pushes a generic [`Command`] to the command queue.
