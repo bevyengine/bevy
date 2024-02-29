@@ -221,7 +221,7 @@ fn select(
     transform.translation.z = 100.0;
 
     text.sections[1].value.clone_from(&contributor.name);
-    text.sections[1].style.color = sprite.color.into();
+    text.sections[1].style.color = sprite.color;
 }
 
 /// Change the modulate color to the "deselected" color and push

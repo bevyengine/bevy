@@ -55,7 +55,7 @@ fn setup(
         mesh: meshes.add(Cuboid::new(5.0, 0.15, 5.0)),
         transform,
         material: materials.add(StandardMaterial {
-            base_color: Color::from(INDIGO),
+            base_color: INDIGO.into(),
             perceptual_roughness: 1.0,
             ..default()
         }),
@@ -68,7 +68,7 @@ fn setup(
         mesh: meshes.add(Cuboid::new(5.0, 0.15, 5.0)),
         transform,
         material: materials.add(StandardMaterial {
-            base_color: Color::from(INDIGO),
+            base_color: INDIGO.into(),
             perceptual_roughness: 1.0,
             ..default()
         }),

@@ -127,7 +127,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
                     "",
                     TextStyle {
                         font_size,
-                        color: virtual_color.into(),
+                        color: virtual_color,
                         ..default()
                     },
                 )
