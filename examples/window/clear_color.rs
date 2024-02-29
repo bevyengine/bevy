@@ -2,7 +2,7 @@
 //!
 //! Acts as background color, since pixels that are not drawn in a frame remain unchanged.
 
-use bevy::prelude::*;
+use bevy::{color::palettes::css::PURPLE, prelude::*};
 
 fn main() {
     App::new()
@@ -19,6 +19,6 @@ fn setup(mut commands: Commands) {
 
 fn change_clear_color(input: Res<ButtonInput<KeyCode>>, mut clear_color: ResMut<ClearColor>) {
     if input.just_pressed(KeyCode::Space) {
-        clear_color.0 = bevy::color::palettes::css::PURPLE.into();
+        clear_color.0 = PURPLE.into();
     }
 }

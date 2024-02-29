@@ -13,7 +13,6 @@
 //!
 //! * Clicking anywhere moves the object.
 
-use bevy::color::palettes::basic::RED;
 use bevy::color::palettes::css::*;
 use bevy::core_pipeline::Skybox;
 use bevy::math::{uvec3, vec3};
@@ -364,7 +363,7 @@ impl AppStatus {
             TextStyle {
                 font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                 font_size: 24.0,
-                color: Color::WHITE,
+                ..default()
             },
         )
     }

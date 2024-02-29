@@ -1,12 +1,6 @@
 //! Example demonstrating bordered UI nodes
 
-use bevy::{
-    color::palettes::{
-        basic::{MAROON, RED, YELLOW},
-        css::DARK_GRAY,
-    },
-    prelude::*,
-};
+use bevy::{color::palettes::css::*, prelude::*};
 
 fn main() {
     App::new()

@@ -82,7 +82,7 @@ fn setup_menu(mut commands: Commands) {
                         "Play",
                         TextStyle {
                             font_size: 40.0,
-                            color: Color::WHITE,
+                            color: Color::srgb(0.9, 0.9, 0.9),
                             ..default()
                         },
                     ));

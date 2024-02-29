@@ -1,6 +1,5 @@
 //! Demonstrates how CSS Grid layout can be used to lay items out in a 2D grid
-use bevy::color::palettes::css::*;
-use bevy::prelude::*;
+use bevy::{color::palettes::css::*, prelude::*};
 
 fn main() {
     App::new()

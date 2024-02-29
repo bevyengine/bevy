@@ -10,7 +10,7 @@
 //! | `Spacebar`         | Toggle Unlit                        |
 //! | `C`                | Randomize Colors                    |
 
-use bevy::prelude::*;
+use bevy::{color::palettes::css::ORANGE, prelude::*};
 use rand::random;
 
 fn main() {
@@ -36,7 +36,7 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
-    let base_color = Color::srgba(0.9, 0.2, 0.3, 1.0);
+    let base_color = Color::srgb(0.9, 0.2, 0.3);
     let icosphere_mesh = meshes.add(Sphere::new(0.9).mesh().ico(7).unwrap());
 
     // Opaque
@@ -188,7 +188,7 @@ fn setup(
     let label_text_style = TextStyle {
         font: asset_server.load("fonts/FiraMono-Medium.ttf"),
         font_size: 25.0,
-        color: Color::WHITE,
+        color: ORANGE.into(),
     };
 
     commands.spawn(
