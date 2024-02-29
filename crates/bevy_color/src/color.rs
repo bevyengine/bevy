@@ -138,7 +138,13 @@ impl Color {
         })
     }
 
-    /// Createsa new [`Color`] object storing a [`LinearRgba`] color.
+    #[deprecated = "Use Color::linear_rgba instead."]
+    /// Creates a new [`Color`] object storing a [`LinearRgba`] color.
+    pub const fn rbga_linear(red: f32, green: f32, blue: f32, alpha: f32) -> Self {
+        Self::linear_rgba(red, green, blue, alpha)
+    }
+
+    /// Creates a new [`Color`] object storing a [`LinearRgba`] color.
     pub const fn linear_rgba(red: f32, green: f32, blue: f32, alpha: f32) -> Self {
         Self::LinearRgba(LinearRgba {
             red,
@@ -148,7 +154,13 @@ impl Color {
         })
     }
 
-    /// a new [`Color`] object storing a [`LinearRgba`] color with an alpha of 1.0.
+    #[deprecated = "Use Color::linear_rgb instead."]
+    /// Creates a new [`Color`] object storing a [`LinearRgba`] color with an alpha of 1.0.
+    pub const fn rgb_linear(red: f32, green: f32, blue: f32) -> Self {
+        Self::linear_rgb(red, green, blue)
+    }
+
+    /// Creates a new [`Color`] object storing a [`LinearRgba`] color with an alpha of 1.0.
     pub const fn linear_rgb(red: f32, green: f32, blue: f32) -> Self {
         Self::LinearRgba(LinearRgba {
             red,
