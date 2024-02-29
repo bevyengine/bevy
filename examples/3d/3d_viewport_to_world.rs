@@ -1,6 +1,6 @@
 //! This example demonstrates how to use the `Camera::viewport_to_world` method.
 
-use bevy::{math::Direction3d, prelude::*};
+use bevy::{math::Dir3, prelude::*};
 
 fn main() {
     App::new()
