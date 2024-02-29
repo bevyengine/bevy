@@ -1,6 +1,6 @@
 //! This example demonstrates how to use the `Camera::viewport_to_world` method.
 
-use bevy::math::Direction3d;
+use bevy::math::Dir3;
 use bevy::prelude::*;
 
 fn main() {
@@ -39,7 +39,7 @@ fn draw_cursor(
     // Draw a circle just above the ground plane at that position.
     gizmos.circle(
         point + ground.up() * 0.01,
-        Direction3d::new_unchecked(ground.up()), // Up vector is already normalized.
+        Dir3::new_unchecked(ground.up()), // Up vector is already normalized.
         0.2,
         LegacyColor::WHITE,
     );

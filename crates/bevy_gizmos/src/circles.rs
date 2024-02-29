@@ -5,7 +5,7 @@
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 use bevy_math::Mat2;
-use bevy_math::{Direction3d, Quat, Vec2, Vec3};
+use bevy_math::{Dir3, Quat, Vec2, Vec3};
 use bevy_render::color::LegacyColor;
 use std::f32::consts::TAU;
 
@@ -106,12 +106,12 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.circle(Vec3::ZERO, Direction3d::Z, 1., LegacyColor::GREEN);
+    ///     gizmos.circle(Vec3::ZERO, Dir3::Z, 1., LegacyColor::GREEN);
     ///
     ///     // Circles have 32 line-segments by default.
     ///     // You may want to increase this for larger circles.
     ///     gizmos
-    ///         .circle(Vec3::ZERO, Direction3d::Z, 5., LegacyColor::RED)
+    ///         .circle(Vec3::ZERO, Dir3::Z, 5., LegacyColor::RED)
     ///         .segments(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
@@ -120,7 +120,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     pub fn circle(
         &mut self,
         position: Vec3,
-        normal: Direction3d,
+        normal: Dir3,
         radius: f32,
         color: LegacyColor,
     ) -> EllipseBuilder<'_, 'w, 's, T> {

@@ -1,6 +1,6 @@
 use super::GlobalTransform;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
-use bevy_math::{Affine3A, Direction3d, Mat3, Mat4, Quat, Vec3};
+use bevy_math::{Affine3A, Dir3, Mat3, Mat4, Quat, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_reflect::Reflect;
 use std::ops::Mul;
@@ -185,58 +185,58 @@ impl Transform {
 
     /// Get the unit vector in the local `X` direction.
     #[inline]
-    pub fn local_x(&self) -> Direction3d {
-        // Direction3d::new(x) panics if x is of invalid length, but quat * unit vector is length 1
-        Direction3d::new(self.rotation * Vec3::X).unwrap()
+    pub fn local_x(&self) -> Dir3 {
+        // Dir3::new(x) panics if x is of invalid length, but quat * unit vector is length 1
+        Dir3::new(self.rotation * Vec3::X).unwrap()
     }
 
     /// Equivalent to [`-local_x()`][Transform::local_x()]
     #[inline]
-    pub fn left(&self) -> Direction3d {
+    pub fn left(&self) -> Dir3 {
         -self.local_x()
     }
 
     /// Equivalent to [`local_x()`][Transform::local_x()]
     #[inline]
-    pub fn right(&self) -> Direction3d {
+    pub fn right(&self) -> Dir3 {
         self.local_x()
     }
 
     /// Get the unit vector in the local `Y` direction.
     #[inline]
-    pub fn local_y(&self) -> Direction3d {
-        // Direction3d::new(x) panics if x is of invalid length, but quat * unit vector is length 1
-        Direction3d::new(self.rotation * Vec3::Y).unwrap()
+    pub fn local_y(&self) -> Dir3 {
+        // Dir3::new(x) panics if x is of invalid length, but quat * unit vector is length 1
+        Dir3::new(self.rotation * Vec3::Y).unwrap()
     }
 
     /// Equivalent to [`local_y()`][Transform::local_y]
     #[inline]
-    pub fn up(&self) -> Direction3d {
+    pub fn up(&self) -> Dir3 {
         self.local_y()
     }
 
     /// Equivalent to [`-local_y()`][Transform::local_y]
     #[inline]
-    pub fn down(&self) -> Direction3d {
+    pub fn down(&self) -> Dir3 {
         -self.local_y()
     }
 
     /// Get the unit vector in the local `Z` direction.
     #[inline]
-    pub fn local_z(&self) -> Direction3d {
-        // Direction3d::new(x) panics if x is of invalid length, but quat * unit vector is length 1
-        Direction3d::new(self.rotation * Vec3::Z).unwrap()
+    pub fn local_z(&self) -> Dir3 {
+        // Dir3::new(x) panics if x is of invalid length, but quat * unit vector is length 1
+        Dir3::new(self.rotation * Vec3::Z).unwrap()
     }
 
     /// Equivalent to [`-local_z()`][Transform::local_z]
     #[inline]
-    pub fn forward(&self) -> Direction3d {
+    pub fn forward(&self) -> Dir3 {
         -self.local_z()
     }
 
     /// Equivalent to [`local_z()`][Transform::local_z]
     #[inline]
-    pub fn back(&self) -> Direction3d {
+    pub fn back(&self) -> Dir3 {
         self.local_z()
     }
 
