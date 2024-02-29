@@ -30,6 +30,8 @@ pub mod settings;
 mod spatial_bundle;
 pub mod texture;
 pub mod view;
+
+#[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{

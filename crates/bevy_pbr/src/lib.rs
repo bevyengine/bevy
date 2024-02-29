@@ -30,6 +30,7 @@ pub use prepass::*;
 pub use render::*;
 pub use ssao::*;
 
+#[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{

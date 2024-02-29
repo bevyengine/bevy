@@ -19,7 +19,7 @@ pub use direction::*;
 pub use ray::{Ray2d, Ray3d};
 pub use rects::*;
 
-/// The `bevy_math` prelude.
+#[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{

@@ -7,7 +7,7 @@ pub mod helper;
 /// Systems responsible for transform propagation
 pub mod systems;
 
-#[doc(hidden)]
+#[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{

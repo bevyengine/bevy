@@ -7,6 +7,7 @@ pub mod processor;
 pub mod saver;
 pub mod transformer;
 
+#[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{

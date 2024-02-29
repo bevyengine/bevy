@@ -11,6 +11,7 @@ mod texture_atlas;
 mod texture_atlas_builder;
 mod texture_slice;
 
+#[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
