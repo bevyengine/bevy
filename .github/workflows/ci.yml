@@ -161,8 +161,8 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ubuntu-assets-cargo-build-wasm-stable-${{ hashFiles('**/Cargo.toml') }}
-      - uses: dtolnay/rust-toolchain@stable
+          key: ubuntu-assets-cargo-build-wasm-nightly-${{ hashFiles('**/Cargo.toml') }}
+      - uses: dtolnay/rust-toolchain@nightly
         with:
           target: wasm32-unknown-unknown
       - name: Check wasm

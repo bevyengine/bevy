@@ -62,14 +62,14 @@ macro_rules! render_resource_wrapper {
             }
         }
 
+        #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
         // SAFETY: We manually implement Send and Sync, which is valid for Arc<T> when T: Send + Sync.
         // We ensure correctness by checking that $wgpu_type does implement Send and Sync.
         // If in future there is a case where a wrapper is required for a non-send/sync type
         // we can implement a macro variant that omits these manual Send + Sync impls
-        #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
         unsafe impl Send for $wrapper_type {}
-        // SAFETY: As explained above, we ensure correctness by checking that $wgpu_type implements Send and Sync.
         #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
+        // SAFETY: As explained above, we ensure correctness by checking that $wgpu_type implements Send and Sync.
         unsafe impl Sync for $wrapper_type {}
         #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
         const _: () = {
