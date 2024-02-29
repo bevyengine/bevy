@@ -538,10 +538,12 @@ impl App {
         self
     }
 
-    /// Inserts a non-send resource to the app.
+    /// Inserts a non-send [`Resource`] to the current [`App`]
+    /// and overwrites any [`Resource`] previously added of the same type.
     ///
     /// You usually want to use [`insert_resource`](Self::insert_resource),
     /// but there are some special cases when a resource cannot be sent across threads.
+    /// Systems with non-send resources are always scheduled on the main thread.
     ///
     /// # Examples
     ///
@@ -598,11 +600,37 @@ impl App {
 
     /// Initialize a non-send [`Resource`] with standard starting values by adding it to the [`World`].
     ///
+    /// If the [`Resource`] already exists, nothing happens.
+    ///
+    /// You usually want to use [`init_resource`](Self::init_resource),
+    /// but there are some special cases when a resource cannot be sent across threads.
+    /// Systems with non-send resources are always scheduled on the main thread.
+    ///
     /// The [`Resource`] must implement the [`FromWorld`] trait.
     /// If the [`Default`] trait is implemented, the [`FromWorld`] trait will use
     /// the [`Default::default`] method to initialize the [`Resource`].
     pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) -> &mut Self {
         self.world.init_non_send_resource::<R>();
+        self
+    }
+
+    /// Initialize a [`Resource`] with a given value by adding it to the [`World`].
+    ///
+    /// If the [`Resource`] already exists, nothing happens, it won't get overwritten by the given value.
+    pub fn init_resource_with<R: Resource>(&mut self, value: R) -> &mut Self {
+        self.world.init_resource_with(value);
+        self
+    }
+
+    /// Initialize a non-send [`Resource`] with standard starting values by adding it to the [`World`].
+    ///
+    /// If the [`Resource`] already exists, nothing happens, it won't get overwritten by the given value.
+    ///
+    /// You usually want to use [`init_resource_with`](Self::init_resource_with),
+    /// but there are some special cases when a resource cannot be sent across threads.
+    /// Systems with non-send resources are always scheduled on the main thread.
+    pub fn init_non_send_resource_with<R: 'static>(&mut self, value: R) -> &mut Self {
+        self.world.init_non_send_resource_with::<R>(value);
         self
     }
 

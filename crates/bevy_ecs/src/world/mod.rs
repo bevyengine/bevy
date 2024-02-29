@@ -1048,7 +1048,7 @@ impl World {
             .map(|e| e.into())
     }
 
-    /// Initializes a new resource and returns the [`ComponentId`] created for it.
+    /// Initializes a new [`Resource`] and returns the [`ComponentId`] created for it.
     ///
     /// If the resource already exists, nothing happens.
     ///
@@ -1075,7 +1075,29 @@ impl World {
         component_id
     }
 
-    /// Inserts a new resource with the given `value`.
+    /// Initializes a new [`Resource`] with a given value and returns the [`ComponentId`] created for it.
+    ///
+    /// If the resource already exists, nothing happens, it won't get overwritten with the given value.
+    #[inline]
+    pub fn init_resource_with<R: Resource>(&mut self, value: R) -> ComponentId {
+        let component_id = self.components.init_resource::<R>();
+        if self
+            .storages
+            .resources
+            .get(component_id)
+            .map_or(true, |data| !data.is_present())
+        {
+            OwningPtr::make(value, |ptr| {
+                // SAFETY: component_id was just initialized and corresponds to resource of type R.
+                unsafe {
+                    self.insert_resource_by_id(component_id, ptr);
+                }
+            });
+        }
+        component_id
+    }
+
+    /// Inserts a new [`Resource`] with the given `value`.
     ///
     /// Resources are "unique" data of a given type.
     /// If you insert a resource of a type that already exists,
@@ -1091,13 +1113,17 @@ impl World {
         });
     }
 
-    /// Initializes a new non-send resource and returns the [`ComponentId`] created for it.
+    /// Initializes a new non-send [`Resource`] and returns the [`ComponentId`] created for it.
     ///
     /// If the resource already exists, nothing happens.
     ///
     /// The value given by the [`FromWorld::from_world`] method will be used.
     /// Note that any resource with the `Default` trait automatically implements `FromWorld`,
     /// and those default values will be here instead.
+    ///
+    /// `NonSend` resources cannot be sent across threads,
+    /// and do not need the `Send + Sync` bounds.
+    /// Systems with `NonSend` resources are always scheduled on the main thread.
     ///
     /// # Panics
     ///
@@ -1122,7 +1148,37 @@ impl World {
         component_id
     }
 
-    /// Inserts a new non-send resource with the given `value`.
+    /// Initializes a new non-send [`Resource`] with a given value and returns the [`ComponentId`] created for it.
+    ///
+    /// If the resource already exists, nothing happens, it won't get overwritten with the given value.
+    ///
+    /// `NonSend` resources cannot be sent across threads,
+    /// and do not need the `Send + Sync` bounds.
+    /// Systems with `NonSend` resources are always scheduled on the main thread.
+    ///
+    /// # Panics
+    ///
+    /// Panics if called from a thread other than the main thread.
+    #[inline]
+    pub fn init_non_send_resource_with<R: 'static>(&mut self, value: R) -> ComponentId {
+        let component_id = self.components.init_non_send::<R>();
+        if self
+            .storages
+            .non_send_resources
+            .get(component_id)
+            .map_or(true, |data| !data.is_present())
+        {
+            OwningPtr::make(value, |ptr| {
+                // SAFETY: component_id was just initialized and corresponds to resource of type R.
+                unsafe {
+                    self.insert_non_send_by_id(component_id, ptr);
+                }
+            });
+        }
+        component_id
+    }
+
+    /// Inserts a new non-send [`Resource`] with the given `value`.
     ///
     /// `NonSend` resources cannot be sent across threads,
     /// and do not need the `Send + Sync` bounds.
