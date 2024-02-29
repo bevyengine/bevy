@@ -1,6 +1,6 @@
 use glam::FloatExt;
 
-use crate::prelude::{Direction2d, Mat2, Vec2};
+use crate::prelude::{Dir2, Mat2, Vec2};
 
 /// A counterclockwise 2D rotation in radians.
 ///
@@ -377,12 +377,12 @@ impl std::ops::Mul<Vec2> for Rotation2d {
     }
 }
 
-impl std::ops::Mul<Direction2d> for Rotation2d {
-    type Output = Direction2d;
+impl std::ops::Mul<Dir2> for Rotation2d {
+    type Output = Dir2;
 
-    /// Rotates a [`Direction2d`] by a [`Rotation2d`].
-    fn mul(self, rhs: Direction2d) -> Self::Output {
-        Direction2d::new_unchecked(self * *rhs)
+    /// Rotates a [`Dir2`] by a [`Rotation2d`].
+    fn mul(self, rhs: Dir2) -> Self::Output {
+        Dir2::new_unchecked(self * *rhs)
     }
 }
 
@@ -423,7 +423,7 @@ impl approx::UlpsEq for Rotation2d {
 mod tests {
     use approx::assert_relative_eq;
 
-    use crate::{primitives::Direction2d, Rotation2d, Vec2};
+    use crate::{Dir2, Rotation2d, Vec2};
 
     #[test]
     fn creation() {
@@ -447,7 +447,7 @@ mod tests {
         let rotation = Rotation2d::degrees(90.0);
 
         assert_relative_eq!(rotation * Vec2::X, Vec2::Y);
-        assert_relative_eq!(rotation * Direction2d::Y, Direction2d::NEG_X);
+        assert_relative_eq!(rotation * Dir2::Y, Dir2::NEG_X);
     }
 
     #[test]
