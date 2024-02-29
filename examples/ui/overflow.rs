@@ -1,6 +1,6 @@
 //! Simple example demonstrating overflow behavior.
 
-use bevy::{prelude::*, winit::WinitSettings};
+use bevy::{color::palettes::css::*, prelude::*, winit::WinitSettings};
 
 fn main() {
     App::new()
@@ -32,7 +32,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 justify_content: JustifyContent::Center,
                 ..Default::default()
             },
-            background_color: Color::ANTIQUE_WHITE.into(),
+            background_color: ANTIQUE_WHITE.into(),
             ..Default::default()
         })
         .with_children(|parent| {
@@ -61,7 +61,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     margin: UiRect::bottom(Val::Px(25.)),
                                     ..Default::default()
                                 },
-                                background_color: Color::DARK_GRAY.into(),
+                                background_color: DARK_GRAY.into(),
                                 ..Default::default()
                             })
                             .with_children(|parent| {
@@ -83,7 +83,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     overflow,
                                     ..Default::default()
                                 },
-                                background_color: Color::GRAY.into(),
+                                background_color: GRAY.into(),
                                 ..Default::default()
                             })
                             .with_children(|parent| {
@@ -116,8 +116,8 @@ fn update_outlines(mut outlines_query: Query<(&mut Outline, Ref<Interaction>)>) 
     for (mut outline, interaction) in outlines_query.iter_mut() {
         if interaction.is_changed() {
             outline.color = match *interaction {
-                Interaction::Pressed => Color::RED,
-                Interaction::Hovered => Color::WHITE,
+                Interaction::Pressed => RED.into(),
+                Interaction::Hovered => WHITE.into(),
                 Interaction::None => Color::NONE,
             };
         }

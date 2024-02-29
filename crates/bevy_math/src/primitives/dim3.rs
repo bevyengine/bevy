@@ -1,150 +1,7 @@
 use std::f32::consts::{FRAC_PI_3, PI};
 
-use super::{Circle, InvalidDirectionError, Primitive3d};
-use crate::{Quat, Vec3};
-
-/// A normalized vector pointing in a direction in 3D space
-#[derive(Clone, Copy, Debug, PartialEq)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-pub struct Direction3d(Vec3);
-impl Primitive3d for Direction3d {}
-
-impl Direction3d {
-    /// A unit vector pointing along the positive X axis.
-    pub const X: Self = Self(Vec3::X);
-    /// A unit vector pointing along the positive Y axis.
-    pub const Y: Self = Self(Vec3::Y);
-    /// A unit vector pointing along the positive Z axis.
-    pub const Z: Self = Self(Vec3::Z);
-    /// A unit vector pointing along the negative X axis.
-    pub const NEG_X: Self = Self(Vec3::NEG_X);
-    /// A unit vector pointing along the negative Y axis.
-    pub const NEG_Y: Self = Self(Vec3::NEG_Y);
-    /// A unit vector pointing along the negative Z axis.
-    pub const NEG_Z: Self = Self(Vec3::NEG_Z);
-
-    /// Create a direction from a finite, nonzero [`Vec3`].
-    ///
-    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
-    /// of the given vector is zero (or very close to zero), infinite, or `NaN`.
-    pub fn new(value: Vec3) -> Result<Self, InvalidDirectionError> {
-        Self::new_and_length(value).map(|(dir, _)| dir)
-    }
-
-    /// Create a [`Direction3d`] from a [`Vec3`] that is already normalized.
-    ///
-    /// # Warning
-    ///
-    /// `value` must be normalized, i.e it's length must be `1.0`.
-    pub fn new_unchecked(value: Vec3) -> Self {
-        debug_assert!(value.is_normalized());
-
-        Self(value)
-    }
-
-    /// Create a direction from a finite, nonzero [`Vec3`], also returning its original length.
-    ///
-    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
-    /// of the given vector is zero (or very close to zero), infinite, or `NaN`.
-    pub fn new_and_length(value: Vec3) -> Result<(Self, f32), InvalidDirectionError> {
-        let length = value.length();
-        let direction = (length.is_finite() && length > 0.0).then_some(value / length);
-
-        direction
-            .map(|dir| (Self(dir), length))
-            .ok_or(InvalidDirectionError::from_length(length))
-    }
-
-    /// Create a direction from its `x`, `y`, and `z` components.
-    ///
-    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
-    /// of the vector formed by the components is zero (or very close to zero), infinite, or `NaN`.
-    pub fn from_xyz(x: f32, y: f32, z: f32) -> Result<Self, InvalidDirectionError> {
-        Self::new(Vec3::new(x, y, z))
-    }
-}
-
-impl TryFrom<Vec3> for Direction3d {
-    type Error = InvalidDirectionError;
-
-    fn try_from(value: Vec3) -> Result<Self, Self::Error> {
-        Self::new(value)
-    }
-}
-
-impl From<Direction3d> for Vec3 {
-    fn from(value: Direction3d) -> Self {
-        value.0
-    }
-}
-
-impl std::ops::Deref for Direction3d {
-    type Target = Vec3;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl std::ops::Neg for Direction3d {
-    type Output = Self;
-    fn neg(self) -> Self::Output {
-        Self(-self.0)
-    }
-}
-
-impl std::ops::Mul<f32> for Direction3d {
-    type Output = Vec3;
-    fn mul(self, rhs: f32) -> Self::Output {
-        self.0 * rhs
-    }
-}
-
-impl std::ops::Mul<Direction3d> for Quat {
-    type Output = Direction3d;
-
-    /// Rotates the [`Direction3d`] using a [`Quat`].
-    fn mul(self, direction: Direction3d) -> Self::Output {
-        let rotated = self * *direction;
-
-        // Make sure the result is normalized.
-        // This can fail for non-unit quaternions.
-        debug_assert!(rotated.is_normalized());
-
-        Direction3d::new_unchecked(rotated)
-    }
-}
-
-#[cfg(feature = "approx")]
-impl approx::AbsDiffEq for Direction3d {
-    type Epsilon = f32;
-    fn default_epsilon() -> f32 {
-        f32::EPSILON
-    }
-    fn abs_diff_eq(&self, other: &Self, epsilon: f32) -> bool {
-        self.as_ref().abs_diff_eq(other.as_ref(), epsilon)
-    }
-}
-
-#[cfg(feature = "approx")]
-impl approx::RelativeEq for Direction3d {
-    fn default_max_relative() -> f32 {
-        f32::EPSILON
-    }
-    fn relative_eq(&self, other: &Self, epsilon: f32, max_relative: f32) -> bool {
-        self.as_ref()
-            .relative_eq(other.as_ref(), epsilon, max_relative)
-    }
-}
-
-#[cfg(feature = "approx")]
-impl approx::UlpsEq for Direction3d {
-    fn default_max_ulps() -> u32 {
-        4
-    }
-    fn ulps_eq(&self, other: &Self, epsilon: f32, max_ulps: u32) -> bool {
-        self.as_ref().ulps_eq(other.as_ref(), epsilon, max_ulps)
-    }
-}
+use super::{Circle, Primitive3d};
+use crate::{Dir3, Vec3};
 
 /// A sphere primitive
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -213,16 +70,14 @@ impl Sphere {
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Plane3d {
     /// The normal of the plane. The plane will be placed perpendicular to this direction
-    pub normal: Direction3d,
+    pub normal: Dir3,
 }
 impl Primitive3d for Plane3d {}
 
 impl Default for Plane3d {
     /// Returns the default [`Plane3d`] with a normal pointing in the `+Y` direction.
     fn default() -> Self {
-        Self {
-            normal: Direction3d::Y,
-        }
+        Self { normal: Dir3::Y }
     }
 }
 
@@ -235,7 +90,7 @@ impl Plane3d {
     #[inline(always)]
     pub fn new(normal: Vec3) -> Self {
         Self {
-            normal: Direction3d::new(normal).expect("normal must be nonzero and finite"),
+            normal: Dir3::new(normal).expect("normal must be nonzero and finite"),
         }
     }
 
@@ -251,7 +106,7 @@ impl Plane3d {
     /// are *collinear* and lie on the same line.
     #[inline(always)]
     pub fn from_points(a: Vec3, b: Vec3, c: Vec3) -> (Self, Vec3) {
-        let normal = Direction3d::new((b - a).cross(c - a))
+        let normal = Dir3::new((b - a).cross(c - a))
             .expect("plane must be defined by three finite points that don't lie on the same line");
         let translation = (a + b + c) / 3.0;
 
@@ -266,7 +121,7 @@ impl Plane3d {
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Line3d {
     /// The direction of the line
-    pub direction: Direction3d,
+    pub direction: Dir3,
 }
 impl Primitive3d for Line3d {}
 
@@ -276,7 +131,7 @@ impl Primitive3d for Line3d {}
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Segment3d {
     /// The direction of the line
-    pub direction: Direction3d,
+    pub direction: Dir3,
     /// Half the length of the line segment. The segment extends by this amount in both
     /// the given direction and its opposite direction
     pub half_length: f32,
@@ -286,7 +141,7 @@ impl Primitive3d for Segment3d {}
 impl Segment3d {
     /// Create a new `Segment3d` from a direction and full length of the segment
     #[inline(always)]
-    pub fn new(direction: Direction3d, length: f32) -> Self {
+    pub fn new(direction: Dir3, length: f32) -> Self {
         Self {
             direction,
             half_length: length / 2.0,
@@ -305,7 +160,7 @@ impl Segment3d {
 
         (
             // We are dividing by the length here, so the vector is normalized.
-            Self::new(Direction3d::new_unchecked(diff / length), length),
+            Self::new(Dir3::new_unchecked(diff / length), length),
             (point1 + point2) / 2.,
         )
     }
@@ -419,6 +274,15 @@ impl Cuboid {
     pub fn from_corners(point1: Vec3, point2: Vec3) -> Self {
         Self {
             half_size: (point2 - point1).abs() / 2.0,
+        }
+    }
+
+    /// Create a `Cuboid` from a single length.
+    /// The resulting `Cuboid` will be the same size in every direction.
+    #[inline(always)]
+    pub fn from_length(length: f32) -> Self {
+        Self {
+            half_size: Vec3::splat(length / 2.0),
         }
     }
 
@@ -770,35 +634,33 @@ mod tests {
     // Reference values were computed by hand and/or with external tools
 
     use super::*;
+    use crate::{InvalidDirectionError, Quat};
     use approx::assert_relative_eq;
 
     #[test]
     fn direction_creation() {
-        assert_eq!(Direction3d::new(Vec3::X * 12.5), Ok(Direction3d::X));
+        assert_eq!(Dir3::new(Vec3::X * 12.5), Ok(Dir3::X));
         assert_eq!(
-            Direction3d::new(Vec3::new(0.0, 0.0, 0.0)),
+            Dir3::new(Vec3::new(0.0, 0.0, 0.0)),
             Err(InvalidDirectionError::Zero)
         );
         assert_eq!(
-            Direction3d::new(Vec3::new(f32::INFINITY, 0.0, 0.0)),
+            Dir3::new(Vec3::new(f32::INFINITY, 0.0, 0.0)),
             Err(InvalidDirectionError::Infinite)
         );
         assert_eq!(
-            Direction3d::new(Vec3::new(f32::NEG_INFINITY, 0.0, 0.0)),
+            Dir3::new(Vec3::new(f32::NEG_INFINITY, 0.0, 0.0)),
             Err(InvalidDirectionError::Infinite)
         );
         assert_eq!(
-            Direction3d::new(Vec3::new(f32::NAN, 0.0, 0.0)),
+            Dir3::new(Vec3::new(f32::NAN, 0.0, 0.0)),
             Err(InvalidDirectionError::NaN)
         );
-        assert_eq!(
-            Direction3d::new_and_length(Vec3::X * 6.5),
-            Ok((Direction3d::X, 6.5))
-        );
+        assert_eq!(Dir3::new_and_length(Vec3::X * 6.5), Ok((Dir3::X, 6.5)));
 
         // Test rotation
         assert!(
-            (Quat::from_rotation_z(std::f32::consts::FRAC_PI_2) * Direction3d::X)
+            (Quat::from_rotation_z(std::f32::consts::FRAC_PI_2) * Dir3::X)
                 .abs_diff_eq(Vec3::Y, 10e-6)
         );
     }

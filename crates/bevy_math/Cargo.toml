@@ -1,6 +1,6 @@
 [package]
 name = "bevy_math"
-version = "0.12.0"
+version = "0.14.0-dev"
 edition = "2021"
 description = "Provides math functionality for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -10,6 +10,7 @@ keywords = ["bevy"]
 
 [dependencies]
 glam = { version = "0.25", features = ["bytemuck"] }
+thiserror = "1.0"
 serde = { version = "1", features = ["derive"], optional = true }
 approx = { version = "0.5", optional = true }
 smallvec = { version = "1.11" }

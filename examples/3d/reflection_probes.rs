@@ -8,12 +8,11 @@
 
 use bevy::core_pipeline::Skybox;
 use bevy::prelude::*;
-use bevy::render::camera::ExposureSettings;
 
-use std::fmt::{Display, Formatter, Result as FmtResult};
-
-// Rotation speed in radians per frame.
-const ROTATION_SPEED: f32 = 0.005;
+use std::{
+    f32::consts::PI,
+    fmt::{Display, Formatter, Result as FmtResult},
+};
 
 static STOP_ROTATION_HELP_TEXT: &str = "Press Enter to stop rotation";
 static START_ROTATION_HELP_TEXT: &str = "Press Enter to start rotation";
@@ -106,17 +105,14 @@ fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
 
 // Spawns the camera.
 fn spawn_camera(commands: &mut Commands) {
-    commands.spawn((
-        Camera3dBundle {
-            camera: Camera {
-                hdr: true,
-                ..default()
-            },
-            transform: Transform::from_xyz(-6.483, 0.325, 4.381).looking_at(Vec3::ZERO, Vec3::Y),
+    commands.spawn(Camera3dBundle {
+        camera: Camera {
+            hdr: true,
             ..default()
         },
-        ExposureSettings::OVERCAST,
-    ));
+        transform: Transform::from_xyz(-6.483, 0.325, 4.381).looking_at(Vec3::ZERO, Vec3::Y),
+        ..default()
+    });
 }
 
 // Creates the sphere mesh and spawns it.
@@ -132,7 +128,7 @@ fn spawn_sphere(
     commands.spawn(PbrBundle {
         mesh: sphere_mesh.clone(),
         material: materials.add(StandardMaterial {
-            base_color: Color::hex("#ffd891").unwrap(),
+            base_color: Srgba::hex("#ffd891").unwrap().into(),
             metallic: 1.0,
             perceptual_roughness: 0.0,
             ..StandardMaterial::default()
@@ -297,7 +293,7 @@ impl AppStatus {
             TextStyle {
                 font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                 font_size: 24.0,
-                color: Color::ANTIQUE_WHITE,
+                ..default()
             },
         )
     }
@@ -315,6 +311,7 @@ fn create_camera_environment_map_light(cubemaps: &Cubemaps) -> EnvironmentMapLig
 
 // Rotates the camera a bit every frame.
 fn rotate_camera(
+    time: Res<Time>,
     mut camera_query: Query<&mut Transform, With<Camera3d>>,
     app_status: Res<AppStatus>,
 ) {
@@ -323,7 +320,7 @@ fn rotate_camera(
     }
 
     for mut transform in camera_query.iter_mut() {
-        transform.translation = Vec2::from_angle(ROTATION_SPEED)
+        transform.translation = Vec2::from_angle(time.delta_seconds() * PI / 5.0)
             .rotate(transform.translation.xz())
             .extend(transform.translation.y)
             .xzy();
@@ -334,17 +331,15 @@ fn rotate_camera(
 // Loads the cubemaps from the assets directory.
 impl FromWorld for Cubemaps {
     fn from_world(world: &mut World) -> Self {
-        let asset_server = world.resource::<AssetServer>();
-
         // Just use the specular map for the skybox since it's not too blurry.
         // In reality you wouldn't do this--you'd use a real skybox texture--but
         // reusing the textures like this saves space in the Bevy repository.
-        let specular_map = asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2");
+        let specular_map = world.load_asset("environment_maps/pisa_specular_rgb9e5_zstd.ktx2");
 
         Cubemaps {
-            diffuse: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
-            specular_reflection_probe: asset_server
-                .load("environment_maps/cubes_reflection_probe_specular_rgb9e5_zstd.ktx2"),
+            diffuse: world.load_asset("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
+            specular_reflection_probe: world
+                .load_asset("environment_maps/cubes_reflection_probe_specular_rgb9e5_zstd.ktx2"),
             specular_environment_map: specular_map.clone(),
             skybox: specular_map,
         }

@@ -2,7 +2,7 @@
 
 use bevy::{
     core_pipeline::tonemapping::Tonemapping,
-    pbr::{light_consts, CascadeShadowConfigBuilder},
+    pbr::CascadeShadowConfigBuilder,
     prelude::*,
     reflect::TypePath,
     render::{
@@ -66,7 +66,7 @@ fn setup(
             ..default()
         },
         FogSettings {
-            color: Color::rgba_u8(43, 44, 47, 255),
+            color: Color::srgb_u8(43, 44, 47),
             falloff: FogFalloff::Linear {
                 start: 1.0,
                 end: 8.0,
@@ -76,7 +76,7 @@ fn setup(
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
-            intensity: 50.0,
+            intensity: 2000.0,
         },
     ));
 
@@ -109,7 +109,7 @@ fn setup_basic_scene(
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
-            material: materials.add(Color::rgb(0.1, 0.2, 0.1)),
+            material: materials.add(Color::srgb(0.1, 0.2, 0.1)),
             ..default()
         },
         SceneNumber(1),
@@ -141,21 +141,21 @@ fn setup_basic_scene(
         let s_val = if i < 3 { 0.0 } else { 0.2 };
         let material = if j == 0 {
             materials.add(StandardMaterial {
-                base_color: Color::rgb(s_val, s_val, 1.0),
+                base_color: Color::srgb(s_val, s_val, 1.0),
                 perceptual_roughness: 0.089,
                 metallic: 0.0,
                 ..default()
             })
         } else if j == 1 {
             materials.add(StandardMaterial {
-                base_color: Color::rgb(s_val, 1.0, s_val),
+                base_color: Color::srgb(s_val, 1.0, s_val),
                 perceptual_roughness: 0.089,
                 metallic: 0.0,
                 ..default()
             })
         } else {
             materials.add(StandardMaterial {
-                base_color: Color::rgb(1.0, s_val, s_val),
+                base_color: Color::srgb(1.0, s_val, s_val),
                 perceptual_roughness: 0.089,
                 metallic: 0.0,
                 ..default()
@@ -191,8 +191,8 @@ fn setup_basic_scene(
     commands.spawn((
         DirectionalLightBundle {
             directional_light: DirectionalLight {
+                illuminance: 15_000.,
                 shadows_enabled: true,
-                illuminance: light_consts::lux::OVERCAST_DAY,
                 ..default()
             },
             transform: Transform::from_rotation(Quat::from_euler(

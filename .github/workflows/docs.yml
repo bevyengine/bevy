@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - 'main'
-
   # Allows running the action manually.
   workflow_dispatch:
 

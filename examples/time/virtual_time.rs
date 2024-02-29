@@ -4,7 +4,7 @@
 use std::time::Duration;
 
 use bevy::{
-    input::common_conditions::input_just_pressed, prelude::*,
+    color::palettes::css::*, input::common_conditions::input_just_pressed, prelude::*,
     time::common_conditions::on_real_timer,
 };
 
@@ -47,7 +47,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
 
     commands.spawn(Camera2dBundle::default());
 
-    let virtual_color = Color::GOLD;
+    let virtual_color = GOLD.into();
     let sprite_scale = Vec2::splat(0.5).extend(1.);
     let texture_handle = asset_server.load("branding/icon.png");
 
@@ -114,7 +114,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
                     "CONTROLS\nUn/Pause: Space\nSpeed+: Up\nSpeed-: Down",
                     TextStyle {
                         font_size,
-                        color: Color::rgb(0.85, 0.85, 0.85),
+                        color: Color::srgb(0.85, 0.85, 0.85),
                         ..default()
                     },
                 )

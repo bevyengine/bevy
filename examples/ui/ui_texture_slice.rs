@@ -1,7 +1,11 @@
 //! This example illustrates how to create a button that has its image sliced
 //! and kept in proportion instead of being stretched by the button dimensions
 
-use bevy::{prelude::*, winit::WinitSettings};
+use bevy::{
+    color::palettes::css::{GOLD, ORANGE},
+    prelude::*,
+    winit::WinitSettings,
+};
 
 fn main() {
     App::new()
@@ -14,20 +18,26 @@ fn main() {
 }
 
 fn button_system(
-    mut interaction_query: Query<(&Interaction, &Children), (Changed<Interaction>, With<Button>)>,
+    mut interaction_query: Query<
+        (&Interaction, &Children, &mut BackgroundColor),
+        (Changed<Interaction>, With<Button>),
+    >,
     mut text_query: Query<&mut Text>,
 ) {
-    for (interaction, children) in &mut interaction_query {
+    for (interaction, children, mut color) in &mut interaction_query {
         let mut text = text_query.get_mut(children[0]).unwrap();
         match *interaction {
             Interaction::Pressed => {
                 text.sections[0].value = "Press".to_string();
+                color.0 = GOLD.into();
             }
             Interaction::Hovered => {
                 text.sections[0].value = "Hover".to_string();
+                color.0 = ORANGE.into();
             }
             Interaction::None => {
                 text.sections[0].value = "Button".to_string();
+                color.0 = Color::WHITE;
             }
         }
     }
@@ -71,6 +81,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 ..default()
                             },
                             image: image.clone().into(),
+                            // When combined with an image, this tints the image.
+                            background_color: Color::WHITE.into(),
                             ..default()
                         },
                         ImageScaleMode::Sliced(slicer.clone()),
@@ -81,7 +93,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             TextStyle {
                                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                 font_size: 40.0,
-                                color: Color::rgb(0.9, 0.9, 0.9),
+                                color: Color::srgb(0.9, 0.9, 0.9),
                             },
                         ));
                     });

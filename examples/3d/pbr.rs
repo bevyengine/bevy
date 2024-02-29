@@ -1,6 +1,6 @@
 //! This example shows how to configure Physically Based Rendering (PBR) parameters.
 
-use bevy::{asset::LoadState, prelude::*, render::camera::ExposureSettings};
+use bevy::{asset::LoadState, prelude::*};
 
 fn main() {
     App::new()
@@ -27,7 +27,7 @@ fn setup(
             commands.spawn(PbrBundle {
                 mesh: sphere_mesh.clone(),
                 material: materials.add(StandardMaterial {
-                    base_color: Color::hex("#ffd891").unwrap(),
+                    base_color: Srgba::hex("#ffd891").unwrap().into(),
                     // vary key PBR parameters on a grid of spheres to show the effect
                     metallic: y01,
                     perceptual_roughness: x01,
@@ -42,12 +42,21 @@ fn setup(
     commands.spawn(PbrBundle {
         mesh: sphere_mesh,
         material: materials.add(StandardMaterial {
-            base_color: Color::hex("#ffd891").unwrap(),
+            base_color: Srgba::hex("#ffd891").unwrap().into(),
             // vary key PBR parameters on a grid of spheres to show the effect
             unlit: true,
             ..default()
         }),
         transform: Transform::from_xyz(-5.0, -2.5, 0.0),
+        ..default()
+    });
+
+    commands.spawn(DirectionalLightBundle {
+        transform: Transform::from_xyz(50.0, 50.0, 50.0).looking_at(Vec3::ZERO, Vec3::Y),
+        directional_light: DirectionalLight {
+            illuminance: 1_500.,
+            ..default()
+        },
         ..default()
     });
 
@@ -94,7 +103,7 @@ fn setup(
             "Loading Environment Map...",
             TextStyle {
                 font_size: 36.0,
-                color: Color::RED,
+                color: Color::WHITE,
                 ..default()
             },
         )
@@ -121,9 +130,8 @@ fn setup(
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
-            intensity: 7000.0,
+            intensity: 900.0,
         },
-        ExposureSettings::OVERCAST,
     ));
 }
 

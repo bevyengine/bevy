@@ -53,7 +53,7 @@ fn setup(
 
     // You can also add assets directly to their Assets<T> storage:
     let material_handle = materials.add(StandardMaterial {
-        base_color: Color::rgb(0.8, 0.7, 0.6),
+        base_color: Color::srgb(0.8, 0.7, 0.6),
         ..default()
     });
 
@@ -79,9 +79,8 @@ fn setup(
         ..default()
     });
     // light
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight::default(),
-        transform: Transform::from_xyz(4.0, 5.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
+    commands.spawn(PointLightBundle {
+        transform: Transform::from_xyz(4.0, 5.0, 4.0),
         ..default()
     });
     // camera

@@ -4,9 +4,10 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    color::palettes::css::*,
     pbr::{light_consts, CascadeShadowConfigBuilder},
     prelude::*,
-    render::camera::{ExposureSettings, PhysicalCameraParameters},
+    render::camera::{Exposure, PhysicalCameraParameters},
 };
 
 fn main() {
@@ -14,7 +15,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .insert_resource(Parameters(PhysicalCameraParameters {
             aperture_f_stops: 1.0,
-            shutter_speed_s: 1.0 / 100.0,
+            shutter_speed_s: 1.0 / 125.0,
             sensitivity_iso: 100.0,
         }))
         .add_systems(Startup, setup)
@@ -54,7 +55,7 @@ fn setup(
         mesh: meshes.add(Cuboid::new(5.0, 0.15, 5.0)),
         transform,
         material: materials.add(StandardMaterial {
-            base_color: Color::INDIGO,
+            base_color: INDIGO.into(),
             perceptual_roughness: 1.0,
             ..default()
         }),
@@ -67,7 +68,7 @@ fn setup(
         mesh: meshes.add(Cuboid::new(5.0, 0.15, 5.0)),
         transform,
         material: materials.add(StandardMaterial {
-            base_color: Color::INDIGO,
+            base_color: INDIGO.into(),
             perceptual_roughness: 1.0,
             ..default()
         }),
@@ -98,7 +99,7 @@ fn setup(
         PbrBundle {
             mesh: meshes.add(Cuboid::default()),
             material: materials.add(StandardMaterial {
-                base_color: Color::PINK,
+                base_color: PINK.into(),
                 ..default()
             }),
             transform: Transform::from_xyz(0.0, 0.5, 0.0),
@@ -111,7 +112,7 @@ fn setup(
         PbrBundle {
             mesh: meshes.add(Sphere::new(0.5).mesh().uv(32, 18)),
             material: materials.add(StandardMaterial {
-                base_color: Color::LIME_GREEN,
+                base_color: LIMEGREEN.into(),
                 ..default()
             }),
             transform: Transform::from_xyz(1.5, 1.0, 1.5),
@@ -122,7 +123,7 @@ fn setup(
 
     // ambient light
     commands.insert_resource(AmbientLight {
-        color: Color::ORANGE_RED,
+        color: ORANGE_RED.into(),
         brightness: 0.02,
     });
 
@@ -132,8 +133,8 @@ fn setup(
             // transform: Transform::from_xyz(5.0, 8.0, 2.0),
             transform: Transform::from_xyz(1.0, 2.0, 0.0),
             point_light: PointLight {
-                intensity: 4000.0, // lumens - roughly a 300W non-halogen incandescent bulb
-                color: Color::RED,
+                intensity: 100_000.0,
+                color: RED.into(),
                 shadows_enabled: true,
                 ..default()
             },
@@ -143,8 +144,8 @@ fn setup(
             builder.spawn(PbrBundle {
                 mesh: meshes.add(Sphere::new(0.1).mesh().uv(32, 18)),
                 material: materials.add(StandardMaterial {
-                    base_color: Color::RED,
-                    emissive: Color::rgba_linear(7.13, 0.0, 0.0, 0.0),
+                    base_color: RED.into(),
+                    emissive: Color::linear_rgba(7.13, 0.0, 0.0, 0.0),
                     ..default()
                 }),
                 ..default()
@@ -157,8 +158,8 @@ fn setup(
             transform: Transform::from_xyz(-1.0, 2.0, 0.0)
                 .looking_at(Vec3::new(-1.0, 0.0, 0.0), Vec3::Z),
             spot_light: SpotLight {
-                intensity: 4000.0, // lumens - roughly a 300W non-halogen incandescent bulb
-                color: Color::GREEN,
+                intensity: 100_000.0,
+                color: GREEN.into(),
                 shadows_enabled: true,
                 inner_angle: 0.6,
                 outer_angle: 0.8,
@@ -171,8 +172,8 @@ fn setup(
                 transform: Transform::from_rotation(Quat::from_rotation_x(PI / 2.0)),
                 mesh: meshes.add(Capsule3d::new(0.1, 0.125)),
                 material: materials.add(StandardMaterial {
-                    base_color: Color::GREEN,
-                    emissive: Color::rgba_linear(0.0, 7.13, 0.0, 0.0),
+                    base_color: GREEN.into(),
+                    emissive: Color::linear_rgba(0.0, 7.13, 0.0, 0.0),
                     ..default()
                 }),
                 ..default()
@@ -185,8 +186,8 @@ fn setup(
             // transform: Transform::from_xyz(5.0, 8.0, 2.0),
             transform: Transform::from_xyz(0.0, 4.0, 0.0),
             point_light: PointLight {
-                intensity: 4000.0, // lumens - roughly a 300W non-halogen incandescent bulb
-                color: Color::BLUE,
+                intensity: 100_000.0,
+                color: BLUE.into(),
                 shadows_enabled: true,
                 ..default()
             },
@@ -196,8 +197,8 @@ fn setup(
             builder.spawn(PbrBundle {
                 mesh: meshes.add(Sphere::new(0.1).mesh().uv(32, 18)),
                 material: materials.add(StandardMaterial {
-                    base_color: Color::BLUE,
-                    emissive: Color::rgba_linear(0.0, 0.0, 7.13, 0.0),
+                    base_color: BLUE.into(),
+                    emissive: Color::linear_rgba(0.0, 0.0, 7.13, 0.0),
                     ..default()
                 }),
                 ..default()
@@ -268,19 +269,17 @@ fn setup(
     );
 
     // camera
-    commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
-        },
-        ExposureSettings::from_physical_camera(**parameters),
-    ));
+    commands.spawn(Camera3dBundle {
+        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        exposure: Exposure::from_physical_camera(**parameters),
+        ..default()
+    });
 }
 
 fn update_exposure(
     key_input: Res<ButtonInput<KeyCode>>,
     mut parameters: ResMut<Parameters>,
-    mut query: Query<&mut ExposureSettings>,
+    mut exposure: Query<&mut Exposure>,
     mut text: Query<&mut Text>,
 ) {
     // TODO: Clamp values to a reasonable range
@@ -311,7 +310,7 @@ fn update_exposure(
     );
     text.sections[2].value = format!("Sensitivity: ISO {:.0}\n", parameters.sensitivity_iso);
 
-    *query.single_mut() = ExposureSettings::from_physical_camera(**parameters);
+    *exposure.single_mut() = Exposure::from_physical_camera(**parameters);
 }
 
 fn animate_light_direction(
