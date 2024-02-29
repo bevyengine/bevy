@@ -143,7 +143,7 @@ fn setup(
             intensity: 800.0,
             radius: 0.125,
             shadows_enabled: true,
-            color: sphere_color.into(),
+            color: sphere_color,
             ..default()
         },
         transform: sphere_pos,
