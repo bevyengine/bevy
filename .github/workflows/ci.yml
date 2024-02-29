@@ -162,8 +162,9 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ubuntu-assets-cargo-build-wasm-nightly-${{ hashFiles('**/Cargo.toml') }}
-      - uses: dtolnay/rust-toolchain@nightly
+      - uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
           target: wasm32-unknown-unknown
       - name: Check wasm
         run: cargo check --target wasm32-unknown-unknown -Z build-std=std,panic_abort
