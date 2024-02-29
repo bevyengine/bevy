@@ -53,7 +53,7 @@ fn setup(
 
     // You can also add assets directly to their Assets<T> storage:
     let material_handle = materials.add(StandardMaterial {
-        base_color: LegacyColor::rgb(0.8, 0.7, 0.6),
+        base_color: Color::srgb(0.8, 0.7, 0.6),
         ..default()
     });
 

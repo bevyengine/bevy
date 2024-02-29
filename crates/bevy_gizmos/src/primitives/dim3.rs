@@ -3,12 +3,12 @@
 use super::helpers::*;
 use std::f32::consts::TAU;
 
+use bevy_color::Color;
 use bevy_math::primitives::{
     BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Line3d, Plane3d,
     Polyline3d, Primitive3d, Segment3d, Sphere, Torus,
 };
 use bevy_math::{Dir3, Quat, Vec3};
-use bevy_render::color::LegacyColor;
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 
@@ -29,7 +29,7 @@ pub trait GizmoPrimitive3d<P: Primitive3d> {
         primitive: P,
         position: Vec3,
         rotation: Quat,
-        color: LegacyColor,
+        color: Color,
     ) -> Self::Output<'_>;
 }
 
@@ -43,7 +43,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Dir3> for Gizmos<'w, 's, T> {
         primitive: Dir3,
         position: Vec3,
         rotation: Quat,
-        color: LegacyColor,
+        color: Color,
     ) -> Self::Output<'_> {
         self.arrow(position, position + (rotation * *primitive), color);
     }
@@ -63,7 +63,7 @@ pub struct SphereBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     // Center position of the sphere in 3D space
     position: Vec3,
     // Color of the sphere
-    color: LegacyColor,
+    color: Color,
 
     // Number of segments used to approximate the sphere geometry
     segments: usize,
@@ -85,7 +85,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Sphere> for Gizmos<'w, 's, T>
         primitive: Sphere,
         position: Vec3,
         rotation: Quat,
-        color: LegacyColor,
+        color: Color,
     ) -> Self::Output<'_> {
         SphereBuilder {
             gizmos: self,
@@ -146,7 +146,7 @@ pub struct Plane3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     // Center position of the sphere in 3D space
     position: Vec3,
     // Color of the sphere
-    color: LegacyColor,
+    color: Color,
 
     // Number of axis to hint the plane
     axis_count: usize,
@@ -184,7 +184,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Plane3d> for Gizmos<'w, 's, T
         primitive: Plane3d,
         position: Vec3,
         rotation: Quat,
-        color: LegacyColor,
+        color: Color,
     ) -> Self::Output<'_> {
         Plane3dBuilder {
             gizmos: self,
@@ -251,7 +251,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Line3d> for Gizmos<'w, 's, T>
         primitive: Line3d,
         position: Vec3,
         rotation: Quat,
-        color: LegacyColor,
+        color: Color,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
@@ -278,7 +278,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Segment3d> for Gizmos<'w, 's,
         primitive: Segment3d,
         position: Vec3,
         rotation: Quat,
-        color: LegacyColor,
+        color: Color,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
@@ -303,7 +303,7 @@ impl<'w, 's, const N: usize, T: GizmoConfigGroup> GizmoPrimitive3d<Polyline3d<N>
         primitive: Polyline3d<N>,
         position: Vec3,
         rotation: Quat,
-        color: LegacyColor,
+        color: Color,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
@@ -328,7 +328,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<BoxedPolyline3d> for Gizmos<'
         primitive: BoxedPolyline3d,
         position: Vec3,
         rotation: Quat,
-        color: LegacyColor,
+        color: Color,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
@@ -355,7 +355,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Cuboid> for Gizmos<'w, 's, T>
         primitive: Cuboid,
         position: Vec3,
         rotation: Quat,
-        color: LegacyColor,
+        color: Color,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
@@ -417,7 +417,7 @@ pub struct Cylinder3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     // default orientation is: the cylinder is aligned with `Vec3::Y` axis
     rotation: Quat,
     // Color of the cylinder
-    color: LegacyColor,
+    color: Color,
 
     // Number of segments used to approximate the cylinder geometry
     segments: usize,
@@ -439,7 +439,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Cylinder> for Gizmos<'w, 's, 
         primitive: Cylinder,
         position: Vec3,
         rotation: Quat,
-        color: LegacyColor,
+        color: Color,
     ) -> Self::Output<'_> {
         Cylinder3dBuilder {
             gizmos: self,
@@ -514,7 +514,7 @@ pub struct Capsule3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     // default orientation is: the capsule is aligned with `Vec3::Y` axis
     rotation: Quat,
     // Color of the capsule
-    color: LegacyColor,
+    color: Color,
 
     // Number of segments used to approximate the capsule geometry
     segments: usize,
@@ -536,7 +536,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Capsule3d> for Gizmos<'w, 's,
         primitive: Capsule3d,
         position: Vec3,
         rotation: Quat,
-        color: LegacyColor,
+        color: Color,
     ) -> Self::Output<'_> {
         Capsule3dBuilder {
             gizmos: self,
@@ -607,7 +607,7 @@ pub struct Cone3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     // default orientation is: cone base normal is aligned with the `Vec3::Y` axis
     rotation: Quat,
     // Color of the cone
-    color: LegacyColor,
+    color: Color,
 
     // Number of segments used to approximate the cone geometry
     segments: usize,
@@ -629,7 +629,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Cone> for Gizmos<'w, 's, T> {
         primitive: Cone,
         position: Vec3,
         rotation: Quat,
-        color: LegacyColor,
+        color: Color,
     ) -> Self::Output<'_> {
         Cone3dBuilder {
             gizmos: self,
@@ -703,7 +703,7 @@ pub struct ConicalFrustum3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     // default orientation is: conical frustum base shape normals are aligned with `Vec3::Y` axis
     rotation: Quat,
     // Color of the conical frustum
-    color: LegacyColor,
+    color: Color,
 
     // Number of segments used to approximate the curved surfaces
     segments: usize,
@@ -725,7 +725,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<ConicalFrustum> for Gizmos<'w
         primitive: ConicalFrustum,
         position: Vec3,
         rotation: Quat,
-        color: LegacyColor,
+        color: Color,
     ) -> Self::Output<'_> {
         ConicalFrustum3dBuilder {
             gizmos: self,
@@ -807,7 +807,7 @@ pub struct Torus3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     // default orientation is: major circle normal is aligned with `Vec3::Y` axis
     rotation: Quat,
     // Color of the torus
-    color: LegacyColor,
+    color: Color,
 
     // Number of segments in the minor (tube) direction
     minor_segments: usize,
@@ -837,7 +837,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Torus> for Gizmos<'w, 's, T> 
         primitive: Torus,
         position: Vec3,
         rotation: Quat,
-        color: LegacyColor,
+        color: Color,
     ) -> Self::Output<'_> {
         Torus3dBuilder {
             gizmos: self,

@@ -1,7 +1,6 @@
 //! This example demonstrates how to use the `Camera::viewport_to_world` method.
 
-use bevy::math::Dir3;
-use bevy::prelude::*;
+use bevy::{math::Dir3, prelude::*};
 
 fn main() {
     App::new()
@@ -41,7 +40,7 @@ fn draw_cursor(
         point + ground.up() * 0.01,
         Dir3::new_unchecked(ground.up()), // Up vector is already normalized.
         0.2,
-        LegacyColor::WHITE,
+        Color::WHITE,
     );
 }
 
@@ -57,7 +56,7 @@ fn setup(
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Plane3d::default().mesh().size(20., 20.)),
-            material: materials.add(LegacyColor::rgb(0.3, 0.5, 0.3)),
+            material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
             ..default()
         },
         Ground,
