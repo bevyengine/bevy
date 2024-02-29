@@ -2,11 +2,12 @@
 
 use bevy::{
     prelude::*,
-    utils::{thiserror, HashSet},
+    utils::{thiserror, HashMap},
 };
 use rand::{prelude::SliceRandom, Rng};
 use std::{
     env::VarError,
+    hash::{DefaultHasher, Hash, Hasher},
     io::{self, BufRead, BufReader},
     process::Stdio,
 };
@@ -14,7 +15,7 @@ use std::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .init_resource::<SelectionState>()
+        .init_resource::<SelectionTimer>()
         .add_systems(Startup, (setup_contributor_selection, setup))
         .add_systems(
             Update,
@@ -29,7 +30,7 @@ fn main() {
 }
 
 // Store contributors in a collection that preserves the uniqueness
-type Contributors = HashSet<String>;
+type Contributors = HashMap<String, usize>;
 
 #[derive(Resource)]
 struct ContributorSelection {
@@ -38,17 +39,14 @@ struct ContributorSelection {
 }
 
 #[derive(Resource)]
-struct SelectionState {
-    timer: Timer,
-    has_triggered: bool,
-}
+struct SelectionTimer(Timer);
 
-impl Default for SelectionState {
+impl Default for SelectionTimer {
     fn default() -> Self {
-        Self {
-            timer: Timer::from_seconds(SHOWCASE_TIMER_SECS, TimerMode::Repeating),
-            has_triggered: false,
-        }
+        Self(Timer::from_seconds(
+            SHOWCASE_TIMER_SECS,
+            TimerMode::Repeating,
+        ))
     }
 }
 
@@ -58,6 +56,7 @@ struct ContributorDisplay;
 #[derive(Component)]
 struct Contributor {
     name: String,
+    num_commits: usize,
     hue: f32,
 }
 
@@ -70,11 +69,8 @@ struct Velocity {
 const GRAVITY: f32 = 9.821 * 100.0;
 const SPRITE_SIZE: f32 = 75.0;
 
-const SATURATION_DESELECTED: f32 = 0.3;
-const LIGHTNESS_DESELECTED: f32 = 0.2;
-const SATURATION_SELECTED: f32 = 0.9;
-const LIGHTNESS_SELECTED: f32 = 0.7;
-const ALPHA: f32 = 0.92;
+const SELECTED: Hsla = Hsla::hsl(0.0, 0.9, 0.7);
+const DESELECTED: Hsla = Hsla::new(0.0, 0.3, 0.2, 0.92);
 
 const SHOWCASE_TIMER_SECS: f32 = 3.0;
 
@@ -86,7 +82,7 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
     let contribs = contributors().unwrap_or_else(|_| {
         CONTRIBUTORS_LIST
             .iter()
-            .map(|name| name.to_string())
+            .map(|name| (name.to_string(), 1))
             .collect()
     });
 
@@ -99,11 +95,11 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
 
     let mut rng = rand::thread_rng();
 
-    for name in contribs {
+    for (name, num) in contribs {
         let pos = (rng.gen_range(-400.0..400.0), rng.gen_range(0.0..400.0));
         let dir = rng.gen_range(-1.0..1.0);
         let velocity = Vec3::new(dir * 500.0, 0.0, 0.0);
-        let hue = rng.gen_range(0.0..=360.0);
+        let hue = str_to_hue(&name);
 
         // some sprites should be flipped
         let flipped = rng.gen_bool(0.5);
@@ -112,7 +108,11 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
 
         let entity = commands
             .spawn((
-                Contributor { name, hue },
+                Contributor {
+                    name,
+                    num_commits: num,
+                    hue,
+                },
                 Velocity {
                     translation: velocity,
                     rotation: -dir * 5.0,
@@ -120,7 +120,7 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
                 SpriteBundle {
                     sprite: Sprite {
                         custom_size: Some(Vec2::new(1.0, 1.0) * SPRITE_SIZE),
-                        color: Color::hsla(hue, SATURATION_DESELECTED, LIGHTNESS_DESELECTED, ALPHA),
+                        color: DESELECTED.with_hue(hue).into(),
                         flip_x: flipped,
                         ..default()
                     },
@@ -142,24 +142,24 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
 
+    let text_style = TextStyle {
+        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+        font_size: 60.0,
+        ..default()
+    };
+
     commands.spawn((
         TextBundle::from_sections([
-            TextSection::new(
-                "Contributor showcase",
-                TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                    font_size: 60.0,
-                    ..default()
-                },
-            ),
+            TextSection::new("Contributor showcase", text_style.clone()),
             TextSection::from_style(TextStyle {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                font_size: 60.0,
-                ..default()
+                font_size: 30.,
+                ..text_style
             }),
         ])
         .with_style(Style {
-            align_self: AlignSelf::FlexEnd,
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.),
+            left: Val::Px(12.),
             ..default()
         }),
         ContributorDisplay,
@@ -168,20 +168,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 /// Finds the next contributor to display and selects the entity
 fn select_system(
-    mut timer: ResMut<SelectionState>,
+    mut timer: ResMut<SelectionTimer>,
     mut contributor_selection: ResMut<ContributorSelection>,
     mut text_query: Query<&mut Text, With<ContributorDisplay>>,
     mut query: Query<(&Contributor, &mut Sprite, &mut Transform)>,
     time: Res<Time>,
 ) {
-    if !timer.timer.tick(time.delta()).just_finished() {
+    if !timer.0.tick(time.delta()).just_finished() {
         return;
-    }
-    if !timer.has_triggered {
-        let mut text = text_query.single_mut();
-        text.sections[0].value = "Contributor: ".to_string();
-
-        timer.has_triggered = true;
     }
 
     let entity = contributor_selection.order[contributor_selection.idx];
@@ -211,28 +205,23 @@ fn select(
     transform: &mut Transform,
     text: &mut Text,
 ) {
-    sprite.color = Color::hsla(
-        contributor.hue,
-        SATURATION_SELECTED,
-        LIGHTNESS_SELECTED,
-        ALPHA,
-    );
+    sprite.color = SELECTED.with_hue(contributor.hue).into();
 
     transform.translation.z = 100.0;
 
-    text.sections[1].value.clone_from(&contributor.name);
-    text.sections[1].style.color = sprite.color;
+    text.sections[0].value.clone_from(&contributor.name);
+    text.sections[1].value = format!(
+        "\n{} commit{}",
+        contributor.num_commits,
+        if contributor.num_commits > 1 { "s" } else { "" }
+    );
+    text.sections[0].style.color = sprite.color;
 }
 
 /// Change the modulate color to the "deselected" color and push
 /// the object to the back.
 fn deselect(sprite: &mut Sprite, contributor: &Contributor, transform: &mut Transform) {
-    sprite.color = Color::hsla(
-        contributor.hue,
-        SATURATION_DESELECTED,
-        LIGHTNESS_DESELECTED,
-        ALPHA,
-    );
+    sprite.color = DESELECTED.with_hue(contributor.hue).into();
 
     transform.translation.z = 0.0;
 }
@@ -338,10 +327,19 @@ fn contributors() -> Result<Contributors, LoadContributorsError> {
 
     let stdout = cmd.stdout.take().ok_or(LoadContributorsError::Stdout)?;
 
-    let contributors = BufReader::new(stdout)
-        .lines()
-        .map_while(|x| x.ok())
-        .collect();
+    let contributors = BufReader::new(stdout).lines().map_while(Result::ok).fold(
+        HashMap::new(),
+        |mut acc, word| {
+            *acc.entry(word.to_string()).or_insert(0) += 1;
+            acc
+        },
+    );
 
     Ok(contributors)
+}
+
+fn str_to_hue(s: &str) -> f32 {
+    let mut hasher = DefaultHasher::new();
+    s.hash(&mut hasher);
+    hasher.finish() as f32 / u64::MAX as f32 * 360.
 }
