@@ -238,11 +238,9 @@ impl Rotation2d {
     /// Returns `true` if the rotation is near [`Rotation2d::IDENTITY`].
     #[inline]
     pub fn is_near_identity(self) -> bool {
-        // TODO: We might be able to use the rotation sine and cosine
-        //       directly instead of first converting to radians.
-        // Same as `Quat::is_near_identity`
-        let threshold_angle = 0.002_847_144_6;
-        self.as_radians().abs() < threshold_angle
+        // Same as `Quat::is_near_identity`, but using sine and cosine
+        let threshold_angle_sin = 0.000_049_692_047; // let threshold_angle = 0.002_847_144_6;
+        self.cos > 0.0 && self.sin.abs() < threshold_angle_sin
     }
 
     /// Returns the angle in radians needed to make `self` and `other` coincide.
@@ -463,6 +461,15 @@ mod tests {
         assert_eq!(rotation.length_squared(), 125.0);
         assert_eq!(rotation.length(), 11.18034);
         assert!((rotation.normalize().length() - 1.0).abs() < 10e-7);
+    }
+
+    #[test]
+    fn is_near_identity() {
+        assert!(!Rotation2d::radians(0.1).is_near_identity());
+        assert!(!Rotation2d::radians(-0.1).is_near_identity());
+        assert!(Rotation2d::radians(0.00001).is_near_identity());
+        assert!(Rotation2d::radians(-0.00001).is_near_identity());
+        assert!(Rotation2d::radians(0.0).is_near_identity());
     }
 
     #[test]
