@@ -58,6 +58,7 @@ use globals::GlobalsPlugin;
 use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
 
 use crate::deterministic::DeterministicRenderingConfig;
+use crate::renderer::WgpuWrapper;
 use crate::{
     camera::CameraPlugin,
     mesh::{morph::MorphPlugin, Mesh, MeshPlugin},
@@ -301,7 +302,7 @@ impl Plugin for RenderPlugin {
                             queue,
                             adapter_info,
                             render_adapter,
-                            RenderInstance(Arc::new(instance)),
+                            RenderInstance(Arc::new(WgpuWrapper::new(instance))),
                         ));
                     };
                     // In wasm, spawn a task and detach it for execution

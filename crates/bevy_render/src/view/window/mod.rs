@@ -4,7 +4,7 @@ use crate::{
     },
     renderer::{RenderAdapter, RenderDevice, RenderInstance},
     texture::TextureFormatPixelInfo,
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet, WgpuWrapper,
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
@@ -197,7 +197,7 @@ fn extract_windows(
 
 struct SurfaceData {
     // TODO: what lifetime should this be?
-    surface: wgpu::Surface<'static>,
+    surface: WgpuWrapper<wgpu::Surface<'static>>,
     format: TextureFormat,
 }
 
@@ -477,7 +477,10 @@ pub fn create_surfaces(
                     }
                 }
 
-                SurfaceData { surface, format }
+                SurfaceData {
+                    surface: WgpuWrapper::new(surface),
+                    format,
+                }
             });
     }
 }
