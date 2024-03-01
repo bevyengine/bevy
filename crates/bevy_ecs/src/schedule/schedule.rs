@@ -1,7 +1,6 @@
 use std::{
     collections::BTreeSet,
     fmt::{Debug, Write},
-    result::Result,
 };
 
 #[cfg(feature = "trace")]

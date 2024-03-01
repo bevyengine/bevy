@@ -40,7 +40,7 @@ fn setup(
     let mesh = meshes.add(Plane3d::default().mesh().size(2.0, 2.0));
     let nb_plane = 10;
     for i in 0..nb_plane {
-        let color = Color::hsl(i as f32 * 360.0 / nb_plane as f32, 1.0, 0.5);
+        let color = LegacyColor::hsl(i as f32 * 360.0 / nb_plane as f32, 1.0, 0.5);
         commands.spawn(PbrBundle {
             mesh: mesh.clone(),
             material: materials.add(StandardMaterial {

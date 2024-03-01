@@ -96,7 +96,11 @@ pub struct OnTransition<S: States> {
 /// }
 /// ```
 #[derive(Resource, Debug)]
-#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(bevy_reflect::Reflect),
+    reflect(Resource)
+)]
 pub struct State<S: States>(S);
 
 impl<S: States> State<S> {

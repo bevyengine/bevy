@@ -49,7 +49,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     ///  - `table` must match D and F
     ///  - Both `D::IS_DENSE` and `F::IS_DENSE` must be true.
     #[inline]
-    #[cfg(all(not(target = "wasm32"), feature = "multi-threaded"))]
+    #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
     pub(super) unsafe fn for_each_in_table_range<Func>(
         &mut self,
         func: &mut Func,
@@ -73,7 +73,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     ///  - `archetype` must match D and F
     ///  - Either `D::IS_DENSE` or `F::IS_DENSE` must be false.
     #[inline]
-    #[cfg(all(not(target = "wasm32"), feature = "multi-threaded"))]
+    #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
     pub(super) unsafe fn for_each_in_archetype_range<Func>(
         &mut self,
         func: &mut Func,

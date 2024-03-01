@@ -56,6 +56,7 @@ default = [
   "animation",
   "bevy_asset",
   "bevy_audio",
+  "bevy_color",
   "bevy_gilrs",
   "bevy_scene",
   "bevy_winit",
@@ -76,20 +77,27 @@ default = [
   "tonemapping_luts",
   "default_font",
   "webgl2",
+  "sysinfo_plugin",
   "bevy_debug_stepping",
 ]
 
 # Force dynamic linking, which improves iterative compile times
 dynamic_linking = ["dep:bevy_dylib", "bevy_internal/dynamic_linking"]
 
+# Enables system information diagnostic plugin
+sysinfo_plugin = ["bevy_internal/sysinfo_plugin"]
+
 # Provides animation functionality
-bevy_animation = ["bevy_internal/bevy_animation"]
+bevy_animation = ["bevy_internal/bevy_animation", "bevy_color"]
 
 # Provides asset functionality
 bevy_asset = ["bevy_internal/bevy_asset"]
 
 # Provides audio functionality
 bevy_audio = ["bevy_internal/bevy_audio"]
+
+# Provides shared color types and operations
+bevy_color = ["bevy_internal/bevy_color"]
 
 # Provides cameras and other basic render pipeline features
 bevy_core_pipeline = [
@@ -116,13 +124,18 @@ bevy_pbr = [
 ]
 
 # Provides rendering functionality
-bevy_render = ["bevy_internal/bevy_render"]
+bevy_render = ["bevy_internal/bevy_render", "bevy_color"]
 
 # Provides scene functionality
 bevy_scene = ["bevy_internal/bevy_scene", "bevy_asset"]
 
 # Provides sprite functionality
-bevy_sprite = ["bevy_internal/bevy_sprite", "bevy_render", "bevy_core_pipeline"]
+bevy_sprite = [
+  "bevy_internal/bevy_sprite",
+  "bevy_render",
+  "bevy_core_pipeline",
+  "bevy_color",
+]
 
 # Provides text functionality
 bevy_text = ["bevy_internal/bevy_text", "bevy_asset", "bevy_sprite"]
@@ -133,6 +146,7 @@ bevy_ui = [
   "bevy_core_pipeline",
   "bevy_text",
   "bevy_sprite",
+  "bevy_color",
 ]
 
 # Enable the bevy_ui debug overlay
@@ -142,7 +156,7 @@ bevy_ui_debug = ["bevy_internal/bevy_ui_debug"]
 bevy_winit = ["bevy_internal/bevy_winit"]
 
 # Adds support for rendering gizmos
-bevy_gizmos = ["bevy_internal/bevy_gizmos"]
+bevy_gizmos = ["bevy_internal/bevy_gizmos", "bevy_color"]
 
 # Tracing support, saving a file in Chrome Tracing format
 trace_chrome = ["trace", "bevy_internal/trace_chrome"]
