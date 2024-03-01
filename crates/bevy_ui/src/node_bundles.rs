@@ -1,3 +1,5 @@
+#![allow(deprecated)]
+
 //! This module contains basic node bundles used to build UIs
 
 #[cfg(feature = "bevy_text")]

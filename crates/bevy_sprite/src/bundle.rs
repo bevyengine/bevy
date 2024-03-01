@@ -1,3 +1,5 @@
+#![allow(deprecated)]
+
 use crate::{Sprite, TextureAtlas};
 use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
