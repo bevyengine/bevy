@@ -372,6 +372,97 @@ impl ActiveAnimation {
         self.elapsed = 0.0;
         self.seek_time = 0.0;
     }
+
+    /// Returns the current weight of this animation.
+    pub fn weight(&self) -> f32 {
+        self.weight
+    }
+
+    /// Sets the weight of this animation.
+    pub fn set_weight(&mut self, weight: f32) {
+        self.weight = weight;
+    }
+
+    /// Pause the animation.
+    pub fn pause(&mut self) -> &mut Self {
+        self.paused = true;
+        self
+    }
+
+    /// Unpause the animation.
+    pub fn resume(&mut self) -> &mut Self {
+        self.paused = false;
+        self
+    }
+
+    /// Returns true if this animation is currently paused.
+    ///
+    /// Note that paused animations are still [`ActiveAnimation`]s.
+    #[inline]
+    pub fn is_paused(&self) -> bool {
+        self.paused
+    }
+
+    /// Sets the repeat mode for this playing animation.
+    pub fn set_repeat(&mut self, repeat: RepeatAnimation) -> &mut Self {
+        self.repeat = repeat;
+        self
+    }
+
+    /// Marks this animation as repeating forever.
+    pub fn repeat(&mut self) -> &mut Self {
+        self.set_repeat(RepeatAnimation::Forever)
+    }
+
+    /// Returns the repeat mode assigned to this active animation.
+    pub fn repeat_mode(&self) -> RepeatAnimation {
+        self.repeat
+    }
+
+    /// Returns the number of times this animation has completed.
+    pub fn completions(&self) -> u32 {
+        self.completions
+    }
+
+    /// Returns true if the animation is playing in reverse.
+    pub fn is_playback_reversed(&self) -> bool {
+        self.speed < 0.0
+    }
+
+    /// Returns the speed of the animation playback.
+    pub fn speed(&self) -> f32 {
+        self.speed
+    }
+
+    /// Sets the speed of the animation playback.
+    pub fn set_speed(&mut self, speed: f32) -> &mut Self {
+        self.speed = speed;
+        self
+    }
+
+    /// Returns the amount of time the animation has been playing.
+    pub fn elapsed(&self) -> f32 {
+        self.elapsed
+    }
+
+    /// Returns the seek time of the animation.
+    ///
+    /// This is nonnegative and no more than the clip duration.
+    pub fn seek_time(&self) -> f32 {
+        self.seek_time
+    }
+
+    /// Seeks to a specific time in the animation.
+    pub fn seek_to(&mut self, seek_time: f32) -> &mut Self {
+        self.seek_time = seek_time;
+        self
+    }
+
+    /// Seeks to the beginning of the animation.
+    pub fn rewind(&mut self) -> &mut Self {
+        self.seek_time = 0.0;
+        self
+    }
 }
 
 /// Animation controls
@@ -533,88 +624,9 @@ impl AnimationPlayer {
     pub fn animation_mut(&mut self, animation: AnimationNodeIndex) -> Option<&mut ActiveAnimation> {
         self.playing_animations.get_mut(&animation)
     }
-}
 
-impl ActiveAnimation {
-    /// Pause the animation.
-    pub fn pause(&mut self) -> &mut Self {
-        self.paused = true;
-        self
-    }
-
-    /// Unpause the animation.
-    pub fn resume(&mut self) -> &mut Self {
-        self.paused = false;
-        self
-    }
-
-    /// Returns true if this animation is currently paused.
-    ///
-    /// Note that paused animations are still [`ActiveAnimation`]s.
-    #[inline]
-    pub fn is_paused(&self) -> bool {
-        self.paused
-    }
-
-    /// Sets the repeat mode for this playing animation.
-    pub fn set_repeat(&mut self, repeat: RepeatAnimation) -> &mut Self {
-        self.repeat = repeat;
-        self
-    }
-
-    /// Marks this animation as repeating forever.
-    pub fn repeat(&mut self) -> &mut Self {
-        self.set_repeat(RepeatAnimation::Forever)
-    }
-
-    /// Returns the repeat mode assigned to this active animation.
-    pub fn repeat_mode(&self) -> RepeatAnimation {
-        self.repeat
-    }
-
-    /// Returns the number of times this animation has completed.
-    pub fn completions(&self) -> u32 {
-        self.completions
-    }
-
-    /// Returns true if the animation is playing in reverse.
-    pub fn is_playback_reversed(&self) -> bool {
-        self.speed < 0.0
-    }
-
-    /// Returns the speed of the animation playback.
-    pub fn speed(&self) -> f32 {
-        self.speed
-    }
-
-    /// Sets the speed of the animation playback.
-    pub fn set_speed(&mut self, speed: f32) -> &mut Self {
-        self.speed = speed;
-        self
-    }
-
-    /// Returns the amount of time the animation has been playing.
-    pub fn elapsed(&self) -> f32 {
-        self.elapsed
-    }
-
-    /// Returns the seek time of the animation.
-    ///
-    /// This is nonnegative and no more than the clip duration.
-    pub fn seek_time(&self) -> f32 {
-        self.seek_time
-    }
-
-    /// Seeks to a specific time in the animation.
-    pub fn seek_to(&mut self, seek_time: f32) -> &mut Self {
-        self.seek_time = seek_time;
-        self
-    }
-
-    /// Seeks to the beginning of the animation.
-    pub fn rewind(&mut self) -> &mut Self {
-        self.seek_time = 0.0;
-        self
+    pub fn animation_is_playing(&self, animation: AnimationNodeIndex) -> bool {
+        self.playing_animations.contains_key(&animation)
     }
 }
 
