@@ -11,7 +11,11 @@ use bevy_gizmos::prelude::Gizmos;
 use bevy_gizmos::AppGizmoBuilder;
 use bevy_hierarchy::{Children, Parent};
 use bevy_math::{Vec2, Vec3Swizzles};
-use bevy_render::{camera::{RenderTarget, ClearColorConfig}, view::{RenderLayers, VisibilitySystems}, prelude::*};
+use bevy_render::{
+    camera::{ClearColorConfig, RenderTarget},
+    prelude::*,
+    view::{RenderLayers, VisibilitySystems},
+};
 use bevy_transform::{prelude::GlobalTransform, TransformSystem};
 use bevy_utils::{default, warn_once};
 use bevy_window::{PrimaryWindow, Window, WindowRef};

@@ -1,7 +1,7 @@
+use bevy_color::Color;
 use bevy_gizmos::{config::GizmoConfigGroup, prelude::Gizmos};
 use bevy_math::{Vec2, Vec2Swizzles};
 use bevy_reflect::Reflect;
-use bevy_color::Color;
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::HashMap;
 
