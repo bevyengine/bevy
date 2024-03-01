@@ -7,7 +7,6 @@ use bevy_utils::HashSet;
 pub use mesh::*;
 pub use primitives::*;
 use std::{
-    borrow::Borrow,
     hash::{Hash, Hasher},
     sync::Arc,
 };
@@ -56,27 +55,22 @@ pub struct MeshVertexBufferLayoutRef(pub Arc<MeshVertexBufferLayout>);
 
 /// Stores the single copy of each mesh vertex buffer layout.
 #[derive(Clone, Default, Resource)]
-pub struct MeshVertexBufferLayouts(HashSet<MeshVertexBufferLayoutRef>);
+pub struct MeshVertexBufferLayouts(HashSet<Arc<MeshVertexBufferLayout>>);
 
 impl MeshVertexBufferLayouts {
     /// Inserts a new mesh vertex buffer layout in the store and returns a
     /// reference to it, reusing the existing reference if this mesh vertex
     /// buffer layout was already in the store.
     pub(crate) fn insert(&mut self, layout: MeshVertexBufferLayout) -> MeshVertexBufferLayoutRef {
-        // Because we're using `get_or_insert_with` on the layout itself, not
-        // the `MeshVertexBufferLayoutRef`, this compares the mesh vertex buffer
-        // layout structurally, not by pointer.
-        self.0
-            .get_or_insert_with(&layout, |layout| {
-                MeshVertexBufferLayoutRef(Arc::new(layout.clone()))
-            })
-            .clone()
-    }
-}
-
-impl Borrow<MeshVertexBufferLayout> for MeshVertexBufferLayoutRef {
-    fn borrow(&self) -> &MeshVertexBufferLayout {
-        &self.0
+        // Because the special `PartialEq` and `Hash` implementations that
+        // compare by pointer are on `MeshVertexBufferLayoutRef`, not on
+        // `Arc<MeshVertexBufferLayout>`, this compares the mesh vertex buffer
+        // structurally, not by pointer.
+        MeshVertexBufferLayoutRef(
+            self.0
+                .get_or_insert_with(&layout, |layout| Arc::new(layout.clone()))
+                .clone(),
+        )
     }
 }
 
@@ -90,6 +84,6 @@ impl Eq for MeshVertexBufferLayoutRef {}
 
 impl Hash for MeshVertexBufferLayoutRef {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        (&*self.0 as &MeshVertexBufferLayout as *const MeshVertexBufferLayout as usize).hash(state);
+        (&*self.0 as *const MeshVertexBufferLayout as usize).hash(state);
     }
 }
