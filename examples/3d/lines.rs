@@ -36,7 +36,7 @@ fn setup(
         }),
         transform: Transform::from_xyz(-1.5, 0.0, 0.0),
         material: materials.add(LineMaterial {
-            color: LegacyColor::GREEN,
+            color: LinearRgba::GREEN,
         }),
         ..default()
     });
@@ -52,7 +52,7 @@ fn setup(
         }),
         transform: Transform::from_xyz(0.5, 0.0, 0.0),
         material: materials.add(LineMaterial {
-            color: LegacyColor::BLUE,
+            color: LinearRgba::BLUE,
         }),
         ..default()
     });
@@ -67,7 +67,7 @@ fn setup(
 #[derive(Asset, TypePath, Default, AsBindGroup, Debug, Clone)]
 struct LineMaterial {
     #[uniform(0)]
-    color: LegacyColor,
+    color: LinearRgba,
 }
 
 impl Material for LineMaterial {

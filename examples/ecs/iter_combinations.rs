@@ -1,12 +1,12 @@
 //! Shows how to iterate over combinations of query results.
 
-use bevy::prelude::*;
+use bevy::{color::palettes::css::ORANGE_RED, prelude::*};
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(ClearColor(LegacyColor::BLACK))
+        .insert_resource(ClearColor(Color::BLACK))
         .add_systems(Startup, generate_bodies)
         .add_systems(FixedUpdate, (interact_bodies, integrate))
         .add_systems(Update, look_at_star)
@@ -66,7 +66,7 @@ fn generate_bodies(
                     ..default()
                 },
                 mesh: mesh.clone(),
-                material: materials.add(LegacyColor::rgb(
+                material: materials.add(Color::srgb(
                     rng.gen_range(color_range.clone()),
                     rng.gen_range(color_range.clone()),
                     rng.gen_range(color_range.clone()),
@@ -95,8 +95,8 @@ fn generate_bodies(
                     transform: Transform::from_scale(Vec3::splat(star_radius)),
                     mesh: meshes.add(Sphere::new(1.0).mesh().ico(5).unwrap()),
                     material: materials.add(StandardMaterial {
-                        base_color: LegacyColor::ORANGE_RED,
-                        emissive: (LegacyColor::ORANGE_RED * 18.),
+                        base_color: ORANGE_RED.into(),
+                        emissive: (LinearRgba::from(ORANGE_RED) * 18.).into(),
                         ..default()
                     }),
                     ..default()
@@ -109,7 +109,7 @@ fn generate_bodies(
         .with_children(|p| {
             p.spawn(PointLightBundle {
                 point_light: PointLight {
-                    color: LegacyColor::WHITE,
+                    color: Color::WHITE,
                     range: 100.0,
                     radius: star_radius,
                     ..default()

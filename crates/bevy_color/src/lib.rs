@@ -10,6 +10,7 @@
 //! - [`Laba`] (lightness, a-axis, b-axis, alpha)
 //! - [`Lcha`] (lightness, chroma, hue, alpha)
 //! - [`Oklaba`] (lightness, a-axis, b-axis, alpha)
+//! - [`Oklcha`] (lightness, chroma, hue, alpha)
 //! - [`Xyza`] (x-axis, y-axis, z-axis, alpha)
 //!
 //! Each of these color spaces is represented as a distinct Rust type.
@@ -39,7 +40,7 @@
 //! and an analog of lightness in the form of value. In contrast, HWB instead uses whiteness and blackness
 //! parameters, which can be used to lighten and darken a particular hue respectively.
 //!
-//! Oklab and Okclch are perceptually uniform color spaces that are designed to be used for tasks such
+//! Oklab and Oklch are perceptually uniform color spaces that are designed to be used for tasks such
 //! as image processing. They are not as widely used as the other color spaces, but are useful
 //! for tasks such as color correction and image analysis, where it is important to be able
 //! to do things like change color saturation without causing hue shifts.

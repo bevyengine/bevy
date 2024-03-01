@@ -1,7 +1,7 @@
 use std::f32::consts::{FRAC_PI_3, PI};
 
 use super::{Circle, Primitive3d};
-use crate::{Direction3d, Vec3};
+use crate::{Dir3, Vec3};
 
 /// A sphere primitive
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -70,16 +70,14 @@ impl Sphere {
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Plane3d {
     /// The normal of the plane. The plane will be placed perpendicular to this direction
-    pub normal: Direction3d,
+    pub normal: Dir3,
 }
 impl Primitive3d for Plane3d {}
 
 impl Default for Plane3d {
     /// Returns the default [`Plane3d`] with a normal pointing in the `+Y` direction.
     fn default() -> Self {
-        Self {
-            normal: Direction3d::Y,
-        }
+        Self { normal: Dir3::Y }
     }
 }
 
@@ -92,7 +90,7 @@ impl Plane3d {
     #[inline(always)]
     pub fn new(normal: Vec3) -> Self {
         Self {
-            normal: Direction3d::new(normal).expect("normal must be nonzero and finite"),
+            normal: Dir3::new(normal).expect("normal must be nonzero and finite"),
         }
     }
 
@@ -108,7 +106,7 @@ impl Plane3d {
     /// are *collinear* and lie on the same line.
     #[inline(always)]
     pub fn from_points(a: Vec3, b: Vec3, c: Vec3) -> (Self, Vec3) {
-        let normal = Direction3d::new((b - a).cross(c - a))
+        let normal = Dir3::new((b - a).cross(c - a))
             .expect("plane must be defined by three finite points that don't lie on the same line");
         let translation = (a + b + c) / 3.0;
 
@@ -123,7 +121,7 @@ impl Plane3d {
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Line3d {
     /// The direction of the line
-    pub direction: Direction3d,
+    pub direction: Dir3,
 }
 impl Primitive3d for Line3d {}
 
@@ -133,7 +131,7 @@ impl Primitive3d for Line3d {}
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Segment3d {
     /// The direction of the line
-    pub direction: Direction3d,
+    pub direction: Dir3,
     /// Half the length of the line segment. The segment extends by this amount in both
     /// the given direction and its opposite direction
     pub half_length: f32,
@@ -143,7 +141,7 @@ impl Primitive3d for Segment3d {}
 impl Segment3d {
     /// Create a new `Segment3d` from a direction and full length of the segment
     #[inline(always)]
-    pub fn new(direction: Direction3d, length: f32) -> Self {
+    pub fn new(direction: Dir3, length: f32) -> Self {
         Self {
             direction,
             half_length: length / 2.0,
@@ -162,7 +160,7 @@ impl Segment3d {
 
         (
             // We are dividing by the length here, so the vector is normalized.
-            Self::new(Direction3d::new_unchecked(diff / length), length),
+            Self::new(Dir3::new_unchecked(diff / length), length),
             (point1 + point2) / 2.,
         )
     }
@@ -641,31 +639,28 @@ mod tests {
 
     #[test]
     fn direction_creation() {
-        assert_eq!(Direction3d::new(Vec3::X * 12.5), Ok(Direction3d::X));
+        assert_eq!(Dir3::new(Vec3::X * 12.5), Ok(Dir3::X));
         assert_eq!(
-            Direction3d::new(Vec3::new(0.0, 0.0, 0.0)),
+            Dir3::new(Vec3::new(0.0, 0.0, 0.0)),
             Err(InvalidDirectionError::Zero)
         );
         assert_eq!(
-            Direction3d::new(Vec3::new(f32::INFINITY, 0.0, 0.0)),
+            Dir3::new(Vec3::new(f32::INFINITY, 0.0, 0.0)),
             Err(InvalidDirectionError::Infinite)
         );
         assert_eq!(
-            Direction3d::new(Vec3::new(f32::NEG_INFINITY, 0.0, 0.0)),
+            Dir3::new(Vec3::new(f32::NEG_INFINITY, 0.0, 0.0)),
             Err(InvalidDirectionError::Infinite)
         );
         assert_eq!(
-            Direction3d::new(Vec3::new(f32::NAN, 0.0, 0.0)),
+            Dir3::new(Vec3::new(f32::NAN, 0.0, 0.0)),
             Err(InvalidDirectionError::NaN)
         );
-        assert_eq!(
-            Direction3d::new_and_length(Vec3::X * 6.5),
-            Ok((Direction3d::X, 6.5))
-        );
+        assert_eq!(Dir3::new_and_length(Vec3::X * 6.5), Ok((Dir3::X, 6.5)));
 
         // Test rotation
         assert!(
-            (Quat::from_rotation_z(std::f32::consts::FRAC_PI_2) * Direction3d::X)
+            (Quat::from_rotation_z(std::f32::consts::FRAC_PI_2) * Dir3::X)
                 .abs_diff_eq(Vec3::Y, 10e-6)
         );
     }

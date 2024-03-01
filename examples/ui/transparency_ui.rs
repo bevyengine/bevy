@@ -5,7 +5,7 @@ use bevy::prelude::*;
 
 fn main() {
     App::new()
-        .insert_resource(ClearColor(LegacyColor::BLACK))
+        .insert_resource(ClearColor(Color::BLACK))
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .run();
@@ -37,7 +37,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    background_color: LegacyColor::rgb(0.1, 0.5, 0.1).into(),
+                    background_color: Color::srgb(0.1, 0.5, 0.1).into(),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -47,7 +47,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             font: font_handle.clone(),
                             font_size: 40.0,
                             // Alpha channel of the color controls transparency.
-                            color: LegacyColor::rgba(1.0, 1.0, 1.0, 0.2),
+                            color: Color::srgba(1.0, 1.0, 1.0, 0.2),
                         },
                     ));
                 });
@@ -63,7 +63,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    background_color: LegacyColor::rgb(0.5, 0.1, 0.5).into(),
+                    background_color: Color::srgb(0.5, 0.1, 0.5).into(),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -73,7 +73,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             font: font_handle.clone(),
                             font_size: 40.0,
                             // Alpha channel of the color controls transparency.
-                            color: LegacyColor::rgba(1.0, 1.0, 1.0, 0.2),
+                            color: Color::srgba(1.0, 1.0, 1.0, 0.2),
                         },
                     ));
                 });
