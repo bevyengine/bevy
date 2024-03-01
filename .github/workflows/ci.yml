@@ -39,7 +39,7 @@ jobs:
         if: runner.os == 'linux'
       - name: Build & run tests
         # See tools/ci/src/main.rs for the commands this runs
-        run: cargo run -p ci -- test
+        run: cargo run -p ci -- test --keep-going
         env:
           CARGO_INCREMENTAL: 0
           RUSTFLAGS: "-C debuginfo=0 -D warnings"
@@ -65,7 +65,7 @@ jobs:
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
       - name: CI job
         # See tools/ci/src/main.rs for the commands this runs
-        run: cargo run -p ci -- lints
+        run: cargo run -p ci -- lints --keep-going
 
   miri:
     runs-on: macos-14
@@ -122,7 +122,7 @@ jobs:
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
       - name: Check Compile
         # See tools/ci/src/main.rs for the commands this runs
-        run: cargo run -p ci -- compile
+        run: cargo run -p ci -- compile --keep-going
 
   build-wasm:
     runs-on: ubuntu-latest
@@ -265,7 +265,7 @@ jobs:
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
       - name: Build and check doc
         # See tools/ci/src/main.rs for the commands this runs
-        run: cargo run -p ci -- doc
+        run: cargo run -p ci -- doc --keep-going
         env:
           CARGO_INCREMENTAL: 0
           RUSTFLAGS: "-C debuginfo=0"
@@ -424,4 +424,4 @@ jobs:
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
       - name: Build and check cfg typos
         # See tools/ci/src/main.rs for the commands this runs
-        run: cargo run -p ci -- cfg-check
+        run: cargo run -p ci -- cfg-check --keep-going
