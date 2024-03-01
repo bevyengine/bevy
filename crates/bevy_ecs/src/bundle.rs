@@ -675,8 +675,10 @@ impl<'w> BundleInserter<'w> {
                     );
                 }
                 // SAFETY: We have no outstanding mutable references to world as they were dropped
-                let archetype = &*self.archetype;
-                trigger_hooks(archetype, self.world.into_deferred());
+                unsafe {
+                    let archetype = &*self.archetype;
+                    trigger_hooks(archetype, self.world.into_deferred());
+                }
                 location
             }
             InsertBundleResult::NewArchetypeSameTable { new_archetype } => {
@@ -723,7 +725,7 @@ impl<'w> BundleInserter<'w> {
                 };
 
                 // SAFETY: We have no outstanding mutable references to world as they were dropped
-                trigger_hooks(&**new_archetype, self.world.into_deferred());
+                unsafe { trigger_hooks(&**new_archetype, self.world.into_deferred()) };
 
                 new_location
             }
@@ -811,7 +813,7 @@ impl<'w> BundleInserter<'w> {
                 };
 
                 // SAFETY: We have no outstanding mutable references to world as they were dropped
-                trigger_hooks(&**new_archetype, self.world.into_deferred());
+                unsafe { trigger_hooks(&**new_archetype, self.world.into_deferred()) };
 
                 new_location
             }
@@ -914,14 +916,16 @@ impl<'w> BundleSpawner<'w> {
         };
 
         // SAFETY: We have no outstanding mutable references to world as they were dropped
-        let archetype = &*self.archetype;
-        let bundle_info = &*self.bundle_info;
-        let mut world = self.world.into_deferred();
-        if archetype.has_on_add() {
-            world.trigger_on_add(entity, bundle_info.iter_components());
-        }
-        if archetype.has_on_insert() {
-            world.trigger_on_insert(entity, bundle_info.iter_components());
+        unsafe {
+            let archetype = &*self.archetype;
+            let bundle_info = &*self.bundle_info;
+            let mut world = self.world.into_deferred();
+            if archetype.has_on_add() {
+                world.trigger_on_add(entity, bundle_info.iter_components());
+            }
+            if archetype.has_on_insert() {
+                world.trigger_on_insert(entity, bundle_info.iter_components());
+            }
         }
 
         location

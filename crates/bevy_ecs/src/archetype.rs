@@ -573,19 +573,19 @@ impl Archetype {
 
     /// Returns true if any of the components in this archetype have `on_add` hooks
     #[inline]
-    pub fn has_on_add(&self) -> bool {
+    pub(crate) fn has_on_add(&self) -> bool {
         self.flags().contains(ArchetypeFlags::ON_ADD_HOOK)
     }
 
     /// Returns true if any of the components in this archetype have `on_insert` hooks
     #[inline]
-    pub fn has_on_insert(&self) -> bool {
+    pub(crate) fn has_on_insert(&self) -> bool {
         self.flags().contains(ArchetypeFlags::ON_INSERT_HOOK)
     }
 
     /// Returns true if any of the components in this archetype have `on_remove` hooks
     #[inline]
-    pub fn has_on_remove(&self) -> bool {
+    pub(crate) fn has_on_remove(&self) -> bool {
         self.flags().contains(ArchetypeFlags::ON_REMOVE_HOOK)
     }
 }
