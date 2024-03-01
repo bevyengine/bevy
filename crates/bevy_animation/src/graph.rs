@@ -1,4 +1,4 @@
-//! The animation graph.
+//! The animation graph, which allows animations to be blended together.
 
 use std::fs::File;
 use std::io::{self, BufWriter, Write};
@@ -18,6 +18,59 @@ use thiserror::Error;
 
 use crate::AnimationClip;
 
+/// A graph structure that describes how animation clips are to be blended
+/// together.
+///
+/// Applications frequently want to be able to play multiple animations at once
+/// and to fine-tune the influence that animations have on a skinned mesh. Bevy
+/// uses an *animation graph* to store this information. Animation graphs are a
+/// directed acyclic graph (DAG) that describes how animations are to be
+/// weighted and combined together. Every frame, Bevy evaluates the graph from
+/// the root and blends the animations together in a bottom-up fashion to
+/// produce the final pose.
+///
+/// There are two types of nodes: *blend nodes* and *clip nodes*, both of which
+/// can have an associated weight. Blend nodes have no associated animation clip
+/// and simply affect the weights of all their descendant nodes. Clip nodes
+/// specify an animation clip to play. When a graph is created, it starts with
+/// only a single blend node, the root node.
+///
+/// For example, consider the following graph:
+///
+/// ```text
+/// ┌────────────┐                                      
+/// │            │                                      
+/// │    Idle    ├─────────────────────┐                
+/// │            │                     │                
+/// └────────────┘                     │                
+///                                    │                
+/// ┌────────────┐                     │  ┌────────────┐
+/// │            │                     │  │            │
+/// │    Run     ├──┐                  ├──┤    Root    │
+/// │            │  │  ┌────────────┐  │  │            │
+/// └────────────┘  │  │   Blend    │  │  └────────────┘
+///                 ├──┤            ├──┘                
+/// ┌────────────┐  │  │    0.5     │                   
+/// │            │  │  └────────────┘                   
+/// │    Walk    ├──┘                                   
+/// │            │                                      
+/// └────────────┘                                      
+/// ```
+///
+/// In this case, assuming that Idle, Run, and Walk are all playing with weight
+/// 1.0, the Run and Walk animations will be equally blended together, then
+/// their weights will be halved and finally blended with the Idle animation.
+/// Thus the weight of Run and Walk are effectively half of the weight of Idle.
+///
+/// Animation graphs are assets and can be serialized to and loaded from [RON]
+/// files. Canonically, such files have an `.animgraph.ron` extension.
+///
+/// The animation graph implements [RFC 51]. See that document for more
+/// information.
+///
+/// [RON]: https://github.com/ron-rs/ron
+///
+/// [RFC 51]: https://github.com/bevyengine/rfcs/blob/main/rfcs/51-animation-composition.md
 #[derive(Asset, Reflect, Debug, Serialize, Deserialize)]
 pub struct AnimationGraph {
     /// The `petgraph` data structure that defines the animation graph.
@@ -36,6 +89,11 @@ pub type AnimationDiGraph = DiGraph<AnimationGraphNode, (), u32>;
 /// animations.
 pub type AnimationNodeIndex = NodeIndex<u32>;
 
+/// An individual node within an animation graph.
+///
+/// If `clip` is present, this is a *clip node*. Otherwise, it's a *blend node*.
+/// Both clip and blend nodes can have weights, and those weights are propagated
+/// down to descendants.
 #[derive(Clone, Reflect, Debug, Serialize, Deserialize)]
 pub struct AnimationGraphNode {
     /// The animation clip associated with this node, if any.
@@ -127,7 +185,8 @@ impl AnimationGraph {
         parent: AnimationNodeIndex,
     ) -> impl Iterator<Item = AnimationNodeIndex> + 'a
     where
-        I: IntoIterator<Item = Handle<AnimationClip>>, <I as std::iter::IntoIterator>::IntoIter: 'a
+        I: IntoIterator<Item = Handle<AnimationClip>>,
+        <I as std::iter::IntoIterator>::IntoIter: 'a,
     {
         clips
             .into_iter()
@@ -162,7 +221,10 @@ impl AnimationGraph {
     /// Returns true if the edge was successfully removed or false if no such
     /// edge existed.
     pub fn remove_edge(&mut self, from: NodeIndex, to: NodeIndex) -> bool {
-        self.graph.find_edge(from, to).map(|edge| self.graph.remove_edge(edge)).is_some()
+        self.graph
+            .find_edge(from, to)
+            .map(|edge| self.graph.remove_edge(edge))
+            .is_some()
     }
 
     /// Returns the [`AnimationGraphNode`] associated with the given index.

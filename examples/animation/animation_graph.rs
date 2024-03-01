@@ -1,4 +1,7 @@
 //! Demonstrates animation blending with animation graphs.
+//!
+//! The animation graph is shown on screen. You can change the weights of the
+//! playing animations by clicking and dragging left or right within the nodes.
 
 use bevy::{
     color::palettes::{
@@ -8,65 +11,107 @@ use bevy::{
     prelude::{Color::Srgba, *},
 };
 
+/// An on-screen representation of a node.
 #[derive(Debug)]
 struct NodeRect {
+    /// The number of pixels that this rectangle is from the left edge of the
+    /// window.
     left: f32,
+    /// The number of pixels that this rectangle is from the bottom edge of the
+    /// window.
     bottom: f32,
+    /// The width of this rectangle in pixels.
     width: f32,
+    /// The height of this rectangle in pixels.
     height: f32,
 }
 
+/// Either a straight horizontal or a straight vertical line on screen.
+///
+/// The line starts at (`left`, `bottom`) and goes either right (if the line is
+/// horizontal) or down (if the line is vertical).
 struct Line {
+    /// The number of pixels that the start of this line is from the left edge
+    /// of the screen.
     left: f32,
+    /// The number of pixels that the start of this line is from the bottom edge
+    /// of the screen.
     bottom: f32,
+    /// The length of the line.
     length: f32,
 }
 
+/// Assets that the example needs to use.
 #[derive(Resource)]
 struct AppAssets {
+    /// The [`AnimationGraph`] asset, which specifies how the animations are to
+    /// be blended together.
     animation_graph: Handle<AnimationGraph>,
+    /// Indices of the three animations in the graph.
+    ///
+    /// This value is populated when the graph is loaded.
     node_indices: [AnimationNodeIndex; 3],
 }
 
+/// The current weights of the three playing animations.
 #[derive(Resource)]
 struct AnimationWeights {
+    /// The weights of the three playing animations.
     weights: [f32; 3],
 }
 
+/// The type of each node in the UI: either a clip node or a blend node.
 enum NodeType {
+    /// A clip node, which specifies an animation.
     Clip(ClipNodeText),
-    Other(&'static str),
+    /// A blend node with no animation and a string label.
+    Blend(&'static str),
 }
 
+/// The label for the UI representation of a clip node.
 #[derive(Clone, Component)]
 struct ClipNodeText {
+    /// The string label of the node.
     text: &'static str,
+    /// Which of the three animations this UI widget represents.
     index: usize,
 }
 
+/// Whether, and where, the mouse is dragging.
 #[derive(Resource, Default)]
 enum DragState {
+    /// The mouse isn't being dragged.
     #[default]
     NotDragging,
+    /// The mouse is being dragged.
     Dragging {
-        weight_index: usize,
+        /// Which animation the mouse is dragging.
+        clip_index: usize,
+        /// The X position of the mouse when the drag started.
         reference_x_pos: f32,
+        /// The weight that the dragged node had when the drag started.
         reference_weight: f32,
     },
 }
 
+/// How much weight a drag of one mouse pixel corresponds to.
 const WEIGHT_ADJUST_SPEED: f32 = 0.01;
 
+/// The help text in the upper left corner.
 static HELP_TEXT: &str = "Click and drag an animation clip node to change its weight";
 
+/// The node widgets in the UI.
 static NODE_TYPES: [NodeType; 5] = [
     NodeType::Clip(ClipNodeText::new("Idle", 0)),
     NodeType::Clip(ClipNodeText::new("Walk", 1)),
-    NodeType::Other("Root"),
-    NodeType::Other("Blend\n0.5"),
+    NodeType::Blend("Root"),
+    NodeType::Blend("Blend\n0.5"),
     NodeType::Clip(ClipNodeText::new("Run", 2)),
 ];
 
+/// The positions of the node widgets in the UI.
+///
+/// These are in the same order as [`NODE_TYPES`] above.
 static NODE_RECTS: [NodeRect; 5] = [
     NodeRect::new(10.00, 10.00, 97.64, 48.41),
     NodeRect::new(10.00, 78.41, 97.64, 48.41),
@@ -75,6 +120,7 @@ static NODE_RECTS: [NodeRect; 5] = [
     NodeRect::new(10.00, 146.82, 97.64, 48.41),
 ];
 
+/// The positions of the horizontal lines in the UI.
 static HORIZONTAL_LINES: [Line; 6] = [
     Line::new(107.64, 34.21, 20.20),
     Line::new(107.64, 102.61, 20.20),
@@ -84,11 +130,13 @@ static HORIZONTAL_LINES: [Line; 6] = [
     Line::new(265.88, 102.61, 20.20),
 ];
 
+/// The positions of the vertical lines in the UI.
 static VERTICAL_LINES: [Line; 2] = [
     Line::new(127.83, 34.21, 68.40),
     Line::new(265.88, 68.41, 102.61),
 ];
 
+/// Initializes the app.
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
@@ -118,6 +166,26 @@ fn setup(
     mut asset_server: ResMut<AssetServer>,
     mut animation_graphs: ResMut<Assets<AnimationGraph>>,
 ) {
+    // Create the assets.
+    setup_assets(&mut commands, &mut asset_server, &mut animation_graphs);
+
+    // Create the scene.
+    setup_scene(&mut commands, &mut asset_server);
+    setup_camera_and_light(&mut commands);
+
+    // Create the UI.
+    setup_help_text(&mut commands, &mut asset_server);
+    setup_node_rects(&mut commands, &mut asset_server);
+    setup_node_lines(&mut commands);
+}
+
+/// Creates the assets, including the animation graph.
+fn setup_assets(
+    commands: &mut Commands,
+    asset_server: &mut AssetServer,
+    animation_graphs: &mut Assets<AnimationGraph>,
+) {
+    // Create the nodes.
     let mut animation_graph = AnimationGraph::new();
     let blend_node = animation_graph.add_blend(0.5, animation_graph.root);
     let node_indices: [_; 3] = [
@@ -138,27 +206,26 @@ fn setup(
         ),
     ];
 
+    // Add the graph.
     let animation_graph = animation_graphs.add(animation_graph);
 
+    // Save the assets in a resource.
     commands.insert_resource(AppAssets {
         animation_graph,
         node_indices,
     });
+}
 
-
+/// Spawns the animated fox.
+fn setup_scene(commands: &mut Commands, asset_server: &mut AssetServer) {
     commands.spawn(SceneBundle {
         scene: asset_server.load("models/animated/Fox.glb#Scene0"),
         transform: Transform::from_scale(Vec3::splat(0.05)),
         ..default()
     });
-
-    setup_camera_and_light(&mut commands);
-
-    setup_help_text(&mut commands, &mut asset_server);
-    setup_node_rects(&mut commands, &mut asset_server);
-    setup_node_lines(&mut commands);
 }
 
+/// Spawns the camera and point light.
 fn setup_camera_and_light(commands: &mut Commands) {
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-10.0, 5.0, 13.0).looking_at(Vec3::ZERO, Vec3::Y),
@@ -174,9 +241,9 @@ fn setup_camera_and_light(commands: &mut Commands) {
         transform: Transform::from_xyz(-4.0, 6.0, 13.0),
         ..default()
     });
-
 }
 
+/// Places the help text at the top left of the window.
 fn setup_help_text(commands: &mut Commands, asset_server: &mut AssetServer) {
     commands.spawn(TextBundle {
         text: Text::from_section(
@@ -197,11 +264,12 @@ fn setup_help_text(commands: &mut Commands, asset_server: &mut AssetServer) {
     });
 }
 
+/// Initializes the node UI widgets.
 fn setup_node_rects(commands: &mut Commands, asset_server: &mut AssetServer) {
     for (node_rect, node_text) in NODE_RECTS.iter().zip(NODE_TYPES.iter()) {
         let node_string = match *node_text {
             NodeType::Clip(ref clip) => clip.text,
-            NodeType::Other(text) => text,
+            NodeType::Blend(text) => text,
         };
 
         let mut text = commands.spawn(TextBundle {
@@ -223,6 +291,7 @@ fn setup_node_rects(commands: &mut Commands, asset_server: &mut AssetServer) {
         }
         let text = text.id();
 
+        // Create the background color.
         if let NodeType::Clip(ref clip) = node_text {
             commands
                 .spawn(NodeBundle {
@@ -264,6 +333,10 @@ fn setup_node_rects(commands: &mut Commands, asset_server: &mut AssetServer) {
     }
 }
 
+/// Creates boxes for the horizontal and vertical lines.
+///
+/// This is a bit hacky: it uses 1-pixel-wide and 1-pixel-high boxes to draw
+/// vertical and horizontal lines, respectively.
 fn setup_node_lines(commands: &mut Commands) {
     for line in &HORIZONTAL_LINES {
         commands.spawn(NodeBundle {
@@ -296,9 +369,9 @@ fn setup_node_lines(commands: &mut Commands) {
             ..default()
         });
     }
-
 }
 
+/// Attaches the animation graph to the scene, and plays all three animations.
 fn init_animations(
     mut commands: Commands,
     mut query: Query<(Entity, &mut AnimationPlayer), Added<AnimationPlayer>>,
@@ -314,6 +387,8 @@ fn init_animations(
     }
 }
 
+/// Processes mouse events, allowing the user to change weights when dragging
+/// the node UI widgets.
 fn handle_weight_drag(
     windows: Query<&Window>,
     mouse_input: Res<ButtonInput<MouseButton>>,
@@ -321,12 +396,15 @@ fn handle_weight_drag(
     mut animation_weights: ResMut<AnimationWeights>,
 ) {
     for window in windows.iter() {
+        // If the cursor is outside the window, bail.
         let Some(cursor_pos) = window.cursor_position() else {
             continue;
         };
 
+        // Handle the start of a drag.
         if mouse_input.just_pressed(MouseButton::Left) {
             for (node_rect, node_type) in NODE_RECTS.iter().zip(NODE_TYPES.iter()) {
+                // Ignore clicks on non-clip nodes.
                 let NodeType::Clip(ClipNodeText {
                     index: weight_index,
                     ..
@@ -341,7 +419,7 @@ fn handle_weight_drag(
                     && cursor_pos.y >= window.height() - node_rect.bottom - node_rect.height
                 {
                     *drag_state = DragState::Dragging {
-                        weight_index,
+                        clip_index: weight_index,
                         reference_x_pos: cursor_pos.x,
                         reference_weight: animation_weights.weights[weight_index],
                     }
@@ -354,7 +432,7 @@ fn handle_weight_drag(
         }
 
         let DragState::Dragging {
-            weight_index,
+            clip_index: weight_index,
             reference_x_pos,
             reference_weight,
         } = *drag_state
@@ -368,11 +446,13 @@ fn handle_weight_drag(
     }
 }
 
+// Updates the UI based on the weights that the user has chosen.
 fn update_ui(
     mut text_query: Query<(&mut Text, &ClipNodeText)>,
     mut node_query: Query<(&mut Style, &ClipNodeText), (With<Node>, Without<Text>)>,
     animation_weights: Res<AnimationWeights>,
 ) {
+    // Update the node labels with the current weights.
     for (mut text, clip_node_text) in text_query.iter_mut() {
         text.sections[0].value = format!(
             "{}\n{}",
@@ -380,6 +460,7 @@ fn update_ui(
         );
     }
 
+    // Draw the green background color to visually indicate the weight.
     for (mut style, clip_node_text) in node_query.iter_mut() {
         // All nodes are the same width, so `NODE_RECTS[0]` is as good as any other.
         style.width =
@@ -387,6 +468,8 @@ fn update_ui(
     }
 }
 
+/// Takes the weights that were set in the UI and assigns them to the actual
+/// playing animation.
 fn sync_weights(
     mut query: Query<&mut AnimationPlayer>,
     app_assets: Res<AppAssets>,
@@ -398,9 +481,12 @@ fn sync_weights(
             .iter()
             .zip(animation_weights.weights.iter())
         {
+            // If the animation happens to be no longer active, restart it.
             if !animation_player.animation_is_playing(animation_node_index) {
                 animation_player.play(animation_node_index);
             }
+
+            // Set the weight.
             if let Some(active_animation) = animation_player.animation_mut(animation_node_index) {
                 active_animation.set_weight(animation_weight);
             }
@@ -415,12 +501,18 @@ impl Default for AnimationWeights {
 }
 
 impl ClipNodeText {
+    /// Creates a new [`ClipNodeText`] from a label and the animation index.
     const fn new(text: &'static str, index: usize) -> Self {
         Self { text, index }
     }
 }
 
 impl NodeRect {
+    /// Creates a new [`NodeRect`] from the lower-left corner and size.
+    ///
+    /// Note that node rectangles are anchored in the *lower*-left corner. The
+    /// `bottom` parameter specifies vertical distance from the *bottom* of the
+    /// window.
     const fn new(left: f32, bottom: f32, width: f32, height: f32) -> NodeRect {
         NodeRect {
             left,
@@ -432,6 +524,10 @@ impl NodeRect {
 }
 
 impl Line {
+    /// Creates a new [`Line`], either horizontal or verticla.
+    ///
+    /// Note that the line's start point is anchored in the lower-*left* corner,
+    /// and that the `length` extends either to the right or downward.
     const fn new(left: f32, bottom: f32, length: f32) -> Self {
         Self {
             left,

@@ -142,7 +142,10 @@ fn assign_clips(
         let graph = graphs.add(graph);
         let animations = Clips::new(clips);
         player.play(animations.current()).repeat();
-        commands.entity(player_entity).insert(animations).insert(graph);
+        commands
+            .entity(player_entity)
+            .insert(animations)
+            .insert(graph);
     }
 }
 

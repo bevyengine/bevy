@@ -625,6 +625,8 @@ impl AnimationPlayer {
         self.playing_animations.get_mut(&animation)
     }
 
+    /// Returns true if the animation is currently playing or paused, or false
+    /// if the animation is stopped.
     pub fn animation_is_playing(&self, animation: AnimationNodeIndex) -> bool {
         self.playing_animations.contains_key(&animation)
     }
