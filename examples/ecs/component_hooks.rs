@@ -39,7 +39,7 @@ fn setup(world: &mut World) {
     // - not already have a hook of that kind registered
     // This is to prevent overriding hooks defined in plugins and other crates as well as keeping things fast
     world
-        .register_component::<MyComponent>()
+        .register_component_hooks::<MyComponent>()
         // There are 3 component lifecyle hooks: `on_add`, `on_insert` and `on_remove`
         // A hook has 3 arguments:
         // - a `DeferredWorld`, this allows access to resource and component data as well as `Commands`

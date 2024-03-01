@@ -21,8 +21,8 @@ use crate::{
     bundle::{Bundle, BundleInserter, BundleSpawner, Bundles},
     change_detection::{MutUntyped, TicksMut},
     component::{
-        Component, ComponentDescriptor, ComponentId, ComponentInfo, ComponentTicks, Components,
-        Tick,
+        Component, ComponentDescriptor, ComponentHooks, ComponentId, ComponentInfo, ComponentTicks,
+        Components, Tick,
     },
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
     event::{Event, EventId, Events, SendBatchIds},
@@ -199,15 +199,25 @@ impl World {
         self.components.init_component::<T>(&mut self.storages)
     }
 
-    /// Initializes a new [`Component`] type and returns a mutable reference to the [`ComponentInfo`] created for it.
-    /// Primarily used for registering hooks.
+    /// Returns a mutable reference to the [`ComponentHooks`] for a [`Component`] type.
     ///
     /// Will panic if `T` exists in any archetypes.
-    pub fn register_component<T: Component>(&mut self) -> &mut ComponentInfo {
+    pub fn register_component_hooks<T: Component>(&mut self) -> &mut ComponentHooks {
         let index = self.init_component::<T>();
-        assert!(!self.archetypes.archetypes.iter().any(|a| a.contains(index)), "Components cannot be registered if they already exist in an archetype, use init_component if {} may already be in use", std::any::type_name::<T>());
+        assert!(!self.archetypes.archetypes.iter().any(|a| a.contains(index)), "Components hooks cannot be modified if the component already exists in an archetype, use init_component if {} may already be in use", std::any::type_name::<T>());
         // SAFETY: We just created this component
-        unsafe { self.components.get_info_mut(index) }
+        unsafe { self.components.get_hooks_mut(index).debug_checked_unwrap() }
+    }
+
+    /// Returns a mutable reference to the [`ComponentHooks`] for a [`Component`] with the given id if it exists.
+    ///
+    /// Will panic if `id` exists in any archetypes.
+    pub fn register_component_hooks_by_id(
+        &mut self,
+        id: ComponentId,
+    ) -> Option<&mut ComponentHooks> {
+        assert!(!self.archetypes.archetypes.iter().any(|a| a.contains(id)), "Components hooks cannot be modified if the component already exists in an archetype, use init_component if the component with id {:?} may already be in use", id);
+        self.components.get_hooks_mut(id)
     }
 
     /// Initializes a new [`Component`] type and returns the [`ComponentId`] created for it.
@@ -225,17 +235,6 @@ impl World {
     ) -> ComponentId {
         self.components
             .init_component_with_descriptor(&mut self.storages, descriptor)
-    }
-
-    /// Initializes a new [`Component`] type and returns a mutable reference to the [`ComponentInfo`] created for it.
-    /// Primarily used for registering hooks.
-    pub fn register_component_with_descriptor(
-        &mut self,
-        descriptor: ComponentDescriptor,
-    ) -> &mut ComponentInfo {
-        let index = self.init_component_with_descriptor(descriptor);
-        // SAFETY: We just created this component
-        unsafe { self.components.get_info_mut(index) }
     }
 
     /// Returns the [`ComponentId`] of the given [`Component`] type `T`.

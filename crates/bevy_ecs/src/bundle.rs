@@ -416,7 +416,9 @@ impl BundleInfo {
     /// Adds a bundle to the given archetype and returns the resulting archetype. This could be the
     /// same [`ArchetypeId`], in the event that adding the given bundle does not result in an
     /// [`Archetype`] change. Results are cached in the [`Archetype`] graph to avoid redundant work.
-    pub(crate) fn add_bundle_to_archetype(
+    /// # Safety
+    /// `components` must be the same components as passed in [`Self::new`]
+    pub(crate) unsafe fn add_bundle_to_archetype(
         &self,
         archetypes: &mut Archetypes,
         storages: &mut Storages,
@@ -484,6 +486,7 @@ impl BundleInfo {
                     new_sparse_set_components
                 };
             };
+            // SAFETY: ids in self must be valid
             let new_archetype_id = archetypes.get_id_or_insert(
                 components,
                 table_id,
@@ -525,7 +528,7 @@ pub(crate) enum InsertBundleResult {
 
 impl<'w> BundleInserter<'w> {
     #[inline]
-    pub fn new<T: Bundle>(
+    pub(crate) fn new<T: Bundle>(
         world: &'w mut World,
         archetype_id: ArchetypeId,
         change_tick: Tick,
@@ -1126,7 +1129,7 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<R>();
         world
-            .register_component::<A>()
+            .register_component_hooks::<A>()
             .on_add(|mut world, _, _| {
                 world.resource_mut::<R>().assert_order(0);
             })
@@ -1143,7 +1146,7 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<R>();
         world
-            .register_component::<A>()
+            .register_component_hooks::<A>()
             .on_add(|mut world, _, _| {
                 world.resource_mut::<R>().assert_order(0);
             })
@@ -1166,7 +1169,7 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<R>();
         world
-            .register_component::<A>()
+            .register_component_hooks::<A>()
             .on_add(|mut world, entity, _| {
                 world.resource_mut::<R>().assert_order(0);
                 world.commands().entity(entity).insert(B);
@@ -1177,7 +1180,7 @@ mod tests {
             });
 
         world
-            .register_component::<B>()
+            .register_component_hooks::<B>()
             .on_add(|mut world, entity, _| {
                 world.resource_mut::<R>().assert_order(1);
                 world.commands().entity(entity).remove::<A>();
@@ -1198,26 +1201,30 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<R>();
         world
-            .register_component::<A>()
+            .register_component_hooks::<A>()
             .on_add(|mut world, entity, _| {
                 world.resource_mut::<R>().assert_order(0);
                 world.commands().entity(entity).insert(B).insert(D);
             });
 
         world
-            .register_component::<B>()
+            .register_component_hooks::<B>()
             .on_add(|mut world, entity, _| {
                 world.resource_mut::<R>().assert_order(1);
                 world.commands().entity(entity).insert(C);
             });
 
-        world.register_component::<C>().on_add(|mut world, _, _| {
-            world.resource_mut::<R>().assert_order(2);
-        });
+        world
+            .register_component_hooks::<C>()
+            .on_add(|mut world, _, _| {
+                world.resource_mut::<R>().assert_order(2);
+            });
 
-        world.register_component::<D>().on_add(|mut world, _, _| {
-            world.resource_mut::<R>().assert_order(3);
-        });
+        world
+            .register_component_hooks::<D>()
+            .on_add(|mut world, _, _| {
+                world.resource_mut::<R>().assert_order(3);
+            });
 
         world.spawn(A).flush();
         assert_eq!(4, world.resource::<R>().0);
