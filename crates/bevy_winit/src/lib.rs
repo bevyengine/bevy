@@ -394,7 +394,12 @@ fn handle_winit_event(
             }
         }
         Event::NewEvents(cause) => {
-            runner_state.wait_elapsed = !matches!(cause, StartCause::WaitCancelled { .. });
+            runner_state.wait_elapsed = match cause {
+                StartCause::WaitCancelled { requested_resume: Some(resume), .. } => {
+                    resume >= Instant::now()
+                }
+                _ => true,
+            };
         }
         Event::WindowEvent {
             event, window_id, ..
