@@ -1013,7 +1013,7 @@ impl EntityCommands<'_> {
         self.commands.reborrow()
     }
 
-    /// Creates an [`Observer`](crate::observer::Observer) listening for `E` events targetting this entity.
+    /// Creates an [`Observer`](crate::observer::Observer) listening for `E` events targeting this entity.
     /// In order to trigger the callback the entity must also match the query when the event is fired.
     pub fn observe<E: EcsEvent, B: Bundle, M>(
         &mut self,

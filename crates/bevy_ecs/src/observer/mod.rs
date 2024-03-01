@@ -95,7 +95,7 @@ pub struct ObserverTrigger {
 // Map between an observer entity and it's runner
 type ObserverMap = EntityHashMap<Entity, ObserverRunner>;
 
-/// Collection of [`ObserverRunner`] for [`Observer`] registered to a particular event targetted at a specific component.
+/// Collection of [`ObserverRunner`] for [`Observer`] registered to a particular event targeted at a specific component.
 #[derive(Default, Debug)]
 pub struct CachedComponentObservers {
     // Observers listening to events targeting this component
