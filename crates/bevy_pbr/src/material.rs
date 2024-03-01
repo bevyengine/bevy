@@ -171,7 +171,7 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
     }
 
     /// Customizes the default [`RenderPipelineDescriptor`] for a specific entity using the entity's
-    /// [`MaterialPipelineKey`] and [`MeshVertexBufferLayout`] as input.
+    /// [`MaterialPipelineKey`] and [`MeshVertexBufferLayoutRef`] as input.
     #[allow(unused_variables)]
     #[inline]
     fn specialize(
