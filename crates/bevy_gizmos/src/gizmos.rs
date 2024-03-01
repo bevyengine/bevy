@@ -26,7 +26,7 @@ pub struct GizmoStorage<Config, Clear> {
     pub(crate) list_colors: Vec<LinearRgba>,
     pub(crate) strip_positions: Vec<Vec3>,
     pub(crate) strip_colors: Vec<LinearRgba>,
-    _phantom: PhantomData<(Config, Clear)>,
+    marker: PhantomData<(Config, Clear)>,
 }
 
 impl<Config, Clear> Default for GizmoStorage<Config, Clear> {
@@ -36,7 +36,7 @@ impl<Config, Clear> Default for GizmoStorage<Config, Clear> {
             list_colors: default(),
             strip_positions: default(),
             strip_colors: default(),
-            _phantom: PhantomData,
+            marker: PhantomData,
         }
     }
 }
