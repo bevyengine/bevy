@@ -286,7 +286,7 @@ fn main() {
 
     if checks.contains(Check::CFG_CHECK) {
         // Check cfg and imports
-        let mut args = vec!["Zcheck-cfg", "--workspace"];
+        let mut args = vec!["-Zcheck-cfg", "--workspace"];
         if flags.contains(Flag::KEEP_GOING) {
             args.push("--keep-going");
         }
