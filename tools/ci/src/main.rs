@@ -1,4 +1,4 @@
-//! CI script used for Bevy.
+    //! CI script used for Bevy.
 
 use xshell::{cmd, Shell};
 
@@ -161,7 +161,7 @@ fn main() {
     if what_to_run.contains(Check::CFG_CHECK) {
         // Check cfg and imports
         std::env::set_var("RUSTFLAGS", "-D warnings");
-        cmd!(sh, "cargo check -Zcheck-cfg --workspace")
+        cmd!(sh, "cargo check +nightly -Zcheck-cfg --workspace")
             .run()
             .expect("Please fix failing cfg checks in output above.");
     }
