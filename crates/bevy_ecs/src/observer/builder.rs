@@ -1,6 +1,4 @@
-use std::{any::TypeId, marker::PhantomData};
-
-use crate::system::IntoObserverSystem;
+use std::any::TypeId;
 
 use super::*;
 

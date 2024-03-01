@@ -1,7 +1,4 @@
-use crate::{
-    component::ComponentHooks,
-    system::{IntoObserverSystem, ObserverSystem},
-};
+use crate::{component::ComponentHooks, system::ObserverSystem};
 
 use super::*;
 
