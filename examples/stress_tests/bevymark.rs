@@ -509,7 +509,7 @@ fn handle_collision(half_extents: Vec2, translation: &Vec3, velocity: &mut Vec3)
 fn collision_system(windows: Query<&Window>, mut bird_query: Query<(&mut Bird, &Transform)>) {
     let window = windows.single();
 
-    let half_extents = 0.5 * Vec2::new(window.width(), window.height());
+    let half_extents = 0.5 * window.size();
 
     for (mut bird, transform) in &mut bird_query {
         handle_collision(half_extents, &transform.translation, &mut bird.velocity);
