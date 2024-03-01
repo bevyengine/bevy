@@ -368,11 +368,7 @@ fn spawn_birds(
     let bird_x = (primary_window_resolution.width() / -2.) + HALF_BIRD_SIZE;
     let bird_y = (primary_window_resolution.height() / 2.) - HALF_BIRD_SIZE;
 
-    let half_extents = 0.5
-        * Vec2::new(
-            primary_window_resolution.width(),
-            primary_window_resolution.height(),
-        );
+    let half_extents = 0.5 * primary_window_resolution.size();
 
     let color = counter.color;
     let current_count = counter.count;
