@@ -2149,6 +2149,29 @@ bevy_reflect::tests::Test {
         let mut registry = TypeRegistry::empty();
 
         registry.register::<Recurse<Recurse<()>>>();
+
+        #[derive(Reflect)]
+        #[reflect(no_field_bounds)]
+        struct SelfRecurse {
+            recurse: Vec<SelfRecurse>,
+        }
+
+        registry.register::<SelfRecurse>();
+
+        #[derive(Reflect)]
+        #[reflect(no_field_bounds)]
+        enum RecurseA {
+            Recurse(RecurseB),
+        }
+
+        #[derive(Reflect)]
+        struct RecurseB {
+            vector: Vec<RecurseA>,
+        }
+
+        registry.register::<RecurseA>();
+        assert!(registry.contains(TypeId::of::<RecurseA>()));
+        assert!(registry.contains(TypeId::of::<RecurseB>()));
     }
 
     #[test]
