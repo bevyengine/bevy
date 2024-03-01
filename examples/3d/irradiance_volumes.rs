@@ -13,6 +13,7 @@
 //!
 //! * Clicking anywhere moves the object.
 
+use bevy::color::palettes::css::*;
 use bevy::core_pipeline::Skybox;
 use bevy::math::{uvec3, vec3};
 use bevy::pbr::irradiance_volume::IrradianceVolume;
@@ -47,7 +48,7 @@ static SWITCH_TO_SPHERE_HELP_TEXT: &str = "Tab: Switch to a plain sphere mesh";
 
 static CLICK_TO_MOVE_HELP_TEXT: &str = "Left click: Move the object";
 
-static GIZMO_COLOR: LegacyColor = LegacyColor::YELLOW;
+static GIZMO_COLOR: Color = Color::Srgba(YELLOW);
 
 static VOXEL_TRANSFORM: Mat4 = Mat4::from_cols_array_2d(&[
     [-42.317566, 0.0, 0.0, 0.0],
@@ -148,7 +149,7 @@ fn main() {
         .init_resource::<AppStatus>()
         .init_resource::<ExampleAssets>()
         .insert_resource(AmbientLight {
-            color: LegacyColor::WHITE,
+            color: Color::WHITE,
             brightness: 0.0,
         })
         .add_systems(Startup, setup)
@@ -362,7 +363,7 @@ impl AppStatus {
             TextStyle {
                 font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                 font_size: 24.0,
-                color: LegacyColor::ANTIQUE_WHITE,
+                ..default()
             },
         )
     }
@@ -515,7 +516,7 @@ impl FromWorld for ExampleAssets {
         ExampleAssets {
             main_sphere: world.add_asset(Sphere::default().mesh().uv(32, 18)),
             fox: world.load_asset("models/animated/Fox.glb#Scene0"),
-            main_sphere_material: world.add_asset(LegacyColor::SILVER),
+            main_sphere_material: world.add_asset(Color::from(SILVER)),
             main_scene: world
                 .load_asset("models/IrradianceVolumeExample/IrradianceVolumeExample.glb#Scene0"),
             irradiance_volume: world.load_asset("irradiance_volumes/Example.vxgi.ktx2"),
@@ -563,7 +564,7 @@ fn create_cubes(
         let resolution = image.texture_descriptor.size;
 
         let voxel_cube_material = voxel_visualization_material_assets.add(ExtendedMaterial {
-            base: StandardMaterial::from(LegacyColor::RED),
+            base: StandardMaterial::from(Color::from(RED)),
             extension: VoxelVisualizationExtension {
                 irradiance_volume_info: VoxelVisualizationIrradianceVolumeInfo {
                     transform: VOXEL_TRANSFORM.inverse(),

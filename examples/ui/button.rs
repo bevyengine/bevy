@@ -1,7 +1,7 @@
 //! This example illustrates how to create a button that changes color and text based on its
 //! interaction state.
 
-use bevy::{prelude::*, winit::WinitSettings};
+use bevy::{color::palettes::basic::*, prelude::*, winit::WinitSettings};
 
 fn main() {
     App::new()
@@ -13,9 +13,9 @@ fn main() {
         .run();
 }
 
-const NORMAL_BUTTON: LegacyColor = LegacyColor::rgb(0.15, 0.15, 0.15);
-const HOVERED_BUTTON: LegacyColor = LegacyColor::rgb(0.25, 0.25, 0.25);
-const PRESSED_BUTTON: LegacyColor = LegacyColor::rgb(0.35, 0.75, 0.35);
+const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
+const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
+const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 
 fn button_system(
     mut interaction_query: Query<
@@ -35,17 +35,17 @@ fn button_system(
             Interaction::Pressed => {
                 text.sections[0].value = "Press".to_string();
                 *color = PRESSED_BUTTON.into();
-                border_color.0 = LegacyColor::RED;
+                border_color.0 = RED.into();
             }
             Interaction::Hovered => {
                 text.sections[0].value = "Hover".to_string();
                 *color = HOVERED_BUTTON.into();
-                border_color.0 = LegacyColor::WHITE;
+                border_color.0 = WHITE.into();
             }
             Interaction::None => {
                 text.sections[0].value = "Button".to_string();
                 *color = NORMAL_BUTTON.into();
-                border_color.0 = LegacyColor::BLACK;
+                border_color.0 = BLACK.into();
             }
         }
     }
@@ -78,7 +78,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    border_color: BorderColor(LegacyColor::BLACK),
+                    border_color: BorderColor(Color::BLACK),
                     background_color: NORMAL_BUTTON.into(),
                     ..default()
                 })
@@ -88,7 +88,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextStyle {
                             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                             font_size: 40.0,
-                            color: LegacyColor::rgb(0.9, 0.9, 0.9),
+                            color: Color::srgb(0.9, 0.9, 0.9),
                         },
                     ));
                 });

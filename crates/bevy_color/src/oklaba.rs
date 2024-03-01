@@ -5,7 +5,7 @@ use crate::{
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
 
-/// Color in Oklaba color space, with alpha
+/// Color in Oklab color space, with alpha
 #[doc = include_str!("../docs/conversion.md")]
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
@@ -98,6 +98,11 @@ impl Alpha for Oklaba {
     #[inline]
     fn alpha(&self) -> f32 {
         self.alpha
+    }
+
+    #[inline]
+    fn set_alpha(&mut self, alpha: f32) {
+        self.alpha = alpha;
     }
 }
 

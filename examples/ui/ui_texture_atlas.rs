@@ -1,6 +1,6 @@
 //! This example illustrates how to use `TextureAtlases` within ui
 
-use bevy::{prelude::*, winit::WinitSettings};
+use bevy::{color::palettes::basic::YELLOW, prelude::*, winit::WinitSettings};
 
 fn main() {
     App::new()
@@ -64,7 +64,7 @@ fn setup(
                 TextSection::new(
                     "space".to_string(),
                     TextStyle {
-                        color: LegacyColor::YELLOW,
+                        color: YELLOW.into(),
                         ..text_style.clone()
                     },
                 ),
