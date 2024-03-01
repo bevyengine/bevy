@@ -85,8 +85,8 @@ pub type AnimationDiGraph = DiGraph<AnimationGraphNode, (), u32>;
 
 /// The index of either an animation or blend node in the animation graph.
 ///
-/// These indices are the way that [`AnimationPlayer`]s identify particular
-/// animations.
+/// These indices are the way that [`crate::AnimationPlayer`]s identify
+/// particular animations.
 pub type AnimationNodeIndex = NodeIndex<u32>;
 
 /// An individual node within an animation graph.
@@ -249,7 +249,7 @@ impl AnimationGraph {
         Dfs::new(&self.graph, self.root)
     }
 
-    /// Serializes the animation graph to the given [`Writer`] in RON format.
+    /// Serializes the animation graph to the given [`Write`]r in RON format.
     pub fn save<W>(&self, writer: &mut W) -> Result<(), AnimationGraphLoadError>
     where
         W: Write,

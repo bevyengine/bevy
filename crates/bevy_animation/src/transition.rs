@@ -18,7 +18,7 @@ use crate::{graph::AnimationNodeIndex, ActiveAnimation, AnimationPlayer};
 /// between animations.
 ///
 /// To use this component, place it on the same entity as the
-/// [`AnimationPlayer`] and [`Handle<AnimationGraph>`]. It'll take
+/// [`AnimationPlayer`] and [`bevy_asset::Handle<AnimationGraph>`]. It'll take
 /// responsibility for adjusting the weight on the [`ActiveAnimation`] in order
 /// to fade out animations smoothly.
 #[derive(Component, Default, Deref, DerefMut, Reflect)]
@@ -44,7 +44,7 @@ impl AnimationTransitions {
 
     /// Plays a new animation on the given [`AnimationPlayer`], fading out any
     /// existing animations that were already playing over the
-    /// [`transition_duration`].
+    /// `transition_duration`.
     pub fn play<'p>(
         &mut self,
         player: &'p mut AnimationPlayer,
