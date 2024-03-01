@@ -674,7 +674,7 @@ impl<'w> BundleInserter<'w> {
                         bundle,
                     );
                 }
-                // SAFETY: We have no oustanding mutable references to world as they were dropped
+                // SAFETY: We have no outstanding mutable references to world as they were dropped
                 let archetype = &*self.archetype;
                 trigger_hooks(archetype, self.world.into_deferred());
                 location
@@ -722,7 +722,7 @@ impl<'w> BundleInserter<'w> {
                     new_location
                 };
 
-                // SAFETY: We have no oustanding mutable references to world as they were dropped
+                // SAFETY: We have no outstanding mutable references to world as they were dropped
                 trigger_hooks(&**new_archetype, self.world.into_deferred());
 
                 new_location
@@ -810,7 +810,7 @@ impl<'w> BundleInserter<'w> {
                     new_location
                 };
 
-                // SAFETY: We have no oustanding mutable references to world as they were dropped
+                // SAFETY: We have no outstanding mutable references to world as they were dropped
                 trigger_hooks(&**new_archetype, self.world.into_deferred());
 
                 new_location
@@ -874,7 +874,7 @@ impl<'w> BundleSpawner<'w> {
 
     #[inline]
     pub fn reserve_storage(&mut self, additional: usize) {
-        // SAFETY: There are no oustanding world references
+        // SAFETY: There are no outstanding world references
         let (archetype, table) = unsafe { (&mut *self.archetype, &mut *self.table) };
         archetype.reserve(additional);
         table.reserve(additional);
@@ -913,7 +913,7 @@ impl<'w> BundleSpawner<'w> {
             location
         };
 
-        // SAFETY: We have no oustanding mutable references to world as they were dropped
+        // SAFETY: We have no outstanding mutable references to world as they were dropped
         let archetype = &*self.archetype;
         let bundle_info = &*self.bundle_info;
         let mut world = self.world.into_deferred();
