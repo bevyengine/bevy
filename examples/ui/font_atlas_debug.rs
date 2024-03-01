@@ -1,7 +1,7 @@
 //! This example illustrates how `FontAtlas`'s are populated.
 //! Bevy uses `FontAtlas`'s under the hood to optimize text rendering.
 
-use bevy::{prelude::*, text::FontAtlasSets};
+use bevy::{color::palettes::basic::YELLOW, prelude::*, text::FontAtlasSets};
 
 fn main() {
     App::new()
@@ -91,7 +91,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResM
                 TextStyle {
                     font: font_handle,
                     font_size: 60.0,
-                    color: Color::YELLOW,
+                    color: YELLOW.into(),
                 },
             ));
         });

@@ -8,7 +8,6 @@ use bevy_math::{
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, CameraProjection},
-    color::Color,
     extract_component::ExtractComponent,
     extract_resource::ExtractResource,
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, HalfSpace, Sphere},
@@ -114,7 +113,7 @@ pub struct PointLight {
 impl Default for PointLight {
     fn default() -> Self {
         PointLight {
-            color: Color::rgb(1.0, 1.0, 1.0),
+            color: Color::WHITE,
             // 1,000,000 lumens is a very large "cinema light" capable of registering brightly at Bevy's
             // default "very overcast day" exposure level. For "indoor lighting" with a lower exposure,
             // this would be way too bright.
@@ -185,7 +184,7 @@ impl Default for SpotLight {
     fn default() -> Self {
         // a quarter arc attenuating from the center
         Self {
-            color: Color::rgb(1.0, 1.0, 1.0),
+            color: Color::WHITE,
             // 1,000,000 lumens is a very large "cinema light" capable of registering brightly at Bevy's
             // default "very overcast day" exposure level. For "indoor lighting" with a lower exposure,
             // this would be way too bright.
@@ -269,7 +268,7 @@ pub struct DirectionalLight {
 impl Default for DirectionalLight {
     fn default() -> Self {
         DirectionalLight {
-            color: Color::rgb(1.0, 1.0, 1.0),
+            color: Color::WHITE,
             illuminance: light_consts::lux::AMBIENT_DAYLIGHT,
             shadows_enabled: false,
             shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,

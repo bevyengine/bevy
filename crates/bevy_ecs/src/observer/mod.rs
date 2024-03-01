@@ -12,7 +12,7 @@ pub use runner::*;
 
 use crate::{
     archetype::ArchetypeFlags,
-    component::{ComponentInfo, SparseStorage},
+    component::SparseStorage,
     entity::EntityLocation,
     query::DebugCheckedUnwrap,
     system::{EmitEcsEvent, IntoObserverSystem},

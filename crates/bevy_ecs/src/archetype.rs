@@ -136,7 +136,7 @@ impl BundleComponentStatus for AddBundle {
     #[inline]
     unsafe fn get_status(&self, index: usize) -> ComponentStatus {
         // SAFETY: caller has ensured index is a valid bundle index for this bundle
-        *self.bundle_status.get_unchecked(index)
+        unsafe { *self.bundle_status.get_unchecked(index) }
     }
 }
 
@@ -441,6 +441,12 @@ impl Archetype {
         self.components.indices()
     }
 
+    /// Returns the total number of components in the archetype
+    #[inline]
+    pub fn component_count(&self) -> usize {
+        self.components.len()
+    }
+
     /// Fetches a immutable reference to the archetype's [`Edges`], a cache of
     /// archetypal relationships.
     #[inline]
@@ -691,13 +697,16 @@ impl Archetypes {
             by_components: Default::default(),
             archetype_component_count: 0,
         };
-        archetypes.get_id_or_insert(
-            &Components::default(),
-            &Observers::default(),
-            TableId::empty(),
-            Vec::new(),
-            Vec::new(),
-        );
+        // SAFETY: Empty archetype has no components
+        unsafe {
+            archetypes.get_id_or_insert(
+                &Components::default(),
+                &Observers::default(),
+                TableId::empty(),
+                Vec::new(),
+                Vec::new(),
+            );
+        }
         archetypes
     }
 
@@ -790,7 +799,8 @@ impl Archetypes {
     ///
     /// # Safety
     /// [`TableId`] must exist in tables
-    pub(crate) fn get_id_or_insert(
+    /// `table_components` and `sparse_set_components` must exist in `components`
+    pub(crate) unsafe fn get_id_or_insert(
         &mut self,
         components: &Components,
         observers: &Observers,

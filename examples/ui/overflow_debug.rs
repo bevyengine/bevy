@@ -1,5 +1,7 @@
 //! Tests how different transforms behave when clipped with `Overflow::Hidden`
-use bevy::{input::common_conditions::input_just_pressed, prelude::*};
+use bevy::{
+    color::palettes::css::DARK_GRAY, input::common_conditions::input_just_pressed, prelude::*,
+};
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
 const CONTAINER_SIZE: f32 = 150.0;
@@ -196,7 +198,7 @@ fn spawn_container(
                     overflow: Overflow::clip(),
                     ..default()
                 },
-                background_color: Color::DARK_GRAY.into(),
+                background_color: DARK_GRAY.into(),
                 ..default()
             },
             Container(0),

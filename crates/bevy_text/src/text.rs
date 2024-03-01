@@ -1,7 +1,7 @@
 use bevy_asset::Handle;
+use bevy_color::Color;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_reflect::prelude::*;
-use bevy_render::color::Color;
 use bevy_utils::default;
 use serde::{Deserialize, Serialize};
 
@@ -33,7 +33,7 @@ impl Text {
     ///
     /// ```
     /// # use bevy_asset::Handle;
-    /// # use bevy_render::color::Color;
+    /// # use bevy_color::Color;
     /// # use bevy_text::{Font, Text, TextStyle, JustifyText};
     /// #
     /// # let font_handle: Handle<Font> = Default::default();
@@ -70,7 +70,8 @@ impl Text {
     ///
     /// ```
     /// # use bevy_asset::Handle;
-    /// # use bevy_render::color::Color;
+    /// # use bevy_color::Color;
+    /// # use bevy_color::palettes::basic::{RED, BLUE};
     /// # use bevy_text::{Font, Text, TextStyle, TextSection};
     /// #
     /// # let font_handle: Handle<Font> = Default::default();
@@ -81,7 +82,7 @@ impl Text {
     ///         TextStyle {
     ///             font: font_handle.clone(),
     ///             font_size: 60.0,
-    ///             color: Color::BLUE,
+    ///             color: BLUE.into(),
     ///         },
     ///     ),
     ///     TextSection::new(
@@ -89,7 +90,7 @@ impl Text {
     ///         TextStyle {
     ///             font: font_handle,
     ///             font_size: 60.0,
-    ///             color: Color::RED,
+    ///             color: RED.into(),
     ///         },
     ///     ),
     /// ]);

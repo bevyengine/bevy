@@ -198,8 +198,9 @@ unsafe impl<C: Component> Bundle for C {
         F: for<'a> FnMut(&'a mut T) -> OwningPtr<'a>,
         Self: Sized,
     {
+        let ptr = func(ctx);
         // Safety: The id given in `component_ids` is for `Self`
-        func(ctx).read()
+        unsafe { ptr.read() }
     }
 
     fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)) {
@@ -239,9 +240,10 @@ macro_rules! tuple_impl {
             where
                 F: FnMut(&mut T) -> OwningPtr<'_>
             {
-                // Rust guarantees that tuple calls are evaluated 'left to right'.
+                #[allow(unused_unsafe)]
+                // SAFETY: Rust guarantees that tuple calls are evaluated 'left to right'.
                 // https://doc.rust-lang.org/reference/expressions.html#evaluation-order-of-operands
-                ($(<$name as Bundle>::from_components(ctx, func),)*)
+                unsafe { ($(<$name as Bundle>::from_components(ctx, func),)*) }
             }
         }
 
@@ -405,7 +407,8 @@ impl BundleInfo {
                         // the target table contains the component.
                         unsafe { table.get_column_mut(component_id).debug_checked_unwrap() };
                     // SAFETY: bundle_component is a valid index for this bundle
-                    match bundle_component_status.get_status(bundle_component) {
+                    let status = unsafe { bundle_component_status.get_status(bundle_component) };
+                    match status {
                         ComponentStatus::Added => {
                             column.initialize(table_row, component_ptr, change_tick);
                         }
@@ -429,7 +432,9 @@ impl BundleInfo {
     /// Adds a bundle to the given archetype and returns the resulting archetype. This could be the
     /// same [`ArchetypeId`], in the event that adding the given bundle does not result in an
     /// [`Archetype`] change. Results are cached in the [`Archetype`] graph to avoid redundant work.
-    pub(crate) fn add_bundle_to_archetype(
+    /// # Safety
+    /// `components` must be the same components as passed in [`Self::new`]
+    pub(crate) unsafe fn add_bundle_to_archetype(
         &self,
         archetypes: &mut Archetypes,
         storages: &mut Storages,
@@ -500,6 +505,7 @@ impl BundleInfo {
                     new_sparse_set_components
                 };
             };
+            // SAFETY: ids in self must be valid
             let new_archetype_id = archetypes.get_id_or_insert(
                 components,
                 observers,
@@ -543,7 +549,7 @@ pub(crate) enum InsertBundleResult {
 
 impl<'w> BundleInserter<'w> {
     #[inline]
-    pub fn new<T: Bundle>(
+    pub(crate) fn new<T: Bundle>(
         world: &'w mut World,
         archetype_id: ArchetypeId,
         change_tick: Tick,
@@ -682,9 +688,11 @@ impl<'w> BundleInserter<'w> {
                         bundle,
                     );
                 }
-                // SAFETY: We have no oustanding mutable references to world as they were dropped
-                let archetype = &*self.archetype;
-                trigger_hooks(archetype, self.world.into_deferred());
+                // SAFETY: We have no outstanding mutable references to world as they were dropped
+                unsafe {
+                    let archetype = &*self.archetype;
+                    trigger_hooks(archetype, self.world.into_deferred());
+                }
                 location
             }
             InsertBundleResult::NewArchetypeSameTable { new_archetype } => {
@@ -730,9 +738,9 @@ impl<'w> BundleInserter<'w> {
                     new_location
                 };
 
-                // SAFETY: We have no oustanding mutable references to world as they were dropped
-                let new_archetype = &**new_archetype;
-                trigger_hooks(new_archetype, self.world.into_deferred());
+                // SAFETY: We have no outstanding mutable references to world as they were dropped
+                unsafe { trigger_hooks(&**new_archetype, self.world.into_deferred()) };
+
                 new_location
             }
             InsertBundleResult::NewArchetypeNewTable {
@@ -818,9 +826,9 @@ impl<'w> BundleInserter<'w> {
                     new_location
                 };
 
-                // SAFETY: We have no oustanding mutable references to world as they were dropped
-                let new_archetype = &**new_archetype;
-                trigger_hooks(new_archetype, self.world.into_deferred());
+                // SAFETY: We have no outstanding mutable references to world as they were dropped
+                unsafe { trigger_hooks(&**new_archetype, self.world.into_deferred()) };
+
                 new_location
             }
         }
@@ -883,7 +891,7 @@ impl<'w> BundleSpawner<'w> {
 
     #[inline]
     pub fn reserve_storage(&mut self, additional: usize) {
-        // SAFETY: There are no oustanding world references
+        // SAFETY: There are no outstanding world references
         let (archetype, table) = unsafe { (&mut *self.archetype, &mut *self.table) };
         archetype.reserve(additional);
         table.reserve(additional);
@@ -923,16 +931,18 @@ impl<'w> BundleSpawner<'w> {
         };
 
         // SAFETY: We have no oustanding mutable references to world as they were dropped
-        let archetype = &*self.archetype;
-        let bundle_info = &*self.bundle_info;
-        let mut world = self.world.into_deferred();
-        world.trigger_on_add(archetype, entity, bundle_info.iter_components());
-        if archetype.has_add_observer() {
-            world.trigger_observers(ON_ADD, entity, location, bundle_info.iter_components());
-        }
-        world.trigger_on_insert(archetype, entity, bundle_info.iter_components());
-        if archetype.has_insert_observer() {
-            world.trigger_observers(ON_INSERT, entity, location, bundle_info.iter_components());
+        unsafe {
+            let archetype = &*self.archetype;
+            let bundle_info = &*self.bundle_info;
+            let mut world = self.world.into_deferred();
+            world.trigger_on_add(archetype, entity, bundle_info.iter_components());
+            if archetype.has_add_observer() {
+                world.trigger_observers(ON_ADD, entity, location, bundle_info.iter_components());
+            }
+            world.trigger_on_insert(archetype, entity, bundle_info.iter_components());
+            if archetype.has_insert_observer() {
+                world.trigger_observers(ON_INSERT, entity, location, bundle_info.iter_components());
+            }
         }
         location
     }
@@ -943,7 +953,9 @@ impl<'w> BundleSpawner<'w> {
     pub unsafe fn spawn<T: Bundle>(&mut self, bundle: T) -> Entity {
         let entity = self.entities().alloc();
         // SAFETY: entity is allocated (but non-existent), `T` matches this BundleInfo's type
-        self.spawn_non_existent(entity, bundle);
+        unsafe {
+            self.spawn_non_existent(entity, bundle);
+        }
         entity
     }
 
@@ -969,7 +981,7 @@ pub struct Bundles {
     /// Cache static [`BundleId`]
     bundle_ids: TypeIdMap<BundleId>,
     /// Cache dynamic [`BundleId`] with multiple components
-    dynamic_bundle_ids: HashMap<Vec<ComponentId>, BundleId>,
+    dynamic_bundle_ids: HashMap<Box<[ComponentId]>, BundleId>,
     dynamic_bundle_storages: HashMap<BundleId, Vec<StorageType>>,
     /// Cache optimized dynamic [`BundleId`] with single component
     dynamic_component_bundle_ids: HashMap<ComponentId, BundleId>,
@@ -1055,7 +1067,7 @@ impl Bundles {
                     initialize_dynamic_bundle(bundle_infos, components, Vec::from(component_ids));
                 self.dynamic_bundle_storages
                     .insert_unique_unchecked(id, storages);
-                (Vec::from(component_ids), id)
+                (component_ids.into(), id)
             });
         *bundle_id
     }
@@ -1142,7 +1154,7 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<R>();
         world
-            .register_component::<A>()
+            .register_component_hooks::<A>()
             .on_add(|mut world, _, _| {
                 world.resource_mut::<R>().assert_order(0);
             })
@@ -1159,7 +1171,7 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<R>();
         world
-            .register_component::<A>()
+            .register_component_hooks::<A>()
             .on_add(|mut world, _, _| {
                 world.resource_mut::<R>().assert_order(0);
             })
@@ -1182,7 +1194,7 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<R>();
         world
-            .register_component::<A>()
+            .register_component_hooks::<A>()
             .on_add(|mut world, entity, _| {
                 world.resource_mut::<R>().assert_order(0);
                 world.commands().entity(entity).insert(B);
@@ -1193,7 +1205,7 @@ mod tests {
             });
 
         world
-            .register_component::<B>()
+            .register_component_hooks::<B>()
             .on_add(|mut world, entity, _| {
                 world.resource_mut::<R>().assert_order(1);
                 world.commands().entity(entity).remove::<A>();
@@ -1214,26 +1226,30 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<R>();
         world
-            .register_component::<A>()
+            .register_component_hooks::<A>()
             .on_add(|mut world, entity, _| {
                 world.resource_mut::<R>().assert_order(0);
                 world.commands().entity(entity).insert(B).insert(D);
             });
 
         world
-            .register_component::<B>()
+            .register_component_hooks::<B>()
             .on_add(|mut world, entity, _| {
                 world.resource_mut::<R>().assert_order(1);
                 world.commands().entity(entity).insert(C);
             });
 
-        world.register_component::<C>().on_add(|mut world, _, _| {
-            world.resource_mut::<R>().assert_order(2);
-        });
+        world
+            .register_component_hooks::<C>()
+            .on_add(|mut world, _, _| {
+                world.resource_mut::<R>().assert_order(2);
+            });
 
-        world.register_component::<D>().on_add(|mut world, _, _| {
-            world.resource_mut::<R>().assert_order(3);
-        });
+        world
+            .register_component_hooks::<D>()
+            .on_add(|mut world, _, _| {
+                world.resource_mut::<R>().assert_order(3);
+            });
 
         world.spawn(A).flush();
         assert_eq!(4, world.resource::<R>().0);

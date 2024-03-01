@@ -1,6 +1,6 @@
 //! This example demonstrates how to use the `Camera::viewport_to_world_2d` method.
 
-use bevy::prelude::*;
+use bevy::{color::palettes::basic::WHITE, prelude::*};
 
 fn main() {
     App::new()
@@ -26,7 +26,7 @@ fn draw_cursor(
         return;
     };
 
-    gizmos.circle_2d(point, 10., Color::WHITE);
+    gizmos.circle_2d(point, 10., WHITE);
 }
 
 fn setup(mut commands: Commands) {

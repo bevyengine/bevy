@@ -12,7 +12,7 @@
 //! 2. Use a [`Local`] [`ManualEventReader`] instead of an [`EventReader`], and use [`ResMut`] to access [`Events`].
 //!
 //! In the first case, you're being careful to only check out only one of the [`EventWriter`] or [`EventReader`] at a time.
-//! By "temporally" seperating them, you avoid the overlap.
+//! By "temporally" separating them, you avoid the overlap.
 //!
 //! In the second case, you only ever have one access to the underlying  [`Events`] resource at a time.
 //! But in exchange, you have to manually keep track of which events you've already read.

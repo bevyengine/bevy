@@ -6,9 +6,9 @@ compile_error!("bevy_render cannot compile for a 16-bit platform.");
 
 extern crate core;
 
+pub mod alpha;
 pub mod batching;
 pub mod camera;
-pub mod color;
 pub mod deterministic;
 pub mod extract_component;
 pub mod extract_instances;
@@ -32,11 +32,11 @@ pub mod view;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
+        alpha::AlphaMode,
         camera::{
             Camera, ClearColor, ClearColorConfig, OrthographicProjection, PerspectiveProjection,
             Projection,
         },
-        color::Color,
         mesh::{morph::MorphWeights, primitives::Meshable, Mesh},
         render_resource::Shader,
         spatial_bundle::SpatialBundle,
@@ -327,7 +327,19 @@ impl Plugin for RenderPlugin {
             MorphPlugin,
         ));
 
-        app.register_type::<color::Color>()
+        app.register_type::<alpha::AlphaMode>()
+            // These types cannot be registered in bevy_color, as it does not depend on the rest of Bevy
+            // BLOCKED: once https://github.com/bevyengine/bevy/pull/5781 lands, we can remove all but the Color registration
+            .register_type::<bevy_color::Color>()
+            .register_type::<bevy_color::Srgba>()
+            .register_type::<bevy_color::LinearRgba>()
+            .register_type::<bevy_color::Hsla>()
+            .register_type::<bevy_color::Hsva>()
+            .register_type::<bevy_color::Hwba>()
+            .register_type::<bevy_color::Laba>()
+            .register_type::<bevy_color::Lcha>()
+            .register_type::<bevy_color::Xyza>()
+            .register_type::<bevy_color::Oklaba>()
             .register_type::<primitives::Aabb>()
             .register_type::<primitives::CascadesFrusta>()
             .register_type::<primitives::CubemapFrusta>()
@@ -360,6 +372,7 @@ impl Plugin for RenderPlugin {
                 .insert_resource(instance)
                 .insert_resource(PipelineCache::new(
                     device.clone(),
+                    render_adapter.clone(),
                     self.synchronous_pipeline_compilation,
                 ))
                 .insert_resource(device)

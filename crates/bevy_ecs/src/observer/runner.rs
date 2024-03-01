@@ -1,4 +1,7 @@
-use crate::system::{IntoObserverSystem, ObserverSystem};
+use crate::{
+    component::ComponentHooks,
+    system::{IntoObserverSystem, ObserverSystem},
+};
 
 use super::*;
 
@@ -20,17 +23,18 @@ pub(crate) struct ObserverComponent {
 impl Component for ObserverComponent {
     type Storage = SparseStorage;
 
-    fn init_component_info(info: &mut ComponentInfo) {
-        info.on_add(|mut world, entity, _| {
-            world.commands().add(move |world: &mut World| {
-                world.register_observer(entity);
+    fn register_component_hooks(hooks: &mut ComponentHooks) {
+        hooks
+            .on_add(|mut world, entity, _| {
+                world.commands().add(move |world: &mut World| {
+                    world.register_observer(entity);
+                });
+            })
+            .on_remove(|mut world, entity, _| {
+                world.commands().add(move |world: &mut World| {
+                    world.unregister_observer(entity);
+                });
             });
-        })
-        .on_remove(|mut world, entity, _| {
-            world.commands().add(move |world: &mut World| {
-                world.unregister_observer(entity);
-            });
-        });
     }
 }
 

@@ -843,7 +843,9 @@ impl<'w> EntityWorldMut<'w> {
         Some(result)
     }
 
-    /// Safety: `new_archetype_id` must have the same or a subset of the components
+    /// # Safety
+    ///
+    /// `new_archetype_id` must have the same or a subset of the components
     /// in `old_archetype_id`. Probably more safety stuff too, audit a call to
     /// this fn as if the code here was written inline
     ///
@@ -889,15 +891,16 @@ impl<'w> EntityWorldMut<'w> {
                 .tables
                 .get_2_mut(old_table_id, new_archetype.table_id());
 
-            // SAFETY: old_table_row exists
             let move_result = if DROP {
-                old_table.move_to_and_drop_missing_unchecked(old_table_row, new_table)
+                // SAFETY: old_table_row exists
+                unsafe { old_table.move_to_and_drop_missing_unchecked(old_table_row, new_table) }
             } else {
-                old_table.move_to_and_forget_missing_unchecked(old_table_row, new_table)
+                // SAFETY: old_table_row exists
+                unsafe { old_table.move_to_and_forget_missing_unchecked(old_table_row, new_table) }
             };
 
             // SAFETY: move_result.new_row is a valid position in new_archetype's table
-            let new_location = new_archetype.allocate(entity, move_result.new_row);
+            let new_location = unsafe { new_archetype.allocate(entity, move_result.new_row) };
 
             // if an entity was moved into this entity's table row, update its table row
             if let Some(swapped_entity) = move_result.swapped_entity {
@@ -921,7 +924,9 @@ impl<'w> EntityWorldMut<'w> {
 
         *self_location = new_location;
         // SAFETY: The entity is valid and has been moved to the new location already.
-        entities.set(entity.index(), new_location);
+        unsafe {
+            entities.set(entity.index(), new_location);
+        }
     }
 
     /// Remove the components of `bundle` from `entity`.
@@ -2185,7 +2190,7 @@ unsafe fn remove_bundle_from_archetype(
             for component_id in bundle_info.components().iter().cloned() {
                 if current_archetype.contains(component_id) {
                     // SAFETY: bundle components were already initialized by bundles.get_info
-                    let component_info = components.get_info_unchecked(component_id);
+                    let component_info = unsafe { components.get_info_unchecked(component_id) };
                     match component_info.storage_type() {
                         StorageType::Table => removed_table_components.push(component_id),
                         StorageType::SparseSet => removed_sparse_set_components.push(component_id),
@@ -2217,9 +2222,11 @@ unsafe fn remove_bundle_from_archetype(
                 current_archetype.table_id()
             } else {
                 // SAFETY: all components in next_table_components exist
-                storages
-                    .tables
-                    .get_id_or_insert(&next_table_components, components)
+                unsafe {
+                    storages
+                        .tables
+                        .get_id_or_insert(&next_table_components, components)
+                }
             };
         }
 
@@ -2282,7 +2289,7 @@ pub(crate) unsafe fn take_component<'a>(
     location: EntityLocation,
 ) -> OwningPtr<'a> {
     // SAFETY: caller promises component_id to be valid
-    let component_info = components.get_info_unchecked(component_id);
+    let component_info = unsafe { components.get_info_unchecked(component_id) };
     removed_components.send(component_id, entity);
     match component_info.storage_type() {
         StorageType::Table => {
@@ -2292,9 +2299,11 @@ pub(crate) unsafe fn take_component<'a>(
             // - archetypes only store valid table_rows
             // - index is in bounds as promised by caller
             // - promote is safe because the caller promises to remove the table row without dropping it immediately afterwards
-            components
-                .get_data_unchecked_mut(location.table_row)
-                .promote()
+            unsafe {
+                components
+                    .get_data_unchecked_mut(location.table_row)
+                    .promote()
+            }
         }
         StorageType::SparseSet => storages
             .sparse_sets

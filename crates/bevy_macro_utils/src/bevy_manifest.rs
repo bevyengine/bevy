@@ -103,7 +103,7 @@ impl BevyManifest {
     ///
     /// # Panics
     ///
-    /// Will panic if the path is not able to be parsed. For a non-panicing option, see [`try_parse_str`]
+    /// Will panic if the path is not able to be parsed. For a non-panicking option, see [`try_parse_str`]
     ///
     /// [`try_parse_str`]: Self::try_parse_str
     pub fn parse_str<T: syn::parse::Parse>(path: &str) -> T {

@@ -1,4 +1,5 @@
-use crate::{color::Color, extract_resource::ExtractResource};
+use crate::extract_resource::ExtractResource;
+use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
@@ -36,6 +37,6 @@ pub struct ClearColor(pub Color);
 /// Match the dark gray bevy website code block color by default.
 impl Default for ClearColor {
     fn default() -> Self {
-        Self(Color::rgb_u8(43, 44, 47))
+        Self(Color::srgb_u8(43, 44, 47))
     }
 }

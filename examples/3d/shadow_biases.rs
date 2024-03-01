@@ -125,7 +125,7 @@ fn setup(
                 ..default()
             },
             z_index: ZIndex::Global(i32::MAX),
-            background_color: Color::BLACK.with_a(0.75).into(),
+            background_color: Color::BLACK.with_alpha(0.75).into(),
             ..default()
         })
         .with_children(|c| {

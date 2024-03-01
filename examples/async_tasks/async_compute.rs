@@ -38,7 +38,7 @@ fn add_assets(
     let box_mesh_handle = meshes.add(Cuboid::new(0.25, 0.25, 0.25));
     commands.insert_resource(BoxMeshHandle(box_mesh_handle));
 
-    let box_material_handle = materials.add(Color::rgb(1.0, 0.2, 0.3));
+    let box_material_handle = materials.add(Color::srgb(1.0, 0.2, 0.3));
     commands.insert_resource(BoxMaterialHandle(box_material_handle));
 }
 

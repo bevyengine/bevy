@@ -1105,7 +1105,7 @@ fn insert<T: Bundle>(bundle: T) -> impl EntityCommand {
         if let Some(mut entity) = world.get_entity_mut(entity) {
             entity.insert(bundle);
         } else {
-            panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World.", std::any::type_name::<T>(), entity);
+            panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/#b0003", std::any::type_name::<T>(), entity);
         }
     }
 }
@@ -1119,7 +1119,7 @@ fn try_insert(bundle: impl Bundle) -> impl EntityCommand {
     }
 }
 
-/// A [`Command`] that removes components from an entity.
+/// An [`EntityCommand`] that removes components from an entity.
 /// For a [`Bundle`] type `T`, this will remove any components in the bundle.
 /// Any components in the bundle that aren't found on the entity will be ignored.
 fn remove<T: Bundle>(entity: Entity, world: &mut World) {
@@ -1128,7 +1128,7 @@ fn remove<T: Bundle>(entity: Entity, world: &mut World) {
     }
 }
 
-/// A [`Command`] that removes components from an entity.
+/// An [`EntityCommand`] that removes components from an entity.
 /// For a [`Bundle`] type `T`, this will remove all components except those in the bundle.
 /// Any components in the bundle that aren't found on the entity will be ignored.
 fn retain<T: Bundle>(entity: Entity, world: &mut World) {

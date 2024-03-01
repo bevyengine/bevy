@@ -1,4 +1,5 @@
 use super::*;
+use crate::component::ComponentHooks;
 
 /// Component to signify an entity observer being attached to an entity
 /// Can be modelled by parent-child relationship if/when that is enforced
@@ -9,8 +10,8 @@ impl Component for AttachObserver {
 
     // When `AttachObserver` is inserted onto an event add it to `ObservedBy`
     // or insert `ObservedBy` if it doesn't exist
-    fn init_component_info(info: &mut ComponentInfo) {
-        info.on_insert(|mut world, entity, _| {
+    fn register_component_hooks(hooks: &mut ComponentHooks) {
+        hooks.on_insert(|mut world, entity, _| {
             let attached_observer = world.get::<AttachObserver>(entity).unwrap().0;
             if let Some(mut observed_by) = world.get_mut::<ObservedBy>(entity) {
                 observed_by.0.push(attached_observer);
@@ -30,8 +31,8 @@ pub(crate) struct ObservedBy(Vec<Entity>);
 impl Component for ObservedBy {
     type Storage = SparseStorage;
 
-    fn init_component_info(info: &mut ComponentInfo) {
-        info.on_remove(|mut world, entity, _| {
+    fn register_component_hooks(hooks: &mut ComponentHooks) {
+        hooks.on_remove(|mut world, entity, _| {
             let mut component = world.get_mut::<ObservedBy>(entity).unwrap();
             let observed_by = std::mem::take(&mut component.0);
             observed_by.iter().for_each(|&e| {

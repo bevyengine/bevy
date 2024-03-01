@@ -20,6 +20,7 @@ use super::{
 /// A [`World`] reference that disallows structural ECS changes.
 /// This includes initializing resources, registering components or spawning entities.
 pub struct DeferredWorld<'w> {
+    // SAFETY: Implementors must not use this reference to make structural changes
     world: UnsafeWorldCell<'w>,
 }
 
@@ -27,7 +28,7 @@ impl<'w> Deref for DeferredWorld<'w> {
     type Target = World;
 
     fn deref(&self) -> &Self::Target {
-        // SAFETY: &self ensures there are no active mutable borrows
+        // SAFETY: Structural changes cannot be made through &World
         unsafe { self.world.world() }
     }
 }
@@ -156,7 +157,7 @@ impl<'w> DeferredWorld<'w> {
     /// Gets a mutable reference to the resource of the given type if it exists
     #[inline]
     pub fn get_resource_mut<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
-        // SAFETY: `&mut self` ensures that all accessed data is unaliased
+        // SAFETY: &mut self ensure that there are no outstanding accesses to the resource
         unsafe { self.world.get_resource_mut() }
     }
 
@@ -189,7 +190,7 @@ impl<'w> DeferredWorld<'w> {
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     #[inline]
     pub fn get_non_send_resource_mut<R: 'static>(&mut self) -> Option<Mut<'_, R>> {
-        // SAFETY: `&mut self` ensures that all accessed data is unaliased
+        // SAFETY: &mut self ensure that there are no outstanding accesses to the resource
         unsafe { self.world.get_non_send_resource_mut() }
     }
 
@@ -235,7 +236,7 @@ impl<'w> DeferredWorld<'w> {
     /// use this in cases where the actual types are not known at compile time.**
     #[inline]
     pub fn get_resource_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
-        // SAFETY: `&mut self` ensures that all accessed data is unaliased
+        // SAFETY: &mut self ensure that there are no outstanding accesses to the resource
         unsafe { self.world.get_resource_mut_by_id(component_id) }
     }
 
@@ -250,7 +251,7 @@ impl<'w> DeferredWorld<'w> {
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     #[inline]
     pub fn get_non_send_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
-        // SAFETY: `&mut self` ensures that all accessed data is unaliased
+        // SAFETY: &mut self ensure that there are no outstanding accesses to the resource
         unsafe { self.world.get_non_send_resource_mut_by_id(component_id) }
     }
 
@@ -265,11 +266,11 @@ impl<'w> DeferredWorld<'w> {
         entity: Entity,
         component_id: ComponentId,
     ) -> Option<MutUntyped<'_>> {
-        // SAFETY: `&mut self` ensures that all accessed data is unaliased
+        // SAFETY: &mut self ensure that there are no outstanding accesses to the resource
         unsafe { self.world.get_entity(entity)?.get_mut_by_id(component_id) }
     }
 
-    /// Triggers all `OnAdd` hooks and observers for [`ComponentId`] in target.
+    /// Triggers all `on_add` hooks for [`ComponentId`] in target.
     ///
     /// # Safety
     /// Caller must ensure [`ComponentId`] in target exist in self.
@@ -291,7 +292,7 @@ impl<'w> DeferredWorld<'w> {
         }
     }
 
-    /// Triggers all `OnInsert` hooks and observers for [`ComponentId`] in target.
+    /// Triggers all `on_insert` hooks for [`ComponentId`] in target.
     ///
     /// # Safety
     /// Caller must ensure [`ComponentId`] in target exist in self.
@@ -313,7 +314,7 @@ impl<'w> DeferredWorld<'w> {
         }
     }
 
-    /// Triggers all `OnRemove` hooks  for [`ComponentId`] in target.
+    /// Triggers all `on_remove` hooks for [`ComponentId`] in target.
     ///
     /// # Safety
     /// Caller must ensure [`ComponentId`] in target exist in self.
