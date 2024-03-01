@@ -115,7 +115,7 @@ pub struct WgpuWrapper<T>(T);
 #[derive(Debug, Clone)]
 pub struct WgpuWrapper<T>(send_wrapper::SendWrapper<T>);
 
-// Safety: SendWrapper is always Send + Sync.
+// SAFETY: SendWrapper is always Send + Sync.
 #[cfg(all(target_arch = "wasm32", target_feature = "atomics"))]
 unsafe impl<T> Send for WgpuWrapper<T> {}
 #[cfg(all(target_arch = "wasm32", target_feature = "atomics"))]
