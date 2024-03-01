@@ -3,13 +3,13 @@ use super::{
     pipelines::MeshletPipelines,
 };
 use crate::{LightEntity, ShadowView, ViewLightEntities};
+use bevy_color::LinearRgba;
 use bevy_ecs::{
     query::QueryState,
     world::{FromWorld, World},
 };
 use bevy_render::{
     camera::ExtractedCamera,
-    color::LegacyColor,
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_resource::*,
     renderer::RenderContext,
@@ -325,7 +325,7 @@ fn raster_pass(
         meshlet_view_resources.material_depth_color.as_ref(),
     ) {
         let load = if first_pass {
-            LoadOp::Clear(LegacyColor::BLACK.into())
+            LoadOp::Clear(LinearRgba::BLACK.into())
         } else {
             LoadOp::Load
         };
@@ -401,7 +401,7 @@ fn downsample_depth(
                 view: &meshlet_view_resources.depth_pyramid_mips[i],
                 resolve_target: None,
                 ops: Operations {
-                    load: LoadOp::Clear(LegacyColor::BLACK.into()),
+                    load: LoadOp::Clear(LinearRgba::BLACK.into()),
                     store: StoreOp::Store,
                 },
             })],
