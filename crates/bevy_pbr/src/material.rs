@@ -18,7 +18,7 @@ use bevy_render::{
     camera::TemporalJitter,
     extract_instances::{ExtractInstancesPlugin, ExtractedInstances},
     extract_resource::ExtractResource,
-    mesh::{Mesh, MeshVertexBufferLayout},
+    mesh::{Mesh, MeshVertexBufferLayoutRef},
     render_asset::RenderAssets,
     render_phase::*,
     render_resource::*,
@@ -171,13 +171,13 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
     }
 
     /// Customizes the default [`RenderPipelineDescriptor`] for a specific entity using the entity's
-    /// [`MaterialPipelineKey`] and [`MeshVertexBufferLayout`] as input.
+    /// [`MaterialPipelineKey`] and [`MeshVertexBufferLayoutRef`] as input.
     #[allow(unused_variables)]
     #[inline]
     fn specialize(
         pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
-        layout: &MeshVertexBufferLayout,
+        layout: &MeshVertexBufferLayoutRef,
         key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         Ok(())
@@ -326,7 +326,7 @@ where
     fn specialize(
         &self,
         key: Self::Key,
-        layout: &MeshVertexBufferLayout,
+        layout: &MeshVertexBufferLayoutRef,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut descriptor = self.mesh_pipeline.specialize(key.mesh_key, layout)?;
         if let Some(vertex_shader) = &self.vertex_shader {
@@ -585,6 +585,7 @@ pub fn queue_material_meshes<M: Material>(
                 camera_3d.screen_space_specular_transmission_quality,
             );
         }
+
         let rangefinder = view.rangefinder3d();
         for visible_entity in &visible_entities.entities {
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
