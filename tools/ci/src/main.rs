@@ -345,7 +345,7 @@ fn main() {
                     &mut failed_checks,
                     &mut failure_message,
                     &flags,
-                )
+                );
             }
             // ^ This must run while `_hook` is in scope; it is dropped at the end of the inner loop iteration.
         }
@@ -353,7 +353,7 @@ fn main() {
 
     if !failed_checks.is_empty() {
         panic!(
-            "One or more CI checks failed.\n
+            "One or more CI checks failed.\n\
             {failure_message}"
         );
     }
