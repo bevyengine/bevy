@@ -46,7 +46,11 @@ impl Plugin for MeshPlugin {
 ///
 /// At most one copy of a mesh vertex buffer layout ever exists in GPU memory at
 /// once. Therefore, comparing these for equality requires only a single pointer
-/// comparison.
+/// comparison, and this type's [`PartialEq`] and [`Hash`] implementations take
+/// advantage of this. To that end, this type doesn't implement
+/// [`bevy_derive::Deref`] or [`bevy_derive::DerefMut`] in order to reduce the
+/// possibility of accidental deep comparisons, which would be needlessly
+/// expensive.
 #[derive(Clone, Debug)]
 pub struct MeshVertexBufferLayoutRef(pub Arc<MeshVertexBufferLayout>);
 
