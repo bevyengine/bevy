@@ -21,7 +21,7 @@ fn setup(
     // Opaque plane, uses `alpha_mode: Opaque` by default
     commands.spawn(PbrBundle {
         mesh: meshes.add(Plane3d::default().mesh().size(6.0, 6.0)),
-        material: materials.add(LegacyColor::rgb(0.3, 0.5, 0.3)),
+        material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
         ..default()
     });
 
@@ -33,7 +33,7 @@ fn setup(
             // We set it to 0.0 here, because it will be changed over time in the
             // `fade_transparency` function.
             // Note that the transparency has no effect on the objects shadow.
-            base_color: LegacyColor::rgba(0.2, 0.7, 0.1, 0.0),
+            base_color: Color::srgba(0.2, 0.7, 0.1, 0.0),
             // Mask sets a cutoff for transparency. Alpha values below are fully transparent,
             // alpha values above are fully opaque.
             alpha_mode: AlphaMode::Mask(0.5),
@@ -47,7 +47,7 @@ fn setup(
     commands.spawn(PbrBundle {
         mesh: meshes.add(Sphere::new(0.5).mesh().ico(3).unwrap()),
         material: materials.add(StandardMaterial {
-            base_color: LegacyColor::rgba(0.2, 0.7, 0.1, 0.0),
+            base_color: Color::srgba(0.2, 0.7, 0.1, 0.0),
             alpha_mode: AlphaMode::Mask(0.5),
             unlit: true,
             ..default()
@@ -62,7 +62,7 @@ fn setup(
         // Notice how there is no need to set the `alpha_mode` explicitly here.
         // When converting a color to a material using `into()`, the alpha mode is
         // automatically set to `Blend` if the alpha channel is anything lower than 1.0.
-        material: materials.add(LegacyColor::rgba(0.5, 0.5, 1.0, 0.0)),
+        material: materials.add(Color::srgba(0.5, 0.5, 1.0, 0.0)),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..default()
     });
@@ -70,7 +70,7 @@ fn setup(
     // Opaque sphere
     commands.spawn(PbrBundle {
         mesh: meshes.add(Sphere::new(0.5).mesh().ico(3).unwrap()),
-        material: materials.add(LegacyColor::rgb(0.7, 0.2, 0.1)),
+        material: materials.add(Color::srgb(0.7, 0.2, 0.1)),
         transform: Transform::from_xyz(0.0, 0.5, -1.5),
         ..default()
     });
@@ -101,6 +101,6 @@ fn setup(
 pub fn fade_transparency(time: Res<Time>, mut materials: ResMut<Assets<StandardMaterial>>) {
     let alpha = (time.elapsed_seconds().sin() / 2.0) + 0.5;
     for (_, material) in materials.iter_mut() {
-        material.base_color.set_a(alpha);
+        material.base_color.set_alpha(alpha);
     }
 }

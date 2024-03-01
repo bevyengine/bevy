@@ -2,6 +2,7 @@
 
 use argh::FromArgs;
 use bevy::{
+    color::palettes::css::ORANGE_RED,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     window::{PresentMode, WindowPlugin, WindowResolution},
@@ -106,7 +107,7 @@ fn button_system(
 ) {
     for (interaction, mut button_color, IdleColor(idle_color)) in interaction_query.iter_mut() {
         *button_color = match interaction {
-            Interaction::Hovered => LegacyColor::ORANGE_RED.into(),
+            Interaction::Hovered => ORANGE_RED.into(),
             _ => *idle_color,
         };
     }
@@ -127,7 +128,7 @@ fn setup_flex(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
         UiRect::all(Val::VMin(0.05 * 90. / buttons_f))
     };
 
-    let as_rainbow = |i: usize| LegacyColor::hsl((i as f32 / buttons_f) * 360.0, 0.9, 0.8);
+    let as_rainbow = |i: usize| Color::hsl((i as f32 / buttons_f) * 360.0, 0.9, 0.8);
     commands.spawn(Camera2dBundle::default());
     commands
         .spawn(NodeBundle {
@@ -148,7 +149,7 @@ fn setup_flex(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
                     .with_children(|commands| {
                         for row in 0..args.buttons {
                             let color = as_rainbow(row % column.max(1)).into();
-                            let border_color = LegacyColor::WHITE.with_a(0.5).into();
+                            let border_color = Color::WHITE.with_alpha(0.5).into();
                             spawn_button(
                                 commands,
                                 color,
@@ -184,7 +185,7 @@ fn setup_grid(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
         UiRect::all(Val::VMin(0.05 * 90. / buttons_f))
     };
 
-    let as_rainbow = |i: usize| LegacyColor::hsl((i as f32 / buttons_f) * 360.0, 0.9, 0.8);
+    let as_rainbow = |i: usize| Color::hsl((i as f32 / buttons_f) * 360.0, 0.9, 0.8);
     commands.spawn(Camera2dBundle::default());
     commands
         .spawn(NodeBundle {
@@ -202,7 +203,7 @@ fn setup_grid(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
             for column in 0..args.buttons {
                 for row in 0..args.buttons {
                     let color = as_rainbow(row % column.max(1)).into();
-                    let border_color = LegacyColor::WHITE.with_a(0.5).into();
+                    let border_color = Color::WHITE.with_alpha(0.5).into();
                     spawn_button(
                         commands,
                         color,
@@ -265,7 +266,7 @@ fn spawn_button(
                 format!("{column}, {row}"),
                 TextStyle {
                     font_size: FONT_SIZE,
-                    color: LegacyColor::rgb(0.2, 0.2, 0.2),
+                    color: Color::srgb(0.2, 0.2, 0.2),
                     ..default()
                 },
             ));

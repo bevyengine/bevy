@@ -4,9 +4,9 @@
 //! and assorted support items.
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
+use bevy_color::Color;
 use bevy_math::Mat2;
 use bevy_math::{Dir3, Quat, Vec2, Vec3};
-use bevy_render::color::LegacyColor;
 use std::f32::consts::TAU;
 
 pub(crate) const DEFAULT_CIRCLE_SEGMENTS: usize = 32;
@@ -29,13 +29,14 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
+    /// # use bevy_color::palettes::basic::{RED, GREEN};
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.ellipse(Vec3::ZERO, Quat::IDENTITY, Vec2::new(1., 2.), LegacyColor::GREEN);
+    ///     gizmos.ellipse(Vec3::ZERO, Quat::IDENTITY, Vec2::new(1., 2.), GREEN);
     ///
     ///     // Ellipses have 32 line-segments by default.
     ///     // You may want to increase this for larger ellipses.
     ///     gizmos
-    ///         .ellipse(Vec3::ZERO, Quat::IDENTITY, Vec2::new(5., 1.), LegacyColor::RED)
+    ///         .ellipse(Vec3::ZERO, Quat::IDENTITY, Vec2::new(5., 1.), RED)
     ///         .segments(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
@@ -46,14 +47,14 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         position: Vec3,
         rotation: Quat,
         half_size: Vec2,
-        color: LegacyColor,
+        color: impl Into<Color>,
     ) -> EllipseBuilder<'_, 'w, 's, T> {
         EllipseBuilder {
             gizmos: self,
             position,
             rotation,
             half_size,
-            color,
+            color: color.into(),
             segments: DEFAULT_CIRCLE_SEGMENTS,
         }
     }
@@ -67,13 +68,14 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
+    /// # use bevy_color::palettes::basic::{RED, GREEN};
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.ellipse_2d(Vec2::ZERO, 180.0_f32.to_radians(), Vec2::new(2., 1.), LegacyColor::GREEN);
+    ///     gizmos.ellipse_2d(Vec2::ZERO, 180.0_f32.to_radians(), Vec2::new(2., 1.), GREEN);
     ///
     ///     // Ellipses have 32 line-segments by default.
     ///     // You may want to increase this for larger ellipses.
     ///     gizmos
-    ///         .ellipse_2d(Vec2::ZERO, 180.0_f32.to_radians(), Vec2::new(5., 1.), LegacyColor::RED)
+    ///         .ellipse_2d(Vec2::ZERO, 180.0_f32.to_radians(), Vec2::new(5., 1.), RED)
     ///         .segments(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
@@ -84,14 +86,14 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         position: Vec2,
         angle: f32,
         half_size: Vec2,
-        color: LegacyColor,
+        color: impl Into<Color>,
     ) -> Ellipse2dBuilder<'_, 'w, 's, T> {
         Ellipse2dBuilder {
             gizmos: self,
             position,
             rotation: Mat2::from_angle(angle),
             half_size,
-            color,
+            color: color.into(),
             segments: DEFAULT_CIRCLE_SEGMENTS,
         }
     }
@@ -105,13 +107,14 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
+    /// # use bevy_color::palettes::basic::{RED, GREEN};
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.circle(Vec3::ZERO, Dir3::Z, 1., LegacyColor::GREEN);
+    ///     gizmos.circle(Vec3::ZERO, Dir3::Z, 1., GREEN);
     ///
     ///     // Circles have 32 line-segments by default.
     ///     // You may want to increase this for larger circles.
     ///     gizmos
-    ///         .circle(Vec3::ZERO, Dir3::Z, 5., LegacyColor::RED)
+    ///         .circle(Vec3::ZERO, Dir3::Z, 5., RED)
     ///         .segments(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
@@ -122,14 +125,14 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         position: Vec3,
         normal: Dir3,
         radius: f32,
-        color: LegacyColor,
+        color: impl Into<Color>,
     ) -> EllipseBuilder<'_, 'w, 's, T> {
         EllipseBuilder {
             gizmos: self,
             position,
             rotation: Quat::from_rotation_arc(Vec3::Z, *normal),
             half_size: Vec2::splat(radius),
-            color,
+            color: color.into(),
             segments: DEFAULT_CIRCLE_SEGMENTS,
         }
     }
@@ -143,13 +146,14 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
+    /// # use bevy_color::palettes::basic::{RED, GREEN};
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.circle_2d(Vec2::ZERO, 1., LegacyColor::GREEN);
+    ///     gizmos.circle_2d(Vec2::ZERO, 1., GREEN);
     ///
     ///     // Circles have 32 line-segments by default.
     ///     // You may want to increase this for larger circles.
     ///     gizmos
-    ///         .circle_2d(Vec2::ZERO, 5., LegacyColor::RED)
+    ///         .circle_2d(Vec2::ZERO, 5., RED)
     ///         .segments(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
@@ -159,14 +163,14 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         &mut self,
         position: Vec2,
         radius: f32,
-        color: LegacyColor,
+        color: impl Into<Color>,
     ) -> Ellipse2dBuilder<'_, 'w, 's, T> {
         Ellipse2dBuilder {
             gizmos: self,
             position,
             rotation: Mat2::IDENTITY,
             half_size: Vec2::splat(radius),
-            color,
+            color: color.into(),
             segments: DEFAULT_CIRCLE_SEGMENTS,
         }
     }
@@ -178,7 +182,7 @@ pub struct EllipseBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     position: Vec3,
     rotation: Quat,
     half_size: Vec2,
-    color: LegacyColor,
+    color: Color,
     segments: usize,
 }
 
@@ -209,7 +213,7 @@ pub struct Ellipse2dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     position: Vec2,
     rotation: Mat2,
     half_size: Vec2,
-    color: LegacyColor,
+    color: Color,
     segments: usize,
 }
 

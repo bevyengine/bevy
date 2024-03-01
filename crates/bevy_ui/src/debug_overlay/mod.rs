@@ -2,6 +2,7 @@
 use std::any::{Any, TypeId};
 
 use bevy_app::{App, Plugin, PostUpdate};
+use bevy_color::Hsla;
 use bevy_core::Name;
 use bevy_core_pipeline::core_2d::Camera2dBundle;
 use bevy_ecs::{prelude::*, system::SystemParam};
@@ -10,9 +11,7 @@ use bevy_gizmos::prelude::Gizmos;
 use bevy_gizmos::AppGizmoBuilder;
 use bevy_hierarchy::{Children, Parent};
 use bevy_math::{Vec2, Vec3Swizzles};
-use bevy_render::camera::RenderTarget;
-use bevy_render::view::VisibilitySystems;
-use bevy_render::{camera::ClearColorConfig, prelude::*, view::RenderLayers};
+use bevy_render::{camera::{RenderTarget, ClearColorConfig}, view::{RenderLayers, VisibilitySystems}, prelude::*};
 use bevy_transform::{prelude::GlobalTransform, TransformSystem};
 use bevy_utils::{default, warn_once};
 use bevy_window::{PrimaryWindow, Window, WindowRef};
@@ -28,15 +27,6 @@ mod inset;
 pub const LAYOUT_DEBUG_CAMERA_ORDER: isize = 255;
 /// The [`RenderLayers`] used by the debug gizmos and the debug camera.
 pub const LAYOUT_DEBUG_LAYERS: RenderLayers = RenderLayers::none().with(16);
-
-const NODE_LIGHTNESS: f32 = 0.7;
-const NODE_SATURATION: f32 = 0.8;
-
-fn hue_from_entity(entity: Entity) -> f32 {
-    const FRAC_U32MAX_GOLDEN_RATIO: u32 = 2_654_435_769; // (u32::MAX / Φ) rounded up
-    const RATIO_360: f32 = 360.0 / u32::MAX as f32;
-    entity.index().wrapping_mul(FRAC_U32MAX_GOLDEN_RATIO) as f32 * RATIO_360
-}
 
 #[derive(Clone, Copy)]
 struct LayoutRect {
@@ -256,10 +246,9 @@ fn outline_roots(
 
 /// Function responsible for drawing the gizmos lines around the given Entity
 fn outline_node(entity: Entity, rect: LayoutRect, draw: &mut InsetGizmo) {
-    let hue = hue_from_entity(entity);
-    let color = Color::hsl(hue, NODE_SATURATION, NODE_LIGHTNESS);
+    let color = Hsla::sequential_dispersed(entity.index());
 
-    draw.rect_2d(rect, color);
+    draw.rect_2d(rect, color.into());
     draw.set_scope(rect);
 }
 
