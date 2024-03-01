@@ -182,8 +182,6 @@ struct WinitAppRunnerState {
     wait_elapsed: bool,
     /// The time the last update started.
     last_update: Instant,
-    /// The time the next update is scheduled to start.
-    scheduled_update: Option<Instant>,
     /// Number of "forced" updates to trigger on application start
     startup_forced_updates: u32,
 }
@@ -738,10 +736,8 @@ fn run_app_update_if_should(
                 // Need to verify the plateform specifics (whether this can occur in
                 // rare-but-possible cases) and replace this with a panic or a log warn!
                 if let Some(next) = runner_state.last_update.checked_add(*wait) {
-                    runner_state.scheduled_update = Some(next);
                     event_loop.set_control_flow(ControlFlow::WaitUntil(next));
                 } else {
-                    runner_state.scheduled_update = None;
                     event_loop.set_control_flow(ControlFlow::Wait);
                 }
             }
