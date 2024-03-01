@@ -109,14 +109,40 @@ impl TypeRegistry {
 
     /// Attempts to register the type `T` if it has not yet been registered already.
     ///
-    /// If the registration for type `T` already exists, it will not be registered again.
-    /// To register the type, overwriting any existing registration, use [register](Self::register) instead.
+    /// This will also recursively register any type dependencies as specified by [`GetTypeRegistration::register_type_dependencies`].
+    /// When deriving `Reflect`, this will generally be all the fields of the struct or enum variant.
+    /// As with any type registration, these type dependencies will not be registered more than once.
     ///
-    /// Additionally, this will add the reflect [data](TypeData) as specified in the [`Reflect`] derive:
-    /// ```ignore (Neither bevy_ecs nor serde "derive" are available.)
-    /// #[derive(Reflect)]
-    /// #[reflect(Component, Serialize, Deserialize)] // will register ReflectComponent, ReflectSerialize, ReflectDeserialize
-    /// struct Foo;
+    /// If the registration for type `T` already exists, it will not be registered again and neither will its type dependencies.
+    /// To register the type, overwriting any existing registration, use [register](Self::overwrite_registration) instead.
+    ///
+    /// Additionally, this will add any reflect [type data](TypeData) as specified in the [`Reflect`] derive.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use std::any::TypeId;
+    /// # use bevy_reflect::{Reflect, TypeRegistry, std_traits::ReflectDefault};
+    /// #[derive(Reflect, Default)]
+    /// #[reflect(Default)]
+    /// struct Foo {
+    ///   name: Option<String>,
+    ///   value: i32
+    /// }
+    ///
+    /// let mut type_registry = TypeRegistry::default();
+    ///
+    /// type_registry.register::<Foo>();
+    ///
+    /// // The main type
+    /// assert!(type_registry.contains(TypeId::of::<Foo>()));
+    ///
+    /// // Its type dependencies
+    /// assert!(type_registry.contains(TypeId::of::<Option<String>>()));
+    /// assert!(type_registry.contains(TypeId::of::<i32>()));
+    ///
+    /// // Its type data
+    /// assert!(type_registry.get_type_data::<ReflectDefault>(TypeId::of::<Foo>()).is_some());
     /// ```
     pub fn register<T>(&mut self)
     where
@@ -136,6 +162,9 @@ impl TypeRegistry {
     ///
     /// To forcibly register the type, overwriting any existing registration, use the
     /// [`overwrite_registration`](Self::overwrite_registration) method instead.
+    ///
+    /// This method will _not_ register type dependencies.
+    /// Use [`register`](Self::register) to register a type with its dependencies.
     ///
     /// Returns `None` if the registration was successfully added,
     /// or `Some(existing)` if it already exists.
@@ -157,6 +186,9 @@ impl TypeRegistry {
     ///
     /// To avoid overwriting existing registrations, it's recommended to use the
     /// [`register`](Self::register) or [`add_registration`](Self::add_registration) methods instead.
+    ///
+    /// This method will _not_ register type dependencies.
+    /// Use [`register`](Self::register) to register a type with its dependencies.
     pub fn overwrite_registration(&mut self, registration: TypeRegistration) {
         let short_name = registration.type_info().type_path_table().short_path();
         if self.short_path_to_id.contains_key(short_name)
