@@ -243,7 +243,7 @@ fn setup(
             // with roughness and reflectance set.
             perceptual_roughness: 0.45,
             reflectance: 0.18,
-            ..Color::rgb_u8(0, 80, 0).into()
+            ..Color::srgb_u8(0, 80, 0).into()
         }),
         transform: Transform::from_xyz(0.0, -1.0, 0.0),
         ..default()

@@ -4,7 +4,7 @@
 
 use bevy::prelude::*;
 
-const TEXT_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
+const TEXT_COLOR: Color = Color::srgb(0.9, 0.9, 0.9);
 
 // Enum that will be used as a global state for the game
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
@@ -115,7 +115,10 @@ mod splash {
 }
 
 mod game {
-    use bevy::prelude::*;
+    use bevy::{
+        color::palettes::basic::{BLUE, GREEN},
+        prelude::*,
+    };
 
     use super::{despawn_screen, DisplayQuality, GameState, Volume, TEXT_COLOR};
 
@@ -192,7 +195,7 @@ mod game {
                                     format!("quality: {:?}", *display_quality),
                                     TextStyle {
                                         font_size: 60.0,
-                                        color: Color::BLUE,
+                                        color: BLUE.into(),
                                         ..default()
                                     },
                                 ),
@@ -208,7 +211,7 @@ mod game {
                                     format!("volume: {:?}", *volume),
                                     TextStyle {
                                         font_size: 60.0,
-                                        color: Color::GREEN,
+                                        color: GREEN.into(),
                                         ..default()
                                     },
                                 ),
@@ -237,7 +240,7 @@ mod game {
 }
 
 mod menu {
-    use bevy::{app::AppExit, prelude::*};
+    use bevy::{app::AppExit, color::palettes::css::CRIMSON, prelude::*};
 
     use super::{despawn_screen, DisplayQuality, GameState, Volume, TEXT_COLOR};
 
@@ -318,10 +321,10 @@ mod menu {
     #[derive(Component)]
     struct OnSoundSettingsMenuScreen;
 
-    const NORMAL_BUTTON: Color = Color::rgb(0.15, 0.15, 0.15);
-    const HOVERED_BUTTON: Color = Color::rgb(0.25, 0.25, 0.25);
-    const HOVERED_PRESSED_BUTTON: Color = Color::rgb(0.25, 0.65, 0.25);
-    const PRESSED_BUTTON: Color = Color::rgb(0.35, 0.75, 0.35);
+    const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
+    const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
+    const HOVERED_PRESSED_BUTTON: Color = Color::srgb(0.25, 0.65, 0.25);
+    const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 
     // Tag component used to mark which setting is currently selected
     #[derive(Component)]
@@ -425,7 +428,7 @@ mod menu {
                             align_items: AlignItems::Center,
                             ..default()
                         },
-                        background_color: Color::CRIMSON.into(),
+                        background_color: CRIMSON.into(),
                         ..default()
                     })
                     .with_children(|parent| {
@@ -551,7 +554,7 @@ mod menu {
                             align_items: AlignItems::Center,
                             ..default()
                         },
-                        background_color: Color::CRIMSON.into(),
+                        background_color: CRIMSON.into(),
                         ..default()
                     })
                     .with_children(|parent| {
@@ -617,7 +620,7 @@ mod menu {
                             align_items: AlignItems::Center,
                             ..default()
                         },
-                        background_color: Color::CRIMSON.into(),
+                        background_color: CRIMSON.into(),
                         ..default()
                     })
                     .with_children(|parent| {
@@ -629,7 +632,7 @@ mod menu {
                                     align_items: AlignItems::Center,
                                     ..default()
                                 },
-                                background_color: Color::CRIMSON.into(),
+                                background_color: CRIMSON.into(),
                                 ..default()
                             })
                             .with_children(|parent| {
@@ -721,7 +724,7 @@ mod menu {
                             align_items: AlignItems::Center,
                             ..default()
                         },
-                        background_color: Color::CRIMSON.into(),
+                        background_color: CRIMSON.into(),
                         ..default()
                     })
                     .with_children(|parent| {
@@ -731,7 +734,7 @@ mod menu {
                                     align_items: AlignItems::Center,
                                     ..default()
                                 },
-                                background_color: Color::CRIMSON.into(),
+                                background_color: CRIMSON.into(),
                                 ..default()
                             })
                             .with_children(|parent| {

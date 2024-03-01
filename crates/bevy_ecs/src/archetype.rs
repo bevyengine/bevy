@@ -134,7 +134,7 @@ impl BundleComponentStatus for AddBundle {
     #[inline]
     unsafe fn get_status(&self, index: usize) -> ComponentStatus {
         // SAFETY: caller has ensured index is a valid bundle index for this bundle
-        *self.bundle_status.get_unchecked(index)
+        unsafe { *self.bundle_status.get_unchecked(index) }
     }
 }
 
@@ -430,6 +430,12 @@ impl Archetype {
     #[inline]
     pub fn components(&self) -> impl Iterator<Item = ComponentId> + '_ {
         self.components.indices()
+    }
+
+    /// Returns the total number of components in the archetype
+    #[inline]
+    pub fn component_count(&self) -> usize {
+        self.components.len()
     }
 
     /// Fetches a immutable reference to the archetype's [`Edges`], a cache of

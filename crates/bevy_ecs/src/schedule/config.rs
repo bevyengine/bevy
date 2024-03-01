@@ -419,7 +419,7 @@ where
     ///
     /// Ordering constraints will be applied between the successive elements.
     ///
-    /// If the preceeding node on a edge has deferred parameters, a [`apply_deferred`](crate::schedule::apply_deferred)
+    /// If the preceding node on a edge has deferred parameters, a [`apply_deferred`](crate::schedule::apply_deferred)
     /// will be inserted on the edge. If this behavior is not desired consider using
     /// [`chain_ignore_deferred`](Self::chain_ignore_deferred) instead.
     fn chain(self) -> SystemConfigs {

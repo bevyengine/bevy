@@ -458,9 +458,14 @@ impl std::fmt::Debug for ComponentDescriptor {
 }
 
 impl ComponentDescriptor {
-    // SAFETY: The pointer points to a valid value of type `T` and it is safe to drop this value.
+    /// # SAFETY
+    ///
+    /// `x` must points to a valid value of type `T`.
     unsafe fn drop_ptr<T>(x: OwningPtr<'_>) {
-        x.drop_as::<T>();
+        // SAFETY: Contract is required to be upheld by the caller.
+        unsafe {
+            x.drop_as::<T>();
+        }
     }
 
     /// Create a new `ComponentDescriptor` for the type `T`.
@@ -649,7 +654,8 @@ impl Components {
     #[inline]
     pub unsafe fn get_info_unchecked(&self, id: ComponentId) -> &ComponentInfo {
         debug_assert!(id.index() < self.components.len());
-        self.components.get_unchecked(id.0)
+        // SAFETY: The caller ensures `id` is valid.
+        unsafe { self.components.get_unchecked(id.0) }
     }
 
     #[inline]
@@ -875,8 +881,10 @@ impl<'a> TickCells<'a> {
     #[inline]
     pub(crate) unsafe fn read(&self) -> ComponentTicks {
         ComponentTicks {
-            added: self.added.read(),
-            changed: self.changed.read(),
+            // SAFETY: The callers uphold the invariants for `read`.
+            added: unsafe { self.added.read() },
+            // SAFETY: The callers uphold the invariants for `read`.
+            changed: unsafe { self.changed.read() },
         }
     }
 }

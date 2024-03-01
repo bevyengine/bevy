@@ -147,7 +147,7 @@ fn setup(
         commands.spawn((
             PbrBundle {
                 mesh: mesh.clone(),
-                material: materials.add(Color::rgb(
+                material: materials.add(Color::srgb(
                     rng.gen_range(0.0..1.0),
                     rng.gen_range(0.0..1.0),
                     rng.gen_range(0.0..1.0),

@@ -6,6 +6,7 @@
 //! viewport, you may want to look at `games/contributors.rs` or `ui/text.rs`.
 
 use bevy::{
+    color::palettes::css::*,
     prelude::*,
     sprite::Anchor,
     text::{BreakLineOn, Text2dBounds},
@@ -36,7 +37,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let text_style = TextStyle {
         font: font.clone(),
         font_size: 60.0,
-        color: Color::WHITE,
+        ..default()
     };
     let text_justification = JustifyText::Center;
     // 2d camera
@@ -72,14 +73,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let slightly_smaller_text_style = TextStyle {
         font,
         font_size: 42.0,
-        color: Color::WHITE,
+        ..default()
     };
     let box_size = Vec2::new(300.0, 200.0);
     let box_position = Vec2::new(0.0, -250.0);
     commands
         .spawn(SpriteBundle {
             sprite: Sprite {
-                color: Color::rgb(0.25, 0.25, 0.75),
+                color: Color::srgb(0.25, 0.25, 0.75),
                 custom_size: Some(Vec2::new(box_size.x, box_size.y)),
                 ..default()
             },
@@ -111,7 +112,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn(SpriteBundle {
             sprite: Sprite {
-                color: Color::rgb(0.20, 0.3, 0.70),
+                color: Color::srgb(0.20, 0.3, 0.70),
                 custom_size: Some(Vec2::new(other_box_size.x, other_box_size.y)),
                 ..default()
             },
@@ -139,10 +140,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
 
     for (text_anchor, color) in [
-        (Anchor::TopLeft, Color::RED),
-        (Anchor::TopRight, Color::GREEN),
-        (Anchor::BottomRight, Color::BLUE),
-        (Anchor::BottomLeft, Color::YELLOW),
+        (Anchor::TopLeft, Color::Srgba(RED)),
+        (Anchor::TopRight, Color::Srgba(GREEN)),
+        (Anchor::BottomRight, Color::Srgba(BLUE)),
+        (Anchor::BottomLeft, Color::Srgba(YELLOW)),
     ] {
         commands.spawn(Text2dBundle {
             text: Text {

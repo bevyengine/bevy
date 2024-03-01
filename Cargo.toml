@@ -1,6 +1,6 @@
 [package]
 name = "bevy"
-version = "0.13.0"
+version = "0.14.0-dev"
 edition = "2021"
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
@@ -56,6 +56,7 @@ default = [
   "animation",
   "bevy_asset",
   "bevy_audio",
+  "bevy_color",
   "bevy_gilrs",
   "bevy_scene",
   "bevy_winit",
@@ -76,20 +77,27 @@ default = [
   "tonemapping_luts",
   "default_font",
   "webgl2",
+  "sysinfo_plugin",
   "bevy_debug_stepping",
 ]
 
 # Force dynamic linking, which improves iterative compile times
 dynamic_linking = ["dep:bevy_dylib", "bevy_internal/dynamic_linking"]
 
+# Enables system information diagnostic plugin
+sysinfo_plugin = ["bevy_internal/sysinfo_plugin"]
+
 # Provides animation functionality
-bevy_animation = ["bevy_internal/bevy_animation"]
+bevy_animation = ["bevy_internal/bevy_animation", "bevy_color"]
 
 # Provides asset functionality
 bevy_asset = ["bevy_internal/bevy_asset"]
 
 # Provides audio functionality
 bevy_audio = ["bevy_internal/bevy_audio"]
+
+# Provides shared color types and operations
+bevy_color = ["bevy_internal/bevy_color"]
 
 # Provides cameras and other basic render pipeline features
 bevy_core_pipeline = [
@@ -116,13 +124,18 @@ bevy_pbr = [
 ]
 
 # Provides rendering functionality
-bevy_render = ["bevy_internal/bevy_render"]
+bevy_render = ["bevy_internal/bevy_render", "bevy_color"]
 
 # Provides scene functionality
 bevy_scene = ["bevy_internal/bevy_scene", "bevy_asset"]
 
 # Provides sprite functionality
-bevy_sprite = ["bevy_internal/bevy_sprite", "bevy_render", "bevy_core_pipeline"]
+bevy_sprite = [
+  "bevy_internal/bevy_sprite",
+  "bevy_render",
+  "bevy_core_pipeline",
+  "bevy_color",
+]
 
 # Provides text functionality
 bevy_text = ["bevy_internal/bevy_text", "bevy_asset", "bevy_sprite"]
@@ -133,13 +146,14 @@ bevy_ui = [
   "bevy_core_pipeline",
   "bevy_text",
   "bevy_sprite",
+  "bevy_color",
 ]
 
 # winit window and input backend
 bevy_winit = ["bevy_internal/bevy_winit"]
 
 # Adds support for rendering gizmos
-bevy_gizmos = ["bevy_internal/bevy_gizmos"]
+bevy_gizmos = ["bevy_internal/bevy_gizmos", "bevy_color"]
 
 # Tracing support, saving a file in Chrome Tracing format
 trace_chrome = ["trace", "bevy_internal/trace_chrome"]
@@ -305,8 +319,8 @@ embedded_watcher = ["bevy_internal/embedded_watcher"]
 bevy_debug_stepping = ["bevy_internal/bevy_debug_stepping"]
 
 [dependencies]
-bevy_dylib = { path = "crates/bevy_dylib", version = "0.13.0", default-features = false, optional = true }
-bevy_internal = { path = "crates/bevy_internal", version = "0.13.0", default-features = false }
+bevy_dylib = { path = "crates/bevy_dylib", version = "0.14.0-dev", default-features = false, optional = true }
+bevy_internal = { path = "crates/bevy_internal", version = "0.14.0-dev", default-features = false }
 
 [dev-dependencies]
 rand = "0.8.0"
@@ -423,17 +437,6 @@ doc-scrape-examples = true
 [package.metadata.example.custom_gltf_vertex_attribute]
 name = "Custom glTF vertex attribute 2D"
 description = "Renders a glTF mesh in 2D with a custom vertex attribute"
-category = "2D Rendering"
-wasm = true
-
-[[example]]
-name = "2d_gizmos"
-path = "examples/2d/2d_gizmos.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.2d_gizmos]
-name = "2D Gizmos"
-description = "A scene showcasing 2D gizmos"
 category = "2D Rendering"
 wasm = true
 
@@ -610,17 +613,6 @@ name = "Anti-aliasing"
 description = "Compares different anti-aliasing methods"
 category = "3D Rendering"
 wasm = false
-
-[[example]]
-name = "3d_gizmos"
-path = "examples/3d/3d_gizmos.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.3d_gizmos]
-name = "3D Gizmos"
-description = "A scene showcasing 3D gizmos"
-category = "3D Rendering"
-wasm = true
 
 [[example]]
 name = "atmospheric_fog"
@@ -2663,6 +2655,29 @@ doc-scrape-examples = true
 name = "Rendering Primitives"
 description = "Shows off rendering for all math primitives as both Meshes and Gizmos"
 category = "Math"
+wasm = true
+
+# Gizmos
+[[example]]
+name = "2d_gizmos"
+path = "examples/gizmos/2d_gizmos.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.2d_gizmos]
+name = "2D Gizmos"
+description = "A scene showcasing 2D gizmos"
+category = "Gizmos"
+wasm = true
+
+[[example]]
+name = "3d_gizmos"
+path = "examples/gizmos/3d_gizmos.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.3d_gizmos]
+name = "3D Gizmos"
+description = "A scene showcasing 3D gizmos"
+category = "Gizmos"
 wasm = true
 
 [profile.wasm-release]

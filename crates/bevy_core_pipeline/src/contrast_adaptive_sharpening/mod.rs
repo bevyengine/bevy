@@ -142,17 +142,17 @@ impl Plugin for CASPlugin {
         }
         {
             render_app
-                .add_render_graph_node::<CASNode>(Core2d, Node2d::ConstrastAdaptiveSharpening)
+                .add_render_graph_node::<CASNode>(Core2d, Node2d::ContrastAdaptiveSharpening)
                 .add_render_graph_edge(
                     Core2d,
                     Node2d::Tonemapping,
-                    Node2d::ConstrastAdaptiveSharpening,
+                    Node2d::ContrastAdaptiveSharpening,
                 )
                 .add_render_graph_edges(
                     Core2d,
                     (
                         Node2d::Fxaa,
-                        Node2d::ConstrastAdaptiveSharpening,
+                        Node2d::ContrastAdaptiveSharpening,
                         Node2d::EndMainPassPostProcessing,
                     ),
                 );

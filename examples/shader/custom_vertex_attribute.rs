@@ -44,7 +44,7 @@ fn setup(
         mesh: meshes.add(mesh),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         material: materials.add(CustomMaterial {
-            color: Color::WHITE,
+            color: LinearRgba::WHITE,
         }),
         ..default()
     });
@@ -60,7 +60,7 @@ fn setup(
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 struct CustomMaterial {
     #[uniform(0)]
-    color: Color,
+    color: LinearRgba,
 }
 
 impl Material for CustomMaterial {

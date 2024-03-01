@@ -3,12 +3,12 @@
 use super::helpers::*;
 use std::f32::consts::TAU;
 
+use bevy_color::Color;
 use bevy_math::primitives::{
-    BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Direction3d, Line3d,
-    Plane3d, Polyline3d, Primitive3d, Segment3d, Sphere, Torus,
+    BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Line3d, Plane3d,
+    Polyline3d, Primitive3d, Segment3d, Sphere, Torus,
 };
-use bevy_math::{Quat, Vec3};
-use bevy_render::color::Color;
+use bevy_math::{Dir3, Quat, Vec3};
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 
@@ -35,12 +35,12 @@ pub trait GizmoPrimitive3d<P: Primitive3d> {
 
 // direction 3d
 
-impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Direction3d> for Gizmos<'w, 's, T> {
+impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Dir3> for Gizmos<'w, 's, T> {
     type Output<'a> = () where Self: 'a;
 
     fn primitive_3d(
         &mut self,
-        primitive: Direction3d,
+        primitive: Dir3,
         position: Vec3,
         rotation: Quat,
         color: Color,
@@ -139,7 +139,7 @@ pub struct Plane3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     gizmos: &'a mut Gizmos<'w, 's, T>,
 
     // direction of the normal orthogonal to the plane
-    normal: Direction3d,
+    normal: Dir3,
 
     // Rotation of the sphere around the origin in 3D space
     rotation: Quat,
@@ -218,7 +218,7 @@ impl<T: GizmoConfigGroup> Drop for Plane3dBuilder<'_, '_, '_, T> {
             .map(|angle| Quat::from_axis_angle(normal, angle))
             .for_each(|quat| {
                 let axis_direction = quat * normals_normal;
-                let direction = Direction3d::new_unchecked(axis_direction);
+                let direction = Dir3::new_unchecked(axis_direction);
 
                 // for each axis draw dotted line
                 (0..)
@@ -698,9 +698,9 @@ pub struct ConicalFrustum3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
 
     // Center of conical frustum, half-way between the top and the bottom
     position: Vec3,
-    // Rotation of the conical frustrum
+    // Rotation of the conical frustum
     //
-    // default orientation is: conical frustrum base shape normals are aligned with `Vec3::Y` axis
+    // default orientation is: conical frustum base shape normals are aligned with `Vec3::Y` axis
     rotation: Quat,
     // Color of the conical frustum
     color: Color,
@@ -760,7 +760,7 @@ impl<T: GizmoConfigGroup> Drop for ConicalFrustum3dBuilder<'_, '_, '_, T> {
         let half_height = *height * 0.5;
         let normal = *rotation * Vec3::Y;
 
-        // draw the two circles of the conical frustrum
+        // draw the two circles of the conical frustum
         [(*radius_top, half_height), (*radius_bottom, -half_height)]
             .into_iter()
             .for_each(|(radius, height)| {
@@ -774,7 +774,7 @@ impl<T: GizmoConfigGroup> Drop for ConicalFrustum3dBuilder<'_, '_, '_, T> {
                 );
             });
 
-        // connect the two circles of the conical frustrum
+        // connect the two circles of the conical frustum
         circle_coordinates(*radius_top, *segments)
             .map(move |p| Vec3::new(p.x, half_height, p.y))
             .zip(
@@ -802,7 +802,7 @@ pub struct Torus3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
 
     // Center of the torus
     position: Vec3,
-    // Rotation of the conical frustrum
+    // Rotation of the conical frustum
     //
     // default orientation is: major circle normal is aligned with `Vec3::Y` axis
     rotation: Quat,

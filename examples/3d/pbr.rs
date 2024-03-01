@@ -27,7 +27,7 @@ fn setup(
             commands.spawn(PbrBundle {
                 mesh: sphere_mesh.clone(),
                 material: materials.add(StandardMaterial {
-                    base_color: Color::hex("#ffd891").unwrap(),
+                    base_color: Srgba::hex("#ffd891").unwrap().into(),
                     // vary key PBR parameters on a grid of spheres to show the effect
                     metallic: y01,
                     perceptual_roughness: x01,
@@ -42,7 +42,7 @@ fn setup(
     commands.spawn(PbrBundle {
         mesh: sphere_mesh,
         material: materials.add(StandardMaterial {
-            base_color: Color::hex("#ffd891").unwrap(),
+            base_color: Srgba::hex("#ffd891").unwrap().into(),
             // vary key PBR parameters on a grid of spheres to show the effect
             unlit: true,
             ..default()
@@ -103,7 +103,7 @@ fn setup(
             "Loading Environment Map...",
             TextStyle {
                 font_size: 36.0,
-                color: Color::RED,
+                color: Color::WHITE,
                 ..default()
             },
         )
