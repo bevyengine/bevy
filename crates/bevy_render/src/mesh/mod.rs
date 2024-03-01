@@ -42,14 +42,26 @@ impl Plugin for MeshPlugin {
     }
 }
 
+/// Describes the layout of the mesh vertices in GPU memory.
+///
+/// At most one copy of a mesh vertex buffer layout ever exists in GPU memory at
+/// once. Therefore, comparing these for equality requires only a single pointer
+/// comparison.
 #[derive(Clone, Debug)]
 pub struct MeshVertexBufferLayoutRef(pub Arc<MeshVertexBufferLayout>);
 
+/// Stores the single copy of each mesh vertex buffer layout.
 #[derive(Clone, Default, Resource)]
 pub struct MeshVertexBufferLayouts(HashSet<MeshVertexBufferLayoutRef>);
 
 impl MeshVertexBufferLayouts {
-    pub fn insert(&mut self, layout: MeshVertexBufferLayout) -> MeshVertexBufferLayoutRef {
+    /// Inserts a new mesh vertex buffer layout in the store and returns a
+    /// reference to it, reusing the existing reference if this mesh vertex
+    /// buffer layout was already in the store.
+    pub(crate) fn insert(&mut self, layout: MeshVertexBufferLayout) -> MeshVertexBufferLayoutRef {
+        // Because we're using `get_or_insert_with` on the layout itself, not
+        // the `MeshVertexBufferLayoutRef`, this compares the mesh vertex buffer
+        // layout structurally, not by pointer.
         self.0
             .get_or_insert_with(&layout, |layout| {
                 MeshVertexBufferLayoutRef(Arc::new(layout.clone()))
