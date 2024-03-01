@@ -5,7 +5,8 @@ use bevy_color::{Color, LinearRgba};
 use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use bevy_render::{
-    extract_resource::ExtractResource, mesh::MeshVertexBufferLayout, prelude::*, render_resource::*,
+    extract_resource::ExtractResource, mesh::MeshVertexBufferLayoutRef, prelude::*,
+    render_resource::*,
 };
 
 pub const WIREFRAME_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(192598014480025766);
@@ -208,7 +209,7 @@ impl Material for WireframeMaterial {
     fn specialize(
         _pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
-        _layout: &MeshVertexBufferLayout,
+        _layout: &MeshVertexBufferLayoutRef,
         _key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         descriptor.primitive.polygon_mode = PolygonMode::Line;

@@ -13,17 +13,22 @@ use crate::{
 use bevy_asset::{Asset, Handle};
 use bevy_core::cast_slice;
 use bevy_derive::EnumVariantMeta;
-use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
+use bevy_ecs::system::{
+    lifetimeless::{SRes, SResMut},
+    SystemParamItem,
+};
 use bevy_log::warn;
 use bevy_math::*;
 use bevy_reflect::Reflect;
-use bevy_utils::{tracing::error, Hashed};
+use bevy_utils::tracing::error;
 use std::{collections::BTreeMap, hash::Hash, iter::FusedIterator};
 use thiserror::Error;
 use wgpu::{
     util::BufferInitDescriptor, BufferUsages, IndexFormat, VertexAttribute, VertexFormat,
     VertexStepMode,
 };
+
+use super::{MeshVertexBufferLayoutRef, MeshVertexBufferLayouts};
 
 pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
 pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
@@ -377,7 +382,10 @@ impl Mesh {
     /// Get this `Mesh`'s [`MeshVertexBufferLayout`], used in [`SpecializedMeshPipeline`].
     ///
     /// [`SpecializedMeshPipeline`]: crate::render_resource::SpecializedMeshPipeline
-    pub fn get_mesh_vertex_buffer_layout(&self) -> MeshVertexBufferLayout {
+    pub fn get_mesh_vertex_buffer_layout(
+        &self,
+        mesh_vertex_buffer_layouts: &mut MeshVertexBufferLayouts,
+    ) -> MeshVertexBufferLayoutRef {
         let mut attributes = Vec::with_capacity(self.attributes.len());
         let mut attribute_ids = Vec::with_capacity(self.attributes.len());
         let mut accumulated_offset = 0;
@@ -391,14 +399,15 @@ impl Mesh {
             accumulated_offset += data.attribute.format.get_size();
         }
 
-        MeshVertexBufferLayout::new(InnerMeshVertexBufferLayout {
+        let layout = MeshVertexBufferLayout {
             layout: VertexBufferLayout {
                 array_stride: accumulated_offset,
                 step_mode: VertexStepMode::Vertex,
                 attributes,
             },
             attribute_ids,
-        })
+        };
+        mesh_vertex_buffer_layouts.insert(layout)
     }
 
     /// Counts all vertices of the mesh.
@@ -967,15 +976,13 @@ impl From<MeshVertexAttribute> for MeshVertexAttributeId {
     }
 }
 
-pub type MeshVertexBufferLayout = Hashed<InnerMeshVertexBufferLayout>;
-
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
-pub struct InnerMeshVertexBufferLayout {
+pub struct MeshVertexBufferLayout {
     attribute_ids: Vec<MeshVertexAttributeId>,
     layout: VertexBufferLayout,
 }
 
-impl InnerMeshVertexBufferLayout {
+impl MeshVertexBufferLayout {
     pub fn new(attribute_ids: Vec<MeshVertexAttributeId>, layout: VertexBufferLayout) -> Self {
         Self {
             attribute_ids,
@@ -1350,7 +1357,7 @@ pub struct GpuMesh {
     pub morph_targets: Option<TextureView>,
     pub buffer_info: GpuBufferInfo,
     pub primitive_topology: PrimitiveTopology,
-    pub layout: MeshVertexBufferLayout,
+    pub layout: MeshVertexBufferLayoutRef,
 }
 
 /// The index/vertex buffer info of a [`GpuMesh`].
@@ -1367,7 +1374,11 @@ pub enum GpuBufferInfo {
 
 impl RenderAsset for Mesh {
     type PreparedAsset = GpuMesh;
-    type Param = (SRes<RenderDevice>, SRes<RenderAssets<Image>>);
+    type Param = (
+        SRes<RenderDevice>,
+        SRes<RenderAssets<Image>>,
+        SResMut<MeshVertexBufferLayouts>,
+    );
 
     fn asset_usage(&self) -> RenderAssetUsages {
         self.asset_usage
@@ -1376,7 +1387,9 @@ impl RenderAsset for Mesh {
     /// Converts the extracted mesh a into [`GpuMesh`].
     fn prepare_asset(
         self,
-        (render_device, images): &mut SystemParamItem<Self::Param>,
+        (render_device, images, ref mut mesh_vertex_buffer_layouts): &mut SystemParamItem<
+            Self::Param,
+        >,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self>> {
         let vertex_buffer_data = self.get_vertex_buffer_data();
         let vertex_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
@@ -1399,7 +1412,8 @@ impl RenderAsset for Mesh {
             GpuBufferInfo::NonIndexed
         };
 
-        let mesh_vertex_buffer_layout = self.get_mesh_vertex_buffer_layout();
+        let mesh_vertex_buffer_layout =
+            self.get_mesh_vertex_buffer_layout(mesh_vertex_buffer_layouts);
 
         Ok(GpuMesh {
             vertex_buffer,
