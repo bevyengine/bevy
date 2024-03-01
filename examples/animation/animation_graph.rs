@@ -524,7 +524,7 @@ impl NodeRect {
 }
 
 impl Line {
-    /// Creates a new [`Line`], either horizontal or verticla.
+    /// Creates a new [`Line`], either horizontal or vertical.
     ///
     /// Note that the line's start point is anchored in the lower-*left* corner,
     /// and that the `length` extends either to the right or downward.
