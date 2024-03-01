@@ -19,8 +19,8 @@ fn prepass_alpha_discard(in: VertexOutput) {
 
 #ifdef VERTEX_UVS
     let uv_transform = mat3x3<f32>(
-        vec3<f32>(pbr_bindings::material.uv_transform_xy_axys.xy, 0.0),
-        vec3<f32>(pbr_bindings::material.uv_transform_xy_axys.zw, 0.0),
+        vec3<f32>(pbr_bindings::material.uv_transform_xy_axes.xy, 0.0),
+        vec3<f32>(pbr_bindings::material.uv_transform_xy_axes.zw, 0.0),
         vec3<f32>(pbr_bindings::material.uv_transform_translation.xy, 1.0),
     );
     let uv = (uv_transform * vec3(in.uv, 1.0)).xy;
