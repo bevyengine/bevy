@@ -1,9 +1,9 @@
 //! CI script used for Bevy.
 
+use bitflags::bitflags;
 use core::panic;
 use std::collections::BTreeMap;
 use xshell::{cmd, Cmd, Shell};
-use bitflags::bitflags;
 
 bitflags! {
     #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -31,9 +31,9 @@ bitflags! {
 // None of the CI tests require any information at runtime other than the options that have been set,
 // which is why all of these are 'static; we could easily update this to use more flexible types.
 struct CITest<'a> {
-    command: Cmd<'a>, // The command to execute
-    failure_message: &'static str, // The message to display if it fails
-    subdir: Option<&'static str>, // The subdirectory path to run the command within
+    command: Cmd<'a>,                            // The command to execute
+    failure_message: &'static str,               // The message to display if it fails
+    subdir: Option<&'static str>,                // The subdirectory path to run the command within
     env_vars: Vec<(&'static str, &'static str)>, // Environment variables that need to be set before the command runs
 }
 
@@ -135,7 +135,7 @@ fn main() {
         // - See crates/bevy_ecs_compile_fail_tests/README.md
 
         // (These must be cloned because of move semantics in `cmd!`)
-        let args_clone = args.clone(); 
+        let args_clone = args.clone();
 
         test_suite.insert(Check::COMPILE_FAIL, vec![CITest {
             command: cmd!(sh, "cargo test {args_clone...}"),
@@ -333,7 +333,7 @@ fn main() {
             for (k, v) in ci_test.env_vars {
                 std::env::set_var(k, v);
             }
-            
+
             // If the CI test is to be executed in a subdirectory, we move there before running the command
             let _hook = ci_test.subdir.map(|path| sh.push_dir(path));
 
