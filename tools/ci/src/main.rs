@@ -158,11 +158,11 @@ fn main() {
             .expect("Please fix compiler errors in output above.");
     }
 
-    //    if what_to_run.contains(Check::CFG_CHECK) {
-    //        // Check cfg and imports
-    //        std::env::set_var("RUSTFLAGS", "-D warnings");
-    //        cmd!(sh, "cargo check -Zcheck-cfg --workspace")
-    //            .run()
-    //            .expect("Please fix failing cfg checks in output above.");
-    //    }
+    if what_to_run.contains(Check::CFG_CHECK) {
+        // Check cfg and imports
+        std::env::set_var("RUSTFLAGS", "-D warnings");
+        cmd!(sh, "cargo +nightly check -Zcheck-cfg --workspace")
+            .run()
+            .expect("Please fix failing cfg checks in output above.");
+    }
 }
