@@ -21,7 +21,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut, Resource},
 };
 use bevy_log::warn;
-use bevy_math::{vec2, Direction3d, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, Vec3};
+use bevy_math::{vec2, Dir3, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_render_macros::ExtractComponent;
 use bevy_transform::components::GlobalTransform;
@@ -390,7 +390,7 @@ impl Camera {
         let world_far_plane = ndc_to_world.project_point3(ndc.extend(f32::EPSILON));
 
         // The fallible direction constructor ensures that world_near_plane and world_far_plane aren't NaN.
-        Direction3d::new(world_far_plane - world_near_plane).map_or(None, |direction| {
+        Dir3::new(world_far_plane - world_near_plane).map_or(None, |direction| {
             Some(Ray3d {
                 origin: world_near_plane,
                 direction,

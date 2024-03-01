@@ -27,10 +27,10 @@ fn setup(
     let mut mesh = Mesh::from(Rectangle::default());
     // Build vertex colors for the quad. One entry per vertex (the corners of the quad)
     let vertex_colors: Vec<[f32; 4]> = vec![
-        LegacyColor::RED.as_rgba_f32(),
-        LegacyColor::GREEN.as_rgba_f32(),
-        LegacyColor::BLUE.as_rgba_f32(),
-        LegacyColor::WHITE.as_rgba_f32(),
+        LinearRgba::RED.to_f32_array(),
+        LinearRgba::GREEN.to_f32_array(),
+        LinearRgba::BLUE.to_f32_array(),
+        LinearRgba::WHITE.to_f32_array(),
     ];
     // Insert the vertex colors as an attribute
     mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, vertex_colors);

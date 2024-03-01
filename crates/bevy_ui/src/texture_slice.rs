@@ -60,7 +60,7 @@ impl ComputedTextureSlices {
             let atlas_size = Some(self.image_size * scale);
             ExtractedUiNode {
                 stack_index: node.stack_index,
-                color: background_color.0,
+                color: background_color.0.into(),
                 transform: transform.compute_matrix(),
                 rect,
                 flip_x,

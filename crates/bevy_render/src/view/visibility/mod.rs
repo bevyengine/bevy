@@ -190,7 +190,7 @@ impl VisibleEntities {
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum VisibilitySystems {
-    /// Label for the [`calculate_bounds`] and `calculate_bounds_2d` systems,
+    /// Label for the [`calculate_bounds`], `calculate_bounds_2d` and `calculate_bounds_text2d` systems,
     /// calculating and inserting an [`Aabb`] to relevant entities.
     CalculateBounds,
     /// Label for the [`update_frusta<OrthographicProjection>`] system.

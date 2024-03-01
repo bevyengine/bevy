@@ -28,7 +28,7 @@ use crate::*;
 
 #[derive(Component)]
 pub struct ExtractedPointLight {
-    pub color: LegacyColor,
+    pub color: LinearRgba,
     /// luminous intensity in lumens per steradian
     pub intensity: f32,
     pub range: f32,
@@ -42,7 +42,7 @@ pub struct ExtractedPointLight {
 
 #[derive(Component, Debug)]
 pub struct ExtractedDirectionalLight {
-    pub color: LegacyColor,
+    pub color: LinearRgba,
     pub illuminance: f32,
     pub transform: GlobalTransform,
     pub shadows_enabled: bool,
@@ -384,7 +384,7 @@ pub fn extract_lights(
         // However, since exclusive access to the main world in extract is ill-advised, we just clone here.
         let render_cubemap_visible_entities = cubemap_visible_entities.clone();
         let extracted_point_light = ExtractedPointLight {
-            color: point_light.color,
+            color: point_light.color.into(),
             // NOTE: Map from luminous power in lumens to luminous intensity in lumens per steradian
             // for a point light. See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
             // for details.
@@ -430,7 +430,7 @@ pub fn extract_lights(
                 entity,
                 (
                     ExtractedPointLight {
-                        color: spot_light.color,
+                        color: spot_light.color.into(),
                         // NOTE: Map from luminous power in lumens to luminous intensity in lumens per steradian
                         // for a point light. See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
                         // for details.
@@ -478,7 +478,7 @@ pub fn extract_lights(
         let render_visible_entities = visible_entities.clone();
         commands.get_or_spawn(entity).insert((
             ExtractedDirectionalLight {
-                color: directional_light.color,
+                color: directional_light.color.into(),
                 illuminance: directional_light.illuminance,
                 transform: *transform,
                 shadows_enabled: directional_light.shadows_enabled,
@@ -871,7 +871,7 @@ pub fn prepare_lights(
             light_custom_data,
             // premultiply color by intensity
             // we don't use the alpha at all, so no reason to multiply only [0..3]
-            color_inverse_square_range: (Vec4::from_slice(&light.color.as_linear_rgba_f32())
+            color_inverse_square_range: (Vec4::from_slice(&light.color.to_f32_array())
                 * light.intensity)
                 .xyz()
                 .extend(1.0 / (light.range * light.range)),
@@ -908,7 +908,7 @@ pub fn prepare_lights(
             cascades: [GpuDirectionalCascade::default(); MAX_CASCADES_PER_LIGHT],
             // premultiply color by illuminance
             // we don't use the alpha at all, so no reason to multiply only [0..3]
-            color: Vec4::from_slice(&light.color.as_linear_rgba_f32()) * light.illuminance,
+            color: Vec4::from_slice(&light.color.to_f32_array()) * light.illuminance,
             // direction is negated to be ready for N.L
             dir_to_light: light.transform.back(),
             flags: flags.bits(),
@@ -982,7 +982,7 @@ pub fn prepare_lights(
         let n_clusters = clusters.dimensions.x * clusters.dimensions.y * clusters.dimensions.z;
         let mut gpu_lights = GpuLights {
             directional_lights: gpu_directional_lights,
-            ambient_color: Vec4::from_slice(&ambient_light.color.as_linear_rgba_f32())
+            ambient_color: Vec4::from_slice(&LinearRgba::from(ambient_light.color).to_f32_array())
                 * ambient_light.brightness,
             cluster_factors: Vec4::new(
                 clusters.dimensions.x as f32 / extracted_view.viewport.z as f32,

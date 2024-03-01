@@ -4,6 +4,7 @@
 use std::f64::consts::PI;
 
 use bevy::{
+    color::palettes::css::PINK,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::{DVec2, DVec3},
     pbr::{ExtractedPointLight, GlobalLightMeta},
@@ -54,14 +55,14 @@ fn setup(
 
     commands.spawn(PbrBundle {
         mesh: meshes.add(Sphere::new(RADIUS).mesh().ico(9).unwrap()),
-        material: materials.add(LegacyColor::WHITE),
+        material: materials.add(Color::WHITE),
         transform: Transform::from_scale(Vec3::NEG_ONE),
         ..default()
     });
 
     let mesh = meshes.add(Cuboid::default());
     let material = materials.add(StandardMaterial {
-        base_color: LegacyColor::PINK,
+        base_color: PINK.into(),
         ..default()
     });
 
@@ -81,7 +82,7 @@ fn setup(
             point_light: PointLight {
                 range: LIGHT_RADIUS,
                 intensity: LIGHT_INTENSITY,
-                color: LegacyColor::hsl(rng.gen_range(0.0..360.0), 1.0, 0.5),
+                color: Color::hsl(rng.gen_range(0.0..360.0), 1.0, 0.5),
                 ..default()
             },
             transform: Transform::from_translation((RADIUS as f64 * unit_sphere_p).as_vec3()),
