@@ -22,6 +22,7 @@ bevy_tasks = { path = "../bevy_tasks", version = "0.14.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
 bevy_ecs_macros = { path = "macros", version = "0.14.0-dev" }
 
+bitflags = "2.3"
 concurrent-queue = "2.4.0"
 fixedbitset = "0.4.2"
 rustc-hash = "1.1"
