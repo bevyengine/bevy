@@ -315,7 +315,7 @@ impl Window {
 
     /// The window's client size in logical pixels, with x being width and y being height.
     ///
-    /// See ['WindowResolution'] for an explanation about logical/physical sizes.
+    /// See [`WindowResolution`] for an explanation about logical/physical sizes.
     #[inline]
     pub fn size(&self) -> Vec2 {
         Vec2::new(self.resolution.width(), self.resolution.height())
@@ -339,7 +339,7 @@ impl Window {
 
     /// The window's client size in physical pixels, with x being width and y being height.
     ///
-    /// See ['WindowResolution'] for an explanation about logical/physical sizes.
+    /// See [`WindowResolution`] for an explanation about logical/physical sizes.
     #[inline]
     pub fn physical_size(&self) -> bevy_math::UVec2 {
         bevy_math::UVec2::new(
