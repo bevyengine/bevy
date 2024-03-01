@@ -35,7 +35,7 @@ fn setup_camera_fog(mut commands: Commands) {
     commands.spawn((
         Camera3dBundle::default(),
         FogSettings {
-            color: Color::rgba(0.25, 0.25, 0.25, 1.0),
+            color: Color::srgb(0.25, 0.25, 0.25),
             falloff: FogFalloff::Linear {
                 start: 5.0,
                 end: 20.0,
@@ -51,7 +51,7 @@ fn setup_pyramid_scene(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let stone = materials.add(StandardMaterial {
-        base_color: Color::hex("28221B").unwrap(),
+        base_color: Srgba::hex("28221B").unwrap().into(),
         perceptual_roughness: 1.0,
         ..default()
     });
@@ -71,7 +71,7 @@ fn setup_pyramid_scene(
         PbrBundle {
             mesh: meshes.add(Sphere::default()),
             material: materials.add(StandardMaterial {
-                base_color: Color::hex("126212CC").unwrap(),
+                base_color: Srgba::hex("126212CC").unwrap().into(),
                 reflectance: 1.0,
                 perceptual_roughness: 0.0,
                 metallic: 0.5,
@@ -102,7 +102,7 @@ fn setup_pyramid_scene(
     commands.spawn(PbrBundle {
         mesh: meshes.add(Cuboid::new(2.0, 1.0, 1.0)),
         material: materials.add(StandardMaterial {
-            base_color: Color::hex("888888").unwrap(),
+            base_color: Srgba::hex("888888").unwrap().into(),
             unlit: true,
             cull_mode: None,
             ..default()
@@ -259,43 +259,41 @@ fn update_system(
         .value
         .push_str("\n\n- / = - Red\n[ / ] - Green\n; / ' - Blue\n. / ? - Alpha");
 
+    // We're performing various operations in the sRGB color space,
+    // so we convert the fog color to sRGB here, then modify it,
+    // and finally when we're done we can convert it back and set it.
+    let mut fog_color = Srgba::from(fog.color);
     if keycode.pressed(KeyCode::Minus) {
-        let r = (fog.color.r() - 0.1 * delta).max(0.0);
-        fog.color.set_r(r);
+        fog_color.red = (fog_color.red - 0.1 * delta).max(0.0);
     }
 
     if keycode.any_pressed([KeyCode::Equal, KeyCode::NumpadEqual]) {
-        let r = (fog.color.r() + 0.1 * delta).min(1.0);
-        fog.color.set_r(r);
+        fog_color.red = (fog_color.red + 0.1 * delta).min(1.0);
     }
 
     if keycode.pressed(KeyCode::BracketLeft) {
-        let g = (fog.color.g() - 0.1 * delta).max(0.0);
-        fog.color.set_g(g);
+        fog_color.green = (fog_color.green - 0.1 * delta).max(0.0);
     }
 
     if keycode.pressed(KeyCode::BracketRight) {
-        let g = (fog.color.g() + 0.1 * delta).min(1.0);
-        fog.color.set_g(g);
+        fog_color.green = (fog_color.green + 0.1 * delta).min(1.0);
     }
 
     if keycode.pressed(KeyCode::Semicolon) {
-        let b = (fog.color.b() - 0.1 * delta).max(0.0);
-        fog.color.set_b(b);
+        fog_color.blue = (fog_color.blue - 0.1 * delta).max(0.0);
     }
 
     if keycode.pressed(KeyCode::Quote) {
-        let b = (fog.color.b() + 0.1 * delta).min(1.0);
-        fog.color.set_b(b);
+        fog_color.blue = (fog_color.blue + 0.1 * delta).min(1.0);
     }
 
     if keycode.pressed(KeyCode::Period) {
-        let a = (fog.color.a() - 0.1 * delta).max(0.0);
-        fog.color.set_a(a);
+        fog_color.alpha = (fog_color.alpha - 0.1 * delta).max(0.0);
     }
 
     if keycode.pressed(KeyCode::Slash) {
-        let a = (fog.color.a() + 0.1 * delta).min(1.0);
-        fog.color.set_a(a);
+        fog_color.alpha = (fog_color.alpha + 0.1 * delta).min(1.0);
     }
+
+    fog.color = Color::from(fog_color);
 }

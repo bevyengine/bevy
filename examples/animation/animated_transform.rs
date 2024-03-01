@@ -28,6 +28,16 @@ fn setup(
         ..default()
     });
 
+    // Light
+    commands.spawn(PointLightBundle {
+        point_light: PointLight {
+            intensity: 500_000.0,
+            ..default()
+        },
+        transform: Transform::from_xyz(0.0, 2.5, 0.0),
+        ..default()
+    });
+
     // Let's use the `Name` component to target entities. We can use anything we
     // like, but names are convenient.
     let planet = Name::new("planet");
@@ -125,7 +135,7 @@ fn setup(
         .spawn((
             PbrBundle {
                 mesh: meshes.add(Sphere::default()),
-                material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
+                material: materials.add(Color::srgb(0.8, 0.7, 0.6)),
                 ..default()
             },
             // Add the animation player
@@ -155,7 +165,7 @@ fn setup(
                     PbrBundle {
                         transform: Transform::from_xyz(1.5, 0.0, 0.0),
                         mesh: meshes.add(Cuboid::new(0.5, 0.5, 0.5)),
-                        material: materials.add(Color::rgb(0.3, 0.9, 0.3)),
+                        material: materials.add(Color::srgb(0.3, 0.9, 0.3)),
                         ..default()
                     },
                     AnimationTarget {

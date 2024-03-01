@@ -1,6 +1,5 @@
 use crate::*;
-use bevy_app::{App, Plugin};
-use bevy_asset::{Asset, AssetApp, AssetEvent, AssetId, AssetServer, Assets, Handle};
+use bevy_asset::{Asset, AssetEvent, AssetId, AssetServer};
 use bevy_core_pipeline::{
     core_3d::{
         AlphaMask3d, Camera3d, Opaque3d, ScreenSpaceTransmissionQuality, Transmissive3d,
@@ -16,19 +15,17 @@ use bevy_ecs::{
 };
 use bevy_reflect::Reflect;
 use bevy_render::{
-    camera::Projection,
     camera::TemporalJitter,
     extract_instances::{ExtractInstancesPlugin, ExtractedInstances},
     extract_resource::ExtractResource,
-    mesh::{Mesh, MeshVertexBufferLayout},
-    prelude::Image,
-    render_asset::{prepare_assets, RenderAssets},
+    mesh::{Mesh, MeshVertexBufferLayoutRef},
+    render_asset::RenderAssets,
     render_phase::*,
     render_resource::*,
     renderer::RenderDevice,
     texture::FallbackImage,
     view::{ExtractedView, Msaa, VisibleEntities},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract,
 };
 use bevy_utils::{tracing::error, HashMap, HashSet};
 use std::marker::PhantomData;
@@ -52,7 +49,9 @@ use self::{irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight};
 /// # use bevy_pbr::{Material, MaterialMeshBundle};
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_reflect::TypePath;
-/// # use bevy_render::{render_resource::{AsBindGroup, ShaderRef}, texture::Image, color::Color};
+/// # use bevy_render::{render_resource::{AsBindGroup, ShaderRef}, texture::Image};
+/// # use bevy_color::LinearRgba;
+/// # use bevy_color::palettes::basic::RED;
 /// # use bevy_asset::{Handle, AssetServer, Assets, Asset};
 ///
 /// #[derive(AsBindGroup, Debug, Clone, Asset, TypePath)]
@@ -60,7 +59,7 @@ use self::{irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight};
 ///     // Uniform bindings must implement `ShaderType`, which will be used to convert the value to
 ///     // its shader-compatible equivalent. Most core math types already implement `ShaderType`.
 ///     #[uniform(0)]
-///     color: Color,
+///     color: LinearRgba,
 ///     // Images can be bound as textures in shaders. If the Image's sampler is also needed, just
 ///     // add the sampler attribute with a different binding index.
 ///     #[texture(1)]
@@ -80,7 +79,7 @@ use self::{irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight};
 /// fn setup(mut commands: Commands, mut materials: ResMut<Assets<CustomMaterial>>, asset_server: Res<AssetServer>) {
 ///     commands.spawn(MaterialMeshBundle {
 ///         material: materials.add(CustomMaterial {
-///             color: Color::RED,
+///             color: RED.into(),
 ///             color_texture: asset_server.load("some_image.png"),
 ///         }),
 ///         ..Default::default()
@@ -172,13 +171,13 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
     }
 
     /// Customizes the default [`RenderPipelineDescriptor`] for a specific entity using the entity's
-    /// [`MaterialPipelineKey`] and [`MeshVertexBufferLayout`] as input.
+    /// [`MaterialPipelineKey`] and [`MeshVertexBufferLayoutRef`] as input.
     #[allow(unused_variables)]
     #[inline]
     fn specialize(
         pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
-        layout: &MeshVertexBufferLayout,
+        layout: &MeshVertexBufferLayoutRef,
         key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         Ok(())
@@ -327,7 +326,7 @@ where
     fn specialize(
         &self,
         key: Self::Key,
-        layout: &MeshVertexBufferLayout,
+        layout: &MeshVertexBufferLayoutRef,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut descriptor = self.mesh_pipeline.specialize(key.mesh_key, layout)?;
         if let Some(vertex_shader) = &self.vertex_shader {
@@ -586,6 +585,7 @@ pub fn queue_material_meshes<M: Material>(
                 camera_3d.screen_space_specular_transmission_quality,
             );
         }
+
         let rangefinder = view.rangefinder3d();
         for visible_entity in &visible_entities.entities {
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
@@ -675,10 +675,10 @@ pub fn queue_material_meshes<M: Material>(
                     }
                 }
                 AlphaMode::Mask(_) => {
-                    let distance = rangefinder
-                        .distance_translation(&mesh_instance.transforms.transform.translation)
-                        + material.properties.depth_bias;
                     if material.properties.reads_view_transmission_texture {
+                        let distance = rangefinder
+                            .distance_translation(&mesh_instance.transforms.transform.translation)
+                            + material.properties.depth_bias;
                         transmissive_phase.add(Transmissive3d {
                             entity: *visible_entity,
                             draw_function: draw_transmissive_pbr,
@@ -692,7 +692,7 @@ pub fn queue_material_meshes<M: Material>(
                             entity: *visible_entity,
                             draw_function: draw_alpha_mask_pbr,
                             pipeline: pipeline_id,
-                            distance,
+                            asset_id: mesh_instance.mesh_asset_id,
                             batch_range: 0..1,
                             dynamic_offset: None,
                         });
@@ -794,7 +794,19 @@ pub struct PreparedMaterial<T: Material> {
 }
 
 #[derive(Component, Clone, Copy, Default, PartialEq, Eq, Deref, DerefMut)]
-pub struct MaterialBindGroupId(Option<BindGroupId>);
+pub struct MaterialBindGroupId(pub Option<BindGroupId>);
+
+impl MaterialBindGroupId {
+    pub fn new(id: BindGroupId) -> Self {
+        Self(Some(id))
+    }
+}
+
+impl From<BindGroup> for MaterialBindGroupId {
+    fn from(value: BindGroup) -> Self {
+        Self::new(value.id())
+    }
+}
 
 /// An atomic version of [`MaterialBindGroupId`] that can be read from and written to
 /// safely from multiple threads.
@@ -802,7 +814,7 @@ pub struct MaterialBindGroupId(Option<BindGroupId>);
 pub struct AtomicMaterialBindGroupId(AtomicU32);
 
 impl AtomicMaterialBindGroupId {
-    /// Stores a value atomically. Uses [`Ordering::Relaxed`] so there is zero guarentee of ordering
+    /// Stores a value atomically. Uses [`Ordering::Relaxed`] so there is zero guarantee of ordering
     /// relative to other operations.
     ///
     /// See also:  [`AtomicU32::store`].
@@ -815,7 +827,7 @@ impl AtomicMaterialBindGroupId {
         self.0.store(id, Ordering::Relaxed);
     }
 
-    /// Loads a value atomically. Uses [`Ordering::Relaxed`] so there is zero guarentee of ordering
+    /// Loads a value atomically. Uses [`Ordering::Relaxed`] so there is zero guarantee of ordering
     /// relative to other operations.
     ///
     /// See also:  [`AtomicU32::load`].

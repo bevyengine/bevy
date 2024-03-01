@@ -24,7 +24,9 @@ thiserror = "1.0"
 
 [dev-dependencies]
 bevy_tasks = { path = "../bevy_tasks", version = "0.14.0-dev" }
-bevy_math = { path = "../bevy_math", version = "0.14.0-dev", features = ["approx"] }
+bevy_math = { path = "../bevy_math", version = "0.14.0-dev", features = [
+  "approx",
+] }
 approx = "0.5.1"
 
 [features]

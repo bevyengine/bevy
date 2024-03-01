@@ -17,6 +17,7 @@ mod prepass;
 mod render;
 mod ssao;
 
+use bevy_color::{Color, LinearRgba};
 pub use bundle::*;
 pub use extended_material::*;
 pub use fog::*;
@@ -73,7 +74,6 @@ use bevy_render::{
     camera::{CameraUpdateSystem, Projection},
     extract_component::ExtractComponentPlugin,
     extract_resource::ExtractResourcePlugin,
-    prelude::Color,
     render_asset::prepare_assets,
     render_graph::RenderGraph,
     render_phase::sort_phase_system,
@@ -336,7 +336,7 @@ impl Plugin for PbrPlugin {
         app.world.resource_mut::<Assets<StandardMaterial>>().insert(
             Handle::<StandardMaterial>::default(),
             StandardMaterial {
-                base_color: Color::rgb(1.0, 0.0, 0.5),
+                base_color: Color::srgb(1.0, 0.0, 0.5),
                 unlit: true,
                 ..Default::default()
             },

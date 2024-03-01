@@ -25,6 +25,8 @@ trace_tracy_memory = ["bevy_log/trace_tracy_memory"]
 wgpu_trace = ["bevy_render/wgpu_trace"]
 detailed_trace = ["bevy_utils/detailed_trace"]
 
+sysinfo_plugin = ["bevy_diagnostic/sysinfo_plugin"]
+
 # Image format support for texture loading (PNG and HDR are enabled by default)
 exr = ["bevy_render/exr"]
 hdr = ["bevy_render/hdr"]
@@ -185,6 +187,7 @@ bevy_tasks = { path = "../bevy_tasks", version = "0.14.0-dev" }
 bevy_animation = { path = "../bevy_animation", optional = true, version = "0.14.0-dev" }
 bevy_asset = { path = "../bevy_asset", optional = true, version = "0.14.0-dev" }
 bevy_audio = { path = "../bevy_audio", optional = true, version = "0.14.0-dev" }
+bevy_color = { path = "../bevy_color", optional = true, version = "0.14.0-dev" }
 bevy_core_pipeline = { path = "../bevy_core_pipeline", optional = true, version = "0.14.0-dev" }
 bevy_gltf = { path = "../bevy_gltf", optional = true, version = "0.14.0-dev" }
 bevy_pbr = { path = "../bevy_pbr", optional = true, version = "0.14.0-dev" }

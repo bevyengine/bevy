@@ -1,6 +1,6 @@
 //! Demonstrates how the to use the size constraints to control the size of a UI node.
 
-use bevy::prelude::*;
+use bevy::{color::palettes::css::*, prelude::*};
 
 fn main() {
     App::new()
@@ -11,15 +11,15 @@ fn main() {
         .run();
 }
 
-const ACTIVE_BORDER_COLOR: Color = Color::ANTIQUE_WHITE;
+const ACTIVE_BORDER_COLOR: Color = Color::Srgba(ANTIQUE_WHITE);
 const INACTIVE_BORDER_COLOR: Color = Color::BLACK;
 
 const ACTIVE_INNER_COLOR: Color = Color::WHITE;
-const INACTIVE_INNER_COLOR: Color = Color::NAVY;
+const INACTIVE_INNER_COLOR: Color = Color::Srgba(NAVY);
 
 const ACTIVE_TEXT_COLOR: Color = Color::BLACK;
 const HOVERED_TEXT_COLOR: Color = Color::WHITE;
-const UNHOVERED_TEXT_COLOR: Color = Color::GRAY;
+const UNHOVERED_TEXT_COLOR: Color = Color::srgb(0.5, 0.5, 0.5);
 
 #[derive(Component)]
 struct Bar;
@@ -45,7 +45,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let text_style = TextStyle {
         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
         font_size: 40.0,
-        color: Color::rgb(0.9, 0.9, 0.9),
+        color: Color::srgb(0.9, 0.9, 0.9),
     };
 
     commands
@@ -91,7 +91,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 margin: UiRect::top(Val::Px(50.)),
                                 ..Default::default()
                             },
-                            background_color: Color::YELLOW.into(),
+                            background_color: YELLOW.into(),
                             ..Default::default()
                         })
                         .with_children(|parent| {
@@ -117,7 +117,7 @@ fn spawn_bar(parent: &mut ChildBuilder) {
                 padding: UiRect::all(Val::Px(10.)),
                 ..Default::default()
             },
-            background_color: Color::YELLOW.into(),
+            background_color: YELLOW.into(),
             ..Default::default()
         })
         .with_children(|parent| {
@@ -176,7 +176,6 @@ fn spawn_button_row(parent: &mut ChildBuilder, constraint: Constraint, text_styl
                         padding: UiRect::all(Val::Px(2.)),
                         ..Default::default()
                     },
-                    //background_color: Color::RED.into(),
                     ..Default::default()
                 })
                 .with_children(|parent| {
@@ -202,7 +201,6 @@ fn spawn_button_row(parent: &mut ChildBuilder, constraint: Constraint, text_styl
                     // spawn row buttons
                     parent
                         .spawn(NodeBundle {
-                            // background_color: Color::DARK_GREEN.into(),
                             ..Default::default()
                         })
                         .with_children(|parent| {

@@ -2,7 +2,7 @@
 
 use std::f32::consts::{PI, TAU};
 
-use bevy::prelude::*;
+use bevy::{color::palettes::css::*, prelude::*};
 
 fn main() {
     App::new()
@@ -38,50 +38,58 @@ fn draw_example_collection(
     time: Res<Time>,
 ) {
     let sin = time.elapsed_seconds().sin() * 50.;
-    gizmos.line_2d(Vec2::Y * -sin, Vec2::splat(-80.), Color::RED);
-    gizmos.ray_2d(Vec2::Y * sin, Vec2::splat(80.), Color::GREEN);
+    gizmos.line_2d(Vec2::Y * -sin, Vec2::splat(-80.), RED);
+    gizmos.ray_2d(Vec2::Y * sin, Vec2::splat(80.), GREEN);
+
+    gizmos
+        .grid_2d(
+            Vec2::ZERO,
+            0.0,
+            UVec2::new(16, 12),
+            Vec2::new(60., 60.),
+            // Light gray
+            LinearRgba::gray(0.65),
+        )
+        .outer_edges(true);
 
     // Triangle
     gizmos.linestrip_gradient_2d([
-        (Vec2::Y * 300., Color::BLUE),
-        (Vec2::new(-255., -155.), Color::RED),
-        (Vec2::new(255., -155.), Color::GREEN),
-        (Vec2::Y * 300., Color::BLUE),
+        (Vec2::Y * 300., BLUE),
+        (Vec2::new(-255., -155.), RED),
+        (Vec2::new(255., -155.), GREEN),
+        (Vec2::Y * 300., BLUE),
     ]);
 
     gizmos.rect_2d(
         Vec2::ZERO,
         time.elapsed_seconds() / 3.,
         Vec2::splat(300.),
-        Color::BLACK,
+        BLACK,
     );
 
     // The circles have 32 line-segments by default.
-    my_gizmos.circle_2d(Vec2::ZERO, 120., Color::BLACK);
+    my_gizmos.circle_2d(Vec2::ZERO, 120., BLACK);
     my_gizmos.ellipse_2d(
         Vec2::ZERO,
         time.elapsed_seconds() % TAU,
         Vec2::new(100., 200.),
-        Color::YELLOW_GREEN,
+        YELLOW_GREEN,
     );
     // You may want to increase this for larger circles.
-    my_gizmos
-        .circle_2d(Vec2::ZERO, 300., Color::NAVY)
-        .segments(64);
+    my_gizmos.circle_2d(Vec2::ZERO, 300., NAVY).segments(64);
 
     // Arcs default amount of segments is linearly interpolated between
     // 1 and 32, using the arc length as scalar.
-    my_gizmos.arc_2d(Vec2::ZERO, sin / 10., PI / 2., 350., Color::ORANGE_RED);
+    my_gizmos.arc_2d(Vec2::ZERO, sin / 10., PI / 2., 350., ORANGE_RED);
 
     gizmos.arrow_2d(
         Vec2::ZERO,
         Vec2::from_angle(sin / -10. + PI / 2.) * 50.,
-        Color::YELLOW,
+        YELLOW,
     );
 
     // You can create more complex arrows using the arrow builder.
-    let mut arrow_builder =
-        gizmos.arrow_2d(Vec2::ZERO, Vec2::from_angle(sin / -10.) * 50., Color::GREEN);
+    let mut arrow_builder = gizmos.arrow_2d(Vec2::ZERO, Vec2::from_angle(sin / -10.) * 50., GREEN);
     arrow_builder.with_double_end();
     arrow_builder.with_tip_length(10.);
 }

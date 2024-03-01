@@ -16,6 +16,7 @@ bitflags! {
         const BENCH_CHECK = 0b01000000;
         const EXAMPLE_CHECK = 0b10000000;
         const COMPILE_CHECK = 0b100000000;
+        const CFG_CHECK = 0b1000000000;
     }
 }
 
@@ -38,6 +39,7 @@ fn main() {
         ("compile-fail", Check::COMPILE_FAIL),
         ("bench-check", Check::BENCH_CHECK),
         ("example-check", Check::EXAMPLE_CHECK),
+        ("cfg-check", Check::CFG_CHECK),
         ("doc-check", Check::DOC_CHECK),
         ("doc-test", Check::DOC_TEST),
     ];
@@ -154,5 +156,13 @@ fn main() {
         cmd!(sh, "cargo check --workspace")
             .run()
             .expect("Please fix compiler errors in output above.");
+    }
+
+    if what_to_run.contains(Check::CFG_CHECK) {
+        // Check cfg and imports
+        std::env::set_var("RUSTFLAGS", "-D warnings");
+        cmd!(sh, "cargo +nightly check -Zcheck-cfg --workspace")
+            .run()
+            .expect("Please fix failing cfg checks in output above.");
     }
 }

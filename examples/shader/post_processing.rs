@@ -248,9 +248,7 @@ impl FromWorld for PostProcessPipeline {
         let sampler = render_device.create_sampler(&SamplerDescriptor::default());
 
         // Get the shader handle
-        let shader = world
-            .resource::<AssetServer>()
-            .load("shaders/post_processing.wgsl");
+        let shader = world.load_asset("shaders/post_processing.wgsl");
 
         let pipeline_id = world
             .resource_mut::<PipelineCache>()
@@ -326,7 +324,7 @@ fn setup(
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Cuboid::default()),
-            material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
+            material: materials.add(Color::srgb(0.8, 0.7, 0.6)),
             transform: Transform::from_xyz(0.0, 0.5, 0.0),
             ..default()
         },

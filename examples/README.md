@@ -228,6 +228,7 @@ Example | Description
 Example | Description
 --- | ---
 [Component Change Detection](../examples/ecs/component_change_detection.rs) | Change detection on components
+[Component Hooks](../examples/ecs/component_hooks.rs) | Define component hooks to manage component lifecycle events
 [Custom Query Parameters](../examples/ecs/custom_query_param.rs) | Groups commonly used compound queries and query filters into a single type
 [Custom Schedule](../examples/ecs/custom_schedule.rs) | Demonstrates how to add custom schedules
 [Dynamic ECS](../examples/ecs/dynamic.rs) | Dynamically create components, spawn entities with those components and query those components
@@ -518,7 +519,7 @@ make run
 ```
 
 In an ideal world, this will boot up, install and run the app for the first
-iOS simulator in your `xcrun simctl devices list`. If this fails, you can
+iOS simulator in your `xcrun simctl list devices`. If this fails, you can
 specify the simulator device UUID via:
 
 ```sh

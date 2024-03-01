@@ -12,7 +12,7 @@ use bevy_ecs::{
 };
 use bevy_log::error;
 use bevy_render::{
-    mesh::{Mesh, MeshVertexBufferLayout},
+    mesh::{Mesh, MeshVertexBufferLayoutRef},
     prelude::Image,
     render_asset::{prepare_assets, RenderAssets},
     render_phase::{
@@ -54,7 +54,8 @@ use crate::{
 /// # use bevy_sprite::{Material2d, MaterialMesh2dBundle};
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_reflect::TypePath;
-/// # use bevy_render::{render_resource::{AsBindGroup, ShaderRef}, texture::Image, color::Color};
+/// # use bevy_render::{render_resource::{AsBindGroup, ShaderRef}, texture::Image};
+/// # use bevy_color::LinearRgba;
 /// # use bevy_asset::{Handle, AssetServer, Assets, Asset};
 ///
 /// #[derive(AsBindGroup, Debug, Clone, Asset, TypePath)]
@@ -62,7 +63,7 @@ use crate::{
 ///     // Uniform bindings must implement `ShaderType`, which will be used to convert the value to
 ///     // its shader-compatible equivalent. Most core math types already implement `ShaderType`.
 ///     #[uniform(0)]
-///     color: Color,
+///     color: LinearRgba,
 ///     // Images can be bound as textures in shaders. If the Image's sampler is also needed, just
 ///     // add the sampler attribute with a different binding index.
 ///     #[texture(1)]
@@ -82,7 +83,7 @@ use crate::{
 /// fn setup(mut commands: Commands, mut materials: ResMut<Assets<CustomMaterial>>, asset_server: Res<AssetServer>) {
 ///     commands.spawn(MaterialMesh2dBundle {
 ///         material: materials.add(CustomMaterial {
-///             color: Color::RED,
+///             color: LinearRgba::RED,
 ///             color_texture: asset_server.load("some_image.png"),
 ///         }),
 ///         ..Default::default()
@@ -124,7 +125,7 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
     #[inline]
     fn specialize(
         descriptor: &mut RenderPipelineDescriptor,
-        layout: &MeshVertexBufferLayout,
+        layout: &MeshVertexBufferLayoutRef,
         key: Material2dKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         Ok(())
@@ -270,7 +271,7 @@ where
     fn specialize(
         &self,
         key: Self::Key,
-        layout: &MeshVertexBufferLayout,
+        layout: &MeshVertexBufferLayoutRef,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut descriptor = self.mesh2d_pipeline.specialize(key.mesh_key, layout)?;
         if let Some(vertex_shader) = &self.vertex_shader {

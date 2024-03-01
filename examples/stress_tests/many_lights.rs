@@ -4,6 +4,7 @@
 use std::f64::consts::PI;
 
 use bevy::{
+    color::palettes::css::PINK,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::{DVec2, DVec3},
     pbr::{ExtractedPointLight, GlobalLightMeta},
@@ -61,7 +62,7 @@ fn setup(
 
     let mesh = meshes.add(Cuboid::default());
     let material = materials.add(StandardMaterial {
-        base_color: Color::PINK,
+        base_color: PINK.into(),
         ..default()
     });
 
@@ -69,11 +70,15 @@ fn setup(
     // the same number of visible meshes regardless of the viewing angle.
     // NOTE: f64 is used to avoid precision issues that produce visual artifacts in the distribution
     let golden_ratio = 0.5f64 * (1.0f64 + 5.0f64.sqrt());
-    let mut rng = thread_rng();
-    for i in 0..N_LIGHTS {
+
+    // Spawn N_LIGHTS many lights
+    commands.spawn_batch((0..N_LIGHTS).map(move |i| {
+        let mut rng = thread_rng();
+
         let spherical_polar_theta_phi = fibonacci_spiral_on_sphere(golden_ratio, i, N_LIGHTS);
         let unit_sphere_p = spherical_polar_to_cartesian(spherical_polar_theta_phi);
-        commands.spawn(PointLightBundle {
+
+        PointLightBundle {
             point_light: PointLight {
                 range: LIGHT_RADIUS,
                 intensity: LIGHT_INTENSITY,
@@ -82,8 +87,8 @@ fn setup(
             },
             transform: Transform::from_translation((RADIUS as f64 * unit_sphere_p).as_vec3()),
             ..default()
-        });
-    }
+        }
+    }));
 
     // camera
     match std::env::args().nth(1).as_deref() {
