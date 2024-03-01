@@ -67,7 +67,7 @@ fn setup(world: &mut World) {
     // This will spawn an entity with CompA
     // - Which will trigger the first observer
     //   - Removing CompB
-    //   - Emitting Resize targetting `entity`
+    //   - Emitting Resize targeting `entity`
     //      - Which will trigger it's entity observer
     //          - Incrementing ResizeCount
     let entity_b = world.spawn((CompA(entity), CompB)).flush();

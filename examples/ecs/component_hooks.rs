@@ -1,6 +1,6 @@
 //! This examples illustrates the different ways you can employ component lifecycle hooks
 
-use bevy::ecs::component::{ComponentInfo, TableStorage};
+use bevy::ecs::component::{ComponentHooks, TableStorage};
 use bevy::prelude::*;
 use std::collections::HashMap;
 
@@ -12,7 +12,7 @@ impl Component for MyComponent {
 
     /// Hooks can also be registered during component initialisation by
     /// implementing `init_component_info`
-    fn init_component_info(_info: &mut ComponentInfo) {
+    fn register_component_hooks(_hooks: &mut ComponentHooks) {
         // Register hooks...
     }
 }

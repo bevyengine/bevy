@@ -156,13 +156,13 @@ impl Observers {
         // SAFETY: You cannot get a mutable reference to `observers` from `DeferredWorld`
         let (mut world, observers) = unsafe {
             let world = world.as_unsafe_world_cell();
-            // SAFETY: There are no oustanding world references
+            // SAFETY: There are no outsanding world references
             world.increment_event_id();
             let observers = world.observers();
             let Some(observers) = observers.try_get_observers(event) else {
                 return;
             };
-            // SAFETY: The only oustanding reference to world is `observers`
+            // SAFETY: The only outsanding reference to world is `observers`
             (world.into_deferred(), observers)
         };
 

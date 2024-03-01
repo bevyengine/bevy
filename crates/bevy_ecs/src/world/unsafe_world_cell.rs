@@ -612,7 +612,7 @@ impl<'w> UnsafeWorldCell<'w> {
     }
 
     /// # Safety
-    /// It is the callers responsibility to ensure that there are no oustanding
+    /// It is the callers responsibility to ensure that there are no outsanding
     /// references to `last_event_id`.
     pub(crate) unsafe fn increment_event_id(self) {
         // SAFETY: Caller ensure there are no outstanding references

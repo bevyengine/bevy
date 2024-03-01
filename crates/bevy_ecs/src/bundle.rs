@@ -930,7 +930,7 @@ impl<'w> BundleSpawner<'w> {
             location
         };
 
-        // SAFETY: We have no oustanding mutable references to world as they were dropped
+        // SAFETY: We have no outsanding mutable references to world as they were dropped
         unsafe {
             let archetype = &*self.archetype;
             let bundle_info = &*self.bundle_info;
