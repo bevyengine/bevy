@@ -13,7 +13,7 @@ mod winit_windows;
 
 use approx::relative_eq;
 use bevy_a11y::AccessibilityRequested;
-use bevy_utils::{Duration, Instant};
+use bevy_utils::Instant;
 use system::{changed_windows, create_windows, despawn_windows, CachedWindow};
 use winit::dpi::{LogicalSize, PhysicalSize};
 pub use winit_config::*;
@@ -222,7 +222,6 @@ impl Default for WinitAppRunnerState {
             redraw_requested: false,
             wait_elapsed: false,
             last_update: Instant::now(),
-            scheduled_update: None,
             // 3 seems to be enough, 5 is a safe margin
             startup_forced_updates: 5,
         }
