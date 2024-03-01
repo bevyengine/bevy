@@ -176,7 +176,7 @@ impl<'a> TextureAtlasBuilder<'a> {
     ///     commands.spawn((
     ///         SpriteBundle { texture, ..Default::default() },
     ///         TextureAtlas::from(layout),
-    ///     });
+    ///     ));
     /// }
     /// ```
     ///
