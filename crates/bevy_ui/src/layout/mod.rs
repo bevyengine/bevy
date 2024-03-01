@@ -460,7 +460,7 @@ pub fn resolve_outlines_system(
 ) {
     let viewport_size = primary_window
         .get_single()
-        .map(|window| Vec2::new(window.resolution.width(), window.resolution.height()))
+        .map(|window| window.size())
         .unwrap_or(Vec2::ZERO)
         / ui_scale.0;
 

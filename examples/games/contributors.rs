@@ -242,7 +242,7 @@ fn collisions(
     mut query: Query<(&mut Velocity, &mut Transform), With<Contributor>>,
 ) {
     let window = windows.single();
-    let window_size = Vec2::new(window.width(), window.height());
+    let window_size = window.size();
 
     let collision_area = Aabb2d::new(Vec2::ZERO, (window_size - SPRITE_SIZE) / 2.);
 
