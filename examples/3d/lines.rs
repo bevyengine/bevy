@@ -5,7 +5,7 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
     render::{
-        mesh::{MeshVertexBufferLayout, MeshVertexBufferLayoutRef, PrimitiveTopology},
+        mesh::{MeshVertexBufferLayoutRef, PrimitiveTopology},
         render_asset::RenderAssetUsages,
         render_resource::{
             AsBindGroup, PolygonMode, RenderPipelineDescriptor, ShaderRef,
