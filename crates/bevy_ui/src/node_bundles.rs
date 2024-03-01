@@ -77,8 +77,9 @@ impl Default for NodeBundle {
 ///
 /// # Extra behaviours
 ///
-/// You may add the following components to enable additional behaviours
+/// You may add the following components to enable additional behaviours:
 /// - [`ImageScaleMode`](bevy_sprite::ImageScaleMode) to enable either slicing or tiling of the texture
+/// - [`TextureAtlas`] to draw specific sections of a sprite sheet
 #[derive(Bundle, Debug, Default)]
 pub struct ImageBundle {
     /// Describes the logical size of the node
@@ -122,6 +123,10 @@ pub struct ImageBundle {
 /// A UI node that is a texture atlas sprite
 ///
 /// This bundle is identical to [`ImageBundle`] with an additional [`TextureAtlas`] component.
+#[deprecated(
+    since = "0.14.0",
+    note = "Use `TextureAtlas` alongside `ImageBundle` instead"
+)]
 #[derive(Bundle, Debug, Default)]
 pub struct AtlasImageBundle {
     /// Describes the logical size of the node
