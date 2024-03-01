@@ -2,7 +2,7 @@ use bevy_ecs::{
     entity::{Entity, EntityMapper, MapEntities},
     prelude::{Component, ReflectComponent},
 };
-use bevy_math::{DVec2, IVec2, Vec2};
+use bevy_math::{DVec2, IVec2, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 #[cfg(feature = "serialize")]
@@ -313,6 +313,14 @@ impl Window {
         self.resolution.height()
     }
 
+    /// The window's client area size in logical pixels.
+    ///
+    /// See [`WindowResolution`] for an explanation about logical/physical sizes.
+    #[inline]
+    pub fn size(&self) -> Vec2 {
+        Vec2::new(self.width(), self.height())
+    }
+
     /// The window's client area width in physical pixels.
     ///
     /// See [`WindowResolution`] for an explanation about logical/physical sizes.
@@ -327,6 +335,14 @@ impl Window {
     #[inline]
     pub fn physical_height(&self) -> u32 {
         self.resolution.physical_height()
+    }
+
+    /// The window's client area size in physical pixels.
+    ///
+    /// See [`WindowResolution`] for an explanation about logical/physical sizes.
+    #[inline]
+    pub fn physical_size(&self) -> UVec2 {
+        UVec2::new(self.physical_width(), self.physical_height())
     }
 
     /// The window's scale factor.
