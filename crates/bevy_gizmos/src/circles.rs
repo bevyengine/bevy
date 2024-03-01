@@ -237,7 +237,20 @@ where
     segments: usize,
 }
 
+
 impl<Config, Clear> Ellipse2dBuilder<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    /// Set the number of line-segments for this ellipse.
+    pub fn segments(mut self, segments: usize) -> Self {
+        self.segments = segments;
+        self
+    }
+}
+
+impl<Config, Clear> Drop for Ellipse2dBuilder<'_, '_, '_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
