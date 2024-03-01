@@ -1,6 +1,12 @@
 //! Demonstrates animation blending with animation graphs.
 
-use bevy::prelude::*;
+use bevy::{
+    color::palettes::{
+        basic::WHITE,
+        css::{ANTIQUE_WHITE, DARK_GREEN},
+    },
+    prelude::{Color::Srgba, *},
+};
 
 #[derive(Debug)]
 struct NodeRect {
@@ -51,38 +57,7 @@ enum DragState {
 
 const WEIGHT_ADJUST_SPEED: f32 = 0.01;
 
-static NODE_RECTS: [NodeRect; 5] = [
-    NodeRect {
-        left: 10f32,
-        bottom: 10.000250000000051,
-        width: 97.63524999999998,
-        height: 48.407249999999976,
-    },
-    NodeRect {
-        left: 10f32,
-        bottom: 78.40775000000002,
-        width: 97.63524999999998,
-        height: 48.407249999999976,
-    },
-    NodeRect {
-        left: 286.08f32,
-        bottom: 78.40775000000002,
-        width: 97.63524999999998,
-        height: 48.407249999999976,
-    },
-    NodeRect {
-        left: 148.04025f32,
-        bottom: 44.20275000000004,
-        width: 97.63525000000001,
-        height: 48.407249999999976,
-    },
-    NodeRect {
-        left: 10f32,
-        bottom: 146.81525000000005,
-        width: 97.63524999999998,
-        height: 48.407249999999976,
-    },
-];
+static HELP_TEXT: &str = "Click and drag an animation clip node to change its weight";
 
 static NODE_TYPES: [NodeType; 5] = [
     NodeType::Clip(ClipNodeText::new("Idle", 0)),
@@ -92,49 +67,26 @@ static NODE_TYPES: [NodeType; 5] = [
     NodeType::Clip(ClipNodeText::new("Run", 2)),
 ];
 
-static HORIZONTAL_LINES: [Line; 6] = [
-    Line {
-        left: 107.63525000000001,
-        bottom: 34.20500000000004,
-        length: 20.195999999999998,
-    },
-    Line {
-        left: 107.63525000000001,
-        bottom: 102.61000000000001,
-        length: 20.195999999999998,
-    },
-    Line {
-        left: 107.63525000000001,
-        bottom: 171.01749999999998,
-        length: 158.24224999999998,
-    },
-    Line {
-        left: 127.83775,
-        bottom: 68.40750000000003,
-        length: 20.202499999999986,
-    },
-    Line {
-        left: 245.675,
-        bottom: 68.40750000000003,
-        length: 20.202499999999986,
-    },
-    Line {
-        left: 265.8775,
-        bottom: 102.61000000000001,
-        length: 20.202499999999986,
-    },
+static NODE_RECTS: [NodeRect; 5] = [
+    NodeRect::new(10.00, 10.00, 97.64, 48.41),
+    NodeRect::new(10.00, 78.41, 97.64, 48.41),
+    NodeRect::new(286.08, 78.41, 97.64, 48.41),
+    NodeRect::new(148.04, 44.20, 97.64, 48.41),
+    NodeRect::new(10.00, 146.82, 97.64, 48.41),
 ];
+
+static HORIZONTAL_LINES: [Line; 6] = [
+    Line::new(107.64, 34.21, 20.20),
+    Line::new(107.64, 102.61, 20.20),
+    Line::new(107.64, 171.02, 158.24),
+    Line::new(127.84, 68.41, 20.20),
+    Line::new(245.68, 68.41, 20.20),
+    Line::new(265.88, 102.61, 20.20),
+];
+
 static VERTICAL_LINES: [Line; 2] = [
-    Line {
-        left: 127.83125000000001,
-        bottom: 34.20500000000004,
-        length: 68.40499999999997,
-    },
-    Line {
-        left: 265.8775,
-        bottom: 68.40750000000003,
-        length: 102.60999999999996,
-    },
+    Line::new(127.83, 34.21, 68.40),
+    Line::new(265.88, 68.41, 102.61),
 ];
 
 fn main() {
@@ -155,7 +107,7 @@ fn main() {
         .init_resource::<AnimationWeights>()
         .init_resource::<DragState>()
         .insert_resource(AmbientLight {
-            color: LegacyColor::WHITE,
+            color: Srgba(WHITE),
             brightness: 100.0,
         })
         .run();
@@ -163,9 +115,8 @@ fn main() {
 
 fn setup(
     mut commands: Commands,
-    asset_server: ResMut<AssetServer>,
+    mut asset_server: ResMut<AssetServer>,
     mut animation_graphs: ResMut<Assets<AnimationGraph>>,
-    animation_weights: Res<AnimationWeights>,
 ) {
     let mut animation_graph = AnimationGraph::new();
     let blend_node = animation_graph.add_blend(0.5, animation_graph.root);
@@ -194,6 +145,21 @@ fn setup(
         node_indices,
     });
 
+
+    commands.spawn(SceneBundle {
+        scene: asset_server.load("models/animated/Fox.glb#Scene0"),
+        transform: Transform::from_scale(Vec3::splat(0.05)),
+        ..default()
+    });
+
+    setup_camera_and_light(&mut commands);
+
+    setup_help_text(&mut commands, &mut asset_server);
+    setup_node_rects(&mut commands, &mut asset_server);
+    setup_node_lines(&mut commands);
+}
+
+fn setup_camera_and_light(commands: &mut Commands) {
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-10.0, 5.0, 13.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
@@ -209,12 +175,29 @@ fn setup(
         ..default()
     });
 
-    commands.spawn(SceneBundle {
-        scene: asset_server.load("models/animated/Fox.glb#Scene0"),
-        transform: Transform::from_scale(Vec3::splat(0.05)),
+}
+
+fn setup_help_text(commands: &mut Commands, asset_server: &mut AssetServer) {
+    commands.spawn(TextBundle {
+        text: Text::from_section(
+            HELP_TEXT,
+            TextStyle {
+                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                font_size: 24.0,
+                color: Srgba(ANTIQUE_WHITE),
+            },
+        ),
+        style: Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(10.0),
+            left: Val::Px(10.0),
+            ..default()
+        },
         ..default()
     });
+}
 
+fn setup_node_rects(commands: &mut Commands, asset_server: &mut AssetServer) {
     for (node_rect, node_text) in NODE_RECTS.iter().zip(NODE_TYPES.iter()) {
         let node_string = match *node_text {
             NodeType::Clip(ref clip) => clip.text,
@@ -227,7 +210,7 @@ fn setup(
                 TextStyle {
                     font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                     font_size: 16.0,
-                    color: LegacyColor::ANTIQUE_WHITE,
+                    color: Srgba(ANTIQUE_WHITE),
                 },
             )
             .with_justify(JustifyText::Center),
@@ -251,7 +234,7 @@ fn setup(
                         width: Val::Px(node_rect.width),
                         ..default()
                     },
-                    background_color: BackgroundColor(LegacyColor::DARK_GREEN),
+                    background_color: BackgroundColor(Srgba(DARK_GREEN)),
                     ..default()
                 })
                 .insert((*clip).clone());
@@ -274,12 +257,14 @@ fn setup(
                     justify_content: JustifyContent::Center,
                     ..default()
                 },
-                border_color: BorderColor(LegacyColor::WHITE),
+                border_color: BorderColor(Srgba(WHITE)),
                 ..default()
             })
             .add_child(text);
     }
+}
 
+fn setup_node_lines(commands: &mut Commands) {
     for line in &HORIZONTAL_LINES {
         commands.spawn(NodeBundle {
             style: Style {
@@ -291,7 +276,7 @@ fn setup(
                 border: UiRect::bottom(Val::Px(1.0)),
                 ..default()
             },
-            border_color: BorderColor(LegacyColor::WHITE),
+            border_color: BorderColor(Srgba(WHITE)),
             ..default()
         });
     }
@@ -307,10 +292,11 @@ fn setup(
                 border: UiRect::left(Val::Px(1.0)),
                 ..default()
             },
-            border_color: BorderColor(LegacyColor::WHITE),
+            border_color: BorderColor(Srgba(WHITE)),
             ..default()
         });
     }
+
 }
 
 fn init_animations(
@@ -431,5 +417,26 @@ impl Default for AnimationWeights {
 impl ClipNodeText {
     const fn new(text: &'static str, index: usize) -> Self {
         Self { text, index }
+    }
+}
+
+impl NodeRect {
+    const fn new(left: f32, bottom: f32, width: f32, height: f32) -> NodeRect {
+        NodeRect {
+            left,
+            bottom,
+            width,
+            height,
+        }
+    }
+}
+
+impl Line {
+    const fn new(left: f32, bottom: f32, length: f32) -> Self {
+        Self {
+            left,
+            bottom,
+            length,
+        }
     }
 }
