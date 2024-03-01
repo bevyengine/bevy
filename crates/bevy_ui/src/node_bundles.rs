@@ -87,6 +87,9 @@ pub struct ImageBundle {
     /// In some cases these styles also affect how the node drawn/painted.
     pub style: Style,
     /// The calculated size based on the given image
+    ///
+    /// This field is set automatically by `measure_text_system`
+    /// and should ony be initialized with its default value.
     pub calculated_size: ContentSize,
     /// The background color, which serves as a "fill" for this node
     ///
@@ -119,6 +122,30 @@ pub struct ImageBundle {
     pub z_index: ZIndex,
 }
 
+impl ImageBundle {
+    pub fn try_clone(&self) -> Result<Self, UiNodeBundleError> {
+        // A `MeasureFunc` is not cloneable.
+        if self.calculated_size.measure_func.is_some() {
+            return Err(UiNodeBundleError::MeasureFuncNotCloneable);
+        }
+
+        Ok(Self {
+            node: self.node,
+            style: self.style.clone(),
+            calculated_size: Default::default(),
+            background_color: self.background_color,
+            image: self.image.clone(),
+            image_size: self.image_size,
+            focus_policy: self.focus_policy,
+            transform: self.transform,
+            global_transform: self.global_transform,
+            visibility: self.visibility,
+            computed_visibility: self.computed_visibility.clone(),
+            z_index: self.z_index,
+        })
+    }
+}
+
 /// A UI node that is a texture atlas sprite
 ///
 /// This bundle is identical to [`ImageBundle`] with an additional [`TextureAtlas`] component.
@@ -130,6 +157,9 @@ pub struct AtlasImageBundle {
     /// In some cases these styles also affect how the node drawn/painted.
     pub style: Style,
     /// The calculated size based on the given image
+    ///
+    /// This field is set automatically by `update_atlas_content_size_system`
+    /// and should ony be initialized with its default value.
     pub calculated_size: ContentSize,
     /// The background color, which serves as a "fill" for this node
     ///
@@ -164,6 +194,31 @@ pub struct AtlasImageBundle {
     pub z_index: ZIndex,
 }
 
+impl AtlasImageBundle {
+    pub fn try_clone(&self) -> Result<Self, UiNodeBundleError> {
+        // A `MeasureFunc` is not cloneable.
+        if self.calculated_size.measure_func.is_some() {
+            return Err(UiNodeBundleError::MeasureFuncNotCloneable);
+        }
+
+        Ok(Self {
+            node: self.node,
+            style: self.style.clone(),
+            calculated_size: Default::default(),
+            background_color: self.background_color,
+            texture_atlas: self.texture_atlas.clone(),
+            texture_atlas_image: self.texture_atlas_image.clone(),
+            focus_policy: self.focus_policy,
+            image_size: self.image_size,
+            transform: self.transform,
+            global_transform: self.global_transform,
+            visibility: self.visibility,
+            computed_visibility: self.computed_visibility.clone(),
+            z_index: self.z_index,
+        })
+    }
+}
+
 #[cfg(feature = "bevy_text")]
 /// A UI node that is text
 ///
@@ -183,6 +238,9 @@ pub struct TextBundle {
     /// Text system flags
     pub text_flags: TextFlags,
     /// The calculated size based on the given image
+    ///
+    /// This field is set automatically by `measure_text_system`
+    /// and should ony be initialized with its default value.
     pub calculated_size: ContentSize,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
@@ -205,6 +263,31 @@ pub struct TextBundle {
     pub z_index: ZIndex,
     /// The background color that will fill the containing node
     pub background_color: BackgroundColor,
+}
+
+impl TextBundle {
+    pub fn try_clone(&self) -> Result<Self, UiNodeBundleError> {
+        // A `MeasureFunc` is not cloneable.
+        if self.calculated_size.measure_func.is_some() {
+            return Err(UiNodeBundleError::MeasureFuncNotCloneable);
+        }
+
+        Ok(Self {
+            node: self.node,
+            style: self.style.clone(),
+            text: self.text.clone(),
+            text_layout_info: self.text_layout_info.clone(),
+            text_flags: self.text_flags.clone(),
+            calculated_size: Default::default(),
+            focus_policy: self.focus_policy,
+            transform: self.transform,
+            global_transform: self.global_transform,
+            visibility: self.visibility,
+            computed_visibility: self.computed_visibility.clone(),
+            z_index: self.z_index,
+            background_color: self.background_color,
+        })
+    }
 }
 
 #[cfg(feature = "bevy_text")]
@@ -405,4 +488,8 @@ impl<M: UiMaterial> Default for MaterialNodeBundle<M> {
             z_index: Default::default(),
         }
     }
+}
+
+pub enum UiNodeBundleError {
+    MeasureFuncNotCloneable,
 }
