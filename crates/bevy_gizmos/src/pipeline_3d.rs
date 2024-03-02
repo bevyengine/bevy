@@ -339,6 +339,7 @@ fn queue_line_gizmos_3d(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn queue_line_joint_gizmos_3d(
     draw_functions: Res<DrawFunctions<Transparent3d>>,
     pipeline: Res<LineJointGizmoPipeline>,
