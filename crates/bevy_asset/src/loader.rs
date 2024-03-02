@@ -38,6 +38,7 @@ pub trait AssetLoader: Send + Sync + 'static {
     ) -> BoxedFuture<'a, Result<Self::Asset, Self::Error>>;
 
     /// Returns a list of extensions supported by this [`AssetLoader`], without the preceding dot.
+    /// Note that users of this [`AssetLoader`] may choose to load files with a non-matching extension.
     fn extensions(&self) -> &[&str] {
         &[]
     }

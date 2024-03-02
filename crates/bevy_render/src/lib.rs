@@ -1,11 +1,14 @@
+// FIXME(3492): remove once docs are ready
+#![allow(missing_docs)]
+
 #[cfg(target_pointer_width = "16")]
 compile_error!("bevy_render cannot compile for a 16-bit platform.");
 
 extern crate core;
 
+pub mod alpha;
 pub mod batching;
 pub mod camera;
-pub mod color;
 pub mod deterministic;
 pub mod diagnostic;
 pub mod extract_component;
@@ -30,12 +33,12 @@ pub mod view;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
+        alpha::AlphaMode,
         camera::{
             Camera, ClearColor, ClearColorConfig, OrthographicProjection, PerspectiveProjection,
             Projection,
         },
-        color::Color,
-        mesh::{morph::MorphWeights, primitives::Meshable, shape, Mesh},
+        mesh::{morph::MorphWeights, primitives::Meshable, Mesh},
         render_resource::Shader,
         spatial_bundle::SpatialBundle,
         texture::{Image, ImagePlugin},
@@ -44,6 +47,8 @@ pub mod prelude {
     };
 }
 
+use bevy_ecs::schedule::ScheduleBuildSettings;
+use bevy_utils::prelude::default;
 pub use extract_param::Extract;
 
 use bevy_hierarchy::ValidParentCheckPlugin;
@@ -81,6 +86,9 @@ use std::{
 #[derive(Default)]
 pub struct RenderPlugin {
     pub render_creation: RenderCreation,
+    /// If `true`, disables asynchronous pipeline compilation.
+    /// This has no effect on macOS, Wasm, or without the `multi-threaded` feature.
+    pub synchronous_pipeline_compilation: bool,
 }
 
 /// The labels of the default App rendering sets.
@@ -320,7 +328,19 @@ impl Plugin for RenderPlugin {
             MorphPlugin,
         ));
 
-        app.register_type::<color::Color>()
+        app.register_type::<alpha::AlphaMode>()
+            // These types cannot be registered in bevy_color, as it does not depend on the rest of Bevy
+            // BLOCKED: once https://github.com/bevyengine/bevy/pull/5781 lands, we can remove all but the Color registration
+            .register_type::<bevy_color::Color>()
+            .register_type::<bevy_color::Srgba>()
+            .register_type::<bevy_color::LinearRgba>()
+            .register_type::<bevy_color::Hsla>()
+            .register_type::<bevy_color::Hsva>()
+            .register_type::<bevy_color::Hwba>()
+            .register_type::<bevy_color::Laba>()
+            .register_type::<bevy_color::Lcha>()
+            .register_type::<bevy_color::Xyza>()
+            .register_type::<bevy_color::Oklaba>()
             .register_type::<primitives::Aabb>()
             .register_type::<primitives::CascadesFrusta>()
             .register_type::<primitives::CubemapFrusta>()
@@ -351,7 +371,11 @@ impl Plugin for RenderPlugin {
 
             render_app
                 .insert_resource(instance)
-                .insert_resource(PipelineCache::new(device.clone()))
+                .insert_resource(PipelineCache::new(
+                    device.clone(),
+                    render_adapter.clone(),
+                    self.synchronous_pipeline_compilation,
+                ))
                 .insert_resource(device)
                 .insert_resource(queue)
                 .insert_resource(render_adapter)
@@ -389,6 +413,12 @@ unsafe fn initialize_render_app(app: &mut App) {
     render_app.main_schedule_label = Render.intern();
 
     let mut extract_schedule = Schedule::new(ExtractSchedule);
+    // We skip applying any commands during the ExtractSchedule
+    // so commands can be applied on the render thread.
+    extract_schedule.set_build_settings(ScheduleBuildSettings {
+        auto_insert_apply_deferred: false,
+        ..default()
+    });
     extract_schedule.set_apply_final_deferred(false);
 
     render_app

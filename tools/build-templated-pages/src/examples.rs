@@ -1,5 +1,6 @@
-use std::{cmp::Ordering, collections::HashMap, fs::File};
+use std::{cmp::Ordering, fs::File};
 
+use hashbrown::HashMap;
 use serde::Serialize;
 use tera::{Context, Tera};
 use toml_edit::Document;
@@ -80,7 +81,7 @@ fn parse_examples(panic_on_missing: bool) -> Vec<Example> {
         .collect()
 }
 
-fn parse_categories() -> HashMap<String, String> {
+fn parse_categories() -> HashMap<Box<str>, String> {
     let manifest_file = std::fs::read_to_string("Cargo.toml").unwrap();
     let manifest = manifest_file.parse::<Document>().unwrap();
     manifest
@@ -95,7 +96,7 @@ fn parse_categories() -> HashMap<String, String> {
         .iter()
         .map(|v| {
             (
-                v.get("name").unwrap().as_str().unwrap().to_string(),
+                v.get("name").unwrap().as_str().unwrap().into(),
                 v.get("description").unwrap().as_str().unwrap().to_string(),
             )
         })
@@ -107,10 +108,10 @@ pub(crate) fn check(what_to_run: Command) {
 
     if what_to_run.contains(Command::UPDATE) {
         let categories = parse_categories();
-        let examples_by_category: HashMap<String, Category> = examples
+        let examples_by_category: HashMap<Box<str>, Category> = examples
             .into_iter()
-            .fold(HashMap::<String, Vec<Example>>::new(), |mut v, ex| {
-                v.entry(ex.category.clone()).or_default().push(ex);
+            .fold(HashMap::<Box<str>, Vec<Example>>::new(), |mut v, ex| {
+                v.entry_ref(ex.category.as_str()).or_default().push(ex);
                 v
             })
             .into_iter()

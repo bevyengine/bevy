@@ -25,11 +25,11 @@ fn setup(
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
-            intensity: 1500.0,
+            intensity: 2_000.0,
         },
     ));
 
-    let cube = meshes.add(shape::Cube { size: 0.5 });
+    let cube = meshes.add(Cuboid::new(0.5, 0.5, 0.5));
     for x in -1..2 {
         for z in -1..2 {
             commands.spawn(PbrBundle {
@@ -49,12 +49,11 @@ fn animate_materials(
 ) {
     for (i, material_handle) in material_handles.iter().enumerate() {
         if let Some(material) = materials.get_mut(material_handle) {
-            let color = Color::hsl(
+            material.base_color = Color::hsl(
                 ((i as f32 * 2.345 + time.elapsed_seconds_wrapped()) * 100.0) % 360.0,
                 1.0,
                 0.5,
             );
-            material.base_color = color;
         }
     }
 }

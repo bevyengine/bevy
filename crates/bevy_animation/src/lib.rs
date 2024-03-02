@@ -1,30 +1,42 @@
 //! Animation for the game engine Bevy
 
-#![warn(missing_docs)]
+mod animatable;
+mod util;
 
-use std::ops::{Add, Deref, Mul};
+use std::hash::{Hash, Hasher};
+use std::iter;
+use std::ops::{Add, Mul};
 use std::time::Duration;
 
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::{Asset, AssetApp, Assets, Handle};
 use bevy_core::Name;
+use bevy_ecs::entity::MapEntities;
 use bevy_ecs::prelude::*;
-use bevy_hierarchy::{Children, Parent};
+use bevy_ecs::reflect::ReflectMapEntities;
+use bevy_log::error;
 use bevy_math::{FloatExt, Quat, Vec3};
 use bevy_reflect::Reflect;
 use bevy_render::mesh::morph::MorphWeights;
 use bevy_time::Time;
 use bevy_transform::{prelude::Transform, TransformSystem};
-use bevy_utils::{tracing::warn, HashMap};
+use bevy_utils::hashbrown::HashMap;
+use bevy_utils::{NoOpHash, Uuid};
+use sha1_smol::Sha1;
 
 #[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        AnimationClip, AnimationPlayer, AnimationPlugin, EntityPath, Interpolation, Keyframes,
+        animatable::*, AnimationClip, AnimationPlayer, AnimationPlugin, Interpolation, Keyframes,
         VariableCurve,
     };
 }
+
+/// The [UUID namespace] of animation targets (e.g. bones).
+///
+/// [UUID namespace]: https://en.wikipedia.org/wiki/Universally_unique_identifier#Versions_3_and_5_(namespace_name-based)
+pub static ANIMATION_TARGET_NAMESPACE: Uuid = Uuid::from_u128(0x3179f519d9274ff2b5966fd077023911);
 
 /// List of keyframes for one of the attribute of a [`Transform`].
 #[derive(Reflect, Clone, Debug)]
@@ -137,68 +149,121 @@ pub enum Interpolation {
     CubicSpline,
 }
 
-/// Path to an entity, with [`Name`]s. Each entity in a path must have a name.
-#[derive(Reflect, Clone, Debug, Hash, PartialEq, Eq, Default)]
-pub struct EntityPath {
-    /// Parts of the path
-    pub parts: Vec<Name>,
-}
-
-/// A list of [`VariableCurve`], and the [`EntityPath`] to which they apply.
+/// A list of [`VariableCurve`]s and the [`AnimationTargetId`]s to which they
+/// apply.
+///
+/// Because animation clips refer to targets by UUID, they can target any
+/// [`AnimationTarget`] with that ID.
 #[derive(Asset, Reflect, Clone, Debug, Default)]
 pub struct AnimationClip {
-    curves: Vec<Vec<VariableCurve>>,
-    paths: HashMap<EntityPath, usize>,
+    curves: AnimationCurves,
     duration: f32,
+}
+
+/// A mapping from [`AnimationTargetId`] (e.g. bone in a skinned mesh) to the
+/// animation curves.
+pub type AnimationCurves = HashMap<AnimationTargetId, Vec<VariableCurve>, NoOpHash>;
+
+/// A unique [UUID] for an animation target (e.g. bone in a skinned mesh).
+///
+/// The [`AnimationClip`] asset and the [`AnimationTarget`] component both use
+/// this to refer to targets (e.g. bones in a skinned mesh) to be animated.
+///
+/// When importing an armature or an animation clip, asset loaders typically use
+/// the full path name from the armature to the bone to generate these UUIDs.
+/// The ID is unique to the full path name and based only on the names. So, for
+/// example, any imported armature with a bone at the root named `Hips` will
+/// assign the same [`AnimationTargetId`] to its root bone. Likewise, any
+/// imported animation clip that animates a root bone named `Hips` will
+/// reference the same [`AnimationTargetId`]. Any animation is playable on any
+/// armature as long as the bone names match, which allows for easy animation
+/// retargeting.
+///
+/// Note that asset loaders generally use the *full* path name to generate the
+/// [`AnimationTargetId`]. Thus a bone named `Chest` directly connected to a
+/// bone named `Hips` will have a different ID from a bone named `Chest` that's
+/// connected to a bone named `Stomach`.
+///
+/// [UUID]: https://en.wikipedia.org/wiki/Universally_unique_identifier
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Reflect, Debug)]
+pub struct AnimationTargetId(pub Uuid);
+
+impl Hash for AnimationTargetId {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        let (hi, lo) = self.0.as_u64_pair();
+        state.write_u64(hi ^ lo);
+    }
+}
+
+/// An entity that can be animated by an [`AnimationPlayer`].
+///
+/// These are frequently referred to as *bones* or *joints*, because they often
+/// refer to individually-animatable parts of an armature.
+///
+/// Asset loaders for armatures are responsible for adding these as necessary.
+/// Typically, they're generated from hashed versions of the entire name path
+/// from the root of the armature to the bone. See the [`AnimationTargetId`]
+/// documentation for more details.
+///
+/// By convention, asset loaders add [`AnimationTarget`] components to the
+/// descendants of an [`AnimationPlayer`], as well as to the [`AnimationPlayer`]
+/// entity itself, but Bevy doesn't require this in any way. So, for example,
+/// it's entirely possible for an [`AnimationPlayer`] to animate a target that
+/// it isn't an ancestor of. If you add a new bone to or delete a bone from an
+/// armature at runtime, you may want to update the [`AnimationTarget`]
+/// component as appropriate, as Bevy won't do this automatically.
+///
+/// Note that each entity can only be animated by one animation player at a
+/// time. However, you can change [`AnimationTarget`]'s `player` property at
+/// runtime to change which player is responsible for animating the entity.
+#[derive(Clone, Component, Reflect)]
+#[reflect(Component, MapEntities)]
+pub struct AnimationTarget {
+    /// The ID of this animation target.
+    ///
+    /// Typically, this is derived from the path.
+    pub id: AnimationTargetId,
+
+    /// The entity containing the [`AnimationPlayer`].
+    pub player: Entity,
 }
 
 impl AnimationClip {
     #[inline]
-    /// [`VariableCurve`]s for each bone. Indexed by the bone ID.
-    pub fn curves(&self) -> &Vec<Vec<VariableCurve>> {
+    /// [`VariableCurve`]s for each animation target. Indexed by the [`AnimationTargetId`].
+    pub fn curves(&self) -> &AnimationCurves {
         &self.curves
     }
 
-    /// Gets the curves for a bone.
+    /// Gets the curves for a single animation target.
     ///
-    /// Returns `None` if the bone is invalid.
+    /// Returns `None` if this clip doesn't animate the target.
     #[inline]
-    pub fn get_curves(&self, bone_id: usize) -> Option<&'_ Vec<VariableCurve>> {
-        self.curves.get(bone_id)
+    pub fn curves_for_target(
+        &self,
+        target_id: AnimationTargetId,
+    ) -> Option<&'_ Vec<VariableCurve>> {
+        self.curves.get(&target_id)
     }
 
-    /// Gets the curves by it's [`EntityPath`].
-    ///
-    /// Returns `None` if the bone is invalid.
-    #[inline]
-    pub fn get_curves_by_path(&self, path: &EntityPath) -> Option<&'_ Vec<VariableCurve>> {
-        self.paths.get(path).and_then(|id| self.curves.get(*id))
-    }
-
-    /// Duration of the clip, represented in seconds
+    /// Duration of the clip, represented in seconds.
     #[inline]
     pub fn duration(&self) -> f32 {
         self.duration
     }
 
-    /// Add a [`VariableCurve`] to an [`EntityPath`].
-    pub fn add_curve_to_path(&mut self, path: EntityPath, curve: VariableCurve) {
+    /// Adds a [`VariableCurve`] to an [`AnimationTarget`] named by an
+    /// [`AnimationTargetId`].
+    ///
+    /// If the curve extends beyond the current duration of this clip, this
+    /// method lengthens this clip to include the entire time span that the
+    /// curve covers.
+    pub fn add_curve_to_target(&mut self, target_id: AnimationTargetId, curve: VariableCurve) {
         // Update the duration of the animation by this curve duration if it's longer
         self.duration = self
             .duration
             .max(*curve.keyframe_timestamps.last().unwrap_or(&0.0));
-        if let Some(bone_id) = self.paths.get(&path) {
-            self.curves[*bone_id].push(curve);
-        } else {
-            let idx = self.curves.len();
-            self.curves.push(vec![curve]);
-            self.paths.insert(path, idx);
-        }
-    }
-
-    /// Whether this animation clip can run on entity with given [`Name`].
-    pub fn compatible_with(&self, name: &Name) -> bool {
-        self.paths.keys().any(|path| &path.parts[0] == name)
+        self.curves.entry(target_id).or_default().push(curve);
     }
 }
 
@@ -227,7 +292,6 @@ struct PlayingAnimation {
     /// Note: This will always be in the range [0.0, animation clip duration]
     seek_time: f32,
     animation_clip: Handle<AnimationClip>,
-    path_cache: Vec<Vec<Option<Entity>>>,
     /// Number of times the animation has completed.
     /// If the animation is playing in reverse, this increments when the animation passes the start.
     completions: u32,
@@ -241,7 +305,6 @@ impl Default for PlayingAnimation {
             elapsed: 0.0,
             seek_time: 0.0,
             animation_clip: Default::default(),
-            path_cache: Vec::new(),
             completions: 0,
         }
     }
@@ -322,6 +385,16 @@ pub struct AnimationPlayer {
     // Once a transition is finished, it will be automatically removed from the list
     #[reflect(ignore)]
     transitions: Vec<AnimationTransition>,
+}
+
+/// The components that we might need to read or write during animation of each
+/// animation target.
+struct AnimationTargetContext<'a> {
+    entity: Entity,
+    target: &'a AnimationTarget,
+    name: Option<&'a Name>,
+    transform: Option<Mut<'a, Transform>>,
+    morph_weights: Option<Mut<'a, MorphWeights>>,
 }
 
 impl AnimationPlayer {
@@ -478,174 +551,90 @@ impl AnimationPlayer {
     }
 }
 
-fn entity_from_path(
-    root: Entity,
-    path: &EntityPath,
-    children: &Query<&Children>,
-    names: &Query<&Name>,
-    path_cache: &mut Vec<Option<Entity>>,
-) -> Option<Entity> {
-    // PERF: finding the target entity can be optimised
-    let mut current_entity = root;
-    path_cache.resize(path.parts.len(), None);
-
-    let mut parts = path.parts.iter().enumerate();
-
-    // check the first name is the root node which we already have
-    let Some((_, root_name)) = parts.next() else {
-        return None;
-    };
-    if names.get(current_entity) != Ok(root_name) {
-        return None;
-    }
-
-    for (idx, part) in parts {
-        let mut found = false;
-        let children = children.get(current_entity).ok()?;
-        if let Some(cached) = path_cache[idx] {
-            if children.contains(&cached) {
-                if let Ok(name) = names.get(cached) {
-                    if name == part {
-                        current_entity = cached;
-                        found = true;
-                    }
-                }
-            }
-        }
-        if !found {
-            for child in children.deref() {
-                if let Ok(name) = names.get(*child) {
-                    if name == part {
-                        // Found a children with the right name, continue to the next part
-                        current_entity = *child;
-                        path_cache[idx] = Some(*child);
-                        found = true;
-                        break;
-                    }
-                }
-            }
-        }
-        if !found {
-            warn!("Entity not found for path {:?} on part {:?}", path, part);
-            return None;
-        }
-    }
-    Some(current_entity)
-}
-
-/// Verify that there are no ancestors of a given entity that have an [`AnimationPlayer`].
-fn verify_no_ancestor_player(
-    player_parent: Option<&Parent>,
-    parents: &Query<(Has<AnimationPlayer>, Option<&Parent>)>,
-) -> bool {
-    let Some(mut current) = player_parent.map(Parent::get) else {
-        return true;
-    };
-    loop {
-        let Ok((has_player, parent)) = parents.get(current) else {
-            return true;
-        };
-        if has_player {
-            return false;
-        }
-        if let Some(parent) = parent {
-            current = parent.get();
-        } else {
-            return true;
-        }
-    }
-}
-
-/// System that will play all animations, using any entity with a [`AnimationPlayer`]
-/// and a [`Handle<AnimationClip>`] as an animation root
-#[allow(clippy::too_many_arguments)]
-pub fn animation_player(
+/// A system that advances the time for all playing animations.
+pub fn advance_animations(
     time: Res<Time>,
-    animations: Res<Assets<AnimationClip>>,
-    children: Query<&Children>,
-    names: Query<&Name>,
-    transforms: Query<&mut Transform>,
-    morphs: Query<&mut MorphWeights>,
-    parents: Query<(Has<AnimationPlayer>, Option<&Parent>)>,
-    mut animation_players: Query<(Entity, Option<&Parent>, &mut AnimationPlayer)>,
+    animation_clips: Res<Assets<AnimationClip>>,
+    mut players: Query<&mut AnimationPlayer>,
 ) {
-    animation_players
-        .par_iter_mut()
-        .for_each(|(root, maybe_parent, mut player)| {
-            update_transitions(&mut player, &time);
-            run_animation_player(
-                root,
-                player,
-                &time,
-                &animations,
-                &names,
-                &transforms,
-                &morphs,
-                maybe_parent,
-                &parents,
-                &children,
-            );
+    for mut player in players.iter_mut() {
+        let paused = player.paused;
+        if paused {
+            continue;
+        }
+
+        // Advance the main animation.
+        if let Some(animation_clip) = animation_clips.get(&player.animation.animation_clip) {
+            player
+                .animation
+                .update(time.delta_seconds(), animation_clip.duration);
+        };
+
+        // Advance transition animations.
+        player.transitions.retain_mut(|transition| {
+            // Decrease weight. Expire the transition if necessary.
+            transition.current_weight -= transition.weight_decline_per_sec * time.delta_seconds();
+            if transition.current_weight <= 0.0 {
+                return false;
+            }
+
+            if let Some(animation_clip) = animation_clips.get(&transition.animation.animation_clip)
+            {
+                transition
+                    .animation
+                    .update(time.delta_seconds(), animation_clip.duration);
+            };
+
+            true
         });
+    }
 }
 
-#[allow(clippy::too_many_arguments)]
-fn run_animation_player(
-    root: Entity,
-    mut player: Mut<AnimationPlayer>,
-    time: &Time,
-    animations: &Assets<AnimationClip>,
-    names: &Query<&Name>,
-    transforms: &Query<&mut Transform>,
-    morphs: &Query<&mut MorphWeights>,
-    maybe_parent: Option<&Parent>,
-    parents: &Query<(Has<AnimationPlayer>, Option<&Parent>)>,
-    children: &Query<&Children>,
+/// A system that modifies animation targets (e.g. bones in a skinned mesh)
+/// according to the currently-playing animation.
+pub fn animate_targets(
+    clips: Res<Assets<AnimationClip>>,
+    players: Query<&AnimationPlayer>,
+    mut targets: Query<(
+        Entity,
+        &AnimationTarget,
+        Option<&Name>,
+        AnyOf<(&mut Transform, &mut MorphWeights)>,
+    )>,
 ) {
-    let paused = player.paused;
-    // Continue if paused unless the `AnimationPlayer` was changed
-    // This allow the animation to still be updated if the player.elapsed field was manually updated in pause
-    if paused && !player.is_changed() {
-        return;
-    }
+    // We use two queries here: one read-only query for animation players and
+    // one read-write query for animation targets (e.g. bones). The
+    // `AnimationPlayer` query is read-only shared memory accessible from all
+    // animation targets, which are evaluated in parallel.
 
-    // Apply the main animation
-    apply_animation(
-        1.0,
-        &mut player.animation,
-        paused,
-        root,
-        time,
-        animations,
-        names,
-        transforms,
-        morphs,
-        maybe_parent,
-        parents,
-        children,
-    );
+    // Iterate over all animation targets in parallel.
+    targets
+        .par_iter_mut()
+        .for_each(|(id, target, name, (transform, morph_weights))| {
+            let mut target_context = AnimationTargetContext {
+                entity: id,
+                target,
+                name,
+                transform,
+                morph_weights,
+            };
 
-    // Apply any potential fade-out transitions from previous animations
-    for AnimationTransition {
-        current_weight,
-        animation,
-        ..
-    } in &mut player.transitions
-    {
-        apply_animation(
-            *current_weight,
-            animation,
-            paused,
-            root,
-            time,
-            animations,
-            names,
-            transforms,
-            morphs,
-            maybe_parent,
-            parents,
-            children,
-        );
-    }
+            let Ok(player) = players.get(target.player) else {
+                error!(
+                    "Couldn't find the animation player {:?} for the target entity {:?} ({:?})",
+                    target.player, target_context.entity, target_context.name,
+                );
+                return;
+            };
+
+            player.animation.apply(&clips, 1.0, &mut target_context);
+
+            for transition in &player.transitions {
+                transition
+                    .animation
+                    .apply(&clips, transition.current_weight, &mut target_context);
+            }
+        });
 }
 
 /// Update `weights` based on weights in `keyframe` with a linear interpolation
@@ -690,217 +679,259 @@ where
         + tangent_in_end * step_duration * (lerp.powi(3) - lerp.powi(2))
 }
 
-#[allow(clippy::too_many_arguments)]
-fn apply_animation(
-    weight: f32,
-    animation: &mut PlayingAnimation,
-    paused: bool,
-    root: Entity,
-    time: &Time,
-    animations: &Assets<AnimationClip>,
-    names: &Query<&Name>,
-    transforms: &Query<&mut Transform>,
-    morphs: &Query<&mut MorphWeights>,
-    maybe_parent: Option<&Parent>,
-    parents: &Query<(Has<AnimationPlayer>, Option<&Parent>)>,
-    children: &Query<&Children>,
-) {
-    let Some(animation_clip) = animations.get(&animation.animation_clip) else {
-        return;
-    };
+/// Adds animation support to an app
+#[derive(Default)]
+pub struct AnimationPlugin;
 
-    // We don't return early because seek_to() may have been called on the animation player.
-    animation.update(
-        if paused { 0.0 } else { time.delta_seconds() },
-        animation_clip.duration,
-    );
-
-    if animation.path_cache.len() != animation_clip.paths.len() {
-        let new_len = animation_clip.paths.len();
-        animation.path_cache.iter_mut().for_each(|v| v.clear());
-        animation.path_cache.resize_with(new_len, Vec::new);
+impl Plugin for AnimationPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_asset::<AnimationClip>()
+            .register_asset_reflect::<AnimationClip>()
+            .register_type::<AnimationPlayer>()
+            .register_type::<VariableCurve>()
+            .register_type::<Vec<VariableCurve>>()
+            .register_type::<Interpolation>()
+            .register_type::<Keyframes>()
+            .register_type::<AnimationTarget>()
+            .add_systems(
+                PostUpdate,
+                (advance_animations, animate_targets)
+                    .chain()
+                    .before(TransformSystem::TransformPropagate),
+            );
     }
-    if !verify_no_ancestor_player(maybe_parent, parents) {
-        warn!("Animation player on {:?} has a conflicting animation player on an ancestor. Cannot safely animate.", root);
-        return;
-    }
+}
 
-    let mut any_path_found = false;
-    for (path, bone_id) in &animation_clip.paths {
-        let cached_path = &mut animation.path_cache[*bone_id];
-        let curves = animation_clip.get_curves(*bone_id).unwrap();
-        let Some(target) = entity_from_path(root, path, children, names, cached_path) else {
-            continue;
+impl PlayingAnimation {
+    fn apply(
+        &self,
+        clips: &Assets<AnimationClip>,
+        weight: f32,
+        target_context: &mut AnimationTargetContext,
+    ) {
+        let Some(clip) = clips.get(&self.animation_clip) else {
+            // The clip probably hasn't loaded yet. Bail.
+            return;
         };
-        any_path_found = true;
-        // SAFETY: The verify_no_ancestor_player check above ensures that two animation players cannot alias
-        // any of their descendant Transforms.
-        //
-        // The system scheduler prevents any other system from mutating Transforms at the same time,
-        // so the only way this fetch can alias is if two AnimationPlayers are targeting the same bone.
-        // This can only happen if there are two or more AnimationPlayers are ancestors to the same
-        // entities. By verifying that there is no other AnimationPlayer in the ancestors of a
-        // running AnimationPlayer before animating any entity, this fetch cannot alias.
-        //
-        // This means only the AnimationPlayers closest to the root of the hierarchy will be able
-        // to run their animation. Any players in the children or descendants will log a warning
-        // and do nothing.
-        let Ok(mut transform) = (unsafe { transforms.get_unchecked(target) }) else {
-            continue;
+
+        let Some(curves) = clip.curves_for_target(target_context.target.id) else {
+            return;
         };
-        // SAFETY: As above, there can't be other AnimationPlayers with this target so this fetch can't alias
-        let mut morphs = unsafe { morphs.get_unchecked(target) }.ok();
+
         for curve in curves {
             // Some curves have only one keyframe used to set a transform
             if curve.keyframe_timestamps.len() == 1 {
-                match &curve.keyframes {
-                    Keyframes::Rotation(keyframes) => {
-                        transform.rotation = transform.rotation.slerp(keyframes[0], weight);
-                    }
-                    Keyframes::Translation(keyframes) => {
-                        transform.translation = transform.translation.lerp(keyframes[0], weight);
-                    }
-                    Keyframes::Scale(keyframes) => {
-                        transform.scale = transform.scale.lerp(keyframes[0], weight);
-                    }
-                    Keyframes::Weights(keyframes) => {
-                        if let Some(morphs) = &mut morphs {
-                            let target_count = morphs.weights().len();
-                            lerp_morph_weights(
-                                morphs.weights_mut(),
-                                get_keyframe(target_count, keyframes, 0).iter().copied(),
-                                weight,
-                            );
-                        }
-                    }
-                }
-                continue;
+                self.apply_single_keyframe(curve, weight, target_context);
+                return;
             }
 
             // Find the current keyframe
-            let Some(step_start) = curve.find_current_keyframe(animation.seek_time) else {
-                continue;
+            let Some(step_start) = curve.find_current_keyframe(self.seek_time) else {
+                return;
             };
 
             let timestamp_start = curve.keyframe_timestamps[step_start];
             let timestamp_end = curve.keyframe_timestamps[step_start + 1];
             // Compute how far we are through the keyframe, normalized to [0, 1]
-            let lerp = f32::inverse_lerp(timestamp_start, timestamp_end, animation.seek_time);
+            let lerp = f32::inverse_lerp(timestamp_start, timestamp_end, self.seek_time);
 
-            apply_keyframe(
+            self.apply_tweened_keyframe(
                 curve,
                 step_start,
                 weight,
                 lerp,
                 timestamp_end - timestamp_start,
-                &mut transform,
-                &mut morphs,
+                target_context,
             );
         }
     }
 
-    if !any_path_found {
-        warn!("Animation player on {root:?} did not match any entity paths.");
-    }
-}
-
-#[inline(always)]
-fn apply_keyframe(
-    curve: &VariableCurve,
-    step_start: usize,
-    weight: f32,
-    lerp: f32,
-    duration: f32,
-    transform: &mut Mut<Transform>,
-    morphs: &mut Option<Mut<MorphWeights>>,
-) {
-    match (&curve.interpolation, &curve.keyframes) {
-        (Interpolation::Step, Keyframes::Rotation(keyframes)) => {
-            transform.rotation = transform.rotation.slerp(keyframes[step_start], weight);
-        }
-        (Interpolation::Linear, Keyframes::Rotation(keyframes)) => {
-            let rot_start = keyframes[step_start];
-            let mut rot_end = keyframes[step_start + 1];
-            // Choose the smallest angle for the rotation
-            if rot_end.dot(rot_start) < 0.0 {
-                rot_end = -rot_end;
+    fn apply_single_keyframe(
+        &self,
+        curve: &VariableCurve,
+        weight: f32,
+        target_context: &mut AnimationTargetContext,
+    ) {
+        match &curve.keyframes {
+            Keyframes::Rotation(keyframes) => {
+                if let Some(ref mut transform) = target_context.transform {
+                    transform.rotation = transform.rotation.slerp(keyframes[0], weight);
+                }
             }
-            // Rotations are using a spherical linear interpolation
-            let rot = rot_start.normalize().slerp(rot_end.normalize(), lerp);
-            transform.rotation = transform.rotation.slerp(rot, weight);
+
+            Keyframes::Translation(keyframes) => {
+                if let Some(ref mut transform) = target_context.transform {
+                    transform.translation = transform.translation.lerp(keyframes[0], weight);
+                }
+            }
+
+            Keyframes::Scale(keyframes) => {
+                if let Some(ref mut transform) = target_context.transform {
+                    transform.scale = transform.scale.lerp(keyframes[0], weight);
+                }
+            }
+
+            Keyframes::Weights(keyframes) => {
+                let Some(ref mut morphs) = target_context.morph_weights else {
+                    error!(
+                        "Tried to animate morphs on {:?} ({:?}), but no `MorphWeights` was found",
+                        target_context.entity, target_context.name,
+                    );
+                    return;
+                };
+
+                let target_count = morphs.weights().len();
+                lerp_morph_weights(
+                    morphs.weights_mut(),
+                    get_keyframe(target_count, keyframes, 0).iter().copied(),
+                    weight,
+                );
+            }
         }
-        (Interpolation::CubicSpline, Keyframes::Rotation(keyframes)) => {
-            let value_start = keyframes[step_start * 3 + 1];
-            let tangent_out_start = keyframes[step_start * 3 + 2];
-            let tangent_in_end = keyframes[(step_start + 1) * 3];
-            let value_end = keyframes[(step_start + 1) * 3 + 1];
-            let result = cubic_spline_interpolation(
-                value_start,
-                tangent_out_start,
-                tangent_in_end,
-                value_end,
-                lerp,
-                duration,
-            );
-            transform.rotation = transform.rotation.slerp(result.normalize(), weight);
-        }
-        (Interpolation::Step, Keyframes::Translation(keyframes)) => {
-            transform.translation = transform.translation.lerp(keyframes[step_start], weight);
-        }
-        (Interpolation::Linear, Keyframes::Translation(keyframes)) => {
-            let translation_start = keyframes[step_start];
-            let translation_end = keyframes[step_start + 1];
-            let result = translation_start.lerp(translation_end, lerp);
-            transform.translation = transform.translation.lerp(result, weight);
-        }
-        (Interpolation::CubicSpline, Keyframes::Translation(keyframes)) => {
-            let value_start = keyframes[step_start * 3 + 1];
-            let tangent_out_start = keyframes[step_start * 3 + 2];
-            let tangent_in_end = keyframes[(step_start + 1) * 3];
-            let value_end = keyframes[(step_start + 1) * 3 + 1];
-            let result = cubic_spline_interpolation(
-                value_start,
-                tangent_out_start,
-                tangent_in_end,
-                value_end,
-                lerp,
-                duration,
-            );
-            transform.translation = transform.translation.lerp(result, weight);
-        }
-        (Interpolation::Step, Keyframes::Scale(keyframes)) => {
-            transform.scale = transform.scale.lerp(keyframes[step_start], weight);
-        }
-        (Interpolation::Linear, Keyframes::Scale(keyframes)) => {
-            let scale_start = keyframes[step_start];
-            let scale_end = keyframes[step_start + 1];
-            let result = scale_start.lerp(scale_end, lerp);
-            transform.scale = transform.scale.lerp(result, weight);
-        }
-        (Interpolation::CubicSpline, Keyframes::Scale(keyframes)) => {
-            let value_start = keyframes[step_start * 3 + 1];
-            let tangent_out_start = keyframes[step_start * 3 + 2];
-            let tangent_in_end = keyframes[(step_start + 1) * 3];
-            let value_end = keyframes[(step_start + 1) * 3 + 1];
-            let result = cubic_spline_interpolation(
-                value_start,
-                tangent_out_start,
-                tangent_in_end,
-                value_end,
-                lerp,
-                duration,
-            );
-            transform.scale = transform.scale.lerp(result, weight);
-        }
-        (Interpolation::Step, Keyframes::Weights(keyframes)) => {
-            if let Some(morphs) = morphs {
+    }
+
+    fn apply_tweened_keyframe(
+        &self,
+        curve: &VariableCurve,
+        step_start: usize,
+        weight: f32,
+        lerp: f32,
+        duration: f32,
+        target_context: &mut AnimationTargetContext,
+    ) {
+        match (&curve.interpolation, &curve.keyframes) {
+            (Interpolation::Step, Keyframes::Rotation(keyframes)) => {
+                if let Some(ref mut transform) = target_context.transform {
+                    transform.rotation = transform.rotation.slerp(keyframes[step_start], weight);
+                }
+            }
+
+            (Interpolation::Linear, Keyframes::Rotation(keyframes)) => {
+                let Some(ref mut transform) = target_context.transform else {
+                    return;
+                };
+
+                let rot_start = keyframes[step_start];
+                let mut rot_end = keyframes[step_start + 1];
+                // Choose the smallest angle for the rotation
+                if rot_end.dot(rot_start) < 0.0 {
+                    rot_end = -rot_end;
+                }
+                // Rotations are using a spherical linear interpolation
+                let rot = rot_start.normalize().slerp(rot_end.normalize(), lerp);
+                transform.rotation = transform.rotation.slerp(rot, weight);
+            }
+
+            (Interpolation::CubicSpline, Keyframes::Rotation(keyframes)) => {
+                let Some(ref mut transform) = target_context.transform else {
+                    return;
+                };
+
+                let value_start = keyframes[step_start * 3 + 1];
+                let tangent_out_start = keyframes[step_start * 3 + 2];
+                let tangent_in_end = keyframes[(step_start + 1) * 3];
+                let value_end = keyframes[(step_start + 1) * 3 + 1];
+                let result = cubic_spline_interpolation(
+                    value_start,
+                    tangent_out_start,
+                    tangent_in_end,
+                    value_end,
+                    lerp,
+                    duration,
+                );
+                transform.rotation = transform.rotation.slerp(result.normalize(), weight);
+            }
+
+            (Interpolation::Step, Keyframes::Translation(keyframes)) => {
+                if let Some(ref mut transform) = target_context.transform {
+                    transform.translation =
+                        transform.translation.lerp(keyframes[step_start], weight);
+                }
+            }
+
+            (Interpolation::Linear, Keyframes::Translation(keyframes)) => {
+                let Some(ref mut transform) = target_context.transform else {
+                    return;
+                };
+
+                let translation_start = keyframes[step_start];
+                let translation_end = keyframes[step_start + 1];
+                let result = translation_start.lerp(translation_end, lerp);
+                transform.translation = transform.translation.lerp(result, weight);
+            }
+
+            (Interpolation::CubicSpline, Keyframes::Translation(keyframes)) => {
+                let Some(ref mut transform) = target_context.transform else {
+                    return;
+                };
+
+                let value_start = keyframes[step_start * 3 + 1];
+                let tangent_out_start = keyframes[step_start * 3 + 2];
+                let tangent_in_end = keyframes[(step_start + 1) * 3];
+                let value_end = keyframes[(step_start + 1) * 3 + 1];
+                let result = cubic_spline_interpolation(
+                    value_start,
+                    tangent_out_start,
+                    tangent_in_end,
+                    value_end,
+                    lerp,
+                    duration,
+                );
+                transform.translation = transform.translation.lerp(result, weight);
+            }
+
+            (Interpolation::Step, Keyframes::Scale(keyframes)) => {
+                if let Some(ref mut transform) = target_context.transform {
+                    transform.scale = transform.scale.lerp(keyframes[step_start], weight);
+                }
+            }
+
+            (Interpolation::Linear, Keyframes::Scale(keyframes)) => {
+                let Some(ref mut transform) = target_context.transform else {
+                    return;
+                };
+
+                let scale_start = keyframes[step_start];
+                let scale_end = keyframes[step_start + 1];
+                let result = scale_start.lerp(scale_end, lerp);
+                transform.scale = transform.scale.lerp(result, weight);
+            }
+
+            (Interpolation::CubicSpline, Keyframes::Scale(keyframes)) => {
+                let Some(ref mut transform) = target_context.transform else {
+                    return;
+                };
+
+                let value_start = keyframes[step_start * 3 + 1];
+                let tangent_out_start = keyframes[step_start * 3 + 2];
+                let tangent_in_end = keyframes[(step_start + 1) * 3];
+                let value_end = keyframes[(step_start + 1) * 3 + 1];
+                let result = cubic_spline_interpolation(
+                    value_start,
+                    tangent_out_start,
+                    tangent_in_end,
+                    value_end,
+                    lerp,
+                    duration,
+                );
+                transform.scale = transform.scale.lerp(result, weight);
+            }
+
+            (Interpolation::Step, Keyframes::Weights(keyframes)) => {
+                let Some(ref mut morphs) = target_context.morph_weights else {
+                    return;
+                };
+
                 let target_count = morphs.weights().len();
                 let morph_start = get_keyframe(target_count, keyframes, step_start);
                 lerp_morph_weights(morphs.weights_mut(), morph_start.iter().copied(), weight);
             }
-        }
-        (Interpolation::Linear, Keyframes::Weights(keyframes)) => {
-            if let Some(morphs) = morphs {
+
+            (Interpolation::Linear, Keyframes::Weights(keyframes)) => {
+                let Some(ref mut morphs) = target_context.morph_weights else {
+                    return;
+                };
+
                 let target_count = morphs.weights().len();
                 let morph_start = get_keyframe(target_count, keyframes, step_start);
                 let morph_end = get_keyframe(target_count, keyframes, step_start + 1);
@@ -910,9 +941,12 @@ fn apply_keyframe(
                     .map(|(a, b)| a.lerp(*b, lerp));
                 lerp_morph_weights(morphs.weights_mut(), result, weight);
             }
-        }
-        (Interpolation::CubicSpline, Keyframes::Weights(keyframes)) => {
-            if let Some(morphs) = morphs {
+
+            (Interpolation::CubicSpline, Keyframes::Weights(keyframes)) => {
+                let Some(ref mut morphs) = target_context.morph_weights else {
+                    return;
+                };
+
                 let target_count = morphs.weights().len();
                 let morph_start = get_keyframe(target_count, keyframes, step_start * 3 + 1);
                 let tangents_out_start = get_keyframe(target_count, keyframes, step_start * 3 + 2);
@@ -941,26 +975,34 @@ fn apply_keyframe(
     }
 }
 
-fn update_transitions(player: &mut AnimationPlayer, time: &Time) {
-    player.transitions.retain_mut(|animation| {
-        animation.current_weight -= animation.weight_decline_per_sec * time.delta_seconds();
-        animation.current_weight > 0.0
-    });
+impl AnimationTargetId {
+    /// Creates a new [`AnimationTargetId`] by hashing a list of names.
+    ///
+    /// Typically, this will be the path from the animation root to the
+    /// animation target (e.g. bone) that is to be animated.
+    pub fn from_names<'a>(names: impl Iterator<Item = &'a Name>) -> Self {
+        let mut sha1 = Sha1::new();
+        sha1.update(ANIMATION_TARGET_NAMESPACE.as_bytes());
+        names.for_each(|name| sha1.update(name.as_bytes()));
+        let hash = sha1.digest().bytes()[0..16].try_into().unwrap();
+        Self(*uuid::Builder::from_sha1_bytes(hash).as_uuid())
+    }
+
+    /// Creates a new [`AnimationTargetId`] by hashing a single name.
+    pub fn from_name(name: &Name) -> Self {
+        Self::from_names(iter::once(name))
+    }
 }
 
-/// Adds animation support to an app
-#[derive(Default)]
-pub struct AnimationPlugin;
+impl From<&Name> for AnimationTargetId {
+    fn from(name: &Name) -> Self {
+        AnimationTargetId::from_name(name)
+    }
+}
 
-impl Plugin for AnimationPlugin {
-    fn build(&self, app: &mut App) {
-        app.init_asset::<AnimationClip>()
-            .register_asset_reflect::<AnimationClip>()
-            .register_type::<AnimationPlayer>()
-            .add_systems(
-                PostUpdate,
-                animation_player.before(TransformSystem::TransformPropagate),
-            );
+impl MapEntities for AnimationTarget {
+    fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
+        self.player = entity_mapper.map_entity(self.player);
     }
 }
 

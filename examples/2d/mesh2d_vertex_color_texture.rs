@@ -24,13 +24,13 @@ fn setup(
     // Load the Bevy logo as a texture
     let texture_handle = asset_server.load("branding/banner.png");
     // Build a default quad mesh
-    let mut mesh = Mesh::from(shape::Quad::default());
+    let mut mesh = Mesh::from(Rectangle::default());
     // Build vertex colors for the quad. One entry per vertex (the corners of the quad)
     let vertex_colors: Vec<[f32; 4]> = vec![
-        Color::RED.as_rgba_f32(),
-        Color::GREEN.as_rgba_f32(),
-        Color::BLUE.as_rgba_f32(),
-        Color::WHITE.as_rgba_f32(),
+        LinearRgba::RED.to_f32_array(),
+        LinearRgba::GREEN.to_f32_array(),
+        LinearRgba::BLUE.to_f32_array(),
+        LinearRgba::WHITE.to_f32_array(),
     ];
     // Insert the vertex colors as an attribute
     mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, vertex_colors);

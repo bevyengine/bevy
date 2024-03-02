@@ -8,11 +8,9 @@ use crate::{
     UiMaterial, ZIndex,
 };
 use bevy_asset::Handle;
+use bevy_color::Color;
 use bevy_ecs::bundle::Bundle;
-use bevy_render::{
-    prelude::Color,
-    view::{InheritedVisibility, ViewVisibility, Visibility},
-};
+use bevy_render::view::{InheritedVisibility, ViewVisibility, Visibility};
 use bevy_sprite::TextureAtlas;
 #[cfg(feature = "bevy_text")]
 use bevy_text::{BreakLineOn, JustifyText, Text, TextLayoutInfo, TextSection, TextStyle};
@@ -76,6 +74,11 @@ impl Default for NodeBundle {
 }
 
 /// A UI node that is an image
+///
+/// # Extra behaviours
+///
+/// You may add the following components to enable additional behaviours
+/// - [`ImageScaleMode`](bevy_sprite::ImageScaleMode) to enable either slicing or tiling of the texture
 #[derive(Bundle, Debug, Default)]
 pub struct ImageBundle {
     /// Describes the logical size of the node
@@ -286,6 +289,11 @@ where
 }
 
 /// A UI node that is a button
+///
+/// # Extra behaviours
+///
+/// You may add the following components to enable additional behaviours
+/// - [`ImageScaleMode`](bevy_sprite::ImageScaleMode) to enable either slicing or tiling of the texture
 #[derive(Bundle, Clone, Debug)]
 pub struct ButtonBundle {
     /// Describes the logical size of the node

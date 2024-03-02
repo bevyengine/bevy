@@ -6,7 +6,7 @@ use bevy_ecs::{
     system::{ReadOnlySystemParam, Resource, SystemParam, SystemParamItem, SystemState},
     world::World,
 };
-use bevy_utils::{all_tuples, HashMap};
+use bevy_utils::{all_tuples, TypeIdMap};
 use std::{
     any::TypeId,
     fmt::Debug,
@@ -47,7 +47,7 @@ pub struct DrawFunctionId(u32);
 /// For retrieval, the [`Draw`] functions are mapped to their respective [`TypeId`]s.
 pub struct DrawFunctionsInternal<P: PhaseItem> {
     pub draw_functions: Vec<Box<dyn Draw<P>>>,
-    pub indices: HashMap<TypeId, DrawFunctionId>,
+    pub indices: TypeIdMap<DrawFunctionId>,
 }
 
 impl<P: PhaseItem> DrawFunctionsInternal<P> {
@@ -111,7 +111,7 @@ impl<P: PhaseItem> Default for DrawFunctions<P> {
         Self {
             internal: RwLock::new(DrawFunctionsInternal {
                 draw_functions: Vec::new(),
-                indices: HashMap::default(),
+                indices: Default::default(),
             }),
         }
     }
@@ -190,6 +190,11 @@ pub trait RenderCommand<P: PhaseItem> {
     ///
     /// The item is the entity that will be rendered for the corresponding view.
     /// All components have to be accessed read only.
+    ///
+    /// For efficiency reasons, Bevy doesn't always extract entities to the
+    /// render world; for instance, entities that simply consist of meshes are
+    /// often not extracted. If the entity doesn't exist in the render world,
+    /// the supplied query data will be `None`.
     type ItemQuery: ReadOnlyQueryData;
 
     /// Renders a [`PhaseItem`] by recording commands (e.g. setting pipelines, binding bind groups,
@@ -197,7 +202,7 @@ pub trait RenderCommand<P: PhaseItem> {
     fn render<'w>(
         item: &P,
         view: ROQueryItem<'w, Self::ViewQuery>,
-        entity: ROQueryItem<'w, Self::ItemQuery>,
+        entity: Option<ROQueryItem<'w, Self::ItemQuery>>,
         param: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult;
@@ -220,13 +225,22 @@ macro_rules! render_command_tuple_impl {
             fn render<'w>(
                 _item: &P,
                 ($($view,)*): ROQueryItem<'w, Self::ViewQuery>,
-                ($($entity,)*): ROQueryItem<'w, Self::ItemQuery>,
+                maybe_entities: Option<ROQueryItem<'w, Self::ItemQuery>>,
                 ($($name,)*): SystemParamItem<'w, '_, Self::Param>,
                 _pass: &mut TrackedRenderPass<'w>,
             ) -> RenderCommandResult {
-                $(if let RenderCommandResult::Failure = $name::render(_item, $view, $entity, $name, _pass) {
-                    return RenderCommandResult::Failure;
-                })*
+                match maybe_entities {
+                    None => {
+                        $(if let RenderCommandResult::Failure = $name::render(_item, $view, None, $name, _pass) {
+                            return RenderCommandResult::Failure;
+                        })*
+                    }
+                    Some(($($entity,)*)) => {
+                        $(if let RenderCommandResult::Failure = $name::render(_item, $view, Some($entity), $name, _pass) {
+                            return RenderCommandResult::Failure;
+                        })*
+                    }
+                }
                 RenderCommandResult::Success
             }
         }
@@ -278,7 +292,7 @@ where
     ) {
         let param = self.state.get_manual(world);
         let view = self.view.get_manual(world, view).unwrap();
-        let entity = self.entity.get_manual(world, item.entity()).unwrap();
+        let entity = self.entity.get_manual(world, item.entity()).ok();
         // TODO: handle/log `RenderCommand` failure
         C::render(item, view, entity, param, pass);
     }

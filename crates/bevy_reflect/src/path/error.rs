@@ -1,22 +1,22 @@
 use std::fmt;
 
 use super::Access;
-use crate::{Reflect, ReflectMut, ReflectRef, VariantType};
+use crate::{ReflectKind, VariantType};
 
 /// The kind of [`AccessError`], along with some kind-specific information.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum AccessErrorKind {
     /// An error that occurs when a certain type doesn't
     /// contain the value referenced by the [`Access`].
-    MissingField(TypeKind),
+    MissingField(ReflectKind),
 
     /// An error that occurs when using an [`Access`] on the wrong type.
     /// (i.e. a [`ListIndex`](Access::ListIndex) on a struct, or a [`TupleIndex`](Access::TupleIndex) on a list)
     IncompatibleTypes {
-        /// The [`TypeKind`] that was expected based on the [`Access`].
-        expected: TypeKind,
-        /// The actual [`TypeKind`] that was found.
-        actual: TypeKind,
+        /// The [`ReflectKind`] that was expected based on the [`Access`].
+        expected: ReflectKind,
+        /// The actual [`ReflectKind`] that was found.
+        actual: ReflectKind,
     },
 
     /// An error that occurs when using an [`Access`] on the wrong enum variant.
@@ -63,7 +63,7 @@ impl<'a> AccessError<'a> {
         &self.kind
     }
 
-    /// The returns the [`Access`] that this [`AccessError`] occured in.
+    /// The returns the [`Access`] that this [`AccessError`] occurred in.
     pub const fn access(&self) -> &Access {
         &self.access
     }
@@ -127,81 +127,3 @@ impl std::fmt::Display for AccessError<'_> {
     }
 }
 impl std::error::Error for AccessError<'_> {}
-
-/// The kind of the type trying to be accessed.
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-#[allow(missing_docs /* Variants are self-explanatory */)]
-pub enum TypeKind {
-    Struct,
-    TupleStruct,
-    Tuple,
-    List,
-    Array,
-    Map,
-    Enum,
-    Value,
-    Unit,
-}
-
-impl fmt::Display for TypeKind {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            TypeKind::Struct => f.pad("struct"),
-            TypeKind::TupleStruct => f.pad("tuple struct"),
-            TypeKind::Tuple => f.pad("tuple"),
-            TypeKind::List => f.pad("list"),
-            TypeKind::Array => f.pad("array"),
-            TypeKind::Map => f.pad("map"),
-            TypeKind::Enum => f.pad("enum"),
-            TypeKind::Value => f.pad("value"),
-            TypeKind::Unit => f.pad("unit"),
-        }
-    }
-}
-impl From<ReflectRef<'_>> for TypeKind {
-    fn from(value: ReflectRef) -> Self {
-        match value {
-            ReflectRef::Struct(_) => TypeKind::Struct,
-            ReflectRef::TupleStruct(_) => TypeKind::TupleStruct,
-            ReflectRef::Tuple(_) => TypeKind::Tuple,
-            ReflectRef::List(_) => TypeKind::List,
-            ReflectRef::Array(_) => TypeKind::Array,
-            ReflectRef::Map(_) => TypeKind::Map,
-            ReflectRef::Enum(_) => TypeKind::Enum,
-            ReflectRef::Value(_) => TypeKind::Value,
-        }
-    }
-}
-impl From<&dyn Reflect> for TypeKind {
-    fn from(value: &dyn Reflect) -> Self {
-        value.reflect_ref().into()
-    }
-}
-impl From<ReflectMut<'_>> for TypeKind {
-    fn from(value: ReflectMut) -> Self {
-        match value {
-            ReflectMut::Struct(_) => TypeKind::Struct,
-            ReflectMut::TupleStruct(_) => TypeKind::TupleStruct,
-            ReflectMut::Tuple(_) => TypeKind::Tuple,
-            ReflectMut::List(_) => TypeKind::List,
-            ReflectMut::Array(_) => TypeKind::Array,
-            ReflectMut::Map(_) => TypeKind::Map,
-            ReflectMut::Enum(_) => TypeKind::Enum,
-            ReflectMut::Value(_) => TypeKind::Value,
-        }
-    }
-}
-impl From<&mut dyn Reflect> for TypeKind {
-    fn from(value: &mut dyn Reflect) -> Self {
-        value.reflect_ref().into()
-    }
-}
-impl From<VariantType> for TypeKind {
-    fn from(value: VariantType) -> Self {
-        match value {
-            VariantType::Struct => TypeKind::Struct,
-            VariantType::Tuple => TypeKind::Tuple,
-            VariantType::Unit => TypeKind::Unit,
-        }
-    }
-}

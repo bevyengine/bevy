@@ -1,13 +1,13 @@
 use crate::{
     camera::Viewport,
     diagnostic::internal::{Pass, PassKind, WritePipelineStatistics, WriteTimestamp},
-    prelude::Color,
     render_resource::{
         BindGroup, BindGroupId, Buffer, BufferId, BufferSlice, RenderPipeline, RenderPipelineId,
         ShaderStages,
     },
     renderer::RenderDevice,
 };
+use bevy_color::LinearRgba;
 use bevy_utils::{default, detailed_trace};
 use std::ops::Range;
 use wgpu::{IndexFormat, QuerySet, RenderPass};
@@ -599,7 +599,7 @@ impl<'a> TrackedRenderPass<'a> {
     /// Sets the blend color as used by some of the blending modes.
     ///
     /// Subsequent blending tests will test against this value.
-    pub fn set_blend_constant(&mut self, color: Color) {
+    pub fn set_blend_constant(&mut self, color: LinearRgba) {
         detailed_trace!("set blend constant: {:?}", color);
         self.pass.set_blend_constant(wgpu::Color::from(color));
     }

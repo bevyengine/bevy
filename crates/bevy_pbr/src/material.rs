@@ -1,6 +1,5 @@
-use crate::{environment_map::RenderViewEnvironmentMaps, *};
-use bevy_app::{App, Plugin};
-use bevy_asset::{Asset, AssetApp, AssetEvent, AssetId, AssetServer, Assets, Handle};
+use crate::*;
+use bevy_asset::{Asset, AssetEvent, AssetId, AssetServer};
 use bevy_core_pipeline::{
     core_3d::{
         AlphaMask3d, Camera3d, Opaque3d, ScreenSpaceTransmissionQuality, Transmissive3d,
@@ -16,23 +15,24 @@ use bevy_ecs::{
 };
 use bevy_reflect::Reflect;
 use bevy_render::{
-    camera::Projection,
     camera::TemporalJitter,
     extract_instances::{ExtractInstancesPlugin, ExtractedInstances},
     extract_resource::ExtractResource,
-    mesh::{Mesh, MeshVertexBufferLayout},
-    prelude::Image,
-    render_asset::{prepare_assets, RenderAssets},
+    mesh::{Mesh, MeshVertexBufferLayoutRef},
+    render_asset::RenderAssets,
     render_phase::*,
     render_resource::*,
     renderer::RenderDevice,
     texture::FallbackImage,
     view::{ExtractedView, Msaa, VisibleEntities},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract,
 };
 use bevy_utils::{tracing::error, HashMap, HashSet};
-use std::hash::Hash;
 use std::marker::PhantomData;
+use std::sync::atomic::{AtomicU32, Ordering};
+use std::{hash::Hash, num::NonZeroU32};
+
+use self::{irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight};
 
 /// Materials are used alongside [`MaterialPlugin`] and [`MaterialMeshBundle`]
 /// to spawn entities that are rendered with a specific [`Material`] type. They serve as an easy to use high level
@@ -49,7 +49,9 @@ use std::marker::PhantomData;
 /// # use bevy_pbr::{Material, MaterialMeshBundle};
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_reflect::TypePath;
-/// # use bevy_render::{render_resource::{AsBindGroup, ShaderRef}, texture::Image, color::Color};
+/// # use bevy_render::{render_resource::{AsBindGroup, ShaderRef}, texture::Image};
+/// # use bevy_color::LinearRgba;
+/// # use bevy_color::palettes::basic::RED;
 /// # use bevy_asset::{Handle, AssetServer, Assets, Asset};
 ///
 /// #[derive(AsBindGroup, Debug, Clone, Asset, TypePath)]
@@ -57,7 +59,7 @@ use std::marker::PhantomData;
 ///     // Uniform bindings must implement `ShaderType`, which will be used to convert the value to
 ///     // its shader-compatible equivalent. Most core math types already implement `ShaderType`.
 ///     #[uniform(0)]
-///     color: Color,
+///     color: LinearRgba,
 ///     // Images can be bound as textures in shaders. If the Image's sampler is also needed, just
 ///     // add the sampler attribute with a different binding index.
 ///     #[texture(1)]
@@ -77,7 +79,7 @@ use std::marker::PhantomData;
 /// fn setup(mut commands: Commands, mut materials: ResMut<Assets<CustomMaterial>>, asset_server: Res<AssetServer>) {
 ///     commands.spawn(MaterialMeshBundle {
 ///         material: materials.add(CustomMaterial {
-///             color: Color::RED,
+///             color: RED.into(),
 ///             color_texture: asset_server.load("some_image.png"),
 ///         }),
 ///         ..Default::default()
@@ -169,13 +171,13 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
     }
 
     /// Customizes the default [`RenderPipelineDescriptor`] for a specific entity using the entity's
-    /// [`MaterialPipelineKey`] and [`MeshVertexBufferLayout`] as input.
+    /// [`MaterialPipelineKey`] and [`MeshVertexBufferLayoutRef`] as input.
     #[allow(unused_variables)]
     #[inline]
     fn specialize(
         pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
-        layout: &MeshVertexBufferLayout,
+        layout: &MeshVertexBufferLayoutRef,
         key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         Ok(())
@@ -234,9 +236,7 @@ where
                             .after(prepare_materials::<M>),
                         queue_material_meshes::<M>
                             .in_set(RenderSet::QueueMeshes)
-                            .after(prepare_materials::<M>)
-                            // queue_material_meshes only writes to `material_bind_group_id`, which `queue_shadows` doesn't read
-                            .ambiguous_with(render::queue_shadows::<M>),
+                            .after(prepare_materials::<M>),
                     ),
                 );
         }
@@ -326,7 +326,7 @@ where
     fn specialize(
         &self,
         key: Self::Key,
-        layout: &MeshVertexBufferLayout,
+        layout: &MeshVertexBufferLayoutRef,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut descriptor = self.mesh_pipeline.specialize(key.mesh_key, layout)?;
         if let Some(vertex_shader) = &self.vertex_shader {
@@ -386,7 +386,7 @@ impl<P: PhaseItem, M: Material, const I: usize> RenderCommand<P> for SetMaterial
     fn render<'w>(
         item: &P,
         _view: (),
-        _item_query: (),
+        _item_query: Option<()>,
         (materials, material_instances): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -464,7 +464,7 @@ pub fn queue_material_meshes<M: Material>(
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderMaterials<M>>,
-    mut render_mesh_instances: ResMut<RenderMeshInstances>,
+    render_mesh_instances: Res<RenderMeshInstances>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
     render_lightmaps: Res<RenderLightmaps>,
     mut views: Query<(
@@ -487,7 +487,10 @@ pub fn queue_material_meshes<M: Material>(
         &mut RenderPhase<AlphaMask3d>,
         &mut RenderPhase<Transmissive3d>,
         &mut RenderPhase<Transparent3d>,
-        Has<RenderViewEnvironmentMaps>,
+        (
+            Has<RenderViewLightProbes<EnvironmentMapLight>>,
+            Has<RenderViewLightProbes<IrradianceVolume>>,
+        ),
     )>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
@@ -507,7 +510,7 @@ pub fn queue_material_meshes<M: Material>(
         mut alpha_mask_phase,
         mut transmissive_phase,
         mut transparent_phase,
-        has_environment_maps,
+        (has_environment_maps, has_irradiance_volumes),
     ) in &mut views
     {
         let draw_opaque_pbr = opaque_draw_functions.read().id::<DrawMaterial<M>>();
@@ -540,6 +543,10 @@ pub fn queue_material_meshes<M: Material>(
 
         if has_environment_maps {
             view_key |= MeshPipelineKey::ENVIRONMENT_MAP;
+        }
+
+        if has_irradiance_volumes {
+            view_key |= MeshPipelineKey::IRRADIANCE_VOLUME;
         }
 
         if let Some(projection) = projection {
@@ -578,12 +585,13 @@ pub fn queue_material_meshes<M: Material>(
                 camera_3d.screen_space_specular_transmission_quality,
             );
         }
+
         let rangefinder = view.rangefinder3d();
         for visible_entity in &visible_entities.entities {
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;
             };
-            let Some(mesh_instance) = render_mesh_instances.get_mut(visible_entity) else {
+            let Some(mesh_instance) = render_mesh_instances.get(visible_entity) else {
                 continue;
             };
             let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
@@ -637,14 +645,16 @@ pub fn queue_material_meshes<M: Material>(
                 }
             };
 
-            mesh_instance.material_bind_group_id = material.get_bind_group_id();
+            mesh_instance
+                .material_bind_group_id
+                .set(material.get_bind_group_id());
 
-            let distance = rangefinder
-                .distance_translation(&mesh_instance.transforms.transform.translation)
-                + material.properties.depth_bias;
             match material.properties.alpha_mode {
                 AlphaMode::Opaque => {
                     if material.properties.reads_view_transmission_texture {
+                        let distance = rangefinder
+                            .distance_translation(&mesh_instance.transforms.transform.translation)
+                            + material.properties.depth_bias;
                         transmissive_phase.add(Transmissive3d {
                             entity: *visible_entity,
                             draw_function: draw_transmissive_pbr,
@@ -658,7 +668,7 @@ pub fn queue_material_meshes<M: Material>(
                             entity: *visible_entity,
                             draw_function: draw_opaque_pbr,
                             pipeline: pipeline_id,
-                            distance,
+                            asset_id: mesh_instance.mesh_asset_id,
                             batch_range: 0..1,
                             dynamic_offset: None,
                         });
@@ -666,6 +676,9 @@ pub fn queue_material_meshes<M: Material>(
                 }
                 AlphaMode::Mask(_) => {
                     if material.properties.reads_view_transmission_texture {
+                        let distance = rangefinder
+                            .distance_translation(&mesh_instance.transforms.transform.translation)
+                            + material.properties.depth_bias;
                         transmissive_phase.add(Transmissive3d {
                             entity: *visible_entity,
                             draw_function: draw_transmissive_pbr,
@@ -679,7 +692,7 @@ pub fn queue_material_meshes<M: Material>(
                             entity: *visible_entity,
                             draw_function: draw_alpha_mask_pbr,
                             pipeline: pipeline_id,
-                            distance,
+                            asset_id: mesh_instance.mesh_asset_id,
                             batch_range: 0..1,
                             dynamic_offset: None,
                         });
@@ -689,6 +702,9 @@ pub fn queue_material_meshes<M: Material>(
                 | AlphaMode::Premultiplied
                 | AlphaMode::Add
                 | AlphaMode::Multiply => {
+                    let distance = rangefinder
+                        .distance_translation(&mesh_instance.transforms.transform.translation)
+                        + material.properties.depth_bias;
                     transparent_phase.add(Transparent3d {
                         entity: *visible_entity,
                         draw_function: draw_transparent_pbr,
@@ -778,7 +794,47 @@ pub struct PreparedMaterial<T: Material> {
 }
 
 #[derive(Component, Clone, Copy, Default, PartialEq, Eq, Deref, DerefMut)]
-pub struct MaterialBindGroupId(Option<BindGroupId>);
+pub struct MaterialBindGroupId(pub Option<BindGroupId>);
+
+impl MaterialBindGroupId {
+    pub fn new(id: BindGroupId) -> Self {
+        Self(Some(id))
+    }
+}
+
+impl From<BindGroup> for MaterialBindGroupId {
+    fn from(value: BindGroup) -> Self {
+        Self::new(value.id())
+    }
+}
+
+/// An atomic version of [`MaterialBindGroupId`] that can be read from and written to
+/// safely from multiple threads.
+#[derive(Default)]
+pub struct AtomicMaterialBindGroupId(AtomicU32);
+
+impl AtomicMaterialBindGroupId {
+    /// Stores a value atomically. Uses [`Ordering::Relaxed`] so there is zero guarantee of ordering
+    /// relative to other operations.
+    ///
+    /// See also:  [`AtomicU32::store`].
+    pub fn set(&self, id: MaterialBindGroupId) {
+        let id = if let Some(id) = id.0 {
+            NonZeroU32::from(id).get()
+        } else {
+            0
+        };
+        self.0.store(id, Ordering::Relaxed);
+    }
+
+    /// Loads a value atomically. Uses [`Ordering::Relaxed`] so there is zero guarantee of ordering
+    /// relative to other operations.
+    ///
+    /// See also:  [`AtomicU32::load`].
+    pub fn get(&self) -> MaterialBindGroupId {
+        MaterialBindGroupId(NonZeroU32::new(self.0.load(Ordering::Relaxed)).map(BindGroupId::from))
+    }
+}
 
 impl<T: Material> PreparedMaterial<T> {
     pub fn get_bind_group_id(&self) -> MaterialBindGroupId {

@@ -16,12 +16,12 @@ use std::marker::PhantomData;
 use thiserror::Error;
 
 #[derive(Asset, TypePath)]
-pub struct GzAsset {
-    pub uncompressed: ErasedLoadedAsset,
+struct GzAsset {
+    uncompressed: ErasedLoadedAsset,
 }
 
 #[derive(Default)]
-pub struct GzAssetLoader;
+struct GzAssetLoader;
 
 /// Possible errors that can be produced by [`GzAssetLoader`]
 #[non_exhaustive]
@@ -30,7 +30,7 @@ pub enum GzAssetLoaderError {
     /// An [IO](std::io) Error
     #[error("Could not load asset: {0}")]
     Io(#[from] std::io::Error),
-    /// An error caused when the asset path cannot be used ot determine the uncompressed asset type.
+    /// An error caused when the asset path cannot be used to determine the uncompressed asset type.
     #[error("Could not determine file path of uncompressed asset")]
     IndeterminateFilePath,
     /// An error caused by the internal asset loader.

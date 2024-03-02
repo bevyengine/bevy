@@ -1,5 +1,3 @@
-#![warn(missing_docs)]
-
 //! Input functionality for the [Bevy game engine](https://bevyengine.org/).
 //!
 //! # Supported input devices

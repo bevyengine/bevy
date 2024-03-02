@@ -60,22 +60,21 @@ use bevy_render::{
         TextureSampleType, TextureView,
     },
     renderer::RenderDevice,
-    settings::WgpuFeatures,
     texture::{FallbackImage, Image},
 };
-use bevy_utils::HashMap;
+
 use std::num::NonZeroU32;
 use std::ops::Deref;
 
-use crate::{LightProbe, MAX_VIEW_REFLECTION_PROBES};
+use crate::{
+    add_cubemap_texture_view, binding_arrays_are_usable, LightProbe, MAX_VIEW_LIGHT_PROBES,
+};
+
+use super::{LightProbeComponent, RenderViewLightProbes};
 
 /// A handle to the environment map helper shader.
 pub const ENVIRONMENT_MAP_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(154476556247605696);
-
-/// How many texture bindings are used in the fragment shader, *not* counting
-/// environment maps.
-const STANDARD_MATERIAL_FRAGMENT_SHADER_MIN_TEXTURE_BINDINGS: usize = 16;
 
 /// A pair of cubemap textures that represent the surroundings of a specific
 /// area in space.
@@ -103,7 +102,7 @@ pub struct EnvironmentMapLight {
 ///
 /// This is for use in the render app.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub(crate) struct EnvironmentMapIds {
+pub struct EnvironmentMapIds {
     /// The blurry image that represents diffuse radiance surrounding a region.
     pub(crate) diffuse: AssetId<Image>,
     /// The typically-sharper, mipmapped image that represents specular radiance
@@ -127,29 +126,9 @@ pub struct ReflectionProbeBundle {
     pub environment_map: EnvironmentMapLight,
 }
 
-/// A component, part of the render world, that stores the mapping from
-/// environment map ID to texture index in the diffuse and specular binding
-/// arrays.
-///
-/// Cubemap textures belonging to environment maps are collected into binding
-/// arrays, and the index of each texture is presented to the shader for runtime
-/// lookup.
-///
-/// This component is attached to each view in the render world, because each
-/// view may have a different set of cubemaps that it considers and therefore
-/// cubemap indices are per-view.
-#[derive(Component, Default)]
-pub struct RenderViewEnvironmentMaps {
-    /// The list of environment maps presented to the shader, in order.
-    binding_index_to_cubemap: Vec<EnvironmentMapIds>,
-    /// The reverse of `binding_index_to_cubemap`: a map from the environment
-    /// map IDs to the index in `binding_index_to_cubemap`.
-    cubemap_to_binding_index: HashMap<EnvironmentMapIds, u32>,
-}
-
 /// All the bind group entries necessary for PBR shaders to access the
 /// environment maps exposed to a view.
-pub(crate) enum RenderViewBindGroupEntries<'a> {
+pub(crate) enum RenderViewEnvironmentMapBindGroupEntries<'a> {
     /// The version used when binding arrays aren't available on the current
     /// platform.
     Single {
@@ -164,12 +143,12 @@ pub(crate) enum RenderViewBindGroupEntries<'a> {
         sampler: &'a Sampler,
     },
 
-    /// The version used when binding arrays aren't available on the current
+    /// The version used when binding arrays are available on the current
     /// platform.
     Multiple {
         /// A texture view of each diffuse cubemap, in the same order that they are
         /// supplied to the view (i.e. in the same order as
-        /// `binding_index_to_cubemap` in [`RenderViewEnvironmentMaps`]).
+        /// `binding_index_to_cubemap` in [`RenderViewLightProbes`]).
         ///
         /// This is a vector of `wgpu::TextureView`s. But we don't want to import
         /// `wgpu` in this crate, so we refer to it indirectly like this.
@@ -182,6 +161,19 @@ pub(crate) enum RenderViewBindGroupEntries<'a> {
         /// `specular_texture_views`.
         sampler: &'a Sampler,
     },
+}
+
+/// Information about the environment map attached to the view, if any. This is
+/// a global environment map that lights everything visible in the view, as
+/// opposed to a light probe which affects only a specific area.
+pub struct EnvironmentMapViewLightProbeInfo {
+    /// The index of the diffuse and specular cubemaps in the binding arrays.
+    pub(crate) cubemap_index: i32,
+    /// The smallest mip level of the specular cubemap.
+    pub(crate) smallest_specular_mip_level: u32,
+    /// The scale factor applied to the diffuse and specular light in the
+    /// cubemap. This is in units of cd/m² (candela per square meter).
+    pub(crate) intensity: f32,
 }
 
 impl ExtractInstance for EnvironmentMapIds {
@@ -197,32 +189,6 @@ impl ExtractInstance for EnvironmentMapIds {
     }
 }
 
-impl RenderViewEnvironmentMaps {
-    pub(crate) fn new() -> Self {
-        Self::default()
-    }
-}
-
-impl RenderViewEnvironmentMaps {
-    /// Whether there are no environment maps associated with the view.
-    pub(crate) fn is_empty(&self) -> bool {
-        self.binding_index_to_cubemap.is_empty()
-    }
-
-    /// Adds a cubemap to the list of bindings, if it wasn't there already, and
-    /// returns its index within that list.
-    pub(crate) fn get_or_insert_cubemap(&mut self, cubemap_id: &EnvironmentMapIds) -> u32 {
-        *self
-            .cubemap_to_binding_index
-            .entry(*cubemap_id)
-            .or_insert_with(|| {
-                let index = self.binding_index_to_cubemap.len() as u32;
-                self.binding_index_to_cubemap.push(*cubemap_id);
-                index
-            })
-    }
-}
-
 /// Returns the bind group layout entries for the environment map diffuse and
 /// specular binding arrays respectively, in addition to the sampler.
 pub(crate) fn get_bind_group_layout_entries(
@@ -232,7 +198,7 @@ pub(crate) fn get_bind_group_layout_entries(
         binding_types::texture_cube(TextureSampleType::Float { filterable: true });
     if binding_arrays_are_usable(render_device) {
         texture_cube_binding =
-            texture_cube_binding.count(NonZeroU32::new(MAX_VIEW_REFLECTION_PROBES as _).unwrap());
+            texture_cube_binding.count(NonZeroU32::new(MAX_VIEW_LIGHT_PROBES as _).unwrap());
     }
 
     [
@@ -242,30 +208,30 @@ pub(crate) fn get_bind_group_layout_entries(
     ]
 }
 
-impl<'a> RenderViewBindGroupEntries<'a> {
+impl<'a> RenderViewEnvironmentMapBindGroupEntries<'a> {
     /// Looks up and returns the bindings for the environment map diffuse and
     /// specular binding arrays respectively, as well as the sampler.
     pub(crate) fn get(
-        render_view_environment_maps: Option<&RenderViewEnvironmentMaps>,
+        render_view_environment_maps: Option<&RenderViewLightProbes<EnvironmentMapLight>>,
         images: &'a RenderAssets<Image>,
         fallback_image: &'a FallbackImage,
         render_device: &RenderDevice,
-    ) -> RenderViewBindGroupEntries<'a> {
+    ) -> RenderViewEnvironmentMapBindGroupEntries<'a> {
         if binding_arrays_are_usable(render_device) {
             let mut diffuse_texture_views = vec![];
             let mut specular_texture_views = vec![];
             let mut sampler = None;
 
             if let Some(environment_maps) = render_view_environment_maps {
-                for &cubemap_id in &environment_maps.binding_index_to_cubemap {
-                    add_texture_view(
+                for &cubemap_id in &environment_maps.binding_index_to_textures {
+                    add_cubemap_texture_view(
                         &mut diffuse_texture_views,
                         &mut sampler,
                         cubemap_id.diffuse,
                         images,
                         fallback_image,
                     );
-                    add_texture_view(
+                    add_cubemap_texture_view(
                         &mut specular_texture_views,
                         &mut sampler,
                         cubemap_id.specular,
@@ -277,16 +243,11 @@ impl<'a> RenderViewBindGroupEntries<'a> {
 
             // Pad out the bindings to the size of the binding array using fallback
             // textures. This is necessary on D3D12 and Metal.
-            diffuse_texture_views.resize(
-                MAX_VIEW_REFLECTION_PROBES,
-                &*fallback_image.cube.texture_view,
-            );
-            specular_texture_views.resize(
-                MAX_VIEW_REFLECTION_PROBES,
-                &*fallback_image.cube.texture_view,
-            );
+            diffuse_texture_views.resize(MAX_VIEW_LIGHT_PROBES, &*fallback_image.cube.texture_view);
+            specular_texture_views
+                .resize(MAX_VIEW_LIGHT_PROBES, &*fallback_image.cube.texture_view);
 
-            return RenderViewBindGroupEntries::Multiple {
+            return RenderViewEnvironmentMapBindGroupEntries::Multiple {
                 diffuse_texture_views,
                 specular_texture_views,
                 sampler: sampler.unwrap_or(&fallback_image.cube.sampler),
@@ -294,11 +255,11 @@ impl<'a> RenderViewBindGroupEntries<'a> {
         }
 
         if let Some(environment_maps) = render_view_environment_maps {
-            if let Some(cubemap) = environment_maps.binding_index_to_cubemap.first() {
+            if let Some(cubemap) = environment_maps.binding_index_to_textures.first() {
                 if let (Some(diffuse_image), Some(specular_image)) =
                     (images.get(cubemap.diffuse), images.get(cubemap.specular))
                 {
-                    return RenderViewBindGroupEntries::Single {
+                    return RenderViewEnvironmentMapBindGroupEntries::Single {
                         diffuse_texture_view: &diffuse_image.texture_view,
                         specular_texture_view: &specular_image.texture_view,
                         sampler: &diffuse_image.sampler,
@@ -307,7 +268,7 @@ impl<'a> RenderViewBindGroupEntries<'a> {
             }
         }
 
-        RenderViewBindGroupEntries::Single {
+        RenderViewEnvironmentMapBindGroupEntries::Single {
             diffuse_texture_view: &fallback_image.cube.texture_view,
             specular_texture_view: &fallback_image.cube.texture_view,
             sampler: &fallback_image.cube.sampler,
@@ -315,56 +276,71 @@ impl<'a> RenderViewBindGroupEntries<'a> {
     }
 }
 
-/// Adds a diffuse or specular texture view to the `texture_views` list, and
-/// populates `sampler` if this is the first such view.
-fn add_texture_view<'a>(
-    texture_views: &mut Vec<&'a <TextureView as Deref>::Target>,
-    sampler: &mut Option<&'a Sampler>,
-    image_id: AssetId<Image>,
-    images: &'a RenderAssets<Image>,
-    fallback_image: &'a FallbackImage,
-) {
-    match images.get(image_id) {
-        None => {
-            // Use the fallback image if the cubemap isn't loaded yet.
-            texture_views.push(&*fallback_image.cube.texture_view);
-        }
-        Some(image) => {
-            // If this is the first texture view, populate `sampler`.
-            if sampler.is_none() {
-                *sampler = Some(&image.sampler);
-            }
+impl LightProbeComponent for EnvironmentMapLight {
+    type AssetId = EnvironmentMapIds;
 
-            texture_views.push(&*image.texture_view);
+    // Information needed to render with the environment map attached to the
+    // view.
+    type ViewLightProbeInfo = EnvironmentMapViewLightProbeInfo;
+
+    fn id(&self, image_assets: &RenderAssets<Image>) -> Option<Self::AssetId> {
+        if image_assets.get(&self.diffuse_map).is_none()
+            || image_assets.get(&self.specular_map).is_none()
+        {
+            None
+        } else {
+            Some(EnvironmentMapIds {
+                diffuse: self.diffuse_map.id(),
+                specular: self.specular_map.id(),
+            })
         }
+    }
+
+    fn intensity(&self) -> f32 {
+        self.intensity
+    }
+
+    fn create_render_view_light_probes(
+        view_component: Option<&EnvironmentMapLight>,
+        image_assets: &RenderAssets<Image>,
+    ) -> RenderViewLightProbes<Self> {
+        let mut render_view_light_probes = RenderViewLightProbes::new();
+
+        // Find the index of the cubemap associated with the view, and determine
+        // its smallest mip level.
+        if let Some(EnvironmentMapLight {
+            diffuse_map: diffuse_map_handle,
+            specular_map: specular_map_handle,
+            intensity,
+        }) = view_component
+        {
+            if let (Some(_), Some(specular_map)) = (
+                image_assets.get(diffuse_map_handle),
+                image_assets.get(specular_map_handle),
+            ) {
+                render_view_light_probes.view_light_probe_info = EnvironmentMapViewLightProbeInfo {
+                    cubemap_index: render_view_light_probes.get_or_insert_cubemap(
+                        &EnvironmentMapIds {
+                            diffuse: diffuse_map_handle.id(),
+                            specular: specular_map_handle.id(),
+                        },
+                    ) as i32,
+                    smallest_specular_mip_level: specular_map.mip_level_count - 1,
+                    intensity: *intensity,
+                };
+            }
+        };
+
+        render_view_light_probes
     }
 }
 
-/// Many things can go wrong when attempting to use texture binding arrays
-/// (a.k.a. bindless textures). This function checks for these pitfalls:
-///
-/// 1. If GLSL support is enabled at the feature level, then in debug mode
-/// `naga_oil` will attempt to compile all shader modules under GLSL to check
-/// validity of names, even if GLSL isn't actually used. This will cause a crash
-/// if binding arrays are enabled, because binding arrays are currently
-/// unimplemented in the GLSL backend of Naga. Therefore, we disable binding
-/// arrays if the `shader_format_glsl` feature is present.
-///
-/// 2. If there aren't enough texture bindings available to accommodate all the
-/// binding arrays, the driver will panic. So we also bail out if there aren't
-/// enough texture bindings available in the fragment shader.
-///
-/// 3. If binding arrays aren't supported on the hardware, then we obviously
-/// can't use them.
-///
-/// If binding arrays aren't usable, we disable reflection probes, as they rely
-/// on them.
-pub(crate) fn binding_arrays_are_usable(render_device: &RenderDevice) -> bool {
-    !cfg!(feature = "shader_format_glsl")
-        && render_device.limits().max_storage_textures_per_shader_stage
-            >= (STANDARD_MATERIAL_FRAGMENT_SHADER_MIN_TEXTURE_BINDINGS + MAX_VIEW_REFLECTION_PROBES)
-                as u32
-        && render_device
-            .features()
-            .contains(WgpuFeatures::TEXTURE_BINDING_ARRAY)
+impl Default for EnvironmentMapViewLightProbeInfo {
+    fn default() -> Self {
+        Self {
+            cubemap_index: -1,
+            smallest_specular_mip_level: 0,
+            intensity: 1.0,
+        }
+    }
 }

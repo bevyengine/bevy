@@ -6,6 +6,8 @@ use bevy::{
     sprite::MaterialMesh2dBundle,
 };
 
+mod stepping;
+
 // These constants are defined in `Transform` units.
 // Using the default 2D camera they correspond 1:1 with screen pixels.
 const PADDLE_SIZE: Vec3 = Vec3::new(120.0, 20.0, 0.0);
@@ -39,17 +41,23 @@ const GAP_BETWEEN_BRICKS_AND_SIDES: f32 = 20.0;
 const SCOREBOARD_FONT_SIZE: f32 = 40.0;
 const SCOREBOARD_TEXT_PADDING: Val = Val::Px(5.0);
 
-const BACKGROUND_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
-const PADDLE_COLOR: Color = Color::rgb(0.3, 0.3, 0.7);
-const BALL_COLOR: Color = Color::rgb(1.0, 0.5, 0.5);
-const BRICK_COLOR: Color = Color::rgb(0.5, 0.5, 1.0);
-const WALL_COLOR: Color = Color::rgb(0.8, 0.8, 0.8);
-const TEXT_COLOR: Color = Color::rgb(0.5, 0.5, 1.0);
-const SCORE_COLOR: Color = Color::rgb(1.0, 0.5, 0.5);
+const BACKGROUND_COLOR: Color = Color::srgb(0.9, 0.9, 0.9);
+const PADDLE_COLOR: Color = Color::srgb(0.3, 0.3, 0.7);
+const BALL_COLOR: Color = Color::srgb(1.0, 0.5, 0.5);
+const BRICK_COLOR: Color = Color::srgb(0.5, 0.5, 1.0);
+const WALL_COLOR: Color = Color::srgb(0.8, 0.8, 0.8);
+const TEXT_COLOR: Color = Color::srgb(0.5, 0.5, 1.0);
+const SCORE_COLOR: Color = Color::srgb(1.0, 0.5, 0.5);
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .add_plugins(
+            stepping::SteppingPlugin::default()
+                .add_schedule(Update)
+                .add_schedule(FixedUpdate)
+                .at(Val::Percent(35.0), Val::Percent(50.0)),
+        )
         .insert_resource(Scoreboard { score: 0 })
         .insert_resource(ClearColor(BACKGROUND_COLOR))
         .add_event::<CollisionEvent>()
@@ -170,6 +178,9 @@ struct Scoreboard {
     score: usize,
 }
 
+#[derive(Component)]
+struct ScoreboardUi;
+
 // Add the game's entities to our world
 fn setup(
     mut commands: Commands,
@@ -207,7 +218,7 @@ fn setup(
     // Ball
     commands.spawn((
         MaterialMesh2dBundle {
-            mesh: meshes.add(shape::Circle::default()).into(),
+            mesh: meshes.add(Circle::default()).into(),
             material: materials.add(BALL_COLOR),
             transform: Transform::from_translation(BALL_STARTING_POSITION)
                 .with_scale(Vec2::splat(BALL_DIAMETER).extend(1.)),
@@ -218,7 +229,8 @@ fn setup(
     ));
 
     // Scoreboard
-    commands.spawn(
+    commands.spawn((
+        ScoreboardUi,
         TextBundle::from_sections([
             TextSection::new(
                 "Score: ",
@@ -240,7 +252,7 @@ fn setup(
             left: SCOREBOARD_TEXT_PADDING,
             ..default()
         }),
-    );
+    ));
 
     // Walls
     commands.spawn(WallBundle::new(WallLocation::Left));
@@ -338,7 +350,7 @@ fn apply_velocity(mut query: Query<(&mut Transform, &Velocity)>, time: Res<Time>
     }
 }
 
-fn update_scoreboard(scoreboard: Res<Scoreboard>, mut query: Query<&mut Text>) {
+fn update_scoreboard(scoreboard: Res<Scoreboard>, mut query: Query<&mut Text, With<ScoreboardUi>>) {
     let mut text = query.single_mut();
     text.sections[1].value = scoreboard.score.to_string();
 }

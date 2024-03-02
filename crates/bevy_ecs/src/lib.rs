@@ -1,6 +1,5 @@
 // FIXME(11590): remove this once the lint is fixed
 #![allow(unsafe_op_in_unsafe_fn)]
-#![warn(missing_docs)]
 #![doc = include_str!("../README.md")]
 
 #[cfg(target_pointer_width = "16")]
@@ -21,8 +20,6 @@ pub mod schedule;
 pub mod storage;
 pub mod system;
 pub mod world;
-
-use std::any::TypeId;
 
 pub use bevy_ptr as ptr;
 
@@ -56,34 +53,6 @@ pub mod prelude {
 }
 
 pub use bevy_utils::all_tuples;
-
-/// A specialized hashmap type with Key of [`TypeId`]
-type TypeIdMap<V> =
-    std::collections::HashMap<TypeId, V, std::hash::BuildHasherDefault<NoOpTypeIdHasher>>;
-
-#[doc(hidden)]
-#[derive(Default)]
-struct NoOpTypeIdHasher(u64);
-
-// TypeId already contains a high-quality hash, so skip re-hashing that hash.
-impl std::hash::Hasher for NoOpTypeIdHasher {
-    fn finish(&self) -> u64 {
-        self.0
-    }
-
-    fn write(&mut self, bytes: &[u8]) {
-        // This will never be called: TypeId always just calls write_u64 once!
-        // This is a known trick and unlikely to change, but isn't officially guaranteed.
-        // Don't break applications (slower fallback, just check in test):
-        self.0 = bytes.iter().fold(self.0, |hash, b| {
-            hash.rotate_left(8).wrapping_add(*b as u64)
-        });
-    }
-
-    fn write_u64(&mut self, i: u64) {
-        self.0 = i;
-    }
-}
 
 #[cfg(test)]
 mod tests {
@@ -1098,7 +1067,7 @@ mod tests {
     fn reserve_and_spawn() {
         let mut world = World::default();
         let e = world.entities().reserve_entity();
-        world.flush();
+        world.flush_entities();
         let mut e_mut = world.entity_mut(e);
         e_mut.insert(A(0));
         assert_eq!(e_mut.get::<A>().unwrap(), &A(0));
@@ -1581,7 +1550,7 @@ mod tests {
         let e1 = world_a.spawn(A(1)).id();
         let e2 = world_a.spawn(A(2)).id();
         let e3 = world_a.entities().reserve_entity();
-        world_a.flush();
+        world_a.flush_entities();
 
         let world_a_max_entities = world_a.entities().len();
         world_b.entities.reserve_entities(world_a_max_entities);
@@ -1754,23 +1723,6 @@ mod tests {
             Some(&C),
             "new entity was spawned and received C component"
         );
-    }
-
-    #[test]
-    fn fast_typeid_hash() {
-        struct Hasher;
-
-        impl std::hash::Hasher for Hasher {
-            fn finish(&self) -> u64 {
-                0
-            }
-            fn write(&mut self, _: &[u8]) {
-                panic!("Hashing of std::any::TypeId changed");
-            }
-            fn write_u64(&mut self, _: u64) {}
-        }
-
-        std::hash::Hash::hash(&TypeId::of::<()>(), &mut Hasher);
     }
 
     #[derive(Component)]

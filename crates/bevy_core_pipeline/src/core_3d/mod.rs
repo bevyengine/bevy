@@ -7,14 +7,14 @@ pub mod graph {
     use bevy_render::render_graph::{RenderLabel, RenderSubGraph};
 
     #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderSubGraph)]
-    pub struct SubGraph3d;
+    pub struct Core3d;
 
     pub mod input {
         pub const VIEW_ENTITY: &str = "view_entity";
     }
 
     #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
-    pub enum Labels3d {
+    pub enum Node3d {
         MsaaWriteback,
         Prepass,
         DeferredPrepass,
@@ -38,8 +38,10 @@ pub mod graph {
 // PERF: vulkan docs recommend using 24 bit depth for better performance
 pub const CORE_3D_DEPTH_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
-use std::{cmp::Reverse, ops::Range};
+use std::ops::Range;
 
+use bevy_asset::AssetId;
+use bevy_color::LinearRgba;
 pub use camera_3d::*;
 pub use main_opaque_pass_3d_node::*;
 pub use main_transparent_pass_3d_node::*;
@@ -48,8 +50,8 @@ use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
-    color::Color,
     extract_component::ExtractComponentPlugin,
+    mesh::Mesh,
     prelude::Msaa,
     render_graph::{EmptyNode, RenderGraphApp, ViewNodeRunner},
     render_phase::{
@@ -84,7 +86,7 @@ use crate::{
     upscaling::UpscalingNode,
 };
 
-use self::graph::{Labels3d, SubGraph3d};
+use self::graph::{Core3d, Node3d};
 
 pub struct Core3dPlugin;
 
@@ -130,59 +132,56 @@ impl Plugin for Core3dPlugin {
             );
 
         render_app
-            .add_render_sub_graph(SubGraph3d)
-            .add_render_graph_node::<ViewNodeRunner<PrepassNode>>(SubGraph3d, Labels3d::Prepass)
+            .add_render_sub_graph(Core3d)
+            .add_render_graph_node::<ViewNodeRunner<PrepassNode>>(Core3d, Node3d::Prepass)
             .add_render_graph_node::<ViewNodeRunner<DeferredGBufferPrepassNode>>(
-                SubGraph3d,
-                Labels3d::DeferredPrepass,
+                Core3d,
+                Node3d::DeferredPrepass,
             )
             .add_render_graph_node::<ViewNodeRunner<CopyDeferredLightingIdNode>>(
-                SubGraph3d,
-                Labels3d::CopyDeferredLightingId,
+                Core3d,
+                Node3d::CopyDeferredLightingId,
             )
-            .add_render_graph_node::<EmptyNode>(SubGraph3d, Labels3d::EndPrepasses)
-            .add_render_graph_node::<EmptyNode>(SubGraph3d, Labels3d::StartMainPass)
+            .add_render_graph_node::<EmptyNode>(Core3d, Node3d::EndPrepasses)
+            .add_render_graph_node::<EmptyNode>(Core3d, Node3d::StartMainPass)
             .add_render_graph_node::<ViewNodeRunner<MainOpaquePass3dNode>>(
-                SubGraph3d,
-                Labels3d::MainOpaquePass,
+                Core3d,
+                Node3d::MainOpaquePass,
             )
             .add_render_graph_node::<ViewNodeRunner<MainTransmissivePass3dNode>>(
-                SubGraph3d,
-                Labels3d::MainTransmissivePass,
+                Core3d,
+                Node3d::MainTransmissivePass,
             )
             .add_render_graph_node::<ViewNodeRunner<MainTransparentPass3dNode>>(
-                SubGraph3d,
-                Labels3d::MainTransparentPass,
+                Core3d,
+                Node3d::MainTransparentPass,
             )
-            .add_render_graph_node::<EmptyNode>(SubGraph3d, Labels3d::EndMainPass)
-            .add_render_graph_node::<ViewNodeRunner<TonemappingNode>>(
-                SubGraph3d,
-                Labels3d::Tonemapping,
-            )
-            .add_render_graph_node::<EmptyNode>(SubGraph3d, Labels3d::EndMainPassPostProcessing)
-            .add_render_graph_node::<ViewNodeRunner<UpscalingNode>>(SubGraph3d, Labels3d::Upscaling)
+            .add_render_graph_node::<EmptyNode>(Core3d, Node3d::EndMainPass)
+            .add_render_graph_node::<ViewNodeRunner<TonemappingNode>>(Core3d, Node3d::Tonemapping)
+            .add_render_graph_node::<EmptyNode>(Core3d, Node3d::EndMainPassPostProcessing)
+            .add_render_graph_node::<ViewNodeRunner<UpscalingNode>>(Core3d, Node3d::Upscaling)
             .add_render_graph_edges(
-                SubGraph3d,
+                Core3d,
                 (
-                    Labels3d::Prepass,
-                    Labels3d::DeferredPrepass,
-                    Labels3d::CopyDeferredLightingId,
-                    Labels3d::EndPrepasses,
-                    Labels3d::StartMainPass,
-                    Labels3d::MainOpaquePass,
-                    Labels3d::MainTransmissivePass,
-                    Labels3d::MainTransparentPass,
-                    Labels3d::EndMainPass,
-                    Labels3d::Tonemapping,
-                    Labels3d::EndMainPassPostProcessing,
-                    Labels3d::Upscaling,
+                    Node3d::Prepass,
+                    Node3d::DeferredPrepass,
+                    Node3d::CopyDeferredLightingId,
+                    Node3d::EndPrepasses,
+                    Node3d::StartMainPass,
+                    Node3d::MainOpaquePass,
+                    Node3d::MainTransmissivePass,
+                    Node3d::MainTransparentPass,
+                    Node3d::EndMainPass,
+                    Node3d::Tonemapping,
+                    Node3d::EndMainPassPostProcessing,
+                    Node3d::Upscaling,
                 ),
             );
     }
 }
 
 pub struct Opaque3d {
-    pub distance: f32,
+    pub asset_id: AssetId<Mesh>,
     pub pipeline: CachedRenderPipelineId,
     pub entity: Entity,
     pub draw_function: DrawFunctionId,
@@ -191,8 +190,7 @@ pub struct Opaque3d {
 }
 
 impl PhaseItem for Opaque3d {
-    // NOTE: Values increase towards the camera. Front-to-back ordering for opaque means we need a descending sort.
-    type SortKey = Reverse<FloatOrd>;
+    type SortKey = (usize, AssetId<Mesh>);
 
     #[inline]
     fn entity(&self) -> Entity {
@@ -201,7 +199,8 @@ impl PhaseItem for Opaque3d {
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
-        Reverse(FloatOrd(self.distance))
+        // Sort by pipeline, then by mesh to massively decrease drawcall counts in real scenes.
+        (self.pipeline.id(), self.asset_id)
     }
 
     #[inline]
@@ -211,8 +210,7 @@ impl PhaseItem for Opaque3d {
 
     #[inline]
     fn sort(items: &mut [Self]) {
-        // Key negated to match reversed SortKey ordering
-        radsort::sort_by_key(items, |item| -item.distance);
+        items.sort_unstable_by_key(Self::sort_key);
     }
 
     #[inline]
@@ -244,7 +242,7 @@ impl CachedRenderPipelinePhaseItem for Opaque3d {
 }
 
 pub struct AlphaMask3d {
-    pub distance: f32,
+    pub asset_id: AssetId<Mesh>,
     pub pipeline: CachedRenderPipelineId,
     pub entity: Entity,
     pub draw_function: DrawFunctionId,
@@ -253,8 +251,7 @@ pub struct AlphaMask3d {
 }
 
 impl PhaseItem for AlphaMask3d {
-    // NOTE: Values increase towards the camera. Front-to-back ordering for alpha mask means we need a descending sort.
-    type SortKey = Reverse<FloatOrd>;
+    type SortKey = (usize, AssetId<Mesh>);
 
     #[inline]
     fn entity(&self) -> Entity {
@@ -263,7 +260,8 @@ impl PhaseItem for AlphaMask3d {
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
-        Reverse(FloatOrd(self.distance))
+        // Sort by pipeline, then by mesh to massively decrease drawcall counts in real scenes.
+        (self.pipeline.id(), self.asset_id)
     }
 
     #[inline]
@@ -273,8 +271,7 @@ impl PhaseItem for AlphaMask3d {
 
     #[inline]
     fn sort(items: &mut [Self]) {
-        // Key negated to match reversed SortKey ordering
-        radsort::sort_by_key(items, |item| -item.distance);
+        items.sort_unstable_by_key(Self::sort_key);
     }
 
     #[inline]
@@ -838,16 +835,19 @@ pub fn prepare_prepass_textures(
         });
 
         commands.entity(entity).insert(ViewPrepassTextures {
-            depth: cached_depth_texture.map(|t| ColorAttachment::new(t, None, Color::BLACK)),
-            normal: cached_normals_texture.map(|t| ColorAttachment::new(t, None, Color::BLACK)),
+            depth: cached_depth_texture
+                .map(|t| ColorAttachment::new(t, None, Some(LinearRgba::BLACK))),
+            normal: cached_normals_texture
+                .map(|t| ColorAttachment::new(t, None, Some(LinearRgba::BLACK))),
             // Red and Green channels are X and Y components of the motion vectors
             // Blue channel doesn't matter, but set to 0.0 for possible faster clear
             // https://gpuopen.com/performance/#clears
             motion_vectors: cached_motion_vectors_texture
-                .map(|t| ColorAttachment::new(t, None, Color::BLACK)),
-            deferred: cached_deferred_texture.map(|t| ColorAttachment::new(t, None, Color::BLACK)),
+                .map(|t| ColorAttachment::new(t, None, Some(LinearRgba::BLACK))),
+            deferred: cached_deferred_texture
+                .map(|t| ColorAttachment::new(t, None, Some(LinearRgba::BLACK))),
             deferred_lighting_pass_id: cached_deferred_lighting_pass_id_texture
-                .map(|t| ColorAttachment::new(t, None, Color::BLACK)),
+                .map(|t| ColorAttachment::new(t, None, Some(LinearRgba::BLACK))),
             size,
         });
     }

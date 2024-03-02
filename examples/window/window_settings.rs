@@ -14,6 +14,7 @@ fn main() {
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
                     title: "I am a window!".into(),
+                    name: Some("bevy.app".into()),
                     resolution: (500., 300.).into(),
                     present_mode: PresentMode::AutoVsync,
                     // Tells wasm not to override default event handling, like F5, Ctrl+R etc.
