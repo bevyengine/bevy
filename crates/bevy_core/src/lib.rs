@@ -112,8 +112,7 @@ fn register_math_types(app: &mut App) {
         .register_type::<Vec<bevy_math::Vec3>>();
 }
 
-/// Setup of default task pools: [`AsyncComputeTaskPool`](bevy_tasks::AsyncComputeTaskPool),
-/// [`ComputeTaskPool`](bevy_tasks::ComputeTaskPool), [`IoTaskPool`](bevy_tasks::IoTaskPool).
+/// Setup of default task pool: [`ComputeTaskPool`](bevy_tasks::ComputeTaskPool).
 #[derive(Default)]
 pub struct TaskPoolPlugin {
     /// Options for the [`TaskPool`](bevy_tasks::TaskPool) created at application start.
@@ -175,19 +174,12 @@ pub fn update_frame_count(mut frame_count: ResMut<FrameCount>) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bevy_tasks::prelude::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool};
+    use bevy_tasks::prelude::ComputeTaskPool;
 
     #[test]
     fn runs_spawn_local_tasks() {
         let mut app = App::new();
         app.add_plugins((TaskPoolPlugin::default(), TypeRegistrationPlugin));
-
-        let (async_tx, async_rx) = crossbeam_channel::unbounded();
-        AsyncComputeTaskPool::get()
-            .spawn_local(async move {
-                async_tx.send(()).unwrap();
-            })
-            .detach();
 
         let (compute_tx, compute_rx) = crossbeam_channel::unbounded();
         ComputeTaskPool::get()
@@ -196,18 +188,9 @@ mod tests {
             })
             .detach();
 
-        let (io_tx, io_rx) = crossbeam_channel::unbounded();
-        IoTaskPool::get()
-            .spawn_local(async move {
-                io_tx.send(()).unwrap();
-            })
-            .detach();
-
         app.run();
 
-        async_rx.try_recv().unwrap();
         compute_rx.try_recv().unwrap();
-        io_rx.try_recv().unwrap();
     }
 
     #[test]

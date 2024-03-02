@@ -4,7 +4,7 @@ use crate::{
 };
 use async_broadcast::RecvError;
 use bevy_log::{error, warn};
-use bevy_tasks::IoTaskPool;
+use bevy_tasks::ComputeTaskPool;
 use bevy_utils::{HashMap, TypeIdMap};
 use std::{any::TypeId, sync::Arc};
 use thiserror::Error;
@@ -78,7 +78,7 @@ impl AssetLoaders {
             match maybe_loader {
                 MaybeAssetLoader::Ready(_) => unreachable!(),
                 MaybeAssetLoader::Pending { sender, .. } => {
-                    IoTaskPool::get()
+                    ComputeTaskPool::get()
                         .spawn(async move {
                             let _ = sender.broadcast(loader).await;
                         })

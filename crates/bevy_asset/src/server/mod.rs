@@ -19,7 +19,7 @@ use crate::{
 };
 use bevy_ecs::prelude::*;
 use bevy_log::{error, info};
-use bevy_tasks::IoTaskPool;
+use bevy_tasks::ComputeTaskPool;
 use bevy_utils::{CowArc, HashSet};
 use crossbeam_channel::{Receiver, Sender};
 use futures_lite::StreamExt;
@@ -296,7 +296,7 @@ impl AssetServer {
         if should_load {
             let owned_handle = Some(handle.clone().untyped());
             let server = self.clone();
-            IoTaskPool::get()
+            ComputeTaskPool::get()
                 .spawn(async move {
                     if let Err(err) = server.load_internal(owned_handle, path, false, None).await {
                         error!("{}", err);
@@ -366,7 +366,7 @@ impl AssetServer {
         let id = handle.id().untyped();
 
         let server = self.clone();
-        IoTaskPool::get()
+        ComputeTaskPool::get()
             .spawn(async move {
                 let path_clone = path.clone();
                 match server.load_untyped_async(path).await {
@@ -551,7 +551,7 @@ impl AssetServer {
     pub fn reload<'a>(&self, path: impl Into<AssetPath<'a>>) {
         let server = self.clone();
         let path = path.into().into_owned();
-        IoTaskPool::get()
+        ComputeTaskPool::get()
             .spawn(async move {
                 let mut reloaded = false;
 
@@ -690,7 +690,7 @@ impl AssetServer {
 
         let path = path.into_owned();
         let server = self.clone();
-        IoTaskPool::get()
+        ComputeTaskPool::get()
             .spawn(async move {
                 let Ok(source) = server.get_source(path.source()) else {
                     error!(
