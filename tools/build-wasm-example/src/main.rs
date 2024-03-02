@@ -73,7 +73,7 @@ fn main() {
             parameters.push("--features");
             parameters.push(&features_string);
         }
-        let mut cmd = cmd!(
+        let cmd = cmd!(
             sh,
             "cargo build {parameters...} --profile release --target wasm32-unknown-unknown --example {example}"
         );
