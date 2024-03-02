@@ -1761,6 +1761,23 @@ mod tests {
     }
 
     #[test]
+    fn join_with_get() {
+        let mut world = World::new();
+        world.spawn(A(0));
+        world.spawn(B(1));
+        let entity_ab = world.spawn((A(2), B(3))).id();
+        let entity_abc = world.spawn((A(4), B(5), C(6))).id();
+
+        let query_1 = QueryState::<&A>::new(&mut world);
+        let query_2 = QueryState::<&B, Without<C>>::new(&mut world);
+        let mut new_query: QueryState<Entity, ()> = query_1.join_filtered(&world, &query_2);
+
+        assert!(new_query.get(&world, entity_ab).is_ok());
+        // should not be able to get entity with c.
+        assert!(new_query.get(&world, entity_abc).is_err());
+    }
+
+    #[test]
     #[should_panic(
         expected = "Transmuted state for (&bevy_ecs::query::state::tests::C, ()) attempts to access terms that are not allowed by original state (&bevy_ecs::query::state::tests::A, ())."
     )]

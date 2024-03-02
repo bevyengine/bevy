@@ -1420,7 +1420,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
             state,
             last_run: self.last_run,
             this_run: self.this_run,
-            force_read_only_component_access: self.force_read_only_component_access,
         }
     }
 }
