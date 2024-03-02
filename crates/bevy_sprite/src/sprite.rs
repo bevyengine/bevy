@@ -1,7 +1,7 @@
+use bevy_color::Color;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::color::LegacyColor;
 
 use crate::TextureSlicer;
 
@@ -13,7 +13,7 @@ use crate::TextureSlicer;
 #[repr(C)]
 pub struct Sprite {
     /// The sprite's color tint
-    pub color: LegacyColor,
+    pub color: Color,
     /// Flip the sprite along the `X` axis
     pub flip_x: bool,
     /// Flip the sprite along the `Y` axis

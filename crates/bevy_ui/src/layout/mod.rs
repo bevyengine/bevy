@@ -411,7 +411,9 @@ pub fn ui_layout_system(
         mut absolute_location: Vec2,
     ) {
         if let Ok((mut node, mut transform)) = node_transform_query.get_mut(entity) {
-            let layout = ui_surface.get_layout(entity).unwrap();
+            let Ok(layout) = ui_surface.get_layout(entity) else {
+                return;
+            };
             let layout_size =
                 inverse_target_scale_factor * Vec2::new(layout.size.width, layout.size.height);
             let layout_location =

@@ -228,6 +228,7 @@ Example | Description
 Example | Description
 --- | ---
 [Component Change Detection](../examples/ecs/component_change_detection.rs) | Change detection on components
+[Component Hooks](../examples/ecs/component_hooks.rs) | Define component hooks to manage component lifecycle events
 [Custom Query Parameters](../examples/ecs/custom_query_param.rs) | Groups commonly used compound queries and query filters into a single type
 [Custom Schedule](../examples/ecs/custom_schedule.rs) | Demonstrates how to add custom schedules
 [Dynamic ECS](../examples/ecs/dynamic.rs) | Dynamically create components, spawn entities with those components and query those components

@@ -1,5 +1,6 @@
 mod prepass_bindings;
 
+use bevy_render::mesh::MeshVertexBufferLayoutRef;
 use bevy_render::render_resource::binding_types::uniform_buffer;
 pub use prepass_bindings::*;
 
@@ -17,7 +18,6 @@ use bevy_math::{Affine3A, Mat4};
 use bevy_render::{
     batching::batch_and_prepare_render_phase,
     globals::{GlobalsBuffer, GlobalsUniform},
-    mesh::MeshVertexBufferLayout,
     prelude::{Camera, Mesh},
     render_asset::RenderAssets,
     render_phase::*,
@@ -302,7 +302,7 @@ where
     fn specialize(
         &self,
         key: Self::Key,
-        layout: &MeshVertexBufferLayout,
+        layout: &MeshVertexBufferLayoutRef,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut bind_group_layouts = vec![if key
             .mesh_key
@@ -347,7 +347,7 @@ where
             shader_defs.push("BLEND_ALPHA".into());
         }
 
-        if layout.contains(Mesh::ATTRIBUTE_POSITION) {
+        if layout.0.contains(Mesh::ATTRIBUTE_POSITION) {
             shader_defs.push("VERTEX_POSITIONS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
         }
@@ -363,12 +363,12 @@ where
             shader_defs.push("PREPASS_FRAGMENT".into());
         }
 
-        if layout.contains(Mesh::ATTRIBUTE_UV_0) {
+        if layout.0.contains(Mesh::ATTRIBUTE_UV_0) {
             shader_defs.push("VERTEX_UVS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_0.at_shader_location(1));
         }
 
-        if layout.contains(Mesh::ATTRIBUTE_UV_1) {
+        if layout.0.contains(Mesh::ATTRIBUTE_UV_1) {
             shader_defs.push("VERTEX_UVS_B".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_1.at_shader_location(2));
         }
@@ -383,7 +383,7 @@ where
         {
             vertex_attributes.push(Mesh::ATTRIBUTE_NORMAL.at_shader_location(3));
             shader_defs.push("NORMAL_PREPASS_OR_DEFERRED_PREPASS".into());
-            if layout.contains(Mesh::ATTRIBUTE_TANGENT) {
+            if layout.0.contains(Mesh::ATTRIBUTE_TANGENT) {
                 shader_defs.push("VERTEX_TANGENTS".into());
                 vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(4));
             }
@@ -400,7 +400,7 @@ where
             shader_defs.push("DEFERRED_PREPASS".into());
         }
 
-        if layout.contains(Mesh::ATTRIBUTE_COLOR) {
+        if layout.0.contains(Mesh::ATTRIBUTE_COLOR) {
             shader_defs.push("VERTEX_COLORS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(7));
         }
@@ -430,7 +430,7 @@ where
         );
         bind_group_layouts.insert(1, bind_group);
 
-        let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
+        let vertex_buffer_layout = layout.0.get_layout(&vertex_attributes)?;
 
         // Setup prepass fragment targets - normals in slot 0 (or None if not needed), motion vectors in slot 1
         let mut targets = vec![

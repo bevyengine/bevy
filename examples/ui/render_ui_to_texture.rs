@@ -3,6 +3,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    color::palettes::css::GOLD,
     prelude::*,
     render::{
         camera::RenderTarget,
@@ -85,7 +86,7 @@ fn setup(
                     align_items: AlignItems::Center,
                     ..default()
                 },
-                background_color: LegacyColor::GOLD.into(),
+                background_color: GOLD.into(),
                 ..default()
             },
             TargetCamera(texture_camera),
@@ -95,7 +96,7 @@ fn setup(
                 "This is a cube",
                 TextStyle {
                     font_size: 40.0,
-                    color: LegacyColor::BLACK,
+                    color: Color::BLACK,
                     ..default()
                 },
             ));

@@ -77,11 +77,15 @@ default = [
   "tonemapping_luts",
   "default_font",
   "webgl2",
+  "sysinfo_plugin",
   "bevy_debug_stepping",
 ]
 
 # Force dynamic linking, which improves iterative compile times
 dynamic_linking = ["dep:bevy_dylib", "bevy_internal/dynamic_linking"]
+
+# Enables system information diagnostic plugin
+sysinfo_plugin = ["bevy_internal/sysinfo_plugin"]
 
 # Provides animation functionality
 bevy_animation = ["bevy_internal/bevy_animation", "bevy_color"]
@@ -1385,6 +1389,17 @@ doc-scrape-examples = true
 [package.metadata.example.component_change_detection]
 name = "Component Change Detection"
 description = "Change detection on components"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "component_hooks"
+path = "examples/ecs/component_hooks.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.component_hooks]
+name = "Component Hooks"
+description = "Define component hooks to manage component lifecycle events"
 category = "ECS (Entity Component System)"
 wasm = false
 
