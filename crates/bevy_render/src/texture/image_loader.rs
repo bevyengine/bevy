@@ -94,27 +94,26 @@ impl AssetLoader for ImageLoader {
         // use the file extension for the image type
         let ext = load_context.path().extension().unwrap().to_str().unwrap();
 
-            let mut bytes = Vec::new();
-            reader.read_to_end(&mut bytes).await?;
-            let image_type = match settings.format {
-                ImageFormatSetting::FromExtension => ImageType::Extension(ext),
-                ImageFormatSetting::Format(format) => ImageType::Format(format),
-            };
-            Ok(Image::from_buffer(
-                #[cfg(all(debug_assertions, feature = "dds"))]
-                load_context.path().display().to_string(),
-                &bytes,
-                image_type,
-                self.supported_compressed_formats,
-                settings.is_srgb,
-                settings.sampler.clone(),
-                settings.asset_usage,
-            )
-            .map_err(|err| FileTextureError {
-                error: err,
-                path: format!("{}", load_context.path().display()),
-            })?)
-        })
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes).await?;
+        let image_type = match settings.format {
+            ImageFormatSetting::FromExtension => ImageType::Extension(ext),
+            ImageFormatSetting::Format(format) => ImageType::Format(format),
+        };
+        Ok(Image::from_buffer(
+            #[cfg(all(debug_assertions, feature = "dds"))]
+            load_context.path().display().to_string(),
+            &bytes,
+            image_type,
+            self.supported_compressed_formats,
+            settings.is_srgb,
+            settings.sampler.clone(),
+            settings.asset_usage,
+        )
+        .map_err(|err| FileTextureError {
+            error: err,
+            path: format!("{}", load_context.path().display()),
+        })?)
     }
 
     fn extensions(&self) -> &[&str] {

@@ -61,18 +61,17 @@ impl AssetLoader for ExrTextureLoader {
         let mut buf = vec![0u8; total_bytes];
         decoder.read_image(buf.as_mut_slice())?;
 
-            Ok(Image::new(
-                Extent3d {
-                    width,
-                    height,
-                    depth_or_array_layers: 1,
-                },
-                TextureDimension::D2,
-                buf,
-                format,
-                settings.asset_usage,
-            ))
-        })
+        Ok(Image::new(
+            Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            buf,
+            format,
+            settings.asset_usage,
+        ))
     }
 
     fn extensions(&self) -> &[&str] {

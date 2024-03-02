@@ -1,7 +1,7 @@
 use crate::transformer::TransformedAsset;
 use crate::{io::Writer, meta::Settings, Asset, ErasedLoadedAsset};
 use crate::{AssetLoader, Handle, LabeledAsset, UntypedHandle};
-use bevy_utils::{ConditionalSendFuture, CowArc, HashMap, WasmNotSend};
+use bevy_utils::{BoxedFuture, ConditionalSend, ConditionalSendFuture, CowArc, HashMap};
 use futures_lite::Future;
 use serde::{Deserialize, Serialize};
 use std::{borrow::Borrow, hash::Hash, ops::Deref};

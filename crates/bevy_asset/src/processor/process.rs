@@ -175,41 +175,38 @@ impl<
     type Settings = LoadTransformAndSaveSettings<Loader::Settings, T::Settings, Saver::Settings>;
     type OutputLoader = Saver::OutputLoader;
 
-    fn process<'a>(
-        &'a self,
-        context: &'a mut ProcessContext,
+    async fn process(
+        &self,
+        context: &mut ProcessContext<'_>,
         meta: AssetMeta<(), Self>,
-        writer: &'a mut Writer,
-    ) -> BoxedFuture<'a, Result<<Self::OutputLoader as AssetLoader>::Settings, ProcessError>> {
-        Box::pin(async move {
-            let AssetAction::Process { settings, .. } = meta.asset else {
-                return Err(ProcessError::WrongMetaType);
-            };
-            let loader_meta = AssetMeta::<Loader, ()>::new(AssetAction::Load {
-                loader: std::any::type_name::<Loader>().to_string(),
-                settings: settings.loader_settings,
-            });
-            let pre_transformed_asset = TransformedAsset::<Loader::Asset>::from_loaded(
-                context.load_source_asset(loader_meta).await?,
-            )
-            .unwrap();
+        writer: &mut Writer,
+    ) -> Result<<Self::OutputLoader as AssetLoader>::Settings, ProcessError> {
+        let AssetAction::Process { settings, .. } = meta.asset else {
+            return Err(ProcessError::WrongMetaType);
+        };
+        let loader_meta = AssetMeta::<Loader, ()>::new(AssetAction::Load {
+            loader: std::any::type_name::<Loader>().to_string(),
+            settings: settings.loader_settings,
+        });
+        let pre_transformed_asset = TransformedAsset::<Loader::Asset>::from_loaded(
+            context.load_source_asset(loader_meta).await?,
+        )
+        .unwrap();
 
-            let post_transformed_asset = self
-                .transformer
-                .transform(pre_transformed_asset, &settings.transformer_settings)
-                .await
-                .map_err(|err| ProcessError::AssetTransformError(err.into()))?;
+        let post_transformed_asset = self
+            .transformer
+            .transform(pre_transformed_asset, &settings.transformer_settings)
+            .await
+            .map_err(|err| ProcessError::AssetTransformError(err.into()))?;
 
-            let saved_asset =
-                SavedAsset::<T::AssetOutput>::from_transformed(&post_transformed_asset);
+        let saved_asset = SavedAsset::<T::AssetOutput>::from_transformed(&post_transformed_asset);
 
-            let output_settings = self
-                .saver
-                .save(writer, saved_asset, &settings.saver_settings)
-                .await
-                .map_err(|error| ProcessError::AssetSaveError(error.into()))?;
-            Ok(output_settings)
-        })
+        let output_settings = self
+            .saver
+            .save(writer, saved_asset, &settings.saver_settings)
+            .await
+            .map_err(|error| ProcessError::AssetSaveError(error.into()))?;
+        Ok(output_settings)
     }
 }
 
