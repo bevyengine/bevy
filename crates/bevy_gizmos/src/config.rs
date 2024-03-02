@@ -13,6 +13,16 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
+/// An enum used to configure the style of gizmo lines, similar to CSS line-style
+#[derive(Copy, Clone, Debug, Default, Hash, PartialEq, Eq, Reflect)]
+pub enum GizmoLineStyle {
+    /// A solid line without any decorators
+    #[default]
+    Solid,
+    /// A dotted line
+    Dotted,
+}
+
 /// A trait used to create gizmo configs groups.
 ///
 /// Here you can store additional configuration for you gizmo group not covered by [`GizmoConfig`]
@@ -118,6 +128,8 @@ pub struct GizmoConfig {
     ///
     /// Defaults to `false`.
     pub line_perspective: bool,
+    /// Determine the style of gizmo lines.
+    pub line_style: GizmoLineStyle,
     /// How closer to the camera than real geometry the line should be.
     ///
     /// In 2D this setting has no effect and is effectively always -1.
@@ -143,6 +155,7 @@ impl Default for GizmoConfig {
             enabled: true,
             line_width: 2.,
             line_perspective: false,
+            line_style: GizmoLineStyle::Solid,
             depth_bias: 0.,
             render_layers: Default::default(),
         }

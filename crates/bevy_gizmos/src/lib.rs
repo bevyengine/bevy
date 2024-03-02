@@ -44,7 +44,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         aabb::{AabbGizmoConfigGroup, ShowAabbGizmo},
-        config::{DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore},
+        config::{DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore, GizmoLineStyle},
         gizmos::Gizmos,
         primitives::{dim2::GizmoPrimitive2d, dim3::GizmoPrimitive3d},
         AppGizmoBuilder,
