@@ -304,13 +304,11 @@ fn extract_gizmo_data(
             continue;
         };
 
-        let joins_resolution = config.line_joints.map_or(0, |join| {
-            if let GizmoLineJoint::Round(resolution) = join {
-                resolution
-            } else {
-                0
-            }
-        });
+        let joins_resolution = if let GizmoLineJoint::Round(resolution) = config.line_joints {
+            resolution
+        } else {
+            0
+        };
 
         commands.spawn((
             LineGizmoUniform {
@@ -344,7 +342,7 @@ struct LineGizmo {
     /// Whether this gizmo's topology is a line-strip or line-list
     strip: bool,
     /// Whether this gizmo should draw line joins. This is only applicable if the gizmo's topology is line-strip.
-    joins: Option<GizmoLineJoint>,
+    joins: GizmoLineJoint,
 }
 
 #[derive(Debug, Clone)]
@@ -353,7 +351,7 @@ struct GpuLineGizmo {
     color_buffer: Buffer,
     vertex_count: u32,
     strip: bool,
-    joints: Option<GizmoLineJoint>,
+    joints: GizmoLineJoint,
 }
 
 impl RenderAsset for LineGizmo {
@@ -514,9 +512,9 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineJointGizmo {
 
         if line_gizmo.vertex_count <= 2 || !line_gizmo.strip {
             return RenderCommandResult::Success;
-        }
+        };
 
-        let Some(joints) = line_gizmo.joints else {
+        if line_gizmo.joints == GizmoLineJoint::None {
             return RenderCommandResult::Success;
         };
 
@@ -530,7 +528,8 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineJointGizmo {
             u32::max(line_gizmo.vertex_count, 2) - 2
         };
 
-        let vertices = match joints {
+        let vertices = match line_gizmo.joints {
+            GizmoLineJoint::None => 0,
             GizmoLineJoint::Miter => 6,
             GizmoLineJoint::Round(resolution) => resolution * 3,
             GizmoLineJoint::Bevel => 3,

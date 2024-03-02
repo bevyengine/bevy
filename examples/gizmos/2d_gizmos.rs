@@ -109,10 +109,10 @@ fn update_config(
     }
     if keyboard.just_pressed(KeyCode::KeyJ) {
         config.line_joints = match config.line_joints {
-            Some(GizmoLineJoint::Bevel) => Some(GizmoLineJoint::Miter),
-            Some(GizmoLineJoint::Miter) => Some(GizmoLineJoint::Round(4)),
-            Some(GizmoLineJoint::Round(_)) => None,
-            None => Some(GizmoLineJoint::Bevel),
+            GizmoLineJoint::Bevel => GizmoLineJoint::Miter,
+            GizmoLineJoint::Miter => GizmoLineJoint::Round(4),
+            GizmoLineJoint::Round(_) => GizmoLineJoint::None,
+            GizmoLineJoint::None => GizmoLineJoint::Bevel,
         };
     }
 
@@ -130,10 +130,10 @@ fn update_config(
     }
     if keyboard.just_pressed(KeyCode::KeyK) {
         my_config.line_joints = match my_config.line_joints {
-            Some(GizmoLineJoint::Bevel) => Some(GizmoLineJoint::Miter),
-            Some(GizmoLineJoint::Miter) => Some(GizmoLineJoint::Round(4)),
-            Some(GizmoLineJoint::Round(_)) => None,
-            None => Some(GizmoLineJoint::Bevel),
+            GizmoLineJoint::Bevel => GizmoLineJoint::Miter,
+            GizmoLineJoint::Miter => GizmoLineJoint::Round(4),
+            GizmoLineJoint::Round(_) => GizmoLineJoint::None,
+            GizmoLineJoint::None => GizmoLineJoint::Bevel,
         };
     }
 }

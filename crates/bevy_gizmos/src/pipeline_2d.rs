@@ -180,6 +180,7 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
         ];
 
         let entry_point = match key.joints {
+            GizmoLineJoint::None => "vertex_bevel",
             GizmoLineJoint::Miter => "vertex_miter",
             GizmoLineJoint::Round(_) => "vertex_round",
             GizmoLineJoint::Bevel => "vertex_bevel",
@@ -319,14 +320,13 @@ fn queue_line_joint_gizmos_2d(
                 continue;
             }
 
-            let Some(joints) = line_gizmo.joints else {
-                continue;
-            };
-
             let pipeline = pipelines.specialize(
                 &pipeline_cache,
                 &pipeline,
-                LineJointGizmoPipelineKey { mesh_key, joints },
+                LineJointGizmoPipelineKey {
+                    mesh_key,
+                    joints: line_gizmo.joints,
+                },
             );
             transparent_phase.add(Transparent2d {
                 entity,

@@ -14,11 +14,17 @@ use std::{
 };
 
 /// An enum configuring how line joins will be drawn.
-#[derive(Debug, Copy, Clone, Reflect, PartialEq, Eq, Hash)]
+#[derive(Debug, Default, Copy, Clone, Reflect, PartialEq, Eq, Hash)]
 pub enum GizmoLineJoint {
+    /// Does not draw any line joints.
+    #[default]
+    None,
     /// Extends both lines at the joining point until they meet in a sharp point.
     Miter,
     /// Draws a round corner with the specified resolution between the two lines.
+    ///
+    /// The resolution determines the amount of triangles drawn per joint,
+    /// e.g. `GizmoLineJoint::Round(4)` will draw 4 triangles at each line joint.
     Round(u32),
     /// Draws a bevel to connect the ends of both lines.
     Bevel,
@@ -148,7 +154,7 @@ pub struct GizmoConfig {
     pub render_layers: RenderLayers,
 
     /// Describe how lines should join
-    pub line_joints: Option<GizmoLineJoint>,
+    pub line_joints: GizmoLineJoint,
 }
 
 impl Default for GizmoConfig {
@@ -160,7 +166,7 @@ impl Default for GizmoConfig {
             depth_bias: 0.,
             render_layers: Default::default(),
 
-            line_joints: None,
+            line_joints: GizmoLineJoint::None,
         }
     }
 }

@@ -202,6 +202,7 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
         let layout = vec![view_layout, self.uniform_layout.clone()];
 
         let entry_point = match key.joints {
+            GizmoLineJoint::None => "vertex_bevel",
             GizmoLineJoint::Miter => "vertex_miter",
             GizmoLineJoint::Round(_) => "vertex_round",
             GizmoLineJoint::Bevel => "vertex_bevel",
@@ -406,17 +407,13 @@ fn queue_line_joint_gizmos_3d(
                 continue;
             }
 
-            let Some(joints) = line_gizmo.joints else {
-                continue;
-            };
-
             let pipeline = pipelines.specialize(
                 &pipeline_cache,
                 &pipeline,
                 LineJointGizmoPipelineKey {
                     view_key,
                     perspective: config.line_perspective,
-                    joints,
+                    joints: line_gizmo.joints,
                 },
             );
 
