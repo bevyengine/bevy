@@ -18,6 +18,7 @@ use bevy_ecs::{
     system::{Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
+use bevy_log::error;
 use bevy_pbr::{MeshPipeline, MeshPipelineKey, SetMeshViewBindGroup};
 use bevy_render::{
     render_asset::{prepare_assets, RenderAssets},
@@ -201,11 +202,14 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
 
         let layout = vec![view_layout, self.uniform_layout.clone()];
 
+        if key.joints == GizmoLineJoint::None {
+            error!("There is no entry point for line joints with GizmoLineJoints::None. Please consider aborting the drawing process before reaching this stage.");
+        };
+
         let entry_point = match key.joints {
-            GizmoLineJoint::None => "vertex_bevel",
             GizmoLineJoint::Miter => "vertex_miter",
             GizmoLineJoint::Round(_) => "vertex_round",
-            GizmoLineJoint::Bevel => "vertex_bevel",
+            GizmoLineJoint::None | GizmoLineJoint::Bevel => "vertex_bevel",
         };
 
         RenderPipelineDescriptor {
@@ -403,7 +407,7 @@ fn queue_line_joint_gizmos_3d(
                 continue;
             };
 
-            if !line_gizmo.strip {
+            if !line_gizmo.strip || line_gizmo.joints == GizmoLineJoint::None {
                 continue;
             }
 

@@ -529,7 +529,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineJointGizmo {
         };
 
         let vertices = match line_gizmo.joints {
-            GizmoLineJoint::None => 0,
+            GizmoLineJoint::None => unreachable!(),
             GizmoLineJoint::Miter => 6,
             GizmoLineJoint::Round(resolution) => resolution * 3,
             GizmoLineJoint::Bevel => 3,
