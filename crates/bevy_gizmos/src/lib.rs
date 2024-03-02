@@ -127,7 +127,7 @@ impl Plugin for GizmoPlugin {
 
         render_app.add_systems(
             Render,
-            (prepare_line_gizmo_bind_group).in_set(RenderSet::PrepareBindGroups),
+            prepare_line_gizmo_bind_group.in_set(RenderSet::PrepareBindGroups),
         );
 
         render_app.add_systems(ExtractSchedule, extract_gizmo_data);
