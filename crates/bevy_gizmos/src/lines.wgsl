@@ -65,9 +65,27 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
     var line_width = line_gizmo.line_width;
     var alpha = 1.;
 
+    // We calculate the length of the line d in screen space
+    var uv = position.z * length(screen_b - screen_a) / line_gizmo.line_width;
+
 #ifdef PERSPECTIVE
     line_width /= clip.w;
+
+    // get height of near clipping plane in world space
+    let pos0 = view.inverse_projection * vec4(0, -1, 0, 1); // Bottom of the screen
+    let pos1 = view.inverse_projection * vec4(0, 1, 0, 1); // Top of the screen
+    let near_clipping_plane_height = length(pos0.xyz - pos1.xyz);
+
+    let position_a = view.inverse_view_proj * clip_a;
+    let position_b = view.inverse_view_proj * clip_b;
+    let world_distance = length(position_a.xyz - position_b.xyz); // We can't use vertex.position_X because we may have changed the clip positions with clip_near_plane
+    
+    // Offset to compensate for moved clip positions. If removed dots on lines will slide when point a is ofscreen.
+    let clipped_offset = length(position_a.xyz - vertex.position_a);
+
+    uv = (clipped_offset + position.z * world_distance) * resolution.y / near_clipping_plane_height / line_gizmo.line_width;
 #endif
+
 
     // Line thinness fade from https://acegikmo.com/shapes/docs/#anti-aliasing
     if line_width > 0.0 && line_width < 1. {
@@ -91,8 +109,6 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
         // user to chose a value that is convenient for them
         depth = clip.z * exp2(-line_gizmo.depth_bias * log2(clip.w / clip.z - EPSILON));
     }
-
-    var uv = position.z * length(screen_b - screen_a) / line_gizmo.line_width;
 
     var clip_position = vec4(clip.w * ((2. * screen) / resolution - 1.), depth, clip.w);
 
