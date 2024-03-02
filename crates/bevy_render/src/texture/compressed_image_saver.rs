@@ -54,7 +54,6 @@ impl AssetSaver for CompressedImageSaver {
         };
 
         writer.write_all(&compressed_basis_data).await?;
-
         Ok(ImageLoaderSettings {
             format: ImageFormatSetting::Format(ImageFormat::Basis),
             is_srgb,
