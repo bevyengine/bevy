@@ -270,11 +270,11 @@ fn update_gizmo_meshes<T: GizmoConfigGroup>(
 
             strip.positions = mem::take(&mut storage.strip_positions);
             strip.colors = mem::take(&mut storage.strip_colors);
-            strip.joins = config.line_joints;
+            strip.joints = config.line_joints;
         } else {
             let mut strip = LineGizmo {
                 strip: true,
-                joins: config.line_joints,
+                joints: config.line_joints,
                 ..Default::default()
             };
 
@@ -304,7 +304,7 @@ fn extract_gizmo_data(
             continue;
         };
 
-        let joins_resolution = if let GizmoLineJoint::Round(resolution) = config.line_joints {
+        let joints_resolution = if let GizmoLineJoint::Round(resolution) = config.line_joints {
             resolution
         } else {
             0
@@ -314,7 +314,7 @@ fn extract_gizmo_data(
             LineGizmoUniform {
                 line_width: config.line_width,
                 depth_bias: config.depth_bias,
-                joins_resolution,
+                joints_resolution,
                 #[cfg(feature = "webgl")]
                 _padding: Default::default(),
             },
@@ -328,8 +328,8 @@ fn extract_gizmo_data(
 struct LineGizmoUniform {
     line_width: f32,
     depth_bias: f32,
-    // Only used by gizmo line joins if the current configs `line_joins` is set to `GizmoLineJoins::Round(_)`
-    joins_resolution: u32,
+    // Only used by gizmo line t if the current configs `line_joints` is set to `GizmoLineJoint::Round(_)`
+    joints_resolution: u32,
     /// WebGL2 structs must be 16 byte aligned.
     #[cfg(feature = "webgl")]
     _padding: f32,
@@ -341,8 +341,8 @@ struct LineGizmo {
     colors: Vec<LinearRgba>,
     /// Whether this gizmo's topology is a line-strip or line-list
     strip: bool,
-    /// Whether this gizmo should draw line joins. This is only applicable if the gizmo's topology is line-strip.
-    joins: GizmoLineJoint,
+    /// Whether this gizmo should draw line joints. This is only applicable if the gizmo's topology is line-strip.
+    joints: GizmoLineJoint,
 }
 
 #[derive(Debug, Clone)]
@@ -385,7 +385,7 @@ impl RenderAsset for LineGizmo {
             color_buffer,
             vertex_count: self.positions.len() as u32,
             strip: self.strip,
-            joints: self.joins,
+            joints: self.joints,
         })
     }
 }

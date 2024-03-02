@@ -13,7 +13,7 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-/// An enum configuring how line joins will be drawn.
+/// An enum configuring how line joints will be drawn.
 #[derive(Debug, Default, Copy, Clone, Reflect, PartialEq, Eq, Hash)]
 pub enum GizmoLineJoint {
     /// Does not draw any line joints.
