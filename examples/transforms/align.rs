@@ -2,6 +2,10 @@
 
 use bevy::input::mouse::{MouseButton, MouseButtonInput, MouseMotion};
 use bevy::prelude::*;
+use bevy::color::{
+    palettes::basic::{RED, WHITE, GRAY},
+    Color,
+};
 use rand::random;
 use std::f32::consts::PI;
 
@@ -48,7 +52,7 @@ fn setup(
     commands.spawn(PbrBundle {
         transform: Transform::from_xyz(0., -2., 0.),
         mesh: meshes.add(Plane3d::default().mesh().size(100.0, 100.0)),
-        material: materials.add(LegacyColor::rgb(0.5, 0.3, 0.3)),
+        material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
         ..default()
     });
 
@@ -71,7 +75,7 @@ fn setup(
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
-            material: materials.add(LegacyColor::rgb(0.5, 0.5, 0.5)),
+            material: materials.add(Color::srgb(0.5, 0.5, 0.5)),
             ..default()
         },
         Cube {
@@ -83,13 +87,11 @@ fn setup(
 
     commands.spawn((
         TextBundle::from_section(
-            "Colors:\n\
-            R: X axis - the primary axis of the alignment\n\
-            G: Y axis - the secondary axis of the alignment\n\
-            B: Z axis - action determined by the preceding two\n\
-            White: Random direction - primary direction of alignment\n\
-            Gray: Random direction - secondary direction of alignment\n\
-            Press 'R' to generate random alignment directions.\n\
+            "The bright red axis is the primary alignment axis, and it will always be\n\
+            made to coincide with the primary target direction (white) exactly.\n\
+            The fainter red axis is the secondary alignment axis, and it is made to\n\
+            line up with the secondary target direction (gray) as closely as possible.\n\
+            Press 'R' to generate random target directions.\n\
             Press 'T' to align the cube to those directions.\n\
             Click and drag the mouse to rotate the camera.\n\
             Press 'H' to hide/show these instructions.",
@@ -117,21 +119,17 @@ fn draw_cube_axes(mut gizmos: Gizmos, query: Query<&Transform, With<Cube>>) {
 
     // Local X-axis arrow
     let x_ends = arrow_ends(cube_transform, Vec3::X, 1.5);
-    gizmos.arrow(x_ends.0, x_ends.1, LegacyColor::RED);
+    gizmos.arrow(x_ends.0, x_ends.1, RED);
 
     // local Y-axis arrow
     let y_ends = arrow_ends(cube_transform, Vec3::Y, 1.5);
-    gizmos.arrow(y_ends.0, y_ends.1, LegacyColor::GREEN);
-
-    // local Z-axis arrow
-    let z_ends = arrow_ends(cube_transform, Vec3::Z, 1.5);
-    gizmos.arrow(z_ends.0, z_ends.1, LegacyColor::BLUE);
+    gizmos.arrow(y_ends.0, y_ends.1, Color::srgb(0.65, 0., 0.));
 }
 
 fn draw_random_axes(mut gizmos: Gizmos, query: Query<&RandomAxes>) {
     let RandomAxes(v1, v2) = query.single();
-    gizmos.arrow(Vec3::ZERO, 1.5 * *v1, LegacyColor::WHITE);
-    gizmos.arrow(Vec3::ZERO, 1.5 * *v2, LegacyColor::GRAY);
+    gizmos.arrow(Vec3::ZERO, 1.5 * *v1, WHITE);
+    gizmos.arrow(Vec3::ZERO, 1.5 * *v2, GRAY);
 }
 
 fn rotate_cube(mut cube: Query<(&mut Cube, &mut Transform)>) {
