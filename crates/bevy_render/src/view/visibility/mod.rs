@@ -9,8 +9,7 @@ use bevy_ecs::prelude::*;
 use bevy_hierarchy::{Children, Parent};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::{components::GlobalTransform, TransformSystem};
-use std::cell::Cell;
-use thread_local::ThreadLocal;
+use bevy_utils::Parallel;
 
 use crate::deterministic::DeterministicRenderingConfig;
 use crate::{
@@ -50,7 +49,8 @@ pub enum Visibility {
 impl PartialEq<Visibility> for &Visibility {
     #[inline]
     fn eq(&self, other: &Visibility) -> bool {
-        **self == *other
+        // Use the base Visibility == Visibility implementation.
+        <Visibility as PartialEq<Visibility>>::eq(*self, other)
     }
 }
 
@@ -58,7 +58,8 @@ impl PartialEq<Visibility> for &Visibility {
 impl PartialEq<&Visibility> for Visibility {
     #[inline]
     fn eq(&self, other: &&Visibility) -> bool {
-        *self == **other
+        // Use the base Visibility == Visibility implementation.
+        <Visibility as PartialEq<Visibility>>::eq(self, *other)
     }
 }
 
@@ -189,7 +190,7 @@ impl VisibleEntities {
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum VisibilitySystems {
-    /// Label for the [`calculate_bounds`] and `calculate_bounds_2d` systems,
+    /// Label for the [`calculate_bounds`], `calculate_bounds_2d` and `calculate_bounds_text2d` systems,
     /// calculating and inserting an [`Aabb`] to relevant entities.
     CalculateBounds,
     /// Label for the [`update_frusta<OrthographicProjection>`] system.
@@ -370,7 +371,7 @@ fn reset_view_visibility(mut query: Query<&mut ViewVisibility>) {
 /// [`ViewVisibility`] of all entities, and for each view also compute the [`VisibleEntities`]
 /// for that view.
 pub fn check_visibility(
-    mut thread_queues: Local<ThreadLocal<Cell<Vec<Entity>>>>,
+    mut thread_queues: Local<Parallel<Vec<Entity>>>,
     mut view_query: Query<(
         &mut VisibleEntities,
         &Frustum,
@@ -438,15 +439,13 @@ pub fn check_visibility(
             }
 
             view_visibility.set();
-            let cell = thread_queues.get_or_default();
-            let mut queue = cell.take();
-            queue.push(entity);
-            cell.set(queue);
+            thread_queues.scope(|queue| {
+                queue.push(entity);
+            });
         });
 
-        for cell in &mut thread_queues {
-            visible_entities.entities.append(cell.get_mut());
-        }
+        visible_entities.entities.clear();
+        thread_queues.drain_into(&mut visible_entities.entities);
         if deterministic_rendering_config.stable_sort_z_fighting {
             // We can use the faster unstable sort here because
             // the values (`Entity`) are guaranteed to be unique.

@@ -1067,7 +1067,7 @@ mod tests {
     fn reserve_and_spawn() {
         let mut world = World::default();
         let e = world.entities().reserve_entity();
-        world.flush();
+        world.flush_entities();
         let mut e_mut = world.entity_mut(e);
         e_mut.insert(A(0));
         assert_eq!(e_mut.get::<A>().unwrap(), &A(0));
@@ -1550,7 +1550,7 @@ mod tests {
         let e1 = world_a.spawn(A(1)).id();
         let e2 = world_a.spawn(A(2)).id();
         let e3 = world_a.entities().reserve_entity();
-        world_a.flush();
+        world_a.flush_entities();
 
         let world_a_max_entities = world_a.entities().len();
         world_b.entities.reserve_entities(world_a_max_entities);

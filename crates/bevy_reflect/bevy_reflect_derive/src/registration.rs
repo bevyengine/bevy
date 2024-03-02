@@ -14,7 +14,7 @@ pub(crate) fn impl_get_type_registration(
 ) -> proc_macro2::TokenStream {
     let type_path = meta.type_path();
     let bevy_reflect_path = meta.bevy_reflect_path();
-    let registration_data = meta.traits().idents();
+    let registration_data = meta.attrs().idents();
     let (impl_generics, ty_generics, where_clause) = type_path.generics().split_for_impl();
     let where_reflect_clause = where_clause_options.extend_where_clause(where_clause);
 

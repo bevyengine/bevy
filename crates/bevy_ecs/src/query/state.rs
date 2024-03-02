@@ -1,9 +1,8 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
-    change_detection::Mut,
     component::{ComponentId, Tick},
     entity::Entity,
-    prelude::{Component, FromWorld},
+    prelude::FromWorld,
     query::{
         Access, BatchingStrategy, DebugCheckedUnwrap, FilteredAccess, QueryCombinationIter,
         QueryIter, QueryParIter,
@@ -14,7 +13,7 @@ use crate::{
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::Span;
 use fixedbitset::FixedBitSet;
-use std::{any::TypeId, borrow::Borrow, fmt, mem::MaybeUninit};
+use std::{borrow::Borrow, fmt, mem::MaybeUninit, ptr};
 
 use super::{
     NopWorldQuery, QueryBuilder, QueryData, QueryEntityError, QueryFilter, QueryManyIter,
@@ -93,7 +92,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     >(
         &self,
     ) -> &QueryState<NewD, NewF> {
-        &*(self as *const QueryState<D, F> as *const QueryState<NewD, NewF>)
+        &*ptr::from_ref(self).cast::<QueryState<NewD, NewF>>()
     }
 
     /// Returns the archetype components accessed by this query.
@@ -744,118 +743,6 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         }
     }
 
-    /// Returns a shared reference to the component `T` of the given [`Entity`].
-    ///
-    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
-    #[deprecated(
-        since = "0.13.0",
-        note = "Please use `get` and select for the exact component based on the structure of the exact query as required."
-    )]
-    #[allow(deprecated)]
-    #[inline]
-    pub(crate) fn get_component<'w, T: Component>(
-        &self,
-        world: UnsafeWorldCell<'w>,
-        entity: Entity,
-    ) -> Result<&'w T, super::QueryComponentError> {
-        let entity_ref = world
-            .get_entity(entity)
-            .ok_or(super::QueryComponentError::NoSuchEntity)?;
-        let component_id = world
-            .components()
-            .get_id(TypeId::of::<T>())
-            .ok_or(super::QueryComponentError::MissingComponent)?;
-        let archetype_component = entity_ref
-            .archetype()
-            .get_archetype_component_id(component_id)
-            .ok_or(super::QueryComponentError::MissingComponent)?;
-        if self
-            .archetype_component_access
-            .has_read(archetype_component)
-        {
-            // SAFETY: `world` must have access to the component `T` for this entity,
-            // since it was registered in `self`'s archetype component access set.
-            unsafe { entity_ref.get::<T>() }.ok_or(super::QueryComponentError::MissingComponent)
-        } else {
-            Err(super::QueryComponentError::MissingReadAccess)
-        }
-    }
-
-    /// Returns a shared reference to the component `T` of the given [`Entity`].
-    ///
-    /// # Panics
-    ///
-    /// If given a nonexisting entity or mismatched component, this will panic.
-    #[deprecated(
-        since = "0.13.0",
-        note = "Please use `get` and select for the exact component based on the structure of the exact query as required."
-    )]
-    #[allow(deprecated)]
-    #[inline]
-    pub(crate) fn component<'w, T: Component>(
-        &self,
-        world: UnsafeWorldCell<'w>,
-        entity: Entity,
-    ) -> &'w T {
-        match self.get_component(world, entity) {
-            Ok(component) => component,
-            Err(error) => {
-                panic!(
-                    "Cannot get component `{:?}` from {entity:?}: {error}",
-                    TypeId::of::<T>()
-                )
-            }
-        }
-    }
-
-    /// Returns a mutable reference to the component `T` of the given entity.
-    ///
-    /// In case of a nonexisting entity or mismatched component, a [`QueryComponentError`] is returned instead.
-    ///
-    /// # Safety
-    ///
-    /// This function makes it possible to violate Rust's aliasing guarantees.
-    /// You must make sure this call does not result in multiple mutable references to the same component.
-    ///
-    /// [`QueryComponentError`]: super::QueryComponentError
-    #[deprecated(
-        since = "0.13.0",
-        note = "Please use QueryState::get_unchecked_manual and select for the exact component based on the structure of the exact query as required."
-    )]
-    #[allow(deprecated)]
-    #[inline]
-    pub unsafe fn get_component_unchecked_mut<'w, T: Component>(
-        &self,
-        world: UnsafeWorldCell<'w>,
-        entity: Entity,
-        last_run: Tick,
-        this_run: Tick,
-    ) -> Result<Mut<'w, T>, super::QueryComponentError> {
-        let entity_ref = world
-            .get_entity(entity)
-            .ok_or(super::QueryComponentError::NoSuchEntity)?;
-        let component_id = world
-            .components()
-            .get_id(TypeId::of::<T>())
-            .ok_or(super::QueryComponentError::MissingComponent)?;
-        let archetype_component = entity_ref
-            .archetype()
-            .get_archetype_component_id(component_id)
-            .ok_or(super::QueryComponentError::MissingComponent)?;
-        if self
-            .archetype_component_access
-            .has_write(archetype_component)
-        {
-            // SAFETY: It is the responsibility of the caller to ensure it is sound to get a
-            // mutable reference to this entity's component `T`.
-            let result = unsafe { entity_ref.get_mut_using_ticks::<T>(last_run, this_run) };
-
-            result.ok_or(super::QueryComponentError::MissingComponent)
-        } else {
-            Err(super::QueryComponentError::MissingWriteAccess)
-        }
-    }
-
     /// Gets the read-only query results for the given [`World`] and array of [`Entity`], where the last change and
     /// the current change tick are given.
     ///
@@ -875,16 +762,16 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         let mut values = [(); N].map(|_| MaybeUninit::uninit());
 
         for (value, entity) in std::iter::zip(&mut values, entities) {
-            // SAFETY: fetch is read-only
-            // and world must be validated
-            let item = self
-                .as_readonly()
-                .get_unchecked_manual(world, entity, last_run, this_run)?;
+            // SAFETY: fetch is read-only and world must be validated
+            let item = unsafe {
+                self.as_readonly()
+                    .get_unchecked_manual(world, entity, last_run, this_run)?
+            };
             *value = MaybeUninit::new(item);
         }
 
         // SAFETY: Each value has been fully initialized.
-        Ok(values.map(|x| x.assume_init()))
+        Ok(values.map(|x| unsafe { x.assume_init() }))
     }
 
     /// Gets the query results for the given [`World`] and array of [`Entity`], where the last change and
@@ -1231,56 +1118,6 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         QueryCombinationIter::new(world, self, last_run, this_run)
     }
 
-    /// Runs `func` on each query result for the given [`World`]. This is faster than the equivalent
-    /// `iter()` method, but cannot be chained like a normal [`Iterator`].
-    ///
-    /// This can only be called for read-only queries, see [`Self::for_each_mut`] for write-queries.
-    ///
-    /// Shorthand for `query.iter(world).for_each(..)`.
-    #[inline]
-    #[deprecated(
-        since = "0.13.0",
-        note = "QueryState::for_each was not idiomatic Rust and has been moved to query.iter().for_each()"
-    )]
-    pub fn for_each<'w, FN: FnMut(ROQueryItem<'w, D>)>(&mut self, world: &'w World, func: FN) {
-        self.iter(world).for_each(func);
-    }
-
-    /// Runs `func` on each query result for the given [`World`]. This is faster than the equivalent
-    /// `iter_mut()` method, but cannot be chained like a normal [`Iterator`].
-    ///
-    /// Shorthand for `query.iter_mut(world).for_each(..)`.
-    #[inline]
-    #[deprecated(
-        since = "0.13.0",
-        note = "QueryState::for_each_mut was not idiomatic Rust and has been moved to query.iter_mut().for_each()"
-    )]
-    pub fn for_each_mut<'w, FN: FnMut(D::Item<'w>)>(&mut self, world: &'w mut World, func: FN) {
-        self.iter_mut(world).for_each(func);
-    }
-
-    /// Runs `func` on each query result for the given [`World`]. This is faster than the equivalent
-    /// `iter()` method, but cannot be chained like a normal [`Iterator`].
-    ///
-    /// # Safety
-    ///
-    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
-    /// have unique access to the components they query.
-    #[inline]
-    #[deprecated(
-        since = "0.13.0",
-        note = "QueryState::for_each_unchecked was not idiomatic Rust and has been moved to query.iter_unchecked_manual().for_each()"
-    )]
-    pub unsafe fn for_each_unchecked<'w, FN: FnMut(D::Item<'w>)>(
-        &mut self,
-        world: UnsafeWorldCell<'w>,
-        func: FN,
-    ) {
-        self.update_archetypes_unsafe_world_cell(world);
-        self.iter_unchecked_manual(world, world.last_change_tick(), world.change_tick())
-            .for_each(func);
-    }
-
     /// Returns a parallel iterator over the query results for the given [`World`].
     ///
     /// This can only be called for read-only queries, see [`par_iter_mut`] for write-queries.
@@ -1378,7 +1215,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// with a mismatched [`WorldId`] is unsound.
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
-    #[cfg(all(not(target = "wasm32"), feature = "multi-threaded"))]
+    #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
     pub(crate) unsafe fn par_for_each_unchecked_manual<
         'w,
         FN: Fn(D::Item<'w>) + Send + Sync + Clone,
@@ -1395,7 +1232,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         bevy_tasks::ComputeTaskPool::get().scope(|scope| {
             if D::IS_DENSE && F::IS_DENSE {
                 // SAFETY: We only access table data that has been registered in `self.archetype_component_access`.
-                let tables = &world.storages().tables;
+                let tables = unsafe { &world.storages().tables };
                 for table_id in &self.matched_table_ids {
                     let table = &tables[*table_id];
                     if table.is_empty() {

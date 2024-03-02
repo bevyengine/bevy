@@ -159,6 +159,7 @@ pub struct LightProbesUniform {
     intensity_for_view: f32,
 }
 
+/// A GPU buffer that stores information about all light probes.
 #[derive(Resource, Default, Deref, DerefMut)]
 pub struct LightProbesBuffer(DynamicUniformBuffer<LightProbesUniform>);
 

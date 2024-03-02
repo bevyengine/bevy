@@ -1,32 +1,33 @@
+[graph]
 all-features = true
 
 [advisories]
-db-path = "~/.cargo/advisory-db"
-db-urls = ["https://github.com/rustsec/advisory-db"]
-vulnerability = "deny"
-unmaintained = "deny"
-yanked = "deny"
-notice = "deny"
+version = 2
 ignore = []
 
 [licenses]
-unlicensed = "deny"
-copyleft = "deny"
-default = "deny"
+version = 2
 allow = [
+  "0BSD",
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "BSL-1.0",
+  "CC0-1.0",
+  "ISC",
   "MIT",
   "MIT-0",
-  "Apache-2.0",
-  "BSD-3-Clause",
-  "ISC",
+  "Unlicense",
   "Zlib",
-  "0BSD",
-  "BSD-2-Clause",
-  "CC0-1.0",
 ]
+
 exceptions = [
   { name = "unicode-ident", allow = [
     "Unicode-DFS-2016",
+  ] },
+  { name = "symphonia", allow = [
+    "MPL-2.0",
   ] },
   { name = "symphonia-bundle-flac", allow = [
     "MPL-2.0",
@@ -52,16 +53,13 @@ exceptions = [
   { name = "symphonia-format-isomp4", allow = [
     "MPL-2.0",
   ] },
-  { name = "symphonia-format-wav", allow = [
+  { name = "symphonia-format-riff", allow = [
     "MPL-2.0",
   ] },
   { name = "symphonia-metadata", allow = [
     "MPL-2.0",
   ] },
   { name = "symphonia-utils-xiph", allow = [
-    "MPL-2.0",
-  ] },
-  { name = "symphonia", allow = [
     "MPL-2.0",
   ] },
 ]
@@ -75,6 +73,15 @@ deny = [
   { name = "android-activity", deny-multiple-versions = true },
   { name = "glam", deny-multiple-versions = true },
   { name = "raw-window-handle", deny-multiple-versions = true },
+]
+# To avoid https://github.com/bevyengine/bevy/issues/11917
+# = raw-window-handle v0.5.2
+#       └── ndk v0.7.0
+#           ├── cpal v0.15.2`
+#           │   └── rodio v0.17.3
+#           │       └── bevy_audio v0.14.0-dev
+skip-tree = [
+  { crate = "cpal@0.15.2", reason = "Waiting for new releases: https://github.com/bevyengine/bevy/issues/11917#issuecomment-1953629729" },
 ]
 
 [sources]

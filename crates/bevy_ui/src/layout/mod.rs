@@ -2,6 +2,7 @@ mod convert;
 pub mod debug;
 
 use crate::{ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiScale};
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     entity::Entity,
@@ -16,7 +17,7 @@ use bevy_log::warn;
 use bevy_math::{UVec2, Vec2};
 use bevy_render::camera::{Camera, NormalizedRenderTarget};
 use bevy_transform::components::Transform;
-use bevy_utils::{default, EntityHashMap, HashMap, HashSet};
+use bevy_utils::{default, HashMap, HashSet};
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 use std::fmt;
 use taffy::{tree::LayoutTree, Taffy};
@@ -51,14 +52,14 @@ struct RootNodePair {
 
 #[derive(Resource)]
 pub struct UiSurface {
-    entity_to_taffy: EntityHashMap<Entity, taffy::node::Node>,
-    camera_roots: EntityHashMap<Entity, Vec<RootNodePair>>,
+    entity_to_taffy: EntityHashMap<taffy::node::Node>,
+    camera_roots: EntityHashMap<Vec<RootNodePair>>,
     taffy: Taffy,
 }
 
 fn _assert_send_sync_ui_surface_impl_safe() {
     fn _assert_send_sync<T: Send + Sync>() {}
-    _assert_send_sync::<EntityHashMap<Entity, taffy::node::Node>>();
+    _assert_send_sync::<EntityHashMap<taffy::node::Node>>();
     _assert_send_sync::<Taffy>();
     _assert_send_sync::<UiSurface>();
 }
@@ -410,7 +411,9 @@ pub fn ui_layout_system(
         mut absolute_location: Vec2,
     ) {
         if let Ok((mut node, mut transform)) = node_transform_query.get_mut(entity) {
-            let layout = ui_surface.get_layout(entity).unwrap();
+            let Ok(layout) = ui_surface.get_layout(entity) else {
+                return;
+            };
             let layout_size =
                 inverse_target_scale_factor * Vec2::new(layout.size.width, layout.size.height);
             let layout_location =
@@ -457,7 +460,7 @@ pub fn resolve_outlines_system(
 ) {
     let viewport_size = primary_window
         .get_single()
-        .map(|window| Vec2::new(window.resolution.width(), window.resolution.height()))
+        .map(|window| window.size())
         .unwrap_or(Vec2::ZERO)
         / ui_scale.0;
 

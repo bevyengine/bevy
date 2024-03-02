@@ -1,7 +1,8 @@
 #![allow(
     unsafe_op_in_unsafe_fn,
     clippy::all,
-    clippy::undocumented_unsafe_blocks
+    clippy::undocumented_unsafe_blocks,
+    clippy::ptr_cast_constness
 )]
 // FIXME(3492): remove once docs are ready
 #![allow(missing_docs)]

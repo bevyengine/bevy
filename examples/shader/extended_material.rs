@@ -1,6 +1,7 @@
 //! Demonstrates using a custom extension to the `StandardMaterial` to modify the results of the builtin pbr shader.
 
 use bevy::{
+    color::palettes::basic::RED,
     pbr::{ExtendedMaterial, MaterialExtension, OpaqueRendererMethod},
     prelude::*,
     render::render_resource::*,
@@ -28,7 +29,7 @@ fn setup(
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         material: materials.add(ExtendedMaterial {
             base: StandardMaterial {
-                base_color: Color::RED,
+                base_color: RED.into(),
                 // can be used in forward or deferred mode.
                 opaque_render_method: OpaqueRendererMethod::Auto,
                 // in deferred mode, only the PbrInput can be modified (uvs, color and other material properties),
@@ -45,11 +46,8 @@ fn setup(
 
     // light
     commands.spawn((
-        PointLightBundle {
-            point_light: PointLight {
-                intensity: 150_000.0,
-                ..default()
-            },
+        DirectionalLightBundle {
+            transform: Transform::from_xyz(1.0, 1.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         },
         Rotate,
@@ -66,12 +64,8 @@ fn setup(
 struct Rotate;
 
 fn rotate_things(mut q: Query<&mut Transform, With<Rotate>>, time: Res<Time>) {
-    for mut t in q.iter_mut() {
-        t.translation = Vec3::new(
-            time.elapsed_seconds().sin(),
-            0.5,
-            time.elapsed_seconds().cos(),
-        ) * 4.0;
+    for mut t in &mut q {
+        t.rotate_y(time.delta_seconds());
     }
 }
 

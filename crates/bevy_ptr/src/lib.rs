@@ -393,7 +393,7 @@ impl<'a, T> Copy for ThinSlicePtr<'a, T> {}
 impl<'a, T> From<&'a [T]> for ThinSlicePtr<'a, T> {
     #[inline]
     fn from(slice: &'a [T]) -> Self {
-        let ptr = slice.as_ptr() as *mut T;
+        let ptr = slice.as_ptr().cast_mut();
         Self {
             // SAFETY: a reference can never be null
             ptr: unsafe { NonNull::new_unchecked(ptr.debug_ensure_aligned()) },

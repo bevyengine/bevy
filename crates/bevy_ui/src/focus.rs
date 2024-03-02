@@ -225,9 +225,7 @@ pub fn ui_focus_system(
                 return None;
             };
 
-            let Some(view_visibility) = node.view_visibility else {
-                return None;
-            };
+            let view_visibility = node.view_visibility?;
             // Nodes that are not rendered should not be interactable
             if !view_visibility.get() {
                 // Reset their interaction to None to avoid strange stuck state
@@ -237,13 +235,10 @@ pub fn ui_focus_system(
                 }
                 return None;
             }
-            let Some(camera_entity) = node
+            let camera_entity = node
                 .target_camera
                 .map(TargetCamera::entity)
-                .or(default_ui_camera.get())
-            else {
-                return None;
-            };
+                .or(default_ui_camera.get())?;
 
             let node_rect = node.node.logical_rect(node.global_transform);
 
