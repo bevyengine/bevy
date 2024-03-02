@@ -9,6 +9,7 @@ use bevy::{
         css::{ANTIQUE_WHITE, DARK_GREEN},
     },
     prelude::{Color::Srgba, *},
+    ui::RelativeCursorPosition,
 };
 
 /// An on-screen representation of a node.
@@ -63,50 +64,30 @@ struct AnimationWeights {
 /// The type of each node in the UI: either a clip node or a blend node.
 enum NodeType {
     /// A clip node, which specifies an animation.
-    Clip(ClipNodeText),
+    Clip(ClipNode),
     /// A blend node with no animation and a string label.
     Blend(&'static str),
 }
 
 /// The label for the UI representation of a clip node.
 #[derive(Clone, Component)]
-struct ClipNodeText {
+struct ClipNode {
     /// The string label of the node.
     text: &'static str,
     /// Which of the three animations this UI widget represents.
     index: usize,
 }
 
-/// Whether, and where, the mouse is dragging.
-#[derive(Resource, Default)]
-enum DragState {
-    /// The mouse isn't being dragged.
-    #[default]
-    NotDragging,
-    /// The mouse is being dragged.
-    Dragging {
-        /// Which animation the mouse is dragging.
-        clip_index: usize,
-        /// The X position of the mouse when the drag started.
-        reference_x_pos: f32,
-        /// The weight that the dragged node had when the drag started.
-        reference_weight: f32,
-    },
-}
-
-/// How much weight a drag of one mouse pixel corresponds to.
-const WEIGHT_ADJUST_SPEED: f32 = 0.01;
-
 /// The help text in the upper left corner.
 static HELP_TEXT: &str = "Click and drag an animation clip node to change its weight";
 
 /// The node widgets in the UI.
 static NODE_TYPES: [NodeType; 5] = [
-    NodeType::Clip(ClipNodeText::new("Idle", 0)),
-    NodeType::Clip(ClipNodeText::new("Walk", 1)),
+    NodeType::Clip(ClipNode::new("Idle", 0)),
+    NodeType::Clip(ClipNode::new("Walk", 1)),
     NodeType::Blend("Root"),
     NodeType::Blend("Blend\n0.5"),
-    NodeType::Clip(ClipNodeText::new("Run", 2)),
+    NodeType::Clip(ClipNode::new("Run", 2)),
 ];
 
 /// The positions of the node widgets in the UI.
@@ -153,7 +134,6 @@ fn main() {
             (handle_weight_drag, update_ui, sync_weights).chain(),
         )
         .init_resource::<AnimationWeights>()
-        .init_resource::<DragState>()
         .insert_resource(AmbientLight {
             color: Srgba(WHITE),
             brightness: 100.0,
@@ -266,39 +246,67 @@ fn setup_help_text(commands: &mut Commands, asset_server: &mut AssetServer) {
 
 /// Initializes the node UI widgets.
 fn setup_node_rects(commands: &mut Commands, asset_server: &mut AssetServer) {
-    for (node_rect, node_text) in NODE_RECTS.iter().zip(NODE_TYPES.iter()) {
-        let node_string = match *node_text {
+    for (node_rect, node_type) in NODE_RECTS.iter().zip(NODE_TYPES.iter()) {
+        let node_string = match *node_type {
             NodeType::Clip(ref clip) => clip.text,
             NodeType::Blend(text) => text,
         };
 
-        let mut text = commands.spawn(TextBundle {
-            text: Text::from_section(
-                node_string,
-                TextStyle {
-                    font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                    font_size: 16.0,
-                    color: Srgba(ANTIQUE_WHITE),
-                },
-            )
-            .with_justify(JustifyText::Center),
-            style: Style::default(),
-            ..default()
-        });
+        let text = commands
+            .spawn(TextBundle {
+                text: Text::from_section(
+                    node_string,
+                    TextStyle {
+                        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                        font_size: 16.0,
+                        color: Srgba(ANTIQUE_WHITE),
+                    },
+                )
+                .with_justify(JustifyText::Center),
+                ..default()
+            })
+            .id();
 
-        if let NodeType::Clip(ref clip) = node_text {
-            text.insert((*clip).clone());
-        }
-        let text = text.id();
-
-        // Create the background color.
-        if let NodeType::Clip(ref clip) = node_text {
-            commands
-                .spawn(NodeBundle {
+        let container = {
+            let mut container = commands.spawn((
+                NodeBundle {
                     style: Style {
                         position_type: PositionType::Absolute,
                         bottom: Val::Px(node_rect.bottom),
                         left: Val::Px(node_rect.left),
+                        height: Val::Px(node_rect.height),
+                        width: Val::Px(node_rect.width),
+                        align_items: AlignItems::Center,
+                        justify_items: JustifyItems::Center,
+                        align_content: AlignContent::Center,
+                        justify_content: JustifyContent::Center,
+                        ..default()
+                    },
+                    border_color: BorderColor(Srgba(WHITE)),
+                    ..default()
+                },
+                Outline::new(Val::Px(1.), Val::ZERO, Color::WHITE),
+            ));
+
+            if let NodeType::Clip(ref clip) = node_type {
+                container.insert((
+                    Interaction::None,
+                    RelativeCursorPosition::default(),
+                    (*clip).clone(),
+                ));
+            }
+
+            container.id()
+        };
+
+        // Create the background color.
+        if let NodeType::Clip(_) = node_type {
+            let background = commands
+                .spawn(NodeBundle {
+                    style: Style {
+                        position_type: PositionType::Absolute,
+                        top: Val::Px(0.),
+                        left: Val::Px(0.),
                         height: Val::Px(node_rect.height),
                         width: Val::Px(node_rect.width),
                         ..default()
@@ -306,30 +314,12 @@ fn setup_node_rects(commands: &mut Commands, asset_server: &mut AssetServer) {
                     background_color: BackgroundColor(Srgba(DARK_GREEN)),
                     ..default()
                 })
-                .insert((*clip).clone());
+                .id();
+
+            commands.entity(container).add_child(background);
         }
 
-        commands
-            .spawn(NodeBundle {
-                style: Style {
-                    position_type: PositionType::Absolute,
-                    bottom: Val::Px(node_rect.bottom),
-                    left: Val::Px(node_rect.left),
-                    height: Val::Px(node_rect.height),
-                    width: Val::Px(node_rect.width),
-                    border: UiRect::all(Val::Px(1.0)),
-                    align_items: AlignItems::Center,
-                    justify_items: JustifyItems::Center,
-                    align_self: AlignSelf::Center,
-                    justify_self: JustifySelf::Center,
-                    align_content: AlignContent::Center,
-                    justify_content: JustifyContent::Center,
-                    ..default()
-                },
-                border_color: BorderColor(Srgba(WHITE)),
-                ..default()
-            })
-            .add_child(text);
+        commands.entity(container).add_child(text);
     }
 }
 
@@ -387,84 +377,52 @@ fn init_animations(
     }
 }
 
-/// Processes mouse events, allowing the user to change weights when dragging
-/// the node UI widgets.
+/// Read cursor position relative to clip nodes, allowing the user to change weights
+/// when dragging the node UI widgets.
 fn handle_weight_drag(
-    windows: Query<&Window>,
-    mouse_input: Res<ButtonInput<MouseButton>>,
-    mut drag_state: ResMut<DragState>,
+    mut interaction_query: Query<(&Interaction, &RelativeCursorPosition, &ClipNode)>,
     mut animation_weights: ResMut<AnimationWeights>,
 ) {
-    for window in windows.iter() {
-        // If the cursor is outside the window, bail.
-        let Some(cursor_pos) = window.cursor_position() else {
+    for (interaction, relative_cursor, clip_node) in &mut interaction_query {
+        if !matches!(*interaction, Interaction::Pressed) {
+            continue;
+        }
+
+        let Some(pos) = relative_cursor.normalized else {
             continue;
         };
 
-        // Handle the start of a drag.
-        if mouse_input.just_pressed(MouseButton::Left) {
-            for (node_rect, node_type) in NODE_RECTS.iter().zip(NODE_TYPES.iter()) {
-                // Ignore clicks on non-clip nodes.
-                let NodeType::Clip(ClipNodeText {
-                    index: weight_index,
-                    ..
-                }) = *node_type
-                else {
-                    continue;
-                };
-
-                if cursor_pos.x >= node_rect.left
-                    && cursor_pos.x < node_rect.left + node_rect.width
-                    && cursor_pos.y < window.height() - node_rect.bottom
-                    && cursor_pos.y >= window.height() - node_rect.bottom - node_rect.height
-                {
-                    *drag_state = DragState::Dragging {
-                        clip_index: weight_index,
-                        reference_x_pos: cursor_pos.x,
-                        reference_weight: animation_weights.weights[weight_index],
-                    }
-                }
-            }
-        }
-
-        if mouse_input.just_released(MouseButton::Left) {
-            *drag_state = DragState::NotDragging;
-        }
-
-        let DragState::Dragging {
-            clip_index: weight_index,
-            reference_x_pos,
-            reference_weight,
-        } = *drag_state
-        else {
-            continue;
-        };
-
-        animation_weights.weights[weight_index] = (reference_weight
-            + WEIGHT_ADJUST_SPEED * (cursor_pos.x - reference_x_pos))
-            .clamp(0.0, 1.0);
+        animation_weights.weights[clip_node.index] = pos.x.clamp(0., 1.);
     }
 }
 
 // Updates the UI based on the weights that the user has chosen.
 fn update_ui(
-    mut text_query: Query<(&mut Text, &ClipNodeText)>,
-    mut node_query: Query<(&mut Style, &ClipNodeText), (With<Node>, Without<Text>)>,
+    mut text_query: Query<&mut Text>,
+    mut background_query: Query<&mut Style, Without<Text>>,
+    container_query: Query<(&Children, &ClipNode)>,
     animation_weights: Res<AnimationWeights>,
 ) {
-    // Update the node labels with the current weights.
-    for (mut text, clip_node_text) in text_query.iter_mut() {
-        text.sections[0].value = format!(
-            "{}\n{}",
-            clip_node_text.text, animation_weights.weights[clip_node_text.index]
-        );
+    if !animation_weights.is_changed() {
+        return;
     }
 
-    // Draw the green background color to visually indicate the weight.
-    for (mut style, clip_node_text) in node_query.iter_mut() {
-        // All nodes are the same width, so `NODE_RECTS[0]` is as good as any other.
-        style.width =
-            Val::Px(NODE_RECTS[0].width * animation_weights.weights[clip_node_text.index]);
+    for (children, clip_node) in &container_query {
+        // Draw the green background color to visually indicate the weight.
+        let mut bg_iter = background_query.iter_many_mut(children);
+        if let Some(mut style) = bg_iter.fetch_next() {
+            // All nodes are the same width, so `NODE_RECTS[0]` is as good as any other.
+            style.width = Val::Px(NODE_RECTS[0].width * animation_weights.weights[clip_node.index]);
+        }
+
+        // Update the node labels with the current weights.
+        let mut text_iter = text_query.iter_many_mut(children);
+        if let Some(mut text) = text_iter.fetch_next() {
+            text.sections[0].value = format!(
+                "{}\n{:.2}",
+                clip_node.text, animation_weights.weights[clip_node.index]
+            );
+        }
     }
 }
 
@@ -500,7 +458,7 @@ impl Default for AnimationWeights {
     }
 }
 
-impl ClipNodeText {
+impl ClipNode {
     /// Creates a new [`ClipNodeText`] from a label and the animation index.
     const fn new(text: &'static str, index: usize) -> Self {
         Self { text, index }
