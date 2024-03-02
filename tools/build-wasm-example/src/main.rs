@@ -77,9 +77,6 @@ fn main() {
             sh,
             "cargo build {parameters...} --profile release --target wasm32-unknown-unknown --example {example}"
         );
-        if matches!(cli.api, WebApi::Webgpu) {
-            cmd = cmd.env("RUSTFLAGS", "--cfg=web_sys_unstable_apis");
-        }
         cmd.run().expect("Error building example");
 
         cmd!(
