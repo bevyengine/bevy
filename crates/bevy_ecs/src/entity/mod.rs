@@ -83,8 +83,8 @@ type IdCursor = isize;
 ///
 /// # Stability warning
 /// For all intents and purposes, `Entity` should be treated as an opaque identifier. The internal bit
-/// representation is liable to change from release to release as are the behaviors or performance 
-/// characteristics of any of its trait implementations (i.e. `Ord`, `Hash`, etc.). This means that changes in 
+/// representation is liable to change from release to release as are the behaviors or performance
+/// characteristics of any of its trait implementations (i.e. `Ord`, `Hash`, etc.). This means that changes in
 /// `Entity`'s representation, though made readable through various functions on the type, are not considered
 /// breaking changes under [SemVer].
 ///
