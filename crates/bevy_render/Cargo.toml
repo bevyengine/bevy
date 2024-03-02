@@ -66,7 +66,7 @@ image = { version = "0.24", default-features = false }
 codespan-reporting = "0.11.0"
 # `fragile-send-sync-non-atomic-wasm` feature means we can't use WASM threads for rendering
 # It is enabled for now to avoid having to do a significant overhaul of the renderer just for wasm
-wgpu = { version = "0.19.1", default-features = false, features = [
+wgpu = { version = "0.19.3", default-features = false, features = [
   "wgsl",
   "dx12",
   "metal",
@@ -107,9 +107,7 @@ naga_oil = { version = "0.13", default-features = false, features = [
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 naga_oil = "0.13"
 js-sys = "0.3"
-# web-sys doesn't follow semver for the WebGPU APIs as they are unstable
-# Make sure that WebGPU builds work when changing this!
-web-sys = { version = "=0.3.67", features = [
+web-sys = { version = "0.3.67", features = [
   'Blob',
   'Document',
   'Element',
