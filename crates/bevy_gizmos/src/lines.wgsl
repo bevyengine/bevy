@@ -26,6 +26,7 @@ struct VertexInput {
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) color: vec4<f32>,
+    @location(1) uv: f32,
 };
 
 const EPSILON: f32 = 4.88e-04;
@@ -91,9 +92,11 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
         depth = clip.z * exp2(-line_gizmo.depth_bias * log2(clip.w / clip.z - EPSILON));
     }
 
+    var uv = position.z * length(screen_b - screen_a) / line_gizmo.line_width;
+
     var clip_position = vec4(clip.w * ((2. * screen) / resolution - 1.), depth, clip.w);
 
-    return VertexOutput(clip_position, color);
+    return VertexOutput(clip_position, color, uv);
 }
 
 fn clip_near_plane(a: vec4<f32>, b: vec4<f32>) -> vec4<f32> {
@@ -112,6 +115,7 @@ fn clip_near_plane(a: vec4<f32>, b: vec4<f32>) -> vec4<f32> {
 
 struct FragmentInput {
     @location(0) color: vec4<f32>,
+    @location(1) uv: f32,
 };
 
 struct FragmentOutput {
@@ -119,6 +123,11 @@ struct FragmentOutput {
 };
 
 @fragment
-fn fragment(in: FragmentInput) -> FragmentOutput {
+fn fragment_solid(in: FragmentInput) -> FragmentOutput {
     return FragmentOutput(in.color);
+}
+@fragment
+fn fragment_dotted(in: FragmentInput) -> FragmentOutput {
+    let alpha = 1 - floor(in.uv % 2.0);
+    return FragmentOutput(vec4(in.color.xyz, in.color.w * alpha));
 }

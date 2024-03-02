@@ -165,6 +165,7 @@ impl Default for GizmoConfig {
 #[derive(Component)]
 pub(crate) struct GizmoMeshConfig {
     pub line_perspective: bool,
+    pub line_style: GizmoLineStyle,
     pub render_layers: RenderLayers,
 }
 
@@ -172,6 +173,7 @@ impl From<&GizmoConfig> for GizmoMeshConfig {
     fn from(item: &GizmoConfig) -> Self {
         GizmoMeshConfig {
             line_perspective: item.line_perspective,
+            line_style: item.line_style,
             render_layers: item.render_layers,
         }
     }

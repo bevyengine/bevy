@@ -106,6 +106,12 @@ fn update_config(
     if keyboard.just_pressed(KeyCode::Digit1) {
         config.enabled ^= true;
     }
+    if keyboard.just_pressed(KeyCode::KeyJ) {
+        config.line_style = match config.line_style {
+            GizmoLineStyle::Solid => GizmoLineStyle::Dotted,
+            GizmoLineStyle::Dotted => GizmoLineStyle::Solid,
+        };
+    }
 
     let (my_config, _) = config_store.config_mut::<MyRoundGizmos>();
     if keyboard.pressed(KeyCode::ArrowUp) {
@@ -118,5 +124,11 @@ fn update_config(
     }
     if keyboard.just_pressed(KeyCode::Digit2) {
         my_config.enabled ^= true;
+    }
+    if keyboard.just_pressed(KeyCode::KeyK) {
+        my_config.line_style = match my_config.line_style {
+            GizmoLineStyle::Solid => GizmoLineStyle::Dotted,
+            GizmoLineStyle::Dotted => GizmoLineStyle::Solid,
+        };
     }
 }
