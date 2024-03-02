@@ -1,6 +1,6 @@
 use bevy_app::App;
 use bevy_ecs::world::FromWorld;
-use bevy_log::warn;
+use bevy_utils::tracing::warn;
 
 use super::{IntoRenderNodeArray, Node, RenderGraph, RenderLabel, RenderSubGraph};
 

@@ -55,9 +55,8 @@ use bevy_ecs::{
     system::Resource,
     world::FromWorld,
 };
-use bevy_log::error;
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
-use bevy_utils::HashSet;
+use bevy_utils::{tracing::error, HashSet};
 use std::{any::TypeId, sync::Arc};
 
 #[cfg(all(feature = "file_watcher", not(feature = "multi-threaded")))]
