@@ -36,7 +36,7 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
     let render_queue = world.resource::<RenderQueue>();
     let render_adapter = world.resource::<RenderAdapter>();
 
-    match RenderGraphRunner::run(
+    let res = RenderGraphRunner::run(
         graph,
         render_device.clone(), // TODO: is this clone really necessary?
         diagnostics_recorder,
@@ -46,7 +46,9 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
         |encoder| {
             crate::view::screenshot::submit_screenshot_commands(world, encoder);
         },
-    ) {
+    );
+
+    match res {
         Ok(Some(diagnostics_recorder)) => {
             world.insert_resource(diagnostics_recorder);
         }
