@@ -2,10 +2,12 @@
 
 use crate::{
     self as bevy_ecs,
+    archetype::ArchetypeFlags,
     change_detection::MAX_CHANGE_AGE,
+    entity::Entity,
     storage::{SparseSetIndex, Storages},
     system::{Local, Resource, SystemParam},
-    world::{FromWorld, World},
+    world::{DeferredWorld, FromWorld, World},
 };
 pub use bevy_ecs_macros::Component;
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
@@ -152,6 +154,10 @@ pub trait Component: Send + Sync + 'static {
     /// A marker type indicating the storage type used for this component.
     /// This must be either [`TableStorage`] or [`SparseStorage`].
     type Storage: ComponentStorage;
+
+    /// Called when registering this component, allowing mutable access to it's [`ComponentInfo`].
+    /// This is currently used for registering hooks.
+    fn init_component_info(_info: &mut ComponentInfo) {}
 }
 
 /// Marker type for components stored in a [`Table`](crate::storage::Table).
@@ -203,11 +209,83 @@ pub enum StorageType {
     SparseSet,
 }
 
+/// The type used for [`Component`] lifecycle hooks such as `on_add`, `on_insert` or `on_remove`
+pub type ComponentHook = for<'w> fn(DeferredWorld<'w>, Entity, ComponentId);
+
+/// Lifecycle hooks for a given [`Component`], stored in it's [`ComponentInfo`]
+#[derive(Debug, Clone, Default)]
+pub struct ComponentHooks {
+    pub(crate) on_add: Option<ComponentHook>,
+    pub(crate) on_insert: Option<ComponentHook>,
+    pub(crate) on_remove: Option<ComponentHook>,
+}
+
+impl ComponentHooks {
+    /// Register a [`ComponentHook`] that will be run when this component is added to an entity.
+    /// An `on_add` hook will always be followed by `on_insert`.
+    ///
+    /// Will panic if the component already has an `on_add` hook
+    pub fn on_add(&mut self, hook: ComponentHook) -> &mut Self {
+        self.try_on_add(hook)
+            .expect("Component id: {:?}, already has an on_add hook")
+    }
+
+    /// Register a [`ComponentHook`] that will be run when this component is added or set by `.insert`
+    /// An `on_insert` hook will run even if the entity already has the component unlike `on_add`,
+    /// `on_insert` also always runs after any `on_add` hooks.
+    ///
+    /// Will panic if the component already has an `on_insert` hook
+    pub fn on_insert(&mut self, hook: ComponentHook) -> &mut Self {
+        self.try_on_insert(hook)
+            .expect("Component id: {:?}, already has an on_insert hook")
+    }
+
+    /// Register a [`ComponentHook`] that will be run when this component is removed from an entity.
+    /// Despawning an entity counts as removing all of it's components.
+    ///
+    /// Will panic if the component already has an `on_remove` hook
+    pub fn on_remove(&mut self, hook: ComponentHook) -> &mut Self {
+        self.try_on_remove(hook)
+            .expect("Component id: {:?}, already has an on_remove hook")
+    }
+
+    /// Fallible version of [`Self::on_add`].
+    /// Returns `None` if the component already has an `on_add` hook.
+    pub fn try_on_add(&mut self, hook: ComponentHook) -> Option<&mut Self> {
+        if self.on_add.is_some() {
+            return None;
+        }
+        self.on_add = Some(hook);
+        Some(self)
+    }
+
+    /// Fallible version of [`Self::on_insert`].
+    /// Returns `None` if the component already has an `on_insert` hook.
+    pub fn try_on_insert(&mut self, hook: ComponentHook) -> Option<&mut Self> {
+        if self.on_insert.is_some() {
+            return None;
+        }
+        self.on_insert = Some(hook);
+        Some(self)
+    }
+
+    /// Fallible version of [`Self::on_remove`].
+    /// Returns `None` if the component already has an `on_remove` hook.
+    pub fn try_on_remove(&mut self, hook: ComponentHook) -> Option<&mut Self> {
+        if self.on_remove.is_some() {
+            return None;
+        }
+        self.on_remove = Some(hook);
+        Some(self)
+    }
+}
+
 /// Stores metadata for a type of component or resource stored in a specific [`World`].
 #[derive(Debug, Clone)]
 pub struct ComponentInfo {
     id: ComponentId,
     descriptor: ComponentDescriptor,
+    hooks: ComponentHooks,
 }
 
 impl ComponentInfo {
@@ -263,7 +341,30 @@ impl ComponentInfo {
 
     /// Create a new [`ComponentInfo`].
     pub(crate) fn new(id: ComponentId, descriptor: ComponentDescriptor) -> Self {
-        ComponentInfo { id, descriptor }
+        ComponentInfo {
+            id,
+            descriptor,
+            hooks: ComponentHooks::default(),
+        }
+    }
+
+    /// Update the given flags to include any [`ComponentHook`] registered to self
+    #[inline]
+    pub(crate) fn update_archetype_flags(&self, flags: &mut ArchetypeFlags) {
+        if self.hooks().on_add.is_some() {
+            flags.insert(ArchetypeFlags::ON_ADD_HOOK);
+        }
+        if self.hooks().on_insert.is_some() {
+            flags.insert(ArchetypeFlags::ON_INSERT_HOOK);
+        }
+        if self.hooks().on_remove.is_some() {
+            flags.insert(ArchetypeFlags::ON_REMOVE_HOOK);
+        }
+    }
+
+    /// Provides a reference to the collection of hooks associated with this [`Component`]
+    pub fn hooks(&self) -> &ComponentHooks {
+        &self.hooks
     }
 }
 
@@ -474,7 +575,13 @@ impl Components {
             ..
         } = self;
         *indices.entry(type_id).or_insert_with(|| {
-            Components::init_component_inner(components, storages, ComponentDescriptor::new::<T>())
+            let index = Components::init_component_inner(
+                components,
+                storages,
+                ComponentDescriptor::new::<T>(),
+            );
+            T::init_component_info(&mut components[index.index()]);
+            index
         })
     }
 
@@ -549,6 +656,11 @@ impl Components {
         debug_assert!(id.index() < self.components.len());
         // SAFETY: The caller ensures `id` is valid.
         unsafe { self.components.get_unchecked(id.0) }
+    }
+
+    #[inline]
+    pub(crate) fn get_hooks_mut(&mut self, id: ComponentId) -> Option<&mut ComponentHooks> {
+        self.components.get_mut(id.0).map(|info| &mut info.hooks)
     }
 
     /// Type-erased equivalent of [`Components::component_id()`].
