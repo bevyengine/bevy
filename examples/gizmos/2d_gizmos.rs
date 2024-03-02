@@ -89,9 +89,10 @@ fn draw_example_collection(
     );
 
     // You can create more complex arrows using the arrow builder.
-    let mut arrow_builder = gizmos.arrow_2d(Vec2::ZERO, Vec2::from_angle(sin / -10.) * 50., GREEN);
-    arrow_builder.with_double_end();
-    arrow_builder.with_tip_length(10.);
+    gizmos
+        .arrow_2d(Vec2::ZERO, Vec2::from_angle(sin / -10.) * 50., GREEN)
+        .with_double_end()
+        .with_tip_length(10.);
 }
 
 fn update_config(

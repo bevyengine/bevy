@@ -45,8 +45,9 @@ impl<T: GizmoConfigGroup> ArrowBuilder<'_, '_, '_, T> {
 
     /// Adds another tip to the arrow, appended in the start point.
     /// the default is only one tip at the end point.
-    pub fn with_double_end(&mut self) {
+    pub fn with_double_end(mut self) -> Self {
         self.double_ended = true;
+        self
     }
 }
 
