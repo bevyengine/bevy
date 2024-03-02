@@ -614,7 +614,7 @@ pub struct StandardMaterialUniform {
     pub uv_transform_y_axis: Vec2,
     /// The translation of the transform applied to the UVs corresponding to ATTRIBUTE_UV_0 on the mesh before sampling. Default is [0, 0].
     pub uv_transform_translation: Vec2,
-    /// Needed for alignement, otherwise some versions of DX12 crash
+    /// Needed for alignment, otherwise some versions of DX12 crash
     pub padding: Vec2,
     /// Linear perceptual roughness, clamped to [0.089, 1.0] in the shader
     /// Defaults to minimum of 0.089
