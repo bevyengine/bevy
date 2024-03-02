@@ -13,7 +13,7 @@ struct LineGizmoUniform {
 #endif
 }
 
-@group(1) @binding(0) var<uniform> joins_gizmo: LineGizmoUniform;
+@group(1) @binding(0) var<uniform> joints_gizmo: LineGizmoUniform;
 
 struct VertexInput {
     @location(0) position_a: vec3<f32>,
@@ -55,7 +55,7 @@ fn vertex_bevel(vertex: VertexInput) -> VertexOutput {
     let screen_c = resolution * (0.5 * clip_c.xy / clip_c.w + 0.5);
 
     var color = vertex.color;
-    var line_width = joins_gizmo.line_width;
+    var line_width = joints_gizmo.line_width;
 
 #ifdef PERSPECTIVE
     line_width /= clip_b.w;
@@ -114,7 +114,7 @@ fn vertex_miter(vertex: VertexInput) -> VertexOutput {
     let screen_c = resolution * (0.5 * clip_c.xy / clip_c.w + 0.5);
 
     var color = vertex.color;
-    var line_width = joins_gizmo.line_width;
+    var line_width = joints_gizmo.line_width;
 
 #ifdef PERSPECTIVE
     line_width /= clip_b.w;
@@ -164,7 +164,7 @@ fn vertex_round(vertex: VertexInput) -> VertexOutput {
     let screen_c = resolution * (0.5 * clip_c.xy / clip_c.w + 0.5);
 
     var color = vertex.color;
-    var line_width = joins_gizmo.line_width;
+    var line_width = joints_gizmo.line_width;
 
 #ifdef PERSPECTIVE
     line_width /= clip_b.w;
@@ -181,7 +181,7 @@ fn vertex_round(vertex: VertexInput) -> VertexOutput {
     let ab_norm = vec2(-ab.y, ab.x);
     let cb_norm = vec2(cb.y, -cb.x);
 
-    // We render `joins_gizmo.resolution`triangles. The vertices in each triangle are ordered as follows:
+    // We render `joints_gizmo.resolution`triangles. The vertices in each triangle are ordered as follows:
     // - 0: The 'center' vertex at `screen_b`.
     // - 1: The vertex closer to the ab line.
     // - 2: The vertex closer to the cb line. 
@@ -190,7 +190,7 @@ fn vertex_round(vertex: VertexInput) -> VertexOutput {
     var radius = sign(in_triangle_index) * 0.5 * line_width;
     var theta = acos(dot(ab_norm, cb_norm));
     let sigma = sign(dot(ab_norm, cb));
-    var angle = theta * (tri_index + in_triangle_index - 1) / f32(joins_gizmo.resolution);
+    var angle = theta * (tri_index + in_triangle_index - 1) / f32(joints_gizmo.resolution);
     var position_x = sigma * radius * cos(angle);
     var position_y = radius * sin(angle);
 
@@ -218,8 +218,8 @@ fn clip_near_plane(a: vec4<f32>, b: vec4<f32>) -> vec4<f32> {
 
 fn depth(clip: vec4<f32>) -> f32 {
     var depth: f32;
-    if joins_gizmo.depth_bias >= 0. {
-        depth = clip.z * (1. - joins_gizmo.depth_bias);
+    if joints_gizmo.depth_bias >= 0. {
+        depth = clip.z * (1. - joints_gizmo.depth_bias);
     } else {
         // depth * (clip.w / depth)^-depth_bias. So that when -depth_bias is 1.0, this is equal to clip.w
         // and when equal to 0.0, it is exactly equal to depth.
@@ -228,7 +228,7 @@ fn depth(clip: vec4<f32>) -> f32 {
         // of this value means nothing can be in front of this
         // The reason this uses an exponential function is that it makes it much easier for the
         // user to chose a value that is convenient for them
-        depth = clip.z * exp2(-joins_gizmo.depth_bias * log2(clip.w / clip.z - EPSILON));
+        depth = clip.z * exp2(-joints_gizmo.depth_bias * log2(clip.w / clip.z - EPSILON));
     }
     return depth;
 }
