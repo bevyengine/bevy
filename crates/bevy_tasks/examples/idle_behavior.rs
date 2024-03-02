@@ -1,8 +1,9 @@
-use bevy_tasks::TaskPoolBuilder;
+//! This sample demonstrates a thread pool with one thread per logical core and only one task
+//! spinning. Other than the one thread, the system should remain idle, demonstrating good behavior
+//! for small workloads.
 
-// This sample demonstrates a thread pool with one thread per logical core and only one task
-// spinning. Other than the one thread, the system should remain idle, demonstrating good behavior
-// for small workloads.
+use bevy_tasks::TaskPoolBuilder;
+use web_time::{Duration, Instant};
 
 fn main() {
     let pool = TaskPoolBuilder::new()
@@ -13,8 +14,8 @@ fn main() {
         for i in 0..1 {
             s.spawn(async move {
                 println!("Blocking for 10 seconds");
-                let now = instant::Instant::now();
-                while instant::Instant::now() - now < instant::Duration::from_millis(10000) {
+                let now = Instant::now();
+                while Instant::now() - now < Duration::from_millis(10000) {
                     // spin, simulating work being done
                 }
 

@@ -1,9 +1,12 @@
-/// General UI benchmark that stress tests layouting, text, interaction and rendering
+//! General UI benchmark that stress tests layouting, text, interaction and rendering
+
 use argh::FromArgs;
 use bevy::{
+    color::palettes::css::ORANGE_RED,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    window::{PresentMode, WindowPlugin},
+    window::{PresentMode, WindowPlugin, WindowResolution},
+    winit::{UpdateMode, WinitSettings},
 };
 
 const FONT_SIZE: f32 = 7.0;
@@ -42,13 +45,19 @@ struct Args {
 
 /// This example shows what happens when there is a lot of buttons on screen.
 fn main() {
+    // `from_env` panics on the web
+    #[cfg(not(target_arch = "wasm32"))]
     let args: Args = argh::from_env();
+    #[cfg(target_arch = "wasm32")]
+    let args = Args::from_args(&[], &[]).unwrap();
+
     let mut app = App::new();
 
     app.add_plugins((
         DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 present_mode: PresentMode::AutoNoVsync,
+                resolution: WindowResolution::new(1920.0, 1080.0).with_scale_factor_override(1.0),
                 ..default()
             }),
             ..default()
@@ -56,6 +65,10 @@ fn main() {
         FrameTimeDiagnosticsPlugin,
         LogDiagnosticsPlugin::default(),
     ))
+    .insert_resource(WinitSettings {
+        focused_mode: UpdateMode::Continuous,
+        unfocused_mode: UpdateMode::Continuous,
+    })
     .add_systems(Update, button_system);
 
     if args.grid {
@@ -66,13 +79,17 @@ fn main() {
 
     if args.relayout {
         app.add_systems(Update, |mut style_query: Query<&mut Style>| {
-            style_query.for_each_mut(|mut style| style.set_changed());
+            style_query
+                .iter_mut()
+                .for_each(|mut style| style.set_changed());
         });
     }
 
     if args.recompute_text {
         app.add_systems(Update, |mut text_query: Query<&mut Text>| {
-            text_query.for_each_mut(|mut text| text.set_changed());
+            text_query
+                .iter_mut()
+                .for_each(|mut text| text.set_changed());
         });
     }
 
@@ -90,7 +107,7 @@ fn button_system(
 ) {
     for (interaction, mut button_color, IdleColor(idle_color)) in interaction_query.iter_mut() {
         *button_color = match interaction {
-            Interaction::Hovered => Color::ORANGE_RED.into(),
+            Interaction::Hovered => ORANGE_RED.into(),
             _ => *idle_color,
         };
     }
@@ -132,7 +149,7 @@ fn setup_flex(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
                     .with_children(|commands| {
                         for row in 0..args.buttons {
                             let color = as_rainbow(row % column.max(1)).into();
-                            let border_color = Color::WHITE.with_a(0.5).into();
+                            let border_color = Color::WHITE.with_alpha(0.5).into();
                             spawn_button(
                                 commands,
                                 color,
@@ -186,7 +203,7 @@ fn setup_grid(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
             for column in 0..args.buttons {
                 for row in 0..args.buttons {
                     let color = as_rainbow(row % column.max(1)).into();
-                    let border_color = Color::WHITE.with_a(0.5).into();
+                    let border_color = Color::WHITE.with_alpha(0.5).into();
                     spawn_button(
                         commands,
                         color,
@@ -249,7 +266,7 @@ fn spawn_button(
                 format!("{column}, {row}"),
                 TextStyle {
                     font_size: FONT_SIZE,
-                    color: Color::rgb(0.2, 0.2, 0.2),
+                    color: Color::srgb(0.2, 0.2, 0.2),
                     ..default()
                 },
             ));

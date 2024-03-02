@@ -1,11 +1,11 @@
 use crate::{DynamicScene, InstanceInfo, SceneSpawnError};
 use bevy_asset::Asset;
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
     reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities, ReflectResource},
     world::World,
 };
 use bevy_reflect::TypePath;
-use bevy_utils::EntityHashMap;
 
 /// To spawn a scene, you can use either:
 /// * [`SceneSpawner::spawn`](crate::SceneSpawner::spawn)
@@ -89,14 +89,14 @@ impl Scene {
                     type_path: registration.type_info().type_path().to_string(),
                 }
             })?;
-            reflect_resource.copy(&self.world, world);
+            reflect_resource.copy(&self.world, world, &type_registry);
         }
 
         for archetype in self.world.archetypes().iter() {
             for scene_entity in archetype.entities() {
                 let entity = *instance_info
                     .entity_map
-                    .entry(scene_entity.entity())
+                    .entry(scene_entity.id())
                     .or_insert_with(|| world.spawn_empty().id());
                 for component_id in archetype.components() {
                     let component_info = self
@@ -117,7 +117,13 @@ impl Scene {
                                 }
                             })
                         })?;
-                    reflect_component.copy(&self.world, world, scene_entity.entity(), entity);
+                    reflect_component.copy(
+                        &self.world,
+                        world,
+                        scene_entity.id(),
+                        entity,
+                        &type_registry,
+                    );
                 }
             }
         }

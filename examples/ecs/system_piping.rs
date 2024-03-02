@@ -14,6 +14,7 @@ fn main() {
         .add_plugins(LogPlugin {
             level: Level::TRACE,
             filter: "".to_string(),
+            ..default()
         })
         .add_systems(
             Update,
@@ -23,7 +24,7 @@ fn main() {
                 parse_message_system.map(dbg),
                 warning_pipe_system.map(warn),
                 parse_error_message_system.map(error),
-                parse_message_system.map(std::mem::drop),
+                parse_message_system.map(drop),
             ),
         )
         .run();

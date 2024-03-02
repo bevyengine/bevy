@@ -5,13 +5,13 @@ use bevy_core_pipeline::{
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::SRes, SystemParamItem},
 };
-use bevy_log::error;
 use bevy_render::{
-    mesh::{Mesh, MeshVertexBufferLayout},
+    mesh::{Mesh, MeshVertexBufferLayoutRef},
     prelude::Image,
     render_asset::{prepare_assets, RenderAssets},
     render_phase::{
@@ -29,7 +29,8 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
-use bevy_utils::{EntityHashMap, FloatOrd, HashMap, HashSet};
+use bevy_utils::tracing::error;
+use bevy_utils::{FloatOrd, HashMap, HashSet};
 use std::hash::Hash;
 use std::marker::PhantomData;
 
@@ -53,7 +54,8 @@ use crate::{
 /// # use bevy_sprite::{Material2d, MaterialMesh2dBundle};
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_reflect::TypePath;
-/// # use bevy_render::{render_resource::{AsBindGroup, ShaderRef}, texture::Image, color::Color};
+/// # use bevy_render::{render_resource::{AsBindGroup, ShaderRef}, texture::Image};
+/// # use bevy_color::LinearRgba;
 /// # use bevy_asset::{Handle, AssetServer, Assets, Asset};
 ///
 /// #[derive(AsBindGroup, Debug, Clone, Asset, TypePath)]
@@ -61,7 +63,7 @@ use crate::{
 ///     // Uniform bindings must implement `ShaderType`, which will be used to convert the value to
 ///     // its shader-compatible equivalent. Most core math types already implement `ShaderType`.
 ///     #[uniform(0)]
-///     color: Color,
+///     color: LinearRgba,
 ///     // Images can be bound as textures in shaders. If the Image's sampler is also needed, just
 ///     // add the sampler attribute with a different binding index.
 ///     #[texture(1)]
@@ -81,7 +83,7 @@ use crate::{
 /// fn setup(mut commands: Commands, mut materials: ResMut<Assets<CustomMaterial>>, asset_server: Res<AssetServer>) {
 ///     commands.spawn(MaterialMesh2dBundle {
 ///         material: materials.add(CustomMaterial {
-///             color: Color::RED,
+///             color: LinearRgba::RED,
 ///             color_texture: asset_server.load("some_image.png"),
 ///         }),
 ///         ..Default::default()
@@ -95,9 +97,9 @@ use crate::{
 ///     color: vec4<f32>,
 /// }
 ///
-/// @group(1) @binding(0) var<uniform> material: CustomMaterial;
-/// @group(1) @binding(1) var color_texture: texture_2d<f32>;
-/// @group(1) @binding(2) var color_sampler: sampler;
+/// @group(2) @binding(0) var<uniform> material: CustomMaterial;
+/// @group(2) @binding(1) var color_texture: texture_2d<f32>;
+/// @group(2) @binding(2) var color_sampler: sampler;
 /// ```
 pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
     /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the default mesh vertex shader
@@ -112,12 +114,18 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
         ShaderRef::Default
     }
 
+    /// Add a bias to the view depth of the mesh which can be used to force a specific render order.
+    #[inline]
+    fn depth_bias(&self) -> f32 {
+        0.0
+    }
+
     /// Customizes the default [`RenderPipelineDescriptor`].
     #[allow(unused_variables)]
     #[inline]
     fn specialize(
         descriptor: &mut RenderPipelineDescriptor,
-        layout: &MeshVertexBufferLayout,
+        layout: &MeshVertexBufferLayoutRef,
         key: Material2dKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         Ok(())
@@ -174,7 +182,7 @@ where
 }
 
 #[derive(Resource, Deref, DerefMut)]
-pub struct RenderMaterial2dInstances<M: Material2d>(EntityHashMap<Entity, AssetId<M>>);
+pub struct RenderMaterial2dInstances<M: Material2d>(EntityHashMap<AssetId<M>>);
 
 impl<M: Material2d> Default for RenderMaterial2dInstances<M> {
     fn default() -> Self {
@@ -263,7 +271,7 @@ where
     fn specialize(
         &self,
         key: Self::Key,
-        layout: &MeshVertexBufferLayout,
+        layout: &MeshVertexBufferLayoutRef,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut descriptor = self.mesh2d_pipeline.specialize(key.mesh_key, layout)?;
         if let Some(vertex_shader) = &self.vertex_shader {
@@ -275,8 +283,8 @@ where
         }
         descriptor.layout = vec![
             self.mesh2d_pipeline.view_layout.clone(),
-            self.material2d_layout.clone(),
             self.mesh2d_pipeline.mesh_layout.clone(),
+            self.material2d_layout.clone(),
         ];
 
         M::specialize(&mut descriptor, layout, key)?;
@@ -311,8 +319,8 @@ impl<M: Material2d> FromWorld for Material2dPipeline<M> {
 type DrawMaterial2d<M> = (
     SetItemPipeline,
     SetMesh2dViewBindGroup<0>,
-    SetMaterial2dBindGroup<M, 1>,
-    SetMesh2dBindGroup<2>,
+    SetMesh2dBindGroup<1>,
+    SetMaterial2dBindGroup<M, 2>,
     DrawMesh2d,
 );
 
@@ -324,14 +332,14 @@ impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P>
         SRes<RenderMaterials2d<M>>,
         SRes<RenderMaterial2dInstances<M>>,
     );
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = ();
+    type ViewQuery = ();
+    type ItemQuery = ();
 
     #[inline]
     fn render<'w>(
         item: &P,
         _view: (),
-        _item_query: (),
+        _item_query: Option<()>,
         (materials, material_instances): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -348,7 +356,7 @@ impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P>
     }
 }
 
-const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> Mesh2dPipelineKey {
+pub const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> Mesh2dPipelineKey {
     match tonemapping {
         Tonemapping::None => Mesh2dPipelineKey::TONEMAP_METHOD_NONE,
         Tonemapping::Reinhard => Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD,
@@ -448,7 +456,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                 // lowest sort key and getting closer should increase. As we have
                 // -z in front of the camera, the largest distance is -far with values increasing toward the
                 // camera. As such we can just use mesh_z as the distance
-                sort_key: FloatOrd(mesh_z),
+                sort_key: FloatOrd(mesh_z + material2d.depth_bias),
                 // Batching is done in batch_and_prepare_render_phase
                 batch_range: 0..1,
                 dynamic_offset: None,
@@ -465,6 +473,7 @@ pub struct PreparedMaterial2d<T: Material2d> {
     pub bindings: Vec<(u32, OwnedBindingResource)>,
     pub bind_group: BindGroup,
     pub key: T::Data,
+    pub depth_bias: f32,
 }
 
 impl<T: Material2d> PreparedMaterial2d<T> {
@@ -508,6 +517,7 @@ pub fn extract_materials_2d<M: Material2d>(
     let mut changed_assets = HashSet::default();
     let mut removed = Vec::new();
     for event in events.read() {
+        #[allow(clippy::match_same_arms)]
         match event {
             AssetEvent::Added { id } | AssetEvent::Modified { id } => {
                 changed_assets.insert(*id);
@@ -516,7 +526,7 @@ pub fn extract_materials_2d<M: Material2d>(
                 changed_assets.remove(id);
                 removed.push(*id);
             }
-
+            AssetEvent::Unused { .. } => {}
             AssetEvent::LoadedWithDependencies { .. } => {
                 // TODO: handle this
             }
@@ -617,6 +627,7 @@ fn prepare_material2d<M: Material2d>(
         bindings: prepared.bindings,
         bind_group: prepared.bind_group,
         key: prepared.data,
+        depth_bias: material.depth_bias(),
     })
 }
 

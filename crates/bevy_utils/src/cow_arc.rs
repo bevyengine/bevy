@@ -1,4 +1,5 @@
 use std::{
+    borrow::Borrow,
     fmt::{Debug, Display},
     hash::Hash,
     ops::Deref,
@@ -34,6 +35,20 @@ impl<'a, T: ?Sized> Deref for CowArc<'a, T> {
             CowArc::Borrowed(v) | CowArc::Static(v) => v,
             CowArc::Owned(v) => v,
         }
+    }
+}
+
+impl<'a, T: ?Sized> Borrow<T> for CowArc<'a, T> {
+    #[inline]
+    fn borrow(&self) -> &T {
+        self
+    }
+}
+
+impl<'a, T: ?Sized> AsRef<T> for CowArc<'a, T> {
+    #[inline]
+    fn as_ref(&self) -> &T {
+        self
     }
 }
 

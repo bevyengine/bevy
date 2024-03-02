@@ -27,7 +27,7 @@ use std::ops::{Deref, DerefMut};
 ///
 /// ## Examples
 ///
-/// ```rust
+/// ```
 /// use bevy_ecs::prelude::*;
 /// use bevy_render::Extract;
 /// # #[derive(Component)]
@@ -83,12 +83,14 @@ where
         // SAFETY:
         // - The caller ensures that `world` is the same one that `init_state` was called with.
         // - The caller ensures that no other `SystemParam`s will conflict with the accesses we have registered.
-        let main_world = Res::<MainWorld>::get_param(
-            &mut state.main_world_state,
-            system_meta,
-            world,
-            change_tick,
-        );
+        let main_world = unsafe {
+            Res::<MainWorld>::get_param(
+                &mut state.main_world_state,
+                system_meta,
+                world,
+                change_tick,
+            )
+        };
         let item = state.state.get(main_world.into_inner());
         Extract { item }
     }

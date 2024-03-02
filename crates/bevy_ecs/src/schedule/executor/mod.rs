@@ -18,7 +18,12 @@ use crate::{
 pub(super) trait SystemExecutor: Send + Sync {
     fn kind(&self) -> ExecutorKind;
     fn init(&mut self, schedule: &SystemSchedule);
-    fn run(&mut self, schedule: &mut SystemSchedule, world: &mut World);
+    fn run(
+        &mut self,
+        schedule: &mut SystemSchedule,
+        world: &mut World,
+        skip_systems: Option<&FixedBitSet>,
+    );
     fn set_apply_final_deferred(&mut self, value: bool);
 }
 
@@ -50,14 +55,23 @@ pub enum ExecutorKind {
 /// [`FixedBitSet`] is used as a smaller, more efficient substitute of `HashSet<usize>`.
 #[derive(Default)]
 pub struct SystemSchedule {
-    pub(super) systems: Vec<BoxedSystem>,
-    pub(super) system_conditions: Vec<Vec<BoxedCondition>>,
-    pub(super) set_conditions: Vec<Vec<BoxedCondition>>,
+    /// List of system node ids.
     pub(super) system_ids: Vec<NodeId>,
-    pub(super) set_ids: Vec<NodeId>,
+    /// Indexed by system node id.
+    pub(super) systems: Vec<BoxedSystem>,
+    /// Indexed by system node id.
+    pub(super) system_conditions: Vec<Vec<BoxedCondition>>,
+    /// Indexed by system node id.
     pub(super) system_dependencies: Vec<usize>,
+    /// Indexed by system node id.
     pub(super) system_dependents: Vec<Vec<usize>>,
+    /// Indexed by system node id.
     pub(super) sets_with_conditions_of_systems: Vec<FixedBitSet>,
+    /// List of system set node ids.
+    pub(super) set_ids: Vec<NodeId>,
+    /// Indexed by system set node id.
+    pub(super) set_conditions: Vec<Vec<BoxedCondition>>,
+    /// Indexed by system set node id.
     pub(super) systems_in_sets_with_conditions: Vec<FixedBitSet>,
 }
 
@@ -90,7 +104,7 @@ pub fn apply_deferred(world: &mut World) {}
 
 /// Returns `true` if the [`System`](crate::system::System) is an instance of [`apply_deferred`].
 pub(super) fn is_apply_deferred(system: &BoxedSystem) -> bool {
-    use std::any::Any;
+    use crate::system::IntoSystem;
     // deref to use `System::type_id` instead of `Any::type_id`
-    system.as_ref().type_id() == apply_deferred.type_id()
+    system.as_ref().type_id() == apply_deferred.system_type_id()
 }

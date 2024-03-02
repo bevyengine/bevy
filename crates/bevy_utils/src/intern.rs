@@ -190,7 +190,7 @@ mod tests {
                 std::ptr::eq(self, other)
             }
 
-            fn ref_hash<H: std::hash::Hasher>(&self, state: &mut H) {
+            fn ref_hash<H: Hasher>(&self, state: &mut H) {
                 std::ptr::hash(self, state);
             }
         }
@@ -221,7 +221,7 @@ mod tests {
                 std::ptr::eq(self, other)
             }
 
-            fn ref_hash<H: std::hash::Hasher>(&self, state: &mut H) {
+            fn ref_hash<H: Hasher>(&self, state: &mut H) {
                 std::ptr::hash(self, state);
             }
         }

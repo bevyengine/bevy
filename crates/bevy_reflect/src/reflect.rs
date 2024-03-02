@@ -10,12 +10,47 @@ use std::{
 
 use crate::utility::NonGenericTypeInfoCell;
 
-/// An immutable enumeration of "kinds" of reflected type.
+macro_rules! impl_reflect_enum {
+    ($name:ident$(<$lifetime:lifetime>)?) => {
+        impl $name$(<$lifetime>)? {
+            /// Returns the "kind" of this reflected type without any information.
+            pub fn kind(&self) -> ReflectKind {
+                match self {
+                    Self::Struct(_) => ReflectKind::Struct,
+                    Self::TupleStruct(_) => ReflectKind::TupleStruct,
+                    Self::Tuple(_) => ReflectKind::Tuple,
+                    Self::List(_) => ReflectKind::List,
+                    Self::Array(_) => ReflectKind::Array,
+                    Self::Map(_) => ReflectKind::Map,
+                    Self::Enum(_) => ReflectKind::Enum,
+                    Self::Value(_) => ReflectKind::Value,
+                }
+            }
+        }
+
+        impl From<$name$(<$lifetime>)?> for ReflectKind {
+            fn from(value: $name) -> Self {
+                match value {
+                    $name::Struct(_) => Self::Struct,
+                    $name::TupleStruct(_) => Self::TupleStruct,
+                    $name::Tuple(_) => Self::Tuple,
+                    $name::List(_) => Self::List,
+                    $name::Array(_) => Self::Array,
+                    $name::Map(_) => Self::Map,
+                    $name::Enum(_) => Self::Enum,
+                    $name::Value(_) => Self::Value,
+                }
+            }
+        }
+    };
+}
+
+/// An immutable enumeration of "kinds" of a reflected type.
 ///
 /// Each variant contains a trait object with methods specific to a kind of
 /// type.
 ///
-/// A `ReflectRef` is obtained via [`Reflect::reflect_ref`].
+/// A [`ReflectRef`] is obtained via [`Reflect::reflect_ref`].
 pub enum ReflectRef<'a> {
     Struct(&'a dyn Struct),
     TupleStruct(&'a dyn TupleStruct),
@@ -26,13 +61,14 @@ pub enum ReflectRef<'a> {
     Enum(&'a dyn Enum),
     Value(&'a dyn Reflect),
 }
+impl_reflect_enum!(ReflectRef<'_>);
 
-/// A mutable enumeration of "kinds" of reflected type.
+/// A mutable enumeration of "kinds" of a reflected type.
 ///
 /// Each variant contains a trait object with methods specific to a kind of
 /// type.
 ///
-/// A `ReflectMut` is obtained via [`Reflect::reflect_mut`].
+/// A [`ReflectMut`] is obtained via [`Reflect::reflect_mut`].
 pub enum ReflectMut<'a> {
     Struct(&'a mut dyn Struct),
     TupleStruct(&'a mut dyn TupleStruct),
@@ -43,13 +79,14 @@ pub enum ReflectMut<'a> {
     Enum(&'a mut dyn Enum),
     Value(&'a mut dyn Reflect),
 }
+impl_reflect_enum!(ReflectMut<'_>);
 
-/// An owned enumeration of "kinds" of reflected type.
+/// An owned enumeration of "kinds" of a reflected type.
 ///
 /// Each variant contains a trait object with methods specific to a kind of
 /// type.
 ///
-/// A `ReflectOwned` is obtained via [`Reflect::reflect_owned`].
+/// A [`ReflectOwned`] is obtained via [`Reflect::reflect_owned`].
 pub enum ReflectOwned {
     Struct(Box<dyn Struct>),
     TupleStruct(Box<dyn TupleStruct>),
@@ -59,6 +96,38 @@ pub enum ReflectOwned {
     Map(Box<dyn Map>),
     Enum(Box<dyn Enum>),
     Value(Box<dyn Reflect>),
+}
+impl_reflect_enum!(ReflectOwned);
+
+/// A zero-sized enumuration of the "kinds" of a reflected type.
+///
+/// A [`ReflectKind`] is obtained via [`Reflect::reflect_kind`],
+/// or via [`ReflectRef::kind`],[`ReflectMut::kind`] or [`ReflectOwned::kind`].
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum ReflectKind {
+    Struct,
+    TupleStruct,
+    Tuple,
+    List,
+    Array,
+    Map,
+    Enum,
+    Value,
+}
+
+impl std::fmt::Display for ReflectKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ReflectKind::Struct => f.pad("struct"),
+            ReflectKind::TupleStruct => f.pad("tuple struct"),
+            ReflectKind::Tuple => f.pad("tuple"),
+            ReflectKind::List => f.pad("list"),
+            ReflectKind::Array => f.pad("array"),
+            ReflectKind::Map => f.pad("map"),
+            ReflectKind::Enum => f.pad("enum"),
+            ReflectKind::Value => f.pad("value"),
+        }
+    }
 }
 
 /// The core trait of [`bevy_reflect`], used for accessing and modifying data dynamically.
@@ -73,24 +142,6 @@ pub enum ReflectOwned {
 /// [derive macro]: bevy_reflect_derive::Reflect
 /// [crate-level documentation]: crate
 pub trait Reflect: DynamicTypePath + Any + Send + Sync {
-    /// Returns the type path of the underlying type.
-    ///
-    /// This type path will either be found through [`get_represented_type_info`]
-    /// or taken from a [`TypePath`] implementation if the former isn't available.
-    ///
-    /// This method is deprecated; please consider migrating to one of the above methods.
-    ///
-    /// [`get_represented_type_info`]: Reflect::get_represented_type_info
-    #[deprecated(
-        since = "0.12.0",
-        note = "view the method documentation to find alternatives to this method."
-    )]
-    fn type_name(&self) -> &str {
-        self.get_represented_type_info()
-            .map(|info| info.type_path())
-            .unwrap_or_else(|| self.reflect_type_path())
-    }
-
     /// Returns the [`TypeInfo`] of the type _represented_ by this value.
     ///
     /// For most types, this will simply return their own `TypeInfo`.
@@ -174,7 +225,14 @@ pub trait Reflect: DynamicTypePath + Any + Send + Sync {
     /// containing the trait object.
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>>;
 
-    /// Returns an enumeration of "kinds" of type.
+    /// Returns a zero-sized enumeration of "kinds" of type.
+    ///
+    /// See [`ReflectKind`].
+    fn reflect_kind(&self) -> ReflectKind {
+        self.reflect_ref().kind()
+    }
+
+    /// Returns an immutable enumeration of "kinds" of type.
     ///
     /// See [`ReflectRef`].
     fn reflect_ref(&self) -> ReflectRef;

@@ -1,8 +1,8 @@
 use bevy_reflect_derive::impl_type_path;
 
 use crate::{
-    self as bevy_reflect, DynamicTuple, Reflect, ReflectMut, ReflectOwned, ReflectRef, Tuple,
-    TypeInfo, TypePath, TypePathTable, UnnamedField,
+    self as bevy_reflect, DynamicTuple, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef,
+    Tuple, TypeInfo, TypePath, TypePathTable, UnnamedField,
 };
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
@@ -329,9 +329,26 @@ impl Reflect for DynamicTupleStruct {
         self
     }
 
+    fn apply(&mut self, value: &dyn Reflect) {
+        if let ReflectRef::TupleStruct(tuple_struct) = value.reflect_ref() {
+            for (i, value) in tuple_struct.iter_fields().enumerate() {
+                if let Some(v) = self.field_mut(i) {
+                    v.apply(value);
+                }
+            }
+        } else {
+            panic!("Attempted to apply non-TupleStruct type to TupleStruct type.");
+        }
+    }
+
+    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+        *self = value.take()?;
+        Ok(())
+    }
+
     #[inline]
-    fn clone_value(&self) -> Box<dyn Reflect> {
-        Box::new(self.clone_dynamic())
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::TupleStruct
     }
 
     #[inline]
@@ -349,21 +366,9 @@ impl Reflect for DynamicTupleStruct {
         ReflectOwned::TupleStruct(self)
     }
 
-    fn apply(&mut self, value: &dyn Reflect) {
-        if let ReflectRef::TupleStruct(tuple_struct) = value.reflect_ref() {
-            for (i, value) in tuple_struct.iter_fields().enumerate() {
-                if let Some(v) = self.field_mut(i) {
-                    v.apply(value);
-                }
-            }
-        } else {
-            panic!("Attempted to apply non-TupleStruct type to TupleStruct type.");
-        }
-    }
-
-    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
-        *self = value.take()?;
-        Ok(())
+    #[inline]
+    fn clone_value(&self) -> Box<dyn Reflect> {
+        Box::new(self.clone_dynamic())
     }
 
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
@@ -451,9 +456,14 @@ pub fn tuple_struct_partial_eq<S: TupleStruct>(a: &S, b: &dyn Reflect) -> Option
 #[inline]
 pub fn tuple_struct_debug(
     dyn_tuple_struct: &dyn TupleStruct,
-    f: &mut std::fmt::Formatter<'_>,
+    f: &mut Formatter<'_>,
 ) -> std::fmt::Result {
-    let mut debug = f.debug_tuple(dyn_tuple_struct.reflect_type_path());
+    let mut debug = f.debug_tuple(
+        dyn_tuple_struct
+            .get_represented_type_info()
+            .map(|s| s.type_path())
+            .unwrap_or("_"),
+    );
     for field in dyn_tuple_struct.iter_fields() {
         debug.field(&field as &dyn Debug);
     }

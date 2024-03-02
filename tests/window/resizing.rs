@@ -1,7 +1,7 @@
 //! A test to confirm that `bevy` allows setting the window to arbitrary small sizes
 //! This is run in CI to ensure that this doesn't regress again.
 
-use bevy::{core_pipeline::clear_color::ClearColorConfig, prelude::*, window::WindowResolution};
+use bevy::{prelude::*, window::WindowResolution};
 
 // The smallest size reached is 1x1, as X11 doesn't support windows with a 0 dimension
 // TODO: Add a check for platforms other than X11 for 0xk and kx0, despite those currently unsupported on CI.
@@ -34,7 +34,7 @@ fn main() {
             width: MAX_WIDTH,
             height: MAX_HEIGHT,
         })
-        .insert_resource(Phase::ContractingY)
+        .insert_resource(ContractingY)
         .add_systems(Startup, (setup_3d, setup_2d))
         .add_systems(
             Update,
@@ -72,28 +72,28 @@ fn change_window_size(
     let height = windows.height;
     let width = windows.width;
     match *phase {
-        Phase::ContractingY => {
+        ContractingY => {
             if height <= MIN_HEIGHT {
                 *phase = ContractingX;
             } else {
                 windows.height -= RESIZE_STEP;
             }
         }
-        Phase::ContractingX => {
+        ContractingX => {
             if width <= MIN_WIDTH {
                 *phase = ExpandingY;
             } else {
                 windows.width -= RESIZE_STEP;
             }
         }
-        Phase::ExpandingY => {
+        ExpandingY => {
             if height >= MAX_HEIGHT {
                 *phase = ExpandingX;
             } else {
                 windows.height += RESIZE_STEP;
             }
         }
-        Phase::ExpandingX => {
+        ExpandingX => {
             if width >= MAX_WIDTH {
                 *phase = ContractingY;
             } else {
@@ -118,24 +118,20 @@ fn setup_3d(
 ) {
     // plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane {
-            size: 5.0,
-            subdivisions: 0,
-        })),
-        material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+        mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
+        material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
         ..default()
     });
     // cube
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+        mesh: meshes.add(Cuboid::default()),
+        material: materials.add(Color::srgb(0.8, 0.7, 0.6)),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..default()
     });
     // light
     commands.spawn(PointLightBundle {
         point_light: PointLight {
-            intensity: 1500.0,
             shadows_enabled: true,
             ..default()
         },
@@ -155,17 +151,15 @@ fn setup_2d(mut commands: Commands) {
         camera: Camera {
             // render the 2d camera after the 3d camera
             order: 1,
-            ..default()
-        },
-        camera_2d: Camera2d {
             // do not use a clear color
             clear_color: ClearColorConfig::None,
+            ..default()
         },
         ..default()
     });
     commands.spawn(SpriteBundle {
         sprite: Sprite {
-            color: Color::rgb(0.25, 0.25, 0.75),
+            color: Color::srgb(0.25, 0.25, 0.75),
             custom_size: Some(Vec2::new(50.0, 50.0)),
             ..default()
         },

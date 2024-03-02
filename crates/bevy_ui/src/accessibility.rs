@@ -15,7 +15,7 @@ use bevy_ecs::{
     world::Ref,
 };
 use bevy_hierarchy::Children;
-use bevy_render::prelude::Camera;
+use bevy_render::{camera::CameraUpdateSystem, prelude::Camera};
 use bevy_text::Text;
 use bevy_transform::prelude::GlobalTransform;
 
@@ -150,7 +150,12 @@ impl Plugin for AccessibilityPlugin {
         app.add_systems(
             PostUpdate,
             (
-                calc_bounds.after(bevy_transform::TransformSystem::TransformPropagate),
+                calc_bounds
+                    .after(bevy_transform::TransformSystem::TransformPropagate)
+                    .after(CameraUpdateSystem)
+                    // the listed systems do not affect calculated size
+                    .ambiguous_with(crate::resolve_outlines_system)
+                    .ambiguous_with(crate::ui_stack_system),
                 button_changed,
                 image_changed,
                 label_changed,

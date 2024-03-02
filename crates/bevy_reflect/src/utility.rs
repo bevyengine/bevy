@@ -1,7 +1,7 @@
 //! Helpers for working with Bevy reflection.
 
 use crate::TypeInfo;
-use bevy_utils::{FixedState, StableHashMap};
+use bevy_utils::{FixedState, NoOpHash, TypeIdMap};
 use std::{
     any::{Any, TypeId},
     hash::BuildHasher,
@@ -195,7 +195,7 @@ impl<T: TypedProperty> NonGenericTypeCell<T> {
 /// ```
 /// [`impl_type_path`]: crate::impl_type_path
 /// [`TypePath`]: crate::TypePath
-pub struct GenericTypeCell<T: TypedProperty>(RwLock<StableHashMap<TypeId, &'static T::Stored>>);
+pub struct GenericTypeCell<T: TypedProperty>(RwLock<TypeIdMap<&'static T::Stored>>);
 
 /// See [`GenericTypeCell`].
 pub type GenericTypeInfoCell = GenericTypeCell<TypeInfo>;
@@ -205,9 +205,7 @@ pub type GenericTypePathCell = GenericTypeCell<TypePathComponent>;
 impl<T: TypedProperty> GenericTypeCell<T> {
     /// Initialize a [`GenericTypeCell`] for generic types.
     pub const fn new() -> Self {
-        // Use `bevy_utils::StableHashMap` over `bevy_utils::HashMap`
-        // because `BuildHasherDefault` is unfortunately not const.
-        Self(RwLock::new(StableHashMap::with_hasher(FixedState)))
+        Self(RwLock::new(TypeIdMap::with_hasher(NoOpHash)))
     }
 
     /// Returns a reference to the [`TypedProperty`] stored in the cell.

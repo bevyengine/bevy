@@ -89,7 +89,7 @@ pub trait DespawnRecursiveExt {
     fn despawn_descendants(&mut self) -> &mut Self;
 }
 
-impl<'w, 's, 'a> DespawnRecursiveExt for EntityCommands<'w, 's, 'a> {
+impl DespawnRecursiveExt for EntityCommands<'_> {
     /// Despawns the provided entity and its children.
     fn despawn_recursive(mut self) {
         let entity = self.id();
@@ -272,7 +272,7 @@ mod tests {
         // The parent's Children component should still have two children.
         let children = world.entity(parent).get::<Children>();
         assert!(children.is_some());
-        assert!(children.unwrap().len() == 2_usize);
+        assert_eq!(children.unwrap().len(), 2_usize);
         // The original child should be despawned.
         assert!(world.get_entity(child).is_none());
     }

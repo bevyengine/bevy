@@ -1,7 +1,14 @@
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::prelude::*;
-use bevy_render::{render_resource::*, renderer::RenderDevice, RenderApp};
+use bevy_render::{
+    render_resource::{
+        binding_types::{sampler, texture_2d},
+        *,
+    },
+    renderer::RenderDevice,
+    RenderApp,
+};
 
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 
@@ -13,6 +20,10 @@ pub struct BlitPlugin;
 impl Plugin for BlitPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, BLIT_SHADER_HANDLE, "blit.wgsl", Shader::from_wgsl);
+
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.allow_ambiguous_resource::<SpecializedRenderPipelines<BlitPipeline>>();
+        }
     }
 
     fn finish(&self, app: &mut App) {
@@ -36,28 +47,16 @@ impl FromWorld for BlitPipeline {
     fn from_world(render_world: &mut World) -> Self {
         let render_device = render_world.resource::<RenderDevice>();
 
-        let texture_bind_group =
-            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: Some("blit_bind_group_layout"),
-                entries: &[
-                    BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Texture {
-                            sample_type: TextureSampleType::Float { filterable: false },
-                            view_dimension: TextureViewDimension::D2,
-                            multisampled: false,
-                        },
-                        count: None,
-                    },
-                    BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
-                        count: None,
-                    },
-                ],
-            });
+        let texture_bind_group = render_device.create_bind_group_layout(
+            "blit_bind_group_layout",
+            &BindGroupLayoutEntries::sequential(
+                ShaderStages::FRAGMENT,
+                (
+                    texture_2d(TextureSampleType::Float { filterable: false }),
+                    sampler(SamplerBindingType::NonFiltering),
+                ),
+            ),
+        );
 
         let sampler = render_device.create_sampler(&SamplerDescriptor::default());
 

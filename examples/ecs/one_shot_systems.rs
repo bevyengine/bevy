@@ -4,8 +4,8 @@
 //! reducing the overhead of running extremely rarely run systems
 //! and improving schedule flexibility.
 //!
-//! See the [`World::run_system`](bevy::ecs::prelude::World::run_system) or
-//! [`World::run_system_once`](bevy::ecs::prelude::World#method.run_system_once_with)
+//! See the [`World::run_system`](World::run_system) or
+//! [`World::run_system_once`](World#method.run_system_once_with)
 //! docs for more details.
 
 use bevy::{

@@ -1,4 +1,5 @@
-#![allow(clippy::type_complexity)]
+// FIXME(3492): remove once docs are ready
+#![allow(missing_docs)]
 
 extern crate proc_macro;
 

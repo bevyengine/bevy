@@ -84,12 +84,7 @@ impl Plugin for ScheduleRunnerPlugin {
 
             let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();
             match run_mode {
-                RunMode::Once => {
-                    // if plugins where cleaned before the runner start, an update already ran
-                    if plugins_state != PluginsState::Cleaned {
-                        app.update();
-                    }
-                }
+                RunMode::Once => app.update(),
                 RunMode::Loop { wait } => {
                     let mut tick = move |app: &mut App,
                                          wait: Option<Duration>|

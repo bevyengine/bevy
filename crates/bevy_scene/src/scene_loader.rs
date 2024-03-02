@@ -1,3 +1,4 @@
+use crate::ron;
 #[cfg(feature = "serialize")]
 use crate::serde::SceneDeserializer;
 use crate::DynamicScene;

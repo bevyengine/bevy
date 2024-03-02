@@ -1,16 +1,14 @@
+use crate::mesh::MeshVertexBufferLayoutRef;
 use crate::render_resource::CachedComputePipelineId;
 use crate::{
-    mesh::{InnerMeshVertexBufferLayout, MeshVertexBufferLayout, MissingVertexAttributeError},
+    mesh::MissingVertexAttributeError,
     render_resource::{
         CachedRenderPipelineId, ComputePipelineDescriptor, PipelineCache, RenderPipelineDescriptor,
         VertexBufferLayout,
     },
 };
 use bevy_ecs::system::Resource;
-use bevy_utils::{
-    default, hashbrown::hash_map::RawEntryMut, tracing::error, Entry, HashMap, PreHashMap,
-    PreHashMapExt,
-};
+use bevy_utils::{default, hashbrown::hash_map::RawEntryMut, tracing::error, Entry, HashMap};
 use std::{fmt::Debug, hash::Hash};
 use thiserror::Error;
 
@@ -79,14 +77,13 @@ pub trait SpecializedMeshPipeline {
     fn specialize(
         &self,
         key: Self::Key,
-        layout: &MeshVertexBufferLayout,
+        layout: &MeshVertexBufferLayoutRef,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError>;
 }
 
 #[derive(Resource)]
 pub struct SpecializedMeshPipelines<S: SpecializedMeshPipeline> {
-    mesh_layout_cache:
-        PreHashMap<InnerMeshVertexBufferLayout, HashMap<S::Key, CachedRenderPipelineId>>,
+    mesh_layout_cache: HashMap<(MeshVertexBufferLayoutRef, S::Key), CachedRenderPipelineId>,
     vertex_layout_cache: HashMap<VertexBufferLayout, HashMap<S::Key, CachedRenderPipelineId>>,
 }
 
@@ -106,12 +103,9 @@ impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
         cache: &PipelineCache,
         specialize_pipeline: &S,
         key: S::Key,
-        layout: &MeshVertexBufferLayout,
+        layout: &MeshVertexBufferLayoutRef,
     ) -> Result<CachedRenderPipelineId, SpecializedMeshPipelineError> {
-        let map = self
-            .mesh_layout_cache
-            .get_or_insert_with(layout, Default::default);
-        match map.entry(key.clone()) {
+        match self.mesh_layout_cache.entry((layout.clone(), key.clone())) {
             Entry::Occupied(entry) => Ok(*entry.into_mut()),
             Entry::Vacant(entry) => {
                 let descriptor = specialize_pipeline

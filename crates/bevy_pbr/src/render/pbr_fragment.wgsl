@@ -5,9 +5,11 @@
     pbr_bindings,
     pbr_types,
     prepass_utils,
+    lighting,
     mesh_bindings::mesh,
     mesh_view_bindings::view,
     parallax_mapping::parallaxed_uv,
+    lightmap::lightmap,
 }
 
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
@@ -67,8 +69,12 @@ fn pbr_input_from_standard_material(
     pbr_input.material.base_color *= pbr_bindings::material.base_color;
     pbr_input.material.deferred_lighting_pass_id = pbr_bindings::material.deferred_lighting_pass_id;
 
+    // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
+    let NdotV = max(dot(pbr_input.N, pbr_input.V), 0.0001);
+
 #ifdef VERTEX_UVS
-    var uv = in.uv;
+    let uv_transform = pbr_bindings::material.uv_transform;
+    var uv = (uv_transform * vec3(in.uv, 1.0)).xy;
 
 #ifdef VERTEX_TANGENTS
     if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_DEPTH_MAP_BIT) != 0u) {
@@ -119,6 +125,7 @@ fn pbr_input_from_standard_material(
         // metallic and perceptual roughness
         var metallic: f32 = pbr_bindings::material.metallic;
         var perceptual_roughness: f32 = pbr_bindings::material.perceptual_roughness;
+        let roughness = lighting::perceptualRoughnessToRoughness(perceptual_roughness);
 #ifdef VERTEX_UVS
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_METALLIC_ROUGHNESS_TEXTURE_BIT) != 0u) {
             let metallic_roughness = textureSampleBias(pbr_bindings::metallic_roughness_texture, pbr_bindings::metallic_roughness_sampler, uv, view.mip_bias);
@@ -158,20 +165,23 @@ fn pbr_input_from_standard_material(
 #endif
         pbr_input.material.diffuse_transmission = diffuse_transmission;
 
-        // occlusion
-        // TODO: Split into diffuse/specular occlusion?
-        var occlusion: vec3<f32> = vec3(1.0);
+        var diffuse_occlusion: vec3<f32> = vec3(1.0);
+        var specular_occlusion: f32 = 1.0;
 #ifdef VERTEX_UVS
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_OCCLUSION_TEXTURE_BIT) != 0u) {
-            occlusion = vec3(textureSampleBias(pbr_bindings::occlusion_texture, pbr_bindings::occlusion_sampler, uv, view.mip_bias).r);
+            diffuse_occlusion = vec3(textureSampleBias(pbr_bindings::occlusion_texture, pbr_bindings::occlusion_sampler, uv, view.mip_bias).r);
         }
 #endif
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
         let ssao = textureLoad(screen_space_ambient_occlusion_texture, vec2<i32>(in.position.xy), 0i).r;
         let ssao_multibounce = gtao_multibounce(ssao, pbr_input.material.base_color.rgb);
-        occlusion = min(occlusion, ssao_multibounce);
+        diffuse_occlusion = min(diffuse_occlusion, ssao_multibounce);
+        // Use SSAO to estimate the specular occlusion.
+        // Lagarde and Rousiers 2014, "Moving Frostbite to Physically Based Rendering"
+        specular_occlusion =  saturate(pow(NdotV + ssao, exp2(-16.0 * roughness - 1.0)) - 1.0 + ssao);
 #endif
-        pbr_input.occlusion = occlusion;
+        pbr_input.diffuse_occlusion = diffuse_occlusion;
+        pbr_input.specular_occlusion = specular_occlusion;
 
         // N (normal vector)
 #ifndef LOAD_PREPASS_NORMALS
@@ -181,7 +191,7 @@ fn pbr_input_from_standard_material(
             double_sided,
             is_front,
 #ifdef VERTEX_TANGENTS
-#ifdef STANDARDMATERIAL_NORMAL_MAP
+#ifdef STANDARD_MATERIAL_NORMAL_MAP
             in.world_tangent,
 #endif
 #endif
@@ -190,6 +200,13 @@ fn pbr_input_from_standard_material(
 #endif
             view.mip_bias,
         );
+#endif
+
+#ifdef LIGHTMAP
+        pbr_input.lightmap_light = lightmap(
+            in.uv_b,
+            pbr_bindings::material.lightmap_exposure,
+            in.instance_index);
 #endif
     }
 

@@ -1,3 +1,5 @@
+//! An example that illustrates how Time is handled in ECS.
+
 use bevy::prelude::*;
 
 use std::io::{self, BufRead};

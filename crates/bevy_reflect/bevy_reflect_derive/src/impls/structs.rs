@@ -1,5 +1,5 @@
 use crate::impls::{impl_type_path, impl_typed};
-use crate::utility::{extend_where_clause, ident_or_index};
+use crate::utility::ident_or_index;
 use crate::ReflectStruct;
 use bevy_macro_utils::fq_std::{FQAny, FQBox, FQDefault, FQOption, FQResult};
 use quote::{quote, ToTokens};
@@ -32,11 +32,11 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
 
     let hash_fn = reflect_struct
         .meta()
-        .traits()
+        .attrs()
         .get_hash_impl(bevy_reflect_path);
-    let debug_fn = reflect_struct.meta().traits().get_debug_impl();
+    let debug_fn = reflect_struct.meta().attrs().get_debug_impl();
     let partial_eq_fn = reflect_struct.meta()
-        .traits()
+        .attrs()
         .get_partial_eq_impl(bevy_reflect_path)
         .unwrap_or_else(|| {
             quote! {
@@ -50,7 +50,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
     let field_generator = {
         let docs = reflect_struct
             .active_fields()
-            .map(|field| quote::ToTokens::to_token_stream(&field.doc));
+            .map(|field| ToTokens::to_token_stream(&field.doc));
         quote! {
             #(#bevy_reflect_path::NamedField::new::<#field_types>(#field_names).with_docs(#docs) ,)*
         }
@@ -89,7 +89,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
         },
     );
 
-    let type_path_impl = impl_type_path(reflect_struct.meta(), &where_clause_options);
+    let type_path_impl = impl_type_path(reflect_struct.meta());
 
     let get_type_registration_impl = reflect_struct.get_type_registration(&where_clause_options);
 
@@ -99,7 +99,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
         .generics()
         .split_for_impl();
 
-    let where_reflect_clause = extend_where_clause(where_clause, &where_clause_options);
+    let where_reflect_clause = where_clause_options.extend_where_clause(where_clause);
 
     quote! {
         #get_type_registration_impl
@@ -217,6 +217,10 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
                 } else {
                     panic!("Attempted to apply non-struct type to struct type.");
                 }
+            }
+
+            fn reflect_kind(&self) -> #bevy_reflect_path::ReflectKind {
+                #bevy_reflect_path::ReflectKind::Struct
             }
 
             fn reflect_ref(&self) -> #bevy_reflect_path::ReflectRef {

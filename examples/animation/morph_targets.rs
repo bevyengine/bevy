@@ -20,7 +20,7 @@ fn main() {
             ..default()
         }))
         .insert_resource(AmbientLight {
-            brightness: 1.0,
+            brightness: 150.0,
             ..default()
         })
         .add_systems(Startup, setup)
@@ -44,11 +44,6 @@ fn setup(asset_server: Res<AssetServer>, mut commands: Commands) {
         ..default()
     });
     commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
-            color: Color::WHITE,
-            illuminance: 19350.0,
-            ..default()
-        },
         transform: Transform::from_rotation(Quat::from_rotation_z(PI / 2.0)),
         ..default()
     });

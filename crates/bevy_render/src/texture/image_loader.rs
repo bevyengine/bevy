@@ -3,6 +3,7 @@ use bevy_ecs::prelude::{FromWorld, World};
 use thiserror::Error;
 
 use crate::{
+    render_asset::RenderAssetUsages,
     renderer::RenderDevice,
     texture::{Image, ImageFormat, ImageType, TextureError},
 };
@@ -57,6 +58,7 @@ pub struct ImageLoaderSettings {
     pub format: ImageFormatSetting,
     pub is_srgb: bool,
     pub sampler: ImageSampler,
+    pub asset_usage: RenderAssetUsages,
 }
 
 impl Default for ImageLoaderSettings {
@@ -65,6 +67,7 @@ impl Default for ImageLoaderSettings {
             format: ImageFormatSetting::default(),
             is_srgb: true,
             sampler: ImageSampler::Default,
+            asset_usage: RenderAssetUsages::default(),
         }
     }
 }
@@ -99,11 +102,14 @@ impl AssetLoader for ImageLoader {
                 ImageFormatSetting::Format(format) => ImageType::Format(format),
             };
             Ok(Image::from_buffer(
+                #[cfg(all(debug_assertions, feature = "dds"))]
+                load_context.path().display().to_string(),
                 &bytes,
                 image_type,
                 self.supported_compressed_formats,
                 settings.is_srgb,
                 settings.sampler.clone(),
+                settings.asset_usage,
             )
             .map_err(|err| FileTextureError {
                 error: err,
@@ -137,7 +143,7 @@ pub struct FileTextureError {
     path: String,
 }
 impl std::fmt::Display for FileTextureError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         write!(
             f,
             "Error reading image file {}: {}, this is an error in `bevy_render`.",

@@ -42,6 +42,9 @@ fn specular_transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>,
         background_color = fetch_transmissive_background(offset_position, frag_coord, view_z, perceptual_roughness);
     }
 
+    // Compensate for exposure, since the background color is coming from an already exposure-adjusted texture
+    background_color = vec4(background_color.rgb / view_bindings::view.exposure, background_color.a);
+
     // Dot product of the refracted direction with the exit normal (Note: We assume the exit normal is the entry normal but inverted)
     let MinusNdotT = dot(-N, T);
 
@@ -53,10 +56,11 @@ fn specular_transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>,
 }
 
 fn fetch_transmissive_background_non_rough(offset_position: vec2<f32>, frag_coord: vec3<f32>) -> vec4<f32> {
-    var background_color = textureSample(
+    var background_color = textureSampleLevel(
         view_bindings::view_transmission_texture,
         view_bindings::view_transmission_sampler,
         offset_position,
+        0.0
     );
 
 #ifdef DEPTH_PREPASS
@@ -152,10 +156,11 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
         let modified_offset_position = offset_position + rotated_spiral_offset * blur_intensity * (1.0 - f32(pixel_checkboard) * 0.1);
 
         // Sample the view transmission texture at the offset position + noise offset, to get the background color
-        var sample = textureSample(
+        var sample = textureSampleLevel(
             view_bindings::view_transmission_texture,
             view_bindings::view_transmission_sampler,
             modified_offset_position,
+            0.0
         );
 
 #ifdef DEPTH_PREPASS

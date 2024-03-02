@@ -38,9 +38,9 @@ fn fragment(
             double_sided,
             is_front,
 #ifdef VERTEX_TANGENTS
-#ifdef STANDARDMATERIAL_NORMAL_MAP
+#ifdef STANDARD_MATERIAL_NORMAL_MAP
             in.world_tangent,
-#endif // STANDARDMATERIAL_NORMAL_MAP
+#endif // STANDARD_MATERIAL_NORMAL_MAP
 #endif // VERTEX_TANGENTS
 #ifdef VERTEX_UVS
             in.uv,

@@ -1,4 +1,5 @@
 #define_import_path bevy_pbr::utils
+
 #import bevy_pbr::rgb9e5
 
 const PI: f32 = 3.141592653589793;
@@ -17,8 +18,36 @@ fn hsv2rgb(hue: f32, saturation: f32, value: f32) -> vec3<f32> {
     return value * mix(vec3<f32>(1.0), rgb, vec3<f32>(saturation));
 }
 
-fn random1D(s: f32) -> f32 {
-    return fract(sin(s * 12.9898) * 43758.5453123);
+// Generates a random u32 in range [0, u32::MAX].
+//
+// `state` is a mutable reference to a u32 used as the seed.
+//
+// Values are generated via "white noise", with no correlation between values.
+// In shaders, you often want spatial and/or temporal correlation. Use a different RNG method for these use cases.
+//
+// https://www.pcg-random.org
+// https://www.reedbeta.com/blog/hash-functions-for-gpu-rendering
+fn rand_u(state: ptr<function, u32>) -> u32 {
+    *state = *state * 747796405u + 2891336453u;
+    let word = ((*state >> ((*state >> 28u) + 4u)) ^ *state) * 277803737u;
+    return (word >> 22u) ^ word;
+}
+
+// Generates a random f32 in range [0, 1.0].
+fn rand_f(state: ptr<function, u32>) -> f32 {
+    *state = *state * 747796405u + 2891336453u;
+    let word = ((*state >> ((*state >> 28u) + 4u)) ^ *state) * 277803737u;
+    return f32((word >> 22u) ^ word) * bitcast<f32>(0x2f800004u);
+}
+
+// Generates a random vec2<f32> where each value is in range [0, 1.0].
+fn rand_vec2f(state: ptr<function, u32>) -> vec2<f32> {
+    return vec2(rand_f(state), rand_f(state));
+}
+
+// Generates a random u32 in range [0, n).
+fn rand_range_u(n: u32, state: ptr<function, u32>) -> u32 {
+    return rand_u(state) % n;
 }
 
 // returns the (0-1, 0-1) position within the given viewport for the current buffer coords .
@@ -34,7 +63,7 @@ fn coords_to_viewport_uv(position: vec2<f32>, viewport: vec4<f32>) -> vec2<f32> 
 // For encoding normals or unit direction vectors as octahedral coordinates.
 fn octahedral_encode(v: vec3<f32>) -> vec2<f32> {
     var n = v / (abs(v.x) + abs(v.y) + abs(v.z));
-    let octahedral_wrap = (1.0 - abs(n.yx)) * select(vec2(-1.0), vec2(1.0), n.xy > 0.0);
+    let octahedral_wrap = (1.0 - abs(n.yx)) * select(vec2(-1.0), vec2(1.0), n.xy > vec2f(0.0));
     let n_xy = select(octahedral_wrap, n.xy, n.z >= 0.0);
     return n_xy * 0.5 + 0.5;
 }

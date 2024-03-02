@@ -11,10 +11,10 @@ fn main() {
 }
 
 #[derive(Component)]
-pub struct Player;
+struct Player;
 
 #[derive(Resource)]
-pub struct PlayerCount(usize);
+struct PlayerCount(usize);
 
 /// The [`SystemParam`] struct can contain any types that can also be included in a
 /// system function signature.

@@ -5,7 +5,6 @@
     forward_io::{Vertex, VertexOutput},
     view_transformations::position_world_to_clip,
 }
-#import bevy_render::instance_index::get_instance_index
 
 #ifdef MORPH_TARGETS
 fn morph_vertex(vertex_in: Vertex) -> Vertex {
@@ -54,7 +53,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
         vertex.normal,
         // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
         // See https://github.com/gfx-rs/naga/issues/2416
-        get_instance_index(vertex_no_morph.instance_index)
+        vertex_no_morph.instance_index
     );
 #endif
 #endif
@@ -68,13 +67,17 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     out.uv = vertex.uv;
 #endif
 
+#ifdef VERTEX_UVS_B
+    out.uv_b = vertex.uv_b;
+#endif
+
 #ifdef VERTEX_TANGENTS
     out.world_tangent = mesh_functions::mesh_tangent_local_to_world(
         model,
         vertex.tangent,
         // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
         // See https://github.com/gfx-rs/naga/issues/2416
-        get_instance_index(vertex_no_morph.instance_index)
+        vertex_no_morph.instance_index
     );
 #endif
 
@@ -85,7 +88,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 #ifdef VERTEX_OUTPUT_INSTANCE_INDEX
     // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
     // See https://github.com/gfx-rs/naga/issues/2416
-    out.instance_index = get_instance_index(vertex_no_morph.instance_index);
+    out.instance_index = vertex_no_morph.instance_index;
 #endif
 
     return out;

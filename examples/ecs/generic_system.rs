@@ -33,7 +33,7 @@ struct LevelUnload;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_state::<AppState>()
+        .init_state::<AppState>()
         .add_systems(Startup, setup_system)
         .add_systems(
             Update,
@@ -73,7 +73,7 @@ fn print_text_system(time: Res<Time>, mut query: Query<(&mut PrinterTick, &TextT
 
 fn transition_to_in_game_system(
     mut next_state: ResMut<NextState<AppState>>,
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
 ) {
     if keyboard_input.pressed(KeyCode::Space) {
         next_state.set(AppState::InGame);

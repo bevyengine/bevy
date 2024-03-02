@@ -1,8 +1,8 @@
-use crate::ReflectComponent;
+use bevy_color::{Color, LinearRgba};
 use bevy_ecs::prelude::*;
 use bevy_math::Vec3;
-use bevy_reflect::Reflect;
-use bevy_render::{color::Color, extract_component::ExtractComponent, prelude::Camera};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
 
 /// Configures the “classic” computer graphics [distance fog](https://en.wikipedia.org/wiki/Distance_fog) effect,
 /// in which objects appear progressively more covered in atmospheric haze the further away they are from the camera.
@@ -25,6 +25,7 @@ use bevy_render::{color::Color, extract_component::ExtractComponent, prelude::Ca
 /// # use bevy_render::prelude::*;
 /// # use bevy_core_pipeline::prelude::*;
 /// # use bevy_pbr::prelude::*;
+/// # use bevy_color::Color;
 /// # fn system(mut commands: Commands) {
 /// commands.spawn((
 ///     // Setup your camera as usual
@@ -49,7 +50,7 @@ use bevy_render::{color::Color, extract_component::ExtractComponent, prelude::Ca
 /// [`StandardMaterial`](crate::StandardMaterial) instances via the `fog_enabled` flag.
 #[derive(Debug, Clone, Component, Reflect, ExtractComponent)]
 #[extract_component_filter(With<Camera>)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct FogSettings {
     /// The color of the fog effect.
     ///
@@ -407,8 +408,8 @@ impl FogFalloff {
     ) -> FogFalloff {
         use std::f32::consts::E;
 
-        let [r_e, g_e, b_e, a_e] = extinction_color.as_linear_rgba_f32();
-        let [r_i, g_i, b_i, a_i] = inscattering_color.as_linear_rgba_f32();
+        let [r_e, g_e, b_e, a_e] = LinearRgba::from(extinction_color).to_f32_array();
+        let [r_i, g_i, b_i, a_i] = LinearRgba::from(inscattering_color).to_f32_array();
 
         FogFalloff::Atmospheric {
             extinction: Vec3::new(
@@ -465,7 +466,7 @@ impl FogFalloff {
 impl Default for FogSettings {
     fn default() -> Self {
         FogSettings {
-            color: Color::rgba(1.0, 1.0, 1.0, 1.0),
+            color: Color::WHITE,
             falloff: FogFalloff::Linear {
                 start: 0.0,
                 end: 100.0,

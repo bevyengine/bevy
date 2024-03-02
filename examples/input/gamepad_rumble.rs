@@ -16,7 +16,7 @@ fn main() {
 
 fn gamepad_system(
     gamepads: Res<Gamepads>,
-    button_inputs: Res<Input<GamepadButton>>,
+    button_inputs: Res<ButtonInput<GamepadButton>>,
     mut rumble_requests: EventWriter<GamepadRumbleRequest>,
 ) {
     for gamepad in gamepads.iter() {
