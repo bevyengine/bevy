@@ -46,7 +46,7 @@ pub mod prelude {
         aabb::{AabbGizmoConfigGroup, ShowAabbGizmo},
         config::{
             DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore,
-            GizmoLineJoins,
+            GizmoLineJoint,
         },
         gizmos::Gizmos,
         primitives::{dim2::GizmoPrimitive2d, dim3::GizmoPrimitive3d},
@@ -85,14 +85,14 @@ use bevy_render::{
 };
 use bevy_utils::TypeIdMap;
 use config::{
-    DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore, GizmoLineJoins,
+    DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore, GizmoLineJoint,
     GizmoMeshConfig,
 };
 use gizmos::GizmoStorage;
 use std::{any::TypeId, mem};
 
 const LINE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(7414812689238026784);
-const LINE_JOINS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1162780797909187908);
+const LINE_JOINT_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1162780797909187908);
 
 /// A [`Plugin`] that provides an immediate mode drawing api for visual debugging.
 pub struct GizmoPlugin;
@@ -106,8 +106,8 @@ impl Plugin for GizmoPlugin {
         load_internal_asset!(app, LINE_SHADER_HANDLE, "lines.wgsl", Shader::from_wgsl);
         load_internal_asset!(
             app,
-            LINE_JOINS_SHADER_HANDLE,
-            "line_joins.wgsl",
+            LINE_JOINT_SHADER_HANDLE,
+            "line_joints.wgsl",
             Shader::from_wgsl
         );
 
@@ -270,11 +270,11 @@ fn update_gizmo_meshes<T: GizmoConfigGroup>(
 
             strip.positions = mem::take(&mut storage.strip_positions);
             strip.colors = mem::take(&mut storage.strip_colors);
-            strip.joins = config.line_joins;
+            strip.joins = config.line_joints;
         } else {
             let mut strip = LineGizmo {
                 strip: true,
-                joins: config.line_joins,
+                joins: config.line_joints,
                 ..Default::default()
             };
 
@@ -304,8 +304,8 @@ fn extract_gizmo_data(
             continue;
         };
 
-        let joins_resolution = config.line_joins.map_or(0, |join| {
-            if let GizmoLineJoins::Round(resolution) = join {
+        let joins_resolution = config.line_joints.map_or(0, |join| {
+            if let GizmoLineJoint::Round(resolution) = join {
                 resolution
             } else {
                 0
@@ -344,7 +344,7 @@ struct LineGizmo {
     /// Whether this gizmo's topology is a line-strip or line-list
     strip: bool,
     /// Whether this gizmo should draw line joins. This is only applicable if the gizmo's topology is line-strip.
-    joins: Option<GizmoLineJoins>,
+    joins: Option<GizmoLineJoint>,
 }
 
 #[derive(Debug, Clone)]
@@ -353,7 +353,7 @@ struct GpuLineGizmo {
     color_buffer: Buffer,
     vertex_count: u32,
     strip: bool,
-    joins: Option<GizmoLineJoins>,
+    joints: Option<GizmoLineJoint>,
 }
 
 impl RenderAsset for LineGizmo {
@@ -387,7 +387,7 @@ impl RenderAsset for LineGizmo {
             color_buffer,
             vertex_count: self.positions.len() as u32,
             strip: self.strip,
-            joins: self.joins,
+            joints: self.joins,
         })
     }
 }
@@ -491,8 +491,8 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
     }
 }
 
-struct DrawLineJoinGizmo;
-impl<P: PhaseItem> RenderCommand<P> for DrawLineJoinGizmo {
+struct DrawLineJointGizmo;
+impl<P: PhaseItem> RenderCommand<P> for DrawLineJointGizmo {
     type Param = SRes<RenderAssets<LineGizmo>>;
     type ViewQuery = ();
     type ItemQuery = Read<Handle<LineGizmo>>;
@@ -516,7 +516,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineJoinGizmo {
             return RenderCommandResult::Success;
         }
 
-        let Some(joins) = line_gizmo.joins else {
+        let Some(joints) = line_gizmo.joints else {
             return RenderCommandResult::Success;
         };
 
@@ -530,10 +530,10 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineJoinGizmo {
             u32::max(line_gizmo.vertex_count, 2) - 2
         };
 
-        let vertices = match joins {
-            GizmoLineJoins::Miter => 6,
-            GizmoLineJoins::Round(resolution) => resolution * 3,
-            GizmoLineJoins::Bevel => 3,
+        let vertices = match joints {
+            GizmoLineJoint::Miter => 6,
+            GizmoLineJoint::Round(resolution) => resolution * 3,
+            GizmoLineJoint::Bevel => 3,
         };
 
         pass.draw(0..vertices, 0..instances);
@@ -598,7 +598,7 @@ fn line_gizmo_vertex_buffer_layouts(strip: bool) -> Vec<VertexBufferLayout> {
     }
 }
 
-fn line_join_gizmo_vertex_buffer_layouts() -> Vec<VertexBufferLayout> {
+fn line_joint_gizmo_vertex_buffer_layouts() -> Vec<VertexBufferLayout> {
     use VertexFormat::*;
     let mut position_layout = VertexBufferLayout {
         array_stride: Float32x3.size(),

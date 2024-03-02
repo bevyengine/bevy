@@ -1,8 +1,8 @@
 use crate::{
     config::GizmoMeshConfig, line_gizmo_vertex_buffer_layouts,
-    line_join_gizmo_vertex_buffer_layouts, prelude::GizmoLineJoins, DrawLineGizmo,
-    DrawLineJoinGizmo, GizmoRenderSystem, LineGizmo, LineGizmoUniformBindgroupLayout,
-    SetLineGizmoBindGroup, LINE_JOINS_SHADER_HANDLE, LINE_SHADER_HANDLE,
+    line_joint_gizmo_vertex_buffer_layouts, prelude::GizmoLineJoint, DrawLineGizmo,
+    DrawLineJointGizmo, GizmoRenderSystem, LineGizmo, LineGizmoUniformBindgroupLayout,
+    SetLineGizmoBindGroup, LINE_JOINT_SHADER_HANDLE, LINE_SHADER_HANDLE,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::Handle;
@@ -37,16 +37,16 @@ impl Plugin for LineGizmo3dPlugin {
 
         render_app
             .add_render_command::<Transparent3d, DrawLineGizmo3d>()
-            .add_render_command::<Transparent3d, DrawLineJoinGizmo3d>()
+            .add_render_command::<Transparent3d, DrawLineJointGizmo3d>()
             .init_resource::<SpecializedRenderPipelines<LineGizmoPipeline>>()
-            .init_resource::<SpecializedRenderPipelines<LineJoinGizmoPipeline>>()
+            .init_resource::<SpecializedRenderPipelines<LineJointGizmoPipeline>>()
             .configure_sets(
                 Render,
                 GizmoRenderSystem::QueueLineGizmos3d.in_set(RenderSet::Queue),
             )
             .add_systems(
                 Render,
-                (queue_line_gizmos_3d, queue_line_join_gizmos_3d)
+                (queue_line_gizmos_3d, queue_line_joint_gizmos_3d)
                     .in_set(GizmoRenderSystem::QueueLineGizmos3d)
                     .after(prepare_assets::<LineGizmo>),
             );
@@ -58,7 +58,7 @@ impl Plugin for LineGizmo3dPlugin {
         };
 
         render_app.init_resource::<LineGizmoPipeline>();
-        render_app.init_resource::<LineJoinGizmoPipeline>();
+        render_app.init_resource::<LineJointGizmoPipeline>();
     }
 }
 
@@ -151,14 +151,14 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
 }
 
 #[derive(Clone, Resource)]
-struct LineJoinGizmoPipeline {
+struct LineJointGizmoPipeline {
     mesh_pipeline: MeshPipeline,
     uniform_layout: BindGroupLayout,
 }
 
-impl FromWorld for LineJoinGizmoPipeline {
+impl FromWorld for LineJointGizmoPipeline {
     fn from_world(render_world: &mut World) -> Self {
-        LineJoinGizmoPipeline {
+        LineJointGizmoPipeline {
             mesh_pipeline: render_world.resource::<MeshPipeline>().clone(),
             uniform_layout: render_world
                 .resource::<LineGizmoUniformBindgroupLayout>()
@@ -169,14 +169,14 @@ impl FromWorld for LineJoinGizmoPipeline {
 }
 
 #[derive(PartialEq, Eq, Hash, Clone)]
-struct LineJoinGizmoPipelineKey {
+struct LineJointGizmoPipelineKey {
     view_key: MeshPipelineKey,
     perspective: bool,
-    joins: GizmoLineJoins,
+    joints: GizmoLineJoint,
 }
 
-impl SpecializedRenderPipeline for LineJoinGizmoPipeline {
-    type Key = LineJoinGizmoPipelineKey;
+impl SpecializedRenderPipeline for LineJointGizmoPipeline {
+    type Key = LineJointGizmoPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let mut shader_defs = vec![
@@ -201,22 +201,21 @@ impl SpecializedRenderPipeline for LineJoinGizmoPipeline {
 
         let layout = vec![view_layout, self.uniform_layout.clone()];
 
-        let entry_point = match key.joins {
-            GizmoLineJoins::Miter => "vertex_miter",
-            GizmoLineJoins::Round(_) => "vertex_round",
-            GizmoLineJoins::Bevel => "vertex_bevel",
+        let entry_point = match key.joints {
+            GizmoLineJoint::Miter => "vertex_miter",
+            GizmoLineJoint::Round(_) => "vertex_round",
+            GizmoLineJoint::Bevel => "vertex_bevel",
         };
 
-        println!("Specializing joins pipeline");
         RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: LINE_JOINS_SHADER_HANDLE,
+                shader: LINE_JOINT_SHADER_HANDLE,
                 entry_point: entry_point.into(),
                 shader_defs: shader_defs.clone(),
-                buffers: line_join_gizmo_vertex_buffer_layouts(),
+                buffers: line_joint_gizmo_vertex_buffer_layouts(),
             },
             fragment: Some(FragmentState {
-                shader: LINE_JOINS_SHADER_HANDLE,
+                shader: LINE_JOINT_SHADER_HANDLE,
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
@@ -239,7 +238,7 @@ impl SpecializedRenderPipeline for LineJoinGizmoPipeline {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            label: Some("LineJoinGizmo Pipeline".into()),
+            label: Some("LineJointGizmo Pipeline".into()),
             push_constant_ranges: vec![],
         }
     }
@@ -251,11 +250,11 @@ type DrawLineGizmo3d = (
     SetLineGizmoBindGroup<1>,
     DrawLineGizmo,
 );
-type DrawLineJoinGizmo3d = (
+type DrawLineJointGizmo3d = (
     SetItemPipeline,
     SetMeshViewBindGroup<0>,
     SetLineGizmoBindGroup<1>,
-    DrawLineJoinGizmo,
+    DrawLineJointGizmo,
 );
 
 #[allow(clippy::too_many_arguments)]
@@ -340,10 +339,10 @@ fn queue_line_gizmos_3d(
     }
 }
 
-fn queue_line_join_gizmos_3d(
+fn queue_line_joint_gizmos_3d(
     draw_functions: Res<DrawFunctions<Transparent3d>>,
-    pipeline: Res<LineJoinGizmoPipeline>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<LineJoinGizmoPipeline>>,
+    pipeline: Res<LineJointGizmoPipeline>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<LineJointGizmoPipeline>>,
     pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
     line_gizmos: Query<(Entity, &Handle<LineGizmo>, &GizmoMeshConfig)>,
@@ -362,7 +361,7 @@ fn queue_line_join_gizmos_3d(
 ) {
     let draw_function = draw_functions
         .read()
-        .get_id::<DrawLineJoinGizmo3d>()
+        .get_id::<DrawLineJointGizmo3d>()
         .unwrap();
 
     for (
@@ -406,17 +405,17 @@ fn queue_line_join_gizmos_3d(
                 continue;
             }
 
-            let Some(joins) = line_gizmo.joins else {
+            let Some(joints) = line_gizmo.joints else {
                 continue;
             };
 
             let pipeline = pipelines.specialize(
                 &pipeline_cache,
                 &pipeline,
-                LineJoinGizmoPipelineKey {
+                LineJointGizmoPipelineKey {
                     view_key,
                     perspective: config.line_perspective,
-                    joins,
+                    joints,
                 },
             );
 

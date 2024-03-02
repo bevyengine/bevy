@@ -108,11 +108,11 @@ fn update_config(
         config.enabled ^= true;
     }
     if keyboard.just_pressed(KeyCode::KeyJ) {
-        config.line_joins = match config.line_joins {
-            Some(GizmoLineJoins::Bevel) => Some(GizmoLineJoins::Miter),
-            Some(GizmoLineJoins::Miter) => Some(GizmoLineJoins::Round(4)),
-            Some(GizmoLineJoins::Round(_)) => None,
-            None => Some(GizmoLineJoins::Bevel),
+        config.line_joints = match config.line_joints {
+            Some(GizmoLineJoint::Bevel) => Some(GizmoLineJoint::Miter),
+            Some(GizmoLineJoint::Miter) => Some(GizmoLineJoint::Round(4)),
+            Some(GizmoLineJoint::Round(_)) => None,
+            None => Some(GizmoLineJoint::Bevel),
         };
     }
 
@@ -129,12 +129,11 @@ fn update_config(
         my_config.enabled ^= true;
     }
     if keyboard.just_pressed(KeyCode::KeyK) {
-        my_config.line_joins = match my_config.line_joins {
-            Some(GizmoLineJoins::Bevel) => Some(GizmoLineJoins::Miter),
-            Some(GizmoLineJoins::Miter) => Some(GizmoLineJoins::Round(4)),
-            Some(GizmoLineJoins::Round(_)) => None,
-            None => Some(GizmoLineJoins::Bevel),
+        my_config.line_joints = match my_config.line_joints {
+            Some(GizmoLineJoint::Bevel) => Some(GizmoLineJoint::Miter),
+            Some(GizmoLineJoint::Miter) => Some(GizmoLineJoint::Round(4)),
+            Some(GizmoLineJoint::Round(_)) => None,
+            None => Some(GizmoLineJoint::Bevel),
         };
-        println!("{:?}", my_config.line_joins);
     }
 }
