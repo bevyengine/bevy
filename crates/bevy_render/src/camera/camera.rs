@@ -628,10 +628,7 @@ impl NormalizedRenderTarget {
                 .into_iter()
                 .find(|(entity, _)| *entity == window_ref.entity())
                 .map(|(_, window)| RenderTargetInfo {
-                    physical_size: UVec2::new(
-                        window.resolution.physical_width(),
-                        window.resolution.physical_height(),
-                    ),
+                    physical_size: window.physical_size(),
                     scale_factor: window.resolution.scale_factor(),
                 }),
             NormalizedRenderTarget::Image(image_handle) => {

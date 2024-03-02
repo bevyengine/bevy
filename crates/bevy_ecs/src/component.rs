@@ -155,9 +155,8 @@ pub trait Component: Send + Sync + 'static {
     /// This must be either [`TableStorage`] or [`SparseStorage`].
     type Storage: ComponentStorage;
 
-    /// Called when registering this component, allowing mutable access to it's [`ComponentInfo`].
-    /// This is currently used for registering hooks.
-    fn init_component_info(_info: &mut ComponentInfo) {}
+    /// Called when registering this component, allowing mutable access to it's [`ComponentHooks`].
+    fn register_component_hooks(_hooks: &mut ComponentHooks) {}
 }
 
 /// Marker type for components stored in a [`Table`](crate::storage::Table).
@@ -580,7 +579,7 @@ impl Components {
                 storages,
                 ComponentDescriptor::new::<T>(),
             );
-            T::init_component_info(&mut components[index.index()]);
+            T::register_component_hooks(&mut components[index.index()].hooks);
             index
         })
     }
