@@ -456,11 +456,19 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
         assert!(
             component_access.is_subset(&joined_component_access),
-            "Transmuted state for {} attempts to access terms that are not allowed by original state {}.",
-            std::any::type_name::<(NewD, NewF)>(), std::any::type_name::<(D, F)>()
+            "Joined state for {} attempts to access terms that are not allowed by state {} joined with {}.",
+            std::any::type_name::<(NewD, NewF)>(), std::any::type_name::<(D, F)>(), std::any::type_name::<(OtherD, OtherF)>()
         );
 
         // take the intersection of the matched ids
+        let matched_tables: FixedBitSet = self
+            .matched_tables
+            .intersection(&other.matched_tables)
+            .collect();
+        let matched_archetypes: FixedBitSet = self
+            .matched_archetypes
+            .intersection(&other.matched_archetypes)
+            .collect();
         let matched_table_ids: Vec<_> = self
             .matched_table_ids
             .iter()
@@ -481,9 +489,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             matched_archetype_ids,
             fetch_state: new_fetch_state,
             filter_state: new_filter_state,
-            component_access: self.component_access.clone(),
-            matched_tables: self.matched_tables.clone(),
-            matched_archetypes: self.matched_archetypes.clone(),
+            component_access: joined_component_access,
+            matched_tables,
+            matched_archetypes,
             archetype_component_access: self.archetype_component_access.clone(),
             #[cfg(feature = "trace")]
             par_iter_span: bevy_utils::tracing::info_span!(
