@@ -544,7 +544,7 @@ impl FrameData {
 #[derive(Debug, Default, Clone, Resource)]
 pub struct RenderDiagnostics(Vec<RenderDiagnostic>);
 
-/// A render diagnostic which has been recorded, but not yet stored in [`DiagnosticStore`].
+/// A render diagnostic which has been recorded, but not yet stored in [`DiagnosticsStore`].
 #[derive(Debug, Clone, Resource)]
 pub struct RenderDiagnostic {
     pub path: DiagnosticPath,
