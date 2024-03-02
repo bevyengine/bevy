@@ -465,21 +465,17 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             .matched_tables
             .intersection(&other.matched_tables)
             .collect();
+        let matched_table_ids: Vec<TableId> = matched_tables
+            .ones()
+            .map(|id| TableId::from_usize(id))
+            .collect();
         let matched_archetypes: FixedBitSet = self
             .matched_archetypes
             .intersection(&other.matched_archetypes)
             .collect();
-        let matched_table_ids: Vec<_> = self
-            .matched_table_ids
-            .iter()
-            .filter(|table_id| other.matched_table_ids.contains(table_id))
-            .cloned()
-            .collect();
-        let matched_archetype_ids: Vec<_> = self
-            .matched_archetype_ids
-            .iter()
-            .filter(|table_id| other.matched_archetype_ids.contains(table_id))
-            .cloned()
+        let matched_archetype_ids: Vec<ArchetypeId> = matched_archetypes
+            .ones()
+            .map(|id| ArchetypeId::new(id))
             .collect();
 
         QueryState {
