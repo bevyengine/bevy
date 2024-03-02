@@ -81,6 +81,15 @@ type IdCursor = isize;
 ///
 /// [generational index]: https://lucassardois.medium.com/generational-indices-guide-8e3c5f7fd594
 ///
+/// # Stability warning
+/// For all intents and purposes, `Entity` should be treated as an opaque identifier. The internal bit
+/// representation is liable to change from release to release, ignoring [SemVer], as are the behaviors or
+/// performance characteristics of any of its trait implementations (i.e. `Ord`, `Hash`, etc.).
+///
+/// In particular, directly serializing with `Serialize` and `Deserialize` make zero guarentee of long
+/// term wire format compatibility. Changes in behavior will cause serialized `Entity` values persisted
+/// to long term storage (i.e. disk, databases, etc.) will fail to deserialize upon being updated.
+///
 /// # Usage
 ///
 /// This data type is returned by iterating a `Query` that has `Entity` as part of its query fetch type parameter ([learn more]).
