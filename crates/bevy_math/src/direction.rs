@@ -3,10 +3,6 @@ use crate::{
     Quat, Vec2, Vec3, Vec3A,
 };
 
-// Thresholds for the largest accepted squared length error for direction types.
-const LENGTH_WARN_THRESHOLD_SQUARED: f32 = 2e-4; // Length error ~1e-4
-const LENGTH_ERROR_THRESHOLD_SQUARED: f32 = 2e-2; // Length error ~1e-2
-
 /// An error indicating that a direction is invalid.
 #[derive(Debug, PartialEq)]
 pub enum InvalidDirectionError {
@@ -39,6 +35,30 @@ impl std::fmt::Display for InvalidDirectionError {
             f,
             "Direction can not be zero (or very close to zero), or non-finite."
         )
+    }
+}
+
+/// Checks that a vector with the given squared length is normalized.
+///
+/// Warns for small error with a length threshold of approximately `1e-4`,
+/// and panics for large error with a length threshold of approximately `1e-2`.
+///
+/// The format used for the logged warning is `"Warning: {warning} The length is {length}`,
+/// and similarly for the error.
+#[cfg(debug_assertions)]
+fn assert_is_normalized(message: &str, length_squared: f32) {
+    let length_error_squared = (length_squared - 1.0).abs();
+
+    // Panic for large error and warn for slight error.
+    if length_error_squared > 2e-2 || length_error_squared.is_nan() {
+        // Length error is approximately 1e-2 or more.
+        panic!("Error: {message} The length is {}.", length_squared.sqrt());
+    } else if length_error_squared > 2e-4 {
+        // Length error is approximately 1e-4 or more.
+        eprintln!(
+            "Warning: {message} The length is {}.",
+            length_squared.sqrt()
+        );
     }
 }
 
@@ -85,9 +105,13 @@ impl Dir2 {
     ///
     /// # Warning
     ///
-    /// `value` must be normalized, i.e it's length must be `1.0`.
+    /// `value` must be normalized, i.e its length must be `1.0`.
     pub fn new_unchecked(value: Vec2) -> Self {
-        debug_assert!(value.is_normalized());
+        #[cfg(debug_assertions)]
+        assert_is_normalized(
+            "The vector given to `Dir2::new_unchecked` is not normalized.",
+            value.length_squared(),
+        );
 
         Self(value)
     }
@@ -201,9 +225,13 @@ impl Dir3 {
     ///
     /// # Warning
     ///
-    /// `value` must be normalized, i.e it's length must be `1.0`.
+    /// `value` must be normalized, i.e its length must be `1.0`.
     pub fn new_unchecked(value: Vec3) -> Self {
-        debug_assert!(value.is_normalized());
+        #[cfg(debug_assertions)]
+        assert_is_normalized(
+            "The vector given to `Dir3::new_unchecked` is not normalized.",
+            value.length_squared(),
+        );
 
         Self(value)
     }
@@ -273,27 +301,10 @@ impl std::ops::Mul<Dir3> for Quat {
         let rotated = self * *direction;
 
         #[cfg(debug_assertions)]
-        {
-            // Make sure the result is normalized.
-            // This can fail for non-unit quaternions.
-            let length_squared = rotated.length_squared();
-            let length_error_squared = (length_squared - 1.0).abs();
-
-            // Panic for large error and warn for slight error.
-            if length_error_squared > LENGTH_ERROR_THRESHOLD_SQUARED
-                || length_error_squared.is_nan()
-            {
-                panic!(
-                    "Error: Dir3 is denormalized after rotation, length {}.",
-                    length_squared.sqrt()
+        assert_is_normalized(
+            "`Dir3` is denormalized after rotation.",
+            rotated.length_squared(),
                 );
-            } else if length_error_squared > LENGTH_WARN_THRESHOLD_SQUARED {
-                eprintln!(
-                    "Warning: Dir3 is slightly denormalized after rotation, length {}.",
-                    length_squared.sqrt()
-                );
-            }
-        }
 
         Dir3(rotated)
     }
@@ -367,9 +378,13 @@ impl Dir3A {
     ///
     /// # Warning
     ///
-    /// `value` must be normalized, i.e it's length must be `1.0`.
+    /// `value` must be normalized, i.e its length must be `1.0`.
     pub fn new_unchecked(value: Vec3A) -> Self {
-        debug_assert!(value.is_normalized());
+        #[cfg(debug_assertions)]
+        assert_is_normalized(
+            "The vector given to `Dir3A::new_unchecked` is not normalized.",
+            value.length_squared(),
+        );
 
         Self(value)
     }
@@ -439,27 +454,10 @@ impl std::ops::Mul<Dir3A> for Quat {
         let rotated = self * *direction;
 
         #[cfg(debug_assertions)]
-        {
-            // Make sure the result is normalized.
-            // This can fail for non-unit quaternions.
-            let length_squared = rotated.length_squared();
-            let length_error_squared = (length_squared - 1.0).abs();
-
-            // Panic for large error and warn for slight error.
-            if length_error_squared > LENGTH_ERROR_THRESHOLD_SQUARED
-                || length_error_squared.is_nan()
-            {
-                panic!(
-                    "Error: Dir3A is denormalized after rotation, length {}.",
-                    length_squared.sqrt()
+        assert_is_normalized(
+            "`Dir3A` is denormalized after rotation.",
+            rotated.length_squared(),
                 );
-            } else if length_error_squared > LENGTH_WARN_THRESHOLD_SQUARED {
-                eprintln!(
-                    "Warning: Dir3A is slightly denormalized after rotation, length {}.",
-                    length_squared.sqrt()
-                );
-            }
-        }
 
         Dir3A(rotated)
     }
