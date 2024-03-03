@@ -160,6 +160,20 @@ impl std::ops::Neg for Dir2 {
     }
 }
 
+impl std::ops::Mul<f32> for Dir2 {
+    type Output = Vec2;
+    fn mul(self, rhs: f32) -> Self::Output {
+        self.0 * rhs
+    }
+}
+
+impl std::ops::Mul<Dir2> for f32 {
+    type Output = Vec2;
+    fn mul(self, rhs: Dir2) -> Self::Output {
+        self * rhs.0
+    }
+}
+
 #[cfg(feature = "approx")]
 impl approx::AbsDiffEq for Dir2 {
     type Epsilon = f32;
@@ -290,6 +304,13 @@ impl std::ops::Mul<f32> for Dir3 {
     type Output = Vec3;
     fn mul(self, rhs: f32) -> Self::Output {
         self.0 * rhs
+    }
+}
+
+impl std::ops::Mul<Dir3> for f32 {
+    type Output = Vec3;
+    fn mul(self, rhs: Dir3) -> Self::Output {
+        self * rhs.0
     }
 }
 
@@ -443,6 +464,13 @@ impl std::ops::Mul<f32> for Dir3A {
     type Output = Vec3A;
     fn mul(self, rhs: f32) -> Self::Output {
         self.0 * rhs
+    }
+}
+
+impl std::ops::Mul<Dir3A> for f32 {
+    type Output = Vec3A;
+    fn mul(self, rhs: Dir3A) -> Self::Output {
+        self * rhs.0
     }
 }
 
