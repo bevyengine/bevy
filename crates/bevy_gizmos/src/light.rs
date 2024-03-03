@@ -75,7 +75,6 @@ fn spot_light_gizmo(
         .segments(16);
 
     // Offset the tip of the cone to the light position.
-    gizmos.sphere(translation, Quat::IDENTITY, 0.01, LinearRgba::GREEN);
     for angle in [spot_light.inner_angle, spot_light.outer_angle] {
         let height = spot_light.range * angle.cos();
         let position = translation + rotation * Vec3::NEG_Z * height / 2.0;
@@ -203,7 +202,7 @@ impl Default for LightGizmoConfigGroup {
 #[derive(Component, Reflect, Default, Debug)]
 #[reflect(Component, Default)]
 pub struct ShowLightGizmo {
-    /// Default color strategy for this light gizmo. if none, use the one provided by [`LightGizmoConfigGroup`].
+    /// Default color strategy for this light gizmo. if [`None`], use the one provided by [`LightGizmoConfigGroup`].
     ///
     /// Defaults to [`None`].
     color: Option<LightGizmoColor>,
@@ -237,7 +236,7 @@ fn draw_lights(
             entity,
             light_gizmo.color,
             light.color,
-            gizmos.config_ext.point_light_color,
+            gizmos.config_ext.spot_light_color,
         );
         spot_light_gizmo(transform, light, color, &mut gizmos);
     }
@@ -246,7 +245,7 @@ fn draw_lights(
             entity,
             light_gizmo.color,
             light.color,
-            gizmos.config_ext.point_light_color,
+            gizmos.config_ext.directional_light_color,
         );
         directional_light_gizmo(transform, color, &mut gizmos);
     }

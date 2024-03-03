@@ -2669,6 +2669,17 @@ description = "A scene showcasing 3D gizmos"
 category = "Gizmos"
 wasm = true
 
+[[example]]
+name = "light_gizmos"
+path = "examples/gizmos/light_gizmos.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.light_gizmos]
+name = "Light Gizmos"
+description = "A scene showcasing light gizmos"
+category = "Gizmos"
+wasm = true
+
 [profile.wasm-release]
 inherits = "release"
 opt-level = "z"

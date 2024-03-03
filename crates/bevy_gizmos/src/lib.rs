@@ -47,6 +47,7 @@ pub mod prelude {
         aabb::{AabbGizmoConfigGroup, ShowAabbGizmo},
         config::{DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore},
         gizmos::Gizmos,
+        light::{LightGizmoColor, LightGizmoConfigGroup, ShowLightGizmo},
         primitives::{dim2::GizmoPrimitive2d, dim3::GizmoPrimitive3d},
         AppGizmoBuilder,
     };
@@ -86,9 +87,8 @@ use config::{
     DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore, GizmoMeshConfig,
 };
 use gizmos::GizmoStorage;
+use light::LightGizmoPlugin;
 use std::{any::TypeId, mem};
-
-use crate::light::LightGizmoPlugin;
 
 const LINE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(7414812689238026784);
 

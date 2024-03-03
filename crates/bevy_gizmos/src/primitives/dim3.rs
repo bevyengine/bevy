@@ -609,9 +609,10 @@ pub struct Cone3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     // Color of the cone
     color: Color,
 
-    // Number of segments used to approximate the cone geometry
+    // Number of segments used to approximate the cone base geometry
     base_segments: usize,
 
+    // Number of segments used to approximate the cone height geometry
     height_segments: usize,
 }
 
