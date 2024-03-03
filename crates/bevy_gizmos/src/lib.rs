@@ -14,7 +14,7 @@
 //!
 //! See the documentation on [Gizmos](crate::gizmos::Gizmos) for more examples.
 
-/// Label for the the render systems handling the
+/// System set label for the systems handling the rendering of gizmos.
 #[derive(SystemSet, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum GizmoRenderSystem {
     /// Adds gizmos to the [`Transparent2d`](bevy_core_pipeline::core_2d::Transparent2d) render phase
