@@ -3,6 +3,7 @@ pub mod debug;
 
 use crate::{ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiScale};
 use bevy_ecs::entity::EntityHashMap;
+use bevy_ecs::system::SystemParam;
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     entity::Entity,
@@ -53,6 +54,7 @@ struct RootNodePair {
 #[derive(Resource)]
 pub struct UiSurface {
     entity_to_taffy: EntityHashMap<taffy::node::Node>,
+    camera_entity_to_taffy: EntityHashMap<taffy::node::Node>,
     camera_roots: EntityHashMap<Vec<RootNodePair>>,
     taffy: Taffy,
 }
@@ -79,6 +81,7 @@ impl Default for UiSurface {
         taffy.disable_rounding();
         Self {
             entity_to_taffy: Default::default(),
+            camera_entity_to_taffy: Default::default(),
             camera_roots: Default::default(),
             taffy,
         }
@@ -168,7 +171,7 @@ without UI components as a child of an entity with UI components, results may be
         };
 
         let camera_node = *self
-            .entity_to_taffy
+            .camera_entity_to_taffy
             .entry(camera_id)
             .or_insert_with(|| self.taffy.new_leaf(viewport_style.clone()).unwrap());
         let existing_roots = self.camera_roots.entry(camera_id).or_default();
@@ -215,6 +218,15 @@ without UI components as a child of an entity with UI components, results may be
         }
     }
 
+    /// Removes each camera entity from the internal map and then removes their associated node from taffy
+    pub fn remove_camera_entities(&mut self, entities: impl IntoIterator<Item = Entity>) {
+        for entity in entities {
+            if let Some(node) = self.camera_entity_to_taffy.remove(&entity) {
+                self.taffy.remove(node).unwrap();
+            }
+        }
+    }
+
     /// Removes each entity from the internal map and then removes their associated node from taffy
     pub fn remove_entities(&mut self, entities: impl IntoIterator<Item = Entity>) {
         for entity in entities {
@@ -249,6 +261,14 @@ pub enum LayoutError {
     TaffyError(#[from] taffy::error::TaffyError),
 }
 
+#[derive(SystemParam)]
+pub struct UILayoutSystemRemovedComponentParam<'w, 's> {
+    removed_cameras: RemovedComponents<'w, 's, Camera>,
+    removed_children: RemovedComponents<'w, 's, Children>,
+    removed_content_sizes: RemovedComponents<'w, 's, ContentSize>,
+    removed_nodes: RemovedComponents<'w, 's, Node>,
+}
+
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
 #[allow(clippy::too_many_arguments)]
 pub fn ui_layout_system(
@@ -264,9 +284,7 @@ pub fn ui_layout_system(
     mut measure_query: Query<(Entity, &mut ContentSize)>,
     children_query: Query<(Entity, Ref<Children>), With<Node>>,
     just_children_query: Query<&Children>,
-    mut removed_children: RemovedComponents<Children>,
-    mut removed_content_sizes: RemovedComponents<ContentSize>,
-    mut removed_nodes: RemovedComponents<Node>,
+    mut removed_components: UILayoutSystemRemovedComponentParam,
     mut node_transform_query: Query<(&mut Node, &mut Transform)>,
 ) {
     struct CameraLayoutInfo {
@@ -353,7 +371,7 @@ pub fn ui_layout_system(
     scale_factor_events.clear();
 
     // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
-    for entity in removed_content_sizes.read() {
+    for entity in removed_components.removed_content_sizes.read() {
         ui_surface.try_remove_measure(entity);
     }
     for (entity, mut content_size) in &mut measure_query {
@@ -363,7 +381,10 @@ pub fn ui_layout_system(
     }
 
     // clean up removed nodes
-    ui_surface.remove_entities(removed_nodes.read());
+    ui_surface.remove_entities(removed_components.removed_nodes.read());
+
+    // clean up removed cameras
+    ui_surface.remove_camera_entities(removed_components.removed_cameras.read());
 
     // update camera children
     for (camera_id, _) in cameras.iter() {
@@ -377,7 +398,7 @@ pub fn ui_layout_system(
     }
 
     // update and remove children
-    for entity in removed_children.read() {
+    for entity in removed_components.removed_children.read() {
         ui_surface.try_remove_children(entity);
     }
     for (entity, children) in &children_query {
