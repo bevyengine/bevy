@@ -466,7 +466,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         );
 
         if self.archetype_generation != other.archetype_generation {
-            warn!("You have tried to join queries with different archetype_generations. This could lead to unpredicatable results.");
+            warn!("You have tried to join queries with different archetype_generations. This could lead to unpredictable results.");
         }
 
         // take the intersection of the matched ids
@@ -474,18 +474,14 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             .matched_tables
             .intersection(&other.matched_tables)
             .collect();
-        let matched_table_ids: Vec<TableId> = matched_tables
-            .ones()
-            .map(|id| TableId::from_usize(id))
-            .collect();
+        let matched_table_ids: Vec<TableId> =
+            matched_tables.ones().map(TableId::from_usize).collect();
         let matched_archetypes: FixedBitSet = self
             .matched_archetypes
             .intersection(&other.matched_archetypes)
             .collect();
-        let matched_archetype_ids: Vec<ArchetypeId> = matched_archetypes
-            .ones()
-            .map(|id| ArchetypeId::new(id))
-            .collect();
+        let matched_archetype_ids: Vec<ArchetypeId> =
+            matched_archetypes.ones().map(ArchetypeId::new).collect();
 
         QueryState {
             world_id: self.world_id,
