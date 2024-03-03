@@ -1,4 +1,4 @@
-use std::ops::Mul;
+use std::ops::{Div, Mul};
 
 use crate::color_difference::EuclideanDistance;
 use crate::{Alpha, LinearRgba, Luminance, Mix, StandardColor, Xyza};
@@ -393,6 +393,23 @@ impl Mul<Srgba> for f32 {
 
     fn mul(self, rhs: Srgba) -> Srgba {
         rhs * self
+    }
+}
+
+/// All color channels are scaled directly,
+/// but alpha is unchanged.
+///
+/// Values are not clamped.
+impl Div<f32> for Srgba {
+    type Output = Self;
+
+    fn div(self, rhs: f32) -> Self {
+        Self {
+            red: self.red / rhs,
+            green: self.green / rhs,
+            blue: self.blue / rhs,
+            alpha: self.alpha,
+        }
     }
 }
 
