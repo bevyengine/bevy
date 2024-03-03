@@ -521,17 +521,20 @@ mod tests {
     use bevy_core_pipeline::core_2d::Camera2dBundle;
     use bevy_ecs::entity::Entity;
     use bevy_ecs::event::Events;
+    use bevy_ecs::prelude::{Commands, Component, In, Query, With};
     use bevy_ecs::schedule::apply_deferred;
     use bevy_ecs::schedule::IntoSystemConfigs;
     use bevy_ecs::schedule::Schedule;
+    use bevy_ecs::system::RunSystemOnce;
     use bevy_ecs::world::World;
     use bevy_hierarchy::despawn_with_children_recursive;
     use bevy_hierarchy::BuildWorldChildren;
     use bevy_hierarchy::Children;
-    use bevy_math::vec2;
     use bevy_math::Vec2;
+    use bevy_math::{vec2, UVec2};
     use bevy_render::camera::ManualTextureViews;
     use bevy_render::camera::OrthographicProjection;
+    use bevy_render::prelude::Camera;
     use bevy_render::texture::Image;
     use bevy_utils::prelude::default;
     use bevy_utils::HashMap;
@@ -783,6 +786,149 @@ mod tests {
         // all nodes should have been deleted
         let ui_surface = world.resource::<UiSurface>();
         assert!(ui_surface.entity_to_taffy.is_empty());
+    }
+
+    #[test]
+    fn ui_node_should_properly_update_when_changing_target_camera() {
+        #[derive(Component)]
+        struct MovingUiNode;
+
+        fn update_camera_viewports(
+            primary_window_query: Query<&Window, With<PrimaryWindow>>,
+            mut cameras: Query<&mut Camera>,
+        ) {
+            let primary_window = primary_window_query
+                .get_single()
+                .expect("missing primary window");
+            let camera_count = cameras.iter().len();
+            for (camera_index, mut camera) in cameras.iter_mut().enumerate() {
+                let viewport_width =
+                    primary_window.resolution.physical_width() / camera_count as u32;
+                let viewport_height = primary_window.resolution.physical_height();
+                let physical_position = UVec2::new(viewport_width * camera_index as u32, 0);
+                let physical_size = UVec2::new(viewport_width, viewport_height);
+                camera.viewport = Some(bevy_render::camera::Viewport {
+                    physical_position,
+                    physical_size,
+                    ..default()
+                });
+            }
+        }
+
+        fn move_ui_node(
+            In(pos): In<Vec2>,
+            mut commands: Commands,
+            cameras: Query<(Entity, &Camera)>,
+            moving_ui_query: Query<Entity, With<MovingUiNode>>,
+        ) {
+            let (target_camera_entity, _) = cameras
+                .iter()
+                .find(|(_, camera)| {
+                    let Some(logical_viewport_rect) = camera.logical_viewport_rect() else {
+                        panic!("missing logical viewport")
+                    };
+                    // make sure cursor is in viewport and that viewport has at least 1px of size
+                    logical_viewport_rect.contains(pos)
+                        && logical_viewport_rect.max.cmpge(Vec2::splat(0.)).any()
+                })
+                .expect("cursor position outside of camera viewport");
+            for moving_ui_entity in moving_ui_query.iter() {
+                commands
+                    .entity(moving_ui_entity)
+                    .insert(TargetCamera(target_camera_entity))
+                    .insert(Style {
+                        position_type: PositionType::Absolute,
+                        top: Val::Px(pos.y),
+                        left: Val::Px(pos.x),
+                        ..default()
+                    });
+            }
+        }
+
+        fn do_move_and_test(
+            world: &mut World,
+            ui_schedule: &mut Schedule,
+            new_pos: Vec2,
+            expected_camera_entity: &Entity,
+        ) {
+            world.run_system_once_with(new_pos, move_ui_node);
+            ui_schedule.run(world);
+            let (ui_node_entity, TargetCamera(target_camera_entity)) = world
+                .query_filtered::<(Entity, &TargetCamera), With<MovingUiNode>>()
+                .get_single(&world)
+                .expect("missing MovingUiNode");
+            assert_eq!(expected_camera_entity, target_camera_entity);
+            let ui_surface = world.resource::<UiSurface>();
+
+            let layout = ui_surface
+                .get_layout(ui_node_entity)
+                .expect("failed to get layout");
+
+            // negative test for #12255
+            assert_eq!(Vec2::new(layout.location.x, layout.location.y), new_pos);
+        }
+
+        fn get_taffy_node_count(world: &World) -> usize {
+            world.resource::<UiSurface>().taffy.total_node_count()
+        }
+
+        let (mut world, mut ui_schedule) = setup_ui_test_world();
+
+        world.spawn(Camera2dBundle {
+            camera: Camera {
+                order: 1,
+                ..default()
+            },
+            ..default()
+        });
+
+        world.spawn((
+            NodeBundle {
+                style: Style {
+                    position_type: PositionType::Absolute,
+                    top: Val::Px(0.),
+                    left: Val::Px(0.),
+                    ..default()
+                },
+                ..default()
+            },
+            MovingUiNode,
+        ));
+
+        ui_schedule.run(&mut world);
+
+        let pos_inc = Vec2::splat(1.);
+        let total_cameras = world.query::<&Camera>().iter(&world).len();
+        // add total cameras - 1 (the assumed default) to get an idea for how many nodes we should expect
+        let expected_max_taffy_node_count = get_taffy_node_count(&world) + total_cameras - 1;
+
+        world.run_system_once(update_camera_viewports);
+
+        ui_schedule.run(&mut world);
+
+        let viewport_rects = world
+            .query::<(Entity, &Camera)>()
+            .iter(&world)
+            .map(|(e, c)| (e, c.logical_viewport_rect().expect("missing viewport")))
+            .collect::<Vec<_>>();
+
+        for (camera_entity, viewport) in viewport_rects.iter() {
+            let target_pos = viewport.min + pos_inc;
+            do_move_and_test(&mut world, &mut ui_schedule, target_pos, camera_entity);
+        }
+
+        // reverse direction
+        let mut viewport_rects = viewport_rects.clone();
+        viewport_rects.reverse();
+        for (camera_entity, viewport) in viewport_rects.iter() {
+            let target_pos = viewport.max - pos_inc;
+            do_move_and_test(&mut world, &mut ui_schedule, target_pos, camera_entity);
+        }
+
+        let current_taffy_node_count = get_taffy_node_count(&world);
+        if current_taffy_node_count > expected_max_taffy_node_count {
+            panic!("extra taffy nodes detected: current: {current_taffy_node_count} max expected: {expected_max_taffy_node_count}");
+        }
     }
 
     #[test]
