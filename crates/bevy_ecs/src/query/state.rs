@@ -408,7 +408,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// could be unpredictable. You might end up with a mix of archetypes that only matched
     /// the original query + archetypes that only match the new `QueryState`. Most of the
     /// safe methods on `QueryState` call [`QueryState::update_archetypes`] internally, so
-    /// this best used through a `Query`.
+    /// this is best used through a `Query`.
     ///
     /// ## Panics
     ///
@@ -437,6 +437,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         world: &World,
         other: &QueryState<OtherD, OtherF>,
     ) -> QueryState<NewD, NewF> {
+        if self.world_id != other.world_id {
+            panic!("Joining queries initialized on different worlds is not allowed.");
+        }
+
         let mut component_access = FilteredAccess::default();
         let mut new_fetch_state = NewD::get_state(world)
             .expect("Could not create fetch_state, Please initialize all referenced components before transmuting.");
