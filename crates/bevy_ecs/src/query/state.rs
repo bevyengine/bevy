@@ -1783,7 +1783,7 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "Transmuted state for (&bevy_ecs::query::state::tests::C, ()) attempts to access terms that are not allowed by original state (&bevy_ecs::query::state::tests::A, ())."
+        expected = "Joined state for (&bevy_ecs::query::state::tests::C, ()) attempts to access terms that are not allowed by state (&bevy_ecs::query::state::tests::A, ()) joined with (&bevy_ecs::query::state::tests::B, ())."
     )]
     fn cannot_join_wrong_fetch() {
         let mut world = World::new();
@@ -1795,7 +1795,7 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "Transmuted state for (bevy_ecs::entity::Entity, bevy_ecs::query::filter::Changed<bevy_ecs::query::state::tests::C>) attempts to access terms that are not allowed by original state (&bevy_ecs::query::state::tests::A, bevy_ecs::query::filter::Without<bevy_ecs::query::state::tests::C>)."
+        expected = "Joined state for (bevy_ecs::entity::Entity, bevy_ecs::query::filter::Changed<bevy_ecs::query::state::tests::C>) attempts to access terms that are not allowed by state (&bevy_ecs::query::state::tests::A, bevy_ecs::query::filter::Without<bevy_ecs::query::state::tests::C>) joined with (&bevy_ecs::query::state::tests::B, bevy_ecs::query::filter::Without<bevy_ecs::query::state::tests::C>)."
     )]
     fn cannot_join_wrong_filter() {
         let mut world = World::new();
