@@ -173,14 +173,10 @@ impl<'a> TextureAtlasBuilder<'a> {
     ///     let texture = textures.add(texture);
     ///     let layout = layouts.add(atlas_layout);
     ///     // Spawn your sprite
-    ///     commands.spawn(SpriteSheetBundle {
-    ///        texture,
-    ///        atlas: TextureAtlas {
-    ///             layout,
-    ///             index: 0
-    ///         },
-    ///       ..Default::default()
-    ///     });
+    ///     commands.spawn((
+    ///         SpriteBundle { texture, ..Default::default() },
+    ///         TextureAtlas::from(layout),
+    ///     ));
     /// }
     /// ```
     ///
