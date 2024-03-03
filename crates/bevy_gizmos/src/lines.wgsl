@@ -33,13 +33,13 @@ const EPSILON: f32 = 4.88e-04;
 
 @vertex
 fn vertex(vertex: VertexInput) -> VertexOutput {
-    var positions = array<vec3<f32>, 6>(
-        vec3(0., -0.5, 0.),
-        vec3(0., -0.5, 1.),
-        vec3(0., 0.5, 1.),
-        vec3(0., -0.5, 0.),
-        vec3(0., 0.5, 1.),
-        vec3(0., 0.5, 0.)
+    var positions = array<vec2<f32>, 6>(
+        vec2(-0.5, 0.),
+        vec2(-0.5, 1.),
+        vec2(0.5, 1.),
+        vec2(-0.5, 0.),
+        vec2(0.5, 1.),
+        vec2(0.5, 0.)
     );
     let position = positions[vertex.index];
 
@@ -51,16 +51,16 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
     clip_a = clip_near_plane(clip_a, clip_b);
     clip_b = clip_near_plane(clip_b, clip_a);
     
-    let clip = mix(clip_a, clip_b, position.z);
+    let clip = mix(clip_a, clip_b, position.y);
 
     let resolution = view.viewport.zw;
     let screen_a = resolution * (0.5 * clip_a.xy / clip_a.w + 0.5);
     let screen_b = resolution * (0.5 * clip_b.xy / clip_b.w + 0.5);
 
-    let x_basis = normalize(screen_a - screen_b);
-    let y_basis = vec2(-x_basis.y, x_basis.x);
+    let y_basis = normalize(screen_b - screen_a);
+    let x_basis = vec2(-y_basis.y, y_basis.x);
 
-    var color = mix(vertex.color_a, vertex.color_b, position.z);
+    var color = mix(vertex.color_a, vertex.color_b, position.y);
 
     var line_width = line_gizmo.line_width;
     var alpha = 1.;
@@ -82,7 +82,7 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
     // Offset to compensate for moved clip positions. If removed dots on lines will slide when position a is ofscreen.
     let clipped_offset = length(position_a.xyz - vertex.position_a);
 
-    uv = (clipped_offset + position.z * world_distance) * resolution.y / near_clipping_plane_height / line_gizmo.line_width;
+    uv = (clipped_offset + position.y * world_distance) * resolution.y / near_clipping_plane_height / line_gizmo.line_width;
 #else
     // Get the distance of b to the camera along camera axes
     let camera_b = view.inverse_projection * clip_b;
@@ -96,7 +96,7 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
     else {
         depth_adaptment = -camera_b.z;
     }
-    uv = position.z * depth_adaptment * length(screen_b - screen_a) / line_gizmo.line_width;
+    uv = position.y * depth_adaptment * length(screen_b - screen_a) / line_gizmo.line_width;
 #endif
 
 
@@ -106,8 +106,8 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
         line_width = 1.;
     }
 
-    let offset = line_width * (position.x * x_basis + position.y * y_basis);
-    let screen = mix(screen_a, screen_b, position.z) + offset;
+    let x_offset = line_width * position.x * x_basis;
+    let screen = mix(screen_a, screen_b, position.x) + x_offset;
 
     var depth: f32;
     if line_gizmo.depth_bias >= 0. {
