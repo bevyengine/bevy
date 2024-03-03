@@ -148,7 +148,7 @@ impl TypeRegistry {
     where
         T: GetTypeRegistration,
     {
-        if self.add_registration(T::get_type_registration()) {
+        if self.register_internal(TypeId::of::<T>(), T::get_type_registration) {
             T::register_type_dependencies(self);
         }
     }
@@ -165,19 +165,8 @@ impl TypeRegistry {
     ///
     /// Returns `true` if the registration was added and `false` if it already exists.
     pub fn add_registration(&mut self, registration: TypeRegistration) -> bool {
-        match self.registrations.entry(registration.type_id()) {
-            bevy_utils::hashbrown::hash_map::Entry::Occupied(_) => false,
-            bevy_utils::hashbrown::hash_map::Entry::Vacant(entry) => {
-                Self::update_registration_indices(
-                    &mut self.short_path_to_id,
-                    &mut self.type_path_to_id,
-                    &mut self.ambiguous_names,
-                    &registration,
-                );
-                entry.insert(registration);
-                true
-            }
-        }
+        let type_id = registration.type_id();
+        self.register_internal(type_id, || registration)
     }
 
     /// Registers the type described by `registration`.
@@ -191,20 +180,49 @@ impl TypeRegistry {
     /// Use [`register`](Self::register) to register a type with its dependencies.
     pub fn overwrite_registration(&mut self, registration: TypeRegistration) {
         Self::update_registration_indices(
+            &registration,
             &mut self.short_path_to_id,
             &mut self.type_path_to_id,
             &mut self.ambiguous_names,
-            &registration,
         );
         self.registrations
             .insert(registration.type_id(), registration);
     }
 
+    /// Internal method to register a type with a given [`TypeId`] and [`TypeRegistration`].
+    ///
+    /// By using this method, we are able to reduce the number of `TypeId` hashes and lookups needed
+    /// to register a type.
+    ///
+    /// This method is internal to prevent users from accidentally registering a type with a `TypeId`
+    /// that does not match the type in the `TypeRegistration`.
+    fn register_internal(
+        &mut self,
+        type_id: TypeId,
+        get_registration: impl FnOnce() -> TypeRegistration,
+    ) -> bool {
+        match self.registrations.entry(type_id) {
+            bevy_utils::hashbrown::hash_map::Entry::Occupied(_) => false,
+            bevy_utils::hashbrown::hash_map::Entry::Vacant(entry) => {
+                let registration = get_registration();
+                Self::update_registration_indices(
+                    &registration,
+                    &mut self.short_path_to_id,
+                    &mut self.type_path_to_id,
+                    &mut self.ambiguous_names,
+                );
+                entry.insert(registration);
+                true
+            }
+        }
+    }
+
+    /// Internal method to register additional lookups for a given [`TypeRegistration`].
     fn update_registration_indices(
+        registration: &TypeRegistration,
         short_path_to_id: &mut HashMap<&'static str, TypeId>,
         type_path_to_id: &mut HashMap<&'static str, TypeId>,
         ambiguous_names: &mut HashSet<&'static str>,
-        registration: &TypeRegistration,
     ) {
         let short_name = registration.type_info().type_path_table().short_path();
         if short_path_to_id.contains_key(short_name) || ambiguous_names.contains(short_name) {
