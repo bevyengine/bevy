@@ -262,7 +262,7 @@ pub enum LayoutError {
 }
 
 #[derive(SystemParam)]
-pub struct UILayoutSystemRemovedComponentParam<'w, 's> {
+pub struct UiLayoutSystemRemovedComponentParam<'w, 's> {
     removed_cameras: RemovedComponents<'w, 's, Camera>,
     removed_children: RemovedComponents<'w, 's, Children>,
     removed_content_sizes: RemovedComponents<'w, 's, ContentSize>,
@@ -284,7 +284,7 @@ pub fn ui_layout_system(
     mut measure_query: Query<(Entity, &mut ContentSize)>,
     children_query: Query<(Entity, Ref<Children>), With<Node>>,
     just_children_query: Query<&Children>,
-    mut removed_components: UILayoutSystemRemovedComponentParam,
+    mut removed_components: UiLayoutSystemRemovedComponentParam,
     mut node_transform_query: Query<(&mut Node, &mut Transform)>,
 ) {
     struct CameraLayoutInfo {
