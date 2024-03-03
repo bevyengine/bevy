@@ -147,7 +147,7 @@ fn setup(
                         ..default()
                     },
                     border_color: Color::WHITE.into(),
-                    background_color: DARK_GRAY.into(),
+                    image: UiImage::default().with_color(DARK_GRAY.into()),
                     ..default()
                 },
             ))

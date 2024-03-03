@@ -93,10 +93,6 @@ pub struct ImageBundle {
     pub style: Style,
     /// The calculated size based on the given image
     pub calculated_size: ContentSize,
-    /// The background color, which serves as a "fill" for this node
-    ///
-    /// Combines with `UiImage` to tint the provided image.
-    pub background_color: BackgroundColor,
     /// The image of the node
     pub image: UiImage,
     /// The size of the image in pixels
@@ -140,10 +136,6 @@ pub struct AtlasImageBundle {
     pub style: Style,
     /// The calculated size based on the given image
     pub calculated_size: ContentSize,
-    /// The background color, which serves as a "fill" for this node
-    ///
-    /// Combines with `UiImage` to tint the provided image.
-    pub background_color: BackgroundColor,
     /// The image of the node
     pub image: UiImage,
     /// A handle to the texture atlas to use for this Ui Node
@@ -319,10 +311,6 @@ pub struct ButtonBundle {
     pub interaction: Interaction,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
-    /// The background color, which serves as a "fill" for this node
-    ///
-    /// When combined with `UiImage`, tints the provided image.
-    pub background_color: BackgroundColor,
     /// The color of the Node's border
     pub border_color: BorderColor,
     /// The image of the node
@@ -349,13 +337,12 @@ pub struct ButtonBundle {
 impl Default for ButtonBundle {
     fn default() -> Self {
         Self {
-            focus_policy: FocusPolicy::Block,
             node: Default::default(),
             button: Default::default(),
             style: Default::default(),
-            border_color: BorderColor(Color::NONE),
             interaction: Default::default(),
-            background_color: Default::default(),
+            focus_policy: FocusPolicy::Block,
+            border_color: BorderColor(Color::NONE),
             image: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
