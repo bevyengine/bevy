@@ -637,9 +637,8 @@ impl<'w> BundleInserter<'w> {
         location: EntityLocation,
         bundle: T,
     ) -> EntityLocation {
-        /// # Safety
-        /// Must
-        unsafe fn trigger_hooks(
+        #[inline]
+        fn trigger_hooks(
             entity: Entity,
             bundle_info: &BundleInfo,
             add_bundle: &AddBundle,
@@ -647,16 +646,22 @@ impl<'w> BundleInserter<'w> {
             mut world: DeferredWorld,
         ) {
             if archetype.has_on_add() {
-                world.trigger_on_add(
-                    entity,
-                    bundle_info
-                        .iter_components()
-                        .zip(add_bundle.bundle_status.iter())
-                        .filter(|(_, &status)| status == ComponentStatus::Added)
-                        .map(|(id, _)| id),
-                );
+                // SAFETY: All components in the bundle are guarenteed to exist in the World
+                // as they must be initialized before creating the BundleInfo.
+                unsafe {
+                    world.trigger_on_add(
+                        entity,
+                        bundle_info
+                            .iter_components()
+                            .zip(add_bundle.bundle_status.iter())
+                            .filter(|(_, &status)| status == ComponentStatus::Added)
+                            .map(|(id, _)| id),
+                    );
+                }
             }
             if archetype.has_on_insert() {
+                // SAFETY: All components in the bundle are guarenteed to exist in the World
+                // as they must be initialized before creating the BundleInfo.
                 unsafe { world.trigger_on_insert(entity, bundle_info.iter_components()) }
             }
         }
@@ -686,15 +691,8 @@ impl<'w> BundleInserter<'w> {
                     );
                 }
                 // SAFETY: We have no outstanding mutable references to world as they were dropped
-                unsafe {
-                    trigger_hooks(
-                        entity,
-                        bundle_info,
-                        add_bundle,
-                        archetype,
-                        self.world.into_deferred(),
-                    );
-                }
+                let deferred_world = unsafe { self.world.into_deferred() };
+                trigger_hooks(entity, bundle_info, add_bundle, archetype, deferred_world);
                 location
             }
             InsertBundleResult::NewArchetypeSameTable { new_archetype } => {
@@ -737,15 +735,8 @@ impl<'w> BundleInserter<'w> {
                 };
 
                 // SAFETY: We have no outstanding mutable references to world as they were dropped
-                unsafe {
-                    trigger_hooks(
-                        entity,
-                        bundle_info,
-                        add_bundle,
-                        archetype,
-                        self.world.into_deferred(),
-                    );
-                }
+                let deferred_world = unsafe { self.world.into_deferred() };
+                trigger_hooks(entity, bundle_info, add_bundle, archetype, deferred_world);
 
                 new_location
             }
@@ -839,15 +830,8 @@ impl<'w> BundleInserter<'w> {
                 };
 
                 // SAFETY: We have no outstanding mutable references to world as they were dropped
-                unsafe {
-                    trigger_hooks(
-                        entity,
-                        bundle_info,
-                        add_bundle,
-                        archetype,
-                        self.world.into_deferred(),
-                    );
-                }
+                let deferred_world = unsafe { self.world.into_deferred() };
+                trigger_hooks(entity, bundle_info, add_bundle, archetype, deferred_world);
 
                 new_location
             }

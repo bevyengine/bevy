@@ -33,8 +33,45 @@ mod sealed {
 pub struct ConstNonNull<T: ?Sized>(NonNull<T>);
 
 impl<T: ?Sized> ConstNonNull<T> {
+    /// Returns a shared reference to the value.
+    ///
+    /// # Safety
+    ///
+    /// When calling this method, you have to ensure that all of the following is true:
+    ///
+    /// * The pointer must be properly aligned.
+    ///
+    /// * It must be "dereferenceable" in the sense defined in [the module documentation].
+    ///
+    /// * The pointer must point to an initialized instance of `T`.
+    ///
+    /// * You must enforce Rust's aliasing rules, since the returned lifetime `'a` is
+    ///   arbitrarily chosen and does not necessarily reflect the actual lifetime of the data.
+    ///   In particular, while this reference exists, the memory the pointer points to must
+    ///   not get mutated (except inside `UnsafeCell`).
+    ///
+    /// This applies even if the result of this method is unused!
+    /// (The part about being initialized is not yet fully decided, but until
+    /// it is, the only safe approach is to ensure that they are indeed initialized.)
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::ptr::NonNull;
+    ///
+    /// let mut x = 0u32;
+    /// let ptr = NonNull::new(&mut x as *mut _).expect("ptr is null!");
+    ///
+    /// let ref_x = unsafe { ptr.as_ref() };
+    /// println!("{ref_x}");
+    /// ```
+    ///
+    /// [the module documentation]: core::ptr#safety
+    #[inline]
     pub unsafe fn as_ref<'a>(&self) -> &'a T {
-        self.0.as_ref()
+        // SAFETY: This function's safety invariants are identical to `NonNull::as_ref`
+        // The caller must satsify all of them.
+        unsafe { self.0.as_ref() }
     }
 }
 
