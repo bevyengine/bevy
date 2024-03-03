@@ -32,6 +32,7 @@ pub mod circles;
 pub mod config;
 pub mod gizmos;
 pub mod grid;
+pub mod light;
 pub mod primitives;
 
 #[cfg(feature = "bevy_sprite")]
@@ -46,6 +47,7 @@ pub mod prelude {
         aabb::{AabbGizmoConfigGroup, ShowAabbGizmo},
         config::{DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore},
         gizmos::Gizmos,
+        light::{LightGizmoColor, LightGizmoConfigGroup, ShowLightGizmo},
         primitives::{dim2::GizmoPrimitive2d, dim3::GizmoPrimitive3d},
         AppGizmoBuilder,
     };
@@ -85,6 +87,7 @@ use config::{
     DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore, GizmoMeshConfig,
 };
 use gizmos::GizmoStorage;
+use light::LightGizmoPlugin;
 use std::{any::TypeId, mem};
 
 const LINE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(7414812689238026784);
@@ -110,7 +113,8 @@ impl Plugin for GizmoPlugin {
             .init_resource::<LineGizmoHandles>()
             // We insert the Resource GizmoConfigStore into the world implicitly here if it does not exist.
             .init_gizmo_group::<DefaultGizmoConfigGroup>()
-            .add_plugins(AabbGizmoPlugin);
+            .add_plugins(AabbGizmoPlugin)
+            .add_plugins(LightGizmoPlugin);
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
