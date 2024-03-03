@@ -107,7 +107,7 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
     }
 
     let x_offset = line_width * position.x * x_basis;
-    let screen = mix(screen_a, screen_b, position.x) + x_offset;
+    let screen = mix(screen_a, screen_b, position.y) + x_offset;
 
     var depth: f32;
     if line_gizmo.depth_bias >= 0. {
