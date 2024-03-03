@@ -70,7 +70,7 @@ impl<T: ?Sized> ConstNonNull<T> {
     #[inline]
     pub unsafe fn as_ref<'a>(&self) -> &'a T {
         // SAFETY: This function's safety invariants are identical to `NonNull::as_ref`
-        // The caller must satsify all of them.
+        // The caller must satisfy all of them.
         unsafe { self.0.as_ref() }
     }
 }
