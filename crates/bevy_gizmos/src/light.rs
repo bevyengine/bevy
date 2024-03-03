@@ -205,7 +205,7 @@ pub struct ShowLightGizmo {
     /// Default color strategy for this light gizmo. if [`None`], use the one provided by [`LightGizmoConfigGroup`].
     ///
     /// Defaults to [`None`].
-    color: Option<LightGizmoColor>,
+    pub color: Option<LightGizmoColor>,
 }
 
 fn draw_lights(
