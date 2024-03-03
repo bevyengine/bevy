@@ -12,9 +12,13 @@ mod texture_atlas_builder;
 mod texture_slice;
 
 pub mod prelude {
+    #[allow(deprecated)]
+    #[doc(hidden)]
+    pub use crate::bundle::SpriteSheetBundle;
+
     #[doc(hidden)]
     pub use crate::{
-        bundle::{SpriteBundle, SpriteSheetBundle},
+        bundle::SpriteBundle,
         sprite::{ImageScaleMode, Sprite},
         texture_atlas::{TextureAtlas, TextureAtlasLayout},
         texture_slice::{BorderRect, SliceScaleMode, TextureSlice, TextureSlicer},

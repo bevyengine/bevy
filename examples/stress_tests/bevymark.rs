@@ -368,11 +368,7 @@ fn spawn_birds(
     let bird_x = (primary_window_resolution.width() / -2.) + HALF_BIRD_SIZE;
     let bird_y = (primary_window_resolution.height() / 2.) - HALF_BIRD_SIZE;
 
-    let half_extents = 0.5
-        * Vec2::new(
-            primary_window_resolution.width(),
-            primary_window_resolution.height(),
-        );
+    let half_extents = 0.5 * primary_window_resolution.size();
 
     let color = counter.color;
     let current_count = counter.count;
@@ -509,7 +505,7 @@ fn handle_collision(half_extents: Vec2, translation: &Vec3, velocity: &mut Vec3)
 fn collision_system(windows: Query<&Window>, mut bird_query: Query<(&mut Bird, &Transform)>) {
     let window = windows.single();
 
-    let half_extents = 0.5 * Vec2::new(window.width(), window.height());
+    let half_extents = 0.5 * window.size();
 
     for (mut bird, transform) in &mut bird_query {
         handle_collision(half_extents, &transform.translation, &mut bird.velocity);

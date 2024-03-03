@@ -5,7 +5,7 @@ use crate::{
     UntypedAssetId, UntypedHandle,
 };
 use bevy_ecs::world::World;
-use bevy_log::warn;
+use bevy_utils::tracing::warn;
 use bevy_utils::{Entry, HashMap, HashSet, TypeIdMap};
 use crossbeam_channel::Sender;
 use std::{

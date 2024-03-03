@@ -1,7 +1,7 @@
 use bevy_asset::{Asset, Handle};
 use bevy_reflect::{impl_type_path, Reflect};
 use bevy_render::{
-    mesh::MeshVertexBufferLayout,
+    mesh::MeshVertexBufferLayoutRef,
     render_asset::RenderAssets,
     render_resource::{
         AsBindGroup, AsBindGroupError, BindGroupLayout, RenderPipelineDescriptor, Shader,
@@ -68,14 +68,14 @@ pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
     }
 
     /// Customizes the default [`RenderPipelineDescriptor`] for a specific entity using the entity's
-    /// [`MaterialPipelineKey`] and [`MeshVertexBufferLayout`] as input.
+    /// [`MaterialPipelineKey`] and [`MeshVertexBufferLayoutRef`] as input.
     /// Specialization for the base material is applied before this function is called.
     #[allow(unused_variables)]
     #[inline]
     fn specialize(
         pipeline: &MaterialExtensionPipeline,
         descriptor: &mut RenderPipelineDescriptor,
-        layout: &MeshVertexBufferLayout,
+        layout: &MeshVertexBufferLayoutRef,
         key: MaterialExtensionKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         Ok(())
@@ -214,7 +214,7 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
     fn specialize(
         pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
-        layout: &MeshVertexBufferLayout,
+        layout: &MeshVertexBufferLayoutRef,
         key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         // Call the base material's specialize function

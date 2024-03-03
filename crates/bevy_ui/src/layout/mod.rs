@@ -13,10 +13,10 @@ use bevy_ecs::{
     world::Ref,
 };
 use bevy_hierarchy::{Children, Parent};
-use bevy_log::warn;
 use bevy_math::{UVec2, Vec2};
 use bevy_render::camera::{Camera, NormalizedRenderTarget};
 use bevy_transform::components::Transform;
+use bevy_utils::tracing::warn;
 use bevy_utils::{default, HashMap, HashSet};
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 use std::fmt;
@@ -460,7 +460,7 @@ pub fn resolve_outlines_system(
 ) {
     let viewport_size = primary_window
         .get_single()
-        .map(|window| Vec2::new(window.resolution.width(), window.resolution.height()))
+        .map(|window| window.size())
         .unwrap_or(Vec2::ZERO)
         / ui_scale.0;
 
