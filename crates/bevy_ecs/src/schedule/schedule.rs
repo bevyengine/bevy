@@ -8,12 +8,11 @@ use bevy_utils::tracing::info_span;
 use bevy_utils::{default, tracing::info};
 use bevy_utils::{
     petgraph::{algo::TarjanScc, prelude::*},
-    thiserror::Error,
     tracing::{error, warn},
     HashMap, HashSet,
 };
-
 use fixedbitset::FixedBitSet;
+use thiserror::Error;
 
 use crate::{
     self as bevy_ecs,
