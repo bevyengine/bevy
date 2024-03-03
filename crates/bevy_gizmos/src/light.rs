@@ -7,7 +7,7 @@ use crate::{self as bevy_gizmos, primitives::dim3::GizmoPrimitive3d};
 use bevy_app::{Plugin, PostUpdate};
 use bevy_color::{
     palettes::basic::{BLUE, GREEN, RED},
-    Color, LinearRgba, Oklcha,
+    Color, Oklcha,
 };
 use bevy_ecs::{
     component::Component,
