@@ -304,7 +304,7 @@ impl std::ops::Mul<Dir3> for Quat {
         assert_is_normalized(
             "`Dir3` is denormalized after rotation.",
             rotated.length_squared(),
-                );
+        );
 
         Dir3(rotated)
     }
@@ -457,7 +457,7 @@ impl std::ops::Mul<Dir3A> for Quat {
         assert_is_normalized(
             "`Dir3A` is denormalized after rotation.",
             rotated.length_squared(),
-                );
+        );
 
         Dir3A(rotated)
     }
