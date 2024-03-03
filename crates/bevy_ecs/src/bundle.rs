@@ -646,7 +646,7 @@ impl<'w> BundleInserter<'w> {
             mut world: DeferredWorld,
         ) {
             if archetype.has_on_add() {
-                // SAFETY: All components in the bundle are guarenteed to exist in the World
+                // SAFETY: All components in the bundle are guaranteed to exist in the World
                 // as they must be initialized before creating the BundleInfo.
                 unsafe {
                     world.trigger_on_add(
@@ -660,7 +660,7 @@ impl<'w> BundleInserter<'w> {
                 }
             }
             if archetype.has_on_insert() {
-                // SAFETY: All components in the bundle are guarenteed to exist in the World
+                // SAFETY: All components in the bundle are guaranteed to exist in the World
                 // as they must be initialized before creating the BundleInfo.
                 unsafe { world.trigger_on_insert(entity, bundle_info.iter_components()) }
             }
@@ -736,7 +736,7 @@ impl<'w> BundleInserter<'w> {
 
                 // SAFETY: We have no outstanding mutable references to world as they were dropped
                 let deferred_world = unsafe { self.world.into_deferred() };
-                trigger_hooks(entity, bundle_info, add_bundle, archetype, deferred_world);
+                trigger_hooks(entity, bundle_info, add_bundle, new_archetype, deferred_world);
 
                 new_location
             }
@@ -745,6 +745,7 @@ impl<'w> BundleInserter<'w> {
                 new_table,
             } => {
                 let new_table = new_table.as_mut();
+                let new_archetype = new_archetype.as_mut();
 
                 let new_location = {
                     // SAFETY: Mutable references do not alias and will be dropped after this block
@@ -758,7 +759,6 @@ impl<'w> BundleInserter<'w> {
                             &mut world.entities,
                         )
                     };
-                    let new_archetype = new_archetype.as_mut();
                     let result = archetype.swap_remove(location.archetype_row);
                     if let Some(swapped_entity) = result.swapped_entity {
                         let swapped_location =
@@ -831,7 +831,7 @@ impl<'w> BundleInserter<'w> {
 
                 // SAFETY: We have no outstanding mutable references to world as they were dropped
                 let deferred_world = unsafe { self.world.into_deferred() };
-                trigger_hooks(entity, bundle_info, add_bundle, archetype, deferred_world);
+                trigger_hooks(entity, bundle_info, add_bundle, new_archetype, deferred_world);
 
                 new_location
             }
