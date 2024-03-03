@@ -3,6 +3,10 @@ use crate::{
     Quat, Vec2, Vec3, Vec3A,
 };
 
+// Thresholds for the largest accepted squared length error for direction types.
+const LENGTH_WARN_THRESHOLD_SQUARED: f32 = 2e-4; // Length error ~1e-4
+const LENGTH_ERROR_THRESHOLD_SQUARED: f32 = 2e-2; // Length error ~1e-2
+
 /// An error indicating that a direction is invalid.
 #[derive(Debug, PartialEq)]
 pub enum InvalidDirectionError {
@@ -268,9 +272,26 @@ impl std::ops::Mul<Dir3> for Quat {
     fn mul(self, direction: Dir3) -> Self::Output {
         let rotated = self * *direction;
 
-        // Make sure the result is normalized.
-        // This can fail for non-unit quaternions.
-        debug_assert!(rotated.is_normalized());
+        #[cfg(debug_assertions)]
+        {
+            // Make sure the result is normalized.
+            // This can fail for non-unit quaternions.
+            let length_squared = rotated.length_squared();
+            let length_error_squared = (length_squared - 1.0).abs();
+
+            // Warn for slight error, and panic for clear error.
+            if length_error_squared <= LENGTH_WARN_THRESHOLD_SQUARED {
+                eprintln!(
+                    "Dir3 is slightly denormalized after rotation, length {}",
+                    length_squared.sqrt()
+                );
+            } else if length_error_squared <= LENGTH_ERROR_THRESHOLD_SQUARED {
+                panic!(
+                    "Dir3 is denormalized after rotation, length {}",
+                    length_squared.sqrt()
+                );
+            }
+        }
 
         Dir3::new_unchecked(rotated)
     }
@@ -415,9 +436,26 @@ impl std::ops::Mul<Dir3A> for Quat {
     fn mul(self, direction: Dir3A) -> Self::Output {
         let rotated = self * *direction;
 
-        // Make sure the result is normalized.
-        // This can fail for non-unit quaternions.
-        debug_assert!(rotated.is_normalized());
+        #[cfg(debug_assertions)]
+        {
+            // Make sure the result is normalized.
+            // This can fail for non-unit quaternions.
+            let length_squared = rotated.length_squared();
+            let length_error_squared = (length_squared - 1.0).abs();
+
+            // Warn for slight error, and panic for clear error.
+            if length_error_squared <= LENGTH_WARN_THRESHOLD_SQUARED {
+                eprintln!(
+                    "Dir3A is slightly denormalized after rotation, length {}",
+                    length_squared.sqrt()
+                );
+            } else if length_error_squared <= LENGTH_ERROR_THRESHOLD_SQUARED {
+                panic!(
+                    "Dir3A is denormalized after rotation, length {}",
+                    length_squared.sqrt()
+                );
+            }
+        }
 
         Dir3A::new_unchecked(rotated)
     }
