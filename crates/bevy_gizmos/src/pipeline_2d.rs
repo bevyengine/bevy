@@ -1,5 +1,7 @@
 use crate::{
-    config::GizmoMeshConfig, line_gizmo_vertex_buffer_layouts, prelude::GizmoLineStyle, DrawLineGizmo, GizmoRenderSystem, LineGizmo, LineGizmoUniformBindgroupLayout, SetLineGizmoBindGroup, LINE_SHADER_HANDLE
+    config::GizmoMeshConfig, line_gizmo_vertex_buffer_layouts, prelude::GizmoLineStyle,
+    DrawLineGizmo, GizmoRenderSystem, LineGizmo, LineGizmoUniformBindgroupLayout,
+    SetLineGizmoBindGroup, LINE_SHADER_HANDLE,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::Handle;
