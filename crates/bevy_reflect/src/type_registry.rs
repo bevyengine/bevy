@@ -148,12 +148,9 @@ impl TypeRegistry {
     where
         T: GetTypeRegistration,
     {
-        if self.contains(TypeId::of::<T>()) {
-            return;
+        if self.add_registration(T::get_type_registration()) {
+            T::register_type_dependencies(self);
         }
-
-        self.overwrite_registration(T::get_type_registration());
-        T::register_type_dependencies(self);
     }
 
     /// Attempts to register the type described by `registration`.
@@ -166,17 +163,20 @@ impl TypeRegistry {
     /// This method will _not_ register type dependencies.
     /// Use [`register`](Self::register) to register a type with its dependencies.
     ///
-    /// Returns `None` if the registration was successfully added,
-    /// or `Some(existing)` if it already exists.
-    pub fn add_registration(
-        &mut self,
-        registration: TypeRegistration,
-    ) -> Option<&TypeRegistration> {
-        if self.contains(registration.type_id()) {
-            self.get(registration.type_id())
-        } else {
-            self.overwrite_registration(registration);
-            None
+    /// Returns `true` if the registration was added and `false` if it already exists.
+    pub fn add_registration(&mut self, registration: TypeRegistration) -> bool {
+        match self.registrations.entry(registration.type_id()) {
+            bevy_utils::hashbrown::hash_map::Entry::Occupied(_) => false,
+            bevy_utils::hashbrown::hash_map::Entry::Vacant(entry) => {
+                Self::update_registration_indices(
+                    &mut self.short_path_to_id,
+                    &mut self.type_path_to_id,
+                    &mut self.ambiguous_names,
+                    &registration,
+                );
+                entry.insert(registration);
+                true
+            }
         }
     }
 
@@ -190,21 +190,31 @@ impl TypeRegistry {
     /// This method will _not_ register type dependencies.
     /// Use [`register`](Self::register) to register a type with its dependencies.
     pub fn overwrite_registration(&mut self, registration: TypeRegistration) {
-        let short_name = registration.type_info().type_path_table().short_path();
-        if self.short_path_to_id.contains_key(short_name)
-            || self.ambiguous_names.contains(short_name)
-        {
-            // name is ambiguous. fall back to long names for all ambiguous types
-            self.short_path_to_id.remove(short_name);
-            self.ambiguous_names.insert(short_name);
-        } else {
-            self.short_path_to_id
-                .insert(short_name, registration.type_id());
-        }
-        self.type_path_to_id
-            .insert(registration.type_info().type_path(), registration.type_id());
+        Self::update_registration_indices(
+            &mut self.short_path_to_id,
+            &mut self.type_path_to_id,
+            &mut self.ambiguous_names,
+            &registration,
+        );
         self.registrations
             .insert(registration.type_id(), registration);
+    }
+
+    fn update_registration_indices(
+        short_path_to_id: &mut HashMap<&'static str, TypeId>,
+        type_path_to_id: &mut HashMap<&'static str, TypeId>,
+        ambiguous_names: &mut HashSet<&'static str>,
+        registration: &TypeRegistration,
+    ) {
+        let short_name = registration.type_info().type_path_table().short_path();
+        if short_path_to_id.contains_key(short_name) || ambiguous_names.contains(short_name) {
+            // name is ambiguous. fall back to long names for all ambiguous types
+            short_path_to_id.remove(short_name);
+            ambiguous_names.insert(short_name);
+        } else {
+            short_path_to_id.insert(short_name, registration.type_id());
+        }
+        type_path_to_id.insert(registration.type_info().type_path(), registration.type_id());
     }
 
     /// Registers the type data `D` for type `T`.
