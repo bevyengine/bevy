@@ -279,21 +279,23 @@ impl std::ops::Mul<Dir3> for Quat {
             let length_squared = rotated.length_squared();
             let length_error_squared = (length_squared - 1.0).abs();
 
-            // Warn for slight error, and panic for clear error.
-            if length_error_squared <= LENGTH_WARN_THRESHOLD_SQUARED {
-                eprintln!(
-                    "Dir3 is slightly denormalized after rotation, length {}",
+            // Panic for large error and warn for slight error.
+            if length_error_squared > LENGTH_ERROR_THRESHOLD_SQUARED
+                || length_error_squared.is_nan()
+            {
+                panic!(
+                    "Error: Dir3 is denormalized after rotation, length {}.",
                     length_squared.sqrt()
                 );
-            } else if length_error_squared <= LENGTH_ERROR_THRESHOLD_SQUARED {
-                panic!(
-                    "Dir3 is denormalized after rotation, length {}",
+            } else if length_error_squared > LENGTH_WARN_THRESHOLD_SQUARED {
+                eprintln!(
+                    "Warning: Dir3 is slightly denormalized after rotation, length {}.",
                     length_squared.sqrt()
                 );
             }
         }
 
-        Dir3::new_unchecked(rotated)
+        Dir3(rotated)
     }
 }
 
@@ -443,21 +445,23 @@ impl std::ops::Mul<Dir3A> for Quat {
             let length_squared = rotated.length_squared();
             let length_error_squared = (length_squared - 1.0).abs();
 
-            // Warn for slight error, and panic for clear error.
-            if length_error_squared <= LENGTH_WARN_THRESHOLD_SQUARED {
-                eprintln!(
-                    "Dir3A is slightly denormalized after rotation, length {}",
+            // Panic for large error and warn for slight error.
+            if length_error_squared > LENGTH_ERROR_THRESHOLD_SQUARED
+                || length_error_squared.is_nan()
+            {
+                panic!(
+                    "Error: Dir3A is denormalized after rotation, length {}.",
                     length_squared.sqrt()
                 );
-            } else if length_error_squared <= LENGTH_ERROR_THRESHOLD_SQUARED {
-                panic!(
-                    "Dir3A is denormalized after rotation, length {}",
+            } else if length_error_squared > LENGTH_WARN_THRESHOLD_SQUARED {
+                eprintln!(
+                    "Warning: Dir3A is slightly denormalized after rotation, length {}.",
                     length_squared.sqrt()
                 );
             }
         }
 
-        Dir3A::new_unchecked(rotated)
+        Dir3A(rotated)
     }
 }
 
