@@ -158,7 +158,7 @@ fn make_executor(kind: ExecutorKind) -> Box<dyn SystemExecutor> {
 }
 
 /// Chain systems into dependencies
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone, Copy)]
 pub enum Chain {
     /// Run nodes in order. If there are deferred parameters in preceding systems a
     /// [`apply_deferred`] will be added on the edge.
@@ -246,7 +246,7 @@ impl Schedule {
 
     /// Add a collection of systems to the schedule.
     pub fn add_systems<M>(&mut self, systems: impl IntoSystemConfigs<M>) -> &mut Self {
-        self.graph.process_configs(systems.into_configs(), false);
+        self.graph.process_configs(systems.into_configs());
         self
     }
 
@@ -663,32 +663,24 @@ impl ScheduleGraph {
     }
 
     /// Adds the config nodes to the graph.
+    /// The `NodeId`s of the processed config nodes are stored in the returned [`ProcessConfigsResult`].
     ///
-    /// `collect_nodes` controls whether the `NodeId`s of the processed config nodes are stored in the returned [`ProcessConfigsResult`].
-    /// `process_config` is the function which processes each individual config node and returns a corresponding `NodeId`.
+    /// `process_config` is the function which processes each config node and returns a corresponding `NodeId`.
     ///
     /// The fields on the returned [`ProcessConfigsResult`] are:
     /// - `nodes`: a vector of all node ids contained in the nested `NodeConfigs`
     /// - `densely_chained`: a boolean that is true if all nested nodes are linearly chained (with successive `after` orderings) in the order they are defined
     #[track_caller]
-    fn process_configs<T: ProcessNodeConfig>(
+    fn process_configs_and_collect_nodes<T: ProcessNodeConfig>(
         &mut self,
         configs: NodeConfigs<T>,
-        collect_nodes: bool,
     ) -> ProcessConfigsResult {
         match configs {
             NodeConfigs::NodeConfig(config) => {
                 let node_id = T::process_config(self, config);
-                if collect_nodes {
-                    ProcessConfigsResult {
-                        densely_chained: true,
-                        nodes: vec![node_id],
-                    }
-                } else {
-                    ProcessConfigsResult {
-                        densely_chained: true,
-                        nodes: Vec::new(),
-                    }
+                ProcessConfigsResult {
+                    densely_chained: true,
+                    nodes: vec![node_id],
                 }
             }
             NodeConfigs::Configs {
@@ -697,21 +689,7 @@ impl ScheduleGraph {
                 chained,
             } => {
                 let more_than_one_entry = configs.len() > 1;
-                if !collective_conditions.is_empty() {
-                    if more_than_one_entry {
-                        let set = self.create_anonymous_set();
-                        for config in &mut configs {
-                            config.in_set_inner(set.intern());
-                        }
-                        let mut set_config = SystemSetConfig::new(set.intern());
-                        set_config.conditions.extend(collective_conditions);
-                        self.configure_set_inner(set_config).unwrap();
-                    } else {
-                        for condition in collective_conditions {
-                            configs[0].run_if_dyn(condition);
-                        }
-                    }
-                }
+                configs = self.apply_config_conditions(configs, collective_conditions);
                 let mut config_iter = configs.into_iter();
                 let mut nodes_in_scope = Vec::new();
                 let mut densely_chained = true;
@@ -722,102 +700,25 @@ impl ScheduleGraph {
                             densely_chained: true,
                         };
                     };
-                    let mut previous_result = self.process_configs(prev, true);
+                    let mut previous_result = self.process_configs_and_collect_nodes(prev);
                     densely_chained = previous_result.densely_chained;
                     for current in config_iter {
-                        let current_result = self.process_configs(current, true);
+                        let current_result = self.process_configs_and_collect_nodes(current);
                         densely_chained = densely_chained && current_result.densely_chained;
-                        match (
-                            previous_result.densely_chained,
-                            current_result.densely_chained,
-                        ) {
-                            // Both groups are "densely" chained, so we can simplify the graph by only
-                            // chaining the last in the previous list to the first in the current list
-                            (true, true) => {
-                                let last_in_prev = previous_result.nodes.last().unwrap();
-                                let first_in_current = current_result.nodes.first().unwrap();
-                                self.dependency.graph.add_edge(
-                                    *last_in_prev,
-                                    *first_in_current,
-                                    (),
-                                );
+                        self.chain(chained, &mut previous_result, &current_result);
 
-                                if chained == Chain::YesIgnoreDeferred {
-                                    self.no_sync_edges
-                                        .insert((*last_in_prev, *first_in_current));
-                                }
-                            }
-                            // The previous group is "densely" chained, so we can simplify the graph by only
-                            // chaining the last item from the previous list to every item in the current list
-                            (true, false) => {
-                                let last_in_prev = previous_result.nodes.last().unwrap();
-                                for current_node in &current_result.nodes {
-                                    self.dependency.graph.add_edge(
-                                        *last_in_prev,
-                                        *current_node,
-                                        (),
-                                    );
-
-                                    if chained == Chain::YesIgnoreDeferred {
-                                        self.no_sync_edges.insert((*last_in_prev, *current_node));
-                                    }
-                                }
-                            }
-                            // The current list is currently "densely" chained, so we can simplify the graph by
-                            // only chaining every item in the previous list to the first item in the current list
-                            (false, true) => {
-                                let first_in_current = current_result.nodes.first().unwrap();
-                                for previous_node in &previous_result.nodes {
-                                    self.dependency.graph.add_edge(
-                                        *previous_node,
-                                        *first_in_current,
-                                        (),
-                                    );
-
-                                    if chained == Chain::YesIgnoreDeferred {
-                                        self.no_sync_edges
-                                            .insert((*previous_node, *first_in_current));
-                                    }
-                                }
-                            }
-                            // Neither of the lists are "densely" chained, so we must chain every item in the first
-                            // list to every item in the second list
-                            (false, false) => {
-                                for previous_node in &previous_result.nodes {
-                                    for current_node in &current_result.nodes {
-                                        self.dependency.graph.add_edge(
-                                            *previous_node,
-                                            *current_node,
-                                            (),
-                                        );
-
-                                        if chained == Chain::YesIgnoreDeferred {
-                                            self.no_sync_edges
-                                                .insert((*previous_node, *current_node));
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        if collect_nodes {
-                            nodes_in_scope.append(&mut previous_result.nodes);
-                        }
+                        nodes_in_scope.append(&mut previous_result.nodes);
 
                         previous_result = current_result;
                     }
 
                     // ensure the last config's nodes are added
-                    if collect_nodes {
-                        nodes_in_scope.append(&mut previous_result.nodes);
-                    }
+                    nodes_in_scope.append(&mut previous_result.nodes);
                 } else {
                     for config in config_iter {
-                        let result = self.process_configs(config, collect_nodes);
+                        let result = self.process_configs_and_collect_nodes(config);
                         densely_chained = densely_chained && result.densely_chained;
-                        if collect_nodes {
-                            nodes_in_scope.extend(result.nodes);
-                        }
+                        nodes_in_scope.extend(result.nodes);
                     }
 
                     // an "unchained" SystemConfig is only densely chained if it has exactly one densely chained entry
@@ -832,6 +733,147 @@ impl ScheduleGraph {
                 }
             }
         }
+    }
+
+    /// Adds the config nodes to the graph.
+    ///
+    /// `process_config` is the function which processes each config node and returns a corresponding `NodeId`.
+    ///
+    /// The fields on the returned [`ProcessConfigsResult`] are:
+    /// - `nodes`: a vector of all node ids contained in the nested `NodeConfigs`
+    /// - `densely_chained`: a boolean that is true if all nested nodes are linearly chained (with successive `after` orderings) in the order they are defined
+    #[track_caller]
+    fn process_configs<T: ProcessNodeConfig>(
+        &mut self,
+        configs: NodeConfigs<T>,
+    ) -> ProcessConfigsResult {
+        match configs {
+            NodeConfigs::NodeConfig(_) => ProcessConfigsResult {
+                densely_chained: true,
+                nodes: Vec::new(),
+            },
+            NodeConfigs::Configs {
+                mut configs,
+                collective_conditions,
+                chained,
+            } => {
+                let more_than_one_entry = configs.len() > 1;
+                configs = self.apply_config_conditions(configs, collective_conditions);
+                let mut config_iter = configs.into_iter();
+                let mut densely_chained = true;
+                if chained == Chain::Yes || chained == Chain::YesIgnoreDeferred {
+                    let Some(prev) = config_iter.next() else {
+                        return ProcessConfigsResult {
+                            nodes: Vec::new(),
+                            densely_chained: true,
+                        };
+                    };
+                    let mut previous_result = self.process_configs_and_collect_nodes(prev);
+                    densely_chained = previous_result.densely_chained;
+                    for current in config_iter {
+                        let current_result = self.process_configs_and_collect_nodes(current);
+                        densely_chained = densely_chained && current_result.densely_chained;
+                        self.chain(chained, &mut previous_result, &current_result);
+
+                        previous_result = current_result;
+                    }
+                } else {
+                    for config in config_iter {
+                        let result = self.process_configs(config);
+                        densely_chained = densely_chained && result.densely_chained;
+                    }
+
+                    // an "unchained" SystemConfig is only densely chained if it has exactly one densely chained entry
+                    if more_than_one_entry {
+                        densely_chained = false;
+                    }
+                }
+
+                ProcessConfigsResult {
+                    nodes: Vec::new(),
+                    densely_chained,
+                }
+            }
+        }
+    }
+
+    fn chain(
+        &mut self,
+        chained: Chain,
+        previous_result: &mut ProcessConfigsResult,
+        current_result: &ProcessConfigsResult,
+    ) {
+        match (
+            previous_result.densely_chained,
+            current_result.densely_chained,
+        ) {
+            // Both groups are "densely" chained, so we can simplify the graph by only
+            // chaining the last in the previous list to the first in the current list
+            (true, true) => {
+                let last_in_prev = previous_result.nodes.last().unwrap();
+                let first_in_current = current_result.nodes.first().unwrap();
+                self.connect(chained, *last_in_prev, *first_in_current);
+            }
+            // The previous group is "densely" chained, so we can simplify the graph by only
+            // chaining the last item from the previous list to every item in the current list
+            (true, false) => {
+                let last_in_prev = previous_result.nodes.last().unwrap();
+                for current_node in &current_result.nodes {
+                    self.connect(chained, *last_in_prev, *current_node);
+                }
+            }
+            // The current list is currently "densely" chained, so we can simplify the graph by
+            // only chaining every item in the previous list to the first item in the current list
+            (false, true) => {
+                let first_in_current = current_result.nodes.first().unwrap();
+                for previous_node in &previous_result.nodes {
+                    self.connect(chained, *previous_node, *first_in_current);
+                }
+            }
+            // Neither of the lists are "densely" chained, so we must chain every item in the first
+            // list to every item in the second list
+            (false, false) => {
+                for previous_node in &previous_result.nodes {
+                    for current_node in &current_result.nodes {
+                        self.connect(chained, *previous_node, *current_node);
+                    }
+                }
+            }
+        }
+    }
+
+    fn connect(&mut self, chained: Chain, a: NodeId, b: NodeId) {
+        self.dependency.graph.add_edge(a, b, ());
+
+        if chained == Chain::YesIgnoreDeferred {
+            self.no_sync_edges.insert((a, b));
+        }
+    }
+
+    fn apply_config_conditions<T: ProcessNodeConfig>(
+        &mut self,
+        mut configs: Vec<NodeConfigs<T>>,
+        collective_conditions: Vec<BoxedCondition>,
+    ) -> Vec<NodeConfigs<T>> {
+        match configs.len() {
+            0 => {}
+            1 => {
+                for condition in collective_conditions {
+                    configs[0].run_if_dyn(condition);
+                }
+            }
+            _ => {
+                let set = self.create_anonymous_set();
+                for config in &mut configs {
+                    config.in_set_inner(set.intern());
+                }
+                let mut set_config = SystemSetConfig::new(set.intern());
+                set_config.conditions.extend(collective_conditions);
+                self.configure_set_inner(set_config).unwrap();
+            }
+        }
+
+        configs
     }
 
     fn add_system_inner(&mut self, config: SystemConfig) -> Result<NodeId, ScheduleBuildError> {
@@ -850,7 +892,7 @@ impl ScheduleGraph {
 
     #[track_caller]
     fn configure_sets(&mut self, sets: impl IntoSystemSetConfigs) {
-        self.process_configs(sets.into_configs(), false);
+        self.process_configs(sets.into_configs());
     }
 
     fn configure_set_inner(&mut self, set: SystemSetConfig) -> Result<NodeId, ScheduleBuildError> {
