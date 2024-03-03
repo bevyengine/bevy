@@ -38,11 +38,6 @@ pub use thiserror;
 pub use tracing;
 pub use web_time::{Duration, Instant, SystemTime, SystemTimeError, TryFromFloatSecsError};
 
-#[allow(missing_docs)]
-pub mod nonmax {
-    pub use nonmax::*;
-}
-
 use hashbrown::hash_map::RawEntryMut;
 use std::{
     any::TypeId,

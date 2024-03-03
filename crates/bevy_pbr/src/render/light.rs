@@ -18,10 +18,8 @@ use bevy_render::{
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
-use bevy_utils::{
-    nonmax::NonMaxU32,
-    tracing::{error, warn},
-};
+use bevy_utils::tracing::{error, warn};
+use nonmax::NonMaxU32;
 use std::{hash::Hash, num::NonZeroU64, ops::Range};
 
 use crate::*;

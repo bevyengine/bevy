@@ -4,7 +4,7 @@ use bevy_ecs::{
     prelude::Res,
     system::{Query, ResMut, StaticSystemParam, SystemParam, SystemParamItem},
 };
-use bevy_utils::nonmax::NonMaxU32;
+use nonmax::NonMaxU32;
 
 use crate::{
     render_phase::{CachedRenderPipelinePhaseItem, DrawFunctionId, RenderPhase},
