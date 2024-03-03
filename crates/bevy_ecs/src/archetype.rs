@@ -206,7 +206,7 @@ impl Edges {
                 archetype_id,
                 bundle_status,
             },
-        );
+        )
     }
 
     /// Checks the cache for the target archetype when removing a bundle to the

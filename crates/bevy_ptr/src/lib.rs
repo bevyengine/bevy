@@ -26,6 +26,24 @@ mod sealed {
     impl Sealed for super::Unaligned {}
 }
 
+/// A newtype around [`NonNull`] that only allows conversion to read-only borrows or pointers.
+///
+/// This type can be thought of as the `*const T` to [`NonNull<T>`]'s `*mut T`.
+#[repr(transparent)]
+pub struct ConstNonNull<T: ?Sized>(NonNull<T>);
+
+impl<T: ?Sized> ConstNonNull<T> {
+    pub unsafe fn as_ref<'a>(&self) -> &'a T {
+        self.0.as_ref()
+    }
+}
+
+impl<'a, T: ?Sized> From<&'a T> for ConstNonNull<T> {
+    fn from(value: &'a T) -> ConstNonNull<T> {
+        ConstNonNull(NonNull::from(value))
+    }
+}
+
 /// Type-erased borrow of some unknown type chosen when constructing this type.
 ///
 /// This type tries to act "borrow-like" which means that:
@@ -280,6 +298,7 @@ impl<'a> OwningPtr<'a> {
         f(unsafe { PtrMut::from(&mut *temp).promote() })
     }
 }
+
 impl<'a, A: IsAligned> OwningPtr<'a, A> {
     /// Creates a new instance from a raw pointer.
     ///
@@ -346,6 +365,7 @@ impl<'a, A: IsAligned> OwningPtr<'a, A> {
         unsafe { PtrMut::new(self.0) }
     }
 }
+
 impl<'a> OwningPtr<'a, Unaligned> {
     /// Consumes the [`OwningPtr`] to obtain ownership of the underlying data of type `T`.
     ///
