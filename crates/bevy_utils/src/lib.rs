@@ -33,7 +33,6 @@ pub use float_ord::*;
 pub use hashbrown;
 pub use parallel_queue::*;
 pub use petgraph;
-pub use smallvec;
 pub use tracing;
 pub use web_time::{Duration, Instant, SystemTime, SystemTimeError, TryFromFloatSecsError};
 

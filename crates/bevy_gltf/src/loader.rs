@@ -36,10 +36,7 @@ use bevy_scene::Scene;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::IoTaskPool;
 use bevy_transform::components::Transform;
-use bevy_utils::{
-    smallvec::{smallvec, SmallVec},
-    HashMap, HashSet,
-};
+use bevy_utils::{HashMap, HashSet};
 use gltf::{
     accessor::Iter,
     mesh::{util::ReadIndices, Mode},
@@ -47,6 +44,7 @@ use gltf::{
     Material, Node, Primitive, Semantic,
 };
 use serde::{Deserialize, Serialize};
+use smallvec::{smallvec, SmallVec};
 use std::io::Error;
 use std::{
     collections::VecDeque,
