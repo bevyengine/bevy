@@ -17,6 +17,9 @@ use winit::{
     event_loop::EventLoopWindowTarget,
 };
 
+#[cfg(target_arch = "wasm32")]
+use {wasm_bindgen::JsCast, web_sys::HtmlCanvasElement};
+
 use crate::{
     converters::{
         self, convert_enabled_buttons, convert_window_level, convert_window_theme,
@@ -80,6 +83,22 @@ pub(crate) fn create_windows<F: QueryFilter + 'static>(
                 window: window.clone(),
             });
 
+        #[cfg(target_arch = "wasm32")]
+        {
+            if window.fit_canvas_to_parent {
+                let canvas: HtmlCanvasElement = web_sys::window()
+                    .unwrap()
+                    .document()
+                    .unwrap()
+                    .query_selector("canvas")
+                    .unwrap()
+                    .unwrap()
+                    .unchecked_into();
+                let style = canvas.style();
+                style.set_property("width", "100%").unwrap();
+                style.set_property("height", "100%").unwrap();
+            }
+        }
         window_created_events.send(WindowCreated { window: entity });
     }
 }
