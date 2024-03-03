@@ -167,6 +167,10 @@ without UI components as a child of an entity with UI components, results may be
             ..default()
         };
 
+        let camera_node = *self
+            .entity_to_taffy
+            .entry(camera_id)
+            .or_insert_with(|| self.taffy.new_leaf(viewport_style.clone()).unwrap());
         let existing_roots = self.camera_roots.entry(camera_id).or_default();
         let mut new_roots = Vec::new();
         for entity in children {
@@ -181,22 +185,14 @@ without UI components as a child of an entity with UI components, results may be
                         self.taffy.remove_child(previous_parent, node).unwrap();
                     }
 
+                    self.taffy.add_child(camera_node, node).unwrap();
+
                     RootNodePair {
-                        implicit_viewport_node: self
-                            .taffy
-                            .new_with_children(viewport_style.clone(), &[node])
-                            .unwrap(),
+                        implicit_viewport_node: camera_node,
                         user_root_node: node,
                     }
                 });
             new_roots.push(root_node);
-        }
-
-        // Cleanup the implicit root nodes of any user root nodes that have been removed
-        for old_root in existing_roots {
-            if !new_roots.contains(old_root) {
-                self.taffy.remove(old_root.implicit_viewport_node).unwrap();
-            }
         }
 
         self.camera_roots.insert(camera_id, new_roots);
@@ -370,8 +366,14 @@ pub fn ui_layout_system(
     ui_surface.remove_entities(removed_nodes.read());
 
     // update camera children
-    for (camera_id, CameraLayoutInfo { root_nodes, .. }) in &camera_layout_info {
-        ui_surface.set_camera_children(*camera_id, root_nodes.iter().cloned());
+    for (camera_id, _) in cameras.iter() {
+        let root_nodes =
+            if let Some(CameraLayoutInfo { root_nodes, .. }) = camera_layout_info.get(&camera_id) {
+                root_nodes.iter().cloned()
+            } else {
+                [].iter().cloned()
+            };
+        ui_surface.set_camera_children(camera_id, root_nodes);
     }
 
     // update and remove children
