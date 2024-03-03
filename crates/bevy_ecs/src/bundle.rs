@@ -904,14 +904,16 @@ impl<'w> BundleSpawner<'w> {
         };
 
         // SAFETY: We have no outstanding mutable references to world as they were dropped
-        unsafe {
-            let mut world = self.world.into_deferred();
-            if archetype.has_on_add() {
-                world.trigger_on_add(entity, bundle_info.iter_components());
-            }
-            if archetype.has_on_insert() {
-                world.trigger_on_insert(entity, bundle_info.iter_components());
-            }
+        let mut deferred_world = unsafe { self.world.into_deferred() };
+        if archetype.has_on_add() {
+            // SAFETY: All components in the bundle are guaranteed to exist in the World
+            // as they must be initialized before creating the BundleInfo.
+            unsafe { deferred_world.trigger_on_add(entity, bundle_info.iter_components()) };
+        }
+        if archetype.has_on_insert() {
+            // SAFETY: All components in the bundle are guaranteed to exist in the World
+            // as they must be initialized before creating the BundleInfo.
+            unsafe { deferred_world.trigger_on_insert(entity, bundle_info.iter_components()) };
         }
 
         location
