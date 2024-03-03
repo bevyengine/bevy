@@ -684,6 +684,54 @@ mod tests {
     }
 
     #[test]
+    fn ui_surface_tracks_camera_entities() {
+        let (mut world, mut ui_schedule) = setup_ui_test_world();
+
+        // despawn all cameras so we can reset ui_surface back to a fresh state
+        let camera_entities = world
+            .query_filtered::<Entity, With<Camera>>()
+            .iter(&world)
+            .collect::<Vec<_>>();
+        for camera_entity in camera_entities {
+            world.despawn(camera_entity);
+        }
+
+        ui_schedule.run(&mut world);
+
+        // no UI entities in world, none in UiSurface
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(ui_surface.camera_entity_to_taffy.is_empty());
+
+        // respawn camera
+        let camera_entity = world.spawn(Camera2dBundle::default()).id();
+
+        let ui_entity = world
+            .spawn((NodeBundle::default(), TargetCamera(camera_entity)))
+            .id();
+
+        // `ui_layout_system` should map `camera_entity` to a ui node in `UiSurface::camera_entity_to_taffy`
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(ui_surface
+            .camera_entity_to_taffy
+            .contains_key(&camera_entity));
+        assert_eq!(ui_surface.camera_entity_to_taffy.len(), 1);
+
+        world.despawn(ui_entity);
+        world.despawn(camera_entity);
+
+        // `ui_layout_system` should remove `camera_entity` from `UiSurface::camera_entity_to_taffy`
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(!ui_surface
+            .camera_entity_to_taffy
+            .contains_key(&camera_entity));
+        assert!(ui_surface.camera_entity_to_taffy.is_empty());
+    }
+
+    #[test]
     #[should_panic]
     fn despawning_a_ui_entity_should_remove_its_corresponding_ui_node() {
         let (mut world, mut ui_schedule) = setup_ui_test_world();
