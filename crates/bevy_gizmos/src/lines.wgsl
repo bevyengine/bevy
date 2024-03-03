@@ -50,7 +50,7 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
     // Manual near plane clipping to avoid errors when doing the perspective divide inside this shader.
     clip_a = clip_near_plane(clip_a, clip_b);
     clip_b = clip_near_plane(clip_b, clip_a);
-
+    
     let clip = mix(clip_a, clip_b, position.z);
 
     let resolution = view.viewport.zw;
@@ -65,9 +65,7 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
     var line_width = line_gizmo.line_width;
     var alpha = 1.;
 
-    // We calculate the length of the line d in screen space
-    var uv = position.z * length(screen_b - screen_a) / line_gizmo.line_width;
-
+    var uv: f32;
 #ifdef PERSPECTIVE
     line_width /= clip.w;
 
@@ -76,14 +74,20 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
     let pos1 = view.inverse_projection * vec4(0, 1, 0, 1); // Top of the screen
     let near_clipping_plane_height = length(pos0.xyz - pos1.xyz);
 
+    // We can't use vertex.position_X because we may have changed the clip positions with clip_near_plane
     let position_a = view.inverse_view_proj * clip_a;
     let position_b = view.inverse_view_proj * clip_b;
-    let world_distance = length(position_a.xyz - position_b.xyz); // We can't use vertex.position_X because we may have changed the clip positions with clip_near_plane
-    
-    // Offset to compensate for moved clip positions. If removed dots on lines will slide when point a is ofscreen.
+    let world_distance = length(position_a.xyz - position_b.xyz);
+
+    // Offset to compensate for moved clip positions. If removed dots on lines will slide when position a is ofscreen.
     let clipped_offset = length(position_a.xyz - vertex.position_a);
 
     uv = (clipped_offset + position.z * world_distance) * resolution.y / near_clipping_plane_height / line_gizmo.line_width;
+#else
+    // Get the distance of b to the camera along the view direction
+    let camera_distance = view.inverse_projection * clip_b;
+    var depth_adaptment = -camera_distance.z;
+    uv = position.z * depth_adaptment * length(screen_b - screen_a) / line_gizmo.line_width;
 #endif
 
 
@@ -130,6 +134,7 @@ fn clip_near_plane(a: vec4<f32>, b: vec4<f32>) -> vec4<f32> {
 }
 
 struct FragmentInput {
+    @builtin(position) position: vec4<f32>,
     @location(0) color: vec4<f32>,
     @location(1) uv: f32,
 };
@@ -144,6 +149,12 @@ fn fragment_solid(in: FragmentInput) -> FragmentOutput {
 }
 @fragment
 fn fragment_dotted(in: FragmentInput) -> FragmentOutput {
-    let alpha = 1 - floor(in.uv % 2.0);
+    var alpha: f32;
+#ifdef PERSPECTIVE
+    alpha = 1 - floor(in.uv % 2.0);
+#else
+    alpha = 1 - floor((in.uv * in.position.w) % 2.0);
+#endif
+    
     return FragmentOutput(vec4(in.color.xyz, in.color.w * alpha));
 }
