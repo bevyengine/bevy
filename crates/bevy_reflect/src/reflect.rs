@@ -159,6 +159,12 @@ pub trait Reflect: DynamicTypePath + Any + Send + Sync {
     /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo>;
 
+    /// Returns the internal boxed value when the value itself is wrapped in a [`Box`].
+    /// If the value is not a [`Box`], returns None.
+    fn as_inner(&self) -> Option<&dyn Reflect> {
+        None
+    }
+
     /// Returns the value as a [`Box<dyn Any>`][std::any::Any].
     fn into_any(self: Box<Self>) -> Box<dyn Any>;
 

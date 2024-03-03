@@ -1,5 +1,8 @@
 use crate::std_traits::ReflectDefault;
-use crate::{self as bevy_reflect, ReflectFromPtr, ReflectFromReflect, ReflectOwned};
+use crate::{
+    self as bevy_reflect, DynamicTupleStruct, ReflectFromPtr, ReflectFromReflect, ReflectOwned,
+    TupleStruct, TupleStructFieldIter, TupleStructInfo,
+};
 use crate::{
     impl_type_path, map_apply, map_partial_eq, Array, ArrayInfo, ArrayIter, DynamicEnum,
     DynamicMap, Enum, EnumInfo, FromReflect, FromType, GetTypeRegistration, List, ListInfo,
@@ -997,6 +1000,201 @@ impl_array_get_type_registration! {
     10 11 12 13 14 15 16 17 18 19
     20 21 22 23 24 25 26 27 28 29
     30 31 32
+}
+
+impl<T: FromReflect + TypePath> TupleStruct for Box<T> {
+    fn field(&self, index: usize) -> Option<&dyn Reflect> {
+        if index == 0 {
+            Some(self.as_ref())
+        } else {
+            None
+        }
+    }
+
+    fn field_mut(&mut self, index: usize) -> Option<&mut dyn Reflect> {
+        if index == 0 {
+            Some(self.as_mut())
+        } else {
+            None
+        }
+    }
+
+    fn field_len(&self) -> usize {
+        1
+    }
+
+    fn iter_fields(&self) -> bevy_reflect::TupleStructFieldIter {
+        TupleStructFieldIter {
+            tuple_struct: self,
+            index: 0,
+        }
+    }
+
+    fn clone_dynamic(&self) -> DynamicTupleStruct {
+        let mut dyn_tuple_struct = DynamicTupleStruct::default();
+        dyn_tuple_struct.set_represented_type(self.get_represented_type_info());
+        dyn_tuple_struct.insert_boxed(self.as_ref().clone_value());
+        dyn_tuple_struct
+    }
+}
+
+impl<T: FromReflect + TypePath> GetTypeRegistration for Box<T> {
+    fn get_type_registration() -> TypeRegistration {
+        let mut registration = TypeRegistration::of::<Self>();
+        registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
+        registration
+    }
+}
+
+impl<T: FromReflect + TypePath> FromReflect for Box<T> {
+    fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
+        if let Some(value) = reflect.downcast_ref::<Self>() {
+            return Some(Box::new(T::from_reflect(value.as_ref().as_reflect())?));
+        } else if let Some(value) = reflect.downcast_ref::<T>() {
+            return Some(Box::new(T::from_reflect(value.as_reflect())?));
+        } else if let Some(value) = reflect.downcast_ref::<DynamicTupleStruct>() {
+            if value
+                .get_represented_type_info()
+                .map(|t| t.type_id() == Self::type_info().type_id())
+                .unwrap_or_default()
+            {
+                return Some(Box::new(T::from_reflect(value.field(0).unwrap())?));
+            }
+        }
+
+        None
+    }
+}
+
+impl<T: FromReflect + TypePath> TypePath for Box<T> {
+    fn type_path() -> &'static str {
+        static CELL: GenericTypePathCell = GenericTypePathCell::new();
+        CELL.get_or_insert::<Self, _>(|| format!("std::boxed::Box::<{}>", Self::type_path()))
+    }
+
+    fn short_type_path() -> &'static str {
+        static CELL: GenericTypePathCell = GenericTypePathCell::new();
+        CELL.get_or_insert::<Self, _>(|| format!("Box<{}>", Self::short_type_path()))
+    }
+
+    fn type_ident() -> Option<&'static str> {
+        Some("Box")
+    }
+
+    fn crate_name() -> Option<&'static str> {
+        Some("std")
+    }
+
+    fn module_path() -> Option<&'static str> {
+        Some("std::boxed")
+    }
+}
+
+impl<T: FromReflect + TypePath> Reflect for Box<T> {
+    fn type_name(&self) -> &str {
+        std::any::type_name::<Self>()
+    }
+
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
+        self
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+        self
+    }
+
+    fn as_inner(&self) -> Option<&dyn Reflect> {
+        Some(self.as_ref().as_reflect())
+    }
+
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self
+    }
+
+    fn apply(&mut self, value: &dyn Reflect) {
+        let value = value.as_any();
+        let value = if let Some(value) = value.downcast_ref::<Self>() {
+            value.as_ref()
+        } else if let Some(value) = value.downcast_ref::<T>() {
+            value
+        } else {
+            panic!("Value is not a {}.", std::any::type_name::<Self>());
+        };
+
+        self.as_mut().apply(value);
+    }
+
+    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+        if value.is::<T>() {
+            *self = value.downcast()?;
+        } else if let Ok(value) = value.take() {
+            *self = value;
+        }
+        Ok(())
+    }
+
+    fn reflect_ref(&self) -> ReflectRef {
+        ReflectRef::TupleStruct(self)
+    }
+
+    fn reflect_mut(&mut self) -> ReflectMut {
+        ReflectMut::TupleStruct(self)
+    }
+
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::TupleStruct(self)
+    }
+
+    fn clone_value(&self) -> Box<dyn Reflect> {
+        Box::new(self.clone_dynamic())
+    }
+
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+        Some(<Self as Typed>::type_info())
+    }
+
+    fn reflect_hash(&self) -> Option<u64> {
+        self.as_ref().reflect_hash()
+    }
+
+    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+        let value = value.as_inner().unwrap_or(value);
+        self.as_ref().reflect_partial_eq(value)
+    }
+
+    fn debug(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Box(")?;
+        self.as_ref().debug(f)?;
+        write!(f, ")")
+    }
+
+    fn serializable(&self) -> Option<bevy_reflect::serde::Serializable> {
+        self.as_ref().serializable()
+    }
+}
+
+impl<T: FromReflect + TypePath> Typed for Box<T> {
+    fn type_info() -> &'static TypeInfo {
+        static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
+        CELL.get_or_insert::<Self, _>(|| {
+            TypeInfo::TupleStruct(TupleStructInfo::new::<Self>(
+                "Box",
+                &[UnnamedField::new::<T>(0)],
+            ))
+        })
+    }
 }
 
 impl<T: FromReflect + TypePath> GetTypeRegistration for Option<T> {
