@@ -10,6 +10,7 @@ use crate::{
     storage::{SparseSetIndex, TableId},
     world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
 };
+use bevy_utils::tracing::warn;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::Span;
 use fixedbitset::FixedBitSet;
@@ -463,6 +464,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             "Joined state for {} attempts to access terms that are not allowed by state {} joined with {}.",
             std::any::type_name::<(NewD, NewF)>(), std::any::type_name::<(D, F)>(), std::any::type_name::<(OtherD, OtherF)>()
         );
+
+        if self.archetype_generation != other.archetype_generation {
+            warn!("You have tried to join queries with different archetype_generations. This could lead to unpredicatable results.");
+        }
 
         // take the intersection of the matched ids
         let matched_tables: FixedBitSet = self

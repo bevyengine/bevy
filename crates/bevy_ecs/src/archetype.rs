@@ -594,7 +594,7 @@ impl Archetype {
 ///
 /// This is used in archetype update methods to limit archetype updates to the
 /// ones added since the last time the method ran.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct ArchetypeGeneration(ArchetypeId);
 
 impl ArchetypeGeneration {
