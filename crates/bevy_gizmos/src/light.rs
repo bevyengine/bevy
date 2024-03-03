@@ -1,4 +1,4 @@
-//! A module adding debug visualization of f [`PointLight`]s, [`SpotLight`]s and [`DirectionalLight`]s.
+//! A module adding debug visualization of [`PointLight`]s, [`SpotLight`]s and [`DirectionalLight`]s.
 
 use std::f32::consts::PI;
 

@@ -634,7 +634,7 @@ impl<T: GizmoConfigGroup> Cone3dBuilder<'_, '_, '_, T> {
 
     /// Set the number of segments to approximate the height of the cone geometry.
     ///
-    /// `segments` should be a divider of the value passed to [`Self::base_segments`]
+    /// `segments` should be a divisor of the value passed to [`Self::base_segments`]
     /// for the height to connect properly with the base.
     pub fn height_segments(mut self, segments: usize) -> Self {
         self.height_segments = segments;
