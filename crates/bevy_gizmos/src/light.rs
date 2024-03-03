@@ -5,10 +5,14 @@ use std::f32::consts::PI;
 use crate::{self as bevy_gizmos, primitives::dim3::GizmoPrimitive3d};
 
 use bevy_app::{Plugin, PostUpdate};
-use bevy_color::LinearRgba;
+use bevy_color::{
+    palettes::basic::{BLUE, GREEN, RED},
+    Color, LinearRgba, Oklcha,
+};
 use bevy_ecs::{
     component::Component,
-    query::{With, Without},
+    entity::Entity,
+    query::Without,
     reflect::ReflectComponent,
     schedule::IntoSystemConfigs,
     system::{Query, Res},
@@ -27,104 +31,119 @@ use crate::{
     AppGizmoBuilder,
 };
 
+/// Draws a standard sphere for the radius and an axis sphere for the range.
+fn point_light_gizmo(
+    transform: &GlobalTransform,
+    point_light: &PointLight,
+    color: Color,
+    gizmos: &mut Gizmos<LightGizmoConfigGroup>,
+) {
+    let position = transform.translation();
+    gizmos
+        .primitive_3d(
+            Sphere {
+                radius: point_light.radius,
+            },
+            position,
+            Quat::IDENTITY,
+            color,
+        )
+        .segments(16);
+    gizmos
+        .sphere(position, Quat::IDENTITY, point_light.range, color)
+        .circle_segments(32);
+}
+
+/// Draws a sphere for the radius, two cones for the inner and outer angles, plus two 3d arcs crossing the
+/// farthest point of effect of the spot light along its direction.
+fn spot_light_gizmo(
+    transform: &GlobalTransform,
+    spot_light: &SpotLight,
+    color: Color,
+    gizmos: &mut Gizmos<LightGizmoConfigGroup>,
+) {
+    let (_, rotation, translation) = transform.to_scale_rotation_translation();
+    gizmos
+        .primitive_3d(
+            Sphere {
+                radius: spot_light.radius,
+            },
+            translation,
+            Quat::IDENTITY,
+            color,
+        )
+        .segments(16);
+
+    // Offset the tip of the cone to the light position.
+    gizmos.sphere(translation, Quat::IDENTITY, 0.01, LinearRgba::GREEN);
+    for angle in [spot_light.inner_angle, spot_light.outer_angle] {
+        let height = spot_light.range * angle.cos();
+        let position = translation + rotation * Vec3::NEG_Z * height / 2.0;
+        gizmos
+            .primitive_3d(
+                Cone {
+                    radius: spot_light.range * angle.sin(),
+                    height,
+                },
+                position,
+                rotation * Quat::from_rotation_x(PI / 2.0),
+                color,
+            )
+            .height_segments(4)
+            .base_segments(32);
+    }
+
+    for arc_rotation in [
+        Quat::from_rotation_y(PI / 2.0 - spot_light.outer_angle),
+        Quat::from_euler(
+            bevy_math::EulerRot::XZY,
+            0.0,
+            PI / 2.0,
+            PI / 2.0 - spot_light.outer_angle,
+        ),
+    ] {
+        gizmos
+            .arc_3d(
+                2.0 * spot_light.outer_angle,
+                spot_light.range,
+                translation,
+                rotation * arc_rotation,
+                color,
+            )
+            .segments(16);
+    }
+}
+
+/// Draws an arrow alongside the directional light direction.
+fn directional_light_gizmo(
+    transform: &GlobalTransform,
+    color: Color,
+    gizmos: &mut Gizmos<LightGizmoConfigGroup>,
+) {
+    let (_, rotation, translation) = transform.to_scale_rotation_translation();
+    gizmos
+        .arrow(translation, translation + rotation * Vec3::NEG_Z, color)
+        .with_tip_length(0.3);
+}
+
 fn draw_gizmos<'a, P, S, D>(
     point_lights: P,
     spot_lights: S,
     directional_lights: D,
     gizmos: &mut Gizmos<LightGizmoConfigGroup>,
 ) where
-    P: 'a + IntoIterator<Item = (&'a PointLight, &'a GlobalTransform)>,
-    S: 'a + IntoIterator<Item = (&'a SpotLight, &'a GlobalTransform)>,
-    D: 'a + IntoIterator<Item = (&'a DirectionalLight, &'a GlobalTransform)>,
+    P: 'a + IntoIterator<Item = (&'a PointLight, &'a GlobalTransform, Color)>,
+    S: 'a + IntoIterator<Item = (&'a SpotLight, &'a GlobalTransform, Color)>,
+    D: 'a + IntoIterator<Item = (&'a GlobalTransform, Color)>,
 {
-    // Standard sphere for the radius, axis sphere for the range.
-    for (point_light, transform) in point_lights {
-        let position = transform.translation();
-        gizmos
-            .primitive_3d(
-                Sphere {
-                    radius: point_light.radius,
-                },
-                position,
-                Quat::IDENTITY,
-                point_light.color,
-            )
-            .segments(16);
-        gizmos
-            .sphere(
-                position,
-                Quat::IDENTITY,
-                point_light.range,
-                point_light.color,
-            )
-            .circle_segments(32);
+    for (point_light, transform, color) in point_lights {
+        point_light_gizmo(transform, point_light, color, gizmos);
     }
-
-    // A sphere for the radius, two cones for the inner and outer angles, plus two 3d arcs crossing the
-    // farthest point of effect of the spot light along its direction.
-    for (spot_light, transform) in spot_lights {
-        let (_, rotation, translation) = transform.to_scale_rotation_translation();
-        gizmos
-            .primitive_3d(
-                Sphere {
-                    radius: spot_light.radius,
-                },
-                translation,
-                Quat::IDENTITY,
-                spot_light.color,
-            )
-            .segments(16);
-
-        // Offset the tip of the cone to the light position.
-        gizmos.sphere(translation, Quat::IDENTITY, 0.01, LinearRgba::GREEN);
-        for angle in [spot_light.inner_angle, spot_light.outer_angle] {
-            let height = spot_light.range * angle.cos();
-            let position = translation + rotation * Vec3::NEG_Z * height / 2.0;
-            gizmos
-                .primitive_3d(
-                    Cone {
-                        radius: spot_light.range * angle.sin(),
-                        height,
-                    },
-                    position,
-                    rotation * Quat::from_rotation_x(PI / 2.0),
-                    spot_light.color,
-                )
-                .height_segments(4)
-                .base_segments(32);
-        }
-
-        for arc_rotation in [
-            Quat::from_rotation_y(PI / 2.0 - spot_light.outer_angle),
-            Quat::from_euler(
-                bevy_math::EulerRot::XZY,
-                0.0,
-                PI / 2.0,
-                PI / 2.0 - spot_light.outer_angle,
-            ),
-        ] {
-            gizmos
-                .arc_3d(
-                    2.0 * spot_light.outer_angle,
-                    spot_light.range,
-                    translation,
-                    rotation * arc_rotation,
-                    spot_light.color,
-                )
-                .segments(16);
-        }
+    for (spot_light, transform, color) in spot_lights {
+        spot_light_gizmo(transform, spot_light, color, gizmos);
     }
-
-    // An arrow alongside the directional light direction.
-    for (directional_light, transform) in directional_lights {
-        let (_, rotation, translation) = transform.to_scale_rotation_translation();
-        gizmos
-            .arrow(
-                translation,
-                translation + rotation * Vec3::NEG_Z,
-                directional_light.color,
-            )
-            .with_tip_length(0.3);
+    for (transform, color) in directional_lights {
+        directional_light_gizmo(transform, color, gizmos);
     }
 }
 
@@ -149,33 +168,171 @@ impl Plugin for LightGizmoPlugin {
     }
 }
 
+/// Configures how a color is attributed to a light gizmo.
+#[derive(Debug, Clone, Copy, Default, Reflect)]
+pub enum LightGizmoColor {
+    /// User-specified color.
+    Manual(Color),
+    /// Random color derived from the light's [`Entity`].
+    Varied,
+    /// Take the color of the represented light.
+    #[default]
+    MatchLightColor,
+    /// Take the color provided by [`LightGizmoConfigGroup`] depending on the light kind.
+    ByLightType,
+}
+
 /// The [`GizmoConfigGroup`] used to configure the visualization of lights.
-#[derive(Clone, Default, Reflect, GizmoConfigGroup)]
+#[derive(Clone, Reflect, GizmoConfigGroup)]
 pub struct LightGizmoConfigGroup {
     /// Draw a gizmo for all lights if true.
+    ///
+    /// Defaults to `false`.
     pub draw_all: bool,
+    /// Default color strategy for all light gizmos.
+    ///
+    /// Defaults to [`LightGizmoColor::MatchLightColor`].
+    pub color: LightGizmoColor,
+    /// [`Color`] to use for drawing a [`PointLight`] gizmo when [`LightGizmoColor::ByLightType`] is used.
+    ///
+    /// Defaults to [`RED`].
+    pub point_light_color: Color,
+    /// [`Color`] to use for drawing a [`SpotLight`] gizmo when [`LightGizmoColor::ByLightType`] is used.
+    ///
+    /// Defaults to [`GREEN`].
+    pub spot_light_color: Color,
+    /// [`Color`] to use for drawing a [`DirectionalLight`] gizmo when [`LightGizmoColor::ByLightType`] is used.
+    ///
+    /// Defaults to [`BLUE`].
+    pub directional_light_color: Color,
+}
+
+impl Default for LightGizmoConfigGroup {
+    fn default() -> Self {
+        Self {
+            draw_all: false,
+            color: LightGizmoColor::MatchLightColor,
+            point_light_color: RED.into(),
+            spot_light_color: GREEN.into(),
+            directional_light_color: BLUE.into(),
+        }
+    }
 }
 
 /// Add this [`Component`] to an entity to draw any of its lights components
 /// ([`PointLight`], [`SpotLight`] and [`DirectionalLight`]).
 #[derive(Component, Reflect, Default, Debug)]
 #[reflect(Component, Default)]
-pub struct ShowLightGizmo;
+pub struct ShowLightGizmo {
+    /// Default color strategy for this light gizmo. if none, use the one provided by [`LightGizmoConfigGroup`].
+    ///
+    /// Defaults to [`None`].
+    color: Option<LightGizmoColor>,
+}
 
 fn draw_lights(
-    point_query: Query<(&PointLight, &GlobalTransform), With<ShowLightGizmo>>,
-    spot_query: Query<(&SpotLight, &GlobalTransform), With<ShowLightGizmo>>,
-    directional_query: Query<(&DirectionalLight, &GlobalTransform), With<ShowLightGizmo>>,
+    point_query: Query<(Entity, &PointLight, &GlobalTransform, &ShowLightGizmo)>,
+    spot_query: Query<(Entity, &SpotLight, &GlobalTransform, &ShowLightGizmo)>,
+    directional_query: Query<(Entity, &DirectionalLight, &GlobalTransform, &ShowLightGizmo)>,
     mut gizmos: Gizmos<LightGizmoConfigGroup>,
 ) {
-    draw_gizmos(&point_query, &spot_query, &directional_query, &mut gizmos);
+    let color = |entity: Entity, gizmo_color: Option<LightGizmoColor>, light_color, type_color| {
+        match gizmo_color.unwrap_or(gizmos.config_ext.color) {
+            LightGizmoColor::Manual(color) => color,
+            LightGizmoColor::Varied => Oklcha::sequential_dispersed(entity.index()).into(),
+            LightGizmoColor::MatchLightColor => light_color,
+            LightGizmoColor::ByLightType => type_color,
+        }
+    };
+
+    draw_gizmos(
+        point_query
+            .iter()
+            .map(|(entity, light, transform, light_gizmo)| {
+                (
+                    light,
+                    transform,
+                    color(
+                        entity,
+                        light_gizmo.color,
+                        light.color,
+                        gizmos.config_ext.point_light_color,
+                    ),
+                )
+            }),
+        spot_query
+            .iter()
+            .map(|(entity, light, transform, light_gizmo)| {
+                (
+                    light,
+                    transform,
+                    color(
+                        entity,
+                        light_gizmo.color,
+                        light.color,
+                        gizmos.config_ext.point_light_color,
+                    ),
+                )
+            }),
+        directional_query
+            .iter()
+            .map(|(entity, light, transform, light_gizmo)| {
+                (
+                    transform,
+                    color(
+                        entity,
+                        light_gizmo.color,
+                        light.color,
+                        gizmos.config_ext.point_light_color,
+                    ),
+                )
+            }),
+        &mut gizmos,
+    );
 }
 
 fn draw_all_lights(
-    point_query: Query<(&PointLight, &GlobalTransform), Without<ShowLightGizmo>>,
-    spot_query: Query<(&SpotLight, &GlobalTransform), Without<ShowLightGizmo>>,
-    directional_query: Query<(&DirectionalLight, &GlobalTransform), Without<ShowLightGizmo>>,
+    point_query: Query<(Entity, &PointLight, &GlobalTransform), Without<ShowLightGizmo>>,
+    spot_query: Query<(Entity, &SpotLight, &GlobalTransform), Without<ShowLightGizmo>>,
+    directional_query: Query<
+        (Entity, &DirectionalLight, &GlobalTransform),
+        Without<ShowLightGizmo>,
+    >,
     mut gizmos: Gizmos<LightGizmoConfigGroup>,
 ) {
-    draw_gizmos(&point_query, &spot_query, &directional_query, &mut gizmos);
+    match gizmos.config_ext.color {
+        LightGizmoColor::Manual(color) => draw_gizmos(
+            point_query.iter().map(|(_, l, t)| (l, t, color)),
+            spot_query.iter().map(|(_, l, t)| (l, t, color)),
+            directional_query.iter().map(|(_, _, t)| (t, color)),
+            &mut gizmos,
+        ),
+        LightGizmoColor::Varied => {
+            let color = |entity: Entity| Oklcha::sequential_dispersed(entity.index()).into();
+            draw_gizmos(
+                point_query.iter().map(|(e, l, t)| (l, t, color(e))),
+                spot_query.iter().map(|(e, l, t)| (l, t, color(e))),
+                directional_query.iter().map(|(e, _, t)| (t, color(e))),
+                &mut gizmos,
+            );
+        }
+        LightGizmoColor::MatchLightColor => draw_gizmos(
+            point_query.iter().map(|(_, l, t)| (l, t, l.color)),
+            spot_query.iter().map(|(_, l, t)| (l, t, l.color)),
+            directional_query.iter().map(|(_, l, t)| (t, l.color)),
+            &mut gizmos,
+        ),
+        LightGizmoColor::ByLightType => draw_gizmos(
+            point_query
+                .iter()
+                .map(|(_, l, t)| (l, t, gizmos.config_ext.point_light_color)),
+            spot_query
+                .iter()
+                .map(|(_, l, t)| (l, t, gizmos.config_ext.spot_light_color)),
+            directional_query
+                .iter()
+                .map(|(_, _, t)| (t, gizmos.config_ext.directional_light_color)),
+            &mut gizmos,
+        ),
+    }
 }
