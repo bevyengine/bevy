@@ -85,10 +85,17 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
     uv = (clipped_offset + position.z * world_distance) * resolution.y / near_clipping_plane_height / line_gizmo.line_width;
 #else
     // Get the distance of b to the camera along camera axes
-    let camera_distance = view.inverse_projection * clip_b;
+    let camera_b = view.inverse_projection * clip_b;
 
-    // This works for 3d perspective cameras. For orthographic cameras (e.g.) in 2d the depth_adaptment should be 1.
-    var depth_adaptment = -camera_distance.z;
+    // This differentiates between orthographic and perspective cameras.
+    // For orthographic cameras no depth adaptment (depth_adaptment = 1) is needed.
+    var depth_adaptment: f32;
+    if (clip_b.w == 1.0) {
+        depth_adaptment = 1.0;
+    }
+    else {
+        depth_adaptment = -camera_b.z;
+    }
     uv = position.z * depth_adaptment * length(screen_b - screen_a) / line_gizmo.line_width;
 #endif
 
