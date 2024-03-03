@@ -126,27 +126,6 @@ fn directional_light_gizmo(
         .with_tip_length(0.3);
 }
 
-fn draw_gizmos<'a, P, S, D>(
-    point_lights: P,
-    spot_lights: S,
-    directional_lights: D,
-    gizmos: &mut Gizmos<LightGizmoConfigGroup>,
-) where
-    P: 'a + IntoIterator<Item = (&'a PointLight, &'a GlobalTransform, Color)>,
-    S: 'a + IntoIterator<Item = (&'a SpotLight, &'a GlobalTransform, Color)>,
-    D: 'a + IntoIterator<Item = (&'a GlobalTransform, Color)>,
-{
-    for (point_light, transform, color) in point_lights {
-        point_light_gizmo(transform, point_light, color, gizmos);
-    }
-    for (spot_light, transform, color) in spot_lights {
-        spot_light_gizmo(transform, spot_light, color, gizmos);
-    }
-    for (transform, color) in directional_lights {
-        directional_light_gizmo(transform, color, gizmos);
-    }
-}
-
 /// A [`Plugin`] that provides visualization of [`PointLight`]s, [`SpotLight`]s
 /// and [`DirectionalLight`]s for debugging.
 pub struct LightGizmoPlugin;
@@ -244,51 +223,33 @@ fn draw_lights(
             LightGizmoColor::ByLightType => type_color,
         }
     };
-
-    draw_gizmos(
-        point_query
-            .iter()
-            .map(|(entity, light, transform, light_gizmo)| {
-                (
-                    light,
-                    transform,
-                    color(
-                        entity,
-                        light_gizmo.color,
-                        light.color,
-                        gizmos.config_ext.point_light_color,
-                    ),
-                )
-            }),
-        spot_query
-            .iter()
-            .map(|(entity, light, transform, light_gizmo)| {
-                (
-                    light,
-                    transform,
-                    color(
-                        entity,
-                        light_gizmo.color,
-                        light.color,
-                        gizmos.config_ext.point_light_color,
-                    ),
-                )
-            }),
-        directional_query
-            .iter()
-            .map(|(entity, light, transform, light_gizmo)| {
-                (
-                    transform,
-                    color(
-                        entity,
-                        light_gizmo.color,
-                        light.color,
-                        gizmos.config_ext.point_light_color,
-                    ),
-                )
-            }),
-        &mut gizmos,
-    );
+    for (entity, light, transform, light_gizmo) in &point_query {
+        let color = color(
+            entity,
+            light_gizmo.color,
+            light.color,
+            gizmos.config_ext.point_light_color,
+        );
+        point_light_gizmo(transform, light, color, &mut gizmos);
+    }
+    for (entity, light, transform, light_gizmo) in &spot_query {
+        let color = color(
+            entity,
+            light_gizmo.color,
+            light.color,
+            gizmos.config_ext.point_light_color,
+        );
+        spot_light_gizmo(transform, light, color, &mut gizmos);
+    }
+    for (entity, light, transform, light_gizmo) in &directional_query {
+        let color = color(
+            entity,
+            light_gizmo.color,
+            light.color,
+            gizmos.config_ext.point_light_color,
+        );
+        directional_light_gizmo(transform, color, &mut gizmos);
+    }
 }
 
 fn draw_all_lights(
@@ -301,38 +262,64 @@ fn draw_all_lights(
     mut gizmos: Gizmos<LightGizmoConfigGroup>,
 ) {
     match gizmos.config_ext.color {
-        LightGizmoColor::Manual(color) => draw_gizmos(
-            point_query.iter().map(|(_, l, t)| (l, t, color)),
-            spot_query.iter().map(|(_, l, t)| (l, t, color)),
-            directional_query.iter().map(|(_, _, t)| (t, color)),
-            &mut gizmos,
-        ),
+        LightGizmoColor::Manual(color) => {
+            for (_, light, transform) in &point_query {
+                point_light_gizmo(transform, light, color, &mut gizmos);
+            }
+            for (_, light, transform) in &spot_query {
+                spot_light_gizmo(transform, light, color, &mut gizmos);
+            }
+            for (_, _, transform) in &directional_query {
+                directional_light_gizmo(transform, color, &mut gizmos);
+            }
+        }
         LightGizmoColor::Varied => {
             let color = |entity: Entity| Oklcha::sequential_dispersed(entity.index()).into();
-            draw_gizmos(
-                point_query.iter().map(|(e, l, t)| (l, t, color(e))),
-                spot_query.iter().map(|(e, l, t)| (l, t, color(e))),
-                directional_query.iter().map(|(e, _, t)| (t, color(e))),
-                &mut gizmos,
-            );
+            for (entity, light, transform) in &point_query {
+                point_light_gizmo(transform, light, color(entity), &mut gizmos);
+            }
+            for (entity, light, transform) in &spot_query {
+                spot_light_gizmo(transform, light, color(entity), &mut gizmos);
+            }
+            for (entity, _, transform) in &directional_query {
+                directional_light_gizmo(transform, color(entity), &mut gizmos);
+            }
         }
-        LightGizmoColor::MatchLightColor => draw_gizmos(
-            point_query.iter().map(|(_, l, t)| (l, t, l.color)),
-            spot_query.iter().map(|(_, l, t)| (l, t, l.color)),
-            directional_query.iter().map(|(_, l, t)| (t, l.color)),
-            &mut gizmos,
-        ),
-        LightGizmoColor::ByLightType => draw_gizmos(
-            point_query
-                .iter()
-                .map(|(_, l, t)| (l, t, gizmos.config_ext.point_light_color)),
-            spot_query
-                .iter()
-                .map(|(_, l, t)| (l, t, gizmos.config_ext.spot_light_color)),
-            directional_query
-                .iter()
-                .map(|(_, _, t)| (t, gizmos.config_ext.directional_light_color)),
-            &mut gizmos,
-        ),
+        LightGizmoColor::MatchLightColor => {
+            for (_, light, transform) in &point_query {
+                point_light_gizmo(transform, light, light.color, &mut gizmos);
+            }
+            for (_, light, transform) in &spot_query {
+                spot_light_gizmo(transform, light, light.color, &mut gizmos);
+            }
+            for (_, light, transform) in &directional_query {
+                directional_light_gizmo(transform, light.color, &mut gizmos);
+            }
+        }
+        LightGizmoColor::ByLightType => {
+            for (_, light, transform) in &point_query {
+                point_light_gizmo(
+                    transform,
+                    light,
+                    gizmos.config_ext.point_light_color,
+                    &mut gizmos,
+                );
+            }
+            for (_, light, transform) in &spot_query {
+                spot_light_gizmo(
+                    transform,
+                    light,
+                    gizmos.config_ext.spot_light_color,
+                    &mut gizmos,
+                );
+            }
+            for (_, _, transform) in &directional_query {
+                directional_light_gizmo(
+                    transform,
+                    gizmos.config_ext.directional_light_color,
+                    &mut gizmos,
+                );
+            }
+        }
     }
 }
