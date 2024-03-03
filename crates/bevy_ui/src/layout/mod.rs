@@ -2,15 +2,13 @@ mod convert;
 pub mod debug;
 
 use crate::{ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiScale};
-use bevy_ecs::entity::EntityHashMap;
-use bevy_ecs::system::SystemParam;
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
-    entity::Entity,
+    entity::{Entity, EntityHashMap},
     event::EventReader,
     query::{With, Without},
     removal_detection::RemovedComponents,
-    system::{Query, Res, ResMut, Resource},
+    system::{Query, Res, ResMut, Resource, SystemParam},
     world::Ref,
 };
 use bevy_hierarchy::{Children, Parent};
