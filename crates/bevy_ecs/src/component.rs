@@ -21,7 +21,7 @@ use std::{
     borrow::Cow,
     marker::PhantomData,
     mem::needs_drop,
-    sync::Arc,
+    fmt::Pointer,
 };
 
 /// A data type that can be used to store data for an [entity].
@@ -210,10 +210,10 @@ pub enum StorageType {
 }
 
 /// The type used for [`Component`] lifecycle hooks such as `on_add`, `on_insert` or `on_remove`
-type ComponentHook = Arc<dyn for<'w> Fn(DeferredWorld<'w>, Entity, ComponentId)>;
+type ComponentHook = Box<dyn for<'w> Fn(DeferredWorld<'w>, Entity, ComponentId)>;
 
 /// Lifecycle hooks for a given [`Component`], stored in it's [`ComponentInfo`]
-#[derive(Default, Clone)]
+#[derive(Default)]
 pub struct ComponentHooks {
     pub(crate) on_add: Option<ComponentHook>,
     pub(crate) on_insert: Option<ComponentHook>,
@@ -221,7 +221,7 @@ pub struct ComponentHooks {
 }
 
 impl ComponentHooks {
-    /// Register a [`ComponentHook`] that will be run when this component is added to an entity.
+    /// Register a component hook that will be run when this component is added to an entity.
     /// An `on_add` hook will always be followed by `on_insert`.
     ///
     /// Will panic if the component already has an `on_add` hook
@@ -233,7 +233,7 @@ impl ComponentHooks {
             .expect("Component id: {:?}, already has an on_add hook")
     }
 
-    /// Register a [`ComponentHook`] that will be run when this component is added or set by `.insert`
+    /// Register a component hook that will be run when this component is added or set by `.insert`
     /// An `on_insert` hook will run even if the entity already has the component unlike `on_add`,
     /// `on_insert` also always runs after any `on_add` hooks.
     ///
@@ -246,7 +246,7 @@ impl ComponentHooks {
             .expect("Component id: {:?}, already has an on_insert hook")
     }
 
-    /// Register a [`ComponentHook`] that will be run when this component is removed from an entity.
+    /// Register a component hook that will be run when this component is removed from an entity.
     /// Despawning an entity counts as removing all of it's components.
     ///
     /// Will panic if the component already has an `on_remove` hook
@@ -267,7 +267,7 @@ impl ComponentHooks {
         if self.on_add.is_some() {
             return None;
         }
-        self.on_add = Some(Arc::new(hook));
+        self.on_add = Some(Box::new(hook));
         Some(self)
     }
 
@@ -280,7 +280,7 @@ impl ComponentHooks {
         if self.on_insert.is_some() {
             return None;
         }
-        self.on_insert = Some(Arc::new(hook));
+        self.on_insert = Some(Box::new(hook));
         Some(self)
     }
 
@@ -293,32 +293,38 @@ impl ComponentHooks {
         if self.on_remove.is_some() {
             return None;
         }
-        self.on_remove = Some(Arc::new(hook));
+        self.on_remove = Some(Box::new(hook));
         Some(self)
     }
 }
 
 impl std::fmt::Debug for ComponentHooks {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "ComponentHook {{ ")?;
+        write!(f, "ComponentHooks {{ ")?;
         write!(f, "on_add: ")?;
-        self.on_add.as_ref().map(|hook| Arc::as_ptr(hook)).fmt(f)?;
+        if let Some(on_add) = self.on_add.as_ref() {
+            on_add.fmt(f)?;
+        } else {
+            write!(f, "None")?;
+        }
         write!(f, "on_insert: ")?;
-        self.on_insert
-            .as_ref()
-            .map(|hook| Arc::as_ptr(hook))
-            .fmt(f)?;
+        if let Some(on_insert) = self.on_insert.as_ref() {
+            on_insert.fmt(f)?;
+        } else {
+            write!(f, "None")?;
+        }
         write!(f, "on_remove ")?;
-        self.on_remove
-            .as_ref()
-            .map(|hook| Arc::as_ptr(hook))
-            .fmt(f)?;
+        if let Some(on_remove) = self.on_remove.as_ref() {
+            on_remove.fmt(f)?;
+        } else {
+            write!(f, "None")?;
+        }
         write!(f, "}}")
     }
 }
 
 /// Stores metadata for a type of component or resource stored in a specific [`World`].
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct ComponentInfo {
     id: ComponentId,
     descriptor: ComponentDescriptor,
