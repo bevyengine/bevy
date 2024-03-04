@@ -132,10 +132,14 @@ pub struct GltfLoader {
 /// ```
 #[derive(Serialize, Deserialize)]
 pub struct GltfLoaderSettings {
-    /// If empty, mesh nodes and their associated materials will be skipped.
+    /// If empty, the gltf mesh nodes will be skipped.
     ///
-    /// Otherwise, nodes and materials will be loaded and retained in RAM/VRAM according to the active flags.
+    /// Otherwise, nodes will be loaded and retained in RAM/VRAM according to the active flags.
     pub load_meshes: RenderAssetUsages,
+    /// If empty, the gltf materials will be skipped.
+    ///
+    /// Otherwise, materials will be loaded and retained in RAM/VRAM according to the active flags.
+    pub load_materials: RenderAssetUsages,
     /// If true, the loader will spawn cameras for gltf camera nodes.
     pub load_cameras: bool,
     /// If true, the loader will spawn lights for gltf light nodes.
@@ -148,6 +152,7 @@ impl Default for GltfLoaderSettings {
     fn default() -> Self {
         Self {
             load_meshes: RenderAssetUsages::default(),
+            load_materials: RenderAssetUsages::default(),
             load_cameras: true,
             load_lights: true,
             include_source: false,
@@ -344,7 +349,7 @@ async fn load_gltf<'a, 'b, 'c>(
                 &linear_textures,
                 parent_path,
                 loader.supported_compressed_formats,
-                settings.load_meshes,
+                settings.load_materials,
             )
             .await?;
             process_loaded_texture(load_context, &mut _texture_handles, image);
@@ -364,7 +369,7 @@ async fn load_gltf<'a, 'b, 'c>(
                             linear_textures,
                             parent_path,
                             loader.supported_compressed_formats,
-                            settings.load_meshes,
+                            settings.load_materials,
                         )
                         .await
                     });
@@ -383,13 +388,16 @@ async fn load_gltf<'a, 'b, 'c>(
 
     let mut materials = vec![];
     let mut named_materials = HashMap::default();
-    // NOTE: materials must be loaded after textures because image load() calls will happen before load_with_settings, preventing is_srgb from being set properly
-    for material in gltf.materials() {
-        let handle = load_material(&material, load_context, false);
-        if let Some(name) = material.name() {
-            named_materials.insert(name.into(), handle.clone());
+    // Only include materials in the output if they're set to be retained in the MAIN_WORLD and/or RENDER_WORLD by the load_materials flag
+    if !settings.load_materials.is_empty() {
+        // NOTE: materials must be loaded after textures because image load() calls will happen before load_with_settings, preventing is_srgb from being set properly
+        for material in gltf.materials() {
+            let handle = load_material(&material, load_context, false);
+            if let Some(name) = material.name() {
+                named_materials.insert(name.into(), handle.clone());
+            }
+            materials.push(handle);
         }
-        materials.push(handle);
     }
     let mut meshes = vec![];
     let mut named_meshes = HashMap::default();
@@ -1107,6 +1115,7 @@ fn load_node(
     let mut morph_weights = None;
 
     node.with_children(|parent| {
+        // Only include meshes in the output if they're set to be retained in the MAIN_WORLD and/or RENDER_WORLD by the load_meshes flag
         if !settings.load_meshes.is_empty() {
             if let Some(mesh) = gltf_node.mesh() {
                 // append primitives
@@ -1271,6 +1280,7 @@ fn load_node(
         }
     });
 
+    // Only include meshes in the output if they're set to be retained in the MAIN_WORLD and/or RENDER_WORLD by the load_meshes flag
     if !settings.load_meshes.is_empty() {
         if let (Some(mesh), Some(weights)) = (gltf_node.mesh(), morph_weights) {
             let primitive_label = mesh.primitives().next().map(|p| primitive_label(&mesh, &p));
