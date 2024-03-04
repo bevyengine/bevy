@@ -72,7 +72,7 @@ pub trait BoundingVolume: Sized {
     /// Rotates the bounding volume around the origin by the given rotation.
     ///
     /// The result is a combination of the original volume and the rotated volume,
-    /// so it is guaranteed to be either the same size or larger as the original.
+    /// so it is guaranteed to be either the same size or larger than the original.
     fn rotated_by(mut self, rotation: Self::Rotation) -> Self {
         self.rotate_by(rotation);
         self
@@ -81,7 +81,7 @@ pub trait BoundingVolume: Sized {
     /// Rotates the bounding volume around the origin by the given rotation.
     ///
     /// The result is a combination of the original volume and the rotated volume,
-    /// so it is guaranteed to be either the same size or larger as the original.
+    /// so it is guaranteed to be either the same size or larger than the original.
     fn rotate_by(&mut self, rotation: Self::Rotation);
 }
 
