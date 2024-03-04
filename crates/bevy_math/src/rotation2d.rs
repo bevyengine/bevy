@@ -13,7 +13,7 @@ use crate::prelude::{Mat2, Vec2};
 /// # use bevy_math::{Rotation2d, Vec2};
 /// use std::f32::consts::PI;
 ///
-/// // Create rotatons from radians or degrees
+/// // Create rotations from radians or degrees
 /// let rotation1 = Rotation2d::radians(PI / 2.0);
 /// let rotation2 = Rotation2d::degrees(45.0);
 ///
