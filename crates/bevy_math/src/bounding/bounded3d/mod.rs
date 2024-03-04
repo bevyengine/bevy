@@ -147,14 +147,44 @@ impl BoundingVolume for Aabb3d {
         b
     }
 
+    /// Transforms the bounding volume by first rotating it around the origin and then applying a translation.
+    ///
+    /// The result is an Axis-Aligned Bounding Box that encompasses the rotated shape.
     #[inline(always)]
-    fn translate_by(&mut self, translation: Vec3) {
+    fn transformed_by(mut self, translation: Self::Translation, rotation: Self::Rotation) -> Self {
+        self.transform_by(translation, rotation);
+        self
+    }
+
+    /// Transforms the bounding volume by first rotating it around the origin and then applying a translation.
+    ///
+    /// The result is an Axis-Aligned Bounding Box that encompasses the rotated shape.
+    #[inline(always)]
+    fn transform_by(&mut self, translation: Self::Translation, rotation: Self::Rotation) {
+        self.rotate_by(rotation);
+        self.translate_by(translation);
+    }
+
+    #[inline(always)]
+    fn translate_by(&mut self, translation: Self::Translation) {
         self.min += translation;
         self.max += translation;
     }
 
+    /// Rotates the bounding volume around the origin by the given rotation.
+    ///
+    /// The result is an Axis-Aligned Bounding Box that encompasses the rotated shape.
     #[inline(always)]
-    fn rotate_by(&mut self, rotation: Quat) {
+    fn rotated_by(mut self, rotation: Self::Rotation) -> Self {
+        self.rotate_by(rotation);
+        self
+    }
+
+    /// Rotates the bounding volume around the origin by the given rotation.
+    ///
+    /// The result is an Axis-Aligned Bounding Box that encompasses the rotated shape.
+    #[inline(always)]
+    fn rotate_by(&mut self, rotation: Self::Rotation) {
         let rot_mat = Mat3::from_quat(rotation);
         let abs_rot_mat = Mat3::from_cols(
             rot_mat.x_axis.abs(),
