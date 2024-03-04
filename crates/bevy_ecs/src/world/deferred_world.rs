@@ -271,7 +271,7 @@ impl<'w> DeferredWorld<'w> {
         for component_id in targets {
             // SAFETY: Caller ensures that these components exist
             let hooks = unsafe { self.components().get_info_unchecked(component_id) }.hooks();
-            if let Some(hook) = hooks.on_add {
+            if let Some(hook) = hooks.on_add.as_deref() {
                 hook(DeferredWorld { world: self.world }, entity, component_id);
             }
         }
@@ -290,7 +290,7 @@ impl<'w> DeferredWorld<'w> {
         for component_id in targets {
             // SAFETY: Caller ensures that these components exist
             let hooks = unsafe { self.world.components().get_info_unchecked(component_id) }.hooks();
-            if let Some(hook) = hooks.on_insert {
+            if let Some(hook) = hooks.on_insert.as_deref() {
                 hook(DeferredWorld { world: self.world }, entity, component_id);
             }
         }
@@ -309,7 +309,7 @@ impl<'w> DeferredWorld<'w> {
         for component_id in targets {
             // SAFETY: Caller ensures that these components exist
             let hooks = unsafe { self.world.components().get_info_unchecked(component_id) }.hooks();
-            if let Some(hook) = hooks.on_remove {
+            if let Some(hook) = hooks.on_remove.as_deref() {
                 hook(DeferredWorld { world: self.world }, entity, component_id);
             }
         }
