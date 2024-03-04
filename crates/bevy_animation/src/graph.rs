@@ -357,9 +357,8 @@ impl AssetLoader for AnimationGraphAssetLoader {
                     let Some(ref mut clip_handle) = node.clip else {
                         continue;
                     };
-                    let Some(asset_path) = serialized_animation_graph
-                        .manifest
-                        .get(&clip_handle.id())
+                    let Some(asset_path) =
+                        serialized_animation_graph.manifest.get(&clip_handle.id())
                     else {
                         continue;
                     };
