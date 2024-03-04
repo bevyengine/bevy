@@ -19,33 +19,28 @@ const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 
 fn button_system(
     mut interaction_query: Query<
-        (
-            &Interaction,
-            &mut BackgroundColor,
-            &mut BorderColor,
-            &Children,
-        ),
+        (&Interaction, &mut UiImage, &mut BorderColor, &Children),
         (Changed<Interaction>, With<Button>),
     >,
     mut text_query: Query<&mut Text>,
 ) {
-    for (interaction, mut color, mut border_color, children) in &mut interaction_query {
+    for (interaction, mut image, mut border_color, children) in &mut interaction_query {
         let mut text = text_query.get_mut(children[0]).unwrap();
         match *interaction {
             Interaction::Pressed => {
                 text.sections[0].value = "Press".to_string();
-                *color = PRESSED_BUTTON.into();
+                image.color = PRESSED_BUTTON;
                 border_color.0 = RED.into();
             }
             Interaction::Hovered => {
                 text.sections[0].value = "Hover".to_string();
-                *color = HOVERED_BUTTON.into();
-                border_color.0 = WHITE.into();
+                image.color = HOVERED_BUTTON;
+                border_color.0 = Color::WHITE;
             }
             Interaction::None => {
                 text.sections[0].value = "Button".to_string();
-                *color = NORMAL_BUTTON.into();
-                border_color.0 = BLACK.into();
+                image.color = NORMAL_BUTTON;
+                border_color.0 = Color::BLACK;
             }
         }
     }
@@ -79,7 +74,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         ..default()
                     },
                     border_color: BorderColor(Color::BLACK),
-                    background_color: NORMAL_BUTTON.into(),
+                    image: UiImage::default().with_color(NORMAL_BUTTON),
                     ..default()
                 })
                 .with_children(|parent| {

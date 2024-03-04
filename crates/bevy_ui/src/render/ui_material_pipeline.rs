@@ -74,7 +74,7 @@ where
                     ExtractSchedule,
                     (
                         extract_ui_materials::<M>,
-                        extract_ui_material_nodes::<M>.in_set(RenderUiSystem::ExtractNode),
+                        extract_ui_material_nodes::<M>.in_set(RenderUiSystem::ExtractBackgrounds),
                     ),
                 )
                 .add_systems(
@@ -383,7 +383,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
 ) {
     let ui_logical_viewport_size = windows
         .get_single()
-        .map(|window| Vec2::new(window.resolution.width(), window.resolution.height()))
+        .map(|window| window.size())
         .unwrap_or(Vec2::ZERO)
         // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
         // so we have to divide by `UiScale` to get the size of the UI viewport.

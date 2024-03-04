@@ -21,7 +21,6 @@ watch = []
 bevy_app = { path = "../bevy_app", version = "0.14.0-dev" }
 bevy_asset_macros = { path = "macros", version = "0.14.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
-bevy_log = { path = "../bevy_log", version = "0.14.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.14.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
@@ -53,6 +52,7 @@ notify-debouncer-full = { version = "0.3.1", optional = true }
 
 [dev-dependencies]
 bevy_core = { path = "../bevy_core", version = "0.14.0-dev" }
+bevy_log = { path = "../bevy_log", version = "0.14.0-dev" }
 
 [lints]
 workspace = true
