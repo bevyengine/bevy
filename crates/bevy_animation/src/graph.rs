@@ -8,12 +8,12 @@ use std::path::Path;
 use bevy_asset::io::Reader;
 use bevy_asset::{Asset, AssetId, AssetLoader, AssetPath, AsyncReadExt as _, Handle, LoadContext};
 use bevy_reflect::Reflect;
-use bevy_utils::{BoxedFuture, HashMap};
+use bevy_utils::BoxedFuture;
 use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::visit::{Dfs, Visitable};
 use petgraph::Graph;
 use ron::de::SpannedError;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::AnimationClip;
@@ -71,8 +71,8 @@ use crate::AnimationClip;
 /// [RON]: https://github.com/ron-rs/ron
 ///
 /// [RFC 51]: https://github.com/bevyengine/rfcs/blob/main/rfcs/51-animation-composition.md
-#[derive(Asset, Reflect, Clone, Debug, Serialize, Deserialize)]
-#[serde(into = "SerializedAnimationGraph", from = "SerializedAnimationGraph")]
+#[derive(Asset, Reflect, Clone, Debug, Serialize)]
+#[serde(into = "SerializedAnimationGraph")]
 pub struct AnimationGraph {
     /// The `petgraph` data structure that defines the animation graph.
     pub graph: AnimationDiGraph,
@@ -95,14 +95,12 @@ pub type AnimationNodeIndex = NodeIndex<u32>;
 /// If `clip` is present, this is a *clip node*. Otherwise, it's a *blend node*.
 /// Both clip and blend nodes can have weights, and those weights are propagated
 /// down to descendants.
-#[derive(Clone, Reflect, Debug, Serialize, Deserialize)]
+#[derive(Clone, Reflect, Debug)]
 pub struct AnimationGraphNode {
     /// The animation clip associated with this node, if any.
     ///
     /// If the clip is present, this node is an *animation clip node*.
     /// Otherwise, this node is a *blend node*.
-    #[serde(serialize_with = "serialize_clip_handle")]
-    #[serde(deserialize_with = "deserialize_clip_handle")]
     pub clip: Option<Handle<AnimationClip>>,
 
     /// The weight of this node.
@@ -141,18 +139,42 @@ pub enum AnimationGraphLoadError {
 /// Animation nodes can refer to external animation clips, and the [`AssetId`]
 /// is typically not sufficient to identify the clips, since the
 /// [`bevy_asset::AssetServer`] assigns IDs in unpredictable ways. That fact
-/// motivates this type, which pairs the [`AnimationGraph`] data with a list of
-/// asset paths. Loading an animation graph via the [`bevy_asset::AssetServer`]
+/// motivates this type, which replaces the `Handle<AnimationClip>` with an
+/// asset path.  Loading an animation graph via the [`bevy_asset::AssetServer`]
 /// actually loads a serialized instance of this type, as does serializing an
 /// [`AnimationGraph`] through `serde`.
 #[derive(Serialize, Deserialize)]
 pub struct SerializedAnimationGraph {
     /// Corresponds to the `graph` field on [`AnimationGraph`].
-    pub graph: AnimationDiGraph,
+    pub graph: DiGraph<SerializedAnimationGraphNode, (), u32>,
     /// Corresponds to the `root` field on [`AnimationGraph`].
     pub root: NodeIndex,
-    /// A mapping from the animation graph's asset IDs to their paths.
-    pub manifest: HashMap<AssetId<AnimationClip>, AssetPath<'static>>,
+}
+
+/// A version of [`AnimationGraphNode`] suitable for serializing as an asset.
+///
+/// See the comments in [`SerializedAnimationGraph`] for more information.
+#[derive(Serialize, Deserialize)]
+pub struct SerializedAnimationGraphNode {
+    /// Corresponds to the `clip` field on [`AnimationGraphNode`].
+    pub clip: Option<SerializedAnimationClip>,
+    /// Corresponds to the `weight` field on [`AnimationGraphNode`].
+    pub weight: f32,
+}
+
+/// A version of `Handle<AnimationClip>` suitable for serializing as an asset.
+///
+/// This replaces any handle that has a path with an [`AssetPath`]. Failing
+/// that, the asset ID is serialized directly.
+#[derive(Serialize, Deserialize)]
+pub enum SerializedAnimationClip {
+    /// Records an asset path.
+    AssetPath(AssetPath<'static>),
+    /// The fallback that records an asset ID.
+    ///
+    /// Because asset IDs can change, this should not be relied upon. Prefer to
+    /// use asset paths where possible.
+    AssetId(AssetId<AnimationClip>),
 }
 
 impl AnimationGraph {
@@ -346,29 +368,27 @@ impl AssetLoader for AnimationGraphAssetLoader {
             // Deserialize a `SerializedAnimationGraph` directly, so that we can
             // get the list of the animation clips it refers to and load them.
             let mut deserializer = ron::de::Deserializer::from_bytes(&bytes)?;
-            let mut serialized_animation_graph =
+            let serialized_animation_graph =
                 SerializedAnimationGraph::deserialize(&mut deserializer)
                     .map_err(|err| deserializer.span_error(err))?;
 
-            // If the animation graph refers to assets on disk (the common
-            // case), then load them.
-            if !serialized_animation_graph.manifest.is_empty() {
-                for node in serialized_animation_graph.graph.node_weights_mut() {
-                    let Some(ref mut clip_handle) = node.clip else {
-                        continue;
-                    };
-                    let Some(asset_path) =
-                        serialized_animation_graph.manifest.get(&clip_handle.id())
-                    else {
-                        continue;
-                    };
-                    *clip_handle = load_context.load(asset_path);
-                }
-            }
-
-            // Now that we've fixed up all handles, convert to an
-            // `AnimationGraph`.
-            Ok(serialized_animation_graph.into())
+            // Load all `AssetPath`s to convert from a
+            // `SerializedAnimationGraph` to a real `AnimationGraph`.
+            Ok(AnimationGraph {
+                graph: serialized_animation_graph.graph.map(
+                    |_, serialized_node| AnimationGraphNode {
+                        clip: serialized_node.clip.as_ref().map(|clip| match clip {
+                            SerializedAnimationClip::AssetId(asset_id) => Handle::Weak(*asset_id),
+                            SerializedAnimationClip::AssetPath(asset_path) => {
+                                load_context.load(asset_path)
+                            }
+                        }),
+                        weight: serialized_node.weight,
+                    },
+                    |_, _| (),
+                ),
+                root: serialized_animation_graph.root,
+            })
         })
     }
 
@@ -377,69 +397,22 @@ impl AssetLoader for AnimationGraphAssetLoader {
     }
 }
 
-// This is just a hack to allow `Handle<AnimationClip>` to be serialized. We
-// could use the `TypedReflectSerializer` for this, but that would require a
-// `TypeRegistry` handle, which Serde doesn't have. We opt to use Serde for
-// serialization and deserialization of animation graphs because implementing
-// reflection support for `petgraph` graphs would be burdensome.
-fn serialize_clip_handle<S>(
-    clip: &Option<Handle<AnimationClip>>,
-    serializer: S,
-) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    clip.as_ref().map(|clip| clip.id()).serialize(serializer)
-}
-
-// This is just a hack to allow `Handle<AnimationClip>` to be deserialized. We
-// could use the `TypedReflectDeserializer` for this, but that would require a
-// `TypeRegistry` handle, which Serde doesn't have. We opt to use Serde for
-// serialization and deserialization of animation graphs because implementing
-// reflection support for `petgraph` graphs would be burdensome.
-fn deserialize_clip_handle<'de, D>(
-    deserializer: D,
-) -> Result<Option<Handle<AnimationClip>>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    Ok(
-        <Option<AssetId<AnimationClip>> as Deserialize>::deserialize(deserializer)?
-            .map(Handle::Weak),
-    )
-}
-
 impl From<AnimationGraph> for SerializedAnimationGraph {
     fn from(animation_graph: AnimationGraph) -> Self {
-        // Before serializing, gather up all animation clips with paths that the
-        // graph refers to, and write that path information alongside the graph.
-        let manifest = animation_graph
-            .graph
-            .node_weights()
-            .filter_map(|node| node.clip.as_ref())
-            .filter_map(|clip_handle| {
-                clip_handle
-                    .path()
-                    .map(|asset_path| (clip_handle.id(), asset_path.clone()))
-            })
-            .collect();
-
-        // Transfer the fields over.
+        // If any of the animation clips have paths, then serialize them as
+        // `SerializedAnimationClip::AssetPath` so that the
+        // `AnimationGraphAssetLoader` can load them.
         Self {
-            graph: animation_graph.graph,
-            root: animation_graph.root,
-            manifest,
-        }
-    }
-}
-
-impl From<SerializedAnimationGraph> for AnimationGraph {
-    fn from(animation_graph: SerializedAnimationGraph) -> Self {
-        // Simply discard the manifest. Since this is expected to be called
-        // after the asset loader has already loaded all asset paths, this is
-        // OK.
-        Self {
-            graph: animation_graph.graph,
+            graph: animation_graph.graph.map(
+                |_, node| SerializedAnimationGraphNode {
+                    weight: node.weight,
+                    clip: node.clip.as_ref().map(|clip| match clip.path() {
+                        Some(path) => SerializedAnimationClip::AssetPath(path.clone()),
+                        None => SerializedAnimationClip::AssetId(clip.id()),
+                    }),
+                },
+                |_, _| (),
+            ),
             root: animation_graph.root,
         }
     }

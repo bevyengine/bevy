@@ -10,33 +10,15 @@
                 weight: 0.5,
             ),
             (
-                clip: Some(Index(
-                    index: (
-                        generation: 0,
-                        index: 0,
-                    ),
-                    marker: (),
-                )),
+                clip: Some(AssetPath("models/animated/Fox.glb#Animation0")),
                 weight: 1.0,
             ),
             (
-                clip: Some(Index(
-                    index: (
-                        generation: 0,
-                        index: 1,
-                    ),
-                    marker: (),
-                )),
+                clip: Some(AssetPath("models/animated/Fox.glb#Animation1")),
                 weight: 1.0,
             ),
             (
-                clip: Some(Index(
-                    index: (
-                        generation: 0,
-                        index: 2,
-                    ),
-                    marker: (),
-                )),
+                clip: Some(AssetPath("models/animated/Fox.glb#Animation2")),
                 weight: 1.0,
             ),
         ],
@@ -50,27 +32,4 @@
         ],
     ),
     root: 0,
-    manifest: {
-        Index(
-            index: (
-                generation: 0,
-                index: 1,
-            ),
-            marker: (),
-        ): "models/animated/Fox.glb#Animation1",
-        Index(
-            index: (
-                generation: 0,
-                index: 2,
-            ),
-            marker: (),
-        ): "models/animated/Fox.glb#Animation2",
-        Index(
-            index: (
-                generation: 0,
-                index: 0,
-            ),
-            marker: (),
-        ): "models/animated/Fox.glb#Animation0",
-    },
 )
