@@ -5,7 +5,13 @@
 //! Hooks are useful in specific scenarios but have limitations (only one hook per component,
 //! less ergonomic than events).
 //!
-//! In the future, Bevy's Observer features might address some of these limitations.
+//! Here are some cases where components hooks might be necessary:
+//!
+//! - Maintaining indexes: If you need to keep custom data structures (like a spatial index) in
+//! sync with the addition/removal of components.
+//!
+//! - Enforcing structural rules: When you have systems that depend on specific relationships
+//! between components (like hierarchies or parent-child links) and need to maintain correctness.
 
 use bevy::ecs::component::{ComponentHooks, TableStorage};
 use bevy::prelude::*;
