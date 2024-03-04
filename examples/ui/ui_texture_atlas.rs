@@ -1,6 +1,6 @@
 //! This example illustrates how to use `TextureAtlases` within ui
 
-use bevy::{color::palettes::basic::YELLOW, prelude::*, winit::WinitSettings};
+use bevy::{color::palettes::css::*, prelude::*, winit::WinitSettings};
 
 fn main() {
     App::new()
@@ -60,6 +60,8 @@ fn setup(
                     ..default()
                 },
                 TextureAtlas::from(texture_atlas_handle),
+                BackgroundColor(ANTIQUE_WHITE.into()),
+                Outline::new(Val::Px(8.0), Val::ZERO, CRIMSON.into()),
             ));
             parent.spawn(TextBundle::from_sections([
                 TextSection::new("press ".to_string(), text_style.clone()),
