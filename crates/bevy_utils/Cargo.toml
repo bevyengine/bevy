@@ -23,6 +23,7 @@ thiserror = "1.0"
 thread_local = "1.0"
 nonmax = "0.5"
 smallvec = { version = "1.11", features = ["serde", "union", "const_generics"] }
+backtrace = "0.3"
 
 [dev-dependencies]
 static_assertions = "1.1.0"

@@ -15,6 +15,7 @@ pub use short_names::get_short_name;
 pub mod synccell;
 pub mod syncunsafecell;
 
+pub mod backtrace;
 pub mod uuid;
 
 mod cow_arc;
