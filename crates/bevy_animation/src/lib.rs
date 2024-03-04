@@ -639,78 +639,80 @@ pub fn advance_animations(
     mut players: Query<(&mut AnimationPlayer, &Handle<AnimationGraph>)>,
 ) {
     let delta_seconds = time.delta_seconds();
-    for (mut player, graph_handle) in players.iter_mut() {
-        let Some(animation_graph) = animation_graphs.get(graph_handle) else {
-            continue;
-        };
+    players
+        .par_iter_mut()
+        .for_each(|(mut player, graph_handle)| {
+            let Some(animation_graph) = animation_graphs.get(graph_handle) else {
+                return;
+            };
 
-        let AnimationPlayer {
-            ref mut playing_animations,
-            ref blend_weights,
-            ref mut schedule,
-            ..
-        } = *player;
+            let AnimationPlayer {
+                ref mut playing_animations,
+                ref blend_weights,
+                ref mut schedule,
+                ..
+            } = *player;
 
-        // Tick animations, and schedule them.
+            // Tick animations, and schedule them.
 
-        schedule.clear();
+            schedule.clear();
 
-        let mut dfs = animation_graph.dfs();
-        let mut weights = HashMap::new();
+            let mut dfs = animation_graph.dfs();
+            let mut weights = HashMap::with_capacity(animation_graph.graph.node_count());
 
-        while let Some(node_index) = dfs.next(&animation_graph.graph) {
-            let node = &animation_graph[node_index];
+            while let Some(node_index) = dfs.next(&animation_graph.graph) {
+                let node = &animation_graph[node_index];
 
-            let mut weight = node.weight;
-            for parent in animation_graph
-                .graph
-                .neighbors_directed(node_index, Direction::Incoming)
-            {
-                if let Some(parent_weight) = weights.get(&parent) {
-                    weight *= parent_weight;
-                }
-            }
-
-            if let Some(playing_animation) = playing_animations.get_mut(&node_index) {
-                // Tick the animation if necessary.
-                if !playing_animation.paused {
-                    if let Some(ref clip_handle) = node.clip {
-                        if let Some(clip) = animation_clips.get(clip_handle) {
-                            playing_animation.update(delta_seconds, clip.duration);
-                        }
+                let mut weight = node.weight;
+                for parent in animation_graph
+                    .graph
+                    .neighbors_directed(node_index, Direction::Incoming)
+                {
+                    if let Some(parent_weight) = weights.get(&parent) {
+                        weight *= parent_weight;
                     }
                 }
 
-                weight *= playing_animation.weight;
-            } else if let Some(&blend_weight) = blend_weights.get(&node_index) {
-                weight *= blend_weight;
+                if let Some(playing_animation) = playing_animations.get_mut(&node_index) {
+                    // Tick the animation if necessary.
+                    if !playing_animation.paused {
+                        if let Some(ref clip_handle) = node.clip {
+                            if let Some(clip) = animation_clips.get(clip_handle) {
+                                playing_animation.update(delta_seconds, clip.duration);
+                            }
+                        }
+                    }
+
+                    weight *= playing_animation.weight;
+                } else if let Some(&blend_weight) = blend_weights.get(&node_index) {
+                    weight *= blend_weight;
+                }
+
+                weights.insert(node_index, weight);
+
+                if let (Some(clip), Some(playing_animation)) =
+                    (&node.clip, playing_animations.get(&node_index))
+                {
+                    schedule.push(ScheduledAnimationClip {
+                        clip: clip.clone(),
+                        seek_time: playing_animation.seek_time,
+                        weight,
+                    });
+                }
             }
 
-            weights.insert(node_index, weight);
-
-            if let (Some(clip), Some(playing_animation)) =
-                (&node.clip, playing_animations.get(&node_index))
-            {
-                schedule.push(ScheduledAnimationClip {
-                    clip: clip.clone(),
-                    seek_time: playing_animation.seek_time,
-                    weight,
-                });
-            }
-        }
-
-        // Sort animations by weight, so that the most heavily-weighted
-        // animations come first.
-        //
-        // FIXME: This seems dubious, but it matches Bevy 0.13 behavior. Figure
-        // out what we want to do here.
-        player.schedule.sort_by(|a, b| {
-            a.weight
-                .partial_cmp(&b.weight)
-                .unwrap_or(Ordering::Less)
-                .reverse()
+            // Sort animations by weight, so that the most heavily-weighted
+            // animations come first.
+            //
+            // FIXME: This seems dubious, but it matches Bevy 0.13 behavior. Figure
+            // out what we want to do here.
+            player.schedule.sort_by(|a, b| {
+                a.weight
+                    .partial_cmp(&b.weight)
+                    .unwrap_or(Ordering::Less)
+                    .reverse()
+            });
         });
-    }
 }
 
 /// A system that modifies animation targets (e.g. bones in a skinned mesh)
