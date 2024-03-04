@@ -83,7 +83,7 @@ pub struct WinitPlugin {
 
 impl Plugin for WinitPlugin {
     fn build(&self, app: &mut App) {
-        let mut event_loop_builder = EventLoopBuilder::<()>::with_user_event();
+        let mut event_loop_builder = EventLoopBuilder::<UserEvent>::with_user_event();
 
         // linux check is needed because x11 might be enabled on other platforms.
         #[cfg(all(target_os = "linux", feature = "x11"))]
@@ -243,6 +243,15 @@ type CreateWindowParams<'w, 's, F = ()> = (
     Res<'w, AccessibilityRequested>,
 );
 
+/// The [`winit::event_loop::EventLoopProxy`] with the specific [`winit::event::Event::UserEvent`] used in the [`winit_runner`].
+///
+/// The `EventLoopProxy` can be used to request a redraw from outside bevy.
+///
+/// Use `NonSend<EventLoopProxy>` to receive this resource.
+pub type EventLoopProxy = winit::event_loop::EventLoopProxy<UserEvent>;
+
+type UserEvent = RequestRedraw;
+
 /// The default [`App::runner`] for the [`WinitPlugin`] plugin.
 ///
 /// Overriding the app's [runner](bevy_app::App::runner) while using `WinitPlugin` will bypass the
@@ -255,7 +264,7 @@ pub fn winit_runner(mut app: App) {
 
     let event_loop = app
         .world
-        .remove_non_send_resource::<EventLoop<()>>()
+        .remove_non_send_resource::<EventLoop<UserEvent>>()
         .unwrap();
 
     app.world
@@ -281,7 +290,7 @@ pub fn winit_runner(mut app: App) {
         SystemState::<CreateWindowParams<Added<Window>>>::from_world(&mut app.world);
     let mut winit_events = Vec::default();
     // set up the event loop
-    let event_handler = move |event, event_loop: &EventLoopWindowTarget<()>| {
+    let event_handler = move |event, event_loop: &EventLoopWindowTarget<UserEvent>| {
         handle_winit_event(
             &mut app,
             &mut app_exit_event_reader,
@@ -318,8 +327,8 @@ fn handle_winit_event(
     focused_windows_state: &mut SystemState<(Res<WinitSettings>, Query<&Window>)>,
     redraw_event_reader: &mut ManualEventReader<RequestRedraw>,
     winit_events: &mut Vec<WinitEvent>,
-    event: Event<()>,
-    event_loop: &EventLoopWindowTarget<()>,
+    event: Event<UserEvent>,
+    event_loop: &EventLoopWindowTarget<UserEvent>,
 ) {
     #[cfg(feature = "trace")]
     let _span = bevy_utils::tracing::info_span!("winit event_handler").entered();
@@ -698,6 +707,9 @@ fn handle_winit_event(
                 event_loop.set_control_flow(ControlFlow::Wait);
             }
         }
+        Event::UserEvent(RequestRedraw) => {
+            runner_state.redraw_requested = true;
+        }
         _ => (),
     }
 
@@ -712,7 +724,7 @@ fn run_app_update_if_should(
     runner_state: &mut WinitAppRunnerState,
     app: &mut App,
     focused_windows_state: &mut SystemState<(Res<WinitSettings>, Query<&Window>)>,
-    event_loop: &EventLoopWindowTarget<()>,
+    event_loop: &EventLoopWindowTarget<UserEvent>,
     create_window: &mut SystemState<CreateWindowParams<Added<Window>>>,
     app_exit_event_reader: &mut ManualEventReader<AppExit>,
     redraw_event_reader: &mut ManualEventReader<RequestRedraw>,
