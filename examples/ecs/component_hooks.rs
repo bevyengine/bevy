@@ -1,4 +1,11 @@
-//! This examples illustrates the different ways you can employ component lifecycle hooks
+//! This example illustrates the different ways you can employ component lifecycle hooks.
+//!
+//! Whenever possible, prefer using Bevy's Events for reacting to component changes.
+//! Events generally offer better performance and more flexible integration into Bevy's systems.
+//! Hooks are useful in specific scenarios but have limitations (only one hook per component,
+//! less ergonomic than events).
+//!
+//! In the future, Bevy's Observer features might address some of these limitations.
 
 use bevy::ecs::component::{ComponentHooks, TableStorage};
 use bevy::prelude::*;
@@ -35,7 +42,7 @@ fn main() {
 
 fn setup(world: &mut World) {
     // In order to register component hooks the component must:
-    // - not belong to any created archetypes
+    // - not be currently in use by any entities in the world
     // - not already have a hook of that kind registered
     // This is to prevent overriding hooks defined in plugins and other crates as well as keeping things fast
     world
