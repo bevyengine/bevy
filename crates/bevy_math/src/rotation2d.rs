@@ -262,19 +262,27 @@ impl Rotation2d {
     }
 
     /// Performs a linear interpolation between `self` and `rhs` based on
-    /// the value `s`.
+    /// the value `s`, and normalizes the rotation afterwards.
     ///
-    /// This corresponds to computing an angle for a point at position `s` on a line drawn
-    /// between the endpoints of the arc formed by `self` and `rhs` on a unit circle.
+    /// When `s == 0.0`, the result will be equal to `self`.
+    /// When `s == 1.0`, the result will be equal to `rhs`.
     ///
-    /// When `s == 0.0`, the result will be equal to `self`.  When `s == 1.0`, the result will be equal to `rhs`.
+    /// This is slightly more efficient than [`slerp`](Self::slerp), and produces a similar result
+    /// when the difference between the two rotations is small. At larger differences,
+    /// the result resembles a kind of ease-in-out effect.
+    ///
+    /// If you would like the angular velocity to remain constant, consider using [`slerp`](Self::slerp) instead.
+    ///
+    /// # Details
+    ///
+    /// `lerp` corresponds to computing an angle for a point at position `s` on a line drawn
+    /// between the endpoints of the arc formed by `self` and `rhs` on a unit circle,
+    /// and normalizing the result afterwards.
     ///
     /// Note that if the angles are opposite like 0 and π, the line will pass through the origin,
     /// and the resulting angle will always be either `self` or `rhs` depending on `s`.
     /// If `s` happens to be `0.5` in this case, a valid rotation cannot be computed, and `self`
     /// will be returned as a fallback.
-    ///
-    /// If you would like the angular velocity to be constant, consider using [`slerp`](Self::slerp) instead.
     ///
     /// # Example
     ///
@@ -308,11 +316,11 @@ impl Rotation2d {
     ///
     /// This corresponds to interpolating between the two angles at a constant angular velocity.
     ///
-    /// When `s == 0.0`, the result will be equal to `self`.  When `s == 1.0`, the result will be equal to `rhs`.
+    /// When `s == 0.0`, the result will be equal to `self`.
+    /// When `s == 1.0`, the result will be equal to `rhs`.
     ///
-    /// If you would like the rotation to have a kind of ease-in-out effect instead, consider
-    /// using [`lerp`](Self::lerp), which interpolates the angle based on a line drawn between
-    /// the endpoints of the arc formed by `self` and `rhs` on a unit circle.
+    /// If you would like the rotation to have a kind of ease-in-out effect, consider
+    /// using the slightly more efficient [`lerp`](Self::lerp) instead.
     ///
     /// # Example
     ///
