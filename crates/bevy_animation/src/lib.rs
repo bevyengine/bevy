@@ -26,7 +26,7 @@ use bevy_utils::{tracing::error, NoOpHash, Uuid};
 use graph::{AnimationGraph, AnimationNodeIndex};
 use petgraph::graph::NodeIndex;
 use petgraph::Direction;
-use prelude::AnimationTransitions;
+use prelude::{AnimationGraphAssetLoader, AnimationTransitions};
 use sha1_smol::Sha1;
 
 #[allow(missing_docs)]
@@ -806,6 +806,7 @@ impl Plugin for AnimationPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<AnimationClip>()
             .init_asset::<AnimationGraph>()
+            .init_asset_loader::<AnimationGraphAssetLoader>()
             .register_asset_reflect::<AnimationClip>()
             .register_asset_reflect::<AnimationGraph>()
             .register_type::<AnimationPlayer>()

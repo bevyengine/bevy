@@ -3,7 +3,11 @@
 //! The animation graph is shown on screen. You can change the weights of the
 //! playing animations by clicking and dragging left or right within the nodes.
 
+use std::{fs::File, path::Path};
+
+use argh::FromArgs;
 use bevy::{
+    asset::io::file::FileAssetReader,
     color::palettes::{
         basic::WHITE,
         css::{ANTIQUE_WHITE, DARK_GREEN},
@@ -11,6 +15,20 @@ use bevy::{
     prelude::{Color::Srgba, *},
     ui::RelativeCursorPosition,
 };
+use ron::ser::PrettyConfig;
+
+static ANIMATION_GRAPH_PATH: &str = "animation_graphs/Fox.animgraph.ron";
+
+/// Demonstrates animation blending with animation graphs
+#[derive(FromArgs, Resource)]
+struct Args {
+    /// disables loading of the animation graph asset from disk
+    #[argh(switch)]
+    no_load: bool,
+    /// regenerates the asset file; implies `--no-load`
+    #[argh(switch)]
+    save: bool,
+}
 
 /// An on-screen representation of a node.
 #[derive(Debug)]
@@ -42,17 +60,13 @@ struct Line {
     length: f32,
 }
 
-/// Assets that the example needs to use.
+/// The [`AnimationGraph`] asset, which specifies how the animations are to
+/// be blended together.
+#[derive(Clone, Resource)]
+struct ExampleAnimationGraph(Handle<AnimationGraph>);
+
 #[derive(Resource)]
-struct AppAssets {
-    /// The [`AnimationGraph`] asset, which specifies how the animations are to
-    /// be blended together.
-    animation_graph: Handle<AnimationGraph>,
-    /// Indices of the three animations in the graph.
-    ///
-    /// This value is populated when the graph is loaded.
-    node_indices: [AnimationNodeIndex; 3],
-}
+struct ExampleAnimationGraphNodeIndices([AnimationNodeIndex; 3]);
 
 /// The current weights of the three playing animations.
 #[derive(Resource)]
@@ -119,6 +133,11 @@ static VERTICAL_LINES: [Line; 2] = [
 
 /// Initializes the app.
 fn main() {
+    #[cfg(not(target_arch = "wasm32"))]
+    let args: Args = argh::from_env();
+    #[cfg(target_arch = "wasm32")]
+    let args = Args::from_args(&[], &[]).unwrap();
+
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
@@ -128,12 +147,14 @@ fn main() {
             ..default()
         }))
         .add_systems(Startup, setup)
+        .add_systems(PreUpdate, init_node_indices)
         .add_systems(PreUpdate, init_animations)
         .add_systems(
             Update,
             (handle_weight_drag, update_ui, sync_weights).chain(),
         )
         .init_resource::<AnimationWeights>()
+        .insert_resource(args)
         .insert_resource(AmbientLight {
             color: Srgba(WHITE),
             brightness: 100.0,
@@ -145,9 +166,19 @@ fn setup(
     mut commands: Commands,
     mut asset_server: ResMut<AssetServer>,
     mut animation_graphs: ResMut<Assets<AnimationGraph>>,
+    args: Res<Args>,
 ) {
-    // Create the assets.
-    setup_assets(&mut commands, &mut asset_server, &mut animation_graphs);
+    // Create or load the assets.
+    if args.no_load || args.save {
+        setup_assets_programmatically(
+            &mut commands,
+            &mut asset_server,
+            &mut animation_graphs,
+            args.save,
+        );
+    } else {
+        setup_assets_via_serialized_animation_graph(&mut commands, &mut asset_server);
+    }
 
     // Create the scene.
     setup_scene(&mut commands, &mut asset_server);
@@ -159,41 +190,63 @@ fn setup(
     setup_node_lines(&mut commands);
 }
 
-/// Creates the assets, including the animation graph.
-fn setup_assets(
+/// Creates the assets programmatically, including the animation graph.
+/// Optionally saves them to disk if `save` is present (corresponding to the
+/// `--save` option).
+fn setup_assets_programmatically(
     commands: &mut Commands,
     asset_server: &mut AssetServer,
     animation_graphs: &mut Assets<AnimationGraph>,
+    save: bool,
 ) {
     // Create the nodes.
     let mut animation_graph = AnimationGraph::new();
     let blend_node = animation_graph.add_blend(0.5, animation_graph.root);
-    let node_indices: [_; 3] = [
-        animation_graph.add_clip(
-            asset_server.load("models/animated/Fox.glb#Animation0"),
-            1.0,
-            animation_graph.root,
-        ),
-        animation_graph.add_clip(
-            asset_server.load("models/animated/Fox.glb#Animation1"),
-            1.0,
-            blend_node,
-        ),
-        animation_graph.add_clip(
-            asset_server.load("models/animated/Fox.glb#Animation2"),
-            1.0,
-            blend_node,
-        ),
-    ];
+    animation_graph.add_clip(
+        asset_server.load("models/animated/Fox.glb#Animation0"),
+        1.0,
+        animation_graph.root,
+    );
+    animation_graph.add_clip(
+        asset_server.load("models/animated/Fox.glb#Animation1"),
+        1.0,
+        blend_node,
+    );
+    animation_graph.add_clip(
+        asset_server.load("models/animated/Fox.glb#Animation2"),
+        1.0,
+        blend_node,
+    );
+
+    // If asked to save, do so.
+    if save {
+        let mut animation_graph_writer = File::create(Path::join(
+            &FileAssetReader::get_base_path(),
+            Path::join(Path::new("assets"), Path::new(ANIMATION_GRAPH_PATH)),
+        ))
+        .expect("Failed to open the animation graph asset");
+        ron::ser::to_writer_pretty(
+            &mut animation_graph_writer,
+            &animation_graph,
+            PrettyConfig::default(),
+        )
+        .expect("Failed to serialize the animation graph");
+    }
 
     // Add the graph.
     let animation_graph = animation_graphs.add(animation_graph);
 
     // Save the assets in a resource.
-    commands.insert_resource(AppAssets {
-        animation_graph,
-        node_indices,
-    });
+    commands.insert_resource(ExampleAnimationGraph(animation_graph));
+}
+
+fn setup_assets_via_serialized_animation_graph(
+    commands: &mut Commands,
+    asset_server: &mut AssetServer,
+) {
+    commands.insert_resource(ExampleAnimationGraph(
+        asset_server.load(ANIMATION_GRAPH_PATH),
+    ));
 }
 
 /// Spawns the animated fox.
@@ -364,15 +417,63 @@ fn setup_node_lines(commands: &mut Commands) {
 /// Attaches the animation graph to the scene, and plays all three animations.
 fn init_animations(
     mut commands: Commands,
-    mut query: Query<(Entity, &mut AnimationPlayer), Added<AnimationPlayer>>,
-    app_assets: Res<AppAssets>,
+    mut query: Query<(Entity, &mut AnimationPlayer)>,
+    animation_graph: Res<ExampleAnimationGraph>,
+    node_indices: Option<Res<ExampleAnimationGraphNodeIndices>>,
+    mut done: Local<bool>,
 ) {
+    let Some(node_indices) = node_indices else {
+        return;
+    };
+
+    if *done {
+        return;
+    }
+
     for (entity, mut player) in query.iter_mut() {
-        commands
-            .entity(entity)
-            .insert(app_assets.animation_graph.clone());
-        for node_index in app_assets.node_indices {
+        commands.entity(entity).insert(animation_graph.0.clone());
+        for node_index in node_indices.0 {
             player.play(node_index).repeat();
+        }
+
+        *done = true;
+    }
+}
+
+fn init_node_indices(
+    mut commands: Commands,
+    mut events: EventReader<AssetEvent<AnimationGraph>>,
+    assets: Res<Assets<AnimationGraph>>,
+) {
+    for event in events.read() {
+        match event {
+            AssetEvent::Added { id } | AssetEvent::LoadedWithDependencies { id } => {
+                let animation_graph = assets
+                    .get(*id)
+                    .expect("Animation graph not present when it should be");
+                let mut animation_node_indices = [AnimationNodeIndex::new(0); 3];
+                for node_index in animation_graph.nodes() {
+                    let Some(node) = animation_graph.get(node_index) else {
+                        continue;
+                    };
+                    let Some(ref clip) = node.clip else { continue };
+                    let Some(path) = clip.path() else { continue };
+                    let Some(label) = path.label() else { continue };
+                    if !label.starts_with("Animation") {
+                        continue;
+                    };
+                    let Some(digit_position) = label.find(|c: char| c.is_ascii_digit()) else {
+                        continue;
+                    };
+                    let Ok(index) = label[digit_position..].parse::<usize>() else {
+                        continue;
+                    };
+                    animation_node_indices[index] = node_index;
+                }
+
+                commands.insert_resource(ExampleAnimationGraphNodeIndices(animation_node_indices));
+            }
+            _ => {}
         }
     }
 }
@@ -430,14 +531,16 @@ fn update_ui(
 /// playing animation.
 fn sync_weights(
     mut query: Query<&mut AnimationPlayer>,
-    app_assets: Res<AppAssets>,
+    node_indices: Option<Res<ExampleAnimationGraphNodeIndices>>,
     animation_weights: Res<AnimationWeights>,
 ) {
+    let Some(node_indices) = node_indices else {
+        return;
+    };
+
     for mut animation_player in query.iter_mut() {
-        for (&animation_node_index, &animation_weight) in app_assets
-            .node_indices
-            .iter()
-            .zip(animation_weights.weights.iter())
+        for (&animation_node_index, &animation_weight) in
+            node_indices.0.iter().zip(animation_weights.weights.iter())
         {
             // If the animation happens to be no longer active, restart it.
             if !animation_player.animation_is_playing(animation_node_index) {

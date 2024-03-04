@@ -6,9 +6,9 @@ use std::ops::{Index, IndexMut};
 use std::path::Path;
 
 use bevy_asset::io::Reader;
-use bevy_asset::{Asset, AssetId, AssetLoader, AsyncReadExt as _, Handle, LoadContext};
+use bevy_asset::{Asset, AssetId, AssetLoader, AssetPath, AsyncReadExt as _, Handle, LoadContext};
 use bevy_reflect::Reflect;
-use bevy_utils::BoxedFuture;
+use bevy_utils::{BoxedFuture, HashMap};
 use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::visit::{Dfs, Visitable};
 use petgraph::Graph;
@@ -71,7 +71,8 @@ use crate::AnimationClip;
 /// [RON]: https://github.com/ron-rs/ron
 ///
 /// [RFC 51]: https://github.com/bevyengine/rfcs/blob/main/rfcs/51-animation-composition.md
-#[derive(Asset, Reflect, Debug, Serialize, Deserialize)]
+#[derive(Asset, Reflect, Clone, Debug, Serialize, Deserialize)]
+#[serde(into = "SerializedAnimationGraph", from = "SerializedAnimationGraph")]
 pub struct AnimationGraph {
     /// The `petgraph` data structure that defines the animation graph.
     pub graph: AnimationDiGraph,
@@ -116,6 +117,7 @@ pub struct AnimationGraphNode {
 ///
 /// The canonical extension for [`AnimationGraph`]s is `.animgraph.ron`. Plain
 /// `.animgraph` is supported as well.
+#[derive(Default)]
 pub struct AnimationGraphAssetLoader;
 
 /// Various errors that can occur when serializing or deserializing animation
@@ -132,6 +134,25 @@ pub enum AnimationGraphLoadError {
     /// is supplied.
     #[error("RON serialization")]
     SpannedRon(#[from] SpannedError),
+}
+
+/// A version of [`AnimationGraph`] suitable for serializing as an asset.
+///
+/// Animation nodes can refer to external animation clips, and the [`AssetId`]
+/// is typically not sufficient to identify the clips, since the
+/// [`bevy_asset::AssetServer`] assigns IDs in unpredictable ways. That fact
+/// motivates this type, which pairs the [`AnimationGraph`] data with a list of
+/// asset paths. Loading an animation graph via the [`bevy_asset::AssetServer`]
+/// actually loads a serialized instance of this type, as does serializing an
+/// [`AnimationGraph`] through `serde`.
+#[derive(Serialize, Deserialize)]
+pub struct SerializedAnimationGraph {
+    /// Corresponds to the `graph` field on [`AnimationGraph`].
+    pub graph: AnimationDiGraph,
+    /// Corresponds to the `root` field on [`AnimationGraph`].
+    pub root: NodeIndex,
+    /// A mapping from the animation graph's asset IDs to their paths.
+    pub asset_paths: HashMap<AssetId<AnimationClip>, AssetPath<'static>>,
 }
 
 impl AnimationGraph {
@@ -242,6 +263,11 @@ impl AnimationGraph {
         self.graph.node_weight_mut(animation)
     }
 
+    /// Returns an iterator over the [`AnimationGraphNode`]s in this graph.
+    pub fn nodes(&self) -> impl Iterator<Item = AnimationNodeIndex> {
+        self.graph.node_indices()
+    }
+
     /// Performs a depth-first search on the animation graph.
     pub(crate) fn dfs(
         &self,
@@ -311,15 +337,39 @@ impl AssetLoader for AnimationGraphAssetLoader {
         &'a self,
         reader: &'a mut Reader,
         _: &'a Self::Settings,
-        _: &'a mut LoadContext,
+        load_context: &'a mut LoadContext,
     ) -> BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
         Box::pin(async move {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;
 
+            // Deserialize a `SerializedAnimationGraph` directly, so that we can
+            // get the list of the animation clips it refers to and load them.
             let mut deserializer = ron::de::Deserializer::from_bytes(&bytes)?;
-            AnimationGraph::deserialize(&mut deserializer)
-                .map_err(|err| deserializer.span_error(err).into())
+            let mut serialized_animation_graph =
+                SerializedAnimationGraph::deserialize(&mut deserializer)
+                    .map_err(|err| deserializer.span_error(err))?;
+
+            // If the animation graph refers to assets on disk (the common
+            // case), then load them.
+            if !serialized_animation_graph.asset_paths.is_empty() {
+                for node in serialized_animation_graph.graph.node_weights_mut() {
+                    let Some(ref mut clip_handle) = node.clip else {
+                        continue;
+                    };
+                    let Some(asset_path) = serialized_animation_graph
+                        .asset_paths
+                        .get(&clip_handle.id())
+                    else {
+                        continue;
+                    };
+                    *clip_handle = load_context.load(asset_path);
+                }
+            }
+
+            // Now that we've fixed up all handles, convert to an
+            // `AnimationGraph`.
+            Ok(serialized_animation_graph.into())
         })
     }
 
@@ -358,4 +408,40 @@ where
         <Option<AssetId<AnimationClip>> as Deserialize>::deserialize(deserializer)?
             .map(Handle::Weak),
     )
+}
+
+impl From<AnimationGraph> for SerializedAnimationGraph {
+    fn from(animation_graph: AnimationGraph) -> Self {
+        // Before serializing, gather up all animation clips with paths that the
+        // graph refers to, and write that path information alongside the graph.
+        let asset_paths = animation_graph
+            .graph
+            .node_weights()
+            .filter_map(|node| node.clip.as_ref())
+            .filter_map(|clip_handle| {
+                clip_handle
+                    .path()
+                    .map(|asset_path| (clip_handle.id(), asset_path.clone()))
+            })
+            .collect();
+
+        // Transfer the fields over.
+        Self {
+            graph: animation_graph.graph,
+            root: animation_graph.root,
+            asset_paths,
+        }
+    }
+}
+
+impl From<SerializedAnimationGraph> for AnimationGraph {
+    fn from(animation_graph: SerializedAnimationGraph) -> Self {
+        // Simply discard the asset paths metadata. Since this is expected to
+        // be called after the asset loader has already loaded all asset paths,
+        // this is OK.
+        Self {
+            graph: animation_graph.graph,
+            root: animation_graph.root,
+        }
+    }
 }

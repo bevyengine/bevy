@@ -1,0 +1,76 @@
+(
+    graph: (
+        nodes: [
+            (
+                clip: None,
+                weight: 1.0,
+            ),
+            (
+                clip: None,
+                weight: 0.5,
+            ),
+            (
+                clip: Some(Index(
+                    index: (
+                        generation: 0,
+                        index: 0,
+                    ),
+                    marker: (),
+                )),
+                weight: 1.0,
+            ),
+            (
+                clip: Some(Index(
+                    index: (
+                        generation: 0,
+                        index: 1,
+                    ),
+                    marker: (),
+                )),
+                weight: 1.0,
+            ),
+            (
+                clip: Some(Index(
+                    index: (
+                        generation: 0,
+                        index: 2,
+                    ),
+                    marker: (),
+                )),
+                weight: 1.0,
+            ),
+        ],
+        node_holes: [],
+        edge_property: directed,
+        edges: [
+            Some((0, 1, ())),
+            Some((0, 2, ())),
+            Some((1, 3, ())),
+            Some((1, 4, ())),
+        ],
+    ),
+    root: 0,
+    asset_paths: {
+        Index(
+            index: (
+                generation: 0,
+                index: 0,
+            ),
+            marker: (),
+        ): "models/animated/Fox.glb#Animation0",
+        Index(
+            index: (
+                generation: 0,
+                index: 1,
+            ),
+            marker: (),
+        ): "models/animated/Fox.glb#Animation1",
+        Index(
+            index: (
+                generation: 0,
+                index: 2,
+            ),
+            marker: (),
+        ): "models/animated/Fox.glb#Animation2",
+    },
+)
