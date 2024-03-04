@@ -4,15 +4,15 @@ use bevy_math::{Rect, Vec2};
 use bevy_reflect::Reflect;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlasLayout;
-use bevy_utils::tracing::warn;
+use bevy_utils::warn_once;
 use glyph_brush_layout::{
     BuiltInLineBreaker, FontId, GlyphPositioner, Layout, SectionGeometry, SectionGlyph,
     SectionText, ToSectionText,
 };
 
 use crate::{
-    error::TextError, BreakLineOn, Font, FontAtlasSet, FontAtlasSets, FontAtlasWarning,
-    GlyphAtlasInfo, JustifyText, TextSettings, YAxisOrientation,
+    error::TextError, BreakLineOn, Font, FontAtlasSet, FontAtlasSets, GlyphAtlasInfo, JustifyText,
+    TextSettings, YAxisOrientation,
 };
 
 pub struct GlyphBrush {
@@ -63,7 +63,6 @@ impl GlyphBrush {
         texture_atlases: &mut Assets<TextureAtlasLayout>,
         textures: &mut Assets<Image>,
         text_settings: &TextSettings,
-        font_atlas_warning: &mut FontAtlasWarning,
         y_axis_orientation: YAxisOrientation,
     ) -> Result<Vec<PositionedGlyph>, TextError> {
         if glyphs.is_empty() {
@@ -114,16 +113,16 @@ impl GlyphBrush {
                     })?;
 
                 if !text_settings.allow_dynamic_font_size
-                    && !font_atlas_warning.warned
                     && font_atlas_set.len() > text_settings.soft_max_font_atlases.get()
                 {
-                    warn!("warning[B0005]: Number of font atlases has exceeded the maximum of {}. Performance and memory usage may suffer.", text_settings.soft_max_font_atlases.get());
-                    font_atlas_warning.warned = true;
+                    warn_once!(
+                        "warning[B0005]: Number of font atlases has exceeded the maximum of {}. Performance and memory usage may suffer. See: https://bevyengine.org/learn/errors/#b0005",
+                        text_settings.soft_max_font_atlases.get());
                 }
 
                 let texture_atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
                 let glyph_rect = texture_atlas.textures[atlas_info.glyph_index];
-                let size = Vec2::new(glyph_rect.width(), glyph_rect.height());
+                let size = glyph_rect.size().as_vec2();
 
                 let x = bounds.min.x + size.x / 2.0 - text_bounds.min.x;
 

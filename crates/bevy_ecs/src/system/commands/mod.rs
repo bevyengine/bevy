@@ -1,56 +1,17 @@
-mod command_queue;
 mod parallel_scope;
 
+use super::{Deferred, Resource};
 use crate::{
     self as bevy_ecs,
     bundle::Bundle,
     entity::{Entities, Entity},
     system::{RunSystemWithInput, SystemId},
-    world::{EntityWorldMut, FromWorld, World},
+    world::{Command, CommandQueue, EntityWorldMut, FromWorld, World},
 };
 use bevy_ecs_macros::SystemParam;
 use bevy_utils::tracing::{error, info};
-pub use command_queue::CommandQueue;
 pub use parallel_scope::*;
 use std::marker::PhantomData;
-
-use super::{Deferred, Resource, SystemBuffer, SystemMeta};
-
-/// A [`World`] mutation.
-///
-/// Should be used with [`Commands::add`].
-///
-/// # Usage
-///
-/// ```
-/// # use bevy_ecs::prelude::*;
-/// # use bevy_ecs::system::Command;
-/// // Our world resource
-/// #[derive(Resource, Default)]
-/// struct Counter(u64);
-///
-/// // Our custom command
-/// struct AddToCounter(u64);
-///
-/// impl Command for AddToCounter {
-///     fn apply(self, world: &mut World) {
-///         let mut counter = world.get_resource_or_insert_with(Counter::default);
-///         counter.0 += self.0;
-///     }
-/// }
-///
-/// fn some_system(mut commands: Commands) {
-///     commands.add(AddToCounter(42));
-/// }
-/// ```
-pub trait Command: Send + 'static {
-    /// Applies this command, causing it to mutate the provided `world`.
-    ///
-    /// This method is used to define what a command "does" when it is ultimately applied.
-    /// Because this method takes `self`, you can store data or settings on the type that implements this trait.
-    /// This data is set by the system or other source of the command, and then ultimately read in this method.
-    fn apply(self, world: &mut World);
-}
 
 /// A [`Command`] queue to perform structural changes to the [`World`].
 ///
@@ -113,15 +74,6 @@ pub trait Command: Send + 'static {
 pub struct Commands<'w, 's> {
     queue: Deferred<'s, CommandQueue>,
     entities: &'w Entities,
-}
-
-impl SystemBuffer for CommandQueue {
-    #[inline]
-    fn apply(&mut self, _system_meta: &SystemMeta, world: &mut World) {
-        #[cfg(feature = "trace")]
-        let _span_guard = _system_meta.commands_span.enter();
-        self.apply(world);
-    }
 }
 
 impl<'w, 's> Commands<'w, 's> {
@@ -581,7 +533,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # Example
     ///
     /// ```
-    /// # use bevy_ecs::{system::Command, prelude::*};
+    /// # use bevy_ecs::{world::Command, prelude::*};
     /// #[derive(Resource, Default)]
     /// struct Counter(u64);
     ///
@@ -1072,7 +1024,7 @@ fn insert<T: Bundle>(bundle: T) -> impl EntityCommand {
         if let Some(mut entity) = world.get_entity_mut(entity) {
             entity.insert(bundle);
         } else {
-            panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World.", std::any::type_name::<T>(), entity);
+            panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/#b0003", std::any::type_name::<T>(), entity);
         }
     }
 }
@@ -1086,7 +1038,7 @@ fn try_insert(bundle: impl Bundle) -> impl EntityCommand {
     }
 }
 
-/// A [`Command`] that removes components from an entity.
+/// An [`EntityCommand`] that removes components from an entity.
 /// For a [`Bundle`] type `T`, this will remove any components in the bundle.
 /// Any components in the bundle that aren't found on the entity will be ignored.
 fn remove<T: Bundle>(entity: Entity, world: &mut World) {
@@ -1095,7 +1047,7 @@ fn remove<T: Bundle>(entity: Entity, world: &mut World) {
     }
 }
 
-/// A [`Command`] that removes components from an entity.
+/// An [`EntityCommand`] that removes components from an entity.
 /// For a [`Bundle`] type `T`, this will remove all components except those in the bundle.
 /// Any components in the bundle that aren't found on the entity will be ignored.
 fn retain<T: Bundle>(entity: Entity, world: &mut World) {
@@ -1138,8 +1090,8 @@ mod tests {
     use crate::{
         self as bevy_ecs,
         component::Component,
-        system::{CommandQueue, Commands, Resource},
-        world::World,
+        system::{Commands, Resource},
+        world::{CommandQueue, World},
     };
     use std::sync::{
         atomic::{AtomicUsize, Ordering},

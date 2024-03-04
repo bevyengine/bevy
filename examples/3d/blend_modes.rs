@@ -10,7 +10,7 @@
 //! | `Spacebar`         | Toggle Unlit                        |
 //! | `C`                | Randomize Colors                    |
 
-use bevy::prelude::*;
+use bevy::{color::palettes::css::ORANGE, prelude::*};
 use rand::random;
 
 fn main() {
@@ -36,14 +36,8 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
-    let base_color = Color::rgba(0.9, 0.2, 0.3, 1.0);
-    let icosphere_mesh = meshes.add(
-        Mesh::try_from(shape::Icosphere {
-            radius: 0.9,
-            subdivisions: 7,
-        })
-        .unwrap(),
-    );
+    let base_color = Color::srgb(0.9, 0.2, 0.3);
+    let icosphere_mesh = meshes.add(Sphere::new(0.9).mesh().ico(7).unwrap());
 
     // Opaque
     let opaque = commands
@@ -149,7 +143,7 @@ fn setup(
     let black_material = materials.add(Color::BLACK);
     let white_material = materials.add(Color::WHITE);
 
-    let plane_mesh = meshes.add(shape::Plane::from_size(2.0));
+    let plane_mesh = meshes.add(Plane3d::default().mesh().size(2.0, 2.0));
 
     for x in -3..4 {
         for z in -3..4 {
@@ -174,10 +168,6 @@ fn setup(
 
     // Light
     commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            intensity: 150_000.0,
-            ..default()
-        },
         transform: Transform::from_xyz(4.0, 8.0, 4.0),
         ..default()
     });
@@ -198,7 +188,7 @@ fn setup(
     let label_text_style = TextStyle {
         font: asset_server.load("fonts/FiraMono-Medium.ttf"),
         font_size: 25.0,
-        color: Color::ORANGE,
+        color: ORANGE.into(),
     };
 
     commands.spawn(
@@ -310,13 +300,19 @@ fn example_control_system(
 
     for (material_handle, controls) in &controllable {
         let material = materials.get_mut(material_handle).unwrap();
-        material.base_color.set_a(state.alpha);
 
         if controls.color && randomize_colors {
-            material.base_color.set_r(random());
-            material.base_color.set_g(random());
-            material.base_color.set_b(random());
+            material.base_color = Srgba {
+                red: random(),
+                green: random(),
+                blue: random(),
+                alpha: state.alpha,
+            }
+            .into();
+        } else {
+            material.base_color.set_alpha(state.alpha);
         }
+
         if controls.unlit {
             material.unlit = state.unlit;
         }

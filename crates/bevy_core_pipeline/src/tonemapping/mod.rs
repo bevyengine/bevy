@@ -14,6 +14,8 @@ use bevy_render::renderer::RenderDevice;
 use bevy_render::texture::{CompressedImageFormats, Image, ImageSampler, ImageType};
 use bevy_render::view::{ViewTarget, ViewUniform};
 use bevy_render::{render_resource::*, Render, RenderApp, RenderSet};
+#[cfg(not(feature = "tonemapping_luts"))]
+use bevy_utils::tracing::error;
 
 mod node;
 
@@ -199,7 +201,7 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
             Tonemapping::AcesFitted => shader_defs.push("TONEMAP_METHOD_ACES_FITTED".into()),
             Tonemapping::AgX => {
                 #[cfg(not(feature = "tonemapping_luts"))]
-                bevy_log::error!(
+                error!(
                     "AgX tonemapping requires the `tonemapping_luts` feature.
                     Either enable the `tonemapping_luts` feature for bevy in `Cargo.toml` (recommended),
                     or use a different `Tonemapping` method in your `Camera2dBundle`/`Camera3dBundle`."
@@ -211,7 +213,7 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
             }
             Tonemapping::TonyMcMapface => {
                 #[cfg(not(feature = "tonemapping_luts"))]
-                bevy_log::error!(
+                error!(
                     "TonyMcMapFace tonemapping requires the `tonemapping_luts` feature.
                     Either enable the `tonemapping_luts` feature for bevy in `Cargo.toml` (recommended),
                     or use a different `Tonemapping` method in your `Camera2dBundle`/`Camera3dBundle`."
@@ -220,7 +222,7 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
             }
             Tonemapping::BlenderFilmic => {
                 #[cfg(not(feature = "tonemapping_luts"))]
-                bevy_log::error!(
+                error!(
                     "BlenderFilmic tonemapping requires the `tonemapping_luts` feature.
                     Either enable the `tonemapping_luts` feature for bevy in `Cargo.toml` (recommended),
                     or use a different `Tonemapping` method in your `Camera2dBundle`/`Camera3dBundle`."
@@ -355,6 +357,8 @@ fn setup_tonemapping_lut_image(bytes: &[u8], image_type: ImageType) -> Image {
         ..default()
     });
     Image::from_buffer(
+        #[cfg(all(debug_assertions, feature = "dds"))]
+        "Tonemapping LUT sampler".to_string(),
         bytes,
         image_type,
         CompressedImageFormats::NONE,

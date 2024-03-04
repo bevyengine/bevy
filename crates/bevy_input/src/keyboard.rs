@@ -16,7 +16,7 @@
 // the W3C short notice apply to the `KeyCode` enums and their variants and the
 // documentation attached to their variants.
 
-// --------- BEGGINING OF W3C LICENSE --------------------------------------------------------------
+// --------- BEGINNING OF W3C LICENSE --------------------------------------------------------------
 //
 // License
 //
@@ -51,7 +51,7 @@
 //
 // --------- END OF W3C LICENSE --------------------------------------------------------------------
 
-// --------- BEGGINING OF W3C SHORT NOTICE ---------------------------------------------------------
+// --------- BEGINNING OF W3C SHORT NOTICE ---------------------------------------------------------
 //
 // winit: https://github.com/rust-windowing/winit
 //
@@ -86,7 +86,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// ## Usage
 ///
 /// The event is consumed inside of the [`keyboard_input_system`]
-/// to update the [`Input<KeyCode>`](ButtonInput<KeyCode>) resource.
+/// to update the [`ButtonInput<KeyCode>`](ButtonInput<KeyCode>) resource.
 #[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
@@ -162,7 +162,7 @@ pub enum NativeKeyCode {
 ///
 /// ## Usage
 ///
-/// It is used as the generic `T` value of an [`ButtonInput`] to create a `Res<Input<KeyCode>>`.
+/// It is used as the generic `T` value of an [`ButtonInput`] to create a `Res<ButtonInput<KeyCode>>`.
 ///
 /// Code representing the location of a physical key
 /// This mostly conforms to the UI Events Specification's [`KeyboardEvent.code`] with a few
@@ -886,7 +886,7 @@ pub enum Key {
     Standby,
     /// The WakeUp key. (`KEYCODE_WAKEUP`)
     WakeUp,
-    /// Initate the multi-candidate mode.
+    /// Initiate the multi-candidate mode.
     AllCandidates,
     /// The Alphanumeric key (on linux/web)
     Alphanumeric,

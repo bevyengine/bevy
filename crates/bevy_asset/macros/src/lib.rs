@@ -1,3 +1,6 @@
+// FIXME(3492): remove once docs are ready
+#![allow(missing_docs)]
+
 use bevy_macro_utils::BevyManifest;
 use proc_macro::{Span, TokenStream};
 use quote::{format_ident, quote};

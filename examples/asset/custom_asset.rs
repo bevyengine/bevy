@@ -11,12 +11,13 @@ use serde::Deserialize;
 use thiserror::Error;
 
 #[derive(Asset, TypePath, Debug, Deserialize)]
-pub struct CustomAsset {
-    pub value: i32,
+struct CustomAsset {
+    #[allow(dead_code)]
+    value: i32,
 }
 
 #[derive(Default)]
-pub struct CustomAssetLoader;
+struct CustomAssetLoader;
 
 /// Possible errors that can be produced by [`CustomAssetLoader`]
 #[non_exhaustive]
@@ -54,12 +55,12 @@ impl AssetLoader for CustomAssetLoader {
 }
 
 #[derive(Asset, TypePath, Debug)]
-pub struct Blob {
-    pub bytes: Vec<u8>,
+struct Blob {
+    bytes: Vec<u8>,
 }
 
 #[derive(Default)]
-pub struct BlobAssetLoader;
+struct BlobAssetLoader;
 
 /// Possible errors that can be produced by [`CustomAssetLoader`]
 #[non_exhaustive]

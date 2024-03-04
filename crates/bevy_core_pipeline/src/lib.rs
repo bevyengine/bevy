@@ -1,3 +1,6 @@
+// FIXME(3492): remove once docs are ready
+#![allow(missing_docs)]
+
 pub mod blit;
 pub mod bloom;
 pub mod contrast_adaptive_sharpening;

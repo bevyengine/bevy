@@ -1,4 +1,3 @@
-#![warn(missing_docs)]
 //! This crate provides logging functions and configuration for [Bevy](https://bevyengine.org)
 //! apps, and automatically configures platform specific log handlers (i.e. WASM or Android).
 //!
@@ -107,9 +106,12 @@ pub struct LogPlugin {
     /// This can be further filtered using the `filter` setting.
     pub level: Level,
 
-    /// Optionally apply extra transformations to the tracing subscriber.
-    /// For example add [`Layers`](tracing_subscriber::layer::Layer)
-    pub update_subscriber: Option<fn(BoxedSubscriber) -> BoxedSubscriber>,
+    /// Optionally apply extra transformations to the tracing subscriber,
+    /// such as adding [`Layer`](tracing_subscriber::layer::Layer)s.
+    ///
+    /// Access to [`App`] is also provided to allow for communication between the [`Subscriber`]
+    /// and the [`App`].
+    pub update_subscriber: Option<fn(&mut App, BoxedSubscriber) -> BoxedSubscriber>,
 }
 
 /// Alias for a boxed [`Subscriber`].
@@ -174,7 +176,7 @@ impl Plugin for LogPlugin {
             };
 
             #[cfg(feature = "tracing-tracy")]
-            let tracy_layer = tracing_tracy::TracyLayer::new();
+            let tracy_layer = tracing_tracy::TracyLayer::default();
 
             let fmt_layer = tracing_subscriber::fmt::Layer::default().with_writer(std::io::stderr);
 
@@ -194,7 +196,7 @@ impl Plugin for LogPlugin {
             let subscriber = subscriber.with(tracy_layer);
 
             if let Some(update_subscriber) = self.update_subscriber {
-                finished_subscriber = update_subscriber(Box::new(subscriber));
+                finished_subscriber = update_subscriber(app, Box::new(subscriber));
             } else {
                 finished_subscriber = Box::new(subscriber);
             }
@@ -218,12 +220,12 @@ impl Plugin for LogPlugin {
             bevy_utils::tracing::subscriber::set_global_default(finished_subscriber).is_err();
 
         match (logger_already_set, subscriber_already_set) {
-            (true, true) => warn!(
+            (true, true) => error!(
                 "Could not set global logger and tracing subscriber as they are already set. Consider disabling LogPlugin."
             ),
-            (true, _) => warn!("Could not set global logger as it is already set. Consider disabling LogPlugin."),
-            (_, true) => warn!("Could not set global tracing subscriber as it is already set. Consider disabling LogPlugin."),
-            _ => (),
+            (true, false) => error!("Could not set global logger as it is already set. Consider disabling LogPlugin."),
+            (false, true) => error!("Could not set global tracing subscriber as it is already set. Consider disabling LogPlugin."),
+            (false, false) => (),
         }
     }
 }

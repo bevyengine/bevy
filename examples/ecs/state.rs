@@ -41,9 +41,9 @@ struct MenuData {
     button_entity: Entity,
 }
 
-const NORMAL_BUTTON: Color = Color::rgb(0.15, 0.15, 0.15);
-const HOVERED_BUTTON: Color = Color::rgb(0.25, 0.25, 0.25);
-const PRESSED_BUTTON: Color = Color::rgb(0.35, 0.75, 0.35);
+const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
+const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
+const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
@@ -74,7 +74,7 @@ fn setup_menu(mut commands: Commands) {
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    background_color: NORMAL_BUTTON.into(),
+                    image: UiImage::default().with_color(NORMAL_BUTTON),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -82,7 +82,7 @@ fn setup_menu(mut commands: Commands) {
                         "Play",
                         TextStyle {
                             font_size: 40.0,
-                            color: Color::rgb(0.9, 0.9, 0.9),
+                            color: Color::srgb(0.9, 0.9, 0.9),
                             ..default()
                         },
                     ));
@@ -95,21 +95,21 @@ fn setup_menu(mut commands: Commands) {
 fn menu(
     mut next_state: ResMut<NextState<AppState>>,
     mut interaction_query: Query<
-        (&Interaction, &mut BackgroundColor),
+        (&Interaction, &mut UiImage),
         (Changed<Interaction>, With<Button>),
     >,
 ) {
-    for (interaction, mut color) in &mut interaction_query {
+    for (interaction, mut image) in &mut interaction_query {
         match *interaction {
             Interaction::Pressed => {
-                *color = PRESSED_BUTTON.into();
+                image.color = PRESSED_BUTTON;
                 next_state.set(AppState::InGame);
             }
             Interaction::Hovered => {
-                *color = HOVERED_BUTTON.into();
+                image.color = HOVERED_BUTTON;
             }
             Interaction::None => {
-                *color = NORMAL_BUTTON.into();
+                image.color = NORMAL_BUTTON;
             }
         }
     }
@@ -155,9 +155,12 @@ fn movement(
 
 fn change_color(time: Res<Time>, mut query: Query<&mut Sprite>) {
     for mut sprite in &mut query {
-        sprite
-            .color
-            .set_b((time.elapsed_seconds() * 0.5).sin() + 2.0);
+        let new_color = LinearRgba {
+            blue: (time.elapsed_seconds() * 0.5).sin() + 2.0,
+            ..LinearRgba::from(sprite.color)
+        };
+
+        sprite.color = new_color.into();
     }
 }
 

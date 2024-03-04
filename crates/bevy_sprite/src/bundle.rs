@@ -1,4 +1,6 @@
-use crate::{texture_atlas::TextureAtlas, ImageScaleMode, Sprite};
+#![allow(deprecated)]
+
+use crate::{Sprite, TextureAtlas};
 use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
@@ -8,12 +10,18 @@ use bevy_render::{
 use bevy_transform::components::{GlobalTransform, Transform};
 
 /// A [`Bundle`] of components for drawing a single sprite from an image.
-#[derive(Bundle, Clone, Default)]
+///
+/// # Extra behaviours
+///
+/// You may add the following components to enable additional behaviours:
+/// - [`ImageScaleMode`](crate::ImageScaleMode) to enable either slicing or tiling of the texture
+/// - [`TextureAtlas`] to draw specific sections of the texture
+///
+/// Note that `ImageScaleMode` is currently not compatible with `TextureAtlas`.
+#[derive(Bundle, Clone, Debug, Default)]
 pub struct SpriteBundle {
     /// Specifies the rendering properties of the sprite, such as color tint and flip.
     pub sprite: Sprite,
-    /// Controls how the image is altered when scaled.
-    pub scale_mode: ImageScaleMode,
     /// The local transform of the sprite, relative to its parent.
     pub transform: Transform,
     /// The absolute transform of the sprite. This should generally not be written to directly.
@@ -37,12 +45,17 @@ pub struct SpriteBundle {
 /// Check the following examples for usage:
 /// - [`animated sprite sheet example`](https://github.com/bevyengine/bevy/blob/latest/examples/2d/sprite_sheet.rs)
 /// - [`texture atlas example`](https://github.com/bevyengine/bevy/blob/latest/examples/2d/texture_atlas.rs)
-#[derive(Bundle, Clone, Default)]
+#[deprecated(
+    since = "0.14.0",
+    note = "Use `TextureAtlas` alongside a `SpriteBundle` instead"
+)]
+#[derive(Bundle, Clone, Debug, Default)]
 pub struct SpriteSheetBundle {
+    /// Specifies the rendering properties of the sprite, such as color tint and flip.
     pub sprite: Sprite,
-    /// Controls how the image is altered when scaled.
-    pub scale_mode: ImageScaleMode,
+    /// The local transform of the sprite, relative to its parent.
     pub transform: Transform,
+    /// The absolute transform of the sprite. This should generally not be written to directly.
     pub global_transform: GlobalTransform,
     /// The sprite sheet base texture
     pub texture: Handle<Image>,
@@ -50,6 +63,7 @@ pub struct SpriteSheetBundle {
     pub atlas: TextureAtlas,
     /// User indication of whether an entity is visible
     pub visibility: Visibility,
+    /// Inherited visibility of an entity.
     pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub view_visibility: ViewVisibility,

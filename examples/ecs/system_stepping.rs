@@ -1,3 +1,5 @@
+//! Demonstrate stepping through systems in order of execution.
+
 use bevy::{ecs::schedule::Stepping, log::LogPlugin, prelude::*};
 
 fn main() {

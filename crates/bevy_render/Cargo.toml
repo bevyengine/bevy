@@ -1,6 +1,6 @@
 [package]
 name = "bevy_render"
-version = "0.12.0"
+version = "0.14.0-dev"
 edition = "2021"
 description = "Provides rendering functionality for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -18,6 +18,7 @@ bmp = ["image/bmp"]
 webp = ["image/webp"]
 dds = ["ddsfile"]
 pnm = ["image/pnm"]
+multi-threaded = ["bevy_tasks/multi-threaded"]
 bevy_ci_testing = ["bevy_app/bevy_ci_testing"]
 
 shader_format_glsl = ["naga/glsl-in", "naga/wgsl-out", "naga_oil/glsl"]
@@ -33,28 +34,29 @@ wgpu_trace = ["wgpu/trace"]
 ci_limits = []
 webgl = ["wgpu/webgl"]
 webgpu = ["wgpu/webgpu"]
+ios_simulator = []
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.12.0" }
-bevy_asset = { path = "../bevy_asset", version = "0.12.0" }
-bevy_core = { path = "../bevy_core", version = "0.12.0" }
-bevy_derive = { path = "../bevy_derive", version = "0.12.0" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.12.0" }
-bevy_encase_derive = { path = "../bevy_encase_derive", version = "0.12.0" }
-bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.12.0" }
-bevy_log = { path = "../bevy_log", version = "0.12.0" }
-bevy_math = { path = "../bevy_math", version = "0.12.0" }
-bevy_mikktspace = { path = "../bevy_mikktspace", version = "0.12.0" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.12.0", features = [
+bevy_app = { path = "../bevy_app", version = "0.14.0-dev" }
+bevy_asset = { path = "../bevy_asset", version = "0.14.0-dev" }
+bevy_color = { path = "../bevy_color", version = "0.14.0-dev" }
+bevy_core = { path = "../bevy_core", version = "0.14.0-dev" }
+bevy_derive = { path = "../bevy_derive", version = "0.14.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
+bevy_encase_derive = { path = "../bevy_encase_derive", version = "0.14.0-dev" }
+bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.14.0-dev" }
+bevy_math = { path = "../bevy_math", version = "0.14.0-dev" }
+bevy_mikktspace = { path = "../bevy_mikktspace", version = "0.14.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev", features = [
   "bevy",
 ] }
-bevy_render_macros = { path = "macros", version = "0.12.0" }
-bevy_time = { path = "../bevy_time", version = "0.12.0" }
-bevy_transform = { path = "../bevy_transform", version = "0.12.0" }
-bevy_window = { path = "../bevy_window", version = "0.12.0" }
-bevy_utils = { path = "../bevy_utils", version = "0.12.0" }
-bevy_tasks = { path = "../bevy_tasks", version = "0.12.0" }
+bevy_render_macros = { path = "macros", version = "0.14.0-dev" }
+bevy_time = { path = "../bevy_time", version = "0.14.0-dev" }
+bevy_transform = { path = "../bevy_transform", version = "0.14.0-dev" }
+bevy_window = { path = "../bevy_window", version = "0.14.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
+bevy_tasks = { path = "../bevy_tasks", version = "0.14.0-dev" }
 
 # rendering
 image = { version = "0.24", default-features = false }
@@ -63,7 +65,7 @@ image = { version = "0.24", default-features = false }
 codespan-reporting = "0.11.0"
 # `fragile-send-sync-non-atomic-wasm` feature means we can't use WASM threads for rendering
 # It is enabled for now to avoid having to do a significant overhaul of the renderer just for wasm
-wgpu = { version = "0.19.1", default-features = false, features = [
+wgpu = { version = "0.19.3", default-features = false, features = [
   "wgsl",
   "dx12",
   "metal",
@@ -72,11 +74,8 @@ wgpu = { version = "0.19.1", default-features = false, features = [
   "fragile-send-sync-non-atomic-wasm",
 ] }
 naga = { version = "0.19", features = ["wgsl-in"] }
-naga_oil = { version = "0.12", default-features = false, features = [
-  "test_shader",
-] }
 serde = { version = "1", features = ["derive"] }
-bitflags = "2.3"
+bitflags = { version = "2.3", features = ["serde"] }
 bytemuck = { version = "1.5", features = ["derive"] }
 downcast-rs = "1.2.0"
 thread_local = "1.1"
@@ -95,11 +94,19 @@ encase = { version = "0.7", features = ["glam"] }
 profiling = { version = "1", features = [
   "profile-with-tracing",
 ], optional = true }
-async-channel = "2.1.0"
+async-channel = "2.2.0"
+
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# Omit the `glsl` feature in non-WebAssembly by default.
+naga_oil = { version = "0.13", default-features = false, features = [
+  "test_shader",
+] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+naga_oil = "0.13"
 js-sys = "0.3"
-web-sys = { version = "0.3", features = [
+web-sys = { version = "0.3.67", features = [
   'Blob',
   'Document',
   'Element',
