@@ -1,3 +1,5 @@
+use std::ops::{Div, Mul};
+
 use crate::color_difference::EuclideanDistance;
 use crate::{Alpha, LinearRgba, Luminance, Mix, StandardColor, Xyza};
 use bevy_math::Vec4;
@@ -36,6 +38,30 @@ impl Srgba {
     pub const NONE: Srgba = Srgba::new(0.0, 0.0, 0.0, 0.0);
     /// <div style="background-color:rgb(100%, 100%, 100%); width: 10px; padding: 10px; border: 1px solid;"></div>
     pub const WHITE: Srgba = Srgba::new(1.0, 1.0, 1.0, 1.0);
+
+    /// A fully red color with full alpha.
+    pub const RED: Self = Self {
+        red: 1.0,
+        green: 0.0,
+        blue: 0.0,
+        alpha: 1.0,
+    };
+
+    /// A fully green color with full alpha.
+    pub const GREEN: Self = Self {
+        red: 0.0,
+        green: 1.0,
+        blue: 0.0,
+        alpha: 1.0,
+    };
+
+    /// A fully blue color with full alpha.
+    pub const BLUE: Self = Self {
+        red: 0.0,
+        green: 0.0,
+        blue: 1.0,
+        alpha: 1.0,
+    };
 
     /// Construct a new [`Srgba`] color from components.
     ///
@@ -264,6 +290,11 @@ impl Alpha for Srgba {
     fn alpha(&self) -> f32 {
         self.alpha
     }
+
+    #[inline]
+    fn set_alpha(&mut self, alpha: f32) {
+        self.alpha = alpha;
+    }
 }
 
 impl EuclideanDistance for Srgba {
@@ -338,6 +369,48 @@ pub enum HexColorError {
     /// Invalid character.
     #[error("Invalid hex char")]
     Char(char),
+}
+
+/// All color channels are scaled directly,
+/// but alpha is unchanged.
+///
+/// Values are not clamped.
+impl Mul<f32> for Srgba {
+    type Output = Self;
+
+    fn mul(self, rhs: f32) -> Self {
+        Self {
+            red: self.red * rhs,
+            green: self.green * rhs,
+            blue: self.blue * rhs,
+            alpha: self.alpha,
+        }
+    }
+}
+
+impl Mul<Srgba> for f32 {
+    type Output = Srgba;
+
+    fn mul(self, rhs: Srgba) -> Srgba {
+        rhs * self
+    }
+}
+
+/// All color channels are scaled directly,
+/// but alpha is unchanged.
+///
+/// Values are not clamped.
+impl Div<f32> for Srgba {
+    type Output = Self;
+
+    fn div(self, rhs: f32) -> Self {
+        Self {
+            red: self.red / rhs,
+            green: self.green / rhs,
+            blue: self.blue / rhs,
+            alpha: self.alpha,
+        }
+    }
 }
 
 #[cfg(test)]

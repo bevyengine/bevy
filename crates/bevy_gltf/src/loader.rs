@@ -3,12 +3,12 @@ use bevy_animation::{AnimationTarget, AnimationTargetId};
 use bevy_asset::{
     io::Reader, AssetLoadError, AssetLoader, AsyncReadExt, Handle, LoadContext, ReadAssetBytesError,
 };
+use bevy_color::{Color, LinearRgba};
 use bevy_core::Name;
 use bevy_core_pipeline::prelude::Camera3dBundle;
 use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{entity::Entity, world::World};
 use bevy_hierarchy::{BuildWorldChildren, WorldChildBuilder};
-use bevy_log::{error, info_span, warn};
 use bevy_math::{Affine2, Mat4, Vec3};
 use bevy_pbr::{
     DirectionalLight, DirectionalLightBundle, PbrBundle, PointLight, PointLightBundle, SpotLight,
@@ -17,7 +17,6 @@ use bevy_pbr::{
 use bevy_render::{
     alpha::AlphaMode,
     camera::{Camera, OrthographicProjection, PerspectiveProjection, Projection, ScalingMode},
-    color::LegacyColor,
     mesh::{
         morph::{MeshMorphWeights, MorphAttributes, MorphTargetImage, MorphWeights},
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
@@ -36,6 +35,7 @@ use bevy_scene::Scene;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::IoTaskPool;
 use bevy_transform::components::Transform;
+use bevy_utils::tracing::{error, info_span, warn};
 use bevy_utils::{
     smallvec::{smallvec, SmallVec},
     HashMap, HashSet,
@@ -474,9 +474,9 @@ async fn load_gltf<'a, 'b, 'c>(
                 let vertex_count_after = mesh.count_vertices();
 
                 if vertex_count_before != vertex_count_after {
-                    bevy_log::debug!("Missing vertex normals in indexed geometry, computing them as flat. Vertex count increased from {} to {}", vertex_count_before, vertex_count_after);
+                    bevy_utils::tracing::debug!("Missing vertex normals in indexed geometry, computing them as flat. Vertex count increased from {} to {}", vertex_count_before, vertex_count_after);
                 } else {
-                    bevy_log::debug!(
+                    bevy_utils::tracing::debug!(
                         "Missing vertex normals in indexed geometry, computing them as flat."
                     );
                 }
@@ -490,7 +490,7 @@ async fn load_gltf<'a, 'b, 'c>(
             } else if mesh.attribute(Mesh::ATTRIBUTE_NORMAL).is_some()
                 && primitive.material().normal_texture().is_some()
             {
-                bevy_log::debug!(
+                bevy_utils::tracing::debug!(
                     "Missing vertex tangents for {}, computing them using the mikktspace algorithm. Consider using a tool such as Blender to pre-compute the tangents.", file_name
                 );
 
@@ -913,8 +913,13 @@ fn load_material(
 
         let ior = material.ior().unwrap_or(1.5);
 
+        // We need to operate in the Linear color space and be willing to exceed 1.0 in our channels
+        let base_emissive = LinearRgba::rgb(emissive[0], emissive[1], emissive[2]);
+        let scaled_emissive = base_emissive * material.emissive_strength().unwrap_or(1.0);
+        let emissive = Color::from(scaled_emissive);
+
         StandardMaterial {
-            base_color: LegacyColor::rgba_linear(color[0], color[1], color[2], color[3]),
+            base_color: Color::linear_rgba(color[0], color[1], color[2], color[3]),
             base_color_texture,
             perceptual_roughness: pbr.roughness_factor(),
             metallic: pbr.metallic_factor(),
@@ -929,8 +934,7 @@ fn load_material(
                 Some(Face::Back)
             },
             occlusion_texture,
-            emissive: LegacyColor::rgb_linear(emissive[0], emissive[1], emissive[2])
-                * material.emissive_strength().unwrap_or(1.0),
+            emissive,
             emissive_texture,
             specular_transmission,
             #[cfg(feature = "pbr_transmission_textures")]
@@ -940,7 +944,7 @@ fn load_material(
             thickness_texture,
             ior,
             attenuation_distance,
-            attenuation_color: LegacyColor::rgb_linear(
+            attenuation_color: Color::linear_rgb(
                 attenuation_color[0],
                 attenuation_color[1],
                 attenuation_color[2],
@@ -1169,7 +1173,7 @@ fn load_node(
                     gltf::khr_lights_punctual::Kind::Directional => {
                         let mut entity = parent.spawn(DirectionalLightBundle {
                             directional_light: DirectionalLight {
-                                color: LegacyColor::rgb_from_array(light.color()),
+                                color: Color::srgb_from_array(light.color()),
                                 // NOTE: KHR_punctual_lights defines the intensity units for directional
                                 // lights in lux (lm/m^2) which is what we need.
                                 illuminance: light.intensity(),
@@ -1189,7 +1193,7 @@ fn load_node(
                     gltf::khr_lights_punctual::Kind::Point => {
                         let mut entity = parent.spawn(PointLightBundle {
                             point_light: PointLight {
-                                color: LegacyColor::rgb_from_array(light.color()),
+                                color: Color::srgb_from_array(light.color()),
                                 // NOTE: KHR_punctual_lights defines the intensity units for point lights in
                                 // candela (lm/sr) which is luminous intensity and we need luminous power.
                                 // For a point light, luminous power = 4 * pi * luminous intensity
@@ -1215,7 +1219,7 @@ fn load_node(
                     } => {
                         let mut entity = parent.spawn(SpotLightBundle {
                             spot_light: SpotLight {
-                                color: LegacyColor::rgb_from_array(light.color()),
+                                color: Color::srgb_from_array(light.color()),
                                 // NOTE: KHR_punctual_lights defines the intensity units for spot lights in
                                 // candela (lm/sr) which is luminous intensity and we need luminous power.
                                 // For a spot light, we map luminous power = 4 * pi * luminous intensity

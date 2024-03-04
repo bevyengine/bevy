@@ -1,6 +1,7 @@
 //! This example illustrates how to load and play an audio file, and control where the sounds seems to come from.
 use bevy::{
     audio::{AudioPlugin, SpatialScale},
+    color::palettes::css::*,
     prelude::*,
     sprite::MaterialMesh2dBundle,
 };
@@ -35,7 +36,7 @@ fn setup(
     commands.spawn((
         MaterialMesh2dBundle {
             mesh: meshes.add(Circle::new(15.0)).into(),
-            material: materials.add(LegacyColor::BLUE),
+            material: materials.add(Color::from(BLUE)),
             transform: Transform::from_translation(Vec3::new(0.0, 50.0, 0.0)),
             ..default()
         },
@@ -53,7 +54,7 @@ fn setup(
             // left ear
             parent.spawn(SpriteBundle {
                 sprite: Sprite {
-                    color: LegacyColor::RED,
+                    color: RED.into(),
                     custom_size: Some(Vec2::splat(20.0)),
                     ..default()
                 },
@@ -64,7 +65,7 @@ fn setup(
             // right ear
             parent.spawn(SpriteBundle {
                 sprite: Sprite {
-                    color: LegacyColor::GREEN,
+                    color: GREEN.into(),
                     custom_size: Some(Vec2::splat(20.0)),
                     ..default()
                 },
