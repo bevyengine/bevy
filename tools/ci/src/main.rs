@@ -3,7 +3,6 @@
 use bitflags::bitflags;
 use core::panic;
 use std::collections::BTreeMap;
-use std::ffi::OsString;
 use xshell::{cmd, Cmd, Shell};
 
 bitflags! {
@@ -36,42 +35,6 @@ struct CITest<'a> {
     failure_message: &'static str,               // The message to display if it fails
     subdir: Option<&'static str>,                // The subdirectory path to run the command within
     env_vars: Vec<(&'static str, &'static str)>, // Environment variables that need to be set before the command runs
-}
-
-// This is a struct that exists to store the old environment variables during a command execution.
-// When `set_env_vars` is called, the thread's environment variables are set according to its parameters
-// and stored in a `StdEnvHook`. When the hook leaves scope, its Drop implementation resets the variables.
-struct EnvHook {
-    var_cache: Vec<(&'static str, Option<OsString>)>,
-}
-
-// Note that `std::env::var_os` can return `None` for reasons other than the environment variable not being
-// present; however, the `EnvHook` Drop implementation will erase those keys. Therefore, be sure that your
-// input is well-formed prior to calling this function (or changing environment variables in the test suite).
-// See documentation of `std::env::var_os`.
-#[must_use]
-fn set_env_vars(env_vars: &[(&'static str, &'static str)]) -> EnvHook {
-    let mut old_vars = vec![];
-    for (k, v) in env_vars {
-        old_vars.push((*k, std::env::var_os(k)));
-        std::env::set_var(k, v);
-    }
-
-    EnvHook {
-        var_cache: old_vars,
-    }
-}
-
-impl Drop for EnvHook {
-    fn drop(&mut self) {
-        for (k, v) in self.var_cache.iter() {
-            if let Some(v) = v {
-                std::env::set_var(k, v);
-            } else {
-                std::env::remove_var(k);
-            }
-        }
-    }
 }
 
 fn main() {
@@ -366,14 +329,11 @@ fn main() {
 
     for (check, battery) in test_suite.into_iter() {
         for ci_test in battery {
-            // Ensure that necessary environment variables are set during command execution
-            let _vars_hook = set_env_vars(&ci_test.env_vars);
-
             // If the CI test is to be executed in a subdirectory, we move there before running the command
             let _subdir_hook = ci_test.subdir.map(|path| sh.push_dir(path));
 
             // Actually run the test
-            if ci_test.command.run().is_err() {
+            if ci_test.command.envs(ci_test.env_vars).run().is_err() {
                 fail(
                     check,
                     ci_test.failure_message,
@@ -382,7 +342,7 @@ fn main() {
                     &flags,
                 );
             }
-            // ^ This must run while `_vars_hook` and `_subdir_hook` are in scope; they are dropped on loop iteration.
+            // ^ This must run while `_subdir_hook` is in scope; it is dropped on loop iteration.
         }
     }
 
