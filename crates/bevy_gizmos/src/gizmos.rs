@@ -595,7 +595,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         position: Vec2,
         rotation: impl Into<Rotation2d>,
         size: Vec2,
-        color: Color,
+        color: impl Into<Color>,
     ) {
         if !self.enabled {
             return;
