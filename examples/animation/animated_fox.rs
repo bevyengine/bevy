@@ -1,7 +1,7 @@
 //! Plays animations from a skinned glTF.
 
+use std::f32::consts::PI;
 use std::time::Duration;
-use std::{f32::consts::PI, io};
 
 use bevy::{animation::RepeatAnimation, pbr::CascadeShadowConfigBuilder, prelude::*};
 
@@ -49,8 +49,6 @@ fn setup(
             graph.root,
         )
         .collect();
-
-    graph.save(&mut io::stdout()).unwrap();
 
     // Insert a resource with the current scene information
     let graph = graphs.add(graph);
