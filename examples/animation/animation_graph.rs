@@ -3,7 +3,9 @@
 //! The animation graph is shown on screen. You can change the weights of the
 //! playing animations by clicking and dragging left or right within the nodes.
 
-use argh::FromArgs;
+#[cfg(not(target_arch = "wasm32"))]
+use std::{fs::File, path::Path};
+
 use bevy::{
     color::palettes::{
         basic::WHITE,
@@ -13,88 +15,19 @@ use bevy::{
     ui::RelativeCursorPosition,
 };
 
+use argh::FromArgs;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy::asset::io::file::FileAssetReader;
 #[cfg(not(target_arch = "wasm32"))]
-use ron::ser::PrettyConfig;
+use bevy::tasks::IoTaskPool;
 #[cfg(not(target_arch = "wasm32"))]
-use std::{fs::File, path::Path};
+use ron::ser::PrettyConfig;
 
 /// Where to find the serialized animation graph.
 static ANIMATION_GRAPH_PATH: &str = "animation_graphs/Fox.animgraph.ron";
 
 /// The indices of the nodes containing animation clips in the graph.
 static CLIP_NODE_INDICES: [u32; 3] = [2, 3, 4];
-
-/// Demonstrates animation blending with animation graphs
-#[derive(FromArgs, Resource)]
-struct Args {
-    /// disables loading of the animation graph asset from disk
-    #[argh(switch)]
-    no_load: bool,
-    /// regenerates the asset file; implies `--no-load`
-    #[argh(switch)]
-    save: bool,
-}
-
-/// An on-screen representation of a node.
-#[derive(Debug)]
-struct NodeRect {
-    /// The number of pixels that this rectangle is from the left edge of the
-    /// window.
-    left: f32,
-    /// The number of pixels that this rectangle is from the bottom edge of the
-    /// window.
-    bottom: f32,
-    /// The width of this rectangle in pixels.
-    width: f32,
-    /// The height of this rectangle in pixels.
-    height: f32,
-}
-
-/// Either a straight horizontal or a straight vertical line on screen.
-///
-/// The line starts at (`left`, `bottom`) and goes either right (if the line is
-/// horizontal) or down (if the line is vertical).
-struct Line {
-    /// The number of pixels that the start of this line is from the left edge
-    /// of the screen.
-    left: f32,
-    /// The number of pixels that the start of this line is from the bottom edge
-    /// of the screen.
-    bottom: f32,
-    /// The length of the line.
-    length: f32,
-}
-
-/// The [`AnimationGraph`] asset, which specifies how the animations are to
-/// be blended together.
-#[derive(Clone, Resource)]
-struct ExampleAnimationGraph(Handle<AnimationGraph>);
-
-/// The current weights of the three playing animations.
-#[derive(Component)]
-struct ExampleAnimationWeights {
-    /// The weights of the three playing animations.
-    weights: [f32; 3],
-}
-
-/// The type of each node in the UI: either a clip node or a blend node.
-enum NodeType {
-    /// A clip node, which specifies an animation.
-    Clip(ClipNode),
-    /// A blend node with no animation and a string label.
-    Blend(&'static str),
-}
-
-/// The label for the UI representation of a clip node.
-#[derive(Clone, Component)]
-struct ClipNode {
-    /// The string label of the node.
-    text: &'static str,
-    /// Which of the three animations this UI widget represents.
-    index: usize,
-}
 
 /// The help text in the upper left corner.
 static HELP_TEXT: &str = "Click and drag an animation clip node to change its weight";
@@ -150,7 +83,7 @@ fn main() {
             }),
             ..default()
         }))
-        .add_systems(Startup, setup)
+        .add_systems(Startup, (setup_assets, setup_scene, setup_ui))
         .add_systems(PreUpdate, init_animations)
         .add_systems(
             Update,
@@ -164,8 +97,31 @@ fn main() {
         .run();
 }
 
+/// Demonstrates animation blending with animation graphs
+#[derive(FromArgs, Resource)]
+struct Args {
+    /// disables loading of the animation graph asset from disk
+    #[argh(switch)]
+    no_load: bool,
+    /// regenerates the asset file; implies `--no-load`
+    #[argh(switch)]
+    save: bool,
+}
+
+/// The [`AnimationGraph`] asset, which specifies how the animations are to
+/// be blended together.
+#[derive(Clone, Resource)]
+struct ExampleAnimationGraph(Handle<AnimationGraph>);
+
+/// The current weights of the three playing animations.
+#[derive(Component)]
+struct ExampleAnimationWeights {
+    /// The weights of the three playing animations.
+    weights: [f32; 3],
+}
+
 /// Initializes the scene.
-fn setup(
+fn setup_assets(
     mut commands: Commands,
     mut asset_server: ResMut<AssetServer>,
     mut animation_graphs: ResMut<Assets<AnimationGraph>>,
@@ -182,12 +138,9 @@ fn setup(
     } else {
         setup_assets_via_serialized_animation_graph(&mut commands, &mut asset_server);
     }
+}
 
-    // Create the scene.
-    setup_scene(&mut commands, &mut asset_server);
-    setup_camera_and_light(&mut commands);
-
-    // Create the UI.
+fn setup_ui(mut commands: Commands) {
     setup_help_text(&mut commands);
     setup_node_rects(&mut commands);
     setup_node_lines(&mut commands);
@@ -224,24 +177,30 @@ fn setup_assets_programmatically(
     // If asked to save, do so.
     #[cfg(not(target_arch = "wasm32"))]
     if _save {
-        let mut animation_graph_writer = File::create(Path::join(
-            &FileAssetReader::get_base_path(),
-            Path::join(Path::new("assets"), Path::new(ANIMATION_GRAPH_PATH)),
-        ))
-        .expect("Failed to open the animation graph asset");
-        ron::ser::to_writer_pretty(
-            &mut animation_graph_writer,
-            &animation_graph,
-            PrettyConfig::default(),
-        )
-        .expect("Failed to serialize the animation graph");
+        let animation_graph = animation_graph.clone();
+
+        IoTaskPool::get()
+            .spawn(async move {
+                let mut animation_graph_writer = File::create(Path::join(
+                    &FileAssetReader::get_base_path(),
+                    Path::join(Path::new("assets"), Path::new(ANIMATION_GRAPH_PATH)),
+                ))
+                .expect("Failed to open the animation graph asset");
+                ron::ser::to_writer_pretty(
+                    &mut animation_graph_writer,
+                    &animation_graph,
+                    PrettyConfig::default(),
+                )
+                .expect("Failed to serialize the animation graph");
+            })
+            .detach();
     }
 
     // Add the graph.
-    let animation_graph = animation_graphs.add(animation_graph);
+    let handle = animation_graphs.add(animation_graph);
 
     // Save the assets in a resource.
-    commands.insert_resource(ExampleAnimationGraph(animation_graph));
+    commands.insert_resource(ExampleAnimationGraph(handle));
 }
 
 fn setup_assets_via_serialized_animation_graph(
@@ -254,28 +213,39 @@ fn setup_assets_via_serialized_animation_graph(
 }
 
 /// Spawns the animated fox.
-fn setup_scene(commands: &mut Commands, asset_server: &mut AssetServer) {
-    commands.spawn(SceneBundle {
-        scene: asset_server.load("models/animated/Fox.glb#Scene0"),
-        transform: Transform::from_scale(Vec3::splat(0.05)),
-        ..default()
-    });
-}
-
-/// Spawns the camera and point light.
-fn setup_camera_and_light(commands: &mut Commands) {
+fn setup_scene(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
     commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-10.0, 5.0, 13.0).looking_at(Vec3::ZERO, Vec3::Y),
+        transform: Transform::from_xyz(-10.0, 5.0, 13.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
         ..default()
     });
 
     commands.spawn(PointLightBundle {
         point_light: PointLight {
-            intensity: 10000000.0,
+            intensity: 10_000_000.0,
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(-4.0, 6.0, 13.0),
+        transform: Transform::from_xyz(-4.0, 8.0, 13.0),
+        ..default()
+    });
+
+    commands.spawn(SceneBundle {
+        scene: asset_server.load("models/animated/Fox.glb#Scene0"),
+        transform: Transform::from_scale(Vec3::splat(0.07)),
+        ..default()
+    });
+
+    // Ground
+
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(Circle::new(7.0)),
+        material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
+        transform: Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
         ..default()
     });
 }
@@ -287,7 +257,6 @@ fn setup_help_text(commands: &mut Commands) {
             HELP_TEXT,
             TextStyle {
                 font_size: 20.0,
-                color: WHITE.into(),
                 ..default()
             },
         ),
@@ -339,7 +308,7 @@ fn setup_node_rects(commands: &mut Commands) {
                         justify_content: JustifyContent::Center,
                         ..default()
                     },
-                    border_color: BorderColor(WHITE.into()),
+                    border_color: WHITE.into(),
                     ..default()
                 },
                 Outline::new(Val::Px(1.), Val::ZERO, Color::WHITE),
@@ -368,7 +337,7 @@ fn setup_node_rects(commands: &mut Commands) {
                         width: Val::Px(node_rect.width),
                         ..default()
                     },
-                    background_color: BackgroundColor(DARK_GREEN.into()),
+                    background_color: DARK_GREEN.into(),
                     ..default()
                 })
                 .id();
@@ -396,7 +365,7 @@ fn setup_node_lines(commands: &mut Commands) {
                 border: UiRect::bottom(Val::Px(1.0)),
                 ..default()
             },
-            border_color: BorderColor(WHITE.into()),
+            border_color: WHITE.into(),
             ..default()
         });
     }
@@ -412,7 +381,7 @@ fn setup_node_lines(commands: &mut Commands) {
                 border: UiRect::left(Val::Px(1.0)),
                 ..default()
             },
-            border_color: BorderColor(WHITE.into()),
+            border_color: WHITE.into(),
             ..default()
         });
     }
@@ -430,10 +399,10 @@ fn init_animations(
     }
 
     for (entity, mut player) in query.iter_mut() {
-        commands
-            .entity(entity)
-            .insert(animation_graph.0.clone())
-            .insert(ExampleAnimationWeights::default());
+        commands.entity(entity).insert((
+            animation_graph.0.clone(),
+            ExampleAnimationWeights::default(),
+        ));
         for &node_index in &CLIP_NODE_INDICES {
             player.play(node_index.into()).repeat();
         }
@@ -513,6 +482,53 @@ fn sync_weights(mut query: Query<(&mut AnimationPlayer, &ExampleAnimationWeights
             }
         }
     }
+}
+
+/// An on-screen representation of a node.
+#[derive(Debug)]
+struct NodeRect {
+    /// The number of pixels that this rectangle is from the left edge of the
+    /// window.
+    left: f32,
+    /// The number of pixels that this rectangle is from the bottom edge of the
+    /// window.
+    bottom: f32,
+    /// The width of this rectangle in pixels.
+    width: f32,
+    /// The height of this rectangle in pixels.
+    height: f32,
+}
+
+/// Either a straight horizontal or a straight vertical line on screen.
+///
+/// The line starts at (`left`, `bottom`) and goes either right (if the line is
+/// horizontal) or down (if the line is vertical).
+struct Line {
+    /// The number of pixels that the start of this line is from the left edge
+    /// of the screen.
+    left: f32,
+    /// The number of pixels that the start of this line is from the bottom edge
+    /// of the screen.
+    bottom: f32,
+    /// The length of the line.
+    length: f32,
+}
+
+/// The type of each node in the UI: either a clip node or a blend node.
+enum NodeType {
+    /// A clip node, which specifies an animation.
+    Clip(ClipNode),
+    /// A blend node with no animation and a string label.
+    Blend(&'static str),
+}
+
+/// The label for the UI representation of a clip node.
+#[derive(Clone, Component)]
+struct ClipNode {
+    /// The string label of the node.
+    text: &'static str,
+    /// Which of the three animations this UI widget represents.
+    index: usize,
 }
 
 impl Default for ExampleAnimationWeights {
