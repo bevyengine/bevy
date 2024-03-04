@@ -13,7 +13,7 @@ mod winit_windows;
 
 use approx::relative_eq;
 use bevy_a11y::AccessibilityRequested;
-use bevy_utils::{Duration, Instant};
+use bevy_utils::Instant;
 use system::{changed_windows, create_windows, despawn_windows, CachedWindow};
 use winit::dpi::{LogicalSize, PhysicalSize};
 pub use winit_config::*;
@@ -44,6 +44,7 @@ use bevy_window::{PrimaryWindow, RawHandleWrapper};
 #[cfg(target_os = "android")]
 pub use winit::platform::android::activity as android_activity;
 
+use winit::event::StartCause;
 use winit::{
     event::{self, DeviceEvent, Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop, EventLoopBuilder, EventLoopWindowTarget},
@@ -181,8 +182,6 @@ struct WinitAppRunnerState {
     wait_elapsed: bool,
     /// The time the last update started.
     last_update: Instant,
-    /// The time the next update is scheduled to start.
-    scheduled_update: Option<Instant>,
     /// Number of "forced" updates to trigger on application start
     startup_forced_updates: u32,
 }
@@ -223,7 +222,6 @@ impl Default for WinitAppRunnerState {
             redraw_requested: false,
             wait_elapsed: false,
             last_update: Instant::now(),
-            scheduled_update: None,
             // 3 seems to be enough, 5 is a safe margin
             startup_forced_updates: 5,
         }
@@ -404,12 +402,14 @@ fn handle_winit_event(
                 }
             }
         }
-        Event::NewEvents(_) => {
-            if let Some(t) = runner_state.scheduled_update {
-                let now = Instant::now();
-                let remaining = t.checked_duration_since(now).unwrap_or(Duration::ZERO);
-                runner_state.wait_elapsed = remaining.is_zero();
-            }
+        Event::NewEvents(cause) => {
+            runner_state.wait_elapsed = match cause {
+                StartCause::WaitCancelled {
+                    requested_resume: Some(resume),
+                    ..
+                } => resume >= Instant::now(),
+                _ => true,
+            };
         }
         Event::WindowEvent {
             event, window_id, ..
@@ -744,6 +744,7 @@ fn run_app_update_if_should(
         match config.update_mode(focused) {
             UpdateMode::Continuous => {
                 runner_state.redraw_requested = true;
+                event_loop.set_control_flow(ControlFlow::Wait);
             }
             UpdateMode::Reactive { wait } | UpdateMode::ReactiveLowPower { wait } => {
                 // TODO(bug): this is unexpected behavior.
@@ -752,10 +753,8 @@ fn run_app_update_if_should(
                 // Need to verify the plateform specifics (whether this can occur in
                 // rare-but-possible cases) and replace this with a panic or a log warn!
                 if let Some(next) = runner_state.last_update.checked_add(*wait) {
-                    runner_state.scheduled_update = Some(next);
                     event_loop.set_control_flow(ControlFlow::WaitUntil(next));
                 } else {
-                    runner_state.scheduled_update = None;
                     event_loop.set_control_flow(ControlFlow::Wait);
                 }
             }
