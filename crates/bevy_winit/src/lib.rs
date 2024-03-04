@@ -247,7 +247,7 @@ type CreateWindowParams<'w, 's, F = ()> = (
 ///
 /// The `EventLoopProxy` can be used to request a redraw from outside bevy.
 ///
-/// Use `NonSend<EventLoopProxy>` to recieve this resource.
+/// Use `NonSend<EventLoopProxy>` to receive this resource.
 pub type EventLoopProxy = winit::event_loop::EventLoopProxy<UserEvent>;
 
 type UserEvent = RequestRedraw;
