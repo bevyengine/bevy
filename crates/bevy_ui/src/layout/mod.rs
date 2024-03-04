@@ -1,7 +1,7 @@
 mod convert;
 pub mod debug;
 
-use crate::{ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiScale};
+use crate::{ContentSize, DefaultUiCamera, Measure, Node, Outline, Style, TargetCamera, UiScale};
 use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
@@ -20,7 +20,7 @@ use bevy_utils::tracing::warn;
 use bevy_utils::{default, HashMap, HashSet};
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 use std::fmt;
-use taffy::{tree::LayoutTree, Taffy};
+use taffy::TaffyTree;
 use thiserror::Error;
 
 pub struct LayoutContext {
@@ -45,22 +45,24 @@ impl LayoutContext {
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct RootNodePair {
     // The implicit "viewport" node created by Bevy
-    implicit_viewport_node: taffy::node::Node,
+    implicit_viewport_node: taffy::tree::NodeId,
     // The root (parentless) node specified by the user
-    user_root_node: taffy::node::Node,
+    user_root_node: taffy::tree::NodeId,
 }
+
+type UiTaffyTree = TaffyTree<Box<dyn Measure>>;
 
 #[derive(Resource)]
 pub struct UiSurface {
-    entity_to_taffy: EntityHashMap<taffy::node::Node>,
+    entity_to_taffy: EntityHashMap<taffy::tree::NodeId>,
     camera_roots: EntityHashMap<Vec<RootNodePair>>,
-    taffy: Taffy,
+    taffy: UiTaffyTree,
 }
 
 fn _assert_send_sync_ui_surface_impl_safe() {
     fn _assert_send_sync<T: Send + Sync>() {}
-    _assert_send_sync::<EntityHashMap<taffy::node::Node>>();
-    _assert_send_sync::<Taffy>();
+    _assert_send_sync::<EntityHashMap<taffy::tree::NodeId>>();
+    _assert_send_sync::<UiTaffyTree>();
     _assert_send_sync::<UiSurface>();
 }
 
@@ -75,7 +77,7 @@ impl fmt::Debug for UiSurface {
 
 impl Default for UiSurface {
     fn default() -> Self {
-        let mut taffy = Taffy::new();
+        let mut taffy = TaffyTree::new();
         taffy.disable_rounding();
         Self {
             entity_to_taffy: Default::default(),
@@ -103,15 +105,11 @@ impl UiSurface {
         }
     }
 
-    /// Update the `MeasureFunc` of the taffy node corresponding to the given [`Entity`] if the node exists.
-    pub fn try_update_measure(
-        &mut self,
-        entity: Entity,
-        measure_func: taffy::node::MeasureFunc,
-    ) -> Option<()> {
+    /// Update the [`Box<dyn Measure>`] context of the taffy node corresponding to the given [`Entity`] if the node exists.
+    pub fn try_update_measure(&mut self, entity: Entity, measure: Box<dyn Measure>) -> Option<()> {
         let taffy_node = self.entity_to_taffy.get(&entity)?;
 
-        self.taffy.set_measure(*taffy_node, Some(measure_func)).ok()
+        self.taffy.set_node_context(*taffy_node, Some(measure)).ok()
     }
 
     /// Update the children of the taffy node corresponding to the given [`Entity`].
@@ -144,7 +142,7 @@ without UI components as a child of an entity with UI components, results may be
     /// Removes the measure from the entity's taffy node if it exists. Does nothing otherwise.
     pub fn try_remove_measure(&mut self, entity: Entity) {
         if let Some(taffy_node) = self.entity_to_taffy.get(&entity) {
-            self.taffy.set_measure(*taffy_node, None).unwrap();
+            self.taffy.set_node_context(*taffy_node, None).unwrap();
         }
     }
 
@@ -214,7 +212,30 @@ without UI components as a child of an entity with UI components, results may be
         };
         for root_nodes in camera_root_nodes {
             self.taffy
-                .compute_layout(root_nodes.implicit_viewport_node, available_space)
+                .compute_layout_with_measure(
+                    root_nodes.implicit_viewport_node,
+                    available_space,
+                    |known_dimensions: taffy::geometry::Size<Option<f32>>,
+                     available_space: taffy::geometry::Size<taffy::AvailableSpace>,
+                     _node_id: taffy::tree::NodeId,
+                     node_context: Option<&mut Box<dyn Measure>>| {
+                        let size = node_context
+                            .map(|measure| {
+                                measure.measure(
+                                    known_dimensions.width,
+                                    known_dimensions.height,
+                                    available_space.width,
+                                    available_space.height,
+                                )
+                            })
+                            .unwrap_or(Vec2::ZERO);
+
+                        taffy::Size {
+                            width: size.x,
+                            height: size.y,
+                        }
+                    },
+                )
                 .unwrap();
         }
     }
@@ -230,7 +251,7 @@ without UI components as a child of an entity with UI components, results may be
 
     /// Get the layout geometry for the taffy node corresponding to the ui node [`Entity`].
     /// Does not compute the layout geometry, `compute_window_layouts` should be run before using this function.
-    pub fn get_layout(&self, entity: Entity) -> Result<&taffy::layout::Layout, LayoutError> {
+    pub fn get_layout(&self, entity: Entity) -> Result<&taffy::Layout, LayoutError> {
         if let Some(taffy_node) = self.entity_to_taffy.get(&entity) {
             self.taffy
                 .layout(*taffy_node)
@@ -250,7 +271,7 @@ pub enum LayoutError {
     #[error("Invalid hierarchy")]
     InvalidHierarchy,
     #[error("Taffy error: {0}")]
-    TaffyError(#[from] taffy::error::TaffyError),
+    TaffyError(#[from] taffy::tree::TaffyError),
 }
 
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
@@ -541,7 +562,7 @@ mod tests {
     use bevy_window::WindowResized;
     use bevy_window::WindowResolution;
     use bevy_window::WindowScaleFactorChanged;
-    use taffy::tree::LayoutTree;
+    use taffy::TraversePartialTree;
 
     #[test]
     fn round_layout_coords_must_round_ties_up() {
@@ -696,7 +717,7 @@ mod tests {
         let ui_parent_node = ui_surface.entity_to_taffy[&ui_parent_entity];
 
         // `ui_parent_node` shouldn't have any children yet
-        assert_eq!(ui_surface.taffy.child_count(ui_parent_node).unwrap(), 0);
+        assert_eq!(ui_surface.taffy.child_count(ui_parent_node), 0);
 
         let mut ui_child_entities = (0..10)
             .map(|_| {
@@ -715,7 +736,7 @@ mod tests {
             1 + ui_child_entities.len()
         );
         assert_eq!(
-            ui_surface.taffy.child_count(ui_parent_node).unwrap(),
+            ui_surface.taffy.child_count(ui_parent_node),
             ui_child_entities.len()
         );
 
@@ -746,7 +767,7 @@ mod tests {
             1 + ui_child_entities.len()
         );
         assert_eq!(
-            ui_surface.taffy.child_count(ui_parent_node).unwrap(),
+            ui_surface.taffy.child_count(ui_parent_node),
             ui_child_entities.len()
         );
 
@@ -835,10 +856,7 @@ mod tests {
         ui_schedule.run(&mut world);
 
         let ui_surface = world.resource::<UiSurface>();
-        let ui_node = ui_surface.entity_to_taffy[&ui_entity];
 
-        // a node with a content size needs to be measured
-        assert!(ui_surface.taffy.needs_measure(ui_node));
         let layout = ui_surface.get_layout(ui_entity).unwrap();
         assert_eq!(layout.size.width, content_size.x);
         assert_eq!(layout.size.height, content_size.y);
@@ -848,8 +866,6 @@ mod tests {
         ui_schedule.run(&mut world);
 
         let ui_surface = world.resource::<UiSurface>();
-        // a node without a content size does not need to be measured
-        assert!(!ui_surface.taffy.needs_measure(ui_node));
 
         // Without a content size, the node has no width or height constraints so the length of both dimensions is 0.
         let layout = ui_surface.get_layout(ui_entity).unwrap();

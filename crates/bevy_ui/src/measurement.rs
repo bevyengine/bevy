@@ -4,7 +4,6 @@ use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use std::fmt::Formatter;
 pub use taffy::style::AvailableSpace;
-use taffy::{node::MeasureFunc, prelude::Size as TaffySize};
 
 impl std::fmt::Debug for ContentSize {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -12,7 +11,7 @@ impl std::fmt::Debug for ContentSize {
     }
 }
 
-/// A `Measure` is used to compute the size of a ui node
+/// A [`Measure`] is used to compute the size of a ui node
 /// when the size of that node is based on its content.
 pub trait Measure: Send + Sync + 'static {
     /// Calculate the size of the node given the constraints.
@@ -25,7 +24,7 @@ pub trait Measure: Send + Sync + 'static {
     ) -> Vec2;
 }
 
-/// A `FixedMeasure` is a `Measure` that ignores all constraints and
+/// A [`FixedMeasure`] is a [`Measure`] that ignores all constraints and
 /// always returns the same size.
 #[derive(Default, Clone)]
 pub struct FixedMeasure {
@@ -44,30 +43,24 @@ impl Measure for FixedMeasure {
     }
 }
 
-/// A node with a `ContentSize` component is a node where its size
+/// A node with a [`ContentSize`] component is a node where its size
 /// is based on its content.
 #[derive(Component, Reflect, Default)]
 #[reflect(Component, Default)]
 pub struct ContentSize {
-    /// The `Measure` used to compute the intrinsic size
+    /// The [`Measure`] used to compute the intrinsic size.
     #[reflect(ignore)]
-    pub(crate) measure_func: Option<MeasureFunc>,
+    pub(crate) measure_func: Option<Box<dyn Measure>>,
 }
 
 impl ContentSize {
-    /// Set a `Measure` for the UI node entity with this component
+    /// Set a [`Measure`] for the UI node entity with this component
     pub fn set(&mut self, measure: impl Measure) {
-        let measure_func = move |size: TaffySize<_>, available: TaffySize<_>| {
-            let size = measure.measure(size.width, size.height, available.width, available.height);
-            TaffySize {
-                width: size.x,
-                height: size.y,
-            }
-        };
-        self.measure_func = Some(MeasureFunc::Boxed(Box::new(measure_func)));
+        self.measure_func = Some(Box::new(measure));
     }
 
-    /// Creates a `ContentSize` with a `Measure` that always returns given `size` argument, regardless of the UI layout's constraints.
+    /// Creates a [`ContentSize`] with a [`Measure`] that always returns the given `size` argument,
+    /// regardless of the UI layout's constraints.
     pub fn fixed_size(size: Vec2) -> ContentSize {
         let mut content_size = Self::default();
         content_size.set(FixedMeasure { size });

@@ -1,3 +1,4 @@
+use bevy_utils::default;
 use taffy::style_helpers;
 
 use crate::{
@@ -18,31 +19,31 @@ impl Val {
             Val::Auto => taffy::style::LengthPercentageAuto::Auto,
             Val::Percent(value) => taffy::style::LengthPercentageAuto::Percent(value / 100.),
             Val::Px(value) => {
-                taffy::style::LengthPercentageAuto::Points(context.scale_factor * value)
+                taffy::style::LengthPercentageAuto::Length(context.scale_factor * value)
             }
             Val::VMin(value) => {
-                taffy::style::LengthPercentageAuto::Points(context.min_size * value / 100.)
+                taffy::style::LengthPercentageAuto::Length(context.min_size * value / 100.)
             }
             Val::VMax(value) => {
-                taffy::style::LengthPercentageAuto::Points(context.max_size * value / 100.)
+                taffy::style::LengthPercentageAuto::Length(context.max_size * value / 100.)
             }
             Val::Vw(value) => {
-                taffy::style::LengthPercentageAuto::Points(context.physical_size.x * value / 100.)
+                taffy::style::LengthPercentageAuto::Length(context.physical_size.x * value / 100.)
             }
             Val::Vh(value) => {
-                taffy::style::LengthPercentageAuto::Points(context.physical_size.y * value / 100.)
+                taffy::style::LengthPercentageAuto::Length(context.physical_size.y * value / 100.)
             }
         }
     }
 
     fn into_length_percentage(self, context: &LayoutContext) -> taffy::style::LengthPercentage {
         match self.into_length_percentage_auto(context) {
-            taffy::style::LengthPercentageAuto::Auto => taffy::style::LengthPercentage::Points(0.0),
+            taffy::style::LengthPercentageAuto::Auto => taffy::style::LengthPercentage::Length(0.0),
             taffy::style::LengthPercentageAuto::Percent(value) => {
                 taffy::style::LengthPercentage::Percent(value)
             }
-            taffy::style::LengthPercentageAuto::Points(value) => {
-                taffy::style::LengthPercentage::Points(value)
+            taffy::style::LengthPercentageAuto::Length(value) => {
+                taffy::style::LengthPercentage::Length(value)
             }
         }
     }
@@ -133,6 +134,7 @@ pub fn from_style(context: &LayoutContext, style: &Style) -> taffy::style::Style
             .collect::<Vec<_>>(),
         grid_row: style.grid_row.into(),
         grid_column: style.grid_column.into(),
+        ..default()
     }
 }
 
@@ -478,7 +480,7 @@ mod tests {
         );
         assert_eq!(
             taffy_style.inset.top,
-            taffy::style::LengthPercentageAuto::Points(12.)
+            taffy::style::LengthPercentageAuto::Length(12.)
         );
         assert_eq!(
             taffy_style.inset.bottom,
@@ -513,7 +515,7 @@ mod tests {
         );
         assert_eq!(
             taffy_style.margin.right,
-            taffy::style::LengthPercentageAuto::Points(10.)
+            taffy::style::LengthPercentageAuto::Length(10.)
         );
         assert_eq!(
             taffy_style.margin.top,
@@ -529,7 +531,7 @@ mod tests {
         );
         assert_eq!(
             taffy_style.padding.right,
-            taffy::style::LengthPercentage::Points(21.)
+            taffy::style::LengthPercentage::Length(21.)
         );
         assert_eq!(
             taffy_style.padding.top,
@@ -541,7 +543,7 @@ mod tests {
         );
         assert_eq!(
             taffy_style.border.left,
-            taffy::style::LengthPercentage::Points(14.)
+            taffy::style::LengthPercentage::Length(14.)
         );
         assert_eq!(
             taffy_style.border.right,
@@ -570,18 +572,18 @@ mod tests {
         );
         assert_eq!(
             taffy_style.grid_template_rows,
-            vec![sh::points(10.0), sh::percent(0.5), sh::fr(1.0)]
+            vec![sh::length(10.0), sh::percent(0.5), sh::fr(1.0)]
         );
         assert_eq!(
             taffy_style.grid_template_columns,
-            vec![sh::repeat(5, vec![sh::points(10.0)])]
+            vec![sh::repeat(5, vec![sh::length(10.0)])]
         );
         assert_eq!(
             taffy_style.grid_auto_rows,
             vec![
-                sh::fit_content(taffy::style::LengthPercentage::Points(10.0)),
+                sh::fit_content(taffy::style::LengthPercentage::Length(10.0)),
                 sh::fit_content(taffy::style::LengthPercentage::Percent(0.25)),
-                sh::minmax(sh::points(0.0), sh::fr(2.0)),
+                sh::minmax(sh::length(0.0), sh::fr(2.0)),
             ]
         );
         assert_eq!(
@@ -603,17 +605,17 @@ mod tests {
         use taffy::style::LengthPercentage;
         let context = LayoutContext::new(2.0, bevy_math::Vec2::new(800., 600.));
         let cases = [
-            (Val::Auto, LengthPercentage::Points(0.)),
+            (Val::Auto, LengthPercentage::Length(0.)),
             (Val::Percent(1.), LengthPercentage::Percent(0.01)),
-            (Val::Px(1.), LengthPercentage::Points(2.)),
-            (Val::Vw(1.), LengthPercentage::Points(8.)),
-            (Val::Vh(1.), LengthPercentage::Points(6.)),
-            (Val::VMin(2.), LengthPercentage::Points(12.)),
-            (Val::VMax(2.), LengthPercentage::Points(16.)),
+            (Val::Px(1.), LengthPercentage::Length(2.)),
+            (Val::Vw(1.), LengthPercentage::Length(8.)),
+            (Val::Vh(1.), LengthPercentage::Length(6.)),
+            (Val::VMin(2.), LengthPercentage::Length(12.)),
+            (Val::VMax(2.), LengthPercentage::Length(16.)),
         ];
         for (val, length) in cases {
             assert!(match (val.into_length_percentage(&context), length) {
-                (LengthPercentage::Points(a), LengthPercentage::Points(b))
+                (LengthPercentage::Length(a), LengthPercentage::Length(b))
                 | (LengthPercentage::Percent(a), LengthPercentage::Percent(b)) =>
                     (a - b).abs() < 0.0001,
                 _ => false,

@@ -2,12 +2,11 @@ use crate::UiSurface;
 use bevy_ecs::prelude::Entity;
 use bevy_utils::HashMap;
 use std::fmt::Write;
-use taffy::prelude::Node;
-use taffy::tree::LayoutTree;
+use taffy::{tree::NodeId, TraversePartialTree};
 
 /// Prints a debug representation of the computed layout of the UI layout tree for each window.
 pub fn print_ui_layout_tree(ui_surface: &UiSurface) {
-    let taffy_to_entity: HashMap<Node, Entity> = ui_surface
+    let taffy_to_entity: HashMap<NodeId, Entity> = ui_surface
         .entity_to_taffy
         .iter()
         .map(|(entity, node)| (*node, *entity))
@@ -32,9 +31,9 @@ pub fn print_ui_layout_tree(ui_surface: &UiSurface) {
 /// Recursively navigates the layout tree printing each node's information.
 fn print_node(
     ui_surface: &UiSurface,
-    taffy_to_entity: &HashMap<Node, Entity>,
+    taffy_to_entity: &HashMap<NodeId, Entity>,
     entity: Entity,
-    node: Node,
+    node: NodeId,
     has_sibling: bool,
     lines_string: String,
     acc: &mut String,
@@ -43,13 +42,14 @@ fn print_node(
     let layout = tree.layout(node).unwrap();
     let style = tree.style(node).unwrap();
 
-    let num_children = tree.child_count(node).unwrap();
+    let num_children = tree.child_count(node);
 
     let display_variant = match (num_children, style.display) {
         (_, taffy::style::Display::None) => "NONE",
         (0, _) => "LEAF",
         (_, taffy::style::Display::Flex) => "FLEX",
         (_, taffy::style::Display::Grid) => "GRID",
+        (_, taffy::style::Display::Block) => "BLOCK",
     };
 
     let fork_string = if has_sibling {
@@ -59,7 +59,7 @@ fn print_node(
     };
     writeln!(
         acc,
-        "{lines}{fork} {display} [x: {x:<4} y: {y:<4} width: {width:<4} height: {height:<4}] ({entity:?}) {measured}",
+        "{lines}{fork} {display} [x: {x:<4} y: {y:<4} width: {width:<4} height: {height:<4}] ({entity:?})",
         lines = lines_string,
         fork = fork_string,
         display = display_variant,
@@ -67,7 +67,6 @@ fn print_node(
         y = layout.location.y,
         width = layout.size.width,
         height = layout.size.height,
-        measured = if tree.needs_measure(node) { "measured" } else { "" }
     ).ok();
     let bar = if has_sibling { "│   " } else { "    " };
     let new_string = lines_string + bar;
