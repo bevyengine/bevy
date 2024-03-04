@@ -1,6 +1,6 @@
 //! This example demonstrates bounding volume intersections.
 
-use bevy::{math::bounding::*, prelude::*};
+use bevy::{color::palettes::css::*, math::bounding::*, prelude::*};
 
 fn main() {
     App::new()
@@ -97,7 +97,7 @@ enum Shape {
 }
 
 fn render_shapes(mut gizmos: Gizmos, query: Query<(&Shape, &Transform)>) {
-    let color = LegacyColor::GRAY;
+    let color = GRAY;
     for (shape, transform) in query.iter() {
         let translation = transform.translation.xy();
         let rotation = transform.rotation.to_euler(EulerRot::YXZ).2;
@@ -177,11 +177,7 @@ fn update_volumes(
 
 fn render_volumes(mut gizmos: Gizmos, query: Query<(&CurrentVolume, &Intersects)>) {
     for (volume, intersects) in query.iter() {
-        let color = if **intersects {
-            LegacyColor::CYAN
-        } else {
-            LegacyColor::ORANGE_RED
-        };
+        let color = if **intersects { CYAN } else { ORANGE_RED };
         match volume {
             CurrentVolume::Aabb(a) => {
                 gizmos.rect_2d(a.center(), 0., a.half_size() * 2., color);
@@ -292,10 +288,10 @@ fn draw_ray(gizmos: &mut Gizmos, ray: &RayCast2d) {
     gizmos.line_2d(
         ray.ray.origin,
         ray.ray.origin + *ray.ray.direction * ray.max,
-        LegacyColor::WHITE,
+        WHITE,
     );
     for r in [1., 2., 3.] {
-        gizmos.circle_2d(ray.ray.origin, r, LegacyColor::FUCHSIA);
+        gizmos.circle_2d(ray.ray.origin, r, FUCHSIA);
     }
 }
 
@@ -331,7 +327,7 @@ fn ray_cast_system(
                 gizmos.circle_2d(
                     ray_cast.ray.origin + *ray_cast.ray.direction * toi,
                     r,
-                    LegacyColor::GREEN,
+                    GREEN,
                 );
             }
         }
@@ -363,7 +359,7 @@ fn aabb_cast_system(
                     + aabb_cast.aabb.center(),
                 0.,
                 aabb_cast.aabb.half_size() * 2.,
-                LegacyColor::GREEN,
+                GREEN,
             );
         }
     }
@@ -393,7 +389,7 @@ fn bounding_circle_cast_system(
                     + *circle_cast.ray.ray.direction * toi
                     + circle_cast.circle.center(),
                 circle_cast.circle.radius(),
-                LegacyColor::GREEN,
+                GREEN,
             );
         }
     }
@@ -412,7 +408,7 @@ fn aabb_intersection_system(
 ) {
     let center = get_intersection_position(&time);
     let aabb = Aabb2d::new(center, Vec2::splat(50.));
-    gizmos.rect_2d(center, 0., aabb.half_size() * 2., LegacyColor::YELLOW);
+    gizmos.rect_2d(center, 0., aabb.half_size() * 2., YELLOW);
 
     for (volume, mut intersects) in volumes.iter_mut() {
         let hit = match volume {
@@ -431,7 +427,7 @@ fn circle_intersection_system(
 ) {
     let center = get_intersection_position(&time);
     let circle = BoundingCircle::new(center, 50.);
-    gizmos.circle_2d(center, circle.radius(), LegacyColor::YELLOW);
+    gizmos.circle_2d(center, circle.radius(), YELLOW);
 
     for (volume, mut intersects) in volumes.iter_mut() {
         let hit = match volume {

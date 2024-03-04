@@ -88,7 +88,7 @@ pub fn batch_and_prepare_render_phase<I: CachedRenderPipelinePhaseItem, F: GetBa
         let (buffer_data, compare_data) = F::get_batch_data(&system_param_item, item.entity())?;
         let buffer_index = gpu_array_buffer.push(buffer_data);
 
-        let index = buffer_index.index.get();
+        let index = buffer_index.index;
         *item.batch_range_mut() = index..index + 1;
         *item.dynamic_offset_mut() = buffer_index.dynamic_offset;
 
