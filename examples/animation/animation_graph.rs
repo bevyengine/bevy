@@ -12,7 +12,7 @@ use bevy::{
         basic::WHITE,
         css::{ANTIQUE_WHITE, DARK_GREEN},
     },
-    prelude::{Color::Srgba, *},
+    prelude::*,
     ui::RelativeCursorPosition,
 };
 use ron::ser::PrettyConfig;
@@ -70,8 +70,8 @@ struct Line {
 struct ExampleAnimationGraph(Handle<AnimationGraph>);
 
 /// The current weights of the three playing animations.
-#[derive(Resource)]
-struct AnimationWeights {
+#[derive(Component)]
+struct ExampleAnimationWeights {
     /// The weights of the three playing animations.
     weights: [f32; 3],
 }
@@ -153,10 +153,9 @@ fn main() {
             Update,
             (handle_weight_drag, update_ui, sync_weights).chain(),
         )
-        .init_resource::<AnimationWeights>()
         .insert_resource(args)
         .insert_resource(AmbientLight {
-            color: Srgba(WHITE),
+            color: WHITE.into(),
             brightness: 100.0,
         })
         .run();
@@ -186,8 +185,8 @@ fn setup(
     setup_camera_and_light(&mut commands);
 
     // Create the UI.
-    setup_help_text(&mut commands, &mut asset_server);
-    setup_node_rects(&mut commands, &mut asset_server);
+    setup_help_text(&mut commands);
+    setup_node_rects(&mut commands);
     setup_node_lines(&mut commands);
 }
 
@@ -278,20 +277,20 @@ fn setup_camera_and_light(commands: &mut Commands) {
 }
 
 /// Places the help text at the top left of the window.
-fn setup_help_text(commands: &mut Commands, asset_server: &mut AssetServer) {
+fn setup_help_text(commands: &mut Commands) {
     commands.spawn(TextBundle {
         text: Text::from_section(
             HELP_TEXT,
             TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                font_size: 24.0,
-                color: Srgba(ANTIQUE_WHITE),
+                font_size: 20.0,
+                color: WHITE.into(),
+                ..default()
             },
         ),
         style: Style {
             position_type: PositionType::Absolute,
-            top: Val::Px(10.0),
-            left: Val::Px(10.0),
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         },
         ..default()
@@ -299,7 +298,7 @@ fn setup_help_text(commands: &mut Commands, asset_server: &mut AssetServer) {
 }
 
 /// Initializes the node UI widgets.
-fn setup_node_rects(commands: &mut Commands, asset_server: &mut AssetServer) {
+fn setup_node_rects(commands: &mut Commands) {
     for (node_rect, node_type) in NODE_RECTS.iter().zip(NODE_TYPES.iter()) {
         let node_string = match *node_type {
             NodeType::Clip(ref clip) => clip.text,
@@ -311,9 +310,9 @@ fn setup_node_rects(commands: &mut Commands, asset_server: &mut AssetServer) {
                 text: Text::from_section(
                     node_string,
                     TextStyle {
-                        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                         font_size: 16.0,
-                        color: Srgba(ANTIQUE_WHITE),
+                        color: ANTIQUE_WHITE.into(),
+                        ..default()
                     },
                 )
                 .with_justify(JustifyText::Center),
@@ -336,7 +335,7 @@ fn setup_node_rects(commands: &mut Commands, asset_server: &mut AssetServer) {
                         justify_content: JustifyContent::Center,
                         ..default()
                     },
-                    border_color: BorderColor(Srgba(WHITE)),
+                    border_color: BorderColor(WHITE.into()),
                     ..default()
                 },
                 Outline::new(Val::Px(1.), Val::ZERO, Color::WHITE),
@@ -365,7 +364,7 @@ fn setup_node_rects(commands: &mut Commands, asset_server: &mut AssetServer) {
                         width: Val::Px(node_rect.width),
                         ..default()
                     },
-                    background_color: BackgroundColor(Srgba(DARK_GREEN)),
+                    background_color: BackgroundColor(DARK_GREEN.into()),
                     ..default()
                 })
                 .id();
@@ -393,7 +392,7 @@ fn setup_node_lines(commands: &mut Commands) {
                 border: UiRect::bottom(Val::Px(1.0)),
                 ..default()
             },
-            border_color: BorderColor(Srgba(WHITE)),
+            border_color: BorderColor(WHITE.into()),
             ..default()
         });
     }
@@ -409,7 +408,7 @@ fn setup_node_lines(commands: &mut Commands) {
                 border: UiRect::left(Val::Px(1.0)),
                 ..default()
             },
-            border_color: BorderColor(Srgba(WHITE)),
+            border_color: BorderColor(WHITE.into()),
             ..default()
         });
     }
@@ -427,7 +426,10 @@ fn init_animations(
     }
 
     for (entity, mut player) in query.iter_mut() {
-        commands.entity(entity).insert(animation_graph.0.clone());
+        commands
+            .entity(entity)
+            .insert(animation_graph.0.clone())
+            .insert(ExampleAnimationWeights::default());
         for &node_index in &CLIP_NODE_INDICES {
             player.play(node_index.into()).repeat();
         }
@@ -440,7 +442,7 @@ fn init_animations(
 /// when dragging the node UI widgets.
 fn handle_weight_drag(
     mut interaction_query: Query<(&Interaction, &RelativeCursorPosition, &ClipNode)>,
-    mut animation_weights: ResMut<AnimationWeights>,
+    mut animation_weights_query: Query<&mut ExampleAnimationWeights>,
 ) {
     for (interaction, relative_cursor, clip_node) in &mut interaction_query {
         if !matches!(*interaction, Interaction::Pressed) {
@@ -451,7 +453,9 @@ fn handle_weight_drag(
             continue;
         };
 
-        animation_weights.weights[clip_node.index] = pos.x.clamp(0., 1.);
+        for mut animation_weights in animation_weights_query.iter_mut() {
+            animation_weights.weights[clip_node.index] = pos.x.clamp(0., 1.);
+        }
     }
 }
 
@@ -460,35 +464,34 @@ fn update_ui(
     mut text_query: Query<&mut Text>,
     mut background_query: Query<&mut Style, Without<Text>>,
     container_query: Query<(&Children, &ClipNode)>,
-    animation_weights: Res<AnimationWeights>,
+    animation_weights_query: Query<&ExampleAnimationWeights, Changed<ExampleAnimationWeights>>,
 ) {
-    if !animation_weights.is_changed() {
-        return;
-    }
+    for animation_weights in animation_weights_query.iter() {
+        for (children, clip_node) in &container_query {
+            // Draw the green background color to visually indicate the weight.
+            let mut bg_iter = background_query.iter_many_mut(children);
+            if let Some(mut style) = bg_iter.fetch_next() {
+                // All nodes are the same width, so `NODE_RECTS[0]` is as good as any other.
+                style.width =
+                    Val::Px(NODE_RECTS[0].width * animation_weights.weights[clip_node.index]);
+            }
 
-    for (children, clip_node) in &container_query {
-        // Draw the green background color to visually indicate the weight.
-        let mut bg_iter = background_query.iter_many_mut(children);
-        if let Some(mut style) = bg_iter.fetch_next() {
-            // All nodes are the same width, so `NODE_RECTS[0]` is as good as any other.
-            style.width = Val::Px(NODE_RECTS[0].width * animation_weights.weights[clip_node.index]);
-        }
-
-        // Update the node labels with the current weights.
-        let mut text_iter = text_query.iter_many_mut(children);
-        if let Some(mut text) = text_iter.fetch_next() {
-            text.sections[0].value = format!(
-                "{}\n{:.2}",
-                clip_node.text, animation_weights.weights[clip_node.index]
-            );
+            // Update the node labels with the current weights.
+            let mut text_iter = text_query.iter_many_mut(children);
+            if let Some(mut text) = text_iter.fetch_next() {
+                text.sections[0].value = format!(
+                    "{}\n{:.2}",
+                    clip_node.text, animation_weights.weights[clip_node.index]
+                );
+            }
         }
     }
 }
 
 /// Takes the weights that were set in the UI and assigns them to the actual
 /// playing animation.
-fn sync_weights(mut query: Query<&mut AnimationPlayer>, animation_weights: Res<AnimationWeights>) {
-    for mut animation_player in query.iter_mut() {
+fn sync_weights(mut query: Query<(&mut AnimationPlayer, &ExampleAnimationWeights)>) {
+    for (mut animation_player, animation_weights) in query.iter_mut() {
         for (&animation_node_index, &animation_weight) in CLIP_NODE_INDICES
             .iter()
             .zip(animation_weights.weights.iter())
@@ -508,7 +511,7 @@ fn sync_weights(mut query: Query<&mut AnimationPlayer>, animation_weights: Res<A
     }
 }
 
-impl Default for AnimationWeights {
+impl Default for ExampleAnimationWeights {
     fn default() -> Self {
         Self { weights: [1.0; 3] }
     }
