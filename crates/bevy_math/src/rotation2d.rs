@@ -275,7 +275,7 @@ impl Rotation2d {
     ///
     /// # Details
     ///
-    /// `lerp` corresponds to computing an angle for a point at position `s` on a line drawn
+    /// `nlerp` corresponds to computing an angle for a point at position `s` on a line drawn
     /// between the endpoints of the arc formed by `self` and `rhs` on a unit circle,
     /// and normalizing the result afterwards.
     ///
@@ -292,14 +292,14 @@ impl Rotation2d {
     /// let rot1 = Rotation2d::IDENTITY;
     /// let rot2 = Rotation2d::degrees(135.0);
     ///
-    /// let result1 = rot1.lerp(rot2, 1.0 / 3.0);
+    /// let result1 = rot1.nlerp(rot2, 1.0 / 3.0);
     /// assert_eq!(result1.as_degrees(), 28.675055);
     ///
-    /// let result2 = rot1.lerp(rot2, 0.5);
+    /// let result2 = rot1.nlerp(rot2, 0.5);
     /// assert_eq!(result2.as_degrees(), 67.5);
     /// ```
     #[inline]
-    pub fn lerp(self, end: Self, s: f32) -> Self {
+    pub fn nlerp(self, end: Self, s: f32) -> Self {
         Self {
             sin: self.sin.lerp(end.sin, s),
             cos: self.cos.lerp(end.cos, s),
@@ -320,7 +320,7 @@ impl Rotation2d {
     /// When `s == 1.0`, the result will be equal to `rhs`.
     ///
     /// If you would like the rotation to have a kind of ease-in-out effect, consider
-    /// using the slightly more efficient [`lerp`](Self::lerp) instead.
+    /// using the slightly more efficient [`nlerp`](Self::nlerp) instead.
     ///
     /// # Example
     ///
@@ -548,23 +548,23 @@ mod tests {
     }
 
     #[test]
-    fn lerp() {
+    fn nlerp() {
         let rot1 = Rotation2d::IDENTITY;
         let rot2 = Rotation2d::degrees(135.0);
 
-        assert_eq!(rot1.lerp(rot2, 1.0 / 3.0).as_degrees(), 28.675055);
-        assert!(rot1.lerp(rot2, 0.0).is_near_identity());
-        assert_eq!(rot1.lerp(rot2, 0.5).as_degrees(), 67.5);
-        assert_eq!(rot1.lerp(rot2, 1.0).as_degrees(), 135.0);
+        assert_eq!(rot1.nlerp(rot2, 1.0 / 3.0).as_degrees(), 28.675055);
+        assert!(rot1.nlerp(rot2, 0.0).is_near_identity());
+        assert_eq!(rot1.nlerp(rot2, 0.5).as_degrees(), 67.5);
+        assert_eq!(rot1.nlerp(rot2, 1.0).as_degrees(), 135.0);
 
         let rot1 = Rotation2d::IDENTITY;
         let rot2 = Rotation2d::from_sin_cos(0.0, -1.0);
 
-        assert!(rot1.lerp(rot2, 1.0 / 3.0).is_near_identity());
-        assert!(rot1.lerp(rot2, 0.0).is_near_identity());
+        assert!(rot1.nlerp(rot2, 1.0 / 3.0).is_near_identity());
+        assert!(rot1.nlerp(rot2, 0.0).is_near_identity());
         // At 0.5, there is no valid rotation, so the fallback is the original angle.
-        assert_eq!(rot1.lerp(rot2, 0.5).as_degrees(), 0.0);
-        assert_eq!(rot1.lerp(rot2, 1.0).as_degrees().abs(), 180.0);
+        assert_eq!(rot1.nlerp(rot2, 0.5).as_degrees(), 0.0);
+        assert_eq!(rot1.nlerp(rot2, 1.0).as_degrees().abs(), 180.0);
     }
 
     #[test]
