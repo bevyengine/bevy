@@ -1106,6 +1106,16 @@ category = "Application"
 wasm = false
 
 [[example]]
+name = "log_layers_ecs"
+path = "examples/app/log_layers_ecs.rs"
+
+[package.metadata.example.log_layers_ecs]
+name = "Advanced log layers"
+description = "Illustrate how to transfer data between log layers and Bevy's ECS"
+category = "Application"
+wasm = false
+
+[[example]]
 name = "plugin"
 path = "examples/app/plugin.rs"
 doc-scrape-examples = true
