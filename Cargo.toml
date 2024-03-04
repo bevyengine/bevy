@@ -332,6 +332,8 @@ bytemuck = "1.7"
 futures-lite = "2.0.1"
 crossbeam-channel = "0.5.0"
 argh = "0.1.12"
+# Needed for `async_web_request` example
+ehttp = { version = "0.4.0", features = ["native-async"] }
 
 [[example]]
 name = "hello_world"
@@ -1272,6 +1274,16 @@ name = "Async Compute"
 description = "How to use `AsyncComputeTaskPool` to complete longer running tasks"
 category = "Async Tasks"
 wasm = false
+
+[[example]]
+name = "async_web_request"
+path = "examples/async_tasks/async_web_request.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.async_web_request]
+name = "Async Web Request"
+description = "How to use `IoTaskPool` to perform web request using `ehttp` library"
+category = "Async Tasks"
 
 [[example]]
 name = "external_source_external_thread"
