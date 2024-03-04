@@ -162,4 +162,13 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         self.arrow(start, end_y, GREEN);
         self.arrow(start, end_z, BLUE);
     }
+
+    pub fn axes_2d(&mut self, transform: impl TransformPoint, base_length: f32) {
+        let start = transform.transform_point(Vec2::ZERO);
+        let end_x = transform.transform_point(base_length * Vec2::X);
+        let end_y = transform.transform_point(base_length * Vec2::Y);
+
+        self.arrow_2d(start, end_x, RED);
+        self.arrow_2d(start, end_y, GREEN);
+    }
 }
