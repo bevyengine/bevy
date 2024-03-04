@@ -221,7 +221,8 @@ pub struct ComponentHooks {
 
 impl ComponentHooks {
     /// Register a [`ComponentHook`] that will be run when this component is added to an entity.
-    /// An `on_add` hook will always be followed by `on_insert`.
+    /// An `on_add` hook will always be followed by `on_insert`. Spawning an entity counts as
+    /// adding all of it's components.
     ///
     /// Will panic if the component already has an `on_add` hook
     pub fn on_add(&mut self, hook: ComponentHook) -> &mut Self {
@@ -229,9 +230,9 @@ impl ComponentHooks {
             .expect("Component id: {:?}, already has an on_add hook")
     }
 
-    /// Register a [`ComponentHook`] that will be run when this component is added or set by `.insert`
-    /// An `on_insert` hook will run even if the entity already has the component unlike `on_add`,
-    /// `on_insert` also always runs after any `on_add` hooks.
+    /// Registers a [`ComponentHook`] that runs when this component is added (with `.insert`)
+    /// or replaced. The hook won't run if the component is already present and is only mutated.
+    /// An `on_insert` hook always runs after any `on_add` hooks (if the entity didn't already have the component).
     ///
     /// Will panic if the component already has an `on_insert` hook
     pub fn on_insert(&mut self, hook: ComponentHook) -> &mut Self {
