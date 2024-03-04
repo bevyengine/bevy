@@ -174,11 +174,15 @@ mod system_with_generic_system_param {
     }
 }
 
-// TODO: change this to use assets?
 // You may want to be have the SystemParam be specified in an associated type.
 mod system_param_in_associated_type {
     use super::*;
     use bevy::ecs::system::{lifetimeless::SRes, StaticSystemParam, SystemParam, SystemParamItem};
+
+    #[derive(Resource)]
+    pub struct ResourceA {
+        pub data: u32,
+    }
 
     #[derive(Resource)]
     pub struct ResourceC {
@@ -202,10 +206,22 @@ mod system_param_in_associated_type {
         }
     }
 
+    #[derive(Resource)]
+    pub struct ItemB;
+    impl MyTrait for ItemB {
+        // we can specify any system param here, including a combination of other system params
+        type Param = (SRes<ResourceA>, SRes<ResourceC>);
+
+        fn do_something(&self, param: &mut SystemParamItem<Self::Param>) -> u32 {
+            // todo: Make this more intelligible
+            param.0.data + param.1.data
+        }
+    }
+
     pub fn system<S: MyTrait + Resource>(
         mut param: StaticSystemParam<<S as MyTrait>::Param>,
-        asset: ResMut<S>,
+        item: ResMut<S>,
     ) {
-        asset.do_something(&mut param);
+        item.do_something(&mut param);
     }
 }
