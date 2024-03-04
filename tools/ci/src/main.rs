@@ -31,10 +31,17 @@ bitflags! {
 // None of the CI tests require any information at runtime other than the options that have been set,
 // which is why all of these are 'static; we could easily update this to use more flexible types.
 struct CITest<'a> {
-    command: Cmd<'a>,                            // The command to execute
-    failure_message: &'static str,               // The message to display if it fails
-    subdir: Option<&'static str>,                // The subdirectory path to run the command within
-    env_vars: Vec<(&'static str, &'static str)>, // Environment variables that need to be set before the command runs
+    /// The command to execute
+    command: Cmd<'a>,
+
+    /// The message to display if the test command fails
+    failure_message: &'static str,
+
+    /// The subdirectory path to run the test command within
+    subdir: Option<&'static str>,
+
+    /// Environment variables that need to be set before the test runs
+    env_vars: Vec<(&'static str, &'static str)>,
 }
 
 fn main() {
@@ -63,6 +70,9 @@ fn main() {
 
     let flag_arguments = [("--keep-going", Flag::KEEP_GOING)];
 
+    // Parameters are parsed disregarding their order. Note that the first arg is generally the name of
+    // the executable, so it is ignored. Any parameter may either be a flag or the name of a battery of tests
+    // to include.
     let (mut checks, mut flags) = (Check::empty(), Flag::empty());
     for arg in std::env::args().skip(1) {
         if let Some((_, flag)) = flag_arguments.iter().find(|(flag_arg, _)| *flag_arg == arg) {
@@ -70,20 +80,24 @@ fn main() {
             continue;
         }
         if let Some((_, check)) = arguments.iter().find(|(check_arg, _)| *check_arg == arg) {
+            // Note that this actually adds all of the constituent checks to the test suite.
             checks.insert(*check);
             continue;
         }
+        // We encountered an invalid parameter:
         println!(
-            "Invalid argument: {arg:?}.\nEnter one of: {}.",
+            "Invalid argument: {arg:?}.\n\
+            Valid parameters: {}.",
             arguments[1..]
                 .iter()
                 .map(|(s, _)| s)
+                .chain(flag_arguments.iter().map(|(s, _)| s))
                 .fold(arguments[0].0.to_owned(), |c, v| c + ", " + v)
         );
         return;
     }
 
-    // If no checks are specified, run every check
+    // If no checks are specified, we run every check
     if checks.is_empty() {
         checks = Check::all();
     }
@@ -207,8 +221,6 @@ fn main() {
 
     if checks.contains(Check::DOC_CHECK) {
         // Check that building docs work and does not emit warnings
-        // std::env::set_var("RUSTDOCFLAGS", "-D warnings");
-
         let mut args = vec![
             "--workspace",
             "--all-features",
@@ -327,12 +339,12 @@ fn main() {
         }
     }
 
-    for (check, battery) in test_suite.into_iter() {
+    for (check, battery) in test_suite {
         for ci_test in battery {
             // If the CI test is to be executed in a subdirectory, we move there before running the command
             let _subdir_hook = ci_test.subdir.map(|path| sh.push_dir(path));
 
-            // Actually run the test
+            // Actually run the test, setting environment variables temporarily
             if ci_test.command.envs(ci_test.env_vars).run().is_err() {
                 fail(
                     check,
