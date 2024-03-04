@@ -21,6 +21,7 @@ use std::{
     borrow::Cow,
     marker::PhantomData,
     mem::needs_drop,
+    fmt::Pointer,
 };
 
 /// A data type that can be used to store data for an [entity].
@@ -209,10 +210,10 @@ pub enum StorageType {
 }
 
 /// The type used for [`Component`] lifecycle hooks such as `on_add`, `on_insert` or `on_remove`
-pub type ComponentHook = for<'w> fn(DeferredWorld<'w>, Entity, ComponentId);
+type ComponentHook = Box<dyn for<'w> Fn(DeferredWorld<'w>, Entity, ComponentId)>;
 
 /// Lifecycle hooks for a given [`Component`], stored in it's [`ComponentInfo`]
-#[derive(Debug, Clone, Default)]
+#[derive(Default)]
 pub struct ComponentHooks {
     pub(crate) on_add: Option<ComponentHook>,
     pub(crate) on_insert: Option<ComponentHook>,
@@ -220,67 +221,110 @@ pub struct ComponentHooks {
 }
 
 impl ComponentHooks {
-    /// Register a [`ComponentHook`] that will be run when this component is added to an entity.
+    /// Register a component hook that will be run when this component is added to an entity.
     /// An `on_add` hook will always be followed by `on_insert`.
     ///
     /// Will panic if the component already has an `on_add` hook
-    pub fn on_add(&mut self, hook: ComponentHook) -> &mut Self {
+    pub fn on_add<F>(&mut self, hook: F) -> &mut Self
+    where
+        F: for<'w> Fn(DeferredWorld<'w>, Entity, ComponentId) + 'static,
+    {
         self.try_on_add(hook)
             .expect("Component id: {:?}, already has an on_add hook")
     }
 
-    /// Register a [`ComponentHook`] that will be run when this component is added or set by `.insert`
+    /// Register a component hook that will be run when this component is added or set by `.insert`
     /// An `on_insert` hook will run even if the entity already has the component unlike `on_add`,
     /// `on_insert` also always runs after any `on_add` hooks.
     ///
     /// Will panic if the component already has an `on_insert` hook
-    pub fn on_insert(&mut self, hook: ComponentHook) -> &mut Self {
+    pub fn on_insert<F>(&mut self, hook: F) -> &mut Self
+    where
+        F: for<'w> Fn(DeferredWorld<'w>, Entity, ComponentId) + 'static,
+    {
         self.try_on_insert(hook)
             .expect("Component id: {:?}, already has an on_insert hook")
     }
 
-    /// Register a [`ComponentHook`] that will be run when this component is removed from an entity.
+    /// Register a component hook that will be run when this component is removed from an entity.
     /// Despawning an entity counts as removing all of it's components.
     ///
     /// Will panic if the component already has an `on_remove` hook
-    pub fn on_remove(&mut self, hook: ComponentHook) -> &mut Self {
+    pub fn on_remove<F>(&mut self, hook: F) -> &mut Self
+    where
+        F: for<'w> Fn(DeferredWorld<'w>, Entity, ComponentId) + 'static,
+    {
         self.try_on_remove(hook)
             .expect("Component id: {:?}, already has an on_remove hook")
     }
 
     /// Fallible version of [`Self::on_add`].
     /// Returns `None` if the component already has an `on_add` hook.
-    pub fn try_on_add(&mut self, hook: ComponentHook) -> Option<&mut Self> {
+    pub fn try_on_add<F>(&mut self, hook: F) -> Option<&mut Self>
+    where
+        F: for<'w> Fn(DeferredWorld<'w>, Entity, ComponentId) + 'static,
+    {
         if self.on_add.is_some() {
             return None;
         }
-        self.on_add = Some(hook);
+        self.on_add = Some(Box::new(hook));
         Some(self)
     }
 
     /// Fallible version of [`Self::on_insert`].
     /// Returns `None` if the component already has an `on_insert` hook.
-    pub fn try_on_insert(&mut self, hook: ComponentHook) -> Option<&mut Self> {
+    pub fn try_on_insert<F>(&mut self, hook: F) -> Option<&mut Self>
+    where
+        F: for<'w> Fn(DeferredWorld<'w>, Entity, ComponentId) + 'static,
+    {
         if self.on_insert.is_some() {
             return None;
         }
-        self.on_insert = Some(hook);
+        self.on_insert = Some(Box::new(hook));
         Some(self)
     }
 
     /// Fallible version of [`Self::on_remove`].
     /// Returns `None` if the component already has an `on_remove` hook.
-    pub fn try_on_remove(&mut self, hook: ComponentHook) -> Option<&mut Self> {
+    pub fn try_on_remove<F>(&mut self, hook: F) -> Option<&mut Self>
+    where
+        F: for<'w> Fn(DeferredWorld<'w>, Entity, ComponentId) + 'static,
+    {
         if self.on_remove.is_some() {
             return None;
         }
-        self.on_remove = Some(hook);
+        self.on_remove = Some(Box::new(hook));
         Some(self)
     }
 }
 
+impl std::fmt::Debug for ComponentHooks {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "ComponentHooks {{ ")?;
+        write!(f, "on_add: ")?;
+        if let Some(on_add) = self.on_add.as_ref() {
+            on_add.fmt(f)?;
+        } else {
+            write!(f, "None")?;
+        }
+        write!(f, "on_insert: ")?;
+        if let Some(on_insert) = self.on_insert.as_ref() {
+            on_insert.fmt(f)?;
+        } else {
+            write!(f, "None")?;
+        }
+        write!(f, "on_remove ")?;
+        if let Some(on_remove) = self.on_remove.as_ref() {
+            on_remove.fmt(f)?;
+        } else {
+            write!(f, "None")?;
+        }
+        write!(f, "}}")
+    }
+}
+
 /// Stores metadata for a type of component or resource stored in a specific [`World`].
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct ComponentInfo {
     id: ComponentId,
     descriptor: ComponentDescriptor,
