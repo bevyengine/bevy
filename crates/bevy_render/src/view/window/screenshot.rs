@@ -3,8 +3,8 @@ use std::{borrow::Cow, path::Path, sync::PoisonError};
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
-use bevy_log::{error, info, info_span};
 use bevy_tasks::AsyncComputeTaskPool;
+use bevy_utils::tracing::{error, info, info_span};
 use std::sync::Mutex;
 use thiserror::Error;
 use wgpu::{

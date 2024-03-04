@@ -1,7 +1,10 @@
 use bevy_asset::Asset;
+use bevy_color::Alpha;
 use bevy_math::{Affine2, Mat3, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{mesh::MeshVertexBufferLayout, render_asset::RenderAssets, render_resource::*};
+use bevy_render::{
+    mesh::MeshVertexBufferLayoutRef, render_asset::RenderAssets, render_resource::*,
+};
 
 use crate::deferred::DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID;
 use crate::*;
@@ -10,7 +13,7 @@ use crate::*;
 /// Standard property values with pictures here
 /// <https://google.github.io/filament/Material%20Properties.pdf>.
 ///
-/// May be created directly from a [`LegacyColor`] or an [`Image`].
+/// May be created directly from a [`Color`] or an [`Image`].
 #[derive(Asset, AsBindGroup, Reflect, Debug, Clone)]
 #[bind_group_data(StandardMaterialKey)]
 #[uniform(0, StandardMaterialUniform)]
@@ -22,15 +25,15 @@ pub struct StandardMaterial {
     /// in between. If used together with a `base_color_texture`, this is factored into the final
     /// base color as `base_color * base_color_texture_value`
     ///
-    /// Defaults to [`LegacyColor::WHITE`].
-    pub base_color: LegacyColor,
+    /// Defaults to [`Color::WHITE`].
+    pub base_color: Color,
 
     /// The texture component of the material's color before lighting.
     /// The actual pre-lighting color is `base_color * this_texture`.
     ///
     /// See [`base_color`] for details.
     ///
-    /// You should set `base_color` to [`LegacyColor::WHITE`] (the default)
+    /// You should set `base_color` to [`Color::WHITE`] (the default)
     /// if you want the texture to show as-is.
     ///
     /// Setting `base_color` to something else than white will tint
@@ -54,17 +57,17 @@ pub struct StandardMaterial {
     /// This means that for a light emissive value, in darkness,
     /// you will mostly see the emissive component.
     ///
-    /// The default emissive color is black, which doesn't add anything to the material color.
+    /// The default emissive color is [`Color::BLACK`], which doesn't add anything to the material color.
     ///
     /// Note that **an emissive material won't light up surrounding areas like a light source**,
     /// it just adds a value to the color seen on screen.
-    pub emissive: LegacyColor,
+    pub emissive: Color,
 
     /// The emissive map, multiplies pixels with [`emissive`]
     /// to get the final "emitting" color of a surface.
     ///
     /// This color is multiplied by [`emissive`] to get the final emitted color.
-    /// Meaning that you should set [`emissive`] to [`LegacyColor::WHITE`]
+    /// Meaning that you should set [`emissive`] to [`Color::WHITE`]
     /// if you want to use the full range of color of the emissive texture.
     ///
     /// [`emissive`]: StandardMaterial::emissive
@@ -271,7 +274,7 @@ pub struct StandardMaterial {
 
     /// The resulting (non-absorbed) color after white light travels through the attenuation distance.
     ///
-    /// Defaults to [`LegacyColor::WHITE`], i.e. no change.
+    /// Defaults to [`Color::WHITE`], i.e. no change.
     ///
     /// **Note:** To have any effect, must be used in conjunction with:
     /// - [`StandardMaterial::attenuation_distance`];
@@ -279,7 +282,7 @@ pub struct StandardMaterial {
     /// - [`StandardMaterial::diffuse_transmission`] or [`StandardMaterial::specular_transmission`].
     #[doc(alias = "absorption_color")]
     #[doc(alias = "extinction_color")]
-    pub attenuation_color: LegacyColor,
+    pub attenuation_color: Color,
 
     /// Used to fake the lighting of bumps and dents on a material.
     ///
@@ -479,9 +482,9 @@ impl Default for StandardMaterial {
         StandardMaterial {
             // White because it gets multiplied with texture values if someone uses
             // a texture.
-            base_color: LegacyColor::rgb(1.0, 1.0, 1.0),
+            base_color: Color::WHITE,
             base_color_texture: None,
-            emissive: LegacyColor::BLACK,
+            emissive: Color::BLACK,
             emissive_texture: None,
             // Matches Blender's default roughness.
             perceptual_roughness: 0.5,
@@ -502,7 +505,7 @@ impl Default for StandardMaterial {
             #[cfg(feature = "pbr_transmission_textures")]
             thickness_texture: None,
             ior: 1.5,
-            attenuation_color: LegacyColor::WHITE,
+            attenuation_color: Color::WHITE,
             attenuation_distance: f32::INFINITY,
             occlusion_texture: None,
             normal_map_texture: None,
@@ -525,11 +528,11 @@ impl Default for StandardMaterial {
     }
 }
 
-impl From<LegacyColor> for StandardMaterial {
-    fn from(color: LegacyColor) -> Self {
+impl From<Color> for StandardMaterial {
+    fn from(color: Color) -> Self {
         StandardMaterial {
             base_color: color,
-            alpha_mode: if color.a() < 1.0 {
+            alpha_mode: if color.alpha() < 1.0 {
                 AlphaMode::Blend
             } else {
                 AlphaMode::Opaque
@@ -714,8 +717,8 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
         }
 
         StandardMaterialUniform {
-            base_color: self.base_color.as_linear_rgba_f32().into(),
-            emissive: self.emissive.as_linear_rgba_f32().into(),
+            base_color: LinearRgba::from(self.base_color).to_f32_array().into(),
+            emissive: LinearRgba::from(self.emissive).to_f32_array().into(),
             roughness: self.perceptual_roughness,
             metallic: self.metallic,
             reflectance: self.reflectance,
@@ -724,7 +727,9 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             thickness: self.thickness,
             ior: self.ior,
             attenuation_distance: self.attenuation_distance,
-            attenuation_color: self.attenuation_color.as_linear_rgba_f32().into(),
+            attenuation_color: LinearRgba::from(self.attenuation_color)
+                .to_f32_array()
+                .into(),
             flags: flags.bits(),
             alpha_cutoff,
             parallax_depth_scale: self.parallax_depth_scale,
@@ -812,7 +817,7 @@ impl Material for StandardMaterial {
     fn specialize(
         _pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
-        _layout: &MeshVertexBufferLayout,
+        _layout: &MeshVertexBufferLayoutRef,
         key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         if let Some(fragment) = descriptor.fragment.as_mut() {

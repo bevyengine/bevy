@@ -38,7 +38,7 @@ fn setup(
     let sphere_radius = 0.25;
 
     let white_handle = materials.add(StandardMaterial {
-        base_color: LegacyColor::WHITE,
+        base_color: Color::WHITE,
         perceptual_roughness: 1.0,
         ..default()
     });
@@ -58,7 +58,7 @@ fn setup(
                 point_light: PointLight {
                     intensity: 0.0,
                     range: spawn_plane_depth,
-                    color: LegacyColor::WHITE,
+                    color: Color::WHITE,
                     shadow_depth_bias: 0.0,
                     shadow_normal_bias: 0.0,
                     shadows_enabled: true,
@@ -125,7 +125,7 @@ fn setup(
                 ..default()
             },
             z_index: ZIndex::Global(i32::MAX),
-            background_color: LegacyColor::BLACK.with_a(0.75).into(),
+            background_color: Color::BLACK.with_alpha(0.75).into(),
             ..default()
         })
         .with_children(|c| {

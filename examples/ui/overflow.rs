@@ -1,6 +1,6 @@
 //! Simple example demonstrating overflow behavior.
 
-use bevy::{prelude::*, winit::WinitSettings};
+use bevy::{color::palettes::css::*, prelude::*, winit::WinitSettings};
 
 fn main() {
     App::new()
@@ -32,7 +32,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 justify_content: JustifyContent::Center,
                 ..Default::default()
             },
-            background_color: LegacyColor::ANTIQUE_WHITE.into(),
+            background_color: ANTIQUE_WHITE.into(),
             ..Default::default()
         })
         .with_children(|parent| {
@@ -61,7 +61,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     margin: UiRect::bottom(Val::Px(25.)),
                                     ..Default::default()
                                 },
-                                background_color: LegacyColor::DARK_GRAY.into(),
+                                background_color: DARK_GRAY.into(),
                                 ..Default::default()
                             })
                             .with_children(|parent| {
@@ -83,7 +83,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     overflow,
                                     ..Default::default()
                                 },
-                                background_color: LegacyColor::GRAY.into(),
+                                background_color: GRAY.into(),
                                 ..Default::default()
                             })
                             .with_children(|parent| {
@@ -95,15 +95,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                             min_height: Val::Px(100.),
                                             ..Default::default()
                                         },
-                                        background_color: LegacyColor::WHITE.into(),
-
                                         ..Default::default()
                                     },
                                     Interaction::default(),
                                     Outline {
                                         width: Val::Px(2.),
                                         offset: Val::Px(2.),
-                                        color: LegacyColor::NONE,
+                                        color: Color::NONE,
                                     },
                                 ));
                             });
@@ -116,9 +114,9 @@ fn update_outlines(mut outlines_query: Query<(&mut Outline, Ref<Interaction>)>) 
     for (mut outline, interaction) in outlines_query.iter_mut() {
         if interaction.is_changed() {
             outline.color = match *interaction {
-                Interaction::Pressed => LegacyColor::RED,
-                Interaction::Hovered => LegacyColor::WHITE,
-                Interaction::None => LegacyColor::NONE,
+                Interaction::Pressed => RED.into(),
+                Interaction::Hovered => WHITE.into(),
+                Interaction::None => Color::NONE,
             };
         }
     }

@@ -12,9 +12,9 @@ use std::{
 
 #[derive(Default, Debug)]
 struct DirInternal {
-    assets: HashMap<String, Data>,
-    metadata: HashMap<String, Data>,
-    dirs: HashMap<String, Dir>,
+    assets: HashMap<Box<str>, Data>,
+    metadata: HashMap<Box<str>, Data>,
+    dirs: HashMap<Box<str>, Dir>,
     path: PathBuf,
 }
 
@@ -46,7 +46,7 @@ impl Dir {
             dir = self.get_or_insert_dir(parent);
         }
         dir.0.write().assets.insert(
-            path.file_name().unwrap().to_string_lossy().to_string(),
+            path.file_name().unwrap().to_string_lossy().into(),
             Data {
                 value: value.into(),
                 path: path.to_owned(),
@@ -60,7 +60,7 @@ impl Dir {
             dir = self.get_or_insert_dir(parent);
         }
         dir.0.write().metadata.insert(
-            path.file_name().unwrap().to_string_lossy().to_string(),
+            path.file_name().unwrap().to_string_lossy().into(),
             Data {
                 value: value.into(),
                 path: path.to_owned(),
@@ -73,7 +73,7 @@ impl Dir {
         let mut full_path = PathBuf::new();
         for c in path.components() {
             full_path.push(c);
-            let name = c.as_os_str().to_string_lossy().to_string();
+            let name = c.as_os_str().to_string_lossy().into();
             dir = {
                 let dirs = &mut dir.0.write().dirs;
                 dirs.entry(name)
@@ -147,7 +147,12 @@ impl Stream for DirStream {
         let dir = this.dir.0.read();
 
         let dir_index = this.dir_index;
-        if let Some(dir_path) = dir.dirs.keys().nth(dir_index).map(|d| dir.path.join(d)) {
+        if let Some(dir_path) = dir
+            .dirs
+            .keys()
+            .nth(dir_index)
+            .map(|d| dir.path.join(d.as_ref()))
+        {
             this.dir_index += 1;
             Poll::Ready(Some(dir_path))
         } else {

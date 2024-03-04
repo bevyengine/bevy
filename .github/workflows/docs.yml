@@ -4,13 +4,13 @@ on:
   push:
     branches:
       - 'main'
-
   # Allows running the action manually.
   workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
   RUSTDOCFLAGS: --html-in-header header.html
+  NIGHTLY_TOOLCHAIN: nightly
 
 # Sets the permissions to allow deploying to Github pages.
 permissions:
@@ -33,8 +33,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
 
       - name: Install alsa and udev
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
@@ -48,7 +49,7 @@ jobs:
           echo "<meta name=\"robots\" content=\"noindex\">" > header.html
 
       - name: Build docs
-        run: cargo doc --all-features --no-deps -p bevy
+        run: cargo doc --all-features --no-deps -p bevy -Zunstable-options -Zrustdoc-scrape-examples
 
       #  This adds the following:
       #   - A top level redirect to the bevy crate documentation

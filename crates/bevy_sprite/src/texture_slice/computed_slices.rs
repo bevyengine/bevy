@@ -46,7 +46,7 @@ impl ComputedTextureSlices {
             let transform = transform.mul_transform(Transform::from_translation(offset));
             ExtractedSprite {
                 original_entity: Some(original_entity),
-                color: sprite.color,
+                color: sprite.color.into(),
                 transform,
                 rect: Some(slice.texture_rect),
                 custom_size: Some(slice.draw_size),

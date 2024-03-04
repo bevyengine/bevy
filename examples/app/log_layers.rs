@@ -22,7 +22,9 @@ impl<S: Subscriber> Layer<S> for CustomLayer {
     }
 }
 
-fn update_subscriber(subscriber: BoxedSubscriber) -> BoxedSubscriber {
+// We don't need App for this example, as we are just printing log information.
+// For an example that uses App, see log_layers_ecs.
+fn update_subscriber(_: &mut App, subscriber: BoxedSubscriber) -> BoxedSubscriber {
     Box::new(subscriber.with(CustomLayer))
 }
 
@@ -30,6 +32,14 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(bevy::log::LogPlugin {
             update_subscriber: Some(update_subscriber),
+            // You can chain multiple subscriber updates like this:
+            //
+            // update_subscriber: Some(|app, subscriber| {
+            //     let subscriber = update_subscriber_a(app, subscriber);
+            //     let subscriber = update_subscriber_b(app, subscriber);
+            //
+            //     update_subscriber_c(app, subscriber)
+            // }),
             ..default()
         }))
         .add_systems(Update, log_system)
@@ -37,7 +47,7 @@ fn main() {
 }
 
 fn log_system() {
-    // here is how you write new logs at each "log level" (in "most import" to
+    // here is how you write new logs at each "log level" (in "most important" to
     // "least important" order)
     error!("something failed");
     warn!("something bad happened that isn't a failure, but thats worth calling out");
