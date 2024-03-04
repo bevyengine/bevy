@@ -9,6 +9,8 @@ use bevy_input::{
     touchpad::{TouchpadMagnify, TouchpadRotate},
 };
 use bevy_reflect::Reflect;
+#[cfg(feature = "serialize")]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use bevy_window::{
     ApplicationLifetime, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime,
     ReceivedCharacter, RequestRedraw, WindowBackendScaleFactorChanged, WindowCloseRequested,
