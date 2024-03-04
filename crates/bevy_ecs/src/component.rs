@@ -230,7 +230,7 @@ impl ComponentHooks {
             .expect("Component id: {:?}, already has an on_add hook")
     }
 
-    /// Registers a [`ComponentHook`] that runs when this component is added (with `.insert`)
+    /// Register a [`ComponentHook`] that will be run when this component is added (with `.insert`)
     /// or replaced. The hook won't run if the component is already present and is only mutated.
     /// An `on_insert` hook always runs after any `on_add` hooks (if the entity didn't already have the component).
     ///
