@@ -221,7 +221,7 @@ pub struct ComponentHooks {
 
 impl ComponentHooks {
     /// Register a [`ComponentHook`] that will be run when this component is added to an entity.
-    /// An `on_add` hook will always be followed by `on_insert`. Spawning an entity counts as
+    /// An `on_add` hook will always run before `on_insert` hooks. Spawning an entity counts as
     /// adding all of it's components.
     ///
     /// Will panic if the component already has an `on_add` hook
