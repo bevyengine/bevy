@@ -2,7 +2,7 @@
 //!
 //! Whenever possible, prefer using Bevy's change detection or Events for reacting to component changes.
 //! Events generally offer better performance and more flexible integration into Bevy's systems.
-//! Hooks are useful in specific scenarios but have limitations (only one hook per component,
+//! Hooks are useful to enforce correctness but have limitations (only one hook per component,
 //! less ergonomic than events).
 //!
 //! Here are some cases where components hooks might be necessary:
