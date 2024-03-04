@@ -1,6 +1,6 @@
 //! This example illustrates the different ways you can employ component lifecycle hooks.
 //!
-//! Whenever possible, prefer using Bevy's Events for reacting to component changes.
+//! Whenever possible, prefer using Bevy's change detection or Events for reacting to component changes.
 //! Events generally offer better performance and more flexible integration into Bevy's systems.
 //! Hooks are useful in specific scenarios but have limitations (only one hook per component,
 //! less ergonomic than events).
