@@ -11,7 +11,6 @@
 
 use bevy::prelude::*;
 use system_param_in_associated_type::*;
-use system_with_generic_system_param::*;
 
 #[derive(Debug, Default, Clone, Copy, Eq, PartialEq, Hash, States)]
 enum AppState {
@@ -42,8 +41,6 @@ fn main() {
             (
                 print_text_system,
                 transition_to_in_game_system.run_if(in_state(AppState::MainMenu)),
-                system_with_generic::<ResMut<ResourceA>>,
-                system_with_generic::<ResMut<ResourceB>>,
                 system::<ItemA>,
             ),
         )
@@ -67,8 +64,6 @@ fn setup_system(mut commands: Commands) {
         LevelUnload,
     ));
 
-    commands.insert_resource(ResourceA(1));
-    commands.insert_resource(ResourceB(2));
     commands.insert_resource(ResourceC { data: 3 });
 }
 
@@ -97,42 +92,90 @@ fn cleanup_system<T: Component>(mut commands: Commands, query: Query<Entity, Wit
     }
 }
 
-// For a more advanced usage you may want to be generic over a trait instead.
+// For a more advanced usage you may want have a group of system params to implement a trait.
+// Note that this example is a little contrived in the interest of keeping things simple. The
+// purpose here is to demontrate how to get the traits and lifetimes to work properly.
 mod system_with_generic_system_param {
     use super::*;
-    use bevy::ecs::system::{SystemParam, SystemParamItem};
+    use bevy::ecs::system::SystemParam;
 
-    pub trait MyTrait {
-        fn calculate_something(&mut self) {}
-    }
-
-    #[derive(Resource)]
-    pub struct ResourceA(pub usize);
-    impl MyTrait for ResMut<'_, ResourceA> {
-        fn calculate_something(&mut self) {
-            // dbg!(self.0);
-            self.0 = 5;
+    struct DamagePlugin;
+    impl Plugin for DamagePlugin {
+        fn build(&self, app: &mut App) {
+            app.add_systems(Startup, setup_damage).add_systems(
+                Update,
+                (
+                    apply_damage::<PlayerDamageParams>,
+                    apply_damage::<EnemyDamageParams>,
+                ),
+            );
         }
     }
 
+    #[derive(Component)]
+    struct Player;
+
+    #[derive(Component)]
+    struct Enemy;
+
+    #[derive(Component)]
+    struct Health(f32);
+
     #[derive(Resource)]
-    pub struct ResourceB(pub usize);
-    impl MyTrait for ResMut<'_, ResourceB> {
-        fn calculate_something(&mut self) {
-            // dbg!(self.0);
-            self.0 = 10;
+    struct EnemySettings {
+        /// damage done by player to enemy
+        take_damage: f32,
+        /// damage done by enemy to player
+        do_damage: f32,
+    }
+
+    pub trait GetDamage {
+        fn apply_damage(&mut self) {}
+    }
+
+    #[derive(SystemParam)]
+    struct PlayerDamageParams<'w, 's> {
+        player: Query<'w, 's, &'static mut Health, With<Player>>,
+        enemy_settings: Res<'w, EnemySettings>,
+    }
+    impl<'w, 's> GetDamage for PlayerDamageParams<'w, 's> {
+        fn apply_damage(&mut self) {
+            let mut player_health = self.player.single_mut();
+            player_health.0 += self.enemy_settings.do_damage;
         }
     }
 
-    pub fn system_with_generic<S: SystemParam>(mut param: SystemParamItem<S>)
+    #[derive(SystemParam)]
+    struct EnemyDamageParams<'w, 's> {
+        enemies: Query<'w, 's, &'static mut Health, With<Enemy>>,
+        enemy_settings: Res<'w, EnemySettings>,
+    }
+    impl<'w, 's> GetDamage for EnemyDamageParams<'w, 's> {
+        fn apply_damage(&mut self) {
+            for mut enemy_health in self.enemies.iter_mut() {
+                enemy_health.0 -= self.enemy_settings.take_damage;
+            }
+        }
+    }
+
+    // Note that the param passed into a system is `SystemParam::Item` and not just `SystemParam`.
+    fn apply_damage<S: SystemParam>(mut param: S::Item<'_, '_>)
     where
-        for<'w, 's> S::Item<'w, 's>: MyTrait,
+        for<'w, 's> S::Item<'w, 's>: GetDamage,
     {
-        param.calculate_something();
+        param.apply_damage();
+    }
+
+    fn setup_damage(mut commands: Commands) {
+        commands.insert_resource(EnemySettings {
+            do_damage: 1.0,
+            take_damage: 2.0,
+        });
     }
 }
 
-// TODO: change this to be assets?
+// TODO: change this to use assets?
+// You may want to be have the SystemParam be specified in an associated type.
 mod system_param_in_associated_type {
     use super::*;
     use bevy::ecs::system::{lifetimeless::SRes, StaticSystemParam, SystemParam, SystemParamItem};
