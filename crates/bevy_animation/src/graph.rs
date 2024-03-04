@@ -152,7 +152,7 @@ pub struct SerializedAnimationGraph {
     /// Corresponds to the `root` field on [`AnimationGraph`].
     pub root: NodeIndex,
     /// A mapping from the animation graph's asset IDs to their paths.
-    pub asset_paths: HashMap<AssetId<AnimationClip>, AssetPath<'static>>,
+    pub manifest: HashMap<AssetId<AnimationClip>, AssetPath<'static>>,
 }
 
 impl AnimationGraph {
@@ -352,13 +352,13 @@ impl AssetLoader for AnimationGraphAssetLoader {
 
             // If the animation graph refers to assets on disk (the common
             // case), then load them.
-            if !serialized_animation_graph.asset_paths.is_empty() {
+            if !serialized_animation_graph.manifest.is_empty() {
                 for node in serialized_animation_graph.graph.node_weights_mut() {
                     let Some(ref mut clip_handle) = node.clip else {
                         continue;
                     };
                     let Some(asset_path) = serialized_animation_graph
-                        .asset_paths
+                        .manifest
                         .get(&clip_handle.id())
                     else {
                         continue;
@@ -414,7 +414,7 @@ impl From<AnimationGraph> for SerializedAnimationGraph {
     fn from(animation_graph: AnimationGraph) -> Self {
         // Before serializing, gather up all animation clips with paths that the
         // graph refers to, and write that path information alongside the graph.
-        let asset_paths = animation_graph
+        let manifest = animation_graph
             .graph
             .node_weights()
             .filter_map(|node| node.clip.as_ref())
@@ -429,16 +429,16 @@ impl From<AnimationGraph> for SerializedAnimationGraph {
         Self {
             graph: animation_graph.graph,
             root: animation_graph.root,
-            asset_paths,
+            manifest,
         }
     }
 }
 
 impl From<SerializedAnimationGraph> for AnimationGraph {
     fn from(animation_graph: SerializedAnimationGraph) -> Self {
-        // Simply discard the asset paths metadata. Since this is expected to
-        // be called after the asset loader has already loaded all asset paths,
-        // this is OK.
+        // Simply discard the manifest. Since this is expected to be called
+        // after the asset loader has already loaded all asset paths, this is
+        // OK.
         Self {
             graph: animation_graph.graph,
             root: animation_graph.root,

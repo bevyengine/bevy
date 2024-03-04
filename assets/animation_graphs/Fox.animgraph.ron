@@ -50,14 +50,7 @@
         ],
     ),
     root: 0,
-    asset_paths: {
-        Index(
-            index: (
-                generation: 0,
-                index: 0,
-            ),
-            marker: (),
-        ): "models/animated/Fox.glb#Animation0",
+    manifest: {
         Index(
             index: (
                 generation: 0,
@@ -72,5 +65,12 @@
             ),
             marker: (),
         ): "models/animated/Fox.glb#Animation2",
+        Index(
+            index: (
+                generation: 0,
+                index: 0,
+            ),
+            marker: (),
+        ): "models/animated/Fox.glb#Animation0",
     },
 )

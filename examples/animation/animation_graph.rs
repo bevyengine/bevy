@@ -17,7 +17,11 @@ use bevy::{
 };
 use ron::ser::PrettyConfig;
 
+/// Where to find the serialized animation graph.
 static ANIMATION_GRAPH_PATH: &str = "animation_graphs/Fox.animgraph.ron";
+
+/// The indices of the nodes containing animation clips in the graph.
+static CLIP_NODE_INDICES: [u32; 3] = [2, 3, 4];
 
 /// Demonstrates animation blending with animation graphs
 #[derive(FromArgs, Resource)]
@@ -64,9 +68,6 @@ struct Line {
 /// be blended together.
 #[derive(Clone, Resource)]
 struct ExampleAnimationGraph(Handle<AnimationGraph>);
-
-#[derive(Resource)]
-struct ExampleAnimationGraphNodeIndices([AnimationNodeIndex; 3]);
 
 /// The current weights of the three playing animations.
 #[derive(Resource)]
@@ -147,7 +148,6 @@ fn main() {
             ..default()
         }))
         .add_systems(Startup, setup)
-        .add_systems(PreUpdate, init_node_indices)
         .add_systems(PreUpdate, init_animations)
         .add_systems(
             Update,
@@ -162,6 +162,7 @@ fn main() {
         .run();
 }
 
+/// Initializes the scene.
 fn setup(
     mut commands: Commands,
     mut asset_server: ResMut<AssetServer>,
@@ -419,62 +420,19 @@ fn init_animations(
     mut commands: Commands,
     mut query: Query<(Entity, &mut AnimationPlayer)>,
     animation_graph: Res<ExampleAnimationGraph>,
-    node_indices: Option<Res<ExampleAnimationGraphNodeIndices>>,
     mut done: Local<bool>,
 ) {
-    let Some(node_indices) = node_indices else {
-        return;
-    };
-
     if *done {
         return;
     }
 
     for (entity, mut player) in query.iter_mut() {
         commands.entity(entity).insert(animation_graph.0.clone());
-        for node_index in node_indices.0 {
-            player.play(node_index).repeat();
+        for &node_index in &CLIP_NODE_INDICES {
+            player.play(node_index.into()).repeat();
         }
 
         *done = true;
-    }
-}
-
-fn init_node_indices(
-    mut commands: Commands,
-    mut events: EventReader<AssetEvent<AnimationGraph>>,
-    assets: Res<Assets<AnimationGraph>>,
-) {
-    for event in events.read() {
-        match event {
-            AssetEvent::Added { id } | AssetEvent::LoadedWithDependencies { id } => {
-                let animation_graph = assets
-                    .get(*id)
-                    .expect("Animation graph not present when it should be");
-                let mut animation_node_indices = [AnimationNodeIndex::new(0); 3];
-                for node_index in animation_graph.nodes() {
-                    let Some(node) = animation_graph.get(node_index) else {
-                        continue;
-                    };
-                    let Some(ref clip) = node.clip else { continue };
-                    let Some(path) = clip.path() else { continue };
-                    let Some(label) = path.label() else { continue };
-                    if !label.starts_with("Animation") {
-                        continue;
-                    };
-                    let Some(digit_position) = label.find(|c: char| c.is_ascii_digit()) else {
-                        continue;
-                    };
-                    let Ok(index) = label[digit_position..].parse::<usize>() else {
-                        continue;
-                    };
-                    animation_node_indices[index] = node_index;
-                }
-
-                commands.insert_resource(ExampleAnimationGraphNodeIndices(animation_node_indices));
-            }
-            _ => {}
-        }
     }
 }
 
@@ -529,26 +487,21 @@ fn update_ui(
 
 /// Takes the weights that were set in the UI and assigns them to the actual
 /// playing animation.
-fn sync_weights(
-    mut query: Query<&mut AnimationPlayer>,
-    node_indices: Option<Res<ExampleAnimationGraphNodeIndices>>,
-    animation_weights: Res<AnimationWeights>,
-) {
-    let Some(node_indices) = node_indices else {
-        return;
-    };
-
+fn sync_weights(mut query: Query<&mut AnimationPlayer>, animation_weights: Res<AnimationWeights>) {
     for mut animation_player in query.iter_mut() {
-        for (&animation_node_index, &animation_weight) in
-            node_indices.0.iter().zip(animation_weights.weights.iter())
+        for (&animation_node_index, &animation_weight) in CLIP_NODE_INDICES
+            .iter()
+            .zip(animation_weights.weights.iter())
         {
             // If the animation happens to be no longer active, restart it.
-            if !animation_player.animation_is_playing(animation_node_index) {
-                animation_player.play(animation_node_index);
+            if !animation_player.animation_is_playing(animation_node_index.into()) {
+                animation_player.play(animation_node_index.into());
             }
 
             // Set the weight.
-            if let Some(active_animation) = animation_player.animation_mut(animation_node_index) {
+            if let Some(active_animation) =
+                animation_player.animation_mut(animation_node_index.into())
+            {
                 active_animation.set_weight(animation_weight);
             }
         }
