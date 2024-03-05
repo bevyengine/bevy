@@ -7,7 +7,7 @@
 use bevy::{color::palettes::css::*, prelude::*};
 
 const PALETTE: [Srgba; 10] = [
-    RED, YELLOW, WHITE, BEIGE, CYAN, CRIMSON, NAVY, AZURE, GREEN, BLACK,
+    RED, YELLOW, WHITE, BEIGE, AQUA, CRIMSON, NAVY, AZURE, GREEN, BLACK,
 ];
 
 #[derive(Component, Default, PartialEq)]
