@@ -205,7 +205,7 @@ impl AssetInfos {
             .ok_or(GetOrCreateHandleInternalError::HandleMissingButTypeIdNotSpecified)?;
 
         match handles.entry(type_id) {
-            bevy_utils::hashbrown::hash_map::Entry::Occupied(entry) => {
+            Entry::Occupied(entry) => {
                 let id = *entry.get();
                 // if there is a path_to_id entry, info always exists
                 let info = self.infos.get_mut(&id).unwrap();
@@ -246,7 +246,7 @@ impl AssetInfos {
                 }
             }
             // The entry does not exist, so this is a "fresh" asset load. We must create a new handle
-            bevy_utils::hashbrown::hash_map::Entry::Vacant(entry) => {
+            Entry::Vacant(entry) => {
                 let should_load = match loading_mode {
                     HandleLoadingMode::NotLoading => false,
                     HandleLoadingMode::Request | HandleLoadingMode::Force => true,
