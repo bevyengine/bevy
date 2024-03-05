@@ -1,3 +1,6 @@
+// FIXME(3492): remove once docs are ready
+#![allow(missing_docs)]
+
 //! Provides 2D sprite rendering functionality.
 mod bundle;
 mod dynamic_texture_atlas_builder;
@@ -6,15 +9,19 @@ mod render;
 mod sprite;
 mod texture_atlas;
 mod texture_atlas_builder;
-
-pub mod collide_aabb;
+mod texture_slice;
 
 pub mod prelude {
+    #[allow(deprecated)]
+    #[doc(hidden)]
+    pub use crate::bundle::SpriteSheetBundle;
+
     #[doc(hidden)]
     pub use crate::{
-        bundle::{SpriteBundle, SpriteSheetBundle},
-        sprite::Sprite,
-        texture_atlas::{TextureAtlas, TextureAtlasSprite},
+        bundle::SpriteBundle,
+        sprite::{ImageScaleMode, Sprite},
+        texture_atlas::{TextureAtlas, TextureAtlasLayout},
+        texture_slice::{BorderRect, SliceScaleMode, TextureSlice, TextureSlicer},
         ColorMaterial, ColorMesh2dBundle, TextureAtlasBuilder,
     };
 }
@@ -26,6 +33,7 @@ pub use render::*;
 pub use sprite::*;
 pub use texture_atlas::*;
 pub use texture_atlas_builder::*;
+pub use texture_slice::*;
 
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
@@ -51,6 +59,7 @@ pub const SPRITE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(27633439
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum SpriteSystem {
     ExtractSprites,
+    ComputeSlices,
 }
 
 impl Plugin for SpritePlugin {
@@ -61,16 +70,25 @@ impl Plugin for SpritePlugin {
             "render/sprite.wgsl",
             Shader::from_wgsl
         );
-        app.init_asset::<TextureAtlas>()
-            .register_asset_reflect::<TextureAtlas>()
+        app.init_asset::<TextureAtlasLayout>()
+            .register_asset_reflect::<TextureAtlasLayout>()
             .register_type::<Sprite>()
-            .register_type::<TextureAtlasSprite>()
+            .register_type::<ImageScaleMode>()
+            .register_type::<TextureSlicer>()
             .register_type::<Anchor>()
+            .register_type::<TextureAtlas>()
             .register_type::<Mesh2dHandle>()
             .add_plugins((Mesh2dRenderPlugin, ColorMaterialPlugin))
             .add_systems(
                 PostUpdate,
-                calculate_bounds_2d.in_set(VisibilitySystems::CalculateBounds),
+                (
+                    calculate_bounds_2d.in_set(VisibilitySystems::CalculateBounds),
+                    (
+                        compute_slices_on_asset_event,
+                        compute_slices_on_sprite_change,
+                    )
+                        .in_set(SpriteSystem::ComputeSlices),
+                ),
             );
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
@@ -110,7 +128,6 @@ impl Plugin for SpritePlugin {
 /// System calculating and inserting an [`Aabb`] component to entities with either:
 /// - a `Mesh2dHandle` component,
 /// - a `Sprite` and `Handle<Image>` components,
-/// - a `TextureAtlasSprite` and `Handle<TextureAtlas>` components,
 /// and without a [`NoFrustumCulling`] component.
 ///
 /// Used in system set [`VisibilitySystems::CalculateBounds`].
@@ -118,18 +135,14 @@ pub fn calculate_bounds_2d(
     mut commands: Commands,
     meshes: Res<Assets<Mesh>>,
     images: Res<Assets<Image>>,
-    atlases: Res<Assets<TextureAtlas>>,
+    atlases: Res<Assets<TextureAtlasLayout>>,
     meshes_without_aabb: Query<(Entity, &Mesh2dHandle), (Without<Aabb>, Without<NoFrustumCulling>)>,
     sprites_to_recalculate_aabb: Query<
-        (Entity, &Sprite, &Handle<Image>),
+        (Entity, &Sprite, &Handle<Image>, Option<&TextureAtlas>),
         (
-            Or<(Without<Aabb>, Changed<Sprite>)>,
+            Or<(Without<Aabb>, Changed<Sprite>, Changed<TextureAtlas>)>,
             Without<NoFrustumCulling>,
         ),
-    >,
-    atlases_without_aabb: Query<
-        (Entity, &TextureAtlasSprite, &Handle<TextureAtlas>),
-        (Without<Aabb>, Without<NoFrustumCulling>),
     >,
 ) {
     for (entity, mesh_handle) in &meshes_without_aabb {
@@ -139,27 +152,17 @@ pub fn calculate_bounds_2d(
             }
         }
     }
-    for (entity, sprite, texture_handle) in &sprites_to_recalculate_aabb {
-        if let Some(size) = sprite
-            .custom_size
-            .or_else(|| images.get(texture_handle).map(|image| image.size_f32()))
-        {
-            let aabb = Aabb {
-                center: (-sprite.anchor.as_vec() * size).extend(0.0).into(),
-                half_extents: (0.5 * size).extend(0.0).into(),
-            };
-            commands.entity(entity).try_insert(aabb);
-        }
-    }
-    for (entity, atlas_sprite, atlas_handle) in &atlases_without_aabb {
-        if let Some(size) = atlas_sprite.custom_size.or_else(|| {
-            atlases
-                .get(atlas_handle)
-                .and_then(|atlas| atlas.textures.get(atlas_sprite.index))
-                .map(|rect| (rect.min - rect.max).abs())
+    for (entity, sprite, texture_handle, atlas) in &sprites_to_recalculate_aabb {
+        if let Some(size) = sprite.custom_size.or_else(|| match atlas {
+            // We default to the texture size for regular sprites
+            None => images.get(texture_handle).map(|image| image.size_f32()),
+            // We default to the drawn rect for atlas sprites
+            Some(atlas) => atlas
+                .texture_rect(&atlases)
+                .map(|rect| rect.size().as_vec2()),
         }) {
             let aabb = Aabb {
-                center: (-atlas_sprite.anchor.as_vec() * size).extend(0.0).into(),
+                center: (-sprite.anchor.as_vec() * size).extend(0.0).into(),
                 half_extents: (0.5 * size).extend(0.0).into(),
             };
             commands.entity(entity).try_insert(aabb);
@@ -186,13 +189,13 @@ mod test {
         app.insert_resource(image_assets);
         let mesh_assets = Assets::<Mesh>::default();
         app.insert_resource(mesh_assets);
-        let texture_atlas_assets = Assets::<TextureAtlas>::default();
+        let texture_atlas_assets = Assets::<TextureAtlasLayout>::default();
         app.insert_resource(texture_atlas_assets);
 
         // Add system
         app.add_systems(Update, calculate_bounds_2d);
 
-        // Add entites
+        // Add entities
         let entity = app.world.spawn((Sprite::default(), image_handle)).id();
 
         // Verify that the entity does not have an AABB
@@ -224,13 +227,13 @@ mod test {
         app.insert_resource(image_assets);
         let mesh_assets = Assets::<Mesh>::default();
         app.insert_resource(mesh_assets);
-        let texture_atlas_assets = Assets::<TextureAtlas>::default();
+        let texture_atlas_assets = Assets::<TextureAtlasLayout>::default();
         app.insert_resource(texture_atlas_assets);
 
         // Add system
         app.add_systems(Update, calculate_bounds_2d);
 
-        // Add entites
+        // Add entities
         let entity = app
             .world
             .spawn((

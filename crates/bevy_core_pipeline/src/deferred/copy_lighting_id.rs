@@ -18,7 +18,6 @@ use bevy_render::{
 use bevy_ecs::query::QueryItem;
 use bevy_render::{
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    render_resource::{Operations, PipelineCache, RenderPassDescriptor},
     renderer::RenderContext,
 };
 
@@ -61,7 +60,7 @@ impl CopyDeferredLightingIdNode {
 }
 
 impl ViewNode for CopyDeferredLightingIdNode {
-    type ViewData = (
+    type ViewQuery = (
         &'static ViewTarget,
         &'static ViewPrepassTextures,
         &'static DeferredLightingIdDepthTexture,
@@ -72,7 +71,7 @@ impl ViewNode for CopyDeferredLightingIdNode {
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
         (_view_target, view_prepass_textures, deferred_lighting_id_depth_texture): QueryItem<
-            Self::ViewData,
+            Self::ViewQuery,
         >,
         world: &World,
     ) -> Result<(), NodeRunError> {
@@ -94,7 +93,7 @@ impl ViewNode for CopyDeferredLightingIdNode {
         let bind_group = render_context.render_device().create_bind_group(
             "copy_deferred_lighting_id_bind_group",
             &copy_deferred_lighting_id_pipeline.layout,
-            &BindGroupEntries::single(&deferred_lighting_pass_id_texture.default_view),
+            &BindGroupEntries::single(&deferred_lighting_pass_id_texture.texture.default_view),
         );
 
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {

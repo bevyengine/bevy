@@ -10,12 +10,13 @@ use bevy::{
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
     window::{PresentMode, WindowPlugin, WindowResolution},
+    winit::{UpdateMode, WinitSettings},
 };
 
 #[derive(FromArgs, Resource)]
 /// `many_foxes` stress test
 struct Args {
-    /// wether all foxes run in sync.
+    /// whether all foxes run in sync.
     #[argh(switch)]
     sync: bool,
 
@@ -33,7 +34,11 @@ struct Foxes {
 }
 
 fn main() {
+    // `from_env` panics on the web
+    #[cfg(not(target_arch = "wasm32"))]
     let args: Args = argh::from_env();
+    #[cfg(target_arch = "wasm32")]
+    let args = Args::from_args(&[], &[]).unwrap();
 
     App::new()
         .add_plugins((
@@ -50,15 +55,15 @@ fn main() {
             FrameTimeDiagnosticsPlugin,
             LogDiagnosticsPlugin::default(),
         ))
+        .insert_resource(WinitSettings {
+            focused_mode: UpdateMode::Continuous,
+            unfocused_mode: UpdateMode::Continuous,
+        })
         .insert_resource(Foxes {
             count: args.count,
             speed: 2.0,
             moving: true,
             sync: args.sync,
-        })
-        .insert_resource(AmbientLight {
-            color: Color::WHITE,
-            brightness: 1.0,
         })
         .add_systems(Startup, setup)
         .add_systems(
@@ -185,8 +190,8 @@ fn setup(
 
     // Plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(5000.0).into()),
-        material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+        mesh: meshes.add(Plane3d::default().mesh().size(5000.0, 5000.0)),
+        material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
         ..default()
     });
 

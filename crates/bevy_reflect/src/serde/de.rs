@@ -3,7 +3,7 @@ use crate::{
     ArrayInfo, DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
     DynamicTupleStruct, DynamicVariant, EnumInfo, ListInfo, Map, MapInfo, NamedField, Reflect,
     ReflectDeserialize, StructInfo, StructVariantInfo, TupleInfo, TupleStructInfo,
-    TupleVariantInfo, TypeInfo, TypeRegistration, TypeRegistry, UnnamedField, VariantInfo,
+    TupleVariantInfo, TypeInfo, TypeRegistration, TypeRegistry, VariantInfo,
 };
 use erased_serde::Deserializer;
 use serde::de::{
@@ -23,7 +23,6 @@ pub trait DeserializeValue {
 }
 
 trait StructLikeInfo {
-    fn get_path(&self) -> &str;
     fn get_field(&self, name: &str) -> Option<&NamedField>;
     fn field_at(&self, index: usize) -> Option<&NamedField>;
     fn get_field_len(&self) -> usize;
@@ -31,8 +30,6 @@ trait StructLikeInfo {
 }
 
 trait TupleLikeInfo {
-    fn get_path(&self) -> &str;
-    fn get_field(&self, index: usize) -> Option<&UnnamedField>;
     fn get_field_len(&self) -> usize;
 }
 
@@ -45,10 +42,6 @@ trait Container {
 }
 
 impl StructLikeInfo for StructInfo {
-    fn get_path(&self) -> &str {
-        self.type_path()
-    }
-
     fn get_field(&self, name: &str) -> Option<&NamedField> {
         self.field(name)
     }
@@ -84,10 +77,6 @@ impl Container for StructInfo {
 }
 
 impl StructLikeInfo for StructVariantInfo {
-    fn get_path(&self) -> &str {
-        self.name()
-    }
-
     fn get_field(&self, name: &str) -> Option<&NamedField> {
         self.field(name)
     }
@@ -123,14 +112,6 @@ impl Container for StructVariantInfo {
 }
 
 impl TupleLikeInfo for TupleInfo {
-    fn get_path(&self) -> &str {
-        self.type_path()
-    }
-
-    fn get_field(&self, index: usize) -> Option<&UnnamedField> {
-        self.field_at(index)
-    }
-
     fn get_field_len(&self) -> usize {
         self.field_len()
     }
@@ -154,14 +135,6 @@ impl Container for TupleInfo {
 }
 
 impl TupleLikeInfo for TupleStructInfo {
-    fn get_path(&self) -> &str {
-        self.type_path()
-    }
-
-    fn get_field(&self, index: usize) -> Option<&UnnamedField> {
-        self.field_at(index)
-    }
-
     fn get_field_len(&self) -> usize {
         self.field_len()
     }
@@ -185,14 +158,6 @@ impl Container for TupleStructInfo {
 }
 
 impl TupleLikeInfo for TupleVariantInfo {
-    fn get_path(&self) -> &str {
-        self.name()
-    }
-
-    fn get_field(&self, index: usize) -> Option<&UnnamedField> {
-        self.field_at(index)
-    }
-
     fn get_field_len(&self) -> usize {
         self.field_len()
     }
@@ -219,7 +184,7 @@ impl Container for TupleVariantInfo {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```ignore (Can't import private struct from doctest)
 /// let expected = vec!["foo", "bar", "baz"];
 /// assert_eq!("`foo`, `bar`, `baz`", format!("{}", ExpectedValues(expected)));
 /// ```

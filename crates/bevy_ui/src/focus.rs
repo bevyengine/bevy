@@ -1,4 +1,4 @@
-use crate::{camera_config::UiCameraConfig, CalculatedClip, Node, UiScale, UiStack};
+use crate::{CalculatedClip, DefaultUiCamera, Node, TargetCamera, UiScale, UiStack};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::Entity,
@@ -9,13 +9,15 @@ use bevy_ecs::{
 };
 use bevy_input::{mouse::MouseButton, touch::Touches, ButtonInput};
 use bevy_math::{Rect, Vec2};
-use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{camera::NormalizedRenderTarget, prelude::Camera, view::ViewVisibility};
 use bevy_transform::components::GlobalTransform;
 
-use bevy_utils::smallvec::SmallVec;
+use bevy_utils::{smallvec::SmallVec, HashMap};
 use bevy_window::{PrimaryWindow, Window};
-use serde::{Deserialize, Serialize};
+
+#[cfg(feature = "serialize")]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 /// Describes what type of input interaction has occurred for a UI node.
 ///
@@ -31,8 +33,18 @@ use serde::{Deserialize, Serialize};
 ///
 /// Note that you can also control the visibility of a node using the [`Display`](crate::ui_node::Display) property,
 /// which fully collapses it during layout calculations.
-#[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize)]
-#[reflect(Component, Serialize, Deserialize, PartialEq)]
+///
+/// # See also
+///
+/// - [`ButtonBundle`](crate::node_bundles::ButtonBundle) which includes this component
+/// - [`RelativeCursorPosition`] to obtain the position of the cursor relative to current node
+#[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect)]
+#[reflect(Component, Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum Interaction {
     /// The node has been pressed.
     ///
@@ -56,11 +68,17 @@ impl Default for Interaction {
 
 /// A component storing the position of the mouse relative to the node, (0., 0.) being the top-left corner and (1., 1.) being the bottom-right
 /// If the mouse is not over the node, the value will go beyond the range of (0., 0.) to (1., 1.)
-
 ///
-/// It can be used alongside interaction to get the position of the press.
-#[derive(Component, Copy, Clone, Default, PartialEq, Debug, Reflect, Serialize, Deserialize)]
-#[reflect(Component, Serialize, Deserialize, PartialEq)]
+/// It can be used alongside [`Interaction`] to get the position of the press.
+///
+/// The component is updated when it is in the same entity with [`Node`].
+#[derive(Component, Copy, Clone, Default, PartialEq, Debug, Reflect)]
+#[reflect(Component, Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct RelativeCursorPosition {
     /// Visible area of the Node relative to the size of the entire Node.
     pub normalized_visible_node_rect: Rect,
@@ -79,8 +97,13 @@ impl RelativeCursorPosition {
 }
 
 /// Describes whether the node should block interactions with lower nodes
-#[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize)]
-#[reflect(Component, Serialize, Deserialize, PartialEq)]
+#[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect)]
+#[reflect(Component, Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum FocusPolicy {
     /// Blocks interaction
     Block,
@@ -116,6 +139,7 @@ pub struct NodeQuery {
     focus_policy: Option<&'static FocusPolicy>,
     calculated_clip: Option<&'static CalculatedClip>,
     view_visibility: Option<&'static ViewVisibility>,
+    target_camera: Option<&'static TargetCamera>,
 }
 
 /// The system that sets Interaction for all UI elements based on the mouse cursor activity
@@ -124,20 +148,25 @@ pub struct NodeQuery {
 #[allow(clippy::too_many_arguments)]
 pub fn ui_focus_system(
     mut state: Local<State>,
-    camera: Query<(&Camera, Option<&UiCameraConfig>)>,
+    camera_query: Query<(Entity, &Camera)>,
+    default_ui_camera: DefaultUiCamera,
+    primary_window: Query<Entity, With<PrimaryWindow>>,
     windows: Query<&Window>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     touches_input: Res<Touches>,
     ui_scale: Res<UiScale>,
     ui_stack: Res<UiStack>,
     mut node_query: Query<NodeQuery>,
-    primary_window: Query<Entity, With<PrimaryWindow>>,
 ) {
     let primary_window = primary_window.iter().next();
 
     // reset entities that were both clicked and released in the last frame
     for entity in state.entities_to_reset.drain(..) {
-        if let Ok(mut interaction) = node_query.get_component_mut::<Interaction>(entity) {
+        if let Ok(NodeQueryItem {
+            interaction: Some(mut interaction),
+            ..
+        }) = node_query.get_mut(entity)
+        {
             *interaction = Interaction::None;
         }
     }
@@ -157,31 +186,31 @@ pub fn ui_focus_system(
     let mouse_clicked =
         mouse_button_input.just_pressed(MouseButton::Left) || touches_input.any_just_pressed();
 
-    let is_ui_disabled =
-        |camera_ui| matches!(camera_ui, Some(&UiCameraConfig { show_ui: false, .. }));
-
-    let cursor_position = camera
+    let camera_cursor_positions: HashMap<Entity, Vec2> = camera_query
         .iter()
-        .filter(|(_, camera_ui)| !is_ui_disabled(*camera_ui))
-        .filter_map(|(camera, _)| {
-            if let Some(NormalizedRenderTarget::Window(window_ref)) =
+        .filter_map(|(entity, camera)| {
+            // Interactions are only supported for cameras rendering to a window.
+            let Some(NormalizedRenderTarget::Window(window_ref)) =
                 camera.target.normalize(primary_window)
-            {
-                Some(window_ref)
-            } else {
-                None
-            }
-        })
-        .find_map(|window_ref| {
+            else {
+                return None;
+            };
+
+            let viewport_position = camera
+                .logical_viewport_rect()
+                .map(|rect| rect.min)
+                .unwrap_or_default();
             windows
                 .get(window_ref.entity())
                 .ok()
                 .and_then(|window| window.cursor_position())
+                .or_else(|| touches_input.first_pressed_position())
+                .map(|cursor_position| (entity, cursor_position - viewport_position))
         })
-        .or_else(|| touches_input.first_pressed_position())
         // The cursor position returned by `Window` only takes into account the window scale factor and not `UiScale`.
         // To convert the cursor position to logical UI viewport coordinates we have to divide it by `UiScale`.
-        .map(|cursor_position| cursor_position / ui_scale.0);
+        .map(|(entity, cursor_position)| (entity, cursor_position / ui_scale.0))
+        .collect();
 
     // prepare an iterator that contains all the nodes that have the cursor in their rect,
     // from the top node to the bottom one. this will also reset the interaction to `None`
@@ -192,61 +221,64 @@ pub fn ui_focus_system(
         // reverse the iterator to traverse the tree from closest nodes to furthest
         .rev()
         .filter_map(|entity| {
-            if let Ok(node) = node_query.get_mut(*entity) {
-                // Nodes that are not rendered should not be interactable
-                if let Some(view_visibility) = node.view_visibility {
-                    if !view_visibility.get() {
-                        // Reset their interaction to None to avoid strange stuck state
-                        if let Some(mut interaction) = node.interaction {
-                            // We cannot simply set the interaction to None, as that will trigger change detection repeatedly
-                            interaction.set_if_neq(Interaction::None);
-                        }
+            let Ok(node) = node_query.get_mut(*entity) else {
+                return None;
+            };
 
-                        return None;
-                    }
+            let view_visibility = node.view_visibility?;
+            // Nodes that are not rendered should not be interactable
+            if !view_visibility.get() {
+                // Reset their interaction to None to avoid strange stuck state
+                if let Some(mut interaction) = node.interaction {
+                    // We cannot simply set the interaction to None, as that will trigger change detection repeatedly
+                    interaction.set_if_neq(Interaction::None);
                 }
+                return None;
+            }
+            let camera_entity = node
+                .target_camera
+                .map(TargetCamera::entity)
+                .or(default_ui_camera.get())?;
 
-                let node_rect = node.node.logical_rect(node.global_transform);
+            let node_rect = node.node.logical_rect(node.global_transform);
 
-                // Intersect with the calculated clip rect to find the bounds of the visible region of the node
-                let visible_rect = node
-                    .calculated_clip
-                    .map(|clip| node_rect.intersect(clip.clip))
-                    .unwrap_or(node_rect);
+            // Intersect with the calculated clip rect to find the bounds of the visible region of the node
+            let visible_rect = node
+                .calculated_clip
+                .map(|clip| node_rect.intersect(clip.clip))
+                .unwrap_or(node_rect);
 
-                // The mouse position relative to the node
-                // (0., 0.) is the top-left corner, (1., 1.) is the bottom-right corner
-                // Coordinates are relative to the entire node, not just the visible region.
-                let relative_cursor_position = cursor_position
-                    .map(|cursor_position| (cursor_position - node_rect.min) / node_rect.size());
+            // The mouse position relative to the node
+            // (0., 0.) is the top-left corner, (1., 1.) is the bottom-right corner
+            // Coordinates are relative to the entire node, not just the visible region.
+            let relative_cursor_position = camera_cursor_positions
+                .get(&camera_entity)
+                .map(|cursor_position| (*cursor_position - node_rect.min) / node_rect.size());
 
-                // If the current cursor position is within the bounds of the node's visible area, consider it for
-                // clicking
-                let relative_cursor_position_component = RelativeCursorPosition {
-                    normalized_visible_node_rect: visible_rect.normalize(node_rect),
-                    normalized: relative_cursor_position,
-                };
+            // If the current cursor position is within the bounds of the node's visible area, consider it for
+            // clicking
+            let relative_cursor_position_component = RelativeCursorPosition {
+                normalized_visible_node_rect: visible_rect.normalize(node_rect),
+                normalized: relative_cursor_position,
+            };
 
-                let contains_cursor = relative_cursor_position_component.mouse_over();
+            let contains_cursor = relative_cursor_position_component.mouse_over();
 
-                // Save the relative cursor position to the correct component
-                if let Some(mut node_relative_cursor_position_component) =
-                    node.relative_cursor_position
-                {
-                    *node_relative_cursor_position_component = relative_cursor_position_component;
-                }
+            // Save the relative cursor position to the correct component
+            if let Some(mut node_relative_cursor_position_component) = node.relative_cursor_position
+            {
+                *node_relative_cursor_position_component = relative_cursor_position_component;
+            }
 
-                if contains_cursor {
-                    Some(*entity)
-                } else {
-                    if let Some(mut interaction) = node.interaction {
-                        if *interaction == Interaction::Hovered || (cursor_position.is_none()) {
-                            interaction.set_if_neq(Interaction::None);
-                        }
-                    }
-                    None
-                }
+            if contains_cursor {
+                Some(*entity)
             } else {
+                if let Some(mut interaction) = node.interaction {
+                    if *interaction == Interaction::Hovered || (relative_cursor_position.is_none())
+                    {
+                        interaction.set_if_neq(Interaction::None);
+                    }
+                }
                 None
             }
         })

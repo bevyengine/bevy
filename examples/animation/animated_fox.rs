@@ -7,11 +7,11 @@ use bevy::{animation::RepeatAnimation, pbr::CascadeShadowConfigBuilder, prelude:
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
         .insert_resource(AmbientLight {
             color: Color::WHITE,
-            brightness: 1.0,
+            brightness: 2000.,
         })
+        .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(
             Update,
@@ -45,8 +45,8 @@ fn setup(
 
     // Plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(500000.0).into()),
-        material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+        mesh: meshes.add(Plane3d::default().mesh().size(500000.0, 500000.0)),
+        material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
         ..default()
     });
 

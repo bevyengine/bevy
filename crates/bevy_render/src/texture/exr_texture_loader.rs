@@ -1,16 +1,25 @@
-use crate::texture::{Image, TextureFormatPixelInfo};
+use crate::{
+    render_asset::RenderAssetUsages,
+    texture::{Image, TextureFormatPixelInfo},
+};
 use bevy_asset::{
     io::{AsyncReadExt, Reader},
     AssetLoader, LoadContext,
 };
 use bevy_utils::BoxedFuture;
 use image::ImageDecoder;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use wgpu::{Extent3d, TextureDimension, TextureFormat};
 
 /// Loads EXR textures as Texture assets
 #[derive(Clone, Default)]
 pub struct ExrTextureLoader;
+
+#[derive(Serialize, Deserialize, Default, Debug)]
+pub struct ExrTextureLoaderSettings {
+    pub asset_usage: RenderAssetUsages,
+}
 
 /// Possible errors that can be produced by [`ExrTextureLoader`]
 #[non_exhaustive]
@@ -24,13 +33,13 @@ pub enum ExrTextureLoaderError {
 
 impl AssetLoader for ExrTextureLoader {
     type Asset = Image;
-    type Settings = ();
+    type Settings = ExrTextureLoaderSettings;
     type Error = ExrTextureLoaderError;
 
     fn load<'a>(
         &'a self,
         reader: &'a mut Reader,
-        _settings: &'a Self::Settings,
+        settings: &'a Self::Settings,
         _load_context: &'a mut LoadContext,
     ) -> BoxedFuture<'a, Result<Image, Self::Error>> {
         Box::pin(async move {
@@ -63,6 +72,7 @@ impl AssetLoader for ExrTextureLoader {
                 TextureDimension::D2,
                 buf,
                 format,
+                settings.asset_usage,
             ))
         })
     }

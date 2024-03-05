@@ -7,30 +7,33 @@
 //!
 //! # Example
 //! Instead of writing this:
-//! ```ignore
+//! ```
+//! # use quote::quote;
 //! quote!(
 //!     fn get_id() -> Option<i32> {
 //!         Some(0)
 //!     }
-//! )
+//! );
 //! ```
 //! Or this:
-//! ```ignore
+//! ```
+//! # use quote::quote;
 //! quote!(
 //!     fn get_id() -> ::core::option::Option<i32> {
 //!         ::core::option::Option::Some(0)
 //!     }
-//! )
+//! );
 //! ```
 //! We should write this:
-//! ```ignore
-//! use crate::fq_std::FQOption;
+//! ```
+//! use bevy_macro_utils::fq_std::FQOption;
+//! # use quote::quote;
 //!
 //! quote!(
 //!     fn get_id() -> #FQOption<i32> {
 //!         #FQOption::Some(0)
 //!     }
-//! )
+//! );
 //! ```
 
 use proc_macro2::TokenStream;

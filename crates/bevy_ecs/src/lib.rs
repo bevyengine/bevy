@@ -1,4 +1,5 @@
-#![warn(missing_docs)]
+// FIXME(11590): remove this once the lint is fixed
+#![allow(unsafe_op_in_unsafe_fn)]
 #![doc = include_str!("../README.md")]
 
 #[cfg(target_pointer_width = "16")]
@@ -10,6 +11,7 @@ pub mod change_detection;
 pub mod component;
 pub mod entity;
 pub mod event;
+pub mod identifier;
 pub mod query;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
@@ -19,28 +21,28 @@ pub mod storage;
 pub mod system;
 pub mod world;
 
-use std::any::TypeId;
-
 pub use bevy_ptr as ptr;
 
 /// Most commonly used re-exported types.
 pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "bevy_reflect")]
-    pub use crate::reflect::{AppTypeRegistry, ReflectComponent, ReflectResource};
+    pub use crate::reflect::{
+        AppTypeRegistry, ReflectComponent, ReflectFromWorld, ReflectResource,
+    };
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
         change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
         component::Component,
-        entity::Entity,
+        entity::{Entity, EntityMapper},
         event::{Event, EventReader, EventWriter, Events},
-        query::{Added, AnyOf, Changed, Has, Or, QueryState, With, Without},
+        query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         removal_detection::RemovedComponents,
         schedule::{
             apply_deferred, apply_state_transition, common_conditions::*, Condition,
             IntoSystemConfigs, IntoSystemSet, IntoSystemSetConfigs, NextState, OnEnter, OnExit,
-            OnTransition, Schedule, Schedules, State, States, SystemSet,
+            OnTransition, Schedule, Schedules, State, StateTransitionEvent, States, SystemSet,
         },
         system::{
             Commands, Deferred, In, IntoSystem, Local, NonSend, NonSendMut, ParallelCommands,
@@ -51,9 +53,6 @@ pub mod prelude {
 }
 
 pub use bevy_utils::all_tuples;
-
-/// A specialized hashmap type with Key of [`TypeId`]
-type TypeIdMap<V> = rustc_hash::FxHashMap<TypeId, V>;
 
 #[cfg(test)]
 mod tests {
@@ -69,6 +68,7 @@ mod tests {
         world::{EntityRef, Mut, World},
     };
     use bevy_tasks::{ComputeTaskPool, TaskPool};
+    use std::num::NonZeroU32;
     use std::{
         any::TypeId,
         marker::PhantomData,
@@ -1067,7 +1067,7 @@ mod tests {
     fn reserve_and_spawn() {
         let mut world = World::default();
         let e = world.entities().reserve_entity();
-        world.flush();
+        world.flush_entities();
         let mut e_mut = world.entity_mut(e);
         e_mut.insert(A(0));
         assert_eq!(e_mut.get::<A>().unwrap(), &A(0));
@@ -1550,7 +1550,7 @@ mod tests {
         let e1 = world_a.spawn(A(1)).id();
         let e2 = world_a.spawn(A(2)).id();
         let e3 = world_a.entities().reserve_entity();
-        world_a.flush();
+        world_a.flush_entities();
 
         let world_a_max_entities = world_a.entities().len();
         world_b.entities.reserve_entities(world_a_max_entities);
@@ -1559,7 +1559,7 @@ mod tests {
         let e4 = world_b.spawn(A(4)).id();
         assert_eq!(
             e4,
-            Entity::new(3, 0),
+            Entity::from_raw(3),
             "new entity is created immediately after world_a's max entity"
         );
         assert!(world_b.get::<A>(e1).is_none());
@@ -1590,7 +1590,8 @@ mod tests {
             "spawning into existing `world_b` entities works"
         );
 
-        let e4_mismatched_generation = Entity::new(3, 1);
+        let e4_mismatched_generation =
+            Entity::from_raw_and_generation(3, NonZeroU32::new(2).unwrap());
         assert!(
             world_b.get_or_spawn(e4_mismatched_generation).is_none(),
             "attempting to spawn on top of an entity with a mismatched entity generation fails"
@@ -1606,7 +1607,7 @@ mod tests {
             "failed mismatched spawn doesn't change existing entity"
         );
 
-        let high_non_existent_entity = Entity::new(6, 0);
+        let high_non_existent_entity = Entity::from_raw(6);
         world_b
             .get_or_spawn(high_non_existent_entity)
             .unwrap()
@@ -1617,7 +1618,7 @@ mod tests {
             "inserting into newly allocated high / non-continuous entity id works"
         );
 
-        let high_non_existent_but_reserved_entity = Entity::new(5, 0);
+        let high_non_existent_but_reserved_entity = Entity::from_raw(5);
         assert!(
             world_b.get_entity(high_non_existent_but_reserved_entity).is_none(),
             "entities between high-newly allocated entity and continuous block of existing entities don't exist"
@@ -1633,10 +1634,10 @@ mod tests {
         assert_eq!(
             reserved_entities,
             vec![
-                Entity::new(5, 0),
-                Entity::new(4, 0),
-                Entity::new(7, 0),
-                Entity::new(8, 0),
+                Entity::from_raw(5),
+                Entity::from_raw(4),
+                Entity::from_raw(7),
+                Entity::from_raw(8),
             ],
             "space between original entities and high entities is used for new entity ids"
         );
@@ -1685,7 +1686,7 @@ mod tests {
         let e0 = world.spawn(A(0)).id();
         let e1 = Entity::from_raw(1);
         let e2 = world.spawn_empty().id();
-        let invalid_e2 = Entity::new(e2.index(), 1);
+        let invalid_e2 = Entity::from_raw_and_generation(e2.index(), NonZeroU32::new(2).unwrap());
 
         let values = vec![(e0, (B(0), C)), (e1, (B(1), C)), (invalid_e2, (B(2), C))];
 

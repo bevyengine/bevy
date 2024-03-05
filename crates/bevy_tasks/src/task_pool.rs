@@ -120,7 +120,7 @@ pub struct TaskPool {
 
 impl TaskPool {
     thread_local! {
-        static LOCAL_EXECUTOR: async_executor::LocalExecutor<'static> = async_executor::LocalExecutor::new();
+        static LOCAL_EXECUTOR: async_executor::LocalExecutor<'static> = const { async_executor::LocalExecutor::new() };
         static THREAD_EXECUTOR: Arc<ThreadExecutor<'static>> = Arc::new(ThreadExecutor::new());
     }
 
@@ -207,7 +207,7 @@ impl TaskPool {
     /// passing a scope object into it. The scope object provided to the callback can be used
     /// to spawn tasks. This function will await the completion of all tasks before returning.
     ///
-    /// This is similar to `rayon::scope` and `crossbeam::scope`
+    /// This is similar to [`thread::scope`] and `rayon::scope`.
     ///
     /// # Example
     ///
@@ -360,7 +360,8 @@ impl TaskPool {
             unsafe { mem::transmute(external_executor) };
         // SAFETY: As above, all futures must complete in this function so we can change the lifetime
         let scope_executor: &'env ThreadExecutor<'env> = unsafe { mem::transmute(scope_executor) };
-        let spawned: ConcurrentQueue<FallibleTask<T>> = ConcurrentQueue::unbounded();
+        let spawned: ConcurrentQueue<FallibleTask<Result<T, Box<(dyn std::any::Any + Send)>>>> =
+            ConcurrentQueue::unbounded();
         // shadow the variable so that the owned value cannot be used for the rest of the function
         // SAFETY: As above, all futures must complete in this function so we can change the lifetime
         let spawned: &'env ConcurrentQueue<
@@ -560,7 +561,7 @@ impl TaskPool {
     /// the local executor on the main thread as it needs to share time with
     /// other things.
     ///
-    /// ```rust
+    /// ```
     /// use bevy_tasks::TaskPool;
     ///
     /// TaskPool::new().with_local_executor(|local_executor| {

@@ -15,6 +15,7 @@ use bevy_a11y::{
 use bevy_a11y::{ActionRequest as ActionRequestWrapper, ManageAccessibilityUpdates};
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
     prelude::{DetectChanges, Entity, EventReader, EventWriter},
     query::With,
@@ -22,16 +23,15 @@ use bevy_ecs::{
     system::{NonSend, NonSendMut, Query, Res, ResMut, Resource},
 };
 use bevy_hierarchy::{Children, Parent};
-use bevy_utils::HashMap;
 use bevy_window::{PrimaryWindow, Window, WindowClosed};
 
 /// Maps window entities to their `AccessKit` [`Adapter`]s.
 #[derive(Default, Deref, DerefMut)]
-pub struct AccessKitAdapters(pub HashMap<Entity, Adapter>);
+pub struct AccessKitAdapters(pub EntityHashMap<Adapter>);
 
 /// Maps window entities to their respective [`WinitActionHandler`]s.
 #[derive(Resource, Default, Deref, DerefMut)]
-pub struct WinitActionHandlers(pub HashMap<Entity, WinitActionHandler>);
+pub struct WinitActionHandlers(pub EntityHashMap<WinitActionHandler>);
 
 /// Forwards `AccessKit` [`ActionRequest`]s from winit to an event channel.
 #[derive(Clone, Default, Deref, DerefMut)]
@@ -152,7 +152,7 @@ fn queue_node_for_update(
     window_children: &mut Vec<NodeId>,
 ) {
     let should_push = if let Some(parent) = parent {
-        node_entities.contains(parent.get())
+        !node_entities.contains(parent.get())
     } else {
         true
     };
@@ -187,12 +187,13 @@ impl Plugin for AccessKitPlugin {
             .add_event::<ActionRequestWrapper>()
             .add_systems(
                 PostUpdate,
-                (window_closed, poll_receivers).in_set(AccessibilitySystem::Update),
-            )
-            .add_systems(
-                PostUpdate,
-                update_accessibility_nodes
-                    .run_if(should_update_accessibility_nodes)
+                (
+                    poll_receivers,
+                    update_accessibility_nodes.run_if(should_update_accessibility_nodes),
+                    window_closed
+                        .before(poll_receivers)
+                        .before(update_accessibility_nodes),
+                )
                     .in_set(AccessibilitySystem::Update),
             );
     }

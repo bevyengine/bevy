@@ -8,10 +8,10 @@ It's a nice place to chat about Bevy development, ask questions, and get to know
 
 Read on if you're looking for:
 
-* the high-level design goals of Bevy
-* conventions and informal practices we follow when developing Bevy
-* general advice on good open source collaboration practices
-* concrete ways you can help us, no matter your background or skill level
+* The high-level design goals of Bevy.
+* Conventions and informal practices we follow when developing Bevy.
+* General advice on good open source collaboration practices.
+* Concrete ways you can help us, no matter your background or skill level.
 
 We're thrilled to have you along as we build!
 
@@ -40,12 +40,12 @@ Some crates of interest:
 
 Bevy is a completely free and open source game engine built in Rust. It currently has the following design goals:
 
-* **Capable**: Offer a complete 2D and 3D feature set
-* **Simple**: Easy for newbies to pick up, but infinitely flexible for power users
-* **Data Focused**: Data-oriented architecture using the Entity Component System paradigm
-* **Modular**: Use only what you need. Replace what you don't like
-* **Fast**: App logic should run quickly, and when possible, in parallel
-* **Productive**: Changes should compile quickly ... waiting isn't fun
+* **Capable**: Offer a complete 2D and 3D feature set.
+* **Simple**: Easy for newbies to pick up, but infinitely flexible for power users.
+* **Data Focused**: Data-oriented architecture using the Entity Component System paradigm.
+* **Modular**: Use only what you need. Replace what you don't like.
+* **Fast**: App logic should run quickly, and when possible, in parallel.
+* **Productive**: Changes should compile quickly ... waiting isn't fun.
 
 Bevy also currently has the following "development process" goals:
 
@@ -53,7 +53,7 @@ Bevy also currently has the following "development process" goals:
 * **Consistent vision**: The engine needs to feel consistent and cohesive. This takes precedence over democratic and/or decentralized processes. See our [*Bevy Organization doc*](/docs/the_bevy_organization.md) for more details.
 * **Flexibility over bureaucracy**: Developers should feel productive and unencumbered by development processes.
 * **Focus**: The Bevy Org should focus on building a small number of features excellently over merging every new community-contributed feature quickly. Sometimes this means pull requests will sit unmerged for a long time. This is the price of focus and we are willing to pay it. Fortunately Bevy is modular to its core. 3rd party plugins are a great way to work around this policy.
-* **User-facing API ergonomics come first**: Solid user experience should receive significant focus and investment. It should rarely be compromised in the interest of internal implementation details.  
+* **User-facing API ergonomics come first**: Solid user experience should receive significant focus and investment. It should rarely be compromised in the interest of internal implementation details.
 * **Modularity over deep integration**: Individual crates and features should be "pluggable" whenever possible. Don't tie crates, features, or types together that don't need to be.
 * **Don't merge everything ... don't merge too early**: Every feature we add increases maintenance burden and compile times. Only merge features that are "generally" useful. Don't merge major changes or new features unless we have relative consensus that the design is correct *and* that we have the developer capacity to support it. When possible, make a 3rd party Plugin / crate first, then consider merging once the API has been tested in the wild. Bevy's modular structure means that the only difference between "official engine features" and "third party plugins" is our endorsement and the repo the code lives in. We should take advantage of that whenever possible.
 * **Control and consistency over 3rd party code reuse**: Only add a dependency if it is *absolutely* necessary. Every dependency we add decreases our autonomy and consistency. Dependencies also have the potential to increase compile times and risk pulling in sub-dependencies we don't want / need.
@@ -78,17 +78,17 @@ Check out our dedicated [Bevy Organization document](/docs/the_bevy_organization
 
 Our merge strategy relies on the classification of PRs on two axes:
 
-* How controversial are the design decisions
-* How complex is the implementation
+* How controversial are the design decisions.
+* How complex is the implementation.
 
 Each [label](https://github.com/bevyengine/bevy/labels) has a prefix denoting its category:
 
-* A: Area (e.g. A-Animation, A-ECS, A-Rendering)
-* C: Category (e.g. C-Breaking-Change, C-Code-Quality, C-Docs)
-* D: Difficulty (e.g. D-Complex, D-Good-First-Issue)
-* O: Operating System (e.g. O-Linux, O-Web, O-Windows)
-* P: Priority (e.g. P-Critical, P-High)
-* S: Status (e.g. S-Blocked, S-Controversial, S-Needs-Design)
+* A: Area (e.g. A-Animation, A-ECS, A-Rendering).
+* C: Category (e.g. C-Breaking-Change, C-Code-Quality, C-Docs).
+* D: Difficulty (e.g. D-Complex, D-Good-First-Issue).
+* O: Operating System (e.g. O-Linux, O-Web, O-Windows).
+* P: Priority (e.g. P-Critical, P-High).
+* S: Status (e.g. S-Blocked, S-Controversial, S-Needs-Design).
 
 PRs with non-trivial design decisions are given the [`S-Controversial`] label. This indicates that
 the PR needs more thorough design review or an [RFC](https://github.com/bevyengine/rfcs), if complex enough.
@@ -97,7 +97,7 @@ PRs that are non-trivial to review are given the [`D-Complex`] label. This indic
 should be reviewed more thoroughly and by people with experience in the area that the PR touches.
 
 When making PRs, try to split out more controversial changes from less controversial ones, in order to make your work easier to review and merge.
-It is also a good idea to try and split out simple changes from more complex changes if it is not helpful for then to be reviewed together.
+It is also a good idea to try and split out simple changes from more complex changes if it is not helpful for them to be reviewed together.
 
 Some things that are reason to apply the [`S-Controversial`] label to a PR:
 
@@ -106,42 +106,42 @@ Some things that are reason to apply the [`S-Controversial`] label to a PR:
 3. Serious tradeoffs were made.
 4. Heavy user impact.
 5. New ways for users to make mistakes (footguns).
-6. Adding a dependency
+6. Adding a dependency.
 7. Touching licensing information (due to level of precision required).
-8. Adding root-level files (due to the high level of visibility)
+8. Adding root-level files (due to the high level of visibility).
 
 Some things that are reason to apply the [`D-Complex`] label to a PR:
 
-1. Introduction or modification of soundness relevant code (for example `unsafe` code)
+1. Introduction or modification of soundness relevant code (for example `unsafe` code).
 2. High levels of technical complexity.
-3. Large-scale code reorganization
+3. Large-scale code reorganization.
 
 Examples of PRs that are not [`S-Controversial`] or [`D-Complex`]:
 
 * Fixing dead links.
 * Removing dead code or unused dependencies.
 * Typo and grammar fixes.
-* [Add `Mut::reborrow`](https://github.com/bevyengine/bevy/pull/7114)
-* [Add `Res::clone`](https://github.com/bevyengine/bevy/pull/4109)
+* [Add `Mut::reborrow`](https://github.com/bevyengine/bevy/pull/7114).
+* [Add `Res::clone`](https://github.com/bevyengine/bevy/pull/4109).
 
 Examples of PRs that are [`S-Controversial`] but not [`D-Complex`]:
 
-* [Implement and require `#[derive(Component)]` on all component structs](https://github.com/bevyengine/bevy/pull/2254)
-* [Use default serde impls for Entity](https://github.com/bevyengine/bevy/pull/6194)
+* [Implement and require `#[derive(Component)]` on all component structs](https://github.com/bevyengine/bevy/pull/2254).
+* [Use default serde impls for Entity](https://github.com/bevyengine/bevy/pull/6194).
 
 Examples of PRs that are not [`S-Controversial`] but are [`D-Complex`]:
 
-* [Ensure `Ptr`/`PtrMut`/`OwningPtr` are aligned in debug builds](https://github.com/bevyengine/bevy/pull/7117)
-* [Replace `BlobVec`'s `swap_scratch` with a `swap_nonoverlapping`](https://github.com/bevyengine/bevy/pull/4853)
+* [Ensure `Ptr`/`PtrMut`/`OwningPtr` are aligned in debug builds](https://github.com/bevyengine/bevy/pull/7117).
+* [Replace `BlobVec`'s `swap_scratch` with a `swap_nonoverlapping`](https://github.com/bevyengine/bevy/pull/4853).
 
 Examples of PRs that are both [`S-Controversial`] and [`D-Complex`]:
 
-* [bevy_reflect: Binary formats](https://github.com/bevyengine/bevy/pull/6140)
+* [bevy_reflect: Binary formats](https://github.com/bevyengine/bevy/pull/6140).
 
 Some useful pull request queries:
 
-* [PRs which need reviews and are not `D-Complex`](https://github.com/bevyengine/bevy/pulls?q=is%3Apr+-label%3AD-Complex+-label%3AS-Ready-For-Final-Review+-label%3AS-Blocked++)
-* [`D-Complex` PRs which need reviews](https://github.com/bevyengine/bevy/pulls?q=is%3Apr+label%3AD-Complex+-label%3AS-Ready-For-Final-Review+-label%3AS-Blocked)
+* [PRs which need reviews and are not `D-Complex`](https://github.com/bevyengine/bevy/pulls?q=is%3Apr+-label%3AD-Complex+-label%3AS-Ready-For-Final-Review+-label%3AS-Blocked++).
+* [`D-Complex` PRs which need reviews](https://github.com/bevyengine/bevy/pulls?q=is%3Apr+label%3AD-Complex+-label%3AS-Ready-For-Final-Review+-label%3AS-Blocked).
 
 [`S-Controversial`]: https://github.com/bevyengine/bevy/pulls?q=is%3Aopen+is%3Apr+label%3AS-Controversial
 [`D-Complex`]: https://github.com/bevyengine/bevy/pulls?q=is%3Aopen+is%3Apr+label%3AD-Complex
@@ -175,8 +175,9 @@ Individual contributors often lead major new features and reworks. However these
 1. A need or opportunity is identified and an issue is made, laying out the general problem.
 2. As needed, this is discussed further on that issue thread, in cross-linked [GitHub Discussion] threads, or on [Discord] in the Engine Development channels.
 3. Either a Draft Pull Request or an RFC is made. As discussed in the [RFC repo](https://github.com/bevyengine/rfcs), complex features need RFCs, but these can be submitted before or after prototyping work has been started.
-4. The community as a whole helps improve the Draft PR and/or RFC, leaving comments, making suggestions, and submitting pull requests to the original branch.
-5. Once the RFC is merged and/or the Draft Pull Request is transitioned out of draft mode, the [normal change process outlined in the previous section](#making-changes-to-bevy) can begin.
+4. If feasible, parts that work on their own (even if they're only useful once the full complex change is merged) get split out into individual PRs to make them easier to review.
+5. The community as a whole helps improve the Draft PR and/or RFC, leaving comments, making suggestions, and submitting pull requests to the original branch.
+6. Once the RFC is merged and/or the Draft Pull Request is transitioned out of draft mode, the [normal change process outlined in the previous section](#making-changes-to-bevy) can begin.
 
 ## How you can help
 
@@ -220,7 +221,7 @@ You can improve Bevy's ecosystem by building your own Bevy Plugins and crates.
 Non-trivial, reusable functionality that works well with itself is a good candidate for a plugin.
 If it's closer to a snippet or design pattern, you may want to share it with the community on [Discord], Reddit, or [GitHub Discussions] instead.
 
-Check out our [plugin guidelines](https://github.com/bevyengine/bevy/blob/main/docs/plugins_guidelines.md) for helpful tips and patterns.
+Check out our [plugin guidelines](https://bevyengine.org/learn/book/plugin-development/) for helpful tips and patterns.
 
 ### Fixing bugs
 
@@ -253,23 +254,22 @@ which has the latest API reference built from the repo on every commit made to t
 
 ### Writing examples
 
-Most [examples in Bevy](https://github.com/bevyengine/bevy/tree/main/examples) aim to clearly demonstrate a single feature, group of closely related small features, or show how to accomplish a particular task (such as asset loading, creating a custom shader or testing your app).
-In rare cases, creating new "game" examples is justified in order to demonstrate new features
-that open a complex class of functionality in a way that's hard to demonstrate in isolation or requires additional integration testing.
+Most [examples in Bevy](https://github.com/bevyengine/bevy/tree/main/examples) aim to clearly demonstrate a single feature, group of closely related small features, or show how to accomplish a particular task (such as asset loading, creating a custom shader or testing your app).
+In rare cases, creating new "game" examples is justified in order to demonstrate new features that open a complex class of functionality in a way that's hard to demonstrate in isolation or requires additional integration testing.
 
-Examples in Bevy should be:
+Examples in Bevy should be:
 
-1. **Working:** They must compile and run, and any introduced errors in them should be obvious (through tests, simple results or clearly displayed behavior).
-2. **Clear:** They must use descriptive variable names, be formatted, and be appropriately commented. Try your best to showcase best practices when it doesn't obscure the point of the example.
-3. **Relevant:** They should explain, through comments or variable names, what they do and how this can be useful to a game developer.
-4. **Minimal:** They should be no larger or complex than is needed to meet the goals of the example.
+1. **Working:** They must compile and run, and any introduced errors in them should be obvious (through tests, simple results or clearly displayed behavior).
+2. **Clear:** They must use descriptive variable names, be formatted, and be appropriately commented. Try your best to showcase best practices when it doesn't obscure the point of the example.
+3. **Relevant:** They should explain, through comments or variable names, what they do and how this can be useful to a game developer.
+4. **Minimal:** They should be no larger or complex than is needed to meet the goals of the example.
 
 When you add a new example, be sure to update `examples/README.md` with the new example and add it to the root `Cargo.toml` file.
 Run `cargo run -p build-templated-pages -- build-example-page` to do this automatically.
 Use a generous sprinkling of keywords in your description: these are commonly used to search for a specific example.
 See the [example style guide](.github/contributing/example_style_guide.md) to help make sure the style of your example matches what we're already using.
 
-More complex demonstrations of functionality are also welcome, but these should be submitted to [bevy-assets](https://github.com/bevyengine/bevy-assets).
+More complex demonstrations of functionality are also welcome, but these should be submitted to [bevy-assets](https://github.com/bevyengine/bevy-assets).
 
 ### Reviewing others' work
 
@@ -289,7 +289,7 @@ If you're new to GitHub, check out the [Pull Request Review documentation](https
 
 There are three main places you can check for things to review:
 
-1. Pull request which are ready and in need of more reviews on [bevy](https://github.com/bevyengine/bevy/pulls?q=is%3Aopen+is%3Apr+-label%3AS-Ready-For-Final-Review+-draft%3A%3Atrue+-label%3AS-Needs-RFC+-reviewed-by%3A%40me+-author%3A%40me)
+1. Pull requests which are ready and in need of more reviews on [bevy](https://github.com/bevyengine/bevy/pulls?q=is%3Aopen+is%3Apr+-label%3AS-Ready-For-Final-Review+-draft%3A%3Atrue+-label%3AS-Needs-RFC+-reviewed-by%3A%40me+-author%3A%40me).
 2. Pull requests on [bevy](https://github.com/bevyengine/bevy/pulls) and the [bevy-website](https://github.com/bevyengine/bevy-website/pulls) repos.
 3. [RFCs](https://github.com/bevyengine/rfcs), which need extensive thoughtful community input on their design.
 
@@ -329,24 +329,24 @@ If you're new to Bevy, here's the workflow we use:
    1. Try to split your work into separate commits, each with a distinct purpose. Be particularly mindful of this when responding to reviews so it's easy to see what's changed.
    2. Tip: [You can set up a global `.gitignore` file](https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files#configuring-ignored-files-for-all-repositories-on-your-computer) to exclude your operating system/text editor's special/temporary files. (e.g. `.DS_Store`, `thumbs.db`, `*~`, `*.swp` or `*.swo`) This allows us to keep the `.gitignore` file in the repo uncluttered.
 3. To test CI validations locally, run the `cargo run -p ci` command. This will run most checks that happen in CI, but can take some time. You can also run sub-commands to iterate faster depending on what you're contributing:
-    * `cargo run -p ci -- lints` - to run formatting and clippy
-    * `cargo run -p ci -- test` - to run tests
-    * `cargo run -p ci -- doc` - to run doc tests and doc checks
-    * `cargo run -p ci -- compile` - to check that everything that must compile still does (examples and benches), and that some that shouldn't still don't ([`crates/bevy_ecs_compile_fail_tests`](./crates/bevy_ecs_compile_fail_tests))
-    * to get more information on commands available and what is run, check the [tools/ci crate](./tools/ci)
-
+    * `cargo run -p ci -- lints` - to run formatting and clippy.
+    * `cargo run -p ci -- test` - to run tests.
+    * `cargo run -p ci -- doc` - to run doc tests and doc checks.
+    * `cargo run -p ci -- compile` - to check that everything that must compile still does (examples and benches), and that some that shouldn't still don't ([`crates/bevy_ecs_compile_fail_tests`](./crates/bevy_ecs_compile_fail_tests)).
+    * to get more information on commands available and what is run, check the [tools/ci crate](./tools/ci).
 4. When working with Markdown (`.md`) files, Bevy's CI will check markdown files (like this one) using [markdownlint](https://github.com/DavidAnson/markdownlint).
 To locally lint your files using the same workflow as our CI:
    1. Install [markdownlint-cli](https://github.com/igorshubovych/markdownlint-cli).
    2. Run `markdownlint -f -c .github/linters/.markdown-lint.yml .` in the root directory of the Bevy project.
-
 5. When working with Toml (`.toml`) files, Bevy's CI will check toml files using [taplo](https://taplo.tamasfe.dev/): `taplo fmt --check --diff`
    1. If you use VSCode, install [Even better toml](https://marketplace.visualstudio.com/items?itemName=tamasfe.even-better-toml) and format your files.
    2. If you want to use the cli tool, install [taplo-cli](https://taplo.tamasfe.dev/cli/installation/cargo.html) and run `taplo fmt --check --diff` to check for the formatting. Fix any issues by running `taplo fmt` in the root directory of the Bevy project.
-
-6. Push your changes to your fork on Github and open a Pull Request.
-7. Respond to any CI failures or review feedback. While CI failures must be fixed before we can merge your PR, you do not need to *agree* with all feedback from your reviews, merely acknowledge that it was given. If you cannot come to an agreement, leave the thread open and defer to a Maintainer or Project Lead's final judgement.
-8. When your PR is ready to merge, a Maintainer or Project Lead will review it and suggest final changes. If those changes are minimal they may even apply them directly to speed up merging.
+6. Check for typos. Bevy's CI will check for them using [typos](https://github.com/crate-ci/typos).
+   1. If you use VSCode, install [Typos Spell Checker](https://marketplace.visualstudio.com/items?itemName=tekumara.typos-vscode).
+   2. You can also use the cli tool. Install [typos-cli](https://github.com/crate-ci/typos?tab=readme-ov-file#install) and run `typos` to check for typos, and fix them by running `typos -w`.
+7. Push your changes to your fork on Github and open a Pull Request.
+8. Respond to any CI failures or review feedback. While CI failures must be fixed before we can merge your PR, you do not need to *agree* with all feedback from your reviews, merely acknowledge that it was given. If you cannot come to an agreement, leave the thread open and defer to a Maintainer or Project Lead's final judgement.
+9. When your PR is ready to merge, a Maintainer or Project Lead will review it and suggest final changes. If those changes are minimal they may even apply them directly to speed up merging.
 
 If you end up adding a new official Bevy crate to the `bevy` repo:
 

@@ -2,7 +2,7 @@
 
 #![warn(unsafe_op_in_unsafe_fn)]
 
-use super::{Mut, Ref, World, WorldId};
+use super::{command_queue::CommandQueue, Mut, Ref, World, WorldId};
 use crate::{
     archetype::{Archetype, ArchetypeComponentId, Archetypes},
     bundle::Bundles,
@@ -14,10 +14,10 @@ use crate::{
     prelude::Component,
     removal_detection::RemovedComponentEvents,
     storage::{Column, ComponentSparseSet, Storages},
-    system::Resource,
+    system::{Res, Resource},
 };
 use bevy_ptr::Ptr;
-use std::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData};
+use std::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, ptr, ptr::addr_of_mut};
 
 /// Variant of the [`World`] where resource and component accesses take `&self`, and the responsibility to avoid
 /// aliasing violations are given to the caller instead of being checked at compile-time by rust's unique XOR shared rule.
@@ -85,13 +85,13 @@ impl<'w> UnsafeWorldCell<'w> {
     /// Creates a [`UnsafeWorldCell`] that can be used to access everything immutably
     #[inline]
     pub(crate) fn new_readonly(world: &'w World) -> Self {
-        UnsafeWorldCell(world as *const World as *mut World, PhantomData)
+        Self(ptr::from_ref(world).cast_mut(), PhantomData)
     }
 
     /// Creates [`UnsafeWorldCell`] that can be used to access everything mutably
     #[inline]
     pub(crate) fn new_mutable(world: &'w mut World) -> Self {
-        Self(world as *mut World, PhantomData)
+        Self(ptr::from_mut(world), PhantomData)
     }
 
     /// Gets a mutable reference to the [`World`] this [`UnsafeWorldCell`] belongs to.
@@ -342,6 +342,30 @@ impl<'w> UnsafeWorldCell<'w> {
         }
     }
 
+    /// Gets a reference including change detection to the resource of the given type if it exists.
+    ///
+    /// # Safety
+    /// It is the callers responsibility to ensure that
+    /// - the [`UnsafeWorldCell`] has permission to access the resource
+    /// - no mutable reference to the resource exists at the same time
+    #[inline]
+    pub unsafe fn get_resource_ref<R: Resource>(self) -> Option<Res<'w, R>> {
+        let component_id = self.components().get_resource_id(TypeId::of::<R>())?;
+
+        // SAFETY: caller ensures `self` has permission to access the resource
+        // caller also ensure that no mutable reference to the resource exists
+        let (ptr, ticks) = unsafe { self.get_resource_with_ticks(component_id)? };
+
+        // SAFETY: `component_id` was obtained from the type ID of `R`
+        let value = unsafe { ptr.deref::<R>() };
+
+        // SAFETY: caller ensures that no mutable reference to the resource exists
+        let ticks =
+            unsafe { Ticks::from_tick_cells(ticks, self.last_change_tick(), self.change_tick()) };
+
+        Some(Res { value, ticks })
+    }
+
     /// Gets a pointer to the resource with the id [`ComponentId`] if it exists.
     /// The returned pointer must not be used to modify the resource, and must not be
     /// dereferenced after the borrow of the [`World`] ends.
@@ -565,6 +589,18 @@ impl<'w> UnsafeWorldCell<'w> {
             .non_send_resources
             .get(component_id)?
             .get_with_ticks()
+    }
+
+    // Returns a mutable reference to the underlying world's [`CommandQueue`].
+    /// # Safety
+    /// It is the callers responsibility to ensure that
+    /// - the [`UnsafeWorldCell`] has permission to access the queue mutably
+    /// - no mutable references to the queue exist at the same time
+    pub(crate) unsafe fn get_command_queue(self) -> &'w mut CommandQueue {
+        // SAFETY:
+        // - caller ensures there are no existing mutable references
+        // - caller ensures that we have permission to access the queue
+        unsafe { &mut *addr_of_mut!((*self.0).command_queue) }
     }
 }
 

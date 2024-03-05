@@ -17,12 +17,12 @@ fn main() {
                 increment_input_counter
                     // The common_conditions module has a few useful run conditions
                     // for checking resources and states. These are included in the prelude.
-                    .run_if(resource_exists::<InputCounter>())
+                    .run_if(resource_exists::<InputCounter>)
                     // `.or_else()` is a run condition combinator that only evaluates the second condition
                     // if the first condition returns `false`. This behavior is known as "short-circuiting",
                     // and is how the `||` operator works in Rust (as well as most C-family languages).
                     // In this case, the `has_user_input` run condition will be evaluated since the `Unused` resource has not been initialized.
-                    .run_if(resource_exists::<Unused>().or_else(
+                    .run_if(resource_exists::<Unused>.or_else(
                         // This is a custom run condition, defined using a system that returns
                         // a `bool` and which has read-only `SystemParam`s.
                         // Both run conditions must return `true` in order for the system to run.
@@ -34,7 +34,7 @@ fn main() {
                     // if the first condition returns `true`, analogous to the `&&` operator.
                     // In this case, the short-circuiting behavior prevents the second run condition from
                     // panicking if the `InputCounter` resource has not been initialized.
-                    .run_if(resource_exists::<InputCounter>().and_then(
+                    .run_if(resource_exists::<InputCounter>.and_then(
                         // This is a custom run condition in the form of a closure.
                         // This is useful for small, simple run conditions you don't need to reuse.
                         // All the normal rules still apply: all parameters must be read only except for local parameters.

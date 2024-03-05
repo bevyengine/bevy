@@ -1,3 +1,5 @@
+#![allow(deprecated)]
+
 //! This module contains basic node bundles used to build UIs
 
 #[cfg(feature = "bevy_text")]
@@ -5,22 +7,22 @@ use crate::widget::TextFlags;
 use crate::{
     widget::{Button, UiImageSize},
     BackgroundColor, BorderColor, ContentSize, FocusPolicy, Interaction, Node, Style, UiImage,
-    UiMaterial, UiTextureAtlasImage, ZIndex,
+    UiMaterial, ZIndex,
 };
 use bevy_asset::Handle;
+use bevy_color::Color;
 use bevy_ecs::bundle::Bundle;
-use bevy_render::{
-    prelude::Color,
-    view::{InheritedVisibility, ViewVisibility, Visibility},
-};
+use bevy_render::view::{InheritedVisibility, ViewVisibility, Visibility};
 use bevy_sprite::TextureAtlas;
 #[cfg(feature = "bevy_text")]
 use bevy_text::{BreakLineOn, JustifyText, Text, TextLayoutInfo, TextSection, TextStyle};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
-/// The basic UI node
+/// The basic UI node.
 ///
-/// Useful as a container for a variety of child nodes.
+/// Contains the [`Node`] component and other components required to make a container.
+///
+/// See [`node_bundles`](crate::node_bundles) for more specialized bundles like [`TextBundle`].
 #[derive(Bundle, Clone, Debug)]
 pub struct NodeBundle {
     /// Describes the logical size of the node
@@ -74,6 +76,14 @@ impl Default for NodeBundle {
 }
 
 /// A UI node that is an image
+///
+/// # Extra behaviours
+///
+/// You may add the following components to enable additional behaviours:
+/// - [`ImageScaleMode`](bevy_sprite::ImageScaleMode) to enable either slicing or tiling of the texture
+/// - [`TextureAtlas`] to draw specific sections of the texture
+///
+/// Note that `ImageScaleMode` is currently not compatible with `TextureAtlas`.
 #[derive(Bundle, Debug, Default)]
 pub struct ImageBundle {
     /// Describes the logical size of the node
@@ -83,10 +93,6 @@ pub struct ImageBundle {
     pub style: Style,
     /// The calculated size based on the given image
     pub calculated_size: ContentSize,
-    /// The background color, which serves as a "fill" for this node
-    ///
-    /// Combines with `UiImage` to tint the provided image.
-    pub background_color: BackgroundColor,
     /// The image of the node
     pub image: UiImage,
     /// The size of the image in pixels
@@ -115,6 +121,12 @@ pub struct ImageBundle {
 }
 
 /// A UI node that is a texture atlas sprite
+///
+/// This bundle is identical to [`ImageBundle`] with an additional [`TextureAtlas`] component.
+#[deprecated(
+    since = "0.14.0",
+    note = "Use `TextureAtlas` alongside `ImageBundle` instead"
+)]
 #[derive(Bundle, Debug, Default)]
 pub struct AtlasImageBundle {
     /// Describes the logical size of the node
@@ -124,14 +136,10 @@ pub struct AtlasImageBundle {
     pub style: Style,
     /// The calculated size based on the given image
     pub calculated_size: ContentSize,
-    /// The background color, which serves as a "fill" for this node
-    ///
-    /// Combines with `UiImage` to tint the provided image.
-    pub background_color: BackgroundColor,
+    /// The image of the node
+    pub image: UiImage,
     /// A handle to the texture atlas to use for this Ui Node
-    pub texture_atlas: Handle<TextureAtlas>,
-    /// The descriptor for which sprite to use from the given texture atlas
-    pub texture_atlas_image: UiTextureAtlasImage,
+    pub texture_atlas: TextureAtlas,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The size of the image in pixels
@@ -282,6 +290,14 @@ where
 }
 
 /// A UI node that is a button
+///
+/// # Extra behaviours
+///
+/// You may add the following components to enable additional behaviours:
+/// - [`ImageScaleMode`](bevy_sprite::ImageScaleMode) to enable either slicing or tiling of the texture
+/// - [`TextureAtlas`] to draw specific sections of the texture
+///
+/// Note that `ImageScaleMode` is currently not compatible with `TextureAtlas`.
 #[derive(Bundle, Clone, Debug)]
 pub struct ButtonBundle {
     /// Describes the logical size of the node
@@ -295,10 +311,6 @@ pub struct ButtonBundle {
     pub interaction: Interaction,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
-    /// The background color, which serves as a "fill" for this node
-    ///
-    /// When combined with `UiImage`, tints the provided image.
-    pub background_color: BackgroundColor,
     /// The color of the Node's border
     pub border_color: BorderColor,
     /// The image of the node
@@ -325,13 +337,12 @@ pub struct ButtonBundle {
 impl Default for ButtonBundle {
     fn default() -> Self {
         Self {
-            focus_policy: FocusPolicy::Block,
             node: Default::default(),
             button: Default::default(),
             style: Default::default(),
-            border_color: BorderColor(Color::NONE),
             interaction: Default::default(),
-            background_color: Default::default(),
+            focus_policy: FocusPolicy::Block,
+            border_color: BorderColor(Color::NONE),
             image: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),

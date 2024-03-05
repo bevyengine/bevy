@@ -204,18 +204,6 @@ impl Column {
             .get_mut() = change_tick;
     }
 
-    /// Writes component data to the column at given row.
-    /// Assumes the slot is initialized, calls drop.
-    /// Does not update the Component's ticks.
-    ///
-    /// # Safety
-    /// Assumes data has already been allocated for the given row.
-    #[inline]
-    pub(crate) unsafe fn replace_untracked(&mut self, row: TableRow, data: OwningPtr<'_>) {
-        debug_assert!(row.as_usize() < self.len());
-        self.data.replace_unchecked(row.as_usize(), data);
-    }
-
     /// Gets the current number of elements stored in the column.
     #[inline]
     pub fn len(&self) -> usize {
@@ -246,33 +234,7 @@ impl Column {
     }
 
     /// Removes an element from the [`Column`] and returns it and its change detection ticks.
-    /// This does not preserve ordering, but is O(1).
-    ///
-    /// The element is replaced with the last element in the [`Column`].
-    ///
-    /// It is the caller's responsibility to ensure that the removed value is dropped or used.
-    /// Failure to do so may result in resources not being released (i.e. files handles not being
-    /// released, memory leaks, etc.)
-    ///
-    /// Returns `None` if `row` is out of bounds.
-    #[inline]
-    #[must_use = "The returned pointer should be used to drop the removed component"]
-    pub(crate) fn swap_remove_and_forget(
-        &mut self,
-        row: TableRow,
-    ) -> Option<(OwningPtr<'_>, ComponentTicks)> {
-        (row.as_usize() < self.data.len()).then(|| {
-            // SAFETY: The row was length checked before this.
-            let data = unsafe { self.data.swap_remove_and_forget_unchecked(row.as_usize()) };
-            let added = self.added_ticks.swap_remove(row.as_usize()).into_inner();
-            let changed = self.changed_ticks.swap_remove(row.as_usize()).into_inner();
-            (data, ComponentTicks { added, changed })
-        })
-    }
-
-    /// Removes an element from the [`Column`] and returns it and its change detection ticks.
-    /// This does not preserve ordering, but is O(1). Unlike [`Column::swap_remove_and_forget`]
-    /// this does not do any bounds checking.
+    /// This does not preserve ordering, but is O(1) and does not do any bounds checking.
     ///
     /// The element is replaced with the last element in the [`Column`].
     ///
@@ -834,7 +796,7 @@ impl Table {
 /// Can be accessed via [`Storages`](crate::storage::Storages)
 pub struct Tables {
     tables: Vec<Table>,
-    table_ids: HashMap<Vec<ComponentId>, TableId>,
+    table_ids: HashMap<Box<[ComponentId]>, TableId>,
 }
 
 impl Default for Tables {
@@ -910,10 +872,7 @@ impl Tables {
                     table = table.add_column(components.get_info_unchecked(*component_id));
                 }
                 tables.push(table.build());
-                (
-                    component_ids.to_vec(),
-                    TableId::from_usize(tables.len() - 1),
-                )
+                (component_ids.into(), TableId::from_usize(tables.len() - 1))
             });
 
         *value

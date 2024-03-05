@@ -2,6 +2,7 @@ use ab_glyph::{FontArc, FontVec, InvalidFont, OutlinedGlyph};
 use bevy_asset::Asset;
 use bevy_reflect::TypePath;
 use bevy_render::{
+    render_asset::RenderAssetUsages,
     render_resource::{Extent3d, TextureDimension, TextureFormat},
     texture::Image,
 };
@@ -44,6 +45,9 @@ impl Font {
                 .flat_map(|a| vec![255, 255, 255, (*a * 255.0) as u8])
                 .collect::<Vec<u8>>(),
             TextureFormat::Rgba8UnormSrgb,
+            // This glyph image never needs to reach the render world because it's placed
+            // into a font texture atlas that'll be used for rendering.
+            RenderAssetUsages::MAIN_WORLD,
         )
     }
 }
