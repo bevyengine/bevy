@@ -24,7 +24,7 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev", features = [
 ], optional = true }
 bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
 
-smallvec = "1.0"
+smallvec = { version = "1.11", features = ["union", "const_generics"] }
 
 [lints]
 workspace = true

@@ -19,7 +19,6 @@ uuid = { version = "1.1", features = ["v4", "serde"] }
 hashbrown = { version = "0.14", features = ["serde"] }
 bevy_utils_proc_macros = { version = "0.14.0-dev", path = "macros" }
 thread_local = "1.0"
-smallvec = { version = "1.11", features = ["serde", "union", "const_generics"] }
 
 [dev-dependencies]
 static_assertions = "1.1.0"
