@@ -151,8 +151,7 @@ use std::{
 /// [`SyncCell`]: bevy_utils::synccell::SyncCell
 /// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
 pub trait Component: Send + Sync + 'static {
-    /// A marker type indicating the storage type used for this component.
-    /// This must be either [`TableStorage`] or [`SparseStorage`].
+    /// A constant indicating the storage type used for this component.
     const STORAGE_TYPE: StorageType;
 
     /// Called when registering this component, allowing mutable access to it's [`ComponentHooks`].
