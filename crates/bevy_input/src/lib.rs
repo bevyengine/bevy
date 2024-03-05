@@ -35,18 +35,14 @@ use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
 use keyboard::{keyboard_input_system, KeyCode, KeyboardInput};
-use mouse::{
-    mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotion, 
-    MouseWheel,
-};
-use touch::{touch_screen_input_system,  TouchInput,  Touches};
+use mouse::{mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotion, MouseWheel};
+use touch::{touch_screen_input_system, TouchInput, Touches};
 use touchpad::{TouchpadMagnify, TouchpadRotate};
 
 use gamepad::{
     gamepad_axis_event_system, gamepad_button_event_system, gamepad_connection_system,
-    gamepad_event_system, GamepadAxis,
-    GamepadAxisChangedEvent,  GamepadButton, GamepadButtonChangedEvent,
-    GamepadButtonInput,  GamepadConnectionEvent, GamepadEvent,
+    gamepad_event_system, GamepadAxis, GamepadAxisChangedEvent, GamepadButton,
+    GamepadButtonChangedEvent, GamepadButtonInput, GamepadConnectionEvent, GamepadEvent,
     GamepadRumbleRequest, GamepadSettings, Gamepads,
 };
 
