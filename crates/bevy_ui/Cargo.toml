@@ -39,7 +39,7 @@ nonmax = "0.5"
 smallvec = "1.11"
 
 [features]
-serialize = ["serde"]
+serialize = ["serde", "smallvec/serde"]
 
 [lints]
 workspace = true
