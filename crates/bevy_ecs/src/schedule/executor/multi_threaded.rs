@@ -24,6 +24,8 @@ use crate::{
 
 use crate as bevy_ecs;
 
+use super::__rust_begin_short_backtrace;
+
 /// Borrowed data used by the [`MultiThreadedExecutor`].
 struct Environment<'env, 'sys> {
     executor: &'env MultiThreadedExecutor,
@@ -618,7 +620,12 @@ impl ExecutorState {
                 // - The caller ensures that we have permission to
                 // access the world data used by the system.
                 // - `update_archetype_component_access` has been called.
-                unsafe { system.run_unsafe((), context.environment.world_cell) };
+                unsafe {
+                    __rust_begin_short_backtrace::run_unsafe(
+                        &mut **system,
+                        context.environment.world_cell,
+                    )
+                };
             }));
             context.system_completed(system_index, res, system);
         };
@@ -780,7 +787,7 @@ unsafe fn evaluate_and_fold_conditions(
         .map(|condition| {
             // SAFETY: The caller ensures that `world` has permission to
             // access any data required by the condition.
-            unsafe { condition.run_unsafe((), world) }
+            unsafe { __rust_begin_short_backtrace::readonly_run_unsafe(&mut **condition, world) }
         })
         .fold(true, |acc, res| acc && res)
 }
