@@ -1,4 +1,17 @@
-//! This examples illustrates the different ways you can employ component lifecycle hooks
+//! This example illustrates the different ways you can employ component lifecycle hooks.
+//!
+//! Whenever possible, prefer using Bevy's change detection or Events for reacting to component changes.
+//! Events generally offer better performance and more flexible integration into Bevy's systems.
+//! Hooks are useful to enforce correctness but have limitations (only one hook per component,
+//! less ergonomic than events).
+//!
+//! Here are some cases where components hooks might be necessary:
+//!
+//! - Maintaining indexes: If you need to keep custom data structures (like a spatial index) in
+//! sync with the addition/removal of components.
+//!
+//! - Enforcing structural rules: When you have systems that depend on specific relationships
+//! between components (like hierarchies or parent-child links) and need to maintain correctness.
 
 use bevy::ecs::component::{ComponentHooks, TableStorage};
 use bevy::prelude::*;
@@ -35,7 +48,7 @@ fn main() {
 
 fn setup(world: &mut World) {
     // In order to register component hooks the component must:
-    // - not belong to any created archetypes
+    // - not be currently in use by any entities in the world
     // - not already have a hook of that kind registered
     // This is to prevent overriding hooks defined in plugins and other crates as well as keeping things fast
     world

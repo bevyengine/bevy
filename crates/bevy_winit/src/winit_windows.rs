@@ -39,7 +39,7 @@ impl WinitWindows {
     /// Creates a `winit` window and associates it with our entity.
     pub fn create_window(
         &mut self,
-        event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
+        event_loop: &winit::event_loop::EventLoopWindowTarget<crate::UserEvent>,
         entity: Entity,
         window: &Window,
         adapters: &mut AccessKitAdapters,

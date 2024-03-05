@@ -3,8 +3,8 @@ use bevy_ecs::{
     bundle::Bundle,
     entity::Entity,
     prelude::Events,
-    system::{Command, Commands, EntityCommands},
-    world::{EntityWorldMut, World},
+    system::{Commands, EntityCommands},
+    world::{Command, EntityWorldMut, World},
 };
 use smallvec::{smallvec, SmallVec};
 
@@ -702,8 +702,8 @@ mod tests {
         component::Component,
         entity::Entity,
         event::Events,
-        system::{CommandQueue, Commands},
-        world::World,
+        system::Commands,
+        world::{CommandQueue, World},
     };
 
     /// Assert the (non)existence and state of the child's [`Parent`] component.

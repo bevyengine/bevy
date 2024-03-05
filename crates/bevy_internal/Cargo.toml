@@ -68,6 +68,7 @@ serialize = [
   "bevy_input/serialize",
   "bevy_time/serialize",
   "bevy_window/serialize",
+  "bevy_winit?/serialize",
   "bevy_transform/serialize",
   "bevy_math/serialize",
   "bevy_scene?/serialize",

@@ -206,6 +206,14 @@ pub struct Window {
     ///
     /// This value has no effect on non-web platforms.
     pub canvas: Option<String>,
+    /// Whether or not to fit the canvas element's size to its parent element's size.
+    ///
+    /// **Warning**: this will not behave as expected for parents that set their size according to the size of their
+    /// children. This creates a "feedback loop" that will result in the canvas growing on each resize. When using this
+    /// feature, ensure the parent's size is not affected by its children.
+    ///
+    /// This value has no effect on non-web platforms.
+    pub fit_canvas_to_parent: bool,
     /// Whether or not to stop events from propagating out of the canvas element
     ///
     ///  When `true`, this will prevent common browser hotkeys like F5, F12, Ctrl+R, tab, etc.
@@ -274,6 +282,7 @@ impl Default for Window {
             transparent: false,
             focused: true,
             window_level: Default::default(),
+            fit_canvas_to_parent: false,
             prevent_default_event_handling: true,
             canvas: None,
             window_theme: None,

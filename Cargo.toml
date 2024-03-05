@@ -1106,6 +1106,16 @@ category = "Application"
 wasm = false
 
 [[example]]
+name = "log_layers_ecs"
+path = "examples/app/log_layers_ecs.rs"
+
+[package.metadata.example.log_layers_ecs]
+name = "Advanced log layers"
+description = "Illustrate how to transfer data between log layers and Bevy's ECS"
+category = "Application"
+wasm = false
+
+[[example]]
 name = "plugin"
 path = "examples/app/plugin.rs"
 doc-scrape-examples = true
@@ -2677,6 +2687,28 @@ doc-scrape-examples = true
 [package.metadata.example.3d_gizmos]
 name = "3D Gizmos"
 description = "A scene showcasing 3D gizmos"
+category = "Gizmos"
+wasm = true
+
+[[example]]
+name = "axes"
+path = "examples/gizmos/axes.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.axes]
+name = "Axes"
+description = "Demonstrates the function of axes gizmos"
+category = "Gizmos"
+wasm = true
+
+[[example]]
+name = "light_gizmos"
+path = "examples/gizmos/light_gizmos.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.light_gizmos]
+name = "Light Gizmos"
+description = "A scene showcasing light gizmos"
 category = "Gizmos"
 wasm = true
 
