@@ -202,8 +202,8 @@ impl TypeRegistry {
         get_registration: impl FnOnce() -> TypeRegistration,
     ) -> bool {
         match self.registrations.entry(type_id) {
-            bevy_utils::hashbrown::hash_map::Entry::Occupied(_) => false,
-            bevy_utils::hashbrown::hash_map::Entry::Vacant(entry) => {
+            bevy_utils::Entry::Occupied(_) => false,
+            bevy_utils::Entry::Vacant(entry) => {
                 let registration = get_registration();
                 Self::update_registration_indices(
                     &registration,
