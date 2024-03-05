@@ -26,6 +26,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
 
 # other
 serde = { version = "1.0", optional = true }
+uuid = "1.0"
 
 [features]
 serialize = ["dep:serde"]

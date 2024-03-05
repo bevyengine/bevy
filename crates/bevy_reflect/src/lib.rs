@@ -500,6 +500,7 @@ mod impls {
     mod smol_str;
 
     mod std;
+    #[cfg(feature = "uuid")]
     mod uuid;
 }
 

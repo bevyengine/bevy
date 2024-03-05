@@ -20,8 +20,9 @@ use bevy_render::mesh::morph::MorphWeights;
 use bevy_time::Time;
 use bevy_transform::{prelude::Transform, TransformSystem};
 use bevy_utils::hashbrown::HashMap;
-use bevy_utils::{tracing::error, NoOpHash, Uuid};
+use bevy_utils::{tracing::error, NoOpHash};
 use sha1_smol::Sha1;
+use uuid::Uuid;
 
 #[allow(missing_docs)]
 pub mod prelude {
