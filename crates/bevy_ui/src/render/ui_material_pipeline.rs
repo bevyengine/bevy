@@ -74,7 +74,7 @@ where
                     ExtractSchedule,
                     (
                         extract_ui_materials::<M>,
-                        extract_ui_material_nodes::<M>.in_set(RenderUiSystem::ExtractNode),
+                        extract_ui_material_nodes::<M>.in_set(RenderUiSystem::ExtractBackgrounds),
                     ),
                 )
                 .add_systems(

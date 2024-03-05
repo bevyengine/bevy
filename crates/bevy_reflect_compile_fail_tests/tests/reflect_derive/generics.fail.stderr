@@ -1,16 +1,34 @@
-error[E0599]: no method named `get_field` found for struct `Box<(dyn Reflect + 'static)>` in the current scope
-  --> tests/reflect_derive/generics.fail.rs:16:9
-   |
-16 |     foo.get_field::<NoReflect>("a").unwrap();
-   |         ^^^^^^^^^ method not found in `Box<dyn Reflect>`
-
 error[E0277]: the trait bound `NoReflect: Reflect` is not satisfied
-  --> tests/reflect_derive/generics.fail.rs:14:37
+   --> tests/reflect_derive/generics.fail.rs:16:21
+    |
+16  |     foo.get_field::<NoReflect>("a").unwrap();
+    |         ---------   ^^^^^^^^^ the trait `Reflect` is not implemented for `NoReflect`
+    |         |
+    |         required by a bound introduced by this call
+    |
+    = help: the following other types implement trait `Reflect`:
+              bool
+              char
+              isize
+              i8
+              i16
+              i32
+              i64
+              i128
+            and $N others
+note: required by a bound in `bevy_reflect::GetField::get_field`
+   --> /home/runner/work/bevy/bevy/crates/bevy_reflect/src/struct_trait.rs:242:21
+    |
+242 |     fn get_field<T: Reflect>(&self, name: &str) -> Option<&T>;
+    |                     ^^^^^^^ required by this bound in `GetField::get_field`
+
+error[E0277]: the trait bound `NoReflect: GetTypeRegistration` is not satisfied
+  --> tests/reflect_derive/generics.fail.rs:14:36
    |
-14 |     let mut foo: Box<dyn Reflect> = Box::new(Foo::<NoReflect> { a: NoReflect(42.0) });
-   |                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `Reflect` is not implemented for `NoReflect`
+14 |     let mut foo: Box<dyn Struct> = Box::new(Foo::<NoReflect> { a: NoReflect(42.0) });
+   |                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `GetTypeRegistration` is not implemented for `NoReflect`
    |
-   = help: the following other types implement trait `Reflect`:
+   = help: the following other types implement trait `GetTypeRegistration`:
              bool
              char
              isize
@@ -20,7 +38,8 @@ error[E0277]: the trait bound `NoReflect: Reflect` is not satisfied
              i64
              i128
            and $N others
-note: required for `Foo<NoReflect>` to implement `Reflect`
+   = note: required for `NoReflect` to implement `RegisterForReflection`
+note: required for `Foo<NoReflect>` to implement `bevy_reflect::Struct`
   --> tests/reflect_derive/generics.fail.rs:3:10
    |
 3  | #[derive(Reflect)]
@@ -28,5 +47,5 @@ note: required for `Foo<NoReflect>` to implement `Reflect`
 4  | #[reflect(from_reflect = false)]
 5  | struct Foo<T> {
    |        ^^^^^^
-   = note: required for the cast from `Box<Foo<NoReflect>>` to `Box<(dyn Reflect + 'static)>`
+   = note: required for the cast from `Box<Foo<NoReflect>>` to `Box<(dyn bevy_reflect::Struct + 'static)>`
    = note: this error originates in the derive macro `Reflect` (in Nightly builds, run with -Z macro-backtrace for more info)
