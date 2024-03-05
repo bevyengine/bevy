@@ -11,7 +11,6 @@ use crate::{
     renderer::RenderDevice,
 };
 use bevy_asset::{Asset, Handle};
-use bevy_core::cast_slice;
 use bevy_derive::EnumVariantMeta;
 use bevy_ecs::system::{
     lifetimeless::{SRes, SResMut},
@@ -21,6 +20,7 @@ use bevy_log::warn;
 use bevy_math::*;
 use bevy_reflect::Reflect;
 use bevy_utils::tracing::error;
+use bytemuck::cast_slice;
 use std::{collections::BTreeMap, hash::Hash, iter::FusedIterator};
 use thiserror::Error;
 use wgpu::{

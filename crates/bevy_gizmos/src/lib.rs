@@ -55,7 +55,6 @@ use aabb::AabbGizmoPlugin;
 use bevy_app::{App, Last, Plugin};
 use bevy_asset::{load_internal_asset, Asset, AssetApp, Assets, Handle};
 use bevy_color::LinearRgba;
-use bevy_core::cast_slice;
 use bevy_ecs::{
     component::Component,
     query::ROQueryItem,
@@ -81,6 +80,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::TypeIdMap;
+use bytemuck::cast_slice;
 use config::{
     DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore, GizmoMeshConfig,
 };
