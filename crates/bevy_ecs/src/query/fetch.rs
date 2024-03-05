@@ -711,9 +711,9 @@ unsafe impl<'a> QueryData for FilteredEntityMut<'a> {
 
 #[doc(hidden)]
 pub struct ReadFetch<'w, T> {
-    // T::Storage = TableStorage
+    // T::STORAGE_TYPE = StorageType::Table
     table_components: Option<ThinSlicePtr<'w, UnsafeCell<T>>>,
-    // T::Storage = SparseStorage
+    // T::STORAGE_TYPE = StorageType::SparseSet
     sparse_set: Option<&'w ComponentSparseSet>,
 }
 
@@ -862,13 +862,13 @@ unsafe impl<T: Component> ReadOnlyQueryData for &T {}
 
 #[doc(hidden)]
 pub struct RefFetch<'w, T> {
-    // T::Storage = TableStorage
+    // T::STORAGE_TYPE = StorageType::Table
     table_data: Option<(
         ThinSlicePtr<'w, UnsafeCell<T>>,
         ThinSlicePtr<'w, UnsafeCell<Tick>>,
         ThinSlicePtr<'w, UnsafeCell<Tick>>,
     )>,
-    // T::Storage = SparseStorage
+    // T::STORAGE_TYPE = StorageType::SparseSet
     sparse_set: Option<&'w ComponentSparseSet>,
 
     last_run: Tick,
@@ -1045,13 +1045,13 @@ unsafe impl<'__w, T: Component> ReadOnlyQueryData for Ref<'__w, T> {}
 
 #[doc(hidden)]
 pub struct WriteFetch<'w, T> {
-    // T::Storage = TableStorage
+    // T::STORAGE_TYPE = StorageType::Table
     table_data: Option<(
         ThinSlicePtr<'w, UnsafeCell<T>>,
         ThinSlicePtr<'w, UnsafeCell<Tick>>,
         ThinSlicePtr<'w, UnsafeCell<Tick>>,
     )>,
-    // T::Storage = SparseStorage
+    // T::STORAGE_TYPE = StorageType::SparseSet
     sparse_set: Option<&'w ComponentSparseSet>,
 
     last_run: Tick,

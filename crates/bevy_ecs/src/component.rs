@@ -473,7 +473,7 @@ impl ComponentDescriptor {
 
     /// Create a new `ComponentDescriptor` for a resource.
     ///
-    /// The [`StorageType`] for resources is always [`TableStorage`].
+    /// The [`StorageType`] for resources is always [`StorageType::Table`].
     pub fn new_resource<T: Resource>() -> Self {
         Self {
             name: Cow::Borrowed(std::any::type_name::<T>()),
