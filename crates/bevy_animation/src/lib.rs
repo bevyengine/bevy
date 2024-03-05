@@ -687,10 +687,6 @@ impl Plugin for AnimationPlugin {
         app.init_asset::<AnimationClip>()
             .register_asset_reflect::<AnimationClip>()
             .register_type::<AnimationPlayer>()
-            .register_type::<VariableCurve>()
-            .register_type::<Vec<VariableCurve>>()
-            .register_type::<Interpolation>()
-            .register_type::<Keyframes>()
             .register_type::<AnimationTarget>()
             .add_systems(
                 PostUpdate,

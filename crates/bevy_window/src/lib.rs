@@ -147,24 +147,7 @@ impl Plugin for WindowPlugin {
 
         // Register window descriptor and related types
         app.register_type::<Window>()
-            .register_type::<PrimaryWindow>()
-            .register_type::<Cursor>()
-            .register_type::<CursorIcon>()
-            .register_type::<CursorGrabMode>()
-            .register_type::<CompositeAlphaMode>()
-            .register_type::<WindowResolution>()
-            .register_type::<WindowPosition>()
-            .register_type::<WindowMode>()
-            .register_type::<WindowLevel>()
-            .register_type::<PresentMode>()
-            .register_type::<InternalWindowState>()
-            .register_type::<MonitorSelection>()
-            .register_type::<WindowResizeConstraints>()
-            .register_type::<WindowTheme>()
-            .register_type::<EnabledButtons>();
-
-        // Register `PathBuf` as it's used by `FileDragAndDrop`
-        app.register_type::<PathBuf>();
+            .register_type::<PrimaryWindow>();
     }
 }
 

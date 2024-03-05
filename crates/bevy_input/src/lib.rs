@@ -108,43 +108,15 @@ impl Plugin for InputPlugin {
             .add_systems(PreUpdate, touch_screen_input_system.in_set(InputSystem));
 
         // Register common types
-        app.register_type::<ButtonState>();
-
-        // Register keyboard types
-        app.register_type::<KeyboardInput>()
-            .register_type::<KeyCode>()
-            .register_type::<NativeKeyCode>()
-            .register_type::<Key>()
-            .register_type::<NativeKey>();
-
-        // Register mouse types
-        app.register_type::<MouseButtonInput>()
-            .register_type::<MouseButton>()
-            .register_type::<MouseMotion>()
-            .register_type::<MouseScrollUnit>()
-            .register_type::<MouseWheel>();
-
-        // Register touchpad types
-        app.register_type::<TouchpadMagnify>()
-            .register_type::<TouchpadRotate>();
-
-        // Register touch types
-        app.register_type::<TouchInput>()
-            .register_type::<ForceTouch>()
-            .register_type::<TouchPhase>();
-
-        // Register gamepad types
-        app.register_type::<Gamepad>()
-            .register_type::<GamepadConnection>()
-            .register_type::<GamepadButtonType>()
-            .register_type::<GamepadButton>()
+        app.register_type::<ButtonState>()
+            .register_type::<KeyboardInput>()
+            .register_type::<MouseButtonInput>()
+            .register_type::<TouchpadMagnify>()
+            .register_type::<TouchpadRotate>()
+            .register_type::<TouchInput>();
+            .register_type::<GamepadEvent>()
             .register_type::<GamepadButtonInput>()
-            .register_type::<GamepadAxisType>()
-            .register_type::<GamepadAxis>()
-            .register_type::<GamepadSettings>()
-            .register_type::<ButtonSettings>()
-            .register_type::<AxisSettings>()
-            .register_type::<ButtonAxisSettings>();
+            .register_type::<GamepadSettings>();
     }
 }
 
