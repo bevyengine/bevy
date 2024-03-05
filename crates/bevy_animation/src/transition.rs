@@ -20,6 +20,13 @@ use crate::{graph::AnimationNodeIndex, ActiveAnimation, AnimationPlayer};
 /// [`AnimationPlayer`] and [`bevy_asset::Handle<AnimationGraph>`]. It'll take
 /// responsibility for adjusting the weight on the [`ActiveAnimation`] in order
 /// to fade out animations smoothly.
+///
+/// When using an [`AnimationTransitions`] component, you should play all
+/// animations through the [`AnimationTransitions::play`] method, rather than by
+/// directly manipulating the [`AnimationPlayer`]. Playing animations through
+/// the [`AnimationPlayer`] directly will cause the [`AnimationTransitions`]
+/// component to get confused about which animation is the "main" animation, and
+/// transitions will usually be incorrect as a result.
 #[derive(Component, Default, Reflect)]
 pub struct AnimationTransitions {
     main_animation: Option<AnimationNodeIndex>,
@@ -47,6 +54,9 @@ impl AnimationTransitions {
     /// Plays a new animation on the given [`AnimationPlayer`], fading out any
     /// existing animations that were already playing over the
     /// `transition_duration`.
+    ///
+    /// Pass [`Duration::ZERO`] to instantly switch to a new animation, avoiding
+    /// any transition.
     pub fn play<'p>(
         &mut self,
         player: &'p mut AnimationPlayer,

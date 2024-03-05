@@ -109,11 +109,20 @@ fn setup_scene_once_loaded(
     mut players: Query<(Entity, &mut AnimationPlayer), Added<AnimationPlayer>>,
 ) {
     for (entity, mut player) in &mut players {
+        let mut transitions = AnimationTransitions::new();
+
+        // Make sure to start the animation via the `AnimationTransitions`
+        // component. The `AnimationTransitions` component wants to manage all
+        // the animations and will get confused if the animations are started
+        // directly via the `AnimationPlayer`.
+        transitions
+            .play(&mut player, animations.animations[0], Duration::ZERO)
+            .repeat();
+
         commands
             .entity(entity)
             .insert(animations.graph.clone())
-            .insert(AnimationTransitions::new());
-        player.play(animations.animations[0]).repeat();
+            .insert(transitions);
     }
 }
 
@@ -164,13 +173,11 @@ fn keyboard_animation_control(
         if keyboard_input.just_pressed(KeyCode::Enter) {
             *current_animation = (*current_animation + 1) % animations.animations.len();
 
-            // TODO: Transition should be 250ms
-            //player.stop();
             transitions
                 .play(
                     &mut player,
                     animations.animations[*current_animation],
-                    Duration::from_millis(1000),
+                    Duration::from_millis(250),
                 )
                 .repeat();
         }
