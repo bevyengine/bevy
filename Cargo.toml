@@ -2702,6 +2702,17 @@ category = "Gizmos"
 wasm = true
 
 [[example]]
+name = "axes"
+path = "examples/gizmos/axes.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.axes]
+name = "Axes"
+description = "Demonstrates the function of axes gizmos"
+category = "Gizmos"
+wasm = true
+
+[[example]]
 name = "light_gizmos"
 path = "examples/gizmos/light_gizmos.rs"
 doc-scrape-examples = true
