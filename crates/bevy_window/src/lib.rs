@@ -31,7 +31,6 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use std::path::PathBuf;
 
 impl Default for WindowPlugin {
     fn default() -> Self {

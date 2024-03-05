@@ -19,17 +19,9 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::component::{ComponentId, ComponentTicks, Tick};
 use bevy_ecs::prelude::*;
-use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
-use bevy_utils::{Duration, HashSet, Instant, Uuid};
-use std::borrow::Cow;
-use std::ffi::OsString;
 use std::marker::PhantomData;
-use std::ops::Range;
-use std::path::{Path, PathBuf};
 
-#[cfg(not(target_arch = "wasm32"))]
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::tick_global_task_pools_on_main_thread;
 

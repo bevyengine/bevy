@@ -13,7 +13,7 @@ use std::{
 
 use crate::{prelude::Image, render_asset::RenderAssetPlugin, RenderApp};
 use bevy_app::{App, Plugin};
-use bevy_asset::{AssetApp, Handle};
+use bevy_asset::AssetApp;
 use bevy_ecs::{entity::Entity, system::Resource};
 
 /// Adds the [`Mesh`] as an asset and makes sure that they are extracted and prepared for the GPU.
