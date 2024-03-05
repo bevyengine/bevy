@@ -22,12 +22,12 @@ use bevy_ecs::component::{ComponentId, ComponentTicks, Tick};
 use bevy_ecs::prelude::*;
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use bevy_utils::{Duration, HashSet, Instant};
-use uuid::Uuid;
 use std::borrow::Cow;
 use std::ffi::OsString;
 use std::marker::PhantomData;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
+use uuid::Uuid;
 
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(not(target_arch = "wasm32"))]

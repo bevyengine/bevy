@@ -16,8 +16,8 @@ use std::{
     marker::PhantomData,
     sync::{atomic::AtomicU32, Arc},
 };
-use uuid::Uuid;
 use thiserror::Error;
+use uuid::Uuid;
 
 /// A generational runtime-only identifier for a specific [`Asset`] stored in [`Assets`]. This is optimized for efficient runtime
 /// usage and is not suitable for identifying assets across app runs.
