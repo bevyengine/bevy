@@ -98,6 +98,7 @@ pub enum AccessibilitySystem {
 }
 
 /// Plugin managing non-GUI aspects of integrating with accessibility APIs.
+#[derive(Default)]
 pub struct AccessibilityPlugin;
 
 impl Plugin for AccessibilityPlugin {
