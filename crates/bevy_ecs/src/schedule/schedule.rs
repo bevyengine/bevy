@@ -7,11 +7,11 @@ use std::{
 use bevy_utils::tracing::info_span;
 use bevy_utils::{default, tracing::info};
 use bevy_utils::{
-    petgraph::{algo::TarjanScc, prelude::*},
     tracing::{error, warn},
     HashMap, HashSet,
 };
 use fixedbitset::FixedBitSet;
+use petgraph::{algo::TarjanScc, prelude::*};
 use thiserror::Error;
 
 use crate::{
