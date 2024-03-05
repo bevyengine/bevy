@@ -664,7 +664,7 @@ impl WindowResolution {
 
     /// Builder method for adding a scale factor override to the resolution.
     pub fn with_scale_factor_override(mut self, scale_factor_override: f32) -> Self {
-        self.scale_factor_override = Some(scale_factor_override);
+        self.set_scale_factor_override(Some(scale_factor_override));
         self
     }
 
