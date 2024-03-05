@@ -1,6 +1,5 @@
 //! Implements loader for a custom asset type.
 
-use thiserror;
 use bevy::{
     asset::{io::Reader, ron, AssetLoader, AsyncReadExt, LoadContext},
     prelude::*,
