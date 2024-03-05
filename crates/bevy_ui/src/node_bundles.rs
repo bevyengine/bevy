@@ -122,6 +122,11 @@ pub struct ImageBundle {
 
 /// A UI node that is a texture atlas sprite
 ///
+/// # Extra behaviours
+///
+/// You may add the following components to enable additional behaviours
+/// - [`ImageScaleMode`](bevy_sprite::ImageScaleMode) to enable either slicing or tiling of the texture
+///
 /// This bundle is identical to [`ImageBundle`] with an additional [`TextureAtlas`] component.
 #[deprecated(
     since = "0.14.0",
@@ -295,7 +300,7 @@ where
 ///
 /// You may add the following components to enable additional behaviours:
 /// - [`ImageScaleMode`](bevy_sprite::ImageScaleMode) to enable either slicing or tiling of the texture
-/// - [`TextureAtlas`] to draw specific sections of the texture
+/// - [`TextureAtlas`] to draw specific section of the texture
 ///
 /// Note that `ImageScaleMode` is currently not compatible with `TextureAtlas`.
 #[derive(Bundle, Clone, Debug)]
