@@ -177,7 +177,7 @@ fn update_volumes(
 
 fn render_volumes(mut gizmos: Gizmos, query: Query<(&CurrentVolume, &Intersects)>) {
     for (volume, intersects) in query.iter() {
-        let color = if **intersects { CYAN } else { ORANGE_RED };
+        let color = if **intersects { AQUA } else { ORANGE_RED };
         match volume {
             CurrentVolume::Aabb(a) => {
                 gizmos.rect_2d(a.center(), 0., a.half_size() * 2., color);
