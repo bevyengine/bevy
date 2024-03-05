@@ -6,6 +6,7 @@ pub mod prelude;
 mod default_plugins;
 pub use default_plugins::*;
 
+#[cfg(feature = "bevy_a11y")]
 pub mod a11y {
     //! Integrate with platform accessibility APIs.
     pub use bevy_a11y::*;
@@ -43,6 +44,7 @@ pub mod ecs {
     pub use bevy_ecs::*;
 }
 
+#[cfg(feature = "bevy_input")]
 pub mod input {
     //! Resources and events for inputs, e.g. mouse/keyboard, touch, gamepads, etc.
     pub use bevy_input::*;
@@ -89,6 +91,7 @@ pub mod hierarchy {
     pub use bevy_hierarchy::*;
 }
 
+#[cfg(feature = "bevy_transform")]
 pub mod transform {
     //! Local and global transforms (e.g. translation, scale, rotation).
     pub use bevy_transform::*;
@@ -99,6 +102,7 @@ pub mod utils {
     pub use bevy_utils::*;
 }
 
+#[cfg(feature = "bevy_window")]
 pub mod window {
     //! Configuration, creation, and management of one or more windows.
     pub use bevy_window::*;

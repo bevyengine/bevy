@@ -54,6 +54,7 @@ workspace = true
 [features]
 default = [
   "animation",
+  "bevy_a11y",
   "bevy_asset",
   "bevy_audio",
   "bevy_color",
@@ -65,6 +66,9 @@ default = [
   "bevy_gltf",
   "bevy_render",
   "bevy_sprite",
+  "bevy_transform",
+  "bevy_input",
+  "bevy_window",
   "bevy_text",
   "bevy_ui",
   "multi-threaded",
@@ -114,6 +118,11 @@ bevy_gilrs = ["bevy_internal/bevy_gilrs"]
 
 # [glTF](https://www.khronos.org/gltf/) support
 bevy_gltf = ["bevy_internal/bevy_gltf", "bevy_asset", "bevy_scene", "bevy_pbr"]
+
+bevy_a11y = ["bevy_internal/bevy_a11y"]
+bevy_input = ["bevy_internal/bevy_input"]
+bevy_window = ["bevy_internal/bevy_window"]
+bevy_transform = ["bevy_internal/bevy_transform"]
 
 # Adds PBR rendering
 bevy_pbr = [

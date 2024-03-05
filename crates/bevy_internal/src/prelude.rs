@@ -1,8 +1,8 @@
 #[doc(hidden)]
 pub use crate::{
-    app::prelude::*, core::prelude::*, ecs::prelude::*, hierarchy::prelude::*, input::prelude::*,
-    log::prelude::*, math::prelude::*, reflect::prelude::*, time::prelude::*,
-    transform::prelude::*, utils::prelude::*, window::prelude::*, DefaultPlugins, MinimalPlugins,
+    app::prelude::*, core::prelude::*, ecs::prelude::*, hierarchy::prelude::*, log::prelude::*,
+    math::prelude::*, reflect::prelude::*, time::prelude::*, utils::prelude::*, DefaultPlugins,
+    MinimalPlugins,
 };
 
 pub use bevy_derive::{bevy_main, Deref, DerefMut};
@@ -26,6 +26,14 @@ pub use crate::color::prelude::*;
 #[doc(hidden)]
 #[cfg(feature = "bevy_core_pipeline")]
 pub use crate::core_pipeline::prelude::*;
+
+#[doc(hidden)]
+#[cfg(feature = "bevy_input")]
+pub use crate::input::prelude::*;
+
+#[doc(hidden)]
+#[cfg(feature = "bevy_transform")]
+pub use crate::transform::prelude::*;
 
 #[doc(hidden)]
 #[cfg(feature = "bevy_pbr")]
@@ -62,3 +70,7 @@ pub use crate::gizmos::prelude::*;
 #[doc(hidden)]
 #[cfg(feature = "bevy_gilrs")]
 pub use crate::gilrs::*;
+
+#[doc(hidden)]
+#[cfg(feature = "bevy_window")]
+pub use crate::window::prelude::*;

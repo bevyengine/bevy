@@ -46,16 +46,22 @@ impl PluginGroup for DefaultPlugins {
             .add(bevy_core::TypeRegistrationPlugin)
             .add(bevy_core::FrameCountPlugin)
             .add(bevy_time::TimePlugin)
-            .add(bevy_transform::TransformPlugin)
             .add(bevy_hierarchy::HierarchyPlugin)
-            .add(bevy_diagnostic::DiagnosticsPlugin)
-            .add(bevy_input::InputPlugin)
-            .add(bevy_window::WindowPlugin::default())
-            .add(bevy_a11y::AccessibilityPlugin);
+            .add(bevy_diagnostic::DiagnosticsPlugin);
 
         #[cfg(feature = "bevy_asset")]
         {
             group = group.add(bevy_asset::AssetPlugin::default());
+        }
+
+        #[cfg(feature = "bevy_input")]
+        {
+            group = group.add(bevy_input::InputPlugin);
+        }
+
+        #[cfg(feature = "bevy_transform")]
+        {
+            group = group.add(bevy_transform::TransformPlugin);
         }
 
         #[cfg(feature = "bevy_scene")]
@@ -132,6 +138,16 @@ impl PluginGroup for DefaultPlugins {
         #[cfg(feature = "bevy_gizmos")]
         {
             group = group.add(bevy_gizmos::GizmoPlugin);
+        }
+
+        #[cfg(feature = "bevy_window")]
+        {
+            group = group.add(bevy_window::WindowPlugin::default());
+        }
+
+        #[cfg(feature = "bevy_a11y")]
+        {
+            group = group.add(bevy_a11y::AccessibilityPlugin);
         }
 
         group = group.add(IgnoreAmbiguitiesPlugin);
