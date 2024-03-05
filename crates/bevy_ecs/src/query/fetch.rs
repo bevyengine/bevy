@@ -1,7 +1,7 @@
 use crate::{
     archetype::Archetype,
     change_detection::{Ticks, TicksMut},
-    component::{Component, ComponentId, ComponentStorage, StorageType, Tick},
+    component::{Component, ComponentId, StorageType, Tick},
     entity::Entity,
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},
@@ -747,7 +747,7 @@ unsafe impl<T: Component> WorldQuery for &T {
     ) -> ReadFetch<'w, T> {
         ReadFetch {
             table_components: None,
-            sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| {
+            sparse_set: (T::STORAGE_TYPE == StorageType::SparseSet).then(|| {
                 // SAFETY: The underlying type associated with `component_id` is `T`,
                 // which we are allowed to access since we registered it in `update_archetype_component_access`.
                 // Note that we do not actually access any components in this function, we just get a shared
@@ -764,7 +764,7 @@ unsafe impl<T: Component> WorldQuery for &T {
     }
 
     const IS_DENSE: bool = {
-        match T::Storage::STORAGE_TYPE {
+        match T::STORAGE_TYPE {
             StorageType::Table => true,
             StorageType::SparseSet => false,
         }
@@ -806,7 +806,7 @@ unsafe impl<T: Component> WorldQuery for &T {
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
-        match T::Storage::STORAGE_TYPE {
+        match T::STORAGE_TYPE {
             StorageType::Table => {
                 // SAFETY: STORAGE_TYPE = Table
                 let table = unsafe { fetch.table_components.debug_checked_unwrap() };
@@ -905,7 +905,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
     ) -> RefFetch<'w, T> {
         RefFetch {
             table_data: None,
-            sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| {
+            sparse_set: (T::STORAGE_TYPE == StorageType::SparseSet).then(|| {
                 // SAFETY: The underlying type associated with `component_id` is `T`,
                 // which we are allowed to access since we registered it in `update_archetype_component_access`.
                 // Note that we do not actually access any components in this function, we just get a shared
@@ -924,7 +924,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
     }
 
     const IS_DENSE: bool = {
-        match T::Storage::STORAGE_TYPE {
+        match T::STORAGE_TYPE {
             StorageType::Table => true,
             StorageType::SparseSet => false,
         }
@@ -965,7 +965,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
-        match T::Storage::STORAGE_TYPE {
+        match T::STORAGE_TYPE {
             StorageType::Table => {
                 // SAFETY: STORAGE_TYPE = Table
                 let (table_components, added_ticks, changed_ticks) =
@@ -1088,7 +1088,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     ) -> WriteFetch<'w, T> {
         WriteFetch {
             table_data: None,
-            sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| {
+            sparse_set: (T::STORAGE_TYPE == StorageType::SparseSet).then(|| {
                 // SAFETY: The underlying type associated with `component_id` is `T`,
                 // which we are allowed to access since we registered it in `update_archetype_component_access`.
                 // Note that we do not actually access any components in this function, we just get a shared
@@ -1107,7 +1107,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     }
 
     const IS_DENSE: bool = {
-        match T::Storage::STORAGE_TYPE {
+        match T::STORAGE_TYPE {
             StorageType::Table => true,
             StorageType::SparseSet => false,
         }
@@ -1148,7 +1148,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
-        match T::Storage::STORAGE_TYPE {
+        match T::STORAGE_TYPE {
             StorageType::Table => {
                 // SAFETY: STORAGE_TYPE = Table
                 let (table_components, added_ticks, changed_ticks) =
@@ -1433,7 +1433,7 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
     }
 
     const IS_DENSE: bool = {
-        match T::Storage::STORAGE_TYPE {
+        match T::STORAGE_TYPE {
             StorageType::Table => true,
             StorageType::SparseSet => false,
         }

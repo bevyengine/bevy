@@ -10,7 +10,7 @@ use crate::{
         AddBundle, Archetype, ArchetypeId, Archetypes, BundleComponentStatus, ComponentStatus,
         SpawnBundleStatus,
     },
-    component::{Component, ComponentId, ComponentStorage, Components, StorageType, Tick},
+    component::{Component, ComponentId, Components, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
     prelude::World,
     query::DebugCheckedUnwrap,
@@ -203,7 +203,7 @@ unsafe impl<C: Component> Bundle for C {
 impl<C: Component> DynamicBundle for C {
     #[inline]
     fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) {
-        OwningPtr::make(self, |ptr| func(C::Storage::STORAGE_TYPE, ptr));
+        OwningPtr::make(self, |ptr| func(C::STORAGE_TYPE, ptr));
     }
 }
 

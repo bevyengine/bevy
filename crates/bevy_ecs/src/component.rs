@@ -153,38 +153,10 @@ use std::{
 pub trait Component: Send + Sync + 'static {
     /// A marker type indicating the storage type used for this component.
     /// This must be either [`TableStorage`] or [`SparseStorage`].
-    type Storage: ComponentStorage;
+    const STORAGE_TYPE: StorageType;
 
     /// Called when registering this component, allowing mutable access to it's [`ComponentHooks`].
     fn register_component_hooks(_hooks: &mut ComponentHooks) {}
-}
-
-/// Marker type for components stored in a [`Table`](crate::storage::Table).
-pub struct TableStorage;
-
-/// Marker type for components stored in a [`ComponentSparseSet`](crate::storage::ComponentSparseSet).
-pub struct SparseStorage;
-
-/// Types used to specify the storage strategy for a component.
-///
-/// This trait is implemented for [`TableStorage`] and [`SparseStorage`].
-/// Custom implementations are forbidden.
-pub trait ComponentStorage: sealed::Sealed {
-    /// A value indicating the storage strategy specified by this type.
-    const STORAGE_TYPE: StorageType;
-}
-
-impl ComponentStorage for TableStorage {
-    const STORAGE_TYPE: StorageType = StorageType::Table;
-}
-impl ComponentStorage for SparseStorage {
-    const STORAGE_TYPE: StorageType = StorageType::SparseSet;
-}
-
-mod sealed {
-    pub trait Sealed {}
-    impl Sealed for super::TableStorage {}
-    impl Sealed for super::SparseStorage {}
 }
 
 /// The storage used for a specific component type.
@@ -471,7 +443,7 @@ impl ComponentDescriptor {
     pub fn new<T: Component>() -> Self {
         Self {
             name: Cow::Borrowed(std::any::type_name::<T>()),
-            storage_type: T::Storage::STORAGE_TYPE,
+            storage_type: T::STORAGE_TYPE,
             is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
