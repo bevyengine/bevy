@@ -3,11 +3,8 @@
 //! The animation graph is shown on screen. You can change the weights of the
 //! playing animations by clicking and dragging left or right within the nodes.
 
-use std::{fs::File, path::Path};
-
 use argh::FromArgs;
 use bevy::{
-    asset::io::file::FileAssetReader,
     color::palettes::{
         basic::WHITE,
         css::{ANTIQUE_WHITE, DARK_GREEN},
@@ -15,7 +12,13 @@ use bevy::{
     prelude::*,
     ui::RelativeCursorPosition,
 };
+
+#[cfg(not(target_arch = "wasm32"))]
+use bevy::asset::io::file::FileAssetReader;
+#[cfg(not(target_arch = "wasm32"))]
 use ron::ser::PrettyConfig;
+#[cfg(not(target_arch = "wasm32"))]
+use std::{fs::File, path::Path};
 
 /// Where to find the serialized animation graph.
 static ANIMATION_GRAPH_PATH: &str = "animation_graphs/Fox.animgraph.ron";
@@ -197,7 +200,7 @@ fn setup_assets_programmatically(
     commands: &mut Commands,
     asset_server: &mut AssetServer,
     animation_graphs: &mut Assets<AnimationGraph>,
-    save: bool,
+    _save: bool,
 ) {
     // Create the nodes.
     let mut animation_graph = AnimationGraph::new();
@@ -219,7 +222,8 @@ fn setup_assets_programmatically(
     );
 
     // If asked to save, do so.
-    if save {
+    #[cfg(not(target_arch = "wasm32"))]
+    if _save {
         let mut animation_graph_writer = File::create(Path::join(
             &FileAssetReader::get_base_path(),
             Path::join(Path::new("assets"), Path::new(ANIMATION_GRAPH_PATH)),
