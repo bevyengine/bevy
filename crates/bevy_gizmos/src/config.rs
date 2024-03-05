@@ -26,7 +26,7 @@ pub enum GizmoLineJoint {
     /// The resolution determines the amount of triangles drawn per joint,
     /// e.g. `GizmoLineJoint::Round(4)` will draw 4 triangles at each line joint.
     Round(u32),
-    /// Draws a bevel to connect the ends of both lines.
+    /// Draws a bevel, a straight line in this case, to connect the ends of both lines.
     Bevel,
 }
 
