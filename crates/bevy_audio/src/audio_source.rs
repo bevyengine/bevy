@@ -1,3 +1,5 @@
+use bevy_ecs::component::Component;
+use rodio::OutputStreamHandle;
 use bevy_asset::{
     io::{AsyncReadExt, Reader},
     Asset, AssetLoader, LoadContext,
@@ -25,6 +27,14 @@ impl AsRef<[u8]> for AudioSource {
     fn as_ref(&self) -> &[u8] {
         &self.bytes
     }
+}
+
+/// Set the target for an [`AudioSource`][crate::AudioSource]. Audio produced by this source will be rerouted
+/// to the designated stream instead of the global stream.
+#[derive(Component)]
+pub struct AudioTarget {
+    /// The handle to the output stream, which will be used to send audio to the mixer.
+    pub output_stream: OutputStreamHandle,
 }
 
 /// Loads files as [`AudioSource`] [`Assets`](bevy_asset::Assets)

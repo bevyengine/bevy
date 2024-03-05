@@ -1,7 +1,8 @@
 use crate::{
     AudioSourceBundle, Decodable, DefaultSpatialScale, GlobalVolume, PlaybackMode,
-    PlaybackSettings, SpatialAudioSink, SpatialListener,
+    PlaybackSettings, SpatialAudioSink, SpatialListener, AudioTarget,
 };
+
 use bevy_asset::{Asset, Assets, Handle};
 use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_math::Vec3;
@@ -102,10 +103,11 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
         (
             Entity,
             &Handle<Source>,
+            Option<&AudioTarget>,
             &PlaybackSettings,
             Option<&GlobalTransform>,
         ),
-        (Without<AudioSink>, Without<SpatialAudioSink>),
+        Or<((Without<AudioSink>, Without<SpatialAudioSink>), Changed<AudioTarget>)>,
     >,
     ear_positions: EarPositions,
     default_spatial_scale: Res<DefaultSpatialScale>,
@@ -113,15 +115,18 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
 ) where
     f32: rodio::cpal::FromSample<Source::DecoderItem>,
 {
-    let Some(stream_handle) = audio_output.stream_handle.as_ref() else {
+    let Some(global_stream_handle) = audio_output.stream_handle.as_ref() else {
         // audio output unavailable; cannot play sound
         return;
     };
 
-    for (entity, source_handle, settings, maybe_emitter_transform) in &query_nonplaying {
+    for (entity, source_handle, target, settings, maybe_emitter_transform) in &query_nonplaying {
         let Some(audio_source) = audio_sources.get(source_handle) else {
             continue;
         };
+
+        let stream_handle = target.as_ref().map(|target| &target.output_stream).unwrap_or(global_stream_handle);
+
         // audio data is available (has loaded), begin playback and insert sink component
         if settings.spatial {
             let (left_ear, right_ear) = ear_positions.get();
