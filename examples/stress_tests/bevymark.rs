@@ -253,13 +253,13 @@ fn setup(
         .with_children(|c| {
             c.spawn((
                 TextBundle::from_sections([
-                    text_section(GREEN, "Bird Count: "),
+                    text_section(LIME, "Bird Count: "),
                     text_section(AQUA, ""),
-                    text_section(GREEN, "\nFPS (raw): "),
+                    text_section(LIME, "\nFPS (raw): "),
                     text_section(AQUA, ""),
-                    text_section(GREEN, "\nFPS (SMA): "),
+                    text_section(LIME, "\nFPS (SMA): "),
                     text_section(AQUA, ""),
-                    text_section(GREEN, "\nFPS (EMA): "),
+                    text_section(LIME, "\nFPS (EMA): "),
                     text_section(AQUA, ""),
                 ]),
                 StatsText,
