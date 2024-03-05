@@ -2,7 +2,7 @@
 
 #![warn(unsafe_op_in_unsafe_fn)]
 
-use super::{Mut, Ref, World, WorldId};
+use super::{command_queue::CommandQueue, Mut, Ref, World, WorldId};
 use crate::{
     archetype::{Archetype, ArchetypeComponentId, Archetypes},
     bundle::Bundles,
@@ -14,7 +14,7 @@ use crate::{
     prelude::Component,
     removal_detection::RemovedComponentEvents,
     storage::{Column, ComponentSparseSet, Storages},
-    system::{CommandQueue, Res, Resource},
+    system::{Res, Resource},
 };
 use bevy_ptr::Ptr;
 use std::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, ptr, ptr::addr_of_mut};

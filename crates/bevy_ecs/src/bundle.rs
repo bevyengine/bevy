@@ -348,7 +348,7 @@ impl BundleInfo {
         &self.component_ids
     }
 
-    /// Returns an iterator over the the [ID](ComponentId) of each component stored in this bundle.
+    /// Returns an iterator over the [ID](ComponentId) of each component stored in this bundle.
     #[inline]
     pub fn iter_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
         self.component_ids.iter().cloned()

@@ -182,7 +182,7 @@ unsafe fn propagate_recursive(
 mod test {
     use bevy_app::prelude::*;
     use bevy_ecs::prelude::*;
-    use bevy_ecs::system::CommandQueue;
+    use bevy_ecs::world::CommandQueue;
     use bevy_math::{vec3, Vec3};
     use bevy_tasks::{ComputeTaskPool, TaskPool};
 

@@ -172,6 +172,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[Advanced log layers](../examples/app/log_layers_ecs.rs) | Illustrate how to transfer data between log layers and Bevy's ECS
 [Custom Loop](../examples/app/custom_loop.rs) | Demonstrates how to create a custom runner (to update an app manually)
 [Drag and Drop](../examples/app/drag_and_drop.rs) | An example that shows how to handle drag and drop in an app
 [Empty](../examples/app/empty.rs) | An empty application (does nothing)
@@ -266,6 +267,8 @@ Example | Description
 --- | ---
 [2D Gizmos](../examples/gizmos/2d_gizmos.rs) | A scene showcasing 2D gizmos
 [3D Gizmos](../examples/gizmos/3d_gizmos.rs) | A scene showcasing 3D gizmos
+[Axes](../examples/gizmos/axes.rs) | Demonstrates the function of axes gizmos
+[Light Gizmos](../examples/gizmos/light_gizmos.rs) | A scene showcasing light gizmos
 
 ## Input
 

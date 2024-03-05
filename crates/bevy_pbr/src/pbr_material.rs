@@ -727,7 +727,9 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             thickness: self.thickness,
             ior: self.ior,
             attenuation_distance: self.attenuation_distance,
-            attenuation_color: LinearRgba::from(self.base_color).to_f32_array().into(),
+            attenuation_color: LinearRgba::from(self.attenuation_color)
+                .to_f32_array()
+                .into(),
             flags: flags.bits(),
             alpha_cutoff,
             parallax_depth_scale: self.parallax_depth_scale,

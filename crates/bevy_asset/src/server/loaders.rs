@@ -3,8 +3,8 @@ use crate::{
     path::AssetPath,
 };
 use async_broadcast::RecvError;
-use bevy_log::{error, warn};
 use bevy_tasks::IoTaskPool;
+use bevy_utils::tracing::{error, warn};
 use bevy_utils::{HashMap, TypeIdMap};
 use std::{any::TypeId, sync::Arc};
 use thiserror::Error;

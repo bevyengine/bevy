@@ -10,7 +10,7 @@ use bevy_sprite::{ImageScaleMode, TextureSlice};
 use bevy_transform::prelude::*;
 use bevy_utils::HashSet;
 
-use crate::{BackgroundColor, CalculatedClip, ExtractedUiNode, Node, UiImage};
+use crate::{CalculatedClip, ExtractedUiNode, Node, UiImage};
 
 /// Component storing texture slices for image nodes entities with a tiled or sliced  [`ImageScaleMode`]
 ///
@@ -35,7 +35,6 @@ impl ComputedTextureSlices {
         &'a self,
         transform: &'a GlobalTransform,
         node: &'a Node,
-        background_color: &'a BackgroundColor,
         image: &'a UiImage,
         clip: Option<&'a CalculatedClip>,
         camera_entity: Entity,
@@ -60,7 +59,7 @@ impl ComputedTextureSlices {
             let atlas_size = Some(self.image_size * scale);
             ExtractedUiNode {
                 stack_index: node.stack_index,
-                color: background_color.0.into(),
+                color: image.color.into(),
                 transform: transform.compute_matrix(),
                 rect,
                 flip_x,
