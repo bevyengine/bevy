@@ -100,15 +100,15 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                     item_rect(builder, BISQUE);
                     item_rect(builder, BLUE);
                     item_rect(builder, CRIMSON);
-        item_rect(builder, CYAN);
+                    item_rect(builder, AQUA);
                     item_rect(builder, ORANGE_RED);
                     item_rect(builder, DARK_GREEN);
                     item_rect(builder, FUCHSIA);
-        item_rect(builder, TEAL);
+                    item_rect(builder, TEAL);
                     item_rect(builder, ALICE_BLUE);
                     item_rect(builder, CRIMSON);
                     item_rect(builder, ANTIQUE_WHITE);
-        item_rect(builder, YELLOW);
+                    item_rect(builder, YELLOW);
                     item_rect(builder, PINK);
                     item_rect(builder, YELLOW_GREEN);
                     item_rect(builder, SALMON);
