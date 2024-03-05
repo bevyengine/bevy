@@ -330,6 +330,7 @@ impl Plugin for RenderPlugin {
         app.register_type::<alpha::AlphaMode>()
             // These types cannot be registered in bevy_color, as it does not depend on the rest of Bevy
             .register_type::<bevy_color::Color>()
+            .register_type::<primitives::Aabb>()
             .register_type::<primitives::CascadesFrusta>()
             .register_type::<primitives::CubemapFrusta>()
             .register_type::<primitives::Frustum>();
