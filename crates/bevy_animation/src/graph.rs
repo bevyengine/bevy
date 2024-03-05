@@ -1,17 +1,13 @@
 //! The animation graph, which allows animations to be blended together.
 
-use std::fs::File;
-use std::io::{self, BufWriter, Write};
+use std::io::{self, Write};
 use std::ops::{Index, IndexMut};
-use std::path::Path;
 
 use bevy_asset::io::Reader;
 use bevy_asset::{Asset, AssetId, AssetLoader, AssetPath, AsyncReadExt as _, Handle, LoadContext};
 use bevy_reflect::Reflect;
 use bevy_utils::BoxedFuture;
 use petgraph::graph::{DiGraph, NodeIndex};
-use petgraph::visit::{Dfs, Visitable};
-use petgraph::Graph;
 use ron::de::SpannedError;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -290,32 +286,16 @@ impl AnimationGraph {
         self.graph.node_indices()
     }
 
-    /// Performs a depth-first search on the animation graph.
-    pub(crate) fn dfs(
-        &self,
-    ) -> Dfs<AnimationNodeIndex, <Graph<AnimationGraphNode, ()> as Visitable>::Map> {
-        Dfs::new(&self.graph, self.root)
-    }
-
     /// Serializes the animation graph to the given [`Write`]r in RON format.
+    ///
+    /// If writing to a file, it can later be loaded with the
+    /// [`AnimationGraphAssetLoader`] to reconstruct the graph.
     pub fn save<W>(&self, writer: &mut W) -> Result<(), AnimationGraphLoadError>
     where
         W: Write,
     {
         let mut ron_serializer = ron::ser::Serializer::new(writer, None)?;
         Ok(self.serialize(&mut ron_serializer)?)
-    }
-
-    /// A convenience method to serialize the animation graph to a file.
-    ///
-    /// This file can later be loaded with the [`AnimationGraphAssetLoader`] to
-    /// reconstruct the graph.
-    pub fn save_to<P>(&self, path: &P) -> Result<(), AnimationGraphLoadError>
-    where
-        P: AsRef<Path>,
-    {
-        let mut writer = BufWriter::new(File::create(path)?);
-        self.save(&mut writer)
     }
 }
 

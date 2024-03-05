@@ -28,6 +28,7 @@ bevy_transform = { path = "../bevy_transform", version = "0.14.0-dev" }
 bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.14.0-dev" }
 
 # other
+fixedbitset = "0.4"
 petgraph = { version = "0.6", features = ["serde-1"] }
 ron = "0.8"
 serde = "1"

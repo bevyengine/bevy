@@ -5,6 +5,7 @@ mod graph;
 mod transition;
 mod util;
 
+use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
 use std::iter;
@@ -23,6 +24,7 @@ use bevy_time::Time;
 use bevy_transform::{prelude::Transform, TransformSystem};
 use bevy_utils::hashbrown::HashMap;
 use bevy_utils::{tracing::error, NoOpHash, Uuid};
+use fixedbitset::FixedBitSet;
 use graph::{AnimationGraph, AnimationNodeIndex};
 use petgraph::graph::NodeIndex;
 use petgraph::Direction;
@@ -471,9 +473,17 @@ pub struct AnimationPlayer {
     playing_animations: HashMap<AnimationNodeIndex, ActiveAnimation>,
     blend_weights: HashMap<AnimationNodeIndex, f32>,
 
+    /// Stores clips and weights for playing animations that are to be applied
+    /// later in the frame.
     schedule: Vec<ScheduledAnimationClip>,
 }
 
+/// A transient structure that stores clips and weights that are to be applied
+/// later in the frame.
+///
+/// We gather these up in a different phase from the one in which we actually
+/// apply the animation because we need to sort them by weight in order to
+/// properly apply them in the right order.
 #[derive(Clone, Debug, Reflect)]
 struct ScheduledAnimationClip {
     clip: Handle<AnimationClip>,
@@ -490,6 +500,27 @@ struct AnimationTargetContext<'a> {
     name: Option<&'a Name>,
     transform: Option<Mut<'a, Transform>>,
     morph_weights: Option<Mut<'a, MorphWeights>>,
+}
+
+/// Information needed during the traversal of the animation graph in
+/// [`advance_animations`].
+#[derive(Default)]
+struct AnimationGraphEvaluator {
+    /// The stack used for the depth-first search of the graph.
+    dfs_stack: Vec<NodeIndex>,
+    /// The list of visited nodes during the depth-first traversal.
+    dfs_visited: FixedBitSet,
+    /// Accumulated weights for each node.
+    weights: Vec<f32>,
+}
+
+thread_local! {
+    /// A cached per-thread copy of the graph evaluator.
+    ///
+    /// Caching the evaluator lets us save allocation traffic from frame to
+    /// frame.
+    static ANIMATION_GRAPH_EVALUATOR: RefCell<AnimationGraphEvaluator> =
+        RefCell::new(AnimationGraphEvaluator::default());
 }
 
 impl AnimationPlayer {
@@ -646,71 +677,87 @@ pub fn advance_animations(
                 return;
             };
 
-            let AnimationPlayer {
-                ref mut playing_animations,
-                ref blend_weights,
-                ref mut schedule,
-                ..
-            } = *player;
-
             // Tick animations, and schedule them.
+            //
+            // We use a thread-local here so we can reuse allocations across
+            // frames.
+            ANIMATION_GRAPH_EVALUATOR.with_borrow_mut(|evaluator| {
+                let AnimationPlayer {
+                    ref mut playing_animations,
+                    ref blend_weights,
+                    ref mut schedule,
+                    ..
+                } = *player;
 
-            schedule.clear();
+                // Reset our state.
+                schedule.clear();
+                evaluator.reset(animation_graph.root, animation_graph.graph.node_count());
 
-            let mut dfs = animation_graph.dfs();
-            let mut weights = HashMap::with_capacity(animation_graph.graph.node_count());
-
-            while let Some(node_index) = dfs.next(&animation_graph.graph) {
-                let node = &animation_graph[node_index];
-
-                let mut weight = node.weight;
-                for parent in animation_graph
-                    .graph
-                    .neighbors_directed(node_index, Direction::Incoming)
-                {
-                    if let Some(parent_weight) = weights.get(&parent) {
-                        weight *= parent_weight;
+                while let Some(node_index) = evaluator.dfs_stack.pop() {
+                    // Skip if we've already visited this node.
+                    if evaluator.dfs_visited.put(node_index.index()) {
+                        continue;
                     }
-                }
 
-                if let Some(playing_animation) = playing_animations.get_mut(&node_index) {
-                    // Tick the animation if necessary.
-                    if !playing_animation.paused {
-                        if let Some(ref clip_handle) = node.clip {
-                            if let Some(clip) = animation_clips.get(clip_handle) {
-                                playing_animation.update(delta_seconds, clip.duration);
+                    let node = &animation_graph[node_index];
+
+                    // Calculate weight from the graph. Bail if the weight is zero.
+                    let mut weight = node.weight * evaluator.weights[node_index.index()];
+                    if weight == 0.0 {
+                        continue;
+                    }
+
+                    if let Some(playing_animation) = playing_animations.get_mut(&node_index) {
+                        // Tick the animation if necessary.
+                        if !playing_animation.paused {
+                            if let Some(ref clip_handle) = node.clip {
+                                if let Some(clip) = animation_clips.get(clip_handle) {
+                                    playing_animation.update(delta_seconds, clip.duration);
+                                }
                             }
                         }
+
+                        weight *= playing_animation.weight;
+                    } else if let Some(&blend_weight) = blend_weights.get(&node_index) {
+                        weight *= blend_weight;
                     }
 
-                    weight *= playing_animation.weight;
-                } else if let Some(&blend_weight) = blend_weights.get(&node_index) {
-                    weight *= blend_weight;
+                    // Bail out now if the weight is zero.
+                    if weight == 0.0 {
+                        continue;
+                    }
+
+                    if let (Some(clip), Some(playing_animation)) =
+                        (&node.clip, playing_animations.get(&node_index))
+                    {
+                        schedule.push(ScheduledAnimationClip {
+                            clip: clip.clone(),
+                            seek_time: playing_animation.seek_time,
+                            weight,
+                        });
+                    }
+
+                    // Propagate weight to children, and push them.
+                    for kid_index in animation_graph
+                        .graph
+                        .neighbors_directed(node_index, Direction::Outgoing)
+                    {
+                        evaluator.weights[kid_index.index()] *= weight;
+                        evaluator.dfs_stack.push(kid_index);
+                    }
                 }
 
-                weights.insert(node_index, weight);
-
-                if let (Some(clip), Some(playing_animation)) =
-                    (&node.clip, playing_animations.get(&node_index))
-                {
-                    schedule.push(ScheduledAnimationClip {
-                        clip: clip.clone(),
-                        seek_time: playing_animation.seek_time,
-                        weight,
-                    });
-                }
-            }
-
-            // Sort animations by weight, so that the most heavily-weighted
-            // animations come first.
-            //
-            // FIXME: This seems dubious, but it matches Bevy 0.13 behavior. Figure
-            // out what we want to do here.
-            player.schedule.sort_by(|a, b| {
-                a.weight
-                    .partial_cmp(&b.weight)
-                    .unwrap_or(Ordering::Less)
-                    .reverse()
+                // Sort animations by weight, so that the most heavily-weighted
+                // animations come first.
+                //
+                // FIXME: This seems dubious, but it matches Bevy 0.13 behavior. Figure
+                // out what we want to do here.
+                player.schedule.sort_by(|a, b| {
+                    a.weight
+                        .partial_cmp(&b.weight)
+                        .unwrap_or(Ordering::Less)
+                        .reverse()
+                });
             });
         });
 }
@@ -1132,6 +1179,20 @@ impl ScheduledAnimationClip {
                 lerp_morph_weights(morphs.weights_mut(), result, self.weight);
             }
         }
+    }
+}
+
+impl AnimationGraphEvaluator {
+    // Starts a new depth-first search.
+    fn reset(&mut self, root: AnimationNodeIndex, node_count: usize) {
+        self.dfs_stack.clear();
+        self.dfs_stack.push(root);
+
+        self.dfs_visited.grow(node_count);
+        self.dfs_visited.clear();
+
+        self.weights.clear();
+        self.weights.extend(iter::repeat(1.0).take(node_count));
     }
 }
 
