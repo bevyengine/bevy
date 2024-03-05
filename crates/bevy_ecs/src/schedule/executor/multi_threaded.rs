@@ -624,7 +624,7 @@ impl ExecutorState {
                     __rust_begin_short_backtrace::run_unsafe(
                         &mut **system,
                         context.environment.world_cell,
-                    )
+                    );
                 };
             }));
             context.system_completed(system_index, res, system);

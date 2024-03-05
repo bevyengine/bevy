@@ -139,7 +139,7 @@ mod __rust_begin_short_backtrace {
         system: &mut dyn System<In = (), Out = ()>,
         world: UnsafeWorldCell,
     ) {
-        black_box(system.run_unsafe((), world))
+        black_box(system.run_unsafe((), world));
     }
 
     /// # Safety
@@ -154,7 +154,7 @@ mod __rust_begin_short_backtrace {
 
     #[inline(never)]
     pub(super) fn run(system: &mut dyn System<In = (), Out = ()>, world: &mut World) {
-        black_box(system.run((), world))
+        black_box(system.run((), world));
     }
 
     #[inline(never)]
