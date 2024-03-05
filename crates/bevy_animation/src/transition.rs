@@ -3,7 +3,6 @@
 //! Please note that this is an unstable temporary API. It may be replaced by a
 //! state machine in the future.
 
-use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
     system::{Query, Res},
@@ -21,8 +20,11 @@ use crate::{graph::AnimationNodeIndex, ActiveAnimation, AnimationPlayer};
 /// [`AnimationPlayer`] and [`bevy_asset::Handle<AnimationGraph>`]. It'll take
 /// responsibility for adjusting the weight on the [`ActiveAnimation`] in order
 /// to fade out animations smoothly.
-#[derive(Component, Default, Deref, DerefMut, Reflect)]
-pub struct AnimationTransitions(pub Vec<AnimationTransition>);
+#[derive(Component, Default, Reflect)]
+pub struct AnimationTransitions {
+    main_animation: Option<AnimationNodeIndex>,
+    transitions: Vec<AnimationTransition>,
+}
 
 /// An animation that is being faded out as part of a transition
 #[derive(Debug, Reflect)]
@@ -48,20 +50,23 @@ impl AnimationTransitions {
     pub fn play<'p>(
         &mut self,
         player: &'p mut AnimationPlayer,
-        animation: AnimationNodeIndex,
+        new_animation: AnimationNodeIndex,
         transition_duration: Duration,
     ) -> &'p mut ActiveAnimation {
-        for (&old_animation_index, old_animation) in player.playing_animations() {
-            if !old_animation.is_paused() {
-                self.push(AnimationTransition {
-                    current_weight: old_animation.weight,
-                    weight_decline_per_sec: 1.0 / transition_duration.as_secs_f32(),
-                    animation: old_animation_index,
-                });
+        if let Some(old_animation_index) = self.main_animation.replace(new_animation) {
+            if let Some(old_animation) = player.animation_mut(old_animation_index) {
+                if !old_animation.is_paused() {
+                    self.transitions.push(AnimationTransition {
+                        current_weight: old_animation.weight,
+                        weight_decline_per_sec: 1.0 / transition_duration.as_secs_f32(),
+                        animation: old_animation_index,
+                    });
+                }
             }
         }
 
-        player.start(animation)
+        self.main_animation = Some(new_animation);
+        player.start(new_animation)
     }
 }
 
@@ -71,14 +76,30 @@ pub fn advance_transitions(
     mut query: Query<(&mut AnimationTransitions, &mut AnimationPlayer)>,
     time: Res<Time>,
 ) {
-    for (mut transitions, mut player) in query.iter_mut() {
-        for transition in &mut transitions.0 {
+    // We use a "greedy layer" system here. The top layer (most recent
+    // transition) gets as much as weight as it wants, and the remaining amount
+    // is divided between all the other layers, eventually culminating in the
+    // currently-playing animation receiving whatever's left. This results in a
+    // nicely normalized weight.
+    let mut remaining_weight = 1.0;
+    for (mut animation_transitions, mut player) in query.iter_mut() {
+        for transition in &mut animation_transitions.transitions.iter_mut().rev() {
             // Decrease weight.
             transition.current_weight = (transition.current_weight
                 - transition.weight_decline_per_sec * time.delta_seconds())
             .max(0.0);
-            if let Some(ref mut animation) = player.animation_mut(transition.animation) {
-                animation.weight = transition.current_weight;
+
+            // Update weight.
+            let Some(ref mut animation) = player.animation_mut(transition.animation) else {
+                continue;
+            };
+            animation.weight = transition.current_weight * remaining_weight;
+            remaining_weight -= animation.weight;
+        }
+
+        if let Some(main_animation_index) = animation_transitions.main_animation {
+            if let Some(ref mut animation) = player.animation_mut(main_animation_index) {
+                animation.weight = remaining_weight;
             }
         }
     }
@@ -89,8 +110,8 @@ pub fn advance_transitions(
 pub fn expire_completed_transitions(
     mut query: Query<(&mut AnimationTransitions, &mut AnimationPlayer)>,
 ) {
-    for (mut transitions, mut player) in query.iter_mut() {
-        transitions.0.retain(|transition| {
+    for (mut animation_transitions, mut player) in query.iter_mut() {
+        animation_transitions.transitions.retain(|transition| {
             let expire = transition.current_weight <= 0.0;
             if expire {
                 player.stop(transition.animation);
