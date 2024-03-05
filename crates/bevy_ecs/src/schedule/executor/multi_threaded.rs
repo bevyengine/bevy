@@ -675,7 +675,7 @@ impl ExecutorState {
                 let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
                     #[cfg(feature = "trace")]
                     let _span = system_span.enter();
-                    system.run((), world);
+                    __rust_begin_short_backtrace::run(&mut **system, world);
                 }));
                 context.system_completed(system_index, res, system);
             };

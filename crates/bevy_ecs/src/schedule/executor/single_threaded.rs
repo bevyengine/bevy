@@ -103,7 +103,7 @@ impl SystemExecutor for SingleThreadedExecutor {
 
             let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
                 if system.is_exclusive() {
-                    system.run((), world);
+                    __rust_begin_short_backtrace::run(&mut **system, world);
                 } else {
                     // Use run_unsafe to avoid immediately applying deferred buffers
                     let world = world.as_unsafe_world_cell();
