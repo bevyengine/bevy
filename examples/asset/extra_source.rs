@@ -1,4 +1,5 @@
-//! Example of loading assets from an extra asset source
+//! An example of registering an extra asset source, and loading assets from it.
+//! This asset source exists in addition to the default asset source.
 
 use bevy::asset::{
     io::{AssetSourceBuilder, AssetSourceBuilders, AssetSourceId},
@@ -10,8 +11,9 @@ use std::path::Path;
 fn main() {
     let mut app = App::new();
 
-    // We add our own "example_files" asset source to the AssetSourceBuilders before
-    // AssetPlugin finalizes building them
+    // We add an extra asset source with the name "example_files" to the
+    // AssetSourceBuilders.
+    // This needs to be done before AssetPlugin finalizes building them
     let mut sources = app
         .world
         .get_resource_or_insert_with::<AssetSourceBuilders>(default);
@@ -20,6 +22,8 @@ fn main() {
         AssetSourceBuilder::platform_default("examples/asset/files", None),
     );
 
+    // DefaultPlugins contains AssetPlugin so it should come after inserting
+    // our new asset source
     app.add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .run();
@@ -28,7 +32,7 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
 
-    // Now we can load the asset using our custom asset source
+    // Now we can load the asset using our new asset source
     //
     // The actual file path relative to workspace root is
     // "examples/asset/files/bevy_pixel_light.png".
