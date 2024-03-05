@@ -198,6 +198,7 @@ Example | Description
 [Custom Asset IO](../examples/asset/custom_asset_reader.rs) | Implements a custom AssetReader
 [Embedded Asset](../examples/asset/embedded_asset.rs) | Embed an asset in the application binary and load it
 [Hot Reloading of Assets](../examples/asset/hot_asset_reloading.rs) | Demonstrates automatic reloading of assets when modified on disk
+[Remote Asset Loader](../examples/asset/remote_asset_loader.rs) | Implements a RemoteAssetLoader to download assets from CDN.
 
 ## Async Tasks
 

@@ -332,6 +332,7 @@ bytemuck = "1.7"
 futures-lite = "2.0.1"
 crossbeam-channel = "0.5.0"
 argh = "0.1.12"
+ehttp = { version = "0.4.0", features = ["native-async"] }
 
 [[example]]
 name = "hello_world"
@@ -1225,6 +1226,17 @@ name = "Custom Asset IO"
 description = "Implements a custom AssetReader"
 category = "Assets"
 wasm = true
+
+[[example]]
+name = "remote_asset_loader"
+path = "examples/asset/remote_asset_loader.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.remote_asset_loader]
+name = "Remote Asset Loader"
+description = "Implements a RemoteAssetLoader to download assets from CDN."
+category = "Assets"
+wasm = false
 
 [[example]]
 name = "embedded_asset"
