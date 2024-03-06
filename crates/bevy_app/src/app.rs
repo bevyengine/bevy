@@ -188,11 +188,6 @@ impl Default for App {
 
         app.add_event::<AppExit>();
 
-        #[cfg(feature = "bevy_ci_testing")]
-        {
-            crate::ci_testing::setup_app(&mut app);
-        }
-
         app
     }
 }
