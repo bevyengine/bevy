@@ -259,6 +259,7 @@ Example | Description
 [Alien Cake Addict](../examples/games/alien_cake_addict.rs) | Eat the cakes. Eat them all. An example 3D game
 [Breakout](../examples/games/breakout.rs) | An implementation of the classic game "Breakout"
 [Contributors](../examples/games/contributors.rs) | Displays each contributor as a bouncy bevy-ball!
+[Desk Toy](../examples/games/desktoy.rs) | Bevy logo as a desk toy! Now with Googly Eyes!
 [Game Menu](../examples/games/game_menu.rs) | A simple game menu
 
 ## Gizmos
