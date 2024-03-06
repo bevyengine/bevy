@@ -162,9 +162,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         self.arrow(start, end_y, GREEN);
         self.arrow(start, end_z, BLUE);
     }
-}
 
-impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// Draw a set of axes local to the given transform (`transform`), with length scaled by a factor
     /// of `base_length`.
     ///

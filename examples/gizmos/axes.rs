@@ -8,7 +8,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, (move_cubes, draw_axes))
+        .add_systems(Update, (move_cubes, draw_axes, draw_axes_2d))
         .run();
 }
 
@@ -16,6 +16,9 @@ fn main() {
 /// display axes according to its Transform component.
 #[derive(Component)]
 struct ShowAxes;
+
+#[derive(Component)]
+struct ShowAxes2D;
 
 /// The `TransformTracking` component keeps track of the data we need to interpolate
 /// between two transforms in our example.
@@ -82,12 +85,15 @@ fn setup(
     ));
 
     // A plane to give a sense of place
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(20., 20.)),
-        material: materials.add(Color::srgb(0.1, 0.1, 0.1)),
-        transform: Transform::from_xyz(0., -2., 0.),
-        ..default()
-    });
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Plane3d::default().mesh().size(20., 20.)),
+            material: materials.add(Color::srgb(0.1, 0.1, 0.1)),
+            transform: Transform::from_xyz(0., -2., 0.),
+            ..default()
+        },
+        ShowAxes2D,
+    ));
 }
 
 // This system draws the axes based on the cube's transform, with length based on the size of
@@ -96,6 +102,13 @@ fn draw_axes(mut gizmos: Gizmos, query: Query<(&Transform, &Aabb), With<ShowAxes
     for (&transform, &aabb) in &query {
         let length = aabb.half_extents.length();
         gizmos.axes(transform, length);
+    }
+}
+
+fn draw_axes_2d(mut gizmos: Gizmos, query: Query<(&Transform, &Aabb), With<ShowAxes2D>>) {
+    for (&transform, &aabb) in &query {
+        let length = aabb.half_extents.length() / 10.;
+        gizmos.axes_2d(transform, length);
     }
 }
 
