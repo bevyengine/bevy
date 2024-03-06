@@ -9,11 +9,11 @@ use bevy_core_pipeline::{
 use bevy_derive::{Deref, DerefMut};
 use bevy_render::{
     camera::TemporalJitter,
-    mesh::{InnerMeshVertexBufferLayout, Mesh, MeshVertexBufferLayout},
+    mesh::{Mesh, MeshVertexBufferLayout, MeshVertexBufferLayoutRef, MeshVertexBufferLayouts},
     render_resource::*,
     view::ExtractedView,
 };
-use bevy_utils::{HashMap, Hashed};
+use bevy_utils::HashMap;
 use std::hash::Hash;
 
 /// A list of `(Material ID, Pipeline, BindGroup)` for a view for use in [`super::MeshletMainOpaquePass3dNode`].
@@ -32,6 +32,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
     render_materials: Res<RenderMaterials<M>>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
     asset_server: Res<AssetServer>,
+    mut mesh_vertex_buffer_layouts: ResMut<MeshVertexBufferLayouts>,
     mut views: Query<
         (
             &mut MeshletViewMaterialsMainOpaquePass,
@@ -56,7 +57,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    let fake_vertex_buffer_layout = &fake_vertex_buffer_layout();
+    let fake_vertex_buffer_layout = &fake_vertex_buffer_layout(&mut mesh_vertex_buffer_layouts);
 
     for (
         mut materials,
@@ -227,6 +228,7 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
     prepass_pipeline: Res<PrepassPipeline<M>>,
     render_materials: Res<RenderMaterials<M>>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
+    mut mesh_vertex_buffer_layouts: ResMut<MeshVertexBufferLayouts>,
     asset_server: Res<AssetServer>,
     mut views: Query<
         (
@@ -240,7 +242,7 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    let fake_vertex_buffer_layout = &fake_vertex_buffer_layout();
+    let fake_vertex_buffer_layout = &fake_vertex_buffer_layout(&mut *mesh_vertex_buffer_layouts);
 
     for (
         mut materials,
@@ -365,8 +367,8 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
 }
 
 // Meshlet materials don't use a traditional vertex buffer, but the material specialization requires one.
-fn fake_vertex_buffer_layout() -> Hashed<InnerMeshVertexBufferLayout> {
-    MeshVertexBufferLayout::new(InnerMeshVertexBufferLayout::new(
+fn fake_vertex_buffer_layout(layouts: &mut MeshVertexBufferLayouts) -> MeshVertexBufferLayoutRef {
+    layouts.insert(MeshVertexBufferLayout::new(
         vec![
             Mesh::ATTRIBUTE_POSITION.id,
             Mesh::ATTRIBUTE_NORMAL.id,

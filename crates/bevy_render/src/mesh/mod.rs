@@ -61,7 +61,7 @@ impl MeshVertexBufferLayouts {
     /// Inserts a new mesh vertex buffer layout in the store and returns a
     /// reference to it, reusing the existing reference if this mesh vertex
     /// buffer layout was already in the store.
-    pub(crate) fn insert(&mut self, layout: MeshVertexBufferLayout) -> MeshVertexBufferLayoutRef {
+    pub fn insert(&mut self, layout: MeshVertexBufferLayout) -> MeshVertexBufferLayoutRef {
         // Because the special `PartialEq` and `Hash` implementations that
         // compare by pointer are on `MeshVertexBufferLayoutRef`, not on
         // `Arc<MeshVertexBufferLayout>`, this compares the mesh vertex buffer
