@@ -1695,7 +1695,7 @@ doc-scrape-examples = true
 
 [package.metadata.example.desktoy]
 name = "Desk Toy"
-description = "Bevy logo as a desk toy! Now with Googly Eyes!"
+description = "Bevy logo as a desk toy using transparent windows! Now with Googly Eyes!"
 category = "Games"
 wasm = false
 

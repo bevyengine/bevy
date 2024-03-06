@@ -1,4 +1,10 @@
-//! Bevy logo as a desk toy! Now with Googly Eyes!
+//! Bevy logo as a desk toy using transparent windows! Now with Googly Eyes!
+//!
+//! This example demonstrates:
+//! - Transparent windows that can be clicked through.
+//! - Drag-and-drop operations in 2D.
+//! - Using entity hierarchy and [`SpatialBundles`] to create simple animations.
+//! - Creating simple 2D meshes based on shape primitives.
 
 use bevy::{
     app::AppExit,
@@ -24,6 +30,7 @@ fn main() {
             ..default()
         }))
         .insert_resource(ClearColor(Color::srgb(0.2, 0.2, 0.2)))
+        .insert_resource(WindowTransparency(false))
         .insert_resource(CursorWorldPos(None))
         .add_systems(Startup, setup)
         .add_systems(
@@ -35,42 +42,52 @@ fn main() {
             (
                 start_drag.run_if(input_just_pressed(MouseButton::Left)),
                 end_drag.run_if(input_just_released(MouseButton::Left)),
-                drag.run_if(resource_exists::<DragOffset>),
+                drag.run_if(resource_exists::<DragOperation>),
                 quit.run_if(input_just_pressed(MouseButton::Right)),
-                enable_transparency.run_if(input_just_pressed(KeyCode::Space)),
-                update_pupils.after(drag),
+                toggle_transparency.run_if(input_just_pressed(KeyCode::Space)),
+                move_pupils.after(drag),
             )
                 .after(update_cursor_hit_test),
         )
         .run();
 }
 
+/// Whether the window is transparent
+#[derive(Resource)]
+struct WindowTransparency(bool);
+
+/// The projected 2D world coordinates of the cursor (if it's within primary window bounds).
 #[derive(Resource)]
 struct CursorWorldPos(Option<Vec2>);
 
+/// The current drag operation including the offset with which we grabbed the Bevy logo.
 #[derive(Resource)]
-struct DragOffset(Vec2);
+struct DragOperation(Vec2);
 
-#[derive(Component)]
-struct MainCamera;
-
+/// Marker component for the instructions text entity.
 #[derive(Component)]
 struct InstructionsText;
 
+/// Marker component for the Bevy logo entity.
 #[derive(Component)]
 struct BevyLogo;
 
+/// Component for the moving pupil entity (the moving part of the googly eye).
 #[derive(Component)]
 struct Pupil {
+    /// Radius of the eye containing the pupil.
     eye_radius: f32,
+    /// Radius of the pupil.
     pupil_radius: f32,
+    /// Current velocity of the pupil.
     velocity: Vec2,
 }
 
-// based on: branding/icon.png
+// Dimensions are based on: assets/branding/icon.png
 // Bevy logo radius
 const BEVY_LOGO_RADIUS: f32 = 128.0;
 // Birds' eyes x y (offset from the origin) and radius
+// These values are manually determined from the logo image
 const BIRDS_EYES: [(f32, f32, f32); 3] = [
     (145.0 - 128.0, -(56.0 - 128.0), 12.0),
     (198.0 - 128.0, -(87.0 - 128.0), 10.0),
@@ -84,8 +101,10 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    commands.spawn((Camera2dBundle::default(), MainCamera));
+    // Spawn a 2D camera
+    commands.spawn(Camera2dBundle::default());
 
+    // Spawn the text instructions
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     let text_style = TextStyle {
         font: font.clone(),
@@ -95,7 +114,7 @@ fn setup(
     commands.spawn((
         Text2dBundle {
             text: Text::from_section(
-                "Press Space to play on your desktop!\nRight click Bevy logo to exit.",
+                "Press Space to play on your desktop! Press it again to return.\nRight click Bevy logo to exit.",
                 text_style.clone(),
             ),
             transform: Transform::from_xyz(0.0, -300.0, 100.0),
@@ -104,12 +123,15 @@ fn setup(
         InstructionsText,
     ));
 
+    // Create a circle mesh. We will reuse this mesh for all our circles.
     let circle = Mesh2dHandle(meshes.add(Circle { radius: 1.0 }));
+    // Create the different materials we will use for each part of the eyes. For this demo they are basic [`ColorMaterial`]s.
     let outline_material = materials.add(Color::BLACK);
     let sclera_material = materials.add(Color::WHITE);
     let pupil_material = materials.add(Color::srgb(0.2, 0.2, 0.2));
     let pupil_highlight_material = materials.add(Color::srgba(1.0, 1.0, 1.0, 0.2));
 
+    // Spawn the Bevy logo sprite
     commands
         .spawn((
             SpriteBundle {
@@ -119,6 +141,7 @@ fn setup(
             BevyLogo,
         ))
         .with_children(|commands| {
+            // For each bird eye
             for (x, y, radius) in BIRDS_EYES {
                 // eye outline
                 commands.spawn(MaterialMesh2dBundle {
@@ -195,10 +218,10 @@ fn setup(
 fn get_cursor_world_pos(
     mut cursor_world_pos: ResMut<CursorWorldPos>,
     q_primary_window: Query<&Window, With<PrimaryWindow>>,
-    q_main_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
+    q_camera: Query<(&Camera, &GlobalTransform)>,
 ) {
     let primary_window = q_primary_window.single();
-    let (main_camera, main_camera_transform) = q_main_camera.single();
+    let (main_camera, main_camera_transform) = q_camera.single();
     // Get the cursor position in the world
     cursor_world_pos.0 = primary_window
         .cursor_position()
@@ -212,15 +235,19 @@ fn update_cursor_hit_test(
     q_bevy_logo: Query<&Transform, With<BevyLogo>>,
 ) {
     let mut primary_window = q_primary_window.single_mut();
+
+    // If the window has decorations (e.g. a border) then it should be clickable
     if primary_window.decorations {
         primary_window.cursor.hit_test = true;
         return;
     }
 
+    // If the cursor is not within the window we don't need to update whether the window is clickable or not
     let Some(cursor_world_pos) = cursor_world_pos.0 else {
         return;
     };
 
+    // If the cursor is within the radius of the Bevy logo make the window clickable otherwise the window is not clickable
     let bevy_logo_transform = q_bevy_logo.single();
     primary_window.cursor.hit_test =
         (bevy_logo_transform.translation.truncate() - cursor_world_pos).length() < BEVY_LOGO_RADIUS;
@@ -232,40 +259,55 @@ fn start_drag(
     cursor_world_pos: Res<CursorWorldPos>,
     q_bevy_logo: Query<&Transform, With<BevyLogo>>,
 ) {
+    // If the cursor is not within the primary window skip this system
     let Some(cursor_world_pos) = cursor_world_pos.0 else {
         return;
     };
 
+    // Get the offset from the cursor to the Bevy logo sprite
     let bevy_logo_transform = q_bevy_logo.single();
     let drag_offset = bevy_logo_transform.translation.truncate() - cursor_world_pos;
+
+    // If the cursor is within the Bevy logo radius start the drag operation and remember the offset of the cursor from the origin
     if drag_offset.length() < BEVY_LOGO_RADIUS {
-        commands.insert_resource(DragOffset(drag_offset));
+        commands.insert_resource(DragOperation(drag_offset));
     }
 }
 
 /// Stop the current drag operation
 fn end_drag(mut commands: Commands) {
-    commands.remove_resource::<DragOffset>();
+    commands.remove_resource::<DragOperation>();
 }
 
 /// Drag the Bevy logo
 fn drag(
-    drag_offset: Res<DragOffset>,
+    drag_offset: Res<DragOperation>,
     cursor_world_pos: Res<CursorWorldPos>,
     time: Res<Time>,
     mut q_bevy_logo: Query<&mut Transform, With<BevyLogo>>,
     mut q_pupils: Query<&mut Pupil>,
 ) {
+    // If the cursor is not within the primary window skip this system
     let Some(cursor_world_pos) = cursor_world_pos.0 else {
         return;
     };
 
+    // Get the current Bevy logo transform
     let mut bevy_transform = q_bevy_logo.single_mut();
+
+    // Calculate the new translation of the Bevy logo based on cursor and drag offset
     let new_translation = cursor_world_pos + drag_offset.0;
+
+    // Calculate how fast we are dragging the Bevy logo (unit/second)
     let drag_velocity =
         (new_translation - bevy_transform.translation.truncate()) / time.delta_seconds();
+
+    // Update the translation of Bevy logo transform to new translation
     bevy_transform.translation = new_translation.extend(bevy_transform.translation.z);
 
+    // Add the cursor drag velocity in the opposite direction to each pupil.
+    // Remember pupils are using local coordinates to move. So when the Bevy logo moves right they need to move left to
+    // simulate inertia, otherwise they will move fixed to the parent.
     for mut pupil in &mut q_pupils {
         pupil.velocity -= drag_velocity;
     }
@@ -277,10 +319,12 @@ fn quit(
     mut app_exit: EventWriter<AppExit>,
     q_bevy_logo: Query<&Transform, With<BevyLogo>>,
 ) {
+    // If the cursor is not within the primary window skip this system
     let Some(cursor_world_pos) = cursor_world_pos.0 else {
         return;
     };
 
+    // If the cursor is within the Bevy logo radius send the [`AppExit`] event to quit the app
     let bevy_logo_transform = q_bevy_logo.single();
     if (bevy_logo_transform.translation.truncate() - cursor_world_pos).length() < BEVY_LOGO_RADIUS {
         app_exit.send(AppExit);
@@ -288,33 +332,58 @@ fn quit(
 }
 
 /// Enable transparency for the window and make it on top
-fn enable_transparency(
+fn toggle_transparency(
     mut commands: Commands,
-    q_instructions_text: Query<Entity, With<InstructionsText>>,
+    mut window_transparency: ResMut<WindowTransparency>,
+    mut q_instructions_text: Query<&mut Visibility, With<InstructionsText>>,
     mut q_primary_window: Query<&mut Window, With<PrimaryWindow>>,
 ) {
-    let _ = q_instructions_text
-        .get_single()
-        .map(|entity| commands.entity(entity).despawn_recursive());
+    // Toggle the window transparency resource
+    window_transparency.0 = !window_transparency.0;
+
+    // Show or hide the instructions text
+    for mut visibility in &mut q_instructions_text {
+        *visibility = if window_transparency.0 {
+            Visibility::Hidden
+        } else {
+            Visibility::Visible
+        };
+    }
+
+    // Remove the primary window's decorations (e.g. borders), make it always on top of other desktop windows, and set the clear color to transparent
+    // only if window transparency is enabled
     let mut window = q_primary_window.single_mut();
-    window.decorations = false;
-    window.window_level = WindowLevel::AlwaysOnTop;
-    commands.insert_resource(ClearColor(Color::NONE));
+    let clear_color;
+    (window.decorations, window.window_level, clear_color) = if window_transparency.0 {
+        (false, WindowLevel::AlwaysOnTop, Color::NONE)
+    } else {
+        (true, WindowLevel::Normal, Color::srgb(0.2, 0.2, 0.2))
+    };
+
+    // Set the clear color
+    commands.insert_resource(ClearColor(clear_color));
 }
 
-/// Bounce the pupils around
-fn update_pupils(time: Res<Time>, mut q_pupils: Query<(&mut Pupil, &mut Transform)>) {
+/// Move the pupils and bound them around
+fn move_pupils(time: Res<Time>, mut q_pupils: Query<(&mut Pupil, &mut Transform)>) {
     for (mut pupil, mut transform) in &mut q_pupils {
+        // The wiggle radius is how much the pupil can move within the eye
         let wiggle_radius = pupil.eye_radius - pupil.pupil_radius;
+        // Store the Z component
         let z = transform.translation.z;
+        // Truncate the Z component to make the calculations be on [`Vec2`]
         let mut translation = transform.translation.truncate();
+        // Decay the pupil velocity
         pupil.velocity *= 0.93;
-        let mut new_translation = translation + (pupil.velocity * time.delta_seconds());
-        if new_translation.length() > wiggle_radius {
-            new_translation = new_translation.normalize() * wiggle_radius;
+        // Move the pupil
+        translation += pupil.velocity * time.delta_seconds();
+        // If the pupil hit the outside border of the eye, limit the translation to be within the wiggle radius and invert the velocity.
+        // This is not physically accurate but it's good enough for the googly eyes effect.
+        if translation.length() > wiggle_radius {
+            translation = translation.normalize() * wiggle_radius;
             pupil.velocity *= -1.0;
         }
-        translation = new_translation;
+        // Update the entity transform with the new translation after readding the Z component
         transform.translation = translation.extend(z);
     }
 }
