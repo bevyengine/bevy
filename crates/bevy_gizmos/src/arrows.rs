@@ -8,7 +8,7 @@ use bevy_color::{
     palettes::basic::{BLUE, GREEN, RED},
     Color,
 };
-use bevy_math::{Quat, Vec2, Vec3};
+use bevy_math::{Quat, Vec2, Vec3, Vec3Swizzles};
 use bevy_transform::TransformPoint;
 
 /// A builder returned by [`Gizmos::arrow`] and [`Gizmos::arrow_2d`]
@@ -125,14 +125,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         end: Vec2,
         color: impl Into<Color>,
     ) -> ArrowBuilder<'_, 'w, 's, T> {
-        let length = (end - start).length();
-        ArrowBuilder {
-            gizmos: self,
-            start: start.extend(0.),
-            end: end.extend(0.),
-            color: color.into(),
-            tip_length: length / 10.,
-        }
+        self.arrow(start.extend(0.), end.extend(0.), color)
     }
 }
 
@@ -199,7 +192,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         let end_x = transform.transform_point(base_length * Vec3::X);
         let end_y = transform.transform_point(base_length * Vec3::Y);
 
-        self.arrow_2d(start.into(), end_x.into(), RED);
-        self.arrow_2d(start.into(), end_y.into(), GREEN);
+        self.arrow_2d(start.xy(), end_x.xy(), RED);
+        self.arrow_2d(start.xy(), end_y.xy(), GREEN);
     }
 }
