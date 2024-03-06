@@ -51,7 +51,6 @@ impl Plugin for TimePlugin {
             .register_type::<Time<Virtual>>()
             .register_type::<Time<Fixed>>()
             .register_type::<Timer>()
-            .register_type::<Stopwatch>()
             .add_systems(
                 First,
                 (time_system, virtual_time_system.after(time_system)).in_set(TimeSystem),
