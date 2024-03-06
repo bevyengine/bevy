@@ -4,7 +4,10 @@ use std::any::TypeId;
 use std::ops::{Deref, DerefMut};
 
 use crate as bevy_ecs;
-use crate::{system::Resource, world::{World, FromWorld}};
+use crate::{
+    system::Resource,
+    world::{FromWorld, World},
+};
 use bevy_reflect::{FromReflect, Reflect, TypeRegistry, TypeRegistryArc};
 
 mod bundle;
