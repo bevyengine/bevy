@@ -1689,11 +1689,11 @@ category = "Games"
 wasm = true
 
 [[example]]
-name = "desktoy"
-path = "examples/games/desktoy.rs"
+name = "desk_toy"
+path = "examples/games/desk_toy.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.desktoy]
+[package.metadata.example.desk_toy]
 name = "Desk Toy"
 description = "Bevy logo as a desk toy using transparent windows! Now with Googly Eyes!"
 category = "Games"
