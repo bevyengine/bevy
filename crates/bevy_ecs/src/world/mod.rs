@@ -1843,7 +1843,7 @@ impl World {
     /// # Panics
     /// Panics if `component_id` is not registered as a `Send` component type in this `World`
     #[inline]
-    fn initialize_resource_internal(
+    pub(crate) fn initialize_resource_internal(
         &mut self,
         component_id: ComponentId,
     ) -> &mut ResourceData<true> {
@@ -1858,7 +1858,7 @@ impl World {
     /// # Panics
     /// panics if `component_id` is not registered in this world
     #[inline]
-    fn initialize_non_send_internal(
+    pub(crate) fn initialize_non_send_internal(
         &mut self,
         component_id: ComponentId,
     ) -> &mut ResourceData<false> {
@@ -1868,18 +1868,6 @@ impl World {
             .initialize_with(component_id, &self.components, || {
                 archetypes.new_archetype_component_id()
             })
-    }
-
-    pub(crate) fn initialize_resource<R: Resource>(&mut self) -> ComponentId {
-        let component_id = self.components.init_resource::<R>();
-        self.initialize_resource_internal(component_id);
-        component_id
-    }
-
-    pub(crate) fn initialize_non_send_resource<R: 'static>(&mut self) -> ComponentId {
-        let component_id = self.components.init_non_send::<R>();
-        self.initialize_non_send_internal(component_id);
-        component_id
     }
 
     /// Empties queued entities and adds them to the empty [`Archetype`](crate::archetype::Archetype).

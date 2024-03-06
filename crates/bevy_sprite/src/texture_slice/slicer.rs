@@ -72,7 +72,7 @@ impl TextureSlicer {
             TextureSlice {
                 texture_rect: Rect {
                     min: vec2(base_rect.max.x - right, base_rect.min.y),
-                    max: vec2(base_rect.max.x, top),
+                    max: vec2(base_rect.max.x, base_rect.min.y + top),
                 },
                 draw_size: vec2(right, top) * min_coef,
                 offset: vec2(
@@ -198,6 +198,9 @@ impl TextureSlicer {
     ///
     /// * `rect` - The section of the texture to slice in 9 parts
     /// * `render_size` - The optional draw size of the texture. If not set the `rect` size will be used.
+    //
+    // TODO: Support `URect` and `UVec2` instead (See `https://github.com/bevyengine/bevy/pull/11698`)
+    //
     #[must_use]
     pub fn compute_slices(&self, rect: Rect, render_size: Option<Vec2>) -> Vec<TextureSlice> {
         let render_size = render_size.unwrap_or_else(|| rect.size());
