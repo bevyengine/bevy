@@ -43,7 +43,7 @@ impl Plugin for DevToolsPlugin {
 
         #[cfg(feature = "bevy_ci_testing")]
         {
-            ci_testing::setup_app(_app);
+            ci_testing::setup_app(app);
         }
     }
 }
