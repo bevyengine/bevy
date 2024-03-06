@@ -52,6 +52,14 @@ pub mod prelude {
     };
 }
 
+#[cfg(feature = "bevy_reflect")]
+#[doc(hidden)]
+pub mod private {
+    pub mod bevy_reflect {
+        pub use bevy_reflect::*;
+    }
+}
+
 pub use bevy_utils::all_tuples;
 
 #[cfg(test)]

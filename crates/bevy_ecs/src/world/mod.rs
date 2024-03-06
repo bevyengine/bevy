@@ -44,6 +44,8 @@ use std::{
     sync::atomic::{AtomicU32, Ordering},
 };
 mod identifier;
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::TypeRegistryArc;
 
 use self::unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 pub use identifier::WorldId;
@@ -151,6 +153,12 @@ impl World {
     #[inline]
     pub fn new() -> World {
         World::default()
+    }
+
+    #[doc(hidden)]
+    #[cfg(feature = "bevy_reflect")]
+    pub fn __type_registry(&self) -> &TypeRegistryArc {
+        &self.components().type_registry
     }
 
     /// Retrieves this [`World`]'s unique ID

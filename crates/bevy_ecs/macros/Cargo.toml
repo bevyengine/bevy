@@ -8,6 +8,9 @@ license = "MIT OR Apache-2.0"
 [lib]
 proc-macro = true
 
+[features]
+bevy_reflect = []
+
 [dependencies]
 bevy_macro_utils = { path = "../../bevy_macro_utils", version = "0.14.0-dev" }
 

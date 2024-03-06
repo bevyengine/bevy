@@ -13,6 +13,7 @@ categories = ["game-engines", "data-structures"]
 trace = []
 multi-threaded = ["bevy_tasks/multi-threaded"]
 bevy_debug_stepping = []
+bevy_reflect = ["dep:bevy_reflect", "bevy_ecs_macros/bevy_reflect"]
 default = ["bevy_reflect", "bevy_debug_stepping"]
 
 [dependencies]
