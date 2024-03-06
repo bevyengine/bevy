@@ -2040,22 +2040,23 @@ pub fn update_spot_light_frusta(
     }
 }
 
-pub fn check_light_mesh_visibility(
-    visible_point_lights: Query<&VisiblePointLights>,
-    mut point_lights: Query<(
-        &PointLight,
-        &GlobalTransform,
-        &CubemapFrusta,
-        &mut CubemapVisibleEntities,
-        Option<&RenderLayers>,
-    )>,
-    mut spot_lights: Query<(
-        &SpotLight,
-        &GlobalTransform,
-        &Frustum,
-        &mut VisibleEntities,
-        Option<&RenderLayers>,
-    )>,
+fn shrink_entities(visible_entities: &mut VisibleEntities) {
+    // Check that visible entities capacity() is no more than two times greater than len()
+    let capacity = visible_entities.entities.capacity();
+    let reserved = capacity
+        .checked_div(visible_entities.entities.len())
+        .map_or(0, |reserve| {
+            if reserve > 2 {
+                capacity / (reserve / 2)
+            } else {
+                capacity
+            }
+        });
+
+    visible_entities.entities.shrink_to(reserved);
+}
+
+pub fn check_directional_light_mesh_visibility(
     mut directional_lights: Query<
         (
             &DirectionalLight,
@@ -2078,22 +2079,6 @@ pub fn check_light_mesh_visibility(
         (Without<NotShadowCaster>, Without<DirectionalLight>),
     >,
 ) {
-    fn shrink_entities(visible_entities: &mut VisibleEntities) {
-        // Check that visible entities capacity() is no more than two times greater than len()
-        let capacity = visible_entities.entities.capacity();
-        let reserved = capacity
-            .checked_div(visible_entities.entities.len())
-            .map_or(0, |reserve| {
-                if reserve > 2 {
-                    capacity / (reserve / 2)
-                } else {
-                    capacity
-                }
-            });
-
-        visible_entities.entities.shrink_to(reserved);
-    }
-
     // Directional lights
     for (directional_light, frusta, mut visible_entities, maybe_view_mask, light_view_visibility) in
         &mut directional_lights
@@ -2185,7 +2170,36 @@ pub fn check_light_mesh_visibility(
             cascade_view_entities.iter_mut().for_each(shrink_entities);
         }
     }
+}
 
+pub fn check_spot_point_light_mesh_visibility(
+    visible_point_lights: Query<&VisiblePointLights>,
+    mut point_lights: Query<(
+        &PointLight,
+        &GlobalTransform,
+        &CubemapFrusta,
+        &mut CubemapVisibleEntities,
+        Option<&RenderLayers>,
+    )>,
+    mut spot_lights: Query<(
+        &SpotLight,
+        &GlobalTransform,
+        &Frustum,
+        &mut VisibleEntities,
+        Option<&RenderLayers>,
+    )>,
+    mut visible_entity_query: Query<
+        (
+            Entity,
+            &InheritedVisibility,
+            &mut ViewVisibility,
+            Option<&RenderLayers>,
+            Option<&Aabb>,
+            Option<&GlobalTransform>,
+        ),
+        (Without<NotShadowCaster>, Without<DirectionalLight>),
+    >,
+) {
     for visible_lights in &visible_point_lights {
         for light_entity in visible_lights.entities.iter().copied() {
             // Point lights
