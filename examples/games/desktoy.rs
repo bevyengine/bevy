@@ -3,7 +3,7 @@
 //! This example demonstrates:
 //! - Transparent windows that can be clicked through.
 //! - Drag-and-drop operations in 2D.
-//! - Using entity hierarchy and [`SpatialBundles`] to create simple animations.
+//! - Using entity hierarchy and [`SpatialBundle`]s to create simple animations.
 //! - Creating simple 2D meshes based on shape primitives.
 
 use bevy::{
@@ -29,7 +29,7 @@ fn main() {
             }),
             ..default()
         }))
-        .insert_resource(ClearColor(Color::srgb(0.2, 0.2, 0.2)))
+        .insert_resource(ClearColor(WINDOW_CLEAR_COLOR))
         .insert_resource(WindowTransparency(false))
         .insert_resource(CursorWorldPos(None))
         .add_systems(Startup, setup)
@@ -94,6 +94,8 @@ const BIRDS_EYES: [(f32, f32, f32); 3] = [
     (222.0 - 128.0, -(140.0 - 128.0), 8.0),
 ];
 
+const WINDOW_CLEAR_COLOR: Color = Color::srgb(0.2, 0.2, 0.2);
+
 /// Spawn the scene
 fn setup(
     mut commands: Commands,
@@ -147,11 +149,8 @@ fn setup(
                 commands.spawn(MaterialMesh2dBundle {
                     mesh: circle.clone(),
                     material: outline_material.clone(),
-                    transform: Transform::from_xyz(x, y - 1.0, 1.0).with_scale(Vec3::new(
-                        radius + 2.0,
-                        radius + 2.0,
-                        1.0,
-                    )),
+                    transform: Transform::from_xyz(x, y - 1.0, 1.0)
+                        .with_scale(Vec2::splat(radius + 2.0).extend(1.0)),
                     ..default()
                 });
 
@@ -249,8 +248,11 @@ fn update_cursor_hit_test(
 
     // If the cursor is within the radius of the Bevy logo make the window clickable otherwise the window is not clickable
     let bevy_logo_transform = q_bevy_logo.single();
-    primary_window.cursor.hit_test =
-        (bevy_logo_transform.translation.truncate() - cursor_world_pos).length() < BEVY_LOGO_RADIUS;
+    primary_window.cursor.hit_test = bevy_logo_transform
+        .translation
+        .truncate()
+        .distance(cursor_world_pos)
+        < BEVY_LOGO_RADIUS;
 }
 
 /// Start the drag operation and record the offset we started dragging from
@@ -326,7 +328,12 @@ fn quit(
 
     // If the cursor is within the Bevy logo radius send the [`AppExit`] event to quit the app
     let bevy_logo_transform = q_bevy_logo.single();
-    if (bevy_logo_transform.translation.truncate() - cursor_world_pos).length() < BEVY_LOGO_RADIUS {
+    if bevy_logo_transform
+        .translation
+        .truncate()
+        .distance(cursor_world_pos)
+        < BEVY_LOGO_RADIUS
+    {
         app_exit.send(AppExit);
     }
 }
@@ -357,14 +364,14 @@ fn toggle_transparency(
     (window.decorations, window.window_level, clear_color) = if window_transparency.0 {
         (false, WindowLevel::AlwaysOnTop, Color::NONE)
     } else {
-        (true, WindowLevel::Normal, Color::srgb(0.2, 0.2, 0.2))
+        (true, WindowLevel::Normal, WINDOW_CLEAR_COLOR)
     };
 
     // Set the clear color
     commands.insert_resource(ClearColor(clear_color));
 }
 
-/// Move the pupils and bound them around
+/// Move the pupils and bounce them around
 fn move_pupils(time: Res<Time>, mut q_pupils: Query<(&mut Pupil, &mut Transform)>) {
     for (mut pupil, mut transform) in &mut q_pupils {
         // The wiggle radius is how much the pupil can move within the eye
@@ -374,7 +381,7 @@ fn move_pupils(time: Res<Time>, mut q_pupils: Query<(&mut Pupil, &mut Transform)
         // Truncate the Z component to make the calculations be on [`Vec2`]
         let mut translation = transform.translation.truncate();
         // Decay the pupil velocity
-        pupil.velocity *= 0.93;
+        pupil.velocity *= (0.2f32).powf(time.delta_seconds());
         // Move the pupil
         translation += pupil.velocity * time.delta_seconds();
         // If the pupil hit the outside border of the eye, limit the translation to be within the wiggle radius and invert the velocity.
