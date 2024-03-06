@@ -68,7 +68,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     }
     #[cfg(feature = "bevy_reflect")]
     {
-        let register_type = if has_reflect_attr(&ast) {
+        let register_type = if has_reflect_attr(&ast, "Component") {
             quote! {
                 #[doc(hidden)]
                 fn __register_type(registry: &#bevy_ecs_path::private::bevy_reflect::TypeRegistryArc) {
@@ -133,9 +133,29 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
 }
 
 #[cfg(feature = "bevy_reflect")]
-fn has_reflect_attr(ast: &DeriveInput) -> bool {
+fn has_reflect_attr(ast: &DeriveInput, reflect_trait: &'static str) -> bool {
+    use syn::Meta;
+
     const REFLECT: &str = "reflect";
-    ast.attrs.iter().any(|a| a.path().is_ident(REFLECT))
+    ast.attrs.iter().any(|attr| {
+        if !attr.path().is_ident(REFLECT) {
+            return false;
+        }
+
+        if !matches!(attr.meta, Meta::List(_)) {
+            return false;
+        }
+
+        let mut is_component_registered = false;
+
+        attr.parse_nested_meta(|meta| {
+            is_component_registered |= meta.path.is_ident(reflect_trait);
+            Ok(())
+        })
+        .ok();
+
+        is_component_registered
+    })
 }
 
 fn storage_path(bevy_ecs_path: &Path, ty: StorageTy) -> TokenStream2 {
