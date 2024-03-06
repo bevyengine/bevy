@@ -20,7 +20,19 @@
 //! }
 //! ```
 //!
-//! # Contributing
+//! # Fundamentals of working with audio
+//! 
+//! This section is of interest to anybody working with the lowest levels of the audio engine.
+//! 
+//! If you're looking for using effects that bevy already provides, or are working within Bevy's
+//! ECS, then these guidelines do not apply. This concerns code that is going to run in tandem
+//! with the audio driver, that is code directly talking to audio I/O or while implementing audio
+//! effects.
+//! 
+//! This section applies to the equivalent in abstraction level to working with nodes in the render
+//! graph, and not manipulating entities with meshes and materials.
+//! 
+//! Note that these guidelines are general to any audio programming application, and not just Bevy.
 //!
 //! ## Under the trunk
 //!
@@ -74,6 +86,19 @@
 //! structures already exists, and can be directly used. There are crates for most replacements of standard
 //! collections.
 //!
+//! ## Where in the code should real-time programming principles be applied?
+//!
+//! Any code that is directly or indirectly called by audio threads, needs to be real-time safe.
+//!
+//! For the Bevy engine, that is:
+//!
+//! - In the callback of `cpal::Stream::build_input_stream` and `cpal::Stream::build_output_stream`, and all
+//!   functions called from them
+//! - In implementations of the [`Source`] trait, and all functions called from it
+//!
+//! Code that is run in Bevy systems do not need to be real-time safe, as they are not run in the audio thread,
+//! but in the main game loop thread.
+//!
 //! ## Communication with the audio thread
 //!
 //! To be able to to anything useful with audio, the thread has to be able to communicate with the rest of
@@ -102,19 +127,6 @@
 //! fast enough for 99% of use-cases, and are both wait-free and lock-free. The only difficulty in using
 //! circular buffers is how big they should be; however even going for 1 s of audio costs ~50 kB of memory,
 //! which is small enough to not be noticeable even with potentially 100s of those buffers.
-//!
-//! ## Where in the code should real-time programming principles be applied?
-//!
-//! Any code that is directly or indirectly called by audio threads, needs to be real-time safe.
-//!
-//! For the Bevy engine, that is:
-//!
-//! - In the callback of `cpal::Stream::build_input_stream` and `cpal::Stream::build_output_stream`, and all
-//!   functions called from them
-//! - In implementations of the [`Source`] trait, and all functions called from it
-//!
-//! Code that is run in Bevy systems do not need to be real-time safe, as they are not run in the audio thread,
-//! but in the main game loop thread.
 //!
 //! ## Additional resources for audio programming
 //!
