@@ -390,7 +390,7 @@ fn move_pupils(time: Res<Time>, mut q_pupils: Query<(&mut Pupil, &mut Transform)
             translation = translation.normalize() * wiggle_radius;
             pupil.velocity *= -1.0;
         }
-        // Update the entity transform with the new translation after readding the Z component
+        // Update the entity transform with the new translation after reading the Z component
         transform.translation = translation.extend(z);
     }
 }
