@@ -324,11 +324,7 @@ fn ray_cast_system(
         **intersects = toi.is_some();
         if let Some(toi) = toi {
             for r in [1., 2., 3.] {
-                gizmos.circle_2d(
-                    ray_cast.ray.origin + *ray_cast.ray.direction * toi,
-                    r,
-                    GREEN,
-                );
+                gizmos.circle_2d(ray_cast.ray.origin + *ray_cast.ray.direction * toi, r, LIME);
             }
         }
     }
@@ -359,7 +355,7 @@ fn aabb_cast_system(
                     + aabb_cast.aabb.center(),
                 0.,
                 aabb_cast.aabb.half_size() * 2.,
-                GREEN,
+                LIME,
             );
         }
     }
@@ -389,7 +385,7 @@ fn bounding_circle_cast_system(
                     + *circle_cast.ray.ray.direction * toi
                     + circle_cast.circle.center(),
                 circle_cast.circle.radius(),
-                GREEN,
+                LIME,
             );
         }
     }

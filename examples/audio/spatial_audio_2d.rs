@@ -65,7 +65,7 @@ fn setup(
             // right ear
             parent.spawn(SpriteBundle {
                 sprite: Sprite {
-                    color: GREEN.into(),
+                    color: LIME.into(),
                     custom_size: Some(Vec2::splat(20.0)),
                     ..default()
                 },
