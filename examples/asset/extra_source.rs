@@ -22,8 +22,8 @@ fn main() {
         AssetSourceBuilder::platform_default("examples/asset/files", None),
     );
 
-    // DefaultPlugins contains AssetPlugin so it should come after inserting
-    // our new asset source
+    // DefaultPlugins contains AssetPlugin so it needs to be added to our App
+    // after inserting our new asset source
     app.add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .run();
