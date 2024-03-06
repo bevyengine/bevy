@@ -1,6 +1,19 @@
-//! This examples illustrates the different ways you can employ component lifecycle hooks
+//! This example illustrates the different ways you can employ component lifecycle hooks.
+//!
+//! Whenever possible, prefer using Bevy's change detection or Events for reacting to component changes.
+//! Events generally offer better performance and more flexible integration into Bevy's systems.
+//! Hooks are useful to enforce correctness but have limitations (only one hook per component,
+//! less ergonomic than events).
+//!
+//! Here are some cases where components hooks might be necessary:
+//!
+//! - Maintaining indexes: If you need to keep custom data structures (like a spatial index) in
+//! sync with the addition/removal of components.
+//!
+//! - Enforcing structural rules: When you have systems that depend on specific relationships
+//! between components (like hierarchies or parent-child links) and need to maintain correctness.
 
-use bevy::ecs::component::{ComponentInfo, TableStorage};
+use bevy::ecs::component::{ComponentHooks, StorageType};
 use bevy::prelude::*;
 use std::collections::HashMap;
 
@@ -8,11 +21,11 @@ use std::collections::HashMap;
 struct MyComponent(KeyCode);
 
 impl Component for MyComponent {
-    type Storage = TableStorage;
+    const STORAGE_TYPE: StorageType = StorageType::Table;
 
     /// Hooks can also be registered during component initialisation by
-    /// implementing `init_component_info`
-    fn init_component_info(_info: &mut ComponentInfo) {
+    /// implementing `register_component_hooks`
+    fn register_component_hooks(_hooks: &mut ComponentHooks) {
         // Register hooks...
     }
 }
@@ -35,7 +48,7 @@ fn main() {
 
 fn setup(world: &mut World) {
     // In order to register component hooks the component must:
-    // - not belong to any created archetypes
+    // - not be currently in use by any entities in the world
     // - not already have a hook of that kind registered
     // This is to prevent overriding hooks defined in plugins and other crates as well as keeping things fast
     world

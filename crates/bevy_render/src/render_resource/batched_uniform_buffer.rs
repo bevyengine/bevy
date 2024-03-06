@@ -81,7 +81,7 @@ impl<T: GpuArrayBufferable> BatchedUniformBuffer<T> {
 
     pub fn push(&mut self, component: T) -> GpuArrayBufferIndex<T> {
         let result = GpuArrayBufferIndex {
-            index: NonMaxU32::new(self.temp.0.len() as u32).unwrap(),
+            index: self.temp.0.len() as u32,
             dynamic_offset: NonMaxU32::new(self.current_offset),
             element_type: PhantomData,
         };

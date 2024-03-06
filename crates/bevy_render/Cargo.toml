@@ -19,7 +19,7 @@ webp = ["image/webp"]
 dds = ["ddsfile"]
 pnm = ["image/pnm"]
 multi-threaded = ["bevy_tasks/multi-threaded"]
-bevy_ci_testing = ["bevy_app/bevy_ci_testing"]
+bevy_ci_testing = ["bevy_dev_tools/bevy_ci_testing"]
 
 shader_format_glsl = ["naga/glsl-in", "naga/wgsl-out", "naga_oil/glsl"]
 shader_format_spirv = ["wgpu/spirv", "naga/spv-in", "naga/spv-out"]
@@ -46,7 +46,6 @@ bevy_derive = { path = "../bevy_derive", version = "0.14.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
 bevy_encase_derive = { path = "../bevy_encase_derive", version = "0.14.0-dev" }
 bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.14.0-dev" }
-bevy_log = { path = "../bevy_log", version = "0.14.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.14.0-dev" }
 bevy_mikktspace = { path = "../bevy_mikktspace", version = "0.14.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev", features = [
@@ -58,6 +57,7 @@ bevy_transform = { path = "../bevy_transform", version = "0.14.0-dev" }
 bevy_window = { path = "../bevy_window", version = "0.14.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.14.0-dev" }
+bevy_dev_tools = { path = "../bevy_dev_tools", version = "0.14.0-dev", optional = true }
 
 # rendering
 image = { version = "0.24", default-features = false }
@@ -66,7 +66,7 @@ image = { version = "0.24", default-features = false }
 codespan-reporting = "0.11.0"
 # `fragile-send-sync-non-atomic-wasm` feature means we can't use WASM threads for rendering
 # It is enabled for now to avoid having to do a significant overhaul of the renderer just for wasm
-wgpu = { version = "0.19.1", default-features = false, features = [
+wgpu = { version = "0.19.3", default-features = false, features = [
   "wgsl",
   "dx12",
   "metal",
@@ -107,9 +107,7 @@ naga_oil = { version = "0.13", default-features = false, features = [
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 naga_oil = "0.13"
 js-sys = "0.3"
-# web-sys doesn't follow semver for the WebGPU APIs as they are unstable
-# Make sure that WebGPU builds work when changing this!
-web-sys = { version = "=0.3.67", features = [
+web-sys = { version = "0.3.67", features = [
   'Blob',
   'Document',
   'Element',

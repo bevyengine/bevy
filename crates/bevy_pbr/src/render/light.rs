@@ -5,7 +5,7 @@ use bevy_math::{Mat4, UVec3, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles
 use bevy_render::{
     camera::Camera,
     mesh::Mesh,
-    primitives::{CascadesFrusta, CubemapFrusta, Frustum},
+    primitives::{CascadesFrusta, CubemapFrusta, Frustum, HalfSpace},
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_phase::*,
@@ -1144,7 +1144,7 @@ pub fn prepare_lights(
                 .unwrap()
                 .iter()
                 .take(MAX_CASCADES_PER_LIGHT);
-            for (cascade_index, ((cascade, frusta), bound)) in cascades
+            for (cascade_index, ((cascade, frustum), bound)) in cascades
                 .zip(frusta)
                 .zip(&light.cascade_shadow_config.bounds)
                 .enumerate()
@@ -1171,6 +1171,11 @@ pub fn prepare_lights(
                         });
                 directional_depth_texture_array_index += 1;
 
+                let mut frustum = *frustum;
+                // Push the near clip plane out to infinity for directional lights
+                frustum.half_spaces[4] =
+                    HalfSpace::new(frustum.half_spaces[4].normal().extend(f32::INFINITY));
+
                 let view_light_entity = commands
                     .spawn((
                         ShadowView {
@@ -1191,7 +1196,7 @@ pub fn prepare_lights(
                             hdr: false,
                             color_grading: Default::default(),
                         },
-                       *frusta,
+                        frustum,
                         RenderPhase::<Shadow>::default(),
                         LightEntity::Directional {
                             light_entity,

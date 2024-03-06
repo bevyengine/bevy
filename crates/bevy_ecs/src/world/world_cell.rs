@@ -296,7 +296,7 @@ impl<'w> WorldCell<'w> {
             None => panic!(
                 "Requested non-send resource {} does not exist in the `World`. 
                 Did you forget to add it using `app.insert_non_send_resource` / `app.init_non_send_resource`? 
-                Non-send resources can also be be added by plugins.",
+                Non-send resources can also be added by plugins.",
                 std::any::type_name::<T>()
             ),
         }
@@ -330,7 +330,7 @@ impl<'w> WorldCell<'w> {
             None => panic!(
                 "Requested non-send resource {} does not exist in the `World`. 
                 Did you forget to add it using `app.insert_non_send_resource` / `app.init_non_send_resource`? 
-                Non-send resources can also be be added by plugins.",
+                Non-send resources can also be added by plugins.",
                 std::any::type_name::<T>()
             ),
         }

@@ -19,17 +19,9 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::component::{ComponentId, ComponentTicks, Tick};
 use bevy_ecs::prelude::*;
-use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
-use bevy_utils::{Duration, HashSet, Instant, Uuid};
-use std::borrow::Cow;
-use std::ffi::OsString;
 use std::marker::PhantomData;
-use std::ops::Range;
-use std::path::{Path, PathBuf};
 
-#[cfg(not(target_arch = "wasm32"))]
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::tick_global_task_pools_on_main_thread;
 
@@ -40,76 +32,7 @@ pub struct TypeRegistrationPlugin;
 impl Plugin for TypeRegistrationPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Name>();
-
-        register_ecs_types(app);
-        register_rust_types(app);
-        register_math_types(app);
     }
-}
-
-fn register_ecs_types(app: &mut App) {
-    app.register_type::<Entity>()
-        .register_type::<ComponentId>()
-        .register_type::<Tick>()
-        .register_type::<ComponentTicks>();
-}
-
-fn register_rust_types(app: &mut App) {
-    app.register_type::<Range<f32>>()
-        .register_type_data::<Range<f32>, ReflectSerialize>()
-        .register_type_data::<Range<f32>, ReflectDeserialize>()
-        .register_type::<String>()
-        .register_type::<PathBuf>()
-        .register_type::<OsString>()
-        .register_type::<HashSet<String>>()
-        .register_type::<Option<String>>()
-        .register_type::<Option<bool>>()
-        .register_type::<Option<f32>>()
-        .register_type::<Option<f64>>()
-        .register_type::<Vec<f32>>()
-        .register_type::<Cow<'static, str>>()
-        .register_type::<Cow<'static, Path>>()
-        .register_type::<Duration>()
-        .register_type::<Instant>()
-        .register_type::<Uuid>();
-}
-
-fn register_math_types(app: &mut App) {
-    app.register_type::<bevy_math::IVec2>()
-        .register_type::<bevy_math::IVec3>()
-        .register_type::<bevy_math::IVec4>()
-        .register_type::<bevy_math::UVec2>()
-        .register_type::<bevy_math::UVec3>()
-        .register_type::<bevy_math::UVec4>()
-        .register_type::<bevy_math::DVec2>()
-        .register_type::<Option<bevy_math::DVec2>>()
-        .register_type::<bevy_math::DVec3>()
-        .register_type::<bevy_math::DVec4>()
-        .register_type::<bevy_math::BVec2>()
-        .register_type::<bevy_math::BVec3>()
-        .register_type::<bevy_math::BVec3A>()
-        .register_type::<bevy_math::BVec4>()
-        .register_type::<bevy_math::BVec4A>()
-        .register_type::<bevy_math::Vec2>()
-        .register_type::<bevy_math::Vec3>()
-        .register_type::<bevy_math::Vec3A>()
-        .register_type::<bevy_math::Vec4>()
-        .register_type::<bevy_math::DAffine2>()
-        .register_type::<bevy_math::DAffine3>()
-        .register_type::<bevy_math::Affine2>()
-        .register_type::<bevy_math::Affine3A>()
-        .register_type::<bevy_math::DMat2>()
-        .register_type::<bevy_math::DMat3>()
-        .register_type::<bevy_math::DMat4>()
-        .register_type::<bevy_math::Mat2>()
-        .register_type::<bevy_math::Mat3>()
-        .register_type::<bevy_math::Mat3A>()
-        .register_type::<bevy_math::Mat4>()
-        .register_type::<bevy_math::DQuat>()
-        .register_type::<bevy_math::Quat>()
-        .register_type::<bevy_math::Rect>()
-        .register_type::<Vec<bevy_math::Quat>>()
-        .register_type::<Vec<bevy_math::Vec3>>();
 }
 
 /// Setup of default task pools: [`AsyncComputeTaskPool`](bevy_tasks::AsyncComputeTaskPool),

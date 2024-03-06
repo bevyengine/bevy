@@ -1,5 +1,6 @@
 //! Defines the [`World`] and APIs for accessing it directly.
 
+mod command_queue;
 mod deferred_world;
 mod entity_ref;
 pub mod error;
@@ -8,6 +9,7 @@ pub mod unsafe_world_cell;
 mod world_cell;
 
 pub use crate::change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD};
+pub use crate::world::command_queue::CommandQueue;
 pub use deferred_world::DeferredWorld;
 pub use entity_ref::{
     EntityMut, EntityRef, EntityWorldMut, Entry, FilteredEntityMut, FilteredEntityRef,
@@ -30,7 +32,7 @@ use crate::{
     removal_detection::RemovedComponentEvents,
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
-    system::{CommandQueue, Commands, Res, Resource},
+    system::{Commands, Res, Resource},
     world::error::TryRunScheduleError,
 };
 use bevy_ptr::{OwningPtr, Ptr};
@@ -43,9 +45,44 @@ use std::{
 };
 mod identifier;
 
+use self::unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 pub use identifier::WorldId;
 
-use self::unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
+/// A [`World`] mutation.
+///
+/// Should be used with [`Commands::add`].
+///
+/// # Usage
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::world::Command;
+/// // Our world resource
+/// #[derive(Resource, Default)]
+/// struct Counter(u64);
+///
+/// // Our custom command
+/// struct AddToCounter(u64);
+///
+/// impl Command for AddToCounter {
+///     fn apply(self, world: &mut World) {
+///         let mut counter = world.get_resource_or_insert_with(Counter::default);
+///         counter.0 += self.0;
+///     }
+/// }
+///
+/// fn some_system(mut commands: Commands) {
+///     commands.add(AddToCounter(42));
+/// }
+/// ```
+pub trait Command: Send + 'static {
+    /// Applies this command, causing it to mutate the provided `world`.
+    ///
+    /// This method is used to define what a command "does" when it is ultimately applied.
+    /// Because this method takes `self`, you can store data or settings on the type that implements this trait.
+    /// This data is set by the system or other source of the command, and then ultimately read in this method.
+    fn apply(self, world: &mut World);
+}
 
 /// Stores and exposes operations on [entities](Entity), [components](Component), resources,
 /// and their associated metadata.
@@ -1447,7 +1484,7 @@ impl World {
             None => panic!(
                 "Requested non-send resource {} does not exist in the `World`.
                 Did you forget to add it using `app.insert_non_send_resource` / `app.init_non_send_resource`?
-                Non-send resources can also be be added by plugins.",
+                Non-send resources can also be added by plugins.",
                 std::any::type_name::<R>()
             ),
         }
@@ -1469,7 +1506,7 @@ impl World {
             None => panic!(
                 "Requested non-send resource {} does not exist in the `World`.
                 Did you forget to add it using `app.insert_non_send_resource` / `app.init_non_send_resource`?
-                Non-send resources can also be be added by plugins.",
+                Non-send resources can also be added by plugins.",
                 std::any::type_name::<R>()
             ),
         }
@@ -1798,7 +1835,7 @@ impl World {
     /// # Panics
     /// Panics if `component_id` is not registered as a `Send` component type in this `World`
     #[inline]
-    fn initialize_resource_internal(
+    pub(crate) fn initialize_resource_internal(
         &mut self,
         component_id: ComponentId,
     ) -> &mut ResourceData<true> {
@@ -1813,7 +1850,7 @@ impl World {
     /// # Panics
     /// panics if `component_id` is not registered in this world
     #[inline]
-    fn initialize_non_send_internal(
+    pub(crate) fn initialize_non_send_internal(
         &mut self,
         component_id: ComponentId,
     ) -> &mut ResourceData<false> {
@@ -1823,18 +1860,6 @@ impl World {
             .initialize_with(component_id, &self.components, || {
                 archetypes.new_archetype_component_id()
             })
-    }
-
-    pub(crate) fn initialize_resource<R: Resource>(&mut self) -> ComponentId {
-        let component_id = self.components.init_resource::<R>();
-        self.initialize_resource_internal(component_id);
-        component_id
-    }
-
-    pub(crate) fn initialize_non_send_resource<R: 'static>(&mut self) -> ComponentId {
-        let component_id = self.components.init_non_send::<R>();
-        self.initialize_non_send_internal(component_id);
-        component_id
     }
 
     /// Empties queued entities and adds them to the empty [`Archetype`](crate::archetype::Archetype).
