@@ -1706,6 +1706,17 @@ category = "Games"
 wasm = true
 
 [[example]]
+name = "desk_toy"
+path = "examples/games/desk_toy.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.desk_toy]
+name = "Desk Toy"
+description = "Bevy logo as a desk toy using transparent windows! Now with Googly Eyes!"
+category = "Games"
+wasm = false
+
+[[example]]
 name = "game_menu"
 path = "examples/games/game_menu.rs"
 doc-scrape-examples = true
