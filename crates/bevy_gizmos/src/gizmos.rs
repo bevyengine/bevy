@@ -76,11 +76,11 @@ where
     }
 }
 
-/// Swap buffer for gizmos.
+/// Swap buffer for a specific clearing context.
 ///
-/// This is to stash/store the default gizmos so another context can
+/// This is to stash/store the default/requested gizmos so another context can
 /// be substituted for that duration.
-pub(crate) struct Swap;
+pub struct Swap<Clear>(PhantomData<Clear>);
 
 /// A [`SystemParam`] for drawing gizmos.
 ///
@@ -100,7 +100,7 @@ pub(crate) struct Swap;
 /// to [`FixedMain`](bevy_app::FixedMain)):
 ///
 /// ```
-/// use bevy_gizmos::{*, gizmos::GizmoStorage};
+/// use bevy_gizmos::{prelude::*, *, gizmos::GizmoStorage};
 /// # use bevy_app::prelude::*;
 /// # use bevy_ecs::{schedule::ScheduleLabel, prelude::*};
 /// # #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
@@ -115,16 +115,18 @@ pub(crate) struct Swap;
 /// struct ClearContextSetup;
 /// impl Plugin for ClearContextSetup {
 ///     fn build(&self, app: &mut App) {
-///         app.init_resource::<GizmoStorage<MyContext>>()
-///            .add_systems(StartOfMyContext, stash_default_gizmos)
-///            // If not running multiple times, put this with [`stash_default_gizmos`].
-///            .add_systems(StartOfRun, clear_gizmo_context::<MyContext>)
-///            // If not running multiple times, put this with [`pop_default_gizmos`].
-///            .add_systems(EndOfRun, collect_default_gizmos::<MyContext>)
-///            .add_systems(EndOfMyContext, pop_default_gizmos)
+///         app.init_resource::<GizmoStorage<DefaultGizmoConfigGroup, MyContext>>()
+///            // Make sure this context starts/ends cleanly if inside another context. E.g. it
+///            // should start after the parent context starts and end after the parent context ends.
+///            .add_systems(StartOfMyContext, start_gizmo_context::<DefaultGizmoConfigGroup, MyContext>)
+///            // If not running multiple times, put this with [`start_gizmo_context`].
+///            .add_systems(StartOfRun, clear_gizmo_context::<DefaultGizmoConfigGroup, MyContext>)
+///            // If not running multiple times, put this with [`end_gizmo_context`].
+///            .add_systems(EndOfRun, collect_requested_gizmos::<DefaultGizmoConfigGroup, MyContext>)
+///            .add_systems(EndOfMyContext, end_gizmo_context::<DefaultGizmoConfigGroup, MyContext>)
 ///            .add_systems(
 ///                Last,
-///                propagate_gizmos::<MyContext>.before(UpdateGizmoMeshes),
+///                propagate_gizmos::<DefaultGizmoConfigGroup, MyContext>.before(UpdateGizmoMeshes),
 ///            );
 ///     }
 /// }

@@ -217,18 +217,18 @@ impl AppGizmoBuilder for App {
         handles.list.insert(TypeId::of::<Config>(), None);
         handles.strip.insert(TypeId::of::<Config>(), None);
 
-        self.init_resource::<GizmoStorage<Config, Swap>>()
-            .init_resource::<GizmoStorage<Config, ()>>()
+        self.init_resource::<GizmoStorage<Config, ()>>()
             .init_resource::<GizmoStorage<Config, Fixed>>()
+            .init_resource::<GizmoStorage<Config, Swap<Fixed>>>()
             .add_systems(
                 RunFixedMainLoop,
-                stash_default_gizmos::<Config>.before(bevy_time::run_fixed_main_schedule),
+                start_gizmo_context::<Config, Fixed>.before(bevy_time::run_fixed_main_schedule),
             )
             .add_systems(FixedFirst, clear_gizmo_context::<Config, Fixed>)
-            .add_systems(FixedLast, collect_default_gizmos::<Config, Fixed>)
+            .add_systems(FixedLast, collect_requested_gizmos::<Config, Fixed>)
             .add_systems(
                 RunFixedMainLoop,
-                pop_default_gizmos::<Config>.after(bevy_time::run_fixed_main_schedule),
+                end_gizmo_context::<Config, Fixed>.after(bevy_time::run_fixed_main_schedule),
             )
             .add_systems(
                 Last,
@@ -267,28 +267,36 @@ struct LineGizmoHandles {
     strip: TypeIdMap<Option<Handle<LineGizmo>>>,
 }
 
-/// Stash the default gizmos context in the [`Swap`] gizmo storage.
-pub fn stash_default_gizmos<Config>(world: &mut World)
+/// Start a new gizmo clearing context.
+///
+/// Internally this pushes the parent default context into a swap buffer.
+/// Gizmo contexts should be handled like a stack, so if you push a new context,
+/// you must pop the context before the parent context ends.
+pub fn start_gizmo_context<Config, Clear>(world: &mut World)
 where
     Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
 {
     world.resource_scope(
-        |world: &mut World, mut swap: Mut<GizmoStorage<Config, Swap>>| {
+        |world: &mut World, mut swap: Mut<GizmoStorage<Config, Swap<Clear>>>| {
             let mut default = world.resource_mut::<GizmoStorage<Config, ()>>();
             default.swap(&mut *swap);
         },
     );
 }
 
-/// Pop the default gizmos context out of the [`Swap`] gizmo storage.
+/// End this gizmo clearing context.
+///
+/// Pop the default gizmos context out of the [`Swap<Clear>`] gizmo storage.
 ///
 /// This must be called before [`UpdateGizmoMeshes`] in the [`Last`] schedule.
-pub fn pop_default_gizmos<Config>(world: &mut World)
+pub fn end_gizmo_context<Config, Clear>(world: &mut World)
 where
     Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
 {
     world.resource_scope(
-        |world: &mut World, mut swap: Mut<GizmoStorage<Config, Swap>>| {
+        |world: &mut World, mut swap: Mut<GizmoStorage<Config, Swap<Clear>>>| {
             let mut default = world.resource_mut::<GizmoStorage<Config, ()>>();
             default.clear();
             default.swap(&mut *swap);
@@ -297,7 +305,7 @@ where
 }
 
 /// Collect the requested gizmos into a specific clear context.
-pub fn collect_default_gizmos<Config, Clear>(world: &mut World)
+pub fn collect_requested_gizmos<Config, Clear>(world: &mut World)
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,

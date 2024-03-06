@@ -237,7 +237,6 @@ where
     segments: usize,
 }
 
-
 impl<Config, Clear> Ellipse2dBuilder<'_, '_, '_, Config, Clear>
 where
     Config: GizmoConfigGroup,
