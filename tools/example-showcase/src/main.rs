@@ -696,15 +696,10 @@ fn parse_examples() -> Vec<Example> {
                     .as_str()
                     .unwrap()
                     .replace(['(', ')'], "")
+                    .to_lowercase()
                     .split_whitespace()
-                    .map(|piece| piece.to_lowercase())
-                    .fold(String::new(), |accumulator, next_piece| {
-                        if accumulator.is_empty() {
-                            next_piece
-                        } else {
-                            format!("{}-{}", accumulator, next_piece)
-                        }
-                    }),
+                    .collect::<Vec<_>>()
+                    .join("-"),
                 wasm: metadata["wasm"].as_bool().unwrap(),
                 required_features: val
                     .get("required-features")
