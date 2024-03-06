@@ -16,6 +16,8 @@ use bevy_ecs_macros::impl_param_set;
 pub use bevy_ecs_macros::Resource;
 pub use bevy_ecs_macros::SystemParam;
 use bevy_ptr::UnsafeCellDeref;
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::TypeRegistryArc;
 use bevy_utils::{all_tuples, synccell::SyncCell};
 use std::{
     fmt::Debug,
@@ -430,7 +432,14 @@ impl_param_set!();
 /// ```
 ///
 /// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
-pub trait Resource: Send + Sync + 'static {}
+pub trait Resource: Send + Sync + 'static {
+    /// Shim for automatically registering components. Intentionally hidden as it's not part of the
+    /// public interface. Only available if the `bevy_reflect` feature is enabled.
+    #[doc(hidden)]
+    #[allow(unused_variables)]
+    #[cfg(feature = "bevy_reflect")]
+    fn __register_type(registry: &TypeRegistryArc) {}
+}
 
 // SAFETY: Res only reads a single World resource
 unsafe impl<'a, T: Resource> ReadOnlySystemParam for Res<'a, T> {}

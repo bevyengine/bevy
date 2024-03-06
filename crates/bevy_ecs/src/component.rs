@@ -731,9 +731,16 @@ impl Components {
     pub fn init_resource<T: Resource>(&mut self) -> ComponentId {
         // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
-            self.get_or_insert_resource_with(TypeId::of::<T>(), || {
-                ComponentDescriptor::new_resource::<T>()
-            })
+            Self::get_or_insert_resource_with(
+                &mut self.components,
+                &mut self.resource_indices,
+                TypeId::of::<T>(),
+                || {
+                    #[cfg(feature = "bevy_reflect")]
+                    T::__register_type(&self.type_registry);
+                    ComponentDescriptor::new_resource::<T>()
+                },
+            )
         }
     }
 
@@ -744,9 +751,12 @@ impl Components {
     pub fn init_non_send<T: Any>(&mut self) -> ComponentId {
         // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
-            self.get_or_insert_resource_with(TypeId::of::<T>(), || {
-                ComponentDescriptor::new_non_send::<T>(StorageType::default())
-            })
+            Self::get_or_insert_resource_with(
+                &mut self.components,
+                &mut self.resource_indices,
+                TypeId::of::<T>(),
+                || ComponentDescriptor::new_non_send::<T>(StorageType::default()),
+            )
         }
     }
 
@@ -755,12 +765,12 @@ impl Components {
     /// The [`ComponentDescriptor`] must match the [`TypeId`]
     #[inline]
     unsafe fn get_or_insert_resource_with(
-        &mut self,
+        components: &mut Vec<ComponentInfo>,
+        resource_indices: &mut TypeIdMap<ComponentId>,
         type_id: TypeId,
         func: impl FnOnce() -> ComponentDescriptor,
     ) -> ComponentId {
-        let components = &mut self.components;
-        *self.resource_indices.entry(type_id).or_insert_with(|| {
+        *resource_indices.entry(type_id).or_insert_with(|| {
             let descriptor = func();
             let component_id = ComponentId(components.len());
             components.push(ComponentInfo::new(component_id, descriptor));
