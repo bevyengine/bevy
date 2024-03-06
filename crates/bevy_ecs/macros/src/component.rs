@@ -68,24 +68,23 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     }
     #[cfg(feature = "bevy_reflect")]
     {
-        if has_reflect_attr(&ast) {
-            TokenStream::from(quote! {
-                impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
-                    const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #storage;
-
-                    #[doc(hidden)]
-                    fn __register_type(registry: &#bevy_ecs_path::private::bevy_reflect::TypeRegistryArc) {
-                        registry.write().register::<Self>();
-                    }
+        let register_type = if has_reflect_attr(&ast) {
+            quote! {
+                #[doc(hidden)]
+                fn __register_type(registry: &#bevy_ecs_path::private::bevy_reflect::TypeRegistryArc) {
+                    registry.write().register::<Self>();
                 }
-            })
+            }
         } else {
-            TokenStream::from(quote! {
-                impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
-                    const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #storage;
-                }
-            })
-        }
+            proc_macro2::TokenStream::new()
+        };
+
+        TokenStream::from(quote! {
+            impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
+                const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #storage;
+                #register_type
+            }
+        })
     }
 }
 
