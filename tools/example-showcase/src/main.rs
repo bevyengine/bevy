@@ -692,7 +692,19 @@ fn parse_examples() -> Vec<Example> {
                 path: val["path"].as_str().unwrap().to_string(),
                 name: metadata["name"].as_str().unwrap().to_string(),
                 description: metadata["description"].as_str().unwrap().to_string(),
-                category: metadata["category"].as_str().unwrap().to_string(),
+                category: metadata["category"]
+                    .as_str()
+                    .unwrap()
+                    .replace(['(', ')'], "")
+                    .split_whitespace()
+                    .map(|piece| piece.to_lowercase())
+                    .fold(String::new(), |accumulator, next_piece| {
+                        if accumulator.is_empty() {
+                            next_piece
+                        } else {
+                            format!("{}-{}", accumulator, next_piece)
+                        }
+                    }),
                 wasm: metadata["wasm"].as_bool().unwrap(),
                 required_features: val
                     .get("required-features")
