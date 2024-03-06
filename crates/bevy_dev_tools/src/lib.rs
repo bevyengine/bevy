@@ -1,9 +1,12 @@
 //! This crate provides additional utilities for the [Bevy game engine](https://bevyengine.org),
 //! focused on improving developer experience.
 
-use bevy_app::prelude::*;
+pub mod aabb;
 #[cfg(feature = "bevy_ci_testing")]
 pub mod ci_testing;
+
+use aabb::AabbGizmoPlugin;
+use bevy_app::prelude::*;
 
 /// Enables developer tools in an [`App`]. This plugin is added automatically with `bevy_dev_tools`
 /// feature.
@@ -35,7 +38,9 @@ pub mod ci_testing;
 pub struct DevToolsPlugin;
 
 impl Plugin for DevToolsPlugin {
-    fn build(&self, _app: &mut App) {
+    fn build(&self, app: &mut App) {
+        app.add_plugins(AabbGizmoPlugin);
+
         #[cfg(feature = "bevy_ci_testing")]
         {
             ci_testing::setup_app(_app);

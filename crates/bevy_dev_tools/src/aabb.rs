@@ -1,6 +1,4 @@
-//! A module adding debug visualization of [`Aabb`]s.
-
-use crate as bevy_gizmos;
+//! Debug visualization tools of [`Aabb`].
 
 use bevy_app::{Plugin, PostUpdate};
 use bevy_color::{Color, Oklcha};
@@ -12,17 +10,16 @@ use bevy_ecs::{
     schedule::IntoSystemConfigs,
     system::{Query, Res},
 };
+use bevy_gizmos::{
+    config::{GizmoConfigGroup, GizmoConfigStore},
+    gizmos::Gizmos,
+    AppGizmoBuilder,
+};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::primitives::Aabb;
 use bevy_transform::{
     components::{GlobalTransform, Transform},
     TransformSystem,
-};
-
-use crate::{
-    config::{GizmoConfigGroup, GizmoConfigStore},
-    gizmos::Gizmos,
-    AppGizmoBuilder,
 };
 
 /// A [`Plugin`] that provides visualization of [`Aabb`]s for debugging.
