@@ -2522,6 +2522,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "ui_texture_atlas_slice"
+path = "examples/ui/ui_texture_atlas_slice.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ui_texture_atlas_slice]
+name = "UI Texture Atlas Slice"
+description = "Illustrates how to use 9 Slicing for TextureAtlases in UI"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "viewport_debug"
 path = "examples/ui/viewport_debug.rs"
 doc-scrape-examples = true
