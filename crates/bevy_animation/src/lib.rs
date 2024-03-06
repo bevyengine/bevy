@@ -14,14 +14,13 @@ use bevy_core::Name;
 use bevy_ecs::entity::MapEntities;
 use bevy_ecs::prelude::*;
 use bevy_ecs::reflect::ReflectMapEntities;
-use bevy_log::error;
 use bevy_math::{FloatExt, Quat, Vec3};
 use bevy_reflect::Reflect;
 use bevy_render::mesh::morph::MorphWeights;
 use bevy_time::Time;
 use bevy_transform::{prelude::Transform, TransformSystem};
 use bevy_utils::hashbrown::HashMap;
-use bevy_utils::{NoOpHash, Uuid};
+use bevy_utils::{tracing::error, NoOpHash, Uuid};
 use sha1_smol::Sha1;
 
 #[allow(missing_docs)]

@@ -253,14 +253,14 @@ fn setup(
         .with_children(|c| {
             c.spawn((
                 TextBundle::from_sections([
-                    text_section(GREEN, "Bird Count: "),
-                    text_section(CYAN, ""),
-                    text_section(GREEN, "\nFPS (raw): "),
-                    text_section(CYAN, ""),
-                    text_section(GREEN, "\nFPS (SMA): "),
-                    text_section(CYAN, ""),
-                    text_section(GREEN, "\nFPS (EMA): "),
-                    text_section(CYAN, ""),
+                    text_section(LIME, "Bird Count: "),
+                    text_section(AQUA, ""),
+                    text_section(LIME, "\nFPS (raw): "),
+                    text_section(AQUA, ""),
+                    text_section(LIME, "\nFPS (SMA): "),
+                    text_section(AQUA, ""),
+                    text_section(LIME, "\nFPS (EMA): "),
+                    text_section(AQUA, ""),
                 ]),
                 StatsText,
             ));
@@ -368,11 +368,7 @@ fn spawn_birds(
     let bird_x = (primary_window_resolution.width() / -2.) + HALF_BIRD_SIZE;
     let bird_y = (primary_window_resolution.height() / 2.) - HALF_BIRD_SIZE;
 
-    let half_extents = 0.5
-        * Vec2::new(
-            primary_window_resolution.width(),
-            primary_window_resolution.height(),
-        );
+    let half_extents = 0.5 * primary_window_resolution.size();
 
     let color = counter.color;
     let current_count = counter.count;
@@ -509,7 +505,7 @@ fn handle_collision(half_extents: Vec2, translation: &Vec3, velocity: &mut Vec3)
 fn collision_system(windows: Query<&Window>, mut bird_query: Query<(&mut Bird, &Transform)>) {
     let window = windows.single();
 
-    let half_extents = 0.5 * Vec2::new(window.width(), window.height());
+    let half_extents = 0.5 * window.size();
 
     for (mut bird, transform) in &mut bird_query {
         handle_collision(half_extents, &transform.translation, &mut bird.velocity);

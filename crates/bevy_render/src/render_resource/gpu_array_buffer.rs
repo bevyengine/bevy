@@ -57,7 +57,7 @@ impl<T: GpuArrayBufferable> GpuArrayBuffer<T> {
             GpuArrayBuffer::Uniform(buffer) => buffer.push(value),
             GpuArrayBuffer::Storage(buffer) => {
                 let buffer = buffer.get_mut();
-                let index = NonMaxU32::new(buffer.len() as u32).unwrap();
+                let index = buffer.len() as u32;
                 buffer.push(value);
                 GpuArrayBufferIndex {
                     index,
@@ -109,7 +109,7 @@ impl<T: GpuArrayBufferable> GpuArrayBuffer<T> {
 #[derive(Component, Clone)]
 pub struct GpuArrayBufferIndex<T: GpuArrayBufferable> {
     /// The index to use in a shader into the array.
-    pub index: NonMaxU32,
+    pub index: u32,
     /// The dynamic offset to use when setting the bind group in a pass.
     /// Only used on platforms that don't support storage buffers.
     pub dynamic_offset: Option<NonMaxU32>,

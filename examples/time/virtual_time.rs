@@ -146,7 +146,7 @@ fn move_real_time_sprites(
     for mut transform in sprite_query.iter_mut() {
         // move roughly half the screen in a `Real` second
         // when the time is scaled the speed is going to change
-        // and the sprite will stay still the the time is paused
+        // and the sprite will stay still the time is paused
         transform.translation.x = get_sprite_translation_x(time.elapsed_seconds());
     }
 }

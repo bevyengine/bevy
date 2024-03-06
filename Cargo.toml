@@ -303,7 +303,7 @@ pbr_transmission_textures = ["bevy_internal/pbr_transmission_textures"]
 # Enable some limitations to be able to use WebGL2. Please refer to the [WebGL2 and WebGPU](https://github.com/bevyengine/bevy/tree/latest/examples#webgl2-and-webgpu) section of the examples README for more information on how to run Wasm builds with WebGPU.
 webgl2 = ["bevy_internal/webgl"]
 
-# Enable support for WebGPU in Wasm. When enabled, this feature will override the `webgl2` feature and you won't be able to run Wasm builds with WebGL2, only with WebGPU. Requires the `RUSTFLAGS` environment variable to be set to `--cfg=web_sys_unstable_apis` when building.
+# Enable support for WebGPU in Wasm. When enabled, this feature will override the `webgl2` feature and you won't be able to run Wasm builds with WebGL2, only with WebGPU.
 webgpu = ["bevy_internal/webgpu"]
 
 # Enables the built-in asset processor for processed assets.
@@ -1120,6 +1120,16 @@ category = "Application"
 wasm = false
 
 [[example]]
+name = "log_layers_ecs"
+path = "examples/app/log_layers_ecs.rs"
+
+[package.metadata.example.log_layers_ecs]
+name = "Advanced log layers"
+description = "Illustrate how to transfer data between log layers and Bevy's ECS"
+category = "Application"
+wasm = false
+
+[[example]]
 name = "plugin"
 path = "examples/app/plugin.rs"
 doc-scrape-examples = true
@@ -1403,6 +1413,17 @@ doc-scrape-examples = true
 [package.metadata.example.component_change_detection]
 name = "Component Change Detection"
 description = "Change detection on components"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "component_hooks"
+path = "examples/ecs/component_hooks.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.component_hooks]
+name = "Component Hooks"
+description = "Define component hooks to manage component lifecycle events"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -2504,6 +2525,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "ui_texture_atlas_slice"
+path = "examples/ui/ui_texture_atlas_slice.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ui_texture_atlas_slice]
+name = "UI Texture Atlas Slice"
+description = "Illustrates how to use 9 Slicing for TextureAtlases in UI"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "viewport_debug"
 path = "examples/ui/viewport_debug.rs"
 doc-scrape-examples = true
@@ -2680,6 +2712,28 @@ doc-scrape-examples = true
 [package.metadata.example.3d_gizmos]
 name = "3D Gizmos"
 description = "A scene showcasing 3D gizmos"
+category = "Gizmos"
+wasm = true
+
+[[example]]
+name = "axes"
+path = "examples/gizmos/axes.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.axes]
+name = "Axes"
+description = "Demonstrates the function of axes gizmos"
+category = "Gizmos"
+wasm = true
+
+[[example]]
+name = "light_gizmos"
+path = "examples/gizmos/light_gizmos.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.light_gizmos]
+name = "Light Gizmos"
+description = "A scene showcasing light gizmos"
 category = "Gizmos"
 wasm = true
 

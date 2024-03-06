@@ -103,7 +103,7 @@ fn draw_example_collection(
         Vec3::new(time.elapsed_seconds().cos() * 2.5, 1., 0.),
         Quat::from_rotation_y(PI / 2.),
         Vec2::splat(2.),
-        GREEN,
+        LIME,
     );
 
     my_gizmos.sphere(Vec3::new(1., 0.5, 0.), Quat::IDENTITY, 0.5, RED);

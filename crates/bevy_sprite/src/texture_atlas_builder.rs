@@ -1,11 +1,11 @@
 use bevy_asset::AssetId;
-use bevy_log::{debug, error, warn};
 use bevy_math::{URect, UVec2};
 use bevy_render::{
     render_asset::RenderAssetUsages,
     render_resource::{Extent3d, TextureDimension, TextureFormat},
     texture::{Image, TextureFormatPixelInfo},
 };
+use bevy_utils::tracing::{debug, error, warn};
 use bevy_utils::HashMap;
 use rectangle_pack::{
     contains_smallest_box, pack_rects, volume_heuristic, GroupedRectsToPlace, PackedLocation,
@@ -173,14 +173,10 @@ impl<'a> TextureAtlasBuilder<'a> {
     ///     let texture = textures.add(texture);
     ///     let layout = layouts.add(atlas_layout);
     ///     // Spawn your sprite
-    ///     commands.spawn(SpriteSheetBundle {
-    ///        texture,
-    ///        atlas: TextureAtlas {
-    ///             layout,
-    ///             index: 0
-    ///         },
-    ///       ..Default::default()
-    ///     });
+    ///     commands.spawn((
+    ///         SpriteBundle { texture, ..Default::default() },
+    ///         TextureAtlas::from(layout),
+    ///     ));
     /// }
     /// ```
     ///

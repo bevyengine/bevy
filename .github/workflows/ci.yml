@@ -144,8 +144,6 @@ jobs:
           target: wasm32-unknown-unknown
       - name: Check wasm
         run: cargo check --target wasm32-unknown-unknown
-        env:
-          RUSTFLAGS: --cfg=web_sys_unstable_apis
 
   markdownlint:
     runs-on: ubuntu-latest
@@ -191,7 +189,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check for typos
-        uses: crate-ci/typos@v1.18.2
+        uses: crate-ci/typos@v1.19.0
       - name: Typos info
         if: failure()
         run: |

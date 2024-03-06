@@ -37,7 +37,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    background_color: Color::srgb(0.1, 0.5, 0.1).into(),
+                    image: UiImage::default().with_color(Color::srgb(0.1, 0.5, 0.1)),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -63,7 +63,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    background_color: Color::srgb(0.5, 0.1, 0.5).into(),
+                    image: UiImage::default().with_color(Color::srgb(0.5, 0.1, 0.5)),
                     ..default()
                 })
                 .with_children(|parent| {
