@@ -33,6 +33,51 @@ mod sealed {
 pub struct ConstNonNull<T: ?Sized>(NonNull<T>);
 
 impl<T: ?Sized> ConstNonNull<T> {
+    /// Creates a new `ConstNonNull` if `ptr` is non-null.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bevy_ptr::ConstNonNull;
+    ///
+    /// let x = 0u32;
+    /// let ptr = ConstNonNull::<u32>::new(&x as *const _).expect("ptr is null!");
+    ///
+    /// if let Some(ptr) = ConstNonNull::<u32>::new(std::ptr::null()) {
+    ///     unreachable!();
+    /// }
+    /// ```
+    pub fn new(ptr: *const T) -> Option<Self> {
+        NonNull::new(ptr.cast_mut()).map(Self)
+    }
+
+    /// Creates a new `ConstNonNull`.
+    ///
+    /// # Safety
+    ///
+    /// `ptr` must be non-null.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bevy_ptr::ConstNonNull;
+    ///
+    /// let x = 0u32;
+    /// let ptr = unsafe { ConstNonNull::new_unchecked(&x as *const _) };
+    /// ```
+    ///
+    /// *Incorrect* usage of this function:
+    ///
+    /// ```rust,no_run
+    /// use bevy_ptr::ConstNonNull;
+    ///
+    /// // NEVER DO THAT!!! This is undefined behavior. ⚠️
+    /// let ptr = unsafe { ConstNonNull::<u32>::new_unchecked(std::ptr::null()) };
+    /// ```
+    pub const unsafe fn new_unchecked(ptr: *const T) -> Self {
+        unsafe { Self(NonNull::new_unchecked(ptr.cast_mut())) }
+    }
+
     /// Returns a shared reference to the value.
     ///
     /// # Safety
@@ -57,10 +102,10 @@ impl<T: ?Sized> ConstNonNull<T> {
     /// # Examples
     ///
     /// ```
-    /// use std::ptr::NonNull;
+    /// use bevy_ptr::ConstNonNull;
     ///
     /// let mut x = 0u32;
-    /// let ptr = NonNull::new(&mut x as *mut _).expect("ptr is null!");
+    /// let ptr = ConstNonNull::new(&mut x as *mut _).expect("ptr is null!");
     ///
     /// let ref_x = unsafe { ptr.as_ref() };
     /// println!("{ref_x}");
@@ -72,6 +117,12 @@ impl<T: ?Sized> ConstNonNull<T> {
         // SAFETY: This function's safety invariants are identical to `NonNull::as_ref`
         // The caller must satisfy all of them.
         unsafe { self.0.as_ref() }
+    }
+}
+
+impl<'a, T: ?Sized> From<NonNull<T>> for ConstNonNull<T> {
+    fn from(value: NonNull<T>) -> ConstNonNull<T> {
+        ConstNonNull(value)
     }
 }
 
