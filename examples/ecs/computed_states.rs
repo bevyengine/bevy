@@ -233,13 +233,13 @@ enum MenuButton {
     Tutorial,
 }
 
-const NORMAL_BUTTON: LegacyColor = LegacyColor::rgb(0.15, 0.15, 0.15);
-const HOVERED_BUTTON: LegacyColor = LegacyColor::rgb(0.25, 0.25, 0.25);
-const PRESSED_BUTTON: LegacyColor = LegacyColor::rgb(0.35, 0.75, 0.35);
+const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
+const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
+const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 
-const ACTIVE_BUTTON: LegacyColor = LegacyColor::rgb(0.15, 0.85, 0.15);
-const HOVERED_ACTIVE_BUTTON: LegacyColor = LegacyColor::rgb(0.25, 0.55, 0.25);
-const PRESSED_ACTIVE_BUTTON: LegacyColor = LegacyColor::rgb(0.35, 0.95, 0.35);
+const ACTIVE_BUTTON: Color = Color::srgb(0.15, 0.85, 0.15);
+const HOVERED_ACTIVE_BUTTON: Color = Color::srgb(0.25, 0.55, 0.25);
+const PRESSED_ACTIVE_BUTTON: Color = Color::srgb(0.35, 0.95, 0.35);
 
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
@@ -273,7 +273,7 @@ fn setup_menu(mut commands: Commands, tutorial_state: Res<State<TutorialState>>)
                             align_items: AlignItems::Center,
                             ..default()
                         },
-                        background_color: NORMAL_BUTTON.into(),
+                        image: UiImage::default().with_color(NORMAL_BUTTON),
                         ..default()
                     },
                     MenuButton::Play,
@@ -283,7 +283,7 @@ fn setup_menu(mut commands: Commands, tutorial_state: Res<State<TutorialState>>)
                         "Play",
                         TextStyle {
                             font_size: 40.0,
-                            color: LegacyColor::rgb(0.9, 0.9, 0.9),
+                            color: Color::srgb(0.9, 0.9, 0.9),
                             ..default()
                         },
                     ));
@@ -301,10 +301,10 @@ fn setup_menu(mut commands: Commands, tutorial_state: Res<State<TutorialState>>)
                             align_items: AlignItems::Center,
                             ..default()
                         },
-                        background_color: match tutorial_state.get() {
-                            TutorialState::Active => ACTIVE_BUTTON.into(),
-                            TutorialState::Inactive => NORMAL_BUTTON.into(),
-                        },
+                        image: UiImage::default().with_color(match tutorial_state.get() {
+                            TutorialState::Active => ACTIVE_BUTTON,
+                            TutorialState::Inactive => NORMAL_BUTTON,
+                        }),
                         ..default()
                     },
                     MenuButton::Tutorial,
@@ -314,7 +314,7 @@ fn setup_menu(mut commands: Commands, tutorial_state: Res<State<TutorialState>>)
                         "Tutorial",
                         TextStyle {
                             font_size: 40.0,
-                            color: LegacyColor::rgb(0.9, 0.9, 0.9),
+                            color: Color::srgb(0.9, 0.9, 0.9),
                             ..default()
                         },
                     ));
@@ -495,7 +495,7 @@ fn setup_paused_screen(mut commands: Commands) {
                         "Paused",
                         TextStyle {
                             font_size: 40.0,
-                            color: LegacyColor::rgb(0.9, 0.9, 0.9),
+                            color: Color::srgb(0.9, 0.9, 0.9),
                             ..default()
                         },
                     ));
@@ -541,7 +541,7 @@ fn setup_turbo_text(mut commands: Commands) {
                 "TURBO MODE",
                 TextStyle {
                     font_size: 40.0,
-                    color: LegacyColor::rgb(0.9, 0.3, 0.1),
+                    color: Color::srgb(0.9, 0.3, 0.1),
                     ..default()
                 },
             ));
@@ -556,9 +556,12 @@ fn quit_to_menu(input: Res<ButtonInput<KeyCode>>, mut next_state: ResMut<NextSta
 
 fn change_color(time: Res<Time>, mut query: Query<&mut Sprite>) {
     for mut sprite in &mut query {
-        sprite
-            .color
-            .set_b((time.elapsed_seconds() * 0.5).sin() + 2.0);
+        let new_color = LinearRgba {
+            blue: (time.elapsed_seconds() * 0.5).sin() + 2.0,
+            ..LinearRgba::from(sprite.color)
+        };
+
+        sprite.color = new_color.into();
     }
 }
 
@@ -585,7 +588,7 @@ fn movement_instructions(mut commands: Commands) {
                 "Move the bevy logo with the arrow keys",
                 TextStyle {
                     font_size: 40.0,
-                    color: LegacyColor::rgb(0.3, 0.3, 0.7),
+                    color: Color::srgb(0.3, 0.3, 0.7),
                     ..default()
                 },
             ));
@@ -593,7 +596,7 @@ fn movement_instructions(mut commands: Commands) {
                 "Press T to enter TURBO MODE",
                 TextStyle {
                     font_size: 40.0,
-                    color: LegacyColor::rgb(0.3, 0.3, 0.7),
+                    color: Color::srgb(0.3, 0.3, 0.7),
                     ..default()
                 },
             ));
@@ -602,7 +605,7 @@ fn movement_instructions(mut commands: Commands) {
                 "Press SPACE to pause",
                 TextStyle {
                     font_size: 40.0,
-                    color: LegacyColor::rgb(0.3, 0.3, 0.7),
+                    color: Color::srgb(0.3, 0.3, 0.7),
                     ..default()
                 },
             ));
@@ -611,7 +614,7 @@ fn movement_instructions(mut commands: Commands) {
                 "Press ESCAPE to return to the menu",
                 TextStyle {
                     font_size: 40.0,
-                    color: LegacyColor::rgb(0.3, 0.3, 0.7),
+                    color: Color::srgb(0.3, 0.3, 0.7),
                     ..default()
                 },
             ));
@@ -641,7 +644,7 @@ fn pause_instructions(mut commands: Commands) {
                 "Press SPACE to resume",
                 TextStyle {
                     font_size: 40.0,
-                    color: LegacyColor::rgb(0.3, 0.3, 0.7),
+                    color: Color::srgb(0.3, 0.3, 0.7),
                     ..default()
                 },
             ));
@@ -650,7 +653,7 @@ fn pause_instructions(mut commands: Commands) {
                 "Press ESCAPE to return to the menu",
                 TextStyle {
                     font_size: 40.0,
-                    color: LegacyColor::rgb(0.3, 0.3, 0.7),
+                    color: Color::srgb(0.3, 0.3, 0.7),
                     ..default()
                 },
             ));
