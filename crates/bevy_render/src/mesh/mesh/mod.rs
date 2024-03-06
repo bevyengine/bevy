@@ -370,6 +370,14 @@ impl Mesh {
         self
     }
 
+    /// Returns the size of a vertex in bytes.
+    pub fn get_vertex_size(&self) -> u64 {
+        self.attributes
+            .values()
+            .map(|data| data.attribute.format.get_size())
+            .sum()
+    }
+
     /// Computes and returns the index data of the mesh as bytes.
     /// This is used to transform the index data into a GPU friendly format.
     pub fn get_index_buffer_bytes(&self) -> Option<&[u8]> {

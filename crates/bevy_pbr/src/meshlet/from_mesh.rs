@@ -23,15 +23,12 @@ impl MeshletMesh {
         if mesh.primitive_topology() != PrimitiveTopology::TriangleList {
             return Err(MeshToMeshletMeshConversionError::WrongMeshPrimitiveTopology);
         }
-        let vertex_buffer_layout = &mesh.get_mesh_vertex_buffer_layout();
-        if vertex_buffer_layout.attribute_ids()
-            != [
-                Mesh::ATTRIBUTE_POSITION.id,
-                Mesh::ATTRIBUTE_NORMAL.id,
-                Mesh::ATTRIBUTE_UV_0.id,
-                Mesh::ATTRIBUTE_TANGENT.id,
-            ]
-        {
+        if mesh.attributes().map(|(id, _)| id).eq([
+            Mesh::ATTRIBUTE_POSITION.id,
+            Mesh::ATTRIBUTE_NORMAL.id,
+            Mesh::ATTRIBUTE_UV_0.id,
+            Mesh::ATTRIBUTE_TANGENT.id,
+        ]) {
             return Err(MeshToMeshletMeshConversionError::WrongMeshVertexAttributes);
         }
         let indices = match mesh.indices() {
@@ -40,12 +37,8 @@ impl MeshletMesh {
             _ => return Err(MeshToMeshletMeshConversionError::MeshMissingIndices),
         };
         let vertex_buffer = mesh.get_vertex_buffer_data();
-        let vertices = VertexDataAdapter::new(
-            &vertex_buffer,
-            vertex_buffer_layout.layout().array_stride as usize,
-            0,
-        )
-        .unwrap();
+        let vertices =
+            VertexDataAdapter::new(&vertex_buffer, mesh.get_vertex_size() as usize, 0).unwrap();
 
         // Split the mesh into meshlets
         let meshopt_meshlets = build_meshlets(&indices, &vertices, 64, 64, 0.0);
