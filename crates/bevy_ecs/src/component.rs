@@ -158,7 +158,7 @@ pub trait Component: Send + Sync + 'static {
     fn register_component_hooks(_hooks: &mut ComponentHooks) {}
 
     /// Shim for automatically registering components. Intentionally hidden as it's not part of the
-    /// public interface. Only avaiable if the `bevy_reflect` feature is enabled.
+    /// public interface. Only available if the `bevy_reflect` feature is enabled.
     #[doc(hidden)]
     #[allow(unused_variables)]
     #[cfg(feature = "bevy_reflect")]
