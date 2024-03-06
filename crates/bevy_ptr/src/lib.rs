@@ -75,6 +75,8 @@ impl<T: ?Sized> ConstNonNull<T> {
     /// let ptr = unsafe { ConstNonNull::<u32>::new_unchecked(std::ptr::null()) };
     /// ```
     pub const unsafe fn new_unchecked(ptr: *const T) -> Self {
+        // SAFETY: This function's safety invariants are identical to `NonNull::new_unchecked`
+        // The caller must satisfy all of them.
         unsafe { Self(NonNull::new_unchecked(ptr.cast_mut())) }
     }
 
@@ -120,7 +122,7 @@ impl<T: ?Sized> ConstNonNull<T> {
     }
 }
 
-impl<'a, T: ?Sized> From<NonNull<T>> for ConstNonNull<T> {
+impl<T: ?Sized> From<NonNull<T>> for ConstNonNull<T> {
     fn from(value: NonNull<T>) -> ConstNonNull<T> {
         ConstNonNull(value)
     }
@@ -132,6 +134,11 @@ impl<'a, T: ?Sized> From<&'a T> for ConstNonNull<T> {
     }
 }
 
+impl<'a, T: ?Sized> From<&'a mut T> for ConstNonNull<T> {
+    fn from(value: &'a mut T) -> ConstNonNull<T> {
+        ConstNonNull(NonNull::from(value))
+    }
+}
 /// Type-erased borrow of some unknown type chosen when constructing this type.
 ///
 /// This type tries to act "borrow-like" which means that:
