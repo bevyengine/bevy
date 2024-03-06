@@ -242,7 +242,7 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    let fake_vertex_buffer_layout = &fake_vertex_buffer_layout(&mut *mesh_vertex_buffer_layouts);
+    let fake_vertex_buffer_layout = &fake_vertex_buffer_layout(&mut mesh_vertex_buffer_layouts);
 
     for (
         mut materials,
