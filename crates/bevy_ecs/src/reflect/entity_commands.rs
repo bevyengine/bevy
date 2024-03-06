@@ -338,9 +338,9 @@ mod tests {
     fn insert_reflected() {
         let mut world = World::new();
 
-        let type_registry = AppTypeRegistry::default();
+        world.init_resource::<AppTypeRegistry>();
         {
-            let mut registry = type_registry.write();
+            let mut registry = world.resource::<AppTypeRegistry>().write();
             registry.register::<ComponentA>();
             registry.register_type_data::<ComponentA, ReflectComponent>();
         }
@@ -405,9 +405,9 @@ mod tests {
     fn remove_reflected() {
         let mut world = World::new();
 
-        let type_registry = AppTypeRegistry::default();
+        world.init_resource::<AppTypeRegistry>();
         {
-            let mut registry = type_registry.write();
+            let mut registry = world.resource::<AppTypeRegistry>().write();
             registry.register::<ComponentA>();
             registry.register_type_data::<ComponentA, ReflectComponent>();
         }

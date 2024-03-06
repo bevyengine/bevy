@@ -51,9 +51,9 @@ pub const ENTITY_FIELD_COMPONENTS: &str = "components";
 /// // Create our world, provide it with a type registry.
 /// // Normally, [`App`] handles providing the type registry.
 /// let mut world = World::new();
-/// let registry = AppTypeRegistry::default();
+/// world.init_resource::<AppTypeRegistry>();
 /// {
-///     let mut registry = registry.write();
+///     let mut registry = world.resource::<AppTypeRegistry>().write();
 ///     // Register our component. Primitives and String are registered by default.
 ///     // Sequence types are automatically handled.
 ///     registry.register::<MyComponent>();
@@ -563,9 +563,9 @@ mod tests {
 
     fn create_world() -> World {
         let mut world = World::new();
-        let registry = AppTypeRegistry::default();
+        world.init_resource::<AppTypeRegistry>();
         {
-            let mut registry = registry.write();
+            let mut registry = world.resource::<AppTypeRegistry>().write();
             registry.register::<Foo>();
             registry.register::<Bar>();
             registry.register::<Baz>();
