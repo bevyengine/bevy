@@ -1,4 +1,3 @@
-#![warn(missing_docs)]
 //! This crate provides additional utilities for the [Bevy game engine](https://bevyengine.org),
 //! focused on improving developer experience.
 
