@@ -16,6 +16,7 @@ use bevy::{
     math::{DVec2, DVec3},
     prelude::*,
     render::{
+        batching::NoAutomaticBatching,
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
         view::NoFrustumCulling,
@@ -38,15 +39,23 @@ struct Args {
 
     /// whether to vary the material data in each instance.
     #[argh(switch)]
-    vary_per_instance: bool,
+    vary_material_data_per_instance: bool,
 
     /// the number of different textures from which to randomly select the material base color. 0 means no textures.
     #[argh(option, default = "0")]
     material_texture_count: usize,
 
-    /// whether to disable frustum culling, for stress testing purposes
+    /// the number of different meshes from which to randomly select. Clamped to at least 1.
+    #[argh(option, default = "1")]
+    mesh_count: usize,
+
+    /// whether to disable frustum culling. Stresses queuing and batching as all mesh material entities in the scene are always drawn.
     #[argh(switch)]
     no_frustum_culling: bool,
+
+    /// whether to disable automatic batching. Skips batching resulting in heavy stress on render pass draw command encoding.
+    #[argh(switch)]
+    no_automatic_batching: bool,
 }
 
 #[derive(Default, Clone)]
@@ -108,7 +117,7 @@ const HEIGHT: usize = 200;
 fn setup(
     mut commands: Commands,
     args: Res<Args>,
-    mut meshes: ResMut<Assets<Mesh>>,
+    mesh_assets: ResMut<Assets<Mesh>>,
     material_assets: ResMut<Assets<StandardMaterial>>,
     images: ResMut<Assets<Image>>,
 ) {
@@ -117,8 +126,9 @@ fn setup(
     let args = args.into_inner();
     let images = images.into_inner();
     let material_assets = material_assets.into_inner();
+    let mesh_assets = mesh_assets.into_inner();
 
-    let mesh = meshes.add(Cuboid::default());
+    let meshes = init_meshes(args, mesh_assets);
 
     let material_textures = init_textures(args, images);
     let materials = init_materials(args, &material_textures, material_assets);
@@ -136,14 +146,20 @@ fn setup(
                 let spherical_polar_theta_phi =
                     fibonacci_spiral_on_sphere(golden_ratio, i, N_POINTS);
                 let unit_sphere_p = spherical_polar_to_cartesian(spherical_polar_theta_phi);
+                let (mesh, transform) = meshes.choose(&mut material_rng).unwrap();
                 let mut cube = commands.spawn(PbrBundle {
                     mesh: mesh.clone(),
                     material: materials.choose(&mut material_rng).unwrap().clone(),
-                    transform: Transform::from_translation((radius * unit_sphere_p).as_vec3()),
+                    transform: Transform::from_translation((radius * unit_sphere_p).as_vec3())
+                        .looking_at(Vec3::ZERO, Vec3::Y)
+                        .mul_transform(*transform),
                     ..default()
                 });
                 if args.no_frustum_culling {
                     cube.insert(NoFrustumCulling);
+                }
+                if args.no_automatic_batching {
+                    cube.insert(NoAutomaticBatching);
                 }
             }
 
@@ -161,13 +177,13 @@ fn setup(
                     }
                     // cube
                     commands.spawn(PbrBundle {
-                        mesh: mesh.clone(),
+                        mesh: meshes.choose(&mut material_rng).unwrap().0.clone(),
                         material: materials.choose(&mut material_rng).unwrap().clone(),
                         transform: Transform::from_xyz((x as f32) * 2.5, (y as f32) * 2.5, 0.0),
                         ..default()
                     });
                     commands.spawn(PbrBundle {
-                        mesh: mesh.clone(),
+                        mesh: meshes.choose(&mut material_rng).unwrap().0.clone(),
                         material: materials.choose(&mut material_rng).unwrap().clone(),
                         transform: Transform::from_xyz(
                             (x as f32) * 2.5,
@@ -177,13 +193,13 @@ fn setup(
                         ..default()
                     });
                     commands.spawn(PbrBundle {
-                        mesh: mesh.clone(),
+                        mesh: meshes.choose(&mut material_rng).unwrap().0.clone(),
                         material: materials.choose(&mut material_rng).unwrap().clone(),
                         transform: Transform::from_xyz((x as f32) * 2.5, 0.0, (y as f32) * 2.5),
                         ..default()
                     });
                     commands.spawn(PbrBundle {
-                        mesh: mesh.clone(),
+                        mesh: meshes.choose(&mut material_rng).unwrap().0.clone(),
                         material: materials.choose(&mut material_rng).unwrap().clone(),
                         transform: Transform::from_xyz(0.0, (x as f32) * 2.5, (y as f32) * 2.5),
                         ..default()
@@ -229,7 +245,7 @@ fn init_materials(
     textures: &[Handle<Image>],
     assets: &mut Assets<StandardMaterial>,
 ) -> Vec<Handle<StandardMaterial>> {
-    let capacity = if args.vary_per_instance {
+    let capacity = if args.vary_material_data_per_instance {
         match args.layout {
             Layout::Cube => (WIDTH - WIDTH / 10) * (HEIGHT - HEIGHT / 10),
             Layout::Sphere => WIDTH * HEIGHT * 4,
@@ -260,6 +276,108 @@ fn init_materials(
     );
 
     materials
+}
+
+fn init_meshes(args: &Args, assets: &mut Assets<Mesh>) -> Vec<(Handle<Mesh>, Transform)> {
+    let capacity = args.mesh_count.max(1);
+
+    let mut meshes = Vec::with_capacity(capacity);
+
+    let mut radius_rng = StdRng::seed_from_u64(42);
+    let mut variant = 0;
+    meshes.extend(
+        std::iter::repeat_with(|| {
+            let radius = radius_rng.gen_range(0.25f32..=0.75f32);
+            let (handle, transform) = match variant % 15 {
+                0 => (
+                    assets.add(Cuboid {
+                        half_size: Vec3::splat(radius),
+                    }),
+                    Transform::IDENTITY,
+                ),
+                1 => (
+                    assets.add(Capsule3d {
+                        radius,
+                        half_length: radius,
+                    }),
+                    Transform::IDENTITY,
+                ),
+                2 => (
+                    assets.add(Circle { radius }),
+                    Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
+                ),
+                3 => {
+                    let mut vertices = [Vec2::ZERO; 3];
+                    let dtheta = std::f32::consts::TAU / 3.0;
+                    for i in 0..3 {
+                        let (s, c) = (i as f32 * dtheta).sin_cos();
+                        vertices[i] = Vec2::new(c, s) * radius;
+                    }
+                    (
+                        assets.add(Triangle2d { vertices }),
+                        Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
+                    )
+                }
+                4 => (
+                    assets.add(Rectangle {
+                        half_size: Vec2::splat(radius),
+                    }),
+                    Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
+                ),
+                v if v >= 5 && v <= 8 => (
+                    assets.add(RegularPolygon {
+                        circumcircle: Circle { radius },
+                        sides: v,
+                    }),
+                    Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
+                ),
+                9 => (
+                    assets.add(Cylinder {
+                        radius,
+                        half_height: radius,
+                    }),
+                    Transform::IDENTITY,
+                ),
+                10 => (
+                    assets.add(Ellipse {
+                        half_size: Vec2::new(radius, 0.5 * radius),
+                    }),
+                    Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
+                ),
+                11 => (
+                    assets.add(
+                        Plane3d {
+                            normal: Dir3::NEG_Z,
+                        }
+                        .mesh()
+                        .size(radius, radius),
+                    ),
+                    Transform::IDENTITY,
+                ),
+                12 => (assets.add(Sphere { radius }), Transform::IDENTITY),
+                13 => (
+                    assets.add(Torus {
+                        minor_radius: 0.5 * radius,
+                        major_radius: radius,
+                    }),
+                    Transform::IDENTITY.looking_at(Vec3::Y, Vec3::Y),
+                ),
+                14 => (
+                    assets.add(Capsule2d {
+                        radius,
+                        half_length: radius,
+                    }),
+                    Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
+                ),
+                _ => unreachable!(),
+            };
+            variant += 1;
+            (handle, transform)
+        })
+        .take(capacity - meshes.len()),
+    );
+
+    meshes
 }
 
 // NOTE: This epsilon value is apparently optimal for optimizing for the average
