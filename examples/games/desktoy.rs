@@ -35,19 +35,19 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(
             Update,
-            (get_cursor_world_pos, update_cursor_hit_test).chain(),
-        )
-        .add_systems(
-            Update,
             (
-                start_drag.run_if(input_just_pressed(MouseButton::Left)),
-                end_drag.run_if(input_just_released(MouseButton::Left)),
-                drag.run_if(resource_exists::<DragOperation>),
-                quit.run_if(input_just_pressed(MouseButton::Right)),
-                toggle_transparency.run_if(input_just_pressed(KeyCode::Space)),
-                move_pupils.after(drag),
+                get_cursor_world_pos,
+                update_cursor_hit_test,
+                (
+                    start_drag.run_if(input_just_pressed(MouseButton::Left)),
+                    end_drag.run_if(input_just_released(MouseButton::Left)),
+                    drag.run_if(resource_exists::<DragOperation>),
+                    quit.run_if(input_just_pressed(MouseButton::Right)),
+                    toggle_transparency.run_if(input_just_pressed(KeyCode::Space)),
+                    move_pupils.after(drag),
+                ),
             )
-                .after(update_cursor_hit_test),
+                .chain(),
         )
         .run();
 }
@@ -381,14 +381,15 @@ fn move_pupils(time: Res<Time>, mut q_pupils: Query<(&mut Pupil, &mut Transform)
         // Truncate the Z component to make the calculations be on [`Vec2`]
         let mut translation = transform.translation.truncate();
         // Decay the pupil velocity
-        pupil.velocity *= (0.2f32).powf(time.delta_seconds());
+        pupil.velocity *= (0.04f32).powf(time.delta_seconds());
         // Move the pupil
         translation += pupil.velocity * time.delta_seconds();
         // If the pupil hit the outside border of the eye, limit the translation to be within the wiggle radius and invert the velocity.
         // This is not physically accurate but it's good enough for the googly eyes effect.
         if translation.length() > wiggle_radius {
             translation = translation.normalize() * wiggle_radius;
-            pupil.velocity *= -1.0;
+            // Invert and decrease the velocity of the pupil when it bounces
+            pupil.velocity *= -0.75;
         }
         // Update the entity transform with the new translation after reading the Z component
         transform.translation = translation.extend(z);
