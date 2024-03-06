@@ -111,7 +111,7 @@
 //! 
 //! - In the callback of `cpal::Stream::build_input_stream` and `cpal::Stream::build_output_stream`, and all
 //!   functions called from them
-//! - In implementations of the [`rodio::source::Source`] trait, and all functions called from it
+//! - In implementations of the [`Source`] trait, and all functions called from it
 //! 
 //! Code that is run in Bevy systems do not need to be real-time safe, as they are not run in the audio thread,
 //! but in the main game loop thread.
