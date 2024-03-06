@@ -14,8 +14,8 @@ webgpu = []
 
 [dependencies]
 # Bevy
-bevy_pbr = { path = "../bevy_pbr", version = "0.14.0-dev", optional = true }
 bevy_sprite = { path = "../bevy_sprite", version = "0.14.0-dev", optional = true }
+bevy_pbr = { path = "../bevy_pbr", version = "0.14.0-dev", optional = true }
 bevy_app = { path = "../bevy_app", version = "0.14.0-dev" }
 bevy_color = { path = "../bevy_color", version = "0.14.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }

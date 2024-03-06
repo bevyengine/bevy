@@ -87,6 +87,8 @@ fn draw_example_collection(
         Vec2::from_angle(sin / -10. + PI / 2.) * 50.,
         YELLOW,
     );
+
+    gizmos.axes_2d(Transform::from_translation(Vec3::new(sin, 0.0, 0.0)), 25.0)
 }
 
 fn update_config(

@@ -125,7 +125,14 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         end: Vec2,
         color: impl Into<Color>,
     ) -> ArrowBuilder<'_, 'w, 's, T> {
-        self.arrow(start.extend(0.), end.extend(0.), color)
+        let length = (end - start).length();
+        ArrowBuilder {
+            gizmos: self,
+            start: start.extend(0.),
+            end: end.extend(0.),
+            color: color.into(),
+            tip_length: length / 10.,
+        }
     }
 }
 
@@ -162,13 +169,37 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         self.arrow(start, end_y, GREEN);
         self.arrow(start, end_z, BLUE);
     }
+}
 
+impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
+    /// Draw a set of axes local to the given transform (`transform`), with length scaled by a factor
+    /// of `base_length`.
+    ///
+    /// This should be called for each frame the axes need to be rendered.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_transform::components::Transform;
+    /// # #[derive(Component)]
+    /// # struct AxesComponent;
+    /// fn draw_axes_2d(
+    ///     mut gizmos: Gizmos,
+    ///     query: Query<&Transform, With<AxesComponent>>,
+    /// ) {
+    ///     for &transform in &query {
+    ///         gizmos.axes_2d(transform, 1.);
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(draw_axes_2d);
+    /// ```
     pub fn axes_2d(&mut self, transform: impl TransformPoint, base_length: f32) {
-        let start = transform.transform_point(Vec2::ZERO);
-        let end_x = transform.transform_point(base_length * Vec2::X);
-        let end_y = transform.transform_point(base_length * Vec2::Y);
+        let start = transform.transform_point(Vec3::ZERO);
+        let end_x = transform.transform_point(base_length * Vec3::X);
+        let end_y = transform.transform_point(base_length * Vec3::Y);
 
-        self.arrow_2d(start, end_x, RED);
-        self.arrow_2d(start, end_y, GREEN);
+        self.arrow_2d(start.into(), end_x.into(), RED);
+        self.arrow_2d(start.into(), end_y.into(), GREEN);
     }
 }
