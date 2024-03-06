@@ -4,6 +4,8 @@ use bevy::render::primitives::Aabb;
 use rand::random;
 use std::f32::consts::PI;
 
+const TRANSITION_DURATION: f32 = 2.0;
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -27,8 +29,8 @@ struct TransformTracking {
     /// The target transform of the cube during the move
     target_transform: Transform,
 
-    /// The progress of the cube during the move in percentage points
-    progress: u16,
+    /// The progress of the cube during the move in seconds
+    progress: f32,
 }
 
 fn setup(
@@ -63,7 +65,7 @@ fn setup(
         TransformTracking {
             initial_transform: default(),
             target_transform: random_transform(),
-            progress: 0,
+            progress: 0.0,
         },
     ));
 
@@ -77,7 +79,7 @@ fn setup(
         TransformTracking {
             initial_transform: default(),
             target_transform: random_transform(),
-            progress: 0,
+            progress: 0.0,
         },
     ));
 
@@ -100,19 +102,23 @@ fn draw_axes(mut gizmos: Gizmos, query: Query<(&Transform, &Aabb), With<ShowAxes
 }
 
 // This system changes the cubes' transforms to interpolate between random transforms
-fn move_cubes(mut query: Query<(&mut Transform, &mut TransformTracking)>) {
+fn move_cubes(
+    mut query: Query<(&mut Transform, &mut TransformTracking)>,
+    time: Res<Time>,
+) {
     for (mut transform, mut tracking) in &mut query {
-        let t = tracking.progress as f32 / 100.;
+        *transform = interpolate_transforms(
+            tracking.initial_transform,
+            tracking.target_transform,
+            tracking.progress / TRANSITION_DURATION,
+        );
 
-        *transform =
-            interpolate_transforms(tracking.initial_transform, tracking.target_transform, t);
-
-        if tracking.progress < 100 {
-            tracking.progress += 1;
+        if tracking.progress < TRANSITION_DURATION {
+            tracking.progress += time.delta_seconds();
         } else {
             tracking.initial_transform = *transform;
             tracking.target_transform = random_transform();
-            tracking.progress = 0;
+            tracking.progress = 0.0;
         }
     }
 }
