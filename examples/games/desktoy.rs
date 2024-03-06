@@ -5,8 +5,11 @@ use bevy::{
     input::common_conditions::{input_just_pressed, input_just_released},
     prelude::*,
     sprite::{MaterialMesh2dBundle, Mesh2dHandle},
-    window::{CompositeAlphaMode, PrimaryWindow, WindowLevel},
+    window::{PrimaryWindow, WindowLevel},
 };
+
+#[cfg(target_os = "macos")]
+use bevy::window::CompositeAlphaMode;
 
 fn main() {
     App::new()
@@ -20,7 +23,7 @@ fn main() {
             }),
             ..default()
         }))
-        .insert_resource(ClearColor(Color::rgb(0.2, 0.2, 0.2)))
+        .insert_resource(ClearColor(Color::srgb(0.2, 0.2, 0.2)))
         .insert_resource(CursorWorldPos(None))
         .add_systems(Startup, setup)
         .add_systems(
@@ -104,8 +107,8 @@ fn setup(
     let circle = Mesh2dHandle(meshes.add(Circle { radius: 1.0 }));
     let outline_material = materials.add(Color::BLACK);
     let sclera_material = materials.add(Color::WHITE);
-    let pupil_material = materials.add(Color::rgb(0.2, 0.2, 0.2));
-    let pupil_highlight_material = materials.add(Color::rgba(1.0, 1.0, 1.0, 0.2));
+    let pupil_material = materials.add(Color::srgb(0.2, 0.2, 0.2));
+    let pupil_highlight_material = materials.add(Color::srgba(1.0, 1.0, 1.0, 0.2));
 
     commands
         .spawn((
@@ -214,17 +217,13 @@ fn update_cursor_hit_test(
         return;
     }
 
-    let cursor_world_pos = match cursor_world_pos.0 {
-        Some(cursor_world_pos) => cursor_world_pos,
-        None => return,
+    let Some(cursor_world_pos) = cursor_world_pos.0 else {
+        return;
     };
 
     let bevy_logo_transform = q_bevy_logo.single();
-    if (bevy_logo_transform.translation.truncate() - cursor_world_pos).length() < BEVY_LOGO_RADIUS {
-        primary_window.cursor.hit_test = true;
-    } else {
-        primary_window.cursor.hit_test = false;
-    }
+    primary_window.cursor.hit_test =
+        (bevy_logo_transform.translation.truncate() - cursor_world_pos).length() < BEVY_LOGO_RADIUS;
 }
 
 /// Start the drag operation and record the offset we started dragging from
@@ -233,9 +232,8 @@ fn start_drag(
     cursor_world_pos: Res<CursorWorldPos>,
     q_bevy_logo: Query<&Transform, With<BevyLogo>>,
 ) {
-    let cursor_world_pos = match cursor_world_pos.0 {
-        Some(cursor_world_pos) => cursor_world_pos,
-        None => return,
+    let Some(cursor_world_pos) = cursor_world_pos.0 else {
+        return;
     };
 
     let bevy_logo_transform = q_bevy_logo.single();
@@ -258,9 +256,8 @@ fn drag(
     mut q_bevy_logo: Query<&mut Transform, With<BevyLogo>>,
     mut q_pupils: Query<&mut Pupil>,
 ) {
-    let cursor_world_pos = match cursor_world_pos.0 {
-        Some(cursor_world_pos) => cursor_world_pos,
-        None => return,
+    let Some(cursor_world_pos) = cursor_world_pos.0 else {
+        return;
     };
 
     let mut bevy_transform = q_bevy_logo.single_mut();
@@ -280,9 +277,8 @@ fn quit(
     mut app_exit: EventWriter<AppExit>,
     q_bevy_logo: Query<&Transform, With<BevyLogo>>,
 ) {
-    let cursor_world_pos = match cursor_world_pos.0 {
-        Some(cursor_world_pos) => cursor_world_pos,
-        None => return,
+    let Some(cursor_world_pos) = cursor_world_pos.0 else {
+        return;
     };
 
     let bevy_logo_transform = q_bevy_logo.single();
