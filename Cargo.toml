@@ -1238,6 +1238,17 @@ category = "Assets"
 wasm = true
 
 [[example]]
+name = "extra_asset_source"
+path = "examples/asset/extra_source.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.extra_asset_source]
+name = "Extra asset source"
+description = "Load an asset from a non-standard asset source"
+category = "Assets"
+wasm = true
+
+[[example]]
 name = "hot_asset_reloading"
 path = "examples/asset/hot_asset_reloading.rs"
 doc-scrape-examples = true
