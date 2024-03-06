@@ -2,7 +2,7 @@
 //! This asset source exists in addition to the default asset source.
 
 use bevy::asset::{
-    io::{AssetSourceBuilder, AssetSourceBuilders, AssetSourceId},
+    io::{AssetSourceBuilder, AssetSourceId},
     AssetPath,
 };
 use bevy::prelude::*;
