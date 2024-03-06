@@ -150,6 +150,10 @@ impl BoundingVolume for Aabb3d {
     /// Transforms the bounding volume by first rotating it around the origin and then applying a translation.
     ///
     /// The result is an Axis-Aligned Bounding Box that encompasses the rotated shape.
+    ///
+    /// Note that the result may not be as tightly fitting as the original, and repeated rotations
+    /// can cause the AABB to grow indefinitely. Avoid applying multiple rotations to the same AABB,
+    /// and consider storing the original AABB and rotating that every time instead.
     #[inline(always)]
     fn transformed_by(mut self, translation: Self::Translation, rotation: Self::Rotation) -> Self {
         self.transform_by(translation, rotation);
@@ -159,6 +163,10 @@ impl BoundingVolume for Aabb3d {
     /// Transforms the bounding volume by first rotating it around the origin and then applying a translation.
     ///
     /// The result is an Axis-Aligned Bounding Box that encompasses the rotated shape.
+    ///
+    /// Note that the result may not be as tightly fitting as the original, and repeated rotations
+    /// can cause the AABB to grow indefinitely. Avoid applying multiple rotations to the same AABB,
+    /// and consider storing the original AABB and rotating that every time instead.
     #[inline(always)]
     fn transform_by(&mut self, translation: Self::Translation, rotation: Self::Rotation) {
         self.rotate_by(rotation);
@@ -174,6 +182,10 @@ impl BoundingVolume for Aabb3d {
     /// Rotates the bounding volume around the origin by the given rotation.
     ///
     /// The result is an Axis-Aligned Bounding Box that encompasses the rotated shape.
+    ///
+    /// Note that the result may not be as tightly fitting as the original, and repeated rotations
+    /// can cause the AABB to grow indefinitely. Avoid applying multiple rotations to the same AABB,
+    /// and consider storing the original AABB and rotating that every time instead.
     #[inline(always)]
     fn rotated_by(mut self, rotation: Self::Rotation) -> Self {
         self.rotate_by(rotation);
@@ -183,6 +195,10 @@ impl BoundingVolume for Aabb3d {
     /// Rotates the bounding volume around the origin by the given rotation.
     ///
     /// The result is an Axis-Aligned Bounding Box that encompasses the rotated shape.
+    ///
+    /// Note that the result may not be as tightly fitting as the original, and repeated rotations
+    /// can cause the AABB to grow indefinitely. Avoid applying multiple rotations to the same AABB,
+    /// and consider storing the original AABB and rotating that every time instead.
     #[inline(always)]
     fn rotate_by(&mut self, rotation: Self::Rotation) {
         let rot_mat = Mat3::from_quat(rotation);
