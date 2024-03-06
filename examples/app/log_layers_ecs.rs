@@ -34,11 +34,11 @@ struct CapturedLogEvents(mpsc::Receiver<LogEvent>);
 
 /// Transfers information from the [`LogEvents`] resource to [`Events<LogEvent>`](LogEvent).
 fn transfer_log_events(
-    reciever: NonSend<CapturedLogEvents>,
+    receiver: NonSend<CapturedLogEvents>,
     mut log_events: EventWriter<LogEvent>,
 ) {
     // Make sure to use `try_iter()` and not `iter()` to prevent blocking.
-    log_events.send_batch(reciever.try_iter());
+    log_events.send_batch(receiver.try_iter());
 }
 
 /// This is the [`Layer`] that we will use to capture log events and then send them to Bevy's
@@ -67,7 +67,7 @@ impl<S: Subscriber> Layer<S> for CaptureLayer {
     }
 }
 
-/// A [`Visit`](tracing::field::Visit)or that records log messages that are transfered to [`CaptureLayer`].
+/// A [`Visit`](tracing::field::Visit)or that records log messages that are transferred to [`CaptureLayer`].
 struct CaptureLayerVisitor<'a>(&'a mut Option<String>);
 impl tracing::field::Visit for CaptureLayerVisitor<'_> {
     fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
@@ -78,10 +78,10 @@ impl tracing::field::Visit for CaptureLayerVisitor<'_> {
     }
 }
 fn update_subscriber(app: &mut App, subscriber: BoxedSubscriber) -> BoxedSubscriber {
-    let (sender, reciever) = mpsc::channel();
+    let (sender, receiver) = mpsc::channel();
 
     let layer = CaptureLayer { sender };
-    let resource = CapturedLogEvents(reciever);
+    let resource = CapturedLogEvents(receiver);
 
     app.insert_non_send_resource(resource);
     app.add_event::<LogEvent>();
