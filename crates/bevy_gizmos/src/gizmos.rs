@@ -262,8 +262,9 @@ where
     }
 }
 
-impl<'w, 's, T: GizmoConfigGroup, Clear> Gizmos<'w, 's, T, Clear>
+impl<'w, 's, Config, Clear> Gizmos<'w, 's, Config, Clear>
 where
+    Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
     /// Draw a line in 3D from `start` to `end`.
@@ -479,7 +480,7 @@ where
         rotation: Quat,
         radius: f32,
         color: impl Into<Color>,
-    ) -> SphereBuilder<'_, 'w, 's, T, Clear> {
+    ) -> SphereBuilder<'_, 'w, 's, Config, Clear> {
         SphereBuilder {
             gizmos: self,
             position,
