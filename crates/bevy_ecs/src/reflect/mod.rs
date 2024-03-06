@@ -4,7 +4,7 @@ use std::any::TypeId;
 use std::ops::{Deref, DerefMut};
 
 use crate as bevy_ecs;
-use crate::{system::Resource, world::World};
+use crate::{system::Resource, world::{World, FromWorld}};
 use bevy_reflect::{FromReflect, Reflect, TypeRegistry, TypeRegistryArc};
 
 mod bundle;
@@ -23,7 +23,7 @@ pub use resource::{ReflectResource, ReflectResourceFns};
 
 /// A [`Resource`] storing [`TypeRegistry`] for
 /// type registrations relevant to a whole app.
-#[derive(Resource, Clone, Default)]
+#[derive(Resource, Clone)]
 pub struct AppTypeRegistry(pub TypeRegistryArc);
 
 impl Deref for AppTypeRegistry {
@@ -39,6 +39,12 @@ impl DerefMut for AppTypeRegistry {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+impl FromWorld for AppTypeRegistry {
+    fn from_world(world: &mut World) -> Self {
+        Self(world.__type_registry().clone())
     }
 }
 
