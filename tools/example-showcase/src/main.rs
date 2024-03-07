@@ -697,9 +697,7 @@ fn parse_examples() -> Vec<Example> {
                     .unwrap()
                     .replace(['(', ')'], "")
                     .to_lowercase()
-                    .split_whitespace()
-                    .collect::<Vec<_>>()
-                    .join("-"),
+                    .replace([' '], "-"),
                 wasm: metadata["wasm"].as_bool().unwrap(),
                 required_features: val
                     .get("required-features")
