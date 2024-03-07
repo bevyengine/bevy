@@ -21,7 +21,9 @@ watch = []
 bevy_app = { path = "../bevy_app", version = "0.14.0-dev" }
 bevy_asset_macros = { path = "macros", version = "0.14.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev", features = [
+  "uuid",
+] }
 bevy_tasks = { path = "../bevy_tasks", version = "0.14.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
 
@@ -37,6 +39,7 @@ parking_lot = { version = "0.12", features = ["arc_lock", "send_guard"] }
 ron = "0.8"
 serde = { version = "1", features = ["derive"] }
 thiserror = "1.0"
+uuid = { version = "1.0", features = ["v4"] }
 
 [target.'cfg(target_os = "android")'.dependencies]
 bevy_winit = { path = "../bevy_winit", version = "0.14.0-dev" }

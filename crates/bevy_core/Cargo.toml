@@ -24,8 +24,8 @@ bevy_tasks = { path = "../bevy_tasks", version = "0.14.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
 
 # other
-bytemuck = "1.5"
 serde = { version = "1.0", optional = true }
+uuid = "1.0"
 
 [features]
 serialize = ["dep:serde"]

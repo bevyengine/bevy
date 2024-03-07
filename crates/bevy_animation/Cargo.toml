@@ -26,7 +26,7 @@ bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.14.0-dev" }
 
 # other
 sha1_smol = { version = "1.0" }
-uuid = { version = "1.7", features = ["v5"] }
+uuid = { version = "1.7", features = ["v4"] }
 
 [lints]
 workspace = true

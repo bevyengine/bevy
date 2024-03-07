@@ -6,7 +6,6 @@ mod serde;
 mod task_pool_options;
 
 use bevy_ecs::system::Resource;
-pub use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
 pub use name::*;
 pub use task_pool_options::*;
 

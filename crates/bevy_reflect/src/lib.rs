@@ -500,6 +500,7 @@ mod impls {
     mod smol_str;
 
     mod std;
+    #[cfg(feature = "uuid")]
     mod uuid;
 }
 
@@ -1547,7 +1548,6 @@ mod tests {
         // List (SmallVec)
         #[cfg(feature = "smallvec")]
         {
-            use bevy_utils::smallvec;
             type MySmallVec = smallvec::SmallVec<[String; 2]>;
 
             let info = MySmallVec::type_info();
