@@ -35,19 +35,20 @@ fn setup_scene(
             transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         },
-        BloomSettings::default(), // 3. Enable bloom for the camera
+        // 3. Enable bloom for the camera
+        BloomSettings::NATURAL,
     ));
 
     let material_emissive1 = materials.add(StandardMaterial {
-        emissive: Color::rgb_linear(2300.0, 900.0, 300.0), // 4. Put something bright in a dark environment to see the effect
+        emissive: Color::rgb_linear(23000.0, 9000.0, 3000.0), // 4. Put something bright in a dark environment to see the effect
         ..default()
     });
     let material_emissive2 = materials.add(StandardMaterial {
-        emissive: Color::rgb_linear(300.0, 2300.0, 900.0),
+        emissive: Color::rgb_linear(3000.0, 23000.0, 9000.0),
         ..default()
     });
     let material_emissive3 = materials.add(StandardMaterial {
-        emissive: Color::rgb_linear(900.0, 300.0, 2300.0),
+        emissive: Color::rgb_linear(9000.0, 3000.0, 23000.0),
         ..default()
     });
     let material_non_emissive = materials.add(StandardMaterial {
@@ -59,6 +60,8 @@ fn setup_scene(
 
     for x in -5..5 {
         for z in -5..5 {
+            // This generates a pseudo-random integer between `[0, 6)`, but deterministically so
+            // the same spheres are always the same colors.
             let mut hasher = DefaultHasher::new();
             (x, z).hash(&mut hasher);
             let rand = (hasher.finish() - 2) % 6;
@@ -89,7 +92,7 @@ fn setup_scene(
             "",
             TextStyle {
                 font_size: 20.0,
-                color: Color::BLACK,
+                color: Color::WHITE,
                 ..default()
             },
         )
@@ -218,7 +221,7 @@ fn update_bloom_settings(
             *text = "Bloom: Off (Toggle: Space)".to_string();
 
             if keycode.just_pressed(KeyCode::Space) {
-                commands.entity(entity).insert(BloomSettings::default());
+                commands.entity(entity).insert(BloomSettings::NATURAL);
             }
         }
     }
