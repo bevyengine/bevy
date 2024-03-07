@@ -378,7 +378,6 @@ impl AssetApp for App {
             .add_event::<AssetEvent<A>>()
             .add_event::<AssetLoadFailedEvent<A>>()
             .register_type::<Handle<A>>()
-            .register_type::<AssetId<A>>()
             .add_systems(
                 First,
                 Assets::<A>::asset_events

@@ -27,6 +27,7 @@ use bevy_app::{Plugin, PluginGroup, PluginGroupBuilder};
 /// * [`AudioPlugin`](crate::audio::AudioPlugin) - with feature `bevy_audio`
 /// * [`GilrsPlugin`](crate::gilrs::GilrsPlugin) - with feature `bevy_gilrs`
 /// * [`AnimationPlugin`](crate::animation::AnimationPlugin) - with feature `bevy_animation`
+/// * [`DevToolsPlugin`](crate::dev_tools::DevToolsPlugin) - with feature `bevy_dev_tools`
 ///
 /// [`DefaultPlugins`] obeys *Cargo* *feature* flags. Users may exert control over this plugin group
 /// by disabling `default-features` in their `Cargo.toml` and enabling only those features
@@ -132,6 +133,11 @@ impl PluginGroup for DefaultPlugins {
         #[cfg(feature = "bevy_gizmos")]
         {
             group = group.add(bevy_gizmos::GizmoPlugin);
+        }
+
+        #[cfg(feature = "bevy_dev_tools")]
+        {
+            group = group.add(bevy_dev_tools::DevToolsPlugin);
         }
 
         group = group.add(IgnoreAmbiguitiesPlugin);
