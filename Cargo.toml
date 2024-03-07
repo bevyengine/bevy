@@ -79,7 +79,6 @@ default = [
   "webgl2",
   "sysinfo_plugin",
   "bevy_debug_stepping",
-  "bevy_ci_testing",
 ]
 
 # Force dynamic linking, which improves iterative compile times
