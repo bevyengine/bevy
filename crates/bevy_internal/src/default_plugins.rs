@@ -205,11 +205,17 @@ pub struct MinimalPlugins;
 
 impl PluginGroup for MinimalPlugins {
     fn build(self) -> PluginGroupBuilder {
-        PluginGroupBuilder::start::<Self>()
+        let mut group = PluginGroupBuilder::start::<Self>();
+        group = group
             .add(bevy_core::TaskPoolPlugin::default())
             .add(bevy_core::TypeRegistrationPlugin)
             .add(bevy_core::FrameCountPlugin)
             .add(bevy_time::TimePlugin)
-            .add(bevy_app::ScheduleRunnerPlugin::default())
+            .add(bevy_app::ScheduleRunnerPlugin::default());
+        #[cfg(feature = "bevy_dev_tools")]
+        {
+            group = group.add(bevy_dev_tools::DevToolsPlugin);
+        }
+        group
     }
 }
