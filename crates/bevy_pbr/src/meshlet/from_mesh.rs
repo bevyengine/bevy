@@ -114,7 +114,7 @@ impl MeshletMesh {
                 groups
                     .entry(meshlet_group)
                     .or_insert(Vec::new())
-                    .push(i + simplification_queue[0]);
+                    .push(simplification_queue[i]);
             }
 
             let next_lod_start = meshlets.len();
