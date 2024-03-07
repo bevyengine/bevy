@@ -35,9 +35,11 @@ taffy = { version = "0.3.10" }
 serde = { version = "1", features = ["derive"], optional = true }
 bytemuck = { version = "1.5", features = ["derive"] }
 thiserror = "1.0.0"
+nonmax = "0.5"
+smallvec = "1.11"
 
 [features]
-serialize = ["serde"]
+serialize = ["serde", "smallvec/serde"]
 
 [lints]
 workspace = true

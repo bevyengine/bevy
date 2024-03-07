@@ -1,11 +1,9 @@
 use bevy_ecs::{prelude::Entity, world::World};
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
-use bevy_utils::{
-    smallvec::{smallvec, SmallVec},
-    HashMap,
-};
+use bevy_utils::HashMap;
 
+use smallvec::{smallvec, SmallVec};
 use std::{borrow::Cow, collections::VecDeque};
 use thiserror::Error;
 

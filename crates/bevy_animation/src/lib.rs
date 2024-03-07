@@ -25,7 +25,7 @@ use bevy_transform::{prelude::Transform, TransformSystem};
 use bevy_utils::hashbrown::HashMap;
 use bevy_utils::{
     tracing::{error, warn},
-    NoOpHash, Uuid,
+    NoOpHash,
 };
 use fixedbitset::FixedBitSet;
 use graph::{AnimationGraph, AnimationNodeIndex};
@@ -34,6 +34,7 @@ use petgraph::Direction;
 use prelude::{AnimationGraphAssetLoader, AnimationTransitions};
 use sha1_smol::Sha1;
 use thread_local::ThreadLocal;
+use uuid::Uuid;
 
 #[allow(missing_docs)]
 pub mod prelude {
@@ -1126,10 +1127,6 @@ impl Plugin for AnimationPlugin {
             .register_asset_reflect::<AnimationClip>()
             .register_asset_reflect::<AnimationGraph>()
             .register_type::<AnimationPlayer>()
-            .register_type::<VariableCurve>()
-            .register_type::<Vec<VariableCurve>>()
-            .register_type::<Interpolation>()
-            .register_type::<Keyframes>()
             .register_type::<AnimationTarget>()
             .register_type::<AnimationTransitions>()
             .register_type::<NodeIndex>()

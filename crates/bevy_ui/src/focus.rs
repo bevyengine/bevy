@@ -12,9 +12,10 @@ use bevy_math::{Rect, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{camera::NormalizedRenderTarget, prelude::Camera, view::ViewVisibility};
 use bevy_transform::components::GlobalTransform;
-
-use bevy_utils::{smallvec::SmallVec, HashMap};
+use bevy_utils::HashMap;
 use bevy_window::{PrimaryWindow, Window};
+
+use smallvec::SmallVec;
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
