@@ -206,12 +206,11 @@ impl Rotation2d {
     ///
     /// # Panics
     ///
-    /// Panics if `self` has a length of zero, NaN, or infinity when the `glam_assert`
-    /// feature is enabled.
+    /// Panics if `self` has a length of zero, NaN, or infinity when debug assertions are enabled.
     #[inline]
     pub fn normalize(self) -> Self {
-        let length = self.length();
-        Self::from_sin_cos(self.sin / length, self.cos / length)
+        let length_recip = self.length_recip();
+        Self::from_sin_cos(self.sin * length_recip, self.cos * length_recip)
     }
 
     /// Returns `true` if the rotation is neither infinite nor NaN.
@@ -228,11 +227,10 @@ impl Rotation2d {
 
     /// Returns whether `self` has a length of `1.0` or not.
     ///
-    /// Uses a precision threshold of `1e-6`.
+    /// Uses a precision threshold of approximately `1e-4`.
     #[inline]
     pub fn is_normalized(self) -> bool {
-        let length = self.sin.hypot(self.cos);
-        length - 1.0 <= 1e-6
+        (self.length_squared() - 1.0).abs() <= 2e-4
     }
 
     /// Returns `true` if the rotation is near [`Rotation2d::IDENTITY`].
