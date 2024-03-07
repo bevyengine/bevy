@@ -52,11 +52,11 @@ impl MeshletMesh {
         let mut meshlets = build_meshlets(&indices, &vertices, 64, 64, 0.0);
 
         // Build further LODs
-        let mut simplification_queue = Vec::from_iter(0..meshlets.len());
+        let mut simplification_queue = 0..meshlets.len();
         while simplification_queue.len() != 1 {
             // For each meshlet build a list of triangle edges
             let mut triangle_edges_per_meshlet = HashMap::new();
-            for meshlet_id in simplification_queue.iter().copied() {
+            for meshlet_id in simplification_queue.clone() {
                 let meshlet = meshlets.get(meshlet_id);
                 for (edge_v1, edge_v2) in meshlet.triangles.iter().copied().tuple_windows() {
                     triangle_edges_per_meshlet
@@ -68,21 +68,21 @@ impl MeshletMesh {
 
             // For each meshlet build a list of connected meshlets (meshlets that share a triangle edge)
             let mut connected_meshlets_per_meshlet = HashMap::new();
-            for (meshlet_id1, meshlet_id2) in simplification_queue.iter().tuple_combinations() {
-                let shared_edge_count: u32 = triangle_edges_per_meshlet[meshlet_id1]
+            for (meshlet_id1, meshlet_id2) in simplification_queue.clone().tuple_combinations() {
+                let shared_edge_count: u32 = triangle_edges_per_meshlet[&meshlet_id1]
                     .iter()
-                    .cartesian_product(triangle_edges_per_meshlet[meshlet_id2].iter())
+                    .cartesian_product(triangle_edges_per_meshlet[&meshlet_id2].iter())
                     .map(|(edge1, edge2)| (*edge1 == *edge2) as u32)
                     .sum();
                 if shared_edge_count != 0 {
                     connected_meshlets_per_meshlet
-                        .entry(*meshlet_id1)
+                        .entry(meshlet_id1)
                         .or_insert(Vec::new())
-                        .push((*meshlet_id2, shared_edge_count));
+                        .push((meshlet_id2, shared_edge_count));
                     connected_meshlets_per_meshlet
-                        .entry(*meshlet_id2)
+                        .entry(meshlet_id2)
                         .or_insert(Vec::new())
-                        .push((*meshlet_id1, shared_edge_count));
+                        .push((meshlet_id1, shared_edge_count));
                 }
             }
 
@@ -91,12 +91,12 @@ impl MeshletMesh {
             let mut xadj = Vec::with_capacity(simplification_queue.len() + 1);
             let mut adjncy = Vec::new();
             let mut adjwgt = Vec::new();
-            for meshlet_id in simplification_queue.iter() {
+            for meshlet_id in simplification_queue.clone() {
                 xadj.push(adjncy.len() as i32);
                 for (connected_meshlet_id, shared_edge_count) in
-                    connected_meshlets_per_meshlet[meshlet_id].iter().copied()
+                    connected_meshlets_per_meshlet[&meshlet_id].iter().copied()
                 {
-                    adjncy.push((connected_meshlet_id - simplification_queue[0]) as i32);
+                    adjncy.push((connected_meshlet_id - simplification_queue.start) as i32);
                     adjwgt.push(shared_edge_count as i32);
                 }
             }
@@ -114,7 +114,7 @@ impl MeshletMesh {
                 groups
                     .entry(meshlet_group)
                     .or_insert(Vec::new())
-                    .push(simplification_queue[i]);
+                    .push(i + simplification_queue.start);
             }
 
             let next_lod_start = meshlets.len();
@@ -159,8 +159,7 @@ impl MeshletMesh {
                     }));
             }
 
-            simplification_queue.clear();
-            simplification_queue.extend(next_lod_start..meshlets.len());
+            simplification_queue = next_lod_start..meshlets.len();
         }
 
         // Calculate meshlet bounding spheres
