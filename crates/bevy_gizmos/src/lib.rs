@@ -25,7 +25,6 @@ pub enum GizmoRenderSystem {
     QueueLineGizmos3d,
 }
 
-pub mod aabb;
 pub mod arcs;
 pub mod arrows;
 pub mod circles;
@@ -44,7 +43,6 @@ mod pipeline_3d;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        aabb::{AabbGizmoConfigGroup, ShowAabbGizmo},
         config::{DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore},
         gizmos::Gizmos,
         light::{LightGizmoColor, LightGizmoConfigGroup, ShowLightGizmo},
@@ -53,7 +51,6 @@ pub mod prelude {
     };
 }
 
-use aabb::AabbGizmoPlugin;
 use bevy_app::{App, Last, Plugin};
 use bevy_asset::{load_internal_asset, Asset, AssetApp, Assets, Handle};
 use bevy_color::LinearRgba;
@@ -113,7 +110,6 @@ impl Plugin for GizmoPlugin {
             .init_resource::<LineGizmoHandles>()
             // We insert the Resource GizmoConfigStore into the world implicitly here if it does not exist.
             .init_gizmo_group::<DefaultGizmoConfigGroup>()
-            .add_plugins(AabbGizmoPlugin)
             .add_plugins(LightGizmoPlugin);
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
