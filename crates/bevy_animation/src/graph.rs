@@ -5,7 +5,7 @@ use std::ops::{Index, IndexMut};
 
 use bevy_asset::io::Reader;
 use bevy_asset::{Asset, AssetId, AssetLoader, AssetPath, AsyncReadExt as _, Handle, LoadContext};
-use bevy_reflect::Reflect;
+use bevy_reflect::{Reflect, ReflectSerialize};
 use bevy_utils::BoxedFuture;
 use petgraph::graph::{DiGraph, NodeIndex};
 use ron::de::SpannedError;
@@ -68,6 +68,7 @@ use crate::AnimationClip;
 ///
 /// [RFC 51]: https://github.com/bevyengine/rfcs/blob/main/rfcs/51-animation-composition.md
 #[derive(Asset, Reflect, Clone, Debug, Serialize)]
+#[reflect(Serialize, Debug)]
 #[serde(into = "SerializedAnimationGraph")]
 pub struct AnimationGraph {
     /// The `petgraph` data structure that defines the animation graph.
