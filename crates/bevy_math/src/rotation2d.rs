@@ -499,8 +499,8 @@ mod tests {
         };
         let normalized_rotation = rotation.normalize();
 
-        assert_eq!(normalized_rotation.sin, 0.8944272);
-        assert_eq!(normalized_rotation.cos, 0.4472136);
+        assert_eq!(normalized_rotation.sin, 0.89442724);
+        assert_eq!(normalized_rotation.cos, 0.44721362);
 
         assert!(!rotation.is_normalized());
         assert!(normalized_rotation.is_normalized());
