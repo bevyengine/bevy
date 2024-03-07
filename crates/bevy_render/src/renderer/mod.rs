@@ -109,10 +109,10 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
 /// `wgpu` thread or else a panic will occur.
 /// On other platforms the wrapper simply contains the wrapped value.
 #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deref, DerefMut)]
 pub struct WgpuWrapper<T>(T);
 #[cfg(all(target_arch = "wasm32", target_feature = "atomics"))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deref, DerefMut)]
 pub struct WgpuWrapper<T>(send_wrapper::SendWrapper<T>);
 
 // SAFETY: SendWrapper is always Send + Sync.
@@ -132,22 +132,6 @@ impl<T> WgpuWrapper<T> {
 impl<T> WgpuWrapper<T> {
     pub fn new(t: T) -> Self {
         Self(send_wrapper::SendWrapper::new(t))
-    }
-}
-
-impl<T> std::ops::Deref for WgpuWrapper<T> {
-    type Target = T;
-
-    #[track_caller]
-    fn deref(&self) -> &T {
-        &self.0
-    }
-}
-
-impl<T> std::ops::DerefMut for WgpuWrapper<T> {
-    #[track_caller]
-    fn deref_mut(&mut self) -> &mut T {
-        &mut self.0
     }
 }
 
