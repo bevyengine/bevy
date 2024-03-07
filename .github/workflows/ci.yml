@@ -167,7 +167,7 @@ jobs:
       - name: Check wasm
         run: cargo check --target wasm32-unknown-unknown -Z build-std=std,panic_abort
         env:
-          RUSTFLAGS: "-C target-feature=+atomics,+bulk-memory,+mutable-globals"
+          RUSTFLAGS: "-C target-feature=+atomics,+bulk-memory"
 
   markdownlint:
     runs-on: ubuntu-latest
