@@ -32,33 +32,23 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
+    let mut register_type: Option<proc_macro2::TokenStream> = None;
 
-    #[cfg(not(feature = "bevy_reflect"))]
-    {
-        TokenStream::from(quote! {
-            impl #impl_generics #bevy_ecs_path::system::Resource for #struct_name #type_generics #where_clause {
-            }
-        })
-    }
     #[cfg(feature = "bevy_reflect")]
-    {
-        let register_type = if has_reflect_attr(&ast, "Component") {
-            quote! {
-                #[doc(hidden)]
-                fn __register_type(registry: &#bevy_ecs_path::private::bevy_reflect::TypeRegistryArc) {
-                    registry.write().register::<Self>();
-                }
+    if has_reflect_attr(&ast, "Resource") {
+        register_type = Some(quote! {
+            #[doc(hidden)]
+            fn __register_type(registry: &#bevy_ecs_path::private::bevy_reflect::TypeRegistryArc) {
+                registry.write().register::<Self>();
             }
-        } else {
-            proc_macro2::TokenStream::new()
-        };
-
-        TokenStream::from(quote! {
-            impl #impl_generics #bevy_ecs_path::system::Resource for #struct_name #type_generics #where_clause {
-                #register_type
-            }
-        })
+        });
     }
+
+    TokenStream::from(quote! {
+        impl #impl_generics #bevy_ecs_path::system::Resource for #struct_name #type_generics #where_clause {
+            #register_type
+        }
+    })
 }
 
 pub fn derive_component(input: TokenStream) -> TokenStream {
@@ -79,35 +69,24 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
+    let mut register_type: Option<proc_macro2::TokenStream> = None;
 
-    #[cfg(not(feature = "bevy_reflect"))]
-    {
-        TokenStream::from(quote! {
-            impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
-                const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #storage;
-            }
-        })
-    }
     #[cfg(feature = "bevy_reflect")]
-    {
-        let register_type = if has_reflect_attr(&ast, "Component") {
-            quote! {
-                #[doc(hidden)]
-                fn __register_type(registry: &#bevy_ecs_path::private::bevy_reflect::TypeRegistryArc) {
-                    registry.write().register::<Self>();
-                }
+    if has_reflect_attr(&ast, "Component") {
+        register_type = Some(quote! {
+            #[doc(hidden)]
+            fn __register_type(registry: &#bevy_ecs_path::private::bevy_reflect::TypeRegistryArc) {
+                registry.write().register::<Self>();
             }
-        } else {
-            proc_macro2::TokenStream::new()
-        };
-
-        TokenStream::from(quote! {
-            impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
-                const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #storage;
-                #register_type
-            }
-        })
+        });
     }
+
+    TokenStream::from(quote! {
+        impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
+            const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #storage;
+            #register_type
+        }
+    })
 }
 
 pub const COMPONENT: &str = "component";
@@ -157,6 +136,12 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
 #[cfg(feature = "bevy_reflect")]
 fn has_reflect_attr(ast: &DeriveInput, reflect_trait: &'static str) -> bool {
     use syn::Meta;
+
+    // Generics require the generic parameters to implement Reflect
+    // This is unsupported for now.
+    if !ast.generics.params.is_empty() {
+        return false;
+    }
 
     const REFLECT: &str = "reflect";
     ast.attrs.iter().any(|attr| {
