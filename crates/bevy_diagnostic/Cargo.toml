@@ -12,7 +12,6 @@ keywords = ["bevy"]
 # Disables diagnostics that are unsupported when Bevy is dynamically linked
 dynamic_linking = []
 sysinfo_plugin = ["sysinfo"]
-features = []
 
 [dependencies]
 # bevy
