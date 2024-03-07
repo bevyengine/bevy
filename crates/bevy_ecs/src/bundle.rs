@@ -7,17 +7,20 @@ use bevy_utils::{HashMap, HashSet, TypeIdMap};
 
 use crate::{
     archetype::{
-        Archetype, ArchetypeId, Archetypes, BundleComponentStatus, ComponentStatus,
+        AddBundle, Archetype, ArchetypeId, Archetypes, BundleComponentStatus, ComponentStatus,
         SpawnBundleStatus,
     },
-    component::{Component, ComponentId, ComponentStorage, Components, StorageType, Tick},
+    component::{Component, ComponentId, Components, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
+    prelude::World,
     query::DebugCheckedUnwrap,
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
+    world::unsafe_world_cell::UnsafeWorldCell,
 };
-use bevy_ptr::OwningPtr;
+use bevy_ptr::{ConstNonNull, OwningPtr};
 use bevy_utils::all_tuples;
 use std::any::TypeId;
+use std::ptr::NonNull;
 
 /// The `Bundle` trait enables insertion and removal of [`Component`]s from an entity.
 ///
@@ -201,7 +204,7 @@ unsafe impl<C: Component> Bundle for C {
 impl<C: Component> DynamicBundle for C {
     #[inline]
     fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) {
-        OwningPtr::make(self, |ptr| func(C::Storage::STORAGE_TYPE, ptr));
+        OwningPtr::make(self, |ptr| func(C::STORAGE_TYPE, ptr));
     }
 }
 
@@ -346,86 +349,10 @@ impl BundleInfo {
         &self.component_ids
     }
 
-    pub(crate) fn get_bundle_inserter<'a, 'b>(
-        &'b self,
-        entities: &'a mut Entities,
-        archetypes: &'a mut Archetypes,
-        components: &Components,
-        storages: &'a mut Storages,
-        archetype_id: ArchetypeId,
-        change_tick: Tick,
-    ) -> BundleInserter<'a, 'b> {
-        let new_archetype_id =
-            self.add_bundle_to_archetype(archetypes, storages, components, archetype_id);
-        let archetypes_ptr = archetypes.archetypes.as_mut_ptr();
-        if new_archetype_id == archetype_id {
-            let archetype = &mut archetypes[archetype_id];
-            let table_id = archetype.table_id();
-            BundleInserter {
-                bundle_info: self,
-                archetype,
-                entities,
-                sparse_sets: &mut storages.sparse_sets,
-                table: &mut storages.tables[table_id],
-                archetypes_ptr,
-                change_tick,
-                result: InsertBundleResult::SameArchetype,
-            }
-        } else {
-            let (archetype, new_archetype) = archetypes.get_2_mut(archetype_id, new_archetype_id);
-            let table_id = archetype.table_id();
-            if table_id == new_archetype.table_id() {
-                BundleInserter {
-                    bundle_info: self,
-                    archetype,
-                    archetypes_ptr,
-                    entities,
-                    sparse_sets: &mut storages.sparse_sets,
-                    table: &mut storages.tables[table_id],
-                    change_tick,
-                    result: InsertBundleResult::NewArchetypeSameTable { new_archetype },
-                }
-            } else {
-                let (table, new_table) = storages
-                    .tables
-                    .get_2_mut(table_id, new_archetype.table_id());
-                BundleInserter {
-                    bundle_info: self,
-                    archetype,
-                    sparse_sets: &mut storages.sparse_sets,
-                    entities,
-                    archetypes_ptr,
-                    table,
-                    change_tick,
-                    result: InsertBundleResult::NewArchetypeNewTable {
-                        new_archetype,
-                        new_table,
-                    },
-                }
-            }
-        }
-    }
-
-    pub(crate) fn get_bundle_spawner<'a, 'b>(
-        &'b self,
-        entities: &'a mut Entities,
-        archetypes: &'a mut Archetypes,
-        components: &Components,
-        storages: &'a mut Storages,
-        change_tick: Tick,
-    ) -> BundleSpawner<'a, 'b> {
-        let new_archetype_id =
-            self.add_bundle_to_archetype(archetypes, storages, components, ArchetypeId::EMPTY);
-        let archetype = &mut archetypes[new_archetype_id];
-        let table = &mut storages.tables[archetype.table_id()];
-        BundleSpawner {
-            archetype,
-            bundle_info: self,
-            table,
-            entities,
-            sparse_sets: &mut storages.sparse_sets,
-            change_tick,
-        }
+    /// Returns an iterator over the [ID](ComponentId) of each component stored in this bundle.
+    #[inline]
+    pub fn iter_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
+        self.component_ids.iter().cloned()
     }
 
     /// This writes components from a given [`Bundle`] to the given entity.
@@ -436,10 +363,10 @@ impl BundleInfo {
     /// in the [`Bundle`], with respect to the entity's original archetype (prior to the bundle being added)
     /// For example, if the original archetype already has `ComponentA` and `T` also has `ComponentA`, the status
     /// should be `Mutated`. If the original archetype does not have `ComponentA`, the status should be `Added`.
-    /// When "inserting" a bundle into an existing entity, [`AddBundle`](crate::archetype::AddBundle)
+    /// When "inserting" a bundle into an existing entity, [`AddBundle`]
     /// should be used, which will report `Added` vs `Mutated` status based on the current archetype's structure.
     /// When spawning a bundle, [`SpawnBundleStatus`] can be used instead, which removes the need
-    /// to look up the [`AddBundle`](crate::archetype::AddBundle) in the archetype graph, which requires
+    /// to look up the [`AddBundle`] in the archetype graph, which requires
     /// ownership of the entity's current archetype.
     ///
     /// `table` must be the "new" table for `entity`. `table_row` must have space allocated for the
@@ -493,7 +420,9 @@ impl BundleInfo {
     /// Adds a bundle to the given archetype and returns the resulting archetype. This could be the
     /// same [`ArchetypeId`], in the event that adding the given bundle does not result in an
     /// [`Archetype`] change. Results are cached in the [`Archetype`] graph to avoid redundant work.
-    pub(crate) fn add_bundle_to_archetype(
+    /// # Safety
+    /// `components` must be the same components as passed in [`Self::new`]
+    pub(crate) unsafe fn add_bundle_to_archetype(
         &self,
         archetypes: &mut Archetypes,
         storages: &mut Storages,
@@ -561,8 +490,13 @@ impl BundleInfo {
                     new_sparse_set_components
                 };
             };
-            let new_archetype_id =
-                archetypes.get_id_or_insert(table_id, table_components, sparse_set_components);
+            // SAFETY: ids in self must be valid
+            let new_archetype_id = archetypes.get_id_or_insert(
+                components,
+                table_id,
+                table_components,
+                sparse_set_components,
+            );
             // add an edge from the old archetype to the new archetype
             archetypes[archetype_id].edges_mut().insert_add_bundle(
                 self.id,
@@ -574,67 +508,175 @@ impl BundleInfo {
     }
 }
 
-pub(crate) struct BundleInserter<'a, 'b> {
-    pub(crate) archetype: &'a mut Archetype,
-    pub(crate) entities: &'a mut Entities,
-    bundle_info: &'b BundleInfo,
-    table: &'a mut Table,
-    sparse_sets: &'a mut SparseSets,
-    result: InsertBundleResult<'a>,
-    archetypes_ptr: *mut Archetype,
+// SAFETY: We have exclusive world access so our pointers can't be invalidated externally
+pub(crate) struct BundleInserter<'w> {
+    world: UnsafeWorldCell<'w>,
+    bundle_info: ConstNonNull<BundleInfo>,
+    add_bundle: ConstNonNull<AddBundle>,
+    table: NonNull<Table>,
+    archetype: NonNull<Archetype>,
+    result: InsertBundleResult,
     change_tick: Tick,
 }
 
-pub(crate) enum InsertBundleResult<'a> {
+pub(crate) enum InsertBundleResult {
     SameArchetype,
     NewArchetypeSameTable {
-        new_archetype: &'a mut Archetype,
+        new_archetype: NonNull<Archetype>,
     },
     NewArchetypeNewTable {
-        new_archetype: &'a mut Archetype,
-        new_table: &'a mut Table,
+        new_archetype: NonNull<Archetype>,
+        new_table: NonNull<Table>,
     },
 }
 
-impl<'a, 'b> BundleInserter<'a, 'b> {
+impl<'w> BundleInserter<'w> {
+    #[inline]
+    pub(crate) fn new<T: Bundle>(
+        world: &'w mut World,
+        archetype_id: ArchetypeId,
+        change_tick: Tick,
+    ) -> Self {
+        let bundle_id = world
+            .bundles
+            .init_info::<T>(&mut world.components, &mut world.storages);
+        // SAFETY: We just ensured this bundle exists
+        unsafe { Self::new_with_id(world, archetype_id, bundle_id, change_tick) }
+    }
+
+    /// Creates a new [`BundleInserter`].
+    ///
     /// # Safety
-    /// `entity` must currently exist in the source archetype for this inserter. `archetype_row`
+    /// - Caller must ensure that `bundle_id` exists in `world.bundles`.
+    #[inline]
+    pub(crate) unsafe fn new_with_id(
+        world: &'w mut World,
+        archetype_id: ArchetypeId,
+        bundle_id: BundleId,
+        change_tick: Tick,
+    ) -> Self {
+        // SAFETY: We will not make any accesses to the command queue, component or resource data of this world
+        let bundle_info = world.bundles.get_unchecked(bundle_id);
+        let bundle_id = bundle_info.id();
+        let new_archetype_id = bundle_info.add_bundle_to_archetype(
+            &mut world.archetypes,
+            &mut world.storages,
+            &world.components,
+            archetype_id,
+        );
+        if new_archetype_id == archetype_id {
+            let archetype = &mut world.archetypes[archetype_id];
+            // SAFETY: The edge is assured to be initialized when we called add_bundle_to_archetype
+            let add_bundle = unsafe {
+                archetype
+                    .edges()
+                    .get_add_bundle_internal(bundle_id)
+                    .debug_checked_unwrap()
+            };
+            let table_id = archetype.table_id();
+            let table = &mut world.storages.tables[table_id];
+            Self {
+                add_bundle: add_bundle.into(),
+                archetype: archetype.into(),
+                bundle_info: bundle_info.into(),
+                table: table.into(),
+                result: InsertBundleResult::SameArchetype,
+                change_tick,
+                world: world.as_unsafe_world_cell(),
+            }
+        } else {
+            let (archetype, new_archetype) =
+                world.archetypes.get_2_mut(archetype_id, new_archetype_id);
+            // SAFETY: The edge is assured to be initialized when we called add_bundle_to_archetype
+            let add_bundle = unsafe {
+                archetype
+                    .edges()
+                    .get_add_bundle_internal(bundle_id)
+                    .debug_checked_unwrap()
+            };
+            let table_id = archetype.table_id();
+            let new_table_id = new_archetype.table_id();
+            if table_id == new_table_id {
+                let table = &mut world.storages.tables[table_id];
+                Self {
+                    add_bundle: add_bundle.into(),
+                    archetype: archetype.into(),
+                    bundle_info: bundle_info.into(),
+                    table: table.into(),
+                    result: InsertBundleResult::NewArchetypeSameTable {
+                        new_archetype: new_archetype.into(),
+                    },
+                    change_tick,
+                    world: world.as_unsafe_world_cell(),
+                }
+            } else {
+                let (table, new_table) = world.storages.tables.get_2_mut(table_id, new_table_id);
+                Self {
+                    add_bundle: add_bundle.into(),
+                    archetype: archetype.into(),
+                    bundle_info: bundle_info.into(),
+                    table: table.into(),
+                    result: InsertBundleResult::NewArchetypeNewTable {
+                        new_archetype: new_archetype.into(),
+                        new_table: new_table.into(),
+                    },
+                    change_tick,
+                    world: world.as_unsafe_world_cell(),
+                }
+            }
+        }
+    }
+
+    /// # Safety
+    /// `entity` must currently exist in the source archetype for this inserter. `location`
     /// must be `entity`'s location in the archetype. `T` must match this [`BundleInfo`]'s type
     #[inline]
-    pub unsafe fn insert<T: DynamicBundle>(
+    pub(crate) unsafe fn insert<T: DynamicBundle>(
         &mut self,
         entity: Entity,
         location: EntityLocation,
         bundle: T,
     ) -> EntityLocation {
-        match &mut self.result {
+        let bundle_info = self.bundle_info.as_ref();
+        let add_bundle = self.add_bundle.as_ref();
+        let table = self.table.as_mut();
+        let archetype = self.archetype.as_mut();
+
+        let (new_archetype, new_location) = match &mut self.result {
             InsertBundleResult::SameArchetype => {
-                // PERF: this could be looked up during Inserter construction and stored (but borrowing makes this nasty)
-                // SAFETY: The edge is assured to be initialized when creating the BundleInserter
-                let add_bundle = unsafe {
-                    self.archetype
-                        .edges()
-                        .get_add_bundle_internal(self.bundle_info.id)
-                        .debug_checked_unwrap()
+                // SAFETY: Mutable references do not alias and will be dropped after this block
+                let sparse_sets = {
+                    let world = self.world.world_mut();
+                    &mut world.storages.sparse_sets
                 };
-                self.bundle_info.write_components(
-                    self.table,
-                    self.sparse_sets,
+
+                bundle_info.write_components(
+                    table,
+                    sparse_sets,
                     add_bundle,
                     entity,
                     location.table_row,
                     self.change_tick,
                     bundle,
                 );
-                location
+
+                (archetype, location)
             }
             InsertBundleResult::NewArchetypeSameTable { new_archetype } => {
-                let result = self.archetype.swap_remove(location.archetype_row);
+                let new_archetype = new_archetype.as_mut();
+
+                // SAFETY: Mutable references do not alias and will be dropped after this block
+                let (sparse_sets, entities) = {
+                    let world = self.world.world_mut();
+                    (&mut world.storages.sparse_sets, &mut world.entities)
+                };
+
+                let result = archetype.swap_remove(location.archetype_row);
                 if let Some(swapped_entity) = result.swapped_entity {
                     let swapped_location =
                         // SAFETY: If the swap was successful, swapped_entity must be valid.
-                        unsafe { self.entities.get(swapped_entity).debug_checked_unwrap() };
-                    self.entities.set(
+                        unsafe { entities.get(swapped_entity).debug_checked_unwrap() };
+                    entities.set(
                         swapped_entity.index(),
                         EntityLocation {
                             archetype_id: swapped_location.archetype_id,
@@ -645,37 +687,42 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
                     );
                 }
                 let new_location = new_archetype.allocate(entity, result.table_row);
-                self.entities.set(entity.index(), new_location);
-
-                // PERF: this could be looked up during Inserter construction and stored (but borrowing makes this nasty)
-                // SAFETY: The edge is assured to be initialized when creating the BundleInserter
-                let add_bundle = unsafe {
-                    self.archetype
-                        .edges()
-                        .get_add_bundle_internal(self.bundle_info.id)
-                        .debug_checked_unwrap()
-                };
-                self.bundle_info.write_components(
-                    self.table,
-                    self.sparse_sets,
+                entities.set(entity.index(), new_location);
+                bundle_info.write_components(
+                    table,
+                    sparse_sets,
                     add_bundle,
                     entity,
                     result.table_row,
                     self.change_tick,
                     bundle,
                 );
-                new_location
+
+                (new_archetype, new_location)
             }
             InsertBundleResult::NewArchetypeNewTable {
                 new_archetype,
                 new_table,
             } => {
-                let result = self.archetype.swap_remove(location.archetype_row);
+                let new_table = new_table.as_mut();
+                let new_archetype = new_archetype.as_mut();
+
+                // SAFETY: Mutable references do not alias and will be dropped after this block
+                let (archetypes_ptr, sparse_sets, entities) = {
+                    let world = self.world.world_mut();
+                    let archetype_ptr: *mut Archetype = world.archetypes.archetypes.as_mut_ptr();
+                    (
+                        archetype_ptr,
+                        &mut world.storages.sparse_sets,
+                        &mut world.entities,
+                    )
+                };
+                let result = archetype.swap_remove(location.archetype_row);
                 if let Some(swapped_entity) = result.swapped_entity {
                     let swapped_location =
                         // SAFETY: If the swap was successful, swapped_entity must be valid.
-                        unsafe { self.entities.get(swapped_entity).debug_checked_unwrap() };
-                    self.entities.set(
+                        unsafe { entities.get(swapped_entity).debug_checked_unwrap() };
+                    entities.set(
                         swapped_entity.index(),
                         EntityLocation {
                             archetype_id: swapped_location.archetype_id,
@@ -687,32 +734,17 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
                 }
                 // PERF: store "non bundle" components in edge, then just move those to avoid
                 // redundant copies
-                let move_result = self
-                    .table
-                    .move_to_superset_unchecked(result.table_row, new_table);
+                let move_result = table.move_to_superset_unchecked(result.table_row, new_table);
                 let new_location = new_archetype.allocate(entity, move_result.new_row);
-                self.entities.set(entity.index(), new_location);
+                entities.set(entity.index(), new_location);
 
                 // if an entity was moved into this entity's table spot, update its table row
                 if let Some(swapped_entity) = move_result.swapped_entity {
                     let swapped_location =
                         // SAFETY: If the swap was successful, swapped_entity must be valid.
-                        unsafe { self.entities.get(swapped_entity).debug_checked_unwrap() };
-                    let swapped_archetype = if self.archetype.id() == swapped_location.archetype_id
-                    {
-                        &mut *self.archetype
-                    } else if new_archetype.id() == swapped_location.archetype_id {
-                        new_archetype
-                    } else {
-                        // SAFETY: the only two borrowed archetypes are above and we just did collision checks
-                        unsafe {
-                            &mut *self
-                                .archetypes_ptr
-                                .add(swapped_location.archetype_id.index())
-                        }
-                    };
+                        unsafe { entities.get(swapped_entity).debug_checked_unwrap() };
 
-                    self.entities.set(
+                    entities.set(
                         swapped_entity.index(),
                         EntityLocation {
                             archetype_id: swapped_location.archetype_id,
@@ -721,47 +753,122 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
                             table_row: result.table_row,
                         },
                     );
-                    swapped_archetype
-                        .set_entity_table_row(swapped_location.archetype_row, result.table_row);
+
+                    if archetype.id() == swapped_location.archetype_id {
+                        archetype
+                            .set_entity_table_row(swapped_location.archetype_row, result.table_row);
+                    } else if new_archetype.id() == swapped_location.archetype_id {
+                        new_archetype
+                            .set_entity_table_row(swapped_location.archetype_row, result.table_row);
+                    } else {
+                        // SAFETY: the only two borrowed archetypes are above and we just did collision checks
+                        (*archetypes_ptr.add(swapped_location.archetype_id.index()))
+                            .set_entity_table_row(swapped_location.archetype_row, result.table_row);
+                    }
                 }
 
-                // PERF: this could be looked up during Inserter construction and stored (but borrowing makes this nasty)
-                // SAFETY: The edge is assured to be initialized when creating the BundleInserter
-                let add_bundle = unsafe {
-                    self.archetype
-                        .edges()
-                        .get_add_bundle_internal(self.bundle_info.id)
-                        .debug_checked_unwrap()
-                };
-                self.bundle_info.write_components(
+                bundle_info.write_components(
                     new_table,
-                    self.sparse_sets,
+                    sparse_sets,
                     add_bundle,
                     entity,
                     move_result.new_row,
                     self.change_tick,
                     bundle,
                 );
-                new_location
+
+                (new_archetype, new_location)
+            }
+        };
+
+        // SAFETY: We have no outstanding mutable references to world as they were dropped
+        let mut deferred_world = unsafe { self.world.into_deferred() };
+
+        if new_archetype.has_on_add() {
+            // SAFETY: All components in the bundle are guaranteed to exist in the World
+            // as they must be initialized before creating the BundleInfo.
+            unsafe {
+                deferred_world.trigger_on_add(
+                    entity,
+                    bundle_info
+                        .iter_components()
+                        .zip(add_bundle.bundle_status.iter())
+                        .filter(|(_, &status)| status == ComponentStatus::Added)
+                        .map(|(id, _)| id),
+                );
             }
         }
+        if new_archetype.has_on_insert() {
+            // SAFETY: All components in the bundle are guaranteed to exist in the World
+            // as they must be initialized before creating the BundleInfo.
+            unsafe { deferred_world.trigger_on_insert(entity, bundle_info.iter_components()) }
+        }
+
+        new_location
+    }
+
+    #[inline]
+    pub(crate) fn entities(&mut self) -> &mut Entities {
+        // SAFETY: No outstanding references to self.world, changes to entities cannot invalidate our internal pointers
+        unsafe { &mut self.world.world_mut().entities }
     }
 }
 
-pub(crate) struct BundleSpawner<'a, 'b> {
-    pub(crate) archetype: &'a mut Archetype,
-    pub(crate) entities: &'a mut Entities,
-    bundle_info: &'b BundleInfo,
-    table: &'a mut Table,
-    sparse_sets: &'a mut SparseSets,
+// SAFETY: We have exclusive world access so our pointers can't be invalidated externally
+pub(crate) struct BundleSpawner<'w> {
+    world: UnsafeWorldCell<'w>,
+    bundle_info: ConstNonNull<BundleInfo>,
+    table: NonNull<Table>,
+    archetype: NonNull<Archetype>,
     change_tick: Tick,
 }
 
-impl<'a, 'b> BundleSpawner<'a, 'b> {
-    pub fn reserve_storage(&mut self, additional: usize) {
-        self.archetype.reserve(additional);
-        self.table.reserve(additional);
+impl<'w> BundleSpawner<'w> {
+    #[inline]
+    pub fn new<T: Bundle>(world: &'w mut World, change_tick: Tick) -> Self {
+        let bundle_id = world
+            .bundles
+            .init_info::<T>(&mut world.components, &mut world.storages);
+        // SAFETY: we initialized this bundle_id in `init_info`
+        unsafe { Self::new_with_id(world, bundle_id, change_tick) }
     }
+
+    /// Creates a new [`BundleSpawner`].
+    ///
+    /// # Safety
+    /// Caller must ensure that `bundle_id` exists in `world.bundles`
+    #[inline]
+    pub(crate) unsafe fn new_with_id(
+        world: &'w mut World,
+        bundle_id: BundleId,
+        change_tick: Tick,
+    ) -> Self {
+        let bundle_info = world.bundles.get_unchecked(bundle_id);
+        let new_archetype_id = bundle_info.add_bundle_to_archetype(
+            &mut world.archetypes,
+            &mut world.storages,
+            &world.components,
+            ArchetypeId::EMPTY,
+        );
+        let archetype = &mut world.archetypes[new_archetype_id];
+        let table = &mut world.storages.tables[archetype.table_id()];
+        Self {
+            bundle_info: bundle_info.into(),
+            table: table.into(),
+            archetype: archetype.into(),
+            change_tick,
+            world: world.as_unsafe_world_cell(),
+        }
+    }
+
+    #[inline]
+    pub fn reserve_storage(&mut self, additional: usize) {
+        // SAFETY: There are no outstanding world references
+        let (archetype, table) = unsafe { (self.archetype.as_mut(), self.table.as_mut()) };
+        archetype.reserve(additional);
+        table.reserve(additional);
+    }
+
     /// # Safety
     /// `entity` must be allocated (but non-existent), `T` must match this [`BundleInfo`]'s type
     #[inline]
@@ -770,18 +877,44 @@ impl<'a, 'b> BundleSpawner<'a, 'b> {
         entity: Entity,
         bundle: T,
     ) -> EntityLocation {
-        let table_row = self.table.allocate(entity);
-        let location = self.archetype.allocate(entity, table_row);
-        self.bundle_info.write_components(
-            self.table,
-            self.sparse_sets,
-            &SpawnBundleStatus,
-            entity,
-            table_row,
-            self.change_tick,
-            bundle,
-        );
-        self.entities.set(entity.index(), location);
+        let table = self.table.as_mut();
+        let archetype = self.archetype.as_mut();
+        let bundle_info = self.bundle_info.as_ref();
+
+        // SAFETY: We do not make any structural changes to the archetype graph through self.world so this pointer always remain valid
+        let location = {
+            // SAFETY: Mutable references do not alias and will be dropped after this block
+            let (sparse_sets, entities) = {
+                let world = self.world.world_mut();
+                (&mut world.storages.sparse_sets, &mut world.entities)
+            };
+            let table_row = table.allocate(entity);
+            let location = archetype.allocate(entity, table_row);
+            bundle_info.write_components(
+                table,
+                sparse_sets,
+                &SpawnBundleStatus,
+                entity,
+                table_row,
+                self.change_tick,
+                bundle,
+            );
+            entities.set(entity.index(), location);
+            location
+        };
+
+        // SAFETY: We have no outstanding mutable references to world as they were dropped
+        let mut deferred_world = unsafe { self.world.into_deferred() };
+        if archetype.has_on_add() {
+            // SAFETY: All components in the bundle are guaranteed to exist in the World
+            // as they must be initialized before creating the BundleInfo.
+            unsafe { deferred_world.trigger_on_add(entity, bundle_info.iter_components()) };
+        }
+        if archetype.has_on_insert() {
+            // SAFETY: All components in the bundle are guaranteed to exist in the World
+            // as they must be initialized before creating the BundleInfo.
+            unsafe { deferred_world.trigger_on_insert(entity, bundle_info.iter_components()) };
+        }
 
         location
     }
@@ -790,12 +923,26 @@ impl<'a, 'b> BundleSpawner<'a, 'b> {
     /// `T` must match this [`BundleInfo`]'s type
     #[inline]
     pub unsafe fn spawn<T: Bundle>(&mut self, bundle: T) -> Entity {
-        let entity = self.entities.alloc();
+        let entity = self.entities().alloc();
         // SAFETY: entity is allocated (but non-existent), `T` matches this BundleInfo's type
         unsafe {
             self.spawn_non_existent(entity, bundle);
         }
         entity
+    }
+
+    #[inline]
+    pub(crate) fn entities(&mut self) -> &mut Entities {
+        // SAFETY: No outstanding references to self.world, changes to entities cannot invalidate our internal pointers
+        unsafe { &mut self.world.world_mut().entities }
+    }
+
+    /// # Safety:
+    /// - `Self` must be dropped after running this function as it may invalidate internal pointers.
+    #[inline]
+    pub(crate) unsafe fn flush_commands(&mut self) {
+        // SAFETY: pointers on self can be invalidated,
+        self.world.world_mut().flush_commands();
     }
 }
 
@@ -806,9 +953,11 @@ pub struct Bundles {
     /// Cache static [`BundleId`]
     bundle_ids: TypeIdMap<BundleId>,
     /// Cache dynamic [`BundleId`] with multiple components
-    dynamic_bundle_ids: HashMap<Vec<ComponentId>, (BundleId, Vec<StorageType>)>,
+    dynamic_bundle_ids: HashMap<Box<[ComponentId]>, BundleId>,
+    dynamic_bundle_storages: HashMap<BundleId, Vec<StorageType>>,
     /// Cache optimized dynamic [`BundleId`] with single component
-    dynamic_component_bundle_ids: HashMap<ComponentId, (BundleId, StorageType)>,
+    dynamic_component_bundle_ids: HashMap<ComponentId, BundleId>,
+    dynamic_component_storages: HashMap<BundleId, StorageType>,
 }
 
 impl Bundles {
@@ -828,13 +977,13 @@ impl Bundles {
     }
 
     /// Initializes a new [`BundleInfo`] for a statically known type.
-    pub(crate) fn init_info<'a, T: Bundle>(
-        &'a mut self,
+    pub(crate) fn init_info<T: Bundle>(
+        &mut self,
         components: &mut Components,
         storages: &mut Storages,
-    ) -> &'a BundleInfo {
+    ) -> BundleId {
         let bundle_infos = &mut self.bundle_infos;
-        let id = self.bundle_ids.entry(TypeId::of::<T>()).or_insert_with(|| {
+        let id = *self.bundle_ids.entry(TypeId::of::<T>()).or_insert_with(|| {
             let mut component_ids = Vec::new();
             T::component_ids(components, storages, &mut |id| component_ids.push(id));
             let id = BundleId(bundle_infos.len());
@@ -847,8 +996,24 @@ impl Bundles {
             bundle_infos.push(bundle_info);
             id
         });
-        // SAFETY: index either exists, or was initialized
-        unsafe { self.bundle_infos.get_unchecked(id.0) }
+        id
+    }
+
+    pub(crate) unsafe fn get_unchecked(&self, id: BundleId) -> &BundleInfo {
+        self.bundle_infos.get_unchecked(id.0)
+    }
+
+    pub(crate) unsafe fn get_storage_unchecked(&self, id: BundleId) -> StorageType {
+        *self
+            .dynamic_component_storages
+            .get(&id)
+            .debug_checked_unwrap()
+    }
+
+    pub(crate) unsafe fn get_storages_unchecked(&mut self, id: BundleId) -> &mut Vec<StorageType> {
+        self.dynamic_bundle_storages
+            .get_mut(&id)
+            .debug_checked_unwrap()
     }
 
     /// Initializes a new [`BundleInfo`] for a dynamic [`Bundle`].
@@ -861,25 +1026,22 @@ impl Bundles {
         &mut self,
         components: &Components,
         component_ids: &[ComponentId],
-    ) -> (&BundleInfo, &Vec<StorageType>) {
+    ) -> BundleId {
         let bundle_infos = &mut self.bundle_infos;
 
         // Use `raw_entry_mut` to avoid cloning `component_ids` to access `Entry`
-        let (_, (bundle_id, storage_types)) = self
+        let (_, bundle_id) = self
             .dynamic_bundle_ids
             .raw_entry_mut()
             .from_key(component_ids)
             .or_insert_with(|| {
-                (
-                    Vec::from(component_ids),
-                    initialize_dynamic_bundle(bundle_infos, components, Vec::from(component_ids)),
-                )
+                let (id, storages) =
+                    initialize_dynamic_bundle(bundle_infos, components, Vec::from(component_ids));
+                self.dynamic_bundle_storages
+                    .insert_unique_unchecked(id, storages);
+                (component_ids.into(), id)
             });
-
-        // SAFETY: index either exists, or was initialized
-        let bundle_info = unsafe { bundle_infos.get_unchecked(bundle_id.0) };
-
-        (bundle_info, storage_types)
+        *bundle_id
     }
 
     /// Initializes a new [`BundleInfo`] for a dynamic [`Bundle`] with single component.
@@ -891,22 +1053,18 @@ impl Bundles {
         &mut self,
         components: &Components,
         component_id: ComponentId,
-    ) -> (&BundleInfo, StorageType) {
+    ) -> BundleId {
         let bundle_infos = &mut self.bundle_infos;
-        let (bundle_id, storage_types) = self
+        let bundle_id = self
             .dynamic_component_bundle_ids
             .entry(component_id)
             .or_insert_with(|| {
                 let (id, storage_type) =
                     initialize_dynamic_bundle(bundle_infos, components, vec![component_id]);
-                // SAFETY: `storage_type` guaranteed to have length 1
-                (id, storage_type[0])
+                self.dynamic_component_storages.insert(id, storage_type[0]);
+                id
             });
-
-        // SAFETY: index either exists, or was initialized
-        let bundle_info = unsafe { bundle_infos.get_unchecked(bundle_id.0) };
-
-        (bundle_info, *storage_types)
+        *bundle_id
     }
 }
 
@@ -933,4 +1091,139 @@ fn initialize_dynamic_bundle(
     bundle_infos.push(bundle_info);
 
     (id, storage_types)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate as bevy_ecs;
+    use crate::prelude::*;
+
+    #[derive(Component)]
+    struct A;
+
+    #[derive(Component)]
+    struct B;
+
+    #[derive(Component)]
+    struct C;
+
+    #[derive(Component)]
+    struct D;
+
+    #[derive(Resource, Default)]
+    struct R(usize);
+
+    impl R {
+        #[track_caller]
+        fn assert_order(&mut self, count: usize) {
+            assert_eq!(count, self.0);
+            self.0 += 1;
+        }
+    }
+
+    #[test]
+    fn component_hook_order_spawn_despawn() {
+        let mut world = World::new();
+        world.init_resource::<R>();
+        world
+            .register_component_hooks::<A>()
+            .on_add(|mut world, _, _| {
+                world.resource_mut::<R>().assert_order(0);
+            })
+            .on_insert(|mut world, _, _| world.resource_mut::<R>().assert_order(1))
+            .on_remove(|mut world, _, _| world.resource_mut::<R>().assert_order(2));
+
+        let entity = world.spawn(A).id();
+        world.despawn(entity);
+        assert_eq!(3, world.resource::<R>().0);
+    }
+
+    #[test]
+    fn component_hook_order_insert_remove() {
+        let mut world = World::new();
+        world.init_resource::<R>();
+        world
+            .register_component_hooks::<A>()
+            .on_add(|mut world, _, _| {
+                world.resource_mut::<R>().assert_order(0);
+            })
+            .on_insert(|mut world, _, _| {
+                world.resource_mut::<R>().assert_order(1);
+            })
+            .on_remove(|mut world, _, _| {
+                world.resource_mut::<R>().assert_order(2);
+            });
+
+        let mut entity = world.spawn_empty();
+        entity.insert(A);
+        entity.remove::<A>();
+        entity.flush();
+        assert_eq!(3, world.resource::<R>().0);
+    }
+
+    #[test]
+    fn component_hook_order_recursive() {
+        let mut world = World::new();
+        world.init_resource::<R>();
+        world
+            .register_component_hooks::<A>()
+            .on_add(|mut world, entity, _| {
+                world.resource_mut::<R>().assert_order(0);
+                world.commands().entity(entity).insert(B);
+            })
+            .on_remove(|mut world, entity, _| {
+                world.resource_mut::<R>().assert_order(2);
+                world.commands().entity(entity).remove::<B>();
+            });
+
+        world
+            .register_component_hooks::<B>()
+            .on_add(|mut world, entity, _| {
+                world.resource_mut::<R>().assert_order(1);
+                world.commands().entity(entity).remove::<A>();
+            })
+            .on_remove(|mut world, _, _| {
+                world.resource_mut::<R>().assert_order(3);
+            });
+
+        let entity = world.spawn(A).flush();
+        let entity = world.get_entity(entity).unwrap();
+        assert!(!entity.contains::<A>());
+        assert!(!entity.contains::<B>());
+        assert_eq!(4, world.resource::<R>().0);
+    }
+
+    #[test]
+    fn component_hook_order_recursive_multiple() {
+        let mut world = World::new();
+        world.init_resource::<R>();
+        world
+            .register_component_hooks::<A>()
+            .on_add(|mut world, entity, _| {
+                world.resource_mut::<R>().assert_order(0);
+                world.commands().entity(entity).insert(B).insert(D);
+            });
+
+        world
+            .register_component_hooks::<B>()
+            .on_add(|mut world, entity, _| {
+                world.resource_mut::<R>().assert_order(1);
+                world.commands().entity(entity).insert(C);
+            });
+
+        world
+            .register_component_hooks::<C>()
+            .on_add(|mut world, _, _| {
+                world.resource_mut::<R>().assert_order(2);
+            });
+
+        world
+            .register_component_hooks::<D>()
+            .on_add(|mut world, _, _| {
+                world.resource_mut::<R>().assert_order(3);
+            });
+
+        world.spawn(A).flush();
+        assert_eq!(4, world.resource::<R>().0);
+    }
 }

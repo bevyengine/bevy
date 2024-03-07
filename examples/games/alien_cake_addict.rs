@@ -169,7 +169,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
             "Score:",
             TextStyle {
                 font_size: 40.0,
-                color: LegacyColor::rgb(0.5, 0.5, 1.0),
+                color: Color::srgb(0.5, 0.5, 1.0),
                 ..default()
             },
         )
@@ -343,7 +343,7 @@ fn spawn_bonus(
             .with_children(|children| {
                 children.spawn(PointLightBundle {
                     point_light: PointLight {
-                        color: LegacyColor::rgb(1.0, 1.0, 0.0),
+                        color: Color::srgb(1.0, 1.0, 0.0),
                         intensity: 500_000.0,
                         range: 10.0,
                         ..default()
@@ -400,7 +400,7 @@ fn display_score(mut commands: Commands, game: Res<Game>) {
                 format!("Cake eaten: {}", game.cake_eaten),
                 TextStyle {
                     font_size: 80.0,
-                    color: LegacyColor::rgb(0.5, 0.5, 1.0),
+                    color: Color::srgb(0.5, 0.5, 1.0),
                     ..default()
                 },
             ));

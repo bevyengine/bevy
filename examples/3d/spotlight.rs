@@ -2,8 +2,19 @@
 
 use std::f32::consts::*;
 
-use bevy::{pbr::NotShadowCaster, prelude::*};
+use bevy::{
+    color::palettes::basic::{MAROON, RED},
+    pbr::NotShadowCaster,
+    prelude::*,
+};
 use rand::{rngs::StdRng, Rng, SeedableRng};
+
+const INSTRUCTIONS: &str = "\
+Controls
+--------
+Horizontal Movement: WASD
+Vertical Movement: Space and Shift
+Rotate Camera: Left and Right Arrows";
 
 fn main() {
     App::new()
@@ -13,7 +24,7 @@ fn main() {
         })
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, (light_sway, movement))
+        .add_systems(Update, (light_sway, movement, rotation))
         .run();
 }
 
@@ -27,43 +38,52 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // ground plane
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(100.0, 100.0)),
-        material: materials.add(LegacyColor::WHITE),
-        ..default()
-    });
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Plane3d::default().mesh().size(100.0, 100.0)),
+            material: materials.add(Color::WHITE),
+            ..default()
+        },
+        Movable,
+    ));
 
     // cubes
     let mut rng = StdRng::seed_from_u64(19878367467713);
     let cube_mesh = meshes.add(Cuboid::new(0.5, 0.5, 0.5));
-    let blue = materials.add(LegacyColor::rgb_u8(124, 144, 255));
-    for _ in 0..40 {
-        let x = rng.gen_range(-5.0..5.0);
-        let y = rng.gen_range(0.0..3.0);
-        let z = rng.gen_range(-5.0..5.0);
-        commands.spawn((
-            PbrBundle {
-                mesh: cube_mesh.clone(),
-                material: blue.clone(),
-                transform: Transform::from_xyz(x, y, z),
-                ..default()
-            },
-            Movable,
-        ));
-    }
+    let blue = materials.add(Color::srgb_u8(124, 144, 255));
+
+    commands.spawn_batch(
+        std::iter::repeat_with(move || {
+            let x = rng.gen_range(-5.0..5.0);
+            let y = rng.gen_range(0.0..3.0);
+            let z = rng.gen_range(-5.0..5.0);
+
+            (
+                PbrBundle {
+                    mesh: cube_mesh.clone(),
+                    material: blue.clone(),
+                    transform: Transform::from_xyz(x, y, z),
+                    ..default()
+                },
+                Movable,
+            )
+        })
+        .take(40),
+    );
 
     let sphere_mesh = meshes.add(Sphere::new(0.05).mesh().uv(32, 18));
     let sphere_mesh_direction = meshes.add(Sphere::new(0.1).mesh().uv(32, 18));
     let red_emissive = materials.add(StandardMaterial {
-        base_color: LegacyColor::RED,
-        emissive: LegacyColor::rgba_linear(100.0, 0.0, 0.0, 0.0),
+        base_color: RED.into(),
+        emissive: Color::linear_rgba(100.0, 0.0, 0.0, 0.0),
         ..default()
     });
     let maroon_emissive = materials.add(StandardMaterial {
-        base_color: LegacyColor::MAROON,
-        emissive: LegacyColor::rgba_linear(50.0, 0.0, 0.0, 0.0),
+        base_color: MAROON.into(),
+        emissive: Color::linear_rgba(50.0, 0.0, 0.0, 0.0),
         ..default()
     });
+
     for x in 0..4 {
         for z in 0..4 {
             let x = x as f32 - 2.0;
@@ -74,8 +94,8 @@ fn setup(
                     transform: Transform::from_xyz(1.0 + x, 2.0, z)
                         .looking_at(Vec3::new(1.0 + x, 0.0, z), Vec3::X),
                     spot_light: SpotLight {
-                        intensity: 4000.0, // lumens
-                        color: LegacyColor::WHITE,
+                        intensity: 40_000.0, // lumens
+                        color: Color::WHITE,
                         shadows_enabled: true,
                         inner_angle: PI / 4.0 * 0.85,
                         outer_angle: PI / 4.0,
@@ -111,6 +131,22 @@ fn setup(
         transform: Transform::from_xyz(-4.0, 5.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
+
+    commands.spawn(
+        TextBundle::from_section(
+            INSTRUCTIONS,
+            TextStyle {
+                font_size: 20.0,
+                ..default()
+            },
+        )
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
+            ..default()
+        }),
+    );
 }
 
 fn light_sway(time: Res<Time>, mut query: Query<(&mut Transform, &mut SpotLight)>) {
@@ -132,27 +168,49 @@ fn movement(
     time: Res<Time>,
     mut query: Query<&mut Transform, With<Movable>>,
 ) {
-    for mut transform in &mut query {
-        let mut direction = Vec3::ZERO;
-        if input.pressed(KeyCode::ArrowUp) {
-            direction.z -= 1.0;
-        }
-        if input.pressed(KeyCode::ArrowDown) {
-            direction.z += 1.0;
-        }
-        if input.pressed(KeyCode::ArrowLeft) {
-            direction.x -= 1.0;
-        }
-        if input.pressed(KeyCode::ArrowRight) {
-            direction.x += 1.0;
-        }
-        if input.pressed(KeyCode::PageUp) {
-            direction.y += 1.0;
-        }
-        if input.pressed(KeyCode::PageDown) {
-            direction.y -= 1.0;
-        }
+    // Calculate translation to move the cubes and ground plane
+    let mut translation = Vec3::ZERO;
 
-        transform.translation += time.delta_seconds() * 2.0 * direction;
+    // Horizontal forward and backward movement
+    if input.pressed(KeyCode::KeyW) {
+        translation.z += 1.0;
+    } else if input.pressed(KeyCode::KeyS) {
+        translation.z -= 1.0;
+    }
+
+    // Horizontal left and right movement
+    if input.pressed(KeyCode::KeyA) {
+        translation.x += 1.0;
+    } else if input.pressed(KeyCode::KeyD) {
+        translation.x -= 1.0;
+    }
+
+    // Vertical movement
+    if input.pressed(KeyCode::ShiftLeft) {
+        translation.y += 1.0;
+    } else if input.pressed(KeyCode::Space) {
+        translation.y -= 1.0;
+    }
+
+    translation *= 2.0 * time.delta_seconds();
+
+    // Apply translation
+    for mut transform in &mut query {
+        transform.translation += translation;
+    }
+}
+
+fn rotation(
+    mut query: Query<&mut Transform, With<Camera>>,
+    input: Res<ButtonInput<KeyCode>>,
+    time: Res<Time>,
+) {
+    let mut transform = query.single_mut();
+    let delta = time.delta_seconds();
+
+    if input.pressed(KeyCode::ArrowLeft) {
+        transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(delta));
+    } else if input.pressed(KeyCode::ArrowRight) {
+        transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(-delta));
     }
 }

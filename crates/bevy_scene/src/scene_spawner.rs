@@ -5,8 +5,8 @@ use bevy_ecs::{
     entity::Entity,
     event::{Event, Events, ManualEventReader},
     reflect::AppTypeRegistry,
-    system::{Command, Resource},
-    world::{Mut, World},
+    system::Resource,
+    world::{Command, Mut, World},
 };
 use bevy_hierarchy::{Parent, PushChild};
 use bevy_utils::{tracing::error, HashMap, HashSet};

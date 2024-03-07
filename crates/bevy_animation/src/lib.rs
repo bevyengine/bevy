@@ -14,15 +14,15 @@ use bevy_core::Name;
 use bevy_ecs::entity::MapEntities;
 use bevy_ecs::prelude::*;
 use bevy_ecs::reflect::ReflectMapEntities;
-use bevy_log::error;
 use bevy_math::{FloatExt, Quat, Vec3};
 use bevy_reflect::Reflect;
 use bevy_render::mesh::morph::MorphWeights;
 use bevy_time::Time;
 use bevy_transform::{prelude::Transform, TransformSystem};
 use bevy_utils::hashbrown::HashMap;
-use bevy_utils::{NoOpHash, Uuid};
+use bevy_utils::{tracing::error, NoOpHash};
 use sha1_smol::Sha1;
+use uuid::Uuid;
 
 #[allow(missing_docs)]
 pub mod prelude {
@@ -688,10 +688,6 @@ impl Plugin for AnimationPlugin {
         app.init_asset::<AnimationClip>()
             .register_asset_reflect::<AnimationClip>()
             .register_type::<AnimationPlayer>()
-            .register_type::<VariableCurve>()
-            .register_type::<Vec<VariableCurve>>()
-            .register_type::<Interpolation>()
-            .register_type::<Keyframes>()
             .register_type::<AnimationTarget>()
             .add_systems(
                 PostUpdate,

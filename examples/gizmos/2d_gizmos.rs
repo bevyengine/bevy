@@ -2,7 +2,7 @@
 
 use std::f32::consts::{PI, TAU};
 
-use bevy::prelude::*;
+use bevy::{color::palettes::css::*, prelude::*};
 
 fn main() {
     App::new()
@@ -27,7 +27,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         TextStyle {
             font: asset_server.load("fonts/FiraMono-Medium.ttf"),
             font_size: 24.,
-            color: LegacyColor::WHITE,
+            color: Color::WHITE,
         },
     ));
 }
@@ -38,51 +38,54 @@ fn draw_example_collection(
     time: Res<Time>,
 ) {
     let sin = time.elapsed_seconds().sin() * 50.;
-    gizmos.line_2d(Vec2::Y * -sin, Vec2::splat(-80.), LegacyColor::RED);
-    gizmos.ray_2d(Vec2::Y * sin, Vec2::splat(80.), LegacyColor::GREEN);
+    gizmos.line_2d(Vec2::Y * -sin, Vec2::splat(-80.), RED);
+    gizmos.ray_2d(Vec2::Y * sin, Vec2::splat(80.), LIME);
+
+    gizmos
+        .grid_2d(
+            Vec2::ZERO,
+            0.0,
+            UVec2::new(16, 12),
+            Vec2::new(60., 60.),
+            // Light gray
+            LinearRgba::gray(0.65),
+        )
+        .outer_edges(true);
 
     // Triangle
     gizmos.linestrip_gradient_2d([
-        (Vec2::Y * 300., LegacyColor::BLUE),
-        (Vec2::new(-255., -155.), LegacyColor::RED),
-        (Vec2::new(255., -155.), LegacyColor::GREEN),
-        (Vec2::Y * 300., LegacyColor::BLUE),
+        (Vec2::Y * 300., BLUE),
+        (Vec2::new(-255., -155.), RED),
+        (Vec2::new(255., -155.), LIME),
+        (Vec2::Y * 300., BLUE),
     ]);
 
     gizmos.rect_2d(
         Vec2::ZERO,
         time.elapsed_seconds() / 3.,
         Vec2::splat(300.),
-        LegacyColor::BLACK,
+        BLACK,
     );
 
     // The circles have 32 line-segments by default.
-    my_gizmos.circle_2d(Vec2::ZERO, 120., LegacyColor::BLACK);
+    my_gizmos.circle_2d(Vec2::ZERO, 120., BLACK);
     my_gizmos.ellipse_2d(
         Vec2::ZERO,
         time.elapsed_seconds() % TAU,
         Vec2::new(100., 200.),
-        LegacyColor::YELLOW_GREEN,
+        YELLOW_GREEN,
     );
     // You may want to increase this for larger circles.
-    my_gizmos
-        .circle_2d(Vec2::ZERO, 300., LegacyColor::NAVY)
-        .segments(64);
+    my_gizmos.circle_2d(Vec2::ZERO, 300., NAVY).segments(64);
 
     // Arcs default amount of segments is linearly interpolated between
     // 1 and 32, using the arc length as scalar.
-    my_gizmos.arc_2d(
-        Vec2::ZERO,
-        sin / 10.,
-        PI / 2.,
-        350.,
-        LegacyColor::ORANGE_RED,
-    );
+    my_gizmos.arc_2d(Vec2::ZERO, sin / 10., PI / 2., 350., ORANGE_RED);
 
     gizmos.arrow_2d(
         Vec2::ZERO,
         Vec2::from_angle(sin / -10. + PI / 2.) * 50.,
-        LegacyColor::YELLOW,
+        YELLOW,
     );
 }
 

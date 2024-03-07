@@ -36,7 +36,7 @@ fn add_lightmaps_to_meshes(
     let exposure = 250.0;
     for (entity, name, material) in meshes.iter() {
         if &**name == "Light" {
-            materials.get_mut(material).unwrap().emissive = LegacyColor::WHITE * exposure;
+            materials.get_mut(material).unwrap().emissive = Color::Srgba(Srgba::WHITE * exposure);
             continue;
         }
 

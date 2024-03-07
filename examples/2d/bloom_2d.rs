@@ -39,7 +39,7 @@ fn setup(
     commands.spawn(SpriteBundle {
         texture: asset_server.load("branding/bevy_bird_dark.png"),
         sprite: Sprite {
-            color: LegacyColor::rgb(5.0, 5.0, 5.0), // 4. Put something bright in a dark environment to see the effect
+            color: Color::srgb(5.0, 5.0, 5.0), // 4. Put something bright in a dark environment to see the effect
             custom_size: Some(Vec2::splat(160.0)),
             ..default()
         },
@@ -50,7 +50,7 @@ fn setup(
     commands.spawn(MaterialMesh2dBundle {
         mesh: meshes.add(Circle::new(100.)).into(),
         // 4. Put something bright in a dark environment to see the effect
-        material: materials.add(LegacyColor::rgb(7.5, 0.0, 7.5)),
+        material: materials.add(Color::srgb(7.5, 0.0, 7.5)),
         transform: Transform::from_translation(Vec3::new(-200., 0., 0.)),
         ..default()
     });
@@ -59,7 +59,7 @@ fn setup(
     commands.spawn(MaterialMesh2dBundle {
         mesh: meshes.add(RegularPolygon::new(100., 6)).into(),
         // 4. Put something bright in a dark environment to see the effect
-        material: materials.add(LegacyColor::rgb(6.25, 9.4, 9.1)),
+        material: materials.add(Color::srgb(6.25, 9.4, 9.1)),
         transform: Transform::from_translation(Vec3::new(200., 0., 0.)),
         ..default()
     });
@@ -70,7 +70,7 @@ fn setup(
             "",
             TextStyle {
                 font_size: 18.0,
-                color: LegacyColor::WHITE,
+                color: Color::WHITE,
                 ..default()
             },
         )

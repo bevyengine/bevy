@@ -1,9 +1,13 @@
-use crate::{Alpha, Hwba, Lcha, LinearRgba, Oklaba, Srgba, StandardColor, Xyza};
+use crate::{Alpha, Hwba, Lcha, LinearRgba, Srgba, StandardColor, Xyza};
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
 
 /// Color in Hue-Saturation-Value (HSV) color space with alpha.
 /// Further information on this color model can be found on [Wikipedia](https://en.wikipedia.org/wiki/HSL_and_HSV).
+#[doc = include_str!("../docs/conversion.md")]
+/// <div>
+#[doc = include_str!("../docs/diagrams/model_graph.svg")]
+/// </div>
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub struct Hsva {
@@ -80,6 +84,11 @@ impl Alpha for Hsva {
     fn alpha(&self) -> f32 {
         self.alpha
     }
+
+    #[inline]
+    fn set_alpha(&mut self, alpha: f32) {
+        self.alpha = alpha;
+    }
 }
 
 impl From<Hsva> for Hwba {
@@ -116,6 +125,8 @@ impl From<Hwba> for Hsva {
     }
 }
 
+// Derived Conversions
+
 impl From<Srgba> for Hsva {
     fn from(value: Srgba) -> Self {
         Hwba::from(value).into()
@@ -147,18 +158,6 @@ impl From<Lcha> for Hsva {
 }
 
 impl From<Hsva> for Lcha {
-    fn from(value: Hsva) -> Self {
-        Hwba::from(value).into()
-    }
-}
-
-impl From<Oklaba> for Hsva {
-    fn from(value: Oklaba) -> Self {
-        Hwba::from(value).into()
-    }
-}
-
-impl From<Hsva> for Oklaba {
     fn from(value: Hsva) -> Self {
         Hwba::from(value).into()
     }

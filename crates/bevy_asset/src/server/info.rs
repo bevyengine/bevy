@@ -5,7 +5,7 @@ use crate::{
     UntypedAssetId, UntypedHandle,
 };
 use bevy_ecs::world::World;
-use bevy_log::warn;
+use bevy_utils::tracing::warn;
 use bevy_utils::{Entry, HashMap, HashSet, TypeIdMap};
 use crossbeam_channel::Sender;
 use std::{
@@ -71,7 +71,7 @@ pub(crate) struct AssetInfos {
     pub(crate) loader_dependants: HashMap<AssetPath<'static>, HashSet<AssetPath<'static>>>,
     /// Tracks living labeled assets for a given source asset.
     /// This should only be set when watching for changes to avoid unnecessary work.
-    pub(crate) living_labeled_assets: HashMap<AssetPath<'static>, HashSet<String>>,
+    pub(crate) living_labeled_assets: HashMap<AssetPath<'static>, HashSet<Box<str>>>,
     pub(crate) handle_providers: TypeIdMap<AssetHandleProvider>,
     pub(crate) dependency_loaded_event_sender: TypeIdMap<fn(&mut World, UntypedAssetId)>,
     pub(crate) dependency_failed_event_sender:
@@ -113,7 +113,7 @@ impl AssetInfos {
     fn create_handle_internal(
         infos: &mut HashMap<UntypedAssetId, AssetInfo>,
         handle_providers: &TypeIdMap<AssetHandleProvider>,
-        living_labeled_assets: &mut HashMap<AssetPath<'static>, HashSet<String>>,
+        living_labeled_assets: &mut HashMap<AssetPath<'static>, HashSet<Box<str>>>,
         watching_for_changes: bool,
         type_id: TypeId,
         path: Option<AssetPath<'static>>,
@@ -129,7 +129,7 @@ impl AssetInfos {
                 let mut without_label = path.to_owned();
                 if let Some(label) = without_label.take_label() {
                     let labels = living_labeled_assets.entry(without_label).or_default();
-                    labels.insert(label.to_string());
+                    labels.insert(label.as_ref().into());
                 }
             }
         }
@@ -205,7 +205,7 @@ impl AssetInfos {
             .ok_or(GetOrCreateHandleInternalError::HandleMissingButTypeIdNotSpecified)?;
 
         match handles.entry(type_id) {
-            bevy_utils::hashbrown::hash_map::Entry::Occupied(entry) => {
+            Entry::Occupied(entry) => {
                 let id = *entry.get();
                 // if there is a path_to_id entry, info always exists
                 let info = self.infos.get_mut(&id).unwrap();
@@ -246,7 +246,7 @@ impl AssetInfos {
                 }
             }
             // The entry does not exist, so this is a "fresh" asset load. We must create a new handle
-            bevy_utils::hashbrown::hash_map::Entry::Vacant(entry) => {
+            Entry::Vacant(entry) => {
                 let should_load = match loading_mode {
                     HandleLoadingMode::NotLoading => false,
                     HandleLoadingMode::Request | HandleLoadingMode::Force => true,
@@ -613,7 +613,7 @@ impl AssetInfos {
         info: &AssetInfo,
         loader_dependants: &mut HashMap<AssetPath<'static>, HashSet<AssetPath<'static>>>,
         path: &AssetPath<'static>,
-        living_labeled_assets: &mut HashMap<AssetPath<'static>, HashSet<String>>,
+        living_labeled_assets: &mut HashMap<AssetPath<'static>, HashSet<Box<str>>>,
     ) {
         for loader_dependency in info.loader_dependencies.keys() {
             if let Some(dependants) = loader_dependants.get_mut(loader_dependency) {
@@ -642,7 +642,7 @@ impl AssetInfos {
         infos: &mut HashMap<UntypedAssetId, AssetInfo>,
         path_to_id: &mut HashMap<AssetPath<'static>, TypeIdMap<UntypedAssetId>>,
         loader_dependants: &mut HashMap<AssetPath<'static>, HashSet<AssetPath<'static>>>,
-        living_labeled_assets: &mut HashMap<AssetPath<'static>, HashSet<String>>,
+        living_labeled_assets: &mut HashMap<AssetPath<'static>, HashSet<Box<str>>>,
         watching_for_changes: bool,
         id: UntypedAssetId,
     ) -> bool {

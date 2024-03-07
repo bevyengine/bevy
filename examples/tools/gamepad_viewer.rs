@@ -21,10 +21,10 @@ const BUTTONS_Y: f32 = 80.;
 const STICKS_X: f32 = 150.;
 const STICKS_Y: f32 = -135.;
 
-const NORMAL_BUTTON_COLOR: LegacyColor = LegacyColor::rgb(0.3, 0.3, 0.3);
-const ACTIVE_BUTTON_COLOR: LegacyColor = LegacyColor::PURPLE;
-const LIVE_COLOR: LegacyColor = LegacyColor::rgb(0.4, 0.4, 0.4);
-const DEAD_COLOR: LegacyColor = LegacyColor::rgb(0.13, 0.13, 0.13);
+const NORMAL_BUTTON_COLOR: Color = Color::srgb(0.3, 0.3, 0.3);
+const ACTIVE_BUTTON_COLOR: Color = Color::srgb(0.5, 0., 0.5);
+const LIVE_COLOR: Color = Color::srgb(0.4, 0.4, 0.4);
+const DEAD_COLOR: Color = Color::srgb(0.13, 0.13, 0.13);
 
 #[derive(Component, Deref)]
 struct ReactTo(GamepadButtonType);
@@ -52,10 +52,9 @@ struct ButtonMaterials {
 }
 impl FromWorld for ButtonMaterials {
     fn from_world(world: &mut World) -> Self {
-        let mut materials = world.resource_mut::<Assets<ColorMaterial>>();
         Self {
-            normal: materials.add(NORMAL_BUTTON_COLOR),
-            active: materials.add(ACTIVE_BUTTON_COLOR),
+            normal: world.add_asset(NORMAL_BUTTON_COLOR),
+            active: world.add_asset(ACTIVE_BUTTON_COLOR),
         }
     }
 }
@@ -68,12 +67,13 @@ struct ButtonMeshes {
 }
 impl FromWorld for ButtonMeshes {
     fn from_world(world: &mut World) -> Self {
-        let mut meshes = world.resource_mut::<Assets<Mesh>>();
         Self {
-            circle: meshes.add(Circle::new(BUTTON_RADIUS)).into(),
-            triangle: meshes.add(RegularPolygon::new(BUTTON_RADIUS, 3)).into(),
-            start_pause: meshes.add(Rectangle::from_size(START_SIZE)).into(),
-            trigger: meshes.add(Rectangle::from_size(TRIGGER_SIZE)).into(),
+            circle: world.add_asset(Circle::new(BUTTON_RADIUS)).into(),
+            triangle: world
+                .add_asset(RegularPolygon::new(BUTTON_RADIUS, 3))
+                .into(),
+            start_pause: world.add_asset(Rectangle::from_size(START_SIZE)).into(),
+            trigger: world.add_asset(Rectangle::from_size(TRIGGER_SIZE)).into(),
         }
     }
 }

@@ -1,6 +1,6 @@
 //! Demonstrates how the to use the size constraints to control the size of a UI node.
 
-use bevy::prelude::*;
+use bevy::{color::palettes::css::*, prelude::*};
 
 fn main() {
     App::new()
@@ -11,15 +11,15 @@ fn main() {
         .run();
 }
 
-const ACTIVE_BORDER_COLOR: LegacyColor = LegacyColor::ANTIQUE_WHITE;
-const INACTIVE_BORDER_COLOR: LegacyColor = LegacyColor::BLACK;
+const ACTIVE_BORDER_COLOR: Color = Color::Srgba(ANTIQUE_WHITE);
+const INACTIVE_BORDER_COLOR: Color = Color::BLACK;
 
-const ACTIVE_INNER_COLOR: LegacyColor = LegacyColor::WHITE;
-const INACTIVE_INNER_COLOR: LegacyColor = LegacyColor::NAVY;
+const ACTIVE_INNER_COLOR: Color = Color::WHITE;
+const INACTIVE_INNER_COLOR: Color = Color::Srgba(NAVY);
 
-const ACTIVE_TEXT_COLOR: LegacyColor = LegacyColor::BLACK;
-const HOVERED_TEXT_COLOR: LegacyColor = LegacyColor::WHITE;
-const UNHOVERED_TEXT_COLOR: LegacyColor = LegacyColor::GRAY;
+const ACTIVE_TEXT_COLOR: Color = Color::BLACK;
+const HOVERED_TEXT_COLOR: Color = Color::WHITE;
+const UNHOVERED_TEXT_COLOR: Color = Color::srgb(0.5, 0.5, 0.5);
 
 #[derive(Component)]
 struct Bar;
@@ -45,7 +45,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let text_style = TextStyle {
         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
         font_size: 40.0,
-        color: LegacyColor::rgb(0.9, 0.9, 0.9),
+        color: Color::srgb(0.9, 0.9, 0.9),
     };
 
     commands
@@ -57,7 +57,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 align_items: AlignItems::Center,
                 ..Default::default()
             },
-            background_color: LegacyColor::BLACK.into(),
+            background_color: Color::BLACK.into(),
             ..Default::default()
         })
         .with_children(|parent| {
@@ -91,7 +91,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 margin: UiRect::top(Val::Px(50.)),
                                 ..Default::default()
                             },
-                            background_color: LegacyColor::YELLOW.into(),
+                            background_color: YELLOW.into(),
                             ..Default::default()
                         })
                         .with_children(|parent| {
@@ -117,7 +117,7 @@ fn spawn_bar(parent: &mut ChildBuilder) {
                 padding: UiRect::all(Val::Px(10.)),
                 ..Default::default()
             },
-            background_color: LegacyColor::YELLOW.into(),
+            background_color: YELLOW.into(),
             ..Default::default()
         })
         .with_children(|parent| {
@@ -130,7 +130,7 @@ fn spawn_bar(parent: &mut ChildBuilder) {
                         padding: UiRect::all(Val::Px(4.)),
                         ..Default::default()
                     },
-                    background_color: LegacyColor::BLACK.into(),
+                    background_color: Color::BLACK.into(),
                     ..Default::default()
                 })
                 .with_children(|parent| {
@@ -139,7 +139,7 @@ fn spawn_bar(parent: &mut ChildBuilder) {
                             style: Style {
                                 ..Default::default()
                             },
-                            background_color: LegacyColor::WHITE.into(),
+                            background_color: Color::WHITE.into(),
                             ..Default::default()
                         },
                         Bar,
@@ -164,7 +164,7 @@ fn spawn_button_row(parent: &mut ChildBuilder, constraint: Constraint, text_styl
                 align_items: AlignItems::Stretch,
                 ..Default::default()
             },
-            background_color: LegacyColor::BLACK.into(),
+            background_color: Color::BLACK.into(),
             ..Default::default()
         })
         .with_children(|parent| {
@@ -176,7 +176,6 @@ fn spawn_button_row(parent: &mut ChildBuilder, constraint: Constraint, text_styl
                         padding: UiRect::all(Val::Px(2.)),
                         ..Default::default()
                     },
-                    //background_color: LegacyColor::RED.into(),
                     ..Default::default()
                 })
                 .with_children(|parent| {
@@ -202,7 +201,6 @@ fn spawn_button_row(parent: &mut ChildBuilder, constraint: Constraint, text_styl
                     // spawn row buttons
                     parent
                         .spawn(NodeBundle {
-                            // background_color: LegacyColor::DARK_GREEN.into(),
                             ..Default::default()
                         })
                         .with_children(|parent| {
@@ -247,12 +245,11 @@ fn spawn_button(
                     margin: UiRect::horizontal(Val::Px(2.)),
                     ..Default::default()
                 },
-                background_color: if active {
+                image: UiImage::default().with_color(if active {
                     ACTIVE_BORDER_COLOR
                 } else {
                     INACTIVE_BORDER_COLOR
-                }
-                .into(),
+                }),
                 ..Default::default()
             },
             constraint,
@@ -361,6 +358,7 @@ fn update_buttons(
 fn update_radio_buttons_colors(
     mut event_reader: EventReader<ButtonActivatedEvent>,
     button_query: Query<(Entity, &Constraint, &Interaction)>,
+    mut image_query: Query<&mut UiImage>,
     mut color_query: Query<&mut BackgroundColor>,
     mut text_query: Query<&mut Text>,
     children_query: Query<&Children>,
@@ -383,16 +381,12 @@ fn update_radio_buttons_colors(
                     )
                 };
 
-                color_query.get_mut(id).unwrap().0 = border_color;
-                if let Ok(children) = children_query.get(id) {
-                    for &child in children {
-                        color_query.get_mut(child).unwrap().0 = inner_color;
-                        if let Ok(grand_children) = children_query.get(child) {
-                            for &grandchild in grand_children {
-                                if let Ok(mut text) = text_query.get_mut(grandchild) {
-                                    text.sections[0].style.color = text_color;
-                                }
-                            }
+                image_query.get_mut(id).unwrap().color = border_color;
+                for &child in children_query.get(id).into_iter().flatten() {
+                    color_query.get_mut(child).unwrap().0 = inner_color;
+                    for &grandchild in children_query.get(child).into_iter().flatten() {
+                        if let Ok(mut text) = text_query.get_mut(grandchild) {
+                            text.sections[0].style.color = text_color;
                         }
                     }
                 }

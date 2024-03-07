@@ -3,8 +3,8 @@ use crate::{
     UntypedAssetId,
 };
 use bevy_ecs::prelude::*;
-use bevy_reflect::{Reflect, TypePath};
-use bevy_utils::{get_short_name, Uuid};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
+use bevy_utils::get_short_name;
 use crossbeam_channel::{Receiver, Sender};
 use std::{
     any::TypeId,
@@ -12,6 +12,7 @@ use std::{
     sync::Arc,
 };
 use thiserror::Error;
+use uuid::Uuid;
 
 /// Provides [`Handle`] and [`UntypedHandle`] _for a specific asset type_.
 /// This should _only_ be used for one specific asset type.
@@ -122,7 +123,7 @@ impl std::fmt::Debug for StrongHandle {
 ///
 /// [`Handle::Strong`] also provides access to useful [`Asset`] metadata, such as the [`AssetPath`] (if it exists).
 #[derive(Component, Reflect)]
-#[reflect(Component)]
+#[reflect(Default, Component, Debug, Hash, PartialEq)]
 pub enum Handle<A: Asset> {
     /// A "strong" reference to a live (or loading) [`Asset`]. If a [`Handle`] is [`Handle::Strong`], the [`Asset`] will be kept
     /// alive until the [`Handle`] is dropped. Strong handles also provide access to additional asset metadata.
