@@ -1,7 +1,7 @@
 mod primitive_impls;
 
 use super::{BoundingVolume, IntersectsVolume};
-use crate::prelude::{Rotation2d, Vec2};
+use crate::prelude::{Mat2, Rotation2d, Vec2};
 
 /// Computes the geometric center of the given set of points.
 #[inline(always)]
@@ -97,7 +97,7 @@ impl Aabb2d {
 
 impl BoundingVolume for Aabb2d {
     type Translation = Vec2;
-    type Rotation = f32;
+    type Rotation = Rotation2d;
     type HalfSize = Vec2;
 
     #[inline(always)]
@@ -160,7 +160,11 @@ impl BoundingVolume for Aabb2d {
     /// can cause the AABB to grow indefinitely. Avoid applying multiple rotations to the same AABB,
     /// and consider storing the original AABB and rotating that every time instead.
     #[inline(always)]
-    fn transformed_by(mut self, translation: Self::Translation, rotation: Self::Rotation) -> Self {
+    fn transformed_by(
+        mut self,
+        translation: Self::Translation,
+        rotation: impl Into<Self::Rotation>,
+    ) -> Self {
         self.transform_by(translation, rotation);
         self
     }
@@ -173,7 +177,11 @@ impl BoundingVolume for Aabb2d {
     /// can cause the AABB to grow indefinitely. Avoid applying multiple rotations to the same AABB,
     /// and consider storing the original AABB and rotating that every time instead.
     #[inline(always)]
-    fn transform_by(&mut self, translation: Self::Translation, rotation: Self::Rotation) {
+    fn transform_by(
+        &mut self,
+        translation: Self::Translation,
+        rotation: impl Into<Self::Rotation>,
+    ) {
         self.rotate_by(rotation);
         self.translate_by(translation);
     }
@@ -192,7 +200,7 @@ impl BoundingVolume for Aabb2d {
     /// can cause the AABB to grow indefinitely. Avoid applying multiple rotations to the same AABB,
     /// and consider storing the original AABB and rotating that every time instead.
     #[inline(always)]
-    fn rotated_by(mut self, rotation: Self::Rotation) -> Self {
+    fn rotated_by(mut self, rotation: impl Into<Self::Rotation>) -> Self {
         self.rotate_by(rotation);
         self
     }
@@ -205,11 +213,14 @@ impl BoundingVolume for Aabb2d {
     /// can cause the AABB to grow indefinitely. Avoid applying multiple rotations to the same AABB,
     /// and consider storing the original AABB and rotating that every time instead.
     #[inline(always)]
-    fn rotate_by(&mut self, rotation: Self::Rotation) {
-        let rot_mat = Mat2::from_angle(rotation);
-        let abs_rot_mat = Mat2::from_cols(rot_mat.x_axis.abs(), rot_mat.y_axis.abs());
+    fn rotate_by(&mut self, rotation: impl Into<Self::Rotation>) {
+        let rotation: Rotation2d = rotation.into();
+        let abs_rot_mat = Mat2::from_cols(
+            Vec2::new(rotation.cos, rotation.sin),
+            Vec2::new(rotation.sin, rotation.cos),
+        );
         let half_size = abs_rot_mat * self.half_size();
-        *self = Self::new(rot_mat * self.center(), half_size);
+        *self = Self::new(rotation * self.center(), half_size);
     }
 }
 
@@ -481,7 +492,7 @@ impl BoundingCircle {
 
 impl BoundingVolume for BoundingCircle {
     type Translation = Vec2;
-    type Rotation = f32;
+    type Rotation = Rotation2d;
     type HalfSize = f32;
 
     #[inline(always)]
@@ -536,13 +547,14 @@ impl BoundingVolume for BoundingCircle {
     }
 
     #[inline(always)]
-    fn translate_by(&mut self, translation: Vec2) {
+    fn translate_by(&mut self, translation: Self::Translation) {
         self.center += translation;
     }
 
     #[inline(always)]
-    fn rotate_by(&mut self, rotation: f32) {
-        self.center = Mat2::from_angle(rotation) * self.center;
+    fn rotate_by(&mut self, rotation: impl Into<Self::Rotation>) {
+        let rotation: Rotation2d = rotation.into();
+        self.center = rotation * self.center;
     }
 }
 
