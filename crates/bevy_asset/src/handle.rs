@@ -4,7 +4,7 @@ use crate::{
 };
 use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
-use bevy_utils::{get_short_name, Uuid};
+use bevy_utils::get_short_name;
 use crossbeam_channel::{Receiver, Sender};
 use std::{
     any::TypeId,
@@ -12,6 +12,7 @@ use std::{
     sync::Arc,
 };
 use thiserror::Error;
+use uuid::Uuid;
 
 /// Provides [`Handle`] and [`UntypedHandle`] _for a specific asset type_.
 /// This should _only_ be used for one specific asset type.

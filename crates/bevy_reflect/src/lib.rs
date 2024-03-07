@@ -493,13 +493,15 @@ mod impls {
         mod primitives3d;
         mod rect;
     }
-
+    #[cfg(feature = "petgraph")]
+    mod petgraph;
     #[cfg(feature = "smallvec")]
     mod smallvec;
     #[cfg(feature = "smol_str")]
     mod smol_str;
 
     mod std;
+    #[cfg(feature = "uuid")]
     mod uuid;
 }
 
@@ -1547,7 +1549,6 @@ mod tests {
         // List (SmallVec)
         #[cfg(feature = "smallvec")]
         {
-            use bevy_utils::smallvec;
             type MySmallVec = smallvec::SmallVec<[String; 2]>;
 
             let info = MySmallVec::type_info();

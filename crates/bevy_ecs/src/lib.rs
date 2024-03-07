@@ -52,8 +52,6 @@ pub mod prelude {
     };
 }
 
-pub use bevy_utils::all_tuples;
-
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
