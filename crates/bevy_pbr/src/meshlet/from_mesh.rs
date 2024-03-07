@@ -43,12 +43,8 @@ impl MeshletMesh {
 
         // Split the mesh into an initial list of meshlets (LOD 0)
         let vertex_buffer = mesh.get_vertex_buffer_data();
-        let vertices = VertexDataAdapter::new(
-            &vertex_buffer,
-            vertex_buffer_layout.layout().array_stride as usize,
-            0,
-        )
-        .unwrap();
+        let vertices =
+            VertexDataAdapter::new(&vertex_buffer, mesh.get_vertex_size() as usize, 0).unwrap();
         let mut meshlets = build_meshlets(&indices, &vertices, 64, 64, 0.0);
 
         // Build further LODs
