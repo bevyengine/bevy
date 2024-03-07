@@ -470,7 +470,12 @@ impl<'a> ReflectMeta<'a> {
         &self,
         where_clause_options: &WhereClauseOptions,
     ) -> proc_macro2::TokenStream {
-        crate::registration::impl_get_type_registration(self, where_clause_options, None)
+        crate::registration::impl_get_type_registration(
+            self,
+            where_clause_options,
+            None,
+            Option::<std::iter::Empty<&Type>>::None,
+        )
     }
 
     /// The collection of docstrings for this type, if any.
@@ -502,6 +507,7 @@ impl<'a> ReflectStruct<'a> {
             self.meta(),
             where_clause_options,
             self.serialization_data(),
+            Some(self.active_types().iter()),
         )
     }
 
@@ -512,22 +518,21 @@ impl<'a> ReflectStruct<'a> {
             .collect()
     }
 
-    /// Get an iterator of fields which are exposed to the reflection API
+    /// Get an iterator of fields which are exposed to the reflection API.
     pub fn active_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
-        self.fields
+        self.fields()
             .iter()
             .filter(|field| field.attrs.ignore.is_active())
     }
 
     /// Get an iterator of fields which are ignored by the reflection API
     pub fn ignored_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
-        self.fields
+        self.fields()
             .iter()
             .filter(|field| field.attrs.ignore.is_ignored())
     }
 
     /// The complete set of fields in this struct.
-    #[allow(dead_code)]
     pub fn fields(&self) -> &[StructField<'a>] {
         &self.fields
     }
@@ -572,6 +577,21 @@ impl<'a> ReflectEnum<'a> {
 
     pub fn where_clause_options(&self) -> WhereClauseOptions {
         WhereClauseOptions::new_with_fields(self.meta(), self.active_types().into_boxed_slice())
+    }
+
+    /// Returns the `GetTypeRegistration` impl as a `TokenStream`.
+    ///
+    /// Returns a specific implementation for enums and this method should be preferred over the generic [`get_type_registration`](crate::ReflectMeta) method
+    pub fn get_type_registration(
+        &self,
+        where_clause_options: &WhereClauseOptions,
+    ) -> proc_macro2::TokenStream {
+        crate::registration::impl_get_type_registration(
+            self.meta(),
+            where_clause_options,
+            None,
+            Some(self.active_fields().map(|field| &field.data.ty)),
+        )
     }
 }
 

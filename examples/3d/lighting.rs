@@ -5,7 +5,7 @@ use std::f32::consts::PI;
 
 use bevy::{
     color::palettes::css::*,
-    pbr::{light_consts, CascadeShadowConfigBuilder},
+    pbr::CascadeShadowConfigBuilder,
     prelude::*,
     render::camera::{Exposure, PhysicalCameraParameters},
 };
@@ -145,7 +145,7 @@ fn setup(
                 mesh: meshes.add(Sphere::new(0.1).mesh().uv(32, 18)),
                 material: materials.add(StandardMaterial {
                     base_color: RED.into(),
-                    emissive: Color::linear_rgba(7.13, 0.0, 0.0, 0.0),
+                    emissive: Color::linear_rgba(713.0, 0.0, 0.0, 0.0),
                     ..default()
                 }),
                 ..default()
@@ -159,7 +159,7 @@ fn setup(
                 .looking_at(Vec3::new(-1.0, 0.0, 0.0), Vec3::Z),
             spot_light: SpotLight {
                 intensity: 100_000.0,
-                color: GREEN.into(),
+                color: LIME.into(),
                 shadows_enabled: true,
                 inner_angle: 0.6,
                 outer_angle: 0.8,
@@ -172,8 +172,8 @@ fn setup(
                 transform: Transform::from_rotation(Quat::from_rotation_x(PI / 2.0)),
                 mesh: meshes.add(Capsule3d::new(0.1, 0.125)),
                 material: materials.add(StandardMaterial {
-                    base_color: GREEN.into(),
-                    emissive: Color::linear_rgba(0.0, 7.13, 0.0, 0.0),
+                    base_color: LIME.into(),
+                    emissive: Color::linear_rgba(0.0, 713.0, 0.0, 0.0),
                     ..default()
                 }),
                 ..default()
@@ -198,7 +198,7 @@ fn setup(
                 mesh: meshes.add(Sphere::new(0.1).mesh().uv(32, 18)),
                 material: materials.add(StandardMaterial {
                     base_color: BLUE.into(),
-                    emissive: Color::linear_rgba(0.0, 0.0, 7.13, 0.0),
+                    emissive: Color::linear_rgba(0.0, 0.0, 713.0, 0.0),
                     ..default()
                 }),
                 ..default()

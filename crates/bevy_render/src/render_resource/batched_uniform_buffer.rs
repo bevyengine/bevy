@@ -3,11 +3,11 @@ use crate::{
     render_resource::DynamicUniformBuffer,
     renderer::{RenderDevice, RenderQueue},
 };
-use bevy_utils::nonmax::NonMaxU32;
 use encase::{
     private::{ArrayMetadata, BufferMut, Metadata, RuntimeSizedArray, WriteInto, Writer},
     ShaderType,
 };
+use nonmax::NonMaxU32;
 use std::{marker::PhantomData, num::NonZeroU64};
 use wgpu::{BindingResource, Limits};
 

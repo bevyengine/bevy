@@ -2,7 +2,7 @@ use crate::{
     render_resource::Buffer,
     renderer::{RenderDevice, RenderQueue},
 };
-use bevy_core::{cast_slice, Pod};
+use bytemuck::{cast_slice, Pod};
 use wgpu::BufferUsages;
 
 /// A structure for storing raw bytes that have already been properly formatted

@@ -118,6 +118,8 @@ impl Plugin for ImagePlugin {
             feature = "bmp",
             feature = "basis-universal",
             feature = "ktx2",
+            feature = "webp",
+            feature = "pnm"
         ))]
         app.preregister_asset_loader::<ImageLoader>(IMG_FILE_EXTENSIONS);
     }
@@ -131,6 +133,8 @@ impl Plugin for ImagePlugin {
             feature = "bmp",
             feature = "basis-universal",
             feature = "ktx2",
+            feature = "webp",
+            feature = "pnm"
         ))]
         {
             app.init_asset_loader::<ImageLoader>();

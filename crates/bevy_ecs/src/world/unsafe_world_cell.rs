@@ -7,9 +7,7 @@ use crate::{
     archetype::{Archetype, ArchetypeComponentId, Archetypes},
     bundle::Bundles,
     change_detection::{MutUntyped, Ticks, TicksMut},
-    component::{
-        ComponentId, ComponentStorage, ComponentTicks, Components, StorageType, Tick, TickCells,
-    },
+    component::{ComponentId, ComponentTicks, Components, StorageType, Tick, TickCells},
     entity::{Entities, Entity, EntityLocation},
     prelude::Component,
     removal_detection::RemovedComponentEvents,
@@ -713,7 +711,7 @@ impl<'w> UnsafeEntityCell<'w> {
             get_component(
                 self.world,
                 component_id,
-                T::Storage::STORAGE_TYPE,
+                T::STORAGE_TYPE,
                 self.entity,
                 self.location,
             )
@@ -740,7 +738,7 @@ impl<'w> UnsafeEntityCell<'w> {
             get_component_and_ticks(
                 self.world,
                 component_id,
-                T::Storage::STORAGE_TYPE,
+                T::STORAGE_TYPE,
                 self.entity,
                 self.location,
             )
@@ -770,7 +768,7 @@ impl<'w> UnsafeEntityCell<'w> {
             get_ticks(
                 self.world,
                 component_id,
-                T::Storage::STORAGE_TYPE,
+                T::STORAGE_TYPE,
                 self.entity,
                 self.location,
             )
@@ -839,7 +837,7 @@ impl<'w> UnsafeEntityCell<'w> {
             get_component_and_ticks(
                 self.world,
                 component_id,
-                T::Storage::STORAGE_TYPE,
+                T::STORAGE_TYPE,
                 self.entity,
                 self.location,
             )

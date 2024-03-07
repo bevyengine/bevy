@@ -29,9 +29,9 @@ mod draw;
 mod draw_state;
 mod rangefinder;
 
-use bevy_utils::nonmax::NonMaxU32;
 pub use draw::*;
 pub use draw_state::*;
+use nonmax::NonMaxU32;
 pub use rangefinder::*;
 
 use crate::render_resource::{CachedRenderPipelineId, PipelineCache};

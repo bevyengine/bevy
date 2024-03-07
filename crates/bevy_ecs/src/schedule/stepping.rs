@@ -7,10 +7,10 @@ use crate::{
     system::{IntoSystem, ResMut, Resource},
 };
 use bevy_utils::{
-    thiserror::Error,
     tracing::{error, info, warn},
     TypeIdMap,
 };
+use thiserror::Error;
 
 #[cfg(test)]
 use bevy_utils::tracing::debug;

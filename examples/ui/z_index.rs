@@ -4,7 +4,7 @@
 //! depth of nodes compared to their siblings, but also compared to the entire UI.
 
 use bevy::{
-    color::palettes::basic::{BLUE, GRAY, GREEN, PURPLE, RED, YELLOW},
+    color::palettes::basic::{BLUE, GRAY, LIME, PURPLE, RED, YELLOW},
     prelude::*,
 };
 
@@ -79,7 +79,7 @@ fn setup(mut commands: Commands) {
                     // it will show under other nodes in the gray container.
                     parent.spawn(NodeBundle {
                         z_index: ZIndex::Local(-1),
-                        background_color: GREEN.into(),
+                        background_color: LIME.into(),
                         style: Style {
                             position_type: PositionType::Absolute,
                             left: Val::Px(70.0),

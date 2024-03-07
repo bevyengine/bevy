@@ -199,3 +199,9 @@ pub mod dynamic_plugin {
     //! Dynamic linking of plugins
     pub use bevy_dynamic_plugin::*;
 }
+
+#[cfg(feature = "bevy_dev_tools")]
+pub mod dev_tools {
+    //! Collection of developer tools
+    pub use bevy_dev_tools::*;
+}

@@ -1,5 +1,5 @@
 //! Demonstrates how the `AlignItems` and `JustifyContent` properties can be composed to layout text.
-use bevy::{color::palettes::css::DARK_GRAY, prelude::*};
+use bevy::prelude::*;
 
 const ALIGN_ITEMS_COLOR: Color = Color::srgb(1., 0.066, 0.349);
 const JUSTIFY_CONTENT_COLOR: Color = Color::srgb(0.102, 0.522, 1.);
@@ -134,7 +134,7 @@ fn spawn_child_node(
                 height: Val::Percent(100.),
                 ..Default::default()
             },
-            background_color: BackgroundColor(DARK_GRAY.into()),
+            background_color: BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
             ..Default::default()
         })
         .with_children(|builder| {

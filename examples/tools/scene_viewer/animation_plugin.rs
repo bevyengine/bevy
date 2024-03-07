@@ -8,21 +8,24 @@ use crate::scene_viewer_plugin::SceneHandle;
 /// Controls animation clips for a unique entity.
 #[derive(Component)]
 struct Clips {
-    clips: Vec<Handle<AnimationClip>>,
+    nodes: Vec<AnimationNodeIndex>,
     current: usize,
 }
 impl Clips {
-    fn new(clips: Vec<Handle<AnimationClip>>) -> Self {
-        Clips { clips, current: 0 }
+    fn new(clips: Vec<AnimationNodeIndex>) -> Self {
+        Clips {
+            nodes: clips,
+            current: 0,
+        }
     }
     /// # Panics
     ///
     /// When no clips are present.
-    fn current(&self) -> Handle<AnimationClip> {
-        self.clips[self.current].clone_weak()
+    fn current(&self) -> AnimationNodeIndex {
+        self.nodes[self.current]
     }
     fn advance_to_next(&mut self) {
-        self.current = (self.current + 1) % self.clips.len();
+        self.current = (self.current + 1) % self.nodes.len();
     }
 }
 
@@ -38,6 +41,7 @@ fn assign_clips(
     clips: Res<Assets<AnimationClip>>,
     gltf_assets: Res<Assets<Gltf>>,
     assets: Res<AssetServer>,
+    mut graphs: ResMut<Assets<AnimationGraph>>,
     mut commands: Commands,
     mut setup: Local<bool>,
 ) {
@@ -69,7 +73,8 @@ fn assign_clips(
     // is considered to belong to an animation player if all targets of the clip
     // refer to entities whose nearest ancestor player is that animation player.
 
-    let mut player_to_clips: EntityHashMap<Vec<_>> = EntityHashMap::default();
+    let mut player_to_graph: EntityHashMap<(AnimationGraph, Vec<AnimationNodeIndex>)> =
+        EntityHashMap::default();
 
     for (clip_id, clip) in clips.iter() {
         let mut ancestor_player = None;
@@ -120,23 +125,27 @@ fn assign_clips(
             continue;
         };
 
-        player_to_clips
-            .entry(ancestor_player)
-            .or_default()
-            .push(clip_handle);
+        let &mut (ref mut graph, ref mut clip_indices) =
+            player_to_graph.entry(ancestor_player).or_default();
+        let node_index = graph.add_clip(clip_handle, 1.0, graph.root);
+        clip_indices.push(node_index);
     }
 
     // Now that we've built up a list of all clips that belong to each player,
     // package them up into a `Clips` component, play the first such animation,
     // and add that component to the player.
-    for (player_entity, clips) in player_to_clips {
+    for (player_entity, (graph, clips)) in player_to_graph {
         let Ok(mut player) = players.get_mut(player_entity) else {
             warn!("Animation targets referenced a nonexistent player. This shouldn't happen.");
             continue;
         };
+        let graph = graphs.add(graph);
         let animations = Clips::new(clips);
         player.play(animations.current()).repeat();
-        commands.entity(player_entity).insert(animations);
+        commands
+            .entity(player_entity)
+            .insert(animations)
+            .insert(graph);
     }
 }
 
@@ -150,30 +159,30 @@ fn handle_inputs(
             None => format!("entity {entity:?}"),
         };
         if keyboard_input.just_pressed(KeyCode::Space) {
-            if player.is_paused() {
-                info!("resuming animation for {display_entity_name}");
-                player.resume();
+            if player.all_paused() {
+                info!("resuming animations for {display_entity_name}");
+                player.resume_all();
             } else {
                 info!("pausing animation for {display_entity_name}");
-                player.pause();
+                player.pause_all();
             }
         }
-        if clips.clips.len() <= 1 {
+        if clips.nodes.len() <= 1 {
             continue;
         }
 
         if keyboard_input.just_pressed(KeyCode::Enter) {
             info!("switching to new animation for {display_entity_name}");
 
-            let resume = !player.is_paused();
+            let resume = !player.all_paused();
             // set the current animation to its start and pause it to reset to its starting state
-            player.seek_to(0.0).pause();
+            player.rewind_all().pause_all();
 
             clips.advance_to_next();
             let current_clip = clips.current();
             player.play(current_clip).repeat();
             if resume {
-                player.resume();
+                player.resume_all();
             }
         }
     }

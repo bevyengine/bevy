@@ -116,7 +116,7 @@ mod splash {
 
 mod game {
     use bevy::{
-        color::palettes::basic::{BLUE, GREEN},
+        color::palettes::basic::{BLUE, LIME},
         prelude::*,
     };
 
@@ -211,7 +211,7 @@ mod game {
                                     format!("volume: {:?}", *volume),
                                     TextStyle {
                                         font_size: 60.0,
-                                        color: GREEN.into(),
+                                        color: LIME.into(),
                                         ..default()
                                     },
                                 ),

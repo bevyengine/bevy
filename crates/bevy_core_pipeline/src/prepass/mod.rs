@@ -38,7 +38,7 @@ use bevy_render::{
     render_resource::{CachedRenderPipelineId, Extent3d, TextureFormat, TextureView},
     texture::ColorAttachment,
 };
-use bevy_utils::nonmax::NonMaxU32;
+use nonmax::NonMaxU32;
 
 pub const NORMAL_PREPASS_FORMAT: TextureFormat = TextureFormat::Rgb10a2Unorm;
 pub const MOTION_VECTOR_PREPASS_FORMAT: TextureFormat = TextureFormat::Rg16Float;

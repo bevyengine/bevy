@@ -13,9 +13,12 @@ keywords = ["bevy"]
 bevy_app = { path = "../bevy_app", version = "0.14.0-dev" }
 bevy_asset = { path = "../bevy_asset", version = "0.14.0-dev" }
 bevy_core = { path = "../bevy_core", version = "0.14.0-dev" }
+bevy_derive = { path = "../bevy_derive", version = "0.14.0-dev" }
+bevy_log = { path = "../bevy_log", version = "0.14.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.14.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev", features = [
   "bevy",
+  "petgraph",
 ] }
 bevy_render = { path = "../bevy_render", version = "0.14.0-dev" }
 bevy_time = { path = "../bevy_time", version = "0.14.0-dev" }
@@ -25,8 +28,14 @@ bevy_transform = { path = "../bevy_transform", version = "0.14.0-dev" }
 bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.14.0-dev" }
 
 # other
+fixedbitset = "0.4"
+petgraph = { version = "0.6", features = ["serde-1"] }
+ron = "0.8"
+serde = "1"
 sha1_smol = { version = "1.0" }
-uuid = { version = "1.7", features = ["v5"] }
+thiserror = "1"
+thread_local = "1"
+uuid = { version = "1.7", features = ["v4"] }
 
 [lints]
 workspace = true

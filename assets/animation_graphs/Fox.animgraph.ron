@@ -1,0 +1,35 @@
+(
+    graph: (
+        nodes: [
+            (
+                clip: None,
+                weight: 1.0,
+            ),
+            (
+                clip: None,
+                weight: 0.5,
+            ),
+            (
+                clip: Some(AssetPath("models/animated/Fox.glb#Animation0")),
+                weight: 1.0,
+            ),
+            (
+                clip: Some(AssetPath("models/animated/Fox.glb#Animation1")),
+                weight: 1.0,
+            ),
+            (
+                clip: Some(AssetPath("models/animated/Fox.glb#Animation2")),
+                weight: 1.0,
+            ),
+        ],
+        node_holes: [],
+        edge_property: directed,
+        edges: [
+            Some((0, 1, ())),
+            Some((0, 2, ())),
+            Some((1, 3, ())),
+            Some((1, 4, ())),
+        ],
+    ),
+    root: 0,
+)

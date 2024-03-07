@@ -7,7 +7,7 @@ use bevy_ecs::{
     system::{Res, ResMut, Resource},
 };
 use bevy_reflect::{Reflect, TypePath};
-use bevy_utils::{HashMap, Uuid};
+use bevy_utils::HashMap;
 use crossbeam_channel::{Receiver, Sender};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -17,6 +17,7 @@ use std::{
     sync::{atomic::AtomicU32, Arc},
 };
 use thiserror::Error;
+use uuid::Uuid;
 
 /// A generational runtime-only identifier for a specific [`Asset`] stored in [`Assets`]. This is optimized for efficient runtime
 /// usage and is not suitable for identifying assets across app runs.

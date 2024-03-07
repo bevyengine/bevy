@@ -39,7 +39,7 @@ fn draw_example_collection(
 ) {
     let sin = time.elapsed_seconds().sin() * 50.;
     gizmos.line_2d(Vec2::Y * -sin, Vec2::splat(-80.), RED);
-    gizmos.ray_2d(Vec2::Y * sin, Vec2::splat(80.), GREEN);
+    gizmos.ray_2d(Vec2::Y * sin, Vec2::splat(80.), LIME);
 
     gizmos
         .grid_2d(
@@ -56,7 +56,7 @@ fn draw_example_collection(
     gizmos.linestrip_gradient_2d([
         (Vec2::Y * 300., BLUE),
         (Vec2::new(-255., -155.), RED),
-        (Vec2::new(255., -155.), GREEN),
+        (Vec2::new(255., -155.), LIME),
         (Vec2::Y * 300., BLUE),
     ]);
 

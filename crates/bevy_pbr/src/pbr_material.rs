@@ -59,7 +59,16 @@ pub struct StandardMaterial {
     ///
     /// The default emissive color is [`Color::BLACK`], which doesn't add anything to the material color.
     ///
-    /// Note that **an emissive material won't light up surrounding areas like a light source**,
+    /// To increase emissive strength, channel values for `emissive`
+    /// colors can exceed `1.0`. For instance, a `base_color` of
+    /// `Color::linear_rgb(1.0, 0.0, 0.0)` represents the brightest
+    /// red for objects that reflect light, but an emissive color
+    /// like `Color::linear_rgb(1000.0, 0.0, 0.0)` can be used to create
+    /// intensely bright red emissive effects.
+    ///
+    /// Increasing the emissive strength of the color will impact visual effects
+    /// like bloom, but it's important to note that **an emissive material won't
+    /// light up surrounding areas like a light source**,
     /// it just adds a value to the color seen on screen.
     pub emissive: Color,
 

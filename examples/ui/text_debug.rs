@@ -170,7 +170,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextSection::from_style(TextStyle {
                     font: font.clone(),
                     font_size: 25.0,
-                    color: GREEN.into(),
+                    color: LIME.into(),
                 }),
                 TextSection::new(
                     " ms/frame",

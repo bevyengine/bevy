@@ -106,6 +106,8 @@ pub struct BloomSettings {
 
 impl BloomSettings {
     /// The default bloom preset.
+    ///
+    /// This uses the [`EnergyConserving`](BloomCompositeMode::EnergyConserving) composite mode.
     pub const NATURAL: Self = Self {
         intensity: 0.15,
         low_frequency_boost: 0.7,

@@ -141,7 +141,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     for (text_anchor, color) in [
         (Anchor::TopLeft, Color::Srgba(RED)),
-        (Anchor::TopRight, Color::Srgba(GREEN)),
+        (Anchor::TopRight, Color::Srgba(LIME)),
         (Anchor::BottomRight, Color::Srgba(BLUE)),
         (Anchor::BottomLeft, Color::Srgba(YELLOW)),
     ] {

@@ -3,7 +3,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    color::palettes::basic::{BLUE, GREEN, RED},
+    color::palettes::basic::{BLUE, LIME, RED},
     pbr::{light_consts, CascadeShadowConfigBuilder, NotShadowCaster, NotShadowReceiver},
     prelude::*,
 };
@@ -62,7 +62,7 @@ fn setup(
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Plane3d::default().mesh().size(20.0, 20.0)),
-            material: materials.add(Color::from(GREEN)),
+            material: materials.add(Color::from(LIME)),
             transform: Transform::from_xyz(0.0, 1.0, -10.0),
             ..default()
         },

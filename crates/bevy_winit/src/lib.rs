@@ -14,7 +14,7 @@ mod winit_windows;
 
 use approx::relative_eq;
 use bevy_a11y::AccessibilityRequested;
-use bevy_utils::{Duration, Instant};
+use bevy_utils::Instant;
 use system::{changed_windows, create_windows, despawn_windows, CachedWindow};
 use winit::dpi::{LogicalSize, PhysicalSize};
 pub use winit_config::*;
@@ -46,6 +46,7 @@ use bevy_window::{PrimaryWindow, RawHandleWrapper};
 #[cfg(target_os = "android")]
 pub use winit::platform::android::activity as android_activity;
 
+use winit::event::StartCause;
 use winit::{
     event::{self, DeviceEvent, Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop, EventLoopBuilder, EventLoopWindowTarget},
@@ -83,7 +84,7 @@ pub struct WinitPlugin {
 
 impl Plugin for WinitPlugin {
     fn build(&self, app: &mut App) {
-        let mut event_loop_builder = EventLoopBuilder::<()>::with_user_event();
+        let mut event_loop_builder = EventLoopBuilder::<UserEvent>::with_user_event();
 
         // linux check is needed because x11 might be enabled on other platforms.
         #[cfg(all(target_os = "linux", feature = "x11"))]
@@ -184,8 +185,6 @@ struct WinitAppRunnerState {
     wait_elapsed: bool,
     /// The time the last update started.
     last_update: Instant,
-    /// The time the next update is scheduled to start.
-    scheduled_update: Option<Instant>,
     /// Number of "forced" updates to trigger on application start
     startup_forced_updates: u32,
 }
@@ -226,7 +225,6 @@ impl Default for WinitAppRunnerState {
             redraw_requested: false,
             wait_elapsed: false,
             last_update: Instant::now(),
-            scheduled_update: None,
             // 3 seems to be enough, 5 is a safe margin
             startup_forced_updates: 5,
         }
@@ -243,6 +241,15 @@ type CreateWindowParams<'w, 's, F = ()> = (
     Res<'w, AccessibilityRequested>,
 );
 
+/// The [`winit::event_loop::EventLoopProxy`] with the specific [`winit::event::Event::UserEvent`] used in the [`winit_runner`].
+///
+/// The `EventLoopProxy` can be used to request a redraw from outside bevy.
+///
+/// Use `NonSend<EventLoopProxy>` to receive this resource.
+pub type EventLoopProxy = winit::event_loop::EventLoopProxy<UserEvent>;
+
+type UserEvent = RequestRedraw;
+
 /// The default [`App::runner`] for the [`WinitPlugin`] plugin.
 ///
 /// Overriding the app's [runner](bevy_app::App::runner) while using `WinitPlugin` will bypass the
@@ -255,7 +262,7 @@ pub fn winit_runner(mut app: App) {
 
     let event_loop = app
         .world
-        .remove_non_send_resource::<EventLoop<()>>()
+        .remove_non_send_resource::<EventLoop<UserEvent>>()
         .unwrap();
 
     app.world
@@ -281,7 +288,7 @@ pub fn winit_runner(mut app: App) {
         SystemState::<CreateWindowParams<Added<Window>>>::from_world(&mut app.world);
     let mut winit_events = Vec::default();
     // set up the event loop
-    let event_handler = move |event, event_loop: &EventLoopWindowTarget<()>| {
+    let event_handler = move |event, event_loop: &EventLoopWindowTarget<UserEvent>| {
         handle_winit_event(
             &mut app,
             &mut app_exit_event_reader,
@@ -318,8 +325,8 @@ fn handle_winit_event(
     focused_windows_state: &mut SystemState<(Res<WinitSettings>, Query<&Window>)>,
     redraw_event_reader: &mut ManualEventReader<RequestRedraw>,
     winit_events: &mut Vec<WinitEvent>,
-    event: Event<()>,
-    event_loop: &EventLoopWindowTarget<()>,
+    event: Event<UserEvent>,
+    event_loop: &EventLoopWindowTarget<UserEvent>,
 ) {
     #[cfg(feature = "trace")]
     let _span = bevy_utils::tracing::info_span!("winit event_handler").entered();
@@ -402,12 +409,14 @@ fn handle_winit_event(
                 }
             }
         }
-        Event::NewEvents(_) => {
-            if let Some(t) = runner_state.scheduled_update {
-                let now = Instant::now();
-                let remaining = t.checked_duration_since(now).unwrap_or(Duration::ZERO);
-                runner_state.wait_elapsed = remaining.is_zero();
-            }
+        Event::NewEvents(cause) => {
+            runner_state.wait_elapsed = match cause {
+                StartCause::WaitCancelled {
+                    requested_resume: Some(resume),
+                    ..
+                } => resume >= Instant::now(),
+                _ => true,
+            };
         }
         Event::WindowEvent {
             event, window_id, ..
@@ -698,6 +707,9 @@ fn handle_winit_event(
                 event_loop.set_control_flow(ControlFlow::Wait);
             }
         }
+        Event::UserEvent(RequestRedraw) => {
+            runner_state.redraw_requested = true;
+        }
         _ => (),
     }
 
@@ -712,7 +724,7 @@ fn run_app_update_if_should(
     runner_state: &mut WinitAppRunnerState,
     app: &mut App,
     focused_windows_state: &mut SystemState<(Res<WinitSettings>, Query<&Window>)>,
-    event_loop: &EventLoopWindowTarget<()>,
+    event_loop: &EventLoopWindowTarget<UserEvent>,
     create_window: &mut SystemState<CreateWindowParams<Added<Window>>>,
     app_exit_event_reader: &mut ManualEventReader<AppExit>,
     redraw_event_reader: &mut ManualEventReader<RequestRedraw>,
@@ -750,6 +762,7 @@ fn run_app_update_if_should(
         match config.update_mode(focused) {
             UpdateMode::Continuous => {
                 runner_state.redraw_requested = true;
+                event_loop.set_control_flow(ControlFlow::Wait);
             }
             UpdateMode::Reactive { wait } | UpdateMode::ReactiveLowPower { wait } => {
                 // TODO(bug): this is unexpected behavior.
@@ -758,10 +771,8 @@ fn run_app_update_if_should(
                 // Need to verify the plateform specifics (whether this can occur in
                 // rare-but-possible cases) and replace this with a panic or a log warn!
                 if let Some(next) = runner_state.last_update.checked_add(*wait) {
-                    runner_state.scheduled_update = Some(next);
                     event_loop.set_control_flow(ControlFlow::WaitUntil(next));
                 } else {
-                    runner_state.scheduled_update = None;
                     event_loop.set_control_flow(ControlFlow::Wait);
                 }
             }

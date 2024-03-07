@@ -51,7 +51,6 @@ impl Plugin for TimePlugin {
             .register_type::<Time<Virtual>>()
             .register_type::<Time<Fixed>>()
             .register_type::<Timer>()
-            .register_type::<Stopwatch>()
             .add_systems(
                 First,
                 (time_system, virtual_time_system.after(time_system)).in_set(TimeSystem),
@@ -69,7 +68,7 @@ impl Plugin for TimePlugin {
         #[cfg(feature = "bevy_ci_testing")]
         if let Some(ci_testing_config) = app
             .world
-            .get_resource::<bevy_app::ci_testing::CiTestingConfig>()
+            .get_resource::<bevy_dev_tools::ci_testing::CiTestingConfig>()
         {
             if let Some(frame_time) = ci_testing_config.frame_time {
                 app.world

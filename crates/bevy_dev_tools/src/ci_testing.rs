@@ -1,6 +1,6 @@
 //! Utilities for testing in CI environments.
 
-use crate::{app::AppExit, App, Update};
+use bevy_app::{App, AppExit, Update};
 use serde::Deserialize;
 
 use bevy_ecs::prelude::Resource;

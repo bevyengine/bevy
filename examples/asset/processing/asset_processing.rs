@@ -12,7 +12,7 @@ use bevy::{
     },
     prelude::*,
     reflect::TypePath,
-    utils::{thiserror, BoxedFuture},
+    utils::BoxedFuture,
 };
 use serde::{Deserialize, Serialize};
 use std::convert::Infallible;

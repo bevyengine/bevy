@@ -115,8 +115,7 @@ pub trait Plugins<Marker>: sealed::Plugins<Marker> {}
 impl<Marker, T> Plugins<Marker> for T where T: sealed::Plugins<Marker> {}
 
 mod sealed {
-
-    use bevy_ecs::all_tuples;
+    use bevy_utils::all_tuples;
 
     use crate::{App, AppError, Plugin, PluginGroup};
 
