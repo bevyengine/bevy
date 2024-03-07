@@ -1,10 +1,6 @@
 //! This example displays each contributor to the bevy source code as a bouncing bevy-ball.
 
-use bevy::{
-    math::bounding::Aabb2d,
-    prelude::*,
-    utils::{thiserror, HashMap},
-};
+use bevy::{math::bounding::Aabb2d, prelude::*, utils::HashMap};
 use rand::{prelude::SliceRandom, Rng};
 use std::{
     env::VarError,
@@ -242,7 +238,7 @@ fn collisions(
     mut query: Query<(&mut Velocity, &mut Transform), With<Contributor>>,
 ) {
     let window = windows.single();
-    let window_size = Vec2::new(window.width(), window.height());
+    let window_size = window.size();
 
     let collision_area = Aabb2d::new(Vec2::ZERO, (window_size - SPRITE_SIZE) / 2.);
 

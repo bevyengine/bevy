@@ -9,7 +9,6 @@ use bevy_core_pipeline::prelude::Camera3dBundle;
 use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{entity::Entity, world::World};
 use bevy_hierarchy::{BuildWorldChildren, WorldChildBuilder};
-use bevy_log::{error, info_span, warn};
 use bevy_math::{Affine2, Mat4, Vec3};
 use bevy_pbr::{
     DirectionalLight, DirectionalLightBundle, PbrBundle, PointLight, PointLightBundle, SpotLight,
@@ -36,10 +35,8 @@ use bevy_scene::Scene;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::IoTaskPool;
 use bevy_transform::components::Transform;
-use bevy_utils::{
-    smallvec::{smallvec, SmallVec},
-    HashMap, HashSet,
-};
+use bevy_utils::tracing::{error, info_span, warn};
+use bevy_utils::{HashMap, HashSet};
 use gltf::{
     accessor::Iter,
     mesh::{util::ReadIndices, Mode},
@@ -47,6 +44,7 @@ use gltf::{
     Material, Node, Primitive, Semantic,
 };
 use serde::{Deserialize, Serialize};
+use smallvec::{smallvec, SmallVec};
 use std::io::Error;
 use std::{
     collections::VecDeque,
@@ -474,9 +472,9 @@ async fn load_gltf<'a, 'b, 'c>(
                 let vertex_count_after = mesh.count_vertices();
 
                 if vertex_count_before != vertex_count_after {
-                    bevy_log::debug!("Missing vertex normals in indexed geometry, computing them as flat. Vertex count increased from {} to {}", vertex_count_before, vertex_count_after);
+                    bevy_utils::tracing::debug!("Missing vertex normals in indexed geometry, computing them as flat. Vertex count increased from {} to {}", vertex_count_before, vertex_count_after);
                 } else {
-                    bevy_log::debug!(
+                    bevy_utils::tracing::debug!(
                         "Missing vertex normals in indexed geometry, computing them as flat."
                     );
                 }
@@ -490,7 +488,7 @@ async fn load_gltf<'a, 'b, 'c>(
             } else if mesh.attribute(Mesh::ATTRIBUTE_NORMAL).is_some()
                 && primitive.material().normal_texture().is_some()
             {
-                bevy_log::debug!(
+                bevy_utils::tracing::debug!(
                     "Missing vertex tangents for {}, computing them using the mikktspace algorithm. Consider using a tool such as Blender to pre-compute the tangents.", file_name
                 );
 

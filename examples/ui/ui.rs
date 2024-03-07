@@ -5,7 +5,7 @@ use bevy::{
         accesskit::{NodeBuilder, Role},
         AccessibilityNode,
     },
-    color::palettes::basic::GREEN,
+    color::palettes::basic::LIME,
     input::mouse::{MouseScrollUnit, MouseWheel},
     prelude::*,
     winit::WinitSettings,
@@ -166,7 +166,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         border: UiRect::all(Val::Px(20.)),
                         ..default()
                     },
-                    border_color: GREEN.into(),
+                    border_color: LIME.into(),
                     background_color: Color::srgb(0.4, 0.4, 1.).into(),
                     ..default()
                 })
@@ -283,8 +283,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     margin: UiRect::top(Val::VMin(5.)),
                                     ..default()
                                 },
-                                // a `NodeBundle` is transparent by default, so to see the image we have to its color to `WHITE`
-                                background_color: Color::WHITE.into(),
                                 ..default()
                             },
                             UiImage::new(asset_server.load("branding/bevy_logo_dark_big.png")),

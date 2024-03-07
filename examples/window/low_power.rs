@@ -93,7 +93,7 @@ fn update_winit(
 pub(crate) mod test_setup {
     use crate::ExampleMode;
     use bevy::{
-        color::palettes::basic::{GREEN, YELLOW},
+        color::palettes::basic::{LIME, YELLOW},
         prelude::*,
         window::RequestRedraw,
     };
@@ -181,7 +181,7 @@ pub(crate) mod test_setup {
                 ),
                 TextSection::from_style(TextStyle {
                     font_size: 50.0,
-                    color: GREEN.into(),
+                    color: LIME.into(),
                     ..default()
                 }),
                 TextSection::new(

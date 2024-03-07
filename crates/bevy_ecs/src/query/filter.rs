@@ -1,6 +1,6 @@
 use crate::{
     archetype::Archetype,
-    component::{Component, ComponentId, ComponentStorage, StorageType, Tick},
+    component::{Component, ComponentId, StorageType, Tick},
     entity::Entity,
     query::{DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{Column, ComponentSparseSet, Table, TableRow},
@@ -142,7 +142,7 @@ unsafe impl<T: Component> WorldQuery for With<T> {
     }
 
     const IS_DENSE: bool = {
-        match T::Storage::STORAGE_TYPE {
+        match T::STORAGE_TYPE {
             StorageType::Table => true,
             StorageType::SparseSet => false,
         }
@@ -250,7 +250,7 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
     }
 
     const IS_DENSE: bool = {
-        match T::Storage::STORAGE_TYPE {
+        match T::STORAGE_TYPE {
             StorageType::Table => true,
             StorageType::SparseSet => false,
         }
@@ -604,7 +604,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
     ) -> Self::Fetch<'w> {
         Self::Fetch::<'w> {
             table_ticks: None,
-            sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet)
+            sparse_set: (T::STORAGE_TYPE == StorageType::SparseSet)
                 .then(|| world.storages().sparse_sets.get(id).debug_checked_unwrap()),
             last_run,
             this_run,
@@ -612,7 +612,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
     }
 
     const IS_DENSE: bool = {
-        match T::Storage::STORAGE_TYPE {
+        match T::STORAGE_TYPE {
             StorageType::Table => true,
             StorageType::SparseSet => false,
         }
@@ -651,7 +651,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
-        match T::Storage::STORAGE_TYPE {
+        match T::STORAGE_TYPE {
             StorageType::Table => {
                 // SAFETY: STORAGE_TYPE = Table
                 let table = unsafe { fetch.table_ticks.debug_checked_unwrap() };
@@ -813,7 +813,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
     ) -> Self::Fetch<'w> {
         Self::Fetch::<'w> {
             table_ticks: None,
-            sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet)
+            sparse_set: (T::STORAGE_TYPE == StorageType::SparseSet)
                 .then(|| world.storages().sparse_sets.get(id).debug_checked_unwrap()),
             last_run,
             this_run,
@@ -821,7 +821,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
     }
 
     const IS_DENSE: bool = {
-        match T::Storage::STORAGE_TYPE {
+        match T::STORAGE_TYPE {
             StorageType::Table => true,
             StorageType::SparseSet => false,
         }
@@ -860,7 +860,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
-        match T::Storage::STORAGE_TYPE {
+        match T::STORAGE_TYPE {
             StorageType::Table => {
                 // SAFETY: STORAGE_TYPE = Table
                 let table = unsafe { fetch.table_ticks.debug_checked_unwrap() };
