@@ -120,6 +120,7 @@ pub fn keyboard_input_system(
 
     // When a window loses focus, we receive a synthetic key release event for all held keys;
     // when a window gains focus, we receive a synthetic key down event for all held keys.
+    // See also https://github.com/rust-windowing/winit/issues/3543
     // As a result, when a new window is spawned, we would detect a key up/key down pair for
     // all held keys even though the user didn't do anything.
     // Clean these events:
