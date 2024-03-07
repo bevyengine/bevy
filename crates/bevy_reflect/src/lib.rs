@@ -493,7 +493,8 @@ mod impls {
         mod primitives3d;
         mod rect;
     }
-
+    #[cfg(feature = "petgraph")]
+    mod petgraph;
     #[cfg(feature = "smallvec")]
     mod smallvec;
     #[cfg(feature = "smol_str")]
