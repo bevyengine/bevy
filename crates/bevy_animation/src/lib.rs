@@ -6,6 +6,7 @@ mod transition;
 mod util;
 
 use std::cell::RefCell;
+use std::collections::BTreeMap;
 use std::hash::{Hash, Hasher};
 use std::iter;
 use std::ops::{Add, Mul};
@@ -478,7 +479,9 @@ impl ActiveAnimation {
 #[derive(Component, Default, Reflect)]
 #[reflect(Component)]
 pub struct AnimationPlayer {
-    active_animations: HashMap<AnimationNodeIndex, ActiveAnimation>,
+    /// We use a `BTreeMap` instead of a `HashMap` here to ensure a consistent
+    /// ordering when applying the animations.
+    active_animations: BTreeMap<AnimationNodeIndex, ActiveAnimation>,
     blend_weights: HashMap<AnimationNodeIndex, f32>,
 }
 
@@ -516,10 +519,7 @@ thread_local! {
 impl AnimationPlayer {
     /// Start playing an animation, restarting it if necessary.
     pub fn start(&mut self, animation: AnimationNodeIndex) -> &mut ActiveAnimation {
-        self.active_animations
-            .entry(animation)
-            .insert(ActiveAnimation::default())
-            .into_mut()
+        self.active_animations.entry(animation).or_default()
     }
 
     /// Start playing an animation, unless the requested animation is already playing.
