@@ -37,7 +37,7 @@ bevy_derive = { path = "../bevy_derive", version = "0.14.0-dev" }
 
 # other
 meshopt = { version = "0.2", optional = true }
-metis = { version = "0.2", optional = true }
+metis = { git = "https://github.com/LIHPC-Computational-Geometry/metis-rs", rev = "dd74128", optional = true }
 itertools = { version = "0.12", optional = true }
 bitflags = "2.3"
 fixedbitset = "0.4"
