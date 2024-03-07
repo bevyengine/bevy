@@ -7,6 +7,7 @@
 use std::{fs::File, path::Path};
 
 use bevy::{
+    animation::animate_targets,
     color::palettes::{
         basic::WHITE,
         css::{ANTIQUE_WHITE, DARK_GREEN},
@@ -84,7 +85,7 @@ fn main() {
             ..default()
         }))
         .add_systems(Startup, (setup_assets, setup_scene, setup_ui))
-        .add_systems(PreUpdate, init_animations)
+        .add_systems(Update, init_animations.before(animate_targets))
         .add_systems(
             Update,
             (handle_weight_drag, update_ui, sync_weights).chain(),

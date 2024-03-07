@@ -24,7 +24,7 @@ use bevy_time::Time;
 use bevy_transform::{prelude::Transform, TransformSystem};
 use bevy_utils::hashbrown::HashMap;
 use bevy_utils::{
-    tracing::{error, warn},
+    tracing::{error, trace},
     NoOpHash,
 };
 use fixedbitset::FixedBitSet;
@@ -755,9 +755,12 @@ pub fn animate_targets(
         .par_iter_mut()
         .for_each(|(id, target, name, (transform, morph_weights))| {
             let Ok((animation_player, animation_graph_handle)) = players.get(target.player) else {
-                warn!(
-                    "Couldn't find the animation player {:?} for the target entity {:?} ({:?})",
-                    target.player, id, name,
+                trace!(
+                    "Either an animation player {:?} or a graph was missing for the target \
+                     entity {:?} ({:?}); no animations will play this frame",
+                    target.player,
+                    id,
+                    name,
                 );
                 return;
             };
