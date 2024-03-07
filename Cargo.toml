@@ -341,6 +341,7 @@ bytemuck = "1.7"
 futures-lite = "2.0.1"
 crossbeam-channel = "0.5.0"
 argh = "0.1.12"
+thiserror = "1.0"
 
 [[example]]
 name = "hello_world"
@@ -979,6 +980,17 @@ doc-scrape-examples = true
 [package.metadata.example.animated_fox]
 name = "Animated Fox"
 description = "Plays an animation from a skinned glTF"
+category = "Animation"
+wasm = true
+
+[[example]]
+name = "animation_graph"
+path = "examples/animation/animation_graph.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.animation_graph]
+name = "Animation Graph"
+description = "Blends multiple animations together with a graph"
 category = "Animation"
 wasm = true
 

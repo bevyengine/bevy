@@ -3,7 +3,7 @@ use std::hash::Hash;
 use bevy_asset::Asset;
 use bevy_render::render_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderRef};
 
-/// Materials are used alongside [`UiMaterialPlugin`](crate::UiMaterialPipeline) and [`MaterialNodeBundle`](crate::prelude::MaterialNodeBundle)
+/// Materials are used alongside [`UiMaterialPlugin`](crate::UiMaterialPlugin) and [`MaterialNodeBundle`](crate::prelude::MaterialNodeBundle)
 /// to spawn entities that are rendered with a specific [`UiMaterial`] type. They serve as an easy to use high level
 /// way to render `Node` entities with custom shader logic.
 ///
