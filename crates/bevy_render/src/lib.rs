@@ -9,7 +9,6 @@ extern crate core;
 pub mod alpha;
 pub mod batching;
 pub mod camera;
-pub mod color;
 pub mod deterministic;
 pub mod extract_component;
 pub mod extract_instances;
@@ -38,7 +37,6 @@ pub mod prelude {
             Camera, ClearColor, ClearColorConfig, OrthographicProjection, PerspectiveProjection,
             Projection,
         },
-        color::LegacyColor,
         mesh::{morph::MorphWeights, primitives::Meshable, Mesh},
         render_resource::Shader,
         spatial_bundle::SpatialBundle,
@@ -331,7 +329,8 @@ impl Plugin for RenderPlugin {
         ));
 
         app.register_type::<alpha::AlphaMode>()
-            .register_type::<color::LegacyColor>()
+            // These types cannot be registered in bevy_color, as it does not depend on the rest of Bevy
+            .register_type::<bevy_color::Color>()
             .register_type::<primitives::Aabb>()
             .register_type::<primitives::CascadesFrusta>()
             .register_type::<primitives::CubemapFrusta>()

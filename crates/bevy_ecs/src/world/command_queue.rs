@@ -1,10 +1,11 @@
+use crate::system::{SystemBuffer, SystemMeta};
+
 use std::{fmt::Debug, mem::MaybeUninit};
 
 use bevy_ptr::{OwningPtr, Unaligned};
 use bevy_utils::tracing::warn;
 
-use super::Command;
-use crate::world::World;
+use crate::world::{Command, World};
 
 struct CommandMeta {
     /// SAFETY: The `value` must point to a value of type `T: Command`,
@@ -112,12 +113,12 @@ impl CommandQueue {
         }
     }
 
-    /// Execute the queued [`Command`]s in the world.
+    /// Execute the queued [`Command`]s in the world after applying any commands in the world's internal queue.
     /// This clears the queue.
     #[inline]
     pub fn apply(&mut self, world: &mut World) {
         // flush the previously queued entities
-        world.flush();
+        world.flush_entities();
 
         self.apply_or_drop_queued(Some(world));
     }
@@ -131,45 +132,97 @@ impl CommandQueue {
         let bytes_range = self.bytes.as_mut_ptr_range();
 
         // Pointer that will iterate over the entries of the buffer.
-        let mut cursor = bytes_range.start;
+        let cursor = bytes_range.start;
+
+        let end = bytes_range.end;
 
         // Reset the buffer, so it can be reused after this function ends.
         // In the loop below, ownership of each command will be transferred into user code.
         // SAFETY: `set_len(0)` is always valid.
         unsafe { self.bytes.set_len(0) };
 
-        while cursor < bytes_range.end {
-            // SAFETY: The cursor is either at the start of the buffer, or just after the previous command.
-            // Since we know that the cursor is in bounds, it must point to the start of a new command.
-            let meta = unsafe { cursor.cast::<CommandMeta>().read_unaligned() };
-            // Advance to the bytes just after `meta`, which represent a type-erased command.
-            // SAFETY: For most types of `Command`, the pointer immediately following the metadata
-            // is guaranteed to be in bounds. If the command is a zero-sized type (ZST), then the cursor
-            // might be 1 byte past the end of the buffer, which is safe.
-            cursor = unsafe { cursor.add(std::mem::size_of::<CommandMeta>()) };
-            // Construct an owned pointer to the command.
-            // SAFETY: It is safe to transfer ownership out of `self.bytes`, since the call to `set_len(0)` above
-            // guarantees that nothing stored in the buffer will get observed after this function ends.
-            // `cmd` points to a valid address of a stored command, so it must be non-null.
-            let cmd = unsafe {
-                OwningPtr::<Unaligned>::new(std::ptr::NonNull::new_unchecked(cursor.cast()))
-            };
-            // SAFETY: The data underneath the cursor must correspond to the type erased in metadata,
-            // since they were stored next to each other by `.push()`.
-            // For ZSTs, the type doesn't matter as long as the pointer is non-null.
-            let size = unsafe { (meta.consume_command_and_get_size)(cmd, world.as_deref_mut()) };
-            // Advance the cursor past the command. For ZSTs, the cursor will not move.
-            // At this point, it will either point to the next `CommandMeta`,
-            // or the cursor will be out of bounds and the loop will end.
-            // SAFETY: The address just past the command is either within the buffer,
-            // or 1 byte past the end, so this addition will not overflow the pointer's allocation.
-            cursor = unsafe { cursor.add(size) };
+        // Create a stack for the command queue's we will be applying as commands may queue additional commands.
+        // This is preferred over recursion to avoid stack overflows.
+        let mut resolving_commands = vec![(cursor, end)];
+        // Take ownership of any additional buffers so they are not free'd uintil they are iterated.
+        let mut buffers = Vec::new();
+
+        // Add any commands in the world's internal queue to the top of the stack.
+        if let Some(world) = &mut world {
+            if !world.command_queue.is_empty() {
+                let mut bytes = std::mem::take(&mut world.command_queue.bytes);
+                let bytes_range = bytes.as_mut_ptr_range();
+                resolving_commands.push((bytes_range.start, bytes_range.end));
+                buffers.push(bytes);
+            }
+        }
+
+        while let Some((mut cursor, mut end)) = resolving_commands.pop() {
+            while cursor < end {
+                // SAFETY: The cursor is either at the start of the buffer, or just after the previous command.
+                // Since we know that the cursor is in bounds, it must point to the start of a new command.
+                let meta = unsafe { cursor.cast::<CommandMeta>().read_unaligned() };
+                // Advance to the bytes just after `meta`, which represent a type-erased command.
+                // SAFETY: For most types of `Command`, the pointer immediately following the metadata
+                // is guaranteed to be in bounds. If the command is a zero-sized type (ZST), then the cursor
+                // might be 1 byte past the end of the buffer, which is safe.
+                cursor = unsafe { cursor.add(std::mem::size_of::<CommandMeta>()) };
+                // Construct an owned pointer to the command.
+                // SAFETY: It is safe to transfer ownership out of `self.bytes`, since the call to `set_len(0)` above
+                // guarantees that nothing stored in the buffer will get observed after this function ends.
+                // `cmd` points to a valid address of a stored command, so it must be non-null.
+                let cmd = unsafe {
+                    OwningPtr::<Unaligned>::new(std::ptr::NonNull::new_unchecked(cursor.cast()))
+                };
+                // SAFETY: The data underneath the cursor must correspond to the type erased in metadata,
+                // since they were stored next to each other by `.push()`.
+                // For ZSTs, the type doesn't matter as long as the pointer is non-null.
+                let size =
+                    unsafe { (meta.consume_command_and_get_size)(cmd, world.as_deref_mut()) };
+                // Advance the cursor past the command. For ZSTs, the cursor will not move.
+                // At this point, it will either point to the next `CommandMeta`,
+                // or the cursor will be out of bounds and the loop will end.
+                // SAFETY: The address just past the command is either within the buffer,
+                // or 1 byte past the end, so this addition will not overflow the pointer's allocation.
+                cursor = unsafe { cursor.add(size) };
+
+                if let Some(world) = &mut world {
+                    // If the command we just applied generated more commands we must apply those first
+                    if !world.command_queue.is_empty() {
+                        // If our current list of commands isn't complete push it to the `resolving_commands` stack to be applied after
+                        if cursor < end {
+                            resolving_commands.push((cursor, end));
+                        }
+                        let mut bytes = std::mem::take(&mut world.command_queue.bytes);
+
+                        // Start applying the new queue
+                        let bytes_range = bytes.as_mut_ptr_range();
+                        cursor = bytes_range.start;
+                        end = bytes_range.end;
+
+                        // Store our buffer so it is not dropped;
+                        buffers.push(bytes);
+                    }
+                }
+            }
+            // Re-use last buffer to avoid re-allocation
+            if let (Some(world), Some(buffer)) = (&mut world, buffers.pop()) {
+                world.command_queue.bytes = buffer;
+                // SAFETY: `set_len(0)` is always valid.
+                unsafe { world.command_queue.bytes.set_len(0) };
+            }
         }
     }
 
     /// Take all commands from `other` and append them to `self`, leaving `other` empty
     pub fn append(&mut self, other: &mut CommandQueue) {
         self.bytes.append(&mut other.bytes);
+    }
+
+    /// Returns false if there are any commands in the queue
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.bytes.is_empty()
     }
 }
 
@@ -179,6 +232,15 @@ impl Drop for CommandQueue {
             warn!("CommandQueue has un-applied commands being dropped.");
         }
         self.apply_or_drop_queued(None);
+    }
+}
+
+impl SystemBuffer for CommandQueue {
+    #[inline]
+    fn apply(&mut self, _system_meta: &SystemMeta, world: &mut World) {
+        #[cfg(feature = "trace")]
+        let _span_guard = _system_meta.commands_span.enter();
+        self.apply(world);
     }
 }
 

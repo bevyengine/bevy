@@ -2,7 +2,7 @@
 
 use std::f32::consts::PI;
 
-use bevy::prelude::*;
+use bevy::{color::palettes::css::*, prelude::*};
 
 fn main() {
     App::new()
@@ -30,13 +30,13 @@ fn setup(
     // plane
     commands.spawn(PbrBundle {
         mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
-        material: materials.add(LegacyColor::rgb(0.3, 0.5, 0.3)),
+        material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
         ..default()
     });
     // cube
     commands.spawn(PbrBundle {
         mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
-        material: materials.add(LegacyColor::rgb(0.8, 0.7, 0.6)),
+        material: materials.add(Color::srgb(0.8, 0.7, 0.6)),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..default()
     });
@@ -92,32 +92,27 @@ fn draw_example_collection(
         UVec2::splat(20),
         Vec2::new(2., 2.),
         // Light gray
-        LegacyColor::rgb(0.65, 0.65, 0.65),
+        LinearRgba::gray(0.65),
     );
 
     gizmos.cuboid(
         Transform::from_translation(Vec3::Y * 0.5).with_scale(Vec3::splat(1.25)),
-        LegacyColor::BLACK,
+        BLACK,
     );
     gizmos.rect(
         Vec3::new(time.elapsed_seconds().cos() * 2.5, 1., 0.),
         Quat::from_rotation_y(PI / 2.),
         Vec2::splat(2.),
-        LegacyColor::GREEN,
+        LIME,
     );
 
-    my_gizmos.sphere(
-        Vec3::new(1., 0.5, 0.),
-        Quat::IDENTITY,
-        0.5,
-        LegacyColor::RED,
-    );
+    my_gizmos.sphere(Vec3::new(1., 0.5, 0.), Quat::IDENTITY, 0.5, RED);
 
     for y in [0., 0.5, 1.] {
         gizmos.ray(
             Vec3::new(1., y, 0.),
             Vec3::new(-3., (time.elapsed_seconds() * 3.).sin(), 0.),
-            LegacyColor::BLUE,
+            BLUE,
         );
     }
 
@@ -127,21 +122,21 @@ fn draw_example_collection(
             0.2,
             Vec3::ONE,
             Quat::from_rotation_arc(Vec3::Y, Vec3::ONE.normalize()),
-            LegacyColor::ORANGE,
+            ORANGE,
         )
         .segments(10);
 
     // Circles have 32 line-segments by default.
-    my_gizmos.circle(Vec3::ZERO, Dir3::Y, 3., LegacyColor::BLACK);
+    my_gizmos.circle(Vec3::ZERO, Dir3::Y, 3., BLACK);
     // You may want to increase this for larger circles or spheres.
     my_gizmos
-        .circle(Vec3::ZERO, Dir3::Y, 3.1, LegacyColor::NAVY)
+        .circle(Vec3::ZERO, Dir3::Y, 3.1, NAVY)
         .segments(64);
     my_gizmos
-        .sphere(Vec3::ZERO, Quat::IDENTITY, 3.2, LegacyColor::BLACK)
+        .sphere(Vec3::ZERO, Quat::IDENTITY, 3.2, BLACK)
         .circle_segments(64);
 
-    gizmos.arrow(Vec3::ZERO, Vec3::ONE * 1.5, LegacyColor::YELLOW);
+    gizmos.arrow(Vec3::ZERO, Vec3::ONE * 1.5, YELLOW);
 }
 
 fn update_config(

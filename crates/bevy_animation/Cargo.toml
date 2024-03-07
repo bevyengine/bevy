@@ -13,7 +13,6 @@ keywords = ["bevy"]
 bevy_app = { path = "../bevy_app", version = "0.14.0-dev" }
 bevy_asset = { path = "../bevy_asset", version = "0.14.0-dev" }
 bevy_core = { path = "../bevy_core", version = "0.14.0-dev" }
-bevy_log = { path = "../bevy_log", version = "0.14.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.14.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev", features = [
   "bevy",
@@ -27,7 +26,7 @@ bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.14.0-dev" }
 
 # other
 sha1_smol = { version = "1.0" }
-uuid = { version = "1.7", features = ["v5"] }
+uuid = { version = "1.7", features = ["v4"] }
 
 [lints]
 workspace = true

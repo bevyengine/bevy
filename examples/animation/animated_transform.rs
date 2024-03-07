@@ -9,7 +9,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .insert_resource(AmbientLight {
-            color: LegacyColor::WHITE,
+            color: Color::WHITE,
             brightness: 150.0,
         })
         .add_systems(Startup, setup)
@@ -135,7 +135,7 @@ fn setup(
         .spawn((
             PbrBundle {
                 mesh: meshes.add(Sphere::default()),
-                material: materials.add(LegacyColor::rgb(0.8, 0.7, 0.6)),
+                material: materials.add(Color::srgb(0.8, 0.7, 0.6)),
                 ..default()
             },
             // Add the animation player
@@ -165,7 +165,7 @@ fn setup(
                     PbrBundle {
                         transform: Transform::from_xyz(1.5, 0.0, 0.0),
                         mesh: meshes.add(Cuboid::new(0.5, 0.5, 0.5)),
-                        material: materials.add(LegacyColor::rgb(0.3, 0.9, 0.3)),
+                        material: materials.add(Color::srgb(0.3, 0.9, 0.3)),
                         ..default()
                     },
                     AnimationTarget {

@@ -44,7 +44,7 @@ fn setup(mut commands: Commands) {
                         border: UiRect::all(Val::Px(2.0)),
                         ..default()
                     },
-                    background_color: LegacyColor::rgb(0.65, 0.65, 0.65).into(),
+                    background_color: Color::srgb(0.65, 0.65, 0.65).into(),
                     ..default()
                 })
                 .with_children(|parent| {

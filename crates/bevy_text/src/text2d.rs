@@ -3,6 +3,7 @@ use crate::{
     TextPipeline, TextSettings, YAxisOrientation,
 };
 use bevy_asset::Assets;
+use bevy_color::LinearRgba;
 use bevy_ecs::{
     bundle::Bundle,
     change_detection::{DetectChanges, Ref},
@@ -17,7 +18,6 @@ use bevy_ecs::{
 use bevy_math::Vec2;
 use bevy_reflect::Reflect;
 use bevy_render::{
-    prelude::LegacyColor,
     primitives::Aabb,
     texture::Image,
     view::{InheritedVisibility, NoFrustumCulling, ViewVisibility, Visibility},
@@ -117,7 +117,7 @@ pub fn extract_text2d_sprite(
         let transform = *global_transform
             * GlobalTransform::from_translation(alignment_translation.extend(0.))
             * scaling;
-        let mut color = LegacyColor::WHITE;
+        let mut color = LinearRgba::WHITE;
         let mut current_section = usize::MAX;
         for PositionedGlyph {
             position,
@@ -127,7 +127,7 @@ pub fn extract_text2d_sprite(
         } in &text_layout_info.glyphs
         {
             if *section_index != current_section {
-                color = text.sections[*section_index].style.color.as_rgba_linear();
+                color = LinearRgba::from(text.sections[*section_index].style.color);
                 current_section = *section_index;
             }
             let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();

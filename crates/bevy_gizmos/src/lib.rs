@@ -5,15 +5,16 @@
 //! # use bevy_gizmos::prelude::*;
 //! # use bevy_render::prelude::*;
 //! # use bevy_math::prelude::*;
+//! # use bevy_color::palettes::basic::GREEN;
 //! fn system(mut gizmos: Gizmos) {
-//!     gizmos.line(Vec3::ZERO, Vec3::X, LegacyColor::GREEN);
+//!     gizmos.line(Vec3::ZERO, Vec3::X, GREEN);
 //! }
 //! # bevy_ecs::system::assert_is_system(system);
 //! ```
 //!
 //! See the documentation on [Gizmos](crate::gizmos::Gizmos) for more examples.
 
-/// Label for the the render systems handling the
+/// System set label for the systems handling the rendering of gizmos.
 #[derive(SystemSet, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum GizmoRenderSystem {
     /// Adds gizmos to the [`Transparent2d`](bevy_core_pipeline::core_2d::Transparent2d) render phase
@@ -31,6 +32,7 @@ pub mod circles;
 pub mod config;
 pub mod gizmos;
 pub mod grid;
+pub mod light;
 pub mod primitives;
 
 #[cfg(feature = "bevy_sprite")]
@@ -45,6 +47,7 @@ pub mod prelude {
         aabb::{AabbGizmoConfigGroup, ShowAabbGizmo},
         config::{DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore},
         gizmos::Gizmos,
+        light::{LightGizmoColor, LightGizmoConfigGroup, ShowLightGizmo},
         primitives::{dim2::GizmoPrimitive2d, dim3::GizmoPrimitive3d},
         AppGizmoBuilder,
     };
@@ -54,7 +57,6 @@ use aabb::AabbGizmoPlugin;
 use bevy_app::{App, Last, Plugin};
 use bevy_asset::{load_internal_asset, Asset, AssetApp, Assets, Handle};
 use bevy_color::LinearRgba;
-use bevy_core::cast_slice;
 use bevy_ecs::{
     component::Component,
     query::ROQueryItem,
@@ -80,10 +82,12 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::TypeIdMap;
+use bytemuck::cast_slice;
 use config::{
     DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore, GizmoMeshConfig,
 };
 use gizmos::GizmoStorage;
+use light::LightGizmoPlugin;
 use std::{any::TypeId, mem};
 
 const LINE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(7414812689238026784);
@@ -95,7 +99,9 @@ impl Plugin for GizmoPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         // Gizmos cannot work without either a 3D or 2D renderer.
         #[cfg(all(not(feature = "bevy_pbr"), not(feature = "bevy_sprite")))]
-        bevy_log::error!("bevy_gizmos requires either bevy_pbr or bevy_sprite. Please enable one.");
+        bevy_utils::tracing::error!(
+            "bevy_gizmos requires either bevy_pbr or bevy_sprite. Please enable one."
+        );
 
         load_internal_asset!(app, LINE_SHADER_HANDLE, "lines.wgsl", Shader::from_wgsl);
 
@@ -107,7 +113,8 @@ impl Plugin for GizmoPlugin {
             .init_resource::<LineGizmoHandles>()
             // We insert the Resource GizmoConfigStore into the world implicitly here if it does not exist.
             .init_gizmo_group::<DefaultGizmoConfigGroup>()
-            .add_plugins(AabbGizmoPlugin);
+            .add_plugins(AabbGizmoPlugin)
+            .add_plugins(LightGizmoPlugin);
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;

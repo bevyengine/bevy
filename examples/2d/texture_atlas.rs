@@ -124,7 +124,7 @@ fn setup(
     let text_style: TextStyle = TextStyle {
         font: font.clone(),
         font_size: 50.0,
-        color: LegacyColor::WHITE,
+        color: Color::WHITE,
     };
 
     // labels to indicate padding
@@ -173,7 +173,7 @@ fn setup(
     let sampling_label_style = TextStyle {
         font,
         font_size: 30.0,
-        color: LegacyColor::WHITE,
+        color: Color::WHITE,
     };
 
     let base_y = 170.0; // y position of the sprites
@@ -240,19 +240,21 @@ fn create_sprite_from_atlas(
     atlas_handle: Handle<TextureAtlasLayout>,
     texture: Handle<Image>,
 ) {
-    commands.spawn(SpriteSheetBundle {
-        transform: Transform {
-            translation: Vec3::new(translation.0, translation.1, translation.2),
-            scale: Vec3::splat(3.0),
+    commands.spawn((
+        SpriteBundle {
+            transform: Transform {
+                translation: Vec3::new(translation.0, translation.1, translation.2),
+                scale: Vec3::splat(3.0),
+                ..default()
+            },
+            texture,
             ..default()
         },
-        texture,
-        atlas: TextureAtlas {
-            index: sprite_index,
+        TextureAtlas {
             layout: atlas_handle,
+            index: sprite_index,
         },
-        ..default()
-    });
+    ));
 }
 
 /// Create and spawn a label (text)
