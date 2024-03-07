@@ -94,8 +94,6 @@ pub struct Core3dPlugin;
 impl Plugin for Core3dPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Camera3d>()
-            .register_type::<Camera3dDepthLoadOp>()
-            .register_type::<Camera3dDepthTextureUsage>()
             .register_type::<ScreenSpaceTransmissionQuality>()
             .add_plugins((SkyboxPlugin, ExtractComponentPlugin::<Camera3d>::default()))
             .add_systems(PostUpdate, check_msaa);

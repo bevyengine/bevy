@@ -19,7 +19,7 @@ webp = ["image/webp"]
 dds = ["ddsfile"]
 pnm = ["image/pnm"]
 multi-threaded = ["bevy_tasks/multi-threaded"]
-bevy_ci_testing = ["bevy_app/bevy_ci_testing"]
+bevy_ci_testing = ["bevy_dev_tools/bevy_ci_testing"]
 
 shader_format_glsl = ["naga/glsl-in", "naga/wgsl-out", "naga_oil/glsl"]
 shader_format_spirv = ["wgpu/spirv", "naga/spv-in", "naga/spv-out"]
@@ -57,6 +57,7 @@ bevy_transform = { path = "../bevy_transform", version = "0.14.0-dev" }
 bevy_window = { path = "../bevy_window", version = "0.14.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.14.0-dev" }
+bevy_dev_tools = { path = "../bevy_dev_tools", version = "0.14.0-dev", optional = true }
 
 # rendering
 image = { version = "0.24", default-features = false }

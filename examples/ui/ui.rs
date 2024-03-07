@@ -5,7 +5,7 @@ use bevy::{
         accesskit::{NodeBuilder, Role},
         AccessibilityNode,
     },
-    color::palettes::basic::GREEN,
+    color::palettes::basic::LIME,
     input::mouse::{MouseScrollUnit, MouseWheel},
     prelude::*,
     winit::WinitSettings,
@@ -166,7 +166,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         border: UiRect::all(Val::Px(20.)),
                         ..default()
                     },
-                    border_color: GREEN.into(),
+                    border_color: LIME.into(),
                     background_color: Color::srgb(0.4, 0.4, 1.).into(),
                     ..default()
                 })

@@ -3,8 +3,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    color::palettes::css::DARK_GRAY, pbr::CascadeShadowConfigBuilder, prelude::*,
-    render::camera::Viewport, window::WindowResized,
+    pbr::CascadeShadowConfigBuilder, prelude::*, render::camera::Viewport, window::WindowResized,
 };
 
 fn main() {
@@ -147,7 +146,7 @@ fn setup(
                         ..default()
                     },
                     border_color: Color::WHITE.into(),
-                    image: UiImage::default().with_color(DARK_GRAY.into()),
+                    image: UiImage::default().with_color(Color::srgb(0.25, 0.25, 0.25)),
                     ..default()
                 },
             ))

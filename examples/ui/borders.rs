@@ -23,7 +23,7 @@ fn setup(mut commands: Commands) {
                 align_content: AlignContent::FlexStart,
                 ..Default::default()
             },
-            background_color: DARK_GRAY.into(),
+            background_color: Color::srgb(0.25, 0.25, 0.25).into(),
             ..Default::default()
         })
         .id();

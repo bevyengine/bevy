@@ -10,7 +10,6 @@ keywords = ["bevy"]
 
 [features]
 trace = []
-bevy_ci_testing = ["serde", "ron"]
 bevy_debug_stepping = []
 default = ["bevy_reflect", "bevy_debug_stepping"]
 bevy_reflect = ["dep:bevy_reflect", "bevy_ecs/bevy_reflect"]

@@ -13,7 +13,7 @@
 //! - Enforcing structural rules: When you have systems that depend on specific relationships
 //! between components (like hierarchies or parent-child links) and need to maintain correctness.
 
-use bevy::ecs::component::{ComponentHooks, TableStorage};
+use bevy::ecs::component::{ComponentHooks, StorageType};
 use bevy::prelude::*;
 use std::collections::HashMap;
 
@@ -21,7 +21,7 @@ use std::collections::HashMap;
 struct MyComponent(KeyCode);
 
 impl Component for MyComponent {
-    type Storage = TableStorage;
+    const STORAGE_TYPE: StorageType = StorageType::Table;
 
     /// Hooks can also be registered during component initialisation by
     /// implementing `register_component_hooks`
