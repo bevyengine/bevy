@@ -138,7 +138,7 @@ pub fn keyboard_input_system(
                 }
             }
         }
-        up_index += 1
+        up_index += 1;
     }
 
     for event in events {
