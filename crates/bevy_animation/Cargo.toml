@@ -34,6 +34,7 @@ ron = "0.8"
 serde = "1"
 sha1_smol = { version = "1.0" }
 thiserror = "1"
+thread_local = "1"
 uuid = { version = "1.7", features = ["v5"] }
 
 [lints]

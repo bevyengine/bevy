@@ -32,6 +32,7 @@ use petgraph::graph::NodeIndex;
 use petgraph::Direction;
 use prelude::{AnimationGraphAssetLoader, AnimationTransitions};
 use sha1_smol::Sha1;
+use thread_local::ThreadLocal;
 
 #[allow(missing_docs)]
 pub mod prelude {
@@ -494,7 +495,7 @@ struct AnimationTargetContext<'a> {
 /// Information needed during the traversal of the animation graph in
 /// [`advance_animations`].
 #[derive(Default)]
-struct AnimationGraphEvaluator {
+pub struct AnimationGraphEvaluator {
     /// The stack used for the depth-first search of the graph.
     dfs_stack: Vec<NodeIndex>,
     /// The list of visited nodes during the depth-first traversal.
@@ -657,6 +658,7 @@ pub fn advance_animations(
     animation_clips: Res<Assets<AnimationClip>>,
     animation_graphs: Res<Assets<AnimationGraph>>,
     mut players: Query<(&mut AnimationPlayer, &Handle<AnimationGraph>)>,
+    animation_graph_evaluator: Local<ThreadLocal<RefCell<AnimationGraphEvaluator>>>,
 ) {
     let delta_seconds = time.delta_seconds();
     players
@@ -670,62 +672,62 @@ pub fn advance_animations(
             //
             // We use a thread-local here so we can reuse allocations across
             // frames.
-            ANIMATION_GRAPH_EVALUATOR.with_borrow_mut(|evaluator| {
-                let AnimationPlayer {
-                    ref mut active_animations,
-                    ref blend_weights,
-                    ..
-                } = *player;
+            let mut evaluator = animation_graph_evaluator.get_or_default().borrow_mut();
 
-                // Reset our state.
-                evaluator.reset(animation_graph.root, animation_graph.graph.node_count());
+            let AnimationPlayer {
+                ref mut active_animations,
+                ref blend_weights,
+                ..
+            } = *player;
 
-                while let Some(node_index) = evaluator.dfs_stack.pop() {
-                    // Skip if we've already visited this node.
-                    if evaluator.dfs_visited.put(node_index.index()) {
-                        continue;
-                    }
+            // Reset our state.
+            evaluator.reset(animation_graph.root, animation_graph.graph.node_count());
 
-                    let node = &animation_graph[node_index];
+            while let Some(node_index) = evaluator.dfs_stack.pop() {
+                // Skip if we've already visited this node.
+                if evaluator.dfs_visited.put(node_index.index()) {
+                    continue;
+                }
 
-                    // Calculate weight from the graph.
-                    let mut weight = node.weight;
-                    for parent_index in animation_graph
-                        .graph
-                        .neighbors_directed(node_index, Direction::Incoming)
-                    {
-                        weight *= animation_graph[parent_index].weight;
-                    }
-                    evaluator.weights[node_index.index()] = weight;
+                let node = &animation_graph[node_index];
 
-                    if let Some(active_animation) = active_animations.get_mut(&node_index) {
-                        // Tick the animation if necessary.
-                        if !active_animation.paused {
-                            if let Some(ref clip_handle) = node.clip {
-                                if let Some(clip) = animation_clips.get(clip_handle) {
-                                    active_animation.update(delta_seconds, clip.duration);
-                                }
+                // Calculate weight from the graph.
+                let mut weight = node.weight;
+                for parent_index in animation_graph
+                    .graph
+                    .neighbors_directed(node_index, Direction::Incoming)
+                {
+                    weight *= animation_graph[parent_index].weight;
+                }
+                evaluator.weights[node_index.index()] = weight;
+
+                if let Some(active_animation) = active_animations.get_mut(&node_index) {
+                    // Tick the animation if necessary.
+                    if !active_animation.paused {
+                        if let Some(ref clip_handle) = node.clip {
+                            if let Some(clip) = animation_clips.get(clip_handle) {
+                                active_animation.update(delta_seconds, clip.duration);
                             }
                         }
-
-                        weight *= active_animation.weight;
-                    } else if let Some(&blend_weight) = blend_weights.get(&node_index) {
-                        weight *= blend_weight;
                     }
 
-                    // Write in the computed weight.
-                    if let Some(active_animation) = active_animations.get_mut(&node_index) {
-                        active_animation.computed_weight = weight;
-                    }
-
-                    // Push children.
-                    evaluator.dfs_stack.extend(
-                        animation_graph
-                            .graph
-                            .neighbors_directed(node_index, Direction::Outgoing),
-                    );
+                    weight *= active_animation.weight;
+                } else if let Some(&blend_weight) = blend_weights.get(&node_index) {
+                    weight *= blend_weight;
                 }
-            });
+
+                // Write in the computed weight.
+                if let Some(active_animation) = active_animations.get_mut(&node_index) {
+                    active_animation.computed_weight = weight;
+                }
+
+                // Push children.
+                evaluator.dfs_stack.extend(
+                    animation_graph
+                        .graph
+                        .neighbors_directed(node_index, Direction::Outgoing),
+                );
+            }
         });
 }
 
