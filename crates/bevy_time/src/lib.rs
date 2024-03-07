@@ -64,19 +64,6 @@ impl Plugin for TimePlugin {
                 bevy_ecs::event::reset_event_update_signal_system.after(EventUpdates),
             )
             .add_systems(FixedPostUpdate, signal_event_update_system);
-
-        #[cfg(feature = "bevy_ci_testing")]
-        if let Some(ci_testing_config) = app
-            .world
-            .get_resource::<bevy_dev_tools::ci_testing::CiTestingConfig>()
-        {
-            if let Some(frame_time) = ci_testing_config.frame_time {
-                app.world
-                    .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f32(
-                        frame_time,
-                    )));
-            }
-        }
     }
 }
 
