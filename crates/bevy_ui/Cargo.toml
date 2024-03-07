@@ -42,7 +42,7 @@ smallvec = "1.11"
 serialize = ["serde", "smallvec/serde"]
 
 [package.metadata.docs.rs]
-features = ["bevy_text"]
+all-features = true
 
 [lints]
 workspace = true
