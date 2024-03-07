@@ -1,4 +1,4 @@
-//! This example illustrates how to create a button that has its image sliced
+//! This example illustrates how to create buttons with their textures sliced
 //! and kept in proportion instead of being stretched by the button dimensions
 
 use bevy::{

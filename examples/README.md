@@ -197,6 +197,7 @@ Example | Description
 [Custom Asset](../examples/asset/custom_asset.rs) | Implements a custom asset loader
 [Custom Asset IO](../examples/asset/custom_asset_reader.rs) | Implements a custom AssetReader
 [Embedded Asset](../examples/asset/embedded_asset.rs) | Embed an asset in the application binary and load it
+[Extra asset source](../examples/asset/extra_source.rs) | Load an asset from a non-standard asset source
 [Hot Reloading of Assets](../examples/asset/hot_asset_reloading.rs) | Demonstrates automatic reloading of assets when modified on disk
 
 ## Async Tasks
@@ -259,6 +260,7 @@ Example | Description
 [Alien Cake Addict](../examples/games/alien_cake_addict.rs) | Eat the cakes. Eat them all. An example 3D game
 [Breakout](../examples/games/breakout.rs) | An implementation of the classic game "Breakout"
 [Contributors](../examples/games/contributors.rs) | Displays each contributor as a bouncy bevy-ball!
+[Desk Toy](../examples/games/desk_toy.rs) | Bevy logo as a desk toy using transparent windows! Now with Googly Eyes!
 [Game Menu](../examples/games/game_menu.rs) | A simple game menu
 
 ## Gizmos
@@ -405,6 +407,7 @@ Example | Description
 [UI Material](../examples/ui/ui_material.rs) | Demonstrates creating and using custom Ui materials
 [UI Scaling](../examples/ui/ui_scaling.rs) | Illustrates how to scale the UI
 [UI Texture Atlas](../examples/ui/ui_texture_atlas.rs) | Illustrates how to use TextureAtlases in UI
+[UI Texture Atlas Slice](../examples/ui/ui_texture_atlas_slice.rs) | Illustrates how to use 9 Slicing for TextureAtlases in UI
 [UI Texture Slice](../examples/ui/ui_texture_slice.rs) | Illustrates how to use 9 Slicing in UI
 [UI Z-Index](../examples/ui/z_index.rs) | Demonstrates how to control the relative depth (z-position) of UI elements
 [Viewport Debug](../examples/ui/viewport_debug.rs) | An example for debugging viewport coordinates

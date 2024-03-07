@@ -13,7 +13,7 @@ impl Image {
         is_srgb: bool,
         asset_usage: RenderAssetUsages,
     ) -> Image {
-        use bevy_core::cast_slice;
+        use bytemuck::cast_slice;
         let width;
         let height;
 
