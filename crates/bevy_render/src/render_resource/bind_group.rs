@@ -7,9 +7,9 @@ use crate::{
     texture::FallbackImage,
 };
 pub use bevy_render_macros::AsBindGroup;
-use bevy_utils::thiserror::Error;
 use encase::ShaderType;
 use std::ops::Deref;
+use thiserror::Error;
 use wgpu::{BindGroupEntry, BindGroupLayoutEntry, BindingResource};
 
 define_atomic_id!(BindGroupId);

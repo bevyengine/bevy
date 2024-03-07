@@ -1,6 +1,6 @@
 use crate::{Asset, AssetIndex};
 use bevy_reflect::Reflect;
-use bevy_utils::Uuid;
+use uuid::Uuid;
 
 use std::{
     any::TypeId,
