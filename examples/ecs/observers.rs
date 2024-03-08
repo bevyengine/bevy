@@ -1,77 +1,182 @@
-//! This examples illustrates the different ways you can employ observers
+//! This examples illustrates several ways you can employ observers
 
-use bevy::prelude::*;
-
-#[derive(Component, Debug)]
-struct CompA(Entity);
-
-#[derive(Component, Debug)]
-struct CompB;
-
-#[derive(Component)]
-struct Resize(u64, u64);
-
-#[derive(Resource, Default)]
-struct ResizeCount(usize);
+use bevy::{
+    prelude::*,
+    utils::{HashMap, HashSet},
+};
 
 fn main() {
-    App::new().add_systems(Startup, setup).run();
+    App::new()
+        .add_plugins(DefaultPlugins)
+        .add_systems(Startup, setup)
+        .add_systems(Update, (draw_shapes, handle_click))
+        .run();
 }
 
-fn setup(world: &mut World) {
-    world.init_resource::<ResizeCount>();
-    world.init_component::<Resize>();
+#[derive(Component)]
+struct Mine {
+    pos: Vec2,
+    size: f32,
+}
 
-    // Triggered when &CompA is added to an entity, runs any non-exclusive system
-    let observer = world.observer(
-        |observer: Observer<OnAdd, CompA>,
-         mut commands: Commands,
-         query: Query<&CompA, With<CompB>>| {
-            // Get source entity that triggered the observer
-            let source = observer.source();
-            // Able to read component data via a query
-            if let Ok(data) = query.get(source) {
-                // Can submit commands for any structural changes
-                commands.entity(source).remove::<CompB>();
-                // Or to raise other events
-                commands.event(Resize(2, 4)).entity(data.0).emit();
+#[derive(Component)]
+struct TriggerMines {
+    pos: Vec2,
+    radius: f32,
+}
+
+#[derive(Component)]
+struct Explode;
+
+fn setup(world: &mut World) {
+    world.spawn(Camera2dBundle::default());
+
+    // Pre-register all our components, resource and event types.
+    world.init_resource::<SpatialIndex>();
+    world.init_component::<Mine>();
+    world.init_component::<TriggerMines>();
+    world.init_component::<Explode>();
+
+    // Observers are triggered when a certain event it fired, each event is represented by a component type.
+    // This observer runs whenever `TriggerMines` is fired, observers run systems which can be defined as a callback.
+    world.observer(
+        |observer: Observer<TriggerMines>,
+         mines: Query<&Mine>,
+         index: Res<SpatialIndex>,
+         mut commands: Commands| {
+            // You can access the event data via the `Observer`
+            let trigger = observer.data();
+            // Access resources
+            for e in index.get_nearby(trigger.pos) {
+                // Run queries
+                let mine = mines.get(e).unwrap();
+                if mine.pos.distance(trigger.pos) < mine.size + trigger.radius {
+                    // And queue commands, including firing additional events
+                    // Here we fire the `Explode` event at entity `e`
+                    commands.event(Explode).entity(e).emit();
+                }
             }
         },
     );
 
-    let entity = world
-        // This will not trigger the observer as the entity does not have CompB
-        .spawn(CompA(observer))
-        // Respond to events targeting a specific entity
-        .observe(
-            |observer: Observer<Resize>, query: Query<&CompA>, mut res: ResMut<ResizeCount>| {
-                // Since Resize carries data you can read/write that data from the observer
-                let size = observer.data();
-                // Simultaneously read components
-                if let Ok(data) = query.get(observer.source()) {
-                    println!(
-                        "Received resize: {}, {} while data was: {:?}",
-                        size.0, size.1, data
-                    );
-                    // Write to resources
-                    res.0 += 1;
+    // Observers can also listen for events triggering for a specific component.
+    // This observer runs whenever the `Mine` component is added to an entity, and places it in a simple spatial index.
+    world.observer(
+        |observer: Observer<OnAdd, Mine>, query: Query<&Mine>, mut index: ResMut<SpatialIndex>| {
+            let mine = query.get(observer.source()).unwrap();
+            let tile = (
+                (mine.pos.x / CELL_SIZE).floor() as i32,
+                (mine.pos.y / CELL_SIZE).floor() as i32,
+            );
+            index.map.entry(tile).or_default().insert(observer.source());
+        },
+    );
+
+    // Since observers run systems you can also define them as standalone functions rather than closures.
+    // This observer runs whenever the `Mine` component is removed from an entity (including despawning it)
+    // and removes it from the spatial index.
+    world.observer(remove_mine);
+
+    // Now we spawn a set of random mines.
+    for _ in 0..1000 {
+        world
+            .spawn(Mine {
+                pos: (Vec2::new(rand::random::<f32>(), rand::random::<f32>()) - 0.5) * 800.0,
+                size: 4.0 + rand::random::<f32>() * 16.0,
+            })
+            // Observers can also listen to events targeting a specific entity.
+            // This observer listens to `Explode` events targeted at our mine.
+            .observe(
+                |observer: Observer<Explode>, query: Query<&Mine>, mut commands: Commands| {
+                    // If an event is targeting a specific entity you can access it with `.source()`
+                    let source = observer.source();
+                    println!("Boom! {:?} exploded.", source);
+                    let Some(mut entity) = commands.get_entity(source) else {
+                        return;
+                    };
+                    entity.despawn();
+                    let mine = query.get(source).unwrap();
+                    // Fire another event to cascade into other mines.
+                    commands
+                        .event(TriggerMines {
+                            pos: mine.pos,
+                            radius: mine.size,
+                        })
+                        .emit();
+                },
+            );
+    }
+}
+
+#[derive(Resource, Default)]
+struct SpatialIndex {
+    map: HashMap<(i32, i32), HashSet<Entity>>,
+}
+
+const CELL_SIZE: f32 = 64.0;
+
+impl SpatialIndex {
+    // Lookup all entities within adjacent cells of our spatial index
+    fn get_nearby(&self, pos: Vec2) -> Vec<Entity> {
+        let tile = (
+            (pos.x / CELL_SIZE).floor() as i32,
+            (pos.y / CELL_SIZE).floor() as i32,
+        );
+        let mut nearby = Vec::new();
+        for x in -1..2 {
+            for y in -1..2 {
+                if let Some(mines) = self.map.get(&(tile.0 + x, tile.1 + y)) {
+                    nearby.extend(mines.iter());
                 }
-            },
-        )
-        .id();
+            }
+        }
+        nearby
+    }
+}
 
-    world.flush_commands();
+// Remove despawned mines from our index
+fn remove_mine(
+    observer: Observer<OnRemove, Mine>,
+    query: Query<&Mine>,
+    mut index: ResMut<SpatialIndex>,
+) {
+    let mine = query.get(observer.source()).unwrap();
+    let tile = (
+        (mine.pos.x / CELL_SIZE).floor() as i32,
+        (mine.pos.y / CELL_SIZE).floor() as i32,
+    );
+    index.map.entry(tile).and_modify(|set| {
+        set.remove(&observer.source());
+    });
+}
 
-    assert_eq!(world.resource::<ResizeCount>().0, 0);
+// Draw a circle for each mine using `Gizmos`
+fn draw_shapes(mut gizmos: Gizmos, mines: Query<&Mine>) {
+    for mine in mines.iter() {
+        gizmos.circle_2d(
+            mine.pos,
+            mine.size,
+            Color::hsl((mine.size - 4.0) / 16.0 * 360.0, 1.0, 0.8),
+        );
+    }
+}
 
-    // This will spawn an entity with CompA
-    // - Which will trigger the first observer
-    //   - Removing CompB
-    //   - Emitting Resize targeting `entity`
-    //      - Which will trigger it's entity observer
-    //          - Incrementing ResizeCount
-    let entity_b = world.spawn((CompA(entity), CompB)).flush();
-
-    assert!(!world.entity(entity_b).contains::<CompB>());
-    assert_eq!(world.resource::<ResizeCount>().0, 1);
+// Fire an initial `TriggerMines` event on click
+fn handle_click(
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
+    camera: Query<(&Camera, &GlobalTransform)>,
+    windows: Query<&Window>,
+    mut commands: Commands,
+) {
+    let (camera, camera_transform) = camera.single();
+    if let Some(pos) = windows
+        .single()
+        .cursor_position()
+        .and_then(|cursor| camera.viewport_to_world(camera_transform, cursor))
+        .map(|ray| ray.origin.truncate())
+    {
+        if mouse_button_input.just_pressed(MouseButton::Left) {
+            commands.event(TriggerMines { pos, radius: 1.0 }).emit();
+        }
+    }
 }

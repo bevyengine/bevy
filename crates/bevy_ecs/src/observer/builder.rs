@@ -212,11 +212,13 @@ impl<'w, E: Send + 'static> EventBuilder<'w, E> {
 
 impl<'w, 's> Commands<'w, 's> {
     /// Constructs an [`EventBuilder`].
+    #[must_use]
     pub fn event<E: Component>(&mut self, event: E) -> EventBuilder<E> {
         EventBuilder::new(event, self.reborrow())
     }
 
     /// Construct an [`ObserverBuilder`].
+    #[must_use]
     pub fn observer_builder<E: Component>(&mut self) -> ObserverBuilder<E> {
         ObserverBuilder::new(self.reborrow())
     }

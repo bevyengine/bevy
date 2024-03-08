@@ -176,10 +176,6 @@ impl Observers {
             if let Some(map) = observers.entity_observers.get(&source) {
                 map.iter().for_each(&mut trigger_observer);
             }
-        } else {
-            observers.entity_observers.iter().for_each(|(_, map)| {
-                map.iter().for_each(&mut trigger_observer);
-            })
         }
 
         // Trigger observers listening to this event targeting a specific component
@@ -194,10 +190,6 @@ impl Observers {
                     if let Some(map) = component_observers.entity_map.get(&source) {
                         map.iter().for_each(&mut trigger_observer);
                     }
-                } else {
-                    component_observers.entity_map.iter().for_each(|(_, map)| {
-                        map.iter().for_each(&mut trigger_observer);
-                    })
                 }
             }
         });
@@ -532,18 +524,15 @@ mod tests {
 
         world
             .spawn_empty()
-            .observe(|_: Observer<EventA>, mut res: ResMut<R>| res.0 += 1);
-        world
-            .spawn_empty()
-            .observe(|_: Observer<EventA>, mut res: ResMut<R>| res.0 += 1);
+            .observe(|_: Observer<EventA>| panic!("Event routed to non-targeted entity."));
         world.observer(move |obs: Observer<EventA>, mut res: ResMut<R>| {
             assert!(obs.get_source().is_none());
-            res.0 += 1
+            res.0 += 1;
         });
 
         world.ecs_event(EventA).emit();
         world.flush();
-        assert_eq!(3, world.resource::<R>().0);
+        assert_eq!(1, world.resource::<R>().0);
     }
 
     #[test]
@@ -561,7 +550,7 @@ mod tests {
             .id();
         world.observer(move |obs: Observer<EventA>, mut res: ResMut<R>| {
             assert_eq!(obs.source(), entity);
-            res.0 += 1
+            res.0 += 1;
         });
 
         world.ecs_event(EventA).entity(entity).emit();
