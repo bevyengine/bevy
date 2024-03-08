@@ -464,7 +464,13 @@ header_message = \"Examples (WebGL2)\"
                 if !to_show.wasm {
                     continue;
                 }
-                let category_path = root_path.join(&to_show.category.replace(['(', ')'], "").replace(' ', "-").to_lowercase());
+                let category_path = root_path.join(
+                    &to_show
+                        .category
+                        .replace(['(', ')'], "")
+                        .replace(' ', "-")
+                        .to_lowercase(),
+                );
 
                 if !categories.contains_key(&to_show.category) {
                     let _ = fs::create_dir_all(&category_path);
