@@ -494,7 +494,8 @@ mod impls {
         mod rect;
         mod rotation2d;
     }
-
+    #[cfg(feature = "petgraph")]
+    mod petgraph;
     #[cfg(feature = "smallvec")]
     mod smallvec;
     #[cfg(feature = "smol_str")]

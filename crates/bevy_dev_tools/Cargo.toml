@@ -16,6 +16,9 @@ bevy_ci_testing = ["serde", "ron"]
 bevy_app = { path = "../bevy_app", version = "0.14.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
+bevy_render = { path = "../bevy_render", version = "0.14.0-dev" }
+bevy_time = { path = "../bevy_time", version = "0.14.0-dev" }
+bevy_window = { path = "../bevy_window", version = "0.14.0-dev" }
 
 # other
 serde = { version = "1.0", features = ["derive"], optional = true }
