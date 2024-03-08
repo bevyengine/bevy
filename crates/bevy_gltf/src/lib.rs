@@ -2,6 +2,7 @@
 //! for loading glTF 2.0 (a standard 3D scene definition format) files in Bevy.
 //!
 //! The [glTF 2.0 specification](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html) defines the format of the glTF files.
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::AnimationClip;

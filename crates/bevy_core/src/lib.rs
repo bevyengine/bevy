@@ -1,4 +1,5 @@
 //! This crate provides core functionality for Bevy Engine.
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 mod name;
 #[cfg(feature = "serialize")]
@@ -6,7 +7,6 @@ mod serde;
 mod task_pool_options;
 
 use bevy_ecs::system::Resource;
-pub use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
 pub use name::*;
 pub use task_pool_options::*;
 

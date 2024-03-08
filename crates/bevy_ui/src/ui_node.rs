@@ -9,8 +9,9 @@ use bevy_render::{
     texture::Image,
 };
 use bevy_transform::prelude::GlobalTransform;
-use bevy_utils::{smallvec::SmallVec, warn_once};
+use bevy_utils::warn_once;
 use bevy_window::{PrimaryWindow, WindowRef};
+use smallvec::SmallVec;
 use std::num::{NonZeroI16, NonZeroU16};
 use thiserror::Error;
 
