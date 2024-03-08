@@ -33,7 +33,14 @@ fn setup(mut commands: Commands) {
     commands.spawn(
         TextBundle::from_sections([
             TextSection::new(
-                "Press 1 to change color of the overlay.",
+                "Press ESC to toggle overlay",
+                TextStyle {
+                    font_size: 25.0,
+                    ..default()
+                },
+            ),
+            TextSection::new(
+                "\nPress 1 to change color of the overlay.",
                 TextStyle {
                     font_size: 25.0,
                     ..default()
