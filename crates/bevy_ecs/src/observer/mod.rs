@@ -262,7 +262,7 @@ impl World {
 
         for &event in &descriptor.events {
             let cache = observers.get_observers(event);
-            // Observer is not targetting any components so register it as an entity observer
+            // Observer is not targeting any components so register it as an entity observer
             if descriptor.components.is_empty() {
                 for &source in &observer_component.descriptor.sources {
                     let map = cache.entity_observers.entry(source).or_default();
@@ -282,10 +282,10 @@ impl World {
                                 CachedComponentObservers::default()
                             });
                     if descriptor.sources.is_empty() {
-                        // Register for all events targetting the component
+                        // Register for all events targeting the component
                         observers.map.insert(entity, observer_component.runner);
                     } else {
-                        // Register for each targetted entity
+                        // Register for each targeted entity
                         for &source in &descriptor.sources {
                             let map = observers.entity_map.entry(source).or_default();
                             map.insert(entity, observer_component.runner);

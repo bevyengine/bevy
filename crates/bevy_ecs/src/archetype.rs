@@ -862,7 +862,7 @@ impl Archetypes {
         flags: ArchetypeFlags,
         set: bool,
     ) {
-        // This is terrible, we need to refactor the component index
+        // TODO: Refactor component index to speed this up.
         for archetype in &mut self.archetypes {
             if archetype.contains(component_id) {
                 archetype.flags.set(flags, set);

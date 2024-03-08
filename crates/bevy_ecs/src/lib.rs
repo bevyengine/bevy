@@ -39,7 +39,7 @@ pub mod prelude {
         entity::{Entity, EntityMapper},
         event::{Event, EventReader, EventWriter, Events},
         observer::Observer,
-        query::{Added, AnyOf, Changed, Has, Or, QueryState, With, Without},
+        query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         removal_detection::RemovedComponents,
         schedule::{
             apply_deferred, apply_state_transition, common_conditions::*, Condition,
