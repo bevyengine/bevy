@@ -19,7 +19,6 @@
 //!     });
 //! }
 //! ```
-
 #![forbid(unsafe_code)]
 
 mod audio;
