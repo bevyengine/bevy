@@ -1,12 +1,12 @@
 use super::*;
-use crate::component::ComponentHooks;
+use crate::component::{ComponentHooks, StorageType};
 
 /// Component to signify an entity observer being attached to an entity
 /// Can be modelled by parent-child relationship if/when that is enforced
 pub(crate) struct AttachObserver(pub(crate) Entity);
 
 impl Component for AttachObserver {
-    type Storage = SparseStorage;
+    const STORAGE_TYPE: StorageType = StorageType::SparseSet;
 
     // When `AttachObserver` is inserted onto an event add it to `ObservedBy`
     // or insert `ObservedBy` if it doesn't exist
@@ -29,7 +29,7 @@ impl Component for AttachObserver {
 pub(crate) struct ObservedBy(Vec<Entity>);
 
 impl Component for ObservedBy {
-    type Storage = SparseStorage;
+    const STORAGE_TYPE: StorageType = StorageType::SparseSet;
 
     fn register_component_hooks(hooks: &mut ComponentHooks) {
         hooks.on_remove(|mut world, entity, _| {

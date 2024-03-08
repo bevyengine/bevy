@@ -17,12 +17,11 @@ use crate::{
     prelude::World,
     query::DebugCheckedUnwrap,
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
-    world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, ON_ADD, ON_INSERT},
+    world::{unsafe_world_cell::UnsafeWorldCell, ON_ADD, ON_INSERT},
 };
 
 use bevy_ptr::{ConstNonNull, OwningPtr};
 use bevy_utils::{all_tuples, HashMap, HashSet, TypeIdMap};
-use std::any::TypeId;
 use std::ptr::NonNull;
 
 /// The `Bundle` trait enables insertion and removal of [`Component`]s from an entity.
@@ -153,7 +152,7 @@ pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
         ids: &mut impl FnMut(ComponentId),
     );
 
-    /// Gets this [`Bundle`]'s component ids, will be `None` if the components has not been registered.
+    /// Gets this [`Bundle`]'s component ids, will be `None` if the component has not been registered.
     fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>));
 
     /// Calls `func`, which should return data for each component in the bundle, in the order of
@@ -808,21 +807,21 @@ impl<'w> BundleInserter<'w> {
         // SAFETY: All components in the bundle are guaranteed to exist in the World
         // as they must be initialized before creating the BundleInfo.
         unsafe {
-            deferred_world.trigger_on_add(archetype, entity, add_bundle.added.iter().cloned());
-            if archetype.has_add_observer() {
+            deferred_world.trigger_on_add(new_archetype, entity, add_bundle.added.iter().cloned());
+            if new_archetype.has_add_observer() {
                 deferred_world.trigger_observers(
                     ON_ADD,
                     entity,
-                    location,
+                    new_location,
                     add_bundle.added.iter().cloned(),
                 );
             }
-            deferred_world.trigger_on_insert(archetype, entity, bundle_info.iter_components());
-            if archetype.has_insert_observer() {
+            deferred_world.trigger_on_insert(new_archetype, entity, bundle_info.iter_components());
+            if new_archetype.has_insert_observer() {
                 deferred_world.trigger_observers(
                     ON_INSERT,
                     entity,
-                    location,
+                    new_location,
                     bundle_info.iter_components(),
                 );
             }
@@ -902,12 +901,12 @@ impl<'w> BundleSpawner<'w> {
         entity: Entity,
         bundle: T,
     ) -> EntityLocation {
-        let table = self.table.as_mut();
-        let archetype = self.archetype.as_mut();
+        // SAFETY: We do not make any structural changes to the archetype graph through self.world so these pointers always remain valid
         let bundle_info = self.bundle_info.as_ref();
-
-        // SAFETY: We do not make any structural changes to the archetype graph through self.world so this pointer always remain valid
         let location = {
+            let table = self.table.as_mut();
+            let archetype = self.archetype.as_mut();
+
             // SAFETY: Mutable references do not alias and will be dropped after this block
             let (sparse_sets, entities) = {
                 let world = self.world.world_mut();
@@ -930,6 +929,8 @@ impl<'w> BundleSpawner<'w> {
 
         // SAFETY: We have no outstanding mutable references to world as they were dropped
         let mut deferred_world = unsafe { self.world.into_deferred() };
+        // SAFETY: `DeferredWorld` cannot provide mutable access to `Archetypes`.
+        let archetype = self.archetype.as_ref();
         // SAFETY: All components in the bundle are guaranteed to exist in the World
         // as they must be initialized before creating the BundleInfo.
         unsafe {

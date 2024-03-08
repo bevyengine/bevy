@@ -1,4 +1,7 @@
-use crate::{component::ComponentHooks, system::ObserverSystem};
+use crate::{
+    component::{ComponentHooks, StorageType},
+    system::ObserverSystem,
+};
 
 use super::*;
 
@@ -18,7 +21,7 @@ pub(crate) struct ObserverComponent {
 }
 
 impl Component for ObserverComponent {
-    type Storage = SparseStorage;
+    const STORAGE_TYPE: StorageType = StorageType::SparseSet;
 
     fn register_component_hooks(hooks: &mut ComponentHooks) {
         hooks
@@ -51,9 +54,6 @@ impl ObserverComponent {
         Self {
             descriptor,
             runner: |mut world, trigger, ptr| {
-                if trigger.source == Entity::PLACEHOLDER {
-                    return;
-                }
                 let world = world.as_unsafe_world_cell();
                 let observer_cell =
                 // SAFETY: Observer was triggered so must still exist in world
@@ -64,6 +64,8 @@ impl ObserverComponent {
                         .get_mut::<ObserverComponent>()
                         .debug_checked_unwrap()
                 };
+
+                // TODO: Move this check into the observer cache to avoid dynamic dispatch
                 // SAFETY: We only access world metadata
                 let last_event = unsafe { world.world_metadata() }.last_event_id;
                 if state.last_event_id == last_event {
@@ -71,7 +73,7 @@ impl ObserverComponent {
                 }
                 state.last_event_id = last_event;
 
-                // SAFETY: Caller ensures `ptr` is castable to `E`
+                // SAFETY: Caller ensures `ptr` is castable to `&mut E`
                 let observer: Observer<E, B> = Observer::new(unsafe { ptr.deref_mut() }, trigger);
                 // SAFETY: System is from component
                 let mut system: Box<dyn ObserverSystem<E, B>> = unsafe {
@@ -80,6 +82,7 @@ impl ObserverComponent {
                 };
 
                 system.update_archetype_component_access(world);
+
                 // SAFETY:
                 // - `update_archetype_component_access` was just called
                 // - there are no outsanding references to world except a private component

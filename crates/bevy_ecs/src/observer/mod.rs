@@ -12,7 +12,6 @@ pub use runner::*;
 
 use crate::{
     archetype::ArchetypeFlags,
-    component::SparseStorage,
     entity::EntityLocation,
     query::DebugCheckedUnwrap,
     system::{EmitEcsEvent, IntoObserverSystem},
@@ -24,13 +23,7 @@ use bevy_utils::{EntityHashMap, HashMap};
 
 use crate::{component::ComponentId, prelude::*, world::DeferredWorld};
 
-/// Trait used to mark components used as ECS events.
-pub trait EcsEvent: Component {}
-
-impl<E: Component> EcsEvent for E {}
-
 /// Type used in callbacks registered for observers.
-/// TODO: Proper docs and examples
 pub struct Observer<'w, E, B: Bundle = ()> {
     data: &'w mut E,
     trigger: ObserverTrigger,
@@ -118,7 +111,7 @@ pub struct CachedObservers {
 /// Metadata for observers. Stores a cache mapping event ids to the registered observers.
 #[derive(Default, Debug)]
 pub struct Observers {
-    // Cached ECS observers to save a lookup for common actions
+    // Cached ECS observers to save a lookup most common events.
     on_add: CachedObservers,
     on_insert: CachedObservers,
     on_remove: CachedObservers,
@@ -234,13 +227,13 @@ impl Observers {
 
 impl World {
     /// Construct an [`ObserverBuilder`]
-    pub fn observer_builder<E: EcsEvent>(&mut self) -> ObserverBuilder<E> {
+    pub fn observer_builder<E: Component>(&mut self) -> ObserverBuilder<E> {
         self.init_component::<E>();
         ObserverBuilder::new(self.commands())
     }
 
-    /// Spawn an [`Observer`] and returns it's [`Entity`]
-    pub fn observer<E: EcsEvent, B: Bundle, M>(
+    /// Spawn an [`Observer`] and returns it's [`Entity`].
+    pub fn observer<E: Component, B: Bundle, M>(
         &mut self,
         callback: impl IntoObserverSystem<E, B, M>,
     ) -> Entity {
@@ -248,17 +241,17 @@ impl World {
         ObserverBuilder::new(self.commands()).run(callback)
     }
 
-    /// Constructs an [`EventBuilder`] for an [`EcsEvent`].
-    pub fn ecs_event<E: EcsEvent>(&mut self, event: E) -> EventBuilder<E> {
+    /// Constructs an [`EventBuilder`].
+    pub fn ecs_event<E: Component>(&mut self, event: E) -> EventBuilder<E> {
         self.init_component::<E>();
         EventBuilder::new(event, self.commands())
     }
 
     pub(crate) fn register_observer(&mut self, entity: Entity) {
-        let observer_component: *const ObserverComponent =
-            self.get::<ObserverComponent>(entity).unwrap();
         // SAFETY: References do not alias.
         let (observer_component, archetypes, observers) = unsafe {
+            let observer_component: *const ObserverComponent =
+                self.get::<ObserverComponent>(entity).unwrap();
             (
                 &*observer_component,
                 &mut self.archetypes,
@@ -269,12 +262,14 @@ impl World {
 
         for &event in &descriptor.events {
             let cache = observers.get_observers(event);
+            // Observer is not targetting any components so register it as an entity observer
             if descriptor.components.is_empty() {
                 for &source in &observer_component.descriptor.sources {
                     let map = cache.entity_observers.entry(source).or_default();
                     map.insert(entity, observer_component.runner);
                 }
             } else {
+                // Register observer for each source component
                 for &component in &descriptor.components {
                     let observers =
                         cache
@@ -287,8 +282,10 @@ impl World {
                                 CachedComponentObservers::default()
                             });
                     if descriptor.sources.is_empty() {
+                        // Register for all events targetting the component
                         observers.map.insert(entity, observer_component.runner);
                     } else {
+                        // Register for each targetted entity
                         for &source in &descriptor.sources {
                             let map = observers.entity_map.entry(source).or_default();
                             map.insert(entity, observer_component.runner);
@@ -300,11 +297,10 @@ impl World {
     }
 
     pub(crate) fn unregister_observer(&mut self, entity: Entity) {
-        let observer_component: *const ObserverComponent =
-            self.get::<ObserverComponent>(entity).unwrap();
-
         // SAFETY: References do not alias.
         let (observer_component, archetypes, observers) = unsafe {
+            let observer_component: *const ObserverComponent =
+                self.get::<ObserverComponent>(entity).unwrap();
             (
                 &*observer_component,
                 &mut self.archetypes,

@@ -3,17 +3,16 @@ use std::any::TypeId;
 use super::*;
 
 /// Builder struct for [`Observer`].
-pub struct ObserverBuilder<'w, E: EcsEvent = NoEvent> {
+pub struct ObserverBuilder<'w, E = ()> {
     commands: Commands<'w, 'w>,
     descriptor: ObserverDescriptor,
     _marker: PhantomData<E>,
 }
 
-impl<'w, E: EcsEvent> ObserverBuilder<'w, E> {
+impl<'w, E: 'static> ObserverBuilder<'w, E> {
     /// Constructs a new [`ObserverBuilder`].
     pub fn new(commands: Commands<'w, 'w>) -> Self {
         let mut descriptor = ObserverDescriptor::default();
-        // TODO: Better messages
         let event = commands
             .components()
             .get_id(TypeId::of::<E>())
@@ -23,10 +22,23 @@ impl<'w, E: EcsEvent> ObserverBuilder<'w, E> {
                     std::any::type_name::<E>(),
                 )
             });
+        descriptor.events.push(event);
 
-        if event != NO_EVENT {
-            descriptor.events.push(event);
+        Self {
+            commands,
+            descriptor,
+            _marker: PhantomData,
         }
+    }
+
+    /// Constructs an [`ObserverBuilder`] with a dynamic event id.
+    /// # Safety
+    /// Caller must ensure that the component associated with `id` is accessible as E
+    #[must_use]
+    pub unsafe fn new_with_id(&mut self, event: ComponentId, commands: Commands<'w, 'w>) -> Self {
+        let mut descriptor = ObserverDescriptor::default();
+        descriptor.events.push(event);
+
         Self {
             commands,
             descriptor,
@@ -36,7 +48,7 @@ impl<'w, E: EcsEvent> ObserverBuilder<'w, E> {
 
     /// Adds `NewE` to the list of events listened to by this observer.
     /// Observers that listen to multiple types of events can no longer access the typed event data.
-    pub fn on_event<NewE: EcsEvent>(&mut self) -> &mut ObserverBuilder<'w, NoEvent> {
+    pub fn on_event<NewE: 'static>(&mut self) -> &mut ObserverBuilder<'w, ()> {
         let event = self
             .commands
             .components()
@@ -48,7 +60,7 @@ impl<'w, E: EcsEvent> ObserverBuilder<'w, E> {
                 )
             });
         self.descriptor.events.push(event);
-        // SAFETY: NoEvent type will not allow bad memory access as it has no size
+        // SAFETY: () will not allow bad memory access as it has no size
         unsafe { std::mem::transmute(self) }
     }
 
@@ -57,7 +69,7 @@ impl<'w, E: EcsEvent> ObserverBuilder<'w, E> {
     pub fn on_event_ids(
         &mut self,
         events: impl IntoIterator<Item = ComponentId>,
-    ) -> &mut ObserverBuilder<'w, NoEvent> {
+    ) -> &mut ObserverBuilder<'w, ()> {
         self.descriptor.events.extend(events);
         // SAFETY: () type will not allow bad memory access as it has no size
         unsafe { std::mem::transmute(self) }
@@ -107,7 +119,7 @@ impl<'w, E: EcsEvent> ObserverBuilder<'w, E> {
         entity
     }
 
-    /// Spawns the resulting observer into the world using a [`ObserverRunner`] callback.
+    /// Spawns the resulting observer into the world using an [`ObserverRunner`] callback.
     /// This is not advised unless you want to override the default runner behaviour.
     pub fn runner(&mut self, runner: ObserverRunner) -> Entity {
         let entity = self.commands.spawn_empty().id();
@@ -121,20 +133,48 @@ impl<'w, E: EcsEvent> ObserverBuilder<'w, E> {
 }
 
 /// Type used to construct and emit a [`EcsEvent`]
-pub struct EventBuilder<'w, E> {
-    event: Option<ComponentId>,
+pub struct EventBuilder<'w, E = ()> {
+    event: ComponentId,
     commands: Commands<'w, 'w>,
     targets: Vec<Entity>,
     components: Vec<ComponentId>,
     data: Option<E>,
 }
 
-impl<'w, E: EcsEvent> EventBuilder<'w, E> {
+impl<'w, E: Send + 'static> EventBuilder<'w, E> {
     /// Constructs a new builder that will write it's event to `world`'s command queue
     #[must_use]
     pub fn new(data: E, commands: Commands<'w, 'w>) -> Self {
+        let event = commands
+            .components()
+            .get_id(TypeId::of::<E>())
+            .unwrap_or_else(|| {
+                panic!(
+                    "Cannot emit event for unregistered component type: {}",
+                    std::any::type_name::<E>()
+                )
+            });
         Self {
-            event: None,
+            event,
+            commands,
+            targets: Vec::new(),
+            components: Vec::new(),
+            data: Some(data),
+        }
+    }
+
+    /// Sets the event id of the resulting event, used for dynamic events
+    /// # Safety
+    /// Caller must ensure that the component associated with `id` is accessible as E
+    #[must_use]
+    pub unsafe fn new_with_id(
+        &mut self,
+        event: ComponentId,
+        data: E,
+        commands: Commands<'w, 'w>,
+    ) -> Self {
+        Self {
+            event,
             commands,
             targets: Vec::new(),
             components: Vec::new(),
@@ -149,15 +189,6 @@ impl<'w, E: EcsEvent> EventBuilder<'w, E> {
         self
     }
 
-    /// Sets the event id of the resulting event, used for dynamic events
-    /// # Safety
-    /// Caller must ensure that the component associated with `id` has the same layout as E
-    #[must_use]
-    pub unsafe fn event_id(&mut self, id: ComponentId) -> &mut Self {
-        self.event = Some(id);
-        self
-    }
-
     /// Adds `component_id` to the list of components targeted by `self`
     #[must_use]
     pub fn component(&mut self, component_id: ComponentId) -> &mut Self {
@@ -167,28 +198,32 @@ impl<'w, E: EcsEvent> EventBuilder<'w, E> {
 
     /// Add the event to the command queue of world
     pub fn emit(&mut self) {
-        self.commands.add(EmitEcsEvent::<E> {
-            event: self.event,
-            data: std::mem::take(&mut self.data).unwrap(),
-            entities: std::mem::take(&mut self.targets),
-            components: std::mem::take(&mut self.components),
+        // SAFETY: `self.event` is accessible as E, enforced in `Self::new` and `Self::new_with_id`.
+        self.commands.add(unsafe {
+            EmitEcsEvent::<E>::new(
+                self.event,
+                std::mem::take(&mut self.targets),
+                std::mem::take(&mut self.components),
+                std::mem::take(&mut self.data)
+                    .expect("EventBuilder used to send more than one event."),
+            )
         });
     }
 }
 
 impl<'w, 's> Commands<'w, 's> {
-    /// Constructs an [`EventBuilder`] for an [`EcsEvent`].
-    pub fn event<E: EcsEvent>(&mut self, event: E) -> EventBuilder<E> {
+    /// Constructs an [`EventBuilder`].
+    pub fn event<E: Component>(&mut self, event: E) -> EventBuilder<E> {
         EventBuilder::new(event, self.reborrow())
     }
 
-    /// Construct an [`ObserverBuilder`]
-    pub fn observer_builder<E: EcsEvent>(&mut self) -> ObserverBuilder<E> {
+    /// Construct an [`ObserverBuilder`].
+    pub fn observer_builder<E: Component>(&mut self) -> ObserverBuilder<E> {
         ObserverBuilder::new(self.reborrow())
     }
 
-    /// Spawn an [`Observer`] and returns it's [`Entity`]
-    pub fn observer<E: EcsEvent, B: Bundle, M>(
+    /// Spawn an [`Observer`] and returns it's [`Entity`].
+    pub fn observer<E: Component, B: Bundle, M>(
         &mut self,
         callback: impl IntoObserverSystem<E, B, M>,
     ) -> Entity {

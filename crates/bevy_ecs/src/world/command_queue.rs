@@ -7,6 +7,8 @@ use bevy_utils::tracing::warn;
 
 use crate::world::{Command, World};
 
+use super::DeferredWorld;
+
 struct CommandMeta {
     /// SAFETY: The `value` must point to a value of type `T: Command`,
     /// where `T` is some specific type that was used to produce this metadata.
@@ -32,7 +34,7 @@ pub struct CommandQueue {
     // For each command, one `CommandMeta` is stored, followed by zero or more bytes
     // to store the command itself. To interpret these bytes, a pointer must
     // be passed to the corresponding `CommandMeta.apply_command_and_get_size` fn pointer.
-    pub(crate) bytes: Vec<MaybeUninit<u8>>,
+    bytes: Vec<MaybeUninit<u8>>,
 }
 
 // CommandQueue needs to implement Debug manually, rather than deriving it, because the derived impl just prints
@@ -241,6 +243,11 @@ impl SystemBuffer for CommandQueue {
         #[cfg(feature = "trace")]
         let _span_guard = _system_meta.commands_span.enter();
         self.apply(world);
+    }
+
+    #[inline]
+    fn queue(&mut self, _system_meta: &SystemMeta, mut world: DeferredWorld) {
+        world.commands().append(self);
     }
 }
 

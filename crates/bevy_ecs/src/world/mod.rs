@@ -152,7 +152,6 @@ impl Default for World {
 impl World {
     #[inline]
     fn bootstrap(&mut self) {
-        assert_eq!(NO_EVENT, self.init_component::<NoEvent>());
         assert_eq!(ON_ADD, self.init_component::<OnAdd>());
         assert_eq!(ON_INSERT, self.init_component::<OnInsert>());
         assert_eq!(ON_REMOVE, self.init_component::<OnRemove>());
@@ -288,17 +287,6 @@ impl World {
     ) -> ComponentId {
         self.components
             .init_component_with_descriptor(&mut self.storages, descriptor)
-    }
-
-    /// Initializes a new [`Component`] type and returns a mutable reference to the [`ComponentInfo`] created for it.
-    /// Primarily used for registering hooks.
-    pub fn register_component_with_descriptor(
-        &mut self,
-        descriptor: ComponentDescriptor,
-    ) -> &mut ComponentInfo {
-        let index = self.init_component_with_descriptor(descriptor);
-        // SAFETY: We just created this component
-        unsafe { self.components.get_info_mut(index) }
     }
 
     /// Returns the [`ComponentId`] of the given [`Component`] type `T`.

@@ -634,11 +634,6 @@ impl Components {
         self.components.get_mut(id.0).map(|info| &mut info.hooks)
     }
 
-    #[inline]
-    pub(crate) unsafe fn get_info_mut(&mut self, id: ComponentId) -> &mut ComponentInfo {
-        self.components.get_unchecked_mut(id.0)
-    }
-
     /// Type-erased equivalent of [`Components::component_id()`].
     #[inline]
     pub fn get_id(&self, type_id: TypeId) -> Option<ComponentId> {

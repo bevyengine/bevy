@@ -3,13 +3,13 @@ use std::ops::Deref;
 use crate::{
     archetype::Archetype,
     change_detection::MutUntyped,
-    component::{ComponentId, Tick},
+    component::ComponentId,
     entity::{Entity, EntityLocation},
     event::{Event, EventId, Events, SendBatchIds},
-    observer::{EcsEvent, EventBuilder, Observers},
+    observer::{EventBuilder, Observers},
     prelude::{Component, QueryState},
     query::{QueryData, QueryFilter},
-    system::{Commands, Query, Resource, SystemMeta, SystemParam},
+    system::{Commands, Query, Resource},
 };
 
 use super::{
@@ -116,19 +116,20 @@ impl<'w> DeferredWorld<'w> {
     /// # Panics
     /// If state is from a different world then self
     #[inline]
-    pub fn query<'s, Q: QueryData, F: QueryFilter>(
+    pub fn query<'s, D: QueryData, F: QueryFilter>(
         &'w mut self,
-        state: &'s mut QueryState<Q, F>,
-    ) -> Query<'w, 's, Q, F> {
+        state: &'s mut QueryState<D, F>,
+    ) -> Query<'w, 's, D, F> {
         state.validate_world(self.world.id());
         state.update_archetypes(self);
         // SAFETY: We ran validate_world to ensure our state matches
         unsafe {
+            let world_cell = self.world;
             Query::new(
-                self.world,
+                world_cell,
                 state,
-                self.world.last_change_tick(),
-                self.world.change_tick(),
+                world_cell.last_change_tick(),
+                world_cell.change_tick(),
             )
         }
     }
@@ -362,7 +363,7 @@ impl<'w> DeferredWorld<'w> {
     /// Triggers all event observers for [`ComponentId`] in target.
     ///
     /// # Safety
-    /// Caller must ensure observers listening for `event` can accept types sharing a layout with `E`
+    /// Caller must ensure `E` is accessible as the type represented by `event`
     #[inline]
     pub(crate) unsafe fn trigger_observers_with_data<E>(
         &mut self,
@@ -376,33 +377,12 @@ impl<'w> DeferredWorld<'w> {
     }
 
     /// Constructs an [`EventBuilder`] for an [`EcsEvent`].
-    pub fn ecs_event<E: EcsEvent>(&mut self, data: E) -> EventBuilder<E> {
+    pub fn ecs_event<E: Component>(&mut self, data: E) -> EventBuilder<E> {
         EventBuilder::new(data, self.commands())
     }
 
     #[inline]
     pub(crate) fn as_unsafe_world_cell(&mut self) -> UnsafeWorldCell {
         self.world
-    }
-}
-
-/// # Safety: `DeferredWorld` can read all components and resources but cannot be used to gain any other mutable references.
-unsafe impl<'w> SystemParam for DeferredWorld<'w> {
-    type State = ();
-    type Item<'world, 'state> = DeferredWorld<'world>;
-
-    fn init_state(_world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        system_meta.component_access_set.read_all();
-        system_meta.component_access_set.write_all();
-        system_meta.set_has_deferred();
-    }
-
-    unsafe fn get_param<'world, 'state>(
-        _state: &'state mut Self::State,
-        _system_meta: &SystemMeta,
-        world: UnsafeWorldCell<'world>,
-        _change_tick: Tick,
-    ) -> Self::Item<'world, 'state> {
-        world.into_deferred()
     }
 }

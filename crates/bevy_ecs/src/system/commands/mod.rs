@@ -1,12 +1,12 @@
 mod parallel_scope;
 
-use super::{Deferred, IntoObserverSystem, ObserverSystem, Resource, SystemBuffer, SystemMeta};
+use super::{Deferred, IntoObserverSystem, ObserverSystem, Resource};
 use crate::{
     self as bevy_ecs,
     bundle::Bundle,
     component::{ComponentId, Components},
     entity::{Entities, Entity},
-    observer::EcsEvent,
+    prelude::Component,
     system::{RunSystemWithInput, SystemId},
     world::{Command, CommandQueue, DeferredWorld, EntityWorldMut, FromWorld, World},
 };
@@ -955,8 +955,7 @@ impl EntityCommands<'_> {
     }
 
     /// Creates an [`Observer`](crate::observer::Observer) listening for `E` events targeting this entity.
-    /// In order to trigger the callback the entity must also match the query when the event is fired.
-    pub fn observe<E: EcsEvent, B: Bundle, M>(
+    pub fn observe<E: Component, B: Bundle, M>(
         &mut self,
         system: impl IntoObserverSystem<E, B, M>,
     ) -> &mut Self {
@@ -1108,7 +1107,7 @@ fn log_components(entity: Entity, world: &mut World) {
 
 /// A [`Command`] that spawns an observer attached to a specific entity.
 #[derive(Debug)]
-pub struct Observe<E: EcsEvent, B: Bundle, C: ObserverSystem<E, B>> {
+pub struct Observe<E: Component, B: Bundle, C: ObserverSystem<E, B>> {
     /// The entity that will be observed.
     pub entity: Entity,
     /// The callback to run when the event is observed.
@@ -1117,7 +1116,7 @@ pub struct Observe<E: EcsEvent, B: Bundle, C: ObserverSystem<E, B>> {
     pub marker: PhantomData<(E, B)>,
 }
 
-impl<E: EcsEvent, B: Bundle, C: ObserverSystem<E, B>> Command for Observe<E, B, C> {
+impl<E: Component, B: Bundle, C: ObserverSystem<E, B>> Command for Observe<E, B, C> {
     fn apply(self, world: &mut World) {
         world.entity_mut(self.entity).observe(self.system);
     }
@@ -1125,28 +1124,44 @@ impl<E: EcsEvent, B: Bundle, C: ObserverSystem<E, B>> Command for Observe<E, B, 
 
 /// A [`Command`] that emits an event to be received by observers.
 #[derive(Debug)]
-pub struct EmitEcsEvent<E: EcsEvent> {
-    /// [`ComponentId`] for this event, if not set will use the id of `E`.
-    pub event: Option<ComponentId>,
-    /// Data for the event.
-    pub data: E,
-    /// Components to trigger observers for.
-    pub components: Vec<ComponentId>,
+pub(crate) struct EmitEcsEvent<E> {
+    /// [`ComponentId`] for this event.
+    event: ComponentId,
     /// Entities to trigger observers for.
-    pub entities: Vec<Entity>,
+    entities: Vec<Entity>,
+    /// Components to trigger observers for.
+    components: Vec<ComponentId>,
+    /// Data for the event.
+    data: E,
 }
 
-impl<E: EcsEvent> Command for EmitEcsEvent<E> {
+impl<E> EmitEcsEvent<E> {
+    // SAFETY: Caller must ensure the type represented by `event` is accessible as `E`.
+    pub(crate) unsafe fn new(
+        event: ComponentId,
+        entities: Vec<Entity>,
+        components: Vec<ComponentId>,
+        data: E,
+    ) -> Self {
+        Self {
+            event,
+            entities,
+            components,
+            data,
+        }
+    }
+}
+
+impl<E: Send + 'static> Command for EmitEcsEvent<E> {
     fn apply(mut self, world: &mut World) {
-        let event = self.event.unwrap_or_else(|| world.init_component::<E>());
         let mut world = DeferredWorld::from(world);
 
         for &target in &self.entities {
             if let Some(location) = world.entities().get(target) {
-                // SAFETY: We called `init_component` for this event or it was passed
+                // SAFETY: E is accessible as the type represented by self.event, ensured in `Self::new`
                 unsafe {
                     world.trigger_observers_with_data(
-                        event,
+                        self.event,
                         target,
                         location,
                         self.components.iter().cloned(),
