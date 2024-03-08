@@ -344,7 +344,6 @@ mod tests {
             registry.register::<ComponentA>();
             registry.register_type_data::<ComponentA, ReflectComponent>();
         }
-        world.insert_resource(type_registry);
 
         let mut system_state: SystemState<Commands> = SystemState::new(&mut world);
         let mut commands = system_state.get_mut(&mut world);
@@ -406,12 +405,6 @@ mod tests {
         let mut world = World::new();
 
         world.init_resource::<AppTypeRegistry>();
-        {
-            let mut registry = world.resource::<AppTypeRegistry>().write();
-            registry.register::<ComponentA>();
-            registry.register_type_data::<ComponentA, ReflectComponent>();
-        }
-        world.insert_resource(type_registry);
 
         let mut system_state: SystemState<Commands> = SystemState::new(&mut world);
         let mut commands = system_state.get_mut(&mut world);
