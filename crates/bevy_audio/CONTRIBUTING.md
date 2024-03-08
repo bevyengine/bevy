@@ -70,10 +70,10 @@ that amount of time, and play around with the buffer size to find the best
 compromise between latency and performance. Another is to conditionally enable
 certain effects for more powerful CPUs, when that is possible.
 
-But the main step is to write code run in the audio thread following real-time
-programming guidelines.  Real-time programming is a set of constraints on code
-and structures that guarantees the code completes at some point, ie. it cannot
-be stuck in an infinite loop nor can it trigger a deadlock situation.
+But the main step is to write code to run in the audio thread following
+real-time programming guidelines.  Real-time programming is a set of constraints
+on code and structures that guarantees the code completes at some point, ie. it
+cannot be stuck in an infinite loop nor can it trigger a deadlock situation.
 
 Practically, the main components of real-time programming are about using
 wait-free and lock-free structures. Examples of things that are *not* correct in
