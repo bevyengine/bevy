@@ -42,8 +42,7 @@ pub struct FpsOverlayConfig {
     /// Color of the overlay text.
     pub font_color: Color,
     /// Keybind for toggling on/off the overlay.
-    /// If set to none, [`KeyCode::F1`] is used
-    pub keybind: Option<KeyCode>,
+    pub keybind: KeyCode,
 }
 
 impl Default for FpsOverlayConfig {
@@ -52,7 +51,7 @@ impl Default for FpsOverlayConfig {
             font_path: None,
             font_size: 32.0,
             font_color: Color::WHITE,
-            keybind: None,
+            keybind: KeyCode::F1,
         }
     }
 }
@@ -150,9 +149,7 @@ fn toggle_overlay(
     mut query: Query<&mut Visibility, With<FpsText>>,
     overlay_config: Res<FpsOverlayConfig>,
 ) {
-    if (overlay_config.keybind.is_none() && input.just_pressed(KeyCode::F1))
-        | (overlay_config.keybind.is_some() && input.just_pressed(overlay_config.keybind.unwrap()))
-    {
+    if input.just_pressed(overlay_config.keybind) {
         for mut visibility in query.iter_mut() {
             *visibility = if let Visibility::Hidden = *visibility {
                 Visibility::Visible

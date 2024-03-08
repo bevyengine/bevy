@@ -18,7 +18,7 @@ fn main() {
                     // If we want, we can use a custom font
                     font_path: None,
                     // This keybind will be toggling on/off the overlay
-                    keybind: Some(KeyCode::Escape),
+                    keybind: KeyCode::Escape,
                 },
             },
         ))
