@@ -13,9 +13,9 @@ materials.
 Note that these guidelines are general to any audio programming application, and
 not just Bevy.
 
-# Fundamentals of working with audio
+## Fundamentals of working with audio
 
-## A brief introduction to digital audio signals
+### A brief introduction to digital audio signals
 
 Audio signals, when working within a computer, are digital streams of audio
 samples (historically with different types, but nowadays the values are 32-bit
@@ -32,7 +32,7 @@ that any sound with frequencies higher than that will introduce artifacts.
 If you want to learn more, read about the **Nyquist sampling theorem** and
 **Frequency aliasing**.
 
-## How the computer interfaces with the sound card
+### How the computer interfaces with the sound card
 
 When requesting for audio input or output, the OS creates a special
 high-priority thread whose task it is to take in the input audio stream, and/or
@@ -55,7 +55,7 @@ latency reasons, and increasing it for performance reasons.  The threshold for
 instantaneity in audio is around 15 ms, which is why 512 is a good value for
 interactive applications.
 
-## Real-time programming
+### Real-time programming
 
 The parts of the code running in the audio thread have exactly
 `buffer_size/samplerate` seconds to complete, beyond which the audio driver
@@ -94,7 +94,7 @@ Writing wait-free and lock-free structures is a hard task, and difficult to get
 correct; however many structures already exists, and can be directly used. There
 are crates for most replacements of standard collections.
 
-## Where in the code should real-time programming principles be applied?
+### Where in the code should real-time programming principles be applied?
 
 Any code that is directly or indirectly called by audio threads, needs to be
 real-time safe.
