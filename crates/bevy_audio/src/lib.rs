@@ -20,6 +20,7 @@
 //! }
 //! ```
 #![forbid(unsafe_code)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 mod audio;
 mod audio_output;

@@ -44,6 +44,7 @@
 //! [plugin]: HierarchyPlugin
 //! [query extension methods]: HierarchyQueryExt
 //! [world]: BuildWorldChildren
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 mod components;
 pub use components::*;

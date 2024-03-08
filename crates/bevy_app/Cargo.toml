@@ -34,3 +34,6 @@ web-sys = { version = "0.3", features = ["Window"] }
 
 [lints]
 workspace = true
+
+[package.metadata.docs.rs]
+all-features = true
