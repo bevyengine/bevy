@@ -31,6 +31,19 @@ struct Explode;
 fn setup(world: &mut World) {
     world.spawn(Camera2dBundle::default());
 
+    let font = world
+        .resource::<AssetServer>()
+        .load("fonts/FiraMono-Medium.ttf");
+    world.spawn(TextBundle::from_section(
+        "Click on a \"Mine\" to trigger it.\n\
+            When it explodes it will trigger all overlapping mines.",
+        TextStyle {
+            font,
+            font_size: 24.,
+            color: Color::WHITE,
+        },
+    ));
+
     // Pre-register all our components, resource and event types.
     world.init_resource::<SpatialIndex>();
     world.init_component::<Mine>();
@@ -81,7 +94,10 @@ fn setup(world: &mut World) {
     for _ in 0..1000 {
         world
             .spawn(Mine {
-                pos: (Vec2::new(rand::random::<f32>(), rand::random::<f32>()) - 0.5) * 800.0,
+                pos: Vec2::new(
+                    (rand::random::<f32>() - 0.5) * 1200.0,
+                    (rand::random::<f32>() - 0.5) * 600.0,
+                ),
                 size: 4.0 + rand::random::<f32>() * 16.0,
             })
             // Observers can also listen to events targeting a specific entity.
