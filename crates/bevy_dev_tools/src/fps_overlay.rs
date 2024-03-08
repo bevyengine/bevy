@@ -14,7 +14,9 @@ use bevy_text::{Text, TextSection, TextStyle};
 use bevy_ui::node_bundles::TextBundle;
 
 #[derive(Default)]
+/// A plugin that adds an FPS overlay to the Bevy application.
 pub struct FpsOverlayPlugin {
+    /// Starting configuration of overlay, this can be later be changed through `[FpsOverlayConfig]` resource.
     pub config: FpsOverlayConfig,
 }
 
@@ -30,10 +32,17 @@ impl Plugin for FpsOverlayPlugin {
 }
 
 #[derive(Resource, Clone)]
+/// Configuration options for the FPS overlay.
 pub struct FpsOverlayConfig {
+    /// File path for the font file. If set to `None`,the default font is used.
+    /// Note: The overlay won't be visible if you set it to `None` and run without `default_font` feature.
     pub font_path: Option<String>,
+    /// Size of the overlay text.
     pub font_size: f32,
+    /// Color of the overlay text.
     pub font_color: Color,
+    /// Keybind for toggling on/off the overlay.
+    /// If set to none, [`KeyCode::F1`] is used
     pub keybind: Option<KeyCode>,
 }
 
