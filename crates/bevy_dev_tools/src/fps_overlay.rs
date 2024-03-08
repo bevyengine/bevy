@@ -3,7 +3,6 @@ use bevy_asset::AssetServer;
 use bevy_color::Color;
 use bevy_diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy_ecs::{
-    change_detection::DetectChanges,
     component::Component,
     query::With,
     schedule::{common_conditions::resource_changed, IntoSystemConfigs},
