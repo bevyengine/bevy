@@ -8,6 +8,8 @@ use bevy_ecs::{
     query::With,
     system::{Commands, Query, Res, Resource},
 };
+use bevy_input::{keyboard::KeyCode, ButtonInput};
+use bevy_render::view::Visibility;
 use bevy_text::{Text, TextSection, TextStyle};
 use bevy_ui::node_bundles::TextBundle;
 
@@ -23,7 +25,7 @@ impl Plugin for FpsOverlayPlugin {
         }
         app.insert_resource(self.config.clone())
             .add_systems(Startup, setup)
-            .add_systems(Update, (customize_text, update_text));
+            .add_systems(Update, (customize_text, update_text, toggle_overlay));
     }
 }
 
@@ -32,6 +34,7 @@ pub struct FpsOverlayConfig {
     pub font_path: Option<String>,
     pub font_size: f32,
     pub font_color: Color,
+    pub keybind: Option<KeyCode>,
 }
 
 impl Default for FpsOverlayConfig {
@@ -40,6 +43,7 @@ impl Default for FpsOverlayConfig {
             font_path: None,
             font_size: 32.0,
             font_color: Color::WHITE,
+            keybind: None,
         }
     }
 }
@@ -88,8 +92,14 @@ fn setup(
     ));
 }
 
-fn update_text(diagnostic: Res<DiagnosticsStore>, mut query: Query<&mut Text, With<FpsText>>) {
-    for mut text in &mut query {
+fn update_text(
+    diagnostic: Res<DiagnosticsStore>,
+    mut query: Query<(&mut Text, &Visibility), With<FpsText>>,
+) {
+    for (mut text, visibility) in &mut query {
+        if let Visibility::Hidden = *visibility {
+            return;
+        }
         if let Some(fps) = diagnostic.get(&FrameTimeDiagnosticsPlugin::FPS) {
             if let Some(value) = fps.smoothed() {
                 text.sections[1].value = format!("{value:.2}");
@@ -121,6 +131,24 @@ fn customize_text(
                     color: overlay_config.font_color,
                     ..Default::default()
                 }
+            }
+        }
+    }
+}
+
+fn toggle_overlay(
+    input: Res<ButtonInput<KeyCode>>,
+    mut query: Query<&mut Visibility, With<FpsText>>,
+    overlay_config: Res<FpsOverlayConfig>,
+) {
+    if (overlay_config.keybind.is_none() && input.just_pressed(KeyCode::F1))
+        | (overlay_config.keybind.is_some() && input.just_pressed(overlay_config.keybind.unwrap()))
+    {
+        for mut visibility in query.iter_mut() {
+            *visibility = if let Visibility::Hidden = *visibility {
+                Visibility::Visible
+            } else {
+                Visibility::Hidden
             }
         }
     }
