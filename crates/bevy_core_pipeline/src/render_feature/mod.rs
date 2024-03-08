@@ -171,16 +171,24 @@ pub trait RenderSubFeatures<G: RenderSubGraph, S: RenderFeatureStageMarker> {
 pub trait RenderFeatureDependency<G: RenderSubGraph, S: RenderFeatureStageMarker + ?Sized, I> {}
 pub trait RenderFeatureDependencies<G: RenderSubGraph, S: RenderFeatureStageMarker + ?Sized, I> {}
 
-macro_rules! impl_render_sub_features {
+macro_rules! impl_render_sub_features { //todo: defines instance for 1-tuple rather than raw value?
     ($N: expr, $($F: ident),*) => {
         impl<G: RenderSubGraph, S: RenderFeatureStageMarker, $($F: RenderSubFeature<G>),*> RenderSubFeatures<G, S> for ($($F,)*)
-            where
-                $(<$F as RenderSubFeature<G>>::Stage: NotAfter<S>),*
+        where
+            $(<$F as RenderSubFeature<G>>::Stage: NotAfter<S>),*
         {
             type Out = ($(<$F as RenderSubFeature<G>>::Out,)*);
         }
     };
 }
+
+/*impl<G: RenderSubGraph, S: RenderFeatureStageMarker, F: RenderSubFeature<G>> RenderSubFeatures<G, S>
+    for F
+where
+    <F as RenderSubFeature<G>>::Stage: NotAfter<S>,
+{
+    type Out = <F as RenderSubFeature<G>>::Out;
+}*/
 
 all_tuples_with_size!(impl_render_sub_features, 1, 32, F);
 
@@ -190,7 +198,7 @@ macro_rules! impl_render_feature_dependencies {
     };
 }
 
-all_tuples_with_size!(impl_render_feature_dependencies, 2, 32, Dep, In);
+all_tuples_with_size!(impl_render_feature_dependencies, 1, 32, Dep, In);
 
 impl<G: RenderSubGraph, S: RenderFeatureStageMarker> RenderFeatureDependencies<G, S, ()> for () {}
 
@@ -252,6 +260,13 @@ impl<G: RenderSubGraph, S: RenderFeatureStageMarker, I> RenderFeatureDependencie
 {
 }
 
-pub fn thing() -> impl RenderFeatureDependencies<SubGraph3d, stages::PrepareBindGroups, u128> {
-    empty()
+pub fn thing() -> impl RenderFeatureDependencies<SubGraph3d, stages::PrepareBindGroups, (u128, u64)>
+{
+    adapt::<
+        _,
+        (
+            NullFeature<stages::SpecializePipelines>,
+            NullFeature<stages::PrepareResources>,
+        ),
+    >(|_| (3, 4))
 }
