@@ -58,7 +58,6 @@ pub const ENTITY_FIELD_COMPONENTS: &str = "components";
 ///     // Sequence types are automatically handled.
 ///     registry.register::<MyComponent>();
 /// }
-/// world.insert_resource(registry);
 /// world.spawn(MyComponent {
 ///     foo: [1, 2, 3],
 ///     bar: (1.3, 3.7),

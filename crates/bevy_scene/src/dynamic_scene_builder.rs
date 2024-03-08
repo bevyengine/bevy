@@ -379,12 +379,7 @@ mod tests {
     #[test]
     fn extract_one_entity() {
         let mut world = World::default();
-
         world.init_resource::<AppTypeRegistry>();
-        {
-            let mut register = world.resource::<AppTypeRegistry>().write();
-            register.register::<ComponentA>();
-        }
 
         let entity = world.spawn((ComponentA, ComponentB)).id();
 
@@ -394,7 +389,7 @@ mod tests {
 
         assert_eq!(scene.entities.len(), 1);
         assert_eq!(scene.entities[0].entity, entity);
-        assert_eq!(scene.entities[0].components.len(), 1);
+        assert_eq!(scene.entities[0].components.len(), 2);
         assert!(scene.entities[0].components[0].represents::<ComponentA>());
     }
 
@@ -417,7 +412,7 @@ mod tests {
 
         assert_eq!(scene.entities.len(), 1);
         assert_eq!(scene.entities[0].entity, entity);
-        assert_eq!(scene.entities[0].components.len(), 1);
+        assert_eq!(scene.entities[0].components.len(), 2);
         assert!(scene.entities[0].components[0].represents::<ComponentA>());
     }
 
@@ -515,7 +510,7 @@ mod tests {
             .remove_empty_entities()
             .build();
 
-        assert_eq!(scene.entities.len(), 1);
+        assert_eq!(scene.entities.len(), 2);
         assert_eq!(scene.entities[0].entity, entity_a);
     }
 
