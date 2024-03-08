@@ -447,7 +447,9 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
     type Item<'w, 's> = Res<'w, T>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        let component_id = world.initialize_resource::<T>();
+        let component_id = world.components.init_resource::<T>();
+        world.initialize_resource_internal(component_id);
+
         let combined_access = system_meta.component_access_set.combined_access();
         assert!(
             !combined_access.has_write(component_id),
@@ -537,7 +539,9 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     type Item<'w, 's> = ResMut<'w, T>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        let component_id = world.initialize_resource::<T>();
+        let component_id = world.components.init_resource::<T>();
+        world.initialize_resource_internal(component_id);
+
         let combined_access = system_meta.component_access_set.combined_access();
         if combined_access.has_write(component_id) {
             panic!(
@@ -1038,7 +1042,9 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         system_meta.set_non_send();
 
-        let component_id = world.initialize_non_send_resource::<T>();
+        let component_id = world.components.init_non_send::<T>();
+        world.initialize_non_send_internal(component_id);
+
         let combined_access = system_meta.component_access_set.combined_access();
         assert!(
             !combined_access.has_write(component_id),
@@ -1125,7 +1131,9 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         system_meta.set_non_send();
 
-        let component_id = world.initialize_non_send_resource::<T>();
+        let component_id = world.components.init_non_send::<T>();
+        world.initialize_non_send_internal(component_id);
+
         let combined_access = system_meta.component_access_set.combined_access();
         if combined_access.has_write(component_id) {
             panic!(

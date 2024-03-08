@@ -38,6 +38,30 @@ impl std::fmt::Display for InvalidDirectionError {
     }
 }
 
+/// Checks that a vector with the given squared length is normalized.
+///
+/// Warns for small error with a length threshold of approximately `1e-4`,
+/// and panics for large error with a length threshold of approximately `1e-2`.
+///
+/// The format used for the logged warning is `"Warning: {warning} The length is {length}`,
+/// and similarly for the error.
+#[cfg(debug_assertions)]
+fn assert_is_normalized(message: &str, length_squared: f32) {
+    let length_error_squared = (length_squared - 1.0).abs();
+
+    // Panic for large error and warn for slight error.
+    if length_error_squared > 2e-2 || length_error_squared.is_nan() {
+        // Length error is approximately 1e-2 or more.
+        panic!("Error: {message} The length is {}.", length_squared.sqrt());
+    } else if length_error_squared > 2e-4 {
+        // Length error is approximately 1e-4 or more.
+        eprintln!(
+            "Warning: {message} The length is {}.",
+            length_squared.sqrt()
+        );
+    }
+}
+
 /// A normalized vector pointing in a direction in 2D space
 #[deprecated(
     since = "0.14.0",
@@ -81,9 +105,13 @@ impl Dir2 {
     ///
     /// # Warning
     ///
-    /// `value` must be normalized, i.e it's length must be `1.0`.
+    /// `value` must be normalized, i.e its length must be `1.0`.
     pub fn new_unchecked(value: Vec2) -> Self {
-        debug_assert!(value.is_normalized());
+        #[cfg(debug_assertions)]
+        assert_is_normalized(
+            "The vector given to `Dir2::new_unchecked` is not normalized.",
+            value.length_squared(),
+        );
 
         Self(value)
     }
@@ -129,6 +157,20 @@ impl std::ops::Neg for Dir2 {
     type Output = Self;
     fn neg(self) -> Self::Output {
         Self(-self.0)
+    }
+}
+
+impl std::ops::Mul<f32> for Dir2 {
+    type Output = Vec2;
+    fn mul(self, rhs: f32) -> Self::Output {
+        self.0 * rhs
+    }
+}
+
+impl std::ops::Mul<Dir2> for f32 {
+    type Output = Vec2;
+    fn mul(self, rhs: Dir2) -> Self::Output {
+        self * rhs.0
     }
 }
 
@@ -197,9 +239,13 @@ impl Dir3 {
     ///
     /// # Warning
     ///
-    /// `value` must be normalized, i.e it's length must be `1.0`.
+    /// `value` must be normalized, i.e its length must be `1.0`.
     pub fn new_unchecked(value: Vec3) -> Self {
-        debug_assert!(value.is_normalized());
+        #[cfg(debug_assertions)]
+        assert_is_normalized(
+            "The vector given to `Dir3::new_unchecked` is not normalized.",
+            value.length_squared(),
+        );
 
         Self(value)
     }
@@ -261,6 +307,13 @@ impl std::ops::Mul<f32> for Dir3 {
     }
 }
 
+impl std::ops::Mul<Dir3> for f32 {
+    type Output = Vec3;
+    fn mul(self, rhs: Dir3) -> Self::Output {
+        self * rhs.0
+    }
+}
+
 impl std::ops::Mul<Dir3> for Quat {
     type Output = Dir3;
 
@@ -268,11 +321,13 @@ impl std::ops::Mul<Dir3> for Quat {
     fn mul(self, direction: Dir3) -> Self::Output {
         let rotated = self * *direction;
 
-        // Make sure the result is normalized.
-        // This can fail for non-unit quaternions.
-        debug_assert!(rotated.is_normalized());
+        #[cfg(debug_assertions)]
+        assert_is_normalized(
+            "`Dir3` is denormalized after rotation.",
+            rotated.length_squared(),
+        );
 
-        Dir3::new_unchecked(rotated)
+        Dir3(rotated)
     }
 }
 
@@ -344,9 +399,13 @@ impl Dir3A {
     ///
     /// # Warning
     ///
-    /// `value` must be normalized, i.e it's length must be `1.0`.
+    /// `value` must be normalized, i.e its length must be `1.0`.
     pub fn new_unchecked(value: Vec3A) -> Self {
-        debug_assert!(value.is_normalized());
+        #[cfg(debug_assertions)]
+        assert_is_normalized(
+            "The vector given to `Dir3A::new_unchecked` is not normalized.",
+            value.length_squared(),
+        );
 
         Self(value)
     }
@@ -408,6 +467,13 @@ impl std::ops::Mul<f32> for Dir3A {
     }
 }
 
+impl std::ops::Mul<Dir3A> for f32 {
+    type Output = Vec3A;
+    fn mul(self, rhs: Dir3A) -> Self::Output {
+        self * rhs.0
+    }
+}
+
 impl std::ops::Mul<Dir3A> for Quat {
     type Output = Dir3A;
 
@@ -415,11 +481,13 @@ impl std::ops::Mul<Dir3A> for Quat {
     fn mul(self, direction: Dir3A) -> Self::Output {
         let rotated = self * *direction;
 
-        // Make sure the result is normalized.
-        // This can fail for non-unit quaternions.
-        debug_assert!(rotated.is_normalized());
+        #[cfg(debug_assertions)]
+        assert_is_normalized(
+            "`Dir3A` is denormalized after rotation.",
+            rotated.length_squared(),
+        );
 
-        Dir3A::new_unchecked(rotated)
+        Dir3A(rotated)
     }
 }
 

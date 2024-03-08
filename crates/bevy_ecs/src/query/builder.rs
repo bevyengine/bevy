@@ -204,7 +204,7 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
         self
     }
 
-    /// Returns a reference to the the [`FilteredAccess`] that will be provided to the built [`Query`].
+    /// Returns a reference to the [`FilteredAccess`] that will be provided to the built [`Query`].
     pub fn access(&self) -> &FilteredAccess<ComponentId> {
         &self.access
     }

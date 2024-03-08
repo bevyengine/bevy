@@ -10,7 +10,7 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_math::{Affine3, Vec4};
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::mesh::MeshVertexBufferLayoutRef;
 use bevy_render::{
     batching::{
@@ -39,7 +39,7 @@ use crate::Material2dBindGroupId;
 ///
 /// It wraps a [`Handle<Mesh>`] to differentiate from the 3d pipelines which use the handles directly as components
 #[derive(Default, Clone, Component, Debug, Reflect, PartialEq, Eq)]
-#[reflect(Component)]
+#[reflect(Default, Component)]
 pub struct Mesh2dHandle(pub Handle<Mesh>);
 
 impl From<Handle<Mesh>> for Mesh2dHandle {
