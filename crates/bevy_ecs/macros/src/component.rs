@@ -39,10 +39,16 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
         register_type = Some(quote! {
             #[doc(hidden)]
             fn __register_type(registry: &#bevy_ecs_path::private::bevy_reflect::TypeRegistryArc) {
-                match registry.internal.try_write() {
-                    Ok(mut registry) => registry.register::<Self>(),
-                    Err(_) => panic!("Deadlock while registering <{}>.", ::std::any::type_name::<Self>()),
+                if let Ok(mut registry) = registry.internal.try_write() {
+                    registry.register::<Self>();
+                    return;
                 }
+                if let Ok(registry) = registry.internal.try_read() {
+                    if registry.contains(::core::any::TypeId::of::<Self>()) {
+                        return;
+                    }
+                }
+                panic!("Deadlock while registering <{}>.", ::std::any::type_name::<Self>());
             }
         });
     }
@@ -79,10 +85,16 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         register_type = Some(quote! {
             #[doc(hidden)]
             fn __register_type(registry: &#bevy_ecs_path::private::bevy_reflect::TypeRegistryArc) {
-                match registry.internal.try_write() {
-                    Ok(mut registry) => registry.register::<Self>(),
-                    Err(_) => panic!("Deadlock while registering <{}>.", ::std::any::type_name::<Self>()),
+                if let Ok(mut registry) = registry.internal.try_write() {
+                    registry.register::<Self>();
+                    return;
                 }
+                if let Ok(registry) = registry.internal.try_read() {
+                    if registry.contains(::core::any::TypeId::of::<Self>()) {
+                        return;
+                    }
+                }
+                panic!("Deadlock while registering <{}>.", ::std::any::type_name::<Self>());
             }
         });
     }
