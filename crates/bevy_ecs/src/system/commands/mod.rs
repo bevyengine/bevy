@@ -1156,14 +1156,23 @@ impl<E: Send + 'static> Command for EmitEcsEvent<E> {
     fn apply(mut self, world: &mut World) {
         let mut world = DeferredWorld::from(world);
 
-        for &target in &self.entities {
-            if let Some(location) = world.entities().get(target) {
+        if self.entities.is_empty() {
+            // SAFETY: E is accessible as the type represented by self.event, ensured in `Self::new`
+            unsafe {
+                world.trigger_observers_with_data(
+                    self.event,
+                    None,
+                    self.components.iter().cloned(),
+                    &mut self.data,
+                );
+            };
+        } else {
+            for &target in &self.entities {
                 // SAFETY: E is accessible as the type represented by self.event, ensured in `Self::new`
                 unsafe {
                     world.trigger_observers_with_data(
                         self.event,
-                        target,
-                        location,
+                        Some(target),
                         self.components.iter().cloned(),
                         &mut self.data,
                     );

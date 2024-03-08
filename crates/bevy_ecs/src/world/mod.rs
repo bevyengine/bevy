@@ -506,7 +506,7 @@ impl World {
     /// scheme worked out to share an ID space (which doesn't happen by default).
     #[inline]
     pub fn get_or_spawn(&mut self, entity: Entity) -> Option<EntityWorldMut> {
-        self.flush_entities();
+        self.flush();
         match self.entities.alloc_at_without_replacement(entity) {
             AllocAtWithoutReplacement::Exists(location) => {
                 // SAFETY: `entity` exists and `location` is that entity's location
@@ -760,7 +760,7 @@ impl World {
     /// assert_eq!(position.x, 0.0);
     /// ```
     pub fn spawn_empty(&mut self) -> EntityWorldMut {
-        self.flush_entities();
+        self.flush();
         let entity = self.entities.alloc();
         // SAFETY: entity was just allocated
         unsafe { self.spawn_at_empty_internal(entity) }
@@ -826,7 +826,7 @@ impl World {
     /// assert_eq!(position.x, 2.0);
     /// ```
     pub fn spawn<B: Bundle>(&mut self, bundle: B) -> EntityWorldMut {
-        self.flush_entities();
+        self.flush();
         let change_tick = self.change_tick();
         let entity = self.entities.alloc();
         let entity_location = {
@@ -957,6 +957,7 @@ impl World {
     /// ```
     #[inline]
     pub fn despawn(&mut self, entity: Entity) -> bool {
+        self.flush();
         if let Some(entity) = self.get_entity_mut(entity) {
             entity.despawn();
             true
@@ -1608,7 +1609,7 @@ impl World {
         I::IntoIter: Iterator<Item = (Entity, B)>,
         B: Bundle,
     {
-        self.flush_entities();
+        self.flush();
 
         let change_tick = self.change_tick();
 
@@ -1897,10 +1898,11 @@ impl World {
     /// Applies any commands in the world's internal [`CommandQueue`].
     /// This does not apply commands from any systems, only those stored in the world.
     #[inline]
-    pub fn flush_commands(&mut self) {
+    pub fn flush(&mut self) {
+        self.flush_entities();
         if !self.command_queue.is_empty() {
             // `CommandQueue` application always applies commands from the world queue first so this will apply all stored commands
-            CommandQueue::default().apply(self);
+            CommandQueue::default().apply_or_drop_queued(Some(self));
         }
     }
 

@@ -18,7 +18,7 @@ impl<'w, E: 'static> ObserverBuilder<'w, E> {
             .get_id(TypeId::of::<E>())
             .unwrap_or_else(|| {
                 panic!(
-                    "Cannot observe event before it is registered: {}",
+                    "Cannot observe event before it is registered with init_component: {}",
                     std::any::type_name::<E>(),
                 )
             });
@@ -35,7 +35,7 @@ impl<'w, E: 'static> ObserverBuilder<'w, E> {
     /// # Safety
     /// Caller must ensure that the component associated with `id` is accessible as E
     #[must_use]
-    pub unsafe fn new_with_id(&mut self, event: ComponentId, commands: Commands<'w, 'w>) -> Self {
+    pub unsafe fn new_with_id(event: ComponentId, commands: Commands<'w, 'w>) -> Self {
         let mut descriptor = ObserverDescriptor::default();
         descriptor.events.push(event);
 
@@ -55,7 +55,7 @@ impl<'w, E: 'static> ObserverBuilder<'w, E> {
             .get_id(TypeId::of::<NewE>())
             .unwrap_or_else(|| {
                 panic!(
-                    "Cannot observe event before it is registered: {}",
+                    "Cannot observe event before it is registered with init_component: {}",
                     std::any::type_name::<NewE>(),
                 )
             });
@@ -80,7 +80,7 @@ impl<'w, E: 'static> ObserverBuilder<'w, E> {
         B::get_component_ids(self.commands.components(), &mut |id| {
             self.descriptor.components.push(id.unwrap_or_else(|| {
                 panic!(
-                    "Cannot observe event before it is registered: {}",
+                    "Cannot observe event before it is registered with init_component: {}",
                     std::any::type_name::<B>(),
                 )
             }));
@@ -89,8 +89,11 @@ impl<'w, E: 'static> ObserverBuilder<'w, E> {
     }
 
     /// Add `ids` to the list of component sources listened to by this observer.
-    pub fn component_ids(&mut self, ids: impl IntoIterator<Item = ComponentId>) -> &mut Self {
-        self.descriptor.components.extend(ids);
+    pub fn component_ids<'c>(
+        &mut self,
+        ids: impl IntoIterator<Item = &'c ComponentId>,
+    ) -> &mut Self {
+        self.descriptor.components.extend(ids.into_iter().cloned());
         self
     }
 
@@ -105,7 +108,7 @@ impl<'w, E: 'static> ObserverBuilder<'w, E> {
         B::get_component_ids(self.commands.components(), &mut |id| {
             self.descriptor.components.push(id.unwrap_or_else(|| {
                 panic!(
-                    "Cannot observe event before it is registered: {}",
+                    "Cannot observe event before it is registered with init_component: {}",
                     std::any::type_name::<B>(),
                 )
             }));
@@ -115,6 +118,7 @@ impl<'w, E: 'static> ObserverBuilder<'w, E> {
         self.commands.add(move |world: &mut World| {
             let component = ObserverComponent::from(world, descriptor, callback);
             world.entity_mut(entity).insert(component);
+            world.register_observer(entity);
         });
         entity
     }
@@ -132,7 +136,7 @@ impl<'w, E: 'static> ObserverBuilder<'w, E> {
     }
 }
 
-/// Type used to construct and emit a [`EcsEvent`]
+/// Type used to construct and emit an ECS event.
 pub struct EventBuilder<'w, E = ()> {
     event: ComponentId,
     commands: Commands<'w, 'w>,
@@ -150,7 +154,7 @@ impl<'w, E: Send + 'static> EventBuilder<'w, E> {
             .get_id(TypeId::of::<E>())
             .unwrap_or_else(|| {
                 panic!(
-                    "Cannot emit event for unregistered component type: {}",
+                    "Cannot emit event before it is registered with init_component: {}",
                     std::any::type_name::<E>()
                 )
             });
@@ -167,12 +171,7 @@ impl<'w, E: Send + 'static> EventBuilder<'w, E> {
     /// # Safety
     /// Caller must ensure that the component associated with `id` is accessible as E
     #[must_use]
-    pub unsafe fn new_with_id(
-        &mut self,
-        event: ComponentId,
-        data: E,
-        commands: Commands<'w, 'w>,
-    ) -> Self {
+    pub unsafe fn new_with_id(event: ComponentId, data: E, commands: Commands<'w, 'w>) -> Self {
         Self {
             event,
             commands,

@@ -4,7 +4,7 @@ use crate::{
     archetype::Archetype,
     change_detection::MutUntyped,
     component::ComponentId,
-    entity::{Entity, EntityLocation},
+    entity::Entity,
     event::{Event, EventId, Events, SendBatchIds},
     observer::{EventBuilder, Observers},
     prelude::{Component, QueryState},
@@ -346,18 +346,10 @@ impl<'w> DeferredWorld<'w> {
     pub(crate) unsafe fn trigger_observers(
         &mut self,
         event: ComponentId,
-        target: Entity,
-        location: EntityLocation,
+        source: Option<Entity>,
         components: impl Iterator<Item = ComponentId>,
     ) {
-        Observers::invoke(
-            self.reborrow(),
-            event,
-            target,
-            location,
-            components,
-            &mut (),
-        );
+        Observers::invoke(self.reborrow(), event, source, components, &mut ());
     }
 
     /// Triggers all event observers for [`ComponentId`] in target.
@@ -368,15 +360,14 @@ impl<'w> DeferredWorld<'w> {
     pub(crate) unsafe fn trigger_observers_with_data<E>(
         &mut self,
         event: ComponentId,
-        target: Entity,
-        location: EntityLocation,
+        source: Option<Entity>,
         components: impl Iterator<Item = ComponentId>,
         data: &mut E,
     ) {
-        Observers::invoke(self.reborrow(), event, target, location, components, data);
+        Observers::invoke(self.reborrow(), event, source, components, data);
     }
 
-    /// Constructs an [`EventBuilder`] for an [`EcsEvent`].
+    /// Constructs an [`EventBuilder`] for an ECS event.
     pub fn ecs_event<E: Component>(&mut self, data: E) -> EventBuilder<E> {
         EventBuilder::new(data, self.commands())
     }

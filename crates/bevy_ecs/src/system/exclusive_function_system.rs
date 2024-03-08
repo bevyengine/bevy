@@ -110,7 +110,7 @@ where
             );
             let out = self.func.run(world, input, params);
 
-            world.flush_commands();
+            world.flush();
             let change_tick = world.change_tick.get_mut();
             self.system_meta.last_run.set(*change_tick);
             *change_tick = change_tick.wrapping_add(1);

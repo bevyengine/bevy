@@ -24,17 +24,19 @@ impl Component for ObserverComponent {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
 
     fn register_component_hooks(hooks: &mut ComponentHooks) {
-        hooks
-            .on_add(|mut world, entity, _| {
-                world.commands().add(move |world: &mut World| {
-                    world.register_observer(entity);
-                });
-            })
-            .on_remove(|mut world, entity, _| {
-                world.commands().add(move |world: &mut World| {
-                    world.unregister_observer(entity);
-                });
+        hooks.on_remove(|mut world, entity, _| {
+            let descriptor = std::mem::take(
+                &mut world
+                    .entity_mut(entity)
+                    .get_mut::<ObserverComponent>()
+                    .unwrap()
+                    .as_mut()
+                    .descriptor,
+            );
+            world.commands().add(move |world: &mut World| {
+                world.unregister_observer(entity, descriptor);
             });
+        });
     }
 }
 

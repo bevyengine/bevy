@@ -36,7 +36,9 @@ impl Component for ObservedBy {
             let mut component = world.get_mut::<ObservedBy>(entity).unwrap();
             let observed_by = std::mem::take(&mut component.0);
             observed_by.iter().for_each(|&e| {
-                world.commands().entity(e).despawn();
+                if let Some(mut entity) = world.commands().get_entity(e) {
+                    entity.despawn();
+                };
             });
         });
     }

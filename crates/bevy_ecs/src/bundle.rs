@@ -811,8 +811,7 @@ impl<'w> BundleInserter<'w> {
             if new_archetype.has_add_observer() {
                 deferred_world.trigger_observers(
                     ON_ADD,
-                    entity,
-                    new_location,
+                    Some(entity),
                     add_bundle.added.iter().cloned(),
                 );
             }
@@ -820,8 +819,7 @@ impl<'w> BundleInserter<'w> {
             if new_archetype.has_insert_observer() {
                 deferred_world.trigger_observers(
                     ON_INSERT,
-                    entity,
-                    new_location,
+                    Some(entity),
                     bundle_info.iter_components(),
                 );
             }
@@ -938,8 +936,7 @@ impl<'w> BundleSpawner<'w> {
             if archetype.has_add_observer() {
                 deferred_world.trigger_observers(
                     ON_ADD,
-                    entity,
-                    location,
+                    Some(entity),
                     bundle_info.iter_components(),
                 );
             }
@@ -947,8 +944,7 @@ impl<'w> BundleSpawner<'w> {
             if archetype.has_insert_observer() {
                 deferred_world.trigger_observers(
                     ON_INSERT,
-                    entity,
-                    location,
+                    Some(entity),
                     bundle_info.iter_components(),
                 );
             }
@@ -980,7 +976,7 @@ impl<'w> BundleSpawner<'w> {
     #[inline]
     pub(crate) unsafe fn flush_commands(&mut self) {
         // SAFETY: pointers on self can be invalidated,
-        self.world.world_mut().flush_commands();
+        self.world.world_mut().flush();
     }
 }
 

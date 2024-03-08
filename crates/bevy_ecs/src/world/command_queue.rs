@@ -129,7 +129,7 @@ impl CommandQueue {
     /// If `world` is [`None`], this will drop the queued [commands](`Command`) (without applying them).
     /// This clears the queue.
     #[inline]
-    fn apply_or_drop_queued(&mut self, mut world: Option<&mut World>) {
+    pub(crate) fn apply_or_drop_queued(&mut self, mut world: Option<&mut World>) {
         // The range of pointers of the filled portion of `self.bytes`.
         let bytes_range = self.bytes.as_mut_ptr_range();
 

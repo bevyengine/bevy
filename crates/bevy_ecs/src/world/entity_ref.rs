@@ -792,8 +792,7 @@ impl<'w> EntityWorldMut<'w> {
             if old_archetype.has_remove_observer() {
                 deferred_world.trigger_observers(
                     ON_REMOVE,
-                    self.entity,
-                    self.location,
+                    Some(self.entity),
                     bundle_info.iter_components(),
                 );
             }
@@ -973,8 +972,7 @@ impl<'w> EntityWorldMut<'w> {
             if old_archetype.has_remove_observer() {
                 deferred_world.trigger_observers(
                     ON_REMOVE,
-                    entity,
-                    self.location,
+                    Some(self.entity),
                     bundle_info.iter_components(),
                 );
             }
@@ -1074,12 +1072,12 @@ impl<'w> EntityWorldMut<'w> {
 
         // SAFETY: All components in the archetype exist in world
         unsafe {
+            println!("Despawning");
             deferred_world.trigger_on_remove(archetype, self.entity, archetype.components());
             if archetype.has_remove_observer() {
                 deferred_world.trigger_observers(
                     ON_REMOVE,
-                    self.entity,
-                    self.location,
+                    Some(self.entity),
                     archetype.components(),
                 );
             }
@@ -1145,12 +1143,12 @@ impl<'w> EntityWorldMut<'w> {
             world.archetypes[moved_location.archetype_id]
                 .set_entity_table_row(moved_location.archetype_row, table_row);
         }
-        world.flush_commands();
+        world.flush();
     }
 
     /// Ensures any commands triggered by the actions of Self are applied, equivalent to [`World::flush_commands`]
     pub fn flush(self) -> Entity {
-        self.world.flush_commands();
+        self.world.flush();
         self.entity
     }
 
