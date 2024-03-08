@@ -240,7 +240,7 @@ impl World {
     }
 
     /// Creates a new [`Commands`] instance that writes to the world's command queue
-    /// Use [`World::flush_commands`] to apply all queued commands
+    /// Use [`World::flush`] to apply all queued commands
     #[inline]
     pub fn commands(&mut self) -> Commands {
         Commands::new_from_entities(&mut self.command_queue, &self.entities, &self.components)

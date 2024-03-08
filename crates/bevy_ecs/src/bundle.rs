@@ -801,6 +801,7 @@ impl<'w> BundleInserter<'w> {
             }
         };
 
+        let new_archetype = &*new_archetype;
         // SAFETY: We have no outstanding mutable references to world as they were dropped
         let mut deferred_world = unsafe { self.world.into_deferred() };
 

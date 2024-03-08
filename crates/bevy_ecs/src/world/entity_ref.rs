@@ -1145,7 +1145,7 @@ impl<'w> EntityWorldMut<'w> {
         world.flush();
     }
 
-    /// Ensures any commands triggered by the actions of Self are applied, equivalent to [`World::flush_commands`]
+    /// Ensures any commands triggered by the actions of Self are applied, equivalent to [`World::flush`]
     pub fn flush(self) -> Entity {
         self.world.flush();
         self.entity
