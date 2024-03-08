@@ -230,6 +230,9 @@ impl Rotation2d {
     /// Uses a precision threshold of approximately `1e-4`.
     #[inline]
     pub fn is_normalized(self) -> bool {
+        // The allowed length is 1 +/- 1e-4, so the largest allowed
+        // squared length is (1 + 1e-4)^2 = 1.00020001, which makes
+        // the threshold for the squared length approximately 2e-4.
         (self.length_squared() - 1.0).abs() <= 2e-4
     }
 
